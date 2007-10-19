@@ -1,46 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: Fix possible dev_deactivate race condition
-Date: Thu, 18 Oct 2007 22:38:20 -0700 (PDT)
-Message-ID: <20071018.223820.49264165.davem@davemloft.net>
-References: <alpine.LFD.0.999.0710182007170.26902@woody.linux-foundation.org>
-	<20071019042025.GA9617@gondor.apana.org.au>
-	<20071019053624.GA10560@gondor.apana.org.au>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: Throughput Bug?
+Date: Fri, 19 Oct 2007 01:44:19 -0400
+Message-ID: <20071019014419.6ac8a6a0.billfink@mindspring.com>
+References: <c565abbb0710180854j6f2f756sdd390161bafd1c4a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: benh@kernel.crashing.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	mingo@elte.hu, tglx@linutronix.de, torvalds@linux-foundation.org,
-	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org
+To: "Matthew Faulkner" <matthew.faulkner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35161
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756026AbXJSFiH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 01:38:07 -0400
-In-Reply-To: <20071019053624.GA10560@gondor.apana.org.au>
+Received: from elasmtp-spurfowl.atl.sa.earthlink.net ([209.86.89.66]:44143
+	"EHLO elasmtp-spurfowl.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752634AbXJSFoY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 01:44:24 -0400
+In-Reply-To: <c565abbb0710180854j6f2f756sdd390161bafd1c4a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 19 Oct 2007 13:36:24 +0800
+On Thu, 18 Oct 2007, Matthew Faulkner wrote:
 
-> [NET]: Fix possible dev_deactivate race condition
+> Hey all
 > 
-> The function dev_deactivate is supposed to only return when
-> all outstanding transmissions have completed.  Unfortunately
-> it is possible for store operations in the driver's transmit
-> function to only become visible after dev_deactivate returns.
+> I'm using netperf to perform TCP throughput tests via the localhost
+> interface. This is being done on a SMP machine. I'm forcing the
+> netperf server and client to run on the same core. However, for any
+> packet sizes below 523 the throughput is much lower compared to the
+> throughput when the packet sizes are greater than 524.
 > 
-> This patch fixes this by taking the queue lock after we see
-> the end of the queue run.  This ensures that all effects of
-> any previous transmit calls are visible.
+> Recv   Send    Send                          Utilization       Service Demand
+> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+> Size   Size    Size     Time     Throughput  local    remote   local   remote
+> bytes  bytes   bytes    secs.    MBytes  /s  % S      % S      us/KB   us/KB
+>  65536  65536    523    30.01        81.49   50.00    50.00    11.984  11.984
+>  65536  65536    524    30.01       460.61   49.99    49.99    2.120   2.120
 > 
-> If however we detect that there is another queue run occuring,
-> then we'll warn about it because this should never happen as
-> we have pointed dev->qdisc to noop_qdisc within the same queue
-> lock earlier in the functino.
+> The chances are i'm being stupid and there is an obvious reason for
+> this, but when i put  the server and client on different cores i don't
+> see this effect.
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Any help explaining this will be greatly appreciated.
+> 
+> Machine details:
+> 
+> Linux 2.6.22-2-amd64 #1 SMP Thu Aug 30 23:43:59 UTC 2007 x86_64 GNU/Linux
+> 
+> sched_affinity is used by netperf internally to set the core affinity.
 
-Applied, thanks Herbert!
+I don't know if it's relevant, but note that 524 bytes + 52 bytes
+of IP(20)/TCP(20)/TimeStamp(12) overhead gives a 576 byte packet,
+which is the specified size that all IP routers must handle (and
+the smallest value possible during PMTU discovery I believe).  A
+message size of 523 bytes would be 1 less than that.  Could this
+possibly have to do with ABC (possibly try disabling it if set)?
+
+						-Bill
