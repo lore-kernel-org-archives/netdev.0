@@ -1,52 +1,25 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH] [Bug 9187] ir-functions.c:(.text+0xbce18): undefined
- reference to `input_event'
-Date: Thu, 18 Oct 2007 22:57:03 -0700
-Message-ID: <20071018225703.0fd8e74a.randy.dunlap@oracle.com>
-References: <20071019035702.B5C7E108010@picon.linux-foundation.org>
-	<4718385E.7050105@oracle.com>
-	<20071018.220222.35036834.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: networking crash in current mainline: sk_filter_delayed_uncharge()
+Date: Thu, 18 Oct 2007 23:09:48 -0700
+Message-ID: <20071018230948.959e89d1.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org
-To: David Miller <davem@davemloft.net>
+Cc: Paul Mackerras <paulus@samba.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:56921 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756235AbXJSF6r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 01:58:47 -0400
-In-Reply-To: <20071018.220222.35036834.davem@davemloft.net>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:54111 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761476AbXJSGJz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 02:09:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Oct 2007 22:02:22 -0700 (PDT) David Miller wrote:
 
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> Date: Thu, 18 Oct 2007 21:53:50 -0700
-> 
-> > [bugme-daemon@bugzilla.kernel.org wrote:]
-> > 
-> > 
-> > 
-> > From: Randy Dunlap <randy.dunlap@oracle.com>
-> > 
-> > Drivers that use lro functions should depend on INET, otherwise they
-> > may not link correctly.  Let's not select INET.  Select should be used
-> > only for library-like code, not to enable subsystems.
-> > 
-> > ERROR: "lro_flush_all" [drivers/net/myri10ge/myri10ge.ko] undefined!
-> > ERROR: "lro_receive_frags" [drivers/net/myri10ge/myri10ge.ko] undefined!
-> > 
-> > Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
-> 
-> Jeff, please pick this one up too, thanks!
+powerpc mac G5
+config: http://userweb.kernel.org/~akpm/config-g5.txt
+screenshot: http://userweb.kernel.org/~akpm/dsc00005.jpg
 
+It does this shortly after bringing up eth0 (tg3), in dhclient.
 
-This patch is for kernel bugzilla #9186, not #9187.
-Clerical error, sorry about that.
-
----
-~Randy
