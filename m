@@ -1,55 +1,43 @@
-From: Rolf Eike Beer <eike-kernel@sf-tec.de>
-Subject: Re: [PATCH 04/13] r8169: MSI support
-Date: Fri, 19 Oct 2007 09:59:13 +0200
-Message-ID: <200710190959.25892.eike-kernel@sf-tec.de>
-References: <20071018204846.GC8594@electric-eye.fr.zoreil.com> <20071018210106.GE31724@electric-eye.fr.zoreil.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
+Date: Fri, 19 Oct 2007 10:17:06 +0200
+Message-ID: <20071019081706.GA2598@ff.dom.local>
+References: <20071015125301.GC3015@ff.dom.local> <Pine.LNX.4.64N.0710151737250.16262@blysk.ds.pg.gda.pl> <20071016062108.GB1000@ff.dom.local> <Pine.LNX.4.64N.0710161759050.22596@blysk.ds.pg.gda.pl> <20071017085809.GA1658@ff.dom.local> <Pine.LNX.4.64N.0710171221510.28993@blysk.ds.pg.gda.pl>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2856915.uLzjQAK1vF";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Will Trives <will@trivescon.com.au>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Fleming <afleming@freescale.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Maciej W\. Rozycki" <macro@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.sf-mail.de ([62.27.20.61]:33704 "EHLO mail.sf-mail.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763316AbXJSIGP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2007 04:06:15 -0400
-In-Reply-To: <20071018210106.GE31724@electric-eye.fr.zoreil.com>
+Received: from mx12.go2.pl ([193.17.41.142]:55806 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751312AbXJSIOA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2007 04:14:00 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64N.0710171221510.28993@blysk.ds.pg.gda.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2856915.uLzjQAK1vF
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Thu, Oct 18, 2007 at 12:30:35PM +0100, Maciej W. Rozycki wrote:
+> On Wed, 17 Oct 2007, Jarek Poplawski wrote:
+...
+> > 2) phy_change() doesn't reenable irq line after it sees returns
+> > with errors; IMHO it should at least write some warning, but maybe
+> > try some safety plan, so enable_irq() and try to disable interrupts
+> > and free_irq() on the next call (if it happens). (But, I can be very
+> > wrong with this - maybe it's OK and official way.)
+> 
+>  No way to do this safely -- at this point the device probably still has 
+> its interrupt output asserted and the register to clear it is 
+> inaccessible, so enabling the line will enter an infinite loop.  At this 
+> point the system is no longer stable, so it is better to keep at least 
+> some functionality, so that it may be attempted to be shut down cleanly, 
+> rather than make it completely irresponsive.  The alternative is panic().
 
-Francois Romieu wrote:
-> It is currently limited to the tested 0x8136 and 0x8168. 8169sb/8110sb
-> ought to handle it as well where they support MSI.
->
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Cc: Edward Hsu <edward_hsu@realtek.com.tw>
-> Tester-Cc: Rolf Eike Beer <eike-kernel@sf-tec.de>
+But then... your patch seems to make it possible, because it enables
+irq to the initial state of the counter. Of course, this could happen
+on closing only.
 
-Tested-by: Rolf Eike Beer <eike-kernel@sf-tec.de>
-
-Eike
-
---nextPart2856915.uLzjQAK1vF
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.4-svn0 (GNU/Linux)
-
-iD8DBQBHGGPdXKSJPmm5/E4RAnJWAJ4nm+3uvVRqRJKK2BK9bRIZOTtvBwCeLFXn
-qP2hQDBStOOajifNmRKAShw=
-=4f8t
------END PGP SIGNATURE-----
-
---nextPart2856915.uLzjQAK1vF--
+Jarek P.
