@@ -1,19 +1,23 @@
 From: Laszlo Attila Toth <panther@balabit.hu>
 Subject: [IFGROUPv3 2/3] Interface group: core (netlink) part
 Date: Fri, 19 Oct 2007 18:30:00 +0200
-Message-ID: <11928114034113-git-send-email-panther@balabit.hu>
+Message-ID: <b304cea2e4e1659e9e7e58c0303b21a8e03b6688.1192810837.git.panther__30996.2178500884$1192811436$gmane$org@balabit.hu>
 References: <11928114032187-git-send-email-panther@balabit.hu>
  <119281140331-git-send-email-panther@balabit.hu>
 Cc: Laszlo Attila Toth <panther@balabit.hu>
 To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.balabit.hu ([212.92.18.33]:53289 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758257AbXJSQaL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2007 12:30:11 -0400
 In-Reply-To: <119281140331-git-send-email-panther@balabit.hu>
 Message-Id: <b304cea2e4e1659e9e7e58c0303b21a8e03b6688.1192810837.git.panther@balabit.hu>
 In-Reply-To: <80da3aa904080a33dd4645a8390c96133268a512.1192810837.git.panther@balabit.hu>
 References: <80da3aa904080a33dd4645a8390c96133268a512.1192810837.git.panther@balabit.hu>
 In-Reply-To: <20071019-181844-1192810724.panther@balabit.hu>
 References: <20071019-181844-1192810724.panther@balabit.hu>From: Laszlo Attila Toth <panther@balabit.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Interface groups let handle different interfaces together
