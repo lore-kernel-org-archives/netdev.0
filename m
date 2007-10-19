@@ -1,58 +1,30 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] net: QoS/Sched as menuconfig
-Date: Thu, 18 Oct 2007 19:28:22 -0700
-Message-ID: <20071018192822.89e1ffbd.randy.dunlap@oracle.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 5/8] [MV643XX_ETH] Remove SHARED_REGS register address bias
+Date: Thu, 18 Oct 2007 20:46:58 -0700
+Message-ID: <ada7iljepfx.fsf@cisco.com>
+References: <20071019021117.GG16037@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dale Farnsworth <dale@farnsworth.org>,
+	Nicolas Pitre <nico@marvell.com>,
+	Tzachi Perelstein <tzachi@marvell.com>,
+	Manas Saksena <msaksena@marvell.com>, netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:59171 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761767AbXJSCaP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 22:30:15 -0400
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:46306 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758297AbXJSDrD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 23:47:03 -0400
+In-Reply-To: <20071019021117.GG16037@xi.wantstofly.org> (Lennert Buytenhek's message of "Fri, 19 Oct 2007 04:11:17 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+ > +static void __iomem *mv643xx_eth_base;
 
-Convert "QoS and/or fair queueing" to menuconfig.
-This makes it easy for someone to disable all sub-options with
-one config symbol.
+ > +	return readl(((void __iomem *)mv643xx_eth_base) + offset);
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- net/sched/Kconfig |   10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
+Given the declaration of mv643xx_eth_base as void __iomem * already, I
+don't understand why you need the cast to the same type here (and
+elsewhere in the driver).
 
---- linux-2.6.23-git13.orig/net/sched/Kconfig
-+++ linux-2.6.23-git13/net/sched/Kconfig
-@@ -2,9 +2,7 @@
- # Traffic control configuration.
- # 
- 
--menu "QoS and/or fair queueing"
--
--config NET_SCHED
-+menuconfig NET_SCHED
- 	bool "QoS and/or fair queueing"
- 	select NET_SCH_FIFO
- 	---help---
-@@ -41,9 +39,6 @@ config NET_SCHED
- 	  The available schedulers are listed in the following questions; you
- 	  can say Y to as many as you like. If unsure, say N now.
- 
--config NET_SCH_FIFO
--	bool
--
- if NET_SCHED
- 
- comment "Queueing/Scheduling"
-@@ -500,4 +495,5 @@ config NET_CLS_IND
- 
- endif # NET_SCHED
- 
--endmenu
-+config NET_SCH_FIFO
-+	bool
+ - R.
