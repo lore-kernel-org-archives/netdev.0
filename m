@@ -1,223 +1,72 @@
-From: Laszlo Attila Toth <panther@balabit.hu>
-Subject: [IFGROUPv3 3/3] Interface group match
-Date: Fri, 19 Oct 2007 18:30:01 +0200
-Message-ID: <b90c646084a4f938fb6a0bbce687e428150aedc8.1192810837.git.panther__34827.3114338101$1192811469$gmane$org@balabit.hu>
-References: <11928114032187-git-send-email-panther@balabit.hu>
- <119281140331-git-send-email-panther@balabit.hu>
- <11928114034113-git-send-email-panther@balabit.hu>
-Cc: Laszlo Attila Toth <panther@balabit.hu>
-To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: multicast: bug or "feature"
+Date: Fri, 19 Oct 2007 12:49:50 -0400
+Message-ID: <4718E02E.1080603@hp.com>
+References: <OFDA173EE1.60049F6E-ON88257379.0052A408-88257379.00544DA0@us.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, brian.haley@hp.com,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.balabit.hu ([212.92.18.33]:53293 "EHLO lists.balabit.hu"
+Received: from atlrel6.hp.com ([156.153.255.205]:44038 "EHLO atlrel6.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758364AbXJSQaP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2007 12:30:15 -0400
-In-Reply-To: <11928114034113-git-send-email-panther@balabit.hu>
-Message-Id: <b90c646084a4f938fb6a0bbce687e428150aedc8.1192810837.git.panther@balabit.hu>
-In-Reply-To: <80da3aa904080a33dd4645a8390c96133268a512.1192810837.git.panther@balabit.hu>
-References: <80da3aa904080a33dd4645a8390c96133268a512.1192810837.git.panther@balabit.hu>
-In-Reply-To: <20071019-181844-1192810724.panther@balabit.hu>
-References: <20071019-181844-1192810724.panther@balabit.hu>From: Laszlo Attila Toth <panther@balabit.hu>
+	id S1760694AbXJSQuX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2007 12:50:23 -0400
+In-Reply-To: <OFDA173EE1.60049F6E-ON88257379.0052A408-88257379.00544DA0@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Interface group values can be checked on both input and output interfaces.
+David Stevens wrote:
+> netdev-owner@vger.kernel.org wrote on 10/19/2007 04:43:27 AM:
+> 
+>> Vlad Yasevich <vladislav.yasevich@hp.com> wrote:
+>>> Now, to figure out what IPv6 does different and why it works.
+>>> Seems to me that the two should have the same behavior.
+>> IPv6 on Linux uses a per-interface addressing model as opposed
+>> to the per-host model used by IPv4.
+> 
+>         For link-local addresses, yes.
+> 
+>         It's really a security feature; the ordinary
+> case where you'd receive something on an interface that's
+> using one of your source addresses is when someone is spoofing
+> you, has a duplicate address, or maybe an (unintentional)
+> routing loop. All of those are error cases, so dropping a
+> received packet that claims to be sent by you is a reasonable
+> thing to do.
 
-Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
----
- include/linux/netfilter/xt_ifgroup.h |   18 +++++
- net/netfilter/Kconfig                |   16 +++++
- net/netfilter/Makefile               |    1 +
- net/netfilter/xt_ifgroup.c           |  121 ++++++++++++++++++++++++++++++++++
- 4 files changed, 156 insertions(+), 0 deletions(-)
+I can see this as a good feature for unicast, but starting to
+doubt it just a little bit for multicast.  With IGMPv3/MLDv2 and source
+filtering, this could be done as a filter on individual sockets.
 
-diff --git a/include/linux/netfilter/xt_ifgroup.h b/include/linux/netfilter/xt_ifgroup.h
-new file mode 100644
-index 0000000..9ac75de
---- /dev/null
-+++ b/include/linux/netfilter/xt_ifgroup.h
-@@ -0,0 +1,18 @@
-+#ifndef _XT_IFGROUP_H
-+#define _XT_IFGROUP_H
-+
-+#define XT_IFGROUP_INVERT_IN	0x01
-+#define XT_IFGROUP_INVERT_OUT	0x02
-+#define XT_IFGROUP_MATCH_IN	0x04
-+#define XT_IFGROUP_MATCH_OUT	0x08		
-+
-+struct xt_ifgroup_info {
-+	u_int32_t in_group;
-+	u_int32_t in_mask;
-+	u_int32_t out_group;
-+	u_int32_t out_mask;
-+	u_int8_t flags;
-+};
-+
-+#endif /*_XT_IFGROUP_H*/
-+
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 3599770..0864e19 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -597,6 +597,22 @@ config NETFILTER_XT_MATCH_QUOTA
- 	  If you want to compile it as a module, say M here and read
- 	  <file:Documentation/kbuild/modules.txt>.  If unsure, say `N'.
- 
-+config NETFILTER_XT_MATCH_IFGROUP
-+	tristate '"ifgroup" interface group match support'
-+	depends on NETFILTER_XTABLES
-+	help
-+	  Interface group matching allows you to match a packet by
-+	  its incoming interface "group", settable using ip link set
-+	  group
-+
-+	  Typical usage is to assign dynamic interfaces to a group
-+	  when they come up using "ip link set group" and then match
-+	  incoming packets with a rule like this:
-+
-+	    iptables -A INPUT -m ifgroup --if-group openvpn-rw1 -j LOG
-+
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- config NETFILTER_XT_MATCH_REALM
- 	tristate  '"realm" match support'
- 	depends on NETFILTER_XTABLES
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 0c054bf..da9ab07 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -77,3 +77,4 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_TCPMSS) += xt_tcpmss.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_PHYSDEV) += xt_physdev.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_U32) += xt_u32.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_HASHLIMIT) += xt_hashlimit.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_IFGROUP) += xt_ifgroup.o
-diff --git a/net/netfilter/xt_ifgroup.c b/net/netfilter/xt_ifgroup.c
-new file mode 100644
-index 0000000..2baf772
---- /dev/null
-+++ b/net/netfilter/xt_ifgroup.c
-@@ -0,0 +1,121 @@
-+/*
-+ * An x_tables match module to match interface groups
-+ *
-+ * (C) 2006,2007 Balazs Scheidler <bazsi@balabit.hu>,
-+ *   Laszlo Attila Toth <panther@balabit.hu>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+
-+#include <linux/netfilter/xt_ifgroup.h>
-+#include <linux/netfilter/x_tables.h>
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Laszlo Attila Toth <panther@balabit.hu>");
-+MODULE_DESCRIPTION("Xtables interface group matching module");
-+MODULE_ALIAS("ipt_ifgroup");
-+MODULE_ALIAS("ip6t_ifgroup");
-+
-+
-+static inline bool
-+ifgroup_match_in(const struct net_device *in,
-+		 const struct xt_ifgroup_info *info)
-+{
-+
-+	return ((in->ifgroup & info->in_mask) == info->in_group) ^ 
-+		((info->flags & XT_IFGROUP_INVERT_IN) == XT_IFGROUP_INVERT_IN);
-+}
-+
-+static inline bool
-+ifgroup_match_out(const struct net_device *out,
-+		 const struct xt_ifgroup_info *info)
-+{
-+	return ((out->ifgroup & info->out_mask) == info->out_group) ^ 
-+		((info->flags & XT_IFGROUP_INVERT_OUT) == XT_IFGROUP_INVERT_OUT);
-+}
-+
-+static bool
-+ifgroup_match(const struct sk_buff *skb,
-+	     const struct net_device *in,
-+	     const struct net_device *out,
-+	     const struct xt_match *match,
-+	     const void *matchinfo,
-+	     int offset,
-+	     unsigned int protoff,
-+	     bool *hotdrop)
-+{
-+	const struct xt_ifgroup_info *info = matchinfo;
-+	
-+	if (info->flags & XT_IFGROUP_MATCH_IN &&  !ifgroup_match_in(in, info))
-+		return false;
-+	if (info->flags & XT_IFGROUP_MATCH_OUT &&  !ifgroup_match_out(out, info))
-+		return false;
-+	
-+	return true;
-+}
-+
-+static bool ifgroup_checkentry(const char *tablename, const void *ip_void,
-+			       const struct xt_match *match,
-+			       void *matchinfo, unsigned int hook_mask)
-+{
-+	struct xt_ifgroup_info *info = matchinfo;
-+
-+	if (!(info->flags & (XT_IFGROUP_MATCH_IN|XT_IFGROUP_MATCH_OUT))) {
-+		printk(KERN_ERR "xt_ifgroup: neither incoming nor "
-+				"outgoing device selected\n");
-+		return false;
-+	}
-+	if (hook_mask & (1 << NF_IP_PRE_ROUTING | 1 << NF_IP_LOCAL_IN)
-+	    && info->flags & XT_IFGROUP_MATCH_OUT) {
-+		printk(KERN_ERR "xt_ifgroup: output device not valid in "
-+				"PRE_ROUTING and INPUT\n");
-+		return false;
-+	}
-+	if (hook_mask & (1 << NF_IP_POST_ROUTING | 1 << NF_IP_LOCAL_OUT)
-+	    && info->flags & XT_IFGROUP_MATCH_IN) {
-+		printk(KERN_ERR "xt_ifgroup: input device not valid in "
-+				"POST_ROUTING and OUTPUT\n");
-+		return false;
-+	}
-+	return true;
-+}
-+
-+static struct xt_match xt_ifgroup_match[] __read_mostly  = {
-+        {
-+		.name		= "ifgroup",
-+		.match		= ifgroup_match,
-+		.checkentry	= ifgroup_checkentry,
-+		.matchsize	= sizeof(struct xt_ifgroup_info),
-+		.family		= AF_INET,
-+		.me		= THIS_MODULE,
-+	
-+	},
-+	{
-+		.name		= "ifgroup",
-+		.match		= ifgroup_match,
-+		.checkentry	= ifgroup_checkentry,
-+		.matchsize	= sizeof(struct xt_ifgroup_info),
-+		.family		= AF_INET6,
-+		.me		= THIS_MODULE,
-+	},
-+};
-+
-+static int __init xt_ifgroup_init(void)
-+{
-+	return xt_register_matches(xt_ifgroup_match,
-+		                   ARRAY_SIZE(xt_ifgroup_match));
-+}
-+
-+static void __exit xt_ifgroup_fini(void)
-+{
-+	xt_unregister_matches(xt_ifgroup_match,
-+			      ARRAY_SIZE(xt_ifgroup_match));
-+}
-+
-+module_init(xt_ifgroup_init);
-+module_exit(xt_ifgroup_fini);
--- 
-1.5.2.5
+The problem them becomes IGMPv2 and MLDv1.
 
+>         If you're getting link-local source addresses for your
+> IPv6 multicast packets, that may explain it. The link-local
+> addresses are required to be unique and valid only for that
+> link, so IPv6 should not consider a different interface's
+> link-local address as "local" for a destination address, or
+> a packet using that source address as bogus.
+
+Looks like the only time IPv6 does any type of source filtering
+is when CONFIG_IPV6_MULTIPLE_TABLES is turned on.
+
+I need to turn this on and see if I get the same results or not.
+
+>         For a global address, v4 and v6 use the same rules--
+> for a destination you can receive it on any interface for
+> any global address. So, if your source address was a global
+> IPv6 address and it worked, I'd guess IPv6 just isn't checking
+> the source address. I don't know that it's required by RFC for
+> either v4 or v6, though it's probably a good idea.
+
+I've reproduced the multicast traffic using both global and link-local
+addresses (both source and destination were of the same scope in the
+tests, i.e. either global or link-local).
+
+So, it appears that IPv6 didn't do any source verification for multicast
+traffic.
+
+-vlad
