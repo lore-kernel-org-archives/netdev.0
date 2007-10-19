@@ -1,117 +1,69 @@
-From: "Matthew Faulkner" <matthew.faulkner@gmail.com>
-Subject: Re: Throughput Bug?
-Date: Fri, 19 Oct 2007 16:41:42 +0100
-Message-ID: <c565abbb0710190841g6ea4b424vbd5acf8e2fbc4d1c@mail.gmail.com>
-References: <c565abbb0710180854j6f2f756sdd390161bafd1c4a@mail.gmail.com>
-	 <20071019014419.6ac8a6a0.billfink@mindspring.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netperf-feedback@netperf.org,
-	netperf-talk@netperf.org
-To: rick.jones2@hp.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Fw: [Bug 9189] New: Oops in kernel 2.6.21-rc4 through 2.6.23, page allocation failure
+Date: Sat, 20 Oct 2007 00:00:15 +0800
+Message-ID: <E1IiuGl-000482-00@gondolin.me.apana.org.au>
+References: <4718C651.5040804@psc.edu>
+Cc: shemminger@linux-foundation.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: jheffner@psc.edu (John Heffner)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.186]:28248 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750800AbXJSPlp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 11:41:45 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so493160rvb
-        for <netdev@vger.kernel.org>; Fri, 19 Oct 2007 08:41:45 -0700 (PDT)
-In-Reply-To: <20071019014419.6ac8a6a0.billfink@mindspring.com>
-Content-Disposition: inline
+Received: from rhun.apana.org.au ([64.62.148.172]:1449 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752598AbXJSQAa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 12:00:30 -0400
+In-Reply-To: <4718C651.5040804@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I removed the socket sizes in an attempt to reproduce your results
-Rick and i managed to do so, but only when i launch netperf by typing
-in the follow cmd in to the bash shell.
-
-/home/cheka/netperf-2.4.4/src/netperf -T 0,0 -l 10 -t TCP_STREAM -c
-100 -C 100 -f M -P 0 -- -m 523
-
-As soon as i try to launch netperf (with the same line as i do manual)
-from within a script of any form (be it php or bash) the difference
-between 523 and 524 appears again.
-
-The php script i'm using is pasted below (it's the same as the bash
-script that comes with netperf to provide the tcp_stream)
-
-<?php
-        $START=522;
-        $END=524;
-        $MULT=1;
-        $ADD=1;
-        $MAXPROC=1; // This is the maximum number of CPU's you have so
-we can assign the client to different CPUs to show the same problem
-between 523 and 524 does not occur unless it's on CPU 0 and CPU 0
-
-        $DURATION = 10; // Length of test
-        $LOC_CPU = "-c 100"; // Report the local CPU info
-        $REM_CPU = "-C 100"; // Report the remove CPU info
-
-       $NETSERVER = "netserver"; //path to netserver
-       $NETPERF = "netperf"; // path to netperf
-
-        for($i=0; $i<=$MAXPROC; $i++) {
-                echo "0,$i\n";
-                $MESSAGE = $START;
-
-                while($MESSAGE <= $END) {
-                        passthru('killall netserver > /dev/null'); //
-tried it with and without the following restarts of netserver
-                        passthru('sleep 5');
-                        passthru("$NETSERVER");
-                        passthru('sleep 5');
-                        echo "$NETPERF -T 0,$i -l $DURATION -t
-TCP_STREAM $LOC_CPU $REM_CPU -f M -P 0 -- -m $MESSAGE\n"; // let's see
-what we try to exec
-                        passthru("$NETPERF -T 0,$i -l $DURATION -t
-TCP_STREAM $LOC_CPU $REM_CPU -f M -P 0 -- -m $MESSAGE"); // exec it -
-this will also print to screen
-                        passthru('sleep 5'); // sleep
-                        $MESSAGE += $ADD;
-                        $MESSAGE *= $MULT;
-                }
-        }
-?>
-
-
-On 19/10/2007, Bill Fink <billfink@mindspring.com> wrote:
-> On Thu, 18 Oct 2007, Matthew Faulkner wrote:
+John Heffner <jheffner@psc.edu> wrote:
 >
-> > Hey all
-> >
-> > I'm using netperf to perform TCP throughput tests via the localhost
-> > interface. This is being done on a SMP machine. I'm forcing the
-> > netperf server and client to run on the same core. However, for any
-> > packet sizes below 523 the throughput is much lower compared to the
-> > throughput when the packet sizes are greater than 524.
-> >
-> > Recv   Send    Send                          Utilization       Service Demand
-> > Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-> > Size   Size    Size     Time     Throughput  local    remote   local   remote
-> > bytes  bytes   bytes    secs.    MBytes  /s  % S      % S      us/KB   us/KB
-> >  65536  65536    523    30.01        81.49   50.00    50.00    11.984  11.984
-> >  65536  65536    524    30.01       460.61   49.99    49.99    2.120   2.120
-> >
-> > The chances are i'm being stupid and there is an obvious reason for
-> > this, but when i put  the server and client on different cores i don't
-> > see this effect.
-> >
-> > Any help explaining this will be greatly appreciated.
-> >
-> > Machine details:
-> >
-> > Linux 2.6.22-2-amd64 #1 SMP Thu Aug 30 23:43:59 UTC 2007 x86_64 GNU/Linux
-> >
-> > sched_affinity is used by netperf internally to set the core affinity.
->
-> I don't know if it's relevant, but note that 524 bytes + 52 bytes
-> of IP(20)/TCP(20)/TimeStamp(12) overhead gives a 576 byte packet,
-> which is the specified size that all IP routers must handle (and
-> the smallest value possible during PMTU discovery I believe).  A
-> message size of 523 bytes would be 1 less than that.  Could this
-> possibly have to do with ABC (possibly try disabling it if set)?
->
->                                                 -Bill
->
+>> 
+>> Backtrace #1:
+>> page allocation failure. order:1, mode:0x20
+>>  [<c0131581>] __alloc_pages+0x2e1/0x300   
+>>  [<c0144bee>] cache_alloc_refill+0x29e/0x4b0
+>>  [<c0144e6e>] __kmalloc+0x6e/0x80
+>>  [<c0227103>] __alloc_skb+0x53/0x110
+>>  [<c024de5c>] tcp_collapse+0x1ac/0x370
+>>  [<c024e11d>] tcp_prune_queue+0xfd/0x2c0
+>>  [<c024eaad>] tcp_data_queue+0x7cd/0xbb0
+>>  [<c0225c2d>] skb_checksum+0x4d/0x2a0
+>>  [<c02504ee>] tcp_rcv_established+0x36e/0x6a0
+>>  [<c02561e4>] tcp_v4_do_rcv+0xb4/0x2a0
+>>  [<c0131379>] __alloc_pages+0xd9/0x300
+>>  [<c0258269>] tcp_v4_rcv+0x6a9/0x6c0
+>>  [<c023ddb1>] ip_local_deliver+0x91/0x110
+>>  [<c023e130>] ip_rcv+0x230/0x3c0
+>>  [<c0227103>] __alloc_skb+0x53/0x110
+>>  [<c022b742>] netif_receive_skb+0x152/0x1e0
+>>  [<c022ce6f>] process_backlog+0x6f/0xe0
+>>  [<c022cf3c>] net_rx_action+0x5c/0xf0
+>>  [<c0115af2>] __do_softirq+0x42/0x90
+>>  [<c0115b67>] do_softirq+0x27/0x30
+>>  [<c01044fd>] do_IRQ+0x3d/0x70
+>>  [<c0115818>] sys_gettimeofday+0x28/0x80
+>>  [<c0102967>] common_interrupt+0x23/0x28
+>>  =======================
+> 
+> I'm not surprised that this commit would make a difference in this 
+> situation, since it does change the fraction of memory TCP is allowed to 
+> use.  (If it really is too much in this situation, we should tweak the 
+> function.)  However, I don't think this is the root cause.  Why does it 
+> oops here when the allocation fails?
+
+I don't think your change is the problem either.
+
+It's pretty clear that the bug here is that tcp_collapse tries
+to allocate a linear skb that's bigger than a page.  It should
+instead use page frags to store the data.
+
+However, the fact that we're calling tcp_collapse at all might
+be related to your commit though since it means that we're hitting
+the TCP memory threshold.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
