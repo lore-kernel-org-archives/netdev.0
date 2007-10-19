@@ -1,33 +1,48 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH 5/8] [MV643XX_ETH] Remove SHARED_REGS register address bias
-Date: Fri, 19 Oct 2007 13:09:07 +0200
-Message-ID: <20071019110907.GK16037@xi.wantstofly.org>
-References: <20071019021117.GG16037@xi.wantstofly.org> <ada7iljepfx.fsf@cisco.com>
+Subject: Re: [PATCH 2/8] [MV643XX_ETH] Move ethernet register definitions into private header
+Date: Fri, 19 Oct 2007 13:09:57 +0200
+Message-ID: <20071019110957.GL16037@xi.wantstofly.org>
+References: <20071019021010.GD16037@xi.wantstofly.org> <20071019083048.GA16865@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Dale Farnsworth <dale@farnsworth.org>,
 	Nicolas Pitre <nico@marvell.com>,
 	Tzachi Perelstein <tzachi@marvell.com>,
 	Manas Saksena <msaksena@marvell.com>, netdev@vger.kernel.org
-To: Roland Dreier <rdreier@cisco.com>
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:53959 "EHLO
+Received: from alephnull.demon.nl ([83.160.184.112]:53329 "EHLO
 	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750899AbXJSLJK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 07:09:10 -0400
+	with ESMTP id S1752042AbXJSLJ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 07:09:59 -0400
 Content-Disposition: inline
-In-Reply-To: <ada7iljepfx.fsf@cisco.com>
+In-Reply-To: <20071019083048.GA16865@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 18, 2007 at 08:46:58PM -0700, Roland Dreier wrote:
+On Fri, Oct 19, 2007 at 09:30:48AM +0100, Christoph Hellwig wrote:
 
->  > +static void __iomem *mv643xx_eth_base;
+> > Move the mv643xx's ethernet-related register definitions from
+> > include/linux/mv643xx.h into drivers/net/mv643xx_eth.h, since
+> > they aren't of any use outside the ethernet driver.
+> > 
+> > Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+> > Acked-by: Tzachi Perelstein <tzachi@marvell.com>
+> > 
+> > Index: linux-2.6/drivers/net/mv643xx_eth.h
+> > ===================================================================
+> > --- linux-2.6.orig/drivers/net/mv643xx_eth.h
+> > +++ linux-2.6/drivers/net/mv643xx_eth.h
+> > @@ -7,7 +7,7 @@
+> >  #include <linux/workqueue.h>
+> >  #include <linux/mii.h>
+> >  
+> > -#include <linux/mv643xx.h>
+> > +#include <linux/mv643xx_eth.h>
 > 
->  > +	return readl(((void __iomem *)mv643xx_eth_base) + offset);
-> 
-> Given the declaration of mv643xx_eth_base as void __iomem * already, I
-> don't understand why you need the cast to the same type here (and
-> elsewhere in the driver).
+> Isn't it a little too confusing to have two headers with the same name,
+> one in drivers/net and one in include/linux?
 
-Makes sense, fixed.
+Perhaps we can fold the drivers/net one into drivers/net/mv643xx_eth.c?
+Since nothing else includes drivers/net/mv643xx_eth.h anyway, there's
+not much point in having it separate.
