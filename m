@@ -1,69 +1,144 @@
-From: Pierre Ossman <drzeus-list@drzeus.cx>
-Subject: Re: networking crash in current mainline:
- sk_filter_delayed_uncharge()
-Date: Fri, 19 Oct 2007 20:05:54 +0200
-Message-ID: <20071019200554.58c15ccb@poseidon.drzeus.cx>
+From: Chris Holvenstot <cholvenstot@comcast.net>
+Subject: Re: Network failure with 2.6.23-git14
+Date: Fri, 19 Oct 2007 13:28:47 -0500
+Message-ID: <1192818527.6416.19.camel@localhost>
+References: <1192790946.6416.4.camel@localhost>
+	 <4718DB32.5000404@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>
-To: netdev@vger.kernel.org
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway.drzeus.cx ([85.8.24.16]:54372 "EHLO smtp.drzeus.cx"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762732AbXJSSF5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2007 14:05:57 -0400
+Received: from rwcrmhc11.comcast.net ([216.148.227.151]:61751 "EHLO
+	rwcrmhc11.comcast.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759584AbXJSSXu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 14:23:50 -0400
+In-Reply-To: <4718DB32.5000404@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-
-> powerpc mac G5
-> config: http://userweb.kernel.org/~akpm/config-g5.txt
-> screenshot: http://userweb.kernel.org/~akpm/dsc00005.jpg
+On Fri, 2007-10-19 at 12:28 -0400, Jeff Garzik wrote:
+> Chris Holvenstot wrote:
+> > I built 2.6.23-git14 this morning - when booted I can not access the
+> > network via my Ethernet connection.  Fallback to 2.6.23-git11 works OK.
+> > One interesting message during boot:
 > 
-> It does this shortly after bringing up eth0 (tg3), in dhclient.
+> > [   37.325760] forcedeth: Reverse Engineered nForce ethernet driver.
+> > [   37.843618] forcedeth 0000:00:0a.0: ifname eth0, PHY OUI 0x5043 @ 1,
+> > addr 00:19:db:6d:3f:1b
+> > [   37.843623] forcedeth 0000:00:0a.0: highdma csum timirq gbit lnktim
+> > desc-v3
+> 
+> > [   46.414433] sysfs: duplicate filename 'eth1' can not be created
+> > [   46.414438] WARNING: at fs/sysfs/dir.c:424 sysfs_add_one()
+> > [   46.414445]  [<c01ba80f>] sysfs_add_one+0x9f/0xe0
+> > [   46.414456]  [<c01bb5c6>] sysfs_create_link+0x86/0x110
+> > [   46.414462]  [<c025608a>] device_rename+0x17a/0x1e0
+> > [   46.414467]  [<c0130190>] run_timer_softirq+0x30/0x180
+> > [   46.414472]  [<c0287a60>] dev_change_name+0xb0/0x200
+> > [   46.414476]  [<c0159a62>] filemap_fault+0x1f2/0x400
+> > [   46.414478]  [<c012c895>] __do_softirq+0x75/0xf0
+> > [   46.414484]  [<c027a260>] sock_ioctl+0x0/0x230
+> > [   46.414487]  [<c028809c>] dev_ioctl+0x25c/0x520
+> > [   46.414489]  [<c01646eb>] __do_fault+0x1ab/0x380
+> > [   46.414494]  [<c0165d28>] handle_mm_fault+0xf8/0x610
+> > [   46.414499]  [<c027a260>] sock_ioctl+0x0/0x230
+> > [   46.414502]  [<c018343b>] do_ioctl+0x2b/0x90
+> > [   46.414506]  [<c01834fc>] vfs_ioctl+0x5c/0x290
+> > [   46.414510]  [<c0183798>] sys_ioctl+0x68/0x80
+> > [   46.414513]  [<c01041de>] sysenter_past_esp+0x5f/0x85
+> > [   46.414520]  =======================
+> > [   46.414523] net eth1: device_rename: sysfs_create_symlink failed
+> 
+> 
+> What are your network devices?  Is your problem with eth0, forcedeth, or 
+> as this traceback implies, eth1?
+> 
+> What is eth1?  (driver, bus, ...)
+> 
+> Can you bisect?
+> 
+> 	Jeff
+> 
+> 
 
-+1
+Jeff - 
 
-A Pentium M laptop here. Problem both with a ipw2200 wifi card and 8139
-ethernet card.
+You are correct, it is eth1 - which is the only hardware interface I
+have available on the system.  It is implemented on the motherboard
+using the Nvidia CK804 chip set.  My motherboard is an MSI product.
 
-[  174.237818] BUG: unable to handle kernel NULL pointer dereference at virtual address 00000004
-[  174.237828] printing eip: c05b6ed1 *pde = 00000000 
-[  174.237834] Oops: 0000 [#1] PREEMPT 
-[  174.237837] Modules linked in: tun rfcomm l2cap sunrpc binfmt_misc radeon drm ipv6 snd_intel8x0m snd_intel8x0 snd_seq_dummy snd_ac97_codec ac97_bus snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device snd_pcm_oss snd_mixer_oss snd_pcm snd_timer snd hci_usb pcmcia ipw2200 soundcore button bluetooth rtc_cmos parport_pc smsc_ircc2 firewire_ohci i2c_i801 yenta_socket rsrc_nonstatic ieee80211 rtc_core 8139cp parport snd_page_alloc irda firewire_core crc_itu_t 8139too ieee80211_crypt battery ac pcmcia_core pcspkr i2c_core wbsd mmc_core video output rtc_lib crc_ccitt mii sr_mod sg cdrom ata_piix libata sd_mod scsi_mod ext3 jbd mbcache uhci_hcd ehci_hcd
-[  174.237880] CPU:    0
-[  174.237881] EIP:    0060:[<c05b6ed1>]    Not tainted VLI
-[  174.237882] EFLAGS: 00210246   (2.6.23 #11)
-[  174.237892] EIP is at sk_filter_delayed_uncharge+0x1/0x20
-[  174.237895] eax: c3cefc00   ebx: 00000000   ecx: 00000000   edx: 00000000
-[  174.237898] esi: c3cefc00   edi: 00000000   ebp: c3e05efc   esp: c3e05edc
-[  174.237901] ds: 007b   es: 007b   fs: 0000  gs: 0033  ss: 0068
-[  174.237904] Process dhclient (pid: 2997, ti=c3e05000 task=c3e753b0 task.ti=c3e05000)
-[  174.237906] Stack: c3e05efc c05b7032 00000068 c3cf3080 00000058 c3e05f24 c3cefc00 c3a86300 
-[  174.237913]        c3e05f48 c05a366e c3d039f8 c3e2c180 00000004 00000000 bfca000b 00000001 
-[  174.237918]        bfca000b c3756080 bfca000b 080b3320 c3e05f5c c3e05f48 c059f2f0 c3e05f58 
-[  174.237924] Call Trace:
-[  174.237926]  [<c04051da>] show_trace_log_lvl+0x1a/0x30
-[  174.237933]  [<c0405299>] show_stack_log_lvl+0xa9/0xd0
-[  174.237937]  [<c04054c6>] show_registers+0x206/0x350
-[  174.237940]  [<c0405711>] die+0x101/0x200
-[  174.237944]  [<c060cd7e>] do_page_fault+0x3de/0x6c0
-[  174.237950]  [<c060b402>] error_code+0x6a/0x70
-[  174.237953]  [<c05a366e>] sock_setsockopt+0x58e/0x5b0
-[  174.237958]  [<c059f4c5>] sys_setsockopt+0x95/0xb0
-[  174.237964]  [<c05a0f8a>] sys_socketcall+0x21a/0x280
-[  174.237968]  [<c040428a>] syscall_call+0x7/0xb
-[  174.237972]  =======================
-[  174.237973] Code: 77 c8 eb e6 8d b6 00 00 00 00 83 7c d9 04 0f 76 b9 eb d7 8d b4 26 00 00 00 00 8b 44 d9 04 85 c0 75 a8 eb c6 8d b6 00 00 00 00 55 <8b> 4a 04 89 e5 8d 0c cd 10 00 00 00 29 48 5c 8d 42 08 ba 40 6f 
-[  174.237999] EIP: [<c05b6ed1>] sk_filter_delayed_uncharge+0x1/0x20 SS:ESP 0068:c3e05edc
+Attached at the end of this is an extract from an lshal command which I
+hope will provide what you are looking for.
 
-Rgds
+Bisect - I am willing to give it a try, but I see two problems.  
 
--- 
-     -- Pierre Ossman
+First, git12 was a dead dog on my system.  so what ever happened there
+is not much of a spread between there and git14 which is where I am
+having this problem.
 
-  Linux kernel, MMC maintainer        http://www.kernel.org
-  PulseAudio, core developer          http://pulseaudio.org
-  rdesktop, core developer          http://www.rdesktop.org
+BUT, I am willing to try if you are willing to do a little hand holding.
+
+I have git 1.5.2.5 on my system.
+
+I have NO git repository on my system no am I sure how to get it.  To
+date the method I have been using is to download the newest patches on a
+on a daily basis and work from there.
+
+So, yes, I am willing to bisect, as long as you understand you may get a
+few private, off-the-list emails asking for guidance.  
+
+Chris
+
+udi = '/org/freedesktop/Hal/devices/pci_10de_57'
+  info.bus = 'pci'  (string)
+  info.linux.driver = 'forcedeth'  (string)
+  info.parent = '/org/freedesktop/Hal/devices/computer'  (string)
+  info.product = 'CK804 Ethernet Controller'  (string)
+  info.subsystem = 'pci'  (string)
+  info.udi = '/org/freedesktop/Hal/devices/pci_10de_57'  (string)
+  info.vendor = 'nVidia Corporation'  (string)
+  linux.hotplug_type = 2  (0x2)  (int)
+  linux.subsystem = 'pci'  (string)
+  linux.sysfs_path = '/sys/devices/pci0000:00/0000:00:0a.0'  (string)
+  pci.device_class = 6  (0x6)  (int)
+  pci.device_protocol = 0  (0x0)  (int)
+  pci.device_subclass = 128  (0x80)  (int)
+  pci.linux.sysfs_path = '/sys/devices/pci0000:00/0000:00:0a.0'
+(string)
+  pci.product = 'CK804 Ethernet Controller'  (string)
+  pci.product_id = 87  (0x57)  (int)
+  pci.subsys_product_id = 28965  (0x7125)  (int)
+  pci.subsys_vendor = 'Micro-Star International Co., Ltd.'  (string)
+  pci.subsys_vendor_id = 5218  (0x1462)  (int)
+  pci.vendor = 'nVidia Corporation'  (string)
+  pci.vendor_id = 4318  (0x10de)  (int)
+
+udi = '/org/freedesktop/Hal/devices/net_00_19_db_6d_3f_1b'
+  info.capabilities = {'net', 'net.80203'} (string list)
+  info.category = 'net.80203'  (string)
+  info.parent = '/org/freedesktop/Hal/devices/pci_10de_57'  (string)
+  info.product = 'Networking Interface'  (string)
+  info.udi = '/org/freedesktop/Hal/devices/net_00_19_db_6d_3f_1b'
+(string)
+  linux.hotplug_type = 2  (0x2)  (int)
+  linux.subsystem = 'net'  (string)
+  linux.sysfs_path = '/sys/class/net/eth1'  (string)
+  net.80203.mac_address = 111055552283  (0x19db6d3f1b)  (uint64)
+  net.address = '00:19:db:6d:3f:1b'  (string)
+  net.arp_proto_hw_id = 1  (0x1)  (int)
+  net.interface = 'eth1'  (string)
+  net.linux.ifindex = 2  (0x2)  (int)
+  net.originating_device = '/org/freedesktop/Hal/devices/pci_10de_57'
+(string)
+  net.physical_device = '/org/freedesktop/Hal/devices/pci_10de_57'
+(string)
+
+
+
+
+
+> 
+
