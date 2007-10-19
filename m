@@ -1,8 +1,7 @@
 From: ggrundstrom@neteffect.com
-Subject: [ofa-general] [PATCH 4/14 v2] nes: connection manager structures and
-	defines
-Date: Fri, 19 Oct 2007 15:10:05 -0500
-Message-ID: <200710192010.l9JKA5ca021740@neteffect.com>
+Subject: [ofa-general] [PATCH 5/14 v2] nes: context structures and defines
+Date: Fri, 19 Oct 2007 15:12:14 -0500
+Message-ID: <200710192012.l9JKCEat021753@neteffect.com>
 Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
 To: ewg@lists.openfabrics.org, rdreier@cisco.com
 Return-path: <general-bounces@lists.openfabrics.org>
@@ -17,16 +16,16 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-NetEffect connection manager includes, structures and defines.
+QP context structures and defines
 
 Signed-off-by: Glenn Grundstrom <ggrundstrom@neteffect.com>
 ---
 
 --- NULL	1969-12-31 18:00:00.000000000 -0600
-+++ ofa_kernel-1.3/drivers/infiniband/hw/nes/nes_cm.h	2007-10-19 09:43:32.000000000 -0500
-@@ -0,0 +1,433 @@
++++ ofa_kernel-1.3/drivers/infiniband/hw/nes/nes_context.h	2007-10-19 09:43:32.000000000 -0500
+@@ -0,0 +1,193 @@
 +/*
-+ * Copyright (c) 2006 - 2007 NetEffect, Inc. All rights reserved.
++ * Copyright (c) 2006 NetEffect, Inc. All rights reserved.
 + *
 + * This software is available to you under a choice of one of two
 + * licenses.  You may choose to be licensed under the terms of the GNU
@@ -55,406 +54,166 @@ Signed-off-by: Glenn Grundstrom <ggrundstrom@neteffect.com>
 + * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 + * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 + * SOFTWARE.
-+ *
 + */
 +
-+#ifndef NES_CM_H
-+#define NES_CM_H
++#ifndef NES_CONTEXT_H
++#define NES_CONTEXT_H
 +
-+#define QUEUE_EVENTS
-+
-+#define NES_MANAGE_APBVT_DEL 0
-+#define NES_MANAGE_APBVT_ADD 1
-+
-+/* IETF MPA -- defines, enums, structs */
-+#define IEFT_MPA_KEY_REQ  "MPA ID Req Frame"
-+#define IEFT_MPA_KEY_REP  "MPA ID Rep Frame"
-+#define IETF_MPA_KEY_SIZE 16
-+#define IETF_MPA_VERSION   1
-+
-+enum ietf_mpa_flags {
-+	IETF_MPA_FLAGS_MARKERS = 0x80,	/* receive Markers */
-+	IETF_MPA_FLAGS_CRC     = 0x40,	/* receive Markers */
-+	IETF_MPA_FLAGS_REJECT  = 0x20,	/* Reject */
++struct nes_qp_context {
++	u32   misc;
++	u32   cqs;
++	u32   sq_addr_low;
++	u32   sq_addr_high;
++	u32   rq_addr_low;
++	u32   rq_addr_high;
++	u32   misc2;
++	u16   tcpPorts[2];
++	u32   ip0;
++	u32   ip1;
++	u32   ip2;
++	u32   ip3;
++	u32   mss;
++	u32   arp_index_vlan;
++	u32   tcp_state_flow_label;
++	u32   pd_index_wscale;
++	u32   keepalive;
++	u32   ts_recent;
++	u32   ts_age;
++	u32   snd_nxt;
++	u32   snd_wnd;
++	u32   rcv_nxt;
++	u32   rcv_wnd;
++	u32   snd_max;
++	u32   snd_una;
++	u32   srtt;
++	u32   rttvar;
++	u32   ssthresh;
++	u32   cwnd;
++	u32   snd_wl1;
++	u32   snd_wl2;
++	u32   max_snd_wnd;
++	u32   ts_val_delta;
++	u32   retransmit;
++	u32   probe_cnt;
++	u32   hte_index;
++	u32   q2_addr_low;
++	u32   q2_addr_high;
++	u32   ird_index;
++	u32   Rsvd3;
++	u32   ird_ord_sizes;
++	u32   mrkr_offset;
++	u32   aeq_token_low;
++	u32   aeq_token_high;
 +};
 +
-+struct ietf_mpa_frame {
-+	u8 key[IETF_MPA_KEY_SIZE];
-+	u8 flags;
-+	u8 rev;
-+	u16 priv_data_len;
-+	u8 priv_data[0];
++/* QP Context Misc Field */
++
++#define NES_QPCONTEXT_MISC_IWARP_VER_MASK    0x00000003
++#define NES_QPCONTEXT_MISC_IWARP_VER_SHIFT   0
++#define NES_QPCONTEXT_MISC_EFB_SIZE_MASK     0x000000C0
++#define NES_QPCONTEXT_MISC_EFB_SIZE_SHIFT    6
++#define NES_QPCONTEXT_MISC_RQ_SIZE_MASK      0x00000300
++#define NES_QPCONTEXT_MISC_RQ_SIZE_SHIFT     8
++#define NES_QPCONTEXT_MISC_SQ_SIZE_MASK      0x00000c00
++#define NES_QPCONTEXT_MISC_SQ_SIZE_SHIFT     10
++#define NES_QPCONTEXT_MISC_PCI_FCN_MASK      0x00007000
++#define NES_QPCONTEXT_MISC_PCI_FCN_SHIFT     12
++#define NES_QPCONTEXT_MISC_DUP_ACKS_MASK     0x00070000
++#define NES_QPCONTEXT_MISC_DUP_ACKS_SHIFT    16
++
++enum nes_qp_context_misc_bits {
++	NES_QPCONTEXT_MISC_RX_WQE_SIZE         = 0x00000004,
++	NES_QPCONTEXT_MISC_IPV4                = 0x00000008,
++	NES_QPCONTEXT_MISC_DO_NOT_FRAG         = 0x00000010,
++	NES_QPCONTEXT_MISC_INSERT_VLAN         = 0x00000020,
++	NES_QPCONTEXT_MISC_DROS                = 0x00008000,
++	NES_QPCONTEXT_MISC_WSCALE              = 0x00080000,
++	NES_QPCONTEXT_MISC_KEEPALIVE           = 0x00100000,
++	NES_QPCONTEXT_MISC_TIMESTAMP           = 0x00200000,
++	NES_QPCONTEXT_MISC_SACK                = 0x00400000,
++	NES_QPCONTEXT_MISC_RDMA_WRITE_EN       = 0x00800000,
++	NES_QPCONTEXT_MISC_RDMA_READ_EN        = 0x01000000,
++	NES_QPCONTEXT_MISC_WBIND_EN            = 0x10000000,
++	NES_QPCONTEXT_MISC_FAST_REGISTER_EN    = 0x20000000,
++	NES_QPCONTEXT_MISC_PRIV_EN             = 0x40000000,
++	NES_QPCONTEXT_MISC_NO_NAGLE            = 0x80000000
 +};
 +
-+#define ietf_mpa_req_resp_frame ietf_mpa_frame
-+
-+struct nes_v4_quad {
-+	u32 rsvd0;
-+	u32 DstIpAdrIndex;	/* Only most significant 5 bits are valid */
-+	u32 SrcIpadr;
-+	u16 TcpPorts[2];		/* src is low, dest is high */
++enum nes_qp_acc_wq_sizes {
++	HCONTEXT_TSA_WQ_SIZE_4 = 0,
++	HCONTEXT_TSA_WQ_SIZE_32 = 1,
++	HCONTEXT_TSA_WQ_SIZE_128 = 2,
++	HCONTEXT_TSA_WQ_SIZE_512 = 3
 +};
 +
-+struct nes_cm_node;
-+enum nes_timer_type {
-+	NES_TIMER_TYPE_SEND,
-+	NES_TIMER_TYPE_RECV,
-+	NES_TIMER_NODE_CLEANUP,
-+	NES_TIMER_TYPE_CLOSE,
++/* QP Context Misc2 Fields */
++#define NES_QPCONTEXT_MISC2_TTL_MASK            0x000000ff
++#define NES_QPCONTEXT_MISC2_TTL_SHIFT           0
++#define NES_QPCONTEXT_MISC2_HOP_LIMIT_MASK      0x000000ff
++#define NES_QPCONTEXT_MISC2_HOP_LIMIT_SHIFT     0
++#define NES_QPCONTEXT_MISC2_LIMIT_MASK          0x00000300
++#define NES_QPCONTEXT_MISC2_LIMIT_SHIFT         8
++#define NES_QPCONTEXT_MISC2_NIC_INDEX_MASK      0x0000fc00
++#define NES_QPCONTEXT_MISC2_NIC_INDEX_SHIFT     10
++#define NES_QPCONTEXT_MISC2_SRC_IP_MASK         0x001f0000
++#define NES_QPCONTEXT_MISC2_SRC_IP_SHIFT        16
++#define NES_QPCONTEXT_MISC2_TOS_MASK            0xff000000
++#define NES_QPCONTEXT_MISC2_TOS_SHIFT           24
++#define NES_QPCONTEXT_MISC2_TRAFFIC_CLASS_MASK  0xff000000
++#define NES_QPCONTEXT_MISC2_TRAFFIC_CLASS_SHIFT 24
++
++/* QP Context Tcp State/Flow Label Fields */
++#define NES_QPCONTEXT_TCPFLOW_FLOW_LABEL_MASK   0x000fffff
++#define NES_QPCONTEXT_TCPFLOW_FLOW_LABEL_SHIFT  0
++#define NES_QPCONTEXT_TCPFLOW_TCP_STATE_MASK    0xf0000000
++#define NES_QPCONTEXT_TCPFLOW_TCP_STATE_SHIFT   28
++
++enum nes_qp_tcp_state {
++	NES_QPCONTEXT_TCPSTATE_CLOSED = 1,
++	NES_QPCONTEXT_TCPSTATE_EST = 5,
++	NES_QPCONTEXT_TCPSTATE_TIME_WAIT = 11,
 +};
 +
-+#define MAX_NES_IFS 4
++/* QP Context PD Index/wscale Fields */
++#define NES_QPCONTEXT_PDWSCALE_RCV_WSCALE_MASK  0x0000000f
++#define NES_QPCONTEXT_PDWSCALE_RCV_WSCALE_SHIFT 0
++#define NES_QPCONTEXT_PDWSCALE_SND_WSCALE_MASK  0x00000f00
++#define NES_QPCONTEXT_PDWSCALE_SND_WSCALE_SHIFT 8
++#define NES_QPCONTEXT_PDWSCALE_PDINDEX_MASK     0xffff0000
++#define NES_QPCONTEXT_PDWSCALE_PDINDEX_SHIFT    16
 +
-+#define SET_ACK 1
-+#define SET_SYN 2
-+#define SET_FIN 4
-+#define SET_RST 8
++/* QP Context Keepalive Fields */
++#define NES_QPCONTEXT_KEEPALIVE_DELTA_MASK      0x0000ffff
++#define NES_QPCONTEXT_KEEPALIVE_DELTA_SHIFT     0
++#define NES_QPCONTEXT_KEEPALIVE_PROBE_CNT_MASK  0x00ff0000
++#define NES_QPCONTEXT_KEEPALIVE_PROBE_CNT_SHIFT 16
++#define NES_QPCONTEXT_KEEPALIVE_INTV_MASK       0xff000000
++#define NES_QPCONTEXT_KEEPALIVE_INTV_SHIFT      24
 +
-+struct option_base {
-+	u8 optionnum;
-+	u8 length;
++/* QP Context ORD/IRD Fields */
++#define NES_QPCONTEXT_ORDIRD_ORDSIZE_MASK       0x0000007f
++#define NES_QPCONTEXT_ORDIRD_ORDSIZE_SHIFT      0
++#define NES_QPCONTEXT_ORDIRD_IRDSIZE_MASK       0x00030000
++#define NES_QPCONTEXT_ORDIRD_IRDSIZE_SHIFT      16
++#define NES_QPCONTEXT_ORDIRD_IWARP_MODE_MASK    0x30000000
++#define NES_QPCONTEXT_ORDIRD_IWARP_MODE_SHIFT   28
++
++enum nes_ord_ird_bits {
++	NES_QPCONTEXT_ORDIRD_WRPDU                   = 0x02000000,
++	NES_QPCONTEXT_ORDIRD_LSMM_PRESENT            = 0x04000000,
++	NES_QPCONTEXT_ORDIRD_ALSMM                   = 0x08000000,
++	NES_QPCONTEXT_ORDIRD_AAH                     = 0x40000000,
++	NES_QPCONTEXT_ORDIRD_RNMC                    = 0x80000000
 +};
 +
-+enum option_numbers {
-+	OPTION_NUMBER_END,
-+	OPTION_NUMBER_NONE,
-+	OPTION_NUMBER_MSS,
-+	OPTION_NUMBER_WINDOW_SCALE,
-+	OPTION_NUMBER_SACK_PERM,
-+	OPTION_NUMBER_SACK,
-+	OPTION_NUMBER_WRITE0 = 0xbc
-+};
-+
-+struct option_mss {
-+	u8 optionnum;
-+	u8 length;
-+	u16 mss;
-+};
-+
-+struct option_windowscale {
-+	u8 optionnum;
-+	u8 length;
-+	u8 shiftcount;
-+};
-+
-+union all_known_options {
-+	char as_end;
-+	struct option_base as_base;
-+	struct option_mss as_mss;
-+	struct option_windowscale as_windowscale;
-+};
-+
-+struct nes_timer_entry {
-+	struct list_head list;
-+	unsigned long timetosend;	/* jiffies */
-+	struct sk_buff *skb;
-+	u32 type;
-+	u32 retrycount;	 
-+	u32 retranscount;
-+	u32 context;
-+	u32 seq_num;
-+	u32 send_retrans;
-+	int close_when_complete;
-+	struct net_device *netdev;
-+};
-+
-+#define NES_DEFAULT_RETRYS	64
-+#define NES_DEFAULT_RETRANS 8
-+#ifdef CONFIG_INFINIBAND_NES_DEBUG
-+#define NES_RETRY_TIMEOUT	(1000*HZ/1000)
-+#else
-+#define NES_RETRY_TIMEOUT	(1000*HZ/10000)
-+#endif
-+#define NES_SHORT_TIME		(10)
-+#define NES_LONG_TIME		(2000*HZ/1000)
-+
-+#define NES_CM_HASHTABLE_SIZE       1024
-+#define NES_CM_TCP_TIMER_INTERVAL   3000	
-+#define NES_CM_DEFAULT_MTU          1540
-+#define NES_CM_DEFAULT_FRAME_CNT      10
-+#define NES_CM_THREAD_STACK_SIZE     256	
-+#define NES_CM_DEFAULT_RCV_WND			64240	// before we know that window scaling is allowed
-+#define NES_CM_DEFAULT_RCV_WND_SCALED	256960  // after we know that window scaling is allowed
-+#define NES_CM_DEFAULT_RCV_WND_SCALE	2
-+#define NES_CM_DEFAULT_FREE_PKTS  0x000A	
-+#define NES_CM_FREE_PKT_LO_WATERMARK   2	
-+
-+#define NES_CM_DEF_SEQ        0x159bf75f
-+#define NES_CM_DEF_LOCAL_ID       0x3b47
-+
-+#define NES_CM_DEF_SEQ2       0x18ed5740
-+#define NES_CM_DEF_LOCAL_ID2      0xb807
-+
-+typedef u32 nes_addr_t;
-+
-+#define nes_cm_tsa_context nes_qp_context
-+
-+struct nes_qp;
-+
-+/* cm node transition states */
-+enum nes_cm_node_state {
-+	NES_CM_STATE_UNKNOWN,
-+	NES_CM_STATE_INITED,
-+	NES_CM_STATE_LISTENING,
-+	NES_CM_STATE_SYN_RCVD,
-+	NES_CM_STATE_SYN_SENT,
-+	NES_CM_STATE_ONE_SIDE_ESTABLISHED,
-+	NES_CM_STATE_ESTABLISHED,
-+	NES_CM_STATE_ACCEPTING,
-+	NES_CM_STATE_MPAREQ_SENT,
-+	NES_CM_STATE_TSA,
-+	NES_CM_STATE_FIN_WAIT1,
-+	NES_CM_STATE_FIN_WAIT2,
-+	NES_CM_STATE_CLOSE_WAIT,
-+	NES_CM_STATE_TIME_WAIT,
-+	NES_CM_STATE_LAST_ACK,
-+	NES_CM_STATE_CLOSING,
-+	NES_CM_STATE_CLOSED
-+};
-+
-+/* type of nes connection */
-+enum nes_cm_conn_type {
-+	NES_CM_IWARP_CONN_TYPE,
-+};
-+
-+/* CM context params */
-+struct nes_cm_tcp_context {
-+	u8   client;		
-+
-+	u32  loc_seq_num;	
-+	u32  loc_ack_num;	
-+	u32  rem_ack_num;	
-+	u32  rcv_nxt;		
-+
-+	u32  loc_id;
-+	u32  rem_id;
-+
-+	u32 snd_wnd;
-+	u32 max_snd_wnd;
-+
-+	u32 rcv_wnd;
-+	u32 mss;
-+	u8  snd_wscale;
-+	u8  rcv_wscale;
-+
-+	struct nes_cm_tsa_context tsa_cntxt;	
-+	struct timeval sent_ts;		
++enum nes_iwarp_qp_state {
++	NES_QPCONTEXT_IWARP_STATE_NONEXIST  = 0,
++	NES_QPCONTEXT_IWARP_STATE_IDLE      = 1,
++	NES_QPCONTEXT_IWARP_STATE_RTS       = 2,
++	NES_QPCONTEXT_IWARP_STATE_CLOSING   = 3,
++	NES_QPCONTEXT_IWARP_STATE_TERMINATE = 5,
++	NES_QPCONTEXT_IWARP_STATE_ERROR     = 6
 +};
 +
 +
-+enum nes_cm_listener_state {
-+	NES_CM_LISTENER_PASSIVE_STATE=1,
-+	NES_CM_LISTENER_ACTIVE_STATE=2,
-+	NES_CM_LISTENER_EITHER_STATE=3
-+};
-+
-+struct nes_cm_listener {
-+	struct list_head list;
-+	u64 session_id;	
-+	struct nes_cm_core *cm_core;
-+	u8 loc_mac[ETH_ALEN];
-+	nes_addr_t loc_addr;
-+	u16 loc_port;
-+	struct iw_cm_id *cm_id;
-+	enum nes_cm_conn_type conn_type;
-+	atomic_t ref_count;
-+	struct nes_vnic *nesvnic;
-+	atomic_t pend_accepts_cnt;
-+	int backlog;
-+	enum nes_cm_listener_state listener_state;
-+	u32  reused_node;
-+};
-+
-+/* per connection node and node state information */
-+struct nes_cm_node {
-+	u64 session_id;	
-+	u32 hashkey;	
-+
-+	nes_addr_t loc_addr, rem_addr;
-+	u16 loc_port, rem_port;
-+
-+
-+	u8 loc_mac[ETH_ALEN];	
-+	u8 rem_mac[ETH_ALEN];	
-+
-+	enum nes_cm_node_state state;	
-+	struct nes_cm_tcp_context tcp_cntxt;	
-+	struct nes_cm_core *cm_core;
-+	struct sk_buff_head resend_list;
-+	atomic_t ref_count;
-+	struct net_device *netdev;
-+
-+	struct nes_cm_node *loopbackpartner ;
-+	struct list_head retrans_list;
-+	spinlock_t retrans_list_lock;
-+	struct list_head recv_list;
-+	spinlock_t recv_list_lock;
-+	
-+	int send_write0;
-+	union {
-+		struct ietf_mpa_frame mpa_frame;	
-+		u8 mpa_frame_buf[NES_CM_DEFAULT_MTU];
-+	};
-+	u16 mpa_frame_size;
-+	struct iw_cm_id *cm_id;
-+	struct list_head list;
-+	int accelerated;
-+	struct nes_cm_listener *listener;
-+	enum nes_cm_conn_type conn_type;
-+	struct nes_vnic *nesvnic;
-+	int apbvt_set;
-+	int accept_pend;
-+};
-+
-+/* structure for client or CM to fill when making CM api calls. */
-+/*	- only need to set relevant data, based on op. */
-+struct nes_cm_info {
-+	union {
-+		struct iw_cm_id *cm_id;
-+		struct net_device *netdev;
-+	};
-+
-+	u16 loc_port;
-+	u16 rem_port;
-+	nes_addr_t loc_addr;
-+	nes_addr_t rem_addr;
-+
-+	enum nes_cm_conn_type  conn_type;
-+	int backlog;
-+};
-+
-+/* CM event codes */
-+enum  nes_cm_event_type {
-+	NES_CM_EVENT_UNKNOWN,
-+	NES_CM_EVENT_ESTABLISHED,
-+	NES_CM_EVENT_MPA_REQ,
-+	NES_CM_EVENT_MPA_CONNECT,
-+	NES_CM_EVENT_MPA_ACCEPT,
-+	NES_CM_EVENT_MPA_ESTABLISHED,
-+	NES_CM_EVENT_CONNECTED,
-+	NES_CM_EVENT_CLOSED,
-+	NES_CM_EVENT_RESET,
-+	NES_CM_EVENT_DROPPED_PKT,
-+	NES_CM_EVENT_CLOSE_IMMED,
-+	NES_CM_EVENT_CLOSE_HARD,
-+	NES_CM_EVENT_CLOSE_CLEAN,
-+	NES_CM_EVENT_ABORTED,
-+	NES_CM_EVENT_SEND_FIRST
-+};
-+
-+/* event to post to CM event handler */
-+struct nes_cm_event {
-+	enum nes_cm_event_type type;
-+
-+	struct nes_cm_info cm_info;
-+	struct work_struct event_work;
-+	struct nes_cm_node *cm_node;
-+};
-+
-+struct nes_cm_core {
-+	enum nes_cm_node_state state;	
-+	atomic_t session_id;			
-+
-+	atomic_t listen_node_cnt;			
-+	struct nes_cm_node listen_list;	
-+	spinlock_t listen_list_lock;	
-+
-+	u32 mtu;						
-+	u32 free_tx_pkt_max;
-+	u32 rx_pkt_posted;				
-+	struct sk_buff_head tx_free_list;	
-+	atomic_t ht_node_cnt;			
-+	struct list_head connected_nodes;
-+	/* struct list_head hashtable[NES_CM_HASHTABLE_SIZE]; */
-+	spinlock_t ht_lock;				
-+
-+	struct timer_list tcp_timer;	
-+
-+	struct nes_cm_ops *api;			
-+
-+	int (*post_event)(struct nes_cm_event *event);
-+	atomic_t events_posted;
-+	struct workqueue_struct *event_wq;
-+	struct workqueue_struct *disconn_wq;
-+
-+	atomic_t node_cnt;
-+	u64 aborted_connects;
-+	u32 options;
-+
-+	struct nes_cm_node *current_listen_node;
-+};
-+
-+
-+#define NES_CM_SET_PKT_SIZE        (1 << 1)
-+#define NES_CM_SET_FREE_PKT_Q_SIZE (1 << 2)
-+
-+/* CM ops/API for client interface */
-+struct nes_cm_ops {
-+	int (*accelerated)(struct nes_cm_core *, struct nes_cm_node *);
-+	struct nes_cm_listener * (*listen)(struct nes_cm_core *, struct nes_vnic *,
-+			struct nes_cm_info *);
-+	int (*stop_listener)(struct nes_cm_core *, struct nes_cm_listener *);
-+	struct nes_cm_node * (*connect)(struct nes_cm_core *,
-+			struct nes_vnic *, struct ietf_mpa_frame *,
-+			struct nes_cm_info *);
-+	int (*close)(struct nes_cm_core *, struct nes_cm_node *);
-+	int (*accept)(struct nes_cm_core *, struct ietf_mpa_frame *,
-+			struct nes_cm_node *);
-+	int (*reject)(struct nes_cm_core *, struct ietf_mpa_frame *,
-+			struct nes_cm_node *);
-+	int (*recv_pkt)(struct nes_cm_core *, struct nes_vnic *,
-+			struct sk_buff *);
-+	int (*destroy_cm_core)(struct nes_cm_core *);
-+	int (*get)(struct nes_cm_core *);
-+	int (*set)(struct nes_cm_core *, u32, u32);
-+};
-+
-+
-+int send_mpa_request(struct nes_cm_node *);
-+struct sk_buff *form_cm_frame(struct sk_buff *, struct nes_cm_node *,
-+		void *, u32, void *, u32, u8);
-+int schedule_nes_timer(struct nes_cm_node *, struct sk_buff *,
-+		enum nes_timer_type, int, int);
-+void nes_cm_timer_tick(unsigned long);
-+int send_syn(struct nes_cm_node *, u32);
-+int send_reset(struct nes_cm_node *);
-+int send_ack(struct nes_cm_node *);
-+int send_fin(struct nes_cm_node *, struct sk_buff *);
-+struct sk_buff *get_free_pkt(struct nes_cm_node *);
-+int process_packet(struct nes_cm_node *, struct sk_buff *, struct nes_cm_core *);
-+
-+struct nes_cm_node * mini_cm_connect(struct nes_cm_core *,
-+		struct nes_vnic *, struct ietf_mpa_frame *, struct nes_cm_info *);
-+int mini_cm_accept(struct nes_cm_core *, struct ietf_mpa_frame *, struct nes_cm_node *);
-+int mini_cm_reject(struct nes_cm_core *, struct ietf_mpa_frame *, struct nes_cm_node *);
-+int mini_cm_close(struct nes_cm_core *, struct nes_cm_node *);
-+int mini_cm_recv_pkt(struct nes_cm_core *, struct nes_vnic *, struct sk_buff *);
-+struct nes_cm_core *mini_cm_alloc_core(struct nes_cm_info *);
-+int mini_cm_dealloc_core(struct nes_cm_core *);
-+int mini_cm_get(struct nes_cm_core *);
-+int mini_cm_set(struct nes_cm_core *, u32, u32);
-+
-+int nes_cm_disconn(struct nes_qp *);
-+void nes_disconnect_worker(void *);
-+int nes_cm_disconn_true(struct nes_qp *);
-+int nes_disconnect(struct nes_qp *, int);
-+
-+int nes_accept(struct iw_cm_id *, struct iw_cm_conn_param *);
-+int nes_reject(struct iw_cm_id *, const void *, u8);
-+int nes_connect(struct iw_cm_id *, struct iw_cm_conn_param *);
-+int nes_create_listen(struct iw_cm_id *, int);
-+int nes_destroy_listen(struct iw_cm_id *);
-+
-+int nes_cm_recv(struct sk_buff *, struct net_device *);
-+int nes_cm_start(void);
-+int nes_cm_stop(void);
-+
-+/* CM event handler functions */
-+void cm_event_connected(struct nes_cm_event *);
-+void cm_event_connect_error(struct nes_cm_event *);
-+void cm_event_reset(struct nes_cm_event *);
-+void cm_event_mpa_req(struct nes_cm_event *);
-+int nes_cm_post_event(struct nes_cm_event *);
-+
-+#endif			/* NES_CM_H */
-+
++#endif		/* NES_CONTEXT_H */
