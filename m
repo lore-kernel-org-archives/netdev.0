@@ -1,34 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] netdev: Reset ipv4 flags during bundle creation on interfamily ipsec
-Date: Fri, 19 Oct 2007 22:25:49 +0800
-Message-ID: <E1IisnN-0003rh-00@gondolin.me.apana.org.au>
-References: <200710191620.31168.joakim.koskela@hiit.fi>
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	davem@davemloft.net, kaber@trash.net
-To: joakim.koskela@hiit.fi
+From: Timur Tabi <timur@freescale.com>
+Subject: Re: [PATCH] [POWERPC] ucc_geth: Eliminate compile warnings
+Date: Fri, 19 Oct 2007 09:35:38 -0500
+Message-ID: <4718C0BA.5060800@freescale.com>
+References: <1192745713-20829-1-git-send-email-Emilian.Medve@Freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, leoli@freescale.com, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: Emil Medve <Emilian.Medve@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4229 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752981AbXJSOZw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 10:25:52 -0400
-In-Reply-To: <200710191620.31168.joakim.koskela@hiit.fi>
+Received: from de01egw01.freescale.net ([192.88.165.102]:35155 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754802AbXJSOgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 10:36:06 -0400
+In-Reply-To: <1192745713-20829-1-git-send-email-Emilian.Medve@Freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Joakim Koskela <joakim.koskela@hiit.fi> wrote:
->
-> I'm not sure I follow. This affects the ipv6 bundling only where the struct 
-> (fl_tunnel) has previously been used for ipv6 addresses. Not that we are 
-> using the same block for holding the ipv4 info, the tos-value is really 
-> undefined before we reset it.
+Emil Medve wrote:
+> drivers/net/ucc_geth.c: In function 'ucc_geth_startup':
+> drivers/net/ucc_geth.c:2614: warning: assignment makes integer from pointer without a cast
+> drivers/net/ucc_geth.c:2651: warning: assignment makes integer from pointer without a cast
+> 
+> Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
 
-You're right.  But sure the same bug could affect IPv4 as well
-if you had a 4-6-4 configuration.  Let me think about this one
-a bit more.
+Acked-by: Timur Tabi <timur@freescale.com>
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
