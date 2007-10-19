@@ -1,43 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] Fix race between sk_filter reassign and sk_clone()
-Date: Thu, 18 Oct 2007 21:55:21 -0700 (PDT)
-Message-ID: <20071018.215521.28810637.davem@davemloft.net>
-References: <4715D9D2.8070102@openvz.org>
-	<20071017.212302.68039057.davem@davemloft.net>
-	<20071019022947.GA29560@lixom.net>
+Subject: Re: [PATCH] NAPI: kconfig prompt and deleted doc file
+Date: Thu, 18 Oct 2007 21:56:03 -0700 (PDT)
+Message-ID: <20071018.215603.102553408.davem@davemloft.net>
+References: <20071018171620.dd30b173.randy.dunlap@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org,
-	linux-kernel@vger.kernel.org
-To: olof@lixom.net
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com
+To: randy.dunlap@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53007
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53011
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756136AbXJSEzI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 00:55:08 -0400
-In-Reply-To: <20071019022947.GA29560@lixom.net>
+	by vger.kernel.org with ESMTP id S1756572AbXJSEzt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 00:55:49 -0400
+In-Reply-To: <20071018171620.dd30b173.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Olof Johansson <olof@lixom.net>
-Date: Thu, 18 Oct 2007 21:29:47 -0500
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Thu, 18 Oct 2007 17:16:20 -0700
 
-> So, looks like rcu_dereference() returned NULL. I don't know the
-> filter code at all, but it seems like it might be a valid case?
-> sk_detach_filter() seems to handle a NULL sk_filter, at least.
+> From: Randy Dunlap <randy.dunlap@oracle.com>
 > 
+> - make the kconfig NAPI option prompt consistent across all net drivers
+>   (other than EXPERIMENTAL; can it now be removed also, or is the new
+>   napi_struct implementation now EXPERIMENTAL ?)
+> - remove comment about the now-deleted NAPI_HOWTO.txt file
+> - clean up typos in Tulip NAPI & Interrupt Mitigation
 > 
-> So, this needs review by someone who knows the filter, but it fixes the
-> problem for me:
-> 
-> 
-> Signed-off-by: Olof Johansson <olof@lixom.net>
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-I've applied this for now to my net-2.6 tree, thanks Olof
-for tracking this down.
+Jeff, please take this in if you haven't already:
 
-Pavel please take a look at this and let me know if it should
-fixed in some other way.
+Acked-by: David S. Miller <davem@davemloft.net>
 
-Thanks!
+Thanks Randy!
