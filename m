@@ -1,131 +1,76 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: Re: iproute2: git pull request from debian repo.
-Date: Fri, 19 Oct 2007 16:48:15 +0200
-Message-ID: <20071019144815.GB30444@scream.fatal.se>
-References: <20071019122753.GA30078@scream.fatal.se> <20071019130616.GH1362@baikonur.stro.at>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: Fw: [Bug 9189] New: Oops in kernel 2.6.21-rc4 through 2.6.23,
+ page allocation failure
+Date: Fri, 19 Oct 2007 10:59:29 -0400
+Message-ID: <4718C651.5040804@psc.edu>
+References: <20071019073917.1d15fdbb@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: maximilian attems <max@stro.at>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1-1-1-9a.ghn.gbg.bostream.se ([82.182.69.4]:55886 "EHLO
-	scream.fatal.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933222AbXJSOwQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 10:52:16 -0400
-Content-Disposition: inline
-In-Reply-To: <20071019130616.GH1362@baikonur.stro.at>
+Received: from mailer1.psc.edu ([128.182.58.100]:60565 "EHLO mailer1.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755263AbXJSO7d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2007 10:59:33 -0400
+In-Reply-To: <20071019073917.1d15fdbb@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello maks!
-
-Thanks for your help. I had to tweak the commands a bit to git it working. I
-hope I did it right..
-
-On Fri, Oct 19, 2007 at 03:06:16PM +0200, maximilian attems wrote:
+Stephen Hemminger wrote:
+> Looks like a memory over commit with small machines??
 > 
-> on klibc i'm asked to attach git log -p on a pull request so
-> that the patches can be reviewed, please do so too.
-
-git log upstream..patches -p 
-
->  
-> also apprecitated would be the output of
-> git log master..patches | git shortlog
+> Begin forwarded message:
 > 
-
-git log upstream..patches | git shortlog
-
-I'm using the branching scheme madcoder described here:
-http://lists.madduck.net/pipermail/vcs-pkg/2007-October/000021.html
-
-Unfortunately this includes the extra cherry-picked patches from
-upstream-repo/master, but I guess we'll just have to cut those out
-manually or make sure that we do our submission right after each
-upstream release (when we rebase).
-
-Thanks again.
-
-shortlog:
---------------------------------------------------
-
-Daniel Silverstone (1):
-      Avoid infinite loop in ip addr flush.
-
-Justin Pryzby (1):
-      ss(8) manpage formatting breaks EXAMPLE
-
-
-git log -p:
---------------------------------------------------
-
-commit 1e9304759ec9f1fd0d80a52cbb7d08decbe8c9a0
-Author: Daniel Silverstone <daniel.silverstone@ubuntu.com>
-Date:   Fri Oct 19 13:32:24 2007 +0200
-
-    Avoid infinite loop in ip addr flush.
-    
-    Fix "ip addr flush" the same way "ip neigh flush" was previously fixed,
-    by bailing out if the flush hasn't completed after MAX_ROUNDS (10) tries.
-
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 518d8cd..ff9e318 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -34,6 +34,8 @@
- #include "ll_map.h"
- #include "ip_common.h"
- 
-+#define MAX_ROUNDS 10
-+
- static struct
- {
- 	int ifindex;
-@@ -667,7 +669,7 @@ int ipaddr_list_or_flush(int argc, char **argv, int flush)
- 		filter.flushp = 0;
- 		filter.flushe = sizeof(flushb);
- 
--		for (;;) {
-+		while (round < MAX_ROUNDS) {
- 			if (rtnl_wilddump_request(&rth, filter.family, RTM_GETADDR) < 0) {
- 				perror("Cannot send dump request");
- 				exit(1);
-@@ -694,6 +696,8 @@ int ipaddr_list_or_flush(int argc, char **argv, int flush)
- 				fflush(stdout);
- 			}
- 		}
-+		fprintf(stderr, "*** Flush remains incomplete after %d rounds. ***\n", MAX_ROUNDS); fflush(stderr);
-+		return 1;
- 	}
- 
- 	if (filter.family != AF_PACKET) {
-
-commit 874e14c54be75cfe2ae8b9261eef64194750807b
-Author: Justin Pryzby <justinpryzby@users.sourceforge.net>
-Date:   Thu Oct 18 16:06:08 2007 +0200
-
-    ss(8) manpage formatting breaks EXAMPLE
-    
-    Remove not needed quotes around path which breaks manpage formatting.
-    Spotted and original patch by Justin Pryzby, fixed by Andreas Henriksson.
-    
-    http://bugs.debian.org/443071
-
-diff --git a/man/man8/ss.8 b/man/man8/ss.8
-index f732319..0c5bf24 100644
---- a/man/man8/ss.8
-+++ b/man/man8/ss.8
-@@ -107,7 +107,7 @@ Display all UDP sockets.
- .B ss -o state established '( dport = :ssh or sport = :ssh )'
- Display all established ssh connections.
- .TP
--.B ss -x src \"/tmp/.X11-unix/*\"
-+.B ss -x src /tmp/.X11-unix/*
- Find all local processes connected to X server.
- .TP
- .B ss -o state fin-wait-1 '( sport = :http or sport = :https )' dst 193.233.7/24
+> Date: Fri, 19 Oct 2007 01:35:33 -0700 (PDT)
+> From: bugme-daemon@bugzilla.kernel.org
+> To: shemminger@linux-foundation.org
+> Subject: [Bug 9189] New: Oops in kernel 2.6.21-rc4 through 2.6.23, page allocation failure
+[snip]
+> Problem Description:After recent upgrade to kernel 2.6.23 (from 2.6.20) I have
+> started seeing kernel oops-es in networking code. The problem is 100%
+> reproducible in my environment. I've seen two slightly different backtraces but
+> both seem to be caused by the same commit.
+> 
+> I've performed the git bisect and tracked down the problem to the commit:
+> 53cdcc04c1e85d4e423b2822b66149b6f2e52c2c [TCP]: Fix tcp_mem[] initialization
+> 
+> Once I reverse this commit in 2.6.23 the problem goes away (this is true also
+> for the kernel version generated by git bisect, 2.6.21-rc4).
+> 
+> Backtrace #1:
+> page allocation failure. order:1, mode:0x20
+>  [<c0131581>] __alloc_pages+0x2e1/0x300   
+>  [<c0144bee>] cache_alloc_refill+0x29e/0x4b0
+>  [<c0144e6e>] __kmalloc+0x6e/0x80
+>  [<c0227103>] __alloc_skb+0x53/0x110
+>  [<c024de5c>] tcp_collapse+0x1ac/0x370
+>  [<c024e11d>] tcp_prune_queue+0xfd/0x2c0
+>  [<c024eaad>] tcp_data_queue+0x7cd/0xbb0
+>  [<c0225c2d>] skb_checksum+0x4d/0x2a0
+>  [<c02504ee>] tcp_rcv_established+0x36e/0x6a0
+>  [<c02561e4>] tcp_v4_do_rcv+0xb4/0x2a0
+>  [<c0131379>] __alloc_pages+0xd9/0x300
+>  [<c0258269>] tcp_v4_rcv+0x6a9/0x6c0
+>  [<c023ddb1>] ip_local_deliver+0x91/0x110
+>  [<c023e130>] ip_rcv+0x230/0x3c0
+>  [<c0227103>] __alloc_skb+0x53/0x110
+>  [<c022b742>] netif_receive_skb+0x152/0x1e0
+>  [<c022ce6f>] process_backlog+0x6f/0xe0
+>  [<c022cf3c>] net_rx_action+0x5c/0xf0
+>  [<c0115af2>] __do_softirq+0x42/0x90
+>  [<c0115b67>] do_softirq+0x27/0x30
+>  [<c01044fd>] do_IRQ+0x3d/0x70
+>  [<c0115818>] sys_gettimeofday+0x28/0x80
+>  [<c0102967>] common_interrupt+0x23/0x28
+>  =======================
 
 
--- 
-Regards,
-Andreas Henriksson
+I'm not surprised that this commit would make a difference in this 
+situation, since it does change the fraction of memory TCP is allowed to 
+use.  (If it really is too much in this situation, we should tweak the 
+function.)  However, I don't think this is the root cause.  Why does it 
+oops here when the allocation fails?
+
+   -John
