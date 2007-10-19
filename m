@@ -1,7 +1,7 @@
 From: ggrundstrom@neteffect.com
-Subject: [ofa-general] [PATCH 1/14 v2] nes: module and device initialization
-Date: Fri, 19 Oct 2007 15:01:30 -0500
-Message-ID: <200710192001.l9JK1U8O021689@neteffect.com>
+Subject: [ofa-general] [PATCH 2/14 v2] nes: device structures and defines
+Date: Fri, 19 Oct 2007 15:04:08 -0500
+Message-ID: <200710192004.l9JK48dm021704@neteffect.com>
 Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
 To: ewg@lists.openfabrics.org, rdreier@cisco.com
 Return-path: <general-bounces@lists.openfabrics.org>
@@ -16,13 +16,13 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Kernel module and device initialization routines.
+Main include file for device structures and defines.
 
 Signed-off-by: Glenn Grundstrom <ggrundstrom@neteffect.com>
 ---
 --- NULL	1969-12-31 18:00:00.000000000 -0600
-+++ ofa_kernel-1.3/drivers/infiniband/hw/nes/nes.c	2007-10-19 09:43:32.000000000 -0500
-@@ -0,0 +1,811 @@
++++ ofa_kernel-1.3/drivers/infiniband/hw/nes/nes.h	2007-10-19 09:59:12.000000000 -0500
+@@ -0,0 +1,613 @@
 +/*
 + * Copyright (c) 2006 - 2007 NetEffect, Inc. All rights reserved.
 + * Copyright (c) 2005 Open Grid Computing, Inc. All rights reserved.
@@ -56,781 +56,583 @@ Signed-off-by: Glenn Grundstrom <ggrundstrom@neteffect.com>
 + * SOFTWARE.
 + */
 +
-+#include <linux/module.h>
-+#include <linux/moduleparam.h>
++#ifndef __NES_H
++#define __NES_H
++
 +#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/ethtool.h>
-+#include <linux/mii.h>
-+#include <linux/if_vlan.h>
-+#include <linux/crc32.h>
-+#include <linux/in.h>
-+#include <linux/fs.h>
-+#include <linux/init.h>
-+#include <linux/if_arp.h>
++#include <linux/inetdevice.h>
++#include <linux/spinlock.h>
++#include <linux/kernel.h>
++#include <linux/delay.h>
++#include <linux/pci.h>
++#include <linux/dma-mapping.h>
++#include <linux/workqueue.h>
++#include <linux/slab.h>
++#include <asm/semaphore.h>
++#include <linux/version.h>
 +#include <asm/io.h>
-+#include <asm/irq.h>
-+#include <asm/byteorder.h>
++
 +#include <rdma/ib_smi.h>
 +#include <rdma/ib_verbs.h>
 +#include <rdma/ib_pack.h>
++#include <rdma/rdma_cm.h>
 +#include <rdma/iw_cm.h>
 +
-+#include "nes.h"
++#define TBIRD
++#define NES_TWO_PORT
++#define NES_ENABLE_CQE_READ
++#define NES_SEND_FIRST_WRITE
 +
-+#include <net/netevent.h>
-+#include <net/neighbour.h>
-+#include <linux/route.h>
-+#include <net/ip_fib.h>
++#define QUEUE_DISCONNECTS
 +
-+#ifdef SPIN_BUG_ON
-+#undef SPIN_BUG_ON
-+#define SPIN_BUG_ON (...)
++#define DRV_BUILD "1"
++
++#define DRV_NAME    "iw_nes"
++#define DRV_VERSION	"0.5 Build " DRV_BUILD
++#define PFX         DRV_NAME ": "
++
++/*
++ * NetEffect PCI vendor id and NE010 PCI device id.
++ */
++#ifndef PCI_VENDOR_ID_NETEFFECT	/* not in pci.ids yet */
++#define PCI_VENDOR_ID_NETEFFECT 0x1678
++#define PCI_DEVICE_ID_NETEFFECT_NE020 0x0100
 +#endif
 +
-+MODULE_AUTHOR("NetEffect");
-+MODULE_DESCRIPTION("NetEffect RNIC Low-level iWARP Driver");
-+MODULE_LICENSE("Dual BSD/GPL");
-+MODULE_VERSION(DRV_VERSION);
++#define NE020_REV		4
++#define NE020_REV1		5
 +
-+int max_mtu = 9000;
-+int nics_per_function = 1;
++#define BAR_0                	0
++#define BAR_1                	2
 +
-+#ifdef NES_INT_MODERATE
-+int interrupt_mod_interval = 128;
++#define RX_BUF_SIZE         	(1536 + 8)
++
++#define NES_REG0_SIZE       	(4 * 1024)
++#define NES_TX_TIMEOUT			(6*HZ)
++#define NES_FIRST_QPN			64
++#define NES_SW_CONTEXT_ALIGN 	1024
++
++#define NES_NIC_MAX_NICS		16
++#define NES_MAX_ARP_TABLE_SIZE 	4096
++
++#define MAX_DPC_ITERATIONS 		128
++
++#define NES_DRV_OPT_ENABLE_MPA_VER_0	0x00000001
++#define NES_DRV_OPT_DISABLE_MPA_CRC		0x00000002
++#define NES_DRV_OPT_DISABLE_FIRST_WRITE	0x00000004
++#define NES_DRV_OPT_DISABLE_INTF		0x00000008
++#define NES_DRV_OPT_ENABLE_MSI			0x00000010
++#define NES_DRV_OPT_DUAL_LOGICAL_PORT	0x00000020
++#define NES_DRV_OPT_SUPRESS_OPTION_BC	0x00000040
++#define NES_DRV_OPT_NO_INLINE_DATA		0x00000080
++
++#define NES_AEQ_EVENT_TIMEOUT 2500
++#define NES_DISCONNECT_EVENT_TIMEOUT 2000
++
++/* debug levels */
++#define NES_DBG_HW			0x00000001
++#define NES_DBG_INIT		0x00000002
++#define NES_DBG_ISR			0x00000004
++#define NES_DBG_PHY			0x00000008
++#define NES_DBG_NETDEV		0x00000010
++#define NES_DBG_CM			0x00000020
++#define NES_DBG_CM1         0x00000040
++#define NES_DBG_NIC_RX		0x00000080
++#define NES_DBG_NIC_TX		0x00000100
++#define NES_DBG_CQP			0x00000200
++#define NES_DBG_MMAP		0x00000400
++#define NES_DBG_MR			0x00000800
++#define NES_DBG_PD			0x00001000
++#define NES_DBG_CQ			0x00002000
++#define NES_DBG_QP			0x00004000
++#define NES_DBG_MOD_QP		0x00008000
++#define NES_DBG_AEQ			0x00010000
++#define NES_DBG_IW_RX		0x00020000
++#define NES_DBG_IW_TX		0x00040000
++#define NES_DBG_SHUTDOWN	0x00080000
++#define NES_DBG_RSVD1		0x10000000
++#define NES_DBG_RSVD2		0x20000000
++#define NES_DBG_RSVD3		0x40000000
++#define NES_DBG_RSVD4		0x80000000
++#define NES_DBG_ALL			0xffffffff
++
++#ifdef CONFIG_INFINIBAND_NES_DEBUG
++#define assert(expr)												\
++if(!(expr)) {														\
++	printk(KERN_ERR PFX "Assertion failed! %s, %s, %s, line %d\n",	\
++		   #expr, __FILE__, __FUNCTION__, __LINE__);				\
++}
++
++#define nes_debug(level, fmt, args...) \
++	if (level & nes_debug_level) \
++		printk(KERN_ERR PFX "%s[%u]: " fmt, __FUNCTION__, __LINE__, ##args)
++
++#ifndef dprintk
++#define dprintk(fmt, args...) do { printk(KERN_ERR PFX fmt, ##args); } while (0)
++#endif
++#define NES_EVENT_TIMEOUT	1200000
++/* #define NES_EVENT_TIMEOUT	1200 */
 +#else
-+int interrupt_mod_interval = 0;
++#define assert(expr)          do {} while (0)
++#define nes_debug(level, fmt, args...)
++#define dprintk(fmt, args...) do {} while (0)
++
++#define NES_EVENT_TIMEOUT	100000
 +#endif
 +
-+/* Interoperability */
-+int mpa_version = 1;
-+module_param(mpa_version, int, 0);
-+MODULE_PARM_DESC(mpa_version, "MPA version to be used int MPA Req/Resp (0 or 1)");
++#include "nes_hw.h"
++#include "nes_verbs.h"
++#include "nes_context.h"
++#include "nes_user.h"
++#include "nes_cm.h"
 +
-+/* Interoperability */
-+int disable_mpa_crc = 0;
-+module_param(disable_mpa_crc, int, 0);
-+MODULE_PARM_DESC(disable_mpa_crc, "Disable checking of MPA CRC");
++extern int max_mtu;
++extern int nics_per_function;
++#define max_frame_len (max_mtu+ETH_HLEN)
++extern int interrupt_mod_interval;
++extern int nes_if_count;
++extern int mpa_version;
++extern int disable_mpa_crc;
++extern unsigned int send_first;
++extern unsigned int nes_drv_opt;
++extern unsigned int nes_debug_level;
 +
-+unsigned int send_first = 0;
-+module_param(send_first, int, 0);
-+MODULE_PARM_DESC(send_first, "Send RDMA Message First on Active Connection");
++extern struct list_head nes_adapter_list;
++extern struct list_head nes_dev_list;
 +
++extern struct nes_cm_core *g_cm_core;
 +
-+unsigned int nes_drv_opt = 0;
-+module_param(nes_drv_opt, int, 0);
-+MODULE_PARM_DESC(nes_drv_opt, "Driver option parameters");
++extern atomic_t cm_connects;
++extern atomic_t cm_accepts;
++extern atomic_t cm_disconnects;
++extern atomic_t cm_closes;
++extern atomic_t cm_connecteds;
++extern atomic_t cm_connect_reqs;
++extern atomic_t cm_rejects;
++extern atomic_t mod_qp_timouts;
++extern atomic_t qps_created;
++extern atomic_t qps_destroyed;
++extern atomic_t sw_qps_destroyed;
++extern u32 mh_detected;
++extern u32 mh_pauses_sent;
++extern u32 cm_packets_sent;
++extern u32 cm_packets_bounced;
++extern u32 cm_packets_created;
++extern u32 cm_packets_received;
++extern u32 cm_packets_dropped;
++extern u32 cm_packets_retrans;
++extern u32 cm_listens_created;
++extern u32 cm_listens_destroyed;
++extern u32 cm_backlog_drops;
++extern atomic_t cm_nodes_created;
++extern atomic_t cm_nodes_destroyed;
++extern atomic_t cm_accel_dropped_pkts;
++extern atomic_t cm_resets_recvd;
 +
-+unsigned int nes_debug_level = 0xffffffff;
-+module_param(nes_debug_level, uint, 0644);
-+MODULE_PARM_DESC(nes_debug_level, "Enable debug output level");
++extern u32 crit_err_count;
++extern u32 mh_detected;
++extern u32 mh_pauses_sent;
 +
-+LIST_HEAD(nes_adapter_list);
-+LIST_HEAD(nes_dev_list);
-+
-+atomic_t qps_destroyed;
-+atomic_t cqp_reqs_allocated;
-+atomic_t cqp_reqs_freed;
-+atomic_t cqp_reqs_dynallocated;
-+atomic_t cqp_reqs_dynfreed;
-+atomic_t cqp_reqs_queued;
-+atomic_t cqp_reqs_redriven;
-+
-+static void nes_print_macaddr(struct net_device *netdev);
-+static irqreturn_t nes_interrupt(int, void *);
-+static int __devinit nes_probe(struct pci_dev *, const struct pci_device_id *);
-+static void __devexit nes_remove(struct pci_dev *);
-+static int __init nes_init_module(void);
-+static void __exit nes_exit_module(void);
-+
-+static struct pci_device_id nes_pci_table[] = {
-+	{PCI_VENDOR_ID_NETEFFECT, PCI_DEVICE_ID_NETEFFECT_NE020, PCI_ANY_ID, PCI_ANY_ID},
-+	{0}
-+};
-+
-+MODULE_DEVICE_TABLE(pci, nes_pci_table);
-+
-+static int nes_inetaddr_event(struct notifier_block *, unsigned long, void *);
-+static int nes_net_event(struct notifier_block *, unsigned long, void *);
-+static int notifiers_registered = 0;
-+
-+
-+static struct notifier_block nes_inetaddr_notifier = {
-+	.notifier_call = nes_inetaddr_event
-+};
-+
-+static struct notifier_block nes_net_notifier = {
-+	.notifier_call = nes_net_event
-+};
-+
++extern atomic_t cqp_reqs_allocated;
++extern atomic_t cqp_reqs_freed;
++extern atomic_t cqp_reqs_dynallocated;
++extern atomic_t cqp_reqs_dynfreed;
++extern atomic_t cqp_reqs_queued;
++extern atomic_t cqp_reqs_redriven;
 +
 +
++struct nes_device {
++	struct nes_adapter *nesadapter;
++	void __iomem *regs;
++	void __iomem *index_reg;
++	struct pci_dev *pcidev;
++	struct net_device *netdev[NES_NIC_MAX_NICS];
++	u64 link_status_interrupts;
++	struct tasklet_struct dpc_tasklet;
++	spinlock_t indexed_regs_lock;
++	unsigned long doorbell_start;
++	unsigned long csr_start;
++	unsigned long mac_tx_errors;
++	unsigned long mac_pause_frames_sent;
++	unsigned long mac_pause_frames_received;
++	unsigned long mac_rx_errors;
++	unsigned long mac_rx_crc_errors;
++	unsigned long mac_rx_symbol_err_frames;
++	unsigned long mac_rx_jabber_frames;
++	unsigned long mac_rx_oversized_frames;
++	unsigned long mac_rx_short_frames;
++	unsigned int mac_index;
++	unsigned int nes_stack_start;
 +
-+/**
-+ * nes_inetaddr_event
-+ */
-+static int nes_inetaddr_event(struct notifier_block *notifier,
-+		unsigned long event, void *ptr)
-+{
-+	struct in_ifaddr *ifa = ptr;
-+	struct net_device *event_netdev = ifa->ifa_dev->dev;
-+	struct nes_device *nesdev;
-+	struct net_device *netdev;
-+	struct nes_vnic *nesvnic;
-+	unsigned int addr;
-+	unsigned int mask;
++	/* Control Structures */
++	void *cqp_vbase;
++	dma_addr_t cqp_pbase;
++	u32 cqp_mem_size;
++	u8 ceq_index;
++	u8 nic_ceq_index;
++	struct nes_hw_cqp cqp;
++	struct nes_hw_cq ccq;
++	struct list_head cqp_avail_reqs;
++	struct list_head cqp_pending_reqs;
++	struct nes_cqp_request *nes_cqp_requests;
 +
-+	addr = ntohl(ifa->ifa_address);
-+	mask = ntohl(ifa->ifa_mask);
-+	nes_debug(NES_DBG_NETDEV, "nes_inetaddr_event: ip address %08X, netmask %08X.\n",
-+			addr, mask);
-+	list_for_each_entry(nesdev, &nes_dev_list, list) {
-+		nes_debug(NES_DBG_NETDEV, "Nesdev list entry = 0x%p. (%s)\n",
-+				nesdev, nesdev->netdev[0]->name);
-+		netdev = nesdev->netdev[0];
-+		nesvnic = netdev_priv(netdev);
-+		if (netdev == event_netdev) {
-+			if (0 == nesvnic->rdma_enabled) {
-+				nes_debug(NES_DBG_NETDEV, "Returning without processing event for %s since"
-+						" RDMA is not enabled.\n",
-+						netdev->name);
-+				return NOTIFY_OK;
-+			}
-+			/* we have ifa->ifa_address/mask here if we need it */
-+			switch (event) {
-+				case NETDEV_DOWN:
-+					nes_debug(NES_DBG_NETDEV, "event:DOWN\n");
-+					nes_write_indexed(nesdev,
-+							NES_IDX_DST_IP_ADDR+(0x10*PCI_FUNC(nesdev->pcidev->devfn)), 0);
-+
-+					nesvnic->local_ipaddr = 0;
-+					return NOTIFY_OK;
-+					break;
-+				case NETDEV_UP:
-+					nes_debug(NES_DBG_NETDEV, "event:UP\n");
-+
-+					if (nesvnic->local_ipaddr != 0) {
-+						nes_debug(NES_DBG_NETDEV, "Interface already has local_ipaddr\n");
-+						return NOTIFY_OK;
-+					}
-+					/* Add the address to the IP table */
-+					nesvnic->local_ipaddr = ifa->ifa_address;
-+
-+					nes_write_indexed(nesdev,
-+							NES_IDX_DST_IP_ADDR+(0x10*PCI_FUNC(nesdev->pcidev->devfn)),
-+							ntohl(ifa->ifa_address));
-+					return NOTIFY_OK;
-+					break;
-+				default:
-+					break;
-+			}
-+		}
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+
-+/**
-+ * nes_net_event
-+ */
-+static int nes_net_event(struct notifier_block *notifier,
-+		unsigned long event, void *ptr)
-+{
-+	struct neighbour *neigh = ptr;
-+	struct nes_device *nesdev;
-+	struct net_device *netdev;
-+	struct nes_vnic *nesvnic;
-+
-+	switch (event) {
-+		case NETEVENT_NEIGH_UPDATE:
-+			list_for_each_entry(nesdev, &nes_dev_list, list) {
-+				/* nes_debug(NES_DBG_NETDEV, "Nesdev list entry = 0x%p.\n", nesdev); */
-+				netdev = nesdev->netdev[0];
-+				nesvnic = netdev_priv(netdev);
-+				if (netdev == neigh->dev) {
-+					if (0 == nesvnic->rdma_enabled) {
-+						nes_debug(NES_DBG_NETDEV, "Skipping device %s since no RDMA\n",
-+								netdev->name);
-+					} else {
-+						if (neigh->nud_state & NUD_VALID) {
-+							nes_manage_arp_cache(neigh->dev, neigh->ha,
-+									ntohl(*(u32 *)neigh->primary_key), NES_ARP_ADD);
-+						} else {
-+							nes_manage_arp_cache(neigh->dev, neigh->ha,
-+									ntohl(*(u32 *)neigh->primary_key), NES_ARP_DELETE);
-+						}
-+					}
-+					return NOTIFY_OK;
-+				}
-+			}
-+			break;
-+		default:
-+			nes_debug(NES_DBG_NETDEV, "NETEVENT_ %lu undefined\n", event);
-+			break;
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+
-+/**
-+ * nes_add_ref
-+ */
-+void nes_add_ref(struct ib_qp *ibqp)
-+{
-+	struct nes_qp *nesqp;
-+
-+	nesqp = to_nesqp(ibqp);
-+	nes_debug(NES_DBG_QP, "Bumping refcount for QP%u.  Pre-inc value = %u\n",
-+			ibqp->qp_num, atomic_read(&nesqp->refcount));
-+	atomic_inc(&nesqp->refcount);
-+}
-+
-+
-+/**
-+ * nes_rem_ref
-+ */
-+void nes_rem_ref(struct ib_qp *ibqp)
-+{
-+	u64 u64temp;
-+	struct nes_qp *nesqp;
-+	struct nes_vnic *nesvnic = to_nesvnic(ibqp->device);
-+	struct nes_device *nesdev = nesvnic->nesdev;
-+	struct nes_adapter *nesadapter = nesdev->nesadapter;
-+	struct nes_hw_cqp_wqe *cqp_wqe;
-+	struct nes_cqp_request *cqp_request;
-+
-+	nesqp = to_nesqp(ibqp);
-+
-+	if (atomic_read(&nesqp->refcount) == 0) {
-+		printk(KERN_INFO PFX "%s: Reference count already 0 for QP%d, last aeq = 0x%04X.\n",
-+				__FUNCTION__, ibqp->qp_num, nesqp->last_aeq );
-+		BUG();
-+	}
-+
-+	if (atomic_dec_and_test(&nesqp->refcount)) {
-+		atomic_inc(&qps_destroyed);
-+
-+		/* Free the control structures */
-+		pci_free_consistent(nesdev->pcidev, nesqp->qp_mem_size, nesqp->hwqp.sq_vbase,
-+				nesqp->hwqp.sq_pbase);
-+
-+		nesadapter->qp_table[nesqp->hwqp.qp_id-NES_FIRST_QPN] = NULL;
-+		nes_free_resource(nesadapter, nesadapter->allocated_qps, nesqp->hwqp.qp_id);
-+
-+		/* Destroy the QP */
-+		cqp_request = nes_get_cqp_request(nesdev, NES_CQP_REQUEST_NOT_HOLDING_LOCK);
-+		if (NULL == cqp_request) {
-+			nes_debug(NES_DBG_QP, "Failed to get a cqp_request.\n");
-+			return;
-+		}
-+		cqp_request->waiting = 0;
-+		cqp_wqe = &cqp_request->cqp_wqe;
-+
-+		cqp_wqe->wqe_words[NES_CQP_WQE_OPCODE_IDX] =
-+				cpu_to_le32(NES_CQP_DESTROY_QP | NES_CQP_QP_TYPE_IWARP);
-+
-+		if (nesqp->hte_added) {
-+			cqp_wqe->wqe_words[NES_CQP_WQE_OPCODE_IDX] |=  cpu_to_le32(NES_CQP_QP_DEL_HTE);
-+			nesqp->hte_added = 0;
-+		}
-+
-+		cqp_wqe->wqe_words[NES_CQP_WQE_ID_IDX] = cpu_to_le32(nesqp->hwqp.qp_id);
-+		cqp_wqe->wqe_words[NES_CQP_WQE_COMP_CTX_LOW_IDX] =
-+				cpu_to_le32((u32)((u64)(&nesdev->cqp)));
-+		cqp_wqe->wqe_words[NES_CQP_WQE_COMP_CTX_HIGH_IDX] =
-+				cpu_to_le32((u32)(((u64)(&nesdev->cqp))>>32));
-+		cqp_wqe->wqe_words[NES_CQP_WQE_COMP_SCRATCH_LOW_IDX] = 0;
-+		cqp_wqe->wqe_words[NES_CQP_WQE_COMP_SCRATCH_HIGH_IDX] = 0;
-+		u64temp = (u64)nesqp->nesqp_context_pbase;
-+		cqp_wqe->wqe_words[NES_CQP_QP_WQE_CONTEXT_LOW_IDX] = cpu_to_le32((u32)u64temp);
-+		cqp_wqe->wqe_words[NES_CQP_QP_WQE_CONTEXT_HIGH_IDX] =
-+				cpu_to_le32((u32)(u64temp >> 32));
-+
-+		nes_post_cqp_request(nesdev, cqp_request, NES_CQP_REQUEST_NOT_HOLDING_LOCK,
-+				NES_CQP_REQUEST_RING_DOORBELL);
-+
-+		kfree(nesqp->allocated_buffer);
-+	}
-+}
-+
-+
-+/**
-+ * nes_get_qp
-+ */
-+struct ib_qp *nes_get_qp(struct ib_device *device, int qpn) {
-+	struct nes_vnic *nesvnic = to_nesvnic(device);
-+	struct nes_device *nesdev = nesvnic->nesdev;
-+	struct nes_adapter *nesadapter = nesdev->nesadapter;
-+
-+	if ((qpn<NES_FIRST_QPN) || (qpn>=(NES_FIRST_QPN+nesadapter->max_qp)))
-+		return NULL;
-+
-+	return &nesadapter->qp_table[qpn-NES_FIRST_QPN]->ibqp;
-+}
-+
-+
-+/**
-+ * nes_print_macaddr
-+ */
-+static void nes_print_macaddr(struct net_device *netdev)
-+{
-+	nes_debug(NES_DBG_INIT, "%s: MAC %02X:%02X:%02X:%02X:%02X:%02X, IRQ %u\n",
-+			netdev->name,
-+			netdev->dev_addr[0], netdev->dev_addr[1], netdev->dev_addr[2],
-+			netdev->dev_addr[3], netdev->dev_addr[4], netdev->dev_addr[5],
-+			netdev->irq);
-+}
-+
-+
-+/**
-+ * nes_interrupt - handle interrupts
-+ */
-+static irqreturn_t nes_interrupt(int irq, void *dev_id)
-+{
-+	struct nes_device *nesdev = (struct nes_device *)dev_id;
-+	int handled = 0;
-+	u32 int_mask;
 +	u32 int_req;
 +	u32 int_stat;
-+	u32 intf_int_stat;
-+	u32 timer_stat;
++	u32 timer_int_req;
++	u32 timer_only_int_count;
++	u32 intf_int_req;
++	u32 et_rx_coalesce_usecs_irq;
++	u32 last_mac_tx_pauses;
++	u32 last_used_chunks_tx;
++	struct list_head list;
 +
-+	if (nesdev->msi_enabled) {
-+		/* No need to read the interrupt pending register if msi is enabled */
-+		handled = 1;
-+	} else {
-+		if (unlikely(nesdev->nesadapter->hw_rev == NE020_REV)) {
-+			/* Master interrupt enable provides synchronization for kicking off bottom half
-+			  when interrupt sharing is going on */
-+			int_mask = nes_read32(nesdev->regs + NES_INT_MASK);
-+			if (int_mask & 0x80000000) {
-+				/* Check interrupt status to see if this might be ours */
-+				int_stat = nes_read32(nesdev->regs + NES_INT_STAT);
-+				int_req = nesdev->int_req;
-+				if (int_stat&int_req) {
-+					/* if interesting CEQ or AEQ is pending, claim the interrupt */
-+					if ((int_stat&int_req) & (~(NES_INT_TIMER|NES_INT_INTF))) {
-+						handled = 1;
-+					} else {
-+						if (((int_stat & int_req) & NES_INT_TIMER) == NES_INT_TIMER) {
-+							/* Timer might be running but might be for another function */
-+							timer_stat = nes_read32(nesdev->regs + NES_TIMER_STAT);
-+							if ((timer_stat & nesdev->timer_int_req) != 0) {
-+								handled = 1;
-+							}
-+						}
-+						if ((((int_stat & int_req) & NES_INT_INTF) == NES_INT_INTF) &&
-+								(0 == handled)) {
-+							intf_int_stat = nes_read32(nesdev->regs+NES_INTF_INT_STAT);
-+							if ((intf_int_stat & nesdev->intf_int_req) != 0) {
-+								handled = 1;
-+							}
-+						}
-+					}
-+					if (handled) {
-+						nes_write32(nesdev->regs+NES_INT_MASK, int_mask & (~0x80000000));
-+						int_mask = nes_read32(nesdev->regs+NES_INT_MASK);
-+						/* Save off the status to save an additional read */
-+						nesdev->int_stat = int_stat;
-+						nesdev->napi_isr_ran = 1;
-+					}
-+				}
-+			}
-+		} else {
-+			handled = nes_read32(nesdev->regs+NES_INT_PENDING);
-+		}
-+	}
-+
-+	if (handled) {
-+#ifdef NES_NAPI
-+		if (0 == nes_napi_isr(nesdev)) {
-+#endif
-+			tasklet_schedule(&nesdev->dpc_tasklet);
-+#ifdef NES_NAPI
-+		}
-+#endif
-+		return IRQ_HANDLED;
-+	} else {
-+		return IRQ_NONE;
-+	}
-+}
-+
-+
-+/**
-+ * nes_probe - Device initialization
-+ */
-+static int __devinit nes_probe(struct pci_dev *pcidev, const struct pci_device_id *ent)
-+{
-+	struct net_device *netdev = NULL;
-+	struct nes_device *nesdev = NULL;
-+	int ret = 0;
-+	struct nes_vnic *nesvnic = NULL;
-+	void __iomem *mmio_regs = NULL;
-+	u8 hw_rev;
-+
-+	assert(pcidev != NULL);
-+	assert(ent != NULL);
-+
-+	printk(KERN_INFO PFX "NetEffect RNIC driver v%s loading. (%s)\n",
-+			DRV_VERSION, pci_name(pcidev));
-+
-+	ret = pci_enable_device(pcidev);
-+	if (ret) {
-+		printk(KERN_ERR PFX "Unable to enable PCI device. (%s)\n", pci_name(pcidev));
-+		goto bail0;
-+	}
-+
-+	nes_debug(NES_DBG_INIT, "BAR0 (@0x%08lX) size = 0x%lX bytes\n",
-+			(long unsigned int)pci_resource_start(pcidev, BAR_0),
-+			(long unsigned int)pci_resource_len(pcidev, BAR_0));
-+	nes_debug(NES_DBG_INIT, "BAR1 (@0x%08lX) size = 0x%lX bytes\n",
-+			(long unsigned int)pci_resource_start(pcidev, BAR_1),
-+			(long unsigned int)pci_resource_len(pcidev, BAR_1));
-+
-+	/* Make sure PCI base addr are MMIO */
-+	if (!(pci_resource_flags(pcidev, BAR_0) & IORESOURCE_MEM) ||
-+			!(pci_resource_flags(pcidev, BAR_1) & IORESOURCE_MEM)) {
-+		printk(KERN_ERR PFX "PCI regions not an MMIO resource\n");
-+		ret = -ENODEV;
-+		goto bail1;
-+	}
-+
-+	/* Reserve PCI I/O and memory resources */
-+	ret = pci_request_regions(pcidev, DRV_NAME);
-+	if (ret) {
-+		printk(KERN_ERR PFX "Unable to request regions. (%s)\n", pci_name(pcidev));
-+		goto bail1;
-+	}
-+
-+	if ((sizeof(dma_addr_t) > 4)) {
-+		ret = pci_set_dma_mask(pcidev, DMA_64BIT_MASK);
-+		if (ret < 0) {
-+			printk(KERN_ERR PFX "64b DMA mask configuration failed\n");
-+			goto bail2;
-+		}
-+		ret = pci_set_consistent_dma_mask(pcidev, DMA_64BIT_MASK);
-+		if (ret) {
-+			printk(KERN_ERR PFX "64b DMA consistent mask configuration failed\n");
-+			goto bail2;
-+		}
-+	} else {
-+		ret = pci_set_dma_mask(pcidev, DMA_32BIT_MASK);
-+		if (ret < 0) {
-+			printk(KERN_ERR PFX "32b DMA mask configuration failed\n");
-+			goto bail2;
-+		}
-+		ret = pci_set_consistent_dma_mask(pcidev, DMA_32BIT_MASK);
-+		if (ret) {
-+			printk(KERN_ERR PFX "32b DMA consistent mask configuration failed\n");
-+			goto bail2;
-+		}
-+	}
-+
-+	pci_set_master(pcidev);
-+
-+	/* Allocate hardware structure */
-+	nesdev = kmalloc(sizeof(struct nes_device), GFP_KERNEL);
-+	if (!nesdev) {
-+		printk(KERN_ERR PFX "%s: Unable to alloc hardware struct\n", pci_name(pcidev));
-+		ret = -ENOMEM;
-+		goto bail2;
-+	}
-+
-+	memset(nesdev, 0, sizeof(struct nes_device));
-+	nes_debug(NES_DBG_INIT, "Allocated nes device at %p\n", nesdev);
-+	nesdev->pcidev = pcidev;
-+	pci_set_drvdata(pcidev, nesdev);
-+
-+	pci_read_config_byte(pcidev, 0x0008, &hw_rev);
-+	nes_debug(NES_DBG_INIT, "hw_rev=%u\n", hw_rev);
-+
-+	spin_lock_init(&nesdev->indexed_regs_lock);
-+
-+	/* Remap the PCI registers in adapter BAR0 to kernel VA space */
-+	mmio_regs = ioremap_nocache(pci_resource_start(pcidev, BAR_0), sizeof(mmio_regs));
-+	if (mmio_regs == NULL) {
-+		printk(KERN_ERR PFX "Unable to remap BAR0\n");
-+		ret = -EIO;
-+		goto bail3;
-+	}
-+	nesdev->regs = mmio_regs;
-+	nesdev->index_reg = 0x50 + (PCI_FUNC(pcidev->devfn)*8) + mmio_regs;
-+
-+	/* Ensure interrupts are disabled */
-+	nes_write32(nesdev->regs+NES_INT_MASK, 0x7fffffff);
-+
-+#ifdef CONFIG_PCI_MSI
-+	if (nes_drv_opt & NES_DRV_OPT_ENABLE_MSI) {
-+		if (!pci_enable_msi(nesdev->pcidev)) {
-+			nesdev->msi_enabled = 1;
-+			nes_debug(NES_DBG_INIT, "MSI is enabled for device %s\n",
-+					pci_name(pcidev));
-+		} else {
-+			nes_debug(NES_DBG_INIT, "MSI is disabled by linux for device %s\n",
-+					pci_name(pcidev));
-+		}
-+	} else {
-+		nes_debug(NES_DBG_INIT, "MSI not requested due to driver options for device %s\n",
-+				pci_name(pcidev));
-+	}
-+#else
-+	nes_debug(NES_DBG_INIT, "MSI not supported by this kernel for device %s\n",
-+			pci_name(pcidev));
-+#endif
-+
-+	nesdev->et_rx_coalesce_usecs_irq = interrupt_mod_interval;
-+	nesdev->csr_start = pci_resource_start(nesdev->pcidev, BAR_0);
-+	nesdev->doorbell_start = pci_resource_start(nesdev->pcidev, BAR_1);
-+
-+	/* Init the adapter */
-+	nesdev->nesadapter = nes_init_adapter(nesdev, hw_rev);
-+	if (!nesdev->nesadapter) {
-+		printk(KERN_ERR PFX "Unable to initialize adapter.\n" );
-+		ret = -ENOMEM;
-+		goto bail5;
-+	}
-+
-+	nesdev->mac_index = PCI_FUNC(nesdev->pcidev->devfn)%nesdev->nesadapter->port_count;
-+	tasklet_init(&nesdev->dpc_tasklet, nes_dpc, (unsigned long)nesdev);
-+
-+	/* bring up the Control QP */
-+	if (nes_init_cqp(nesdev)) {
-+		ret = -ENODEV;
-+		goto bail6;
-+	}
-+
-+	/* Arm the CCQ */
-+	nes_write32(nesdev->regs+NES_CQE_ALLOC, NES_CQE_ALLOC_NOTIFY_NEXT |
-+			PCI_FUNC(nesdev->pcidev->devfn));
-+	nes_read32(nesdev->regs+NES_CQE_ALLOC);
-+
-+	/* Enable the interrupts */
-+	nesdev->int_req = (0x101 << PCI_FUNC(nesdev->pcidev->devfn)) |
-+			(1 << (PCI_FUNC(nesdev->pcidev->devfn)+16));
-+	if (PCI_FUNC(nesdev->pcidev->devfn) < 4) {
-+		nesdev->int_req |= (1 << (PCI_FUNC(nesdev->pcidev->devfn)+24));
-+	}
-+
-+	/* TODO: This really should be the first driver to load, not function 0 */
-+	if (0 == PCI_FUNC(nesdev->pcidev->devfn)) {
-+		/* pick up PCI and critical errors if the first driver to load */
-+		nesdev->intf_int_req = NES_INTF_INT_PCIERR | NES_INTF_INT_CRITERR;
-+		nesdev->int_req |= NES_INT_INTF;
-+	} else {
-+		nesdev->intf_int_req = 0;
-+	}
-+	nesdev->intf_int_req |= (1 << (PCI_FUNC(nesdev->pcidev->devfn)+16));
-+	nes_write_indexed(nesdev, NES_IDX_DEBUG_ERROR_MASKS0, 0);
-+	nes_write_indexed(nesdev, NES_IDX_DEBUG_ERROR_MASKS1, 0);
-+	nes_write_indexed(nesdev, NES_IDX_DEBUG_ERROR_MASKS2, 0x00001265);
-+	nes_write_indexed(nesdev, NES_IDX_DEBUG_ERROR_MASKS4, 0x18021804);
-+
-+	nes_write_indexed(nesdev, NES_IDX_DEBUG_ERROR_MASKS3, 0x17801790);
-+
-+	/* deal with both periodic and one_shot */
-+	nesdev->timer_int_req = 0x101 << PCI_FUNC(nesdev->pcidev->devfn);
-+	nesdev->nesadapter->timer_int_req |= nesdev->timer_int_req;
-+	nes_debug(NES_DBG_INIT, "setting int_req for function %u, nesdev = 0x%04X, adapter = 0x%04X\n",
-+			PCI_FUNC(nesdev->pcidev->devfn),
-+			nesdev->timer_int_req, nesdev->nesadapter->timer_int_req);
-+
-+	nes_write32(nesdev->regs+NES_INTF_INT_MASK, ~(nesdev->intf_int_req));
-+
-+	list_add_tail(&nesdev->list, &nes_dev_list);
-+
-+	/* Request an interrupt line for the driver */
-+#ifdef IRQF_SHARED
-+	ret = request_irq(pcidev->irq, nes_interrupt, IRQF_SHARED, DRV_NAME, nesdev);
-+#else
-+	ret = request_irq(pcidev->irq, nes_interrupt, SA_SHIRQ, DRV_NAME, nesdev);
-+#endif
-+	if (ret) {
-+		printk(KERN_ERR PFX "%s: requested IRQ %u is busy\n",
-+				pci_name(pcidev), pcidev->irq);
-+		goto bail65;
-+	}
-+
-+	nes_write32(nesdev->regs+NES_INT_MASK, ~nesdev->int_req);
-+
-+	if (!notifiers_registered) {
-+		register_inetaddr_notifier(&nes_inetaddr_notifier);
-+		register_netevent_notifier(&nes_net_notifier);
-+		notifiers_registered = 1;
-+	}
-+
-+	/* Initialize network devices */
-+		if ((netdev = nes_netdev_init(nesdev, mmio_regs)) == NULL) {
-+			goto bail7;
-+		}
-+
-+		/* Register network device */
-+		ret = register_netdev(netdev);
-+		if (ret) {
-+			printk(KERN_ERR PFX "Unable to register netdev, ret = %d\n", ret);
-+			nes_netdev_destroy(netdev);
-+			goto bail7;
-+		}
-+
-+		nes_print_macaddr(netdev);
-+		/* create a CM core for this netdev */
-+		nesvnic = netdev_priv(netdev);
-+
-+		nesdev->netdev_count++;
-+		nesdev->nesadapter->netdev_count++;
-+
-+
-+	printk(KERN_ERR PFX "%s: NetEffect RNIC driver successfully loaded.\n",
-+			pci_name(pcidev));
-+	return 0;
-+
-+	bail7:
-+	printk(KERN_ERR PFX "bail7\n");
-+	while (nesdev->netdev_count > 0) {
-+		nesdev->netdev_count--;
-+		nesdev->nesadapter->netdev_count--;
-+
-+		unregister_netdev(nesdev->netdev[nesdev->netdev_count]);
-+		nes_netdev_destroy(nesdev->netdev[nesdev->netdev_count]);
-+	}
-+
-+	nes_debug(NES_DBG_INIT, "netdev_count=%d, nesadapter->netdev_count=%d\n",
-+			nesdev->netdev_count, nesdev->nesadapter->netdev_count);
-+
-+	if (notifiers_registered) {
-+		unregister_netevent_notifier(&nes_net_notifier);
-+		unregister_inetaddr_notifier(&nes_inetaddr_notifier);
-+		notifiers_registered = 0;
-+	}
-+
-+	list_del(&nesdev->list);
-+	nes_destroy_cqp(nesdev);
-+
-+	bail65:
-+	printk(KERN_ERR PFX "bail65\n");
-+	free_irq(pcidev->irq, nesdev);
-+#ifdef CONFIG_PCI_MSI
-+	if (nesdev->msi_enabled) {
-+		pci_disable_msi(pcidev);
-+	}
-+#endif
-+	bail6:
-+	printk(KERN_ERR PFX "bail6\n");
-+	tasklet_kill(&nesdev->dpc_tasklet);
-+	/* Deallocate the Adapter Structure */
-+	nes_destroy_adapter(nesdev->nesadapter);
-+
-+	bail5:
-+	printk(KERN_ERR PFX "bail5\n");
-+	iounmap(nesdev->regs);
-+
-+	bail3:
-+	printk(KERN_ERR PFX "bail3\n");
-+	kfree(nesdev);
-+
-+	bail2:
-+	pci_release_regions(pcidev);
-+
-+	bail1:
-+	pci_disable_device(pcidev);
-+
-+	bail0:
-+	return ret;
-+}
-+
-+
-+/**
-+ * nes_remove - unload from kernel
-+ */
-+static void __devexit nes_remove(struct pci_dev *pcidev)
-+{
-+	struct nes_device *nesdev = pci_get_drvdata(pcidev);
-+	struct net_device *netdev;
-+	int netdev_index=0;
-+
-+	nes_debug(NES_DBG_SHUTDOWN, "called.\n");
-+
-+		if (nesdev->netdev_count) {
-+			netdev = nesdev->netdev[netdev_index];
-+			if (netdev) {
-+				netif_stop_queue(netdev);
-+				unregister_netdev(netdev);
-+				nes_netdev_destroy(netdev);
-+
-+				nesdev->netdev[netdev_index] = NULL;
-+				nesdev->netdev_count--;
-+				nesdev->nesadapter->netdev_count--;
-+			}
-+		}
-+	if (notifiers_registered) {
-+		unregister_netevent_notifier(&nes_net_notifier);
-+		unregister_inetaddr_notifier(&nes_inetaddr_notifier);
-+		notifiers_registered = 0;
-+	}
-+
-+	list_del(&nesdev->list);
-+	nes_destroy_cqp(nesdev);
-+	tasklet_kill(&nesdev->dpc_tasklet);
-+
-+	/* Deallocate the Adapter Structure */
-+	nes_destroy_adapter(nesdev->nesadapter);
-+
-+	free_irq(pcidev->irq, nesdev);
-+
-+#ifdef CONFIG_PCI_MSI
-+	if (nesdev->msi_enabled) {
-+		pci_disable_msi(pcidev);
-+	}
-+#endif
-+
-+	iounmap(nesdev->regs);
-+	kfree(nesdev);
-+
-+	/* nes_debug(NES_DBG_SHUTDOWN, "calling pci_release_regions.\n"); */
-+	pci_release_regions(pcidev);
-+	pci_disable_device(pcidev);
-+	pci_set_drvdata(pcidev, NULL);
-+}
-+
-+
-+static struct pci_driver nes_pci_driver = {
-+	.name = DRV_NAME,
-+	.id_table = nes_pci_table,
-+	.probe = nes_probe,
-+	.remove = __devexit_p(nes_remove),
++	u16 base_doorbell_index;
++	u8 msi_enabled;
++	u8 netdev_count;
++	u8 napi_isr_ran;
++	u8 disable_rx_flow_control;
++	u8 disable_tx_flow_control;
 +};
 +
 +
-+/**
-+ * nes_init_module - module initialization entry point
-+ */
-+static int __init nes_init_module(void)
++static inline int nes_skb_is_gso(const struct sk_buff *skb)
 +{
-+	int retval;
-+	retval = nes_cm_start();
-+	if (retval) {
-+		printk(KERN_ERR PFX "Unable to start NetEffect iWARP CM.\n");
-+		return retval;
++	return skb_shinfo(skb)->gso_size;
++}
++
++#define nes_skb_linearize(_skb)  skb_linearize(_skb)
++
++
++/* Read from memory-mapped device */
++static inline u32 nes_read_indexed(struct nes_device *nesdev, u32 reg_index)
++{
++	unsigned long flags;
++	void __iomem *addr = nesdev->index_reg;
++	u32 value;
++
++	spin_lock_irqsave(&nesdev->indexed_regs_lock, flags);
++
++	writel(reg_index, addr);
++	value = readl((void __iomem *)addr + 4);
++
++	spin_unlock_irqrestore(&nesdev->indexed_regs_lock, flags);
++	return value;
++}
++
++static inline u32 nes_read32(const void __iomem* addr)
++{
++	return readl(addr);
++}
++
++static inline u16 nes_read16(const void __iomem* addr)
++{
++	return readw(addr);
++}
++
++static inline u8 nes_read8(const void __iomem* addr)
++{
++	return readb(addr);
++}
++
++/* Write to memory-mapped device */
++static inline void nes_write_indexed(struct nes_device *nesdev, u32 reg_index, u32 val)
++{
++	unsigned long flags;
++	void __iomem *addr = nesdev->index_reg;
++
++	spin_lock_irqsave(&nesdev->indexed_regs_lock, flags);
++
++	writel(reg_index, addr);
++	writel(val, (void __iomem *)addr + 4);
++
++	spin_unlock_irqrestore(&nesdev->indexed_regs_lock, flags);
++}
++
++static inline void nes_write32(void __iomem *addr, u32 val)
++{
++	writel(val, addr);
++}
++
++static inline void nes_write16(void __iomem *addr, u16 val)
++{
++	writew(val, addr);
++}
++
++static inline void nes_write8(void __iomem *addr, u8 val)
++{
++	writeb(val, addr);
++}
++
++
++
++static inline int nes_alloc_resource(struct nes_adapter *nesadapter,
++		unsigned long *resource_array, u32 max_resources,
++		u32 *req_resource_num, u32 *next)
++{
++	unsigned long flags;
++	u32 resource_num;
++
++	spin_lock_irqsave(&nesadapter->resource_lock, flags);
++
++	resource_num = find_next_zero_bit(resource_array, max_resources, *next);
++	if (resource_num >= max_resources) {
++		resource_num = find_first_zero_bit(resource_array, max_resources);
++		if (resource_num >= max_resources) {
++			printk(KERN_ERR PFX "%s: No available resourcess.\n", __FUNCTION__);
++			spin_unlock_irqrestore(&nesadapter->resource_lock, flags);
++			return -EMFILE;
++		}
 +	}
-+#ifdef OFED_1_2
-+	return(pci_module_init(&nes_pci_driver));
-+#else
-+	return(pci_register_driver(&nes_pci_driver));
-+#endif
++	nes_debug(NES_DBG_HW, "find_next_zero_bit returned = %u (max = %u).\n",
++			resource_num, max_resources);
++	set_bit(resource_num, resource_array);
++	*next = resource_num+1;
++	if (*next == max_resources) {
++		*next = 0;
++	}
++	spin_unlock_irqrestore(&nesadapter->resource_lock, flags);
++	*req_resource_num = resource_num;
++
++	return 0;
 +}
 +
-+
-+/**
-+ * nes_exit_module - module unload entry point
-+ */
-+static void __exit nes_exit_module(void)
++static inline int nes_is_resource_allocated(struct nes_adapter *nesadapter,
++		unsigned long *resource_array, u32 resource_num)
 +{
-+	nes_cm_stop();
-+	pci_unregister_driver(&nes_pci_driver);
++	unsigned long flags;
++	int bit_is_set;
++
++	spin_lock_irqsave(&nesadapter->resource_lock, flags);
++
++	bit_is_set = test_bit(resource_num, resource_array);
++	nes_debug(NES_DBG_HW, "resource_num %u is%s allocated.\n",
++			resource_num, (bit_is_set ? "": " not"));
++	spin_unlock_irqrestore(&nesadapter->resource_lock, flags);
++
++	return bit_is_set;
++}
++
++static inline void nes_free_resource(struct nes_adapter *nesadapter,
++		unsigned long *resource_array, u32 resource_num)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&nesadapter->resource_lock, flags);
++	clear_bit(resource_num, resource_array);
++	spin_unlock_irqrestore(&nesadapter->resource_lock, flags);
++}
++
++static inline struct nes_vnic *to_nesvnic(struct ib_device *ibdev) {
++	return(container_of(ibdev, struct nes_ib_device, ibdev)->nesvnic);
++}
++
++static inline struct nes_pd *to_nespd(struct ib_pd *ibpd) {
++	return(container_of(ibpd, struct nes_pd, ibpd));
++}
++
++static inline struct nes_ucontext *to_nesucontext(struct ib_ucontext *ibucontext) {
++	return(container_of(ibucontext, struct nes_ucontext, ibucontext));
++}
++
++static inline struct nes_mr *to_nesmr(struct ib_mr *ibmr) {
++	return(container_of(ibmr, struct nes_mr, ibmr));
++}
++
++static inline struct nes_mr *to_nesmr_from_ibfmr(struct ib_fmr *ibfmr) {
++	return(container_of(ibfmr, struct nes_mr, ibfmr));
++}
++
++static inline struct nes_mr *to_nesmw(struct ib_mw *ibmw) {
++	return(container_of(ibmw, struct nes_mr, ibmw));
++}
++
++static inline struct nes_fmr *to_nesfmr(struct nes_mr *nesmr) {
++	return(container_of(nesmr, struct nes_fmr, nesmr));
++}
++
++static inline struct nes_cq *to_nescq(struct ib_cq *ibcq) {
++	return(container_of(ibcq, struct nes_cq, ibcq));
++}
++
++static inline struct nes_qp *to_nesqp(struct ib_qp *ibqp) {
++	return(container_of(ibqp, struct nes_qp, ibqp));
 +}
 +
 +
-+module_init(nes_init_module);
-+module_exit(nes_exit_module);
++#define NES_CQP_REQUEST_NOT_HOLDING_LOCK 0
++#define NES_CQP_REQUEST_HOLDING_LOCK 1
++#define NES_CQP_REQUEST_NO_DOORBELL_RING 0
++#define NES_CQP_REQUEST_RING_DOORBELL 1
 +
++static inline struct nes_cqp_request
++		*nes_get_cqp_request(struct nes_device *nesdev, int holding_lock) {
++	unsigned long flags;
++	struct nes_cqp_request *cqp_request = NULL;
++
++	if (!holding_lock) {
++		spin_lock_irqsave(&nesdev->cqp.lock, flags);
++	}
++	if (!list_empty(&nesdev->cqp_avail_reqs)) {
++		cqp_request = list_entry(nesdev->cqp_avail_reqs.next,
++				struct nes_cqp_request, list);
++		atomic_inc(&cqp_reqs_allocated);
++		list_del_init(&cqp_request->list);
++	} else if (!holding_lock) {
++		spin_unlock_irqrestore(&nesdev->cqp.lock, flags);
++		cqp_request = kzalloc(sizeof(struct nes_cqp_request),
++							  GFP_KERNEL);
++		if (cqp_request) {
++			cqp_request->dynamic = 1;
++			INIT_LIST_HEAD(&cqp_request->list);
++			atomic_inc(&cqp_reqs_dynallocated);
++		}
++		spin_lock_irqsave(&nesdev->cqp.lock, flags);
++	}
++	if (!holding_lock) {
++		spin_unlock_irqrestore(&nesdev->cqp.lock, flags);
++	}
++
++	if (cqp_request) {
++		init_waitqueue_head(&cqp_request->waitq);
++		cqp_request->waiting = 0;
++		cqp_request->request_done = 0;
++		init_waitqueue_head(&cqp_request->waitq);
++		nes_debug(NES_DBG_CQP, "Got cqp request %p from the available list \n",
++				cqp_request);
++	} else
++		printk(KERN_ERR PFX "%s: Could not allocated a CQP request.\n",
++			   __FUNCTION__);
++
++	return cqp_request;
++}
++
++static inline void nes_post_cqp_request(struct nes_device *nesdev,
++		struct nes_cqp_request *cqp_request, int holding_lock, int ring_doorbell)
++{
++	/* caller must be holding CQP lock */
++	struct nes_hw_cqp_wqe *cqp_wqe;
++	unsigned long flags;
++	u32 cqp_head;
++
++	if (!holding_lock) {
++		spin_lock_irqsave(&nesdev->cqp.lock, flags);
++	}
++
++	if (((((nesdev->cqp.sq_tail+(nesdev->cqp.sq_size*2))-nesdev->cqp.sq_head) &
++			(nesdev->cqp.sq_size - 1)) != 1)
++			&& (list_empty(&nesdev->cqp_pending_reqs))) {
++		cqp_head = nesdev->cqp.sq_head++;
++		nesdev->cqp.sq_head &= nesdev->cqp.sq_size-1;
++		cqp_wqe = &nesdev->cqp.sq_vbase[cqp_head];
++		memcpy(cqp_wqe, &cqp_request->cqp_wqe, sizeof(*cqp_wqe));
++		barrier();
++		cqp_wqe->wqe_words[NES_CQP_WQE_COMP_SCRATCH_LOW_IDX] = cpu_to_le32((u32)((u64)(cqp_request)));
++		cqp_wqe->wqe_words[NES_CQP_WQE_COMP_SCRATCH_HIGH_IDX] = cpu_to_le32((u32)(((u64)(cqp_request))>>32));
++		nes_debug(NES_DBG_CQP, "CQP request (opcode 0x%02X), line 1 = 0x%08X put on CQPs SQ,"
++				" request = %p, cqp_head = %u, cqp_tail = %u, cqp_size = %u,"
++				" waiting = %d, refcount = %d.\n",
++				le32_to_cpu(cqp_wqe->wqe_words[NES_CQP_WQE_OPCODE_IDX])&0x3f,
++				le32_to_cpu(cqp_wqe->wqe_words[NES_CQP_WQE_ID_IDX]), cqp_request,
++				nesdev->cqp.sq_head, nesdev->cqp.sq_tail, nesdev->cqp.sq_size,
++				cqp_request->waiting, atomic_read(&cqp_request->refcount));
++		barrier();
++		if (ring_doorbell) {
++			/* Ring doorbell (1 WQEs) */
++			nes_write32(nesdev->regs+NES_WQE_ALLOC, 0x01800000 | nesdev->cqp.qp_id);
++		}
++
++		barrier();
++	} else {
++		atomic_inc(&cqp_reqs_queued);
++		nes_debug(NES_DBG_CQP, "CQP request %p (opcode 0x%02X), line 1 = 0x%08X"
++				" put on the pending queue.\n",
++				cqp_request,
++				cqp_request->cqp_wqe.wqe_words[NES_CQP_WQE_OPCODE_IDX]&0x3f,
++				cqp_request->cqp_wqe.wqe_words[NES_CQP_WQE_ID_IDX]);
++		list_add_tail(&cqp_request->list, &nesdev->cqp_pending_reqs);
++	}
++
++	if (!holding_lock) {
++		spin_unlock_irqrestore(&nesdev->cqp.lock, flags);
++	}
++
++	return;
++}
++
++
++/* Utils */
++#define CRC32C_POLY     0x1EDC6F41
++#define ORDER           32
++#define REFIN           1
++#define REFOUT          1
++#define NES_HASH_CRC_INITAL_VALUE 0xFFFFFFFF
++#define NES_HASH_CRC_FINAL_XOR    0xFFFFFFFF
++
++/* nes.c */
++void nes_add_ref(struct ib_qp *);
++void nes_rem_ref(struct ib_qp *);
++struct ib_qp *nes_get_qp(struct ib_device *, int);
++
++/* nes_hw.c */
++struct nes_adapter *nes_init_adapter(struct nes_device *, u8);
++unsigned int nes_reset_adapter_ne020(struct nes_device *, u8 *);
++int nes_init_serdes(struct nes_device *, u8, u8, u8);
++void nes_init_csr_ne020(struct nes_device *, u8, u8);
++void nes_destroy_adapter(struct nes_adapter *);
++int nes_init_cqp(struct nes_device *);
++int nes_init_phy(struct nes_device *);
++int nes_init_nic_qp(struct nes_device *, struct net_device *);
++void nes_destroy_nic_qp(struct nes_vnic *);
++int nes_napi_isr(struct nes_device *);
++void nes_dpc(unsigned long);
++void nes_process_ceq(struct nes_device *, struct nes_hw_ceq *);
++void nes_process_aeq(struct nes_device *, struct nes_hw_aeq *);
++void nes_process_mac_intr(struct nes_device *, u32);
++void nes_nic_napi_ce_handler(struct nes_device *, struct nes_hw_nic_cq *);
++void nes_nic_ce_handler(struct nes_device *, struct nes_hw_nic_cq *);
++void nes_cqp_ce_handler(struct nes_device *, struct nes_hw_cq *);
++void nes_process_iwarp_aeqe(struct nes_device *, struct nes_hw_aeqe *);
++void nes_iwarp_ce_handler(struct nes_device *, struct nes_hw_cq *);
++int nes_destroy_cqp(struct nes_device *);
++int nes_nic_cm_xmit(struct sk_buff *, struct net_device *);
++
++/* nes_nic.c */
++void nes_netdev_exit(struct nes_vnic *);
++struct net_device *nes_netdev_init(struct nes_device *, void __iomem *);
++void nes_netdev_destroy(struct net_device *);
++int nes_nic_cm_xmit(struct sk_buff *, struct net_device *);
++
++/* nes_cm.c */
++void *nes_cm_create(struct net_device *);
++int nes_cm_recv(struct sk_buff *, struct net_device *);
++void nes_update_arp(unsigned char *, u32, u32, u16, u16);
++void nes_manage_arp_cache(struct net_device *, unsigned char *, u32, u32);
++void nes_sock_release(struct nes_qp *, unsigned long *);
++struct nes_cm_core *nes_cm_alloc_core(void);
++void nes_disconnect_worker(void *);
++void flush_wqes(struct nes_device *nesdev, struct nes_qp *, u32, u32);
++int nes_manage_apbvt(struct nes_vnic *, u32, u32, u32);
++
++int nes_cm_disconn(struct nes_qp *);
++void nes_cm_disconn_worker(void *);
++
++/* nes_verbs.c */
++int nes_hw_modify_qp(struct nes_device *, struct nes_qp *, u32, u32);
++int nes_modify_qp(struct ib_qp *, struct ib_qp_attr *, int, struct ib_udata *);
++struct nes_ib_device *nes_init_ofa_device(struct net_device *);
++void nes_destroy_ofa_device(struct nes_ib_device *);
++int nes_register_ofa_device(struct nes_ib_device *);
++void nes_unregister_ofa_device(struct nes_ib_device *);
++
++/* nes_util.c */
++int nes_read_eeprom_values(struct nes_device *, struct nes_adapter *);
++void nes_write_1G_phy_reg(struct nes_device *, u8, u8, u16);
++void nes_read_1G_phy_reg(struct nes_device *, u8, u8, u16 *);
++void nes_write_10G_phy_reg(struct nes_device *, u16, u8, u16);
++void nes_read_10G_phy_reg(struct nes_device *, u16, u8);
++int nes_arp_table(struct nes_device *, u32, u8 *, u32);
++void nes_mh_fix(unsigned long);
++void nes_dump_mem(unsigned int, void *, int);
++u32 nes_crc32(u32, u32, u32, u32, u8 *, u32, u32, u32);
++
++#endif	/* __NES_H */
