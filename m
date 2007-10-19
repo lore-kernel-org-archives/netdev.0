@@ -1,95 +1,46 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] Compact some ifdefs in the fib code
-Date: Fri, 19 Oct 2007 18:12:26 +0400
-Message-ID: <4718BB4A.7020105@openvz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] netdev: Interfamily support for IPSEC BEET
+Date: Fri, 19 Oct 2007 22:22:22 +0800
+Message-ID: <E1Iisk2-0003qj-00@gondolin.me.apana.org.au>
+References: <200710191307.55589.joakim.koskela@hiit.fi>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net
+To: joakim.koskela@hiit.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:47107 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759479AbXJSOMm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2007 10:12:42 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:4184 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752047AbXJSOWc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 10:22:32 -0400
+In-Reply-To: <200710191307.55589.joakim.koskela@hiit.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There are places that check for CONFIG_IP_MULTIPLE_TABLES
-twice in the same file, but the internals of these #ifdefs
-can be merged.
+Joakim Koskela <joakim.koskela@hiit.fi> wrote:
+> Hi,
+> 
+> Here's an updated version of the patch adding support for ipv4/ipv6
+> interfamily addressing for the ipsec BEET (Bound End-to-End Tunnel)
+> mode, as specified by the ietf draft found at:
+> 
+> http://www.ietf.org/internet-drafts/draft-nikander-esp-beet-mode-07.txt
+> 
+> The previous implementation required that both address pairs in the SA
+> were of the same family. This patch enables mixing ipv4 and ipv6
+> addresses. All combinations (4-4, 4-6, 6-4, 6-6) have been tested.
+> 
+> The generic interfamily fixes have been chopped off from this into
+> separate patches.
 
-As a side effect - remove one ifdef from inside a function.
+Please hold onto this.  I've got a more generic version of this
+that doesn't duplicate the inter-family logic between BEET mode
+and tunnel mode.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Instead I've created a generic function that reads info from the
+inner header and puts them in an address-neutral format which is
+then picked up by either BEET or tunnel mode.
 
----
-
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 8cadc77..ed514bf 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -185,6 +185,12 @@ static inline void fib_select_default(const struct flowi *flp, struct fib_result
- }
- 
- #else /* CONFIG_IP_MULTIPLE_TABLES */
-+extern void __init fib4_rules_init(void);
-+
-+#ifdef CONFIG_NET_CLS_ROUTE
-+extern u32 fib_rules_tclass(struct fib_result *res);
-+#endif
-+
- #define ip_fib_local_table fib_get_table(RT_TABLE_LOCAL)
- #define ip_fib_main_table fib_get_table(RT_TABLE_MAIN)
- 
-@@ -214,15 +220,6 @@ extern __be32  __fib_res_prefsrc(struct fib_result *res);
- /* Exported by fib_hash.c */
- extern struct fib_table *fib_hash_init(u32 id);
- 
--#ifdef CONFIG_IP_MULTIPLE_TABLES
--extern void __init fib4_rules_init(void);
--
--#ifdef CONFIG_NET_CLS_ROUTE
--extern u32 fib_rules_tclass(struct fib_result *res);
--#endif
--
--#endif
--
- static inline void fib_combine_itag(u32 *itag, struct fib_result *res)
- {
- #ifdef CONFIG_NET_CLS_ROUTE
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 78b514b..f7f0e37 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -59,6 +59,13 @@ struct fib_table *ip_fib_main_table;
- #define FIB_TABLE_HASHSZ 1
- static struct hlist_head fib_table_hash[FIB_TABLE_HASHSZ];
- 
-+static void __init fib4_rules_init(void)
-+{
-+	ip_fib_local_table = fib_hash_init(RT_TABLE_LOCAL);
-+	hlist_add_head_rcu(&ip_fib_local_table->tb_hlist, &fib_table_hash[0]);
-+	ip_fib_main_table  = fib_hash_init(RT_TABLE_MAIN);
-+	hlist_add_head_rcu(&ip_fib_main_table->tb_hlist, &fib_table_hash[0]);
-+}
- #else
- 
- #define FIB_TABLE_HASHSZ 256
-@@ -903,14 +910,8 @@ void __init ip_fib_init(void)
- 
- 	for (i = 0; i < FIB_TABLE_HASHSZ; i++)
- 		INIT_HLIST_HEAD(&fib_table_hash[i]);
--#ifndef CONFIG_IP_MULTIPLE_TABLES
--	ip_fib_local_table = fib_hash_init(RT_TABLE_LOCAL);
--	hlist_add_head_rcu(&ip_fib_local_table->tb_hlist, &fib_table_hash[0]);
--	ip_fib_main_table  = fib_hash_init(RT_TABLE_MAIN);
--	hlist_add_head_rcu(&ip_fib_main_table->tb_hlist, &fib_table_hash[0]);
--#else
-+
- 	fib4_rules_init();
--#endif
- 
- 	register_netdevice_notifier(&fib_netdev_notifier);
- 	register_inetaddr_notifier(&fib_inetaddr_notifier);
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
