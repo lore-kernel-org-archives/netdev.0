@@ -1,49 +1,30 @@
-From: Joakim Koskela <joakim.koskela@hiit.fi>
-Subject: [PATCH] netdev: Reset ipv4 flags during bundle creation on interfamily ipsec
-Date: Fri, 19 Oct 2007 14:40:16 +0300
-Message-ID: <200710191440.17232.joakim.koskela@hiit.fi>
-References: <200710191437.39449.joakim.koskela@hiit.fi>
-Reply-To: joakim.koskela@hiit.fi
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Patrick McHardy" <kaber@trash.net>,
-	"Herbert Xu" <herbert@gondor.apana.org.au>
-To: netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: multicast: bug or "feature"
+Date: Fri, 19 Oct 2007 19:43:27 +0800
+Message-ID: <E1IiqGF-0003Vu-00@gondolin.me.apana.org.au>
+References: <47178708.2040606@hp.com>
+Cc: netdev@vger.kernel.org, brian.haley@hp.com, dlstevens@us.ibm.com
+To: vladislav.yasevich@hp.com (Vlad Yasevich)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pne-smtpout4-sn2.hy.skanova.net ([81.228.8.154]:53436 "EHLO
-	pne-smtpout4-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757134AbXJSLoW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 07:44:22 -0400
-In-Reply-To: <200710191437.39449.joakim.koskela@hiit.fi>
-Content-Disposition: inline
+Received: from rhun.apana.org.au ([64.62.148.172]:2782 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933158AbXJSLnf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 07:43:35 -0400
+In-Reply-To: <47178708.2040606@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch resets the ipv4-related flags in the new flow as their
-content will otherwise depend on the bits of the ipv6 addresses the
-struct was previously used for. For example, fl4_tos might have
-RTO_ONLINK set, which usually prevents the right route from being
-found.
+Vlad Yasevich <vladislav.yasevich@hp.com> wrote:
+>
+> Now, to figure out what IPv6 does different and why it works.
+> Seems to me that the two should have the same behavior.
 
-This bit was chopped off the larger patch dealing with the problems
-related to creating the bundles for inter-family tranformations.
+IPv6 on Linux uses a per-interface addressing model as opposed
+to the per-host model used by IPv4.
 
-Signed-off-by: Joakim Koskela <jookos@gmail.com>
---
-
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 82e27b8..386a762 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -184,6 +184,8 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
- 			case AF_INET:
- 				fl_tunnel.fl4_dst = xfrm[i]->id.daddr.a4;
- 				fl_tunnel.fl4_src = xfrm[i]->props.saddr.a4;
-+				fl_tunnel.fl4_tos = 0;
-+				fl_tunnel.fl4_scope = 0;
- 				break;
- 			case AF_INET6:
- 				ipv6_addr_copy(&fl_tunnel.fl6_dst, __xfrm6_bundle_addr_remote(xfrm[i], &fl->fl6_dst));
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
