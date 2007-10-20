@@ -1,57 +1,25 @@
-From: Al Boldi <a1426z@gawab.com>
-Subject: Re: [RFD] iptables:  mangle table obsoletes filter table
-Date: Sat, 20 Oct 2007 06:40:02 +0300
-Message-ID: <200710200640.02012.a1426z@gawab.com>
-References: <200710120031.42805.a1426z@gawab.com> <47168EA1.1080300@tmr.com> <471699A0.3060303@tmr.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: FYI - linux-net.osdl.org
+Date: Fri, 19 Oct 2007 21:39:21 -0700
+Message-ID: <20071019213921.25497d8a@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Bill Davidsen <davidsen@tmr.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <471699A0.3060303@tmr.com>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:35398 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751738AbXJTEjd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2007 00:39:33 -0400
+Received: from freepuppy.rosehill (069-064-229-129.pdx.net [69.64.229.129])
+	(authenticated bits=0)
+	by smtp2.linux-foundation.org (8.13.5.20060308/8.13.5/Debian-3ubuntu1.1) with ESMTP id l9K4dUGt019959
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 19 Oct 2007 21:39:32 -0700
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bill Davidsen wrote:
-> Bill Davidsen wrote:
-> >>>> If not, then shouldn't the filter table be obsoleted to avoid
-> >>>> confusion?
-> >>>
-> >>> That would probably confuse people. Just don't use it if you don't
-> >>> need to.
-> >
-> > That is a most practical suggestion.
-> >
-> >> The problem is that people think they are safe with the filter table,
-> >> when in fact they need the prerouting chain to seal things.  Right now
-> >> this is only possible in the mangle table.
-> >
-> > I'm not sure what you think is unsafe about using the filter table, and
-> > the order of evaluation issues certainly seem to suggest that some
-> > actions would take a major rethink at least. Perhaps you could avoid
-> > breaking all of the setups which currently work, rather than force
-> > everyone to do things differently because you feel that your way is
-> > better.
->
-> It was my intention to suggest that unintentional breakage of existing
-> setups should be avoided, not that removing the filter table was some
-> evil plot. ;-)
-> On rereading my original post I failed to make that clear, please take
-> it as intended.
-
-Sure, the idea was to mark the filter table obsolete as to make people start 
-using the mangle table to do their filtering for new setups.  The filter 
-table would then still be available for legacy/special setups.  But this 
-would only be possible if we at least ported the REJECT target to mangle.
-
-
-Thanks!
-
---
-Al
-
+The existing wiki has been migrated into the Linux Foundation wiki system.
+This is to reduce the administrative overhead and management effort.
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
