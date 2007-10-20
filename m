@@ -1,38 +1,57 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: ISNs and 2.6.22, Was: Re: haproxy & linux firewall (netfilter)
-Date: Sat, 20 Oct 2007 23:52:01 +0200
-Message-ID: <20071020215201.GA12894@1wt.eu>
-References: <Pine.LNX.4.64.0710192358340.17074@bizon.gios.gov.pl> <20071020055604.GA1371@1wt.eu> <Pine.LNX.4.64.0710201422220.17074@bizon.gios.gov.pl> <20071020133101.GB3490@1wt.eu> <Pine.LNX.4.64.0710201544290.17074@bizon.gios.gov.pl> <20071020150035.GA12878@1wt.eu> <Pine.LNX.4.64.0710201853070.19637@bizon.gios.gov.pl> <Pine.LNX.4.64.0710201921000.19637@bizon.gios.gov.pl>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: Bluetooth patches for 2.6.24
+Date: Sat, 20 Oct 2007 22:01:37 +0200
+Message-ID: <1192910497.6184.134.camel@violet>
+References: <1192888816.6184.117.camel@violet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: haproxy@formilux.org, netdev@vger.kernel.org
-To: Krzysztof Oledzki <ole@ans.pl>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:3308 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750756AbXJUBgu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Oct 2007 21:36:50 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0710201921000.19637@bizon.gios.gov.pl>
+Received: from coyote.holtmann.net ([217.160.111.169]:58764 "EHLO
+	mail.holtmann.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751554AbXJUBhw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2007 21:37:52 -0400
+In-Reply-To: <1192888816.6184.117.camel@violet>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 20, 2007 at 07:23:25PM +0200, Krzysztof Oledzki wrote:
-(...)
-> >So it seems that ISNs are not randomly incremented but rather randomly 
-> >generated. Adding netdev@vger.kernel.org to the CC list.
-> 
-> Eh, I was little to hurry this time. There were not randomly generated but 
-> incremented with to big value. This patch fixes my problem:
-> 
-> http://git.kernel.org/?p=linux/kernel/git/stable/stable-queue.git;a=blob;f=queue-2.6.22/fix-tcp-initial-sequence-number-selection.patch;h=05b9167d68ecde1e6088f58c55e2906b768420ed;hb=HEAD
+Hi Dave,
 
-Good catch Krzysztof ! I've already noticed that one on LKML but did not
-make the connection with your problem!
+> these are the Bluetooth patches for the 2.6.24 kernel release. Please
+> pull and send them to Linus.
 
-Please also tell Jozsef so that if he gets other reports, he knows where
-to point the reporters.
+one of the cleanup patches slipped through the net. If you already
+pulled my tree, then please re-pull. I pushed it on top of it.
 
-Regards,
-Willy
+Regards
+
+Marcel
+
+
+Please pull from
+
+        git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
+
+This will update the following files:
+
+ net/bluetooth/rfcomm/core.c |   60 +++++++++++++++-----------------------------
+ 1 file changed, 21 insertions(+), 39 deletions(-)
+
+through these ChangeSets:
+
+Commit: 58876e6a3dac244ca8d61f3b9750a3fb63875eff 
+Author: Marcel Holtmann <marcel@holtmann.org> Sat, 20 Oct 2007 21:37:20 +0200 
+
+    [Bluetooth] Convert RFCOMM to use kthread API
+    
+    This patch does the full kthread conversion for the RFCOMM protocol. It
+    makes the code slightly simpler and more maintainable.
+    
+    Based on a patch from Christoph Hellwig <hch@lst.de>
+    
+    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+
+
 
