@@ -1,37 +1,33 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: linux kernel networking code review request
-Date: Fri, 19 Oct 2007 22:15:19 -0400
-Message-ID: <200710192215.19850.dmitry.torokhov@gmail.com>
-References: <1192829803.22064.556.camel@teletran1>  <39C363776A4E8C4A94691D2BD9D1C9A1029EDB5F@XCH-NW-7V2.nw.nos.boeing.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] phy/bitbang: missing MODULE_LICENSE
+Date: Fri, 19 Oct 2007 23:03:54 -0400
+Message-ID: <4719701A.2030805@pobox.com>
+References: <20070920220043.GA28769@loki.buserror.net>	<20070920220123.GG28784@loki.buserror.net> <20071018122021.2acd128d.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Cc: Scott Wood <scottwood@freescale.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: Randy Dunlap <randy.dunlap@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.178]:42391 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751285AbXJTCP1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 22:15:27 -0400
-Received: by py-out-1112.google.com with SMTP id u77so1308391pyb
-        for <netdev@vger.kernel.org>; Fri, 19 Oct 2007 19:15:26 -0700 (PDT)
-In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDB5F@XCH-NW-7V2.nw.nos.boeing.com>
-Content-Disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:43439 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756995AbXJTDEA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2007 23:04:00 -0400
+In-Reply-To: <20071018122021.2acd128d.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 19 October 2007, Templin, Fred L wrote:
-> Hello,
+Randy Dunlap wrote:
+> From: Randy Dunlap <randy.dunlap@oracle.com>
 > 
-> I would like to get a review on some new Linux
-> kernel networking code. The code is based on the
-> 2.6.23 source tree and touches three files - two
-> in ./net/ipv6 and one in ./include/net. What is
-> the proper procedure for requesting a review?
+> Missing MODULE_LICENSE(), loading this module taints the kernel.
 > 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> ---
+>  drivers/net/phy/mdio-bitbang.c |    2 ++
+>  1 file changed, 2 insertions(+)
 
-Just don your flameproof pants and post the changes here ;)
+applied this and the NAPI_Howto Kconfig patch
 
--- 
-Dmitry
+
