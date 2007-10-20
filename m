@@ -1,40 +1,37 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH] Fix build break in tsi108.c
-Date: Fri, 19 Oct 2007 21:04:20 -0500
-Message-ID: <20071020020420.GA20073@lixom.net>
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Subject: Re: linux kernel networking code review request
+Date: Fri, 19 Oct 2007 22:15:19 -0400
+Message-ID: <200710192215.19850.dmitry.torokhov@gmail.com>
+References: <1192829803.22064.556.camel@teletran1>  <39C363776A4E8C4A94691D2BD9D1C9A1029EDB5F@XCH-NW-7V2.nw.nos.boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, joe@perches.com
-To: jgarzik@pobox.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Templin, Fred L" <Fred.L.Templin@boeing.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:58383 "EHLO mail.lixom.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761250AbXJTB5n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2007 21:57:43 -0400
+Received: from py-out-1112.google.com ([64.233.166.178]:42391 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751285AbXJTCP1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 22:15:27 -0400
+Received: by py-out-1112.google.com with SMTP id u77so1308391pyb
+        for <netdev@vger.kernel.org>; Fri, 19 Oct 2007 19:15:26 -0700 (PDT)
+In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDB5F@XCH-NW-7V2.nw.nos.boeing.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix build break:
+On Friday 19 October 2007, Templin, Fred L wrote:
+> Hello,
+> 
+> I would like to get a review on some new Linux
+> kernel networking code. The code is based on the
+> 2.6.23 source tree and touches three files - two
+> in ./net/ipv6 and one in ./include/net. What is
+> the proper procedure for requesting a review?
+> 
 
-drivers/net/tsi108_eth.c: In function 'tsi108_init_one':
-drivers/net/tsi108_eth.c:1633: error: expected ')' before 'dev'
-drivers/net/tsi108_eth.c:1633: warning: too few arguments for format
-make[2]: *** [drivers/net/tsi108_eth.o] Error 1
+Just don your flameproof pants and post the changes here ;)
 
-
-Signed-off-by: Olof Johansson <olof@lixom.net>
-
-diff --git a/drivers/net/tsi108_eth.c b/drivers/net/tsi108_eth.c
-index df10af7..35d15e8 100644
---- a/drivers/net/tsi108_eth.c
-+++ b/drivers/net/tsi108_eth.c
-@@ -1629,7 +1629,7 @@ tsi108_init_one(struct platform_device *pdev)
- 		goto register_fail;
- 	}
- 
--	printk(KERN_INFO "%s: Tsi108 Gigabit Ethernet, MAC: %s\n"
-+	printk(KERN_INFO "%s: Tsi108 Gigabit Ethernet, MAC: %s\n",
- 	       dev->name, print_mac(mac, dev->dev_addr));
- #ifdef DEBUG
- 	data->msg_enable = DEBUG;
+-- 
+Dmitry
