@@ -1,57 +1,65 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: Bluetooth patches for 2.6.24
-Date: Sat, 20 Oct 2007 22:01:37 +0200
-Message-ID: <1192910497.6184.134.camel@violet>
-References: <1192888816.6184.117.camel@violet>
+From: Pierre Ossman <drzeus@drzeus.cx>
+Subject: net: alignment problem in icmp code
+Date: Sat, 20 Oct 2007 23:35:40 +0200
+Message-ID: <20071020233540.43d2f103@poseidon.drzeus.cx>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=PGP-SHA1; boundary="=_hera.drzeus.cx-16700-1192916114-0001-2"
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([217.160.111.169]:58764 "EHLO
-	mail.holtmann.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751554AbXJUBhw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Oct 2007 21:37:52 -0400
-In-Reply-To: <1192888816.6184.117.camel@violet>
+Received: from gateway.drzeus.cx ([85.8.24.16]:47476 "EHLO smtp.drzeus.cx"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750759AbXJUCJL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Oct 2007 22:09:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+This is a MIME-formatted message.  If you see this text it means that your
+E-mail software does not support MIME-formatted messages.
 
-> these are the Bluetooth patches for the 2.6.24 kernel release. Please
-> pull and send them to Linus.
+--=_hera.drzeus.cx-16700-1192916114-0001-2
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-one of the cleanup patches slipped through the net. If you already
-pulled my tree, then please re-pull. I pushed it on top of it.
+Structure assignment have to be aligned just like any assignment, and the s=
+kb could point to anything. So take the safe route and use a memcpy().
 
-Regards
+Signed-off-by: Pierre Ossman <drzeus@drzeus.cx>
+---
 
-Marcel
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 272c69e..a7e2ec9 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -783,7 +783,7 @@ static void icmp_echo(struct sk_buff *skb)
+ 	if (!sysctl_icmp_echo_ignore_all) {
+ 		struct icmp_bxm icmp_param;
+=20
+-		icmp_param.data.icmph	   =3D *icmp_hdr(skb);
++		memcpy(&icmp_param.data.icmph, icmp_hdr(skb), sizeof(struct icmphdr));
+ 		icmp_param.data.icmph.type =3D ICMP_ECHOREPLY;
+ 		icmp_param.skb		   =3D skb;
+ 		icmp_param.offset	   =3D 0;
+@@ -819,7 +819,7 @@ static void icmp_timestamp(struct sk_buff *skb)
+ 	icmp_param.data.times[2] =3D icmp_param.data.times[1];
+ 	if (skb_copy_bits(skb, 0, &icmp_param.data.times[0], 4))
+ 		BUG();
+-	icmp_param.data.icmph	   =3D *icmp_hdr(skb);
++	memcpy(&icmp_param.data.icmph, icmp_hdr(skb), sizeof(struct icmphdr));
+ 	icmp_param.data.icmph.type =3D ICMP_TIMESTAMPREPLY;
+ 	icmp_param.data.icmph.code =3D 0;
+ 	icmp_param.skb		   =3D skb;
 
+--=_hera.drzeus.cx-16700-1192916114-0001-2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename=signature.asc
 
-Please pull from
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
 
-        git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
+iD8DBQFHGnSt7b8eESbyJLgRAuNXAKCsMavy2Ic8tjTNQ4gIzCyHUqZivgCdGHWf
+vvjr/8ynfQqYkymxNVCp6/k=
+=i1CQ
+-----END PGP SIGNATURE-----
 
-This will update the following files:
-
- net/bluetooth/rfcomm/core.c |   60 +++++++++++++++-----------------------------
- 1 file changed, 21 insertions(+), 39 deletions(-)
-
-through these ChangeSets:
-
-Commit: 58876e6a3dac244ca8d61f3b9750a3fb63875eff 
-Author: Marcel Holtmann <marcel@holtmann.org> Sat, 20 Oct 2007 21:37:20 +0200 
-
-    [Bluetooth] Convert RFCOMM to use kthread API
-    
-    This patch does the full kthread conversion for the RFCOMM protocol. It
-    makes the code slightly simpler and more maintainable.
-    
-    Based on a patch from Christoph Hellwig <hch@lst.de>
-    
-    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
-
-
-
+--=_hera.drzeus.cx-16700-1192916114-0001-2--
