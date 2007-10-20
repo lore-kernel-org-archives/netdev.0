@@ -1,36 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netdev: Interfamily support for IPSEC BEET
-Date: Fri, 19 Oct 2007 16:33:08 -0700 (PDT)
-Message-ID: <20071019.163308.80858795.davem@davemloft.net>
-References: <200710191307.55589.joakim.koskela@hiit.fi>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH 5/7] pci: Export the pci_restore_msi_state()
+ function
+Date: Fri, 19 Oct 2007 17:36:17 -0700
+Message-ID: <1192840577.5369.9.camel@dell>
+References: <1192829817.22064.559.camel@teletran1>
+ <20071019232926.GL29903@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: joakim.koskela@hiit.fi
+Cc: "Matt Carlson" <mcarlson@broadcom.com>,
+	"David Miller" <davem@davemloft.net>,
+	"netdev" <netdev@vger.kernel.org>,
+	linux-pci@atrey.karlin.mff.cuni.cz
+To: linas@austin.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55185
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759366AbXJSXcz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 19:32:55 -0400
-In-Reply-To: <200710191307.55589.joakim.koskela@hiit.fi>
+Received: from mms2.broadcom.com ([216.31.210.18]:1379 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758829AbXJSXjZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2007 19:39:25 -0400
+In-Reply-To: <20071019232926.GL29903@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 2007-10-19 at 18:29 -0500, linas@austin.ibm.com wrote:
+> On Fri, Oct 19, 2007 at 02:36:56PM -0700, Matt Carlson wrote:
+> > This patch exports the pci_restore_msi_state() function.  This function
+> > is needed to restore the MSI state during PCI error recovery.
+> > 
+> > Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+> > Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> > Signed-off-by: Michael Chan <mchan@broadcom.com>
+> 
+> Davem,
+> 
+> This patch is generically needed for recovery from PCI errors, 
+> and not just the tg3 that Matt is working on.
+> 
+> Matt, there are also several msi-related bugs in the pseries
+> architecture implementation, those patches will go out to 
+> Paul Mackerras seperately. I was hoping today ... but things 
+> came up. One little iddy-biddy problem is that the pseries
+> is not actually *saving* the msi state, and so, ahem, the 
+> restore isn't quite working out either. I'm still trying
+> to navigate around that.
+> 
+Linas, the MSI state is saved automatically when the driver calls
+pci_enable_msi(), so it doesn't need to be saved by pseries code.
 
-Please fix up these whitespace errors in your patch, thank you:
-
-+ git apply --check --whitespace=error-all diff
-Space in indent is followed by a tab.
-diff:329: 		if (x->sel.family == AF_INET) {
-Space in indent is followed by a tab.
-diff:330: 			x->props.header_len += IPV4_BEET_PHMAXLEN +
-Space in indent is followed by a tab.
-diff:331: 				(sizeof(struct ipv6hdr) - sizeof(struct iphdr));
-Space in indent is followed by a tab.
-diff:332: 		}
-Space in indent is followed by a tab.
-diff:347: 		    (x->props.mode != XFRM_MODE_BEET ||
-Space in indent is followed by a tab.
-diff:348: 		     x->sel.family != AF_INET6)) {
-fatal: 6 lines add whitespace errors.
