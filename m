@@ -1,39 +1,27 @@
-From: Jan Engelhardt <jengelh@computergmbh.de>
-Subject: Re: [RFD] iptables: mangle table obsoletes filter table
-Date: Sat, 20 Oct 2007 13:10:48 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0710201310050.1997@fbirervta.pbzchgretzou.qr>
-References: <200710120031.42805.a1426z@gawab.com> <47168EA1.1080300@tmr.com>
- <471699A0.3060303@tmr.com>            <200710200640.02012.a1426z@gawab.com>
- <26556.1192855654@turing-police.cc.vt.edu>
+From: "Guillaume Chazarain" <guichaz@yahoo.fr>
+Subject: Re: PROBLEM: oops, Linus tree: 2.6.23-g4fa4d23f, BUG: unable to handle kernel NULL pointer dereference at virtual address 00000004
+Date: Sat, 20 Oct 2007 13:32:06 +0200
+Message-ID: <3d8471ca0710200432h3607b0a0i9169884ebec3b940@mail.gmail.com>
+References: <4719B727.7090908@oak.selfip.net>
+	 <Pine.LNX.4.64.0710201246540.18815@twin.jikos.cz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Al Boldi <a1426z@gawab.com>, Bill Davidsen <davidsen@tmr.com>,
-	Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Valdis.Kletnieks@vt.edu
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <26556.1192855654@turing-police.cc.vt.edu>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "Dave Haywood" <tla@oak.selfip.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "Pavel Emelyanov" <xemul@openvz.org>
+To: "Jiri Kosina" <jikos@jikos.cz>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1765527AbXJTLc3@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0710201246540.18815@twin.jikos.cz>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> > BUG: unable to handle kernel NULL pointer dereference at virtual address 00000004
 
-On Oct 20 2007 00:47, Valdis.Kletnieks@vt.edu wrote:
->> Sure, the idea was to mark the filter table obsolete as to make people start 
->> using the mangle table to do their filtering for new setups.  The filter 
->> table would then still be available for legacy/special setups.  But this 
->> would only be possible if we at least ported the REJECT target to mangle.
->
->That's *half* the battle.  The other half is explaining why I should move
->from a perfectly functional setup that uses the filter table.  What gains
->do I get from doing so?  What isn't working that I don't know about? etc?
->
->In other words - why do I want to move from filter to mangle?
+This should be fixed in recent git by
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=9b013e05e0289c190a53d78ca029e2f21c0e4485
 
-Packet processing time.
-Compare previous:
-	packet goes through mangle, then is dropped in filter
-Compare afterwards:
-	packet is already dropped in mangle
+HTH.
 
-=> less code to run through
+-- 
+Guillaume
