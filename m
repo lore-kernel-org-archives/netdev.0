@@ -1,101 +1,61 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH v2] niu: Cleanup PAGE_SIZE checks a bit
-Date: Sat, 20 Oct 2007 14:33:57 -0500
-Message-ID: <20071020193357.GA2090@lixom.net>
-References: <20071020190649.GA30034@lixom.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [BUG] powerpc does not save msi state [was Re: [PATCH 5/7]
+	pci: Export the pci_restore_msi_state() function
+Date: Sat, 20 Oct 2007 15:50:17 -0700
+Message-ID: <1192920617.5369.27.camel@dell>
+References: <20071020000421.GO29903@austin.ibm.com>
+	<20071019.172706.57467960.davem@davemloft.net>
+	<20071020004610.GR29903@austin.ibm.com>
+	<20071019.175308.54212640.davem@davemloft.net>
+	<1192862606.7688.4.camel@concordia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:54689 "EHLO mail.lixom.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750788AbXJTT1N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Oct 2007 15:27:13 -0400
-Content-Disposition: inline
-In-Reply-To: <20071020190649.GA30034@lixom.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, mcarlson@broadcom.com,
+	linuxppc-dev@ozlabs.org, linux-pci@atrey.karlin.mff.cuni.cz,
+	David Miller <davem@davemloft.net>
+To: michael@ellerman.id.au
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <1192862606.7688.4.camel@concordia>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+On Sat, 2007-10-20 at 16:43 +1000, Michael Ellerman wrote:
+> On Fri, 2007-10-19 at 17:53 -0700, David Miller wrote:
+> > I don't see this, in all cases write_msi_msg() will transfer
+> > the given "*msg" to entry->msg by this assignment in
+> > drivers/pci/msi.c:
+> > 
+> > void write_msi_msg(unsigned int irq, struct msi_msg *msg)
+> > {
+> >  ...
+> > 	entry->msg = *msg;
+> > }
+> > 
+> > So as long as write_msi_msg() is invoked, it will be saved
+> > properly.
+> > 
+> > Platforms need not do this explicitly.
+> 
+> I'm short on context here, and it's Saturday, so excuse me if I'm
+> missing the point somewhere.
+> 
+> On pseries machines we don't call write_msi_msg(), because we don't
+> control the contents of the message, firmware does. So entry->msg will
+> be bogus.
+> 
+> That's a pity, but AFAIK it shouldn't be a problem because we don't
+> enable CONFIG_PM on those machines anyway. If we ever want to we'll need
+> to sort out with firmware how that will work WRT restoring MSI state.
+> 
 
-I get the following warning from a powerpc allyesconfig of current
-mainline:
-
-drivers/net/niu.c: In function 'niu_size_rbr':
-drivers/net/niu.c:3113: warning: large integer implicitly truncated to unsigned type
-
-PAGE_SIZE in this case is 64KB, so I don't quite get why gcc can't tell
-that the line in question will never be reached.
-
-I suggest the following instead, but I can unfortunately not do anything but
-build test it.
-
-Also, the driver does some other checks to make sure that PAGE_SIZE is a
-power of two (BUILD_BUG_ON() in niu_init()), doesn't seem like that could
-ever be untrue? Or are there really archs with non-power-of-two PAGE_SIZE?
-
-
-Signed-off-by: Olof Johansson <olof@lixom.net>
-
---
-
-Ack! It should obviously use min(), not max()!
-
-
--Olof
-
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index ed1f9bb..795cc68 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -3103,31 +3103,12 @@ static int niu_alloc_tx_ring_info(struct niu *np,
- 
- static void niu_size_rbr(struct niu *np, struct rx_ring_info *rp)
- {
--	u16 bs;
-+	u16 bss;
- 
--	switch (PAGE_SIZE) {
--	case 4 * 1024:
--	case 8 * 1024:
--	case 16 * 1024:
--	case 32 * 1024:
--		rp->rbr_block_size = PAGE_SIZE;
--		rp->rbr_blocks_per_page = 1;
--		break;
-+	bss = min(PAGE_SHIFT, 15);
- 
--	default:
--		if (PAGE_SIZE % (32 * 1024) == 0)
--			bs = 32 * 1024;
--		else if (PAGE_SIZE % (16 * 1024) == 0)
--			bs = 16 * 1024;
--		else if (PAGE_SIZE % (8 * 1024) == 0)
--			bs = 8 * 1024;
--		else if (PAGE_SIZE % (4 * 1024) == 0)
--			bs = 4 * 1024;
--		else
--			BUG();
--		rp->rbr_block_size = bs;
--		rp->rbr_blocks_per_page = PAGE_SIZE / bs;
--	}
-+	rp->rbr_block_size = 1 << bss;
-+	rp->rbr_blocks_per_page = 1 << (PAGE_SHIFT-bss);
- 
- 	rp->rbr_sizes[0] = 256;
- 	rp->rbr_sizes[1] = 1024;
-@@ -7902,12 +7883,7 @@ static int __init niu_init(void)
- {
- 	int err = 0;
- 
--	BUILD_BUG_ON((PAGE_SIZE < 4 * 1024) ||
--		     ((PAGE_SIZE > 32 * 1024) &&
--		      ((PAGE_SIZE % (32 * 1024)) != 0 &&
--		       (PAGE_SIZE % (16 * 1024)) != 0 &&
--		       (PAGE_SIZE % (8 * 1024)) != 0 &&
--		       (PAGE_SIZE % (4 * 1024)) != 0)));
-+	BUILD_BUG_ON(PAGE_SIZE < 4 * 1024);
- 
- 	niu_debug = netif_msg_init(debug, NIU_MSG_DEFAULT);
- 
+The PCI error recovery that Linas is working on requires the MSI state
+to be restored after we do PCI reset to recover from PCI errors.
