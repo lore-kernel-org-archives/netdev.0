@@ -1,48 +1,40 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [BUG] powerpc does not save msi state [was Re: [PATCH 5/7]
-	pci: Export the pci_restore_msi_state() function
-Date: Sat, 20 Oct 2007 11:29:40 +1000
-Message-ID: <1192843780.17235.17.camel@pasglop>
-References: <20071019232926.GL29903@austin.ibm.com>
-	 <1192840577.5369.9.camel@dell> <20071020000421.GO29903@austin.ibm.com>
-	 <20071019.172706.57467960.davem@davemloft.net>
-	 <20071020004610.GR29903@austin.ibm.com>
-Reply-To: benh@kernel.crashing.org
+From: Olof Johansson <olof@lixom.net>
+Subject: [PATCH] Fix build break in tsi108.c
+Date: Fri, 19 Oct 2007 21:04:20 -0500
+Message-ID: <20071020020420.GA20073@lixom.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz,
-	mcarlson@broadcom.com, mchan@broadcom.com,
-	Michael Ellerman <ellerman@au1.ibm.com>
-To: Linas Vepstas <linas@austin.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, joe@perches.com
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:43235 "EHLO gate.crashing.org"
+Received: from lixom.net ([66.141.50.11]:58383 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753393AbXJTBaM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2007 21:30:12 -0400
-In-Reply-To: <20071020004610.GR29903@austin.ibm.com>
+	id S1761250AbXJTB5n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2007 21:57:43 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Fix build break:
 
-> I'm cc'ing the powerpc mailing list to point this out: 
-> it looks like only cell/axon_msi.c and mpic_u3msi.c 
-> bother do do anything.  I guess that there aren't any old 
-> macintosh laptops that have msi on them? Because without
-> this, suspend and resume breaks.
-
-The only macs that can do any form of MSIs are the G5s using
-mpic_u3msi.c
-
-> Paul,
-> On the off chance your reading this, I'll send a pseries
-> patch on Monday, with luck (and some other patches too).
-> I'm not touching any of the other plaforms, you and benh 
-> would know those better.
-
-Or rather Michael as he wrote the ppc MSI support. I'll check with him
-
-Ben.
+drivers/net/tsi108_eth.c: In function 'tsi108_init_one':
+drivers/net/tsi108_eth.c:1633: error: expected ')' before 'dev'
+drivers/net/tsi108_eth.c:1633: warning: too few arguments for format
+make[2]: *** [drivers/net/tsi108_eth.o] Error 1
 
 
+Signed-off-by: Olof Johansson <olof@lixom.net>
+
+diff --git a/drivers/net/tsi108_eth.c b/drivers/net/tsi108_eth.c
+index df10af7..35d15e8 100644
+--- a/drivers/net/tsi108_eth.c
++++ b/drivers/net/tsi108_eth.c
+@@ -1629,7 +1629,7 @@ tsi108_init_one(struct platform_device *pdev)
+ 		goto register_fail;
+ 	}
+ 
+-	printk(KERN_INFO "%s: Tsi108 Gigabit Ethernet, MAC: %s\n"
++	printk(KERN_INFO "%s: Tsi108 Gigabit Ethernet, MAC: %s\n",
+ 	       dev->name, print_mac(mac, dev->dev_addr));
+ #ifdef DEBUG
+ 	data->msg_enable = DEBUG;
