@@ -1,53 +1,39 @@
-From: =?KOI8-R?B?9MXNxdLIwc7P1yDzxdLHxco=?= <temerkhanov@yandex.ru>
-Subject: Fw: net: alignment problem in icmp code
-Date: Sun, 21 Oct 2007 23:58:47 +0400
-Message-ID: <593111192996727@webmail18.yandex.ru>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [BUG] powerpc does not save msi state [was Re: [PATCH 5/7]
+	pci: Export the pci_restore_msi_state() function
+Date: Mon, 22 Oct 2007 07:13:16 +1000
+Message-ID: <1193001196.6745.36.camel@pasglop>
+References: <20071020000421.GO29903@austin.ibm.com>
+	 <20071019.172706.57467960.davem@davemloft.net>
+	 <20071020004610.GR29903@austin.ibm.com>
+	 <20071019.175308.54212640.davem@davemloft.net>
+	 <1192862606.7688.4.camel@concordia>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: temerkhanov@cifronik.21th.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	mcarlson@broadcom.com, linuxppc-dev@ozlabs.org, mchan@broadcom.com,
+	linux-pci@atrey.karlin.mff.cuni.cz
+To: michael@ellerman.id.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail18.mail.yandex.net ([213.180.200.48]:35508 "EHLO
-	webmail18.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751843AbXJUUBl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2007 16:01:41 -0400
-Received: from YAMAIL (webmail18) by mail.yandex.ru id S8708609AbXJUT6s for
-        <netdev@vger.kernel.org>; Sun, 21 Oct 2007 23:58:48 +0400
+Received: from gate.crashing.org ([63.228.1.57]:52507 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750831AbXJUVNl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Oct 2007 17:13:41 -0400
+In-Reply-To: <1192862606.7688.4.camel@concordia>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
+> That's a pity, but AFAIK it shouldn't be a problem because we don't
+> enable CONFIG_PM on those machines anyway. If we ever want to we'll need
+> to sort out with firmware how that will work WRT restoring MSI state.
 
--------- =F0=C5=D2=C5=D3=D9=CC=C1=C5=CD=CF=C5 =D3=CF=CF=C2=DD=C5=CE=C9=C5=
- --------
-21.10.07, 23:48, David Miller (davem@davemloft.net):
+I think the current generic code for pci_restore_msi_state() or whatever
+it's called wilol directly call into write_msi_msg() etc... might be a
+problem.
 
-=46rom: Pierre Ossman <drzeus@drzeus.cx>
-Date: Sun, 21 Oct 2007 11:34:05 +0200
-
-> Inlining isn't the problem, but the defined semantics of assignment
-> versus memcpy(). memcpy() must work on any region of memory, whilst
-> assignment must only work on a properly aligned object.
-
-You are missing a crucial point.
-
-The compiler may emit the same exact loads and stores when it inlines
-memcpy() if it "knows" the objects are aligned properly.  And it very
-much will do this.
-
-If the compiler is calling memcpy() in your build, it's only because
-gcc believes the the object is too big to optimally memcpy() inline.
--
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
--------- =FA=C1=D7=C5=D2=DB=C5=CE=C9=C5 =D0=C5=D2=C5=D3=D9=CC=C1=C5=CD=CF=
-=C7=CF =D3=CF=CF=C2=DD=C5=CE=C9=D1 --------
+Ben.
 
 
---
-=F1=CE=C4=C5=CB=D3.=EF=D4=CB=D2=D9=D4=CB=C9 - =E1=CE=CF=CE=D3=D9 =CE=CF=
-=D7=D9=C8 =CF=D4=CB=D2=D9=D4=CF=CB: http://cards.yandex.ru/subscribe.xm=
-l
