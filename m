@@ -1,45 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 9189] New: Oops in kernel 2.6.21-rc4 through 2.6.23, page
- allocation failure
-Date: Sun, 21 Oct 2007 16:28:13 -0700 (PDT)
-Message-ID: <20071021.162813.15428054.davem@davemloft.net>
-References: <4718C651.5040804@psc.edu>
-	<E1IiuGl-000482-00@gondolin.me.apana.org.au>
-	<20071021045601.GA8427@gondor.apana.org.au>
+Subject: Re: [PATCH v2] niu: Cleanup PAGE_SIZE checks a bit
+Date: Sun, 21 Oct 2007 16:35:58 -0700 (PDT)
+Message-ID: <20071021.163558.98394216.davem@davemloft.net>
+References: <20071020190649.GA30034@lixom.net>
+	<20071020193357.GA2090@lixom.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jheffner@psc.edu, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org
+To: olof@lixom.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39699
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48222
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750942AbXJUX2A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2007 19:28:00 -0400
-In-Reply-To: <20071021045601.GA8427@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1750942AbXJUXft (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2007 19:35:49 -0400
+In-Reply-To: <20071020193357.GA2090@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sun, 21 Oct 2007 12:56:01 +0800
+From: Olof Johansson <olof@lixom.net>
+Date: Sat, 20 Oct 2007 14:33:57 -0500
 
-> [NET]: Fix SKB_WITH_OVERHEAD calculation
-> 
-> The calculation in SKB_WITH_OVERHEAD is incorrect in that it can cause
-> an overflow across a page boundary which is what it's meant to prevent.
-> In particular, the header length (X) should not be lumped together with
-> skb_shared_info.  The latter needs to be aligned properly while the header
-> has no choice but to sit in front of wherever the payload is.
-> 
-> Therefore the correct calculation is to take away the aligned size of
-> skb_shared_info, and then subtract the header length.  The resulting
-> quantity L satisfies the following inequality:
-> 
-> 	SKB_DATA_ALIGN(L + X) + sizeof(struct skb_shared_info) <= PAGE_SIZE
-> 
-> This is the quantity used by alloc_skb to do the actual allocation.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> PAGE_SIZE in this case is 64KB, so I don't quite get why gcc can't tell
+> that the line in question will never be reached.
 
-Applied, I'll push this to -stable too, thanks!
+GCC does not do that kind of full flow analysis based upon constant
+expression simplification to determine if a store like this into a
+type smaller than the constant value can handle can actually occur.
+
+> I suggest the following instead, but I can unfortunately not do anything but
+> build test it.
+> 
+> Also, the driver does some other checks to make sure that PAGE_SIZE is a
+> power of two (BUILD_BUG_ON() in niu_init()), doesn't seem like that could
+> ever be untrue? Or are there really archs with non-power-of-two PAGE_SIZE?
+
+It was just overly-anal assertion checking.  I tend to prefer using
+code instead of comments to describe invariants, but this one is
+pretty unrealistic and silly.
+
+> Signed-off-by: Olof Johansson <olof@lixom.net>
+> 
+> --
+> 
+> Ack! It should obviously use min(), not max()!
+
+:-)
+
+Applied, thanks!
