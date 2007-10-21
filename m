@@ -1,44 +1,75 @@
-From: Tziporet Koren <tziporet@dev.mellanox.co.il>
-Subject: [ofa-general] Re: [ewg] [PATCH 0/14 v2] nes: NetEffect 10Gb RNIC
-	Driver
-Date: Sun, 21 Oct 2007 10:22:52 +0200
-Message-ID: <471B0C5C.5030107@mellanox.co.il>
-References: <200710191957.l9JJvAgC021662@neteffect.com>
+From: Pierre Ossman <drzeus@drzeus.cx>
+Subject: Re: net: alignment problem in icmp code
+Date: Sun, 21 Oct 2007 11:34:05 +0200
+Message-ID: <20071021113405.37fa0bc5@poseidon.drzeus.cx>
+References: <20071020233540.43d2f103@poseidon.drzeus.cx>
+	<20071020.221257.78359286.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, ewg@lists.openfabrics.org,
-	general@lists.openfabrics.org
-To: ggrundstrom@neteffect.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <200710191957.l9JJvAgC021662@neteffect.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=PGP-SHA1; boundary="=_hera.drzeus.cx-32160-1192959221-0001-2"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gateway.drzeus.cx ([85.8.24.16]:50501 "EHLO smtp.drzeus.cx"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751313AbXJUJeR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Oct 2007 05:34:17 -0400
+In-Reply-To: <20071020.221257.78359286.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ggrundstrom@neteffect.com wrote:
-> This is the second posting for the series of patches containing the source code
-> for the NetEffect 10Gb RNIC adapter.  The driver is split into two components - a
-> kernel driver module and a userspace library.
->
-> The code can also be found in the following git trees.
->
-> git.openfabrics.org/~glenn/libnes.git
-> git.openfabrics.org/~glenn/linux-2.6.git
->
-> Thanks,
-> Glenn.
->   
+This is a MIME-formatted message.  If you see this text it means that your
+E-mail software does not support MIME-formatted messages.
 
-Can you review the release notes of OFED 1.3 and send me update 
-regarding name of cards you support or anything that should be documented
+--=_hera.drzeus.cx-32160-1192959221-0001-2
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Thanks,
-Tziporet
+On Sat, 20 Oct 2007 22:12:57 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Pierre Ossman <drzeus@drzeus.cx>
+> Date: Sat, 20 Oct 2007 23:35:40 +0200
+>=20
+> > Structure assignment have to be aligned just like any assignment, and t=
+he skb could point to anything. So take the safe route and use a memcpy().
+> >=20
+> > Signed-off-by: Pierre Ossman <drzeus@drzeus.cx>
+>=20
+> Unfortunately this doesn't work, GCC can inline the memcpy just like
+> the assignment.
+>=20
+> I tried to use a similar trick in the net/xfrm/xfrm_user.c code
+> but in the end it doesn't work at all.
+
+Inlining isn't the problem, but the defined semantics of assignment versus =
+memcpy(). memcpy() must work on any region of memory, whilst assignment mus=
+t only work on a properly aligned object. Since icmphdr contains a u32, the=
+ compiler "knows" the object will always be 32-bit aligned and generates as=
+sembly based on this assumption. Of course this is incorrect if the lower l=
+ayers didn't have a multiple of 4 bytes of headers.
+
+Anyway, I discovered the hard way that there are lots and lots of places in=
+ the IP code that assumes alignment, so this seems to be a rather daunting =
+task to fix. So this patch will just be one very small piece of the puzzle.=
+ :/
+
+(Perhaps something for kernel newbies, to track down and fix all the alignm=
+ent assumptions in the IP stack?)
+
+Rgds
+Pierre
+
+--=_hera.drzeus.cx-32160-1192959221-0001-2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+
+iD8DBQFHGx0O7b8eESbyJLgRAmJSAKCvy12z7nfjzsA0w5KxQgyu0GHs/wCgqGE5
+LhFNkdarfEpkIYsoBXx57o4=
+=0F8F
+-----END PGP SIGNATURE-----
+
+--=_hera.drzeus.cx-32160-1192959221-0001-2--
