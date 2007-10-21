@@ -1,86 +1,195 @@
-From: Coly Li <coyli@suse.de>
-Subject: Re: PROBLEM: oops, Linus tree: 2.6.23-g4fa4d23f, BUG: unable to handle
- kernel NULL pointer dereference at virtual address 00000004
-Date: Sun, 21 Oct 2007 13:16:32 +0800
-Message-ID: <471AE0B0.4060600@suse.de>
-References: <4719B727.7090908@oak.selfip.net>	 <Pine.LNX.4.64.0710201246540.18815@twin.jikos.cz> <3d8471ca0710200432h3607b0a0i9169884ebec3b940@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Kosina <jikos@jikos.cz>, Dave Haywood <tla@oak.selfip.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Pavel Emelyanov <xemul@openvz.org>
-To: Guillaume Chazarain <guichaz@yahoo.fr>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [PATCH 13/17] netdrvr irq handler cleanups
+Date: Sun, 21 Oct 2007 03:52:45 -0400 (EDT)
+Message-ID: <20071021075245.A92B3190418@havoc.gtf.org>
+References: <lkjvxcz09835mnsdfv0983q4m1234m@havoc.gtf.org>
+Cc: netdev@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from victor.provo.novell.com ([137.65.250.26]:56884 "EHLO
-	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751305AbXJUFPL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2007 01:15:11 -0400
-In-Reply-To: <3d8471ca0710200432h3607b0a0i9169884ebec3b940@mail.gmail.com>
+Received: from havoc.gtf.org ([69.61.125.42]:46908 "EHLO havoc.gtf.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752557AbXJUHwq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Oct 2007 03:52:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Guillaume Chazarain wrote:
->>> BUG: unable to handle kernel NULL pointer dereference at virtual address 00000004
-> 
-> This should be fixed in recent git by
-> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=9b013e05e0289c190a53d78ca029e2f21c0e4485
-> 
-Maybe we encounter same condition, at least the symbol name is same -- sock_setsockopt.
+commit a9f06dc9fb3caea2c4e9b387974c9f4956434e28
+Author: Jeff Garzik <jeff@garzik.org>
+Date:   Fri Oct 19 19:33:31 2007 -0400
 
-This happens in kernel bootup and makes network can not work properly -- I can not connect to
-internet the whole weekend. Same as you, I am not a network guy, I tried to understand what
-happened, but it seems not so easy for me ^_^.
+    [netdrvr] driver irq handler cleanups
+    
+    * no need to use 'irq' function arg, its already stored in a data struct
+    
+    * whitespace cleanups
+    
+    * delete tests for impossible conditions
+    
+    * remove pointless casts from void*
+    
+    Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
 
-Here is the oops message:
-[ 4327.550035] BUG: unable to handle kernel NULL pointer dereference at virtual address 00000004
-[ 4327.550047] printing eip: c02ad991 *pdpt = 0000000006062001 <1>*pde = 0000000000000000
-[ 4327.550061] Oops: 0000 [#1] SMP
-[ 4327.550071] Modules linked in: arc4 ieee80211_crypt_wep af_packet ip6t_LOG nf_conntrack_ipv6
-xt_pkttype ipt_LOG xt_limit deflate zlib_deflate twofish twofish_common camellia serpent blowfish
-des_generic cbc ecb geode_aes blkcipher aes_i586 aes_generic xcbc sha256_generic sha1_generic
-crypto_null af_key snd_pcm_oss snd_mixer_oss snd_seq snd_seq_device microcode ip6t_REJECT xt_tcpudp
-ipt_REJECT xt_state iptable_mangle iptable_nat nf_nat iptable_filter ip6table_mangle
-nf_conntrack_ipv4 nf_conntrack ip_tables ip6table_filter ip6_tables x_tables ipv6
-cpufreq_conservative cpufreq_userspace cpufreq_powersave acpi_cpufreq speedstep_lib loop dm_mod
-pcmcia nsc_ircc parport_pc irda parport ipw2200 rtc_cmos ieee80211 yenta_socket rsrc_nonstatic
-crc_ccitt pcmcia_core thinkpad_acpi hwmon nvram rtc_core ieee80211_crypt firmware_class snd_intel8x0
-sdhci rtc_lib battery snd_intel8x0m snd_ac97_codec ac97_bus output ac mmc_core snd_pcm snd_timer snd
-soundcore sr_mod i2c_i801 i2c_core iTCO_wdt button snd_page_alloc iTCO_vendor_support cdrom
-intel_agp agpgart tg3 uinput sg ehci_hcd uhci_hcd sd_mod usbcore edd ext3 mbcache jbd fan ata_piix
-ahci libata scsi_mod thermal processor
-[ 4327.550286] CPU:    0
-[ 4327.550288] EIP:    0060:[<c02ad991>]    Not tainted VLI
-[ 4327.550291] EFLAGS: 00010282   (2.6.23-bigsmp-g4fa4d23f #6)
-[ 4327.550305] EIP is at sk_filter_delayed_uncharge+0x1/0x23
-[ 4327.550312] eax: c614f738   ebx: 00000000   ecx: 00000003   edx: 00000000
-[ 4327.550319] esi: c60d97b0   edi: c614f738   ebp: c61e2ef8   esp: c61e2ec8
-[ 4327.550326] ds: 007b   es: 007b   fs: 00d8  gs: 0033  ss: 0068
-[ 4327.550333] Process dhclient (pid: 7024, ti=c61e2000 task=c61e5120 task.ti=c61e2000)
-[ 4327.550338] Stack: c61e2ef8 c02adb57 00000002 00000001 c02adaff 00000068 c60d97c0 00000058
-[ 4327.550356]        00000000 c614f738 c61e2f24 c65c63f0 c61e2f48 c029c87f c61e2fb0 c030642f
-[ 4327.550374]        00000001 00000246 0000001a 8005000b fffffff2 8005000b c03042ae 8005000b
-[ 4327.550391] Call Trace:
-[ 4327.550396]  [<c010680b>] show_trace_log_lvl+0x1a/0x2f
-[ 4327.550409]  [<c01068bb>] show_stack_log_lvl+0x9b/0xa3
-[ 4327.550419]  [<c0106a7b>] show_registers+0x1b8/0x28a
-[ 4327.550429]  [<c0106c58>] die+0x10b/0x1ee
-[ 4327.550438]  [<c030679a>] do_page_fault+0x7d4/0x8b9
-[ 4327.550449]  [<c0304b72>] error_code+0x72/0x80
-[ 4327.550458]  [<c029c87f>] sock_setsockopt+0x46f/0x4c2
-[ 4327.550469]  [<c029952a>] sys_setsockopt+0x5a/0x90
-[ 4327.550478]  [<c029abba>] sys_socketcall+0x1e8/0x241
-[ 4327.550486]  [<c0105112>] syscall_call+0x7/0xb
-[ 4327.550495]  =======================
-[ 4327.550499] Code: 43 4e 39 d3 0f 8c 36 fe ff ff 0f b7 44 d1 f8 83 e0 07 83 f8 06 0f 94 c0 0f b6
-c0 48 83 e0 ea eb 05 b8 ea ff ff ff 5b 5e 5d c3 55 <8b> 4a 04 89 e5 8d 0c cd 10 00 00 00 90 29 88 cc
-00 00 00 8d 42
-[ 4327.550590] EIP: [<c02ad991>] sk_filter_delayed_uncharge+0x1/0x23 SS:ESP 0068:c61e2ec8
+ drivers/net/eexpress.c          |   11 ++++++-----
+ drivers/net/irda/smsc-ircc2.c   |   17 ++++-------------
+ drivers/net/irda/via-ircc.c     |   12 +++---------
+ drivers/net/pcmcia/fmvj18x_cs.c |    7 +------
+ drivers/net/wan/sdla.c          |    5 +++--
+ 5 files changed, 17 insertions(+), 35 deletions(-)
 
-
-
-
-
-> HTH.
-> 
-
+a9f06dc9fb3caea2c4e9b387974c9f4956434e28
+diff --git a/drivers/net/eexpress.c b/drivers/net/eexpress.c
+index 9c85e50..007de3b 100644
+--- a/drivers/net/eexpress.c
++++ b/drivers/net/eexpress.c
+@@ -456,8 +456,9 @@ static int eexp_open(struct net_device *dev)
+ 	if (!dev->irq || !irqrmap[dev->irq])
+ 		return -ENXIO;
+ 
+-	ret = request_irq(dev->irq,&eexp_irq,0,dev->name,dev);
+-	if (ret) return ret;
++	ret = request_irq(dev->irq, &eexp_irq, 0, dev->name, dev);
++	if (ret)
++		return ret;
+ 
+ 	if (!request_region(ioaddr, EEXP_IO_EXTENT, "EtherExpress")) {
+ 		printk(KERN_WARNING "EtherExpress io port %x, is busy.\n"
+@@ -768,7 +769,7 @@ static void eexp_cmd_clear(struct net_device *dev)
+ 	}
+ }
+ 
+-static irqreturn_t eexp_irq(int irq, void *dev_info)
++static irqreturn_t eexp_irq(int dummy, void *dev_info)
+ {
+ 	struct net_device *dev = dev_info;
+ 	struct net_local *lp;
+@@ -783,7 +784,7 @@ static irqreturn_t eexp_irq(int irq, void *dev_info)
+ 	old_read_ptr = inw(ioaddr+READ_PTR);
+ 	old_write_ptr = inw(ioaddr+WRITE_PTR);
+ 
+-	outb(SIRQ_dis|irqrmap[irq],ioaddr+SET_IRQ);
++	outb(SIRQ_dis|irqrmap[dev->irq],ioaddr+SET_IRQ);
+ 
+ 
+ 	status = scb_status(dev);
+@@ -851,7 +852,7 @@ static irqreturn_t eexp_irq(int irq, void *dev_info)
+ 
+ 	eexp_cmd_clear(dev);
+ 
+-	outb(SIRQ_en|irqrmap[irq],ioaddr+SET_IRQ);
++	outb(SIRQ_en|irqrmap[dev->irq],ioaddr+SET_IRQ);
+ 
+ #if NET_DEBUG > 6
+ 	printk("%s: leaving eexp_irq()\n", dev->name);
+diff --git a/drivers/net/irda/smsc-ircc2.c b/drivers/net/irda/smsc-ircc2.c
+index 7e7b582..1f26da7 100644
+--- a/drivers/net/irda/smsc-ircc2.c
++++ b/drivers/net/irda/smsc-ircc2.c
+@@ -1505,22 +1505,13 @@ static void smsc_ircc_sir_receive(struct smsc_ircc_cb *self)
+  *    An interrupt from the chip has arrived. Time to do some work
+  *
+  */
+-static irqreturn_t smsc_ircc_interrupt(int irq, void *dev_id)
++static irqreturn_t smsc_ircc_interrupt(int dummy, void *dev_id)
+ {
+-	struct net_device *dev = (struct net_device *) dev_id;
+-	struct smsc_ircc_cb *self;
++	struct net_device *dev = dev_id;
++	struct smsc_ircc_cb *self = netdev_priv(dev);
+ 	int iobase, iir, lcra, lsr;
+ 	irqreturn_t ret = IRQ_NONE;
+ 
+-	if (dev == NULL) {
+-		printk(KERN_WARNING "%s: irq %d for unknown device.\n",
+-		       driver_name, irq);
+-		goto irq_ret;
+-	}
+-
+-	self = netdev_priv(dev);
+-	IRDA_ASSERT(self != NULL, return IRQ_NONE;);
+-
+ 	/* Serialise the interrupt handler in various CPUs, stop Tx path */
+ 	spin_lock(&self->lock);
+ 
+@@ -1565,7 +1556,7 @@ static irqreturn_t smsc_ircc_interrupt(int irq, void *dev_id)
+ 
+  irq_ret_unlock:
+ 	spin_unlock(&self->lock);
+- irq_ret:
++
+ 	return ret;
+ }
+ 
+diff --git a/drivers/net/irda/via-ircc.c b/drivers/net/irda/via-ircc.c
+index 126ec7c..58e1287 100644
+--- a/drivers/net/irda/via-ircc.c
++++ b/drivers/net/irda/via-ircc.c
+@@ -1346,19 +1346,13 @@ static int RxTimerHandler(struct via_ircc_cb *self, int iobase)
+  *    An interrupt from the chip has arrived. Time to do some work
+  *
+  */
+-static irqreturn_t via_ircc_interrupt(int irq, void *dev_id)
++static irqreturn_t via_ircc_interrupt(int dummy, void *dev_id)
+ {
+-	struct net_device *dev = (struct net_device *) dev_id;
+-	struct via_ircc_cb *self;
++	struct net_device *dev = dev_id;
++	struct via_ircc_cb *self = dev->priv;
+ 	int iobase;
+ 	u8 iHostIntType, iRxIntType, iTxIntType;
+ 
+-	if (!dev) {
+-		IRDA_WARNING("%s: irq %d for unknown device.\n", driver_name,
+-			     irq);
+-		return IRQ_NONE;
+-	}
+-	self = (struct via_ircc_cb *) dev->priv;
+ 	iobase = self->io.fir_base;
+ 	spin_lock(&self->lock);
+ 	iHostIntType = GetHostStatus(iobase);
+diff --git a/drivers/net/pcmcia/fmvj18x_cs.c b/drivers/net/pcmcia/fmvj18x_cs.c
+index 6284467..d251bd1 100644
+--- a/drivers/net/pcmcia/fmvj18x_cs.c
++++ b/drivers/net/pcmcia/fmvj18x_cs.c
+@@ -731,18 +731,13 @@ module_exit(exit_fmvj18x_cs);
+ 
+ /*====================================================================*/
+ 
+-static irqreturn_t fjn_interrupt(int irq, void *dev_id)
++static irqreturn_t fjn_interrupt(int dummy, void *dev_id)
+ {
+     struct net_device *dev = dev_id;
+     local_info_t *lp = netdev_priv(dev);
+     kio_addr_t ioaddr;
+     unsigned short tx_stat, rx_stat;
+ 
+-    if (lp == NULL) {
+-        printk(KERN_NOTICE "fjn_interrupt(): irq %d for "
+-	       "unknown device.\n", irq);
+-        return IRQ_NONE;
+-    }
+     ioaddr = dev->base_addr;
+ 
+     /* avoid multiple interrupts */
+diff --git a/drivers/net/wan/sdla.c b/drivers/net/wan/sdla.c
+index 05df0a3..73e2f27 100644
+--- a/drivers/net/wan/sdla.c
++++ b/drivers/net/wan/sdla.c
+@@ -867,7 +867,7 @@ static void sdla_receive(struct net_device *dev)
+ 	spin_unlock_irqrestore(&sdla_lock, flags);
+ }
+ 
+-static irqreturn_t sdla_isr(int irq, void *dev_id)
++static irqreturn_t sdla_isr(int dummy, void *dev_id)
+ {
+ 	struct net_device     *dev;
+ 	struct frad_local *flp;
+@@ -879,7 +879,8 @@ static irqreturn_t sdla_isr(int irq, void *dev_id)
+ 
+ 	if (!flp->initialized)
+ 	{
+-		printk(KERN_WARNING "%s: irq %d for uninitialized device.\n", dev->name, irq);
++		printk(KERN_WARNING "%s: irq %d for uninitialized device.\n",
++		       dev->name, dev->irq);
+ 		return IRQ_NONE;
+ 	}
+ 
