@@ -1,65 +1,61 @@
-From: Pierre Ossman <drzeus@drzeus.cx>
-Subject: net: alignment problem in icmp code
-Date: Sat, 20 Oct 2007 23:35:40 +0200
-Message-ID: <20071020233540.43d2f103@poseidon.drzeus.cx>
+From: Al Boldi <a1426z@gawab.com>
+Subject: Re: [RFD] iptables: mangle table obsoletes filter table
+Date: Sun, 21 Oct 2007 07:31:58 +0300
+Message-ID: <200710210731.58959.a1426z@gawab.com>
+References: <200710120031.42805.a1426z@gawab.com> <200710200640.02012.a1426z@gawab.com> <26556.1192855654@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=PGP-SHA1; boundary="=_hera.drzeus.cx-16700-1192916114-0001-2"
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway.drzeus.cx ([85.8.24.16]:47476 "EHLO smtp.drzeus.cx"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750759AbXJUCJL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Oct 2007 22:09:11 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Bill Davidsen <davidsen@tmr.com>,
+	Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Valdis.Kletnieks@vt.edu
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <26556.1192855654@turing-police.cc.vt.edu>
+Content-Disposition: inline
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a MIME-formatted message.  If you see this text it means that your
-E-mail software does not support MIME-formatted messages.
+Valdis.Kletnieks@vt.edu wrote:
+> On Sat, 20 Oct 2007 06:40:02 +0300, Al Boldi said:
+> > Sure, the idea was to mark the filter table obsolete as to make people
+> > start using the mangle table to do their filtering for new setups.  The
+> > filter table would then still be available for legacy/special setups. 
+> > But this would only be possible if we at least ported the REJECT target
+> > to mangle.
+>
+> That's *half* the battle.  The other half is explaining why I should move
+> from a perfectly functional setup that uses the filter table.  What gains
+> do I get from doing so?  What isn't working that I don't know about? etc?
+>
+> In other words - why do I want to move from filter to mangle?
 
---=_hera.drzeus.cx-16700-1192916114-0001-2
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+This has already been explained in this thread; here it is again:
 
-Structure assignment have to be aligned just like any assignment, and the s=
-kb could point to anything. So take the safe route and use a memcpy().
+Al Boldi wrote:
+>>>The problem is that people think they are safe with the filter table,
+>>>when in fact they need the prerouting chain to seal things.  Right now
+>>>this is only possible in the mangle table.
+>>
+>>Why do they need PREROUTING?
+> 
+> Well, for example to stop any transient packets being forwarded.  You could 
+> probably hack around this using mark's, but you can't stop the implied
+> route lookup, unless you stop it in prerouting.
 
-Signed-off-by: Pierre Ossman <drzeus@drzeus.cx>
----
+Basically, you have one big unintended gaping whole in your firewall, that 
+could easily be exploited for DoS attacks at the least, unless you put in 
+specific rules to limit this.
 
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 272c69e..a7e2ec9 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -783,7 +783,7 @@ static void icmp_echo(struct sk_buff *skb)
- 	if (!sysctl_icmp_echo_ignore_all) {
- 		struct icmp_bxm icmp_param;
-=20
--		icmp_param.data.icmph	   =3D *icmp_hdr(skb);
-+		memcpy(&icmp_param.data.icmph, icmp_hdr(skb), sizeof(struct icmphdr));
- 		icmp_param.data.icmph.type =3D ICMP_ECHOREPLY;
- 		icmp_param.skb		   =3D skb;
- 		icmp_param.offset	   =3D 0;
-@@ -819,7 +819,7 @@ static void icmp_timestamp(struct sk_buff *skb)
- 	icmp_param.data.times[2] =3D icmp_param.data.times[1];
- 	if (skb_copy_bits(skb, 0, &icmp_param.data.times[0], 4))
- 		BUG();
--	icmp_param.data.icmph	   =3D *icmp_hdr(skb);
-+	memcpy(&icmp_param.data.icmph, icmp_hdr(skb), sizeof(struct icmphdr));
- 	icmp_param.data.icmph.type =3D ICMP_TIMESTAMPREPLY;
- 	icmp_param.data.icmph.code =3D 0;
- 	icmp_param.skb		   =3D skb;
+Plus, it's outrageously incorrect to accept invalid packets, just because 
+your filtering infrastructure can only reject packets after they have been 
+prerouted.
 
---=_hera.drzeus.cx-16700-1192916114-0001-2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename=signature.asc
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
+Thanks!
 
-iD8DBQFHGnSt7b8eESbyJLgRAuNXAKCsMavy2Ic8tjTNQ4gIzCyHUqZivgCdGHWf
-vvjr/8ynfQqYkymxNVCp6/k=
-=i1CQ
------END PGP SIGNATURE-----
+--
+Al
 
---=_hera.drzeus.cx-16700-1192916114-0001-2--
