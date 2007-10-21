@@ -1,50 +1,45 @@
-From: "Joakim Tjernlund" <joakim.tjernlund@transmode.se>
-Subject: RE: [PATCH] Fix ethernet multicast for ucc_geth.
-Date: Sun, 21 Oct 2007 11:45:48 +0200
-Message-ID: <005801c813c7$2936b550$5267a8c0@Jocke>
-References: <989B956029373F45A0B8AF0297081890019B5BD2@zch01exm26.fsl.freescale.net>
+From: Guillaume Chazarain <guichaz@yahoo.fr>
+Subject: Re: PROBLEM: oops, Linus tree: 2.6.23-g4fa4d23f, BUG: unable to
+ handle kernel NULL pointer dereference at virtual address 00000004
+Date: Sun, 21 Oct 2007 12:17:02 +0200
+Message-ID: <20071021121702.4816ca1f@inria.fr>
+References: <4719B727.7090908@oak.selfip.net>
+	<Pine.LNX.4.64.0710201246540.18815@twin.jikos.cz>
+	<3d8471ca0710200432h3607b0a0i9169884ebec3b940@mail.gmail.com>
+	<471AE0B0.4060600@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "'Li Yang-r58472'" <LeoLi@freescale.com>,
-	"'Netdev'" <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jiri Kosina <jikos@jikos.cz>, Dave Haywood <tla@oak.selfip.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Pavel Emelyanov <xemul@openvz.org>
+To: Coly Li <coyli@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.transmode.se ([83.241.175.147]:20237 "EHLO
-	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750987AbXJUJpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2007 05:45:55 -0400
-In-Reply-To: <989B956029373F45A0B8AF0297081890019B5BD2@zch01exm26.fsl.freescale.net>
+Received: from smtp3-g19.free.fr ([212.27.42.29]:58880 "EHLO smtp3-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751016AbXJUKUG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2007 06:20:06 -0400
+In-Reply-To: <471AE0B0.4060600@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Li Yang-r58472 [mailto:LeoLi@freescale.com] 
-> Sent: den 18 oktober 2007 16:24
-> To: joakim.tjernlund@transmode.se; Netdev; linuxppc-dev@ozlabs.org
-> Subject: RE: [PATCH] Fix ethernet multicast for ucc_geth.
-> 
-> > -----Original Message-----
-> > From: Joakim Tjernlund [mailto:joakim.tjernlund@transmode.se] 
-> > Sent: Wednesday, October 17, 2007 5:06 PM
-> > To: Netdev; Li Yang-r58472
-> > Subject: [PATCH] Fix ethernet multicast for ucc_geth.
-> > 
-> > >From 5761a9e5924b34615c748fba2dcb977ed04c1243 Mon Sep 17 
-> > 00:00:00 2001
-> > From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> > Date: Wed, 17 Oct 2007 11:01:44 +0200
-> > Subject: [PATCH] Fix ethernet multicast for ucc_geth.
-> >  hw_add_addr_in_hash() already swaps byte  order, don't do it 
-> > in ucc_geth_set_multi() too.
-> > 
-> > 
-> > Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> 
-> Acked-by: Li Yang <leoli@freescale.com>
-> 
+Le Sun, 21 Oct 2007 13:16:32 +0800,
+Coly Li <coyli@suse.de> a =C3=A9crit :
 
-Ping? Did this make into a someones tree?
+> > This should be fixed in recent git by
+> > http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;=
+a=3Dcommit;h=3D9b013e05e0289c190a53d78ca029e2f21c0e4485
+> >=20
+> Maybe we encounter same condition, at least the symbol name is same -=
+- sock_setsockopt.
 
- Jocke
+> [ 4327.550291] EFLAGS: 00010282   (2.6.23-bigsmp-g4fa4d23f #6)
 
+You are testing a kernel that does not contain the aforementioned fix,
+so you should update your git checkout (using a kernel that can connect
+to the Internet ;-) ) and test the new kernel.
+
+Thanks.
+
+--=20
+Guillaume
