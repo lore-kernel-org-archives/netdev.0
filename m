@@ -1,19 +1,19 @@
 From: =?KOI8-R?B?9MXNxdLIwc7P1yDzxdLHxco=?= <temerkhanov@yandex.ru>
 Subject: Fw: net: alignment problem in icmp code
-Date: Sun, 21 Oct 2007 23:54:20 +0400
-Message-ID: <306881192996460@webmail19.yandex.ru>
+Date: Sun, 21 Oct 2007 23:58:47 +0400
+Message-ID: <593111192996727@webmail18.yandex.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=KOI8-R
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: temerkhanov@cifronik.21th.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail19.mail.yandex.net ([213.180.200.53]:35022 "EHLO
-	webmail19.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751855AbXJUUBn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2007 16:01:43 -0400
-Received: from YAMAIL (webmail19) by mail.yandex.ru id S1745426AbXJUTyU for
-        <netdev@vger.kernel.org>; Sun, 21 Oct 2007 23:54:20 +0400
+Received: from webmail18.mail.yandex.net ([213.180.200.48]:35508 "EHLO
+	webmail18.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751843AbXJUUBl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2007 16:01:41 -0400
+Received: from YAMAIL (webmail18) by mail.yandex.ru id S8708609AbXJUT6s for
+        <netdev@vger.kernel.org>; Sun, 21 Oct 2007 23:58:48 +0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -48,6 +48,6 @@ More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
 --
-"=EB=D2=C1=D3=CB=C9 =CF=D3=C5=CE=C9": =EE=CF=D7=D9=CA =CB=CF=CE=CB=D5=D2=
-=D3 =CE=C1 =F1=CE=C4=C5=CB=D3.=E6=CF=D4=CB=C1=C8 http://fotki.yandex.ru=
-/contest.xml?id=3D10
+=F1=CE=C4=C5=CB=D3.=EF=D4=CB=D2=D9=D4=CB=C9 - =E1=CE=CF=CE=D3=D9 =CE=CF=
+=D7=D9=C8 =CF=D4=CB=D2=D9=D4=CF=CB: http://cards.yandex.ru/subscribe.xm=
+l
