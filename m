@@ -1,53 +1,78 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: e100 problems in .23rc8 ?
-Date: Sun, 21 Oct 2007 21:04:40 -0400
-Message-ID: <20071022010440.GA11165@redhat.com>
-References: <7DCDA0F058071B49AED9D3D7886C41BE0966AEDB@muon.jnpr.net> <47179F1F.3030202@intel.com>
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: Re: [PATCH 5/7] pci: Export the pci_restore_msi_state() function
+Date: Mon, 22 Oct 2007 11:49:24 +1000
+Message-ID: <1193017764.10318.17.camel@concordia>
+References: <1192829817.22064.559.camel@teletran1>
+	 <20071021.162131.43417026.davem@davemloft.net>
+Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Mack <dmack@juniper.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, esandeen@redhat.com
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-eRZzph4WCtjgwernsoX+"
+Cc: mcarlson@broadcom.com, netdev@vger.kernel.org,
+	linux-pci@atrey.karlin.mff.cuni.cz, linas@austin.ibm.com,
+	mchan@broadcom.com, linuxppc-dev list <linuxppc-dev@ozlabs.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:56126 "EHLO mx1.redhat.com"
+Received: from ozlabs.org ([203.10.76.45]:36761 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751104AbXJVBEw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 Oct 2007 21:04:52 -0400
-Content-Disposition: inline
-In-Reply-To: <47179F1F.3030202@intel.com>
+	id S1751032AbXJVBt0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Oct 2007 21:49:26 -0400
+In-Reply-To: <20071021.162131.43417026.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 18, 2007 at 10:59:59AM -0700, Kok, Auke wrote:
- > David Mack wrote:
- > > It appears that the needed e100 fix made it into the Fedora
- > > 2.6.23.1-23.fc8 kernel. Boots reliably now.
- > > 
- > > Huge thanks and great work, guys.
- > 
- > DaveJ, I didn't push anything upstream. Can you verify this now works?
 
-There was no e100 changes in the kernel above, so David just
-got lucky. (The race doesn't always occur, so it sometimes appears
-something got fixed.).
+--=-eRZzph4WCtjgwernsoX+
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-I included the patch below in the latest build, but I've not had
-chance to try it on an e100 box yet..
+On Sun, 2007-10-21 at 16:21 -0700, David Miller wrote:
+> From: "Matt Carlson" <mcarlson@broadcom.com>
+> Date: Fri, 19 Oct 2007 14:36:56 -0700
+>=20
+> > This patch exports the pci_restore_msi_state() function.  This function
+> > is needed to restore the MSI state during PCI error recovery.
+> >=20
+> > Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+> > Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> > Signed-off-by: Michael Chan <mchan@broadcom.com>
+>=20
+> I'm not so sure about this.
 
-	Dave
+On pseries there's a chance it will work for PCI error recovery, but if
+so it's just lucky that firmware has left everything configured the same
+way. For actual suspend/resume it will never work, we need to ask
+firmware to configure things.
 
---- linux-2.6.23.noarch/drivers/net/e100.c~	2007-10-18 16:10:40.000000000 -0400
-+++ linux-2.6.23.noarch/drivers/net/e100.c	2007-10-18 16:16:02.000000000 -0400
-@@ -2682,6 +2682,8 @@ static int __devinit e100_probe(struct p
- 	if (err)
- 		DPRINTK(PROBE, ERR, "Error clearing wake event\n");
- 
-+	netif_poll_disable(netdev);
-+
- 	strcpy(netdev->name, "eth%d");
- 	if((err = register_netdev(netdev))) {
- 		DPRINTK(PROBE, ERR, "Cannot register net device, aborting.\n");
+> Perhaps, instead, you should do a pci_msi_disable() and
+> pci_msi_enable() in the error detection and recovery sequence.
 
--- 
-http://www.codemonkey.org.uk
+Yes I think so. That way we can properly reconfigure via the firmware
+interface. The other option would be to design some new arch hook to do
+resume, but just doing a disable/enable seems simpler to me.
+
+cheers
+
+--=20
+Michael Ellerman
+OzLabs, IBM Australia Development Lab
+
+wwweb: http://michael.ellerman.id.au
+phone: +61 2 6212 1183 (tie line 70 21183)
+
+We do not inherit the earth from our ancestors,
+we borrow it from our children. - S.M.A.R.T Person
+
+--=-eRZzph4WCtjgwernsoX+
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQBHHAGkdSjSd0sB4dIRAuAcAKDN9ww2L20UWqzhKcAwCPxjIDX8tACgyyR1
+nlVp3pd3dMeMZDrlG5K3NbY=
+=kRb4
+-----END PGP SIGNATURE-----
+
+--=-eRZzph4WCtjgwernsoX+--
+
