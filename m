@@ -1,48 +1,34 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] sky2: crash on remove
-Date: Mon, 22 Oct 2007 13:39:09 -0700
-Message-ID: <20071022133909.6a5453c7@freepuppy.rosehill>
-References: <bug-9208-10286@http.bugzilla.kernel.org/>
-	<20071022111235.266a10df.akpm@linux-foundation.org>
+From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+Subject: Re: kernel panic when running tcpdump
+Date: Mon, 22 Oct 2007 23:16:22 +0200
+Message-ID: <200710222316.22922.m.kozlowski@tuxland.pl>
+References: <20071011213126.cf92efb7.akpm@linux-foundation.org> <200710222040.19921.m.kozlowski@tuxland.pl> <20071022120359.26403bf0.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jkarlson@cc.hut.fi
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:35396 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751989AbXJVUkj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 16:40:39 -0400
-In-Reply-To: <20071022111235.266a10df.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-ppp@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <20071022120359.26403bf0.akpm@linux-foundation.org>
+Content-Disposition: inline
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix off-by one in remove logic that just got introduced.
+> > 	I'm seeing reproducible oops on 2.6.23-mm1 when trying to run tcpdump
+> > over ppp0 interface.
+> 
+> Can you please test the latest Linus kernel from
+> ftp://ftp.kernel.org/pub/linux/kernel/v2.6/snapshots/?
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+Sure.
 
----
-This only occurs in new post 2.6.23 code.
+> Because all netwrking things which were in 2.6.23-mm1 are now in mainline.
+> So if mainline is OK then that bug presumably got fixed.
 
---- a/drivers/net/sky2.c	2007-10-22 09:38:11.000000000 -0700
-+++ b/drivers/net/sky2.c	2007-10-22 12:11:22.000000000 -0700
-@@ -4271,7 +4271,7 @@ static void __devexit sky2_remove(struct
- 	del_timer_sync(&hw->watchdog_timer);
- 	cancel_work_sync(&hw->restart_work);
- 
--	for (i = hw->ports; i >= 0; --i)
-+	for (i = hw->ports-1; i >= 0; --i)
- 		unregister_netdev(hw->dev[i]);
- 
- 	sky2_write32(hw, B0_IMSK, 0);
-@@ -4289,7 +4289,7 @@ static void __devexit sky2_remove(struct
- 	pci_release_regions(pdev);
- 	pci_disable_device(pdev);
- 
--	for (i = hw->ports; i >= 0; --i)
-+	for (i = hw->ports-1; i >= 0; --i)
- 		free_netdev(hw->dev[i]);
- 
- 	iounmap(hw->regs);
+You're right. 2.6.23-git17 runs fine so the bug must have been fixed.
+
+Regards,
+
+	Mariusz
