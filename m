@@ -1,53 +1,72 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH] USB: net: Fix asix read transfer
-	buffer allocations.
-Date: Mon, 22 Oct 2007 19:29:03 +0200
-Message-ID: <200710221929.04035.oliver@neukum.org>
-References: <20071022155053.GA28526@ru.mvista.com>
+From: Oleg Nesterov <oleg@tv-sign.ru>
+Subject: Re: [PATCH] flush_work_sync vs. flush_scheduled_work Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
+Date: Mon, 22 Oct 2007 22:02:59 +0400
+Message-ID: <20071022180259.GA967@tv-sign.ru>
+References: <20071015125301.GC3015@ff.dom.local> <Pine.LNX.4.64N.0710151737250.16262@blysk.ds.pg.gda.pl> <20071016062108.GB1000@ff.dom.local> <Pine.LNX.4.64N.0710161759050.22596@blysk.ds.pg.gda.pl> <20071017085809.GA1658@ff.dom.local> <20071018063157.GA1694@ff.dom.local> <20071018070531.GA2065@ff.dom.local> <20071018154819.GA425@tv-sign.ru> <20071019075014.GA1765@ff.dom.local> <20071022061143.GA973@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org
-To: linux-usb-devel@lists.sourceforge.net
-Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20071022155053.GA28526@ru.mvista.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Maciej W. Rozycki" <macro@linux-mips.org>,
+	Andy Fleming <afleming@freescale.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jarek Poplawski <jarkao2@o2.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from x346.tv-sign.ru ([89.108.83.215]:57159 "EHLO mail.screens.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751903AbXJVR6P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Oct 2007 13:58:15 -0400
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
-List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
-List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: linux-usb-devel-bounces@lists.sourceforge.net
-Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
+In-Reply-To: <20071022061143.GA973@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Montag 22 Oktober 2007 schrieb Valentine Barshak:
-> =A0static int asix_mdio_read(struct net_device *netdev, int phy_id, int l=
-oc)
-> =A0{
-> =A0=A0=A0=A0=A0=A0=A0=A0struct usbnet *dev =3D netdev_priv(netdev);
-> +=A0=A0=A0=A0=A0=A0=A0void *buf;
-> =A0=A0=A0=A0=A0=A0=A0=A0u16 res;
-> =A0
-> =A0=A0=A0=A0=A0=A0=A0=A0mutex_lock(&dev->phy_mutex);
-> =A0=A0=A0=A0=A0=A0=A0=A0asix_set_sw_mii(dev);
-> +
-> +=A0=A0=A0=A0=A0=A0=A0buf =3D kmalloc(2, GFP_KERNEL);
+On 10/22, Jarek Poplawski wrote:
+>
+> On Fri, Oct 19, 2007 at 09:50:14AM +0200, Jarek Poplawski wrote:
+> > On Thu, Oct 18, 2007 at 07:48:19PM +0400, Oleg Nesterov wrote:
+> > > On 10/18, Jarek Poplawski wrote:
+> > > >
+> > > > +/**
+> > > > + * flush_work_sync - block until a work_struct's callback has terminated
+> > >                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> > > Hmm...
+> > > 
+> > > > + * Similar to cancel_work_sync() but will only busy wait (without cancel)
+> > > > + * if the work is queued.
+> > > 
+> > > Yes, it won't block, but will spin in busy-wait loop until all other works
+> > > scheduled before this work are finished. Not good. After that it really
+> > > blocks waiting for this work to complete.
+> > > 
+> > > And I am a bit confused. We can't use flush_workqueue() because some of the
+> > > queued work_structs may take rtnl_lock, yes? But in that case we can't use
+> > > the new flush_work_sync() helper as well, no?
+> 
+> OK, I know I'm dumber and dumber everyday,
 
-This is done under lock. Can you allocate the buffer once and reuse it?
+You are not alone. I have the same feeling about myself!
 
-	Regards
-		Oliver
+> these all flushes are
+> rtnl lockup vulnerable wrt. other work functions, but cancel_work_sync
+> looks perfectly fine
 
+Yes,
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >> http://get.splunk.com/
-_______________________________________________
-linux-usb-devel@lists.sourceforge.net
-To unsubscribe, use the last form field at:
-https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
+> Then, if by any chance I'm right, something like flush_work_sync
+> (or changed flush_scheduled_work, if there is no problem with such
+> a change of implementation) could be safely (if it's called without
+> locks used by flushed work only) done cancel_work_sync() way, by
+> running a work function after try_to_grab_pending() returns 1
+
+If this work doesn't rearm itself - yes. (otherwise, the same ->func
+can run twice _at the same time_)
+
+But again, in this case wait_on_work() after try_to_grab_pending() == 1
+doesn't block, so we can just do
+
+	if (cancel_work_sync(w))
+		w->func();
+
+Oleg.
+
