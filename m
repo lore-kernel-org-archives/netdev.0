@@ -1,36 +1,33 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC][PATCH 0/3][XFRM]: Support packet processing error statistics.
-Date: Mon, 22 Oct 2007 16:50:40 +0800
-Message-ID: <20071022085040.GA17954@gondor.apana.org.au>
-References: <20071017.213523.58458049.davem@davemloft.net> <11930334662094-git-send-email-nakam@linux-ipv6.org>
+Subject: Re: [PATCH] netdev: Reset ipv4 flags during bundle creation on interfamily ipsec
+Date: Mon, 22 Oct 2007 16:51:37 +0800
+Message-ID: <20071022085137.GB17865@gondor.apana.org.au>
+References: <E1IisnN-0003rh-00@gondolin.me.apana.org.au> <200710220955.53895.joakim.koskela@hiit.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net
+To: Joakim Koskela <joakim.koskela@hiit.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4136 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:4145 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751907AbXJVIuq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 04:50:46 -0400
+	with ESMTP id S1754070AbXJVIvq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 04:51:46 -0400
 Content-Disposition: inline
-In-Reply-To: <11930334662094-git-send-email-nakam@linux-ipv6.org>
+In-Reply-To: <200710220955.53895.joakim.koskela@hiit.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 22, 2007 at 03:11:06PM +0900, Masahide NAKAMURA wrote:
-> This patch introduces statistics about transformation error (or almost error)
-> factor at packet processing for developer.
-> It is not a SNMP/MIB specification from IPsec/MIPv6 but a counter
-> designed from current transformation source code.
-> 
-> Comment please.
+On Mon, Oct 22, 2007 at 09:55:53AM +0300, Joakim Koskela wrote:
+>
+> Hi, and thanks for the feedback. True, this one affects only one level of 
+> inter-family, and supporting more would require a lot more changes in the 
+> bundle creation (perhaps combining both versions and taking better into 
+> account the outer family of the last transformation..). 
 
-Looks fine to me.  But could you hold onto this for a few days?
-I'm in the process of merging the input paths of IPv4 and IPv6.
-Once that's done you'll only need to count things once rather
-than once for IPv4 and again for IPv6.
+I think I should have this fixed with my current tree.  I'll
+either post that tonight or tomorrow.
 
-Thanks,
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
