@@ -1,31 +1,28 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] netdev: Reset ipv4 flags during bundle creation on interfamily ipsec
-Date: Mon, 22 Oct 2007 16:51:37 +0800
-Message-ID: <20071022085137.GB17865@gondor.apana.org.au>
-References: <E1IisnN-0003rh-00@gondolin.me.apana.org.au> <200710220955.53895.joakim.koskela@hiit.fi>
+Subject: Re: [PATCH] netdev: Interfamily support for IPSEC BEET
+Date: Mon, 22 Oct 2007 16:52:10 +0800
+Message-ID: <20071022085210.GC17865@gondor.apana.org.au>
+References: <E1Iisk2-0003qj-00@gondolin.me.apana.org.au> <200710220959.02544.joakim.koskela@hiit.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net
 To: Joakim Koskela <joakim.koskela@hiit.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4145 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:4152 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754070AbXJVIvq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 04:51:46 -0400
+	with ESMTP id S1754087AbXJVIwM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 04:52:12 -0400
 Content-Disposition: inline
-In-Reply-To: <200710220955.53895.joakim.koskela@hiit.fi>
+In-Reply-To: <200710220959.02544.joakim.koskela@hiit.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 22, 2007 at 09:55:53AM +0300, Joakim Koskela wrote:
+On Mon, Oct 22, 2007 at 09:59:02AM +0300, Joakim Koskela wrote:
 >
-> Hi, and thanks for the feedback. True, this one affects only one level of 
-> inter-family, and supporting more would require a lot more changes in the 
-> bundle creation (perhaps combining both versions and taking better into 
-> account the outer family of the last transformation..). 
+> Ok, this really sounds like a good development. Do you think it could make it 
+> in time for 2.6.24?
 
-I think I should have this fixed with my current tree.  I'll
-either post that tonight or tomorrow.
+Sorry, I think it's 2.6.25 material.
 
 Cheers,
 -- 
