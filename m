@@ -1,34 +1,48 @@
-From: "Yakov Lerner" <iler.ml@gmail.com>
-Subject: attach additional value to skb
-Date: Mon, 22 Oct 2007 22:03:47 +0200
-Message-ID: <f36b08ee0710221303y5a846a27v1ebdc919db0f00ac@mail.gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] sky2: crash on remove
+Date: Mon, 22 Oct 2007 13:39:09 -0700
+Message-ID: <20071022133909.6a5453c7@freepuppy.rosehill>
+References: <bug-9208-10286@http.bugzilla.kernel.org/>
+	<20071022111235.266a10df.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, jkarlson@cc.hut.fi
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.181]:17991 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752199AbXJVUDr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 16:03:47 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so1460998wah
-        for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 13:03:47 -0700 (PDT)
-Content-Disposition: inline
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:35396 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751989AbXJVUkj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 16:40:39 -0400
+In-Reply-To: <20071022111235.266a10df.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-1. How can I attach my 32-bit value to the skb in the
-PRE_ROUTNIG hook such that FORWARD and POST_ROUTING
-hooks can later access this value from the skb ?
+Fix off-by one in remove logic that just got introduced.
 
-Can I use sk_buff->cb for that ?
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-2.
-I want to add my custom destructor to the skb, the function
-pointer to be called at skb destruction time. Will the following
-work:  if I push  address of my_destructor to the
-sk-buff->destructor field,  and then when my_destructor
-is called, I call the (saved)  old value of  sk-buff->destructor ?
-Will this work ?
+---
+This only occurs in new post 2.6.23 code.
 
-Yakov
+--- a/drivers/net/sky2.c	2007-10-22 09:38:11.000000000 -0700
++++ b/drivers/net/sky2.c	2007-10-22 12:11:22.000000000 -0700
+@@ -4271,7 +4271,7 @@ static void __devexit sky2_remove(struct
+ 	del_timer_sync(&hw->watchdog_timer);
+ 	cancel_work_sync(&hw->restart_work);
+ 
+-	for (i = hw->ports; i >= 0; --i)
++	for (i = hw->ports-1; i >= 0; --i)
+ 		unregister_netdev(hw->dev[i]);
+ 
+ 	sky2_write32(hw, B0_IMSK, 0);
+@@ -4289,7 +4289,7 @@ static void __devexit sky2_remove(struct
+ 	pci_release_regions(pdev);
+ 	pci_disable_device(pdev);
+ 
+-	for (i = hw->ports; i >= 0; --i)
++	for (i = hw->ports-1; i >= 0; --i)
+ 		free_netdev(hw->dev[i]);
+ 
+ 	iounmap(hw->regs);
