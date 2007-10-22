@@ -1,34 +1,35 @@
-From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-Subject: Re: kernel panic when running tcpdump
-Date: Mon, 22 Oct 2007 23:16:22 +0200
-Message-ID: <200710222316.22922.m.kozlowski@tuxland.pl>
-References: <20071011213126.cf92efb7.akpm@linux-foundation.org> <200710222040.19921.m.kozlowski@tuxland.pl> <20071022120359.26403bf0.akpm@linux-foundation.org>
+From: "Wenhua Zhao" <whzhao@gmail.com>
+Subject: Re: attach additional value to skb
+Date: Mon, 22 Oct 2007 14:18:44 -0700
+Message-ID: <178ddfde0710221418v435c9f45ie6d8cb9b7bebd288@mail.gmail.com>
+References: <f36b08ee0710221303y5a846a27v1ebdc919db0f00ac@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-ppp@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <20071022120359.26403bf0.akpm@linux-foundation.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from py-out-1112.google.com ([64.233.166.179]:33702 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750798AbXJVVSp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 17:18:45 -0400
+Received: by py-out-1112.google.com with SMTP id u77so2735940pyb
+        for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 14:18:44 -0700 (PDT)
+In-Reply-To: <f36b08ee0710221303y5a846a27v1ebdc919db0f00ac@mail.gmail.com>
 Content-Disposition: inline
-Sender: linux-ppp-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > 	I'm seeing reproducible oops on 2.6.23-mm1 when trying to run tcpdump
-> > over ppp0 interface.
-> 
-> Can you please test the latest Linus kernel from
-> ftp://ftp.kernel.org/pub/linux/kernel/v2.6/snapshots/?
+On 10/22/07, Yakov Lerner <iler.ml@gmail.com> wrote:
+> 1. How can I attach my 32-bit value to the skb in the
+> PRE_ROUTNIG hook such that FORWARD and POST_ROUTING
+> hooks can later access this value from the skb ?
+>
+> Can I use sk_buff->cb for that ?
+In IP layer cb is used by IP as structure inet_skb_param.  It is
+written by ip_rcv_options() (in function ip_rcv_finish()) between
+PRE_ROUTING and FORWARD/POST_ROUTING.
 
-Sure.
-
-> Because all netwrking things which were in 2.6.23-mm1 are now in mainline.
-> So if mainline is OK then that bug presumably got fixed.
-
-You're right. 2.6.23-git17 runs fine so the bug must have been fixed.
+In my opinion, cb is only used when one exclusively owns the skb.
 
 Regards,
-
-	Mariusz
+Wenhua
