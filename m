@@ -1,68 +1,97 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/7] pci: Export the pci_restore_msi_state() function
-Date: Sun, 21 Oct 2007 21:45:20 -0700 (PDT)
-Message-ID: <20071021.214520.66310568.davem@davemloft.net>
-References: <20071021.162131.43417026.davem@davemloft.net>
-	<1551EAE59135BE47B544934E30FC4FC002AABB04@nt-irva-0751.brcm.ad.broadcom.com>
+From: Pierre Ossman <drzeus@drzeus.cx>
+Subject: Re: net: alignment problem in icmp code
+Date: Mon, 22 Oct 2007 06:54:43 +0200
+Message-ID: <20071022065443.2f3c1b8a@poseidon.drzeus.cx>
+References: <20071021113405.37fa0bc5@poseidon.drzeus.cx>
+	<20071021.124814.50617600.davem@davemloft.net>
+	<20071021232113.52ce1be7@poseidon.drzeus.cx>
+	<20071021.160215.115679567.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mcarlson@broadcom.com, netdev@vger.kernel.org,
-	linux-pci@atrey.karlin.mff.cuni.cz, linas@austin.ibm.com
-To: mchan@broadcom.com
+Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=PGP-SHA1; boundary="=_hera.drzeus.cx-16687-1193028855-0001-2"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35064
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750989AbXJVEpH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 00:45:07 -0400
-In-Reply-To: <1551EAE59135BE47B544934E30FC4FC002AABB04@nt-irva-0751.brcm.ad.broadcom.com>
+Received: from gateway.drzeus.cx ([85.8.24.16]:45745 "EHLO smtp.drzeus.cx"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750908AbXJVEyv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Oct 2007 00:54:51 -0400
+In-Reply-To: <20071021.160215.115679567.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Sun, 21 Oct 2007 21:01:17 -0700
+This is a MIME-formatted message.  If you see this text it means that your
+E-mail software does not support MIME-formatted messages.
 
-> David Miller wrote:
-> 
-> > I'm not so sure about this.
-> > 
-> > Perhaps, instead, you should do a pci_msi_disable() and
-> > pci_msi_enable() in the error detection and recovery sequence.
-> 
-> If we just detected PCI errors on this slot, I don't think it's
-> a good idea to continue writing to the config space to disable
-> MSI.  Perhaps we can disable/enable after the slot reset.
+--=_hera.drzeus.cx-16687-1193028855-0001-2
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Right, it would have to be after the slot reset.
+On Sun, 21 Oct 2007 16:02:15 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> > Or, alternatively, save/restore those MSI registers by hand.
-> 
-> We can do that, but we'll have to do it ahead of time when we enable
-> MSI, not after errors have been detected.  But the address/data can
-> change as the CPU affinity changes during run time, right?
+> From: Pierre Ossman <drzeus@drzeus.cx>
+> Date: Sun, 21 Oct 2007 23:21:13 +0200
+>=20
+> > Not sure that would be valid. memcpy() is defined as having void*
+> > arguments, and the compiler cannot just ignore that if it chooses to
+> > inline it.
+>=20
+> Yes it can, there are C language rules about the alignment of types
+> that the compiler completely can take advantage of in those kinds of
+> situations.
+>=20
 
-Yes, it can.
+I'm not debating that. What I'm saying is that calling memcpy() casts your =
+pointers to void* with the included semantical changes. It can't just ignor=
+e that because it decides to inline the function. It would be the same thin=
+g as when gcc decided to ignore the volatile qualifier on a pointer just be=
+cause it could optimize away to the real object and discover it wasn't mark=
+ed with volatile. Something that was considered a bug and was fixed.
 
-The core issue is that the ARCH level MSI code invokes
-write_msi_msg(), not the generic code, exactly because there
-are platform level issues wherein the firmware is the only
-legal way to write the MSI settings in PCI config space.
+> If you don't believe me, compile something like the following
+> with optimizations enabled:
 
-However, the MSI state restore code was not architected similarly.  It
-does the write_msi_msg() directly, instead of letting platform level
-code is in ARCH hooks.
+gcc has had bugs in the past.
 
-Therefore I think we need to attack this in two stages:
+> You will get a 64-bit load and a 64-bit store emitted by
+> the compiler.  Here is what we get on sparc64:
+>=20
 
-1) First changeset moves the write_msi_msg() call currently in
-   __pci_restore_msi_state() into an ARCH overridable handler.
+I assume those ops cause a bus error on unaligned addresses?
 
-   This would allow powerpc to deal with this properly.
+>=20
+> However, instead of relying upon magic like this, let's just tell the
+> compiler explicitly what it going on by using get_unaligned().
+>=20
 
-   pci_restor_msi_state() can get exported to modules in this
-   change
+It wouldn't be magic:
 
-2) The Tigon3 error recovery changes, as they were.
+memcpy(&icmp_param.data.icmph, skb_transport_header(skb), sizeof(struct icm=
+phdr));
 
-But I have to ask, can anyone see how e1000 handles MSI properly
-in it's PCI error support?
+I believe platforms without alignment requirements could optimize this bett=
+er than the series of assignments. Not that I think this will be a potentia=
+l bottle neck, but still.
+
+> Next, there are redundant stores being done here since the code and
+> type are explicitly overwritten in various ways.
+
+Indeed.
+
+Rgds
+Pierre
+
+--=_hera.drzeus.cx-16687-1193028855-0001-2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+
+iD8DBQFHHC0T7b8eESbyJLgRAqWvAJ0dq5/m5qdJNWe4zLpO7sZQM+sZ5ACgsyoo
+ne9pq3zgZ/k8MDIReYPZPbc=
+=DN5z
+-----END PGP SIGNATURE-----
+
+--=_hera.drzeus.cx-16687-1193028855-0001-2--
