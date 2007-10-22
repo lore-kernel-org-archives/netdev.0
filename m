@@ -1,45 +1,38 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: Bluetooth patches for 2.6.24
-Date: Mon, 22 Oct 2007 09:56:31 +0200
-Message-ID: <1193039791.6184.154.camel@violet>
-References: <1192888816.6184.117.camel@violet>
-	 <1192910497.6184.134.camel@violet>
-	 <20071021.162614.58462652.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net: alignment problem in icmp code
+Date: Mon, 22 Oct 2007 01:31:05 -0700 (PDT)
+Message-ID: <20071022.013105.74746322.davem@davemloft.net>
+References: <20071022065443.2f3c1b8a@poseidon.drzeus.cx>
+	<20071021.221524.49830652.davem@davemloft.net>
+	<20071022092350.5c75b3bd@poseidon.drzeus.cx>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: drzeus@drzeus.cx
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([217.160.111.169]:59116 "EHLO
-	mail.holtmann.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751532AbXJVHzW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 03:55:22 -0400
-In-Reply-To: <20071021.162614.58462652.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46768
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751162AbXJVIap (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 04:30:45 -0400
+In-Reply-To: <20071022092350.5c75b3bd@poseidon.drzeus.cx>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+From: Pierre Ossman <drzeus@drzeus.cx>
+Date: Mon, 22 Oct 2007 09:23:50 +0200
 
-> > > these are the Bluetooth patches for the 2.6.24 kernel release. Please
-> > > pull and send them to Linus.
-> > 
-> > one of the cleanup patches slipped through the net. If you already
-> > pulled my tree, then please re-pull. I pushed it on top of it.
-> 
-> I think I got it all, thanks.
-> 
-> Please get Bluetooth updates to me much sooner than 8
-> days after the merge window opens up.
+> As for other instances of unaligned accesses, is there any active
+> work on getting rid of those? And would you accept more patches for
+> fixing them? (Code complexity being the downside)
 
-sorry for that, but I wanted to make sure that the new generic Bluetooth
-SDIO driver makes it in and is working with the SDIO framework merge.
+On fast paths we aren't going to add things like get_unaligned()
+calls.
 
-For the next releases, I don't see any dependencies on other merges, so
-that should be no longer problem. Thanks for pulling.
+Every architecture should handle unaligned accesses properly, and for
+the fast paths the network driver should provide the packet fully
+aligned or take steps to make it so if it can't DMA directly into
+2-byte offset buffers (such as copying the packet).
 
-Regards
-
-Marcel
-
-
+What is the specific reason why you see packet headers unaligned?
+It's probably just some AVR networking driver that needs tweaks.
