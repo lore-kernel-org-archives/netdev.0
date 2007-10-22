@@ -1,64 +1,95 @@
-From: Gabriel C <nix.or.die@googlemail.com>
-Subject: Re: appletalk bugs
-Date: Mon, 22 Oct 2007 17:10:46 +0200
-Message-ID: <471CBD76.6030205@googlemail.com>
-References: <471CB159.1070706@googlemail.com> <1193064745.20114.3.camel@stingray>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH 1/3] Don't declare extern variables in net/core/sysctl_net_core.c
+Date: Mon, 22 Oct 2007 19:22:43 +0400
+Message-ID: <471CC043.5060301@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev <netdev@vger.kernel.org>
-To: Nick <nickwinlund@comcast.net>
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.236]:30198 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751663AbXJVPLG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 11:11:06 -0400
-Received: by wr-out-0506.google.com with SMTP id 36so792302wra
-        for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 08:11:04 -0700 (PDT)
-In-Reply-To: <1193064745.20114.3.camel@stingray>
+Received: from sacred.ru ([62.205.161.221]:58192 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751868AbXJVPWK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Oct 2007 11:22:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Nick wrote:
-[ restoring CC ]
+Some are already declared in include/linux/netdevice.h, while
+some others (xfrm ones) need to be declared.
 
-> Fascinating ... Are you using chooser or NetInfo?
+The driver/net/rrunner.c just uses same extern as well, so 
+cleanup it also.
 
-No I don't.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-I fact I don't even know why that module got loaded. 
+---
 
+diff --git a/drivers/net/rrunner.c b/drivers/net/rrunner.c
+index 19152f5..b822859 100644
+--- a/drivers/net/rrunner.c
++++ b/drivers/net/rrunner.c
+@@ -79,12 +79,10 @@ static char version[] __devinitdata = "rrunner.c: v0.50 11/11/2002  Jes Sorensen
+  */
+ 
+ /*
+- * These are checked at init time to see if they are at least 256KB
+- * and increased to 256KB if they are not. This is done to avoid ending
+- * up with socket buffers smaller than the MTU size,
++ * sysctl_[wr]mem_max are checked at init time to see if they are at
++ * least 256KB and increased to 256KB if they are not. This is done to
++ * avoid ending up with socket buffers smaller than the MTU size,
+  */
+-extern __u32 sysctl_wmem_max;
+-extern __u32 sysctl_rmem_max;
+ 
+ static int __devinit rr_init_one(struct pci_dev *pdev,
+ 	const struct pci_device_id *ent)
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 688f6f5..58dfa82 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -37,6 +37,8 @@
+ extern struct sock *xfrm_nl;
+ extern u32 sysctl_xfrm_aevent_etime;
+ extern u32 sysctl_xfrm_aevent_rseqth;
++extern int sysctl_xfrm_larval_drop;
++extern u32 sysctl_xfrm_acq_expires;
+ 
+ extern struct mutex xfrm_cfg_mutex;
+ 
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index 6d5ea97..113cc72 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -9,25 +9,12 @@
+ #include <linux/sysctl.h>
+ #include <linux/module.h>
+ #include <linux/socket.h>
++#include <linux/netdevice.h>
+ #include <net/sock.h>
++#include <net/xfrm.h>
+ 
+ #ifdef CONFIG_SYSCTL
+ 
+-extern int netdev_max_backlog;
+-extern int weight_p;
+-
+-extern __u32 sysctl_wmem_max;
+-extern __u32 sysctl_rmem_max;
+-
+-extern int sysctl_core_destroy_delay;
+-
+-#ifdef CONFIG_XFRM
+-extern u32 sysctl_xfrm_aevent_etime;
+-extern u32 sysctl_xfrm_aevent_rseqth;
+-extern int sysctl_xfrm_larval_drop;
+-extern u32 sysctl_xfrm_acq_expires;
+-#endif
+-
+ ctl_table core_table[] = {
+ #ifdef CONFIG_NET
+ 	{
+-- 
+1.5.3.4
 
-> On Mon, 2007-10-22 at 16:19 +0200, Gabriel C wrote:
->> Hi,
->>
->> modprobing appletalk on current git gives a warning in dmesg :
->>
->> [38506.600269] sysctl table check failed: /net/appletalk .3.7 procname does not match binary path procname
->>
->> on rmmod appletalk I get an Oops :
->>
->>
->> [38541.525258] BUG: unable to handle kernel NULL pointer dereference at virtual address 0000000c
->> [38541.525266] printing eip: c011d4f0 *pde = 00000000 
->> [38541.525274] Oops: 0000 [#1] PREEMPT SMP 
->> [38541.525282] Modules linked in: appletalk psnap llc pc87360 hwmon_vid eeprom adm1021 sr_mod shpchp pci_hotplug iTCO_wdt iTCO_vendor_support intel_agp i82860_edac i2c_i801 edac_core cdrom agpgart 3c59x mii ext4dev jbd2 crc16 loop lp parport_pc parport evdev
->> [38541.525312] 
->> [38541.525316] Pid: 28887, comm: rmmod Not tainted (2.6.23-gcfa76f02 #341)
->> [38541.525321] EIP: 0060:[<c011d4f0>] EFLAGS: 00010202 CPU: 0
->> [38541.525334] EIP is at unregister_sysctl_table+0x11/0x70
->> [38541.525339] EAX: 00000001 EBX: e8ef2180 ECX: 00000002 EDX: 00000000
->> [38541.525343] ESI: 00000000 EDI: 00000880 EBP: cc094000 ESP: cc095f38
->> [38541.525347]  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
-> 
->> [38541.525389] Call Trace:
->> [38541.525395]  [<e8eed5b1>] atalk_exit+0x5/0x4b [appletalk]
->> [38541.525410]  [<c01353b2>] sys_delete_module+0x187/0x1b5
->> [38541.525420]  [<c01101fd>] do_page_fault+0x18b/0x51a
->> [38541.525426]  [<c0148684>] do_munmap+0x19b/0x1b4
->> [38541.525437]  [<c01026fa>] sysenter_past_esp+0x5f/0x85
-> 
-> 
-> 
