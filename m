@@ -1,60 +1,34 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [BUG] powerpc does not save msi state [was Re: [PATCH 5/7] pci: Export the pci_restore_msi_state() function
-Date: Mon, 22 Oct 2007 14:54:52 -0500
-Message-ID: <20071022195451.GE4280@austin.ibm.com>
-References: <20071020000421.GO29903@austin.ibm.com> <20071019.172706.57467960.davem@davemloft.net> <20071020004610.GR29903@austin.ibm.com> <20071019.175308.54212640.davem@davemloft.net>
+From: "Yakov Lerner" <iler.ml@gmail.com>
+Subject: attach additional value to skb
+Date: Mon, 22 Oct 2007 22:03:47 +0200
+Message-ID: <f36b08ee0710221303y5a846a27v1ebdc919db0f00ac@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linuxppc-dev@ozlabs.org, mchan@broadcom.com, mcarlson@broadcom.com,
-	netdev@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz,
-	michael@ellerman.id.au
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:49488 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752780AbXJVTyx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 15:54:53 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9MJsreH028797
-	for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 15:54:53 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9MJsrwY084288
-	for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 13:54:53 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9MJsqJU001414
-	for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 13:54:53 -0600
+Received: from wa-out-1112.google.com ([209.85.146.181]:17991 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752199AbXJVUDr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 16:03:47 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so1460998wah
+        for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 13:03:47 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20071019.175308.54212640.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 19, 2007 at 05:53:08PM -0700, David Miller wrote:
-> From: linas@austin.ibm.com (Linas Vepstas)
-> Date: Fri, 19 Oct 2007 19:46:10 -0500
-> 
-> > FWIW, it looks like not all that many arches do this; the output
-> > for grep -r address_hi * is pretty thin. Then, looking at
-> > i386/kernel/io_apic.c as an example, one can see that the 
-> > msi state save happens "by accident" if CONFIG_SMP is enabled;
-> > and so its surely broekn on uniprocesor machines.
-> 
-> I don't see this, in all cases write_msi_msg() will transfer
-> the given "*msg" to entry->msg by this assignment in
-> drivers/pci/msi.c:
-> 
-> void write_msi_msg(unsigned int irq, struct msi_msg *msg)
-> {
->  ...
-> 	entry->msg = *msg;
-> }
-> 
-> So as long as write_msi_msg() is invoked, it will be saved
-> properly.
+1. How can I attach my 32-bit value to the skb in the
+PRE_ROUTNIG hook such that FORWARD and POST_ROUTING
+hooks can later access this value from the skb ?
 
-As Michael Ellerman points out, the pseries msi setup is done
-by firmware, and so this bit never happens. 
+Can I use sk_buff->cb for that ?
 
-As discussed in the other thread, I'll try to set up a patch
-for an arch callback for restoring msi state.
+2.
+I want to add my custom destructor to the skb, the function
+pointer to be called at skb destruction time. Will the following
+work:  if I push  address of my_destructor to the
+sk-buff->destructor field,  and then when my_destructor
+is called, I call the (saved)  old value of  sk-buff->destructor ?
+Will this work ?
 
--linas
+Yakov
