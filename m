@@ -1,48 +1,60 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] - trivial - Improve appletalk checksum calculation
-Date: Mon, 22 Oct 2007 12:36:19 -0700
-Message-ID: <1193081779.5132.24.camel@localhost>
+From: Gabriel C <nix.or.die@googlemail.com>
+Subject: Re: appletalk bugs
+Date: Mon, 22 Oct 2007 21:45:18 +0200
+Message-ID: <471CFDCE.9090702@googlemail.com>
+References: <471CB159.1070706@googlemail.com> <m18x5vasif.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:2022 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752821AbXJVTgl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Oct 2007 15:36:41 -0400
+Received: from mu-out-0910.google.com ([209.85.134.190]:45278 "EHLO
+	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753685AbXJVTpn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 15:45:43 -0400
+Received: by mu-out-0910.google.com with SMTP id i10so2143494mue
+        for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 12:45:42 -0700 (PDT)
+In-Reply-To: <m18x5vasif.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It's a bit after 2.6.1 now...
+Eric W. Biederman wrote:
+> Gabriel C <nix.or.die@googlemail.com> writes:
+> 
+>> Hi,
+>>
+>> modprobing appletalk on current git gives a warning in dmesg :
+>>
+>> [38506.600269] sysctl table check failed: /net/appletalk .3.7 procname does not
+>> match binary path procname
+> 
+> Oops.  My apologies it appears I made a mistake when creating my
+> table to check up on sysctl values.
+> 
+> This should fix it.
 
-Removes unnecessary if, uses 16 bit rotate left.
-Performance improves ~30%
+Yes it does, thx.
 
-Signed-off-by: Joe Perches <joe@perches.com>
-
-diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
-index 7c0b515..1c50f4c 100644
---- a/net/appletalk/ddp.c
-+++ b/net/appletalk/ddp.c
-@@ -925,15 +925,9 @@ static int atrtr_ioctl(unsigned int cmd, void __user *arg)
- static unsigned long atalk_sum_partial(const unsigned char *data,
- 				       int len, unsigned long sum)
- {
--	/* This ought to be unwrapped neatly. I'll trust gcc for now */
- 	while (len--) {
--		sum += *data;
--		sum <<= 1;
--		if (sum & 0x10000) {
--			sum++;
--			sum &= 0xffff;
--		}
--		data++;
-+		sum += *data++;
-+		sum = ((sum & 0x8000)>>15) | ((sum & 0x7fff)<<1);
- 	}
- 	return sum;
- }
-
-
+> 
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> 
+> ---
+> 
+> diff --git a/kernel/sysctl_check.c b/kernel/sysctl_check.c
+> index 3c9ef5a..ed6fe51 100644
+> --- a/kernel/sysctl_check.c
+> +++ b/kernel/sysctl_check.c
+> @@ -731,7 +731,7 @@ static struct trans_ctl_table trans_net_table[] = {
+>  	{ NET_UNIX,		"unix",		trans_net_unix_table },
+>  	{ NET_IPV4,		"ipv4",		trans_net_ipv4_table },
+>  	{ NET_IPX,		"ipx",		trans_net_ipx_table },
+> -	{ NET_ATALK,		"atalk",	trans_net_atalk_table },
+> +	{ NET_ATALK,		"appletalk",	trans_net_atalk_table },
+>  	{ NET_NETROM,		"netrom",	trans_net_netrom_table },
+>  	{ NET_AX25,		"ax25",		trans_net_ax25_table },
+>  	{ NET_BRIDGE,		"bridge",	trans_net_bridge_table },
+> 
