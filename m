@@ -1,85 +1,68 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: Re: e100 problems in .23rc8 ?
-Date: Mon, 22 Oct 2007 10:44:28 -0400
-Message-ID: <471CB74C.4080709@redhat.com>
-References: <7DCDA0F058071B49AED9D3D7886C41BE0966AEDB@muon.jnpr.net> <47179F1F.3030202@intel.com>
+From: "Mike Snitzer" <snitzer@gmail.com>
+Subject: Re: [PATCH 1/6] Convert bonding timers to workqueues
+Date: Mon, 22 Oct 2007 10:55:17 -0400
+Message-ID: <170fa0d20710220755w744e8ec8w1d85cae4f4be822e@mail.gmail.com>
+References: <11920760494096-git-send-email-fubar@us.ibm.com>
+	 <11920760502756-git-send-email-fubar@us.ibm.com>
+	 <4713B44E.7030902@pobox.com> <20038.1192475339@death>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Dave Jones <davej@redhat.com>, David Mack <dmack@juniper.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, esandeen@redhat.com
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Cc: "Jay Vosburgh" <fubar@us.ibm.com>, netdev@vger.kernel.org,
+	andy@greyhouse.net
+To: "Jeff Garzik" <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:38023 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751102AbXJVOol (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Oct 2007 10:44:41 -0400
-In-Reply-To: <47179F1F.3030202@intel.com>
+Received: from nz-out-0506.google.com ([64.233.162.238]:2141 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752365AbXJVOzS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 10:55:18 -0400
+Received: by nz-out-0506.google.com with SMTP id s18so442999nze
+        for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 07:55:18 -0700 (PDT)
+In-Reply-To: <20038.1192475339@death>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/18/2007 01:59 PM, Kok, Auke wrote:
-> David Mack wrote:
->> It appears that the needed e100 fix made it into the Fedora
->> 2.6.23.1-23.fc8 kernel. Boots reliably now.
->>
->> Huge thanks and great work, guys.
-> 
-> 
-> DaveJ, I didn't push anything upstream. Can you verify this now works?
-> 
+On 10/15/07, Jay Vosburgh <fubar@us.ibm.com> wrote:
+> Jeff Garzik <jgarzik@pobox.com> wrote:
+>
+> >Jay Vosburgh wrote:
+> >>      Convert bonding timers to workqueues.  This converts the various
+> >> monitor functions to run in periodic work queues instead of timers.  This
+> >> patch introduces the framework and convers the calls, but does not resolve
+> >> various locking issues, and does not stand alone.
+> >>
+> >> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> >> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> >
+> >"does not stand alone" == it is not bisectable?  That's a problem.
+>
+>         The patch will compile fine (this is true for any point in the
+> series), but it's possible for bonding to deadlock or misbehave when
+> doing certain operations.  Those problems are addressed in the later
+> patches.
+>
+>         I didn't want to just vomit out one big mega-patch that has the
+> whole set of changes, because that's harder to understand, and the later
+> patches generally address discrete issues.
+>
+>         Does that make you more or less nervous about its bisectability?
+> I can repost the whole thing as a big blob if that's what you'd prefer.
+>
+> >Anyway, we have more fun fish to fry:  after applying the IPoIB bonding
+> >patchset, this no longer applies...
+>
+>         Yah, I'll rebase it (once I know your blob vs. not-blob
+> preference).  I wasn't sure how long the IPoIB mystery bug hunt was
+> going to take.
 
-One of our users just posted this:
+Jeff,
 
+Given that Jay rebased and posted updated bonding locking patches on
+Oct 17 will you be pushing them for inclusion in 2.6.24-rc1?  or
+2.6.24-rcX?  I don't see them queued in your netdev-2.6 tree.  These
+bonding locking issues have been a problem for some time and it would
+be very good to get them fixed upstream sooner rather than later.
 
-We observed the same panic on a Dell Dimension 5150 (E510), although not
-limited to warm boots.	We noticed that the following trace is possible:
-
-- when starting the interface, e100_up() gets called
-- it calls e100_hw_init(), which disables e100 IRQ generation
-(e100_disable_irq())
-- it registers the interrupt handler
-- the interrupt handler (e100_intr()) gets called - this happens because the
-IRQ line is shared with another device (in this case, the SATA controller)
-- the interrupt handler examines the stat_ack register of the interface: even
-though interrupts are disabled, an event is indicated and the interrupt handler
-proceeds
-- the interrupt handler calls netif_rx_schedule_prep(), which sets the
-__LINK_STATE_RX_SCHED bit, and __netif_rx_schedule(), which adds the interface
-to the poll list
-- when the interrupt handler returns, e100_up() calls netif_poll_enable(), thus
-clearing the __LINK_STATE_RX_SCHED bit
-- now the NET RX softirq (net_rx_action) calls e100_poll(), which in turn calls
-netif_rx_complete()
-- netif_rx_complete() checks whether the __LINK_STATE_RX_SCHED bit is set and
-triggers the panic
-
-To avoid this situation, where the interrupt handler executes although e100
-interrupts are disabled, we suggest the attached patch.  It lets the interrupt
-handler check the interrupt mask bit before proceeding with the interrupt
-handling.
-
-
-Authors: Christof Efkemann <chref@tzi.de>, Kai Thomsen <kthomsen@tzi.de>
-Description:
-Avoid interrupt handler execution if e100 interrupts are disabled.
-Checks the interrupt mask bit before proceeding with the interrupt handling.
-
---- drivers/net/e100.c.old	2007-10-20 18:32:40.000000000 +0200
-+++ drivers/net/e100.c	2007-10-20 18:36:02.000000000 +0200
-@@ -1960,11 +1960,13 @@
- 	struct net_device *netdev = dev_id;
- 	struct nic *nic = netdev_priv(netdev);
- 	u8 stat_ack = ioread8(&nic->csr->scb.stat_ack);
-+	u8 cmd_hi = ioread8(&nic->csr->scb.cmd_hi);
- 
- 	DPRINTK(INTR, DEBUG, "stat_ack = 0x%02X\n", stat_ack);
- 
- 	if(stat_ack == stat_ack_not_ours ||	/* Not our interrupt */
--	   stat_ack == stat_ack_not_present)	/* Hardware is ejected */
-+	   stat_ack == stat_ack_not_present ||	/* Hardware is ejected */
-+	   cmd_hi & irq_mask_all)		/* Interrupts masked */
- 		return IRQ_NONE;
- 
- 	/* Ack interrupt(s) */
+thanks,
+Mike
