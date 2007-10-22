@@ -1,72 +1,61 @@
-From: Oleg Nesterov <oleg@tv-sign.ru>
-Subject: Re: [PATCH] flush_work_sync vs. flush_scheduled_work Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
-Date: Mon, 22 Oct 2007 22:02:59 +0400
-Message-ID: <20071022180259.GA967@tv-sign.ru>
-References: <20071015125301.GC3015@ff.dom.local> <Pine.LNX.4.64N.0710151737250.16262@blysk.ds.pg.gda.pl> <20071016062108.GB1000@ff.dom.local> <Pine.LNX.4.64N.0710161759050.22596@blysk.ds.pg.gda.pl> <20071017085809.GA1658@ff.dom.local> <20071018063157.GA1694@ff.dom.local> <20071018070531.GA2065@ff.dom.local> <20071018154819.GA425@tv-sign.ru> <20071019075014.GA1765@ff.dom.local> <20071022061143.GA973@ff.dom.local>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH 5/7] pci: Export the pci_restore_msi_state() function
+Date: Mon, 22 Oct 2007 13:07:24 -0500
+Message-ID: <20071022180724.GB4280@austin.ibm.com>
+References: <1192829817.22064.559.camel@teletran1> <20071021.162131.43417026.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Maciej W. Rozycki" <macro@linux-mips.org>,
-	Andy Fleming <afleming@freescale.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
+Cc: mcarlson@broadcom.com, netdev@vger.kernel.org,
+	linux-pci@atrey.karlin.mff.cuni.cz, mchan@broadcom.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from x346.tv-sign.ru ([89.108.83.215]:57159 "EHLO mail.screens.ru"
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:36584 "EHLO e4.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751903AbXJVR6P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Oct 2007 13:58:15 -0400
+	id S1751408AbXJVSH0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Oct 2007 14:07:26 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9MI7QSR008801
+	for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 14:07:26 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9MI7Pkw118880
+	for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 14:07:25 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9MI7P48027221
+	for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 14:07:25 -0400
 Content-Disposition: inline
-In-Reply-To: <20071022061143.GA973@ff.dom.local>
+In-Reply-To: <20071021.162131.43417026.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/22, Jarek Poplawski wrote:
->
-> On Fri, Oct 19, 2007 at 09:50:14AM +0200, Jarek Poplawski wrote:
-> > On Thu, Oct 18, 2007 at 07:48:19PM +0400, Oleg Nesterov wrote:
-> > > On 10/18, Jarek Poplawski wrote:
-> > > >
-> > > > +/**
-> > > > + * flush_work_sync - block until a work_struct's callback has terminated
-> > >                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> > > Hmm...
-> > > 
-> > > > + * Similar to cancel_work_sync() but will only busy wait (without cancel)
-> > > > + * if the work is queued.
-> > > 
-> > > Yes, it won't block, but will spin in busy-wait loop until all other works
-> > > scheduled before this work are finished. Not good. After that it really
-> > > blocks waiting for this work to complete.
-> > > 
-> > > And I am a bit confused. We can't use flush_workqueue() because some of the
-> > > queued work_structs may take rtnl_lock, yes? But in that case we can't use
-> > > the new flush_work_sync() helper as well, no?
+On Sun, Oct 21, 2007 at 04:21:31PM -0700, David Miller wrote:
+> From: "Matt Carlson" <mcarlson@broadcom.com>
+> Date: Fri, 19 Oct 2007 14:36:56 -0700
 > 
-> OK, I know I'm dumber and dumber everyday,
+> > This patch exports the pci_restore_msi_state() function.  This function
+> > is needed to restore the MSI state during PCI error recovery.
+> > 
+> > Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+> > Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> > Signed-off-by: Michael Chan <mchan@broadcom.com>
+> 
+> I'm not so sure about this.
+> 
+> Perhaps, instead, you should do a pci_msi_disable() and
+> pci_msi_enable() in the error detection and recovery sequence.
+> 
+> Or, alternatively, save/restore those MSI registers by hand.
+> 
+> I'm trying to figure out how the E1000 driver handles this correctly,
+> but I can't see it just by reading it over quickly.
 
-You are not alone. I have the same feeling about myself!
+The e1000 and the ixgb are broken as well ... right now, any
+driver that uses msi together with the pci error recovery will
+fail to get recovered correctly.  There are several distinct bugs;
+one is that, msi state is not being restored; and the call to 
+pci_restore_msi_state() was supposed to aid with that.
 
-> these all flushes are
-> rtnl lockup vulnerable wrt. other work functions, but cancel_work_sync
-> looks perfectly fine
+I'd rather not use pci_msi_disable(), because that has the 
+side-effect of enabling legacy interupts; I'm concerned that 
+this will have the potential for causing havoc of all sorts.
 
-Yes,
-
-> Then, if by any chance I'm right, something like flush_work_sync
-> (or changed flush_scheduled_work, if there is no problem with such
-> a change of implementation) could be safely (if it's called without
-> locks used by flushed work only) done cancel_work_sync() way, by
-> running a work function after try_to_grab_pending() returns 1
-
-If this work doesn't rearm itself - yes. (otherwise, the same ->func
-can run twice _at the same time_)
-
-But again, in this case wait_on_work() after try_to_grab_pending() == 1
-doesn't block, so we can just do
-
-	if (cancel_work_sync(w))
-		w->func();
-
-Oleg.
-
+--linas
