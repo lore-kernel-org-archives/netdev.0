@@ -1,35 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net: alignment problem in icmp code
-Date: Mon, 22 Oct 2007 02:05:38 -0700 (PDT)
-Message-ID: <20071022.020538.74751031.davem@davemloft.net>
-References: <20071022092350.5c75b3bd@poseidon.drzeus.cx>
-	<20071022.013105.74746322.davem@davemloft.net>
-	<20071022104208.78c79467@poseidon.drzeus.cx>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: about multiple network interface
+Date: Mon, 22 Oct 2007 13:14:10 +0400
+Message-ID: <20071022091410.GB12186@2ka.mipt.ru>
+References: <105610bf0710180606w6a687642r35414d2b66b6d3af@mail.gmail.com> <20071018132836.GA15906@2ka.mipt.ru> <105610bf0710211909r6ab2b63fo8a4f67eba6c05bc7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: drzeus@drzeus.cx
+To: wit <is01kzh@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60927
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750807AbXJVJFR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 05:05:17 -0400
-In-Reply-To: <20071022104208.78c79467@poseidon.drzeus.cx>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:58745 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751603AbXJVJOO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Oct 2007 05:14:14 -0400
+Content-Disposition: inline
+In-Reply-To: <105610bf0710211909r6ab2b63fo8a4f67eba6c05bc7@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pierre Ossman <drzeus@drzeus.cx>
-Date: Mon, 22 Oct 2007 10:42:08 +0200
+On Mon, Oct 22, 2007 at 10:09:38AM +0800, wit (is01kzh@gmail.com) wrote:
+> But this does work until I add a ifcfg-eth0 in
+> sysconfig/network-script with the following content:
+> DEVICE=eth0
+> ONBOOT=yes
+> 
+> What is the relationship between these two files? And sometimes, I see
 
-> This seems like a rather evil layering violation.
+It depends on your distro - when script calls "modprobe $DEVICE"
+this ends up with modprobe eth0, which will check modprobe.conf.
 
-This has a 10+ year precedence and it's why the Linux networking stack
-is so fast.  If you read any other driver you would have seen the
-skb_reserve() call every one of them do to align the headers.
+> this message:
+> Bringing up interface eth0:  e100 device does not seem to be present, delaying e
+> th0 initialization.
+> Why??
 
-I think I've tolerated this long enough.
+This is fedora, right? Check you kernel config, scripts and whatever is
+needed to load driver first and only then try to setup an address.
 
-Are you going keep teaching me how the C language works, how GCC
-interprets it, and how evil the Linux networking is, or are you going
-to fix the bug in your driver? :-)
+-- 
+	Evgeniy Polyakov
