@@ -1,77 +1,59 @@
-From: "David Mack" <dmack@juniper.net>
-Subject: RE: e100 problems in .23rc8 ?
-Date: Mon, 22 Oct 2007 07:05:50 -0700
-Message-ID: <7DCDA0F058071B49AED9D3D7886C41BE0A43B10E@muon.jnpr.net>
-References: <7DCDA0F058071B49AED9D3D7886C41BE0966AEDB@muon.jnpr.net> <47179F1F.3030202@intel.com> <20071022010440.GA11165@redhat.com>
+From: Gabriel C <nix.or.die@googlemail.com>
+Subject: appletalk bugs
+Date: Mon, 22 Oct 2007 16:19:05 +0200
+Message-ID: <471CB159.1070706@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Herbert Xu" <herbert@gondor.apana.org.au>,
-	<netdev@vger.kernel.org>, <esandeen@redhat.com>
-To: "Dave Jones" <davej@redhat.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og112.obsmtp.com ([64.18.2.177]:40698 "EHLO
-	exprod7og112.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751102AbXJVOGZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 10:06:25 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20071022010440.GA11165@redhat.com>
+Received: from wr-out-0506.google.com ([64.233.184.226]:64149 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751617AbXJVOTZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 10:19:25 -0400
+Received: by wr-out-0506.google.com with SMTP id 36so777364wra
+        for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 07:19:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Then I got very, very lucky, since I have successfully rebooted
-2.6.23.1-23.fc8 four times (zero panics) and this is the first time a
-2.6.23 kernel has not panicked on me in months.
+Hi,
 
-This does not fill me with confidence in the theory that the panics I've
-been seeing are due to a race condition.
+modprobing appletalk on current git gives a warning in dmesg :
 
-Dave
+[38506.600269] sysctl table check failed: /net/appletalk .3.7 procname does not match binary path procname
 
-> -----Original Message-----
-> From: Dave Jones [mailto:davej@redhat.com] 
-> Sent: Sunday, October 21, 2007 6:05 PM
-> To: Kok, Auke
-> Cc: David Mack; Herbert Xu; netdev@vger.kernel.org; 
-> esandeen@redhat.com
-> Subject: Re: e100 problems in .23rc8 ?
-> 
-> On Thu, Oct 18, 2007 at 10:59:59AM -0700, Kok, Auke wrote:
->  > David Mack wrote:
->  > > It appears that the needed e100 fix made it into the Fedora
->  > > 2.6.23.1-23.fc8 kernel. Boots reliably now.
->  > > 
->  > > Huge thanks and great work, guys.
->  > 
->  > DaveJ, I didn't push anything upstream. Can you verify 
-> this now works?
-> 
-> There was no e100 changes in the kernel above, so David just
-> got lucky. (The race doesn't always occur, so it sometimes appears
-> something got fixed.).
-> 
-> I included the patch below in the latest build, but I've not had
-> chance to try it on an e100 box yet..
-> 
-> 	Dave
-> 
-> --- linux-2.6.23.noarch/drivers/net/e100.c~	2007-10-18 
-> 16:10:40.000000000 -0400
-> +++ linux-2.6.23.noarch/drivers/net/e100.c	2007-10-18 
-> 16:16:02.000000000 -0400
-> @@ -2682,6 +2682,8 @@ static int __devinit e100_probe(struct p
->  	if (err)
->  		DPRINTK(PROBE, ERR, "Error clearing wake event\n");
->  
-> +	netif_poll_disable(netdev);
-> +
->  	strcpy(netdev->name, "eth%d");
->  	if((err = register_netdev(netdev))) {
->  		DPRINTK(PROBE, ERR, "Cannot register net 
-> device, aborting.\n");
-> 
-> -- 
-> http://www.codemonkey.org.uk
-> 
+on rmmod appletalk I get an Oops :
+
+
+[38541.525258] BUG: unable to handle kernel NULL pointer dereference at virtual address 0000000c
+[38541.525266] printing eip: c011d4f0 *pde = 00000000 
+[38541.525274] Oops: 0000 [#1] PREEMPT SMP 
+[38541.525282] Modules linked in: appletalk psnap llc pc87360 hwmon_vid eeprom adm1021 sr_mod shpchp pci_hotplug iTCO_wdt iTCO_vendor_support intel_agp i82860_edac i2c_i801 edac_core cdrom agpgart 3c59x mii ext4dev jbd2 crc16 loop lp parport_pc parport evdev
+[38541.525312] 
+[38541.525316] Pid: 28887, comm: rmmod Not tainted (2.6.23-gcfa76f02 #341)
+[38541.525321] EIP: 0060:[<c011d4f0>] EFLAGS: 00010202 CPU: 0
+[38541.525334] EIP is at unregister_sysctl_table+0x11/0x70
+[38541.525339] EAX: 00000001 EBX: e8ef2180 ECX: 00000002 EDX: 00000000
+[38541.525343] ESI: 00000000 EDI: 00000880 EBP: cc094000 ESP: cc095f38
+[38541.525347]  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
+[38541.525352] Process rmmod (pid: 28887, ti=cc094000 task=e0da0560 task.ti=cc094000)
+[38541.525355] Stack: 00000001 00000296 cebf5020 fffffff5 00000880 e8ef2180 00000000 e8eed5b1 
+[38541.525367]        c01353b2 6c707061 6c617465 b7ee006b e0da0560 c01101fd 00000000 c2bf3a50 
+[38541.525378]        c0148684 ffffffff b7fd5000 c31a2004 b7fd4000 b7fd5000 00000004 00095fb8 
+[38541.525389] Call Trace:
+[38541.525395]  [<e8eed5b1>] atalk_exit+0x5/0x4b [appletalk]
+[38541.525410]  [<c01353b2>] sys_delete_module+0x187/0x1b5
+[38541.525420]  [<c01101fd>] do_page_fault+0x18b/0x51a
+[38541.525426]  [<c0148684>] do_munmap+0x19b/0x1b4
+[38541.525437]  [<c01026fa>] sysenter_past_esp+0x5f/0x85
+[38541.525448]  =======================
+[38541.525450] Code: ff ff ff f7 d8 eb 06 c7 03 00 00 00 00 e8 65 df ff ff 89 07 31 c0 5b 5e 5f c3 56 53 83 ec 14 89 c6 b8 b8 1c 3c c0 e8 c6 42 1f 00 <83> 7e 0c 00 74 2e c7 04 24 00 00 00 00 8d 44 24 04 e8 66 a2 00 
+[38541.525502] EIP: [<c011d4f0>] unregister_sysctl_table+0x11/0x70 SS:ESP 0068:cc095f38
+[38541.525513] note: rmmod[28887] exited with preempt_count 1
+
+Regards,
+
+Gabriel C
+
