@@ -1,50 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] niu: Cleanup PAGE_SIZE checks a bit
-Date: Sun, 21 Oct 2007 16:35:58 -0700 (PDT)
-Message-ID: <20071021.163558.98394216.davem@davemloft.net>
-References: <20071020190649.GA30034@lixom.net>
-	<20071020193357.GA2090@lixom.net>
+Subject: Re: [PATCH 1/4] Use the skb_set_queue_mapping where appropriate
+Date: Sun, 21 Oct 2007 17:01:03 -0700 (PDT)
+Message-ID: <20071021.170103.85417880.davem@davemloft.net>
+References: <471871E5.7060900@openvz.org>
+	<47187244.1010603@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: olof@lixom.net
+Cc: netdev@vger.kernel.org, devel@openvz.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48222
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52727
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750942AbXJUXft (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2007 19:35:49 -0400
-In-Reply-To: <20071020193357.GA2090@lixom.net>
+	by vger.kernel.org with ESMTP id S1751235AbXJVAAt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2007 20:00:49 -0400
+In-Reply-To: <47187244.1010603@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Olof Johansson <olof@lixom.net>
-Date: Sat, 20 Oct 2007 14:33:57 -0500
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Fri, 19 Oct 2007 13:00:52 +0400
 
-> PAGE_SIZE in this case is 64KB, so I don't quite get why gcc can't tell
-> that the line in question will never be reached.
-
-GCC does not do that kind of full flow analysis based upon constant
-expression simplification to determine if a store like this into a
-type smaller than the constant value can handle can actually occur.
-
-> I suggest the following instead, but I can unfortunately not do anything but
-> build test it.
+> There's already such a helper to initialize this field.
+> Use it.
 > 
-> Also, the driver does some other checks to make sure that PAGE_SIZE is a
-> power of two (BUILD_BUG_ON() in niu_init()), doesn't seem like that could
-> ever be untrue? Or are there really archs with non-power-of-two PAGE_SIZE?
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-It was just overly-anal assertion checking.  I tend to prefer using
-code instead of comments to describe invariants, but this one is
-pretty unrealistic and silly.
+Applied.
 
-> Signed-off-by: Olof Johansson <olof@lixom.net>
-> 
-> --
-> 
-> Ack! It should obviously use min(), not max()!
+>  			/* reset queue_mapping to zero */
+> -			skb->queue_mapping = 0;
+> +			skb_set_queue_mapping(skb, 0);
 
-:-)
+This right here is a great example why I add next to no comments to
+the code I write.  They are %99.999 of the time stating the obvious,
+and where a comment is needed it's the code's fault and the code in
+such cases could be rewritten to make what's going on more clear thus
+making any commentary, again, redundant and stating the obvious.
 
-Applied, thanks!
+Here the case is the former, it's of the form:
+
+	/* Add one to 'a'! */
+	a += 1;
+
+Gee thanks for letting me know!  How insightful! :-))
+
