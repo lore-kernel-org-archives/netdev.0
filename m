@@ -1,40 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net: alignment problem in icmp code
-Date: Sun, 21 Oct 2007 22:15:24 -0700 (PDT)
-Message-ID: <20071021.221524.49830652.davem@davemloft.net>
-References: <20071021232113.52ce1be7@poseidon.drzeus.cx>
-	<20071021.160215.115679567.davem@davemloft.net>
-	<20071022065443.2f3c1b8a@poseidon.drzeus.cx>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] flush_work_sync vs. flush_scheduled_work Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
+Date: Mon, 22 Oct 2007 08:11:43 +0200
+Message-ID: <20071022061143.GA973@ff.dom.local>
+References: <20071015125301.GC3015@ff.dom.local> <Pine.LNX.4.64N.0710151737250.16262@blysk.ds.pg.gda.pl> <20071016062108.GB1000@ff.dom.local> <Pine.LNX.4.64N.0710161759050.22596@blysk.ds.pg.gda.pl> <20071017085809.GA1658@ff.dom.local> <20071018063157.GA1694@ff.dom.local> <20071018070531.GA2065@ff.dom.local> <20071018154819.GA425@tv-sign.ru> <20071019075014.GA1765@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: drzeus@drzeus.cx
+Content-Type: text/plain; charset=us-ascii
+Cc: "Maciej W\. Rozycki" <macro@linux-mips.org>,
+	Andy Fleming <afleming@freescale.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Oleg Nesterov <oleg@tv-sign.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56688
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751855AbXJVFPL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 01:15:11 -0400
-In-Reply-To: <20071022065443.2f3c1b8a@poseidon.drzeus.cx>
+Received: from mx12.go2.pl ([193.17.41.142]:56260 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750709AbXJVGIa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Oct 2007 02:08:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20071019075014.GA1765@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pierre Ossman <drzeus@drzeus.cx>
-Date: Mon, 22 Oct 2007 06:54:43 +0200
+On Fri, Oct 19, 2007 at 09:50:14AM +0200, Jarek Poplawski wrote:
+> On Thu, Oct 18, 2007 at 07:48:19PM +0400, Oleg Nesterov wrote:
+> > On 10/18, Jarek Poplawski wrote:
+> > >
+> > > +/**
+> > > + * flush_work_sync - block until a work_struct's callback has terminated
+> >                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> > Hmm...
+> > 
+> > > + * Similar to cancel_work_sync() but will only busy wait (without cancel)
+> > > + * if the work is queued.
+> > 
+> > Yes, it won't block, but will spin in busy-wait loop until all other works
+> > scheduled before this work are finished. Not good. After that it really
+> > blocks waiting for this work to complete.
+> > 
+> > And I am a bit confused. We can't use flush_workqueue() because some of the
+> > queued work_structs may take rtnl_lock, yes? But in that case we can't use
+> > the new flush_work_sync() helper as well, no?
 
-> On Sun, 21 Oct 2007 16:02:15 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
-> 
-> > You will get a 64-bit load and a 64-bit store emitted by
-> > the compiler.  Here is what we get on sparc64:
-> 
-> I assume those ops cause a bus error on unaligned addresses?
+OK, I know I'm dumber and dumber everyday, but it seems in a hurry I
+got it wrong again or miss something (as usual): these all flushes are
+rtnl lockup vulnerable wrt. other work functions, but cancel_work_sync
+looks perfectly fine... (Or am I wrong because: ...?)
 
-Sure.  But the language defines that the types in question
-must be 64-bit aligned, so it is legal for the compiler to
-emit this code.
+Then, if by any chance I'm right, something like flush_work_sync
+(or changed flush_scheduled_work, if there is no problem with such
+a change of implementation) could be safely (if it's called without
+locks used by flushed work only) done cancel_work_sync() way, by
+running a work function after try_to_grab_pending() returns 1 (after
+list_del_init - of course without respecting a queue order).
 
-It's not a GCC bug.
-
-If you want to let the compiler know that a pointer to a type might
-not be aligned, you have to tell it so.
+Regards,
+Jarek P.
