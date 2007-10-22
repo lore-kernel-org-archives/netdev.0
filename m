@@ -1,54 +1,48 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] [net/ipv4]: fib_seq_show function adjustment to get a
- more sensable output of /proc/net/route
-Date: Mon, 22 Oct 2007 21:31:40 +0200
-Message-ID: <471CFA9C.7010300@cosmosbay.com>
-References: <1193077582-4790-1-git-send-email-crquan@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] - trivial - Improve appletalk checksum calculation
+Date: Mon, 22 Oct 2007 12:36:19 -0700
+Message-ID: <1193081779.5132.24.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Denis Cheng <crquan@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:35799 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751681AbXJVTfS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 15:35:18 -0400
-In-Reply-To: <1193077582-4790-1-git-send-email-crquan@gmail.com>
+Received: from DSL022.labridge.com ([206.117.136.22]:2022 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752821AbXJVTgl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Oct 2007 15:36:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Denis Cheng a =E9crit :
-> the temporary bf[127] char array is redundant, and the specified widt=
-h 127 make the output of /proc/net/route include many trailing spaces;
-> since most terminal's cols are less than 127, this made every fib ent=
-ry occupy two lines,
->=20
-> after applied this patch, the output of /proc/net/route is more sensa=
-ble like this:
->=20
-> Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask		MTU	Window	I=
-RTT
-> eth0	0001A8C0	00000000	0001	0	0	0	00FFFFFF	0	0	0
-> lo	0000007F	00000000	0001	0	0	0	000000FF	0	0	0
-> eth0	00000000	0101A8C0	0003	0	0	0	00000000	0	0	0
->=20
-> Signed-off-by: Denis Cheng <crquan@gmail.com>
+It's a bit after 2.6.1 now...
 
-Hum... did you test your patch with many routes declared ? (more than 3=
-2 on=20
-i386/x86_64)
+Removes unnecessary if, uses 16 bit rotate left.
+Performance improves ~30%
 
-127 is not a random value, but chosen as a power of two minus 1.
-PAGE_SIZE is garanted to be a multiple of 128 (127 chars + line_feed) o=
-n all=20
-arches.
+Signed-off-by: Joe Perches <joe@perches.com>
 
-So each read() on /proc/net/route delivers PAGE_SIZE/128 lines.
-
-With your patch, some lines might be truncated (one every 32 on i386)
+diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+index 7c0b515..1c50f4c 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -925,15 +925,9 @@ static int atrtr_ioctl(unsigned int cmd, void __user *arg)
+ static unsigned long atalk_sum_partial(const unsigned char *data,
+ 				       int len, unsigned long sum)
+ {
+-	/* This ought to be unwrapped neatly. I'll trust gcc for now */
+ 	while (len--) {
+-		sum += *data;
+-		sum <<= 1;
+-		if (sum & 0x10000) {
+-			sum++;
+-			sum &= 0xffff;
+-		}
+-		data++;
++		sum += *data++;
++		sum = ((sum & 0x8000)>>15) | ((sum & 0x7fff)<<1);
+ 	}
+ 	return sum;
+ }
 
 
