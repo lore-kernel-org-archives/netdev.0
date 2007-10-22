@@ -1,88 +1,80 @@
-From: Pierre Ossman <drzeus@drzeus.cx>
-Subject: Re: net: alignment problem in icmp code
-Date: Mon, 22 Oct 2007 09:23:50 +0200
-Message-ID: <20071022092350.5c75b3bd@poseidon.drzeus.cx>
-References: <20071021232113.52ce1be7@poseidon.drzeus.cx>
-	<20071021.160215.115679567.davem@davemloft.net>
-	<20071022065443.2f3c1b8a@poseidon.drzeus.cx>
-	<20071021.221524.49830652.davem@davemloft.net>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: Re: [patch 0/1] remove header_ops bug in qeth driver
+Date: Mon, 22 Oct 2007 09:24:32 +0200
+Message-ID: <20071022072431.GA8044@osiris.boeblingen.de.ibm.com>
+References: <20071019215538.395133000@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=PGP-SHA1; boundary="=_hera.drzeus.cx-18222-1193037801-0001-2"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, mschwid2@linux.vnet.ibm.com,
+	apw@shadowen.org, linux-kernel@vger.kernel.org,
+	kamalesh@linux.vnet.ibm.com, kaber@trash.net,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: Ursula Braun <braunu@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway.drzeus.cx ([85.8.24.16]:36455 "EHLO smtp.drzeus.cx"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751312AbXJVHX5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Oct 2007 03:23:57 -0400
-In-Reply-To: <20071021.221524.49830652.davem@davemloft.net>
+Received: from mtagate7.de.ibm.com ([195.212.29.156]:43819 "EHLO
+	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751530AbXJVHYf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 03:24:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20071019215538.395133000@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a MIME-formatted message.  If you see this text it means that your
-E-mail software does not support MIME-formatted messages.
+On Fri, Oct 19, 2007 at 11:55:38PM +0200, Ursula Braun wrote:
+> -- 
+> Remove qeth driver bug introduced by this commit:
+> 
+> commit 3b04ddde02cf1b6f14f2697da5c20eca5715017f
+> Author: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date:   Tue Oct 9 01:40:57 2007 -0700
+> 
+>     [NET]: Move hardware header operations out of netdevice.
 
---=_hera.drzeus.cx-18222-1193037801-0001-2
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Still broken:
 
-On Sun, 21 Oct 2007 22:15:24 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
-
->=20
-> Sure.  But the language defines that the types in question
-> must be 64-bit aligned, so it is legal for the compiler to
-> emit this code.
->=20
-> It's not a GCC bug.
->=20
-
-I've confirmed this behaviour on the AVR32 arch, and had a second look in t=
-he spec. The only way GCC can get away with this is by using a very creativ=
-e interpretation of the result of casting a pointer to one type to a pointe=
-r to another type (which ISO C leaves undefined). Basically:
-
-1. A cast from a pointer to one type to a pointer to a second type does not=
- change the value. (GCC behaviour which we rely on heavily, even in your su=
-ggested patch).
-
-2. A cast from a pointer to one type to a pointer to a second type changes =
-the value so that it properly aligns with the second type. (As a cast to vo=
-id*, which memcpy() requires, is safe according to ISO C, the pointer modif=
-ication must be from char* to struct icmphdr*).
-
-As 1 and 2 conflict, GCC's behaviour for pointer casts is still rather unde=
-fined. So although within the requirements of ISO C, it's rather user hosti=
-le. And it casts doubt on every pointer cast used.
-
-> If you want to let the compiler know that a pointer to a type might
-> not be aligned, you have to tell it so.
-
-Which you can't do within the confines of ISO C. The get_unaligned() macro =
-uses some GCC trickery (even outside what GCC documents as defined behaviou=
-r). To stay "clean", you have to avoid casting char* to foo*.
-
-With all that said, as GCC does what it does, we can't really rely on a mem=
-cpy() anyway, so I support your patch.
-
-As for other instances of unaligned accesses, is there any active work on g=
-etting rid of those? And would you accept more patches for fixing them? (Co=
-de complexity being the downside)
-
-Rgds
-Pierre
-
---=_hera.drzeus.cx-18222-1193037801-0001-2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
-
-iD8DBQFHHFAH7b8eESbyJLgRAs5DAJ4hNX+PwIf0sNHOaPmDaIAfvYqS6wCg5F3v
-5Y8k/wmPOFsLARs7j4lnOEw=
-=78cf
------END PGP SIGNATURE-----
-
---=_hera.drzeus.cx-18222-1193037801-0001-2--
+Kernel BUG at 0000000000000002 [verbose debug info unavailable] 
+illegal operation: 0001 [#1] 
+Modules linked in: 
+CPU:    1    Not tainted 
+Process ip (pid: 2170, task: 0000000001f1d038, ksp: 0000000002d87b30) 
+Krnl PSW : 0704200180000000 0000000000000002 (0x2) 
+           R:0 T:1 IO:1 EX:1 Key:0 M:1 W:0 P:0 AS:0 CC:2 PM:0 EA:3 
+Krnl GPRS: 0000000000000000 0000000000000038 00000000027c2800 00000000016d6000
+           00000000000086dd 00000000029f8b78 0000000000000000 00000000029f8b00
+           00000000029f8b40 00000000027c2800 0000000000000000 0000000002d874c8
+           00000000016d6000 00000000003cb960 00000000002c58d2 0000000002d874c8
+Krnl Code:>0000000000000002: 0000               unknown 
+           0000000000000004: 0000               unknown 
+           0000000000000006: 0000               unknown 
+           0000000000000008: 0000               unknown 
+           000000000000000a: 0000               unknown 
+           000000000000000c: 0000               unknown 
+           000000000000000e: 0000               unknown 
+           0000000000000010: 0000               unknown 
+Call Trace: 
+([<00000000002c588e>] neigh_connected_output+0x76/0x118) 
+ [<0000000000339e00>] ip6_output2+0x22c/0x478 
+ [<000000000033a46c>] ip6_output+0x250/0x10fc 
+ [<000000000034d65e>] __ndisc_send+0x416/0x768 
+ [<000000000034da1c>] ndisc_send_rs+0x6c/0x7c 
+ [<0000000000340776>] addrconf_dad_completed+0xb2/0x100 
+ [<000000000034269c>] addrconf_dad_start+0xa4/0x134 
+ [<000000000034279e>] addrconf_add_linklocal+0x72/0xa4 
+ [<00000000003439d4>] addrconf_notify+0x6ec/0x8bc 
+ [<000000000039905a>] notifier_call_chain+0x5e/0xa4 
+ [<0000000000062832>] __raw_notifier_call_chain+0x26/0x38 
+ [<0000000000062872>] raw_notifier_call_chain+0x2e/0x40 
+ [<00000000002beaa8>] call_netdevice_notifiers+0x34/0x48 
+ [<00000000002c0288>] dev_open+0xd4/0xe0 
+ [<00000000002bed42>] dev_change_flags+0x14e/0x1c4 
+ [<0000000000316cb2>] devinet_ioctl+0x5d2/0x724 
+ [<000000000031753c>] inet_ioctl+0xf4/0x130 
+ [<00000000002ac6fa>] sock_ioctl+0x86/0x300 
+ [<00000000000c8124>] do_ioctl+0x50/0xe0 
+ [<00000000000c8440>] vfs_ioctl+0x28c/0x3e4 
+ [<00000000000c85e8>] sys_ioctl+0x50/0x8c 
+ [<00000000000ff744>] dev_ifsioc+0xb8/0x4c8 
+ [<00000000000fc15c>] compat_sys_ioctl+0x11c/0x444 
+ [<00000000000229d0>] sysc_noemu+0x10/0x16 
+ [<0000000077f3b9ca>] 0x77f3b9ca 
