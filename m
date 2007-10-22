@@ -1,95 +1,82 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 1/3] Don't declare extern variables in net/core/sysctl_net_core.c
-Date: Mon, 22 Oct 2007 19:22:43 +0400
-Message-ID: <471CC043.5060301@openvz.org>
+Subject: [PATCH 2/3] Remove in-code externs for some functions from net/core/dev.c
+Date: Mon, 22 Oct 2007 19:25:50 +0400
+Message-ID: <471CC0FE.9030602@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:58192 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:43482 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751868AbXJVPWK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Oct 2007 11:22:10 -0400
+	id S1752026AbXJVPZQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Oct 2007 11:25:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some are already declared in include/linux/netdevice.h, while
-some others (xfrm ones) need to be declared.
+Inconsistent prototype and real type for functions may have
+worse consequences, than those for variables, so move them
+into a header.
 
-The driver/net/rrunner.c just uses same extern as well, so 
-cleanup it also.
+Since they are used privately in net/core, make this file
+reside in the same place.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
 
-diff --git a/drivers/net/rrunner.c b/drivers/net/rrunner.c
-index 19152f5..b822859 100644
---- a/drivers/net/rrunner.c
-+++ b/drivers/net/rrunner.c
-@@ -79,12 +79,10 @@ static char version[] __devinitdata = "rrunner.c: v0.50 11/11/2002  Jes Sorensen
-  */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8726589..9ea3665 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -120,6 +120,8 @@
+ #include <linux/ctype.h>
+ #include <linux/if_arp.h>
  
++#include "net-sysfs.h"
++
  /*
-- * These are checked at init time to see if they are at least 256KB
-- * and increased to 256KB if they are not. This is done to avoid ending
-- * up with socket buffers smaller than the MTU size,
-+ * sysctl_[wr]mem_max are checked at init time to see if they are at
-+ * least 256KB and increased to 256KB if they are not. This is done to
-+ * avoid ending up with socket buffers smaller than the MTU size,
-  */
--extern __u32 sysctl_wmem_max;
--extern __u32 sysctl_rmem_max;
+  *	The list of packet types we will receive (as opposed to discard)
+  *	and the routines to invoke.
+@@ -249,10 +251,6 @@ static RAW_NOTIFIER_HEAD(netdev_chain);
  
- static int __devinit rr_init_one(struct pci_dev *pdev,
- 	const struct pci_device_id *ent)
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 688f6f5..58dfa82 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -37,6 +37,8 @@
- extern struct sock *xfrm_nl;
- extern u32 sysctl_xfrm_aevent_etime;
- extern u32 sysctl_xfrm_aevent_rseqth;
-+extern int sysctl_xfrm_larval_drop;
-+extern u32 sysctl_xfrm_acq_expires;
+ DEFINE_PER_CPU(struct softnet_data, softnet_data);
  
- extern struct mutex xfrm_cfg_mutex;
- 
-diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-index 6d5ea97..113cc72 100644
---- a/net/core/sysctl_net_core.c
-+++ b/net/core/sysctl_net_core.c
-@@ -9,25 +9,12 @@
- #include <linux/sysctl.h>
- #include <linux/module.h>
- #include <linux/socket.h>
-+#include <linux/netdevice.h>
- #include <net/sock.h>
-+#include <net/xfrm.h>
- 
- #ifdef CONFIG_SYSCTL
- 
--extern int netdev_max_backlog;
--extern int weight_p;
+-extern int netdev_kobject_init(void);
+-extern int netdev_register_kobject(struct net_device *);
+-extern void netdev_unregister_kobject(struct net_device *);
 -
--extern __u32 sysctl_wmem_max;
--extern __u32 sysctl_rmem_max;
--
--extern int sysctl_core_destroy_delay;
--
--#ifdef CONFIG_XFRM
--extern u32 sysctl_xfrm_aevent_etime;
--extern u32 sysctl_xfrm_aevent_rseqth;
--extern int sysctl_xfrm_larval_drop;
--extern u32 sysctl_xfrm_acq_expires;
--#endif
--
- ctl_table core_table[] = {
- #ifdef CONFIG_NET
- 	{
+ #ifdef CONFIG_DEBUG_LOCK_ALLOC
+ /*
+  * register_netdevice() inits dev->_xmit_lock and sets lockdep class
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 6628e45..61ead1d 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -18,6 +18,8 @@
+ #include <linux/wireless.h>
+ #include <net/iw_handler.h>
+ 
++#include "net-sysfs.h"
++
+ #ifdef CONFIG_SYSFS
+ static const char fmt_hex[] = "%#x\n";
+ static const char fmt_long_hex[] = "%#lx\n";
+diff --git a/net/core/net-sysfs.h b/net/core/net-sysfs.h
+new file mode 100644
+index 0000000..a41683d
+--- /dev/null
++++ b/net/core/net-sysfs.h
+@@ -0,0 +1,8 @@
++#ifndef __NET_SYSFS_H__
++#define __NET_SYSFS_H__
++
++int netdev_kobject_init(void);
++int netdev_register_kobject(struct net_device *);
++void netdev_unregister_kobject(struct net_device *);
++
++#endif
 -- 
 1.5.3.4
 
