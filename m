@@ -1,38 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net: alignment problem in icmp code
-Date: Mon, 22 Oct 2007 01:31:05 -0700 (PDT)
-Message-ID: <20071022.013105.74746322.davem@davemloft.net>
-References: <20071022065443.2f3c1b8a@poseidon.drzeus.cx>
-	<20071021.221524.49830652.davem@davemloft.net>
-	<20071022092350.5c75b3bd@poseidon.drzeus.cx>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] [IPSEC] IPV6: Fix to add tunnel mode SA correctly.
+Date: Mon, 22 Oct 2007 16:37:20 +0800
+Message-ID: <20071022083720.GA17865@gondor.apana.org.au>
+References: <20071017.213523.58458049.davem@davemloft.net> <11930333741879-git-send-email-nakam@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: drzeus@drzeus.cx
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46768
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751162AbXJVIap (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 04:30:45 -0400
-In-Reply-To: <20071022092350.5c75b3bd@poseidon.drzeus.cx>
+Received: from rhun.apana.org.au ([64.62.148.172]:4069 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751308AbXJVIhe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 04:37:34 -0400
+Content-Disposition: inline
+In-Reply-To: <11930333741879-git-send-email-nakam@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pierre Ossman <drzeus@drzeus.cx>
-Date: Mon, 22 Oct 2007 09:23:50 +0200
+On Mon, Oct 22, 2007 at 03:09:34PM +0900, Masahide NAKAMURA wrote:
+> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
 
-> As for other instances of unaligned accesses, is there any active
-> work on getting rid of those? And would you accept more patches for
-> fixing them? (Code complexity being the downside)
+Thanks for catching my silly bug!
 
-On fast paths we aren't going to add things like get_unaligned()
-calls.
-
-Every architecture should handle unaligned accesses properly, and for
-the fast paths the network driver should provide the packet fully
-aligned or take steps to make it so if it can't DMA directly into
-2-byte offset buffers (such as copying the packet).
-
-What is the specific reason why you see packet headers unaligned?
-It's probably just some AVR networking driver that needs tweaks.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
