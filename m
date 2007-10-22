@@ -1,67 +1,49 @@
-From: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
-Subject: Re: [PATCH 2.4.35.3] Fix the "InAddrErrors" increasing problem
-Date: Mon, 22 Oct 2007 14:45:47 +0800
-Message-ID: <471C471B.6020109@cn.fujitsu.com>
-References: <OF2D84A661.11AB43B8-ON6525737C.002349E6-6525737C.00238C77@in.ibm.com>
+From: Joakim Koskela <joakim.koskela@hiit.fi>
+Subject: Re: [PATCH] netdev: Reset ipv4 flags during bundle creation on interfamily ipsec
+Date: Mon, 22 Oct 2007 09:55:53 +0300
+Message-ID: <200710220955.53895.joakim.koskela@hiit.fi>
+References: <E1IisnN-0003rh-00@gondolin.me.apana.org.au>
+Reply-To: joakim.koskela@hiit.fi
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [222.73.24.84] ([222.73.24.84]:52116 "EHLO song.cn.fujitsu.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751413AbXJVGtY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Oct 2007 02:49:24 -0400
-In-Reply-To: <OF2D84A661.11AB43B8-ON6525737C.002349E6-6525737C.00238C77@in.ibm.com>
+Received: from pne-smtpout4-sn2.hy.skanova.net ([81.228.8.154]:55377 "EHLO
+	pne-smtpout4-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750985AbXJVHBY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 03:01:24 -0400
+In-Reply-To: <E1IisnN-0003rh-00@gondolin.me.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Krishna Kumar2 =E5=86=99=E9=81=93:
-> Gui Jianfeng wrote on 10/22/2007 11:37:07 AM:
->=20
->> @@ -310,8 +310,12 @@ static inline int ip_rcv_finish(struct s
->>      *   how the packet travels inside Linux networking.
->>      */
->>     if (skb->dst =3D=3D NULL) {
->> -      if (ip_route_input(skb, iph->daddr, iph->saddr, iph->tos, dev=
-))
->> -         goto drop;
->> +      int err =3D ip_route_input(skb, iph->daddr, iph->saddr, iph->=
-tos,
-> dev);
->> +      if (unlikely(err)) {
->> +         if (err =3D=3D -EHOSTUNREACH)
->> +            IP_INC_STATS_BH(IpInAddrErrors);
->> +      }
->> +      goto drop;
->>     }
->=20
-> Shouldn't the "goto drop" be inside the "if (unlikely(err)) {" case?
-yes, you are right :-)
+On Friday 19 October 2007 17:25:49 Herbert Xu wrote:
+> Joakim Koskela <joakim.koskela@hiit.fi> wrote:
+> > I'm not sure I follow. This affects the ipv6 bundling only where the
+> > struct (fl_tunnel) has previously been used for ipv6 addresses. Not that
+> > we are using the same block for holding the ipv4 info, the tos-value is
+> > really undefined before we reset it.
+>
+> You're right.  But sure the same bug could affect IPv4 as well
+> if you had a 4-6-4 configuration.  Let me think about this one
+> a bit more.
 
-> And normally it is nice to have a blank line after variable declarati=
-on.
->=20
-> - KK
->=20
->=20
->=20
+Hi, and thanks for the feedback. True, this one affects only one level of 
+inter-family, and supporting more would require a lot more changes in the 
+bundle creation (perhaps combining both versions and taking better into 
+account the outer family of the last transformation..). 
 
+Another quite annoying example of this is that 6 in 4 actually crashes the 
+kernel on 64 bit, as xfrm_dst_lookup around xfrm6_policy.c:197 changes rt 
+from a rt6_info to a rtable. On 64 bit, rt->rt61i_node will usually contain 
+something (due to the larger pointer size), making the path_cookie assignment 
+on line 208 crash.
 
---=20
+I've been trying address this in a proper manner, but it hasn't really 
+progressed quite the way I've wanted (..thus this shallow patch, just to make 
+6-4 inter-work in most cases on the standard kernel). Needless to say, any 
+work done for this would be greatly appreciated :)
 
-
-Regards
-Gui Jianfeng
---------------------------------------------------
-Gui Jianfeng
-Development Dept.I
-Nanjing Fujitsu Nanda Software Tech. Co., Ltd.(FNST)
-8/F., Civil Defense Building, No.189 Guangzhou Road,
-Nanjing, 210029, China
-TEL: +86+25-86630566-851
-COINS: 79955-851
-=46AX: +86+25-83317685
-MAIL:guijianfeng@cn.fujitsu.com
---------------------------------------------------
