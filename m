@@ -1,67 +1,84 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH 5/7] pci: Export the pci_restore_msi_state() function
-Date: Mon, 22 Oct 2007 13:19:33 -0500
-Message-ID: <20071022181933.GD4280@austin.ibm.com>
-References: <20071021.162131.43417026.davem@davemloft.net> <1551EAE59135BE47B544934E30FC4FC002AABB04@nt-irva-0751.brcm.ad.broadcom.com> <20071021.214520.66310568.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mchan@broadcom.com, mcarlson@broadcom.com, netdev@vger.kernel.org,
-	linux-pci@atrey.karlin.mff.cuni.cz
-To: David Miller <davem@davemloft.net>
+From: Denis Cheng <crquan@gmail.com>
+Subject: [PATCH] [net/ipv4]: fib_seq_show function adjustment to get a more sensable output of /proc/net/route
+Date: Tue, 23 Oct 2007 02:26:22 +0800
+Message-ID: <1193077582-4790-1-git-send-email-crquan@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Denis Cheng <crquan@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:47699 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751884AbXJVSTh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Oct 2007 14:19:37 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9MIL6MS003470
-	for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 14:21:07 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9MIJYGN107874
-	for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 14:19:34 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9MIJXvC021023
-	for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 14:19:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20071021.214520.66310568.davem@davemloft.net>
+Received: from nz-out-0506.google.com ([64.233.162.225]:18916 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755184AbXJVS1F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 14:27:05 -0400
+Received: by nz-out-0506.google.com with SMTP id s18so508947nze
+        for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 11:27:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 21, 2007 at 09:45:20PM -0700, David Miller wrote:
-> 
-> The core issue is that the ARCH level MSI code invokes
-> write_msi_msg(), not the generic code, exactly because there
-> are platform level issues wherein the firmware is the only
-> legal way to write the MSI settings in PCI config space.
-> 
-> However, the MSI state restore code was not architected similarly.  It
-> does the write_msi_msg() directly, instead of letting platform level
-> code is in ARCH hooks.
+the temporary bf[127] char array is redundant, and the specified width 127 make the output of /proc/net/route include many trailing spaces;
+since most terminal's cols are less than 127, this made every fib entry occupy two lines,
 
-Yes, exactly.
+after applied this patch, the output of /proc/net/route is more sensable like this:
 
-> Therefore I think we need to attack this in two stages:
-> 
-> 1) First changeset moves the write_msi_msg() call currently in
->    __pci_restore_msi_state() into an ARCH overridable handler.
-> 
->    This would allow powerpc to deal with this properly.
+Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask		MTU	Window	IRTT
+eth0	0001A8C0	00000000	0001	0	0	0	00FFFFFF	0	0	0
+lo	0000007F	00000000	0001	0	0	0	000000FF	0	0	0
+eth0	00000000	0101A8C0	0003	0	0	0	00000000	0	0	0
 
-Yes!
-I'll try to put together a patch later today, if I can get
-a fabled "round tuit".
+Signed-off-by: Denis Cheng <crquan@gmail.com>
+---
+ net/ipv4/fib_hash.c |   15 +++++++--------
+ 1 files changed, 7 insertions(+), 8 deletions(-)
 
->    pci_restor_msi_state() can get exported to modules in this
->    change
+diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
+index 527a6e0..2a4033e 100644
+--- a/net/ipv4/fib_hash.c
++++ b/net/ipv4/fib_hash.c
+@@ -992,7 +992,6 @@ static unsigned fib_flag_trans(int type, __be32 mask, struct fib_info *fi)
+ static int fib_seq_show(struct seq_file *seq, void *v)
+ {
+ 	struct fib_iter_state *iter;
+-	char bf[128];
+ 	__be32 prefix, mask;
+ 	unsigned flags;
+ 	struct fib_node *f;
+@@ -1000,9 +999,9 @@ static int fib_seq_show(struct seq_file *seq, void *v)
+ 	struct fib_info *fi;
+ 
+ 	if (v == SEQ_START_TOKEN) {
+-		seq_printf(seq, "%-127s\n", "Iface\tDestination\tGateway "
++		seq_printf(seq, "Iface\tDestination\tGateway "
+ 			   "\tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU"
+-			   "\tWindow\tIRTT");
++			   "\tWindow\tIRTT\n");
+ 		goto out;
+ 	}
+ 
+@@ -1014,18 +1013,18 @@ static int fib_seq_show(struct seq_file *seq, void *v)
+ 	mask	= FZ_MASK(iter->zone);
+ 	flags	= fib_flag_trans(fa->fa_type, mask, fi);
+ 	if (fi)
+-		snprintf(bf, sizeof(bf),
+-			 "%s\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u",
++		seq_printf(seq,
++			 "%s\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u\n",
+ 			 fi->fib_dev ? fi->fib_dev->name : "*", prefix,
+ 			 fi->fib_nh->nh_gw, flags, 0, 0, fi->fib_priority,
+ 			 mask, (fi->fib_advmss ? fi->fib_advmss + 40 : 0),
+ 			 fi->fib_window,
+ 			 fi->fib_rtt >> 3);
+ 	else
+-		snprintf(bf, sizeof(bf),
+-			 "*\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u",
++		seq_printf(seq,
++			 "*\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u\n",
+ 			 prefix, 0, flags, 0, 0, 0, mask, 0, 0, 0);
+-	seq_printf(seq, "%-127s\n", bf);
++
+ out:
+ 	return 0;
+ }
+-- 
+1.5.3.4
 
-OK.
-
-> 2) The Tigon3 error recovery changes, as they were.
-> 
-> But I have to ask, can anyone see how e1000 handles MSI properly
-> in it's PCI error support?
-
-It doesn't. None of them do. :-(  I didn't get access to msi-capable 
-hardware until a few weeks ago; that's why this is coming up just now.
-
---linas
