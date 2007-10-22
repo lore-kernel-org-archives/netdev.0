@@ -1,38 +1,32 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: [ofa-general] Re: [PATCH 13/14 v2] nes: kernel build infrastructure
-Date: Sun, 21 Oct 2007 19:23:50 -0700
-Message-ID: <adar6jn99ah.fsf@cisco.com>
-References: <200710192027.l9JKR197021855@neteffect.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: e100 problems in .23rc8 ?
+Date: Mon, 22 Oct 2007 11:10:32 +0800
+Message-ID: <20071022031032.GB15733@gondor.apana.org.au>
+References: <7DCDA0F058071B49AED9D3D7886C41BE0966AEDB@muon.jnpr.net> <47179F1F.3030202@intel.com> <20071022010440.GA11165@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, ewg@lists.openfabrics.org,
-	general@lists.openfabrics.org
-To: ggrundstrom@neteffect.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <200710192027.l9JKR197021855@neteffect.com>
-	(ggrundstrom@neteffect.com's message of "Fri,
-	19 Oct 2007 15:27:01 -0500")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	David Mack <dmack@juniper.net>, netdev@vger.kernel.org,
+	esandeen@redhat.com
+To: Dave Jones <davej@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:1656 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751558AbXJVDPy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2007 23:15:54 -0400
+Content-Disposition: inline
+In-Reply-To: <20071022010440.GA11165@redhat.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > +config INFINIBAND_NES_DEBUG
- > +	bool "Verbose debugging output"
- > +	depends on INFINIBAND_NES
- > +	default n
- > +	---help---
- > +	  This option causes the NetEffect RNIC driver to produce debug
- > +	  messages.  Select this if you are developing the driver
- > +	  or trying to diagnose a problem.
+On Sun, Oct 21, 2007 at 09:04:40PM -0400, Dave Jones wrote:
+>
+> I included the patch below in the latest build, but I've not had
+> chance to try it on an e100 box yet..
 
-If you make this default n then no distro will have it enabled and
-you'll have to rebuild to debug anything.  Better to have the default
-be enabled and make it controllable at runtime too with a module
-parameter.  (you can look at what mthca does for an example of what I mean)
+Looks good to me.  Thanks Dave!
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
