@@ -1,56 +1,41 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 5/5] Cut off dn_ptr from net_device
-Date: Mon, 22 Oct 2007 16:37:53 +0400
-Message-ID: <471C99A1.8090202@openvz.org>
-References: <471C9830.5070407@openvz.org>
+From: Alexey Dobriyan <adobriyan@sw.ru>
+Subject: Re: [Devel] [PATCH 1/5] Cut off br_port fied from net_device
+Date: Mon, 22 Oct 2007 16:49:15 +0400
+Message-ID: <20071022124915.GD6271@localhost.sw.ru>
+References: <471C9830.5070407@openvz.org> <471C989D.9030207@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:39217 "EHLO sacred.ru"
+Received: from mailhub.sw.ru ([195.214.233.200]:46298 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752421AbXJVMhN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Oct 2007 08:37:13 -0400
-In-Reply-To: <471C9830.5070407@openvz.org>
+	id S1751662AbXJVMta (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Oct 2007 08:49:30 -0400
+Content-Disposition: inline
+In-Reply-To: <471C989D.9030207@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-And remove a BUG_TRAP from netdev_run_todo as well.
+On Mon, Oct 22, 2007 at 04:33:33PM +0400, Pavel Emelyanov wrote:
+> And add the forward declaration for br_handle_frame_hook in
+> include/linux/if_bridge.h
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -699,8 +699,10 @@ struct net_device
+>  	/* Network namespace this network device is inside */
+>  	struct net		*nd_net;
+>  
+> +#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
+>  	/* bridge stuff */
+>  	struct net_bridge_port	*br_port;
+> +#endif
 
----
+Such ifdefs are troublesome, because one can compile kernel with
+CONFIG_BRIDGE=n and later decide he needs BRIDGE=m and go boom.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 472d9cc..e94c636 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -577,7 +577,9 @@ struct net_device
- 	
- 	void 			*atalk_ptr;	/* AppleTalk link 	*/
- 	void			*ip_ptr;	/* IPv4 specific data	*/  
-+#if defined(CONFIG_DECNET) || defined(CONFIG_DECNET_MODULE)
- 	void                    *dn_ptr;        /* DECnet specific data */
-+#endif
- 	void                    *ip6_ptr;       /* IPv6 specific data */
- #if defined(CONFIG_ECONET) || defined(CONFIG_ECONET_MODULE)
- 	void			*ec_ptr;	/* Econet specific data	*/
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 8726589..3ac35fe 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3781,7 +3781,9 @@ void netdev_run_todo(void)
- 		BUG_ON(atomic_read(&dev->refcnt));
- 		BUG_TRAP(!dev->ip_ptr);
- 		BUG_TRAP(!dev->ip6_ptr);
-+#if defined(CONFIG_DECNET) || defined(CONFIG_DECNET_MODULE)
- 		BUG_TRAP(!dev->dn_ptr);
-+#endif
- 
- 		if (dev->destructor)
- 			dev->destructor(dev);
--- 
-1.5.3.4
+IPv6 -- the biggest violator of this rule should not be taken as
+example. :^)
 
