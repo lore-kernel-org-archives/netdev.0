@@ -1,56 +1,53 @@
-From: Joseph Fannin <jfannin@gmail.com>
-Subject: Regression in current git - Network Manager fails (bisected)
-Date: Sun, 21 Oct 2007 20:58:58 -0400
-Message-ID: <20071022005857.GA6317@nineveh.local>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: e100 problems in .23rc8 ?
+Date: Sun, 21 Oct 2007 21:04:40 -0400
+Message-ID: <20071022010440.GA11165@redhat.com>
+References: <7DCDA0F058071B49AED9D3D7886C41BE0966AEDB@muon.jnpr.net> <47179F1F.3030202@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Denis V. Lunev" <den@openvz.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-To: netdev@vger.kernel.org
+Cc: David Mack <dmack@juniper.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, esandeen@redhat.com
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.229]:33118 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750839AbXJVBEH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2007 21:04:07 -0400
-Received: by nz-out-0506.google.com with SMTP id s18so282319nze
-        for <netdev@vger.kernel.org>; Sun, 21 Oct 2007 18:04:05 -0700 (PDT)
+Received: from mx1.redhat.com ([66.187.233.31]:56126 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751104AbXJVBEw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Oct 2007 21:04:52 -0400
 Content-Disposition: inline
+In-Reply-To: <47179F1F.3030202@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Network Manager (the freedesktop.org one) fails to work with Linus's
-current git on a couple of different boxes I have here.  All the boxes
-have different NIC types, with different drivers.
+On Thu, Oct 18, 2007 at 10:59:59AM -0700, Kok, Auke wrote:
+ > David Mack wrote:
+ > > It appears that the needed e100 fix made it into the Fedora
+ > > 2.6.23.1-23.fc8 kernel. Boots reliably now.
+ > > 
+ > > Huge thanks and great work, guys.
+ > 
+ > DaveJ, I didn't push anything upstream. Can you verify this now works?
 
-I've bisected it down to cd40b7d3983c708aabe3d3008ec64ffce56d33b0 ,
-"[NET]: make netlink user -> kernel interface synchronious".  I've
-double checked this by testing the kernel as of the immediately
-previous commit; Network Manager works with that one, as it did on all
-my machines in 2.6.23-mm1.
+There was no e100 changes in the kernel above, so David just
+got lucky. (The race doesn't always occur, so it sometimes appears
+something got fixed.).
 
-The netlink change seems to confuse N-M, and it somehow decides that
-there's no link beat, so doesn't try to bring up the interface.  If I
-run "ifconfig eth0 up", N-M will decide there's a carrier after all
-and takes over.  Ethtool detects the link state correctly even with
-the interface down.
+I included the patch below in the latest build, but I've not had
+chance to try it on an e100 box yet..
 
-If I down the interface again with ifconfig, N-M brings it right back
-up without a problem, but if I kill N-M, it'll down the interface
-before it exits, and fail in the same way as before when restarted.
+	Dave
 
-N-M also emits this error:
+--- linux-2.6.23.noarch/drivers/net/e100.c~	2007-10-18 16:10:40.000000000 -0400
++++ linux-2.6.23.noarch/drivers/net/e100.c	2007-10-18 16:16:02.000000000 -0400
+@@ -2682,6 +2682,8 @@ static int __devinit e100_probe(struct p
+ 	if (err)
+ 		DPRINTK(PROBE, ERR, "Error clearing wake event\n");
+ 
++	netif_poll_disable(netdev);
++
+ 	strcpy(netdev->name, "eth%d");
+ 	if((err = register_netdev(netdev))) {
+ 		DPRINTK(PROBE, ERR, "Cannot register net device, aborting.\n");
 
-"-- Error: Invalid message: type=DONE length=20 flags=<MULTI> sequence-nr=1193012574 pid=1185943630"
-
-...which it doesn't do on kernels where it works normally.
-strace'ing NetworkManager shows that it prints that message just after
-talking over a netlink socket.
-
-Networking otherwise works fine here with the latest git and N-M, if I
-use the ifconfig "trick" to get the link up.
-
---
-Joseph Fannin
-jfannin@gmail.com
-
+-- 
+http://www.codemonkey.org.uk
