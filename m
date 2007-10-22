@@ -1,78 +1,58 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Subject: Re: [PATCH 5/7] pci: Export the pci_restore_msi_state() function
-Date: Mon, 22 Oct 2007 11:49:24 +1000
-Message-ID: <1193017764.10318.17.camel@concordia>
-References: <1192829817.22064.559.camel@teletran1>
-	 <20071021.162131.43417026.davem@davemloft.net>
-Reply-To: michael@ellerman.id.au
+From: wit <is01kzh@gmail.com>
+Subject: Re: about multiple network interface
+Date: Mon, 22 Oct 2007 10:09:38 +0800
+Message-ID: <105610bf0710211909r6ab2b63fo8a4f67eba6c05bc7@mail.gmail.com>
+References: <105610bf0710180606w6a687642r35414d2b66b6d3af@mail.gmail.com>
+	 <20071018132836.GA15906@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-eRZzph4WCtjgwernsoX+"
-Cc: mcarlson@broadcom.com, netdev@vger.kernel.org,
-	linux-pci@atrey.karlin.mff.cuni.cz, linas@austin.ibm.com,
-	mchan@broadcom.com, linuxppc-dev list <linuxppc-dev@ozlabs.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:36761 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751032AbXJVBt0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 Oct 2007 21:49:26 -0400
-In-Reply-To: <20071021.162131.43417026.davem@davemloft.net>
+Received: from nz-out-0506.google.com ([64.233.162.238]:61743 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751188AbXJVCJj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Oct 2007 22:09:39 -0400
+Received: by nz-out-0506.google.com with SMTP id s18so295100nze
+        for <netdev@vger.kernel.org>; Sun, 21 Oct 2007 19:09:38 -0700 (PDT)
+In-Reply-To: <20071018132836.GA15906@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Thanks very much
 
---=-eRZzph4WCtjgwernsoX+
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+But this does work until I add a ifcfg-eth0 in
+sysconfig/network-script with the following content:
+DEVICE=eth0
+ONBOOT=yes
 
-On Sun, 2007-10-21 at 16:21 -0700, David Miller wrote:
-> From: "Matt Carlson" <mcarlson@broadcom.com>
-> Date: Fri, 19 Oct 2007 14:36:56 -0700
->=20
-> > This patch exports the pci_restore_msi_state() function.  This function
-> > is needed to restore the MSI state during PCI error recovery.
-> >=20
-> > Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-> > Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-> > Signed-off-by: Michael Chan <mchan@broadcom.com>
->=20
-> I'm not so sure about this.
+What is the relationship between these two files? And sometimes, I see
+this message:
+Bringing up interface eth0:  e100 device does not seem to be present, delaying e
+th0 initialization.
+Why??
 
-On pseries there's a chance it will work for PCI error recovery, but if
-so it's just lucky that firmware has left everything configured the same
-way. For actual suspend/resume it will never work, we need to ask
-firmware to configure things.
-
-> Perhaps, instead, you should do a pci_msi_disable() and
-> pci_msi_enable() in the error detection and recovery sequence.
-
-Yes I think so. That way we can properly reconfigure via the firmware
-interface. The other option would be to design some new arch hook to do
-resume, but just doing a disable/enable seems simpler to me.
-
-cheers
-
---=20
-Michael Ellerman
-OzLabs, IBM Australia Development Lab
-
-wwweb: http://michael.ellerman.id.au
-phone: +61 2 6212 1183 (tie line 70 21183)
-
-We do not inherit the earth from our ancestors,
-we borrow it from our children. - S.M.A.R.T Person
-
---=-eRZzph4WCtjgwernsoX+
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQBHHAGkdSjSd0sB4dIRAuAcAKDN9ww2L20UWqzhKcAwCPxjIDX8tACgyyR1
-nlVp3pd3dMeMZDrlG5K3NbY=
-=kRb4
------END PGP SIGNATURE-----
-
---=-eRZzph4WCtjgwernsoX+--
-
+2007/10/18, Evgeniy Polyakov <johnpol@2ka.mipt.ru>:
+> On Thu, Oct 18, 2007 at 09:06:40PM +0800, wit (is01kzh@gmail.com) wrote:
+> > Hi all,
+> >
+> >    Sorry, I don't know if this is the right mail list. I got the
+> > following question:
+> >    I have a e100 card and a e1000 card. Whenever I boot the system, I
+> > found the eth0 matches the e1000 card, and the eth2 matches the other.
+> > How can I force the eth0 to match the e100 card and the eth2 to match
+> > e1000?
+>
+> Hi.
+>
+> Check your /etc/modprobe.conf and put there
+>
+> alias eth0 e100
+> alias eth2 e1000
+>
+>
+> --
+>         Evgeniy Polyakov
+>
