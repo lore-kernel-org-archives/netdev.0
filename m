@@ -1,7 +1,7 @@
 From: =?ISO-8859-15?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
 Subject: [PATCH RESEND] ip_gre: sendto/recvfrom NBMA address
-Date: Tue, 23 Oct 2007 18:08:13 +0300
-Message-ID: <471E0E5D.8030004@iki.fi>
+Date: Tue, 23 Oct 2007 18:57:25 +0300
+Message-ID: <471E19E5.5040509@iki.fi>
 References: <471E05BD.7040407@iki.fi> <471E0638.9040405@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
@@ -9,10 +9,10 @@ Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw02.mail.saunalahti.fi ([195.197.172.116]:41831 "EHLO
+Received: from gw02.mail.saunalahti.fi ([195.197.172.116]:42137 "EHLO
 	gw02.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752473AbXJWPzD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 11:55:03 -0400
+	with ESMTP id S1752110AbXJWP5c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 11:57:32 -0400
 In-Reply-To: <471E0638.9040405@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -27,11 +27,12 @@ This is required to implement properly NHRP over GRE tunnel.
 Signed-off-by: Timo Teras <timo.teras@iki.fi>
 
 ---
+Patrick McHardy wrote:
 > Your mailer mangled tabs, it won't apply like this. Try sending to
-> yourself for testing, then repost when it works properly. 
+> yourself for testing, then repost when it works properly.
 
-Sorry. Tabs were ok, but the initial white space on context lines was somehow
-removed. Apparently a bug in my editor where I cut/pasted from.
+Tabs were ok, I think. But somehow it seems that cut'n'paste from my
+default editor loses the space from context lines. It should be good now.
 
  net/ipv4/ip_gre.c |   12 +++++++++++-
  1 files changed, 11 insertions(+), 1 deletions(-)
@@ -77,6 +78,3 @@ index f151900..b1e3816 100644
  	}
  
  	if (!tdev && tunnel->parms.link)
-
-
-
