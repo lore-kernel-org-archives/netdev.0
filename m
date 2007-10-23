@@ -1,87 +1,108 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] Consolidate sctp_ulpq_renege_xxx functions
-Date: Tue, 23 Oct 2007 19:17:22 +0400
-Message-ID: <471E1082.8010607@openvz.org>
+From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
+Subject: Re: [PATCH] PowerPC: Add BCM5248 and Marvell 88E1111 PHY support to
+ NEW EMAC.
+Date: Tue, 23 Oct 2007 10:20:35 -0500
+Message-ID: <20071023102035.6d35d3fe@weaponx.rchland.ibm.com>
+References: <20071015175717.GA4602@ru.mvista.com>
+	<4713B10B.5000607@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
-	lksctp-developers@lists.sourceforge.net,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Cc: Valentine Barshak <vbarshak@ru.mvista.com>,
+	Michael Ellerman <michael@ellerman.id.au>,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:54978 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751983AbXJWPRR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2007 11:17:17 -0400
+Received: from e34.co.us.ibm.com ([32.97.110.152]:33387 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751926AbXJWPU7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 11:20:59 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9NFKqgH001129
+	for <netdev@vger.kernel.org>; Tue, 23 Oct 2007 11:20:52 -0400
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9NFKcQJ060168
+	for <netdev@vger.kernel.org>; Tue, 23 Oct 2007 09:20:38 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9NFKbbx008107
+	for <netdev@vger.kernel.org>; Tue, 23 Oct 2007 09:20:38 -0600
+In-Reply-To: <4713B10B.5000607@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Both are equal, except for the list to be traversed.
+On Mon, 15 Oct 2007 14:27:23 -0400
+Jeff Garzik <jeff@garzik.org> wrote:
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> Valentine Barshak wrote:
+> > This patch adds BCM5248 and Marvell 88E1111 PHY support to NEW EMAC driver.
+> > These PHY chips are used on PowerPC 440EPx boards.
+> > The PHY code is based on the previous work by Stefan Roese <sr@denx.de>
+> > 
+> > Signed-off-by: Stefan Roese <sr@denx.de>
+> > Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
+> > ---
+> >  drivers/net/ibm_newemac/phy.c |   39 +++++++++++++++++++++++++++++++++++++++
+> >  1 files changed, 39 insertions(+)
+> > 
+> > --- linux.orig/drivers/net/ibm_newemac/phy.c	2007-06-15 21:45:18.000000000 +0400
+> > +++ linux/drivers/net/ibm_newemac/phy.c	2007-06-15 20:45:15.000000000 +0400
+> > @@ -306,8 +306,47 @@
+> >  	.ops		= &cis8201_phy_ops
+> >  };
+> >  
+> > +static struct mii_phy_def bcm5248_phy_def = {
+> > +
+> > +	.phy_id		= 0x0143bc00,
+> > +	.phy_id_mask	= 0x0ffffff0,
+> > +	.name		= "BCM5248 10/100 SMII Ethernet",
+> > +	.ops		= &generic_phy_ops
+> > +};
+> > +
+> > +static int m88e1111_init(struct mii_phy *phy)
+> > +{
+> > +	printk("%s: Marvell 88E1111 Ethernet\n", __FUNCTION__);
+> > +	phy_write(phy, 0x14, 0x0ce3);
+> > +	phy_write(phy, 0x18, 0x4101);
+> > +	phy_write(phy, 0x09, 0x0e00);
+> > +	phy_write(phy, 0x04, 0x01e1);
+> > +	phy_write(phy, 0x00, 0x9140);
+> > +	phy_write(phy, 0x00, 0x1140);
+> > +
+> > +	return  0;
+> > +}
+> > +
+> > +static struct mii_phy_ops m88e1111_phy_ops = {
+> > +	.init		= m88e1111_init,
+> > +	.setup_aneg	= genmii_setup_aneg,
+> > +	.setup_forced	= genmii_setup_forced,
+> > +	.poll_link	= genmii_poll_link,
+> > +	.read_link	= genmii_read_link
+> > +};
+> > +
+> > +static struct mii_phy_def m88e1111_phy_def = {
+> > +
+> > +	.phy_id		= 0x01410CC0,
+> > +	.phy_id_mask	= 0x0ffffff0,
+> > +	.name		= "Marvell 88E1111 Ethernet",
+> > +	.ops		= &m88e1111_phy_ops,
+> > +};
+> > +
+> >  static struct mii_phy_def *mii_phy_table[] = {
+> >  	&cis8201_phy_def,
+> > +	&bcm5248_phy_def,
+> > +	&m88e1111_phy_def,
+> >  	&genmii_phy_def,
+> 
+> Seems sane to me -- ACK -- but we have multiple people sending me 
+> patches for a single driver.  That's normal for janitorial cleanups 
+> across the whole tree, but discouraged when multiple people are actively 
+> working on the same driver.
+> 
+> Please coordinate, and have ONE person send me patches...
 
----
+Jeff, could you please pull in this patch for 2.6.24?  We'll get the
+coordination down for any further patches.
 
-diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
-index b937095..4be92d0 100644
---- a/net/sctp/ulpqueue.c
-+++ b/net/sctp/ulpqueue.c
-@@ -908,8 +908,8 @@ void sctp_ulpq_skip(struct sctp_ulpq *ulpq, __u16 sid, __u16 ssn)
- 	return;
- }
- 
--/* Renege 'needed' bytes from the ordering queue. */
--static __u16 sctp_ulpq_renege_order(struct sctp_ulpq *ulpq, __u16 needed)
-+static __u16 sctp_ulpq_renege_list(struct sctp_ulpq *ulpq,
-+		struct sk_buff_head *list, __u16 needed)
- {
- 	__u16 freed = 0;
- 	__u32 tsn;
-@@ -919,7 +919,7 @@ static __u16 sctp_ulpq_renege_order(struct sctp_ulpq *ulpq, __u16 needed)
- 
- 	tsnmap = &ulpq->asoc->peer.tsn_map;
- 
--	while ((skb = __skb_dequeue_tail(&ulpq->lobby)) != NULL) {
-+	while ((skb = __skb_dequeue_tail(list)) != NULL) {
- 		freed += skb_headlen(skb);
- 		event = sctp_skb2event(skb);
- 		tsn = event->tsn;
-@@ -933,30 +933,16 @@ static __u16 sctp_ulpq_renege_order(struct sctp_ulpq *ulpq, __u16 needed)
- 	return freed;
- }
- 
-+/* Renege 'needed' bytes from the ordering queue. */
-+static __u16 sctp_ulpq_renege_order(struct sctp_ulpq *ulpq, __u16 needed)
-+{
-+	return sctp_ulpq_renege_list(ulpq, &ulpq->lobby, needed);
-+}
-+
- /* Renege 'needed' bytes from the reassembly queue. */
- static __u16 sctp_ulpq_renege_frags(struct sctp_ulpq *ulpq, __u16 needed)
- {
--	__u16 freed = 0;
--	__u32 tsn;
--	struct sk_buff *skb;
--	struct sctp_ulpevent *event;
--	struct sctp_tsnmap *tsnmap;
--
--	tsnmap = &ulpq->asoc->peer.tsn_map;
--
--	/* Walk backwards through the list, reneges the newest tsns. */
--	while ((skb = __skb_dequeue_tail(&ulpq->reasm)) != NULL) {
--		freed += skb_headlen(skb);
--		event = sctp_skb2event(skb);
--		tsn = event->tsn;
--
--		sctp_ulpevent_free(event);
--		sctp_tsnmap_renege(tsnmap, tsn);
--		if (freed >= needed)
--			return freed;
--	}
--
--	return freed;
-+	return sctp_ulpq_renege_list(ulpq, &ulpq->reasm, needed);
- }
- 
- /* Partial deliver the first message as there is pressure on rwnd. */
+thx,
+josh
+> 
