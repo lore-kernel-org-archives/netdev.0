@@ -1,57 +1,47 @@
-From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: Please pull features branch of linux-2.6-mv643xx_eth.git
-Date: Tue, 23 Oct 2007 14:20:16 -0700
-Message-ID: <20071023212016.GA29970@xyzzy.farnsworth.org>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: [PATCH] Add eeprom_bad_csum_allow module option to e1000.
+Date: Tue, 23 Oct 2007 17:20:26 -0400
+Message-ID: <20071023212026.GF7793@redhat.com>
+References: <11931515302013-git-send-email-ajax@redhat.com> <471E1ECD.80002@intel.com> <1193156487.26974.39.camel@localhost.localdomain> <471E2AD0.1000500@intel.com> <471E5C21.8030908@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Adam Jackson <ajax@redhat.com>, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xyzzy.farnsworth.org ([65.39.95.219]:35260 "HELO farnsworth.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751968AbXJWVUS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2007 17:20:18 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:52925 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754432AbXJWVUj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2007 17:20:39 -0400
 Content-Disposition: inline
+In-Reply-To: <471E5C21.8030908@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Oct 23, 2007 at 04:40:01PM -0400, Jeff Garzik wrote:
 
-The following changes since commit e8b8c977734193adedf2b0f607d6252c78e86394:
-  Linus Torvalds (1):
-        Revert "kconfig: tristate choices with mixed tristate and boolean values"
+ > > In any case, this patch should not be merged. We often send it around to users to
+ > > debug their issue in case it involves eeproms, but merging it will just conceal
+ > > the real issue and all of a sudden a flood of people stop reporting *real* issues
+ > > to us.
+ > 
+ > Sorry, I disagree.  Just as with e100, if there is a clear way the user 
+ > can recover their setup -- and Adam says his was effective -- I don't 
+ > see why we should be denying users the ability to use their own hardware.
+ 
+Indeed. This is a common enough problem that not including it causes more pain
+than its worth.  I have two affected boxes myself that I actually thought
+the hardware was dead before I tried ajax's patch.
 
-are available in the git repository at:
+People aren't going to report this as a bug. They aren't going to try out patches,
+they're going to do what I did and stick another network card in the box and
+go on with life.
 
-  git://farnsworth.org/dale/linux-2.6-mv643xx_eth.git features
+Our users deserve better than this.
 
-Dale Farnsworth (1):
-      mv643xx_eth: Remove obsolete checksum offload comment
+	Dave
 
-Lennert Buytenhek (9):
-      mv643xx_eth: Split off mv643xx_eth platform device data
-      mv643xx_eth: Move ethernet register definitions into private header
-      mv643xx_eth: Disable RX/TX byte swapping on little-endian systems
-      mv643xx_eth: Enable use on Orion platforms
-      mv643xx_eth: Remove SHARED_REGS register address bias
-      mv643xx_eth: Remove MV643XX_ETH_ register prefix
-      mv643xx_eth: Clean up mv643xx_eth.h
-      mv643xx_eth: Remove unused register defines
-      mv643xx_eth: Merge drivers/net/mv643xx_eth.h into mv643xx_eth.c
-
- drivers/net/Kconfig         |   13 +-
- drivers/net/mv643xx_eth.c   |  806 +++++++++++++++++++++++++++++++++++--------
- drivers/net/mv643xx_eth.h   |  370 --------------------
- include/linux/mv643xx.h     |  328 +------------------
- include/linux/mv643xx_eth.h |   31 ++
- 5 files changed, 709 insertions(+), 839 deletions(-)
- delete mode 100644 drivers/net/mv643xx_eth.h
- create mode 100644 include/linux/mv643xx_eth.h
-
-It may also be viewed at:
-http://www.farnsworth.org/git?p=dale/linux-2.6-mv643xx_eth.git;a=shortlog;h=features
-
-Of course, it would be nice to get this into 2.6.24, but as a feature
-addition, it could wait.
-
-Thanks,
--Dale
+-- 
+http://www.codemonkey.org.uk
