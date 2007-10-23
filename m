@@ -1,119 +1,128 @@
 From: Bill Hayes <bill.hayes@hp.com>
-Subject: [PATCH] e1000: alternate MAC address support
-Date: Tue, 23 Oct 2007 13:14:39 -0600
-Message-ID: <1193166879.14801.73.camel@dual.billh>
+Subject: [PATCH] e1000e: alternate MAC address support
+Date: Tue, 23 Oct 2007 13:13:31 -0600
+Message-ID: <1193166811.14801.71.camel@dual.billh>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: jeff@garzik.org, auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
 	andy@greyhouse.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:32815 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751862AbXJWTTf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 15:19:35 -0400
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:5951 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752134AbXJWTTj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 15:19:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Port alternate MAC address support from the sourceforge 
-e1000 driver to the upstream e1000 driver.
+e1000 driver to the upstream e1000e driver.
 
 Signed-off-by: Bill Hayes <bill.hayes@hp.com>
 ---
 
- drivers/net/e1000/e1000_hw.c |   42 +++++++++++++++++++++++++++++++++++++++---
- drivers/net/e1000/e1000_hw.h |    2 ++
- 2 files changed, 41 insertions(+), 3 deletions(-)
+ drivers/net/e1000e/82571.c   |    4 ++++
+ drivers/net/e1000e/lib.c     |   39 +++++++++++++++++++++++++++++++++++++--
+ drivers/net/e1000e/hw.h      |    1 +
+ drivers/net/e1000e/defines.h |    1 +
+ 4 files changed, 43 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
-index 8fa0fe4..07e3178 100644
---- a/drivers/net/e1000/e1000_hw.c
-+++ b/drivers/net/e1000/e1000_hw.c
-@@ -719,6 +719,11 @@ e1000_reset_hw(struct e1000_hw *hw)
-     DEBUGOUT("Masking off all interrupts\n");
-     E1000_WRITE_REG(hw, IMC, 0xffffffff);
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+index cf70522..4bef111 100644
+--- a/drivers/net/e1000e/82571.c
++++ b/drivers/net/e1000e/82571.c
+@@ -752,6 +752,10 @@ static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
+ 	ew32(IMC, 0xffffffff);
+ 	icr = er32(ICR);
  
-+    if (hw->mac_type == e1000_82571 && hw->alt_mac_addr_is_present) {
-+    	hw->laa_is_present = 1;
-+    	e1000_rar_set(hw, hw->mac_addr, E1000_RAR_ENTRIES - 1);
-+    }
++	if (hw->mac.type == e1000_82571 &&
++		hw->dev_spec.e82571.alt_mac_addr_is_present)
++			e1000e_set_laa_state_82571(hw, TRUE);
 +
-     /* Clear any pending interrupt events. */
-     icr = E1000_READ_REG(hw, ICR);
+ 	return 0;
+ }
  
-@@ -5693,11 +5698,41 @@ e1000_read_mac_addr(struct e1000_hw * hw)
+diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
+index 0bdeca3..16f35fa 100644
+--- a/drivers/net/e1000e/lib.c
++++ b/drivers/net/e1000e/lib.c
+@@ -2059,9 +2059,44 @@ s32 e1000e_read_mac_addr(struct e1000_hw *hw)
  {
-     uint16_t offset;
-     uint16_t eeprom_data, i;
-+    u16 mac_addr_offset = 0;
- 
-     DEBUGFUNC("e1000_read_mac_addr");
- 
-+    if (hw->mac_type == e1000_82571) {
-+        /* Check for an alternate MAC address.  An alternate MAC address can
-+         * be setup by pre-boot software and must be treated like a permanent
-+         * address and must override the actual permanent MAC address. */
-+        if (e1000_read_eeprom(hw, EEPROM_ALT_MAC_ADDR_PTR, 1,
-+                              &mac_addr_offset) < 0) {
-+            DEBUGOUT("EEPROM Read Error\n");
-+            return -E1000_ERR_EEPROM;
-+        }
-+        if (mac_addr_offset == 0xFFFF)
-+            mac_addr_offset = 0;
+ 	s32 ret_val;
+ 	u16 offset, nvm_data, i;
++	u16 mac_addr_offset = 0;
 +
-+        if (mac_addr_offset) {
-+            if (E1000_READ_REG(hw, STATUS) & E1000_STATUS_FUNC_1)
-+                mac_addr_offset += NODE_ADDRESS_SIZE/sizeof(u16);
++	if (hw->mac.type == e1000_82571) {
++		/* Check for an alternate MAC address.  An alternate MAC
++		 * address can be setup by pre-boot software and must be
++		 * treated like a permanent address and must override the
++		 * actual permanent MAC address. */
++		ret_val = e1000_read_nvm(hw, NVM_ALT_MAC_ADDR_PTR, 1,
++						&mac_addr_offset);
++		if (ret_val) {
++			hw_dbg(hw, "NVM Read Error\n");
++			return ret_val;
++		}
++		if (mac_addr_offset == 0xFFFF)
++			mac_addr_offset = 0;
 +
-+            /* make sure we have a valid mac address here before using it */
-+            if (e1000_read_eeprom(hw, mac_addr_offset, 1, &eeprom_data) < 0) {
-+                DEBUGOUT("EEPROM Read Error\n");
-+                return -E1000_ERR_EEPROM;
-+            }
-+            if (eeprom_data & 0x0001)
-+                mac_addr_offset = 0;
++		if (mac_addr_offset) {
++			if (hw->bus.func == E1000_FUNC_1)
++				mac_addr_offset += ETH_ALEN/sizeof(u16);
++
++			/* make sure we have a valid mac address here
++			 * before using it */
++			ret_val = e1000_read_nvm(hw, mac_addr_offset, 1,
++						 &nvm_data);
++			if (ret_val) {
++				hw_dbg(hw, "NVM Read Error\n");
++				return ret_val;
++			}
++			if (nvm_data & 0x0001)
++				mac_addr_offset = 0;
++		}
++
++		if (mac_addr_offset)
++			hw->dev_spec.e82571.alt_mac_addr_is_present = 1;
 +	}
-+
-+        if (mac_addr_offset) 
-+                hw->alt_mac_addr_is_present = 1;
-+    }
-+
-     for (i = 0; i < NODE_ADDRESS_SIZE; i += 2) {
--        offset = i >> 1;
-+        offset = mac_addr_offset + (i >> 1);
-         if (e1000_read_eeprom(hw, offset, 1, &eeprom_data) < 0) {
-             DEBUGOUT("EEPROM Read Error\n");
-             return -E1000_ERR_EEPROM;
-@@ -5713,8 +5748,9 @@ e1000_read_mac_addr(struct e1000_hw * hw)
-     case e1000_82546_rev_3:
-     case e1000_82571:
-     case e1000_80003es2lan:
--        if (E1000_READ_REG(hw, STATUS) & E1000_STATUS_FUNC_1)
--            hw->perm_mac_addr[5] ^= 0x01;
-+        if (!mac_addr_offset &&
-+            (E1000_READ_REG(hw, STATUS) & E1000_STATUS_FUNC_1))
-+                hw->perm_mac_addr[5] ^= 0x01;
-         break;
-     }
  
-diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
-index a2a86c5..e18760d 100644
---- a/drivers/net/e1000/e1000_hw.h
-+++ b/drivers/net/e1000/e1000_hw.h
-@@ -1456,6 +1456,7 @@ struct e1000_hw {
- 	boolean_t		tbi_compatibility_en;
- 	boolean_t		tbi_compatibility_on;
- 	boolean_t		laa_is_present;
-+	boolean_t		alt_mac_addr_is_present;
- 	boolean_t		phy_reset_disable;
- 	boolean_t		initialize_hw_bits_disable;
- 	boolean_t		fc_send_xon;
-@@ -2286,6 +2287,7 @@ struct e1000_host_command_info {
- #define EEPROM_INIT_CONTROL3_PORT_A   0x0024
- #define EEPROM_CFG                    0x0012
- #define EEPROM_FLASH_VERSION          0x0032
-+#define EEPROM_ALT_MAC_ADDR_PTR       0x0037
- #define EEPROM_CHECKSUM_REG           0x003F
+ 	for (i = 0; i < ETH_ALEN; i += 2) {
+-		offset = i >> 1;
++		offset = mac_addr_offset + (i >> 1);
+ 		ret_val = e1000_read_nvm(hw, offset, 1, &nvm_data);
+ 		if (ret_val) {
+ 			hw_dbg(hw, "NVM Read Error\n");
+@@ -2072,7 +2107,7 @@ s32 e1000e_read_mac_addr(struct e1000_hw *hw)
+ 	}
  
- #define E1000_EEPROM_CFG_DONE         0x00040000   /* MNG config cycle done */
+ 	/* Flip last bit of mac address if we're on second port */
+-	if (hw->bus.func == E1000_FUNC_1)
++	if (!mac_addr_offset && hw->bus.func == E1000_FUNC_1)
+ 		hw->mac.perm_addr[5] ^= 1;
+ 
+ 	for (i = 0; i < ETH_ALEN; i++)
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index 6451578..1bb2052 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -816,6 +816,7 @@ struct e1000_bus_info {
+ 
+ struct e1000_dev_spec_82571 {
+ 	bool laa_is_present;
++	bool alt_mac_addr_is_present;
+ };
+ 
+ struct e1000_shadow_ram {
+diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
+index b32ed45..f2175ea 100644
+--- a/drivers/net/e1000e/defines.h
++++ b/drivers/net/e1000e/defines.h
+@@ -557,6 +557,7 @@
+ #define NVM_INIT_3GIO_3            0x001A
+ #define NVM_INIT_CONTROL3_PORT_A   0x0024
+ #define NVM_CFG                    0x0012
++#define NVM_ALT_MAC_ADDR_PTR       0x0037
+ #define NVM_CHECKSUM_REG           0x003F
+ 
+ #define E1000_NVM_CFG_DONE_PORT_0  0x40000 /* MNG config cycle done */
 
