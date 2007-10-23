@@ -1,71 +1,77 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 7/11] [IPSEC]: Set dst->input to dst_discard
-Date: Wed, 24 Oct 2007 00:03:33 +0800
-Message-ID: <E1IkME9-0008Oj-00@gondolin.me.apana.org.au>
+Subject: [PATCH 6/11] [IPSEC]: Only set neighbour on top xfrm dst
+Date: Wed, 24 Oct 2007 00:03:31 +0800
+Message-ID: <E1IkME7-0008Ob-00@gondolin.me.apana.org.au>
 References: <20071023160217.GA32102@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2463 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:2462 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752552AbXJWQDm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 12:03:42 -0400
+	with ESMTP id S1752593AbXJWQDn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 12:03:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Set dst->input to dst_discard
+[IPSEC]: Only set neighbour on top xfrm dst
 
-The input function should never be invoked on IPsec dst objects.  This is
-because we don't apply IPsec on input until after we've made the routing
-decision.
+The neighbour field is only used by dst_confirm which only ever happens on
+the top-most xfrm dst.  So it's a waste to duplicate for every other xfrm
+dst.  This patch moves its setting out of the loop so that only the top one
+gets set.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/ipv4/xfrm4_policy.c |    3 ++-
- net/ipv6/xfrm6_policy.c |    3 ++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
+ net/ipv4/xfrm4_policy.c |    5 +++--
+ net/ipv6/xfrm6_policy.c |    6 ++++--
+ 2 files changed, 7 insertions(+), 4 deletions(-)
 
 diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index 7d250a1..c40a71b 100644
+index 5ee3a2f..7d250a1 100644
 --- a/net/ipv4/xfrm4_policy.c
 +++ b/net/ipv4/xfrm4_policy.c
-@@ -10,6 +10,7 @@
+@@ -144,6 +144,9 @@ __xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+ 	dst_prev->child = &rt->u.dst;
+ 	dst->path = &rt->u.dst;
  
- #include <linux/compiler.h>
- #include <linux/inetdevice.h>
-+#include <net/dst.h>
- #include <net/xfrm.h>
- #include <net/ip.h>
++	/* Copy neighbout for reachability confirmation */
++	dst->neighbour = neigh_clone(rt->u.dst.neighbour);
++
+ 	*dst_p = dst;
+ 	dst = dst_prev;
  
-@@ -167,7 +168,7 @@ __xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+@@ -164,8 +167,6 @@ __xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
  		dst_prev->trailer_len	= trailer_len;
  		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
  
--		dst_prev->input		= rt->u.dst.input;
-+		dst_prev->input = dst_discard;
+-		/* Copy neighbout for reachability confirmation */
+-		dst_prev->neighbour	= neigh_clone(rt->u.dst.neighbour);
+ 		dst_prev->input		= rt->u.dst.input;
  		dst_prev->output = dst_prev->xfrm->outer_mode->afinfo->output;
  		if (rt0->peer)
- 			atomic_inc(&rt0->peer->refcnt);
 diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 15747f3..a1c6b7c 100644
+index 9095dfc..15747f3 100644
 --- a/net/ipv6/xfrm6_policy.c
 +++ b/net/ipv6/xfrm6_policy.c
-@@ -14,6 +14,7 @@
- #include <linux/compiler.h>
- #include <linux/netdevice.h>
- #include <net/addrconf.h>
-+#include <net/dst.h>
- #include <net/xfrm.h>
- #include <net/ip.h>
- #include <net/ipv6.h>
-@@ -214,7 +215,7 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+@@ -188,6 +188,10 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+ 
+ 	dst_prev->child = &rt->u.dst;
+ 	dst->path = &rt->u.dst;
++
++	/* Copy neighbour for reachability confirmation */
++	dst->neighbour = neigh_clone(rt->u.dst.neighbour);
++
+ 	if (rt->rt6i_node)
+ 		((struct xfrm_dst *)dst)->path_cookie = rt->rt6i_node->fn_sernum;
+ 
+@@ -210,8 +214,6 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
  		dst_prev->trailer_len	= trailer_len;
  		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
  
--		dst_prev->input		= rt->u.dst.input;
-+		dst_prev->input = dst_discard;
+-		/* Copy neighbour for reachability confirmation */
+-		dst_prev->neighbour	= neigh_clone(rt->u.dst.neighbour);
+ 		dst_prev->input		= rt->u.dst.input;
  		dst_prev->output = dst_prev->xfrm->outer_mode->afinfo->output;
  		/* Sheit... I remember I did this right. Apparently,
- 		 * it was magically lost, so this code needs audit */
