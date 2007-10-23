@@ -1,41 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Add eeprom_bad_csum_allow module option to e1000.
-Date: Tue, 23 Oct 2007 14:53:39 -0700 (PDT)
-Message-ID: <20071023.145339.55504234.davem@davemloft.net>
-References: <471E2AD0.1000500@intel.com>
-	<471E5C21.8030908@garzik.org>
-	<20071023212026.GF7793@redhat.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [VLAN]: MAINTAINERS update
+Date: Tue, 23 Oct 2007 15:17:46 -0700
+Message-ID: <471E730A.4070700@candelatech.com>
+References: <471E2362.7040104@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, auke-jan.h.kok@intel.com, ajax@redhat.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: davej@redhat.com
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49108
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751917AbXJWVxM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 17:53:12 -0400
-In-Reply-To: <20071023212026.GF7793@redhat.com>
+Received: from ns2.lanforge.com ([66.165.47.211]:50398 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752206AbXJWWRu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2007 18:17:50 -0400
+In-Reply-To: <471E2362.7040104@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dave Jones <davej@redhat.com>
-Date: Tue, 23 Oct 2007 17:20:26 -0400
-
-> Indeed. This is a common enough problem that not including it causes
-> more pain than its worth.  I have two affected boxes myself that I
-> actually thought the hardware was dead before I tried ajax's patch.
+Patrick McHardy wrote:
 >
-> People aren't going to report this as a bug. They aren't going to
-> try out patches, they're going to do what I did and stick another
-> network card in the box and go on with life.
+> ------------------------------------------------------------------------
 >
-> Our users deserve better than this.
+> [VLAN]: MAINTAINERS update
+>
+> Ben stepped down from VLAN maintainership due to a lack of time,
+> add myself as new maintainer.
+>   
+ACK.  Thanks Patrick!
 
-Seconded.  The resistence to this patch is just flat-out rediculious,
-just like it was in the e100 case.
+Ben
 
-And I think all of this "e1000 is different!" talk is merely a
-scarecrow for the fact that Intel simply doesn't want this patch
-merged for some other reason.
+
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
+
