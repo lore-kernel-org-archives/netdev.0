@@ -1,31 +1,34 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] Consolidate sctp_ulpq_renege_xxx functions
-Date: Tue, 23 Oct 2007 11:57:42 -0400
-Message-ID: <471E19F6.7020800@hp.com>
-References: <471E1082.8010607@openvz.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [0/11] Merge bundle creation and other misc fixes/clean-ups
+Date: Wed, 24 Oct 2007 00:02:17 +0800
+Message-ID: <20071023160217.GA32102@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	lksctp-developers@lists.sourceforge.net,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:53566 "EHLO atlrel8.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752579AbXJWP5y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2007 11:57:54 -0400
-In-Reply-To: <471E1082.8010607@openvz.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:2422 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751960AbXJWQCj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 12:02:39 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Emelyanov wrote:
-> Both are equal, except for the list to be traversed.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> 
+Hi Dave:
 
-ACK.  Good clean-up Pavel.
+This series of patches fixes the bug where the bundle creation
+code treats IPv6 routes as IPv4 or vice versa.
 
-Thanks
--vlad
+I think this is suitable for 2.6.25.
+
+They do fix bugs but I don't think any of them are serious enough
+for inclusion in 2.6.24.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
