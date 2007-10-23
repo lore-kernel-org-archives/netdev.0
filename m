@@ -1,118 +1,143 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 8/11] [IPSEC]: Make sure idev is consistent with dev in xfrm_dst
-Date: Wed, 24 Oct 2007 00:03:34 +0800
-Message-ID: <E1IkMEA-0008Or-00@gondolin.me.apana.org.au>
+Subject: [PATCH 9/11] [IPSEC]: Replace x->type->{local,remote}_addr with flags
+Date: Wed, 24 Oct 2007 00:03:35 +0800
+Message-ID: <E1IkMEB-0008Oz-00@gondolin.me.apana.org.au>
 References: <20071023160217.GA32102@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2468 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:2474 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752664AbXJWQDp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 12:03:45 -0400
+	with ESMTP id S1752664AbXJWQDt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 12:03:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Make sure idev is consistent with dev in xfrm_dst
+[IPSEC]: Replace x->type->{local,remote}_addr with flags
 
-Previously we took the device from the bottom route and idev from the top
-route.  This is bad because idev may well point to a different device.
-This patch changes it so that we get the idev from the device directly.
-
-It also makes it an error if either dev or idev is NULL.  This is consistent
-with the rest of the routing code which also treats these cases as errors.
-
-I've removed the err initialisation in xfrm6_policy.c because it achieves
-no purpose and hid a bug when an initial version of this patch neglected
-to set err to -ENODEV (fortunately the IPv4 version warned about it).
+The functions local_addr and remote_addr are more than what they're needed
+for.  The same thing can be done easily with flags on the type object.
+This patch does that and simplifies the wrapper functions in xfrm6_policy
+accordingly.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/ipv4/xfrm4_policy.c |   13 +++++++++----
- net/ipv6/xfrm6_policy.c |   15 ++++++++++-----
- 2 files changed, 19 insertions(+), 9 deletions(-)
+ include/net/xfrm.h      |    4 ++--
+ net/ipv6/mip6.c         |   11 ++---------
+ net/ipv6/xfrm6_policy.c |   20 ++++++++------------
+ 3 files changed, 12 insertions(+), 23 deletions(-)
 
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index c40a71b..d903c8b 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -153,14 +153,21 @@ __xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 688f6f5..9ca4ae5 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -280,6 +280,8 @@ struct xfrm_type
+ 	__u8			flags;
+ #define XFRM_TYPE_NON_FRAGMENT	1
+ #define XFRM_TYPE_REPLAY_PROT	2
++#define XFRM_TYPE_LOCAL_COADDR	4
++#define XFRM_TYPE_REMOTE_COADDR	8
  
- 	dst_prev = *dst_p;
- 	i = 0;
-+	err = -ENODEV;
- 	for (; dst_prev != &rt->u.dst; dst_prev = dst_prev->child) {
- 		struct xfrm_dst *x = (struct xfrm_dst*)dst_prev;
- 		x->u.rt.fl = *fl;
+ 	int			(*init_state)(struct xfrm_state *x);
+ 	void			(*destructor)(struct xfrm_state *);
+@@ -287,8 +289,6 @@ struct xfrm_type
+ 	int			(*output)(struct xfrm_state *, struct sk_buff *pskb);
+ 	int			(*reject)(struct xfrm_state *, struct sk_buff *, struct flowi *);
+ 	int			(*hdr_offset)(struct xfrm_state *, struct sk_buff *, u8 **);
+-	xfrm_address_t		*(*local_addr)(struct xfrm_state *, xfrm_address_t *);
+-	xfrm_address_t		*(*remote_addr)(struct xfrm_state *, xfrm_address_t *);
+ 	/* Estimate maximal size of result of transformation of a dgram */
+ 	u32			(*get_mtu)(struct xfrm_state *, int size);
+ };
+diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
+index 7fd841d..edfd9cd 100644
+--- a/net/ipv6/mip6.c
++++ b/net/ipv6/mip6.c
+@@ -34,11 +34,6 @@
+ #include <net/xfrm.h>
+ #include <net/mip6.h>
  
- 		dst_prev->xfrm = xfrm[i++];
- 		dst_prev->dev = rt->u.dst.dev;
--		if (rt->u.dst.dev)
--			dev_hold(rt->u.dst.dev);
-+		if (!rt->u.dst.dev)
-+			goto error;
-+		dev_hold(rt->u.dst.dev);
-+
-+		x->u.rt.idev = in_dev_get(rt->u.dst.dev);
-+		if (!x->u.rt.idev)
-+			goto error;
-+
- 		dst_prev->obsolete	= -1;
- 		dst_prev->flags	       |= DST_HOST;
- 		dst_prev->lastuse	= jiffies;
-@@ -181,8 +188,6 @@ __xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
- 		x->u.rt.rt_dst = rt0->rt_dst;
- 		x->u.rt.rt_gateway = rt0->rt_gateway;
- 		x->u.rt.rt_spec_dst = rt0->rt_spec_dst;
--		x->u.rt.idev = rt0->idev;
--		in_dev_hold(rt0->idev);
- 		header_len -= x->u.dst.xfrm->props.header_len;
- 		trailer_len -= x->u.dst.xfrm->props.trailer_len;
- 	}
+-static xfrm_address_t *mip6_xfrm_addr(struct xfrm_state *x, xfrm_address_t *addr)
+-{
+-	return x->coaddr;
+-}
+-
+ static inline unsigned int calc_padlen(unsigned int len, unsigned int n)
+ {
+ 	return (n - len + 16) & 0x7;
+@@ -337,14 +332,13 @@ static struct xfrm_type mip6_destopt_type =
+ 	.description	= "MIP6DESTOPT",
+ 	.owner		= THIS_MODULE,
+ 	.proto	     	= IPPROTO_DSTOPTS,
+-	.flags		= XFRM_TYPE_NON_FRAGMENT,
++	.flags		= XFRM_TYPE_NON_FRAGMENT | XFRM_TYPE_LOCAL_COADDR,
+ 	.init_state	= mip6_destopt_init_state,
+ 	.destructor	= mip6_destopt_destroy,
+ 	.input		= mip6_destopt_input,
+ 	.output		= mip6_destopt_output,
+ 	.reject		= mip6_destopt_reject,
+ 	.hdr_offset	= mip6_destopt_offset,
+-	.local_addr	= mip6_xfrm_addr,
+ };
+ 
+ static int mip6_rthdr_input(struct xfrm_state *x, struct sk_buff *skb)
+@@ -467,13 +461,12 @@ static struct xfrm_type mip6_rthdr_type =
+ 	.description	= "MIP6RT",
+ 	.owner		= THIS_MODULE,
+ 	.proto	     	= IPPROTO_ROUTING,
+-	.flags		= XFRM_TYPE_NON_FRAGMENT,
++	.flags		= XFRM_TYPE_NON_FRAGMENT | XFRM_TYPE_REMOTE_COADDR,
+ 	.init_state	= mip6_rthdr_init_state,
+ 	.destructor	= mip6_rthdr_destroy,
+ 	.input		= mip6_rthdr_input,
+ 	.output		= mip6_rthdr_output,
+ 	.hdr_offset	= mip6_rthdr_offset,
+-	.remote_addr	= mip6_xfrm_addr,
+ };
+ 
+ static int __init mip6_init(void)
 diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index a1c6b7c..f04e718 100644
+index f04e718..ed29bef 100644
 --- a/net/ipv6/xfrm6_policy.c
 +++ b/net/ipv6/xfrm6_policy.c
-@@ -123,7 +123,7 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
- 		}
- 	};
- 	int i;
--	int err = 0;
-+	int err;
- 	int header_len = 0;
- 	int trailer_len = 0;
+@@ -87,20 +87,16 @@ __xfrm6_find_bundle(struct flowi *fl, struct xfrm_policy *policy)
+ 	return dst;
+ }
  
-@@ -201,13 +201,20 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+-static inline struct in6_addr*
+-__xfrm6_bundle_addr_remote(struct xfrm_state *x, struct in6_addr *addr)
++static inline xfrm_address_t *__xfrm6_bundle_addr_remote(struct xfrm_state *x)
+ {
+-	return (x->type->remote_addr) ?
+-		(struct in6_addr*)x->type->remote_addr(x, (xfrm_address_t *)addr) :
+-		(struct in6_addr*)&x->id.daddr;
++	return (x->type->flags & XFRM_TYPE_REMOTE_COADDR) ? x->coaddr :
++							    &x->id.daddr;
+ }
  
- 	dst_prev = *dst_p;
- 	i = 0;
-+	err = -ENODEV;
- 	for (; dst_prev != &rt->u.dst; dst_prev = dst_prev->child) {
- 		struct xfrm_dst *x = (struct xfrm_dst*)dst_prev;
+-static inline struct in6_addr*
+-__xfrm6_bundle_addr_local(struct xfrm_state *x, struct in6_addr *addr)
++static inline xfrm_address_t *__xfrm6_bundle_addr_local(struct xfrm_state *x)
+ {
+-	return (x->type->local_addr) ?
+-		(struct in6_addr*)x->type->local_addr(x, (xfrm_address_t *)addr) :
+-		(struct in6_addr*)&x->props.saddr;
++	return (x->type->flags & XFRM_TYPE_LOCAL_COADDR) ? x->coaddr :
++							   &x->props.saddr;
+ }
  
- 		dst_prev->xfrm = xfrm[i++];
- 		dst_prev->dev = rt->u.dst.dev;
--		if (rt->u.dst.dev)
--			dev_hold(rt->u.dst.dev);
-+		if (!rt->u.dst.dev)
-+			goto error;
-+		dev_hold(rt->u.dst.dev);
-+
-+		x->u.rt6.rt6i_idev = in6_dev_get(rt->u.dst.dev);
-+		if (!x->u.rt6.rt6i_idev)
-+			goto error;
-+
- 		dst_prev->obsolete	= -1;
- 		dst_prev->flags	       |= DST_HOST;
- 		dst_prev->lastuse	= jiffies;
-@@ -226,8 +233,6 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
- 		memcpy(&x->u.rt6.rt6i_gateway, &rt0->rt6i_gateway, sizeof(x->u.rt6.rt6i_gateway));
- 		x->u.rt6.rt6i_dst      = rt0->rt6i_dst;
- 		x->u.rt6.rt6i_src      = rt0->rt6i_src;
--		x->u.rt6.rt6i_idev     = rt0->rt6i_idev;
--		in6_dev_hold(rt0->rt6i_idev);
- 		header_len -= x->u.dst.xfrm->props.header_len;
- 		trailer_len -= x->u.dst.xfrm->props.trailer_len;
- 	}
+ /* Allocate chain of dst_entry's, attach known xfrm's, calculate
+@@ -171,9 +167,9 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+ 				fl_tunnel.fl4_src = xfrm[i]->props.saddr.a4;
+ 				break;
+ 			case AF_INET6:
+-				ipv6_addr_copy(&fl_tunnel.fl6_dst, __xfrm6_bundle_addr_remote(xfrm[i], &fl->fl6_dst));
++				ipv6_addr_copy(&fl_tunnel.fl6_dst, (struct in6_addr *)__xfrm6_bundle_addr_remote(xfrm[i]));
+ 
+-				ipv6_addr_copy(&fl_tunnel.fl6_src, __xfrm6_bundle_addr_local(xfrm[i], &fl->fl6_src));
++				ipv6_addr_copy(&fl_tunnel.fl6_src, (struct in6_addr *)__xfrm6_bundle_addr_local(xfrm[i]));
+ 				break;
+ 			default:
+ 				BUG_ON(1);
