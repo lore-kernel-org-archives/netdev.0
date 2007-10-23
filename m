@@ -1,34 +1,42 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [0/11] Merge bundle creation and other misc fixes/clean-ups
-Date: Wed, 24 Oct 2007 00:02:17 +0800
-Message-ID: <20071023160217.GA32102@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Subject: [PATCH 2/11] [IPSEC]: Use dst->header_len when resizing on output
+Date: Wed, 24 Oct 2007 00:03:27 +0800
+Message-ID: <E1IkME3-0008O2-00@gondolin.me.apana.org.au>
+References: <20071023160217.GA32102@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2422 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:2441 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751960AbXJWQCj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 12:02:39 -0400
-Content-Disposition: inline
+	with ESMTP id S1751841AbXJWQDc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 12:03:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave:
+[IPSEC]: Use dst->header_len when resizing on output
 
-This series of patches fixes the bug where the bundle creation
-code treats IPv6 routes as IPv4 or vice versa.
+Currently we use x->props.header_len when resizing on output.  However,
+if we're resizing at all we might as well go the whole hog and do it
+for the whole dst.
 
-I think this is suitable for 2.6.25.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
 
-They do fix bugs but I don't think any of them are serious enough
-for inclusion in 2.6.24.
+ net/xfrm/xfrm_output.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletion(-)
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
+index f4bfd6c..58d5a74 100644
+--- a/net/xfrm/xfrm_output.c
++++ b/net/xfrm/xfrm_output.c
+@@ -19,7 +19,8 @@
+ 
+ static int xfrm_state_check_space(struct xfrm_state *x, struct sk_buff *skb)
+ {
+-	int nhead = x->props.header_len + LL_RESERVED_SPACE(skb->dst->dev)
++	struct dst_entry *dst = skb->dst;
++	int nhead = dst->header_len + LL_RESERVED_SPACE(dst->dev)
+ 		- skb_headroom(skb);
+ 
+ 	if (nhead > 0)
