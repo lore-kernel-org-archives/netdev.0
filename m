@@ -1,128 +1,77 @@
-From: Bill Hayes <bill.hayes@hp.com>
-Subject: [PATCH] e1000e: alternate MAC address support
-Date: Tue, 23 Oct 2007 13:13:31 -0600
-Message-ID: <1193166811.14801.71.camel@dual.billh>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC][PATCH 0/3][XFRM]: Support packet processing error
+	statistics.
+Date: Tue, 23 Oct 2007 15:47:33 -0400
+Message-ID: <1193168853.4415.56.camel@localhost>
+References: <20071017.213523.58458049.davem@davemloft.net>
+	 <11930334662094-git-send-email-nakam@linux-ipv6.org>
+	 <1193056091.4422.33.camel@localhost>
+	 <200710231608.34661.nakam@linux-ipv6.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: jeff@garzik.org, auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
-	andy@greyhouse.net
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:5951 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752134AbXJWTTj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 15:19:39 -0400
+Received: from rn-out-0910.google.com ([64.233.170.188]:22605 "EHLO
+	rn-out-0102.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751682AbXJWTrj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 15:47:39 -0400
+Received: by rn-out-0102.google.com with SMTP id s46so1698155rnb
+        for <netdev@vger.kernel.org>; Tue, 23 Oct 2007 12:47:38 -0700 (PDT)
+In-Reply-To: <200710231608.34661.nakam@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Port alternate MAC address support from the sourceforge 
-e1000 driver to the upstream e1000e driver.
+On Tue, 2007-23-10 at 16:08 +0900, Masahide NAKAMURA wrote:
 
-Signed-off-by: Bill Hayes <bill.hayes@hp.com>
----
+> Thanks. I would like you to find too much item at my patch
+> for the statistics, too.
 
- drivers/net/e1000e/82571.c   |    4 ++++
- drivers/net/e1000e/lib.c     |   39 +++++++++++++++++++++++++++++++++++++--
- drivers/net/e1000e/hw.h      |    1 +
- drivers/net/e1000e/defines.h |    1 +
- 4 files changed, 43 insertions(+), 2 deletions(-)
+I am not anywhere close to a machine where i can give you precise
+details to this; the one thing that sticks out in my brain cells is the
+SPI mismatch. This (in static setups) seemed to be the most common
+mistake i saw (other than a mismatched key). Your stats as you have them
+now and as is will catch both in one spot - which is a good start.
 
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index cf70522..4bef111 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -752,6 +752,10 @@ static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
- 	ew32(IMC, 0xffffffff);
- 	icr = er32(ICR);
- 
-+	if (hw->mac.type == e1000_82571 &&
-+		hw->dev_spec.e82571.alt_mac_addr_is_present)
-+			e1000e_set_laa_state_82571(hw, TRUE);
-+
- 	return 0;
- }
- 
-diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
-index 0bdeca3..16f35fa 100644
---- a/drivers/net/e1000e/lib.c
-+++ b/drivers/net/e1000e/lib.c
-@@ -2059,9 +2059,44 @@ s32 e1000e_read_mac_addr(struct e1000_hw *hw)
- {
- 	s32 ret_val;
- 	u16 offset, nvm_data, i;
-+	u16 mac_addr_offset = 0;
-+
-+	if (hw->mac.type == e1000_82571) {
-+		/* Check for an alternate MAC address.  An alternate MAC
-+		 * address can be setup by pre-boot software and must be
-+		 * treated like a permanent address and must override the
-+		 * actual permanent MAC address. */
-+		ret_val = e1000_read_nvm(hw, NVM_ALT_MAC_ADDR_PTR, 1,
-+						&mac_addr_offset);
-+		if (ret_val) {
-+			hw_dbg(hw, "NVM Read Error\n");
-+			return ret_val;
-+		}
-+		if (mac_addr_offset == 0xFFFF)
-+			mac_addr_offset = 0;
-+
-+		if (mac_addr_offset) {
-+			if (hw->bus.func == E1000_FUNC_1)
-+				mac_addr_offset += ETH_ALEN/sizeof(u16);
-+
-+			/* make sure we have a valid mac address here
-+			 * before using it */
-+			ret_val = e1000_read_nvm(hw, mac_addr_offset, 1,
-+						 &nvm_data);
-+			if (ret_val) {
-+				hw_dbg(hw, "NVM Read Error\n");
-+				return ret_val;
-+			}
-+			if (nvm_data & 0x0001)
-+				mac_addr_offset = 0;
-+		}
-+
-+		if (mac_addr_offset)
-+			hw->dev_spec.e82571.alt_mac_addr_is_present = 1;
-+	}
- 
- 	for (i = 0; i < ETH_ALEN; i += 2) {
--		offset = i >> 1;
-+		offset = mac_addr_offset + (i >> 1);
- 		ret_val = e1000_read_nvm(hw, offset, 1, &nvm_data);
- 		if (ret_val) {
- 			hw_dbg(hw, "NVM Read Error\n");
-@@ -2072,7 +2107,7 @@ s32 e1000e_read_mac_addr(struct e1000_hw *hw)
- 	}
- 
- 	/* Flip last bit of mac address if we're on second port */
--	if (hw->bus.func == E1000_FUNC_1)
-+	if (!mac_addr_offset && hw->bus.func == E1000_FUNC_1)
- 		hw->mac.perm_addr[5] ^= 1;
- 
- 	for (i = 0; i < ETH_ALEN; i++)
-diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index 6451578..1bb2052 100644
---- a/drivers/net/e1000e/hw.h
-+++ b/drivers/net/e1000e/hw.h
-@@ -816,6 +816,7 @@ struct e1000_bus_info {
- 
- struct e1000_dev_spec_82571 {
- 	bool laa_is_present;
-+	bool alt_mac_addr_is_present;
- };
- 
- struct e1000_shadow_ram {
-diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
-index b32ed45..f2175ea 100644
---- a/drivers/net/e1000e/defines.h
-+++ b/drivers/net/e1000e/defines.h
-@@ -557,6 +557,7 @@
- #define NVM_INIT_3GIO_3            0x001A
- #define NVM_INIT_CONTROL3_PORT_A   0x0024
- #define NVM_CFG                    0x0012
-+#define NVM_ALT_MAC_ADDR_PTR       0x0037
- #define NVM_CHECKSUM_REG           0x003F
- 
- #define E1000_NVM_CFG_DONE_PORT_0  0x40000 /* MNG config cycle done */
+> This point is one of what I want to hear comment.
+> My patch uses "XFRM_MIB_XXX" because I found "LINUX_MIB_XXX" definition at
+> include/linux/snmp.h for TCP extended statistics at /proc/net/netstat and
+> it does not seem to be defined by any RFC specification. 
+
+I thought those were part of some MIB somewhere. Doesnt RFC 4898 cover
+them?
+In any case, it seems to me to be more accurate to not call them MIB
+stats if they are not. This doesnt qualify using the macros, utilities
+etc used for MIBs.
+
+> Then I feel it is not so bad to
+> use _MIB_ for them. Maybe we have another idea to merge them into LINUX_MIB.
+> 
+> Now we have the following candidates:
+> 
+> (1) my patch		XFRM_MIB_INHDRERROR
+> (2) some extender	XFRM_XXX_INHDRERROR	(XXX is requested)
+> (3) not-mib extender	XFRM_NOTMIB_INHDRERROR
+> (4) no extender		XFRM_INHDRERROR
+> (5) merge linux-mib	LINUX_MIB_XFRMINHDRERROR
+> 
+> Comments?
+
+I am very tempted to say #4. And when you push this to be a real MIB
+stat then 
+
+> 
+> > 2) Why /proc? Are you going to make these available also via netlink? 
+> 
+> Because /proc is easy to see it without any modified application.
+> If you want the netlink interface, I can do it as the next step. Do you want it?
+
+Absolutely - it would be much appreciated. And if you dont have time, I
+will write and test the user space part extension.
+
+cheers,
+jamal
 
