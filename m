@@ -1,124 +1,233 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 3/11] [IPV6]: Move nfheader_len into rt6_info
-Date: Wed, 24 Oct 2007 00:03:28 +0800
-Message-ID: <E1IkME4-0008OA-00@gondolin.me.apana.org.au>
+Subject: [PATCH 4/11] [NET]: Eliminate duplicate copies of dst_discard
+Date: Wed, 24 Oct 2007 00:03:29 +0800
+Message-ID: <E1IkME5-0008OL-00@gondolin.me.apana.org.au>
 References: <20071023160217.GA32102@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2445 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:2456 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752181AbXJWQDf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 12:03:35 -0400
+	with ESMTP id S1752138AbXJWQDj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 12:03:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPV6]: Move nfheader_len into rt6_info
+[NET]: Eliminate duplicate copies of dst_discard
 
-The dst member nfheader_len is only used by IPv6.  It's also currently
-creating a rather ugly alignment hole in struct dst.  Therefore this patch
-moves it from there into struct rt6_info.
+We have a number of copies of dst_discard scattered around the place which
+all do the same thing, namely free a packet on the input or output paths.
 
-It also reorders the fields in rt6_info to minimize holes.
+This patch deletes all of them except dst_discard and points all the users
+to it.
+
+The only non-trivial bit is decnet where it returns an error.  However,
+conceptually this is identical to the blackhole functions used in IPv4
+and IPv6 which do not return errors.  So they should either all return
+errors or all return zero.  For now I've stuck with the majority and
+picked zero as the return value.
+
+It doesn't really matter in practice since few if any driver would react
+differently depending on a zero return value or NET_RX_DROP.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/dst.h       |    1 -
- include/net/ip6_fib.h   |   11 ++++++++---
- net/ipv4/xfrm4_policy.c |    1 -
- net/ipv6/ip6_output.c   |    5 +++--
- net/ipv6/xfrm6_policy.c |    3 ++-
- 5 files changed, 13 insertions(+), 8 deletions(-)
+ include/net/dst.h     |    1 +
+ net/core/dst.c        |    3 ++-
+ net/decnet/dn_route.c |   13 +------------
+ net/ipv4/route.c      |   11 +++--------
+ net/ipv6/exthdrs.c    |   13 ++-----------
+ net/ipv6/route.c      |   21 ++++-----------------
+ 6 files changed, 13 insertions(+), 49 deletions(-)
 
 diff --git a/include/net/dst.h b/include/net/dst.h
-index e9ff4a4..8f88c52 100644
+index 8f88c52..4df103b 100644
 --- a/include/net/dst.h
 +++ b/include/net/dst.h
-@@ -50,7 +50,6 @@ struct dst_entry
- 	unsigned long		expires;
+@@ -172,6 +172,7 @@ static inline struct dst_entry *dst_pop(struct dst_entry *dst)
+ 	return child;
+ }
  
- 	unsigned short		header_len;	/* more space at head required */
--	unsigned short		nfheader_len;	/* more non-fragment space at head required */
- 	unsigned short		trailer_len;	/* space to reserve at tail */
- 
- 	u32			metrics[RTAX_MAX];
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index 8578213..4cefcff 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -99,16 +99,21 @@ struct rt6_info
- 	u32				rt6i_flags;
- 	u32				rt6i_metric;
- 	atomic_t			rt6i_ref;
--	struct fib6_table		*rt6i_table;
- 
--	struct rt6key			rt6i_dst;
--	struct rt6key			rt6i_src;
-+	/* more non-fragment space at head required */
-+	unsigned short			nfheader_len;
- 
- 	u8				rt6i_protocol;
- 
-+	struct fib6_table		*rt6i_table;
-+
-+	struct rt6key			rt6i_dst;
-+
- #ifdef CONFIG_XFRM
- 	u32				rt6i_flow_cache_genid;
++extern int dst_discard(struct sk_buff *skb);
+ extern void * dst_alloc(struct dst_ops * ops);
+ extern void __dst_free(struct dst_entry * dst);
+ extern struct dst_entry *dst_destroy(struct dst_entry * dst);
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 16958e6..21b1d0f 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -154,11 +154,12 @@ loop:
  #endif
-+
-+	struct rt6key			rt6i_src;
+ }
+ 
+-static int dst_discard(struct sk_buff *skb)
++int dst_discard(struct sk_buff *skb)
+ {
+ 	kfree_skb(skb);
+ 	return 0;
+ }
++EXPORT_SYMBOL(dst_discard);
+ 
+ void * dst_alloc(struct dst_ops * ops)
+ {
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index 97eee5e..e1f6669 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -769,17 +769,6 @@ drop:
+ }
+ 
+ /*
+- * Drop packet. This is used for endnodes and for
+- * when we should not be forwarding packets from
+- * this dest.
+- */
+-static int dn_blackhole(struct sk_buff *skb)
+-{
+-	kfree_skb(skb);
+-	return NET_RX_DROP;
+-}
+-
+-/*
+  * Used to catch bugs. This should never normally get
+  * called.
+  */
+@@ -1402,7 +1391,7 @@ make_route:
+ 		default:
+ 		case RTN_UNREACHABLE:
+ 		case RTN_BLACKHOLE:
+-			rt->u.dst.input = dn_blackhole;
++			rt->u.dst.input = dst_discard;
+ 	}
+ 	rt->rt_flags = flags;
+ 	if (rt->u.dst.dev)
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 21b12de..d5cbcee 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -92,6 +92,7 @@
+ #include <linux/jhash.h>
+ #include <linux/rcupdate.h>
+ #include <linux/times.h>
++#include <net/dst.h>
+ #include <net/net_namespace.h>
+ #include <net/protocol.h>
+ #include <net/ip.h>
+@@ -2362,12 +2363,6 @@ static struct dst_ops ipv4_dst_blackhole_ops = {
  };
  
- static inline struct inet6_dev *ip6_dst_idev(struct dst_entry *dst)
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index cc86fb1..5ee3a2f 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -161,7 +161,6 @@ __xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
- 		dst_prev->flags	       |= DST_HOST;
- 		dst_prev->lastuse	= jiffies;
- 		dst_prev->header_len	= header_len;
--		dst_prev->nfheader_len	= 0;
- 		dst_prev->trailer_len	= trailer_len;
- 		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
  
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index b1647f5..85c5eb8 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1097,7 +1097,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 		sk->sk_sndmsg_page = NULL;
- 		sk->sk_sndmsg_off = 0;
- 		exthdrlen = rt->u.dst.header_len + (opt ? opt->opt_flen : 0) -
--			    rt->u.dst.nfheader_len;
-+			    rt->nfheader_len;
- 		length += exthdrlen;
- 		transhdrlen += exthdrlen;
- 	} else {
-@@ -1112,7 +1112,8 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
+-static int ipv4_blackhole_output(struct sk_buff *skb)
+-{
+-	kfree_skb(skb);
+-	return 0;
+-}
+-
+ static int ipv4_dst_blackhole(struct rtable **rp, struct flowi *flp, struct sock *sk)
+ {
+ 	struct rtable *ort = *rp;
+@@ -2379,8 +2374,8 @@ static int ipv4_dst_blackhole(struct rtable **rp, struct flowi *flp, struct sock
  
- 	hh_len = LL_RESERVED_SPACE(rt->u.dst.dev);
+ 		atomic_set(&new->__refcnt, 1);
+ 		new->__use = 1;
+-		new->input = ipv4_blackhole_output;
+-		new->output = ipv4_blackhole_output;
++		new->input = dst_discard;
++		new->output = dst_discard;
+ 		memcpy(new->metrics, ort->u.dst.metrics, RTAX_MAX*sizeof(u32));
  
--	fragheaderlen = sizeof(struct ipv6hdr) + rt->u.dst.nfheader_len + (opt ? opt->opt_nflen : 0);
-+	fragheaderlen = sizeof(struct ipv6hdr) + rt->nfheader_len +
-+			(opt ? opt->opt_nflen : 0);
- 	maxfraglen = ((mtu - fragheaderlen) & ~7) + fragheaderlen - sizeof(struct frag_hdr);
+ 		new->dev = ort->u.dst.dev;
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 1e89efd..cee06b1 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -32,6 +32,7 @@
+ #include <linux/in6.h>
+ #include <linux/icmpv6.h>
  
- 	if (mtu <= sizeof(struct ipv6hdr) + IPV6_MAXPLEN) {
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index e5170bc..9095dfc 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -157,7 +157,8 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
- 		dst_prev = dst1;
++#include <net/dst.h>
+ #include <net/sock.h>
+ #include <net/snmp.h>
  
- 		if (xfrm[i]->type->flags & XFRM_TYPE_NON_FRAGMENT)
--			dst->nfheader_len += xfrm[i]->props.header_len;
-+			((struct rt6_info *)dst)->nfheader_len +=
-+				xfrm[i]->props.header_len;
- 		header_len += xfrm[i]->props.header_len;
- 		trailer_len += xfrm[i]->props.trailer_len;
+@@ -318,18 +319,8 @@ void __init ipv6_destopt_init(void)
+ 		printk(KERN_ERR "ipv6_destopt_init: Could not register protocol\n");
+ }
  
+-/********************************
+-  NONE header. No data in packet.
+- ********************************/
+-
+-static int ipv6_nodata_rcv(struct sk_buff *skb)
+-{
+-	kfree_skb(skb);
+-	return 0;
+-}
+-
+ static struct inet6_protocol nodata_protocol = {
+-	.handler	=	ipv6_nodata_rcv,
++	.handler	=	dst_discard,
+ 	.flags		=	INET6_PROTO_NOPOLICY,
+ };
+ 
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 95f8e4a..7db3cdf 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -156,7 +156,6 @@ struct rt6_info ip6_null_entry = {
+ 
+ static int ip6_pkt_prohibit(struct sk_buff *skb);
+ static int ip6_pkt_prohibit_out(struct sk_buff *skb);
+-static int ip6_pkt_blk_hole(struct sk_buff *skb);
+ 
+ struct rt6_info ip6_prohibit_entry = {
+ 	.u = {
+@@ -185,8 +184,8 @@ struct rt6_info ip6_blk_hole_entry = {
+ 			.obsolete	= -1,
+ 			.error		= -EINVAL,
+ 			.metrics	= { [RTAX_HOPLIMIT - 1] = 255, },
+-			.input		= ip6_pkt_blk_hole,
+-			.output		= ip6_pkt_blk_hole,
++			.input		= dst_discard,
++			.output		= dst_discard,
+ 			.ops		= &ip6_dst_ops,
+ 			.path		= (struct dst_entry*)&ip6_blk_hole_entry,
+ 		}
+@@ -785,12 +784,6 @@ struct dst_entry * ip6_route_output(struct sock *sk, struct flowi *fl)
+ 
+ EXPORT_SYMBOL(ip6_route_output);
+ 
+-static int ip6_blackhole_output(struct sk_buff *skb)
+-{
+-	kfree_skb(skb);
+-	return 0;
+-}
+-
+ int ip6_dst_blackhole(struct sock *sk, struct dst_entry **dstp, struct flowi *fl)
+ {
+ 	struct rt6_info *ort = (struct rt6_info *) *dstp;
+@@ -803,8 +796,8 @@ int ip6_dst_blackhole(struct sock *sk, struct dst_entry **dstp, struct flowi *fl
+ 
+ 		atomic_set(&new->__refcnt, 1);
+ 		new->__use = 1;
+-		new->input = ip6_blackhole_output;
+-		new->output = ip6_blackhole_output;
++		new->input = dst_discard;
++		new->output = dst_discard;
+ 
+ 		memcpy(new->metrics, ort->u.dst.metrics, RTAX_MAX*sizeof(u32));
+ 		new->dev = ort->u.dst.dev;
+@@ -1814,12 +1807,6 @@ static int ip6_pkt_prohibit_out(struct sk_buff *skb)
+ 	return ip6_pkt_drop(skb, ICMPV6_ADM_PROHIBITED, IPSTATS_MIB_OUTNOROUTES);
+ }
+ 
+-static int ip6_pkt_blk_hole(struct sk_buff *skb)
+-{
+-	kfree_skb(skb);
+-	return 0;
+-}
+-
+ #endif
+ 
+ /*
