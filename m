@@ -1,68 +1,51 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH] fix ACK processing after netlink_dump_start
-Date: Tue, 23 Oct 2007 18:40:23 +0400
-Message-ID: <20071023144023.GA15035@iris.sw.ru>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: iproute2: git pull request from debian repo.
+Date: Tue, 23 Oct 2007 16:38:06 +0200
+Message-ID: <471E074E.8050805@trash.net>
+References: <20071019122753.GA30078@scream.fatal.se> <20071019130616.GH1362@baikonur.stro.at> <20071019144815.GB30444@scream.fatal.se> <471B90E5.1040108@trash.net> <20071023141838.GA25201@scream.fatal.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
-To: dcbw@redhat.com, tgraf@suug.ch, jfannin@gmail.com,
-	davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: maximilian attems <max@stro.at>, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org
+To: Andreas Henriksson <andreas@fatal.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:50164 "EHLO iris"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751844AbXJWOhw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2007 10:37:52 -0400
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:47382 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751682AbXJWOjF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 10:39:05 -0400
+In-Reply-To: <20071023141838.GA25201@scream.fatal.se>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Revert to original netlink behavior. Do not reply with ACK if the
-netlink dump has bees successfully started.
+Andreas Henriksson wrote:
+> On Sun, Oct 21, 2007 at 07:48:21PM +0200, Patrick McHardy wrote:
+>> Andreas Henriksson wrote:
+>>> -		for (;;) {
+>>> +		while (round < MAX_ROUNDS) {
+>>> 			if (rtnl_wilddump_request(&rth, filter.family, 
+>>> 			RTM_GETADDR) < 0) {
+>>> 				perror("Cannot send dump request");
+>>> 				exit(1);
+>>> @@ -694,6 +696,8 @@ int ipaddr_list_or_flush(int argc, char **argv, int 
+>>> flush)
+>>> 				fflush(stdout);
+>>> 			}
+>>> 		}
+>>> +		fprintf(stderr, "*** Flush remains incomplete after %d 
+>>> rounds. ***\n", MAX_ROUNDS); fflush(stderr);
+>>
+>> Again, please make this optional. People might want to make
+>> sure the cache is flushed even if it takes a bit longer.
+> 
+> And here's the alternativ with configurable max rounds (0=infinite)...
 
-libnl has been broken by the cd40b7d3983c708aabe3d3008ec64ffce56d33b0
-The following command reproduce the problem:
-   /nl-route-get 192.168.1.1
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
+Almost - the default behaviour shouldn't change IMO. Also please
+send a complete patch, not one on top of your old one.
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 98e313e..44a8b41 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1565,7 +1565,10 @@ int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
- 
- 	netlink_dump(sk);
- 	sock_put(sk);
--	return 0;
-+
-+	/* We successfully started a dump, by returning -EINTR we
-+	 * signal not to send ACK even if it was requested */
-+	return -EINTR;
- }
- 
- void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
-@@ -1619,17 +1622,21 @@ int netlink_rcv_skb(struct sk_buff *skb, int (*cb)(struct sk_buff *,
- 
- 		/* Only requests are handled by the kernel */
- 		if (!(nlh->nlmsg_flags & NLM_F_REQUEST))
--			goto skip;
-+			goto ack;
- 
- 		/* Skip control messages */
- 		if (nlh->nlmsg_type < NLMSG_MIN_TYPE)
--			goto skip;
-+			goto ack;
- 
- 		err = cb(skb, nlh);
--skip:
-+		if (err == -EINTR)
-+			goto skip;
-+
-+ack:
- 		if (nlh->nlmsg_flags & NLM_F_ACK || err)
- 			netlink_ack(skb, nlh, err);
- 
-+skip:
- 	        msglen = NLMSG_ALIGN(nlh->nlmsg_len);
- 		if (msglen > skb->len)
- 			msglen = skb->len;
+>  
+> -		while (round < MAX_ROUNDS) {
+> +		while ((maxrounds == 0) || (round < maxrounds)) {
+
+And please remove the unnecessary parens.
