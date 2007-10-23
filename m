@@ -1,33 +1,31 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [ANNOUNCE] iproute2-2.6.23
-Date: Tue, 23 Oct 2007 23:57:46 +0800
-Message-ID: <20071023155746.GA32046@gondor.apana.org.au>
-References: <20071016164439.3f8a4f00@freepuppy.rosehill> <E1IhxQA-0004gh-00@gondolin.me.apana.org.au> <20071023061207.GA27560@gondor.apana.org.au> <20071023083702.2904c0a0@shemminger-laptop>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] Consolidate sctp_ulpq_renege_xxx functions
+Date: Tue, 23 Oct 2007 11:57:42 -0400
+Message-ID: <471E19F6.7020800@hp.com>
+References: <471E1082.8010607@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	lksctp-developers@lists.sourceforge.net,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2371 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751844AbXJWP5t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 11:57:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20071023083702.2904c0a0@shemminger-laptop>
+Received: from atlrel8.hp.com ([156.153.255.206]:53566 "EHLO atlrel8.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752579AbXJWP5y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2007 11:57:54 -0400
+In-Reply-To: <471E1082.8010607@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 23, 2007 at 08:37:02AM -0700, Stephen Hemminger wrote:
->
-> I was just holding off for a few days to see if there were any bug fixes
-> to 2.6.23 version that needed to go in first. It is first in queue for 2.6.24
-> related stuff.
+Pavel Emelyanov wrote:
+> Both are equal, except for the list to be traversed.
 > 
-> Promise to get it in before 2.6.24-rc1
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> 
 
-Thanks Stephen!
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+ACK.  Good clean-up Pavel.
+
+Thanks
+-vlad
