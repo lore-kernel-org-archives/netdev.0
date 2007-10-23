@@ -1,143 +1,383 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 9/11] [IPSEC]: Replace x->type->{local,remote}_addr with flags
-Date: Wed, 24 Oct 2007 00:03:35 +0800
-Message-ID: <E1IkMEB-0008Oz-00@gondolin.me.apana.org.au>
+Subject: [PATCH 10/11] [IPSEC]: Move flow construction into xfrm_dst_lookup
+Date: Wed, 24 Oct 2007 00:03:36 +0800
+Message-ID: <E1IkMEC-0008P7-00@gondolin.me.apana.org.au>
 References: <20071023160217.GA32102@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2474 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:2475 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752664AbXJWQDt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 12:03:49 -0400
+	with ESMTP id S1752763AbXJWQDw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 12:03:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Replace x->type->{local,remote}_addr with flags
+[IPSEC]: Move flow construction into xfrm_dst_lookup
 
-The functions local_addr and remote_addr are more than what they're needed
-for.  The same thing can be done easily with flags on the type object.
-This patch does that and simplifies the wrapper functions in xfrm6_policy
-accordingly.
+This patch moves the flow construction from the callers of xfrm_dst_lookup
+into that function.  It also changes xfrm_dst_lookup so that it takes an
+xfrm state as its argument instead of explicit addresses.
+
+This removes any address-specific logic from the callers of xfrm_dst_lookup
+which is needed to correctly support inter-family transforms.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/xfrm.h      |    4 ++--
- net/ipv6/mip6.c         |   11 ++---------
- net/ipv6/xfrm6_policy.c |   20 ++++++++------------
- 3 files changed, 12 insertions(+), 23 deletions(-)
+ include/net/xfrm.h      |   10 +---
+ net/ipv4/xfrm4_policy.c |   80 ++++++++++++++++++---------------------
+ net/ipv6/xfrm6_policy.c |   97 +++++++++++++++++-------------------------------
+ net/xfrm/xfrm_policy.c  |   25 +++++++-----
+ 4 files changed, 91 insertions(+), 121 deletions(-)
 
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 688f6f5..9ca4ae5 100644
+index 9ca4ae5..206c6f6 100644
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -280,6 +280,8 @@ struct xfrm_type
- 	__u8			flags;
- #define XFRM_TYPE_NON_FRAGMENT	1
- #define XFRM_TYPE_REPLAY_PROT	2
-+#define XFRM_TYPE_LOCAL_COADDR	4
-+#define XFRM_TYPE_REMOTE_COADDR	8
- 
- 	int			(*init_state)(struct xfrm_state *x);
- 	void			(*destructor)(struct xfrm_state *);
-@@ -287,8 +289,6 @@ struct xfrm_type
- 	int			(*output)(struct xfrm_state *, struct sk_buff *pskb);
- 	int			(*reject)(struct xfrm_state *, struct sk_buff *, struct flowi *);
- 	int			(*hdr_offset)(struct xfrm_state *, struct sk_buff *, u8 **);
--	xfrm_address_t		*(*local_addr)(struct xfrm_state *, xfrm_address_t *);
--	xfrm_address_t		*(*remote_addr)(struct xfrm_state *, xfrm_address_t *);
- 	/* Estimate maximal size of result of transformation of a dgram */
- 	u32			(*get_mtu)(struct xfrm_state *, int size);
- };
-diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
-index 7fd841d..edfd9cd 100644
---- a/net/ipv6/mip6.c
-+++ b/net/ipv6/mip6.c
-@@ -34,11 +34,6 @@
- #include <net/xfrm.h>
- #include <net/mip6.h>
- 
--static xfrm_address_t *mip6_xfrm_addr(struct xfrm_state *x, xfrm_address_t *addr)
+@@ -231,7 +231,8 @@ struct xfrm_policy_afinfo {
+ 	unsigned short		family;
+ 	struct dst_ops		*dst_ops;
+ 	void			(*garbage_collect)(void);
+-	int			(*dst_lookup)(struct xfrm_dst **dst, struct flowi *fl);
++	struct dst_entry	*(*dst_lookup)(int tos, xfrm_address_t *saddr,
++					       xfrm_address_t *daddr);
+ 	int			(*get_saddr)(xfrm_address_t *saddr, xfrm_address_t *daddr);
+ 	struct dst_entry	*(*find_bundle)(struct flowi *fl, struct xfrm_policy *policy);
+ 	int			(*bundle_create)(struct xfrm_policy *policy, 
+@@ -1077,7 +1078,6 @@ extern int xfrm6_find_1stfragopt(struct xfrm_state *x, struct sk_buff *skb,
+ #ifdef CONFIG_XFRM
+ extern int xfrm4_udp_encap_rcv(struct sock *sk, struct sk_buff *skb);
+ extern int xfrm_user_policy(struct sock *sk, int optname, u8 __user *optval, int optlen);
+-extern int xfrm_dst_lookup(struct xfrm_dst **dst, struct flowi *fl, unsigned short family);
+ #else
+ static inline int xfrm_user_policy(struct sock *sk, int optname, u8 __user *optval, int optlen)
+ {
+@@ -1090,13 +1090,9 @@ static inline int xfrm4_udp_encap_rcv(struct sock *sk, struct sk_buff *skb)
+  	kfree_skb(skb);
+ 	return 0;
+ }
+-
+-static inline int xfrm_dst_lookup(struct xfrm_dst **dst, struct flowi *fl, unsigned short family)
 -{
--	return x->coaddr;
+-	return -EINVAL;
+-} 
+ #endif
+ 
++extern struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x, int tos);
+ struct xfrm_policy *xfrm_policy_alloc(gfp_t gfp);
+ extern int xfrm_policy_walk(u8 type, int (*func)(struct xfrm_policy *, int, int, void*), void *);
+ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl);
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index d903c8b..cebc847 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -8,7 +8,8 @@
+  *
+  */
+ 
+-#include <linux/compiler.h>
++#include <linux/err.h>
++#include <linux/kernel.h>
+ #include <linux/inetdevice.h>
+ #include <net/dst.h>
+ #include <net/xfrm.h>
+@@ -17,28 +18,44 @@
+ static struct dst_ops xfrm4_dst_ops;
+ static struct xfrm_policy_afinfo xfrm4_policy_afinfo;
+ 
+-static int xfrm4_dst_lookup(struct xfrm_dst **dst, struct flowi *fl)
++static struct dst_entry *xfrm4_dst_lookup(int tos, xfrm_address_t *saddr,
++					  xfrm_address_t *daddr)
+ {
+-	return __ip_route_output_key((struct rtable**)dst, fl);
 -}
 -
- static inline unsigned int calc_padlen(unsigned int len, unsigned int n)
- {
- 	return (n - len + 16) & 0x7;
-@@ -337,14 +332,13 @@ static struct xfrm_type mip6_destopt_type =
- 	.description	= "MIP6DESTOPT",
- 	.owner		= THIS_MODULE,
- 	.proto	     	= IPPROTO_DSTOPTS,
--	.flags		= XFRM_TYPE_NON_FRAGMENT,
-+	.flags		= XFRM_TYPE_NON_FRAGMENT | XFRM_TYPE_LOCAL_COADDR,
- 	.init_state	= mip6_destopt_init_state,
- 	.destructor	= mip6_destopt_destroy,
- 	.input		= mip6_destopt_input,
- 	.output		= mip6_destopt_output,
- 	.reject		= mip6_destopt_reject,
- 	.hdr_offset	= mip6_destopt_offset,
--	.local_addr	= mip6_xfrm_addr,
- };
+-static int xfrm4_get_saddr(xfrm_address_t *saddr, xfrm_address_t *daddr)
+-{
+-	struct rtable *rt;
+-	struct flowi fl_tunnel = {
++	struct flowi fl = {
+ 		.nl_u = {
+ 			.ip4_u = {
++				.tos = tos,
+ 				.daddr = daddr->a4,
+ 			},
+ 		},
+ 	};
++	struct dst_entry *dst;
++	struct rtable *rt;
++	int err;
  
- static int mip6_rthdr_input(struct xfrm_state *x, struct sk_buff *skb)
-@@ -467,13 +461,12 @@ static struct xfrm_type mip6_rthdr_type =
- 	.description	= "MIP6RT",
- 	.owner		= THIS_MODULE,
- 	.proto	     	= IPPROTO_ROUTING,
--	.flags		= XFRM_TYPE_NON_FRAGMENT,
-+	.flags		= XFRM_TYPE_NON_FRAGMENT | XFRM_TYPE_REMOTE_COADDR,
- 	.init_state	= mip6_rthdr_init_state,
- 	.destructor	= mip6_rthdr_destroy,
- 	.input		= mip6_rthdr_input,
- 	.output		= mip6_rthdr_output,
- 	.hdr_offset	= mip6_rthdr_offset,
--	.remote_addr	= mip6_xfrm_addr,
- };
+-	if (!xfrm4_dst_lookup((struct xfrm_dst **)&rt, &fl_tunnel)) {
+-		saddr->a4 = rt->rt_src;
+-		dst_release(&rt->u.dst);
+-		return 0;
+-	}
+-	return -EHOSTUNREACH;
++	if (saddr)
++		fl.fl4_src = saddr->a4;
++
++	err = __ip_route_output_key(&rt, &fl);
++	dst = &rt->u.dst;
++	if (err)
++		dst = ERR_PTR(err);
++	return dst;
++}
++
++static int xfrm4_get_saddr(xfrm_address_t *saddr, xfrm_address_t *daddr)
++{
++	struct dst_entry *dst;
++	struct rtable *rt;
++
++	dst = xfrm4_dst_lookup(0, NULL, daddr);
++	if (IS_ERR(dst))
++		return -EHOSTUNREACH;
++
++	rt = (struct rtable *)dst;
++	saddr->a4 = rt->rt_src;
++	dst_release(dst);
++	return 0;
+ }
  
- static int __init mip6_init(void)
+ static struct dst_entry *
+@@ -73,15 +90,7 @@ __xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+ 	struct dst_entry *dst, *dst_prev;
+ 	struct rtable *rt0 = (struct rtable*)(*dst_p);
+ 	struct rtable *rt = rt0;
+-	struct flowi fl_tunnel = {
+-		.nl_u = {
+-			.ip4_u = {
+-				.saddr = fl->fl4_src,
+-				.daddr = fl->fl4_dst,
+-				.tos = fl->fl4_tos
+-			}
+-		}
+-	};
++	int tos = fl->fl4_tos;
+ 	int i;
+ 	int err;
+ 	int header_len = 0;
+@@ -119,25 +128,12 @@ __xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+ 		trailer_len += xfrm[i]->props.trailer_len;
+ 
+ 		if (xfrm[i]->props.mode != XFRM_MODE_TRANSPORT) {
+-			unsigned short encap_family = xfrm[i]->props.family;
+-			switch (encap_family) {
+-			case AF_INET:
+-				fl_tunnel.fl4_dst = xfrm[i]->id.daddr.a4;
+-				fl_tunnel.fl4_src = xfrm[i]->props.saddr.a4;
+-				break;
+-#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
+-			case AF_INET6:
+-				ipv6_addr_copy(&fl_tunnel.fl6_dst, (struct in6_addr*)&xfrm[i]->id.daddr.a6);
+-				ipv6_addr_copy(&fl_tunnel.fl6_src, (struct in6_addr*)&xfrm[i]->props.saddr.a6);
+-				break;
+-#endif
+-			default:
+-				BUG_ON(1);
+-			}
+-			err = xfrm_dst_lookup((struct xfrm_dst **)&rt,
+-					      &fl_tunnel, encap_family);
+-			if (err)
++			dst1 = xfrm_dst_lookup(xfrm[i], tos);
++			err = PTR_ERR(dst1);
++			if (IS_ERR(dst1))
+ 				goto error;
++
++			rt = (struct rtable *)dst1;
+ 		} else
+ 			dst_hold(&rt->u.dst);
+ 	}
 diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index f04e718..ed29bef 100644
+index ed29bef..864258f 100644
 --- a/net/ipv6/xfrm6_policy.c
 +++ b/net/ipv6/xfrm6_policy.c
-@@ -87,20 +87,16 @@ __xfrm6_find_bundle(struct flowi *fl, struct xfrm_policy *policy)
+@@ -11,7 +11,8 @@
+  *
+  */
+ 
+-#include <linux/compiler.h>
++#include <linux/err.h>
++#include <linux/kernel.h>
+ #include <linux/netdevice.h>
+ #include <net/addrconf.h>
+ #include <net/dst.h>
+@@ -26,35 +27,40 @@
+ static struct dst_ops xfrm6_dst_ops;
+ static struct xfrm_policy_afinfo xfrm6_policy_afinfo;
+ 
+-static int xfrm6_dst_lookup(struct xfrm_dst **xdst, struct flowi *fl)
++static struct dst_entry *xfrm6_dst_lookup(int tos, xfrm_address_t *saddr,
++					  xfrm_address_t *daddr)
+ {
+-	struct dst_entry *dst = ip6_route_output(NULL, fl);
+-	int err = dst->error;
+-	if (!err)
+-		*xdst = (struct xfrm_dst *) dst;
+-	else
++	struct flowi fl = {};
++	struct dst_entry *dst;
++	int err;
++
++	memcpy(&fl.fl6_dst, daddr, sizeof(fl.fl6_dst));
++	if (saddr)
++		memcpy(&fl.fl6_src, saddr, sizeof(fl.fl6_src));
++
++	dst = ip6_route_output(NULL, &fl);
++
++	err = dst->error;
++	if (dst->error) {
+ 		dst_release(dst);
+-	return err;
++		dst = ERR_PTR(err);
++	}
++
++	return dst;
+ }
+ 
+ static int xfrm6_get_saddr(xfrm_address_t *saddr, xfrm_address_t *daddr)
+ {
+-	struct rt6_info *rt;
+-	struct flowi fl_tunnel = {
+-		.nl_u = {
+-			.ip6_u = {
+-				.daddr = *(struct in6_addr *)&daddr->a6,
+-			},
+-		},
+-	};
+-
+-	if (!xfrm6_dst_lookup((struct xfrm_dst **)&rt, &fl_tunnel)) {
+-		ipv6_get_saddr(&rt->u.dst, (struct in6_addr *)&daddr->a6,
+-			       (struct in6_addr *)&saddr->a6);
+-		dst_release(&rt->u.dst);
+-		return 0;
+-	}
+-	return -EHOSTUNREACH;
++	struct dst_entry *dst;
++
++	dst = xfrm6_dst_lookup(0, NULL, daddr);
++	if (IS_ERR(dst))
++		return -EHOSTUNREACH;
++
++	ipv6_get_saddr(dst, (struct in6_addr *)&daddr->a6,
++		       (struct in6_addr *)&saddr->a6);
++	dst_release(dst);
++	return 0;
+ }
+ 
+ static struct dst_entry *
+@@ -87,18 +93,6 @@ __xfrm6_find_bundle(struct flowi *fl, struct xfrm_policy *policy)
  	return dst;
  }
  
--static inline struct in6_addr*
--__xfrm6_bundle_addr_remote(struct xfrm_state *x, struct in6_addr *addr)
-+static inline xfrm_address_t *__xfrm6_bundle_addr_remote(struct xfrm_state *x)
- {
--	return (x->type->remote_addr) ?
--		(struct in6_addr*)x->type->remote_addr(x, (xfrm_address_t *)addr) :
--		(struct in6_addr*)&x->id.daddr;
-+	return (x->type->flags & XFRM_TYPE_REMOTE_COADDR) ? x->coaddr :
-+							    &x->id.daddr;
- }
- 
--static inline struct in6_addr*
--__xfrm6_bundle_addr_local(struct xfrm_state *x, struct in6_addr *addr)
-+static inline xfrm_address_t *__xfrm6_bundle_addr_local(struct xfrm_state *x)
- {
--	return (x->type->local_addr) ?
--		(struct in6_addr*)x->type->local_addr(x, (xfrm_address_t *)addr) :
--		(struct in6_addr*)&x->props.saddr;
-+	return (x->type->flags & XFRM_TYPE_LOCAL_COADDR) ? x->coaddr :
-+							   &x->props.saddr;
- }
- 
+-static inline xfrm_address_t *__xfrm6_bundle_addr_remote(struct xfrm_state *x)
+-{
+-	return (x->type->flags & XFRM_TYPE_REMOTE_COADDR) ? x->coaddr :
+-							    &x->id.daddr;
+-}
+-
+-static inline xfrm_address_t *__xfrm6_bundle_addr_local(struct xfrm_state *x)
+-{
+-	return (x->type->flags & XFRM_TYPE_LOCAL_COADDR) ? x->coaddr :
+-							   &x->props.saddr;
+-}
+-
  /* Allocate chain of dst_entry's, attach known xfrm's, calculate
-@@ -171,9 +167,9 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
- 				fl_tunnel.fl4_src = xfrm[i]->props.saddr.a4;
- 				break;
- 			case AF_INET6:
--				ipv6_addr_copy(&fl_tunnel.fl6_dst, __xfrm6_bundle_addr_remote(xfrm[i], &fl->fl6_dst));
-+				ipv6_addr_copy(&fl_tunnel.fl6_dst, (struct in6_addr *)__xfrm6_bundle_addr_remote(xfrm[i]));
+  * all the metrics... Shortly, bundle a bundle.
+  */
+@@ -110,14 +104,6 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+ 	struct dst_entry *dst, *dst_prev;
+ 	struct rt6_info *rt0 = (struct rt6_info*)(*dst_p);
+ 	struct rt6_info *rt  = rt0;
+-	struct flowi fl_tunnel = {
+-		.nl_u = {
+-			.ip6_u = {
+-				.saddr = fl->fl6_src,
+-				.daddr = fl->fl6_dst,
+-			}
+-		}
+-	};
+ 	int i;
+ 	int err;
+ 	int header_len = 0;
+@@ -160,25 +146,12 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+ 		trailer_len += xfrm[i]->props.trailer_len;
  
--				ipv6_addr_copy(&fl_tunnel.fl6_src, __xfrm6_bundle_addr_local(xfrm[i], &fl->fl6_src));
-+				ipv6_addr_copy(&fl_tunnel.fl6_src, (struct in6_addr *)__xfrm6_bundle_addr_local(xfrm[i]));
- 				break;
- 			default:
- 				BUG_ON(1);
+ 		if (xfrm[i]->props.mode != XFRM_MODE_TRANSPORT) {
+-			unsigned short encap_family = xfrm[i]->props.family;
+-			switch(encap_family) {
+-			case AF_INET:
+-				fl_tunnel.fl4_dst = xfrm[i]->id.daddr.a4;
+-				fl_tunnel.fl4_src = xfrm[i]->props.saddr.a4;
+-				break;
+-			case AF_INET6:
+-				ipv6_addr_copy(&fl_tunnel.fl6_dst, (struct in6_addr *)__xfrm6_bundle_addr_remote(xfrm[i]));
+-
+-				ipv6_addr_copy(&fl_tunnel.fl6_src, (struct in6_addr *)__xfrm6_bundle_addr_local(xfrm[i]));
+-				break;
+-			default:
+-				BUG_ON(1);
+-			}
+-
+-			err = xfrm_dst_lookup((struct xfrm_dst **) &rt,
+-					      &fl_tunnel, encap_family);
+-			if (err)
++			dst1 = xfrm_dst_lookup(xfrm[i], 0);
++			err = PTR_ERR(dst1);
++			if (IS_ERR(dst1))
+ 				goto error;
++
++			rt = (struct rt6_info *)dst1;
+ 		} else
+ 			dst_hold(&rt->u.dst);
+ 	}
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index b702bd8..6168341 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -13,6 +13,7 @@
+  *
+  */
+ 
++#include <linux/err.h>
+ #include <linux/slab.h>
+ #include <linux/kmod.h>
+ #include <linux/list.h>
+@@ -84,21 +85,25 @@ int xfrm_selector_match(struct xfrm_selector *sel, struct flowi *fl,
+ 	return 0;
+ }
+ 
+-int xfrm_dst_lookup(struct xfrm_dst **dst, struct flowi *fl,
+-		    unsigned short family)
++struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x, int tos)
+ {
+-	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
+-	int err = 0;
++	xfrm_address_t *saddr = &x->props.saddr;
++	xfrm_address_t *daddr = &x->id.daddr;
++	struct xfrm_policy_afinfo *afinfo;
++	struct dst_entry *dst;
+ 
++	if (x->type->flags & XFRM_TYPE_LOCAL_COADDR)
++		saddr = x->coaddr;
++	if (x->type->flags & XFRM_TYPE_REMOTE_COADDR)
++		daddr = x->coaddr;
++
++	afinfo = xfrm_policy_get_afinfo(x->props.family);
+ 	if (unlikely(afinfo == NULL))
+-		return -EAFNOSUPPORT;
++		return ERR_PTR(-EAFNOSUPPORT);
+ 
+-	if (likely(afinfo->dst_lookup != NULL))
+-		err = afinfo->dst_lookup(dst, fl);
+-	else
+-		err = -EINVAL;
++	dst = afinfo->dst_lookup(tos, saddr, daddr);
+ 	xfrm_policy_put_afinfo(afinfo);
+-	return err;
++	return dst;
+ }
+ EXPORT_SYMBOL(xfrm_dst_lookup);
+ 
