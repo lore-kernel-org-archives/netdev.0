@@ -1,49 +1,51 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 5/7] pci: Export the pci_restore_msi_state() function
-Date: Tue, 23 Oct 2007 10:29:24 +1000
-Message-ID: <1193099364.6745.168.camel@pasglop>
-References: <1192829817.22064.559.camel@teletran1>
-	 <20071021.162131.43417026.davem@davemloft.net>
-	 <1193017764.10318.17.camel@concordia>
-	 <20071022181336.GC4280@austin.ibm.com> <1193088267.6745.108.camel@pasglop>
-	 <20071023001307.GF4280@austin.ibm.com>
+Subject: Re: [BUG] powerpc does not save msi state [was Re: [PATCH 5/7]
+	pci: Export the pci_restore_msi_state() function
+Date: Tue, 23 Oct 2007 10:32:15 +1000
+Message-ID: <1193099535.6745.172.camel@pasglop>
+References: <20071020004610.GR29903@austin.ibm.com>
+	 <20071019.175308.54212640.davem@davemloft.net>
+	 <20071022195451.GE4280@austin.ibm.com>
+	 <20071022.172332.112621497.davem@davemloft.net>
 Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Michael Ellerman <michael@ellerman.id.au>, netdev@vger.kernel.org,
-	mcarlson@broadcom.com, linuxppc-dev list <linuxppc-dev@ozlabs.org>,
-	mchan@broadcom.com, linux-pci@atrey.karlin.mff.cuni.cz,
-	David Miller <davem@davemloft.net>
-To: Linas Vepstas <linas@austin.ibm.com>
+Cc: linas@austin.ibm.com, netdev@vger.kernel.org,
+	mcarlson@broadcom.com, linuxppc-dev@ozlabs.org, mchan@broadcom.com,
+	linux-pci@atrey.karlin.mff.cuni.cz
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:57872 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:57889 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750798AbXJWAcL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Oct 2007 20:32:11 -0400
-In-Reply-To: <20071023001307.GF4280@austin.ibm.com>
+	id S1751028AbXJWAcd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Oct 2007 20:32:33 -0400
+In-Reply-To: <20071022.172332.112621497.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-> > I don't know why you keep talking about powerpc laptops here ... 
+On Mon, 2007-10-22 at 17:23 -0700, David Miller wrote:
+> From: linas@austin.ibm.com (Linas Vepstas)
+> Date: Mon, 22 Oct 2007 14:54:52 -0500
 > 
-> Well, there are Apple laptops, right?  Aren't those the "powermac" 
-> platform?  Now, I don't know if they support MSI, but if they do,
-> I get the impression that they might not restore msi state correctly,
-> after being put into hardware suspend.  But perhaps I'm mistaken;
-> I was simply grepping for various msi-related functions in various
-> arch subdirectories, comparing x86 to other arches, and noticed 
-> that code that would restore msi state seems to be missing for
-> most arches and most powerpc platforms.
+> > As discussed in the other thread, I'll try to set up a patch
+> > for an arch callback for restoring msi state.
 
-Ah ok, i see. Well, platforms that use write_msi_msg() shouldn't need
-anything special right ? So only pSeries is an issue here....
+>From what it looks like at this stage, pSeries might need to
+differenciate restoring MSI state after a device reset (PCI error
+recovery) from restoring MSI state after suspend/resume (if we ever
+implement that one).
 
-PowerBooks don't indeed have MSI support, though G5's do and some people
-have been toying around with suspend/resume on them (hibernation only at
-that stage) but it doesn't matter at this stage. We are specifically
-talking about pSeries which is the "special" case here.
+The former apparently require manual saving & restoring of the config
+space bits. (Linas, do you have a pointer to the bit of PAPR spec that
+specifies that we need to save & restore the MSI message ourselves ?)
+
+For the later (suspend/resume), that will definitely not work, or at
+least, will not be enough, especially with something like suspend to
+disk, where we'll need to have the firmware reconfigure the MSIs for us
+(to make sure, among others, that the interrupt controllers are properly
+configured for MSIs etc...).
 
 Ben.
 
