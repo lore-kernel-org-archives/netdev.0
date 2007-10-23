@@ -1,49 +1,58 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH RESEND] ip_gre: sendto/recvfrom NBMA address
-Date: Wed, 24 Oct 2007 08:54:42 +0300
-Message-ID: <471EDE22.4090408@iki.fi>
-References: <471E05BD.7040407@iki.fi> <471E0638.9040405@trash.net> <471E19E5.5040509@iki.fi> <20071023202036.GA12066@ms2.inr.ac.ru>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 0/5] Diet struct net_device a bit
+Date: Tue, 23 Oct 2007 19:07:12 +0200
+Message-ID: <1193159232.7733.24.camel@johannes.berg>
+References: <471C9830.5070407@openvz.org>
+	 (sfid-20071022_133116_617054_8D3C9D5D)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-E93tH6xwXUde8v4OBhRQ"
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw03.mail.saunalahti.fi ([195.197.172.111]:54374 "EHLO
-	gw03.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753546AbXJXFyu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 01:54:50 -0400
-In-Reply-To: <20071023202036.GA12066@ms2.inr.ac.ru>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:48430 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752572AbXJXIgk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 04:36:40 -0400
+In-Reply-To: <471C9830.5070407@openvz.org> (sfid-20071022_133116_617054_8D3C9D5D)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-Alexey Kuznetsov wrote:
->> The only dubious case is when next hop is set using routing tables.
->> But code in ipgre_tunnel_xmit() is ready to accept this situation,
->> it checks for zero destination address and fixes it when it is able to.
-> 
-> Nevertheless, it does not work.
-> 
-> Another thoughts?
+--=-E93tH6xwXUde8v4OBhRQ
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Could you explain this a little more?
+On Mon, 2007-10-22 at 16:31 +0400, Pavel Emelyanov wrote:
 
-I was able to set a nbma gre tunnel, add routes to it and it worked
-perfectly ok.
+>  * ieee80211_ptr is used in many wireless drivers. Need time
+>    to check for the config dependencies.
 
-Link-level next hop worked:
-ip route add <route> via <link-level-address> dev <tunnel-dev> onlink
+Depending on CFG80211 should be fine, if not that's a bug elsewhere.
 
-Also normal route with static neighbor worked:
-ip neigh add <router-tunnel-ip> lladdr <link-level-address> nud permanent dev <tunnel-dev>
-ip route add <route> via <router-tunnel-ip>
+johannes
 
-In both cases packets were routed as expected to hosts accessible using
-the added route. And sendto() sent a packet correctly with destination
-link-level-address set. Did I miss/misunderstand something?
+--=-E93tH6xwXUde8v4OBhRQ
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-Cheers,
-  Timo
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIVAwUARx4qP6Vg1VMiehFYAQKfrg/9EoRyoTa/K3SGlcg7uRLn5+csOvEEmdyQ
+1tDeu73xEtlVXk4NtJQ9V/n6Z5AOWKovmB/F7n+a+2d9/fs9IfRQIIgPlZ1ouH/e
+yNLzyUVZYKwF1PK77wk8mSiTlnrDFnL/iTDx4KJSE7oTmoT3ceDeFvb6NlTtepdO
+lAkOv7wEf3Hc7GP4FMZ//qq44PKtVF7sYbdsVDooINa7hYk2fs87fViLFEicqyZL
+OtWftNcJ29Ko9ql0yRUH9MsUdpWImUg25oRVE2ZX9J9LsPu489T1qG3qABf1le7N
+sKl6NykouGe4S0sFSaNlFp2aPVETe+gLKssugey1CAO7RhJm0a5h99u88cmZzryF
+8yLD8DOrc6sOnKDQ5mqcpcmTiSj+OpxoY0nqVrtbVrVHhISE/I0o19OvMlGKajtz
+PV8yFnJ8nE2MsPU6hLksWiI7lQ71X+jS/Am0TTRtML6mYIGsp6jHHa71Id4Iu8HS
+51OPNpUjlf3HrohqQFxQ2phB7MI3F9MPGWP6XZuOyGvHApPHcELYkqHjwpCywsBb
+9lUGHbZfjPi2J2+3KvUwqQINTuKYid65xxG5jFylTtA58bal4igdG1wt8ugZN9la
+je4LhdT7zBaXkdRbNL55fDR2AHP2an3EGzYF4ySrDcBQt19pCEBTtj9fWR/MtB5c
+ciUNWz6qKCo=
+=tfC+
+-----END PGP SIGNATURE-----
+
+--=-E93tH6xwXUde8v4OBhRQ--
+
