@@ -1,69 +1,48 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Subject: [PATCH] Read back MSI message in rtas_setup_msi_irqs() so restore
-	works
-Date: Tue, 23 Oct 2007 14:23:44 +1000 (EST)
-Message-ID: <5f47235ce3542c80e043f7f183400ab3d576f1dd.1193113342.git.michael@ellerman.id.au>
+From: Muli Ben-Yehuda <muli@il.ibm.com>
+Subject: Re: attach additional value to skb
+Date: Tue, 23 Oct 2007 07:42:14 +0200
+Message-ID: <20071023054214.GI5708@rhun.ibm.com>
+References: <f36b08ee0710221303y5a846a27v1ebdc919db0f00ac@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com, linuxppc-dev@ozlabs.org,
-	mchan@broadcom.com, linux-pci@atrey.karlin.mff.cuni.cz,
-	"David S. Miller" <davem@davemloft.net>
-To: Paul Mackerras <paulus@samba.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Yakov Lerner <iler.ml@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate1.uk.ibm.com ([195.212.29.134]:25582 "EHLO
+	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752308AbXJWFm0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 01:42:26 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate1.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l9N5gPaa283276
+	for <netdev@vger.kernel.org>; Tue, 23 Oct 2007 05:42:25 GMT
+Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9N5gOA92003074
+	for <netdev@vger.kernel.org>; Tue, 23 Oct 2007 06:42:24 +0100
+Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9N5gIjk015088
+	for <netdev@vger.kernel.org>; Tue, 23 Oct 2007 06:42:18 +0100
+Content-Disposition: inline
+In-Reply-To: <f36b08ee0710221303y5a846a27v1ebdc919db0f00ac@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There are plans afoot to use pci_restore_msi_state() to restore MSI
-state after a device reset. In order for this to work for the RTAS MSI
-backend, we need to read back the MSI message from config space after
-it has been setup by firmware.
+On Mon, Oct 22, 2007 at 10:03:47PM +0200, Yakov Lerner wrote:
 
-This should be sufficient for restoring the MSI state after a device
-reset, however we will need to revisit this for suspend to disk if that
-is ever implemented on pseries.
+> I want to add my custom destructor to the skb, the function pointer
+> to be called at skb destruction time. Will the following work: if I
+> push address of my_destructor to the
+> sk-buff->destructor field,  and then when my_destructor
+> is called, I call the (saved)  old value of  sk-buff->destructor ?
+> Will this work ?
 
-Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
----
+It might, provided nothing else runs after you that will unilaterally
+change the ->destructor field. I.e., it depends at which point in the
+skb's life-time you set your hook.
 
-Linas, can you test this on your setup with your EEH stuff? I haven't got
-any MSI supporting hardware/firmware combination.
-
-
- arch/powerpc/platforms/pseries/msi.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
-
-diff --git a/arch/powerpc/platforms/pseries/msi.c b/arch/powerpc/platforms/pseries/msi.c
-index 2793a1b..f15222b 100644
---- a/arch/powerpc/platforms/pseries/msi.c
-+++ b/arch/powerpc/platforms/pseries/msi.c
-@@ -171,6 +171,7 @@ static int rtas_setup_msi_irqs(struct pci_dev *pdev, int nvec, int type)
- 	struct pci_dn *pdn;
- 	int hwirq, virq, i, rc;
- 	struct msi_desc *entry;
-+	struct msi_msg msg;
- 
- 	pdn = get_pdn(pdev);
- 	if (!pdn)
-@@ -213,6 +214,11 @@ static int rtas_setup_msi_irqs(struct pci_dev *pdev, int nvec, int type)
- 
- 		dev_dbg(&pdev->dev, "rtas_msi: allocated virq %d\n", virq);
- 		set_irq_msi(virq, entry);
-+
-+		/* Read config space back so we can restore after reset */
-+		read_msi_msg(virq, &msg);
-+		entry->msg = msg;
-+
- 		unmask_msi_irq(virq);
- 	}
- 
+Cheers,
+Muli
 -- 
-1.5.1.3.g7a33b
+SYSTOR 2007 --- 1st Annual Haifa Systems and Storage Conference 2007
+http://www.haifa.il.ibm.com/Workshops/systor2007/
+
+Virtualization workshop: Oct 29th, 2007 | Storage workshop: Oct 30th, 2007
