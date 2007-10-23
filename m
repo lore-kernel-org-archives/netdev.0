@@ -1,151 +1,80 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: Re: iproute2: git pull request from debian repo.
-Date: Tue, 23 Oct 2007 16:18:38 +0200
-Message-ID: <20071023141838.GA25201@scream.fatal.se>
-References: <20071019122753.GA30078@scream.fatal.se> <20071019130616.GH1362@baikonur.stro.at> <20071019144815.GB30444@scream.fatal.se> <471B90E5.1040108@trash.net>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: [PATCH RESEND] ip_gre: sendto/recvfrom NBMA address
+Date: Tue, 23 Oct 2007 17:31:25 +0300
+Message-ID: <471E05BD.7040407@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: maximilian attems <max@stro.at>, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1-1-1-9a.ghn.gbg.bostream.se ([82.182.69.4]:50887 "EHLO
-	scream.fatal.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751658AbXJWOWw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 10:22:52 -0400
-Content-Disposition: inline
-In-Reply-To: <471B90E5.1040108@trash.net>
+Received: from ug-out-1314.google.com ([66.249.92.168]:42554 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752469AbXJWObf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 10:31:35 -0400
+Received: by ug-out-1314.google.com with SMTP id z38so131549ugc
+        for <netdev@vger.kernel.org>; Tue, 23 Oct 2007 07:31:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 21, 2007 at 07:48:21PM +0200, Patrick McHardy wrote:
-> Andreas Henriksson wrote:
-> >-		for (;;) {
-> >+		while (round < MAX_ROUNDS) {
-> > 			if (rtnl_wilddump_request(&rth, filter.family, 
-> > 			RTM_GETADDR) < 0) {
-> > 				perror("Cannot send dump request");
-> > 				exit(1);
-> >@@ -694,6 +696,8 @@ int ipaddr_list_or_flush(int argc, char **argv, int 
-> >flush)
-> > 				fflush(stdout);
-> > 			}
-> > 		}
-> >+		fprintf(stderr, "*** Flush remains incomplete after %d 
-> >rounds. ***\n", MAX_ROUNDS); fflush(stderr);
-> 
-> 
-> Again, please make this optional. People might want to make
-> sure the cache is flushed even if it takes a bit longer.
+When GRE tunnel is in NBMA mode, this patch allows an application to use
+a PF_PACKET socket to:
+- send a packet to specific NBMA address with sendto()
+- use recvfrom() to receive packet and check which NBMA address it came from
 
-And here's the alternativ with configurable max rounds (0=infinite)...
+Signed-off-by: Timo Teras <timo.teras@iki.fi>
 
+---
 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index ff9e318..e4ba340 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -67,6 +67,7 @@ static void usage(void)
- 	fprintf(stderr, "       ip addr del IFADDR dev STRING\n");
- 	fprintf(stderr, "       ip addr {show|flush} [ dev STRING ] [ scope SCOPE-ID ]\n");
- 	fprintf(stderr, "                            [ to PREFIX ] [ FLAG-LIST ] [ label PATTERN ]\n");
-+	fprintf(stderr, "                            [ maxrounds N ]\n");
- 	fprintf(stderr, "IFADDR := PREFIX | ADDR peer PREFIX\n");
- 	fprintf(stderr, "          [ broadcast ADDR ] [ anycast ADDR ]\n");
- 	fprintf(stderr, "          [ label STRING ] [ scope SCOPE-ID ]\n");
-@@ -566,6 +567,7 @@ int ipaddr_list_or_flush(int argc, char **argv, int flush)
- 	struct nlmsg_list *l, *n;
- 	char *filter_dev = NULL;
- 	int no_link = 0;
-+	int maxrounds = MAX_ROUNDS;
- 
- 	ipaddr_reset_filter(oneline);
- 	filter.showqueue = 1;
-@@ -630,6 +632,9 @@ int ipaddr_list_or_flush(int argc, char **argv, int flush)
- 		} else if (strcmp(*argv, "label") == 0) {
- 			NEXT_ARG();
- 			filter.label = *argv;
-+		} else if (strcmp(*argv, "maxrounds") == 0) {
-+			NEXT_ARG();
-+			maxrounds = atoi(*argv);
- 		} else {
- 			if (strcmp(*argv, "dev") == 0) {
- 				NEXT_ARG();
-@@ -669,7 +674,7 @@ int ipaddr_list_or_flush(int argc, char **argv, int flush)
- 		filter.flushp = 0;
- 		filter.flushe = sizeof(flushb);
- 
--		while (round < MAX_ROUNDS) {
-+		while ((maxrounds == 0) || (round < maxrounds)) {
- 			if (rtnl_wilddump_request(&rth, filter.family, RTM_GETADDR) < 0) {
- 				perror("Cannot send dump request");
- 				exit(1);
-@@ -696,7 +701,10 @@ int ipaddr_list_or_flush(int argc, char **argv, int flush)
- 				fflush(stdout);
- 			}
- 		}
--		fprintf(stderr, "*** Flush remains incomplete after %d rounds. ***\n", MAX_ROUNDS); fflush(stderr);
-+		fprintf(stderr,
-+			"*** Flush remains incomplete after %d rounds. ***\n",
-+			maxrounds);
-+		fflush(stderr);
- 		return 1;
- 	}
- 
-diff --git a/ip/ipneigh.c b/ip/ipneigh.c
-index db684f5..5a9ce40 100644
---- a/ip/ipneigh.c
-+++ b/ip/ipneigh.c
-@@ -53,6 +53,7 @@ static void usage(void)
- 		        "          [ nud { permanent | noarp | stale | reachable } ]\n"
- 		        "          | proxy ADDR } [ dev DEV ]\n");
- 	fprintf(stderr, "       ip neigh {show|flush} [ to PREFIX ] [ dev DEV ] [ nud STATE ]\n");
-+	fprintf(stderr, "                             [ maxrounds N ]\n");
- 	exit(-1);
- }
- 
-@@ -321,6 +322,7 @@ int do_show_or_flush(int argc, char **argv, int flush)
- {
- 	char *filter_dev = NULL;
- 	int state_given = 0;
-+	int maxrounds = MAX_ROUNDS;
- 
- 	ipneigh_reset_filter();
- 
-@@ -361,6 +363,9 @@ int do_show_or_flush(int argc, char **argv, int flush)
- 			if (state == 0)
- 				state = 0x100;
- 			filter.state |= state;
-+		} else if (strcmp(*argv, "maxrounds") == 0) {
-+			NEXT_ARG();
-+			maxrounds = atoi(*argv);
- 		} else {
- 			if (strcmp(*argv, "to") == 0) {
- 				NEXT_ARG();
-@@ -392,7 +397,7 @@ int do_show_or_flush(int argc, char **argv, int flush)
- 		filter.flushe = sizeof(flushb);
- 		filter.state &= ~NUD_FAILED;
- 
--		while (round < MAX_ROUNDS) {
-+		while ((maxrounds == 0) || (round < maxrounds)) {
- 			if (rtnl_wilddump_request(&rth, filter.family, RTM_GETNEIGH) < 0) {
- 				perror("Cannot send dump request");
- 				exit(1);
-@@ -418,8 +423,10 @@ int do_show_or_flush(int argc, char **argv, int flush)
- 				fflush(stdout);
- 			}
- 		}
--		printf("*** Flush not complete bailing out after %d rounds\n",
--			MAX_ROUNDS);
-+		fprintf(stderr,
-+			"*** Flush remains incomplete after %d rounds. ***\n",
-+			maxrounds);
-+		fflush(stderr);
- 		return 1;
- 	}
- 
+This is useful for implementing NHRP (and other low level protocols) over
+NBMA GRE tunnels.
+
+Posted about a week ago, but got no reply. Could someone comment on this?
+Or commit it? Thanks.
+
+net/ipv4/ip_gre.c |   12 +++++++++++-
+1 files changed, 11 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index f151900..b1e3816 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1033,7 +1033,6 @@ static int ipgre_tunnel_change_mtu(struct net_device *dev, int new_mtu)
+	return 0;
+}
+
+-#ifdef CONFIG_NET_IPGRE_BROADCAST
+/* Nice toy. Unfortunately, useless in real life :-)
+  It allows to construct virtual multiprotocol broadcast "LAN"
+  over the Internet, provided multicast routing is tuned.
+@@ -1092,10 +1091,19 @@ static int ipgre_header(struct sk_buff *skb, struct net_device *dev,
+	return -t->hlen;
+}
+
++static int ipgre_header_parse(const struct sk_buff *skb, unsigned char *haddr)
++{
++	struct iphdr *iph = (struct iphdr *) skb_mac_header(skb);
++	memcpy(haddr, &iph->saddr, 4);
++	return 4;
++}
++
+static const struct header_ops ipgre_header_ops = {
+	.create	= ipgre_header,
++	.parse  = ipgre_header_parse,
+};
+
++#ifdef CONFIG_NET_IPGRE_BROADCAST
+static int ipgre_open(struct net_device *dev)
+{
+	struct ip_tunnel *t = netdev_priv(dev);
+@@ -1197,6 +1205,8 @@ static int ipgre_tunnel_init(struct net_device *dev)
+			dev->stop = ipgre_close;
+		}
+#endif
++	} else {
++		dev->header_ops = &ipgre_header_ops;
+	}
+
+	if (!tdev && tunnel->parms.link)
 
 
--- 
-Regards,
-Andreas Henriksson
