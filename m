@@ -1,108 +1,60 @@
-From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
-Subject: Re: [PATCH] PowerPC: Add BCM5248 and Marvell 88E1111 PHY support to
- NEW EMAC.
-Date: Tue, 23 Oct 2007 10:20:35 -0500
-Message-ID: <20071023102035.6d35d3fe@weaponx.rchland.ibm.com>
-References: <20071015175717.GA4602@ru.mvista.com>
-	<4713B10B.5000607@garzik.org>
+From: Andreas Henriksson <andreas@fatal.se>
+Subject: Re: iproute2: git pull request from debian repo.
+Date: Tue, 23 Oct 2007 17:27:22 +0200
+Message-ID: <20071023152722.GA25375@scream.fatal.se>
+References: <20071019122753.GA30078@scream.fatal.se> <20071019130616.GH1362@baikonur.stro.at> <20071019144815.GB30444@scream.fatal.se> <471B90E5.1040108@trash.net> <20071023141838.GA25201@scream.fatal.se> <471E074E.8050805@trash.net> <20071023150154.GA25314@scream.fatal.se> <471E0E5A.40306@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Valentine Barshak <vbarshak@ru.mvista.com>,
-	Michael Ellerman <michael@ellerman.id.au>,
-	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: maximilian attems <max@stro.at>, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:33387 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751926AbXJWPU7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 11:20:59 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9NFKqgH001129
-	for <netdev@vger.kernel.org>; Tue, 23 Oct 2007 11:20:52 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9NFKcQJ060168
-	for <netdev@vger.kernel.org>; Tue, 23 Oct 2007 09:20:38 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9NFKbbx008107
-	for <netdev@vger.kernel.org>; Tue, 23 Oct 2007 09:20:38 -0600
-In-Reply-To: <4713B10B.5000607@garzik.org>
+Received: from 1-1-1-9a.ghn.gbg.bostream.se ([82.182.69.4]:53414 "EHLO
+	scream.fatal.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751658AbXJWPbj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 11:31:39 -0400
+Content-Disposition: inline
+In-Reply-To: <471E0E5A.40306@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 15 Oct 2007 14:27:23 -0400
-Jeff Garzik <jeff@garzik.org> wrote:
-
-> Valentine Barshak wrote:
-> > This patch adds BCM5248 and Marvell 88E1111 PHY support to NEW EMAC driver.
-> > These PHY chips are used on PowerPC 440EPx boards.
-> > The PHY code is based on the previous work by Stefan Roese <sr@denx.de>
-> > 
-> > Signed-off-by: Stefan Roese <sr@denx.de>
-> > Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
-> > ---
-> >  drivers/net/ibm_newemac/phy.c |   39 +++++++++++++++++++++++++++++++++++++++
-> >  1 files changed, 39 insertions(+)
-> > 
-> > --- linux.orig/drivers/net/ibm_newemac/phy.c	2007-06-15 21:45:18.000000000 +0400
-> > +++ linux/drivers/net/ibm_newemac/phy.c	2007-06-15 20:45:15.000000000 +0400
-> > @@ -306,8 +306,47 @@
-> >  	.ops		= &cis8201_phy_ops
-> >  };
-> >  
-> > +static struct mii_phy_def bcm5248_phy_def = {
-> > +
-> > +	.phy_id		= 0x0143bc00,
-> > +	.phy_id_mask	= 0x0ffffff0,
-> > +	.name		= "BCM5248 10/100 SMII Ethernet",
-> > +	.ops		= &generic_phy_ops
-> > +};
-> > +
-> > +static int m88e1111_init(struct mii_phy *phy)
-> > +{
-> > +	printk("%s: Marvell 88E1111 Ethernet\n", __FUNCTION__);
-> > +	phy_write(phy, 0x14, 0x0ce3);
-> > +	phy_write(phy, 0x18, 0x4101);
-> > +	phy_write(phy, 0x09, 0x0e00);
-> > +	phy_write(phy, 0x04, 0x01e1);
-> > +	phy_write(phy, 0x00, 0x9140);
-> > +	phy_write(phy, 0x00, 0x1140);
-> > +
-> > +	return  0;
-> > +}
-> > +
-> > +static struct mii_phy_ops m88e1111_phy_ops = {
-> > +	.init		= m88e1111_init,
-> > +	.setup_aneg	= genmii_setup_aneg,
-> > +	.setup_forced	= genmii_setup_forced,
-> > +	.poll_link	= genmii_poll_link,
-> > +	.read_link	= genmii_read_link
-> > +};
-> > +
-> > +static struct mii_phy_def m88e1111_phy_def = {
-> > +
-> > +	.phy_id		= 0x01410CC0,
-> > +	.phy_id_mask	= 0x0ffffff0,
-> > +	.name		= "Marvell 88E1111 Ethernet",
-> > +	.ops		= &m88e1111_phy_ops,
-> > +};
-> > +
-> >  static struct mii_phy_def *mii_phy_table[] = {
-> >  	&cis8201_phy_def,
-> > +	&bcm5248_phy_def,
-> > +	&m88e1111_phy_def,
-> >  	&genmii_phy_def,
+On Tue, Oct 23, 2007 at 05:08:10PM +0200, Patrick McHardy wrote:
+> Andreas Henriksson wrote:
+> >On Tue, Oct 23, 2007 at 04:38:06PM +0200, Patrick McHardy wrote:
+> >>Almost - the default behaviour shouldn't change IMO. Also please
+> >>send a complete patch, not one on top of your old one.
+> >
+> >Which "default behaviour"? ip addr flush or ip neigh flush behaviour?
+> >Both of those should behave the same IMHO.
 > 
-> Seems sane to me -- ACK -- but we have multiple people sending me 
-> patches for a single driver.  That's normal for janitorial cleanups 
-> across the whole tree, but discouraged when multiple people are actively 
-> working on the same driver.
+> In both cases your changed behaviour should be optional and it should
+> default to the old behaviour. Not actually flushing completely when the
+> user specified "flush" is counter-intuitive.
 > 
-> Please coordinate, and have ONE person send me patches...
 
-Jeff, could you please pull in this patch for 2.6.24?  We'll get the
-coordination down for any further patches.
+I did not change the behaviour in both cases! I'm only sending in a change
+for ip addr flush to make it match how ip neigh flush already works!
+Two different behaviours -> one change -> same behaviour for both.
+I've mentioned this multiple times already... I don't know how to express
+myself in another/better way about this.
 
-thx,
-josh
+> >Defaulting to never bail out is causing problems in a bunch of firewalling
+> >frontends which has been reported multiple times to both debian and ubuntu
+> >(and possibly others I don't know about), and looping forever causes the
+> >bootup to never finish.
+> >Thats my reason for advocating not selecting the "loop forever" as the
+> >default choice.
 > 
+> Then those frontends should add "maxrounds N" if they want to abort
+> before the flush is complete.
+> 
+
+So you prefer that I rather change the default for ip neigh flush, then touch
+ip addr flush? Making the problematic version the default for both, and
+changing every application out there who uses any of these two functions.
+Sorry, I'll pass on that one and let someone else do it if it's the preferred
+solution.
+
+-- 
+Regards,
+Andreas Henriksson
