@@ -1,44 +1,82 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [ANNOUNCE] iproute2-2.6.23
-Date: Tue, 23 Oct 2007 08:37:02 -0700
-Message-ID: <20071023083702.2904c0a0@shemminger-laptop>
-References: <20071016164439.3f8a4f00@freepuppy.rosehill>
-	<E1IhxQA-0004gh-00@gondolin.me.apana.org.au>
-	<20071023061207.GA27560@gondor.apana.org.au>
+From: =?ISO-8859-15?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: [PATCH RESEND] ip_gre: sendto/recvfrom NBMA address
+Date: Tue, 23 Oct 2007 18:08:13 +0300
+Message-ID: <471E0E5D.8030004@iki.fi>
+References: <471E05BD.7040407@iki.fi> <471E0638.9040405@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:40963 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751992AbXJWPhi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 11:37:38 -0400
-In-Reply-To: <20071023061207.GA27560@gondor.apana.org.au>
+Received: from gw02.mail.saunalahti.fi ([195.197.172.116]:41831 "EHLO
+	gw02.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752473AbXJWPzD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 11:55:03 -0400
+In-Reply-To: <471E0638.9040405@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 23 Oct 2007 14:12:07 +0800
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+When GRE tunnel is in NBMA mode, this patch allows an application to use
+a PF_PACKET socket to:
+- send a packet to specific NBMA address with sendto()
+- use recvfrom() to receive packet and check which NBMA address it came from
 
-> On Wed, Oct 17, 2007 at 09:10:02AM +0800, Herbert Xu wrote:
-> > 
-> > Any chance you could include the NAT patch for the next release?
-> > 
-> > [TC]: Add NAT action
-> > 
-> > This patch adds the parser for the nat action which is used
-> > for stateless NAT.
-> > 
-> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Hi Stephen:
-> 
-> Is there a problem with merging this patch?
+This is required to implement properly NHRP over GRE tunnel.
 
-I was just holding off for a few days to see if there were any bug fixes
-to 2.6.23 version that needed to go in first. It is first in queue for 2.6.24
-related stuff.
+Signed-off-by: Timo Teras <timo.teras@iki.fi>
 
-Promise to get it in before 2.6.24-rc1
+---
+> Your mailer mangled tabs, it won't apply like this. Try sending to
+> yourself for testing, then repost when it works properly. 
+
+Sorry. Tabs were ok, but the initial white space on context lines was somehow
+removed. Apparently a bug in my editor where I cut/pasted from.
+
+ net/ipv4/ip_gre.c |   12 +++++++++++-
+ 1 files changed, 11 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index f151900..b1e3816 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1033,7 +1033,6 @@ static int ipgre_tunnel_change_mtu(struct net_device *dev, int new_mtu)
+ 	return 0;
+ }
+ 
+-#ifdef CONFIG_NET_IPGRE_BROADCAST
+ /* Nice toy. Unfortunately, useless in real life :-)
+    It allows to construct virtual multiprotocol broadcast "LAN"
+    over the Internet, provided multicast routing is tuned.
+@@ -1092,10 +1091,19 @@ static int ipgre_header(struct sk_buff *skb, struct net_device *dev,
+ 	return -t->hlen;
+ }
+ 
++static int ipgre_header_parse(const struct sk_buff *skb, unsigned char *haddr)
++{
++	struct iphdr *iph = (struct iphdr*) skb_mac_header(skb);
++	memcpy(haddr, &iph->saddr, 4);
++	return 4;
++}
++
+ static const struct header_ops ipgre_header_ops = {
+ 	.create	= ipgre_header,
++	.parse	= ipgre_header_parse,
+ };
+ 
++#ifdef CONFIG_NET_IPGRE_BROADCAST
+ static int ipgre_open(struct net_device *dev)
+ {
+ 	struct ip_tunnel *t = netdev_priv(dev);
+@@ -1197,6 +1205,8 @@ static int ipgre_tunnel_init(struct net_device *dev)
+ 			dev->stop = ipgre_close;
+ 		}
+ #endif
++	} else {
++		dev->header_ops = &ipgre_header_ops;
+ 	}
+ 
+ 	if (!tdev && tunnel->parms.link)
+
+
+
