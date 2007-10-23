@@ -1,176 +1,62 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [MIPS] MIPSnet: Delete all the useless debugging printks.
-Date: Tue, 23 Oct 2007 00:35:26 +0100
-Message-ID: <20071022233526.GA3301@linux-mips.org>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH 5/7] pci: Export the pci_restore_msi_state() function
+Date: Mon, 22 Oct 2007 19:13:07 -0500
+Message-ID: <20071023001307.GF4280@austin.ibm.com>
+References: <1192829817.22064.559.camel@teletran1> <20071021.162131.43417026.davem@davemloft.net> <1193017764.10318.17.camel@concordia> <20071022181336.GC4280@austin.ibm.com> <1193088267.6745.108.camel@pasglop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jeff@garzik.org>
+Cc: Michael Ellerman <michael@ellerman.id.au>, netdev@vger.kernel.org,
+	mcarlson@broadcom.com, linuxppc-dev list <linuxppc-dev@ozlabs.org>,
+	mchan@broadcom.com, linux-pci@atrey.karlin.mff.cuni.cz,
+	David Miller <davem@davemloft.net>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:55352 "EHLO
-	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752785AbXJVXfj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 19:35:39 -0400
-Received: from localhost.localdomain ([127.0.0.1]:2006 "EHLO
-	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
-	id S20024813AbXJVXfh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2007 00:35:37 +0100
+Received: from e31.co.us.ibm.com ([32.97.110.149]:59913 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753349AbXJWANK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2007 20:13:10 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e31.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9N0D9FH006599
+	for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 20:13:09 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9N0D9e9069958
+	for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 18:13:09 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9N0D8m7028405
+	for <netdev@vger.kernel.org>; Mon, 22 Oct 2007 18:13:09 -0600
 Content-Disposition: inline
+In-Reply-To: <1193088267.6745.108.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Plus minor formatting fixes.
+On Tue, Oct 23, 2007 at 07:24:27AM +1000, Benjamin Herrenschmidt wrote:
+> 
+> On Mon, 2007-10-22 at 13:13 -0500, Linas Vepstas wrote:
+> > On Mon, Oct 22, 2007 at 11:49:24AM +1000, Michael Ellerman wrote:
+> > > 
+> > > On pseries there's a chance it will work for PCI error recovery, but if
+> > > so it's just lucky that firmware has left everything configured the same
+> > > way. 
+> > 
+> > ? The papr is quite clear that i is up to the OS to restore the msi
+> > state after an eeh error.
+> 
+> Via direct config space access or via firmware change-msi calls ?
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
----
+Direct config space access. It says that the OS is supposed to read the
+MSI config (after its been set up), save it, and restore it, (via direct
+config space writes) if the device is ever reset.
 
- drivers/net/mipsnet.c |   44 ++++----------------------------------------
- 1 file changed, 4 insertions(+), 40 deletions(-)
+> I don't know why you keep talking about powerpc laptops here ... 
 
-diff --git a/drivers/net/mipsnet.c b/drivers/net/mipsnet.c
-index 37707a0..aafc3ce 100644
---- a/drivers/net/mipsnet.c
-+++ b/drivers/net/mipsnet.c
-@@ -30,6 +30,7 @@ static int ioiocpy_frommipsnet(struct net_device *dev, unsigned char *kdata,
- 			int len)
- {
- 	uint32_t available_len = inl(mipsnet_reg_address(dev, rxDataCount));
-+
- 	if (available_len < len)
- 		return -EFAULT;
- 
-@@ -45,14 +46,8 @@ static inline ssize_t mipsnet_put_todevice(struct net_device *dev,
- 	int count_to_go = skb->len;
- 	char *buf_ptr = skb->data;
- 
--	pr_debug("%s: %s(): telling MIPSNET txDataCount(%d)\n",
--		 dev->name, __FUNCTION__, skb->len);
--
- 	outl(skb->len, mipsnet_reg_address(dev, txDataCount));
- 
--	pr_debug("%s: %s(): sending data to MIPSNET txDataBuffer(%d)\n",
--		 dev->name, __FUNCTION__, skb->len);
--
- 	for (; count_to_go; buf_ptr++, count_to_go--)
- 		outb(*buf_ptr, mipsnet_reg_address(dev, txDataBuffer));
- 
-@@ -64,10 +59,8 @@ static inline ssize_t mipsnet_put_todevice(struct net_device *dev,
- 
- static int mipsnet_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	pr_debug("%s:%s(): transmitting %d bytes\n",
--		 dev->name, __FUNCTION__, skb->len);
--
--	/* Only one packet at a time. Once TXDONE interrupt is serviced, the
-+	/*
-+	 * Only one packet at a time. Once TXDONE interrupt is serviced, the
- 	 * queue will be restarted.
- 	 */
- 	netif_stop_queue(dev);
-@@ -94,8 +87,6 @@ static inline ssize_t mipsnet_get_fromdev(struct net_device *dev, size_t count)
- 	skb->protocol = eth_type_trans(skb, dev);
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
--	pr_debug("%s:%s(): pushing RXed data to kernel\n",
--		 dev->name, __FUNCTION__);
- 	netif_rx(skb);
- 
- 	dev->stats.rx_packets++;
-@@ -112,44 +103,29 @@ static irqreturn_t mipsnet_interrupt(int irq, void *dev_id)
- 	uint64_t interruptFlags;
- 
- 	if (irq == dev->irq) {
--		pr_debug("%s:%s(): irq %d for device\n",
--			 dev->name, __FUNCTION__, irq);
--
- 		retval = IRQ_HANDLED;
- 
- 		interruptFlags =
- 		    inl(mipsnet_reg_address(dev, interruptControl));
--		pr_debug("%s:%s(): intCtl=0x%016llx\n", dev->name,
--			 __FUNCTION__, interruptFlags);
- 
- 		if (interruptFlags & MIPSNET_INTCTL_TXDONE) {
--			pr_debug("%s:%s(): got TXDone\n",
--				 dev->name, __FUNCTION__);
- 			outl(MIPSNET_INTCTL_TXDONE,
- 			     mipsnet_reg_address(dev, interruptControl));
- 			/* only one packet at a time, we are done. */
- 			netif_wake_queue(dev);
- 		} else if (interruptFlags & MIPSNET_INTCTL_RXDONE) {
--			pr_debug("%s:%s(): got RX data\n",
--				 dev->name, __FUNCTION__);
- 			mipsnet_get_fromdev(dev,
- 				    inl(mipsnet_reg_address(dev, rxDataCount)));
--			pr_debug("%s:%s(): clearing RX int\n",
--				 dev->name, __FUNCTION__);
- 			outl(MIPSNET_INTCTL_RXDONE,
- 			     mipsnet_reg_address(dev, interruptControl));
- 
- 		} else if (interruptFlags & MIPSNET_INTCTL_TESTBIT) {
--			pr_debug("%s:%s(): got test interrupt\n",
--				 dev->name, __FUNCTION__);
- 			/*
- 			 * TESTBIT is cleared on read.
- 			 * And takes effect after a write with 0
- 			 */
- 			outl(0, mipsnet_reg_address(dev, interruptControl));
- 		} else {
--			pr_debug("%s:%s(): no valid fags 0x%016llx\n",
--				 dev->name, __FUNCTION__, interruptFlags);
- 			/* Maybe shared IRQ, just ignore, no clearing. */
- 			retval = IRQ_NONE;
- 		}
-@@ -165,22 +141,15 @@ static irqreturn_t mipsnet_interrupt(int irq, void *dev_id)
- static int mipsnet_open(struct net_device *dev)
- {
- 	int err;
--	pr_debug("%s: mipsnet_open\n", dev->name);
- 
- 	err = request_irq(dev->irq, &mipsnet_interrupt,
- 			  IRQF_SHARED, dev->name, (void *) dev);
- 
- 	if (err) {
--		pr_debug("%s: %s(): can't get irq %d\n",
--			 dev->name, __FUNCTION__, dev->irq);
- 		release_region(dev->base_addr, MIPSNET_IO_EXTENT);
- 		return err;
- 	}
- 
--	pr_debug("%s: %s(): got IO region at 0x%04lx and irq %d for dev.\n",
--		 dev->name, __FUNCTION__, dev->base_addr, dev->irq);
--
--
- 	netif_start_queue(dev);
- 
- 	/* test interrupt handler */
-@@ -193,8 +162,8 @@ static int mipsnet_open(struct net_device *dev)
- 
- static int mipsnet_close(struct net_device *dev)
- {
--	pr_debug("%s: %s()\n", dev->name, __FUNCTION__);
- 	netif_stop_queue(dev);
-+
- 	return 0;
- }
- 
-@@ -229,9 +198,6 @@ static int __init mipsnet_probe(struct device *dev)
- 
- 	/* Get the io region now, get irq on open() */
- 	if (!request_region(netdev->base_addr, MIPSNET_IO_EXTENT, "mipsnet")) {
--		pr_debug("%s: %s(): IO region {start: 0x%04lux, len: %d} "
--			 "for dev is not availble.\n", netdev->name,
--			 __FUNCTION__, netdev->base_addr, MIPSNET_IO_EXTENT);
- 		err = -EBUSY;
- 		goto out_free_netdev;
- 	}
-@@ -295,8 +261,6 @@ static int __init mipsnet_init_module(void)
- 
- static void __exit mipsnet_exit_module(void)
- {
--	pr_debug("MIPSNet Ethernet driver exiting\n");
--
- 	driver_unregister(&mipsnet_driver);
- }
- 
+Well, there are Apple laptops, right?  Aren't those the "powermac" 
+platform?  Now, I don't know if they support MSI, but if they do,
+I get the impression that they might not restore msi state correctly,
+after being put into hardware suspend.  But perhaps I'm mistaken;
+I was simply grepping for various msi-related functions in various
+arch subdirectories, comparing x86 to other arches, and noticed 
+that code that would restore msi state seems to be missing for
+most arches and most powerpc platforms.
+
+--linas
+
