@@ -1,74 +1,32 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [PATCH] USB: net: Fix asix read transfer
-	buffer allocations.
-Date: Tue, 23 Oct 2007 19:00:14 +0200
-Message-ID: <200710231900.14696.netdev@axxeo.de>
-References: <20071022155053.GA28526@ru.mvista.com>
-	<200710221929.04035.oliver@neukum.org>
-	<471CF893.3050605@ru.mvista.com>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH] [POWERPC] ucc_geth: Eliminate compile warnings
+Date: Tue, 23 Oct 2007 12:10:05 -0500
+Message-ID: <20071023171005.GA4638@loki.buserror.net>
+References: <20071019.164143.75786621.davem@davemloft.net> <598D5675D34BE349929AF5EDE9B03E2701685446@az33exm24.fsl.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
-	linux-usb-devel@lists.sourceforge.net
-To: Valentine Barshak <vbarshak@ru.mvista.com>
-Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <471CF893.3050605@ru.mvista.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jgarzik@pobox.com, linuxppc-dev@ozlabs.org
+To: Medve Emilian-EMMEDVE1 <Emilian.Medve@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw01.freescale.net ([192.88.158.102]:53760 "EHLO
+	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754471AbXJWRKs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 13:10:48 -0400
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
-List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
-List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: linux-usb-devel-bounces@lists.sourceforge.net
-Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
+In-Reply-To: <598D5675D34BE349929AF5EDE9B03E2701685446@az33exm24.fsl.freescale.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Valentine Barshak schrieb:
-> Oliver Neukum wrote:
-> > Am Montag 22 Oktober 2007 schrieb Valentine Barshak:
-> >>  static int asix_mdio_read(struct net_device *netdev, int phy_id, int loc)
-> >>  {
-> >>         struct usbnet *dev = netdev_priv(netdev);
-> >> +       void *buf;
-> >>         u16 res;
-> >>  
-> >>         mutex_lock(&dev->phy_mutex);
-> >>         asix_set_sw_mii(dev);
-> >> +
-> >> +       buf = kmalloc(2, GFP_KERNEL);
-> > 
-> > This is done under lock. Can you allocate the buffer once and reuse it?
-> I think we can use 2 bytes of the usbnet data buffer for this.
-> I'll submit a new patch soon.
+On Mon, Oct 22, 2007 at 06:47:32AM -0700, Medve Emilian-EMMEDVE1 wrote:
+> Are you suggesting we leave those warnings there until somebody decides
+> to fix all the portability issues of this driver? My patch is a small
+> and insignificant improvement and not the revolution you're asking for,
+> but is an small improvement today (I dislike warnings) vs. an improbable
+> big one in the future.
 
-If this cannot be done for some reason, then you can at least kmalloc() before
-you do "mutex_lock(&dev->phy_mutex);" and kfree() after you did 
-"mutex_unlock(&dev->phy_mutex);"
+It is not an improvement, as it moves the driver further away from being
+64-bit clean.  A better fix would be to change the definition of
+tx/rx_bd_ring_offset to unsigned long (or better yet, a union).
 
-The reason to can do this, is that "buf" has a life time limited to this function.
-
-The reason you should do this, is that kmalloc(, GFP_KERNEL) is allowed to sleep,
-which will block the mutex for that time. While this is technically ok, 
-since mutexes can sleep, it is not desireable, since other users of that mutex
-are blocked until the allocation is done.
-
-If you are able to implement the "2 bytes of  usbnet data buffer" version,
-please ignore that mail :-)
-
-
-Best Regards
-
-Ingo Oeser
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >> http://get.splunk.com/
-_______________________________________________
-linux-usb-devel@lists.sourceforge.net
-To unsubscribe, use the last form field at:
-https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
+-Scott
