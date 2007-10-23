@@ -1,125 +1,88 @@
-From: Matteo Croce <technoboy85@gmail.com>
-Subject: Re: [PATCH][MIPS] AR7 ethernet
-Date: Tue, 23 Oct 2007 19:12:22 +0200
-Message-ID: <200710231912.23446.technoboy85@gmail.com>
-References: <200710141810.13752.technoboy85@gmail.com> <4713B055.802@pobox.com>
+From: Valentine Barshak <vbarshak@ru.mvista.com>
+Subject: Re: [PATCH] USB: net: Fix asix read transfer
+ buffer allocations.
+Date: Tue, 23 Oct 2007 21:20:18 +0400
+Message-ID: <471E2D52.5060404@ru.mvista.com>
+References: <20071022155053.GA28526@ru.mvista.com>
+	<200710221929.04035.oliver@neukum.org>
+	<471CF893.3050605@ru.mvista.com>
+	<200710231900.14696.netdev@axxeo.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, Eugene Konev <ejka@imfi.kspu.ru>,
-	netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@coreworks.de, Andrew Morton <akpm@linux-foundation.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rn-out-0910.google.com ([64.233.170.184]:28809 "EHLO
-	rn-out-0102.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755768AbXJWRMf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 13:12:35 -0400
-Received: by rn-out-0102.google.com with SMTP id s46so1599995rnb
-        for <netdev@vger.kernel.org>; Tue, 23 Oct 2007 10:12:33 -0700 (PDT)
-In-Reply-To: <4713B055.802@pobox.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
+	linux-usb-devel@lists.sourceforge.net
+To: Ingo Oeser <netdev@axxeo.de>
+Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <200710231900.14696.netdev@axxeo.de>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
+List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
+List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux-usb-devel-bounces@lists.sourceforge.net
+Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Il Monday 15 October 2007 20:24:21 Jeff Garzik ha scritto:
-> applied
+Ingo Oeser wrote:
+> Valentine Barshak schrieb:
+>> Oliver Neukum wrote:
+>>> Am Montag 22 Oktober 2007 schrieb Valentine Barshak:
+>>>>  static int asix_mdio_read(struct net_device *netdev, int phy_id, int loc)
+>>>>  {
+>>>>         struct usbnet *dev = netdev_priv(netdev);
+>>>> +       void *buf;
+>>>>         u16 res;
+>>>>  
+>>>>         mutex_lock(&dev->phy_mutex);
+>>>>         asix_set_sw_mii(dev);
+>>>> +
+>>>> +       buf = kmalloc(2, GFP_KERNEL);
+>>> This is done under lock. Can you allocate the buffer once and reuse it?
+>> I think we can use 2 bytes of the usbnet data buffer for this.
+>> I'll submit a new patch soon.
+> 
+> If this cannot be done for some reason, then you can at least kmalloc() before
+> you do "mutex_lock(&dev->phy_mutex);" and kfree() after you did 
+> "mutex_unlock(&dev->phy_mutex);"
+> 
+> The reason to can do this, is that "buf" has a life time limited to this function.
+> 
+> The reason you should do this, is that kmalloc(, GFP_KERNEL) is allowed to sleep,
+> which will block the mutex for that time. While this is technically ok, 
+> since mutexes can sleep, it is not desireable, since other users of that mutex
+> are blocked until the allocation is done.
+> 
+> If you are able to implement the "2 bytes of  usbnet data buffer" version,
+> please ignore that mail :-)
+> 
+> 
+> Best Regards
+> 
+> Ingo Oeser
 
-Small update to the driver, please apply
+Looks like we cannot use usbnet data buffer for read transfers either, 
+because it's just a part of the usbnet structure and we may still lose 
+data while invalidating cache the same way we do using buffers on stack. 
+Allocating a permanent buffer for phy transfer needs more driver 
+changes: we should add unbind finction to the device_info for all asix 
+devices to deallocate the buffer at exit.
+And we still need to allocate buffers for other transfers dynamically, 
+so having just one permanent buffer for phy doesn't help much.
+I've reworked the original patch a bit: moved kmalloc out of the 
+phy_mutex and added more clean-ups.
+Will submit shortly.
+Thanks,
+Valentine.
 
-Signed-off-by: Matteo Croce <technoboy85@gmail.com>
-Signed-off-by: Eugene Konev <ejka@imfi.kspu.ru>
-Signed-off-by: Felix Fietkau <nbd@openwrt.org>
-
-diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
-index ae41973..57541d2 100644
---- a/drivers/net/cpmac.c
-+++ b/drivers/net/cpmac.c
-@@ -460,18 +460,11 @@ static int cpmac_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct cpmac_desc *desc;
- 	struct cpmac_priv *priv = netdev_priv(dev);
- 
--	if (unlikely(skb_padto(skb, ETH_ZLEN))) {
--		if (netif_msg_tx_err(priv) && net_ratelimit())
--			printk(KERN_WARNING
--			       "%s: tx: padding failed, dropping\n", dev->name);
--		spin_lock(&priv->lock);
--		dev->stats.tx_dropped++;
--		spin_unlock(&priv->lock);
--		return -ENOMEM;
--	}
-+	if (unlikely(skb_padto(skb, ETH_ZLEN)))
-+		return NETDEV_TX_OK;
- 
- 	len = max(skb->len, ETH_ZLEN);
--	queue = skb_get_queue_mapping(skb);
-+	queue = skb->queue_mapping;
- #ifdef CONFIG_NETDEVICES_MULTIQUEUE
- 	netif_stop_subqueue(dev, queue);
- #else
-@@ -481,13 +474,9 @@ static int cpmac_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	desc = &priv->desc_ring[queue];
- 	if (unlikely(desc->dataflags & CPMAC_OWN)) {
- 		if (netif_msg_tx_err(priv) && net_ratelimit())
--			printk(KERN_WARNING "%s: tx dma ring full, dropping\n",
-+			printk(KERN_WARNING "%s: tx dma ring full\n",
- 			       dev->name);
--		spin_lock(&priv->lock);
--		dev->stats.tx_dropped++;
--		spin_unlock(&priv->lock);
--		dev_kfree_skb_any(skb);
--		return -ENOMEM;
-+		return NETDEV_TX_BUSY;
- 	}
- 
- 	spin_lock(&priv->lock);
-@@ -509,7 +498,7 @@ static int cpmac_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		cpmac_dump_skb(dev, skb);
- 	cpmac_write(priv->regs, CPMAC_TX_PTR(queue), (u32)desc->mapping);
- 
--	return 0;
-+	return NETDEV_TX_OK;
- }
- 
- static void cpmac_end_xmit(struct net_device *dev, int queue)
-@@ -646,12 +635,14 @@ static void cpmac_clear_tx(struct net_device *dev)
- 	int i;
- 	if (unlikely(!priv->desc_ring))
- 		return;
--	for (i = 0; i < CPMAC_QUEUES; i++)
-+	for (i = 0; i < CPMAC_QUEUES; i++) {
-+		priv->desc_ring[i].dataflags = 0;
- 		if (priv->desc_ring[i].skb) {
- 			dev_kfree_skb_any(priv->desc_ring[i].skb);
- 			if (netif_subqueue_stopped(dev, i))
- 			    netif_wake_subqueue(dev, i);
- 		}
-+	}
- }
- 
- static void cpmac_hw_error(struct work_struct *work)
-@@ -727,11 +718,13 @@ static void cpmac_tx_timeout(struct net_device *dev)
- #ifdef CONFIG_NETDEVICES_MULTIQUEUE
- 	for (i = 0; i < CPMAC_QUEUES; i++)
- 		if (priv->desc_ring[i].skb) {
-+			priv->desc_ring[i].dataflags = 0;
- 			dev_kfree_skb_any(priv->desc_ring[i].skb);
- 			netif_wake_subqueue(dev, i);
- 			break;
- 		}
- #else
-+	priv->desc_ring[0].dataflags = 0;
- 	if (priv->desc_ring[0].skb)
- 		dev_kfree_skb_any(priv->desc_ring[0].skb);
- 	netif_wake_queue(dev);
-@@ -794,7 +787,7 @@ static int cpmac_set_ringparam(struct net_device *dev, struct ethtool_ringparam*
- {
- 	struct cpmac_priv *priv = netdev_priv(dev);
- 
--	if (dev->flags && IFF_UP)
-+	if (netif_running(dev))
- 		return -EBUSY;
- 	priv->ring_size = ring->rx_pending;
- 	return 0;
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >> http://get.splunk.com/
+_______________________________________________
+linux-usb-devel@lists.sourceforge.net
+To unsubscribe, use the last form field at:
+https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
