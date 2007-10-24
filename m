@@ -1,55 +1,49 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: [PATCH] Add eeprom_bad_csum_allow module option to e1000.
-Date: Wed, 24 Oct 2007 01:38:15 -0400
-Message-ID: <20071024053815.GC28298@redhat.com>
-References: <11931515302013-git-send-email-ajax@redhat.com> <471E1ECD.80002@intel.com> <1193156487.26974.39.camel@localhost.localdomain> <471E2AD0.1000500@intel.com> <471E5C21.8030908@garzik.org> <20071023212026.GF7793@redhat.com> <471E7DCA.9030700@intel.com>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH RESEND] ip_gre: sendto/recvfrom NBMA address
+Date: Wed, 24 Oct 2007 08:54:42 +0300
+Message-ID: <471EDE22.4090408@iki.fi>
+References: <471E05BD.7040407@iki.fi> <471E0638.9040405@trash.net> <471E19E5.5040509@iki.fi> <20071023202036.GA12066@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, Adam Jackson <ajax@redhat.com>,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:54289 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750893AbXJXFlK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Oct 2007 01:41:10 -0400
-Content-Disposition: inline
-In-Reply-To: <471E7DCA.9030700@intel.com>
+Received: from gw03.mail.saunalahti.fi ([195.197.172.111]:54374 "EHLO
+	gw03.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753546AbXJXFyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 01:54:50 -0400
+In-Reply-To: <20071023202036.GA12066@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 23, 2007 at 04:03:38PM -0700, Kok, Auke wrote:
- > Dave Jones wrote:
- > > On Tue, Oct 23, 2007 at 04:40:01PM -0400, Jeff Garzik wrote:
- > > 
- > >  > > In any case, this patch should not be merged. We often send it around to users to
- > >  > > debug their issue in case it involves eeproms, but merging it will just conceal
- > >  > > the real issue and all of a sudden a flood of people stop reporting *real* issues
- > >  > > to us.
- > >  > 
- > >  > Sorry, I disagree.  Just as with e100, if there is a clear way the user 
- > >  > can recover their setup -- and Adam says his was effective -- I don't 
- > >  > see why we should be denying users the ability to use their own hardware.
- > >  
- > > Indeed. This is a common enough problem that not including it causes more pain
- > > than its worth.  I have two affected boxes myself that I actually thought
- > > the hardware was dead before I tried ajax's patch.
- > 
- > 
- > look: You should have reported this to us and you didn't. Now you are using the
- > fact that you did not report it as an argument which is out of place.
+Hi,
 
-you're missing the point.  It looks like a hardware failure. Why would I report this? 
+Alexey Kuznetsov wrote:
+>> The only dubious case is when next hop is set using routing tables.
+>> But code in ipgre_tunnel_xmit() is ready to accept this situation,
+>> it checks for zero destination address and fixes it when it is able to.
+> 
+> Nevertheless, it does not work.
+> 
+> Another thoughts?
 
- > why do you say it is common? how often have you seen this and not reported it back
- > to our support? are you willingly trying to frustrate this issue?
+Could you explain this a little more?
 
-Not at all. The only frustration here is that I used to have a kernel that
-worked, upgraded, and thought that my hardware was broken.
-How many other users thought the same ?
+I was able to set a nbma gre tunnel, add routes to it and it worked
+perfectly ok.
 
-	Dave
+Link-level next hop worked:
+ip route add <route> via <link-level-address> dev <tunnel-dev> onlink
 
--- 
-http://www.codemonkey.org.uk
+Also normal route with static neighbor worked:
+ip neigh add <router-tunnel-ip> lladdr <link-level-address> nud permanent dev <tunnel-dev>
+ip route add <route> via <router-tunnel-ip>
+
+In both cases packets were routed as expected to hosts accessible using
+the added route. And sendto() sent a packet correctly with destination
+link-level-address set. Did I miss/misunderstand something?
+
+Cheers,
+  Timo
