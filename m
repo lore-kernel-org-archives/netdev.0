@@ -1,26 +1,46 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 1/2] : remove header_ops bug in qeth driver
-Date: Tue, 23 Oct 2007 20:23:29 -0400
-Message-ID: <471E9081.4020804@pobox.com>
-References: <20071022141613.957690000@linux.vnet.ibm.com> <20071022142044.628766000@linux.vnet.ibm.com>
+Subject: Re: [PATCH] defxx.c: dfx_bus_init() is __devexit not __devinit
+Date: Tue, 23 Oct 2007 20:23:35 -0400
+Message-ID: <471E9087.7030309@pobox.com>
+References: <Pine.LNX.4.64N.0710221809350.988@blysk.ds.pg.gda.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	frank.blaschka@de.ibm.com, mschwid2@linux.vnet.ibm.com,
-	heicars2@linux.vnet.ibm.com, apw@shadowen.org,
-	kamalesh@linux.vnet.ibm.com, kaber@trash.net,
-	shemminger@linux-foundation.org
-To: Ursula Braun <braunu@de.ibm.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36014 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:36027 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754712AbXJXAXg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2007 20:23:36 -0400
-In-Reply-To: <20071022142044.628766000@linux.vnet.ibm.com>
+	id S1755577AbXJXAXn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2007 20:23:43 -0400
+In-Reply-To: <Pine.LNX.4.64N.0710221809350.988@blysk.ds.pg.gda.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-applied 1-2
+Maciej W. Rozycki wrote:
+>  The dfx_bus_uninit() call is called from dfx_unregister() which is 
+> __devexit and which is ultimately the ->remove call for the device.
+> 
+> Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+> ---
+>  It should be obvious.  Please apply.
+> 
+>   Maciej
+> 
+> patch-mips-2.6.23-rc5-20070904-defxx-devexit-0
+> diff -up --recursive --new-file linux-mips-2.6.23-rc5-20070904.macro/drivers/net/defxx.c linux-mips-2.6.23-rc5-20070904/drivers/net/defxx.c
+> --- linux-mips-2.6.23-rc5-20070904.macro/drivers/net/defxx.c	2007-09-04 04:55:41.000000000 +0000
+> +++ linux-mips-2.6.23-rc5-20070904/drivers/net/defxx.c	2007-10-12 00:21:35.000000000 +0000
+> @@ -806,7 +806,7 @@ static void __devinit dfx_bus_init(struc
+>   *   Interrupts are disabled at the adapter bus-specific logic.
+>   */
+>  
+> -static void __devinit dfx_bus_uninit(struct net_device *dev)
+> +static void __devexit dfx_bus_uninit(struct net_device *dev)
+>  {
+>  	DFX_board_t *bp = netdev_priv(dev);
+
+applied
 
 
