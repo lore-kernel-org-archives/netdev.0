@@ -1,88 +1,80 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH 1/2] NFS: change the ip_map cache code to handle IPv6
-	addresses
-Date: Wed, 24 Oct 2007 15:22:23 -0400
-Message-ID: <471F9B6F.60404@hp.com>
-References: <471C892F.3000206@ext.bull.net>
+From: Valentine Barshak <vbarshak@ru.mvista.com>
+Subject: Re: [PATCH] PowerPC: Add BCM5248 and Marvell 88E1111 PHY support
+ to NEW EMAC.
+Date: Wed, 24 Oct 2007 23:24:08 +0400
+Message-ID: <471F9BD8.905@ru.mvista.com>
+References: <20071015175717.GA4602@ru.mvista.com> <1193196718.2085.35.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=KOI8-R; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev ML <netdev@vger.kernel.org>,
-	Mailing list NFSv4 <nfsv4@linux-nfs.org>
-To: =?ISO-8859-1?Q?Aur=E9lien_Charbon?= <aurelien.charbon@ext.bull.net>
-Return-path: <nfsv4-bounces@linux-nfs.org>
-In-Reply-To: <471C892F.3000206@ext.bull.net>
-List-Unsubscribe: <http://linux-nfs.org/cgi-bin/mailman/listinfo/nfsv4>,
-	<mailto:nfsv4-request@linux-nfs.org?subject=unsubscribe>
-List-Archive: <http://linux-nfs.org/pipermail/nfsv4>
-List-Post: <mailto:nfsv4@linux-nfs.org>
-List-Help: <mailto:nfsv4-request@linux-nfs.org?subject=help>
-List-Subscribe: <http://linux-nfs.org/cgi-bin/mailman/listinfo/nfsv4>,
-	<mailto:nfsv4-request@linux-nfs.org?subject=subscribe>
-Sender: nfsv4-bounces@linux-nfs.org
-Errors-To: nfsv4-bounces@linux-nfs.org
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	jwboyer@linux.vnet.ibm.com, jeff@garzik.org,
+	Stefan Roese <sr@denx.de>
+To: benh@kernel.crashing.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtsoft3.corbina.net ([85.21.88.6]:26113 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754250AbXJXTZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 15:25:21 -0400
+In-Reply-To: <1193196718.2085.35.camel@pasglop>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Aurelien,
-
-I think you're almost there, at least with my comments :)
-
-> linux-2.6.23-ipmap/include/net/ipv6.h
-> --- linux-2.6.23-haley/include/net/ipv6.h    2007-10-22 
-> 09:42:58.000000000 +0200
-> +++ linux-2.6.23-ipmap/include/net/ipv6.h    2007-10-22 
-> 10:10:59.000000000 +0200
-> @@ -21,6 +21,7 @@
-> #include <net/ndisc.h>
-> #include <net/flow.h>
-> #include <net/snmp.h>
-> +#include <linux/in.h>
+Benjamin Herrenschmidt wrote:
+> On Tue, 2007-10-23 at 20:57 -0500, Valentine Barshak wrote:
 > 
-> #define SIN6_LEN_RFC2133    24
+>> +static int m88e1111_init(struct mii_phy *phy)
+>> +{
+>> +	printk("%s: Marvell 88E1111 Ethernet\n", __FUNCTION__);
+>> +	phy_write(phy, 0x14, 0x0ce3);
+>> +	phy_write(phy, 0x18, 0x4101);
+>> +	phy_write(phy, 0x09, 0x0e00);
+>> +	phy_write(phy, 0x04, 0x01e1);
+>> +	phy_write(phy, 0x00, 0x9140);
+>> +	phy_write(phy, 0x00, 0x1140);
+>> +
+>> +	return  0;
+>> +}
 > 
-> @@ -167,6 +168,12 @@ DECLARE_SNMP_STAT(struct udp_mib, udplit
->     if (is_udplite) SNMP_INC_STATS_USER(udplite_stats_in6, 
-> field);         \
->     else        SNMP_INC_STATS_USER(udp_stats_in6, field);    } while(0)
+> Care to put a few comments on why the above is necessary and what it
+> does ?
+
+I think this set's up Marvell ext control (0x14) and led control (0x18) 
+registers with some default values, Also sets some bits in the
+CTRL1000, ADVERTISE and basic mode control registers and resets the phy 
+for the changes to take effect. Unfortunately, I don't have a detailed 
+88E1111 description and can't tell anything about it. Looks like the 
+code was originally ported from u-boot and is needed to init the phy :)
+Stefan, do you have any info on this?
+Thanks,
+Valentine.
+
 > 
-> +#define IS_ADDR_MAPPED(a) \
-> +    (((uint32_t *) (a))[0] == 0            \
-> +    && ((uint32_t *) (a))[1] == 0            \
-> +    && (((uint32_t *) (a))[2] == 0            \
-> +    || ((uint32_t *) (a))[2] == htonl(0xffff)))
-> +
-> struct ip6_ra_chain
-> {
->     struct ip6_ra_chain    *next;
-> @@ -380,7 +387,7 @@ static inline int ipv6_addr_any(const st
-> static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
-> {
->     return ((a->s6_addr32[0] | a->s6_addr32[1]) == 0 &&
-> -         a->s6_addr32[2] == htonl(0x0000ffff));
-> +        a->s6_addr32[2] == htonl(0x0000ffff));
-> }
-
-You don't need to touch ipv6.h at all, IS_ADDR_MAPPED is unused and the 
-other is removing a space.
-
-> static void ip_map_init(struct cache_head *cnew, struct cache_head *citem)
-> {
-> @@ -125,7 +133,7 @@ static void ip_map_init(struct cache_hea
->     struct ip_map *item = container_of(citem, struct ip_map, h);
+> Thanks !
+> Ben.
 > 
->     strcpy(new->m_class, item->m_class);
-> -    new->m_addr.s_addr = item->m_addr.s_addr;
-> +    ipv6_addr_copy(&(new->m_addr), &(item->m_addr));
+>> +static struct mii_phy_ops m88e1111_phy_ops = {
+>> +	.init		= m88e1111_init,
+>> +	.setup_aneg	= genmii_setup_aneg,
+>> +	.setup_forced	= genmii_setup_forced,
+>> +	.poll_link	= genmii_poll_link,
+>> +	.read_link	= genmii_read_link
+>> +};
+>> +
+>> +static struct mii_phy_def m88e1111_phy_def = {
+>> +
+>> +	.phy_id		= 0x01410CC0,
+>> +	.phy_id_mask	= 0x0ffffff0,
+>> +	.name		= "Marvell 88E1111 Ethernet",
+>> +	.ops		= &m88e1111_phy_ops,
+>> +};
+>> +
+>>  static struct mii_phy_def *mii_phy_table[] = {
+>>  	&cis8201_phy_def,
+>> +	&bcm5248_phy_def,
+>> +	&m88e1111_phy_def,
+>>  	&genmii_phy_def,
+>>  	NULL
+>>  };
+> 
 
-Extra () here.
-
-> @@ -651,7 +694,7 @@ svcauth_unix_set_client(struct svc_rqst
->     ipm = ip_map_cached_get(rqstp);
->     if (ipm == NULL)
->         ipm = ip_map_lookup(rqstp->rq_server->sv_program->pg_class,
-> -                    sin->sin_addr);
-> +                    &(sin6->sin6_addr));
-
-Extra () here.
-
--Brian
