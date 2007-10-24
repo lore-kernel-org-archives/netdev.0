@@ -1,58 +1,76 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 0/5] Diet struct net_device a bit
-Date: Tue, 23 Oct 2007 19:07:12 +0200
-Message-ID: <1193159232.7733.24.camel@johannes.berg>
-References: <471C9830.5070407@openvz.org>
-	 (sfid-20071022_133116_617054_8D3C9D5D)
+Subject: Re: on the topic of alternate MAC addresses
+Date: Wed, 24 Oct 2007 11:28:20 +0200
+Message-ID: <1193218100.5715.14.camel@johannes.berg>
+References: <20071023.180534.59659315.davem@davemloft.net>
+	 <471EAD01.5030502@garzik.org>
+	 <20071023.202210.74747025.davem@davemloft.net>
+	 (sfid-20071024_042230_590516_A46C28C9)
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-E93tH6xwXUde8v4OBhRQ"
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-3yTUIHP0DhNnYtRE1cH0"
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:48430 "EHLO
+Received: from crystal.sipsolutions.net ([195.210.38.204]:35073 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752572AbXJXIgk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 04:36:40 -0400
-In-Reply-To: <471C9830.5070407@openvz.org> (sfid-20071022_133116_617054_8D3C9D5D)
+	with ESMTP id S1750711AbXJXJ1B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 05:27:01 -0400
+In-Reply-To: <20071023.202210.74747025.davem@davemloft.net> (sfid-20071024_042230_590516_A46C28C9)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-E93tH6xwXUde8v4OBhRQ
+--=-3yTUIHP0DhNnYtRE1cH0
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2007-10-22 at 16:31 +0400, Pavel Emelyanov wrote:
+On Tue, 2007-10-23 at 20:22 -0700, David Miller wrote:
 
->  * ieee80211_ptr is used in many wireless drivers. Need time
->    to check for the config dependencies.
+> However, it's not the virt clients that do this, it's the control
+> node (aka: domain 0) which has to manage these things.
+>=20
+> It has to manage all of the global hardware resources and allocate
+> them out to itself and the clients anyways.
+>=20
+> And this is why I think it's sufficient to just publish the list of
+> MAC addresses from the driver, and leave the allocation and policy
+> to the userland virtualizatin daemon running on the control node.
 
-Depending on CFG80211 should be fine, if not that's a bug elsewhere.
+=46rom a wireless angle, however, it's not sufficient. It appears that
+there are some wireless cards that have multiple MAC addresses in their
+EEPROM (or a way to generate multiple, by e.g. the vendor assigning only
+even addresses and reserving odd ones). Then, bringing up a second,
+third, ... virtual wireless interface should for best usability choose
+an alternate address if the same one cannot be used due to restrictions.
+
+We can probably manage this issue in userspace, in fact, for AP mode we
+require proper configuration in hostapd, but it seems that some sort of
+reservation system would be easier for multiple virtual station
+interfaces when supported (currently no driver does).
 
 johannes
 
---=-E93tH6xwXUde8v4OBhRQ
+--=-3yTUIHP0DhNnYtRE1cH0
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iQIVAwUARx4qP6Vg1VMiehFYAQKfrg/9EoRyoTa/K3SGlcg7uRLn5+csOvEEmdyQ
-1tDeu73xEtlVXk4NtJQ9V/n6Z5AOWKovmB/F7n+a+2d9/fs9IfRQIIgPlZ1ouH/e
-yNLzyUVZYKwF1PK77wk8mSiTlnrDFnL/iTDx4KJSE7oTmoT3ceDeFvb6NlTtepdO
-lAkOv7wEf3Hc7GP4FMZ//qq44PKtVF7sYbdsVDooINa7hYk2fs87fViLFEicqyZL
-OtWftNcJ29Ko9ql0yRUH9MsUdpWImUg25oRVE2ZX9J9LsPu489T1qG3qABf1le7N
-sKl6NykouGe4S0sFSaNlFp2aPVETe+gLKssugey1CAO7RhJm0a5h99u88cmZzryF
-8yLD8DOrc6sOnKDQ5mqcpcmTiSj+OpxoY0nqVrtbVrVHhISE/I0o19OvMlGKajtz
-PV8yFnJ8nE2MsPU6hLksWiI7lQ71X+jS/Am0TTRtML6mYIGsp6jHHa71Id4Iu8HS
-51OPNpUjlf3HrohqQFxQ2phB7MI3F9MPGWP6XZuOyGvHApPHcELYkqHjwpCywsBb
-9lUGHbZfjPi2J2+3KvUwqQINTuKYid65xxG5jFylTtA58bal4igdG1wt8ugZN9la
-je4LhdT7zBaXkdRbNL55fDR2AHP2an3EGzYF4ySrDcBQt19pCEBTtj9fWR/MtB5c
-ciUNWz6qKCo=
-=tfC+
+iQIVAwUARx8QM6Vg1VMiehFYAQJGUBAAjmjnM+xyC2DpgTnMGO41fJB8APn/JgAF
+GrjP5honPuHnbEMJVA695EGJRXP0cF74/ZL/bnPgslygwDzusLHr+RK8AjCaaNlh
+ShAE7T2shjHAPMfj7B2mxBD4eQz5hCsaFREczGAhfUjsnNXgMP1vQeZ84KWvlww5
+pICMFEUWzNnDMFu04a2tr3t6cg3QQpbYcLaMebl2ARIid4TOvc+mpEEtLYwPp4lh
+Dk/es9ZcvgjqV5YjAZBBLiL5imNqG/dd/ckoSP2oLgwc8UzkruXbrgtrMzisXjE7
+je9BvfYIr7S/WmwEmSfC76uTAMZdhmiuKTjp4K2/mYlryZyAaot6YtpsZs+MC1mH
+MS+kFv/U/XaHrm1oSLrWSn3dVfcvtM6PjjibeSLKoRAb9ukT9ujsosUqA7/RI6ck
+imxt8vG865jVw6BhWhPnHVEv7Lb1cA7+3SdALBEYy4in5yH6+Dt6/kFM2ZMMV3+j
+r1RS2FW15I21TzWQj5M0mcdUYrcGG13UL3ZsLTLaYk9fuoVoJum7vOlHsN7ow4Ah
+LkXvLGayRHHE6obm0FDgT5WdU9pReAH5cbpuqmEjAdnRI7qDXKsCydEKXZEKiGNh
+ywASFnOeyRs+NqOfUqROqiCYsiMkMsxg9vXwJaYK2F5QmOF5tPIqTwcJ9sPECM8o
+/N7/AgOv6wE=
+=NLyK
 -----END PGP SIGNATURE-----
 
---=-E93tH6xwXUde8v4OBhRQ--
+--=-3yTUIHP0DhNnYtRE1cH0--
 
