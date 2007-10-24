@@ -1,51 +1,36 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] e1000, e1000e valid-addr fixes
-Date: Tue, 23 Oct 2007 21:03:36 -0400
-Message-ID: <471E99E8.6030404@garzik.org>
-References: <471E2AD0.1000500@intel.com>	<471E5C21.8030908@garzik.org>	<20071023212026.GF7793@redhat.com> <20071023.145339.55504234.davem@davemloft.net> <471E9801.2000006@garzik.org>
+From: David Miller <davem@davemloft.net>
+Subject: on the topic of alternate MAC addresses
+Date: Tue, 23 Oct 2007 18:05:34 -0700 (PDT)
+Message-ID: <20071023.180534.59659315.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, davej@redhat.com,
-	auke-jan.h.kok@intel.com, ajax@redhat.com,
-	linux-kernel@vger.kernel.org
+Cc: jeff@garzik.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39594 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753872AbXJXBDi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2007 21:03:38 -0400
-In-Reply-To: <471E9801.2000006@garzik.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52244
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752546AbXJXBFH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 21:05:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Actually, looking over the code I see obvious bugs in the logic:
-> 
-> An invalid ethernet address should not cause device loading to fail, 
-> because the user is given the opportunity to supply a MAC address via 
-> userspace (ifconfig or whatever) before the interface goes up.
-> 
-> I just created the attached -bug fix- patch as illustration, though I 
-> have not committed it, waiting for comment.
-> 
-> This patch will make no difference for users hitting invalid-eep-csum 
-> rather than invalid-MAC-addr condition, but it's a problem I noticed 
-> while reviewing Adam's patch in detail.
 
+I've been meaning to bring this up.
 
-Adding my own comment :)
+A lot of cards that support multiple MAC addresses
+in hardware provide pre-cooked lists of alternate
+MAC addresses.  This is either done via EEPROM,
+NVRAM, or OpenFirmware device properties.
 
-Does the ethernet stack check is_valid_ether_addr() before permitting 
-interface-up?
+For example, the Sun Neptune cards can provide an
+array of up to 16 alternate MAC addresses per-port.
 
-I'm wondering if there is a way to avoid adding
+We should provide a way to export these lists to
+userspace.
 
-	if (!is_valid_ether_addr(dev->dev_addr))
-		return -EINVAL;
+Perhaps an ethtool thing, Jeff?
 
-to every ethernet driver's ->open() hook.
-
-	Jeff
-
-
+Once we have this, virtualization implementations can probe for and
+use them.  Currently they have no way to discover these things so
+probably they just generate their own using some algorithm.
