@@ -1,45 +1,45 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] defxx.c: dfx_bus_init() is __devexit not __devinit
-Date: Tue, 23 Oct 2007 20:23:35 -0400
-Message-ID: <471E9087.7030309@pobox.com>
-References: <Pine.LNX.4.64N.0710221809350.988@blysk.ds.pg.gda.pl>
+Subject: Re: [PATCH] pasemi_mac: fix typo
+Date: Tue, 23 Oct 2007 20:23:42 -0400
+Message-ID: <471E908E.8080409@pobox.com>
+References: <20071020191003.GB30034@lixom.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Olof Johansson <olof@lixom.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36027 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:36033 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755577AbXJXAXn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2007 20:23:43 -0400
-In-Reply-To: <Pine.LNX.4.64N.0710221809350.988@blysk.ds.pg.gda.pl>
+	id S1755625AbXJXAXq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2007 20:23:46 -0400
+In-Reply-To: <20071020191003.GB30034@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Maciej W. Rozycki wrote:
->  The dfx_bus_uninit() call is called from dfx_unregister() which is 
-> __devexit and which is ultimately the ->remove call for the device.
+Olof Johansson wrote:
+> Add missing &:
 > 
-> Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
-> ---
->  It should be obvious.  Please apply.
+> drivers/net/pasemi_mac.c: In function 'pasemi_mac_clean_rx':
+> drivers/net/pasemi_mac.c:553: warning: passing argument 1 of 'prefetch'
+> makes pointer from integer without a cast
 > 
->   Maciej
 > 
-> patch-mips-2.6.23-rc5-20070904-defxx-devexit-0
-> diff -up --recursive --new-file linux-mips-2.6.23-rc5-20070904.macro/drivers/net/defxx.c linux-mips-2.6.23-rc5-20070904/drivers/net/defxx.c
-> --- linux-mips-2.6.23-rc5-20070904.macro/drivers/net/defxx.c	2007-09-04 04:55:41.000000000 +0000
-> +++ linux-mips-2.6.23-rc5-20070904/drivers/net/defxx.c	2007-10-12 00:21:35.000000000 +0000
-> @@ -806,7 +806,7 @@ static void __devinit dfx_bus_init(struc
->   *   Interrupts are disabled at the adapter bus-specific logic.
->   */
+> Signed-off-by: Olof Johansson <olof@lixom.net>
+> 
+> diff --git a/drivers/net/pasemi_mac.c b/drivers/net/pasemi_mac.c
+> index 9f9a421..ab4d309 100644
+> --- a/drivers/net/pasemi_mac.c
+> +++ b/drivers/net/pasemi_mac.c
+> @@ -550,7 +550,7 @@ static int pasemi_mac_clean_rx(struct pasemi_mac *mac, int limit)
 >  
-> -static void __devinit dfx_bus_uninit(struct net_device *dev)
-> +static void __devexit dfx_bus_uninit(struct net_device *dev)
->  {
->  	DFX_board_t *bp = netdev_priv(dev);
+>  	n = mac->rx->next_to_clean;
+>  
+> -	prefetch(RX_RING(mac, n));
+> +	prefetch(&RX_RING(mac, n));
+>  
+>  	for (count = 0; count < limit; count++) {
+>  		macrx = RX_RING(mac, n);
 
 applied
 
