@@ -1,34 +1,33 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [2.6 patch] make tcp_match_skb_to_sack() static
-Date: Thu, 25 Oct 2007 00:39:23 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0710242102530.11009@kivilampi-30.cs.helsinki.fi>
-References: <20071024162358.GA30533@stusta.de>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 13/13] r8169: more phy init for the 8168
+Date: Thu, 25 Oct 2007 00:14:38 +0200
+Message-ID: <20071024221438.GB6189@electric-eye.fr.zoreil.com>
+References: <20071018204846.GC8594@electric-eye.fr.zoreil.com> <20071018210224.GN31724@electric-eye.fr.zoreil.com> <471F1067.50403@lincor.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Adrian Bunk <bunk@kernel.org>, David Miller <davem@davemloft.net>
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	Edward Hsu <edward_hsu@realtek.com.tw>
+To: Glen Gray <glen.gray@lincor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:45013 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753745AbXJXVkg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 17:40:36 -0400
-In-Reply-To: <20071024162358.GA30533@stusta.de>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:43682 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755317AbXJXWUw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 18:20:52 -0400
+Content-Disposition: inline
+In-Reply-To: <471F1067.50403@lincor.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 24 Oct 2007, Adrian Bunk wrote:
+Glen Gray <glen.gray@lincor.com> :
+> Are any of these likely to fix the Ethernet multicast issues a few of us 
+> have seen with 8110sc cards ?
 
-> tcp_match_skb_to_sack() can become static.
-> 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
->
-[...snip...]
+No, this serie is not expected to.
 
-Thanks, I should have noticed that right from the beginning...
+I have planned to work on it again during the bugfix phase of 2.6.24-rc.
 
-Added DaveM to recipients.
+Is it still an option for you to use the old realtek driver + bandaid
+(no pun) in the meantime ?
 
 -- 
- i.
+Ueimor
