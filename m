@@ -1,48 +1,54 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [PATCH] e1000, e1000e valid-addr fixes
-Date: Wed, 24 Oct 2007 03:15:35 +0200
-Message-ID: <20071024011535.GZ30533@stusta.de>
-References: <471E2AD0.1000500@intel.com> <471E5C21.8030908@garzik.org> <20071023212026.GF7793@redhat.com> <20071023.145339.55504234.davem@davemloft.net> <471E9801.2000006@garzik.org>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH 1/6] Convert bonding timers to workqueues
+Date: Tue, 23 Oct 2007 21:13:49 -0400
+Message-ID: <20071024011349.GL9140@gospo.rdu.redhat.com>
+References: <1192667871139-git-send-email-fubar@us.ibm.com> <1192667875793-git-send-email-fubar@us.ibm.com> <471E94F3.5050407@garzik.org> <7923.1193187601@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, davej@redhat.com,
-	auke-jan.h.kok@intel.com, ajax@redhat.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	andy@greyhouse.net
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:40274 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752454AbXJXBPI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 21:15:08 -0400
+Received: from mx2.redhat.com ([66.187.237.31]:40413 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752807AbXJXBSg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2007 21:18:36 -0400
 Content-Disposition: inline
-In-Reply-To: <471E9801.2000006@garzik.org>
+In-Reply-To: <7923.1193187601@death>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 23, 2007 at 08:55:29PM -0400, Jeff Garzik wrote:
-> Actually, looking over the code I see obvious bugs in the logic:
->
-> An invalid ethernet address should not cause device loading to fail, 
-> because the user is given the opportunity to supply a MAC address via 
-> userspace (ifconfig or whatever) before the interface goes up.
+On Tue, Oct 23, 2007 at 06:00:01PM -0700, Jay Vosburgh wrote:
+> Jeff Garzik <jeff@garzik.org> wrote:
 > 
-> I just created the attached -bug fix- patch as illustration, though I have 
-> not committed it, waiting for comment.
->...
+> >applied patches 1-6
+> 
+> 	Thanks.
+> 
+> >However, two issues:
+> >
+> >1) Credit.  Did Andy write these, as the Signed-off-by lines indicate? 
+> 
+> 	Andy did some of it and I did some of it, so I presume that dual
 
-Is there a good reason why we have such checks duplicated in the drivers 
-(with every driver doing it differently...) instead of doing it in 
-net/core/dev.c?
+I was just getting ready to post the same thing.  Jay beat me to it!
 
-> 	Jeff
+> Signed-off-by is correct (vs. one Signed-off and one Acked).
+> 
 
-cu
-Adrian
+I figured the dual 'Signed-off-by:' was the best way too since I didn't
+think Linus had dual 'From:' lines.
 
--- 
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+> >2) vague subject line. [...]
+> 
+> 	Sorry about that; will keep it in mind next time.
+> 
+> 	-J
+> 
+> ---
+> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
