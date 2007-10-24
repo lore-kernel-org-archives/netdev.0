@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] Use BUILD_BUG_ON in net/core/flowi.c
-Date: Tue, 23 Oct 2007 21:15:56 -0700 (PDT)
-Message-ID: <20071023.211556.38711526.davem@davemloft.net>
-References: <471CC196.50607@openvz.org>
+Subject: Re: [PATCH] Explicitly call fib_get_table() in fib_frontend.c
+Date: Tue, 23 Oct 2007 21:17:36 -0700 (PDT)
+Message-ID: <20071023.211736.35012964.davem@davemloft.net>
+References: <471CC814.9040002@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, devel@openvz.org
 To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58822
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58825
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752016AbXJXEQM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 00:16:12 -0400
-In-Reply-To: <471CC196.50607@openvz.org>
+	by vger.kernel.org with ESMTP id S1752118AbXJXERw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 00:17:52 -0400
+In-Reply-To: <471CC814.9040002@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Pavel Emelyanov <xemul@openvz.org>
-Date: Mon, 22 Oct 2007 19:28:22 +0400
+Date: Mon, 22 Oct 2007 19:56:04 +0400
 
-> Instead of ugly extern not-existing function.
-
-I can take credit for this turd.  Hey, it was the accepted way to do
-compile time assertions at the time :-)
-
+> In case the "multiple tables" config option is y, the ip_fib_local_table
+> is not a variable, but a macro, that calls fib_get_table(RT_TABLE_LOCAL).
+> 
+> Some code uses this "variable" *3* times in one place, thus implicitly
+> making 3 calls. Fix it.
+> 
 > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Applied!
+Good catch, applied.
