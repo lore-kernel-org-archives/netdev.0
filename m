@@ -1,35 +1,37 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] dev_change_name: ignore changes to same name
-Date: Wed, 24 Oct 2007 06:44:45 -0700
-Message-ID: <20071024064445.52b1e84e@shemminger-laptop>
+Subject: Re: [PATCH] NET: Validate device addr prior to interface-up
+Date: Wed, 24 Oct 2007 06:46:40 -0700
+Message-ID: <20071024064640.3f6dcc7d@shemminger-laptop>
+References: <20071024023313.GA19263@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:56360 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:60698 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752624AbXJXNo4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 09:44:56 -0400
+	by vger.kernel.org with ESMTP id S1757635AbXJXNq5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 09:46:57 -0400
+In-Reply-To: <20071024023313.GA19263@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Prevent error/backtrace from dev_rename() when changing
-name of network device to the same name. This is a common
-situation with udev and other scripts that bind addr to device.
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+> index ed8a3d4..5471cd2 100644
+> --- a/net/ethernet/eth.c
+> +++ b/net/ethernet/eth.c
+> @@ -298,6 +298,14 @@ static int eth_change_mtu(struct net_device *dev, int new_mtu)
+>  	return 0;
+>  }
+>  
+> +static int eth_validate_addr(struct net_device *dev)
+> +{
+> +	if (!is_valid_ether_addr(dev->dev_addr))
+> +		return -EINVAL;
+> +	
+> +	return 0;
+> +}
 
---- a/net/core/dev.c	2007-10-24 06:01:31.000000000 -0700
-+++ b/net/core/dev.c	2007-10-24 06:41:18.000000000 -0700
-@@ -885,6 +885,9 @@ int dev_change_name(struct net_device *d
- 	if (!dev_valid_name(newname))
- 		return -EINVAL;
- 
-+	if (strncmp(newname, dev->name, IFNAMSIZ) == 0)
-+		return 0;
-+
- 	memcpy(oldname, dev->name, IFNAMSIZ);
- 
- 	if (strchr(newname, '%')) {
+Shouldn't this be "const struct net_device *dev"
