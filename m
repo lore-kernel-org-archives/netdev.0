@@ -1,72 +1,55 @@
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
-Subject: Re: [BUG] 2.6.23-git19 - S390x: Kernel panic while bringing up the
-	network interface
-Date: Wed, 24 Oct 2007 07:06:33 +0200
-Message-ID: <20071024050633.GA12335@osiris.boeblingen.de.ibm.com>
-References: <471EBC02.5000907@linux.vnet.ibm.com>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: [PATCH] Add eeprom_bad_csum_allow module option to e1000.
+Date: Wed, 24 Oct 2007 01:38:15 -0400
+Message-ID: <20071024053815.GC28298@redhat.com>
+References: <11931515302013-git-send-email-ajax@redhat.com> <471E1ECD.80002@intel.com> <1193156487.26974.39.camel@localhost.localdomain> <471E2AD0.1000500@intel.com> <471E5C21.8030908@garzik.org> <20071023212026.GF7793@redhat.com> <471E7DCA.9030700@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux390@de.ibm.com, linux-s390@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andy Whitcroft <apw@shadowen.org>
-To: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, Adam Jackson <ajax@redhat.com>,
+	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.de.ibm.com ([195.212.29.152]:35292 "EHLO
-	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753724AbXJXFGf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 01:06:35 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:54289 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750893AbXJXFlK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Oct 2007 01:41:10 -0400
 Content-Disposition: inline
-In-Reply-To: <471EBC02.5000907@linux.vnet.ibm.com>
+In-Reply-To: <471E7DCA.9030700@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 24, 2007 at 08:59:06AM +0530, Kamalesh Babulal wrote:
-> Hi,
->=20
-> Kernel panic's while bringing up the network interface with the 2.6.2=
-3-git19
->=20
-> Setting network parameters:  =DD  OK  =A8
-> Bringing up loopback interface:  =DD  OK  =A8
-> Bringing up interface eth0:
->  =DD<00000000002e2f72>=A8 inet_ioctl+0xd6/0x110
->  =DD<000000000027cae2>=A8 sock_ioctl+0x26e/0x2a0
->  =DD<00000000000b4c52>=A8 do_ioctl+0x4a/0xac
->  =DD<00000000000b5076>=A8 vfs_ioctl+0x3c2/0x3d8
->  =DD<00000000000b50ec>=A8 sys_ioctl+0x60/0x88
->  =DD<0000000000021b7e>=A8 sysc_noemu+0x10/0x16
->  =DD<00000200001201ca>=A8 0x200001201ca
->=20
->  <0>Kernel panic - not syncing: Fatal exception in interrupt
-> 00: HCPGSP2629I The virtual machine is placed in CP mode due to a SIG=
-P stop from
->  CPU 01.
-> 02: HCPGSP2629I The virtual machine is placed in CP mode due to a SIG=
-P stop from
->  CPU 01.
-> 03: HCPGSP2629I The virtual machine is placed in CP mode due to a SIG=
-P stop from
->  CPU 01.
-> 01: HCPGIR450W CP entered; disabled wait PSW 00020001 80000000 000000=
-00 000164DE
+On Tue, Oct 23, 2007 at 04:03:38PM -0700, Kok, Auke wrote:
+ > Dave Jones wrote:
+ > > On Tue, Oct 23, 2007 at 04:40:01PM -0400, Jeff Garzik wrote:
+ > > 
+ > >  > > In any case, this patch should not be merged. We often send it around to users to
+ > >  > > debug their issue in case it involves eeproms, but merging it will just conceal
+ > >  > > the real issue and all of a sudden a flood of people stop reporting *real* issues
+ > >  > > to us.
+ > >  > 
+ > >  > Sorry, I disagree.  Just as with e100, if there is a clear way the user 
+ > >  > can recover their setup -- and Adam says his was effective -- I don't 
+ > >  > see why we should be denying users the ability to use their own hardware.
+ > >  
+ > > Indeed. This is a common enough problem that not including it causes more pain
+ > > than its worth.  I have two affected boxes myself that I actually thought
+ > > the hardware was dead before I tried ajax's patch.
+ > 
+ > 
+ > look: You should have reported this to us and you didn't. Now you are using the
+ > fact that you did not report it as an argument which is out of place.
 
-That should be fixed with this one:
+you're missing the point.  It looks like a hardware failure. Why would I report this? 
 
-commit f1ecfd5d3b69d98b814435758c485e6fd0e112de
-Author: Ursula Braun <braunu@de.ibm.com>
-Date:   Mon Oct 22 16:16:14 2007 +0200
+ > why do you say it is common? how often have you seen this and not reported it back
+ > to our support? are you willingly trying to frustrate this issue?
 
-    remove header_ops bug in qeth driver
-   =20
-    Remove qeth bug caused by commit:
-    [NET]: Move hardware header operations out of netdevice.
-   =20
-    This is the second part of the qeth header_ops patch, since
-    first patch sent 10/19 has been insufficient.
-    Nevertheless first patch is still valid and should be kept.
-   =20
-    Signed-off-by: Ursula Braun <braunu@de.ibm.com>
-    Signed-off-by: Jeff Garzik <jeff@garzik.org>
+Not at all. The only frustration here is that I used to have a kernel that
+worked, upgraded, and thought that my hardware was broken.
+How many other users thought the same ?
 
-Patch is in -rc1. Could you please pull and try again? Thanks.
+	Dave
+
+-- 
+http://www.codemonkey.org.uk
