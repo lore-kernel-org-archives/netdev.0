@@ -1,73 +1,45 @@
 From: David Stevens <dlstevens@us.ibm.com>
 Subject: Re: [2.6 patch] unexport icmpmsg_statistics
-Date: Wed, 24 Oct 2007 12:29:01 -0700
-Message-ID: <OF621D1730.3D3366AC-ON8825737E.0069CDD5-8825737E.006AEDF9@us.ibm.com>
-References: <20071024191437.GF30533@stusta.de>
+Date: Wed, 24 Oct 2007 13:11:02 -0700
+Message-ID: <OF4D25AE59.ADF06793-ON8825737E.006DD213-8825737E.006EC6C3@us.ibm.com>
+References: <OF621D1730.3D3366AC-ON8825737E.0069CDD5-8825737E.006AEDF9@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+Cc: Adrian Bunk <bunk@kernel.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:50242 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753323AbXJXT3G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 15:29:06 -0400
-In-Reply-To: <20071024191437.GF30533@stusta.de>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:45838 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753146AbXJXULL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 16:11:11 -0400
+In-Reply-To: <OF621D1730.3D3366AC-ON8825737E.0069CDD5-8825737E.006AEDF9@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netdev-owner@vger.kernel.org wrote on 10/24/2007 12:14:37 PM:
+I took a look at the DCCP references, and I think they're just
+incrementing the wrong MIB variable -- e.g., it's incrementing
+ICMP_MIB_INERRORS when the skb length is less than the
+header indicates. That's not an ICMP_MIB_INERRORS error,
+that's an IPSTATS_MIB_INHDRERRORS error. ICMP_MIB_INERRORS
+is when you receive an ICMP error packet; an IP header error
+is something else entirely.
 
-> On Wed, Oct 24, 2007 at 12:07:45PM -0700, David Stevens wrote:
-> > netdev-owner@vger.kernel.org wrote on 10/24/2007 09:24:10 AM:
-> > 
-> > > This patch removes the unused EXPORT_SYMBOL(icmpmsg_statistics).
-> > > 
-> > > Signed-off-by: Adrian Bunk <bunk@kernel.org>
-> > > 
-> > > ---
-> > > 4ce74657ac0b1bdcb4c7bc359d05643f8cc4a08b 
-> > > diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-> > > index 272c69e..233de06 100644
-> > > --- a/net/ipv4/icmp.c
-> > > +++ b/net/ipv4/icmp.c
-> > > @@ -1104,5 +1104,4 @@ void __init icmp_init(struct net_proto_family 
-> > *ops)
-> > >  EXPORT_SYMBOL(icmp_err_convert);
-> > >  EXPORT_SYMBOL(icmp_send);
-> > >  EXPORT_SYMBOL(icmp_statistics);
-> > > -EXPORT_SYMBOL(icmpmsg_statistics);
-> > >  EXPORT_SYMBOL(xrlim_allow);
-> > 
-> >         "icmpmsg_statistics" belongs with (and replaces some of the 
-> > old...)
-> > "icmp_statistics". I'm not sure that any modules use it, but I think 
-you
-> > should remove both or neither.
-> 
-> icmp_statistics is used by the dccp_ipv4 and sctp modules.
+That's followed by a failed lookup incrementing ICMP_MIB_INERRORS
+which should be an unknown port error in the transport MIB (assuming
+it has one-- it's not an ICMP error; could be an IP error, if the address
+isn't local, rather than unknown port).
 
-        The only items left in icmp_statistics are "InMsgs, InErrs, 
-OutMsgs, OutErrs",
-so if dccp and sctp are sending or receiving any in or out ICMP messages, 
-they
-should be using the new macros (which reference icmpmsg_statistics, not
-icmp_statistics) to count them.
-        I took a quick look at SCTP. I don't know if that's going through 
-icmp_rcv()
-or not; if so, I think it's double-counting; if not, then it isn't 
-counting the
-individual types (as it should), and it should have ICMPMSG macros doing 
-that.
+In SCTP, it appears to have similar problems. SCTP errors are not
+ICMP errors, though it perhaps should be calling icmp_send() to
+send one to the offending host for some of the cases.
 
-        So, again, icmpmsg_statistics either should stay exported, or 
-neither
-icmpmsg_statistics nor icmp_statistics should be exported (depending on 
-how
-SCTP and DCCP code is resolved). It's incorrect in the current code to
-incrememnt ICMP_MIB_INMSGS without incrementing one of the types too.
+I haven't seen any ICMP-relevant stats correctly referenced in
+these yet.
 
- +-DLS
+I don't want to patch them directly, since I can't easily test them;
+if someone who works with DCCP and SCTP would like to, I'd
+be happy to review. Any volunteers?
 
+                                                +-DLS
 
