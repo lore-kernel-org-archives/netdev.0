@@ -1,44 +1,48 @@
-From: David Miller <davem@davemloft.net>
+From: Adrian Bunk <bunk@kernel.org>
 Subject: Re: [PATCH] e1000, e1000e valid-addr fixes
-Date: Tue, 23 Oct 2007 18:07:44 -0700 (PDT)
-Message-ID: <20071023.180744.115914004.davem@davemloft.net>
-References: <20071023.145339.55504234.davem@davemloft.net>
-	<471E9801.2000006@garzik.org>
-	<471E99E8.6030404@garzik.org>
+Date: Wed, 24 Oct 2007 03:15:35 +0200
+Message-ID: <20071024011535.GZ30533@stusta.de>
+References: <471E2AD0.1000500@intel.com> <471E5C21.8030908@garzik.org> <20071023212026.GF7793@redhat.com> <20071023.145339.55504234.davem@davemloft.net> <471E9801.2000006@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davej@redhat.com, auke-jan.h.kok@intel.com,
-	ajax@redhat.com, linux-kernel@vger.kernel.org
-To: jeff@garzik.org
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, davej@redhat.com,
+	auke-jan.h.kok@intel.com, ajax@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34283
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752807AbXJXBHR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 21:07:17 -0400
-In-Reply-To: <471E99E8.6030404@garzik.org>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:40274 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752454AbXJXBPI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 21:15:08 -0400
+Content-Disposition: inline
+In-Reply-To: <471E9801.2000006@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Tue, 23 Oct 2007 21:03:36 -0400
-
-> I'm wondering if there is a way to avoid adding
+On Tue, Oct 23, 2007 at 08:55:29PM -0400, Jeff Garzik wrote:
+> Actually, looking over the code I see obvious bugs in the logic:
+>
+> An invalid ethernet address should not cause device loading to fail, 
+> because the user is given the opportunity to supply a MAC address via 
+> userspace (ifconfig or whatever) before the interface goes up.
 > 
-> 	if (!is_valid_ether_addr(dev->dev_addr))
-> 		return -EINVAL;
-> 
-> to every ethernet driver's ->open() hook.
+> I just created the attached -bug fix- patch as illustration, though I have 
+> not committed it, waiting for comment.
+>...
 
-The first idea I get is:
+Is there a good reason why we have such checks duplicated in the drivers 
+(with every driver doing it differently...) instead of doing it in 
+net/core/dev.c?
 
-1) Create netdev->validate_dev_addr().
+> 	Jeff
 
-2) If it exists, invoke it before ->open(), abort
-   and return if any errors signaled.
+cu
+Adrian
 
-etherdev init hooks up a function that does the above
-check, which allows us to avoid editing every ethernet
-driver
+-- 
 
-What do you think?
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
