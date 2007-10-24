@@ -1,48 +1,57 @@
-From: David Stevens <dlstevens@us.ibm.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
 Subject: Re: [2.6 patch] unexport icmpmsg_statistics
-Date: Wed, 24 Oct 2007 13:43:14 -0700
-Message-ID: <OF03E20988.736A2E51-ON8825737E.007067FE-8825737E.0071B902@us.ibm.com>
-References: <471FAA03.9090003@hp.com>
+Date: Wed, 24 Oct 2007 16:52:29 -0400
+Message-ID: <471FB08D.9070506@hp.com>
+References: <OF4D25AE59.ADF06793-ON8825737E.006DD213-8825737E.006EC6C3@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: Adrian Bunk <bunk@kernel.org>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:58582 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755919AbXJXUnS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 16:43:18 -0400
-In-Reply-To: <471FAA03.9090003@hp.com>
+Received: from atlrel7.hp.com ([156.153.255.213]:56657 "EHLO atlrel7.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752922AbXJXUxB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Oct 2007 16:53:01 -0400
+In-Reply-To: <OF4D25AE59.ADF06793-ON8825737E.006DD213-8825737E.006EC6C3@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-My bad -- I see what it's doing, and it looks ok after all.
+David Stevens wrote:
+> I took a look at the DCCP references, and I think they're just
+> incrementing the wrong MIB variable -- e.g., it's incrementing
+> ICMP_MIB_INERRORS when the skb length is less than the
+> header indicates. That's not an ICMP_MIB_INERRORS error,
+> that's an IPSTATS_MIB_INHDRERRORS error. ICMP_MIB_INERRORS
+> is when you receive an ICMP error packet; an IP header error
+> is something else entirely.
 
-I thought I saw an INMSGS (but didn't).  These are ICMP errors that
-went through icmp_rcv() and were counted correctly before getting
-to the protocol error handlers. These are failures due mostly to not
-having enough, or the right protocol info in the error packet being
-handled. I'm not sure I'd count those as ICMP errors, since the
-ICMP header itself is correct, but ok...
+Looking at icmp_rcv(), ICMP_MIB_INERRORS is incremented if:
+ a) checksum fails
+ b) no enough room in skb for icmp header
+ c) type out of bound
+ and other error conditions while processing ICMP packet.
 
-SCTP doesn't look so bad, though I think the references are
-still questionable (but debatable) as ICMP errors.
+Are all of these wrong as well?
 
-sctp_v4_err is incrementing ICMP_MIB_INERRORS if there
-isn't enough IP header to find the ports, I see. I'm not sure
-that counts as an ICMP error, but it's not so terrible.
+There are other places that increment this statistic for errors
+during processing.
 
-It's doing the same thing if a lookup fails to match "vtag" from
-the encapsulated error packet. Again, I don't know that those
-are ICMP errors (which normally are something wrong with
-the ICMP header).
+> 
+> That's followed by a failed lookup incrementing ICMP_MIB_INERRORS
+> which should be an unknown port error in the transport MIB (assuming
+> it has one-- it's not an ICMP error; could be an IP error, if the address
+> isn't local, rather than unknown port).
+> 
+> In SCTP, it appears to have similar problems. SCTP errors are not
+> ICMP errors, though it perhaps should be calling icmp_send() to
+> send one to the offending host for some of the cases.
 
-So, I stand corrected, and sorry about the histrionics. Since
-these are arguably ICMP errors, and since errors is the only
-thing being MIB-counted in DCCP and SCTP, then it now looks
-ok to me as-is, and also ok to remove icmpmsg_statistics from
-exporting.
+I'll skip the insufficient buffer space statistic yet, since, per above,
+it's not clear which one should be used.
 
-                                        +-DLS
+Others, I agree are move ULP errors, but the mibs don't account for those
+yet.
 
+-vlad
