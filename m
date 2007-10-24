@@ -1,37 +1,136 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] NET: Validate device addr prior to interface-up
-Date: Wed, 24 Oct 2007 06:46:40 -0700
-Message-ID: <20071024064640.3f6dcc7d@shemminger-laptop>
-References: <20071024023313.GA19263@havoc.gtf.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PATCH 1/3] [IPSEC]: Forbid BEET + ipcomp for now
+Date: Wed, 24 Oct 2007 22:59:52 +0800
+Message-ID: <E1Ikhi4-0002lv-00@gondolin.me.apana.org.au>
+References: <20071024145850.GA10589@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Joakim Koskela <joakim.koskela@hiit.fi>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:60698 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757635AbXJXNq5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 09:46:57 -0400
-In-Reply-To: <20071024023313.GA19263@havoc.gtf.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:1875 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751628AbXJXPAQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 11:00:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+[IPSEC]: Forbid BEET + ipcomp for now
 
-> diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-> index ed8a3d4..5471cd2 100644
-> --- a/net/ethernet/eth.c
-> +++ b/net/ethernet/eth.c
-> @@ -298,6 +298,14 @@ static int eth_change_mtu(struct net_device *dev, int new_mtu)
->  	return 0;
->  }
->  
-> +static int eth_validate_addr(struct net_device *dev)
-> +{
-> +	if (!is_valid_ether_addr(dev->dev_addr))
-> +		return -EINVAL;
-> +	
-> +	return 0;
-> +}
+While BEET can theoretically work with IPComp the current code can't do that
+because it tries to construct a BEET mode tunnel type which doesn't (and
+cannot) exist.  In fact as it is it won't even attach a tunnel object at
+all for BEET which is bogus.
 
-Shouldn't this be "const struct net_device *dev"
+To support this fully we'd also need to change the policy checks on input
+to recognise a plain tunnel as a legal variant of an optional BEET transform.
+
+This patch simply fails such constructions for now.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
+
+ net/ipv4/ipcomp.c  |   19 +++++++++++--------
+ net/ipv6/ipcomp6.c |   18 +++++++-----------
+ 2 files changed, 18 insertions(+), 19 deletions(-)
+
+diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
+index 0bfeb02..5059571 100644
+--- a/net/ipv4/ipcomp.c
++++ b/net/ipv4/ipcomp.c
+@@ -182,7 +182,6 @@ static void ipcomp4_err(struct sk_buff *skb, u32 info)
+ static struct xfrm_state *ipcomp_tunnel_create(struct xfrm_state *x)
+ {
+ 	struct xfrm_state *t;
+-	u8 mode = XFRM_MODE_TUNNEL;
+ 
+ 	t = xfrm_state_alloc();
+ 	if (t == NULL)
+@@ -193,9 +192,7 @@ static struct xfrm_state *ipcomp_tunnel_create(struct xfrm_state *x)
+ 	t->id.daddr.a4 = x->id.daddr.a4;
+ 	memcpy(&t->sel, &x->sel, sizeof(t->sel));
+ 	t->props.family = AF_INET;
+-	if (x->props.mode == XFRM_MODE_BEET)
+-		mode = x->props.mode;
+-	t->props.mode = mode;
++	t->props.mode = x->props.mode;
+ 	t->props.saddr.a4 = x->props.saddr.a4;
+ 	t->props.flags = x->props.flags;
+ 
+@@ -389,15 +386,21 @@ static int ipcomp_init_state(struct xfrm_state *x)
+ 	if (x->encap)
+ 		goto out;
+ 
++	x->props.header_len = 0;
++	switch (x->props.mode) {
++	case XFRM_MODE_TRANSPORT:
++		break;
++	case XFRM_MODE_TUNNEL:
++		x->props.header_len += sizeof(struct iphdr);
++	default:
++		goto out;
++	}
++
+ 	err = -ENOMEM;
+ 	ipcd = kzalloc(sizeof(*ipcd), GFP_KERNEL);
+ 	if (!ipcd)
+ 		goto out;
+ 
+-	x->props.header_len = 0;
+-	if (x->props.mode == XFRM_MODE_TUNNEL)
+-		x->props.header_len += sizeof(struct iphdr);
+-
+ 	mutex_lock(&ipcomp_resource_mutex);
+ 	if (!ipcomp_alloc_scratches())
+ 		goto error;
+diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
+index 80ef2a1..957e10a 100644
+--- a/net/ipv6/ipcomp6.c
++++ b/net/ipv6/ipcomp6.c
+@@ -190,7 +190,6 @@ static void ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ static struct xfrm_state *ipcomp6_tunnel_create(struct xfrm_state *x)
+ {
+ 	struct xfrm_state *t = NULL;
+-	u8 mode = XFRM_MODE_TUNNEL;
+ 
+ 	t = xfrm_state_alloc();
+ 	if (!t)
+@@ -204,9 +203,7 @@ static struct xfrm_state *ipcomp6_tunnel_create(struct xfrm_state *x)
+ 	memcpy(t->id.daddr.a6, x->id.daddr.a6, sizeof(struct in6_addr));
+ 	memcpy(&t->sel, &x->sel, sizeof(t->sel));
+ 	t->props.family = AF_INET6;
+-	if (x->props.mode == XFRM_MODE_BEET)
+-		mode = x->props.mode;
+-	t->props.mode = mode;
++	t->props.mode = x->props.mode;
+ 	memcpy(t->props.saddr.a6, x->props.saddr.a6, sizeof(struct in6_addr));
+ 
+ 	if (xfrm_init_state(t))
+@@ -405,22 +402,21 @@ static int ipcomp6_init_state(struct xfrm_state *x)
+ 	if (x->encap)
+ 		goto out;
+ 
+-	err = -ENOMEM;
+-	ipcd = kzalloc(sizeof(*ipcd), GFP_KERNEL);
+-	if (!ipcd)
+-		goto out;
+-
+ 	x->props.header_len = 0;
+ 	switch (x->props.mode) {
+-	case XFRM_MODE_BEET:
+ 	case XFRM_MODE_TRANSPORT:
+ 		break;
+ 	case XFRM_MODE_TUNNEL:
+ 		x->props.header_len += sizeof(struct ipv6hdr);
+ 	default:
+-		goto error;
++		goto out;
+ 	}
+ 
++	err = -ENOMEM;
++	ipcd = kzalloc(sizeof(*ipcd), GFP_KERNEL);
++	if (!ipcd)
++		goto out;
++
+ 	mutex_lock(&ipcomp6_resource_mutex);
+ 	if (!ipcomp6_alloc_scratches())
+ 		goto error;
