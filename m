@@ -1,53 +1,36 @@
-From: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
-Subject: [BUG] 2.6.23-git19 - S390x: Kernel panic while bringing up the network
- interface
-Date: Wed, 24 Oct 2007 08:59:06 +0530
-Message-ID: <471EBC02.5000907@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RESEND] ip_gre: sendto/recvfrom NBMA address
+Date: Tue, 23 Oct 2007 20:32:11 -0700 (PDT)
+Message-ID: <20071023.203211.85412772.davem@davemloft.net>
+References: <471E0638.9040405@trash.net>
+	<471E19E5.5040509@iki.fi>
+	<20071023190324.GA1267@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-s390@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Andy Whitcroft <apw@shadowen.org>
-To: linux390@de.ibm.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: timo.teras@iki.fi, kaber@trash.net, netdev@vger.kernel.org
+To: kuznet@ms2.inr.ac.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from E23SMTP04.au.ibm.com ([202.81.18.173]:33207 "EHLO
-	e23smtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752843AbXJXDbm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 23:31:42 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60120
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755402AbXJXDc0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 23:32:26 -0400
+In-Reply-To: <20071023190324.GA1267@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Date: Tue, 23 Oct 2007 23:03:24 +0400
 
-Kernel panic's while bringing up the network interface with the 2.6.23-=
-git19
+> Hello!
+> 
+> > When GRE tunnel is in NBMA mode, this patch allows an application to use
+> > a PF_PACKET socket to:
+> > - send a packet to specific NBMA address with sendto()
+> > - use recvfrom() to receive packet and check which NBMA address it came from
+> > 
+> > This is required to implement properly NHRP over GRE tunnel.
+> 
+> Ack. This is good idea.
 
-Setting network parameters:  =DD  OK  =A8
-Bringing up loopback interface:  =DD  OK  =A8
-Bringing up interface eth0:
- =DD<00000000002e2f72>=A8 inet_ioctl+0xd6/0x110
- =DD<000000000027cae2>=A8 sock_ioctl+0x26e/0x2a0
- =DD<00000000000b4c52>=A8 do_ioctl+0x4a/0xac
- =DD<00000000000b5076>=A8 vfs_ioctl+0x3c2/0x3d8
- =DD<00000000000b50ec>=A8 sys_ioctl+0x60/0x88
- =DD<0000000000021b7e>=A8 sysc_noemu+0x10/0x16
- =DD<00000200001201ca>=A8 0x200001201ca
-
- <0>Kernel panic - not syncing: Fatal exception in interrupt
-00: HCPGSP2629I The virtual machine is placed in CP mode due to a SIGP =
-stop from
- CPU 01.
-02: HCPGSP2629I The virtual machine is placed in CP mode due to a SIGP =
-stop from
- CPU 01.
-03: HCPGSP2629I The virtual machine is placed in CP mode due to a SIGP =
-stop from
- CPU 01.
-01: HCPGIR450W CP entered; disabled wait PSW 00020001 80000000 00000000=
- 000164DE
-
---=20
-Thanks & Regards,
-Kamalesh Babulal,
-Linux Technology Center,
-IBM, ISTL.
+Patch applied, thanks everyone!
