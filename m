@@ -1,33 +1,49 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 13/13] r8169: more phy init for the 8168
-Date: Thu, 25 Oct 2007 00:14:38 +0200
-Message-ID: <20071024221438.GB6189@electric-eye.fr.zoreil.com>
-References: <20071018204846.GC8594@electric-eye.fr.zoreil.com> <20071018210224.GN31724@electric-eye.fr.zoreil.com> <471F1067.50403@lincor.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	Edward Hsu <edward_hsu@realtek.com.tw>
-To: Glen Gray <glen.gray@lincor.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [2.6 patch] bonding/bond_main.c: fix cut'n'paste error
+Date: Wed, 24 Oct 2007 15:51:08 -0700
+Message-ID: <4858.1193266268@death>
+References: <20071024162743.GV30533@stusta.de>
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:43682 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755317AbXJXWUw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 18:20:52 -0400
-Content-Disposition: inline
-In-Reply-To: <471F1067.50403@lincor.com>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:52759 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760592AbXJXWvL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Oct 2007 18:51:11 -0400
+In-reply-to: <20071024162743.GV30533@stusta.de> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Glen Gray <glen.gray@lincor.com> :
-> Are any of these likely to fix the Ethernet multicast issues a few of us 
-> have seen with 8110sc cards ?
 
-No, this serie is not expected to.
 
-I have planned to work on it again during the bugfix phase of 2.6.24-rc.
+Adrian Bunk <bunk@kernel.org> wrote:
+>This patch fixes a cut'n'paste error in
+>commit 1b76b31693d4a6088dec104ff6a6ead54081a3c2.
+>
+>Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-Is it still an option for you to use the old realtek driver + bandaid
-(no pun) in the meantime ?
+	Please apply.
 
--- 
-Ueimor
+	-J
+
+Acked-by: Jay Vosburgh <fubar@us.ibm.com>
+
+
+>---
+>4888742f8d7fe3b97fbc2911aa46375048173d01 
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index e5fab4b..6937ef0 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -3682,7 +3682,7 @@ static int bond_open(struct net_device *bond_dev)
+> 	}
+>
+> 	if (bond->params.mode == BOND_MODE_8023AD) {
+>-		INIT_DELAYED_WORK(&bond->ad_work, bond_alb_monitor);
+>+		INIT_DELAYED_WORK(&bond->ad_work, bond_3ad_state_machine_handler);
+> 		queue_delayed_work(bond->wq, &bond->ad_work, 0);
+> 		/* register to receive LACPDUs */
+> 		bond_register_lacpdu(bond);
+>
