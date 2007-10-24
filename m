@@ -1,31 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Explicitly call fib_get_table() in fib_frontend.c
-Date: Tue, 23 Oct 2007 21:17:36 -0700 (PDT)
-Message-ID: <20071023.211736.35012964.davem@davemloft.net>
-References: <471CC814.9040002@openvz.org>
+Subject: Re: [PATCH] Cleanup the IPv6 addresses printing in /proc files
+Date: Tue, 23 Oct 2007 21:18:52 -0700 (PDT)
+Message-ID: <20071023.211852.15263990.davem@davemloft.net>
+References: <1193198641.11845.49.camel@localhost>
+	<20071023.211045.23014439.davem@davemloft.net>
+	<1193199336.11845.53.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org
-To: xemul@openvz.org
+Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58825
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46782
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752118AbXJXERw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 00:17:52 -0400
-In-Reply-To: <471CC814.9040002@openvz.org>
+	by vger.kernel.org with ESMTP id S1751752AbXJXETH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 00:19:07 -0400
+In-Reply-To: <1193199336.11845.53.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Mon, 22 Oct 2007 19:56:04 +0400
+From: Joe Perches <joe@perches.com>
+Date: Tue, 23 Oct 2007 21:15:36 -0700
 
-> In case the "multiple tables" config option is y, the ip_fib_local_table
-> is not a variable, but a macro, that calls fib_get_table(RT_TABLE_LOCAL).
+> On Tue, 2007-10-23 at 21:10 -0700, David Miller wrote:
+> > We'll break things if we change it.
 > 
-> Some code uses this "variable" *3* times in one place, thus implicitly
-> making 3 calls. Fix it.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> Maybe, but definitely the macro names should
+> reflect this brokenness.
 
-Good catch, applied.
+That's a good point, we don't want to encourage further
+use of these things.
+
+Pavel, I'm going to revert this patch for now.  It may
+save some code lines, but it does so at the expense of
+creating an interface we actually don't want more users
+of.
