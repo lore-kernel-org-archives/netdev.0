@@ -1,61 +1,64 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [2.6 patch] unexport icmpmsg_statistics
-Date: Wed, 24 Oct 2007 21:14:37 +0200
-Message-ID: <20071024191437.GF30533@stusta.de>
-References: <20071024162410.GE30533@stusta.de> <OFD68B1480.9D9C7453-ON8825737E.0068B005-8825737E.0068FB84@us.ibm.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH 2/2] NFS: handle IPv6 addresses in nfs ctl
+Date: Wed, 24 Oct 2007 15:22:27 -0400
+Message-ID: <471F9B73.4010908@hp.com>
+References: <471C893F.6000306@ext.bull.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Mailing list NFSv4 <nfsv4@linux-nfs.org>,
+	netdev ML <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?Aur=E9lien_Charbon?= <aurelien.charbon@ext.bull.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:57567 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753391AbXJXTOI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 15:14:08 -0400
-Content-Disposition: inline
-In-Reply-To: <OFD68B1480.9D9C7453-ON8825737E.0068B005-8825737E.0068FB84@us.ibm.com>
+Received: from atlrel9.hp.com ([156.153.255.214]:36991 "EHLO atlrel9.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753233AbXJXTXH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Oct 2007 15:23:07 -0400
+In-Reply-To: <471C893F.6000306@ext.bull.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 24, 2007 at 12:07:45PM -0700, David Stevens wrote:
-> netdev-owner@vger.kernel.org wrote on 10/24/2007 09:24:10 AM:
-> 
-> > This patch removes the unused EXPORT_SYMBOL(icmpmsg_statistics).
-> > 
-> > Signed-off-by: Adrian Bunk <bunk@kernel.org>
-> > 
-> > ---
-> > 4ce74657ac0b1bdcb4c7bc359d05643f8cc4a08b 
-> > diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-> > index 272c69e..233de06 100644
-> > --- a/net/ipv4/icmp.c
-> > +++ b/net/ipv4/icmp.c
-> > @@ -1104,5 +1104,4 @@ void __init icmp_init(struct net_proto_family 
-> *ops)
-> >  EXPORT_SYMBOL(icmp_err_convert);
-> >  EXPORT_SYMBOL(icmp_send);
-> >  EXPORT_SYMBOL(icmp_statistics);
-> > -EXPORT_SYMBOL(icmpmsg_statistics);
-> >  EXPORT_SYMBOL(xrlim_allow);
-> 
->         "icmpmsg_statistics" belongs with (and replaces some of the 
-> old...)
-> "icmp_statistics". I'm not sure that any modules use it, but I think you
-> should remove both or neither.
+Hi Aurelien,
 
-icmp_statistics is used by the dccp_ipv4 and sctp modules.
+Again, a few more comments.
 
-icmpmsg_statistics is not used by any modules.
+I might just modify these in my own tree and send out a patch that 
+combines both into one, it might be less work.
 
->                                                                 +-DLS
+> @@ -229,9 +229,20 @@ static ssize_t write_getfs(struct file *
+>  		return -EINVAL;
+>  	data = (struct nfsctl_fsparm*)buf;
+>  	err = -EPROTONOSUPPORT;
+> -	if (data->gd_addr.sa_family != AF_INET)
+> +	switch (data->gd_addr.sa_family) {
+> +	case AF_INET6:
+> +		sin6 = &sin6_storage;
 
-cu
-Adrian
+This should be:
 
--- 
+	in6 = &sin6_storage;
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+> +		sin6 = (struct sockaddr_in6 *)&data->gd_addr;
+> +		ipv6_addr_copy(&in6, &(sin6->sin6_addr)); 
 
+Extra () here.
+
+> -    	if (!(clp = auth_unix_lookup(in6))) 
+> +	switch (data->gd_addr.sa_family) {
+> +	case AF_INET:
+> +		/* IPv6 address mapping */
+> +		ipv6_addr_set(&in6, 0, 0, htonl(0x0000FFFF), ((struct sockaddr_in *)&data->gd_addr)->sin_addr.s_addr);
+> +		break;
+> +	case AF_INET6:
+> +		sin6 = &sin6_storage;
+
+This should be:
+
+	in6 = &sin6_storage;
+
+> +		sin6 = (struct sockaddr_in6 *)&data->gd_addr;
+> +		ipv6_addr_copy(&in6, &(sin6->sin6_addr));
+
+Extra () here.
+
+-Brian
