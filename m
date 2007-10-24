@@ -1,34 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: sch_prio.c vs CONFIG_NETDEVICES_MULTIQUEUE
-Date: Tue, 23 Oct 2007 20:51:16 -0700 (PDT)
-Message-ID: <20071023.205116.115906160.davem@davemloft.net>
-References: <20071023121420.GB6267@localhost.sw.ru>
-	<471DE660.4090004@trash.net>
-	<471DF0A4.4080504@openvz.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [RFC][PATCH 0/3][XFRM]: Support packet processing error
+ statistics.
+Date: Wed, 24 Oct 2007 12:59:25 +0900 (JST)
+Message-ID: <20071024.125925.86627480.yoshfuji@linux-ipv6.org>
+References: <11930334662094-git-send-email-nakam@linux-ipv6.org>
+	<1193056091.4422.33.camel@localhost>
+	<200710231608.34661.nakam@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, adobriyan@sw.ru, netdev@vger.kernel.org,
-	peter.p.waskiewicz.jr@intel.com
-To: xemul@openvz.org
+Cc: hadi@cyberus.ca, herbert@gondor.apana.org.au, davem@davemloft.net,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: nakam@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45168
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753584AbXJXDvb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 23:51:31 -0400
-In-Reply-To: <471DF0A4.4080504@openvz.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:35986 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753615AbXJXD7W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 23:59:22 -0400
+In-Reply-To: <200710231608.34661.nakam@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Tue, 23 Oct 2007 17:01:24 +0400
+In article <200710231608.34661.nakam@linux-ipv6.org> (at Tue, 23 Oct 2007 16:08:34 +0900), Masahide NAKAMURA <nakam@linux-ipv6.org> says:
 
-> Fix more users of netiff_subqueue_stopped. To check for the
-> queue id one must use the __netiff_subqueue_stoped call.
+> Monday 22 October 2007 21:28, jamal wrote:
+> > On Mon, 2007-22-10 at 15:11 +0900, Masahide NAKAMURA wrote:
+:
+> This point is one of what I want to hear comment.
+> My patch uses "XFRM_MIB_XXX" because I found "LINUX_MIB_XXX" definition at
+> include/linux/snmp.h for TCP extended statistics at /proc/net/netstat and
+> it does not seem to be defined by any RFC specification. Then I feel it is not so bad to
+> use _MIB_ for them. Maybe we have another idea to merge them into LINUX_MIB.
 > 
-> These run out of my sight when I made the 
-> 668f895a85b0c3a62a690425145f13dabebebd7a commit :(
+> Now we have the following candidates:
 > 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> (1) my patch		XFRM_MIB_INHDRERROR
+> (2) some extender	XFRM_XXX_INHDRERROR	(XXX is requested)
+> (3) not-mib extender	XFRM_NOTMIB_INHDRERROR
+> (4) no extender		XFRM_INHDRERROR
+> (5) merge linux-mib	LINUX_MIB_XFRMINHDRERROR
+> 
+> Comments?
 
-Applied, thanks Pavel.
+I would support (5) or (1).
+
+--yoshfuji
