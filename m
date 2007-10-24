@@ -1,4195 +1,2517 @@
 From: Adrian Bunk <bunk@kernel.org>
-Subject: [RFC: 2.6 patch] remove IrPORT and the old dongle drivers
-Date: Wed, 24 Oct 2007 18:27:23 +0200
-Message-ID: <20071024162723.GS30533@stusta.de>
+Subject: [2.6.25 patch] the planned eepro100 removal
+Date: Wed, 24 Oct 2007 18:24:40 +0200
+Message-ID: <20071024162440.GN30533@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: samuel@sortiz.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	saw@saw.sw.com.sg, "Kok, Auke" <auke-jan.h.kok@intel.com>
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:32794 "EHLO
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:33399 "EHLO
 	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1760121AbXJXQ0z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 12:26:55 -0400
+	with ESMTP id S1759527AbXJXQZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 12:25:07 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch removes IrPORT and the old dongle drivers (all off them=20
-have replacement drivers).
+This patch contains the planned removal of the eepro100 driver.
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
+Signed-off-by: Adrian Bunk
 
 ---
 
- drivers/net/irda/Kconfig       |  141 ----
- drivers/net/irda/Makefile      |   17=20
- drivers/net/irda/act200l.c     |  297 --------
- drivers/net/irda/actisys.c     |  288 --------
- drivers/net/irda/ep7211_ir.c   |  125 ---
- drivers/net/irda/esi.c         |  149 ----
- drivers/net/irda/girbil.c      |  250 -------
- drivers/net/irda/irport.c      | 1123 --------------------------------=
--
- drivers/net/irda/irport.h      |   80 --
- drivers/net/irda/litelink.c    |  179 -----
- drivers/net/irda/ma600.c       |  354 ----------
- drivers/net/irda/mcp2120.c     |  240 -------
- drivers/net/irda/old_belkin.c  |  164 ----
- drivers/net/irda/tekram.c      |  282 --------
- include/net/irda/irda_device.h |   13=20
- net/irda/irda_device.c         |  169 ----
- 16 files changed, 3 insertions(+), 3868 deletions(-)
+ Documentation/feature-removal-schedule.txt |    7 
+ MAINTAINERS                                |    5 
+ drivers/net/Kconfig                        |   14 
+ drivers/net/Makefile                       |    1 
+ drivers/net/eepro100.c                     | 2407 ---------------------
+ 5 files changed, 2434 deletions(-)
 
-dd727730309f6f76bafda7e69e3a3258a427e11c=20
-diff --git a/drivers/net/irda/Kconfig b/drivers/net/irda/Kconfig
-index 6580695..ce816ba 100644
---- a/drivers/net/irda/Kconfig
-+++ b/drivers/net/irda/Kconfig
-@@ -190,147 +190,6 @@ config KS959_DONGLE
- 	  To compile it as a module, choose M here: the module will be called
- 	  ks959-sir.
-=20
--comment "Old SIR device drivers"
+9b5df3088f5832963885248102856b6cd2883282 
+diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
+index 8e67473..ed8bec7 100644
+--- a/Documentation/feature-removal-schedule.txt
++++ b/Documentation/feature-removal-schedule.txt
+@@ -137,13 +137,6 @@ Who:    Arjan van de Ven
+ 
+ ---------------------------
+ 
+-What:   eepro100 network driver
+-When:   January 2007
+-Why:    replaced by the e100 driver
+-Who:    Adrian Bunk <bunk@stusta.de>
 -
--config IRPORT_SIR
--	tristate "IrPORT (IrDA serial driver)"
--	depends on IRDA && BROKEN_ON_SMP
--	---help---
--	  Say Y here if you want to build support for the IrPORT IrDA device
--	  driver.  To compile it as a module, choose M here: the module will =
-be
--	  called irport. IrPORT can be used instead of IrTTY and sometimes
--	  this can be better.  One example is if your IrDA port does not
--	  have echo-canceling, which will work OK with IrPORT since this
--	  driver is working in half-duplex mode only.  You don't need to use
--	  irattach with IrPORT, but you just insert it the same way as FIR
--	  drivers (insmod irport io=3D0x3e8 irq=3D11).  Notice that IrPORT is=
- a
--	  SIR device driver which means that speed is limited to 115200 bps.
+----------------------------
 -
--	  If unsure, say Y.
+ What:	Unused EXPORT_SYMBOL/EXPORT_SYMBOL_GPL exports
+ 	(temporary transition config option provided until then)
+ 	The transition config option will also be removed at the same time.
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 1fd6d02..466339d 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1456,11 +1456,6 @@ L:	bluesmoke-devel@lists.sourceforge.net
+ W:	bluesmoke.sourceforge.net
+ S:	Maintained
+ 
+-EEPRO100 NETWORK DRIVER
+-P:	Andrey V. Savochkin
+-M:	saw@saw.sw.com.sg
+-S:	Maintained
 -
--comment "Old Serial dongle support"
--
--config DONGLE_OLD
--	bool "Old Serial dongle support"
--	depends on IRPORT_SIR && BROKEN_ON_SMP
+ EFS FILESYSTEM
+ W:	http://aeschi.ch.eu.org/efs/
+ S:	Orphan
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index ce34b53..185f148 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -1454,20 +1454,6 @@ config TC35815
+ 	depends on NET_PCI && PCI && MIPS
+ 	select MII
+ 
+-config EEPRO100
+-	tristate "EtherExpressPro/100 support (eepro100, original Becker driver)"
+-	depends on NET_PCI && PCI
+-	select MII
 -	help
--	  Say Y here if you have an infrared device that connects to your
--	  computer's serial port. These devices are called dongles. Then say =
-Y
--	  or M to the driver for your particular dongle below.
+-	  If you have an Intel EtherExpress PRO/100 PCI network (Ethernet)
+-	  card, say Y and read the Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>.
 -
--	  Note that the answer to this question won't directly affect the
--	  kernel: saying N will just cause the configurator to skip all
--	  the questions about serial dongles.
+-	  To compile this driver as a module, choose M here and read
+-	  <file:Documentation/networking/net-modules.txt>.  The module
+-	  will be called eepro100.
 -
--config ESI_DONGLE_OLD
--	tristate "ESI JetEye PC dongle"
--	depends on DONGLE_OLD && IRDA
--	help
--	  Say Y here if you want to build support for the Extended Systems
--	  JetEye PC dongle.  To compile it as a module, choose M here.  The E=
-SI
--	  dongle attaches to the normal 9-pin serial port connector, and can
--	  currently only be used by IrTTY.  To activate support for ESI
--	  dongles you will have to start irattach like this:
--	  "irattach -d esi".
 -
--config ACTISYS_DONGLE_OLD
--	tristate "ACTiSYS IR-220L and IR220L+ dongle"
--	depends on DONGLE_OLD && IRDA
--	help
--	  Say Y here if you want to build support for the ACTiSYS IR-220L and
--	  IR220L+ dongles.  To compile it as a module, choose M here.  The
--	  ACTiSYS dongles attaches to the normal 9-pin serial port connector,
--	  and can currently only be used by IrTTY.  To activate support for
--	  ACTiSYS dongles you will have to start irattach like this:
--	  "irattach -d actisys" or "irattach -d actisys+".
--
--config TEKRAM_DONGLE_OLD
--	tristate "Tekram IrMate 210B dongle"
--	depends on DONGLE_OLD && IRDA
--	help
--	  Say Y here if you want to build support for the Tekram IrMate 210B
--	  dongle.  To compile it as a module, choose M here.  The Tekram dong=
-le
--	  attaches to the normal 9-pin serial port connector, and can
--	  currently only be used by IrTTY.  To activate support for Tekram
--	  dongles you will have to start irattach like this:
--	  "irattach -d tekram".
--
--config GIRBIL_DONGLE_OLD
--	tristate "Greenwich GIrBIL dongle"
--	depends on DONGLE_OLD && IRDA
--	help
--	  Say Y here if you want to build support for the Greenwich GIrBIL
--	  dongle.  To compile it as a module, choose M here.  The Greenwich
--	  dongle attaches to the normal 9-pin serial port connector, and can
--	  currently only be used by IrTTY.  To activate support for Greenwich
--	  dongles you will have to insert "irattach -d girbil" in the
--	  /etc/irda/drivers script.
--
--config LITELINK_DONGLE_OLD
--	tristate "Parallax LiteLink dongle"
--	depends on DONGLE_OLD && IRDA
--	help
--	  Say Y here if you want to build support for the Parallax Litelink
--	  dongle.  To compile it as a module, choose M here.  The Parallax
--	  dongle attaches to the normal 9-pin serial port connector, and can
--	  currently only be used by IrTTY.  To activate support for Parallax
--	  dongles you will have to start irattach like this:
--	  "irattach -d litelink".
--
--config MCP2120_DONGLE_OLD
--	tristate "Microchip MCP2120"
--	depends on DONGLE_OLD && IRDA
--	help
--	  Say Y here if you want to build support for the Microchip MCP2120
--	  dongle.  To compile it as a module, choose M here.  The MCP2120 don=
-gle
--	  attaches to the normal 9-pin serial port connector, and can
--	  currently only be used by IrTTY.  To activate support for MCP2120
--	  dongles you will have to insert "irattach -d mcp2120" in the
--	  /etc/irda/drivers script.
--
--	  You must build this dongle yourself.  For more information see:
--	  <http://www.eyetap.org/~tangf/irda_sir_linux.html>
--
--config OLD_BELKIN_DONGLE_OLD
--	tristate "Old Belkin dongle"
--	depends on DONGLE_OLD && IRDA
--	help
--	  Say Y here if you want to build support for the Adaptec Airport 100=
-0
--	  and 2000 dongles.  To compile it as a module, choose M here: the mo=
-dule
--	  will be called old_belkin.  Some information is contained in the
--	  comments at the top of <file:drivers/net/irda/old_belkin.c>.
--
--config ACT200L_DONGLE_OLD
--	tristate "ACTiSYS IR-200L dongle (EXPERIMENTAL)"
--	depends on DONGLE_OLD && EXPERIMENTAL && IRDA
--	help
--	  Say Y here if you want to build support for the ACTiSYS IR-200L
--	  dongle.  To compile it as a module, choose M here.  The ACTiSYS
--	  IR-200L dongle attaches to the normal 9-pin serial port connector,
--	  and can currently only be used by IrTTY. To activate support for
--	  ACTiSYS IR-200L dongles you will have to start irattach like this:
--	  "irattach -d act200l".
--
--config MA600_DONGLE_OLD
--	tristate "Mobile Action MA600 dongle (EXPERIMENTAL)"
--	depends on DONGLE_OLD && EXPERIMENTAL && IRDA
--	---help---
--	  Say Y here if you want to build support for the Mobile Action MA600
--	  dongle.  To compile it as a module, choose M here. The MA600 dongle
--	  attaches to the normal 9-pin serial port connector, and can
--	  currently only be tested on IrCOMM.  To activate support for MA600
--	  dongles you will have to insert "irattach -d ma600" in the
--	  /etc/irda/drivers script.  Note: irutils 0.9.15 requires no
--	  modification. irutils 0.9.9 needs modification. For more
--	  information, download the following tar gzip file.
--
--	  There is a pre-compiled module on
--	  <http://engsvr.ust.hk/~eetwl95/ma600.html>
--
--config EP7211_IR
--	tristate "EP7211 I/R support"
--	depends on DONGLE_OLD && ARCH_EP7211 && IRDA
--
- comment "FIR device drivers"
-=20
- config USB_IRDA
-diff --git a/drivers/net/irda/Makefile b/drivers/net/irda/Makefile
-index fefbb59..5d20fde 100644
---- a/drivers/net/irda/Makefile
-+++ b/drivers/net/irda/Makefile
-@@ -5,8 +5,6 @@
- # Rewritten to use lists instead of if-statements.
- #
-=20
--# Old SIR drivers=20
--obj-$(CONFIG_IRPORT_SIR)	+=3D 		irport.o
- # FIR drivers
- obj-$(CONFIG_USB_IRDA)		+=3D irda-usb.o
- obj-$(CONFIG_SIGMATEL_FIR)	+=3D stir4200.o
-@@ -20,21 +18,10 @@ obj-$(CONFIG_VLSI_FIR)		+=3D vlsi_ir.o
- obj-$(CONFIG_VIA_FIR)		+=3D via-ircc.o
- obj-$(CONFIG_PXA_FICP)	        +=3D pxaficp_ir.o
- obj-$(CONFIG_MCS_FIR)	        +=3D mcs7780.o
--# Old dongle drivers for old SIR drivers
--obj-$(CONFIG_ESI_DONGLE_OLD)		+=3D esi.o
--obj-$(CONFIG_TEKRAM_DONGLE_OLD)	+=3D tekram.o
--obj-$(CONFIG_ACTISYS_DONGLE_OLD)	+=3D actisys.o
--obj-$(CONFIG_GIRBIL_DONGLE_OLD)	+=3D girbil.o
--obj-$(CONFIG_LITELINK_DONGLE_OLD)	+=3D litelink.o
--obj-$(CONFIG_OLD_BELKIN_DONGLE_OLD)	+=3D old_belkin.o
--obj-$(CONFIG_MCP2120_DONGLE_OLD)	+=3D mcp2120.o
--obj-$(CONFIG_ACT200L_DONGLE_OLD)	+=3D act200l.o
--obj-$(CONFIG_MA600_DONGLE_OLD)	+=3D ma600.o
--obj-$(CONFIG_EP7211_IR)		+=3D ep7211_ir.o
- obj-$(CONFIG_AU1000_FIR)	+=3D au1k_ir.o
--# New SIR drivers
-+# SIR drivers
- obj-$(CONFIG_IRTTY_SIR)		+=3D irtty-sir.o	sir-dev.o
--# New dongles drivers for new SIR drivers
-+# dongle drivers for SIR drivers
- obj-$(CONFIG_ESI_DONGLE)	+=3D esi-sir.o
- obj-$(CONFIG_TEKRAM_DONGLE)	+=3D tekram-sir.o
- obj-$(CONFIG_ACTISYS_DONGLE)	+=3D actisys-sir.o
-diff --git a/drivers/net/irda/act200l.c b/drivers/net/irda/act200l.c
+ config E100
+ 	tristate "Intel(R) PRO/100+ support"
+ 	depends on NET_PCI && PCI
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 22f78cb..0a4b4ba 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -48,7 +48,6 @@ obj-$(CONFIG_VORTEX) += 3c59x.o
+ obj-$(CONFIG_TYPHOON) += typhoon.o
+ obj-$(CONFIG_NE2K_PCI) += ne2k-pci.o 8390.o
+ obj-$(CONFIG_PCNET32) += pcnet32.o
+-obj-$(CONFIG_EEPRO100) += eepro100.o
+ obj-$(CONFIG_E100) += e100.o
+ obj-$(CONFIG_TLAN) += tlan.o
+ obj-$(CONFIG_EPIC100) += epic100.o
+diff --git a/drivers/net/eepro100.c b/drivers/net/eepro100.c
 deleted file mode 100644
-index 756cd44..0000000
---- a/drivers/net/irda/act200l.c
+index 1548a80..0000000
+--- a/drivers/net/eepro100.c
 +++ /dev/null
-@@ -1,297 +0,0 @@
--/*********************************************************************
-- *
-- * Filename:      act200l.c
-- * Version:       0.8
-- * Description:   Implementation for the ACTiSYS ACT-IR200L dongle
-- * Status:        Experimental.
-- * Author:        SHIMIZU Takuya <tshimizu@ga2.so-net.ne.jp>
-- * Created at:    Fri Aug  3 17:35:42 2001
-- * Modified at:   Fri Aug 17 10:22:40 2001
-- * Modified by:   SHIMIZU Takuya <tshimizu@ga2.so-net.ne.jp>
-- *
-- *     Copyright (c) 2001 SHIMIZU Takuya, All Rights Reserved.
-- *
-- *     This program is free software; you can redistribute it and/or
-- *     modify it under the terms of the GNU General Public License as
-- *     published by the Free Software Foundation; either version 2 of
-- *     the License, or (at your option) any later version.
-- *
-- ********************************************************************/
--
--#include <linux/module.h>
--#include <linux/delay.h>
--#include <linux/tty.h>
--#include <linux/init.h>
--
--#include <net/irda/irda.h>
--#include <net/irda/irda_device.h>
--
--static int  act200l_reset(struct irda_task *task);
--static void act200l_open(dongle_t *self, struct qos_info *qos);
--static void act200l_close(dongle_t *self);
--static int  act200l_change_speed(struct irda_task *task);
--
--/* Regsiter 0: Control register #1 */
--#define ACT200L_REG0    0x00
--#define ACT200L_TXEN    0x01 /* Enable transmitter */
--#define ACT200L_RXEN    0x02 /* Enable receiver */
--
--/* Register 1: Control register #2 */
--#define ACT200L_REG1    0x10
--#define ACT200L_LODB    0x01 /* Load new baud rate count value */
--#define ACT200L_WIDE    0x04 /* Expand the maximum allowable pulse */
--
--/* Register 4: Output Power register */
--#define ACT200L_REG4    0x40
--#define ACT200L_OP0     0x01 /* Enable LED1C output */
--#define ACT200L_OP1     0x02 /* Enable LED2C output */
--#define ACT200L_BLKR    0x04
--
--/* Register 5: Receive Mode register */
--#define ACT200L_REG5    0x50
--#define ACT200L_RWIDL   0x01 /* fixed 1.6us pulse mode */
--
--/* Register 6: Receive Sensitivity register #1 */
--#define ACT200L_REG6    0x60
--#define ACT200L_RS0     0x01 /* receive threshold bit 0 */
--#define ACT200L_RS1     0x02 /* receive threshold bit 1 */
--
--/* Register 7: Receive Sensitivity register #2 */
--#define ACT200L_REG7    0x70
--#define ACT200L_ENPOS   0x04 /* Ignore the falling edge */
--
--/* Register 8,9: Baud Rate Dvider register #1,#2 */
--#define ACT200L_REG8    0x80
--#define ACT200L_REG9    0x90
--
--#define ACT200L_2400    0x5f
--#define ACT200L_9600    0x17
--#define ACT200L_19200   0x0b
--#define ACT200L_38400   0x05
--#define ACT200L_57600   0x03
--#define ACT200L_115200  0x01
--
--/* Register 13: Control register #3 */
--#define ACT200L_REG13   0xd0
--#define ACT200L_SHDW    0x01 /* Enable access to shadow registers */
--
--/* Register 15: Status register */
--#define ACT200L_REG15   0xf0
--
--/* Register 21: Control register #4 */
--#define ACT200L_REG21   0x50
--#define ACT200L_EXCK    0x02 /* Disable clock output driver */
--#define ACT200L_OSCL    0x04 /* oscillator in low power, medium accura=
-cy mode */
--
--static struct dongle_reg dongle =3D {
--	.type =3D IRDA_ACT200L_DONGLE,
--	.open =3D act200l_open,
--	.close =3D act200l_close,
--	.reset =3D act200l_reset,
--	.change_speed =3D act200l_change_speed,
--	.owner =3D THIS_MODULE,
--};
--
--static int __init act200l_init(void)
--{
--	return irda_device_register_dongle(&dongle);
--}
--
--static void __exit act200l_cleanup(void)
--{
--	irda_device_unregister_dongle(&dongle);
--}
--
--static void act200l_open(dongle_t *self, struct qos_info *qos)
--{
--	IRDA_DEBUG(2, "%s()\n", __FUNCTION__ );
--
--	/* Power on the dongle */
--	self->set_dtr_rts(self->dev, TRUE, TRUE);
--
--	/* Set the speeds we can accept */
--	qos->baud_rate.bits &=3D IR_9600|IR_19200|IR_38400|IR_57600|IR_115200=
-;
--	qos->min_turn_time.bits =3D 0x03;
--}
--
--static void act200l_close(dongle_t *self)
--{
--	IRDA_DEBUG(2, "%s()\n", __FUNCTION__ );
--
--	/* Power off the dongle */
--	self->set_dtr_rts(self->dev, FALSE, FALSE);
--}
--
+@@ -1,2407 +0,0 @@
+-/* drivers/net/eepro100.c: An Intel i82557-559 Ethernet driver for Linux. */
 -/*
-- * Function act200l_change_speed (dev, speed)
-- *
-- *    Set the speed for the ACTiSYS ACT-IR200L type dongle.
-- *
-- */
--static int act200l_change_speed(struct irda_task *task)
--{
--	dongle_t *self =3D (dongle_t *) task->instance;
--	__u32 speed =3D (__u32) task->param;
--	__u8 control[3];
--	int ret =3D 0;
--
--	IRDA_DEBUG(2, "%s()\n", __FUNCTION__ );
--
--	self->speed_task =3D task;
--
--	switch (task->state) {
--	case IRDA_TASK_INIT:
--		if (irda_task_execute(self, act200l_reset, NULL, task,
--				(void *) speed))
--		{
--			/* Dongle need more time to reset */
--			irda_task_next_state(task, IRDA_TASK_CHILD_WAIT);
--
--			/* Give reset 1 sec to finish */
--			ret =3D msecs_to_jiffies(1000);
--		}
--		break;
--	case IRDA_TASK_CHILD_WAIT:
--		IRDA_WARNING("%s(), resetting dongle timed out!\n",
--			     __FUNCTION__);
--		ret =3D -1;
--		break;
--	case IRDA_TASK_CHILD_DONE:
--		/* Clear DTR and set RTS to enter command mode */
--		self->set_dtr_rts(self->dev, FALSE, TRUE);
--
--		switch (speed) {
--		case 9600:
--		default:
--			control[0] =3D ACT200L_REG8 |  (ACT200L_9600       & 0x0f);
--			control[1] =3D ACT200L_REG9 | ((ACT200L_9600 >> 4) & 0x0f);
--			break;
--		case 19200:
--			control[0] =3D ACT200L_REG8 |  (ACT200L_19200       & 0x0f);
--			control[1] =3D ACT200L_REG9 | ((ACT200L_19200 >> 4) & 0x0f);
--			break;
--		case 38400:
--			control[0] =3D ACT200L_REG8 |  (ACT200L_38400       & 0x0f);
--			control[1] =3D ACT200L_REG9 | ((ACT200L_38400 >> 4) & 0x0f);
--			break;
--		case 57600:
--			control[0] =3D ACT200L_REG8 |  (ACT200L_57600       & 0x0f);
--			control[1] =3D ACT200L_REG9 | ((ACT200L_57600 >> 4) & 0x0f);
--			break;
--		case 115200:
--			control[0] =3D ACT200L_REG8 |  (ACT200L_115200       & 0x0f);
--			control[1] =3D ACT200L_REG9 | ((ACT200L_115200 >> 4) & 0x0f);
--			break;
--		}
--		control[2] =3D ACT200L_REG1 | ACT200L_LODB | ACT200L_WIDE;
--
--		/* Write control bytes */
--		self->write(self->dev, control, 3);
--		irda_task_next_state(task, IRDA_TASK_WAIT);
--		ret =3D msecs_to_jiffies(5);
--		break;
--	case IRDA_TASK_WAIT:
--		/* Go back to normal mode */
--		self->set_dtr_rts(self->dev, TRUE, TRUE);
--
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->speed_task =3D NULL;
--		break;
--	default:
--		IRDA_ERROR("%s(), unknown state %d\n",
--			   __FUNCTION__, task->state);
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->speed_task =3D NULL;
--		ret =3D -1;
--		break;
--	}
--	return ret;
--}
--
--/*
-- * Function act200l_reset (driver)
-- *
-- *    Reset the ACTiSYS ACT-IR200L type dongle.
-- */
--static int act200l_reset(struct irda_task *task)
--{
--	dongle_t *self =3D (dongle_t *) task->instance;
--	__u8 control[9] =3D {
--		ACT200L_REG15,
--		ACT200L_REG13 | ACT200L_SHDW,
--		ACT200L_REG21 | ACT200L_EXCK | ACT200L_OSCL,
--		ACT200L_REG13,
--		ACT200L_REG7  | ACT200L_ENPOS,
--		ACT200L_REG6  | ACT200L_RS0  | ACT200L_RS1,
--		ACT200L_REG5  | ACT200L_RWIDL,
--		ACT200L_REG4  | ACT200L_OP0  | ACT200L_OP1 | ACT200L_BLKR,
--		ACT200L_REG0  | ACT200L_TXEN | ACT200L_RXEN
--	};
--	int ret =3D 0;
--
--	IRDA_DEBUG(2, "%s()\n", __FUNCTION__ );
--
--	self->reset_task =3D task;
--
--	switch (task->state) {
--	case IRDA_TASK_INIT:
--		/* Power on the dongle */
--		self->set_dtr_rts(self->dev, TRUE, TRUE);
--
--		irda_task_next_state(task, IRDA_TASK_WAIT1);
--		ret =3D msecs_to_jiffies(50);
--		break;
--	case IRDA_TASK_WAIT1:
--		/* Reset the dongle : set RTS low for 25 ms */
--		self->set_dtr_rts(self->dev, TRUE, FALSE);
--
--		irda_task_next_state(task, IRDA_TASK_WAIT2);
--		ret =3D msecs_to_jiffies(50);
--		break;
--	case IRDA_TASK_WAIT2:
--		/* Clear DTR and set RTS to enter command mode */
--		self->set_dtr_rts(self->dev, FALSE, TRUE);
--
--		/* Write control bytes */
--		self->write(self->dev, control, 9);
--		irda_task_next_state(task, IRDA_TASK_WAIT3);
--		ret =3D msecs_to_jiffies(15);
--		break;
--	case IRDA_TASK_WAIT3:
--		/* Go back to normal mode */
--		self->set_dtr_rts(self->dev, TRUE, TRUE);
--
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->reset_task =3D NULL;
--		break;
--	default:
--		IRDA_ERROR("%s(), unknown state %d\n",
--			   __FUNCTION__, task->state);
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->reset_task =3D NULL;
--		ret =3D -1;
--		break;
--	}
--	return ret;
--}
--
--MODULE_AUTHOR("SHIMIZU Takuya <tshimizu@ga2.so-net.ne.jp>");
--MODULE_DESCRIPTION("ACTiSYS ACT-IR200L dongle driver");
--MODULE_LICENSE("GPL");
--MODULE_ALIAS("irda-dongle-10"); /* IRDA_ACT200L_DONGLE */
--
--/*
-- * Function init_module (void)
-- *
-- *    Initialize ACTiSYS ACT-IR200L module
-- *
-- */
--module_init(act200l_init);
--
--/*
-- * Function cleanup_module (void)
-- *
-- *    Cleanup ACTiSYS ACT-IR200L module
-- *
-- */
--module_exit(act200l_cleanup);
-diff --git a/drivers/net/irda/actisys.c b/drivers/net/irda/actisys.c
-deleted file mode 100644
-index ae0b80a..0000000
---- a/drivers/net/irda/actisys.c
-+++ /dev/null
-@@ -1,288 +0,0 @@
--/*********************************************************************
-- *               =20
-- * Filename:      actisys.c
-- * Version:       1.0
-- * Description:   Implementation for the ACTiSYS IR-220L and IR-220L+=20
-- *                dongles
-- * Status:        Beta.
-- * Authors:       Dag Brattli <dagb@cs.uit.no> (initially)
-- *		  Jean Tourrilhes <jt@hpl.hp.com> (new version)
-- * Created at:    Wed Oct 21 20:02:35 1998
-- * Modified at:   Fri Dec 17 09:10:43 1999
-- * Modified by:   Dag Brattli <dagb@cs.uit.no>
-- *=20
-- *     Copyright (c) 1998-1999 Dag Brattli, All Rights Reserved.
-- *     Copyright (c) 1999 Jean Tourrilhes
-- *     =20
-- *     This program is free software; you can redistribute it and/or=20
-- *     modify it under the terms of the GNU General Public License as=20
-- *     published by the Free Software Foundation; either version 2 of=20
-- *     the License, or (at your option) any later version.
-- * =20
-- *     Neither Dag Brattli nor University of Troms=C3=B8 admit liabili=
-ty nor
-- *     provide warranty for any of this software. This material is=20
-- *     provided "AS-IS" and at no charge.
-- *    =20
-- ********************************************************************/
--
--/*
-- * Changelog
-- *
-- * 0.8 -> 0.9999 - Jean
-- *	o New initialisation procedure : much safer and correct
-- *	o New procedure the change speed : much faster and simpler
-- *	o Other cleanups & comments
-- *	Thanks to Lichen Wang @ Actisys for his excellent help...
-- */
--
--#include <linux/module.h>
--#include <linux/delay.h>
--#include <linux/tty.h>
--#include <linux/init.h>
--
--#include <net/irda/irda.h>
--#include <net/irda/irda_device.h>
--
--/*=20
-- * Define the timing of the pulses we send to the dongle (to reset it,=
- and
-- * to toggle speeds). Basically, the limit here is the propagation spe=
-ed of
-- * the signals through the serial port, the dongle being much faster. =
- Any
-- * serial port support 115 kb/s, so we are sure that pulses 8.5 us wid=
-e can
-- * go through cleanly . If you are on the wild side, you can try to lo=
-wer
-- * this value (Actisys recommended me 2 us, and 0 us work for me on a =
-P233!)
-- */
--#define MIN_DELAY 10	/* 10 us to be on the conservative side */
--
--static int  actisys_change_speed(struct irda_task *task);
--static int  actisys_reset(struct irda_task *task);
--static void actisys_open(dongle_t *self, struct qos_info *qos);
--static void actisys_close(dongle_t *self);
--
--/* These are the baudrates supported, in the order available */
--/* Note : the 220L doesn't support 38400, but we will fix that below *=
-/
--static __u32 baud_rates[] =3D { 9600, 19200, 57600, 115200, 38400 };
--#define MAX_SPEEDS 5
--
--static struct dongle_reg dongle =3D {
--	.type =3D IRDA_ACTISYS_DONGLE,
--	.open =3D actisys_open,
--	.close =3D actisys_close,
--	.reset =3D actisys_reset,
--	.change_speed =3D actisys_change_speed,
--	.owner =3D THIS_MODULE,
--};
--
--static struct dongle_reg dongle_plus =3D {
--	.type =3D IRDA_ACTISYS_PLUS_DONGLE,
--	.open =3D actisys_open,
--	.close =3D actisys_close,
--	.reset =3D actisys_reset,
--	.change_speed =3D actisys_change_speed,
--	.owner =3D THIS_MODULE,
--};
--
--/*
-- * Function actisys_change_speed (task)
-- *
-- *	There is two model of Actisys dongle we are dealing with,
-- * the 220L and 220L+. At this point, only irattach knows with
-- * kind the user has requested (it was an argument on irattach
-- * command line).
-- *	So, we register a dongle of each sort and let irattach
-- * pick the right one...
-- */
--static int __init actisys_init(void)
--{
--	int ret;
--
--	/* First, register an Actisys 220L dongle */
--	ret =3D irda_device_register_dongle(&dongle);
--	if (ret < 0)
--		return ret;
--	/* Now, register an Actisys 220L+ dongle */
--	ret =3D irda_device_register_dongle(&dongle_plus);
--	if (ret < 0) {
--		irda_device_unregister_dongle(&dongle);
--		return ret;
--	}=09
--	return 0;
--}
--
--static void __exit actisys_cleanup(void)
--{
--	/* We have to remove both dongles */
--	irda_device_unregister_dongle(&dongle);
--	irda_device_unregister_dongle(&dongle_plus);
--}
--
--static void actisys_open(dongle_t *self, struct qos_info *qos)
--{
--	/* Power on the dongle */
--	self->set_dtr_rts(self->dev, TRUE, TRUE);
--
--	/* Set the speeds we can accept */
--	qos->baud_rate.bits &=3D IR_9600|IR_19200|IR_38400|IR_57600|IR_115200=
-;
--
--	/* Remove support for 38400 if this is not a 220L+ dongle */
--	if (self->issue->type =3D=3D IRDA_ACTISYS_DONGLE)
--		qos->baud_rate.bits &=3D ~IR_38400;
--=09
--	qos->min_turn_time.bits =3D 0x7f; /* Needs 0.01 ms */
--}
--
--static void actisys_close(dongle_t *self)
--{
--	/* Power off the dongle */
--	self->set_dtr_rts(self->dev, FALSE, FALSE);
--}
--
--/*
-- * Function actisys_change_speed (task)
-- *
-- *    Change speed of the ACTiSYS IR-220L and IR-220L+ type IrDA dongl=
-es.
-- *    To cycle through the available baud rates, pulse RTS low for a f=
-ew us.
-- *
-- *	First, we reset the dongle to always start from a known state.
-- *	Then, we cycle through the speeds by pulsing RTS low and then up.
-- *	The dongle allow us to pulse quite fast, se we can set speed in one=
- go,
-- * which is must faster ( < 100 us) and less complex than what is foun=
-d
-- * in some other dongle drivers...
-- *	Note that even if the new speed is the same as the current speed,
-- * we reassert the speed. This make sure that things are all right,
-- * and it's fast anyway...
-- *	By the way, this function will work for both type of dongles,
-- * because the additional speed is at the end of the sequence...
-- */
--static int actisys_change_speed(struct irda_task *task)
--{
--	dongle_t *self =3D (dongle_t *) task->instance;
--	__u32 speed =3D (__u32) task->param;	/* Target speed */
--	int ret =3D 0;
--	int i =3D 0;
--
--        IRDA_DEBUG(4, "%s(), speed=3D%d (was %d)\n", __FUNCTION__, spe=
-ed,=20
--		   self->speed);
--
--	/* Go to a known state by reseting the dongle */
--
--	/* Reset the dongle : set DTR low for 10 us */
--	self->set_dtr_rts(self->dev, FALSE, TRUE);
--	udelay(MIN_DELAY);
--
--	/* Go back to normal mode (we are now at 9600 b/s) */
--	self->set_dtr_rts(self->dev, TRUE, TRUE);
--=20
--	/*=20
--	 * Now, we can set the speed requested. Send RTS pulses until we
--         * reach the target speed=20
--	 */
--	for (i=3D0; i<MAX_SPEEDS; i++) {
--		if (speed =3D=3D baud_rates[i]) {
--			self->speed =3D baud_rates[i];
--			break;
--		}
--		/* Make sure previous pulse is finished */
--		udelay(MIN_DELAY);
--
--		/* Set RTS low for 10 us */
--		self->set_dtr_rts(self->dev, TRUE, FALSE);
--		udelay(MIN_DELAY);
--
--		/* Set RTS high for 10 us */
--		self->set_dtr_rts(self->dev, TRUE, TRUE);
--	}
--
--	/* Check if life is sweet... */
--	if (i >=3D MAX_SPEEDS)
--		ret =3D -1;  /* This should not happen */
--
--	/* Basta lavoro, on se casse d'ici... */
--	irda_task_next_state(task, IRDA_TASK_DONE);
--
--	return ret;
--}
--
--/*
-- * Function actisys_reset (task)
-- *
-- *      Reset the Actisys type dongle. Warning, this function must onl=
-y be
-- *      called with a process context!
-- *
-- * We need to do two things in this function :
-- *	o first make sure that the dongle is in a state where it can operat=
-e
-- *	o second put the dongle in a know state
-- *
-- *	The dongle is powered of the RTS and DTR lines. In the dongle, ther=
-e
-- * is a big capacitor to accommodate the current spikes. This capacito=
-r
-- * takes a least 50 ms to be charged. In theory, the Bios set those li=
-nes
-- * up, so by the time we arrive here we should be set. It doesn't hurt
-- * to be on the conservative side, so we will wait...
-- *	Then, we set the speed to 9600 b/s to get in a known state (see in
-- * change_speed for details). It is needed because the IrDA stack
-- * has tried to set the speed immediately after our first return,
-- * so before we can be sure the dongle is up and running.
-- */
--static int actisys_reset(struct irda_task *task)
--{
--	dongle_t *self =3D (dongle_t *) task->instance;
--	int ret =3D 0;
--
--	IRDA_ASSERT(task !=3D NULL, return -1;);
--
--	self->reset_task =3D task;
--
--	switch (task->state) {
--	case IRDA_TASK_INIT:
--		/* Set both DTR & RTS to power up the dongle */
--		/* In theory redundant with power up in actisys_open() */
--		self->set_dtr_rts(self->dev, TRUE, TRUE);
--	=09
--		/* Sleep 50 ms to make sure capacitor is charged */
--		ret =3D msecs_to_jiffies(50);
--		irda_task_next_state(task, IRDA_TASK_WAIT);
--		break;
--	case IRDA_TASK_WAIT:		=09
--		/* Reset the dongle : set DTR low for 10 us */
--		self->set_dtr_rts(self->dev, FALSE, TRUE);
--		udelay(MIN_DELAY);
--
--		/* Go back to normal mode */
--		self->set_dtr_rts(self->dev, TRUE, TRUE);
--=09
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->reset_task =3D NULL;
--		self->speed =3D 9600;	/* That's the default */
--		break;
--	default:
--		IRDA_ERROR("%s(), unknown state %d\n",
--			   __FUNCTION__, task->state);
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->reset_task =3D NULL;
--		ret =3D -1;
--		break;
--	}
--	return ret;
--}
--
--MODULE_AUTHOR("Dag Brattli <dagb@cs.uit.no> - Jean Tourrilhes <jt@hpl.=
-hp.com>");
--MODULE_DESCRIPTION("ACTiSYS IR-220L and IR-220L+ dongle driver");=09
--MODULE_LICENSE("GPL");
--MODULE_ALIAS("irda-dongle-2"); /* IRDA_ACTISYS_DONGLE */
--MODULE_ALIAS("irda-dongle-3"); /* IRDA_ACTISYS_PLUS_DONGLE */
--
--	=09
--/*
-- * Function init_module (void)
-- *
-- *    Initialize Actisys module
-- *
-- */
--module_init(actisys_init);
--
--/*
-- * Function cleanup_module (void)
-- *
-- *    Cleanup Actisys module
-- *
-- */
--module_exit(actisys_cleanup);
-diff --git a/drivers/net/irda/ep7211_ir.c b/drivers/net/irda/ep7211_ir.=
-c
-deleted file mode 100644
-index 4cba38f..0000000
---- a/drivers/net/irda/ep7211_ir.c
-+++ /dev/null
-@@ -1,125 +0,0 @@
--/*
-- * IR port driver for the Cirrus Logic EP7211 processor.
-- *
-- * Copyright 2001, Blue Mug Inc.  All rights reserved.
-- */
--
--#include <linux/module.h>
--#include <linux/delay.h>
--#include <linux/tty.h>
--#include <linux/init.h>
--#include <linux/spinlock.h>
--
--#include <net/irda/irda.h>
--#include <net/irda/irda_device.h>
--
--#include <asm/io.h>
--#include <asm/hardware.h>
--
--#define MIN_DELAY 25      /* 15 us, but wait a little more to be sure =
-*/
--#define MAX_DELAY 10000   /* 1 ms */
--
--static void ep7211_ir_open(dongle_t *self, struct qos_info *qos);
--static void ep7211_ir_close(dongle_t *self);
--static int  ep7211_ir_change_speed(struct irda_task *task);
--static int  ep7211_ir_reset(struct irda_task *task);
--
--static DEFINE_SPINLOCK(ep7211_lock);
--
--static struct dongle_reg dongle =3D {
--	.type =3D IRDA_EP7211_IR,
--	.open =3D ep7211_ir_open,
--	.close =3D ep7211_ir_close,
--	.reset =3D ep7211_ir_reset,
--	.change_speed =3D ep7211_ir_change_speed,
--	.owner =3D THIS_MODULE,
--};
--
--static void ep7211_ir_open(dongle_t *self, struct qos_info *qos)
--{
--	unsigned int syscon1, flags;
--
--	spin_lock_irqsave(&ep7211_lock, flags);
--
--	/* Turn on the SIR encoder. */
--	syscon1 =3D clps_readl(SYSCON1);
--	syscon1 |=3D SYSCON1_SIREN;
--	clps_writel(syscon1, SYSCON1);
--
--	/* XXX: We should disable modem status interrupts on the first
--		UART (interrupt #14). */
--
--	spin_unlock_irqrestore(&ep7211_lock, flags);
--}
--
--static void ep7211_ir_close(dongle_t *self)
--{
--	unsigned int syscon1, flags;
--
--	spin_lock_irqsave(&ep7211_lock, flags);
--
--	/* Turn off the SIR encoder. */
--	syscon1 =3D clps_readl(SYSCON1);
--	syscon1 &=3D ~SYSCON1_SIREN;
--	clps_writel(syscon1, SYSCON1);
--
--	/* XXX: If we've disabled the modem status interrupts, we should
--		reset them back to their original state. */
--
--	spin_unlock_irqrestore(&ep7211_lock, flags);
--}
--
--/*
-- * Function ep7211_ir_change_speed (task)
-- *
-- *    Change speed of the EP7211 I/R port. We don't really have to do =
-anything
-- *    for the EP7211 as long as the rate is being changed at the seria=
-l port
-- *    level.
-- */
--static int ep7211_ir_change_speed(struct irda_task *task)
--{
--	irda_task_next_state(task, IRDA_TASK_DONE);
--	return 0;
--}
--
--/*
-- * Function ep7211_ir_reset (task)
-- *
-- *      Reset the EP7211 I/R. We don't really have to do anything.
-- *
-- */
--static int ep7211_ir_reset(struct irda_task *task)
--{
--	irda_task_next_state(task, IRDA_TASK_DONE);
--	return 0;
--}
--
--/*
-- * Function ep7211_ir_init(void)
-- *
-- *    Initialize EP7211 I/R module
-- *
-- */
--static int __init ep7211_ir_init(void)
--{
--	return irda_device_register_dongle(&dongle);
--}
--
--/*
-- * Function ep7211_ir_cleanup(void)
-- *
-- *    Cleanup EP7211 I/R module
-- *
-- */
--static void __exit ep7211_ir_cleanup(void)
--{
--	irda_device_unregister_dongle(&dongle);
--}
--
--MODULE_AUTHOR("Jon McClintock <jonm@bluemug.com>");
--MODULE_DESCRIPTION("EP7211 I/R driver");
--MODULE_LICENSE("GPL");
--MODULE_ALIAS("irda-dongle-8"); /* IRDA_EP7211_IR */
--	=09
--module_init(ep7211_ir_init);
--module_exit(ep7211_ir_cleanup);
-diff --git a/drivers/net/irda/esi.c b/drivers/net/irda/esi.c
-deleted file mode 100644
-index d3a61af..0000000
---- a/drivers/net/irda/esi.c
-+++ /dev/null
-@@ -1,149 +0,0 @@
--/*********************************************************************
-- *               =20
-- * Filename:      esi.c
-- * Version:       1.5
-- * Description:   Driver for the Extended Systems JetEye PC dongle
-- * Status:        Experimental.
-- * Author:        Dag Brattli <dagb@cs.uit.no>
-- * Created at:    Sat Feb 21 18:54:38 1998
-- * Modified at:   Fri Dec 17 09:14:04 1999
-- * Modified by:   Dag Brattli <dagb@cs.uit.no>
-- *=20
-- *     Copyright (c) 1999 Dag Brattli, <dagb@cs.uit.no>,
-- *     Copyright (c) 1998 Thomas Davis, <ratbert@radiks.net>,
-- *     All Rights Reserved.
-- *    =20
-- *     This program is free software; you can redistribute it and/or=20
-- *     modify it under the terms of the GNU General Public License as=20
-- *     published by the Free Software Foundation; either version 2 of=20
-- *     the License, or (at your option) any later version.
-- *=20
-- *     This program is distributed in the hope that it will be useful,
-- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
-- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-- *     GNU General Public License for more details.
-- *=20
-- *     You should have received a copy of the GNU General Public Licen=
-se=20
-- *     along with this program; if not, write to the Free Software=20
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,=20
-- *     MA 02111-1307 USA
-- *    =20
-- ********************************************************************/
--
--#include <linux/module.h>
--#include <linux/delay.h>
--#include <linux/tty.h>
--#include <linux/init.h>
--
--#include <net/irda/irda.h>
--#include <net/irda/irda_device.h>
--
--static void esi_open(dongle_t *self, struct qos_info *qos);
--static void esi_close(dongle_t *self);
--static int  esi_change_speed(struct irda_task *task);
--static int  esi_reset(struct irda_task *task);
--
--static struct dongle_reg dongle =3D {
--	.type =3D IRDA_ESI_DONGLE,
--	.open =3D esi_open,
--	.close =3D esi_close,
--	.reset =3D esi_reset,
--	.change_speed =3D esi_change_speed,
--	.owner =3D THIS_MODULE,
--};
--
--static int __init esi_init(void)
--{
--	return irda_device_register_dongle(&dongle);
--}
--
--static void __exit esi_cleanup(void)
--{
--	irda_device_unregister_dongle(&dongle);
--}
--
--static void esi_open(dongle_t *self, struct qos_info *qos)
--{
--	qos->baud_rate.bits &=3D IR_9600|IR_19200|IR_115200;
--	qos->min_turn_time.bits =3D 0x01; /* Needs at least 10 ms */
--}
--
--static void esi_close(dongle_t *dongle)
--{	=09
--	/* Power off dongle */
--	dongle->set_dtr_rts(dongle->dev, FALSE, FALSE);
--}
--
--/*
-- * Function esi_change_speed (task)
-- *
-- *    Set the speed for the Extended Systems JetEye PC ESI-9680 type d=
-ongle
-- *
-- */
--static int esi_change_speed(struct irda_task *task)
--{
--	dongle_t *self =3D (dongle_t *) task->instance;
--	__u32 speed =3D (__u32) task->param;
--	int dtr, rts;
--=09
--	switch (speed) {
--	case 19200:
--		dtr =3D TRUE;
--		rts =3D FALSE;
--		break;
--	case 115200:
--		dtr =3D rts =3D TRUE;
--		break;
--	case 9600:
--	default:
--		dtr =3D FALSE;
--		rts =3D TRUE;
--		break;
--	}
--
--	/* Change speed of dongle */
--	self->set_dtr_rts(self->dev, dtr, rts);
--	self->speed =3D speed;
--
--	irda_task_next_state(task, IRDA_TASK_DONE);
--
--	return 0;
--}
--
--/*
-- * Function esi_reset (task)
-- *
-- *    Reset dongle;
-- *
-- */
--static int esi_reset(struct irda_task *task)
--{
--	dongle_t *self =3D (dongle_t *) task->instance;
--=09
--	self->set_dtr_rts(self->dev, FALSE, FALSE);
--	irda_task_next_state(task, IRDA_TASK_DONE);
--
--	return 0;
--}
--
--MODULE_AUTHOR("Dag Brattli <dagb@cs.uit.no>");
--MODULE_DESCRIPTION("Extended Systems JetEye PC dongle driver");
--MODULE_LICENSE("GPL");
--MODULE_ALIAS("irda-dongle-1"); /* IRDA_ESI_DONGLE */
--
--/*
-- * Function init_module (void)
-- *
-- *    Initialize ESI module
-- *
-- */
--module_init(esi_init);
--
--/*
-- * Function cleanup_module (void)
-- *
-- *    Cleanup ESI module
-- *
-- */
--module_exit(esi_cleanup);
--
-diff --git a/drivers/net/irda/girbil.c b/drivers/net/irda/girbil.c
-deleted file mode 100644
-index 1f57391..0000000
---- a/drivers/net/irda/girbil.c
-+++ /dev/null
-@@ -1,250 +0,0 @@
--/*********************************************************************
-- *               =20
-- * Filename:      girbil.c
-- * Version:       1.2
-- * Description:   Implementation for the Greenwich GIrBIL dongle
-- * Status:        Experimental.
-- * Author:        Dag Brattli <dagb@cs.uit.no>
-- * Created at:    Sat Feb  6 21:02:33 1999
-- * Modified at:   Fri Dec 17 09:13:20 1999
-- * Modified by:   Dag Brattli <dagb@cs.uit.no>
-- *=20
-- *     Copyright (c) 1999 Dag Brattli, All Rights Reserved.
-- *     =20
-- *     This program is free software; you can redistribute it and/or=20
-- *     modify it under the terms of the GNU General Public License as=20
-- *     published by the Free Software Foundation; either version 2 of=20
-- *     the License, or (at your option) any later version.
-- * =20
-- *     Neither Dag Brattli nor University of Troms=C3=B8 admit liabili=
-ty nor
-- *     provide warranty for any of this software. This material is=20
-- *     provided "AS-IS" and at no charge.
-- *    =20
-- ********************************************************************/
--
--#include <linux/module.h>
--#include <linux/delay.h>
--#include <linux/tty.h>
--#include <linux/init.h>
--
--#include <net/irda/irda.h>
--#include <net/irda/irda_device.h>
--
--static int  girbil_reset(struct irda_task *task);
--static void girbil_open(dongle_t *self, struct qos_info *qos);
--static void girbil_close(dongle_t *self);
--static int  girbil_change_speed(struct irda_task *task);
--
--/* Control register 1 */
--#define GIRBIL_TXEN    0x01 /* Enable transmitter */
--#define GIRBIL_RXEN    0x02 /* Enable receiver */
--#define GIRBIL_ECAN    0x04 /* Cancel self emmited data */
--#define GIRBIL_ECHO    0x08 /* Echo control characters */
--
--/* LED Current Register (0x2) */
--#define GIRBIL_HIGH    0x20
--#define GIRBIL_MEDIUM  0x21
--#define GIRBIL_LOW     0x22
--
--/* Baud register (0x3) */
--#define GIRBIL_2400    0x30
--#define GIRBIL_4800    0x31=09
--#define GIRBIL_9600    0x32
--#define GIRBIL_19200   0x33
--#define GIRBIL_38400   0x34=09
--#define GIRBIL_57600   0x35=09
--#define GIRBIL_115200  0x36
--
--/* Mode register (0x4) */
--#define GIRBIL_IRDA    0x40
--#define GIRBIL_ASK     0x41
--
--/* Control register 2 (0x5) */
--#define GIRBIL_LOAD    0x51 /* Load the new baud rate value */
--
--static struct dongle_reg dongle =3D {
--	.type =3D IRDA_GIRBIL_DONGLE,
--	.open =3D girbil_open,
--	.close =3D girbil_close,
--	.reset =3D girbil_reset,
--	.change_speed =3D girbil_change_speed,
--	.owner =3D THIS_MODULE,
--};
--
--static int __init girbil_init(void)
--{
--	return irda_device_register_dongle(&dongle);
--}
--
--static void __exit girbil_cleanup(void)
--{
--	irda_device_unregister_dongle(&dongle);
--}
--
--static void girbil_open(dongle_t *self, struct qos_info *qos)
--{
--	qos->baud_rate.bits &=3D IR_9600|IR_19200|IR_38400|IR_57600|IR_115200=
-;
--	qos->min_turn_time.bits =3D 0x03;
--}
--
--static void girbil_close(dongle_t *self)
--{
--	/* Power off dongle */
--	self->set_dtr_rts(self->dev, FALSE, FALSE);
--}
--
--/*
-- * Function girbil_change_speed (dev, speed)
-- *
-- *    Set the speed for the Girbil type dongle.
-- *
-- */
--static int girbil_change_speed(struct irda_task *task)
--{
--	dongle_t *self =3D (dongle_t *) task->instance;
--	__u32 speed =3D (__u32) task->param;
--	__u8 control[2];
--	int ret =3D 0;
--
--	self->speed_task =3D task;
--
--	switch (task->state) {
--	case IRDA_TASK_INIT:
--		/* Need to reset the dongle and go to 9600 bps before
--                   programming */
--		if (irda_task_execute(self, girbil_reset, NULL, task,=20
--				      (void *) speed))
--		{
--			/* Dongle need more time to reset */
--			irda_task_next_state(task, IRDA_TASK_CHILD_WAIT);
--
--			/* Give reset 1 sec to finish */
--			ret =3D msecs_to_jiffies(1000);
--		}
--		break;
--	case IRDA_TASK_CHILD_WAIT:
--		IRDA_WARNING("%s(), resetting dongle timed out!\n",
--			     __FUNCTION__);
--		ret =3D -1;
--		break;
--	case IRDA_TASK_CHILD_DONE:
--		/* Set DTR and Clear RTS to enter command mode */
--		self->set_dtr_rts(self->dev, FALSE, TRUE);
--
--		switch (speed) {
--		case 9600:
--		default:
--			control[0] =3D GIRBIL_9600;
--			break;
--		case 19200:
--			control[0] =3D GIRBIL_19200;
--			break;
--		case 34800:
--			control[0] =3D GIRBIL_38400;
--			break;
--		case 57600:
--			control[0] =3D GIRBIL_57600;
--			break;
--		case 115200:
--			control[0] =3D GIRBIL_115200;
--			break;
--		}
--		control[1] =3D GIRBIL_LOAD;
--	=09
--		/* Write control bytes */
--		self->write(self->dev, control, 2);
--		irda_task_next_state(task, IRDA_TASK_WAIT);
--		ret =3D msecs_to_jiffies(100);
--		break;
--	case IRDA_TASK_WAIT:
--		/* Go back to normal mode */
--		self->set_dtr_rts(self->dev, TRUE, TRUE);
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->speed_task =3D NULL;
--		break;
--	default:
--		IRDA_ERROR("%s(), unknown state %d\n",
--			   __FUNCTION__, task->state);
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->speed_task =3D NULL;
--		ret =3D -1;
--		break;
--	}
--	return ret;
--}
--
--/*
-- * Function girbil_reset (driver)
-- *
-- *      This function resets the girbil dongle.
-- *
-- *      Algorithm:
-- *    	  0. set RTS, and wait at least 5 ms=20
-- *        1. clear RTS=20
-- */
--static int girbil_reset(struct irda_task *task)
--{
--	dongle_t *self =3D (dongle_t *) task->instance;
--	__u8 control =3D GIRBIL_TXEN | GIRBIL_RXEN;
--	int ret =3D 0;
--
--	self->reset_task =3D task;
--
--	switch (task->state) {
--	case IRDA_TASK_INIT:
--		/* Reset dongle */
--		self->set_dtr_rts(self->dev, TRUE, FALSE);
--		irda_task_next_state(task, IRDA_TASK_WAIT1);
--		/* Sleep at least 5 ms */
--		ret =3D msecs_to_jiffies(20);
--		break;
--	case IRDA_TASK_WAIT1:
--		/* Set DTR and clear RTS to enter command mode */
--		self->set_dtr_rts(self->dev, FALSE, TRUE);
--		irda_task_next_state(task, IRDA_TASK_WAIT2);
--		ret =3D msecs_to_jiffies(20);
--		break;
--	case IRDA_TASK_WAIT2:
--		/* Write control byte */
--		self->write(self->dev, &control, 1);
--		irda_task_next_state(task, IRDA_TASK_WAIT3);
--		ret =3D msecs_to_jiffies(20);
--		break;
--	case IRDA_TASK_WAIT3:
--		/* Go back to normal mode */
--		self->set_dtr_rts(self->dev, TRUE, TRUE);
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->reset_task =3D NULL;
--		break;
--	default:
--		IRDA_ERROR("%s(), unknown state %d\n",
--			   __FUNCTION__, task->state);
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->reset_task =3D NULL;
--		ret =3D -1;
--		break;
--	}
--	return ret;
--}
--
--MODULE_AUTHOR("Dag Brattli <dagb@cs.uit.no>");
--MODULE_DESCRIPTION("Greenwich GIrBIL dongle driver");
--MODULE_LICENSE("GPL");
--MODULE_ALIAS("irda-dongle-4"); /* IRDA_GIRBIL_DONGLE */
--=09
--/*
-- * Function init_module (void)
-- *
-- *    Initialize Girbil module
-- *
-- */
--module_init(girbil_init);
--
--/*
-- * Function cleanup_module (void)
-- *
-- *    Cleanup Girbil module
-- *
-- */
--module_exit(girbil_cleanup);
--
-diff --git a/drivers/net/irda/irport.c b/drivers/net/irda/irport.c
-deleted file mode 100644
-index c79caa5..0000000
---- a/drivers/net/irda/irport.c
-+++ /dev/null
-@@ -1,1123 +0,0 @@
--/*********************************************************************
-- *=20
-- * Filename:	  irport.c
-- * Version:	  1.0
-- * Description:   Half duplex serial port SIR driver for IrDA.=20
-- * Status:	  Experimental.
-- * Author:	  Dag Brattli <dagb@cs.uit.no>
-- * Created at:	  Sun Aug  3 13:49:59 1997
-- * Modified at:   Fri Jan 28 20:22:38 2000
-- * Modified by:   Dag Brattli <dagb@cs.uit.no>
-- * Sources:	  serial.c by Linus Torvalds=20
-- *=20
-- *     Copyright (c) 1997, 1998, 1999-2000 Dag Brattli, All Rights Res=
-erved.
-- *     Copyright (c) 2000-2003 Jean Tourrilhes, All Rights Reserved.
-- *    =20
-- *     This program is free software; you can redistribute it and/or=20
-- *     modify it under the terms of the GNU General Public License as=20
-- *     published by the Free Software Foundation; either version 2 of=20
-- *     the License, or (at your option) any later version.
-- *=20
-- *     This program is distributed in the hope that it will be useful,
-- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
-- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-- *     GNU General Public License for more details.
-- *=20
-- *     You should have received a copy of the GNU General Public Licen=
-se=20
-- *     along with this program; if not, write to the Free Software=20
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,=20
-- *     MA 02111-1307 USA
-- *
-- *     This driver is ment to be a small half duplex serial driver to =
-be
-- *     used for IR-chipsets that has a UART (16550) compatibility mode=
-=2E=20
-- *     Eventually it will replace irtty, because of irtty has some=20
-- *     problems that is hard to get around when we don't have control
-- *     over the serial driver. This driver may also be used by FIR=20
-- *     drivers to handle SIR mode for them.
-- *
-- ********************************************************************/
+-	Written 1996-1999 by Donald Becker.
+-
+-	The driver also contains updates by different kernel developers
+-	(see incomplete list below).
+-	Current maintainer is Andrey V. Savochkin <saw@saw.sw.com.sg>.
+-	Please use this email address and linux-kernel mailing list for bug reports.
+-
+-	This software may be used and distributed according to the terms
+-	of the GNU General Public License, incorporated herein by reference.
+-
+-	This driver is for the Intel EtherExpress Pro100 (Speedo3) design.
+-	It should work with all i82557/558/559 boards.
+-
+-	Version history:
+-	1998 Apr - 2000 Feb  Andrey V. Savochkin <saw@saw.sw.com.sg>
+-		Serious fixes for multicast filter list setting, TX timeout routine;
+-		RX ring refilling logic;  other stuff
+-	2000 Feb  Jeff Garzik <jgarzik@pobox.com>
+-		Convert to new PCI driver interface
+-	2000 Mar 24  Dragan Stancevic <visitor@valinux.com>
+-		Disabled FC and ER, to avoid lockups when when we get FCP interrupts.
+-	2000 Jul 17 Goutham Rao <goutham.rao@intel.com>
+-		PCI DMA API fixes, adding pci_dma_sync_single calls where neccesary
+-	2000 Aug 31 David Mosberger <davidm@hpl.hp.com>
+-		rx_align support: enables rx DMA without causing unaligned accesses.
+-*/
+-
+-static const char * const version =
+-"eepro100.c:v1.09j-t 9/29/99 Donald Becker\n"
+-"eepro100.c: $Revision: 1.36 $ 2000/11/17 Modified by Andrey V. Savochkin <saw@saw.sw.com.sg> and others\n";
+-
+-/* A few user-configurable values that apply to all boards.
+-   First set is undocumented and spelled per Intel recommendations. */
+-
+-static int congenb /* = 0 */; /* Enable congestion control in the DP83840. */
+-static int txfifo = 8;		/* Tx FIFO threshold in 4 byte units, 0-15 */
+-static int rxfifo = 8;		/* Rx FIFO threshold, default 32 bytes. */
+-/* Tx/Rx DMA burst length, 0-127, 0 == no preemption, tx==128 -> disabled. */
+-static int txdmacount = 128;
+-static int rxdmacount /* = 0 */;
+-
+-#if defined(__ia64__) || defined(__alpha__) || defined(__sparc__) || defined(__mips__) || \
+-	defined(__arm__)
+-  /* align rx buffers to 2 bytes so that IP header is aligned */
+-# define rx_align(skb)		skb_reserve((skb), 2)
+-# define RxFD_ALIGNMENT		__attribute__ ((aligned (2), packed))
+-#else
+-# define rx_align(skb)
+-# define RxFD_ALIGNMENT
+-#endif
+-
+-/* Set the copy breakpoint for the copy-only-tiny-buffer Rx method.
+-   Lower values use more memory, but are faster. */
+-static int rx_copybreak = 200;
+-
+-/* Maximum events (Rx packets, etc.) to handle at each interrupt. */
+-static int max_interrupt_work = 20;
+-
+-/* Maximum number of multicast addresses to filter (vs. rx-all-multicast) */
+-static int multicast_filter_limit = 64;
+-
+-/* 'options' is used to pass a transceiver override or full-duplex flag
+-   e.g. "options=16" for FD, "options=32" for 100mbps-only. */
+-static int full_duplex[] = {-1, -1, -1, -1, -1, -1, -1, -1};
+-static int options[] = {-1, -1, -1, -1, -1, -1, -1, -1};
+-
+-/* A few values that may be tweaked. */
+-/* The ring sizes should be a power of two for efficiency. */
+-#define TX_RING_SIZE	64
+-#define RX_RING_SIZE	64
+-/* How much slots multicast filter setup may take.
+-   Do not descrease without changing set_rx_mode() implementaion. */
+-#define TX_MULTICAST_SIZE   2
+-#define TX_MULTICAST_RESERV (TX_MULTICAST_SIZE*2)
+-/* Actual number of TX packets queued, must be
+-   <= TX_RING_SIZE-TX_MULTICAST_RESERV. */
+-#define TX_QUEUE_LIMIT  (TX_RING_SIZE-TX_MULTICAST_RESERV)
+-/* Hysteresis marking queue as no longer full. */
+-#define TX_QUEUE_UNFULL (TX_QUEUE_LIMIT-4)
+-
+-/* Operational parameters that usually are not changed. */
+-
+-/* Time in jiffies before concluding the transmitter is hung. */
+-#define TX_TIMEOUT		(2*HZ)
+-/* Size of an pre-allocated Rx buffer: <Ethernet MTU> + slack.*/
+-#define PKT_BUF_SZ		1536
 -
 -#include <linux/module.h>
 -
 -#include <linux/kernel.h>
--#include <linux/types.h>
+-#include <linux/string.h>
+-#include <linux/errno.h>
 -#include <linux/ioport.h>
 -#include <linux/slab.h>
--#include <linux/string.h>
--#include <linux/skbuff.h>
--#include <linux/serial_reg.h>
--#include <linux/errno.h>
--#include <linux/init.h>
+-#include <linux/interrupt.h>
+-#include <linux/timer.h>
+-#include <linux/pci.h>
 -#include <linux/spinlock.h>
+-#include <linux/init.h>
+-#include <linux/mii.h>
 -#include <linux/delay.h>
--#include <linux/rtnetlink.h>
 -#include <linux/bitops.h>
 -
--#include <asm/system.h>
 -#include <asm/io.h>
+-#include <asm/uaccess.h>
+-#include <asm/irq.h>
 -
--#include <net/irda/irda.h>
--#include <net/irda/wrapper.h>
--#include "irport.h"
+-#include <linux/netdevice.h>
+-#include <linux/etherdevice.h>
+-#include <linux/rtnetlink.h>
+-#include <linux/skbuff.h>
+-#include <linux/ethtool.h>
 -
--#define IO_EXTENT 8
+-static int use_io;
+-static int debug = -1;
+-#define DEBUG_DEFAULT		(NETIF_MSG_DRV		| \
+-				 NETIF_MSG_HW		| \
+-				 NETIF_MSG_RX_ERR	| \
+-				 NETIF_MSG_TX_ERR)
+-#define DEBUG			((debug >= 0) ? (1<<debug)-1 : DEBUG_DEFAULT)
 -
--/*=20
-- * Currently you'll need to set these values using insmod like this:
-- * insmod irport io=3D0x3e8 irq=3D11
+-
+-MODULE_AUTHOR("Maintainer: Andrey V. Savochkin <saw@saw.sw.com.sg>");
+-MODULE_DESCRIPTION("Intel i82557/i82558/i82559 PCI EtherExpressPro driver");
+-MODULE_LICENSE("GPL");
+-module_param(use_io, int, 0);
+-module_param(debug, int, 0);
+-module_param_array(options, int, NULL, 0);
+-module_param_array(full_duplex, int, NULL, 0);
+-module_param(congenb, int, 0);
+-module_param(txfifo, int, 0);
+-module_param(rxfifo, int, 0);
+-module_param(txdmacount, int, 0);
+-module_param(rxdmacount, int, 0);
+-module_param(rx_copybreak, int, 0);
+-module_param(max_interrupt_work, int, 0);
+-module_param(multicast_filter_limit, int, 0);
+-MODULE_PARM_DESC(debug, "debug level (0-6)");
+-MODULE_PARM_DESC(options, "Bits 0-3: transceiver type, bit 4: full duplex, bit 5: 100Mbps");
+-MODULE_PARM_DESC(full_duplex, "full duplex setting(s) (1)");
+-MODULE_PARM_DESC(congenb, "Enable congestion control (1)");
+-MODULE_PARM_DESC(txfifo, "Tx FIFO threshold in 4 byte units, (0-15)");
+-MODULE_PARM_DESC(rxfifo, "Rx FIFO threshold in 4 byte units, (0-15)");
+-MODULE_PARM_DESC(txdmacount, "Tx DMA burst length; 128 - disable (0-128)");
+-MODULE_PARM_DESC(rxdmacount, "Rx DMA burst length; 128 - disable (0-128)");
+-MODULE_PARM_DESC(rx_copybreak, "copy breakpoint for copy-only-tiny-frames");
+-MODULE_PARM_DESC(max_interrupt_work, "maximum events handled per interrupt");
+-MODULE_PARM_DESC(multicast_filter_limit, "maximum number of filtered multicast addresses");
+-
+-#define RUN_AT(x) (jiffies + (x))
+-
+-#define netdevice_start(dev)
+-#define netdevice_stop(dev)
+-#define netif_set_tx_timeout(dev, tf, tm) \
+-								do { \
+-									(dev)->tx_timeout = (tf); \
+-									(dev)->watchdog_timeo = (tm); \
+-								} while(0)
+-
+-
+-
+-/*
+-				Theory of Operation
+-
+-I. Board Compatibility
+-
+-This device driver is designed for the Intel i82557 "Speedo3" chip, Intel's
+-single-chip fast Ethernet controller for PCI, as used on the Intel
+-EtherExpress Pro 100 adapter.
+-
+-II. Board-specific settings
+-
+-PCI bus devices are configured by the system at boot time, so no jumpers
+-need to be set on the board.  The system BIOS should be set to assign the
+-PCI INTA signal to an otherwise unused system IRQ line.  While it's
+-possible to share PCI interrupt lines, it negatively impacts performance and
+-only recent kernels support it.
+-
+-III. Driver operation
+-
+-IIIA. General
+-The Speedo3 is very similar to other Intel network chips, that is to say
+-"apparently designed on a different planet".  This chips retains the complex
+-Rx and Tx descriptors and multiple buffers pointers as previous chips, but
+-also has simplified Tx and Rx buffer modes.  This driver uses the "flexible"
+-Tx mode, but in a simplified lower-overhead manner: it associates only a
+-single buffer descriptor with each frame descriptor.
+-
+-Despite the extra space overhead in each receive skbuff, the driver must use
+-the simplified Rx buffer mode to assure that only a single data buffer is
+-associated with each RxFD. The driver implements this by reserving space
+-for the Rx descriptor at the head of each Rx skbuff.
+-
+-The Speedo-3 has receive and command unit base addresses that are added to
+-almost all descriptor pointers.  The driver sets these to zero, so that all
+-pointer fields are absolute addresses.
+-
+-The System Control Block (SCB) of some previous Intel chips exists on the
+-chip in both PCI I/O and memory space.  This driver uses the I/O space
+-registers, but might switch to memory mapped mode to better support non-x86
+-processors.
+-
+-IIIB. Transmit structure
+-
+-The driver must use the complex Tx command+descriptor mode in order to
+-have a indirect pointer to the skbuff data section.  Each Tx command block
+-(TxCB) is associated with two immediately appended Tx Buffer Descriptor
+-(TxBD).  A fixed ring of these TxCB+TxBD pairs are kept as part of the
+-speedo_private data structure for each adapter instance.
+-
+-The newer i82558 explicitly supports this structure, and can read the two
+-TxBDs in the same PCI burst as the TxCB.
+-
+-This ring structure is used for all normal transmit packets, but the
+-transmit packet descriptors aren't long enough for most non-Tx commands such
+-as CmdConfigure.  This is complicated by the possibility that the chip has
+-already loaded the link address in the previous descriptor.  So for these
+-commands we convert the next free descriptor on the ring to a NoOp, and point
+-that descriptor's link to the complex command.
+-
+-An additional complexity of these non-transmit commands are that they may be
+-added asynchronous to the normal transmit queue, so we disable interrupts
+-whenever the Tx descriptor ring is manipulated.
+-
+-A notable aspect of these special configure commands is that they do
+-work with the normal Tx ring entry scavenge method.  The Tx ring scavenge
+-is done at interrupt time using the 'dirty_tx' index, and checking for the
+-command-complete bit.  While the setup frames may have the NoOp command on the
+-Tx ring marked as complete, but not have completed the setup command, this
+-is not a problem.  The tx_ring entry can be still safely reused, as the
+-tx_skbuff[] entry is always empty for config_cmd and mc_setup frames.
+-
+-Commands may have bits set e.g. CmdSuspend in the command word to either
+-suspend or stop the transmit/command unit.  This driver always flags the last
+-command with CmdSuspend, erases the CmdSuspend in the previous command, and
+-then issues a CU_RESUME.
+-Note: Watch out for the potential race condition here: imagine
+-	erasing the previous suspend
+-		the chip processes the previous command
+-		the chip processes the final command, and suspends
+-	doing the CU_RESUME
+-		the chip processes the next-yet-valid post-final-command.
+-So blindly sending a CU_RESUME is only safe if we do it immediately after
+-after erasing the previous CmdSuspend, without the possibility of an
+-intervening delay.  Thus the resume command is always within the
+-interrupts-disabled region.  This is a timing dependence, but handling this
+-condition in a timing-independent way would considerably complicate the code.
+-
+-Note: In previous generation Intel chips, restarting the command unit was a
+-notoriously slow process.  This is presumably no longer true.
+-
+-IIIC. Receive structure
+-
+-Because of the bus-master support on the Speedo3 this driver uses the new
+-SKBUFF_RX_COPYBREAK scheme, rather than a fixed intermediate receive buffer.
+-This scheme allocates full-sized skbuffs as receive buffers.  The value
+-SKBUFF_RX_COPYBREAK is used as the copying breakpoint: it is chosen to
+-trade-off the memory wasted by passing the full-sized skbuff to the queue
+-layer for all frames vs. the copying cost of copying a frame to a
+-correctly-sized skbuff.
+-
+-For small frames the copying cost is negligible (esp. considering that we
+-are pre-loading the cache with immediately useful header information), so we
+-allocate a new, minimally-sized skbuff.  For large frames the copying cost
+-is non-trivial, and the larger copy might flush the cache of useful data, so
+-we pass up the skbuff the packet was received into.
+-
+-IV. Notes
+-
+-Thanks to Steve Williams of Intel for arranging the non-disclosure agreement
+-that stated that I could disclose the information.  But I still resent
+-having to sign an Intel NDA when I'm helping Intel sell their own product!
+-
+-*/
+-
+-static int speedo_found1(struct pci_dev *pdev, void __iomem *ioaddr, int fnd_cnt, int acpi_idle_state);
+-
+-/* Offsets to the various registers.
+-   All accesses need not be longword aligned. */
+-enum speedo_offsets {
+-	SCBStatus = 0, SCBCmd = 2,	/* Rx/Command Unit command and status. */
+-	SCBIntmask = 3,
+-	SCBPointer = 4,				/* General purpose pointer. */
+-	SCBPort = 8,				/* Misc. commands and operands.  */
+-	SCBflash = 12, SCBeeprom = 14, /* EEPROM and flash memory control. */
+-	SCBCtrlMDI = 16,			/* MDI interface control. */
+-	SCBEarlyRx = 20,			/* Early receive byte count. */
+-};
+-/* Commands that can be put in a command list entry. */
+-enum commands {
+-	CmdNOp = 0, CmdIASetup = 0x10000, CmdConfigure = 0x20000,
+-	CmdMulticastList = 0x30000, CmdTx = 0x40000, CmdTDR = 0x50000,
+-	CmdDump = 0x60000, CmdDiagnose = 0x70000,
+-	CmdSuspend = 0x40000000,	/* Suspend after completion. */
+-	CmdIntr = 0x20000000,		/* Interrupt after completion. */
+-	CmdTxFlex = 0x00080000,		/* Use "Flexible mode" for CmdTx command. */
+-};
+-/* Clear CmdSuspend (1<<30) avoiding interference with the card access to the
+-   status bits.  Previous driver versions used separate 16 bit fields for
+-   commands and statuses.  --SAW
 - */
--static unsigned int io[]  =3D { ~0, ~0, ~0, ~0 };
--static unsigned int irq[] =3D { 0, 0, 0, 0 };
+-#if defined(__alpha__)
+-# define clear_suspend(cmd)  clear_bit(30, &(cmd)->cmd_status);
+-#else
+-# if defined(__LITTLE_ENDIAN)
+-#  define clear_suspend(cmd)  ((__u16 *)&(cmd)->cmd_status)[1] &= ~0x4000
+-# elif defined(__BIG_ENDIAN)
+-#  define clear_suspend(cmd)  ((__u16 *)&(cmd)->cmd_status)[1] &= ~0x0040
+-# else
+-#  error Unsupported byteorder
+-# endif
+-#endif
 -
--static unsigned int qos_mtt_bits =3D 0x03;
+-enum SCBCmdBits {
+-	SCBMaskCmdDone=0x8000, SCBMaskRxDone=0x4000, SCBMaskCmdIdle=0x2000,
+-	SCBMaskRxSuspend=0x1000, SCBMaskEarlyRx=0x0800, SCBMaskFlowCtl=0x0400,
+-	SCBTriggerIntr=0x0200, SCBMaskAll=0x0100,
+-	/* The rest are Rx and Tx commands. */
+-	CUStart=0x0010, CUResume=0x0020, CUStatsAddr=0x0040, CUShowStats=0x0050,
+-	CUCmdBase=0x0060,	/* CU Base address (set to zero) . */
+-	CUDumpStats=0x0070, /* Dump then reset stats counters. */
+-	RxStart=0x0001, RxResume=0x0002, RxAbort=0x0004, RxAddrLoad=0x0006,
+-	RxResumeNoResources=0x0007,
+-};
 -
--static struct irport_cb *dev_self[] =3D { NULL, NULL, NULL, NULL};
--static char *driver_name =3D "irport";
+-enum SCBPort_cmds {
+-	PortReset=0, PortSelfTest=1, PortPartialReset=2, PortDump=3,
+-};
 -
--static inline void irport_write_wakeup(struct irport_cb *self);
--static inline int  irport_write(int iobase, int fifo_size, __u8 *buf, =
-int len);
--static inline void irport_receive(struct irport_cb *self);
+-/* The Speedo3 Rx and Tx frame/buffer descriptors. */
+-struct descriptor {			    /* A generic descriptor. */
+-	volatile s32 cmd_status;	/* All command and status fields. */
+-	u32 link;				    /* struct descriptor *  */
+-	unsigned char params[0];
+-};
 -
--static int  irport_net_ioctl(struct net_device *dev, struct ifreq *rq,=
-=20
--			     int cmd);
--static inline int  irport_is_receiving(struct irport_cb *self);
--static int  irport_set_dtr_rts(struct net_device *dev, int dtr, int rt=
-s);
--static int  irport_raw_write(struct net_device *dev, __u8 *buf, int le=
-n);
--static struct net_device_stats *irport_net_get_stats(struct net_device=
- *dev);
--static int irport_change_speed_complete(struct irda_task *task);
--static void irport_timeout(struct net_device *dev);
+-/* The Speedo3 Rx and Tx buffer descriptors. */
+-struct RxFD {					/* Receive frame descriptor. */
+-	volatile s32 status;
+-	u32 link;					/* struct RxFD * */
+-	u32 rx_buf_addr;			/* void * */
+-	u32 count;
+-} RxFD_ALIGNMENT;
 -
--static irqreturn_t irport_interrupt(int irq, void *dev_id);
--static int irport_hard_xmit(struct sk_buff *skb, struct net_device *de=
-v);
--static void irport_change_speed(void *priv, __u32 speed);
--static int irport_net_open(struct net_device *dev);
--static int irport_net_close(struct net_device *dev);
+-/* Selected elements of the Tx/RxFD.status word. */
+-enum RxFD_bits {
+-	RxComplete=0x8000, RxOK=0x2000,
+-	RxErrCRC=0x0800, RxErrAlign=0x0400, RxErrTooBig=0x0200, RxErrSymbol=0x0010,
+-	RxEth2Type=0x0020, RxNoMatch=0x0004, RxNoIAMatch=0x0002,
+-	TxUnderrun=0x1000,  StatusComplete=0x8000,
+-};
 -
--static struct irport_cb *
--irport_open(int i, unsigned int iobase, unsigned int irq)
+-#define CONFIG_DATA_SIZE 22
+-struct TxFD {					/* Transmit frame descriptor set. */
+-	s32 status;
+-	u32 link;					/* void * */
+-	u32 tx_desc_addr;			/* Always points to the tx_buf_addr element. */
+-	s32 count;					/* # of TBD (=1), Tx start thresh., etc. */
+-	/* This constitutes two "TBD" entries -- we only use one. */
+-#define TX_DESCR_BUF_OFFSET 16
+-	u32 tx_buf_addr0;			/* void *, frame to be transmitted.  */
+-	s32 tx_buf_size0;			/* Length of Tx frame. */
+-	u32 tx_buf_addr1;			/* void *, frame to be transmitted.  */
+-	s32 tx_buf_size1;			/* Length of Tx frame. */
+-	/* the structure must have space for at least CONFIG_DATA_SIZE starting
+-	 * from tx_desc_addr field */
+-};
+-
+-/* Multicast filter setting block.  --SAW */
+-struct speedo_mc_block {
+-	struct speedo_mc_block *next;
+-	unsigned int tx;
+-	dma_addr_t frame_dma;
+-	unsigned int len;
+-	struct descriptor frame __attribute__ ((__aligned__(16)));
+-};
+-
+-/* Elements of the dump_statistics block. This block must be lword aligned. */
+-struct speedo_stats {
+-	u32 tx_good_frames;
+-	u32 tx_coll16_errs;
+-	u32 tx_late_colls;
+-	u32 tx_underruns;
+-	u32 tx_lost_carrier;
+-	u32 tx_deferred;
+-	u32 tx_one_colls;
+-	u32 tx_multi_colls;
+-	u32 tx_total_colls;
+-	u32 rx_good_frames;
+-	u32 rx_crc_errs;
+-	u32 rx_align_errs;
+-	u32 rx_resource_errs;
+-	u32 rx_overrun_errs;
+-	u32 rx_colls_errs;
+-	u32 rx_runt_errs;
+-	u32 done_marker;
+-};
+-
+-enum Rx_ring_state_bits {
+-	RrNoMem=1, RrPostponed=2, RrNoResources=4, RrOOMReported=8,
+-};
+-
+-/* Do not change the position (alignment) of the first few elements!
+-   The later elements are grouped for cache locality.
+-
+-   Unfortunately, all the positions have been shifted since there.
+-   A new re-alignment is required.  2000/03/06  SAW */
+-struct speedo_private {
+-    void __iomem *regs;
+-	struct TxFD	*tx_ring;		/* Commands (usually CmdTxPacket). */
+-	struct RxFD *rx_ringp[RX_RING_SIZE];	/* Rx descriptor, used as ring. */
+-	/* The addresses of a Tx/Rx-in-place packets/buffers. */
+-	struct sk_buff *tx_skbuff[TX_RING_SIZE];
+-	struct sk_buff *rx_skbuff[RX_RING_SIZE];
+-	/* Mapped addresses of the rings. */
+-	dma_addr_t tx_ring_dma;
+-#define TX_RING_ELEM_DMA(sp, n) ((sp)->tx_ring_dma + (n)*sizeof(struct TxFD))
+-	dma_addr_t rx_ring_dma[RX_RING_SIZE];
+-	struct descriptor *last_cmd;		/* Last command sent. */
+-	unsigned int cur_tx, dirty_tx;		/* The ring entries to be free()ed. */
+-	spinlock_t lock;			/* Group with Tx control cache line. */
+-	u32 tx_threshold;			/* The value for txdesc.count. */
+-	struct RxFD *last_rxf;			/* Last filled RX buffer. */
+-	dma_addr_t last_rxf_dma;
+-	unsigned int cur_rx, dirty_rx;		/* The next free ring entry */
+-	long last_rx_time;			/* Last Rx, in jiffies, to handle Rx hang. */
+-	struct net_device_stats stats;
+-	struct speedo_stats *lstats;
+-	dma_addr_t lstats_dma;
+-	int chip_id;
+-	struct pci_dev *pdev;
+-	struct timer_list timer;		/* Media selection timer. */
+-	struct speedo_mc_block *mc_setup_head;	/* Multicast setup frame list head. */
+-	struct speedo_mc_block *mc_setup_tail;	/* Multicast setup frame list tail. */
+-	long in_interrupt;			/* Word-aligned dev->interrupt */
+-	unsigned char acpi_pwr;
+-	signed char rx_mode;			/* Current PROMISC/ALLMULTI setting. */
+-	unsigned int tx_full:1;			/* The Tx queue is full. */
+-	unsigned int flow_ctrl:1;		/* Use 802.3x flow control. */
+-	unsigned int rx_bug:1;			/* Work around receiver hang errata. */
+-	unsigned char default_port:8;		/* Last dev->if_port value. */
+-	unsigned char rx_ring_state;		/* RX ring status flags. */
+-	unsigned short phy[2];			/* PHY media interfaces available. */
+-	unsigned short partner;			/* Link partner caps. */
+-	struct mii_if_info mii_if;		/* MII API hooks, info */
+-	u32 msg_enable;				/* debug message level */
+-};
+-
+-/* The parameters for a CmdConfigure operation.
+-   There are so many options that it would be difficult to document each bit.
+-   We mostly use the default or recommended settings. */
+-static const char i82557_config_cmd[CONFIG_DATA_SIZE] = {
+-	22, 0x08, 0, 0,  0, 0, 0x32, 0x03,  1, /* 1=Use MII  0=Use AUI */
+-	0, 0x2E, 0,  0x60, 0,
+-	0xf2, 0x48,   0, 0x40, 0xf2, 0x80, 		/* 0x40=Force full-duplex */
+-	0x3f, 0x05, };
+-static const char i82558_config_cmd[CONFIG_DATA_SIZE] = {
+-	22, 0x08, 0, 1,  0, 0, 0x22, 0x03,  1, /* 1=Use MII  0=Use AUI */
+-	0, 0x2E, 0,  0x60, 0x08, 0x88,
+-	0x68, 0, 0x40, 0xf2, 0x84,		/* Disable FC */
+-	0x31, 0x05, };
+-
+-/* PHY media interface chips. */
+-static const char * const phys[] = {
+-	"None", "i82553-A/B", "i82553-C", "i82503",
+-	"DP83840", "80c240", "80c24", "i82555",
+-	"unknown-8", "unknown-9", "DP83840A", "unknown-11",
+-	"unknown-12", "unknown-13", "unknown-14", "unknown-15", };
+-enum phy_chips { NonSuchPhy=0, I82553AB, I82553C, I82503, DP83840, S80C240,
+-					 S80C24, I82555, DP83840A=10, };
+-static const char is_mii[] = { 0, 1, 1, 0, 1, 1, 0, 1 };
+-#define EE_READ_CMD		(6)
+-
+-static int eepro100_init_one(struct pci_dev *pdev,
+-		const struct pci_device_id *ent);
+-
+-static int do_eeprom_cmd(void __iomem *ioaddr, int cmd, int cmd_len);
+-static int mdio_read(struct net_device *dev, int phy_id, int location);
+-static void mdio_write(struct net_device *dev, int phy_id, int location, int value);
+-static int speedo_open(struct net_device *dev);
+-static void speedo_resume(struct net_device *dev);
+-static void speedo_timer(unsigned long data);
+-static void speedo_init_rx_ring(struct net_device *dev);
+-static void speedo_tx_timeout(struct net_device *dev);
+-static int speedo_start_xmit(struct sk_buff *skb, struct net_device *dev);
+-static void speedo_refill_rx_buffers(struct net_device *dev, int force);
+-static int speedo_rx(struct net_device *dev);
+-static void speedo_tx_buffer_gc(struct net_device *dev);
+-static irqreturn_t speedo_interrupt(int irq, void *dev_instance);
+-static int speedo_close(struct net_device *dev);
+-static struct net_device_stats *speedo_get_stats(struct net_device *dev);
+-static int speedo_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+-static void set_rx_mode(struct net_device *dev);
+-static void speedo_show_state(struct net_device *dev);
+-static const struct ethtool_ops ethtool_ops;
+-
+-
+-
+-#ifdef honor_default_port
+-/* Optional driver feature to allow forcing the transceiver setting.
+-   Not recommended. */
+-static int mii_ctrl[8] = { 0x3300, 0x3100, 0x0000, 0x0100,
+-						   0x2000, 0x2100, 0x0400, 0x3100};
+-#endif
+-
+-/* How to wait for the command unit to accept a command.
+-   Typically this takes 0 ticks. */
+-static inline unsigned char wait_for_cmd_done(struct net_device *dev,
+-											  	struct speedo_private *sp)
+-{
+-	int wait = 1000;
+-	void __iomem *cmd_ioaddr = sp->regs + SCBCmd;
+-	unsigned char r;
+-
+-	do  {
+-		udelay(1);
+-		r = ioread8(cmd_ioaddr);
+-	} while(r && --wait >= 0);
+-
+-	if (wait < 0)
+-		printk(KERN_ALERT "%s: wait_for_cmd_done timeout!\n", dev->name);
+-	return r;
+-}
+-
+-static int __devinit eepro100_init_one (struct pci_dev *pdev,
+-		const struct pci_device_id *ent)
+-{
+-	void __iomem *ioaddr;
+-	int irq, pci_bar;
+-	int acpi_idle_state = 0, pm;
+-	static int cards_found /* = 0 */;
+-	unsigned long pci_base;
+-
+-#ifndef MODULE
+-	/* when built-in, we only print version if device is found */
+-	static int did_version;
+-	if (did_version++ == 0)
+-		printk(version);
+-#endif
+-
+-	/* save power state before pci_enable_device overwrites it */
+-	pm = pci_find_capability(pdev, PCI_CAP_ID_PM);
+-	if (pm) {
+-		u16 pwr_command;
+-		pci_read_config_word(pdev, pm + PCI_PM_CTRL, &pwr_command);
+-		acpi_idle_state = pwr_command & PCI_PM_CTRL_STATE_MASK;
+-	}
+-
+-	if (pci_enable_device(pdev))
+-		goto err_out_free_mmio_region;
+-
+-	pci_set_master(pdev);
+-
+-	if (!request_region(pci_resource_start(pdev, 1),
+-			pci_resource_len(pdev, 1), "eepro100")) {
+-		dev_err(&pdev->dev, "eepro100: cannot reserve I/O ports\n");
+-		goto err_out_none;
+-	}
+-	if (!request_mem_region(pci_resource_start(pdev, 0),
+-			pci_resource_len(pdev, 0), "eepro100")) {
+-		dev_err(&pdev->dev, "eepro100: cannot reserve MMIO region\n");
+-		goto err_out_free_pio_region;
+-	}
+-
+-	irq = pdev->irq;
+-	pci_bar = use_io ? 1 : 0;
+-	pci_base = pci_resource_start(pdev, pci_bar);
+-	if (DEBUG & NETIF_MSG_PROBE)
+-		printk("Found Intel i82557 PCI Speedo at %#lx, IRQ %d.\n",
+-		       pci_base, irq);
+-
+-	ioaddr = pci_iomap(pdev, pci_bar, 0);
+-	if (!ioaddr) {
+-		dev_err(&pdev->dev, "eepro100: cannot remap IO\n");
+-		goto err_out_free_mmio_region;
+-	}
+-
+-	if (speedo_found1(pdev, ioaddr, cards_found, acpi_idle_state) == 0)
+-		cards_found++;
+-	else
+-		goto err_out_iounmap;
+-
+-	return 0;
+-
+-err_out_iounmap: ;
+-	pci_iounmap(pdev, ioaddr);
+-err_out_free_mmio_region:
+-	release_mem_region(pci_resource_start(pdev, 0), pci_resource_len(pdev, 0));
+-err_out_free_pio_region:
+-	release_region(pci_resource_start(pdev, 1), pci_resource_len(pdev, 1));
+-err_out_none:
+-	return -ENODEV;
+-}
+-
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-/*
+- * Polling 'interrupt' - used by things like netconsole to send skbs
+- * without having to re-enable interrupts. It's not called while
+- * the interrupt routine is executing.
+- */
+-
+-static void poll_speedo (struct net_device *dev)
+-{
+-	/* disable_irq is not very nice, but with the funny lockless design
+-	   we have no other choice. */
+-	disable_irq(dev->irq);
+-	speedo_interrupt (dev->irq, dev);
+-	enable_irq(dev->irq);
+-}
+-#endif
+-
+-static int __devinit speedo_found1(struct pci_dev *pdev,
+-		void __iomem *ioaddr, int card_idx, int acpi_idle_state)
 -{
 -	struct net_device *dev;
--	struct irport_cb *self;
+-	struct speedo_private *sp;
+-	const char *product;
+-	int i, option;
+-	u16 eeprom[0x100];
+-	int size;
+-	void *tx_ring_space;
+-	dma_addr_t tx_ring_dma;
+-	DECLARE_MAC_BUF(mac);
 -
--	IRDA_DEBUG(1, "%s()\n", __FUNCTION__);
+-	size = TX_RING_SIZE * sizeof(struct TxFD) + sizeof(struct speedo_stats);
+-	tx_ring_space = pci_alloc_consistent(pdev, size, &tx_ring_dma);
+-	if (tx_ring_space == NULL)
+-		return -1;
 -
--	/* Lock the port that we need */
--	if (!request_region(iobase, IO_EXTENT, driver_name)) {
--		IRDA_DEBUG(0, "%s(), can't get iobase of 0x%03x\n",
--			   __FUNCTION__, iobase);
--		goto err_out1;
+-	dev = alloc_etherdev(sizeof(struct speedo_private));
+-	if (dev == NULL) {
+-		printk(KERN_ERR "eepro100: Could not allocate ethernet device.\n");
+-		pci_free_consistent(pdev, size, tx_ring_space, tx_ring_dma);
+-		return -1;
 -	}
 -
--	/*
--	 *  Allocate new instance of the driver
--	 */
--	dev =3D alloc_irdadev(sizeof(struct irport_cb));
--	if (!dev) {
--		IRDA_ERROR("%s(), can't allocate memory for "
--			   "irda device!\n", __FUNCTION__);
--		goto err_out2;
--	}
+-	SET_NETDEV_DEV(dev, &pdev->dev);
 -
--	self =3D dev->priv;
--	spin_lock_init(&self->lock);
+-	if (dev->mem_start > 0)
+-		option = dev->mem_start;
+-	else if (card_idx >= 0  &&  options[card_idx] >= 0)
+-		option = options[card_idx];
+-	else
+-		option = 0;
 -
--	/* Need to store self somewhere */
--	dev_self[i] =3D self;
--	self->priv =3D self;
--	self->index =3D i;
+-	rtnl_lock();
+-	if (dev_alloc_name(dev, dev->name) < 0)
+-		goto err_free_unlock;
 -
--	/* Initialize IO */
--	self->io.sir_base  =3D iobase;
--        self->io.sir_ext   =3D IO_EXTENT;
--        self->io.irq       =3D irq;
--        self->io.fifo_size =3D 16;		/* 16550A and compatible */
+-	/* Read the station address EEPROM before doing the reset.
+-	   Nominally his should even be done before accepting the device, but
+-	   then we wouldn't have a device name with which to report the error.
+-	   The size test is for 6 bit vs. 8 bit address serial EEPROMs.
+-	*/
+-	{
+-		void __iomem *iobase;
+-		int read_cmd, ee_size;
+-		u16 sum;
+-		int j;
 -
--	/* Initialize QoS for this device */
--	irda_init_max_qos_capabilies(&self->qos);
--=09
--	self->qos.baud_rate.bits =3D IR_9600|IR_19200|IR_38400|IR_57600|
--		IR_115200;
--
--	self->qos.min_turn_time.bits =3D qos_mtt_bits;
--	irda_qos_bits_to_value(&self->qos);
--=09
--	/* Bootstrap ZeroCopy Rx */
--	self->rx_buff.truesize =3D IRDA_SKB_MAX_MTU;
--	self->rx_buff.skb =3D __dev_alloc_skb(self->rx_buff.truesize,
--					    GFP_KERNEL);
--	if (self->rx_buff.skb =3D=3D NULL) {
--		IRDA_ERROR("%s(), can't allocate memory for "
--			   "receive buffer!\n", __FUNCTION__);
--		goto err_out3;
--	}
--	skb_reserve(self->rx_buff.skb, 1);
--	self->rx_buff.head =3D self->rx_buff.skb->data;
--	/* No need to memset the buffer, unless you are really pedantic */
--
--	/* Finish setup the Rx buffer descriptor */
--	self->rx_buff.in_frame =3D FALSE;
--	self->rx_buff.state =3D OUTSIDE_FRAME;
--	self->rx_buff.data =3D self->rx_buff.head;
--
--	/* Specify how much memory we want */
--	self->tx_buff.truesize =3D 4000;
--=09
--	/* Allocate memory if needed */
--	if (self->tx_buff.truesize > 0) {
--		self->tx_buff.head =3D kzalloc(self->tx_buff.truesize,
--						      GFP_KERNEL);
--		if (self->tx_buff.head =3D=3D NULL) {
--			IRDA_ERROR("%s(), can't allocate memory for "
--				   "transmit buffer!\n", __FUNCTION__);
--			goto err_out4;
+-		/* Use IO only to avoid postponed writes and satisfy EEPROM timing
+-		   requirements. */
+-		iobase = pci_iomap(pdev, 1, pci_resource_len(pdev, 1));
+-		if (!iobase)
+-			goto err_free_unlock;
+-		if ((do_eeprom_cmd(iobase, EE_READ_CMD << 24, 27) & 0xffe0000)
+-			== 0xffe0000) {
+-			ee_size = 0x100;
+-			read_cmd = EE_READ_CMD << 24;
+-		} else {
+-			ee_size = 0x40;
+-			read_cmd = EE_READ_CMD << 22;
 -		}
--	}=09
--	self->tx_buff.data =3D self->tx_buff.head;
 -
--	self->netdev =3D dev;
+-		for (j = 0, i = 0, sum = 0; i < ee_size; i++) {
+-			u16 value = do_eeprom_cmd(iobase, read_cmd | (i << 16), 27);
+-			eeprom[i] = value;
+-			sum += value;
+-			if (i < 3) {
+-				dev->dev_addr[j++] = value;
+-				dev->dev_addr[j++] = value >> 8;
+-			}
+-		}
+-		if (sum != 0xBABA)
+-			printk(KERN_WARNING "%s: Invalid EEPROM checksum %#4.4x, "
+-				   "check settings before activating this device!\n",
+-				   dev->name, sum);
+-		/* Don't  unregister_netdev(dev);  as the EEPro may actually be
+-		   usable, especially if the MAC address is set later.
+-		   On the other hand, it may be unusable if MDI data is corrupted. */
 -
--	/* May be overridden by piggyback drivers */
--	self->interrupt    =3D irport_interrupt;
--	self->change_speed =3D irport_change_speed;
--
--	/* Override the network functions we need to use */
--	dev->hard_start_xmit =3D irport_hard_xmit;
--	dev->tx_timeout	     =3D irport_timeout;
--	dev->watchdog_timeo  =3D HZ;  /* Allow time enough for speed change *=
-/
--	dev->open            =3D irport_net_open;
--	dev->stop            =3D irport_net_close;
--	dev->get_stats	     =3D irport_net_get_stats;
--	dev->do_ioctl        =3D irport_net_ioctl;
--
--	/* Make ifconfig display some details */
--	dev->base_addr =3D iobase;
--	dev->irq =3D irq;
--
--	if (register_netdev(dev)) {
--		IRDA_ERROR("%s(), register_netdev() failed!\n", __FUNCTION__);
--		goto err_out5;
+-		pci_iounmap(pdev, iobase);
 -	}
--	IRDA_MESSAGE("IrDA: Registered device %s (irport io=3D0x%X irq=3D%d)\=
-n",
--		dev->name, iobase, irq);
 -
--	return self;
-- err_out5:
--	kfree(self->tx_buff.head);
-- err_out4:
--	kfree_skb(self->rx_buff.skb);
-- err_out3:
--	free_netdev(dev);
--	dev_self[i] =3D NULL;
-- err_out2:
--	release_region(iobase, IO_EXTENT);
-- err_out1:
--	return NULL;
--}
+-	/* Reset the chip: stop Tx and Rx processes and clear counters.
+-	   This takes less than 10usec and will easily finish before the next
+-	   action. */
+-	iowrite32(PortReset, ioaddr + SCBPort);
+-	ioread32(ioaddr + SCBPort);
+-	udelay(10);
 -
--static int irport_close(struct irport_cb *self)
--{
--	IRDA_ASSERT(self !=3D NULL, return -1;);
+-	if (eeprom[3] & 0x0100)
+-		product = "OEM i82557/i82558 10/100 Ethernet";
+-	else
+-		product = pci_name(pdev);
 -
--	/* We are not using any dongle anymore! */
--	if (self->dongle)
--		irda_device_dongle_cleanup(self->dongle);
--	self->dongle =3D NULL;
--=09
--	/* Remove netdevice */
--	unregister_netdev(self->netdev);
+-	printk(KERN_INFO "%s: %s, %s, IRQ %d.\n", dev->name, product,
+-		   print_mac(mac, dev->dev_addr), pdev->irq);
 -
--	/* Release the IO-port that this driver is using */
--	IRDA_DEBUG(0 , "%s(), Releasing Region %03x\n",=20
--		   __FUNCTION__, self->io.sir_base);
--	release_region(self->io.sir_base, self->io.sir_ext);
+-	sp = netdev_priv(dev);
 -
--	kfree(self->tx_buff.head);
--=09
--	if (self->rx_buff.skb)
--		kfree_skb(self->rx_buff.skb);
--	self->rx_buff.skb =3D NULL;
--=09
--	/* Remove ourselves */
--	dev_self[self->index] =3D NULL;
--	free_netdev(self->netdev);
--=09
+-	/* we must initialize this early, for mdio_{read,write} */
+-	sp->regs = ioaddr;
+-
+-#if 1 || defined(kernel_bloat)
+-	/* OK, this is pure kernel bloat.  I don't like it when other drivers
+-	   waste non-pageable kernel space to emit similar messages, but I need
+-	   them for bug reports. */
+-	{
+-		const char *connectors[] = {" RJ45", " BNC", " AUI", " MII"};
+-		/* The self-test results must be paragraph aligned. */
+-		volatile s32 *self_test_results;
+-		int boguscnt = 16000;	/* Timeout for set-test. */
+-		if ((eeprom[3] & 0x03) != 0x03)
+-			printk(KERN_INFO "  Receiver lock-up bug exists -- enabling"
+-				   " work-around.\n");
+-		printk(KERN_INFO "  Board assembly %4.4x%2.2x-%3.3d, Physical"
+-			   " connectors present:",
+-			   eeprom[8], eeprom[9]>>8, eeprom[9] & 0xff);
+-		for (i = 0; i < 4; i++)
+-			if (eeprom[5] & (1<<i))
+-				printk(connectors[i]);
+-		printk("\n"KERN_INFO"  Primary interface chip %s PHY #%d.\n",
+-			   phys[(eeprom[6]>>8)&15], eeprom[6] & 0x1f);
+-		if (eeprom[7] & 0x0700)
+-			printk(KERN_INFO "    Secondary interface chip %s.\n",
+-				   phys[(eeprom[7]>>8)&7]);
+-		if (((eeprom[6]>>8) & 0x3f) == DP83840
+-			||  ((eeprom[6]>>8) & 0x3f) == DP83840A) {
+-			int mdi_reg23 = mdio_read(dev, eeprom[6] & 0x1f, 23) | 0x0422;
+-			if (congenb)
+-			  mdi_reg23 |= 0x0100;
+-			printk(KERN_INFO"  DP83840 specific setup, setting register 23 to %4.4x.\n",
+-				   mdi_reg23);
+-			mdio_write(dev, eeprom[6] & 0x1f, 23, mdi_reg23);
+-		}
+-		if ((option >= 0) && (option & 0x70)) {
+-			printk(KERN_INFO "  Forcing %dMbs %s-duplex operation.\n",
+-				   (option & 0x20 ? 100 : 10),
+-				   (option & 0x10 ? "full" : "half"));
+-			mdio_write(dev, eeprom[6] & 0x1f, MII_BMCR,
+-					   ((option & 0x20) ? 0x2000 : 0) | 	/* 100mbps? */
+-					   ((option & 0x10) ? 0x0100 : 0)); /* Full duplex? */
+-		}
+-
+-		/* Perform a system self-test. */
+-		self_test_results = (s32*) ((((long) tx_ring_space) + 15) & ~0xf);
+-		self_test_results[0] = 0;
+-		self_test_results[1] = -1;
+-		iowrite32(tx_ring_dma | PortSelfTest, ioaddr + SCBPort);
+-		do {
+-			udelay(10);
+-		} while (self_test_results[1] == -1  &&  --boguscnt >= 0);
+-
+-		if (boguscnt < 0) {		/* Test optimized out. */
+-			printk(KERN_ERR "Self test failed, status %8.8x:\n"
+-				   KERN_ERR " Failure to initialize the i82557.\n"
+-				   KERN_ERR " Verify that the card is a bus-master"
+-				   " capable slot.\n",
+-				   self_test_results[1]);
+-		} else
+-			printk(KERN_INFO "  General self-test: %s.\n"
+-				   KERN_INFO "  Serial sub-system self-test: %s.\n"
+-				   KERN_INFO "  Internal registers self-test: %s.\n"
+-				   KERN_INFO "  ROM checksum self-test: %s (%#8.8x).\n",
+-				   self_test_results[1] & 0x1000 ? "failed" : "passed",
+-				   self_test_results[1] & 0x0020 ? "failed" : "passed",
+-				   self_test_results[1] & 0x0008 ? "failed" : "passed",
+-				   self_test_results[1] & 0x0004 ? "failed" : "passed",
+-				   self_test_results[0]);
+-	}
+-#endif  /* kernel_bloat */
+-
+-	iowrite32(PortReset, ioaddr + SCBPort);
+-	ioread32(ioaddr + SCBPort);
+-	udelay(10);
+-
+-	/* Return the chip to its original power state. */
+-	pci_set_power_state(pdev, acpi_idle_state);
+-
+-	pci_set_drvdata (pdev, dev);
+-	SET_NETDEV_DEV(dev, &pdev->dev);
+-
+-	dev->irq = pdev->irq;
+-
+-	sp->pdev = pdev;
+-	sp->msg_enable = DEBUG;
+-	sp->acpi_pwr = acpi_idle_state;
+-	sp->tx_ring = tx_ring_space;
+-	sp->tx_ring_dma = tx_ring_dma;
+-	sp->lstats = (struct speedo_stats *)(sp->tx_ring + TX_RING_SIZE);
+-	sp->lstats_dma = TX_RING_ELEM_DMA(sp, TX_RING_SIZE);
+-	init_timer(&sp->timer); /* used in ioctl() */
+-	spin_lock_init(&sp->lock);
+-
+-	sp->mii_if.full_duplex = option >= 0 && (option & 0x10) ? 1 : 0;
+-	if (card_idx >= 0) {
+-		if (full_duplex[card_idx] >= 0)
+-			sp->mii_if.full_duplex = full_duplex[card_idx];
+-	}
+-	sp->default_port = option >= 0 ? (option & 0x0f) : 0;
+-
+-	sp->phy[0] = eeprom[6];
+-	sp->phy[1] = eeprom[7];
+-
+-	sp->mii_if.phy_id = eeprom[6] & 0x1f;
+-	sp->mii_if.phy_id_mask = 0x1f;
+-	sp->mii_if.reg_num_mask = 0x1f;
+-	sp->mii_if.dev = dev;
+-	sp->mii_if.mdio_read = mdio_read;
+-	sp->mii_if.mdio_write = mdio_write;
+-
+-	sp->rx_bug = (eeprom[3] & 0x03) == 3 ? 0 : 1;
+-	if (((pdev->device > 0x1030 && (pdev->device < 0x103F)))
+-	    || (pdev->device == 0x2449) || (pdev->device == 0x2459)
+-            || (pdev->device == 0x245D)) {
+-	    	sp->chip_id = 1;
+-	}
+-
+-	if (sp->rx_bug)
+-		printk(KERN_INFO "  Receiver lock-up workaround activated.\n");
+-
+-	/* The Speedo-specific entries in the device structure. */
+-	dev->open = &speedo_open;
+-	dev->hard_start_xmit = &speedo_start_xmit;
+-	netif_set_tx_timeout(dev, &speedo_tx_timeout, TX_TIMEOUT);
+-	dev->stop = &speedo_close;
+-	dev->get_stats = &speedo_get_stats;
+-	dev->set_multicast_list = &set_rx_mode;
+-	dev->do_ioctl = &speedo_ioctl;
+-	SET_ETHTOOL_OPS(dev, &ethtool_ops);
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-	dev->poll_controller = &poll_speedo;
+-#endif
+-
+-	if (register_netdevice(dev))
+-		goto err_free_unlock;
+-	rtnl_unlock();
+-
 -	return 0;
+-
+- err_free_unlock:
+-	rtnl_unlock();
+-	free_netdev(dev);
+-	return -1;
 -}
 -
--static void irport_stop(struct irport_cb *self)
+-static void do_slow_command(struct net_device *dev, struct speedo_private *sp, int cmd)
 -{
--	int iobase;
+-	void __iomem *cmd_ioaddr = sp->regs + SCBCmd;
+-	int wait = 0;
+-	do
+-		if (ioread8(cmd_ioaddr) == 0) break;
+-	while(++wait <= 200);
+-	if (wait > 100)
+-		printk(KERN_ERR "Command %4.4x never accepted (%d polls)!\n",
+-		       ioread8(cmd_ioaddr), wait);
 -
--	iobase =3D self->io.sir_base;
+-	iowrite8(cmd, cmd_ioaddr);
 -
--	/* We can't lock, we may be called from a FIR driver - Jean II */
--
--	/* We are not transmitting any more */
--	self->transmitting =3D 0;
--
--	/* Reset UART */
--	outb(0, iobase+UART_MCR);
--=09
--	/* Turn off interrupts */
--	outb(0, iobase+UART_IER);
+-	for (wait = 0; wait <= 100; wait++)
+-		if (ioread8(cmd_ioaddr) == 0) return;
+-	for (; wait <= 20000; wait++)
+-		if (ioread8(cmd_ioaddr) == 0) return;
+-		else udelay(1);
+-	printk(KERN_ERR "Command %4.4x was not accepted after %d polls!"
+-	       "  Current status %8.8x.\n",
+-	       cmd, wait, ioread32(sp->regs + SCBStatus));
 -}
 -
--static void irport_start(struct irport_cb *self)
+-/* Serial EEPROM section.
+-   A "bit" grungy, but we work our way through bit-by-bit :->. */
+-/*  EEPROM_Ctrl bits. */
+-#define EE_SHIFT_CLK	0x01	/* EEPROM shift clock. */
+-#define EE_CS			0x02	/* EEPROM chip select. */
+-#define EE_DATA_WRITE	0x04	/* EEPROM chip data in. */
+-#define EE_DATA_READ	0x08	/* EEPROM chip data out. */
+-#define EE_ENB			(0x4800 | EE_CS)
+-#define EE_WRITE_0		0x4802
+-#define EE_WRITE_1		0x4806
+-#define EE_OFFSET		SCBeeprom
+-
+-/* The fixes for the code were kindly provided by Dragan Stancevic
+-   <visitor@valinux.com> to strictly follow Intel specifications of EEPROM
+-   access timing.
+-   The publicly available sheet 64486302 (sec. 3.1) specifies 1us access
+-   interval for serial EEPROM.  However, it looks like that there is an
+-   additional requirement dictating larger udelay's in the code below.
+-   2000/05/24  SAW */
+-static int __devinit do_eeprom_cmd(void __iomem *ioaddr, int cmd, int cmd_len)
 -{
--	int iobase;
+-	unsigned retval = 0;
+-	void __iomem *ee_addr = ioaddr + SCBeeprom;
 -
--	iobase =3D self->io.sir_base;
+-	iowrite16(EE_ENB, ee_addr); udelay(2);
+-	iowrite16(EE_ENB | EE_SHIFT_CLK, ee_addr); udelay(2);
 -
--	irport_stop(self);
--=09
--	/* We can't lock, we may be called from a FIR driver - Jean II */
+-	/* Shift the command bits out. */
+-	do {
+-		short dataval = (cmd & (1 << cmd_len)) ? EE_WRITE_1 : EE_WRITE_0;
+-		iowrite16(dataval, ee_addr); udelay(2);
+-		iowrite16(dataval | EE_SHIFT_CLK, ee_addr); udelay(2);
+-		retval = (retval << 1) | ((ioread16(ee_addr) & EE_DATA_READ) ? 1 : 0);
+-	} while (--cmd_len >= 0);
+-	iowrite16(EE_ENB, ee_addr); udelay(2);
 -
--	/* Initialize UART */
--	outb(UART_LCR_WLEN8, iobase+UART_LCR);  /* Reset DLAB */
--	outb((UART_MCR_DTR | UART_MCR_RTS | UART_MCR_OUT2), iobase+UART_MCR);
--=09
--	/* Turn on interrups */
--	outb(UART_IER_RLSI | UART_IER_RDI |UART_IER_THRI, iobase+UART_IER);
+-	/* Terminate the EEPROM access. */
+-	iowrite16(EE_ENB & ~EE_CS, ee_addr);
+-	return retval;
 -}
 -
--/*
-- * Function irport_get_fcr (speed)
-- *
-- *    Compute value of fcr
-- *
-- */
--static inline unsigned int irport_get_fcr(__u32 speed)
+-static int mdio_read(struct net_device *dev, int phy_id, int location)
 -{
--	unsigned int fcr;    /* FIFO control reg */
--
--	/* Enable fifos */
--	fcr =3D UART_FCR_ENABLE_FIFO;
--
--	/*=20
--	 * Use trigger level 1 to avoid 3 ms. timeout delay at 9600 bps, and
--	 * almost 1,7 ms at 19200 bps. At speeds above that we can just forge=
-t
--	 * about this timeout since it will always be fast enough.=20
--	 */
--	if (speed < 38400)
--		fcr |=3D UART_FCR_TRIGGER_1;
--	else=20
--		//fcr |=3D UART_FCR_TRIGGER_14;
--		fcr |=3D UART_FCR_TRIGGER_8;
--
--	return(fcr);
--}
--=20
--/*
-- * Function irport_change_speed (self, speed)
-- *
-- *    Set speed of IrDA port to specified baudrate
-- *
-- * This function should be called with irq off and spin-lock.
-- */
--static void irport_change_speed(void *priv, __u32 speed)
--{
--	struct irport_cb *self =3D (struct irport_cb *) priv;
--	int iobase;=20
--	unsigned int fcr;    /* FIFO control reg */
--	unsigned int lcr;    /* Line control reg */
--	int divisor;
--
--	IRDA_ASSERT(self !=3D NULL, return;);
--	IRDA_ASSERT(speed !=3D 0, return;);
--
--	IRDA_DEBUG(1, "%s(), Setting speed to: %d - iobase=3D%#x\n",
--		    __FUNCTION__, speed, self->io.sir_base);
--
--	/* We can't lock, we may be called from a FIR driver - Jean II */
--
--	iobase =3D self->io.sir_base;
--=09
--	/* Update accounting for new speed */
--	self->io.speed =3D speed;
--
--	/* Turn off interrupts */
--	outb(0, iobase+UART_IER);=20
--
--	divisor =3D SPEED_MAX/speed;
--=09
--	/* Get proper fifo configuration */
--	fcr =3D irport_get_fcr(speed);
--
--	/* IrDA ports use 8N1 */
--	lcr =3D UART_LCR_WLEN8;
--=09
--	outb(UART_LCR_DLAB | lcr, iobase+UART_LCR); /* Set DLAB */
--	outb(divisor & 0xff,      iobase+UART_DLL); /* Set speed */
--	outb(divisor >> 8,	  iobase+UART_DLM);
--	outb(lcr,		  iobase+UART_LCR); /* Set 8N1	*/
--	outb(fcr,		  iobase+UART_FCR); /* Enable FIFO's */
--
--	/* Turn on interrups */
--	/* This will generate a fatal interrupt storm.
--	 * People calling us will do that properly - Jean II */
--	//outb(/*UART_IER_RLSI|*/UART_IER_RDI/*|UART_IER_THRI*/, iobase+UART_=
-IER);
--}
--
--/*
-- * Function __irport_change_speed (instance, state, param)
-- *
-- *    State machine for changing speed of the device. We do it this wa=
-y since
-- *    we cannot use schedule_timeout() when we are in interrupt contex=
-t
-- *
-- */
--static int __irport_change_speed(struct irda_task *task)
--{
--	struct irport_cb *self;
--	__u32 speed =3D (__u32) task->param;
--	unsigned long flags =3D 0;
--	int wasunlocked =3D 0;
--	int ret =3D 0;
--
--	IRDA_DEBUG(2, "%s(), <%ld>\n", __FUNCTION__, jiffies);=20
--
--	self =3D (struct irport_cb *) task->instance;
--
--	IRDA_ASSERT(self !=3D NULL, return -1;);
--
--	/* Locking notes : this function may be called from irq context with
--	 * spinlock, via irport_write_wakeup(), or from non-interrupt without
--	 * spinlock (from the task timer). Yuck !
--	 * This is ugly, and unsafe is the spinlock is not already acquired.
--	 * This will be fixed when irda-task get rewritten.
--	 * Jean II */
--	if (!spin_is_locked(&self->lock)) {
--		spin_lock_irqsave(&self->lock, flags);
--		wasunlocked =3D 1;
--	}
--
--	switch (task->state) {
--	case IRDA_TASK_INIT:
--	case IRDA_TASK_WAIT:
--		/* Are we ready to change speed yet? */
--		if (self->tx_buff.len > 0) {
--			task->state =3D IRDA_TASK_WAIT;
--
--			/* Try again later */
--			ret =3D msecs_to_jiffies(20);
+-	struct speedo_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->regs;
+-	int val, boguscnt = 64*10;		/* <64 usec. to complete, typ 27 ticks */
+-	iowrite32(0x08000000 | (location<<16) | (phy_id<<21), ioaddr + SCBCtrlMDI);
+-	do {
+-		val = ioread32(ioaddr + SCBCtrlMDI);
+-		if (--boguscnt < 0) {
+-			printk(KERN_ERR " mdio_read() timed out with val = %8.8x.\n", val);
 -			break;
 -		}
--
--		if (self->dongle)
--			irda_task_next_state(task, IRDA_TASK_CHILD_INIT);
--		else
--			irda_task_next_state(task, IRDA_TASK_CHILD_DONE);
--		break;
--	case IRDA_TASK_CHILD_INIT:
--		/* Go to default speed */
--		self->change_speed(self->priv, 9600);
--
--		/* Change speed of dongle */
--		if (irda_task_execute(self->dongle,
--				      self->dongle->issue->change_speed,=20
--				      NULL, task, (void *) speed))
--		{
--			/* Dongle need more time to change its speed */
--			irda_task_next_state(task, IRDA_TASK_CHILD_WAIT);
--
--			/* Give dongle 1 sec to finish */
--			ret =3D msecs_to_jiffies(1000);
--		} else
--			/* Child finished immediately */
--			irda_task_next_state(task, IRDA_TASK_CHILD_DONE);
--		break;
--	case IRDA_TASK_CHILD_WAIT:
--		IRDA_WARNING("%s(), changing speed of dongle timed out!\n", __FUNCTI=
-ON__);
--		ret =3D -1;	=09
--		break;
--	case IRDA_TASK_CHILD_DONE:
--		/* Finally we are ready to change the speed */
--		self->change_speed(self->priv, speed);
--	=09
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		break;
--	default:
--		IRDA_ERROR("%s(), unknown state %d\n",
--			   __FUNCTION__, task->state);
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		ret =3D -1;
--		break;
--	}
--	/* Put stuff in the state we found them - Jean II */
--	if(wasunlocked) {
--		spin_unlock_irqrestore(&self->lock, flags);
--	}
--
--	return ret;
+-	} while (! (val & 0x10000000));
+-	return val & 0xffff;
 -}
 -
--/*
-- * Function irport_change_speed_complete (task)
-- *
-- *    Called when the change speed operation completes
-- *
-- */
--static int irport_change_speed_complete(struct irda_task *task)
+-static void mdio_write(struct net_device *dev, int phy_id, int location, int value)
 -{
--	struct irport_cb *self;
+-	struct speedo_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->regs;
+-	int val, boguscnt = 64*10;		/* <64 usec. to complete, typ 27 ticks */
+-	iowrite32(0x04000000 | (location<<16) | (phy_id<<21) | value,
+-		 ioaddr + SCBCtrlMDI);
+-	do {
+-		val = ioread32(ioaddr + SCBCtrlMDI);
+-		if (--boguscnt < 0) {
+-			printk(KERN_ERR" mdio_write() timed out with val = %8.8x.\n", val);
+-			break;
+-		}
+-	} while (! (val & 0x10000000));
+-}
 -
--	IRDA_DEBUG(1, "%s()\n", __FUNCTION__);
+-static int
+-speedo_open(struct net_device *dev)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->regs;
+-	int retval;
 -
--	self =3D (struct irport_cb *) task->instance;
+-	if (netif_msg_ifup(sp))
+-		printk(KERN_DEBUG "%s: speedo_open() irq %d.\n", dev->name, dev->irq);
 -
--	IRDA_ASSERT(self !=3D NULL, return -1;);
--	IRDA_ASSERT(self->netdev !=3D NULL, return -1;);
+-	pci_set_power_state(sp->pdev, PCI_D0);
 -
--	/* Finished changing speed, so we are not busy any longer */
--	/* Signal network layer so it can try to send the frame */
+-	/* Set up the Tx queue early.. */
+-	sp->cur_tx = 0;
+-	sp->dirty_tx = 0;
+-	sp->last_cmd = NULL;
+-	sp->tx_full = 0;
+-	sp->in_interrupt = 0;
 -
--	netif_wake_queue(self->netdev);
--=09
+-	/* .. we can safely take handler calls during init. */
+-	retval = request_irq(dev->irq, &speedo_interrupt, IRQF_SHARED, dev->name, dev);
+-	if (retval) {
+-		return retval;
+-	}
+-
+-	dev->if_port = sp->default_port;
+-
+-#ifdef oh_no_you_dont_unless_you_honour_the_options_passed_in_to_us
+-	/* Retrigger negotiation to reset previous errors. */
+-	if ((sp->phy[0] & 0x8000) == 0) {
+-		int phy_addr = sp->phy[0] & 0x1f ;
+-		/* Use 0x3300 for restarting NWay, other values to force xcvr:
+-		   0x0000 10-HD
+-		   0x0100 10-FD
+-		   0x2000 100-HD
+-		   0x2100 100-FD
+-		*/
+-#ifdef honor_default_port
+-		mdio_write(dev, phy_addr, MII_BMCR, mii_ctrl[dev->default_port & 7]);
+-#else
+-		mdio_write(dev, phy_addr, MII_BMCR, 0x3300);
+-#endif
+-	}
+-#endif
+-
+-	speedo_init_rx_ring(dev);
+-
+-	/* Fire up the hardware. */
+-	iowrite16(SCBMaskAll, ioaddr + SCBCmd);
+-	speedo_resume(dev);
+-
+-	netdevice_start(dev);
+-	netif_start_queue(dev);
+-
+-	/* Setup the chip and configure the multicast list. */
+-	sp->mc_setup_head = NULL;
+-	sp->mc_setup_tail = NULL;
+-	sp->flow_ctrl = sp->partner = 0;
+-	sp->rx_mode = -1;			/* Invalid -> always reset the mode. */
+-	set_rx_mode(dev);
+-	if ((sp->phy[0] & 0x8000) == 0)
+-		sp->mii_if.advertising = mdio_read(dev, sp->phy[0] & 0x1f, MII_ADVERTISE);
+-
+-	mii_check_link(&sp->mii_if);
+-
+-	if (netif_msg_ifup(sp)) {
+-		printk(KERN_DEBUG "%s: Done speedo_open(), status %8.8x.\n",
+-			   dev->name, ioread16(ioaddr + SCBStatus));
+-	}
+-
+-	/* Set the timer.  The timer serves a dual purpose:
+-	   1) to monitor the media interface (e.g. link beat) and perhaps switch
+-	   to an alternate media type
+-	   2) to monitor Rx activity, and restart the Rx process if the receiver
+-	   hangs. */
+-	sp->timer.expires = RUN_AT((24*HZ)/10); 			/* 2.4 sec. */
+-	sp->timer.data = (unsigned long)dev;
+-	sp->timer.function = &speedo_timer;					/* timer handler */
+-	add_timer(&sp->timer);
+-
+-	/* No need to wait for the command unit to accept here. */
+-	if ((sp->phy[0] & 0x8000) == 0)
+-		mdio_read(dev, sp->phy[0] & 0x1f, MII_BMCR);
+-
 -	return 0;
 -}
 -
--/*
-- * Function irport_timeout (struct net_device *dev)
-- *
-- *    The networking layer thinks we timed out.
-- *
-- */
--
--static void irport_timeout(struct net_device *dev)
+-/* Start the chip hardware after a full reset. */
+-static void speedo_resume(struct net_device *dev)
 -{
--	struct irport_cb *self;
--	int iobase;
--	int iir, lsr;
--	unsigned long flags;
+-	struct speedo_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->regs;
 -
--	self =3D (struct irport_cb *) dev->priv;
--	IRDA_ASSERT(self !=3D NULL, return;);
--	iobase =3D self->io.sir_base;
--=09
--	IRDA_WARNING("%s: transmit timed out, jiffies =3D %ld, trans_start =3D=
- %ld\n",
--		dev->name, jiffies, dev->trans_start);
--	spin_lock_irqsave(&self->lock, flags);
+-	/* Start with a Tx threshold of 256 (0x..20.... 8 byte units). */
+-	sp->tx_threshold = 0x01208000;
 -
--	/* Debug what's happening... */
+-	/* Set the segment registers to '0'. */
+-	if (wait_for_cmd_done(dev, sp) != 0) {
+-		iowrite32(PortPartialReset, ioaddr + SCBPort);
+-		udelay(10);
+-	}
 -
--	/* Get interrupt status */
--	lsr =3D inb(iobase+UART_LSR);
--	/* Read interrupt register */
--	iir =3D inb(iobase+UART_IIR);
--	IRDA_DEBUG(0, "%s(), iir=3D%02x, lsr=3D%02x, iobase=3D%#x\n",=20
--		   __FUNCTION__, iir, lsr, iobase);
+-        iowrite32(0, ioaddr + SCBPointer);
+-        ioread32(ioaddr + SCBPointer);			/* Flush to PCI. */
+-        udelay(10);			/* Bogus, but it avoids the bug. */
 -
--	IRDA_DEBUG(0, "%s(), transmitting=3D%d, remain=3D%d, done=3D%td\n",
--		   __FUNCTION__, self->transmitting, self->tx_buff.len,
--		   self->tx_buff.data - self->tx_buff.head);
+-        /* Note: these next two operations can take a while. */
+-        do_slow_command(dev, sp, RxAddrLoad);
+-        do_slow_command(dev, sp, CUCmdBase);
 -
--	/* Now, restart the port */
--	irport_start(self);
--	self->change_speed(self->priv, self->io.speed);
--	/* This will re-enable irqs */
--	outb(/*UART_IER_RLSI|*/UART_IER_RDI/*|UART_IER_THRI*/, iobase+UART_IE=
-R);
--	dev->trans_start =3D jiffies;
--	spin_unlock_irqrestore(&self->lock, flags);
+-	/* Load the statistics block and rx ring addresses. */
+-	iowrite32(sp->lstats_dma, ioaddr + SCBPointer);
+-	ioread32(ioaddr + SCBPointer);			/* Flush to PCI */
 -
+-	iowrite8(CUStatsAddr, ioaddr + SCBCmd);
+-	sp->lstats->done_marker = 0;
+-	wait_for_cmd_done(dev, sp);
+-
+-	if (sp->rx_ringp[sp->cur_rx % RX_RING_SIZE] == NULL) {
+-		if (netif_msg_rx_err(sp))
+-			printk(KERN_DEBUG "%s: NULL cur_rx in speedo_resume().\n",
+-					dev->name);
+-	} else {
+-		iowrite32(sp->rx_ring_dma[sp->cur_rx % RX_RING_SIZE],
+-			 ioaddr + SCBPointer);
+-		ioread32(ioaddr + SCBPointer);		/* Flush to PCI */
+-	}
+-
+-	/* Note: RxStart should complete instantly. */
+-	do_slow_command(dev, sp, RxStart);
+-	do_slow_command(dev, sp, CUDumpStats);
+-
+-	/* Fill the first command with our physical address. */
+-	{
+-		struct descriptor *ias_cmd;
+-
+-		ias_cmd =
+-			(struct descriptor *)&sp->tx_ring[sp->cur_tx++ % TX_RING_SIZE];
+-		/* Avoid a bug(?!) here by marking the command already completed. */
+-		ias_cmd->cmd_status = cpu_to_le32((CmdSuspend | CmdIASetup) | 0xa000);
+-		ias_cmd->link =
+-			cpu_to_le32(TX_RING_ELEM_DMA(sp, sp->cur_tx % TX_RING_SIZE));
+-		memcpy(ias_cmd->params, dev->dev_addr, 6);
+-		if (sp->last_cmd)
+-			clear_suspend(sp->last_cmd);
+-		sp->last_cmd = ias_cmd;
+-	}
+-
+-	/* Start the chip's Tx process and unmask interrupts. */
+-	iowrite32(TX_RING_ELEM_DMA(sp, sp->dirty_tx % TX_RING_SIZE),
+-		 ioaddr + SCBPointer);
+-	/* We are not ACK-ing FCP and ER in the interrupt handler yet so they should
+-	   remain masked --Dragan */
+-	iowrite16(CUStart | SCBMaskEarlyRx | SCBMaskFlowCtl, ioaddr + SCBCmd);
+-}
+-
+-/*
+- * Sometimes the receiver stops making progress.  This routine knows how to
+- * get it going again, without losing packets or being otherwise nasty like
+- * a chip reset would be.  Previously the driver had a whole sequence
+- * of if RxSuspended, if it's no buffers do one thing, if it's no resources,
+- * do another, etc.  But those things don't really matter.  Separate logic
+- * in the ISR provides for allocating buffers--the other half of operation
+- * is just making sure the receiver is active.  speedo_rx_soft_reset does that.
+- * This problem with the old, more involved algorithm is shown up under
+- * ping floods on the order of 60K packets/second on a 100Mbps fdx network.
+- */
+-static void
+-speedo_rx_soft_reset(struct net_device *dev)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	struct RxFD *rfd;
+-	void __iomem *ioaddr;
+-
+-	ioaddr = sp->regs;
+-	if (wait_for_cmd_done(dev, sp) != 0) {
+-		printk("%s: previous command stalled\n", dev->name);
+-		return;
+-	}
+-	/*
+-	* Put the hardware into a known state.
+-	*/
+-	iowrite8(RxAbort, ioaddr + SCBCmd);
+-
+-	rfd = sp->rx_ringp[sp->cur_rx % RX_RING_SIZE];
+-
+-	rfd->rx_buf_addr = 0xffffffff;
+-
+-	if (wait_for_cmd_done(dev, sp) != 0) {
+-		printk("%s: RxAbort command stalled\n", dev->name);
+-		return;
+-	}
+-	iowrite32(sp->rx_ring_dma[sp->cur_rx % RX_RING_SIZE],
+-		ioaddr + SCBPointer);
+-	iowrite8(RxStart, ioaddr + SCBCmd);
+-}
+-
+-
+-/* Media monitoring and control. */
+-static void speedo_timer(unsigned long data)
+-{
+-	struct net_device *dev = (struct net_device *)data;
+-	struct speedo_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->regs;
+-	int phy_num = sp->phy[0] & 0x1f;
+-
+-	/* We have MII and lost link beat. */
+-	if ((sp->phy[0] & 0x8000) == 0) {
+-		int partner = mdio_read(dev, phy_num, MII_LPA);
+-		if (partner != sp->partner) {
+-			int flow_ctrl = sp->mii_if.advertising & partner & 0x0400 ? 1 : 0;
+-			if (netif_msg_link(sp)) {
+-				printk(KERN_DEBUG "%s: Link status change.\n", dev->name);
+-				printk(KERN_DEBUG "%s: Old partner %x, new %x, adv %x.\n",
+-					   dev->name, sp->partner, partner, sp->mii_if.advertising);
+-			}
+-			sp->partner = partner;
+-			if (flow_ctrl != sp->flow_ctrl) {
+-				sp->flow_ctrl = flow_ctrl;
+-				sp->rx_mode = -1;	/* Trigger a reload. */
+-			}
+-		}
+-	}
+-	mii_check_link(&sp->mii_if);
+-	if (netif_msg_timer(sp)) {
+-		printk(KERN_DEBUG "%s: Media control tick, status %4.4x.\n",
+-			   dev->name, ioread16(ioaddr + SCBStatus));
+-	}
+-	if (sp->rx_mode < 0  ||
+-		(sp->rx_bug  && jiffies - sp->last_rx_time > 2*HZ)) {
+-		/* We haven't received a packet in a Long Time.  We might have been
+-		   bitten by the receiver hang bug.  This can be cleared by sending
+-		   a set multicast list command. */
+-		if (netif_msg_timer(sp))
+-			printk(KERN_DEBUG "%s: Sending a multicast list set command"
+-				   " from a timer routine,"
+-				   " m=%d, j=%ld, l=%ld.\n",
+-				   dev->name, sp->rx_mode, jiffies, sp->last_rx_time);
+-		set_rx_mode(dev);
+-	}
+-	/* We must continue to monitor the media. */
+-	sp->timer.expires = RUN_AT(2*HZ); 			/* 2.0 sec. */
+-	add_timer(&sp->timer);
+-}
+-
+-static void speedo_show_state(struct net_device *dev)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	int i;
+-
+-	if (netif_msg_pktdata(sp)) {
+-		printk(KERN_DEBUG "%s: Tx ring dump,  Tx queue %u / %u:\n",
+-		    dev->name, sp->cur_tx, sp->dirty_tx);
+-		for (i = 0; i < TX_RING_SIZE; i++)
+-			printk(KERN_DEBUG "%s:  %c%c%2d %8.8x.\n", dev->name,
+-			    i == sp->dirty_tx % TX_RING_SIZE ? '*' : ' ',
+-			    i == sp->cur_tx % TX_RING_SIZE ? '=' : ' ',
+-			    i, sp->tx_ring[i].status);
+-
+-		printk(KERN_DEBUG "%s: Printing Rx ring"
+-		    " (next to receive into %u, dirty index %u).\n",
+-		    dev->name, sp->cur_rx, sp->dirty_rx);
+-		for (i = 0; i < RX_RING_SIZE; i++)
+-			printk(KERN_DEBUG "%s: %c%c%c%2d %8.8x.\n", dev->name,
+-			    sp->rx_ringp[i] == sp->last_rxf ? 'l' : ' ',
+-			    i == sp->dirty_rx % RX_RING_SIZE ? '*' : ' ',
+-			    i == sp->cur_rx % RX_RING_SIZE ? '=' : ' ',
+-			    i, (sp->rx_ringp[i] != NULL) ?
+-			    (unsigned)sp->rx_ringp[i]->status : 0);
+-	}
+-
+-#if 0
+-	{
+-		void __iomem *ioaddr = sp->regs;
+-		int phy_num = sp->phy[0] & 0x1f;
+-		for (i = 0; i < 16; i++) {
+-			/* FIXME: what does it mean?  --SAW */
+-			if (i == 6) i = 21;
+-			printk(KERN_DEBUG "%s:  PHY index %d register %d is %4.4x.\n",
+-				   dev->name, phy_num, i, mdio_read(dev, phy_num, i));
+-		}
+-	}
+-#endif
+-
+-}
+-
+-/* Initialize the Rx and Tx rings, along with various 'dev' bits. */
+-static void
+-speedo_init_rx_ring(struct net_device *dev)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	struct RxFD *rxf, *last_rxf = NULL;
+-	dma_addr_t last_rxf_dma = 0 /* to shut up the compiler */;
+-	int i;
+-
+-	sp->cur_rx = 0;
+-
+-	for (i = 0; i < RX_RING_SIZE; i++) {
+-		struct sk_buff *skb;
+-		skb = dev_alloc_skb(PKT_BUF_SZ + sizeof(struct RxFD));
+-		if (skb)
+-			rx_align(skb);        /* Align IP on 16 byte boundary */
+-		sp->rx_skbuff[i] = skb;
+-		if (skb == NULL)
+-			break;			/* OK.  Just initially short of Rx bufs. */
+-		skb->dev = dev;			/* Mark as being used by this device. */
+-		rxf = (struct RxFD *)skb->data;
+-		sp->rx_ringp[i] = rxf;
+-		sp->rx_ring_dma[i] =
+-			pci_map_single(sp->pdev, rxf,
+-					PKT_BUF_SZ + sizeof(struct RxFD), PCI_DMA_BIDIRECTIONAL);
+-		skb_reserve(skb, sizeof(struct RxFD));
+-		if (last_rxf) {
+-			last_rxf->link = cpu_to_le32(sp->rx_ring_dma[i]);
+-			pci_dma_sync_single_for_device(sp->pdev, last_rxf_dma,
+-										   sizeof(struct RxFD), PCI_DMA_TODEVICE);
+-		}
+-		last_rxf = rxf;
+-		last_rxf_dma = sp->rx_ring_dma[i];
+-		rxf->status = cpu_to_le32(0x00000001);	/* '1' is flag value only. */
+-		rxf->link = 0;						/* None yet. */
+-		/* This field unused by i82557. */
+-		rxf->rx_buf_addr = 0xffffffff;
+-		rxf->count = cpu_to_le32(PKT_BUF_SZ << 16);
+-		pci_dma_sync_single_for_device(sp->pdev, sp->rx_ring_dma[i],
+-									   sizeof(struct RxFD), PCI_DMA_TODEVICE);
+-	}
+-	sp->dirty_rx = (unsigned int)(i - RX_RING_SIZE);
+-	/* Mark the last entry as end-of-list. */
+-	last_rxf->status = cpu_to_le32(0xC0000002);	/* '2' is flag value only. */
+-	pci_dma_sync_single_for_device(sp->pdev, sp->rx_ring_dma[RX_RING_SIZE-1],
+-								   sizeof(struct RxFD), PCI_DMA_TODEVICE);
+-	sp->last_rxf = last_rxf;
+-	sp->last_rxf_dma = last_rxf_dma;
+-}
+-
+-static void speedo_purge_tx(struct net_device *dev)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	int entry;
+-
+-	while ((int)(sp->cur_tx - sp->dirty_tx) > 0) {
+-		entry = sp->dirty_tx % TX_RING_SIZE;
+-		if (sp->tx_skbuff[entry]) {
+-			sp->stats.tx_errors++;
+-			pci_unmap_single(sp->pdev,
+-					le32_to_cpu(sp->tx_ring[entry].tx_buf_addr0),
+-					sp->tx_skbuff[entry]->len, PCI_DMA_TODEVICE);
+-			dev_kfree_skb_irq(sp->tx_skbuff[entry]);
+-			sp->tx_skbuff[entry] = NULL;
+-		}
+-		sp->dirty_tx++;
+-	}
+-	while (sp->mc_setup_head != NULL) {
+-		struct speedo_mc_block *t;
+-		if (netif_msg_tx_err(sp))
+-			printk(KERN_DEBUG "%s: freeing mc frame.\n", dev->name);
+-		pci_unmap_single(sp->pdev, sp->mc_setup_head->frame_dma,
+-				sp->mc_setup_head->len, PCI_DMA_TODEVICE);
+-		t = sp->mc_setup_head->next;
+-		kfree(sp->mc_setup_head);
+-		sp->mc_setup_head = t;
+-	}
+-	sp->mc_setup_tail = NULL;
+-	sp->tx_full = 0;
 -	netif_wake_queue(dev);
 -}
--=20
--/*
-- * Function irport_wait_hw_transmitter_finish ()
-- *
-- *    Wait for the real end of HW transmission
-- *
-- * The UART is a strict FIFO, and we get called only when we have fini=
-shed
-- * pushing data to the FIFO, so the maximum amount of time we must wai=
-t
-- * is only for the FIFO to drain out.
-- *
-- * We use a simple calibrated loop. We may need to adjust the loop
-- * delay (udelay) to balance I/O traffic and latency. And we also need=
- to
-- * adjust the maximum timeout.
-- * It would probably be better to wait for the proper interrupt,
-- * but it doesn't seem to be available.
-- *
-- * We can't use jiffies or kernel timers because :
-- * 1) We are called from the interrupt handler, which disable softirqs=
-,
-- * so jiffies won't be increased
-- * 2) Jiffies granularity is usually very coarse (10ms), and we don't
-- * want to wait that long to detect stuck hardware.
-- * Jean II
-- */
 -
--static void irport_wait_hw_transmitter_finish(struct irport_cb *self)
+-static void reset_mii(struct net_device *dev)
 -{
--	int iobase;
--	int count =3D 1000;	/* 1 ms */
--=09
--	iobase =3D self->io.sir_base;
+-	struct speedo_private *sp = netdev_priv(dev);
 -
--	/* Calibrated busy loop */
--	while((count-- > 0) && !(inb(iobase+UART_LSR) & UART_LSR_TEMT))
--		udelay(1);
--
--	if(count =3D=3D 0)
--		IRDA_DEBUG(0, "%s(): stuck transmitter\n", __FUNCTION__);
+-	/* Reset the MII transceiver, suggested by Fred Young @ scalable.com. */
+-	if ((sp->phy[0] & 0x8000) == 0) {
+-		int phy_addr = sp->phy[0] & 0x1f;
+-		int advertising = mdio_read(dev, phy_addr, MII_ADVERTISE);
+-		int mii_bmcr = mdio_read(dev, phy_addr, MII_BMCR);
+-		mdio_write(dev, phy_addr, MII_BMCR, 0x0400);
+-		mdio_write(dev, phy_addr, MII_BMSR, 0x0000);
+-		mdio_write(dev, phy_addr, MII_ADVERTISE, 0x0000);
+-		mdio_write(dev, phy_addr, MII_BMCR, 0x8000);
+-#ifdef honor_default_port
+-		mdio_write(dev, phy_addr, MII_BMCR, mii_ctrl[dev->default_port & 7]);
+-#else
+-		mdio_read(dev, phy_addr, MII_BMCR);
+-		mdio_write(dev, phy_addr, MII_BMCR, mii_bmcr);
+-		mdio_write(dev, phy_addr, MII_ADVERTISE, advertising);
+-#endif
+-	}
 -}
 -
--/*
-- * Function irport_hard_start_xmit (struct sk_buff *skb, struct net_de=
-vice *dev)
-- *
-- *    Transmits the current frame until FIFO is full, then
-- *    waits until the next transmitt interrupt, and continues until th=
-e
-- *    frame is transmitted.
-- */
--static int irport_hard_xmit(struct sk_buff *skb, struct net_device *de=
-v)
+-static void speedo_tx_timeout(struct net_device *dev)
 -{
--	struct irport_cb *self;
+-	struct speedo_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->regs;
+-	int status = ioread16(ioaddr + SCBStatus);
 -	unsigned long flags;
--	int iobase;
--	s32 speed;
 -
--	IRDA_DEBUG(1, "%s()\n", __FUNCTION__);
+-	if (netif_msg_tx_err(sp)) {
+-		printk(KERN_WARNING "%s: Transmit timed out: status %4.4x "
+-		   " %4.4x at %d/%d command %8.8x.\n",
+-		   dev->name, status, ioread16(ioaddr + SCBCmd),
+-		   sp->dirty_tx, sp->cur_tx,
+-		   sp->tx_ring[sp->dirty_tx % TX_RING_SIZE].status);
 -
--	IRDA_ASSERT(dev !=3D NULL, return 0;);
--=09
--	self =3D (struct irport_cb *) dev->priv;
--	IRDA_ASSERT(self !=3D NULL, return 0;);
+-	}
+-	speedo_show_state(dev);
+-#if 0
+-	if ((status & 0x00C0) != 0x0080
+-		&&  (status & 0x003C) == 0x0010) {
+-		/* Only the command unit has stopped. */
+-		printk(KERN_WARNING "%s: Trying to restart the transmitter...\n",
+-			   dev->name);
+-		iowrite32(TX_RING_ELEM_DMA(sp, dirty_tx % TX_RING_SIZE]),
+-			 ioaddr + SCBPointer);
+-		iowrite16(CUStart, ioaddr + SCBCmd);
+-		reset_mii(dev);
+-	} else {
+-#else
+-	{
+-#endif
+-		del_timer_sync(&sp->timer);
+-		/* Reset the Tx and Rx units. */
+-		iowrite32(PortReset, ioaddr + SCBPort);
+-		/* We may get spurious interrupts here.  But I don't think that they
+-		   may do much harm.  1999/12/09 SAW */
+-		udelay(10);
+-		/* Disable interrupts. */
+-		iowrite16(SCBMaskAll, ioaddr + SCBCmd);
+-		synchronize_irq(dev->irq);
+-		speedo_tx_buffer_gc(dev);
+-		/* Free as much as possible.
+-		   It helps to recover from a hang because of out-of-memory.
+-		   It also simplifies speedo_resume() in case TX ring is full or
+-		   close-to-be full. */
+-		speedo_purge_tx(dev);
+-		speedo_refill_rx_buffers(dev, 1);
+-		spin_lock_irqsave(&sp->lock, flags);
+-		speedo_resume(dev);
+-		sp->rx_mode = -1;
+-		dev->trans_start = jiffies;
+-		spin_unlock_irqrestore(&sp->lock, flags);
+-		set_rx_mode(dev); /* it takes the spinlock itself --SAW */
+-		/* Reset MII transceiver.  Do it before starting the timer to serialize
+-		   mdio_xxx operations.  Yes, it's a paranoya :-)  2000/05/09 SAW */
+-		reset_mii(dev);
+-		sp->timer.expires = RUN_AT(2*HZ);
+-		add_timer(&sp->timer);
+-	}
+-	return;
+-}
 -
--	iobase =3D self->io.sir_base;
+-static int
+-speedo_start_xmit(struct sk_buff *skb, struct net_device *dev)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->regs;
+-	int entry;
 -
--	netif_stop_queue(dev);
+-	/* Prevent interrupts from changing the Tx ring from underneath us. */
+-	unsigned long flags;
 -
--	/* Make sure tests & speed change are atomic */
--	spin_lock_irqsave(&self->lock, flags);
+-	spin_lock_irqsave(&sp->lock, flags);
 -
--	/* Check if we need to change the speed */
--	speed =3D irda_get_next_speed(skb);
--	if ((speed !=3D self->io.speed) && (speed !=3D -1)) {
--		/* Check for empty frame */
--		if (!skb->len) {
--			/*
--			 * We send frames one by one in SIR mode (no
--			 * pipelining), so at this point, if we were sending
--			 * a previous frame, we just received the interrupt
--			 * telling us it is finished (UART_IIR_THRI).
--			 * Therefore, waiting for the transmitter to really
--			 * finish draining the fifo won't take too long.
--			 * And the interrupt handler is not expected to run.
--			 * - Jean II */
--			irport_wait_hw_transmitter_finish(self);
--			/* Better go there already locked - Jean II */
--			irda_task_execute(self, __irport_change_speed,=20
--					  irport_change_speed_complete,=20
--					  NULL, (void *) speed);
--			dev->trans_start =3D jiffies;
--			spin_unlock_irqrestore(&self->lock, flags);
--			dev_kfree_skb(skb);
--			return 0;
--		} else
--			self->new_speed =3D speed;
+-	/* Check if there are enough space. */
+-	if ((int)(sp->cur_tx - sp->dirty_tx) >= TX_QUEUE_LIMIT) {
+-		printk(KERN_ERR "%s: incorrect tbusy state, fixed.\n", dev->name);
+-		netif_stop_queue(dev);
+-		sp->tx_full = 1;
+-		spin_unlock_irqrestore(&sp->lock, flags);
+-		return 1;
 -	}
 -
--	/* Init tx buffer */
--	self->tx_buff.data =3D self->tx_buff.head;
+-	/* Calculate the Tx descriptor entry. */
+-	entry = sp->cur_tx++ % TX_RING_SIZE;
 -
--        /* Copy skb to tx_buff while wrapping, stuffing and making CRC=
- */
--	self->tx_buff.len =3D async_wrap_skb(skb, self->tx_buff.data,=20
--					   self->tx_buff.truesize);
--=09
--	self->stats.tx_bytes +=3D self->tx_buff.len;
+-	sp->tx_skbuff[entry] = skb;
+-	sp->tx_ring[entry].status =
+-		cpu_to_le32(CmdSuspend | CmdTx | CmdTxFlex);
+-	if (!(entry & ((TX_RING_SIZE>>2)-1)))
+-		sp->tx_ring[entry].status |= cpu_to_le32(CmdIntr);
+-	sp->tx_ring[entry].link =
+-		cpu_to_le32(TX_RING_ELEM_DMA(sp, sp->cur_tx % TX_RING_SIZE));
+-	sp->tx_ring[entry].tx_desc_addr =
+-		cpu_to_le32(TX_RING_ELEM_DMA(sp, entry) + TX_DESCR_BUF_OFFSET);
+-	/* The data region is always in one buffer descriptor. */
+-	sp->tx_ring[entry].count = cpu_to_le32(sp->tx_threshold);
+-	sp->tx_ring[entry].tx_buf_addr0 =
+-		cpu_to_le32(pci_map_single(sp->pdev, skb->data,
+-					   skb->len, PCI_DMA_TODEVICE));
+-	sp->tx_ring[entry].tx_buf_size0 = cpu_to_le32(skb->len);
 -
--	/* We are transmitting */
--	self->transmitting =3D 1;
+-	/* workaround for hardware bug on 10 mbit half duplex */
 -
--	/* Turn on transmit finished interrupt. Will fire immediately!  */
--	outb(UART_IER_THRI, iobase+UART_IER);=20
+-	if ((sp->partner == 0) && (sp->chip_id == 1)) {
+-		wait_for_cmd_done(dev, sp);
+-		iowrite8(0 , ioaddr + SCBCmd);
+-		udelay(1);
+-	}
 -
--	dev->trans_start =3D jiffies;
--	spin_unlock_irqrestore(&self->lock, flags);
+-	/* Trigger the command unit resume. */
+-	wait_for_cmd_done(dev, sp);
+-	clear_suspend(sp->last_cmd);
+-	/* We want the time window between clearing suspend flag on the previous
+-	   command and resuming CU to be as small as possible.
+-	   Interrupts in between are very undesired.  --SAW */
+-	iowrite8(CUResume, ioaddr + SCBCmd);
+-	sp->last_cmd = (struct descriptor *)&sp->tx_ring[entry];
 -
--	dev_kfree_skb(skb);
--=09
+-	/* Leave room for set_rx_mode(). If there is no more space than reserved
+-	   for multicast filter mark the ring as full. */
+-	if ((int)(sp->cur_tx - sp->dirty_tx) >= TX_QUEUE_LIMIT) {
+-		netif_stop_queue(dev);
+-		sp->tx_full = 1;
+-	}
+-
+-	spin_unlock_irqrestore(&sp->lock, flags);
+-
+-	dev->trans_start = jiffies;
+-
 -	return 0;
 -}
--       =20
--/*
-- * Function irport_write (driver)
-- *
-- *    Fill Tx FIFO with transmit data
-- *
-- * Called only from irport_write_wakeup()
-- */
--static inline int irport_write(int iobase, int fifo_size, __u8 *buf, i=
-nt len)
+-
+-static void speedo_tx_buffer_gc(struct net_device *dev)
 -{
--	int actual =3D 0;
+-	unsigned int dirty_tx;
+-	struct speedo_private *sp = netdev_priv(dev);
 -
--	/* Fill FIFO with current frame */
--	while ((actual < fifo_size) && (actual < len)) {
--		/* Transmit next byte */
--		outb(buf[actual], iobase+UART_TX);
+-	dirty_tx = sp->dirty_tx;
+-	while ((int)(sp->cur_tx - dirty_tx) > 0) {
+-		int entry = dirty_tx % TX_RING_SIZE;
+-		int status = le32_to_cpu(sp->tx_ring[entry].status);
 -
--		actual++;
--	}
--       =20
--	return actual;
--}
--
--/*
-- * Function irport_write_wakeup (tty)
-- *
-- *    Called by the driver when there's room for more data.  If we hav=
-e
-- *    more packets to send, we send them here.
-- *
-- * Called only from irport_interrupt()
-- * Make sure this function is *not* called while we are receiving,
-- * otherwise we will reset fifo and loose data :-(
-- */
--static inline void irport_write_wakeup(struct irport_cb *self)
--{
--	int actual =3D 0;
--	int iobase;
--	unsigned int fcr;
--
--	IRDA_ASSERT(self !=3D NULL, return;);
--
--	IRDA_DEBUG(4, "%s()\n", __FUNCTION__);
--
--	iobase =3D self->io.sir_base;
--
--	/* Finished with frame?  */
--	if (self->tx_buff.len > 0)  {
--		/* Write data left in transmit buffer */
--		actual =3D irport_write(iobase, self->io.fifo_size,=20
--				      self->tx_buff.data, self->tx_buff.len);
--		self->tx_buff.data +=3D actual;
--		self->tx_buff.len  -=3D actual;
--	} else {
--		/*=20
--		 *  Now serial buffer is almost free & we can start=20
--		 *  transmission of another packet. But first we must check
--		 *  if we need to change the speed of the hardware
--		 */
--		if (self->new_speed) {
--			irport_wait_hw_transmitter_finish(self);
--			irda_task_execute(self, __irport_change_speed,=20
--					  irport_change_speed_complete,=20
--					  NULL, (void *) self->new_speed);
--			self->new_speed =3D 0;
--		} else {
--			/* Tell network layer that we want more frames */
--			netif_wake_queue(self->netdev);
+-		if (netif_msg_tx_done(sp))
+-			printk(KERN_DEBUG " scavenge candidate %d status %4.4x.\n",
+-				   entry, status);
+-		if ((status & StatusComplete) == 0)
+-			break;			/* It still hasn't been processed. */
+-		if (status & TxUnderrun)
+-			if (sp->tx_threshold < 0x01e08000) {
+-				if (netif_msg_tx_err(sp))
+-					printk(KERN_DEBUG "%s: TX underrun, threshold adjusted.\n",
+-						   dev->name);
+-				sp->tx_threshold += 0x00040000;
+-			}
+-		/* Free the original skb. */
+-		if (sp->tx_skbuff[entry]) {
+-			sp->stats.tx_packets++;	/* Count only user packets. */
+-			sp->stats.tx_bytes += sp->tx_skbuff[entry]->len;
+-			pci_unmap_single(sp->pdev,
+-					le32_to_cpu(sp->tx_ring[entry].tx_buf_addr0),
+-					sp->tx_skbuff[entry]->len, PCI_DMA_TODEVICE);
+-			dev_kfree_skb_irq(sp->tx_skbuff[entry]);
+-			sp->tx_skbuff[entry] = NULL;
 -		}
--		self->stats.tx_packets++;
--
--		/*=20
--		 * Reset Rx FIFO to make sure that all reflected transmit data
--		 * is discarded. This is needed for half duplex operation
--		 */
--		fcr =3D irport_get_fcr(self->io.speed);
--		fcr |=3D UART_FCR_CLEAR_RCVR;
--		outb(fcr, iobase+UART_FCR);
--
--		/* Finished transmitting */
--		self->transmitting =3D 0;
--
--		/* Turn on receive interrupts */
--		outb(UART_IER_RDI, iobase+UART_IER);
--
--		IRDA_DEBUG(1, "%s() : finished Tx\n", __FUNCTION__);
+-		dirty_tx++;
 -	}
+-
+-	if (netif_msg_tx_err(sp) && (int)(sp->cur_tx - dirty_tx) > TX_RING_SIZE) {
+-		printk(KERN_ERR "out-of-sync dirty pointer, %d vs. %d,"
+-			   " full=%d.\n",
+-			   dirty_tx, sp->cur_tx, sp->tx_full);
+-		dirty_tx += TX_RING_SIZE;
+-	}
+-
+-	while (sp->mc_setup_head != NULL
+-		   && (int)(dirty_tx - sp->mc_setup_head->tx - 1) > 0) {
+-		struct speedo_mc_block *t;
+-		if (netif_msg_tx_err(sp))
+-			printk(KERN_DEBUG "%s: freeing mc frame.\n", dev->name);
+-		pci_unmap_single(sp->pdev, sp->mc_setup_head->frame_dma,
+-				sp->mc_setup_head->len, PCI_DMA_TODEVICE);
+-		t = sp->mc_setup_head->next;
+-		kfree(sp->mc_setup_head);
+-		sp->mc_setup_head = t;
+-	}
+-	if (sp->mc_setup_head == NULL)
+-		sp->mc_setup_tail = NULL;
+-
+-	sp->dirty_tx = dirty_tx;
 -}
 -
--/*
-- * Function irport_receive (self)
-- *
-- *    Receive one frame from the infrared port
-- *
-- * Called only from irport_interrupt()
-- */
--static inline void irport_receive(struct irport_cb *self)=20
+-/* The interrupt handler does all of the Rx thread work and cleans up
+-   after the Tx thread. */
+-static irqreturn_t speedo_interrupt(int irq, void *dev_instance)
 -{
--	int boguscount =3D 0;
--	int iobase;
+-	struct net_device *dev = (struct net_device *)dev_instance;
+-	struct speedo_private *sp;
+-	void __iomem *ioaddr;
+-	long boguscnt = max_interrupt_work;
+-	unsigned short status;
+-	unsigned int handled = 0;
 -
--	IRDA_ASSERT(self !=3D NULL, return;);
+-	sp = netdev_priv(dev);
+-	ioaddr = sp->regs;
 -
--	iobase =3D self->io.sir_base;
+-#ifndef final_version
+-	/* A lock to prevent simultaneous entry on SMP machines. */
+-	if (test_and_set_bit(0, (void*)&sp->in_interrupt)) {
+-		printk(KERN_ERR"%s: SMP simultaneous entry of an interrupt handler.\n",
+-			   dev->name);
+-		sp->in_interrupt = 0;	/* Avoid halting machine. */
+-		return IRQ_NONE;
+-	}
+-#endif
 -
--	/* =20
--	 * Receive all characters in Rx FIFO, unwrap and unstuff them.=20
--         * async_unwrap_char will deliver all found frames =20
--	 */
 -	do {
--		async_unwrap_char(self->netdev, &self->stats, &self->rx_buff,=20
--				  inb(iobase+UART_RX));
+-		status = ioread16(ioaddr + SCBStatus);
+-		/* Acknowledge all of the current interrupt sources ASAP. */
+-		/* Will change from 0xfc00 to 0xff00 when we start handling
+-		   FCP and ER interrupts --Dragan */
+-		iowrite16(status & 0xfc00, ioaddr + SCBStatus);
 -
--		/* Make sure we don't stay here too long */
--		if (boguscount++ > 32) {
--			IRDA_DEBUG(2,"%s(), breaking!\n", __FUNCTION__);
+-		if (netif_msg_intr(sp))
+-			printk(KERN_DEBUG "%s: interrupt  status=%#4.4x.\n",
+-				   dev->name, status);
+-
+-		if ((status & 0xfc00) == 0)
 -			break;
--		}
--	} while (inb(iobase+UART_LSR) & UART_LSR_DR);=09
--}
+-		handled = 1;
 -
--/*
-- * Function irport_interrupt (irq, dev_id)
-- *
-- *    Interrupt handler
-- */
--static irqreturn_t irport_interrupt(int irq, void *dev_id)=20
--{
--	struct net_device *dev =3D dev_id;
--	struct irport_cb *self;
--	int boguscount =3D 0;
--	int iobase;
--	int iir, lsr;
--	int handled =3D 0;
 -
--	self =3D dev->priv;
+-		if ((status & 0x5000) ||	/* Packet received, or Rx error. */
+-			(sp->rx_ring_state&(RrNoMem|RrPostponed)) == RrPostponed)
+-									/* Need to gather the postponed packet. */
+-			speedo_rx(dev);
 -
--	spin_lock(&self->lock);
+-		/* Always check if all rx buffers are allocated.  --SAW */
+-		speedo_refill_rx_buffers(dev, 0);
 -
--	iobase =3D self->io.sir_base;
--
--	/* Cut'n'paste interrupt routine from serial.c
--	 * This version try to minimise latency and I/O operations.
--	 * Simplified and modified to enforce half duplex operation.
--	 * - Jean II */
--
--	/* Check status even is iir reg is cleared, more robust and
--	 * eliminate a read on the I/O bus - Jean II */
--	do {
--		/* Get interrupt status ; Clear interrupt */
--		lsr =3D inb(iobase+UART_LSR);
--	=09
--		/* Are we receiving or transmitting ? */
--		if(!self->transmitting) {
--			/* Received something ? */
--			if (lsr & UART_LSR_DR)
--				irport_receive(self);
--		} else {
--			/* Room in Tx fifo ? */
--			if (lsr & (UART_LSR_THRE | UART_LSR_TEMT))
--				irport_write_wakeup(self);
--		}
--
--		/* A bit hackish, but working as expected... Jean II */
--		if(lsr & (UART_LSR_THRE | UART_LSR_TEMT | UART_LSR_DR))
--			handled =3D 1;
--
--		/* Make sure we don't stay here to long */
--		if (boguscount++ > 10) {
--			IRDA_WARNING("%s() irq handler looping : lsr=3D%02x\n",
--				     __FUNCTION__, lsr);
+-		spin_lock(&sp->lock);
+-		/*
+-		 * The chip may have suspended reception for various reasons.
+-		 * Check for that, and re-prime it should this be the case.
+-		 */
+-		switch ((status >> 2) & 0xf) {
+-		case 0: /* Idle */
+-			break;
+-		case 1:	/* Suspended */
+-		case 2:	/* No resources (RxFDs) */
+-		case 9:	/* Suspended with no more RBDs */
+-		case 10: /* No resources due to no RBDs */
+-		case 12: /* Ready with no RBDs */
+-			speedo_rx_soft_reset(dev);
+-			break;
+-		case 3:  case 5:  case 6:  case 7:  case 8:
+-		case 11:  case 13:  case 14:  case 15:
+-			/* these are all reserved values */
 -			break;
 -		}
 -
--		/* Read interrupt register */
-- 	        iir =3D inb(iobase+UART_IIR);
 -
--		/* Enable this debug only when no other options and at low
--		 * bit rates, otherwise it may cause Rx overruns (lsr=3D63).
--		 * - Jean II */
--		IRDA_DEBUG(6, "%s(), iir=3D%02x, lsr=3D%02x, iobase=3D%#x\n",=20
--			    __FUNCTION__, iir, lsr, iobase);
+-		/* User interrupt, Command/Tx unit interrupt or CU not active. */
+-		if (status & 0xA400) {
+-			speedo_tx_buffer_gc(dev);
+-			if (sp->tx_full
+-				&& (int)(sp->cur_tx - sp->dirty_tx) < TX_QUEUE_UNFULL) {
+-				/* The ring is no longer full. */
+-				sp->tx_full = 0;
+-				netif_wake_queue(dev); /* Attention: under a spinlock.  --SAW */
+-			}
+-		}
 -
--		/* As long as interrupt pending... */
--	} while ((iir & UART_IIR_NO_INT) =3D=3D 0);
+-		spin_unlock(&sp->lock);
 -
--	spin_unlock(&self->lock);
+-		if (--boguscnt < 0) {
+-			printk(KERN_ERR "%s: Too much work at interrupt, status=0x%4.4x.\n",
+-				   dev->name, status);
+-			/* Clear all interrupt sources. */
+-			/* Will change from 0xfc00 to 0xff00 when we start handling
+-			   FCP and ER interrupts --Dragan */
+-			iowrite16(0xfc00, ioaddr + SCBStatus);
+-			break;
+-		}
+-	} while (1);
+-
+-	if (netif_msg_intr(sp))
+-		printk(KERN_DEBUG "%s: exiting interrupt, status=%#4.4x.\n",
+-			   dev->name, ioread16(ioaddr + SCBStatus));
+-
+-	clear_bit(0, (void*)&sp->in_interrupt);
 -	return IRQ_RETVAL(handled);
 -}
 -
--/*
-- * Function irport_net_open (dev)
-- *
-- *    Network device is taken up. Usually this is done by "ifconfig ir=
-da0 up"=20
-- *  =20
-- */
--static int irport_net_open(struct net_device *dev)
+-static inline struct RxFD *speedo_rx_alloc(struct net_device *dev, int entry)
 -{
--	struct irport_cb *self;
--	int iobase;
--	char hwname[16];
--	unsigned long flags;
--
--	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
--
--	IRDA_ASSERT(dev !=3D NULL, return -1;);
--	self =3D (struct irport_cb *) dev->priv;
--
--	iobase =3D self->io.sir_base;
--
--	if (request_irq(self->io.irq, self->interrupt, 0, dev->name,=20
--			(void *) dev)) {
--		IRDA_DEBUG(0, "%s(), unable to allocate irq=3D%d\n",
--			   __FUNCTION__, self->io.irq);
--		return -EAGAIN;
--	}
--
--	spin_lock_irqsave(&self->lock, flags);
--	/* Init uart */
--	irport_start(self);
--	/* Set 9600 bauds per default, including at the dongle */
--	irda_task_execute(self, __irport_change_speed,=20
--			  irport_change_speed_complete,=20
--			  NULL, (void *) 9600);
--	spin_unlock_irqrestore(&self->lock, flags);
--
--
--	/* Give self a hardware name */
--	sprintf(hwname, "SIR @ 0x%03x", self->io.sir_base);
--
--	/*=20
--	 * Open new IrLAP layer instance, now that everything should be
--	 * initialized properly=20
--	 */
--	self->irlap =3D irlap_open(dev, &self->qos, hwname);
--
--	/* Ready to play! */
--
--	netif_start_queue(dev);
--
--	return 0;
--}
--
--/*
-- * Function irport_net_close (self)
-- *
-- *    Network device is taken down. Usually this is done by=20
-- *    "ifconfig irda0 down"=20
-- */
--static int irport_net_close(struct net_device *dev)
--{
--	struct irport_cb *self;
--	int iobase;
--	unsigned long flags;
--
--	IRDA_DEBUG(4, "%s()\n", __FUNCTION__);
--
--	IRDA_ASSERT(dev !=3D NULL, return -1;);
--	self =3D (struct irport_cb *) dev->priv;
--
--	IRDA_ASSERT(self !=3D NULL, return -1;);
--
--	iobase =3D self->io.sir_base;
--
--	/* Stop device */
--	netif_stop_queue(dev);
--=09
--	/* Stop and remove instance of IrLAP */
--	if (self->irlap)
--		irlap_close(self->irlap);
--	self->irlap =3D NULL;
--
--	spin_lock_irqsave(&self->lock, flags);
--	irport_stop(self);
--	spin_unlock_irqrestore(&self->lock, flags);
--
--	free_irq(self->io.irq, dev);
--
--	return 0;
--}
--
--/*
-- * Function irport_is_receiving (self)
-- *
-- *    Returns true is we are currently receiving data
-- *
-- */
--static inline int irport_is_receiving(struct irport_cb *self)
--{
--	return (self->rx_buff.state !=3D OUTSIDE_FRAME);
--}
--
--/*
-- * Function irport_set_dtr_rts (tty, dtr, rts)
-- *
-- *    This function can be used by dongles etc. to set or reset the st=
-atus
-- *    of the dtr and rts lines
-- */
--static int irport_set_dtr_rts(struct net_device *dev, int dtr, int rts=
-)
--{
--	struct irport_cb *self =3D dev->priv;
--	int iobase;
--
--	IRDA_ASSERT(self !=3D NULL, return -1;);
--
--	iobase =3D self->io.sir_base;
--
--	if (dtr)
--		dtr =3D UART_MCR_DTR;
--	if (rts)
--		rts =3D UART_MCR_RTS;
--
--	outb(dtr|rts|UART_MCR_OUT2, iobase+UART_MCR);
--
--	return 0;
--}
--
--static int irport_raw_write(struct net_device *dev, __u8 *buf, int len=
-)
--{
--	struct irport_cb *self =3D (struct irport_cb *) dev->priv;
--	int actual =3D 0;
--	int iobase;
--
--	IRDA_ASSERT(self !=3D NULL, return -1;);
--
--	iobase =3D self->io.sir_base;
--
--	/* Tx FIFO should be empty! */
--	if (!(inb(iobase+UART_LSR) & UART_LSR_THRE)) {
--		IRDA_DEBUG( 0, "%s(), failed, fifo not empty!\n", __FUNCTION__);
--		return -1;
--	}
--       =20
--	/* Fill FIFO with current frame */
--	while (actual < len) {
--		/* Transmit next byte */
--		outb(buf[actual], iobase+UART_TX);
--		actual++;
--	}
--
--	return actual;
--}
--
--/*
-- * Function irport_net_ioctl (dev, rq, cmd)
-- *
-- *    Process IOCTL commands for this device
-- *
-- */
--static int irport_net_ioctl(struct net_device *dev, struct ifreq *rq, =
-int cmd)
--{
--	struct if_irda_req *irq =3D (struct if_irda_req *) rq;
--	struct irport_cb *self;
--	dongle_t *dongle;
--	unsigned long flags;
--	int ret =3D 0;
--
--	IRDA_ASSERT(dev !=3D NULL, return -1;);
--
--	self =3D dev->priv;
--
--	IRDA_ASSERT(self !=3D NULL, return -1;);
--
--	IRDA_DEBUG(2, "%s(), %s, (cmd=3D0x%X)\n", __FUNCTION__, dev->name, cm=
-d);
--=09
--	switch (cmd) {
--	case SIOCSBANDWIDTH: /* Set bandwidth */
--		if (!capable(CAP_NET_ADMIN))
--			ret =3D -EPERM;
--                else
--			irda_task_execute(self, __irport_change_speed, NULL,=20
--					  NULL, (void *) irq->ifr_baudrate);
--		break;
--	case SIOCSDONGLE: /* Set dongle */
--		if (!capable(CAP_NET_ADMIN)) {
--			ret =3D -EPERM;
--			break;
--		}
--
--		/* Locking :
--		 * irda_device_dongle_init() can't be locked.
--		 * irda_task_execute() doesn't need to be locked.
--		 * Jean II
--		 */
--
--		/* Initialize dongle */
--		dongle =3D irda_device_dongle_init(dev, irq->ifr_dongle);
--		if (!dongle)
--			break;
--	=09
--		dongle->set_mode    =3D NULL;
--		dongle->read        =3D NULL;
--		dongle->write       =3D irport_raw_write;
--		dongle->set_dtr_rts =3D irport_set_dtr_rts;
--	=09
--		/* Now initialize the dongle!  */
--		dongle->issue->open(dongle, &self->qos);
--	=09
--		/* Reset dongle */
--		irda_task_execute(dongle, dongle->issue->reset, NULL, NULL,=20
--				  NULL);=09
--
--		/* Make dongle available to driver only now to avoid
--		 * race conditions - Jean II */
--		self->dongle =3D dongle;
--		break;
--	case SIOCSMEDIABUSY: /* Set media busy */
--		if (!capable(CAP_NET_ADMIN)) {
--			ret =3D -EPERM;
--			break;
--		}
--
--		irda_device_set_media_busy(self->netdev, TRUE);
--		break;
--	case SIOCGRECEIVING: /* Check if we are receiving right now */
--		irq->ifr_receiving =3D irport_is_receiving(self);
--		break;
--	case SIOCSDTRRTS:
--		if (!capable(CAP_NET_ADMIN)) {
--			ret =3D -EPERM;
--			break;
--		}
--
--		/* No real need to lock... */
--		spin_lock_irqsave(&self->lock, flags);
--		irport_set_dtr_rts(dev, irq->ifr_dtr, irq->ifr_rts);
--		spin_unlock_irqrestore(&self->lock, flags);
--		break;
--	default:
--		ret =3D -EOPNOTSUPP;
--	}
--=09
--	return ret;
--}
--
--static struct net_device_stats *irport_net_get_stats(struct net_device=
- *dev)
--{
--	struct irport_cb *self =3D (struct irport_cb *) dev->priv;
--=09
--	return &self->stats;
--}
--
--static int __init irport_init(void)
--{
-- 	int i;
--
-- 	for (i=3D0; (io[i] < 2000) && (i < ARRAY_SIZE(dev_self)); i++) {
-- 		if (irport_open(i, io[i], irq[i]) !=3D NULL)
-- 			return 0;
-- 	}
--	/*=20
--	 * Maybe something failed, but we can still be usable for FIR drivers=
-=20
--	 */
-- 	return 0;
--}
--
--/*
-- * Function irport_cleanup ()
-- *
-- *    Close all configured ports
-- *
-- */
--static void __exit irport_cleanup(void)
--{
-- 	int i;
--
--        IRDA_DEBUG( 4, "%s()\n", __FUNCTION__);
--
--	for (i=3D0; i < ARRAY_SIZE(dev_self); i++) {
-- 		if (dev_self[i])
-- 			irport_close(dev_self[i]);
-- 	}
--}
--
--module_param_array(io, int, NULL, 0);
--MODULE_PARM_DESC(io, "Base I/O addresses");
--module_param_array(irq, int, NULL, 0);
--MODULE_PARM_DESC(irq, "IRQ lines");
--
--MODULE_AUTHOR("Dag Brattli <dagb@cs.uit.no>");
--MODULE_DESCRIPTION("Half duplex serial driver for IrDA SIR mode");
--MODULE_LICENSE("GPL");
--
--module_init(irport_init);
--module_exit(irport_cleanup);
--
-diff --git a/drivers/net/irda/irport.h b/drivers/net/irda/irport.h
-deleted file mode 100644
-index 66fc243..0000000
---- a/drivers/net/irda/irport.h
-+++ /dev/null
-@@ -1,80 +0,0 @@
--/*********************************************************************
-- *               =20
-- * Filename:      irport.h
-- * Version:       0.1
-- * Description:   Serial driver for IrDA
-- * Status:        Experimental.
-- * Author:        Dag Brattli <dagb@cs.uit.no>
-- * Created at:    Sun Aug  3 13:49:59 1997
-- * Modified at:   Fri Jan 14 10:21:10 2000
-- * Modified by:   Dag Brattli <dagb@cs.uit.no>
-- *=20
-- *     Copyright (c) 1997, 1998-2000 Dag Brattli <dagb@cs.uit.no>
-- *     All Rights Reserved.
-- *    =20
-- *     This program is free software; you can redistribute it and/or=20
-- *     modify it under the terms of the GNU General Public License as=20
-- *     published by the Free Software Foundation; either version 2 of=20
-- *     the License, or (at your option) any later version.
-- *
-- *     Neither Dag Brattli nor University of Troms=C3=B8 admit liabili=
-ty nor
-- *     provide warranty for any of this software. This material is=20
-- *     provided "AS-IS" and at no charge.
-- *
-- ********************************************************************/
--
--#ifndef IRPORT_H
--#define IRPORT_H
--
--#include <linux/netdevice.h>
--#include <linux/skbuff.h>
--#include <linux/types.h>
--#include <linux/spinlock.h>
--
--#include <net/irda/irda_device.h>
--
--#define SPEED_DEFAULT 9600
--#define SPEED_MAX     115200
--
--/*
-- * These are the supported serial types.
-- */
--#define PORT_UNKNOWN    0
--#define PORT_8250       1
--#define PORT_16450      2
--#define PORT_16550      3
--#define PORT_16550A     4
--#define PORT_CIRRUS     5
--#define PORT_16650      6
--#define PORT_MAX        6 =20
--
--#define FRAME_MAX_SIZE 2048
--
--struct irport_cb {
--	struct net_device *netdev; /* Yes! we are some kind of netdevice */
--	struct net_device_stats stats;
--
--	struct irlap_cb *irlap;    /* The link layer we are attached to */
--
--	chipio_t io;               /* IrDA controller information */
--	iobuff_t tx_buff;          /* Transmit buffer */
--	iobuff_t rx_buff;          /* Receive buffer */
--
--	struct qos_info qos;       /* QoS capabilities for this device */
--	dongle_t *dongle;          /* Dongle driver */
--
-- 	__u32 flags;               /* Interface flags */
--	__u32 new_speed;
--	int mode;
--	int index;                 /* Instance index */
--	int transmitting;	   /* Are we transmitting ? */
--
--	spinlock_t lock;           /* For serializing operations */
--
--	/* For piggyback drivers */
--	void *priv;               =20
--	void (*change_speed)(void *priv, __u32 speed);
--	irqreturn_t (*interrupt)(int irq, void *dev_id);
--};
--
--#endif /* IRPORT_H */
-diff --git a/drivers/net/irda/litelink.c b/drivers/net/irda/litelink.c
-deleted file mode 100644
-index 7db1143..0000000
---- a/drivers/net/irda/litelink.c
-+++ /dev/null
-@@ -1,179 +0,0 @@
--/*********************************************************************
-- *               =20
-- * Filename:      litelink.c
-- * Version:       1.1
-- * Description:   Driver for the Parallax LiteLink dongle
-- * Status:        Stable
-- * Author:        Dag Brattli <dagb@cs.uit.no>
-- * Created at:    Fri May  7 12:50:33 1999
-- * Modified at:   Fri Dec 17 09:14:23 1999
-- * Modified by:   Dag Brattli <dagb@cs.uit.no>
-- *=20
-- *     Copyright (c) 1999 Dag Brattli, All Rights Reserved.
-- *    =20
-- *     This program is free software; you can redistribute it and/or=20
-- *     modify it under the terms of the GNU General Public License as=20
-- *     published by the Free Software Foundation; either version 2 of=20
-- *     the License, or (at your option) any later version.
-- *=20
-- *     This program is distributed in the hope that it will be useful,
-- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
-- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-- *     GNU General Public License for more details.
-- *=20
-- *     You should have received a copy of the GNU General Public Licen=
-se=20
-- *     along with this program; if not, write to the Free Software=20
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,=20
-- *     MA 02111-1307 USA
-- *    =20
-- ********************************************************************/
--
--#include <linux/module.h>
--#include <linux/delay.h>
--#include <linux/tty.h>
--#include <linux/init.h>
--
--#include <net/irda/irda.h>
--#include <net/irda/irda_device.h>
--
--#define MIN_DELAY 25      /* 15 us, but wait a little more to be sure =
-*/
--#define MAX_DELAY 10000   /* 1 ms */
--
--static void litelink_open(dongle_t *self, struct qos_info *qos);
--static void litelink_close(dongle_t *self);
--static int  litelink_change_speed(struct irda_task *task);
--static int  litelink_reset(struct irda_task *task);
--
--/* These are the baudrates supported */
--static __u32 baud_rates[] =3D { 115200, 57600, 38400, 19200, 9600 };
--
--static struct dongle_reg dongle =3D {
--	.type =3D IRDA_LITELINK_DONGLE,
--	.open =3D litelink_open,
--	.close =3D litelink_close,
--	.reset =3D litelink_reset,
--	.change_speed =3D litelink_change_speed,
--	.owner =3D THIS_MODULE,
--};
--
--static int __init litelink_init(void)
--{
--	return irda_device_register_dongle(&dongle);
--}
--
--static void __exit litelink_cleanup(void)
--{
--	irda_device_unregister_dongle(&dongle);
--}
--
--static void litelink_open(dongle_t *self, struct qos_info *qos)
--{
--	qos->baud_rate.bits &=3D IR_9600|IR_19200|IR_38400|IR_57600|IR_115200=
-;
--	qos->min_turn_time.bits =3D 0x7f; /* Needs 0.01 ms */
--}
--
--static void litelink_close(dongle_t *self)
--{
--	/* Power off dongle */
--	self->set_dtr_rts(self->dev, FALSE, FALSE);
--}
--
--/*
-- * Function litelink_change_speed (task)
-- *
-- *    Change speed of the Litelink dongle. To cycle through the availa=
-ble=20
-- *    baud rates, pulse RTS low for a few ms. =20
-- */
--static int litelink_change_speed(struct irda_task *task)
--{
--	dongle_t *self =3D (dongle_t *) task->instance;
--	__u32 speed =3D (__u32) task->param;
--        int i;
--=09
--	/* Clear RTS to reset dongle */
--	self->set_dtr_rts(self->dev, TRUE, FALSE);
--
--	/* Sleep a minimum of 15 us */
--	udelay(MIN_DELAY);
--
--	/* Go back to normal mode */
--	self->set_dtr_rts(self->dev, TRUE, TRUE);
--=09
--	/* Sleep a minimum of 15 us */
--	udelay(MIN_DELAY);
--=09
--	/* Cycle through avaiable baudrates until we reach the correct one */
--	for (i=3D0; i<5 && baud_rates[i] !=3D speed; i++) {
--		/* Set DTR, clear RTS */
--		self->set_dtr_rts(self->dev, FALSE, TRUE);
--	=09
--		/* Sleep a minimum of 15 us */
--		udelay(MIN_DELAY);
--	=09
--		/* Set DTR, Set RTS */
--		self->set_dtr_rts(self->dev, TRUE, TRUE);
--	=09
--		/* Sleep a minimum of 15 us */
--		udelay(MIN_DELAY);
--        }
--	irda_task_next_state(task, IRDA_TASK_DONE);
--
--	return 0;
--}
--
--/*
-- * Function litelink_reset (task)
-- *
-- *      Reset the Litelink type dongle.
-- *
-- */
--static int litelink_reset(struct irda_task *task)
--{
--	dongle_t *self =3D (dongle_t *) task->instance;
--
--	/* Power on dongle */
--	self->set_dtr_rts(self->dev, TRUE, TRUE);
--
--	/* Sleep a minimum of 15 us */
--	udelay(MIN_DELAY);
--
--	/* Clear RTS to reset dongle */
--	self->set_dtr_rts(self->dev, TRUE, FALSE);
--
--	/* Sleep a minimum of 15 us */
--	udelay(MIN_DELAY);
--
--	/* Go back to normal mode */
--	self->set_dtr_rts(self->dev, TRUE, TRUE);
--=09
--	/* Sleep a minimum of 15 us */
--	udelay(MIN_DELAY);
--
--	/* This dongles speed defaults to 115200 bps */
--	self->speed =3D 115200;
--
--	irda_task_next_state(task, IRDA_TASK_DONE);
--
--	return 0;
--}
--
--MODULE_AUTHOR("Dag Brattli <dagb@cs.uit.no>");
--MODULE_DESCRIPTION("Parallax Litelink dongle driver");=09
--MODULE_LICENSE("GPL");
--MODULE_ALIAS("irda-dongle-5"); /* IRDA_LITELINK_DONGLE */
--	=09
--/*
-- * Function init_module (void)
-- *
-- *    Initialize Litelink module
-- *
-- */
--module_init(litelink_init);
--
--/*
-- * Function cleanup_module (void)
-- *
-- *    Cleanup Litelink module
-- *
-- */
--module_exit(litelink_cleanup);
-diff --git a/drivers/net/irda/ma600.c b/drivers/net/irda/ma600.c
-deleted file mode 100644
-index f5e6836..0000000
---- a/drivers/net/irda/ma600.c
-+++ /dev/null
-@@ -1,354 +0,0 @@
--/*********************************************************************
-- *               =20
-- * Filename:      ma600.c
-- * Version:       0.1
-- * Description:   Implementation of the MA600 dongle
-- * Status:        Experimental.
-- * Author:        Leung <95Etwl@alumni.ee.ust.hk> http://www.engsvr.us=
-t/~eetwl95
-- * Created at:    Sat Jun 10 20:02:35 2000
-- * Modified at:  =20
-- * Modified by:  =20
-- *
-- * Note: very thanks to Mr. Maru Wang <maru@mobileaction.com.tw> for p=
-roviding=20
-- *       information on the MA600 dongle
-- *=20
-- *     Copyright (c) 2000 Leung, All Rights Reserved.
-- *     =20
-- *     This program is free software; you can redistribute it and/or=20
-- *     modify it under the terms of the GNU General Public License as=20
-- *     published by the Free Software Foundation; either version 2 of=20
-- *     the License, or (at your option) any later version.
-- * =20
-- *     This program is distributed in the hope that it will be useful,
-- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
-- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-- *     GNU General Public License for more details.
-- *=20
-- *     You should have received a copy of the GNU General Public Licen=
-se=20
-- *     along with this program; if not, write to the Free Software=20
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,=20
-- *     MA 02111-1307 USA
-- *    =20
-- ********************************************************************/
--
--/* define this macro for release version */
--//#define NDEBUG
--
--#include <linux/module.h>
--#include <linux/delay.h>
--#include <linux/tty.h>
--#include <linux/init.h>
--
--#include <net/irda/irda.h>
--#include <net/irda/irda_device.h>
--
--#ifndef NDEBUG
--	#undef IRDA_DEBUG
--	#define IRDA_DEBUG(n, args...) (printk(KERN_DEBUG args))
--
--	#undef ASSERT
--	#define ASSERT(expr, func) \
--	if(!(expr)) { \
--	        printk( "Assertion failed! %s,%s,%s,line=3D%d\n",\
--        	#expr,__FILE__,__FUNCTION__,__LINE__); \
--	        func}
--#endif
--
--/* convert hex value to ascii hex */
--static const char hexTbl[] =3D "0123456789ABCDEF";
--
--
--static void ma600_open(dongle_t *self, struct qos_info *qos);
--static void ma600_close(dongle_t *self);
--static int  ma600_change_speed(struct irda_task *task);
--static int  ma600_reset(struct irda_task *task);
--
--/* control byte for MA600 */
--#define MA600_9600	0x00
--#define MA600_19200	0x01
--#define MA600_38400	0x02
--#define MA600_57600	0x03
--#define MA600_115200	0x04
--#define MA600_DEV_ID1	0x05
--#define MA600_DEV_ID2	0x06
--#define MA600_2400	0x08
--
--static struct dongle_reg dongle =3D {
--	.type =3D IRDA_MA600_DONGLE,
--	.open =3D ma600_open,
--	.close =3D ma600_close,
--	.reset =3D ma600_reset,
--	.change_speed =3D ma600_change_speed,
--	.owner =3D THIS_MODULE,
--};
--
--static int __init ma600_init(void)
--{
--	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
--	return irda_device_register_dongle(&dongle);
--}
--
--static void __exit ma600_cleanup(void)
--{
--	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
--	irda_device_unregister_dongle(&dongle);
--}
--
--/*
--	Power on:
--		(0) Clear RTS and DTR for 1 second
--		(1) Set RTS and DTR for 1 second
--		(2) 9600 bps now
--	Note: assume RTS, DTR are clear before
--*/
--static void ma600_open(dongle_t *self, struct qos_info *qos)
--{
--	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
--
--	qos->baud_rate.bits &=3D IR_2400|IR_9600|IR_19200|IR_38400
--				|IR_57600|IR_115200;
--	qos->min_turn_time.bits =3D 0x01;		/* Needs at least 1 ms */=09
--	irda_qos_bits_to_value(qos);
--
--	//self->set_dtr_rts(self->dev, FALSE, FALSE);
--	// should wait 1 second
--
--	self->set_dtr_rts(self->dev, TRUE, TRUE);
--	// should wait 1 second
--}
--
--static void ma600_close(dongle_t *self)
--{
--	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
--
--	/* Power off dongle */
--	self->set_dtr_rts(self->dev, FALSE, FALSE);
--}
--
--static __u8 get_control_byte(__u32 speed)
--{
--	__u8 byte;
--
--	switch (speed) {
--	default:
--	case 115200:
--		byte =3D MA600_115200;
--		break;
--	case 57600:
--		byte =3D MA600_57600;
--		break;
--	case 38400:
--		byte =3D MA600_38400;
--		break;
--	case 19200:
--		byte =3D MA600_19200;
--		break;
--	case 9600:
--		byte =3D MA600_9600;
--		break;
--	case 2400:
--		byte =3D MA600_2400;
--		break;
--	}
--
--	return byte;
--}
--
--/*
-- * Function ma600_change_speed (dev, state, speed)
-- *
-- *    Set the speed for the MA600 type dongle. Warning, this=20
-- *    function must be called with a process context!
-- *
-- *    Algorithm
-- *    1. Reset
-- *    2. clear RTS, set DTR and wait for 1ms
-- *    3. send Control Byte to the MA600 through TXD to set new baud ra=
-te
-- *       wait until the stop bit of Control Byte is sent (for 9600 bau=
-d rate,=20
-- *       it takes about 10 msec)
-- *    4. set RTS, set DTR (return to NORMAL Operation)
-- *    5. wait at least 10 ms, new setting (baud rate, etc) takes effec=
-t here=20
-- *       after
-- */
--static int ma600_change_speed(struct irda_task *task)
--{
--	dongle_t *self =3D (dongle_t *) task->instance;
--	__u32 speed =3D (__u32) task->param;
--	static __u8 byte;
--	__u8 byte_echo;
--	int ret =3D 0;
--=09
--	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
--
--	ASSERT(task !=3D NULL, return -1;);
--
--	if (self->speed_task && self->speed_task !=3D task) {
--		IRDA_DEBUG(0, "%s(), busy!\n", __FUNCTION__);
--		return msecs_to_jiffies(10);
--	} else {
--		self->speed_task =3D task;
--	}
--
--	switch (task->state) {
--	case IRDA_TASK_INIT:
--	case IRDA_TASK_CHILD_INIT:
--		/*=20
--		 * Need to reset the dongle and go to 9600 bps before
--                 * programming=20
--		 */
--		if (irda_task_execute(self, ma600_reset, NULL, task,=20
--				      (void *) speed)) {
--			/* Dongle need more time to reset */
--			irda_task_next_state(task, IRDA_TASK_CHILD_WAIT);
--=09
--			/* give 1 second to finish */
--			ret =3D msecs_to_jiffies(1000);
--		} else {
--			irda_task_next_state(task, IRDA_TASK_CHILD_DONE);
--		}
--		break;
--
--	case IRDA_TASK_CHILD_WAIT:
--		IRDA_WARNING("%s(), resetting dongle timed out!\n",
--			     __FUNCTION__);
--		ret =3D -1;
--		break;
--
--	case IRDA_TASK_CHILD_DONE:
--		/* Set DTR, Clear RTS */
--		self->set_dtr_rts(self->dev, TRUE, FALSE);
--=09
--		ret =3D msecs_to_jiffies(1);		/* Sleep 1 ms */
--		irda_task_next_state(task, IRDA_TASK_WAIT);
--		break;
--
--	case IRDA_TASK_WAIT:
--		speed =3D (__u32) task->param;
--		byte =3D get_control_byte(speed);
--
--		/* Write control byte */
--		self->write(self->dev, &byte, sizeof(byte));
--	=09
--		irda_task_next_state(task, IRDA_TASK_WAIT1);
--
--		/* Wait at least 10 ms */
--		ret =3D msecs_to_jiffies(15);
--		break;
--
--	case IRDA_TASK_WAIT1:
--		/* Read control byte echo */
--		self->read(self->dev, &byte_echo, sizeof(byte_echo));
--
--		if(byte !=3D byte_echo) {
--			/* if control byte !=3D echo, I don't know what to do */
--			printk(KERN_WARNING "%s() control byte written !=3D read!\n", __FUN=
-CTION__);
--			printk(KERN_WARNING "control byte =3D 0x%c%c\n",=20
--			       hexTbl[(byte>>4)&0x0f], hexTbl[byte&0x0f]);
--			printk(KERN_WARNING "byte echo =3D 0x%c%c\n",=20
--			       hexTbl[(byte_echo>>4) & 0x0f],=20
--			       hexTbl[byte_echo & 0x0f]);
--		#ifndef NDEBUG
--		} else {
--			IRDA_DEBUG(2, "%s() control byte write read OK\n", __FUNCTION__);
--		#endif
--		}
--
--		/* Set DTR, Set RTS */
--		self->set_dtr_rts(self->dev, TRUE, TRUE);
--
--		irda_task_next_state(task, IRDA_TASK_WAIT2);
--
--		/* Wait at least 10 ms */
--		ret =3D msecs_to_jiffies(10);
--		break;
--
--	case IRDA_TASK_WAIT2:
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->speed_task =3D NULL;
--		break;
--
--	default:
--		IRDA_ERROR("%s(), unknown state %d\n",
--			   __FUNCTION__, task->state);
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->speed_task =3D NULL;
--		ret =3D -1;
--		break;
--	}
--	return ret;
--}
--
--/*
-- * Function ma600_reset (driver)
-- *
-- *      This function resets the ma600 dongle. Warning, this function=20
-- *      must be called with a process context!!=20
-- *
-- *      Algorithm:
-- *    	  0. DTR=3D0, RTS=3D1 and wait 10 ms
-- *    	  1. DTR=3D1, RTS=3D1 and wait 10 ms
-- *        2. 9600 bps now
-- */
--int ma600_reset(struct irda_task *task)
--{
--	dongle_t *self =3D (dongle_t *) task->instance;
--	int ret =3D 0;
--
--	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
--
--	ASSERT(task !=3D NULL, return -1;);
--
--	if (self->reset_task && self->reset_task !=3D task) {
--		IRDA_DEBUG(0, "%s(), busy!\n", __FUNCTION__);
--		return msecs_to_jiffies(10);
--	} else
--		self->reset_task =3D task;
--=09
--	switch (task->state) {
--	case IRDA_TASK_INIT:
--		/* Clear DTR and Set RTS */
--		self->set_dtr_rts(self->dev, FALSE, TRUE);
--		irda_task_next_state(task, IRDA_TASK_WAIT1);
--		ret =3D msecs_to_jiffies(10);		/* Sleep 10 ms */
--		break;
--	case IRDA_TASK_WAIT1:
--		/* Set DTR and RTS */
--		self->set_dtr_rts(self->dev, TRUE, TRUE);
--		irda_task_next_state(task, IRDA_TASK_WAIT2);
--		ret =3D msecs_to_jiffies(10);		/* Sleep 10 ms */
--		break;
--	case IRDA_TASK_WAIT2:
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->reset_task =3D NULL;
--		break;
--	default:
--		IRDA_ERROR("%s(), unknown state %d\n",
--			   __FUNCTION__, task->state);
--		irda_task_next_state(task, IRDA_TASK_DONE);	=09
--		self->reset_task =3D NULL;
--		ret =3D -1;
--	}
--	return ret;
--}
--
--MODULE_AUTHOR("Leung <95Etwl@alumni.ee.ust.hk> http://www.engsvr.ust/~=
-eetwl95");
--MODULE_DESCRIPTION("MA600 dongle driver version 0.1");
--MODULE_LICENSE("GPL");
--MODULE_ALIAS("irda-dongle-11"); /* IRDA_MA600_DONGLE */
--	=09
--/*
-- * Function init_module (void)
-- *
-- *    Initialize MA600 module
-- *
-- */
--module_init(ma600_init);
--
--/*
-- * Function cleanup_module (void)
-- *
-- *    Cleanup MA600 module
-- *
-- */
--module_exit(ma600_cleanup);
--
-diff --git a/drivers/net/irda/mcp2120.c b/drivers/net/irda/mcp2120.c
-deleted file mode 100644
-index 5e6199e..0000000
---- a/drivers/net/irda/mcp2120.c
-+++ /dev/null
-@@ -1,240 +0,0 @@
--/*********************************************************************
-- *           =20
-- *   =20
-- * Filename:      mcp2120.c
-- * Version:       1.0
-- * Description:   Implementation for the MCP2120 (Microchip)
-- * Status:        Experimental.
-- * Author:        Felix Tang (tangf@eyetap.org)
-- * Created at:    Sun Mar 31 19:32:12 EST 2002
-- * Based on code by:   Dag Brattli <dagb@cs.uit.no>
-- *=20
-- *     Copyright (c) 2002 Felix Tang, All Rights Reserved.
-- *     =20
-- *     This program is free software; you can redistribute it and/or=20
-- *     modify it under the terms of the GNU General Public License as=20
-- *     published by the Free Software Foundation; either version 2 of=20
-- *     the License, or (at your option) any later version.
-- * =20
-- ********************************************************************/
--
--#include <linux/module.h>
--#include <linux/delay.h>
--#include <linux/tty.h>
--#include <linux/init.h>
--
--#include <net/irda/irda.h>
--#include <net/irda/irda_device.h>
--
--static int  mcp2120_reset(struct irda_task *task);
--static void mcp2120_open(dongle_t *self, struct qos_info *qos);
--static void mcp2120_close(dongle_t *self);
--static int  mcp2120_change_speed(struct irda_task *task);
--
--#define MCP2120_9600    0x87
--#define MCP2120_19200   0x8B
--#define MCP2120_38400   0x85
--#define MCP2120_57600   0x83
--#define MCP2120_115200  0x81
--
--#define MCP2120_COMMIT  0x11
--
--static struct dongle_reg dongle =3D {
--	.type =3D IRDA_MCP2120_DONGLE,
--	.open =3D mcp2120_open,
--	.close =3D mcp2120_close,
--	.reset =3D mcp2120_reset,
--	.change_speed =3D mcp2120_change_speed,
--	.owner =3D THIS_MODULE,
--};
--
--static int __init mcp2120_init(void)
--{
--	return irda_device_register_dongle(&dongle);
--}
--
--static void __exit mcp2120_cleanup(void)
--{
--	irda_device_unregister_dongle(&dongle);
--}
--
--static void mcp2120_open(dongle_t *self, struct qos_info *qos)
--{
--	qos->baud_rate.bits &=3D IR_9600|IR_19200|IR_38400|IR_57600|IR_115200=
-;
--	qos->min_turn_time.bits =3D 0x01;
--}
--
--static void mcp2120_close(dongle_t *self)
--{
--	/* Power off dongle */
--        /* reset and inhibit mcp2120 */
--	self->set_dtr_rts(self->dev, TRUE, TRUE);
--	//self->set_dtr_rts(self->dev, FALSE, FALSE);
--}
--
--/*
-- * Function mcp2120_change_speed (dev, speed)
-- *
-- *    Set the speed for the MCP2120.
-- *
-- */
--static int mcp2120_change_speed(struct irda_task *task)
--{
--	dongle_t *self =3D (dongle_t *) task->instance;
--	__u32 speed =3D (__u32) task->param;
--	__u8 control[2];
--	int ret =3D 0;
--
--	self->speed_task =3D task;
--
--	switch (task->state) {
--	case IRDA_TASK_INIT:
--		/* Need to reset the dongle and go to 9600 bps before
--                   programming */
--                //printk("Dmcp2120_change_speed irda_task_init\n");
--		if (irda_task_execute(self, mcp2120_reset, NULL, task,=20
--				      (void *) speed))
--		{
--			/* Dongle need more time to reset */
--			irda_task_next_state(task, IRDA_TASK_CHILD_WAIT);
--
--			/* Give reset 1 sec to finish */
--			ret =3D msecs_to_jiffies(1000);
--		}
--		break;
--	case IRDA_TASK_CHILD_WAIT:
--		IRDA_WARNING("%s(), resetting dongle timed out!\n",
--			     __FUNCTION__);
--		ret =3D -1;
--		break;
--	case IRDA_TASK_CHILD_DONE:
--		/* Set DTR to enter command mode */
--		self->set_dtr_rts(self->dev, TRUE, FALSE);
--                udelay(500);
--
--		switch (speed) {
--		case 9600:
--		default:
--			control[0] =3D MCP2120_9600;
--                        //printk("mcp2120 9600\n");
--			break;
--		case 19200:
--			control[0] =3D MCP2120_19200;
--                        //printk("mcp2120 19200\n");
--			break;
--		case 34800:
--			control[0] =3D MCP2120_38400;
--                        //printk("mcp2120 38400\n");
--			break;
--		case 57600:
--			control[0] =3D MCP2120_57600;
--                        //printk("mcp2120 57600\n");
--			break;
--		case 115200:
--                        control[0] =3D MCP2120_115200;
--                        //printk("mcp2120 115200\n");
--			break;
--		}
--	        control[1] =3D MCP2120_COMMIT;
--=09
--		/* Write control bytes */
--                self->write(self->dev, control, 2);
--=20
--                irda_task_next_state(task, IRDA_TASK_WAIT);
--		ret =3D msecs_to_jiffies(100);
--                //printk("mcp2120_change_speed irda_child_done\n");
--		break;
--	case IRDA_TASK_WAIT:
--		/* Go back to normal mode */
--		self->set_dtr_rts(self->dev, FALSE, FALSE);
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->speed_task =3D NULL;
--                //printk("mcp2120_change_speed irda_task_wait\n");
--		break;
--	default:
--		IRDA_ERROR("%s(), unknown state %d\n",
--			   __FUNCTION__, task->state);
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->speed_task =3D NULL;
--		ret =3D -1;
--		break;
--	}
--	return ret;
--}
--
--/*
-- * Function mcp2120_reset (driver)
-- *
-- *      This function resets the mcp2120 dongle.
-- *     =20
-- *      Info: -set RTS to reset mcp2120
-- *            -set DTR to set mcp2120 software command mode
-- *            -mcp2120 defaults to 9600 baud after reset
-- *
-- *      Algorithm:
-- *      0. Set RTS to reset mcp2120.
-- *      1. Clear RTS and wait for device reset timer of 30 ms (max).
-- *     =20
-- */
--
--
--static int mcp2120_reset(struct irda_task *task)
--{
--	dongle_t *self =3D (dongle_t *) task->instance;
--	int ret =3D 0;
--
--	self->reset_task =3D task;
--
--	switch (task->state) {
--	case IRDA_TASK_INIT:
--                //printk("mcp2120_reset irda_task_init\n");
--		/* Reset dongle by setting RTS*/
--		self->set_dtr_rts(self->dev, TRUE, TRUE);
--		irda_task_next_state(task, IRDA_TASK_WAIT1);
--		ret =3D msecs_to_jiffies(50);
--		break;
--	case IRDA_TASK_WAIT1:
--                //printk("mcp2120_reset irda_task_wait1\n");
--                /* clear RTS and wait for at least 30 ms. */
--		self->set_dtr_rts(self->dev, FALSE, FALSE);
--		irda_task_next_state(task, IRDA_TASK_WAIT2);
--		ret =3D msecs_to_jiffies(50);
--		break;
--	case IRDA_TASK_WAIT2:
--                //printk("mcp2120_reset irda_task_wait2\n");
--		/* Go back to normal mode */
--		self->set_dtr_rts(self->dev, FALSE, FALSE);
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->reset_task =3D NULL;
--		break;
--	default:
--		IRDA_ERROR("%s(), unknown state %d\n",
--			   __FUNCTION__, task->state);
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->reset_task =3D NULL;
--		ret =3D -1;
--		break;
--	}
--	return ret;
--}
--
--MODULE_AUTHOR("Felix Tang <tangf@eyetap.org>");
--MODULE_DESCRIPTION("Microchip MCP2120");
--MODULE_LICENSE("GPL");
--MODULE_ALIAS("irda-dongle-9"); /* IRDA_MCP2120_DONGLE */
--=09
--/*
-- * Function init_module (void)
-- *
-- *    Initialize MCP2120 module
-- *
-- */
--module_init(mcp2120_init);
--
--/*
-- * Function cleanup_module (void)
-- *
-- *    Cleanup MCP2120 module
-- *
-- */
--module_exit(mcp2120_cleanup);
-diff --git a/drivers/net/irda/old_belkin.c b/drivers/net/irda/old_belki=
-n.c
-deleted file mode 100644
-index 26f81fd..0000000
---- a/drivers/net/irda/old_belkin.c
-+++ /dev/null
-@@ -1,164 +0,0 @@
--/*********************************************************************
-- *               =20
-- * Filename:      old_belkin.c
-- * Version:       1.1
-- * Description:   Driver for the Belkin (old) SmartBeam dongle
-- * Status:        Experimental...
-- * Author:        Jean Tourrilhes <jt@hpl.hp.com>
-- * Created at:    22/11/99
-- * Modified at:   Fri Dec 17 09:13:32 1999
-- * Modified by:   Dag Brattli <dagb@cs.uit.no>
-- *=20
-- *     Copyright (c) 1999 Jean Tourrilhes, All Rights Reserved.
-- *    =20
-- *     This program is free software; you can redistribute it and/or=20
-- *     modify it under the terms of the GNU General Public License as=20
-- *     published by the Free Software Foundation; either version 2 of=20
-- *     the License, or (at your option) any later version.
-- *=20
-- *     This program is distributed in the hope that it will be useful,
-- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
-- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-- *     GNU General Public License for more details.
-- *=20
-- *     You should have received a copy of the GNU General Public Licen=
-se=20
-- *     along with this program; if not, write to the Free Software=20
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,=20
-- *     MA 02111-1307 USA
-- *    =20
-- ********************************************************************/
--
--#include <linux/module.h>
--#include <linux/delay.h>
--#include <linux/tty.h>
--#include <linux/init.h>
--
--#include <net/irda/irda.h>
--#include <net/irda/irda_device.h>
--
--/*
-- * Belkin is selling a dongle called the SmartBeam.
-- * In fact, there is two hardware version of this dongle, of course wi=
-th
-- * the same name and looking the exactly same (grrr...).
-- * I guess that I've got the old one, because inside I don't have
-- * a jumper for IrDA/ASK...
-- *
-- * As far as I can make it from info on their web site, the old dongle=
-=20
-- * support only 9600 b/s, which make our life much simpler as far as
-- * the driver is concerned, but you might not like it very much ;-)
-- * The new SmartBeam does 115 kb/s, and I've not tested it...
-- *
-- * Belkin claim that the correct driver for the old dongle (in Windows=
-)
-- * is the generic Parallax 9500a driver, but the Linux LiteLink driver
-- * fails for me (probably because Linux-IrDA doesn't rate fallback),
-- * so I created this really dumb driver...
-- *
-- * In fact, this driver doesn't do much. The only thing it does is to
-- * prevent Linux-IrDA to use any other speed than 9600 b/s ;-) This
-- * driver is called "old_belkin" so that when the new SmartBeam is sup=
-ported
-- * its driver can be called "belkin" instead of "new_belkin".
-- *
-- * Note : this driver was written without any info/help from Belkin,
-- * so a lot of info here might be totally wrong. Blame me ;-)
-- */
--
--/* Let's guess */
--#define MIN_DELAY 25      /* 15 us, but wait a little more to be sure =
-*/
--
--static void old_belkin_open(dongle_t *self, struct qos_info *qos);
--static void old_belkin_close(dongle_t *self);
--static int  old_belkin_change_speed(struct irda_task *task);
--static int  old_belkin_reset(struct irda_task *task);
--
--/* These are the baudrates supported */
--/* static __u32 baud_rates[] =3D { 9600 }; */
--
--static struct dongle_reg dongle =3D {
--	.type =3D IRDA_OLD_BELKIN_DONGLE,
--	.open =3D old_belkin_open,
--	.close =3D old_belkin_close,
--	.reset =3D old_belkin_reset,
--	.change_speed =3D old_belkin_change_speed,
--	.owner =3D THIS_MODULE,
--};
--
--static int __init old_belkin_init(void)
--{
--	return irda_device_register_dongle(&dongle);
--}
--
--static void __exit old_belkin_cleanup(void)
--{
--	irda_device_unregister_dongle(&dongle);
--}
--
--static void old_belkin_open(dongle_t *self, struct qos_info *qos)
--{
--	/* Not too fast, please... */
--	qos->baud_rate.bits &=3D IR_9600;
--	/* Needs at least 10 ms (totally wild guess, can do probably better) =
-*/
--	qos->min_turn_time.bits =3D 0x01;
--}
--
--static void old_belkin_close(dongle_t *self)
--{
--	/* Power off dongle */
--	self->set_dtr_rts(self->dev, FALSE, FALSE);
--}
--
--/*
-- * Function old_belkin_change_speed (task)
-- *
-- *    With only one speed available, not much to do...
-- */
--static int old_belkin_change_speed(struct irda_task *task)
--{
--	irda_task_next_state(task, IRDA_TASK_DONE);
--
--	return 0;
--}
--
--/*
-- * Function old_belkin_reset (task)
-- *
-- *      Reset the Old-Belkin type dongle.
-- *
-- */
--static int old_belkin_reset(struct irda_task *task)
--{
--	dongle_t *self =3D (dongle_t *) task->instance;
--
--	/* Power on dongle */
--	self->set_dtr_rts(self->dev, TRUE, TRUE);
--
--	/* Sleep a minimum of 15 us */
--	udelay(MIN_DELAY);
--
--	/* This dongles speed "defaults" to 9600 bps ;-) */
--	self->speed =3D 9600;
--
--	irda_task_next_state(task, IRDA_TASK_DONE);
--
--	return 0;
--}
--
--MODULE_AUTHOR("Jean Tourrilhes <jt@hpl.hp.com>");
--MODULE_DESCRIPTION("Belkin (old) SmartBeam dongle driver");=09
--MODULE_LICENSE("GPL");
--MODULE_ALIAS("irda-dongle-7"); /* IRDA_OLD_BELKIN_DONGLE */
--
--/*
-- * Function init_module (void)
-- *
-- *    Initialize Old-Belkin module
-- *
-- */
--module_init(old_belkin_init);
--
--/*
-- * Function cleanup_module (void)
-- *
-- *    Cleanup Old-Belkin module
-- *
-- */
--module_exit(old_belkin_cleanup);
-diff --git a/drivers/net/irda/tekram.c b/drivers/net/irda/tekram.c
-deleted file mode 100644
-index 9bfd244..0000000
---- a/drivers/net/irda/tekram.c
-+++ /dev/null
-@@ -1,282 +0,0 @@
--/*********************************************************************
-- *               =20
-- * Filename:      tekram.c
-- * Version:       1.2
-- * Description:   Implementation of the Tekram IrMate IR-210B dongle
-- * Status:        Experimental.
-- * Author:        Dag Brattli <dagb@cs.uit.no>
-- * Created at:    Wed Oct 21 20:02:35 1998
-- * Modified at:   Fri Dec 17 09:13:09 1999
-- * Modified by:   Dag Brattli <dagb@cs.uit.no>
-- *=20
-- *     Copyright (c) 1998-1999 Dag Brattli, All Rights Reserved.
-- *     =20
-- *     This program is free software; you can redistribute it and/or=20
-- *     modify it under the terms of the GNU General Public License as=20
-- *     published by the Free Software Foundation; either version 2 of=20
-- *     the License, or (at your option) any later version.
-- * =20
-- *     Neither Dag Brattli nor University of Troms=C3=B8 admit liabili=
-ty nor
-- *     provide warranty for any of this software. This material is=20
-- *     provided "AS-IS" and at no charge.
-- *    =20
-- ********************************************************************/
--
--#include <linux/module.h>
--#include <linux/delay.h>
--#include <linux/tty.h>
--#include <linux/init.h>
--
--#include <net/irda/irda.h>
--#include <net/irda/irda_device.h>
--
--static void tekram_open(dongle_t *self, struct qos_info *qos);
--static void tekram_close(dongle_t *self);
--static int  tekram_change_speed(struct irda_task *task);
--static int  tekram_reset(struct irda_task *task);
--
--#define TEKRAM_115200 0x00
--#define TEKRAM_57600  0x01
--#define TEKRAM_38400  0x02
--#define TEKRAM_19200  0x03
--#define TEKRAM_9600   0x04
--
--#define TEKRAM_PW     0x10 /* Pulse select bit */
--
--static struct dongle_reg dongle =3D {
--	.type =3D IRDA_TEKRAM_DONGLE,
--	.open  =3D tekram_open,
--	.close =3D tekram_close,
--	.reset =3D tekram_reset,
--	.change_speed =3D tekram_change_speed,
--	.owner =3D THIS_MODULE,
--};
--
--static int __init tekram_init(void)
--{
--	return irda_device_register_dongle(&dongle);
--}
--
--static void __exit tekram_cleanup(void)
--{
--	irda_device_unregister_dongle(&dongle);
--}
--
--static void tekram_open(dongle_t *self, struct qos_info *qos)
--{
--	IRDA_DEBUG(2, "%s()\n", __FUNCTION__ );
--
--	qos->baud_rate.bits &=3D IR_9600|IR_19200|IR_38400|IR_57600|IR_115200=
-;
--	qos->min_turn_time.bits =3D 0x01; /* Needs at least 10 ms */=09
--	irda_qos_bits_to_value(qos);
--}
--
--static void tekram_close(dongle_t *self)
--{
--	IRDA_DEBUG(2, "%s()\n", __FUNCTION__ );
--
--	/* Power off dongle */
--	self->set_dtr_rts(self->dev, FALSE, FALSE);
--
--	if (self->reset_task)
--		irda_task_delete(self->reset_task);
--	if (self->speed_task)
--		irda_task_delete(self->speed_task);
--}
--
--/*
-- * Function tekram_change_speed (dev, state, speed)
-- *
-- *    Set the speed for the Tekram IRMate 210 type dongle. Warning, th=
-is=20
-- *    function must be called with a process context!
-- *
-- *    Algorithm
-- *    1. clear DTR=20
-- *    2. set RTS, and wait at least 7 us
-- *    3. send Control Byte to the IR-210 through TXD to set new baud r=
-ate
-- *       wait until the stop bit of Control Byte is sent (for 9600 bau=
-d rate,=20
-- *       it takes about 100 msec)
-- *    5. clear RTS (return to NORMAL Operation)
-- *    6. wait at least 50 us, new setting (baud rate, etc) takes effec=
-t here=20
-- *       after
-- */
--static int tekram_change_speed(struct irda_task *task)
--{
--	dongle_t *self =3D (dongle_t *) task->instance;
--	__u32 speed =3D (__u32) task->param;
--	__u8 byte;
--	int ret =3D 0;
--=09
--	IRDA_DEBUG(2, "%s()\n", __FUNCTION__ );
--
--	IRDA_ASSERT(task !=3D NULL, return -1;);
--
--	if (self->speed_task && self->speed_task !=3D task) {
--		IRDA_DEBUG(0, "%s(), busy!\n", __FUNCTION__ );
--		return msecs_to_jiffies(10);
--	} else
--		self->speed_task =3D task;
--
--	switch (speed) {
--	default:
--	case 9600:
--		byte =3D TEKRAM_PW|TEKRAM_9600;
--		break;
--	case 19200:
--		byte =3D TEKRAM_PW|TEKRAM_19200;
--		break;
--	case 38400:
--		byte =3D TEKRAM_PW|TEKRAM_38400;
--		break;
--	case 57600:
--		byte =3D TEKRAM_PW|TEKRAM_57600;
--		break;
--	case 115200:
--		byte =3D TEKRAM_115200;
--		break;
--	}
--
--	switch (task->state) {
--	case IRDA_TASK_INIT:
--	case IRDA_TASK_CHILD_INIT:	=09
--		/*=20
--		 * Need to reset the dongle and go to 9600 bps before
--                 * programming=20
--		 */
--		if (irda_task_execute(self, tekram_reset, NULL, task,=20
--				      (void *) speed))
--		{
--			/* Dongle need more time to reset */
--			irda_task_next_state(task, IRDA_TASK_CHILD_WAIT);
--
--			/* Give reset 1 sec to finish */
--			ret =3D msecs_to_jiffies(1000);
--		} else
--			irda_task_next_state(task, IRDA_TASK_CHILD_DONE);
--		break;
--	case IRDA_TASK_CHILD_WAIT:
--		IRDA_WARNING("%s(), resetting dongle timed out!\n",
--			     __FUNCTION__);
--		ret =3D -1;
--		break;
--	case IRDA_TASK_CHILD_DONE:
--		/* Set DTR, Clear RTS */
--		self->set_dtr_rts(self->dev, TRUE, FALSE);
--=09
--		/* Wait at least 7us */
--		udelay(14);
--
--		/* Write control byte */
--		self->write(self->dev, &byte, 1);
--	=09
--		irda_task_next_state(task, IRDA_TASK_WAIT);
--
--		/* Wait at least 100 ms */
--		ret =3D msecs_to_jiffies(150);
--		break;
--	case IRDA_TASK_WAIT:
--		/* Set DTR, Set RTS */
--		self->set_dtr_rts(self->dev, TRUE, TRUE);
--
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->speed_task =3D NULL;
--		break;
--	default:
--		IRDA_ERROR("%s(), unknown state %d\n",
--			   __FUNCTION__, task->state);
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->speed_task =3D NULL;
--		ret =3D -1;
--		break;
--	}
--	return ret;
--}
--
--/*
-- * Function tekram_reset (driver)
-- *
-- *      This function resets the tekram dongle. Warning, this function=
-=20
-- *      must be called with a process context!!=20
-- *
-- *      Algorithm:
-- *    	  0. Clear RTS and DTR, and wait 50 ms (power off the IR-210 )
-- *        1. clear RTS=20
-- *        2. set DTR, and wait at least 1 ms=20
-- *        3. clear DTR to SPACE state, wait at least 50 us for further=
-=20
-- *         operation
-- */
--int tekram_reset(struct irda_task *task)
--{
--	dongle_t *self =3D (dongle_t *) task->instance;
--	int ret =3D 0;
--
--	IRDA_DEBUG(2, "%s()\n", __FUNCTION__ );
--
--	IRDA_ASSERT(task !=3D NULL, return -1;);
--
--	if (self->reset_task && self->reset_task !=3D task) {
--		IRDA_DEBUG(0, "%s(), busy!\n", __FUNCTION__ );
--		return msecs_to_jiffies(10);
--	} else
--		self->reset_task =3D task;
--=09
--	/* Power off dongle */
--	//self->set_dtr_rts(self->dev, FALSE, FALSE);
--	self->set_dtr_rts(self->dev, TRUE, TRUE);
--
--	switch (task->state) {
--	case IRDA_TASK_INIT:
--		irda_task_next_state(task, IRDA_TASK_WAIT1);
--
--		/* Sleep 50 ms */
--		ret =3D msecs_to_jiffies(50);
--		break;
--	case IRDA_TASK_WAIT1:
--		/* Clear DTR, Set RTS */
--		self->set_dtr_rts(self->dev, FALSE, TRUE);=20
--
--		irda_task_next_state(task, IRDA_TASK_WAIT2);
--	=09
--		/* Should sleep 1 ms */
--		ret =3D msecs_to_jiffies(1);
--		break;
--	case IRDA_TASK_WAIT2:
--		/* Set DTR, Set RTS */
--		self->set_dtr_rts(self->dev, TRUE, TRUE);
--=09
--		/* Wait at least 50 us */
--		udelay(75);
--
--		irda_task_next_state(task, IRDA_TASK_DONE);
--		self->reset_task =3D NULL;
--		break;
--	default:
--		IRDA_ERROR("%s(), unknown state %d\n",
--			   __FUNCTION__, task->state);
--		irda_task_next_state(task, IRDA_TASK_DONE);	=09
--		self->reset_task =3D NULL;
--		ret =3D -1;
--	}
--	return ret;
--}
--
--MODULE_AUTHOR("Dag Brattli <dagb@cs.uit.no>");
--MODULE_DESCRIPTION("Tekram IrMate IR-210B dongle driver");
--MODULE_LICENSE("GPL");
--MODULE_ALIAS("irda-dongle-0"); /* IRDA_TEKRAM_DONGLE */
--	=09
--/*
-- * Function init_module (void)
-- *
-- *    Initialize Tekram module
-- *
-- */
--module_init(tekram_init);
--
--/*
-- * Function cleanup_module (void)
-- *
-- *    Cleanup Tekram module
-- *
-- */
--module_exit(tekram_cleanup);
-diff --git a/include/net/irda/irda_device.h b/include/net/irda/irda_dev=
-ice.h
-index bca19ca..f70e9b3 100644
---- a/include/net/irda/irda_device.h
-+++ b/include/net/irda/irda_device.h
-@@ -228,21 +228,8 @@ static inline int irda_device_txqueue_empty(const =
-struct net_device *dev)
- int  irda_device_set_raw_mode(struct net_device* self, int status);
- struct net_device *alloc_irdadev(int sizeof_priv);
-=20
--/* Dongle interface */
--void irda_device_unregister_dongle(struct dongle_reg *dongle);
--int  irda_device_register_dongle(struct dongle_reg *dongle);
--dongle_t *irda_device_dongle_init(struct net_device *dev, int type);
--int irda_device_dongle_cleanup(dongle_t *dongle);
--
- void irda_setup_dma(int channel, dma_addr_t buffer, int count, int mod=
-e);
-=20
--void irda_task_delete(struct irda_task *task);
--struct irda_task *irda_task_execute(void *instance,=20
--				    IRDA_TASK_CALLBACK function,=20
--				    IRDA_TASK_CALLBACK finished,=20
--				    struct irda_task *parent, void *param);
--void irda_task_next_state(struct irda_task *task, IRDA_TASK_STATE stat=
-e);
--
- /*
-  * Function irda_get_mtt (skb)
-  *
-diff --git a/net/irda/irda_device.c b/net/irda/irda_device.c
-index 435b563..8718591 100644
---- a/net/irda/irda_device.c
-+++ b/net/irda/irda_device.c
-@@ -57,20 +57,6 @@ static void __irda_task_delete(struct irda_task *tas=
-k);
- static hashbin_t *dongles =3D NULL;
- static hashbin_t *tasks =3D NULL;
-=20
--#ifdef CONFIG_IRDA_DEBUG
--static const char *task_state[] =3D {
--	"IRDA_TASK_INIT",
--	"IRDA_TASK_DONE",
--	"IRDA_TASK_WAIT",
--	"IRDA_TASK_WAIT1",
--	"IRDA_TASK_WAIT2",
--	"IRDA_TASK_WAIT3",
--	"IRDA_TASK_CHILD_INIT",
--	"IRDA_TASK_CHILD_WAIT",
--	"IRDA_TASK_CHILD_DONE",
--};
--#endif	/* CONFIG_IRDA_DEBUG */
--
- static void irda_task_timer_expired(void *data);
-=20
- int __init irda_device_init( void)
-@@ -176,14 +162,6 @@ int irda_device_is_receiving(struct net_device *de=
-v)
- 	return req.ifr_receiving;
- }
-=20
--void irda_task_next_state(struct irda_task *task, IRDA_TASK_STATE stat=
-e)
--{
--	IRDA_DEBUG(2, "%s(), state =3D %s\n", __FUNCTION__, task_state[state]=
-);
--
--	task->state =3D state;
--}
--EXPORT_SYMBOL(irda_task_next_state);
--
- static void __irda_task_delete(struct irda_task *task)
- {
- 	del_timer(&task->timer);
-@@ -191,14 +169,13 @@ static void __irda_task_delete(struct irda_task *=
-task)
- 	kfree(task);
- }
-=20
--void irda_task_delete(struct irda_task *task)
-+static void irda_task_delete(struct irda_task *task)
- {
- 	/* Unregister task */
- 	hashbin_remove(tasks, (long) task, NULL);
-=20
- 	__irda_task_delete(task);
- }
--EXPORT_SYMBOL(irda_task_delete);
-=20
- /*
-  * Function irda_task_kick (task)
-@@ -272,51 +249,6 @@ static int irda_task_kick(struct irda_task *task)
- }
-=20
- /*
-- * Function irda_task_execute (instance, function, finished)
-- *
-- *    This function registers and tries to execute tasks that may take=
- some
-- *    time to complete. We do it this hairy way since we may have been
-- *    called from interrupt context, so it's not possible to use
-- *    schedule_timeout()
-- * Two important notes :
-- *	o Make sure you irda_task_delete(task); in case you delete the
-- *	  calling instance.
-- *	o No real need to lock when calling this function, but you may
-- *	  want to lock within the task handler.
-- * Jean II
-- */
--struct irda_task *irda_task_execute(void *instance,
--				    IRDA_TASK_CALLBACK function,
--				    IRDA_TASK_CALLBACK finished,
--				    struct irda_task *parent, void *param)
--{
--	struct irda_task *task;
--
--	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
--
--	task =3D kmalloc(sizeof(struct irda_task), GFP_ATOMIC);
--	if (!task)
+-	struct speedo_private *sp = netdev_priv(dev);
+-	struct RxFD *rxf;
+-	struct sk_buff *skb;
+-	/* Get a fresh skbuff to replace the consumed one. */
+-	skb = dev_alloc_skb(PKT_BUF_SZ + sizeof(struct RxFD));
+-	if (skb)
+-		rx_align(skb);		/* Align IP on 16 byte boundary */
+-	sp->rx_skbuff[entry] = skb;
+-	if (skb == NULL) {
+-		sp->rx_ringp[entry] = NULL;
 -		return NULL;
--
--	task->state    =3D IRDA_TASK_INIT;
--	task->instance =3D instance;
--	task->function =3D function;
--	task->finished =3D finished;
--	task->parent   =3D parent;
--	task->param    =3D param;
--	task->magic    =3D IRDA_TASK_MAGIC;
--
--	init_timer(&task->timer);
--
--	/* Register task */
--	hashbin_insert(tasks, (irda_queue_t *) task, (long) task, NULL);
--
--	/* No time to waste, so lets get going! */
--	return irda_task_kick(task) ? NULL : task;
--}
--EXPORT_SYMBOL(irda_task_execute);
--
--/*
-  * Function irda_task_timer_expired (data)
-  *
-  *    Task time has expired. We now try to execute task (again), and r=
-estart
-@@ -364,105 +296,6 @@ struct net_device *alloc_irdadev(int sizeof_priv)
- }
- EXPORT_SYMBOL(alloc_irdadev);
-=20
--/*
-- * Function irda_device_init_dongle (self, type, qos)
-- *
-- *    Initialize attached dongle.
-- *
-- * Important : request_module require us to call this function with
-- * a process context and irq enabled. - Jean II
-- */
--dongle_t *irda_device_dongle_init(struct net_device *dev, int type)
--{
--	struct dongle_reg *reg;
--	dongle_t *dongle =3D kzalloc(sizeof(dongle_t), GFP_KERNEL);
--
--	might_sleep();
--
--	spin_lock(&dongles->hb_spinlock);
--	reg =3D hashbin_find(dongles, type, NULL);
--
--#ifdef CONFIG_KMOD
--	/* Try to load the module needed */
--	if (!reg && capable(CAP_SYS_MODULE)) {
--		spin_unlock(&dongles->hb_spinlock);
--
--		request_module("irda-dongle-%d", type);
--
--		spin_lock(&dongles->hb_spinlock);
--		reg =3D hashbin_find(dongles, type, NULL);
 -	}
--#endif
--
--	if (!reg || !try_module_get(reg->owner) ) {
--		IRDA_ERROR("IrDA: Unable to find requested dongle type %x\n",
--			   type);
--		kfree(dongle);
--		dongle =3D NULL;
--	}
--	if (dongle) {
--		/* Bind the registration info to this particular instance */
--		dongle->issue =3D reg;
--		dongle->dev =3D dev;
--	}
--	spin_unlock(&dongles->hb_spinlock);
--	return dongle;
+-	rxf = sp->rx_ringp[entry] = (struct RxFD *)skb->data;
+-	sp->rx_ring_dma[entry] =
+-		pci_map_single(sp->pdev, rxf,
+-					   PKT_BUF_SZ + sizeof(struct RxFD), PCI_DMA_FROMDEVICE);
+-	skb->dev = dev;
+-	skb_reserve(skb, sizeof(struct RxFD));
+-	rxf->rx_buf_addr = 0xffffffff;
+-	pci_dma_sync_single_for_device(sp->pdev, sp->rx_ring_dma[entry],
+-								   sizeof(struct RxFD), PCI_DMA_TODEVICE);
+-	return rxf;
 -}
--EXPORT_SYMBOL(irda_device_dongle_init);
 -
--/*
-- * Function irda_device_dongle_cleanup (dongle)
-- */
--int irda_device_dongle_cleanup(dongle_t *dongle)
+-static inline void speedo_rx_link(struct net_device *dev, int entry,
+-								  struct RxFD *rxf, dma_addr_t rxf_dma)
 -{
--	IRDA_ASSERT(dongle !=3D NULL, return -1;);
--
--	dongle->issue->close(dongle);
--	module_put(dongle->issue->owner);
--	kfree(dongle);
--
--	return 0;
+-	struct speedo_private *sp = netdev_priv(dev);
+-	rxf->status = cpu_to_le32(0xC0000001); 	/* '1' for driver use only. */
+-	rxf->link = 0;			/* None yet. */
+-	rxf->count = cpu_to_le32(PKT_BUF_SZ << 16);
+-	sp->last_rxf->link = cpu_to_le32(rxf_dma);
+-	sp->last_rxf->status &= cpu_to_le32(~0xC0000000);
+-	pci_dma_sync_single_for_device(sp->pdev, sp->last_rxf_dma,
+-								   sizeof(struct RxFD), PCI_DMA_TODEVICE);
+-	sp->last_rxf = rxf;
+-	sp->last_rxf_dma = rxf_dma;
 -}
--EXPORT_SYMBOL(irda_device_dongle_cleanup);
 -
--/*
-- * Function irda_device_register_dongle (dongle)
-- */
--int irda_device_register_dongle(struct dongle_reg *new)
+-static int speedo_refill_rx_buf(struct net_device *dev, int force)
 -{
--	spin_lock(&dongles->hb_spinlock);
--	/* Check if this dongle has been registered before */
--	if (hashbin_find(dongles, new->type, NULL)) {
--		IRDA_MESSAGE("%s: Dongle type %x already registered\n",
--			     __FUNCTION__, new->type);
+-	struct speedo_private *sp = netdev_priv(dev);
+-	int entry;
+-	struct RxFD *rxf;
+-
+-	entry = sp->dirty_rx % RX_RING_SIZE;
+-	if (sp->rx_skbuff[entry] == NULL) {
+-		rxf = speedo_rx_alloc(dev, entry);
+-		if (rxf == NULL) {
+-			unsigned int forw;
+-			int forw_entry;
+-			if (netif_msg_rx_err(sp) || !(sp->rx_ring_state & RrOOMReported)) {
+-				printk(KERN_WARNING "%s: can't fill rx buffer (force %d)!\n",
+-						dev->name, force);
+-				sp->rx_ring_state |= RrOOMReported;
+-			}
+-			speedo_show_state(dev);
+-			if (!force)
+-				return -1;	/* Better luck next time!  */
+-			/* Borrow an skb from one of next entries. */
+-			for (forw = sp->dirty_rx + 1; forw != sp->cur_rx; forw++)
+-				if (sp->rx_skbuff[forw % RX_RING_SIZE] != NULL)
+-					break;
+-			if (forw == sp->cur_rx)
+-				return -1;
+-			forw_entry = forw % RX_RING_SIZE;
+-			sp->rx_skbuff[entry] = sp->rx_skbuff[forw_entry];
+-			sp->rx_skbuff[forw_entry] = NULL;
+-			rxf = sp->rx_ringp[forw_entry];
+-			sp->rx_ringp[forw_entry] = NULL;
+-			sp->rx_ringp[entry] = rxf;
+-		}
 -	} else {
--		/* Insert IrDA dongle into hashbin */
--		hashbin_insert(dongles, (irda_queue_t *) new, new->type, NULL);
+-		rxf = sp->rx_ringp[entry];
 -	}
--	spin_unlock(&dongles->hb_spinlock);
+-	speedo_rx_link(dev, entry, rxf, sp->rx_ring_dma[entry]);
+-	sp->dirty_rx++;
+-	sp->rx_ring_state &= ~(RrNoMem|RrOOMReported); /* Mark the progress. */
+-	return 0;
+-}
+-
+-static void speedo_refill_rx_buffers(struct net_device *dev, int force)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-
+-	/* Refill the RX ring. */
+-	while ((int)(sp->cur_rx - sp->dirty_rx) > 0 &&
+-			speedo_refill_rx_buf(dev, force) != -1);
+-}
+-
+-static int
+-speedo_rx(struct net_device *dev)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	int entry = sp->cur_rx % RX_RING_SIZE;
+-	int rx_work_limit = sp->dirty_rx + RX_RING_SIZE - sp->cur_rx;
+-	int alloc_ok = 1;
+-	int npkts = 0;
+-
+-	if (netif_msg_intr(sp))
+-		printk(KERN_DEBUG " In speedo_rx().\n");
+-	/* If we own the next entry, it's a new packet. Send it up. */
+-	while (sp->rx_ringp[entry] != NULL) {
+-		int status;
+-		int pkt_len;
+-
+-		pci_dma_sync_single_for_cpu(sp->pdev, sp->rx_ring_dma[entry],
+-									sizeof(struct RxFD), PCI_DMA_FROMDEVICE);
+-		status = le32_to_cpu(sp->rx_ringp[entry]->status);
+-		pkt_len = le32_to_cpu(sp->rx_ringp[entry]->count) & 0x3fff;
+-
+-		if (!(status & RxComplete))
+-			break;
+-
+-		if (--rx_work_limit < 0)
+-			break;
+-
+-		/* Check for a rare out-of-memory case: the current buffer is
+-		   the last buffer allocated in the RX ring.  --SAW */
+-		if (sp->last_rxf == sp->rx_ringp[entry]) {
+-			/* Postpone the packet.  It'll be reaped at an interrupt when this
+-			   packet is no longer the last packet in the ring. */
+-			if (netif_msg_rx_err(sp))
+-				printk(KERN_DEBUG "%s: RX packet postponed!\n",
+-					   dev->name);
+-			sp->rx_ring_state |= RrPostponed;
+-			break;
+-		}
+-
+-		if (netif_msg_rx_status(sp))
+-			printk(KERN_DEBUG "  speedo_rx() status %8.8x len %d.\n", status,
+-				   pkt_len);
+-		if ((status & (RxErrTooBig|RxOK|0x0f90)) != RxOK) {
+-			if (status & RxErrTooBig)
+-				printk(KERN_ERR "%s: Ethernet frame overran the Rx buffer, "
+-					   "status %8.8x!\n", dev->name, status);
+-			else if (! (status & RxOK)) {
+-				/* There was a fatal error.  This *should* be impossible. */
+-				sp->stats.rx_errors++;
+-				printk(KERN_ERR "%s: Anomalous event in speedo_rx(), "
+-					   "status %8.8x.\n",
+-					   dev->name, status);
+-			}
+-		} else {
+-			struct sk_buff *skb;
+-
+-			/* Check if the packet is long enough to just accept without
+-			   copying to a properly sized skbuff. */
+-			if (pkt_len < rx_copybreak
+-				&& (skb = dev_alloc_skb(pkt_len + 2)) != 0) {
+-				skb_reserve(skb, 2);	/* Align IP on 16 byte boundaries */
+-				/* 'skb_put()' points to the start of sk_buff data area. */
+-				pci_dma_sync_single_for_cpu(sp->pdev, sp->rx_ring_dma[entry],
+-											sizeof(struct RxFD) + pkt_len,
+-											PCI_DMA_FROMDEVICE);
+-
+-#if 1 || USE_IP_CSUM
+-				/* Packet is in one chunk -- we can copy + cksum. */
+-				skb_copy_to_linear_data(skb, sp->rx_skbuff[entry]->data, pkt_len);
+-				skb_put(skb, pkt_len);
+-#else
+-				skb_copy_from_linear_data(sp->rx_skbuff[entry],
+-							  skb_put(skb, pkt_len),
+-							  pkt_len);
+-#endif
+-				pci_dma_sync_single_for_device(sp->pdev, sp->rx_ring_dma[entry],
+-											   sizeof(struct RxFD) + pkt_len,
+-											   PCI_DMA_FROMDEVICE);
+-				npkts++;
+-			} else {
+-				/* Pass up the already-filled skbuff. */
+-				skb = sp->rx_skbuff[entry];
+-				if (skb == NULL) {
+-					printk(KERN_ERR "%s: Inconsistent Rx descriptor chain.\n",
+-						   dev->name);
+-					break;
+-				}
+-				sp->rx_skbuff[entry] = NULL;
+-				skb_put(skb, pkt_len);
+-				npkts++;
+-				sp->rx_ringp[entry] = NULL;
+-				pci_unmap_single(sp->pdev, sp->rx_ring_dma[entry],
+-								 PKT_BUF_SZ + sizeof(struct RxFD),
+-								 PCI_DMA_FROMDEVICE);
+-			}
+-			skb->protocol = eth_type_trans(skb, dev);
+-			netif_rx(skb);
+-			dev->last_rx = jiffies;
+-			sp->stats.rx_packets++;
+-			sp->stats.rx_bytes += pkt_len;
+-		}
+-		entry = (++sp->cur_rx) % RX_RING_SIZE;
+-		sp->rx_ring_state &= ~RrPostponed;
+-		/* Refill the recently taken buffers.
+-		   Do it one-by-one to handle traffic bursts better. */
+-		if (alloc_ok && speedo_refill_rx_buf(dev, 0) == -1)
+-			alloc_ok = 0;
+-	}
+-
+-	/* Try hard to refill the recently taken buffers. */
+-	speedo_refill_rx_buffers(dev, 1);
+-
+-	if (npkts)
+-		sp->last_rx_time = jiffies;
 -
 -	return 0;
 -}
--EXPORT_SYMBOL(irda_device_register_dongle);
+-
+-static int
+-speedo_close(struct net_device *dev)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->regs;
+-	int i;
+-
+-	netdevice_stop(dev);
+-	netif_stop_queue(dev);
+-
+-	if (netif_msg_ifdown(sp))
+-		printk(KERN_DEBUG "%s: Shutting down ethercard, status was %4.4x.\n",
+-			   dev->name, ioread16(ioaddr + SCBStatus));
+-
+-	/* Shut off the media monitoring timer. */
+-	del_timer_sync(&sp->timer);
+-
+-	iowrite16(SCBMaskAll, ioaddr + SCBCmd);
+-
+-	/* Shutting down the chip nicely fails to disable flow control. So.. */
+-	iowrite32(PortPartialReset, ioaddr + SCBPort);
+-	ioread32(ioaddr + SCBPort); /* flush posted write */
+-	/*
+-	 * The chip requires a 10 microsecond quiet period.  Wait here!
+-	 */
+-	udelay(10);
+-
+-	free_irq(dev->irq, dev);
+-	speedo_show_state(dev);
+-
+-    /* Free all the skbuffs in the Rx and Tx queues. */
+-	for (i = 0; i < RX_RING_SIZE; i++) {
+-		struct sk_buff *skb = sp->rx_skbuff[i];
+-		sp->rx_skbuff[i] = NULL;
+-		/* Clear the Rx descriptors. */
+-		if (skb) {
+-			pci_unmap_single(sp->pdev,
+-					 sp->rx_ring_dma[i],
+-					 PKT_BUF_SZ + sizeof(struct RxFD), PCI_DMA_FROMDEVICE);
+-			dev_kfree_skb(skb);
+-		}
+-	}
+-
+-	for (i = 0; i < TX_RING_SIZE; i++) {
+-		struct sk_buff *skb = sp->tx_skbuff[i];
+-		sp->tx_skbuff[i] = NULL;
+-		/* Clear the Tx descriptors. */
+-		if (skb) {
+-			pci_unmap_single(sp->pdev,
+-					 le32_to_cpu(sp->tx_ring[i].tx_buf_addr0),
+-					 skb->len, PCI_DMA_TODEVICE);
+-			dev_kfree_skb(skb);
+-		}
+-	}
+-
+-	/* Free multicast setting blocks. */
+-	for (i = 0; sp->mc_setup_head != NULL; i++) {
+-		struct speedo_mc_block *t;
+-		t = sp->mc_setup_head->next;
+-		kfree(sp->mc_setup_head);
+-		sp->mc_setup_head = t;
+-	}
+-	sp->mc_setup_tail = NULL;
+-	if (netif_msg_ifdown(sp))
+-		printk(KERN_DEBUG "%s: %d multicast blocks dropped.\n", dev->name, i);
+-
+-	pci_set_power_state(sp->pdev, PCI_D2);
+-
+-	return 0;
+-}
+-
+-/* The Speedo-3 has an especially awkward and unusable method of getting
+-   statistics out of the chip.  It takes an unpredictable length of time
+-   for the dump-stats command to complete.  To avoid a busy-wait loop we
+-   update the stats with the previous dump results, and then trigger a
+-   new dump.
+-
+-   Oh, and incoming frames are dropped while executing dump-stats!
+-   */
+-static struct net_device_stats *
+-speedo_get_stats(struct net_device *dev)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->regs;
+-
+-	/* Update only if the previous dump finished. */
+-	if (sp->lstats->done_marker == le32_to_cpu(0xA007)) {
+-		sp->stats.tx_aborted_errors += le32_to_cpu(sp->lstats->tx_coll16_errs);
+-		sp->stats.tx_window_errors += le32_to_cpu(sp->lstats->tx_late_colls);
+-		sp->stats.tx_fifo_errors += le32_to_cpu(sp->lstats->tx_underruns);
+-		sp->stats.tx_fifo_errors += le32_to_cpu(sp->lstats->tx_lost_carrier);
+-		/*sp->stats.tx_deferred += le32_to_cpu(sp->lstats->tx_deferred);*/
+-		sp->stats.collisions += le32_to_cpu(sp->lstats->tx_total_colls);
+-		sp->stats.rx_crc_errors += le32_to_cpu(sp->lstats->rx_crc_errs);
+-		sp->stats.rx_frame_errors += le32_to_cpu(sp->lstats->rx_align_errs);
+-		sp->stats.rx_over_errors += le32_to_cpu(sp->lstats->rx_resource_errs);
+-		sp->stats.rx_fifo_errors += le32_to_cpu(sp->lstats->rx_overrun_errs);
+-		sp->stats.rx_length_errors += le32_to_cpu(sp->lstats->rx_runt_errs);
+-		sp->lstats->done_marker = 0x0000;
+-		if (netif_running(dev)) {
+-			unsigned long flags;
+-			/* Take a spinlock to make wait_for_cmd_done and sending the
+-			   command atomic.  --SAW */
+-			spin_lock_irqsave(&sp->lock, flags);
+-			wait_for_cmd_done(dev, sp);
+-			iowrite8(CUDumpStats, ioaddr + SCBCmd);
+-			spin_unlock_irqrestore(&sp->lock, flags);
+-		}
+-	}
+-	return &sp->stats;
+-}
+-
+-static void speedo_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	strncpy(info->driver, "eepro100", sizeof(info->driver)-1);
+-	strncpy(info->version, version, sizeof(info->version)-1);
+-	if (sp->pdev)
+-		strcpy(info->bus_info, pci_name(sp->pdev));
+-}
+-
+-static int speedo_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	spin_lock_irq(&sp->lock);
+-	mii_ethtool_gset(&sp->mii_if, ecmd);
+-	spin_unlock_irq(&sp->lock);
+-	return 0;
+-}
+-
+-static int speedo_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	int res;
+-	spin_lock_irq(&sp->lock);
+-	res = mii_ethtool_sset(&sp->mii_if, ecmd);
+-	spin_unlock_irq(&sp->lock);
+-	return res;
+-}
+-
+-static int speedo_nway_reset(struct net_device *dev)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	return mii_nway_restart(&sp->mii_if);
+-}
+-
+-static u32 speedo_get_link(struct net_device *dev)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	return mii_link_ok(&sp->mii_if);
+-}
+-
+-static u32 speedo_get_msglevel(struct net_device *dev)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	return sp->msg_enable;
+-}
+-
+-static void speedo_set_msglevel(struct net_device *dev, u32 v)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	sp->msg_enable = v;
+-}
+-
+-static const struct ethtool_ops ethtool_ops = {
+-	.get_drvinfo = speedo_get_drvinfo,
+-	.get_settings = speedo_get_settings,
+-	.set_settings = speedo_set_settings,
+-	.nway_reset = speedo_nway_reset,
+-	.get_link = speedo_get_link,
+-	.get_msglevel = speedo_get_msglevel,
+-	.set_msglevel = speedo_set_msglevel,
+-};
+-
+-static int speedo_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	struct mii_ioctl_data *data = if_mii(rq);
+-	int phy = sp->phy[0] & 0x1f;
+-	int saved_acpi;
+-	int t;
+-
+-    switch(cmd) {
+-	case SIOCGMIIPHY:		/* Get address of MII PHY in use. */
+-		data->phy_id = phy;
+-
+-	case SIOCGMIIREG:		/* Read MII PHY register. */
+-		/* FIXME: these operations need to be serialized with MDIO
+-		   access from the timeout handler.
+-		   They are currently serialized only with MDIO access from the
+-		   timer routine.  2000/05/09 SAW */
+-		saved_acpi = pci_set_power_state(sp->pdev, PCI_D0);
+-		t = del_timer_sync(&sp->timer);
+-		data->val_out = mdio_read(dev, data->phy_id & 0x1f, data->reg_num & 0x1f);
+-		if (t)
+-			add_timer(&sp->timer); /* may be set to the past  --SAW */
+-		pci_set_power_state(sp->pdev, saved_acpi);
+-		return 0;
+-
+-	case SIOCSMIIREG:		/* Write MII PHY register. */
+-		if (!capable(CAP_NET_ADMIN))
+-			return -EPERM;
+-		saved_acpi = pci_set_power_state(sp->pdev, PCI_D0);
+-		t = del_timer_sync(&sp->timer);
+-		mdio_write(dev, data->phy_id, data->reg_num, data->val_in);
+-		if (t)
+-			add_timer(&sp->timer); /* may be set to the past  --SAW */
+-		pci_set_power_state(sp->pdev, saved_acpi);
+-		return 0;
+-	default:
+-		return -EOPNOTSUPP;
+-	}
+-}
+-
+-/* Set or clear the multicast filter for this adaptor.
+-   This is very ugly with Intel chips -- we usually have to execute an
+-   entire configuration command, plus process a multicast command.
+-   This is complicated.  We must put a large configuration command and
+-   an arbitrarily-sized multicast command in the transmit list.
+-   To minimize the disruption -- the previous command might have already
+-   loaded the link -- we convert the current command block, normally a Tx
+-   command, into a no-op and link it to the new command.
+-*/
+-static void set_rx_mode(struct net_device *dev)
+-{
+-	struct speedo_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->regs;
+-	struct descriptor *last_cmd;
+-	char new_rx_mode;
+-	unsigned long flags;
+-	int entry, i;
+-
+-	if (dev->flags & IFF_PROMISC) {			/* Set promiscuous. */
+-		new_rx_mode = 3;
+-	} else if ((dev->flags & IFF_ALLMULTI)  ||
+-			   dev->mc_count > multicast_filter_limit) {
+-		new_rx_mode = 1;
+-	} else
+-		new_rx_mode = 0;
+-
+-	if (netif_msg_rx_status(sp))
+-		printk(KERN_DEBUG "%s: set_rx_mode %d -> %d\n", dev->name,
+-				sp->rx_mode, new_rx_mode);
+-
+-	if ((int)(sp->cur_tx - sp->dirty_tx) > TX_RING_SIZE - TX_MULTICAST_SIZE) {
+-	    /* The Tx ring is full -- don't add anything!  Hope the mode will be
+-		 * set again later. */
+-		sp->rx_mode = -1;
+-		return;
+-	}
+-
+-	if (new_rx_mode != sp->rx_mode) {
+-		u8 *config_cmd_data;
+-
+-		spin_lock_irqsave(&sp->lock, flags);
+-		entry = sp->cur_tx++ % TX_RING_SIZE;
+-		last_cmd = sp->last_cmd;
+-		sp->last_cmd = (struct descriptor *)&sp->tx_ring[entry];
+-
+-		sp->tx_skbuff[entry] = NULL;			/* Redundant. */
+-		sp->tx_ring[entry].status = cpu_to_le32(CmdSuspend | CmdConfigure);
+-		sp->tx_ring[entry].link =
+-			cpu_to_le32(TX_RING_ELEM_DMA(sp, (entry + 1) % TX_RING_SIZE));
+-		config_cmd_data = (void *)&sp->tx_ring[entry].tx_desc_addr;
+-		/* Construct a full CmdConfig frame. */
+-		memcpy(config_cmd_data, i82558_config_cmd, CONFIG_DATA_SIZE);
+-		config_cmd_data[1] = (txfifo << 4) | rxfifo;
+-		config_cmd_data[4] = rxdmacount;
+-		config_cmd_data[5] = txdmacount + 0x80;
+-		config_cmd_data[15] |= (new_rx_mode & 2) ? 1 : 0;
+-		/* 0x80 doesn't disable FC 0x84 does.
+-		   Disable Flow control since we are not ACK-ing any FC interrupts
+-		   for now. --Dragan */
+-		config_cmd_data[19] = 0x84;
+-		config_cmd_data[19] |= sp->mii_if.full_duplex ? 0x40 : 0;
+-		config_cmd_data[21] = (new_rx_mode & 1) ? 0x0D : 0x05;
+-		if (sp->phy[0] & 0x8000) {			/* Use the AUI port instead. */
+-			config_cmd_data[15] |= 0x80;
+-			config_cmd_data[8] = 0;
+-		}
+-		/* Trigger the command unit resume. */
+-		wait_for_cmd_done(dev, sp);
+-		clear_suspend(last_cmd);
+-		iowrite8(CUResume, ioaddr + SCBCmd);
+-		if ((int)(sp->cur_tx - sp->dirty_tx) >= TX_QUEUE_LIMIT) {
+-			netif_stop_queue(dev);
+-			sp->tx_full = 1;
+-		}
+-		spin_unlock_irqrestore(&sp->lock, flags);
+-	}
+-
+-	if (new_rx_mode == 0  &&  dev->mc_count < 4) {
+-		/* The simple case of 0-3 multicast list entries occurs often, and
+-		   fits within one tx_ring[] entry. */
+-		struct dev_mc_list *mclist;
+-		u16 *setup_params, *eaddrs;
+-
+-		spin_lock_irqsave(&sp->lock, flags);
+-		entry = sp->cur_tx++ % TX_RING_SIZE;
+-		last_cmd = sp->last_cmd;
+-		sp->last_cmd = (struct descriptor *)&sp->tx_ring[entry];
+-
+-		sp->tx_skbuff[entry] = NULL;
+-		sp->tx_ring[entry].status = cpu_to_le32(CmdSuspend | CmdMulticastList);
+-		sp->tx_ring[entry].link =
+-			cpu_to_le32(TX_RING_ELEM_DMA(sp, (entry + 1) % TX_RING_SIZE));
+-		sp->tx_ring[entry].tx_desc_addr = 0; /* Really MC list count. */
+-		setup_params = (u16 *)&sp->tx_ring[entry].tx_desc_addr;
+-		*setup_params++ = cpu_to_le16(dev->mc_count*6);
+-		/* Fill in the multicast addresses. */
+-		for (i = 0, mclist = dev->mc_list; i < dev->mc_count;
+-			 i++, mclist = mclist->next) {
+-			eaddrs = (u16 *)mclist->dmi_addr;
+-			*setup_params++ = *eaddrs++;
+-			*setup_params++ = *eaddrs++;
+-			*setup_params++ = *eaddrs++;
+-		}
+-
+-		wait_for_cmd_done(dev, sp);
+-		clear_suspend(last_cmd);
+-		/* Immediately trigger the command unit resume. */
+-		iowrite8(CUResume, ioaddr + SCBCmd);
+-
+-		if ((int)(sp->cur_tx - sp->dirty_tx) >= TX_QUEUE_LIMIT) {
+-			netif_stop_queue(dev);
+-			sp->tx_full = 1;
+-		}
+-		spin_unlock_irqrestore(&sp->lock, flags);
+-	} else if (new_rx_mode == 0) {
+-		struct dev_mc_list *mclist;
+-		u16 *setup_params, *eaddrs;
+-		struct speedo_mc_block *mc_blk;
+-		struct descriptor *mc_setup_frm;
+-		int i;
+-
+-		mc_blk = kmalloc(sizeof(*mc_blk) + 2 + multicast_filter_limit*6,
+-						 GFP_ATOMIC);
+-		if (mc_blk == NULL) {
+-			printk(KERN_ERR "%s: Failed to allocate a setup frame.\n",
+-				   dev->name);
+-			sp->rx_mode = -1; /* We failed, try again. */
+-			return;
+-		}
+-		mc_blk->next = NULL;
+-		mc_blk->len = 2 + multicast_filter_limit*6;
+-		mc_blk->frame_dma =
+-			pci_map_single(sp->pdev, &mc_blk->frame, mc_blk->len,
+-					PCI_DMA_TODEVICE);
+-		mc_setup_frm = &mc_blk->frame;
+-
+-		/* Fill the setup frame. */
+-		if (netif_msg_ifup(sp))
+-			printk(KERN_DEBUG "%s: Constructing a setup frame at %p.\n",
+-				   dev->name, mc_setup_frm);
+-		mc_setup_frm->cmd_status =
+-			cpu_to_le32(CmdSuspend | CmdIntr | CmdMulticastList);
+-		/* Link set below. */
+-		setup_params = (u16 *)&mc_setup_frm->params;
+-		*setup_params++ = cpu_to_le16(dev->mc_count*6);
+-		/* Fill in the multicast addresses. */
+-		for (i = 0, mclist = dev->mc_list; i < dev->mc_count;
+-			 i++, mclist = mclist->next) {
+-			eaddrs = (u16 *)mclist->dmi_addr;
+-			*setup_params++ = *eaddrs++;
+-			*setup_params++ = *eaddrs++;
+-			*setup_params++ = *eaddrs++;
+-		}
+-
+-		/* Disable interrupts while playing with the Tx Cmd list. */
+-		spin_lock_irqsave(&sp->lock, flags);
+-
+-		if (sp->mc_setup_tail)
+-			sp->mc_setup_tail->next = mc_blk;
+-		else
+-			sp->mc_setup_head = mc_blk;
+-		sp->mc_setup_tail = mc_blk;
+-		mc_blk->tx = sp->cur_tx;
+-
+-		entry = sp->cur_tx++ % TX_RING_SIZE;
+-		last_cmd = sp->last_cmd;
+-		sp->last_cmd = mc_setup_frm;
+-
+-		/* Change the command to a NoOp, pointing to the CmdMulti command. */
+-		sp->tx_skbuff[entry] = NULL;
+-		sp->tx_ring[entry].status = cpu_to_le32(CmdNOp);
+-		sp->tx_ring[entry].link = cpu_to_le32(mc_blk->frame_dma);
+-
+-		/* Set the link in the setup frame. */
+-		mc_setup_frm->link =
+-			cpu_to_le32(TX_RING_ELEM_DMA(sp, (entry + 1) % TX_RING_SIZE));
+-
+-		pci_dma_sync_single_for_device(sp->pdev, mc_blk->frame_dma,
+-									   mc_blk->len, PCI_DMA_TODEVICE);
+-
+-		wait_for_cmd_done(dev, sp);
+-		clear_suspend(last_cmd);
+-		/* Immediately trigger the command unit resume. */
+-		iowrite8(CUResume, ioaddr + SCBCmd);
+-
+-		if ((int)(sp->cur_tx - sp->dirty_tx) >= TX_QUEUE_LIMIT) {
+-			netif_stop_queue(dev);
+-			sp->tx_full = 1;
+-		}
+-		spin_unlock_irqrestore(&sp->lock, flags);
+-
+-		if (netif_msg_rx_status(sp))
+-			printk(" CmdMCSetup frame length %d in entry %d.\n",
+-				   dev->mc_count, entry);
+-	}
+-
+-	sp->rx_mode = new_rx_mode;
+-}
+-
+-#ifdef CONFIG_PM
+-static int eepro100_suspend(struct pci_dev *pdev, pm_message_t state)
+-{
+-	struct net_device *dev = pci_get_drvdata (pdev);
+-	struct speedo_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->regs;
+-
+-	pci_save_state(pdev);
+-
+-	if (!netif_running(dev))
+-		return 0;
+-
+-	del_timer_sync(&sp->timer);
+-
+-	netif_device_detach(dev);
+-	iowrite32(PortPartialReset, ioaddr + SCBPort);
+-
+-	/* XXX call pci_set_power_state ()? */
+-	pci_disable_device(pdev);
+-	pci_set_power_state (pdev, PCI_D3hot);
+-	return 0;
+-}
+-
+-static int eepro100_resume(struct pci_dev *pdev)
+-{
+-	struct net_device *dev = pci_get_drvdata (pdev);
+-	struct speedo_private *sp = netdev_priv(dev);
+-	void __iomem *ioaddr = sp->regs;
+-	int rc;
+-
+-	pci_set_power_state(pdev, PCI_D0);
+-	pci_restore_state(pdev);
+-
+-	rc = pci_enable_device(pdev);
+-	if (rc)
+-		return rc;
+-
+-	pci_set_master(pdev);
+-
+-	if (!netif_running(dev))
+-		return 0;
+-
+-	/* I'm absolutely uncertain if this part of code may work.
+-	   The problems are:
+-	    - correct hardware reinitialization;
+-		- correct driver behavior between different steps of the
+-		  reinitialization;
+-		- serialization with other driver calls.
+-	   2000/03/08  SAW */
+-	iowrite16(SCBMaskAll, ioaddr + SCBCmd);
+-	speedo_resume(dev);
+-	netif_device_attach(dev);
+-	sp->rx_mode = -1;
+-	sp->flow_ctrl = sp->partner = 0;
+-	set_rx_mode(dev);
+-	sp->timer.expires = RUN_AT(2*HZ);
+-	add_timer(&sp->timer);
+-	return 0;
+-}
+-#endif /* CONFIG_PM */
+-
+-static void __devexit eepro100_remove_one (struct pci_dev *pdev)
+-{
+-	struct net_device *dev = pci_get_drvdata (pdev);
+-	struct speedo_private *sp = netdev_priv(dev);
+-
+-	unregister_netdev(dev);
+-
+-	release_region(pci_resource_start(pdev, 1), pci_resource_len(pdev, 1));
+-	release_mem_region(pci_resource_start(pdev, 0), pci_resource_len(pdev, 0));
+-
+-	pci_iounmap(pdev, sp->regs);
+-	pci_free_consistent(pdev, TX_RING_SIZE * sizeof(struct TxFD)
+-								+ sizeof(struct speedo_stats),
+-						sp->tx_ring, sp->tx_ring_dma);
+-	pci_disable_device(pdev);
+-	free_netdev(dev);
+-}
+-
+-static struct pci_device_id eepro100_pci_tbl[] = {
+-	{ PCI_VENDOR_ID_INTEL, 0x1229, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x1209, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x1029, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x1030, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x1031, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x1032, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x1033, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x1034, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x1035, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x1036, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x1037, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x1038, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x1039, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x103A, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x103B, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x103C, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x103D, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x103E, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x1050, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x1059, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x1227, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x2449, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x2459, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x245D, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x5200, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x5201, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ 0,}
+-};
+-MODULE_DEVICE_TABLE(pci, eepro100_pci_tbl);
+-
+-static struct pci_driver eepro100_driver = {
+-	.name		= "eepro100",
+-	.id_table	= eepro100_pci_tbl,
+-	.probe		= eepro100_init_one,
+-	.remove		= __devexit_p(eepro100_remove_one),
+-#ifdef CONFIG_PM
+-	.suspend	= eepro100_suspend,
+-	.resume		= eepro100_resume,
+-#endif /* CONFIG_PM */
+-};
+-
+-static int __init eepro100_init_module(void)
+-{
+-#ifdef MODULE
+-	printk(version);
+-#endif
+-	return pci_register_driver(&eepro100_driver);
+-}
+-
+-static void __exit eepro100_cleanup_module(void)
+-{
+-	pci_unregister_driver(&eepro100_driver);
+-}
+-
+-module_init(eepro100_init_module);
+-module_exit(eepro100_cleanup_module);
 -
 -/*
-- * Function irda_device_unregister_dongle (dongle)
-- *
-- *    Unregister dongle, and remove dongle from list of registered don=
-gles
-- *
+- * Local variables:
+- *  compile-command: "gcc -DMODULE -D__KERNEL__ -I/usr/src/linux/net/inet -Wall -Wstrict-prototypes -O6 -c eepro100.c `[ -f /usr/include/linux/modversions.h ] && echo -DMODVERSIONS`"
+- *  c-indent-level: 4
+- *  c-basic-offset: 4
+- *  tab-width: 4
+- * End:
 - */
--void irda_device_unregister_dongle(struct dongle_reg *dongle)
--{
--	struct dongle *node;
--
--	spin_lock(&dongles->hb_spinlock);
--	node =3D hashbin_remove(dongles, dongle->type, NULL);
--	if (!node)
--		IRDA_ERROR("%s: dongle not found!\n", __FUNCTION__);
--	spin_unlock(&dongles->hb_spinlock);
--}
--EXPORT_SYMBOL(irda_device_unregister_dongle);
--
- #ifdef CONFIG_ISA_DMA_API
- /*
-  * Function setup_dma (idev, buffer, count, mode)
 
