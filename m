@@ -1,39 +1,69 @@
 From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] make tcp_match_skb_to_sack() static
-Date: Wed, 24 Oct 2007 18:23:58 +0200
-Message-ID: <20071024162358.GA30533@stusta.de>
+Subject: [2.6 patch] make sunrpc/xprtsock.c:xs_setup_{udp,tcp}() static
+Date: Wed, 24 Oct 2007 18:24:02 +0200
+Message-ID: <20071024162402.GB30533@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Ilpo =?utf-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Chuck Lever <chuck.lever@oracle.com>, Tom Talpey <tmt@netapp.com>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:33363 "EHLO
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:33365 "EHLO
 	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759094AbXJXQX3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 12:23:29 -0400
+	with ESMTP id S1756474AbXJXQXe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 12:23:34 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-tcp_match_skb_to_sack() can become static.
+xs_setup_{udp,tcp}() can now become static.
 
 Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
 ---
-b734b439219a6251b7deb65dad2307f9c891f680 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 9288220..603400d 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1204,8 +1204,8 @@ static int tcp_check_dsack(struct tcp_sock *tp, struct sk_buff *ack_skb,
-  * which may fail and creates some hassle (caller must handle error case
-  * returns).
+
+ include/linux/sunrpc/xprtsock.h |    6 ------
+ net/sunrpc/xprtsock.c           |    4 ++--
+ 2 files changed, 2 insertions(+), 8 deletions(-)
+
+833a31c8caef70589f33be8e3a1fc9d8e01ce3c2 
+diff --git a/include/linux/sunrpc/xprtsock.h b/include/linux/sunrpc/xprtsock.h
+index 2c6c2c2..c2a46c4 100644
+--- a/include/linux/sunrpc/xprtsock.h
++++ b/include/linux/sunrpc/xprtsock.h
+@@ -9,12 +9,6 @@
+ 
+ #ifdef __KERNEL__
+ 
+-/*
+- * Socket transport setup operations
+- */
+-struct rpc_xprt *xs_setup_udp(struct xprt_create *args);
+-struct rpc_xprt *xs_setup_tcp(struct xprt_create *args);
+-
+ int		init_socket_xprt(void);
+ void		cleanup_socket_xprt(void);
+ 
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index 02298f5..2f630a5 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -1828,7 +1828,7 @@ static struct rpc_xprt *xs_setup_xprt(struct xprt_create *args,
+  * @args: rpc transport creation arguments
+  *
   */
--int tcp_match_skb_to_sack(struct sock *sk, struct sk_buff *skb,
--			  u32 start_seq, u32 end_seq)
-+static int tcp_match_skb_to_sack(struct sock *sk, struct sk_buff *skb,
-+				 u32 start_seq, u32 end_seq)
+-struct rpc_xprt *xs_setup_udp(struct xprt_create *args)
++static struct rpc_xprt *xs_setup_udp(struct xprt_create *args)
  {
- 	int in_sack, err;
- 	unsigned int pkt_len;
+ 	struct sockaddr *addr = args->dstaddr;
+ 	struct rpc_xprt *xprt;
+@@ -1894,7 +1894,7 @@ struct rpc_xprt *xs_setup_udp(struct xprt_create *args)
+  * @args: rpc transport creation arguments
+  *
+  */
+-struct rpc_xprt *xs_setup_tcp(struct xprt_create *args)
++static struct rpc_xprt *xs_setup_tcp(struct xprt_create *args)
+ {
+ 	struct sockaddr *addr = args->dstaddr;
+ 	struct rpc_xprt *xprt;
 
