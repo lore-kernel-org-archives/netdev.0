@@ -1,48 +1,61 @@
-From: Florin Andrei <florin@andrei.myip.org>
-Subject: Re: stateless 1:1 NAT
-Date: Wed, 24 Oct 2007 12:12:22 -0700
-Message-ID: <471F9916.1090404@andrei.myip.org>
-References: <E1IhxQo-0004hF-00@gondolin.me.apana.org.au>
-Reply-To: netdev@vger.kernel.org
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: [2.6 patch] unexport icmpmsg_statistics
+Date: Wed, 24 Oct 2007 21:14:37 +0200
+Message-ID: <20071024191437.GF30533@stusta.de>
+References: <20071024162410.GE30533@stusta.de> <OFD68B1480.9D9C7453-ON8825737E.0068B005-8825737E.0068FB84@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp120.sbc.mail.sp1.yahoo.com ([69.147.64.93]:40325 "HELO
-	smtp120.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753410AbXJXTMZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 15:12:25 -0400
-Received: from localhost (weiqi.home.local [127.0.0.1])
-	by weiqi.home.local (Postfix) with ESMTP id 89D1F576EE4
-	for <netdev@vger.kernel.org>; Wed, 24 Oct 2007 12:12:23 -0700 (PDT)
-Received: from weiqi.home.local ([127.0.0.1])
-	by localhost (andrei.myip.org [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id bB9O7ImRbIBE for <netdev@vger.kernel.org>;
-	Wed, 24 Oct 2007 12:12:22 -0700 (PDT)
-Received: from [192.168.2.8] (scout.vpn.local [192.168.2.8])
-	by weiqi.home.local (Postfix) with ESMTP id 86079576ED4
-	for <netdev@vger.kernel.org>; Wed, 24 Oct 2007 12:12:22 -0700 (PDT)
-In-Reply-To: <E1IhxQo-0004hF-00@gondolin.me.apana.org.au>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:57567 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753391AbXJXTOI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 15:14:08 -0400
+Content-Disposition: inline
+In-Reply-To: <OFD68B1480.9D9C7453-ON8825737E.0068B005-8825737E.0068FB84@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> Florin Andrei <florin@andrei.myip.org> wrote:
->> I've heard that stateless 1:1 NAT will be possible with the upcoming 
->> 2.6.24 kernel.
->> I'd like to test that feature, but I'm not sure when it will actually be 
->> included. Will it be present in the release candidates for 2.6.24?
->> I just need a somewhat stable kernel tree to play with.
+On Wed, Oct 24, 2007 at 12:07:45PM -0700, David Stevens wrote:
+> netdev-owner@vger.kernel.org wrote on 10/24/2007 09:24:10 AM:
 > 
-> Yes it will be.
+> > This patch removes the unused EXPORT_SYMBOL(icmpmsg_statistics).
+> > 
+> > Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> > 
+> > ---
+> > 4ce74657ac0b1bdcb4c7bc359d05643f8cc4a08b 
+> > diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+> > index 272c69e..233de06 100644
+> > --- a/net/ipv4/icmp.c
+> > +++ b/net/ipv4/icmp.c
+> > @@ -1104,5 +1104,4 @@ void __init icmp_init(struct net_proto_family 
+> *ops)
+> >  EXPORT_SYMBOL(icmp_err_convert);
+> >  EXPORT_SYMBOL(icmp_send);
+> >  EXPORT_SYMBOL(icmp_statistics);
+> > -EXPORT_SYMBOL(icmpmsg_statistics);
+> >  EXPORT_SYMBOL(xrlim_allow);
+> 
+>         "icmpmsg_statistics" belongs with (and replaces some of the 
+> old...)
+> "icmp_statistics". I'm not sure that any modules use it, but I think you
+> should remove both or neither.
 
-OK, if I download 2.6.24-rc1, will it have this feature already?
-If not, when is it supposed to be included in the main kernel?
+icmp_statistics is used by the dccp_ipv4 and sctp modules.
 
-Thanks,
+icmpmsg_statistics is not used by any modules.
+
+>                                                                 +-DLS
+
+cu
+Adrian
 
 -- 
-Florin Andrei
 
-http://florin.myip.org/
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
