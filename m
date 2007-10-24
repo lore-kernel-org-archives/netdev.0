@@ -1,69 +1,45 @@
-From: Eugene Konev <ejka@imfi.kspu.ru>
-Subject: [PATCH 1/3] cpmac: use print_mac() instead of MAC_FMT
-Date: Wed, 24 Oct 2007 10:42:01 +0800
-Message-ID: <1193193723-12691-2-git-send-email-ejka@imfi.kspu.ru>
-References: <1193193723-12691-1-git-send-email-ejka@imfi.kspu.ru>
-Cc: Matteo Croce <technoboy85@gmail.com>, netdev@vger.kernel.org,
-	Eugene Konev <ejka@imfi.kspu.ru>
-To: Jeff Garzik <jgarzik@pobox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: on the topic of alternate MAC addresses
+Date: Tue, 23 Oct 2007 20:22:10 -0700 (PDT)
+Message-ID: <20071023.202210.74747025.davem@davemloft.net>
+References: <20071023.180534.59659315.davem@davemloft.net>
+	<471EAD01.5030502@garzik.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 117.19.65.80.ip.morning.ru ([80.65.19.117]:54703 "EHLO
-	mail.imfi.kspu.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753859AbXJXDBM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 23:01:12 -0400
-In-Reply-To: <1193193723-12691-1-git-send-email-ejka@imfi.kspu.ru>
-Message-Id: <5070e5ddd7ae0681b14e712980d830225a2103aa.1193191283.git.ejka@imfi.kspu.ru>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54008
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752662AbXJXDW0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2007 23:22:26 -0400
+In-Reply-To: <471EAD01.5030502@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Switch to using DECLARE_MAC_BUF/print_mac() added by commit
-0795af5729b18218767fab27c44b1384f72dc9ad [NET]: Introduce and use print_mac()
-and DECLARE_MAC_BUF().
+From: Jeff Garzik <jeff@garzik.org>
+Date: Tue, 23 Oct 2007 22:25:05 -0400
 
+> hmmmm.  Using ethtool isn't a big deal, but IMO you probably want more 
+> than just an exported list for the usage you described...  it sounds 
+> like some sort of reservation system should be used, to note which MAC 
+> addresses are [not] in use?
+> 
+> Then a virt client -- or anyone who wants multiple unicast addresses for 
+> whatever reason -- can let other clients to avoid MAC addresses 1, 7, or 
+> 13 (random examples).
 
-Signed-off-by: Eugene Konev <ejka@imfi.kspu.ru>
----
- drivers/net/cpmac.c |   13 ++++---------
- 1 files changed, 4 insertions(+), 9 deletions(-)
+I see your point.
 
-diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
-index 57541d2..0598d4d 100644
---- a/drivers/net/cpmac.c
-+++ b/drivers/net/cpmac.c
-@@ -53,12 +53,6 @@ MODULE_PARM_DESC(debug_level, "Number of NETIF_MSG bits to enable");
- MODULE_PARM_DESC(dumb_switch, "Assume switch is not connected to MDIO bus");
- 
- #define CPMAC_VERSION "0.5.0"
--/* stolen from net/ieee80211.h */
--#ifndef MAC_FMT
--#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
--#define MAC_ARG(x) ((u8*)(x))[0], ((u8*)(x))[1], ((u8*)(x))[2], \
--		   ((u8*)(x))[3], ((u8*)(x))[4], ((u8*)(x))[5]
--#endif
- /* frame size + 802.1q tag */
- #define CPMAC_SKB_SIZE		(ETH_FRAME_LEN + 4)
- #define CPMAC_QUEUES	8
-@@ -1006,6 +1000,7 @@ static int __devinit cpmac_probe(struct platform_device *pdev)
- 	struct cpmac_priv *priv;
- 	struct net_device *dev;
- 	struct plat_cpmac_data *pdata;
-+	DECLARE_MAC_BUF(mac);
- 
- 	pdata = pdev->dev.platform_data;
- 
-@@ -1077,9 +1072,9 @@ static int __devinit cpmac_probe(struct platform_device *pdev)
- 
- 	if (netif_msg_probe(priv)) {
- 		printk(KERN_INFO
--		       "cpmac: device %s (regs: %p, irq: %d, phy: %s, mac: "
--		       MAC_FMT ")\n", dev->name, (void *)mem->start, dev->irq,
--		       priv->phy_name, MAC_ARG(dev->dev_addr));
-+		       "cpmac: device %s (regs: %p, irq: %d, phy: %s, "
-+		       "mac: %s)\n", dev->name, (void *)mem->start, dev->irq,
-+		       priv->phy_name, print_mac(mac, dev->dev_addr));
- 	}
- 	return 0;
- 
--- 
-1.5.3.4
+However, it's not the virt clients that do this, it's the control
+node (aka: domain 0) which has to manage these things.
 
+It has to manage all of the global hardware resources and allocate
+them out to itself and the clients anyways.
+
+And this is why I think it's sufficient to just publish the list of
+MAC addresses from the driver, and leave the allocation and policy
+to the userland virtualizatin daemon running on the control node.
+
+Let me know if you still disagree.
