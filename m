@@ -1,37 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Cleanup the IPv6 addresses printing in /proc files
-Date: Tue, 23 Oct 2007 21:18:52 -0700 (PDT)
-Message-ID: <20071023.211852.15263990.davem@davemloft.net>
-References: <1193198641.11845.49.camel@localhost>
-	<20071023.211045.23014439.davem@davemloft.net>
-	<1193199336.11845.53.camel@localhost>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: Re: [BUG] 2.6.23-git19 - S390x: Kernel panic while bringing up the
+	network interface
+Date: Wed, 24 Oct 2007 07:06:33 +0200
+Message-ID: <20071024050633.GA12335@osiris.boeblingen.de.ibm.com>
+References: <471EBC02.5000907@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org
-To: joe@perches.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux390@de.ibm.com, linux-s390@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Andy Whitcroft <apw@shadowen.org>
+To: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46782
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751752AbXJXETH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 00:19:07 -0400
-In-Reply-To: <1193199336.11845.53.camel@localhost>
+Received: from mtagate3.de.ibm.com ([195.212.29.152]:35292 "EHLO
+	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753724AbXJXFGf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 01:06:35 -0400
+Content-Disposition: inline
+In-Reply-To: <471EBC02.5000907@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 23 Oct 2007 21:15:36 -0700
+On Wed, Oct 24, 2007 at 08:59:06AM +0530, Kamalesh Babulal wrote:
+> Hi,
+>=20
+> Kernel panic's while bringing up the network interface with the 2.6.2=
+3-git19
+>=20
+> Setting network parameters:  =DD  OK  =A8
+> Bringing up loopback interface:  =DD  OK  =A8
+> Bringing up interface eth0:
+>  =DD<00000000002e2f72>=A8 inet_ioctl+0xd6/0x110
+>  =DD<000000000027cae2>=A8 sock_ioctl+0x26e/0x2a0
+>  =DD<00000000000b4c52>=A8 do_ioctl+0x4a/0xac
+>  =DD<00000000000b5076>=A8 vfs_ioctl+0x3c2/0x3d8
+>  =DD<00000000000b50ec>=A8 sys_ioctl+0x60/0x88
+>  =DD<0000000000021b7e>=A8 sysc_noemu+0x10/0x16
+>  =DD<00000200001201ca>=A8 0x200001201ca
+>=20
+>  <0>Kernel panic - not syncing: Fatal exception in interrupt
+> 00: HCPGSP2629I The virtual machine is placed in CP mode due to a SIG=
+P stop from
+>  CPU 01.
+> 02: HCPGSP2629I The virtual machine is placed in CP mode due to a SIG=
+P stop from
+>  CPU 01.
+> 03: HCPGSP2629I The virtual machine is placed in CP mode due to a SIG=
+P stop from
+>  CPU 01.
+> 01: HCPGIR450W CP entered; disabled wait PSW 00020001 80000000 000000=
+00 000164DE
 
-> On Tue, 2007-10-23 at 21:10 -0700, David Miller wrote:
-> > We'll break things if we change it.
-> 
-> Maybe, but definitely the macro names should
-> reflect this brokenness.
+That should be fixed with this one:
 
-That's a good point, we don't want to encourage further
-use of these things.
+commit f1ecfd5d3b69d98b814435758c485e6fd0e112de
+Author: Ursula Braun <braunu@de.ibm.com>
+Date:   Mon Oct 22 16:16:14 2007 +0200
 
-Pavel, I'm going to revert this patch for now.  It may
-save some code lines, but it does so at the expense of
-creating an interface we actually don't want more users
-of.
+    remove header_ops bug in qeth driver
+   =20
+    Remove qeth bug caused by commit:
+    [NET]: Move hardware header operations out of netdevice.
+   =20
+    This is the second part of the qeth header_ops patch, since
+    first patch sent 10/19 has been insufficient.
+    Nevertheless first patch is still valid and should be kept.
+   =20
+    Signed-off-by: Ursula Braun <braunu@de.ibm.com>
+    Signed-off-by: Jeff Garzik <jeff@garzik.org>
+
+Patch is in -rc1. Could you please pull and try again? Thanks.
