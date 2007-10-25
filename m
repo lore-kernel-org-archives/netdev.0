@@ -1,72 +1,47 @@
-From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: [NETNS] Oops in register_pernet_operations() with CONFIG_NET_NS=n
-Date: Thu, 25 Oct 2007 14:59:03 +0200
-Message-ID: <47209317.8000802@bull.net>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH] NET: Mark snmp4_icmp_list[] as being unused
+Date: Thu, 25 Oct 2007 14:36:17 +0100
+Message-ID: <20071025133617.31556.6211.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Cedric Le Goater <clg@fr.ibm.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>
-To: Pavel Emelianov <xemul@openvz.org>
+Cc: dhowells@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:52369 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752166AbXJYM7T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2007 08:59:19 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:53151 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753501AbXJYNgU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Oct 2007 09:36:20 -0400
+Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
+	by mx1.redhat.com (8.13.8/8.13.1) with ESMTP id l9PDaJU9024122
+	for <netdev@vger.kernel.org>; Thu, 25 Oct 2007 09:36:19 -0400
+Received: from pobox.devel.redhat.com (pobox.devel.redhat.com [10.11.255.8])
+	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id l9PDaJed015676
+	for <netdev@vger.kernel.org>; Thu, 25 Oct 2007 09:36:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Pavel,
+Mark snmp4_icmp_list[] as being unused to avoid the warning it would otherwise
+incur.
 
-I've found a problem with one of your patch related to netns:
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
 
-* [NETNS] Move some code into __init section when CONFIG_NET_NS=n (v2)
-   http://www.spinics.net/lists/netdev/msg43310.html
+ net/ipv4/proc.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-This patch introduces the __net_init/__net_exit/__net_initdata
-defines to save some memory when CONFIG_NET_NS is not set.
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index fd16cb8..1c0854d 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -121,7 +121,8 @@ static const struct snmp_mib snmp4_ipextstats_list[] = {
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+-static const struct snmp_mib snmp4_icmp_list[] = {
++static __attribute__((unused))
++const struct snmp_mib snmp4_icmp_list[] = {
+ 	SNMP_MIB_ITEM("InMsgs", ICMP_MIB_INMSGS),
+ 	SNMP_MIB_ITEM("InErrors", ICMP_MIB_INERRORS),
+ 	SNMP_MIB_ITEM("OutMsgs", ICMP_MIB_OUTMSGS),
 
-Cedric Le Goater reported he had a *non-fatal* oops when booting
-a 2.6.23-mm1-lxc1 kernel with CONFIG_NET_NS=n. (2.6.23-mm1-lxc1 
-contains the NETNS49 patchset). The oops occured when modules 
-related to iptables were loaded after the boot completes.
-
-The problem is the following:
-
-- Your patch adds the __net_initdata attribute to pernet_operations 
-  structures.
-
-- pernet_operations are registered via register_pernet_subsys() and 
-  linked in the pernet_list during boot.
-
-- At the end of boot, pernet_operations are freed (because of the
-  __net_initdata attribute), and the pernet_list (or first_device list) 
-  points to freed memory.
-
-- After boot, network modules which are netns-aware try to register
-  themselves with register_pernet_subsys() and ...KABOOM... page
-  fault when accessing pernet_list (or first_device list).
-  (I reproduce Cedric's oops with the command: iptables --list)
-
-This is not a problem right now in 2.6.23-mm1 or net-2.6 because 
-there are very few netns-aware network subsystems merged and they
-are all initialized during boot. But it will be problematic when 
-we will merge netns code for subsystems which can be built as 
-modules (eg. iptables, ...). I'm not sure we can use 
-__net_init_data for pernet_operations then. 
-Maybe we can add some checks in register_pernet_operations
-when CONFIG_NET_NS=n.
-
-I haven't found a fix yet.
-
-Regards,
-Benjamin
-
--- 
-B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
-
-   http://www.bull.com
