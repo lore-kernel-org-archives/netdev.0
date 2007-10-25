@@ -1,49 +1,33 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [linux-pm] QUESTION: How to fix race between .suspend routine
- and watchdog timer
-Date: Thu, 25 Oct 2007 13:02:12 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.0710251259230.7029-100000@netrider.rowland.org>
-References: <200710250612.44296.maximlevitsky@gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: on the topic of alternate MAC addresses
+Date: Thu, 25 Oct 2007 10:14:10 -0700
+Message-ID: <4720CEE2.1010007@hp.com>
+References: <20071023.180534.59659315.davem@davemloft.net>	<471EAD01.5030502@garzik.org>	<20071023.202210.74747025.davem@davemloft.net> <m13avz6ujf.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, <netdev@vger.kernel.org>,
-	<linux-pm@lists.linux-foundation.org>
-To: Maxim Levitsky <maximlevitsky@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757222AbXJYRCY@vger.kernel.org>
-In-Reply-To: <200710250612.44296.maximlevitsky@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, jeff@garzik.org,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from palrel11.hp.com ([156.153.255.246]:51954 "EHLO palrel11.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753674AbXJYRON (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Oct 2007 13:14:13 -0400
+In-Reply-To: <m13avz6ujf.fsf@ebiederm.dsl.xmission.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 25 Oct 2007, Maxim Levitsky wrote:
+Eric W. Biederman wrote:
+> Duplicate mac addresses across interfaces on the same machine
+> should generally be a don't care.  Although there may some
+> cases we don't mind.
 
-> Hi,
-> 
-> Recently, trying to fix saa7134 suspend/resume problems I found that there 
-> is a race between IRQ handler and .suspend , and that I cant let driver access the device
-> while its in D3 since it can lock up some systems.
-> 
-> Now I am looking to fix those issues in two drivers that have my .suspend/.resume routines.
-> the saa7134 capture chip and dmfe, the davicom network driver.
-> 
-> Looking through the dmfe code, I noticed yet another possible race.
-> A race between the .suspend, and a timer that serves both as a watchdog, and link state detector.
-> Again I need to prevent it from running during the suspend/resume, but how?
-> 
-> I can use del_timer in .suspend, and mod_timer in .resume, but that doesn't protect against
-> race with already running timer.
-> I can use del_timer_sync, but it states that it is useless if timer re-enables itself, and I agree with that.
-> In dmfe case the timer does re-enable itself.
+What might the switches think of that?  Outside of the context of a 
+link-aggregate I would think that could do some unhappy things when multiple 
+interfaces are connected to the same broadcast domain.
 
-That comment isn't right.  del_timer_sync works perfectly well even if
-the timer routine re-enables itself, provided it stops doing so after a
-small number of iterations.
+That the "all interfaces have one MAC" default behaviour on SPARC systems often 
+ran into troubles is probably cautionary here.
 
-> I can put checks in the timer for ->insuspend, and don't re enable it if set,
-> but that opens a new can of worms with memory barriers, etc...
-
-You don't have to worry about any of that stuff.  Just check the 
-insuspend flag and don't re-enable the timer if it is set.  Even 
-without any memory barriers, the timer routine won't iterate more than 
-once or twice.
-
-Alan Stern
+rick jones
