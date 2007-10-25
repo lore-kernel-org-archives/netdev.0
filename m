@@ -1,199 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [IFGROUPv4 iptables] Interface group match
-Date: Thu, 25 Oct 2007 17:25:50 +0200
-Message-ID: <4720B57E.4000402@trash.net>
-References: <11933245923082-git-send-email-panther@balabit.hu> <11933245922165-git-send-email-panther@balabit.hu> <11933245921874-git-send-email-panther@balabit.hu> <11933245931626-git-send-email-panther@balabit.hu> <11933245933190-git-send-email-panther@balabit.hu>
+From: Laszlo Attila Toth <panther@balabit.hu>
+Subject: Re: [IFGROUPv4 2/3] Interface group: core (netlink) part
+Date: Thu, 25 Oct 2007 17:31:32 +0200
+Message-ID: <4720B6D4.8080404@balabit.hu>
+References: <11933245923082-git-send-email-panther@balabit.hu> <11933245922165-git-send-email-panther@balabit.hu> <11933245921874-git-send-email-panther@balabit.hu> <4720B2E6.1060505@trash.net>
+Reply-To: panther@balabit.hu
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Laszlo Attila Toth <panther@balabit.hu>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:44589 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754621AbXJYP1Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2007 11:27:16 -0400
-In-Reply-To: <11933245933190-git-send-email-panther@balabit.hu>
+Received: from www.balabit.hu ([212.92.18.33]:36494 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758265AbXJYPbh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Oct 2007 11:31:37 -0400
+Received: from balabit.hu (unknown [10.80.0.254])
+	by lists.balabit.hu (Postfix) with ESMTP id A7ADFC1301
+	for <netdev@vger.kernel.org>; Thu, 25 Oct 2007 17:31:36 +0200 (CEST)
+In-Reply-To: <4720B2E6.1060505@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Laszlo Attila Toth wrote:
-> +++ extensions/libxt_ifgroup.c	(revision 0)
-> @@ -0,0 +1,196 @@
-> +/* 
-> + * Shared library add-on to iptables to match 
-> + * packets by the incoming interface group.
-> + *
-> + * (c) 2006, 2007 Balazs Scheidler <bazsi@balabit.hu>,
-> + * Laszlo Attila Toth <panther@balabit.hu>
-> + */
-> +#include <stdio.h>
-> +#include <netdb.h>
-> +#include <string.h>
-> +#include <stdlib.h>
-> +#include <getopt.h>
-> +#include <xtables.h>
-> +#include <linux/netfilter/xt_ifgroup.h>
-> +
-> +static void
-> +ifgroup_help(void)
-> +{
-> +	printf(
-> +"ifgroup v%s options:\n"
-> +"  --ifgroup-in  [!] group[/mask]  incoming interface group and its mask\n"
-> +"  --ifgroup-out [!] group[/mask]  outgoing interface group and its mask\n"
-> +"\n", IPTABLES_VERSION);
-> +}
-> +
-> +static struct option opts[] = {
-> +	{"ifgroup-in", 1, 0, '1'},
-> +	{"ifgroup-out", 1, 0, '2'},
+Patrick McHardy =EDrta:
+> Laszlo Attila Toth wrote:
+>> Interface groups let handle different interfaces together
+>> especially in netfilter modules.
+>> Modified net device structure and netlink interface.
+>>
+>> @@ -891,6 +895,13 @@ static int do_setlink(struct net_device *dev,=20
+>> struct ifinfomsg *ifm,
+>>          }
+>>      }
+>> =20
+>> +    if (tb[IFLA_IFGROUP]) {
+>> +        write_lock_bh(&dev_base_lock);
+>> +        dev->ifgroup =3D nla_get_u32(tb[IFLA_IFGROUP]);
+>> +        write_unlock_bh(&dev_base_lock);
+>> +        modified =3D 1;
+>> +    }
+>=20
+>=20
+> The locking looks unnecessary, the rtnl should be enough.
+> I'm not even sure why its used for operstate and linkmode,
+> AFAICS they are also protected by the rtnl.
+>=20
 
-The third member is a pointer, please use NULL.
+Hm, ok. In this case operstate and linkmode can be unprotected as code=20
+cleanup, am I right? Or leave them unchanged?
+And notification is only needed if something was changed.
 
-> +	{ }
-> +};
-> +
-> +#define PARAM_MATCH_IN	0x01
-> +#define PARAM_MATCH_OUT	0x02
-> +
-> +static int
-> +ifgroup_parse(int c, char **argv, int invert, unsigned int *flags,
-> +	      const void *entry, struct xt_entry_match **match)
-> +{
-> +	struct xt_ifgroup_info *info =
-> +			 (struct xt_ifgroup_info *) (*match)->data;
-> +	char *end;
-> +	
-> +	switch (c)
-> +	{
-
-This goes on the same line as the switch statement please.
-
-> +		case '1':
-
-And please no extra indentation for the case labels.
-
-> +			if (*flags & PARAM_MATCH_IN)
-> +				exit_error(PARAMETER_PROBLEM,
-> +					"ifgroup match: Can't specify --ifgroup-in twice");
-> +
-> +			check_inverse(optarg, &invert, &optind, 0);
-> +			
-> +			info->in_group = strtoul(optarg, &end, 0);
-> +			info->in_mask = 0xffffffffUL;
-
-in_mask is not an unsigned long but an unsigned int.
-
-> +			
-> +			if (*end == '/')
-> +				info->in_mask = strtoul(end+1, &end, 0);
-> +
-> +			if (*end != '\0' || end == optarg)
-> +				exit_error(PARAMETER_PROBLEM,
-> +					  "ifgroup match: Bad ifgroup value `%s'",
-> +					   optarg);
-> +			
-> +			if (invert)
-> +				info->flags |= XT_IFGROUP_INVERT_IN;
-> +
-> +			*flags |= PARAM_MATCH_IN;
-> +			info->flags |= XT_IFGROUP_MATCH_IN;			
-> +			break;
-> +		case '2':
-> +			if (*flags & PARAM_MATCH_OUT)
-> +				exit_error(PARAMETER_PROBLEM,
-> +					  "ifgroup match: Can't specify "
-> +					  "--ifgroup-out twice");
-> +
-> +			check_inverse(optarg, &invert, &optind, 0);
-> +			
-> +			info->out_group = strtoul(optarg, &end, 0);
-> +			info->out_mask = 0xffffffffUL;
-> +			
-> +			if (*end == '/')
-> +				info->out_mask = strtoul(end+1, &end, 0);
-> +
-> +			if (*end != '\0' || end == optarg)
-> +				exit_error(PARAMETER_PROBLEM,
-> +					  "ifgroup match: Bad ifgroup "
-> +					  "value `%s'",
-> +					   optarg);
-> +			
-> +			if (invert)
-> +				info->flags |= XT_IFGROUP_INVERT_OUT;
-> +
-> +			*flags |= PARAM_MATCH_OUT;
-> +			info->flags |= XT_IFGROUP_MATCH_OUT;			
-> +			break;
-> +		default: 
-> +			return 0;
-> +	}
-> +
-> +	return 1;
-> +}
-> +
-> +static void
-> +ifgroup_final_check(unsigned int flags)
-> +{
-> +	if (!flags)
-> +		exit_error(PARAMETER_PROBLEM,
-> +			   "You must specify either "
-> +			   "`--ifgroup-in' or `--ifgroup-out'");
-> +}
-> +
-> +static void
-> +ifgroup_print_value_in(struct xt_ifgroup_info *info)
-> +{
-> +	printf("0x%x/0x%x ", info->in_group, info->in_mask);
-> +}
-> +
-> +static void
-> +ifgroup_print_value_out(struct xt_ifgroup_info *info)
-> +{
-> +	printf("0x%x/0x%x ", info->out_group, info->out_mask);
-> +}
-
-Just a suggestion: not printing the mask when its ~0 would
-improve readability.
-
-> +
-> +static void
-> +ifgroup_print(const void *ip,
-> +	      const struct xt_entry_match *match,
-> +	      int numeric)
-> +{
-> +	struct xt_ifgroup_info *info =
-> +		(struct xt_ifgroup_info *) match->data;
-> +	
-> +	printf("ifgroup ");
-> +	
-> +	if (info->flags & XT_IFGROUP_MATCH_IN) {
-> +		printf("in %s",
-> +		       info->flags & XT_IFGROUP_INVERT_IN ? "! " : "");
-> +		ifgroup_print_value_in(info);
-> +	}
-> +	if (info->flags & XT_IFGROUP_MATCH_OUT) {
-> +		printf("out %s",
-> +		       info->flags & XT_IFGROUP_INVERT_OUT ? "! " : "");
-> +		ifgroup_print_value_out(info);
-> +	}
-> +}
-> +
-> +static void
-> +ifgroup_save(const void *ip, const struct xt_entry_match *match)
-> +{
-> +	struct xt_ifgroup_info *info =
-> +		(struct xt_ifgroup_info *) match->data;
-> +	
-> +	if (info->flags & XT_IFGROUP_MATCH_IN) {
-> +		printf("--ifgroup-in %s",
-> +		       info->flags & XT_IFGROUP_INVERT_IN ? "! " : "");
-> +		ifgroup_print_value_in(info);
-> +	}
-> +	if (info->flags & XT_IFGROUP_MATCH_OUT) {
-> +		printf("--ifgroup-out %s",
-> +		       info->flags & XT_IFGROUP_INVERT_OUT ? "! " : "");
-> +		ifgroup_print_value_out(info);
-> +	}
-> +}
+--
+Attila
