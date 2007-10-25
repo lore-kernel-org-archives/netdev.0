@@ -1,71 +1,76 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9224] New: Settings to
- /proc/sys/net/ipv[46]/conf/all are not propagated
-Date: Thu, 25 Oct 2007 09:16:52 -0700
-Message-ID: <20071025091652.0d7002c1.akpm@linux-foundation.org>
-References: <bug-9224-10286@http.bugzilla.kernel.org/>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [NETNS] Oops in register_pernet_operations() with CONFIG_NET_NS=n
+Date: Thu, 25 Oct 2007 10:39:41 -0600
+Message-ID: <m1y7dr5esy.fsf@ebiederm.dsl.xmission.com>
+References: <47209317.8000802@bull.net> <4720A181.3060003@sw.ru>
+	<4720AD20.5030902@bull.net> <m17ilb6xs9.fsf@ebiederm.dsl.xmission.com>
+	<4720B1EE.8050507@bull.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, svdb+linux-kernel-bugs@stack.nl
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Denis V. Lunev" <den@sw.ru>, Pavel Emelianov <xemul@openvz.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Cedric Le Goater <clg@fr.ibm.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>
+To: Benjamin Thery <benjamin.thery@bull.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:38196 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750732AbXJYQRc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2007 12:17:32 -0400
-In-Reply-To: <bug-9224-10286@http.bugzilla.kernel.org/>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:50825 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762652AbXJYQlu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2007 12:41:50 -0400
+In-Reply-To: <4720B1EE.8050507@bull.net> (Benjamin Thery's message of "Thu, 25
+	Oct 2007 17:10:38 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 25 Oct 2007 04:44:06 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+Benjamin Thery <benjamin.thery@bull.net> writes:
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=9224
-> 
->            Summary: Settings to /proc/sys/net/ipv[46]/conf/all are not
->                     propagated
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.24-rc1
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: svdb+linux-kernel-bugs@stack.nl
-> 
-> 
-> Most recent kernel where this bug did not occur: 2.6.22 (not sure)
-> Distribution: custom
-> Hardware Environment: See attached files
-> Software Environment: See attached files.
-> Problem Description: Changing a setting in /proc/sys/net/ipv[46]/conf/all does
-> not propagate the setting to the individual network interfaces, for most
-> settings.
-> 
-> Steps to reproduce:
-> # cat /proc/sys/net/ipv6/conf/{all,default,lo,eth0}/autoconf
-> 1
-> 1
-> 1
-> 1
-> # echo 0 > /proc/sys/net/ipv6/conf/all/autoconf
-> # echo 0 > /proc/sys/net/ipv6/conf/default/autoconf
-> # cat /proc/sys/net/ipv6/conf/{all,default,lo,eth0}/autoconf
-> 0
-> 0
-> 1
-> 1
-> 
-> The problem occurs for other settings than "autoconf", but not for all.
-> "forwarding" is one which does work.
-> 
-> Changing settings for individual interfaces still works.
-> 
-> The problem is not specific to ipv6.
-> 
+> Eric W. Biederman wrote:
+>> Benjamin Thery <benjamin.thery@bull.net> writes:
+>> 
+>>> Denis V. Lunev wrote:
+>>>> The patch attached should help. The idea is simple. The "init" should be
+>>>> called only once without NETNS. Period. No need for any lists.
+>>> This is the kind of idea I had but I didn't think it could be 
+>>> that simple. :) 
+>>> Thanks Denis.
+>> 
+>> It isn't.
+>> 
+>>>> I'll resend it to Dave after the ACK.
+>>> Tested on x86_64 with CONFIG_NET_NS=n and y. 
+>>> It fixes the issue we observed.
+>>>
+>>> Acked-by: Benjamin Thery <benjamin.thery@bull.net>
+>> 
+>> Try rmmod.
+>
+> rmmod was part of my tests and it does work.
+> I did:
+>
+> $ iptables --list
+>
+>   modules x_tables, ip_tables & iptable_filter are loaded
+>   each calling register_pernet_subsys.
+>
+> $ rmmod iptable_filter ip_tables x_tables
+>
+>   No problem here
+>
+> $ iptables --list
+>
+>   To be sure I can load the modules again.
 
-Apparently a regression.
+You haven't changed those modules to be mark struct
+pernet_operations as __net_initdata have you?
+
+If that is the case the symptoms you are seeing make sense.
+
+Not doing the list walks helps when if it is only compiled in
+kernel data structures that are removed.  However if it
+is potentially modular data structures that are removed
+the dereference of exit in unregister_pernet_subsys will also have
+problems.
+
+Eric
