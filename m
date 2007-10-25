@@ -1,221 +1,53 @@
-From: Laszlo Attila Toth <panther@balabit.hu>
-Subject: [IFGROUPv4 3/3] Netfilter Interface group match
-Date: Thu, 25 Oct 2007 17:03:09 +0200
-Message-ID: <11933245931626-git-send-email-panther@balabit.hu>
-References: <11933245923082-git-send-email-panther@balabit.hu>
- <11933245922165-git-send-email-panther@balabit.hu>
- <11933245921874-git-send-email-panther@balabit.hu>
-Cc: Laszlo Attila Toth <panther@balabit.hu>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [NETNS] Oops in register_pernet_operations() with CONFIG_NET_NS=n
+Date: Thu, 25 Oct 2007 09:03:37 -0600
+Message-ID: <m1bqan6xti.fsf@ebiederm.dsl.xmission.com>
+References: <47209317.8000802@bull.net> <4720A181.3060003@sw.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Benjamin Thery <benjamin.thery@bull.net>,
+	Pavel Emelianov <xemul@openvz.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Cedric Le Goater <clg@fr.ibm.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>
+To: "Denis V. Lunev" <den@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.balabit.hu ([212.92.18.33]:51751 "EHLO lists.balabit.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759946AbXJYPDV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Oct 2007 11:03:21 -0400
-Received: from balabit.hu (unknown [10.80.0.254])
-	by lists.balabit.hu (Postfix) with ESMTP id 80758C1302
-	for <netdev@vger.kernel.org>; Thu, 25 Oct 2007 17:03:20 +0200 (CEST)
-In-Reply-To: <11933245921874-git-send-email-panther@balabit.hu>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:44034 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761561AbXJYPFZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2007 11:05:25 -0400
+In-Reply-To: <4720A181.3060003@sw.ru> (Denis V. Lunev's message of "Thu, 25
+	Oct 2007 18:00:33 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Interface group values can be checked on both input and output interfaces.
+"Denis V. Lunev" <den@sw.ru> writes:
 
-Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
----
- include/linux/netfilter/xt_ifgroup.h |   18 +++++
- net/netfilter/Kconfig                |   16 +++++
- net/netfilter/Makefile               |    1 +
- net/netfilter/xt_ifgroup.c           |  121 ++++++++++++++++++++++++++++++++++
- 4 files changed, 156 insertions(+), 0 deletions(-)
+> The patch attached should help. The idea is simple. The "init" should be
+> called only once without NETNS. Period. No need for any lists.
+>
+> I'll resend it to Dave after the ACK.
 
-diff --git a/include/linux/netfilter/xt_ifgroup.h b/include/linux/netfilter/xt_ifgroup.h
-new file mode 100644
-index 0000000..9ac75de
---- /dev/null
-+++ b/include/linux/netfilter/xt_ifgroup.h
-@@ -0,0 +1,18 @@
-+#ifndef _XT_IFGROUP_H
-+#define _XT_IFGROUP_H
-+
-+#define XT_IFGROUP_INVERT_IN	0x01
-+#define XT_IFGROUP_INVERT_OUT	0x02
-+#define XT_IFGROUP_MATCH_IN	0x04
-+#define XT_IFGROUP_MATCH_OUT	0x08		
-+
-+struct xt_ifgroup_info {
-+	u_int32_t in_group;
-+	u_int32_t in_mask;
-+	u_int32_t out_group;
-+	u_int32_t out_mask;
-+	u_int8_t flags;
-+};
-+
-+#endif /*_XT_IFGROUP_H*/
-+
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index d7a600a..0e0cd4f 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -597,6 +597,22 @@ config NETFILTER_XT_MATCH_QUOTA
- 	  If you want to compile it as a module, say M here and read
- 	  <file:Documentation/kbuild/modules.txt>.  If unsure, say `N'.
- 
-+config NETFILTER_XT_MATCH_IFGROUP
-+	tristate '"ifgroup" interface group match support'
-+	depends on NETFILTER_XTABLES
-+	help
-+	  Interface group matching allows you to match a packet by
-+	  its incoming interface "group", settable using ip link set
-+	  group
-+
-+	  Typical usage is to assign dynamic interfaces to a group
-+	  when they come up using "ip link set group" and then match
-+	  incoming packets with a rule like this:
-+
-+	    iptables -A INPUT -m ifgroup --if-group openvpn-rw1 -j LOG
-+
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- config NETFILTER_XT_MATCH_REALM
- 	tristate  '"realm" match support'
- 	depends on NETFILTER_XTABLES
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 93c58f9..29718c1 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -78,3 +78,4 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_TCPMSS) += xt_tcpmss.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_PHYSDEV) += xt_physdev.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_U32) += xt_u32.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_HASHLIMIT) += xt_hashlimit.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_IFGROUP) += xt_ifgroup.o
-diff --git a/net/netfilter/xt_ifgroup.c b/net/netfilter/xt_ifgroup.c
-new file mode 100644
-index 0000000..2baf772
---- /dev/null
-+++ b/net/netfilter/xt_ifgroup.c
-@@ -0,0 +1,121 @@
-+/*
-+ * An x_tables match module to match interface groups
-+ *
-+ * (C) 2006,2007 Balazs Scheidler <bazsi@balabit.hu>,
-+ *   Laszlo Attila Toth <panther@balabit.hu>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+
-+#include <linux/netfilter/xt_ifgroup.h>
-+#include <linux/netfilter/x_tables.h>
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Laszlo Attila Toth <panther@balabit.hu>");
-+MODULE_DESCRIPTION("Xtables interface group matching module");
-+MODULE_ALIAS("ipt_ifgroup");
-+MODULE_ALIAS("ip6t_ifgroup");
-+
-+
-+static inline bool
-+ifgroup_match_in(const struct net_device *in,
-+		 const struct xt_ifgroup_info *info)
-+{
-+
-+	return ((in->ifgroup & info->in_mask) == info->in_group) ^ 
-+		((info->flags & XT_IFGROUP_INVERT_IN) == XT_IFGROUP_INVERT_IN);
-+}
-+
-+static inline bool
-+ifgroup_match_out(const struct net_device *out,
-+		 const struct xt_ifgroup_info *info)
-+{
-+	return ((out->ifgroup & info->out_mask) == info->out_group) ^ 
-+		((info->flags & XT_IFGROUP_INVERT_OUT) == XT_IFGROUP_INVERT_OUT);
-+}
-+
-+static bool
-+ifgroup_match(const struct sk_buff *skb,
-+	     const struct net_device *in,
-+	     const struct net_device *out,
-+	     const struct xt_match *match,
-+	     const void *matchinfo,
-+	     int offset,
-+	     unsigned int protoff,
-+	     bool *hotdrop)
-+{
-+	const struct xt_ifgroup_info *info = matchinfo;
-+	
-+	if (info->flags & XT_IFGROUP_MATCH_IN &&  !ifgroup_match_in(in, info))
-+		return false;
-+	if (info->flags & XT_IFGROUP_MATCH_OUT &&  !ifgroup_match_out(out, info))
-+		return false;
-+	
-+	return true;
-+}
-+
-+static bool ifgroup_checkentry(const char *tablename, const void *ip_void,
-+			       const struct xt_match *match,
-+			       void *matchinfo, unsigned int hook_mask)
-+{
-+	struct xt_ifgroup_info *info = matchinfo;
-+
-+	if (!(info->flags & (XT_IFGROUP_MATCH_IN|XT_IFGROUP_MATCH_OUT))) {
-+		printk(KERN_ERR "xt_ifgroup: neither incoming nor "
-+				"outgoing device selected\n");
-+		return false;
-+	}
-+	if (hook_mask & (1 << NF_IP_PRE_ROUTING | 1 << NF_IP_LOCAL_IN)
-+	    && info->flags & XT_IFGROUP_MATCH_OUT) {
-+		printk(KERN_ERR "xt_ifgroup: output device not valid in "
-+				"PRE_ROUTING and INPUT\n");
-+		return false;
-+	}
-+	if (hook_mask & (1 << NF_IP_POST_ROUTING | 1 << NF_IP_LOCAL_OUT)
-+	    && info->flags & XT_IFGROUP_MATCH_IN) {
-+		printk(KERN_ERR "xt_ifgroup: input device not valid in "
-+				"POST_ROUTING and OUTPUT\n");
-+		return false;
-+	}
-+	return true;
-+}
-+
-+static struct xt_match xt_ifgroup_match[] __read_mostly  = {
-+        {
-+		.name		= "ifgroup",
-+		.match		= ifgroup_match,
-+		.checkentry	= ifgroup_checkentry,
-+		.matchsize	= sizeof(struct xt_ifgroup_info),
-+		.family		= AF_INET,
-+		.me		= THIS_MODULE,
-+	
-+	},
-+	{
-+		.name		= "ifgroup",
-+		.match		= ifgroup_match,
-+		.checkentry	= ifgroup_checkentry,
-+		.matchsize	= sizeof(struct xt_ifgroup_info),
-+		.family		= AF_INET6,
-+		.me		= THIS_MODULE,
-+	},
-+};
-+
-+static int __init xt_ifgroup_init(void)
-+{
-+	return xt_register_matches(xt_ifgroup_match,
-+		                   ARRAY_SIZE(xt_ifgroup_match));
-+}
-+
-+static void __exit xt_ifgroup_fini(void)
-+{
-+	xt_unregister_matches(xt_ifgroup_match,
-+			      ARRAY_SIZE(xt_ifgroup_match));
-+}
-+
-+module_init(xt_ifgroup_init);
-+module_exit(xt_ifgroup_fini);
--- 
-1.5.2.5
+First in the case of the code that is currently merged none of 
+the __net_init __net_exit or __net_initdata can be modular, so for
+2.6.24 there is no fix needed. Yeah.
 
+Second the whole concept of concept pernet_operations being __init
+doesn't work when you have modular code that calls unregister_pernet_subsys().
+Because unregister calls the exit method from the pernet_operations
+structure.  So the patch doesn't even begin to address the real
+issue.
+
+Third from my perspective CONFIG_NET_NS is a temporary measure
+designed to last only until we have enough implementation experience 
+so that we can feel comfortable removing the experimental status of
+the network namespace work.  It was not my intention for it to be a
+space saving measure.  So I think it is silly to go marking up the
+patches in development with __net_initdata etc.
+
+At least so far I think __net_initdata is a totally bogus concept
+and I'm not certain about the other two. 
+
+Eric
