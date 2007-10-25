@@ -1,49 +1,39 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [2.6 patch] bonding/bond_main.c: fix cut'n'paste error
-Date: Wed, 24 Oct 2007 15:51:08 -0700
-Message-ID: <4858.1193266268@death>
-References: <20071024162743.GV30533@stusta.de>
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/3] [IPSEC]: Forbid BEET + ipcomp for now
+Date: Thu, 25 Oct 2007 09:06:18 +0800
+Message-ID: <20071025010618.GA15154@gondor.apana.org.au>
+References: <20071024145850.GA10589@gondor.apana.org.au> <E1Ikhi4-0002lv-00@gondolin.me.apana.org.au> <471F67AE.5010301@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Joakim Koskela <joakim.koskela@hiit.fi>, netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:52759 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760592AbXJXWvL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Oct 2007 18:51:11 -0400
-In-reply-to: <20071024162743.GV30533@stusta.de> 
+Received: from rhun.apana.org.au ([64.62.148.172]:1670 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752016AbXJYBHD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 21:07:03 -0400
+Content-Disposition: inline
+In-Reply-To: <471F67AE.5010301@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-Adrian Bunk <bunk@kernel.org> wrote:
->This patch fixes a cut'n'paste error in
->commit 1b76b31693d4a6088dec104ff6a6ead54081a3c2.
+On Wed, Oct 24, 2007 at 05:41:34PM +0200, Nicolas Dichtel wrote:
 >
->Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> >+	x->props.header_len = 0;
+> >+	switch (x->props.mode) {
+> >+	case XFRM_MODE_TRANSPORT:
+> >+		break;
+> >+	case XFRM_MODE_TUNNEL:
+> >+		x->props.header_len += sizeof(struct iphdr);
+> I think, the break statement is missing, is it ?
 
-	Please apply.
+Indeed it is.  I'm going to fix this and repost all 3 patches.
 
-	-J
-
-Acked-by: Jay Vosburgh <fubar@us.ibm.com>
-
-
->---
->4888742f8d7fe3b97fbc2911aa46375048173d01 
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index e5fab4b..6937ef0 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -3682,7 +3682,7 @@ static int bond_open(struct net_device *bond_dev)
-> 	}
->
-> 	if (bond->params.mode == BOND_MODE_8023AD) {
->-		INIT_DELAYED_WORK(&bond->ad_work, bond_alb_monitor);
->+		INIT_DELAYED_WORK(&bond->ad_work, bond_3ad_state_machine_handler);
-> 		queue_delayed_work(bond->wq, &bond->ad_work, 0);
-> 		/* register to receive LACPDUs */
-> 		bond_register_lacpdu(bond);
->
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
