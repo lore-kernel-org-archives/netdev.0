@@ -1,50 +1,30 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Fried r8169.
-Date: Thu, 25 Oct 2007 23:36:45 +0200
-Message-ID: <20071025213645.GA2226@electric-eye.fr.zoreil.com>
-References: <20071025154438.GA2673@hermes.priv>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] UDP: Make use of inet_iif() when doing socket lookups.
+Date: Thu, 25 Oct 2007 14:58:29 -0700
+Message-ID: <OFD4C47A22.AA67398C-ON8825737F.0077CEF6-8825737F.00789CCE@us.ibm.com>
+References: <471E403A.7040705@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Edward Hsu <edward_hsu@realtek.com.tw>
-To: Tom Prince <tom.prince@ualberta.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev <netdev@vger.kernel.org>, netdev-owner@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:35610 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752650AbXJYVmd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2007 17:42:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20071025154438.GA2673@hermes.priv>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:52572 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758254AbXJYV6c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2007 17:58:32 -0400
+In-Reply-To: <471E403A.7040705@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tom Prince <tom.prince@ualberta.net> :
-> While testing Linux v2.6.24-rc1, I noticed that my onboard r8169 had
-> disappeared, and the it remained gone when I rebooted to v2.6.23 and v2.6.22,
-> where it had previously worked.
+I don't see any problem with this. If you're using IP_MULTICAST_IF with
+a bound socket, it forces you to use that interface, anyway.
 
-[...]
-> I am running x86_64 ASUS Z92T laptop (an OEM version of the A6T).
-> 
-> I have posted dmesg/lspci/config from v2.6.23 (and soon v2.6.24) at 
->  www.math.uwo.ca/~rprince5/r8169/
-> 
-> Also these appear to be the relevant log messages from when the device was
-> working. Unfortunately, I didn't have the foresight to save dmesg/lspci from
-> before the device disappeared.
+I'm not sure multicasting works as expected in some other cases with
+bound sockets (looks like there may be some holes to evade the
+binding), but that's in old code. I don't see any problems from this
+patch.
 
-Can you try an older/vendor kernel and power-off the host before restarting ?
+                                        +-DLS
 
-I have experienced something similar. My 8168b returns but the magic spell
-is still not clear.
+Acked-by: David L Stevens <dlstevens@us.ibm.com>
 
-[...]
-> kernel: r8169 Gigabit Ethernet driver 2.2LK-NAPI loaded
-> kernel: ACPI: PCI Interrupt Link [LNEA] enabled at IRQ 16
-> kernel: ACPI: PCI Interrupt 0000:01:00.0[A] -> Link [LNEA] -> GSI 16 (level, low) -> IRQ 16
-> kernel: PCI: Setting latency timer of device 0000:01:00.0 to 64
-> kernel: eth1: RTL8168b/8111b at 0xffffc200020e2000, 00:18:f3:87:0b:bb, XID 38000000 IRQ 16
-
-8168b as well. Okay...
-
--- 
-Ueimor
