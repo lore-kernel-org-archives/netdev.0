@@ -1,32 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: stateless 1:1 NAT
-Date: Thu, 25 Oct 2007 09:54:12 +0800
-Message-ID: <E1IkrvI-00046G-00@gondolin.me.apana.org.au>
-References: <471F9916.1090404@andrei.myip.org>
-Cc: netdev@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: [PATCH] napi: use non-interruptible sleep in napi_disable
+Date: Thu, 25 Oct 2007 13:59:08 +1000
+Message-ID: <20071025035920.C2D39DDECE@ozlabs.org>
+Cc: <linux-kernel@vger.kernel.org>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2209 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753505AbXJYByP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2007 21:54:15 -0400
-Received: from gondolin.me.apana.org.au ([192.168.0.6] ident=mail)
-	by arnor.apana.org.au with esmtp (Exim 4.50 #1 (Debian))
-	id 1IkrvI-0007cC-Tp
-	for <netdev@vger.kernel.org>; Thu, 25 Oct 2007 11:54:13 +1000
-In-Reply-To: <471F9916.1090404@andrei.myip.org>
+Received: from ozlabs.org ([203.10.76.45]:52931 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758575AbXJYD7V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Oct 2007 23:59:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Florin Andrei <florin@andrei.myip.org> wrote:
->
-> OK, if I download 2.6.24-rc1, will it have this feature already?
+The current napi_disable() uses msleep_interruptible() but doesn't
+(and can't) exit in case there's a signal, thus ending up doing a
+hot spin without a cpu_relax. Use uninterruptible sleep instead.
 
-Yes.
+Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+---
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+ include/linux/netdevice.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: linux-work/include/linux/netdevice.h
+===================================================================
+--- linux-work.orig/include/linux/netdevice.h	2007-10-17 12:39:16.000000000 +1000
++++ linux-work/include/linux/netdevice.h	2007-10-17 12:45:00.000000000 +1000
+@@ -390,7 +390,7 @@ static inline void napi_complete(struct 
+ static inline void napi_disable(struct napi_struct *n)
+ {
+ 	while (test_and_set_bit(NAPI_STATE_SCHED, &n->state))
+-		msleep_interruptible(1);
++		msleep(1);
+ }
+ 
+ /**
