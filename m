@@ -1,31 +1,27 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [2.6.25 patch] the planned eepro100 removal
-Date: Thu, 25 Oct 2007 15:43:20 -0700
-Message-ID: <47211C08.2040601@intel.com>
-References: <20071024162440.GN30533@stusta.de> <4720FFAA.9080709@tmr.com> <47211A67.2090201@pobox.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH v4] FEC - fast ethernet controller for mpc52xx
+Date: Thu, 25 Oct 2007 18:46:19 -0400
+Message-ID: <47211CBB.5080000@garzik.org>
+References: <20071014075511.GC3000@nd47.coderock.org> <4713BA1C.2050604@pobox.com> <fa686aa40710180715u23d81adfy83ff65837725fb80@mail.gmail.com> <4717B09B.3060800@pobox.com> <20071019112700.GD27403@nd47.coderock.org> <47206209.8080109@pobox.com> <20071025185706.29496.qmail@farnsworth.org> <20071025194114.GH3369@nd47.coderock.org> <20071025202908.GA2102@xyzzy.farnsworth.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Bill Davidsen <davidsen@tmr.com>, Adrian Bunk <bunk@kernel.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	saw@saw.sw.com.sg
-To: Jeff Garzik <jgarzik@pobox.com>, David Acker <dacker@roinet.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760376AbXJYWoA@vger.kernel.org>
-In-Reply-To: <47211A67.2090201@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Domen Puncer <domen.puncer@telargo.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: Dale Farnsworth <dale@farnsworth.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:36603 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760504AbXJYWqW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Oct 2007 18:46:22 -0400
+In-Reply-To: <20071025202908.GA2102@xyzzy.farnsworth.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Bill Davidsen wrote:
->> Adrian Bunk wrote:
->>> This patch contains the planned removal of the eepro100 driver.
->>>
->> Are the e100 people satisfied that e100 now handles all known cases? I 
-> 
-> Nope.  There are still e100 work outstanding that means we cannot kill
-> eepro100.
+Dale Farnsworth wrote:
+> IMO, it's still a requirement that we call dma_unmap_single() for
+> each call to dma_map_single().
 
-Agreed, there is still a receive unit hang in the last version that I got from
-David Acker.
+Yep...
 
-Auke
+
