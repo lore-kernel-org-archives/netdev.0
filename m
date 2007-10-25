@@ -1,49 +1,46 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: QUESTION: How to fix race between .suspend routine and watchdog timer
-Date: Thu, 25 Oct 2007 06:12:44 +0200
-Message-ID: <200710250612.44296.maximlevitsky@gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] napi: use non-interruptible sleep in napi_disable
+Date: Thu, 25 Oct 2007 01:10:32 -0400
+Message-ID: <47202548.6040100@garzik.org>
+References: <20071025035920.C2D39DDECE@ozlabs.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-pm@lists.linux-foundation.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:9798 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753100AbXJYENb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2007 00:13:31 -0400
-Received: by ug-out-1314.google.com with SMTP id z38so440619ugc
-        for <netdev@vger.kernel.org>; Wed, 24 Oct 2007 21:13:29 -0700 (PDT)
-Content-Disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:41819 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753009AbXJYFKe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Oct 2007 01:10:34 -0400
+In-Reply-To: <20071025035920.C2D39DDECE@ozlabs.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Benjamin Herrenschmidt wrote:
+> The current napi_disable() uses msleep_interruptible() but doesn't
+> (and can't) exit in case there's a signal, thus ending up doing a
+> hot spin without a cpu_relax. Use uninterruptible sleep instead.
+> 
+> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> ---
+> 
+>  include/linux/netdevice.h |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> Index: linux-work/include/linux/netdevice.h
+> ===================================================================
+> --- linux-work.orig/include/linux/netdevice.h	2007-10-17 12:39:16.000000000 +1000
+> +++ linux-work/include/linux/netdevice.h	2007-10-17 12:45:00.000000000 +1000
+> @@ -390,7 +390,7 @@ static inline void napi_complete(struct 
+>  static inline void napi_disable(struct napi_struct *n)
+>  {
+>  	while (test_and_set_bit(NAPI_STATE_SCHED, &n->state))
+> -		msleep_interruptible(1);
+> +		msleep(1);
+>  }
 
-Recently, trying to fix saa7134 suspend/resume problems I found that there 
-is a race between IRQ handler and .suspend , and that I cant let driver access the device
-while its in D3 since it can lock up some systems.
+ACK
 
-Now I am looking to fix those issues in two drivers that have my .suspend/.resume routines.
-the saa7134 capture chip and dmfe, the davicom network driver.
 
-Looking through the dmfe code, I noticed yet another possible race.
-A race between the .suspend, and a timer that serves both as a watchdog, and link state detector.
-Again I need to prevent it from running during the suspend/resume, but how?
-
-I can use del_timer in .suspend, and mod_timer in .resume, but that doesn't protect against
-race with already running timer.
-I can use del_timer_sync, but it states that it is useless if timer re-enables itself, and I agree with that.
-In dmfe case the timer does re-enable itself.
-
-I can put checks in the timer for ->insuspend, and don't re enable it if set,
-but that opens a new can of worms with memory barriers, etc...
-
-So please tell me how properly to do that.
-
-By the way, this problem, together with synchronize_irq it very generic, since most drivers
-have and irq handler, and a timeout timer.
-
-Best regards,
-	Maxim Levitsky
