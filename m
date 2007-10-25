@@ -1,95 +1,45 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [NETNS] Oops in register_pernet_operations() with CONFIG_NET_NS=n
-Date: Thu, 25 Oct 2007 11:21:55 -0600
-Message-ID: <m1bqan5cuk.fsf@ebiederm.dsl.xmission.com>
-References: <47209317.8000802@bull.net> <4720A181.3060003@sw.ru>
-	<4720AD20.5030902@bull.net> <m17ilb6xs9.fsf@ebiederm.dsl.xmission.com>
-	<4720B1EE.8050507@bull.net> <m1y7dr5esy.fsf@ebiederm.dsl.xmission.com>
-	<4720C9B9.80706@gmail.com>
+Subject: Re: on the topic of alternate MAC addresses
+Date: Thu, 25 Oct 2007 11:36:53 -0600
+Message-ID: <m13avz5c5m.fsf@ebiederm.dsl.xmission.com>
+References: <20071023.180534.59659315.davem@davemloft.net>
+	<471EAD01.5030502@garzik.org>
+	<20071023.202210.74747025.davem@davemloft.net>
+	<m13avz6ujf.fsf@ebiederm.dsl.xmission.com> <4720CEE2.1010007@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Benjamin Thery <benjamin.thery@bull.net>,
-	Pavel Emelianov <xemul@openvz.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Cedric Le Goater <clg@fr.ibm.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>
-To: "Denis V. Lunev" <dlunev@gmail.com>
+Cc: David Miller <davem@davemloft.net>, jeff@garzik.org,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:54110 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:54920 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760898AbXJYRXk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2007 13:23:40 -0400
-In-Reply-To: <4720C9B9.80706@gmail.com> (Denis V. Lunev's message of "Thu, 25
-	Oct 2007 20:52:09 +0400")
+	with ESMTP id S1753480AbXJYRhR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2007 13:37:17 -0400
+In-Reply-To: <4720CEE2.1010007@hp.com> (Rick Jones's message of "Thu, 25 Oct
+	2007 10:14:10 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Denis V. Lunev" <dlunev@gmail.com> writes:
+Rick Jones <rick.jones2@hp.com> writes:
 
 > Eric W. Biederman wrote:
->> Benjamin Thery <benjamin.thery@bull.net> writes:
->> 
->>> Eric W. Biederman wrote:
->>>> Benjamin Thery <benjamin.thery@bull.net> writes:
->>>>
->>>>> Denis V. Lunev wrote:
->>>>>> The patch attached should help. The idea is simple. The "init" should be
->>>>>> called only once without NETNS. Period. No need for any lists.
->>>>> This is the kind of idea I had but I didn't think it could be 
->>>>> that simple. :) 
->>>>> Thanks Denis.
->>>> It isn't.
+>> Duplicate mac addresses across interfaces on the same machine
+>> should generally be a don't care.  Although there may some
+>> cases we don't mind.
 >
-> this will work due to INIT_LIST_HEAD with circles list to itself and a
-> del operation will work.
-
-Suppose I have this fragment of code in a module:
-
-> static int __net_init xt_net_init(struct net *net)
-> {
->         ...
-> }
-> 
-> static void __net_exit xt_net_exit(struct net *net)
-> {
->         ...
-> }
-> 
-> static struct pernet_operations __net_initdata  xt_net_ops = {
-> 	.init = xt_net_init,
-> 	.exit = xt_net_exit,
-> };
-> 
-> static int __init xt_init(void)
-> {
-> 	return register_pernet_subsys(&xt_net_ops);
-> }
-> 
-> static void __exit xt_fini(void)
-> {
-> 	unregister_pernet_subsys(&xt_net_ops);
-> }
-> 
-> module_init(xt_init);
-> module_exit(xt_fini);
-
-What happens during module removal when unregister_pernet_subys calls 
-xt_net_ops.exit after xt_net_ops has been removed from the kernels
-memory?
-
-
-> By the way, I think that we can in the case of undefined CONFIG_NET_NS
-> reduce register to calling ->init method and unregister to calling
-> ->exit method.
+> What might the switches think of that?  Outside of the context of a
+> link-aggregate I would think that could do some unhappy things when multiple
+> interfaces are connected to the same broadcast domain.
 >
-> This is a correct thing at least for now and will be welcomed by the all
-> embedded/etc people.
+> That the "all interfaces have one MAC" default behaviour on SPARC systems often
+> ran into troubles is probably cautionary here.
 
-I'm not fundamentally opposed.  Earlier versions of my patchset
-did that and more.   However I think the pain is greater then the
-gain right now.  Especially since this concept seem to require
-having quality inspected into it.
+Sure we don't want to duplicate mac addresses globally by default.
+
+The case that is always wrong is duplicate mac addresses going
+in and out the same interface, and skimming through the code
+it looks like we already have the data structures necessary to
+prevent duplicate use of unicast mac addresses already.
 
 Eric
