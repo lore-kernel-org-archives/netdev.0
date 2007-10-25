@@ -1,37 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] UDP: Make use of inet_iif() when doing socket lookups.
-Date: Thu, 25 Oct 2007 15:36:25 -0700 (PDT)
-Message-ID: <20071025.153625.150028846.davem@davemloft.net>
-References: <471E403A.7040705@hp.com>
-	<OFD4C47A22.AA67398C-ON8825737F.0077CEF6-8825737F.00789CCE@us.ibm.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [2.6.25 patch] the planned eepro100 removal
+Date: Thu, 25 Oct 2007 18:36:23 -0400
+Message-ID: <47211A67.2090201@pobox.com>
+References: <20071024162440.GN30533@stusta.de> <4720FFAA.9080709@tmr.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: vladislav.yasevich@hp.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: dlstevens@us.ibm.com
+Cc: Adrian Bunk <bunk@kernel.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, saw@saw.sw.com.sg,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>
+To: Bill Davidsen <davidsen@tmr.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42678
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754757AbXJYWgY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2007 18:36:24 -0400
-In-Reply-To: <OFD4C47A22.AA67398C-ON8825737F.0077CEF6-8825737F.00789CCE@us.ibm.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:55470 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754858AbXJYWg3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Oct 2007 18:36:29 -0400
+In-Reply-To: <4720FFAA.9080709@tmr.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Stevens <dlstevens@us.ibm.com>
-Date: Thu, 25 Oct 2007 14:58:29 -0700
+Bill Davidsen wrote:
+> Adrian Bunk wrote:
+>> This patch contains the planned removal of the eepro100 driver.
+>>
+> Are the e100 people satisfied that e100 now handles all known cases? I 
 
-> I don't see any problem with this. If you're using IP_MULTICAST_IF with
-> a bound socket, it forces you to use that interface, anyway.
-> 
-> I'm not sure multicasting works as expected in some other cases with
-> bound sockets (looks like there may be some holes to evade the
-> binding), but that's in old code. I don't see any problems from this
-> patch.
-> 
->                                         +-DLS
-> 
-> Acked-by: David L Stevens <dlstevens@us.ibm.com>
+Nope.  There are still e100 work outstanding that means we cannot kill 
+eepro100.
 
-Thanks for reviewing David.
+	Jeff
+
+
