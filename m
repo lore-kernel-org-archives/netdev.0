@@ -1,45 +1,59 @@
-From: Tom Prince <tom.prince@ualberta.net>
-Subject: Fried r8169.
-Date: Thu, 25 Oct 2007 11:44:42 -0400
-Message-ID: <20071025154438.GA2673@hermes.priv>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [IFGROUPv4 2/3] Interface group: core (netlink) part
+Date: Thu, 25 Oct 2007 17:40:57 +0200
+Message-ID: <4720B909.7000108@trash.net>
+References: <11933245923082-git-send-email-panther@balabit.hu> <11933245922165-git-send-email-panther@balabit.hu> <11933245921874-git-send-email-panther@balabit.hu> <4720B2E6.1060505@trash.net> <4720B6D4.8080404@balabit.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: panther@balabit.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rn-out-0910.google.com ([64.233.170.185]:33750 "EHLO
-	rn-out-0102.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756882AbXJYPmC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2007 11:42:02 -0400
-Received: by rn-out-0102.google.com with SMTP id s46so542520rnb
-        for <netdev@vger.kernel.org>; Thu, 25 Oct 2007 08:42:01 -0700 (PDT)
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:44921 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755467AbXJYPmd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2007 11:42:33 -0400
+In-Reply-To: <4720B6D4.8080404@balabit.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 24, 2007 at 10:11:23PM -0600, Tom Prince wrote:
-While testing Linux v2.6.24-rc1, I noticed that my onboard r8169 had
-disappeared, and the it remained gone when I rebooted to v2.6.23 and v2.6.22,
-where it had previously worked.
- 
-I have no idea where to begin debugging (or even reproducing) this, but am
-quite willing to provide whatever additional details are requested.
+Laszlo Attila Toth wrote:
+> Patrick McHardy =EDrta:
+>> Laszlo Attila Toth wrote:
+>>> Interface groups let handle different interfaces together
+>>> especially in netfilter modules.
+>>> Modified net device structure and netlink interface.
+>>>
+>>> @@ -891,6 +895,13 @@ static int do_setlink(struct net_device *dev,=20
+>>> struct ifinfomsg *ifm,
+>>>          }
+>>>      }
+>>> =20
+>>> +    if (tb[IFLA_IFGROUP]) {
+>>> +        write_lock_bh(&dev_base_lock);
+>>> +        dev->ifgroup =3D nla_get_u32(tb[IFLA_IFGROUP]);
+>>> +        write_unlock_bh(&dev_base_lock);
+>>> +        modified =3D 1;
+>>> +    }
+>>
+>>
+>> The locking looks unnecessary, the rtnl should be enough.
+>> I'm not even sure why its used for operstate and linkmode,
+>> AFAICS they are also protected by the rtnl.
+>>
+>=20
+> Hm, ok. In this case operstate and linkmode can be unprotected as cod=
+e=20
+> cleanup, am I right? Or leave them unchanged?
 
-I am running x86_64 ASUS Z92T laptop (an OEM version of the A6T).
 
-I have posted dmesg/lspci/config from v2.6.23 (and soon v2.6.24) at 
- www.math.uwo.ca/~rprince5/r8169/
+There seems to be a single case where operstate is used without
+the rtnl (under dev_base_lock), in dev_get_flags() invoked by
+dev_ifsioc_locked(). But that looks like a bug, there are many
+callers of dev_change_flags() that only take the rtnl. So this
+would be more a fix than a cleanup.
 
-Also these appear to be the relevant log messages from when the device was
-working. Unfortunately, I didn't have the foresight to save dmesg/lspci from
-before the device disappeared.
+> And notification is only needed if something was changed.
 
-kernel: r8169 Gigabit Ethernet driver 2.2LK-NAPI loaded
-kernel: ACPI: PCI Interrupt Link [LNEA] enabled at IRQ 16
-kernel: ACPI: PCI Interrupt 0000:01:00.0[A] -> Link [LNEA] -> GSI 16 (level, low) -> IRQ 16
-kernel: PCI: Setting latency timer of device 0000:01:00.0 to 64
-kernel: eth1: RTL8168b/8111b at 0xffffc200020e2000, 00:18:f3:87:0b:bb, XID 38000000 IRQ 16
-
-  Tom
-
-[PS Please CC me.]
-
+Yes.
