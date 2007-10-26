@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dev_change_name: ignore changes to same name
-Date: Fri, 26 Oct 2007 03:53:52 -0700 (PDT)
-Message-ID: <20071026.035352.114927735.davem@davemloft.net>
-References: <20071024064445.52b1e84e@shemminger-laptop>
+Subject: Re: [2.6 patch] make ircomm_tty static
+Date: Fri, 26 Oct 2007 03:56:52 -0700 (PDT)
+Message-ID: <20071026.035652.189993268.davem@davemloft.net>
+References: <20071024162355.GZ30533@stusta.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Cc: ryanr23@gmail.com, samuel@sortiz.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: bunk@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39692
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39699
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751413AbXJZKxu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 06:53:50 -0400
-In-Reply-To: <20071024064445.52b1e84e@shemminger-laptop>
+	by vger.kernel.org with ESMTP id S1751554AbXJZK4u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 06:56:50 -0400
+In-Reply-To: <20071024162355.GZ30533@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Wed, 24 Oct 2007 06:44:45 -0700
+From: Adrian Bunk <bunk@kernel.org>
+Date: Wed, 24 Oct 2007 18:23:55 +0200
 
-> Prevent error/backtrace from dev_rename() when changing
-> name of network device to the same name. This is a common
-> situation with udev and other scripts that bind addr to device.
+> ircomm_tty can now become static.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-Fair enough, applied.
+Applied.
