@@ -1,77 +1,57 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH v4] FEC - fast ethernet controller for mpc52xx
-Date: Thu, 25 Oct 2007 16:50:03 -0700
-Message-ID: <20071025165003.7972a0b6@freepuppy.rosehill>
-References: <20071014075511.GC3000@nd47.coderock.org>
-	<4713BA1C.2050604@pobox.com>
-	<fa686aa40710180715u23d81adfy83ff65837725fb80@mail.gmail.com>
-	<4717B09B.3060800@pobox.com>
-	<20071019112700.GD27403@nd47.coderock.org>
-	<47206209.8080109@pobox.com>
-	<20071025185706.29496.qmail@farnsworth.org>
-	<20071025194114.GH3369@nd47.coderock.org>
-	<20071025202908.GA2102@xyzzy.farnsworth.org>
+From: Tom Prince <tom.prince@ualberta.net>
+Subject: Re: Fried r8169.
+Date: Thu, 25 Oct 2007 20:29:26 -0400
+Message-ID: <20071026002926.GA2650@hermes.priv>
+References: <20071025154438.GA2673@hermes.priv> <20071025213645.GA2226@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Domen Puncer <domen.puncer@telargo.com>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: "Dale Farnsworth" <dale@farnsworth.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Edward Hsu <edward_hsu@realtek.com.tw>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:51443 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760704AbXJYXuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2007 19:50:40 -0400
-In-Reply-To: <20071025202908.GA2102@xyzzy.farnsworth.org>
+Received: from py-out-1112.google.com ([64.233.166.177]:34663 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752539AbXJZA0q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2007 20:26:46 -0400
+Received: by py-out-1112.google.com with SMTP id u77so1084358pyb
+        for <netdev@vger.kernel.org>; Thu, 25 Oct 2007 17:26:45 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20071025213645.GA2226@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 25 Oct 2007 13:29:08 -0700
-"Dale Farnsworth" <dale@farnsworth.org> wrote:
-
-> On Thu, Oct 25, 2007 at 09:41:14PM +0200, Domen Puncer wrote:
-> > On 25/10/07 11:57 -0700, Dale Farnsworth wrote:
-> > > Domen wrote:
-> > > > > use your platform's dma mapping functions, rather than virt_to_phys()
-> > > > > 
-> > > > > it might be the exact same implementation, inside the platform 
-> > > > > internals, but drivers should not be using this directly.
-> > > > 
-> > > > I've replaced this with dma_map_single(), unmatched with
-> > > > dma_unmap_single(), since bestcomm doesn't have a way to do that
-> > > > and it's blank on ppc32 anyway.
-> > > > 
-> > > > Is this OK? PPC guys?
-> > > 
-> > > Even though dma_unmap_single() may be a no-op, calls to
-> > > dma_map_single() must be matched with calls to dma_unmap_single().
-> > > 
-> > > Perhaps with the additions below:
-> > > 
-> > > > +static void mpc52xx_fec_free_rx_buffers(struct bcom_task *s)
-> > > > +{
-> > > > +	struct sk_buff *skb;
-> > > > +
-> > > > +	while (!bcom_queue_empty(s)) {
-> > > > +		skb = bcom_retrieve_buffer(s, NULL, NULL);
-> > > 
-> > > 		dma_unmap_single(&skb->dev->dev, skb-data,
-> > > 				 FEC_RX_BUFFER_SIZE, DMA_FROM_DEVICE);
+On Thu, Oct 25, 2007 at 11:36:45PM +0200, Francois Romieu wrote:
+> Tom Prince <tom.prince@ualberta.net> :
+> > While testing Linux v2.6.24-rc1, I noticed that my onboard r8169 had
+> > disappeared, and the it remained gone when I rebooted to v2.6.23 and v2.6.22,
+> > where it had previously worked.
+> 
+> [...]
+> > I am running x86_64 ASUS Z92T laptop (an OEM version of the A6T).
 > > 
-> > It looks to me like dma_unmap_single takes the mapped address
-> > (what dma_map_single returned), and not the address we're mapping
-> > (skb->data).
+> > I have posted dmesg/lspci/config from v2.6.23 (and soon v2.6.24) at 
+> >  www.math.uwo.ca/~rprince5/r8169/
+> > 
+> > Also these appear to be the relevant log messages from when the device was
+> > working. Unfortunately, I didn't have the foresight to save dmesg/lspci from
+> > before the device disappeared.
 > 
-> Yeah.  Sorry.  That won't be so easy.  We'll either need to
-> squirrel away the mapped address, or change the interface to
-> bcom_retrieve_buffers() so we can get the address.
+> Can you try an older/vendor kernel and power-off the host before restarting ?
 > 
-> IMO, it's still a requirement that we call dma_unmap_single() for
-> each call to dma_map_single().
-> 
+> I have experienced something similar. My 8168b returns but the magic spell
+> is still not clear.
 
-There exist some macro's for pci stuff to handle the nop case well
-see: pci_unmap_addr(), pci_unmap_len().
+Thanks.
+ 
+Well, after power cyclic a few times, and reverting to v2.6.23, the card works
+again. Unfortunately, I don't have the exact config where the card disappeared
+any more, and it now shows up but doesn't work under v2.6.23. I'll spend some
+time this weekend, and see if I can track down what causes it to disappear.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+One data point: I have a kernel v2.6.23 + patch-2.6.23-rc9-hrt1 and a custom
+acpi DSDT that seems to cause the device to disappear.
+
+I have now uploaded dmesg/lspci/config from v2.6.23 from a succesful boot to
+www.math.uwo.ca/~rprince5/r8169/
+
+  Tom
+
