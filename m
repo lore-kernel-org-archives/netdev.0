@@ -1,48 +1,42 @@
-From: Florin Andrei <florin@andrei.myip.org>
-Subject: Re: stateless 1:1 NAT
-Date: Fri, 26 Oct 2007 10:49:15 -0700
-Message-ID: <4722289B.9080704@andrei.myip.org>
-References: <E1IhxQo-0004hF-00@gondolin.me.apana.org.au> <4716510E.3090300@andrei.myip.org> <4716661B.3020301@trash.net>
-Reply-To: netdev@vger.kernel.org
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] dev_change_name: ignore changes to same name
+Date: Fri, 26 Oct 2007 10:51:13 -0700
+Message-ID: <47222911.7040106@hp.com>
+References: <20071024064445.52b1e84e@shemminger-laptop> <20071026.035352.114927735.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp121.sbc.mail.sp1.yahoo.com ([69.147.64.94]:36806 "HELO
-	smtp121.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751639AbXJZRtU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 13:49:20 -0400
-Received: from localhost (weiqi.home.local [127.0.0.1])
-	by weiqi.home.local (Postfix) with ESMTP id 94CF6577054
-	for <netdev@vger.kernel.org>; Fri, 26 Oct 2007 10:49:17 -0700 (PDT)
-Received: from weiqi.home.local ([127.0.0.1])
-	by localhost (andrei.myip.org [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id Daot5TvooM6W for <netdev@vger.kernel.org>;
-	Fri, 26 Oct 2007 10:49:16 -0700 (PDT)
-Received: from valar.sanjose.telcontar.com (unknown [192.168.2.2])
-	by weiqi.home.local (Postfix) with ESMTP id 0234D576EE3
-	for <netdev@vger.kernel.org>; Fri, 26 Oct 2007 10:49:15 -0700 (PDT)
-In-Reply-To: <4716661B.3020301@trash.net>
+Received: from palrel11.hp.com ([156.153.255.246]:42221 "EHLO palrel11.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752641AbXJZRvP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Oct 2007 13:51:15 -0400
+In-Reply-To: <20071026.035352.114927735.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Florin Andrei wrote:
->> OpenBSD 4.1 as a firewall fails even worse in this test case (it 
->> freezes instantly).
->> OpenBSD 4.2 works fine under the UDP flood, as if nothing happened.
+David Miller wrote:
+> From: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date: Wed, 24 Oct 2007 06:44:45 -0700
 > 
-> And Linux 2.6.23? :)
+> 
+>>Prevent error/backtrace from dev_rename() when changing
+>>name of network device to the same name. This is a common
+>>situation with udev and other scripts that bind addr to device.
+>>
+>>Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> 
+> 
+> Fair enough, applied.
 
-Same as 2.6.18, actually maybe a little bit worse than .18: the current 
-download does not even complete, and of course a new one doesn't start.
+Very timely!  I'd just built/booted a 2.6.24-rc1 kernel yesterday and it spent 
+quite a  long time with stack traces (I have 16 interfaces on the system and a 
+9600 baud console...I can only imagine what it would have been like on a big 
+system...).  With the patch applied to that tree, it is now down to only three 
+or so stack traces related to renames that were not there on 2.6.23.mumble.  Not 
+sure if that warrants an acked-by but feel free if it makes sense.  (I'm still 
+really fuzzy on those, even after reading SubmittingPatches)
 
-I may test 2.6.24 and stateless 1:1 NAT and we'll see what happens. I've 
-been told that stateless 1:1 NAT is already in the .24_rc1 so I may test 
-that.
-
--- 
-Florin Andrei
-
-http://florin.myip.org/
+rick jones
