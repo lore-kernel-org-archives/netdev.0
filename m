@@ -1,61 +1,69 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [2.6 patch] always export sysctl_{r,w}mem_max
-Date: Fri, 26 Oct 2007 17:20:25 -0600
-Message-ID: <m1zly5wjie.fsf@ebiederm.dsl.xmission.com>
-References: <20071026230807.GE30533@stusta.de>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [ofa-general] Re: [PATCH 1/14 v2] nes: module and device
+	initialization
+Date: Fri, 26 Oct 2007 16:23:23 -0700
+Message-ID: <adatzodxxxw.fsf@cisco.com>
+References: <200710192001.l9JK1U8O021689@neteffect.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:34234 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751574AbXJZXUz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 19:20:55 -0400
-In-Reply-To: <20071026230807.GE30533@stusta.de> (Adrian Bunk's message of
-	"Sat, 27 Oct 2007 01:08:07 +0200")
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, ewg@lists.openfabrics.org,
+	general@lists.openfabrics.org
+To: ggrundstrom@neteffect.com
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <200710192001.l9JK1U8O021689@neteffect.com>
+	(ggrundstrom@neteffect.com's message of "Fri,
+	19 Oct 2007 15:01:30 -0500")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk <bunk@kernel.org> writes:
+OK, a couple quick review comments and a process comment too:
 
-> This patch fixes the following build error with CONFIG_SYSCTL=n:
->
-> <--  snip  -->
->
-> ...
-> ERROR: "sysctl_rmem_max" [fs/dlm/dlm.ko] undefined!
-> ERROR: "sysctl_wmem_max" [drivers/net/rrunner.ko] undefined!
-> ERROR: "sysctl_rmem_max" [drivers/net/rrunner.ko] undefined!
-> make[2]: *** [__modpost] Error 1
+ - First step in the driver is to kill off a lot of the #ifdefs:
 
-I was going to ask if allowing drivers to increase rmem_max
-is something that we want to do.  Apparently the road runner
-driver has been doing this since the 2.6.12-rc1 when the
-git repository starts so this probably isn't a latent bug.
+ > +#ifdef IRQF_SHARED
 
-So removing unnecessary #ifdef sounds good to me.
+The upstream driver really shouldn't have compatibility gunk for older
+kernels... just make it build against the kernel it's in.
 
-Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+ > +#ifdef OFED_1_2
 
+Same... kernel code shouldn't worry about OFED.
 
+ > +#ifdef CONFIG_PCI_MSI
+ > +	if (nesdev->msi_enabled) {
+ > +		pci_disable_msi(pcidev);
+ > +	}
+ > +#endif
 
-> <--  snip  -->
->
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
->
-> ---
-> 22ea6cd56e4fa844b0b1bbab2542f09eb6c9a5ab 
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index febbcbc..ee1cc4f 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -2004,7 +2004,5 @@ EXPORT_SYMBOL(sock_wmalloc);
->  EXPORT_SYMBOL(sock_i_uid);
->  EXPORT_SYMBOL(sock_i_ino);
->  EXPORT_SYMBOL(sysctl_optmem_max);
-> -#ifdef CONFIG_SYSCTL
->  EXPORT_SYMBOL(sysctl_rmem_max);
->  EXPORT_SYMBOL(sysctl_wmem_max);
-> -#endif
+This can be much simpler, because pci_disable_msi() is always
+available and is a NOP if the config option is off or MSI is not
+enabled.  So you can just unconditionally do
+
+	pci_disable_msi(pcidev);
+
+ > +#ifdef NES_NAPI
+
+I don't see anything that defines NES_NAPI.  I think for the final
+merge we want a NAPI-only driver (ie no ifdef at all)... is there any
+performance or other reason to ever build a non-NAPI driver (for a
+modern kernel)?
+
+OK, on a process level, my plan is to pull the current driver into a
+"neteffect" branch in my git tree with the intention of merging it for
+2.6.25.  I'll let you know when that's ready (probably early next
+week).  I'll probably do some cleanups there, and you can send me
+cleanup/fix patches against that branch any time too.  We should try
+to keep the cycle time short: the interval between the first posting
+of this driver and the current one was pretty long, and there's a lot
+of cleanup to do to get ready for the next merge window.  Does that
+plan make sense?
+
+ - R.
