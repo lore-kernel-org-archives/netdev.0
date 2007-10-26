@@ -1,57 +1,38 @@
-From: Tom Prince <tom.prince@ualberta.net>
-Subject: Re: Fried r8169.
-Date: Thu, 25 Oct 2007 20:29:26 -0400
-Message-ID: <20071026002926.GA2650@hermes.priv>
-References: <20071025154438.GA2673@hermes.priv> <20071025213645.GA2226@electric-eye.fr.zoreil.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] NET: Mark snmp4_icmp_list[] as being unused
+Date: Thu, 25 Oct 2007 18:27:22 -0700
+Message-ID: <OF4EE0CEBB.1648619D-ON88257380.00077574-88257380.0007E67A@us.ibm.com>
+References: <23686.1193353513@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Edward Hsu <edward_hsu@realtek.com.tw>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: dhowells@redhat.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: David Howells <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.177]:34663 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752539AbXJZA0q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2007 20:26:46 -0400
-Received: by py-out-1112.google.com with SMTP id u77so1084358pyb
-        for <netdev@vger.kernel.org>; Thu, 25 Oct 2007 17:26:45 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20071025213645.GA2226@electric-eye.fr.zoreil.com>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:40290 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755627AbXJZB10 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2007 21:27:26 -0400
+In-Reply-To: <23686.1193353513@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 25, 2007 at 11:36:45PM +0200, Francois Romieu wrote:
-> Tom Prince <tom.prince@ualberta.net> :
-> > While testing Linux v2.6.24-rc1, I noticed that my onboard r8169 had
-> > disappeared, and the it remained gone when I rebooted to v2.6.23 and v2.6.22,
-> > where it had previously worked.
+dhowells@redhat.com wrote on 10/25/2007 04:05:13 PM:
+
+> David Stevens <dlstevens@us.ibm.com> wrote:
 > 
-> [...]
-> > I am running x86_64 ASUS Z92T laptop (an OEM version of the A6T).
-> > 
-> > I have posted dmesg/lspci/config from v2.6.23 (and soon v2.6.24) at 
-> >  www.math.uwo.ca/~rprince5/r8169/
-> > 
-> > Also these appear to be the relevant log messages from when the device was
-> > working. Unfortunately, I didn't have the foresight to save dmesg/lspci from
-> > before the device disappeared.
+> > What about just removing it, or do you think it's
+> > useful for documentation of the order? Either way,
 > 
-> Can you try an older/vendor kernel and power-off the host before restarting ?
-> 
-> I have experienced something similar. My 8168b returns but the magic spell
-> is still not clear.
+> I don't know whether it's intended to be used for something, perhaps a
+> debugging macro.  Perhaps it should be #if'd out instead.
 
-Thanks.
- 
-Well, after power cyclic a few times, and reverting to v2.6.23, the card works
-again. Unfortunately, I don't have the exact config where the card disappeared
-any more, and it now shows up but doesn't work under v2.6.23. I'll spend some
-time this weekend, and see if I can track down what causes it to disappear.
+        It was used for /proc/net/snmp header printing, but
+most of the items in it were moved to a different MIB (by me).
+The new values are printed in a backward-compatible way, but
+maintaining the old order means not using this header map.
+        So, long-winded way of saying I believe it should be
+removed, but I missed that when I made it obsolete. :-)
 
-One data point: I have a kernel v2.6.23 + patch-2.6.23-rc9-hrt1 and a custom
-acpi DSDT that seems to cause the device to disappear.
-
-I have now uploaded dmesg/lspci/config from v2.6.23 from a succesful boot to
-www.math.uwo.ca/~rprince5/r8169/
-
-  Tom
+                                                        +-DLS
 
