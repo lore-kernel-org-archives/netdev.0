@@ -1,28 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: Please pull 'fixes-davem' branch of wireless-2.6 (Use this
- one!)
-Date: Thu, 25 Oct 2007 22:49:58 -0700 (PDT)
-Message-ID: <20071025.224958.224760716.davem@davemloft.net>
-References: <20071026043409.GE14080@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.24][trivial] fix inconsistency of terms
+Date: Thu, 25 Oct 2007 23:04:05 -0700 (PDT)
+Message-ID: <20071025.230405.233945394.davem@davemloft.net>
+References: <20071009.153234.108020718.takano@axe-inc.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20071026043409.GE14080-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, y-kodama@aist.go.jp
+To: takano@axe-inc.co.jp
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52534
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750803AbXJZGED (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 02:04:03 -0400
+In-Reply-To: <20071009.153234.108020718.takano@axe-inc.co.jp>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Fri, 26 Oct 2007 00:34:09 -0400
+From: TAKANO Ryousei <takano@axe-inc.co.jp>
+Date: Tue, 09 Oct 2007 15:32:34 +0900 (JST)
 
-> Dave,
 > 
-> (Use this one!)
+> Fix inconsistency of terms:
+> 1) D-SACK
+> 2) F-RTO
 > 
-> A few fixes for 2.6.24...also adds Johannes Berg as a mac80211
-> maintainer, since he probably wrote most of the newest bugs
-> there... :-)
+> Signed-off-by: Ryousei Takano <takano-ryousei@aist.go.jp>
 
-Pulled, thanks John!
+Patch applied, thank you!
