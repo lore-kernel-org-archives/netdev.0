@@ -1,28 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] make ircomm_tty static
-Date: Fri, 26 Oct 2007 03:56:52 -0700 (PDT)
-Message-ID: <20071026.035652.189993268.davem@davemloft.net>
-References: <20071024162355.GZ30533@stusta.de>
+Subject: Re: [2.6 patch] make tcp_match_skb_to_sack() static
+Date: Fri, 26 Oct 2007 03:57:45 -0700 (PDT)
+Message-ID: <20071026.035745.216735808.davem@davemloft.net>
+References: <20071024162358.GA30533@stusta.de>
+	<Pine.LNX.4.64.0710242102530.11009@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ryanr23@gmail.com, samuel@sortiz.org, linux-kernel@vger.kernel.org,
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bunk@kernel.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: bunk@kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39699
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39704
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751554AbXJZK4u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 06:56:50 -0400
-In-Reply-To: <20071024162355.GZ30533@stusta.de>
+	by vger.kernel.org with ESMTP id S1751561AbXJZK5n convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Oct 2007 06:57:43 -0400
+In-Reply-To: <Pine.LNX.4.64.0710242102530.11009@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@kernel.org>
-Date: Wed, 24 Oct 2007 18:23:55 +0200
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Thu, 25 Oct 2007 00:39:23 +0300 (EEST)
 
-> ircomm_tty can now become static.
-> 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> On Wed, 24 Oct 2007, Adrian Bunk wrote:
+>=20
+> > tcp_match_skb_to_sack() can become static.
+> >=20
+> > Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> >
+> [...snip...]
+>=20
+> Thanks, I should have noticed that right from the beginning...
 
-Applied.
+Yep, applied, thanks!
