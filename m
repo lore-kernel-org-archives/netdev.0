@@ -1,60 +1,39 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 1] net: fix and typo's
-Date: Fri, 26 Oct 2007 13:06:13 -0700
-Message-ID: <472248B5.1020704@intel.com>
-References: <47221EBE.3070109@tiscali.nl> <47222932.80408@intel.com> <4722460E.4010201@tiscali.nl>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: don't call napi_disable if not doing NAPI
+Date: Fri, 26 Oct 2007 22:17:42 +0200
+Message-ID: <20071026201742.GA29246@electric-eye.fr.zoreil.com>
+References: <1193232344.32208.0.camel@localhost> <20071024142759.GA13657@elte.hu> <1193241191.14314.8.camel@localhost> <20071024155521.GA16690@elte.hu> <1193242267.6914.6.camel@twins> <1193378269.17910.4.camel@localhost> <20071026063733.GA12426@elte.hu> <20071026094833.539a69aa@freepuppy.rosehill> <20071026175613.GA18770@elte.hu> <20071026113305.57dea765@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>
-To: Roel Kluin <12o3l@tiscali.nl>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>, Jeff Garzik <jeff@garzik.org>,
+	Romano Giannetti <romanol@upcomillas.es>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:19908 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752949AbXJZUKn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Oct 2007 16:10:43 -0400
-In-Reply-To: <4722460E.4010201@tiscali.nl>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:54541 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752077AbXJZUYL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 16:24:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20071026113305.57dea765@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Roel Kluin wrote:
-> Kok, Auke wrote:
+Stephen Hemminger <shemminger@linux-foundation.org> :
+> Don't call napi_disable if not configured.
+> And make sure that any misuse of napi_xxx in future fails
+> with a compile error.
+
+Disable napi polling early and remove the useless poll_locked logic.
+
 > 
->> Ack this e1000e change here!
-> 
->> (PS since there was only 1 netdriver patch here and the rest is wireless, I would
->> have suggested splitting this patch up in two and sending them to the wireless
->> maintainer and netdevice maintainer separately. But I'm sure this will get picked
->> up anyway.)
-> 
-> Ok, I've split the patch and sent the rest to wireless. Here's this single fix again
-> you acked.
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-OK, bedankt Roel!
+Acked-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-I'll forward this to Jeff for merging.
-
-Cheers,
-
-Auke
-
-
-
-> --
->         Fix priority mistakes similar to '!x & y'
->     
->         Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
-> ---
-> diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-> index cf70522..14141a5 100644
-> --- a/drivers/net/e1000e/82571.c
-> +++ b/drivers/net/e1000e/82571.c
-> @@ -283,7 +283,7 @@ static s32 e1000_get_invariants_82571(struct e1000_adapter *adapter)
->  			adapter->flags &= ~FLAG_HAS_WOL;
->  		/* quad ports only support WoL on port A */
->  		if (adapter->flags & FLAG_IS_QUAD_PORT &&
-> -		    (!adapter->flags & FLAG_IS_QUAD_PORT_A))
-> +		    (!(adapter->flags & FLAG_IS_QUAD_PORT_A)))
->  			adapter->flags &= ~FLAG_HAS_WOL;
->  		break;
->  
+-- 
+Ueimor
