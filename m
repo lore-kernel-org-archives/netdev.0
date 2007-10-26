@@ -1,39 +1,45 @@
-From: "Denis V. Lunev" <den@sw.ru>
-Subject: Re: [PATCH] remove __net_initdata attribute
-Date: Fri, 26 Oct 2007 15:28:32 +0400
-Message-ID: <4721CF60.5060600@sw.ru>
-References: <20071026095652.GA8788@iris.sw.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6] [TCP]: fix D-SACK cwnd handling
+Date: Fri, 26 Oct 2007 04:28:18 -0700 (PDT)
+Message-ID: <20071026.042818.263025603.davem@davemloft.net>
+References: <20071025.171147.107738702.takano@axe-inc.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, devel@openvz.org, netdev@vger.kernel.org,
-	containers@lists.osdl.org, benjamin.thery@bull.net, clg@fr.ibm.com
-To: "Denis V. Lunev" <den@openvz.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
+	y-kodama@aist.go.jp
+To: takano-ryousei@aist.go.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:53354 "EHLO iris"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750905AbXJZLZo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Oct 2007 07:25:44 -0400
-In-Reply-To: <20071026095652.GA8788@iris.sw.ru>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58739
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750699AbXJZL2Q convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Oct 2007 07:28:16 -0400
+In-Reply-To: <20071025.171147.107738702.takano@axe-inc.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave, I am sorry, plz disregard the patch :(
+=46rom: Ryousei Takano <takano-ryousei@aist.go.jp>
+Date: Thu, 25 Oct 2007 17:11:47 +0900 (JST)
 
-- if the file is a part of the kernel, __exit (and pernet_unregister)
-  will never called and should be dropped
-- if the file is a part of a module, __init is NOT dropped on the
-  module loading stage
+> In the current net-2.6 kernel, handling FLAG_DSACKING_ACK is broken.
+> The flag is cleared to 1 just after FLAG_DSACKING_ACK is set.
+>=20
+>         if (found_dup_sack)
+>                 flag |=3D FLAG_DSACKING_ACK;
+> 	:
+> 	flag =3D 1;
+>=20
+> To fix it, this patch introduces a part of the tcp_sacktag_state patc=
+h:
+> 	http://marc.info/?l=3Dlinux-netdev&m=3D119210560431519&w=3D2
+>=20
+> Do you plan to apply the tcp_sacktag_state patch?
+> Or please apply this patch.
+>=20
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> Signed-off-by: Ryousei Takano <takano-ryousei@aist.go.jp>
 
-So, we can still make embedded people happy :) Thanks Pavel to pointing
-me this out.
-
-Denis V. Lunev wrote:
-> The discussion with Eric W. Biederman reveals that the concept for
-> __net_initdata is bogus. The ->exit method of pernet_operations
-> should be called during module exit.
-> 
-> So, discard this attribute.
-> 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
+I've applied this patch, thank you!
 
