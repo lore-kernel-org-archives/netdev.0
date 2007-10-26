@@ -1,69 +1,52 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 1] net: fix and typo's
-Date: Fri, 26 Oct 2007 10:51:46 -0700
-Message-ID: <47222932.80408@intel.com>
-References: <47221EBE.3070109@tiscali.nl>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: 2.6.24-rc1 fails with lockup - /sbin/ifconfig / inet_ioctl() /
+	dev_close() / rtl8169_down()
+Date: Fri, 26 Oct 2007 19:56:13 +0200
+Message-ID: <20071026175613.GA18770@elte.hu>
+References: <alpine.LFD.0.999.0710232057080.30120@woody.linux-foundation.org> <1193232344.32208.0.camel@localhost> <20071024142759.GA13657@elte.hu> <1193241191.14314.8.camel@localhost> <20071024155521.GA16690@elte.hu> <1193242267.6914.6.camel@twins> <1193378269.17910.4.camel@localhost> <20071026063733.GA12426@elte.hu> <20071026094833.539a69aa@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>
-To: Roel Kluin <12o3l@tiscali.nl>
+Content-Type: text/plain; charset=us-ascii
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Romano Giannetti <romanol@upcomillas.es>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Jeff Garzik <jeff@garzik.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:33566 "EHLO mga02.intel.com"
+Received: from mx3.mail.elte.hu ([157.181.1.138]:36756 "EHLO mx3.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757495AbXJZRwG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Oct 2007 13:52:06 -0400
-In-Reply-To: <47221EBE.3070109@tiscali.nl>
+	id S1752516AbXJZR4e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Oct 2007 13:56:34 -0400
+Content-Disposition: inline
+In-Reply-To: <20071026094833.539a69aa@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Roel Kluin wrote:
-> A few patches with changes to net code. I have sent these to the lkml
-> previously, but they were not yet merged. I am fairly new to kernel 
-> programming, so it is possible that I make some mistakes. I'll explain my
-> rationale, please nack if incorrect, an additional bit of explanation is
-> appreciated even more.
+
+* Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+
+> > hm, from your log it appears that lockdep did not find anything, 
+> > still the hang does trigger.
+> > 
+> > it's /sbin/ifconfig and inet_ioctl() / dev_close() / rtl8169_down() 
+> > that seems to be hanging. I've extracted the relevant backtrace 
+> > below. I've Cc:-ed people who might have a better idea about what's 
+> > going on.
 > 
-> The condition '!x & y,' does make little sense: the '!' has a higher
-> priority than '&'. It behaves therefore like '!x && y'. In the case 
-> bitanding flags, however, '!(x & y)' appears to be desired.
-> 
-> Warning: the change of '!x & y,' to '!(x & y)' may change behavior. if
-> not desired, I propose changing this to '!x && y', to make it explicitly
-> clear.
-> 
-> These '&' typo's can be spotted with:
-> a="A-Za-z0-9_"
-> git-grep "\![^$a()]*[$a]\+\([$a.]*\|->\)*\(\[[$a.]*\]\)\?[ \W]*&[^&]\+"
-> 
-> --
->         Fix priority mistakes similar to '!x & y'
->     
->         Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
-> ---
-> diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-> index cf70522..14141a5 100644
-> --- a/drivers/net/e1000e/82571.c
-> +++ b/drivers/net/e1000e/82571.c
-> @@ -283,7 +283,7 @@ static s32 e1000_get_invariants_82571(struct e1000_adapter *adapter)
->  			adapter->flags &= ~FLAG_HAS_WOL;
->  		/* quad ports only support WoL on port A */
->  		if (adapter->flags & FLAG_IS_QUAD_PORT &&
-> -		    (!adapter->flags & FLAG_IS_QUAD_PORT_A))
-> +		    (!(adapter->flags & FLAG_IS_QUAD_PORT_A)))
->  			adapter->flags &= ~FLAG_HAS_WOL;
->  		break;
->  
+> Are you building with NAPI enabled or not. Looks like the following 
+> might help the non-napi case.
 
+the config from:
 
+  http://www.dea.icai.upcomillas.es/romano/linux/info/2624rc1_1/
 
-Ack this e1000e change here!
+suggests that NAPI was disabled:
 
+  CONFIG_R8169=m
+  # CONFIG_R8169_NAPI is not set
+  CONFIG_R8169_VLAN=y
 
-Auke
-
-
-(PS since there was only 1 netdriver patch here and the rest is wireless, I would
-have suggested splitting this patch up in two and sending them to the wireless
-maintainer and netdevice maintainer separately. But I'm sure this will get picked
-up anyway.)
+	Ingo
