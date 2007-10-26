@@ -1,39 +1,31 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: don't call napi_disable if not doing NAPI
-Date: Fri, 26 Oct 2007 22:17:42 +0200
-Message-ID: <20071026201742.GA29246@electric-eye.fr.zoreil.com>
-References: <1193232344.32208.0.camel@localhost> <20071024142759.GA13657@elte.hu> <1193241191.14314.8.camel@localhost> <20071024155521.GA16690@elte.hu> <1193242267.6914.6.camel@twins> <1193378269.17910.4.camel@localhost> <20071026063733.GA12426@elte.hu> <20071026094833.539a69aa@freepuppy.rosehill> <20071026175613.GA18770@elte.hu> <20071026113305.57dea765@freepuppy.rosehill>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [0/3] Distributed storage. Mirror algo extension for automatic
+ recovery.
+Date: Fri, 26 Oct 2007 13:55:38 -0700
+Message-ID: <20071026135538.d22125a2.akpm@linux-foundation.org>
+References: <20071018191741.GA848@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, Jeff Garzik <jeff@garzik.org>,
-	Romano Giannetti <romanol@upcomillas.es>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:54541 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752077AbXJZUYL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 16:24:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20071026113305.57dea765@freepuppy.rosehill>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20071018191741.GA848@2ka.mipt.ru>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@linux-foundation.org> :
-> Don't call napi_disable if not configured.
-> And make sure that any misuse of napi_xxx in future fails
-> with a compile error.
+On Thu, 18 Oct 2007 23:17:41 +0400
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
 
-Disable napi polling early and remove the useless poll_locked logic.
+> I'm pleased to announce sixth release of the distributed storage
+> subsystem, which allows to form a storage on top of remote and local
+> nodes, which in turn can be exported to another storage as a node to
+> form tree-like storages.
 
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+I went back and re-read last month's discussion and I'm not seeing any
+reason why we shouldn't start thinking about merging this.
 
-Acked-off-by: Francois Romieu <romieu@fr.zoreil.com>
+How close is it to that stage?  A peek at your development blog indicates
+that things are still changing at a moderate rate?
 
--- 
-Ueimor
