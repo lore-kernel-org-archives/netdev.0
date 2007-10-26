@@ -1,48 +1,41 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH 2/2] [CRYPTO] users: Fix up scatterlist conversion errors
-Date: Fri, 26 Oct 2007 11:44:38 -0400
-Message-ID: <47220B66.5050002@hp.com>
-References: <20071026145905.GA13850@gondor.apana.org.au> <E1IlQfN-0003cW-00@gondolin.me.apana.org.au>
+From: akepner@sgi.com
+Subject: Re: [PATCH] net: Saner thash_entries default with much memory
+Date: Fri, 26 Oct 2007 08:55:30 -0700
+Message-ID: <20071026155530.GG1114@sgi.com>
+References: <200710261721.32019.jdelvare@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763872AbXJZPpS@vger.kernel.org>
-In-Reply-To: <E1IlQfN-0003cW-00@gondolin.me.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Andi Kleen <ak@suse.de>,
+	Robert.Olsson@data.slu.se
+To: Jean Delvare <jdelvare@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from netops-testserver-4-out.sgi.com ([192.48.171.29]:59950 "EHLO
+	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754801AbXJZP4p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 11:56:45 -0400
+Content-Disposition: inline
+In-Reply-To: <200710261721.32019.jdelvare@suse.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> [CRYPTO] users: Fix up scatterlist conversion errors
-> 
-> This patch fixes the errors made in the users of the crypto layer during
-> the sg_init_table conversion.  It also adds a few conversions that were
-> missing altogether.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> ---
-> 
->  drivers/crypto/padlock-sha.c          |    4 +-
->  drivers/md/dm-crypt.c                 |    2 -
->  drivers/net/ppp_mppe.c                |   10 ++++-
->  drivers/scsi/iscsi_tcp.c              |    5 +-
->  fs/ecryptfs/crypto.c                  |    2 +
->  net/ipv4/esp4.c                       |    7 ++-
->  net/ipv6/esp6.c                       |    8 +++-
->  net/rxrpc/rxkad.c                     |   66 +++++++++++++++++-----------------
->  net/sctp/auth.c                       |    3 -
->  net/sctp/sm_make_chunk.c              |    6 +--
->  net/sunrpc/auth_gss/gss_krb5_crypto.c |   34 +++++++++++++----
->  net/sunrpc/auth_gss/gss_spkm3_seal.c  |    2 -
->  net/sunrpc/xdr.c                      |    2 +
->  13 files changed, 93 insertions(+), 58 deletions(-)
+On Fri, Oct 26, 2007 at 05:21:31PM +0200, Jean Delvare wrote:
+> ....
+> This is just one way to limit the hash size, there are others; I am not
+> familiar enough with the TCP code to decide which is best. Thus, I
+> would welcome the proposals of alternatives.
 > 
 
-Ack SCTP pieces.  I had those queued up, but you got to it before me ;)
+Yeah, the existing way of sizing them is very bad on large systems 
+and hardcoding a size sucks (though that's what we do on large 
+Altix systems now).
 
-Thanks
--vlad
+IIRC there was some talk about using a different data structure 
+here - something that wouldn't require a fixed size and that 
+could maintain reasonably fast lookup even when it got large. 
+
+Robert, has work been done to use TRASH to address this problem? 
+Other ideas?
+
+-- 
+Arthur
+
