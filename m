@@ -1,82 +1,42 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH] skye/skge: sparse fix - data can't ever be bigger than
-	LONG_MAX / HZ
-Date: Fri, 26 Oct 2007 15:10:28 -0700
-Message-ID: <20071026221028.1873.3005.stgit@localhost.localdomain>
+Subject: [PATCH] pcnet: fix sparse triviality
+Date: Fri, 26 Oct 2007 15:11:32 -0700
+Message-ID: <20071026221132.1913.24518.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+To: pcnet32@verizon.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:32771 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:65454 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751564AbXJZWKc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Oct 2007 18:10:32 -0400
+	id S1753618AbXJZWLd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Oct 2007 18:11:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Trivial replacement - use INT_MAX instead here.
+Since data can never exceed u32, it can't even be larger than LONG_MAX/HZ.
 
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-Cc: shemminger@linux-foundation.org
+Cc: pcnet32@verizon.net
 ---
 
- drivers/net/sk98lin/skethtool.c |    4 ++--
- drivers/net/skge.c              |    8 ++++----
- drivers/net/sky2.c              |    8 ++++----
- 3 files changed, 10 insertions(+), 10 deletions(-)
+ drivers/net/pcnet32.c |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/sk98lin/skethtool.c b/drivers/net/sk98lin/skethtool.c
-index 5a6da89..4549b97 100644
---- a/drivers/net/sk98lin/skethtool.c
-+++ b/drivers/net/sk98lin/skethtool.c
-@@ -430,8 +430,8 @@ static int locateDevice(struct net_device *dev, u32 data)
- 	DEV_NET *pNet = netdev_priv(dev);
- 	SK_AC *pAC = pNet->pAC;
+diff --git a/drivers/net/pcnet32.c b/drivers/net/pcnet32.c
+index ff92aca..3573e77 100644
+--- a/drivers/net/pcnet32.c
++++ b/drivers/net/pcnet32.c
+@@ -1101,9 +1101,8 @@ static int pcnet32_phys_id(struct net_device *dev, u32 data)
+ 	mod_timer(&lp->blink_timer, jiffies);
+ 	set_current_state(TASK_INTERRUPTIBLE);
  
--	if(!data || data > (u32)(MAX_SCHEDULE_TIMEOUT / HZ))
--		data = (u32)(MAX_SCHEDULE_TIMEOUT / HZ);
+-	/* AV: the limit here makes no sense whatsoever */
+-	if ((!data) || (data > (u32) (MAX_SCHEDULE_TIMEOUT / HZ)))
+-		data = (u32) (MAX_SCHEDULE_TIMEOUT / HZ);
 +	if (!data)
 +		data = INT_MAX;
  
- 	/* start blinking */
- 	pAC->LedsOn = 0;
-diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-index b9961dc..696a79e 100644
---- a/drivers/net/skge.c
-+++ b/drivers/net/skge.c
-@@ -783,10 +783,10 @@ static int skge_phys_id(struct net_device *dev, u32 data)
- 	unsigned long ms;
- 	enum led_mode mode = LED_MODE_TST;
- 
--	if (!data || data > (u32)(MAX_SCHEDULE_TIMEOUT / HZ))
--		ms = jiffies_to_msecs(MAX_SCHEDULE_TIMEOUT / HZ) * 1000;
--	else
--		ms = data * 1000;
-+	if (!data)
-+		data = INT_MAX;
-+
-+	ms = data * HZ;
- 
- 	while (ms > 0) {
- 		skge_led(skge, mode);
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index c27c7d6..1381d04 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -3336,10 +3336,10 @@ static int sky2_phys_id(struct net_device *dev, u32 data)
- 	int interrupted;
- 	int onoff = 1;
- 
--	if (!data || data > (u32) (MAX_SCHEDULE_TIMEOUT / HZ))
--		ms = jiffies_to_msecs(MAX_SCHEDULE_TIMEOUT);
--	else
--		ms = data * 1000;
-+	if (!data)
-+		data = INT_MAX:
-+
-+	ms = data * HZ;
- 
- 	/* save initial values */
- 	spin_lock_bh(&sky2->phy_lock);
+ 	msleep_interruptible(data * 1000);
+ 	del_timer_sync(&lp->blink_timer);
