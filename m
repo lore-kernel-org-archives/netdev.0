@@ -1,69 +1,55 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: Re: [linux-pm] QUESTION: How to fix race between .suspend routine and watchdog timer
-Date: Fri, 26 Oct 2007 13:48:42 +0200
-Message-ID: <200710261348.42748.maximlevitsky@gmail.com>
-References: <Pine.LNX.4.44L0.0710251259230.7029-100000@netrider.rowland.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NETNS] Oops in register_pernet_operations() with
+ CONFIG_NET_NS=n
+Date: Fri, 26 Oct 2007 04:55:03 -0700 (PDT)
+Message-ID: <20071026.045503.62376243.davem@davemloft.net>
+References: <m1bqan5cuk.fsf@ebiederm.dsl.xmission.com>
+	<20071026.043155.75000997.davem@davemloft.net>
+	<4721D283.4050909@bull.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pm@lists.linux-foundation.org
-To: Alan Stern <stern@rowland.harvard.edu>
+Cc: ebiederm@xmission.com, netdev@vger.kernel.org, dlunev@gmail.com,
+	containers@lists.osdl.org, clg@fr.ibm.com, xemul@openvz.org
+To: benjamin.thery@bull.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:11278 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751543AbXJZLth (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 07:49:37 -0400
-Received: by ug-out-1314.google.com with SMTP id z38so658218ugc
-        for <netdev@vger.kernel.org>; Fri, 26 Oct 2007 04:49:35 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.44L0.0710251259230.7029-100000@netrider.rowland.org>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40242
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751955AbXJZLzD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 07:55:03 -0400
+In-Reply-To: <4721D283.4050909@bull.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 25 October 2007 19:02:12 Alan Stern wrote:
-> On Thu, 25 Oct 2007, Maxim Levitsky wrote:
-> 
-> > Hi,
-> > 
-> > Recently, trying to fix saa7134 suspend/resume problems I found that there 
-> > is a race between IRQ handler and .suspend , and that I cant let driver access the device
-> > while its in D3 since it can lock up some systems.
-> > 
-> > Now I am looking to fix those issues in two drivers that have my .suspend/.resume routines.
-> > the saa7134 capture chip and dmfe, the davicom network driver.
-> > 
-> > Looking through the dmfe code, I noticed yet another possible race.
-> > A race between the .suspend, and a timer that serves both as a watchdog, and link state detector.
-> > Again I need to prevent it from running during the suspend/resume, but how?
-> > 
-> > I can use del_timer in .suspend, and mod_timer in .resume, but that doesn't protect against
-> > race with already running timer.
-> > I can use del_timer_sync, but it states that it is useless if timer re-enables itself, and I agree with that.
-> > In dmfe case the timer does re-enable itself.
-> 
-> That comment isn't right.  del_timer_sync works perfectly well even if
-> the timer routine re-enables itself, provided it stops doing so after a
-> small number of iterations.
-Thanks for the info. but....
-Due to the "don't access the hardware, while powered-off" rule, I must know that the timer isn't running.
-and won't be.
-So what function to use (if possible) to be sure that the timer won't run anymore?
-(Taking in the account the fact that it re-enables itself)
-> 
-> > I can put checks in the timer for ->insuspend, and don't re enable it if set,
-> > but that opens a new can of worms with memory barriers, etc...
-> 
-> You don't have to worry about any of that stuff.  Just check the 
-> insuspend flag and don't re-enable the timer if it is set.  Even 
-> without any memory barriers, the timer routine won't iterate more than 
-> once or twice.
-> 
-> Alan Stern
-> 
-> 
+From: Benjamin Thery <benjamin.thery@bull.net>
+Date: Fri, 26 Oct 2007 13:41:55 +0200
 
-Thanks,
-	Best regards,
-	`	Maxim Levitsky
+> David Miller wrote:
+> > From: ebiederm@xmission.com (Eric W. Biederman)
+> > Date: Thu, 25 Oct 2007 11:21:55 -0600
+> > 
+> >>> By the way, I think that we can in the case of undefined CONFIG_NET_NS
+> >>> reduce register to calling ->init method and unregister to calling
+> >>> ->exit method.
+> >>>
+> >>> This is a correct thing at least for now and will be welcomed by the all
+> >>> embedded/etc people.
+> >> I'm not fundamentally opposed.  Earlier versions of my patchset
+> >> did that and more.   However I think the pain is greater then the
+> >> gain right now.  Especially since this concept seem to require
+> >> having quality inspected into it.
+> > 
+> > I think the correct thing to do for now is to simply remove these
+> > __net_* markers and their definitions.  There are so many tricky cases
+> > that it is easier to just get rid of them.
+> > 
+> > Could someone send me a patch which does that?
+> 
+> The attached patch revert Pavel's orginal patch from 2.6.23-mm1. 
+> It should work fine with net-2.6 too.
+
+Thanks for doing this.
+
+But this appears to be still discussed, so I'll give
+Denis and others another day to work out the fix they
+want to include.
