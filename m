@@ -1,125 +1,87 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH] remove __net_initdata attribute
-Date: Fri, 26 Oct 2007 13:56:52 +0400
-Message-ID: <20071026095652.GA8788@iris.sw.ru>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Distributed storage. Move away from char device ioctls.
+Date: Fri, 26 Oct 2007 14:44:59 +0400
+Message-ID: <20071026104459.GA15295@2ka.mipt.ru>
+References: <20070914185429.GA9439@2ka.mipt.ru> <46EADC02.9070409@garzik.org> <20070915122957.GA25752@2ka.mipt.ru> <20070915172446.GC2990@schatzie.adilger.int> <AC64AEB4-4090-4E73-A53C-2ACF94B49AD5@mac.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: den@openvz.org, devel@openvz.org, netdev@vger.kernel.org,
-	containers@lists.osdl.org, benjamin.thery@bull.net, clg@fr.ibm.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:64369 "EHLO iris"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753184AbXJZJyJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Oct 2007 05:54:09 -0400
+Cc: Andreas Dilger <adilger@clusterfs.com>,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: Kyle Moffett <mrmacman_g4@mac.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <AC64AEB4-4090-4E73-A53C-2ACF94B49AD5@mac.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The discussion with Eric W. Biederman reveals that the concept for
-__net_initdata is bogus. The ->exit method of pernet_operations
-should be called during module exit.
+Returning back to this, since block based storage, which can act as a
+shared storage/transport layer, is ready with 5'th release of the DST.
 
-So, discard this attribute.
+My couple of notes on proposed data distribution algorithm in FS.
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
+On Sun, Sep 16, 2007 at 03:07:11AM -0400, Kyle Moffett (mrmacman_g4@mac.com) wrote:
+> >I actually think there is a place for this - and improvements are  
+> >definitely welcome.  Even Lustre needs block-device level  
+> >redundancy currently, though we will be working to make Lustre- 
+> >level redundancy available in the future (the problem is WAY harder  
+> >than it seems at first glance, if you allow writeback caches at the  
+> >clients and servers).
+> 
+> I really think that to get proper non-block-device-level filesystem  
+> redundancy you need to base it on something similar to the GIT  
+> model.  Data replication is done in specific-sized chunks indexed by  
+> SHA-1 sum and you actually have a sort of "merge algorithm" for when  
+> local and remote changes differ.  The OS would only implement a very  
+> limited list of merge algorithms, IE one of:
+> 
+> (A)  Don't merge, each client gets its own branch and merges are manual
+> (B)  Most recent changed version is made the master every X-seconds/ 
+> open/close/write/other-event.
+> (C)  The tree at X (usually a particular client/server) is always  
+> used as the master when there are conflicts.
 
-diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-index 662b8d1..45f30a2 100644
---- a/drivers/net/loopback.c
-+++ b/drivers/net/loopback.c
-@@ -284,7 +284,7 @@ static __net_exit void loopback_net_exit(struct net *net)
- 	unregister_netdev(dev);
- }
- 
--static struct pernet_operations __net_initdata loopback_net_ops = {
-+static struct pernet_operations loopback_net_ops = {
-        .init = loopback_net_init,
-        .exit = loopback_net_exit,
- };
-diff --git a/fs/proc/proc_net.c b/fs/proc/proc_net.c
-index 2e91fb7..cbc5a95 100644
---- a/fs/proc/proc_net.c
-+++ b/fs/proc/proc_net.c
-@@ -185,7 +185,7 @@ static __net_exit void proc_net_ns_exit(struct net *net)
- 	kfree(net->proc_net_root);
- }
- 
--struct pernet_operations __net_initdata proc_net_ns_ops = {
-+struct pernet_operations proc_net_ns_ops = {
- 	.init = proc_net_ns_init,
- 	.exit = proc_net_ns_exit,
- };
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 93aa87d..5279466 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -102,11 +102,9 @@ static inline void release_net(struct net *net)
- #ifdef CONFIG_NET_NS
- #define __net_init
- #define __net_exit
--#define __net_initdata
- #else
- #define __net_init	__init
- #define __net_exit	__exit_refok
--#define __net_initdata	__initdata
- #endif
- 
- struct pernet_operations {
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f1647d7..1afcb56 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2665,7 +2665,7 @@ static void __net_exit dev_proc_net_exit(struct net *net)
- 	proc_net_remove(net, "dev");
- }
- 
--static struct pernet_operations __net_initdata dev_proc_ops = {
-+static struct pernet_operations dev_proc_ops = {
- 	.init = dev_proc_net_init,
- 	.exit = dev_proc_net_exit,
- };
-@@ -4325,7 +4325,7 @@ static void __net_exit netdev_exit(struct net *net)
- 	kfree(net->dev_index_head);
- }
- 
--static struct pernet_operations __net_initdata netdev_net_ops = {
-+static struct pernet_operations netdev_net_ops = {
- 	.init = netdev_init,
- 	.exit = netdev_exit,
- };
-@@ -4356,7 +4356,7 @@ static void __net_exit default_device_exit(struct net *net)
- 	rtnl_unlock();
- }
- 
--static struct pernet_operations __net_initdata default_device_ops = {
-+static struct pernet_operations default_device_ops = {
- 	.exit = default_device_exit,
- };
- 
-diff --git a/net/core/dev_mcast.c b/net/core/dev_mcast.c
-index 15241cf..ae35405 100644
---- a/net/core/dev_mcast.c
-+++ b/net/core/dev_mcast.c
-@@ -285,7 +285,7 @@ static void __net_exit dev_mc_net_exit(struct net *net)
- 	proc_net_remove(net, "dev_mcast");
- }
- 
--static struct pernet_operations __net_initdata dev_mc_net_ops = {
-+static struct pernet_operations dev_mc_net_ops = {
- 	.init = dev_mc_net_init,
- 	.exit = dev_mc_net_exit,
- };
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 3252729..4f994c0 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1888,7 +1888,7 @@ static void __net_exit netlink_net_exit(struct net *net)
- #endif
- }
- 
--static struct pernet_operations __net_initdata netlink_net_ops = {
-+static struct pernet_operations netlink_net_ops = {
- 	.init = netlink_net_init,
- 	.exit = netlink_net_exit,
- };
+This looks like a good way to work with offline clients (where I recall
+Coda), after offline node modified data, it should be merged back to the
+cluster with different algorithms.
+
+Data (supposed to be) written to the failed node during its offline time
+will be resynced from other nodes when failed one is online, there are
+no problems and/or special algorithms to be used here.
+
+Filesystem replication is not a 100% 'git way' - git tree contains
+already combined objects - i.e. the last blob for given path does not
+contain its history, only ready to be used data, while filesystem,
+especially that one which requires simultaneous write from different
+threads/nodes, should implement copy-on-write semantics, essentially
+putting all new data (git commit) to the new location and then collect
+it from different extents to present a ready file.
+
+At least that is how I see the filesystem I'm working on.
+
+...
+
+> There's a lot of other technical details which would need resolution  
+> in an actual implementation, but this is enough of a summary to give  
+> you the gist of the concept.  Most likely there will be some major  
+> flaw which makes it impossible to produce reliably, but the concept  
+> contains the things I would be interested in for a real "networked  
+> filesystem".
+
+Git semantics and copy-on-write has actually quite a lot in common (on
+high enough level of abstraction), but SHA1 index is not a possible 
+issue in filesystem - even besides amount of data to be hashed before
+key is ready. Key should also contain enough information about what
+underlying data is - git does not store that information (tree, blob or
+whatever) in its keys, since it does not require it. At least that is
+how I see it to be implemented.
+
+Overall I see this new project as a true copy-on-write FS.
+
+Thanks.
+
+> Cheers,
+> Kyle Moffett
+
+-- 
+	Evgeniy Polyakov
