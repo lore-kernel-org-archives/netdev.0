@@ -1,66 +1,82 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: Files, sockets, and closing
-Date: Fri, 26 Oct 2007 15:09:01 -0700
-Message-ID: <20071026150901.3b7fa6a3@freepuppy.rosehill>
-References: <20071026140319.5bcc8ac0@freepuppy.rosehill>
-	<20071026214513.GG8181@ftp.linux.org.uk>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] skye/skge: sparse fix - data can't ever be bigger than
+	LONG_MAX / HZ
+Date: Fri, 26 Oct 2007 15:10:28 -0700
+Message-ID: <20071026221028.1873.3005.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Al Viro <viro@ftp.linux.org.uk>
+Cc: netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:56347 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751240AbXJZWKM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 18:10:12 -0400
-In-Reply-To: <20071026214513.GG8181@ftp.linux.org.uk>
+Received: from mga11.intel.com ([192.55.52.93]:32771 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751564AbXJZWKc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Oct 2007 18:10:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 26 Oct 2007 22:45:13 +0100
-Al Viro <viro@ftp.linux.org.uk> wrote:
+Trivial replacement - use INT_MAX instead here.
 
-> On Fri, Oct 26, 2007 at 02:03:19PM -0700, Stephen Hemminger wrote:
-> > Looking at this bug:
-> > http://bugzilla.kernel.org/show_bug.cgi?id=9149
-> > 
-> > Exposes some rather deep issues in the filesystem/socket/inet/tcp
-> > layering. It seems that sys_close() zaps the file table entry, but
-> > since each thread has a separate reference, the actual tcp_close()
-> > doesn't happen until the last thread calls close/exits.
-> 
-> No.  It's not about that at all.  Threads in his case _share_ descriptor
-> table and the thing he's complaining about is that another thread has
-> removed the descriptor from their (shared) descriptor table and he's
-> not getting notified.  It's not about struct file (or socket) at all;
-> it's all on descriptor level.
-> 
-> The reference to struct file is held by accept() itself, _not_ by descriptor
-> table.  And he would have the same problem if the opened socket had been
-> inherited from parent (and still opened by it) - it's really not about
-> the damn thing getting shut down, etc.
-> 
-> What happens is that there is a mapping from descriptors to opened files,
-> a reference to opened file is obtained by it once per syscall and that file
-> remains open at least until the end of syscall.   Whether the descriptor
-> you've passed remains refering to the same file is up to userland code.
-> If you have another thread and that thread rips the descriptor out of your
-> shared descriptor table, it's your responsibility to keep them sane and
-> happy.
-> 
-> close() from another thread is not a way to abort blocked accept().  Never
-> promised to be that.  Just as close() from another thread is not a way to
-> abort blocked write() or read() or sendmsg() or...
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: shemminger@linux-foundation.org
+---
 
-The problem is the Linux interpretation conflicts with the expectation
-of applications that run on other Unix systems.  Most likely, it is
-one of those corner cases not covered by SUS or Posix specs otherwise
-it would have come up earlier. The existing Linux behavior works fine
-it just isn't expected (or well documented).
+ drivers/net/sk98lin/skethtool.c |    4 ++--
+ drivers/net/skge.c              |    8 ++++----
+ drivers/net/sky2.c              |    8 ++++----
+ 3 files changed, 10 insertions(+), 10 deletions(-)
 
-I'm fine with just closing the bug (which is what I did initially), but
-where should this get documented?
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+diff --git a/drivers/net/sk98lin/skethtool.c b/drivers/net/sk98lin/skethtool.c
+index 5a6da89..4549b97 100644
+--- a/drivers/net/sk98lin/skethtool.c
++++ b/drivers/net/sk98lin/skethtool.c
+@@ -430,8 +430,8 @@ static int locateDevice(struct net_device *dev, u32 data)
+ 	DEV_NET *pNet = netdev_priv(dev);
+ 	SK_AC *pAC = pNet->pAC;
+ 
+-	if(!data || data > (u32)(MAX_SCHEDULE_TIMEOUT / HZ))
+-		data = (u32)(MAX_SCHEDULE_TIMEOUT / HZ);
++	if (!data)
++		data = INT_MAX;
+ 
+ 	/* start blinking */
+ 	pAC->LedsOn = 0;
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index b9961dc..696a79e 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -783,10 +783,10 @@ static int skge_phys_id(struct net_device *dev, u32 data)
+ 	unsigned long ms;
+ 	enum led_mode mode = LED_MODE_TST;
+ 
+-	if (!data || data > (u32)(MAX_SCHEDULE_TIMEOUT / HZ))
+-		ms = jiffies_to_msecs(MAX_SCHEDULE_TIMEOUT / HZ) * 1000;
+-	else
+-		ms = data * 1000;
++	if (!data)
++		data = INT_MAX;
++
++	ms = data * HZ;
+ 
+ 	while (ms > 0) {
+ 		skge_led(skge, mode);
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index c27c7d6..1381d04 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -3336,10 +3336,10 @@ static int sky2_phys_id(struct net_device *dev, u32 data)
+ 	int interrupted;
+ 	int onoff = 1;
+ 
+-	if (!data || data > (u32) (MAX_SCHEDULE_TIMEOUT / HZ))
+-		ms = jiffies_to_msecs(MAX_SCHEDULE_TIMEOUT);
+-	else
+-		ms = data * 1000;
++	if (!data)
++		data = INT_MAX:
++
++	ms = data * HZ;
+ 
+ 	/* save initial values */
+ 	spin_lock_bh(&sky2->phy_lock);
