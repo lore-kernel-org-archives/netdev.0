@@ -1,69 +1,52 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: [ofa-general] Re: [PATCH 1/14 v2] nes: module and device
-	initialization
-Date: Fri, 26 Oct 2007 16:23:23 -0700
-Message-ID: <adatzodxxxw.fsf@cisco.com>
-References: <200710192001.l9JK1U8O021689@neteffect.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] netns: Fix get_net_ns_by_pid
+Date: Fri, 26 Oct 2007 17:29:41 -0600
+Message-ID: <m1ve8twj2y.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, ewg@lists.openfabrics.org,
-	general@lists.openfabrics.org
-To: ggrundstrom@neteffect.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <200710192001.l9JK1U8O021689@neteffect.com>
-	(ggrundstrom@neteffect.com's message of "Fri,
-	19 Oct 2007 15:01:30 -0500")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>,
+	"Denis V. Lunev" <dlunev@gmail.com>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:54126 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751640AbXJZXaq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 19:30:46 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-OK, a couple quick review comments and a process comment too:
 
- - First step in the driver is to kill off a lot of the #ifdefs:
+The pid namespace patches changed the semantics of
+find_task_by_pid without breaking the compile resulting
+in get_net_ns_by_pid doing the wrong thing.
 
- > +#ifdef IRQF_SHARED
+So switch to using the intended find_task_by_vpid.
 
-The upstream driver really shouldn't have compatibility gunk for older
-kernels... just make it build against the kernel it's in.
+Combined with Denis' earlier patch to make netlink traffic
+fully synchronous the inadvertent race I introduced with
+accessing current is actually removed.
 
- > +#ifdef OFED_1_2
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ net/core/rtnetlink.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Same... kernel code shouldn't worry about OFED.
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 4a2640d..e1ba26f 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -742,7 +742,7 @@ static struct net *get_net_ns_by_pid(pid_t pid)
+ 	/* Lookup the network namespace */
+ 	net = ERR_PTR(-ESRCH);
+ 	rcu_read_lock();
+-	tsk = find_task_by_pid(pid);
++	tsk = find_task_by_vpid(pid);
+ 	if (tsk) {
+ 		struct nsproxy *nsproxy;
+ 		nsproxy = task_nsproxy(tsk);
+-- 
+1.5.3.rc6.17.g1911
 
- > +#ifdef CONFIG_PCI_MSI
- > +	if (nesdev->msi_enabled) {
- > +		pci_disable_msi(pcidev);
- > +	}
- > +#endif
-
-This can be much simpler, because pci_disable_msi() is always
-available and is a NOP if the config option is off or MSI is not
-enabled.  So you can just unconditionally do
-
-	pci_disable_msi(pcidev);
-
- > +#ifdef NES_NAPI
-
-I don't see anything that defines NES_NAPI.  I think for the final
-merge we want a NAPI-only driver (ie no ifdef at all)... is there any
-performance or other reason to ever build a non-NAPI driver (for a
-modern kernel)?
-
-OK, on a process level, my plan is to pull the current driver into a
-"neteffect" branch in my git tree with the intention of merging it for
-2.6.25.  I'll let you know when that's ready (probably early next
-week).  I'll probably do some cleanups there, and you can send me
-cleanup/fix patches against that branch any time too.  We should try
-to keep the cycle time short: the interval between the first posting
-of this driver and the current one was pretty long, and there's a lot
-of cleanup to do to get ready for the next merge window.  Does that
-plan make sense?
-
- - R.
