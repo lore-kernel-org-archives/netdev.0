@@ -1,45 +1,46 @@
-From: David Acker <dacker@roinet.com>
-Subject: Re: [2.6.25 patch] the planned eepro100 removal
-Date: Fri, 26 Oct 2007 09:42:00 -0400
-Message-ID: <4721EEA8.1060601@roinet.com>
-References: <20071024162440.GN30533@stusta.de> <4720FFAA.9080709@tmr.com> <47211A67.2090201@pobox.com> <47211C08.2040601@intel.com>
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: Re: [PATCH v4.2] FEC - fast ethernet controller for mpc52xx
+Date: Fri, 26 Oct 2007 07:18:28 -0700
+Message-ID: <20071026141828.GA14900@xyzzy.farnsworth.org>
+References: <20071014075511.GC3000@nd47.coderock.org> <4713BA1C.2050604@pobox.com> <fa686aa40710180715u23d81adfy83ff65837725fb80@mail.gmail.com> <4717B09B.3060800@pobox.com> <20071019112700.GD27403@nd47.coderock.org> <47206209.8080109@pobox.com> <20071025185706.29496.qmail@farnsworth.org> <20071025194114.GH3369@nd47.coderock.org> <20071025202908.GA2102@xyzzy.farnsworth.org> <20071026115909.GI3369@nd47.coderock.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, Bill Davidsen <davidsen@tmr.com>,
-	Adrian Bunk <bunk@kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, saw@saw.sw.com.sg
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: Domen Puncer <domen.puncer@telargo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-72-92-88-10.phlapa.fios.verizon.net ([72.92.88.10]:36056
-	"EHLO smtp.roinet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753545AbXJZNsV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 09:48:21 -0400
-In-Reply-To: <47211C08.2040601@intel.com>
+Received: from xyzzy.farnsworth.org ([65.39.95.219]:50478 "HELO farnsworth.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751014AbXJZOS3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Oct 2007 10:18:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20071026115909.GI3369@nd47.coderock.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
-> Jeff Garzik wrote:
->> Bill Davidsen wrote:
->>> Adrian Bunk wrote:
->>>> This patch contains the planned removal of the eepro100 driver.
->>>>
->>> Are the e100 people satisfied that e100 now handles all known cases? I 
->> Nope.  There are still e100 work outstanding that means we cannot kill
->> eepro100.
-> 
-> Agreed, there is still a receive unit hang in the last version that I got from
-> David Acker.
-> 
-> Auke
-Yes, I have not had much time to work on it.  :-(
+On Fri, Oct 26, 2007 at 01:59:09PM +0200, Domen Puncer wrote:
+> +static irqreturn_t mpc52xx_fec_tx_interrupt(int irq, void *dev_id)
+> +{
+> +	struct net_device *dev = dev_id;
+> +	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
+> +
+> +	spin_lock(&priv->lock);
+> +
+> +	while (bcom_buffer_done(priv->tx_dmatsk)) {
+> +		struct sk_buff *skb;
+> +		struct bcom_fec_bd *bd;
+> +		skb = bcom_retrieve_buffer(priv->tx_dmatsk, NULL,
+> +				(struct bcom_bd **)&bd);
+> +		/* Here (and in rx routines) would be a good place for
+> +		 * dma_unmap_single(), but bcom doesn't return bcom_bd of the
+> +		 * finished transfer, and _unmap is empty on this platfrom.
+> +		 */
 
-In testing, I was also able to get crashes which I believe are from receive skb corruption.
+Oops, you forgot to remove the above comment.  :)
 
-It doesn't ever appear in our normal use testing, just when using pktgen against it while it uses pktgen out.  Sadly 
-this has pushed it down the slippery priority slope.
+Otherwise,
+Acked-by: Dale Farnsworth <dale@farnsworth.org>
 
-I am sorry if I am holding things up.  I will try to put some more time in on this issue as soon as I can.
+Domen, thanks for all your work on this.  It's good to see it finally go in.
 
--Ack
+-Dale
