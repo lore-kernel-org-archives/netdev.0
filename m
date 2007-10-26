@@ -1,360 +1,97 @@
 From: Laszlo Attila Toth <panther@balabit.hu>
-Subject: [IFGROUPv5 iptables] Interface group match
-Date: Fri, 26 Oct 2007 14:30:33 +0200
-Message-ID: <11934018352773-git-send-email-panther@balabit.hu>
+Subject: [IFGROUPv5 2/3] Interface group: core (netlink) part
+Date: Fri, 26 Oct 2007 14:30:31 +0200
+Message-ID: <11934018353320-git-send-email-panther@balabit.hu>
 References: <11934018353825-git-send-email-panther@balabit.hu>
  <11934018354072-git-send-email-panther@balabit.hu>
- <11934018353320-git-send-email-panther@balabit.hu>
- <11934018354079-git-send-email-panther@balabit.hu>
 Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
 	Laszlo Attila Toth <panther@balabit.hu>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.balabit.hu ([212.92.18.33]:50184 "EHLO lists.balabit.hu"
+Received: from www.balabit.hu ([212.92.18.33]:50191 "EHLO lists.balabit.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752223AbXJZMao (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Oct 2007 08:30:44 -0400
+	id S1752303AbXJZMaq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Oct 2007 08:30:46 -0400
 Received: from balabit.hu (unknown [10.80.0.254])
-	by lists.balabit.hu (Postfix) with ESMTP id ADE93C1196
-	for <netdev@vger.kernel.org>; Fri, 26 Oct 2007 14:30:43 +0200 (CEST)
-In-Reply-To: <11934018354079-git-send-email-panther@balabit.hu>
+	by lists.balabit.hu (Postfix) with ESMTP id 0B6FAC1198
+	for <netdev@vger.kernel.org>; Fri, 26 Oct 2007 14:30:46 +0200 (CEST)
+In-Reply-To: <11934018354072-git-send-email-panther@balabit.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Interface group values can be checked on both input and output interfaces
-with optional mask.
+Interface groups let handle different interfaces together
+especially in netfilter modules.
+Modified net device structure and netlink interface.
 
 Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
 ---
- Makefile                     |    2 
- libip6t_ifgroup.man          |   36 +++++++
- libipt_ifgroup.man           |   36 +++++++
- libxt_ifgroup.c              |  202 +++++++++++++++++++++++++++++++++++++++++++
- linux/netfilter/xt_ifgroup.h |   18 +++
- 5 files changed, 293 insertions(+), 1 deletion(-)
+ include/linux/if_link.h   |    2 ++
+ include/linux/netdevice.h |    2 ++
+ net/core/rtnetlink.c      |   11 +++++++++++
+ 3 files changed, 15 insertions(+), 0 deletions(-)
 
-Index: include/linux/netfilter/xt_ifgroup.h
-===================================================================
---- include/linux/netfilter/xt_ifgroup.h	(revision 0)
-+++ include/linux/netfilter/xt_ifgroup.h	(revision 0)
-@@ -0,0 +1,18 @@
-+#ifndef _XT_IFGROUP_H
-+#define _XT_IFGROUP_H
-+
-+#define XT_IFGROUP_INVERT_IN	0x01
-+#define XT_IFGROUP_INVERT_OUT	0x02
-+#define XT_IFGROUP_MATCH_IN	0x04
-+#define XT_IFGROUP_MATCH_OUT	0x08		
-+
-+struct xt_ifgroup_info {
-+	u_int32_t in_group;
-+	u_int32_t in_mask;
-+	u_int32_t out_group;
-+	u_int32_t out_mask;
-+	u_int8_t flags;
-+};
-+
-+#endif /*_XT_IFGROUP_H*/
-+
-Index: extensions/libxt_ifgroup.c
-===================================================================
---- extensions/libxt_ifgroup.c	(revision 0)
-+++ extensions/libxt_ifgroup.c	(revision 0)
-@@ -0,0 +1,202 @@
-+/* 
-+ * Shared library add-on to iptables to match 
-+ * packets by the incoming interface group.
-+ *
-+ * (c) 2006, 2007 Balazs Scheidler <bazsi@balabit.hu>,
-+ * Laszlo Attila Toth <panther@balabit.hu>
-+ */
-+#include <stdio.h>
-+#include <netdb.h>
-+#include <string.h>
-+#include <stdlib.h>
-+#include <getopt.h>
-+#include <xtables.h>
-+#include <linux/netfilter/xt_ifgroup.h>
-+
-+static void
-+ifgroup_help(void)
-+{
-+	printf(
-+"ifgroup v%s options:\n"
-+"  --ifgroup-in  [!] group[/mask]  incoming interface group and its mask\n"
-+"  --ifgroup-out [!] group[/mask]  outgoing interface group and its mask\n"
-+"\n", IPTABLES_VERSION);
-+}
-+
-+static struct option opts[] = {
-+	{"ifgroup-in", 1, NULL, '1'},
-+	{"ifgroup-out", 1, NULL, '2'},
-+	{ }
-+};
-+
-+#define PARAM_MATCH_IN	0x01
-+#define PARAM_MATCH_OUT	0x02
-+
-+
-+#define IFGROUP_DEFAULT_MASK 0xffffffffU
-+
-+static int
-+ifgroup_parse(int c, char **argv, int invert, unsigned int *flags,
-+	      const void *entry, struct xt_entry_match **match)
-+{
-+	struct xt_ifgroup_info *info =
-+			 (struct xt_ifgroup_info *) (*match)->data;
-+	char *end;
-+
-+	switch (c) {
-+	case '1':
-+		if (*flags & PARAM_MATCH_IN)
-+			exit_error(PARAMETER_PROBLEM,
-+			    "ifgroup match: Can't specify --ifgroup-in twice");
-+
-+		check_inverse(optarg, &invert, &optind, 0);
-+
-+		info->in_group = strtoul(optarg, &end, 0);
-+		info->in_mask = IFGROUP_DEFAULT_MASK;
-+
-+		if (*end == '/')
-+			info->in_mask = strtoul(end+1, &end, 0);
-+
-+		if (*end != '\0' || end == optarg)
-+			exit_error(PARAMETER_PROBLEM,
-+				  "ifgroup match: Bad ifgroup value `%s'", optarg);
-+
-+		if (invert)
-+			info->flags |= XT_IFGROUP_INVERT_IN;
-+
-+		*flags |= PARAM_MATCH_IN;
-+		info->flags |= XT_IFGROUP_MATCH_IN;
-+		break;
-+
-+	case '2':
-+		if (*flags & PARAM_MATCH_OUT)
-+			exit_error(PARAMETER_PROBLEM,
-+			    "ifgroup match: Can't specify --ifgroup-out twice");
-+
-+		check_inverse(optarg, &invert, &optind, 0);
-+
-+		info->out_group = strtoul(optarg, &end, 0);
-+		info->out_mask = IFGROUP_DEFAULT_MASK;
-+
-+		if (*end == '/')
-+			info->out_mask = strtoul(end+1, &end, 0);
-+
-+		if (*end != '\0' || end == optarg)
-+			exit_error(PARAMETER_PROBLEM,
-+			    "ifgroup match: Bad ifgroup value `%s'", optarg);
-+
-+		if (invert)
-+			info->flags |= XT_IFGROUP_INVERT_OUT;
-+
-+		*flags |= PARAM_MATCH_OUT;
-+		info->flags |= XT_IFGROUP_MATCH_OUT;
-+		break;
-+
-+	default: 
-+		return 0;
-+	}
-+
-+	return 1;
-+}
-+
-+static void
-+ifgroup_final_check(unsigned int flags)
-+{
-+	if (!flags)
-+		exit_error(PARAMETER_PROBLEM,
-+		    "You must specify either "
-+		    "`--ifgroup-in' or `--ifgroup-out'");
-+}
-+
-+static void
-+ifgroup_print_value_in(struct xt_ifgroup_info *info)
-+{
-+	printf("0x%x", info->in_group);
-+	if (info->in_mask != IFGROUP_DEFAULT_MASK)
-+		printf("/0x%x", info->in_mask);
-+	printf(" ");
-+}
-+
-+static void
-+ifgroup_print_value_out(struct xt_ifgroup_info *info)
-+{
-+	printf("0x%x", info->out_group);
-+	if (info->out_mask != IFGROUP_DEFAULT_MASK)
-+		printf("/0x%x", info->out_mask);
-+	printf(" ");
-+}
-+
-+static void
-+ifgroup_print(const void *ip,
-+	      const struct xt_entry_match *match,
-+	      int numeric)
-+{
-+	struct xt_ifgroup_info *info =
-+		(struct xt_ifgroup_info *) match->data;
-+
-+	printf("ifgroup ");
-+
-+	if (info->flags & XT_IFGROUP_MATCH_IN) {
-+		printf("in %s",
-+		       info->flags & XT_IFGROUP_INVERT_IN ? "! " : "");
-+		ifgroup_print_value_in(info);
-+	}
-+	if (info->flags & XT_IFGROUP_MATCH_OUT) {
-+		printf("out %s",
-+		       info->flags & XT_IFGROUP_INVERT_OUT ? "! " : "");
-+		ifgroup_print_value_out(info);
-+	}
-+}
-+
-+static void
-+ifgroup_save(const void *ip, const struct xt_entry_match *match)
-+{
-+	struct xt_ifgroup_info *info =
-+		(struct xt_ifgroup_info *) match->data;
-+
-+	if (info->flags & XT_IFGROUP_MATCH_IN) {
-+		printf("%s--ifgroup-in ",
-+		       info->flags & XT_IFGROUP_INVERT_IN ? "! " : "");
-+		ifgroup_print_value_in(info);
-+	}
-+	if (info->flags & XT_IFGROUP_MATCH_OUT) {
-+		printf("%s--ifgroup-out ",
-+		       info->flags & XT_IFGROUP_INVERT_OUT ? "! " : "");
-+		ifgroup_print_value_out(info);
-+	}
-+}
-+
-+static struct xtables_match ifgroup_match = {
-+	.family		= AF_INET,
-+	.name		= "ifgroup",
-+	.version	= IPTABLES_VERSION,
-+	.size		= XT_ALIGN(sizeof(struct xt_ifgroup_info)),
-+	.userspacesize	= XT_ALIGN(sizeof(struct xt_ifgroup_info)),
-+	.help		= ifgroup_help,
-+	.parse		= ifgroup_parse,
-+	.final_check	= ifgroup_final_check,
-+	.print		= ifgroup_print,
-+	.save		= ifgroup_save,
-+	.extra_opts	= opts
-+};
-+
-+static struct xtables_match ifgroup_match6 = {
-+	.family		= AF_INET6,
-+	.name		= "ifgroup",
-+	.version	= IPTABLES_VERSION,
-+	.size		= XT_ALIGN(sizeof(struct xt_ifgroup_info)),
-+	.userspacesize	= XT_ALIGN(sizeof(struct xt_ifgroup_info)),
-+	.help		= ifgroup_help,
-+	.parse		= ifgroup_parse,
-+	.final_check	= ifgroup_final_check,
-+	.print		= ifgroup_print,
-+	.save		= ifgroup_save,
-+	.extra_opts	= opts
-+};
-+
-+void _init(void)
-+{
-+	xtables_register_match(&ifgroup_match);
-+	xtables_register_match(&ifgroup_match6);
-+}
-+
-Index: extensions/Makefile
-===================================================================
---- extensions/Makefile	(revision 7083)
-+++ extensions/Makefile	(working copy)
-@@ -7,7 +7,7 @@
- #
- PF_EXT_SLIB:=ah addrtype conntrack ecn icmp iprange owner policy realm recent tos ttl unclean CLUSTERIP DNAT ECN LOG MASQUERADE MIRROR NETMAP REDIRECT REJECT SAME SNAT TOS TTL ULOG
- PF6_EXT_SLIB:=ah dst eui64 frag hbh hl icmp6 ipv6header mh owner policy rt HL LOG REJECT
--PFX_EXT_SLIB:=connbytes connmark connlimit comment dccp dscp esp hashlimit helper length limit mac mark multiport physdev pkttype quota sctp state statistic standard string tcp tcpmss time u32 udp CLASSIFY CONNMARK DSCP MARK NFLOG NFQUEUE NOTRACK TCPMSS TRACE
-+PFX_EXT_SLIB:=connbytes connmark connlimit comment dccp dscp esp hashlimit helper ifgroup length limit mac mark multiport physdev pkttype quota sctp state statistic standard string tcp tcpmss time u32 udp CLASSIFY CONNMARK DSCP MARK NFLOG NFQUEUE NOTRACK TCPMSS TRACE
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index 84c3492..722b25c 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -79,6 +79,8 @@ enum
+ 	IFLA_LINKINFO,
+ #define IFLA_LINKINFO IFLA_LINKINFO
+ 	IFLA_NET_NS_PID,
++	IFLA_IFGROUP,
++#define IFLA_IFGROUP IFLA_IFGROUP
+ 	__IFLA_MAX
+ };
  
- PF_EXT_SELINUX_SLIB:=
- PF6_EXT_SELINUX_SLIB:=
-Index: extensions/libip6t_ifgroup.man
-===================================================================
---- extensions/libip6t_ifgroup.man	(revision 0)
-+++ extensions/libip6t_ifgroup.man	(revision 0)
-@@ -0,0 +1,36 @@
-+Maches packets on an interface if it is in the same interface group
-+as specified by the
-+.B "--ifgroup-in"
-+or
-+.B "--ifgroup-in"
-+parameter. If a mask is also specified, the masked value of
-+the inteface's group must be equal to the given value of the
-+.B "--ifgroup-in"
-+or
-+.B "--ifgroup-out"
-+parameter to match. This match is available in all tables.
-+.TP
-+.BR "[!] --ifgroup-in \fIgroup[/mask]\fR"
-+This specifies the interface group of input interface and the optional mask.
-+Valid only in the in the
-+.B PREROUTING
-+and
-+.B INPUT
-+and
-+.B FORWARD
-+chains, and user-defined chains which are only called from those
-+chains. 
-+.TP
-+.BR "[!] --ifgroup-out \fIgroup[/mask]\fR"
-+This specifies the interface group of out interface and the optional mask.
-+Valid only in the in the
-+.B FORWARD
-+and
-+.B OUTPUT
-+and
-+.B POSTROUTING
-+chains, and user-defined chains which are only called from those
-+chains. 
-+.RS
-+.PP
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 811024e..e685ae0 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -519,6 +519,8 @@ struct net_device
+ 	/* Interface index. Unique device identifier	*/
+ 	int			ifindex;
+ 	int			iflink;
++	/* interface group this interface belongs to */
++	u_int32_t		ifgroup;
+ 
+ 
+ 	struct net_device_stats* (*get_stats)(struct net_device *dev);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 0e278ac..4a9f738 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -609,6 +609,7 @@ static inline size_t if_nlmsg_size(const struct net_device *dev)
+ 	       + nla_total_size(4) /* IFLA_MTU */
+ 	       + nla_total_size(4) /* IFLA_LINK */
+ 	       + nla_total_size(4) /* IFLA_MASTER */
++	       + nla_total_size(4) /* IFLA_IFGROUP */
+ 	       + nla_total_size(1) /* IFLA_OPERSTATE */
+ 	       + nla_total_size(1) /* IFLA_LINKMODE */
+ 	       + rtnl_link_get_size(dev); /* IFLA_LINKINFO */
+@@ -646,6 +647,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	if (dev->master)
+ 		NLA_PUT_U32(skb, IFLA_MASTER, dev->master->ifindex);
+ 
++	if (dev->ifgroup)
++		NLA_PUT_U32(skb, IFLA_IFGROUP, dev->ifgroup);
 +
-Index: extensions/libipt_ifgroup.man
-===================================================================
---- extensions/libipt_ifgroup.man	(revision 0)
-+++ extensions/libipt_ifgroup.man	(revision 0)
-@@ -0,0 +1,36 @@
-+Maches packets on an interface if it is in the same interface group
-+as specified by the
-+.B "--ifgroup-in"
-+or
-+.B "--ifgroup-in"
-+parameter. If a mask is also specified, the masked value of
-+the inteface's group must be equal to the given value of the
-+.B "--ifgroup-in"
-+or
-+.B "--ifgroup-out"
-+parameter to match. This match is available in all tables.
-+.TP
-+.BR "[!] --ifgroup-in \fIgroup[/mask]\fR"
-+This specifies the interface group of input interface and the optional mask.
-+Valid only in the in the
-+.B PREROUTING
-+and
-+.B INPUT
-+and
-+.B FORWARD
-+chains, and user-defined chains which are only called from those
-+chains. 
-+.TP
-+.BR "[!] --ifgroup-out \fIgroup[/mask]\fR"
-+This specifies the interface group of out interface and the optional mask.
-+Valid only in the in the
-+.B FORWARD
-+and
-+.B OUTPUT
-+and
-+.B POSTROUTING
-+chains, and user-defined chains which are only called from those
-+chains. 
-+.RS
-+.PP
+ 	if (dev->qdisc_sleeping)
+ 		NLA_PUT_STRING(skb, IFLA_QDISC, dev->qdisc_sleeping->ops->id);
+ 
+@@ -885,6 +889,13 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
+ 		}
+ 	}
+ 
++	if (tb[IFLA_IFGROUP]) {
++		if (dev->ifgroup != nla_get_u32(tb[IFLA_IFGROUP])) {
++			dev->ifgroup = nla_get_u32(tb[IFLA_IFGROUP]);
++			modified = 1;
++		}
++	}
 +
+ 	err = 0;
+ 
+ errout:
+-- 
+1.5.2.5
+
