@@ -1,33 +1,36 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH] Remove always-true tests in irq handlers
-Date: Fri, 26 Oct 2007 13:02:13 +0100
-Message-ID: <20071026120213.GA32421@linux-mips.org>
-References: <9799624f63e093aa915947aea8fb1b8a5df959a1.1193390973.git.jeff@garzik.org> <53d6c8049d4c3999a9d33d73e385d6161b5de2b7.1193390974.git.jeff@garzik.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] Remove pointless casts from void pointers,
+Date: Fri, 26 Oct 2007 08:24:47 -0400
+Message-ID: <20071026122447.GA23415@tuxdriver.com>
+References: <9799624f63e093aa915947aea8fb1b8a5df959a1.1193390973.git.jeff@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: LKML <linux-kernel@vger.kernel.org>, akpm@linux-foundation.org,
-	tony.luck@intel.com, linux-ia64@vger.kernel.org,
-	netdev@vger.kernel.org
+	rmk@arm.linux.org.uk, kernel@wantstofly.org, tony.luck@intel.com,
+	jwboyer@linux.vnet.ibm.com, benh@kernel.crashing.org,
+	paulus@samba.org, dmitry.torokhov@gmail.com,
+	netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	linux-serial@vger.kernel.org, linux-wireless@vger.kernel.org,
+	bryan.wu@analog.com, adaplas@gmail.com
 To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-ia64-owner@vger.kernel.org>
-Received: from localhost.localdomain ([127.0.0.1]:2268 "EHLO
-	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
-	id S20027423AbXJZMCT (ORCPT <rfc822;netdev@vger.kernel.org>
-	+ 2 others); Fri, 26 Oct 2007 13:02:19 +0100
+Return-path: <linux-serial-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <53d6c8049d4c3999a9d33d73e385d6161b5de2b7.1193390974.git.jeff@garzik.org>
-Sender: linux-ia64-owner@vger.kernel.org
+In-Reply-To: <9799624f63e093aa915947aea8fb1b8a5df959a1.1193390973.git.jeff@garzik.org>
+Sender: linux-serial-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 26, 2007 at 05:40:24AM -0400, Jeff Garzik wrote:
-
-> In these drivers, dev_id is always non-NULL.
+On Fri, Oct 26, 2007 at 05:40:22AM -0400, Jeff Garzik wrote:
+> mostly in and around irq handlers.
 > 
 > Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
 > ---
->  arch/ia64/hp/sim/simeth.c                   |    5 -----
->  arch/mips/pmc-sierra/msp71xx/msp_hwbutton.c |    5 +----
 
-Acked-by: Ralf Baechle <ralf@linux-mips.org>
+>  drivers/net/wireless/airo.c                |    5 +++--
+>  drivers/net/wireless/hostap/hostap_hw.c    |    2 +-
+>  drivers/net/wireless/libertas/if_cs.c      |    2 +-
 
-  Ralf
+ACK
+
+-- 
+John W. Linville
+linville@tuxdriver.com
