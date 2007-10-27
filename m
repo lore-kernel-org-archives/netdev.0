@@ -1,82 +1,72 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [2.6 patch] always export sysctl_{r,w}mem_max
-Date: Fri, 26 Oct 2007 18:04:22 -0600
-Message-ID: <m1d4v1whh5.fsf@ebiederm.dsl.xmission.com>
-References: <20071026230807.GE30533@stusta.de>
-	<m1zly5wjie.fsf@ebiederm.dsl.xmission.com> <472278E3.4000909@hp.com>
-	<20071026.163958.171785530.davem@davemloft.net>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: [2.6 patch] net/ipv{4,6}/esp{4,6}.c must #include
+	<linux/scatterlist.h>
+Date: Sat, 27 Oct 2007 04:34:48 +0200
+Message-ID: <20071027023448.GP30533@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rick.jones2@hp.com, bunk@kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Jens Axboe <jens.axboe@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:50191 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752349AbXJ0AE5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 20:04:57 -0400
-In-Reply-To: <20071026.163958.171785530.davem@davemloft.net> (David Miller's
-	message of "Fri, 26 Oct 2007 16:39:58 -0700 (PDT)")
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:38428 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751378AbXJ0Ce2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 22:34:28 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+This patch fixes the following compile errors in some configurations:
 
-> From: Rick Jones <rick.jones2@hp.com>
-> Date: Fri, 26 Oct 2007 16:31:47 -0700
->
->> Eric W. Biederman wrote:
->> > Adrian Bunk <bunk@kernel.org> writes:
->> > 
->> > 
->> >>This patch fixes the following build error with CONFIG_SYSCTL=n:
->> >>
->> >><--  snip  -->
->> >>
->> >>...
->> >>ERROR: "sysctl_rmem_max" [fs/dlm/dlm.ko] undefined!
->> >>ERROR: "sysctl_wmem_max" [drivers/net/rrunner.ko] undefined!
->> >>ERROR: "sysctl_rmem_max" [drivers/net/rrunner.ko] undefined!
->> >>make[2]: *** [__modpost] Error 1
->> > 
->> > 
->> > I was going to ask if allowing drivers to increase rmem_max
->> > is something that we want to do.  Apparently the road runner
->> > driver has been doing this since the 2.6.12-rc1 when the
->> > git repository starts so this probably isn't a latent bug.
->> 
->> Although it does rather sound like a driver writer yanking the rope from the 
->> hand's of the sysadmin and hanging him with it rather than letting the
-> sysadmin
->> do it himself.  I've seen other drivers' README's suggesting larger mem's but
->> not their sources doing it.
->
-> I really don't think what the roadrunner driver is doing is
-> correct at all.
->
-> I also think what DLM is doing is wrong too.
->
-> If DLM really wants minimum, it can use SO_SNDBUFFORCE and
-> SO_RCVBUFFORCE socket options and use whatever limits it
-> likes.
->
-> But even this is questionable.
->
-> I'll put in Adrian's patch to fix the build as a first
-> priority, but in the long term this cruft has gotta go.
+<--  snip  -->
 
-As it stands this is a very old build bug.  I believe those
-symbols have always been exported inside of #ifdef CONFIG_SYSCTL.
-
-So if this is really something we want to stop doing we should
-be able to take a few extra moments remove the code from the
-two problem drivers, and remove the exports.
-
-It didn't look like any of the other users could possibly be
-modular.
-
-Eric
+...
+  CC      net/ipv4/esp4.o
+/home/bunk/linux/kernel-2.6/git/linux-2.6/net/ipv4/esp4.c: In function 'esp_output':
+/home/bunk/linux/kernel-2.6/git/linux-2.6/net/ipv4/esp4.c:113: error: implicit declaration of function 'sg_init_table'
+make[3]: *** [net/ipv4/esp4.o] Error 1
+...
+/home/bunk/linux/kernel-2.6/git/linux-2.6/net/ipv6/esp6.c: In function 'esp6_output':
+/home/bunk/linux/kernel-2.6/git/linux-2.6/net/ipv6/esp6.c:112: error: implicit declaration of function 'sg_init_table'
+make[3]: *** [net/ipv6/esp6.o] Error 1
 
 
+<--  snip  -->
 
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
+
+---
+
+ net/ipv4/esp4.c |    2 +-
+ net/ipv6/esp6.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+ecf93220d6af83516dbe04dcd09474a0423ce2ef 
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index ba98401..23b647c 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -3,7 +3,7 @@
+ #include <net/ip.h>
+ #include <net/xfrm.h>
+ #include <net/esp.h>
+-#include <asm/scatterlist.h>
++#include <linux/scatterlist.h>
+ #include <linux/crypto.h>
+ #include <linux/kernel.h>
+ #include <linux/pfkeyv2.h>
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index f67d51a..f8bb136 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -29,7 +29,7 @@
+ #include <net/ip.h>
+ #include <net/xfrm.h>
+ #include <net/esp.h>
+-#include <asm/scatterlist.h>
++#include <linux/scatterlist.h>
+ #include <linux/crypto.h>
+ #include <linux/kernel.h>
+ #include <linux/pfkeyv2.h>
 
