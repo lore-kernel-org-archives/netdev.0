@@ -1,62 +1,76 @@
 From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH 3/5][ATM]: [he] This patch removes the ancient version string.
-Date: Sat, 27 Oct 2007 08:41:40 -0400
-Message-ID: <200710271241.l9RCfeRG002890@cmf.nrl.navy.mil>
+Subject: [PATCH 1/5][ATM]: atm is no longer experimental
+Date: Sat, 27 Oct 2007 08:37:17 -0400
+Message-ID: <200710271237.l9RCbHvl002811@cmf.nrl.navy.mil>
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:51170 "EHLO
 	ginger.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755083AbXJ0NXH (ORCPT
+	with ESMTP id S1755175AbXJ0NXH (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 27 Oct 2007 09:23:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit 41d6b7e20dd6d57bec4f14697f654c8211ff5d57
-Author: Adrian Bunk <bunk@stusta.de>
-Date:   Fri Oct 26 07:29:47 2007 -0400
+commit f57512af6142cf14bd15012c4c627f9ebef0582a
+Author: Robert P. J. Day <rpjday@mindspring.com>
+Date:   Fri Oct 26 07:27:07 2007 -0400
 
-    [ATM]: [he] This patch removes the ancient version string.
+    [ATM]: atm is no longer experimental
     
-    Signed-off-by: Adrian Bunk <bunk@stusta.de>
+    From: Robert P. J. Day <rpjday@mindspring.com>
     Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
-diff --git a/drivers/atm/he.c b/drivers/atm/he.c
-index d33aba6..4f1c7e6 100644
---- a/drivers/atm/he.c
-+++ b/drivers/atm/he.c
-@@ -1,5 +1,3 @@
--/* $Id: he.c,v 1.18 2003/05/06 22:57:15 chas Exp $ */
--
- /*
+diff --git a/net/atm/Kconfig b/net/atm/Kconfig
+index 21ff276..754ea10 100644
+--- a/net/atm/Kconfig
++++ b/net/atm/Kconfig
+@@ -1,10 +1,9 @@
+ #
+-# Asynchronous Transfer Mode (ATM) (EXPERIMENTAL)
++# Asynchronous Transfer Mode (ATM)
+ #
  
-   he.c
-@@ -99,10 +97,6 @@
- #define HPRINTK(fmt,args...)	do { } while (0)
- #endif /* HE_DEBUG */
+ config ATM
+-	tristate "Asynchronous Transfer Mode (ATM) (EXPERIMENTAL)"
+-	depends on EXPERIMENTAL
++	tristate "Asynchronous Transfer Mode (ATM)"
+ 	---help---
+ 	  ATM is a high-speed networking technology for Local Area Networks
+ 	  and Wide Area Networks.  It uses a fixed packet size and is
+@@ -20,7 +19,7 @@ config ATM
+ 	  further details.
  
--/* version definition */
--
--static char *version = "$Id: he.c,v 1.18 2003/05/06 22:57:15 chas Exp $";
--
- /* declarations */
+ config ATM_CLIP
+-	tristate "Classical IP over ATM (EXPERIMENTAL)"
++	tristate "Classical IP over ATM"
+ 	depends on ATM && INET
+ 	help
+ 	  Classical IP over ATM for PVCs and SVCs, supporting InARP and
+@@ -29,7 +28,7 @@ config ATM_CLIP
+ 	  (LANE)" below.
  
- static int he_open(struct atm_vcc *vcc);
-@@ -366,7 +360,7 @@ he_init_one(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
- 	struct he_dev *he_dev = NULL;
- 	int err = 0;
+ config ATM_CLIP_NO_ICMP
+-	bool "Do NOT send ICMP if no neighbour (EXPERIMENTAL)"
++	bool "Do NOT send ICMP if no neighbour"
+ 	depends on ATM_CLIP
+ 	help
+ 	  Normally, an "ICMP host unreachable" message is sent if a neighbour
+@@ -39,7 +38,7 @@ config ATM_CLIP_NO_ICMP
+ 	  such neighbours are silently discarded instead.
  
--	printk(KERN_INFO "he: %s\n", version);
-+	printk(KERN_INFO "ATM he driver\n");
+ config ATM_LANE
+-	tristate "LAN Emulation (LANE) support (EXPERIMENTAL)"
++	tristate "LAN Emulation (LANE) support"
+ 	depends on ATM
+ 	help
+ 	  LAN Emulation emulates services of existing LANs across an ATM
+@@ -48,7 +47,7 @@ config ATM_LANE
+ 	  ELAN and Ethernet segments. You need LANE if you want to try MPOA.
  
- 	if (pci_enable_device(pci_dev))
- 		return -EIO;
-@@ -2933,7 +2927,7 @@ he_proc_read(struct atm_dev *dev, loff_t *pos, char *page)
- 
- 	left = *pos;
- 	if (!left--)
--		return sprintf(page, "%s\n", version);
-+		return sprintf(page, "ATM he driver\n");
- 
- 	if (!left--)
- 		return sprintf(page, "%s%s\n\n",
+ config ATM_MPOA
+-	tristate "Multi-Protocol Over ATM (MPOA) support (EXPERIMENTAL)"
++	tristate "Multi-Protocol Over ATM (MPOA) support"
+ 	depends on ATM && INET && ATM_LANE!=n
+ 	help
+ 	  Multi-Protocol Over ATM allows ATM edge devices such as routers,
