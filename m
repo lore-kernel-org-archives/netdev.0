@@ -1,45 +1,82 @@
-From: David Miller <davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: [2.6 patch] always export sysctl_{r,w}mem_max
-Date: Fri, 26 Oct 2007 16:52:35 -0700 (PDT)
-Message-ID: <20071026.165235.124016148.davem@davemloft.net>
-References: <472278E3.4000909@hp.com>
+Date: Fri, 26 Oct 2007 18:04:22 -0600
+Message-ID: <m1d4v1whh5.fsf@ebiederm.dsl.xmission.com>
+References: <20071026230807.GE30533@stusta.de>
+	<m1zly5wjie.fsf@ebiederm.dsl.xmission.com> <472278E3.4000909@hp.com>
 	<20071026.163958.171785530.davem@davemloft.net>
-	<47227C5C.1070507@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, bunk@kernel.org, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: rick.jones2@hp.com, bunk@kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: rick.jones2@hp.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34386
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751817AbXJZXwd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 19:52:33 -0400
-In-Reply-To: <47227C5C.1070507@hp.com>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:50191 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752349AbXJ0AE5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2007 20:04:57 -0400
+In-Reply-To: <20071026.163958.171785530.davem@davemloft.net> (David Miller's
+	message of "Fri, 26 Oct 2007 16:39:58 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Fri, 26 Oct 2007 16:46:36 -0700
+David Miller <davem@davemloft.net> writes:
 
-> David Miller wrote:
-> > If DLM really wants minimum, it can use SO_SNDBUFFORCE and
-> > SO_RCVBUFFORCE socket options and use whatever limits it
-> > likes.
-> > 
-> > But even this is questionable.
-> 
-> Drift...
-> 
-> Is that something netperf should be using though?  Right now it uses the regular 
-> SO_[SND|RCV]BUF calls and is at the mercy of sysctls.  I wonder if it would be 
-> better to have it use their FORCE versions to make life easier on the 
-> benchmarker - such as myself - who has an unfortunate habit of forgetting to 
-> update sysctl.conf :)
+> From: Rick Jones <rick.jones2@hp.com>
+> Date: Fri, 26 Oct 2007 16:31:47 -0700
+>
+>> Eric W. Biederman wrote:
+>> > Adrian Bunk <bunk@kernel.org> writes:
+>> > 
+>> > 
+>> >>This patch fixes the following build error with CONFIG_SYSCTL=n:
+>> >>
+>> >><--  snip  -->
+>> >>
+>> >>...
+>> >>ERROR: "sysctl_rmem_max" [fs/dlm/dlm.ko] undefined!
+>> >>ERROR: "sysctl_wmem_max" [drivers/net/rrunner.ko] undefined!
+>> >>ERROR: "sysctl_rmem_max" [drivers/net/rrunner.ko] undefined!
+>> >>make[2]: *** [__modpost] Error 1
+>> > 
+>> > 
+>> > I was going to ask if allowing drivers to increase rmem_max
+>> > is something that we want to do.  Apparently the road runner
+>> > driver has been doing this since the 2.6.12-rc1 when the
+>> > git repository starts so this probably isn't a latent bug.
+>> 
+>> Although it does rather sound like a driver writer yanking the rope from the 
+>> hand's of the sysadmin and hanging him with it rather than letting the
+> sysadmin
+>> do it himself.  I've seen other drivers' README's suggesting larger mem's but
+>> not their sources doing it.
+>
+> I really don't think what the roadrunner driver is doing is
+> correct at all.
+>
+> I also think what DLM is doing is wrong too.
+>
+> If DLM really wants minimum, it can use SO_SNDBUFFORCE and
+> SO_RCVBUFFORCE socket options and use whatever limits it
+> likes.
+>
+> But even this is questionable.
+>
+> I'll put in Adrian's patch to fix the build as a first
+> priority, but in the long term this cruft has gotta go.
 
-The force calls are for root only.
+As it stands this is a very old build bug.  I believe those
+symbols have always been exported inside of #ifdef CONFIG_SYSCTL.
 
-And I want to remind you that explicitly setting socket
-buffer sizes hurts performance with TCP.  I know you know
-this but it bears restating for the benefit of others.
+So if this is really something we want to stop doing we should
+be able to take a few extra moments remove the code from the
+two problem drivers, and remove the exports.
+
+It didn't look like any of the other users could possibly be
+modular.
+
+Eric
+
+
+
+
