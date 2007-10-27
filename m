@@ -1,41 +1,33 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: [PATCH] tcp v6: fix softnet build breakage
-Date: Fri, 26 Oct 2007 23:42:40 -0400
-Message-ID: <20071027034240.GA13016@havoc.gtf.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp v6: fix softnet build breakage
+Date: Fri, 26 Oct 2007 22:53:23 -0700 (PDT)
+Message-ID: <20071026.225323.63281567.davem@davemloft.net>
+References: <20071027034240.GA13016@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:37794 "EHLO havoc.gtf.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751001AbXJ0Dml (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Oct 2007 23:42:41 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46805
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750894AbXJ0FxV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Oct 2007 01:53:21 -0400
+In-Reply-To: <20071027034240.GA13016@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Jeff Garzik <jeff@garzik.org>
+Date: Fri, 26 Oct 2007 23:42:40 -0400
 
-net/ipv6/tcp_ipv6.c: In function 'tcp_v6_rcv':
-net/ipv6/tcp_ipv6.c:1736: error: implicit declaration of function
-'get_softnet_dma'
-net/ipv6/tcp_ipv6.c:1736: warning: assignment makes pointer from integer
-without a cast
+> 
+> net/ipv6/tcp_ipv6.c: In function 'tcp_v6_rcv':
+> net/ipv6/tcp_ipv6.c:1736: error: implicit declaration of function
+> 'get_softnet_dma'
+> net/ipv6/tcp_ipv6.c:1736: warning: assignment makes pointer from integer
+> without a cast
+> 
+> Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
 
-Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
----
-
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 06fa4ba..8520802 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -59,6 +59,7 @@
- #include <net/snmp.h>
- #include <net/dsfield.h>
- #include <net/timewait_sock.h>
-+#include <net/netdma.h>
- 
- #include <asm/uaccess.h>
- 
+Applied, thanks Jeff.
