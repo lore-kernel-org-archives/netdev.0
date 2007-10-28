@@ -1,57 +1,45 @@
-From: Roman Zippel <zippel@linux-m68k.org>
-Subject: Re: [PATCH] proc_fs.h redux
-Date: Sun, 28 Oct 2007 19:58:22 +0200
-Message-ID: <200710281858.23705.zippel@linux-m68k.org>
-References: <20071027194758.GD9816@martell.zuzino.mipt.ru> <1193524804.26695.103.camel@localhost> <20071028103415.GA12554@flint.arm.linux.org.uk>
+From: "Glenn Grundstrom" <ggrundstrom@NetEffect.com>
+Subject: [ofa-general] RE: [PATCH 1/14 v2] nes: module and device
+	initialization
+Date: Sun, 28 Oct 2007 13:21:30 -0500
+Message-ID: <5E701717F2B2ED4EA60F87C8AA57B7CC078C9670@venom2>
+References: <200710192001.l9JK1U8O021689@neteffect.com>
+	<adatzodxxxw.fsf@cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>,
-	Alexey Dobriyan <adobriyan@gmail.com>, akpm@osdl.org,
-	torvalds@osdl.org, viro@zeniv.linux.org.uk,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arch@vger.kernel.org
-To: Russell King <rmk+lkml@arm.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from scrub.xs4all.nl ([194.109.195.176]:2206 "EHLO scrub.xs4all.nl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752239AbXJ1R72 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Oct 2007 13:59:28 -0400
-In-Reply-To: <20071028103415.GA12554@flint.arm.linux.org.uk>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, ewg@lists.openfabrics.org,
+	general@lists.openfabrics.org
+To: "Roland Dreier" <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <adatzodxxxw.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+>=20
+> OK, on a process level, my plan is to pull the current driver into a
+> "neteffect" branch in my git tree with the intention of merging it for
+> 2.6.25.  I'll let you know when that's ready (probably early next
+> week).  I'll probably do some cleanups there, and you can send me
+> cleanup/fix patches against that branch any time too.  We should try
+> to keep the cycle time short: the interval between the first posting
+> of this driver and the current one was pretty long, and there's a lot
+> of cleanup to do to get ready for the next merge window.  Does that
+> plan make sense?
+>=20
+>  - R.
+>=20
 
-On Sunday 28 October 2007, Russell King wrote:
+Thanks Roland.  Let me know when you have your branch ready.
 
-> On Sat, Oct 27, 2007 at 03:40:04PM -0700, Joe Perches wrote:
-> > and forward declarations of
-> >
-> > struct proc_dir_entry;
-> > struct file_operations;
-> >
-> > As a general rule, I think it better to use includes
-> > than use naked forward declarations.
->
-> If you go down that route, you end up with _lots_ of circular
-> dependencies - header file X needs Y needs Z which needs X.  We've
-> been there, several times.  It very quickly becomes quite
-> unmaintainable - you end up with hard to predict behaviour from
-> include files.
->
-> The only realistic solution is to use forward declarations.
-
-It's unfortunately more complicated than that. What basically needs to be done 
-is to separate declarations from its users (usually inline functions). The 
-problem is to correctly pull the declarations from the <asm/...> and 
-<linux/...> header in the correct order. A typical mistake is to put 
-declarations and inline functions in the same linux header and then include 
-some additional from an asm header. For most high level header it's not much 
-of a problem, but let's take <linux/list.h> as example. struct list_head is 
-used everywhere, but just to get this one definition one also gets quite a 
-few other dependencies as well.
-
-bye, Roman
+Glenn.
