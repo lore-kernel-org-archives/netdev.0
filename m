@@ -1,129 +1,120 @@
 From: Corey Hickey <bugfood-ml@fatooh.org>
-Subject: [PATCH 3/3] Use nested compat attributes for passing parameters to the kernel.
-Date: Mon, 29 Oct 2007 00:24:47 -0700
-Message-ID: <1193642687-1272-4-git-send-email-bugfood-ml@fatooh.org>
-References: <1193642687-1272-1-git-send-email-bugfood-ml@fatooh.org>
-Cc: Corey Hickey <bugfood-ml@fatooh.org>
+Subject: Re: [PATCH 8/8] Use nested compat attributes to pass parameters.
+Date: Mon, 29 Oct 2007 00:27:29 -0700
+Message-ID: <47258B61.1000901@fatooh.org>
+References: <1193642587-32657-1-git-send-email-bugfood-ml@fatooh.org> <1193642587-32657-9-git-send-email-bugfood-ml@fatooh.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hot.fatooh.org ([208.78.103.127]:50400 "EHLO hot.fatooh.org"
+Received: from hot.fatooh.org ([208.78.103.127]:50461 "EHLO hot.fatooh.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751918AbXJ2HYu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Oct 2007 03:24:50 -0400
-In-Reply-To: <1193642687-1272-1-git-send-email-bugfood-ml@fatooh.org>
+	id S1751099AbXJ2H1b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Oct 2007 03:27:31 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by hot.fatooh.org (Postfix) with ESMTP id D166317C231
+	for <netdev@vger.kernel.org>; Mon, 29 Oct 2007 02:27:30 -0500 (CDT)
+Received: from hot.fatooh.org ([127.0.0.1])
+	by localhost (hot.fatooh.org [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id IDs8zygVmeZj for <netdev@vger.kernel.org>;
+	Mon, 29 Oct 2007 02:27:30 -0500 (CDT)
+Received: from [10.1.0.0] (c-24-7-71-25.hsd1.ca.comcast.net [24.7.71.25])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by hot.fatooh.org (Postfix) with ESMTP id 4E83217C094
+	for <netdev@vger.kernel.org>; Mon, 29 Oct 2007 02:27:30 -0500 (CDT)
+In-Reply-To: <1193642587-32657-9-git-send-email-bugfood-ml@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Note that I have left sfq_print_opt() alone. At this point, there
-can be no difference between the data in the nested rtattrs and the
-data in the compat rtattr, and I didn't want to add clutter that
-isn't useful. Let me know if I should do differently.
+Corey Hickey wrote:
+> +/* SFQ parameters exist as individual rtattr attributes, with a nested
+> + * "struct tc_sfq_qopt" for compatibility with older userspace tools. If an
+> + * individual attribute is set, we want to use it; otherwise, fall back to the
+> + * nested struct.
+> + * There is one caveat: if a member of the nested struct is 0, we cannot
+> + * determine if that parameter is supposed to be 0 or if it is merely unset.
+> + * So, only set a parameter if the corresponding struct member (u32 compat) is
+> + * nonzero. When setting a parameter to 0, it is necessary to use the
+> + * individual attribute. */
+> +static inline int
+> +sfq_get_parameter(u32 *dst, struct rtattr *tb[TCA_SFQ_MAX], int attr,
+> +		  u32 compat)
+> +{
+> +	struct rtattr *rta = tb[(attr - 1)];
+> +	if (rta)
+> +		*dst = RTA_GET_U32(rta);
+> +	else if (compat)
+> +		*dst = compat;
+> +
+> +	rtattr_failure:
+> +		return -EINVAL;
+> +}
+> +	
+>  static int
+>  sfq_q_init(struct sfq_sched_data *q, struct rtattr *opt)
+>  {
+> @@ -465,21 +488,24 @@ sfq_q_init(struct sfq_sched_data *q, struct rtattr *opt)
+>  	 * the previous values (sfq_change). So, overwrite the parameters as
+>  	 * specified. */
+>  	if (opt) {
+> -		struct tc_sfq_qopt *ctl = RTA_DATA(opt);
+> -
+> -		if (opt->rta_len < RTA_LENGTH(sizeof(*ctl)))
+> -			return -EINVAL;
+> -
+> -		if (ctl->quantum)
+> -			q->quantum = ctl->quantum;
+> -		if (ctl->perturb_period)
+> -			q->perturb_period = ctl->perturb_period;
+> -		if (ctl->divisor)
+> -			q->hash_divisor = ctl->divisor;
+> -		if (ctl->flows)
+> -			q->depth = ctl->flows;
+> -		if (ctl->limit)
+> -			q->limit = ctl->limit;
+> +		struct tc_sfq_qopt *ctl;
+> +		struct rtattr *tb[TCA_SFQ_MAX];
+> +
+> +		if (rtattr_parse_nested_compat(tb, TCA_SFQ_MAX, opt, ctl,
+> +				sizeof(*ctl)))
+> +			goto rtattr_failure;
+> +
+> +		if (sfq_get_parameter(&(q->quantum),        tb, TCA_SFQ_QUANTUM,
+> +				ctl->quantum)        ||
+> +		    sfq_get_parameter(&(q->perturb_period), tb, TCA_SFQ_PERTURB,
+> +				ctl->perturb_period) ||
+> +		    sfq_get_parameter(&(q->hash_divisor),   tb, TCA_SFQ_DIVISOR,
+> +				ctl->divisor)        ||
+> +		    sfq_get_parameter(&(q->depth),          tb, TCA_SFQ_FLOWS,
+> +				ctl->flows)          ||
+> +		    sfq_get_parameter(&(q->limit),          tb, TCA_SFQ_LIMIT,
+> +				ctl->limit))
+> +			goto rtattr_failure;
+>  
 
-Signed-off-by: Corey Hickey <bugfood-ml@fatooh.org>
----
- include/linux/pkt_sched.h |   14 ++++++++++++++
- tc/q_sfq.c                |   18 ++++++++++++++++--
- 2 files changed, 30 insertions(+), 2 deletions(-)
+You may note that this part ended up being rather ugly, and I wouldn't
+blame anyone for wanting it to be improved. I don't see any good
+solutions; the alternatives I can provide are:
 
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index fb04a89..aad04eb 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -148,6 +148,20 @@ struct tc_sfq_qopt
- 	unsigned	flows;		/* Maximal number of flows  */
- };
- 
-+enum
-+{
-+	TCA_SFQ_UNSPEC,
-+	TCA_SFQ_COMPAT,
-+	TCA_SFQ_QUANTUM,
-+	TCA_SFQ_PERTURB,
-+	TCA_SFQ_LIMIT,
-+	TCA_SFQ_DIVISOR,
-+	TCA_SFQ_FLOWS,
-+	__TCA_SFQ_MAX,
-+};
-+
-+#define TCA_SFQ_MAX (__TCA_SFQ_MAX - 1)
-+
- /* RED section */
- 
- enum
-diff --git a/tc/q_sfq.c b/tc/q_sfq.c
-index 83c8a54..69f17c8 100644
---- a/tc/q_sfq.c
-+++ b/tc/q_sfq.c
-@@ -34,9 +34,13 @@ static int sfq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
- {
- 	int ok=0;
- 	struct tc_sfq_qopt opt;
-+	struct rtattr *nest;
- 
- 	memset(&opt, 0, sizeof(opt));
- 
-+	/* put blank data in rtattr so there is a "hole" to fill later */
-+	nest = addattr_nest_compat(n, 1024, TCA_OPTIONS, &opt, sizeof(opt));
-+
- 	while (argc > 0) {
- 		if (strcmp(*argv, "quantum") == 0) {
- 			NEXT_ARG();
-@@ -44,6 +48,7 @@ static int sfq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
- 				fprintf(stderr, "Illegal \"limit\"\n");
- 				return -1;
- 			}
-+			addattr32(n, 1024, TCA_SFQ_QUANTUM, opt.quantum);
- 			ok++;
- 		} else if (strcmp(*argv, "perturb") == 0) {
- 			NEXT_ARG();
-@@ -51,6 +56,7 @@ static int sfq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
- 				fprintf(stderr, "Illegal \"perturb\"\n");
- 				return -1;
- 			}
-+			addattr32(n, 1024, TCA_SFQ_PERTURB, opt.perturb_period);
- 			ok++;
- 		} else if (strcmp(*argv, "limit") == 0) {
- 			NEXT_ARG();
-@@ -62,6 +68,7 @@ static int sfq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
- 				fprintf(stderr, "Illegal \"limit\", must be > 1\n");
- 				return -1;
- 			}
-+			addattr32(n, 1024, TCA_SFQ_LIMIT, opt.limit);
- 			ok++;
- 		} else if (strcmp(*argv, "depth") == 0) {
- 			NEXT_ARG();
-@@ -69,6 +76,7 @@ static int sfq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
- 				fprintf(stderr, "Illegal \"depth\"\n");
- 				return -1;
- 			}
-+			addattr32(n, 1024, TCA_SFQ_FLOWS, opt.flows);
- 			ok++;
- 		} else if (strcmp(*argv, "divisor") == 0) {
- 			NEXT_ARG();
-@@ -80,6 +88,7 @@ static int sfq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
- 				fprintf(stderr, "Illegal \"divisor\", must be < 15\n");
- 				return -1;
- 			}
-+			addattr32(n, 1024, TCA_SFQ_DIVISOR, opt.divisor);
- 			ok++;
- 		} else if (strcmp(*argv, "help") == 0) {
- 			explain();
-@@ -92,8 +101,13 @@ static int sfq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
- 		argc--; argv++;
- 	}
- 
--	if (ok)
--		addattr_l(n, 1024, TCA_OPTIONS, &opt, sizeof(opt));
-+	if (ok) {
-+		/* fill the "hole" we left earlier with real compat data */
-+		memcpy(RTA_DATA(nest), &opt, sizeof(opt));
-+		addattr_nest_compat_end(n, nest);
-+	}
-+	else
-+		nest->rta_len = 0;
- 	return 0;
- }
- 
--- 
-1.5.3.4
+1. Use a macro, as I had originally written for this patch:
+http://marc.info/?l=linux-netdev&m=119102007907626&w=2
+(search for GET_PARAM)
+The macro itself doesn't look pretty, but the usage is fairly clean.
 
+2. Use neither macro nor function.
+There would be five repetitions of very similar code, with five lines
+per repetition: not very nice, but the formatting would still look better.
+
+3. Only use a separate rtattr for perturb, since the other parameters
+work fine already. From the start, I had wanted to keep parameter
+parsing consistent, but it may not be worth it. This would definitely be
+the cleanest approach for readability, and the most simple.
+
+
+Sorry to bother you with such a superficial problem, but I really don't
+know what would be preferable.
+
+Thanks,
+Corey
