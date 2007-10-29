@@ -1,52 +1,32 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: e1000 and ICH9 hardware
-Date: Mon, 29 Oct 2007 09:19:48 -0700
-Message-ID: <47260824.9070109@intel.com>
-References: <4725E125.4030103@gentoo.org> <4725F212.2030103@garzik.org>
-	<472603F7.8060802@juniper.net>
+From: Giacomo Catenazzi <cate@debian.org>
+Subject: Re: last git: BUG: unable to handle kernel paging request at virtual
+ address 92184900
+Date: Mon, 29 Oct 2007 18:35:58 +0100
+Message-ID: <472619FE.80309@debian.org>
+References: <471E45B4.9050504@debian.org> <20071029011148.76ae8dd4.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, Daniel Drake <dsd@gentoo.org>,
-	Jeff Garzik <jeff@garzik.org>, netdev <netdev@vger.kernel.org>
-To: "David A. Ranch" <dranch@juniper.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <472603F7.8060802@juniper.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759507AbXJ2RgY@vger.kernel.org>
+In-Reply-To: <20071029011148.76ae8dd4.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David A. Ranch wrote:
->>> e1000 is being frozen in time as "pre-PCI Express e1000's".
->>   
-> Asking the question a different way, will the current e1000 driver 
-> continue to get new features, performance / power / optimization tweaks, 
-> etc. or is most of the primary development be moving only on the e1000e kit?
+Andrew Morton wrote:
+> On Tue, 23 Oct 2007 21:04:20 +0200 Giacomo Catenazzi <cate@debian.org> wrote:
+> 
+>> Oct 23 20:20:05 catee kernel: BUG: unable to handle kernel paging request at virtual address 92184900
+> 
+> Is this still happening in the latest Linus tree?
+> 
+> If so, please send some more oops traces so we can see if it's always happening
+> in the same place.
 
-the ultimate goal is to move all the pci-express hardware support over to e1000e.
+No, since few days I didn't have kernel crashes, so I think the
+bug was solved.
 
-since the pci/pci-x generation e1000 chipsets do not have nearly the amount of
-features that the pci-e silicon has, you can expect the e1000 driver to be
-significantly stripped down.
-
-We do however want to keep any feature that is supported for the pci/pci-x
-hardware in e1000 active. we will not disable TSO for instance. As for other
-features we will decide whatever makes best sense for the hardware. (e.g. none of
-the 8254x chipsets support multiple queues).
-
-All of the primary development of features will focus on e1000e.
-
-Auke
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >> http://get.splunk.com/
+ciao
+	cate
