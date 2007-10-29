@@ -1,71 +1,48 @@
-From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Subject: Re: [PATCH] proc_fs.h redux
-Date: Mon, 29 Oct 2007 11:03:04 -0200
-Message-ID: <20071029130304.GA7810@ghostprotocols.net>
-References: <20071027194758.GD9816@martell.zuzino.mipt.ru> <1193524804.26695.103.camel@localhost> <20071028084441.GA24221@uranus.ravnborg.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Oops in 2.6.21-rc4, 2.6.23
+Date: Mon, 29 Oct 2007 14:13:48 +0100
+Message-ID: <20071029131348.GA2999@ff.dom.local>
+References: <20071015173956.6c554387@beavis.confused.org> <20071029084232.GA2280@ff.dom.local> <20071029.014147.56411400.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>,
-	Alexey Dobriyan <adobriyan@gmail.com>, akpm@osdl.org,
-	torvalds@osdl.org, viro@zeniv.linux.org.uk,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arch@vger.kernel.org
-To: Sam Ravnborg <sam@ravnborg.org>
+Cc: darko.koruga@siol.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.247]:65486 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752279AbXJ2NDS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 09:03:18 -0400
-Received: by an-out-0708.google.com with SMTP id b36so201155ana
-        for <netdev@vger.kernel.org>; Mon, 29 Oct 2007 06:03:17 -0700 (PDT)
+Received: from mx2.go2.pl ([193.17.41.42]:51871 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752654AbXJ2NKU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Oct 2007 09:10:20 -0400
 Content-Disposition: inline
-In-Reply-To: <20071028084441.GA24221@uranus.ravnborg.org>
+In-Reply-To: <20071029.014147.56411400.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Sun, Oct 28, 2007 at 09:44:41AM +0100, Sam Ravnborg escreveu:
+On Mon, Oct 29, 2007 at 01:41:47AM -0700, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@o2.pl>
+> Date: Mon, 29 Oct 2007 09:42:32 +0100
+> 
+> > I hope you've found this by yourself by now, but:
 > > 
-> > As a general rule, I think it better to use includes
-> > than use naked forward declarations.
+> > 1. These are warnings only - not oopses.
+> > 2. It seems this patch you've found to be responsible for this all
+> > slightly changes some limits, which is not necessarily wrong; the
+> > lucky thing is you can change these limits with sysctl or some
+> > echos to /proc/sys/net/ipv4/tcp_mem, I presume. (Or more safely by
+> > adding some memory.)
 > 
-> Quite the opposite - at least in the kernel source.
-> The general rule is that a .h file shall include the
-> .h files which contain declarations used by said .h files.
-> But naked declarations as above is preferred over including
-> a full header file.
+> Actually, this was caused by a real bug in the SKB_WITH_OVERHEAD macro
+> definition, which Herbert Xu quickly spotted and fixed.
 
-yup
- 
-> We see the full header dependency thing to blow off when
-> inline function are used - which is more and more the case.
-> In several cases we have converted inline functions to macros
-> just to simplify the nightmare of header dependencies we have.
+But, since Darko has found this other patch matters for him too, maybe
+there could be more than one cause to 'blame' for such differences
+from 2.6.20 (maybe it's not all yet) - especially if it's all around
+some limits.
+
 > 
-> Arnaldo have a nice script that generate a .ps file
-> showing all the dependencies.
-> He lately posted this URL: http://oops.ghostprotocols.net:81/acme/tcp.h.ps
+> Which "I hope you've found this by yourself by now".
+> 
 
-Well, not "lately", it has been quite a while. But lets celebrate the
-fact that there is somebody trying to fight this battle one more time
-and update this tcp.h dependency tree... /me looks for hviz... and if
-graphviz is installed, ok:
+I think it's unfair! Darko got 2 weeks for thinking about this all...
 
-http://www.kernel.org/pub/linux/kernel/people/acme/hviz
-
-hviz include/linux/tcp.h 10 | dot -Tpdf > /tmp/tcp.h.2007_11.pdf
-
-http://oops.ghostprotocols.net:81/acme/tcp.h.2007_11.pdf
-
-We still get to sched.h, but before it was:
-
-linux/tcp.h -> linux/skbuff.h -> linux/mm.h -> linux/sched.h
-
-Nowadays its:
-
-linux/tcp.h -> linux/sock.h -> linux/netdevice.h -> linux/interrupt.h -> linux/sched.h
-
-And I just removed "#include <linux/sched.h> from linux/interrupt.h,
-because as far as I checked it is completely unnecessary, and the
-kernel builds just fine :-)
-
-- Arnaldo
+Thanks,
+Jarek P.
