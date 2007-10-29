@@ -1,30 +1,39 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: Configuring the same IP on multiple addresses
-Date: Mon, 29 Oct 2007 12:36:19 -0700
-Message-ID: <OFF06924F1.9917F90F-ON88257383.006B3289-88257383.006B98D2@us.ibm.com>
-References: <47262079.90507@hp.com>
+From: Jan Engelhardt <jengelh@computergmbh.de>
+Subject: Re: [PATCH 2/2] netdrvr/ibmlana: move away from legacy MCA API
+Date: Mon, 29 Oct 2007 20:39:51 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0710292039020.26070@fbirervta.pbzchgretzou.qr>
+References: <47dcd058deaaf90802c720df243f5c8b26ed9de3.1193686354.git.jeff@garzik.org>
+ <cbe6f335b6d7f4199e235a4925d1c931dd512fe5.1193686354.git.jeff@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev <netdev@vger.kernel.org>, netdev-owner@vger.kernel.org
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:60774 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751551AbXJ2Tgc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 15:36:32 -0400
-In-Reply-To: <47262079.90507@hp.com>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:57493 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752511AbXJ2Tjw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 15:39:52 -0400
+In-Reply-To: <cbe6f335b6d7f4199e235a4925d1c931dd512fe5.1193686354.git.jeff@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netdev-owner@vger.kernel.org wrote on 10/29/2007 11:03:37 AM:
 
-> So, I am looking for technical reasons why this is permitted.
+On Oct 29 2007 15:33, Jeff Garzik wrote:
+> 
+>+#if 0 /* info available elsewhere, but this is kept for reference */
 
-Vlad,
-        Is there a technical reason to disallow it? Rather than
-anticipate all the possible uses for a machine, it's, of course,
-generally better to restrict only the things you know can't
-work, and allow everything else.
+It is available in the git history, yes, is it still needed for reference?
 
-                                                        +-DLS
+>+static short ibmlana_adapter_ids[] __initdata = {
+>+	IBM_LANA_ID,
+>+	0x0000
+>+};
+>+
+>+static char *ibmlana_adapter_names[] __initdata = {
+>+	"IBM LAN Adapter/A",
+>+	NULL
+>+};
+
+Can this be const?
 
