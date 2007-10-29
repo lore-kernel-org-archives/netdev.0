@@ -1,46 +1,71 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [UDP6]: Restore sk_filter optimisation
-Date: Mon, 29 Oct 2007 20:53:28 +0800
-Message-ID: <20071029125328.GA5453@gondor.apana.org.au>
-References: <20070306012010.GA25763@gondor.apana.org.au> <20071029153320.d2c00f62.mitch@linux.vnet.ibm.com>
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Subject: Re: [PATCH] proc_fs.h redux
+Date: Mon, 29 Oct 2007 11:03:04 -0200
+Message-ID: <20071029130304.GA7810@ghostprotocols.net>
+References: <20071027194758.GD9816@martell.zuzino.mipt.ru> <1193524804.26695.103.camel@localhost> <20071028084441.GA24221@uranus.ravnborg.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
+Cc: Joe Perches <joe@perches.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>, akpm@osdl.org,
+	torvalds@osdl.org, viro@zeniv.linux.org.uk,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arch@vger.kernel.org
+To: Sam Ravnborg <sam@ravnborg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1107 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752383AbXJ2Myq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 08:54:46 -0400
+Received: from an-out-0708.google.com ([209.85.132.247]:65486 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752279AbXJ2NDS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 09:03:18 -0400
+Received: by an-out-0708.google.com with SMTP id b36so201155ana
+        for <netdev@vger.kernel.org>; Mon, 29 Oct 2007 06:03:17 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20071029153320.d2c00f62.mitch@linux.vnet.ibm.com>
+In-Reply-To: <20071028084441.GA24221@uranus.ravnborg.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 29, 2007 at 03:33:20PM +0900, Mitsuru Chinen wrote:
-> Hello Herbert,
+Em Sun, Oct 28, 2007 at 09:44:41AM +0100, Sam Ravnborg escreveu:
+> > 
+> > As a general rule, I think it better to use includes
+> > than use naked forward declarations.
 > 
-> Let me ask a question about this patch.
-> After this patch was applied, 2 of the protocol stack behaviors were
-> changed when it receives a UDP datagram with broken checksum:
+> Quite the opposite - at least in the kernel source.
+> The general rule is that a .h file shall include the
+> .h files which contain declarations used by said .h files.
+> But naked declarations as above is preferred over including
+> a full header file.
+
+yup
+ 
+> We see the full header dependency thing to blow off when
+> inline function are used - which is more and more the case.
+> In several cases we have converted inline functions to macros
+> just to simplify the nightmare of header dependencies we have.
 > 
->  1. udp6InDatagrams is incremented instead of udpInErrors
->  2. In userland, recvfrom() replies an error with EAGAIN.
->     recvfrom() wasn't aware of such a packet before.
-> 
-> Are these changes intentional?
+> Arnaldo have a nice script that generate a .ps file
+> showing all the dependencies.
+> He lately posted this URL: http://oops.ghostprotocols.net:81/acme/tcp.h.ps
 
-It wasn't my intention if that's what you mean :)
+Well, not "lately", it has been quite a while. But lets celebrate the
+fact that there is somebody trying to fight this battle one more time
+and update this tcp.h dependency tree... /me looks for hviz... and if
+graphviz is installed, ok:
 
-However, this would've happened with the old code anyway if
-someone had a filter attached so this isn't new.
+http://www.kernel.org/pub/linux/kernel/people/acme/hviz
 
-If it's a problem then we should just get it fixed.
+hviz include/linux/tcp.h 10 | dot -Tpdf > /tmp/tcp.h.2007_11.pdf
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+http://oops.ghostprotocols.net:81/acme/tcp.h.2007_11.pdf
+
+We still get to sched.h, but before it was:
+
+linux/tcp.h -> linux/skbuff.h -> linux/mm.h -> linux/sched.h
+
+Nowadays its:
+
+linux/tcp.h -> linux/sock.h -> linux/netdevice.h -> linux/interrupt.h -> linux/sched.h
+
+And I just removed "#include <linux/sched.h> from linux/interrupt.h,
+because as far as I checked it is completely unnecessary, and the
+kernel builds just fine :-)
+
+- Arnaldo
