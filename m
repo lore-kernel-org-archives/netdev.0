@@ -1,87 +1,43 @@
-From: Jens Axboe <jens.axboe@oracle.com>
-Subject: Re: [PATCH 1/2] [CRYPTO] tcrypt: Move sg_init_table out of timing loops
-Date: Mon, 29 Oct 2007 21:16:27 +0100
-Message-ID: <20071029201627.GD7499@kernel.dk>
-References: <20071026145905.GA13850@gondor.apana.org.au> <E1IlQfM-0003cO-00@gondolin.me.apana.org.au>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: Configuring the same IP on multiple addresses
+Date: Mon, 29 Oct 2007 13:36:36 -0700
+Message-ID: <OFA7162E78.5F05251C-ON88257383.006F837E-88257383.00711D0D@us.ibm.com>
+References: <4726381A.6050002@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <E1IlQfM-0003cO-00@gondolin.me.apana.org.au>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev <netdev@vger.kernel.org>, netdev-owner@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:58952 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753318AbXJ2Ugi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 16:36:38 -0400
+In-Reply-To: <4726381A.6050002@hp.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 26 2007, Herbert Xu wrote:
-> [CRYPTO] tcrypt: Move sg_init_table out of timing loops
-> 
-> This patch moves the sg_init_table out of the timing loops for hash
-> algorithms so that it doesn't impact on the speed test results.
+> For v6, there are plenty of operational reasons to not allow this.  You 
+really
+> turn unicast into anycast when you do this and there are special rules 
+to
+> be followed.
 
-Wouldn't it be better to just make sg_init_one() call sg_init_table?
+        I don't see it that way. The only "problem" I can think of offhand
+is that you can't use a multi-interface address to identify an interface
+(for example, for multicasting) and get predictable results (it'll pick
+the first one it finds with that address, in no particular order). But
+you can still use interface indexes, which are unique.
+        Anycast is used for multiple distinct hosts, which isn't an issue
+on the same host. It's already true, as you pointed out, that you can
+receive a packet for any local address on any interface, so allowing
+multiple instances means you still match it as local. Which interface
+you match it on usually isn't relevant, and when it is are exactly the
+cases where using duplicates might be appropriate.
+        I can see where it might be useful if you have policy
+restrictions on some interfaces and want the particular address
+to be both in and out of a set. But, I agree, it's generally more
+trouble (for an administrator), but then administrators don't have
+to assign the same address to multiple interfaces. 
 
-diff --git a/include/linux/scatterlist.h b/include/linux/scatterlist.h
-index 4571231..ccc55a6 100644
---- a/include/linux/scatterlist.h
-+++ b/include/linux/scatterlist.h
-@@ -202,28 +202,6 @@ static inline void __sg_mark_end(struct scatterlist *sg)
- }
- 
- /**
-- * sg_init_one - Initialize a single entry sg list
-- * @sg:		 SG entry
-- * @buf:	 Virtual address for IO
-- * @buflen:	 IO length
-- *
-- * Notes:
-- *   This should not be used on a single entry that is part of a larger
-- *   table. Use sg_init_table() for that.
-- *
-- **/
--static inline void sg_init_one(struct scatterlist *sg, const void *buf,
--			       unsigned int buflen)
--{
--	memset(sg, 0, sizeof(*sg));
--#ifdef CONFIG_DEBUG_SG
--	sg->sg_magic = SG_MAGIC;
--#endif
--	sg_mark_end(sg, 1);
--	sg_set_buf(sg, buf, buflen);
--}
--
--/**
-  * sg_init_table - Initialize SG table
-  * @sgl:	   The SG table
-  * @nents:	   Number of entries in table
-@@ -247,6 +225,24 @@ static inline void sg_init_table(struct scatterlist *sgl, unsigned int nents)
- }
- 
- /**
-+ * sg_init_one - Initialize a single entry sg list
-+ * @sg:		 SG entry
-+ * @buf:	 Virtual address for IO
-+ * @buflen:	 IO length
-+ *
-+ * Notes:
-+ *   This should not be used on a single entry that is part of a larger
-+ *   table. Use sg_init_table() for that.
-+ *
-+ **/
-+static inline void sg_init_one(struct scatterlist *sg, const void *buf,
-+			       unsigned int buflen)
-+{
-+	sg_init_table(sg, 1);
-+	sg_set_buf(sg, buf, buflen);
-+}
-+
-+/**
-  * sg_phys - Return physical address of an sg entry
-  * @sg:	     SG entry
-  *
+                                                        +-DLS
 
--- 
-Jens Axboe
