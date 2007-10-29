@@ -1,96 +1,89 @@
-From: "Li Yang-r58472" <LeoLi@freescale.com>
-Subject: RE: [PATCH] ucc_geth: add support for netpoll
-Date: Mon, 29 Oct 2007 14:12:07 +0800
-Message-ID: <989B956029373F45A0B8AF0297081890019B61BF@zch01exm26.fsl.freescale.net>
-References: <20071011124842.GB13963@localhost.localdomain> <4723389F.7010109@ru.mvista.com> <20071027143731.GA2616@zarina>
+From: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
+Subject: Re: [UDP6]: Restore sk_filter optimisation
+Date: Mon, 29 Oct 2007 15:33:20 +0900
+Message-ID: <20071029153320.d2c00f62.mitch@linux.vnet.ibm.com>
+References: <20070306012010.GA25763@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Anton Vorontsov" <avorontsov@ru.mvista.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linuxppc-dev@ozlabs.org>
-To: <cbou@mail.ru>, "Sergei Shtylyov" <sshtylyov@ru.mvista.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:42716 "EHLO
-	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751342AbXJ2GMO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 02:12:14 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20071027143731.GA2616@zarina>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:59129 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751955AbXJ2Gds (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 02:33:48 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e31.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9T6XhPJ011027
+	for <netdev@vger.kernel.org>; Mon, 29 Oct 2007 02:33:43 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9T6Xh07128300
+	for <netdev@vger.kernel.org>; Mon, 29 Oct 2007 00:33:43 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9T6XgeC012905
+	for <netdev@vger.kernel.org>; Mon, 29 Oct 2007 00:33:43 -0600
+In-Reply-To: <20070306012010.GA25763@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Anton Vorontsov [mailto:cbou@mail.ru] 
-> Sent: Saturday, October 27, 2007 10:38 PM
-> To: Sergei Shtylyov
-> Cc: Anton Vorontsov; netdev@vger.kernel.org; Li Yang-r58472; 
-> linux-kernel@vger.kernel.org; linuxppc-dev@ozlabs.org
-> Subject: Re: [PATCH] ucc_geth: add support for netpoll
-> 
-> On Sat, Oct 27, 2007 at 05:09:51PM +0400, Sergei Shtylyov wrote:
-> > Hello.
-> > 
-> > Anton Vorontsov wrote:
-> > 
-> > > This patch adds netpoll support for the QE UCC Gigabit Ethernet 
-> > > driver. The approach is very similar to the gianfar driver.
-> > 
-> >     It's rather contrarywise -- this is standard approach 
-> and gianfar 
-> > with its
-> > 3 TSEC IRQs has a quite non-standard poll_controller() 
-> implementation.
-> 
-> Oh.. well, right -- gianfar a bit more comlex in that regard.
-> 
-> > 
-> > > Tested using netconsole.
-> > 
-> >     KGDBoE is considered a better test (I hope you've also 
-> tested with it).
-> 
-> At the time of posting it was tested using netconsole only, a 
-> few days later it's was tested using KGDBoE also. So, it works indeed.
-> 
-> > > Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com> 
-> diff --git 
-> > > a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c index 
-> > > 18a6f48..06807ce 100644
-> > > --- a/drivers/net/ucc_geth.c
-> > > +++ b/drivers/net/ucc_geth.c
-> > > @@ -3691,6 +3691,22 @@ static irqreturn_t 
-> ucc_geth_irq_handler(int irq, void *info)
-> > >  	return IRQ_HANDLED;
-> > >  }
-> > >  
-> > > +#ifdef CONFIG_NET_POLL_CONTROLLER
-> > > +/*
-> > > + * Polling 'interrupt' - used by things like netconsole to send 
-> > > +skbs
-> > > + * without having to re-enable interrupts. It's not called while
-> > > + * the interrupt routine is executing.
-> > > + */
-> > > +static void ucc_netpoll(struct net_device *dev) {
-> > > +	struct ucc_geth_private *ugeth = netdev_priv(dev);
-> > > +
-> > > +	disable_irq(ugeth->ug_info->uf_info.irq);
-> > > +	ucc_geth_irq_handler(ugeth->ug_info->uf_info.irq, dev);
-> > > +	enable_irq(ugeth->ug_info->uf_info.irq);
-> > 
-> >     Why not make it less complex (for a reader and gcc too :-) ?
-> 
-> Yup, I'm agree here but it's too late. Again. ;-)
-> 
-> This patch already accepted into the -mm (a week or so after 
-> the silence), so.. now I'd rather not bother Andrew with such 
-> really cosmetic changes. But if Jeff would directly apply 
-> modfied patch, I'll send it. ;-)
+Hello Herbert,
 
-Oops.  The original patch happened to hit the Junk mail box. :(  I think
-the patch is good to merge after the cosmetic change.  I can do it in
-next pull request to Jeff.
+Let me ask a question about this patch.
+After this patch was applied, 2 of the protocol stack behaviors were
+changed when it receives a UDP datagram with broken checksum:
 
-Thanks
-- Leo
+ 1. udp6InDatagrams is incremented instead of udpInErrors
+ 2. In userland, recvfrom() replies an error with EAGAIN.
+    recvfrom() wasn't aware of such a packet before.
+
+Are these changes intentional?
+
+Best Regards,
+----
+Mitsuru Chinen <mitch@linux.vnet.ibm.com>
+
+
+On Tue, 6 Mar 2007 12:20:10 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+
+> Hi Dave:
+> 
+> [UDP6]: Restore sk_filter optimisation
+> 
+> This reverts the changeset
+> 
+>     [IPV6]: UDPv6 checksum.
+> 
+>     We always need to check UDPv6 checksum because it is mandatory.
+> 
+> The sk_filter optimisation has nothing to do whether we verify the
+> checksum.  It simply postpones it to the point when the user calls
+> recv or poll.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Cheers,
+> -- 
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> --
+> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+> index 0ad4719..4474480 100644
+> --- a/net/ipv6/udp.c
+> +++ b/net/ipv6/udp.c
+> @@ -279,8 +279,10 @@ int udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
+>  		}
+>  	}
+> 
+> -	if (udp_lib_checksum_complete(skb))
+> -		goto drop;
+> +	if (sk->sk_filter) {
+> +		if (udp_lib_checksum_complete(skb))
+> +			goto drop;
+> +	}
+> 
+>  	if ((rc = sock_queue_rcv_skb(sk,skb)) < 0) {
+>  		/* Note that an ENOMEM error is charged twice */
