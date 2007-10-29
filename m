@@ -1,55 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: IPVS: use proper timeout instead of fixed value
-Date: Mon, 29 Oct 2007 03:01:27 -0700 (PDT)
-Message-ID: <20071029.030127.206917690.davem@davemloft.net>
-References: <20071029070555.78D694FA13@tabatha.lab.ultramonkey.org>
-	<20071029.013515.07385320.davem@davemloft.net>
-	<20071029085921.GB30256@verge.net.au>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] skye/skge: sparse fix - data can't ever be bigger than
+ LONG_MAX / HZ
+Date: Mon, 29 Oct 2007 06:05:14 -0400
+Message-ID: <4725B05A.9050507@garzik.org>
+References: <20071026221028.1873.3005.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lvs-devel@linuxvirtualserver.org,
-	wensong@linux-vs.org, ja@ssi.bg, jmack@wm7d.net,
-	graeme@graemef.net, lvs@rsv.se, andy@greyhouse.net
-To: horms@verge.net.au
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: Auke Kok <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51842
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751816AbXJ2KB0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 06:01:26 -0400
-In-Reply-To: <20071029085921.GB30256@verge.net.au>
+Received: from srv5.dvmed.net ([207.36.208.214]:46746 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752110AbXJ2KFR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Oct 2007 06:05:17 -0400
+In-Reply-To: <20071026221028.1873.3005.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Simon Horman <horms@verge.net.au>
-Date: Mon, 29 Oct 2007 17:59:23 +0900
-
-> On Mon, Oct 29, 2007 at 01:35:15AM -0700, David Miller wrote:
-> > From: Simon Horman <horms@verge.net.au>
-> > Date: Mon, 29 Oct 2007 16:05:55 +0900 (JST)
-> > 
-> > > From: Andy Gospodarek <andy@greyhouse.net>
-> > > 
-> > > Instead of using the default timeout of 3 minutes, this uses the timeout
-> > > specific to the protocol used for the connection. The 3 minute timeout
-> > > seems somewhat arbitrary (though I know it is used other places in the
-> > > ipvs code) and when failing over it would be much nicer to use one of
-> > > the configured timeout values.
-> > > 
-> > > Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> > > Acked-by: Simon Horman <horms@verge.net.au>
-> > 
-> > I would apply this but it does not apply to current 2.6.x,
-> > please resubmit.
+Auke Kok wrote:
+> Trivial replacement - use INT_MAX instead here.
 > 
-> I tried against net-2.6 and it seemed to work.
-> Was I mistaken or should I be using a different tree?
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> Cc: shemminger@linux-foundation.org
+> ---
+> 
+>  drivers/net/sk98lin/skethtool.c |    4 ++--
+>  drivers/net/skge.c              |    8 ++++----
+>  drivers/net/sky2.c              |    8 ++++----
+>  3 files changed, 10 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/net/sk98lin/skethtool.c b/drivers/net/sk98lin/skethtool.c
+> index 5a6da89..4549b97 100644
+> --- a/drivers/net/sk98lin/skethtool.c
+> +++ b/drivers/net/sk98lin/skethtool.c
+> @@ -430,8 +430,8 @@ static int locateDevice(struct net_device *dev, u32 data)
+>  	DEV_NET *pNet = netdev_priv(dev);
+>  	SK_AC *pAC = pNet->pAC;
+>  
+> -	if(!data || data > (u32)(MAX_SCHEDULE_TIMEOUT / HZ))
+> -		data = (u32)(MAX_SCHEDULE_TIMEOUT / HZ);
+> +	if (!data)
+> +		data = INT_MAX;
+>  
+>  	/* start blinking */
+>  	pAC->LedsOn = 0;
+> diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+> index b9961dc..696a79e 100644
+> --- a/drivers/net/skge.c
+> +++ b/drivers/net/skge.c
+> @@ -783,10 +783,10 @@ static int skge_phys_id(struct net_device *dev, u32 data)
+>  	unsigned long ms;
+>  	enum led_mode mode = LED_MODE_TST;
+>  
+> -	if (!data || data > (u32)(MAX_SCHEDULE_TIMEOUT / HZ))
+> -		ms = jiffies_to_msecs(MAX_SCHEDULE_TIMEOUT / HZ) * 1000;
+> -	else
+> -		ms = data * 1000;
+> +	if (!data)
+> +		data = INT_MAX;
+> +
+> +	ms = data * HZ;
+>  
+>  	while (ms > 0) {
+>  		skge_led(skge, mode);
+> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+> index c27c7d6..1381d04 100644
+> --- a/drivers/net/sky2.c
+> +++ b/drivers/net/sky2.c
+> @@ -3336,10 +3336,10 @@ static int sky2_phys_id(struct net_device *dev, u32 data)
+>  	int interrupted;
+>  	int onoff = 1;
+>  
+> -	if (!data || data > (u32) (MAX_SCHEDULE_TIMEOUT / HZ))
+> -		ms = jiffies_to_msecs(MAX_SCHEDULE_TIMEOUT);
+> -	else
+> -		ms = data * 1000;
+> +	if (!data)
+> +		data = INT_MAX:
+> +
+> +	ms = data * HZ;
 
-Nope, that should be good.
+ditto comments in previous email...
 
-Maybe I did something stupid or it got clobbered in transit somehow.
-
-Please resend it privately to me under seperate cover and we'll sort
-it out.
-
-Thanks Simon!
