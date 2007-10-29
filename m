@@ -1,93 +1,59 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] pegasos_eth.c: Fix compile error over MV643XX_ defines
-Date: Mon, 29 Oct 2007 23:47:14 +0100
-Message-ID: <20071029224714.GA23975@xi.wantstofly.org>
-References: <20071029212729.GA4074@pogo>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] inet: race in wait for connect.
+Date: Mon, 29 Oct 2007 16:16:18 -0700
+Message-ID: <20071029161618.06bb4689@freepuppy.rosehill>
+References: <20071029135222.2ad073ff@freepuppy.rosehill>
+	<20071029212906.GE21178@ghostprotocols.net>
+	<20071029143714.152e0431@freepuppy.rosehill>
+	<20071029.153842.226361489.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	Jeff Garzik <jeff@garzik.org>,
-	Tzachi Perelstein <tzachi@marvell.com>,
-	Dale Farnsworth <dale@farnsworth.org>
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: acme@redhat.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:45977 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752446AbXJ2WrR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 18:47:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20071029212729.GA4074@pogo>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:46032 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752477AbXJ2XRD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 19:17:03 -0400
+In-Reply-To: <20071029.153842.226361489.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 29, 2007 at 05:27:29PM -0400, Luis R. Rodriguez wrote:
+On Mon, 29 Oct 2007 15:38:42 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> This commit made an incorrect assumption:
-> --
-> Author: Lennert Buytenhek <buytenh@wantstofly.org>
->  Date:   Fri Oct 19 04:10:10 2007 +0200
+> From: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date: Mon, 29 Oct 2007 14:37:14 -0700
 > 
->     mv643xx_eth: Move ethernet register definitions into private header
->     
->     Move the mv643xx's ethernet-related register definitions from
->     include/linux/mv643xx.h into drivers/net/mv643xx_eth.h, since
->     they aren't of any use outside the ethernet driver.
->     
->     Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
->     Acked-by: Tzachi Perelstein <tzachi@marvell.com>
->     Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
-> --
+> > On Mon, 29 Oct 2007 19:29:06 -0200
+> > "Arnaldo Carvalho de Melo" <acme@redhat.com> wrote:
+> > 
+> > > Em Mon, Oct 29, 2007 at 01:52:22PM -0700, Stephen Hemminger escreveu:
+> > > > Fix possible race while waiting for connections in accept. I don't
+> > > > know of a test case that could reproduce this directly.
+> > > > 
+> > > > The state of the socket should be checked before checking the queue.
+> > > > If the socket has left the TCP_LISTEN state, then the accept queue
+> > > > is no longer valid.
+> > > 
+> > > Well if it left from LISTEN to CLOSED inet_csk_listen_stop must have
+> > > been called, and that calls reqsk_queue_yank_acceptq, that sets it to
+> > > NULL, reqsk_queue_empty(&icsk->icsk_accept_queue) returns true and we
+> > > get to if (sk->sk_state != TCP_LISTEN), returning -EINVAL as with your
+> > > patch.  So I can't see a race, just one branch less in one case :-)
+> > > 
+> > > - Arnaldo
+> > 
+> > Yeah, your right. The listen queue is garbage at this point but the
+> > accept queue is always empty.
 > 
-> arch/powerpc/platforms/chrp/pegasos_eth.c made use of a 3 defines there.
-> 
-> mcgrof@pogo:~/devel/wireless-2.6$ git-describe 
-> 
-> v2.6.24-rc1-138-g0119130
-> 
-> This patch fixes this by internalizing 3 defines onto pegasos which are
-> simply no longer available elsewhere. Without this your compile will fail
-> whenever you enable 'Common Hardware Reference Platform (CHRP) based machines',
->
-> [...]
-> 
-> diff --git a/arch/powerpc/platforms/chrp/pegasos_eth.c b/arch/powerpc/platforms/chrp/pegasos_eth.c
-> index 5bcc58d..1fc9e8c 100644
-> --- a/arch/powerpc/platforms/chrp/pegasos_eth.c
-> +++ b/arch/powerpc/platforms/chrp/pegasos_eth.c
-> @@ -24,6 +24,9 @@
->  #define PEGASOS2_SRAM_BASE_ETH0			(PEGASOS2_SRAM_BASE)
->  #define PEGASOS2_SRAM_BASE_ETH1			(PEGASOS2_SRAM_BASE_ETH0 + (PEGASOS2_SRAM_SIZE / 2) )
->  
-> +#define PEGASOS2_ETH_BAR_4			0x2220
-> +#define PEGASOS2_ETH_SIZE_REG_4			0x2224
-> +#define PEGASOS2_ETH_BASE_ADDR_ENABLE_REG	0x2290
->  
->  #define PEGASOS2_SRAM_RXRING_SIZE		(PEGASOS2_SRAM_SIZE/4)
->  #define PEGASOS2_SRAM_TXRING_SIZE		(PEGASOS2_SRAM_SIZE/4)
-> @@ -147,13 +150,13 @@ static int Enable_SRAM(void)
->  
->  	ALong = 0x02;
->  	ALong |= PEGASOS2_SRAM_BASE & 0xffff0000;
-> -	MV_WRITE(MV643XX_ETH_BAR_4, ALong);
-> +	MV_WRITE(PEGASOS2_ETH_BAR_4, ALong);
->  
-> -	MV_WRITE(MV643XX_ETH_SIZE_REG_4, (PEGASOS2_SRAM_SIZE-1) & 0xffff0000);
-> +	MV_WRITE(PEGASOS2_ETH_SIZE_REG_4, (PEGASOS2_SRAM_SIZE-1) & 0xffff0000);
->  
-> -	MV_READ(MV643XX_ETH_BASE_ADDR_ENABLE_REG, ALong);
-> +	MV_READ(PEGASOS2_ETH_BASE_ADDR_ENABLE_REG, ALong);
->  	ALong &= ~(1 << 4);
-> -	MV_WRITE(MV643XX_ETH_BASE_ADDR_ENABLE_REG, ALong);
-> +	MV_WRITE(PEGASOS2_ETH_BASE_ADDR_ENABLE_REG, ALong);
->  
->  #ifdef BE_VERBOSE
->  	printk("Pegasos II/Marvell MV64361: register unmapped\n");
+> Is there some failing test case you are aware of which led
+> you to this piece of code or did you happen to notice it
+> while scanning around?
 
-Al Viro sent a patch for this breakage a couple of days ago:
+While instrumenting the snot out of accept logic for looking at alternatives
+to the MT-accept vs. close issue.
 
-	http://marc.info/?l=linux-kernel&m=119351541706811&w=2
-
-(FWIW, I think that code outside of mv643xx_eth.c should not be poking
-into the mv643xx's registers directly.  Ideally, this info should just
-be passed by pegasos_eth into mv643xx_eth via platform data, and then
-mv643xx_eth can write the relevant hardware registers.)
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
