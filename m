@@ -1,76 +1,111 @@
-From: "Denys" <denys@visp.net.lb>
-Subject: Re: HFSC dangerous behaviour (not a bug)
-Date: Mon, 29 Oct 2007 13:45:26 +0200
-Message-ID: <20071029114405.M87941@visp.net.lb>
-References: <20071028235224.M3269@visp.net.lb> <4725BC23.7000907@trash.net>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: [PATCH] ucc_geth: add support for netpoll
+Date: Mon, 29 Oct 2007 15:17:44 +0300
+Message-ID: <20071029121744.GA20372@localhost.localdomain>
+References: <20071011124842.GB13963@localhost.localdomain> <4723389F.7010109@ru.mvista.com> <20071027143731.GA2616@zarina> <989B956029373F45A0B8AF0297081890019B61BF@zch01exm26.fsl.freescale.net>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=utf8
+Cc: Sergei Shtylyov <sshtylyov@ru.mvista.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Li Yang-r58472 <LeoLi@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:58246 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752691AbXJ2Lpt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 07:45:49 -0400
-In-Reply-To: <4725BC23.7000907@trash.net>
+Received: from rtsoft3.corbina.net ([85.21.88.6]:33608 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751766AbXJ2MTO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 08:19:14 -0400
+Content-Disposition: inline
+In-Reply-To: <989B956029373F45A0B8AF0297081890019B61BF@zch01exm26.fsl.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-After thinking about that, i can say only thanks.
-I like your idea, and it is better to avoid mistakes and missed traffic, then 
-have a lot of complaints from users "why my shaper not working well". And 
-seems i will try to switch to HFSC.
-
-Thanks for explanation.
-
-On Mon, 29 Oct 2007 11:55:31 +0100, Patrick McHardy wrote
-> Denys wrote:
-> > Hi All
+On Mon, Oct 29, 2007 at 02:12:07PM +0800, Li Yang-r58472 wrote:
+[...]
+> > > > +#ifdef CONFIG_NET_POLL_CONTROLLER
+> > > > +/*
+> > > > + * Polling 'interrupt' - used by things like netconsole to send 
+> > > > +skbs
+> > > > + * without having to re-enable interrupts. It's not called while
+> > > > + * the interrupt routine is executing.
+> > > > + */
+> > > > +static void ucc_netpoll(struct net_device *dev) {
+> > > > +	struct ucc_geth_private *ugeth = netdev_priv(dev);
+> > > > +
+> > > > +	disable_irq(ugeth->ug_info->uf_info.irq);
+> > > > +	ucc_geth_irq_handler(ugeth->ug_info->uf_info.irq, dev);
+> > > > +	enable_irq(ugeth->ug_info->uf_info.irq);
+> > > 
+> > >     Why not make it less complex (for a reader and gcc too :-) ?
 > > 
-> > During testing i found very strange thing. 
-> > After applying even example shaper:
-> > http://linux-ip.net/tc/hfsc.en/
-> > -------------
-> > [...]
-> > ---------------
-> > I had all traffic on eth0 stopped. Tried on br0 - same result. Even ARP 
-> > becoming non-functional.
+> > Yup, I'm agree here but it's too late. Again. ;-)
 > > 
-> > After specifying correct default class everything worked fine.
-> > 
-> > In HTB if you dont specify default class, traffic just pass without 
-> > "shaping".
+> > This patch already accepted into the -mm (a week or so after 
+> > the silence), so.. now I'd rather not bother Andrew with such 
+> > really cosmetic changes. But if Jeff would directly apply 
+> > modfied patch, I'll send it. ;-)
 > 
-> HFSC drops unclassified packets. If you don't classify ARP properly,
-> things will break,
-> 
-> > Is it possible to keep same behaviour on both disciplines?
-> > Probably just dropping all traffic not good idea, cause if user working 
-on 
-> > remote box by forgetting specifying default class or by mistake using 
-> > incorrect class number he will loose access to the box, if same interface 
-is 
-> > used for tests on shaping and access.
-> > In same time it is good, and can show accurate results on shaping, 
-without 
-> > bypassing some "forgotten" traffic.
-> > But at least it must be same, IMHO, on HTB and HFSC.
-> 
-> This came up a couple of times already. I don't like HTB's behaviour
-> since you don't notice when your classifiers are incomplete. So I'm
-> against changing HFSC to behave similar. HTB OTOH can't be changed
-> since users probably rely on that, not classifying ARP is a common
-> mistake.
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Oops.  The original patch happened to hit the Junk mail box. :(
 
+That one as well? http://lkml.org/lkml/2007/10/11/128
 
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
+> I think
+> the patch is good to merge after the cosmetic change.  I can do it in
+> next pull request to Jeff.
+
+Ok, great. Thanks.
+
+Here it is:
+
+- - - -
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: [PATCH] ucc_geth: add support for netpoll
+
+This patch adds netpoll support for the QE UCC Gigabit Ethernet
+driver. Tested using netconsole and KGDBoE.
+
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+---
+ drivers/net/ucc_geth.c |   20 ++++++++++++++++++++
+ 1 files changed, 20 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index bec413b..94e78d8 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3678,6 +3678,23 @@ static irqreturn_t ucc_geth_irq_handler(int irq, void *info)
+ 	return IRQ_HANDLED;
+ }
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++/*
++ * Polling 'interrupt' - used by things like netconsole to send skbs
++ * without having to re-enable interrupts. It's not called while
++ * the interrupt routine is executing.
++ */
++static void ucc_netpoll(struct net_device *dev)
++{
++	struct ucc_geth_private *ugeth = netdev_priv(dev);
++	int irq = ugeth->ug_info->uf_info.irq;
++
++	disable_irq(irq);
++	ucc_geth_irq_handler(irq, dev);
++	enable_irq(irq);
++}
++#endif /* CONFIG_NET_POLL_CONTROLLER */
++
+ /* Called when something needs to use the ethernet device */
+ /* Returns 0 for success. */
+ static int ucc_geth_open(struct net_device *dev)
+@@ -3963,6 +3980,9 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ #ifdef CONFIG_UGETH_NAPI
+ 	netif_napi_add(dev, &ugeth->napi, ucc_geth_poll, UCC_GETH_DEV_WEIGHT);
+ #endif				/* CONFIG_UGETH_NAPI */
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	dev->poll_controller = ucc_netpoll;
++#endif
+ 	dev->stop = ucc_geth_close;
+ //    dev->change_mtu = ucc_geth_change_mtu;
+ 	dev->mtu = 1500;
+-- 
+1.5.2.2
 
