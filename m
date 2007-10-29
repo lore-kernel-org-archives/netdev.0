@@ -1,47 +1,37 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] pcnet: fix sparse triviality
-Date: Mon, 29 Oct 2007 10:54:25 -0700
-Message-ID: <47261E51.2000301@intel.com>
-References: <20071026221132.1913.24518.stgit@localhost.localdomain> <4725B045.80705@garzik.org>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Configuring the same IP on multiple addresses
+Date: Mon, 29 Oct 2007 14:03:37 -0400
+Message-ID: <47262079.90507@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: pcnet32@verizon.net, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:37244 "EHLO mga03.intel.com"
+Received: from atlrel6.hp.com ([156.153.255.205]:50345 "EHLO atlrel6.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752608AbXJ2SDd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Oct 2007 14:03:33 -0400
-In-Reply-To: <4725B045.80705@garzik.org>
+	id S1755164AbXJ2SFK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Oct 2007 14:05:10 -0400
+Received: from smtp2.fc.hp.com (smtp.cnd.hp.com [15.11.136.114])
+	by atlrel6.hp.com (Postfix) with ESMTP id 866BE3663A
+	for <netdev@vger.kernel.org>; Mon, 29 Oct 2007 14:04:01 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Auke Kok wrote:
->> Since data can never exceed u32, it can't even be larger than
->> LONG_MAX/HZ.
->>
->> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->> Cc: pcnet32@verizon.net
->> ---
->>
-> Two comments:
-> 
-> 1) I would prefer to pick a sane limit, like "1 day".  The unit of
-> 'data' is seconds, so IMO we should not allow stupid timeouts, much less
-> INT_MAX ones :)  But hey, then again, maybe we should permit root to
-> hang themselves with own rope...
+Hi All
 
-well, in this case it's only used for the blink interval for the LED on the back
-of the adapter. This is completely interruptable by the user with ^C when running
-ethtool, so it's not going to hang anything (traffic should continue nicely).
+Does anyone have a reason why Linux allows one to configure
+the same IP or IPv6 address on multiple interfaces?
 
-yes INT_MAX is insanely long. moving all of this checking to the ethtool generic
-code makes much more sense indeed.
+For IPv4, since linux implements a weak host model, assigning
+duplicate addresses doesn't make any sense, since the addresses
+really belong to the host and not the interface.
 
-> 2) [tangent] someone really should add the obvious ssleep_interruptible()
+For IPv6, I can see allowing duplicate link-locals since that's
+perfectly valid from the protocol perspective.  However, duplicate
+globals are shouldn't be allows from the perspective of the address
+architecture.
 
-*pass* :)
+So, I am looking for technical reasons why this is permitted.
 
-Auke
+Thanks
+-vlad
