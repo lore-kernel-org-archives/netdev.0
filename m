@@ -1,85 +1,70 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] skye/skge: sparse fix - data can't ever be bigger than
- LONG_MAX / HZ
-Date: Mon, 29 Oct 2007 06:05:14 -0400
-Message-ID: <4725B05A.9050507@garzik.org>
-References: <20071026221028.1873.3005.stgit@localhost.localdomain>
+Subject: Re: [PATCH] Fix ethernet multicast for ucc_geth.
+Date: Mon, 29 Oct 2007 06:05:35 -0400
+Message-ID: <4725B06F.7070304@garzik.org>
+References: <1192611942.7848.19.camel@gentoo-jocke.transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: Netdev <netdev@vger.kernel.org>
+To: joakim.tjernlund@transmode.se, Li Yang-r58472 <LeoLi@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:46746 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:46755 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752110AbXJ2KFR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Oct 2007 06:05:17 -0400
-In-Reply-To: <20071026221028.1873.3005.stgit@localhost.localdomain>
+	id S1752378AbXJ2KFl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Oct 2007 06:05:41 -0400
+In-Reply-To: <1192611942.7848.19.camel@gentoo-jocke.transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Auke Kok wrote:
-> Trivial replacement - use INT_MAX instead here.
+Joakim Tjernlund wrote:
+>>From 5761a9e5924b34615c748fba2dcb977ed04c1243 Mon Sep 17 00:00:00 2001
+> From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> Date: Wed, 17 Oct 2007 11:01:44 +0200
+> Subject: [PATCH] Fix ethernet multicast for ucc_geth.
+>  hw_add_addr_in_hash() already swaps byte
+>  order, don't do it in ucc_geth_set_multi() too.
 > 
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> Cc: shemminger@linux-foundation.org
+> 
+> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 > ---
+>  drivers/net/ucc_geth.c |   15 ++-------------
+>  1 files changed, 2 insertions(+), 13 deletions(-)
 > 
->  drivers/net/sk98lin/skethtool.c |    4 ++--
->  drivers/net/skge.c              |    8 ++++----
->  drivers/net/sky2.c              |    8 ++++----
->  3 files changed, 10 insertions(+), 10 deletions(-)
-> 
-> diff --git a/drivers/net/sk98lin/skethtool.c b/drivers/net/sk98lin/skethtool.c
-> index 5a6da89..4549b97 100644
-> --- a/drivers/net/sk98lin/skethtool.c
-> +++ b/drivers/net/sk98lin/skethtool.c
-> @@ -430,8 +430,8 @@ static int locateDevice(struct net_device *dev, u32 data)
->  	DEV_NET *pNet = netdev_priv(dev);
->  	SK_AC *pAC = pNet->pAC;
+> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+> index 61f5cce..f649b1e 100644
+> --- a/drivers/net/ucc_geth.c
+> +++ b/drivers/net/ucc_geth.c
+> @@ -2214,9 +2214,7 @@ static void ucc_geth_set_multi(struct net_device *dev)
+>  	struct dev_mc_list *dmi;
+>  	struct ucc_fast *uf_regs;
+>  	struct ucc_geth_82xx_address_filtering_pram *p_82xx_addr_filt;
+> -	u8 tempaddr[6];
+> -	u8 *mcptr, *tdptr;
+> -	int i, j;
+> +	int i;
 >  
-> -	if(!data || data > (u32)(MAX_SCHEDULE_TIMEOUT / HZ))
-> -		data = (u32)(MAX_SCHEDULE_TIMEOUT / HZ);
-> +	if (!data)
-> +		data = INT_MAX;
+>  	ugeth = netdev_priv(dev);
 >  
->  	/* start blinking */
->  	pAC->LedsOn = 0;
-> diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-> index b9961dc..696a79e 100644
-> --- a/drivers/net/skge.c
-> +++ b/drivers/net/skge.c
-> @@ -783,10 +783,10 @@ static int skge_phys_id(struct net_device *dev, u32 data)
->  	unsigned long ms;
->  	enum led_mode mode = LED_MODE_TST;
+> @@ -2255,19 +2253,10 @@ static void ucc_geth_set_multi(struct net_device *dev)
+>  				if (!(dmi->dmi_addr[0] & 1))
+>  					continue;
 >  
-> -	if (!data || data > (u32)(MAX_SCHEDULE_TIMEOUT / HZ))
-> -		ms = jiffies_to_msecs(MAX_SCHEDULE_TIMEOUT / HZ) * 1000;
-> -	else
-> -		ms = data * 1000;
-> +	if (!data)
-> +		data = INT_MAX;
-> +
-> +	ms = data * HZ;
->  
->  	while (ms > 0) {
->  		skge_led(skge, mode);
-> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> index c27c7d6..1381d04 100644
-> --- a/drivers/net/sky2.c
-> +++ b/drivers/net/sky2.c
-> @@ -3336,10 +3336,10 @@ static int sky2_phys_id(struct net_device *dev, u32 data)
->  	int interrupted;
->  	int onoff = 1;
->  
-> -	if (!data || data > (u32) (MAX_SCHEDULE_TIMEOUT / HZ))
-> -		ms = jiffies_to_msecs(MAX_SCHEDULE_TIMEOUT);
-> -	else
-> -		ms = data * 1000;
-> +	if (!data)
-> +		data = INT_MAX:
-> +
-> +	ms = data * HZ;
+> -				/* The address in dmi_addr is LSB first,
+> -				 * and taddr is MSB first.  We have to
+> -				 * copy bytes MSB first from dmi_addr.
+> -				 */
+> -				mcptr = (u8 *) dmi->dmi_addr + 5;
+> -				tdptr = (u8 *) tempaddr;
+> -				for (j = 0; j < 6; j++)
+> -					*tdptr++ = *mcptr--;
+> -
+>  				/* Ask CPM to run CRC and set bit in
+>  				 * filter mask.
+>  				 */
+> -				hw_add_addr_in_hash(ugeth, tempaddr);
+> +				hw_add_addr_in_hash(ugeth, dmi->dmi_addr);
 
-ditto comments in previous email...
+did the maintainer ever ACK this?
+
 
