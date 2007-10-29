@@ -1,29 +1,39 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] skye/skge: sparse fix - data can't ever be bigger than
- LONG_MAX / HZ
-Date: Mon, 29 Oct 2007 11:48:33 -0400
-Message-ID: <472600D1.6020503@garzik.org>
-References: <20071026221028.1873.3005.stgit@localhost.localdomain>	<4725B05A.9050507@garzik.org> <20071029083210.0e2c75a0@freepuppy.rosehill>
+From: "David A. Ranch" <dranch@juniper.net>
+Subject: Re: e1000 and ICH9 hardware
+Date: Mon, 29 Oct 2007 09:01:59 -0700
+Message-ID: <472603F7.8060802@juniper.net>
+References: <4725E125.4030103@gentoo.org> <4725F212.2030103@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Auke Kok <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60732 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753667AbXJ2Psg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Oct 2007 11:48:36 -0400
-In-Reply-To: <20071029083210.0e2c75a0@freepuppy.rosehill>
-Sender: netdev-owner@vger.kernel.org
+Cc: e1000-devel@lists.sourceforge.net, Daniel Drake <dsd@gentoo.org>,
+	auke-jan.h.kok@intel.com, netdev <netdev@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <4725F212.2030103@garzik.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Since these all use ethtool, shouldn't the checks be put into ethtool_phys_id
-> rather than having the driver check?
 
-Seems quite reasonable to me.
+> >e1000 is being frozen in time as "pre-PCI Express e1000's".
+>   
+Asking the question a different way, will the current e1000 driver 
+continue to get new features, performance / power / optimization tweaks, 
+etc. or is most of the primary development be moving only on the e1000e kit?
 
-	Jeff
+--David
 
 
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >> http://get.splunk.com/
