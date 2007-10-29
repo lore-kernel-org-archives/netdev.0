@@ -1,76 +1,55 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Please pull 'fixes-jgarzik' branch of wireless-2.6
-Date: Mon, 29 Oct 2007 05:48:14 -0400
-Message-ID: <4725AC5E.3080006@garzik.org>
-References: <20071026030826.GB14080@tuxdriver.com>
+Subject: Re: [PATCH 00/04] pull request for 'upstream-jeff' branch
+Date: Mon, 29 Oct 2007 05:48:47 -0400
+Message-ID: <4725AC7F.8090307@garzik.org>
+References: <20071028171937.GA24622@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	Edward Hsu <edward_hsu@realtek.com.tw>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:43884 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:43895 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752629AbXJ2JsS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Oct 2007 05:48:18 -0400
-In-Reply-To: <20071026030826.GB14080@tuxdriver.com>
+	id S1752993AbXJ2Jsu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Oct 2007 05:48:50 -0400
+In-Reply-To: <20071028171937.GA24622@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> Jeff,
+Francois Romieu wrote:
+> Please pull from branch 'upstream-jeff' in repository
 > 
-> A few fixes for 2.6.24...
+> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git upstream-jeff
 > 
-> Thanks,
+> to get the changes below.
 > 
-> John
+> Distance from 'master' (96fd4cd3e40e240f0c385af87f58e74da8b7099a)
+> -----------------------------------------------------------------
 > 
-> ---
+> d1417862d7355f0b395d83f2884afd614b086695
+> bbd82f956e0db6190b16a8a00d3ed5d979f488e8
+> 93dd79e87bbc98ef02610d54fe72d4a1931ee15e
+> 7fab06c0ca89d99442a4baeddf417add585e2672
 > 
-> Individual patches available here:
+> Diffstat
+> --------
 > 
-> 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/fixes-jgarzik
+>  drivers/net/Kconfig |   13 +++++++------
+>  drivers/net/r8169.c |   12 ++++++------
+>  2 files changed, 13 insertions(+), 12 deletions(-)
 > 
-> ---
+> Shortlog
+> --------
 > 
-> The following changes since commit c9927c2bf4f45bb85e8b502ab3fb79ad6483c244:
->   Linus Torvalds (1):
->         Linux 2.6.24-rc1
+> Francois Romieu (2):
+>       ipg: missing Kconfig dependency
+>       ipg: Kconfig whitepaces/tab damages
 > 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-jgarzik
-> 
-> Anton Blanchard (3):
->       ipw2100/ipw2200: jiffies_round -> jiffies_round_relative
->       rt2x00: jiffies_round -> jiffies_round_relative
->       b43/b43legacy: jiffies_round -> jiffies_round_relative
-> 
-> Michael Wu (1):
->       rtl8187: Allow multicast frames
-> 
-> Mohamed Abbas (3):
->       iwl4965: fix scan problem
->       iwl3945: cancel scan on rxon command
->       iwl3945: fix direct scan problem
-> 
-> Tomas Winkler (1):
->       iwlwifi: fix sending probe request in iwl 4965
-> 
-> mabbas (1):
->       iwl4965: fix driver hang related to hardware scan
-> 
->  drivers/net/wireless/b43/main.c             |    2 +-
->  drivers/net/wireless/b43legacy/main.c       |    2 +-
->  drivers/net/wireless/ipw2100.c              |   11 +++--
->  drivers/net/wireless/ipw2200.c              |    6 +-
->  drivers/net/wireless/iwlwifi/iwl-4965.c     |    6 +--
->  drivers/net/wireless/iwlwifi/iwl3945-base.c |   56 +++++++++++++++++++++++----
->  drivers/net/wireless/iwlwifi/iwl4965-base.c |   56 +++++++++++++++++++++++----
->  drivers/net/wireless/rt2x00/rt2x00lib.h     |    2 +-
->  drivers/net/wireless/rtl8187_dev.c          |   20 +++++----
->  9 files changed, 121 insertions(+), 40 deletions(-)
+> Stephen Hemminger (2):
+>       r8169: napi config
+>       r8169: remove poll_locked logic
 
 pulled
 
