@@ -1,110 +1,110 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: [PATCH] pegasos_eth.c: Fix compile error over MV643XX_ defines
-Date: Mon, 29 Oct 2007 17:27:29 -0400
-Message-ID: <20071029212729.GA4074@pogo>
+From: Hideo AOKI <haoki@redhat.com>
+Subject: [PATCH 2/5] accounting unit and variable
+Date: Mon, 29 Oct 2007 17:23:10 -0400
+Message-ID: <47264F3E.3080306@redhat.com>
+References: <47264E2D.4080109@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Tzachi Perelstein <tzachi@marvell.com>,
-	Dale Farnsworth <dale@farnsworth.org>
-To: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+Content-Type: multipart/mixed;
+ boundary="------------020209030905000406030303"
+Cc: Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Andi Kleen <andi@firstfloor.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	yoshfuji@linux-ipv6.org,
+	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.231]:43196 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752883AbXJ2V05 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 17:26:57 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1889770wxd
-        for <netdev@vger.kernel.org>; Mon, 29 Oct 2007 14:26:55 -0700 (PDT)
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:56865 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752197AbXJ2V1M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Oct 2007 17:27:12 -0400
+In-Reply-To: <47264E2D.4080109@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This commit made an incorrect assumption:
+This is a multi-part message in MIME format.
+--------------020209030905000406030303
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+This patch introduces global variable for UDP memory accounting.
+The unit is page.
+
 --
-Author: Lennert Buytenhek <buytenh@wantstofly.org>
- Date:   Fri Oct 19 04:10:10 2007 +0200
+Hideo Aoki
+Hitachi Computer Products (America) Inc.
 
-    mv643xx_eth: Move ethernet register definitions into private header
-    
-    Move the mv643xx's ethernet-related register definitions from
-    include/linux/mv643xx.h into drivers/net/mv643xx_eth.h, since
-    they aren't of any use outside the ethernet driver.
-    
-    Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
-    Acked-by: Tzachi Perelstein <tzachi@marvell.com>
-    Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
---
+--------------020209030905000406030303
+Content-Type: text/x-patch;
+ name="udp_memory_account_common.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="udp_memory_account_common.patch"
 
-arch/powerpc/platforms/chrp/pegasos_eth.c made use of a 3 defines there.
 
-mcgrof@pogo:~/devel/wireless-2.6$ git-describe 
+Signed-off-by: Satoshi Oshima <satoshi.oshima.fk@hitachi.com>
+Signed-off-by: Hideo Aoki <haoki@redhat.com>
 
-v2.6.24-rc1-138-g0119130
+ include/net/sock.h |    7 +++++++
+ include/net/udp.h  |    2 ++
+ net/ipv4/proc.c    |    3 ++-
+ net/ipv4/udp.c     |    2 ++
+ 4 files changed, 13 insertions(+), 1 deletion(-)
 
-This patch fixes this by internalizing 3 defines onto pegasos which are
-simply no longer available elsewhere. Without this your compile will fail
-whenever you enable 'Common Hardware Reference Platform (CHRP) based machines',
-(CONFIG_PPC_CHRP) as the Makefile for chrp adds it always:
-
-obj-y                           += setup.o time.o pegasos_eth.o pci.o
-
-If these defines are platform specific then they should later just be added 
-back to include/linux/mv643xx.h.
-
-Compile error:
-
-  CC      arch/powerpc/platforms/chrp/pegasos_eth.o
-arch/powerpc/platforms/chrp/pegasos_eth.c: In function 'Enable_SRAM':
-arch/powerpc/platforms/chrp/pegasos_eth.c:150: error: 'MV643XX_ETH_BAR_4' 
-undeclared (first use in this function)
-arch/powerpc/platforms/chrp/pegasos_eth.c:150: error: (Each undeclared 
-identifier is reported only once
-arch/powerpc/platforms/chrp/pegasos_eth.c:150: error: for each function it 
-appears in.)
-arch/powerpc/platforms/chrp/pegasos_eth.c:152: error: 
-'MV643XX_ETH_SIZE_REG_4' undeclared (first use in this function)
-arch/powerpc/platforms/chrp/pegasos_eth.c:154: error: 
-'MV643XX_ETH_BASE_ADDR_ENABLE_REG' undeclared (first use in this function)
-make[2]: *** [arch/powerpc/platforms/chrp/pegasos_eth.o] Error 1
-make[1]: *** [arch/powerpc/platforms/chrp] Error 2
-make: *** [arch/powerpc/platforms] Error 2
-
-Signed-off-by: Luis R. Rodriguez <mcgrof@gmail.com>
----
-
- arch/powerpc/platforms/chrp/pegasos_eth.c |   11 +++++++----
- 1 files changed, 7 insertions(+), 4 deletions(-)
-
-diff --git a/arch/powerpc/platforms/chrp/pegasos_eth.c b/arch/powerpc/platforms/chrp/pegasos_eth.c
-index 5bcc58d..1fc9e8c 100644
---- a/arch/powerpc/platforms/chrp/pegasos_eth.c
-+++ b/arch/powerpc/platforms/chrp/pegasos_eth.c
-@@ -24,6 +24,9 @@
- #define PEGASOS2_SRAM_BASE_ETH0			(PEGASOS2_SRAM_BASE)
- #define PEGASOS2_SRAM_BASE_ETH1			(PEGASOS2_SRAM_BASE_ETH0 + (PEGASOS2_SRAM_SIZE / 2) )
+diff -pruN linux-2.6.24-rc1-mem003-ipv4-dev-p1/include/net/sock.h linux-2.6.24-rc1-mem003-ipv4-dev-p2/include/net/sock.h
+--- linux-2.6.24-rc1-mem003-ipv4-dev-p1/include/net/sock.h	2007-10-24 11:34:32.000000000 -0400
++++ linux-2.6.24-rc1-mem003-ipv4-dev-p2/include/net/sock.h	2007-10-24 11:47:51.000000000 -0400
+@@ -727,6 +727,13 @@ static inline int sk_stream_wmem_schedul
+ 	       sk_stream_mem_schedule(sk, size, 0);
+ }
  
-+#define PEGASOS2_ETH_BAR_4			0x2220
-+#define PEGASOS2_ETH_SIZE_REG_4			0x2224
-+#define PEGASOS2_ETH_BASE_ADDR_ENABLE_REG	0x2290
++#define SK_DATAGRAM_MEM_QUANTUM ((int)PAGE_SIZE)
++
++static inline int sk_datagram_pages(int amt)
++{
++	return DIV_ROUND_UP(amt, SK_DATAGRAM_MEM_QUANTUM);
++}
++
+ /* Used by processes to "lock" a socket state, so that
+  * interrupts and bottom half handlers won't change it
+  * from under us. It essentially blocks any incoming
+diff -pruN linux-2.6.24-rc1-mem003-ipv4-dev-p1/include/net/udp.h linux-2.6.24-rc1-mem003-ipv4-dev-p2/include/net/udp.h
+--- linux-2.6.24-rc1-mem003-ipv4-dev-p1/include/net/udp.h	2007-10-10 11:49:42.000000000 -0400
++++ linux-2.6.24-rc1-mem003-ipv4-dev-p2/include/net/udp.h	2007-10-24 11:47:51.000000000 -0400
+@@ -65,6 +65,8 @@ extern rwlock_t udp_hash_lock;
  
- #define PEGASOS2_SRAM_RXRING_SIZE		(PEGASOS2_SRAM_SIZE/4)
- #define PEGASOS2_SRAM_TXRING_SIZE		(PEGASOS2_SRAM_SIZE/4)
-@@ -147,13 +150,13 @@ static int Enable_SRAM(void)
+ extern struct proto udp_prot;
  
- 	ALong = 0x02;
- 	ALong |= PEGASOS2_SRAM_BASE & 0xffff0000;
--	MV_WRITE(MV643XX_ETH_BAR_4, ALong);
-+	MV_WRITE(PEGASOS2_ETH_BAR_4, ALong);
++extern atomic_t udp_memory_allocated;
++
+ struct sk_buff;
  
--	MV_WRITE(MV643XX_ETH_SIZE_REG_4, (PEGASOS2_SRAM_SIZE-1) & 0xffff0000);
-+	MV_WRITE(PEGASOS2_ETH_SIZE_REG_4, (PEGASOS2_SRAM_SIZE-1) & 0xffff0000);
+ /*
+diff -pruN linux-2.6.24-rc1-mem003-ipv4-dev-p1/net/ipv4/proc.c linux-2.6.24-rc1-mem003-ipv4-dev-p2/net/ipv4/proc.c
+--- linux-2.6.24-rc1-mem003-ipv4-dev-p1/net/ipv4/proc.c	2007-10-24 11:34:34.000000000 -0400
++++ linux-2.6.24-rc1-mem003-ipv4-dev-p2/net/ipv4/proc.c	2007-10-24 11:47:51.000000000 -0400
+@@ -67,7 +67,8 @@ static int sockstat_seq_show(struct seq_
+ 		   fold_prot_inuse(&tcp_prot), atomic_read(&tcp_orphan_count),
+ 		   tcp_death_row.tw_count, atomic_read(&tcp_sockets_allocated),
+ 		   atomic_read(&tcp_memory_allocated));
+-	seq_printf(seq, "UDP: inuse %d\n", fold_prot_inuse(&udp_prot));
++	seq_printf(seq, "UDP: inuse %d mem %d\n", fold_prot_inuse(&udp_prot),
++		   atomic_read(&udp_memory_allocated));
+ 	seq_printf(seq, "UDPLITE: inuse %d\n", fold_prot_inuse(&udplite_prot));
+ 	seq_printf(seq, "RAW: inuse %d\n", fold_prot_inuse(&raw_prot));
+ 	seq_printf(seq,  "FRAG: inuse %d memory %d\n",
+diff -pruN linux-2.6.24-rc1-mem003-ipv4-dev-p1/net/ipv4/udp.c linux-2.6.24-rc1-mem003-ipv4-dev-p2/net/ipv4/udp.c
+--- linux-2.6.24-rc1-mem003-ipv4-dev-p1/net/ipv4/udp.c	2007-10-24 11:34:35.000000000 -0400
++++ linux-2.6.24-rc1-mem003-ipv4-dev-p2/net/ipv4/udp.c	2007-10-24 12:27:37.000000000 -0400
+@@ -114,6 +114,8 @@ DEFINE_SNMP_STAT(struct udp_mib, udp_sta
+ struct hlist_head udp_hash[UDP_HTABLE_SIZE];
+ DEFINE_RWLOCK(udp_hash_lock);
  
--	MV_READ(MV643XX_ETH_BASE_ADDR_ENABLE_REG, ALong);
-+	MV_READ(PEGASOS2_ETH_BASE_ADDR_ENABLE_REG, ALong);
- 	ALong &= ~(1 << 4);
--	MV_WRITE(MV643XX_ETH_BASE_ADDR_ENABLE_REG, ALong);
-+	MV_WRITE(PEGASOS2_ETH_BASE_ADDR_ENABLE_REG, ALong);
- 
- #ifdef BE_VERBOSE
- 	printk("Pegasos II/Marvell MV64361: register unmapped\n");
++atomic_t udp_memory_allocated;
++
+ static inline int __udp_lib_lport_inuse(__u16 num,
+ 					const struct hlist_head udptable[])
+ {
+
+--------------020209030905000406030303--
