@@ -1,55 +1,53 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] pcnet: fix sparse triviality
-Date: Mon, 29 Oct 2007 06:04:53 -0400
-Message-ID: <4725B045.80705@garzik.org>
-References: <20071026221132.1913.24518.stgit@localhost.localdomain>
+From: "Li Yang-r58472" <LeoLi@freescale.com>
+Subject: RE: [PATCH] Fix ethernet multicast for ucc_geth.
+Date: Mon, 29 Oct 2007 18:07:10 +0800
+Message-ID: <989B956029373F45A0B8AF0297081890019B6215@zch01exm26.fsl.freescale.net>
+References: <1192611942.7848.19.camel@gentoo-jocke.transmode.se> <4725B06F.7070304@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: pcnet32@verizon.net, netdev@vger.kernel.org
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Netdev" <netdev@vger.kernel.org>
+To: "Jeff Garzik" <jeff@garzik.org>, <joakim.tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:46737 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752223AbXJ2KE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Oct 2007 06:04:56 -0400
-In-Reply-To: <20071026221132.1913.24518.stgit@localhost.localdomain>
+Received: from az33egw02.freescale.net ([192.88.158.103]:43602 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752717AbXJ2KHV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 06:07:21 -0400
+Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
+	by az33egw02.freescale.net (8.12.11/az33egw02) with ESMTP id l9TA7DcI003661
+	for <netdev@vger.kernel.org>; Mon, 29 Oct 2007 03:07:13 -0700 (MST)
+Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
+	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id l9TA7Bpq024815
+	for <netdev@vger.kernel.org>; Mon, 29 Oct 2007 05:07:12 -0500 (CDT)
+Content-class: urn:content-classes:message
+In-Reply-To: <4725B06F.7070304@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Auke Kok wrote:
-> Since data can never exceed u32, it can't even be larger than LONG_MAX/HZ.
+
+> > @@ -2255,19 +2253,10 @@ static void 
+> ucc_geth_set_multi(struct net_device *dev)
+> >  				if (!(dmi->dmi_addr[0] & 1))
+> >  					continue;
+> >  
+> > -				/* The address in dmi_addr is LSB first,
+> > -				 * and taddr is MSB first.  We have to
+> > -				 * copy bytes MSB first from dmi_addr.
+> > -				 */
+> > -				mcptr = (u8 *) dmi->dmi_addr + 5;
+> > -				tdptr = (u8 *) tempaddr;
+> > -				for (j = 0; j < 6; j++)
+> > -					*tdptr++ = *mcptr--;
+> > -
+> >  				/* Ask CPM to run CRC and set bit in
+> >  				 * filter mask.
+> >  				 */
+> > -				hw_add_addr_in_hash(ugeth, tempaddr);
+> > +				hw_add_addr_in_hash(ugeth, 
+> dmi->dmi_addr);
 > 
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> Cc: pcnet32@verizon.net
-> ---
-> 
->  drivers/net/pcnet32.c |    5 ++---
->  1 files changed, 2 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/pcnet32.c b/drivers/net/pcnet32.c
-> index ff92aca..3573e77 100644
-> --- a/drivers/net/pcnet32.c
-> +++ b/drivers/net/pcnet32.c
-> @@ -1101,9 +1101,8 @@ static int pcnet32_phys_id(struct net_device *dev, u32 data)
->  	mod_timer(&lp->blink_timer, jiffies);
->  	set_current_state(TASK_INTERRUPTIBLE);
->  
-> -	/* AV: the limit here makes no sense whatsoever */
-> -	if ((!data) || (data > (u32) (MAX_SCHEDULE_TIMEOUT / HZ)))
-> -		data = (u32) (MAX_SCHEDULE_TIMEOUT / HZ);
-> +	if (!data)
-> +		data = INT_MAX;
->  
->  	msleep_interruptible(data * 1000);
->  	del_timer_sync(&lp->blink_timer);
+> did the maintainer ever ACK this?
 
-Two comments:
+Yes, I did.  :)
 
-1) I would prefer to pick a sane limit, like "1 day".  The unit of 
-'data' is seconds, so IMO we should not allow stupid timeouts, much less 
-INT_MAX ones :)  But hey, then again, maybe we should permit root to 
-hang themselves with own rope...
-
-2) [tangent] someone really should add the obvious ssleep_interruptible()
-
+- Leo
