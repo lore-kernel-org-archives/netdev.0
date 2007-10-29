@@ -1,64 +1,45 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [bug, 2.6.24-rc1] sysfs: duplicate filename 'eth0' can not be
- created
-Date: Mon, 29 Oct 2007 17:35:11 -0400
-Message-ID: <4726520F.1020605@garzik.org>
-References: <20071029211746.GA19876@elte.hu>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] inet: race in wait for connect.
+Date: Mon, 29 Oct 2007 14:37:14 -0700
+Message-ID: <20071029143714.152e0431@freepuppy.rosehill>
+References: <20071029135222.2ad073ff@freepuppy.rosehill>
+	<20071029212906.GE21178@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Ingo Molnar <mingo@elte.hu>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Arnaldo Carvalho de Melo" <acme@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:58337 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755127AbXJ2VfO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Oct 2007 17:35:14 -0400
-In-Reply-To: <20071029211746.GA19876@elte.hu>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:57051 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751574AbXJ2Vh6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 17:37:58 -0400
+In-Reply-To: <20071029212906.GE21178@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ingo Molnar wrote:
-> hm, this seems to have popped up in the last few days, never had it 
-> before:
-> 
->   sysfs: duplicate filename 'eth0' can not be created
->   WARNING: at fs/sysfs/dir.c:424 sysfs_add_one()
-> 
->   Call Trace:
->    [<ffffffff802de00a>] sysfs_add_one+0x54/0xbd
->    [<ffffffff802dee61>] sysfs_create_link+0xc6/0x11d
->    [<ffffffff8047c491>] device_rename+0x175/0x1d6
->    [<ffffffff806180a6>] dev_change_name+0x118/0x211
->    [<ffffffff8061893c>] dev_ioctl+0x4fa/0x5f8
->    [<ffffffff8062eb11>] netlink_insert+0x13c/0x14b
->    [<ffffffff806a877f>] do_page_fault+0x3eb/0x73f
->    [<ffffffff8060b909>] sock_ioctl+0x1f2/0x200
->    [<ffffffff802a5a5d>] do_ioctl+0x21/0x6b
->    [<ffffffff802a5cea>] vfs_ioctl+0x243/0x25c
->    [<ffffffff802a5d54>] sys_ioctl+0x51/0x71
->    [<ffffffff8020c02e>] system_call+0x7e/0x83
-> 
->    net eth0: device_rename: sysfs_create_symlink failed (-17)
-> 
-> 32-bit bzImage kernel - config attached. (The 64-bit kernel even lost 
-> connectivity due to this and ifcfg-eth0 got renamed to ifcfg-eth0.bak by 
-> kudzu.)
-> 
-> detected order of the interfaces is:
-> 
->   forcedeth 0000:00:0a.0: ifname eth0, PHY OUI 0x5043 @1
->   eth1: RealTek RTL8139 at 0xffffc200001f2000
-> 
-> and that's the ordering in /etc/sysconfig/network-scripts as well.
+On Mon, 29 Oct 2007 19:29:06 -0200
+"Arnaldo Carvalho de Melo" <acme@redhat.com> wrote:
 
-Does your setup do anything like try to rename the interfaces?
+> Em Mon, Oct 29, 2007 at 01:52:22PM -0700, Stephen Hemminger escreveu:
+> > Fix possible race while waiting for connections in accept. I don't
+> > know of a test case that could reproduce this directly.
+> > 
+> > The state of the socket should be checked before checking the queue.
+> > If the socket has left the TCP_LISTEN state, then the accept queue
+> > is no longer valid.
+> 
+> Well if it left from LISTEN to CLOSED inet_csk_listen_stop must have
+> been called, and that calls reqsk_queue_yank_acceptq, that sets it to
+> NULL, reqsk_queue_empty(&icsk->icsk_accept_queue) returns true and we
+> get to if (sk->sk_state != TCP_LISTEN), returning -EINVAL as with your
+> patch.  So I can't see a race, just one branch less in one case :-)
+> 
+> - Arnaldo
 
-I cannot think of anything that changed recently in this area in net, 
-off the top of my head.
-
-	Jeff
+Yeah, your right. The listen queue is garbage at this point but the
+accept queue is always empty.
 
 
-
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
