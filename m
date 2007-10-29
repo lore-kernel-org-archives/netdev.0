@@ -1,36 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Oops in 2.6.21-rc4, 2.6.23
-Date: Mon, 29 Oct 2007 01:41:47 -0700 (PDT)
-Message-ID: <20071029.014147.56411400.davem@davemloft.net>
-References: <20071015173956.6c554387@beavis.confused.org>
-	<20071029084232.GA2280@ff.dom.local>
+From: Romano Giannetti <romanol@upcomillas.es>
+Subject: Re: [PATCH] r8169: don't call napi_disable if not doing NAPI
+Date: Mon, 29 Oct 2007 09:56:42 +0100
+Message-ID: <1193648202.15743.1.camel@localhost>
+References: <alpine.LFD.0.999.0710232057080.30120@woody.linux-foundation.org>
+	 <1193232344.32208.0.camel@localhost> <20071024142759.GA13657@elte.hu>
+	 <1193241191.14314.8.camel@localhost> <20071024155521.GA16690@elte.hu>
+	 <1193242267.6914.6.camel@twins> <1193378269.17910.4.camel@localhost>
+	 <20071026063733.GA12426@elte.hu>
+	 <20071026094833.539a69aa@freepuppy.rosehill>
+	 <20071026175613.GA18770@elte.hu>
+	 <20071026113305.57dea765@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: darko.koruga@siol.net, netdev@vger.kernel.org
-To: jarkao2@o2.pl
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55192
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752017AbXJ2Ilu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 04:41:50 -0400
-In-Reply-To: <20071029084232.GA2280@ff.dom.local>
+Received: from ic0245.upco.es ([130.206.70.245]:42485 "EHLO
+	antispam.upcomillas.es" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752081AbXJ2I4p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 04:56:45 -0400
+In-Reply-To: <20071026113305.57dea765@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jarek Poplawski <jarkao2@o2.pl>
-Date: Mon, 29 Oct 2007 09:42:32 +0100
 
-> I hope you've found this by yourself by now, but:
-> 
-> 1. These are warnings only - not oopses.
-> 2. It seems this patch you've found to be responsible for this all
-> slightly changes some limits, which is not necessarily wrong; the
-> lucky thing is you can change these limits with sysctl or some
-> echos to /proc/sys/net/ipv4/tcp_mem, I presume. (Or more safely by
-> adding some memory.)
+On Fri, 2007-10-26 at 11:33 -0700, Stephen Hemminger wrote:
+> Don't call napi_disable if not configured.
+> And make sure that any misuse of napi_xxx in future fails
+> with a compile error.
+>=20
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+>=20
 
-Actually, this was caused by a real bug in the SKB_WITH_OVERHEAD macro
-definition, which Herbert Xu quickly spotted and fixed.
+This fix the problem for me (at least, after 8 suspend/resume cycles).=20
+Thanks.
 
-Which "I hope you've found this by yourself by now".
+Tested-by: Romano Giannetti <romano.giannetti@gmail.com>
+
+--=20
+Sorry for the disclaimer --- =C2=A1I cannot stop it!
+
+
+
+--
+La presente comunicaci=C3=B3n tiene car=C3=A1cter confidencial y es par=
+a el exclusivo uso del destinatario indicado en la misma. Si Ud. no es =
+el destinatario indicado, le informamos que cualquier forma de distribu=
+ci=C3=B3n, reproducci=C3=B3n o uso de esta comunicaci=C3=B3n y/o de la =
+informaci=C3=B3n contenida en la misma est=C3=A1n estrictamente prohibi=
+dos por la ley. Si Ud. ha recibido esta comunicaci=C3=B3n por error, po=
+r favor, notif=C3=ADquelo inmediatamente al remitente contestando a est=
+e mensaje y proceda a continuaci=C3=B3n a destruirlo. Gracias por su co=
+laboraci=C3=B3n.
+
+This communication contains confidential information. It is for the exc=
+lusive use of the intended addressee. If you are not the intended addre=
+ssee, please note that any form of distribution, copying or use of this=
+ communication or the information in it is strictly prohibited by law. =
+If you have received this communication in error, please immediately no=
+tify the sender by reply e-mail and destroy this message. Thank you for=
+ your cooperation.=20
