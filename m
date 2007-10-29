@@ -1,61 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [bug, 2.6.24-rc1] sysfs: duplicate filename 'eth0' can not be
- created
-Date: Mon, 29 Oct 2007 15:36:27 -0700 (PDT)
-Message-ID: <20071029.153627.04824774.davem@davemloft.net>
-References: <20071029211746.GA19876@elte.hu>
+Subject: Re: [PATCH] inet: race in wait for connect.
+Date: Mon, 29 Oct 2007 15:38:42 -0700 (PDT)
+Message-ID: <20071029.153842.226361489.davem@davemloft.net>
+References: <20071029135222.2ad073ff@freepuppy.rosehill>
+	<20071029212906.GE21178@ghostprotocols.net>
+	<20071029143714.152e0431@freepuppy.rosehill>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jgarzik@pobox.com
-To: mingo@elte.hu
+Cc: acme@redhat.com, netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54320
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54325
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752122AbXJ2WgZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 18:36:25 -0400
-In-Reply-To: <20071029211746.GA19876@elte.hu>
+	by vger.kernel.org with ESMTP id S1752416AbXJ2Wik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 18:38:40 -0400
+In-Reply-To: <20071029143714.152e0431@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Mon, 29 Oct 2007 22:17:46 +0100
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Mon, 29 Oct 2007 14:37:14 -0700
 
+> On Mon, 29 Oct 2007 19:29:06 -0200
+> "Arnaldo Carvalho de Melo" <acme@redhat.com> wrote:
 > 
-> hm, this seems to have popped up in the last few days, never had it 
-> before:
+> > Em Mon, Oct 29, 2007 at 01:52:22PM -0700, Stephen Hemminger escreveu:
+> > > Fix possible race while waiting for connections in accept. I don't
+> > > know of a test case that could reproduce this directly.
+> > > 
+> > > The state of the socket should be checked before checking the queue.
+> > > If the socket has left the TCP_LISTEN state, then the accept queue
+> > > is no longer valid.
+> > 
+> > Well if it left from LISTEN to CLOSED inet_csk_listen_stop must have
+> > been called, and that calls reqsk_queue_yank_acceptq, that sets it to
+> > NULL, reqsk_queue_empty(&icsk->icsk_accept_queue) returns true and we
+> > get to if (sk->sk_state != TCP_LISTEN), returning -EINVAL as with your
+> > patch.  So I can't see a race, just one branch less in one case :-)
+> > 
+> > - Arnaldo
 > 
->   sysfs: duplicate filename 'eth0' can not be created
->   WARNING: at fs/sysfs/dir.c:424 sysfs_add_one()
+> Yeah, your right. The listen queue is garbage at this point but the
+> accept queue is always empty.
 
-I checked in a change from Stephen Hemminger last week which
-should keep this case from emitting warning messages.
-
-commit c8d90dca3211966ba5189e0f3d4bccd558d9ae08
-Author: Stephen Hemminger <shemminger@linux-foundation.org>
-Date:   Fri Oct 26 03:53:42 2007 -0700
-
-    [NET] dev_change_name: ignore changes to same name
-    
-    Prevent error/backtrace from dev_rename() when changing
-    name of network device to the same name. This is a common
-    situation with udev and other scripts that bind addr to device.
-    
-    Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f1647d7..ddfef3b 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -883,6 +883,9 @@ int dev_change_name(struct net_device *dev, char *newname)
- 	if (!dev_valid_name(newname))
- 		return -EINVAL;
- 
-+	if (strncmp(newname, dev->name, IFNAMSIZ) == 0)
-+		return 0;
-+
- 	memcpy(oldname, dev->name, IFNAMSIZ);
- 
- 	if (strchr(newname, '%')) {
+Is there some failing test case you are aware of which led
+you to this piece of code or did you happen to notice it
+while scanning around?
