@@ -1,163 +1,69 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 1/4] e1000e: fix sparse warnings
-Date: Mon, 29 Oct 2007 10:46:05 -0700
-Message-ID: <20071029174605.25245.15294.stgit@localhost.localdomain>
+From: Chuck Ebbert <cebbert@redhat.com>
+Subject: kernel panic removing devices from a teql queuing discipline
+Date: Mon, 29 Oct 2007 14:00:01 -0400
+Message-ID: <47261FA1.10300@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org
-To: jeff@garzik.org
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:36119 "EHLO mga03.intel.com"
+Received: from mx1.redhat.com ([66.187.233.31]:32935 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753971AbXJ2Rx7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Oct 2007 13:53:59 -0400
+	id S1753005AbXJ2SAD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Oct 2007 14:00:03 -0400
+Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
+	by mx1.redhat.com (8.13.8/8.13.1) with ESMTP id l9TI02pv018816
+	for <netdev@vger.kernel.org>; Mon, 29 Oct 2007 14:00:02 -0400
+Received: from mail.boston.redhat.com (mail.boston.redhat.com [172.16.76.12])
+	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id l9TI01bI025210
+	for <netdev@vger.kernel.org>; Mon, 29 Oct 2007 14:00:02 -0400
+Received: from [172.16.83.145] (dhcp83-145.boston.redhat.com [172.16.83.145])
+	by mail.boston.redhat.com (8.13.1/8.13.1) with ESMTP id l9TI019t011725
+	for <netdev@vger.kernel.org>; Mon, 29 Oct 2007 14:00:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
+https://bugzilla.redhat.com/show_bug.cgi?id=219488
 
-Fix sparse warnings from e1000e driver in net-2.6.24.
+Still happening in 2.6.22.9:
 
-Added a sparse fix for module param arrays which can have int values
-but only the array index needs to be unsigned. --Auke
+BUG: unable to handle kernel paging request at virtual address 66696674
+ printing eip:
+d098d4de
+*pde = 00000000
+Oops: 0000 [#1]
+SMP 
+last sysfs file: /class/net/lo/ifindex
+Modules linked in: sch_teql netconsole autofs4 hidp rfcomm l2cap bluetooth sunrpc ipv6 dm_multipath video sbs i2c_ec button battery asus_acpi ac parport_pc lp parport floppy i2c_piix4 pcspkr i2c_core pcnet32 mii serio_raw ide_cd cdrom dm_snapshot dm_zero dm_mirror dm_mod ext3 jbd ehci_hcd ohci_hcd uhci_hcd
+CPU:    0
+EIP:    0060:[<d098d4de>]    Not tainted VLI
+EFLAGS: 00010202   (2.6.18-1.2849.fc6 #1) 
+EIP is at teql_master_xmit+0xdc/0x3aa [sch_teql]
+eax: c06a82c0   ebx: cde25c80   ecx: 00000000   edx: c06ad680
+esi: c12f8e00   edi: cfc73800   ebp: 66696670   esp: ca6c8bb8
+ds: 007b   es: 007b   ss: 0068
+Process ping (pid: 2275, ti=ca6c8000 task=cc7bd400 task.ti=ca6c8000)
+Stack: cde25174 00000000 000004cc ca6f0800 c12f8e00 000004cc cc7f5280 ca6f0c00 
+       cc7f5280 cc7f5280 00000000 00000000 00000000 c06a82c0 00000000 ca6f0800 
+       c12f8e00 c12f8e00 c0823e08 c05b9606 ca6c8c20 00000000 c12f8e00 ca6f0800 
+Call Trace:
+ [<c05b9606>] dev_hard_start_xmit+0x1b9/0x218
+ [<c05c72e1>] __qdisc_run+0xde/0x19b
+ [<c05baeea>] dev_queue_xmit+0x147/0x265
+ [<c05d8a0c>] ip_output+0x1df/0x20b
+ [<c05d63bd>] ip_push_pending_frames+0x301/0x3c3
+ [<c05ef0a6>] raw_sendmsg+0x62e/0x6f0
+ [<c05f5913>] inet_sendmsg+0x3b/0x45
+ [<c05af6a6>] sock_sendmsg+0xd0/0xeb
+ [<c05afec9>] sys_sendmsg+0x192/0x1f7
+ [<c05b1427>] sys_socketcall+0x240/0x261
+ [<c0404013>] syscall_call+0x7/0xb
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
+The panic is in __teql_resolve (which has been inlined into teql_master_xmit) in
+net/sched/sch_teql.c at this line:
 
- drivers/net/e1000e/ethtool.c |    4 ++--
- drivers/net/e1000e/param.c   |   35 ++++++++++++++++++-----------------
- 2 files changed, 20 insertions(+), 19 deletions(-)
+	if (n && n->tbl == mn->tbl &&
 
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index 0666e62..6a39784 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -1680,8 +1680,8 @@ static int e1000_phys_id(struct net_device *netdev, u32 data)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 
--	if (!data || data > (u32)(MAX_SCHEDULE_TIMEOUT / HZ))
--		data = (u32)(MAX_SCHEDULE_TIMEOUT / HZ);
-+	if (!data)
-+		data = INT_MAX;
- 
- 	if (adapter->hw.phy.type == e1000_phy_ife) {
- 		if (!adapter->blink_timer.function) {
-diff --git a/drivers/net/e1000e/param.c b/drivers/net/e1000e/param.c
-index e4e655e..3327892 100644
---- a/drivers/net/e1000e/param.c
-+++ b/drivers/net/e1000e/param.c
-@@ -52,10 +52,11 @@ MODULE_PARM_DESC(copybreak,
-  */
- 
- #define E1000_PARAM_INIT { [0 ... E1000_MAX_NIC] = OPTION_UNSET }
--#define E1000_PARAM(X, desc) \
--	static int __devinitdata X[E1000_MAX_NIC+1] = E1000_PARAM_INIT; \
--	static int num_##X; \
--	module_param_array_named(X, X, int, &num_##X, 0); \
-+#define E1000_PARAM(X, desc)					\
-+	static int __devinitdata X[E1000_MAX_NIC+1]		\
-+		= E1000_PARAM_INIT;				\
-+	static unsigned int num_##X;				\
-+	module_param_array_named(X, X, int, &num_##X, 0);	\
- 	MODULE_PARM_DESC(X, desc);
- 
- 
-@@ -124,9 +125,9 @@ E1000_PARAM(KumeranLockLoss, "Enable Kumeran lock loss workaround");
- 
- struct e1000_option {
- 	enum { enable_option, range_option, list_option } type;
--	char *name;
--	char *err;
--	int  def;
-+	const char *name;
-+	const char *err;
-+	int def;
- 	union {
- 		struct { /* range_option info */
- 			int min;
-@@ -139,8 +140,8 @@ struct e1000_option {
- 	} arg;
- };
- 
--static int __devinit e1000_validate_option(int *value,
--					   struct e1000_option *opt,
-+static int __devinit e1000_validate_option(unsigned int *value,
-+					   const struct e1000_option *opt,
- 					   struct e1000_adapter *adapter)
- {
- 	if (*value == OPTION_UNSET) {
-@@ -213,7 +214,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 	}
- 
- 	{ /* Transmit Interrupt Delay */
--		struct e1000_option opt = {
-+		const struct e1000_option opt = {
- 			.type = range_option,
- 			.name = "Transmit Interrupt Delay",
- 			.err  = "using default of "
-@@ -232,7 +233,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		}
- 	}
- 	{ /* Transmit Absolute Interrupt Delay */
--		struct e1000_option opt = {
-+		const struct e1000_option opt = {
- 			.type = range_option,
- 			.name = "Transmit Absolute Interrupt Delay",
- 			.err  = "using default of "
-@@ -277,7 +278,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		}
- 	}
- 	{ /* Receive Absolute Interrupt Delay */
--		struct e1000_option opt = {
-+		const struct e1000_option opt = {
- 			.type = range_option,
- 			.name = "Receive Absolute Interrupt Delay",
- 			.err  = "using default of "
-@@ -296,7 +297,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		}
- 	}
- 	{ /* Interrupt Throttling Rate */
--		struct e1000_option opt = {
-+		const struct e1000_option opt = {
- 			.type = range_option,
- 			.name = "Interrupt Throttling Rate (ints/sec)",
- 			.err  = "using default of "
-@@ -344,7 +345,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		}
- 	}
- 	{ /* Smart Power Down */
--		struct e1000_option opt = {
-+		const struct e1000_option opt = {
- 			.type = enable_option,
- 			.name = "PHY Smart Power Down",
- 			.err  = "defaulting to Disabled",
-@@ -352,7 +353,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		};
- 
- 		if (num_SmartPowerDownEnable > bd) {
--			int spd = SmartPowerDownEnable[bd];
-+			unsigned int spd = SmartPowerDownEnable[bd];
- 			e1000_validate_option(&spd, &opt, adapter);
- 			if ((adapter->flags & FLAG_HAS_SMART_POWER_DOWN)
- 			    && spd)
-@@ -360,7 +361,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		}
- 	}
- 	{ /* Kumeran Lock Loss Workaround */
--		struct e1000_option opt = {
-+		const struct e1000_option opt = {
- 			.type = enable_option,
- 			.name = "Kumeran Lock Loss Workaround",
- 			.err  = "defaulting to Enabled",
-@@ -368,7 +369,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		};
- 
- 		if (num_KumeranLockLoss > bd) {
--			int kmrn_lock_loss = KumeranLockLoss[bd];
-+			unsigned int kmrn_lock_loss = KumeranLockLoss[bd];
- 			e1000_validate_option(&kmrn_lock_loss, &opt, adapter);
- 			if (hw->mac.type == e1000_ich8lan)
- 				e1000e_set_kmrn_lock_loss_workaround_ich8lan(hw,
+Specifically the dereference of n->tbl is faulting as n is not valid.
+
+And the address looks like part of an ASCCI string...  "figt"
