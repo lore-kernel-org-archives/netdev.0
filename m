@@ -1,39 +1,46 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: IPVS: use proper timeout instead of fixed value
-Date: Mon, 29 Oct 2007 08:50:01 -0400
-Message-ID: <20071029125000.GA5889@gospo.rdu.redhat.com>
-References: <20071029070555.78D694FA13@tabatha.lab.ultramonkey.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [UDP6]: Restore sk_filter optimisation
+Date: Mon, 29 Oct 2007 20:53:28 +0800
+Message-ID: <20071029125328.GA5453@gondor.apana.org.au>
+References: <20070306012010.GA25763@gondor.apana.org.au> <20071029153320.d2c00f62.mitch@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, lvs-devel@linuxvirtualserver.org,
-	wensong@linux-vs.org, ja@ssi.bg, Joseph Mack NA3T <jmack@wm7d.net>,
-	Graeme Fowler <graeme@graemef.net>,
-	Andreas Lundqvist <lvs@rsv.se>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Simon Horman <horms@verge.net.au>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:38505 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751981AbXJ2Mwt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Oct 2007 08:52:49 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:1107 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752383AbXJ2Myq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 08:54:46 -0400
 Content-Disposition: inline
-In-Reply-To: <20071029070555.78D694FA13@tabatha.lab.ultramonkey.org>
+In-Reply-To: <20071029153320.d2c00f62.mitch@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 29, 2007 at 04:05:55PM +0900, Simon Horman wrote:
-> From: Andy Gospodarek <andy@greyhouse.net>
+On Mon, Oct 29, 2007 at 03:33:20PM +0900, Mitsuru Chinen wrote:
+> Hello Herbert,
 > 
-> Instead of using the default timeout of 3 minutes, this uses the timeout
-> specific to the protocol used for the connection. The 3 minute timeout
-> seems somewhat arbitrary (though I know it is used other places in the
-> ipvs code) and when failing over it would be much nicer to use one of
-> the configured timeout values.
+> Let me ask a question about this patch.
+> After this patch was applied, 2 of the protocol stack behaviors were
+> changed when it receives a UDP datagram with broken checksum:
 > 
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> Acked-by: Simon Horman <horms@verge.net.au>
+>  1. udp6InDatagrams is incremented instead of udpInErrors
+>  2. In userland, recvfrom() replies an error with EAGAIN.
+>     recvfrom() wasn't aware of such a packet before.
 > 
+> Are these changes intentional?
 
-Thanks for re-visiting this, Simon!  It's too bad that the other work
-never got done, but I'm glad to see this will get included.
+It wasn't my intention if that's what you mean :)
 
+However, this would've happened with the old code anyway if
+someone had a filter attached so this isn't new.
+
+If it's a problem then we should just get it fixed.
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
