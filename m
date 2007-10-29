@@ -1,29 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.24-rc] [IPV6] NDISC: Fix setting
- base_reachable_time_ms variable.
-Date: Mon, 29 Oct 2007 01:33:34 -0700 (PDT)
-Message-ID: <20071029.013334.217693995.davem@davemloft.net>
-References: <20071029.114954.02253064.yoshfuji@linux-ipv6.org>
+Subject: Re: IPVS: use proper timeout instead of fixed value
+Date: Mon, 29 Oct 2007 01:35:15 -0700 (PDT)
+Message-ID: <20071029.013515.07385320.davem@davemloft.net>
+References: <20071029070555.78D694FA13@tabatha.lab.ultramonkey.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org
-To: yoshfuji@linux-ipv6.org
+Cc: netdev@vger.kernel.org, lvs-devel@linuxvirtualserver.org,
+	wensong@linux-vs.org, ja@ssi.bg, jmack@wm7d.net,
+	graeme@graemef.net, lvs@rsv.se, andy@greyhouse.net
+To: horms@verge.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45422
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45448
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752181AbXJ2Idd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 04:33:33 -0400
-In-Reply-To: <20071029.114954.02253064.yoshfuji@linux-ipv6.org>
+	by vger.kernel.org with ESMTP id S1752095AbXJ2IfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 04:35:15 -0400
+In-Reply-To: <20071029070555.78D694FA13@tabatha.lab.ultramonkey.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Mon, 29 Oct 2007 11:49:54 +0900 (JST)
+From: Simon Horman <horms@verge.net.au>
+Date: Mon, 29 Oct 2007 16:05:55 +0900 (JST)
 
-> This bug was introduced by the commit
-> d12af679bcf8995a237560bdf7a4d734f8df5dbb.
+> From: Andy Gospodarek <andy@greyhouse.net>
 > 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Instead of using the default timeout of 3 minutes, this uses the timeout
+> specific to the protocol used for the connection. The 3 minute timeout
+> seems somewhat arbitrary (though I know it is used other places in the
+> ipvs code) and when failing over it would be much nicer to use one of
+> the configured timeout values.
+> 
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> Acked-by: Simon Horman <horms@verge.net.au>
 
-Patch applied, thank you!
+I would apply this but it does not apply to current 2.6.x,
+please resubmit.
+
+Thanks.
