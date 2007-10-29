@@ -1,120 +1,67 @@
-From: Corey Hickey <bugfood-ml@fatooh.org>
-Subject: Re: [PATCH 8/8] Use nested compat attributes to pass parameters.
-Date: Mon, 29 Oct 2007 00:27:29 -0700
-Message-ID: <47258B61.1000901@fatooh.org>
-References: <1193642587-32657-1-git-send-email-bugfood-ml@fatooh.org> <1193642587-32657-9-git-send-email-bugfood-ml@fatooh.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: last git: BUG: unable to handle kernel paging request at
+ virtual address 92184900
+Date: Mon, 29 Oct 2007 01:11:48 -0700
+Message-ID: <20071029011148.76ae8dd4.akpm@linux-foundation.org>
+References: <471E45B4.9050504@debian.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Giacomo Catenazzi <cate@debian.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hot.fatooh.org ([208.78.103.127]:50461 "EHLO hot.fatooh.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751099AbXJ2H1b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Oct 2007 03:27:31 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by hot.fatooh.org (Postfix) with ESMTP id D166317C231
-	for <netdev@vger.kernel.org>; Mon, 29 Oct 2007 02:27:30 -0500 (CDT)
-Received: from hot.fatooh.org ([127.0.0.1])
-	by localhost (hot.fatooh.org [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id IDs8zygVmeZj for <netdev@vger.kernel.org>;
-	Mon, 29 Oct 2007 02:27:30 -0500 (CDT)
-Received: from [10.1.0.0] (c-24-7-71-25.hsd1.ca.comcast.net [24.7.71.25])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by hot.fatooh.org (Postfix) with ESMTP id 4E83217C094
-	for <netdev@vger.kernel.org>; Mon, 29 Oct 2007 02:27:30 -0500 (CDT)
-In-Reply-To: <1193642587-32657-9-git-send-email-bugfood-ml@fatooh.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:52405 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752204AbXJ2IMW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 04:12:22 -0400
+In-Reply-To: <471E45B4.9050504@debian.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Corey Hickey wrote:
-> +/* SFQ parameters exist as individual rtattr attributes, with a nested
-> + * "struct tc_sfq_qopt" for compatibility with older userspace tools. If an
-> + * individual attribute is set, we want to use it; otherwise, fall back to the
-> + * nested struct.
-> + * There is one caveat: if a member of the nested struct is 0, we cannot
-> + * determine if that parameter is supposed to be 0 or if it is merely unset.
-> + * So, only set a parameter if the corresponding struct member (u32 compat) is
-> + * nonzero. When setting a parameter to 0, it is necessary to use the
-> + * individual attribute. */
-> +static inline int
-> +sfq_get_parameter(u32 *dst, struct rtattr *tb[TCA_SFQ_MAX], int attr,
-> +		  u32 compat)
-> +{
-> +	struct rtattr *rta = tb[(attr - 1)];
-> +	if (rta)
-> +		*dst = RTA_GET_U32(rta);
-> +	else if (compat)
-> +		*dst = compat;
-> +
-> +	rtattr_failure:
-> +		return -EINVAL;
-> +}
-> +	
->  static int
->  sfq_q_init(struct sfq_sched_data *q, struct rtattr *opt)
->  {
-> @@ -465,21 +488,24 @@ sfq_q_init(struct sfq_sched_data *q, struct rtattr *opt)
->  	 * the previous values (sfq_change). So, overwrite the parameters as
->  	 * specified. */
->  	if (opt) {
-> -		struct tc_sfq_qopt *ctl = RTA_DATA(opt);
-> -
-> -		if (opt->rta_len < RTA_LENGTH(sizeof(*ctl)))
-> -			return -EINVAL;
-> -
-> -		if (ctl->quantum)
-> -			q->quantum = ctl->quantum;
-> -		if (ctl->perturb_period)
-> -			q->perturb_period = ctl->perturb_period;
-> -		if (ctl->divisor)
-> -			q->hash_divisor = ctl->divisor;
-> -		if (ctl->flows)
-> -			q->depth = ctl->flows;
-> -		if (ctl->limit)
-> -			q->limit = ctl->limit;
-> +		struct tc_sfq_qopt *ctl;
-> +		struct rtattr *tb[TCA_SFQ_MAX];
-> +
-> +		if (rtattr_parse_nested_compat(tb, TCA_SFQ_MAX, opt, ctl,
-> +				sizeof(*ctl)))
-> +			goto rtattr_failure;
-> +
-> +		if (sfq_get_parameter(&(q->quantum),        tb, TCA_SFQ_QUANTUM,
-> +				ctl->quantum)        ||
-> +		    sfq_get_parameter(&(q->perturb_period), tb, TCA_SFQ_PERTURB,
-> +				ctl->perturb_period) ||
-> +		    sfq_get_parameter(&(q->hash_divisor),   tb, TCA_SFQ_DIVISOR,
-> +				ctl->divisor)        ||
-> +		    sfq_get_parameter(&(q->depth),          tb, TCA_SFQ_FLOWS,
-> +				ctl->flows)          ||
-> +		    sfq_get_parameter(&(q->limit),          tb, TCA_SFQ_LIMIT,
-> +				ctl->limit))
-> +			goto rtattr_failure;
->  
+On Tue, 23 Oct 2007 21:04:20 +0200 Giacomo Catenazzi <cate@debian.org> wrote:
 
-You may note that this part ended up being rather ugly, and I wouldn't
-blame anyone for wanting it to be improved. I don't see any good
-solutions; the alternatives I can provide are:
+> Hello people,
+> 
+> I've still some kernel bug
+> 
+> ciao
+> 	cate
+> 
+> Oct 23 20:20:05 catee kernel: BUG: unable to handle kernel paging request at virtual address 92184900
+> Oct 23 20:20:05 catee kernel: printing eip: c017b9c2 *pde = 00000000
+> Oct 23 20:20:05 catee kernel: Oops: 0002 [#1] SMP
+> Oct 23 20:20:05 catee kernel: Modules linked in: fuse tuner tea5767 tda8290 tuner_simple mt20xx floppy bttv ir_common videobuf_dma_sg btcx_risc tveeprom
+> Oct 23 20:20:05 catee kernel:
+> Oct 23 20:20:05 catee kernel: Pid: 2191, comm: dirmngr Not tainted (2.6.23-g0b776eb5 #16)
+> Oct 23 20:20:05 catee kernel: EIP: 0060:[<c017b9c2>] EFLAGS: 00010203 CPU: 2
+> Oct 23 20:20:05 catee kernel: EIP is at generic_drop_inode+0x5d/0x147
+> Oct 23 20:20:05 catee kernel: EAX: c478b238 EBX: c478b228 ECX: c2491600 EDX: c4d170b8
+> Oct 23 20:20:05 catee kernel: ESI: c2405f40 EDI: c478b228 EBP: c4933940 ESP: c3798e90
+> Oct 23 20:20:05 catee kernel: DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
+> Oct 23 20:20:05 catee kernel: Process dirmngr (pid: 2191, ti=c3798000 task=c2c99ab0 task.ti=c3798000)
+> Oct 23 20:20:05 catee kernel: Stack: c478b228 c017b00d c5046314 c01791bf c5046314 c2405f40 c017a0d7 00000008
+> Oct 23 20:20:05 catee kernel: c016b622 00000010 00000000 c5046314 c478b228 c037f600 c478b200 c2832200
+> Oct 23 20:20:05 catee kernel: 00000000 c02f9a4d 00000000 c20107b4 c2469ae0 00000000 00000001 ffffffff
+> Oct 23 20:20:05 catee kernel: Call Trace:
+> Oct 23 20:20:05 catee kernel: [<c017b00d>] iput+0x5c/0x62
+> Oct 23 20:20:05 catee kernel: [<c01791bf>] d_kill+0x2b/0x44
+> Oct 23 20:20:05 catee kernel: [<c017a0d7>] dput+0x6d/0xf3
+> Oct 23 20:20:05 catee kernel: [<c016b622>] __fput+0x124/0x169
+> Oct 23 20:20:05 catee kernel: [<c02f9a4d>] sys_accept+0x17b/0x1d8
+> Oct 23 20:20:05 catee kernel: [<c013527f>] autoremove_wake_function+0x0/0x35
+> Oct 23 20:20:05 catee kernel: [<c013d617>] tick_program_event+0x38/0x58
+> Oct 23 20:20:05 catee kernel: [<c02f9cb2>] sys_socketcall+0x208/0x273
+> Oct 23 20:20:05 catee kernel: [<c0103fde>] sysenter_past_esp+0x5f/0x85
+> Oct 23 20:20:05 catee kernel: =======================
+> Oct 23 20:20:05 catee kernel: Code: 8b 43 14 89 42 04 89 10 8d 43 10 89 43 10 89 43 14 83 8b 44 01 00 00 20 83 2d 40 e8 49 c0 01 08 05 e4 27 41 c0 01 8b 83 e0 00 00 <00> 85 c0 0f 85 cd 00 00 00 89 d8 e8 e3 fd ff ff 89 d8 e8 b0 f5
 
-1. Use a macro, as I had originally written for this patch:
-http://marc.info/?l=linux-netdev&m=119102007907626&w=2
-(search for GET_PARAM)
-The macro itself doesn't look pretty, but the usage is fairly clean.
+Is this still happening in the latest Linus tree?
 
-2. Use neither macro nor function.
-There would be five repetitions of very similar code, with five lines
-per repetition: not very nice, but the formatting would still look better.
+If so, please send some more oops traces so we can see if it's always happening
+in the same place.
 
-3. Only use a separate rtattr for perturb, since the other parameters
-work fine already. From the start, I had wanted to keep parameter
-parsing consistent, but it may not be worth it. This would definitely be
-the cleanest approach for readability, and the most simple.
+Please only send the first oops trace after a bootup: the one with [#1] in
+the "Oops:" line.  All the others could be a consequence of the first.
 
-
-Sorry to bother you with such a superficial problem, but I really don't
-know what would be preferable.
-
-Thanks,
-Corey
+Thanks.
