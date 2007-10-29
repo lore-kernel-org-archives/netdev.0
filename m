@@ -1,47 +1,41 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: IPVS: use proper timeout instead of fixed value
-Date: Mon, 29 Oct 2007 17:59:23 +0900
-Message-ID: <20071029085921.GB30256@verge.net.au>
-References: <20071029070555.78D694FA13@tabatha.lab.ultramonkey.org> <20071029.013515.07385320.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/4] e1000e: Fix jumbo frame receive code.
+Date: Mon, 29 Oct 2007 05:47:24 -0400
+Message-ID: <4725AC2C.4060709@garzik.org>
+References: <20071025205744.32645.59503.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, lvs-devel@linuxvirtualserver.org,
-	wensong@linux-vs.org, ja@ssi.bg, jmack@wm7d.net,
-	graeme@graemef.net, lvs@rsv.se, andy@greyhouse.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Auke Kok <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:58461 "EHLO koto.vergenet.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:43854 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752170AbXJ2I70 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Oct 2007 04:59:26 -0400
-Content-Disposition: inline
-In-Reply-To: <20071029.013515.07385320.davem@davemloft.net>
+	id S1752034AbXJ2Jr0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Oct 2007 05:47:26 -0400
+In-Reply-To: <20071025205744.32645.59503.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 29, 2007 at 01:35:15AM -0700, David Miller wrote:
-> From: Simon Horman <horms@verge.net.au>
-> Date: Mon, 29 Oct 2007 16:05:55 +0900 (JST)
+Auke Kok wrote:
+> Fix allocation and freeing of jumbo frames where several bugs
+> were recently introduced by cleanups after we forked this code
+> from e1000. This moves ps_pages to buffer_info where it really
+> belongs and makes it a dynamically allocated array. The penalty
+> is not that high since it's allocated outside of the buffer_info
+> struct anyway.
 > 
-> > From: Andy Gospodarek <andy@greyhouse.net>
-> > 
-> > Instead of using the default timeout of 3 minutes, this uses the timeout
-> > specific to the protocol used for the connection. The 3 minute timeout
-> > seems somewhat arbitrary (though I know it is used other places in the
-> > ipvs code) and when failing over it would be much nicer to use one of
-> > the configured timeout values.
-> > 
-> > Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> > Acked-by: Simon Horman <horms@verge.net.au>
+> Without this patch all jumbo frames are completely broken and the
+> driver panics.
 > 
-> I would apply this but it does not apply to current 2.6.x,
-> please resubmit.
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> ---
+> 
+>  drivers/net/e1000e/e1000.h  |    4 +-
+>  drivers/net/e1000e/netdev.c |  102 ++++++++++++++++++++++---------------------
+>  2 files changed, 54 insertions(+), 52 deletions(-)
 
-I tried against net-2.6 and it seemed to work.
-Was I mistaken or should I be using a different tree?
+applied 1-4 to #upstream-fixes
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
 
