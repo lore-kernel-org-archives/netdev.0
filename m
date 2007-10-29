@@ -1,97 +1,59 @@
 From: "Denys" <denys@visp.net.lb>
 Subject: HFSC dangerous behaviour (not a bug)
-Date: Mon, 29 Oct 2007 02:02:39 +0200
-Message-ID: <20071028235224.M3269@visp.net.lb>
+Date: Mon, 29 Oct 2007 02:55:47 +0200
+Message-ID: <20071029005547.M47431@visp.net.lb>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset=koi8-r
 Cc: kaber@trash.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:33653 "EHLO
+Received: from usermail.globalproof.net ([194.146.153.18]:40157 "EHLO
 	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752709AbXJ2ACu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Oct 2007 20:02:50 -0400
+	with ESMTP id S1752244AbXJ2A4E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Oct 2007 20:56:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi All
+Additionally, it doesn't show rate in stats (so it is difficult to measure, 
+how much is really using each class).
 
-During testing i found very strange thing. 
-After applying even example shaper:
-http://linux-ip.net/tc/hfsc.en/
--------------
-#  Example  from  Figure  1. 
-tc  qdisc  add  dev  eth0  root  handle  1:  hfsc 
-tc  class  add  dev  eth0  parent  1:  classid  1:1  hfsc  sc  rate  
-1000kbit  ul  rate  1000kbit 
-tc  class  add  dev  eth0  parent  1:1  classid  1:10  hfsc  sc  rate  
-500kbit  ul  rate  1000kbit 
-tc  class  add  dev  eth0  parent  1:1  classid  1:20  hfsc  sc  rate  
-500kbit  ul  rate  1000kbit 
-tc  class  add  dev  eth0  parent  1:10  classid  1:11  hfsc  sc  umax  
-1500b  dmax  53ms  rate  400kbit  ul  rate  1000kbit 
-tc  class  add  dev  eth0  parent  1:10  classid  1:12  hfsc  sc  umax  
-1500b  dmax  30ms  rate  100kbit  ul  rate  1000kbit
----------------
-I had all traffic on eth0 stopped. Tried on br0 - same result. Even ARP 
-becoming non-functional.
-
-Stats:
-
-tc -s class show dev br0
-class hfsc 1: root
- Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+qdisc hfsc 1: root default 200
+ Sent 1392761062 bytes 965768 pkt (dropped 52, overlimits 1620539 requeues 0)
  rate 0bit 0pps backlog 0b 0p requeues 0
- period 0 level 3
-
-class hfsc 1:11 parent 1:10 sc m1 0bit d 23.0ms m2 400000bit ul m1 0bit d 0us 
-m2 1000Kbit
- Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
- period 0 level 0
-
-class hfsc 1:1 parent 1: sc m1 0bit d 0us m2 1000Kbit ul m1 0bit d 0us m2 
-1000Kbit
- Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
- period 0 level 2
-
-class hfsc 1:10 parent 1:1 sc m1 0bit d 0us m2 500000bit ul m1 0bit d 0us m2 
-1000Kbit
- Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
- period 0 level 1
-
-class hfsc 1:20 parent 1:1 sc m1 0bit d 0us m2 500000bit ul m1 0bit d 0us m2 
-1000Kbit
- Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
- period 0 level 0
-
-class hfsc 1:12 parent 1:10 sc m1 400000bit d 30.0ms m2 100000bit ul m1 0bit 
-d 0us m2 1000Kbit
- Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
- period 0 level 0
-
-tc -s qdisc show dev br0
-qdisc hfsc 1: root
- Sent 0 bytes 0 pkt (dropped 3, overlimits 0 requeues 0)
+qdisc bfifo 200: parent 1:200 limit 5000Kb
+ Sent 3159118 bytes 17598 pkt (dropped 0, overlimits 0 requeues 177)
+ rate 0bit 0pps backlog 0b 0p requeues 177
+qdisc bfifo 910: parent 1:910 limit 2120000b
+ Sent 514985563 bytes 360381 pkt (dropped 0, overlimits 0 requeues 314751)
+ rate 0bit 0pps backlog 0b 0p requeues 314751
+qdisc bfifo 1101: parent 1:1101 limit 1000000b
+ Sent 139858294 bytes 94506 pkt (dropped 0, overlimits 0 requeues 85889)
+ rate 0bit 0pps backlog 0b 0p requeues 85889
+qdisc bfifo 1102: parent 1:1102 limit 1000000b
+ Sent 96248464 bytes 65436 pkt (dropped 0, overlimits 0 requeues 58030)
+ rate 0bit 0pps backlog 0b 0p requeues 58030
+qdisc bfifo 1103: parent 1:1103 limit 1000000b
+ Sent 111740612 bytes 75945 pkt (dropped 0, overlimits 0 requeues 66919)
+ rate 0bit 0pps backlog 0b 0p requeues 66919
+qdisc bfifo 923: parent 1:923 limit 375000b
+ Sent 244333639 bytes 163399 pkt (dropped 0, overlimits 0 requeues 134977)
+ rate 0bit 0pps backlog 0b 0p requeues 134977
+qdisc bfifo 924: parent 1:924 limit 200000b
+ Sent 101499905 bytes 68041 pkt (dropped 0, overlimits 0 requeues 43722)
+ rate 0bit 0pps backlog 0b 0p requeues 43722
+qdisc bfifo 925: parent 1:925 limit 200000b
+ Sent 159908141 bytes 106077 pkt (dropped 51, overlimits 0 requeues 34702)
+ rate 0bit 0pps backlog 0b 0p requeues 34702
+qdisc bfifo 926: parent 1:926 limit 200000b
+ Sent 21027140 bytes 14382 pkt (dropped 0, overlimits 0 requeues 10707)
+ rate 0bit 0pps backlog 0b 0p requeues 10707
+qdisc bfifo 955: parent 1:955 limit 500000b
+ Sent 186 bytes 3 pkt (dropped 0, overlimits 0 requeues 0)
  rate 0bit 0pps backlog 0b 0p requeues 0
 
-After specifying correct default class everything worked fine.
 
-In HTB if you dont specify default class, traffic just pass without 
-"shaping". 
-Is it possible to keep same behaviour on both disciplines?
-Probably just dropping all traffic not good idea, cause if user working on 
-remote box by forgetting specifying default class or by mistake using 
-incorrect class number he will loose access to the box, if same interface is 
-used for tests on shaping and access.
-In same time it is good, and can show accurate results on shaping, without 
-bypassing some "forgotten" traffic.
-But at least it must be same, IMHO, on HTB and HFSC.
+
 
 --
 Denys Fedoryshchenko
