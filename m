@@ -1,50 +1,47 @@
-From: Bernhard Walle <bwalle@suse.de>
-Subject: Re: [PATCH] proc_fs.h redux
-Date: Sun, 28 Oct 2007 14:25:08 +0100
-Message-ID: <20071028132508.GA28951@suse.de>
-References: <20071027194758.GD9816@martell.zuzino.mipt.ru> <1193524804.26695.103.camel@localhost> <20071028103415.GA12554@flint.arm.linux.org.uk> <20071028115952.GA18479@suse.de> <20071028130429.GC12554@flint.arm.linux.org.uk>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH] Fix/Rewrite of the mipsnet driver
+Date: Mon, 29 Oct 2007 00:25:17 +0000
+Message-ID: <20071029002517.GB16913@linux-mips.org>
+References: <20071028043846.GM29176@networkno.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>,
-	Alexey Dobriyan <adobriyan@gmail.com>, akpm@osdl.org,
-	torvalds@osdl.org
-To: viro@zeniv.linux.org.uk, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
+To: Thiemo Seufer <ths@networkno.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:55760 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750952AbXJ1NZM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Oct 2007 09:25:12 -0400
+Received: from ftp.linux-mips.org ([194.74.144.162]:60682 "EHLO
+	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750749AbXJ1RCQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Oct 2007 13:02:16 -0400
+Received: from localhost.localdomain ([127.0.0.1]:57264 "EHLO
+	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
+	id S20023070AbXJ1RCP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Oct 2007 17:02:15 +0000
 Content-Disposition: inline
-In-Reply-To: <20071028130429.GC12554@flint.arm.linux.org.uk>
+In-Reply-To: <20071028043846.GM29176@networkno.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Russell King <rmk+lkml@arm.linux.org.uk> [2007-10-28 14:04]:
-> On Sun, Oct 28, 2007 at 12:59:52PM +0100, Bernhard Walle wrote:
-> > * Russell King <rmk+lkml@arm.linux.org.uk> [2007-10-28 11:34]:
-> > > 
-> > > If you go down that route, you end up with _lots_ of circular
-> > > dependencies - header file X needs Y needs Z which needs X.  We've
-> > > been there, several times.  It very quickly becomes quite
-> > > unmaintainable - you end up with hard to predict behaviour from
-> > > include files.
-> > > 
-> > > The only realistic solution is to use forward declarations.
-> > 
-> > In header files, yes. But that's not true for implementation files.
+On Sun, Oct 28, 2007 at 04:38:46AM +0000, Thiemo Seufer wrote:
+
+> Hello All,
 > 
-> I don't think that needs saying - it's quite obvious.  You can't
-> access the contents of structures without their definitions being
-> available.
+> currently the mipsnet driver fails after transmitting a number of
+> packages because SKBs are allocated but never freed. I fixed that
+> and coudn't refrain from removing the most egregious warts.
+> 
+> - mipsnet.h folded into mipsnet.c, as it doesn't provide any
+>   useful external interface.
+> - Free SKB after transmission.
+> - Call free_irq in mipsnet_close, to balance the request_irq in
+>   mipsnet_open.
+> - Removed duplicate read of rxDataCount.
+> - Some identifiers are now less verbose.
+> - Removed dead and/or unnecessarily complex code.
+> - Code formatting fixes.
+> 
+> Tested on Qemu's mipssim emulation, with this patch it can boot a
+> Debian NFSroot.
 
-Of course. But there might be the case where an implementation file
-doesn't access the structure itself but just passes the pointer to
-some other function (which is implemented in another file). In that
-case, you also have the choice between forward declaration and
-including the header file in the implementation file.
+The patch does no longer apply to a recent tree, can you respin it?
 
-
-
-Thanks,
-   Bernhard
+  Ralf
