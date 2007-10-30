@@ -1,40 +1,58 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch 1/1][NETNS] resend:  fix net released by rcu callback
-Date: Tue, 30 Oct 2007 14:47:34 -0600
-Message-ID: <m1odegl47t.fsf@ebiederm.dsl.xmission.com>
-References: <20071030162139.954791193@mai.toulouse-stg.fr.ibm.com>
-	<20071030162305.458123510@mai.toulouse-stg.fr.ibm.com>
+Subject: Re: [patch 1/1][IPV6] resend:  remove duplicate call to proc_net_remove
+Date: Tue, 30 Oct 2007 14:53:53 -0600
+Message-ID: <m1k5p4l3xa.fsf@ebiederm.dsl.xmission.com>
+References: <20071030162344.297260466@mai.toulouse-stg.fr.ibm.com>
+	<20071030162450.257974469@mai.toulouse-stg.fr.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, containers@lists.osdl.org,
 	netdev@vger.kernel.org
 To: Daniel Lezcano <dlezcano@fr.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:53651 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:39741 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752882AbXJ3UtN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 16:49:13 -0400
-In-Reply-To: <20071030162305.458123510@mai.toulouse-stg.fr.ibm.com> (Daniel
-	Lezcano's message of "Tue, 30 Oct 2007 17:21:40 +0100")
+	with ESMTP id S1752933AbXJ3UzI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 16:55:08 -0400
+In-Reply-To: <20071030162450.257974469@mai.toulouse-stg.fr.ibm.com> (Daniel
+	Lezcano's message of "Tue, 30 Oct 2007 17:23:45 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Daniel Lezcano <dlezcano@fr.ibm.com> writes:
 
-> When a network namespace reference is held by a network subsystem,
-> and when this reference is decremented in a rcu update callback, we
-> must ensure that there is no more outstanding rcu update before 
-> trying to free the network namespace.
+> The file /proc/net/if_inet6 is removed twice.
+> First time in:
+>         inet6_exit
+>              ->addrconf_cleanup
+> And followed a few lines after by:
+>         inet6_exit
+>              -> if6_proc_exit
 >
-> In the normal case, the rcu_barrier is called when the network namespace
-> is exiting in the cleanup_net function.
->
-> But when a network namespace creation fails, and the subsystems are
-> undone (like the cleanup), the rcu_barrier is missing.
->
-> This patch adds the missing rcu_barrier.
+> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Looks sane.  Did you have any specific failures related to this or was
-this something that was just caught in review?
+Looks like a good clean up to me.
 
-Eric
+
+
+
+> ---
+>  net/ipv6/addrconf.c |    4 ----
+>  1 file changed, 4 deletions(-)
+>
+> Index: net-2.6/net/ipv6/addrconf.c
+> ===================================================================
+> --- net-2.6.orig/net/ipv6/addrconf.c
+> +++ net-2.6/net/ipv6/addrconf.c
+> @@ -4288,8 +4288,4 @@ void __exit addrconf_cleanup(void)
+>  	del_timer(&addr_chk_timer);
+>  
+>  	rtnl_unlock();
+> -
+> -#ifdef CONFIG_PROC_FS
+> -	proc_net_remove(&init_net, "if_inet6");
+> -#endif
+>  }
+>
+> -- 
