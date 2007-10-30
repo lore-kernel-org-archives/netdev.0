@@ -1,59 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: drivers/net/sunhme.c patch
-Date: Mon, 29 Oct 2007 20:12:31 -0700 (PDT)
-Message-ID: <20071029.201231.67559606.davem@davemloft.net>
-References: <47268EB0.5030703@wonderland.us.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: Configuring the same IP on multiple addresses
+Date: Tue, 30 Oct 2007 00:23:40 -0400
+Message-ID: <4726B1CC.2070203@hp.com>
+References: <47262079.90507@hp.com>	<20071029.152559.174870963.davem@davemloft.net> <20071029.154258.39630263.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: toms@wonderland.us.com
+Cc: vladislav.yasevich@hp.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45959
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752205AbXJ3DMe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2007 23:12:34 -0400
-In-Reply-To: <47268EB0.5030703@wonderland.us.com>
+Received: from mailhub.hp.com ([192.151.27.10]:45873 "EHLO mailhub.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750981AbXJ3EYK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Oct 2007 00:24:10 -0400
+In-Reply-To: <20071029.154258.39630263.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tom Southerland <toms@wonderland.us.com>
-Date: Mon, 29 Oct 2007 19:53:52 -0600
-
-> This patch provides a unique mac address for all interfaces
-> for the Sun QFE card (non-sparc).  It takes the base mac from
-> the first interface and increments the mac address for the
-> other interfaces.
+David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Mon, 29 Oct 2007 15:25:59 -0700 (PDT)
 > 
-> It still preserves the 'macaddr' parameter so if desired, it
-> can still be used.
+>> Can you guys please just state upfront what virtualization
+>> issue is made more difficult by features you want to remove?
 > 
-> Before patching:
+> Sorry, I mentioned "virtualization" because that's been the
+> largest majority of the cases being presented lately.
 > 
-> eth0      Link encap:Ethernet  HWaddr 00:03:BA:17:4C:BB
-> eth1      Link encap:Ethernet  HWaddr 00:03:BA:17:4C:BB
-> eth2      Link encap:Ethernet  HWaddr 00:03:BA:17:4C:BB
-> eth3      Link encap:Ethernet  HWaddr 00:03:BA:17:4C:BB
-> 
-> After patching:
-> 
-> eth0      Link encap:Ethernet  HWaddr 00:03:BA:17:4C:BB
-> eth1      Link encap:Ethernet  HWaddr 00:03:BA:17:4C:BC
-> eth2      Link encap:Ethernet  HWaddr 00:03:BA:17:4C:BD
-> eth3      Link encap:Ethernet  HWaddr 00:03:BA:17:4C:BE
+> I suspect in your case it's some multicast or SCTP thing :-)
 
-Unfortunately, although I understand what you're trying to do,
-this change is not correct.
+It's actually neither in this case :)
 
-We obtain properly the local-mac-address property stored in
-the PCI ROM of each interface, and if you look at the code
-we look the MACs up by interface index.
+We have customers migrating from BSD stacks to Linux.  They notice all 
+the differences in the sockets API, sometimes even find bugs, and we fix 
+them and send patches upstream.  They also do stupid things like 
+duplicate address configurations on two interfaces in different subnets.
 
-So we are (or should be) obtaining the per-interface MAC
-address programmed into the onboard firmware.
+IPv6 was the curious one for us here since it falls into an RFC gray 
+area - addresses are assigned to interfaces, not hosts (RFC 4291), but 
+they should be tested for uniqueness before being assigned (RFC 4862). 
+This address didn't pass the uniqueness test, although it did pass DAD 
+because the links were different.  We couldn't find another OS for a 
+host or router (including IOS) that allows this, hence the question.
 
-Perhaps in get_hme_mac_nonsparc(), is_quattro_p() is evaluating
-false and therefore we mistakedly always use index 0?
+Thanks, and sorry if it's just another waste of your time to explain it.
 
-Could you please check this?  That's probably what the problem
-is.
+-Brian
