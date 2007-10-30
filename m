@@ -1,40 +1,37 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Oops in 2.6.21-rc4, 2.6.23
-Date: Tue, 30 Oct 2007 15:11:20 +0100
-Message-ID: <20071030141120.GA3997@ff.dom.local>
-References: <20071015173956.6c554387@beavis.confused.org> <20071029084232.GA2280@ff.dom.local> <20071029.014147.56411400.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] nf_nat_h323.c unneeded rcu_dereference() calls
+Date: Tue, 30 Oct 2007 15:06:20 +0100
+Message-ID: <47273A5C.7040909@trash.net>
+References: <20071029210618.GA4200@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: darko.koruga@siol.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	rusty@au1.ibm.com, zhaojingmin@users.sourceforge.net,
+	davem@davemloft.net
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:42162 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754087AbXJ3OHt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2007 10:07:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20071029.014147.56411400.davem@davemloft.net>
+Received: from stinky.trash.net ([213.144.137.162]:61807 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753067AbXJ3OIx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 10:08:53 -0400
+In-Reply-To: <20071029210618.GA4200@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 29, 2007 at 01:41:47AM -0700, David Miller wrote:
-...
-> Actually, this was caused by a real bug in the SKB_WITH_OVERHEAD macro
-> definition, which Herbert Xu quickly spotted and fixed.
+Paul E. McKenney wrote:
+> Hello!
 > 
-> Which "I hope you've found this by yourself by now".
+> While reviewing rcu_dereference() uses, I came across a number of cases
+> where I couldn't see how the rcu_dereference() helped.  One class of
+> cases is where the variable is never subsequently dereferenced, so that
+> patches like the following one would be appropriate.
 > 
+> So, what am I missing here?
 
-...Btw, of course you have to be right, and I should find this in max.
-12 days yet, if I'm as smart as I hope. But as for now, I really can't
-see any meaningful difference between this "buggy" SKB_WITH_OVERHEAD
-version and 'generic' 2.6.20.
 
-There is also a tiny doubt, how this all could influence 2.6.21-rc4,
-which seems to be 'generic' here as well. I guess it has to be some
-git issue... the more so, as I can't see there this other (bisected)
-patch as well?! Then, of course, this could be my sight issue - but
-then these 12 days are definitely not enough...
+Nothing, it was mainly intended as documentation that the hooks are
+protected by RCU. I agree that its probably more confusing this way
+since we're not even in a rcu_read_lock protected section.
 
-Cheers,
-Jarek P.
+I've queued a patch to remove them all.
