@@ -1,48 +1,50 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [RFC 1/2] [IPV6] ADDRCONF: Preparation for configurable address
- selection policy with ifindex.
-Date: Tue, 30 Oct 2007 13:34:21 +0530
-Message-ID: <OF6038860D.3DC5CB4E-ON65257384.002B94CE-65257384.002C5812@in.ibm.com>
-References: <20071030.145237.68878443.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>
+From: Bryan Wu <bryan.wu@analog.com>
+Subject: [PATCH 1/1] Blackfin EMAC driver: Fix Ethernet communication bug (dupliated and lost packets)
+Date: Tue, 30 Oct 2007 17:04:09 +0800
+Message-ID: <1193735049-7070-1-git-send-email-bryan.wu@analog.com>
+Cc: linux-kernel@vger.kernel.org,
+	Michael Hennerich <michael.hennerich@analog.com>,
+	Bryan Wu <bryan.wu@analog.com>
+To: jeff@garzik.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from E23SMTP02.au.ibm.com ([202.81.18.163]:56457 "EHLO
-	e23smtp02.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751401AbXJ3ItN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 04:49:13 -0400
-Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
-	by e23smtp02.au.ibm.com (8.13.1/8.13.1) with ESMTP id l9U82dXe011245
-	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 19:02:39 +1100
-Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
-	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9U86ETg156824
-	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 19:06:15 +1100
-Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
-	by d23av04.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9U82NeF029783
-	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 19:02:23 +1100
-In-Reply-To: <20071030.145237.68878443.yoshfuji@linux-ipv6.org>
+Received: from nwd2mail11.analog.com ([137.71.25.57]:1255 "EHLO
+	nwd2mail11.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751781AbXJ3JER (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 05:04:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Yoshifuji,
+From: Michael Hennerich <michael.hennerich@analog.com>
 
-YOSHIFUJI Hideaki wrote on 10/30/2007 11:22:37 AM:
+Fix Ethernet communication bug(dupliated and lost packets)
+in RMII PHY mode- dont call mac_disable and mac_enable during
+10/100 REFCLK changes - mac_enable screws up the DMA descriptor chain
 
-> -static inline int ipv6_saddr_label(const struct in6_addr *addr, int
-type)
-> +static inline int ipv6_addr_label(const struct in6_addr *addr, int type,
-> +                                                int ifindex)
+Signed-off-by: Michael Hennerich <michael.hennerich@analog.com>
+Signed-off-by: Bryan Wu <bryan.wu@analog.com>
+---
+ drivers/net/bfin_mac.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-This function doesn't use this new argument passed to it. Did you perhaps
-intend to use it to
-initializing daddr_index?
-
-> +   int daddr_ifindex = daddr_dev ? daddr_dev->ifindex : 0;
-
-Thanks,
-
-- KK
-
+diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
+index 53fe7de..084acfd 100644
+--- a/drivers/net/bfin_mac.c
++++ b/drivers/net/bfin_mac.c
+@@ -371,7 +371,6 @@ static void bf537_adjust_link(struct net_device *dev)
+ 		if (phydev->speed != lp->old_speed) {
+ #if defined(CONFIG_BFIN_MAC_RMII)
+ 			u32 opmode = bfin_read_EMAC_OPMODE();
+-			bf537mac_disable();
+ 			switch (phydev->speed) {
+ 			case 10:
+ 				opmode |= RMII_10;
+@@ -386,7 +385,6 @@ static void bf537_adjust_link(struct net_device *dev)
+ 				break;
+ 			}
+ 			bfin_write_EMAC_OPMODE(opmode);
+-			bf537mac_enable();
+ #endif
+ 
+ 			new_state = 1;
+-- 
+1.5.3.4
