@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 08/33] mm: emergency pool
-Date: Tue, 30 Oct 2007 17:04:09 +0100
-Message-ID: <20071030160912.039926000@chello.nl>
+Subject: [PATCH 26/33] mm: methods for teaching filesystems about PG_swapcache pages
+Date: Tue, 30 Oct 2007 17:04:27 +0100
+Message-ID: <20071030160915.114257000@chello.nl>
 References: <20071030160401.296770000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
@@ -9,224 +9,100 @@ To: Linus Torvalds <torvalds@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:46998 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:47005 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752453AbXJ3QNj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752517AbXJ3QNj (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 30 Oct 2007 12:13:39 -0400
-Content-Disposition: inline; filename=mm-page_alloc-emerg.patch
+Content-Disposition: inline; filename=mm-page_file_methods.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Provide means to reserve a specific amount of pages.
+In order to teach filesystems to handle swap cache pages, two new page
+functions are introduced:
 
-The emergency pool is separated from the min watermark because ALLOC_HARDER
-and ALLOC_HIGH modify the watermark in a relative way and thus do not ensure
-a strict minimum.
+  pgoff_t page_file_index(struct page *);
+  struct address_space *page_file_mapping(struct page *);
+
+page_file_index - gives the offset of this page in the file in PAGE_CACHE_SIZE
+blocks. Like page->index is for mapped pages, this function also gives the
+correct index for PG_swapcache pages.
+
+page_file_mapping - gives the mapping backing the actual page; that is for
+swap cache pages it will give swap_file->f_mapping.
+
+page_offset() is modified to use page_file_index(), so that it will give the
+expected result, even for PG_swapcache pages.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/linux/mmzone.h |    3 +
- mm/page_alloc.c        |   82 +++++++++++++++++++++++++++++++++++++++++++------
- mm/vmstat.c            |    6 +--
- 3 files changed, 78 insertions(+), 13 deletions(-)
+ include/linux/mm.h      |   26 ++++++++++++++++++++++++++
+ include/linux/pagemap.h |    2 +-
+ 2 files changed, 27 insertions(+), 1 deletion(-)
 
-Index: linux-2.6/include/linux/mmzone.h
+Index: linux-2.6/include/linux/mm.h
 ===================================================================
---- linux-2.6.orig/include/linux/mmzone.h
-+++ linux-2.6/include/linux/mmzone.h
-@@ -213,7 +213,7 @@ enum zone_type {
+--- linux-2.6.orig/include/linux/mm.h
++++ linux-2.6/include/linux/mm.h
+@@ -13,6 +13,7 @@
+ #include <linux/debug_locks.h>
+ #include <linux/mm_types.h>
+ #include <linux/swap.h>
++#include <linux/fs.h>
  
- struct zone {
- 	/* Fields commonly accessed by the page allocator */
--	unsigned long		pages_min, pages_low, pages_high;
-+	unsigned long		pages_emerg, pages_min, pages_low, pages_high;
- 	/*
- 	 * We don't know if the memory that we're going to allocate will be freeable
- 	 * or/and it will be released eventually, so to avoid totally wasting several
-@@ -682,6 +682,7 @@ int sysctl_min_unmapped_ratio_sysctl_han
- 			struct file *, void __user *, size_t *, loff_t *);
- int sysctl_min_slab_ratio_sysctl_handler(struct ctl_table *, int,
- 			struct file *, void __user *, size_t *, loff_t *);
-+int adjust_memalloc_reserve(int pages);
- 
- extern int numa_zonelist_order_handler(struct ctl_table *, int,
- 			struct file *, void __user *, size_t *, loff_t *);
-Index: linux-2.6/mm/page_alloc.c
-===================================================================
---- linux-2.6.orig/mm/page_alloc.c
-+++ linux-2.6/mm/page_alloc.c
-@@ -118,6 +118,8 @@ static char * const zone_names[MAX_NR_ZO
- 
- static DEFINE_SPINLOCK(min_free_lock);
- int min_free_kbytes = 1024;
-+static DEFINE_MUTEX(var_free_mutex);
-+int var_free_kbytes;
- 
- unsigned long __meminitdata nr_kernel_pages;
- unsigned long __meminitdata nr_all_pages;
-@@ -1252,7 +1254,7 @@ int zone_watermark_ok(struct zone *z, in
- 	if (alloc_flags & ALLOC_HARDER)
- 		min -= min / 4;
- 
--	if (free_pages <= min + z->lowmem_reserve[classzone_idx])
-+	if (free_pages <= min + z->lowmem_reserve[classzone_idx] + z->pages_emerg)
- 		return 0;
- 	for (o = 0; o < order; o++) {
- 		/* At the next order, this order's pages become unavailable */
-@@ -1733,8 +1735,8 @@ nofail_alloc:
- nopage:
- 	if (!(gfp_mask & __GFP_NOWARN) && printk_ratelimit()) {
- 		printk(KERN_WARNING "%s: page allocation failure."
--			" order:%d, mode:0x%x\n",
--			p->comm, order, gfp_mask);
-+			" order:%d, mode:0x%x, alloc_flags:0x%x, pflags:0x%x\n",
-+			p->comm, order, gfp_mask, alloc_flags, p->flags);
- 		dump_stack();
- 		show_mem();
- 	}
-@@ -1952,9 +1954,9 @@ void show_free_areas(void)
- 			"\n",
- 			zone->name,
- 			K(zone_page_state(zone, NR_FREE_PAGES)),
--			K(zone->pages_min),
--			K(zone->pages_low),
--			K(zone->pages_high),
-+			K(zone->pages_emerg + zone->pages_min),
-+			K(zone->pages_emerg + zone->pages_low),
-+			K(zone->pages_emerg + zone->pages_high),
- 			K(zone_page_state(zone, NR_ACTIVE)),
- 			K(zone_page_state(zone, NR_INACTIVE)),
- 			K(zone->present_pages),
-@@ -4113,7 +4115,7 @@ static void calculate_totalreserve_pages
- 			}
- 
- 			/* we treat pages_high as reserved pages. */
--			max += zone->pages_high;
-+			max += zone->pages_high + zone->pages_emerg;
- 
- 			if (max > zone->present_pages)
- 				max = zone->present_pages;
-@@ -4170,7 +4172,8 @@ static void setup_per_zone_lowmem_reserv
-  */
- static void __setup_per_zone_pages_min(void)
- {
--	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
-+	unsigned pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
-+	unsigned pages_emerg = var_free_kbytes >> (PAGE_SHIFT - 10);
- 	unsigned long lowmem_pages = 0;
- 	struct zone *zone;
- 	unsigned long flags;
-@@ -4182,11 +4185,13 @@ static void __setup_per_zone_pages_min(v
- 	}
- 
- 	for_each_zone(zone) {
--		u64 tmp;
-+		u64 tmp, tmp_emerg;
- 
- 		spin_lock_irqsave(&zone->lru_lock, flags);
- 		tmp = (u64)pages_min * zone->present_pages;
- 		do_div(tmp, lowmem_pages);
-+		tmp_emerg = (u64)pages_emerg * zone->present_pages;
-+		do_div(tmp_emerg, lowmem_pages);
- 		if (is_highmem(zone)) {
- 			/*
- 			 * __GFP_HIGH and PF_MEMALLOC allocations usually don't
-@@ -4205,12 +4210,14 @@ static void __setup_per_zone_pages_min(v
- 			if (min_pages > 128)
- 				min_pages = 128;
- 			zone->pages_min = min_pages;
-+			zone->pages_emerg = 0;
- 		} else {
- 			/*
- 			 * If it's a lowmem zone, reserve a number of pages
- 			 * proportionate to the zone's size.
- 			 */
- 			zone->pages_min = tmp;
-+			zone->pages_emerg = tmp_emerg;
- 		}
- 
- 		zone->pages_low   = zone->pages_min + (tmp >> 2);
-@@ -4232,6 +4239,63 @@ void setup_per_zone_pages_min(void)
- 	spin_unlock_irqrestore(&min_free_lock, flags);
+ struct mempolicy;
+ struct anon_vma;
+@@ -581,6 +582,16 @@ static inline struct swap_info_struct *p
+ 	return get_swap_info_struct(swp_type(swap));
  }
  
-+static void __adjust_memalloc_reserve(int pages)
++static inline
++struct address_space *page_file_mapping(struct page *page)
 +{
-+	var_free_kbytes += pages << (PAGE_SHIFT - 10);
-+	BUG_ON(var_free_kbytes < 0);
-+	setup_per_zone_pages_min();
++#ifdef CONFIG_SWAP_FILE
++	if (unlikely(PageSwapCache(page)))
++		return page_swap_info(page)->swap_file->f_mapping;
++#endif
++	return page->mapping;
 +}
 +
-+static int test_reserve_limits(void)
-+{
-+	struct zone *zone;
-+	int node;
-+
-+	for_each_zone(zone)
-+		wakeup_kswapd(zone, 0);
-+
-+	for_each_online_node(node) {
-+		struct page *page = alloc_pages_node(node, GFP_KERNEL, 0);
-+		if (!page)
-+			return -ENOMEM;
-+
-+		__free_page(page);
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-+ *	adjust_memalloc_reserve - adjust the memalloc reserve
-+ *	@pages: number of pages to add
-+ *
-+ *	It adds a number of pages to the memalloc reserve; if
-+ *	the number was positive it kicks reclaim into action to
-+ *	satisfy the higher watermarks.
-+ *
-+ *	returns -ENOMEM when it failed to satisfy the watermarks.
-+ */
-+int adjust_memalloc_reserve(int pages)
-+{
-+	int err = 0;
-+
-+	mutex_lock(&var_free_mutex);
-+	__adjust_memalloc_reserve(pages);
-+	if (pages > 0) {
-+		err = test_reserve_limits();
-+		if (err) {
-+			__adjust_memalloc_reserve(-pages);
-+			goto unlock;
-+		}
-+	}
-+	printk(KERN_DEBUG "Emergency reserve: %d\n", var_free_kbytes);
-+
-+unlock:
-+	mutex_unlock(&var_free_mutex);
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(adjust_memalloc_reserve);
-+
+ static inline int PageAnon(struct page *page)
+ {
+ 	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
+@@ -598,6 +609,21 @@ static inline pgoff_t page_index(struct 
+ }
+ 
  /*
-  * Initialise min_free_kbytes.
-  *
-Index: linux-2.6/mm/vmstat.c
++ * Return the file index of the page. Regular pagecache pages use ->index
++ * whereas swapcache pages use swp_offset(->private)
++ */
++static inline pgoff_t page_file_index(struct page *page)
++{
++#ifdef CONFIG_SWAP_FILE
++	if (unlikely(PageSwapCache(page))) {
++		swp_entry_t swap = { .val = page_private(page) };
++		return swp_offset(swap);
++	}
++#endif
++	return page->index;
++}
++
++/*
+  * The atomic page->_mapcount, like _count, starts from -1:
+  * so that transitions both from it and to it can be tracked,
+  * using atomic_inc_and_test and atomic_add_negative(-1).
+Index: linux-2.6/include/linux/pagemap.h
 ===================================================================
---- linux-2.6.orig/mm/vmstat.c
-+++ linux-2.6/mm/vmstat.c
-@@ -752,9 +752,9 @@ static void zoneinfo_show_print(struct s
- 		   "\n        spanned  %lu"
- 		   "\n        present  %lu",
- 		   zone_page_state(zone, NR_FREE_PAGES),
--		   zone->pages_min,
--		   zone->pages_low,
--		   zone->pages_high,
-+		   zone->pages_emerg + zone->pages_min,
-+		   zone->pages_emerg + zone->pages_low,
-+		   zone->pages_emerg + zone->pages_high,
- 		   zone->pages_scanned,
- 		   zone->nr_scan_active, zone->nr_scan_inactive,
- 		   zone->spanned_pages,
+--- linux-2.6.orig/include/linux/pagemap.h
++++ linux-2.6/include/linux/pagemap.h
+@@ -145,7 +145,7 @@ extern void __remove_from_page_cache(str
+  */
+ static inline loff_t page_offset(struct page *page)
+ {
+-	return ((loff_t)page->index) << PAGE_CACHE_SHIFT;
++	return ((loff_t)page_file_index(page)) << PAGE_CACHE_SHIFT;
+ }
+ 
+ static inline pgoff_t linear_page_index(struct vm_area_struct *vma,
 
 --
 
