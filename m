@@ -1,42 +1,39 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] nf_nat_h323.c unneeded rcu_dereference() calls
-Date: Tue, 30 Oct 2007 08:37:04 -0700
-Message-ID: <20071030153704.GB8285@linux.vnet.ibm.com>
-References: <20071029210618.GA4200@linux.vnet.ibm.com> <47273A5C.7040909@trash.net>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/2] Convert /proc/net/ipv6_route to seq_file interface
+Date: Tue, 30 Oct 2007 16:37:09 +0100
+Message-ID: <47274FA5.8070902@trash.net>
+References: <20071030131147.GA6210@localhost.sw.ru> <20071030083043.47f5def3@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rusty@au1.ibm.com, zhaojingmin@users.sourceforge.net,
-	davem@davemloft.net
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:51836 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754054AbXJ3PhV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 11:37:21 -0400
-Content-Disposition: inline
-In-Reply-To: <47273A5C.7040909@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:63976 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754208AbXJ3Pjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 11:39:43 -0400
+In-Reply-To: <20071030083043.47f5def3@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 30, 2007 at 03:06:20PM +0100, Patrick McHardy wrote:
-> Paul E. McKenney wrote:
-> >Hello!
-> >
-> >While reviewing rcu_dereference() uses, I came across a number of cases
-> >where I couldn't see how the rcu_dereference() helped.  One class of
-> >cases is where the variable is never subsequently dereferenced, so that
-> >patches like the following one would be appropriate.
-> >
-> >So, what am I missing here?
+Stephen Hemminger wrote:
+> On Tue, 30 Oct 2007 16:11:47 +0300
+> Alexey Dobriyan <adobriyan@sw.ru> wrote:
+>>  
+>> +static const struct file_operations ipv6_route_proc_fops = {
+>> +	.open		= ipv6_route_open,
+>> +	.read		= seq_read,
+>> +	.llseek		= seq_lseek,
+>> +	.release	= single_release,
+>> +};
+>> +
 > 
-> Nothing, it was mainly intended as documentation that the hooks are
-> protected by RCU. I agree that its probably more confusing this way
-> since we're not even in a rcu_read_lock protected section.
-> 
-> I've queued a patch to remove them all.
+> This needs
+> 	.owner		= THIS_MODULE,
 
-Thank you!!!
 
-						Thanx, Paul
+Your ip_queue conversion patch was also missing this, I've
+fixed it up.
+
