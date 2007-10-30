@@ -1,50 +1,97 @@
-From: Bryan Wu <bryan.wu@analog.com>
-Subject: [PATCH 1/1] Blackfin EMAC driver: Fix Ethernet communication bug (dupliated and lost packets)
-Date: Tue, 30 Oct 2007 17:04:09 +0800
-Message-ID: <1193735049-7070-1-git-send-email-bryan.wu@analog.com>
-Cc: linux-kernel@vger.kernel.org,
-	Michael Hennerich <michael.hennerich@analog.com>,
-	Bryan Wu <bryan.wu@analog.com>
-To: jeff@garzik.org, netdev@vger.kernel.org
+From: Boaz Harrosh <bharrosh@panasas.com>
+Subject: Re: [PATCH 1/2] [CRYPTO] tcrypt: Move sg_init_table out of timing
+ loops
+Date: Tue, 30 Oct 2007 11:31:45 +0200
+Message-ID: <4726FA01.2030002@panasas.com>
+References: <20071026145905.GA13850@gondor.apana.org.au> <E1IlQfM-0003cO-00@gondolin.me.apana.org.au> <20071029201627.GD7499@kernel.dk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Jens Axboe <jens.axboe@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nwd2mail11.analog.com ([137.71.25.57]:1255 "EHLO
-	nwd2mail11.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751781AbXJ3JER (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 05:04:17 -0400
+Received: from gw-colo-pa.panasas.com ([66.238.117.130]:15336 "EHLO
+	cassoulet.panasas.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758032AbXJ3Jdf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 05:33:35 -0400
+In-Reply-To: <20071029201627.GD7499@kernel.dk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michael Hennerich <michael.hennerich@analog.com>
+On Mon, Oct 29 2007 at 22:16 +0200, Jens Axboe <jens.axboe@oracle.com> wrote:
+> On Fri, Oct 26 2007, Herbert Xu wrote:
+>> [CRYPTO] tcrypt: Move sg_init_table out of timing loops
+>>
+>> This patch moves the sg_init_table out of the timing loops for hash
+>> algorithms so that it doesn't impact on the speed test results.
+> 
+> Wouldn't it be better to just make sg_init_one() call sg_init_table?
+> 
+> diff --git a/include/linux/scatterlist.h b/include/linux/scatterlist.h
+> index 4571231..ccc55a6 100644
+> --- a/include/linux/scatterlist.h
+> +++ b/include/linux/scatterlist.h
+> @@ -202,28 +202,6 @@ static inline void __sg_mark_end(struct scatterlist *sg)
+>  }
+>  
+>  /**
+> - * sg_init_one - Initialize a single entry sg list
+> - * @sg:		 SG entry
+> - * @buf:	 Virtual address for IO
+> - * @buflen:	 IO length
+> - *
+> - * Notes:
+> - *   This should not be used on a single entry that is part of a larger
+> - *   table. Use sg_init_table() for that.
+> - *
+> - **/
+> -static inline void sg_init_one(struct scatterlist *sg, const void *buf,
+> -			       unsigned int buflen)
+> -{
+> -	memset(sg, 0, sizeof(*sg));
+> -#ifdef CONFIG_DEBUG_SG
+> -	sg->sg_magic = SG_MAGIC;
+> -#endif
+> -	sg_mark_end(sg, 1);
+> -	sg_set_buf(sg, buf, buflen);
+> -}
+> -
+> -/**
+>   * sg_init_table - Initialize SG table
+>   * @sgl:	   The SG table
+>   * @nents:	   Number of entries in table
+> @@ -247,6 +225,24 @@ static inline void sg_init_table(struct scatterlist *sgl, unsigned int nents)
+>  }
+>  
+>  /**
+> + * sg_init_one - Initialize a single entry sg list
+> + * @sg:		 SG entry
+> + * @buf:	 Virtual address for IO
+> + * @buflen:	 IO length
+> + *
+> + * Notes:
+> + *   This should not be used on a single entry that is part of a larger
+> + *   table. Use sg_init_table() for that.
+> + *
+> + **/
+> +static inline void sg_init_one(struct scatterlist *sg, const void *buf,
+> +			       unsigned int buflen)
+> +{
+> +	sg_init_table(sg, 1);
+> +	sg_set_buf(sg, buf, buflen);
+> +}
+> +
+> +/**
+>   * sg_phys - Return physical address of an sg entry
+>   * @sg:	     SG entry
+>   *
+> 
+Yes please submit this patch. scsi-ml is full of sg_init_one, specially
+on the error recovery path.
 
-Fix Ethernet communication bug(dupliated and lost packets)
-in RMII PHY mode- dont call mac_disable and mac_enable during
-10/100 REFCLK changes - mac_enable screws up the DMA descriptor chain
-
-Signed-off-by: Michael Hennerich <michael.hennerich@analog.com>
-Signed-off-by: Bryan Wu <bryan.wu@analog.com>
----
- drivers/net/bfin_mac.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index 53fe7de..084acfd 100644
---- a/drivers/net/bfin_mac.c
-+++ b/drivers/net/bfin_mac.c
-@@ -371,7 +371,6 @@ static void bf537_adjust_link(struct net_device *dev)
- 		if (phydev->speed != lp->old_speed) {
- #if defined(CONFIG_BFIN_MAC_RMII)
- 			u32 opmode = bfin_read_EMAC_OPMODE();
--			bf537mac_disable();
- 			switch (phydev->speed) {
- 			case 10:
- 				opmode |= RMII_10;
-@@ -386,7 +385,6 @@ static void bf537_adjust_link(struct net_device *dev)
- 				break;
- 			}
- 			bfin_write_EMAC_OPMODE(opmode);
--			bf537mac_enable();
- #endif
- 
- 			new_state = 1;
--- 
-1.5.3.4
+Thanks
+Boaz
