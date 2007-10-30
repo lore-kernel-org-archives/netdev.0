@@ -1,83 +1,78 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 21/33] netvm: prevent a TCP specific deadlock
-Date: Tue, 30 Oct 2007 17:04:22 +0100
-Message-ID: <20071030160914.457853000@chello.nl>
+Subject: [PATCH 07/33] mm: serialize access to min_free_kbytes
+Date: Tue, 30 Oct 2007 17:04:08 +0100
+Message-ID: <20071030160911.788985000@chello.nl>
 References: <20071030160401.296770000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759489AbXJ3QXa@vger.kernel.org>
-Content-Disposition: inline; filename=netvm-tcp-deadlock.patch
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759291AbXJ3QWa@vger.kernel.org>
+Content-Disposition: inline; filename=mm-setup_per_zone_pages_min.patch
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It could happen that all !SOCK_MEMALLOC sockets have buffered so much data
-that we're over the global rmem limit. This will prevent SOCK_MEMALLOC buffers
-from receiving data, which will prevent userspace from running, which is needed
-to reduce the buffered data.
-
-Fix this by exempting the SOCK_MEMALLOC sockets from the rmem limit.
+There is a small race between the procfs caller and the memory hotplug caller
+of setup_per_zone_pages_min(). Not a big deal, but the next patch will add yet
+another caller. Time to close the gap.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/net/sock.h |    7 ++++---
- net/core/stream.c  |    5 +++--
- 2 files changed, 7 insertions(+), 5 deletions(-)
+ mm/page_alloc.c |   16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
 
-Index: linux-2.6/include/net/sock.h
+Index: linux-2.6/mm/page_alloc.c
 ===================================================================
---- linux-2.6.orig/include/net/sock.h
-+++ linux-2.6/include/net/sock.h
-@@ -743,7 +743,8 @@ static inline struct inode *SOCK_INODE(s
+--- linux-2.6.orig/mm/page_alloc.c
++++ linux-2.6/mm/page_alloc.c
+@@ -116,6 +116,7 @@ static char * const zone_names[MAX_NR_ZO
+ 	 "Movable",
+ };
+ 
++static DEFINE_SPINLOCK(min_free_lock);
+ int min_free_kbytes = 1024;
+ 
+ unsigned long __meminitdata nr_kernel_pages;
+@@ -4162,12 +4163,12 @@ static void setup_per_zone_lowmem_reserv
  }
  
- extern void __sk_stream_mem_reclaim(struct sock *sk);
--extern int sk_stream_mem_schedule(struct sock *sk, int size, int kind);
-+extern int sk_stream_mem_schedule(struct sock *sk, struct sk_buff *skb,
-+		int size, int kind);
- 
- #define SK_STREAM_MEM_QUANTUM ((int)PAGE_SIZE)
- 
-@@ -761,13 +762,13 @@ static inline void sk_stream_mem_reclaim
- static inline int sk_stream_rmem_schedule(struct sock *sk, struct sk_buff *skb)
+ /**
+- * setup_per_zone_pages_min - called when min_free_kbytes changes.
++ * __setup_per_zone_pages_min - called when min_free_kbytes changes.
+  *
+  * Ensures that the pages_{min,low,high} values for each zone are set correctly
+  * with respect to min_free_kbytes.
+  */
+-void setup_per_zone_pages_min(void)
++static void __setup_per_zone_pages_min(void)
  {
- 	return (int)skb->truesize <= sk->sk_forward_alloc ||
--		sk_stream_mem_schedule(sk, skb->truesize, 1);
-+		sk_stream_mem_schedule(sk, skb, skb->truesize, 1);
+ 	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
+ 	unsigned long lowmem_pages = 0;
+@@ -4222,6 +4223,15 @@ void setup_per_zone_pages_min(void)
+ 	calculate_totalreserve_pages();
  }
  
- static inline int sk_stream_wmem_schedule(struct sock *sk, int size)
- {
- 	return size <= sk->sk_forward_alloc ||
--	       sk_stream_mem_schedule(sk, size, 0);
-+	       sk_stream_mem_schedule(sk, NULL, size, 0);
++void setup_per_zone_pages_min(void)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&min_free_lock, flags);
++	__setup_per_zone_pages_min();
++	spin_unlock_irqrestore(&min_free_lock, flags);
++}
++
+ /*
+  * Initialise min_free_kbytes.
+  *
+@@ -4257,7 +4267,7 @@ static int __init init_per_zone_pages_mi
+ 		min_free_kbytes = 128;
+ 	if (min_free_kbytes > 65536)
+ 		min_free_kbytes = 65536;
+-	setup_per_zone_pages_min();
++	__setup_per_zone_pages_min();
+ 	setup_per_zone_lowmem_reserve();
+ 	return 0;
  }
- 
- /* Used by processes to "lock" a socket state, so that
-Index: linux-2.6/net/core/stream.c
-===================================================================
---- linux-2.6.orig/net/core/stream.c
-+++ linux-2.6/net/core/stream.c
-@@ -207,7 +207,7 @@ void __sk_stream_mem_reclaim(struct sock
- 
- EXPORT_SYMBOL(__sk_stream_mem_reclaim);
- 
--int sk_stream_mem_schedule(struct sock *sk, int size, int kind)
-+int sk_stream_mem_schedule(struct sock *sk, struct sk_buff *skb, int size, int kind)
- {
- 	int amt = sk_stream_pages(size);
- 
-@@ -224,7 +224,8 @@ int sk_stream_mem_schedule(struct sock *
- 	/* Over hard limit. */
- 	if (atomic_read(sk->sk_prot->memory_allocated) > sk->sk_prot->sysctl_mem[2]) {
- 		sk->sk_prot->enter_memory_pressure();
--		goto suppress_allocation;
-+		if (!skb || (skb && !skb_emergency(skb)))
-+			goto suppress_allocation;
- 	}
- 
- 	/* Under pressure. */
 
 --
