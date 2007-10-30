@@ -1,73 +1,208 @@
-From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: Re: [PATCH] pegasos_eth.c: Fix compile error over MV643XX_ defines
-Date: Tue, 30 Oct 2007 03:22:57 -0700
-Message-ID: <20071030102256.GA10170@xyzzy.farnsworth.org>
-References: <20071029212729.GA4074@pogo> <20071029223900.GA7097@xyzzy.farnsworth.org> <43e72e890710300044o60bfc46cv8815226e39634996@mail.gmail.com> <20071030093606.GA20920@powerlinux.fr>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: [PATCH] core: fix free_netdev when register fails during notification
+ call chain
+Date: Tue, 30 Oct 2007 11:20:42 +0100
+Message-ID: <4727057A.4050605@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@gmail.com>, netdev@vger.kernel.org,
-	Tzachi Perelstein <tzachi@marvell.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Jeff Garzik <jeff@garzik.org>, linuxppc-dev@ozlabs.org
-To: Sven Luther <sven@powerlinux.fr>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xyzzy.farnsworth.org ([65.39.95.219]:33324 "HELO farnsworth.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751936AbXJ3KXB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2007 06:23:01 -0400
-Content-Disposition: inline
-In-Reply-To: <20071030093606.GA20920@powerlinux.fr>
+Received: from mtagate7.uk.ibm.com ([195.212.29.140]:7466 "EHLO
+	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752066AbXJ3KXh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 06:23:37 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate7.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l9UANax0491816
+	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 10:23:36 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9UANakH3088414
+	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 10:23:36 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9UANJmD004600
+	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 10:23:19 GMT
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 30, 2007 at 10:36:06AM +0100, Sven Luther wrote:
-> On Tue, Oct 30, 2007 at 03:44:59AM -0400, Luis R. Rodriguez wrote:
-> > On 10/29/07, Dale Farnsworth <dale@farnsworth.org> wrote:
-> > > On Mon, Oct 29, 2007 at 05:27:29PM -0400, Luis R. Rodriguez wrote:
-> > > > This commit made an incorrect assumption:
-> > > > --
-> > > > Author: Lennert Buytenhek <buytenh@wantstofly.org>
-> > > >  Date:   Fri Oct 19 04:10:10 2007 +0200
-> > > >
-> > > >     mv643xx_eth: Move ethernet register definitions into private header
-> > > >
-> > > >     Move the mv643xx's ethernet-related register definitions from
-> > > >     include/linux/mv643xx.h into drivers/net/mv643xx_eth.h, since
-> > > >     they aren't of any use outside the ethernet driver.
-> > > >
-> > > >     Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
-> > > >     Acked-by: Tzachi Perelstein <tzachi@marvell.com>
-> > > >     Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
-> > > > --
-> > > >
-> > > > arch/powerpc/platforms/chrp/pegasos_eth.c made use of a 3 defines there.
-> > > >
-> > > > mcgrof@pogo:~/devel/wireless-2.6$ git-describe
-> > > >
-> > > > v2.6.24-rc1-138-g0119130
-> > > >
-> > > > This patch fixes this by internalizing 3 defines onto pegasos which are
-> > > > simply no longer available elsewhere. Without this your compile will fail
-> > >
-> > > That compile failure was fixed in commit
-> > > 30e69bf4cce16d4c2dcfd629a60fcd8e1aba9fee by Al Viro.
-> > >
-> > > However, as I examine that commit, I see that it defines offsets from
-> > > the eth block in the chip, rather than the full chip registeri block
-> > > as the Pegasos 2 code expects.  So, I think it fixes the compile
-> > > failure, but leaves the Pegasos 2 broken.
-> > >
-> > > Luis, do you have Pegasos 2 hardware?  Can you (or anyone) verify that
-> > > the following patch is needed for the Pegasos 2?
-> > 
-> > Nope, sorry.
-> 
-> I am busy right now, but have various pegasos machines available for
-> testing. What exactly should i test ? 
+Point 1:
+The unregistering of a network device schedule a netdev_run_todo.
+This function calls dev->destructor when it is set and the
+destructor calls free_netdev.
 
-Thanks Sven.
+Point 2:
+In the case of an initialization of a network device the usual code
+is:
+  * alloc_netdev
+  * register_netdev
+     -> if this one fails, call free_netdev and exit with error.
 
-Test whether an Ethernet port works at all.  I think it's currently
-broken, but should work with the patch I supplied.
+Point 3:
+In the register_netdevice function at the later state, when the device
+is at the registered state, a call to the netdevice_notifiers is made.
+If one of the notification falls into an error, a rollback to the
+registered state is done using unregister_netdevice.
 
--Dale
+Conclusion:
+When a network device fails to register during initialization because
+one network subsystem returned an error during a notification call
+chain, the network device is freed twice because of fact 1 and fact 2.
+The second free_netdev will be done with an invalid pointer.
+
+Proposed solution:
+The following patch move all the code of unregister_netdevice *except*
+the call to net_set_todo, to a new function "rollback_registered".
+
+The following functions are changed in this way:
+  * register_netdevice: calls rollback_registered when a notification fails
+  * unregister_netdevice: calls rollback_register + net_set_todo, the call
+                          order to net_set_todo is changed because it is the
+                          latest now. Since it justs add an element to a 
+list
+                          that should not break anything.
+
+Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+---
+  net/core/dev.c |  112 
+++++++++++++++++++++++++++++++---------------------------
+  1 file changed, 59 insertions(+), 53 deletions(-)
+
+Index: net-2.6/net/core/dev.c
+===================================================================
+--- net-2.6.orig/net/core/dev.c
++++ net-2.6/net/core/dev.c
+@@ -3496,6 +3496,60 @@ static void net_set_todo(struct net_devi
+      spin_unlock(&net_todo_list_lock);
+  }
+
++static void rollback_registered(struct net_device *dev)
++{
++    BUG_ON(dev_boot_phase);
++    ASSERT_RTNL();
++
++    /* Some devices call without registering for initialization unwind. */
++    if (dev->reg_state == NETREG_UNINITIALIZED) {
++        printk(KERN_DEBUG "unregister_netdevice: device %s/%p never "
++                  "was registered\n", dev->name, dev);
++
++        WARN_ON(1);
++        return;
++    }
++
++    BUG_ON(dev->reg_state != NETREG_REGISTERED);
++
++    /* If device is running, close it first. */
++    dev_close(dev);
++
++    /* And unlink it from device chain. */
++    unlist_netdevice(dev);
++
++    dev->reg_state = NETREG_UNREGISTERING;
++
++    synchronize_net();
++
++    /* Shutdown queueing discipline. */
++    dev_shutdown(dev);
++
++
++    /* Notify protocols, that we are about to destroy
++       this device. They should clean all the things.
++    */
++    call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
++
++    /*
++     *    Flush the unicast and multicast chains
++     */
++    dev_addr_discard(dev);
++
++    if (dev->uninit)
++        dev->uninit(dev);
++
++    /* Notifier chain MUST detach us from master device. */
++    BUG_TRAP(!dev->master);
++
++    /* Remove entries from kobject tree */
++    netdev_unregister_kobject(dev);
++
++    synchronize_net();
++
++    dev_put(dev);
++}
++
+  /**
+   *    register_netdevice    - register a network device
+   *    @dev: device to register
+@@ -3633,8 +3687,10 @@ int register_netdevice(struct net_device
+      /* Notify protocols, that a new device appeared. */
+      ret = call_netdevice_notifiers(NETDEV_REGISTER, dev);
+      ret = notifier_to_errno(ret);
+-    if (ret)
+-        unregister_netdevice(dev);
++    if (ret) {
++        rollback_registered(dev);
++        dev->reg_state = NETREG_UNREGISTERED;
++    }
+
+  out:
+      return ret;
+@@ -3911,59 +3967,9 @@ void synchronize_net(void)
+
+  void unregister_netdevice(struct net_device *dev)
+  {
+-    BUG_ON(dev_boot_phase);
+-    ASSERT_RTNL();
+-
+-    /* Some devices call without registering for initialization unwind. */
+-    if (dev->reg_state == NETREG_UNINITIALIZED) {
+-        printk(KERN_DEBUG "unregister_netdevice: device %s/%p never "
+-                  "was registered\n", dev->name, dev);
+-
+-        WARN_ON(1);
+-        return;
+-    }
+-
+-    BUG_ON(dev->reg_state != NETREG_REGISTERED);
+-
+-    /* If device is running, close it first. */
+-    dev_close(dev);
+-
+-    /* And unlink it from device chain. */
+-    unlist_netdevice(dev);
+-
+-    dev->reg_state = NETREG_UNREGISTERING;
+-
+-    synchronize_net();
+-
+-    /* Shutdown queueing discipline. */
+-    dev_shutdown(dev);
+-
+-
+-    /* Notify protocols, that we are about to destroy
+-       this device. They should clean all the things.
+-    */
+-    call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
+-
+-    /*
+-     *    Flush the unicast and multicast chains
+-     */
+-    dev_addr_discard(dev);
+-
+-    if (dev->uninit)
+-        dev->uninit(dev);
+-
+-    /* Notifier chain MUST detach us from master device. */
+-    BUG_TRAP(!dev->master);
+-
+-    /* Remove entries from kobject tree */
+-    netdev_unregister_kobject(dev);
+-
++    rollback_registered(dev);
+      /* Finish processing unregister after unlock */
+      net_set_todo(dev);
+-
+-    synchronize_net();
+-
+-    dev_put(dev);
+  }
+
+  /**
