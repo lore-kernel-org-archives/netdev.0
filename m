@@ -1,31 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [IPv4] SNMP: Refer correct memory location to display
- ICMP out-going statistics
-Date: Mon, 29 Oct 2007 22:03:44 -0700 (PDT)
-Message-ID: <20071029.220344.202688568.davem@davemloft.net>
-References: <20071026105928.d56cd244.mitch@linux.vnet.ibm.com>
+Subject: Re: [0/11] Merge bundle creation and other misc fixes/clean-ups
+Date: Mon, 29 Oct 2007 22:06:35 -0700 (PDT)
+Message-ID: <20071029.220635.262385821.davem@davemloft.net>
+References: <20071023160217.GA32102@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dlstevens@us.ibm.com
-To: mitch@linux.vnet.ibm.com
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48308
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36268
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751105AbXJ3FDs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 01:03:48 -0400
-In-Reply-To: <20071026105928.d56cd244.mitch@linux.vnet.ibm.com>
+	by vger.kernel.org with ESMTP id S1752936AbXJ3FGe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 01:06:34 -0400
+In-Reply-To: <20071023160217.GA32102@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
-Date: Fri, 26 Oct 2007 10:59:28 +0900
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 24 Oct 2007 00:02:17 +0800
 
-> While displaying ICMP out-going statistics as Out<name> counters in
-> /proc/net/snmp, the memory location for ICMP in-coming statistics
-> was referred by mistake.
+> This series of patches fixes the bug where the bundle creation
+> code treats IPv6 routes as IPv4 or vice versa.
 > 
-> Acked-by: David L Stevens <dlstevens@us.ibm.com> 
-> Signed-off-by: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
+> I think this is suitable for 2.6.25.
+> 
+> They do fix bugs but I don't think any of them are serious enough
+> for inclusion in 2.6.24.
 
-Patch applied, thank you!
+I did a review of these patches and these look fine.
+
+Please resubmit this and the 3-patch input interfamily
+fix set when I open up the net-2.6.25 tree.
+
+I'll probably open up net-2.6.25 approximately one week
+from now.
