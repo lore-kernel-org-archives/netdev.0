@@ -1,47 +1,55 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 20/33] netvm: filter emergency skbs.
-Date: Tue, 30 Oct 2007 17:04:21 +0100
-Message-ID: <20071030160914.329519000@chello.nl>
-References: <20071030160401.296770000@chello.nl>
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 2.6.24] ixgb: TX hangs under heavy load
+Date: Tue, 30 Oct 2007 09:12:11 -0700
+Message-ID: <472757DB.1060308@intel.com>
+References: <20071030125055.GA7195@gospo.rdu.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: zenyowu@tw.ibm.com, netdev@vger.kernel.org
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:47082 "EHLO mx1.redhat.com"
+Received: from mga02.intel.com ([134.134.136.20]:50163 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756121AbXJ3QOP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2007 12:14:15 -0400
-Content-Disposition: inline; filename=netvm-sk_filter.patch
+	id S1757330AbXJ3QTK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Oct 2007 12:19:10 -0400
+In-Reply-To: <20071030125055.GA7195@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Toss all emergency packets not for a SOCK_MEMALLOC socket. This ensures our
-precious memory reserve doesn't get stuck waiting for user-space.
+Andy Gospodarek wrote:
+> Auke,
+> 
+> It has become clear that this patch resolves some tx-lockups on the ixgb
+> driver.  IBM did some checking and realized this hunk is in your
+> sourceforge driver, but not anywhere else.  Mind if we add it?
 
-The correctness of this approach relies on the fact that networks must be
-assumed lossy.
 
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
----
- include/net/sock.h |    3 +++
- 1 file changed, 3 insertions(+)
+I'll quickly double check where this came from in the first place and will post
+this to Jeff
 
-Index: linux-2.6/include/net/sock.h
-===================================================================
---- linux-2.6.orig/include/net/sock.h
-+++ linux-2.6/include/net/sock.h
-@@ -930,6 +930,9 @@ static inline int sk_filter(struct sock 
- {
- 	int err;
- 	struct sk_filter *filter;
-+
-+	if (skb_emergency(skb) && !sk_has_memalloc(sk))
-+		return -ENOMEM;
- 	
- 	err = security_sock_rcv_skb(sk, skb);
- 	if (err)
+Thanks!
 
---
+Auke
 
+
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> 
+> ---
+> 
+>  ixgb_main.c |    2 +-
+>  1 files changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
+> index d444de5..3ec7a41 100644
+> --- a/drivers/net/ixgb/ixgb_main.c
+> +++ b/drivers/net/ixgb/ixgb_main.c
+> @@ -1324,7 +1324,7 @@ ixgb_tx_map(struct ixgb_adapter *adapter, struct sk_buff *skb,
+>  
+>  			/* Workaround for premature desc write-backs
+>  			 * in TSO mode.  Append 4-byte sentinel desc */
+> -			if (unlikely(mss && !nr_frags && size == len
+> +			if (unlikely(mss && (f == (nr_frags-1)) && size == len
+>  			             && size > 8))
+>  				size -= 4;
+>  
