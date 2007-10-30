@@ -1,67 +1,36 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: [PATCH] pegasos_eth.c: Fix compile error over MV643XX_ defines
-Date: Tue, 30 Oct 2007 03:44:59 -0400
-Message-ID: <43e72e890710300044o60bfc46cv8815226e39634996@mail.gmail.com>
-References: <20071029212729.GA4074@pogo>
-	 <20071029223900.GA7097@xyzzy.farnsworth.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] rpc_rdma: we need to cast u64 to unsigned long long
+ for printing
+Date: Tue, 30 Oct 2007 00:44:46 -0700 (PDT)
+Message-ID: <20071030.004446.219023926.davem@davemloft.net>
+References: <20071030161240.bc81cad3.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	"Jeff Garzik" <jeff@garzik.org>,
-	"Lennert Buytenhek" <buytenh@wantstofly.org>,
-	"Tzachi Perelstein" <tzachi@marvell.com>
-To: "Dale Farnsworth" <dale@farnsworth.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: sfr@canb.auug.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.181]:51228 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752183AbXJ3HpB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 03:45:01 -0400
-Received: by py-out-1112.google.com with SMTP id u77so3373098pyb
-        for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 00:44:59 -0700 (PDT)
-In-Reply-To: <20071029223900.GA7097@xyzzy.farnsworth.org>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47545
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752958AbXJ3HpF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 03:45:05 -0400
+In-Reply-To: <20071030161240.bc81cad3.sfr@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/29/07, Dale Farnsworth <dale@farnsworth.org> wrote:
-> On Mon, Oct 29, 2007 at 05:27:29PM -0400, Luis R. Rodriguez wrote:
-> > This commit made an incorrect assumption:
-> > --
-> > Author: Lennert Buytenhek <buytenh@wantstofly.org>
-> >  Date:   Fri Oct 19 04:10:10 2007 +0200
-> >
-> >     mv643xx_eth: Move ethernet register definitions into private header
-> >
-> >     Move the mv643xx's ethernet-related register definitions from
-> >     include/linux/mv643xx.h into drivers/net/mv643xx_eth.h, since
-> >     they aren't of any use outside the ethernet driver.
-> >
-> >     Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
-> >     Acked-by: Tzachi Perelstein <tzachi@marvell.com>
-> >     Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
-> > --
-> >
-> > arch/powerpc/platforms/chrp/pegasos_eth.c made use of a 3 defines there.
-> >
-> > mcgrof@pogo:~/devel/wireless-2.6$ git-describe
-> >
-> > v2.6.24-rc1-138-g0119130
-> >
-> > This patch fixes this by internalizing 3 defines onto pegasos which are
-> > simply no longer available elsewhere. Without this your compile will fail
->
-> That compile failure was fixed in commit
-> 30e69bf4cce16d4c2dcfd629a60fcd8e1aba9fee by Al Viro.
->
-> However, as I examine that commit, I see that it defines offsets from
-> the eth block in the chip, rather than the full chip registeri block
-> as the Pegasos 2 code expects.  So, I think it fixes the compile
-> failure, but leaves the Pegasos 2 broken.
->
-> Luis, do you have Pegasos 2 hardware?  Can you (or anyone) verify that
-> the following patch is needed for the Pegasos 2?
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 30 Oct 2007 16:12:40 +1100
 
-Nope, sorry.
+> as some architectures have unsigned long for u64.
+> 
+> net/sunrpc/xprtrdma/rpc_rdma.c: In function 'rpcrdma_create_chunks':
+> net/sunrpc/xprtrdma/rpc_rdma.c:222: warning: format '%llx' expects type 'long long unsigned int', but argument 4 has type 'u64'
+> net/sunrpc/xprtrdma/rpc_rdma.c:234: warning: format '%llx' expects type 'long long unsigned int', but argument 5 has type 'u64'
+> net/sunrpc/xprtrdma/rpc_rdma.c: In function 'rpcrdma_count_chunks':
+> net/sunrpc/xprtrdma/rpc_rdma.c:577: warning: format '%llx' expects type 'long long unsigned int', but argument 4 has type 'u64
+> 
+> Noticed on PowerPC pseries_defconfig build.
+> 
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 
-  Luis
+I've applied this, thanks Stephen.
