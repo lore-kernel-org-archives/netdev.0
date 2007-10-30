@@ -1,69 +1,90 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH 5/5] introduce udp_rmem and udp_wmem
-Date: Tue, 30 Oct 2007 00:52:48 -0400
-Message-ID: <20071030005248.b0e6e9d2.billfink@mindspring.com>
-References: <47264E2D.4080109@redhat.com>
-	<47264F5F.6040905@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: BUG in sys_socketpair
+Date: Mon, 29 Oct 2007 21:55:00 -0700 (PDT)
+Message-ID: <20071029.215500.114909860.davem@davemloft.net>
+References: <20071025141107.GA19437@dragon.rich-paul.net>
+	<4720E424.7060509@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Andi Kleen <andi@firstfloor.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	yoshfuji@linux-ipv6.org,
-	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
-To: Hideo AOKI <haoki@redhat.com>
+Cc: socketpair_bug@rich-paul.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, viro@ftp.linux.org.uk
+To: cebbert@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-mealy.atl.sa.earthlink.net ([209.86.89.69]:58395 "EHLO
-	elasmtp-mealy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752664AbXJ3ExJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 00:53:09 -0400
-In-Reply-To: <47264F5F.6040905@redhat.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53429
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752685AbXJ3EzG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 00:55:06 -0400
+In-Reply-To: <4720E424.7060509@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 29 Oct 2007, Hideo AOKI wrote:
+From: Chuck Ebbert <cebbert@redhat.com>
+Date: Thu, 25 Oct 2007 14:44:52 -0400
 
-> This patch added /proc/sys/net/udp_rmem and /proc/sys/net/udp_rmem.
-> Each UDP packet is drooped when the number of pages for socket buffer
-> is beyond the limit and the socket already consumes minimum buffer.
+> On 10/25/2007 10:11 AM, Rich Paul wrote:
+> > In 2.6.23, there seems to be a minor bug in sys_socketpair.  When the
+> > calls to sock_alloc_fd fail, it aborts the routine, but it returns the
+> > variable err, which is not set in this case.
+> > 
+> > The result is a silent failure if you have too many files open and call
+> > socketpair.
+> > 
+> > Here is a simple UNTESTED patch (not even compiled) which should resolve the
+> > issue.
+> > 
+> > 
+> > --- net/socket.c.orig   2007-10-25 10:03:56.000000000 -0400
+> > +++ net/socket.c        2007-10-25 10:04:00.000000000 -0400
+> Should be "err = fd1" (spaces), otherwise looks good.
+> 
+> Original did:
+> 
+> 	err = sock_map_fd(sock1);
+> 	if (err < 0)
+> 		goto out_release_both;
+> 	fd1 = err;
 
-I think you meant /proc/sys/net/ipv4/udp_{r,w}mem above.
+Thanks everyone, I'll commit the following both to 2.6.x GIT
+and -stable.
 
-Patch not in-lined making replying more difficult.
+>From 42f3fc7e989554e9952bdf28af137e4e4570f067 Mon Sep 17 00:00:00 2001
+From: David S. Miller <davem@sunset.davemloft.net>
+Date: Mon, 29 Oct 2007 21:54:02 -0700
+Subject: [PATCH] [NET]: Fix error reporting in sys_socketpair().
 
-Cutting and pasting:
+If either of the two sock_alloc_fd() calls fail, we
+forget to update 'err' and thus we'll erroneously
+return zero in these cases.
 
-> diff -pruN linux-2.6.24-rc1-mem003-ipv4-dev-p4/Documentation/networking/ip-sysctl.txt linux-2.6.24-rc1-mem003-ipv4-dev-p5/Documentation/networking/ip-sysctl.txt
-> --- linux-2.6.24-rc1-mem003-ipv4-dev-p4/Documentation/networking/ip-sysctl.txt	2007-10-26 20:35:52.000000000 -0400
-> +++ linux-2.6.24-rc1-mem003-ipv4-dev-p5/Documentation/networking/ip-sysctl.txt	2007-10-29 09:44:05.000000000 -0400
-> @@ -452,6 +452,18 @@ udp_mem - INTEGER
->  	Number of pages allowed for queueing by all UDP sockets.
->  	Default is calculated at boot time from amount of available memory.
->  
-> +udp_rmem - INTEGER
-> +	Minimal size of receive buffer used by UDP sockets. Each UDP socket
-> +	is able to use the size for receiving data, even if total pages of UDP
-> +	sockets exceed udp_mem. The unit is byte.
-> +	Default: 4096
-> +
-> +udp_wmem - INTEGER
-> +	Minimal size of send buffer used by UDP sockets. Each UDP socket is
-> +	able to use the size for sending data, even if total pages of UDP
-> +	sockets exceed udp_mem. The unit is byte.
-> +	Default: 4096
-> +
->  CIPSOv4 Variables:
->  
->  cipso_cache_enable - BOOLEAN
+Based upon a report and patch from Rich Paul, and
+commentary from Chuck Ebbert.
 
-I think either the above should be renamed to udp_{r,w}mem_min, or
-they should be changed to a 3-tuple like tcp_{r,w}mem, and the code
-refactored accordingly (but then what to do about
-/proc/sys/net/core/{r,w}mem_max).
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/socket.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
-						-Bill
+diff --git a/net/socket.c b/net/socket.c
+index 540013e..5d879fd 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1250,11 +1250,14 @@ asmlinkage long sys_socketpair(int family, int type, int protocol,
+ 		goto out_release_both;
+ 
+ 	fd1 = sock_alloc_fd(&newfile1);
+-	if (unlikely(fd1 < 0))
++	if (unlikely(fd1 < 0)) {
++		err = fd1;
+ 		goto out_release_both;
++	}
+ 
+ 	fd2 = sock_alloc_fd(&newfile2);
+ 	if (unlikely(fd2 < 0)) {
++		err = fd2;
+ 		put_filp(newfile1);
+ 		put_unused_fd(fd1);
+ 		goto out_release_both;
+-- 
+1.5.2.5
+
