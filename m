@@ -1,42 +1,48 @@
-From: Christoph Raisch <RAISCH@de.ibm.com>
-Subject: Re: [PATCH] ehea: add kexec support
-Date: Tue, 30 Oct 2007 09:39:49 +0100
-Message-ID: <OF79E7ACE7.5D0488CE-ONC1257384.002E58C0-C1257384.002F8561@de.ibm.com>
-References: <200710261437.29117.ossthema@de.ibm.com> <1193610737.9637.1.camel@concordia>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [RFC 1/2] [IPV6] ADDRCONF: Preparation for configurable address
+ selection policy with ifindex.
+Date: Tue, 30 Oct 2007 13:34:21 +0530
+Message-ID: <OF6038860D.3DC5CB4E-ON65257384.002B94CE-65257384.002C5812@in.ibm.com>
+References: <20071030.145237.68878443.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: Jan-Bernd Themann <THEMANN@de.ibm.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <MEDER@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>, ossthema@linux.vnet.ibm.com,
-	Stefan Roscher <stefan.roscher@de.ibm.com>,
-	Thomas Q Klein <TKLEIN@de.ibm.com>
-To: michael@ellerman.id.au
+Cc: netdev@vger.kernel.org
+To: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.de.ibm.com ([195.212.29.153]:17680 "EHLO
-	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751551AbXJ3Ijy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 04:39:54 -0400
-In-Reply-To: <1193610737.9637.1.camel@concordia>
+Received: from E23SMTP02.au.ibm.com ([202.81.18.163]:56457 "EHLO
+	e23smtp02.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751401AbXJ3ItN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 04:49:13 -0400
+Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
+	by e23smtp02.au.ibm.com (8.13.1/8.13.1) with ESMTP id l9U82dXe011245
+	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 19:02:39 +1100
+Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
+	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9U86ETg156824
+	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 19:06:15 +1100
+Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
+	by d23av04.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9U82NeF029783
+	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 19:02:23 +1100
+In-Reply-To: <20071030.145237.68878443.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Yoshifuji,
 
+YOSHIFUJI Hideaki wrote on 10/30/2007 11:22:37 AM:
 
-Michael Ellerman <michael@ellerman.id.au> wrote on 28.10.2007 23:32:17:
->
->
-> How do you plan to support kdump?
->
+> -static inline int ipv6_saddr_label(const struct in6_addr *addr, int
+type)
+> +static inline int ipv6_addr_label(const struct in6_addr *addr, int type,
+> +                                                int ifindex)
 
-When kexec is fully supported kdump should work out of the box
-as for any other ethernet card (if you load the right eth driver).
-There's nothing specific to kdump you have to handle in
-ethernet device drivers.
-Hope I didn't miss anything here...
+This function doesn't use this new argument passed to it. Did you perhaps
+intend to use it to
+initializing daddr_index?
 
-Gruss / Regards
-Christoph R
+> +   int daddr_ifindex = daddr_dev ? daddr_dev->ifindex : 0;
+
+Thanks,
+
+- KK
 
