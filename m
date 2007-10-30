@@ -1,37 +1,42 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] nf_nat_h323.c unneeded rcu_dereference() calls
-Date: Tue, 30 Oct 2007 15:06:20 +0100
-Message-ID: <47273A5C.7040909@trash.net>
-References: <20071029210618.GA4200@linux.vnet.ibm.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/2] [CRYPTO] tcrypt: Move sg_init_table out of timing loops
+Date: Tue, 30 Oct 2007 22:18:20 +0800
+Message-ID: <20071030141820.GA16501@gondor.apana.org.au>
+References: <20071026145905.GA13850@gondor.apana.org.au> <E1IlQfM-0003cO-00@gondolin.me.apana.org.au> <20071029201627.GD7499@kernel.dk> <20071030000827.GA9037@gondor.apana.org.au> <20071030055056.GG7499@kernel.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rusty@au1.ibm.com, zhaojingmin@users.sourceforge.net,
-	davem@davemloft.net
-To: paulmck@linux.vnet.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Jens Axboe <jens.axboe@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61807 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753067AbXJ3OIx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 10:08:53 -0400
-In-Reply-To: <20071029210618.GA4200@linux.vnet.ibm.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:1532 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752181AbXJ3OSq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 10:18:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20071030055056.GG7499@kernel.dk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Paul E. McKenney wrote:
-> Hello!
-> 
-> While reviewing rcu_dereference() uses, I came across a number of cases
-> where I couldn't see how the rcu_dereference() helped.  One class of
-> cases is where the variable is never subsequently dereferenced, so that
-> patches like the following one would be appropriate.
-> 
-> So, what am I missing here?
+On Tue, Oct 30, 2007 at 06:50:58AM +0100, Jens Axboe wrote:
+>
+> How so? The reason you changed it to sg_init_table() + sg_set_buf() is
+> exactly because sg_init_one() didn't properly init the entry (as they
+> name promised).
 
+For one of the cases yes but the other one repeatedly calls
+sg_init_one on the same sg entry while we really only need
+to initialise it once and call sg_set_buf afterwards.
 
-Nothing, it was mainly intended as documentation that the hooks are
-protected by RCU. I agree that its probably more confusing this way
-since we're not even in a rcu_read_lock protected section.
+Normally this is irrelevant but the loops in question are
+trying to estimate the speed of the algorithms so it's good
+to exclude as much noise from them as possible.
 
-I've queued a patch to remove them all.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
