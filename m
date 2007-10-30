@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 10/33] mm: __GFP_MEMALLOC
-Date: Tue, 30 Oct 2007 17:04:11 +0100
-Message-ID: <20071030160912.533392000@chello.nl>
+Subject: [PATCH 23/33] netvm: skb processing
+Date: Tue, 30 Oct 2007 17:04:24 +0100
+Message-ID: <20071030160914.749995000@chello.nl>
 References: <20071030160401.296770000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
@@ -9,59 +9,186 @@ To: Linus Torvalds <torvalds@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:47075 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:47089 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753325AbXJ3QON (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2007 12:14:13 -0400
-Content-Disposition: inline; filename=mm-page_alloc-GFP_EMERGENCY.patch
+	id S1753395AbXJ3QOS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Oct 2007 12:14:18 -0400
+Content-Disposition: inline; filename=netvm.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-__GFP_MEMALLOC will allow the allocation to disregard the watermarks, 
-much like PF_MEMALLOC.
+In order to make sure emergency packets receive all memory needed to proceed
+ensure processing of emergency SKBs happens under PF_MEMALLOC.
+
+Use the (new) sk_backlog_rcv() wrapper to ensure this for backlog processing.
+
+Skip taps, since those are user-space again.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/linux/gfp.h |    3 ++-
- mm/page_alloc.c     |    4 +++-
- 2 files changed, 5 insertions(+), 2 deletions(-)
+ include/net/sock.h |    5 +++++
+ net/core/dev.c     |   44 ++++++++++++++++++++++++++++++++++++++------
+ net/core/sock.c    |   18 ++++++++++++++++++
+ 3 files changed, 61 insertions(+), 6 deletions(-)
 
-Index: linux-2.6/include/linux/gfp.h
+Index: linux-2.6/net/core/dev.c
 ===================================================================
---- linux-2.6.orig/include/linux/gfp.h
-+++ linux-2.6/include/linux/gfp.h
-@@ -43,6 +43,7 @@ struct vm_area_struct;
- #define __GFP_REPEAT	((__force gfp_t)0x400u)	/* Retry the allocation.  Might fail */
- #define __GFP_NOFAIL	((__force gfp_t)0x800u)	/* Retry for ever.  Cannot fail */
- #define __GFP_NORETRY	((__force gfp_t)0x1000u)/* Do not retry.  Might fail */
-+#define __GFP_MEMALLOC  ((__force gfp_t)0x2000u)/* Use emergency reserves */
- #define __GFP_COMP	((__force gfp_t)0x4000u)/* Add compound page metadata */
- #define __GFP_ZERO	((__force gfp_t)0x8000u)/* Return zeroed page on success */
- #define __GFP_NOMEMALLOC ((__force gfp_t)0x10000u) /* Don't use emergency reserves */
-@@ -88,7 +89,7 @@ struct vm_area_struct;
- /* Control page allocator reclaim behavior */
- #define GFP_RECLAIM_MASK (__GFP_WAIT|__GFP_HIGH|__GFP_IO|__GFP_FS|\
- 			__GFP_NOWARN|__GFP_REPEAT|__GFP_NOFAIL|\
--			__GFP_NORETRY|__GFP_NOMEMALLOC)
-+			__GFP_NORETRY|__GFP_MEMALLOC|__GFP_NOMEMALLOC)
+--- linux-2.6.orig/net/core/dev.c
++++ linux-2.6/net/core/dev.c
+@@ -1976,10 +1976,23 @@ int netif_receive_skb(struct sk_buff *sk
+ 	struct net_device *orig_dev;
+ 	int ret = NET_RX_DROP;
+ 	__be16 type;
++	unsigned long pflags = current->flags;
++
++	/* Emergency skb are special, they should
++	 *  - be delivered to SOCK_MEMALLOC sockets only
++	 *  - stay away from userspace
++	 *  - have bounded memory usage
++	 *
++	 * Use PF_MEMALLOC as a poor mans memory pool - the grouping kind.
++	 * This saves us from propagating the allocation context down to all
++	 * allocation sites.
++	 */
++	if (skb_emergency(skb))
++		current->flags |= PF_MEMALLOC;
  
- /* Control allocation constraints */
- #define GFP_CONSTRAINT_MASK (__GFP_HARDWALL|__GFP_THISNODE)
-Index: linux-2.6/mm/page_alloc.c
+ 	/* if we've gotten here through NAPI, check netpoll */
+ 	if (netpoll_receive_skb(skb))
+-		return NET_RX_DROP;
++		goto out;
+ 
+ 	if (!skb->tstamp.tv64)
+ 		net_timestamp(skb);
+@@ -1990,7 +2003,7 @@ int netif_receive_skb(struct sk_buff *sk
+ 	orig_dev = skb_bond(skb);
+ 
+ 	if (!orig_dev)
+-		return NET_RX_DROP;
++		goto out;
+ 
+ 	__get_cpu_var(netdev_rx_stat).total++;
+ 
+@@ -2009,6 +2022,9 @@ int netif_receive_skb(struct sk_buff *sk
+ 	}
+ #endif
+ 
++	if (skb_emergency(skb))
++		goto skip_taps;
++
+ 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
+ 		if (!ptype->dev || ptype->dev == skb->dev) {
+ 			if (pt_prev)
+@@ -2017,6 +2033,7 @@ int netif_receive_skb(struct sk_buff *sk
+ 		}
+ 	}
+ 
++skip_taps:
+ #ifdef CONFIG_NET_CLS_ACT
+ 	if (pt_prev) {
+ 		ret = deliver_skb(skb, pt_prev, orig_dev);
+@@ -2029,19 +2046,31 @@ int netif_receive_skb(struct sk_buff *sk
+ 
+ 	if (ret == TC_ACT_SHOT || (ret == TC_ACT_STOLEN)) {
+ 		kfree_skb(skb);
+-		goto out;
++		goto unlock;
+ 	}
+ 
+ 	skb->tc_verd = 0;
+ ncls:
+ #endif
+ 
++	if (skb_emergency(skb))
++		switch(skb->protocol) {
++			case __constant_htons(ETH_P_ARP):
++			case __constant_htons(ETH_P_IP):
++			case __constant_htons(ETH_P_IPV6):
++			case __constant_htons(ETH_P_8021Q):
++				break;
++
++			default:
++				goto drop;
++		}
++
+ 	skb = handle_bridge(skb, &pt_prev, &ret, orig_dev);
+ 	if (!skb)
+-		goto out;
++		goto unlock;
+ 	skb = handle_macvlan(skb, &pt_prev, &ret, orig_dev);
+ 	if (!skb)
+-		goto out;
++		goto unlock;
+ 
+ 	type = skb->protocol;
+ 	list_for_each_entry_rcu(ptype, &ptype_base[ntohs(type)&15], list) {
+@@ -2056,6 +2085,7 @@ ncls:
+ 	if (pt_prev) {
+ 		ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+ 	} else {
++drop:
+ 		kfree_skb(skb);
+ 		/* Jamal, now you will not able to escape explaining
+ 		 * me how you were going to use this. :-)
+@@ -2063,8 +2093,10 @@ ncls:
+ 		ret = NET_RX_DROP;
+ 	}
+ 
+-out:
++unlock:
+ 	rcu_read_unlock();
++out:
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+ 	return ret;
+ }
+ 
+Index: linux-2.6/include/net/sock.h
 ===================================================================
---- linux-2.6.orig/mm/page_alloc.c
-+++ linux-2.6/mm/page_alloc.c
-@@ -1560,7 +1560,9 @@ int gfp_to_alloc_flags(gfp_t gfp_mask)
- 		alloc_flags |= ALLOC_HARDER;
+--- linux-2.6.orig/include/net/sock.h
++++ linux-2.6/include/net/sock.h
+@@ -523,8 +523,13 @@ static inline void sk_add_backlog(struct
+ 	skb->next = NULL;
+ }
  
- 	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
--		if (!in_irq() && (p->flags & PF_MEMALLOC))
-+		if (gfp_mask & __GFP_MEMALLOC)
-+			alloc_flags |= ALLOC_NO_WATERMARKS;
-+		else if (!in_irq() && (p->flags & PF_MEMALLOC))
- 			alloc_flags |= ALLOC_NO_WATERMARKS;
- 		else if (!in_interrupt() &&
- 				unlikely(test_thread_flag(TIF_MEMDIE)))
++extern int __sk_backlog_rcv(struct sock *sk, struct sk_buff *skb);
++
+ static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+ {
++	if (skb_emergency(skb))
++		return __sk_backlog_rcv(sk, skb);
++
+ 	return sk->sk_backlog_rcv(sk, skb);
+ }
+ 
+Index: linux-2.6/net/core/sock.c
+===================================================================
+--- linux-2.6.orig/net/core/sock.c
++++ linux-2.6/net/core/sock.c
+@@ -319,6 +319,24 @@ int sk_clear_memalloc(struct sock *sk)
+ }
+ EXPORT_SYMBOL_GPL(sk_clear_memalloc);
+ 
++#ifdef CONFIG_NETVM
++int __sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
++{
++	int ret;
++	unsigned long pflags = current->flags;
++
++	/* these should have been dropped before queueing */
++	BUG_ON(!sk_has_memalloc(sk));
++
++	current->flags |= PF_MEMALLOC;
++	ret = sk->sk_backlog_rcv(sk, skb);
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
++
++	return ret;
++}
++EXPORT_SYMBOL(__sk_backlog_rcv);
++#endif
++
+ static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
+ {
+ 	struct timeval tv;
 
 --
 
