@@ -1,142 +1,69 @@
-From: Alexey Dobriyan <adobriyan@sw.ru>
-Subject: [PATCH 2/2] Remove /proc/net/ip_vs_lblcr
-Date: Tue, 30 Oct 2007 16:12:57 +0300
-Message-ID: <20071030131257.GB6210@localhost.sw.ru>
+From: Jean Delvare <jdelvare@suse.de>
+Subject: Re: [PATCH] net: Saner thash_entries default with much memory
+Date: Tue, 30 Oct 2007 14:18:27 +0100
+Message-ID: <200710301418.27643.jdelvare@suse.de>
+References: <200710261721.32019.jdelvare@suse.de> <20071026153416.GA23491@bingen.suse.de> <20071030.005758.184980120.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ak@suse.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:6768 "EHLO relay.sw.ru"
+Received: from mx2.suse.de ([195.135.220.15]:47216 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753682AbXJ3NNA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2007 09:13:00 -0400
-Received: from sw.ru ([192.168.0.16])
-	by relay.sw.ru (8.13.4/8.13.4) with SMTP id l9UDCvfM019544
-	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 16:12:58 +0300 (MSK)
+	id S1752887AbXJ3NR0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 09:17:26 -0400
+In-Reply-To: <20071030.005758.184980120.davem@davemloft.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It's under CONFIG_IP_VS_LBLCR_DEBUG option which never existed.
+Hi David,
 
-Signed-off-by: Alexey Dobriyan <adobriyan@sw.ru>
----
+Le mardi 30 octobre 2007, David Miller a =E9crit=A0:
+> From: Andi Kleen <ak@suse.de>
+> Date: Fri, 26 Oct 2007 17:34:17 +0200
+>=20
+> > On Fri, Oct 26, 2007 at 05:21:31PM +0200, Jean Delvare wrote:
+> > > I propose 2 millions of entries as the arbitrary high limit. This
+> >=20
+> > It's probably still far too large.
+>=20
+> I agree.  Perhaps a better number is something on the order of
+> (512 * 1024) so I think I'll check in a variant of Jean's patch
+> with just the limit decreased like that.
 
- I can convert it to seq_file if anyone is secretly using it.
+That's very fine with me. I originally proposed an admittedly high
+limit value to increase the chance to see it accepted. I am not
+familiar enough with networking to know what a more reasonable
+limit would be, so I'm leaving it to the experts.
 
- net/ipv4/ipvs/ip_vs_lblcr.c |   76 --------------------------------------------
- 1 file changed, 76 deletions(-)
+> Using just some back of the envelope calculations, on UP 64-bit
+> systems each socket uses about 2424 bytes minimum of memory (this is
+> the sum of tcp_sock, inode, dentry, socket, and file on sparc64 UP).
+> This is an underestimate because it does not even consider things lik=
+e
+> allocator overhead.
+>=20
+> Next, machines that service that many sockets typically have them
+> mostly with full transmit queues talking to a very slow receiver at
+> the other end.  So let's estimate that on average each socket consume=
+s
+> about 64K of retransmit queue data.
+>=20
+> I think this is an extremely conservative estimate beause it doesn't
+> even consider overhead coming from struct sk_buff and related state.
+>=20
+> So for (512 * 1024) of established sockets we consume roughly 35GB of
+> memory, this is '((2424 + (64 * 1024)) * (512 * 1024))'.
+>=20
+> So to me (512 * 1024) is a very reasonable limit and (with lockdep
+> and spinlock debugging disabled) this makes the EHASH table consume
+> 8MB on UP 64-bit and ~12MB on SMP 64-bit systems.
 
---- a/net/ipv4/ipvs/ip_vs_lblcr.c
-+++ b/net/ipv4/ipvs/ip_vs_lblcr.c
-@@ -48,8 +48,6 @@
- /* for sysctl */
- #include <linux/fs.h>
- #include <linux/sysctl.h>
--/* for proc_net_create/proc_net_remove */
--#include <linux/proc_fs.h>
- #include <net/net_namespace.h>
- 
- #include <net/ip_vs.h>
-@@ -547,71 +545,6 @@ static void ip_vs_lblcr_check_expire(unsigned long data)
- 	mod_timer(&tbl->periodic_timer, jiffies+CHECK_EXPIRE_INTERVAL);
- }
- 
--
--#ifdef CONFIG_IP_VS_LBLCR_DEBUG
--static struct ip_vs_lblcr_table *lblcr_table_list;
--
--/*
-- *	/proc/net/ip_vs_lblcr to display the mappings of
-- *                  destination IP address <==> its serverSet
-- */
--static int
--ip_vs_lblcr_getinfo(char *buffer, char **start, off_t offset, int length)
--{
--	off_t pos=0, begin;
--	int len=0, size;
--	struct ip_vs_lblcr_table *tbl;
--	unsigned long now = jiffies;
--	int i;
--	struct ip_vs_lblcr_entry *en;
--
--	tbl = lblcr_table_list;
--
--	size = sprintf(buffer, "LastTime Dest IP address  Server set\n");
--	pos += size;
--	len += size;
--
--	for (i=0; i<IP_VS_LBLCR_TAB_SIZE; i++) {
--		read_lock_bh(&tbl->lock);
--		list_for_each_entry(en, &tbl->bucket[i], list) {
--			char tbuf[16];
--			struct ip_vs_dest_list *d;
--
--			sprintf(tbuf, "%u.%u.%u.%u", NIPQUAD(en->addr));
--			size = sprintf(buffer+len, "%8lu %-16s ",
--				       now-en->lastuse, tbuf);
--
--			read_lock(&en->set.lock);
--			for (d=en->set.list; d!=NULL; d=d->next) {
--				size += sprintf(buffer+len+size,
--						"%u.%u.%u.%u ",
--						NIPQUAD(d->dest->addr));
--			}
--			read_unlock(&en->set.lock);
--			size += sprintf(buffer+len+size, "\n");
--			len += size;
--			pos += size;
--			if (pos <= offset)
--				len=0;
--			if (pos >= offset+length) {
--				read_unlock_bh(&tbl->lock);
--				goto done;
--			}
--		}
--		read_unlock_bh(&tbl->lock);
--	}
--
--  done:
--	begin = len - (pos - offset);
--	*start = buffer + begin;
--	len -= begin;
--	if(len>length)
--		len = length;
--	return len;
--}
--#endif
--
--
- static int ip_vs_lblcr_init_svc(struct ip_vs_service *svc)
- {
- 	int i;
-@@ -650,9 +583,6 @@ static int ip_vs_lblcr_init_svc(struct ip_vs_service *svc)
- 	tbl->periodic_timer.expires = jiffies+CHECK_EXPIRE_INTERVAL;
- 	add_timer(&tbl->periodic_timer);
- 
--#ifdef CONFIG_IP_VS_LBLCR_DEBUG
--	lblcr_table_list = tbl;
--#endif
- 	return 0;
- }
- 
-@@ -843,18 +773,12 @@ static int __init ip_vs_lblcr_init(void)
- {
- 	INIT_LIST_HEAD(&ip_vs_lblcr_scheduler.n_list);
- 	sysctl_header = register_sysctl_table(lblcr_root_table);
--#ifdef CONFIG_IP_VS_LBLCR_DEBUG
--	proc_net_create(&init_net, "ip_vs_lblcr", 0, ip_vs_lblcr_getinfo);
--#endif
- 	return register_ip_vs_scheduler(&ip_vs_lblcr_scheduler);
- }
- 
- 
- static void __exit ip_vs_lblcr_cleanup(void)
- {
--#ifdef CONFIG_IP_VS_LBLCR_DEBUG
--	proc_net_remove(&init_net, "ip_vs_lblcr");
--#endif
- 	unregister_sysctl_table(sysctl_header);
- 	unregister_ip_vs_scheduler(&ip_vs_lblcr_scheduler);
- }
+OK, let's go with (512 * 1024) then. Want me to send an updated patch?
 
+Thanks,
+--=20
+Jean Delvare
+Suse L3
