@@ -1,90 +1,126 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: BUG in sys_socketpair
-Date: Mon, 29 Oct 2007 21:55:00 -0700 (PDT)
-Message-ID: <20071029.215500.114909860.davem@davemloft.net>
-References: <20071025141107.GA19437@dragon.rich-paul.net>
-	<4720E424.7060509@redhat.com>
+Subject: Re: MD5 signature pool race bug?
+Date: Mon, 29 Oct 2007 22:01:35 -0700 (PDT)
+Message-ID: <20071029.220135.186369787.davem@davemloft.net>
+References: <20071025113612.2ea69262@freepuppy.rosehill>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: socketpair_bug@rich-paul.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, viro@ftp.linux.org.uk
-To: cebbert@redhat.com
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53429
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48305
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752685AbXJ3EzG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 00:55:06 -0400
-In-Reply-To: <4720E424.7060509@redhat.com>
+	by vger.kernel.org with ESMTP id S1751122AbXJ3FBk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 01:01:40 -0400
+In-Reply-To: <20071025113612.2ea69262@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Chuck Ebbert <cebbert@redhat.com>
-Date: Thu, 25 Oct 2007 14:44:52 -0400
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Thu, 25 Oct 2007 11:36:12 -0700
 
-> On 10/25/2007 10:11 AM, Rich Paul wrote:
-> > In 2.6.23, there seems to be a minor bug in sys_socketpair.  When the
-> > calls to sock_alloc_fd fail, it aborts the routine, but it returns the
-> > variable err, which is not set in this case.
-> > 
-> > The result is a silent failure if you have too many files open and call
-> > socketpair.
-> > 
-> > Here is a simple UNTESTED patch (not even compiled) which should resolve the
-> > issue.
-> > 
-> > 
-> > --- net/socket.c.orig   2007-10-25 10:03:56.000000000 -0400
-> > +++ net/socket.c        2007-10-25 10:04:00.000000000 -0400
-> Should be "err = fd1" (spaces), otherwise looks good.
-> 
-> Original did:
-> 
-> 	err = sock_map_fd(sock1);
-> 	if (err < 0)
-> 		goto out_release_both;
-> 	fd1 = err;
+> Looking at this bug report:
+> 	http://bugzilla.kernel.org/show_bug.cgi?id=9173
+ ...
+> It looks like there may be a race between the tricky allocate per-cpu pool
+> and free-per-cpu pool logic.  IMHO the pool management code is more complex
+> than it needs to be and may be the source of the bug. Couldn't the signature
+> just use normal kmalloc/kfree and slab cache?
 
-Thanks everyone, I'll commit the following both to 2.6.x GIT
-and -stable.
+This bug was fixed by the patch below, please close this
+bug.
 
->From 42f3fc7e989554e9952bdf28af137e4e4570f067 Mon Sep 17 00:00:00 2001
-From: David S. Miller <davem@sunset.davemloft.net>
-Date: Mon, 29 Oct 2007 21:54:02 -0700
-Subject: [PATCH] [NET]: Fix error reporting in sys_socketpair().
+Thanks!
 
-If either of the two sock_alloc_fd() calls fail, we
-forget to update 'err' and thus we'll erroneously
-return zero in these cases.
+commit 2c4f6219aca5939b57596278ea8b014275d4917b
+Author: David S. Miller <davem@sunset.davemloft.net>
+Date:   Tue Feb 20 23:51:47 2007 -0800
 
-Based upon a report and patch from Rich Paul, and
-commentary from Chuck Ebbert.
+    [TCP]: Fix MD5 signature pool locking.
+    
+    The locking calls assumed that these code paths were only
+    invoked in software interrupt context, but that isn't true.
+    
+    Therefore we need to use spin_{lock,unlock}_bh() throughout.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/socket.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
-
-diff --git a/net/socket.c b/net/socket.c
-index 540013e..5d879fd 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1250,11 +1250,14 @@ asmlinkage long sys_socketpair(int family, int type, int protocol,
- 		goto out_release_both;
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index ac6516c..74c4d10 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2266,12 +2266,12 @@ void tcp_free_md5sig_pool(void)
+ {
+ 	struct tcp_md5sig_pool **pool = NULL;
  
- 	fd1 = sock_alloc_fd(&newfile1);
--	if (unlikely(fd1 < 0))
-+	if (unlikely(fd1 < 0)) {
-+		err = fd1;
- 		goto out_release_both;
-+	}
+-	spin_lock(&tcp_md5sig_pool_lock);
++	spin_lock_bh(&tcp_md5sig_pool_lock);
+ 	if (--tcp_md5sig_users == 0) {
+ 		pool = tcp_md5sig_pool;
+ 		tcp_md5sig_pool = NULL;
+ 	}
+-	spin_unlock(&tcp_md5sig_pool_lock);
++	spin_unlock_bh(&tcp_md5sig_pool_lock);
+ 	if (pool)
+ 		__tcp_free_md5sig_pool(pool);
+ }
+@@ -2314,36 +2314,36 @@ struct tcp_md5sig_pool **tcp_alloc_md5sig_pool(void)
+ 	int alloc = 0;
  
- 	fd2 = sock_alloc_fd(&newfile2);
- 	if (unlikely(fd2 < 0)) {
-+		err = fd2;
- 		put_filp(newfile1);
- 		put_unused_fd(fd1);
- 		goto out_release_both;
--- 
-1.5.2.5
-
+ retry:
+-	spin_lock(&tcp_md5sig_pool_lock);
++	spin_lock_bh(&tcp_md5sig_pool_lock);
+ 	pool = tcp_md5sig_pool;
+ 	if (tcp_md5sig_users++ == 0) {
+ 		alloc = 1;
+-		spin_unlock(&tcp_md5sig_pool_lock);
++		spin_unlock_bh(&tcp_md5sig_pool_lock);
+ 	} else if (!pool) {
+ 		tcp_md5sig_users--;
+-		spin_unlock(&tcp_md5sig_pool_lock);
++		spin_unlock_bh(&tcp_md5sig_pool_lock);
+ 		cpu_relax();
+ 		goto retry;
+ 	} else
+-		spin_unlock(&tcp_md5sig_pool_lock);
++		spin_unlock_bh(&tcp_md5sig_pool_lock);
+ 
+ 	if (alloc) {
+ 		/* we cannot hold spinlock here because this may sleep. */
+ 		struct tcp_md5sig_pool **p = __tcp_alloc_md5sig_pool();
+-		spin_lock(&tcp_md5sig_pool_lock);
++		spin_lock_bh(&tcp_md5sig_pool_lock);
+ 		if (!p) {
+ 			tcp_md5sig_users--;
+-			spin_unlock(&tcp_md5sig_pool_lock);
++			spin_unlock_bh(&tcp_md5sig_pool_lock);
+ 			return NULL;
+ 		}
+ 		pool = tcp_md5sig_pool;
+ 		if (pool) {
+ 			/* oops, it has already been assigned. */
+-			spin_unlock(&tcp_md5sig_pool_lock);
++			spin_unlock_bh(&tcp_md5sig_pool_lock);
+ 			__tcp_free_md5sig_pool(p);
+ 		} else {
+ 			tcp_md5sig_pool = pool = p;
+-			spin_unlock(&tcp_md5sig_pool_lock);
++			spin_unlock_bh(&tcp_md5sig_pool_lock);
+ 		}
+ 	}
+ 	return pool;
+@@ -2354,11 +2354,11 @@ EXPORT_SYMBOL(tcp_alloc_md5sig_pool);
+ struct tcp_md5sig_pool *__tcp_get_md5sig_pool(int cpu)
+ {
+ 	struct tcp_md5sig_pool **p;
+-	spin_lock(&tcp_md5sig_pool_lock);
++	spin_lock_bh(&tcp_md5sig_pool_lock);
+ 	p = tcp_md5sig_pool;
+ 	if (p)
+ 		tcp_md5sig_users++;
+-	spin_unlock(&tcp_md5sig_pool_lock);
++	spin_unlock_bh(&tcp_md5sig_pool_lock);
+ 	return (p ? *per_cpu_ptr(p, cpu) : NULL);
+ }
+ 
