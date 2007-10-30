@@ -1,141 +1,62 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH 23/33] netvm: skb processing
-Date: Tue, 30 Oct 2007 22:44:34 +0100
-Message-ID: <1193780674.27652.103.camel@twins>
-References: <20071030160401.296770000@chello.nl>
-	 <20071030160914.749995000@chello.nl>
-	 <20071030142634.0f00b492@freepuppy.rosehill>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [patch 1/1][NETNS] resend:  fix net released by rcu callback
+Date: Tue, 30 Oct 2007 22:43:26 +0100
+Message-ID: <4727A57E.501@fr.ibm.com>
+References: <20071030162139.954791193@mai.toulouse-stg.fr.ibm.com> <20071030162305.458123510@mai.toulouse-stg.fr.ibm.com> <m1odegl47t.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org,
-	Trond Myklebust <trond.myklebust@fys.uio.no>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: davem@davemloft.net, containers@lists.osdl.org,
+	netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:41960 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754599AbXJ3Voj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 17:44:39 -0400
-In-Reply-To: <20071030142634.0f00b492@freepuppy.rosehill>
+Received: from mtagate6.uk.ibm.com ([195.212.29.139]:10433 "EHLO
+	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753370AbXJ3Vq3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 17:46:29 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate6.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l9ULkSL9417440
+	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 21:46:28 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9ULkRKs3022982
+	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 21:46:27 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9ULkEYY004657
+	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 21:46:14 GMT
+In-Reply-To: <m1odegl47t.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-10-30 at 14:26 -0700, Stephen Hemminger wrote:
-> On Tue, 30 Oct 2007 17:04:24 +0100
-> Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+Eric W. Biederman wrote:
+> Daniel Lezcano <dlezcano@fr.ibm.com> writes:
 > 
-> > In order to make sure emergency packets receive all memory needed to proceed
-> > ensure processing of emergency SKBs happens under PF_MEMALLOC.
-> > 
-> > Use the (new) sk_backlog_rcv() wrapper to ensure this for backlog processing.
-> > 
-> > Skip taps, since those are user-space again.
-> > 
-> > Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> > ---
-> >  include/net/sock.h |    5 +++++
-> >  net/core/dev.c     |   44 ++++++++++++++++++++++++++++++++++++++------
-> >  net/core/sock.c    |   18 ++++++++++++++++++
-> >  3 files changed, 61 insertions(+), 6 deletions(-)
-> > 
-> > Index: linux-2.6/net/core/dev.c
-> > ===================================================================
-> > --- linux-2.6.orig/net/core/dev.c
-> > +++ linux-2.6/net/core/dev.c
-> > @@ -1976,10 +1976,23 @@ int netif_receive_skb(struct sk_buff *sk
-> >  	struct net_device *orig_dev;
-> >  	int ret = NET_RX_DROP;
-> >  	__be16 type;
-> > +	unsigned long pflags = current->flags;
-> > +
-> > +	/* Emergency skb are special, they should
-> > +	 *  - be delivered to SOCK_MEMALLOC sockets only
-> > +	 *  - stay away from userspace
-> > +	 *  - have bounded memory usage
-> > +	 *
-> > +	 * Use PF_MEMALLOC as a poor mans memory pool - the grouping kind.
-> > +	 * This saves us from propagating the allocation context down to all
-> > +	 * allocation sites.
-> > +	 */
-> > +	if (skb_emergency(skb))
-> > +		current->flags |= PF_MEMALLOC;
-> >  
-> >  	/* if we've gotten here through NAPI, check netpoll */
-> >  	if (netpoll_receive_skb(skb))
-> > -		return NET_RX_DROP;
-> > +		goto out;
+>> When a network namespace reference is held by a network subsystem,
+>> and when this reference is decremented in a rcu update callback, we
+>> must ensure that there is no more outstanding rcu update before 
+>> trying to free the network namespace.
+>>
+>> In the normal case, the rcu_barrier is called when the network namespace
+>> is exiting in the cleanup_net function.
+>>
+>> But when a network namespace creation fails, and the subsystems are
+>> undone (like the cleanup), the rcu_barrier is missing.
+>>
+>> This patch adds the missing rcu_barrier.
 > 
-> Why the change? doesn't gcc optimize the common exit case anyway?
+> Looks sane.  Did you have any specific failures related to this or was
+> this something that was just caught in review?
 
-It needs to unset PF_MEMALLOC at the exit.
+Yes, I had this problem when doing ipv6 isolation for netns49. The ipv6 
+subsystem creation failed and the different subsystem where rollbacked 
+in the setup_net function.
+When the network namespace was about to be freed in free_net function, I 
+had the error with an usage refcount different from zero.
+It appears that was coming from core/neighbour.c
 
-> > @@ -2029,19 +2046,31 @@ int netif_receive_skb(struct sk_buff *sk
-> >  
-> >  	if (ret == TC_ACT_SHOT || (ret == TC_ACT_STOLEN)) {
-> >  		kfree_skb(skb);
-> > -		goto out;
-> > +		goto unlock;
-> >  	}
-> >  
-> >  	skb->tc_verd = 0;
-> >  ncls:
-> >  #endif
-> >  
-> > +	if (skb_emergency(skb))
-> > +		switch(skb->protocol) {
-> > +			case __constant_htons(ETH_P_ARP):
-> > +			case __constant_htons(ETH_P_IP):
-> > +			case __constant_htons(ETH_P_IPV6):
-> > +			case __constant_htons(ETH_P_8021Q):
-> > +				break;
-> 
-> Indentation is wrong, and hard coding protocol values as spcial case
-> seems bad here. What about vlan's, etc?
+neigh_parms_release
+  -> neigh_rcu_free_parms
+    -> neigh_parms_put
+      -> neigh_parms_destroy
+        -> release_net
 
-The other protocols needs analysis on what memory allocations occur
-during packet processing, if anything is done that is not yet accounted
-for (skb, route cache) then that needs to be added to a reserve, if
-there are any paths that could touch user-space, those need to be
-handled.
-
-I've started looking at a few others, but its hard and difficult work if
-one is not familiar with the protocols.
-
-
-> > @@ -2063,8 +2093,10 @@ ncls:
-> >  		ret = NET_RX_DROP;
-> >  	}
-> >  
-> > -out:
-> > +unlock:
-> >  	rcu_read_unlock();
-> > +out:
-> > +	tsk_restore_flags(current, pflags, PF_MEMALLOC);
-> >  	return ret;
-> >  }
-
-Its that tsk_restore_flags() there what requires the s/return/goto/
-stuff you noted earlier.
-
-> I am still not convinced that this solves the problem well enough
-> to be useful.  Can you really survive a heavy memory overcommit?
-
-On a machine with mem=128M, I've ran 4 processes of 64M, 2 file backed
-with the files on NFS, 2 anonymous. The processes just cycle through the
-memory using writes. This is a 100% overcommit.
-
-During these tests I've ran various network loads.
-
-I've shut down the NFS server, waited for say 15 minutes, and restarted
-the NFS server, and the machine came back up and continued.
-
-> In other words, can you prove that the added complexity causes the system
-> to survive a real test where otherwise it would not?
-
-I've put some statistics in the skb reserve allocations, those are most
-definately used. I'm quite certain the machine would lock up solid
-without it.
-
+The free_net function was called before rcu callback neigh_rcu_free_parms.
