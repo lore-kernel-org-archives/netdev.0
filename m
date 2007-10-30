@@ -1,94 +1,53 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 33/33] nfs: do not warn on radix tree node allocation failures
-Date: Tue, 30 Oct 2007 17:04:34 +0100
-Message-ID: <20071030160916.021029000@chello.nl>
-References: <20071030160401.296770000@chello.nl>
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758936AbXJ3Q0b@vger.kernel.org>
-Content-Disposition: inline; filename=nfs_radix_nowarn.patch
-Sender: linux-kernel-owner@vger.kernel.org
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: [patch 1/1][IPV6] resend:  remove duplicate call to proc_net_remove
+Date: Tue, 30 Oct 2007 17:23:45 +0100
+Message-ID: <20071030162450.257974469@mai.toulouse-stg.fr.ibm.com>
+References: <20071030162344.297260466@mai.toulouse-stg.fr.ibm.com>
+Cc: containers@lists.osdl.org, netdev@vger.kernel.org
+To: davem@davemloft.net, ebiederm@xmission.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate1.de.ibm.com ([195.212.29.150]:42950 "EHLO
+	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759538AbXJ3Q1Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 12:27:16 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate1.de.ibm.com (8.13.8/8.13.8) with ESMTP id l9UGRFm5124068
+	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 16:27:15 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9UGRFtT2232386
+	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 17:27:15 +0100
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9UGRE3U014673
+	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 17:27:15 +0100
+Content-Disposition: inline; filename=fix-proc-net-remove-called-twice.patch
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-GFP_ATOMIC failures are rather common, no not warn about them.
+The file /proc/net/if_inet6 is removed twice.
+First time in:
+        inet6_exit
+             ->addrconf_cleanup
+And followed a few lines after by:
+        inet6_exit
+             -> if6_proc_exit
 
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 ---
- fs/nfs/inode.c |    2 +-
- fs/nfs/write.c |   10 ++++++++++
- 2 files changed, 11 insertions(+), 1 deletion(-)
+ net/ipv6/addrconf.c |    4 ----
+ 1 file changed, 4 deletions(-)
 
-Index: linux-2.6/fs/nfs/inode.c
+Index: net-2.6/net/ipv6/addrconf.c
 ===================================================================
---- linux-2.6.orig/fs/nfs/inode.c
-+++ linux-2.6/fs/nfs/inode.c
-@@ -1172,7 +1172,7 @@ static void init_once(struct kmem_cache 
- 	INIT_LIST_HEAD(&nfsi->open_files);
- 	INIT_LIST_HEAD(&nfsi->access_cache_entry_lru);
- 	INIT_LIST_HEAD(&nfsi->access_cache_inode_lru);
--	INIT_RADIX_TREE(&nfsi->nfs_page_tree, GFP_ATOMIC);
-+	INIT_RADIX_TREE(&nfsi->nfs_page_tree, GFP_ATOMIC|__GFP_NOWARN);
- 	nfsi->ncommit = 0;
- 	nfsi->npages = 0;
- 	nfs4_init_once(nfsi);
-Index: linux-2.6/fs/nfs/write.c
-===================================================================
---- linux-2.6.orig/fs/nfs/write.c
-+++ linux-2.6/fs/nfs/write.c
-@@ -652,6 +652,7 @@ static struct nfs_page * nfs_update_requ
- 	struct inode *inode = mapping->host;
- 	struct nfs_page		*req, *new = NULL;
- 	pgoff_t		rqend, end;
-+	int error;
+--- net-2.6.orig/net/ipv6/addrconf.c
++++ net-2.6/net/ipv6/addrconf.c
+@@ -4288,8 +4288,4 @@ void __exit addrconf_cleanup(void)
+ 	del_timer(&addr_chk_timer);
  
- 	end = offset + bytes;
- 
-@@ -659,6 +660,10 @@ static struct nfs_page * nfs_update_requ
- 		/* Loop over all inode entries and see if we find
- 		 * A request for the page we wish to update
- 		 */
-+		error = radix_tree_preload(GFP_NOIO);
-+		if (error)
-+			return ERR_PTR(error);
-+
- 		spin_lock(&inode->i_lock);
- 		req = nfs_page_find_request_locked(NFS_I(inode), page);
- 		if (req) {
-@@ -666,6 +671,7 @@ static struct nfs_page * nfs_update_requ
- 				int error;
- 
- 				spin_unlock(&inode->i_lock);
-+				radix_tree_preload_end();
- 				error = nfs_wait_on_request(req);
- 				nfs_release_request(req);
- 				if (error < 0) {
-@@ -676,6 +682,7 @@ static struct nfs_page * nfs_update_requ
- 				continue;
- 			}
- 			spin_unlock(&inode->i_lock);
-+			radix_tree_preload_end();
- 			if (new)
- 				nfs_release_request(new);
- 			break;
-@@ -687,13 +694,16 @@ static struct nfs_page * nfs_update_requ
- 			error = nfs_inode_add_request(inode, new);
- 			if (error) {
- 				spin_unlock(&inode->i_lock);
-+				radix_tree_preload_end();
- 				nfs_unlock_request(new);
- 				return ERR_PTR(error);
- 			}
- 			spin_unlock(&inode->i_lock);
-+			radix_tree_preload_end();
- 			return new;
- 		}
- 		spin_unlock(&inode->i_lock);
-+		radix_tree_preload_end();
- 
- 		new = nfs_create_request(ctx, inode, page, offset, bytes);
- 		if (IS_ERR(new))
+ 	rtnl_unlock();
+-
+-#ifdef CONFIG_PROC_FS
+-	proc_net_remove(&init_net, "if_inet6");
+-#endif
+ }
 
---
+-- 
