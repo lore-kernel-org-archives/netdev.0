@@ -1,39 +1,74 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/2] Convert /proc/net/ipv6_route to seq_file interface
-Date: Tue, 30 Oct 2007 16:37:09 +0100
-Message-ID: <47274FA5.8070902@trash.net>
-References: <20071030131147.GA6210@localhost.sw.ru> <20071030083043.47f5def3@freepuppy.rosehill>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@sw.ru>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: [PATCH 32/33] nfs: fix various memory recursions possible with swap over NFS.
+Date: Tue, 30 Oct 2007 17:04:33 +0100
+Message-ID: <20071030160915.886143000@chello.nl>
+References: <20071030160401.296770000@chello.nl>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63976 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754208AbXJ3Pjn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 11:39:43 -0400
-In-Reply-To: <20071030083043.47f5def3@freepuppy.rosehill>
+Received: from mx1.redhat.com ([66.187.233.31]:46993 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752430AbXJ3QNj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Oct 2007 12:13:39 -0400
+Content-Disposition: inline; filename=nfs-alloc-recursions.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Tue, 30 Oct 2007 16:11:47 +0300
-> Alexey Dobriyan <adobriyan@sw.ru> wrote:
->>  
->> +static const struct file_operations ipv6_route_proc_fops = {
->> +	.open		= ipv6_route_open,
->> +	.read		= seq_read,
->> +	.llseek		= seq_lseek,
->> +	.release	= single_release,
->> +};
->> +
-> 
-> This needs
-> 	.owner		= THIS_MODULE,
+GFP_NOFS is not enough, since swap traffic is IO, hence fall back to GFP_NOIO.
 
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+---
+ fs/nfs/pagelist.c |    2 +-
+ fs/nfs/write.c    |    6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-Your ip_queue conversion patch was also missing this, I've
-fixed it up.
+Index: linux-2.6/fs/nfs/write.c
+===================================================================
+--- linux-2.6.orig/fs/nfs/write.c
++++ linux-2.6/fs/nfs/write.c
+@@ -44,7 +44,7 @@ static struct kmem_cache *nfs_wdata_cach
+ 
+ struct nfs_write_data *nfs_commit_alloc(void)
+ {
+-	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOIO);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -68,7 +68,7 @@ void nfs_commit_free(struct nfs_write_da
+ 
+ struct nfs_write_data *nfs_writedata_alloc(unsigned int pagecount)
+ {
+-	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOIO);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -77,7 +77,7 @@ struct nfs_write_data *nfs_writedata_all
+ 		if (pagecount <= ARRAY_SIZE(p->page_array))
+ 			p->pagevec = p->page_array;
+ 		else {
+-			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
++			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOIO);
+ 			if (!p->pagevec) {
+ 				kmem_cache_free(nfs_wdata_cachep, p);
+ 				p = NULL;
+Index: linux-2.6/fs/nfs/pagelist.c
+===================================================================
+--- linux-2.6.orig/fs/nfs/pagelist.c
++++ linux-2.6/fs/nfs/pagelist.c
+@@ -27,7 +27,7 @@ static inline struct nfs_page *
+ nfs_page_alloc(void)
+ {
+ 	struct nfs_page	*p;
+-	p = kmem_cache_alloc(nfs_page_cachep, GFP_KERNEL);
++	p = kmem_cache_alloc(nfs_page_cachep, GFP_NOIO);
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+ 		INIT_LIST_HEAD(&p->wb_list);
+
+--
 
