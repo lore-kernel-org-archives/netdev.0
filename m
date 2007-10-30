@@ -1,53 +1,43 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [patch 1/1][IPV6] resend:  remove duplicate call to proc_net_remove
-Date: Tue, 30 Oct 2007 17:23:45 +0100
-Message-ID: <20071030162450.257974469@mai.toulouse-stg.fr.ibm.com>
-References: <20071030162344.297260466@mai.toulouse-stg.fr.ibm.com>
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org
-To: davem@davemloft.net, ebiederm@xmission.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.29.150]:42950 "EHLO
-	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759538AbXJ3Q1Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 12:27:16 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate1.de.ibm.com (8.13.8/8.13.8) with ESMTP id l9UGRFm5124068
-	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 16:27:15 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9UGRFtT2232386
-	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 17:27:15 +0100
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9UGRE3U014673
-	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 17:27:15 +0100
-Content-Disposition: inline; filename=fix-proc-net-remove-called-twice.patch
-Sender: netdev-owner@vger.kernel.org
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: [PATCH 09/33] mm: system wide ALLOC_NO_WATERMARK
+Date: Tue, 30 Oct 2007 17:04:10 +0100
+Message-ID: <20071030160912.283002000@chello.nl>
+References: <20071030160401.296770000@chello.nl>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760062AbXJ3Q0q@vger.kernel.org>
+Content-Disposition: inline; filename=global-ALLOC_NO_WATERMARKS.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The file /proc/net/if_inet6 is removed twice.
-First time in:
-        inet6_exit
-             ->addrconf_cleanup
-And followed a few lines after by:
-        inet6_exit
-             -> if6_proc_exit
+Change ALLOC_NO_WATERMARK page allocation such that the reserves are system
+wide - which they are per setup_per_zone_pages_min(), when we scrape the
+barrel, do it properly.
 
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- net/ipv6/addrconf.c |    4 ----
- 1 file changed, 4 deletions(-)
+ mm/page_alloc.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-Index: net-2.6/net/ipv6/addrconf.c
+Index: linux-2.6/mm/page_alloc.c
 ===================================================================
---- net-2.6.orig/net/ipv6/addrconf.c
-+++ net-2.6/net/ipv6/addrconf.c
-@@ -4288,8 +4288,4 @@ void __exit addrconf_cleanup(void)
- 	del_timer(&addr_chk_timer);
- 
- 	rtnl_unlock();
--
--#ifdef CONFIG_PROC_FS
--	proc_net_remove(&init_net, "if_inet6");
--#endif
- }
+--- linux-2.6.orig/mm/page_alloc.c
++++ linux-2.6/mm/page_alloc.c
+@@ -1638,6 +1638,12 @@ restart:
+ rebalance:
+ 	if (alloc_flags & ALLOC_NO_WATERMARKS) {
+ nofail_alloc:
++		/*
++		 * break out of mempolicy boundaries
++		 */
++		zonelist = NODE_DATA(numa_node_id())->node_zonelists +
++			gfp_zone(gfp_mask);
++
+ 		/* go through the zonelist yet again, ignoring mins */
+ 		page = get_page_from_freelist(gfp_mask, order, zonelist,
+ 				ALLOC_NO_WATERMARKS);
 
--- 
+--
