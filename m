@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 02/33] mm: tag reseve pages
-Date: Tue, 30 Oct 2007 17:04:03 +0100
-Message-ID: <20071030160910.537350000@chello.nl>
+Subject: [PATCH 13/33] net: wrap sk->sk_backlog_rcv()
+Date: Tue, 30 Oct 2007 17:04:14 +0100
+Message-ID: <20071030160913.278367000@chello.nl>
 References: <20071030160401.296770000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
@@ -9,51 +9,89 @@ To: Linus Torvalds <torvalds@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:47049 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:47072 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755635AbXJ3QOG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2007 12:14:06 -0400
-Content-Disposition: inline; filename=page_alloc-reserve.patch
+	id S1755981AbXJ3QOL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Oct 2007 12:14:11 -0400
+Content-Disposition: inline; filename=net-backlog.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tag pages allocated from the reserves with a non-zero page->reserve.
-This allows us to distinguish and account reserve pages.
+Wrap calling sk->sk_backlog_rcv() in a function. This will allow extending the
+generic sk_backlog_rcv behaviour.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/linux/mm_types.h |    1 +
- mm/page_alloc.c          |    4 +++-
- 2 files changed, 4 insertions(+), 1 deletion(-)
+ include/net/sock.h   |    5 +++++
+ net/core/sock.c      |    4 ++--
+ net/ipv4/tcp.c       |    2 +-
+ net/ipv4/tcp_timer.c |    2 +-
+ 4 files changed, 9 insertions(+), 4 deletions(-)
 
-Index: linux-2.6/include/linux/mm_types.h
+Index: linux-2.6/include/net/sock.h
 ===================================================================
---- linux-2.6.orig/include/linux/mm_types.h
-+++ linux-2.6/include/linux/mm_types.h
-@@ -70,6 +70,7 @@ struct page {
- 	union {
- 		pgoff_t index;		/* Our offset within mapping. */
- 		void *freelist;		/* SLUB: freelist req. slab lock */
-+		int reserve;		/* page_alloc: page is a reserve page */
- 	};
- 	struct list_head lru;		/* Pageout list, eg. active_list
- 					 * protected by zone->lru_lock !
-Index: linux-2.6/mm/page_alloc.c
-===================================================================
---- linux-2.6.orig/mm/page_alloc.c
-+++ linux-2.6/mm/page_alloc.c
-@@ -1448,8 +1448,10 @@ zonelist_scan:
- 		}
+--- linux-2.6.orig/include/net/sock.h
++++ linux-2.6/include/net/sock.h
+@@ -485,6 +485,11 @@ static inline void sk_add_backlog(struct
+ 	skb->next = NULL;
+ }
  
- 		page = buffered_rmqueue(zonelist, zone, order, gfp_mask);
--		if (page)
-+		if (page) {
-+			page->reserve = !!(alloc_flags & ALLOC_NO_WATERMARKS);
- 			break;
-+		}
- this_zone_full:
- 		if (NUMA_BUILD)
- 			zlc_mark_zone_full(zonelist, z);
++static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
++{
++	return sk->sk_backlog_rcv(sk, skb);
++}
++
+ #define sk_wait_event(__sk, __timeo, __condition)			\
+ 	({	int __rc;						\
+ 		release_sock(__sk);					\
+Index: linux-2.6/net/core/sock.c
+===================================================================
+--- linux-2.6.orig/net/core/sock.c
++++ linux-2.6/net/core/sock.c
+@@ -320,7 +320,7 @@ int sk_receive_skb(struct sock *sk, stru
+ 		 */
+ 		mutex_acquire(&sk->sk_lock.dep_map, 0, 1, _RET_IP_);
+ 
+-		rc = sk->sk_backlog_rcv(sk, skb);
++		rc = sk_backlog_rcv(sk, skb);
+ 
+ 		mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
+ 	} else
+@@ -1312,7 +1312,7 @@ static void __release_sock(struct sock *
+ 			struct sk_buff *next = skb->next;
+ 
+ 			skb->next = NULL;
+-			sk->sk_backlog_rcv(sk, skb);
++			sk_backlog_rcv(sk, skb);
+ 
+ 			/*
+ 			 * We are in process context here with softirqs
+Index: linux-2.6/net/ipv4/tcp.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/tcp.c
++++ linux-2.6/net/ipv4/tcp.c
+@@ -1134,7 +1134,7 @@ static void tcp_prequeue_process(struct 
+ 	 * necessary */
+ 	local_bh_disable();
+ 	while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
+-		sk->sk_backlog_rcv(sk, skb);
++		sk_backlog_rcv(sk, skb);
+ 	local_bh_enable();
+ 
+ 	/* Clear memory counter. */
+Index: linux-2.6/net/ipv4/tcp_timer.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/tcp_timer.c
++++ linux-2.6/net/ipv4/tcp_timer.c
+@@ -196,7 +196,7 @@ static void tcp_delack_timer(unsigned lo
+ 		NET_INC_STATS_BH(LINUX_MIB_TCPSCHEDULERFAILED);
+ 
+ 		while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
+-			sk->sk_backlog_rcv(sk, skb);
++			sk_backlog_rcv(sk, skb);
+ 
+ 		tp->ucopy.memory = 0;
+ 	}
 
 --
 
