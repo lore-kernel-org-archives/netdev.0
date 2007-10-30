@@ -1,206 +1,171 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [patch 1/1][CORE] resend -  fix free_netdev on register_netdev failure
-Date: Tue, 30 Oct 2007 17:19:26 +0100
-Message-ID: <20071030162059.010348834@mai.toulouse-stg.fr.ibm.com>
-References: <20071030161925.487151276@mai.toulouse-stg.fr.ibm.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.de.ibm.com ([195.212.29.151]:57012 "EHLO
-	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759469AbXJ3QXY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 12:23:24 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate2.de.ibm.com (8.13.8/8.13.8) with ESMTP id l9UGNNW8101856
-	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 16:23:23 GMT
-Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9UGNNhd2040032
-	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 17:23:23 +0100
-Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9UGNMrX026567
-	for <netdev@vger.kernel.org>; Tue, 30 Oct 2007 17:23:23 +0100
-Content-Disposition: inline; filename=fix-registering-failure.patch
-Sender: netdev-owner@vger.kernel.org
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: [PATCH 27/33] nfs: remove mempools
+Date: Tue, 30 Oct 2007 17:04:28 +0100
+Message-ID: <20071030160915.242314000@chello.nl>
+References: <20071030160401.296770000@chello.nl>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759773AbXJ3QYX@vger.kernel.org>
+Content-Disposition: inline; filename=nfs-no-mempool.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Point 1:
-The unregistering of a network device schedule a netdev_run_todo.
-This function calls dev->destructor when it is set and the
-destructor calls free_netdev.
+With the introduction of the shared dirty page accounting in .19, NFS should
+not be able to surpise the VM with all dirty pages. Thus it should always be
+able to free some memory. Hence no more need for mempools.
 
-Point 2:
-In the case of an initialization of a network device the usual code
-is:
- * alloc_netdev
- * register_netdev
-    -> if this one fails, call free_netdev and exit with error.
-
-Point 3:
-In the register_netdevice function at the later state, when the device
-is at the registered state, a call to the netdevice_notifiers is made.
-If one of the notification falls into an error, a rollback to the
-registered state is done using unregister_netdevice.
-
-Conclusion:
-When a network device fails to register during initialization because
-one network subsystem returned an error during a notification call
-chain, the network device is freed twice because of fact 1 and fact 2.
-The second free_netdev will be done with an invalid pointer.
-
-Proposed solution:
-The following patch move all the code of unregister_netdevice *except* 
-the call to net_set_todo, to a new function "rollback_registered".
-
-The following functions are changed in this way:
- * register_netdevice: calls rollback_registered when a notification fails
- * unregister_netdevice: calls rollback_register + net_set_todo, the call
-                         order to net_set_todo is changed because it is the
-                         latest now. Since it justs add an element to a list
-                         that should not break anything.
-
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- net/core/dev.c |  112 ++++++++++++++++++++++++++++++---------------------------
- 1 file changed, 59 insertions(+), 53 deletions(-)
+ fs/nfs/read.c  |   15 +++------------
+ fs/nfs/write.c |   27 +++++----------------------
+ 2 files changed, 8 insertions(+), 34 deletions(-)
 
-Index: net-2.6/net/core/dev.c
+Index: linux-2.6/fs/nfs/read.c
 ===================================================================
---- net-2.6.orig/net/core/dev.c
-+++ net-2.6/net/core/dev.c
-@@ -3496,6 +3496,60 @@ static void net_set_todo(struct net_devi
- 	spin_unlock(&net_todo_list_lock);
- }
+--- linux-2.6.orig/fs/nfs/read.c
++++ linux-2.6/fs/nfs/read.c
+@@ -33,13 +33,10 @@ static const struct rpc_call_ops nfs_rea
+ static const struct rpc_call_ops nfs_read_full_ops;
  
-+static void rollback_registered(struct net_device *dev)
-+{
-+	BUG_ON(dev_boot_phase);
-+	ASSERT_RTNL();
-+
-+	/* Some devices call without registering for initialization unwind. */
-+	if (dev->reg_state == NETREG_UNINITIALIZED) {
-+		printk(KERN_DEBUG "unregister_netdevice: device %s/%p never "
-+				  "was registered\n", dev->name, dev);
-+
-+		WARN_ON(1);
-+		return;
-+	}
-+
-+	BUG_ON(dev->reg_state != NETREG_REGISTERED);
-+
-+	/* If device is running, close it first. */
-+	dev_close(dev);
-+
-+	/* And unlink it from device chain. */
-+	unlist_netdevice(dev);
-+
-+	dev->reg_state = NETREG_UNREGISTERING;
-+
-+	synchronize_net();
-+
-+	/* Shutdown queueing discipline. */
-+	dev_shutdown(dev);
-+
-+
-+	/* Notify protocols, that we are about to destroy
-+	   this device. They should clean all the things.
-+	*/
-+	call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
-+
-+	/*
-+	 *	Flush the unicast and multicast chains
-+	 */
-+	dev_addr_discard(dev);
-+
-+	if (dev->uninit)
-+		dev->uninit(dev);
-+
-+	/* Notifier chain MUST detach us from master device. */
-+	BUG_TRAP(!dev->master);
-+
-+	/* Remove entries from kobject tree */
-+	netdev_unregister_kobject(dev);
-+
-+	synchronize_net();
-+
-+	dev_put(dev);
-+}
-+
- /**
-  *	register_netdevice	- register a network device
-  *	@dev: device to register
-@@ -3633,8 +3687,10 @@ int register_netdevice(struct net_device
- 	/* Notify protocols, that a new device appeared. */
- 	ret = call_netdevice_notifiers(NETDEV_REGISTER, dev);
- 	ret = notifier_to_errno(ret);
--	if (ret)
--		unregister_netdevice(dev);
-+	if (ret) {
-+		rollback_registered(dev);
-+		dev->reg_state = NETREG_UNREGISTERED;
-+	}
+ static struct kmem_cache *nfs_rdata_cachep;
+-static mempool_t *nfs_rdata_mempool;
+-
+-#define MIN_POOL_READ	(32)
  
- out:
- 	return ret;
-@@ -3911,59 +3967,9 @@ void synchronize_net(void)
- 
- void unregister_netdevice(struct net_device *dev)
+ struct nfs_read_data *nfs_readdata_alloc(unsigned int pagecount)
  {
--	BUG_ON(dev_boot_phase);
--	ASSERT_RTNL();
--
--	/* Some devices call without registering for initialization unwind. */
--	if (dev->reg_state == NETREG_UNINITIALIZED) {
--		printk(KERN_DEBUG "unregister_netdevice: device %s/%p never "
--				  "was registered\n", dev->name, dev);
--
--		WARN_ON(1);
--		return;
--	}
--
--	BUG_ON(dev->reg_state != NETREG_REGISTERED);
--
--	/* If device is running, close it first. */
--	dev_close(dev);
--
--	/* And unlink it from device chain. */
--	unlist_netdevice(dev);
--
--	dev->reg_state = NETREG_UNREGISTERING;
--
--	synchronize_net();
--
--	/* Shutdown queueing discipline. */
--	dev_shutdown(dev);
--
--
--	/* Notify protocols, that we are about to destroy
--	   this device. They should clean all the things.
--	*/
--	call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
--
--	/*
--	 *	Flush the unicast and multicast chains
--	 */
--	dev_addr_discard(dev);
--
--	if (dev->uninit)
--		dev->uninit(dev);
--
--	/* Notifier chain MUST detach us from master device. */
--	BUG_TRAP(!dev->master);
--
--	/* Remove entries from kobject tree */
--	netdev_unregister_kobject(dev);
--
-+	rollback_registered(dev);
- 	/* Finish processing unregister after unlock */
- 	net_set_todo(dev);
--
--	synchronize_net();
--
--	dev_put(dev);
+-	struct nfs_read_data *p = mempool_alloc(nfs_rdata_mempool, GFP_NOFS);
++	struct nfs_read_data *p = kmem_cache_alloc(nfs_rdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -50,7 +47,7 @@ struct nfs_read_data *nfs_readdata_alloc
+ 		else {
+ 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
+ 			if (!p->pagevec) {
+-				mempool_free(p, nfs_rdata_mempool);
++				kmem_cache_free(nfs_rdata_cachep, p);
+ 				p = NULL;
+ 			}
+ 		}
+@@ -63,7 +60,7 @@ static void nfs_readdata_rcu_free(struct
+ 	struct nfs_read_data *p = container_of(head, struct nfs_read_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_rdata_mempool);
++	kmem_cache_free(nfs_rdata_cachep, p);
  }
  
- /**
+ static void nfs_readdata_free(struct nfs_read_data *rdata)
+@@ -597,16 +594,10 @@ int __init nfs_init_readpagecache(void)
+ 	if (nfs_rdata_cachep == NULL)
+ 		return -ENOMEM;
+ 
+-	nfs_rdata_mempool = mempool_create_slab_pool(MIN_POOL_READ,
+-						     nfs_rdata_cachep);
+-	if (nfs_rdata_mempool == NULL)
+-		return -ENOMEM;
+-
+ 	return 0;
+ }
+ 
+ void nfs_destroy_readpagecache(void)
+ {
+-	mempool_destroy(nfs_rdata_mempool);
+ 	kmem_cache_destroy(nfs_rdata_cachep);
+ }
+Index: linux-2.6/fs/nfs/write.c
+===================================================================
+--- linux-2.6.orig/fs/nfs/write.c
++++ linux-2.6/fs/nfs/write.c
+@@ -28,9 +28,6 @@
+ 
+ #define NFSDBG_FACILITY		NFSDBG_PAGECACHE
+ 
+-#define MIN_POOL_WRITE		(32)
+-#define MIN_POOL_COMMIT		(4)
+-
+ /*
+  * Local function declarations
+  */
+@@ -44,12 +41,10 @@ static const struct rpc_call_ops nfs_wri
+ static const struct rpc_call_ops nfs_commit_ops;
+ 
+ static struct kmem_cache *nfs_wdata_cachep;
+-static mempool_t *nfs_wdata_mempool;
+-static mempool_t *nfs_commit_mempool;
+ 
+ struct nfs_write_data *nfs_commit_alloc(void)
+ {
+-	struct nfs_write_data *p = mempool_alloc(nfs_commit_mempool, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -63,7 +58,7 @@ static void nfs_commit_rcu_free(struct r
+ 	struct nfs_write_data *p = container_of(head, struct nfs_write_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_commit_mempool);
++	kmem_cache_free(nfs_wdata_cachep, p);
+ }
+ 
+ void nfs_commit_free(struct nfs_write_data *wdata)
+@@ -73,7 +68,7 @@ void nfs_commit_free(struct nfs_write_da
+ 
+ struct nfs_write_data *nfs_writedata_alloc(unsigned int pagecount)
+ {
+-	struct nfs_write_data *p = mempool_alloc(nfs_wdata_mempool, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -84,7 +79,7 @@ struct nfs_write_data *nfs_writedata_all
+ 		else {
+ 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
+ 			if (!p->pagevec) {
+-				mempool_free(p, nfs_wdata_mempool);
++				kmem_cache_free(nfs_wdata_cachep, p);
+ 				p = NULL;
+ 			}
+ 		}
+@@ -97,7 +92,7 @@ static void nfs_writedata_rcu_free(struc
+ 	struct nfs_write_data *p = container_of(head, struct nfs_write_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_wdata_mempool);
++	kmem_cache_free(nfs_wdata_cachep, p);
+ }
+ 
+ static void nfs_writedata_free(struct nfs_write_data *wdata)
+@@ -1474,16 +1469,6 @@ int __init nfs_init_writepagecache(void)
+ 	if (nfs_wdata_cachep == NULL)
+ 		return -ENOMEM;
+ 
+-	nfs_wdata_mempool = mempool_create_slab_pool(MIN_POOL_WRITE,
+-						     nfs_wdata_cachep);
+-	if (nfs_wdata_mempool == NULL)
+-		return -ENOMEM;
+-
+-	nfs_commit_mempool = mempool_create_slab_pool(MIN_POOL_COMMIT,
+-						      nfs_wdata_cachep);
+-	if (nfs_commit_mempool == NULL)
+-		return -ENOMEM;
+-
+ 	/*
+ 	 * NFS congestion size, scale with available memory.
+ 	 *
+@@ -1509,8 +1494,6 @@ int __init nfs_init_writepagecache(void)
+ 
+ void nfs_destroy_writepagecache(void)
+ {
+-	mempool_destroy(nfs_commit_mempool);
+-	mempool_destroy(nfs_wdata_mempool);
+ 	kmem_cache_destroy(nfs_wdata_cachep);
+ }
+ 
 
--- 
+--
