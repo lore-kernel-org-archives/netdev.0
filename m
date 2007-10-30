@@ -1,166 +1,398 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 15/33] net: sk_allocation() - concentrate socket related allocations
-Date: Tue, 30 Oct 2007 17:04:16 +0100
-Message-ID: <20071030160913.688222000@chello.nl>
+Subject: [PATCH 18/33] netvm: INET reserves.
+Date: Tue, 30 Oct 2007 17:04:19 +0100
+Message-ID: <20071030160914.070739000@chello.nl>
 References: <20071030160401.296770000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759242AbXJ3QWG@vger.kernel.org>
-Content-Disposition: inline; filename=net-sk_allocation.patch
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759369AbXJ3QWq@vger.kernel.org>
+Content-Disposition: inline; filename=netvm-reserve-inet.patch
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Introduce sk_allocation(), this function allows to inject sock specific
-flags to each sock related allocation.
+Add reserves for INET.
+
+The two big users seem to be the route cache and ip-fragment cache.
+
+Reserve the route cache under generic RX reserve, its usage is bounded by
+the high reclaim watermark, and thus does not need further accounting.
+
+Reserve the ip-fragement caches under SKB data reserve, these add to the
+SKB RX limit. By ensuring we can at least receive as much data as fits in
+the reassmbly line we avoid fragment attack deadlocks.
+
+Use proc conv() routines to update these limits and return -ENOMEM to user
+space.
+
+Adds to the reserve tree:
+
+  total network reserve      
+    network TX reserve       
+      protocol TX pages      
+    network RX reserve       
++     IPv6 route cache       
++     IPv4 route cache       
+      SKB data reserve       
++       IPv6 fragment cache  
++       IPv4 fragment cache  
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/net/sock.h    |    7 ++++++-
- net/ipv4/tcp_output.c |   11 ++++++-----
- net/ipv6/tcp_ipv6.c   |   14 +++++++++-----
- 3 files changed, 21 insertions(+), 11 deletions(-)
+ include/linux/sysctl.h     |   11 +++++++++++
+ kernel/sysctl.c            |    8 ++++++--
+ net/ipv4/ip_fragment.c     |    7 +++++++
+ net/ipv4/route.c           |   30 +++++++++++++++++++++++++++++-
+ net/ipv4/sysctl_net_ipv4.c |   24 +++++++++++++++++++++++-
+ net/ipv6/reassembly.c      |    7 +++++++
+ net/ipv6/route.c           |   31 ++++++++++++++++++++++++++++++-
+ net/ipv6/sysctl_net_ipv6.c |   24 +++++++++++++++++++++++-
+ 8 files changed, 136 insertions(+), 6 deletions(-)
 
-Index: linux-2.6/net/ipv4/tcp_output.c
+Index: linux-2.6/net/ipv4/sysctl_net_ipv4.c
 ===================================================================
---- linux-2.6.orig/net/ipv4/tcp_output.c
-+++ linux-2.6/net/ipv4/tcp_output.c
-@@ -2081,7 +2081,7 @@ void tcp_send_fin(struct sock *sk)
- 	} else {
- 		/* Socket is locked, keep trying until memory is available. */
- 		for (;;) {
--			skb = alloc_skb_fclone(MAX_TCP_HEADER, GFP_KERNEL);
-+			skb = alloc_skb_fclone(MAX_TCP_HEADER, sk->sk_allocation);
- 			if (skb)
- 				break;
- 			yield();
-@@ -2114,7 +2114,7 @@ void tcp_send_active_reset(struct sock *
- 	struct sk_buff *skb;
+--- linux-2.6.orig/net/ipv4/sysctl_net_ipv4.c
++++ linux-2.6/net/ipv4/sysctl_net_ipv4.c
+@@ -18,6 +18,7 @@
+ #include <net/route.h>
+ #include <net/tcp.h>
+ #include <net/cipso_ipv4.h>
++#include <linux/reserve.h>
  
- 	/* NOTE: No TCP options attached and we never retransmit this. */
--	skb = alloc_skb(MAX_TCP_HEADER, priority);
-+	skb = alloc_skb(MAX_TCP_HEADER, sk_allocation(sk, priority));
- 	if (!skb) {
- 		NET_INC_STATS(LINUX_MIB_TCPABORTFAILED);
- 		return;
-@@ -2187,7 +2187,8 @@ struct sk_buff * tcp_make_synack(struct 
- 	__u8 *md5_hash_location;
- #endif
+ /* From af_inet.c */
+ extern int sysctl_ip_nonlocal_bind;
+@@ -186,6 +187,27 @@ static int strategy_allowed_congestion_c
  
--	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15, 1, GFP_ATOMIC);
-+	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15, 1,
-+			sk_allocation(sk, GFP_ATOMIC));
- 	if (skb == NULL)
- 		return NULL;
- 
-@@ -2446,7 +2447,7 @@ void tcp_send_ack(struct sock *sk)
- 		 * tcp_transmit_skb() will set the ownership to this
- 		 * sock.
- 		 */
--		buff = alloc_skb(MAX_TCP_HEADER, GFP_ATOMIC);
-+		buff = alloc_skb(MAX_TCP_HEADER, sk_allocation(sk, GFP_ATOMIC));
- 		if (buff == NULL) {
- 			inet_csk_schedule_ack(sk);
- 			inet_csk(sk)->icsk_ack.ato = TCP_ATO_MIN;
-@@ -2488,7 +2489,7 @@ static int tcp_xmit_probe_skb(struct soc
- 	struct sk_buff *skb;
- 
- 	/* We don't queue it, tcp_transmit_skb() sets ownership. */
--	skb = alloc_skb(MAX_TCP_HEADER, GFP_ATOMIC);
-+	skb = alloc_skb(MAX_TCP_HEADER, sk_allocation(sk, GFP_ATOMIC));
- 	if (skb == NULL)
- 		return -1;
- 
-Index: linux-2.6/include/net/sock.h
-===================================================================
---- linux-2.6.orig/include/net/sock.h
-+++ linux-2.6/include/net/sock.h
-@@ -419,6 +419,11 @@ static inline int sock_flag(struct sock 
- 	return test_bit(flag, &sk->sk_flags);
  }
  
-+static inline gfp_t sk_allocation(struct sock *sk, gfp_t gfp_mask)
++extern struct mem_reserve ipv4_frag_reserve;
++
++static int do_proc_dointvec_fragment_conv(int *negp, unsigned long *lvalp,
++				 int *valp, int write, void *data)
 +{
-+	return gfp_mask;
++	if (write) {
++		long value = *negp ? -*lvalp : *lvalp;
++		int err = mem_reserve_kmalloc_set(&ipv4_frag_reserve, value);
++		if (err)
++			return err;
++	}
++	return do_proc_dointvec_conv(negp, lvalp, valp, write, data);
 +}
 +
- static inline void sk_acceptq_removed(struct sock *sk)
- {
- 	sk->sk_ack_backlog--;
-@@ -1212,7 +1217,7 @@ static inline struct sk_buff *sk_stream_
- 	int hdr_len;
- 
- 	hdr_len = SKB_DATA_ALIGN(sk->sk_prot->max_header);
--	skb = alloc_skb_fclone(size + hdr_len, gfp);
-+	skb = alloc_skb_fclone(size + hdr_len, sk_allocation(sk, gfp));
- 	if (skb) {
- 		skb->truesize += mem;
- 		if (sk_stream_wmem_schedule(sk, skb->truesize)) {
-Index: linux-2.6/net/ipv6/tcp_ipv6.c
++static int proc_dointvec_fragment(ctl_table *table, int write, struct file *filp,
++		     void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	return do_proc_dointvec(table, write, filp, buffer, lenp, ppos,
++			do_proc_dointvec_fragment_conv, NULL);
++}
++
+ ctl_table ipv4_table[] = {
+ 	{
+ 		.ctl_name	= NET_IPV4_TCP_TIMESTAMPS,
+@@ -291,7 +313,7 @@ ctl_table ipv4_table[] = {
+ 		.data		= &sysctl_ipfrag_high_thresh,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec_fragment
+ 	},
+ 	{
+ 		.ctl_name	= NET_IPV4_IPFRAG_LOW_THRESH,
+Index: linux-2.6/net/ipv6/sysctl_net_ipv6.c
 ===================================================================
---- linux-2.6.orig/net/ipv6/tcp_ipv6.c
-+++ linux-2.6/net/ipv6/tcp_ipv6.c
-@@ -573,7 +573,8 @@ static int tcp_v6_md5_do_add(struct sock
- 	} else {
- 		/* reallocate new list if current one is full. */
- 		if (!tp->md5sig_info) {
--			tp->md5sig_info = kzalloc(sizeof(*tp->md5sig_info), GFP_ATOMIC);
-+			tp->md5sig_info = kzalloc(sizeof(*tp->md5sig_info),
-+					sk_allocation(sk, GFP_ATOMIC));
- 			if (!tp->md5sig_info) {
- 				kfree(newkey);
- 				return -ENOMEM;
-@@ -583,7 +584,8 @@ static int tcp_v6_md5_do_add(struct sock
- 		tcp_alloc_md5sig_pool();
- 		if (tp->md5sig_info->alloced6 == tp->md5sig_info->entries6) {
- 			keys = kmalloc((sizeof (tp->md5sig_info->keys6[0]) *
--				       (tp->md5sig_info->entries6 + 1)), GFP_ATOMIC);
-+				       (tp->md5sig_info->entries6 + 1)),
-+				       sk_allocation(sk, GFP_ATOMIC));
+--- linux-2.6.orig/net/ipv6/sysctl_net_ipv6.c
++++ linux-2.6/net/ipv6/sysctl_net_ipv6.c
+@@ -12,9 +12,31 @@
+ #include <net/ndisc.h>
+ #include <net/ipv6.h>
+ #include <net/addrconf.h>
++#include <linux/reserve.h>
  
- 			if (!keys) {
- 				tcp_free_md5sig_pool();
-@@ -709,7 +711,7 @@ static int tcp_v6_parse_md5_keys (struct
- 		struct tcp_sock *tp = tcp_sk(sk);
- 		struct tcp_md5sig_info *p;
+ #ifdef CONFIG_SYSCTL
  
--		p = kzalloc(sizeof(struct tcp_md5sig_info), GFP_KERNEL);
-+		p = kzalloc(sizeof(struct tcp_md5sig_info), sk->sk_allocation);
- 		if (!p)
- 			return -ENOMEM;
++extern struct mem_reserve ipv6_frag_reserve;
++
++static int do_proc_dointvec_fragment_conv(int *negp, unsigned long *lvalp,
++				 int *valp, int write, void *data)
++{
++	if (write) {
++		long value = *negp ? -*lvalp : *lvalp;
++		int err = mem_reserve_kmalloc_set(&ipv6_frag_reserve, value);
++		if (err)
++			return err;
++	}
++	return do_proc_dointvec_conv(negp, lvalp, valp, write, data);
++}
++
++static int proc_dointvec_fragment(ctl_table *table, int write, struct file *filp,
++		     void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	return do_proc_dointvec(table, write, filp, buffer, lenp, ppos,
++			do_proc_dointvec_fragment_conv, NULL);
++}
++
+ static ctl_table ipv6_table[] = {
+ 	{
+ 		.ctl_name	= NET_IPV6_ROUTE,
+@@ -44,7 +66,7 @@ static ctl_table ipv6_table[] = {
+ 		.data		= &sysctl_ip6frag_high_thresh,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec_fragment
+ 	},
+ 	{
+ 		.ctl_name	= NET_IPV6_IP6FRAG_LOW_THRESH,
+Index: linux-2.6/net/ipv4/ip_fragment.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/ip_fragment.c
++++ linux-2.6/net/ipv4/ip_fragment.c
+@@ -43,6 +43,7 @@
+ #include <linux/udp.h>
+ #include <linux/inet.h>
+ #include <linux/netfilter_ipv4.h>
++#include <linux/reserve.h>
  
-@@ -1006,7 +1008,7 @@ static void tcp_v6_send_reset(struct soc
- 	 */
+ /* NOTE. Logic of IP defragmentation is parallel to corresponding IPv6
+  * code now. If you change something here, _PLEASE_ update ipv6/reassembly.c
+@@ -733,6 +734,8 @@ struct sk_buff *ip_defrag(struct sk_buff
+ 	return NULL;
+ }
  
- 	buff = alloc_skb(MAX_HEADER + sizeof(struct ipv6hdr) + tot_len,
--			 GFP_ATOMIC);
-+			 sk_allocation(sk, GFP_ATOMIC));
- 	if (buff == NULL)
- 		return;
++struct mem_reserve ipv4_frag_reserve;
++
+ void __init ipfrag_init(void)
+ {
+ 	ipfrag_hash_rnd = (u32) ((num_physpages ^ (num_physpages>>7)) ^
+@@ -742,6 +745,10 @@ void __init ipfrag_init(void)
+ 	ipfrag_secret_timer.function = ipfrag_secret_rebuild;
+ 	ipfrag_secret_timer.expires = jiffies + sysctl_ipfrag_secret_interval;
+ 	add_timer(&ipfrag_secret_timer);
++
++	mem_reserve_init(&ipv4_frag_reserve, "IPv4 fragment cache",
++			 &net_skb_reserve);
++	mem_reserve_kmalloc_set(&ipv4_frag_reserve, sysctl_ipfrag_high_thresh);
+ }
  
-@@ -1085,10 +1087,12 @@ static void tcp_v6_send_ack(struct tcp_t
- 	struct tcp_md5sig_key *key;
- 	struct tcp_md5sig_key tw_key;
+ EXPORT_SYMBOL(ip_defrag);
+Index: linux-2.6/net/ipv6/reassembly.c
+===================================================================
+--- linux-2.6.orig/net/ipv6/reassembly.c
++++ linux-2.6/net/ipv6/reassembly.c
+@@ -42,6 +42,7 @@
+ #include <linux/icmpv6.h>
+ #include <linux/random.h>
+ #include <linux/jhash.h>
++#include <linux/reserve.h>
+ 
+ #include <net/sock.h>
+ #include <net/snmp.h>
+@@ -770,6 +771,8 @@ static struct inet6_protocol frag_protoc
+ 	.flags		=	INET6_PROTO_NOPOLICY,
+ };
+ 
++struct mem_reserve ipv6_frag_reserve;
++
+ void __init ipv6_frag_init(void)
+ {
+ 	if (inet6_add_protocol(&frag_protocol, IPPROTO_FRAGMENT) < 0)
+@@ -782,4 +785,8 @@ void __init ipv6_frag_init(void)
+ 	ip6_frag_secret_timer.function = ip6_frag_secret_rebuild;
+ 	ip6_frag_secret_timer.expires = jiffies + sysctl_ip6frag_secret_interval;
+ 	add_timer(&ip6_frag_secret_timer);
++
++	mem_reserve_init(&ipv6_frag_reserve, "IPv6 fragment cache",
++			&net_skb_reserve);
++	mem_reserve_kmalloc_set(&ipv6_frag_reserve, sysctl_ip6frag_high_thresh);
+ }
+Index: linux-2.6/net/ipv4/route.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/route.c
++++ linux-2.6/net/ipv4/route.c
+@@ -108,6 +108,7 @@
+ #ifdef CONFIG_SYSCTL
+ #include <linux/sysctl.h>
  #endif
-+	gfp_t gfp_mask = GFP_ATOMIC;
++#include <linux/reserve.h>
  
- #ifdef CONFIG_TCP_MD5SIG
- 	if (!tw && skb->sk) {
- 		key = tcp_v6_md5_do_lookup(skb->sk, &ipv6_hdr(skb)->daddr);
-+		gfp_mask = sk_allocation(skb->sk, gfp_mask);
- 	} else if (tw && tw->tw_md5_keylen) {
- 		tw_key.key = tw->tw_md5_key;
- 		tw_key.keylen = tw->tw_md5_keylen;
-@@ -1106,7 +1110,7 @@ static void tcp_v6_send_ack(struct tcp_t
+ #define RT_FL_TOS(oldflp) \
+     ((u32)(oldflp->fl4_tos & (IPTOS_RT_MASK | RTO_ONLINK)))
+@@ -2698,6 +2699,28 @@ static int ipv4_sysctl_rtcache_flush_str
+ 	return 0;
+ }
+ 
++static struct mem_reserve ipv4_route_reserve;
++
++static int do_proc_dointvec_route_conv(int *negp, unsigned long *lvalp,
++				 int *valp, int write, void *data)
++{
++	if (write) {
++		long value = *negp ? -*lvalp : *lvalp;
++		int err = mem_reserve_kmem_cache_set(&ipv4_route_reserve,
++				ipv4_dst_ops.kmem_cachep, value);
++		if (err)
++			return err;
++	}
++	return do_proc_dointvec_conv(negp, lvalp, valp, write, data);
++}
++
++static int proc_dointvec_route(ctl_table *table, int write, struct file *filp,
++		     void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	return do_proc_dointvec(table, write, filp, buffer, lenp, ppos,
++			do_proc_dointvec_route_conv, NULL);
++}
++
+ ctl_table ipv4_route_table[] = {
+ 	{
+ 		.ctl_name 	= NET_IPV4_ROUTE_FLUSH,
+@@ -2740,7 +2763,7 @@ ctl_table ipv4_route_table[] = {
+ 		.data		= &ip_rt_max_size,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec,
++		.proc_handler	= &proc_dointvec_route,
+ 	},
+ 	{
+ 		/*  Deprecated. Use gc_min_interval_ms */
+@@ -2970,6 +2993,11 @@ int __init ip_rt_init(void)
+ 	ipv4_dst_ops.gc_thresh = (rt_hash_mask + 1);
+ 	ip_rt_max_size = (rt_hash_mask + 1) * 16;
+ 
++	mem_reserve_init(&ipv4_route_reserve, "IPv4 route cache",
++			&net_rx_reserve);
++	mem_reserve_kmem_cache_set(&ipv4_route_reserve,
++			ipv4_dst_ops.kmem_cachep, ip_rt_max_size);
++
+ 	devinet_init();
+ 	ip_fib_init();
+ 
+Index: linux-2.6/net/ipv6/route.c
+===================================================================
+--- linux-2.6.orig/net/ipv6/route.c
++++ linux-2.6/net/ipv6/route.c
+@@ -38,6 +38,7 @@
+ #include <linux/in6.h>
+ #include <linux/init.h>
+ #include <linux/if_arp.h>
++#include <linux/reserve.h>
+ 
+ #ifdef 	CONFIG_PROC_FS
+ #include <linux/proc_fs.h>
+@@ -2454,6 +2455,28 @@ int ipv6_sysctl_rtcache_flush(ctl_table 
+ 		return -EINVAL;
+ }
+ 
++static struct mem_reserve ipv6_route_reserve;
++
++static int do_proc_dointvec_route6_conv(int *negp, unsigned long *lvalp,
++				 int *valp, int write, void *data)
++{
++	if (write) {
++		long value = *negp ? -*lvalp : *lvalp;
++		int err = mem_reserve_kmem_cache_set(&ipv6_route_reserve,
++				ip6_dst_ops.kmem_cachep, value);
++		if (err)
++			return err;
++	}
++	return do_proc_dointvec_conv(negp, lvalp, valp, write, data);
++}
++
++static int proc_dointvec_route6(ctl_table *table, int write, struct file *filp,
++		     void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	return do_proc_dointvec(table, write, filp, buffer, lenp, ppos,
++			do_proc_dointvec_route6_conv, NULL);
++}
++
+ ctl_table ipv6_route_table[] = {
+ 	{
+ 		.procname	=	"flush",
+@@ -2476,7 +2499,7 @@ ctl_table ipv6_route_table[] = {
+ 		.data		=	&ip6_rt_max_size,
+ 		.maxlen		=	sizeof(int),
+ 		.mode		=	0644,
+-		.proc_handler	=	&proc_dointvec,
++         	.proc_handler	=	&proc_dointvec_route6,
+ 	},
+ 	{
+ 		.ctl_name	=	NET_IPV6_ROUTE_GC_MIN_INTERVAL,
+@@ -2564,6 +2587,12 @@ void __init ip6_route_init(void)
+ 
+ 	proc_net_fops_create(&init_net, "rt6_stats", S_IRUGO, &rt6_stats_seq_fops);
  #endif
++
++	mem_reserve_init(&ipv6_route_reserve, "IPv6 route cache",
++			&net_rx_reserve);
++	mem_reserve_kmem_cache_set(&ipv6_route_reserve,
++			ip6_dst_ops.kmem_cachep, ip6_rt_max_size);
++
+ #ifdef CONFIG_XFRM
+ 	xfrm6_init();
+ #endif
+Index: linux-2.6/include/linux/sysctl.h
+===================================================================
+--- linux-2.6.orig/include/linux/sysctl.h
++++ linux-2.6/include/linux/sysctl.h
+@@ -966,6 +966,17 @@ typedef int proc_handler (struct ctl_tab
  
- 	buff = alloc_skb(MAX_HEADER + sizeof(struct ipv6hdr) + tot_len,
--			 GFP_ATOMIC);
-+			 gfp_mask);
- 	if (buff == NULL)
- 		return;
+ extern int proc_dostring(struct ctl_table *, int, struct file *,
+ 			 void __user *, size_t *, loff_t *);
++
++extern int do_proc_dointvec_conv(int *negp, unsigned long *lvalp,
++				 int *valp,
++				 int write, void *data);
++
++extern int do_proc_dointvec(ctl_table *table, int write, struct file *filp,
++		  void __user *buffer, size_t *lenp, loff_t *ppos,
++		  int (*conv)(int *negp, unsigned long *lvalp, int *valp,
++			      int write, void *data),
++		  void *data);
++
+ extern int proc_dointvec(struct ctl_table *, int, struct file *,
+ 			 void __user *, size_t *, loff_t *);
+ extern int proc_dointvec_bset(struct ctl_table *, int, struct file *,
+Index: linux-2.6/kernel/sysctl.c
+===================================================================
+--- linux-2.6.orig/kernel/sysctl.c
++++ linux-2.6/kernel/sysctl.c
+@@ -1702,7 +1702,7 @@ int proc_dostring(struct ctl_table *tabl
+ }
  
+ 
+-static int do_proc_dointvec_conv(int *negp, unsigned long *lvalp,
++int do_proc_dointvec_conv(int *negp, unsigned long *lvalp,
+ 				 int *valp,
+ 				 int write, void *data)
+ {
+@@ -1721,6 +1721,8 @@ static int do_proc_dointvec_conv(int *ne
+ 	return 0;
+ }
+ 
++EXPORT_SYMBOL(do_proc_dointvec_conv);
++
+ static int __do_proc_dointvec(void *tbl_data, struct ctl_table *table,
+ 		  int write, struct file *filp, void __user *buffer,
+ 		  size_t *lenp, loff_t *ppos,
+@@ -1832,7 +1834,7 @@ static int __do_proc_dointvec(void *tbl_
+ #undef TMPBUFLEN
+ }
+ 
+-static int do_proc_dointvec(struct ctl_table *table, int write, struct file *filp,
++int do_proc_dointvec(struct ctl_table *table, int write, struct file *filp,
+ 		  void __user *buffer, size_t *lenp, loff_t *ppos,
+ 		  int (*conv)(int *negp, unsigned long *lvalp, int *valp,
+ 			      int write, void *data),
+@@ -1842,6 +1844,8 @@ static int do_proc_dointvec(struct ctl_t
+ 			buffer, lenp, ppos, conv, data);
+ }
+ 
++EXPORT_SYMBOL(do_proc_dointvec);
++
+ /**
+  * proc_dointvec - read a vector of integers
+  * @table: the sysctl table
 
 --
