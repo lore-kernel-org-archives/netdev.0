@@ -1,75 +1,39 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: [PATCH] rpc_rdma: we need to cast u64 to unsigned long long for
- printing
-Date: Tue, 30 Oct 2007 16:12:40 +1100
-Message-ID: <20071030161240.bc81cad3.sfr@canb.auug.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [0/11] Merge bundle creation and other misc fixes/clean-ups
+Date: Tue, 30 Oct 2007 13:49:54 +0800
+Message-ID: <20071030054954.GA13255@gondor.apana.org.au>
+References: <20071023160217.GA32102@gondor.apana.org.au> <20071029.220635.262385821.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:47793 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752527AbXJ3FMk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2007 01:12:40 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:4165 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752229AbXJ3FuN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 01:50:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20071029.220635.262385821.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-as some architectures have unsigned long for u64.
+On Mon, Oct 29, 2007 at 10:06:35PM -0700, David Miller wrote:
+>
+> I did a review of these patches and these look fine.
 
-net/sunrpc/xprtrdma/rpc_rdma.c: In function 'rpcrdma_create_chunks':
-net/sunrpc/xprtrdma/rpc_rdma.c:222: warning: format '%llx' expects type 'long long unsigned int', but argument 4 has type 'u64'
-net/sunrpc/xprtrdma/rpc_rdma.c:234: warning: format '%llx' expects type 'long long unsigned int', but argument 5 has type 'u64'
-net/sunrpc/xprtrdma/rpc_rdma.c: In function 'rpcrdma_count_chunks':
-net/sunrpc/xprtrdma/rpc_rdma.c:577: warning: format '%llx' expects type 'long long unsigned int', but argument 4 has type 'u64
+Thanks!
 
-Noticed on PowerPC pseries_defconfig build.
+> Please resubmit this and the 3-patch input interfamily
+> fix set when I open up the net-2.6.25 tree.
+> 
+> I'll probably open up net-2.6.25 approximately one week
+> from now.
 
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- net/sunrpc/xprtrdma/rpc_rdma.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+Sure.  And I hope there will be a few more patches by then :)
 
--- 
 Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --git a/net/sunrpc/xprtrdma/rpc_rdma.c b/net/sunrpc/xprtrdma/rpc_rdma.c
-index f877b88..9e11ce7 100644
---- a/net/sunrpc/xprtrdma/rpc_rdma.c
-+++ b/net/sunrpc/xprtrdma/rpc_rdma.c
-@@ -221,8 +221,8 @@ rpcrdma_create_chunks(struct rpc_rqst *rqst, struct xdr_buf *target,
- 					seg->mr_base);
- 			dprintk("RPC:       %s: read chunk "
- 				"elem %d@0x%llx:0x%x pos %d (%s)\n", __func__,
--				seg->mr_len, seg->mr_base, seg->mr_rkey, pos,
--				n < nsegs ? "more" : "last");
-+				seg->mr_len, (unsigned long long)seg->mr_base,
-+				seg->mr_rkey, pos, n < nsegs ? "more" : "last");
- 			cur_rchunk++;
- 			r_xprt->rx_stats.read_chunk_count++;
- 		} else {		/* write/reply */
-@@ -234,8 +234,8 @@ rpcrdma_create_chunks(struct rpc_rqst *rqst, struct xdr_buf *target,
- 			dprintk("RPC:       %s: %s chunk "
- 				"elem %d@0x%llx:0x%x (%s)\n", __func__,
- 				(type == rpcrdma_replych) ? "reply" : "write",
--				seg->mr_len, seg->mr_base, seg->mr_rkey,
--				n < nsegs ? "more" : "last");
-+				seg->mr_len, (unsigned long long)seg->mr_base,
-+				seg->mr_rkey, n < nsegs ? "more" : "last");
- 			cur_wchunk++;
- 			if (type == rpcrdma_replych)
- 				r_xprt->rx_stats.reply_chunk_count++;
-@@ -577,7 +577,7 @@ rpcrdma_count_chunks(struct rpcrdma_rep *rep, int max, int wrchunk, __be32 **ipt
- 			dprintk("RPC:       %s: chunk %d@0x%llx:0x%x\n",
- 				__func__,
- 				ntohl(seg->rs_length),
--				off,
-+				(unsigned long long)off,
- 				ntohl(seg->rs_handle));
- 		}
- 		total_len += ntohl(seg->rs_length);
 -- 
-1.5.3.4
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
