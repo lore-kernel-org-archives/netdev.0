@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 24/33] mm: prepare swap entry methods for use in page methods
-Date: Tue, 30 Oct 2007 17:04:25 +0100
-Message-ID: <20071030160914.849009000@chello.nl>
+Subject: [PATCH 16/33] netvm: network reserve infrastructure
+Date: Tue, 30 Oct 2007 17:04:17 +0100
+Message-ID: <20071030160913.811204000@chello.nl>
 References: <20071030160401.296770000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
@@ -9,185 +9,269 @@ To: Linus Torvalds <torvalds@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:46995 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:46996 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752287AbXJ3QNj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752419AbXJ3QNj (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 30 Oct 2007 12:13:39 -0400
-Content-Disposition: inline; filename=mm-swap_entry_methods.patch
+Content-Disposition: inline; filename=netvm-reserve.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move around the swap entry methods in preparation for use from
-page methods.
+Provide the basic infrastructure to reserve and charge/account network memory.
 
-Also provide a function to obtain the swap_info_struct backing
-a swap cache page.
+We provide the following reserve tree:
+
+1)  total network reserve
+2)    network TX reserve
+3)      protocol TX pages
+4)    network RX reserve
+5)      SKB data reserve
+
+[1] is used to make all the network reserves a single subtree, for easy
+manipulation.
+
+[2] and [4] are merely for eastetic reasons.
+
+The TX pages reserve [3] is assumed bounded by it being the upper bound of
+memory that can be used for sending pages (not quite true, but good enough)
+
+The SKB reserve [5] is an aggregate reserve, which is used to charge SKB data
+against in the fallback path.
+
+The consumers for these reserves are sockets marked with:
+  SOCK_MEMALLOC
+
+Such sockets are to be used to service the VM (iow. to swap over). They
+must be handled kernel side, exposing such a socket to user-space is a BUG.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/linux/mm.h      |    8 ++++++++
- include/linux/swap.h    |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/swapops.h |   44 --------------------------------------------
- mm/swapfile.c           |    1 +
- 4 files changed, 57 insertions(+), 44 deletions(-)
+ include/net/sock.h |   35 +++++++++++++++-
+ net/Kconfig        |    3 +
+ net/core/sock.c    |  113 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 150 insertions(+), 1 deletion(-)
 
-Index: linux-2.6/include/linux/mm.h
+Index: linux-2.6/include/net/sock.h
 ===================================================================
---- linux-2.6.orig/include/linux/mm.h
-+++ linux-2.6/include/linux/mm.h
-@@ -12,6 +12,7 @@
- #include <linux/prio_tree.h>
- #include <linux/debug_locks.h>
- #include <linux/mm_types.h>
-+#include <linux/swap.h>
+--- linux-2.6.orig/include/net/sock.h
++++ linux-2.6/include/net/sock.h
+@@ -50,6 +50,7 @@
+ #include <linux/skbuff.h>	/* struct sk_buff */
+ #include <linux/mm.h>
+ #include <linux/security.h>
++#include <linux/reserve.h>
  
- struct mempolicy;
- struct anon_vma;
-@@ -573,6 +574,13 @@ static inline struct address_space *page
- 	return mapping;
+ #include <linux/filter.h>
+ 
+@@ -397,6 +398,7 @@ enum sock_flags {
+ 	SOCK_RCVTSTAMPNS, /* %SO_TIMESTAMPNS setting */
+ 	SOCK_LOCALROUTE, /* route locally only, %SO_DONTROUTE setting */
+ 	SOCK_QUEUE_SHRUNK, /* write queue has been shrunk recently */
++	SOCK_MEMALLOC, /* the VM depends on us - make sure we're serviced */
+ };
+ 
+ static inline void sock_copy_flags(struct sock *nsk, struct sock *osk)
+@@ -419,9 +421,40 @@ static inline int sock_flag(struct sock 
+ 	return test_bit(flag, &sk->sk_flags);
  }
  
-+static inline struct swap_info_struct *page_swap_info(struct page *page)
++static inline int sk_has_memalloc(struct sock *sk)
 +{
-+	swp_entry_t swap = { .val = page_private(page) };
-+	BUG_ON(!PageSwapCache(page));
-+	return get_swap_info_struct(swp_type(swap));
++	return sock_flag(sk, SOCK_MEMALLOC);
 +}
 +
- static inline int PageAnon(struct page *page)
- {
- 	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
-Index: linux-2.6/include/linux/swap.h
-===================================================================
---- linux-2.6.orig/include/linux/swap.h
-+++ linux-2.6/include/linux/swap.h
-@@ -80,6 +80,50 @@ typedef struct {
- } swp_entry_t;
- 
- /*
-+ * swapcache pages are stored in the swapper_space radix tree.  We want to
-+ * get good packing density in that tree, so the index should be dense in
-+ * the low-order bits.
++/*
++ * Guestimate the per request queue TX upper bound.
 + *
-+ * We arrange the `type' and `offset' fields so that `type' is at the five
-+ * high-order bits of the swp_entry_t and `offset' is right-aligned in the
-+ * remaining bits.
-+ *
-+ * swp_entry_t's are *never* stored anywhere in their arch-dependent format.
++ * Max packet size is 64k, and we need to reserve that much since the data
++ * might need to bounce it. Double it to be on the safe side.
 + */
-+#define SWP_TYPE_SHIFT(e)	(sizeof(e.val) * 8 - MAX_SWAPFILES_SHIFT)
-+#define SWP_OFFSET_MASK(e)	((1UL << SWP_TYPE_SHIFT(e)) - 1)
++#define TX_RESERVE_PAGES DIV_ROUND_UP(2*65536, PAGE_SIZE)
 +
-+/*
-+ * Store a type+offset into a swp_entry_t in an arch-independent format
-+ */
-+static inline swp_entry_t swp_entry(unsigned long type, pgoff_t offset)
++extern atomic_t memalloc_socks;
++
++extern struct mem_reserve net_rx_reserve;
++extern struct mem_reserve net_skb_reserve;
++
++static inline int sk_memalloc_socks(void)
 +{
-+	swp_entry_t ret;
-+
-+	ret.val = (type << SWP_TYPE_SHIFT(ret)) |
-+			(offset & SWP_OFFSET_MASK(ret));
-+	return ret;
++	return atomic_read(&memalloc_socks);
 +}
 +
-+/*
-+ * Extract the `type' field from a swp_entry_t.  The swp_entry_t is in
-+ * arch-independent format
-+ */
-+static inline unsigned swp_type(swp_entry_t entry)
-+{
-+	return (entry.val >> SWP_TYPE_SHIFT(entry));
-+}
++extern int rx_emergency_get(int bytes);
++extern int rx_emergency_get_overcommit(int bytes);
++extern void rx_emergency_put(int bytes);
 +
-+/*
-+ * Extract the `offset' field from a swp_entry_t.  The swp_entry_t is in
-+ * arch-independent format
-+ */
-+static inline pgoff_t swp_offset(swp_entry_t entry)
-+{
-+	return entry.val & SWP_OFFSET_MASK(entry);
-+}
++extern int sk_adjust_memalloc(int socks, long tx_reserve_pages);
++extern int sk_set_memalloc(struct sock *sk);
++extern int sk_clear_memalloc(struct sock *sk);
 +
-+/*
-  * current->reclaim_state points to one of these when a task is running
-  * memory reclaim
-  */
-@@ -326,6 +370,10 @@ static inline int valid_swaphandles(swp_
- 	return 0;
- }
- 
-+static inline struct swap_info_struct *get_swap_info_struct(unsigned type)
-+{
-+	return NULL;
-+}
- #define can_share_swap_page(p)			(page_mapcount(p) == 1)
- 
- static inline int move_to_swap_cache(struct page *page, swp_entry_t entry)
-Index: linux-2.6/include/linux/swapops.h
-===================================================================
---- linux-2.6.orig/include/linux/swapops.h
-+++ linux-2.6/include/linux/swapops.h
-@@ -1,48 +1,4 @@
- /*
-- * swapcache pages are stored in the swapper_space radix tree.  We want to
-- * get good packing density in that tree, so the index should be dense in
-- * the low-order bits.
-- *
-- * We arrange the `type' and `offset' fields so that `type' is at the five
-- * high-order bits of the swp_entry_t and `offset' is right-aligned in the
-- * remaining bits.
-- *
-- * swp_entry_t's are *never* stored anywhere in their arch-dependent format.
-- */
--#define SWP_TYPE_SHIFT(e)	(sizeof(e.val) * 8 - MAX_SWAPFILES_SHIFT)
--#define SWP_OFFSET_MASK(e)	((1UL << SWP_TYPE_SHIFT(e)) - 1)
--
--/*
-- * Store a type+offset into a swp_entry_t in an arch-independent format
-- */
--static inline swp_entry_t swp_entry(unsigned long type, pgoff_t offset)
--{
--	swp_entry_t ret;
--
--	ret.val = (type << SWP_TYPE_SHIFT(ret)) |
--			(offset & SWP_OFFSET_MASK(ret));
--	return ret;
--}
--
--/*
-- * Extract the `type' field from a swp_entry_t.  The swp_entry_t is in
-- * arch-independent format
-- */
--static inline unsigned swp_type(swp_entry_t entry)
--{
--	return (entry.val >> SWP_TYPE_SHIFT(entry));
--}
--
--/*
-- * Extract the `offset' field from a swp_entry_t.  The swp_entry_t is in
-- * arch-independent format
-- */
--static inline pgoff_t swp_offset(swp_entry_t entry)
--{
--	return entry.val & SWP_OFFSET_MASK(entry);
--}
--
--/*
-  * Convert the arch-dependent pte representation of a swp_entry_t into an
-  * arch-independent swp_entry_t.
-  */
-Index: linux-2.6/mm/swapfile.c
-===================================================================
---- linux-2.6.orig/mm/swapfile.c
-+++ linux-2.6/mm/swapfile.c
-@@ -1768,6 +1768,7 @@ get_swap_info_struct(unsigned type)
+ static inline gfp_t sk_allocation(struct sock *sk, gfp_t gfp_mask)
  {
- 	return &swap_info[type];
+-	return gfp_mask;
++	return gfp_mask | (sk->sk_allocation & __GFP_MEMALLOC);
  }
-+EXPORT_SYMBOL_GPL(get_swap_info_struct);
+ 
+ static inline void sk_acceptq_removed(struct sock *sk)
+Index: linux-2.6/net/core/sock.c
+===================================================================
+--- linux-2.6.orig/net/core/sock.c
++++ linux-2.6/net/core/sock.c
+@@ -112,6 +112,7 @@
+ #include <linux/tcp.h>
+ #include <linux/init.h>
+ #include <linux/highmem.h>
++#include <linux/reserve.h>
+ 
+ #include <asm/uaccess.h>
+ #include <asm/system.h>
+@@ -213,6 +214,111 @@ __u32 sysctl_rmem_default __read_mostly 
+ /* Maximal space eaten by iovec or ancilliary data plus some space */
+ int sysctl_optmem_max __read_mostly = sizeof(unsigned long)*(2*UIO_MAXIOV+512);
+ 
++atomic_t memalloc_socks;
++
++static struct mem_reserve net_reserve;
++struct mem_reserve net_rx_reserve;
++struct mem_reserve net_skb_reserve;
++static struct mem_reserve net_tx_reserve;
++static struct mem_reserve net_tx_pages;
++
++EXPORT_SYMBOL_GPL(net_rx_reserve); /* modular ipv6 only */
++EXPORT_SYMBOL_GPL(net_skb_reserve); /* modular ipv6 only */
++
++/*
++ * is there room for another emergency packet?
++ */
++static int __rx_emergency_get(int bytes, bool overcommit)
++{
++	return mem_reserve_kmalloc_charge(&net_skb_reserve, bytes, overcommit);
++}
++
++int rx_emergency_get(int bytes)
++{
++	return __rx_emergency_get(bytes, false);
++}
++
++int rx_emergency_get_overcommit(int bytes)
++{
++	return __rx_emergency_get(bytes, true);
++}
++
++void rx_emergency_put(int bytes)
++{
++	mem_reserve_kmalloc_charge(&net_skb_reserve, -bytes, 0);
++}
++
++/**
++ *	sk_adjust_memalloc - adjust the global memalloc reserve for critical RX
++ *	@socks: number of new %SOCK_MEMALLOC sockets
++ *	@tx_resserve_pages: number of pages to (un)reserve for TX
++ *
++ *	This function adjusts the memalloc reserve based on system demand.
++ *	The RX reserve is a limit, and only added once, not for each socket.
++ *
++ *	NOTE:
++ *	   @tx_reserve_pages is an upper-bound of memory used for TX hence
++ *	   we need not account the pages like we do for RX pages.
++ */
++int sk_adjust_memalloc(int socks, long tx_reserve_pages)
++{
++	int nr_socks;
++	int err;
++
++	err = mem_reserve_pages_add(&net_tx_pages, tx_reserve_pages);
++	if (err)
++		return err;
++
++	nr_socks = atomic_read(&memalloc_socks);
++	if (!nr_socks && socks > 0)
++		err = mem_reserve_connect(&net_reserve, &mem_reserve_root);
++	nr_socks = atomic_add_return(socks, &memalloc_socks);
++	if (!nr_socks && socks)
++		err = mem_reserve_disconnect(&net_reserve);
++
++	if (err)
++		mem_reserve_pages_add(&net_tx_pages, -tx_reserve_pages);
++
++	return err;
++}
++
++/**
++ *	sk_set_memalloc - sets %SOCK_MEMALLOC
++ *	@sk: socket to set it on
++ *
++ *	Set %SOCK_MEMALLOC on a socket and increase the memalloc reserve
++ *	accordingly.
++ */
++int sk_set_memalloc(struct sock *sk)
++{
++	int set = sock_flag(sk, SOCK_MEMALLOC);
++#ifndef CONFIG_NETVM
++	BUG();
++#endif
++	if (!set) {
++		int err = sk_adjust_memalloc(1, 0);
++		if (err)
++			return err;
++
++		sock_set_flag(sk, SOCK_MEMALLOC);
++		sk->sk_allocation |= __GFP_MEMALLOC;
++	}
++	return !set;
++}
++EXPORT_SYMBOL_GPL(sk_set_memalloc);
++
++int sk_clear_memalloc(struct sock *sk)
++{
++	int set = sock_flag(sk, SOCK_MEMALLOC);
++	if (set) {
++		sk_adjust_memalloc(-1, 0);
++		sock_reset_flag(sk, SOCK_MEMALLOC);
++		sk->sk_allocation &= ~__GFP_MEMALLOC;
++	}
++	return set;
++}
++EXPORT_SYMBOL_GPL(sk_clear_memalloc);
++
+ static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
+ {
+ 	struct timeval tv;
+@@ -919,6 +1025,7 @@ void sk_free(struct sock *sk)
+ 	struct sk_filter *filter;
+ 	struct module *owner = sk->sk_prot_creator->owner;
+ 
++	sk_clear_memalloc(sk);
+ 	if (sk->sk_destruct)
+ 		sk->sk_destruct(sk);
+ 
+@@ -1049,6 +1156,12 @@ void __init sk_init(void)
+ 		sysctl_wmem_max = 131071;
+ 		sysctl_rmem_max = 131071;
+ 	}
++
++	mem_reserve_init(&net_reserve, "total network reserve", NULL);
++	mem_reserve_init(&net_rx_reserve, "network RX reserve", &net_reserve);
++	mem_reserve_init(&net_skb_reserve, "SKB data reserve", &net_rx_reserve);
++	mem_reserve_init(&net_tx_reserve, "network TX reserve", &net_reserve);
++	mem_reserve_init(&net_tx_pages, "protocol TX pages", &net_tx_reserve);
+ }
  
  /*
-  * swap_lock prevents swap_map being freed. Don't grab an extra
+Index: linux-2.6/net/Kconfig
+===================================================================
+--- linux-2.6.orig/net/Kconfig
++++ linux-2.6/net/Kconfig
+@@ -237,6 +237,9 @@ endmenu
+ source "net/rfkill/Kconfig"
+ source "net/9p/Kconfig"
+ 
++config NETVM
++	def_bool n
++
+ endif   # if NET
+ endmenu # Networking
+ 
 
 --
 
