@@ -1,171 +1,94 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 27/33] nfs: remove mempools
-Date: Tue, 30 Oct 2007 17:04:28 +0100
-Message-ID: <20071030160915.242314000@chello.nl>
+Subject: [PATCH 33/33] nfs: do not warn on radix tree node allocation failures
+Date: Tue, 30 Oct 2007 17:04:34 +0100
+Message-ID: <20071030160916.021029000@chello.nl>
 References: <20071030160401.296770000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759773AbXJ3QYX@vger.kernel.org>
-Content-Disposition: inline; filename=nfs-no-mempool.patch
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758936AbXJ3Q0b@vger.kernel.org>
+Content-Disposition: inline; filename=nfs_radix_nowarn.patch
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With the introduction of the shared dirty page accounting in .19, NFS should
-not be able to surpise the VM with all dirty pages. Thus it should always be
-able to free some memory. Hence no more need for mempools.
+GFP_ATOMIC failures are rather common, no not warn about them.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- fs/nfs/read.c  |   15 +++------------
- fs/nfs/write.c |   27 +++++----------------------
- 2 files changed, 8 insertions(+), 34 deletions(-)
+ fs/nfs/inode.c |    2 +-
+ fs/nfs/write.c |   10 ++++++++++
+ 2 files changed, 11 insertions(+), 1 deletion(-)
 
-Index: linux-2.6/fs/nfs/read.c
+Index: linux-2.6/fs/nfs/inode.c
 ===================================================================
---- linux-2.6.orig/fs/nfs/read.c
-+++ linux-2.6/fs/nfs/read.c
-@@ -33,13 +33,10 @@ static const struct rpc_call_ops nfs_rea
- static const struct rpc_call_ops nfs_read_full_ops;
- 
- static struct kmem_cache *nfs_rdata_cachep;
--static mempool_t *nfs_rdata_mempool;
--
--#define MIN_POOL_READ	(32)
- 
- struct nfs_read_data *nfs_readdata_alloc(unsigned int pagecount)
- {
--	struct nfs_read_data *p = mempool_alloc(nfs_rdata_mempool, GFP_NOFS);
-+	struct nfs_read_data *p = kmem_cache_alloc(nfs_rdata_cachep, GFP_NOFS);
- 
- 	if (p) {
- 		memset(p, 0, sizeof(*p));
-@@ -50,7 +47,7 @@ struct nfs_read_data *nfs_readdata_alloc
- 		else {
- 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
- 			if (!p->pagevec) {
--				mempool_free(p, nfs_rdata_mempool);
-+				kmem_cache_free(nfs_rdata_cachep, p);
- 				p = NULL;
- 			}
- 		}
-@@ -63,7 +60,7 @@ static void nfs_readdata_rcu_free(struct
- 	struct nfs_read_data *p = container_of(head, struct nfs_read_data, task.u.tk_rcu);
- 	if (p && (p->pagevec != &p->page_array[0]))
- 		kfree(p->pagevec);
--	mempool_free(p, nfs_rdata_mempool);
-+	kmem_cache_free(nfs_rdata_cachep, p);
- }
- 
- static void nfs_readdata_free(struct nfs_read_data *rdata)
-@@ -597,16 +594,10 @@ int __init nfs_init_readpagecache(void)
- 	if (nfs_rdata_cachep == NULL)
- 		return -ENOMEM;
- 
--	nfs_rdata_mempool = mempool_create_slab_pool(MIN_POOL_READ,
--						     nfs_rdata_cachep);
--	if (nfs_rdata_mempool == NULL)
--		return -ENOMEM;
--
- 	return 0;
- }
- 
- void nfs_destroy_readpagecache(void)
- {
--	mempool_destroy(nfs_rdata_mempool);
- 	kmem_cache_destroy(nfs_rdata_cachep);
- }
+--- linux-2.6.orig/fs/nfs/inode.c
++++ linux-2.6/fs/nfs/inode.c
+@@ -1172,7 +1172,7 @@ static void init_once(struct kmem_cache 
+ 	INIT_LIST_HEAD(&nfsi->open_files);
+ 	INIT_LIST_HEAD(&nfsi->access_cache_entry_lru);
+ 	INIT_LIST_HEAD(&nfsi->access_cache_inode_lru);
+-	INIT_RADIX_TREE(&nfsi->nfs_page_tree, GFP_ATOMIC);
++	INIT_RADIX_TREE(&nfsi->nfs_page_tree, GFP_ATOMIC|__GFP_NOWARN);
+ 	nfsi->ncommit = 0;
+ 	nfsi->npages = 0;
+ 	nfs4_init_once(nfsi);
 Index: linux-2.6/fs/nfs/write.c
 ===================================================================
 --- linux-2.6.orig/fs/nfs/write.c
 +++ linux-2.6/fs/nfs/write.c
-@@ -28,9 +28,6 @@
+@@ -652,6 +652,7 @@ static struct nfs_page * nfs_update_requ
+ 	struct inode *inode = mapping->host;
+ 	struct nfs_page		*req, *new = NULL;
+ 	pgoff_t		rqend, end;
++	int error;
  
- #define NFSDBG_FACILITY		NFSDBG_PAGECACHE
+ 	end = offset + bytes;
  
--#define MIN_POOL_WRITE		(32)
--#define MIN_POOL_COMMIT		(4)
--
- /*
-  * Local function declarations
-  */
-@@ -44,12 +41,10 @@ static const struct rpc_call_ops nfs_wri
- static const struct rpc_call_ops nfs_commit_ops;
+@@ -659,6 +660,10 @@ static struct nfs_page * nfs_update_requ
+ 		/* Loop over all inode entries and see if we find
+ 		 * A request for the page we wish to update
+ 		 */
++		error = radix_tree_preload(GFP_NOIO);
++		if (error)
++			return ERR_PTR(error);
++
+ 		spin_lock(&inode->i_lock);
+ 		req = nfs_page_find_request_locked(NFS_I(inode), page);
+ 		if (req) {
+@@ -666,6 +671,7 @@ static struct nfs_page * nfs_update_requ
+ 				int error;
  
- static struct kmem_cache *nfs_wdata_cachep;
--static mempool_t *nfs_wdata_mempool;
--static mempool_t *nfs_commit_mempool;
- 
- struct nfs_write_data *nfs_commit_alloc(void)
- {
--	struct nfs_write_data *p = mempool_alloc(nfs_commit_mempool, GFP_NOFS);
-+	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
- 
- 	if (p) {
- 		memset(p, 0, sizeof(*p));
-@@ -63,7 +58,7 @@ static void nfs_commit_rcu_free(struct r
- 	struct nfs_write_data *p = container_of(head, struct nfs_write_data, task.u.tk_rcu);
- 	if (p && (p->pagevec != &p->page_array[0]))
- 		kfree(p->pagevec);
--	mempool_free(p, nfs_commit_mempool);
-+	kmem_cache_free(nfs_wdata_cachep, p);
- }
- 
- void nfs_commit_free(struct nfs_write_data *wdata)
-@@ -73,7 +68,7 @@ void nfs_commit_free(struct nfs_write_da
- 
- struct nfs_write_data *nfs_writedata_alloc(unsigned int pagecount)
- {
--	struct nfs_write_data *p = mempool_alloc(nfs_wdata_mempool, GFP_NOFS);
-+	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
- 
- 	if (p) {
- 		memset(p, 0, sizeof(*p));
-@@ -84,7 +79,7 @@ struct nfs_write_data *nfs_writedata_all
- 		else {
- 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
- 			if (!p->pagevec) {
--				mempool_free(p, nfs_wdata_mempool);
-+				kmem_cache_free(nfs_wdata_cachep, p);
- 				p = NULL;
+ 				spin_unlock(&inode->i_lock);
++				radix_tree_preload_end();
+ 				error = nfs_wait_on_request(req);
+ 				nfs_release_request(req);
+ 				if (error < 0) {
+@@ -676,6 +682,7 @@ static struct nfs_page * nfs_update_requ
+ 				continue;
  			}
+ 			spin_unlock(&inode->i_lock);
++			radix_tree_preload_end();
+ 			if (new)
+ 				nfs_release_request(new);
+ 			break;
+@@ -687,13 +694,16 @@ static struct nfs_page * nfs_update_requ
+ 			error = nfs_inode_add_request(inode, new);
+ 			if (error) {
+ 				spin_unlock(&inode->i_lock);
++				radix_tree_preload_end();
+ 				nfs_unlock_request(new);
+ 				return ERR_PTR(error);
+ 			}
+ 			spin_unlock(&inode->i_lock);
++			radix_tree_preload_end();
+ 			return new;
  		}
-@@ -97,7 +92,7 @@ static void nfs_writedata_rcu_free(struc
- 	struct nfs_write_data *p = container_of(head, struct nfs_write_data, task.u.tk_rcu);
- 	if (p && (p->pagevec != &p->page_array[0]))
- 		kfree(p->pagevec);
--	mempool_free(p, nfs_wdata_mempool);
-+	kmem_cache_free(nfs_wdata_cachep, p);
- }
+ 		spin_unlock(&inode->i_lock);
++		radix_tree_preload_end();
  
- static void nfs_writedata_free(struct nfs_write_data *wdata)
-@@ -1474,16 +1469,6 @@ int __init nfs_init_writepagecache(void)
- 	if (nfs_wdata_cachep == NULL)
- 		return -ENOMEM;
- 
--	nfs_wdata_mempool = mempool_create_slab_pool(MIN_POOL_WRITE,
--						     nfs_wdata_cachep);
--	if (nfs_wdata_mempool == NULL)
--		return -ENOMEM;
--
--	nfs_commit_mempool = mempool_create_slab_pool(MIN_POOL_COMMIT,
--						      nfs_wdata_cachep);
--	if (nfs_commit_mempool == NULL)
--		return -ENOMEM;
--
- 	/*
- 	 * NFS congestion size, scale with available memory.
- 	 *
-@@ -1509,8 +1494,6 @@ int __init nfs_init_writepagecache(void)
- 
- void nfs_destroy_writepagecache(void)
- {
--	mempool_destroy(nfs_commit_mempool);
--	mempool_destroy(nfs_wdata_mempool);
- 	kmem_cache_destroy(nfs_wdata_cachep);
- }
- 
+ 		new = nfs_create_request(ctx, inode, page, offset, bytes);
+ 		if (IS_ERR(new))
 
 --
