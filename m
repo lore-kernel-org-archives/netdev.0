@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 01/33] mm: gfp_to_alloc_flags()
-Date: Tue, 30 Oct 2007 17:04:02 +0100
-Message-ID: <20071030160910.248346000@chello.nl>
+Subject: [PATCH 03/33] mm: slub: add knowledge of reserve pages
+Date: Tue, 30 Oct 2007 17:04:04 +0100
+Message-ID: <20071030160910.813944000@chello.nl>
 References: <20071030160401.296770000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
@@ -9,180 +9,152 @@ To: Linus Torvalds <torvalds@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:47070 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:46994 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755949AbXJ3QOL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2007 12:14:11 -0400
-Content-Disposition: inline; filename=mm-gfp-to-alloc_flags.patch
+	id S1752448AbXJ3QNj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Oct 2007 12:13:39 -0400
+Content-Disposition: inline; filename=reserve-slab.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Factor out the gfp to alloc_flags mapping so it can be used in other places.
+Restrict objects from reserve slabs (ALLOC_NO_WATERMARKS) to allocation
+contexts that are entitled to it.
+
+Care is taken to only touch the SLUB slow path.
+
+This is done to ensure reserve pages don't leak out and get consumed.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- mm/internal.h   |   11 ++++++
- mm/page_alloc.c |   98 ++++++++++++++++++++++++++++++++------------------------
- 2 files changed, 67 insertions(+), 42 deletions(-)
+ include/linux/slub_def.h |    1 +
+ mm/slub.c                |   31 +++++++++++++++++++++++--------
+ 2 files changed, 24 insertions(+), 8 deletions(-)
 
-Index: linux-2.6/mm/internal.h
+Index: linux-2.6/mm/slub.c
 ===================================================================
---- linux-2.6.orig/mm/internal.h
-+++ linux-2.6/mm/internal.h
-@@ -47,4 +47,15 @@ static inline unsigned long page_order(s
- 	VM_BUG_ON(!PageBuddy(page));
- 	return page_private(page);
- }
-+
-+#define ALLOC_HARDER		0x01 /* try to alloc harder */
-+#define ALLOC_HIGH		0x02 /* __GFP_HIGH set */
-+#define ALLOC_WMARK_MIN		0x04 /* use pages_min watermark */
-+#define ALLOC_WMARK_LOW		0x08 /* use pages_low watermark */
-+#define ALLOC_WMARK_HIGH	0x10 /* use pages_high watermark */
-+#define ALLOC_NO_WATERMARKS	0x20 /* don't check watermarks at all */
-+#define ALLOC_CPUSET		0x40 /* check for correct cpuset */
-+
-+int gfp_to_alloc_flags(gfp_t gfp_mask);
-+
- #endif
-Index: linux-2.6/mm/page_alloc.c
-===================================================================
---- linux-2.6.orig/mm/page_alloc.c
-+++ linux-2.6/mm/page_alloc.c
-@@ -1139,14 +1139,6 @@ failed:
- 	return NULL;
- }
- 
--#define ALLOC_NO_WATERMARKS	0x01 /* don't check watermarks at all */
--#define ALLOC_WMARK_MIN		0x02 /* use pages_min watermark */
--#define ALLOC_WMARK_LOW		0x04 /* use pages_low watermark */
--#define ALLOC_WMARK_HIGH	0x08 /* use pages_high watermark */
--#define ALLOC_HARDER		0x10 /* try to alloc harder */
--#define ALLOC_HIGH		0x20 /* __GFP_HIGH set */
--#define ALLOC_CPUSET		0x40 /* check for correct cpuset */
--
- #ifdef CONFIG_FAIL_PAGE_ALLOC
- 
- static struct fail_page_alloc_attr {
-@@ -1535,6 +1527,44 @@ static void set_page_owner(struct page *
- #endif /* CONFIG_PAGE_OWNER */
+--- linux-2.6.orig/mm/slub.c
++++ linux-2.6/mm/slub.c
+@@ -20,11 +20,12 @@
+ #include <linux/mempolicy.h>
+ #include <linux/ctype.h>
+ #include <linux/kallsyms.h>
++#include "internal.h"
  
  /*
-+ * get the deepest reaching allocation flags for the given gfp_mask
-+ */
-+int gfp_to_alloc_flags(gfp_t gfp_mask)
-+{
-+	struct task_struct *p = current;
-+	int alloc_flags = ALLOC_WMARK_MIN | ALLOC_CPUSET;
-+	const gfp_t wait = gfp_mask & __GFP_WAIT;
-+
-+	/*
-+	 * The caller may dip into page reserves a bit more if the caller
-+	 * cannot run direct reclaim, or if the caller has realtime scheduling
-+	 * policy or is asking for __GFP_HIGH memory.  GFP_ATOMIC requests will
-+	 * set both ALLOC_HARDER (!wait) and ALLOC_HIGH (__GFP_HIGH).
-+	 */
-+	if (gfp_mask & __GFP_HIGH)
-+		alloc_flags |= ALLOC_HIGH;
-+
-+	if (!wait) {
-+		alloc_flags |= ALLOC_HARDER;
+  * Lock order:
+  *   1. slab_lock(page)
+- *   2. slab->list_lock
++ *   2. node->list_lock
+  *
+  *   The slab_lock protects operations on the object of a particular
+  *   slab and its metadata in the page struct. If the slab lock
+@@ -1074,7 +1075,7 @@ static void setup_object(struct kmem_cac
+ 		s->ctor(s, object);
+ }
+ 
+-static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
++static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node, int *reserve)
+ {
+ 	struct page *page;
+ 	struct kmem_cache_node *n;
+@@ -1090,6 +1091,7 @@ static struct page *new_slab(struct kmem
+ 	if (!page)
+ 		goto out;
+ 
++	*reserve = page->reserve;
+ 	n = get_node(s, page_to_nid(page));
+ 	if (n)
+ 		atomic_long_inc(&n->nr_slabs);
+@@ -1468,10 +1470,22 @@ static void *__slab_alloc(struct kmem_ca
+ {
+ 	void **object;
+ 	struct page *new;
++	int reserve = 0;
+ 
+ 	if (!c->page)
+ 		goto new_slab;
+ 
++	if (unlikely(c->reserve)) {
 +		/*
-+		 * Ignore cpuset if GFP_ATOMIC (!wait) rather than fail alloc.
-+		 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
++		 * If the current slab is a reserve slab and the current
++		 * allocation context does not allow access to the reserves
++		 * we must force an allocation to test the current levels.
 +		 */
-+		alloc_flags &= ~ALLOC_CPUSET;
-+	} else if (unlikely(rt_task(p)) && !in_interrupt())
-+		alloc_flags |= ALLOC_HARDER;
-+
-+	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
-+		if (!in_interrupt() &&
-+		    ((p->flags & PF_MEMALLOC) ||
-+		     unlikely(test_thread_flag(TIF_MEMDIE))))
-+			alloc_flags |= ALLOC_NO_WATERMARKS;
++		if (!(gfp_to_alloc_flags(gfpflags) & ALLOC_NO_WATERMARKS))
++			goto alloc_slab;
++		reserve = 1;
 +	}
 +
-+	return alloc_flags;
-+}
-+
-+/*
-  * This is the 'heart' of the zoned buddy allocator.
-  */
- struct page * fastcall
-@@ -1589,48 +1619,28 @@ restart:
- 	 * OK, we're below the kswapd watermark and have kicked background
- 	 * reclaim. Now things get more complex, so set up alloc_flags according
- 	 * to how we want to proceed.
--	 *
--	 * The caller may dip into page reserves a bit more if the caller
--	 * cannot run direct reclaim, or if the caller has realtime scheduling
--	 * policy or is asking for __GFP_HIGH memory.  GFP_ATOMIC requests will
--	 * set both ALLOC_HARDER (!wait) and ALLOC_HIGH (__GFP_HIGH).
- 	 */
--	alloc_flags = ALLOC_WMARK_MIN;
--	if ((unlikely(rt_task(p)) && !in_interrupt()) || !wait)
--		alloc_flags |= ALLOC_HARDER;
--	if (gfp_mask & __GFP_HIGH)
--		alloc_flags |= ALLOC_HIGH;
--	if (wait)
--		alloc_flags |= ALLOC_CPUSET;
-+	alloc_flags = gfp_to_alloc_flags(gfp_mask);
+ 	slab_lock(c->page);
+ 	if (unlikely(!node_match(c, node)))
+ 		goto another_slab;
+@@ -1479,10 +1493,9 @@ load_freelist:
+ 	object = c->page->freelist;
+ 	if (unlikely(!object))
+ 		goto another_slab;
+-	if (unlikely(SlabDebug(c->page)))
++	if (unlikely(SlabDebug(c->page) || reserve))
+ 		goto debug;
  
--	/*
--	 * Go through the zonelist again. Let __GFP_HIGH and allocations
--	 * coming from realtime tasks go deeper into reserves.
--	 *
--	 * This is the last chance, in general, before the goto nopage.
--	 * Ignore cpuset if GFP_ATOMIC (!wait) rather than fail alloc.
--	 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
--	 */
--	page = get_page_from_freelist(gfp_mask, order, zonelist, alloc_flags);
-+	/* This is the last chance, in general, before the goto nopage. */
-+	page = get_page_from_freelist(gfp_mask, order, zonelist,
-+			alloc_flags & ~ALLOC_NO_WATERMARKS);
- 	if (page)
- 		goto got_pg;
- 
- 	/* This allocation should allow future memory freeing. */
--
- rebalance:
--	if (((p->flags & PF_MEMALLOC) || unlikely(test_thread_flag(TIF_MEMDIE)))
--			&& !in_interrupt()) {
--		if (!(gfp_mask & __GFP_NOMEMALLOC)) {
-+	if (alloc_flags & ALLOC_NO_WATERMARKS) {
- nofail_alloc:
--			/* go through the zonelist yet again, ignoring mins */
--			page = get_page_from_freelist(gfp_mask, order,
--				zonelist, ALLOC_NO_WATERMARKS);
--			if (page)
--				goto got_pg;
--			if (gfp_mask & __GFP_NOFAIL) {
--				congestion_wait(WRITE, HZ/50);
--				goto nofail_alloc;
--			}
-+		/* go through the zonelist yet again, ignoring mins */
-+		page = get_page_from_freelist(gfp_mask, order, zonelist,
-+				ALLOC_NO_WATERMARKS);
-+		if (page)
-+			goto got_pg;
-+
-+		if (wait && (gfp_mask & __GFP_NOFAIL)) {
-+			congestion_wait(WRITE, HZ/50);
-+			goto nofail_alloc;
- 		}
- 		goto nopage;
+-	object = c->page->freelist;
+ 	c->freelist = object[c->offset];
+ 	c->page->inuse = s->objects;
+ 	c->page->freelist = NULL;
+@@ -1500,16 +1513,18 @@ new_slab:
+ 		goto load_freelist;
  	}
-@@ -1639,6 +1649,10 @@ nofail_alloc:
- 	if (!wait)
- 		goto nopage;
  
-+	/* Avoid recursion of direct reclaim */
-+	if (p->flags & PF_MEMALLOC)
-+		goto nopage;
-+
- 	cond_resched();
++alloc_slab:
+ 	if (gfpflags & __GFP_WAIT)
+ 		local_irq_enable();
  
- 	/* We now go into synchronous reclaim */
+-	new = new_slab(s, gfpflags, node);
++	new = new_slab(s, gfpflags, node, &reserve);
+ 
+ 	if (gfpflags & __GFP_WAIT)
+ 		local_irq_disable();
+ 
+ 	if (new) {
+ 		c = get_cpu_slab(s, smp_processor_id());
++		c->reserve = reserve;
+ 		if (c->page) {
+ 			/*
+ 			 * Someone else populated the cpu_slab while we
+@@ -1537,8 +1552,7 @@ new_slab:
+ 	}
+ 	return NULL;
+ debug:
+-	object = c->page->freelist;
+-	if (!alloc_debug_processing(s, c->page, object, addr))
++	if (SlabDebug(c->page) && !alloc_debug_processing(s, c->page, object, addr))
+ 		goto another_slab;
+ 
+ 	c->page->inuse++;
+@@ -2010,10 +2024,11 @@ static struct kmem_cache_node *early_kme
+ {
+ 	struct page *page;
+ 	struct kmem_cache_node *n;
++	int reserve;
+ 
+ 	BUG_ON(kmalloc_caches->size < sizeof(struct kmem_cache_node));
+ 
+-	page = new_slab(kmalloc_caches, gfpflags, node);
++	page = new_slab(kmalloc_caches, gfpflags, node, &reserve);
+ 
+ 	BUG_ON(!page);
+ 	if (page_to_nid(page) != node) {
+Index: linux-2.6/include/linux/slub_def.h
+===================================================================
+--- linux-2.6.orig/include/linux/slub_def.h
++++ linux-2.6/include/linux/slub_def.h
+@@ -17,6 +17,7 @@ struct kmem_cache_cpu {
+ 	int node;
+ 	unsigned int offset;
+ 	unsigned int objsize;
++	int reserve;
+ };
+ 
+ struct kmem_cache_node {
 
 --
 
