@@ -1,36 +1,49 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH v2] using mii-bitbang on different processor ports
-Date: Tue, 30 Oct 2007 13:23:42 -0500
-Message-ID: <472776AE.2060009@freescale.com>
-References: <1193767812.6244.46.camel@p60635-ste.ids.de>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] ixgb: fix TX hangs under heavy load
+Date: Tue, 30 Oct 2007 11:21:50 -0700
+Message-ID: <20071030182150.25962.48103.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, jgarzik@pobox.com, netdev@vger.kernel.org
-To: Sergej Stepanov <Sergej.Stepanov@ids.de>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <1193767812.6244.46.camel@p60635-ste.ids.de>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: netdev@vger.kernel.org, jesse.brandeburg@intel.com,
+	andy@greyhouse.net
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:56944 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753184AbXJ3SZT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Oct 2007 14:25:19 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sergej Stepanov wrote:
-> +	if( !of_address_to_resource(np, 1, &res[1])) {
+A merge error occurred where we merged the wrong block here
+in version 1.0.120. The right condition for frags is slightly
+different then for the skb, so account for the difference properly
+and trim the TSO based size right.
 
-The spacing is still wrong.
+Originally part of a fix reported by IBM to fix TSO hangs on
+pSeries hardware.
 
-> -	iounmap(bitbang->dir);
-> +	if ( bitbang->mdio.dir != bitbang->mdc.dir)
-> +		iounmap(bitbang->mdio.dir);
-> +	iounmap(bitbang->mdc.dir);
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
+---
 
-And here.
+ drivers/net/ixgb/ixgb_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
--Scott
+diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
+index e564335..3021234 100644
+--- a/drivers/net/ixgb/ixgb_main.c
++++ b/drivers/net/ixgb/ixgb_main.c
+@@ -1321,8 +1321,8 @@ ixgb_tx_map(struct ixgb_adapter *adapter, struct sk_buff *skb,
+ 
+ 			/* Workaround for premature desc write-backs
+ 			 * in TSO mode.  Append 4-byte sentinel desc */
+-			if (unlikely(mss && !nr_frags && size == len
+-			             && size > 8))
++			if (unlikely(mss && (f == (nr_frags - 1))
++				     && size == len && size > 8))
+ 				size -= 4;
+ 
+ 			buffer_info->length = size;
