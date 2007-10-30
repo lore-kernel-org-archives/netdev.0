@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 05/33] mm: kmem_estimate_pages()
-Date: Tue, 30 Oct 2007 17:04:06 +0100
-Message-ID: <20071030160911.281698000@chello.nl>
+Subject: [PATCH 24/33] mm: prepare swap entry methods for use in page methods
+Date: Tue, 30 Oct 2007 17:04:25 +0100
+Message-ID: <20071030160914.849009000@chello.nl>
 References: <20071030160401.296770000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
@@ -9,144 +9,185 @@ To: Linus Torvalds <torvalds@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:46999 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:46995 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752433AbXJ3QNj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752287AbXJ3QNj (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 30 Oct 2007 12:13:39 -0400
-Content-Disposition: inline; filename=mm-kmem_estimate_pages.patch
+Content-Disposition: inline; filename=mm-swap_entry_methods.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Provide a method to get the upper bound on the pages needed to allocate
-a given number of objects from a given kmem_cache.
+Move around the swap entry methods in preparation for use from
+page methods.
+
+Also provide a function to obtain the swap_info_struct backing
+a swap cache page.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/linux/slab.h |    3 +
- mm/slub.c            |   82 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 85 insertions(+)
+ include/linux/mm.h      |    8 ++++++++
+ include/linux/swap.h    |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/swapops.h |   44 --------------------------------------------
+ mm/swapfile.c           |    1 +
+ 4 files changed, 57 insertions(+), 44 deletions(-)
 
-Index: linux-2.6/include/linux/slab.h
+Index: linux-2.6/include/linux/mm.h
 ===================================================================
---- linux-2.6.orig/include/linux/slab.h
-+++ linux-2.6/include/linux/slab.h
-@@ -60,6 +60,7 @@ void kmem_cache_free(struct kmem_cache *
- unsigned int kmem_cache_size(struct kmem_cache *);
- const char *kmem_cache_name(struct kmem_cache *);
- int kmem_ptr_validate(struct kmem_cache *cachep, const void *ptr);
-+unsigned kmem_estimate_pages(struct kmem_cache *cachep, gfp_t flags, int objects);
+--- linux-2.6.orig/include/linux/mm.h
++++ linux-2.6/include/linux/mm.h
+@@ -12,6 +12,7 @@
+ #include <linux/prio_tree.h>
+ #include <linux/debug_locks.h>
+ #include <linux/mm_types.h>
++#include <linux/swap.h>
  
- /*
-  * Please use this macro to create slab caches. Simply specify the
-@@ -94,6 +95,8 @@ int kmem_ptr_validate(struct kmem_cache 
- void * __must_check krealloc(const void *, size_t, gfp_t);
- void kfree(const void *);
- size_t ksize(const void *);
-+unsigned kestimate_single(size_t, gfp_t, int);
-+unsigned kestimate(gfp_t, size_t);
+ struct mempolicy;
+ struct anon_vma;
+@@ -573,6 +574,13 @@ static inline struct address_space *page
+ 	return mapping;
+ }
  
- /*
-  * Allocator specific definitions. These are mainly used to establish optimized
-Index: linux-2.6/mm/slub.c
-===================================================================
---- linux-2.6.orig/mm/slub.c
-+++ linux-2.6/mm/slub.c
-@@ -2293,6 +2293,37 @@ const char *kmem_cache_name(struct kmem_
- EXPORT_SYMBOL(kmem_cache_name);
- 
- /*
-+ * return the max number of pages required to allocated count
-+ * objects from the given cache
-+ */
-+unsigned kmem_estimate_pages(struct kmem_cache *s, gfp_t flags, int objects)
++static inline struct swap_info_struct *page_swap_info(struct page *page)
 +{
-+	unsigned long slabs;
-+
-+	if (WARN_ON(!s) || WARN_ON(!s->objects))
-+		return 0;
-+
-+	slabs = DIV_ROUND_UP(objects, s->objects);
-+
-+	/*
-+	 * Account the possible additional overhead if the slab holds more that
-+	 * one object.
-+	 */
-+	if (s->objects > 1) {
-+		/*
-+		 * Account the possible additional overhead if per cpu slabs
-+		 * are currently empty and have to be allocated. This is very
-+		 * unlikely but a possible scenario immediately after
-+		 * kmem_cache_shrink.
-+		 */
-+		slabs += num_online_cpus();
-+	}
-+
-+	return slabs << s->order;
++	swp_entry_t swap = { .val = page_private(page) };
++	BUG_ON(!PageSwapCache(page));
++	return get_swap_info_struct(swp_type(swap));
 +}
-+EXPORT_SYMBOL_GPL(kmem_estimate_pages);
++
+ static inline int PageAnon(struct page *page)
+ {
+ 	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
+Index: linux-2.6/include/linux/swap.h
+===================================================================
+--- linux-2.6.orig/include/linux/swap.h
++++ linux-2.6/include/linux/swap.h
+@@ -80,6 +80,50 @@ typedef struct {
+ } swp_entry_t;
+ 
+ /*
++ * swapcache pages are stored in the swapper_space radix tree.  We want to
++ * get good packing density in that tree, so the index should be dense in
++ * the low-order bits.
++ *
++ * We arrange the `type' and `offset' fields so that `type' is at the five
++ * high-order bits of the swp_entry_t and `offset' is right-aligned in the
++ * remaining bits.
++ *
++ * swp_entry_t's are *never* stored anywhere in their arch-dependent format.
++ */
++#define SWP_TYPE_SHIFT(e)	(sizeof(e.val) * 8 - MAX_SWAPFILES_SHIFT)
++#define SWP_OFFSET_MASK(e)	((1UL << SWP_TYPE_SHIFT(e)) - 1)
 +
 +/*
-  * Attempt to free all slabs on a node. Return the number of slabs we
-  * were unable to free.
++ * Store a type+offset into a swp_entry_t in an arch-independent format
++ */
++static inline swp_entry_t swp_entry(unsigned long type, pgoff_t offset)
++{
++	swp_entry_t ret;
++
++	ret.val = (type << SWP_TYPE_SHIFT(ret)) |
++			(offset & SWP_OFFSET_MASK(ret));
++	return ret;
++}
++
++/*
++ * Extract the `type' field from a swp_entry_t.  The swp_entry_t is in
++ * arch-independent format
++ */
++static inline unsigned swp_type(swp_entry_t entry)
++{
++	return (entry.val >> SWP_TYPE_SHIFT(entry));
++}
++
++/*
++ * Extract the `offset' field from a swp_entry_t.  The swp_entry_t is in
++ * arch-independent format
++ */
++static inline pgoff_t swp_offset(swp_entry_t entry)
++{
++	return entry.val & SWP_OFFSET_MASK(entry);
++}
++
++/*
+  * current->reclaim_state points to one of these when a task is running
+  * memory reclaim
   */
-@@ -2630,6 +2661,57 @@ void kfree(const void *x)
- EXPORT_SYMBOL(kfree);
+@@ -326,6 +370,10 @@ static inline int valid_swaphandles(swp_
+ 	return 0;
+ }
+ 
++static inline struct swap_info_struct *get_swap_info_struct(unsigned type)
++{
++	return NULL;
++}
+ #define can_share_swap_page(p)			(page_mapcount(p) == 1)
+ 
+ static inline int move_to_swap_cache(struct page *page, swp_entry_t entry)
+Index: linux-2.6/include/linux/swapops.h
+===================================================================
+--- linux-2.6.orig/include/linux/swapops.h
++++ linux-2.6/include/linux/swapops.h
+@@ -1,48 +1,4 @@
+ /*
+- * swapcache pages are stored in the swapper_space radix tree.  We want to
+- * get good packing density in that tree, so the index should be dense in
+- * the low-order bits.
+- *
+- * We arrange the `type' and `offset' fields so that `type' is at the five
+- * high-order bits of the swp_entry_t and `offset' is right-aligned in the
+- * remaining bits.
+- *
+- * swp_entry_t's are *never* stored anywhere in their arch-dependent format.
+- */
+-#define SWP_TYPE_SHIFT(e)	(sizeof(e.val) * 8 - MAX_SWAPFILES_SHIFT)
+-#define SWP_OFFSET_MASK(e)	((1UL << SWP_TYPE_SHIFT(e)) - 1)
+-
+-/*
+- * Store a type+offset into a swp_entry_t in an arch-independent format
+- */
+-static inline swp_entry_t swp_entry(unsigned long type, pgoff_t offset)
+-{
+-	swp_entry_t ret;
+-
+-	ret.val = (type << SWP_TYPE_SHIFT(ret)) |
+-			(offset & SWP_OFFSET_MASK(ret));
+-	return ret;
+-}
+-
+-/*
+- * Extract the `type' field from a swp_entry_t.  The swp_entry_t is in
+- * arch-independent format
+- */
+-static inline unsigned swp_type(swp_entry_t entry)
+-{
+-	return (entry.val >> SWP_TYPE_SHIFT(entry));
+-}
+-
+-/*
+- * Extract the `offset' field from a swp_entry_t.  The swp_entry_t is in
+- * arch-independent format
+- */
+-static inline pgoff_t swp_offset(swp_entry_t entry)
+-{
+-	return entry.val & SWP_OFFSET_MASK(entry);
+-}
+-
+-/*
+  * Convert the arch-dependent pte representation of a swp_entry_t into an
+  * arch-independent swp_entry_t.
+  */
+Index: linux-2.6/mm/swapfile.c
+===================================================================
+--- linux-2.6.orig/mm/swapfile.c
++++ linux-2.6/mm/swapfile.c
+@@ -1768,6 +1768,7 @@ get_swap_info_struct(unsigned type)
+ {
+ 	return &swap_info[type];
+ }
++EXPORT_SYMBOL_GPL(get_swap_info_struct);
  
  /*
-+ * return the max number of pages required to allocate @count objects
-+ * of @size bytes from kmalloc given @flags.
-+ */
-+unsigned kestimate_single(size_t size, gfp_t flags, int count)
-+{
-+	struct kmem_cache *s = get_slab(size, flags);
-+	if (!s)
-+		return 0;
-+
-+	return kmem_estimate_pages(s, flags, count);
-+
-+}
-+EXPORT_SYMBOL_GPL(kestimate_single);
-+
-+/*
-+ * return the max number of pages required to allocate @bytes from kmalloc
-+ * in an unspecified number of allocation of heterogeneous size.
-+ */
-+unsigned kestimate(gfp_t flags, size_t bytes)
-+{
-+	int i;
-+	unsigned long pages;
-+
-+	/*
-+	 * multiply by two, in order to account the worst case slack space
-+	 * due to the power-of-two allocation sizes.
-+	 */
-+	pages = DIV_ROUND_UP(2 * bytes, PAGE_SIZE);
-+
-+	/*
-+	 * add the kmem_cache overhead of each possible kmalloc cache
-+	 */
-+	for (i = 1; i < PAGE_SHIFT; i++) {
-+		struct kmem_cache *s;
-+
-+#ifdef CONFIG_ZONE_DMA
-+		if (unlikely(flags & SLUB_DMA))
-+			s = dma_kmalloc_cache(i, flags);
-+		else
-+#endif
-+			s = &kmalloc_caches[i];
-+
-+		if (s)
-+			pages += kmem_estimate_pages(s, flags, 0);
-+	}
-+
-+	return pages;
-+}
-+EXPORT_SYMBOL_GPL(kestimate);
-+
-+/*
-  * kmem_cache_shrink removes empty slabs from the partial lists and sorts
-  * the remaining slabs by the number of items in use. The slabs with the
-  * most items in use come first. New allocations will then fill those up
+  * swap_lock prevents swap_map being freed. Don't grab an extra
 
 --
 
