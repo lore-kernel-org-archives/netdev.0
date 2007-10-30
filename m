@@ -1,543 +1,321 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 11/33] mm: memory reserve management
-Date: Tue, 30 Oct 2007 17:04:12 +0100
-Message-ID: <20071030160912.873260000@chello.nl>
+Subject: [PATCH 31/33] nfs: enable swap on NFS
+Date: Tue, 30 Oct 2007 17:04:32 +0100
+Message-ID: <20071030160915.763378000@chello.nl>
 References: <20071030160401.296770000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759439AbXJ3QXA@vger.kernel.org>
-Content-Disposition: inline; filename=mm-reserve.patch
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758426AbXJ3QYk@vger.kernel.org>
+Content-Disposition: inline; filename=nfs-swapfile.patch
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Generic reserve management code. 
+Provide an a_ops->swapfile() implementation for NFS. This will set the
+NFS socket to SOCK_MEMALLOC and run socket reconnect under PF_MEMALLOC as well
+as reset SOCK_MEMALLOC before engaging the protocol ->connect() method.
 
-It provides methods to reserve and charge. Upon this, generic alloc/free style
-reserve pools could be build, which could fully replace mempool_t
-functionality.
+PF_MEMALLOC should allow the allocation of struct socket and related objects
+and the early (re)setting of SOCK_MEMALLOC should allow us to receive the packets
+required for the TCP connection buildup.
+
+(swapping continues over a server reset during heavy network traffic)
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/linux/reserve.h |   54 +++++
- mm/Makefile             |    2 
- mm/reserve.c            |  436 ++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 491 insertions(+), 1 deletion(-)
+ fs/Kconfig                  |   18 ++++++++++++
+ fs/nfs/file.c               |   10 ++++++
+ include/linux/sunrpc/xprt.h |    5 ++-
+ net/sunrpc/sched.c          |    9 ++++--
+ net/sunrpc/xprtsock.c       |   63 ++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 102 insertions(+), 3 deletions(-)
 
-Index: linux-2.6/include/linux/reserve.h
+Index: linux-2.6/fs/nfs/file.c
 ===================================================================
---- /dev/null
-+++ linux-2.6/include/linux/reserve.h
-@@ -0,0 +1,54 @@
-+/*
-+ * Memory reserve management.
-+ *
-+ *  Copyright (C) 2007 Red Hat, Inc., Peter Zijlstra <pzijlstr@redhat.com>
-+ *
-+ * This file contains the public data structure and API definitions.
-+ */
-+
-+#ifndef _LINUX_RESERVE_H
-+#define _LINUX_RESERVE_H
-+
-+#include <linux/list.h>
-+#include <linux/spinlock.h>
-+
-+struct mem_reserve {
-+	struct mem_reserve *parent;
-+	struct list_head children;
-+	struct list_head siblings;
-+
-+	const char *name;
-+
-+	long pages;
-+	long limit;
-+	long usage;
-+	spinlock_t lock;	/* protects limit and usage */
-+};
-+
-+extern struct mem_reserve mem_reserve_root;
-+
-+void mem_reserve_init(struct mem_reserve *res, const char *name,
-+		      struct mem_reserve *parent);
-+int mem_reserve_connect(struct mem_reserve *new_child,
-+	       		struct mem_reserve *node);
-+int mem_reserve_disconnect(struct mem_reserve *node);
-+
-+int mem_reserve_pages_set(struct mem_reserve *res, long pages);
-+int mem_reserve_pages_add(struct mem_reserve *res, long pages);
-+int mem_reserve_pages_charge(struct mem_reserve *res, long pages,
-+			     int overcommit);
-+
-+int mem_reserve_kmalloc_set(struct mem_reserve *res, long bytes);
-+int mem_reserve_kmalloc_charge(struct mem_reserve *res, long bytes,
-+			       int overcommit);
-+
-+struct kmem_cache;
-+
-+int mem_reserve_kmem_cache_set(struct mem_reserve *res,
-+	       		       struct kmem_cache *s,
-+			       int objects);
-+int mem_reserve_kmem_cache_charge(struct mem_reserve *res,
-+				  long objs,
-+				  int overcommit);
-+
-+#endif /* _LINUX_RESERVE_H */
-Index: linux-2.6/mm/Makefile
-===================================================================
---- linux-2.6.orig/mm/Makefile
-+++ linux-2.6/mm/Makefile
-@@ -11,7 +11,7 @@ obj-y			:= bootmem.o filemap.o mempool.o
- 			   page_alloc.o page-writeback.o pdflush.o \
- 			   readahead.o swap.o truncate.o vmscan.o \
- 			   prio_tree.o util.o mmzone.o vmstat.o backing-dev.o \
--			   page_isolation.o $(mmu-y)
-+			   page_isolation.o reserve.o $(mmu-y)
+--- linux-2.6.orig/fs/nfs/file.c
++++ linux-2.6/fs/nfs/file.c
+@@ -371,6 +371,13 @@ static int nfs_launder_page(struct page 
+ 	return nfs_wb_page(page_file_mapping(page)->host, page);
+ }
  
- obj-$(CONFIG_BOUNCE)	+= bounce.o
- obj-$(CONFIG_SWAP)	+= page_io.o swap_state.o swapfile.o thrash.o
-Index: linux-2.6/mm/reserve.c
-===================================================================
---- /dev/null
-+++ linux-2.6/mm/reserve.c
-@@ -0,0 +1,436 @@
-+/*
-+ * Memory reserve management.
-+ *
-+ *  Copyright (C) 2007, Red Hat, Inc., Peter Zijlstra <pzijlstr@redhat.com>
-+ *
-+ * Description:
-+ *
-+ * Manage a set of memory reserves.
-+ *
-+ * A memory reserve is a reserve for a specified number of object of specified
-+ * size. Since memory is managed in pages, this reserve demand is then
-+ * translated into a page unit.
-+ *
-+ * So each reserve has a specified object limit, an object usage count and a
-+ * number of pages required to back these objects.
-+ *
-+ * Usage is charged against a reserve, if the charge fails, the resource must
-+ * not be allocated/used.
-+ *
-+ * The reserves are managed in a tree, and the resource demands (pages and
-+ * limit) are propagated up the tree. Obviously the object limit will be
-+ * meaningless as soon as the unit starts mixing, but the required page reserve
-+ * (being of one unit) is still valid at the root.
-+ *
-+ * It is the page demand of the root node that is used to set the global
-+ * reserve (adjust_memalloc_reserve() which sets zone->pages_emerg).
-+ *
-+ * As long as a subtree has the same usage unit, an aggregate node can be used
-+ * to charge against, instead of the leaf nodes. However, do be consistent with
-+ * who is charged, resource usage is not propagated up the tree (for
-+ * performance reasons).
-+ */
-+
-+#include <linux/reserve.h>
-+#include <linux/mutex.h>
-+#include <linux/mmzone.h>
-+#include <linux/log2.h>
-+#include <linux/proc_fs.h>
-+#include <linux/seq_file.h>
-+#include <linux/module.h>
-+#include <linux/slab.h>
-+
-+static DEFINE_MUTEX(mem_reserve_mutex);
-+
-+/**
-+ * @mem_reserve_root - the global reserve root
-+ *
-+ * The global reserve is empty, and has no limit unit, it merely
-+ * acts as an aggregation point for reserves and an interface to
-+ * adjust_memalloc_reserve().
-+ */
-+struct mem_reserve mem_reserve_root = {
-+	.children = LIST_HEAD_INIT(mem_reserve_root.children),
-+	.siblings = LIST_HEAD_INIT(mem_reserve_root.siblings),
-+	.name = "total reserve",
-+};
-+
-+EXPORT_SYMBOL_GPL(mem_reserve_root);
-+
-+/**
-+ * mem_reserve_init - initialize a memory reserve object
-+ * @res - the new reserve object
-+ * @name - a name for this reserve
-+ */
-+void mem_reserve_init(struct mem_reserve *res, const char *name,
-+		      struct mem_reserve *parent)
++#ifdef CONFIG_NFS_SWAP
++static int nfs_swapfile(struct address_space *mapping, int enable)
 +{
-+	memset(res, 0, sizeof(*res));
-+	INIT_LIST_HEAD(&res->children);
-+	INIT_LIST_HEAD(&res->siblings);
-+	res->name = name;
-+
-+	if (parent)
-+		mem_reserve_connect(res, parent);
++	return xs_swapper(NFS_CLIENT(mapping->host)->cl_xprt, enable);
 +}
-+
-+EXPORT_SYMBOL_GPL(mem_reserve_init);
-+
-+/*
-+ * propagate the pages and limit changes up the tree.
-+ */
-+static void __calc_reserve(struct mem_reserve *res, long pages, long limit)
-+{
-+	unsigned long flags;
-+
-+	for ( ; res; res = res->parent) {
-+		res->pages += pages;
-+
-+		if (limit) {
-+			spin_lock_irqsave(&res->lock, flags);
-+			res->limit += limit;
-+			spin_unlock_irqrestore(&res->lock, flags);
-+		}
-+	}
-+}
-+
-+/**
-+ * __mem_reserve_add - primitive to change the size of a reserve
-+ * @res - reserve to change
-+ * @pages - page delta
-+ * @limit - usage limit delta
-+ *
-+ * Returns -ENOMEM when a size increase is not possible atm.
-+ */
-+static int __mem_reserve_add(struct mem_reserve *res, long pages, long limit)
-+{
-+	int ret = 0;
-+	long reserve;
-+
-+	reserve = mem_reserve_root.pages;
-+	__calc_reserve(res, pages, 0);
-+	reserve = mem_reserve_root.pages - reserve;
-+
-+	if (reserve) {
-+		ret = adjust_memalloc_reserve(reserve);
-+		if (ret)
-+			__calc_reserve(res, -pages, 0);
-+	}
-+
-+	if (!ret)
-+		__calc_reserve(res, 0, limit);
-+
-+	return ret;
-+}
-+
-+/**
-+ * __mem_reserve_charge - primitive to charge object usage to a reserve
-+ * @res - reserve to charge
-+ * @charge - size of the charge
-+ * @overcommit - allow despite of limit (use with caution!)
-+ *
-+ * Returns non-zero on success, zero on failure.
-+ */
-+static
-+int __mem_reserve_charge(struct mem_reserve *res, long charge, int overcommit)
-+{
-+	unsigned long flags;
-+	int ret = 0;
-+
-+	spin_lock_irqsave(&res->lock, flags);
-+	if (charge < 0 || res->usage + charge < res->limit || overcommit) {
-+		res->usage += charge;
-+		if (unlikely(res->usage < 0))
-+			res->usage = 0;
-+		ret = 1;
-+	}
-+	spin_unlock_irqrestore(&res->lock, flags);
-+
-+	return ret;
-+}
-+
-+/**
-+ * mem_reserve_connect - connect a reserve to another in a child-parent relation
-+ * @new_child - the reserve node to connect (child)
-+ * @node - the reserve node to connect to (parent)
-+ *
-+ * Returns -ENOMEM when the new connection would increase the reserve (parent
-+ * is connected to mem_reserve_root) and there is no memory to do so.
-+ *
-+ * The child is _NOT_ connected on error.
-+ */
-+int mem_reserve_connect(struct mem_reserve *new_child, struct mem_reserve *node)
-+{
-+	int ret;
-+
-+	WARN_ON(!new_child->name);
-+
-+	mutex_lock(&mem_reserve_mutex);
-+	new_child->parent = node;
-+	list_add(&new_child->siblings, &node->children);
-+	ret = __mem_reserve_add(node, new_child->pages, new_child->limit);
-+	if (ret) {
-+		new_child->parent = NULL;
-+		list_del_init(&new_child->siblings);
-+	}
-+	mutex_unlock(&mem_reserve_mutex);
-+
-+	return ret;
-+}
-+
-+EXPORT_SYMBOL_GPL(mem_reserve_connect);
-+
-+/**
-+ * mem_reserve_disconnect - sever a nodes connection to the reserve tree
-+ * @node - the node to disconnect
-+ *
-+ * Could, in theory, return -ENOMEM, but since disconnecting a node _should_
-+ * only decrease the reserves that _should_ not happen.
-+ */
-+int mem_reserve_disconnect(struct mem_reserve *node)
-+{
-+	int ret;
-+
-+	BUG_ON(!node->parent);
-+
-+	mutex_lock(&mem_reserve_mutex);
-+	ret = __mem_reserve_add(node->parent, -node->pages, -node->limit);
-+	if (!ret) {
-+		node->parent = NULL;
-+		list_del_init(&node->siblings);
-+	}
-+	mutex_unlock(&mem_reserve_mutex);
-+
-+	return ret;
-+}
-+
-+EXPORT_SYMBOL_GPL(mem_reserve_disconnect);
-+
-+#ifdef CONFIG_PROC_FS
-+
-+/*
-+ * Simple output of the reserve tree in: /proc/reserve_info
-+ * Example:
-+ *
-+ * localhost ~ # cat /proc/reserve_info
-+ * total reserve                  8156K (0/544817)
-+ *   total network reserve          8156K (0/544817)
-+ *     network TX reserve             196K (0/49)
-+ *       protocol TX pages              196K (0/49)
-+ *     network RX reserve             7960K (0/544768)
-+ *       IPv6 route cache               1372K (0/4096)
-+ *       IPv4 route cache               5468K (0/16384)
-+ *       SKB data reserve               1120K (0/524288)
-+ *         IPv6 fragment cache            560K (0/262144)
-+ *         IPv4 fragment cache            560K (0/262144)
-+ */
-+
-+static void mem_reserve_show_item(struct seq_file *m, struct mem_reserve *res,
-+				  int nesting)
-+{
-+	int i;
-+	struct mem_reserve *child;
-+
-+	for (i = 0; i < nesting; i++)
-+		seq_puts(m, "  ");
-+
-+	seq_printf(m, "%-30s %ldK (%ld/%ld)\n",
-+		   res->name, res->pages << (PAGE_SHIFT - 10),
-+		   res->usage, res->limit);
-+
-+	list_for_each_entry(child, &res->children, siblings)
-+		mem_reserve_show_item(m, child, nesting+1);
-+}
-+
-+static int mem_reserve_show(struct seq_file *m, void *v)
-+{
-+	mutex_lock(&mem_reserve_mutex);
-+	mem_reserve_show_item(m, &mem_reserve_root, 0);
-+	mutex_unlock(&mem_reserve_mutex);
-+
-+	return 0;
-+}
-+
-+static int mem_reserve_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, mem_reserve_show, NULL);
-+}
-+
-+static const struct file_operations mem_reserve_opterations = {
-+	.open = mem_reserve_open,
-+	.read = seq_read,
-+	.llseek = seq_lseek,
-+	.release = single_release,
-+};
-+
-+static __init int mem_reserve_proc_init(void)
-+{
-+	struct proc_dir_entry *entry;
-+
-+	entry = create_proc_entry("reserve_info", S_IRUSR, NULL);
-+	if (entry)
-+		entry->proc_fops = &mem_reserve_opterations;
-+
-+	return 0;
-+}
-+
-+__initcall(mem_reserve_proc_init);
-+
 +#endif
 +
-+/*
-+ * alloc_page helpers
-+ */
+ const struct address_space_operations nfs_file_aops = {
+ 	.readpage = nfs_readpage,
+ 	.readpages = nfs_readpages,
+@@ -385,6 +392,9 @@ const struct address_space_operations nf
+ 	.direct_IO = nfs_direct_IO,
+ #endif
+ 	.launder_page = nfs_launder_page,
++#ifdef CONFIG_NFS_SWAP
++	.swapfile = nfs_swapfile,
++#endif
+ };
+ 
+ static int nfs_vm_page_mkwrite(struct vm_area_struct *vma, struct page *page)
+Index: linux-2.6/include/linux/sunrpc/xprt.h
+===================================================================
+--- linux-2.6.orig/include/linux/sunrpc/xprt.h
++++ linux-2.6/include/linux/sunrpc/xprt.h
+@@ -143,7 +143,9 @@ struct rpc_xprt {
+ 	unsigned int		max_reqs;	/* total slots */
+ 	unsigned long		state;		/* transport state */
+ 	unsigned char		shutdown   : 1,	/* being shut down */
+-				resvport   : 1; /* use a reserved port */
++				resvport   : 1, /* use a reserved port */
++				swapper    : 1; /* we're swapping over this
++						   transport */
+ 	unsigned int		bind_index;	/* bind function index */
+ 
+ 	/*
+@@ -246,6 +248,7 @@ struct rpc_rqst *	xprt_lookup_rqst(struc
+ void			xprt_complete_rqst(struct rpc_task *task, int copied);
+ void			xprt_release_rqst_cong(struct rpc_task *task);
+ void			xprt_disconnect(struct rpc_xprt *xprt);
++int			xs_swapper(struct rpc_xprt *xprt, int enable);
+ 
+ /*
+  * Reserved bit positions in xprt->state
+Index: linux-2.6/net/sunrpc/sched.c
+===================================================================
+--- linux-2.6.orig/net/sunrpc/sched.c
++++ linux-2.6/net/sunrpc/sched.c
+@@ -761,7 +761,10 @@ struct rpc_buffer {
+ void *rpc_malloc(struct rpc_task *task, size_t size)
+ {
+ 	struct rpc_buffer *buf;
+-	gfp_t gfp = RPC_IS_SWAPPER(task) ? GFP_ATOMIC : GFP_NOWAIT;
++	gfp_t gfp = GFP_NOWAIT;
++
++	if (RPC_IS_SWAPPER(task))
++		gfp |= __GFP_MEMALLOC;
+ 
+ 	size += sizeof(struct rpc_buffer);
+ 	if (size <= RPC_BUFFER_MAXSIZE)
+@@ -817,6 +820,8 @@ void rpc_init_task(struct rpc_task *task
+ 	atomic_set(&task->tk_count, 1);
+ 	task->tk_client = clnt;
+ 	task->tk_flags  = flags;
++	if (clnt->cl_xprt->swapper)
++		task->tk_flags |= RPC_TASK_SWAPPER;
+ 	task->tk_ops = tk_ops;
+ 	if (tk_ops->rpc_call_prepare != NULL)
+ 		task->tk_action = rpc_prepare_task;
+@@ -853,7 +858,7 @@ void rpc_init_task(struct rpc_task *task
+ static struct rpc_task *
+ rpc_alloc_task(void)
+ {
+-	return (struct rpc_task *)mempool_alloc(rpc_task_mempool, GFP_NOFS);
++	return (struct rpc_task *)mempool_alloc(rpc_task_mempool, GFP_NOIO);
+ }
+ 
+ static void rpc_free_task(struct rcu_head *rcu)
+Index: linux-2.6/net/sunrpc/xprtsock.c
+===================================================================
+--- linux-2.6.orig/net/sunrpc/xprtsock.c
++++ linux-2.6/net/sunrpc/xprtsock.c
+@@ -1397,6 +1397,9 @@ static void xs_udp_finish_connecting(str
+ 		transport->sock = sock;
+ 		transport->inet = sk;
+ 
++		if (xprt->swapper)
++			sk_set_memalloc(sk);
++
+ 		write_unlock_bh(&sk->sk_callback_lock);
+ 	}
+ 	xs_udp_do_set_buffer_size(xprt);
+@@ -1414,11 +1417,15 @@ static void xs_udp_connect_worker4(struc
+   		container_of(work, struct sock_xprt, connect_worker.work);
+ 	struct rpc_xprt *xprt = &transport->xprt;
+ 	struct socket *sock = transport->sock;
++	unsigned long pflags = current->flags;
+ 	int err, status = -EIO;
+ 
+ 	if (xprt->shutdown || !xprt_bound(xprt))
+ 		goto out;
+ 
++	if (xprt->swapper)
++		current->flags |= PF_MEMALLOC;
++
+ 	/* Start by resetting any existing state */
+ 	xs_close(xprt);
+ 
+@@ -1441,6 +1448,7 @@ static void xs_udp_connect_worker4(struc
+ out:
+ 	xprt_wake_pending_tasks(xprt, status);
+ 	xprt_clear_connecting(xprt);
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+ }
+ 
+ /**
+@@ -1455,11 +1463,15 @@ static void xs_udp_connect_worker6(struc
+ 		container_of(work, struct sock_xprt, connect_worker.work);
+ 	struct rpc_xprt *xprt = &transport->xprt;
+ 	struct socket *sock = transport->sock;
++	unsigned long pflags = current->flags;
+ 	int err, status = -EIO;
+ 
+ 	if (xprt->shutdown || !xprt_bound(xprt))
+ 		goto out;
+ 
++	if (xprt->swapper)
++		current->flags |= PF_MEMALLOC;
++
+ 	/* Start by resetting any existing state */
+ 	xs_close(xprt);
+ 
+@@ -1482,6 +1494,7 @@ static void xs_udp_connect_worker6(struc
+ out:
+ 	xprt_wake_pending_tasks(xprt, status);
+ 	xprt_clear_connecting(xprt);
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+ }
+ 
+ /*
+@@ -1541,6 +1554,9 @@ static int xs_tcp_finish_connecting(stru
+ 		write_unlock_bh(&sk->sk_callback_lock);
+ 	}
+ 
++	if (xprt->swapper)
++		sk_set_memalloc(transport->inet);
++
+ 	/* Tell the socket layer to start connecting... */
+ 	xprt->stat.connect_count++;
+ 	xprt->stat.connect_start = jiffies;
+@@ -1559,11 +1575,15 @@ static void xs_tcp_connect_worker4(struc
+ 		container_of(work, struct sock_xprt, connect_worker.work);
+ 	struct rpc_xprt *xprt = &transport->xprt;
+ 	struct socket *sock = transport->sock;
++	unsigned long pflags = current->flags;
+ 	int err, status = -EIO;
+ 
+ 	if (xprt->shutdown || !xprt_bound(xprt))
+ 		goto out;
+ 
++	if (xprt->swapper)
++		current->flags |= PF_MEMALLOC;
++
+ 	if (!sock) {
+ 		/* start from scratch */
+ 		if ((err = sock_create_kern(PF_INET, SOCK_STREAM, IPPROTO_TCP, &sock)) < 0) {
+@@ -1606,6 +1626,7 @@ out:
+ 	xprt_wake_pending_tasks(xprt, status);
+ out_clear:
+ 	xprt_clear_connecting(xprt);
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+ }
+ 
+ /**
+@@ -1620,11 +1641,15 @@ static void xs_tcp_connect_worker6(struc
+ 		container_of(work, struct sock_xprt, connect_worker.work);
+ 	struct rpc_xprt *xprt = &transport->xprt;
+ 	struct socket *sock = transport->sock;
++	unsigned long pflags = current->flags;
+ 	int err, status = -EIO;
+ 
+ 	if (xprt->shutdown || !xprt_bound(xprt))
+ 		goto out;
+ 
++	if (xprt->swapper)
++		current->flags |= PF_MEMALLOC;
++
+ 	if (!sock) {
+ 		/* start from scratch */
+ 		if ((err = sock_create_kern(PF_INET6, SOCK_STREAM, IPPROTO_TCP, &sock)) < 0) {
+@@ -1666,6 +1691,7 @@ out:
+ 	xprt_wake_pending_tasks(xprt, status);
+ out_clear:
+ 	xprt_clear_connecting(xprt);
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+ }
+ 
+ /**
+@@ -1985,6 +2011,43 @@ int init_socket_xprt(void)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_SUNRPC_SWAP
++#define RPC_BUF_RESERVE_PAGES \
++	kestimate_single(sizeof(struct rpc_rqst), GFP_KERNEL, RPC_MAX_SLOT_TABLE)
++#define RPC_RESERVE_PAGES	(RPC_BUF_RESERVE_PAGES + TX_RESERVE_PAGES)
 +
 +/**
-+ * mem_reserve_pages_set - set reserves size in pages
-+ * @res - reserve to set
-+ * @pages - size in pages to set it to
++ * xs_swapper - Tag this transport as being used for swap.
++ * @xprt: transport to tag
++ * @enable: enable/disable
 + *
-+ * Returns -ENOMEM when it fails to set the reserve. On failure the old size
-+ * is preserved.
 + */
-+int mem_reserve_pages_set(struct mem_reserve *res, long pages)
++int xs_swapper(struct rpc_xprt *xprt, int enable)
 +{
-+	int ret;
++	struct sock_xprt *transport = container_of(xprt, struct sock_xprt, xprt);
++	int err = 0;
 +
-+	mutex_lock(&mem_reserve_mutex);
-+	pages -= res->pages;
-+	ret = __mem_reserve_add(res, pages, pages);
-+	mutex_unlock(&mem_reserve_mutex);
++	if (enable) {
++		/*
++		 * keep one extra sock reference so the reserve won't dip
++		 * when the socket gets reconnected.
++		 */
++		err = sk_adjust_memalloc(1, RPC_RESERVE_PAGES);
++		if (!err) {
++			sk_set_memalloc(transport->inet);
++			xprt->swapper = 1;
++		}
++	} else if (xprt->swapper) {
++		xprt->swapper = 0;
++		sk_clear_memalloc(transport->inet);
++		sk_adjust_memalloc(-1, -RPC_RESERVE_PAGES);
++	}
 +
-+	return ret;
++	return err;
 +}
++EXPORT_SYMBOL_GPL(xs_swapper);
++#endif
 +
-+EXPORT_SYMBOL_GPL(mem_reserve_pages_set);
+ /**
+  * cleanup_socket_xprt - remove xprtsock's sysctls, unregister
+  *
+Index: linux-2.6/fs/Kconfig
+===================================================================
+--- linux-2.6.orig/fs/Kconfig
++++ linux-2.6/fs/Kconfig
+@@ -1690,6 +1690,18 @@ config NFS_DIRECTIO
+ 	  causes open() to return EINVAL if a file residing in NFS is
+ 	  opened with the O_DIRECT flag.
+ 
++config NFS_SWAP
++	bool "Provide swap over NFS support"
++	default n
++	depends on NFS_FS
++	select SUNRPC_SWAP
++	help
++	  This option enables swapon to work on files located on NFS mounts.
 +
-+/**
-+ * mem_reserve_pages_add - change the size in a relative way
-+ * @res - reserve to change
-+ * @pages - number of pages to add (or subtract when negative)
-+ *
-+ * Similar to mem_reserve_pages_set, except that the argument is relative instead
-+ * of absolute.
-+ *
-+ * Returns -ENOMEM when it fails to increase.
-+ */
-+int mem_reserve_pages_add(struct mem_reserve *res, long pages)
-+{
-+	int ret;
++	  For more details, see Documentation/vm_deadlock.txt
 +
-+	mutex_lock(&mem_reserve_mutex);
-+	ret = __mem_reserve_add(res, pages, pages);
-+	mutex_unlock(&mem_reserve_mutex);
++	  If unsure, say N.
 +
-+	return ret;
-+}
+ config NFSD
+ 	tristate "NFS server support"
+ 	depends on INET
+@@ -1824,6 +1836,12 @@ config SUNRPC_BIND34
+ 	  If unsure, say N to get traditional behavior (version 2 rpcbind
+ 	  requests only).
+ 
++config SUNRPC_SWAP
++	def_bool n
++	depends on SUNRPC
++	select NETVM
++	select SWAP_FILE
 +
-+/**
-+ * mem_reserve_pages_charge - charge page usage to a reserve
-+ * @res - reserve to charge
-+ * @pages - size to charge
-+ * @overcommit - disregard the usage limit (use with caution!)
-+ *
-+ * Returns non-zero on success.
-+ */
-+int mem_reserve_pages_charge(struct mem_reserve *res, long pages, int overcommit)
-+{
-+	return __mem_reserve_charge(res, pages, overcommit);
-+}
-+
-+EXPORT_SYMBOL_GPL(mem_reserve_pages_charge);
-+
-+/*
-+ * kmalloc helpers
-+ */
-+
-+/**
-+ * mem_reserve_kmalloc_set - set this reserve to bytes worth of kmalloc
-+ * @res - reserve to change
-+ * @bytes - size in bytes to reserve
-+ *
-+ * Returns -ENOMEM on failure.
-+ */
-+int mem_reserve_kmalloc_set(struct mem_reserve *res, long bytes)
-+{
-+	int ret;
-+	long pages;
-+
-+	mutex_lock(&mem_reserve_mutex);
-+	pages = kestimate(GFP_ATOMIC, bytes);
-+	pages -= res->pages;
-+	bytes -= res->limit;
-+	ret = __mem_reserve_add(res, pages, bytes);
-+	mutex_unlock(&mem_reserve_mutex);
-+
-+	return ret;
-+}
-+
-+EXPORT_SYMBOL_GPL(mem_reserve_kmalloc_set);
-+
-+/**
-+ * mem_reserve_kmalloc_charge - charge bytes to a reserve
-+ * @res - reserve to charge
-+ * @bytes - bytes to charge
-+ * @overcommit - disregard the usage limit (use with caution!)
-+ *
-+ * Returns non-zero on success.
-+ */
-+int mem_reserve_kmalloc_charge(struct mem_reserve *res, long bytes,
-+			       int overcommit)
-+{
-+	if (bytes < 0)
-+		bytes = -roundup_pow_of_two(-bytes);
-+	else
-+		bytes = roundup_pow_of_two(bytes);
-+
-+	return __mem_reserve_charge(res, bytes, overcommit);
-+}
-+
-+EXPORT_SYMBOL_GPL(mem_reserve_kmalloc_charge);
-+
-+/*
-+ * kmem_cache helpers
-+ */
-+
-+/**
-+ * mem_reserve_kmem_cache_set - set reserve to @objects worth of kmem_cache_alloc of @s
-+ * @res - reserve to set
-+ * @s - kmem_cache to reserve from
-+ * @objects - number of objects to reserve
-+ *
-+ * Returns -ENOMEM on failure.
-+ */
-+int mem_reserve_kmem_cache_set(struct mem_reserve *res, struct kmem_cache *s,
-+			       int objects)
-+{
-+	int ret;
-+	long pages;
-+
-+	mutex_lock(&mem_reserve_mutex);
-+	pages = kmem_estimate_pages(s, GFP_ATOMIC, objects);
-+	pages -= res->pages;
-+	objects -= res->limit;
-+	ret = __mem_reserve_add(res, pages, objects);
-+	mutex_unlock(&mem_reserve_mutex);
-+
-+	return ret;
-+}
-+
-+EXPORT_SYMBOL_GPL(mem_reserve_kmem_cache_set);
-+
-+/**
-+ * mem_reserve_kmem_cache_charge - charge (or uncharge) usage of objs
-+ * @res - reserve to charge
-+ * @objs - objects to charge for
-+ * @overcommit - disregard the usage limit (use with caution!)
-+ *
-+ * Returns non-zero on success.
-+ */
-+int mem_reserve_kmem_cache_charge(struct mem_reserve *res, long objs,
-+				  int overcommit)
-+{
-+	return __mem_reserve_charge(res, objs, overcommit);
-+}
-+
-+EXPORT_SYMBOL_GPL(mem_reserve_kmem_cache_charge);
+ config RPCSEC_GSS_KRB5
+ 	tristate "Secure RPC: Kerberos V mechanism (EXPERIMENTAL)"
+ 	depends on SUNRPC && EXPERIMENTAL
 
 --
