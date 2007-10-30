@@ -1,64 +1,55 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 1/2] Convert /proc/net/ipv6_route to seq_file interface
-Date: Tue, 30 Oct 2007 08:30:43 -0700
-Message-ID: <20071030083043.47f5def3@freepuppy.rosehill>
-References: <20071030131147.GA6210@localhost.sw.ru>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: dn_route.c momentarily exiting RCU read-side critical section
+Date: Tue, 30 Oct 2007 08:12:54 -0700
+Message-ID: <20071030151254.GA8285@linux.vnet.ibm.com>
+References: <20071029211540.GA12893@linux.vnet.ibm.com> <20071030.011036.43329108.davem@davemloft.net>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@sw.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	SteveW@ACM.org, dipankar@in.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:36945 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754714AbXJ3Pb4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 11:31:56 -0400
-In-Reply-To: <20071030131147.GA6210@localhost.sw.ru>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:58809 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753480AbXJ3Peh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 11:34:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20071030.011036.43329108.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 30 Oct 2007 16:11:47 +0300
-Alexey Dobriyan <adobriyan@sw.ru> wrote:
->  
-> +static const struct file_operations ipv6_route_proc_fops = {
-> +	.open		= ipv6_route_open,
-> +	.read		= seq_read,
-> +	.llseek		= seq_lseek,
-> +	.release	= single_release,
-> +};
-> +
-
-This needs
-	.owner		= THIS_MODULE,
-
-
->
->  static int rt6_stats_seq_show(struct seq_file *seq, void *v)
->  {
->  	seq_printf(seq, "%04x %04x %04x %04x %04x %04x %04x\n",
-> @@ -2499,9 +2477,11 @@ void __init ip6_route_init(void)
->  
->  	fib6_init();
->  #ifdef 	CONFIG_PROC_FS
-> -	p = proc_net_create(&init_net, "ipv6_route", 0, rt6_proc_info);
-> -	if (p)
-> +	p = create_proc_entry("ipv6_route", 0, init_net.proc_net);
-> +	if (p) {
->  		p->owner = THIS_MODULE;
-> +		p->proc_fops = &ipv6_route_proc_fops;
-> +	}
->  
->  	proc_net_fops_create(&init_net, "rt6_stats", S_IRUGO, &rt6_stats_seq_fops);
->  #endif
+On Tue, Oct 30, 2007 at 01:10:36AM -0700, David Miller wrote:
+> From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+> Date: Mon, 29 Oct 2007 14:15:40 -0700
 > 
+> > net/decnet/dn_route.c in dn_rt_cache_get_next() is as follows:
+> > 
+> > static struct dn_route *dn_rt_cache_get_next(struct seq_file *seq, struct dn_route *rt)
+> > {
+> > 	struct dn_rt_cache_iter_state *s = rcu_dereference(seq->private);
+> > 
+> > 	rt = rt->u.dst.dn_next;
+> > 	while(!rt) {
+> > 		rcu_read_unlock_bh();
+> > 		if (--s->bucket < 0)
+> > 			break;
+> > 
+> > ...  But what happens if seq->private is freed up right here?
+> > ...  Or what prevents this from happening?
+>  ...
+> > Similar code is in rt_cache_get_next().
+> > 
+> > So, what am I missing here?
+> 
+> seq->private is allocated on file open (here via seq_open_private()),
+> and freed up on file close (via seq_release_private).
+> 
+> So it cannot be freed up in the middle of an iteration.
 
-Use proc_net_fops_create()
-	proc_net_fops_create(&init_net, "ipv6_route", S_IRUGO, &ipv6_route_proc_fops)
+Thank you for the info!!!
 
+OK, for my next stupid question: why is the rcu_dereference(seq->private)
+required, as opposed to simply seq->private?
 
-You can get rid of #ifdef since proc_net_fops_create stub does correct thing
-if PROC_FS is not configured.
-
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+							Thanx, Paul
