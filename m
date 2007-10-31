@@ -1,36 +1,41 @@
-From: Tsutomu Fujii <t-fujii@nb.jp.nec.com>
-Subject: Re: Bonding in active-backup mode with arp monitoring on Xen
-Date: Wed, 31 Oct 2007 20:08:44 +0900
-Message-ID: <4728623C.4000906@nb.jp.nec.com>
-References: <47253487.3010909@nb.jp.nec.com> <25246.1193780909@death>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: NBD was Re: [PATCH 00/33] Swap over NFS -v14
+Date: Wed, 31 Oct 2007 12:18:00 +0100
+Message-ID: <20071031111800.GA2551@elf.ucw.cz>
+References: <20071030160401.296770000@chello.nl> <200710311426.33223.nickpiggin@yahoo.com.au> <20071030.213753.126064697.davem@davemloft.net> <20071031085041.GA4362@infradead.org> <1193828206.27652.145.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@infradead.org>,
+	David Miller <davem@davemloft.net>, nickpiggin@yahoo.com.au,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:57507 "EHLO
-	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755477AbXJaLIs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 07:08:48 -0400
-In-Reply-To: <25246.1193780909@death>
+Received: from atrey.karlin.mff.cuni.cz ([195.113.31.123]:36355 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756696AbXJaLSC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 07:18:02 -0400
+Content-Disposition: inline
+In-Reply-To: <1193828206.27652.145.camel@twins>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi.
+Hi!
 
-Jay Vosburgh wrote:
-> 	I'm not sure if this is a solution that will work for any peer
-> (some peers may not reply to an ARP with an IP source of all zeros).  At
-> first glance, there doesn't seem to be much of a downside, but I'll have
-> to experiment with it a bit to see if the check should be optional or
-> simply removed entirely.
+> > So please get the VM bits for swap over network blockdevices in first,
+> 
+> Trouble with that part is that we don't have any sane network block
+> devices atm, NBD is utter crap, and iSCSI is too complex to be called
+> sane.
 
-If there are no downside, I think it is better to remove the check.
-For your information, other mode that can use arp monitoring send an
-ARP with an IP source of all zero.
+Hey, NBD was designed to be _simple_. And I think it works okay in
+that area.. so can you elaborate on "utter crap"? [Ok, performance is
+not great.]
 
-Thanks.
-
---
-Tsutomu Fujii
+Plus, I'd suggest you to look at ata-over-ethernet. It is in tree
+today, quite simple, but should have better performance than nbd.
+								Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
