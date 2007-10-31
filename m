@@ -1,104 +1,69 @@
-From: "Eliezer Tamir" <eliezert@broadcom.com>
-Subject: Re: [RFC][BNX2X] .h files rewrite
-Date: Wed, 31 Oct 2007 12:14:47 +0200
-Message-ID: <1193825688.4836.134.camel@eliezer>
-References: <1193602670.4836.25.camel@eliezer>
- <1193602875.4836.28.camel@eliezer>
- <20071029.013931.203090879.davem@davemloft.net>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [PATCH 03/33] mm: slub: add knowledge of reserve pages
+Date: Wed, 31 Oct 2007 11:42:38 +0100
+Message-ID: <1193827358.27652.126.camel@twins>
+References: <20071030160401.296770000@chello.nl>
+	 <20071030160910.813944000@chello.nl>
+	 <200710311437.28630.nickpiggin@yahoo.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Michael Chan" <mchan@broadcom.com>, jeff@garzik.org,
-	netdev@vger.kernel.org, masbock@us.ibm.com,
-	"eilong" <eilong@broadcom.com>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-FT+zCI+A90irqp0ysoO4"
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
+To: Nick Piggin <nickpiggin@yahoo.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4170 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752969AbXJaKNS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2007 06:13:18 -0400
-In-Reply-To: <20071029.013931.203090879.davem@davemloft.net>
+Received: from viefep18-int.chello.at ([213.46.255.22]:15486 "EHLO
+	viefep34-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751024AbXJaKml (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 06:42:41 -0400
+In-Reply-To: <200710311437.28630.nickpiggin@yahoo.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(Sorry It took so long to answer, I've had to go over a lot of stuff to
-make sure I'm giving you accurate answers.)
 
-On Mon, 2007-10-29 at 01:39 -0700, David Miller wrote:
-> From: "Eliezer Tamir" <eliezert@broadcom.com>
-> Date: Sun, 28 Oct 2007 22:21:14 +0200
-> 
-> Overall things look significantly better, thanks a lot!
-> 
-> However, there is still one set of magic constants in here
-> which I hope you can clear up:
-> 
-> > +static const struct raw_op init_ops[] = {
-> > +#define PRS_COMMON_START        0
-> > +     {OP_WR, PRS_REG_INC_VALUE, 0xf},
-> > +     {OP_WR, PRS_REG_EVENT_ID_1, 0x45},
-> > +     {OP_WR, PRS_REG_EVENT_ID_2, 0x84},
-> > +     {OP_WR, PRS_REG_EVENT_ID_3, 0x6},
-> > +     {OP_WR, PRS_REG_NO_MATCH_EVENT_ID, 0x4},
-> > +     {OP_WR, PRS_REG_CM_HDR_TYPE_0, 0x0},
-> > +     {OP_WR, PRS_REG_CM_HDR_TYPE_1, 0x12170000},
-> > +     {OP_WR, PRS_REG_CM_HDR_TYPE_2, 0x22170000},
-> > +     {OP_WR, PRS_REG_CM_HDR_TYPE_3, 0x32170000},
-> > +     {OP_ZR, PRS_REG_CM_HDR_TYPE_4, 0x5},
-> > +     {OP_WR, PRS_REG_CM_HDR_LOOPBACK_TYPE_1, 0x12150000},
-> > +     {OP_WR, PRS_REG_CM_HDR_LOOPBACK_TYPE_2, 0x22150000},
-> > +     {OP_WR, PRS_REG_CM_HDR_LOOPBACK_TYPE_3, 0x32150000},
-> > +     {OP_ZR, PRS_REG_CM_HDR_LOOPBACK_TYPE_4, 0x4},
->  etc. etc.
+--=-FT+zCI+A90irqp0ysoO4
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-These are the steps performed to initialize the chip and load the
-microcode.
+On Wed, 2007-10-31 at 14:37 +1100, Nick Piggin wrote:
+> On Wednesday 31 October 2007 03:04, Peter Zijlstra wrote:
+> > Restrict objects from reserve slabs (ALLOC_NO_WATERMARKS) to allocation
+> > contexts that are entitled to it.
+> >
+> > Care is taken to only touch the SLUB slow path.
+> >
+> > This is done to ensure reserve pages don't leak out and get consumed.
+>=20
+> I think this is generally a good idea (to prevent slab allocators
+> from stealing reserve). However I naively think the implementation
+> is a bit overengineered and thus has a few holes.
+>=20
+> Humour me, what was the problem with failing the slab allocation
+> (actually, not fail but just call into the page allocator to do
+> correct waiting  / reclaim) in the slowpath if the process fails the
+> watermark checks?
 
-Each element in the array is an operation in the form:
-{operation, chip address, value}
+Ah, we actually need slabs below the watermarks. Its just that once I
+allocated those slabs using __GFP_MEMALLOC/PF_MEMALLOC I don't want
+allocation contexts that do not have rights to those pages to walk off
+with objects.
 
-Where the operation is one of:
-OP_WR - write a value to the chip.
-OP_RD - read a register (this is a read with a side effect, usually a
-clear on read register).
-OP_SW - string write to the chip (parts of the microcode).
-OP_SI - string write using indirect write registers.
-OP_ZR - clear a range of memory.
-OP_ZP - unzip and copy using DMAE.
-OP_WB - string copy using DMAE.
+So, this generic reserve framework still uses the slab allocator to
+provide certain kind of objects (kmalloc, kmem_cache_alloc), it just
+separates those that are and are not entitled to the reserves.
 
-(I will add these explanations to bnx2x_init.h)
+--=-FT+zCI+A90irqp0ysoO4
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-As you can see there are quite a lot of them, that is because most of
-them are setting up the microcode internal structures.
-Maybe it would have been better if the microcode were to do these things
-but because of size issues it currently is not an option.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
 
-We will add comments to all register definitions explaining as much as
-possible about each register.
+iD8DBQBHKFweXA2jU0ANEf4RAi7hAJ9NcZFgKlpbDF0l5r2ZdGlxPyGB0ACfYutM
+wzNhYh+DCVlsSEe0s5P2XBQ=
+=9k+N
+-----END PGP SIGNATURE-----
 
-All of the registers that are related to the driver flow are accessed
-explicitly inside the driver code in the main .c file.
-
-Writes to memories are simply parts of the microcode.
-
-However, almost all of the registers written to here, are numeric values
-not bit constants. The values are derived from HW definitions (and that
-was the source of the extra-ugly generated code that we replaced).
-
-In a perfect world almost all of these would have been the reset values
-of the registers. 
-#include "bitching_about_HW_guys.h"
-
-The added documentation for each register in the register file will
-provide all the info that I have about the values.
-I feel bad about adding several hundred lines of defines that are only
-used once, and do not add any real information about the values.
-
-Your insights would be appreciated.
-
-Thanks,
-Eliezer
-
-
+--=-FT+zCI+A90irqp0ysoO4--
 
