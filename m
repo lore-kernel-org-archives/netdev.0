@@ -1,47 +1,33 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Subject: Re: [PATCH 00/33] Swap over NFS -v14
-Date: Wed, 31 Oct 2007 15:04:23 +1100
-Message-ID: <200710311504.24016.nickpiggin@yahoo.com.au>
-References: <20071030160401.296770000@chello.nl> <200710311426.33223.nickpiggin@yahoo.com.au> <20071030.213753.126064697.davem@davemloft.net>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 1/14 v2] nes: module and device initialization
+Date: Tue, 30 Oct 2007 22:21:58 -0700
+Message-ID: <ada8x5jhn9l.fsf@cisco.com>
+References: <200710192001.l9JK1U8O021689@neteffect.com>
+	<adatzodxxxw.fsf@cisco.com>
+	<5E701717F2B2ED4EA60F87C8AA57B7CC078C9670@venom2>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: a.p.zijlstra@chello.nl, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, netdev@vger.kernel.org,
-	trond.myklebust@fys.uio.no
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756184AbXJaFLX@vger.kernel.org>
-In-Reply-To: <20071030.213753.126064697.davem@davemloft.net>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: <ewg@lists.openfabrics.org>, <general@lists.openfabrics.org>,
+	<netdev@vger.kernel.org>
+To: "Glenn Grundstrom" <ggrundstrom@NetEffect.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:39574 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752117AbXJaFWL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 01:22:11 -0400
+In-Reply-To: <5E701717F2B2ED4EA60F87C8AA57B7CC078C9670@venom2> (Glenn Grundstrom's message of "Sun, 28 Oct 2007 13:21:30 -0500")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 31 October 2007 15:37, David Miller wrote:
-> From: Nick Piggin <nickpiggin@yahoo.com.au>
-> Date: Wed, 31 Oct 2007 14:26:32 +1100
->
-> > Is it really worth all the added complexity of making swap
-> > over NFS files work, given that you could use a network block
-> > device instead?
->
-> Don't be misled.  Swapping over NFS is just a scarecrow for the
-> seemingly real impetus behind these changes which is network storage
-> stuff like iSCSI.
+ > Thanks Roland.  Let me know when you have your branch ready.
 
-Oh, I'm OK with the network reserves stuff (not the actual patch,
-which I'm not really qualified to review, but at least the idea
-of it...).
+OK, I pushed out a "neteffect" branch at
 
-And also I'm not as such against the idea of swap over network.
+    git://git.kernel.org/pub/scm/linux/kernel/git/roland/infiniband.git
 
-However, specifically the change to make swapfiles work through
-the filesystem layer (ATM it goes straight to the block layer,
-modulo some initialisation stuff which uses block filesystem-
-specific calls).
+This has the driver from your git tree plus some compile fixes and
+cleanups (added as separate commits, so you can see what I did).  If
+it suits you, let's work against that tree to continue cleaning things
+up -- you can send me patches or git pull requests to pick up new things.
 
-I mean, I assume that anybody trying to swap over network *today*
-has to be using a network block device anyway, so the idea of
-just being able to transparently improve that case seems better
-than adding new complexities for seemingly not much gain.
+ - R.
