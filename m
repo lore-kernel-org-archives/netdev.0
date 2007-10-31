@@ -1,40 +1,33 @@
-From: Gregory Haskins <gregory.haskins.ml@gmail.com>
-Subject: Re: [PATCH 00/33] Swap over NFS -v14
-Date: Wed, 31 Oct 2007 09:44:18 -0400
-Message-ID: <472886B2.1060207@gmail.com>
-References: <20071030160401.296770000@chello.nl>	 <200710311426.33223.nickpiggin@yahoo.com.au>	 <1193830033.27652.159.camel@twins>  <47287220.8050804@garzik.org> <1193835413.27652.205.camel@twins>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH]: Fix networking scatterlist regressions.
+Date: Wed, 31 Oct 2007 21:45:18 +0800
+Message-ID: <20071031134518.GA27412@gondor.apana.org.au>
+References: <20071030.204002.193703502.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Nick Piggin <nickpiggin@yahoo.com.au>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, rusty@rustcorp.com.au,
+	jens.axboe@oracle.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.249]:39544 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756719AbXJaNob (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 09:44:31 -0400
-Received: by an-out-0708.google.com with SMTP id b36so13939ana
-        for <netdev@vger.kernel.org>; Wed, 31 Oct 2007 06:44:31 -0700 (PDT)
-In-Reply-To: <1193835413.27652.205.camel@twins>
+Received: from rhun.apana.org.au ([64.62.148.172]:4680 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756959AbXJaNpZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 09:45:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20071030.204002.193703502.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Peter Zijlstra wrote:
-
+On Tue, Oct 30, 2007 at 08:40:02PM -0700, David Miller wrote:
 > 
-> But please, people who want this (I'm sure some of you are reading) do
-> speak up. I'm just the motivated corporate drone implementing the
-> feature :-)
+> I just checked the following bug fix into net-2.6
 
-FWIW, I could have used a "swap to network technology X" like system at
-my last job.  We were building a large networking switch with blades,
-and the IO cards didn't have anywhere near the resources that the
-control modules had (no persistent storage, small ram, etc).  We were
-already doing userspace coredumps over NFS to the control cards.  It
-would have been nice to swap as well.
+Thanks for getting to the bottom of this Dave! I seem to have
+mistaken the = for a |= in sg_mark_end :)
 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
