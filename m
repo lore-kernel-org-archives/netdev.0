@@ -1,39 +1,57 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: expected behavior of PF_PACKET on NETIF_F_HW_VLAN_RX device?
-Date: Wed, 31 Oct 2007 12:33:59 -0700
-Message-ID: <20071031123359.3954befc@freepuppy.rosehill>
-References: <18216.52455.698606.497464@zeus.sw.starentnetworks.com>
+From: Christoph Raisch <RAISCH@de.ibm.com>
+Subject: Re: [PATCH] ehea: add kexec support
+Date: Wed, 31 Oct 2007 20:48:28 +0100
+Message-ID: <OF59B5FFD2.0294206F-ONC1257385.006A802D-C1257385.006CB6BB@de.ibm.com>
+References: <200710261437.29117.ossthema@de.ibm.com>	 <1193610737.9637.1.camel@concordia>
+	 <OF79E7ACE7.5D0488CE-ONC1257384.002E58C0-C1257384.002F8561@de.ibm.com> <1193784636.32504.4.camel@concordia>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Bin Guo <bguo@sw.starentnetworks.com>
-To: Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752636AbXJaTfM@vger.kernel.org>
-In-Reply-To: <18216.52455.698606.497464@zeus.sw.starentnetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Jan-Bernd Themann <THEMANN@de.ibm.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <MEDER@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>, ossthema@linux.vnet.ibm.com,
+	Stefan Roscher <stefan.roscher@de.ibm.com>,
+	Thomas Q Klein <TKLEIN@de.ibm.com>
+To: michael@ellerman.id.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate8.de.ibm.com ([195.212.29.157]:40945 "EHLO
+	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752204AbXJaTr3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 15:47:29 -0400
+In-Reply-To: <1193784636.32504.4.camel@concordia>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 31 Oct 2007 14:43:51 -0400
-Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com> wrote:
 
-> 
-> Depending on the network driver, I'm seeing different behavior if
-> a .1q packet is received to an PF_PACKET, SOCK_RAW, ETH_P_ALL socket.
-> 
-> 
-> On devices what do not use NETIF_F_HW_VLAN_RX, the packet socket gets
-> the complete packet with vlan tag included as the driver simply calls
-> netif_receive_skb() or equivilant.  packet_rcv() then gets the whole
-> thing vlan tag included and sends this through the socket.
-> 
-> vlan_skb_recv() also gets these all and will drop them because there
-> are no vlans configured.
-> 
+Michael Ellerman <michael@ellerman.id.au> wrote on 30.10.2007 23:50:36:
+>
+> On Tue, 2007-10-30 at 09:39 +0100, Christoph Raisch wrote:
+> >
+> > Michael Ellerman <michael@ellerman.id.au> wrote on 28.10.2007 23:32:17:
+> > Hope I didn't miss anything here...
+>
+> Perhaps. When we kdump the kernel does not call the reboot notifiers, so
+> the code Jan-Bernd just added won't get called. So the eHEA resources
+> won't be freed. When the kdump kernel tries to load the eHEA driver what
+> will happen?
+>
+Good point.
 
-The VLAN acceleration grabs and hides the tag. It is a design flaw
-that should be fixed, feel free to post a patch.
+If the device driver tries to allocate resources again (in the kdump
+kernel),
+which have been allocated before (in the crashed kernel) the hcalls will
+fail because from the hypervisor view the resources are still in use.
+Currently there's no method to find out the resource handles for these
+HEA resources allocated by the crashed kernel within the hypervisor...
 
+So we have to trigger a explicit deregister in the hypervisor before the
+driver
+is started again.
+How do you recommend we should trigger this in the kdump process?
+Is placing a hook into a ppc_md.machine_kexec be an option?
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Gruss / Regards
+Christoph R.
+
