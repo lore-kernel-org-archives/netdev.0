@@ -1,41 +1,46 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH 03/33] mm: slub: add knowledge of reserve pages
-Date: Wed, 31 Oct 2007 14:08:43 +0100
-Message-ID: <1193836123.27652.209.camel@twins>
-References: <20071030160401.296770000@chello.nl>
-	 <200710312146.03351.nickpiggin@yahoo.com.au>
-	 <1193833072.27652.167.camel@twins>
-	 <200710312225.07249.nickpiggin@yahoo.com.au>
-	 <1193835258.27652.199.camel@twins>
+From: "Arnaldo Carvalho de Melo" <acme@redhat.com>
+Subject: Re: [PATCH 0/8] Cleanup/fix the sk_alloc() call
+Date: Wed, 31 Oct 2007 11:15:05 -0200
+Message-ID: <20071031131505.GD3962@ghostprotocols.net>
+References: <472885B1.7090103@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Nick Piggin <nickpiggin@yahoo.com.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:33884 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754803AbXJaNIu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 09:08:50 -0400
-In-Reply-To: <1193835258.27652.199.camel@twins>
+Received: from mx1.redhat.com ([66.187.233.31]:53771 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753564AbXJaNPM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2007 09:15:12 -0400
+Content-Disposition: inline
+In-Reply-To: <472885B1.7090103@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-10-31 at 13:54 +0100, Peter Zijlstra wrote:
-> On Wed, 2007-10-31 at 22:25 +1100, Nick Piggin wrote:
-
-> > What I'm saying is that the slab allocator slowpath should always
-> > just check watermarks against the current task. Instead of this
-> > ->reserve stuff.
+Em Wed, Oct 31, 2007 at 04:40:01PM +0300, Pavel Emelyanov escreveu:
+> The sk_alloc() function suffers from two problems:
+> 1 (major). The error path is not clean in it - if the security
+>    call fails, the net namespace is not put, if the try_module_get
+>    fails  additionally the security context is not released;
+> 2 (minor). The zero_it argument is misleading, as it doesn't just 
+>    zeroes it, but performs some extra setup. Besides this argument 
+>    is used only in one place - in the sk_clone().
 > 
-> So what you say is to allocate a slab every time we take the slow path,
-> even when we already have one?
+> So this set fixes these problems and performs some additional
+> cleanup.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-BTW, a task that does not have reserve permissions will already attempt
-to allocate a new slab - this is done to probe the current watermarks.
-If this succeeds the reserve status is lifted.
+for the series:
 
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
+Haven't tested, but it looks straightforward and conceptually sound,
+thanks for improving the sk_prot infrastructure! :-)
+
+Now we have just to make all the other protocols fill in the missing
+sk->sk_prot-> methods (converting what is there now in socket->ops) so
+that we can kill socket->ops and eliminate one level of indirection :-P
+
+- Arnaldo
