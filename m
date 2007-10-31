@@ -1,50 +1,70 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH 2/2] [TCP]: Another TAGBITS -> SACKED_ACKED|LOST conversion
-Date: Wed, 31 Oct 2007 11:49:59 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0710311149020.16864@kivilampi-30.cs.helsinki.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] [TCP]: Process DSACKs that reside within a SACK
+ block
+Date: Wed, 31 Oct 2007 02:51:04 -0700 (PDT)
+Message-ID: <20071031.025104.37987469.davem@davemloft.net>
 References: <Pine.LNX.4.64.0710311136200.16864@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1365841998-1193824199=:16864"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:55863 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754345AbXJaJuA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 05:50:00 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43075
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754698AbXJaJvE convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2007 05:51:04 -0400
 In-Reply-To: <Pine.LNX.4.64.0710311136200.16864@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Wed, 31 Oct 2007 11:48:31 +0200 (EET)
 
----696243703-1365841998-1193824199=:16864
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+> DSACK inside another SACK block were missed if start_seq of DSACK
+> was larger than SACK block's because sorting prioritizes full
+> processing of the SACK block before DSACK. After SACK block
+> sorting situation is like this:
+>=20
+>              SSSSSSSSS
+>                   D
+>                         SSSSSS
+>                                SSSSSSS
+>=20
+> Because write_queue is walked in-order, when the first SACK block
+> has been processed, TCP is already past the skb for which the
+> DSACK arrived and we haven't taught it to backtrack (nor should
+> we), so TCP just continues processing by going to the next SACK
+> block after the DSACK (if any).
+>=20
+> Whenever such DSACK is present, do an embedded checking during
+> the previous SACK block.
+>=20
+> If the DSACK is below snd_una, there won't be overlapping SACK
+> block, and thus no problem in that case. Also if start_seq of
+> the DSACK is equal to the actual block, it will be processed
+> first.
+>=20
+> Tested this by using netem to duplicate 15% of packets, and
+> by printing SACK block when found_dup_sack is true and the=20
+> selected skb in the dup_sack =3D 1 branch (if taken):
+>=20
+>   SACK block 0: 4344-5792 (relative to snd_una 2019137317)
+>   SACK block 1: 4344-5792 (relative to snd_una 2019137317)=20
+>=20
+> equal start seqnos =3D> next_dup =3D 0, dup_sack =3D 1 won't occur...
+>=20
+>   SACK block 0: 5792-7240 (relative to snd_una 2019214061)
+>   SACK block 1: 2896-7240 (relative to snd_una 2019214061)
+>   DSACK skb match 5792-7240 (relative to snd_una)
+>=20
+> ...and next_dup =3D 1 case (after the not shown start_seq sort),
+> went to dup_sack =3D 1 branch.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-Similar to commit 3eec0047d9bdd, point of this is to avoid
-skipping R-bit skbs.
+I will queue this bug fix up, thanks Ilpo!
 
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_input.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 4d72781..ca9590f 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2078,7 +2078,7 @@ static void tcp_update_scoreboard(struct sock *sk)
- 			if (!tcp_skb_timedout(sk, skb))
- 				break;
- 
--			if (!(TCP_SKB_CB(skb)->sacked&TCPCB_TAGBITS)) {
-+			if (!(TCP_SKB_CB(skb)->sacked & (TCPCB_SACKED_ACKED|TCPCB_LOST))) {
- 				TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
- 				tp->lost_out += tcp_skb_pcount(skb);
- 				tcp_verify_retransmit_hint(tp, skb);
--- 
-1.5.0.6
-
----696243703-1365841998-1193824199=:16864--
+And thanks for all of the testing information, it helps review
+enormously.
