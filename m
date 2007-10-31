@@ -1,7 +1,7 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 1/5][NETNS] Make the init/exit hooks checks outside the loop
-Date: Wed, 31 Oct 2007 22:23:35 +0300
-Message-ID: <4728D637.5030106@openvz.org>
+Subject: [PATCH 2/5] Relax the reference counting of init_net_ns
+Date: Wed, 31 Oct 2007 22:25:18 +0300
+Message-ID: <4728D69E.6030808@openvz.org>
 References: <4728D54F.2080208@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -10,83 +10,92 @@ Cc: Linux Netdev List <netdev@vger.kernel.org>,
 	"Eric W. Biederman" <ebiederm@xmission.com>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:44388 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:44536 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752357AbXJaSVS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2007 14:21:18 -0400
+	id S1753247AbXJaSXH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2007 14:23:07 -0400
 In-Reply-To: <4728D54F.2080208@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When the new pernet something (subsys, device or operations) is
-being registered, the init callback is to be called for each
-namespace, that currently exitst in the system. During the
-unregister, the same is to be done with the exit callback.
-
-However, not every pernet something has both calls, but the
-check for the appropriate pointer to be not NULL is performed
-inside the for_each_net() loop.
-
-This is (at least) strange, so tune this.
+When the CONFIG_NET_NS is n there's no need in refcounting
+the initial net namespace. So relax this code by making a
+stupid stubs for the "n" case.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
 
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 662e6ea..4e52921 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -187,29 +187,28 @@ static int register_pernet_operations(struct list_head *list,
- 	struct net *net, *undo_net;
- 	int error;
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 5279466..1fd449a 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -51,13 +51,12 @@ static inline struct net *copy_net_ns(unsigned long flags, struct net *net_ns)
+ }
+ #endif
  
--	error = 0;
- 	list_add_tail(&ops->list, list);
--	for_each_net(net) {
--		if (ops->init) {
-+	if (ops->init) {
-+		for_each_net(net) {
- 			error = ops->init(net);
- 			if (error)
- 				goto out_undo;
- 		}
- 	}
--out:
--	return error;
-+	return 0;
++#ifdef CONFIG_NET_NS
+ extern void __put_net(struct net *net);
  
- out_undo:
- 	/* If I have an error cleanup all namespaces I initialized */
- 	list_del(&ops->list);
--	for_each_net(undo_net) {
--		if (undo_net == net)
--			goto undone;
--		if (ops->exit)
-+	if (ops->exit) {
-+		for_each_net(undo_net) {
-+			if (undo_net == net)
-+				goto undone;
- 			ops->exit(undo_net);
-+		}
- 	}
- undone:
--	goto out;
-+	return error;
+ static inline struct net *get_net(struct net *net)
+ {
+-#ifdef CONFIG_NET
+ 	atomic_inc(&net->count);
+-#endif
+ 	return net;
  }
  
- static void unregister_pernet_operations(struct pernet_operations *ops)
-@@ -217,8 +216,8 @@ static void unregister_pernet_operations(struct pernet_operations *ops)
- 	struct net *net;
+@@ -75,26 +74,44 @@ static inline struct net *maybe_get_net(struct net *net)
  
- 	list_del(&ops->list);
--	for_each_net(net)
--		if (ops->exit)
-+	if (ops->exit)
-+		for_each_net(net)
- 			ops->exit(net);
+ static inline void put_net(struct net *net)
+ {
+-#ifdef CONFIG_NET
+ 	if (atomic_dec_and_test(&net->count))
+ 		__put_net(net);
+-#endif
  }
  
+ static inline struct net *hold_net(struct net *net)
+ {
+-#ifdef CONFIG_NET
+ 	atomic_inc(&net->use_count);
+-#endif
+ 	return net;
+ }
+ 
+ static inline void release_net(struct net *net)
+ {
+-#ifdef CONFIG_NET
+ 	atomic_dec(&net->use_count);
+-#endif
+ }
++#else
++static inline struct net *get_net(struct net *net)
++{
++	return net;
++}
++
++static inline void put_net(struct net *net)
++{
++}
++
++static inline struct net *hold_net(struct net *net)
++{
++	return net;
++}
++
++static inline void release_net(struct net *net)
++{
++}
++
++static inline struct net *maybe_get_net(struct net *net)
++{
++	return net;
++}
++#endif
+ 
+ #define for_each_net(VAR)				\
+ 	list_for_each_entry(VAR, &net_namespace_list, list)
 -- 
 1.5.3.4
 
