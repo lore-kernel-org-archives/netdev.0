@@ -1,84 +1,108 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 00/33] Swap over NFS -v14
-Date: Wed, 31 Oct 2007 11:56:46 +0100
-Message-ID: <1193828206.27652.145.camel@twins>
+Subject: Re: [PATCH 03/33] mm: slub: add knowledge of reserve pages
+Date: Wed, 31 Oct 2007 13:17:52 +0100
+Message-ID: <1193833072.27652.167.camel@twins>
 References: <20071030160401.296770000@chello.nl>
-	 <200710311426.33223.nickpiggin@yahoo.com.au>
-	 <20071030.213753.126064697.davem@davemloft.net>
-	 <20071031085041.GA4362@infradead.org>
+	 <200710311437.28630.nickpiggin@yahoo.com.au>
+	 <1193827358.27652.126.camel@twins>
+	 <200710312146.03351.nickpiggin@yahoo.com.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-cUHl4ABf0oLSQQRRgXos"
-Cc: David Miller <davem@davemloft.net>, nickpiggin@yahoo.com.au,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-e2VI6o49+LBHhnTdwH6G"
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Christoph Hellwig <hch@infradead.org>
+To: Nick Piggin <nickpiggin@yahoo.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:29803 "EHLO
-	viefep33-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757878AbXJaK46 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 06:56:58 -0400
-In-Reply-To: <20071031085041.GA4362@infradead.org>
+Received: from viefep18-int.chello.at ([213.46.255.22]:8204 "EHLO
+	viefep18-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755516AbXJaMR5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 08:17:57 -0400
+In-Reply-To: <200710312146.03351.nickpiggin@yahoo.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-cUHl4ABf0oLSQQRRgXos
+--=-e2VI6o49+LBHhnTdwH6G
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2007-10-31 at 08:50 +0000, Christoph Hellwig wrote:
-> On Tue, Oct 30, 2007 at 09:37:53PM -0700, David Miller wrote:
-> > Don't be misled.  Swapping over NFS is just a scarecrow for the
-> > seemingly real impetus behind these changes which is network storage
-> > stuff like iSCSI.
+On Wed, 2007-10-31 at 21:46 +1100, Nick Piggin wrote:
+> On Wednesday 31 October 2007 21:42, Peter Zijlstra wrote:
+> > On Wed, 2007-10-31 at 14:37 +1100, Nick Piggin wrote:
+> > > On Wednesday 31 October 2007 03:04, Peter Zijlstra wrote:
+> > > > Restrict objects from reserve slabs (ALLOC_NO_WATERMARKS) to alloca=
+tion
+> > > > contexts that are entitled to it.
+> > > >
+> > > > Care is taken to only touch the SLUB slow path.
+> > > >
+> > > > This is done to ensure reserve pages don't leak out and get consume=
+d.
+> > >
+> > > I think this is generally a good idea (to prevent slab allocators
+> > > from stealing reserve). However I naively think the implementation
+> > > is a bit overengineered and thus has a few holes.
+> > >
+> > > Humour me, what was the problem with failing the slab allocation
+> > > (actually, not fail but just call into the page allocator to do
+> > > correct waiting  / reclaim) in the slowpath if the process fails the
+> > > watermark checks?
+> >
+> > Ah, we actually need slabs below the watermarks.
 >=20
-> So can we please do swap over network storage only first?  All these
-> VM bits look conceptually sane to me, while the changes to the swap
-> code to support nfs are real crackpipe material.
+> Right, I'd still allow those guys to allocate slabs. Provided they
+> have the right allocation context, right?
+>=20
+>=20
+> > Its just that once I=20
+> > allocated those slabs using __GFP_MEMALLOC/PF_MEMALLOC I don't want
+> > allocation contexts that do not have rights to those pages to walk off
+> > with objects.
+>=20
+> And I'd prevent these ones from doing so.
+>=20
+> Without keeping track of "reserve" pages, which doesn't feel
+> too clean.
 
-Yeah, I know how you stand on that. I just wanted to post all this
-before going off into the woods reworking it all.
+The problem with that is that once a slab was allocated with the right
+allocation context, anybody can get objects from these slabs.
 
-> Then again doing
-> that part properly by adding address_space methods for swap I/O without
-> the abuse might be a really good idea, especially as the way we
-> do swapfiles on block-based filesystems is an horrible hack already.
 
-Is planned. What do you think of the proposed a_ops extension to
-accomplish this? That is,
+low memory, and empty slab:
 
-->swapfile() - is this address space willing to back swap
-->swapout() - write out a page
-->swapin() - read in a page
+task A                        task B
 
-> So please get the VM bits for swap over network blockdevices in first,
+kmem_cache_alloc() =3D NULL
 
-Trouble with that part is that we don't have any sane network block
-devices atm, NBD is utter crap, and iSCSI is too complex to be called
-sane.
+                              current->flags |=3D PF_MEMALLOC
+                              kmem_cache_alloc() =3D obj
+                              (slab !=3D NULL)
 
-Maybe Evgeniy's Distributed storage thingy would work, will have a look
-at that.
+kmem_cache_alloc() =3D obj
+kmem_cache_alloc() =3D obj
+kmem_cache_alloc() =3D obj
 
-> and then we can look into a complete revamp of the swapfile support
-> that cleans up the current mess and adds support for nfs insted of
-> making the mess even worse.
 
-Sure, concrete suggestion are always welcome. Just being told something
-is utter crap only goes so far.
+And now task A, who doesn't have the right permissions walks
+away with all our reserve memory.
 
---=-cUHl4ABf0oLSQQRRgXos
+So we either reserve a page per object, which for 32 byte objects is a
+large waste, or we stop anybody who doesn't have the right permissions
+from obtaining objects. I took the latter approach.
+
+
+--=-e2VI6o49+LBHhnTdwH6G
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.6 (GNU/Linux)
 
-iD8DBQBHKF9uXA2jU0ANEf4RAieaAKCGdTzP/wHrCLDUDz9z475A0L5bVQCbBcEK
-4yhY/VPt+xfs+DU4yvLpMS8=
-=9lsn
+iD8DBQBHKHJwXA2jU0ANEf4RAi25AJ9u+31qjdHGk55nk3eaiqMPKkO9ywCeKPzr
+by9zgemtfC3t8u8Mc8uwX2k=
+=88Nf
 -----END PGP SIGNATURE-----
 
---=-cUHl4ABf0oLSQQRRgXos--
+--=-e2VI6o49+LBHhnTdwH6G--
 
