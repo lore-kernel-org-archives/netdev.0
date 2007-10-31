@@ -1,62 +1,64 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [UDP6]: Restore sk_filter optimisation
-Date: Wed, 31 Oct 2007 22:42:57 +0800
-Message-ID: <20071031144256.GA28137@gondor.apana.org.au>
-References: <20070306012010.GA25763@gondor.apana.org.au> <20071029153320.d2c00f62.mitch@linux.vnet.ibm.com> <20071029125328.GA5453@gondor.apana.org.au> <20071031230545.9be711d4.mitch@linux.vnet.ibm.com>
+From: "Mike Snitzer" <snitzer@gmail.com>
+Subject: Re: [PATCH 00/33] Swap over NFS -v14
+Date: Wed, 31 Oct 2007 10:54:02 -0400
+Message-ID: <170fa0d20710310754h55d768bdgb67f30b54174e680@mail.gmail.com>
+References: <20071030160401.296770000@chello.nl>
+	 <200710311426.33223.nickpiggin@yahoo.com.au>
+	 <20071030.213753.126064697.davem@davemloft.net>
+	 <20071031085041.GA4362@infradead.org>
+	 <1193828206.27652.145.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Christoph Hellwig" <hch@infradead.org>,
+	"David Miller" <davem@davemloft.net>, nickpiggin@yahoo.com.au,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	"Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+To: "Peter Zijlstra" <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1465 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755129AbXJaOnb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 10:43:31 -0400
+Received: from an-out-0708.google.com ([209.85.132.240]:64010 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756102AbXJaOyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 10:54:04 -0400
+Received: by an-out-0708.google.com with SMTP id b36so18655ana
+        for <netdev@vger.kernel.org>; Wed, 31 Oct 2007 07:54:03 -0700 (PDT)
+In-Reply-To: <1193828206.27652.145.camel@twins>
 Content-Disposition: inline
-In-Reply-To: <20071031230545.9be711d4.mitch@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 31, 2007 at 11:05:45PM +0900, Mitsuru Chinen wrote:
+On 10/31/07, Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+> On Wed, 2007-10-31 at 08:50 +0000, Christoph Hellwig wrote:
+> > On Tue, Oct 30, 2007 at 09:37:53PM -0700, David Miller wrote:
+> > > Don't be misled.  Swapping over NFS is just a scarecrow for the
+> > > seemingly real impetus behind these changes which is network storage
+> > > stuff like iSCSI.
+> >
+> > So can we please do swap over network storage only first?  All these
+> > VM bits look conceptually sane to me, while the changes to the swap
+> > code to support nfs are real crackpipe material.
 >
-> > >  1. udp6InDatagrams is incremented instead of udpInErrors
-> > >  2. In userland, recvfrom() replies an error with EAGAIN.
-> > >     recvfrom() wasn't aware of such a packet before.
-> > > 
-> > > Are these changes intentional?
+> Yeah, I know how you stand on that. I just wanted to post all this
+> before going off into the woods reworking it all.
+...
+> > So please get the VM bits for swap over network blockdevices in first,
 >
-> As far as I tested, this doesn't happen with the old code even if
-> a filter is attached. However, this happen with the new code
-> without a filter and I don't see this rather when a filter is
-> attached. So, I'm afraid it's new.
+> Trouble with that part is that we don't have any sane network block
+> devices atm, NBD is utter crap, and iSCSI is too complex to be called
+> sane.
+>
+> Maybe Evgeniy's Distributed storage thingy would work, will have a look
+> at that.
 
-Sorry, I read the patch the wrong way around :)
+Andrew recently asked Evgeniy if his DST was ready for merging; to
+which Evgeniy basically said yes:
+http://lkml.org/lkml/2007/10/27/54
 
-1) is just an accounting issue.  It shouldn't be too difficult
-to fix it up.  In fact, I think udpInErrors will still be
-incremented once we detect the error.
+It would be great if DST could be merged; whereby addressing the fact
+that NBD is lacking for net-vm.  If DST were scrutinized in the
+context of net-vm it should help it get the review that is needed for
+merging.
 
-2) shouldn't be an issue because we've already solved the
-problem by making poll/select do the checksum verification
-before indiciating that the socket is readable.
-
-> > And, we're not sure how much the "optimization"'s benefit is.
-> > It is even worse when we are hand
-
-The checksum verification is costly because we have to bring
-the payload into cache.  Since filters are very rare it's
-worthwhile to postpone the checksum verification for the common
-case.
-
-Also as a general rule, we want to avoid divergent behaviour
-between IPv4 and IPv6.  So for changes like this we should
-really modify both stacks in future rather than have each
-stack do its own thing.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Mike
