@@ -1,36 +1,43 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH]: Fix networking scatterlist regressions.
-Date: Wed, 31 Oct 2007 17:06:32 +1100
-Message-ID: <200710311706.33142.rusty@rustcorp.com.au>
-References: <20071030.204002.193703502.davem@davemloft.net>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Subject: Re: [PATCH 06/33] mm: allow PF_MEMALLOC from softirq context
+Date: Wed, 31 Oct 2007 21:49:24 +1100
+Message-ID: <200710312149.25296.nickpiggin@yahoo.com.au>
+References: <20071030160401.296770000@chello.nl> <200710311451.56747.nickpiggin@yahoo.com.au> <1193827359.27652.129.camel@twins>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	jens.axboe@oracle.com
-To: David Miller <davem@davemloft.net>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:38268 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751943AbXJaGGb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2007 02:06:31 -0400
-In-Reply-To: <20071030.204002.193703502.davem@davemloft.net>
+Received: from smtp102.mail.mud.yahoo.com ([209.191.85.212]:47220 "HELO
+	smtp102.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754372AbXJaMCz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 08:02:55 -0400
+In-Reply-To: <1193827359.27652.129.camel@twins>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 31 October 2007 14:40:02 David Miller wrote:
-> I just checked the following bug fix into net-2.6
+On Wednesday 31 October 2007 21:42, Peter Zijlstra wrote:
+> On Wed, 2007-10-31 at 14:51 +1100, Nick Piggin wrote:
+> > On Wednesday 31 October 2007 03:04, Peter Zijlstra wrote:
+> > > Allow PF_MEMALLOC to be set in softirq context. When running softirqs
+> > > from a borrowed context save current->flags, ksoftirqd will have its
+> > > own task_struct.
+> >
+> > What's this for? Why would ksoftirqd pick up PF_MEMALLOC? (I guess
+> > that some networking thing must be picking it up in a subsequent patch,
+> > but I'm too lazy to look!)... Again, can you have more of a rationale in
+> > your patch headers, or ref the patch that uses it... thanks
 >
-> Rusty, have a quick look at virtio_net wrt. the changes I
-> made to skb_to_sgvec()'s behavior.  I think I might have
-> even fixed something :-)
+> Right, I knew I was forgetting something in these changelogs.
+>
+> The network stack does quite a bit of packet processing from softirq
+> context. Once you start swapping over network, some of the packets want
+> to be processed under PF_MEMALLOC.
 
-Grr, the scatterlist changes are really pissing me off.  We get ugly tricky 
-code *and* transition pain.
-
-I hate to suggest this, but I don't supposed there's a chance we can revert it 
-for 2.6.24 and do something cleaner for 2.6.25?
-
-Rusty.
+Hmm... what about processing from interrupt context?
