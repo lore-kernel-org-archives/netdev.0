@@ -1,54 +1,64 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [PATCH 0/5] Make nicer CONFIG_NET_NS=n case code
-Date: Wed, 31 Oct 2007 22:37:11 +0100
-Message-ID: <4728F587.2060008@fr.ibm.com>
-References: <4728D54F.2080208@openvz.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH]: Fix myri10ge NAPI oops & warnings
+Date: Wed, 31 Oct 2007 14:44:12 -0700
+Message-ID: <20071031144412.723910ba@freepuppy.rosehill>
+References: <4728F636.9080505@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: Andrew Gallatin <gallatin@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.uk.ibm.com ([195.212.29.138]:55865 "EHLO
-	mtagate5.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755386AbXJaVk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 17:40:28 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate5.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l9VLeG2M302968
-	for <netdev@vger.kernel.org>; Wed, 31 Oct 2007 21:40:16 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9VLeGAj2130006
-	for <netdev@vger.kernel.org>; Wed, 31 Oct 2007 21:40:16 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9VLe0mj006032
-	for <netdev@vger.kernel.org>; Wed, 31 Oct 2007 21:40:00 GMT
-In-Reply-To: <4728D54F.2080208@openvz.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:47319 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754608AbXJaVps (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 17:45:48 -0400
+In-Reply-To: <4728F636.9080505@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Emelyanov wrote:
-> Currently we have the NET_NS config option, but the only change it 
-> makes is just return ERR_PTR(-EINVAL) inside the cloning call thus
-> introducing a bunch of a dead code and making the reference counting
-> unneeded. This is not very good.
-> 
-> So clean the net_namespace.c to fix this.
-> 
-> I have sent a set of patches to Andrew to make similar thing for
-> other namespaces, which introduces the NAMESPACES option to turn
-> all the namespaces off at once (to make embedded people suffer
-> less). So after that stuff is in, there will be some more patches 
-> to tie all this together.
-> 
-> What is to be done after this set is to make the register_pernet_xxx
-> stuff smaller. Currently this code weights approximately 500 bytes, 
-> so it worths reducing it, but I haven't found a good solution yet.
+On Wed, 31 Oct 2007 17:40:06 -0400
+Andrew Gallatin <gallatin@myri.com> wrote:
 
-Did you had time to check the impact of your patch with the rest of the 
-network namespaces not yet included in mainline, belonging to Eric's git 
-tree ?
+> 
+> When testing the myri10ge driver with 2.6.24-rc1, I found
+> that the machine crashed under heavy load:
+> 
+> Unable to handle kernel paging request at 0000000000100108 RIP:
+>   [<ffffffff803cc8dd>] net_rx_action+0x11b/0x184
+> 
+> The address corresponds to the list_move_tail() in
+> netif_rx_complete():
+>                      if (unlikely(work == weight))
+>                              list_move_tail(&n->poll_list, list);
+> 
+> Eventually, I traced the crashes to calling netif_rx_complete() with
+> work_done == budget.  From looking at other drivers, it appears that
+> one should only call netif_rx_complete() when work_done < budget.
+> 
+> To fix it, I changed the test in myri10ge_poll() so that it refers
+> to to work_done rather than looking at the rx ring status.  If
+> work_done is < budget, then that implies we have no more packets to
+> process. Any races will be resolved by the NIC when the write to
+> irq_claim is made.
+> 
+> In myri10ge_clean_rx_done(), if we ever exceeded our budget, it would
+> report a work_done one larger than was acutally done.  This is because
+> the increment was done in the conditional, so work_done would be
+> incremented regardless of whether or not the test passed or failed.
+> This would lead to the WARN_ON_ONCE(work > weight); warning in
+> net_rx_action triggering.  I've moved the increment of work_done
+> inside the loop.  Note that this would only be a problem when we had
+> exceeded our budget.
+> 
+> Signed off by: Andrew Gallatin <gallatin@myri.com>
+> 
+> Andrew Gallatin Myricom Inc
+> 
+> 
 
-ps: can you cc' emails concerning the network namespace to the 
-containers mailing list too ? thx.
+Yes, this looks right.
+How could the check in netif_rx_complete be changed to catch this better?
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
