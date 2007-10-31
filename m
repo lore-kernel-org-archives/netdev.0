@@ -1,61 +1,74 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9270] New: sunhme requires lower MTU to handle
- 802.1q frames
-Date: Wed, 31 Oct 2007 15:43:01 -0700
-Message-ID: <20071031154301.3cc0fbb9.akpm@linux-foundation.org>
-References: <bug-9270-10286@http.bugzilla.kernel.org/>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: [PATCH]: Fix myri10ge NAPI oops & warnings
+Date: Wed, 31 Oct 2007 18:54:00 -0400
+Message-ID: <47290788.7070501@myri.com>
+References: <4728F636.9080505@myri.com> <20071031144412.723910ba@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, dev-null@telus.net
-To: netdev@vger.kernel.org
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:42462 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760765AbXJaWnR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 18:43:17 -0400
-In-Reply-To: <bug-9270-10286@http.bugzilla.kernel.org/>
+Received: from mailbox2.myri.com ([64.172.73.26]:2009 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752759AbXJaWyW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2007 18:54:22 -0400
+In-Reply-To: <20071031144412.723910ba@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 31 Oct 2007 14:54:06 -0700 (PDT)
-bugme-daemon@bugzilla.kernel.org wrote:
+Stephen Hemminger wrote:
+> On Wed, 31 Oct 2007 17:40:06 -0400
+> Andrew Gallatin <gallatin@myri.com> wrote:
+> 
+>> When testing the myri10ge driver with 2.6.24-rc1, I found
+>> that the machine crashed under heavy load:
+>>
+>> Unable to handle kernel paging request at 0000000000100108 RIP:
+>>   [<ffffffff803cc8dd>] net_rx_action+0x11b/0x184
+>>
+>> The address corresponds to the list_move_tail() in
+>> netif_rx_complete():
+>>                      if (unlikely(work == weight))
+>>                              list_move_tail(&n->poll_list, list);
+>>
+>> Eventually, I traced the crashes to calling netif_rx_complete() with
+>> work_done == budget.  From looking at other drivers, it appears that
+>> one should only call netif_rx_complete() when work_done < budget.
+>>
+>> To fix it, I changed the test in myri10ge_poll() so that it refers
+>> to to work_done rather than looking at the rx ring status.  If
+>> work_done is < budget, then that implies we have no more packets to
+>> process. Any races will be resolved by the NIC when the write to
+>> irq_claim is made.
+>>
+>> In myri10ge_clean_rx_done(), if we ever exceeded our budget, it would
+>> report a work_done one larger than was acutally done.  This is because
+>> the increment was done in the conditional, so work_done would be
+>> incremented regardless of whether or not the test passed or failed.
+>> This would lead to the WARN_ON_ONCE(work > weight); warning in
+>> net_rx_action triggering.  I've moved the increment of work_done
+>> inside the loop.  Note that this would only be a problem when we had
+>> exceeded our budget.
+>>
+>> Signed off by: Andrew Gallatin <gallatin@myri.com>
+>>
+>> Andrew Gallatin Myricom Inc
+>>
+>>
+> 
+> Yes, this looks right.
+> How could the check in netif_rx_complete be changed to catch this better?
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=9270
-> 
->            Summary: sunhme requires lower MTU to handle 802.1q frames
->            Product: Drivers
->            Version: 2.5
->      KernelVersion: 2.6.18-3
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: jgarzik@pobox.com
->         ReportedBy: dev-null@telus.net
-> 
-> 
-> Most recent kernel where this bug did not occur: N/A
-> Distribution: Debian 4.0r1 (Etch)
-> Hardware Environment: Sun Netra T1 105
-> Software Environment:
-> Problem Description:
-> sunhme requires lower MTU to handle 802.1q frames - even though the PCI
-> driver supported VLAN tagging, you cannot do full MTU @ 1500 because the
-> driver doesn't set the card to transfer more the extra bytes for a 802.1q
-> frame at 1500 MTU.
-> 
-> Steps to reproduce:
-> modprobe 8021q
-> modprobe sunhme
-> ifconfig eth0 up
-> vconfig set_name_type DEV_PLUS_VID_NO_PAD
-> vconfig add eth0 10
-> ifconfig eth0.10 192.l68.0.1 netmask 255.255.255.252 broadcast 192.168.0.3 up
-> # IP pkt size = 1496, Ethernet frame size = 1514
-> ping -s 1468 -c 1 -w 1 192.168.0.2
-> # IP pkt size = 1500, Ethernet frame size = 1518
-> ping -s 1472 -c 1 -w 1 192.168.0.2
+I'm sorry, but I don't really know.  I'm afraid that I am
+rather clueless about the new NAPI, and found this by
+stumbling around in the dark. Naively, it seems like some
+global option to override all napi weights (eg, to 1) would
+be helpful so that if a driver had this problem, it could
+be easily reproduced by the first packet received.  At least
+I found setting our weight to one made the bug rather
+obvious to me.
+
+Drew
+
+
