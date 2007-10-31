@@ -1,42 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH]: Fix IP1000 config dependencies.
-Date: Tue, 30 Oct 2007 20:59:05 -0700 (PDT)
-Message-ID: <20071030.205905.75927379.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: [PATCH] af_key: suppress a warning for 64k pages.
+Date: Wed, 31 Oct 2007 14:59:54 +1100
+Message-ID: <20071031145954.fe106f73.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jeff@garzik.org
+Cc: LKML <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55846
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751944AbXJaD7G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2007 23:59:06 -0400
+Received: from chilli.pcug.org.au ([203.10.76.44]:57621 "EHLO smtps.tip.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752960AbXJaD7x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Oct 2007 23:59:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On PowerPC allmodconfig build we get this:
 
-Noticed during some randconfig runs.
+net/key/af_key.c:400: warning: comparison is always false due to limited range of data type
 
-[NET]: IP1000 driver needs MII.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 ---
- drivers/net/Kconfig |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/key/af_key.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 86b8641..895936a 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -168,6 +168,7 @@ config NET_SB1000
- config IP1000
-        tristate "IP1000 Gigabit Ethernet support"
-        depends on PCI && EXPERIMENTAL
-+       select MII
-        ---help---
-          This driver supports IP1000 gigabit Ethernet cards.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 7969f8a..7da6c1a 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -397,8 +397,11 @@ static inline int verify_sec_ctx_len(void *p)
+ 	struct sadb_x_sec_ctx *sec_ctx = (struct sadb_x_sec_ctx *)p;
+ 	int len;
+ 
++	/* sadb_x_ctx_len is uint16_t */
++#if PAGE_SIZE < (1 << 16)
+ 	if (sec_ctx->sadb_x_ctx_len > PAGE_SIZE)
+ 		return -EINVAL;
++#endif
+ 
+ 	len = pfkey_sec_ctx_len(sec_ctx);
  
 -- 
-1.5.2.5
+1.5.3.4
 
