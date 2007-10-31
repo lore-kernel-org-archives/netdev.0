@@ -1,8 +1,7 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 3/4] e1000/e1000e: Move PCI-Express device IDs over to e1000e
-Date: Wed, 31 Oct 2007 15:22:05 -0700
-Message-ID: <20071031222205.17411.8456.stgit@localhost.localdomain>
-References: <20071031222152.17411.20977.stgit@localhost.localdomain>
+Subject: [PATCH 1/4] e1000e: alternate MAC address support
+Date: Wed, 31 Oct 2007 15:21:52 -0700
+Message-ID: <20071031222152.17411.20977.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -12,170 +11,121 @@ To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:29287 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752082AbXJaWZJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2007 18:25:09 -0400
-In-Reply-To: <20071031222152.17411.20977.stgit@localhost.localdomain>
+	id S1753886AbXJaWZH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2007 18:25:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-e1000e will from now on support the PCI-Express adapters that
-previously were supported by e1000. This support means better
-performance and easier debugging from now on for both the old
-PCI-X/PCI hardware and PCI-Express adapters.
+From: Bill Hayes <bill.hayes@hp.com>
 
-This patch also moves 3 recently merged device IDs over to e1000e
-that are identical to quad-port versions of already existing
-dual port versions. With this last bit every former e1000 pci-e
-device should work now with e1000e.
+Port alternate MAC address support from the sourceforge
+e1000 driver to the upstream e1000e driver.
 
-Here is a brief list of which gigabit driver to use with which
-adapter:
-
-  e1000:
-	82540 -> 82547
-
-  e1000e:
-	82571 -> 82573
-	ich8, ich9       (82562 or 82566)
-	es2lan           (80003eslan)
-
-  igb: (not yet merged, only available from e1000.sf.net)
-	82575
-
+Signed-off-by: Bill Hayes <bill.hayes@hp.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000/e1000_main.c |   27 ---------------------------
- drivers/net/e1000e/82571.c     |    6 ++++++
- drivers/net/e1000e/hw.h        |    3 +++
- drivers/net/e1000e/netdev.c    |    9 +++------
- 4 files changed, 12 insertions(+), 33 deletions(-)
+ drivers/net/e1000e/82571.c   |    4 ++++
+ drivers/net/e1000e/defines.h |    1 +
+ drivers/net/e1000e/hw.h      |    1 +
+ drivers/net/e1000e/lib.c     |   39 +++++++++++++++++++++++++++++++++++++--
+ 4 files changed, 43 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 72deff0..d1b88e4 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -73,14 +73,6 @@ static struct pci_device_id e1000_pci_tbl[] = {
- 	INTEL_E1000_ETHERNET_DEVICE(0x1026),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1027),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1028),
--	INTEL_E1000_ETHERNET_DEVICE(0x1049),
--	INTEL_E1000_ETHERNET_DEVICE(0x104A),
--	INTEL_E1000_ETHERNET_DEVICE(0x104B),
--	INTEL_E1000_ETHERNET_DEVICE(0x104C),
--	INTEL_E1000_ETHERNET_DEVICE(0x104D),
--	INTEL_E1000_ETHERNET_DEVICE(0x105E),
--	INTEL_E1000_ETHERNET_DEVICE(0x105F),
--	INTEL_E1000_ETHERNET_DEVICE(0x1060),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1075),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1076),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1077),
-@@ -89,28 +81,9 @@ static struct pci_device_id e1000_pci_tbl[] = {
- 	INTEL_E1000_ETHERNET_DEVICE(0x107A),
- 	INTEL_E1000_ETHERNET_DEVICE(0x107B),
- 	INTEL_E1000_ETHERNET_DEVICE(0x107C),
--	INTEL_E1000_ETHERNET_DEVICE(0x107D),
--	INTEL_E1000_ETHERNET_DEVICE(0x107E),
--	INTEL_E1000_ETHERNET_DEVICE(0x107F),
- 	INTEL_E1000_ETHERNET_DEVICE(0x108A),
--	INTEL_E1000_ETHERNET_DEVICE(0x108B),
--	INTEL_E1000_ETHERNET_DEVICE(0x108C),
--	INTEL_E1000_ETHERNET_DEVICE(0x1096),
--	INTEL_E1000_ETHERNET_DEVICE(0x1098),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1099),
--	INTEL_E1000_ETHERNET_DEVICE(0x109A),
--	INTEL_E1000_ETHERNET_DEVICE(0x10A4),
--	INTEL_E1000_ETHERNET_DEVICE(0x10A5),
- 	INTEL_E1000_ETHERNET_DEVICE(0x10B5),
--	INTEL_E1000_ETHERNET_DEVICE(0x10B9),
--	INTEL_E1000_ETHERNET_DEVICE(0x10BA),
--	INTEL_E1000_ETHERNET_DEVICE(0x10BB),
--	INTEL_E1000_ETHERNET_DEVICE(0x10BC),
--	INTEL_E1000_ETHERNET_DEVICE(0x10C4),
--	INTEL_E1000_ETHERNET_DEVICE(0x10C5),
--	INTEL_E1000_ETHERNET_DEVICE(0x10D5),
--	INTEL_E1000_ETHERNET_DEVICE(0x10D9),
--	INTEL_E1000_ETHERNET_DEVICE(0x10DA),
- 	/* required last entry */
- 	{0,}
- };
 diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index 45f5ee2..3beace5 100644
+index 14141a5..b6401ab 100644
 --- a/drivers/net/e1000e/82571.c
 +++ b/drivers/net/e1000e/82571.c
-@@ -194,6 +194,8 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
- 		break;
- 	case E1000_DEV_ID_82571EB_SERDES:
- 	case E1000_DEV_ID_82572EI_SERDES:
-+	case E1000_DEV_ID_82571EB_SERDES_DUAL:
-+	case E1000_DEV_ID_82571EB_SERDES_QUAD:
- 		hw->media_type = e1000_media_type_internal_serdes;
- 		break;
- 	default:
-@@ -260,6 +262,7 @@ static s32 e1000_get_invariants_82571(struct e1000_adapter *adapter)
- 	case E1000_DEV_ID_82571EB_QUAD_COPPER:
- 	case E1000_DEV_ID_82571EB_QUAD_FIBER:
- 	case E1000_DEV_ID_82571EB_QUAD_COPPER_LP:
-+	case E1000_DEV_ID_82571PT_QUAD_COPPER:
- 		adapter->flags |= FLAG_IS_QUAD_PORT;
- 		/* mark the first port */
- 		if (global_quad_port_a == 0)
-@@ -285,6 +288,9 @@ static s32 e1000_get_invariants_82571(struct e1000_adapter *adapter)
- 		if (adapter->flags & FLAG_IS_QUAD_PORT &&
- 		    (!(adapter->flags & FLAG_IS_QUAD_PORT_A)))
- 			adapter->flags &= ~FLAG_HAS_WOL;
-+		/* Does not support WoL on any port */
-+		if (pdev->device == E1000_DEV_ID_82571EB_SERDES_QUAD)
-+			adapter->flags &= ~FLAG_HAS_WOL;
- 		break;
+@@ -752,6 +752,10 @@ static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
+ 	ew32(IMC, 0xffffffff);
+ 	icr = er32(ICR);
  
- 	case e1000_82573:
++	if (hw->mac.type == e1000_82571 &&
++		hw->dev_spec.e82571.alt_mac_addr_is_present)
++			e1000e_set_laa_state_82571(hw, true);
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
+index b32ed45..f2175ea 100644
+--- a/drivers/net/e1000e/defines.h
++++ b/drivers/net/e1000e/defines.h
+@@ -557,6 +557,7 @@
+ #define NVM_INIT_3GIO_3            0x001A
+ #define NVM_INIT_CONTROL3_PORT_A   0x0024
+ #define NVM_CFG                    0x0012
++#define NVM_ALT_MAC_ADDR_PTR       0x0037
+ #define NVM_CHECKSUM_REG           0x003F
+ 
+ #define E1000_NVM_CFG_DONE_PORT_0  0x40000 /* MNG config cycle done */
 diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index 1bb2052..71f93ce 100644
+index 6451578..1bb2052 100644
 --- a/drivers/net/e1000e/hw.h
 +++ b/drivers/net/e1000e/hw.h
-@@ -303,8 +303,11 @@ enum e1e_registers {
- #define E1000_DEV_ID_82571EB_FIBER		0x105F
- #define E1000_DEV_ID_82571EB_SERDES		0x1060
- #define E1000_DEV_ID_82571EB_QUAD_COPPER	0x10A4
-+#define E1000_DEV_ID_82571PT_QUAD_COPPER	0x10D5
- #define E1000_DEV_ID_82571EB_QUAD_FIBER		0x10A5
- #define E1000_DEV_ID_82571EB_QUAD_COPPER_LP	0x10BC
-+#define E1000_DEV_ID_82571EB_SERDES_DUAL	0x10D9
-+#define E1000_DEV_ID_82571EB_SERDES_QUAD	0x10DA
- #define E1000_DEV_ID_82572EI_COPPER		0x107D
- #define E1000_DEV_ID_82572EI_FIBER		0x107E
- #define E1000_DEV_ID_82572EI_SERDES		0x107F
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index ec427e2..a271112 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -4088,16 +4088,15 @@ static struct pci_error_handlers e1000_err_handler = {
+@@ -816,6 +816,7 @@ struct e1000_bus_info {
+ 
+ struct e1000_dev_spec_82571 {
+ 	bool laa_is_present;
++	bool alt_mac_addr_is_present;
  };
  
- static struct pci_device_id e1000_pci_tbl[] = {
--	/*
--	 * Support for 82571/2/3, es2lan and ich8 will be phased in
--	 * stepwise.
--
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_COPPER), board_82571 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_FIBER), board_82571 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_QUAD_COPPER), board_82571 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_QUAD_COPPER_LP), board_82571 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_QUAD_FIBER), board_82571 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_SERDES), board_82571 },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_SERDES_DUAL), board_82571 },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_SERDES_QUAD), board_82571 },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571PT_QUAD_COPPER), board_82571 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82572EI), board_82572 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82572EI_COPPER), board_82572 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82572EI_FIBER), board_82572 },
-@@ -4120,8 +4119,6 @@ static struct pci_device_id e1000_pci_tbl[] = {
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH8_IGP_C), board_ich8lan },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH8_IGP_M), board_ich8lan },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH8_IGP_M_AMT), board_ich8lan },
--	*/
--
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH9_IFE), board_ich9lan },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH9_IFE_G), board_ich9lan },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH9_IFE_GT), board_ich9lan },
+ struct e1000_shadow_ram {
+diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
+index 0bdeca3..16f35fa 100644
+--- a/drivers/net/e1000e/lib.c
++++ b/drivers/net/e1000e/lib.c
+@@ -2059,9 +2059,44 @@ s32 e1000e_read_mac_addr(struct e1000_hw *hw)
+ {
+ 	s32 ret_val;
+ 	u16 offset, nvm_data, i;
++	u16 mac_addr_offset = 0;
++
++	if (hw->mac.type == e1000_82571) {
++		/* Check for an alternate MAC address.  An alternate MAC
++		 * address can be setup by pre-boot software and must be
++		 * treated like a permanent address and must override the
++		 * actual permanent MAC address. */
++		ret_val = e1000_read_nvm(hw, NVM_ALT_MAC_ADDR_PTR, 1,
++						&mac_addr_offset);
++		if (ret_val) {
++			hw_dbg(hw, "NVM Read Error\n");
++			return ret_val;
++		}
++		if (mac_addr_offset == 0xFFFF)
++			mac_addr_offset = 0;
++
++		if (mac_addr_offset) {
++			if (hw->bus.func == E1000_FUNC_1)
++				mac_addr_offset += ETH_ALEN/sizeof(u16);
++
++			/* make sure we have a valid mac address here
++			 * before using it */
++			ret_val = e1000_read_nvm(hw, mac_addr_offset, 1,
++						 &nvm_data);
++			if (ret_val) {
++				hw_dbg(hw, "NVM Read Error\n");
++				return ret_val;
++			}
++			if (nvm_data & 0x0001)
++				mac_addr_offset = 0;
++		}
++
++		if (mac_addr_offset)
++			hw->dev_spec.e82571.alt_mac_addr_is_present = 1;
++	}
+ 
+ 	for (i = 0; i < ETH_ALEN; i += 2) {
+-		offset = i >> 1;
++		offset = mac_addr_offset + (i >> 1);
+ 		ret_val = e1000_read_nvm(hw, offset, 1, &nvm_data);
+ 		if (ret_val) {
+ 			hw_dbg(hw, "NVM Read Error\n");
+@@ -2072,7 +2107,7 @@ s32 e1000e_read_mac_addr(struct e1000_hw *hw)
+ 	}
+ 
+ 	/* Flip last bit of mac address if we're on second port */
+-	if (hw->bus.func == E1000_FUNC_1)
++	if (!mac_addr_offset && hw->bus.func == E1000_FUNC_1)
+ 		hw->mac.perm_addr[5] ^= 1;
+ 
+ 	for (i = 0; i < ETH_ALEN; i++)
