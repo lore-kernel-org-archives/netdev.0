@@ -1,52 +1,58 @@
-From: "Arnaldo Carvalho de Melo" <acme@redhat.com>
-Subject: Re: [PATCH 00/33] Swap over NFS -v14
-Date: Wed, 31 Oct 2007 11:18:55 -0200
-Message-ID: <20071031131855.GE3962@ghostprotocols.net>
-References: <20071030160401.296770000@chello.nl> <200710311426.33223.nickpiggin@yahoo.com.au> <1193830033.27652.159.camel@twins> <47287220.8050804@garzik.org> <1193835413.27652.205.camel@twins>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH 0/8] Cleanup/fix the sk_alloc() call
+Date: Wed, 31 Oct 2007 17:32:20 +0300
+Message-ID: <472891F4.3050304@openvz.org>
+References: <472885B1.7090103@openvz.org> <20071031131505.GD3962@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Nick Piggin <nickpiggin@yahoo.com.au>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758136AbXJaNUW@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1193835413.27652.205.camel@twins>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Arnaldo Carvalho de Melo <acme@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sacred.ru ([62.205.161.221]:53525 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752898AbXJaNaJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2007 09:30:09 -0400
+In-Reply-To: <20071031131505.GD3962@ghostprotocols.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Wed, Oct 31, 2007 at 01:56:53PM +0100, Peter Zijlstra escreveu:
-> On Wed, 2007-10-31 at 08:16 -0400, Jeff Garzik wrote:
-> > Thoughts:
-> > 
-> > 1) I absolutely agree that NFS is far more prominent and useful than any 
-> > network block device, at the present time.
-> > 
-> > 
-> > 2) Nonetheless, swap over NFS is a pretty rare case.  I view this work 
-> > as interesting, but I really don't see a huge need, for swapping over 
-> > NBD or swapping over NFS.  I tend to think swapping to a remote resource 
-> > starts to approach "migration" rather than merely swapping.  Yes, we can 
-> > do it...  but given the lack of burning need one must examine the price.
+Arnaldo Carvalho de Melo wrote:
+> Em Wed, Oct 31, 2007 at 04:40:01PM +0300, Pavel Emelyanov escreveu:
+>> The sk_alloc() function suffers from two problems:
+>> 1 (major). The error path is not clean in it - if the security
+>>    call fails, the net namespace is not put, if the try_module_get
+>>    fails  additionally the security context is not released;
+>> 2 (minor). The zero_it argument is misleading, as it doesn't just 
+>>    zeroes it, but performs some extra setup. Besides this argument 
+>>    is used only in one place - in the sk_clone().
+>>
+>> So this set fixes these problems and performs some additional
+>> cleanup.
+>>
+>> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 > 
-> There is a large corporate demand for this, which is why I'm doing this.
+> for the series:
 > 
-> The typical usage scenarios are:
->  - cluster/blades, where having local disks is a cost issue (maintenance
->    of failures, heat, etc)
->  - virtualisation, where dumping the storage on a networked storage unit
->    makes for trivial migration and what not..
-> 
-> But please, people who want this (I'm sure some of you are reading) do
-> speak up. I'm just the motivated corporate drone implementing the
-> feature :-)
+> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-Keep it up, Dave already mentioned iSCSI, there is AoE, there are RT
-sockets, you name it, the networking bits we've talked about several
-times, they look OK, so I'm sorry for not going over all of them in
-detail, but you have my support neverthless.
+Thanks a lot :)
 
-- Arnaldo
+> Haven't tested, but it looks straightforward and conceptually sound,
+> thanks for improving the sk_prot infrastructure! :-)
+
+> Now we have just to make all the other protocols fill in the missing
+> sk->sk_prot-> methods (converting what is there now in socket->ops) so
+> that we can kill socket->ops and eliminate one level of indirection :-P
+
+Do I get your idea right, that having the 'struct sock->ops' field is not
+that good and the long-term TODO is to remove it (or smth similar)? Can you, 
+please, pour some more light on this, because I'm not yet very common with 
+the networking code, but I'm trying to learn it better by fixing obvious 
+bugs and cleaning the code.
+
+> - Arnaldo
+
+Thanks,
+Pavel
