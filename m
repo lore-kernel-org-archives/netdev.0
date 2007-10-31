@@ -1,56 +1,57 @@
-From: Luis Carlos Cobo <luisca-W/OLz77bvjtBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 1/7] o80211s: Export dev_seq_{start,stop,next} symbols.
-Date: Mon, 29 Oct 2007 14:44:01 -0700
-Message-ID: <4727ddda.27ed720a.2444.6daf@mx.google.com>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: dev_ifname32() fails on 32->64bit calls in copy_in_user().
+Date: Wed, 31 Oct 2007 13:35:24 +1100
+Message-ID: <1193798124.9928.91.camel@pasglop>
+References: <20071031003850.GE7517@tasint.org>
+Reply-To: benh@kernel.crashing.org
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <Linux-Kernel@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Joel Becker <Joel.Becker@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:53003 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751928AbXJaCfm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Oct 2007 22:35:42 -0400
+In-Reply-To: <20071031003850.GE7517@tasint.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is the first patch of a series starting mesh wireless support (802.11s) for
-wireless network cards with drivers using the mac80211 stack.
+Bug is in the new dev_ifname32:
 
-It is still in an early stage of development but some functionality (static
-forwarding) is quite solid and we would like the code to be integrated in the
-kernel the sooner the better. Please point out any section of the code that
-could pose a problem towards integration. The patches apply against current
-wireless-2.6/everything.
+	uifr = compat_alloc_user_space(sizeof(struct ifreq));
+	if (copy_in_user(uifr, compat_ptr(arg), sizeof(struct ifreq32)));
+		return -EFAULT;
 
-For more information, please visit: http://o11s.org/devel
+There's a stray ";" after the if statement, that was obviously not
+tested :-)
 
-This patches are being sent just to linux-wireless mailing list. I'm just
-sending this one patch also to netdev since it is not wireless specific.
+This fixes it here (tested):
+----------------------------------------------------------------------------
+[PATCH] Fix new dev_ifname32 returning -EFAULT
 
-Signed-off-by: Luis Carlos Cobo <luisca-W/OLz77bvjtBDgjK7y7TUQ@public.gmane.org>
+A stray semicolon slipped in the patch that updated dev_ifname32 to
+not be inline, causing it to always return -EFAULT. This fixes it.
+
+Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 ---
- net/core/dev.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 8726589..9c005f2 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2348,6 +2348,7 @@ void *dev_seq_start(struct seq_file *seq, loff_t *pos)
+Index: linux-work/fs/compat_ioctl.c
+===================================================================
+--- linux-work.orig/fs/compat_ioctl.c	2007-10-31 13:30:42.000000000 +1100
++++ linux-work/fs/compat_ioctl.c	2007-10-31 13:30:46.000000000 +1100
+@@ -322,7 +322,7 @@ static int dev_ifname32(unsigned int fd,
+ 	int err;
  
- 	return NULL;
- }
-+EXPORT_SYMBOL_GPL(dev_seq_start);
+ 	uifr = compat_alloc_user_space(sizeof(struct ifreq));
+-	if (copy_in_user(uifr, compat_ptr(arg), sizeof(struct ifreq32)));
++	if (copy_in_user(uifr, compat_ptr(arg), sizeof(struct ifreq32)))
+ 		return -EFAULT;
  
- void *dev_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- {
-@@ -2356,11 +2357,13 @@ void *dev_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- 	return v == SEQ_START_TOKEN ?
- 		first_net_device(net) : next_net_device((struct net_device *)v);
- }
-+EXPORT_SYMBOL_GPL(dev_seq_next);
- 
- void dev_seq_stop(struct seq_file *seq, void *v)
- {
- 	read_unlock(&dev_base_lock);
- }
-+EXPORT_SYMBOL_GPL(dev_seq_stop);
- 
- static void dev_seq_printf_stats(struct seq_file *seq, struct net_device *dev)
- {
--- 
-1.5.2.5
+ 	err = sys_ioctl(fd, SIOCGIFNAME, (unsigned long)uifr);
+
+
