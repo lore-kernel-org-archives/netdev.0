@@ -1,31 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_key: suppress a warning for 64k pages.
-Date: Tue, 30 Oct 2007 23:58:04 -0700 (PDT)
-Message-ID: <20071030.235804.99443518.davem@davemloft.net>
-References: <20071031153422.44f864e8.sfr@canb.auug.org.au>
-	<20071030.214219.256397507.davem@davemloft.net>
-	<20071031162452.fcea4431.sfr@canb.auug.org.au>
+From: Sergej Stepanov <Sergej.Stepanov@ids.de>
+Subject: Re: [PATCH v2] using mii-bitbang on different processor ports
+Date: Wed, 31 Oct 2007 08:30:58 +0100
+Message-ID: <1193815858.2678.2.camel@p60635-ste.ids.de>
+References: <1193767812.6244.46.camel@p60635-ste.ids.de>
+	 <472776AE.2060009@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: sfr@canb.auug.org.au
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46083
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752709AbXJaG6F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 02:58:05 -0400
-In-Reply-To: <20071031162452.fcea4431.sfr@canb.auug.org.au>
+Received: from ares.ids.de ([213.144.29.131]:48736 "EHLO ares.ids.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752709AbXJaHbE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 03:31:04 -0400
+Received: from ares.ids.de (ares.ids.de [127.0.0.1])
+	by ares.ids.de (PGP Universal) with ESMTP id 0BCFFF49184
+	for <netdev@vger.kernel.org>; Wed, 31 Oct 2007 08:30:59 +0100 (CET)
+In-Reply-To: <472776AE.2060009@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 31 Oct 2007 16:24:52 +1100
+Am Dienstag, den 30.10.2007, 13:23 -0500 schrieb Scott Wood:
+> Sergej Stepanov wrote:
+> > +	if( !of_address_to_resource(np, 1, &res[1])) {
+>=20
+> The spacing is still wrong.
+>=20
+> > -	iounmap(bitbang->dir);
+> > +	if ( bitbang->mdio.dir !=3D bitbang->mdc.dir)
+> > +		iounmap(bitbang->mdio.dir);
+> > +	iounmap(bitbang->mdc.dir);
+>=20
+> And here.
+>=20
+> -Scott
+Oh, sorry.
+--=20
+Sergej I. Stepanov
+E-PA
+IDS GmbH
+Nobelstr. 18, Zim. 2.1.05
+D-76275 Ettlingen
+T +49 (0) 72 43/2 18-615
+=46 +49 (0) 72 43/2 18-400
+Email: <Sergej.Stepanov@ids.de>
 
-> On PowerPC allmodconfig build we get this:
-> 
-> net/key/af_key.c:400: warning: comparison is always false due to limited range of data type
-> 
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+<http://www.ids.de>
+Gesch=C3=A4ftsf=C3=BChrer: Norbert Wagner, Friedrich Abri=C3=9F=20
+Sitz der Gesellschaft: Ettlingen=20
+Amtsgericht Mannheim HRB 362503
 
-Applied, thanks Stephen.
