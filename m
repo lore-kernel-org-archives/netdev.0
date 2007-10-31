@@ -1,64 +1,58 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 09/33] mm: system wide ALLOC_NO_WATERMARK
-Date: Wed, 31 Oct 2007 11:45:55 +0100
-Message-ID: <1193827555.27652.133.camel@twins>
-References: <20071030160401.296770000@chello.nl>
-	 <20071030160912.283002000@chello.nl>
-	 <200710311452.36239.nickpiggin@yahoo.com.au>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 00/33] Swap over NFS -v14
+Date: Wed, 31 Oct 2007 08:16:32 -0400
+Message-ID: <47287220.8050804@garzik.org>
+References: <20071030160401.296770000@chello.nl>	 <200710311426.33223.nickpiggin@yahoo.com.au> <1193830033.27652.159.camel@twins>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-e5tlmua4wL578c6z+yiG"
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Nick Piggin <nickpiggin@yahoo.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:7595 "EHLO
-	viefep14-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751015AbXJaKp7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 06:45:59 -0400
-In-Reply-To: <200710311452.36239.nickpiggin@yahoo.com.au>
-Sender: netdev-owner@vger.kernel.org
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758433AbXJaMQx@vger.kernel.org>
+In-Reply-To: <1193830033.27652.159.camel@twins>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Thoughts:
 
---=-e5tlmua4wL578c6z+yiG
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2007-10-31 at 14:52 +1100, Nick Piggin wrote:
-> On Wednesday 31 October 2007 03:04, Peter Zijlstra wrote:
-> > Change ALLOC_NO_WATERMARK page allocation such that the reserves are sy=
-stem
-> > wide - which they are per setup_per_zone_pages_min(), when we scrape th=
-e
-> > barrel, do it properly.
-> >
->=20
-> IIRC it's actually not too uncommon to have allocations coming here via
-> page reclaim. It's not exactly clear that you want to break mempolicies
-> at this point.
-
-Hmm, the way I see it is that mempolicies are mainly for user-space
-allocations, reserve allocations are always kernel allocations. These
-already break mempolicies - for example hardirq context allocations.
-
-Also, as it stands, the reserve is spread out evenly over all
-zones/nodes (excluding highmem), so by restricting ourselves to a
-subset, we don't have access to the full reserve.
+1) I absolutely agree that NFS is far more prominent and useful than any 
+network block device, at the present time.
 
 
---=-e5tlmua4wL578c6z+yiG
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+2) Nonetheless, swap over NFS is a pretty rare case.  I view this work 
+as interesting, but I really don't see a huge need, for swapping over 
+NBD or swapping over NFS.  I tend to think swapping to a remote resource 
+starts to approach "migration" rather than merely swapping.  Yes, we can 
+do it...  but given the lack of burning need one must examine the price.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
 
-iD8DBQBHKFzjXA2jU0ANEf4RAoU0AJ0eZtew/3cO5/H6pCLyHNnXKc7hhgCgi54o
-PtDuuGj/tQ4uMH0Vvthjoc4=
-=Y12J
------END PGP SIGNATURE-----
+3) You note
+> Swap over network has the problem that the network subsystem does not use fixed
+> sized allocations, but heavily relies on kmalloc(). This makes mempools
+> unusable.
 
---=-e5tlmua4wL578c6z+yiG--
+True, but IMO there are mitigating factors that should be researched and 
+taken into account:
 
+a) To give you some net driver background/history, most mainstream net 
+drivers were coded to allocate RX skbs of size 1538, under the theory 
+that they would all be allocating out of the same underlying slab cache. 
+  It would not be difficult to update a great many of the [non-jumbo] 
+cases to create a fixed size allocation pattern.
+
+b) Spare-time experiments and anecdotal evidence points to RX and TX skb 
+recycling as a potentially valuable area of research.  If you are able 
+to do something like that, then memory suddenly becomes a lot more 
+bounded and predictable.
+
+
+So my gut feeling is that taking a hard look at how net drivers function 
+in the field should give you a lot of good ideas that approach the 
+shared goal of making network memory allocations more predictable and 
+bounded.
+
+	Jeff
