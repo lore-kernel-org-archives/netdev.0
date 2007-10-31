@@ -1,58 +1,29 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 00/33] Swap over NFS -v14
-Date: Wed, 31 Oct 2007 08:16:32 -0400
-Message-ID: <47287220.8050804@garzik.org>
-References: <20071030160401.296770000@chello.nl>	 <200710311426.33223.nickpiggin@yahoo.com.au> <1193830033.27652.159.camel@twins>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][BNX2X] .h files rewrite
+Date: Wed, 31 Oct 2007 03:53:32 -0700 (PDT)
+Message-ID: <20071031.035332.80338450.davem@davemloft.net>
+References: <1193602875.4836.28.camel@eliezer>
+	<20071029.013931.203090879.davem@davemloft.net>
+	<1193825688.4836.134.camel@eliezer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Nick Piggin <nickpiggin@yahoo.com.au>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758433AbXJaMQx@vger.kernel.org>
-In-Reply-To: <1193830033.27652.159.camel@twins>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: mchan@broadcom.com, jeff@garzik.org, netdev@vger.kernel.org,
+	masbock@us.ibm.com, eilong@broadcom.com
+To: eliezert@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40202
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754178AbXJaKxd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 06:53:33 -0400
+In-Reply-To: <1193825688.4836.134.camel@eliezer>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thoughts:
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Date: Wed, 31 Oct 2007 12:14:47 +0200
 
-1) I absolutely agree that NFS is far more prominent and useful than any 
-network block device, at the present time.
+> I feel bad about adding several hundred lines of defines that are only
+> used once, and do not add any real information about the values.
 
-
-2) Nonetheless, swap over NFS is a pretty rare case.  I view this work 
-as interesting, but I really don't see a huge need, for swapping over 
-NBD or swapping over NFS.  I tend to think swapping to a remote resource 
-starts to approach "migration" rather than merely swapping.  Yes, we can 
-do it...  but given the lack of burning need one must examine the price.
-
-
-3) You note
-> Swap over network has the problem that the network subsystem does not use fixed
-> sized allocations, but heavily relies on kmalloc(). This makes mempools
-> unusable.
-
-True, but IMO there are mitigating factors that should be researched and 
-taken into account:
-
-a) To give you some net driver background/history, most mainstream net 
-drivers were coded to allocate RX skbs of size 1538, under the theory 
-that they would all be allocating out of the same underlying slab cache. 
-  It would not be difficult to update a great many of the [non-jumbo] 
-cases to create a fixed size allocation pattern.
-
-b) Spare-time experiments and anecdotal evidence points to RX and TX skb 
-recycling as a potentially valuable area of research.  If you are able 
-to do something like that, then memory suddenly becomes a lot more 
-bounded and predictable.
-
-
-So my gut feeling is that taking a hard look at how net drivers function 
-in the field should give you a lot of good ideas that approach the 
-shared goal of making network memory allocations more predictable and 
-bounded.
-
-	Jeff
+Ok, let's skip this for now.
