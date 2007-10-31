@@ -1,61 +1,72 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] - e1000_ethtool.c - convert macros to functions
-Date: Wed, 31 Oct 2007 16:15:56 -0700
-Message-ID: <1193872556.11020.34.camel@localhost>
-References: <1193865488.11020.11.camel@localhost>
-	 <4728F3E1.1040908@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/5] Make nicer CONFIG_NET_NS=n case code
+Date: Wed, 31 Oct 2007 16:31:46 -0700 (PDT)
+Message-ID: <20071031.163146.92277507.davem@davemloft.net>
+References: <20071031194924.2436843e.dada1@cosmosbay.com>
+	<m1hck7hrd1.fsf@ebiederm.dsl.xmission.com>
+	<4729047B.3080003@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, e1000-devel@lists.sourceforge.net,
-	Jeff Garzik <jgarzik@pobox.com>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ebiederm@xmission.com, xemul@openvz.org, netdev@vger.kernel.org,
+	devel@openvz.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:3439 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752946AbXJaXQC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2007 19:16:02 -0400
-In-Reply-To: <4728F3E1.1040908@intel.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40464
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753450AbXJaXbr convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2007 19:31:47 -0400
+In-Reply-To: <4729047B.3080003@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-10-31 at 14:30 -0700, Kok, Auke wrote:
-> Joe Perches wrote:
-> that's not a bad idea, however see below:
-> can't we keep the macro here (and just make it call the function instead of
-> expanding). the resulting code is much more lenghty and contains all these logic
-> traps that the previous code didn't have.
-> just have the macro expand to `if (reg_pattern_test(...)) return 1)` and you don't
-> need to change any of the calling lines.
+=46rom: Eric Dumazet <dada1@cosmosbay.com>
+Date: Wed, 31 Oct 2007 23:40:59 +0100
 
-You could define something like:
+> Eric W. Biederman a =E9crit :
+> > Eric Dumazet <dada1@cosmosbay.com> writes:
+> >=20
+> >=20
+> >> Definitly wanted here. Thank you.
+> >> One more refcounting on each socket creation/deletion was expensiv=
+e.
+> >=20
+> > Really?  Have you actually measured that?  If the overhead is
+> > measurable and expensive we may want to look at per cpu counters or
+> > something like that.  So far I don't have any numbers that say any
+> > of the network namespace work inherently has any overhead.
+>=20
+> It seems that on some old opterons (two 246 for example),
+> "if (atomic_dec_and_test(&net->count))" is rather expensive yes :(
 
-#define REG_PATTERN_TEST(reg, mask, write) \
-	if (reg_pattern_test(adapter, data, \
-			     E1000_REG(&adapter->hw, reg), \
-			     mask, write)) \
-		return 1;
+P4 chips are generally very poor at mispredicted branches and
+atomics.  So every atomic you remove from the socket paths
+gives a noticable improvement on them.
 
-But isn't the macro with an embedded return a bit too obfuscating?
+Network device reference counting is such a stupid problem.  There has
+to be a way to get rid of it on the packet side.
 
-> > +#define E1000_READ_REG_ARRAY(a, reg, offset)		\
-> > +	(readl((a)->hw_addr +				\
-> > +	       (((a)->mac_type >= e1000_82543)		\
-> > +		? E1000_##reg : E1000_82542_##reg) +	\
-> > +	       ((offset) << 2)))
-> 
-> did you have to change these macro's ?
+I think we could get rid of all of the device refcounting from packets
+if we:
 
-No.  Your choice to keep/remove.
-I did want to use the E1000_REG or a new E1000_REG_ADDR macro.
+1) Formalize "SKB roots".  This is every place a packet
+   could sit in the transmit path.
 
-> also, I'm a bit inclined to prefer a patch for e1000e for now as we're about to
-> move the pci-express hardware over, but we can certainly merge something like this
-> in e1000 after the move as well.
+2) On device unregister:
 
-Simple enough.
+	a) wait for RCU quiesce period
+	b) stop_machine_run(skb_walk_roots, netdev, NR_CPUS);
 
-When is e1000e scheduled to be part of defconfig?
+   skb_walk_roots is a function that walks all the places in
+   #1, rewriting the packet to point to loopback or whatever
+   instead of 'netdev' which we are trying to unregister.
 
-cheers,  Joe
+This gives us two things.
 
+=46irst, we no longer would need to rectount net devices
+for packet references.
+
+Second, we have a debugging framework for all those dreaded SKB leaks
+that keep devices from being unloadable.  As we walk the roots
+we'll see where all packets referencing a device actually are.
