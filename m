@@ -1,64 +1,62 @@
-From: Byron Stanoszek <bstanoszek@comtime.com>
-Subject: Re: [PATCH 00/33] Swap over NFS -v14
-Date: Wed, 31 Oct 2007 10:03:07 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0710310952280.2205@winds.org>
-References: <20071030160401.296770000@chello.nl> <200710311426.33223.nickpiggin@yahoo.com.au>
- <20071030.213753.126064697.davem@davemloft.net> <200710311504.24016.nickpiggin@yahoo.com.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [UDP6]: Restore sk_filter optimisation
+Date: Wed, 31 Oct 2007 22:42:57 +0800
+Message-ID: <20071031144256.GA28137@gondor.apana.org.au>
+References: <20070306012010.GA25763@gondor.apana.org.au> <20071029153320.d2c00f62.mitch@linux.vnet.ibm.com> <20071029125328.GA5453@gondor.apana.org.au> <20071031230545.9be711d4.mitch@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: David Miller <davem@davemloft.net>, a.p.zijlstra@chello.nl,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Nick Piggin <nickpiggin@yahoo.com.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from winds.org ([68.75.195.9]:44680 "EHLO winds.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754075AbXJaOdp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2007 10:33:45 -0400
-In-Reply-To: <200710311504.24016.nickpiggin@yahoo.com.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:1465 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755129AbXJaOnb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 10:43:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20071031230545.9be711d4.mitch@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 31 Oct 2007, Nick Piggin wrote:
-
-> On Wednesday 31 October 2007 15:37, David Miller wrote:
->> From: Nick Piggin <nickpiggin@yahoo.com.au>
->> Date: Wed, 31 Oct 2007 14:26:32 +1100
->>
->>> Is it really worth all the added complexity of making swap
->>> over NFS files work, given that you could use a network block
->>> device instead?
->>
->> Don't be misled.  Swapping over NFS is just a scarecrow for the
->> seemingly real impetus behind these changes which is network storage
->> stuff like iSCSI.
+On Wed, Oct 31, 2007 at 11:05:45PM +0900, Mitsuru Chinen wrote:
 >
-> Oh, I'm OK with the network reserves stuff (not the actual patch,
-> which I'm not really qualified to review, but at least the idea
-> of it...).
+> > >  1. udp6InDatagrams is incremented instead of udpInErrors
+> > >  2. In userland, recvfrom() replies an error with EAGAIN.
+> > >     recvfrom() wasn't aware of such a packet before.
+> > > 
+> > > Are these changes intentional?
 >
-> And also I'm not as such against the idea of swap over network.
->
-> However, specifically the change to make swapfiles work through
-> the filesystem layer (ATM it goes straight to the block layer,
-> modulo some initialisation stuff which uses block filesystem-
-> specific calls).
->
-> I mean, I assume that anybody trying to swap over network *today*
-> has to be using a network block device anyway, so the idea of
-> just being able to transparently improve that case seems better
-> than adding new complexities for seemingly not much gain.
+> As far as I tested, this doesn't happen with the old code even if
+> a filter is attached. However, this happen with the new code
+> without a filter and I don't see this rather when a filter is
+> attached. So, I'm afraid it's new.
 
-I have some embedded diskless devices that have 16 MB of RAM and >500MB of
-swap. Its root fs and swap device are both done over NBD because NFS is too
-expensive in 16MB of RAM. Any memory contention (i.e needing memory to swap
-memory over the network), however infrequent, causes the system to freeze when
-about 50 MB of VM is used up. I would love to see some work done in this area.
+Sorry, I read the patch the wrong way around :)
 
-  -Byron
+1) is just an accounting issue.  It shouldn't be too difficult
+to fix it up.  In fact, I think udpInErrors will still be
+incremented once we detect the error.
 
---
-Byron Stanoszek                         Ph: (330) 644-3059
-Systems Programmer                      Fax: (330) 644-8110
-Commercial Timesharing Inc.             Email: byron@comtime.com
+2) shouldn't be an issue because we've already solved the
+problem by making poll/select do the checksum verification
+before indiciating that the socket is readable.
+
+> > And, we're not sure how much the "optimization"'s benefit is.
+> > It is even worse when we are hand
+
+The checksum verification is costly because we have to bring
+the payload into cache.  Since filters are very rare it's
+worthwhile to postpone the checksum verification for the common
+case.
+
+Also as a general rule, we want to avoid divergent behaviour
+between IPv4 and IPv6.  So for changes like this we should
+really modify both stacks in future rather than have each
+stack do its own thing.
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
