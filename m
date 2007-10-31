@@ -1,31 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] [TCP]: Another TAGBITS -> SACKED_ACKED|LOST
- conversion
-Date: Wed, 31 Oct 2007 02:51:30 -0700 (PDT)
-Message-ID: <20071031.025130.180934983.davem@davemloft.net>
-References: <Pine.LNX.4.64.0710311136200.16864@kivilampi-30.cs.helsinki.fi>
-	<Pine.LNX.4.64.0710311149020.16864@kivilampi-30.cs.helsinki.fi>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [PATCH 00/33] Swap over NFS -v14
+Date: Wed, 31 Oct 2007 10:53:16 +0100
+Message-ID: <1193824396.27652.105.camel@twins>
+References: <20071030160401.296770000@chello.nl>
+	 <200710311426.33223.nickpiggin@yahoo.com.au>
+	 <20071030.213753.126064697.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43078
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753741AbXJaJva convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2007 05:51:30 -0400
-In-Reply-To: <Pine.LNX.4.64.0710311149020.16864@kivilampi-30.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-yW7DcZkAyc3tw+pTPoVz"
+Cc: nickpiggin@yahoo.com.au, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org,
+	trond.myklebust@fys.uio.no
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757472AbXJaJxf@vger.kernel.org>
+In-Reply-To: <20071030.213753.126064697.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Wed, 31 Oct 2007 11:49:59 +0200 (EET)
 
-> Similar to commit 3eec0047d9bdd, point of this is to avoid
-> skipping R-bit skbs.
+--=-yW7DcZkAyc3tw+pTPoVz
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 2007-10-30 at 21:37 -0700, David Miller wrote:
+> From: Nick Piggin <nickpiggin@yahoo.com.au>
+> Date: Wed, 31 Oct 2007 14:26:32 +1100
 >=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> > Is it really worth all the added complexity of making swap
+> > over NFS files work, given that you could use a network block
+> > device instead?
+>=20
+> Don't be misled.  Swapping over NFS is just a scarecrow for the
+> seemingly real impetus behind these changes which is network storage
+> stuff like iSCSI.
 
-I'll apply this also, thanks a lot.
+Not quite, yes, iSCSI is also on the 'want' list of quite a few people,
+but swap over NFS on its own is also a feature of great demand.
+
+--=-yW7DcZkAyc3tw+pTPoVz
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQBHKFCMXA2jU0ANEf4RAnCYAJ9EShZNc2aAigDfV05aRlrTBUws0wCeLutM
+XGe5bBLDF8SxDFeM890dEoY=
+=66ee
+-----END PGP SIGNATURE-----
+
+--=-yW7DcZkAyc3tw+pTPoVz--
