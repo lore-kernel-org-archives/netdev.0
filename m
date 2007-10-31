@@ -1,38 +1,47 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [possibly OT] for_each_netdev() in 2.6.23-gitX /
- 2.6.24-rc1-gitY breaks Cisco VPN client
-Date: Tue, 30 Oct 2007 22:05:49 -0700
-Message-ID: <20071030220549.7c312912@freepuppy.rosehill>
-References: <5a4c581d0710301735h1682a30bvfbee632c118556d8@mail.gmail.com>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Subject: Re: [PATCH 00/33] Swap over NFS -v14
+Date: Wed, 31 Oct 2007 15:04:23 +1100
+Message-ID: <200710311504.24016.nickpiggin@yahoo.com.au>
+References: <20071030160401.296770000@chello.nl> <200710311426.33223.nickpiggin@yahoo.com.au> <20071030.213753.126064697.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Alessandro Suardi" <alessandro.suardi@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:43606 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752751AbXJaFGd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 01:06:33 -0400
-In-Reply-To: <5a4c581d0710301735h1682a30bvfbee632c118556d8@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: a.p.zijlstra@chello.nl, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org,
+	trond.myklebust@fys.uio.no
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756184AbXJaFLX@vger.kernel.org>
+In-Reply-To: <20071030.213753.126064697.davem@davemloft.net>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 31 Oct 2007 01:35:47 +0100
-"Alessandro Suardi" <alessandro.suardi@gmail.com> wrote:
+On Wednesday 31 October 2007 15:37, David Miller wrote:
+> From: Nick Piggin <nickpiggin@yahoo.com.au>
+> Date: Wed, 31 Oct 2007 14:26:32 +1100
+>
+> > Is it really worth all the added complexity of making swap
+> > over NFS files work, given that you could use a network block
+> > device instead?
+>
+> Don't be misled.  Swapping over NFS is just a scarecrow for the
+> seemingly real impetus behind these changes which is network storage
+> stuff like iSCSI.
 
-> It's been a while I noticed, but I thought someone would as usual
->  cook up some fix, while I don't even see the issue been reported...
->  if this isn't a Linux kernel/net issue just drop my email, thanks.
-> 
-> Error message during cisco_vpn.ko build:
-> 
-> /download/linux/net/vpnclient/interceptor.c:345:23: error: macro
-> "for_each_netdev" requires 2 arguments, but only 1 given
-> 
+Oh, I'm OK with the network reserves stuff (not the actual patch,
+which I'm not really qualified to review, but at least the idea
+of it...).
 
-RTFM Documentation/stable_api_nonsense.txt
+And also I'm not as such against the idea of swap over network.
 
+However, specifically the change to make swapfiles work through
+the filesystem layer (ATM it goes straight to the block layer,
+modulo some initialisation stuff which uses block filesystem-
+specific calls).
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+I mean, I assume that anybody trying to swap over network *today*
+has to be using a network block device anyway, so the idea of
+just being able to transparently improve that case seems better
+than adding new complexities for seemingly not much gain.
