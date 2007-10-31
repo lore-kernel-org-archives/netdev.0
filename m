@@ -1,75 +1,59 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH] net: docbook fixes for netif_ functions
-Date: Wed, 31 Oct 2007 15:36:20 -0700
-Message-ID: <20071031153620.01cf5eeb.rdunlap@xenotime.net>
-References: <20071031140848.4a425df2@freepuppy.rosehill>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 9269] New: bonding module cannot enslave
+ ethernet devices provided by sunhme
+Date: Wed, 31 Oct 2007 15:37:32 -0700
+Message-ID: <20071031153732.cb950b28.akpm@linux-foundation.org>
+References: <bug-9269-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: bugme-daemon@bugzilla.kernel.org, dev-null@telus.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:46538 "HELO xenotime.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753985AbXJaWgW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2007 18:36:22 -0400
-Received: from midway.site ([71.117.233.180]) by xenotime.net for <netdev@vger.kernel.org>; Wed, 31 Oct 2007 15:36:20 -0700
-In-Reply-To: <20071031140848.4a425df2@freepuppy.rosehill>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:47278 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752289AbXJaWiG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 18:38:06 -0400
+In-Reply-To: <bug-9269-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 31 Oct 2007 14:08:48 -0700 Stephen Hemminger wrote:
+On Wed, 31 Oct 2007 14:35:56 -0700 (PDT)
+bugme-daemon@bugzilla.kernel.org wrote:
 
-> Documentation updates for network interfaces.
+> http://bugzilla.kernel.org/show_bug.cgi?id=9269
 > 
-> 1. Add doc for netif_napi_add
-> 2. Remove doc for unused returns from netif_rx
-> 3. Add doc for netif_receive_skb
+>            Summary: bonding module cannot enslave ethernet devices provided
+>                     by sunhme
+>            Product: Drivers
+>            Version: 2.5
+>      KernelVersion: 2.6.18-3
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: jgarzik@pobox.com
+>         ReportedBy: dev-null@telus.net
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 > 
-
-> --- a/net/core/dev.c	2007-10-31 09:16:09.000000000 -0700
-> +++ b/net/core/dev.c	2007-10-31 10:00:39.000000000 -0700
-
-> @@ -2001,6 +1998,21 @@ out:
->  }
->  #endif
->  
-> +/**
-> + *	netif_receive_skb - process receive buffer from network
-> + *	@skb: buffer to process
-> + *
-> + *	netif_receive_skb() is the main receive data processing function.
-> + *	It always succeeds. The buffer may be dropped during processing
-> + *	for congestion control or by the protocol layers.
-> + *
-> + *	This function may only be called from softirq context and interrupts
-> + *	should be enabled.
-> + *
-> + *	return values (usually ignored).
-> + *	NET_RX_SUCCESS	(no congestion)
-> + *	NET_RX_DROP     (packet was dropped)
-
-For the 3 lines above, how about:
-
- *	Return values (usually ignored):
- *	NET_RX_SUCCESS: no congestion
- *	NET_RX_DROP: packet was dropped
-
-
-only because they come out of kernel-doc badly, munged together like so:
-
-       return  values  (usually  ignored).    NET_RX_SUCCESS (no   congestion)
-       NET_RX_DROP     (packet was dropped)
-
-
-> + */
->  int netif_receive_skb(struct sk_buff *skb)
->  {
->  	struct packet_type *ptype, *pt_prev;
+> Most recent kernel where this bug did not occur: N/A
+> Distribution: Debian 4.0r1/stable (Etch)
+> Hardware Environment: Sun Netra T1 105 (sparc64)
+> Software Environment:
+> Problem Description:
+> bonding module cannot enslave ethernet devices provided by sunhme - link
+> status is never reported via netif_carrier_on/netif_carrier_off which makes
+> sunhme not usable as a slave to the bonding module
 > 
-
-Thanks for doing this patch.
----
-~Randy
+> Steps to reproduce:
+> modprobe sunhme
+> modprobe bonding
+> ifconfig bond0 up
+> ifconfig eth0 up
+> # wait for link to be up
+> ifenslave bond0 eth0
+> # bond0 never comes up and keeps waiting for link
+> 
