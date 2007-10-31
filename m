@@ -1,65 +1,47 @@
 From: Jens Axboe <jens.axboe@oracle.com>
 Subject: Re: [PATCH]: Fix networking scatterlist regressions.
-Date: Wed, 31 Oct 2007 08:46:21 +0100
-Message-ID: <20071031074621.GB5059@kernel.dk>
-References: <20071030.204002.193703502.davem@davemloft.net>
+Date: Wed, 31 Oct 2007 08:47:09 +0100
+Message-ID: <20071031074708.GC5059@kernel.dk>
+References: <20071030.204002.193703502.davem@davemloft.net> <20071031073207.GA5059@kernel.dk> <20071031.004320.175325164.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
 	rusty@rustcorp.com.au
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from brick.kernel.dk ([87.55.233.238]:6652 "EHLO kernel.dk"
+Received: from brick.kernel.dk ([87.55.233.238]:26090 "EHLO kernel.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752861AbXJaHtB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2007 03:49:01 -0400
+	id S1753263AbXJaHts (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2007 03:49:48 -0400
 Content-Disposition: inline
-In-Reply-To: <20071030.204002.193703502.davem@davemloft.net>
+In-Reply-To: <20071031.004320.175325164.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 30 2007, David Miller wrote:
-> diff --git a/net/sunrpc/auth_gss/gss_krb5_crypto.c b/net/sunrpc/auth_gss/gss_krb5_crypto.c
-> index 91cd8f0..4a8aa94 100644
-> --- a/net/sunrpc/auth_gss/gss_krb5_crypto.c
-> +++ b/net/sunrpc/auth_gss/gss_krb5_crypto.c
-> @@ -211,8 +211,8 @@ encryptor(struct scatterlist *sg, void *data)
->  	if (thislen == 0)
->  		return 0;
->  
-> -	sg_mark_end(desc->infrags, desc->fragno);
-> -	sg_mark_end(desc->outfrags, desc->fragno);
-> +	__sg_mark_end(desc->infrags, desc->fragno);
-> +	__sg_mark_end(desc->outfrags, desc->fragno);
->  
->  	ret = crypto_blkcipher_encrypt_iv(&desc->desc, desc->outfrags,
->  					  desc->infrags, thislen);
-> @@ -293,7 +293,7 @@ decryptor(struct scatterlist *sg, void *data)
->  	if (thislen == 0)
->  		return 0;
->  
-> -	sg_mark_end(desc->frags, desc->fragno);
-> +	__sg_mark_end(desc->frags, desc->fragno);
->  
->  	ret = crypto_blkcipher_decrypt_iv(&desc->desc, desc->frags,
->  					  desc->frags, thislen);
+On Wed, Oct 31 2007, David Miller wrote:
+> From: Jens Axboe <jens.axboe@oracle.com>
+> Date: Wed, 31 Oct 2007 08:32:07 +0100
+> 
+> > [SG] Remove __sg_mark_end()
+> > 
+> > Make sg_mark_end() NOT overwrite the page link. Then it can be used
+> > after filling the sg table, which is what users want. That means that
+> > __sg_mark_end() is no longer useful, so kill it.
+> > 
+> > It's important the sg entries be initialized before using sg_mark_end(),
+> > so also add a debug check to catch use-before-init.
+> > 
+> > Signed-off-by: Jens Axboe <jens.axboe@oracle.com>
+> 
+> Ok, but I just pushed my changes to Linus and once those show up
+> you'll need to extend this patch to kill the '__' prefix from
+> all the rest of the calls which will be in the tree.
+> 
+> Thanks!
 
-Hmm? These don't seem right. It also has a weird code sequence:
-
-...
-        sg_mark_end(&desc->infrags[desc->fragno - 1]);
-        sg_mark_end(&desc->outfrags[desc->fragno - 1]);
-
-        ret = crypto_blkcipher_encrypt_iv(&desc->desc, desc->outfrags,
-                                          desc->infrags, thislen);
-        if (ret)
-                return ret;
-
-        sg_init_table(desc->infrags, 4);
-        sg_init_table(desc->outfrags, 4);
-...
-
-Did something go wrong there?
+No problem, I'll base further sg_mark_end() updates on top of yours.
+Just need to get that last email I sent out resolved, the
+gss_krb5_crypto bits.
 
 -- 
 Jens Axboe
