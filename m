@@ -1,53 +1,82 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH 00/33] Swap over NFS -v14
-Date: Wed, 31 Oct 2007 19:31:42 +0300
-Message-ID: <20071031163141.GA24400@2ka.mipt.ru>
-References: <20071030160401.296770000@chello.nl> <200710311426.33223.nickpiggin@yahoo.com.au> <20071030.213753.126064697.davem@davemloft.net> <20071031085041.GA4362@infradead.org> <1193828206.27652.145.camel@twins> <170fa0d20710310754h55d768bdgb67f30b54174e680@mail.gmail.com>
+From: Gabriel C <nix.or.die@googlemail.com>
+Subject: drivers/net/tlan question
+Date: Wed, 31 Oct 2007 18:59:02 +0100
+Message-ID: <4728C266.2010600@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Christoph Hellwig <hch@infradead.org>,
-	David Miller <davem@davemloft.net>, nickpiggin@yahoo.com.au,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Mike Snitzer <snitzer@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, tlan-devel@lists.sourceforge.net,
+	chessman@tux.org
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:43384 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757777AbXJaQhM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2007 12:37:12 -0400
-Content-Disposition: inline
-In-Reply-To: <170fa0d20710310754h55d768bdgb67f30b54174e680@mail.gmail.com>
+Received: from nf-out-0910.google.com ([64.233.182.188]:48916 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752719AbXJaR7H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 13:59:07 -0400
+Received: by nf-out-0910.google.com with SMTP id g13so212014nfb
+        for <netdev@vger.kernel.org>; Wed, 31 Oct 2007 10:59:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi.
+Hi,
 
-On Wed, Oct 31, 2007 at 10:54:02AM -0400, Mike Snitzer (snitzer@gmail.com) wrote:
-> > Trouble with that part is that we don't have any sane network block
-> > devices atm, NBD is utter crap, and iSCSI is too complex to be called
-> > sane.
-> >
-> > Maybe Evgeniy's Distributed storage thingy would work, will have a look
-> > at that.
-> 
-> Andrew recently asked Evgeniy if his DST was ready for merging; to
-> which Evgeniy basically said yes:
-> http://lkml.org/lkml/2007/10/27/54
-> 
-> It would be great if DST could be merged; whereby addressing the fact
-> that NBD is lacking for net-vm.  If DST were scrutinized in the
-> context of net-vm it should help it get the review that is needed for
-> merging.
+I noticed on current git the following warning with !CONFIG_PCI :
 
-By popular request I'm working on adding strong checksumming of the data
-transferred, so I can not say that Andrew will want to merge this during
-development phase. I expect to complete it quite soon (it is in testing
-stage right now) though with new release scheduled this week. It will
-also include some small features for userspace (hapiness).
+...
 
-Memory management is not changed.
+drivers/net/tlan.c: In function 'TLan_probe1':
+drivers/net/tlan.c:682: warning: label 'err_out' defined but not used
 
--- 
-	Evgeniy Polyakov
+...
+
+I thought a simply #ifdef is missing but looking at TLan_probe1() I got confused about err_out_regions
+
+...
+
+#ifdef CONFIG_PCI
+        if (pdev) {
+                rc = pci_enable_device(pdev);
+                if (rc)
+                        return rc;
+
+                rc = pci_request_regions(pdev, TLanSignature);
+                if (rc) {
+                        printk(KERN_ERR "TLAN: Could not reserve IO regions\n");
+                        goto err_out;
+                }
+        }
+#endif  /*  CONFIG_PCI  */
+
+        dev = alloc_etherdev(sizeof(TLanPrivateInfo));
+        if (dev == NULL) {
+                printk(KERN_ERR "TLAN: Could not allocate memory for device.\n");
+                rc = -ENOMEM;
+                goto err_out_regions;
+        }
+
+...
+
+...
+
+err_out_regions:
+#ifdef CONFIG_PCI
+        if (pdev)
+                pci_release_regions(pdev);
+#endif
+err_out:
+        if (pdev)
+                pci_disable_device(pdev);
+        return rc;
+
+...
+
+It is possible 'dev' to be NULL with !CONFIG_PCI ? If is true then err_out_regions: does nothing ? 
+
+Does this look right ?
+
+
+Regards,
+
+Gabriel 
+
+ 
