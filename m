@@ -1,65 +1,38 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Subject: Re: [PATCH 09/33] mm: system wide ALLOC_NO_WATERMARK
-Date: Wed, 31 Oct 2007 14:52:35 +1100
-Message-ID: <200710311452.36239.nickpiggin@yahoo.com.au>
-References: <20071030160401.296770000@chello.nl> <20071030160912.283002000@chello.nl>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [possibly OT] for_each_netdev() in 2.6.23-gitX /
+ 2.6.24-rc1-gitY breaks Cisco VPN client
+Date: Tue, 30 Oct 2007 22:05:49 -0700
+Message-ID: <20071030220549.7c312912@freepuppy.rosehill>
+References: <5a4c581d0710301735h1682a30bvfbee632c118556d8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Alessandro Suardi" <alessandro.suardi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp101.mail.mud.yahoo.com ([209.191.85.211]:29797 "HELO
-	smtp101.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751383AbXJaE7R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 00:59:17 -0400
-In-Reply-To: <20071030160912.283002000@chello.nl>
-Content-Disposition: inline
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:43606 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752751AbXJaFGd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 01:06:33 -0400
+In-Reply-To: <5a4c581d0710301735h1682a30bvfbee632c118556d8@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 31 October 2007 03:04, Peter Zijlstra wrote:
-> Change ALLOC_NO_WATERMARK page allocation such that the reserves are system
-> wide - which they are per setup_per_zone_pages_min(), when we scrape the
-> barrel, do it properly.
->
+On Wed, 31 Oct 2007 01:35:47 +0100
+"Alessandro Suardi" <alessandro.suardi@gmail.com> wrote:
 
-IIRC it's actually not too uncommon to have allocations coming here via
-page reclaim. It's not exactly clear that you want to break mempolicies
-at this point.
+> It's been a while I noticed, but I thought someone would as usual
+>  cook up some fix, while I don't even see the issue been reported...
+>  if this isn't a Linux kernel/net issue just drop my email, thanks.
+> 
+> Error message during cisco_vpn.ko build:
+> 
+> /download/linux/net/vpnclient/interceptor.c:345:23: error: macro
+> "for_each_netdev" requires 2 arguments, but only 1 given
+> 
+
+RTFM Documentation/stable_api_nonsense.txt
 
 
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> ---
->  mm/page_alloc.c |    6 ++++++
->  1 file changed, 6 insertions(+)
->
-> Index: linux-2.6/mm/page_alloc.c
-> ===================================================================
-> --- linux-2.6.orig/mm/page_alloc.c
-> +++ linux-2.6/mm/page_alloc.c
-> @@ -1638,6 +1638,12 @@ restart:
->  rebalance:
->  	if (alloc_flags & ALLOC_NO_WATERMARKS) {
->  nofail_alloc:
-> +		/*
-> +		 * break out of mempolicy boundaries
-> +		 */
-> +		zonelist = NODE_DATA(numa_node_id())->node_zonelists +
-> +			gfp_zone(gfp_mask);
-> +
->  		/* go through the zonelist yet again, ignoring mins */
->  		page = get_page_from_freelist(gfp_mask, order, zonelist,
->  				ALLOC_NO_WATERMARKS);
->
-> --
->
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
