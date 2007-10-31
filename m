@@ -1,31 +1,53 @@
 From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH 10/14 v2] nes: eeprom and phy routines
-Date: Wed, 31 Oct 2007 13:26:29 -0700
-Message-ID: <ada1wbbghe2.fsf@cisco.com>
-References: <200710192021.l9JKLGFU021817@neteffect.com>
+Subject: [ofa-general] Re: [PATCH 11/14 v2] nes: OpenFabrics kernel verbs
+Date: Wed, 31 Oct 2007 13:56:04 -0700
+Message-ID: <adawst3f1gb.fsf@cisco.com>
+References: <200710192023.l9JKNFov021830@neteffect.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ewg@lists.openfabrics.org, general@lists.openfabrics.org,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, ewg@lists.openfabrics.org,
+	general@lists.openfabrics.org
 To: ggrundstrom@neteffect.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:22699 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754354AbXJaU0n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 16:26:43 -0400
-In-Reply-To: <200710192021.l9JKLGFU021817@neteffect.com> (ggrundstrom@neteffect.com's message of "Fri, 19 Oct 2007 15:21:16 -0500")
-Sender: netdev-owner@vger.kernel.org
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <200710192023.l9JKNFov021830@neteffect.com>
+	(ggrundstrom@neteffect.com's message of "Fri,
+	19 Oct 2007 15:23:15 -0500")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
- > +	/* TODO: deal with EEPROM endian issues */
+ > +/**
+ > + * nes_post_send
+ > + */
+ > +static int nes_post_send(struct ib_qp *ibqp, struct ib_send_wr *ib_wr,
+ > +		struct ib_send_wr **bad_wr)
 
-This is pretty scary.  Is the driver broken on big-endian systems now?
+ > ...
 
- > +/*
- > +"Everything you wanted to know about CRC algorithms, but were afraid to ask
- > + for fear that errors in your understanding might be detected." Version  : 3.
+ > +			switch (ib_wr->opcode) {
 
-etc etc... can all this be replaced with what's in lib/crc32.c?  (I
-hope so)
+ > ...
 
- - R.
+ > +					if (ib_wr->num_sge > nesdev->nesadapter->max_sge) {
+ > +						err = -EINVAL;
+ > +						break;
+ > +					}
+
+ > ...
+
+ > +				default:
+ > +					/* error */
+ > +					err = -EINVAL;
+ > +					break;
+
+looks like if you detect an error while posting a work request, you
+break out of the switch statement but just continue through the while
+loop going through the list of work reuqests.  Which doesn't seem like
+it will work very well.
