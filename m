@@ -1,170 +1,40 @@
-From: Sergej Stepanov <Sergej.Stepanov@ids.de>
-Subject: [PATCH v3] using mii-bitbang on different processor ports
-Date: Wed, 31 Oct 2007 09:32:29 +0100
-Message-ID: <1193819549.2678.15.camel@p60635-ste.ids.de>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Oops in 2.6.21-rc4, 2.6.23
+Date: Wed, 31 Oct 2007 09:39:15 +0100
+Message-ID: <20071031083915.GA1814@ff.dom.local>
+References: <20071015173956.6c554387@beavis.confused.org> <20071029084232.GA2280@ff.dom.local> <20071029.014147.56411400.davem@davemloft.net> <20071030141120.GA3997@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: darko.koruga@siol.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ares.ids.de ([213.144.29.131]:35679 "EHLO ares.ids.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751893AbXJaIcb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2007 04:32:31 -0400
-Received: from ares.ids.de (ares.ids.de [127.0.0.1])
-	by ares.ids.de (PGP Universal) with ESMTP id 028CFF49184
-	for <netdev@vger.kernel.org>; Wed, 31 Oct 2007 09:32:30 +0100 (CET)
+Received: from mx10.go2.pl ([193.17.41.74]:44513 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752638AbXJaIfv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2007 04:35:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20071030141120.GA3997@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The patch makes possible to have mdio and mdc pins on different physical ports
-also for CONFIG_PPC_CPM_NEW_BINDING.
-To setup it in the device tree:
-reg = <10d40 14 10d60 14>; // mdc: 0x10d40, mdio: 0x10d60
-or
-reg = <10d40 14>; // mdc and mdio have the same offset 10d40
-The approach was taken from older version.
+On Tue, Oct 30, 2007 at 03:11:20PM +0100, Jarek Poplawski wrote:
+> On Mon, Oct 29, 2007 at 01:41:47AM -0700, David Miller wrote:
+> ...
+> > Actually, this was caused by a real bug in the SKB_WITH_OVERHEAD macro
+> > definition, which Herbert Xu quickly spotted and fixed.
+> > 
+> > Which "I hope you've found this by yourself by now".
+> > 
+> 
+> ...Btw, of course you have to be right, and I should find this in max.
+> 12 days yet, if I'm as smart as I hope. But as for now, I really can't
+> see any meaningful difference between this "buggy" SKB_WITH_OVERHEAD
+> version and 'generic' 2.6.20.
 
-Signed-off-by: Sergej Stepanov <Sergej.Stepanov@ids.de>
---
+OK. At last I've found "by myself", what you seemed to suggest with
+such a great subtlety... So, there was this another, bugzilla thread...
+And, accidentally of course, I could have been not so 100% wrong, as
+expected?!
 
-diff --git a/drivers/net/fs_enet/mii-bitbang.c b/drivers/net/fs_enet/mii-bitbang.c
-index b8e4a73..83ce0c6 100644
---- a/drivers/net/fs_enet/mii-bitbang.c
-+++ b/drivers/net/fs_enet/mii-bitbang.c
-@@ -29,12 +29,16 @@
- 
- #include "fs_enet.h"
- 
--struct bb_info {
--	struct mdiobb_ctrl ctrl;
-+struct bb_port {
- 	__be32 __iomem *dir;
- 	__be32 __iomem *dat;
--	u32 mdio_msk;
--	u32 mdc_msk;
-+	u32 msk;
-+};
-+
-+struct bb_info {
-+	struct mdiobb_ctrl ctrl;
-+	struct bb_port mdc;
-+	struct bb_port mdio;
- };
- 
- /* FIXME: If any other users of GPIO crop up, then these will have to
-@@ -62,18 +66,18 @@ static inline void mdio_dir(struct mdiobb_ctrl *ctrl, int dir)
- 	struct bb_info *bitbang = container_of(ctrl, struct bb_info, ctrl);
- 
- 	if (dir)
--		bb_set(bitbang->dir, bitbang->mdio_msk);
-+		bb_set(bitbang->mdio.dir, bitbang->mdio.msk);
- 	else
--		bb_clr(bitbang->dir, bitbang->mdio_msk);
-+		bb_clr(bitbang->mdio.dir, bitbang->mdio.msk);
- 
- 	/* Read back to flush the write. */
--	in_be32(bitbang->dir);
-+	in_be32(bitbang->mdio.dir);
- }
- 
- static inline int mdio_read(struct mdiobb_ctrl *ctrl)
- {
- 	struct bb_info *bitbang = container_of(ctrl, struct bb_info, ctrl);
--	return bb_read(bitbang->dat, bitbang->mdio_msk);
-+	return bb_read(bitbang->mdio.dat, bitbang->mdio.msk);
- }
- 
- static inline void mdio(struct mdiobb_ctrl *ctrl, int what)
-@@ -81,12 +85,12 @@ static inline void mdio(struct mdiobb_ctrl *ctrl, int what)
- 	struct bb_info *bitbang = container_of(ctrl, struct bb_info, ctrl);
- 
- 	if (what)
--		bb_set(bitbang->dat, bitbang->mdio_msk);
-+		bb_set(bitbang->mdio.dat, bitbang->mdio.msk);
- 	else
--		bb_clr(bitbang->dat, bitbang->mdio_msk);
-+		bb_clr(bitbang->mdio.dat, bitbang->mdio.msk);
- 
- 	/* Read back to flush the write. */
--	in_be32(bitbang->dat);
-+	in_be32(bitbang->mdio.dat);
- }
- 
- static inline void mdc(struct mdiobb_ctrl *ctrl, int what)
-@@ -94,12 +98,12 @@ static inline void mdc(struct mdiobb_ctrl *ctrl, int what)
- 	struct bb_info *bitbang = container_of(ctrl, struct bb_info, ctrl);
- 
- 	if (what)
--		bb_set(bitbang->dat, bitbang->mdc_msk);
-+		bb_set(bitbang->mdc.dat, bitbang->mdc.msk);
- 	else
--		bb_clr(bitbang->dat, bitbang->mdc_msk);
-+		bb_clr(bitbang->mdc.dat, bitbang->mdc.msk);
- 
- 	/* Read back to flush the write. */
--	in_be32(bitbang->dat);
-+	in_be32(bitbang->mdc.dat);
- }
- 
- static struct mdiobb_ops bb_ops = {
-@@ -142,15 +146,32 @@ static int __devinit fs_mii_bitbang_init(struct mii_bus *bus,
- 		return -ENODEV;
- 	mdc_pin = *data;
- 
--	bitbang->dir = ioremap(res.start, res.end - res.start + 1);
--	if (!bitbang->dir)
-+	bitbang->mdc.dir = ioremap(res.start, res.end - res.start + 1);
-+	if (!bitbang->mdc.dir)
- 		return -ENOMEM;
- 
--	bitbang->dat = bitbang->dir + 4;
--	bitbang->mdio_msk = 1 << (31 - mdio_pin);
--	bitbang->mdc_msk = 1 << (31 - mdc_pin);
-+	bitbang->mdc.dat = bitbang->mdc.dir + 4;
-+	if (!of_address_to_resource(np, 1, &res)) {
-+		if (res.end - res.start < 13)
-+			goto bad_resource;
-+		bitbang->mdio.dir = ioremap(res.start, res.end - res.start + 1);
-+		if (!bitbang->mdio.dir)
-+			goto unmap_and_exit;
-+		bitbang->mdio.dat = bitbang->mdio.dir + 4;
-+	} else {
-+		bitbang->mdio.dir = bitbang->mdc.dir;
-+		bitbang->mdio.dat = bitbang->mdc.dat;
-+	}
-+	bitbang->mdio.msk = 1 << (31 - mdio_pin);
-+	bitbang->mdc.msk = 1 << (31 - mdc_pin);
- 
- 	return 0;
-+bad_resource:
-+	iounmap(bitbang->mdc.dir);
-+	return -ENODEV;
-+unmap_and_exit:
-+	iounmap(bitbang->mdc.dir);
-+	return -ENOMEM;
- }
- 
- static void __devinit add_phy(struct mii_bus *bus, struct device_node *np)
-@@ -220,7 +241,9 @@ out_free_irqs:
- 	dev_set_drvdata(&ofdev->dev, NULL);
- 	kfree(new_bus->irq);
- out_unmap_regs:
--	iounmap(bitbang->dir);
-+	if (bitbang->mdio.dir != bitbang->mdc.dir)
-+		iounmap(bitbang->mdio.dir);
-+	iounmap(bitbang->mdc.dir);
- out_free_bus:
- 	kfree(new_bus);
- out_free_priv:
-@@ -238,6 +261,8 @@ static int fs_enet_mdio_remove(struct of_device *ofdev)
- 	free_mdio_bitbang(bus);
- 	dev_set_drvdata(&ofdev->dev, NULL);
- 	kfree(bus->irq);
--	iounmap(bitbang->dir);
-+	if (bitbang->mdio.dir != bitbang->mdc.dir)
-+		iounmap(bitbang->mdio.dir);
-+	iounmap(bitbang->mdc.dir);
- 	kfree(bitbang);
- 	kfree(bus);
-
+Regards,
+Jarek P.
