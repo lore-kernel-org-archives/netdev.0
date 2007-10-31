@@ -1,41 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]: Fix networking scatterlist regressions.
-Date: Tue, 30 Oct 2007 23:44:58 -0700 (PDT)
-Message-ID: <20071030.234458.123907600.davem@davemloft.net>
-References: <20071030.204002.193703502.davem@davemloft.net>
-	<200710311706.33142.rusty@rustcorp.com.au>
+Subject: Re: [PATCH] af_key: suppress a warning for 64k pages.
+Date: Tue, 30 Oct 2007 23:58:04 -0700 (PDT)
+Message-ID: <20071030.235804.99443518.davem@davemloft.net>
+References: <20071031153422.44f864e8.sfr@canb.auug.org.au>
+	<20071030.214219.256397507.davem@davemloft.net>
+	<20071031162452.fcea4431.sfr@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	jens.axboe@oracle.com
-To: rusty@rustcorp.com.au
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: sfr@canb.auug.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45481
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46083
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751303AbXJaGo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 02:44:59 -0400
-In-Reply-To: <200710311706.33142.rusty@rustcorp.com.au>
+	by vger.kernel.org with ESMTP id S1752709AbXJaG6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 02:58:05 -0400
+In-Reply-To: <20071031162452.fcea4431.sfr@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Wed, 31 Oct 2007 17:06:32 +1100
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 31 Oct 2007 16:24:52 +1100
 
-> On Wednesday 31 October 2007 14:40:02 David Miller wrote:
-> > I just checked the following bug fix into net-2.6
-> >
-> > Rusty, have a quick look at virtio_net wrt. the changes I
-> > made to skb_to_sgvec()'s behavior.  I think I might have
-> > even fixed something :-)
+> On PowerPC allmodconfig build we get this:
 > 
-> Grr, the scatterlist changes are really pissing me off.  We get ugly tricky 
-> code *and* transition pain.
+> net/key/af_key.c:400: warning: comparison is always false due to limited range of data type
 > 
-> I hate to suggest this, but I don't supposed there's a chance we can revert it 
-> for 2.6.24 and do something cleaner for 2.6.25?
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 
-I will hit you on the head with a hammer if this happens after all
-the debugging and work I've put into fixing things so far. :-/
-
-Just like this: Plonk!
+Applied, thanks Stephen.
