@@ -1,7 +1,7 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 4/5] Mark the setup_net as __net_init
-Date: Wed, 31 Oct 2007 22:31:46 +0300
-Message-ID: <4728D822.30906@openvz.org>
+Subject: [PATCH 5/5] Hide the net_ns kmem cache
+Date: Wed, 31 Oct 2007 22:32:55 +0300
+Message-ID: <4728D867.8050207@openvz.org>
 References: <4728D54F.2080208@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -10,43 +10,57 @@ Cc: Linux Netdev List <netdev@vger.kernel.org>,
 	"Eric W. Biederman" <ebiederm@xmission.com>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:40036 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:46427 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752476AbXJaS3a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2007 14:29:30 -0400
+	id S1752446AbXJaSai (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2007 14:30:38 -0400
 In-Reply-To: <4728D54F.2080208@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The setup_net is called for the init net namespace
-only (int the CONFIG_NET_NS=n of course) from the __init
-function, so mark it as __net_init to disappear with the
-caller after the boot.
+This cache is only required to create new namespaces,
+but we won't have them in CONFIG_NET_NS=n case.
 
-Yet again, in the perfect world this has to be under
-#ifdef CONFIG_NET_NS, but it isn't guaranteed that every
-subsystem is registered *after* the init_net_ns is set
-up. After we are sure, that we don't start registering
-them before the init net setup, we'll be able to move
-this code under the ifdef.
+Hide it under the appropriate ifdef.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
 
 diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index d5bf8b2..a044e2d 100644
+index a044e2d..e9f0964 100644
 --- a/net/core/net_namespace.c
 +++ b/net/core/net_namespace.c
-@@ -25,7 +25,7 @@ EXPORT_SYMBOL_GPL(init_net);
- /*
-  * setup_net runs the initializers for the network namespace object.
-  */
--static int setup_net(struct net *net)
-+static __net_init int setup_net(struct net *net)
+@@ -17,8 +17,6 @@ static DEFINE_MUTEX(net_mutex);
+ 
+ LIST_HEAD(net_namespace_list);
+ 
+-static struct kmem_cache *net_cachep;
+-
+ struct net init_net;
+ EXPORT_SYMBOL_GPL(init_net);
+ 
+@@ -59,6 +57,8 @@ out_undo:
+ }
+ 
+ #ifdef CONFIG_NET_NS
++static struct kmem_cache *net_cachep;
++
+ static struct net *net_alloc(void)
  {
- 	/* Must be called with net_mutex held */
- 	struct pernet_operations *ops;
+ 	return kmem_cache_zalloc(net_cachep, GFP_KERNEL);
+@@ -167,9 +167,11 @@ static int __init net_ns_init(void)
+ 	int err;
+ 
+ 	printk(KERN_INFO "net_namespace: %zd bytes\n", sizeof(struct net));
++#ifdef CONFIG_NET_NS
+ 	net_cachep = kmem_cache_create("net_namespace", sizeof(struct net),
+ 					SMP_CACHE_BYTES,
+ 					SLAB_PANIC, NULL);
++#endif
+ 	mutex_lock(&net_mutex);
+ 	err = setup_net(&init_net);
+ 
 -- 
 1.5.3.4
 
