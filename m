@@ -1,55 +1,36 @@
-From: Gabriel C <nix.or.die@googlemail.com>
-Subject: [PATCH] tlan list is subscribers-only
-Date: Wed, 31 Oct 2007 19:08:47 +0100
-Message-ID: <4728C4AF.5010101@googlemail.com>
-References: <4728C266.2010600@googlemail.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH 0/5] Make nicer CONFIG_NET_NS=n case code
+Date: Wed, 31 Oct 2007 22:19:43 +0300
+Message-ID: <4728D54F.2080208@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, chessman@tux.org
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:63540 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752636AbXJaSIx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 14:08:53 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so215129nfb
-        for <netdev@vger.kernel.org>; Wed, 31 Oct 2007 11:08:51 -0700 (PDT)
-In-Reply-To: <4728C266.2010600@googlemail.com>
+Received: from sacred.ru ([62.205.161.221]:33582 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752495AbXJaSR3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2007 14:17:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-...
+Currently we have the NET_NS config option, but the only change it 
+makes is just return ERR_PTR(-EINVAL) inside the cloning call thus
+introducing a bunch of a dead code and making the reference counting
+unneeded. This is not very good.
 
-Your mail to 'Tlan-devel' with the subject
+So clean the net_namespace.c to fix this.
 
-    drivers/net/tlan question
+I have sent a set of patches to Andrew to make similar thing for
+other namespaces, which introduces the NAMESPACES option to turn
+all the namespaces off at once (to make embedded people suffer
+less). So after that stuff is in, there will be some more patches 
+to tie all this together.
 
-Is being held until the list moderator can review it for approval.
+What is to be done after this set is to make the register_pernet_xxx
+stuff smaller. Currently this code weights approximately 500 bytes, 
+so it worths reducing it, but I haven't found a good solution yet.
 
-The reason it is being held:
-
-    Post by non-member to a members-only list
-
-...
-
-Signed-off-by: Gabriel Craciunescu <nix.or.die@googlemail.com>
-
----
-
- MAINTAINERS |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 4a26f83..6a116f3 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3729,7 +3729,7 @@ S:	Maintained
- TLAN NETWORK DRIVER
- P:	Samuel Chessman
- M:	chessman@tux.org
--L:	tlan-devel@lists.sourceforge.net
-+L:	tlan-devel@lists.sourceforge.net (subscribers-only)
- W:	http://sourceforge.net/projects/tlan/
- S:	Maintained
- 
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
