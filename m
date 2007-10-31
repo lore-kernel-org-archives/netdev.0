@@ -1,64 +1,38 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH]: Fix myri10ge NAPI oops & warnings
-Date: Wed, 31 Oct 2007 14:44:12 -0700
-Message-ID: <20071031144412.723910ba@freepuppy.rosehill>
-References: <4728F636.9080505@myri.com>
+From: "Glenn Grundstrom" <ggrundstrom@NetEffect.com>
+Subject: RE: [PATCH 10/14 v2] nes: eeprom and phy routines
+Date: Wed, 31 Oct 2007 16:47:40 -0500
+Message-ID: <5E701717F2B2ED4EA60F87C8AA57B7CC0793936C@venom2>
+References: <200710192021.l9JKLGFU021817@neteffect.com> <ada1wbbghe2.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: Andrew Gallatin <gallatin@myri.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <ewg@lists.openfabrics.org>, <general@lists.openfabrics.org>,
+	<netdev@vger.kernel.org>
+To: "Roland Dreier" <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:47319 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754608AbXJaVps (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 17:45:48 -0400
-In-Reply-To: <4728F636.9080505@myri.com>
+Received: from mail2.neteffect.com ([204.57.75.68]:18595 "EHLO
+	mail2.neteffect.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754760AbXJaVrn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 17:47:43 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <ada1wbbghe2.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 31 Oct 2007 17:40:06 -0400
-Andrew Gallatin <gallatin@myri.com> wrote:
+>  > +/*
+>  > +"Everything you wanted to know about CRC algorithms, but 
+> were afraid to ask
+>  > + for fear that errors in your understanding might be 
+> detected." Version  : 3.
+> 
+> etc etc... can all this be replaced with what's in lib/crc32.c?  (I
+> hope so)
+
+Replacing this code is already in the works.
+
+Glenn.
 
 > 
-> When testing the myri10ge driver with 2.6.24-rc1, I found
-> that the machine crashed under heavy load:
+>  - R.
 > 
-> Unable to handle kernel paging request at 0000000000100108 RIP:
->   [<ffffffff803cc8dd>] net_rx_action+0x11b/0x184
-> 
-> The address corresponds to the list_move_tail() in
-> netif_rx_complete():
->                      if (unlikely(work == weight))
->                              list_move_tail(&n->poll_list, list);
-> 
-> Eventually, I traced the crashes to calling netif_rx_complete() with
-> work_done == budget.  From looking at other drivers, it appears that
-> one should only call netif_rx_complete() when work_done < budget.
-> 
-> To fix it, I changed the test in myri10ge_poll() so that it refers
-> to to work_done rather than looking at the rx ring status.  If
-> work_done is < budget, then that implies we have no more packets to
-> process. Any races will be resolved by the NIC when the write to
-> irq_claim is made.
-> 
-> In myri10ge_clean_rx_done(), if we ever exceeded our budget, it would
-> report a work_done one larger than was acutally done.  This is because
-> the increment was done in the conditional, so work_done would be
-> incremented regardless of whether or not the test passed or failed.
-> This would lead to the WARN_ON_ONCE(work > weight); warning in
-> net_rx_action triggering.  I've moved the increment of work_done
-> inside the loop.  Note that this would only be a problem when we had
-> exceeded our budget.
-> 
-> Signed off by: Andrew Gallatin <gallatin@myri.com>
-> 
-> Andrew Gallatin Myricom Inc
-> 
-> 
-
-Yes, this looks right.
-How could the check in netif_rx_complete be changed to catch this better?
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
