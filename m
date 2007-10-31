@@ -1,58 +1,40 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH 0/8] Cleanup/fix the sk_alloc() call
-Date: Wed, 31 Oct 2007 17:32:20 +0300
-Message-ID: <472891F4.3050304@openvz.org>
-References: <472885B1.7090103@openvz.org> <20071031131505.GD3962@ghostprotocols.net>
+From: Gregory Haskins <gregory.haskins.ml@gmail.com>
+Subject: Re: [PATCH 00/33] Swap over NFS -v14
+Date: Wed, 31 Oct 2007 09:44:18 -0400
+Message-ID: <472886B2.1060207@gmail.com>
+References: <20071030160401.296770000@chello.nl>	 <200710311426.33223.nickpiggin@yahoo.com.au>	 <1193830033.27652.159.camel@twins>  <47287220.8050804@garzik.org> <1193835413.27652.205.camel@twins>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Arnaldo Carvalho de Melo <acme@redhat.com>
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:53525 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752898AbXJaNaJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2007 09:30:09 -0400
-In-Reply-To: <20071031131505.GD3962@ghostprotocols.net>
+Received: from an-out-0708.google.com ([209.85.132.249]:39544 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756719AbXJaNob (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 09:44:31 -0400
+Received: by an-out-0708.google.com with SMTP id b36so13939ana
+        for <netdev@vger.kernel.org>; Wed, 31 Oct 2007 06:44:31 -0700 (PDT)
+In-Reply-To: <1193835413.27652.205.camel@twins>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arnaldo Carvalho de Melo wrote:
-> Em Wed, Oct 31, 2007 at 04:40:01PM +0300, Pavel Emelyanov escreveu:
->> The sk_alloc() function suffers from two problems:
->> 1 (major). The error path is not clean in it - if the security
->>    call fails, the net namespace is not put, if the try_module_get
->>    fails  additionally the security context is not released;
->> 2 (minor). The zero_it argument is misleading, as it doesn't just 
->>    zeroes it, but performs some extra setup. Besides this argument 
->>    is used only in one place - in the sk_clone().
->>
->> So this set fixes these problems and performs some additional
->> cleanup.
->>
->> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Peter Zijlstra wrote:
+
 > 
-> for the series:
-> 
-> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> But please, people who want this (I'm sure some of you are reading) do
+> speak up. I'm just the motivated corporate drone implementing the
+> feature :-)
 
-Thanks a lot :)
+FWIW, I could have used a "swap to network technology X" like system at
+my last job.  We were building a large networking switch with blades,
+and the IO cards didn't have anywhere near the resources that the
+control modules had (no persistent storage, small ram, etc).  We were
+already doing userspace coredumps over NFS to the control cards.  It
+would have been nice to swap as well.
 
-> Haven't tested, but it looks straightforward and conceptually sound,
-> thanks for improving the sk_prot infrastructure! :-)
-
-> Now we have just to make all the other protocols fill in the missing
-> sk->sk_prot-> methods (converting what is there now in socket->ops) so
-> that we can kill socket->ops and eliminate one level of indirection :-P
-
-Do I get your idea right, that having the 'struct sock->ops' field is not
-that good and the long-term TODO is to remove it (or smth similar)? Can you, 
-please, pour some more light on this, because I'm not yet very common with 
-the networking code, but I'm trying to learn it better by fixing obvious 
-bugs and cleaning the code.
-
-> - Arnaldo
-
-Thanks,
-Pavel
