@@ -1,47 +1,109 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Subject: Re: [PATCH 03/33] mm: slub: add knowledge of reserve pages
-Date: Wed, 31 Oct 2007 22:25:06 +1100
-Message-ID: <200710312225.07249.nickpiggin@yahoo.com.au>
-References: <20071030160401.296770000@chello.nl> <200710312146.03351.nickpiggin@yahoo.com.au> <1193833072.27652.167.camel@twins>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH 3/8] Cleanup the allocation/freeing of the sock object
+Date: Wed, 31 Oct 2007 16:47:00 +0300
+Message-ID: <47288754.70307@openvz.org>
+References: <472885B1.7090103@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp106.mail.mud.yahoo.com ([209.191.85.216]:43426 "HELO
-	smtp106.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753268AbXJaMmo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 08:42:44 -0400
-In-Reply-To: <1193833072.27652.167.camel@twins>
-Content-Disposition: inline
+Received: from sacred.ru ([62.205.161.221]:40897 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755524AbXJaMon (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2007 08:44:43 -0400
+In-Reply-To: <472885B1.7090103@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 31 October 2007 23:17, Peter Zijlstra wrote:
-> On Wed, 2007-10-31 at 21:46 +1100, Nick Piggin wrote:
+The sock object is allocated either from the generic cache with
+the kmalloc, or from the proc->slab cache.
 
-> > And I'd prevent these ones from doing so.
-> >
-> > Without keeping track of "reserve" pages, which doesn't feel
-> > too clean.
->
-> The problem with that is that once a slab was allocated with the right
-> allocation context, anybody can get objects from these slabs.
+Move this logic into an isolated set of helpers and make the
+sk_alloc/sk_free look a bit nicer.
 
-[snip]
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-I understand that.
+---
 
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 9c2dbfa..7c2e3db 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -870,6 +870,31 @@ static void sock_copy(struct sock *nsk, const struct sock *osk)
+ #endif
+ }
+ 
++static struct sock *sk_prot_alloc(struct proto *prot, gfp_t priority)
++{
++	struct sock *sk;
++	struct kmem_cache *slab;
++
++	slab = prot->slab;
++	if (slab != NULL)
++		sk = kmem_cache_alloc(slab, priority);
++	else
++		sk = kmalloc(prot->obj_size, priority);
++
++	return sk;
++}
++
++static void sk_prot_free(struct proto *prot, struct sock *sk)
++{
++	struct kmem_cache *slab;
++
++	slab = prot->slab;
++	if (slab != NULL)
++		kmem_cache_free(slab, sk);
++	else
++		kfree(sk);
++}
++
+ /**
+  *	sk_alloc - All socket objects are allocated here
+  *	@net: the applicable net namespace
+@@ -881,14 +906,9 @@ static void sock_copy(struct sock *nsk, const struct sock *osk)
+ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
+ 		      struct proto *prot, int zero_it)
+ {
+-	struct sock *sk = NULL;
+-	struct kmem_cache *slab = prot->slab;
+-
+-	if (slab != NULL)
+-		sk = kmem_cache_alloc(slab, priority);
+-	else
+-		sk = kmalloc(prot->obj_size, priority);
++	struct sock *sk;
+ 
++	sk = sk_prot_alloc(prot, priority);
+ 	if (sk) {
+ 		if (zero_it) {
+ 			memset(sk, 0, prot->obj_size);
+@@ -911,10 +931,7 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
+ 	return sk;
+ 
+ out_free:
+-	if (slab != NULL)
+-		kmem_cache_free(slab, sk);
+-	else
+-		kfree(sk);
++	sk_prot_free(prot, sk);
+ 	return NULL;
+ }
+ 
+@@ -940,10 +957,7 @@ void sk_free(struct sock *sk)
+ 
+ 	security_sk_free(sk);
+ 	put_net(sk->sk_net);
+-	if (sk->sk_prot_creator->slab != NULL)
+-		kmem_cache_free(sk->sk_prot_creator->slab, sk);
+-	else
+-		kfree(sk);
++	sk_prot_free(sk->sk_prot_creator, sk);
+ 	module_put(owner);
+ }
+ 
+-- 
+1.5.3.4
 
-> So we either reserve a page per object, which for 32 byte objects is a
-> large waste, or we stop anybody who doesn't have the right permissions
-> from obtaining objects. I took the latter approach.
-
-What I'm saying is that the slab allocator slowpath should always
-just check watermarks against the current task. Instead of this
-->reserve stuff.
