@@ -1,67 +1,60 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: af_packet.c flush_dcache_page
-Date: Thu, 01 Nov 2007 17:10:32 +0100
-Message-ID: <4729FA78.5040702@trash.net>
-References: <47288C42.5010603@trash.net> <20071031.155749.26538335.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] INET : removes per bucket rwlock in tcp/dccp ehash
+ table
+Date: Thu, 1 Nov 2007 09:14:56 -0700
+Message-ID: <20071101091456.26248ce0@freepuppy.rosehill>
+References: <4729A774.9030409@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Andi Kleen <ak@suse.de>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56191 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751219AbXKAQNf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2007 12:13:35 -0400
-In-Reply-To: <20071031.155749.26538335.davem@davemloft.net>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:51032 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750981AbXKAQRk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2007 12:17:40 -0400
+In-Reply-To: <4729A774.9030409@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> Instead of answering your questions, I'm going to show you
-> how to avoid having to do any of this cache flushing crap :-)
+On Thu, 01 Nov 2007 11:16:20 +0100
+Eric Dumazet <dada1@cosmosbay.com> wrote:
+
+> As done two years ago on IP route cache table (commit 
+> 22c047ccbc68fa8f3fa57f0e8f906479a062c426) , we can avoid using one lock per 
+> hash bucket for the huge TCP/DCCP hash tables.
 > 
-> You can avoid having to flush anything as long as the virtual
-> addresses on the kernel side are modulo SHMLBA the virtual addresses
-> on the userland side.
+> On a typical x86_64 platform, this saves about 2MB or 4MB of ram, for litle 
+> performance differences. (we hit a different cache line for the rwlock, but 
+> then the bucket cache line have a better sharing factor among cpus, since we 
+> dirty it less often)
 > 
-> We have some (decidedly awkward) mechanisms to try and achieve
-> this in the kernel, but they are cumbersome and not air tight.
+> Using a 'small' table of hashed rwlocks should be more than enough to provide 
+> correct SMP concurrency between different buckets, without using too much 
+> memory. Sizing of this table depends on NR_CPUS and various CONFIG settings.
 > 
-> Instead, I would recommend simply that you access the ring
-> buffer directly in userspace.  This avoids all of the cache
-> aliasing issues.
+> This patch provides some locking abstraction that may ease a future work using 
+>   a different model for TCP/DCCP table.
 > 
-> Yes, this means you have to do the ring buffer accesses in
-> the context of the user, but it simplifies so much that I think
-> it'd be worth it.
-
-
-I'm probably misunderstanding your suggestion because of my
-limited mm knowledge, are you suggesting to do something like
-this:
-
-setsockopt(RX_RING, ...):
-
-Allocate ring using get_user_pages, return address to user
-
-tpacket_rcv/netlink_unicast/netlink_broadcast:
-
-for each receiver:
-	switch_mm(...)
-	copy data to ring
-
-switch_mm(original mm)
-
-Would this work in softirq context?
-
-> Another option is to use the "copy_to_user_page()" and
-> "copy_from_user_page()" interfaces which will do all of
-> the necessary cache flushing for you.
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 > 
-> Actually it might be nice to convert AF_PACKET's mmap() code
-> over to using those things.
+>   include/net/inet_hashtables.h |   40 ++++++++++++++++++++++++++++----
+>   net/dccp/proto.c              |   16 ++++++++++--
+>   net/ipv4/inet_diag.c          |    9 ++++---
+>   net/ipv4/inet_hashtables.c    |    7 +++--
+>   net/ipv4/inet_timewait_sock.c |   13 +++++-----
+>   net/ipv4/tcp.c                |   11 +++++++-
+>   net/ipv4/tcp_ipv4.c           |   11 ++++----
+>   net/ipv6/inet6_hashtables.c   |   19 ++++++++-------
+>   8 files changed, 89 insertions(+), 37 deletions(-)
+> 
 
+Longterm is there any chance of using rcu for this? Seems like
+it could be a big win.
 
-That would also require to do the copy in the context of
-the user, right?
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
