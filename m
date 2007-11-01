@@ -1,41 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: docbook fixes for netif_ functions
-Date: Thu, 01 Nov 2007 02:22:09 -0700 (PDT)
-Message-ID: <20071101.022209.141061101.davem@davemloft.net>
-References: <20071031140848.4a425df2@freepuppy.rosehill>
-	<20071031153620.01cf5eeb.rdunlap@xenotime.net>
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Subject: [PATCH][BNX2X] added register coments
+Date: Thu, 01 Nov 2007 11:28:25 +0200
+Message-ID: <1193909305.4836.160.camel@eliezer>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: rdunlap@xenotime.net
+Cc: "Michael Chan" <mchan@broadcom.com>,
+	"jeff@garzik.org" <jeff@garzik.org>
+To: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56382
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750812AbXKAJWJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2007 05:22:09 -0400
-In-Reply-To: <20071031153620.01cf5eeb.rdunlap@xenotime.net>
+Received: from mms2.broadcom.com ([216.31.210.18]:2154 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753598AbXKAJ06 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Nov 2007 05:26:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <rdunlap@xenotime.net>
-Date: Wed, 31 Oct 2007 15:36:20 -0700
+Dave,
 
-> > + *	return values (usually ignored).
-> > + *	NET_RX_SUCCESS	(no congestion)
-> > + *	NET_RX_DROP     (packet was dropped)
-> 
-> For the 3 lines above, how about:
-> 
->  *	Return values (usually ignored):
->  *	NET_RX_SUCCESS: no congestion
->  *	NET_RX_DROP: packet was dropped
-> 
-> 
-> only because they come out of kernel-doc badly, munged together like so:
-> 
->        return  values  (usually  ignored).    NET_RX_SUCCESS (no   congestion)
->        NET_RX_DROP     (packet was dropped)
+Here is the version with added register comments.
+Please consider applying.
 
-I've applied Stephen's patch with this minor correction
-added.
+ftp link:
+ftp://Net_sys_anon@ftp1.broadcom.com/0001-bnx2x-0.4.12-with-reg-remarks.txt
+
+gzipped:
+ftp://Net_sys_anon@ftp1.broadcom.com/0001-bnx2x-0.4.12-with-reg-remarks.txt.gz
+
+(I will also post each individual file for review as a reply to this
+email)
+
+Thanks,
+Eliezer
+
+
