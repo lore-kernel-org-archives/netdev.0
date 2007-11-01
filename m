@@ -1,63 +1,56 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] e1000, e1000e valid-addr fixes
-Date: Thu, 01 Nov 2007 14:47:55 -0400
-Message-ID: <472A1F5B.9060401@garzik.org>
-References: <471E99E8.6030404@garzik.org>	<20071023.180744.115914004.davem@davemloft.net>	<471EABEE.8030900@garzik.org> <20071023.192313.115635750.davem@davemloft.net> <472A1526.8070208@intel.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] INET : removes per bucket rwlock in tcp/dccp ehash table
+Date: Thu, 01 Nov 2007 11:48:42 -0700
+Message-ID: <472A1F8A.2070708@hp.com>
+References: <4729A774.9030409@cosmosbay.com>	<20071101091456.26248ce0@freepuppy.rosehill> <472A12D0.4070401@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	davej@redhat.com, ajax@redhat.com, linux-kernel@vger.kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Andi Kleen <ak@suse.de>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55602 "EHLO mail.dvmed.net"
+Received: from palrel11.hp.com ([156.153.255.246]:39936 "EHLO palrel11.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752461AbXKASr7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Nov 2007 14:47:59 -0400
-In-Reply-To: <472A1526.8070208@intel.com>
+	id S1753273AbXKASsp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Nov 2007 14:48:45 -0400
+In-Reply-To: <472A12D0.4070401@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
-> David Miller wrote:
->> From: Jeff Garzik <jeff@garzik.org>
->> Date: Tue, 23 Oct 2007 22:20:30 -0400
+Eric Dumazet wrote:
+> Stephen Hemminger a =E9crit :
+>=20
+>> On Thu, 01 Nov 2007 11:16:20 +0100
+>> Eric Dumazet <dada1@cosmosbay.com> wrote:
 >>
->>> David Miller wrote:
->>>> From: Jeff Garzik <jeff@garzik.org>
->>>> Date: Tue, 23 Oct 2007 21:03:36 -0400
->>>>
->>>>> I'm wondering if there is a way to avoid adding
->>>>>
->>>>> 	if (!is_valid_ether_addr(dev->dev_addr))
->>>>> 		return -EINVAL;
->>>>>
->>>>> to every ethernet driver's ->open() hook.
->>>> The first idea I get is:
->>>>
->>>> 1) Create netdev->validate_dev_addr().
->>>>
->>>> 2) If it exists, invoke it before ->open(), abort
->>>>    and return if any errors signaled.
->>>>
->>>> etherdev init hooks up a function that does the above
->>>> check, which allows us to avoid editing every ethernet
->>>> driver
->>>>
->>>> What do you think?
->>> Seems sane to me.  Something like this (attached)?
->> Looks great:
->>
->> Acked-by: David S. Miller <davem@davemloft.net>
-> 
-> I like it.
-> 
-> Should I start sending patches to remove the checks from e1000/e1000e/ixgb/ixgbe
-> already (to David, I assume?)?
+>>> As done two years ago on IP route cache table (commit=20
+>>> 22c047ccbc68fa8f3fa57f0e8f906479a062c426) , we can avoid using one=20
+>>> lock per hash bucket for the huge TCP/DCCP hash tables.
 
-Send the patches to me like normal...
+The TCP hashes are looked at with higher frequency than the route cache=
+ yes?
 
-	Jeff
+>>> On a typical x86_64 platform, this saves about 2MB or 4MB of ram, f=
+or=20
+>>> litle performance differences. (we hit a different cache line for t=
+he=20
+>>> rwlock, but then the bucket cache line have a better sharing factor=
+=20
+>>> among cpus, since we dirty it less often)
+>>>
+>>> Using a 'small' table of hashed rwlocks should be more than enough =
+to=20
+>>> provide correct SMP concurrency between different buckets, without=20
+>>> using too much memory. Sizing of this table depends on NR_CPUS and=20
+>>> various CONFIG settings.
 
+Something is telling me finding a 64 core system with a suitable worklo=
+ad to try=20
+this could be a good thing.  Wish I had one at my disposal.
 
-
+rick jones
