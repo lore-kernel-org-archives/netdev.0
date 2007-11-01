@@ -1,97 +1,74 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 0/5] Make nicer CONFIG_NET_NS=n case code
-Date: Wed, 31 Oct 2007 18:58:28 -0600
-Message-ID: <m1sl3qhjd7.fsf@ebiederm.dsl.xmission.com>
-References: <20071031194924.2436843e.dada1@cosmosbay.com>
-	<m1hck7hrd1.fsf@ebiederm.dsl.xmission.com>
-	<4729047B.3080003@cosmosbay.com>
-	<20071031.163146.92277507.davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: expected behavior of PF_PACKET on NETIF_F_HW_VLAN_RX device?
+Date: Wed, 31 Oct 2007 18:06:34 -0700
+Message-ID: <4729269A.6090606@candelatech.com>
+References: <18216.52455.698606.497464@zeus.sw.starentnetworks.com> <20071031123359.3954befc@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dada1@cosmosbay.com, xemul@openvz.org, netdev@vger.kernel.org,
-	devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Bin Guo <bguo@sw.starentnetworks.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:41854 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752904AbXKAA7O convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2007 20:59:14 -0400
-In-Reply-To: <20071031.163146.92277507.davem@davemloft.net> (David Miller's
-	message of "Wed, 31 Oct 2007 16:31:46 -0700 (PDT)")
+Received: from ns2.lanforge.com ([66.165.47.211]:44262 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752080AbXKABGq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2007 21:06:46 -0400
+In-Reply-To: <20071031123359.3954befc@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
-
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Wed, 31 Oct 2007 23:40:59 +0100
+Stephen Hemminger wrote:
+> On Wed, 31 Oct 2007 14:43:51 -0400
+> Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com> wrote:
 >
->> Eric W. Biederman a =E9crit :
->> > Eric Dumazet <dada1@cosmosbay.com> writes:
->> >=20
->> >=20
->> >> Definitly wanted here. Thank you.
->> >> One more refcounting on each socket creation/deletion was expensi=
-ve.
->> >=20
->> > Really?  Have you actually measured that?  If the overhead is
->> > measurable and expensive we may want to look at per cpu counters o=
-r
->> > something like that.  So far I don't have any numbers that say any
->> > of the network namespace work inherently has any overhead.
->>=20
->> It seems that on some old opterons (two 246 for example),
->> "if (atomic_dec_and_test(&net->count))" is rather expensive yes :(
+>   
+>> Depending on the network driver, I'm seeing different behavior if
+>> a .1q packet is received to an PF_PACKET, SOCK_RAW, ETH_P_ALL socket.
+>>
+>>
+>> On devices what do not use NETIF_F_HW_VLAN_RX, the packet socket gets
+>> the complete packet with vlan tag included as the driver simply calls
+>> netif_receive_skb() or equivilant.  packet_rcv() then gets the whole
+>> thing vlan tag included and sends this through the socket.
+>>
+>> vlan_skb_recv() also gets these all and will drop them because there
+>> are no vlans configured.
+>>
+>>     
 >
-> P4 chips are generally very poor at mispredicted branches and
-> atomics.  So every atomic you remove from the socket paths
-> gives a noticable improvement on them.
+> The VLAN acceleration grabs and hides the tag. It is a design flaw
+> that should be fixed, feel free to post a patch.
+>   
+There may be several ways to 'fix' this.  Perhaps it would be worth 
+discussing what
+we want the end result to be at least?
 
-Interesting.
+Should we always pass the vlan header up to raw sockets as part of the
+data payload?
 
-> Network device reference counting is such a stupid problem.  There ha=
-s
-> to be a way to get rid of it on the packet side.
->
-> I think we could get rid of all of the device refcounting from packet=
-s
-> if we:
->
-> 1) Formalize "SKB roots".  This is every place a packet
->    could sit in the transmit path.
+Or, maybe pass it in an auxiliary message such as how timestamps may be 
+passed?
 
-Yes there are very few of these, and I think they are generally
-in interrupt or at least bottom half context aren't they?
+The first option seems cleaner, but maybe there are performance problems 
+with this
+approach?
 
-I think the OpenVz version of network namespaces may have
-already identified all of these.
+We should also define what a NIC should do with VLANs it doesn't 
+explicitly know
+about.   I think it should pass them up the stack with VLAN tag intact, 
+but again, perhaps
+there are reasons not to do that?
 
-> 2) On device unregister:
->
-> 	a) wait for RCU quiesce period
-> 	b) stop_machine_run(skb_walk_roots, netdev, NR_CPUS);
+DaveM did the HW Accel for VLANs if I remember correctly...perhaps he 
+has some input?
 
-RCU sounds sufficient but possibly overkill to achieve what
-we need to do here.
+Thanks,
+Ben
 
->    skb_walk_roots is a function that walks all the places in
->    #1, rewriting the packet to point to loopback or whatever
->    instead of 'netdev' which we are trying to unregister.
->
-> This gives us two things.
->
-> First, we no longer would need to rectount net devices
-> for packet references.
->
-> Second, we have a debugging framework for all those dreaded SKB leaks
-> that keep devices from being unloadable.  As we walk the roots
-> we'll see where all packets referencing a device actually are.
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
 
-Sounds quite useful.  Grrr.  The brain cache locality that gets us
-to rewrite things while we are refactoring them to have more
-functionality....  It just keeps the problem from being straigh
-forward ;)
-
-Eric
 
