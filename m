@@ -1,43 +1,40 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] INET : removes per bucket rwlock in tcp/dccp ehash table
-Date: Thu, 01 Nov 2007 20:17:35 +0100
-Message-ID: <472A264F.8040201@cosmosbay.com>
-References: <4729A774.9030409@cosmosbay.com>	<20071101091456.26248ce0@freepuppy.rosehill> <472A12D0.4070401@cosmosbay.com> <472A1F8A.2070708@hp.com> <472A2251.4000701@cosmosbay.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] e1000, e1000e valid-addr fixes
+Date: Thu, 01 Nov 2007 15:31:21 -0400
+Message-ID: <472A2989.2060603@garzik.org>
+References: <20071023.145339.55504234.davem@davemloft.net>	<471E9801.2000006@garzik.org>	<471E99E8.6030404@garzik.org>	<20071023.180744.115914004.davem@davemloft.net>	<471EABEE.8030900@garzik.org> <20071101111157.7f3e4f58@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Andi Kleen <ak@suse.de>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	davej@redhat.com, auke-jan.h.kok@intel.com, ajax@redhat.com,
+	linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:39465 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756535AbXKATSi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2007 15:18:38 -0400
-In-Reply-To: <472A2251.4000701@cosmosbay.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:58417 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753627AbXKATb3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Nov 2007 15:31:29 -0400
+In-Reply-To: <20071101111157.7f3e4f58@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Stephen Hemminger wrote:
+> How about:
+> 
+> static int eth_validate_addr(const struct net_device *dev)
+> {
+> 	return is_valid_ether_addr(dev->dev_addr) ? 0 : -EINVAL;
+> }
 
-> Rick Jones a =E9crit :
-> Something is telling me finding a 64 core system with a suitable=20
-> workload to try this could be a good thing.  Wish I had one at my=20
-> disposal.
+hmmm -- its a slow path, so I don't see the value of marking the 
+argument 'const' -- right now this implementation merely reads the 
+dev->dev_addr[], but that need not always be the case.
 
-Maybe on big NUMA machines, we might prefer to spread the rwlock array =
-on=20
-multiple nodes (ie using vmalloc() instead of kmalloc())
+And I don't see the value of squashing everything onto one line, IMO the 
+current version is more readable.
 
-After my patch, it is true all rwlocks are on one memory node. Not exac=
-tly=20
-optimal :(
+	Jeff
 
-But if it was an issue, the spinlock array used in IP route cache would=
- have=20
-the same problem and *someone* should already have complained...
 
 
