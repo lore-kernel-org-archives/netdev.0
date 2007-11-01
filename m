@@ -1,59 +1,48 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: build #337 failed for 2.6.24-rc1-gb1d08ac In function
-	`usbnet_set_settings':
-Date: Fri, 2 Nov 2007 00:44:43 +0100
-Message-ID: <20071101234443.GD7227@stusta.de>
-References: <200711012024.57412.toralf.foerster@gmx.de> <20071101141124.0cbe2897.randy.dunlap@oracle.com> <200711011632.18333.david-b@pacbell.net>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [2.6 patch] let USB_USBNET always select MII
+Date: Thu, 1 Nov 2007 16:52:39 -0700
+Message-ID: <200711011652.39601.david-b@pacbell.net>
+References: <200711012024.57412.toralf.foerster@gmx.de> <20071101222524.GB7227@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Randy Dunlap <randy.dunlap@oracle.com>,
-	Toralf =?utf-8?Q?F=C3=B6rster?= <toralf.foerster@gmx.de>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: David Brownell <david-b@pacbell.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Toralf =?iso-8859-1?q?F=F6rster?= <toralf.foerster@gmx.de>,
+	jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:46456 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752876AbXKAXpD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2007 19:45:03 -0400
+Received: from smtp121.sbc.mail.sp1.yahoo.com ([69.147.64.94]:25462 "HELO
+	smtp121.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754958AbXKAXwl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2007 19:52:41 -0400
+In-Reply-To: <20071101222524.GB7227@stusta.de>
 Content-Disposition: inline
-In-Reply-To: <200711011632.18333.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 01, 2007 at 04:32:18PM -0700, David Brownell wrote:
-> On Thursday 01 November 2007, Randy Dunlap wrote:
-> > The MII functions aren't available unless NET_ETHERNET=y.
+On Thursday 01 November 2007, Adrian Bunk wrote:
+> All this USB_USBNET_MII trickery is simply not worth it considering h=
+ow=20
+> few code it saves.
 
-The setting of CONFIG_NET_ETHERNET doesn't matter for this bug.
+Depends on what systems you're talking about.  Forcing unused
+code into the kernel is not free, especially if that's made into
+a design policy and applied repeatedly to many subsystems.
 
-> > Howver, the MII functions aren't always needed...
-> > 
-> > David, any ideas on this one?
-> 
-> It's been several years since I looked at this.  It
-> used to behave just fine.
-> 
-> Something must have changed in the not-too-distant
-> past to have broken this mechanism...
->...
 
-It seems to be an old bug.
+> As a side effect, this also fixes the following compile error reporte=
+d=20
+> by Toralf F=F6rster:
 
-The following combination of options is simply an unusual one:
+Why not just fix the thing which changed and broke the build?
 
-CONFIG_MII=m
-CONFIG_USB_USBNET=y
-CONFIG_USB_USBNET_MII=n
+Or if reverse dependencies can't be made to work sanely, then
+have those Ethernet-adapter minidrivers depend on NET_ETHERNET
+and then select MII.  (To make the relationships be simple
+enough that current Kconfig can handle them.)
 
-> - Dave
+I have a fair number of usbnet devices.  Not one of them needs
+MII or NET_ETHERNET.
 
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+- Dave
 
