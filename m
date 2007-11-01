@@ -1,80 +1,32 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: af_packet.c flush_dcache_page
-Date: Thu, 1 Nov 2007 19:27:57 +0300
-Message-ID: <20071101162757.GA18124@2ka.mipt.ru>
-References: <47288C42.5010603@trash.net> <20071031.155749.26538335.davem@davemloft.net> <4729FA78.5040702@trash.net>
+From: "Arnaldo Carvalho de Melo" <acme@redhat.com>
+Subject: Re: [PATCH] Clean the ip_sockglue.c from some ugly ifdefs
+Date: Thu, 1 Nov 2007 14:31:13 -0200
+Message-ID: <20071101163112.GE13130@ghostprotocols.net>
+References: <4729F642.7000709@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:57284 "EHLO 2ka.mipt.ru"
+Received: from mx1.redhat.com ([66.187.233.31]:60295 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751540AbXKAQ1o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Nov 2007 12:27:44 -0400
+	id S1751327AbXKAQbU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Nov 2007 12:31:20 -0400
 Content-Disposition: inline
-In-Reply-To: <4729FA78.5040702@trash.net>
+In-Reply-To: <4729F642.7000709@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 01, 2007 at 05:10:32PM +0100, Patrick McHardy (kaber@trash.net) wrote:
-> David Miller wrote:
-> >Instead of answering your questions, I'm going to show you
-> >how to avoid having to do any of this cache flushing crap :-)
-> >
-> >You can avoid having to flush anything as long as the virtual
-> >addresses on the kernel side are modulo SHMLBA the virtual addresses
-> >on the userland side.
-> >
-> >We have some (decidedly awkward) mechanisms to try and achieve
-> >this in the kernel, but they are cumbersome and not air tight.
-> >
-> >Instead, I would recommend simply that you access the ring
-> >buffer directly in userspace.  This avoids all of the cache
-> >aliasing issues.
-> >
-> >Yes, this means you have to do the ring buffer accesses in
-> >the context of the user, but it simplifies so much that I think
-> >it'd be worth it.
+Em Thu, Nov 01, 2007 at 06:52:34PM +0300, Pavel Emelyanov escreveu:
+> The #idfed CONFIG_IP_MROUTE is sometimes places inside the if-s,
+> which looks completely bad. Similar ifdefs inside the functions
+> looks a bit better, but they are also not recommended to be used.
 > 
+> Provide an ifdef-ed ip_mroute_opt() helper to cleanup the code.
 > 
-> I'm probably misunderstanding your suggestion because of my
-> limited mm knowledge, are you suggesting to do something like
-> this:
-> 
-> setsockopt(RX_RING, ...):
-> 
-> Allocate ring using get_user_pages, return address to user
-> 
-> tpacket_rcv/netlink_unicast/netlink_broadcast:
-> 
-> for each receiver:
-> 	switch_mm(...)
-> 	copy data to ring
-> 
-> switch_mm(original mm)
-> 
-> Would this work in softirq context?
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-IIRC it requires disabled interrupts.
+Perhaps a better name would be ip_mroute_valid_opt()?
 
-Probably David suggests to provide a pointer to allocated
-in userspace buffer and use copy_to_user() and friends.
-
-> >Another option is to use the "copy_to_user_page()" and
-> >"copy_from_user_page()" interfaces which will do all of
-> >the necessary cache flushing for you.
-> >
-> >Actually it might be nice to convert AF_PACKET's mmap() code
-> >over to using those things.
-> 
-> 
-> That would also require to do the copy in the context of
-> the user, right?
-
-Most of the time it is possible to call copy_to_user() in atomic
-context, but it can fail, in which case some additional mechanism to
-make a copy should be invented (workqueue, kthread, whatever you like :)
-
--- 
-	Evgeniy Polyakov
+- Arnaldo
