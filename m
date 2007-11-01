@@ -1,74 +1,140 @@
-From: Alexey Dobriyan <adobriyan@sw.ru>
-Subject: [PATCH] decnet: "addr" module param can't be __initdata
-Date: Thu, 1 Nov 2007 18:36:29 +0300
-Message-ID: <20071101153629.GA16499@localhost.sw.ru>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH] Clean the ip_sockglue.c from some ugly ifdefs
+Date: Thu, 01 Nov 2007 18:52:34 +0300
+Message-ID: <4729F642.7000709@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, devel@openvz.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:44790 "EHLO relay.sw.ru"
+Received: from sacred.ru ([62.205.161.221]:33141 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755393AbXKAPgi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Nov 2007 11:36:38 -0400
-Content-Disposition: inline
+	id S1753697AbXKAPwo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Nov 2007 11:52:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-sysfs keeps references to module parameters via /sys/module/*/parameters,
-so marking them as __initdata can't work.
+The #idfed CONFIG_IP_MROUTE is sometimes places inside the if-s,
+which looks completely bad. Similar ifdefs inside the functions
+looks a bit better, but they are also not recommended to be used.
 
-Steps to reproduce:
+Provide an ifdef-ed ip_mroute_opt() helper to cleanup the code.
 
-	modprobe decnet
-	cat /sys/module/decnet/parameters/addr
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-BUG: unable to handle kernel paging request at virtual address f88cd410
-printing eip: c043dfd1 *pdpt = 0000000000004001 *pde = 0000000004408067 *pte = 0000000000000000 
-Oops: 0000 [#1] PREEMPT SMP 
-Modules linked in: decnet sunrpc af_packet ipv6 binfmt_misc dm_mirror dm_multipath dm_mod sbs sbshc fan dock battery backlight ac power_supply parport loop rtc_cmos serio_raw rtc_core rtc_lib button amd_rng sr_mod cdrom shpchp pci_hotplug ehci_hcd ohci_hcd uhci_hcd usbcore
-Pid: 2099, comm: cat Not tainted (2.6.24-rc1-b1d08ac064268d0ae2281e98bf5e82627e0f0c56-bloat #6)
-EIP: 0060:[<c043dfd1>] EFLAGS: 00210286 CPU: 1
-EIP is at param_get_int+0x6/0x20
-EAX: c5c87000 EBX: 00000000 ECX: 000080d0 EDX: f88cd410
-ESI: f8a108f8 EDI: c5c87000 EBP: 00000000 ESP: c5c97f00
- DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
-Process cat (pid: 2099, ti=c5c97000 task=c641ee10 task.ti=c5c97000)
-Stack: 00000000 f8a108f8 c5c87000 c043db6b f8a108f1 00000124 c043de1a c043db2f 
-       f88cd410 ffffffff c5c87000 f8a16bc8 f8a16bc8 c043dd69 c043dd54 c5dd5078 
-       c043dbc8 c5cc7580 c06ee64c c5d679f8 c04c431f c641f480 c641f484 00001000 
-Call Trace:
- [<c043db6b>] param_array_get+0x3c/0x62
- [<c043de1a>] param_array_set+0x0/0xdf
- [<c043db2f>] param_array_get+0x0/0x62
- [<c043dd69>] param_attr_show+0x15/0x2d
- [<c043dd54>] param_attr_show+0x0/0x2d
- [<c043dbc8>] module_attr_show+0x1a/0x1e
- [<c04c431f>] sysfs_read_file+0x7c/0xd9
- [<c04c42a3>] sysfs_read_file+0x0/0xd9
- [<c048d4b2>] vfs_read+0x88/0x134
- [<c042090b>] do_page_fault+0x0/0x7d5
- [<c048d920>] sys_read+0x41/0x67
- [<c04080fa>] sysenter_past_esp+0x6b/0xc1
- =======================
-Code: 00 83 c4 0c c3 83 ec 0c 8b 52 10 8b 12 c7 44 24 04 27 dd 6c c0 89 04 24 89 54 24 08 e8 ea 01 0c 00 83 c4 0c c3 83 ec 0c 8b 52 10 <8b> 12 c7 44 24 04 58 8c 6a c0 89 04 24 89 54 24 08 e8 ca 01 0c 
-EIP: [<c043dfd1>] param_get_int+0x6/0x20 SS:ESP 0068:c5c97f00
-
-Signed-off-by: Alexey Dobriyan <adobriyan@sw.ru>
 ---
 
- net/decnet/dn_dev.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- a/net/decnet/dn_dev.c
-+++ b/net/decnet/dn_dev.c
-@@ -1439,7 +1439,7 @@ static const struct file_operations dn_dev_seq_fops = {
+diff --git a/include/linux/mroute.h b/include/linux/mroute.h
+index 7da2cee..200fbb2 100644
+--- a/include/linux/mroute.h
++++ b/include/linux/mroute.h
+@@ -128,6 +128,18 @@ struct igmpmsg
+ #ifdef __KERNEL__
+ #include <net/sock.h>
  
- #endif /* CONFIG_PROC_FS */
++#ifdef CONFIG_IP_MROUTE
++static inline int ip_mroute_opt(int opt)
++{
++	return (opt >= MRT_BASE) && (op <= MRT_BASE + 10);
++}
++#else
++static inline int ip_mroute_opt(int opt)
++{
++	return 0;
++}
++#endif
++
+ extern int ip_mroute_setsockopt(struct sock *, int, char __user *, int);
+ extern int ip_mroute_getsockopt(struct sock *, int, char __user *, int __user *);
+ extern int ipmr_ioctl(struct sock *sk, int cmd, void __user *arg);
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index f51f20e..82817e5 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -437,10 +437,8 @@ static int do_ip_setsockopt(struct sock *sk, int level,
  
--static int __initdata addr[2];
-+static int addr[2];
- module_param_array(addr, int, NULL, 0444);
- MODULE_PARM_DESC(addr, "The DECnet address of this machine: area,node");
+ 	/* If optlen==0, it is equivalent to val == 0 */
  
+-#ifdef CONFIG_IP_MROUTE
+-	if (optname >= MRT_BASE && optname <= (MRT_BASE + 10))
++	if (ip_mroute_opt(optname))
+ 		return ip_mroute_setsockopt(sk,optname,optval,optlen);
+-#endif
+ 
+ 	err = 0;
+ 	lock_sock(sk);
+@@ -909,11 +907,9 @@ int ip_setsockopt(struct sock *sk, int level,
+ #ifdef CONFIG_NETFILTER
+ 	/* we need to exclude all possible ENOPROTOOPTs except default case */
+ 	if (err == -ENOPROTOOPT && optname != IP_HDRINCL &&
+-		optname != IP_IPSEC_POLICY && optname != IP_XFRM_POLICY
+-#ifdef CONFIG_IP_MROUTE
+-		&& (optname < MRT_BASE || optname > (MRT_BASE + 10))
+-#endif
+-	   ) {
++			optname != IP_IPSEC_POLICY &&
++			optname != IP_XFRM_POLICY &&
++			!ip_mroute_opt(optname)) {
+ 		lock_sock(sk);
+ 		err = nf_setsockopt(sk, PF_INET, optname, optval, optlen);
+ 		release_sock(sk);
+@@ -935,11 +931,9 @@ int compat_ip_setsockopt(struct sock *sk, int level, int optname,
+ #ifdef CONFIG_NETFILTER
+ 	/* we need to exclude all possible ENOPROTOOPTs except default case */
+ 	if (err == -ENOPROTOOPT && optname != IP_HDRINCL &&
+-	    optname != IP_IPSEC_POLICY && optname != IP_XFRM_POLICY
+-#ifdef CONFIG_IP_MROUTE
+-	    && (optname < MRT_BASE || optname > (MRT_BASE + 10))
+-#endif
+-	   ) {
++			optname != IP_IPSEC_POLICY &&
++			optname != IP_XFRM_POLICY &&
++			!ip_mroute_opt(optname)) {
+ 		lock_sock(sk);
+ 		err = compat_nf_setsockopt(sk, PF_INET, optname,
+ 					   optval, optlen);
+@@ -967,11 +961,8 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+ 	if (level != SOL_IP)
+ 		return -EOPNOTSUPP;
+ 
+-#ifdef CONFIG_IP_MROUTE
+-	if (optname >= MRT_BASE && optname <= MRT_BASE+10) {
++	if (ip_mroute_opt(optname))
+ 		return ip_mroute_getsockopt(sk,optname,optval,optlen);
+-	}
+-#endif
+ 
+ 	if (get_user(len,optlen))
+ 		return -EFAULT;
+@@ -1171,11 +1162,8 @@ int ip_getsockopt(struct sock *sk, int level,
+ 	err = do_ip_getsockopt(sk, level, optname, optval, optlen);
+ #ifdef CONFIG_NETFILTER
+ 	/* we need to exclude all possible ENOPROTOOPTs except default case */
+-	if (err == -ENOPROTOOPT && optname != IP_PKTOPTIONS
+-#ifdef CONFIG_IP_MROUTE
+-		&& (optname < MRT_BASE || optname > MRT_BASE+10)
+-#endif
+-	   ) {
++	if (err == -ENOPROTOOPT && optname != IP_PKTOPTIONS &&
++			!ip_mroute_opt(optname)) {
+ 		int len;
+ 
+ 		if (get_user(len,optlen))
+@@ -1200,11 +1188,8 @@ int compat_ip_getsockopt(struct sock *sk, int level, int optname,
+ 	int err = do_ip_getsockopt(sk, level, optname, optval, optlen);
+ #ifdef CONFIG_NETFILTER
+ 	/* we need to exclude all possible ENOPROTOOPTs except default case */
+-	if (err == -ENOPROTOOPT && optname != IP_PKTOPTIONS
+-#ifdef CONFIG_IP_MROUTE
+-	    && (optname < MRT_BASE || optname > MRT_BASE+10)
+-#endif
+-	   ) {
++	if (err == -ENOPROTOOPT && optname != IP_PKTOPTIONS &&
++			!ip_mroute_opt(optname)) {
+ 		int len;
+ 
+ 		if (get_user(len, optlen))
+-- 
+1.5.3.4
 
