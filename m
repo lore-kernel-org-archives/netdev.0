@@ -1,48 +1,59 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [patch 2/2] ipvs: Syncrhonise Closing of Connections
-Date: Fri, 2 Nov 2007 01:36:07 +0200 (EET)
-Message-ID: <Pine.LNX.4.58.0711020119580.2992@u.domain.uli>
-References: <20071101092818.083169402@vergenet.net> <20071101093022.688977274@vergenet.net>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: build #337 failed for 2.6.24-rc1-gb1d08ac In function
+	`usbnet_set_settings':
+Date: Fri, 2 Nov 2007 00:44:43 +0100
+Message-ID: <20071101234443.GD7227@stusta.de>
+References: <200711012024.57412.toralf.foerster@gmx.de> <20071101141124.0cbe2897.randy.dunlap@oracle.com> <200711011632.18333.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@linuxvirtualserver.org, netdev@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	"Rumen G. Bogdanovski" <rumen@voicecho.com>,
-	Graeme Fowler <graeme@graemef.net>,
-	Joseph Mack NA3T <jmack@wm7d.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset=utf-8
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	Toralf =?utf-8?Q?F=C3=B6rster?= <toralf.foerster@gmx.de>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([217.79.71.194]:4211 "EHLO u.domain.uli"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754412AbXKAXls (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Nov 2007 19:41:48 -0400
-In-Reply-To: <20071101093022.688977274@vergenet.net>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:46456 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752876AbXKAXpD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2007 19:45:03 -0400
+Content-Disposition: inline
+In-Reply-To: <200711011632.18333.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, Nov 01, 2007 at 04:32:18PM -0700, David Brownell wrote:
+> On Thursday 01 November 2007, Randy Dunlap wrote:
+> > The MII functions aren't available unless NET_ETHERNET=y.
 
-	Hello,
+The setting of CONFIG_NET_ETHERNET doesn't matter for this bug.
 
-On Thu, 1 Nov 2007, Simon Horman wrote:
+> > Howver, the MII functions aren't always needed...
+> > 
+> > David, any ideas on this one?
+> 
+> It's been several years since I looked at this.  It
+> used to behave just fine.
+> 
+> Something must have changed in the not-too-distant
+> past to have broken this mechanism...
+>...
 
-> --- net-2.6.orig/net/ipv4/ipvs/ip_vs_sync.c	2007-11-01 18:17:55.000000000 +0900
-> +++ net-2.6/net/ipv4/ipvs/ip_vs_sync.c	2007-11-01 18:20:30.000000000 +0900
-> @@ -332,7 +332,7 @@ static void ip_vs_process_message(const 
->  					    s->daddr, s->dport,
->  					    flags, dest);
->  			if (dest)
+It seems to be an old bug.
 
-	Is that correct? Sorry, I was flooded with different versions
-of this patch and I'm not sure if it is the final one.
+The following combination of options is simply an unusual one:
 
-> -				atomic_dec(&dest->refcnt);
-> +				ip_vs_dest_get(dest);
->  			if (!cp) {
->  				IP_VS_ERR("ip_vs_conn_new failed\n");
->  				return;
+CONFIG_MII=m
+CONFIG_USB_USBNET=y
+CONFIG_USB_USBNET_MII=n
 
-Regards
+> - Dave
 
---
-Julian Anastasov <ja@ssi.bg>
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
