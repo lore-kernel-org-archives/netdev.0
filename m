@@ -1,69 +1,66 @@
-From: Alexey Dobriyan <adobriyan@sw.ru>
-Subject: [PATCH] Remove /proc/net/stat/*_arp_cache upon module removal
-Date: Thu, 1 Nov 2007 16:52:35 +0300
-Message-ID: <20071101135235.GB8639@localhost.sw.ru>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: [PATCH 1/2] [POWERPC] mpc5200: Fix Kconfig dependancies on MPC5200	FEC
+ device driver
+Date: Thu, 01 Nov 2007 08:22:30 -0600
+Message-ID: <20071101142230.7620.86215.stgit@trillian.cg.shawcable.net>
+References: <20071101142005.7620.54250.stgit@trillian.cg.shawcable.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, devel@openvz.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, jgarzik@pobox.com, domen.puncer@telargo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:8376 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752379AbXKANwr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Nov 2007 09:52:47 -0400
-Content-Disposition: inline
+Received: from idcmail-mo1so.shaw.ca ([24.71.223.10]:42023 "EHLO
+	pd2mo3so.prod.shaw.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753525AbXKAOXU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2007 10:23:20 -0400
+Received: from pd3mr4so.prod.shaw.ca
+ (pd3mr4so-qfe3.prod.shaw.ca [10.0.141.180]) by l-daemon
+ (Sun ONE Messaging Server 6.0 HotFix 1.01 (built Mar 15 2004))
+ with ESMTP id <0JQT00J2MZXJ8S50@l-daemon> for netdev@vger.kernel.org; Thu,
+ 01 Nov 2007 08:22:31 -0600 (MDT)
+Received: from pn2ml1so.prod.shaw.ca ([10.0.121.145])
+ by pd3mr4so.prod.shaw.ca (Sun Java System Messaging Server 6.2-7.05 (built Sep
+ 5 2006)) with ESMTP id <0JQT00DRSZXINA60@pd3mr4so.prod.shaw.ca> for
+ netdev@vger.kernel.org; Thu, 01 Nov 2007 08:22:31 -0600 (MDT)
+Received: from trillian.cg.shawcable.net ([68.147.67.118])
+ by l-daemon (Sun Java System Messaging Server 6.2-7.05 (built Sep  5 2006))
+ with ESMTP id <0JQT00K50ZXHQK00@l-daemon> for netdev@vger.kernel.org; Thu,
+ 01 Nov 2007 08:22:30 -0600 (MDT)
+In-reply-to: <20071101142005.7620.54250.stgit@trillian.cg.shawcable.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-neigh_table_init_no_netlink() creates them, but they aren't removed anywhere.
+From: Grant Likely <grant.likely@secretlab.ca>
 
-Steps to reproduce:
+When not building an arch/powerpc kernel, the mpc5200 FEC driver depends
+on some symbols which are not defined (BESTCOMM & BESTCOMM_FEC).
 
-	modprobe clip
-	rmmod clip
-	cat /proc/net/stat/clip_arp_cache
+This patch flips around the dependancy logic so that it cannot be
+selected unless BESTCOMM_FEC is selected first.  Kconfig stops
+complaining this way.
 
-BUG: unable to handle kernel paging request at virtual address f89d7758
-printing eip: c05a99da *pdpt = 0000000000004001 *pde = 0000000004408067 *pte = 0000000000000000 
-Oops: 0000 [#1] PREEMPT SMP 
-Modules linked in: atm af_packet ipv6 binfmt_misc sbs sbshc fan dock battery backlight ac power_supply parport loop rtc_cmos rtc_core rtc_lib serio_raw button k8temp hwmon amd_rng sr_mod cdrom shpchp pci_hotplug ehci_hcd ohci_hcd uhci_hcd usbcore
-Pid: 2082, comm: cat Not tainted (2.6.24-rc1-b1d08ac064268d0ae2281e98bf5e82627e0f0c56-bloat #4)
-EIP: 0060:[<c05a99da>] EFLAGS: 00210256 CPU: 0
-EIP is at neigh_stat_seq_next+0x26/0x3f
-EAX: 00000001 EBX: f89d7600 ECX: c587bf40 EDX: 00000000
-ESI: 00000000 EDI: 00000001 EBP: 00000400 ESP: c587bf1c
- DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
-Process cat (pid: 2082, ti=c587b000 task=c5984e10 task.ti=c587b000)
-Stack: c06228cc c5313790 c049e5c0 0804f000 c45a7b00 c53137b0 00000000 00000000 
-       00000082 00000001 00000000 00000000 00000000 fffffffb c58d6780 c049e437 
-       c45a7b00 c04b1f93 c587bfa0 00000400 0804f000 00000400 0804f000 c04b1f2f 
-Call Trace:
- [<c049e5c0>] seq_read+0x189/0x281
- [<c049e437>] seq_read+0x0/0x281
- [<c04b1f93>] proc_reg_read+0x64/0x77
- [<c04b1f2f>] proc_reg_read+0x0/0x77
- [<c048907e>] vfs_read+0x80/0xd1
- [<c0489491>] sys_read+0x41/0x67
- [<c04080fa>] sysenter_past_esp+0x6b/0xc1
- =======================
-Code: e9 ec 8d 05 00 56 8b 11 53 8b 40 70 8b 58 3c eb 29 0f a3 15 80 91 7b c0 19 c0 85 c0 8d 42 01 74 17 89 c6 c1 fe 1f 89 01 89 71 04 <8b> 83 58 01 00 00 f7 d0 8b 04 90 eb 09 89 c2 83 fa 01 7e d2 31 
-EIP: [<c05a99da>] neigh_stat_seq_next+0x26/0x3f SS:ESP 0068:c587bf1c
+Also, the driver only works for arch/powerpc (not arch/ppc) anyway so
+it should depend on PPC_MERGE also.
 
-Signed-off-by: Alexey Dobriyan <adobriyan@sw.ru>
+Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 ---
 
- net/core/neighbour.c |    2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/Kconfig |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -1435,6 +1435,8 @@ int neigh_table_clear(struct neigh_table *tbl)
- 	kfree(tbl->phash_buckets);
- 	tbl->phash_buckets = NULL;
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 867cb73..5f800a6 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -1883,9 +1883,7 @@ config FEC2
  
-+	remove_proc_entry(tbl->id, init_net.proc_net_stat);
-+
- 	free_percpu(tbl->stats);
- 	tbl->stats = NULL;
- 
+ config FEC_MPC52xx
+ 	tristate "MPC52xx FEC driver"
+-	depends on PPC_MPC52xx
+-	select PPC_BESTCOMM
+-	select PPC_BESTCOMM_FEC
++	depends on PPC_MERGE && PPC_MPC52xx && PPC_BESTCOMM_FEC
+ 	select CRC32
+ 	select PHYLIB
+ 	---help---
 
