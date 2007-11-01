@@ -1,70 +1,43 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9270] New: sunhme requires lower MTU to handle
- 802.1q frames
-Date: Thu, 1 Nov 2007 12:12:39 -0700
-Message-ID: <20071101121239.d0e67bd3.akpm@linux-foundation.org>
-References: <bug-9270-10286@http.bugzilla.kernel.org/>
-	<20071031154301.3cc0fbb9.akpm@linux-foundation.org>
-	<20071031.163557.73546666.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] INET : removes per bucket rwlock in tcp/dccp ehash table
+Date: Thu, 01 Nov 2007 20:17:35 +0100
+Message-ID: <472A264F.8040201@cosmosbay.com>
+References: <4729A774.9030409@cosmosbay.com>	<20071101091456.26248ce0@freepuppy.rosehill> <472A12D0.4070401@cosmosbay.com> <472A1F8A.2070708@hp.com> <472A2251.4000701@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	dev-null@telus.net, jeff@garzik.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Andi Kleen <ak@suse.de>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:59513 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758035AbXKATNQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2007 15:13:16 -0400
-In-Reply-To: <20071031.163557.73546666.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:39465 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756535AbXKATSi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2007 15:18:38 -0400
+In-Reply-To: <472A2251.4000701@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 31 Oct 2007 16:35:57 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
 
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Date: Wed, 31 Oct 2007 15:43:01 -0700
-> 
-> > > sunhme requires lower MTU to handle 802.1q frames - even though the PCI
-> > > driver supported VLAN tagging, you cannot do full MTU @ 1500 because the
-> > > driver doesn't set the card to transfer more the extra bytes for a 802.1q
-> > > frame at 1500 MTU.
-> 
-> It supports VLAN tagging by accident, the NETIF_F_VLAN_CHALLENGED
-> flag should be set both in the PCI and non-PCI cases.
-> 
-> Jeff, please apply, thanks:
-> 
-> [SUNHME]: Fix missing NETIF_F_VLAN_CHALLENGED on PCI happy meals.
-> 
-> No HME parts can do VLANs correctly.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> diff --git a/drivers/net/sunhme.c b/drivers/net/sunhme.c
-> index 120c8af..c20a3bd 100644
-> --- a/drivers/net/sunhme.c
-> +++ b/drivers/net/sunhme.c
-> @@ -3143,8 +3143,8 @@ static int __devinit happy_meal_pci_probe(struct pci_dev *pdev,
->  	dev->irq = pdev->irq;
->  	dev->dma = 0;
->  
-> -	/* Happy Meal can do it all... */
-> -	dev->features |= NETIF_F_SG | NETIF_F_HW_CSUM;
-> +	/* Happy Meal can do it all... except VLAN. */
-> +	dev->features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_VLAN_CHALLENGED;
->  
->  #if defined(CONFIG_SBUS) && defined(CONFIG_PCI)
->  	/* Hook up PCI register/dma accessors. */
+> Rick Jones a =E9crit :
+> Something is telling me finding a 64 core system with a suitable=20
+> workload to try this could be a good thing.  Wish I had one at my=20
+> disposal.
 
-I forgot to add my standard "please reply via emailed reply-to-all, not via
-the bugzilla web interface", so Chris has gone and attempted to communicate
-with us via the bugzilla UI (sigh).
+Maybe on big NUMA machines, we might prefer to spread the rwlock array =
+on=20
+multiple nodes (ie using vmalloc() instead of kmalloc())
 
-He asked
+After my patch, it is true all rwlocks are on one memory node. Not exac=
+tly=20
+optimal :(
 
-"Even though it appears to work after I bumped the BMAC_TXMAX / BMAC_RXMAX?"
+But if it was an issue, the spinlock array used in IP route cache would=
+ have=20
+the same problem and *someone* should already have complained...
 
 
