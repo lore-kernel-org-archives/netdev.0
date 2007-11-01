@@ -1,134 +1,83 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] let USB_USBNET always select MII
-Date: Thu, 1 Nov 2007 23:25:24 +0100
-Message-ID: <20071101222524.GB7227@stusta.de>
-References: <200711012024.57412.toralf.foerster@gmx.de>
+From: Chris Poon <dev-null@telus.net>
+Subject: Re: [Bugme-new] [Bug 9270] New: sunhme requires lower MTU to handle 802.1q frames
+Date: Thu,  1 Nov 2007 13:52:13 -0700
+Message-ID: <1193950333.472a3c7d30c3d@webmail.telus.net>
+References: <bug-9270-10286@http.bugzilla.kernel.org/> <20071031154301.3cc0fbb9.akpm@linux-foundation.org> <20071031.163557.73546666.davem@davemloft.net> <20071101121239.d0e67bd3.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Toralf =?utf-8?Q?F=C3=B6rster?= <toralf.foerster@gmx.de>,
-	dbrownell@users.sourceforge.net, jgarzik@pobox.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, jeff@garzik.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:40641 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753079AbXKAWZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2007 18:25:43 -0400
-Content-Disposition: inline
-In-Reply-To: <200711012024.57412.toralf.foerster@gmx.de>
+Received: from outbound04.telus.net ([199.185.220.223]:53670 "EHLO
+	outbound04.telus.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759807AbXKAWsY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2007 18:48:24 -0400
+In-Reply-To: <20071101121239.d0e67bd3.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All this USB_USBNET_MII trickery is simply not worth it considering how=
-=20
-few code it saves.
+Forgot to add that only changing BMAC_TXMAX & BMAC_RXMAX wouldn't work
+for me, until I changed 2 skb_put as well (which is in the patch that
+I submitted in bugzilla). Dug up some really old threads on the net
+and found out that this was reported before
 
-As a side effect, this also fixes the following compile error reported=20
-by Toralf F=C3=B6rster:
+Quoting Andrew Morton <akpm@linux-foundation.org>:
 
-<--  snip  -->
+> On Wed, 31 Oct 2007 16:35:57 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
+> 
+> > From: Andrew Morton <akpm@linux-foundation.org>
+> > Date: Wed, 31 Oct 2007 15:43:01 -0700
+> > 
+> > > > sunhme requires lower MTU to handle 802.1q frames - even though the
+> PCI
+> > > > driver supported VLAN tagging, you cannot do full MTU @ 1500 because
+> the
+> > > > driver doesn't set the card to transfer more the extra bytes for a
+> 802.1q
+> > > > frame at 1500 MTU.
+> > 
+> > It supports VLAN tagging by accident, the NETIF_F_VLAN_CHALLENGED
+> > flag should be set both in the PCI and non-PCI cases.
+> > 
+> > Jeff, please apply, thanks:
+> > 
+> > [SUNHME]: Fix missing NETIF_F_VLAN_CHALLENGED on PCI happy meals.
+> > 
+> > No HME parts can do VLANs correctly.
+> > 
+> > Signed-off-by: David S. Miller <davem@davemloft.net>
+> > 
+> > diff --git a/drivers/net/sunhme.c b/drivers/net/sunhme.c
+> > index 120c8af..c20a3bd 100644
+> > --- a/drivers/net/sunhme.c
+> > +++ b/drivers/net/sunhme.c
+> > @@ -3143,8 +3143,8 @@ static int __devinit happy_meal_pci_probe(struct
+> pci_dev *pdev,
+> >  	dev->irq = pdev->irq;
+> >  	dev->dma = 0;
+> >  
+> > -	/* Happy Meal can do it all... */
+> > -	dev->features |= NETIF_F_SG | NETIF_F_HW_CSUM;
+> > +	/* Happy Meal can do it all... except VLAN. */
+> > +	dev->features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_VLAN_CHALLENGED;
+> >  
+> >  #if defined(CONFIG_SBUS) && defined(CONFIG_PCI)
+> >  	/* Hook up PCI register/dma accessors. */
+> 
+> I forgot to add my standard "please reply via emailed reply-to-all, not via
+> the bugzilla web interface", so Chris has gone and attempted to communicate
+> with us via the bugzilla UI (sigh).
+> 
+> He asked
+> 
+> "Even though it appears to work after I bumped the BMAC_TXMAX / BMAC_RXMAX?"
+> 
+> 
+> 
 
-=2E..
-  LD      .tmp_vmlinux1
-drivers/built-in.o: In function `usbnet_set_settings':
-(.text+0xf1876): undefined reference to `mii_ethtool_sset'
-drivers/built-in.o: In function `usbnet_get_settings':
-(.text+0xf1836): undefined reference to `mii_ethtool_gset'
-drivers/built-in.o: In function `usbnet_get_link':
-(.text+0xf18d6): undefined reference to `mii_link_ok'
-drivers/built-in.o: In function `usbnet_nway_reset':
-(.text+0xf18f6): undefined reference to `mii_nway_restart'
-make: *** [.tmp_vmlinux1] Error 1
 
-<--  snip  -->
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
----
-
- drivers/net/usb/Kconfig  |    9 +--------
- drivers/net/usb/usbnet.c |    7 -------
- 2 files changed, 1 insertion(+), 15 deletions(-)
-
-3b7f6290c639b9042fead1698fdbe1c84132c953=20
-diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-index 5a96d74..a12c9c4 100644
---- a/drivers/net/usb/Kconfig
-+++ b/drivers/net/usb/Kconfig
-@@ -93,13 +93,9 @@ config USB_RTL8150
- 	  To compile this driver as a module, choose M here: the
- 	  module will be called rtl8150.
-=20
--config USB_USBNET_MII
--	tristate
--	default n
--
- config USB_USBNET
- 	tristate "Multi-purpose USB Networking Framework"
--	select MII if USB_USBNET_MII !=3D n
-+	select MII
- 	---help---
- 	  This driver supports several kinds of network links over USB,
- 	  with "minidrivers" built around a common network driver core
-@@ -135,7 +131,6 @@ config USB_NET_AX8817X
- 	tristate "ASIX AX88xxx Based USB 2.0 Ethernet Adapters"
- 	depends on USB_USBNET && NET_ETHERNET
- 	select CRC32
--	select USB_USBNET_MII
- 	default y
- 	help
- 	  This option adds support for ASIX AX88xxx based USB 2.0
-@@ -190,7 +185,6 @@ config USB_NET_DM9601
- 	tristate "Davicom DM9601 based USB 1.1 10/100 ethernet devices"
- 	depends on USB_USBNET
- 	select CRC32
--	select USB_USBNET_MII
- 	help
- 	  This option adds support for Davicom DM9601 based USB 1.1
- 	  10/100 Ethernet adapters.
-@@ -225,7 +219,6 @@ config USB_NET_PLUSB
- config USB_NET_MCS7830
- 	tristate "MosChip MCS7830 based Ethernet adapters"
- 	depends on USB_USBNET
--	select USB_USBNET_MII
- 	help
- 	  Choose this option if you're using a 10/100 Ethernet USB2
- 	  adapter based on the MosChip 7830 controller. This includes
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index acd5f1c..8ed1fc5 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -683,9 +683,6 @@ done_nopm:
-  * they'll probably want to use this base set.
-  */
-=20
--#if defined(CONFIG_MII) || defined(CONFIG_MII_MODULE)
--#define HAVE_MII
--
- int usbnet_get_settings (struct net_device *net, struct ethtool_cmd *c=
-md)
- {
- 	struct usbnet *dev =3D netdev_priv(net);
-@@ -744,8 +741,6 @@ int usbnet_nway_reset(struct net_device *net)
- }
- EXPORT_SYMBOL_GPL(usbnet_nway_reset);
-=20
--#endif	/* HAVE_MII */
--
- void usbnet_get_drvinfo (struct net_device *net, struct ethtool_drvinf=
-o *info)
- {
- 	struct usbnet *dev =3D netdev_priv(net);
-@@ -776,12 +771,10 @@ EXPORT_SYMBOL_GPL(usbnet_set_msglevel);
-=20
- /* drivers may override default ethtool_ops in their bind() routine */
- static struct ethtool_ops usbnet_ethtool_ops =3D {
--#ifdef	HAVE_MII
- 	.get_settings		=3D usbnet_get_settings,
- 	.set_settings		=3D usbnet_set_settings,
- 	.get_link		=3D usbnet_get_link,
- 	.nway_reset		=3D usbnet_nway_reset,
--#endif
- 	.get_drvinfo		=3D usbnet_get_drvinfo,
- 	.get_msglevel		=3D usbnet_get_msglevel,
- 	.set_msglevel		=3D usbnet_set_msglevel,
