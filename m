@@ -1,140 +1,184 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] Clean the ip_sockglue.c from some ugly ifdefs
-Date: Thu, 01 Nov 2007 18:52:34 +0300
-Message-ID: <4729F642.7000709@openvz.org>
+Subject: [PATCH 1/2][NETFILTER] Consolidate nf_sockopt and compat_nf_sockopt
+Date: Thu, 01 Nov 2007 18:55:35 +0300
+Message-ID: <4729F6F7.2020705@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+Cc: Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:33141 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:46197 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753697AbXKAPwo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Nov 2007 11:52:44 -0400
+	id S1753457AbXKAPzp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Nov 2007 11:55:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The #idfed CONFIG_IP_MROUTE is sometimes places inside the if-s,
-which looks completely bad. Similar ifdefs inside the functions
-looks a bit better, but they are also not recommended to be used.
+Both lookup the nf_sockopt_ops object to call the get/set callbacks
+from, but they perform it in a completely similar way.
 
-Provide an ifdef-ed ip_mroute_opt() helper to cleanup the code.
+Introduce the helper for finding the ops.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
 
-diff --git a/include/linux/mroute.h b/include/linux/mroute.h
-index 7da2cee..200fbb2 100644
---- a/include/linux/mroute.h
-+++ b/include/linux/mroute.h
-@@ -128,6 +128,18 @@ struct igmpmsg
- #ifdef __KERNEL__
- #include <net/sock.h>
+diff --git a/net/netfilter/nf_sockopt.c b/net/netfilter/nf_sockopt.c
+index aa28315..a5e5e30 100644
+--- a/net/netfilter/nf_sockopt.c
++++ b/net/netfilter/nf_sockopt.c
+@@ -61,48 +61,59 @@ void nf_unregister_sockopt(struct nf_sockopt_ops *reg)
+ }
+ EXPORT_SYMBOL(nf_unregister_sockopt);
  
-+#ifdef CONFIG_IP_MROUTE
-+static inline int ip_mroute_opt(int opt)
-+{
-+	return (opt >= MRT_BASE) && (op <= MRT_BASE + 10);
-+}
-+#else
-+static inline int ip_mroute_opt(int opt)
-+{
-+	return 0;
-+}
-+#endif
+-/* Call get/setsockopt() */
+-static int nf_sockopt(struct sock *sk, int pf, int val,
+-		      char __user *opt, int *len, int get)
++static struct nf_sockopt_ops *nf_sockopt_find(struct sock *sk, int pf,
++		int val, int get)
+ {
+ 	struct list_head *i;
+ 	struct nf_sockopt_ops *ops;
+-	int ret;
+ 
+ 	if (sk->sk_net != &init_net)
+-		return -ENOPROTOOPT;
++		return ERR_PTR(-ENOPROTOOPT);
+ 
+ 	if (mutex_lock_interruptible(&nf_sockopt_mutex) != 0)
+-		return -EINTR;
++		return ERR_PTR(-EINTR);
+ 
+ 	list_for_each(i, &nf_sockopts) {
+ 		ops = (struct nf_sockopt_ops *)i;
+ 		if (ops->pf == pf) {
+ 			if (!try_module_get(ops->owner))
+ 				goto out_nosup;
 +
- extern int ip_mroute_setsockopt(struct sock *, int, char __user *, int);
- extern int ip_mroute_getsockopt(struct sock *, int, char __user *, int __user *);
- extern int ipmr_ioctl(struct sock *sk, int cmd, void __user *arg);
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index f51f20e..82817e5 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -437,10 +437,8 @@ static int do_ip_setsockopt(struct sock *sk, int level,
+ 			if (get) {
+-				if (val >= ops->get_optmin
+-				    && val < ops->get_optmax) {
+-					mutex_unlock(&nf_sockopt_mutex);
+-					ret = ops->get(sk, val, opt, len);
++				if (val >= ops->get_optmin &&
++						val < ops->get_optmax)
+ 					goto out;
+-				}
+ 			} else {
+-				if (val >= ops->set_optmin
+-				    && val < ops->set_optmax) {
+-					mutex_unlock(&nf_sockopt_mutex);
+-					ret = ops->set(sk, val, opt, *len);
++				if (val >= ops->set_optmin &&
++						val < ops->set_optmax)
+ 					goto out;
+-				}
+ 			}
+ 			module_put(ops->owner);
+ 		}
+ 	}
+- out_nosup:
++out_nosup:
++	ops = ERR_PTR(-ENOPROTOOPT);
++out:
+ 	mutex_unlock(&nf_sockopt_mutex);
+-	return -ENOPROTOOPT;
++	return ops;
++}
++
++/* Call get/setsockopt() */
++static int nf_sockopt(struct sock *sk, int pf, int val,
++		      char __user *opt, int *len, int get)
++{
++	struct nf_sockopt_ops *ops;
++	int ret;
++
++	ops = nf_sockopt_find(sk, pf, val, get);
++	if (IS_ERR(ops))
++		return PTR_ERR(ops);
++
++	if (get)
++		ret = ops->get(sk, val, opt, len);
++	else
++		ret = ops->set(sk, val, opt, *len);
  
- 	/* If optlen==0, it is equivalent to val == 0 */
+- out:
+ 	module_put(ops->owner);
+ 	return ret;
+ }
+@@ -124,56 +135,25 @@ EXPORT_SYMBOL(nf_getsockopt);
+ static int compat_nf_sockopt(struct sock *sk, int pf, int val,
+ 			     char __user *opt, int *len, int get)
+ {
+-	struct list_head *i;
+ 	struct nf_sockopt_ops *ops;
+ 	int ret;
  
--#ifdef CONFIG_IP_MROUTE
--	if (optname >= MRT_BASE && optname <= (MRT_BASE + 10))
-+	if (ip_mroute_opt(optname))
- 		return ip_mroute_setsockopt(sk,optname,optval,optlen);
--#endif
+-	if (sk->sk_net != &init_net)
+-		return -ENOPROTOOPT;
+-
+-
+-	if (mutex_lock_interruptible(&nf_sockopt_mutex) != 0)
+-		return -EINTR;
+-
+-	list_for_each(i, &nf_sockopts) {
+-		ops = (struct nf_sockopt_ops *)i;
+-		if (ops->pf == pf) {
+-			if (!try_module_get(ops->owner))
+-				goto out_nosup;
+-
+-			if (get) {
+-				if (val >= ops->get_optmin
+-				    && val < ops->get_optmax) {
+-					mutex_unlock(&nf_sockopt_mutex);
+-					if (ops->compat_get)
+-						ret = ops->compat_get(sk,
+-							val, opt, len);
+-					else
+-						ret = ops->get(sk,
+-							val, opt, len);
+-					goto out;
+-				}
+-			} else {
+-				if (val >= ops->set_optmin
+-				    && val < ops->set_optmax) {
+-					mutex_unlock(&nf_sockopt_mutex);
+-					if (ops->compat_set)
+-						ret = ops->compat_set(sk,
+-							val, opt, *len);
+-					else
+-						ret = ops->set(sk,
+-							val, opt, *len);
+-					goto out;
+-				}
+-			}
+-			module_put(ops->owner);
+-		}
++	ops = nf_sockopt_find(sk, pf, val, get);
++	if (IS_ERR(ops))
++		return PTR_ERR(ops);
++
++	if (get) {
++		if (ops->compat_get)
++			ret = ops->compat_get(sk, val, opt, len);
++		else
++			ret = ops->get(sk, val, ops, len);
++	} else {
++		if (ops->compat_set)
++			ret = ops->compat_set(sk, val, ops, *len);
++		else
++			ret = ops->set(sk, val, ops, *len);
+ 	}
+- out_nosup:
+-	mutex_unlock(&nf_sockopt_mutex);
+-	return -ENOPROTOOPT;
  
- 	err = 0;
- 	lock_sock(sk);
-@@ -909,11 +907,9 @@ int ip_setsockopt(struct sock *sk, int level,
- #ifdef CONFIG_NETFILTER
- 	/* we need to exclude all possible ENOPROTOOPTs except default case */
- 	if (err == -ENOPROTOOPT && optname != IP_HDRINCL &&
--		optname != IP_IPSEC_POLICY && optname != IP_XFRM_POLICY
--#ifdef CONFIG_IP_MROUTE
--		&& (optname < MRT_BASE || optname > (MRT_BASE + 10))
--#endif
--	   ) {
-+			optname != IP_IPSEC_POLICY &&
-+			optname != IP_XFRM_POLICY &&
-+			!ip_mroute_opt(optname)) {
- 		lock_sock(sk);
- 		err = nf_setsockopt(sk, PF_INET, optname, optval, optlen);
- 		release_sock(sk);
-@@ -935,11 +931,9 @@ int compat_ip_setsockopt(struct sock *sk, int level, int optname,
- #ifdef CONFIG_NETFILTER
- 	/* we need to exclude all possible ENOPROTOOPTs except default case */
- 	if (err == -ENOPROTOOPT && optname != IP_HDRINCL &&
--	    optname != IP_IPSEC_POLICY && optname != IP_XFRM_POLICY
--#ifdef CONFIG_IP_MROUTE
--	    && (optname < MRT_BASE || optname > (MRT_BASE + 10))
--#endif
--	   ) {
-+			optname != IP_IPSEC_POLICY &&
-+			optname != IP_XFRM_POLICY &&
-+			!ip_mroute_opt(optname)) {
- 		lock_sock(sk);
- 		err = compat_nf_setsockopt(sk, PF_INET, optname,
- 					   optval, optlen);
-@@ -967,11 +961,8 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
- 	if (level != SOL_IP)
- 		return -EOPNOTSUPP;
- 
--#ifdef CONFIG_IP_MROUTE
--	if (optname >= MRT_BASE && optname <= MRT_BASE+10) {
-+	if (ip_mroute_opt(optname))
- 		return ip_mroute_getsockopt(sk,optname,optval,optlen);
--	}
--#endif
- 
- 	if (get_user(len,optlen))
- 		return -EFAULT;
-@@ -1171,11 +1162,8 @@ int ip_getsockopt(struct sock *sk, int level,
- 	err = do_ip_getsockopt(sk, level, optname, optval, optlen);
- #ifdef CONFIG_NETFILTER
- 	/* we need to exclude all possible ENOPROTOOPTs except default case */
--	if (err == -ENOPROTOOPT && optname != IP_PKTOPTIONS
--#ifdef CONFIG_IP_MROUTE
--		&& (optname < MRT_BASE || optname > MRT_BASE+10)
--#endif
--	   ) {
-+	if (err == -ENOPROTOOPT && optname != IP_PKTOPTIONS &&
-+			!ip_mroute_opt(optname)) {
- 		int len;
- 
- 		if (get_user(len,optlen))
-@@ -1200,11 +1188,8 @@ int compat_ip_getsockopt(struct sock *sk, int level, int optname,
- 	int err = do_ip_getsockopt(sk, level, optname, optval, optlen);
- #ifdef CONFIG_NETFILTER
- 	/* we need to exclude all possible ENOPROTOOPTs except default case */
--	if (err == -ENOPROTOOPT && optname != IP_PKTOPTIONS
--#ifdef CONFIG_IP_MROUTE
--	    && (optname < MRT_BASE || optname > MRT_BASE+10)
--#endif
--	   ) {
-+	if (err == -ENOPROTOOPT && optname != IP_PKTOPTIONS &&
-+			!ip_mroute_opt(optname)) {
- 		int len;
- 
- 		if (get_user(len, optlen))
+- out:
+ 	module_put(ops->owner);
+ 	return ret;
+ }
 -- 
 1.5.3.4
 
