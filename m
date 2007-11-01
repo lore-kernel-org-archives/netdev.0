@@ -1,48 +1,48 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: build #337 failed for 2.6.24-rc1-gb1d08ac In function `usbnet_set_settings':
-Date: Thu, 1 Nov 2007 16:32:18 -0700
-Message-ID: <200711011632.18333.david-b@pacbell.net>
-References: <200711012024.57412.toralf.foerster@gmx.de> <20071101141124.0cbe2897.randy.dunlap@oracle.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [patch 2/2] ipvs: Syncrhonise Closing of Connections
+Date: Fri, 2 Nov 2007 01:36:07 +0200 (EET)
+Message-ID: <Pine.LNX.4.58.0711020119580.2992@u.domain.uli>
+References: <20071101092818.083169402@vergenet.net> <20071101093022.688977274@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Toralf =?iso-8859-1?q?F=F6rster?= <toralf.foerster@gmx.de>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760730AbXKAXcd@vger.kernel.org>
-In-Reply-To: <20071101141124.0cbe2897.randy.dunlap@oracle.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: lvs-devel@linuxvirtualserver.org, netdev@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	"Rumen G. Bogdanovski" <rumen@voicecho.com>,
+	Graeme Fowler <graeme@graemef.net>,
+	Joseph Mack NA3T <jmack@wm7d.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([217.79.71.194]:4211 "EHLO u.domain.uli"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754412AbXKAXls (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Nov 2007 19:41:48 -0400
+In-Reply-To: <20071101093022.688977274@vergenet.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 01 November 2007, Randy Dunlap wrote:
-> The MII functions aren't available unless NET_ETHERNET=3Dy.
-> Howver, the MII functions aren't always needed...
->=20
-> David, any ideas on this one?
 
-It's been several years since I looked at this.  It
-used to behave just fine.
+	Hello,
 
-Something must have changed in the not-too-distant
-past to have broken this mechanism...
+On Thu, 1 Nov 2007, Simon Horman wrote:
 
+> --- net-2.6.orig/net/ipv4/ipvs/ip_vs_sync.c	2007-11-01 18:17:55.000000000 +0900
+> +++ net-2.6/net/ipv4/ipvs/ip_vs_sync.c	2007-11-01 18:20:30.000000000 +0900
+> @@ -332,7 +332,7 @@ static void ip_vs_process_message(const 
+>  					    s->daddr, s->dport,
+>  					    flags, dest);
+>  			if (dest)
 
-> =A0config USB_USBNET
-> =A0 =A0 =A0 =A0 tristate "Multi-purpose USB Networking Framework"
-> + =A0 =A0 =A0 depends on NET_ETHERNET if USB_USBNET_MII !=3D n
-> =A0 =A0 =A0 =A0 select MII if USB_USBNET_MII !=3D n
->=20
-> would be handy. =A0But invalid.
->=20
-> Hm, wait. =A0Haven't we seen this before and decided that MII should
-> be made more generally available? =A0I.e., not depend on NET_ETHERNET=
-?
+	Is that correct? Sorry, I was flooded with different versions
+of this patch and I'm not sure if it is the final one.
 
-Some of us keep wanting to see "select" work properly,
-not omitting dependencies...
+> -				atomic_dec(&dest->refcnt);
+> +				ip_vs_dest_get(dest);
+>  			if (!cp) {
+>  				IP_VS_ERR("ip_vs_conn_new failed\n");
+>  				return;
 
-Re interdependencies MII and NET_ETHERNET, I'll leave
-that up to the netedev folk.
+Regards
 
-- Dave
+--
+Julian Anastasov <ja@ssi.bg>
