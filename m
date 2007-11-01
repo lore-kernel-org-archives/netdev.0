@@ -1,55 +1,48 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: expected behavior of PF_PACKET on NETIF_F_HW_VLAN_RX device?
-Date: Thu, 01 Nov 2007 16:26:01 -0700
-Message-ID: <472A6089.7020104@hp.com>
-References: <472A49BD.6000802@hp.com>	<20071101.145956.63020380.davem@davemloft.net>	<472A4D5C.2070301@hp.com> <20071101.150723.30590053.davem@davemloft.net>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: build #337 failed for 2.6.24-rc1-gb1d08ac In function `usbnet_set_settings':
+Date: Thu, 1 Nov 2007 16:32:18 -0700
+Message-ID: <200711011632.18333.david-b@pacbell.net>
+References: <200711012024.57412.toralf.foerster@gmx.de> <20071101141124.0cbe2897.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: djohnson+linux-kernel@sw.starentnetworks.com,
-	greearb@candelatech.com, shemminger@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	bguo@sw.starentnetworks.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel11.hp.com ([156.153.255.246]:45554 "EHLO palrel11.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754620AbXKAX0F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Nov 2007 19:26:05 -0400
-In-Reply-To: <20071101.150723.30590053.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Toralf =?iso-8859-1?q?F=F6rster?= <toralf.foerster@gmx.de>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760730AbXKAXcd@vger.kernel.org>
+In-Reply-To: <20071101141124.0cbe2897.randy.dunlap@oracle.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Rick Jones <rick.jones2@hp.com>
->>I'll try to go pester folks in tcpdump-workers then.
-> 
-> 
-> The thing to check is "TP_STATUS_CSUMNOTREADY".
-> 
-> When using mmap(), it will be provided in the descriptor.  When using
-> recvmsg() it will be provided via a PACKET_AUXDATA control message
-> when enabled via the PACKET_AUXDATA socket option.
+On Thursday 01 November 2007, Randy Dunlap wrote:
+> The MII functions aren't available unless NET_ETHERNET=3Dy.
+> Howver, the MII functions aren't always needed...
+>=20
+> David, any ideas on this one?
 
-Figures... the "dailies" and "weeklies" for tar files of tcpdump and libpcap 
-source are fubar... again.  I've email in to tcpdump-workers on that one.  If 
-that isn't resolved quickly I'll learn how to access their CVS (pick an SCM, any 
-SCM...)
+It's been several years since I looked at this.  It
+used to behave just fine.
 
-I did an apt-get of debian lenny's tcpdump and sources:
+Something must have changed in the not-too-distant
+past to have broken this mechanism...
 
-hpcpc103:~# tcpdump -V
-tcpdump version 3.9.8
-libpcap version 0.9.8
 
-and that seems to show the false checksum failure and not use the 
-TP_STATUS_CSUMNOTREADY - at least that didn't appear in a grepping of the 
-sources.  At first I thought it might be, but then I realized that my snaplen 
-was too short to get the whole TSO'ed frame so tcpdump wasn't even trying to 
-verify.  After disabling TSO on the NIC, leaving CKO on, and making my snaplen > 
-1500 I could see it was doing undesirable stuff.
+> =A0config USB_USBNET
+> =A0 =A0 =A0 =A0 tristate "Multi-purpose USB Networking Framework"
+> + =A0 =A0 =A0 depends on NET_ETHERNET if USB_USBNET_MII !=3D n
+> =A0 =A0 =A0 =A0 select MII if USB_USBNET_MII !=3D n
+>=20
+> would be handy. =A0But invalid.
+>=20
+> Hm, wait. =A0Haven't we seen this before and decided that MII should
+> be made more generally available? =A0I.e., not depend on NET_ETHERNET=
+?
 
-I'll see what top of trunk has at some point and what the folks there think of 
-adding-in a change.
+Some of us keep wanting to see "select" work properly,
+not omitting dependencies...
 
-rick jones
+Re interdependencies MII and NET_ETHERNET, I'll leave
+that up to the netedev folk.
+
+- Dave
