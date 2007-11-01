@@ -1,37 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: expected behavior of PF_PACKET on NETIF_F_HW_VLAN_RX device?
-Date: Wed, 31 Oct 2007 21:50:25 -0700 (PDT)
-Message-ID: <20071031.215025.195350296.davem@davemloft.net>
-References: <20071031123359.3954befc@freepuppy.rosehill>
-	<4729269A.6090606@candelatech.com>
-	<47292A99.5070805@linux-foundation.org>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 0/5] Make nicer CONFIG_NET_NS=n case code
+Date: Thu, 01 Nov 2007 07:58:59 +0100
+Message-ID: <47297933.7090609@cosmosbay.com>
+References: <4728D54F.2080208@openvz.org>	<20071031194924.2436843e.dada1@cosmosbay.com>	<m1hck7hrd1.fsf@ebiederm.dsl.xmission.com>	<4729047B.3080003@cosmosbay.com> <m1wst2hjo5.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com,
-	djohnson+linux-kernel@sw.starentnetworks.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	bguo@sw.starentnetworks.com
-To: shemminger@linux-foundation.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pavel Emelyanov <xemul@openvz.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43393
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751037AbXKAEu0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2007 00:50:26 -0400
-In-Reply-To: <47292A99.5070805@linux-foundation.org>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:40573 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753219AbXKAG7L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2007 02:59:11 -0400
+In-Reply-To: <m1wst2hjo5.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Wed, 31 Oct 2007 18:23:37 -0700
+Eric W. Biederman a =E9crit :
+> Eric Dumazet <dada1@cosmosbay.com> writes:
+>=20
+>> Eric W. Biederman a =E9crit :
+>>> Eric Dumazet <dada1@cosmosbay.com> writes:
+>>>
+>>>
+>>>> Definitly wanted here. Thank you.
+>>>> One more refcounting on each socket creation/deletion was expensiv=
+e.
+>>> Really?  Have you actually measured that?  If the overhead is
+>>> measurable and expensive we may want to look at per cpu counters or
+>>> something like that.  So far I don't have any numbers that say any
+>>> of the network namespace work inherently has any overhead.
+>> It seems that on some old opterons (two 246 for example),
+>> "if (atomic_dec_and_test(&net->count))" is rather expensive yes :(
+>=20
+> I won't argue that atomic_dec_and_test is costly.  My gut feel is tha=
+t
+> socket creation/destruction is sufficiently rare that such a test
+> would be lost in the noise.  Doing anything more sophisticated is
+> likely to be less readable, and unless we can measure some overhead
+> my preference right now is to keep the code stupid and simple.  Which
+> usually has a good icache footprint.
 
-> The code in AF_PACKET should fix the skb before passing to user
-> space so that there is no difference between accel and non-accel
-> hardware.  Internal choices shouldn't leak to user space.  Ditto,
-> the receive checksum offload should be fixed up as well.
+I agree with you that with current state, this atomic_inc/atomic_dec_an=
+d_test=20
+wont come in profiles unless a trivial bench is writen
 
-The hardware has stripped the VLAN header completely and has not
-provided it to us at all.
+for(;;){close(socket(....));}
 
-In my opinion trying to cobble one up by hand using the known TAG is
-worse than not providing a VLAN header at all.
+If David or another dev can eliminate the atomic inc/dec on device refc=
+ount=20
+cost for each packet traveling, the socket creation/destruction would=20
+certainly raise.
+
+Other contention points is the mnt_count (yet another refcount) in "str=
+uct=20
+vfsmount", a truly useless refcount as I never had (and nobody had) to=20
+un-mount sock_mnt :)
+
+
