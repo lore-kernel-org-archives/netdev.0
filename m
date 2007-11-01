@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] Hide the net_ns kmem cache
-Date: Thu, 01 Nov 2007 00:47:05 -0700 (PDT)
-Message-ID: <20071101.004705.84607426.davem@davemloft.net>
-References: <4728D54F.2080208@openvz.org>
-	<4728D867.8050207@openvz.org>
+Subject: Re: [PATCH] net: docbook fixes for netif_ functions
+Date: Thu, 01 Nov 2007 02:22:09 -0700 (PDT)
+Message-ID: <20071101.022209.141061101.davem@davemloft.net>
+References: <20071031140848.4a425df2@freepuppy.rosehill>
+	<20071031153620.01cf5eeb.rdunlap@xenotime.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com, devel@openvz.org
-To: xemul@openvz.org
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: rdunlap@xenotime.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50152
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56382
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755027AbXKAHrG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2007 03:47:06 -0400
-In-Reply-To: <4728D867.8050207@openvz.org>
+	by vger.kernel.org with ESMTP id S1750812AbXKAJWJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2007 05:22:09 -0400
+In-Reply-To: <20071031153620.01cf5eeb.rdunlap@xenotime.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Wed, 31 Oct 2007 22:32:55 +0300
+From: Randy Dunlap <rdunlap@xenotime.net>
+Date: Wed, 31 Oct 2007 15:36:20 -0700
 
-> This cache is only required to create new namespaces,
-> but we won't have them in CONFIG_NET_NS=n case.
+> > + *	return values (usually ignored).
+> > + *	NET_RX_SUCCESS	(no congestion)
+> > + *	NET_RX_DROP     (packet was dropped)
 > 
-> Hide it under the appropriate ifdef.
+> For the 3 lines above, how about:
 > 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+>  *	Return values (usually ignored):
+>  *	NET_RX_SUCCESS: no congestion
+>  *	NET_RX_DROP: packet was dropped
+> 
+> 
+> only because they come out of kernel-doc badly, munged together like so:
+> 
+>        return  values  (usually  ignored).    NET_RX_SUCCESS (no   congestion)
+>        NET_RX_DROP     (packet was dropped)
 
-Applied.
+I've applied Stephen's patch with this minor correction
+added.
