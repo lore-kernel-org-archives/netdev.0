@@ -1,82 +1,58 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [BUG] in inet6_create
-Date: Fri, 02 Nov 2007 12:59:38 +0300
-Message-ID: <472AF50A.5070706@openvz.org>
-References: <472A3218.20708@tiscali.nl>
+From: Christoph Raisch <RAISCH@de.ibm.com>
+Subject: Re: [PATCH] ehea: add kexec support
+Date: Fri, 2 Nov 2007 11:19:12 +0100
+Message-ID: <OF3FAFDB41.AF236738-ONC1257387.00376233-C1257387.00389861@de.ibm.com>
+References: <200710261437.29117.ossthema@de.ibm.com>	 <1193610737.9637.1.camel@concordia>
+	 <OF79E7ACE7.5D0488CE-ONC1257384.002E58C0-C1257384.002F8561@de.ibm.com>	 <1193784636.32504.4.camel@concordia>
+	 <OF59B5FFD2.0294206F-ONC1257385.006A802D-C1257385.006CB6BB@de.ibm.com> <1193985008.1782.7.camel@concordia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Roel Kluin <12o3l@tiscali.nl>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Jan-Bernd Themann <THEMANN@de.ibm.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <MEDER@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>, ossthema@linux.vnet.ibm.com,
+	Stefan Roscher <stefan.roscher@de.ibm.com>,
+	Thomas Q Klein <TKLEIN@de.ibm.com>
+To: michael@ellerman.id.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:47280 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752275AbXKBJ7u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Nov 2007 05:59:50 -0400
-In-Reply-To: <472A3218.20708@tiscali.nl>
+Received: from mtagate7.de.ibm.com ([195.212.29.156]:42235 "EHLO
+	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752905AbXKBKT0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2007 06:19:26 -0400
+In-Reply-To: <1193985008.1782.7.camel@concordia>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Roel Kluin wrote:
-> I got this bug recently, I am not sure whether this is related to any previously 
-> reported ones. It was a recently pulled git kernel. Also I have been hacking my
-> kernel a bit lately, but I think that I haven't got any changes in the currently
-> running kernel.
-> 
-> FYI: my network card was not running (module not loaded, and I just started 
-> thunderbird)
-> 
-> Roel
-> 
-> More information needed?
 
-I've tried to objdump my ipv6.ko, and found (at the different offset,
-but) the same codeline. It showed that the buggy place was in:
+Michael Ellerman <michael@ellerman.id.au> wrote on 02.11.2007 07:30:08:
 
-        list_for_each_rcu(p, &inetsw6[sock->type]) {
+> On Wed, 2007-10-31 at 20:48 +0100, Christoph Raisch wrote:
+> > Michael Ellerman <michael@ellerman.id.au> wrote on 30.10.2007 23:50:36:
+> If that's really the way it works then eHEA is more or less broken for
+> kdump I'm afraid.
 
-some list_head pointer was NULL.
+We think we have a way to workaround this, but let me first try to
+explain the base problem.
 
-I looked at the inet6_init (which seems to run at the moment of the
-oops according to the calltrace) and found that the ipv6 protocol 
-is first registered and only after this the inetsw6 lists are
-properly initialized.
+DD allocates HEA resources and gets firmware_handles for these resources.
+To free the resources DD needs to use exactly these handles.
+There's no generic firmware call "clean out all resources".
+Allocating the same resources twice does not work.
 
-I suspect that this is a race: we create the socket right after
-the new protocol is registered, but before the list heads are 
-ready. The ->init call is called without the stopmachine, so
-other process run in parallel with it.
+So a new kernel can't free the resources allocated by an old kernel,
+because the numeric values of the handles aren't known anymore.
 
-This patch should help, but I don't think that such a situation
-is easily reproducible.
+Potential Solution:
+Hea driver cleanup function hooks into ppc_md.machine_crash_shutdown
+and frees all firmware resources at shutdown time of the crashed kernel.
+crash_kexec continues and loads new kernel.
+The new kernel restarts the HEA driver within kdump kernel, which will work
+because resources have been freed before.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Michael, would this work?
 
----
+Gruss / Regards
+Christoph R.
 
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index ecbd388..f9bd26f 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -769,6 +769,10 @@ static int __init inet6_init(void)
- #endif
- #endif
- 
-+	/* Register the socket-side information for inet6_create.  */
-+	for(r = &inetsw6[0]; r < &inetsw6[SOCK_MAX]; ++r)
-+		INIT_LIST_HEAD(r);
-+
- 	err = proto_register(&tcpv6_prot, 1);
- 	if (err)
- 		goto out;
-@@ -786,10 +790,6 @@ static int __init inet6_init(void)
- 		goto out_unregister_udplite_proto;
- 
- 
--	/* Register the socket-side information for inet6_create.  */
--	for(r = &inetsw6[0]; r < &inetsw6[SOCK_MAX]; ++r)
--		INIT_LIST_HEAD(r);
--
- 	/* We MUST register RAW sockets before we create the ICMP6,
- 	 * IGMP6, or NDISC control sockets.
- 	 */
