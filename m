@@ -1,101 +1,165 @@
 From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] drivers/net/chelsio/: #if 0 unused functions
-Date: Fri, 2 Nov 2007 16:43:32 +0100
-Message-ID: <20071102154332.GL30287@stusta.de>
+Subject: [2.6 patch] usbnet.c: check for the right MII variable
+Date: Fri, 2 Nov 2007 16:46:15 +0100
+Message-ID: <20071102154615.GS30287@stusta.de>
+References: <200711012024.57412.toralf.foerster@gmx.de> <20071101222524.GB7227@stusta.de> <200711011652.39601.david-b@pacbell.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jgarzik@pobox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:49697 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757158AbXKBPnz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2007 11:43:55 -0400
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Toralf =?utf-8?Q?F=C3=B6rster?= <toralf.foerster@gmx.de>,
+	jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Brownell <david-b@pacbell.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761014AbXKBPsO@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <200711011652.39601.david-b@pacbell.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch #if 0's the following unused functions:
-- espi.c:t1_espi_set_misc_ctrl()
-- sge.c:t1_sched_set_max_avail_bytes()
-- sge.c:t1_sched_set_drain_bits_per_us()
+On Thu, Nov 01, 2007 at 04:52:39PM -0700, David Brownell wrote:
+> On Thursday 01 November 2007, Adrian Bunk wrote:
+> > All this USB_USBNET_MII trickery is simply not worth it considering=
+ how=20
+> > few code it saves.
+>=20
+> Depends on what systems you're talking about.  Forcing unused
+> code into the kernel is not free, especially if that's made into
+> a design policy and applied repeatedly to many subsystems.
+
+If it was turned into a design policy...
+
+My impression is that in some parts of the kernel every byte gets=20
+counted, while in other parts noone would notice a few kilobytes more o=
+r=20
+less.
+
+> > As a side effect, this also fixes the following compile error repor=
+ted=20
+> > by Toralf F=C3=B6rster:
+>=20
+> Why not just fix the thing which changed and broke the build?
+
+Today it's exactly one year since your commit entered the tree.
+
+Dear bug, happy birthday!  ;-)
+
+> Or if reverse dependencies can't be made to work sanely, then
+> have those Ethernet-adapter minidrivers depend on NET_ETHERNET
+> and then select MII.  (To make the relationships be simple
+> enough that current Kconfig can handle them.)
+
+It's not Kconfig's fault that you test for the wrong variable in=20
+usbnet.c ...
+
+> I have a fair number of usbnet devices.  Not one of them needs
+> MII or NET_ETHERNET.
+
+I don't understand why you think this bug was in any way related to=20
+NET_ETHERNET - set NET_ETHERNET=3Dy and the bug is still present.
+
+If you insist on the #ifdef's take the patch below - it even saves a fe=
+w=20
+additional bytes if you have non-usbnet net drivers requiring MII=20
+enabled statically or as modules in your .config but no usbnet drivers=20
+requiring MII.
+
+> - Dave
+
+cu
+Adrian
+
+
+<--  snip  -->
+
+
+This patch fixes the following compile error with CONFIG_MII=3Dm,=20
+CONFIG_USB_USBNET=3Dy, CONFIG_USB_USBNET_MII=3Dn:
+
+<--  snip  -->
+
+=2E..
+  LD      .tmp_vmlinux1
+drivers/built-in.o: In function `usbnet_set_settings':
+(.text+0xf1876): undefined reference to `mii_ethtool_sset'
+drivers/built-in.o: In function `usbnet_get_settings':
+(.text+0xf1836): undefined reference to `mii_ethtool_gset'
+drivers/built-in.o: In function `usbnet_get_link':
+(.text+0xf18d6): undefined reference to `mii_link_ok'
+drivers/built-in.o: In function `usbnet_nway_reset':
+(.text+0xf18f6): undefined reference to `mii_nway_restart'
+make: *** [.tmp_vmlinux1] Error 1
+
+<--  snip  -->
+
+This bug was introduced by commit 18ee91fa9815fa3bb4e51cdcb8229bd0a0f11=
+a70
+and reported by Toralf F=C3=B6rster.
 
 Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
 ---
 
- drivers/net/chelsio/espi.c |    2 ++
- drivers/net/chelsio/espi.h |    1 -
- drivers/net/chelsio/sge.c  |    4 ++++
- drivers/net/chelsio/sge.h  |    2 --
- 4 files changed, 6 insertions(+), 3 deletions(-)
+BTW:
+The Kconfig part of this patch is not really required, but testing for
+  #if defined(CONFIG_USB_USBNET_MII) || defined(CONFIG_USB_USBNET_MII_M=
+ODULE)
+would look needlessly ugly.
 
-21c8ac8bf68a9ca84d7548003294535484140b59 
-diff --git a/drivers/net/chelsio/espi.c b/drivers/net/chelsio/espi.c
-index d7c5406..1e0749e 100644
---- a/drivers/net/chelsio/espi.c
-+++ b/drivers/net/chelsio/espi.c
-@@ -297,6 +297,7 @@ struct peespi *t1_espi_create(adapter_t *adapter)
- 	return espi;
- }
- 
-+#if 0
- void t1_espi_set_misc_ctrl(adapter_t *adapter, u32 val)
- {
- 	struct peespi *espi = adapter->espi;
-@@ -309,6 +310,7 @@ void t1_espi_set_misc_ctrl(adapter_t *adapter, u32 val)
- 	writel(espi->misc_ctrl, adapter->regs + A_ESPI_MISC_CONTROL);
- 	spin_unlock(&espi->lock);
- }
-+#endif  /*  0  */
- 
- u32 t1_espi_get_mon(adapter_t *adapter, u32 addr, u8 wait)
- {
-diff --git a/drivers/net/chelsio/espi.h b/drivers/net/chelsio/espi.h
-index 84f2c98..5694aad 100644
---- a/drivers/net/chelsio/espi.h
-+++ b/drivers/net/chelsio/espi.h
-@@ -62,7 +62,6 @@ void t1_espi_intr_disable(struct peespi *);
- int t1_espi_intr_handler(struct peespi *);
- const struct espi_intr_counts *t1_espi_get_intr_counts(struct peespi *espi);
- 
--void t1_espi_set_misc_ctrl(adapter_t *adapter, u32 val);
- u32 t1_espi_get_mon(adapter_t *adapter, u32 addr, u8 wait);
- int t1_espi_get_mon_t204(adapter_t *, u32 *, u8);
- 
-diff --git a/drivers/net/chelsio/sge.c b/drivers/net/chelsio/sge.c
-index ffa7e64..e3668d7 100644
---- a/drivers/net/chelsio/sge.c
-+++ b/drivers/net/chelsio/sge.c
-@@ -330,6 +330,8 @@ unsigned int t1_sched_update_parms(struct sge *sge, unsigned int port,
- 	return max_avail_segs * (p->mtu - 40);
- }
- 
-+#if 0
-+
- /*
-  * t1_sched_max_avail_bytes() tells the scheduler the maximum amount of
-  * data that can be pushed per port.
-@@ -357,6 +359,8 @@ void t1_sched_set_drain_bits_per_us(struct sge *sge, unsigned int port,
- 	t1_sched_update_parms(sge, port, 0, 0);
- }
- 
-+#endif  /*  0  */
-+
- 
- /*
-  * get_clock() implements a ns clock (see ktime_get)
-diff --git a/drivers/net/chelsio/sge.h b/drivers/net/chelsio/sge.h
-index 713d9c5..e1cbded 100644
---- a/drivers/net/chelsio/sge.h
-+++ b/drivers/net/chelsio/sge.h
-@@ -89,8 +89,6 @@ void t1_sge_intr_disable(struct sge *);
- void t1_sge_intr_clear(struct sge *);
- const struct sge_intr_counts *t1_sge_get_intr_counts(const struct sge *sge);
- void t1_sge_get_port_stats(const struct sge *sge, int port, struct sge_port_stats *);
--void t1_sched_set_max_avail_bytes(struct sge *, unsigned int);
--void t1_sched_set_drain_bits_per_us(struct sge *, unsigned int, unsigned int);
- unsigned int t1_sched_update_parms(struct sge *, unsigned int, unsigned int,
- 			   unsigned int);
- 
+ drivers/net/usb/Kconfig  |    5 ++---
+ drivers/net/usb/usbnet.c |    7 +++----
+ 2 files changed, 5 insertions(+), 7 deletions(-)
 
+a421e4910eb30b140a315e274632e87c7a218df6=20
+diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
+index 5a96d74..9261371 100644
+--- a/drivers/net/usb/Kconfig
++++ b/drivers/net/usb/Kconfig
+@@ -94,12 +94,11 @@ config USB_RTL8150
+ 	  module will be called rtl8150.
+=20
+ config USB_USBNET_MII
+-	tristate
+-	default n
++	bool
+=20
+ config USB_USBNET
+ 	tristate "Multi-purpose USB Networking Framework"
+-	select MII if USB_USBNET_MII !=3D n
++	select MII if USB_USBNET_MII
+ 	---help---
+ 	  This driver supports several kinds of network links over USB,
+ 	  with "minidrivers" built around a common network driver core
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index acd5f1c..7393ab0 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -683,8 +683,7 @@ done_nopm:
+  * they'll probably want to use this base set.
+  */
+=20
+-#if defined(CONFIG_MII) || defined(CONFIG_MII_MODULE)
+-#define HAVE_MII
++#ifdef CONFIG_USB_USBNET_MII
+=20
+ int usbnet_get_settings (struct net_device *net, struct ethtool_cmd *c=
+md)
+ {
+@@ -744,7 +743,7 @@ int usbnet_nway_reset(struct net_device *net)
+ }
+ EXPORT_SYMBOL_GPL(usbnet_nway_reset);
+=20
+-#endif	/* HAVE_MII */
++#endif	/*  CONFIG_USB_USBNET_MII  */
+=20
+ void usbnet_get_drvinfo (struct net_device *net, struct ethtool_drvinf=
+o *info)
+ {
+@@ -776,7 +775,7 @@ EXPORT_SYMBOL_GPL(usbnet_set_msglevel);
+=20
+ /* drivers may override default ethtool_ops in their bind() routine */
+ static struct ethtool_ops usbnet_ethtool_ops =3D {
+-#ifdef	HAVE_MII
++#ifdef CONFIG_USB_USBNET_MII
+ 	.get_settings		=3D usbnet_get_settings,
+ 	.set_settings		=3D usbnet_set_settings,
+ 	.get_link		=3D usbnet_get_link,
