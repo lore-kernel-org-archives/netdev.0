@@ -1,97 +1,87 @@
 From: Felix von Leitner <felix-linuxkernel@fefe.de>
-Subject: Re: bizarre network timing problem
-Date: Fri, 2 Nov 2007 23:11:46 +0100
-Message-ID: <20071102221146.GA4354@codeblau.de>
-References: <20071017205127.GA21334@codeblau.de> <47167BDE.4000103@redhat.com> <20071017220019.GA22765@codeblau.de> <471689BF.2040909@hp.com> <20071018094230.GA2978@codeblau.de> <4717964A.8080100@hp.com>
+Subject: Re: TCP_DEFER_ACCEPT issues
+Date: Fri, 2 Nov 2007 23:19:12 +0100
+Message-ID: <20071102221912.GB4354@codeblau.de>
+References: <20071102013321.GA30893@codeblau.de> <472AD0AE.50106@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Chuck Ebbert <cebbert@redhat.com>, linux-kernel@vger.kernel.org,
-	Netdev <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+Cc: linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ioctl.codeblau.de ([80.190.240.67]:35202 "EHLO codeblau.de"
+Received: from ioctl.codeblau.de ([80.190.240.67]:53943 "EHLO codeblau.de"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752414AbXKBWLs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Nov 2007 18:11:48 -0400
+	id S1756438AbXKBWTN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Nov 2007 18:19:13 -0400
 Content-Disposition: inline
-In-Reply-To: <4717964A.8080100@hp.com>
+In-Reply-To: <472AD0AE.50106@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thus spake Rick Jones (rick.jones2@hp.com):
-> >How could I test this theory?
-> Can you take another trace that isn't so "cooked?"  One that just sticks 
-> with TCP-level and below stuff?
+Thus spake Eric Dumazet (dada1@cosmosbay.com):
+> 1) Setting a timeout in a millisecond range (< 1000) is not very good 
+> because some clients may need much more time to send your server the data 
+> (very long distance). So a second granularity is OK.
 
-Sorry for taking so long.  Here is a tcpdump.  The side on port 445 is
-the SMB server using TCP_CORK.
+I want millisecond accuracy for consistency.  select and poll have it,
+we have a 1000 Hz timer, we should also expose that accuracy.  I don't
+want to have sub second timeouts, in case you were wondering.
 
-23:03:20.283772 IP 127.0.0.1.33230 > 127.0.0.1.445: S 1503927325:1503927325(0) win 32792 <mss 16396,sackOK,timestamp 9451736 0,nop,wscale 7>
-23:03:20.283774 IP 127.0.0.1.445 > 127.0.0.1.33230: S 1513925692:1513925692(0) ack 1503927326 win 32768 <mss 16396,sackOK,timestamp 9451737 9451736,nop,wscale 7>
-23:03:20.283797 IP 127.0.0.1.33230 > 127.0.0.1.445: . ack 1 win 257 <nop,nop,timestamp 9451737 9451737>
-23:03:20.295851 IP 127.0.0.1.33230 > 127.0.0.1.445: P 1:195(194) ack 1 win 257 <nop,nop,timestamp 9451740 9451737>
-23:03:20.295881 IP 127.0.0.1.445 > 127.0.0.1.33230: . ack 195 win 265 <nop,nop,timestamp 9451740 9451740>
-23:03:20.295959 IP 127.0.0.1.445 > 127.0.0.1.33230: P 1:87(86) ack 195 win 265 <nop,nop,timestamp 9451740 9451740>
-23:03:20.295998 IP 127.0.0.1.33230 > 127.0.0.1.445: . ack 87 win 256 <nop,nop,timestamp 9451740 9451740>
-23:03:20.296063 IP 127.0.0.1.33230 > 127.0.0.1.445: P 195:287(92) ack 87 win 256 <nop,nop,timestamp 9451740 9451740>
-23:03:20.296096 IP 127.0.0.1.445 > 127.0.0.1.33230: P 87:181(94) ack 287 win 265 <nop,nop,timestamp 9451740 9451740>
-23:03:20.296135 IP 127.0.0.1.33230 > 127.0.0.1.445: P 287:373(86) ack 181 win 255 <nop,nop,timestamp 9451740 9451740>
-23:03:20.296163 IP 127.0.0.1.445 > 127.0.0.1.33230: P 181:239(58) ack 373 win 265 <nop,nop,timestamp 9451740 9451740>
-23:03:20.296201 IP 127.0.0.1.33230 > 127.0.0.1.445: P 373:459(86) ack 239 win 255 <nop,nop,timestamp 9451740 9451740>
-23:03:20.296245 IP 127.0.0.1.445 > 127.0.0.1.33230: P 239:309(70) ack 459 win 265 <nop,nop,timestamp 9451740 9451740>
-23:03:20.296286 IP 127.0.0.1.33230 > 127.0.0.1.445: P 459:535(76) ack 309 win 254 <nop,nop,timestamp 9451740 9451740>
-23:03:20.296314 IP 127.0.0.1.445 > 127.0.0.1.33230: P 309:461(152) ack 535 win 265 <nop,nop,timestamp 9451740 9451740>
-23:03:20.296361 IP 127.0.0.1.33230 > 127.0.0.1.445: P 535:594(59) ack 461 win 253 <nop,nop,timestamp 9451740 9451740>
-23:03:20.296400 IP 127.0.0.1.445 > 127.0.0.1.33230: . 461:16845(16384) ack 594 win 265 <nop,nop,timestamp 9451740 9451740>
-23:03:20.335748 IP 127.0.0.1.33230 > 127.0.0.1.445: . ack 16845 win 125 <nop,nop,timestamp 9451750 9451740>
+> 2) After timeout is elapsed, the server tcp stack has no socket associated 
+> to your client attempt. So closing the server listening socket wont be able 
+> to send RST. I agree a RST *should* be sent by the server once the timeout 
+> is triggered.
 
-[note the .2 sec pause]
+I don't see any evidence for a timeout happening at all.
+I passed 1 as argument to the setsockopt, so I'd expect a timeout to
+happen pretty quickly.  There was no connection reset until I Ctrl-C'd
+the server 15 minuets (!) laster.
 
-23:03:20.547763 IP 127.0.0.1.445 > 127.0.0.1.33230: P 16845:32845(16000) ack 594 win 265 <nop,nop,timestamp 9451803 9451750>
-23:03:20.547797 IP 127.0.0.1.33230 > 127.0.0.1.445: . ack 32845 win 0 <nop,nop,timestamp 9451803 9451803>
-23:03:20.547855 IP 127.0.0.1.33230 > 127.0.0.1.445: . ack 32845 win 96 <nop,nop,timestamp 9451803 9451803>
-23:03:20.547863 IP 127.0.0.1.445 > 127.0.0.1.33230: P 32845:33229(384) ack 594 win 265 <nop,nop,timestamp 9451803 9451803>
-23:03:20.547890 IP 127.0.0.1.33230 > 127.0.0.1.445: . ack 33229 win 96 <nop,nop,timestamp 9451803 9451803>
+> A typical tcpdump of what is happening for a tcp_defer_accept timeout of 20 
+> seconds is :
 
-[note the .2 sec pause]
+> [1]08:52:47.480291 IP client.60930 > server.http: S 
+> 2498995442:2498995442(0) win 5840 <mss 1460,sackOK,timestamp 2685904595 
+> 0,nop,wscale 2>
+> [2]08:52:47.480302 IP server.http > client.60930: S 
+> 1173302644:1173302644(0) ack 2498995443 win 5840 <mss 1460>
+> [3]08:52:47.481669 IP client.60930 > server.http: . ack 1 win 5840
 
-23:03:20.755775 IP 127.0.0.1.445 > 127.0.0.1.33230: P 33229:45517(12288) ack 594 win 265 <nop,nop,timestamp 9451855 9451803>
-23:03:20.755855 IP 127.0.0.1.33230 > 127.0.0.1.445: . ack 45517 win 96 <nop,nop,timestamp 9451855 9451855>
-23:03:20.755868 IP 127.0.0.1.445 > 127.0.0.1.33230: P 45517:49613(4096) ack 594 win 265 <nop,nop,timestamp 9451855 9451855>
-23:03:20.755898 IP 127.0.0.1.33230 > 127.0.0.1.445: . ack 49613 win 96 <nop,nop,timestamp 9451855 9451855>
+> [4]08:52:50.757543 IP server.http > client.60930: S 
+> 1173302644:1173302644(0) ack 2498995443 win 5840 <mss 1460>
+> [5]08:52:50.758953 IP client.60930 > server.http: . ack 1 win 5840
 
-[another one]
+> [6]08:52:56.760611 IP server.http > client.60930: S 
+> 1173302644:1173302644(0) ack 2498995443 win 5840 <mss 1460>
+> [7]08:52:56.761886 IP client.60930 > server.http: . ack 1 win 5840
 
-23:03:20.963789 IP 127.0.0.1.445 > 127.0.0.1.33230: P 49613:61901(12288) ack 594 win 265 <nop,nop,timestamp 9451907 9451855>
-23:03:20.963871 IP 127.0.0.1.33230 > 127.0.0.1.445: . ack 61901 win 96 <nop,nop,timestamp 9451907 9451907>
-23:03:20.963885 IP 127.0.0.1.445 > 127.0.0.1.33230: P 61901:64525(2624) ack 594 win 265 <nop,nop,timestamp 9451907 9451907>
-23:03:20.963909 IP 127.0.0.1.33230 > 127.0.0.1.445: . ack 64525 win 96 <nop,nop,timestamp 9451907 9451907>
-23:03:20.964101 IP 127.0.0.1.33230 > 127.0.0.1.445: P 594:653(59) ack 64525 win 96 <nop,nop,timestamp 9451907 9451907>
-23:03:21.003790 IP 127.0.0.1.445 > 127.0.0.1.33230: . ack 653 win 265 <nop,nop,timestamp 9451917 9451907>
-23:03:21.171811 IP 127.0.0.1.445 > 127.0.0.1.33230: P 64525:76813(12288) ack 653 win 265 <nop,nop,timestamp 9451959 9451907>
+> [8]08:53:08.771254 IP server.http > client.60930: S 
+> 1173302644:1173302644(0) ack 2498995443 win 5840 <mss 1460>
+> [9]08:53:08.772514 IP client.60930 > server.http: . ack 1 win 5840
 
-You get the idea.
+> [10]08:53:32.782488 IP server.http > client.60930: S 
+> 1173302644:1173302644(0) ack 2498995443 win 5840 <mss 1460>
+> [11]08:53:32.783754 IP client.60930 > server.http: . ack 1 win 5840
 
-Anyway, now THIS is the interesting case, because we have two packets in
-the answer, and you see the first half of the answer leaving immediately
-(when I wanted the whole answer to be sent) but the second only leaving
-after the .2 sec delay.
+> <a very long time, then client finally sends 2 bytes>
 
-> If SMB is a one-request-at-a-time protocol (I can never remember),
+> [12]08:59:30.509097 IP client.60930 > server.http: P 1:3(2) ack 1 win 5840
+> [13]08:59:30.509125 IP server.http > client.60930: R 
+> 1173302645:1173302645(0) win 0
 
-It is.
+I see this, too.  If I connect and not send something, I expected the
+kernel to drop the connection when the timeout is reached.  Nothing like
+that happens.
 
-> you 
-> could simulate it with a netperf TCP_RR test by passing suitable values to 
-> the test-specific -r option:
+> So TCP_DEFER_ACCEPT might send way more packets than needed.
 
-> netperf -H <remote> -t TCP_RR -- -r <req>,<rsp>
+Only in the face of attackers, and after the handshake.  I could live
+with that.  If the timeout happened.
 
-> If that shows similar behaviour then you can ass-u-me it isn't your 
-> application.
+> We only should wait for the data coming from the client to be able to pass 
+> the new socket to the listening application.
 
-Oh I'm pretty sure it's not my application, because my application performs
-well over ethernet, which is after all its purpose.  Also I see the
-write, the TCP uncork, then a pause, and then the packet leaving.
+Yes.  And we should send a RST if no data is coming in within the
+timeout, which is not happening for me (2.6.23).
 
 Felix
