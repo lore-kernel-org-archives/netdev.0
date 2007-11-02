@@ -1,62 +1,82 @@
-From: Rumen Bogdanovski <rumen@voicecho.com>
-Subject: Re: [lvs-devel] [patch 2/2] ipvs: Syncrhonise Closing of
-	Connections
-Date: Fri, 02 Nov 2007 11:47:20 +0200
-Message-ID: <1193996840.5339.5.camel@lappy>
-References: <20071101092818.083169402@vergenet.net>
-	 <20071101093022.688977274@vergenet.net>
-	 <Pine.LNX.4.58.0711020119580.2992@u.domain.uli>
-	 <20071102005348.GA20398@verge.net.au>
-Reply-To: rumen@voicecho.com
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [BUG] in inet6_create
+Date: Fri, 02 Nov 2007 12:59:38 +0300
+Message-ID: <472AF50A.5070706@openvz.org>
+References: <472A3218.20708@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Julian Anastasov <ja@ssi.bg>, Wensong Zhang <wensong@linux-vs.org>,
-	netdev@vger.kernel.org, Graeme Fowler <graeme@graemef.net>,
-	Joseph Mack NA3T <jmack@wm7d.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: LVS Development mailing list <lvs-devel@linuxvirtualserver.org>
+Cc: netdev@vger.kernel.org
+To: Roel Kluin <12o3l@tiscali.nl>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.194]:55476 "EHLO mout.perfora.net"
+Received: from sacred.ru ([62.205.161.221]:47280 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752641AbXKBJr0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Nov 2007 05:47:26 -0400
-In-Reply-To: <20071102005348.GA20398@verge.net.au>
+	id S1752275AbXKBJ7u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Nov 2007 05:59:50 -0400
+In-Reply-To: <472A3218.20708@tiscali.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I should have been very tired to miss this one when I looked at the
-patch... 
-I looked again in the version I have tested. For some
-reason/net/ipv4/ipvs/ip_vs_sync.c is not patched at all, this is what I
-have missed.
-
-Rumen
-
-On Fri, 2007-11-02 at 09:53 +0900, Simon Horman wrote:
-> On Fri, Nov 02, 2007 at 01:36:07AM +0200, Julian Anastasov wrote:
-> > 
-> > 	Hello,
-> > 
-> > On Thu, 1 Nov 2007, Simon Horman wrote:
-> > 
-> > > --- net-2.6.orig/net/ipv4/ipvs/ip_vs_sync.c	2007-11-01 18:17:55.000000000 +0900
-> > > +++ net-2.6/net/ipv4/ipvs/ip_vs_sync.c	2007-11-01 18:20:30.000000000 +0900
-> > > @@ -332,7 +332,7 @@ static void ip_vs_process_message(const 
-> > >  					    s->daddr, s->dport,
-> > >  					    flags, dest);
-> > >  			if (dest)
-> > 
-> > 	Is that correct? Sorry, I was flooded with different versions
-> > of this patch and I'm not sure if it is the final one.
-> > 
-> > > -				atomic_dec(&dest->refcnt);
-> > > +				ip_vs_dest_get(dest);
-> > >  			if (!cp) {
-> > >  				IP_VS_ERR("ip_vs_conn_new failed\n");
-> > >  				return;
+Roel Kluin wrote:
+> I got this bug recently, I am not sure whether this is related to any previously 
+> reported ones. It was a recently pulled git kernel. Also I have been hacking my
+> kernel a bit lately, but I think that I haven't got any changes in the currently
+> running kernel.
 > 
-> The ip_vs_dest_get() call shouldn't be there.
-> I'll double check the rest of the patch.
+> FYI: my network card was not running (module not loaded, and I just started 
+> thunderbird)
 > 
+> Roel
+> 
+> More information needed?
 
+I've tried to objdump my ipv6.ko, and found (at the different offset,
+but) the same codeline. It showed that the buggy place was in:
+
+        list_for_each_rcu(p, &inetsw6[sock->type]) {
+
+some list_head pointer was NULL.
+
+I looked at the inet6_init (which seems to run at the moment of the
+oops according to the calltrace) and found that the ipv6 protocol 
+is first registered and only after this the inetsw6 lists are
+properly initialized.
+
+I suspect that this is a race: we create the socket right after
+the new protocol is registered, but before the list heads are 
+ready. The ->init call is called without the stopmachine, so
+other process run in parallel with it.
+
+This patch should help, but I don't think that such a situation
+is easily reproducible.
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index ecbd388..f9bd26f 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -769,6 +769,10 @@ static int __init inet6_init(void)
+ #endif
+ #endif
+ 
++	/* Register the socket-side information for inet6_create.  */
++	for(r = &inetsw6[0]; r < &inetsw6[SOCK_MAX]; ++r)
++		INIT_LIST_HEAD(r);
++
+ 	err = proto_register(&tcpv6_prot, 1);
+ 	if (err)
+ 		goto out;
+@@ -786,10 +790,6 @@ static int __init inet6_init(void)
+ 		goto out_unregister_udplite_proto;
+ 
+ 
+-	/* Register the socket-side information for inet6_create.  */
+-	for(r = &inetsw6[0]; r < &inetsw6[SOCK_MAX]; ++r)
+-		INIT_LIST_HEAD(r);
+-
+ 	/* We MUST register RAW sockets before we create the ICMP6,
+ 	 * IGMP6, or NDISC control sockets.
+ 	 */
