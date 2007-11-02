@@ -1,165 +1,78 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] usbnet.c: check for the right MII variable
-Date: Fri, 2 Nov 2007 16:46:15 +0100
-Message-ID: <20071102154615.GS30287@stusta.de>
-References: <200711012024.57412.toralf.foerster@gmx.de> <20071101222524.GB7227@stusta.de> <200711011652.39601.david-b@pacbell.net>
+From: Hideo AOKI <haoki@redhat.com>
+Subject: Re: [PATCH 5/5] introduce udp_rmem and udp_wmem
+Date: Sat, 03 Nov 2007 00:42:00 +0900
+Message-ID: <472B4548.7090603@redhat.com>
+References: <47264E2D.4080109@redhat.com>	<47264F5F.6040905@redhat.com> <20071030005248.b0e6e9d2.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Toralf =?utf-8?Q?F=C3=B6rster?= <toralf.foerster@gmx.de>,
-	jgarzik@pobox.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Brownell <david-b@pacbell.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761014AbXKBPsO@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <200711011652.39601.david-b@pacbell.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Andi Kleen <andi@firstfloor.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	yoshfuji@linux-ipv6.org,
+	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
+To: Bill Fink <billfink@mindspring.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:60172 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753565AbXKBPuh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Nov 2007 11:50:37 -0400
+In-Reply-To: <20071030005248.b0e6e9d2.billfink@mindspring.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 01, 2007 at 04:52:39PM -0700, David Brownell wrote:
-> On Thursday 01 November 2007, Adrian Bunk wrote:
-> > All this USB_USBNET_MII trickery is simply not worth it considering=
- how=20
-> > few code it saves.
->=20
-> Depends on what systems you're talking about.  Forcing unused
-> code into the kernel is not free, especially if that's made into
-> a design policy and applied repeatedly to many subsystems.
+Hello,
 
-If it was turned into a design policy...
+I'm sorry to not respond quickly.
 
-My impression is that in some parts of the kernel every byte gets=20
-counted, while in other parts noone would notice a few kilobytes more o=
-r=20
-less.
+Bill Fink wrote:
+> On Mon, 29 Oct 2007, Hideo AOKI wrote:
+> 
+>> This patch added /proc/sys/net/udp_rmem and /proc/sys/net/udp_rmem.
+>> Each UDP packet is drooped when the number of pages for socket buffer
+>> is beyond the limit and the socket already consumes minimum buffer.
+> 
+> I think you meant /proc/sys/net/ipv4/udp_{r,w}mem above.
 
-> > As a side effect, this also fixes the following compile error repor=
-ted=20
-> > by Toralf F=C3=B6rster:
->=20
-> Why not just fix the thing which changed and broke the build?
+You're right. New parameters are added to /proc/sys/net/ipv4.
 
-Today it's exactly one year since your commit entered the tree.
+> Patch not in-lined making replying more difficult.
 
-Dear bug, happy birthday!  ;-)
+I apologize for the inconvenient. I'll send patch as in-line next time.
 
-> Or if reverse dependencies can't be made to work sanely, then
-> have those Ethernet-adapter minidrivers depend on NET_ETHERNET
-> and then select MII.  (To make the relationships be simple
-> enough that current Kconfig can handle them.)
+>>> +udp_rmem - INTEGER
+>> +	Minimal size of receive buffer used by UDP sockets. Each UDP socket
+>> +	is able to use the size for receiving data, even if total pages of UDP
+>> +	sockets exceed udp_mem. The unit is byte.
+>> +	Default: 4096
+>> +
+>> +udp_wmem - INTEGER
+>> +	Minimal size of send buffer used by UDP sockets. Each UDP socket is
+>> +	able to use the size for sending data, even if total pages of UDP
+>> +	sockets exceed udp_mem. The unit is byte.
+>> +	Default: 4096
+>> +
+>>  CIPSOv4 Variables:
+>>  
+>>  cipso_cache_enable - BOOLEAN
+> 
+> I think either the above should be renamed to udp_{r,w}mem_min, or
+> they should be changed to a 3-tuple like tcp_{r,w}mem, and the code
+> refactored accordingly (but then what to do about
+> /proc/sys/net/core/{r,w}mem_max).
+> 
+> 						-Bill
 
-It's not Kconfig's fault that you test for the wrong variable in=20
-usbnet.c ...
+I understood. Then, I'll rename them to udp_{r,w}mem_min next take.
+Please let me know if there is any suggestions.
 
-> I have a fair number of usbnet devices.  Not one of them needs
-> MII or NET_ETHERNET.
+Many thanks,
+Hideo
 
-I don't understand why you think this bug was in any way related to=20
-NET_ETHERNET - set NET_ETHERNET=3Dy and the bug is still present.
+-- 
+Hitachi Computer Products (America) Inc.
 
-If you insist on the #ifdef's take the patch below - it even saves a fe=
-w=20
-additional bytes if you have non-usbnet net drivers requiring MII=20
-enabled statically or as modules in your .config but no usbnet drivers=20
-requiring MII.
-
-> - Dave
-
-cu
-Adrian
-
-
-<--  snip  -->
-
-
-This patch fixes the following compile error with CONFIG_MII=3Dm,=20
-CONFIG_USB_USBNET=3Dy, CONFIG_USB_USBNET_MII=3Dn:
-
-<--  snip  -->
-
-=2E..
-  LD      .tmp_vmlinux1
-drivers/built-in.o: In function `usbnet_set_settings':
-(.text+0xf1876): undefined reference to `mii_ethtool_sset'
-drivers/built-in.o: In function `usbnet_get_settings':
-(.text+0xf1836): undefined reference to `mii_ethtool_gset'
-drivers/built-in.o: In function `usbnet_get_link':
-(.text+0xf18d6): undefined reference to `mii_link_ok'
-drivers/built-in.o: In function `usbnet_nway_reset':
-(.text+0xf18f6): undefined reference to `mii_nway_restart'
-make: *** [.tmp_vmlinux1] Error 1
-
-<--  snip  -->
-
-This bug was introduced by commit 18ee91fa9815fa3bb4e51cdcb8229bd0a0f11=
-a70
-and reported by Toralf F=C3=B6rster.
-
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
-
----
-
-BTW:
-The Kconfig part of this patch is not really required, but testing for
-  #if defined(CONFIG_USB_USBNET_MII) || defined(CONFIG_USB_USBNET_MII_M=
-ODULE)
-would look needlessly ugly.
-
- drivers/net/usb/Kconfig  |    5 ++---
- drivers/net/usb/usbnet.c |    7 +++----
- 2 files changed, 5 insertions(+), 7 deletions(-)
-
-a421e4910eb30b140a315e274632e87c7a218df6=20
-diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-index 5a96d74..9261371 100644
---- a/drivers/net/usb/Kconfig
-+++ b/drivers/net/usb/Kconfig
-@@ -94,12 +94,11 @@ config USB_RTL8150
- 	  module will be called rtl8150.
-=20
- config USB_USBNET_MII
--	tristate
--	default n
-+	bool
-=20
- config USB_USBNET
- 	tristate "Multi-purpose USB Networking Framework"
--	select MII if USB_USBNET_MII !=3D n
-+	select MII if USB_USBNET_MII
- 	---help---
- 	  This driver supports several kinds of network links over USB,
- 	  with "minidrivers" built around a common network driver core
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index acd5f1c..7393ab0 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -683,8 +683,7 @@ done_nopm:
-  * they'll probably want to use this base set.
-  */
-=20
--#if defined(CONFIG_MII) || defined(CONFIG_MII_MODULE)
--#define HAVE_MII
-+#ifdef CONFIG_USB_USBNET_MII
-=20
- int usbnet_get_settings (struct net_device *net, struct ethtool_cmd *c=
-md)
- {
-@@ -744,7 +743,7 @@ int usbnet_nway_reset(struct net_device *net)
- }
- EXPORT_SYMBOL_GPL(usbnet_nway_reset);
-=20
--#endif	/* HAVE_MII */
-+#endif	/*  CONFIG_USB_USBNET_MII  */
-=20
- void usbnet_get_drvinfo (struct net_device *net, struct ethtool_drvinf=
-o *info)
- {
-@@ -776,7 +775,7 @@ EXPORT_SYMBOL_GPL(usbnet_set_msglevel);
-=20
- /* drivers may override default ethtool_ops in their bind() routine */
- static struct ethtool_ops usbnet_ethtool_ops =3D {
--#ifdef	HAVE_MII
-+#ifdef CONFIG_USB_USBNET_MII
- 	.get_settings		=3D usbnet_get_settings,
- 	.set_settings		=3D usbnet_set_settings,
- 	.get_link		=3D usbnet_get_link,
