@@ -1,48 +1,54 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: [2.6 patch] let USB_USBNET always select MII
-Date: Thu, 1 Nov 2007 16:52:39 -0700
-Message-ID: <200711011652.39601.david-b@pacbell.net>
-References: <200711012024.57412.toralf.foerster@gmx.de> <20071101222524.GB7227@stusta.de>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [patch 2/2] ipvs: Syncrhonise Closing of Connections
+Date: Fri, 2 Nov 2007 09:53:49 +0900
+Message-ID: <20071102005348.GA20398@verge.net.au>
+References: <20071101092818.083169402@vergenet.net> <20071101093022.688977274@vergenet.net> <Pine.LNX.4.58.0711020119580.2992@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Toralf =?iso-8859-1?q?F=F6rster?= <toralf.foerster@gmx.de>,
-	jgarzik@pobox.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@linuxvirtualserver.org, netdev@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	"Rumen G. Bogdanovski" <rumen@voicecho.com>,
+	Graeme Fowler <graeme@graemef.net>,
+	Joseph Mack NA3T <jmack@wm7d.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp121.sbc.mail.sp1.yahoo.com ([69.147.64.94]:25462 "HELO
-	smtp121.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754958AbXKAXwl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2007 19:52:41 -0400
-In-Reply-To: <20071101222524.GB7227@stusta.de>
+Received: from koto.vergenet.net ([210.128.90.7]:40405 "EHLO koto.vergenet.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752028AbXKBAxx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Nov 2007 20:53:53 -0400
 Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.58.0711020119580.2992@u.domain.uli>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 01 November 2007, Adrian Bunk wrote:
-> All this USB_USBNET_MII trickery is simply not worth it considering h=
-ow=20
-> few code it saves.
+On Fri, Nov 02, 2007 at 01:36:07AM +0200, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Thu, 1 Nov 2007, Simon Horman wrote:
+> 
+> > --- net-2.6.orig/net/ipv4/ipvs/ip_vs_sync.c	2007-11-01 18:17:55.000000000 +0900
+> > +++ net-2.6/net/ipv4/ipvs/ip_vs_sync.c	2007-11-01 18:20:30.000000000 +0900
+> > @@ -332,7 +332,7 @@ static void ip_vs_process_message(const 
+> >  					    s->daddr, s->dport,
+> >  					    flags, dest);
+> >  			if (dest)
+> 
+> 	Is that correct? Sorry, I was flooded with different versions
+> of this patch and I'm not sure if it is the final one.
+> 
+> > -				atomic_dec(&dest->refcnt);
+> > +				ip_vs_dest_get(dest);
+> >  			if (!cp) {
+> >  				IP_VS_ERR("ip_vs_conn_new failed\n");
+> >  				return;
 
-Depends on what systems you're talking about.  Forcing unused
-code into the kernel is not free, especially if that's made into
-a design policy and applied repeatedly to many subsystems.
+The ip_vs_dest_get() call shouldn't be there.
+I'll double check the rest of the patch.
 
-
-> As a side effect, this also fixes the following compile error reporte=
-d=20
-> by Toralf F=F6rster:
-
-Why not just fix the thing which changed and broke the build?
-
-Or if reverse dependencies can't be made to work sanely, then
-have those Ethernet-adapter minidrivers depend on NET_ETHERNET
-and then select MII.  (To make the relationships be simple
-enough that current Kconfig can handle them.)
-
-I have a fair number of usbnet devices.  Not one of them needs
-MII or NET_ETHERNET.
-
-- Dave
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
 
