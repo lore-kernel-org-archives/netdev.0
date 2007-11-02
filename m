@@ -1,79 +1,72 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: [PATCH] NET: Make ts_recent_stamp and tw_ts_recent_stamp unsigned long
-Date: Fri, 02 Nov 2007 16:21:31 -0400
-Message-ID: <20071102202131.30769.8429.stgit@manray.1015granger.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: expected behavior of PF_PACKET on NETIF_F_HW_VLAN_RX
+ device?
+Date: Fri, 02 Nov 2007 13:52:08 -0800
+Message-ID: <1194040328.13340.18.camel@dell>
+References: <20071031123359.3954befc@freepuppy.rosehill>
+ <4729269A.6090606@candelatech.com>
+ <47292A99.5070805@linux-foundation.org>
+ <20071031.215025.195350296.davem@davemloft.net>
+ <4729EAFF.9050606@candelatech.com>
+ <18218.18134.353553.189622@zeus.sw.starentnetworks.com>
+ <18219.26528.485099.317944@zeus.sw.starentnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, "netdev" <netdev@vger.kernel.org>,
+	bguo@sw.starentnetworks.com
+To: "Dave Johnson" <djohnson+linux-kernel@sw.starentnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from flpi195.sbcis.sbc.com ([207.115.20.197]:35300 "EHLO
-	flpi195.prodigy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758314AbXKBUVe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2007 16:21:34 -0400
-Received: from manray.1015granger.net (adsl-76-241-169-38.dsl.sfldmi.sbcglobal.net [76.241.169.38])
-	by flpi195.prodigy.net (8.13.8 out.dk.spool/8.13.8) with ESMTP id lA2KLWY7026282
-	for <netdev@vger.kernel.org>; Fri, 2 Nov 2007 13:21:32 -0700
-Received: from manray.1015granger.net (manray.1015granger.net [127.0.0.1])
-	by manray.1015granger.net (8.14.1/8.14.1) with ESMTP id lA2KLViV030785
-	for <netdev@vger.kernel.org>; Fri, 2 Nov 2007 16:21:32 -0400
+Received: from mms3.broadcom.com ([216.31.210.19]:4480 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760511AbXKBVCs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Nov 2007 17:02:48 -0400
+In-Reply-To: <18219.26528.485099.317944@zeus.sw.starentnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The get_seconds() function now returns an unsigned long.  K&R states
-that comparing a signed long with an unsigned long implicitly converts
-the signed long to unsigned long [1].
+On Fri, 2007-11-02 at 14:08 -0400, Dave Johnson wrote:
 
-Thus ts_recent_stamp and tw_ts_recent_stamp are already implicitly
-converted to unsigned long in every comparison with get_seconds() or
-other unsigned longs (such as tcp_ts_stamp).
+> > 
+> > *2:  If chip supports 'ASF', tag is always stripped (see *1 above).
+> >      Looks ok if ASF is not supported. 
+> 
+> Michael,
+> 
+> These changes seems to cause this issue:
+> 
+> >  [BNX2]: Fix VLAN on ASF
+> >  
+> >  Always set up the device to strip incoming VLAN tags when ASF is
+> >  enabled. ASF firmware will not parse packets correctly if VLAN tags
+> >  are not stripped.
+> >  
+> >  Signed-off-by: Michael Chan <mchan@broadcom.com>
+> >  Signed-off-by: David S. Miller <davem@davemloft.net>
+> >  
+> >  GIT: e29054f92d7d575631691865c1b95bee5bc974cc
+> 
+> and
+> 
+> > ChangeSet@1.1371.72.2, 2003-12-02 02:34:13-08:00, davem@nuts.ninka.net +1 -0
+> >   [TG3]: Do not set RX_MODE_KEEP_VLAN_TAG when ASF is enabled.
+> 
+> 
+> Could you elaborate if this is really needed, if so is there some
+> workaround that could be done instead?
 
-Code review shows that ts_recent_stamp is compared only to get_seconds() or
-zero.  It is set only to zero, the return value of get_seconds(), or the
-value of tw_ts_recent_stamp.  Thus changing ts_recent_stamp to an unsigned
-long does not change current behavior in any way, and eliminates implicit
-type conversions in several places, including some comparisons.
+This is needed for management firmware to work properly.  Management
+firmware expects any VLAN tags to be stripped.  Unfortunately, VLAN
+stripping cannot be done independently between the driver and the
+firmware.  The workaround is to disable management firmware.
 
-Review shows that tw_ts_recent_stamp is set only to the return value of
-get_seconds() or to the value of ts_recent_stamp.  It is compared to the
-return value of get_seconds(), the value of tcp_ts_stamp (an unsigned
-long), one, or zero.  Thus changing tw_ts_recent_stamp to an unsigned long
-also does not change current behavior in any way.
+> 
+> Simply removing the check seemed to work for me, but I'm unsure if
+> this is actually a valid thing to do with these MACs.
 
-It might improve matters even further if these open-coded timestamp
-comparisons were replaced with something similar to the time_after_eq
-macro from include/linux/jiffies.h.
+Most of these on-board devices are shipped with management firmware
+enabled.  Removing the check will make the firmware not functional.
 
-[1] Kernighan & Ritchie, "The C Programming Language", 2nd. ed., appendix
-A, sec. 6.5.
-
-Signed-off-by: Chuck Lever <chuck.lever@oracle.com>
-Cc: netdev@vger.kernel.org
----
-
- include/linux/tcp.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index bac17c5..0122374 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -206,7 +206,7 @@ struct tcp_sack_block {
- 
- struct tcp_options_received {
- /*	PAWS/RTTM data	*/
--	long	ts_recent_stamp;/* Time we stored ts_recent (for aging) */
-+	unsigned long ts_recent_stamp;/* Time we stored ts_recent (for aging) */
- 	u32	ts_recent;	/* Time stamp to echo next		*/
- 	u32	rcv_tsval;	/* Time stamp value             	*/
- 	u32	rcv_tsecr;	/* Time stamp echo reply        	*/
-@@ -419,7 +419,7 @@ struct tcp_timewait_sock {
- 	u32			  tw_snd_nxt;
- 	u32			  tw_rcv_wnd;
- 	u32			  tw_ts_recent;
--	long			  tw_ts_recent_stamp;
-+	unsigned long		  tw_ts_recent_stamp;
- #ifdef CONFIG_TCP_MD5SIG
- 	u16			  tw_md5_keylen;
- 	u8			  tw_md5_key[TCP_MD5SIG_MAXKEYLEN];
+We realize this VLAN limitation is causing problems to many users and we
+are looking for ways to address it.
 
