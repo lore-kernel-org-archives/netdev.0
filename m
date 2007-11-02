@@ -1,54 +1,93 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [patch 2/2] ipvs: Syncrhonise Closing of Connections
-Date: Fri, 2 Nov 2007 09:53:49 +0900
-Message-ID: <20071102005348.GA20398@verge.net.au>
-References: <20071101092818.083169402@vergenet.net> <20071101093022.688977274@vergenet.net> <Pine.LNX.4.58.0711020119580.2992@u.domain.uli>
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: Re: [PATCH] ehea: add kexec support
+Date: Fri, 02 Nov 2007 17:30:08 +1100
+Message-ID: <1193985008.1782.7.camel@concordia>
+References: <200710261437.29117.ossthema@de.ibm.com>
+	 <1193610737.9637.1.camel@concordia>
+	 <OF79E7ACE7.5D0488CE-ONC1257384.002E58C0-C1257384.002F8561@de.ibm.com>
+	 <1193784636.32504.4.camel@concordia>
+	 <OF59B5FFD2.0294206F-ONC1257385.006A802D-C1257385.006CB6BB@de.ibm.com>
+Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@linuxvirtualserver.org, netdev@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	"Rumen G. Bogdanovski" <rumen@voicecho.com>,
-	Graeme Fowler <graeme@graemef.net>,
-	Joseph Mack NA3T <jmack@wm7d.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-y5rS4QiXPITsc4bYsb2F"
+Cc: Jan-Bernd Themann <THEMANN@de.ibm.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <MEDER@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>, ossthema@linux.vnet.ibm.com,
+	Stefan Roscher <stefan.roscher@de.ibm.com>,
+	Thomas Q Klein <TKLEIN@de.ibm.com>
+To: Christoph Raisch <RAISCH@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:40405 "EHLO koto.vergenet.net"
+Received: from ozlabs.org ([203.10.76.45]:60580 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752028AbXKBAxx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Nov 2007 20:53:53 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0711020119580.2992@u.domain.uli>
+	id S1751763AbXKBGaK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Nov 2007 02:30:10 -0400
+In-Reply-To: <OF59B5FFD2.0294206F-ONC1257385.006A802D-C1257385.006CB6BB@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 02, 2007 at 01:36:07AM +0200, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Thu, 1 Nov 2007, Simon Horman wrote:
-> 
-> > --- net-2.6.orig/net/ipv4/ipvs/ip_vs_sync.c	2007-11-01 18:17:55.000000000 +0900
-> > +++ net-2.6/net/ipv4/ipvs/ip_vs_sync.c	2007-11-01 18:20:30.000000000 +0900
-> > @@ -332,7 +332,7 @@ static void ip_vs_process_message(const 
-> >  					    s->daddr, s->dport,
-> >  					    flags, dest);
-> >  			if (dest)
-> 
-> 	Is that correct? Sorry, I was flooded with different versions
-> of this patch and I'm not sure if it is the final one.
-> 
-> > -				atomic_dec(&dest->refcnt);
-> > +				ip_vs_dest_get(dest);
-> >  			if (!cp) {
-> >  				IP_VS_ERR("ip_vs_conn_new failed\n");
-> >  				return;
 
-The ip_vs_dest_get() call shouldn't be there.
-I'll double check the rest of the patch.
+--=-y5rS4QiXPITsc4bYsb2F
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
+On Wed, 2007-10-31 at 20:48 +0100, Christoph Raisch wrote:
+> Michael Ellerman <michael@ellerman.id.au> wrote on 30.10.2007 23:50:36:
+> >
+> > On Tue, 2007-10-30 at 09:39 +0100, Christoph Raisch wrote:
+> > >
+> > > Michael Ellerman <michael@ellerman.id.au> wrote on 28.10.2007 23:32:1=
+7:
+> > > Hope I didn't miss anything here...
+> >
+> > Perhaps. When we kdump the kernel does not call the reboot notifiers, s=
+o
+> > the code Jan-Bernd just added won't get called. So the eHEA resources
+> > won't be freed. When the kdump kernel tries to load the eHEA driver wha=
+t
+> > will happen?
+> >
+> Good point.
+>=20
+> If the device driver tries to allocate resources again (in the kdump
+> kernel),
+> which have been allocated before (in the crashed kernel) the hcalls will
+> fail because from the hypervisor view the resources are still in use.
+> Currently there's no method to find out the resource handles for these
+> HEA resources allocated by the crashed kernel within the hypervisor...
+
+So the hypervisor can't allocate more resources, because they're already
+allocated, but it can't free the ones that are allocated because it
+doesn't know what they are? I don't think I understand.
+
+If that's really the way it works then eHEA is more or less broken for
+kdump I'm afraid.
+
+cheers
+
+--=20
+Michael Ellerman
+OzLabs, IBM Australia Development Lab
+
+wwweb: http://michael.ellerman.id.au
+phone: +61 2 6212 1183 (tie line 70 21183)
+
+We do not inherit the earth from our ancestors,
+we borrow it from our children. - S.M.A.R.T Person
+
+--=-y5rS4QiXPITsc4bYsb2F
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQBHKsPwdSjSd0sB4dIRAh3iAJ9/4vrJwKDDsiW94b+10eQT3MKwTACgkTu4
+PT5eL1afNH+NriyRW+7COPY=
+=qa+e
+-----END PGP SIGNATURE-----
+
+--=-y5rS4QiXPITsc4bYsb2F--
 
