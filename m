@@ -1,47 +1,51 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: [PATCH] NET: Remove unneeded type cast in skb_truesize_check()
-Date: Fri, 02 Nov 2007 15:14:26 -0400
-Message-ID: <20071102191426.30464.7490.stgit@manray.1015granger.net>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: build #337 failed for 2.6.24-rc1-gb1d08ac In function `usbnet_set_settings':
+Date: Fri, 2 Nov 2007 12:30:22 -0700
+Message-ID: <200711021230.22588.david-b@pacbell.net>
+References: <200711012024.57412.toralf.foerster@gmx.de> <200711021145.15542.david-b@pacbell.net> <20071102185751.GV30287@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	Toralf =?iso-8859-1?q?F=F6rster?= <toralf.foerster@gmx.de>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from flpi185.sbcis.sbc.com ([207.115.20.187]:38212 "EHLO
-	flpi185.prodigy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753282AbXKBTXU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2007 15:23:20 -0400
-Received: from manray.1015granger.net (adsl-76-241-169-38.dsl.sfldmi.sbcglobal.net [76.241.169.38])
-	by flpi185.prodigy.net (8.13.8 out.dk.spool/8.13.8) with ESMTP id lA2JEVTV000653
-	for <netdev@vger.kernel.org>; Fri, 2 Nov 2007 12:14:32 -0700
-Received: from manray.1015granger.net (manray.1015granger.net [127.0.0.1])
-	by manray.1015granger.net (8.14.1/8.14.1) with ESMTP id lA2JEQRH030480
-	for <netdev@vger.kernel.org>; Fri, 2 Nov 2007 15:14:26 -0400
+Received: from smtp115.sbc.mail.sp1.yahoo.com ([69.147.64.88]:47948 "HELO
+	smtp115.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757336AbXKBTaZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2007 15:30:25 -0400
+In-Reply-To: <20071102185751.GV30287@stusta.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The (int) type cast in skb_truesize_check() is unneeded: without it, all
-the variable types in the conditional expression are unsigned integers.  As
-it stands, the type cast causes a comparison between a signed and an
-unsigned integer, which can produce unexpected results.
+On Friday 02 November 2007, Adrian Bunk wrote:
+> This approach has two disadvantages:
+> - it's complicated
 
-Signed-off-by: Chuck Lever <chuck.lever@oracle.com>
----
+No more so than the problem itself.
 
- include/linux/skbuff.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 94e4991..7965216 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -387,7 +387,7 @@ extern void	      skb_truesize_bug(struct sk_buff *skb);
- 
- static inline void skb_truesize_check(struct sk_buff *skb)
- {
--	if (unlikely((int)skb->truesize < sizeof(struct sk_buff) + skb->len))
-+	if (unlikely(skb->truesize < sizeof(struct sk_buff) + skb->len))
- 		skb_truesize_bug(skb);
- }
- 
+> - the MII stuff is an implementation detail, and we shouldn't bother
+> =A0 the user with it (especially since we can do better)
+
+That's a Kconfig policy that's not always followed.  In this
+case, I was getting fed up with "select".  It so rarely does
+what it needs to do, and I've started to think it'd be better
+to just always avoid that fragility than battle it.
+
+=20
+> If you want to keep the #ifdef's, what's the problem with the second=20
+> patch I proposed to fix this bug?
+
+=46or one thing, I didn't see it until after I posted this one...
+other than that, the basic approach could well be fine; I didn't
+go through it in detail.
+
+But on the other hand, it seems that only the ASIX code will work
+right; the DM9601 and MCS7830 Kconfig is different/wrong.
+
+- Dave
+
 
