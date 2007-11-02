@@ -1,94 +1,47 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: build #337 failed for 2.6.24-rc1-gb1d08ac In function
-	`usbnet_set_settings':
-Date: Fri, 2 Nov 2007 19:57:51 +0100
-Message-ID: <20071102185751.GV30287@stusta.de>
-References: <200711012024.57412.toralf.foerster@gmx.de> <200711011632.18333.david-b@pacbell.net> <20071101234443.GD7227@stusta.de> <200711021145.15542.david-b@pacbell.net>
+From: Chuck Lever <chuck.lever@oracle.com>
+Subject: [PATCH] NET: Remove unneeded type cast in skb_truesize_check()
+Date: Fri, 02 Nov 2007 15:14:26 -0400
+Message-ID: <20071102191426.30464.7490.stgit@manray.1015granger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Randy Dunlap <randy.dunlap@oracle.com>,
-	Toralf =?utf-8?Q?F=C3=B6rster?= <toralf.foerster@gmx.de>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: David Brownell <david-b@pacbell.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:59313 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754889AbXKBS6Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2007 14:58:16 -0400
-Content-Disposition: inline
-In-Reply-To: <200711021145.15542.david-b@pacbell.net>
+Received: from flpi185.sbcis.sbc.com ([207.115.20.187]:38212 "EHLO
+	flpi185.prodigy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753282AbXKBTXU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2007 15:23:20 -0400
+Received: from manray.1015granger.net (adsl-76-241-169-38.dsl.sfldmi.sbcglobal.net [76.241.169.38])
+	by flpi185.prodigy.net (8.13.8 out.dk.spool/8.13.8) with ESMTP id lA2JEVTV000653
+	for <netdev@vger.kernel.org>; Fri, 2 Nov 2007 12:14:32 -0700
+Received: from manray.1015granger.net (manray.1015granger.net [127.0.0.1])
+	by manray.1015granger.net (8.14.1/8.14.1) with ESMTP id lA2JEQRH030480
+	for <netdev@vger.kernel.org>; Fri, 2 Nov 2007 15:14:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 02, 2007 at 11:45:15AM -0700, David Brownell wrote:
-> On Thursday 01 November 2007, Adrian Bunk wrote:
-> > The following combination of options is simply an unusual one:
-> > 
-> > CONFIG_MII=m
-> > CONFIG_USB_USBNET=y
-> > CONFIG_USB_USBNET_MII=n
-> 
-> I though that had been fixed for ages ...
-> 
-> This should do a better job of it.
-> 
-> - Dave
-> 
-> ==========	CUT HERE
-> Simplify handling of the MII-dependent usbnet based adapters:  stick
-> to forward dependencies, and explicitly handle the core dependency.
-> 
-> Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
-> ---
->  drivers/net/usb/Kconfig  |   23 ++++++++++++-----------
->  drivers/net/usb/usbnet.c |    9 ++++++++-
->  2 files changed, 20 insertions(+), 12 deletions(-)
-> 
-> --- a.orig/drivers/net/usb/Kconfig	2007-10-21 10:35:16.000000000 -0700
-> +++ a/drivers/net/usb/Kconfig	2007-11-02 11:32:15.000000000 -0700
-> @@ -93,13 +93,8 @@ config USB_RTL8150
->  	  To compile this driver as a module, choose M here: the
->  	  module will be called rtl8150.
->  
-> -config USB_USBNET_MII
-> -	tristate
-> -	default n
-> -
->  config USB_USBNET
->  	tristate "Multi-purpose USB Networking Framework"
-> -	select MII if USB_USBNET_MII != n
->  	---help---
->  	  This driver supports several kinds of network links over USB,
->  	  with "minidrivers" built around a common network driver core
-> @@ -131,11 +126,19 @@ config USB_USBNET
->  	  To compile this driver as a module, choose M here: the
->  	  module will be called usbnet.
->  
-> +# usbnet core will support MII when MII is static, or both are modules
-> +config USB_NET_MII
-> +	tristate
-> +	depends on USB_USBNET && NET_ETHERNET && (MII = y || MII = USB_USBNET)
-> +	default MII
-> +
-> +comment "MII support is needed for most Ethernet adapters"
-> +	depends on USB_USBNET && USB_NET_MII=n
->...
+The (int) type cast in skb_truesize_check() is unneeded: without it, all
+the variable types in the conditional expression are unsigned integers.  As
+it stands, the type cast causes a comparison between a signed and an
+unsigned integer, which can produce unexpected results.
 
-This approach has two disadvantages:
-- it's complicated
-- the MII stuff is an implementation detail, and we shouldn't bother
-  the user with it (especially since we can do better)
+Signed-off-by: Chuck Lever <chuck.lever@oracle.com>
+---
 
-If you want to keep the #ifdef's, what's the problem with the second 
-patch I proposed to fix this bug?
+ include/linux/skbuff.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 94e4991..7965216 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -387,7 +387,7 @@ extern void	      skb_truesize_bug(struct sk_buff *skb);
+ 
+ static inline void skb_truesize_check(struct sk_buff *skb)
+ {
+-	if (unlikely((int)skb->truesize < sizeof(struct sk_buff) + skb->len))
++	if (unlikely(skb->truesize < sizeof(struct sk_buff) + skb->len))
+ 		skb_truesize_bug(skb);
+ }
+ 
 
