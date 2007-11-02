@@ -1,111 +1,127 @@
-From: Stefan Roese <sr@denx.de>
-Subject: [PATCH] net: Add 405EX support to new EMAC driver
-Date: Fri, 2 Nov 2007 08:14:43 +0100
-Message-ID: <200711020814.43524.sr@denx.de>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: TCP_DEFER_ACCEPT issues
+Date: Fri, 02 Nov 2007 08:24:30 +0100
+Message-ID: <472AD0AE.50106@cosmosbay.com>
+References: <20071102013321.GA30893@codeblau.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Josh Boyer <jwboyer@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Felix von Leitner <felix-linuxkernel@fefe.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.188]:61353 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751873AbXKBHQv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2007 03:16:51 -0400
-Content-Disposition: inline
+Received: from gw1.cosmosbay.com ([86.65.150.130]:46481 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752179AbXKBH0I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2007 03:26:08 -0400
+In-Reply-To: <20071102013321.GA30893@codeblau.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds support for the 405EX to the new EMAC driver. Some as on
-AXON, the 405EX handles the MDIO via the RGMII bridge.
+=46elix von Leitner a =E9crit :
+> I am trying to use TCP_DEFER_ACCEPT in my web server.
+>=20
+> There are some operational problems.  First of all: timeout handling.=
+  I
+> would like to be able to set a timeout in seconds (or better:
+> milliseconds) for how long the socket is allowed to sit there without
+> data coming in.  For high load situations, I have been enforcing
+> timeouts in the range of 15 seconds, otherwise someone can DoS the
+> server by opening a lot of connections and tying up data structures.
+>=20
+> It is still possible, of course, to tie up kernel memory this way, by
+> not reacting to the FIN or RST packets and running into a timeout the=
+re,
+> too, but that is partially tunable via sysctl.
+>=20
+> According to tcp(7) the int argument to TCP_DEFER_ACCEPT is in second=
+s.
+> In the kernel code, it's converted to TCP timeout units.  When I ran =
+my
+> server, and connected without sending any data, nothing happened.  No
+> timeout.  Minutes later, the connection was still there.  Even worse:
+> when I killed (!) the server process (thus closing the server socket)=
+,
+> the client did not get a reset.  Only when I type something in the
+> telnet, I get a reset.  This appears to be very broken.
+>=20
+> My suggestion:
+>=20
+>   1. make the argument to the setsockopt be in seconds, or millisecon=
+ds.
+>   2. if the server socket is closed, reset all pending connections.
+>=20
+> Comments?
+>=20
 
-Tested on AMCC Kilauea.
+I agree TCP_DEFER_ACCEPT is not worth it at the current time, if you ta=
+ke into=20
+account the bad guys, or very slow networks.
 
-Signed-off-by: Stefan Roese <sr@denx.de>
----
- drivers/net/ibm_newemac/core.c  |    3 ++-
- drivers/net/ibm_newemac/rgmii.c |   16 +++++++++++-----
- drivers/net/ibm_newemac/rgmii.h |    2 +-
- 3 files changed, 14 insertions(+), 7 deletions(-)
+1) Setting a timeout in a millisecond range (< 1000) is not very good b=
+ecause=20
+some clients may need much more time to send your server the data (very=
+ long=20
+distance). So a second granularity is OK.
 
-diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
-index 0de3aa2..fd0a585 100644
---- a/drivers/net/ibm_newemac/core.c
-+++ b/drivers/net/ibm_newemac/core.c
-@@ -2466,7 +2466,8 @@ static int __devinit emac_init_config(struct emac_instance *dev)
- 	if (of_device_is_compatible(np, "ibm,emac4"))
- 		dev->features |= EMAC_FTR_EMAC4;
- 	if (of_device_is_compatible(np, "ibm,emac-axon")
--	    || of_device_is_compatible(np, "ibm,emac-440epx"))
-+	    || of_device_is_compatible(np, "ibm,emac-440epx")
-+	    || of_device_is_compatible(np, "ibm,emac-405ex"))
- 		dev->features |= EMAC_FTR_HAS_AXON_STACR
- 			| EMAC_FTR_STACR_OC_INVERT;
- 	if (of_device_is_compatible(np, "ibm,emac-440spe"))
-diff --git a/drivers/net/ibm_newemac/rgmii.c b/drivers/net/ibm_newemac/rgmii.c
-index de41695..b9a4ce7 100644
---- a/drivers/net/ibm_newemac/rgmii.c
-+++ b/drivers/net/ibm_newemac/rgmii.c
-@@ -140,7 +140,12 @@ void rgmii_get_mdio(struct of_device *ofdev, int input)
- 
- 	RGMII_DBG2(dev, "get_mdio(%d)" NL, input);
- 
--	if (dev->type != RGMII_AXON)
-+	/*
-+	 * Some platforms (e.g. 440GX) have RGMII support but don't use it for
-+	 * MDIO access. Only continue if platforms is using MDIO over the RGMII
-+	 * interface (e.g. AXON, 405EX).
-+	 */
-+	if (dev->type != RGMII_HAS_MDIO)
- 		return;
- 
- 	mutex_lock(&dev->lock);
-@@ -161,7 +166,7 @@ void rgmii_put_mdio(struct of_device *ofdev, int input)
- 
- 	RGMII_DBG2(dev, "put_mdio(%d)" NL, input);
- 
--	if (dev->type != RGMII_AXON)
-+	if (dev->type != RGMII_HAS_MDIO)
- 		return;
- 
- 	fer = in_be32(&p->fer);
-@@ -251,8 +256,9 @@ static int __devinit rgmii_probe(struct of_device *ofdev,
- 	}
- 
- 	/* Check for RGMII type */
--	if (of_device_is_compatible(ofdev->node, "ibm,rgmii-axon"))
--		dev->type = RGMII_AXON;
-+	if (of_device_is_compatible(ofdev->node, "ibm,rgmii-axon") ||
-+	    of_device_is_compatible(ofdev->node, "ibm,rgmii-405ex"))
-+		dev->type = RGMII_HAS_MDIO;
- 	else
- 		dev->type = RGMII_STANDARD;
- 
-@@ -264,7 +270,7 @@ static int __devinit rgmii_probe(struct of_device *ofdev,
- 
- 	printk(KERN_INFO
- 	       "RGMII %s %s initialized\n",
--	       dev->type == RGMII_STANDARD ? "standard" : "axon",
-+	       dev->type == RGMII_STANDARD ? "standard" : "has-mdio",
- 	       ofdev->node->full_name);
- 
- 	wmb();
-diff --git a/drivers/net/ibm_newemac/rgmii.h b/drivers/net/ibm_newemac/rgmii.h
-index 5780683..f1b0ef5 100644
---- a/drivers/net/ibm_newemac/rgmii.h
-+++ b/drivers/net/ibm_newemac/rgmii.h
-@@ -23,7 +23,7 @@
- 
- /* RGMII bridge type */
- #define RGMII_STANDARD		0
--#define RGMII_AXON		1
-+#define RGMII_HAS_MDIO		1
- 
- /* RGMII bridge */
- struct rgmii_regs {
--- 
-1.5.3.4.498.g9c514
+2) After timeout is elapsed, the server tcp stack has no socket associa=
+ted to=20
+your client attempt. So closing the server listening socket wont be abl=
+e to=20
+send RST. I agree a RST *should* be sent by the server once the timeout=
+ is=20
+triggered.
+
+A typical tcpdump of what is happening for a tcp_defer_accept timeout o=
+f 20=20
+seconds is :
+
+[1]08:52:47.480291 IP client.60930 > server.http: S 2498995442:24989954=
+42(0)=20
+win 5840 <mss 1460,sackOK,timestamp 2685904595 0,nop,wscale 2>
+[2]08:52:47.480302 IP server.http > client.60930: S 1173302644:11733026=
+44(0)=20
+ack 2498995443 win 5840 <mss 1460>
+[3]08:52:47.481669 IP client.60930 > server.http: . ack 1 win 5840
+
+[4]08:52:50.757543 IP server.http > client.60930: S 1173302644:11733026=
+44(0)=20
+ack 2498995443 win 5840 <mss 1460>
+[5]08:52:50.758953 IP client.60930 > server.http: . ack 1 win 5840
+
+[6]08:52:56.760611 IP server.http > client.60930: S 1173302644:11733026=
+44(0)=20
+ack 2498995443 win 5840 <mss 1460>
+[7]08:52:56.761886 IP client.60930 > server.http: . ack 1 win 5840
+
+[8]08:53:08.771254 IP server.http > client.60930: S 1173302644:11733026=
+44(0)=20
+ack 2498995443 win 5840 <mss 1460>
+[9]08:53:08.772514 IP client.60930 > server.http: . ack 1 win 5840
+
+[10]08:53:32.782488 IP server.http > client.60930: S 1173302644:1173302=
+644(0)=20
+ack 2498995443 win 5840 <mss 1460>
+[11]08:53:32.783754 IP client.60930 > server.http: . ack 1 win 5840
+
+<a very long time, then client finally sends 2 bytes>
+
+[12]08:59:30.509097 IP client.60930 > server.http: P 1:3(2) ack 1 win 5=
+840
+[13]08:59:30.509125 IP server.http > client.60930: R 1173302645:1173302=
+645(0)=20
+win 0
+
+
+So TCP_DEFER_ACCEPT might send way more packets than needed. Packets 4,=
+6,8,10=20
+(and their corresponding acks 5,7,9,11) seem un-necessary, since (1,2,3=
+) has=20
+engaged a normal TCP session (three way handshake).
+
+We only should wait for the data coming from the client to be able to p=
+ass the=20
+new socket to the listening application.
+
 
