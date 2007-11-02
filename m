@@ -1,93 +1,111 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Subject: Re: [PATCH] ehea: add kexec support
-Date: Fri, 02 Nov 2007 17:30:08 +1100
-Message-ID: <1193985008.1782.7.camel@concordia>
-References: <200710261437.29117.ossthema@de.ibm.com>
-	 <1193610737.9637.1.camel@concordia>
-	 <OF79E7ACE7.5D0488CE-ONC1257384.002E58C0-C1257384.002F8561@de.ibm.com>
-	 <1193784636.32504.4.camel@concordia>
-	 <OF59B5FFD2.0294206F-ONC1257385.006A802D-C1257385.006CB6BB@de.ibm.com>
-Reply-To: michael@ellerman.id.au
+From: Stefan Roese <sr@denx.de>
+Subject: [PATCH] net: Add 405EX support to new EMAC driver
+Date: Fri, 2 Nov 2007 08:14:43 +0100
+Message-ID: <200711020814.43524.sr@denx.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-y5rS4QiXPITsc4bYsb2F"
-Cc: Jan-Bernd Themann <THEMANN@de.ibm.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <MEDER@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>, ossthema@linux.vnet.ibm.com,
-	Stefan Roscher <stefan.roscher@de.ibm.com>,
-	Thomas Q Klein <TKLEIN@de.ibm.com>
-To: Christoph Raisch <RAISCH@de.ibm.com>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Josh Boyer <jwboyer@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:60580 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751763AbXKBGaK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Nov 2007 02:30:10 -0400
-In-Reply-To: <OF59B5FFD2.0294206F-ONC1257385.006A802D-C1257385.006CB6BB@de.ibm.com>
+Received: from moutng.kundenserver.de ([212.227.126.188]:61353 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751873AbXKBHQv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2007 03:16:51 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This patch adds support for the 405EX to the new EMAC driver. Some as on
+AXON, the 405EX handles the MDIO via the RGMII bridge.
 
---=-y5rS4QiXPITsc4bYsb2F
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Tested on AMCC Kilauea.
 
-On Wed, 2007-10-31 at 20:48 +0100, Christoph Raisch wrote:
-> Michael Ellerman <michael@ellerman.id.au> wrote on 30.10.2007 23:50:36:
-> >
-> > On Tue, 2007-10-30 at 09:39 +0100, Christoph Raisch wrote:
-> > >
-> > > Michael Ellerman <michael@ellerman.id.au> wrote on 28.10.2007 23:32:1=
-7:
-> > > Hope I didn't miss anything here...
-> >
-> > Perhaps. When we kdump the kernel does not call the reboot notifiers, s=
-o
-> > the code Jan-Bernd just added won't get called. So the eHEA resources
-> > won't be freed. When the kdump kernel tries to load the eHEA driver wha=
-t
-> > will happen?
-> >
-> Good point.
->=20
-> If the device driver tries to allocate resources again (in the kdump
-> kernel),
-> which have been allocated before (in the crashed kernel) the hcalls will
-> fail because from the hypervisor view the resources are still in use.
-> Currently there's no method to find out the resource handles for these
-> HEA resources allocated by the crashed kernel within the hypervisor...
+Signed-off-by: Stefan Roese <sr@denx.de>
+---
+ drivers/net/ibm_newemac/core.c  |    3 ++-
+ drivers/net/ibm_newemac/rgmii.c |   16 +++++++++++-----
+ drivers/net/ibm_newemac/rgmii.h |    2 +-
+ 3 files changed, 14 insertions(+), 7 deletions(-)
 
-So the hypervisor can't allocate more resources, because they're already
-allocated, but it can't free the ones that are allocated because it
-doesn't know what they are? I don't think I understand.
-
-If that's really the way it works then eHEA is more or less broken for
-kdump I'm afraid.
-
-cheers
-
---=20
-Michael Ellerman
-OzLabs, IBM Australia Development Lab
-
-wwweb: http://michael.ellerman.id.au
-phone: +61 2 6212 1183 (tie line 70 21183)
-
-We do not inherit the earth from our ancestors,
-we borrow it from our children. - S.M.A.R.T Person
-
---=-y5rS4QiXPITsc4bYsb2F
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQBHKsPwdSjSd0sB4dIRAh3iAJ9/4vrJwKDDsiW94b+10eQT3MKwTACgkTu4
-PT5eL1afNH+NriyRW+7COPY=
-=qa+e
------END PGP SIGNATURE-----
-
---=-y5rS4QiXPITsc4bYsb2F--
+diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
+index 0de3aa2..fd0a585 100644
+--- a/drivers/net/ibm_newemac/core.c
++++ b/drivers/net/ibm_newemac/core.c
+@@ -2466,7 +2466,8 @@ static int __devinit emac_init_config(struct emac_instance *dev)
+ 	if (of_device_is_compatible(np, "ibm,emac4"))
+ 		dev->features |= EMAC_FTR_EMAC4;
+ 	if (of_device_is_compatible(np, "ibm,emac-axon")
+-	    || of_device_is_compatible(np, "ibm,emac-440epx"))
++	    || of_device_is_compatible(np, "ibm,emac-440epx")
++	    || of_device_is_compatible(np, "ibm,emac-405ex"))
+ 		dev->features |= EMAC_FTR_HAS_AXON_STACR
+ 			| EMAC_FTR_STACR_OC_INVERT;
+ 	if (of_device_is_compatible(np, "ibm,emac-440spe"))
+diff --git a/drivers/net/ibm_newemac/rgmii.c b/drivers/net/ibm_newemac/rgmii.c
+index de41695..b9a4ce7 100644
+--- a/drivers/net/ibm_newemac/rgmii.c
++++ b/drivers/net/ibm_newemac/rgmii.c
+@@ -140,7 +140,12 @@ void rgmii_get_mdio(struct of_device *ofdev, int input)
+ 
+ 	RGMII_DBG2(dev, "get_mdio(%d)" NL, input);
+ 
+-	if (dev->type != RGMII_AXON)
++	/*
++	 * Some platforms (e.g. 440GX) have RGMII support but don't use it for
++	 * MDIO access. Only continue if platforms is using MDIO over the RGMII
++	 * interface (e.g. AXON, 405EX).
++	 */
++	if (dev->type != RGMII_HAS_MDIO)
+ 		return;
+ 
+ 	mutex_lock(&dev->lock);
+@@ -161,7 +166,7 @@ void rgmii_put_mdio(struct of_device *ofdev, int input)
+ 
+ 	RGMII_DBG2(dev, "put_mdio(%d)" NL, input);
+ 
+-	if (dev->type != RGMII_AXON)
++	if (dev->type != RGMII_HAS_MDIO)
+ 		return;
+ 
+ 	fer = in_be32(&p->fer);
+@@ -251,8 +256,9 @@ static int __devinit rgmii_probe(struct of_device *ofdev,
+ 	}
+ 
+ 	/* Check for RGMII type */
+-	if (of_device_is_compatible(ofdev->node, "ibm,rgmii-axon"))
+-		dev->type = RGMII_AXON;
++	if (of_device_is_compatible(ofdev->node, "ibm,rgmii-axon") ||
++	    of_device_is_compatible(ofdev->node, "ibm,rgmii-405ex"))
++		dev->type = RGMII_HAS_MDIO;
+ 	else
+ 		dev->type = RGMII_STANDARD;
+ 
+@@ -264,7 +270,7 @@ static int __devinit rgmii_probe(struct of_device *ofdev,
+ 
+ 	printk(KERN_INFO
+ 	       "RGMII %s %s initialized\n",
+-	       dev->type == RGMII_STANDARD ? "standard" : "axon",
++	       dev->type == RGMII_STANDARD ? "standard" : "has-mdio",
+ 	       ofdev->node->full_name);
+ 
+ 	wmb();
+diff --git a/drivers/net/ibm_newemac/rgmii.h b/drivers/net/ibm_newemac/rgmii.h
+index 5780683..f1b0ef5 100644
+--- a/drivers/net/ibm_newemac/rgmii.h
++++ b/drivers/net/ibm_newemac/rgmii.h
+@@ -23,7 +23,7 @@
+ 
+ /* RGMII bridge type */
+ #define RGMII_STANDARD		0
+-#define RGMII_AXON		1
++#define RGMII_HAS_MDIO		1
+ 
+ /* RGMII bridge */
+ struct rgmii_regs {
+-- 
+1.5.3.4.498.g9c514
 
