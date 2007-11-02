@@ -1,127 +1,116 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: TCP_DEFER_ACCEPT issues
-Date: Fri, 02 Nov 2007 08:24:30 +0100
-Message-ID: <472AD0AE.50106@cosmosbay.com>
-References: <20071102013321.GA30893@codeblau.de>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [BUG] in inet6_create
+Date: Fri, 02 Nov 2007 12:15:28 +0300
+Message-ID: <472AEAB0.5090709@openvz.org>
+References: <472A3218.20708@tiscali.nl> <472A41AF.2030704@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Felix von Leitner <felix-linuxkernel@fefe.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org
+To: Roel Kluin <12o3l@tiscali.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:46481 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752179AbXKBH0I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2007 03:26:08 -0400
-In-Reply-To: <20071102013321.GA30893@codeblau.de>
+Received: from sacred.ru ([62.205.161.221]:38587 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752558AbXKBJP5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Nov 2007 05:15:57 -0400
+In-Reply-To: <472A41AF.2030704@tiscali.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46elix von Leitner a =E9crit :
-> I am trying to use TCP_DEFER_ACCEPT in my web server.
->=20
-> There are some operational problems.  First of all: timeout handling.=
-  I
-> would like to be able to set a timeout in seconds (or better:
-> milliseconds) for how long the socket is allowed to sit there without
-> data coming in.  For high load situations, I have been enforcing
-> timeouts in the range of 15 seconds, otherwise someone can DoS the
-> server by opening a lot of connections and tying up data structures.
->=20
-> It is still possible, of course, to tie up kernel memory this way, by
-> not reacting to the FIN or RST packets and running into a timeout the=
-re,
-> too, but that is partially tunable via sysctl.
->=20
-> According to tcp(7) the int argument to TCP_DEFER_ACCEPT is in second=
-s.
-> In the kernel code, it's converted to TCP timeout units.  When I ran =
-my
-> server, and connected without sending any data, nothing happened.  No
-> timeout.  Minutes later, the connection was still there.  Even worse:
-> when I killed (!) the server process (thus closing the server socket)=
-,
-> the client did not get a reset.  Only when I type something in the
-> telnet, I get a reset.  This appears to be very broken.
->=20
-> My suggestion:
->=20
->   1. make the argument to the setsockopt be in seconds, or millisecon=
-ds.
->   2. if the server socket is closed, reset all pending connections.
->=20
-> Comments?
->=20
+Roel Kluin wrote:
+> Roel Kluin wrote:
+>> I got this bug recently, I am not sure whether this is related to any previously 
+>> reported ones. It was a recently pulled git kernel. Also I have been hacking my
+>> kernel a bit lately, but I think that I haven't got any changes in the currently
+>> running kernel.
+>>
+>> FYI: my network card was not running (module not loaded, and I just started 
+>> thunderbird)
+>>
+>> Roel
+>>
+>> More information needed?
 
-I agree TCP_DEFER_ACCEPT is not worth it at the current time, if you ta=
-ke into=20
-account the bad guys, or very slow networks.
+Yes, please.
 
-1) Setting a timeout in a millisecond range (< 1000) is not very good b=
-ecause=20
-some clients may need much more time to send your server the data (very=
- long=20
-distance). So a second granularity is OK.
+Can you send us the disasm (objdump -dr) of your ipv6 module. 
+More precisely - I need the disassembled inet6_create() function to
+figure out where exactly this thing happened.
 
-2) After timeout is elapsed, the server tcp stack has no socket associa=
-ted to=20
-your client attempt. So closing the server listening socket wont be abl=
-e to=20
-send RST. I agree a RST *should* be sent by the server once the timeout=
- is=20
-triggered.
+Thanks,
+Pavel
 
-A typical tcpdump of what is happening for a tcp_defer_accept timeout o=
-f 20=20
-seconds is :
-
-[1]08:52:47.480291 IP client.60930 > server.http: S 2498995442:24989954=
-42(0)=20
-win 5840 <mss 1460,sackOK,timestamp 2685904595 0,nop,wscale 2>
-[2]08:52:47.480302 IP server.http > client.60930: S 1173302644:11733026=
-44(0)=20
-ack 2498995443 win 5840 <mss 1460>
-[3]08:52:47.481669 IP client.60930 > server.http: . ack 1 win 5840
-
-[4]08:52:50.757543 IP server.http > client.60930: S 1173302644:11733026=
-44(0)=20
-ack 2498995443 win 5840 <mss 1460>
-[5]08:52:50.758953 IP client.60930 > server.http: . ack 1 win 5840
-
-[6]08:52:56.760611 IP server.http > client.60930: S 1173302644:11733026=
-44(0)=20
-ack 2498995443 win 5840 <mss 1460>
-[7]08:52:56.761886 IP client.60930 > server.http: . ack 1 win 5840
-
-[8]08:53:08.771254 IP server.http > client.60930: S 1173302644:11733026=
-44(0)=20
-ack 2498995443 win 5840 <mss 1460>
-[9]08:53:08.772514 IP client.60930 > server.http: . ack 1 win 5840
-
-[10]08:53:32.782488 IP server.http > client.60930: S 1173302644:1173302=
-644(0)=20
-ack 2498995443 win 5840 <mss 1460>
-[11]08:53:32.783754 IP client.60930 > server.http: . ack 1 win 5840
-
-<a very long time, then client finally sends 2 bytes>
-
-[12]08:59:30.509097 IP client.60930 > server.http: P 1:3(2) ack 1 win 5=
-840
-[13]08:59:30.509125 IP server.http > client.60930: R 1173302645:1173302=
-645(0)=20
-win 0
-
-
-So TCP_DEFER_ACCEPT might send way more packets than needed. Packets 4,=
-6,8,10=20
-(and their corresponding acks 5,7,9,11) seem un-necessary, since (1,2,3=
-) has=20
-engaged a normal TCP session (three way handshake).
-
-We only should wait for the data coming from the client to be able to p=
-ass the=20
-new socket to the listening application.
-
+>> --
+> 
+> probably mailing to linux-net was more appropriate
+> 
+>> NET: Registered protocol family 10
+>>  BUG: unable to handle kernel NULL pointer dereference at virtual address 00000000
+>>  printing eip: f881034f *pde = 00000000 
+>>  Oops: 0000 [#1] 
+>>  Modules linked in: ipv6
+>>  
+>>  Pid: 17080, comm: modprobe Not tainted (2.6.24-rc1 #1)
+>>  EIP: 0060:[<f881034f>] EFLAGS: 00010293 CPU: 0
+>>  EIP is at inet6_create+0x5f/0x340 [ipv6]
+>>  EAX: 00000000 EBX: 00000000 ECX: f7621fd5 EDX: f8842e78
+>>  ESI: ffffffff EDI: 0000003a EBP: ffffff9f ESP: d780de74
+>>   DS: 007b ES: 007b FS: 0000 GS: 0033 SS: 0068
+>>  Process modprobe (pid: 17080, ti=d780c000 task=c3a86000 task.ti=d780c000)
+>>  Stack: 00000000 00000246 00000246 00000003 c60e22a0 00000246 00000000 00000000 
+>>         f88410fc ffffffea 00000003 c063f680 c028d597 00000002 00000001 c028d52c 
+>>         c60e22a0 00000003 f8842d00 00000032 00000000 c028d6a7 0000003a f88438c0 
+>>  Call Trace:
+>>   [<c028d597>] __sock_create+0xf7/0x1e0
+>>   [<c028d52c>] __sock_create+0x8c/0x1e0
+>>   [<c028d6a7>] sock_create_kern+0x27/0x30
+>>   [<f88457af>] icmpv6_init+0x1f/0xa0 [ipv6]
+>>   [<f884513f>] inet6_init+0x13f/0x2f0 [ipv6]
+>>   [<c0144f73>] sys_init_module+0x173/0x16c0
+>>   [<c0132860>] autoremove_wake_function+0x0/0x50
+>>   [<c0171ef1>] sys_read+0x41/0x70
+>>   [<c010818e>] syscall_call+0x7/0xb
+>>   =======================
+>>  Code: c0 85 c9 0f 84 12 02 00 00 c7 44 24 18 00 00 00 00 0f bf c6 c1 e0 03 8b 98 80 2e 84 f8 8d 90 80 2e 84 f8 89 5c 24 1c 8b 44 24 1c <8b> 00 0f 18 00 90 39 d3 bd a2 ff ff ff 75 36 e9 f3 01 00 00 85 
+>>  EIP: [<f881034f>] inet6_create+0x5f/0x340 [ipv6] SS:ESP 0068:d780de74
+>>  BUG: unable to handle kernel NULL pointer dereference at virtual address 00000000
+>>  printing eip: f881034f *pde = 00000000 
+>>  Oops: 0000 [#2] 
+>>  Modules linked in: ipv6
+>>  
+>>  Pid: 17078, comm: thunderbird-bin Tainted: G      D (2.6.24-rc1 #1)
+>>  EIP: 0060:[<f881034f>] EFLAGS: 00210293 CPU: 0
+>>  EIP is at inet6_create+0x5f/0x340 [ipv6]
+>>  EAX: 00000000 EBX: 00000000 ECX: f7621fd5 EDX: f8842e78
+>>  ESI: ffffffff EDI: 00000000 EBP: ffffff9f ESP: c2801f00
+>>   DS: 007b ES: 007b FS: 0000 GS: 0033 SS: 0068
+>>  Process thunderbird-bin (pid: 17078, ti=c2800000 task=c20bf000 task.ti=c2800000)
+>>  Stack: c0185024 00200246 00200246 00000001 c60e2000 00200246 00000000 00000000 
+>>         f88410fc ffffffea 00000001 c063f680 c028d597 00000002 00000001 c028d52c 
+>>         c60e2000 00000001 0000000a 08b095bc c2800000 c028d6e9 00000000 c2801f74 
+>>  Call Trace:
+>>   [<c0185024>] new_inode+0x24/0x90
+>>   [<c028d597>] __sock_create+0xf7/0x1e0
+>>   [<c028d52c>] __sock_create+0x8c/0x1e0
+>>   [<c028d6e9>] sock_create+0x39/0x50
+>>   [<c028d89c>] sys_socket+0x1c/0x50
+>>   [<c028e248>] sys_socketcall+0x68/0x280
+>>   [<c013da9b>] trace_hardirqs_on+0xbb/0x160
+>>   [<c011b80d>] do_sched_setscheduler+0xad/0xc0
+>>   [<c01081fb>] restore_nocheck+0x12/0x15
+>>   [<c010818e>] syscall_call+0x7/0xb
+>>   =======================
+>>  Code: c0 85 c9 0f 84 12 02 00 00 c7 44 24 18 00 00 00 00 0f bf c6 c1 e0 03 8b 98 80 2e 84 f8 8d 90 80 2e 84 f8 89 5c 24 1c 8b 44 24 1c <8b> 00 0f 18 00 90 39 d3 bd a2 ff ff ff 75 36 e9 f3 01 00 00 85 
+>>  EIP: [<f881034f>] inet6_create+0x5f/0x340 [ipv6] SS:ESP 0068:c2801f00
+>> -
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
