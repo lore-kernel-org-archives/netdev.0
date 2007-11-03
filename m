@@ -1,88 +1,61 @@
-From: Sparkletone <sparkletone@gmail.com>
-Subject: Fwd: Problem accessing a Certain Remote IP with Kernel 2.6.24-rc1
-Date: Sat, 3 Nov 2007 15:34:18 -0500
-Message-ID: <1855FBA6-5EFE-46E2-A334-AB31C5EDC404@gmail.com>
-References: <200711032231.56777.shlomif@iglu.org.il>
-Mime-Version: 1.0 (Apple Message framework v912)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: Jochen Friedrich <jochen@scram.de>
+Subject: [PATCH] [POWERPC] Fix fs_enet module build
+Date: Sat, 03 Nov 2007 21:45:54 +0100
+Message-ID: <472CDE02.1020804@scram.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shlomif@iglu.org.il
-To: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, Scott Wood <scottwood@freescale.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	netdev <netdev@vger.kernel.org>
+To: "linuxppc-embedded@ozlabs.org" <linuxppc-embedded@ozlabs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.243]:46703 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756482AbXKCUeQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2007 16:34:16 -0400
-Received: by an-out-0708.google.com with SMTP id b36so151591ana
-        for <netdev@vger.kernel.org>; Sat, 03 Nov 2007 13:34:16 -0700 (PDT)
+Received: from mail0.scram.de ([78.47.204.202]:52128 "EHLO mail0.scram.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755749AbXKCUpv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Nov 2007 16:45:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Forwarding this for someone who was getting bounces for some reason.
+If fs_enet is build as module, mii-fec/mii-bitbang should be build as
+module, as well. Otherwise some symbols remain undefined.
 
-Begin forwarded message:
+  Building modules, stage 2.
+  MODPOST 5 modules
+ERROR: "fs_scc_ops" [drivers/net/fs_enet/fs_enet.ko] undefined!
+make[1]: *** [__modpost] Error 1
+make: *** [modules] Error 2
 
-> From: Shlomi Fish <shlomif@iglu.org.il>
-> Date: November 3, 2007 3:31:56 PM CDT
-> To: sparkletone@gmail.com
-> Subject: Problem accessing a Certain Remote IP with Kernel 2.6.24-rc1
->
-> Hi all!
->
-> I hope this mail gets through because last time I checked, I got  
-> bounces
-> whenever I tried to send email to LKML ("not liked source" for mail).
->
-> I've been having a problem with kernel 2.6.24-rc1 on Mandriva  
-> Cooker. The
-> problem is that after using it for a while connecting through TCP to  
-> the
-> following remote, Internet IP - 212.143.218.31 - takes a very long  
-> time.
->
-> Here's what I've learned:
->
-> 1. Kernel 2.6.23 seem to exhibit this problem tooa fter a while.
->
-> 2. It already happened twice with kernel 2.6.24-rc1.
->
-> 3. A different computer on the same Home LAN connected via a NAT/ 
-> router has no
-> problem with that IP. (At the same time, the Linux computer exhibits  
-> the
-> problematic behaviour).
->
-> 4. I could connect using telnet to port 80 eventually, but it took  
-> an awfully
-> long time.
->
-> 5. I have problem with both HTTP to port 80 and POP.
->
-> 6. Restarting the network ("/etc/init.d/network restart") does not  
-> help - only
-> a reboot.
->
-> 7. The network as a whole (Google, etc.) works fine.
->
-> I need this IP, because it hosts my POP account and my homepage.
->
-> Per Rik van Riel's advice I prepared Ethereal (libpcap) dumps of the
-> conversations before ("good") and after ("bad") the problem surfaced:
->
-> http://freehackers.org/~shlomif/files/files/www.sf.org-conn-problem/
->
-> I'd appreciate if anyone would be able to shed more light on this  
-> problem and
-> hopefully fix it. Please let me know if there's anything else you  
-> need.
->
-> Regards,
->
-> 	Shlomi Fish
->
-> ---------------------------------------------------------------------
-> Shlomi Fish      shlomif@iglu.org.il
-> Homepage:        http://www.shlomifish.org/
->
-> I'm not an actor - I just play one on T.V.
+Signed-off-by: Jochen Friedrich <jochen@scram.de>
+---
+
+This can be pulled from git://git.bocc.de/dbox2.git for-2.6.24
+
+ drivers/net/fs_enet/Makefile |   12 ++++++++++--
+ 1 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/fs_enet/Makefile b/drivers/net/fs_enet/Makefile
+index 02d4dc1..2f7563a 100644
+--- a/drivers/net/fs_enet/Makefile
++++ b/drivers/net/fs_enet/Makefile
+@@ -4,7 +4,15 @@
+ 
+ obj-$(CONFIG_FS_ENET) += fs_enet.o
+ 
+-obj-$(CONFIG_8xx) += mac-fec.o mac-scc.o mii-fec.o
+-obj-$(CONFIG_CPM2) += mac-fcc.o mii-bitbang.o
++fs_enet-$(CONFIG_8xx) += mac-fec.o mac-scc.o
++fs_enet-$(CONFIG_CPM2) += mac-fcc.o
++
++ifeq ($(CONFIG_8xx),y)
++        obj-$(CONFIG_FS_ENET) += mii-fec.o
++endif
++
++ifeq ($(CONFIG_CPM2),y)
++        obj-$(CONFIG_FS_ENET) += mii-bitbang.o
++endif
+ 
+ fs_enet-objs := fs_enet-main.o
+-- 
+1.5.3.4
 
