@@ -1,36 +1,88 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: RFC: Reproducible oops with lockdep on count_matching_names()
-Date: Sat, 3 Nov 2007 21:06:54 +0100
-Message-ID: <200711032106.56569.mb@bu3sch.de>
-References: <20071101191716.GA3201@pogo> <1194001120.27652.353.camel@twins> <43e72e890711031258g4ccd9cd0hc4520e9473f6ce49@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+From: Sparkletone <sparkletone@gmail.com>
+Subject: Fwd: Problem accessing a Certain Remote IP with Kernel 2.6.24-rc1
+Date: Sat, 3 Nov 2007 15:34:18 -0500
+Message-ID: <1855FBA6-5EFE-46E2-A334-AB31C5EDC404@gmail.com>
+References: <200711032231.56777.shlomif@iglu.org.il>
+Mime-Version: 1.0 (Apple Message framework v912)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: "Peter Zijlstra" <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	"Michael Wu" <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"Ingo Molnar" <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Michael Chan" <mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <43e72e890711031258g4ccd9cd0hc4520e9473f6ce49-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: shlomif@iglu.org.il
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from an-out-0708.google.com ([209.85.132.243]:46703 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756482AbXKCUeQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2007 16:34:16 -0400
+Received: by an-out-0708.google.com with SMTP id b36so151591ana
+        for <netdev@vger.kernel.org>; Sat, 03 Nov 2007 13:34:16 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 03 November 2007 20:58:09 Luis R. Rodriguez wrote:
-> I was using SLAB and ran into other strange oops, as the one below,
-> but after switching to SLUB, after Michael Buesch's suggestion that
-> one went away... The lockdep segfault is still present, however.
+Forwarding this for someone who was getting bounces for some reason.
 
-Who is responsible for slab btw?
-I mean, someone should be interested in getting this bug fixed. :)
-When using slab I see random corruptions. I think related to rmmod, but
-I'm not sure. I don't see this with slub.
+Begin forwarded message:
 
--- 
-Greetings Michael.
+> From: Shlomi Fish <shlomif@iglu.org.il>
+> Date: November 3, 2007 3:31:56 PM CDT
+> To: sparkletone@gmail.com
+> Subject: Problem accessing a Certain Remote IP with Kernel 2.6.24-rc1
+>
+> Hi all!
+>
+> I hope this mail gets through because last time I checked, I got  
+> bounces
+> whenever I tried to send email to LKML ("not liked source" for mail).
+>
+> I've been having a problem with kernel 2.6.24-rc1 on Mandriva  
+> Cooker. The
+> problem is that after using it for a while connecting through TCP to  
+> the
+> following remote, Internet IP - 212.143.218.31 - takes a very long  
+> time.
+>
+> Here's what I've learned:
+>
+> 1. Kernel 2.6.23 seem to exhibit this problem tooa fter a while.
+>
+> 2. It already happened twice with kernel 2.6.24-rc1.
+>
+> 3. A different computer on the same Home LAN connected via a NAT/ 
+> router has no
+> problem with that IP. (At the same time, the Linux computer exhibits  
+> the
+> problematic behaviour).
+>
+> 4. I could connect using telnet to port 80 eventually, but it took  
+> an awfully
+> long time.
+>
+> 5. I have problem with both HTTP to port 80 and POP.
+>
+> 6. Restarting the network ("/etc/init.d/network restart") does not  
+> help - only
+> a reboot.
+>
+> 7. The network as a whole (Google, etc.) works fine.
+>
+> I need this IP, because it hosts my POP account and my homepage.
+>
+> Per Rik van Riel's advice I prepared Ethereal (libpcap) dumps of the
+> conversations before ("good") and after ("bad") the problem surfaced:
+>
+> http://freehackers.org/~shlomif/files/files/www.sf.org-conn-problem/
+>
+> I'd appreciate if anyone would be able to shed more light on this  
+> problem and
+> hopefully fix it. Please let me know if there's anything else you  
+> need.
+>
+> Regards,
+>
+> 	Shlomi Fish
+>
+> ---------------------------------------------------------------------
+> Shlomi Fish      shlomif@iglu.org.il
+> Homepage:        http://www.shlomifish.org/
+>
+> I'm not an actor - I just play one on T.V.
+
