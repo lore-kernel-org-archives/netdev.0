@@ -1,70 +1,40 @@
-From: Michael Neuling <mikey@neuling.org>
-Subject: Re: [PATCH] ehea: add kexec support
-Date: Sat, 03 Nov 2007 17:06:31 +1100
-Message-ID: <24042.1194069991@neuling.org>
-References: <200710261437.29117.ossthema@de.ibm.com> <1193610737.9637.1.camel@concordia> <OF79E7ACE7.5D0488CE-ONC1257384.002E58C0-C1257384.002F8561@de.ibm.com> <1193784636.32504.4.camel@concordia> <OF59B5FFD2.0294206F-ONC1257385.006A802D-C1257385.006CB6BB@de.ibm.com> <1193985008.1782.7.camel@concordia> <OF3FAFDB41.AF236738-ONC1257387.00376233-C1257387.00389861@de.ibm.com>
-Cc: michael@ellerman.id.au, Thomas Q Klein <TKLEIN@de.ibm.com>,
-	ossthema@linux.vnet.ibm.com, Jeff Garzik <jeff@garzik.org>,
-	Jan-Bernd Themann <THEMANN@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <MEDER@de.ibm.com>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>
-To: Christoph Raisch <RAISCH@de.ibm.com>
+From: "auther_bin" <auther_bin@tom.com>
+Subject: urgent!  linux 2.6.16 network bridge crash
+Date: Sat, 3 Nov 2007 19:11:34 +0800
+Message-ID: <200711031904486275450@tom.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="gb2312"
+Content-Transfer-Encoding: 7bit
+To: "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:38925 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755541AbXKCGGd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Nov 2007 02:06:33 -0400
-In-reply-to: <OF3FAFDB41.AF236738-ONC1257387.00376233-C1257387.00389861@de.ibm.com> 
+Received: from smtpr3.tom.com ([202.108.255.198]:63405 "HELO tom.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1753092AbXKCLNe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Nov 2007 07:13:34 -0400
+Received: from authernote (unknown [172.24.140.61])
+	by bjapp11 (Coremail) with SMTP id O0AIAONXLEc7AIw9.1
+	for <netdev@vger.kernel.org>; Sat, 03 Nov 2007 19:13:39 +0800 (CST)
+Received: from authernote([218.249.84.34])
+	by bjapp21.tom.com(KBAS Gateway 2.1 2.126i4g2) with ESMTP id local17883.1194088406 for <netdev@vger.kernel.org>;
+	Sat Nov  3 19:13:27 2007 +0800
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Michael Ellerman <michael@ellerman.id.au> wrote on 02.11.2007 07:30:08:
-> 
-> > On Wed, 2007-10-31 at 20:48 +0100, Christoph Raisch wrote:
-> > > Michael Ellerman <michael@ellerman.id.au> wrote on 30.10.2007 23:50:36:
-> > If that's really the way it works then eHEA is more or less broken for
-> > kdump I'm afraid.
-> 
-> We think we have a way to workaround this, but let me first try to
-> explain the base problem.
-> 
-> DD allocates HEA resources and gets firmware_handles for these resources.
-> To free the resources DD needs to use exactly these handles.
-> There's no generic firmware call "clean out all resources".
-> Allocating the same resources twice does not work.
+Hello friends, I have config my linux box works as a network bridge. and
+up/down switch is both cisco 35xx works with vlan. but when i connect it
+into the network the box crashed right now. Puzzled!
 
-Can we get a new firmware call to do this?  
+btw, in the down(intranet) switch we connect 8 wireless AP.
 
-> So a new kernel can't free the resources allocated by an old kernel,
-> because the numeric values of the handles aren't known anymore.
+tcpdump gives many many broadcast package like:
 
-How many possible handles are there?  
+time serial M SRC_MAC > 1:0:0:0:0:0 sap aa ui/C
 
-If the handles are lost, is the only way to clear out the HEA resources
-is to reset the partition?
+what's it?
+flood? or the AP package or the cisco vlan? but whatever it is, the box
+should not be crashed by it, right?
 
-> Potential Solution:
-> Hea driver cleanup function hooks into ppc_md.machine_crash_shutdown
-> and frees all firmware resources at shutdown time of the crashed kernel.
+if the box do not use bridge, it will not crash at all.
 
-This means the crashed kernel now has to be trusted to shut down and
-free up the resources.  Isn't trusting the crashing kernel in this way
-against the whole kdump idea?
 
-> crash_kexec continues and loads new kernel.
-> The new kernel restarts the HEA driver within kdump kernel, which will work
-> because resources have been freed before.
-> 
-> Michael, would this work?
-> 
-> Gruss / Regards
-> Christoph R.
-> 
-> _______________________________________________
-> Linuxppc-dev mailing list
-> Linuxppc-dev@ozlabs.org
-> https://ozlabs.org/mailman/listinfo/linuxppc-dev
-> 
