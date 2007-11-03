@@ -1,29 +1,54 @@
-From: Sparkletone <sparkletone@gmail.com>
-Subject: Re: Problem accessing a Certain Remote IP with Kernel 2.6.24-rc1
-Date: Sat, 3 Nov 2007 18:18:18 -0500
-Message-ID: <FEA563B4-88AD-43B8-9FA2-060B8D1F1086@gmail.com>
-References: <200711032231.56777.shlomif@iglu.org.il> <1855FBA6-5EFE-46E2-A334-AB31C5EDC404@gmail.com> <20071103.160506.139031068.davem@davemloft.net>
-Mime-Version: 1.0 (Apple Message framework v912)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] INET : removes per bucket rwlock in tcp/dccp ehash table
+Date: Sun, 4 Nov 2007 00:18:14 +0100
+Message-ID: <200711040018.15027.ak@suse.de>
+References: <4729A774.9030409@cosmosbay.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.183]:40145 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756919AbXKCXSU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2007 19:18:20 -0400
-Received: by py-out-1112.google.com with SMTP id u77so2269249pyb
-        for <netdev@vger.kernel.org>; Sat, 03 Nov 2007 16:18:19 -0700 (PDT)
-In-Reply-To: <20071103.160506.139031068.davem@davemloft.net>
+Received: from ns1.suse.de ([195.135.220.2]:42653 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756697AbXKCXSS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Nov 2007 19:18:18 -0400
+In-Reply-To: <4729A774.9030409@cosmosbay.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Nov 3, 2007, at 6:05 PM, David Miller wrote:
+On Thursday 01 November 2007 11:16:20 Eric Dumazet wrote:
 
-> Please do not forward his postings here, thank you.
+Looks good from a quick look. Thanks for doing that work.
 
-I kind of figured something like that was the case, but decided to  
-take the chance it was legit.
+Some quick comments:
 
-Don't worry about it happening again!
+> +#if defined(CONFIG_SMP) || defined(CONFIG_PROVE_LOCKING)
+> +/*
+> + * Instead of using one rwlock for each inet_ehash_bucket, we use a table of locks
+> + * The size of this table is a power of two and depends on the number of CPUS.
+> + */
+
+This shouldn't be hard coded based on NR_CPUS, but be done on runtime
+based on num_possible_cpus(). This is better for kernels with a large
+NR_CPUS, but which typically run on much smaller systems (like 
+distribution kernels) 
+
+Also the EHASH_LOCK_SZ == 0 special case is a little strange. Why did
+you add that?
+
+And as a unrelated node have you tried converting the rwlocks 
+into normal spinlocks? spinlocks should be somewhat cheaper
+because they have less cache protocol overhead and with
+the huge thash tables in Linux the chain walks should be short
+anyways so not doing this in parallel is probably not a big issue.
+At some point I also had a crazy idea of using a special locking
+scheme that special cases the common case that a hash chain
+has only one member and doesn't take a look for that at all. 
+
+-Andi
+
