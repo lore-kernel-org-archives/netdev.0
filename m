@@ -1,71 +1,70 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Endianness problem with u32 classifier hash masks
-Date: Fri, 02 Nov 2007 19:23:50 -0400
-Message-ID: <1194045830.4438.21.camel@localhost>
-References: <1193939701.2987.82.camel@localhost.localdomain>
-	 <472B5EF1.4020206@o2.pl>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Radu Rendec <radu.rendec@ines.ro>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
+From: Michael Neuling <mikey@neuling.org>
+Subject: Re: [PATCH] ehea: add kexec support
+Date: Sat, 03 Nov 2007 17:06:31 +1100
+Message-ID: <24042.1194069991@neuling.org>
+References: <200710261437.29117.ossthema@de.ibm.com> <1193610737.9637.1.camel@concordia> <OF79E7ACE7.5D0488CE-ONC1257384.002E58C0-C1257384.002F8561@de.ibm.com> <1193784636.32504.4.camel@concordia> <OF59B5FFD2.0294206F-ONC1257385.006A802D-C1257385.006CB6BB@de.ibm.com> <1193985008.1782.7.camel@concordia> <OF3FAFDB41.AF236738-ONC1257387.00376233-C1257387.00389861@de.ibm.com>
+Cc: michael@ellerman.id.au, Thomas Q Klein <TKLEIN@de.ibm.com>,
+	ossthema@linux.vnet.ibm.com, Jeff Garzik <jeff@garzik.org>,
+	Jan-Bernd Themann <THEMANN@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <MEDER@de.ibm.com>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>
+To: Christoph Raisch <RAISCH@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.181]:11963 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755747AbXKCAkX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2007 20:40:23 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so1121651wah
-        for <netdev@vger.kernel.org>; Fri, 02 Nov 2007 17:40:22 -0700 (PDT)
-In-Reply-To: <472B5EF1.4020206@o2.pl>
+Received: from ozlabs.org ([203.10.76.45]:38925 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755541AbXKCGGd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Nov 2007 02:06:33 -0400
+In-reply-to: <OF3FAFDB41.AF236738-ONC1257387.00376233-C1257387.00389861@de.ibm.com> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-On Fri, 2007-02-11 at 18:31 +0100, Jarek Poplawski wrote:
-> Radu Rendec wrote:
+> Michael Ellerman <michael@ellerman.id.au> wrote on 02.11.2007 07:30:08:
 > 
-> > Hi,
-> > 
-> > While trying to implement u32 hashes in my shaping machine I ran into a
-> > possible bug in the u32 hash/bucket computing algorithm
-> > (net/sched/cls_u32.c).
-> > 
-> > The problem occurs only with hash masks that extend over the octet
-> > boundary, on little endian machines (where htonl() actually does
-> > something).
-> > 
-> > I'm not 100% sure this is a problem with u32 itself, but at least I'm
-> > sure u32 with the same configuration would behave differently on little
-> > endian and big endian machines. Detailed description of the problem and
-> > proposed patch follow.
+> > On Wed, 2007-10-31 at 20:48 +0100, Christoph Raisch wrote:
+> > > Michael Ellerman <michael@ellerman.id.au> wrote on 30.10.2007 23:50:36:
+> > If that's really the way it works then eHEA is more or less broken for
+> > kdump I'm afraid.
 > 
+> We think we have a way to workaround this, but let me first try to
+> explain the base problem.
 > 
-> I think you are right about this different behavior, so it looks like a bug.
-> And since little endian way is uncontrollable in such a case, your proposal
-> should be right.
+> DD allocates HEA resources and gets firmware_handles for these resources.
+> To free the resources DD needs to use exactly these handles.
+> There's no generic firmware call "clean out all resources".
+> Allocating the same resources twice does not work.
+
+Can we get a new firmware call to do this?  
+
+> So a new kernel can't free the resources allocated by an old kernel,
+> because the numeric values of the handles aren't known anymore.
+
+How many possible handles are there?  
+
+If the handles are lost, is the only way to clear out the HEA resources
+is to reset the partition?
+
+> Potential Solution:
+> Hea driver cleanup function hooks into ppc_md.machine_crash_shutdown
+> and frees all firmware resources at shutdown time of the crashed kernel.
+
+This means the crashed kernel now has to be trusted to shut down and
+free up the resources.  Isn't trusting the crashing kernel in this way
+against the whole kdump idea?
+
+> crash_kexec continues and loads new kernel.
+> The new kernel restarts the HEA driver within kdump kernel, which will work
+> because resources have been freed before.
 > 
-> But, since there is a maintainer for this, let's check what is he not payed
-> for?! (Cc: Jamal Hadi Salim)
+> Michael, would this work?
 > 
-
-Thanks for the CC Jarek - and i promise to share the loot with you when
-i lay my hands on it;->
-
-I see that given the mask described (the 0 bits bounding the two
-nibbles), the same packet in that network will hit two different buckets
-depending on endianness. In other words there is lack of consistency. So
-good catch.
-The patch would certainly resolve it.
-The only thing that bothers me with the patch approach is the extra
-conversion in the fast path. Radu, since this is not a show stopper -
-can you give me a short time to sip on it? I am thinking it is probably
-resolvable by using the right tuning at config time - one knob that
-looks usable is fshift and that all this can be done at config time; but
-i may need more than one coffee to get it right, but if you see it just
-send a patch. I will try to use the data you used to see if i am making
-any sense.
-
-cheers,
-jamal
-
+> Gruss / Regards
+> Christoph R.
+> 
+> _______________________________________________
+> Linuxppc-dev mailing list
+> Linuxppc-dev@ozlabs.org
+> https://ozlabs.org/mailman/listinfo/linuxppc-dev
+> 
