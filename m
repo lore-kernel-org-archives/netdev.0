@@ -1,45 +1,36 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] INET : removes per bucket rwlock in tcp/dccp ehash table
-Date: Sun, 4 Nov 2007 01:54:33 +0100
-Message-ID: <200711040154.33316.ak@suse.de>
-References: <4729A774.9030409@cosmosbay.com> <200711040018.15027.ak@suse.de> <20071103.162337.83099185.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Endianness problem with u32 classifier hash masks
+Date: Sun, 04 Nov 2007 02:17:54 +0100
+Message-ID: <472D1DC2.9000106@o2.pl>
+References: <1193939701.2987.82.camel@localhost.localdomain>	 <472B5EF1.4020206@o2.pl> <1194045830.4438.21.camel@localhost> <472D06B2.9040402@o2.pl> <472D0B1C.7000209@o2.pl> <472D128B.8030704@o2.pl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org, acme@redhat.com
-To: David Miller <davem@davemloft.net>
+Cc: hadi@cyberus.ca, Radu Rendec <radu.rendec@ines.ro>,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:33521 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754197AbXKDAyh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Nov 2007 20:54:37 -0400
-In-Reply-To: <20071103.162337.83099185.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mx12.go2.pl ([193.17.41.142]:51096 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755813AbXKDBMn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Nov 2007 21:12:43 -0400
+In-Reply-To: <472D128B.8030704@o2.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Jarek Poplawski wrote, On 11/04/2007 01:30 AM:
 
-> > Also the EHASH_LOCK_SZ == 0 special case is a little strange. Why did
-> > you add that?
+> Jarek Poplawski wrote, On 11/04/2007 12:58 AM:
+... 
+> Other changes seem to be not needed.
 > 
-> He explained this in another reply, because ifdefs are ugly.
+>> But it needs more checking...
 
-I meant why having it at all? 
 
-> Any use that makes 
-> "sense" is a case where the code should be rewritten to decrease the
-> lock hold time or convert to RCU.
+But not much more: it's a piece of fshit!
 
-I don't think RCU would be really needed for single entry buckets (which
-are common) if they are special cased. After all it would be just
-a single pointer. Perhaps one could distingush this case e.g. by 
-setting the low order bit of the hash bucket pointer.
+So, even if not full ntohl(), some byte moving seems to be
+necessary here.
 
-In fact to optimize for this case it might be an interesting
-experiment to go towards an closed hash table and allocate the sockets
-in page sized objects and then remap them directly into a virtual
-continuous table similar to the new vmemmap code (need to try this at some 
-point). 
-
--Andi
+Sorry for this mess, 
+Jarek P
