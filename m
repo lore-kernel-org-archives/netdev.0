@@ -1,38 +1,39 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] INET : removes per bucket rwlock in tcp/dccp ehash table
-Date: Mon, 5 Nov 2007 00:01:03 +0100
-Message-ID: <200711050001.03699.ak@suse.de>
-References: <20071103.162337.83099185.davem@davemloft.net> <200711041326.38380.ak@suse.de> <20071104.135621.48992864.davem@davemloft.net>
+From: Roel Kluin <12o3l@tiscali.nl>
+Subject: [PATCH] postfix decrement error in smc911x_reset(); drivers/net/smc911x.c
+Date: Mon, 05 Nov 2007 00:45:53 +0100
+Message-ID: <472E59B1.80206@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org, acme@redhat.com,
-	jarkao2@o2.pl
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:58453 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753386AbXKDXBH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Nov 2007 18:01:07 -0500
-In-Reply-To: <20071104.135621.48992864.davem@davemloft.net>
-Content-Disposition: inline
+Received: from smtp-out2.tiscali.nl ([195.241.79.177]:50892 "EHLO
+	smtp-out2.tiscali.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751893AbXKDXp6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Nov 2007 18:45:58 -0500
+Received: from [82.171.216.234] (helo=[192.168.1.2])
+	by smtp-out2.tiscali.nl with esmtp (Tiscali http://www.tiscali.nl)
+	id 1IopAC-000553-ED
+	for <netdev@vger.kernel.org>; Mon, 05 Nov 2007 00:45:56 +0100
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 04 November 2007 22:56:21 David Miller wrote:
-> From: Andi Kleen <ak@suse.de>
+If timeout causes the loop to end, a postfix decrement causes its value to 
+become 4294967295 (unsigned int), not 0.
 
-> This makes a huge different as we have to set NR_CPUS to 4096
-> in order to handle the cpu numbering of some UltraSPARC-IV
-> machines.
+Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
+---
+diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
+index dd18af0..41f3c8f 100644
+--- a/drivers/net/smc911x.c
++++ b/drivers/net/smc911x.c
+@@ -243,7 +243,7 @@ static void smc911x_reset(struct net_device *dev)
+ 		do {
+ 			udelay(10);
+ 			reg = SMC_GET_PMT_CTRL() & PMT_CTRL_READY_;
+-		} while ( timeout-- && !reg);
++		} while ( --timeout && !reg);
+ 		if (timeout == 0) {
+ 			PRINTK("%s: smc911x_reset timeout waiting for PM restore\n", dev->name);
+ 			return;
 
-Really? Hopefully you have a large enough stack then. There 
-are various users who put char str[NR_CPUS] on the stack
-and a few other data structures also get incredibly big with
-NR_CPUS arrays.
-
-If it's for sparse cpu ids -- x86 handles those with an 
-translation array.
-
--Andi
