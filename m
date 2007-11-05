@@ -1,89 +1,46 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Endianness problem with u32 classifier hash masks
-Date: Tue, 06 Nov 2007 01:02:49 +0100
-Message-ID: <472FAF29.7050704@o2.pl>
-References: <1193939701.2987.82.camel@localhost.localdomain>	 <472B5EF1.4020206@o2.pl> <1194045830.4438.21.camel@localhost>	 <472D06B2.9040402@o2.pl> <472D0B1C.7000209@o2.pl> <472D128B.8030704@o2.pl>	 <472D1DC2.9000106@o2.pl> <1194220693.4438.75.camel@localhost>	 <20071105091231.GA1933@ff.dom.local>	 <1194267561.2987.141.camel@localhost.localdomain>	 <20071105135246.GB1933@ff.dom.local> <1194271589.4438.113.camel@localhost>	 <1194283888.2987.186.camel@localhost.localdomain>  <472F85F0.8060205@o2.pl> <1194301667.4430.28.camel@localhost>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: dn_route.c momentarily exiting RCU read-side critical section
+Date: Tue, 6 Nov 2007 07:51:17 +0800
+Message-ID: <20071105235117.GA18396@gondor.apana.org.au>
+References: <20071030151254.GA8285@linux.vnet.ibm.com> <E1Ip0Vs-0002zP-00@gondolin.me.apana.org.au> <20071105161203.GB9479@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Radu Rendec <radu.rendec@ines.ro>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, SteveW@acm.org, dipankar@in.ibm.com
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:40891 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754219AbXKEXu3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Nov 2007 18:50:29 -0500
-In-Reply-To: <1194301667.4430.28.camel@localhost>
+Received: from rhun.apana.org.au ([64.62.148.172]:1457 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750741AbXKEXwO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 18:52:14 -0500
+Content-Disposition: inline
+In-Reply-To: <20071105161203.GB9479@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote, On 11/05/2007 11:27 PM:
+On Mon, Nov 05, 2007 at 08:12:03AM -0800, Paul E. McKenney wrote:
+> > >> 
+> > >> > net/decnet/dn_route.c in dn_rt_cache_get_next() is as follows:
+> > >> > 
+> > >> > static struct dn_route *dn_rt_cache_get_next(struct seq_file *seq, struct dn_route *rt)
+> > >> > {
+> > >> >     struct dn_rt_cache_iter_state *s = rcu_dereference(seq->private);
+> > >> > 
+> > >> >     rt = rt->u.dst.dn_next;
+> > >> >     while(!rt) {
+> > >> >             rcu_read_unlock_bh();
+> > >> >             if (--s->bucket < 0)
+> > >> >                     break;
+>
+> Thank you for the info!  Stupid question #3: what sequence of events
+> would the smp_read_barrier_depends() be defending against?
 
-> On Mon, 2007-05-11 at 22:06 +0100, Jarek Poplawski wrote:
->> Radu Rendec wrote, On 11/05/2007 06:31 PM:
-> 
->>> But still, Jamal, I need more explanations on what you meant by "cutdown
->>> on the conversion in u32_change()". 
-> 
-> I meant that it didnt seem necessary to me you have to do the conversion
-> back and forth of the hmask as you do in the u32_change(). The basis of
-> the patch i posted - which is based on yours - is to remove that change.
-> If that doesnt work, please just send your patch as is and we can think
-> of optimization later.
-> 
-
->>> And, before proceeding, I'd like to
-
->>> see your reply to Jarek's last email (at 15:49 +0100) about not getting
->>> 0xff in the end.
-> 
-> On paper i get the same result with the new or old scheme for the bucket selection.
-> As i stated on the patch - i never did test the theory.
-> 
-
-
-In Radu's patch all calculations are done with data in host order, and
-still only this one transformation on the fast path. In your version orders
-are mixed, and this makes a difference. And, since the old scheme gives
-wrong result on little endian, I don't get it why you would want it again?
-So, with your patch with the same address and mask: 00.00.0f.f0 (host order
-on little endian) we have:
-
-on big endian (net and host order):
-f0.0f.00.00 >> 4  gives: ff.00.00.00 with lsb: ff
-on little endian (net order):
-f0.0f.00.00 >> 4  gives: 0f.00.0f.00 then ntohl: 00.0f.00.0f with lsb: 0f
-on little endian with Radu's patch (host order):
-00.00.0f.f0 >> 4  gives: 00.00.00.ff with lsb: ff
-
-
->> Radu, as far as I know Jamal (from reading) he most probably is busy with
->> some conference! 
-> 
-> I actually have a day job and have to show up and meet TheMan, Jarek;->
-> Most of the days at work, i dont have time to look at external email
-> account - but you can bet all horses you own i will get back to you
-> within a few hours if you CC me on email.
-
-
-No offence! I've thought Radu gets a bit impatient, and don't know if he
-knows about your scientific and international achievements. On the other
-hand I can't imagine why anybody would ever like to go out of Canada!
-(Btw, in Polish the second meaning of Kanada is something like paradise
-or extreme welfare.) And, on the other hand, I'm very honoured, but I'm
-a really modest guy, far from this universities' high life here...
-
-> 
->> Since these patches aren't so big I think you could
->> try Jamal's at first, and if it doesn't work, and nothing new from Jamal
->> in the meantime, resend your version. Cutdown in u32_change() seems to
->> add more to the fastpath, but maybe Jamal thinks about something else.
-> 
-> I mean do most work on slow/config path.
-> 
-
-
-We have hshift & hamask from there.
+The reading of rt from the hash bucket and the dereferencing above.
+We need to make sure that we see the initialised rt.
 
 Cheers,
-Jarek P.
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
