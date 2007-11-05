@@ -1,100 +1,92 @@
 From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] remove Documentation/networking/pt.txt
-Date: Mon, 5 Nov 2007 18:05:57 +0100
-Message-ID: <20071105170557.GT12045@stusta.de>
+Subject: [2.6 patch] remove Documentation/networking/routing.txt
+Date: Mon, 5 Nov 2007 18:06:01 +0100
+Message-ID: <20071105170601.GU12045@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jgarzik@pobox.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757307AbXKERGq@vger.kernel.org>
+To: kuznet@ms2.inr.ac.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:59465 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757145AbXKERGZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 12:06:25 -0500
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There's no no point in keeping documentation for a driver that was 
-removed many years ago.
+This file is so outdated that I can't see any value in keeping it.
 
 Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
 ---
 
- Documentation/networking/00-INDEX |    2 -
- Documentation/networking/pt.txt   |   58 ------------------------------
- 2 files changed, 60 deletions(-)
+ Documentation/networking/00-INDEX    |    2 -
+ Documentation/networking/routing.txt |   46 ---------------------------
+ 2 files changed, 48 deletions(-)
 
-cfe9580e99bc2406a5a05bae24487ca84619bec7 
+54b248bbff6345016e060136cfb5c09d43b26b69 
 diff --git a/Documentation/networking/00-INDEX b/Documentation/networking/00-INDEX
-index 9c64042..5e21f37 100644
+index 5e21f37..563e442 100644
 --- a/Documentation/networking/00-INDEX
 +++ b/Documentation/networking/00-INDEX
-@@ -80,6 +80,4 @@ olympic.txt
- policy-routing.txt
- 	- IP policy-based routing
--pt.txt
--	- the Gracilis Packetwin AX.25 device driver
+@@ -82,6 +82,4 @@ policy-routing.txt
  ray_cs.txt
  	- Raylink Wireless LAN card driver info.
-diff --git a/Documentation/networking/pt.txt b/Documentation/networking/pt.txt
+-routing.txt
+-	- the new routing mechanism
+ shaper.txt
+ 	- info on the module that can shape/limit transmitted traffic.
+diff --git a/Documentation/networking/routing.txt b/Documentation/networking/routing.txt
 deleted file mode 100644
-index 72e888c..0000000
---- a/Documentation/networking/pt.txt
+index a26838b..0000000
+--- a/Documentation/networking/routing.txt
 +++ /dev/null
-@@ -1,58 +0,0 @@
--This is the README for the Gracilis Packetwin device driver, version 0.5
--ALPHA for Linux 1.3.43.
+@@ -1,46 +0,0 @@
+-The directory ftp.inr.ac.ru:/ip-routing contains:
 -
--These files will allow you to talk to the PackeTwin (now know as PT) and
--connect through it just like a pair of TNCs.  To do this you will also
--require the AX.25 code in the kernel enabled.
+-- iproute.c - "professional" routing table maintenance utility.
 -
--There are four files in this archive; this readme, a patch file, a .c file
--and finally a .h file.  The two program files need to be put into the
--drivers/net directory in the Linux source tree, for me this is the
--directory /usr/src/linux/drivers/net.  The patch file needs to be patched in
--at the top of the Linux source tree (/usr/src/linux in my case).
+-- rdisc.tar.gz - rdisc daemon, ported from Sun.
+-	STRONGLY RECOMMENDED FOR ALL HOSTS.
 -
--You will most probably have to edit the pt.c file to suit your own setup,
--this should just involve changing some of the defines at the top of the file. 
--Please note that if you run an external modem you must specify a speed of 0.
+-- routing.tgz - original Mike McLagan's route by source patch.
+-		Currently it is obsolete.
 -
--The program is currently setup to run a 4800 baud external modem on port A
--and a Kantronics DE-9600 daughter board on port B so if you have this (or
--something similar) then you're right.
+-- gated.dif-ss<NEWEST>.gz - gated-R3_6Alpha_2 fixes.
+-	        Look at README.gated
 -
--To compile in the driver, put the files in the correct place and patch in
--the diff.  You will have to re-configure the kernel again before you
--recompile it. 
+-- mrouted-3.8.dif.gz - mrouted-3.8 fixes.
 -
--The driver is not real good at the moment for finding the card.  You can
--'help' it by changing the order of the potential addresses in the structure
--found in the pt_init() function so the address of where the card is is put
--first.
+-- rtmon.c - trivial debugging utility: reads and stores netlink.
 -
--After compiling, you have to get them going, they are pretty well like any
--other net device and just need ifconfig to get them going.
--As an example, here is my /etc/rc.net
----------------------------
 -
--#
--# Configure the PackeTwin, port A.
--/sbin/ifconfig pt0a 44.136.8.87 hw ax25 vk2xlz mtu 512 
--/sbin/ifconfig pt0a 44.136.8.87 broadcast 44.136.8.255 netmask 255.255.255.0
--/sbin/route add -net 44.136.8.0 netmask 255.255.255.0 dev pt0a
--/sbin/route add -net 44.0.0.0 netmask 255.0.0.0 gw 44.136.8.68 dev pt0a
--/sbin/route add -net 138.25.16.0 netmask 255.255.240.0 dev pt0a
--/sbin/route add -host 44.136.8.255 dev pt0a
--#
--# Configure the PackeTwin, port B.
--/sbin/ifconfig pt0b 44.136.8.87 hw ax25 vk2xlz-1 mtu 512
--/sbin/ifconfig pt0b 44.136.8.87 broadcast 44.255.255.255 netmask 255.0.0.0
--/sbin/route add -host 44.136.8.216 dev pt0b
--/sbin/route add -host 44.136.8.95  dev pt0b
--/sbin/route add -host 44.255.255.255 dev pt0b
+-NEWS for user.
 -
--This version of the driver comes under the GNU GPL.  If you have one of my
--previous (non-GPL) versions of the driver, please update to this one.
+-- Policy based routing. Routing decisions are made on the basis
+-  not only of destination address, but also source address,
+-  TOS and incoming interface.
+-- Complete set of IP level control messages.
+-  Now Linux is the only OS in the world complying to RFC requirements.
+-  Great win 8)
+-- New interface addressing paradigm.
+-  Assignment of address ranges to interface,
+-  multiple prefixes etc. etc.
+-  Do not bother, it is compatible with the old one. Moreover:
+-- You don't need to do "route add aaa.bbb.ccc... eth0" anymore,
+-  it is done automatically.
+-- "Abstract" UNIX sockets and security enhancements.
+-  This is necessary to use TIRPC and TLI emulation library.
 -
--I hope that this all works well for you.  I would be pleased to hear how
--many people use the driver and if it does its job.
+-NEWS for hacker.
 -
--  - Craig vk2xlz <csmall@small.dropbear.id.au>
+-- New destination cache. Flexible, robust and just beautiful.
+-- Network stack is reordered, simplified, optimized, a lot of bugs fixed.
+-  (well, and new bugs were introduced, but I haven't seen them yet 8))
+-  It is difficult to describe all the changes, look into source.
+-
+-If you see this file, then this patch works 8)
+-
+-Alexey Kuznetsov.
+-kuznet@ms2.inr.ac.ru
+
