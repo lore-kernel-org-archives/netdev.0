@@ -1,41 +1,49 @@
-From: Roel Kluin <12o3l@tiscali.nl>
-Subject: [PATCH] prevent that myri_do_handshake lies about ticks in drivers/net/myri_sbus.c
-Date: Mon, 05 Nov 2007 16:06:11 +0100
-Message-ID: <472F3163.2060302@tiscali.nl>
+From: =?ISO-8859-1?Q?Aur=E9lien_Charbon?= <aurelien.charbon@ext.bull.net>
+Subject: Re: [PATCH 2/2] NFS: handle IPv6 addresses in nfs ctl
+Date: Mon, 05 Nov 2007 16:17:10 +0100
+Message-ID: <472F33F6.8010501@ext.bull.net>
+References: <471C893F.6000306@ext.bull.net> <18214.46206.94270.229728@notabene.brown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Mailing list NFSv4 <nfsv4@linux-nfs.org>,
+	netdev ML <netdev@vger.kernel.org>
+To: Neil Brown <neilb@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out0.tiscali.nl ([195.241.79.175]:34945 "EHLO
-	smtp-out0.tiscali.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751183AbXKEPGN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 10:06:13 -0500
-Received: from [82.171.216.234] (helo=[192.168.1.2])
-	by smtp-out0.tiscali.nl with esmtp (Tiscali http://www.tiscali.nl)
-	id 1Ip3Wl-000422-Tl
-	for <netdev@vger.kernel.org>; Mon, 05 Nov 2007 16:06:12 +0100
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:42764 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750882AbXKEPQ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 10:16:29 -0500
+In-Reply-To: <18214.46206.94270.229728@notabene.brown>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With '<=' tick can be incremented up to 26, The last loop is redundant since 
-even when 'softstate' becomes 'STATE_READY', 'if (tick > 25)' will still cause
-the function to return -1,
+Hi Neil,
+Thank you for the reply.
 
-Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
----
-diff --git a/drivers/net/myri_sbus.c b/drivers/net/myri_sbus.c
-index 8d29319..656a260 100644
---- a/drivers/net/myri_sbus.c
-+++ b/drivers/net/myri_sbus.c
-@@ -134,7 +134,7 @@ static int myri_do_handshake(struct myri_eth *mp)
- 
- 	myri_disable_irq(mp->lregs, cregs);
- 
--	while (tick++ <= 25) {
-+	while (tick++ < 25) {
- 		u32 softstate;
- 
- 		/* Wake it up. */
+Neil Brown wrote:
 
+>>I think this patch is unnecessary and hence not wanted.
+>>The getfs / getfs calls should be considered legacy calls.
+>>Adding functionality to them is not appropriate.
+>>   =20
+>>
+I agree with that.
+But I don't think we really add functionality here.
+Modifications are just necessary to match the auth_unix_lookup new=20
+prototype.
+I don't see how we can avoid that.
+
+Aur=E9lien
+
+--=20
+
+********************************
+       Aurelien Charbon
+       Linux NFSv4 team
+           Bull SAS
+     Echirolles - France
+http://nfsv4.bullopensource.org/
+********************************
 
