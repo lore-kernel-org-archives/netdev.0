@@ -1,80 +1,87 @@
-From: "Ian Brown" <ianbrn@gmail.com>
-Subject: A difficult question regarding problems due to neighboring subsystem state changes
-Date: Mon, 5 Nov 2007 16:12:53 +0200
-Message-ID: <d0383f90711050612i4a540bc0r4e7ff71561e6e227@mail.gmail.com>
+From: Christoph Raisch <RAISCH@de.ibm.com>
+Subject: Re: [PATCH] ehea: add kexec support
+Date: Mon, 5 Nov 2007 15:24:13 +0100
+Message-ID: <OF46AA6850.8C031396-ONC125738A.004D7626-C125738A.004F05C8@de.ibm.com>
+References: <200710261437.29117.ossthema@de.ibm.com> <1193610737.9637.1.camel@concordia> <OF79E7ACE7.5D0488CE-ONC1257384.002E58C0-C1257384.002F8561@de.ibm.com> <1193784636.32504.4.camel@concordia> <OF59B5FFD2.0294206F-ONC1257385.006A802D-C1257385.006CB6BB@de.ibm.com> <1193985008.1782.7.camel@concordia> <OF3FAFDB41.AF236738-ONC1257387.00376233-C1257387.00389861@de.ibm.com> <24042.1194069991@neuling.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: Jan-Bernd Themann <THEMANN@de.ibm.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <MEDER@de.ibm.com>, michael@ellerman.id.au,
+	netdev <netdev@vger.kernel.org>, ossthema@linux.vnet.ibm.com,
+	Stefan Roscher <stefan.roscher@de.ibm.com>,
+	Thomas Q Klein <TKLEIN@de.ibm.com>
+To: Michael Neuling <mikey@neuling.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.180]:58175 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754365AbXKEOMy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 09:12:54 -0500
-Received: by py-out-1112.google.com with SMTP id u77so3051532pyb
-        for <netdev@vger.kernel.org>; Mon, 05 Nov 2007 06:12:53 -0800 (PST)
-Content-Disposition: inline
+Received: from mtagate6.de.ibm.com ([195.212.29.155]:51399 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754986AbXKEOYE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 09:24:04 -0500
+In-Reply-To: <24042.1194069991@neuling.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-This might seem a little insane/crazy question; yet this is a real kernel
-networking problem I encountered; I scratched my head a lot,
-probed into the Linux kernel neighboring code, still could not
-find an answer. And it still might be that the solution is a lot easier than
-I can imagine in my wild dreams!
+Michael Neuling <mikey@neuling.org> wrote on 03.11.2007 07:06:31:
 
-OK, this is the scenario:
-I configure on machine B a second IP on eth0:1 ; this machine has a single nic.
-This IP is the same as machine A has. (machines A and B are on
-the same LANs). I disabled answering ARP requests
-(ARPOP_REQUEST requests) on machine B with they query for that new address
-(this can easily done by dropping arp request with NF_ARP_IN hook).
+> > DD allocates HEA resources and gets firmware_handles for these
+resources.
+> > To free the resources DD needs to use exactly these handles.
+> > There's no generic firmware call "clean out all resources".
+> > Allocating the same resources twice does not work.
+>
+> Can we get a new firmware call to do this?
 
-The reasons for using such an architecture are not so relevant here,
-as this is part of a large project; but such configuration is indeed needed
-in this case.
+Well, there's no simple answer to this. I'm not working on firmware.
+I'm trying to get an answer... but don't expect anything "real soon".
 
-Now, I cannot ping to the original ip address of machine B from other machines
-on the LAN. "ip neigh show" shows that, after adding the new IP
-address on eth0:1 of machine B, that this address of machine B
-is in a "FAILED" state. (this is due to a timer handler of the neighboring
-system, which changes the state as a result of adding IP address to
-machine B, as far as I can understand).
-(I of course cannot ping the **new** IP address which I added on machine B
-since ARPs are disabled on that new IP , as I said before)
+>
+> > So a new kernel can't free the resources allocated by an old kernel,
+> > because the numeric values of the handles aren't known anymore.
+>
+> How many possible handles are there?
 
-Suppose, for example, that the original IP address (on eth0) of
-machine B was 192.168.0.154.
+Depends on system configuration, between
+4 and 64 per port.
 
-The solution I found to this problem was this:
-In order to enable pings (and opening sockets, etc) from other
-machines to machine B ,I should add on these machines:
-"ip neigh add 192.168.0.154 dev eth0 lladdr 00:0C:60:11:A8:12 nud permanent"
-or:
-"ip neigh change 192.168.0.154 dev eth0 lladdr 00:0C:60:11:A8:12 nud permanent"
-in case there is already a (FAILED) entry for this IP in the neighbor (ARP)
-table.
-This solves the problem (and it could be that there are more (easier) solutions,
-I am not an expert on that).
+>
+> If the handles are lost, is the only way to clear out the HEA resources
+> is to reset the partition?
 
-However,I cannot ping from machine A to B when I ping the original address of B!
-And the "ip neigh add"/"ip neigh change" solution **can not** solve the
-problem here!
-The reason this cannot solve the problem here, as far as I can
-understand, is this:
-when I ping from machine A to B with the original IP of B, it reaches B.
-B wants to send a reply to A . Alas, eth0:1 has the IP of A ! so it does not
-send reply to A (and instead it gets the reply packets itself).
-And of course on machines different than A this does not cause any
-problems (becuase they have different IPs than eth0:1 of B, which is A
-IP address)
+Yes, that's exactly the problem.
 
-Any ideas if I can enable pings from A to the original IP address of B in
-such a case (where I ping the
-original IP of B?)
+>
+> > Potential Solution:
+> > Hea driver cleanup function hooks into ppc_md.machine_crash_shutdown
+> > and frees all firmware resources at shutdown time of the crashed
+kernel.
+>
+> This means the crashed kernel now has to be trusted to shut down and
+> free up the resources.  Isn't trusting the crashing kernel in this way
+> against the whole kdump idea?
+
+I would hope that if the cleanup routine only does hcalls
+and does not change any kernel memory areas, then the risk to damage
+anything
+else  in kernel should be pretty small. This should allow to catch most
+cases,
+but as always you can imagine situations where the kernel memory is broken
+beyond hope to even restart the kdump kernel.
 
 
-Regards,
-Ian
+>
+> > crash_kexec continues and loads new kernel.
+> > The new kernel restarts the HEA driver within kdump kernel, which will
+work
+> > because resources have been freed before.
+> >
+> > Michael, would this work?
+
+Is ppc_md.machine_crash_shutdown the right hook?
+
+Gruss/Regards
+Christoph R
+
+
