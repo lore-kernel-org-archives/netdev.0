@@ -1,37 +1,46 @@
-From: horms@vergenet.net
-Subject: [patch 0/2] ipvs: avoid overcommit on the standby, take III
-Date: Mon, 05 Nov 2007 12:08:51 +0900
-Message-ID: <20071105030851.615630269@vergenet.net>
-Cc: "Rumen G. Bogdanovski" <rumen@voicecho.com>,
-	Graeme Fowler <graeme@graemef.net>,
-	Joseph Mack NA3T <jmack@wm7d.net>,
-	Julian Anastasov <ja@ssi.bg>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: lvs-devel@linuxvirtualserver.org, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] INET : removes per bucket rwlock in tcp/dccp ehash
+ table
+Date: Sun, 04 Nov 2007 20:24:54 -0800 (PST)
+Message-ID: <20071104.202454.216339392.davem@davemloft.net>
+References: <200711041326.38380.ak@suse.de>
+	<20071104.135621.48992864.davem@davemloft.net>
+	<200711050001.03699.ak@suse.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dada1@cosmosbay.com, netdev@vger.kernel.org, acme@redhat.com,
+	jarkao2@o2.pl
+To: ak@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:47131 "EHLO koto.vergenet.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753385AbXKEDNj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Nov 2007 22:13:39 -0500
-From: Simon Horman <horms@verge.net.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39290
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752861AbXKEEYz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Nov 2007 23:24:55 -0500
+In-Reply-To: <200711050001.03699.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Two related patches from Rumen G. Bogdanovski
-to help prevent overcommit on the standby.
+From: Andi Kleen <ak@suse.de>
+Date: Mon, 5 Nov 2007 00:01:03 +0100
 
+> On Sunday 04 November 2007 22:56:21 David Miller wrote:
+> > From: Andi Kleen <ak@suse.de>
+> 
+> > This makes a huge different as we have to set NR_CPUS to 4096
+> > in order to handle the cpu numbering of some UltraSPARC-IV
+> > machines.
+> 
+> Really? Hopefully you have a large enough stack then. There 
+> are various users who put char str[NR_CPUS] on the stack
+> and a few other data structures also get incredibly big with
+> NR_CPUS arrays.
 
-On the last two attempts I have managed to send somewhat bogus patches.
-So I started from scratch. I tool the original patches, fixed
-up what scripts/checkpatch.pl didn't like, then compared the output
-to my previous attempt, which happily showed the bogus bits
-that I know about have been fixed.
+For the stack case there is one debugging case, and that's for
+sprintf'ing cpusets.  That could be easily eliminated.
 
--- 
+> If it's for sparse cpu ids -- x86 handles those with an 
+> translation array.
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
-
+I would rather not do this, so much assembler code indexes straight
+into the per-cpu arrays.
