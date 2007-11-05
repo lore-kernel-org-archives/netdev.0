@@ -1,203 +1,75 @@
-From: Robert Schwebel <r.schwebel@pengutronix.de>
-Subject: [PATCH] netX: update ethernet driver to firmware 1007
-Date: Mon, 5 Nov 2007 14:08:42 +0100
-Message-ID: <20071105130842.GJ8087@pengutronix.de>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Endianness problem with u32 classifier hash masks
+Date: Mon, 05 Nov 2007 08:43:32 -0500
+Message-ID: <1194270212.4438.95.camel@localhost>
+References: <1193939701.2987.82.camel@localhost.localdomain>
+	 <472B5EF1.4020206@o2.pl> <1194045830.4438.21.camel@localhost>
+	 <472D06B2.9040402@o2.pl> <472D0B1C.7000209@o2.pl> <472D128B.8030704@o2.pl>
+	 <472D1DC2.9000106@o2.pl> <1194220693.4438.75.camel@localhost>
+	 <20071105091231.GA1933@ff.dom.local>
+	 <1194267561.2987.141.camel@localhost.localdomain>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@o2.pl>, netdev@vger.kernel.org
+To: Radu Rendec <radu.rendec@ines.ro>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.extern.pengutronix.de ([83.236.181.26]:48309 "EHLO
-	metis.extern.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754712AbXKENIq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 08:08:46 -0500
-Received: from rsc by metis.extern.pengutronix.de with local (Exim 4.63)
-	(envelope-from <rsc@pengutronix.de>)
-	id 1Ip1h4-0004h5-32
-	for netdev@vger.kernel.org; Mon, 05 Nov 2007 14:08:46 +0100
-Content-Disposition: inline
+Received: from wa-out-1112.google.com ([209.85.146.178]:9641 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755434AbXKENsu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 08:48:50 -0500
+Received: by wa-out-1112.google.com with SMTP id v27so1978041wah
+        for <netdev@vger.kernel.org>; Mon, 05 Nov 2007 05:48:49 -0800 (PST)
+In-Reply-To: <1194267561.2987.141.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sascha Hauer <s.hauer@pengutronix.de>
+On Mon, 2007-05-11 at 14:59 +0200, Radu Rendec wrote:
+> Jarek, thanks for replying my message on the list and pointing it to the
+> right direction.
+> 
+> Your example with "1" bits laying on exact nibble boundary is much
+> easier to analyze than my original example. And your computation seems
+> to be right: u32_hash_fold() would return 00.f0.00.0f (and would be cut
+> off to 0f after applying the divisor mask).
 
-The ethernet firmware revision 1007 fixes several issues with the
-network chip. This update makes the driver work with that firmware
-revision.
+Yes, that example i believe would work just fine today as is with no
+changes.
 
-Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+[...]
 
----
- drivers/net/netx-eth.c |   91 +++++++++++++++++++++++++++++++++++++++----------
- 1 file changed, 73 insertions(+), 18 deletions(-)
+> Jamal, I am aware that any computation on the fast path involves some
+> performance loss. However, I don't see any speed gain with your patch,
+> because you just moved the ntohl() call inside u32_hash_fold(). Since
+> u32_hash_fold() is called unconditionally and the only call is that one
+> in u32_classify(), htohl() will be called exactly the same number of
+> times.
+> 
 
-Index: drivers/net/netx-eth.c
-===================================================================
---- drivers/net/netx-eth.c.orig
-+++ drivers/net/netx-eth.c
-@@ -71,18 +71,29 @@
- #define FIFO_PTR_ERROR_MASK     (0xf << 28)
- 
- #define ISR_LINK_STATUS_CHANGE (1<<4)
--#define ISR_IND_LO             (1<<3)
--#define ISR_CON_LO             (1<<2)
--#define ISR_IND_HI             (1<<1)
--#define ISR_CON_HI             (1<<0)
-+#define ISR_IND_LO             (priv->xc_version >= 1007 ? (1<<1) : (1<<3))
-+#define ISR_CON_LO             (priv->xc_version >= 1007 ? (1<<3) : (1<<2))
-+#define ISR_IND_HI             (priv->xc_version >= 1007 ? (1<<0) : (1<<1))
-+#define ISR_CON_HI             (priv->xc_version >= 1007 ? (1<<2) : (1<<0))
- 
- #define ETH_MAC_LOCAL_CONFIG 0x1560
--#define ETH_MAC_4321         0x1564
--#define ETH_MAC_65           0x1568
-+
-+/* Firmware >= 1.007 */
-+#define ETH_MAC_IRQ_ENABLE   0x1564
-+#define IRQ_ENABLE_IND_HI      (1<<0)
-+#define IRQ_ENABLE_IND_LO      (1<<1)
-+#define IRQ_ENABLE_CON_HI      (1<<2)
-+#define IRQ_ENABLE_CON_LO      (1<<3)
-+#define IRQ_ENABLE_LINK_STATUS (1<<4)
-+
-+#define ETH_MAC_4321         (0x1564 + ((priv->xc_version >= 1007) ? 4 : 0))
-+#define ETH_MAC_65           (0x1568 + ((priv->xc_version >= 1007) ? 4 : 0))
- 
- #define MAC_TRAFFIC_CLASS_ARRANGEMENT_SHIFT 16
- #define MAC_TRAFFIC_CLASS_ARRANGEMENT_MASK (0xf<<MAC_TRAFFIC_CLASS_ARRANGEMENT_SHIFT)
- #define MAC_TRAFFIC_CLASS_ARRANGEMENT(x) (((x)<<MAC_TRAFFIC_CLASS_ARRANGEMENT_SHIFT) & MAC_TRAFFIC_CLASS_ARRANGEMENT_MASK)
-+
-+/* Firmware < 1.007 */
- #define LOCAL_CONFIG_LINK_STATUS_IRQ_EN (1<<24)
- #define LOCAL_CONFIG_CON_LO_IRQ_EN (1<<23)
- #define LOCAL_CONFIG_CON_HI_IRQ_EN (1<<22)
-@@ -101,6 +112,8 @@ struct netx_eth_priv {
- 	u32                     msg_enable;
- 	struct xc               *xc;
- 	spinlock_t              lock;
-+
-+	int			xc_version;
- };
- 
- static void netx_eth_set_multicast_list(struct net_device *ndev)
-@@ -128,8 +141,8 @@ netx_eth_hard_start_xmit(struct sk_buff 
- 	           FIFO_PTR_FRAMELEN(len));
- 
- 	ndev->trans_start = jiffies;
--	dev->stats.tx_packets++;
--	dev->stats.tx_bytes += skb->len;
-+	ndev->stats.tx_packets++;
-+	ndev->stats.tx_bytes += skb->len;
- 
- 	netif_stop_queue(ndev);
- 	spin_unlock_irq(&priv->lock);
-@@ -155,7 +168,7 @@ static void netx_eth_receive(struct net_
- 	if (unlikely(skb == NULL)) {
- 		printk(KERN_NOTICE "%s: Low memory, packet dropped.\n",
- 			ndev->name);
--		dev->stats.rx_dropped++;
-+		ndev->stats.rx_dropped++;
- 		return;
- 	}
- 
-@@ -169,8 +182,8 @@ static void netx_eth_receive(struct net_
- 	ndev->last_rx = jiffies;
- 	skb->protocol = eth_type_trans(skb, ndev);
- 	netif_rx(skb);
--	dev->stats.rx_packets++;
--	dev->stats.rx_bytes += len;
-+	ndev->stats.rx_packets++;
-+	ndev->stats.rx_bytes += len;
- }
- 
- static irqreturn_t
-@@ -226,13 +239,23 @@ static int netx_eth_open(struct net_devi
- 	       ndev->dev_addr[5]<<8,
- 	       priv->xpec_base + NETX_XPEC_RAM_START_OFS + ETH_MAC_65);
- 
--	writel(LOCAL_CONFIG_LINK_STATUS_IRQ_EN |
--		LOCAL_CONFIG_CON_LO_IRQ_EN |
--		LOCAL_CONFIG_CON_HI_IRQ_EN |
--		LOCAL_CONFIG_IND_LO_IRQ_EN |
--		LOCAL_CONFIG_IND_HI_IRQ_EN,
--		priv->xpec_base + NETX_XPEC_RAM_START_OFS +
--		ETH_MAC_LOCAL_CONFIG);
-+	if (priv->xc_version >= 1007) {
-+		writel(IRQ_ENABLE_LINK_STATUS |
-+			IRQ_ENABLE_CON_LO     |
-+			IRQ_ENABLE_CON_HI     |
-+			IRQ_ENABLE_IND_LO     |
-+			IRQ_ENABLE_IND_HI,
-+			priv->xpec_base + NETX_XPEC_RAM_START_OFS +
-+			ETH_MAC_IRQ_ENABLE);
-+	} else {
-+		writel(LOCAL_CONFIG_LINK_STATUS_IRQ_EN |
-+			LOCAL_CONFIG_CON_LO_IRQ_EN |
-+			LOCAL_CONFIG_CON_HI_IRQ_EN |
-+			LOCAL_CONFIG_IND_LO_IRQ_EN |
-+			LOCAL_CONFIG_IND_HI_IRQ_EN,
-+			priv->xpec_base + NETX_XPEC_RAM_START_OFS +
-+			ETH_MAC_LOCAL_CONFIG);
-+	}
- 
- 	mii_check_media(&priv->mii, netif_msg_link(priv), 1);
- 	netif_start_queue(ndev);
-@@ -249,6 +272,9 @@ static int netx_eth_close(struct net_dev
- 	writel(0,
- 	    priv->xpec_base + NETX_XPEC_RAM_START_OFS + ETH_MAC_LOCAL_CONFIG);
- 
-+	writel(0,
-+	    priv->xpec_base + NETX_XPEC_RAM_START_OFS + ETH_MAC_IRQ_ENABLE);
-+
- 	free_irq(ndev->irq, ndev);
- 
- 	return 0;
-@@ -303,6 +329,30 @@ netx_eth_phy_write(struct net_device *nd
- 	while (readl(NETX_MIIMU) & MIIMU_SNRDY);
- }
- 
-+static int netx_eth_get_xc_version(struct net_device *ndev)
-+{
-+	struct netx_eth_priv *priv = netdev_priv(ndev);
-+	unsigned long val;
-+
-+	val = readl(priv->xc->xmac_base + 0x48);
-+
-+	switch (val) {
-+	case 0x20c000c9:
-+		priv->xc_version = 1006;
-+		break;
-+	case 0x0137fe41:
-+		priv->xc_version = 1007;
-+		break;
-+	default:
-+		printk(KERN_ERR "%s: could not determine firmware version: 0x%08lx\n", ndev->name, val);
-+		return -1;
-+	}
-+
-+	printk(KERN_INFO "%s: found firmware version %d\n", ndev->name, priv->xc_version);
-+
-+	return 0;
-+}
-+
- static int netx_eth_enable(struct net_device *ndev)
- {
- 	struct netx_eth_priv *priv = netdev_priv(ndev);
-@@ -335,6 +385,9 @@ static int netx_eth_enable(struct net_de
- 	 * loaded the firmware for us
- 	 */
- 	if (running) {
-+		if (netx_eth_get_xc_version(ndev))
-+			return -ENODEV;
-+
- 		/* get Node Address from hardware */
- 		mac4321 = readl(priv->xpec_base +
- 			NETX_XPEC_RAM_START_OFS + ETH_MAC_4321);
-@@ -352,6 +405,8 @@ static int netx_eth_enable(struct net_de
- 			printk(CARDNAME ": requesting firmware failed\n");
- 			return -ENODEV;
- 		}
-+		if (netx_eth_get_xc_version(ndev))
-+			return -ENODEV;
- 	}
- 
- 	xc_reset(priv->xc);
+Sorry, I didnt mean that to be a better approach - it suffers the same
+problem as what you posted and infact is just your patch simplified
+essentially (or my attempt at doing that).
+A simpler version would be to do something in u32_change() only and
+nowhere else. Thats what i alluded at using fshift. And even after
+taking a shower i cant think of a simple way to achieve it.
+
+> After almost a week of dealing with this, I still don't think it can be
+> solved without byte re-ordering. If you guys think my patch is good, I
+> would be more than glad to send it properly (change the comments as
+> Jarek suggested and use git). Since I'm quite a newbie with git and
+> haven't worked with kernel maintainers before, please be patient if it's
+> not perfect at the first attempt :) What tree/branch should I make the
+> patch against?
+> 
+
+Please try the patch i sent since it is simpler. It is your work more or
+less - so you should get the credit as author. 
+Use Davem's net-2.6 as basis. If it works send it to him and CC me and i
+will just wsignoff/ack.
+If it doesnt work, can you cutdown on the conversion in u32_change()
+instead and send that?
+
+cheers,
+jamal
+
