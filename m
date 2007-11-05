@@ -1,92 +1,66 @@
 From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] remove Documentation/networking/routing.txt
-Date: Mon, 5 Nov 2007 18:06:01 +0100
-Message-ID: <20071105170601.GU12045@stusta.de>
+Subject: [2.6 patch] remove Documentation/networking/ncsa-telnet
+Date: Mon, 5 Nov 2007 18:05:46 +0100
+Message-ID: <20071105170546.GS12045@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: kuznet@ms2.inr.ac.ru
+Cc: linux-kernel@vger.kernel.org, Pekka Pietikainen <pp@ee.oulu.fi>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:59465 "EHLO
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:59456 "EHLO
 	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757145AbXKERGZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 12:06:25 -0500
+	with ESMTP id S1754753AbXKERGK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 12:06:10 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This file is so outdated that I can't see any value in keeping it.
+Newsflash: There once was a version of NCSA telnet that had some bug.
+
+Spotted by Pekka Pietikainen.
 
 Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
 ---
 
- Documentation/networking/00-INDEX    |    2 -
- Documentation/networking/routing.txt |   46 ---------------------------
- 2 files changed, 48 deletions(-)
+ Documentation/networking/00-INDEX    |    2 --
+ Documentation/networking/ncsa-telnet |   16 ----------------
+ 2 files changed, 18 deletions(-)
 
-54b248bbff6345016e060136cfb5c09d43b26b69 
+b9ccc5424cc83b4c0ca9c8d380a4b7567916a463 
 diff --git a/Documentation/networking/00-INDEX b/Documentation/networking/00-INDEX
-index 5e21f37..563e442 100644
+index a9f4acc..9c64042 100644
 --- a/Documentation/networking/00-INDEX
 +++ b/Documentation/networking/00-INDEX
-@@ -82,6 +82,4 @@ policy-routing.txt
- ray_cs.txt
- 	- Raylink Wireless LAN card driver info.
--routing.txt
--	- the new routing mechanism
- shaper.txt
- 	- info on the module that can shape/limit transmitted traffic.
-diff --git a/Documentation/networking/routing.txt b/Documentation/networking/routing.txt
+@@ -74,8 +74,6 @@ ltpc.txt
+ 	- the Apple or Farallon LocalTalk PC card driver
+ multicast.txt
+ 	- Behaviour of cards under Multicast
+-ncsa-telnet
+-	- notes on how NCSA telnet (DOS) breaks with MTU discovery enabled.
+ netdevices.txt
+ 	- info on network device driver functions exported to the kernel.
+ olympic.txt
+diff --git a/Documentation/networking/ncsa-telnet b/Documentation/networking/ncsa-telnet
 deleted file mode 100644
-index a26838b..0000000
---- a/Documentation/networking/routing.txt
+index d77d28b..0000000
+--- a/Documentation/networking/ncsa-telnet
 +++ /dev/null
-@@ -1,46 +0,0 @@
--The directory ftp.inr.ac.ru:/ip-routing contains:
+@@ -1,16 +0,0 @@
+-NCSA telnet doesn't work with path MTU discovery enabled. This is due to a
+-bug in NCSA that also stops it working with other modern networking code
+-such as Solaris.
 -
--- iproute.c - "professional" routing table maintenance utility.
+-The following information is courtesy of 
+-Marek <marekm@i17linuxb.ists.pwr.wroc.pl>
 -
--- rdisc.tar.gz - rdisc daemon, ported from Sun.
--	STRONGLY RECOMMENDED FOR ALL HOSTS.
--
--- routing.tgz - original Mike McLagan's route by source patch.
--		Currently it is obsolete.
--
--- gated.dif-ss<NEWEST>.gz - gated-R3_6Alpha_2 fixes.
--	        Look at README.gated
--
--- mrouted-3.8.dif.gz - mrouted-3.8 fixes.
--
--- rtmon.c - trivial debugging utility: reads and stores netlink.
--
--
--NEWS for user.
--
--- Policy based routing. Routing decisions are made on the basis
--  not only of destination address, but also source address,
--  TOS and incoming interface.
--- Complete set of IP level control messages.
--  Now Linux is the only OS in the world complying to RFC requirements.
--  Great win 8)
--- New interface addressing paradigm.
--  Assignment of address ranges to interface,
--  multiple prefixes etc. etc.
--  Do not bother, it is compatible with the old one. Moreover:
--- You don't need to do "route add aaa.bbb.ccc... eth0" anymore,
--  it is done automatically.
--- "Abstract" UNIX sockets and security enhancements.
--  This is necessary to use TIRPC and TLI emulation library.
--
--NEWS for hacker.
--
--- New destination cache. Flexible, robust and just beautiful.
--- Network stack is reordered, simplified, optimized, a lot of bugs fixed.
--  (well, and new bugs were introduced, but I haven't seen them yet 8))
--  It is difficult to describe all the changes, look into source.
--
--If you see this file, then this patch works 8)
--
--Alexey Kuznetsov.
--kuznet@ms2.inr.ac.ru
+-There is a fixed version somewhere on ftp.upe.ac.za (sorry, I don't
+-remember the exact pathname, and this site is very slow from here).
+-It may or may not be faster for you to get it from
+-ftp://ftp.ists.pwr.wroc.pl/pub/msdos/telnet/ncsa_upe/tel23074.zip
+-(source is in v230704s.zip).  I have tested it with 1.3.79 (with
+-path mtu discovery enabled - ncsa 2.3.08 didn't work) and it seems
+-to work.  I don't know if anyone is working on this code - this
+-version is over a year old.  Too bad - it's faster and often more
+-stable than these windoze telnets, and runs on almost anything...
 
