@@ -1,46 +1,98 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: dn_route.c momentarily exiting RCU read-side critical section
-Date: Tue, 6 Nov 2007 07:51:17 +0800
-Message-ID: <20071105235117.GA18396@gondor.apana.org.au>
-References: <20071030151254.GA8285@linux.vnet.ibm.com> <E1Ip0Vs-0002zP-00@gondolin.me.apana.org.au> <20071105161203.GB9479@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, SteveW@acm.org, dipankar@in.ibm.com
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH 3/7] sky2: longer PHY delay
+Date: Mon, 05 Nov 2007 15:52:10 -0800
+Message-ID: <20071105235340.090185872@linux-foundation.org>
+References: <20071105235207.799504040@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1457 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750741AbXKEXwO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 18:52:14 -0500
-Content-Disposition: inline
-In-Reply-To: <20071105161203.GB9479@linux.vnet.ibm.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:54814 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752082AbXKEX4o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 18:56:44 -0500
+Content-Disposition: inline; filename=sky2-phy-delay.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 05, 2007 at 08:12:03AM -0800, Paul E. McKenney wrote:
-> > >> 
-> > >> > net/decnet/dn_route.c in dn_rt_cache_get_next() is as follows:
-> > >> > 
-> > >> > static struct dn_route *dn_rt_cache_get_next(struct seq_file *seq, struct dn_route *rt)
-> > >> > {
-> > >> >     struct dn_rt_cache_iter_state *s = rcu_dereference(seq->private);
-> > >> > 
-> > >> >     rt = rt->u.dst.dn_next;
-> > >> >     while(!rt) {
-> > >> >             rcu_read_unlock_bh();
-> > >> >             if (--s->bucket < 0)
-> > >> >                     break;
->
-> Thank you for the info!  Stupid question #3: what sequence of events
-> would the smp_read_barrier_depends() be defending against?
+Increse phy delay and handle I/O errors.
 
-The reading of rt from the hash bucket and the dereferencing above.
-We need to make sure that we see the initialised rt.
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-Cheers,
+
+--- a/drivers/net/sky2.c	2007-11-05 15:04:55.000000000 -0800
++++ b/drivers/net/sky2.c	2007-11-05 15:05:00.000000000 -0800
+@@ -156,7 +156,7 @@ static const char *yukon2_name[] = {
+ 
+ static void sky2_set_multicast(struct net_device *dev);
+ 
+-/* Access to external PHY */
++/* Access to PHY via serial interconnect */
+ static int gm_phy_write(struct sky2_hw *hw, unsigned port, u16 reg, u16 val)
+ {
+ 	int i;
+@@ -166,13 +166,22 @@ static int gm_phy_write(struct sky2_hw *
+ 		    GM_SMI_CT_PHY_AD(PHY_ADDR_MARV) | GM_SMI_CT_REG_AD(reg));
+ 
+ 	for (i = 0; i < PHY_RETRIES; i++) {
+-		if (!(gma_read16(hw, port, GM_SMI_CTRL) & GM_SMI_CT_BUSY))
++		u16 ctrl = gma_read16(hw, port, GM_SMI_CTRL);
++		if (ctrl == 0xffff)
++			goto io_error;
++
++		if (!(ctrl & GM_SMI_CT_BUSY))
+ 			return 0;
+-		udelay(1);
++
++		udelay(10);
+ 	}
+ 
+-	printk(KERN_WARNING PFX "%s: phy write timeout\n", hw->dev[port]->name);
++	dev_warn(&hw->pdev->dev,"%s: phy write timeout\n", hw->dev[port]->name);
+ 	return -ETIMEDOUT;
++
++io_error:
++	dev_err(&hw->pdev->dev, "%s: phy I/O error\n", hw->dev[port]->name);
++	return -EIO;
+ }
+ 
+ static int __gm_phy_read(struct sky2_hw *hw, unsigned port, u16 reg, u16 *val)
+@@ -183,23 +192,29 @@ static int __gm_phy_read(struct sky2_hw 
+ 		    | GM_SMI_CT_REG_AD(reg) | GM_SMI_CT_OP_RD);
+ 
+ 	for (i = 0; i < PHY_RETRIES; i++) {
+-		if (gma_read16(hw, port, GM_SMI_CTRL) & GM_SMI_CT_RD_VAL) {
++		u16 ctrl = gma_read16(hw, port, GM_SMI_CTRL);
++		if (ctrl == 0xffff)
++			goto io_error;
++
++		if (ctrl & GM_SMI_CT_RD_VAL) {
+ 			*val = gma_read16(hw, port, GM_SMI_DATA);
+ 			return 0;
+ 		}
+ 
+-		udelay(1);
++		udelay(10);
+ 	}
+ 
++	dev_warn(&hw->pdev->dev, "%s: phy read timeout\n", hw->dev[port]->name);
+ 	return -ETIMEDOUT;
++io_error:
++	dev_err(&hw->pdev->dev, "%s: phy I/O error\n", hw->dev[port]->name);
++	return -EIO;
+ }
+ 
+-static u16 gm_phy_read(struct sky2_hw *hw, unsigned port, u16 reg)
++static inline u16 gm_phy_read(struct sky2_hw *hw, unsigned port, u16 reg)
+ {
+ 	u16 v;
+-
+-	if (__gm_phy_read(hw, port, reg, &v) != 0)
+-		printk(KERN_WARNING PFX "%s: phy read timeout\n", hw->dev[port]->name);
++	__gm_phy_read(hw, port, reg, &v);
+ 	return v;
+ }
+ 
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Stephen Hemminger <shemminger@linux-foundation.org>
+
