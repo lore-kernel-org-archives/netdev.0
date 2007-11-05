@@ -1,7 +1,7 @@
 From: "Dave Johnson" <djohnson+linux-kernel@sw.starentnetworks.com>
-Subject: [PATCH 1/2] NET: Re-add VLAN tag for devices incapable of keeping it
-Date: Mon, 5 Nov 2007 12:46:59 -0500
-Message-ID: <18223.22291.622615.129374@zeus.sw.starentnetworks.com>
+Subject: [PATCH 2/2] NET: Re-add VLAN tag for devices incapable of keeping it
+Date: Mon, 5 Nov 2007 12:47:04 -0500
+Message-ID: <18223.22296.654548.764588@zeus.sw.starentnetworks.com>
 References: <472A49BD.6000802@hp.com>
 	<20071101.145956.63020380.davem@davemloft.net>
 	<472A4D5C.2070301@hp.com>
@@ -15,260 +15,82 @@ To: David Miller <davem@davemloft.net>, jes@trained-monkey.org,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	bguo@sw.starentnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.starentnetworks.com ([12.38.223.203]:54163 "EHLO
+Received: from mx0.starentnetworks.com ([12.38.223.203]:54170 "EHLO
 	mx0.starentnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752782AbXKERrH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 12:47:07 -0500
+	with ESMTP id S1753049AbXKERrK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 12:47:10 -0500
 In-Reply-To: <472A6089.7020104@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Some MACs are configured to remove VLAN tags on RX packets even if
-the kernel isn't setup to use VLANs.
+This patch changes the following drivers to use vlan_hwaccel_rx()
+and/or vlan_hwaccel_receive_skb() with a NULL vlan group if needed as
+they are not setup to dynamically enable/disable vlan removal in
+their MAC based on the vlan group:
 
-On these drivers it is bad to simply pass the packets with the VLAN
-tag removed to the network stack.  This gives the network stack the
-impression these packets arrived from the network without a VLAN tag
-even though they had one.  This has 2 issues: 1, PF_PACKET sockets see
-the packet without the VLAN tag when bound to the base device; and 2,
-the L3 stacks will process these packets as if they had no tag to
-begin with.
+drivers/net/tg3.c           Tested on BCM5704, looks good
+drivers/net/bnx2.c          Tested on BCM5708, looks good
+drivers/net/acenic.c        Not tested, I don't have one of these
+drivers/net/s2io.c          Not tested, I don't have one of these
 
-This patch changes vlan_hwaccel_rx() and vlan_hwaccel_receive_skb() to
-accept a NULL vlan group.  This simplifies the drivers as they can
-call vlan_hwaccel_rx()/vlan_hwaccel_receive_skb() if the MAC
-has removed the VLAN tag, or netif_rx()/netif_receive_skb() if the
-MAC hasn't removed a VLAN tag (or the packet arrived untagged).
+In addition, these drivers might also need changes, but should
+probably be done by the maintainer as it's not clear exactly what
+change is needed:
 
-If the vlan group is NULL or no device for the received VID exists,
-vlan_hwaccel_rx()/vlan_hwaccel_receive_skb() will now re-add a VLAN
-tag and pass the packet to the base device with tag intact.
-
-It is still preferable for the drivers to disable VLAN tag removal in
-the hardware if no vlan group is configured.  However for devices that
-cannot do this the change will ensure tagged packets remain tagged in
-the network stack.
+drivers/net/amd8111e.c
+drivers/net/cxgb3/*
 
 Signed-off-by: Dave Johnson <djohnson@sw.starentnetworks.com>
 
----
-
-Note, __vlan_hwaccel_rx() needed to move below __vlan_put_tag() so the
-change really isn't as big as it may look below.
-
-===== include/linux/if_vlan.h 1.25 vs edited =====
---- 1.25/include/linux/if_vlan.h	2007-07-14 21:53:28 -04:00
-+++ edited/include/linux/if_vlan.h	2007-11-03 14:26:43 -04:00
-@@ -164,71 +164,6 @@
- 	(VLAN_TX_SKB_CB(__skb)->magic == VLAN_TX_COOKIE_MAGIC)
- #define vlan_tx_tag_get(__skb)	(VLAN_TX_SKB_CB(__skb)->vlan_tag)
+===== drivers/net/acenic.c 1.77 vs edited =====
+--- 1.77/drivers/net/acenic.c	2007-07-24 16:28:41 -04:00
++++ edited/drivers/net/acenic.c	2007-11-03 12:27:40 -04:00
+@@ -2036,7 +2036,7 @@
  
--/* VLAN rx hw acceleration helper.  This acts like netif_{rx,receive_skb}(). */
--static inline int __vlan_hwaccel_rx(struct sk_buff *skb,
--				    struct vlan_group *grp,
--				    unsigned short vlan_tag, int polling)
--{
--	struct net_device_stats *stats;
--
--	if (skb_bond_should_drop(skb)) {
--		dev_kfree_skb_any(skb);
--		return NET_RX_DROP;
--	}
--
--	skb->dev = vlan_group_get_device(grp, vlan_tag & VLAN_VID_MASK);
--	if (skb->dev == NULL) {
--		dev_kfree_skb_any(skb);
--
--		/* Not NET_RX_DROP, this is not being dropped
--		 * due to congestion.
--		 */
--		return 0;
--	}
--
--	skb->dev->last_rx = jiffies;
--
--	stats = vlan_dev_get_stats(skb->dev);
--	stats->rx_packets++;
--	stats->rx_bytes += skb->len;
--
--	skb->priority = vlan_get_ingress_priority(skb->dev, vlan_tag);
--	switch (skb->pkt_type) {
--	case PACKET_BROADCAST:
--		break;
--
--	case PACKET_MULTICAST:
--		stats->multicast++;
--		break;
--
--	case PACKET_OTHERHOST:
--		/* Our lower layer thinks this is not local, let's make sure.
--		 * This allows the VLAN to have a different MAC than the underlying
--		 * device, and still route correctly.
--		 */
--		if (!compare_ether_addr(eth_hdr(skb)->h_dest,
--				       	skb->dev->dev_addr))
--			skb->pkt_type = PACKET_HOST;
--		break;
--	};
--
--	return (polling ? netif_receive_skb(skb) : netif_rx(skb));
--}
--
--static inline int vlan_hwaccel_rx(struct sk_buff *skb,
--				  struct vlan_group *grp,
--				  unsigned short vlan_tag)
--{
--	return __vlan_hwaccel_rx(skb, grp, vlan_tag, 0);
--}
--
--static inline int vlan_hwaccel_receive_skb(struct sk_buff *skb,
--					   struct vlan_group *grp,
--					   unsigned short vlan_tag)
--{
--	return __vlan_hwaccel_rx(skb, grp, vlan_tag, 1);
--}
--
- /**
-  * __vlan_put_tag - regular VLAN tag inserting
-  * @skb: skbuff to tag
-@@ -243,10 +178,19 @@
- static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb, unsigned short tag)
- {
- 	struct vlan_ethhdr *veth;
-+	int new_mac_offset;
-+
-+	if (skb_mac_header_was_set(skb))
-+		/* if the MAC header is not at skb->data we need to push to that
-+		 * place then pull back before returning to the caller.
-+		 */
-+		new_mac_offset = VLAN_HLEN + skb->data - skb_mac_header(skb);
-+	else
-+		new_mac_offset = VLAN_HLEN;
- 
--	if (skb_headroom(skb) < VLAN_HLEN) {
-+	if (skb_headroom(skb) < new_mac_offset) {
- 		struct sk_buff *sk_tmp = skb;
--		skb = skb_realloc_headroom(sk_tmp, VLAN_HLEN);
-+		skb = skb_realloc_headroom(sk_tmp, new_mac_offset);
- 		kfree_skb(sk_tmp);
- 		if (!skb) {
- 			printk(KERN_ERR "vlan: failed to realloc headroom\n");
-@@ -260,7 +204,7 @@
+ 		/* send it up */
+ #if ACENIC_DO_VLAN
+-		if (ap->vlgrp && (bd_flags & BD_FLG_VLAN_TAG)) {
++		if (bd_flags & BD_FLG_VLAN_TAG) {
+ 			vlan_hwaccel_rx(skb, ap->vlgrp, retdesc->vlan);
+ 		} else
+ #endif
+===== drivers/net/bnx2.c 1.135 vs edited =====
+--- 1.135/drivers/net/bnx2.c	2007-09-20 15:14:21 -04:00
++++ edited/drivers/net/bnx2.c	2007-11-05 09:34:26 -05:00
+@@ -2493,7 +2493,8 @@
  		}
- 	}
  
--	veth = (struct vlan_ethhdr *)skb_push(skb, VLAN_HLEN);
-+	veth = (struct vlan_ethhdr *)skb_push(skb, new_mac_offset);
+ #ifdef BCM_VLAN
+-		if ((status & L2_FHDR_STATUS_L2_VLAN_TAG) && (bp->vlgrp != 0)) {
++		if ((status & L2_FHDR_STATUS_L2_VLAN_TAG) &&
++		    (bp->vlgrp || (bp->flags & ASF_ENABLE_FLAG))) {
+ 			vlan_hwaccel_receive_skb(skb, bp->vlgrp,
+ 				rx_hdr->l2_fhdr_vlan_tag);
+ 		}
+===== drivers/net/s2io.c 1.124 vs edited =====
+--- 1.124/drivers/net/s2io.c	2007-08-03 18:10:44 -04:00
++++ edited/drivers/net/s2io.c	2007-11-03 12:29:09 -04:00
+@@ -6834,8 +6834,7 @@
+ 	sp->mac_control.stats_info->sw_stat.mem_freed += skb->truesize;
+ 	if (!sp->lro) {
+ 		skb->protocol = eth_type_trans(skb, dev);
+-		if ((sp->vlgrp && RXD_GET_VLAN_TAG(rxdp->Control_2) &&
+-			vlan_strip_flag)) {
++		if (RXD_GET_VLAN_TAG(rxdp->Control_2) && vlan_strip_flag) {
+ 			/* Queueing the vlan frame to the upper layer */
+ 			if (napi)
+ 				vlan_hwaccel_receive_skb(skb, sp->vlgrp,
+===== drivers/net/tg3.c 1.523 vs edited =====
+--- 1.523/drivers/net/tg3.c	2007-09-11 04:28:44 -04:00
++++ edited/drivers/net/tg3.c	2007-11-05 09:38:33 -05:00
+@@ -3417,7 +3417,7 @@
  
- 	/* Move the mac addresses to the beginning of the new header. */
- 	memmove(skb->data, skb->data + VLAN_HLEN, 2 * VLAN_ETH_ALEN);
-@@ -275,6 +219,8 @@
- 	skb->mac_header -= VLAN_HLEN;
- 	skb->network_header -= VLAN_HLEN;
- 
-+	/* back to where we started, minus the new vlan header */
-+	skb_pull(skb, new_mac_offset-VLAN_HLEN);
- 	return skb;
- }
- 
-@@ -372,6 +318,98 @@
- 	} else {
- 		return __vlan_get_tag(skb, tag);
- 	}
-+}
-+
-+/* VLAN rx hw acceleration helper.  This acts like netif_{rx,receive_skb}(). */
-+static inline int __vlan_hwaccel_rx(struct sk_buff *skb,
-+				    struct vlan_group *grp,
-+				    unsigned short vlan_tag, int polling)
-+{
-+	struct net_device_stats *stats;
-+	struct net_device *new_dev;
-+
-+	if (skb_bond_should_drop(skb)) {
-+		dev_kfree_skb_any(skb);
-+		return NET_RX_DROP;
-+	}
-+
-+	if (grp)
-+		new_dev = vlan_group_get_device(grp, vlan_tag & VLAN_VID_MASK);
-+
-+	if (!grp || !new_dev) {
-+		/* Driver removed vlan tag from the packet, but we have no
-+		 * vlan device for this VID.
-+		 *
-+		 * This can occur for 2 reasons:
-+		 * 1) Have a vlan group, we want some VIDs, just not this VID.
-+		 * 2) Have no vlan group, but hardware limitation requires it
-+		 *    to remove vlan tags anyway.
-+		 *
-+		 * Normally if no vlan group is configured, the underlying
-+		 * driver will configure the hardware to NOT strip out the
-+		 * vlan tag.  It can then call netif_receive_skb/netif_rx
-+		 * with the vlan tag still intact.  However some devices
-+		 * cannot be configured to keep the vlan tag and must not
-+		 * call netif_receive_skb/netif_rx with the vlan tag
-+		 * missing.  This would allow the normal protocol handlers
-+		 * to process this tagged packet as if it arived without a
-+		 * vlan tag.
-+		 *
-+		 * We need to re-add the TAG and hand the packet off to the
-+		 * base device with the TAG present so any protocol handlers
-+		 * (PF_PACKET, etc...) will get a chance to see it.
-+		 */
-+
-+		skb = __vlan_put_tag(skb, vlan_tag);
-+
-+		if (likely(skb))
-+			return (polling ? netif_receive_skb(skb) : netif_rx(skb));
-+		else
-+			return NET_RX_DROP;
-+	}
-+
-+	skb->dev = new_dev;
-+	skb->dev->last_rx = jiffies;
-+
-+	stats = vlan_dev_get_stats(skb->dev);
-+	stats->rx_packets++;
-+	stats->rx_bytes += skb->len;
-+
-+	skb->priority = vlan_get_ingress_priority(skb->dev, vlan_tag);
-+	switch (skb->pkt_type) {
-+	case PACKET_BROADCAST:
-+		break;
-+
-+	case PACKET_MULTICAST:
-+		stats->multicast++;
-+		break;
-+
-+	case PACKET_OTHERHOST:
-+		/* Our lower layer thinks this is not local, let's make sure.
-+		 * This allows the VLAN to have a different MAC than the underlying
-+		 * device, and still route correctly.
-+		 */
-+		if (!compare_ether_addr(eth_hdr(skb)->h_dest,
-+				       	skb->dev->dev_addr))
-+			skb->pkt_type = PACKET_HOST;
-+		break;
-+	};
-+
-+	return (polling ? netif_receive_skb(skb) : netif_rx(skb));
-+}
-+
-+static inline int vlan_hwaccel_rx(struct sk_buff *skb,
-+				  struct vlan_group *grp,
-+				  unsigned short vlan_tag)
-+{
-+	return __vlan_hwaccel_rx(skb, grp, vlan_tag, 0);
-+}
-+
-+static inline int vlan_hwaccel_receive_skb(struct sk_buff *skb,
-+					   struct vlan_group *grp,
-+					   unsigned short vlan_tag)
-+{
-+	return __vlan_hwaccel_rx(skb, grp, vlan_tag, 1);
- }
- 
- #endif /* __KERNEL__ */
+ 		skb->protocol = eth_type_trans(skb, tp->dev);
+ #if TG3_VLAN_TAG_USED
+-		if (tp->vlgrp != NULL &&
++		if ((tp->vlgrp || (tp->tg3_flags & TG3_FLAG_ENABLE_ASF)) &&
+ 		    desc->type_flags & RXD_FLAG_VLAN) {
+ 			tg3_vlan_rx(tp, skb,
+ 				    desc->err_vlan & RXD_VLAN_MASK);
 
