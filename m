@@ -1,80 +1,52 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH 4/4] NET : makes sctp use the  {DEFINE|REF}_PROTO_INUSE infrastructure
-Date: Mon, 05 Nov 2007 19:03:34 +0100
-Message-ID: <472F5AF6.1030208@cosmosbay.com>
+From: Kim Phillips <kim.phillips@freescale.com>
+Subject: [PATCH 0/5] fixups for mpc8360 rev. 2.1 erratum #2 (RGMII Timing)
+Date: Mon, 5 Nov 2007 12:15:30 -0600
+Message-ID: <20071105121530.5c38fbb7.kim.phillips@freescale.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040103030102080502080006"
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, paulus@samba.org
+To: Li Yang <leoli@freescale.com>,
+	Kumar Gala <galak@kernel.crashing.org>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2f.orange.fr ([80.12.242.152]:7602 "EHLO smtp2f.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751015AbXKESDg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Nov 2007 13:03:36 -0500
-Received: from me-wanadoo.net (localhost [127.0.0.1])
-	by mwinf2f26.orange.fr (SMTP Server) with ESMTP id 7A90E70000A5
-	for <netdev@vger.kernel.org>; Mon,  5 Nov 2007 19:03:35 +0100 (CET)
+Received: from de01egw02.freescale.net ([192.88.165.103]:33250 "EHLO
+	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753303AbXKESQF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 13:16:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040103030102080502080006
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Hello all,
 
-Trivial patch to make "sctcp,sctpv6" protocols uses the fast "inuse 
-sockets" infrastructure
+the following patches fix RGMII timing for rev. 2.1 of the mpc8360,
+according to erratum #2 (erratum text included below).  Basically the
+most intrusive part is the addition of two new RGMII Internal Delay
+modes; one for TX delay only, and the other for RX delay only (i.e, not
+both at the same time).
 
-Each protocol use then a static percpu var, instead of a dynamic one. 
-This saves some ram and some cpu cycles
+Please review, and since this affects both netdev and powerpc trees,
+one maintainer should ack them for the other to push upstream (i.e,
+Kumar acks them, and Leo picks them up to go through netdev or the
+other way around; either way is fine with me).  I'm hoping they're
+trivial enough to go in 2.6.24.
 
+Depending on how the review goes, a follow-on patch to u-boot will be
+sent out that fixes up the phy-connection-type in the device tree (from
+"rgmii-id" to "rgmii-rxid" iff on mpc8360rev2.1).
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+Thanks,
 
+Kim
 
+mpc8360 rev 2.1 erratum #2:
+-----------
+Recommended AC timings for chip 8360Rev2.1 UCC ETH RGMII  when working
+with Rev Pilot MDS for proper RGMII operation:
 
---------------040103030102080502080006
-Content-Type: text/plain;
- name="prot_inuse_sctp.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="prot_inuse_sctp.patch"
+IMMR_BASE + 0x14A8[4:5] = 11 (clk delay for UCC 2)
+IMMR_BASE + 0x14A8[18:19] = 11 (clk delay for UCC 1)
+IMMR_BASE + 0x14AC[20:27] = 10101010 (data delay for both UCC's)
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index bd6f42a..a7ecf31 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -6455,6 +6455,8 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
- }
- 
- 
-+DEFINE_PROTO_INUSE(sctp)
-+
- /* This proto struct describes the ULP interface for SCTP.  */
- struct proto sctp_prot = {
- 	.name        =	"SCTP",
-@@ -6483,9 +6485,12 @@ struct proto sctp_prot = {
- 	.memory_pressure = &sctp_memory_pressure,
- 	.enter_memory_pressure = sctp_enter_memory_pressure,
- 	.memory_allocated = &sctp_memory_allocated,
-+	REF_PROTO_INUSE(sctp)
- };
- 
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+DEFINE_PROTO_INUSE(sctpv6)
-+
- struct proto sctpv6_prot = {
- 	.name		= "SCTPv6",
- 	.owner		= THIS_MODULE,
-@@ -6513,5 +6518,6 @@ struct proto sctpv6_prot = {
- 	.memory_pressure = &sctp_memory_pressure,
- 	.enter_memory_pressure = sctp_enter_memory_pressure,
- 	.memory_allocated = &sctp_memory_allocated,
-+	REF_PROTO_INUSE(sctpv6)
- };
- #endif /* defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE) */
-
---------------040103030102080502080006--
-
-
+The Phy (Marvell 88e1111) should be configured NOT to work with RGMII
+delay for TxD.
