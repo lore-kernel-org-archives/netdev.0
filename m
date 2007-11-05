@@ -1,37 +1,26 @@
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: RFC: Reproducible oops with lockdep on count_matching_names()
-Date: Mon, 5 Nov 2007 10:47:31 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0711051046210.13139@schroedinger.engr.sgi.com>
-References: <20071101191716.GA3201@pogo> <200711051403.39479.mb@bu3sch.de>
- <84144f020711050556m6675ea90g1b6c8054a3940ec0@mail.gmail.com>
- <200711051526.41273.mb@bu3sch.de>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [2.6 patch] remove Documentation/networking/routing.txt
+Date: Mon, 5 Nov 2007 22:11:13 +0300
+Message-ID: <20071105191113.GA15420@ms2.inr.ac.ru>
+References: <20071105170601.GU12045@stusta.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
-	Peter Zijlstra <peterz@infradead.org>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	Michael Wu <flamingice@sourmilk.net>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Ingo Molnar <mingo@redhat.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	linux-kernel@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
-	netdev@vger.kernel.org
-To: Michael Buesch <mb@bu3sch.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netops-testserver-3-out.sgi.com ([192.48.171.28]:58961 "EHLO
-	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754518AbXKESrd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 13:47:33 -0500
-In-Reply-To: <200711051526.41273.mb@bu3sch.de>
+Received: from minus.inr.ac.ru ([194.67.69.97]:44398 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1754148AbXKETL2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Nov 2007 14:11:28 -0500
+Content-Disposition: inline
+In-Reply-To: <20071105170601.GU12045@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 5 Nov 2007, Michael Buesch wrote:
+Hello!
 
-> Hm, I don't really remember. Though, I usually have all almost kernel-hacking
-> options enabled.
-> I'll check and enable some more.
+> This file is so outdated that I can't see any value in keeping it.
 
-slub_debug must be specified on the command line. Alternately switch on
-CONFIG_SLUB_DEBUG_ON in the .config to force it to be always on.
+Absolutely agree.
+
+Alexey
