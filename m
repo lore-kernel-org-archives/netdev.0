@@ -1,50 +1,81 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [BUG] in inet6_create
-Date: Mon, 05 Nov 2007 20:00:46 +0900 (JST)
-Message-ID: <20071105.200046.69224507.yoshfuji@linux-ipv6.org>
-References: <472A3218.20708@tiscali.nl>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] net: Add 405EX support to new EMAC driver
+Date: Mon, 05 Nov 2007 22:04:11 +1100
+Message-ID: <1194260652.6511.70.camel@pasglop>
+References: <200711020814.43524.sr@denx.de>
+	 <20071102160304.GA5277@lixom.net> <1194147479.6511.11.camel@pasglop>
+	 <200711051019.04287.sr@denx.de>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: 12o3l@tiscali.nl, davem@davemloft.net
+Cc: Olof Johansson <olof@lixom.net>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, jwboyer@linux.vnet.ibm.com
+To: Stefan Roese <sr@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:37158 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754560AbXKELAn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 06:00:43 -0500
-In-Reply-To: <472A3218.20708@tiscali.nl>
+Received: from gate.crashing.org ([63.228.1.57]:60215 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753771AbXKELFj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Nov 2007 06:05:39 -0500
+In-Reply-To: <200711051019.04287.sr@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <472A3218.20708@tiscali.nl> (at Thu, 01 Nov 2007 21:07:52 +0100), Roel Kluin <12o3l@tiscali.nl> says:
 
-> I got this bug recently, I am not sure whether this is related to any previously 
-> reported ones. It was a recently pulled git kernel. Also I have been hacking my
-> kernel a bit lately, but I think that I haven't got any changes in the currently
-> running kernel.
+On Mon, 2007-11-05 at 10:19 +0100, Stefan Roese wrote:
+> 
+> > Somewhat yeah. There are subtle variations here or there we haven't
+> > totally indenfified... It might be a better option in our case here
+> to
+> > add "has-mdio" to the rgmii nodes indeed.
+> 
+> So how exactly do you want me to handle this (I'm still new to this
+> device 
+> tree stuff, so please bear with me)? Like this?
+> 
+>                         RGMII0: emac-rgmii@ef601000 {
+>                                 device_type = "rgmii-interface";
+>                                 compatible = "ibm,rgmii-405ex",
+> "ibm,rgmii";
+>                                 reg = <ef601000 8>;
+>                                 has-mdio;
+>                         };
+> 
 
-Please try this.
+The above.
 
------
-[IPV6]: Ensure to initialize inetsw6 array before we start accepting socket.
+Properties without values are typically used for such "flags". I'll
+fixup the driver to also take that for the inverted STACR and will post
+a patch fixing that up asap.
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> It's not only the OC bit-flip on AXON, but also the different STACR
+> register 
+> layout for read/write op-codes (STAOPC). This seems to be the same on
+> all new 
+> EMAC core's like on AXON, 440EPx/GRx and 405EX. So "stacr-oc-inverted"
+> is not 
+> enough here. This is what is needed for 440SPe, which "only" has the
+> bit-flip 
+> and the "old" STAOPC layout.
 
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index ecbd388..9ecd41b 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -789,6 +789,7 @@ static int __init inet6_init(void)
- 	/* Register the socket-side information for inet6_create.  */
- 	for(r = &inetsw6[0]; r < &inetsw6[SOCK_MAX]; ++r)
- 		INIT_LIST_HEAD(r);
-+	synchronize_net();
- 
- 	/* We MUST register RAW sockets before we create the ICMP6,
- 	 * IGMP6, or NDISC control sockets.
+Ok.
 
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+> So perhaps most flexible would be to add individual properties, 
+> like "stacr-oc-inverted" and "stacr-staopc-19-20". What do you think?
+> And 
+> again the additional question: Should the be added as an new property
+> or 
+> added to the compatible property?
+
+That's always the main question imho ... When it gets nasty like that I
+tend to think the compatible property is a good compromise. It's mostly
+a matter of taste. Unless you can come up with some more pleasant way to
+do it... maybe a stacr-type property with multiple values but it's
+really not worth complicating things when a compatible property will do
+the job just fine. In that case, it's not really a "feature" of a given
+implementation, but more about subtle differences between
+implementations.
+
+Ben.
+
+
