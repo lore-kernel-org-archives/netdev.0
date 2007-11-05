@@ -1,8 +1,7 @@
 From: Kim Phillips <kim.phillips@freescale.com>
-Subject: [PATCH 3/5] phylib: marvell: add support for TX-only and RX-only
- Internal Delay
-Date: Mon, 5 Nov 2007 12:15:43 -0600
-Message-ID: <20071105121543.8276c953.kim.phillips@freescale.com>
+Subject: [PATCH 5/5] powerpc: handle mpc8360 rev. 2.1 RGMII timing erratum
+Date: Mon, 5 Nov 2007 12:15:51 -0600
+Message-ID: <20071105121551.a28b5446.kim.phillips@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -11,65 +10,68 @@ To: Li Yang <leoli@freescale.com>,
 	Kumar Gala <galak@kernel.crashing.org>, netdev@vger.kernel.org,
 	linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:34543 "EHLO
-	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753458AbXKESSC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 13:18:02 -0500
+Received: from de01egw01.freescale.net ([192.88.165.102]:60217 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752759AbXKESUH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 13:20:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Previously, Internal Delay specification implied the delay be
-applied to both TX and RX.  This patch allows for separate TX/RX-only
-internal delay specification.
+if on a rev. 2.1, adjust UCC clock and data timing characteristics
+as specified in the rev.2.1 erratum #2.
 
 Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
 ---
- drivers/net/phy/marvell.c |   26 +++++++++++++++++---------
- 1 files changed, 17 insertions(+), 9 deletions(-)
+ arch/powerpc/platforms/83xx/mpc836x_mds.c |   31 ++++++++++++++++++++++++++--
+ 1 files changed, 28 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index d2ede5f..55eb5c1 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -143,21 +143,29 @@ static int m88e1111_config_init(struct phy_device *phydev)
- 	int err;
+diff --git a/arch/powerpc/platforms/83xx/mpc836x_mds.c b/arch/powerpc/platforms/83xx/mpc836x_mds.c
+index 0f3855c..0a72260 100644
+--- a/arch/powerpc/platforms/83xx/mpc836x_mds.c
++++ b/arch/powerpc/platforms/83xx/mpc836x_mds.c
+@@ -96,14 +96,39 @@ static void __init mpc836x_mds_setup_arch(void)
  
- 	if ((phydev->interface == PHY_INTERFACE_MODE_RGMII) ||
--	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)) {
-+	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) ||
-+	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID) ||
-+	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)) {
- 		int temp;
- 
--		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
--			temp = phy_read(phydev, MII_M1111_PHY_EXT_CR);
--			if (temp < 0)
--				return temp;
-+		temp = phy_read(phydev, MII_M1111_PHY_EXT_CR);
-+		if (temp < 0)
-+			return temp;
- 
-+		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
- 			temp |= (MII_M1111_RX_DELAY | MII_M1111_TX_DELAY);
--
--			err = phy_write(phydev, MII_M1111_PHY_EXT_CR, temp);
--			if (err < 0)
--				return err;
-+		} else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID) {
-+			temp &= ~MII_M1111_TX_DELAY;
-+			temp |= MII_M1111_RX_DELAY;
-+		} else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID) {
-+			temp &= ~MII_M1111_RX_DELAY;
-+			temp |= MII_M1111_TX_DELAY;
- 		}
- 
-+		err = phy_write(phydev, MII_M1111_PHY_EXT_CR, temp);
-+		if (err < 0)
-+			return err;
+ 	if ((np = of_find_compatible_node(NULL, "network", "ucc_geth"))
+ 			!= NULL){
++		uint svid;
 +
- 		temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
- 		if (temp < 0)
- 			return temp;
+ 		/* Reset the Ethernet PHY */
+-		bcsr_regs[9] &= ~0x20;
++#define BCSR9_GETHRST 0x20
++		clrbits8(&bcsr_regs[9], BCSR9_GETHRST);
+ 		udelay(1000);
+-		bcsr_regs[9] |= 0x20;
++		setbits8(&bcsr_regs[9], BCSR9_GETHRST);
++
++		/* handle mpc8360ea rev.2.1 erratum 2: RGMII Timing */
++		svid = mfspr(SPRN_SVR);
++		if (svid == 0x80480021) {
++			void __iomem *immap;
++
++			immap = ioremap(get_immrbase() + 0x14a8, 8);
++
++			/*
++			 * IMMR + 0x14A8[4:5] = 11 (clk delay for UCC 2)
++			 * IMMR + 0x14A8[18:19] = 11 (clk delay for UCC 1)
++			 */
++			setbits32(immap, 0x0c003000);
++
++			/*
++			 * IMMR + 0x14AC[20:27] = 10101010
++			 * (data delay for both UCC's)
++			 */
++			clrsetbits_be32(immap + 4, 0xff0, 0xaa0);
++
++			iounmap(immap);
++		}
++
+ 		iounmap(bcsr_regs);
+ 		of_node_put(np);
+ 	}
+-
+ #endif				/* CONFIG_QUICC_ENGINE */
+ }
+ 
 -- 
 1.5.2.2
 
