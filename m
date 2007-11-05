@@ -1,30 +1,71 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Endianness problem with u32 classifier hash masks
-Date: Tue, 06 Nov 2007 01:12:54 +0100
-Message-ID: <472FB186.9070503@o2.pl>
-References: <1193939701.2987.82.camel@localhost.localdomain>	 <472B5EF1.4020206@o2.pl> <1194045830.4438.21.camel@localhost>	 <472D06B2.9040402@o2.pl> <472D0B1C.7000209@o2.pl> <472D128B.8030704@o2.pl>	 <472D1DC2.9000106@o2.pl> <1194220693.4438.75.camel@localhost>	 <20071105091231.GA1933@ff.dom.local>	 <1194267561.2987.141.camel@localhost.localdomain>	 <20071105135246.GB1933@ff.dom.local> <1194271589.4438.113.camel@localhost>	 <1194283888.2987.186.camel@localhost.localdomain>  <472F85F0.8060205@o2.pl> <1194301667.4430.28.camel@localhost> <472FAF29.7050704@o2.pl>
+From: Chuck Lever <chuck.lever@oracle.com>
+Subject: Re: [PATCH] NET: Remove unneeded type cast in skb_truesize_check()
+Date: Mon, 05 Nov 2007 18:59:26 -0500
+Message-ID: <472FAE5E.8030701@oracle.com>
+References: <20071102191426.30464.7490.stgit@manray.1015granger.net> <20071102.142717.157261554.davem@davemloft.net>
+Reply-To: chuck.lever@oracle.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, Radu Rendec <radu.rendec@ines.ro>,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: multipart/mixed;
+ boundary="------------070500030505000507020301"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:45750 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753551AbXKFAA3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Nov 2007 19:00:29 -0500
-In-Reply-To: <472FAF29.7050704@o2.pl>
+Received: from rgminet01.oracle.com ([148.87.113.118]:54630 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753551AbXKFAAn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 19:00:43 -0500
+In-Reply-To: <20071102.142717.157261554.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote, On 11/06/2007 01:02 AM:
-...
+This is a multi-part message in MIME format.
+--------------070500030505000507020301
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> on little endian (net order):
-> f0.0f.00.00 >> 4  gives: 0f.00.0f.00 then ntohl: 00.0f.00.0f with lsb: 0f
+David Miller wrote:
+> From: Chuck Lever <chuck.lever@oracle.com>
+> Date: Fri, 02 Nov 2007 15:14:26 -0400
+> 
+>> The (int) type cast in skb_truesize_check() is unneeded: without it, all
+>> the variable types in the conditional expression are unsigned integers.  As
+>> it stands, the type cast causes a comparison between a signed and an
+>> unsigned integer, which can produce unexpected results.
+>>
+>> Signed-off-by: Chuck Lever <chuck.lever@oracle.com>
+> 
+> This is checking for skb->truesize being decremented too much by other
+> code, which could cause a wraparound below zero, so we do want
+> negaitve checks here.
 
-should be:
-f0.0f.00.00 >> 4  gives: 0f.00.f0.00 then ntohl: 00.f0.00.0f with lsb: 0f
+If that's truly the case, document the requirement (perhaps using
+something the compiler itself can verify) instead of using a clever
+type cast trick.
 
-Jarek "Sleeping" P.
+Here's the problem with leaving these little surprises in commonly used 
+kernel headers.  Suppose the developer of a network driver or network 
+file system that uses one of these headers wants to employ static code 
+analysis to identify issues introduced by new patches to their 
+subsystem.  The tool warnings generated in kernel headers are just 
+noise, and make using such code analysis difficult.
+
+--------------070500030505000507020301
+Content-Type: text/x-vcard; charset=utf-8;
+ name="chuck.lever.vcf"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="chuck.lever.vcf"
+
+begin:vcard
+fn:Chuck Lever
+n:Lever;Chuck
+org:Oracle Corporation;Corporate Architecture: Linux Projects Group
+adr:;;1015 Granger Avenue;Ann Arbor;MI;48104;USA
+title:Principal Member of Staff
+tel;work:+1 248 614 5091
+x-mozilla-html:FALSE
+version:2.1
+end:vcard
+
+
+--------------070500030505000507020301--
