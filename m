@@ -1,120 +1,83 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [PATCH 2/2] NET: Re-add VLAN tag for devices incapable of keeping it
-Date: Mon, 5 Nov 2007 21:39:55 -0500
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77027E9D5E@nekter>
-References: <18223.22296.654548.764588@zeus.sw.starentnetworks.com>
+From: Nicolas Pitre <nico@cam.org>
+Subject: Re: [PATCH] add support for smc91x ethernet interface on zylonite
+Date: Mon, 05 Nov 2007 22:37:56 -0500 (EST)
+Message-ID: <alpine.LFD.0.9999.0711052235121.21255@xanadu.home>
+References: <f17812d70711051645p4d1a8e44mbc21413cc6ef12ba@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "Dave Johnson" <djohnson+linux-kernel@sw.starentnetworks.com>,
-	"David Miller" <davem@davemloft.net>, <jes@trained-monkey.org>,
-	<mchan@broadcom.com>, <ram.vepa@neterion.com>,
-	<linux-ke
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: eric miao <eric.y.miao@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:47269 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753514AbXKFCj4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 21:39:56 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <18223.22296.654548.764588@zeus.sw.starentnetworks.com>
+Received: from relais.videotron.ca ([24.201.245.36]:52539 "EHLO
+	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754008AbXKFDh5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 22:37:57 -0500
+Received: from xanadu.home ([74.56.106.175]) by VL-MO-MR002.ip.videotron.ca
+ (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
+ with ESMTP id <0JR20077IFF8SJB0@VL-MO-MR002.ip.videotron.ca> for
+ netdev@vger.kernel.org; Mon, 05 Nov 2007 22:37:56 -0500 (EST)
+In-reply-to: <f17812d70711051645p4d1a8e44mbc21413cc6ef12ba@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Xframe (S2io) adapter can be programmed dynamically to either,
-always strip the vlan tag or not. In this case, if the vlan group is
-NULL, it can be programmed at run time to NOT strip the vlan tag.
+On Tue, 6 Nov 2007, eric miao wrote:
 
-When a packet with a Vlan id is received that is not added to the group,
-should it be dropped or indicated up? Either can be handled by the
-hardware. The vlan tag in this particular case will be stripped as the
-vlan group is not NULL.
+> >From 9363662844b6373ddf4265e7007eb29ff963a377 Mon Sep 17 00:00:00 2001
+> From: eric miao <eric.miao@marvell.com>
 
-Ram
+According to the SOB line below, shouldn't this be:
+From: Aleksey Makarov <amakarov@ru.mvista.com>
+?
 
-> -----Original Message-----
-> From: Dave Johnson
-[mailto:djohnson+linux-kernel@sw.starentnetworks.com]
-> Sent: Monday, November 05, 2007 9:47 AM
-> To: David Miller; jes@trained-monkey.org; mchan@broadcom.com;
-> ram.vepa@neterion.com; linux-kernel@vger.kernel.org;
-> netdev@vger.kernel.org; bguo@sw.starentnetworks.com
-> Subject: [PATCH 2/2] NET: Re-add VLAN tag for devices incapable of
-keeping
-> it
+> Date: Tue, 30 Oct 2007 09:48:41 +0800
+> Subject: [PATCH] add support for smc91x ethernet interface on zylonite
 > 
+> This patch adds LAN91C111 ethernet interface support for zylonite
+> (a.k.a Marvell's PXA3xx Development Platform) with smc91x driver.
 > 
-> This patch changes the following drivers to use vlan_hwaccel_rx()
-> and/or vlan_hwaccel_receive_skb() with a NULL vlan group if needed as
-> they are not setup to dynamically enable/disable vlan removal in
-> their MAC based on the vlan group:
+> It would be better if a patch would support zylonite along with all
+> other PXA boards with a single binary of smc91x driver, but it looks
+> quite difficult for the moment, so ugly #ifdef is still used here.
 > 
-> drivers/net/tg3.c           Tested on BCM5704, looks good
-> drivers/net/bnx2.c          Tested on BCM5708, looks good
-> drivers/net/acenic.c        Not tested, I don't have one of these
-> drivers/net/s2io.c          Not tested, I don't have one of these
-> 
-> In addition, these drivers might also need changes, but should
-> probably be done by the maintainer as it's not clear exactly what
-> change is needed:
-> 
-> drivers/net/amd8111e.c
-> drivers/net/cxgb3/*
-> 
-> Signed-off-by: Dave Johnson <djohnson@sw.starentnetworks.com>
-> 
-> ===== drivers/net/acenic.c 1.77 vs edited =====
-> --- 1.77/drivers/net/acenic.c	2007-07-24 16:28:41 -04:00
-> +++ edited/drivers/net/acenic.c	2007-11-03 12:27:40 -04:00
-> @@ -2036,7 +2036,7 @@
-> 
->  		/* send it up */
->  #if ACENIC_DO_VLAN
-> -		if (ap->vlgrp && (bd_flags & BD_FLG_VLAN_TAG)) {
-> +		if (bd_flags & BD_FLG_VLAN_TAG) {
->  			vlan_hwaccel_rx(skb, ap->vlgrp, retdesc->vlan);
->  		} else
->  #endif
-> ===== drivers/net/bnx2.c 1.135 vs edited =====
-> --- 1.135/drivers/net/bnx2.c	2007-09-20 15:14:21 -04:00
-> +++ edited/drivers/net/bnx2.c	2007-11-05 09:34:26 -05:00
-> @@ -2493,7 +2493,8 @@
->  		}
-> 
->  #ifdef BCM_VLAN
-> -		if ((status & L2_FHDR_STATUS_L2_VLAN_TAG) && (bp->vlgrp
-!= 0))
-> {
-> +		if ((status & L2_FHDR_STATUS_L2_VLAN_TAG) &&
-> +		    (bp->vlgrp || (bp->flags & ASF_ENABLE_FLAG))) {
->  			vlan_hwaccel_receive_skb(skb, bp->vlgrp,
->  				rx_hdr->l2_fhdr_vlan_tag);
->  		}
-> ===== drivers/net/s2io.c 1.124 vs edited =====
-> --- 1.124/drivers/net/s2io.c	2007-08-03 18:10:44 -04:00
-> +++ edited/drivers/net/s2io.c	2007-11-03 12:29:09 -04:00
-> @@ -6834,8 +6834,7 @@
->  	sp->mac_control.stats_info->sw_stat.mem_freed += skb->truesize;
->  	if (!sp->lro) {
->  		skb->protocol = eth_type_trans(skb, dev);
-> -		if ((sp->vlgrp && RXD_GET_VLAN_TAG(rxdp->Control_2) &&
-> -			vlan_strip_flag)) {
-> +		if (RXD_GET_VLAN_TAG(rxdp->Control_2) &&
-vlan_strip_flag) {
->  			/* Queueing the vlan frame to the upper layer */
->  			if (napi)
->  				vlan_hwaccel_receive_skb(skb, sp->vlgrp,
-> ===== drivers/net/tg3.c 1.523 vs edited =====
-> --- 1.523/drivers/net/tg3.c	2007-09-11 04:28:44 -04:00
-> +++ edited/drivers/net/tg3.c	2007-11-05 09:38:33 -05:00
-> @@ -3417,7 +3417,7 @@
-> 
->  		skb->protocol = eth_type_trans(skb, tp->dev);
->  #if TG3_VLAN_TAG_USED
-> -		if (tp->vlgrp != NULL &&
-> +		if ((tp->vlgrp || (tp->tg3_flags & TG3_FLAG_ENABLE_ASF))
-&&
->  		    desc->type_flags & RXD_FLAG_VLAN) {
->  			tg3_vlan_rx(tp, skb,
->  				    desc->err_vlan & RXD_VLAN_MASK);
+> Signed-off-by: Aleksey Makarov <amakarov@ru.mvista.com>
+> Acked-by: eric miao <eric.miao@marvell.com>
 
+Acked-by: Nicolas Pitre <nico@cam.org>
+
+> ---
+>  drivers/net/smc91x.h |   15 +++++++++++++++
+>  1 files changed, 15 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/smc91x.h b/drivers/net/smc91x.h
+> index 729fd28..db34e1e 100644
+> --- a/drivers/net/smc91x.h
+> +++ b/drivers/net/smc91x.h
+> @@ -224,6 +224,21 @@ SMC_outw(u16 val, void __iomem *ioaddr, int reg)
+>  	}
+>  }
+> 
+> +#elif defined(CONFIG_MACH_ZYLONITE)
+> +
+> +#define SMC_CAN_USE_8BIT        1
+> +#define SMC_CAN_USE_16BIT       1
+> +#define SMC_CAN_USE_32BIT       0
+> +#define SMC_IO_SHIFT            0
+> +#define SMC_NOWAIT              1
+> +#define SMC_USE_PXA_DMA		1
+> +#define SMC_inb(a, r)           readb((a) + (r))
+> +#define SMC_inw(a, r)           readw((a) + (r))
+> +#define SMC_insw(a, r, p, l)    insw((a) + (r), p, l)
+> +#define SMC_outsw(a, r, p, l)   outsw((a) + (r), p, l)
+> +#define SMC_outb(v, a, r)       writeb(v, (a) + (r))
+> +#define SMC_outw(v, a, r)       writew(v, (a) + (r))
+> +
+>  #elif	defined(CONFIG_ARCH_OMAP)
+> 
+>  /* We can only do 16-bit reads and writes in the static memory space. */
+> -- 
+> 1.5.2.5.GIT
+> 
+
+
+Nicolas
