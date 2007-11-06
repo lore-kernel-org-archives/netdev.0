@@ -1,21 +1,40 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/7] sky2: enable PCI config writes
-Date: Tue, 06 Nov 2007 12:41:17 -0500
-Message-ID: <4730A73D.5020308@pobox.com>
-References: <20071105235207.799504040@linux-foundation.org> <20071105235339.973177053@linux-foundation.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: Please pull 'upstream-jgarzik' branch of wireless-2.6
+Date: Tue, 06 Nov 2007 12:43:13 -0500
+Message-ID: <4730A7B1.90709@garzik.org>
+References: <20071106011627.GB23747@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33074 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:35950 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751063AbXKFRl2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Nov 2007 12:41:28 -0500
-In-Reply-To: <20071105235339.973177053@linux-foundation.org>
+	id S1751140AbXKFRnQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Nov 2007 12:43:16 -0500
+In-Reply-To: <20071106011627.GB23747@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-applied 1-7
+John W. Linville wrote:
+> Jeff,
+> 
+> Here is a slew of patches targeted for 2.6.25.  There are a bunch
+> of rt2x00, iwl3945, iwl4965, b43, and b43legacy patches, as well as
+> a few others.  I'm sorry I didn't spread this out better -- I got a
+> bit behind... :-(
+> 
+> Thanks,
+> 
+> John
+> 
+> ---
+> 
+> Individual patches are available here:
+> 
+> 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/upstream-jgarzik/
+
+pulled
+
 
