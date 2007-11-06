@@ -1,68 +1,59 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH 1/2] NET: Re-add VLAN tag for devices incapable of keeping it
-Date: Tue, 06 Nov 2007 21:08:21 +0100
-Message-ID: <m3fxzj3znu.fsf@maximus.localdomain>
-References: <472A6089.7020104@hp.com>
-	<18223.22291.622615.129374@zeus.sw.starentnetworks.com>
-	<472F5A33.20906@trash.net>
-	<20071105.151544.175839612.davem@davemloft.net>
-	<472FB375.1020802@trash.net> <m3y7db45ga.fsf@maximus.localdomain>
-	<4730B8ED.7020301@candelatech.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Endianness problem with u32 classifier hash masks
+Date: Tue, 06 Nov 2007 21:28:03 +0100
+Message-ID: <4730CE53.30602@o2.pl>
+References: <20071105091231.GA1933@ff.dom.local>	 <1194267561.2987.141.camel@localhost.localdomain>	 <20071105135246.GB1933@ff.dom.local> <1194271589.4438.113.camel@localhost>	 <1194283888.2987.186.camel@localhost.localdomain> <472F85F0.8060205@o2.pl>	 <1194301667.4430.28.camel@localhost> <472FAF29.7050704@o2.pl>	 <1194336542.3305.33.camel@rad.rendec.ines.ro>	 <1194356071.4444.23.camel@localhost>  <20071106142558.GC1666@ff.dom.local>	 <1194360226.4444.39.camel@localhost> <1194368416.2987.218.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>,
-	djohnson+linux-kernel@sw.starentnetworks.com,
-	jes@trained-monkey.org, mchan@broadcom.com, ram.vepa@neterion.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	bguo@sw.starentnetworks.com
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org
+To: Radu Rendec <radu.rendec@ines.ro>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:56678 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754086AbXKFUIX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Nov 2007 15:08:23 -0500
-In-Reply-To: <4730B8ED.7020301@candelatech.com> (Ben Greear's message of "Tue, 06 Nov 2007 10:56:45 -0800")
+Received: from mx10.go2.pl ([193.17.41.74]:60884 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755501AbXKFUPC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Nov 2007 15:15:02 -0500
+In-Reply-To: <1194368416.2987.218.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Greear <greearb@candelatech.com> writes:
+Radu Rendec wrote, On 11/06/2007 06:00 PM:
 
-> Bridging eth0 to eth1 should not pay attention to VLAN tags
-> at all (if the pkt comes in on VLAN 7, it should go out on VLAN 7),
-> in my opinion.  If the NIC is stripping the VLAN header, then this
-> cannot work unless something re-builds the VLAN header.  If the stripped
-> VLAN header is placed into the skb, then any code that does need to
-> rebuild it can do so.  It may be less efficient, but users can just
-> not use that NIC hardware for high-end solutions, and at any rate,
-> less efficient is better than broken.
-
-That is all true. The problem arises when you receive a tagged frame
-on eth0, the chip removes the tag, and then the bridge sends it
-out untagged on eth1.
-
-I think there are two valid models for VLAN + bridging:
-
-a) bridging works on "physical" interfaces, all tags are transmitted
-   unchanged.
-
-b) every VLAN is a different logical interface, packets from unknown
-   VLANs are dropped on RX (and thus don't show up anywhere, except
-   counters), bridging uses logical interfaces. VLAN 100 on eth0 may
-   become VLAN 200 on eth1 and may be untagged on eth2.
+> On Tue, 2007-11-06 at 09:43 -0500, jamal wrote:
+>> On Tue, 2007-06-11 at 15:25 +0100, Jarek Poplawski wrote:
+>>
+>>> Yes, it saves one htonl() on the slow path!
+>> Would it feel better to say grew down exponentially from version 1 to
+>> 3? ;->
 
 
-"a" requires "soft" VLANs and/or adding the tags back (with
-accelerated VLANs). This is how unmanaged switches labeled
-"802.1Q - transparent" work. Not very flexible but usually good
-enough.
+Sure, but I felt much better after this:
 
-"b" is how switches supporting VLANs (and 802.1Q) usually work.
+> Actually I'm not impatient at all, because the shaping machine at the
+> ISP where I work is already patched with my original patch, and cpu
+> usage has gone from 100% to 8% after implementing hashes ;->
+ 
+
+I'm not so lucky to see this code working, so I didn't expect earlier
+this place could be so meaningful. As a matter of fact I've thought
+Jamal exaggerates about this fast path... Now, I try to understand
+why it didn't come out earlier. Anyway, Radu - my congratulations!
+
+>>>> Please give yourself a little pat on the back for me.
+>>> Wait a minute! Don't forget to take a picture or something!
+>> He needs the other arm for balance;-> so unless someone else takes the
+>> photo, i would say that should he be successful taking the photo, that
+>> achievement itself needs a double-self-pat-on-the-back (which i am going
+>> to say if he can also take a photo of needs to go on some records book)
+> 
+> I'm sorry to disappoint you, guys, but most probably I'll pat myself on
+> the back here at work, after I get enthusiastic about the patches. So my
+> fellow colleagues will take the picture for me. If I get really
+> enthusiastic, then I'll have my both arms available for patting :)
 
 
-I know ability to see exactly all packets as they are received
-(including tags) is a really nice thing. But maybe we should change
-the model? Making the ethX only carry untagged frames (even without
-hw VLAN acceleration)?
--- 
-Krzysztof Halasa
+Alas, I don't take pictures either, but, it seems, any way should be
+good if it's visible for whom are you patted by!
+
+Cheers,
+Jarek P.
