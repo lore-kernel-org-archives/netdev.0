@@ -1,41 +1,27 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 0/2] bonding: Two small fixes
-Date: Tue,  6 Nov 2007 13:33:27 -0800
-Message-ID: <11943848091427-git-send-email-fubar@us.ibm.com>
-Cc: jgarzik@pobox.com
-To: netdev@vger.kernel.org
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] remove claim balance_rr won't reorder on many to one
+Date: Tue, 06 Nov 2007 13:40:16 -0800
+Message-ID: <4730DF40.6090606@hp.com>
+References: <200710301948.MAA04351@tardy.cup.hp.com> <5242.1193777750@death> <4727D583.90807@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:52733 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751729AbXKFVdg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2007 16:33:36 -0500
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id lA6LXa33031837
-	for <netdev@vger.kernel.org>; Tue, 6 Nov 2007 16:33:36 -0500
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id lA6LXXd9127612
-	for <netdev@vger.kernel.org>; Tue, 6 Nov 2007 14:33:35 -0700
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lA6LXXRu004219
-	for <netdev@vger.kernel.org>; Tue, 6 Nov 2007 14:33:33 -0700
+Received: from palrel12.hp.com ([156.153.255.237]:48681 "EHLO palrel12.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755557AbXKFVkS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Nov 2007 16:40:18 -0500
+In-Reply-To: <4727D583.90807@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-	Two small fixes to bonding for the mainline.
+Jay -
 
-	1: Mishandling of RTNL due to what looks like a merge error.
+So, where do you and I stand wrt the proposed changes to bonding.txt?  Are we at 
+an impass?
 
-	2: Turn off the new validate_addr check when devices are set 
-up.  For backwards compatibility, the bonding master must be able to be
-set up with a MAC address of all zeroes.
+sincerely,
 
-	Patches are against linux-2.6, and apply cleanly
-to netdev-2.6#upstream-linus.  Please apply for 2.6.24.
-
-	-J
-
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-
-
+rick jones
