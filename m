@@ -1,71 +1,144 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: Re: [PATCH] NET: Remove unneeded type cast in skb_truesize_check()
-Date: Mon, 05 Nov 2007 18:59:26 -0500
-Message-ID: <472FAE5E.8030701@oracle.com>
-References: <20071102191426.30464.7490.stgit@manray.1015granger.net> <20071102.142717.157261554.davem@davemloft.net>
-Reply-To: chuck.lever@oracle.com
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [git patches] net driver fixes
+Date: Mon, 5 Nov 2007 19:03:27 -0500
+Message-ID: <20071106000327.GA13079@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070500030505000507020301"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:54630 "EHLO
-	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753551AbXKFAAn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 19:00:43 -0500
-In-Reply-To: <20071102.142717.157261554.davem@davemloft.net>
+Received: from havoc.gtf.org ([69.61.125.42]:56612 "EHLO havoc.gtf.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754631AbXKFAD2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Nov 2007 19:03:28 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070500030505000507020301
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
 
-David Miller wrote:
-> From: Chuck Lever <chuck.lever@oracle.com>
-> Date: Fri, 02 Nov 2007 15:14:26 -0400
-> 
->> The (int) type cast in skb_truesize_check() is unneeded: without it, all
->> the variable types in the conditional expression are unsigned integers.  As
->> it stands, the type cast causes a comparison between a signed and an
->> unsigned integer, which can produce unexpected results.
->>
->> Signed-off-by: Chuck Lever <chuck.lever@oracle.com>
-> 
-> This is checking for skb->truesize being decremented too much by other
-> code, which could cause a wraparound below zero, so we do want
-> negaitve checks here.
+Please pull from 'upstream-linus' branch of
+master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-linus
 
-If that's truly the case, document the requirement (perhaps using
-something the compiler itself can verify) instead of using a clever
-type cast trick.
+to receive the following updates:
 
-Here's the problem with leaving these little surprises in commonly used 
-kernel headers.  Suppose the developer of a network driver or network 
-file system that uses one of these headers wants to employ static code 
-analysis to identify issues introduced by new patches to their 
-subsystem.  The tool warnings generated in kernel headers are just 
-noise, and make using such code analysis difficult.
+ drivers/net/82596.c          |    3 ++-
+ drivers/net/phy/marvell.c    |   23 ++++++++++++++++++-----
+ drivers/net/phy/phy_device.c |    2 +-
+ drivers/net/sunhme.c         |    4 ++--
+ 4 files changed, 23 insertions(+), 9 deletions(-)
 
---------------070500030505000507020301
-Content-Type: text/x-vcard; charset=utf-8;
- name="chuck.lever.vcf"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="chuck.lever.vcf"
+David Miller (1):
+      SUNHME: Fix missing NETIF_F_VLAN_CHALLENGED on PCI happy meals
 
-begin:vcard
-fn:Chuck Lever
-n:Lever;Chuck
-org:Oracle Corporation;Corporate Architecture: Linux Projects Group
-adr:;;1015 Granger Avenue;Ann Arbor;MI;48104;USA
-title:Principal Member of Staff
-tel;work:+1 248 614 5091
-x-mozilla-html:FALSE
-version:2.1
-end:vcard
+Evgeniy Dushistov (1):
+      82596: free nonexistent resource fix
 
+Olof Johansson (2):
+      phylib: Add ID for Marvell 88E1240
+      phylib: Silence driver registration
 
---------------070500030505000507020301--
+diff --git a/drivers/net/82596.c b/drivers/net/82596.c
+index bb30d5b..2797da7 100644
+--- a/drivers/net/82596.c
++++ b/drivers/net/82596.c
+@@ -1192,6 +1192,8 @@ struct net_device * __init i82596_probe(int unit)
+ 			goto out;
+ 		}
+ 
++		dev->base_addr = ioaddr;
++
+ 		for (i = 0; i < 8; i++) {
+ 			eth_addr[i] = inb(ioaddr + 8 + i);
+ 			checksum += eth_addr[i];
+@@ -1209,7 +1211,6 @@ struct net_device * __init i82596_probe(int unit)
+ 			goto out1;
+ 		}
+ 
+-		dev->base_addr = ioaddr;
+ 		dev->irq = 10;
+ 	}
+ #endif
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index d2ede5f..035fd41 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -265,7 +265,7 @@ static struct phy_driver marvell_drivers[] = {
+ 		.read_status = &genphy_read_status,
+ 		.ack_interrupt = &marvell_ack_interrupt,
+ 		.config_intr = &marvell_config_intr,
+-		.driver = {.owner = THIS_MODULE,},
++		.driver = { .owner = THIS_MODULE },
+ 	},
+ 	{
+ 		.phy_id = 0x01410c90,
+@@ -278,7 +278,7 @@ static struct phy_driver marvell_drivers[] = {
+ 		.read_status = &genphy_read_status,
+ 		.ack_interrupt = &marvell_ack_interrupt,
+ 		.config_intr = &marvell_config_intr,
+-		.driver = {.owner = THIS_MODULE,},
++		.driver = { .owner = THIS_MODULE },
+ 	},
+ 	{
+ 		.phy_id = 0x01410cc0,
+@@ -291,7 +291,7 @@ static struct phy_driver marvell_drivers[] = {
+ 		.read_status = &genphy_read_status,
+ 		.ack_interrupt = &marvell_ack_interrupt,
+ 		.config_intr = &marvell_config_intr,
+-		.driver = {.owner = THIS_MODULE,},
++		.driver = { .owner = THIS_MODULE },
+ 	},
+ 	{
+ 		.phy_id = 0x01410cd0,
+@@ -304,8 +304,21 @@ static struct phy_driver marvell_drivers[] = {
+ 		.read_status = &genphy_read_status,
+ 		.ack_interrupt = &marvell_ack_interrupt,
+ 		.config_intr = &marvell_config_intr,
+-		.driver = {.owner = THIS_MODULE,},
+-	}
++		.driver = { .owner = THIS_MODULE },
++	},
++	{
++		.phy_id = 0x01410e30,
++		.phy_id_mask = 0xfffffff0,
++		.name = "Marvell 88E1240",
++		.features = PHY_GBIT_FEATURES,
++		.flags = PHY_HAS_INTERRUPT,
++		.config_init = &m88e1111_config_init,
++		.config_aneg = &marvell_config_aneg,
++		.read_status = &genphy_read_status,
++		.ack_interrupt = &marvell_ack_interrupt,
++		.config_intr = &marvell_config_intr,
++		.driver = { .owner = THIS_MODULE },
++	},
+ };
+ 
+ static int __init marvell_init(void)
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index c046121..f6e4848 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -706,7 +706,7 @@ int phy_driver_register(struct phy_driver *new_driver)
+ 		return retval;
+ 	}
+ 
+-	pr_info("%s: Registered new driver\n", new_driver->name);
++	pr_debug("%s: Registered new driver\n", new_driver->name);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/sunhme.c b/drivers/net/sunhme.c
+index 120c8af..c20a3bd 100644
+--- a/drivers/net/sunhme.c
++++ b/drivers/net/sunhme.c
+@@ -3143,8 +3143,8 @@ static int __devinit happy_meal_pci_probe(struct pci_dev *pdev,
+ 	dev->irq = pdev->irq;
+ 	dev->dma = 0;
+ 
+-	/* Happy Meal can do it all... */
+-	dev->features |= NETIF_F_SG | NETIF_F_HW_CSUM;
++	/* Happy Meal can do it all... except VLAN. */
++	dev->features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_VLAN_CHALLENGED;
+ 
+ #if defined(CONFIG_SBUS) && defined(CONFIG_PCI)
+ 	/* Hook up PCI register/dma accessors. */
