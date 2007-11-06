@@ -1,34 +1,35 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: Re: netfilter: nf_conntrack_ipv4 does not show nf_nat as a user
-Date: Tue, 06 Nov 2007 14:29:24 -0500
-Message-ID: <4730C094.4070406@redhat.com>
-References: <472F78C9.9060900@redhat.com> <472FB162.7050507@trash.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] sky2: netpoll on port 0 only
+Date: Tue, 6 Nov 2007 11:45:40 -0800
+Message-ID: <20071106114540.75ec66ab@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:46198 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751705AbXKFT30 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Nov 2007 14:29:26 -0500
-In-Reply-To: <472FB162.7050507@trash.net>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:48506 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755014AbXKFTr6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2007 14:47:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/05/2007 07:12 PM, Patrick McHardy wrote:
-> Chuck Ebbert wrote:
->> https://bugzilla.redhat.com/show_bug.cgi?id=333481#c3
->>
->> This is netfilter kernel problem. There is a usage count for the
->> conntrack_ipv4
->> module from the nf_nat module, which is not reported by lsmod.
->>   
-> 
-> This is "fixed" in the current kernel.
+Netpoll will only work on port 0 because of the restrictive
+relationship between NAPI and netpoll.
 
-By this hack?
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-[NETFILTER]: Fix/improve deadlock condition on module removal netfilter
-
+--- a/drivers/net/sky2.c	2007-11-06 09:09:18.000000000 -0800
++++ b/drivers/net/sky2.c	2007-11-06 11:42:48.000000000 -0800
+@@ -3995,7 +3995,8 @@ static __devinit struct net_device *sky2
+ 	dev->tx_timeout = sky2_tx_timeout;
+ 	dev->watchdog_timeo = TX_WATCHDOG;
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+-	dev->poll_controller = sky2_netpoll;
++	if (port == 0)
++		dev->poll_controller = sky2_netpoll;
+ #endif
+ 
+ 	sky2 = netdev_priv(dev);
