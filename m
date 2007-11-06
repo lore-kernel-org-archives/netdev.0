@@ -1,36 +1,30 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 5/7] sky2: remove unneeded mask update
-Date: Mon, 05 Nov 2007 15:52:12 -0800
-Message-ID: <20071105235340.198117318@linux-foundation.org>
-References: <20071105235207.799504040@linux-foundation.org>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, Jeff Garzik <jgarzik@pobox.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Endianness problem with u32 classifier hash masks
+Date: Tue, 06 Nov 2007 01:12:54 +0100
+Message-ID: <472FB186.9070503@o2.pl>
+References: <1193939701.2987.82.camel@localhost.localdomain>	 <472B5EF1.4020206@o2.pl> <1194045830.4438.21.camel@localhost>	 <472D06B2.9040402@o2.pl> <472D0B1C.7000209@o2.pl> <472D128B.8030704@o2.pl>	 <472D1DC2.9000106@o2.pl> <1194220693.4438.75.camel@localhost>	 <20071105091231.GA1933@ff.dom.local>	 <1194267561.2987.141.camel@localhost.localdomain>	 <20071105135246.GB1933@ff.dom.local> <1194271589.4438.113.camel@localhost>	 <1194283888.2987.186.camel@localhost.localdomain>  <472F85F0.8060205@o2.pl> <1194301667.4430.28.camel@localhost> <472FAF29.7050704@o2.pl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, Radu Rendec <radu.rendec@ines.ro>,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:49650 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754671AbXKEX5E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 18:57:04 -0500
-Content-Disposition: inline; filename=sky2-no-phy-irq-mask.patch
+Received: from mx10.go2.pl ([193.17.41.74]:45750 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753551AbXKFAA3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Nov 2007 19:00:29 -0500
+In-Reply-To: <472FAF29.7050704@o2.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The IRQ's is already masked on shutdown, and on startup avoid
-touching PHY until after phy_init().
+Jarek Poplawski wrote, On 11/06/2007 01:02 AM:
+...
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> on little endian (net order):
+> f0.0f.00.00 >> 4  gives: 0f.00.0f.00 then ntohl: 00.0f.00.0f with lsb: 0f
 
---- a/drivers/net/sky2.c	2007-11-05 15:05:01.000000000 -0800
-+++ b/drivers/net/sky2.c	2007-11-05 15:05:03.000000000 -0800
-@@ -288,8 +288,6 @@ static void sky2_gmac_reset(struct sky2_
- 
- 	/* disable all GMAC IRQ's */
- 	sky2_write8(hw, SK_REG(port, GMAC_IRQ_MSK), 0);
--	/* disable PHY IRQs */
--	gm_phy_write(hw, port, PHY_MARV_INT_MASK, 0);
- 
- 	gma_write16(hw, port, GM_MC_ADDR_H1, 0);	/* clear MC hash */
- 	gma_write16(hw, port, GM_MC_ADDR_H2, 0);
+should be:
+f0.0f.00.00 >> 4  gives: 0f.00.f0.00 then ntohl: 00.f0.00.0f with lsb: 0f
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
-
+Jarek "Sleeping" P.
