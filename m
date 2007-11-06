@@ -1,46 +1,40 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 01/02] r8169: add PCI ID for the 8168 in the Abit
- Fatal1ty F-190HD motherboard
-Date: Tue, 6 Nov 2007 15:20:46 -0800
-Message-ID: <20071106152046.3f549c85@freepuppy.rosehill>
-References: <20071106222213.GA22170@electric-eye.fr.zoreil.com>
-	<20071106222354.GB22170@electric-eye.fr.zoreil.com>
-	<20071106143729.2625f464@freepuppy.rosehill>
-	<20071106231908.GB18076@electric-eye.fr.zoreil.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: netfilter: nf_conntrack_ipv4 does not show nf_nat as a user
+Date: Wed, 07 Nov 2007 00:51:31 +0100
+Message-ID: <4730FE03.5010701@trash.net>
+References: <472F78C9.9060900@redhat.com> <472FB162.7050507@trash.net> <4730C094.4070406@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Ciaran McCreesh <ciaran.mccreesh@blueyonder.co.uk>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Netdev <netdev@vger.kernel.org>
+To: Chuck Ebbert <cebbert@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:50799 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753330AbXKFXX0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2007 18:23:26 -0500
-In-Reply-To: <20071106231908.GB18076@electric-eye.fr.zoreil.com>
+Received: from stinky.trash.net ([213.144.137.162]:45126 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753512AbXKFXvn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2007 18:51:43 -0500
+In-Reply-To: <4730C094.4070406@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 7 Nov 2007 00:19:08 +0100
-Francois Romieu <romieu@fr.zoreil.com> wrote:
+Chuck Ebbert wrote:
+> On 11/05/2007 07:12 PM, Patrick McHardy wrote:
+>> Chuck Ebbert wrote:
+>>> https://bugzilla.redhat.com/show_bug.cgi?id=333481#c3
+>>>
+>>> This is netfilter kernel problem. There is a usage count for the
+>>> conntrack_ipv4
+>>> module from the nf_nat module, which is not reported by lsmod.
+>>>   
+>> This is "fixed" in the current kernel.
+> 
+> By this hack?
+> 
+> [NETFILTER]: Fix/improve deadlock condition on module removal netfilter
 
-> Stephen Hemminger <shemminger@linux-foundation.org> :
-> [...]
-> > Really, vendor_id is 1 ?
-> 
-> Yes, the bug seems to be commonly set in hardware.
-> 
-> > How about a comment about which board this is.
-> 
-> B3w4r3 0f Th3 3v1l Fatal1ty M0b0 ?
-> 
-> Imho 'git log/blame' will provide enough information for this hack.
-> 
+Thats not really a hack, the patch is fully correct, the bug was in
+modutils.
 
-0k F1ne
+The patch I'm talking about is 591e6206:
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+[NETFILTER]: nf_nat: add symbolic dependency on IPv4 conntrack
