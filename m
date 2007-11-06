@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] decnet: "addr" module param can't be __initdata
-Date: Mon, 05 Nov 2007 21:31:11 -0800 (PST)
-Message-ID: <20071105.213111.149736849.davem@davemloft.net>
-References: <20071101153629.GA16499@localhost.sw.ru>
+Subject: Re: [PATCH] Clean the ip_sockglue.c from some ugly ifdefs
+Date: Mon, 05 Nov 2007 21:32:41 -0800 (PST)
+Message-ID: <20071105.213241.124872189.davem@davemloft.net>
+References: <4729F642.7000709@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, devel@openvz.org
-To: adobriyan@sw.ru
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37270
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57601
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752143AbXKFFbM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2007 00:31:12 -0500
-In-Reply-To: <20071101153629.GA16499@localhost.sw.ru>
+	by vger.kernel.org with ESMTP id S1751327AbXKFFcm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2007 00:32:42 -0500
+In-Reply-To: <4729F642.7000709@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexey Dobriyan <adobriyan@sw.ru>
-Date: Thu, 1 Nov 2007 18:36:29 +0300
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Thu, 01 Nov 2007 18:52:34 +0300
 
-> sysfs keeps references to module parameters via /sys/module/*/parameters,
-> so marking them as __initdata can't work.
+> The #idfed CONFIG_IP_MROUTE is sometimes places inside the if-s,
+> which looks completely bad. Similar ifdefs inside the functions
+> looks a bit better, but they are also not recommended to be used.
 > 
-> Steps to reproduce:
+> Provide an ifdef-ed ip_mroute_opt() helper to cleanup the code.
 > 
-> 	modprobe decnet
-> 	cat /sys/module/decnet/parameters/addr
-> 
-> BUG: unable to handle kernel paging request at virtual address f88cd410
- ...
-> Signed-off-by: Alexey Dobriyan <adobriyan@sw.ru>
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Applied, thanks!
+Applied, thanks Pavel.
