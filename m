@@ -1,62 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] NET: Re-add VLAN tag for devices incapable of
- keeping it
-Date: Mon, 05 Nov 2007 16:35:42 -0800 (PST)
-Message-ID: <20071105.163542.157789854.davem@davemloft.net>
-References: <472F5A33.20906@trash.net>
-	<20071105.151544.175839612.davem@davemloft.net>
-	<472FB375.1020802@trash.net>
+From: "eric miao" <eric.y.miao@gmail.com>
+Subject: [PATCH] add support for smc91x ethernet interface on zylonite
+Date: Tue, 6 Nov 2007 08:45:39 +0800
+Message-ID: <f17812d70711051645p4d1a8e44mbc21413cc6ef12ba@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: djohnson+linux-kernel@sw.starentnetworks.com,
-	jes@trained-monkey.org, mchan@broadcom.com, ram.vepa@neterion.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	bguo@sw.starentnetworks.com
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org, "Nicolas Pitre" <nico@cam.org>
+To: "Jeff Garzik" <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34750
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752750AbXKFAfv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 19:35:51 -0500
-In-Reply-To: <472FB375.1020802@trash.net>
+Received: from wa-out-1112.google.com ([209.85.146.178]:36171 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753417AbXKFApl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2007 19:45:41 -0500
+Received: by wa-out-1112.google.com with SMTP id v27so2212207wah
+        for <netdev@vger.kernel.org>; Mon, 05 Nov 2007 16:45:40 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 06 Nov 2007 01:21:09 +0100
+>From 9363662844b6373ddf4265e7007eb29ff963a377 Mon Sep 17 00:00:00 2001
+From: eric miao <eric.miao@marvell.com>
+Date: Tue, 30 Oct 2007 09:48:41 +0800
+Subject: [PATCH] add support for smc91x ethernet interface on zylonite
 
-> David Miller wrote:
-> > From: Patrick McHardy <kaber@trash.net>
-> > Date: Mon, 05 Nov 2007 19:00:19 +0100
-> > 
-> >> This looks like a rather expensive operation for the unlikely case
-> >> that packets will be received by a packet socket. IMO it should only
-> >> be reconstructed if actually needed, by af_packet itself.
-> > 
-> > Completely agreed.  We should not do this by default when %99
-> > of the networking stack simply does not care about this.
-> 
-> 
-> I think there is one more case that matters, which is briding
-> from a device with VLAN stripping for a VLAN not configured
-> locally. The tag will be stripped and will be lost for forwarded
-> packets. But I'm not exactly sure this really can be configured
-> (time for bed so I'll check tommorrow).
+This patch adds LAN91C111 ethernet interface support for zylonite
+(a.k.a Marvell's PXA3xx Development Platform) with smc91x driver.
 
-If so then when such rules are loaded, just like PF_PACKET, it can set
-the indication to start reconstituting VLAN headers stripped by HW.
+It would be better if a patch would support zylonite along with all
+other PXA boards with a single binary of smc91x driver, but it looks
+quite difficult for the moment, so ugly #ifdef is still used here.
 
-> >> As we discussed some time back storing the VLAN tag in the CB on
-> >> TX clashes with other users of the CB like qdiscs, so we need a
-> >> new field in the skb for this anyway.
-> > 
-> > Someone will have to find a way to remove some other fields in
-> > sk_buff before I'm going to allow more space to be eaten up
-> > by this completely fringe case feature.
-> 
-> We have a two byte hole after tc_verd where we could fit this in.
-> But I'm pretty sure we also could reuse some other fields on input,
-> like queue_mapping or maybe even destructor for unowned skbs.
+Signed-off-by: Aleksey Makarov <amakarov@ru.mvista.com>
+Acked-by: eric miao <eric.miao@marvell.com>
+---
+ drivers/net/smc91x.h |   15 +++++++++++++++
+ 1 files changed, 15 insertions(+), 0 deletions(-)
 
-Two bytes is enough, so if there is a hole we can use it.
+diff --git a/drivers/net/smc91x.h b/drivers/net/smc91x.h
+index 729fd28..db34e1e 100644
+--- a/drivers/net/smc91x.h
++++ b/drivers/net/smc91x.h
+@@ -224,6 +224,21 @@ SMC_outw(u16 val, void __iomem *ioaddr, int reg)
+ 	}
+ }
+
++#elif defined(CONFIG_MACH_ZYLONITE)
++
++#define SMC_CAN_USE_8BIT        1
++#define SMC_CAN_USE_16BIT       1
++#define SMC_CAN_USE_32BIT       0
++#define SMC_IO_SHIFT            0
++#define SMC_NOWAIT              1
++#define SMC_USE_PXA_DMA		1
++#define SMC_inb(a, r)           readb((a) + (r))
++#define SMC_inw(a, r)           readw((a) + (r))
++#define SMC_insw(a, r, p, l)    insw((a) + (r), p, l)
++#define SMC_outsw(a, r, p, l)   outsw((a) + (r), p, l)
++#define SMC_outb(v, a, r)       writeb(v, (a) + (r))
++#define SMC_outw(v, a, r)       writew(v, (a) + (r))
++
+ #elif	defined(CONFIG_ARCH_OMAP)
+
+ /* We can only do 16-bit reads and writes in the static memory space. */
+-- 
+1.5.2.5.GIT
