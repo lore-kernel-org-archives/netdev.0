@@ -1,21 +1,22 @@
-From: "Jon Nelson" <jnelson-linux-raid@jamponi.net>
+From: "Jon Nelson" <jnelson@jamponi.net>
 Subject: Stack Trace. Bad?
-Date: Tue, 6 Nov 2007 14:22:30 -0600
-Message-ID: <cccedfc60711061222o6c4599fcyf71265c126568395@mail.gmail.com>
+Date: Tue, 6 Nov 2007 14:23:03 -0600
+Message-ID: <cccedfc60711061223me598dc8sad8dd36577874915@mail.gmail.com>
 References: <cccedfc60711061136r5ec89e73m7457e9fea0bf4f55@mail.gmail.com>
 	 <cccedfc60711061139r11a5e8c6raf6cd64c575ec453@mail.gmail.com>
+	 <cccedfc60711061222o6c4599fcyf71265c126568395@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:55233 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.188]:56580 "EHLO
 	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754314AbXKFUWe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2007 15:22:34 -0500
-Received: by nf-out-0910.google.com with SMTP id g13so1790967nfb
-        for <netdev@vger.kernel.org>; Tue, 06 Nov 2007 12:22:31 -0800 (PST)
-In-Reply-To: <cccedfc60711061139r11a5e8c6raf6cd64c575ec453@mail.gmail.com>
+	with ESMTP id S1755138AbXKFUXG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2007 15:23:06 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so1791126nfb
+        for <netdev@vger.kernel.org>; Tue, 06 Nov 2007 12:23:04 -0800 (PST)
+In-Reply-To: <cccedfc60711061222o6c4599fcyf71265c126568395@mail.gmail.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
