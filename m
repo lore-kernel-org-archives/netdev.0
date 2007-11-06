@@ -1,34 +1,37 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] remove claim balance_rr won't reorder on many to one
-Date: Tue, 06 Nov 2007 14:59:31 -0800
-Message-ID: <4730F1D3.9090601@hp.com>
-References: <200710301948.MAA04351@tardy.cup.hp.com> <5242.1193777750@death>	<4727D583.90807@hp.com> <4730DF40.6090606@hp.com> <25756.1194389384@death>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 01/02] r8169: add PCI ID for the 8168 in the Abit
+	Fatal1ty F-190HD motherboard
+Date: Wed, 7 Nov 2007 00:19:08 +0100
+Message-ID: <20071106231908.GB18076@electric-eye.fr.zoreil.com>
+References: <20071106222213.GA22170@electric-eye.fr.zoreil.com> <20071106222354.GB22170@electric-eye.fr.zoreil.com> <20071106143729.2625f464@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Ciaran McCreesh <ciaran.mccreesh@blueyonder.co.uk>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel12.hp.com ([156.153.255.237]:59495 "EHLO palrel12.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753320AbXKFW7e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Nov 2007 17:59:34 -0500
-In-Reply-To: <25756.1194389384@death>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:50524 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753320AbXKFXWm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2007 18:22:42 -0500
+Content-Disposition: inline
+In-Reply-To: <20071106143729.2625f464@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
-> Rick Jones <rick.jones2@hp.com> wrote:
-> 
-> 
->>So, where do you and I stand wrt the proposed changes to bonding.txt?  Are
->>we at an impass?
-> 
-> 	Nope, I'm doing a doc update next to incorporate several things,
-> the reordering stuff included (which I plan to change to describe the
-> levels of badness, as it were).  Needed to fix a couple "no workee"
-> things first.
+Stephen Hemminger <shemminger@linux-foundation.org> :
+[...]
+> Really, vendor_id is 1 ?
 
-OK.  I look forward to applying my critical eye to that section :)
+Yes, the bug seems to be commonly set in hardware.
 
-rick jones
+> How about a comment about which board this is.
+
+B3w4r3 0f Th3 3v1l Fatal1ty M0b0 ?
+
+Imho 'git log/blame' will provide enough information for this hack.
+
+-- 
+Ueimor
