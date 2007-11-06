@@ -1,52 +1,40 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 01/02] r8169: add PCI ID for the 8168 in the Abit
- Fatal1ty F-190HD motherboard
-Date: Tue, 6 Nov 2007 14:37:28 -0800
-Message-ID: <20071106143729.2625f464@freepuppy.rosehill>
-References: <20071106222213.GA22170@electric-eye.fr.zoreil.com>
-	<20071106222354.GB22170@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Ciaran McCreesh <ciaran.mccreesh@blueyonder.co.uk>
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] remove claim balance_rr won't reorder on many to one
+Date: Tue, 06 Nov 2007 14:49:44 -0800
+Message-ID: <25756.1194389384@death>
+References: <200710301948.MAA04351@tardy.cup.hp.com> <5242.1193777750@death> <4727D583.90807@hp.com> <4730DF40.6090606@hp.com>
+Cc: netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:49509 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754690AbXKFWjH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2007 17:39:07 -0500
-In-Reply-To: <20071106222354.GB22170@electric-eye.fr.zoreil.com>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:56710 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754205AbXKFWts (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Nov 2007 17:49:48 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id lA6MnlTv030060
+	for <netdev@vger.kernel.org>; Tue, 6 Nov 2007 17:49:47 -0500
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id lA6Mnlfv486018
+	for <netdev@vger.kernel.org>; Tue, 6 Nov 2007 17:49:47 -0500
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lA6Mnll8003275
+	for <netdev@vger.kernel.org>; Tue, 6 Nov 2007 17:49:47 -0500
+In-reply-to: <4730DF40.6090606@hp.com> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 6 Nov 2007 23:23:54 +0100
-Francois Romieu <romieu@fr.zoreil.com> wrote:
 
-> Signed-off-by: Ciaran McCreesh <ciaran.mccreesh@blueyonder.co.uk>
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Cc: Edward Hsu <edward_hsu@realtek.com.tw>
-> ---
->  drivers/net/r8169.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index b94fa7e..702334e 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
-> @@ -171,6 +171,8 @@ static struct pci_device_id rtl8169_pci_tbl[] = {
->  	{ PCI_DEVICE(0x16ec,			0x0116), 0, 0, RTL_CFG_0 },
->  	{ PCI_VENDOR_ID_LINKSYS,		0x1032,
->  		PCI_ANY_ID, 0x0024, 0, 0, RTL_CFG_0 },
-> +	{ 0x0001,				0x8168,
-> +		PCI_ANY_ID, 0x2410, 0, 0, RTL_CFG_2 },
->  	{0,},
->  };
->  
+Rick Jones <rick.jones2@hp.com> wrote:
 
-Really, vendor_id is 1?  How about a comment about which board this is.
+>So, where do you and I stand wrt the proposed changes to bonding.txt?  Are
+>we at an impass?
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+	Nope, I'm doing a doc update next to incorporate several things,
+the reordering stuff included (which I plan to change to describe the
+levels of badness, as it were).  Needed to fix a couple "no workee"
+things first.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
