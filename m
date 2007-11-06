@@ -1,46 +1,37 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.24 1/1]S2io: Fixed memory leak by freeing MSI-X local
- entry memories when vector allocation fails
-Date: Tue, 06 Nov 2007 12:46:26 -0500
-Message-ID: <4730A872.6030801@garzik.org>
-References: <Pine.GSO.4.10.10710310408190.9897-100000@guinness>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH 1/2] NET: Re-add VLAN tag for devices incapable of keeping it
+Date: Tue, 06 Nov 2007 19:03:17 +0100
+Message-ID: <m3y7db45ga.fsf@maximus.localdomain>
+References: <472A6089.7020104@hp.com>
+	<18223.22291.622615.129374@zeus.sw.starentnetworks.com>
+	<472F5A33.20906@trash.net>
+	<20071105.151544.175839612.davem@davemloft.net>
+	<472FB375.1020802@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, support@neterion.com
-To: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	djohnson+linux-kernel@sw.starentnetworks.com,
+	jes@trained-monkey.org, mchan@broadcom.com, ram.vepa@neterion.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	bguo@sw.starentnetworks.com
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:35966 "EHLO mail.dvmed.net"
+Received: from khc.piap.pl ([195.187.100.11]:47727 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753578AbXKFRqo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Nov 2007 12:46:44 -0500
-In-Reply-To: <Pine.GSO.4.10.10710310408190.9897-100000@guinness>
+	id S1751063AbXKFSDV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Nov 2007 13:03:21 -0500
+In-Reply-To: <472FB375.1020802@trash.net> (Patrick McHardy's message of "Tue, 06 Nov 2007 01:21:09 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sreenivasa Honnur wrote:
-> - Fixed memory leak by freeing MSI-X local entry memories when vector allocation
-> fails in s2io_add_isr.
-> - Added two utility functions remove_msix_isr and remove_inta_isr to eliminate
-> code duplication.
-> - Implemented following review comments from Jeff
-> 	- Removed redundant stats->mem_freed and synchronize_irq call
-> 	- do_rem_msix_isr is renamed as remove_msix_isr
-> 	- do_rem_inta_isr is renamed as remove_inta_isr
-> 
-> Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
-> Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
+Patrick McHardy <kaber@trash.net> writes:
 
-this patch should go into 2.6.24-rc, but it doesn't apply to upstream.
+> I think there is one more case that matters, which is briding
+> from a device with VLAN stripping for a VLAN not configured
+> locally. The tag will be stripped and will be lost for forwarded
+> packets.
 
-This may be because it requires "S2io: Support for 
-add/delete/store/restore ethernet addresses", I am guessing?
-
-We want to reverse the order of those two patches, because "S2io: 
-Support for add/delete/store/restore ethernet addresses" is more 
-appropriate for non-bug-fix 2.6.24 rather than current bugfix-only 
-2.6.24-rc.
-
-	Jeff
-
-
+I think we should drop such packets on RX. Anyway we shouldn't
+forward them.
+-- 
+Krzysztof Halasa
