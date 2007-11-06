@@ -1,68 +1,29 @@
-From: Alexey Dobriyan <adobriyan@sw.ru>
-Subject: [PATCH -net 2/2] Put proc_net_create() on death row
-Date: Tue, 6 Nov 2007 15:23:50 +0300
-Message-ID: <20071106122350.GB6215@localhost.sw.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -net 1/2] Convert /proc/net/ipv6_route to seq_file
+ interface
+Date: Tue, 06 Nov 2007 05:27:18 -0800 (PST)
+Message-ID: <20071106.052718.14115111.davem@davemloft.net>
+References: <20071106122150.GA6215@localhost.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	devel@openvz.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757683AbXKFMYU@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devel@openvz.org
+To: adobriyan@sw.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49136
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751079AbXKFN1U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2007 08:27:20 -0500
+In-Reply-To: <20071106122150.GA6215@localhost.sw.ru>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-proc_net_create() stands on the way of shrinking the number of
-interfaces one can use for /proc files, namely, it uses ->get_info
-hook which will be converted, deprecated and deleted on its own
-schedule.
+From: Alexey Dobriyan <adobriyan@sw.ru>
+Date: Tue, 6 Nov 2007 15:21:50 +0300
 
-Signed-off-by: Alexey Dobriyan <adobriyan@sw.ru>
----
+> This removes last proc_net_create() user. Kudos to Benjamin Thery and
+> Stephen Hemminger for comments on previous version.
+> 
+> Signed-off-by: Alexey Dobriyan <adobriyan@sw.ru>
 
- Documentation/feature-removal-schedule.txt |    9 +++++++++
- include/linux/proc_fs.h                    |    8 ++++++--
- 2 files changed, 15 insertions(+), 2 deletions(-)
-
---- a/Documentation/feature-removal-schedule.txt
-+++ b/Documentation/feature-removal-schedule.txt
-@@ -130,6 +130,15 @@ Who:	Christoph Hellwig <hch@lst.de>
- 
- ---------------------------
- 
-+What:	proc_net_create()
-+When:	2.6.25
-+Why:	proc_net_create() stands on the way of shrinking the number of
-+	interfaces one can use for /proc files, namely, it uses ->get_info
-+	hook which will be deleted later.
-+Who:	Alexey Dobriyan <adobriyan@gmail.com>
-+
-+---------------------------
-+
- What:	CONFIG_FORCED_INLINING
- When:	June 2006
- Why:	Config option is there to see if gcc is good enough. (in january
---- a/include/linux/proc_fs.h
-+++ b/include/linux/proc_fs.h
-@@ -196,7 +196,7 @@ static inline struct proc_dir_entry *create_proc_info_entry(const char *name,
- 	return res;
- }
- 
--extern struct proc_dir_entry *proc_net_create(struct net *net,
-+extern __deprecated struct proc_dir_entry *proc_net_create(struct net *net,
- 	const char *name, mode_t mode, get_info_t *get_info);
- extern struct proc_dir_entry *proc_net_fops_create(struct net *net,
- 	const char *name, mode_t mode, const struct file_operations *fops);
-@@ -208,7 +208,11 @@ extern void proc_net_remove(struct net *net, const char *name);
- #define proc_bus NULL
- 
- #define proc_net_fops_create(net, name, mode, fops)  ({ (void)(mode), NULL; })
--#define proc_net_create(net, name, mode, info)	({ (void)(mode), NULL; })
-+static inline __deprecated struct proc_dir_entry *proc_net_create(
-+	struct net *net, const char *name, mode_t mode, get_info_t *get_info)
-+{
-+	return NULL;
-+}
- static inline void proc_net_remove(struct net *net, const char *name) {}
- 
- static inline void proc_flush_task(struct task_struct *task)
+Applied.
