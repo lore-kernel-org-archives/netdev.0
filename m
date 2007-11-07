@@ -1,53 +1,78 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 13/13] SCTP: Always flush the queue when uncorcking.
-Date: Wed,  7 Nov 2007 12:46:31 -0500
-Message-ID: <1194457591442-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH 05/13] SCTP: Correctly disable ADD-IP when AUTH is not supported.
+Date: Wed,  7 Nov 2007 12:46:23 -0500
+Message-ID: <11944575911261-git-send-email-vladislav.yasevich@hp.com>
 References: <11944575911538-git-send-email-vladislav.yasevich@hp.com>
 Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net,
 	Vlad Yasevich <vladislav.yasevich@hp.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel13.hp.com ([156.153.255.238]:39651 "EHLO palrel13.hp.com"
+Received: from palrel11.hp.com ([156.153.255.246]:35350 "EHLO palrel11.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755044AbXKGSFR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Nov 2007 13:05:17 -0500
+	id S1755738AbXKGSGb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 13:06:31 -0500
 In-Reply-To: <11944575911538-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When the code calls uncork, trigger a queue flush, even
-if the queue was not corked.  Most callers that explicitly
-cork the queue will have additional checks to see if they
-corked it.  Callers who do not cork the queue expect packets
-to flow when they call uncork.
-
-The scenario that showcased this bug happened when we were not
-able to bundle DATA with outgoing COOKIE-ECHO.  As a result
-the data just sat in the outqueue and did not get transmitted.
-The application expected a response, but nothing happened.
-
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
- net/sctp/outqueue.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ include/net/sctp/structs.h |    1 -
+ net/sctp/associola.c       |    2 +-
+ net/sctp/sm_make_chunk.c   |    5 +++--
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 99a3db5..fa76f23 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -662,10 +662,9 @@ static int sctp_outq_flush_rtx(struct sctp_outq *q, struct sctp_packet *pkt,
- int sctp_outq_uncork(struct sctp_outq *q)
- {
- 	int error = 0;
--	if (q->cork) {
-+	if (q->cork)
- 		q->cork = 0;
--		error = sctp_outq_flush(q, 0);
--	}
-+	error = sctp_outq_flush(q, 0);
- 	return error;
- }
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index a177017..41f1039 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -1540,7 +1540,6 @@ struct sctp_association {
+ 		__u8    asconf_capable;  /* Does peer support ADDIP? */
+ 		__u8    prsctp_capable;  /* Can peer do PR-SCTP? */
+ 		__u8	auth_capable;	 /* Is peer doing SCTP-AUTH? */
+-		__u8	addip_capable;	 /* Can peer do ADD-IP */
  
+ 		__u32   adaptation_ind;	 /* Adaptation Code point. */
+ 
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 03158e3..eaad5c5 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -265,7 +265,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
+ 	/* Assume that the peer recongizes ASCONF until reported otherwise
+ 	 * via an ERROR chunk.
+ 	 */
+-	asoc->peer.asconf_capable = 1;
++	asoc->peer.asconf_capable = 0;
+ 
+ 	/* Create an input queue.  */
+ 	sctp_inq_init(&asoc->base.inqueue);
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index c60564d..2ff3a3d 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -1847,7 +1847,7 @@ static void sctp_process_ext_param(struct sctp_association *asoc,
+ 			    break;
+ 		    case SCTP_CID_ASCONF:
+ 		    case SCTP_CID_ASCONF_ACK:
+-			    asoc->peer.addip_capable = 1;
++			    asoc->peer.asconf_capable = 1;
+ 			    break;
+ 		    default:
+ 			    break;
+@@ -2138,10 +2138,11 @@ int sctp_process_init(struct sctp_association *asoc, sctp_cid_t cid,
+ 	/* If the peer claims support for ADD-IP without support
+ 	 * for AUTH, disable support for ADD-IP.
+ 	 */
+-	if (asoc->peer.addip_capable && !asoc->peer.auth_capable) {
++	if (asoc->peer.asconf_capable && !asoc->peer.auth_capable) {
+ 		asoc->peer.addip_disabled_mask |= (SCTP_PARAM_ADD_IP |
+ 						  SCTP_PARAM_DEL_IP |
+ 						  SCTP_PARAM_SET_PRIMARY);
++		asoc->peer.asconf_capable = 0;
+ 	}
+ 
+ 	/* Walk list of transports, removing transports in the UNKNOWN state. */
 -- 
 1.5.2.4
 
