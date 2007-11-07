@@ -1,136 +1,116 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 12/24] [IPSEC]: Forbid BEET + ipcomp for now
-Date: Wed, 07 Nov 2007 22:08:28 +0800
-Message-ID: <E1Ipla0-0001HT-00@gondolin.me.apana.org.au>
+Subject: [PATCH 8/24] [IPSEC]: Make sure idev is consistent with dev in xfrm_dst
+Date: Wed, 07 Nov 2007 22:08:24 +0800
+Message-ID: <E1IplZw-0001Gx-00@gondolin.me.apana.org.au>
 References: <20071107140701.GA4685@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3560 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:3536 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758570AbXKGOIq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 09:08:46 -0500
+	with ESMTP id S1758462AbXKGOIb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 09:08:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Forbid BEET + ipcomp for now
+[IPSEC]: Make sure idev is consistent with dev in xfrm_dst
 
-While BEET can theoretically work with IPComp the current code can't do that
-because it tries to construct a BEET mode tunnel type which doesn't (and
-cannot) exist.  In fact as it is it won't even attach a tunnel object at
-all for BEET which is bogus.
+Previously we took the device from the bottom route and idev from the top
+route.  This is bad because idev may well point to a different device.
+This patch changes it so that we get the idev from the device directly.
 
-To support this fully we'd also need to change the policy checks on input
-to recognise a plain tunnel as a legal variant of an optional BEET transform.
+It also makes it an error if either dev or idev is NULL.  This is consistent
+with the rest of the routing code which also treats these cases as errors.
 
-This patch simply fails such constructions for now.
+I've removed the err initialisation in xfrm6_policy.c because it achieves
+no purpose and hid a bug when an initial version of this patch neglected
+to set err to -ENODEV (fortunately the IPv4 version warned about it).
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/ipv4/ipcomp.c  |   20 ++++++++++++--------
- net/ipv6/ipcomp6.c |   19 ++++++++-----------
- 2 files changed, 20 insertions(+), 19 deletions(-)
+ net/ipv4/xfrm4_policy.c |   13 +++++++++----
+ net/ipv6/xfrm6_policy.c |   15 ++++++++++-----
+ 2 files changed, 19 insertions(+), 9 deletions(-)
 
-diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
-index ca1b5fd..afcdbf4 100644
---- a/net/ipv4/ipcomp.c
-+++ b/net/ipv4/ipcomp.c
-@@ -181,7 +181,6 @@ static void ipcomp4_err(struct sk_buff *skb, u32 info)
- static struct xfrm_state *ipcomp_tunnel_create(struct xfrm_state *x)
- {
- 	struct xfrm_state *t;
--	u8 mode = XFRM_MODE_TUNNEL;
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index c40a71b..d903c8b 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -153,14 +153,21 @@ __xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
  
- 	t = xfrm_state_alloc();
- 	if (t == NULL)
-@@ -192,9 +191,7 @@ static struct xfrm_state *ipcomp_tunnel_create(struct xfrm_state *x)
- 	t->id.daddr.a4 = x->id.daddr.a4;
- 	memcpy(&t->sel, &x->sel, sizeof(t->sel));
- 	t->props.family = AF_INET;
--	if (x->props.mode == XFRM_MODE_BEET)
--		mode = x->props.mode;
--	t->props.mode = mode;
-+	t->props.mode = x->props.mode;
- 	t->props.saddr.a4 = x->props.saddr.a4;
- 	t->props.flags = x->props.flags;
+ 	dst_prev = *dst_p;
+ 	i = 0;
++	err = -ENODEV;
+ 	for (; dst_prev != &rt->u.dst; dst_prev = dst_prev->child) {
+ 		struct xfrm_dst *x = (struct xfrm_dst*)dst_prev;
+ 		x->u.rt.fl = *fl;
  
-@@ -388,15 +385,22 @@ static int ipcomp_init_state(struct xfrm_state *x)
- 	if (x->encap)
- 		goto out;
- 
-+	x->props.header_len = 0;
-+	switch (x->props.mode) {
-+	case XFRM_MODE_TRANSPORT:
-+		break;
-+	case XFRM_MODE_TUNNEL:
-+		x->props.header_len += sizeof(struct iphdr);
-+		break;
-+	default:
-+		goto out;
-+	}
+ 		dst_prev->xfrm = xfrm[i++];
+ 		dst_prev->dev = rt->u.dst.dev;
+-		if (rt->u.dst.dev)
+-			dev_hold(rt->u.dst.dev);
++		if (!rt->u.dst.dev)
++			goto error;
++		dev_hold(rt->u.dst.dev);
 +
- 	err = -ENOMEM;
- 	ipcd = kzalloc(sizeof(*ipcd), GFP_KERNEL);
- 	if (!ipcd)
- 		goto out;
- 
--	x->props.header_len = 0;
--	if (x->props.mode == XFRM_MODE_TUNNEL)
--		x->props.header_len += sizeof(struct iphdr);
--
- 	mutex_lock(&ipcomp_resource_mutex);
- 	if (!ipcomp_alloc_scratches())
- 		goto error;
-diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
-index 85eb479..eca0595 100644
---- a/net/ipv6/ipcomp6.c
-+++ b/net/ipv6/ipcomp6.c
-@@ -189,7 +189,6 @@ static void ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- static struct xfrm_state *ipcomp6_tunnel_create(struct xfrm_state *x)
- {
- 	struct xfrm_state *t = NULL;
--	u8 mode = XFRM_MODE_TUNNEL;
- 
- 	t = xfrm_state_alloc();
- 	if (!t)
-@@ -203,9 +202,7 @@ static struct xfrm_state *ipcomp6_tunnel_create(struct xfrm_state *x)
- 	memcpy(t->id.daddr.a6, x->id.daddr.a6, sizeof(struct in6_addr));
- 	memcpy(&t->sel, &x->sel, sizeof(t->sel));
- 	t->props.family = AF_INET6;
--	if (x->props.mode == XFRM_MODE_BEET)
--		mode = x->props.mode;
--	t->props.mode = mode;
-+	t->props.mode = x->props.mode;
- 	memcpy(t->props.saddr.a6, x->props.saddr.a6, sizeof(struct in6_addr));
- 
- 	if (xfrm_init_state(t))
-@@ -404,22 +401,22 @@ static int ipcomp6_init_state(struct xfrm_state *x)
- 	if (x->encap)
- 		goto out;
- 
--	err = -ENOMEM;
--	ipcd = kzalloc(sizeof(*ipcd), GFP_KERNEL);
--	if (!ipcd)
--		goto out;
--
- 	x->props.header_len = 0;
- 	switch (x->props.mode) {
--	case XFRM_MODE_BEET:
- 	case XFRM_MODE_TRANSPORT:
- 		break;
- 	case XFRM_MODE_TUNNEL:
- 		x->props.header_len += sizeof(struct ipv6hdr);
-+		break;
- 	default:
--		goto error;
-+		goto out;
++		x->u.rt.idev = in_dev_get(rt->u.dst.dev);
++		if (!x->u.rt.idev)
++			goto error;
++
+ 		dst_prev->obsolete	= -1;
+ 		dst_prev->flags	       |= DST_HOST;
+ 		dst_prev->lastuse	= jiffies;
+@@ -181,8 +188,6 @@ __xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+ 		x->u.rt.rt_dst = rt0->rt_dst;
+ 		x->u.rt.rt_gateway = rt0->rt_gateway;
+ 		x->u.rt.rt_spec_dst = rt0->rt_spec_dst;
+-		x->u.rt.idev = rt0->idev;
+-		in_dev_hold(rt0->idev);
+ 		header_len -= x->u.dst.xfrm->props.header_len;
+ 		trailer_len -= x->u.dst.xfrm->props.trailer_len;
  	}
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index a1c6b7c..f04e718 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -123,7 +123,7 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+ 		}
+ 	};
+ 	int i;
+-	int err = 0;
++	int err;
+ 	int header_len = 0;
+ 	int trailer_len = 0;
  
-+	err = -ENOMEM;
-+	ipcd = kzalloc(sizeof(*ipcd), GFP_KERNEL);
-+	if (!ipcd)
-+		goto out;
+@@ -201,13 +201,20 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+ 
+ 	dst_prev = *dst_p;
+ 	i = 0;
++	err = -ENODEV;
+ 	for (; dst_prev != &rt->u.dst; dst_prev = dst_prev->child) {
+ 		struct xfrm_dst *x = (struct xfrm_dst*)dst_prev;
+ 
+ 		dst_prev->xfrm = xfrm[i++];
+ 		dst_prev->dev = rt->u.dst.dev;
+-		if (rt->u.dst.dev)
+-			dev_hold(rt->u.dst.dev);
++		if (!rt->u.dst.dev)
++			goto error;
++		dev_hold(rt->u.dst.dev);
 +
- 	mutex_lock(&ipcomp6_resource_mutex);
- 	if (!ipcomp6_alloc_scratches())
- 		goto error;
++		x->u.rt6.rt6i_idev = in6_dev_get(rt->u.dst.dev);
++		if (!x->u.rt6.rt6i_idev)
++			goto error;
++
+ 		dst_prev->obsolete	= -1;
+ 		dst_prev->flags	       |= DST_HOST;
+ 		dst_prev->lastuse	= jiffies;
+@@ -226,8 +233,6 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+ 		memcpy(&x->u.rt6.rt6i_gateway, &rt0->rt6i_gateway, sizeof(x->u.rt6.rt6i_gateway));
+ 		x->u.rt6.rt6i_dst      = rt0->rt6i_dst;
+ 		x->u.rt6.rt6i_src      = rt0->rt6i_src;
+-		x->u.rt6.rt6i_idev     = rt0->rt6i_idev;
+-		in6_dev_hold(rt0->rt6i_idev);
+ 		header_len -= x->u.dst.xfrm->props.header_len;
+ 		trailer_len -= x->u.dst.xfrm->props.trailer_len;
+ 	}
