@@ -1,125 +1,45 @@
-From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Subject: RE: [PATCH 02/05] ipv6: RFC4214 Support
-Date: Wed, 7 Nov 2007 08:12:08 -0800
-Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDBEB@XCH-NW-7V2.nw.nos.boeing.com>
-References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDBE3@XCH-NW-7V2.nw.nos.boeing.com> <200711071658.59478.netdev@axxeo.de>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH][PACKET] Remove unneeded packet_socks_nr variable
+Date: Wed, 07 Nov 2007 19:16:14 +0300
+Message-ID: <4731E4CE.6030603@openvz.org>
+References: <4731DAA3.7060306@openvz.org> <20071107155004.GI27345@ghostprotocols.net> <20071107155301.GJ27345@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Ingo Oeser" <netdev@axxeo.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from blv-smtpout-01.boeing.com ([130.76.32.69]:65201 "EHLO
-	blv-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753650AbXKGQOa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 11:14:30 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <200711071658.59478.netdev@axxeo.de>
+Received: from sacred.ru ([62.205.161.221]:50310 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753379AbXKGQQ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 11:16:28 -0500
+In-Reply-To: <20071107155301.GJ27345@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks for these, Ingo. Will fix and test immediately.
+Arnaldo Carvalho de Melo wrote:
+> Em Wed, Nov 07, 2007 at 01:50:04PM -0200, Arnaldo Carvalho de Melo escreveu:
+>> Em Wed, Nov 07, 2007 at 06:32:51PM +0300, Pavel Emelyanov escreveu:
+>>> This one is used only under ifdef PACKET_REFCNT_DEBUG in
+>>> printk and is not needed otherwise. So hide all this stuff
+>>> under the PACKET_REFCNT_DEBUG.
+>>>
+>>> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+>> Look at sk_refcnt_debug_inc, etc and you'll se a more standard way. I
+>> forgot to make this when making all protocol families use sk_prot, even
+>> if just partially :-)
+> 
+> As a bonus you'll get this information on /proc/net/protocols, removing
+> '-1' from PACKET column for "sockets".
 
-Fred
-fred.l.templin@boeing.com 
+Hm... I actually thought about this, but I decided that packet
+sockets were not accounted in this way deliberately.
 
-> -----Original Message-----
-> From: Ingo Oeser [mailto:netdev@axxeo.de] 
-> Sent: Wednesday, November 07, 2007 7:59 AM
-> To: Templin, Fred L
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [PATCH 02/05] ipv6: RFC4214 Support
-> 
-> Hi Fred,
-> 
-> some comments.
-> 
-> Templin, Fred L schrieb:
-> > From: Fred L. Templin <fred.l.templin@boeing.com>
-> > 
-> > This is experimental support for the Intra-Site Automatic
-> > Tunnel Addressing Protocol (ISATAP) per RFC4214. It uses
-> > the SIT module, and is configured using the unmodified
-> > "ip" utility with device names beginning with: "isatap".
-> > 
-> > The following diffs are specific to the Linux 2.6.23
-> > kernel distribution.
-> > 
-> > Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
-> > 
-> > ---
-> > 
-> > --- linux-2.6.23/include/net/addrconf.h.orig	2007-10-09
-> > 13:31:38.000000000 -0700
-> > +++ linux-2.6.23/include/net/addrconf.h	2007-10-26 
-> 10:49:40.000000000
-> > -0700
-> > @@ -241,6 +241,34 @@ static inline int ipv6_addr_is_ll_all_ro
-> >  		addr->s6_addr32[3] == htonl(0x00000002));
-> >  }
-> >  
-> > +#if defined(CONFIG_IPV6_ISATAP)
-> > +static inline int ipv6_isatap_eui64(u8 *eui, __be32 *addr)
-> "addr" is only used for reading, not writing. No need to pass 
-> it as a pointer.
-> 
-> > +{
-> > +	__be32 ipv4 = ntohl(*addr);
-> 
-> ntohl(be32_value) != be32_value, so the _be32 attribution of ipv4 
-> is wrong here and sparse will scream.
-> 
-> > +
-> > +	eui[0] = 0;
-> > +
-> > +	/* Check for RFC3330 global address ranges */
-> > +	if (((ipv4 >= 0x01000000) && (ipv4 < 0x0a000000)) ||
-> > +	    ((ipv4 >= 0x0b000000) && (ipv4 < 0x7f000000)) ||
-> > +	    ((ipv4 >= 0x80000000) && (ipv4 < 0xa9fe0000)) ||
-> > +	    ((ipv4 >= 0xa9ff0000) && (ipv4 < 0xac100000)) ||
-> > +	    ((ipv4 >= 0xac200000) && (ipv4 < 0xc0a80000)) ||
-> > +	    ((ipv4 >= 0xc0a90000) && (ipv4 < 0xc6120000)) ||
-> > +	    ((ipv4 >= 0xc6140000) && (ipv4 < 0xe0000000))) eui[0] |=
-> > 0x2;
-> > +
-> 
-> Instead of converting network to host byte order at runtime 
-> and comparing the results to constants, let the compiler convert
-> the constants to network byte order and compare in network order.
-> 
-> so use:
-> 
->  if (((*addr >= htonl(0x01000000)) && (*addr < 
-> htonl(0x0a000000))) || ....
-> 
-> instead. The compiler will notice that "0x01000000" is a 
-> constant and will
-> use "_constant_htonl()" automatically.
-> 
-> 
-> > +	eui[1] = 0; eui[2] = 0x5E; eui[3] = 0xFE;
-> > +	memcpy (eui+4, addr, 4);
-> > +	return (0);
-> > +}
-> 
-> Nitpick: 
-> 	"return" is not a function. Please write "return 0;" instead.
-> 
-> > +
-> > +static inline int ipv6_addr_is_isatap(const struct in6_addr *addr)
-> > +{
-> > +       return (addr->s6_addr32[2] == 
-> __constant_htonl(0x02005EFE) ||
-> > +               addr->s6_addr32[2] == __constant_htonl(0x00005EFE));
-> > +}
-> > +#endif
-> 
-> The compiler will notice that "0x01000000" is a constant and will
-> use "_constant_htonl()" automatically. Please use simply htonl().
-> 
-> 
-> Best Regards
-> 
-> Ingo Oeser
-> 
+So, shall I break this "compatibility" (-1 in proc) and provide
+a packet socket number in this file?
+
+> - Arnaldo
+
+Thanks,
+Pavel
