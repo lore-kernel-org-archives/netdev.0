@@ -1,31 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] always export sysctl_{r,w}mem_max
-Date: Tue, 06 Nov 2007 23:50:40 -0800 (PST)
-Message-ID: <20071106.235040.15743646.davem@davemloft.net>
-References: <472278E3.4000909@hp.com>
-	<20071026.163958.171785530.davem@davemloft.net>
-	<m1d4v1whh5.fsf@ebiederm.dsl.xmission.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH 00/05] ipv6: RFC4214 Support
+Date: Tue, 6 Nov 2007 23:54:07 -0800
+Message-ID: <OFF45233E5.73C392C8-ON8825738C.00298603-8825738C.002B4AB8@us.ibm.com>
+References: <Pine.LNX.4.64.0711070856130.27362@netcore.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, bunk@kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: ebiederm@xmission.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>, Fred.L.Templin@boeing.com,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: Pekka Savola <pekkas@netcore.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35839
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755882AbXKGHuo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 02:50:44 -0500
-In-Reply-To: <m1d4v1whh5.fsf@ebiederm.dsl.xmission.com>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:38319 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755910AbXKGHyL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 02:54:11 -0500
+In-Reply-To: <Pine.LNX.4.64.0711070856130.27362@netcore.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Fri, 26 Oct 2007 18:04:22 -0600
+> give it away on this specific instance.  I'm not sure if you should 
+> attribute to hidden agendas what you can explain by "doing the right 
+> thing" (granted, very few companies do this which may make it suspect, 
+> but still..).
 
-> So if this is really something we want to stop doing we should
-> be able to take a few extra moments remove the code from the
-> two problem drivers, and remove the exports.
+Pekka,
+        I'm not assuming hidden agendas here; I simply don't know what
+they mean by "no license for implementers."  It doesn't say they
+relinquish *all* licensing, which would be clearer if that's what they
+mean. If implementers, distributors, and users are included, then
+who's left that does need licensing? If that answer really is nobody,
+then why bother with "for implementers."?
+        So, I don't think it's a hidden agenda, I think they said what
+they mean. I just don't know what they mean. :-)
 
-I've killed the references in dlm and rrunner in the net-2.6
-tree.
+                                                                +-DLS
+
