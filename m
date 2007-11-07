@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Clean proto_(un)register from in-code ifdefs
-Date: Wed, 07 Nov 2007 02:23:48 -0800 (PST)
-Message-ID: <20071107.022348.103221163.davem@davemloft.net>
-References: <4730A258.2060304@openvz.org>
+Subject: Re: [2.6 patch] remove Documentation/networking/Configurable
+Date: Wed, 07 Nov 2007 02:26:22 -0800 (PST)
+Message-ID: <20071107.022622.105062875.davem@davemloft.net>
+References: <20071105170510.GR12045@stusta.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org
-To: xemul@openvz.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: bunk@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58559
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35840
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752460AbXKGKXs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 05:23:48 -0500
-In-Reply-To: <4730A258.2060304@openvz.org>
+	by vger.kernel.org with ESMTP id S1751382AbXKGK0X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 05:26:23 -0500
+In-Reply-To: <20071105170510.GR12045@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Tue, 06 Nov 2007 20:20:24 +0300
+From: Adrian Bunk <bunk@kernel.org>
+Date: Mon, 5 Nov 2007 18:05:11 +0100
 
-> The struct proto has the per-cpu "inuse" counter, which is handled
-> with a special care. All the handling code hides under the ifdef 
-> CONFIG_SMP and it introduces some code duplication and makes it 
-> look worse than it could.
+> After more than 11 years this file does no longer contain much useful 
+> information.
 > 
-> Clean this.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-Applied, thanks!
+Applied.
