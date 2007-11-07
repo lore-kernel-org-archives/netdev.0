@@ -1,34 +1,43 @@
-From: Moni Shoua <monisonlists@gmail.com>
-Subject: Re: [PATCH 1/2] bonding: fix rtnl locking merge error
-Date: Wed, 07 Nov 2007 16:45:23 +0200
-Message-ID: <4731CF83.20107@gmail.com>
-References: <11943848091427-git-send-email-fubar@us.ibm.com> <11943848132752-git-send-email-fubar@us.ibm.com>
+From: Moni Shoua <monis@voltaire.com>
+Subject: Re: bonding / 2.6.24-rc1 issues
+Date: Wed, 07 Nov 2007 16:52:23 +0200
+Message-ID: <4731D127.9060301@voltaire.com>
+References: <4731C2DE.4000701@voltaire.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>, Roland Dreier <rolandd@cisco.com>,
+	netdev@vger.kernel.org, Moni Levy <monil@voltaire.com>
+To: Or Gerlitz <ogerlitz@voltaire.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:19361 "EHLO exil.voltaire.com"
+Received: from fwil.voltaire.com ([193.47.165.2]:22166 "EHLO exil.voltaire.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753091AbXKGOpe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Nov 2007 09:45:34 -0500
-In-Reply-To: <11943848132752-git-send-email-fubar@us.ibm.com>
+	id S1758624AbXKGOw0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 09:52:26 -0500
+In-Reply-To: <4731C2DE.4000701@voltaire.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
-> 	Looks like I incorrectly merged one of the rtnl lock changes,
-> so that one function, bonding_show_active_slave, held rtnl but didn't
-> release it, and another, bonding_store_active_slave, never held rtnl but
-> did release it.
+Or Gerlitz wrote:
+> Jay, Moni
 > 
-> 	Fixed so the first function doesn't mess with rtnl, and the
-> second correctly acquires and releases rtnl.
+> I did some tests with 2.6.24-rc1 and the first patch to bonding that Jay
+> sent last night to netdev. Basic operation and fail over work fine.
+> However, I see some crashes which are somehow related to destroying the
+> bond when the slaves are ipoib ones, I don't see similar crashes when
+> enslaving ethernet devices (Broadcom Corporation NetXtreme BCM5704
+> Gigabit Ethernet (rev 03)), my compressed dot config is attached.
 > 
-> 	Bug reported by Moni Shoua <monis@voltaire.com>
+> The first type of oops is when I just do modprobe -r bonding after
+> enslavement of the ipoib devices:
+> 
+> 
+> the second type of oops is when I modprobe -r ib_ipoib after
+> enslavement. I was not able to test this one with ethernet as the tg3
+> code is built into my kernel
 
-I ran some shallow tests and it seems that the patch fixes  the problem.
+I couldn't reproduce the first oops. However, after applying Jay's
+fixes for 2.6.24-rc1 I managed to reproduce the second oops.
+I will try to look into it.
 
-thanks
 
