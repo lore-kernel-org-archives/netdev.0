@@ -1,37 +1,54 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH 00/05] ipv6: RFC4214 Support
-Date: Tue, 6 Nov 2007 23:54:07 -0800
-Message-ID: <OFF45233E5.73C392C8-ON8825738C.00298603-8825738C.002B4AB8@us.ibm.com>
-References: <Pine.LNX.4.64.0711070856130.27362@netcore.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [2.6 patch] let USB_USBNET always select MII
+Date: Wed, 07 Nov 2007 00:10:45 -0800 (PST)
+Message-ID: <20071107.001045.90391662.davem@davemloft.net>
+References: <200711012024.57412.toralf.foerster@gmx.de>
+	<20071101222524.GB7227@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>, Fred.L.Templin@boeing.com,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: Pekka Savola <pekkas@netcore.fi>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: toralf.foerster@gmx.de, dbrownell@users.sourceforge.net,
+	jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: bunk@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:38319 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755910AbXKGHyL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 02:54:11 -0500
-In-Reply-To: <Pine.LNX.4.64.0711070856130.27362@netcore.fi>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46758
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756608AbXKGIKx convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 03:10:53 -0500
+In-Reply-To: <20071101222524.GB7227@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> give it away on this specific instance.  I'm not sure if you should 
-> attribute to hidden agendas what you can explain by "doing the right 
-> thing" (granted, very few companies do this which may make it suspect, 
-> but still..).
+=46rom: Adrian Bunk <bunk@kernel.org>
+Date: Thu, 1 Nov 2007 23:25:24 +0100
 
-Pekka,
-        I'm not assuming hidden agendas here; I simply don't know what
-they mean by "no license for implementers."  It doesn't say they
-relinquish *all* licensing, which would be clearer if that's what they
-mean. If implementers, distributors, and users are included, then
-who's left that does need licensing? If that answer really is nobody,
-then why bother with "for implementers."?
-        So, I don't think it's a hidden agenda, I think they said what
-they mean. I just don't know what they mean. :-)
+> All this USB_USBNET_MII trickery is simply not worth it considering h=
+ow=20
+> few code it saves.
+>=20
+> As a side effect, this also fixes the following compile error reporte=
+d=20
+> by Toralf F=F6rster:
+>=20
+> <--  snip  -->
+>=20
+> ...
+>   LD      .tmp_vmlinux1
+> drivers/built-in.o: In function `usbnet_set_settings':
+> (.text+0xf1876): undefined reference to `mii_ethtool_sset'
+> drivers/built-in.o: In function `usbnet_get_settings':
+> (.text+0xf1836): undefined reference to `mii_ethtool_gset'
+> drivers/built-in.o: In function `usbnet_get_link':
+> (.text+0xf18d6): undefined reference to `mii_link_ok'
+> drivers/built-in.o: In function `usbnet_nway_reset':
+> (.text+0xf18f6): undefined reference to `mii_nway_restart'
+> make: *** [.tmp_vmlinux1] Error 1
+>=20
+> <--  snip  -->
+>=20
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-                                                                +-DLS
+Applied, thanks Adrian.
 
