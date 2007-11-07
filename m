@@ -1,78 +1,41 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 05/13] SCTP: Correctly disable ADD-IP when AUTH is not supported.
-Date: Wed,  7 Nov 2007 12:46:23 -0500
-Message-ID: <11944575911261-git-send-email-vladislav.yasevich@hp.com>
-References: <11944575911538-git-send-email-vladislav.yasevich@hp.com>
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: davem@davemloft.net
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] ethtool: add support for supporting 10000baseT
+Date: Wed, 07 Nov 2007 10:06:56 -0800
+Message-ID: <4731FEC0.4020803@intel.com>
+References: <20071107162420.5102.26358.stgit@localhost.localdomain> <20071107165749.GB3320@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel11.hp.com ([156.153.255.246]:35350 "EHLO palrel11.hp.com"
+Received: from mga02.intel.com ([134.134.136.20]:16135 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755738AbXKGSGb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Nov 2007 13:06:31 -0500
-In-Reply-To: <11944575911538-git-send-email-vladislav.yasevich@hp.com>
+	id S1758972AbXKGSHV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 13:07:21 -0500
+In-Reply-To: <20071107165749.GB3320@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- include/net/sctp/structs.h |    1 -
- net/sctp/associola.c       |    2 +-
- net/sctp/sm_make_chunk.c   |    5 +++--
- 3 files changed, 4 insertions(+), 4 deletions(-)
+Ben Hutchings wrote:
+> Auke Kok wrote:
+>> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>>
+>> there is missing support in ethtool for reporting 10000baseT
+>> as SUPPORTED_10000baseT_Full.  The code seems to be half
+>> implemented because the "advertising" field has the implementation.
+> 
+> I reported this lack on Sourceforge a while back:
+> <http://sourceforge.net/tracker/index.php?func=detail&aid=1798807&group_id=3242&atid=103242>
+> Is anyone reading bugs reported there?
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index a177017..41f1039 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -1540,7 +1540,6 @@ struct sctp_association {
- 		__u8    asconf_capable;  /* Does peer support ADDIP? */
- 		__u8    prsctp_capable;  /* Can peer do PR-SCTP? */
- 		__u8	auth_capable;	 /* Is peer doing SCTP-AUTH? */
--		__u8	addip_capable;	 /* Can peer do ADD-IP */
- 
- 		__u32   adaptation_ind;	 /* Adaptation Code point. */
- 
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 03158e3..eaad5c5 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -265,7 +265,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
- 	/* Assume that the peer recongizes ASCONF until reported otherwise
- 	 * via an ERROR chunk.
- 	 */
--	asoc->peer.asconf_capable = 1;
-+	asoc->peer.asconf_capable = 0;
- 
- 	/* Create an input queue.  */
- 	sctp_inq_init(&asoc->base.inqueue);
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index c60564d..2ff3a3d 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -1847,7 +1847,7 @@ static void sctp_process_ext_param(struct sctp_association *asoc,
- 			    break;
- 		    case SCTP_CID_ASCONF:
- 		    case SCTP_CID_ASCONF_ACK:
--			    asoc->peer.addip_capable = 1;
-+			    asoc->peer.asconf_capable = 1;
- 			    break;
- 		    default:
- 			    break;
-@@ -2138,10 +2138,11 @@ int sctp_process_init(struct sctp_association *asoc, sctp_cid_t cid,
- 	/* If the peer claims support for ADD-IP without support
- 	 * for AUTH, disable support for ADD-IP.
- 	 */
--	if (asoc->peer.addip_capable && !asoc->peer.auth_capable) {
-+	if (asoc->peer.asconf_capable && !asoc->peer.auth_capable) {
- 		asoc->peer.addip_disabled_mask |= (SCTP_PARAM_ADD_IP |
- 						  SCTP_PARAM_DEL_IP |
- 						  SCTP_PARAM_SET_PRIMARY);
-+		asoc->peer.asconf_capable = 0;
- 	}
- 
- 	/* Walk list of transports, removing transports in the UNKNOWN state. */
--- 
-1.5.2.4
+not really. However with plenty of new 10gig hardware going through here we're
+currently looking at ethtool support and seeing if it misses anything. If you spot
+issues, please Cc me or Jesse and netdev and of course Jeff Garzik so we can get
+some patches out.
 
+I just noticed an e1000 specific ethtool issue on there that we'll take a look at
+as well.
+
+Auke
