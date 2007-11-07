@@ -1,68 +1,260 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 02/05] ipv6: RFC4214 Support
-Date: Thu, 08 Nov 2007 03:12:14 +0900 (JST)
-Message-ID: <20071108.031214.124029872.yoshfuji@linux-ipv6.org>
-References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDBE3@XCH-NW-7V2.nw.nos.boeing.com>
-	<200711071658.59478.netdev@axxeo.de>
+From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Subject: RE: [PATCH 03/05] ipv6: RFC4214 Support
+Date: Wed, 7 Nov 2007 10:21:00 -0800
+Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDBF1@XCH-NW-7V2.nw.nos.boeing.com>
+References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDBE4@XCH-NW-7V2.nw.nos.boeing.com> <20071107093726.3c31055b@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Fred.L.Templin@boeing.com, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: netdev@axxeo.de
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:38797 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753916AbXKGSML (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 13:12:11 -0500
-In-Reply-To: <200711071658.59478.netdev@axxeo.de>
+Received: from blv-smtpout-01.boeing.com ([130.76.32.69]:37403 "EHLO
+	blv-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758721AbXKGSV0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 13:21:26 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20071107093726.3c31055b@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+ 
 
-In article <200711071658.59478.netdev@axxeo.de> (at Wed, 7 Nov 2007 16:58:59 +0100), Ingo Oeser <netdev@axxeo.de> says:
-
-> > +	eui[0] = 0;
-> > +
-> > +	/* Check for RFC3330 global address ranges */
-> > +	if (((ipv4 >= 0x01000000) && (ipv4 < 0x0a000000)) ||
-> > +	    ((ipv4 >= 0x0b000000) && (ipv4 < 0x7f000000)) ||
-> > +	    ((ipv4 >= 0x80000000) && (ipv4 < 0xa9fe0000)) ||
-> > +	    ((ipv4 >= 0xa9ff0000) && (ipv4 < 0xac100000)) ||
-> > +	    ((ipv4 >= 0xac200000) && (ipv4 < 0xc0a80000)) ||
-> > +	    ((ipv4 >= 0xc0a90000) && (ipv4 < 0xc6120000)) ||
-> > +	    ((ipv4 >= 0xc6140000) && (ipv4 < 0xe0000000))) eui[0] |=
-> > 0x2;
-> > +
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:shemminger@linux-foundation.org] 
+> Sent: Wednesday, November 07, 2007 9:37 AM
+> To: Templin, Fred L
+> Cc: netdev@vger.kernel.org
+> Subject: Re: [PATCH 03/05] ipv6: RFC4214 Support
 > 
-> Instead of converting network to host byte order at runtime 
-> and comparing the results to constants, let the compiler convert
-> the constants to network byte order and compare in network order.
+> On Tue, 6 Nov 2007 17:16:07 -0800
+> "Templin, Fred L" <Fred.L.Templin@boeing.com> wrote:
 > 
-> so use:
-> 
->  if (((*addr >= htonl(0x01000000)) && (*addr < htonl(0x0a000000))) || ....
-> 
-> instead. The compiler will notice that "0x01000000" is a constant and will
-> use "_constant_htonl()" automatically.
-
-No, you cannot do this.
-When you check the "range", you need to use host-byte order.
-
-> > +
-> > +static inline int ipv6_addr_is_isatap(const struct in6_addr *addr)
-> > +{
-> > +       return (addr->s6_addr32[2] == __constant_htonl(0x02005EFE) ||
-> > +               addr->s6_addr32[2] == __constant_htonl(0x00005EFE));
-> > +}
+> > From: Fred L. Templin <fred.l.templin@boeing.com>
+> > 
+> > This is experimental support for the Intra-Site Automatic
+> > Tunnel Addressing Protocol (ISATAP) per RFC4214. It uses
+> > the SIT module, and is configured using the unmodified
+> > "ip" utility with device names beginning with: "isatap".
+> > 
+> > The following diffs are specific to the Linux 2.6.23
+> > kernel distribution.
+> > 
+> > Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
+> > 
+> > ---
+> > 
+> > --- linux-2.6.23/net/ipv6/addrconf.c.orig	2007-10-09
+> > 13:31:38.000000000 -0700
+> > +++ linux-2.6.23/net/ipv6/addrconf.c	2007-10-31 
+> 13:08:45.000000000
+> > -0700
+> > @@ -73,7 +73,11 @@
+> >  #include <net/tcp.h>
+> >  #include <net/ip.h>
+> >  #include <net/netlink.h>
+> > +#if defined(CONFIG_IPV6_ISATAP)
+> > +#include <net/ipip.h>
+> > +#else
+> >  #include <linux/if_tunnel.h>
 > > +#endif
 > 
-> The compiler will notice that "0x01000000" is a constant and will
-> use "_constant_htonl()" automatically. Please use simply htonl().
+> That seems odd, changing includes used based on config option.
 
-Right.  And, maybe, you can write as follows:
-	return ((addr->s6_addr32[2] | htonl(0x02000000)) == htonl(0x02005EFE));
+The change was to remove the conditional and simply
+include <net/ipip.h>, since it also includes
+<linux/if_tunnel.h>. 
+ 
+> >  #include <linux/rtnetlink.h>
+> >  
+> >  #ifdef CONFIG_IPV6_PRIVACY
+> > @@ -1426,6 +1430,11 @@ static int ipv6_generate_eui64(u8 *eui, 
+> >  		return addrconf_ifid_arcnet(eui, dev);
+> >  	case ARPHRD_INFINIBAND:
+> >  		return addrconf_ifid_infiniband(eui, dev);
+> > +#if defined(CONFIG_IPV6_ISATAP)
+> > +	case ARPHRD_SIT:
+> > +		if (dev->priv_flags&IFF_ISATAP)
+> > +		return ipv6_isatap_eui64(eui, (__be32 *)dev->dev_addr);
+> > +#endif
+> Missing indentation
 
---yoshfuji
+Fixed.
+ 
+> >  	}
+> >  	return -1;
+> >  }
+> > @@ -2138,7 +2147,6 @@ static void addrconf_add_linklocal(struc
+> >  		addr_flags |= IFA_F_OPTIMISTIC;
+> >  #endif
+> >  
+> > -
+> 
+> avoid random whitespace changes
+
+Fixed.
+ 
+> >  	ifp = ipv6_add_addr(idev, addr, 64, IFA_LINK, addr_flags);
+> >  	if (!IS_ERR(ifp)) {
+> >  		addrconf_prefix_route(&ifp->addr, ifp->prefix_len,
+> > idev->dev, 0, 0);
+> > @@ -2192,6 +2200,32 @@ static void addrconf_sit_config(struct n
+> >  		return;
+> >  	}
+> >  
+> > +#if defined(CONFIG_IPV6_ISATAP)
+> > +	/* ISATAP (RFC4214) - configure as NBMA link */
+> > +	if (dev->priv_flags&IFF_ISATAP) {
+> 
+> missing spaces around & operator
+
+Fixed.
+ 
+> > +		struct in6_addr addr;
+> > +
+> > +		addrconf_add_lroute(dev);
+> > +
+> > +		addr.s6_addr32[0] = htonl(0xFE800000);
+> 
+> shouldn't this be defined somewhere rather than hardcoded
+> magic constant?
+
+Well, I see this occurring elsewhere within addrconf.c.
+I did however change:
+
+- addr.s6_addr32[0] = htonl(0xFE800000);
+- addr.s6_addr32[1] = 0;
+
+to:
+
++ ipv6_addr_set(&addr, htonl(0xFE800000), 0, 0, 0);
+
+(Similar change occurred in 2 other places.)
+ 
+> > +		addr.s6_addr32[1] = 0;
+> > +
+> > +		if (ipv6_generate_eui64(addr.s6_addr + 8, dev) == 0) {
+> > +		    struct inet6_ifaddr *ifp;
+> > +
+> > +		    if (!IS_ERR(ifp = ipv6_add_addr(idev, &addr, 64,
+> > +					IFA_LINK, IFA_F_PERMANENT))) {
+> 
+> split assignment and conditional please
+
+Fixed.
+
+> > +			addrconf_prefix_route(&ifp->addr,
+> > ifp->prefix_len,
+> > +					      idev->dev, 0, 0);
+> > +			addrconf_dad_start(ifp, 0);
+> > +			in6_ifa_put(ifp);
+> > +		    }
+> > +		}
+> > +
+> > +		return;
+> > +	}
+> > +#endif
+> > +
+> >  	sit_add_v4_addrs(idev);
+> >  
+> >  	if (dev->flags&IFF_POINTOPOINT) {
+> > @@ -2521,6 +2555,16 @@ static void addrconf_rs_timer(unsigned l
+> >  		 *	Announcement received after solicitation
+> >  		 *	was sent
+> >  		 */
+> > +#if defined(CONFIG_IPV6_ISATAP)
+> > +		/* ISATAP (RFC4214) - Re-DAD to trigger new RS/RA */
+> > +		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
+> > +			spin_lock(&ifp->lock);
+> > +			ifp->probes = 0;
+> > +			ifp->idev->if_flags &= ~(IF_RS_SENT|IF_RA_RCVD);
+> > +			addrconf_mod_timer(ifp, AC_DAD, HZ*120);
+> > +			spin_unlock(&ifp->lock);
+> > +		}
+> > +#endif
+> >  		goto out;
+> >  	}
+> >  
+> > @@ -2535,10 +2579,32 @@ static void addrconf_rs_timer(unsigned l
+> >  				   ifp->idev->cnf.rtr_solicit_interval);
+> >  		spin_unlock(&ifp->lock);
+> >  
+> > +#if defined(CONFIG_IPV6_ISATAP)
+> > +		/* ISATAP (RFC4214) - unicast RS */
+> > +		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
+> > +		    struct ip_tunnel *t = netdev_priv(ifp->idev->dev);
+> 
+> Please follow kernel indentation standard of tabs (not 4 spaces).
+
+Fixed everywhere in addrconf.c, and also in sit.c.
+
+Fred
+fred.l.templin@boeing.com
+
+ 
+> > +		    __be32 rtr = t->parms.i_key;
+> > +
+> > +		    if (!rtr) goto out;
+> > +		
+> > +		    all_routers.s6_addr32[0] = htonl(0xFE800000);
+> > +		    all_routers.s6_addr32[1] = 0;
+> > +		    ipv6_isatap_eui64(all_routers.s6_addr + 8, &rtr);
+> > +
+> > +		} else
+> > +#endif
+> >  		ipv6_addr_all_routers(&all_routers);
+> >  
+> >  		ndisc_send_rs(ifp->idev->dev, &ifp->addr, &all_routers);
+> >  	} else {
+> > +#if defined(CONFIG_IPV6_ISATAP)
+> > +		/* ISATAP (RFC4214) - Re-DAD to trigger new RS/RA */
+> > +		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
+> > +			ifp->probes = 0;
+> > +			ifp->idev->if_flags &= ~(IF_RS_SENT|IF_RA_RCVD);
+> > +			addrconf_mod_timer(ifp, AC_DAD, HZ*120);
+> > +		}
+> > +#endif
+> >  		spin_unlock(&ifp->lock);
+> >  		/*
+> >  		 * Note: we do not support deprecated "all on-link"
+> > @@ -2584,6 +2650,9 @@ static void addrconf_dad_start(struct in
+> >  	spin_lock_bh(&ifp->lock);
+> >  
+> >  	if (dev->flags&(IFF_NOARP|IFF_LOOPBACK) ||
+> > +#if defined(CONFIG_IPV6_ISATAP)
+> > +	    dev->priv_flags&IFF_ISATAP ||
+> > +#endif
+> >  	    !(ifp->flags&IFA_F_TENTATIVE) ||
+> >  	    ifp->flags & IFA_F_NODAD) {
+> >  		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC);
+> > @@ -2680,6 +2749,20 @@ static void addrconf_dad_completed(struc
+> >  	    (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {
+> >  		struct in6_addr all_routers;
+> >  
+> > +#if defined(CONFIG_IPV6_ISATAP)
+> > +		/* ISATAP (RFC4214) - unicast RS */
+> > +		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
+> > +		    struct ip_tunnel *t = netdev_priv(ifp->idev->dev);
+> > +		    __be32 rtr = t->parms.i_key;
+> > +
+> > +		    if (!rtr) return;
+> > +
+> > +		    all_routers.s6_addr32[0] = htonl(0xFE800000);
+> > +		    all_routers.s6_addr32[1] = 0;
+> > +		    ipv6_isatap_eui64(all_routers.s6_addr + 8, &rtr);
+> > +
+> > +		} else
+> > +#endif
+> >  		ipv6_addr_all_routers(&all_routers);
+> >  
+> >  		/*
+> > -
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
+> -- 
+> Stephen Hemminger <shemminger@linux-foundation.org>
+> 
