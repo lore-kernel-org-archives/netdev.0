@@ -1,61 +1,92 @@
-From: "Jon Nelson" <jnelson@jamponi.net>
-Subject: Re: Stack Trace. Bad?
-Date: Wed, 7 Nov 2007 07:55:46 -0600
-Message-ID: <cccedfc60711070555o163e1d27t4139fb96ac72c444@mail.gmail.com>
-References: <cccedfc60711061136r5ec89e73m7457e9fea0bf4f55@mail.gmail.com>
-	 <cccedfc60711061139r11a5e8c6raf6cd64c575ec453@mail.gmail.com>
-	 <cccedfc60711061222o6c4599fcyf71265c126568395@mail.gmail.com>
-	 <cccedfc60711061223me598dc8sad8dd36577874915@mail.gmail.com>
-	 <20071107104900.GB14732@2ka.mipt.ru>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH 2/3][UNIX] Convert socks to unix_socks in scan_inflight, not
+ in callbacks
+Date: Wed, 07 Nov 2007 16:56:21 +0300
+Message-ID: <4731C405.6010203@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:43171 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754254AbXKGNzs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 08:55:48 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so121600ugc
-        for <netdev@vger.kernel.org>; Wed, 07 Nov 2007 05:55:47 -0800 (PST)
-In-Reply-To: <20071107104900.GB14732@2ka.mipt.ru>
-Content-Disposition: inline
+Received: from sacred.ru ([62.205.161.221]:58027 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754932AbXKGN4a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 08:56:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/7/07, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> Hi Jon.
->
-> On Tue, Nov 06, 2007 at 02:23:03PM -0600, Jon Nelson (jnelson@jamponi.net) wrote:
-> > I was testing some network throughput today and ran into this.
-> > I should note that I've this motherboard has 2x MCP55 Ethernet and one
-> > of them works fine and the other one gives lots and lots of frame
-> > errors under load.
-> >
-> > The following is only an harmless informational message.
-> > Unless you get a _continuous_flood_ of these messages it means
-> > everything is working fine. Allocations from irqs cannot be
-> > perfectly reliable and the kernel is designed to handle that.
-> > md0_raid5: page allocation failure. order:2, mode:0x20
-> >
-> > Call Trace:
-> >  <IRQ>  [<ffffffff802684c2>] __alloc_pages+0x324/0x33d
-> >  [<ffffffff80283147>] kmem_getpages+0x66/0x116
-> >  [<ffffffff8028367a>] fallback_alloc+0x104/0x174
-> >  [<ffffffff80283330>] kmem_cache_alloc_node+0x9c/0xa8
-> >  [<ffffffff80396984>] __alloc_skb+0x65/0x138
-> >  [<ffffffff8821d82a>] :forcedeth:nv_alloc_rx_optimized+0x4d/0x18f
->
-> What MTU for this card is? Forcedeth supports jumbo frames, but does it
-> in very unoptimized way, particulary by relying on the possibility to
-> allocate 2-order pages, which is wrong.
->
-> So, set MTU to 1500 and things will be back into good shape.
-> I think adding fragments support is not a short-term solution because
-> of closed specs.
+The scan_inflight() routine scans through the unix sockets and calls
+some passed callback. The fact is that all these callbacks work with
+the unix_sock objects, not the sock ones, so make this conversion in
+the scan_inflight() before calling the callbacks.
 
-The NIC is configured to use a 1500 byte MTU.
+This removes one unneeded variable from the inc_inflight_move_tail().
 
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+
+diff --git a/net/unix/garbage.c b/net/unix/garbage.c
+index 399717e..ebdff3d 100644
+--- a/net/unix/garbage.c
++++ b/net/unix/garbage.c
+@@ -161,7 +161,7 @@ static inline struct sk_buff *sock_queue_head(struct sock *sk)
+ 	for (skb = sock_queue_head(sk)->next, next = skb->next; \
+ 	     skb != sock_queue_head(sk); skb = next, next = skb->next)
+ 
+-static void scan_inflight(struct sock *x, void (*func)(struct sock *),
++static void scan_inflight(struct sock *x, void (*func)(struct unix_sock *),
+ 			  struct sk_buff_head *hitlist)
+ {
+ 	struct sk_buff *skb;
+@@ -185,9 +185,9 @@ static void scan_inflight(struct sock *x, void (*func)(struct sock *),
+ 				 *	if it indeed does so
+ 				 */
+ 				struct sock *sk = unix_get_socket(*fp++);
+-				if(sk) {
++				if (sk) {
+ 					hit = true;
+-					func(sk);
++					func(unix_sk(sk));
+ 				}
+ 			}
+ 			if (hit && hitlist != NULL) {
+@@ -199,7 +199,7 @@ static void scan_inflight(struct sock *x, void (*func)(struct sock *),
+ 	spin_unlock(&x->sk_receive_queue.lock);
+ }
+ 
+-static void scan_children(struct sock *x, void (*func)(struct sock *),
++static void scan_children(struct sock *x, void (*func)(struct unix_sock *),
+ 			  struct sk_buff_head *hitlist)
+ {
+ 	if (x->sk_state != TCP_LISTEN)
+@@ -235,20 +235,18 @@ static void scan_children(struct sock *x, void (*func)(struct sock *),
+ 	}
+ }
+ 
+-static void dec_inflight(struct sock *sk)
++static void dec_inflight(struct unix_sock *usk)
+ {
+-	atomic_dec(&unix_sk(sk)->inflight);
++	atomic_dec(&usk->inflight);
+ }
+ 
+-static void inc_inflight(struct sock *sk)
++static void inc_inflight(struct unix_sock *usk)
+ {
+-	atomic_inc(&unix_sk(sk)->inflight);
++	atomic_inc(&usk->inflight);
+ }
+ 
+-static void inc_inflight_move_tail(struct sock *sk)
++static void inc_inflight_move_tail(struct unix_sock *u)
+ {
+-	struct unix_sock *u = unix_sk(sk);
+-
+ 	atomic_inc(&u->inflight);
+ 	/*
+ 	 * If this is still a candidate, move it to the end of the
 -- 
-Jon
+1.5.3.4
+
