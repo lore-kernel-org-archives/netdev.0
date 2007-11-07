@@ -1,84 +1,61 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 1/3][UNIX] Make unix_tot_inflight counter non-atomic
-Date: Wed, 07 Nov 2007 16:52:36 +0300
-Message-ID: <4731C324.3080301@openvz.org>
+From: "Jon Nelson" <jnelson@jamponi.net>
+Subject: Re: Stack Trace. Bad?
+Date: Wed, 7 Nov 2007 07:55:46 -0600
+Message-ID: <cccedfc60711070555o163e1d27t4139fb96ac72c444@mail.gmail.com>
+References: <cccedfc60711061136r5ec89e73m7457e9fea0bf4f55@mail.gmail.com>
+	 <cccedfc60711061139r11a5e8c6raf6cd64c575ec453@mail.gmail.com>
+	 <cccedfc60711061222o6c4599fcyf71265c126568395@mail.gmail.com>
+	 <cccedfc60711061223me598dc8sad8dd36577874915@mail.gmail.com>
+	 <20071107104900.GB14732@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:39889 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752999AbXKGNws (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Nov 2007 08:52:48 -0500
+Received: from ug-out-1314.google.com ([66.249.92.171]:43171 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754254AbXKGNzs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 08:55:48 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so121600ugc
+        for <netdev@vger.kernel.org>; Wed, 07 Nov 2007 05:55:47 -0800 (PST)
+In-Reply-To: <20071107104900.GB14732@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This counter is _always_ modified under the unix_gc_lock spinlock, 
-so its atomicity can be provided w/o additional efforts.
+On 11/7/07, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> Hi Jon.
+>
+> On Tue, Nov 06, 2007 at 02:23:03PM -0600, Jon Nelson (jnelson@jamponi.net) wrote:
+> > I was testing some network throughput today and ran into this.
+> > I should note that I've this motherboard has 2x MCP55 Ethernet and one
+> > of them works fine and the other one gives lots and lots of frame
+> > errors under load.
+> >
+> > The following is only an harmless informational message.
+> > Unless you get a _continuous_flood_ of these messages it means
+> > everything is working fine. Allocations from irqs cannot be
+> > perfectly reliable and the kernel is designed to handle that.
+> > md0_raid5: page allocation failure. order:2, mode:0x20
+> >
+> > Call Trace:
+> >  <IRQ>  [<ffffffff802684c2>] __alloc_pages+0x324/0x33d
+> >  [<ffffffff80283147>] kmem_getpages+0x66/0x116
+> >  [<ffffffff8028367a>] fallback_alloc+0x104/0x174
+> >  [<ffffffff80283330>] kmem_cache_alloc_node+0x9c/0xa8
+> >  [<ffffffff80396984>] __alloc_skb+0x65/0x138
+> >  [<ffffffff8821d82a>] :forcedeth:nv_alloc_rx_optimized+0x4d/0x18f
+>
+> What MTU for this card is? Forcedeth supports jumbo frames, but does it
+> in very unoptimized way, particulary by relying on the possibility to
+> allocate 2-order pages, which is wrong.
+>
+> So, set MTU to 1500 and things will be back into good shape.
+> I think adding fragments support is not a short-term solution because
+> of closed specs.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+The NIC is configured to use a 1500 byte MTU.
 
----
-
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index 0864a77..a1c805d 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -12,7 +12,7 @@ extern void unix_gc(void);
- 
- #define UNIX_HASH_SIZE	256
- 
--extern atomic_t unix_tot_inflight;
-+extern unsigned int unix_tot_inflight;
- 
- struct unix_address {
- 	atomic_t	refcnt;
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 515e7a6..ab9048a 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -457,7 +457,7 @@ static int unix_release_sock (struct sock *sk, int embrion)
- 	 *	  What the above comment does talk about? --ANK(980817)
- 	 */
- 
--	if (atomic_read(&unix_tot_inflight))
-+	if (unix_tot_inflight)
- 		unix_gc();		/* Garbage collect fds */
- 
- 	return 0;
-diff --git a/net/unix/garbage.c b/net/unix/garbage.c
-index 406b643..399717e 100644
---- a/net/unix/garbage.c
-+++ b/net/unix/garbage.c
-@@ -92,7 +92,7 @@ static LIST_HEAD(gc_inflight_list);
- static LIST_HEAD(gc_candidates);
- static DEFINE_SPINLOCK(unix_gc_lock);
- 
--atomic_t unix_tot_inflight = ATOMIC_INIT(0);
-+unsigned int unix_tot_inflight;
- 
- 
- static struct sock *unix_get_socket(struct file *filp)
-@@ -133,7 +133,7 @@ void unix_inflight(struct file *fp)
- 		} else {
- 			BUG_ON(list_empty(&u->link));
- 		}
--		atomic_inc(&unix_tot_inflight);
-+		unix_tot_inflight++;
- 		spin_unlock(&unix_gc_lock);
- 	}
- }
-@@ -147,7 +147,7 @@ void unix_notinflight(struct file *fp)
- 		BUG_ON(list_empty(&u->link));
- 		if (atomic_dec_and_test(&u->inflight))
- 			list_del_init(&u->link);
--		atomic_dec(&unix_tot_inflight);
-+		unix_tot_inflight--;
- 		spin_unlock(&unix_gc_lock);
- 	}
- }
 -- 
-1.5.3.4
-
+Jon
