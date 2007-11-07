@@ -1,135 +1,240 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Endianness problem with u32 classifier hash masks
-Date: Wed, 7 Nov 2007 13:56:40 +0100
-Message-ID: <20071107125640.GD1817@ff.dom.local>
-References: <20071106142558.GC1666@ff.dom.local> <1194360226.4444.39.camel@localhost> <1194368416.2987.218.camel@localhost.localdomain> <20071107.012220.17723288.davem@davemloft.net>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH] [RESEND] small possible memory leak in FIB rules
+Date: Wed, 7 Nov 2007 16:36:36 +0300
+Message-ID: <20071107133636.GA10719@iris.sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: radu.rendec@ines.ro, hadi@cyberus.ca, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: devel@openvz.org, containers@lists.osdl.org, netdev@vger.kernel.org
+To: davem@davemloft.net, den@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:58125 "EHLO poczta.o2.pl"
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:55536 "EHLO iris"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750882AbXKGMwu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Nov 2007 07:52:50 -0500
+	id S1752447AbXKGNdF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 08:33:05 -0500
 Content-Disposition: inline
-In-Reply-To: <20071107.012220.17723288.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 07, 2007 at 01:22:20AM -0800, David Miller wrote:
-> From: Radu Rendec <radu.rendec@ines.ro>
-> Date: Tue, 06 Nov 2007 19:00:16 +0200
-> 
-> > On Tue, 2007-11-06 at 09:43 -0500, jamal wrote:
-> > > On Tue, 2007-06-11 at 15:25 +0100, Jarek Poplawski wrote:
-> > > 
-> > > > Yes, it saves one htonl() on the slow path!
-> > > 
-> > > Would it feel better to say grew down exponentially from version 1 to
-> > > 3? ;->
-> > 
-> > Not only it saves one htonl(), but also keeps the code readable :)
-> > Computing offsets within the rtnetlink response skb and applying htonl()
-> > there is quite tricky and might get broken if RTA_PUT() is changed.
-> > Unfortunately I spent about an hour figuring out how to do that :))
-> > 
-> > The bad news is that today I haven't got the chance to work on the two
-> > patches. But the good news is that I managed to finish the (urgent) task
-> > that had been assigned to me at work, and tomorrow I will be able to
-> > work on the kernel and test it leisurely.
-> 
-> I've grown impatient and done the work for you :-)  I've applied
-> the patch below to my tree, thank you!
-> 
-> If someone wants to send me the ffs() thing relative to this,
-> I'd appreciate it.  Thanks again!
+This patch fixes a small memory leak. Default fib rules can be deleted by
+the user if the rule does not carry FIB_RULE_PERMANENT flag, f.e. by
+	ip rule flush
 
-...And Radu has spend so much time on this git vs. which tree to cut
-for the beginning... I hope this ffs() patch will be enough to check
-on some bush at least!
+Such a rule will not be freed as the ref-counter has 2 on start and becomes
+clearly unreachable after removal.
 
-> 
-> From 8e36263f10a054479636b57943cdeaf37470acc5 Mon Sep 17 00:00:00 2001
-> From: Radu Rendec <radu.rendec@ines.ro>
-> Date: Wed, 7 Nov 2007 01:20:12 -0800
-> Subject: [PATCH] [PKT_SCHED] CLS_U32: Fix endianness problem with u32 classifier hash masks.
-> 
-> From: Radu Rendec <radu.rendec@ines.ro>
-> 
-> While trying to implement u32 hashes in my shaping machine I ran into
-> a possible bug in the u32 hash/bucket computing algorithm
-> (net/sched/cls_u32.c).
-> 
-> The problem occurs only with hash masks that extend over the octet
-> boundary, on little endian machines (where htonl() actually does
-> something).
-> 
-> Let's say that I would like to use 0x3fc0 as the hash mask. This means
-> 8 contiguous "1" bits starting at b6. With such a mask, the expected
-> (and logical) behavior is to hash any address in, for instance,
-> 192.168.0.0/26 in bucket 0, then any address in 192.168.0.64/26 in
-> bucket 1, then 192.168.0.128/26 in bucket 2 and so on.
-> 
-> This is exactly what would happen on a big endian machine, but on
-> little endian machines, what would actually happen with current
-> implementation is 0x3fc0 being reversed (into 0xc03f0000) by htonl()
-> in the userspace tool and then applied to 192.168.x.x in the u32
-> classifier. When shifting right by 16 bits (rank of first "1" bit in
-> the reversed mask) and applying the divisor mask (0xff for divisor
-> 256), what would actually remain is 0x3f applied on the "168" octet of
-> the address.
-> 
-> One could say is this can be easily worked around by taking endianness
-> into account in userspace and supplying an appropriate mask (0xfc03)
-> that would be turned into contiguous "1" bits when reversed
-> (0x03fc0000). But the actual problem is the network address (inside
-> the packet) not being converted to host order, but used as a
-> host-order value when computing the bucket.
-> 
-> Let's say the network address is written as n31 n30 ... n0, with n0
-> being the least significant bit. When used directly (without any
-> conversion) on a little endian machine, it becomes n7 ... n0 n8 ..n15
-> etc in the machine's registers. Thus bits n7 and n8 would no longer be
-> adjacent and 192.168.64.0/26 and 192.168.128.0/26 would no longer be
-> consecutive.
-> 
-> The fix is to apply ntohl() on the hmask before computing fshift,
-> and in u32_hash_fold() convert the packet data to host order before
-> shifting down by fshift.
-> 
-> With helpful feedback from Jamal Hadi Salim and Jarek Poplawski.
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+Acked-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 
-Acked-by: Jarek Poplawski <jarkao2@o2.pl>
+---------
 
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  net/sched/cls_u32.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-> index 9e98c6e..5317102 100644
-> --- a/net/sched/cls_u32.c
-> +++ b/net/sched/cls_u32.c
-> @@ -91,7 +91,7 @@ static struct tc_u_common *u32_list;
->  
->  static __inline__ unsigned u32_hash_fold(u32 key, struct tc_u32_sel *sel, u8 fshift)
->  {
-> -	unsigned h = (key & sel->hmask)>>fshift;
-> +	unsigned h = ntohl(key & sel->hmask)>>fshift;
->  
->  	return h;
->  }
-> @@ -615,7 +615,7 @@ static int u32_change(struct tcf_proto *tp, unsigned long base, u32 handle,
->  	n->handle = handle;
->  {
->  	u8 i = 0;
-> -	u32 mask = s->hmask;
-> +	u32 mask = ntohl(s->hmask);
->  	if (mask) {
->  		while (!(mask & 1)) {
->  			i++;
-> -- 
-> 1.5.3.5
-> 
+ include/net/fib_rules.h |    3 ++
+ net/core/fib_rules.c    |   22 ++++++++++++++++++++
+ net/decnet/dn_rules.c   |   13 +-----------
+ net/ipv4/fib_rules.c    |   51 ++++++++++++++++++------------------------------
+ net/ipv6/fib6_rules.c   |   37 ++++++++++++++--------------------
+ 5 files changed, 62 insertions(+), 64 deletions(-)
+
+---------
+
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -107,4 +107,7 @@ extern int			fib_rules_unregister(struct fib_rules_ops *);
+ extern int			fib_rules_lookup(struct fib_rules_ops *,
+ 						 struct flowi *, int flags,
+ 						 struct fib_lookup_arg *);
++extern int			fib_default_rule_add(struct fib_rules_ops *,
++			   			     u32 pref, u32 table,
++						     u32 flags);
+ #endif
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 13de6f5..848132b 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -18,6 +18,28 @@
+ static LIST_HEAD(rules_ops);
+ static DEFINE_SPINLOCK(rules_mod_lock);
+ 
++int fib_default_rule_add(struct fib_rules_ops *ops,
++			 u32 pref, u32 table, u32 flags)
++{
++	struct fib_rule *r;
++
++	r = kzalloc(ops->rule_size, GFP_KERNEL);
++	if (r == NULL)
++		return -ENOMEM;
++
++	atomic_set(&r->refcnt, 1);
++	r->action = FR_ACT_TO_TBL;
++	r->pref = pref;
++	r->table = table;
++	r->flags = flags;
++
++	/* The lock is not required here, the list in unreacheable
++	 * at the moment this function is called */
++	list_add_tail(&r->list, &ops->rules_list);
++	return 0;
++}
++EXPORT_SYMBOL(fib_default_rule_add);
++
+ static void notify_rule_change(int event, struct fib_rule *rule,
+ 			       struct fib_rules_ops *ops, struct nlmsghdr *nlh,
+ 			       u32 pid);
+diff --git a/net/decnet/dn_rules.c b/net/decnet/dn_rules.c
+index ddd3f04..ffebea0 100644
+--- a/net/decnet/dn_rules.c
++++ b/net/decnet/dn_rules.c
+@@ -48,15 +48,6 @@ struct dn_fib_rule
+ 	u8			flags;
+ };
+ 
+-static struct dn_fib_rule default_rule = {
+-	.common = {
+-		.refcnt =		ATOMIC_INIT(2),
+-		.pref =			0x7fff,
+-		.table =		RT_TABLE_MAIN,
+-		.action =		FR_ACT_TO_TBL,
+-	},
+-};
+-
+ 
+ int dn_fib_lookup(struct flowi *flp, struct dn_fib_res *res)
+ {
+@@ -262,8 +253,8 @@ static struct fib_rules_ops dn_fib_rules_ops = {
+ 
+ void __init dn_fib_rules_init(void)
+ {
+-	list_add_tail(&default_rule.common.list,
+-			&dn_fib_rules_ops.rules_list);
++	BUG_ON(fib_default_rule_add(&dn_fib_rules_ops, 0x7fff,
++			            RT_TABLE_MAIN, 0));
+ 	fib_rules_register(&dn_fib_rules_ops);
+ }
+ 
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index f16839c..a0ada3a 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -49,33 +49,6 @@ struct fib4_rule
+ #endif
+ };
+ 
+-static struct fib4_rule default_rule = {
+-	.common = {
+-		.refcnt =	ATOMIC_INIT(2),
+-		.pref =		0x7FFF,
+-		.table =	RT_TABLE_DEFAULT,
+-		.action =	FR_ACT_TO_TBL,
+-	},
+-};
+-
+-static struct fib4_rule main_rule = {
+-	.common = {
+-		.refcnt =	ATOMIC_INIT(2),
+-		.pref =		0x7FFE,
+-		.table =	RT_TABLE_MAIN,
+-		.action =	FR_ACT_TO_TBL,
+-	},
+-};
+-
+-static struct fib4_rule local_rule = {
+-	.common = {
+-		.refcnt =	ATOMIC_INIT(2),
+-		.table =	RT_TABLE_LOCAL,
+-		.action =	FR_ACT_TO_TBL,
+-		.flags =	FIB_RULE_PERMANENT,
+-	},
+-};
+-
+ #ifdef CONFIG_NET_CLS_ROUTE
+ u32 fib_rules_tclass(struct fib_result *res)
+ {
+@@ -319,11 +292,27 @@ static struct fib_rules_ops fib4_rules_ops = {
+ 	.owner		= THIS_MODULE,
+ };
+ 
+-void __init fib4_rules_init(void)
++static int __init fib_default_rules_init(void)
+ {
+-	list_add_tail(&local_rule.common.list, &fib4_rules_ops.rules_list);
+-	list_add_tail(&main_rule.common.list, &fib4_rules_ops.rules_list);
+-	list_add_tail(&default_rule.common.list, &fib4_rules_ops.rules_list);
++	int err;
++
++	err = fib_default_rule_add(&fib4_rules_ops, 0,
++				   RT_TABLE_LOCAL, FIB_RULE_PERMANENT);
++	if (err < 0)
++		return err;
++	err = fib_default_rule_add(&fib4_rules_ops, 0x7FFE,
++				   RT_TABLE_MAIN, 0);
++	if (err < 0)
++		return err;
++	err = fib_default_rule_add(&fib4_rules_ops, 0x7FFF,
++				   RT_TABLE_DEFAULT, 0);
++	if (err < 0)
++		return err;
++	return 0;
++}
+ 
++void __init fib4_rules_init(void)
++{
++	BUG_ON(fib_default_rules_init());
+ 	fib_rules_register(&fib4_rules_ops);
+ }
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index 706622a..428c6b0 100644
+--- a/net/ipv6/fib6_rules.c
++++ b/net/ipv6/fib6_rules.c
+@@ -31,25 +31,6 @@ struct fib6_rule
+ 
+ static struct fib_rules_ops fib6_rules_ops;
+ 
+-static struct fib6_rule main_rule = {
+-	.common = {
+-		.refcnt =	ATOMIC_INIT(2),
+-		.pref =		0x7FFE,
+-		.action =	FR_ACT_TO_TBL,
+-		.table =	RT6_TABLE_MAIN,
+-	},
+-};
+-
+-static struct fib6_rule local_rule = {
+-	.common = {
+-		.refcnt =	ATOMIC_INIT(2),
+-		.pref =		0,
+-		.action =	FR_ACT_TO_TBL,
+-		.table =	RT6_TABLE_LOCAL,
+-		.flags =	FIB_RULE_PERMANENT,
+-	},
+-};
+-
+ struct dst_entry *fib6_rule_lookup(struct flowi *fl, int flags,
+ 				   pol_lookup_t lookup)
+ {
+@@ -270,11 +251,23 @@ static struct fib_rules_ops fib6_rules_ops = {
+ 	.owner			= THIS_MODULE,
+ };
+ 
+-void __init fib6_rules_init(void)
++static int __init fib6_default_rules_init(void)
+ {
+-	list_add_tail(&local_rule.common.list, &fib6_rules_ops.rules_list);
+-	list_add_tail(&main_rule.common.list, &fib6_rules_ops.rules_list);
++	int err;
++
++	err = fib_default_rule_add(&fib6_rules_ops, 0,
++				   RT6_TABLE_LOCAL, FIB_RULE_PERMANENT);
++	if (err < 0)
++		return err;
++	err = fib_default_rule_add(&fib6_rules_ops, 0x7FFE, RT6_TABLE_MAIN, 0);
++	if (err < 0)
++		return err;
++	return 0;
++}
+ 
++void __init fib6_rules_init(void)
++{
++	BUG_ON(fib6_default_rules_init());
+ 	fib_rules_register(&fib6_rules_ops);
+ }
+ 
