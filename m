@@ -1,124 +1,313 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 06/13] SCTP: Allow ADD-IP to work with AUTH for backward compatibility.
-Date: Wed,  7 Nov 2007 12:46:24 -0500
-Message-ID: <11944575911198-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH 10/13] SCTP: Make sctp_verify_param return multiple indications.
+Date: Wed,  7 Nov 2007 12:46:28 -0500
+Message-ID: <11944575911985-git-send-email-vladislav.yasevich@hp.com>
 References: <11944575911538-git-send-email-vladislav.yasevich@hp.com>
 Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net,
 	Vlad Yasevich <vladislav.yasevich@hp.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel11.hp.com ([156.153.255.246]:34043 "EHLO palrel11.hp.com"
+Received: from palrel11.hp.com ([156.153.255.246]:34037 "EHLO palrel11.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751158AbXKGR4e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Nov 2007 12:56:34 -0500
+	id S1752831AbXKGR4d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 12:56:33 -0500
 In-Reply-To: <11944575911538-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds a tunable that will allow ADD-IP to work without
-AUTH for backward compatibility.  The default value is off since
-the default value for ADD-IP is off as well.  People who need
-to use ADD-IP with older implementations take risks of connection
-hijacking and should consider upgrading or turning this tunable on.
+SCTP-AUTH and future ADD-IP updates have a requirement to
+do additional verification of parameters and an ability to
+ABORT the association if verification fails.  So, introduce
+additional return code so that we can clearly signal a required
+action.
 
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
- include/net/sctp/structs.h |    2 ++
- net/sctp/associola.c       |    8 ++++++--
- net/sctp/protocol.c        |    1 +
- net/sctp/sm_make_chunk.c   |    4 +++-
- net/sctp/sysctl.c          |    9 +++++++++
- 5 files changed, 21 insertions(+), 3 deletions(-)
+ include/net/sctp/constants.h |    2 +
+ net/sctp/sm_make_chunk.c     |  149 +++++++++++++++++++++---------------------
+ 2 files changed, 77 insertions(+), 74 deletions(-)
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 41f1039..44f2672 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -212,6 +212,7 @@ extern struct sctp_globals {
- 	
- 	/* Flag to indicate if addip is enabled. */
- 	int addip_enable;
-+	int addip_noauth_enable;
+diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
+index 73fbdf6..f30b537 100644
+--- a/include/net/sctp/constants.h
++++ b/include/net/sctp/constants.h
+@@ -186,6 +186,8 @@ typedef enum {
+ 	SCTP_IERROR_AUTH_BAD_HMAC,
+ 	SCTP_IERROR_AUTH_BAD_KEYID,
+ 	SCTP_IERROR_PROTO_VIOLATION,
++	SCTP_IERROR_ERROR,
++	SCTP_IERROR_ABORT,
+ } sctp_ierror_t;
  
- 	/* Flag to indicate if PR-SCTP is enabled. */
- 	int prsctp_enable;
-@@ -249,6 +250,7 @@ extern struct sctp_globals {
- #define sctp_local_addr_list		(sctp_globals.local_addr_list)
- #define sctp_local_addr_lock		(sctp_globals.addr_list_lock)
- #define sctp_addip_enable		(sctp_globals.addip_enable)
-+#define sctp_addip_noauth		(sctp_globals.addip_noauth_enable)
- #define sctp_prsctp_enable		(sctp_globals.prsctp_enable)
- #define sctp_auth_enable		(sctp_globals.auth_enable)
  
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index eaad5c5..013e3d3 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -262,10 +262,14 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
- 	 */
- 	asoc->peer.sack_needed = 1;
- 
--	/* Assume that the peer recongizes ASCONF until reported otherwise
--	 * via an ERROR chunk.
-+	/* Assume that the peer will tell us if he recognizes ASCONF
-+	 * as part of INIT exchange.
-+	 * The sctp_addip_noauth option is there for backward compatibility
-+	 * and will revert old behavior.
- 	 */
- 	asoc->peer.asconf_capable = 0;
-+	if (sctp_addip_noauth)
-+		asoc->peer.asconf_capable = 1;
- 
- 	/* Create an input queue.  */
- 	sctp_inq_init(&asoc->base.inqueue);
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 40c1a47..ecfab03 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -1179,6 +1179,7 @@ SCTP_STATIC __init int sctp_init(void)
- 
- 	/* Disable ADDIP by default. */
- 	sctp_addip_enable = 0;
-+	sctp_addip_noauth = 0;
- 
- 	/* Enable PR-SCTP by default. */
- 	sctp_prsctp_enable = 1;
 diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 2ff3a3d..43e8de1 100644
+index 43e8de1..5a9783c 100644
 --- a/net/sctp/sm_make_chunk.c
 +++ b/net/sctp/sm_make_chunk.c
-@@ -2137,8 +2137,10 @@ int sctp_process_init(struct sctp_association *asoc, sctp_cid_t cid,
+@@ -1788,9 +1788,14 @@ static int sctp_process_inv_paramlength(const struct sctp_association *asoc,
+ 						sizeof(sctp_paramhdr_t);
  
- 	/* If the peer claims support for ADD-IP without support
- 	 * for AUTH, disable support for ADD-IP.
-+	 * Do this only if backward compatible mode is turned off.
+ 
++	/* This is a fatal error.  Any accumulated non-fatal errors are
++	 * not reported.
++	 */
++	if (*errp)
++		sctp_chunk_free(*errp);
++
+ 	/* Create an error chunk and fill it in with our payload. */
+-	if (!*errp)
+-		*errp = sctp_make_op_error_space(asoc, chunk, payload_len);
++	*errp = sctp_make_op_error_space(asoc, chunk, payload_len);
+ 
+ 	if (*errp) {
+ 		sctp_init_cause(*errp, SCTP_ERROR_PROTO_VIOLATION,
+@@ -1813,9 +1818,15 @@ static int sctp_process_hn_param(const struct sctp_association *asoc,
+ {
+ 	__u16 len = ntohs(param.p->length);
+ 
+-	/* Make an ERROR chunk. */
+-	if (!*errp)
+-		*errp = sctp_make_op_error_space(asoc, chunk, len);
++	/* Processing of the HOST_NAME parameter will generate an
++	 * ABORT.  If we've accumulated any non-fatal errors, they
++	 * would be unrecognized parameters and we should not include
++	 * them in the ABORT.
++	 */
++	if (*errp)
++		sctp_chunk_free(*errp);
++
++	*errp = sctp_make_op_error_space(asoc, chunk, len);
+ 
+ 	if (*errp) {
+ 		sctp_init_cause(*errp, SCTP_ERROR_DNS_FAILED, len);
+@@ -1862,56 +1873,40 @@ static void sctp_process_ext_param(struct sctp_association *asoc,
+  * taken if the processing endpoint does not recognize the
+  * Parameter Type.
+  *
+- * 00 - Stop processing this SCTP chunk and discard it,
+- *	do not process any further chunks within it.
++ * 00 - Stop processing this parameter; do not process any further
++ * 	parameters within this chunk
+  *
+- * 01 - Stop processing this SCTP chunk and discard it,
+- *	do not process any further chunks within it, and report
+- *	the unrecognized parameter in an 'Unrecognized
+- *	Parameter Type' (in either an ERROR or in the INIT ACK).
++ * 01 - Stop processing this parameter, do not process any further
++ *	parameters within this chunk, and report the unrecognized
++ *	parameter in an 'Unrecognized Parameter' ERROR chunk.
+  *
+  * 10 - Skip this parameter and continue processing.
+  *
+  * 11 - Skip this parameter and continue processing but
+  *	report the unrecognized parameter in an
+- *	'Unrecognized Parameter Type' (in either an ERROR or in
+- *	the INIT ACK).
++ *	'Unrecognized Parameter' ERROR chunk.
+  *
+  * Return value:
+- * 	0 - discard the chunk
+- * 	1 - continue with the chunk
++ * 	SCTP_IERROR_NO_ERROR - continue with the chunk
++ * 	SCTP_IERROR_ERROR    - stop and report an error.
++ * 	SCTP_IERROR_NOMEME   - out of memory.
+  */
+-static int sctp_process_unk_param(const struct sctp_association *asoc,
+-				  union sctp_params param,
+-				  struct sctp_chunk *chunk,
+-				  struct sctp_chunk **errp)
++static sctp_ierror_t sctp_process_unk_param(const struct sctp_association *asoc,
++					    union sctp_params param,
++					    struct sctp_chunk *chunk,
++					    struct sctp_chunk **errp)
+ {
+-	int retval = 1;
++	int retval = SCTP_IERROR_NO_ERROR;
+ 
+ 	switch (param.p->type & SCTP_PARAM_ACTION_MASK) {
+ 	case SCTP_PARAM_ACTION_DISCARD:
+-		retval =  0;
+-		break;
+-	case SCTP_PARAM_ACTION_DISCARD_ERR:
+-		retval =  0;
+-		/* Make an ERROR chunk, preparing enough room for
+-		 * returning multiple unknown parameters.
+-		 */
+-		if (NULL == *errp)
+-			*errp = sctp_make_op_error_space(asoc, chunk,
+-					ntohs(chunk->chunk_hdr->length));
+-
+-		if (*errp) {
+-			sctp_init_cause(*errp, SCTP_ERROR_UNKNOWN_PARAM,
+-					WORD_ROUND(ntohs(param.p->length)));
+-			sctp_addto_chunk(*errp,
+-					WORD_ROUND(ntohs(param.p->length)),
+-					param.v);
+-		}
+-
++		retval =  SCTP_IERROR_ERROR;
+ 		break;
+ 	case SCTP_PARAM_ACTION_SKIP:
+ 		break;
++	case SCTP_PARAM_ACTION_DISCARD_ERR:
++		retval =  SCTP_IERROR_ERROR;
++		/* Fall through */
+ 	case SCTP_PARAM_ACTION_SKIP_ERR:
+ 		/* Make an ERROR chunk, preparing enough room for
+ 		 * returning multiple unknown parameters.
+@@ -1932,9 +1927,8 @@ static int sctp_process_unk_param(const struct sctp_association *asoc,
+ 			 * to the peer and the association won't be
+ 			 * established.
+ 			 */
+-			retval = 0;
++			retval = SCTP_IERROR_NOMEM;
+ 		}
+-
+ 		break;
+ 	default:
+ 		break;
+@@ -1943,18 +1937,20 @@ static int sctp_process_unk_param(const struct sctp_association *asoc,
+ 	return retval;
+ }
+ 
+-/* Find unrecognized parameters in the chunk.
++/* Verify variable length parameters
+  * Return values:
+- * 	0 - discard the chunk
+- * 	1 - continue with the chunk
++ * 	SCTP_IERROR_ABORT - trigger an ABORT
++ * 	SCTP_IERROR_NOMEM - out of memory (abort)
++ *	SCTP_IERROR_ERROR - stop processing, trigger an ERROR
++ * 	SCTP_IERROR_NO_ERROR - continue with the chunk
+  */
+-static int sctp_verify_param(const struct sctp_association *asoc,
+-			     union sctp_params param,
+-			     sctp_cid_t cid,
+-			     struct sctp_chunk *chunk,
+-			     struct sctp_chunk **err_chunk)
++static sctp_ierror_t sctp_verify_param(const struct sctp_association *asoc,
++					union sctp_params param,
++					sctp_cid_t cid,
++					struct sctp_chunk *chunk,
++					struct sctp_chunk **err_chunk)
+ {
+-	int retval = 1;
++	int retval = SCTP_IERROR_NO_ERROR;
+ 
+ 	/* FIXME - This routine is not looking at each parameter per the
+ 	 * chunk type, i.e., unrecognized parameters should be further
+@@ -1976,7 +1972,9 @@ static int sctp_verify_param(const struct sctp_association *asoc,
+ 
+ 	case SCTP_PARAM_HOST_NAME_ADDRESS:
+ 		/* Tell the peer, we won't support this param.  */
+-		return sctp_process_hn_param(asoc, param, chunk, err_chunk);
++		sctp_process_hn_param(asoc, param, chunk, err_chunk);
++		retval = SCTP_IERROR_ABORT;
++		break;
+ 
+ 	case SCTP_PARAM_FWD_TSN_SUPPORT:
+ 		if (sctp_prsctp_enable)
+@@ -1993,9 +1991,11 @@ static int sctp_verify_param(const struct sctp_association *asoc,
+ 		 * cause 'Protocol Violation'.
+ 		 */
+ 		if (SCTP_AUTH_RANDOM_LENGTH !=
+-			ntohs(param.p->length) - sizeof(sctp_paramhdr_t))
+-			return sctp_process_inv_paramlength(asoc, param.p,
++			ntohs(param.p->length) - sizeof(sctp_paramhdr_t)) {
++			sctp_process_inv_paramlength(asoc, param.p,
+ 							chunk, err_chunk);
++			retval = SCTP_IERROR_ABORT;
++		}
+ 		break;
+ 
+ 	case SCTP_PARAM_CHUNKS:
+@@ -2007,9 +2007,11 @@ static int sctp_verify_param(const struct sctp_association *asoc,
+ 		 *  INIT-ACK chunk if the sender wants to receive authenticated
+ 		 *  chunks.  Its maximum length is 260 bytes.
+ 		 */
+-		if (260 < ntohs(param.p->length))
+-			return sctp_process_inv_paramlength(asoc, param.p,
+-							chunk, err_chunk);
++		if (260 < ntohs(param.p->length)) {
++			sctp_process_inv_paramlength(asoc, param.p,
++						     chunk, err_chunk);
++			retval = SCTP_IERROR_ABORT;
++		}
+ 		break;
+ 
+ 	case SCTP_PARAM_HMAC_ALGO:
+@@ -2020,8 +2022,7 @@ fallthrough:
+ 	default:
+ 		SCTP_DEBUG_PRINTK("Unrecognized param: %d for chunk %d.\n",
+ 				ntohs(param.p->type), cid);
+-		return sctp_process_unk_param(asoc, param, chunk, err_chunk);
+-
++		retval = sctp_process_unk_param(asoc, param, chunk, err_chunk);
+ 		break;
+ 	}
+ 	return retval;
+@@ -2036,6 +2037,7 @@ int sctp_verify_init(const struct sctp_association *asoc,
+ {
+ 	union sctp_params param;
+ 	int has_cookie = 0;
++	int result;
+ 
+ 	/* Verify stream values are non-zero. */
+ 	if ((0 == peer_init->init_hdr.num_outbound_streams) ||
+@@ -2043,8 +2045,7 @@ int sctp_verify_init(const struct sctp_association *asoc,
+ 	    (0 == peer_init->init_hdr.init_tag) ||
+ 	    (SCTP_DEFAULT_MINWINDOW > ntohl(peer_init->init_hdr.a_rwnd))) {
+ 
+-		sctp_process_inv_mandatory(asoc, chunk, errp);
+-		return 0;
++		return sctp_process_inv_mandatory(asoc, chunk, errp);
+ 	}
+ 
+ 	/* Check for missing mandatory parameters.  */
+@@ -2062,29 +2063,29 @@ int sctp_verify_init(const struct sctp_association *asoc,
+ 	 * VIOLATION error.  We build the ERROR chunk here and let the normal
+ 	 * error handling code build and send the packet.
  	 */
--	if (asoc->peer.asconf_capable && !asoc->peer.auth_capable) {
-+	if (!sctp_addip_noauth &&
-+	     (asoc->peer.asconf_capable && !asoc->peer.auth_capable)) {
- 		asoc->peer.addip_disabled_mask |= (SCTP_PARAM_ADD_IP |
- 						  SCTP_PARAM_DEL_IP |
- 						  SCTP_PARAM_SET_PRIMARY);
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index 0669778..da4f157 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -263,6 +263,15 @@ static ctl_table sctp_table[] = {
- 		.proc_handler	= &proc_dointvec,
- 		.strategy	= &sysctl_intvec
- 	},
-+	{
-+		.ctl_name	= CTL_UNNUMBERED,
-+		.procname	= "addip_noauth_enable",
-+		.data		= &sctp_addip_noauth,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec,
-+		.strategy	= &sysctl_intvec
-+	},
- 	{ .ctl_name = 0 }
- };
+-	if (param.v != (void*)chunk->chunk_end) {
+-		sctp_process_inv_paramlength(asoc, param.p, chunk, errp);
+-		return 0;
+-	}
++	if (param.v != (void*)chunk->chunk_end)
++		return sctp_process_inv_paramlength(asoc, param.p, chunk, errp);
  
+ 	/* The only missing mandatory param possible today is
+ 	 * the state cookie for an INIT-ACK chunk.
+ 	 */
+-	if ((SCTP_CID_INIT_ACK == cid) && !has_cookie) {
+-		sctp_process_missing_param(asoc, SCTP_PARAM_STATE_COOKIE,
+-					   chunk, errp);
+-		return 0;
+-	}
+-
+-	/* Find unrecognized parameters. */
++	if ((SCTP_CID_INIT_ACK == cid) && !has_cookie)
++		return sctp_process_missing_param(asoc, SCTP_PARAM_STATE_COOKIE,
++						  chunk, errp);
+ 
++	/* Verify all the variable length parameters */
+ 	sctp_walk_params(param, peer_init, init_hdr.params) {
+ 
+-		if (!sctp_verify_param(asoc, param, cid, chunk, errp)) {
+-			if (SCTP_PARAM_HOST_NAME_ADDRESS == param.p->type)
++		result = sctp_verify_param(asoc, param, cid, chunk, errp);
++		switch (result) {
++		    case SCTP_IERROR_ABORT:
++		    case SCTP_IERROR_NOMEM:
+ 				return 0;
+-			else
++		    case SCTP_IERROR_ERROR:
+ 				return 1;
++		    case SCTP_IERROR_NO_ERROR:
++		    default:
++				break;
+ 		}
+ 
+ 	} /* for (loop through all parameters) */
 -- 
 1.5.2.4
 
