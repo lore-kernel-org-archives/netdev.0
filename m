@@ -1,48 +1,38 @@
-From: =?utf-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<ukleinek@informatik.uni-freiburg.de>
-Subject: [PATCH] mdiobus_register: check bus not being NULL before dereferencing it.
-Date: Wed,  7 Nov 2007 12:31:55 +0100
-Message-ID: <1194435115-2596-1-git-send-email-ukleinek@informatik.uni-freiburg.de>
+From: Alexey Dobriyan <adobriyan@sw.ru>
+Subject: [PATCH] netns: init dev_base_lock only once
+Date: Wed, 7 Nov 2007 15:51:33 +0300
+Message-ID: <20071107125133.GA6213@localhost.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?utf-8?q?Uwe=20Kleine-K=C3=B6nig?= <Uwe.Kleine-Koenig@digi.com>,
-	Andy Fleming <afleming@freescale.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, devel@openvz.org, ebiederm@xmission.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlas.informatik.uni-freiburg.de ([132.230.150.3]:32861 "EHLO
-	atlas.informatik.uni-freiburg.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751005AbXKGMWu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 07:22:50 -0500
+Received: from mailhub.sw.ru ([195.214.233.200]:9450 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751168AbXKGMvn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 07:51:43 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Uwe Kleine-K=C3=B6nig <Uwe.Kleine-Koenig@digi.com>
-Cc: Andy Fleming <afleming@freescale.com>
----
- drivers/net/phy/mdio_bus.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+* it already statically initialized
+* reinitializing live global spinlock every time netns is
+  setup is also wrong
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index fc2f0e6..7ff55bb 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -49,13 +49,13 @@ int mdiobus_register(struct mii_bus *bus)
- 	int i;
- 	int err =3D 0;
-=20
--	spin_lock_init(&bus->mdio_lock);
--
- 	if (NULL =3D=3D bus || NULL =3D=3D bus->name ||
- 			NULL =3D=3D bus->read ||
- 			NULL =3D=3D bus->write)
- 		return -EINVAL;
-=20
-+	spin_lock_init(&bus->mdio_lock);
-+
- 	if (bus->reset)
- 		bus->reset(bus);
-=20
---=20
-1.5.3.4
+Signed-off-by: Alexey Dobriyan <adobriyan@sw.ru>
+---
+
+ net/core/dev.c |    1 -
+ 1 file changed, 1 deletion(-)
+
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4330,7 +4330,6 @@ static struct hlist_head *netdev_create_hash(void)
+ static int __net_init netdev_init(struct net *net)
+ {
+ 	INIT_LIST_HEAD(&net->dev_base_head);
+-	rwlock_init(&dev_base_lock);
+ 
+ 	net->dev_name_head = netdev_create_hash();
+ 	if (net->dev_name_head == NULL)
 
