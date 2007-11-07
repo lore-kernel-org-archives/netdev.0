@@ -1,65 +1,30 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 3/3][UNIX] The unix_nr_socks limit can be exceeded
-Date: Wed, 07 Nov 2007 17:01:17 +0300
-Message-ID: <4731C52D.7020902@openvz.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [0/24] Merge IPv4/IPv6 IPsec bundle creation and input/ouput
+Date: Wed, 7 Nov 2007 22:07:01 +0800
+Message-ID: <20071107140701.GA4685@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:46793 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756900AbXKGOB0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Nov 2007 09:01:26 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:3496 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757086AbXKGOHI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 09:07:08 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The unix_nr_socks value is limited with the 2 * get_max_files() value,
-as seen from the unix_create1(). However, the check and the actual
-increment are separated with the GFP_KERNEL allocation, so this limit
-can be exceeded under a memory pressure - task may go to sleep freeing
-the pages and some other task will be allowed to allocate a new sock
-and so on and so forth.
+Hi Dave:
 
-So make the increment before the check (similar thing is done in the
-sock_kmalloc) and go to kmalloc after this.
+Here's a dump of what I've currently got in my IPsec tree.
+It contains all the patches I've posted previously which are
+yet to be merged.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+The first 11 patches are unchanged from the previous posting.
 
----
-
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index ab9048a..e835da8 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -599,15 +599,14 @@ static struct sock * unix_create1(struct net *net, struct socket *sock)
- 	struct sock *sk = NULL;
- 	struct unix_sock *u;
- 
--	if (atomic_read(&unix_nr_socks) >= 2*get_max_files())
-+	atomic_inc(&unix_nr_socks);
-+	if (atomic_read(&unix_nr_socks) > 2 * get_max_files())
- 		goto out;
- 
- 	sk = sk_alloc(net, PF_UNIX, GFP_KERNEL, &unix_proto);
- 	if (!sk)
- 		goto out;
- 
--	atomic_inc(&unix_nr_socks);
--
- 	sock_init_data(sock,sk);
- 	lockdep_set_class(&sk->sk_receive_queue.lock,
- 				&af_unix_sk_receive_queue_lock_key);
-@@ -625,6 +624,8 @@ static struct sock * unix_create1(struct net *net, struct socket *sock)
- 	init_waitqueue_head(&u->peer_wait);
- 	unix_insert_socket(unix_sockets_unbound, sk);
- out:
-+	if (sk == NULL)
-+		atomic_dec(&unix_nr_socks);
- 	return sk;
- }
- 
+Cheers,
 -- 
-1.5.3.4
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
