@@ -1,451 +1,194 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 19/24] [IPSEC]: Merge most of the output path
-Date: Wed, 07 Nov 2007 22:08:36 +0800
-Message-ID: <E1Ipla8-0001IO-00@gondolin.me.apana.org.au>
+Subject: [PATCH 18/24] [IPV6]: Add ip6_local_out
+Date: Wed, 07 Nov 2007 22:08:34 +0800
+Message-ID: <E1Ipla6-0001IG-00@gondolin.me.apana.org.au>
 References: <20071107140701.GA4685@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3761 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:3780 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758033AbXKGO01 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 09:26:27 -0500
+	with ESMTP id S1757896AbXKGO0r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 09:26:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Merge most of the output path
+[IPV6]: Add ip6_local_out
 
-As part of the work on asynchrnous cryptographic operations, we need to
-be able to resume from the spot where they occur.  As such, it helps if
-we isolate them to one spot.
+Most callers of the LOCAL_OUT chain will set the IP packet length
+before doing so.  They also share the same output function dst_output.
 
-This patch moves most of the remaining family-specific processing into
-the common output code.
+This patch creates a new function called ip6_local_out which does all
+of that and converts the appropriate users over to it.
+
+Apart from removing duplicate code, it will also help in merging the
+IPsec output path.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/dst.h       |    1 
- include/net/xfrm.h      |    1 
- net/ipv4/route.c        |    1 
- net/ipv4/xfrm4_output.c |   76 ++---------------------------------------------
- net/ipv4/xfrm4_policy.c |    1 
- net/ipv4/xfrm4_state.c  |    2 +
- net/ipv6/route.c        |    1 
- net/ipv6/xfrm6_output.c |   77 ++++--------------------------------------------
- net/ipv6/xfrm6_policy.c |    1 
- net/ipv6/xfrm6_state.c  |    2 +
- net/xfrm/xfrm_output.c  |   70 +++++++++++++++++++++++++++++++++++++++++--
- 11 files changed, 88 insertions(+), 145 deletions(-)
+ include/net/ipv6.h               |    7 +++++++
+ net/ipv6/ip6_output.c            |   35 +++++++++++++++++++++++++++++------
+ net/ipv6/ip6_tunnel.c            |    4 +---
+ net/ipv6/netfilter/ip6t_REJECT.c |    4 +---
+ net/ipv6/xfrm6_output.c          |    7 +------
+ 5 files changed, 39 insertions(+), 18 deletions(-)
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 4df103b..13f7e32 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -98,6 +98,7 @@ struct dst_ops
- 	struct dst_entry *	(*negative_advice)(struct dst_entry *);
- 	void			(*link_failure)(struct sk_buff *);
- 	void			(*update_pmtu)(struct dst_entry *dst, u32 mtu);
-+	int			(*local_out)(struct sk_buff *skb);
- 	int			entry_size;
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index ae328b6..5078605 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -509,6 +509,13 @@ extern int			ip6_forward(struct sk_buff *skb);
+ extern int			ip6_input(struct sk_buff *skb);
+ extern int			ip6_mc_input(struct sk_buff *skb);
  
- 	atomic_t		entries;
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 448a57f..e674a78 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -259,6 +259,7 @@ struct xfrm_state_afinfo {
- 	unsigned int		family;
- 	unsigned int		proto;
- 	unsigned int		eth_proto;
-+	unsigned int		nf_post_routing;
- 	struct module		*owner;
- 	struct xfrm_type	*type_map[IPPROTO_MAX];
- 	struct xfrm_mode	*mode_map[XFRM_MODE_MAX];
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index d5cbcee..db484a2 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -166,6 +166,7 @@ static struct dst_ops ipv4_dst_ops = {
- 	.negative_advice =	ipv4_negative_advice,
- 	.link_failure =		ipv4_link_failure,
- 	.update_pmtu =		ip_rt_update_pmtu,
-+	.local_out =		ip_local_out,
- 	.entry_size =		sizeof(struct rtable),
- };
- 
-diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
-index 0ffc3d0..2fb4efa 100644
---- a/net/ipv4/xfrm4_output.c
-+++ b/net/ipv4/xfrm4_output.c
-@@ -59,7 +59,7 @@ int xfrm4_prepare_output(struct xfrm_state *x, struct sk_buff *skb)
- 		return err;
- 
- 	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
--	IPCB(skb)->flags |= IPSKB_XFRM_TUNNEL_SIZE;
-+	IPCB(skb)->flags |= IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED;
- 
- 	skb->protocol = htons(ETH_P_IP);
- 
-@@ -67,87 +67,19 @@ int xfrm4_prepare_output(struct xfrm_state *x, struct sk_buff *skb)
- }
- EXPORT_SYMBOL(xfrm4_prepare_output);
- 
--static inline int xfrm4_output_one(struct sk_buff *skb)
--{
--	int err;
--
--	err = xfrm_output(skb);
--	if (err)
--		goto error_nolock;
--
--	IPCB(skb)->flags |= IPSKB_XFRM_TRANSFORMED;
--	err = 0;
--
--out_exit:
--	return err;
--error_nolock:
--	kfree_skb(skb);
--	goto out_exit;
--}
--
--static int xfrm4_output_finish2(struct sk_buff *skb)
--{
--	int err;
--
--	while (likely((err = xfrm4_output_one(skb)) == 0)) {
--		nf_reset(skb);
--
--		err = __ip_local_out(skb);
--		if (unlikely(err != 1))
--			break;
--
--		if (!skb->dst->xfrm)
--			return dst_output(skb);
--
--		err = nf_hook(PF_INET, NF_IP_POST_ROUTING, skb, NULL,
--			      skb->dst->dev, xfrm4_output_finish2);
--		if (unlikely(err != 1))
--			break;
--	}
--
--	return err;
--}
--
- static int xfrm4_output_finish(struct sk_buff *skb)
- {
--	struct sk_buff *segs;
--
- #ifdef CONFIG_NETFILTER
- 	if (!skb->dst->xfrm) {
- 		IPCB(skb)->flags |= IPSKB_REROUTED;
- 		return dst_output(skb);
- 	}
--#endif
- 
--	if (!skb_is_gso(skb))
--		return xfrm4_output_finish2(skb);
-+	IPCB(skb)->flags |= IPSKB_XFRM_TRANSFORMED;
-+#endif
- 
- 	skb->protocol = htons(ETH_P_IP);
--	segs = skb_gso_segment(skb, 0);
--	kfree_skb(skb);
--	if (unlikely(IS_ERR(segs)))
--		return PTR_ERR(segs);
--
--	do {
--		struct sk_buff *nskb = segs->next;
--		int err;
--
--		segs->next = NULL;
--		err = xfrm4_output_finish2(segs);
--
--		if (unlikely(err)) {
--			while ((segs = nskb)) {
--				nskb = segs->next;
--				segs->next = NULL;
--				kfree_skb(segs);
--			}
--			return err;
--		}
--
--		segs = nskb;
--	} while (segs);
--
--	return 0;
-+	return xfrm_output(skb);
- }
- 
- int xfrm4_output(struct sk_buff *skb)
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index 1d75243..d6232df 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -237,6 +237,7 @@ static struct dst_ops xfrm4_dst_ops = {
- 	.update_pmtu =		xfrm4_update_pmtu,
- 	.destroy =		xfrm4_dst_destroy,
- 	.ifdown =		xfrm4_dst_ifdown,
-+	.local_out =		ip_local_out,
- 	.gc_thresh =		1024,
- 	.entry_size =		sizeof(struct xfrm_dst),
- };
-diff --git a/net/ipv4/xfrm4_state.c b/net/ipv4/xfrm4_state.c
-index 85f04b7..80292fb 100644
---- a/net/ipv4/xfrm4_state.c
-+++ b/net/ipv4/xfrm4_state.c
-@@ -11,6 +11,7 @@
- #include <net/xfrm.h>
- #include <linux/pfkeyv2.h>
- #include <linux/ipsec.h>
-+#include <linux/netfilter_ipv4.h>
- 
- static struct xfrm_state_afinfo xfrm4_state_afinfo;
- 
-@@ -66,6 +67,7 @@ static struct xfrm_state_afinfo xfrm4_state_afinfo = {
- 	.family			= AF_INET,
- 	.proto			= IPPROTO_IPIP,
- 	.eth_proto		= htons(ETH_P_IP),
-+	.nf_post_routing	= NF_IP_POST_ROUTING,
- 	.owner			= THIS_MODULE,
- 	.init_flags		= xfrm4_init_flags,
- 	.init_tempsel		= __xfrm4_init_tempsel,
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 7db3cdf..2c91ce6 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -117,6 +117,7 @@ static struct dst_ops ip6_dst_ops = {
- 	.negative_advice	=	ip6_negative_advice,
- 	.link_failure		=	ip6_link_failure,
- 	.update_pmtu		=	ip6_rt_update_pmtu,
-+	.local_out		=	ip6_local_out,
- 	.entry_size		=	sizeof(struct rt6_info),
- };
- 
-diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
-index 0f0ff51..a0a9249 100644
---- a/net/ipv6/xfrm6_output.c
-+++ b/net/ipv6/xfrm6_output.c
-@@ -66,6 +66,9 @@ int xfrm6_prepare_output(struct xfrm_state *x, struct sk_buff *skb)
- 		return err;
- 
- 	memset(IP6CB(skb), 0, sizeof(*IP6CB(skb)));
++extern int			__ip6_local_out(struct sk_buff *skb);
 +#ifdef CONFIG_NETFILTER
-+	IP6CB(skb)->flags |= IP6SKB_XFRM_TRANSFORMED;
++extern int			ip6_local_out(struct sk_buff *skb);
++#else
++#define ip6_local_out		__ip6_local_out
 +#endif
++
+ /*
+  *	Extension header (options) processing
+  */
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 698d9d2..a0a366f 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -29,7 +29,7 @@
+  */
  
- 	skb->protocol = htons(ETH_P_IPV6);
- 
-@@ -73,80 +76,14 @@ int xfrm6_prepare_output(struct xfrm_state *x, struct sk_buff *skb)
- }
- EXPORT_SYMBOL(xfrm6_prepare_output);
- 
--static inline int xfrm6_output_one(struct sk_buff *skb)
--{
--	int err;
--
--	err = xfrm_output(skb);
--	if (err)
--		goto error_nolock;
--
--	IP6CB(skb)->flags |= IP6SKB_XFRM_TRANSFORMED;
--	err = 0;
--
--out_exit:
--	return err;
--error_nolock:
--	kfree_skb(skb);
--	goto out_exit;
--}
--
--static int xfrm6_output_finish2(struct sk_buff *skb)
--{
--	int err;
--
--	while (likely((err = xfrm6_output_one(skb)) == 0)) {
--		nf_reset(skb);
--
--		err = __ip6_local_out(skb);
--		if (unlikely(err != 1))
--			break;
--
--		if (!skb->dst->xfrm)
--			return dst_output(skb);
--
--		err = nf_hook(PF_INET6, NF_IP6_POST_ROUTING, skb, NULL,
--			      skb->dst->dev, xfrm6_output_finish2);
--		if (unlikely(err != 1))
--			break;
--	}
--
--	return err;
--}
--
- static int xfrm6_output_finish(struct sk_buff *skb)
- {
--	struct sk_buff *segs;
--
--	if (!skb_is_gso(skb))
--		return xfrm6_output_finish2(skb);
-+#ifdef CONFIG_NETFILTER
-+	IP6CB(skb)->flags |= IP6SKB_XFRM_TRANSFORMED;
-+#endif
- 
- 	skb->protocol = htons(ETH_P_IPV6);
--	segs = skb_gso_segment(skb, 0);
--	kfree_skb(skb);
--	if (unlikely(IS_ERR(segs)))
--		return PTR_ERR(segs);
--
--	do {
--		struct sk_buff *nskb = segs->next;
--		int err;
--
--		segs->next = NULL;
--		err = xfrm6_output_finish2(segs);
--
--		if (unlikely(err)) {
--			while ((segs = nskb)) {
--				nskb = segs->next;
--				segs->next = NULL;
--				kfree_skb(segs);
--			}
--			return err;
--		}
--
--		segs = nskb;
--	} while (segs);
--
--	return 0;
-+	return xfrm_output(skb);
- }
- 
- int xfrm6_output(struct sk_buff *skb)
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 50a3841..6ee0de1 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -253,6 +253,7 @@ static struct dst_ops xfrm6_dst_ops = {
- 	.update_pmtu =		xfrm6_update_pmtu,
- 	.destroy =		xfrm6_dst_destroy,
- 	.ifdown =		xfrm6_dst_ifdown,
-+	.local_out =		ip6_local_out,
- 	.gc_thresh =		1024,
- 	.entry_size =		sizeof(struct xfrm_dst),
- };
-diff --git a/net/ipv6/xfrm6_state.c b/net/ipv6/xfrm6_state.c
-index 90fef0a..bb09e85 100644
---- a/net/ipv6/xfrm6_state.c
-+++ b/net/ipv6/xfrm6_state.c
-@@ -14,6 +14,7 @@
- #include <net/xfrm.h>
- #include <linux/pfkeyv2.h>
- #include <linux/ipsec.h>
-+#include <linux/netfilter_ipv6.h>
- #include <net/dsfield.h>
- #include <net/ipv6.h>
- #include <net/addrconf.h>
-@@ -189,6 +190,7 @@ static struct xfrm_state_afinfo xfrm6_state_afinfo = {
- 	.family			= AF_INET6,
- 	.proto			= IPPROTO_IPV6,
- 	.eth_proto		= htons(ETH_P_IPV6),
-+	.nf_post_routing	= NF_IP6_POST_ROUTING,
- 	.owner			= THIS_MODULE,
- 	.init_tempsel		= __xfrm6_init_tempsel,
- 	.tmpl_sort		= __xfrm6_tmpl_sort,
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index b1efdc8..bcb3701 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -12,6 +12,7 @@
  #include <linux/errno.h>
- #include <linux/module.h>
- #include <linux/netdevice.h>
-+#include <linux/netfilter.h>
- #include <linux/skbuff.h>
- #include <linux/spinlock.h>
- #include <net/dst.h>
-@@ -40,7 +41,7 @@ err:
- 	return err;
+-#include <linux/types.h>
++#include <linux/kernel.h>
+ #include <linux/string.h>
+ #include <linux/socket.h>
+ #include <linux/net.h>
+@@ -70,6 +70,33 @@ static __inline__ void ipv6_select_ident(struct sk_buff *skb, struct frag_hdr *f
+ 	spin_unlock_bh(&ip6_id_lock);
  }
  
--int xfrm_output(struct sk_buff *skb)
-+static int xfrm_output_one(struct sk_buff *skb)
- {
- 	struct dst_entry *dst = skb->dst;
- 	struct xfrm_state *x = dst->xfrm;
-@@ -87,10 +88,73 @@ int xfrm_output(struct sk_buff *skb)
- 
- 	err = 0;
- 
--error_nolock:
-+out_exit:
- 	return err;
- error:
- 	spin_unlock_bh(&x->lock);
--	goto error_nolock;
-+error_nolock:
-+	kfree_skb(skb);
-+	goto out_exit;
++int __ip6_local_out(struct sk_buff *skb)
++{
++	int len;
++
++	len = skb->len - sizeof(struct ipv6hdr);
++	if (len > IPV6_MAXPLEN)
++		len = 0;
++	ipv6_hdr(skb)->payload_len = htons(len);
++
++	return nf_hook(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, skb->dst->dev,
++		       dst_output);
 +}
 +
-+static int xfrm_output2(struct sk_buff *skb)
++#ifdef CONFIG_NETFILTER
++int ip6_local_out(struct sk_buff *skb)
 +{
 +	int err;
 +
-+	while (likely((err = xfrm_output_one(skb)) == 0)) {
-+		struct xfrm_state *x;
-+
-+		nf_reset(skb);
-+
-+		err = skb->dst->ops->local_out(skb);
-+		if (unlikely(err != 1))
-+			break;
-+
-+		x = skb->dst->xfrm;
-+		if (!x)
-+			return dst_output(skb);
-+
-+		err = nf_hook(x->inner_mode->afinfo->family,
-+			      x->inner_mode->afinfo->nf_post_routing, skb,
-+			      NULL, skb->dst->dev, xfrm_output2);
-+		if (unlikely(err != 1))
-+			break;
-+	}
++	err = __ip6_local_out(skb);
++	if (likely(err == 1))
++		err = dst_output(skb);
 +
 +	return err;
 +}
++#endif
++EXPORT_SYMBOL_GPL(ip6_local_out);
 +
-+int xfrm_output(struct sk_buff *skb)
-+{
-+	struct sk_buff *segs;
-+
-+	if (!skb_is_gso(skb))
-+		return xfrm_output2(skb);
-+
-+	segs = skb_gso_segment(skb, 0);
-+	kfree_skb(skb);
-+	if (unlikely(IS_ERR(segs)))
-+		return PTR_ERR(segs);
-+
-+	do {
-+		struct sk_buff *nskb = segs->next;
-+		int err;
-+
-+		segs->next = NULL;
-+		err = xfrm_output2(segs);
-+
-+		if (unlikely(err)) {
-+			while ((segs = nskb)) {
-+				nskb = segs->next;
-+				segs->next = NULL;
-+				kfree_skb(segs);
-+			}
-+			return err;
-+		}
-+
-+		segs = nskb;
-+	} while (segs);
-+
-+	return 0;
+ static int ip6_output_finish(struct sk_buff *skb)
+ {
+ 	struct dst_entry *dst = skb->dst;
+@@ -1388,10 +1415,6 @@ int ip6_push_pending_frames(struct sock *sk)
+ 	*(__be32*)hdr = fl->fl6_flowlabel |
+ 		     htonl(0x60000000 | ((int)np->cork.tclass << 20));
+ 
+-	if (skb->len <= sizeof(struct ipv6hdr) + IPV6_MAXPLEN)
+-		hdr->payload_len = htons(skb->len - sizeof(struct ipv6hdr));
+-	else
+-		hdr->payload_len = 0;
+ 	hdr->hop_limit = np->cork.hop_limit;
+ 	hdr->nexthdr = proto;
+ 	ipv6_addr_copy(&hdr->saddr, &fl->fl6_src);
+@@ -1408,7 +1431,7 @@ int ip6_push_pending_frames(struct sock *sk)
+ 		ICMP6_INC_STATS_BH(idev, ICMP6_MIB_OUTMSGS);
+ 	}
+ 
+-	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, skb->dst->dev, dst_output);
++	err = ip6_local_out(skb);
+ 	if (err) {
+ 		if (err > 0)
+ 			err = np->recverr ? net_xmit_errno(err) : 0;
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index a4051af..29b5321 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -910,15 +910,13 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 	*(__be32*)ipv6h = fl->fl6_flowlabel | htonl(0x60000000);
+ 	dsfield = INET_ECN_encapsulate(0, dsfield);
+ 	ipv6_change_dsfield(ipv6h, ~INET_ECN_MASK, dsfield);
+-	ipv6h->payload_len = htons(skb->len - sizeof(struct ipv6hdr));
+ 	ipv6h->hop_limit = t->parms.hop_limit;
+ 	ipv6h->nexthdr = proto;
+ 	ipv6_addr_copy(&ipv6h->saddr, &fl->fl6_src);
+ 	ipv6_addr_copy(&ipv6h->daddr, &fl->fl6_dst);
+ 	nf_reset(skb);
+ 	pkt_len = skb->len;
+-	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL,
+-		      skb->dst->dev, dst_output);
++	err = ip6_local_out(skb);
+ 
+ 	if (net_xmit_eval(err) == 0) {
+ 		stats->tx_bytes += pkt_len;
+diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
+index 1a7d291..c1c6634 100644
+--- a/net/ipv6/netfilter/ip6t_REJECT.c
++++ b/net/ipv6/netfilter/ip6t_REJECT.c
+@@ -121,7 +121,6 @@ static void send_reset(struct sk_buff *oldskb)
+ 	ip6h->version = 6;
+ 	ip6h->hop_limit = dst_metric(dst, RTAX_HOPLIMIT);
+ 	ip6h->nexthdr = IPPROTO_TCP;
+-	ip6h->payload_len = htons(sizeof(struct tcphdr));
+ 	ipv6_addr_copy(&ip6h->saddr, &oip6h->daddr);
+ 	ipv6_addr_copy(&ip6h->daddr, &oip6h->saddr);
+ 
+@@ -159,8 +158,7 @@ static void send_reset(struct sk_buff *oldskb)
+ 
+ 	nf_ct_attach(nskb, oldskb);
+ 
+-	NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, nskb, NULL, nskb->dst->dev,
+-		dst_output);
++	ip6_local_out(nskb);
  }
- EXPORT_SYMBOL_GPL(xfrm_output);
+ 
+ static inline void
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+index c45050c..0f0ff51 100644
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -75,16 +75,12 @@ EXPORT_SYMBOL(xfrm6_prepare_output);
+ 
+ static inline int xfrm6_output_one(struct sk_buff *skb)
+ {
+-	struct ipv6hdr *iph;
+ 	int err;
+ 
+ 	err = xfrm_output(skb);
+ 	if (err)
+ 		goto error_nolock;
+ 
+-	iph = ipv6_hdr(skb);
+-	iph->payload_len = htons(skb->len - sizeof(*iph));
+-
+ 	IP6CB(skb)->flags |= IP6SKB_XFRM_TRANSFORMED;
+ 	err = 0;
+ 
+@@ -102,8 +98,7 @@ static int xfrm6_output_finish2(struct sk_buff *skb)
+ 	while (likely((err = xfrm6_output_one(skb)) == 0)) {
+ 		nf_reset(skb);
+ 
+-		err = nf_hook(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL,
+-			      skb->dst->dev, dst_output);
++		err = __ip6_local_out(skb);
+ 		if (unlikely(err != 1))
+ 			break;
+ 
