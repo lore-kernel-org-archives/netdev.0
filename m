@@ -1,75 +1,123 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 6/24] [IPSEC]: Only set neighbour on top xfrm dst
-Date: Wed, 07 Nov 2007 22:08:22 +0800
-Message-ID: <E1IplZu-0001Gd-00@gondolin.me.apana.org.au>
+Subject: [PATCH 22/24] [IPSEC]: Store xfrm states in security path directly
+Date: Wed, 07 Nov 2007 22:08:39 +0800
+Message-ID: <E1IplaB-0001In-00@gondolin.me.apana.org.au>
 References: <20071107140701.GA4685@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3532 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:3756 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758514AbXKGOIb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 09:08:31 -0500
+	with ESMTP id S1758020AbXKGO0X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 09:26:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Only set neighbour on top xfrm dst
+[IPSEC]: Store xfrm states in security path directly
 
-The neighbour field is only used by dst_confirm which only ever happens on
-the top-most xfrm dst.  So it's a waste to duplicate for every other xfrm
-dst.  This patch moves its setting out of the loop so that only the top one
-gets set.
+As it is xfrm_input first collects a list of xfrm states on the stack
+before storing them in the packet's security path just before it returns.
+For async crypto, this construction presents an obstacle since we may
+need to leave the loop after each transform.
+
+In fact, it's much easier to just skip the stack completely and always
+store to the security path.  This is proven by the fact that this patch
+actually shrinks the code.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/ipv4/xfrm4_policy.c |    5 +++--
- net/ipv6/xfrm6_policy.c |    6 ++++--
- 2 files changed, 7 insertions(+), 4 deletions(-)
+ net/xfrm/xfrm_input.c |   42 +++++++++++++++---------------------------
+ 1 files changed, 15 insertions(+), 27 deletions(-)
 
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index 5ee3a2f..7d250a1 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -144,6 +144,9 @@ __xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
- 	dst_prev->child = &rt->u.dst;
- 	dst->path = &rt->u.dst;
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index b980095..587f347 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -100,19 +100,29 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ {
+ 	int err;
+ 	__be32 seq;
+-	struct xfrm_state *xfrm_vec[XFRM_MAX_DEPTH];
+ 	struct xfrm_state *x;
+-	int xfrm_nr = 0;
+ 	int decaps = 0;
+ 	unsigned int nhoff = XFRM_SPI_SKB_CB(skb)->nhoff;
+ 	unsigned int daddroff = XFRM_SPI_SKB_CB(skb)->daddroff;
  
-+	/* Copy neighbout for reachability confirmation */
-+	dst->neighbour = neigh_clone(rt->u.dst.neighbour);
++	/* Allocate new secpath or COW existing one. */
++	if (!skb->sp || atomic_read(&skb->sp->refcnt) != 1) {
++		struct sec_path *sp;
 +
- 	*dst_p = dst;
- 	dst = dst_prev;
- 
-@@ -164,8 +167,6 @@ __xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
- 		dst_prev->trailer_len	= trailer_len;
- 		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
- 
--		/* Copy neighbout for reachability confirmation */
--		dst_prev->neighbour	= neigh_clone(rt->u.dst.neighbour);
- 		dst_prev->input		= rt->u.dst.input;
- 		dst_prev->output = dst_prev->xfrm->outer_mode->afinfo->output;
- 		if (rt0->peer)
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 9095dfc..15747f3 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -188,6 +188,10 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
- 
- 	dst_prev->child = &rt->u.dst;
- 	dst->path = &rt->u.dst;
++		sp = secpath_dup(skb->sp);
++		if (!sp)
++			goto drop;
++		if (skb->sp)
++			secpath_put(skb->sp);
++		skb->sp = sp;
++	}
 +
-+	/* Copy neighbour for reachability confirmation */
-+	dst->neighbour = neigh_clone(rt->u.dst.neighbour);
+ 	seq = 0;
+ 	if (!spi && (err = xfrm_parse_spi(skb, nexthdr, &spi, &seq)) != 0)
+ 		goto drop;
+ 
+ 	do {
+-		if (xfrm_nr == XFRM_MAX_DEPTH)
++		if (skb->sp->len == XFRM_MAX_DEPTH)
+ 			goto drop;
+ 
+ 		x = xfrm_state_lookup((xfrm_address_t *)
+@@ -121,6 +131,8 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 		if (x == NULL)
+ 			goto drop;
+ 
++		skb->sp->xvec[skb->sp->len++] = x;
 +
- 	if (rt->rt6i_node)
- 		((struct xfrm_dst *)dst)->path_cookie = rt->rt6i_node->fn_sernum;
+ 		spin_lock(&x->lock);
+ 		if (unlikely(x->km.state != XFRM_STATE_VALID))
+ 			goto drop_unlock;
+@@ -151,8 +163,6 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
  
-@@ -210,8 +214,6 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
- 		dst_prev->trailer_len	= trailer_len;
- 		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
+ 		spin_unlock(&x->lock);
  
--		/* Copy neighbour for reachability confirmation */
--		dst_prev->neighbour	= neigh_clone(rt->u.dst.neighbour);
- 		dst_prev->input		= rt->u.dst.input;
- 		dst_prev->output = dst_prev->xfrm->outer_mode->afinfo->output;
- 		/* Sheit... I remember I did this right. Apparently,
+-		xfrm_vec[xfrm_nr++] = x;
+-
+ 		if (x->inner_mode->input(x, skb))
+ 			goto drop;
+ 
+@@ -166,24 +176,6 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 			goto drop;
+ 	} while (!err);
+ 
+-	/* Allocate new secpath or COW existing one. */
+-
+-	if (!skb->sp || atomic_read(&skb->sp->refcnt) != 1) {
+-		struct sec_path *sp;
+-		sp = secpath_dup(skb->sp);
+-		if (!sp)
+-			goto drop;
+-		if (skb->sp)
+-			secpath_put(skb->sp);
+-		skb->sp = sp;
+-	}
+-	if (xfrm_nr + skb->sp->len > XFRM_MAX_DEPTH)
+-		goto drop;
+-
+-	memcpy(skb->sp->xvec + skb->sp->len, xfrm_vec,
+-	       xfrm_nr * sizeof(xfrm_vec[0]));
+-	skb->sp->len += xfrm_nr;
+-
+ 	nf_reset(skb);
+ 
+ 	if (decaps) {
+@@ -197,11 +189,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 
+ drop_unlock:
+ 	spin_unlock(&x->lock);
+-	xfrm_state_put(x);
+ drop:
+-	while (--xfrm_nr >= 0)
+-		xfrm_state_put(xfrm_vec[xfrm_nr]);
+-
+ 	kfree_skb(skb);
+ 	return 0;
+ }
