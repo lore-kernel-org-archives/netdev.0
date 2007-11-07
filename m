@@ -1,112 +1,60 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 2/2] move unneeded data to initdata section
-Date: Wed, 7 Nov 2007 15:01:00 +0300
-Message-ID: <20071107120100.GA10185@iris.sw.ru>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] INET : removes per bucket rwlock in tcp/dccp ehash table
+Date: Wed, 7 Nov 2007 13:13:18 +0100
+Message-ID: <20071107121318.GB1817@ff.dom.local>
+References: <200711040018.15027.ak@suse.de> <20071103.162337.83099185.davem@davemloft.net> <472DAD90.4050709@cosmosbay.com> <20071107.024114.265595154.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: devel@openvz.org, containers@lists.osdl.org,
-	netdev@vger.kernel.org, clg@fr.ibm.com, benjamin.thery@bull.net
-To: davem@davemloft.net
+Cc: dada1@cosmosbay.com, ak@suse.de, netdev@vger.kernel.org,
+	acme@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:58325 "EHLO iris"
+Received: from mx12.go2.pl ([193.17.41.142]:49113 "EHLO poczta.o2.pl"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753105AbXKGL52 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Nov 2007 06:57:28 -0500
+	id S1750830AbXKGMJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 07:09:28 -0500
 Content-Disposition: inline
+In-Reply-To: <20071107.024114.265595154.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch reverts Eric's commit 2b008b0a8e96b726c603c5e1a5a7a509b5f61e35
+On Wed, Nov 07, 2007 at 02:41:14AM -0800, David Miller wrote:
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Sun, 04 Nov 2007 12:31:28 +0100
+> 
+> > [PATCH] INET : removes per bucket rwlock in tcp/dccp ehash table
+> > 
+> > As done two years ago on IP route cache table (commit 
+> > 22c047ccbc68fa8f3fa57f0e8f906479a062c426) , we can avoid using one lock per 
+> > hash bucket for the huge TCP/DCCP hash tables.
+> > 
+> > On a typical x86_64 platform, this saves about 2MB or 4MB of ram, for litle 
+> > performance differences. (we hit a different cache line for the rwlock, but 
+> > then the bucket cache line have a better sharing factor among cpus, since we 
+> > dirty it less often). For netstat or ss commands that want a full scan of hash 
+> > table, we perform fewer memory accesses.
+> > 
+> > Using a 'small' table of hashed rwlocks should be more than enough to provide 
+> > correct SMP concurrency between different buckets, without using too much 
+> > memory. Sizing of this table depends on num_possible_cpus() and various CONFIG 
+> > settings.
+> > 
+> > This patch provides some locking abstraction that may ease a future work using 
+> >   a different model for TCP/DCCP table.
+> > 
+> > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> > Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> 
+> I'm going to push this current version to Linus, the space saving
+> really justify it and if we want to refine things further we do it
+> with followon work rather than blocking this patch.
+> 
+> Thanks Eric!
 
-It diets .text & .data section of the kernel if CONFIG_NET_NS is not set.
-This is safe after list operations cleanup.
+I hope my remarks didn't block anything?! I've written it's OK.
+So, I'm not sure it's useful or expected, but anyway:
 
-Signed-of-by: Denis V. Lunev <den@openvz.org>
+Acked-by: Jarek Poplawski <jarkao2@o2.pl>
 
---- ./drivers/net/loopback.c.reversed	2007-10-30 14:45:07.000000000 +0300
-+++ ./drivers/net/loopback.c	2007-11-01 17:30:55.000000000 +0300
-@@ -284,7 +284,7 @@ static __net_exit void loopback_net_exit
- 	unregister_netdev(dev);
- }
- 
--static struct pernet_operations loopback_net_ops = {
-+static struct pernet_operations __net_initdata loopback_net_ops = {
-        .init = loopback_net_init,
-        .exit = loopback_net_exit,
- };
---- ./fs/proc/proc_net.c.reversed	2007-10-30 14:45:07.000000000 +0300
-+++ ./fs/proc/proc_net.c	2007-11-01 17:30:57.000000000 +0300
-@@ -185,7 +185,7 @@ static __net_exit void proc_net_ns_exit(
- 	kfree(net->proc_net_root);
- }
- 
--static struct pernet_operations proc_net_ns_ops = {
-+static struct pernet_operations __net_initdata proc_net_ns_ops = {
- 	.init = proc_net_ns_init,
- 	.exit = proc_net_ns_exit,
- };
---- ./include/net/net_namespace.h.reversed	2007-10-30 14:45:07.000000000 +0300
-+++ ./include/net/net_namespace.h	2007-11-01 17:30:58.000000000 +0300
-@@ -102,9 +102,11 @@ static inline void release_net(struct ne
- #ifdef CONFIG_NET_NS
- #define __net_init
- #define __net_exit
-+#define __net_initdata
- #else
- #define __net_init	__init
- #define __net_exit	__exit_refok
-+#define __net_initdata	__initdata
- #endif
- 
- struct pernet_operations {
---- ./net/core/dev.c.reversed	2007-10-30 14:45:08.000000000 +0300
-+++ ./net/core/dev.c	2007-11-01 17:30:58.000000000 +0300
-@@ -2676,7 +2676,7 @@ static void __net_exit dev_proc_net_exit
- 	proc_net_remove(net, "dev");
- }
- 
--static struct pernet_operations dev_proc_ops = {
-+static struct pernet_operations __net_initdata dev_proc_ops = {
- 	.init = dev_proc_net_init,
- 	.exit = dev_proc_net_exit,
- };
-@@ -4336,7 +4336,7 @@ static void __net_exit netdev_exit(struc
- 	kfree(net->dev_index_head);
- }
- 
--static struct pernet_operations  netdev_net_ops = {
-+static struct pernet_operations __net_initdata netdev_net_ops = {
- 	.init = netdev_init,
- 	.exit = netdev_exit,
- };
-@@ -4367,7 +4367,7 @@ static void __net_exit default_device_ex
- 	rtnl_unlock();
- }
- 
--static struct pernet_operations  default_device_ops = {
-+static struct pernet_operations __net_initdata default_device_ops = {
- 	.exit = default_device_exit,
- };
- 
---- ./net/core/dev_mcast.c.reversed	2007-10-30 14:45:08.000000000 +0300
-+++ ./net/core/dev_mcast.c	2007-11-01 17:31:00.000000000 +0300
-@@ -285,7 +285,7 @@ static void __net_exit dev_mc_net_exit(s
- 	proc_net_remove(net, "dev_mcast");
- }
- 
--static struct pernet_operations dev_mc_net_ops = {
-+static struct pernet_operations __net_initdata dev_mc_net_ops = {
- 	.init = dev_mc_net_init,
- 	.exit = dev_mc_net_exit,
- };
---- ./net/netlink/af_netlink.c.reversed	2007-10-30 14:45:08.000000000 +0300
-+++ ./net/netlink/af_netlink.c	2007-11-01 17:31:01.000000000 +0300
-@@ -1888,7 +1888,7 @@ static void __net_exit netlink_net_exit(
- #endif
- }
- 
--static struct pernet_operations netlink_net_ops = {
-+static struct pernet_operations __net_initdata netlink_net_ops = {
- 	.init = netlink_net_init,
- 	.exit = netlink_net_exit,
- };
+Thanks,
+Jarek P.
