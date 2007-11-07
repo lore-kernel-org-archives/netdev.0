@@ -1,382 +1,348 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Fw: 2.6.23.1-smp  kernel panic (network-related)
-Date: Wed, 7 Nov 2007 09:51:20 -0800
-Message-ID: <20071107095120.237366d2@freepuppy.rosehill>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="MP_/afWpESY29jP4MWVE3Qw1rw."
-Cc: netdev@vger.kernel.org
-To: Marek Kierdelewicz <marek@koba.pl>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [PATCH 09/13] SCTP: Convert custom hash lists to use hlist.
+Date: Wed,  7 Nov 2007 12:46:27 -0500
+Message-ID: <11944575911032-git-send-email-vladislav.yasevich@hp.com>
+References: <11944575911538-git-send-email-vladislav.yasevich@hp.com>
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:34860 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757865AbXKGRwh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 12:52:37 -0500
+Received: from palrel11.hp.com ([156.153.255.246]:33947 "EHLO palrel11.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754418AbXKGR4Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 12:56:24 -0500
+In-Reply-To: <11944575911538-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---MP_/afWpESY29jP4MWVE3Qw1rw.
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Convert the custom hash list traversals to use hlist functions.
 
-What is the test input that causes the crash??
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+---
+ include/net/sctp/sctp.h    |    3 +++
+ include/net/sctp/structs.h |   10 ++++------
+ net/sctp/endpointola.c     |    3 ++-
+ net/sctp/input.c           |   43 +++++++++++--------------------------------
+ net/sctp/proc.c            |    6 ++++--
+ net/sctp/protocol.c        |    6 +++---
+ net/sctp/socket.c          |   14 +++++---------
+ 7 files changed, 32 insertions(+), 53 deletions(-)
 
-Forwarding message to proper group.
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index 7082730..67c997c 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -665,6 +665,9 @@ static inline int sctp_vtag_hashfn(__u16 lport, __u16 rport, __u32 vtag)
+ 	return (h & (sctp_assoc_hashsize-1));
+ }
+ 
++#define sctp_for_each_hentry(epb, node, head) \
++	hlist_for_each_entry(epb, node, head, node)
++
+ /* Is a socket of this style? */
+ #define sctp_style(sk, style) __sctp_style((sk), (SCTP_SOCKET_##style))
+ static inline int __sctp_style(const struct sock *sk, sctp_socket_type_t style)
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 44f2672..eb3113c 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -100,20 +100,19 @@ struct crypto_hash;
+ struct sctp_bind_bucket {
+ 	unsigned short	port;
+ 	unsigned short	fastreuse;
+-	struct sctp_bind_bucket *next;
+-	struct sctp_bind_bucket **pprev;
++	struct hlist_node	node;
+ 	struct hlist_head	owner;
+ };
+ 
+ struct sctp_bind_hashbucket {
+ 	spinlock_t	lock;
+-	struct sctp_bind_bucket	*chain;
++	struct hlist_head	chain;
+ };
+ 
+ /* Used for hashing all associations.  */
+ struct sctp_hashbucket {
+ 	rwlock_t	lock;
+-	struct sctp_ep_common  *chain;
++	struct hlist_head	chain;
+ } __attribute__((__aligned__(8)));
+ 
+ 
+@@ -1230,8 +1229,7 @@ typedef enum {
+ 
+ struct sctp_ep_common {
+ 	/* Fields to help us manage our entries in the hash tables. */
+-	struct sctp_ep_common *next;
+-	struct sctp_ep_common **pprev;
++	struct hlist_node node;
+ 	int hashent;
+ 
+ 	/* Runtime type information.  What kind of endpoint is this? */
+diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+index f38fa0f..0bd3147 100644
+--- a/net/sctp/endpointola.c
++++ b/net/sctp/endpointola.c
+@@ -332,6 +332,7 @@ static struct sctp_association *__sctp_endpoint_lookup_assoc(
+ 	struct sctp_transport *t = NULL;
+ 	struct sctp_hashbucket *head;
+ 	struct sctp_ep_common *epb;
++	struct hlist_node *node;
+ 	int hash;
+ 	int rport;
+ 
+@@ -341,7 +342,7 @@ static struct sctp_association *__sctp_endpoint_lookup_assoc(
+ 	hash = sctp_assoc_hashfn(ep->base.bind_addr.port, rport);
+ 	head = &sctp_assoc_hashtable[hash];
+ 	read_lock(&head->lock);
+-	for (epb = head->chain; epb; epb = epb->next) {
++	sctp_for_each_hentry(epb, node, &head->chain) {
+ 		asoc = sctp_assoc(epb);
+ 		if (asoc->ep != ep || rport != asoc->peer.port)
+ 			goto next;
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index 86503e7..91ae463 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -656,7 +656,6 @@ discard:
+ /* Insert endpoint into the hash table.  */
+ static void __sctp_hash_endpoint(struct sctp_endpoint *ep)
+ {
+-	struct sctp_ep_common **epp;
+ 	struct sctp_ep_common *epb;
+ 	struct sctp_hashbucket *head;
+ 
+@@ -666,12 +665,7 @@ static void __sctp_hash_endpoint(struct sctp_endpoint *ep)
+ 	head = &sctp_ep_hashtable[epb->hashent];
+ 
+ 	sctp_write_lock(&head->lock);
+-	epp = &head->chain;
+-	epb->next = *epp;
+-	if (epb->next)
+-		(*epp)->pprev = &epb->next;
+-	*epp = epb;
+-	epb->pprev = epp;
++	hlist_add_head(&epb->node, &head->chain);
+ 	sctp_write_unlock(&head->lock);
+ }
+ 
+@@ -691,19 +685,15 @@ static void __sctp_unhash_endpoint(struct sctp_endpoint *ep)
+ 
+ 	epb = &ep->base;
+ 
++	if (hlist_unhashed(&epb->node))
++		return;
++
+ 	epb->hashent = sctp_ep_hashfn(epb->bind_addr.port);
+ 
+ 	head = &sctp_ep_hashtable[epb->hashent];
+ 
+ 	sctp_write_lock(&head->lock);
+-
+-	if (epb->pprev) {
+-		if (epb->next)
+-			epb->next->pprev = epb->pprev;
+-		*epb->pprev = epb->next;
+-		epb->pprev = NULL;
+-	}
+-
++	__hlist_del(&epb->node);
+ 	sctp_write_unlock(&head->lock);
+ }
+ 
+@@ -721,12 +711,13 @@ static struct sctp_endpoint *__sctp_rcv_lookup_endpoint(const union sctp_addr *l
+ 	struct sctp_hashbucket *head;
+ 	struct sctp_ep_common *epb;
+ 	struct sctp_endpoint *ep;
++	struct hlist_node *node;
+ 	int hash;
+ 
+ 	hash = sctp_ep_hashfn(ntohs(laddr->v4.sin_port));
+ 	head = &sctp_ep_hashtable[hash];
+ 	read_lock(&head->lock);
+-	for (epb = head->chain; epb; epb = epb->next) {
++	sctp_for_each_hentry(epb, node, &head->chain) {
+ 		ep = sctp_ep(epb);
+ 		if (sctp_endpoint_is_match(ep, laddr))
+ 			goto hit;
+@@ -744,7 +735,6 @@ hit:
+ /* Insert association into the hash table.  */
+ static void __sctp_hash_established(struct sctp_association *asoc)
+ {
+-	struct sctp_ep_common **epp;
+ 	struct sctp_ep_common *epb;
+ 	struct sctp_hashbucket *head;
+ 
+@@ -756,12 +746,7 @@ static void __sctp_hash_established(struct sctp_association *asoc)
+ 	head = &sctp_assoc_hashtable[epb->hashent];
+ 
+ 	sctp_write_lock(&head->lock);
+-	epp = &head->chain;
+-	epb->next = *epp;
+-	if (epb->next)
+-		(*epp)->pprev = &epb->next;
+-	*epp = epb;
+-	epb->pprev = epp;
++	hlist_add_head(&epb->node, &head->chain);
+ 	sctp_write_unlock(&head->lock);
+ }
+ 
+@@ -790,14 +775,7 @@ static void __sctp_unhash_established(struct sctp_association *asoc)
+ 	head = &sctp_assoc_hashtable[epb->hashent];
+ 
+ 	sctp_write_lock(&head->lock);
+-
+-	if (epb->pprev) {
+-		if (epb->next)
+-			epb->next->pprev = epb->pprev;
+-		*epb->pprev = epb->next;
+-		epb->pprev = NULL;
+-	}
+-
++	__hlist_del(&epb->node);
+ 	sctp_write_unlock(&head->lock);
+ }
+ 
+@@ -822,6 +800,7 @@ static struct sctp_association *__sctp_lookup_association(
+ 	struct sctp_ep_common *epb;
+ 	struct sctp_association *asoc;
+ 	struct sctp_transport *transport;
++	struct hlist_node *node;
+ 	int hash;
+ 
+ 	/* Optimize here for direct hit, only listening connections can
+@@ -830,7 +809,7 @@ static struct sctp_association *__sctp_lookup_association(
+ 	hash = sctp_assoc_hashfn(ntohs(local->v4.sin_port), ntohs(peer->v4.sin_port));
+ 	head = &sctp_assoc_hashtable[hash];
+ 	read_lock(&head->lock);
+-	for (epb = head->chain; epb; epb = epb->next) {
++	sctp_for_each_hentry(epb, node, &head->chain) {
+ 		asoc = sctp_assoc(epb);
+ 		transport = sctp_assoc_is_match(asoc, local, peer);
+ 		if (transport)
+diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+index e4cd841..2499732 100644
+--- a/net/sctp/proc.c
++++ b/net/sctp/proc.c
+@@ -225,6 +225,7 @@ static int sctp_eps_seq_show(struct seq_file *seq, void *v)
+ 	struct sctp_ep_common *epb;
+ 	struct sctp_endpoint *ep;
+ 	struct sock *sk;
++	struct hlist_node *node;
+ 	int    hash = *(loff_t *)v;
+ 
+ 	if (hash >= sctp_ep_hashsize)
+@@ -233,7 +234,7 @@ static int sctp_eps_seq_show(struct seq_file *seq, void *v)
+ 	head = &sctp_ep_hashtable[hash];
+ 	sctp_local_bh_disable();
+ 	read_lock(&head->lock);
+-	for (epb = head->chain; epb; epb = epb->next) {
++	sctp_for_each_hentry(epb, node, &head->chain) {
+ 		ep = sctp_ep(epb);
+ 		sk = epb->sk;
+ 		seq_printf(seq, "%8p %8p %-3d %-3d %-4d %-5d %5d %5lu ", ep, sk,
+@@ -328,6 +329,7 @@ static int sctp_assocs_seq_show(struct seq_file *seq, void *v)
+ 	struct sctp_ep_common *epb;
+ 	struct sctp_association *assoc;
+ 	struct sock *sk;
++	struct hlist_node *node;
+ 	int    hash = *(loff_t *)v;
+ 
+ 	if (hash >= sctp_assoc_hashsize)
+@@ -336,7 +338,7 @@ static int sctp_assocs_seq_show(struct seq_file *seq, void *v)
+ 	head = &sctp_assoc_hashtable[hash];
+ 	sctp_local_bh_disable();
+ 	read_lock(&head->lock);
+-	for (epb = head->chain; epb; epb = epb->next) {
++	sctp_for_each_hentry(epb, node, &head->chain) {
+ 		assoc = sctp_assoc(epb);
+ 		sk = epb->sk;
+ 		seq_printf(seq,
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index ecfab03..d50f610 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -1137,7 +1137,7 @@ SCTP_STATIC __init int sctp_init(void)
+ 	}
+ 	for (i = 0; i < sctp_assoc_hashsize; i++) {
+ 		rwlock_init(&sctp_assoc_hashtable[i].lock);
+-		sctp_assoc_hashtable[i].chain = NULL;
++		INIT_HLIST_HEAD(&sctp_assoc_hashtable[i].chain);
+ 	}
+ 
+ 	/* Allocate and initialize the endpoint hash table.  */
+@@ -1151,7 +1151,7 @@ SCTP_STATIC __init int sctp_init(void)
+ 	}
+ 	for (i = 0; i < sctp_ep_hashsize; i++) {
+ 		rwlock_init(&sctp_ep_hashtable[i].lock);
+-		sctp_ep_hashtable[i].chain = NULL;
++		INIT_HLIST_HEAD(&sctp_ep_hashtable[i].chain);
+ 	}
+ 
+ 	/* Allocate and initialize the SCTP port hash table.  */
+@@ -1170,7 +1170,7 @@ SCTP_STATIC __init int sctp_init(void)
+ 	}
+ 	for (i = 0; i < sctp_port_hashsize; i++) {
+ 		spin_lock_init(&sctp_port_hashtable[i].lock);
+-		sctp_port_hashtable[i].chain = NULL;
++		INIT_HLIST_HEAD(&sctp_port_hashtable[i].chain);
+ 	}
+ 
+ 	printk(KERN_INFO "SCTP: Hash tables configured "
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 6ce9b49..ff8bc95 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -5307,6 +5307,7 @@ static long sctp_get_port_local(struct sock *sk, union sctp_addr *addr)
+ {
+ 	struct sctp_bind_hashbucket *head; /* hash list */
+ 	struct sctp_bind_bucket *pp; /* hash list port iterator */
++	struct hlist_node *node;
+ 	unsigned short snum;
+ 	int ret;
+ 
+@@ -5331,7 +5332,7 @@ static long sctp_get_port_local(struct sock *sk, union sctp_addr *addr)
+ 			index = sctp_phashfn(rover);
+ 			head = &sctp_port_hashtable[index];
+ 			sctp_spin_lock(&head->lock);
+-			for (pp = head->chain; pp; pp = pp->next)
++			sctp_for_each_hentry(pp, node, &head->chain)
+ 				if (pp->port == rover)
+ 					goto next;
+ 			break;
+@@ -5358,7 +5359,7 @@ static long sctp_get_port_local(struct sock *sk, union sctp_addr *addr)
+ 		 */
+ 		head = &sctp_port_hashtable[sctp_phashfn(snum)];
+ 		sctp_spin_lock(&head->lock);
+-		for (pp = head->chain; pp; pp = pp->next) {
++		sctp_for_each_hentry(pp, node, &head->chain) {
+ 			if (pp->port == snum)
+ 				goto pp_found;
+ 		}
+@@ -5702,10 +5703,7 @@ static struct sctp_bind_bucket *sctp_bucket_create(
+ 		pp->port = snum;
+ 		pp->fastreuse = 0;
+ 		INIT_HLIST_HEAD(&pp->owner);
+-		if ((pp->next = head->chain) != NULL)
+-			pp->next->pprev = &pp->next;
+-		head->chain = pp;
+-		pp->pprev = &head->chain;
++		hlist_add_head(&pp->node, &head->chain);
+ 	}
+ 	return pp;
+ }
+@@ -5714,9 +5712,7 @@ static struct sctp_bind_bucket *sctp_bucket_create(
+ static void sctp_bucket_destroy(struct sctp_bind_bucket *pp)
+ {
+ 	if (pp && hlist_empty(&pp->owner)) {
+-		if (pp->next)
+-			pp->next->pprev = pp->pprev;
+-		*(pp->pprev) = pp->next;
++		__hlist_del(&pp->node);
+ 		kmem_cache_free(sctp_bucket_cachep, pp);
+ 		SCTP_DBG_OBJCNT_DEC(bind_bucket);
+ 	}
+-- 
+1.5.2.4
 
-Begin forwarded message:
-
-Date: Wed, 7 Nov 2007 17:52:11 +0100
-From: Marek Kierdelewicz <marek@koba.pl>
-To: linux-kernel@vger.kernel.org
-Newsgroups: gmane.linux.kernel
-Subject: 2.6.23.1-smp  kernel panic (network-related)
-
-
-Hi there,
-
-My company's (ISP) bussines model requires dynamic resizing of the
-client queues. It's achieved by regenerating shaping rules and loading
-then using batch mode of a tc binary. On production systems it's done
-once every 1 or 2 minutes. Unfortunately this causes smp kernels to
-panic. Non-smp kernels don't have such problems. Bug is around a long
-time. I first noticed it after migrating to shaping configs that use
-IFB, it might have been 2.6.18 "era".
-
-Test scenario:
-
-I've put together a test machine with configuration copied from
-production router. I'm feeding the machine with production traffic
-by means of port mirroring. Test machine has the same config as
-production one (including mac addresses), so it tries to route the
-incoming traffic.
-
-Tested kernels were 2.6.31.1 and 2.6.20.6 (config from 2.6.20.6 is in
-attachment). Both panicked if compiled with SMP support and work stable
-otherwise. Problem occurs only with cyclic "shaping restarts". For the
-test, reload operation using "tc -b ..." was executed in an infinite
-loop.=20
-
-Box's CPU usage was approximately 15%. Panics occur with few hours -
-one day intervals.
-
-
-Below I attach the panic message captured via serial console:
-----------------------------------------------------------------------
-printk: 63 messages suppressed.
-dst cache overflow
-SMP
-Modules linked in: ipt_LOG xt_hashlimit ipt_MASQUERADE ip_set_macipmap
-ip_set_ipmap xt_state w83627hf hwmon_vid eeprom ifb ipt_SET ipt_set
-ip_set ipip tunnel4 ip_gre e1000 i2c_i801 i2c_core CPU:    1 EIP:
-0060:[<f255c08f>]    Not tainted VLI EFLAGS: 00010202   (2.6.23.1-smp
-#2) EIP is at 0xf255c08f
-eax: c196a000   ebx: 00000100   ecx: ef2f408c   edx: f3630000
-esi: f0332029   edi: f255c08c   ebp: 00000001   esp: f3631ea8
-ds: 007b   es: 007b   fs: 00d8  gs: 0000  ss: 0068
-Process tc (pid: 27695, ti=3Df3630000 task=3Df26a9560 task.ti=3Df3630000)
-Stack: c01280ad f26a9560 00000001 f3631eb4 c0106f57 ef2f408c f0e8c08c
-00000031 c0495308 0000000a c0124eb6 00000046 00000000 f7657740 f3630000
-c0124f4c c180f120 c0114e62 00000000 00000000 f7bfd224 f74ed95c c01047e0
-f7bfd224 Call Trace:
- [<c01280ad>] run_timer_softirq+0xf5/0x154
- [<c0106f57>] profile_pc+0x21/0x4a
- [<c0124eb6>] __do_softirq+0x5d/0xc1
- [<c0124f4c>] do_softirq+0x32/0x36
- [<c0114e62>] smp_apic_timer_interrupt+0x74/0x80
- [<c01047e0>] apic_timer_interrupt+0x28/0x30
- [<c014c82e>] remove_vma+0x1c/0x36
- [<c014c912>] exit_mmap+0xca/0xe1
- [<c011eedc>] mmput+0x1d/0x75
- [<c0123688>] do_exit+0x1be/0x68a
- [<c0123bc0>] sys_exit_group+0x0/0xd
- [<c0103d12>] sysenter_past_esp+0x5f/0x85
- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-Code: 00 52 41 f7 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-00 00 00 00 00 00 fa 00 00 00 ea 05 00 00 7f 00 00 00 34 a5 96 <c1> 8c
-00 fd f3 a5 2b 09 00 d1 d8 32 c0 00 c0 55 f2 00 a0 96 c1 EIP:
-[<f255c08f>] 0xf255c08f SS:ESP 0068:f3631ea8 Kernel panic - not
-syncing: Fatal exception in interrupt
-----------------------------------------------------------------------
-
-
---=20
-Marek Kierdelewicz
-Kierownik Dzia=C5=82u System=C3=B3w Sieciowych, KoBa
-Manager of Network Systems Department, KoBa
-tel. (85) 7406466; fax. (85) 7406467
-e-mail: admin@koba.pl
-
-
---=20
-Stephen Hemminger <shemminger@linux-foundation.org>
-
---MP_/afWpESY29jP4MWVE3Qw1rw.
-Content-Type: application/octet-stream; name=kernel_config
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename=kernel_config
-
-Q09ORklHX1g4Nl8zMj15CkNPTkZJR19HRU5FUklDX1RJTUU9eQpDT05GSUdfTE9DS0RFUF9TVVBQ
-T1JUPXkKQ09ORklHX1NUQUNLVFJBQ0VfU1VQUE9SVD15CkNPTkZJR19TRU1BUEhPUkVfU0xFRVBF
-UlM9eQpDT05GSUdfWDg2PXkKQ09ORklHX01NVT15CkNPTkZJR19HRU5FUklDX0lTQV9ETUE9eQpD
-T05GSUdfR0VORVJJQ19JT01BUD15CkNPTkZJR19HRU5FUklDX0JVRz15CkNPTkZJR19HRU5FUklD
-X0hXRUlHSFQ9eQpDT05GSUdfQVJDSF9NQVlfSEFWRV9QQ19GREM9eQpDT05GSUdfRE1JPXkKQ09O
-RklHX0RFRkNPTkZJR19MSVNUPSIvbGliL21vZHVsZXMvJFVOQU1FX1JFTEVBU0UvLmNvbmZpZyIK
-Q09ORklHX0VYUEVSSU1FTlRBTD15CkNPTkZJR19MT0NLX0tFUk5FTD15CkNPTkZJR19JTklUX0VO
-Vl9BUkdfTElNSVQ9MzIKQ09ORklHX0xPQ0FMVkVSU0lPTj0iLW5vbi1zbXAiCkNPTkZJR19TV0FQ
-PXkKQ09ORklHX1NZU1ZJUEM9eQpDT05GSUdfSUtDT05GSUc9eQpDT05GSUdfSUtDT05GSUdfUFJP
-Qz15CkNPTkZJR19TWVNGU19ERVBSRUNBVEVEPXkKQ09ORklHX0lOSVRSQU1GU19TT1VSQ0U9IiIK
-Q09ORklHX0NDX09QVElNSVpFX0ZPUl9TSVpFPXkKQ09ORklHX1NZU0NUTD15CkNPTkZJR19VSUQx
-Nj15CkNPTkZJR19TWVNDVExfU1lTQ0FMTD15CkNPTkZJR19LQUxMU1lNUz15CkNPTkZJR19IT1RQ
-TFVHPXkKQ09ORklHX1BSSU5USz15CkNPTkZJR19CVUc9eQpDT05GSUdfRUxGX0NPUkU9eQpDT05G
-SUdfQkFTRV9GVUxMPXkKQ09ORklHX0ZVVEVYPXkKQ09ORklHX0VQT0xMPXkKQ09ORklHX1NITUVN
-PXkKQ09ORklHX1NMQUI9eQpDT05GSUdfVk1fRVZFTlRfQ09VTlRFUlM9eQpDT05GSUdfUlRfTVVU
-RVhFUz15CkNPTkZJR19CQVNFX1NNQUxMPTAKQ09ORklHX01PRFVMRVM9eQpDT05GSUdfTU9EVUxF
-X1VOTE9BRD15CkNPTkZJR19NT0RVTEVfRk9SQ0VfVU5MT0FEPXkKQ09ORklHX0tNT0Q9eQpDT05G
-SUdfU1RPUF9NQUNISU5FPXkKQ09ORklHX0JMT0NLPXkKQ09ORklHX0lPU0NIRURfTk9PUD15CkNP
-TkZJR19JT1NDSEVEX0NGUT15CkNPTkZJR19ERUZBVUxUX0NGUT15CkNPTkZJR19ERUZBVUxUX0lP
-U0NIRUQ9ImNmcSIKQ09ORklHX1NNUD15CkNPTkZJR19YODZfUEM9eQpDT05GSUdfTVBFTlRJVU00
-PXkKQ09ORklHX1g4Nl9DTVBYQ0hHPXkKQ09ORklHX1g4Nl9YQUREPXkKQ09ORklHX1g4Nl9MMV9D
-QUNIRV9TSElGVD03CkNPTkZJR19SV1NFTV9YQ0hHQUREX0FMR09SSVRITT15CkNPTkZJR19HRU5F
-UklDX0NBTElCUkFURV9ERUxBWT15CkNPTkZJR19YODZfV1BfV09SS1NfT0s9eQpDT05GSUdfWDg2
-X0lOVkxQRz15CkNPTkZJR19YODZfQlNXQVA9eQpDT05GSUdfWDg2X1BPUEFEX09LPXkKQ09ORklH
-X1g4Nl9DTVBYQ0hHNjQ9eQpDT05GSUdfWDg2X0dPT0RfQVBJQz15CkNPTkZJR19YODZfSU5URUxf
-VVNFUkNPUFk9eQpDT05GSUdfWDg2X1VTRV9QUFJPX0NIRUNLU1VNPXkKQ09ORklHX1g4Nl9UU0M9
-eQpDT05GSUdfSFBFVF9USU1FUj15CkNPTkZJR19IUEVUX0VNVUxBVEVfUlRDPXkKQ09ORklHX05S
-X0NQVVM9OApDT05GSUdfU0NIRURfTUM9eQpDT05GSUdfUFJFRU1QVF9OT05FPXkKQ09ORklHX1BS
-RUVNUFRfQktMPXkKQ09ORklHX1g4Nl9MT0NBTF9BUElDPXkKQ09ORklHX1g4Nl9JT19BUElDPXkK
-Q09ORklHX1g4Nl9NQ0U9eQpDT05GSUdfWDg2X01DRV9OT05GQVRBTD15CkNPTkZJR19WTTg2PXkK
-Q09ORklHX01JQ1JPQ09ERT1tCkNPTkZJR19NSUNST0NPREVfT0xEX0lOVEVSRkFDRT15CkNPTkZJ
-R19YODZfTVNSPW0KQ09ORklHX1g4Nl9DUFVJRD1tCkNPTkZJR19OT0hJR0hNRU09eQpDT05GSUdf
-UEFHRV9PRkZTRVQ9MHhDMDAwMDAwMApDT05GSUdfQVJDSF9GTEFUTUVNX0VOQUJMRT15CkNPTkZJ
-R19BUkNIX1NQQVJTRU1FTV9FTkFCTEU9eQpDT05GSUdfQVJDSF9TRUxFQ1RfTUVNT1JZX01PREVM
-PXkKQ09ORklHX0FSQ0hfUE9QVUxBVEVTX05PREVfTUFQPXkKQ09ORklHX1NFTEVDVF9NRU1PUllf
-TU9ERUw9eQpDT05GSUdfRkxBVE1FTV9NQU5VQUw9eQpDT05GSUdfRkxBVE1FTT15CkNPTkZJR19G
-TEFUX05PREVfTUVNX01BUD15CkNPTkZJR19TUEFSU0VNRU1fU1RBVElDPXkKQ09ORklHX1NQTElU
-X1BUTE9DS19DUFVTPTQKQ09ORklHX1JFU09VUkNFU182NEJJVD15CkNPTkZJR19NVFJSPXkKQ09O
-RklHX0lSUUJBTEFOQ0U9eQpDT05GSUdfSFpfMjUwPXkKQ09ORklHX0haPTI1MApDT05GSUdfUEhZ
-U0lDQUxfU1RBUlQ9MHgxMDAwMDAKQ09ORklHX1BIWVNJQ0FMX0FMSUdOPTB4MTAwMDAwCkNPTkZJ
-R19DT01QQVRfVkRTTz15CkNPTkZJR19QTT15CkNPTkZJR19BQ1BJPXkKQ09ORklHX0FDUElfQkxB
-Q0tMSVNUX1lFQVI9MApDT05GSUdfQUNQSV9FQz15CkNPTkZJR19BQ1BJX1BPV0VSPXkKQ09ORklH
-X0FDUElfU1lTVEVNPXkKQ09ORklHX1g4Nl9QTV9USU1FUj15CkNPTkZJR19BUE09eQpDT05GSUdf
-UENJPXkKQ09ORklHX1BDSV9HT0FOWT15CkNPTkZJR19QQ0lfQklPUz15CkNPTkZJR19QQ0lfRElS
-RUNUPXkKQ09ORklHX1BDSV9NTUNPTkZJRz15CkNPTkZJR19QQ0lfTVNJPXkKQ09ORklHX0hUX0lS
-UT15CkNPTkZJR19JU0FfRE1BX0FQST15CkNPTkZJR19CSU5GTVRfRUxGPXkKQ09ORklHX05FVD15
-CkNPTkZJR19QQUNLRVQ9eQpDT05GSUdfUEFDS0VUX01NQVA9eQpDT05GSUdfVU5JWD15CkNPTkZJ
-R19YRlJNPXkKQ09ORklHX1hGUk1fVVNFUj1tCkNPTkZJR19YRlJNX1NVQl9QT0xJQ1k9eQpDT05G
-SUdfTkVUX0tFWT1tCkNPTkZJR19JTkVUPXkKQ09ORklHX0lQX01VTFRJQ0FTVD15CkNPTkZJR19J
-UF9BRFZBTkNFRF9ST1VURVI9eQpDT05GSUdfQVNLX0lQX0ZJQl9IQVNIPXkKQ09ORklHX0lQX0ZJ
-Ql9IQVNIPXkKQ09ORklHX0lQX01VTFRJUExFX1RBQkxFUz15CkNPTkZJR19JUF9ST1VURV9NVUxU
-SVBBVEg9eQpDT05GSUdfSVBfUk9VVEVfTVVMVElQQVRIX0NBQ0hFRD15CkNPTkZJR19JUF9ST1VU
-RV9NVUxUSVBBVEhfUlI9bQpDT05GSUdfSVBfUk9VVEVfTVVMVElQQVRIX1JBTkRPTT1tCkNPTkZJ
-R19JUF9ST1VURV9NVUxUSVBBVEhfV1JBTkRPTT1tCkNPTkZJR19JUF9ST1VURV9NVUxUSVBBVEhf
-RFJSPW0KQ09ORklHX0lQX1JPVVRFX1ZFUkJPU0U9eQpDT05GSUdfTkVUX0lQSVA9bQpDT05GSUdf
-TkVUX0lQR1JFPW0KQ09ORklHX05FVF9JUEdSRV9CUk9BRENBU1Q9eQpDT05GSUdfSVBfTVJPVVRF
-PXkKQ09ORklHX1NZTl9DT09LSUVTPXkKQ09ORklHX0lORVRfQUg9bQpDT05GSUdfSU5FVF9FU1A9
-bQpDT05GSUdfSU5FVF9JUENPTVA9bQpDT05GSUdfSU5FVF9YRlJNX1RVTk5FTD1tCkNPTkZJR19J
-TkVUX1RVTk5FTD1tCkNPTkZJR19JTkVUX1hGUk1fTU9ERV9UUkFOU1BPUlQ9bQpDT05GSUdfSU5F
-VF9YRlJNX01PREVfVFVOTkVMPW0KQ09ORklHX0lORVRfWEZSTV9NT0RFX0JFRVQ9bQpDT05GSUdf
-SU5FVF9ESUFHPXkKQ09ORklHX0lORVRfVENQX0RJQUc9eQpDT05GSUdfVENQX0NPTkdfQURWQU5D
-RUQ9eQpDT05GSUdfVENQX0NPTkdfQklDPXkKQ09ORklHX1RDUF9DT05HX0NVQklDPW0KQ09ORklH
-X1RDUF9DT05HX1dFU1RXT09EPW0KQ09ORklHX1RDUF9DT05HX0hUQ1A9bQpDT05GSUdfREVGQVVM
-VF9CSUM9eQpDT05GSUdfREVGQVVMVF9UQ1BfQ09ORz0iYmljIgpDT05GSUdfTkVURklMVEVSPXkK
-Q09ORklHX0JSSURHRV9ORVRGSUxURVI9eQpDT05GSUdfTkVURklMVEVSX05FVExJTks9eQpDT05G
-SUdfTkVURklMVEVSX05FVExJTktfUVVFVUU9eQpDT05GSUdfTkVURklMVEVSX05FVExJTktfTE9H
-PXkKQ09ORklHX05GX0NPTk5UUkFDS19FTkFCTEVEPXkKQ09ORklHX05GX0NPTk5UUkFDS19TVVBQ
-T1JUPXkKQ09ORklHX05GX0NPTk5UUkFDSz15CkNPTkZJR19ORl9DVF9BQ0NUPXkKQ09ORklHX05G
-X0NPTk5UUkFDS19NQVJLPXkKQ09ORklHX05GX0NPTk5UUkFDS19FVkVOVFM9eQpDT05GSUdfTkZf
-Q1RfUFJPVE9fR1JFPW0KQ09ORklHX05GX0NUX1BST1RPX1NDVFA9bQpDT05GSUdfTkZfQ09OTlRS
-QUNLX0FNQU5EQT1tCkNPTkZJR19ORl9DT05OVFJBQ0tfRlRQPW0KQ09ORklHX05GX0NPTk5UUkFD
-S19IMzIzPW0KQ09ORklHX05GX0NPTk5UUkFDS19JUkM9bQpDT05GSUdfTkZfQ09OTlRSQUNLX05F
-VEJJT1NfTlM9bQpDT05GSUdfTkZfQ09OTlRSQUNLX1BQVFA9bQpDT05GSUdfTkZfQ09OTlRSQUNL
-X1NJUD1tCkNPTkZJR19ORl9DT05OVFJBQ0tfVEZUUD1tCkNPTkZJR19ORl9DVF9ORVRMSU5LPW0K
-Q09ORklHX05FVEZJTFRFUl9YVEFCTEVTPXkKQ09ORklHX05FVEZJTFRFUl9YVF9UQVJHRVRfQ0xB
-U1NJRlk9bQpDT05GSUdfTkVURklMVEVSX1hUX1RBUkdFVF9DT05OTUFSSz1tCkNPTkZJR19ORVRG
-SUxURVJfWFRfVEFSR0VUX0RTQ1A9bQpDT05GSUdfTkVURklMVEVSX1hUX1RBUkdFVF9NQVJLPXkK
-Q09ORklHX05FVEZJTFRFUl9YVF9UQVJHRVRfTkZRVUVVRT1tCkNPTkZJR19ORVRGSUxURVJfWFRf
-VEFSR0VUX05GTE9HPW0KQ09ORklHX05FVEZJTFRFUl9YVF9UQVJHRVRfTk9UUkFDSz1tCkNPTkZJ
-R19ORVRGSUxURVJfWFRfTUFUQ0hfQ09NTUVOVD1tCkNPTkZJR19ORVRGSUxURVJfWFRfTUFUQ0hf
-Q09OTkJZVEVTPW0KQ09ORklHX05FVEZJTFRFUl9YVF9NQVRDSF9DT05OTUFSSz1tCkNPTkZJR19O
-RVRGSUxURVJfWFRfTUFUQ0hfQ09OTlRSQUNLPW0KQ09ORklHX05FVEZJTFRFUl9YVF9NQVRDSF9E
-Q0NQPW0KQ09ORklHX05FVEZJTFRFUl9YVF9NQVRDSF9EU0NQPW0KQ09ORklHX05FVEZJTFRFUl9Y
-VF9NQVRDSF9FU1A9bQpDT05GSUdfTkVURklMVEVSX1hUX01BVENIX0hFTFBFUj1tCkNPTkZJR19O
-RVRGSUxURVJfWFRfTUFUQ0hfTEVOR1RIPW0KQ09ORklHX05FVEZJTFRFUl9YVF9NQVRDSF9MSU1J
-VD15CkNPTkZJR19ORVRGSUxURVJfWFRfTUFUQ0hfTUFDPW0KQ09ORklHX05FVEZJTFRFUl9YVF9N
-QVRDSF9NQVJLPXkKQ09ORklHX05FVEZJTFRFUl9YVF9NQVRDSF9QT0xJQ1k9bQpDT05GSUdfTkVU
-RklMVEVSX1hUX01BVENIX01VTFRJUE9SVD15CkNPTkZJR19ORVRGSUxURVJfWFRfTUFUQ0hfUEhZ
-U0RFVj1tCkNPTkZJR19ORVRGSUxURVJfWFRfTUFUQ0hfUEtUVFlQRT1tCkNPTkZJR19ORVRGSUxU
-RVJfWFRfTUFUQ0hfUVVPVEE9bQpDT05GSUdfTkVURklMVEVSX1hUX01BVENIX1JFQUxNPW0KQ09O
-RklHX05FVEZJTFRFUl9YVF9NQVRDSF9TQ1RQPW0KQ09ORklHX05FVEZJTFRFUl9YVF9NQVRDSF9T
-VEFURT15CkNPTkZJR19ORVRGSUxURVJfWFRfTUFUQ0hfU1RBVElTVElDPW0KQ09ORklHX05FVEZJ
-TFRFUl9YVF9NQVRDSF9TVFJJTkc9bQpDT05GSUdfTkVURklMVEVSX1hUX01BVENIX1RDUE1TUz1t
-CkNPTkZJR19ORVRGSUxURVJfWFRfTUFUQ0hfSEFTSExJTUlUPXkKQ09ORklHX05GX0NPTk5UUkFD
-S19JUFY0PXkKQ09ORklHX05GX0NPTk5UUkFDS19QUk9DX0NPTVBBVD15CkNPTkZJR19JUF9ORl9R
-VUVVRT1tCkNPTkZJR19JUF9ORl9JUFRBQkxFUz15CkNPTkZJR19JUF9ORl9NQVRDSF9JUFJBTkdF
-PXkKQ09ORklHX0lQX05GX01BVENIX1RPUz15CkNPTkZJR19JUF9ORl9NQVRDSF9SRUNFTlQ9eQpD
-T05GSUdfSVBfTkZfTUFUQ0hfRUNOPW0KQ09ORklHX0lQX05GX01BVENIX0FIPW0KQ09ORklHX0lQ
-X05GX01BVENIX1RUTD1tCkNPTkZJR19JUF9ORl9NQVRDSF9PV05FUj1tCkNPTkZJR19JUF9ORl9N
-QVRDSF9BRERSVFlQRT1tCkNPTkZJR19JUF9ORl9GSUxURVI9eQpDT05GSUdfSVBfTkZfVEFSR0VU
-X1JFSkVDVD15CkNPTkZJR19JUF9ORl9UQVJHRVRfTE9HPXkKQ09ORklHX0lQX05GX1RBUkdFVF9V
-TE9HPW0KQ09ORklHX0lQX05GX1RBUkdFVF9UQ1BNU1M9bQpDT05GSUdfTkZfTkFUPXkKQ09ORklH
-X05GX05BVF9ORUVERUQ9eQpDT05GSUdfSVBfTkZfVEFSR0VUX01BU1FVRVJBREU9bQpDT05GSUdf
-SVBfTkZfVEFSR0VUX1JFRElSRUNUPW0KQ09ORklHX0lQX05GX1RBUkdFVF9ORVRNQVA9bQpDT05G
-SUdfSVBfTkZfVEFSR0VUX1NBTUU9bQpDT05GSUdfTkZfTkFUX1NOTVBfQkFTSUM9bQpDT05GSUdf
-TkZfTkFUX1BST1RPX0dSRT1tCkNPTkZJR19ORl9OQVRfRlRQPW0KQ09ORklHX05GX05BVF9JUkM9
-bQpDT05GSUdfTkZfTkFUX1RGVFA9bQpDT05GSUdfTkZfTkFUX0FNQU5EQT1tCkNPTkZJR19ORl9O
-QVRfUFBUUD1tCkNPTkZJR19ORl9OQVRfSDMyMz1tCkNPTkZJR19ORl9OQVRfU0lQPW0KQ09ORklH
-X0lQX05GX01BTkdMRT15CkNPTkZJR19JUF9ORl9UQVJHRVRfVE9TPXkKQ09ORklHX0lQX05GX1RB
-UkdFVF9FQ049bQpDT05GSUdfSVBfTkZfVEFSR0VUX1RUTD1tCkNPTkZJR19JUF9ORl9UQVJHRVRf
-Q0xVU1RFUklQPW0KQ09ORklHX0lQX05GX1JBVz15CkNPTkZJR19JUF9ORl9BUlBUQUJMRVM9bQpD
-T05GSUdfSVBfTkZfQVJQRklMVEVSPW0KQ09ORklHX0lQX05GX0FSUF9NQU5HTEU9bQpDT05GSUdf
-SVBfTkZfU0VUPXkKQ09ORklHX0lQX05GX1NFVF9NQVg9MjU2CkNPTkZJR19JUF9ORl9TRVRfSEFT
-SFNJWkU9MTAyNApDT05GSUdfSVBfTkZfU0VUX0lQTUFQPXkKQ09ORklHX0lQX05GX1NFVF9NQUNJ
-UE1BUD15CkNPTkZJR19JUF9ORl9TRVRfUE9SVE1BUD15CkNPTkZJR19JUF9ORl9TRVRfSVBIQVNI
-PXkKQ09ORklHX0lQX05GX1NFVF9ORVRIQVNIPXkKQ09ORklHX0lQX05GX1NFVF9JUFBPUlRIQVNI
-PXkKQ09ORklHX0lQX05GX1NFVF9JUFRSRUU9eQpDT05GSUdfSVBfTkZfTUFUQ0hfU0VUPXkKQ09O
-RklHX0lQX05GX1RBUkdFVF9TRVQ9eQpDT05GSUdfSVBfTkZfTUFUQ0hfVTMyPXkKQ09ORklHX0JS
-SURHRV9ORl9FQlRBQkxFUz1tCkNPTkZJR19CUklER0VfRUJUX0JST1VURT1tCkNPTkZJR19CUklE
-R0VfRUJUX1RfRklMVEVSPW0KQ09ORklHX0JSSURHRV9FQlRfVF9OQVQ9bQpDT05GSUdfQlJJREdF
-X0VCVF84MDJfMz1tCkNPTkZJR19CUklER0VfRUJUX0FNT05HPW0KQ09ORklHX0JSSURHRV9FQlRf
-QVJQPW0KQ09ORklHX0JSSURHRV9FQlRfSVA9bQpDT05GSUdfQlJJREdFX0VCVF9MSU1JVD1tCkNP
-TkZJR19CUklER0VfRUJUX01BUks9bQpDT05GSUdfQlJJREdFX0VCVF9QS1RUWVBFPW0KQ09ORklH
-X0JSSURHRV9FQlRfU1RQPW0KQ09ORklHX0JSSURHRV9FQlRfVkxBTj1tCkNPTkZJR19CUklER0Vf
-RUJUX0FSUFJFUExZPW0KQ09ORklHX0JSSURHRV9FQlRfRE5BVD1tCkNPTkZJR19CUklER0VfRUJU
-X01BUktfVD1tCkNPTkZJR19CUklER0VfRUJUX1JFRElSRUNUPW0KQ09ORklHX0JSSURHRV9FQlRf
-U05BVD1tCkNPTkZJR19CUklER0VfRUJUX0xPRz1tCkNPTkZJR19CUklER0VfRUJUX1VMT0c9bQpD
-T05GSUdfQlJJREdFPXkKQ09ORklHX1ZMQU5fODAyMVE9eQpDT05GSUdfTExDPXkKQ09ORklHX05F
-VF9TQ0hFRD15CkNPTkZJR19ORVRfU0NIX0ZJRk89eQpDT05GSUdfTkVUX1NDSF9DTEtfR0VUVElN
-RU9GREFZPXkKQ09ORklHX05FVF9TQ0hfQ0JRPW0KQ09ORklHX05FVF9TQ0hfSFRCPXkKQ09ORklH
-X05FVF9TQ0hfSEZTQz1tCkNPTkZJR19ORVRfU0NIX1BSSU89bQpDT05GSUdfTkVUX1NDSF9SRUQ9
-bQpDT05GSUdfTkVUX1NDSF9TRlE9bQpDT05GSUdfTkVUX1NDSF9URVFMPW0KQ09ORklHX05FVF9T
-Q0hfVEJGPW0KQ09ORklHX05FVF9TQ0hfR1JFRD1tCkNPTkZJR19ORVRfU0NIX0RTTUFSSz1tCkNP
-TkZJR19ORVRfU0NIX05FVEVNPW0KQ09ORklHX05FVF9TQ0hfSU5HUkVTUz1tCkNPTkZJR19ORVRf
-Q0xTPXkKQ09ORklHX05FVF9DTFNfQkFTSUM9bQpDT05GSUdfTkVUX0NMU19UQ0lOREVYPW0KQ09O
-RklHX05FVF9DTFNfUk9VVEU0PW0KQ09ORklHX05FVF9DTFNfUk9VVEU9eQpDT05GSUdfTkVUX0NM
-U19GVz1tCkNPTkZJR19ORVRfQ0xTX1UzMj1tCkNPTkZJR19DTFNfVTMyX1BFUkY9eQpDT05GSUdf
-Q0xTX1UzMl9NQVJLPXkKQ09ORklHX05FVF9DTFNfUlNWUD1tCkNPTkZJR19ORVRfQ0xTX1JTVlA2
-PW0KQ09ORklHX05FVF9FTUFUQ0g9eQpDT05GSUdfTkVUX0VNQVRDSF9TVEFDSz0zMgpDT05GSUdf
-TkVUX0VNQVRDSF9DTVA9bQpDT05GSUdfTkVUX0VNQVRDSF9OQllURT1tCkNPTkZJR19ORVRfRU1B
-VENIX1UzMj1tCkNPTkZJR19ORVRfRU1BVENIX01FVEE9bQpDT05GSUdfTkVUX0VNQVRDSF9URVhU
-PW0KQ09ORklHX05FVF9DTFNfQUNUPXkKQ09ORklHX05FVF9BQ1RfUE9MSUNFPW0KQ09ORklHX05F
-VF9BQ1RfR0FDVD1tCkNPTkZJR19HQUNUX1BST0I9eQpDT05GSUdfTkVUX0FDVF9NSVJSRUQ9bQpD
-T05GSUdfTkVUX0FDVF9JUFQ9bQpDT05GSUdfTkVUX0FDVF9QRURJVD1tCkNPTkZJR19ORVRfQUNU
-X1NJTVA9bQpDT05GSUdfTkVUX0NMU19JTkQ9eQpDT05GSUdfTkVUX0VTVElNQVRPUj15CkNPTkZJ
-R19ORVRfUEtUR0VOPW0KQ09ORklHX0ZJQl9SVUxFUz15CkNPTkZJR19TVEFOREFMT05FPXkKQ09O
-RklHX1BSRVZFTlRfRklSTVdBUkVfQlVJTEQ9eQpDT05GSUdfRldfTE9BREVSPW0KQ09ORklHX1BB
-UlBPUlQ9eQpDT05GSUdfUEFSUE9SVF9QQz15CkNPTkZJR19QQVJQT1JUXzEyODQ9eQpDT05GSUdf
-QkxLX0RFVl9MT09QPXkKQ09ORklHX0JMS19ERVZfQ1JZUFRPTE9PUD1tCkNPTkZJR19CTEtfREVW
-X1JBTT1tCkNPTkZJR19CTEtfREVWX1JBTV9DT1VOVD0xNgpDT05GSUdfQkxLX0RFVl9SQU1fU0la
-RT00MDk2CkNPTkZJR19CTEtfREVWX1JBTV9CTE9DS1NJWkU9MTAyNApDT05GSUdfSURFPXkKQ09O
-RklHX0JMS19ERVZfSURFPXkKQ09ORklHX0JMS19ERVZfSURFRElTSz15CkNPTkZJR19CTEtfREVW
-X0lERUNEPXkKQ09ORklHX0lERV9HRU5FUklDPXkKQ09ORklHX0JMS19ERVZfSURFUENJPXkKQ09O
-RklHX0lERVBDSV9TSEFSRV9JUlE9eQpDT05GSUdfQkxLX0RFVl9HRU5FUklDPXkKQ09ORklHX0JM
-S19ERVZfSURFRE1BX1BDST15CkNPTkZJR19JREVETUFfUENJX0FVVE89eQpDT05GSUdfQkxLX0RF
-Vl9BTUQ3NFhYPXkKQ09ORklHX0JMS19ERVZfUElJWD15CkNPTkZJR19CTEtfREVWX1NJSU1BR0U9
-eQpDT05GSUdfQkxLX0RFVl9WSUE4MkNYWFg9eQpDT05GSUdfQkxLX0RFVl9JREVETUE9eQpDT05G
-SUdfSURFRE1BX0FVVE89eQpDT05GSUdfU0NTST15CkNPTkZJR19CTEtfREVWX1NEPXkKQ09ORklH
-X0FUQT15CkNPTkZJR19BVEFfUElJWD15CkNPTkZJR19TQVRBX05WPXkKQ09ORklHX1NBVEFfU0lM
-PXkKQ09ORklHX1NBVEFfU0lMMjQ9eQpDT05GSUdfU0FUQV9JTlRFTF9DT01CSU5FRD15CkNPTkZJ
-R19QQVRBX01QSUlYPXkKQ09ORklHX1BBVEFfVklBPXkKQ09ORklHX01EPXkKQ09ORklHX0JMS19E
-RVZfTUQ9eQpDT05GSUdfTURfTElORUFSPXkKQ09ORklHX01EX1JBSUQwPXkKQ09ORklHX01EX1JB
-SUQxPXkKQ09ORklHX05FVERFVklDRVM9eQpDT05GSUdfSUZCPW0KQ09ORklHX1RVTj1tCkNPTkZJ
-R19ORVRfRVRIRVJORVQ9eQpDT05GSUdfTUlJPXkKQ09ORklHX05FVF9QQ0k9eQpDT05GSUdfRTEw
-MD1tCkNPTkZJR184MTM5VE9PPW0KQ09ORklHXzgxMzlUT09fUElPPXkKQ09ORklHX0UxMDAwPW0K
-Q09ORklHX0UxMDAwX05BUEk9eQpDT05GSUdfVElHT04zPW0KQ09ORklHX0lOUFVUPXkKQ09ORklH
-X0lOUFVUX01PVVNFREVWPXkKQ09ORklHX0lOUFVUX01PVVNFREVWX1BTQVVYPXkKQ09ORklHX0lO
-UFVUX01PVVNFREVWX1NDUkVFTl9YPTEyODAKQ09ORklHX0lOUFVUX01PVVNFREVWX1NDUkVFTl9Z
-PTEwMjQKQ09ORklHX0lOUFVUX0VWREVWPXkKQ09ORklHX0lOUFVUX0tFWUJPQVJEPXkKQ09ORklH
-X0tFWUJPQVJEX0FUS0JEPXkKQ09ORklHX0lOUFVUX01PVVNFPXkKQ09ORklHX01PVVNFX1BTMj15
-CkNPTkZJR19TRVJJTz15CkNPTkZJR19TRVJJT19JODA0Mj15CkNPTkZJR19TRVJJT19MSUJQUzI9
-eQpDT05GSUdfVlQ9eQpDT05GSUdfVlRfQ09OU09MRT15CkNPTkZJR19IV19DT05TT0xFPXkKQ09O
-RklHX1NFUklBTF84MjUwPXkKQ09ORklHX1NFUklBTF84MjUwX1BDST15CkNPTkZJR19TRVJJQUxf
-ODI1MF9OUl9VQVJUUz00CkNPTkZJR19TRVJJQUxfODI1MF9SVU5USU1FX1VBUlRTPTQKQ09ORklH
-X1NFUklBTF9DT1JFPXkKQ09ORklHX1VOSVg5OF9QVFlTPXkKQ09ORklHX0xFR0FDWV9QVFlTPXkK
-Q09ORklHX0xFR0FDWV9QVFlfQ09VTlQ9MjU2CkNPTkZJR19QUklOVEVSPXkKQ09ORklHX05WUkFN
-PXkKQ09ORklHX1JUQz15CkNPTkZJR19IUEVUPXkKQ09ORklHX0hQRVRfTU1BUD15CkNPTkZJR19J
-MkM9eQpDT05GSUdfSTJDX0NIQVJERVY9eQpDT05GSUdfSTJDX0FMR09CSVQ9eQpDT05GSUdfSTJD
-X0FMR09QQ0Y9bQpDT05GSUdfSTJDX0FMR09QQ0E9bQpDT05GSUdfSTJDX0FMSTE1MzU9bQpDT05G
-SUdfSTJDX0FMSTE1NjM9bQpDT05GSUdfSTJDX0FMSTE1WDM9bQpDT05GSUdfSTJDX0FNRDc1Nj1t
-CkNPTkZJR19JMkNfQU1ENzU2X1M0ODgyPW0KQ09ORklHX0kyQ19BTUQ4MTExPW0KQ09ORklHX0ky
-Q19JODAxPW0KQ09ORklHX0kyQ19JODEwPW0KQ09ORklHX0kyQ19QSUlYND1tCkNPTkZJR19JMkNf
-SVNBPW0KQ09ORklHX0kyQ19ORk9SQ0UyPW0KQ09ORklHX0kyQ19QQVJQT1JUPW0KQ09ORklHX0ky
-Q19QQVJQT1JUX0xJR0hUPW0KQ09ORklHX0kyQ19QUk9TQVZBR0U9bQpDT05GSUdfSTJDX1NBVkFH
-RTQ9bQpDT05GSUdfU0N4MjAwX0FDQj1tCkNPTkZJR19JMkNfU0lTNTU5NT1tCkNPTkZJR19JMkNf
-U0lTNjMwPW0KQ09ORklHX0kyQ19TSVM5Nlg9bQpDT05GSUdfSTJDX1NUVUI9bQpDT05GSUdfSTJD
-X1ZJQT1tCkNPTkZJR19JMkNfVklBUFJPPW0KQ09ORklHX0kyQ19WT09ET08zPW0KQ09ORklHX0ky
-Q19QQ0FfSVNBPW0KQ09ORklHX1NFTlNPUlNfRFMxMzM3PW0KQ09ORklHX1NFTlNPUlNfRFMxMzc0
-PW0KQ09ORklHX1NFTlNPUlNfRUVQUk9NPW0KQ09ORklHX1NFTlNPUlNfUENGODU3ND1tCkNPTkZJ
-R19TRU5TT1JTX1BDQTk1Mzk9bQpDT05GSUdfU0VOU09SU19QQ0Y4NTkxPW0KQ09ORklHX1NFTlNP
-UlNfTUFYNjg3NT1tCkNPTkZJR19IV01PTj15CkNPTkZJR19IV01PTl9WSUQ9bQpDT05GSUdfU0VO
-U09SU19BQklUVUdVUlU9bQpDT05GSUdfU0VOU09SU19BRE0xMDIxPW0KQ09ORklHX1NFTlNPUlNf
-QURNMTAyNT1tCkNPTkZJR19TRU5TT1JTX0FETTEwMjY9bQpDT05GSUdfU0VOU09SU19BRE0xMDMx
-PW0KQ09ORklHX1NFTlNPUlNfQURNOTI0MD1tCkNPTkZJR19TRU5TT1JTX0FTQjEwMD1tCkNPTkZJ
-R19TRU5TT1JTX0FUWFAxPW0KQ09ORklHX1NFTlNPUlNfRFMxNjIxPW0KQ09ORklHX1NFTlNPUlNf
-RjcxODA1Rj1tCkNPTkZJR19TRU5TT1JTX0ZTQ0hFUj1tCkNPTkZJR19TRU5TT1JTX0ZTQ1BPUz1t
-CkNPTkZJR19TRU5TT1JTX0dMNTE4U009bQpDT05GSUdfU0VOU09SU19HTDUyMFNNPW0KQ09ORklH
-X1NFTlNPUlNfSVQ4Nz1tCkNPTkZJR19TRU5TT1JTX0xNNjM9bQpDT05GSUdfU0VOU09SU19MTTc1
-PW0KQ09ORklHX1NFTlNPUlNfTE03Nz1tCkNPTkZJR19TRU5TT1JTX0xNNzg9bQpDT05GSUdfU0VO
-U09SU19MTTgwPW0KQ09ORklHX1NFTlNPUlNfTE04Mz1tCkNPTkZJR19TRU5TT1JTX0xNODU9bQpD
-T05GSUdfU0VOU09SU19MTTg3PW0KQ09ORklHX1NFTlNPUlNfTE05MD1tCkNPTkZJR19TRU5TT1JT
-X0xNOTI9bQpDT05GSUdfU0VOU09SU19NQVgxNjE5PW0KQ09ORklHX1NFTlNPUlNfUEM4NzM2MD1t
-CkNPTkZJR19TRU5TT1JTX1NJUzU1OTU9bQpDT05GSUdfU0VOU09SU19TTVNDNDdNMT1tCkNPTkZJ
-R19TRU5TT1JTX1NNU0M0N00xOTI9bQpDT05GSUdfU0VOU09SU19TTVNDNDdCMzk3PW0KQ09ORklH
-X1NFTlNPUlNfVklBNjg2QT1tCkNPTkZJR19TRU5TT1JTX1ZUODIzMT1tCkNPTkZJR19TRU5TT1JT
-X1c4Mzc4MUQ9bQpDT05GSUdfU0VOU09SU19XODM3OTFEPW0KQ09ORklHX1NFTlNPUlNfVzgzNzky
-RD1tCkNPTkZJR19TRU5TT1JTX1c4M0w3ODVUUz1tCkNPTkZJR19TRU5TT1JTX1c4MzYyN0hGPW0K
-Q09ORklHX1NFTlNPUlNfVzgzNjI3RUhGPW0KQ09ORklHX1NFTlNPUlNfSERBUFM9bQpDT05GSUdf
-RklSTVdBUkVfRURJRD15CkNPTkZJR19GQj15CkNPTkZJR19GQl9DRkJfRklMTFJFQ1Q9eQpDT05G
-SUdfRkJfQ0ZCX0NPUFlBUkVBPXkKQ09ORklHX0ZCX0NGQl9JTUFHRUJMSVQ9eQpDT05GSUdfRkJf
-TU9ERV9IRUxQRVJTPXkKQ09ORklHX0ZCX1ZFU0E9eQpDT05GSUdfVkdBX0NPTlNPTEU9eQpDT05G
-SUdfVklERU9fU0VMRUNUPXkKQ09ORklHX0RVTU1ZX0NPTlNPTEU9eQpDT05GSUdfRlJBTUVCVUZG
-RVJfQ09OU09MRT15CkNPTkZJR19GT05UXzh4OD15CkNPTkZJR19GT05UXzh4MTY9eQpDT05GSUdf
-SElEPXkKQ09ORklHX1VTQl9BUkNIX0hBU19IQ0Q9eQpDT05GSUdfVVNCX0FSQ0hfSEFTX09IQ0k9
-eQpDT05GSUdfVVNCX0FSQ0hfSEFTX0VIQ0k9eQpDT05GSUdfVVNCPXkKQ09ORklHX1VTQl9ERVZJ
-Q0VGUz15CkNPTkZJR19VU0JfRUhDSV9IQ0Q9eQpDT05GSUdfVVNCX1VIQ0lfSENEPXkKQ09ORklH
-X1VTQl9TVE9SQUdFPXkKQ09ORklHX1VTQl9TVE9SQUdFX0RBVEFGQUI9eQpDT05GSUdfVVNCX1NU
-T1JBR0VfRlJFRUNPTT15CkNPTkZJR19VU0JfU1RPUkFHRV9JU0QyMDA9eQpDT05GSUdfVVNCX1NU
-T1JBR0VfRFBDTT15CkNPTkZJR19VU0JfU1RPUkFHRV9VU0JBVD15CkNPTkZJR19VU0JfU1RPUkFH
-RV9TRERSMDk9eQpDT05GSUdfVVNCX1NUT1JBR0VfU0REUjU1PXkKQ09ORklHX1VTQl9TVE9SQUdF
-X0pVTVBTSE9UPXkKQ09ORklHX1VTQl9TVE9SQUdFX0FMQVVEQT15CkNPTkZJR19VU0JfU1RPUkFH
-RV9LQVJNQT15CkNPTkZJR19VU0JfTElCVVNVQUw9eQpDT05GSUdfUlRDX0xJQj15CkNPTkZJR19S
-VENfQ0xBU1M9eQpDT05GSUdfUlRDX0hDVE9TWVM9eQpDT05GSUdfUlRDX0hDVE9TWVNfREVWSUNF
-PSJydGMwIgpDT05GSUdfUlRDX0lOVEZfU1lTRlM9eQpDT05GSUdfUlRDX0lOVEZfUFJPQz15CkNP
-TkZJR19SVENfSU5URl9ERVY9eQpDT05GSUdfUlRDX0RSVl9YMTIwNT1tCkNPTkZJR19SVENfRFJW
-X0RTMTMwNz1tCkNPTkZJR19SVENfRFJWX0RTMTU1Mz1tCkNPTkZJR19SVENfRFJWX0lTTDEyMDg9
-bQpDT05GSUdfUlRDX0RSVl9EUzE2NzI9bQpDT05GSUdfUlRDX0RSVl9EUzE3NDI9bQpDT05GSUdf
-UlRDX0RSVl9QQ0Y4NTYzPW0KQ09ORklHX1JUQ19EUlZfUENGODU4Mz1tCkNPTkZJR19SVENfRFJW
-X1JTNUMzNzI9bQpDT05GSUdfUlRDX0RSVl9NNDhUODY9bQpDT05GSUdfUlRDX0RSVl9URVNUPW0K
-Q09ORklHX1JUQ19EUlZfVjMwMjA9bQpDT05GSUdfRE1BX0VOR0lORT15CkNPTkZJR19ORVRfRE1B
-PXkKQ09ORklHX0lOVEVMX0lPQVRETUE9bQpDT05GSUdfRVhUMl9GUz15CkNPTkZJR19FWFQzX0ZT
-PXkKQ09ORklHX0VYVDNfRlNfWEFUVFI9eQpDT05GSUdfSkJEPXkKQ09ORklHX0ZTX01CQ0FDSEU9
-eQpDT05GSUdfUkVJU0VSRlNfRlM9eQpDT05GSUdfRE5PVElGWT15CkNPTkZJR19JU085NjYwX0ZT
-PXkKQ09ORklHX0pPTElFVD15CkNPTkZJR19aSVNPRlM9eQpDT05GSUdfWklTT0ZTX0ZTPXkKQ09O
-RklHX0ZBVF9GUz15CkNPTkZJR19WRkFUX0ZTPXkKQ09ORklHX0ZBVF9ERUZBVUxUX0NPREVQQUdF
-PTg1MApDT05GSUdfRkFUX0RFRkFVTFRfSU9DSEFSU0VUPSJpc284ODU5LTEiCkNPTkZJR19QUk9D
-X0ZTPXkKQ09ORklHX1BST0NfS0NPUkU9eQpDT05GSUdfUFJPQ19TWVNDVEw9eQpDT05GSUdfU1lT
-RlM9eQpDT05GSUdfVE1QRlM9eQpDT05GSUdfUkFNRlM9eQpDT05GSUdfTkZTX0ZTPW0KQ09ORklH
-X05GU0Q9bQpDT05GSUdfTkZTRF9UQ1A9eQpDT05GSUdfTE9DS0Q9bQpDT05GSUdfRVhQT1JURlM9
-bQpDT05GSUdfTkZTX0NPTU1PTj15CkNPTkZJR19TVU5SUEM9bQpDT05GSUdfQ0lGUz15CkNPTkZJ
-R19QQVJUSVRJT05fQURWQU5DRUQ9eQpDT05GSUdfTVNET1NfUEFSVElUSU9OPXkKQ09ORklHX05M
-Uz15CkNPTkZJR19OTFNfREVGQVVMVD0iaXNvODg1OS0xNSIKQ09ORklHX05MU19DT0RFUEFHRV84
-NTA9eQpDT05GSUdfTkxTX0NPREVQQUdFXzg1Mj1tCkNPTkZJR19OTFNfQ09ERVBBR0VfMTI1MD1t
-CkNPTkZJR19OTFNfSVNPODg1OV8xPXkKQ09ORklHX05MU19JU084ODU5XzE1PXkKQ09ORklHX05M
-U19VVEY4PXkKQ09ORklHX1RSQUNFX0lSUUZMQUdTX1NVUFBPUlQ9eQpDT05GSUdfRU5BQkxFX01V
-U1RfQ0hFQ0s9eQpDT05GSUdfTUFHSUNfU1lTUlE9eQpDT05GSUdfVU5VU0VEX1NZTUJPTFM9eQpD
-T05GSUdfTE9HX0JVRl9TSElGVD0xNQpDT05GSUdfREVCVUdfQlVHVkVSQk9TRT15CkNPTkZJR19F
-QVJMWV9QUklOVEs9eQpDT05GSUdfWDg2X0ZJTkRfU01QX0NPTkZJRz15CkNPTkZJR19YODZfTVBQ
-QVJTRT15CkNPTkZJR19ET1VCTEVGQVVMVD15CkNPTkZJR19DUllQVE89eQpDT05GSUdfQ1JZUFRP
-X0FMR0FQST15CkNPTkZJR19DUllQVE9fQkxLQ0lQSEVSPW0KQ09ORklHX0NSWVBUT19IQVNIPXkK
-Q09ORklHX0NSWVBUT19NQU5BR0VSPXkKQ09ORklHX0NSWVBUT19ITUFDPXkKQ09ORklHX0NSWVBU
-T19NRDU9bQpDT05GSUdfQ1JZUFRPX1NIQTE9bQpDT05GSUdfQ1JZUFRPX0VDQj1tCkNPTkZJR19D
-UllQVE9fQ0JDPW0KQ09ORklHX0NSWVBUT19ERVM9bQpDT05GSUdfQ1JZUFRPX0FFUz1tCkNPTkZJ
-R19DUllQVE9fQUVTXzU4Nj1tCkNPTkZJR19DUllQVE9fREVGTEFURT1tCkNPTkZJR19DUllQVE9f
-Q1JDMzJDPW0KQ09ORklHX0NSWVBUT19ERVZfR0VPREU9bQpDT05GSUdfQklUUkVWRVJTRT15CkNP
-TkZJR19DUkNfQ0NJVFQ9bQpDT05GSUdfQ1JDMTY9bQpDT05GSUdfQ1JDMzI9eQpDT05GSUdfTElC
-Q1JDMzJDPW0KQ09ORklHX1pMSUJfSU5GTEFURT15CkNPTkZJR19aTElCX0RFRkxBVEU9bQpDT05G
-SUdfVEVYVFNFQVJDSD15CkNPTkZJR19URVhUU0VBUkNIX0tNUD1tCkNPTkZJR19URVhUU0VBUkNI
-X0JNPW0KQ09ORklHX1RFWFRTRUFSQ0hfRlNNPW0KQ09ORklHX1BMSVNUPXkKQ09ORklHX0lPTUFQ
-X0NPUFk9eQpDT05GSUdfR0VORVJJQ19IQVJESVJRUz15CkNPTkZJR19HRU5FUklDX0lSUV9QUk9C
-RT15CkNPTkZJR19HRU5FUklDX1BFTkRJTkdfSVJRPXkKQ09ORklHX1g4Nl9TTVA9eQpDT05GSUdf
-WDg2X0hUPXkKQ09ORklHX1g4Nl9CSU9TX1JFQk9PVD15CkNPTkZJR19YODZfVFJBTVBPTElORT15
-CkNPTkZJR19LVElNRV9TQ0FMQVI9eQo=
-
---MP_/afWpESY29jP4MWVE3Qw1rw.--
