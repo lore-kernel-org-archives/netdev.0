@@ -1,120 +1,98 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: Please pull 'fixes-davem' branch of wireless-2.6
-Date: Wed, 7 Nov 2007 13:51:54 -0500
-Message-ID: <20071107185147.GA21097@tuxdriver.com>
-References: <20071107001314.GH4440@tuxdriver.com>
+From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Subject: RE: [PATCH 02/05] ipv6: RFC4214 Support
+Date: Wed, 7 Nov 2007 10:52:47 -0800
+Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDBF4@XCH-NW-7V2.nw.nos.boeing.com>
+References: <200711071658.59478.netdev@axxeo.de><20071108.031214.124029872.yoshfuji@linux-ipv6.org><39C363776A4E8C4A94691D2BD9D1C9A1029EDBF2@XCH-NW-7V2.nw.nos.boeing.com> <20071108.034840.124896893.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20071107001314.GH4440-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain;
+	charset="iso-2022-jp"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@axxeo.de>, <netdev@vger.kernel.org>
+To: =?iso-2022-jp?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
+	<yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from blv-smtpout-01.boeing.com ([130.76.32.69]:47139 "EHLO
+	blv-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753578AbXKGSx0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 13:53:26 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20071108.034840.124896893.yoshfuji@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave,
+ 
 
-Hold-off on this one for now if -- clearly Johannes and I need to
-brush-up on our Kconfig skills... :-(
+> -----Original Message-----
+> From: YOSHIFUJI Hideaki / 吉藤英明 [mailto:yoshfuji@linux-ipv6.org] 
+> Sent: Wednesday, November 07, 2007 10:49 AM
+> To: Templin, Fred L
+> Cc: netdev@axxeo.de; netdev@vger.kernel.org; yoshfuji@linux-ipv6.org
+> Subject: Re: [PATCH 02/05] ipv6: RFC4214 Support
+> 
+> In article 
+> <39C363776A4E8C4A94691D2BD9D1C9A1029EDBF2@XCH-NW-7V2.nw.nos.bo
+> eing.com> (at Wed, 7 Nov 2007 10:24:50 -0800), "Templin, Fred 
+> L" <Fred.L.Templin@boeing.com> says:
+> 
+> >  
+> > 
+> > > -----Original Message-----
+> > > From: YOSHIFUJI Hideaki / 吉藤英明 [mailto:yoshfuji@linux-ipv6.org] 
+> > > Sent: Wednesday, November 07, 2007 10:12 AM
+> > > To: netdev@axxeo.de
+> > > Cc: Templin, Fred L; netdev@vger.kernel.org; 
+> yoshfuji@linux-ipv6.org
+> > > Subject: Re: [PATCH 02/05] ipv6: RFC4214 Support
+> > > 
+> > > Hello.
+> > > 
+> > > In article <200711071658.59478.netdev@axxeo.de> (at Wed, 7 
+> > > Nov 2007 16:58:59 +0100), Ingo Oeser <netdev@axxeo.de> says:
+> > > 
+> > > > > +	eui[0] = 0;
+> > > > > +
+> > > > > +	/* Check for RFC3330 global address ranges */
+> > > > > +	if (((ipv4 >= 0x01000000) && (ipv4 < 0x0a000000)) ||
+> > > > > +	    ((ipv4 >= 0x0b000000) && (ipv4 < 0x7f000000)) ||
+> > > > > +	    ((ipv4 >= 0x80000000) && (ipv4 < 0xa9fe0000)) ||
+> > > > > +	    ((ipv4 >= 0xa9ff0000) && (ipv4 < 0xac100000)) ||
+> > > > > +	    ((ipv4 >= 0xac200000) && (ipv4 < 0xc0a80000)) ||
+> > > > > +	    ((ipv4 >= 0xc0a90000) && (ipv4 < 0xc6120000)) ||
+> > > > > +	    ((ipv4 >= 0xc6140000) && (ipv4 < 
+> 0xe0000000))) eui[0] |=
+> > > > > 0x2;
+> > > > > +
+> > > > 
+> > > > Instead of converting network to host byte order at runtime 
+> > > > and comparing the results to constants, let the compiler convert
+> > > > the constants to network byte order and compare in 
+> network order.
+> > > > 
+> > > > so use:
+> > > > 
+> > > >  if (((*addr >= htonl(0x01000000)) && (*addr < 
+> > > htonl(0x0a000000))) || ....
+> > > > 
+> > > > instead. The compiler will notice that "0x01000000" is a 
+> > > constant and will
+> > > > use "_constant_htonl()" automatically.
+> > > 
+> > > No, you cannot do this.
+> > > When you check the "range", you need to use host-byte order.
+> > 
+> > I think the original poster was correct on this one; the addr comes
+> > in in network byte order, and the constants are depicted in host
+> > byte order. So, the suggested fix was to have htonl(const) to make
+> > all of the constants into network byte order while leaving addr
+> > alone.
+> 
+> I don't understand.
+> 
+> For example, 1.0.0.11 is valid IPv4 global address.
+> In little-endian, this is not in the range of
+> 0x00000001 <= addr <= 0x0000000a (addr is 0x0b000001).
 
-I'll post a new pull request soon.
+Maybe it is I who did not understand. Can you suggest a clean solution?
 
-Thanks,
-
-John
-
-On Tue, Nov 06, 2007 at 07:13:14PM -0500, John W. Linville wrote:
-> Dave,
-> 
-> Here are some fixes for 2.6.24...
-> 
-> The iwlwifi patch is needed because the iwlwifi drivers routinely end-up
-> associated with the "simple" rate control algorithm, yet those drivers
-> really only work with their own custom algorithms.  The other rate
-> control patches are there to satisfy dependencies for this patch.
-> 
-> "mac80211: remove ieee80211_common.h" cleans-up an unused file left
-> hanging-around after an earlier patch already in 2.6.24.
-> 
-> "mac80211: remove unused driver ops" is really a clean-up, but
-> "mac80211: use IW_AUTH_PRIVACY_INVOKED rather than IW_AUTH_KEY_MGMT"
-> depends on it.
-> 
-> "ssb: Fix initcall ordering" changes a subsys_initcall to an
-> fs_initcall.  This seems like a bit of a hack, but it fixes a real
-> problem and I'm not sure what cleaner solution is either reasonable
-> or available.  The comment in the patch explains the reasoning for this
-> somewhat unique situation.
-> 
-> I think the other patches are plain enough to not require further
-> comment.  Let me know if there are any problems!
-> 
-> Thanks,
-> 
-> John
-> 
-> ---
-> 
-> Individual patches are available here:
-> 
-> 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/fixes-davem/
-> 
-> ---
-> 
-> The following changes since commit 2655e2cee2d77459fcb7e10228259e4ee0328697:
->   Alan Cox (1):
->         ata_piix: Add additional PCI identifier for 40 wire short cable
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-davem
-> 
-> Johannes Berg (9):
->       softmac: fix wext MLME request reason code endianness
->       mac80211: make simple rate control algorithm built-in
->       mac80211: don't allow registering the same rate control twice
->       mac80211: allow driver to ask for a rate control algorithm
->       iwlwifi: select proper rate control algorithm
->       softmac: MAINTAINERS update
->       mac80211: remove ieee80211_common.h
->       mac80211: remove unused driver ops
->       mac80211: use IW_AUTH_PRIVACY_INVOKED rather than IW_AUTH_KEY_MGMT
-> 
-> John W. Linville (1):
->       mac80211: make "decrypt failed" messages conditional upon MAC80211_DEBUG
-> 
-> Michael Buesch (5):
->       ssb: Fix initcall ordering
->       rfkill: Register LED triggers before registering switch
->       rfkill: Use subsys_initcall
->       rfkill: Use mutex_lock() at register and add sanity check
->       rfkill: Fix sparse warning
-> 
->  MAINTAINERS                                 |    7 +--
->  drivers/net/wireless/iwlwifi/iwl3945-base.c |    2 +
->  drivers/net/wireless/iwlwifi/iwl4965-base.c |    2 +
->  drivers/ssb/main.c                          |    5 +-
->  include/net/mac80211.h                      |   26 ++------
->  net/ieee80211/softmac/ieee80211softmac_wx.c |    2 +-
->  net/mac80211/Kconfig                        |   12 ++++
->  net/mac80211/Makefile                       |    3 +-
->  net/mac80211/ieee80211.c                    |   16 +++++-
->  net/mac80211/ieee80211_common.h             |   91 ---------------------------
->  net/mac80211/ieee80211_i.h                  |    2 +-
->  net/mac80211/ieee80211_ioctl.c              |   21 +++----
->  net/mac80211/ieee80211_rate.c               |   24 ++++++-
->  net/mac80211/ieee80211_rate.h               |    3 +
->  net/mac80211/ieee80211_sta.c                |   18 +++--
->  net/mac80211/rc80211_simple.c               |   25 +-------
->  net/mac80211/rx.c                           |    2 +
->  net/mac80211/wep.c                          |    2 +
->  net/mac80211/wpa.c                          |   18 ++++--
->  net/rfkill/rfkill.c                         |   37 ++++++-----
->  20 files changed, 126 insertions(+), 192 deletions(-)
->  delete mode 100644 net/mac80211/ieee80211_common.h
-
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Fred
+fred.l.templin@boeing.com
