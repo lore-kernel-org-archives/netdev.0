@@ -1,58 +1,65 @@
-From: Radu Rendec <radu.rendec@ines.ro>
-Subject: Re: Endianness problem with u32 classifier hash masks
-Date: Wed, 07 Nov 2007 15:55:31 +0200
-Message-ID: <1194443731.2987.232.camel@localhost.localdomain>
-References: <20071106142558.GC1666@ff.dom.local>
-	 <1194360226.4444.39.camel@localhost>
-	 <1194368416.2987.218.camel@localhost.localdomain>
-	 <20071107.012220.17723288.davem@davemloft.net>
-	 <1194442968.4446.8.camel@localhost>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH 3/3][UNIX] The unix_nr_socks limit can be exceeded
+Date: Wed, 07 Nov 2007 17:01:17 +0300
+Message-ID: <4731C52D.7020902@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jarkao2@o2.pl,
-	netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from NAT-173-Unkn.Local.iNES.RO ([80.86.100.173]:40962 "EHLO
-	blade.ines.ro" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756516AbXKGN6V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 08:58:21 -0500
-In-Reply-To: <1194442968.4446.8.camel@localhost>
+Received: from sacred.ru ([62.205.161.221]:46793 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756900AbXKGOB0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 09:01:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-11-07 at 08:42 -0500, jamal wrote:
-> On Wed, 2007-07-11 at 01:22 -0800, David Miller wrote:
-> 
-> > @@ -615,7 +615,7 @@ static int u32_change(struct tcf_proto *tp, unsigned long base, u32 handle,
-> >  	n->handle = handle;
-> >  {
-> >  	u8 i = 0;
-> > -	u32 mask = s->hmask;
-> > +	u32 mask = ntohl(s->hmask);
-> 
-> 
-> Is this line needed? Radu?
+The unix_nr_socks value is limited with the 2 * get_max_files() value,
+as seen from the unix_create1(). However, the check and the actual
+increment are separated with the GFP_KERNEL allocation, so this limit
+can be exceeded under a memory pressure - task may go to sleep freeing
+the pages and some other task will be allowed to allocate a new sock
+and so on and so forth.
 
-Yup. Without it, the number of bits to shift would be computed on the
-network ordered mask. The shift in u32_hash_fold() is done on a host
-ordered u32 (obtained from applying the mask on the packet data).
+So make the increment before the check (similar thing is done in the
+sock_kmalloc) and go to kmalloc after this.
 
-Shifting the host ordered u32 with number of bits obtained from network
-ordered mask would most probably break things.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-I've just compiled the kernel from a fresh clone of Dave's tree (u32
-patch included) and I'm about to test it.
+---
 
-Dave, thanks a lot for adding the patch to your tree. But I guess you
-didn't test it. I'll get back to you in max 1 hour and tell you the
-results.
-
-If everything goes well, then I'll move on to testing the ffs() patch.
-
-Cheers,
-
-Radu
-
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index ab9048a..e835da8 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -599,15 +599,14 @@ static struct sock * unix_create1(struct net *net, struct socket *sock)
+ 	struct sock *sk = NULL;
+ 	struct unix_sock *u;
+ 
+-	if (atomic_read(&unix_nr_socks) >= 2*get_max_files())
++	atomic_inc(&unix_nr_socks);
++	if (atomic_read(&unix_nr_socks) > 2 * get_max_files())
+ 		goto out;
+ 
+ 	sk = sk_alloc(net, PF_UNIX, GFP_KERNEL, &unix_proto);
+ 	if (!sk)
+ 		goto out;
+ 
+-	atomic_inc(&unix_nr_socks);
+-
+ 	sock_init_data(sock,sk);
+ 	lockdep_set_class(&sk->sk_receive_queue.lock,
+ 				&af_unix_sk_receive_queue_lock_key);
+@@ -625,6 +624,8 @@ static struct sock * unix_create1(struct net *net, struct socket *sock)
+ 	init_waitqueue_head(&u->peer_wait);
+ 	unix_insert_socket(unix_sockets_unbound, sk);
+ out:
++	if (sk == NULL)
++		atomic_dec(&unix_nr_socks);
+ 	return sk;
+ }
+ 
+-- 
+1.5.3.4
 
