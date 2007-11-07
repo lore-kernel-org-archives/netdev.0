@@ -1,158 +1,159 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 20/24] [IPSEC]: Add async resume support on output
-Date: Wed, 07 Nov 2007 22:08:37 +0800
-Message-ID: <E1Ipla9-0001IX-00@gondolin.me.apana.org.au>
+Subject: [PATCH 23/24] [IPSEC]: Move integrity stat collection into xfrm_input
+Date: Wed, 07 Nov 2007 22:08:40 +0800
+Message-ID: <E1IplaC-0001Iv-00@gondolin.me.apana.org.au>
 References: <20071107140701.GA4685@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3790 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:3805 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758230AbXKGO1G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 09:27:06 -0500
+	with ESMTP id S1758301AbXKGO1j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 09:27:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Add async resume support on output
+[IPSEC]: Move integrity stat collection into xfrm_input
 
-This patch adds support for async resumptions on output.  To do so, the
-transform would return -EINPROGRESS and subsequently invoke the function
-xfrm_output_resume to resume processing.
+Similar to the moving out of the replay processing on the output,
+this patch moves the integrity stat collectin from x->type->input
+into xfrm_input.
+
+This would eventually allow transforms such as AH/ESP to be lockless.
+
+The error value EBADMSG (currently unused in the crypto layer) is used
+to indicate a failed integrity check.  In future this error can be
+directly returned by the crypto layer once we switch to aead algorithms.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/xfrm.h     |    1 
- net/xfrm/xfrm_output.c |   57 ++++++++++++++++++++++++++++++++++---------------
- 2 files changed, 41 insertions(+), 17 deletions(-)
+ net/ipv4/ah4.c        |    3 +--
+ net/ipv4/esp4.c       |   13 ++++++++-----
+ net/ipv6/ah6.c        |    3 +--
+ net/ipv6/esp6.c       |    3 +--
+ net/xfrm/xfrm_input.c |    5 ++++-
+ 5 files changed, 15 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index e674a78..b6c26da 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1119,6 +1119,7 @@ extern void xfrm_replay_notify(struct xfrm_state *x, int event);
- extern int xfrm_state_mtu(struct xfrm_state *x, int mtu);
- extern int xfrm_init_state(struct xfrm_state *x);
- extern int xfrm_prepare_input(struct xfrm_state *x, struct sk_buff *skb);
-+extern int xfrm_output_resume(struct sk_buff *skb, int err);
- extern int xfrm_output(struct sk_buff *skb);
- extern int xfrm4_extract_header(struct sk_buff *skb);
- extern int xfrm4_extract_input(struct xfrm_state *x, struct sk_buff *skb);
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index bcb3701..048d240 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -18,6 +18,8 @@
- #include <net/dst.h>
- #include <net/xfrm.h>
- 
-+static int xfrm_output2(struct sk_buff *skb);
-+
- static int xfrm_state_check_space(struct xfrm_state *x, struct sk_buff *skb)
- {
- 	struct dst_entry *dst = skb->dst;
-@@ -41,17 +43,13 @@ err:
- 	return err;
- }
- 
--static int xfrm_output_one(struct sk_buff *skb)
-+static int xfrm_output_one(struct sk_buff *skb, int err)
- {
- 	struct dst_entry *dst = skb->dst;
- 	struct xfrm_state *x = dst->xfrm;
--	int err;
- 
--	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		err = skb_checksum_help(skb);
--		if (err)
--			goto error_nolock;
--	}
-+	if (err <= 0)
-+		goto resume;
- 
- 	do {
- 		err = x->outer_mode->output(x, skb);
-@@ -75,6 +73,8 @@ static int xfrm_output_one(struct sk_buff *skb)
- 		spin_unlock_bh(&x->lock);
- 
- 		err = x->type->output(x, skb);
-+
-+resume:
+diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+index 5fc346d..a989d29 100644
+--- a/net/ipv4/ah4.c
++++ b/net/ipv4/ah4.c
+@@ -177,9 +177,8 @@ static int ah_input(struct xfrm_state *x, struct sk_buff *skb)
+ 		err = ah_mac_digest(ahp, skb, ah->auth_data);
  		if (err)
- 			goto error_nolock;
- 
-@@ -97,18 +97,16 @@ error_nolock:
- 	goto out_exit;
- }
- 
--static int xfrm_output2(struct sk_buff *skb)
-+int xfrm_output_resume(struct sk_buff *skb, int err)
- {
+ 			goto out;
+-		err = -EINVAL;
+ 		if (memcmp(ahp->work_icv, auth_data, ahp->icv_trunc_len)) {
+-			x->stats.integrity_failed++;
++			err = -EBADMSG;
+ 			goto out;
+ 		}
+ 	}
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index c31bccb..7f1854c 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -162,7 +162,7 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	u8 nexthdr[2];
+ 	struct scatterlist *sg;
+ 	int padlen;
 -	int err;
--
--	while (likely((err = xfrm_output_one(skb)) == 0)) {
-+	while (likely((err = xfrm_output_one(skb, err)) == 0)) {
- 		struct xfrm_state *x;
++	int err = -EINVAL;
  
- 		nf_reset(skb);
+ 	if (!pskb_may_pull(skb, sizeof(*esph)))
+ 		goto out;
+@@ -182,13 +182,14 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ 			BUG();
  
- 		err = skb->dst->ops->local_out(skb);
- 		if (unlikely(err != 1))
--			break;
-+			goto out;
- 
- 		x = skb->dst->xfrm;
- 		if (!x)
-@@ -118,18 +116,25 @@ static int xfrm_output2(struct sk_buff *skb)
- 			      x->inner_mode->afinfo->nf_post_routing, skb,
- 			      NULL, skb->dst->dev, xfrm_output2);
- 		if (unlikely(err != 1))
--			break;
-+			goto out;
+ 		if (unlikely(memcmp(esp->auth.work_icv, sum, alen))) {
+-			x->stats.integrity_failed++;
++			err = -EBADMSG;
+ 			goto out;
+ 		}
  	}
  
-+	if (err == -EINPROGRESS)
-+		err = 0;
-+
-+out:
- 	return err;
+-	if ((nfrags = skb_cow_data(skb, 0, &trailer)) < 0)
++	if ((err = skb_cow_data(skb, 0, &trailer)) < 0)
+ 		goto out;
++	nfrags = err;
+ 
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 
+@@ -201,6 +202,7 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	sg = &esp->sgbuf[0];
+ 
+ 	if (unlikely(nfrags > ESP_NUM_FAST_SG)) {
++		err = -ENOMEM;
+ 		sg = kmalloc(sizeof(struct scatterlist)*nfrags, GFP_ATOMIC);
+ 		if (!sg)
+ 			goto out;
+@@ -213,11 +215,12 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	if (unlikely(sg != &esp->sgbuf[0]))
+ 		kfree(sg);
+ 	if (unlikely(err))
+-		return err;
++		goto out;
+ 
+ 	if (skb_copy_bits(skb, skb->len-alen-2, nexthdr, 2))
+ 		BUG();
+ 
++	err = -EINVAL;
+ 	padlen = nexthdr[0];
+ 	if (padlen+2 >= elen)
+ 		goto out;
+@@ -271,7 +274,7 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	return nexthdr[1];
+ 
+ out:
+-	return -EINVAL;
++	return err;
  }
-+EXPORT_SYMBOL_GPL(xfrm_output_resume);
  
--int xfrm_output(struct sk_buff *skb)
-+static int xfrm_output2(struct sk_buff *skb)
- {
--	struct sk_buff *segs;
-+	return xfrm_output_resume(skb, 1);
-+}
+ static u32 esp4_get_mtu(struct xfrm_state *x, int mtu)
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index 4eaf550..d4b59ec 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -379,10 +379,9 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 		err = ah_mac_digest(ahp, skb, ah->auth_data);
+ 		if (err)
+ 			goto free_out;
+-		err = -EINVAL;
+ 		if (memcmp(ahp->work_icv, auth_data, ahp->icv_trunc_len)) {
+ 			LIMIT_NETDEBUG(KERN_WARNING "ipsec ah authentication error\n");
+-			x->stats.integrity_failed++;
++			err = -EBADMSG;
+ 			goto free_out;
+ 		}
+ 	}
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 7db66f1..c37982b 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -177,8 +177,7 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 			BUG();
  
--	if (!skb_is_gso(skb))
--		return xfrm_output2(skb);
-+static int xfrm_output_gso(struct sk_buff *skb)
-+{
-+	struct sk_buff *segs;
+ 		if (unlikely(memcmp(esp->auth.work_icv, sum, alen))) {
+-			x->stats.integrity_failed++;
+-			ret = -EINVAL;
++			ret = -EBADMSG;
+ 			goto out;
+ 		}
+ 	}
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 587f347..b7d68eb 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -147,8 +147,11 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 			goto drop_unlock;
  
- 	segs = skb_gso_segment(skb, 0);
- 	kfree_skb(skb);
-@@ -157,4 +162,22 @@ int xfrm_output(struct sk_buff *skb)
- 
- 	return 0;
- }
-+
-+int xfrm_output(struct sk_buff *skb)
-+{
-+	int err;
-+
-+	if (skb_is_gso(skb))
-+		return xfrm_output_gso(skb);
-+
-+	if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+		err = skb_checksum_help(skb);
-+		if (err) {
-+			kfree_skb(skb);
-+			return err;
+ 		nexthdr = x->type->input(x, skb);
+-		if (nexthdr <= 0)
++		if (nexthdr <= 0) {
++			if (nexthdr == -EBADMSG)
++				x->stats.integrity_failed++;
+ 			goto drop_unlock;
 +		}
-+	}
-+
-+	return xfrm_output2(skb);
-+}
- EXPORT_SYMBOL_GPL(xfrm_output);
+ 
+ 		skb_network_header(skb)[nhoff] = nexthdr;
+ 
