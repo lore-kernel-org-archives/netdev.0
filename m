@@ -1,29 +1,29 @@
-From: David Miller <davem@davemloft.net>
+From: David Stevens <dlstevens@us.ibm.com>
 Subject: Re: [PATCH 00/05] ipv6: RFC4214 Support
-Date: Tue, 06 Nov 2007 20:38:45 -0800 (PST)
-Message-ID: <20071106.203845.10865897.davem@davemloft.net>
-References: <20071106222213.GA22170@electric-eye.fr.zoreil.com>
-	<39C363776A4E8C4A94691D2BD9D1C9A1029EDBE1@XCH-NW-7V2.nw.nos.boeing.com>
+Date: Tue, 6 Nov 2007 21:26:15 -0800
+Message-ID: <OF2BBF1458.DA94A99E-ON8825738C.001CC740-8825738C.001DC134@us.ibm.com>
+References: <20071106.203845.10865897.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Fred.L.Templin@boeing.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Fred.L.Templin@boeing.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37926
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754724AbXKGEip (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2007 23:38:45 -0500
-In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDBE1@XCH-NW-7V2.nw.nos.boeing.com>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:42486 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750814AbXKGF0U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 00:26:20 -0500
+In-Reply-To: <20071106.203845.10865897.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Date: Tue, 6 Nov 2007 17:15:54 -0800
+Last I heard, there are Intellectual Property claims with ISATAP,
+which is why the RFC is not standards track and which makes it
+effectively a proprietary protocol.
 
-> Please advise as to next steps.
+Unless that's been resolved, I think the claim by the IP owner is
+that it can't be distributed without a license from them. So, maybe
+not worth the effort for an experimental RFC.
 
-Your email client has mangles the patches, adding line breaks.  This
-makes the patches not apply at all.
+                                        +-DLS
 
-Please correct this and resubmit, thank you.
