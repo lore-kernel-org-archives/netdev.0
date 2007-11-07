@@ -1,53 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] INET : removes per bucket rwlock in tcp/dccp ehash
- table
-Date: Wed, 07 Nov 2007 02:41:14 -0800 (PST)
-Message-ID: <20071107.024114.265595154.davem@davemloft.net>
-References: <200711040018.15027.ak@suse.de>
-	<20071103.162337.83099185.davem@davemloft.net>
-	<472DAD90.4050709@cosmosbay.com>
+Subject: Re: [NETLINK]: Fix unicast timeouts
+Date: Wed, 07 Nov 2007 02:42:29 -0800 (PST)
+Message-ID: <20071107.024229.248193373.davem@davemloft.net>
+References: <472DF8E8.2030204@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, netdev@vger.kernel.org, acme@redhat.com, jarkao2@o2.pl
-To: dada1@cosmosbay.com
+Cc: manfred@colorfullife.com, netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57494
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57500
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752108AbXKGKlP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 05:41:15 -0500
-In-Reply-To: <472DAD90.4050709@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1750695AbXKGKm3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 05:42:29 -0500
+In-Reply-To: <472DF8E8.2030204@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Sun, 04 Nov 2007 12:31:28 +0100
+From: Patrick McHardy <kaber@trash.net>
+Date: Sun, 04 Nov 2007 17:52:56 +0100
 
-> [PATCH] INET : removes per bucket rwlock in tcp/dccp ehash table
+> [NETLINK]: Fix unicast timeouts
 > 
-> As done two years ago on IP route cache table (commit 
-> 22c047ccbc68fa8f3fa57f0e8f906479a062c426) , we can avoid using one lock per 
-> hash bucket for the huge TCP/DCCP hash tables.
+> Commit ed6dcf4a in the history.git tree broke netlink_unicast timeouts by
+> moving the schedule_timeout() call to a new function that doesn't propagate
+> the remaining timeout back to the caller. This means on each retry we start
+> with the full timeout again.
 > 
-> On a typical x86_64 platform, this saves about 2MB or 4MB of ram, for litle 
-> performance differences. (we hit a different cache line for the rwlock, but 
-> then the bucket cache line have a better sharing factor among cpus, since we 
-> dirty it less often). For netstat or ss commands that want a full scan of hash 
-> table, we perform fewer memory accesses.
+> ipc/mqueue.c seems to actually want to wait indefinitely so this behaviour
+> is retained.
 > 
-> Using a 'small' table of hashed rwlocks should be more than enough to provide 
-> correct SMP concurrency between different buckets, without using too much 
-> memory. Sizing of this table depends on num_possible_cpus() and various CONFIG 
-> settings.
-> 
-> This patch provides some locking abstraction that may ease a future work using 
->   a different model for TCP/DCCP table.
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> Cc: Manfred Spraul <manfred@colorfullife.com>
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-I'm going to push this current version to Linus, the space saving
-really justify it and if we want to refine things further we do it
-with followon work rather than blocking this patch.
-
-Thanks Eric!
+Applied, and I'll queue this up for -stable, thanks Patrick!
