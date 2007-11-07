@@ -1,667 +1,528 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 11/24] [IPSEC]: Merge common code into xfrm_bundle_create
-Date: Wed, 07 Nov 2007 22:08:27 +0800
-Message-ID: <E1IplZz-0001HL-00@gondolin.me.apana.org.au>
+Subject: [PATCH 21/24] [IPSEC]: Merge most of the input path
+Date: Wed, 07 Nov 2007 22:08:38 +0800
+Message-ID: <E1IplaA-0001If-00@gondolin.me.apana.org.au>
 References: <20071107140701.GA4685@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3794 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:3801 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758198AbXKGO11 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 09:27:27 -0500
+	with ESMTP id S1758347AbXKGO1b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 09:27:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Merge common code into xfrm_bundle_create
+[IPSEC]: Merge most of the input path
 
-Half of the code in xfrm4_bundle_create and xfrm6_bundle_create are common.
-This patch extracts that logic and puts it into xfrm_bundle_create.  The
-rest of it are then accessed through afinfo.
+As part of the work on asynchrnous cryptographic operations, we need to
+be able to resume from the spot where they occur.  As such, it helps if
+we isolate them to one spot.
 
-As a result this fixes the problem with inter-family transforms where we
-treat every xfrm dst in the bundle as if it belongs to the top family.
-
-This patch also fixes a long-standing error-path bug where we may free the
-xfrm states twice.
+This patch moves most of the remaining family-specific processing into
+the common input code.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/xfrm.h      |   11 +-
- net/ipv4/xfrm4_policy.c |  134 ++++++-----------------------------
- net/ipv6/xfrm6_policy.c |  143 ++++++-------------------------------
- net/xfrm/xfrm_policy.c  |  183 +++++++++++++++++++++++++++++++++++++++++-------
- 4 files changed, 215 insertions(+), 256 deletions(-)
+ include/net/xfrm.h     |   22 ++++++++
+ net/ipv4/xfrm4_input.c |  126 +++++--------------------------------------------
+ net/ipv4/xfrm4_state.c |    1 
+ net/ipv6/xfrm6_input.c |  118 +++++----------------------------------------
+ net/ipv6/xfrm6_state.c |    1 
+ net/xfrm/xfrm_input.c  |  113 +++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 164 insertions(+), 217 deletions(-)
 
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 9b6af22..4178c2b 100644
+index b6c26da..5c457b0 100644
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -227,6 +227,7 @@ struct km_event
- 	u32	event;
+@@ -274,6 +274,8 @@ struct xfrm_state_afinfo {
+ 						 struct sk_buff *skb);
+ 	int			(*extract_output)(struct xfrm_state *x,
+ 						  struct sk_buff *skb);
++	int			(*transport_finish)(struct sk_buff *skb,
++						    int async);
  };
  
-+struct net_device;
- struct xfrm_type;
- struct xfrm_dst;
- struct xfrm_policy_afinfo {
-@@ -237,13 +238,11 @@ struct xfrm_policy_afinfo {
- 					       xfrm_address_t *daddr);
- 	int			(*get_saddr)(xfrm_address_t *saddr, xfrm_address_t *daddr);
- 	struct dst_entry	*(*find_bundle)(struct flowi *fl, struct xfrm_policy *policy);
--	int			(*bundle_create)(struct xfrm_policy *policy, 
--						 struct xfrm_state **xfrm, 
--						 int nx,
--						 struct flowi *fl, 
--						 struct dst_entry **dst_p);
- 	void			(*decode_session)(struct sk_buff *skb,
- 						  struct flowi *fl);
-+	int			(*get_tos)(struct flowi *fl);
-+	int			(*fill_dst)(struct xfrm_dst *xdst,
-+					    struct net_device *dev);
- };
+ extern int xfrm_state_register_afinfo(struct xfrm_state_afinfo *afinfo);
+@@ -522,6 +524,22 @@ struct xfrm_mode_skb_cb {
  
- extern int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo);
-@@ -1094,7 +1093,6 @@ static inline int xfrm4_udp_encap_rcv(struct sock *sk, struct sk_buff *skb)
- }
- #endif
+ #define XFRM_MODE_SKB_CB(__skb) ((struct xfrm_mode_skb_cb *)&((__skb)->cb[0]))
  
--extern struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x, int tos);
- struct xfrm_policy *xfrm_policy_alloc(gfp_t gfp);
- extern int xfrm_policy_walk(u8 type, int (*func)(struct xfrm_policy *, int, int, void*), void *);
- int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl);
-@@ -1113,7 +1111,6 @@ extern int xfrm_policy_flush(u8 type, struct xfrm_audit *audit_info);
- extern int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol);
- extern int xfrm_bundle_ok(struct xfrm_policy *pol, struct xfrm_dst *xdst,
- 			  struct flowi *fl, int family, int strict);
--extern void xfrm_init_pmtu(struct dst_entry *dst);
- 
- #ifdef CONFIG_XFRM_MIGRATE
- extern int km_migrate(struct xfrm_selector *sel, u8 dir, u8 type,
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index cebc847..1d75243 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -79,122 +79,39 @@ __xfrm4_find_bundle(struct flowi *fl, struct xfrm_policy *policy)
- 	return dst;
- }
- 
--/* Allocate chain of dst_entry's, attach known xfrm's, calculate
-- * all the metrics... Shortly, bundle a bundle.
-- */
--
--static int
--__xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int nx,
--		      struct flowi *fl, struct dst_entry **dst_p)
-+static int xfrm4_get_tos(struct flowi *fl)
++/*
++ * This structure is used by the input processing to locate the SPI and
++ * related information.
++ */
++struct xfrm_spi_skb_cb {
++	union {
++		struct inet_skb_parm h4;
++		struct inet6_skb_parm h6;
++	} header;
++
++	unsigned int nhoff;
++	unsigned int daddroff;
++};
++
++#define XFRM_SPI_SKB_CB(__skb) ((struct xfrm_spi_skb_cb *)&((__skb)->cb[0]))
++
+ /* Audit Information */
+ struct xfrm_audit
  {
--	struct dst_entry *dst, *dst_prev;
--	struct rtable *rt0 = (struct rtable*)(*dst_p);
--	struct rtable *rt = rt0;
--	int tos = fl->fl4_tos;
--	int i;
+@@ -1119,12 +1137,15 @@ extern void xfrm_replay_notify(struct xfrm_state *x, int event);
+ extern int xfrm_state_mtu(struct xfrm_state *x, int mtu);
+ extern int xfrm_init_state(struct xfrm_state *x);
+ extern int xfrm_prepare_input(struct xfrm_state *x, struct sk_buff *skb);
++extern int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi,
++		      int encap_type);
+ extern int xfrm_output_resume(struct sk_buff *skb, int err);
+ extern int xfrm_output(struct sk_buff *skb);
+ extern int xfrm4_extract_header(struct sk_buff *skb);
+ extern int xfrm4_extract_input(struct xfrm_state *x, struct sk_buff *skb);
+ extern int xfrm4_rcv_encap(struct sk_buff *skb, int nexthdr, __be32 spi,
+ 			   int encap_type);
++extern int xfrm4_transport_finish(struct sk_buff *skb, int async);
+ extern int xfrm4_rcv(struct sk_buff *skb);
+ 
+ static inline int xfrm4_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
+@@ -1140,6 +1161,7 @@ extern int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short f
+ extern int xfrm6_extract_header(struct sk_buff *skb);
+ extern int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb);
+ extern int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi);
++extern int xfrm6_transport_finish(struct sk_buff *skb, int async);
+ extern int xfrm6_rcv(struct sk_buff *skb);
+ extern int xfrm6_input_addr(struct sk_buff *skb, xfrm_address_t *daddr,
+ 			    xfrm_address_t *saddr, u8 proto);
+diff --git a/net/ipv4/xfrm4_input.c b/net/ipv4/xfrm4_input.c
+index c0323d0..e374903 100644
+--- a/net/ipv4/xfrm4_input.c
++++ b/net/ipv4/xfrm4_input.c
+@@ -41,124 +41,26 @@ drop:
+ int xfrm4_rcv_encap(struct sk_buff *skb, int nexthdr, __be32 spi,
+ 		    int encap_type)
+ {
 -	int err;
--	int header_len = 0;
--	int trailer_len = 0;
+-	__be32 seq;
+-	struct xfrm_state *xfrm_vec[XFRM_MAX_DEPTH];
+-	struct xfrm_state *x;
+-	int xfrm_nr = 0;
+-	int decaps = 0;
+-	unsigned int nhoff = offsetof(struct iphdr, protocol);
 -
--	dst = dst_prev = NULL;
--	dst_hold(&rt->u.dst);
+-	seq = 0;
+-	if (!spi && (err = xfrm_parse_spi(skb, nexthdr, &spi, &seq)) != 0)
+-		goto drop;
 -
--	for (i = 0; i < nx; i++) {
--		struct dst_entry *dst1 = dst_alloc(&xfrm4_dst_ops);
--		struct xfrm_dst *xdst;
+-	do {
+-		const struct iphdr *iph = ip_hdr(skb);
 -
--		if (unlikely(dst1 == NULL)) {
--			err = -ENOBUFS;
--			dst_release(&rt->u.dst);
--			goto error;
+-		if (xfrm_nr == XFRM_MAX_DEPTH)
+-			goto drop;
+-
+-		x = xfrm_state_lookup((xfrm_address_t *)&iph->daddr, spi,
+-				      nexthdr, AF_INET);
+-		if (x == NULL)
+-			goto drop;
+-
+-		spin_lock(&x->lock);
+-		if (unlikely(x->km.state != XFRM_STATE_VALID))
+-			goto drop_unlock;
+-
+-		if ((x->encap ? x->encap->encap_type : 0) != encap_type)
+-			goto drop_unlock;
+-
+-		if (x->props.replay_window && xfrm_replay_check(x, seq))
+-			goto drop_unlock;
+-
+-		if (xfrm_state_check_expire(x))
+-			goto drop_unlock;
+-
+-		nexthdr = x->type->input(x, skb);
+-		if (nexthdr <= 0)
+-			goto drop_unlock;
+-
+-		skb_network_header(skb)[nhoff] = nexthdr;
+-
+-		/* only the first xfrm gets the encap type */
+-		encap_type = 0;
+-
+-		if (x->props.replay_window)
+-			xfrm_replay_advance(x, seq);
+-
+-		x->curlft.bytes += skb->len;
+-		x->curlft.packets++;
+-
+-		spin_unlock(&x->lock);
+-
+-		xfrm_vec[xfrm_nr++] = x;
+-
+-		if (x->inner_mode->input(x, skb))
+-			goto drop;
+-
+-		if (x->outer_mode->flags & XFRM_MODE_FLAG_TUNNEL) {
+-			decaps = 1;
+-			break;
 -		}
-+	return fl->fl4_tos;
+-
+-		err = xfrm_parse_spi(skb, nexthdr, &spi, &seq);
+-		if (err < 0)
+-			goto drop;
+-	} while (!err);
+-
+-	/* Allocate new secpath or COW existing one. */
+-
+-	if (!skb->sp || atomic_read(&skb->sp->refcnt) != 1) {
+-		struct sec_path *sp;
+-		sp = secpath_dup(skb->sp);
+-		if (!sp)
+-			goto drop;
+-		if (skb->sp)
+-			secpath_put(skb->sp);
+-		skb->sp = sp;
+-	}
+-	if (xfrm_nr + skb->sp->len > XFRM_MAX_DEPTH)
+-		goto drop;
+-
+-	memcpy(skb->sp->xvec + skb->sp->len, xfrm_vec,
+-	       xfrm_nr * sizeof(xfrm_vec[0]));
+-	skb->sp->len += xfrm_nr;
+-
+-	nf_reset(skb);
++	XFRM_SPI_SKB_CB(skb)->nhoff = offsetof(struct iphdr, protocol);
++	XFRM_SPI_SKB_CB(skb)->daddroff = offsetof(struct iphdr, daddr);
++	return xfrm_input(skb, nexthdr, spi, encap_type);
 +}
++EXPORT_SYMBOL(xfrm4_rcv_encap);
  
--		if (!dst)
--			dst = dst1;
--		else {
--			dst_prev->child = dst1;
--			dst1->flags |= DST_NOHASH;
--			dst_clone(dst1);
--		}
-+static int xfrm4_fill_dst(struct xfrm_dst *xdst, struct net_device *dev)
+-	if (decaps) {
+-		dst_release(skb->dst);
+-		skb->dst = NULL;
+-		netif_rx(skb);
+-		return 0;
+-	} else {
++int xfrm4_transport_finish(struct sk_buff *skb, int async)
 +{
-+	struct rtable *rt = (struct rtable *)xdst->route;
+ #ifdef CONFIG_NETFILTER
+-		__skb_push(skb, skb->data - skb_network_header(skb));
+-		ip_hdr(skb)->tot_len = htons(skb->len);
+-		ip_send_check(ip_hdr(skb));
++	__skb_push(skb, skb->data - skb_network_header(skb));
++	ip_hdr(skb)->tot_len = htons(skb->len);
++	ip_send_check(ip_hdr(skb));
  
--		xdst = (struct xfrm_dst *)dst1;
--		xdst->route = &rt->u.dst;
--		xdst->genid = xfrm[i]->genid;
-+	xdst->u.rt.fl = rt->fl;
- 
--		dst1->next = dst_prev;
--		dst_prev = dst1;
-+	xdst->u.dst.dev = dev;
-+	dev_hold(dev);
- 
--		header_len += xfrm[i]->props.header_len;
--		trailer_len += xfrm[i]->props.trailer_len;
-+	xdst->u.rt.idev = in_dev_get(dev);
-+	if (!xdst->u.rt.idev)
-+		return -ENODEV;
- 
--		if (xfrm[i]->props.mode != XFRM_MODE_TRANSPORT) {
--			dst1 = xfrm_dst_lookup(xfrm[i], tos);
--			err = PTR_ERR(dst1);
--			if (IS_ERR(dst1))
--				goto error;
-+	xdst->u.rt.peer = rt->peer;
-+	if (rt->peer)
-+		atomic_inc(&rt->peer->refcnt);
- 
--			rt = (struct rtable *)dst1;
--		} else
--			dst_hold(&rt->u.dst);
--	}
-+	/* Sheit... I remember I did this right. Apparently,
-+	 * it was magically lost, so this code needs audit */
-+	xdst->u.rt.rt_flags = rt->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST |
-+					      RTCF_LOCAL);
-+	xdst->u.rt.rt_type = rt->rt_type;
-+	xdst->u.rt.rt_src = rt->rt_src;
-+	xdst->u.rt.rt_dst = rt->rt_dst;
-+	xdst->u.rt.rt_gateway = rt->rt_gateway;
-+	xdst->u.rt.rt_spec_dst = rt->rt_spec_dst;
- 
--	dst_prev->child = &rt->u.dst;
--	dst->path = &rt->u.dst;
--
--	/* Copy neighbout for reachability confirmation */
--	dst->neighbour = neigh_clone(rt->u.dst.neighbour);
--
--	*dst_p = dst;
--	dst = dst_prev;
--
--	dst_prev = *dst_p;
--	i = 0;
--	err = -ENODEV;
--	for (; dst_prev != &rt->u.dst; dst_prev = dst_prev->child) {
--		struct xfrm_dst *x = (struct xfrm_dst*)dst_prev;
--		x->u.rt.fl = *fl;
--
--		dst_prev->xfrm = xfrm[i++];
--		dst_prev->dev = rt->u.dst.dev;
--		if (!rt->u.dst.dev)
--			goto error;
--		dev_hold(rt->u.dst.dev);
--
--		x->u.rt.idev = in_dev_get(rt->u.dst.dev);
--		if (!x->u.rt.idev)
--			goto error;
--
--		dst_prev->obsolete	= -1;
--		dst_prev->flags	       |= DST_HOST;
--		dst_prev->lastuse	= jiffies;
--		dst_prev->header_len	= header_len;
--		dst_prev->trailer_len	= trailer_len;
--		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
--
--		dst_prev->input = dst_discard;
--		dst_prev->output = dst_prev->xfrm->outer_mode->afinfo->output;
--		if (rt0->peer)
--			atomic_inc(&rt0->peer->refcnt);
--		x->u.rt.peer = rt0->peer;
--		/* Sheit... I remember I did this right. Apparently,
--		 * it was magically lost, so this code needs audit */
--		x->u.rt.rt_flags = rt0->rt_flags&(RTCF_BROADCAST|RTCF_MULTICAST|RTCF_LOCAL);
--		x->u.rt.rt_type = rt0->rt_type;
--		x->u.rt.rt_src = rt0->rt_src;
--		x->u.rt.rt_dst = rt0->rt_dst;
--		x->u.rt.rt_gateway = rt0->rt_gateway;
--		x->u.rt.rt_spec_dst = rt0->rt_spec_dst;
--		header_len -= x->u.dst.xfrm->props.header_len;
--		trailer_len -= x->u.dst.xfrm->props.trailer_len;
+-		NF_HOOK(PF_INET, NF_IP_PRE_ROUTING, skb, skb->dev, NULL,
+-			xfrm4_rcv_encap_finish);
+-		return 0;
++	NF_HOOK(PF_INET, NF_IP_PRE_ROUTING, skb, skb->dev, NULL,
++		xfrm4_rcv_encap_finish);
++	return 0;
+ #else
+-		return -ip_hdr(skb)->protocol;
++	return -ip_hdr(skb)->protocol;
+ #endif
 -	}
 -
--	xfrm_init_pmtu(dst);
- 	return 0;
+-drop_unlock:
+-	spin_unlock(&x->lock);
+-	xfrm_state_put(x);
+-drop:
+-	while (--xfrm_nr >= 0)
+-		xfrm_state_put(xfrm_vec[xfrm_nr]);
 -
--error:
--	if (dst)
--		dst_free(dst);
--	return err;
+-	kfree_skb(skb);
+-	return 0;
  }
+-EXPORT_SYMBOL(xfrm4_rcv_encap);
  
- static void
-@@ -330,8 +247,9 @@ static struct xfrm_policy_afinfo xfrm4_policy_afinfo = {
- 	.dst_lookup =		xfrm4_dst_lookup,
- 	.get_saddr =		xfrm4_get_saddr,
- 	.find_bundle = 		__xfrm4_find_bundle,
--	.bundle_create =	__xfrm4_bundle_create,
- 	.decode_session =	_decode_session4,
-+	.get_tos =		xfrm4_get_tos,
-+	.fill_dst =		xfrm4_fill_dst,
+ /* If it's a keepalive packet, then just eat it.
+  * If it's an encapsulated packet, then pass it to the
+diff --git a/net/ipv4/xfrm4_state.c b/net/ipv4/xfrm4_state.c
+index 80292fb..3b067e8 100644
+--- a/net/ipv4/xfrm4_state.c
++++ b/net/ipv4/xfrm4_state.c
+@@ -74,6 +74,7 @@ static struct xfrm_state_afinfo xfrm4_state_afinfo = {
+ 	.output			= xfrm4_output,
+ 	.extract_input		= xfrm4_extract_input,
+ 	.extract_output		= xfrm4_extract_output,
++	.transport_finish	= xfrm4_transport_finish,
  };
  
- static void __init xfrm4_policy_init(void)
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 864258f..50a3841 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -93,126 +93,34 @@ __xfrm6_find_bundle(struct flowi *fl, struct xfrm_policy *policy)
- 	return dst;
+ void __init xfrm4_state_init(void)
+diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
+index c458d0a..3b9eedf 100644
+--- a/net/ipv6/xfrm6_input.c
++++ b/net/ipv6/xfrm6_input.c
+@@ -23,118 +23,26 @@ int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb)
+ 
+ int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
+ {
+-	int err;
+-	__be32 seq;
+-	struct xfrm_state *xfrm_vec[XFRM_MAX_DEPTH];
+-	struct xfrm_state *x;
+-	int xfrm_nr = 0;
+-	int decaps = 0;
+-	unsigned int nhoff;
+-
+-	nhoff = IP6CB(skb)->nhoff;
+-
+-	seq = 0;
+-	if (!spi && (err = xfrm_parse_spi(skb, nexthdr, &spi, &seq)) != 0)
+-		goto drop;
+-
+-	do {
+-		struct ipv6hdr *iph = ipv6_hdr(skb);
+-
+-		if (xfrm_nr == XFRM_MAX_DEPTH)
+-			goto drop;
+-
+-		x = xfrm_state_lookup((xfrm_address_t *)&iph->daddr, spi,
+-				      nexthdr, AF_INET6);
+-		if (x == NULL)
+-			goto drop;
+-		spin_lock(&x->lock);
+-		if (unlikely(x->km.state != XFRM_STATE_VALID))
+-			goto drop_unlock;
+-
+-		if (x->props.replay_window && xfrm_replay_check(x, seq))
+-			goto drop_unlock;
+-
+-		if (xfrm_state_check_expire(x))
+-			goto drop_unlock;
+-
+-		nexthdr = x->type->input(x, skb);
+-		if (nexthdr <= 0)
+-			goto drop_unlock;
+-
+-		skb_network_header(skb)[nhoff] = nexthdr;
+-
+-		if (x->props.replay_window)
+-			xfrm_replay_advance(x, seq);
+-
+-		x->curlft.bytes += skb->len;
+-		x->curlft.packets++;
+-
+-		spin_unlock(&x->lock);
+-
+-		xfrm_vec[xfrm_nr++] = x;
+-
+-		if (x->inner_mode->input(x, skb))
+-			goto drop;
+-
+-		if (x->outer_mode->flags & XFRM_MODE_FLAG_TUNNEL) {
+-			decaps = 1;
+-			break;
+-		}
+-
+-		if ((err = xfrm_parse_spi(skb, nexthdr, &spi, &seq)) < 0)
+-			goto drop;
+-	} while (!err);
+-
+-	/* Allocate new secpath or COW existing one. */
+-	if (!skb->sp || atomic_read(&skb->sp->refcnt) != 1) {
+-		struct sec_path *sp;
+-		sp = secpath_dup(skb->sp);
+-		if (!sp)
+-			goto drop;
+-		if (skb->sp)
+-			secpath_put(skb->sp);
+-		skb->sp = sp;
+-	}
+-
+-	if (xfrm_nr + skb->sp->len > XFRM_MAX_DEPTH)
+-		goto drop;
+-
+-	memcpy(skb->sp->xvec + skb->sp->len, xfrm_vec,
+-	       xfrm_nr * sizeof(xfrm_vec[0]));
+-	skb->sp->len += xfrm_nr;
+-
+-	nf_reset(skb);
++	XFRM_SPI_SKB_CB(skb)->nhoff = IP6CB(skb)->nhoff;
++	XFRM_SPI_SKB_CB(skb)->daddroff = offsetof(struct ipv6hdr, daddr);
++	return xfrm_input(skb, nexthdr, spi, 0);
++}
++EXPORT_SYMBOL(xfrm6_rcv_spi);
+ 
+-	if (decaps) {
+-		dst_release(skb->dst);
+-		skb->dst = NULL;
+-		netif_rx(skb);
+-		return -1;
+-	} else {
++int xfrm6_transport_finish(struct sk_buff *skb, int async)
++{
+ #ifdef CONFIG_NETFILTER
+-		ipv6_hdr(skb)->payload_len = htons(skb->len);
+-		__skb_push(skb, skb->data - skb_network_header(skb));
++	ipv6_hdr(skb)->payload_len = htons(skb->len);
++	__skb_push(skb, skb->data - skb_network_header(skb));
+ 
+-		NF_HOOK(PF_INET6, NF_IP6_PRE_ROUTING, skb, skb->dev, NULL,
+-			ip6_rcv_finish);
+-		return -1;
++	NF_HOOK(PF_INET6, NF_IP6_PRE_ROUTING, skb, skb->dev, NULL,
++		ip6_rcv_finish);
++	return -1;
+ #else
+-		return 1;
++	return 1;
+ #endif
+-	}
+-
+-drop_unlock:
+-	spin_unlock(&x->lock);
+-	xfrm_state_put(x);
+-drop:
+-	while (--xfrm_nr >= 0)
+-		xfrm_state_put(xfrm_vec[xfrm_nr]);
+-	kfree_skb(skb);
+-	return -1;
  }
  
--/* Allocate chain of dst_entry's, attach known xfrm's, calculate
-- * all the metrics... Shortly, bundle a bundle.
-- */
+-EXPORT_SYMBOL(xfrm6_rcv_spi);
 -
--static int
--__xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int nx,
--		      struct flowi *fl, struct dst_entry **dst_p)
-+static int xfrm6_get_tos(struct flowi *fl)
+ int xfrm6_rcv(struct sk_buff *skb)
  {
--	struct dst_entry *dst, *dst_prev;
--	struct rt6_info *rt0 = (struct rt6_info*)(*dst_p);
--	struct rt6_info *rt  = rt0;
--	int i;
--	int err;
--	int header_len = 0;
--	int trailer_len = 0;
--
--	dst = dst_prev = NULL;
--	dst_hold(&rt->u.dst);
--
--	for (i = 0; i < nx; i++) {
--		struct dst_entry *dst1 = dst_alloc(&xfrm6_dst_ops);
--		struct xfrm_dst *xdst;
--
--		if (unlikely(dst1 == NULL)) {
--			err = -ENOBUFS;
--			dst_release(&rt->u.dst);
--			goto error;
--		}
--
--		if (!dst)
--			dst = dst1;
--		else {
--			dst_prev->child = dst1;
--			dst1->flags |= DST_NOHASH;
--			dst_clone(dst1);
--		}
--
--		xdst = (struct xfrm_dst *)dst1;
--		xdst->route = &rt->u.dst;
--		xdst->genid = xfrm[i]->genid;
--		if (rt->rt6i_node)
--			xdst->route_cookie = rt->rt6i_node->fn_sernum;
--
--		dst1->next = dst_prev;
--		dst_prev = dst1;
--
--		if (xfrm[i]->type->flags & XFRM_TYPE_NON_FRAGMENT)
--			((struct rt6_info *)dst)->nfheader_len +=
--				xfrm[i]->props.header_len;
--		header_len += xfrm[i]->props.header_len;
--		trailer_len += xfrm[i]->props.trailer_len;
--
--		if (xfrm[i]->props.mode != XFRM_MODE_TRANSPORT) {
--			dst1 = xfrm_dst_lookup(xfrm[i], 0);
--			err = PTR_ERR(dst1);
--			if (IS_ERR(dst1))
--				goto error;
--
--			rt = (struct rt6_info *)dst1;
--		} else
--			dst_hold(&rt->u.dst);
--	}
+ 	return xfrm6_rcv_spi(skb, skb_network_header(skb)[IP6CB(skb)->nhoff],
+diff --git a/net/ipv6/xfrm6_state.c b/net/ipv6/xfrm6_state.c
+index bb09e85..00360b5 100644
+--- a/net/ipv6/xfrm6_state.c
++++ b/net/ipv6/xfrm6_state.c
+@@ -198,6 +198,7 @@ static struct xfrm_state_afinfo xfrm6_state_afinfo = {
+ 	.output			= xfrm6_output,
+ 	.extract_input		= xfrm6_extract_input,
+ 	.extract_output		= xfrm6_extract_output,
++	.transport_finish	= xfrm6_transport_finish,
+ };
+ 
+ void __init xfrm6_state_init(void)
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 4c803f7..b980095 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -9,6 +9,8 @@
+ 
+ #include <linux/slab.h>
+ #include <linux/module.h>
++#include <linux/netdevice.h>
++#include <net/dst.h>
+ #include <net/ip.h>
+ #include <net/xfrm.h>
+ 
+@@ -94,6 +96,117 @@ int xfrm_prepare_input(struct xfrm_state *x, struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(xfrm_prepare_input);
+ 
++int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
++{
++	int err;
++	__be32 seq;
++	struct xfrm_state *xfrm_vec[XFRM_MAX_DEPTH];
++	struct xfrm_state *x;
++	int xfrm_nr = 0;
++	int decaps = 0;
++	unsigned int nhoff = XFRM_SPI_SKB_CB(skb)->nhoff;
++	unsigned int daddroff = XFRM_SPI_SKB_CB(skb)->daddroff;
++
++	seq = 0;
++	if (!spi && (err = xfrm_parse_spi(skb, nexthdr, &spi, &seq)) != 0)
++		goto drop;
++
++	do {
++		if (xfrm_nr == XFRM_MAX_DEPTH)
++			goto drop;
++
++		x = xfrm_state_lookup((xfrm_address_t *)
++				      (skb_network_header(skb) + daddroff),
++				      spi, nexthdr, AF_INET);
++		if (x == NULL)
++			goto drop;
++
++		spin_lock(&x->lock);
++		if (unlikely(x->km.state != XFRM_STATE_VALID))
++			goto drop_unlock;
++
++		if ((x->encap ? x->encap->encap_type : 0) != encap_type)
++			goto drop_unlock;
++
++		if (x->props.replay_window && xfrm_replay_check(x, seq))
++			goto drop_unlock;
++
++		if (xfrm_state_check_expire(x))
++			goto drop_unlock;
++
++		nexthdr = x->type->input(x, skb);
++		if (nexthdr <= 0)
++			goto drop_unlock;
++
++		skb_network_header(skb)[nhoff] = nexthdr;
++
++		/* only the first xfrm gets the encap type */
++		encap_type = 0;
++
++		if (x->props.replay_window)
++			xfrm_replay_advance(x, seq);
++
++		x->curlft.bytes += skb->len;
++		x->curlft.packets++;
++
++		spin_unlock(&x->lock);
++
++		xfrm_vec[xfrm_nr++] = x;
++
++		if (x->inner_mode->input(x, skb))
++			goto drop;
++
++		if (x->outer_mode->flags & XFRM_MODE_FLAG_TUNNEL) {
++			decaps = 1;
++			break;
++		}
++
++		err = xfrm_parse_spi(skb, nexthdr, &spi, &seq);
++		if (err < 0)
++			goto drop;
++	} while (!err);
++
++	/* Allocate new secpath or COW existing one. */
++
++	if (!skb->sp || atomic_read(&skb->sp->refcnt) != 1) {
++		struct sec_path *sp;
++		sp = secpath_dup(skb->sp);
++		if (!sp)
++			goto drop;
++		if (skb->sp)
++			secpath_put(skb->sp);
++		skb->sp = sp;
++	}
++	if (xfrm_nr + skb->sp->len > XFRM_MAX_DEPTH)
++		goto drop;
++
++	memcpy(skb->sp->xvec + skb->sp->len, xfrm_vec,
++	       xfrm_nr * sizeof(xfrm_vec[0]));
++	skb->sp->len += xfrm_nr;
++
++	nf_reset(skb);
++
++	if (decaps) {
++		dst_release(skb->dst);
++		skb->dst = NULL;
++		netif_rx(skb);
++		return 0;
++	} else {
++		return x->inner_mode->afinfo->transport_finish(skb, 0);
++	}
++
++drop_unlock:
++	spin_unlock(&x->lock);
++	xfrm_state_put(x);
++drop:
++	while (--xfrm_nr >= 0)
++		xfrm_state_put(xfrm_vec[xfrm_nr]);
++
++	kfree_skb(skb);
 +	return 0;
 +}
- 
--	dst_prev->child = &rt->u.dst;
--	dst->path = &rt->u.dst;
--
--	/* Copy neighbour for reachability confirmation */
--	dst->neighbour = neigh_clone(rt->u.dst.neighbour);
--
--	if (rt->rt6i_node)
--		((struct xfrm_dst *)dst)->path_cookie = rt->rt6i_node->fn_sernum;
--
--	*dst_p = dst;
--	dst = dst_prev;
--
--	dst_prev = *dst_p;
--	i = 0;
--	err = -ENODEV;
--	for (; dst_prev != &rt->u.dst; dst_prev = dst_prev->child) {
--		struct xfrm_dst *x = (struct xfrm_dst*)dst_prev;
--
--		dst_prev->xfrm = xfrm[i++];
--		dst_prev->dev = rt->u.dst.dev;
--		if (!rt->u.dst.dev)
--			goto error;
--		dev_hold(rt->u.dst.dev);
--
--		x->u.rt6.rt6i_idev = in6_dev_get(rt->u.dst.dev);
--		if (!x->u.rt6.rt6i_idev)
--			goto error;
--
--		dst_prev->obsolete	= -1;
--		dst_prev->flags	       |= DST_HOST;
--		dst_prev->lastuse	= jiffies;
--		dst_prev->header_len	= header_len;
--		dst_prev->trailer_len	= trailer_len;
--		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
--
--		dst_prev->input = dst_discard;
--		dst_prev->output = dst_prev->xfrm->outer_mode->afinfo->output;
--		/* Sheit... I remember I did this right. Apparently,
--		 * it was magically lost, so this code needs audit */
--		x->u.rt6.rt6i_flags    = rt0->rt6i_flags&(RTCF_BROADCAST|RTCF_MULTICAST|RTCF_LOCAL);
--		x->u.rt6.rt6i_metric   = rt0->rt6i_metric;
--		x->u.rt6.rt6i_node     = rt0->rt6i_node;
--		x->u.rt6.rt6i_gateway  = rt0->rt6i_gateway;
--		memcpy(&x->u.rt6.rt6i_gateway, &rt0->rt6i_gateway, sizeof(x->u.rt6.rt6i_gateway));
--		x->u.rt6.rt6i_dst      = rt0->rt6i_dst;
--		x->u.rt6.rt6i_src      = rt0->rt6i_src;
--		header_len -= x->u.dst.xfrm->props.header_len;
--		trailer_len -= x->u.dst.xfrm->props.trailer_len;
--	}
-+static int xfrm6_fill_dst(struct xfrm_dst *xdst, struct net_device *dev)
-+{
-+	struct rt6_info *rt = (struct rt6_info*)xdst->route;
++EXPORT_SYMBOL(xfrm_input);
 +
-+	xdst->u.dst.dev = dev;
-+	dev_hold(dev);
-+
-+	xdst->u.rt6.rt6i_idev = in6_dev_get(rt->u.dst.dev);
-+	if (!xdst->u.rt6.rt6i_idev)
-+		return -ENODEV;
-+
-+	/* Sheit... I remember I did this right. Apparently,
-+	 * it was magically lost, so this code needs audit */
-+	xdst->u.rt6.rt6i_flags = rt->rt6i_flags & (RTCF_BROADCAST |
-+						   RTCF_MULTICAST |
-+						   RTCF_LOCAL);
-+	xdst->u.rt6.rt6i_metric = rt->rt6i_metric;
-+	xdst->u.rt6.rt6i_node = rt->rt6i_node;
-+	xdst->u.rt6.rt6i_gateway = rt->rt6i_gateway;
-+	xdst->u.rt6.rt6i_dst = rt->rt6i_dst;
-+	xdst->u.rt6.rt6i_src = rt->rt6i_src;
- 
--	xfrm_init_pmtu(dst);
- 	return 0;
--
--error:
--	if (dst)
--		dst_free(dst);
--	return err;
- }
- 
- static inline void
-@@ -355,8 +263,9 @@ static struct xfrm_policy_afinfo xfrm6_policy_afinfo = {
- 	.dst_lookup =		xfrm6_dst_lookup,
- 	.get_saddr = 		xfrm6_get_saddr,
- 	.find_bundle =		__xfrm6_find_bundle,
--	.bundle_create =	__xfrm6_bundle_create,
- 	.decode_session =	_decode_session6,
-+	.get_tos =		xfrm6_get_tos,
-+	.fill_dst =		xfrm6_fill_dst,
- };
- 
- static void __init xfrm6_policy_init(void)
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 6168341..5a03612 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -24,6 +24,7 @@
- #include <linux/netfilter.h>
- #include <linux/module.h>
- #include <linux/cache.h>
-+#include <net/dst.h>
- #include <net/xfrm.h>
- #include <net/ip.h>
- 
-@@ -50,6 +51,7 @@ static DEFINE_SPINLOCK(xfrm_policy_gc_lock);
- 
- static struct xfrm_policy_afinfo *xfrm_policy_get_afinfo(unsigned short family);
- static void xfrm_policy_put_afinfo(struct xfrm_policy_afinfo *afinfo);
-+static void xfrm_init_pmtu(struct dst_entry *dst);
- 
- static inline int
- __xfrm4_selector_match(struct xfrm_selector *sel, struct flowi *fl)
-@@ -85,7 +87,8 @@ int xfrm_selector_match(struct xfrm_selector *sel, struct flowi *fl,
- 	return 0;
- }
- 
--struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x, int tos)
-+static inline struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x, int tos,
-+						int family)
+ void __init xfrm_input_init(void)
  {
- 	xfrm_address_t *saddr = &x->props.saddr;
- 	xfrm_address_t *daddr = &x->id.daddr;
-@@ -97,7 +100,7 @@ struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x, int tos)
- 	if (x->type->flags & XFRM_TYPE_REMOTE_COADDR)
- 		daddr = x->coaddr;
- 
--	afinfo = xfrm_policy_get_afinfo(x->props.family);
-+	afinfo = xfrm_policy_get_afinfo(family);
- 	if (unlikely(afinfo == NULL))
- 		return ERR_PTR(-EAFNOSUPPORT);
- 
-@@ -105,7 +108,6 @@ struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x, int tos)
- 	xfrm_policy_put_afinfo(afinfo);
- 	return dst;
- }
--EXPORT_SYMBOL(xfrm_dst_lookup);
- 
- static inline unsigned long make_jiffies(long secs)
- {
-@@ -1235,24 +1237,164 @@ xfrm_find_bundle(struct flowi *fl, struct xfrm_policy *policy, unsigned short fa
- 	return x;
- }
- 
--/* Allocate chain of dst_entry's, attach known xfrm's, calculate
-- * all the metrics... Shortly, bundle a bundle.
-- */
-+static inline int xfrm_get_tos(struct flowi *fl, int family)
-+{
-+	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
-+	int tos;
- 
--static int
--xfrm_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int nx,
--		   struct flowi *fl, struct dst_entry **dst_p,
--		   unsigned short family)
-+	if (!afinfo)
-+		return -EINVAL;
-+
-+	tos = afinfo->get_tos(fl);
-+
-+	xfrm_policy_put_afinfo(afinfo);
-+
-+	return tos;
-+}
-+
-+static inline struct xfrm_dst *xfrm_alloc_dst(int family)
- {
--	int err;
- 	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
--	if (unlikely(afinfo == NULL))
-+	struct xfrm_dst *xdst;
-+
-+	if (!afinfo)
-+		return ERR_PTR(-EINVAL);
-+
-+	xdst = dst_alloc(afinfo->dst_ops) ?: ERR_PTR(-ENOBUFS);
-+
-+	xfrm_policy_put_afinfo(afinfo);
-+
-+	return xdst;
-+}
-+
-+static inline int xfrm_fill_dst(struct xfrm_dst *xdst, struct net_device *dev)
-+{
-+	struct xfrm_policy_afinfo *afinfo =
-+		xfrm_policy_get_afinfo(xdst->u.dst.ops->family);
-+	int err;
-+
-+	if (!afinfo)
- 		return -EINVAL;
--	err = afinfo->bundle_create(policy, xfrm, nx, fl, dst_p);
-+
-+	err = afinfo->fill_dst(xdst, dev);
-+
- 	xfrm_policy_put_afinfo(afinfo);
-+
- 	return err;
- }
- 
-+/* Allocate chain of dst_entry's, attach known xfrm's, calculate
-+ * all the metrics... Shortly, bundle a bundle.
-+ */
-+
-+static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
-+					    struct xfrm_state **xfrm, int nx,
-+					    struct flowi *fl,
-+					    struct dst_entry *dst)
-+{
-+	unsigned long now = jiffies;
-+	struct net_device *dev;
-+	struct dst_entry *dst_prev = NULL;
-+	struct dst_entry *dst0 = NULL;
-+	int i = 0;
-+	int err;
-+	int header_len = 0;
-+	int trailer_len = 0;
-+	int tos;
-+	int family = policy->selector.family;
-+
-+	tos = xfrm_get_tos(fl, family);
-+	err = tos;
-+	if (tos < 0)
-+		goto put_states;
-+
-+	dst_hold(dst);
-+
-+	for (; i < nx; i++) {
-+		struct xfrm_dst *xdst = xfrm_alloc_dst(family);
-+		struct dst_entry *dst1 = &xdst->u.dst;
-+
-+		err = PTR_ERR(xdst);
-+		if (IS_ERR(xdst)) {
-+			dst_release(dst);
-+			goto put_states;
-+		}
-+
-+		if (!dst_prev)
-+			dst0 = dst1;
-+		else {
-+			dst_prev->child = dst_clone(dst1);
-+			dst1->flags |= DST_NOHASH;
-+		}
-+
-+		xdst->route = dst;
-+		memcpy(&dst1->metrics, &dst->metrics, sizeof(dst->metrics));
-+
-+		if (xfrm[i]->props.mode != XFRM_MODE_TRANSPORT) {
-+			family = xfrm[i]->props.family;
-+			dst = xfrm_dst_lookup(xfrm[i], tos, family);
-+			err = PTR_ERR(dst);
-+			if (IS_ERR(dst))
-+				goto put_states;
-+		} else
-+			dst_hold(dst);
-+
-+		dst1->xfrm = xfrm[i];
-+		xdst->genid = xfrm[i]->genid;
-+
-+		dst1->obsolete = -1;
-+		dst1->flags |= DST_HOST;
-+		dst1->lastuse = now;
-+
-+		dst1->input = dst_discard;
-+		dst1->output = xfrm[i]->outer_mode->afinfo->output;
-+
-+		dst1->next = dst_prev;
-+		dst_prev = dst1;
-+
-+		header_len += xfrm[i]->props.header_len;
-+		trailer_len += xfrm[i]->props.trailer_len;
-+	}
-+
-+	dst_prev->child = dst;
-+	dst0->path = dst;
-+
-+	err = -ENODEV;
-+	dev = dst->dev;
-+	if (!dev)
-+		goto free_dst;
-+
-+	/* Copy neighbout for reachability confirmation */
-+	dst0->neighbour = neigh_clone(dst->neighbour);
-+
-+	xfrm_init_pmtu(dst_prev);
-+
-+	for (dst_prev = dst0; dst_prev != dst; dst_prev = dst_prev->child) {
-+		struct xfrm_dst *xdst = (struct xfrm_dst *)dst_prev;
-+
-+		err = xfrm_fill_dst(xdst, dev);
-+		if (err)
-+			goto free_dst;
-+
-+		dst_prev->header_len = header_len;
-+		dst_prev->trailer_len = trailer_len;
-+		header_len -= xdst->u.dst.xfrm->props.header_len;
-+		trailer_len -= xdst->u.dst.xfrm->props.trailer_len;
-+	}
-+
-+out:
-+	return dst0;
-+
-+put_states:
-+	for (; i < nx; i++)
-+		xfrm_state_put(xfrm[i]);
-+free_dst:
-+	if (dst0)
-+		dst_free(dst0);
-+	dst0 = ERR_PTR(err);
-+	goto out;
-+}
-+
- static int inline
- xfrm_dst_alloc_copy(void **target, void *src, int size)
- {
-@@ -1452,15 +1594,10 @@ restart:
- 			return 0;
- 		}
- 
--		dst = dst_orig;
--		err = xfrm_bundle_create(policy, xfrm, nx, fl, &dst, family);
--
--		if (unlikely(err)) {
--			int i;
--			for (i=0; i<nx; i++)
--				xfrm_state_put(xfrm[i]);
-+		dst = xfrm_bundle_create(policy, xfrm, nx, fl, dst_orig);
-+		err = PTR_ERR(dst);
-+		if (IS_ERR(dst))
- 			goto error;
--		}
- 
- 		for (pi = 0; pi < npols; pi++) {
- 			read_lock_bh(&pols[pi]->lock);
-@@ -1883,7 +2020,7 @@ static int xfrm_flush_bundles(void)
- 	return 0;
- }
- 
--void xfrm_init_pmtu(struct dst_entry *dst)
-+static void xfrm_init_pmtu(struct dst_entry *dst)
- {
- 	do {
- 		struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
-@@ -1904,8 +2041,6 @@ void xfrm_init_pmtu(struct dst_entry *dst)
- 	} while ((dst = dst->next));
- }
- 
--EXPORT_SYMBOL(xfrm_init_pmtu);
--
- /* Check that the bundle accepts the flow and its components are
-  * still valid.
-  */
+ 	secpath_cachep = kmem_cache_create("secpath_cache",
