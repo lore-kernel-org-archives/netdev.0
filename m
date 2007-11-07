@@ -1,41 +1,40 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] ethtool: add support for supporting 10000baseT
-Date: Wed, 07 Nov 2007 10:06:56 -0800
-Message-ID: <4731FEC0.4020803@intel.com>
-References: <20071107162420.5102.26358.stgit@localhost.localdomain> <20071107165749.GB3320@solarflare.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [PATCH 12/13] SCTP: Clean-up some defines for regressions tests.
+Date: Wed,  7 Nov 2007 12:46:30 -0500
+Message-ID: <11944575911640-git-send-email-vladislav.yasevich@hp.com>
+References: <11944575911538-git-send-email-vladislav.yasevich@hp.com>
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:16135 "EHLO mga02.intel.com"
+Received: from palrel10.hp.com ([156.153.255.245]:51165 "EHLO palrel10.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758972AbXKGSHV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Nov 2007 13:07:21 -0500
-In-Reply-To: <20071107165749.GB3320@solarflare.com>
+	id S1751168AbXKGSJL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 13:09:11 -0500
+In-Reply-To: <11944575911538-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Hutchings wrote:
-> Auke Kok wrote:
->> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
->>
->> there is missing support in ethtool for reporting 10000baseT
->> as SUPPORTED_10000baseT_Full.  The code seems to be half
->> implemented because the "advertising" field has the implementation.
-> 
-> I reported this lack on Sourceforge a while back:
-> <http://sourceforge.net/tracker/index.php?func=detail&aid=1798807&group_id=3242&atid=103242>
-> Is anyone reading bugs reported there?
+The SCTP regression tests now use the in-kernel version of proc_fs.h
+and we don't need to undef any more.
 
-not really. However with plenty of new 10gig hardware going through here we're
-currently looking at ethtool support and seeing if it misses anything. If you spot
-issues, please Cc me or Jesse and netdev and of course Jeff Garzik so we can get
-some patches out.
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+---
+ include/net/sctp/sctp.h |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-I just noticed an e1000 specific ethtool issue on there that we'll take a look at
-as well.
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index 67c997c..34318a3 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -65,7 +65,6 @@
+ 
+ 
+ #ifdef TEST_FRAME
+-#undef CONFIG_PROC_FS
+ #undef CONFIG_SCTP_DBG_OBJCNT
+ #undef CONFIG_SYSCTL
+ #endif /* TEST_FRAME */
+-- 
+1.5.2.4
 
-Auke
