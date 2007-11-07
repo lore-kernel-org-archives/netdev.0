@@ -1,52 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG] in inet6_create
-Date: Wed, 07 Nov 2007 02:34:31 -0800 (PST)
-Message-ID: <20071107.023431.52915555.davem@davemloft.net>
-References: <472A3218.20708@tiscali.nl>
-	<20071105.200046.69224507.yoshfuji@linux-ipv6.org>
+Subject: Re: [patch 1/2] ipvs: Bind connections on stanby if the
+ destination exists
+Date: Wed, 07 Nov 2007 02:36:08 -0800 (PST)
+Message-ID: <20071107.023608.130104821.davem@davemloft.net>
+References: <20071105030851.615630269@vergenet.net>
+	<20071105030958.596331811@vergenet.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: 12o3l@tiscali.nl, netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Cc: lvs-devel@linuxvirtualserver.org, netdev@vger.kernel.org,
+	rumen@voicecho.com, graeme@graemef.net, jmack@wm7d.net, ja@ssi.bg,
+	wensong@linux-vs.org
+To: horms@vergenet.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52640
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42598
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751925AbXKGKec (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 05:34:32 -0500
-In-Reply-To: <20071105.200046.69224507.yoshfuji@linux-ipv6.org>
+	by vger.kernel.org with ESMTP id S1753752AbXKGKgJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 05:36:09 -0500
+In-Reply-To: <20071105030958.596331811@vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Mon, 05 Nov 2007 20:00:46 +0900 (JST)
+From: horms@vergenet.net
+Date: Mon, 05 Nov 2007 12:08:52 +0900
 
-> [IPV6]: Ensure to initialize inetsw6 array before we start accepting socket.
+> From: Rumen G. Bogdanovski <rumen@voicecho.com>
 > 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> 
-> diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-> index ecbd388..9ecd41b 100644
-> --- a/net/ipv6/af_inet6.c
-> +++ b/net/ipv6/af_inet6.c
-> @@ -789,6 +789,7 @@ static int __init inet6_init(void)
->  	/* Register the socket-side information for inet6_create.  */
->  	for(r = &inetsw6[0]; r < &inetsw6[SOCK_MAX]; ++r)
->  		INIT_LIST_HEAD(r);
-> +	synchronize_net();
->  
->  	/* We MUST register RAW sockets before we create the ICMP6,
->  	 * IGMP6, or NDISC control sockets.
-> 
+> This patch fixes the problem with node overload on director fail-over.
+> Given the scenario: 2 nodes each accepting 3 connections at a time and 2
+> directors, director failover occurs when the nodes are fully loaded (6
+> connections to the cluster) in this case the new director will assign
+> another 6 connections to the cluster, If the same real servers exist
+> there.
+ ...
+> Acked-by: Julian Anastasov <ja@ssi.bg>
+> Signed-off-by: Rumen G. Bogdanovski <rumen@voicecho.com>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-I don't see how this can make a difference.
-
-sock_register() takes spinlocks, and therefore provides
-a full memory barrier.  The list initializations MUST
-appear before any code path can see inet6_create() and
-friends.
-
-I simply cannot see how this crash is even possible.
-
-Also, the original bug reporter cannot provide an inet6.o image that
-matches any of his OOPS traces, so we cannot analyze this bug properly.
+Applied, thanks.
