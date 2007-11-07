@@ -1,45 +1,51 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH][PACKET] Remove unneeded packet_socks_nr variable
-Date: Wed, 07 Nov 2007 19:16:14 +0300
-Message-ID: <4731E4CE.6030603@openvz.org>
-References: <4731DAA3.7060306@openvz.org> <20071107155004.GI27345@ghostprotocols.net> <20071107155301.GJ27345@ghostprotocols.net>
+From: "Arnaldo Carvalho de Melo" <acme@redhat.com>
+Subject: [PATCH 0/2] generalize {DEFINE|REF}_PROTO_INUSE was Re: [PATCH
+	0/4] NET : struct proto diet
+Date: Wed, 7 Nov 2007 14:16:00 -0200
+Message-ID: <20071107161600.GK27345@ghostprotocols.net>
+References: <472F5860.4010607@cosmosbay.com> <20071105.234306.200631818.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Arnaldo Carvalho de Melo <acme@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:50310 "EHLO sacred.ru"
+Received: from mx1.redhat.com ([66.187.233.31]:45266 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753379AbXKGQQ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Nov 2007 11:16:28 -0500
-In-Reply-To: <20071107155301.GJ27345@ghostprotocols.net>
+	id S1754041AbXKGQQd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 11:16:33 -0500
+Content-Disposition: inline
+In-Reply-To: <20071105.234306.200631818.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arnaldo Carvalho de Melo wrote:
-> Em Wed, Nov 07, 2007 at 01:50:04PM -0200, Arnaldo Carvalho de Melo escreveu:
->> Em Wed, Nov 07, 2007 at 06:32:51PM +0300, Pavel Emelyanov escreveu:
->>> This one is used only under ifdef PACKET_REFCNT_DEBUG in
->>> printk and is not needed otherwise. So hide all this stuff
->>> under the PACKET_REFCNT_DEBUG.
->>>
->>> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
->> Look at sk_refcnt_debug_inc, etc and you'll se a more standard way. I
->> forgot to make this when making all protocol families use sk_prot, even
->> if just partially :-)
+Em Mon, Nov 05, 2007 at 11:43:06PM -0800, David Miller escreveu:
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Mon, 05 Nov 2007 18:52:32 +0100
 > 
-> As a bonus you'll get this information on /proc/net/protocols, removing
-> '-1' from PACKET column for "sockets".
+> > This patch series does some cleanup and optimization.
+> > 
+> > [PATCH 1/4] NET : defines an infrastructure to keep 'inuse' changes in 
+> > an efficent SMP/NUMA way.
+> > [PATCH 2/4] NET : makes ipv4 use the  {DEFINE|REF}_PROTO_INUSE 
+> > infrastructure
+> > [PATCH 3/4] NET : makes ipv6 use the  {DEFINE|REF}_PROTO_INUSE 
+> > infrastructure
+> > [PATCH 4/4] NET : makes sctp use the  {DEFINE|REF}_PROTO_INUSE 
+> > infrastructure
+> 
+> Applied, and because I love DCCP I added the following
+> patch on top.
 
-Hm... I actually thought about this, but I decided that packet
-sockets were not accounted in this way deliberately.
+Thank you dudes. I found it so nice that I can't help but wonder if this
+wouldn't provide for an interesting "class", because this has nothing
+that is specific to network protocols, struct proto is just one user...
 
-So, shall I break this "compatibility" (-1 in proc) and provide
-a packet socket number in this file?
+Lemme try to do this right now:
 
-> - Arnaldo
+David,
 
-Thanks,
-Pavel
+	Please consider pulling from:
+
+master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6
+
+- Arnaldo
