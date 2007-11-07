@@ -1,43 +1,63 @@
-From: Moni Shoua <monis@voltaire.com>
-Subject: Re: bonding / 2.6.24-rc1 issues
-Date: Wed, 07 Nov 2007 16:52:23 +0200
-Message-ID: <4731D127.9060301@voltaire.com>
-References: <4731C2DE.4000701@voltaire.com>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: [PATCH 00/05] ipv6: RFC4214 Support
+Date: Wed, 7 Nov 2007 16:41:51 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0711071635160.10003@netcore.fi>
+References: <OFF45233E5.73C392C8-ON8825738C.00298603-8825738C.002B4AB8@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>, Roland Dreier <rolandd@cisco.com>,
-	netdev@vger.kernel.org, Moni Levy <monil@voltaire.com>
-To: Or Gerlitz <ogerlitz@voltaire.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: David Miller <davem@davemloft.net>, Fred.L.Templin@boeing.com,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:22166 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758624AbXKGOw0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Nov 2007 09:52:26 -0500
-In-Reply-To: <4731C2DE.4000701@voltaire.com>
+Received: from netcore.fi ([193.94.160.1]:52669 "EHLO netcore.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758388AbXKGO6I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 09:58:08 -0500
+In-Reply-To: <OFF45233E5.73C392C8-ON8825738C.00298603-8825738C.002B4AB8@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Or Gerlitz wrote:
-> Jay, Moni
-> 
-> I did some tests with 2.6.24-rc1 and the first patch to bonding that Jay
-> sent last night to netdev. Basic operation and fail over work fine.
-> However, I see some crashes which are somehow related to destroying the
-> bond when the slaves are ipoib ones, I don't see similar crashes when
-> enslaving ethernet devices (Broadcom Corporation NetXtreme BCM5704
-> Gigabit Ethernet (rev 03)), my compressed dot config is attached.
-> 
-> The first type of oops is when I just do modprobe -r bonding after
-> enslavement of the ipoib devices:
-> 
-> 
-> the second type of oops is when I modprobe -r ib_ipoib after
-> enslavement. I was not able to test this one with ethernet as the tg3
-> code is built into my kernel
+On Tue, 6 Nov 2007, David Stevens wrote:
+>> give it away on this specific instance.  I'm not sure if you should
+>> attribute to hidden agendas what you can explain by "doing the right
+>> thing" (granted, very few companies do this which may make it suspect,
+>> but still..).
+>
+> Pekka,
+>        I'm not assuming hidden agendas here; I simply don't know what
+> they mean by "no license for implementers."  It doesn't say they
+> relinquish *all* licensing, which would be clearer if that's what they
+> mean. If implementers, distributors, and users are included, then
+> who's left that does need licensing? If that answer really is nobody,
+> then why bother with "for implementers."?
+>        So, I don't think it's a hidden agenda, I think they said what
+> they mean. I just don't know what they mean. :-)
 
-I couldn't reproduce the first oops. However, after applying Jay's
-fixes for 2.6.24-rc1 I managed to reproduce the second oops.
-I will try to look into it.
+If you look at the page they used to file the disclosure:
 
+https://datatracker.ietf.org/ipr/new-specific/
 
+You'll notice that they chose the most relaxed option available, and 
+all the options only discuss implementers not distributors.
+
+Now, if you look at the background commentary of the subject:
+
+http://tools.ietf.org/html/rfc3905
+
+.. the comment about that particular option is:
+
+    a) No License Required for Implementers: The Patent Holder does not
+       require parties to acquire any license to its Necessary Patent
+       Claims in order to make, have made, use, import, offer to sell,
+       sell, or distribute technology that implements such an IETF
+       specification.
+
+Seems clear to me, though someone could argue whether RFC 3905 is 
+normative in this context, i.e., whether the person who submitted the 
+disclosure understood the comment quoted above and that that's the way 
+"no license required for implementers" must be interpreted.
+
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
