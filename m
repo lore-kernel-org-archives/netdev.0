@@ -1,100 +1,75 @@
-From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Subject: RE: [PATCH 02/05] ipv6: RFC4214 Support
-Date: Wed, 7 Nov 2007 10:24:50 -0800
-Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDBF2@XCH-NW-7V2.nw.nos.boeing.com>
-References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDBE3@XCH-NW-7V2.nw.nos.boeing.com><200711071658.59478.netdev@axxeo.de> <20071108.031214.124029872.yoshfuji@linux-ipv6.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 04/05] ipv6: RFC4214 Support
+Date: Thu, 08 Nov 2007 03:36:50 +0900 (JST)
+Message-ID: <20071108.033650.113099372.yoshfuji@linux-ipv6.org>
+References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDBE5@XCH-NW-7V2.nw.nos.boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-2022-jp"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: =?iso-2022-jp?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>, <netdev@axxeo.de>
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: Fred.L.Templin@boeing.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stl-smtpout-01.boeing.com ([130.76.96.56]:49716 "EHLO
-	stl-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752999AbXKGS1Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 13:27:25 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20071108.031214.124029872.yoshfuji@linux-ipv6.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:38807 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753177AbXKGSgo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 13:36:44 -0500
+In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDBE5@XCH-NW-7V2.nw.nos.boeing.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- 
+Hello.
 
-> -----Original Message-----
-> From: YOSHIFUJI Hideaki / 吉藤英明 [mailto:yoshfuji@linux-ipv6.org] 
-> Sent: Wednesday, November 07, 2007 10:12 AM
-> To: netdev@axxeo.de
-> Cc: Templin, Fred L; netdev@vger.kernel.org; yoshfuji@linux-ipv6.org
-> Subject: Re: [PATCH 02/05] ipv6: RFC4214 Support
-> 
-> Hello.
-> 
-> In article <200711071658.59478.netdev@axxeo.de> (at Wed, 7 
-> Nov 2007 16:58:59 +0100), Ingo Oeser <netdev@axxeo.de> says:
-> 
-> > > +	eui[0] = 0;
-> > > +
-> > > +	/* Check for RFC3330 global address ranges */
-> > > +	if (((ipv4 >= 0x01000000) && (ipv4 < 0x0a000000)) ||
-> > > +	    ((ipv4 >= 0x0b000000) && (ipv4 < 0x7f000000)) ||
-> > > +	    ((ipv4 >= 0x80000000) && (ipv4 < 0xa9fe0000)) ||
-> > > +	    ((ipv4 >= 0xa9ff0000) && (ipv4 < 0xac100000)) ||
-> > > +	    ((ipv4 >= 0xac200000) && (ipv4 < 0xc0a80000)) ||
-> > > +	    ((ipv4 >= 0xc0a90000) && (ipv4 < 0xc6120000)) ||
-> > > +	    ((ipv4 >= 0xc6140000) && (ipv4 < 0xe0000000))) eui[0] |=
-> > > 0x2;
-> > > +
-> > 
-> > Instead of converting network to host byte order at runtime 
-> > and comparing the results to constants, let the compiler convert
-> > the constants to network byte order and compare in network order.
-> > 
-> > so use:
-> > 
-> >  if (((*addr >= htonl(0x01000000)) && (*addr < 
-> htonl(0x0a000000))) || ....
-> > 
-> > instead. The compiler will notice that "0x01000000" is a 
-> constant and will
-> > use "_constant_htonl()" automatically.
-> 
-> No, you cannot do this.
-> When you check the "range", you need to use host-byte order.
+In article <39C363776A4E8C4A94691D2BD9D1C9A1029EDBE5@XCH-NW-7V2.nw.nos.boeing.com> (at Tue, 6 Nov 2007 17:16:11 -0800), "Templin, Fred L" <Fred.L.Templin@boeing.com> says:
 
-I think the original poster was correct on this one; the addr comes
-in in network byte order, and the constants are depicted in host
-byte order. So, the suggested fix was to have htonl(const) to make
-all of the constants into network byte order while leaving addr
-alone.
+> @@ -154,6 +155,14 @@ static struct ip_tunnel * ipip6_tunnel_l
+>  	struct net_device *dev;
+>  	char name[IFNAMSIZ];
+>  
+> +#if defined(CONFIG_IPV6_ISATAP)
+> +	/* ISATAP (RFC4214) - router address in daddr */
+> +	if (!strncmp(parms->name, "isatap", 6)) {
+> +		parms->i_key = parms->iph.daddr;
+> +		parms->iph.daddr = remote = 0;
+> +	}
+> +#endif
+> +
+>  	for (tp = __ipip6_bucket(parms); (t = *tp) != NULL; tp =
+> &t->next) {
+>  		if (local == t->parms.iph.saddr && remote ==
+> t->parms.iph.daddr)
+>  			return t;
 
-> > > +
-> > > +static inline int ipv6_addr_is_isatap(const struct 
-> in6_addr *addr)
-> > > +{
-> > > +       return (addr->s6_addr32[2] == 
-> __constant_htonl(0x02005EFE) ||
-> > > +               addr->s6_addr32[2] == 
-> __constant_htonl(0x00005EFE));
-> > > +}
-> > > +#endif
-> > 
-> > The compiler will notice that "0x01000000" is a constant and will
-> > use "_constant_htonl()" automatically. Please use simply htonl().
-> 
-> Right.  And, maybe, you can write as follows:
-> 	return ((addr->s6_addr32[2] | htonl(0x02000000)) == htonl(0x02005EFE));
+I do not think it is a good idea to change the behavior based on
+the interface name.
 
-This looks good, and the change will be made.
+> @@ -182,6 +191,11 @@ static struct ip_tunnel * ipip6_tunnel_l
+>  	dev->init = ipip6_tunnel_init;
+>  	nt->parms = *parms;
+>  
+> +#if defined(CONFIG_IPV6_ISATAP)
+> +	if (!strncmp(dev->name, "isatap", 6))
+> +		dev->priv_flags |= IFF_ISATAP;
+> +#endif
+> +
 
-Fred
-fred.l.templin@boeing.com
+ditto.
 
-> 
-> --yoshfuji
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> +		    if (!(ipv6_addr_is_isatap(addr6)) ||
+> +			(addr6->s6_addr32[3] != iph->saddr)) {
+> +drop:
+> +			tunnel->stat.rx_errors++;
+
+you can unlock here.
+
+> +			dst_release(dst);
+> +			kfree_skb(skb);
+> +			read_unlock(&ipip6_lock);
+> +			return 0;
+> +		    }
+> +		    dst_release(dst);
+> +		}
+> +accept:
+> +#endif
+
+--yoshfuji
