@@ -1,51 +1,33 @@
-From: Karsten Keil <kkeil@suse.de>
-Subject: Why does a connect to IPv6 LLA address fail ?
-Date: Wed, 7 Nov 2007 10:40:07 +0100
-Message-ID: <20071107094007.GA15575@pingi.kke.suse.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [AF_PACKET]: Allow multicast traffic to be caught by
+ ORIGDEV when bonded
+Date: Wed, 07 Nov 2007 02:21:16 -0800 (PST)
+Message-ID: <20071107.022116.16986000.davem@davemloft.net>
+References: <20071106152547.14672.10821.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: peter.p.waskiewicz.jr@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:42041 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752041AbXKGJkJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Nov 2007 04:40:09 -0500
-Received: from Relay2.suse.de (mail2.suse.de [195.135.221.8])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mx1.suse.de (Postfix) with ESMTP id 894871A820
-	for <netdev@vger.kernel.org>; Wed,  7 Nov 2007 10:40:08 +0100 (CET)
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58550
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751382AbXKGKVR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 05:21:17 -0500
+In-Reply-To: <20071106152547.14672.10821.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+Date: Tue, 06 Nov 2007 07:25:47 -0800
 
-currently I do some cerification test for IPv6 with the TAHI ct testsuite.
-With the default-addr-select tests for compliance with RFC3484 here are
-FAILs with Destination Address Selection Check Rule 2(Prefer matching
-scope). Yes I know that Destination Address Selection is done in glibc,
-but it seems that the kernel behaves wrong in the connect system call
-with IPv6 link local addresses. 
+> The socket option for packet sockets to return the original ifindex instead
+> of the bonded ifindex will not match multicast traffic.  Since this socket
+> option is the most useful for layer 2 traffic and multicast traffic, make
+> the option multicast-aware.
+> 
+> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 
-The glibc getaddrinfo function try to verify if a address is valid and
-examine the source address. For this it create a socket for datagram and
-protocol IPPROTO_IP and then try to connect it with the destination
-address. This fails in the case of a LLA, because connect returns EINVAL,
-since here is no device bind to this socket at this time. So getaddrinfo
-mark this candidate address as not reachable and so it will never prefered
-because of rule 1 of RFC3484 Destination Address Selection.
-
-Why do we have this check in ip6_datagram_connect() ?
-
-The posix manpage for connect says about EINVAL:
-"EINVAL - The address_len argument is not a valid length for the address family; or
-invalid address family in the sockaddr structure."
-
-Which is not the case here.
-
--- 
-Karsten Keil
-SuSE Labs
-ISDN and VOIP development
-SUSE LINUX Products GmbH, Maxfeldstr.5 90409 Nuernberg, GF: Markus Rex, HRB 16746 (AG Nuernberg)
+I agree with you in principle, but I'd like to hear some feedback
+from other folks.  In particular I'd like a discussion about
+what this might break, if anything.
