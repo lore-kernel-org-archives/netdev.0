@@ -1,53 +1,49 @@
-From: "Arnaldo Carvalho de Melo" <acme@redhat.com>
-Subject: Re: [PATCH][PACKET] Remove unneeded packet_socks_nr variable
-Date: Wed, 7 Nov 2007 14:26:35 -0200
-Message-ID: <20071107162635.GN27345@ghostprotocols.net>
-References: <4731DAA3.7060306@openvz.org> <20071107155004.GI27345@ghostprotocols.net> <20071107155301.GJ27345@ghostprotocols.net> <4731E4CE.6030603@openvz.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] ethtool: add support for supporting 10000baseT
+Date: Wed, 7 Nov 2007 16:57:50 +0000
+Message-ID: <20071107165749.GB3320@solarflare.com>
+References: <20071107162420.5102.26358.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:57710 "EHLO mx1.redhat.com"
+Received: from fizeau.zen.co.uk ([212.23.8.67]:55659 "EHLO fizeau.zen.co.uk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753021AbXKGQ0n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Nov 2007 11:26:43 -0500
+	id S1755082AbXKGRB4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 12:01:56 -0500
+Received: from [212.23.3.142] (helo=rutherford.zen.co.uk)
+	by fizeau.zen.co.uk with esmtp (Exim 4.50)
+	id 1IpoHr-0001nx-3o
+	for netdev@vger.kernel.org; Wed, 07 Nov 2007 17:01:55 +0000
+Received: from [82.69.137.158] (helo=opal.uk.level5networks.com)
+	by rutherford.zen.co.uk with esmtp (Exim 4.50)
+	id 1IpoDx-0007oL-IW
+	for netdev@vger.kernel.org; Wed, 07 Nov 2007 16:57:53 +0000
+Received: from achroite (achroite.uk.level5networks.com [10.17.20.50])
+	by opal.uk.level5networks.com (8.12.8/8.12.8) with ESMTP id lA7Gvouo008467
+	for <netdev@vger.kernel.org>; Wed, 7 Nov 2007 16:57:53 GMT
+Received: from bwh by achroite with local (Exim 4.62)
+	(envelope-from <bwh@solarflare.com>)
+	id 1IpoDu-0001jf-Rc
+	for netdev@vger.kernel.org; Wed, 07 Nov 2007 16:57:50 +0000
 Content-Disposition: inline
-In-Reply-To: <4731E4CE.6030603@openvz.org>
+In-Reply-To: <20071107162420.5102.26358.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Wed, Nov 07, 2007 at 07:16:14PM +0300, Pavel Emelyanov escreveu:
-> Arnaldo Carvalho de Melo wrote:
-> > Em Wed, Nov 07, 2007 at 01:50:04PM -0200, Arnaldo Carvalho de Melo escreveu:
-> >> Em Wed, Nov 07, 2007 at 06:32:51PM +0300, Pavel Emelyanov escreveu:
-> >>> This one is used only under ifdef PACKET_REFCNT_DEBUG in
-> >>> printk and is not needed otherwise. So hide all this stuff
-> >>> under the PACKET_REFCNT_DEBUG.
-> >>>
-> >>> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> >> Look at sk_refcnt_debug_inc, etc and you'll se a more standard way. I
-> >> forgot to make this when making all protocol families use sk_prot, even
-> >> if just partially :-)
-> > 
-> > As a bonus you'll get this information on /proc/net/protocols, removing
-> > '-1' from PACKET column for "sockets".
+Auke Kok wrote:
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 > 
-> Hm... I actually thought about this, but I decided that packet
-> sockets were not accounted in this way deliberately.
-> 
-> So, shall I break this "compatibility" (-1 in proc) and provide
-> a packet socket number in this file?
+> there is missing support in ethtool for reporting 10000baseT
+> as SUPPORTED_10000baseT_Full.  The code seems to be half
+> implemented because the "advertising" field has the implementation.
 
-Humm, my bad, the sockets column in /proc/net/protocols doesn't come
-from prot->socks, it comes from prot->sockets_allocated. But the
-suggestion for using sk_refcnt_debug_inc stands, it is there for when we
-want to do what the code in pf_packet does: refcount debugging, in fact
-that code most probably was copy'n'pasted from other, older protocols.
+I reported this lack on Sourceforge a while back:
+<http://sourceforge.net/tracker/index.php?func=detail&aid=1798807&group_id=3242&atid=103242>
+Is anyone reading bugs reported there?
 
-BTW, IPX also uses this technique, patches are welcome to make it also
-use common infrastructure :-)
+Ben.
 
-- Arnaldo
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
