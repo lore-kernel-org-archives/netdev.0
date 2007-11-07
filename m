@@ -1,53 +1,51 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [PATCH 13/24] [IPSEC]: Move x->outer_mode->output out of locked section
-Date: Wed, 7 Nov 2007 17:17:42 +0100
-Message-ID: <200711071717.43429.netdev@axxeo.de>
-References: <20071107140701.GA4685@gondor.apana.org.au> <E1Ipla1-0001Hb-00@gondolin.me.apana.org.au>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] ethtool: add support for supporting 10000baseT
+Date: Wed, 07 Nov 2007 08:24:20 -0800
+Message-ID: <20071107162420.5102.26358.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev@vger.kernel.org, jesse.brandeburg@intel.com,
+	auke-jan.h.kok@intel.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:2959 "EHLO mail.axxeo.de"
+Received: from mga02.intel.com ([134.134.136.20]:41617 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751925AbXKGQSU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Nov 2007 11:18:20 -0500
-In-Reply-To: <E1Ipla1-0001Hb-00@gondolin.me.apana.org.au>
-Content-Disposition: inline
+	id S1750830AbXKGQYW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 11:24:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Herbert,
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Herbert Xu schrieb:
-> diff --git a/net/ipv6/xfrm6_mode_ro.c b/net/ipv6/xfrm6_mode_ro.c
-> index a7bc8c6..4a01cb3 100644
-> --- a/net/ipv6/xfrm6_mode_ro.c
-> +++ b/net/ipv6/xfrm6_mode_ro.c
-> @@ -53,7 +54,9 @@ static int xfrm6_ro_output(struct xfrm_state *x, struct sk_buff *skb)
->  	__skb_pull(skb, hdr_len);
->  	memmove(ipv6_hdr(skb), iph, hdr_len);
->  
-> +	spin_lock_bh(&x->lock);
->  	x->lastused = get_seconds();
-> +	spin_unlock_bh(&x->lock);
->  
->  	return 0;
->  }
+there is missing support in ethtool for reporting 10000baseT
+as SUPPORTED_10000baseT_Full.  The code seems to be half
+implemented because the "advertising" field has the implementation.
 
-Can you move the retrieval of the seconds outside the spinlock?
+this patch just adds it for supported reporting.
 
-e.g.
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
-tmp = get_seconds();
-spin_lock_bh(&x->lock);
-x->lastused = tmp;
-spin_unlock_bh(&x->lock);
+ ethtool.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
-or is it not really worth it?
-
-Best Regards
-
-Ingo Oeser
+diff --git a/ethtool.c b/ethtool.c
+index 6c7a2e3..888be57 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -725,6 +725,13 @@ static void dump_supported(struct ethtool_cmd *ep)
+ 	if (mask & SUPPORTED_2500baseX_Full) {
+ 		did1++; fprintf(stdout, "2500baseX/Full ");
+ 	}
++	if (did1 && (mask & SUPPORTED_10000baseT_Full)) {
++		fprintf(stdout, "\n");
++		fprintf(stdout, "	                        ");
++	}
++	if (mask & SUPPORTED_10000baseT_Full) {
++		did1++; fprintf(stdout, "10000baseT/Full ");
++	}
+ 	fprintf(stdout, "\n");
+ 
+ 	fprintf(stdout, "	Supports auto-negotiation: ");
