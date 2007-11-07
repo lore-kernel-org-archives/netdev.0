@@ -1,51 +1,53 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH] ethtool: add support for supporting 10000baseT
-Date: Wed, 07 Nov 2007 08:24:20 -0800
-Message-ID: <20071107162420.5102.26358.stgit@localhost.localdomain>
+From: "Arnaldo Carvalho de Melo" <acme@redhat.com>
+Subject: Re: [PATCH][PACKET] Remove unneeded packet_socks_nr variable
+Date: Wed, 7 Nov 2007 14:26:35 -0200
+Message-ID: <20071107162635.GN27345@ghostprotocols.net>
+References: <4731DAA3.7060306@openvz.org> <20071107155004.GI27345@ghostprotocols.net> <20071107155301.GJ27345@ghostprotocols.net> <4731E4CE.6030603@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse.brandeburg@intel.com,
-	auke-jan.h.kok@intel.com
-To: jeff@garzik.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:41617 "EHLO mga02.intel.com"
+Received: from mx1.redhat.com ([66.187.233.31]:57710 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750830AbXKGQYW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Nov 2007 11:24:22 -0500
+	id S1753021AbXKGQ0n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2007 11:26:43 -0500
+Content-Disposition: inline
+In-Reply-To: <4731E4CE.6030603@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Em Wed, Nov 07, 2007 at 07:16:14PM +0300, Pavel Emelyanov escreveu:
+> Arnaldo Carvalho de Melo wrote:
+> > Em Wed, Nov 07, 2007 at 01:50:04PM -0200, Arnaldo Carvalho de Melo escreveu:
+> >> Em Wed, Nov 07, 2007 at 06:32:51PM +0300, Pavel Emelyanov escreveu:
+> >>> This one is used only under ifdef PACKET_REFCNT_DEBUG in
+> >>> printk and is not needed otherwise. So hide all this stuff
+> >>> under the PACKET_REFCNT_DEBUG.
+> >>>
+> >>> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> >> Look at sk_refcnt_debug_inc, etc and you'll se a more standard way. I
+> >> forgot to make this when making all protocol families use sk_prot, even
+> >> if just partially :-)
+> > 
+> > As a bonus you'll get this information on /proc/net/protocols, removing
+> > '-1' from PACKET column for "sockets".
+> 
+> Hm... I actually thought about this, but I decided that packet
+> sockets were not accounted in this way deliberately.
+> 
+> So, shall I break this "compatibility" (-1 in proc) and provide
+> a packet socket number in this file?
 
-there is missing support in ethtool for reporting 10000baseT
-as SUPPORTED_10000baseT_Full.  The code seems to be half
-implemented because the "advertising" field has the implementation.
+Humm, my bad, the sockets column in /proc/net/protocols doesn't come
+from prot->socks, it comes from prot->sockets_allocated. But the
+suggestion for using sk_refcnt_debug_inc stands, it is there for when we
+want to do what the code in pf_packet does: refcount debugging, in fact
+that code most probably was copy'n'pasted from other, older protocols.
 
-this patch just adds it for supported reporting.
+BTW, IPX also uses this technique, patches are welcome to make it also
+use common infrastructure :-)
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
-
- ethtool.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
-
-diff --git a/ethtool.c b/ethtool.c
-index 6c7a2e3..888be57 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -725,6 +725,13 @@ static void dump_supported(struct ethtool_cmd *ep)
- 	if (mask & SUPPORTED_2500baseX_Full) {
- 		did1++; fprintf(stdout, "2500baseX/Full ");
- 	}
-+	if (did1 && (mask & SUPPORTED_10000baseT_Full)) {
-+		fprintf(stdout, "\n");
-+		fprintf(stdout, "	                        ");
-+	}
-+	if (mask & SUPPORTED_10000baseT_Full) {
-+		did1++; fprintf(stdout, "10000baseT/Full ");
-+	}
- 	fprintf(stdout, "\n");
- 
- 	fprintf(stdout, "	Supports auto-negotiation: ");
+- Arnaldo
