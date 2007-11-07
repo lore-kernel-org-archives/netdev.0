@@ -1,65 +1,50 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 2/2]: e1000: avoid lockup durig error
-	recovery
-Date: Wed, 7 Nov 2007 17:15:38 -0800
-Message-ID: <20071107171538.1802487c@freepuppy.rosehill>
-References: <20071107211935.GH4239@austin.ibm.com>
-	<20071107212404.GA15251@austin.ibm.com> <47323319.10709@intel.com>
-	<20071107222446.GM4239@austin.ibm.com> <47323FFE.2060008@intel.com>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: build #337 failed for 2.6.24-rc1-gb1d08ac In function
+	`usbnet_set_settings':
+Date: Wed, 7 Nov 2007 23:52:32 +0100
+Message-ID: <20071107225232.GB26163@stusta.de>
+References: <200711012024.57412.toralf.foerster@gmx.de> <200711021230.22588.david-b@pacbell.net> <20071102195517.GW30287@stusta.de> <200711071434.52607.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, e1000-devel@lists.sourceforge.net,
-	NetDev <netdev@vger.kernel.org>,
-	"Brandeburg,  Jesse" <jesse.brandeburg@intel.com>,
-	john.ronciak@intel.com, jeffrey.t.kirsher@intel.com,
-	Linas Vepstas <linas@austin.ibm.com>, wenxiong@us.ibm.com
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <47323FFE.2060008@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=utf-8
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	Toralf =?utf-8?Q?F=C3=B6rster?= <toralf.foerster@gmx.de>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: David Brownell <david-b@pacbell.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:35447 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753067AbXKHBUg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 20:20:36 -0500
+Content-Disposition: inline
+In-Reply-To: <200711071434.52607.david-b@pacbell.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 07 Nov 2007 14:45:18 -0800
-"Kok, Auke" <auke-jan.h.kok@intel.com> wrote:
-
-> [adding netdev, jeff G to the Cc]
+On Wed, Nov 07, 2007 at 02:34:52PM -0800, David Brownell wrote:
+> > > But on the other hand, it seems that only the ASIX code will work
+> > > right; the DM9601 and MCS7830 Kconfig is different/wrong.
+> > 
+> > I'm not seeing the problem.
+> > 
+> > Which configuration will be handled wrongly?
 > 
-> Linas Vepstas wrote:
-> > On Wed, Nov 07, 2007 at 01:50:17PM -0800, Kok, Auke wrote:
-> >> Linas Vepstas wrote:
-> >>> If a PCI bus error is encountered during device open, the
-> >>> error recovery routines will attempt to close the device.
-> >>> If napi has not yet been enabled, the napi disable in the
-> >>> close will hang. 
-> >>>
-> >>> Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-> >>>
-> >>> ----
-> >>> The "elegence" of this solution is arguable: one could
-> >>> say its "better" to perform this check in e1000_down().
-> >>> However, doing so will disrupt a commonly used path,
-> >>> whereas here, the hack is in the infrequently used
-> >>> error path, and thus less intrusive. 
-> >>>
+> Notice how only the ASIX kconfig depended on NET_ETHERNET...
+> since MII depends on NET_ETHERNET, and (last I knew) the
+> reverse dependencies didn't capture the complete dependency
+> tree, selecting only MII would leave out some stuff.
 
-Same problem might be possible in suspend/resume.
-The problem with testing napi_enabled is that state can get changed
-by racing irq.
+Except for one s390 net driver (I'll check why it's doing this) the 
+NET_ETHERNET option does not influence what code is being generated - 
+it's just a Kconfig-internal option allowing to disable a huge bunch
+of drivers at once.
+
+cu
+Adrian
 
 -- 
-Stephen Hemminger <shemminger@linux-foundation.org>
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >> http://get.splunk.com/
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
