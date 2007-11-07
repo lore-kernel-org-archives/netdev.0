@@ -1,48 +1,32 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: Re: Why does a connect to IPv6 LLA address fail ?
-Date: Wed, 7 Nov 2007 12:28:38 +0100
-Message-ID: <20071107112838.GA22180@dhcp79.suse.cz>
-References: <20071107094007.GA15575@pingi.kke.suse.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [AF_PACKET]: Allow multicast traffic to be caught by
+ ORIGDEV when bonded
+Date: Wed, 07 Nov 2007 03:52:06 -0800 (PST)
+Message-ID: <20071107.035206.187180402.davem@davemloft.net>
+References: <20071106152547.14672.10821.stgit@localhost.localdomain>
+	<20071107.022116.16986000.davem@davemloft.net>
+	<D5C1322C3E673F459512FB59E0DDC32903ED74CE@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: yoshfuji@linux-ipv6.org, kkeil@suse.de
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: peter.p.waskiewicz.jr@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:54654 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751005AbXKGL2l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Nov 2007 06:28:41 -0500
-Content-Disposition: inline
-In-Reply-To: <20071107094007.GA15575@pingi.kke.suse.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43724
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753325AbXKGLwG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 06:52:06 -0500
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32903ED74CE@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Date: Wed, 7 Nov 2007 03:00:42 -0800
 
-> For this it create a socket for datagram and
-> protocol IPPROTO_IP and then try to connect it with the destination
-> address. This fails in the case of a LLA, because connect returns EINVAL,
-> since here is no device bind to this socket at this time.
+> In any event, the only thing this could affect is if the option is
+> set on the socket, which shouldn't be very often at all.
 
-[snip]
-
-> Why do we have this check in ip6_datagram_connect() ?
-
-This problem has been nicely described in
-http://www.linux-ipv6.org/ml/usagi-users/msg03062.html
-without any response. 
-
-RFC2461, Appendix A, really suggests performing neighbour
-discovery on all the links. I like the idea, it would make LLAs
-much more useful. 
-
-Has anyone experimented with this? Is there any good reason why
-we don't send NSs to all the links to find out which link the
-destination LLA is on?
-
-Regards,
-
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
-
+Any idea how many programs set this option and which
+ones?  You obviously noticed, so perhaps you know at
+least one or was this discovered purely by code
+inspection?
