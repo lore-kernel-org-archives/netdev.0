@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] unexport softnet_data
-Date: Tue, 06 Nov 2007 23:41:13 -0800 (PST)
-Message-ID: <20071106.234113.248978883.davem@davemloft.net>
-References: <20071024162425.GI30533@stusta.de>
-	<20071026.041906.223457165.davem@davemloft.net>
-	<BAE9DCEF64577A439B3A37F36F9B691C034CC519@orsmsx418.amr.corp.intel.com>
+Subject: Re: [2.6 patch] always export sysctl_{r,w}mem_max
+Date: Tue, 06 Nov 2007 23:50:40 -0800 (PST)
+Message-ID: <20071106.235040.15743646.davem@davemloft.net>
+References: <472278E3.4000909@hp.com>
+	<20071026.163958.171785530.davem@davemloft.net>
+	<m1d4v1whh5.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bunk@kernel.org, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org, christopher.leech@intel.com,
-	dan.j.williams@intel.com
-To: shannon.nelson@intel.com
+Cc: rick.jones2@hp.com, bunk@kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57164
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35839
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756167AbXKGHlU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 02:41:20 -0500
-In-Reply-To: <BAE9DCEF64577A439B3A37F36F9B691C034CC519@orsmsx418.amr.corp.intel.com>
+	by vger.kernel.org with ESMTP id S1755882AbXKGHuo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2007 02:50:44 -0500
+In-Reply-To: <m1d4v1whh5.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Date: Fri, 26 Oct 2007 08:38:55 -0700
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Fri, 26 Oct 2007 18:04:22 -0600
 
-> There is no creation of a pinned_list yet in this path, so I don't think
-> this would do us much good.
+> So if this is really something we want to stop doing we should
+> be able to take a few extra moments remove the code from the
+> two problem drivers, and remove the exports.
 
-The pinned list is created in the generic net/ipv4/tcp.c code, not in
-the address family specific code.
-
-So your comments do not apply as a reason for this patch to not go in.
-My patch has been in Linus's tree for weeks, and until you show me a
-real reason why the check shouldn't be there in the ipv6 path, it's
-staying.
+I've killed the references in dlm and rrunner in the net-2.6
+tree.
