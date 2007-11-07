@@ -1,97 +1,172 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Possible BUG on net/ipv4/ipcomp.c, line 358 (fwd)
-Date: Wed, 7 Nov 2007 09:11:24 +0800
-Message-ID: <20071107011124.GA29479@gondor.apana.org.au>
-References: <Xine.LNX.4.64.0711070751530.27327@us.intercode.com.au>
+From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Subject: [PATCH 04/05] ipv6: RFC4214 Support
+Date: Tue, 6 Nov 2007 17:16:11 -0800
+Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDBE5@XCH-NW-7V2.nw.nos.boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: James Morris <jmorris@namei.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1378 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754915AbXKGBLb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2007 20:11:31 -0500
-Content-Disposition: inline
-In-Reply-To: <Xine.LNX.4.64.0711070751530.27327@us.intercode.com.au>
+Received: from blv-smtpout-01.boeing.com ([130.76.32.69]:36441 "EHLO
+	blv-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757417AbXKGBQY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2007 20:16:24 -0500
+Received: from blv-av-01.boeing.com (blv-av-01.boeing.com [192.42.227.216])
+	by blv-smtpout-01.ns.cs.boeing.com (8.14.0/8.14.0/8.14.0/SMTPOUT) with ESMTP id lA71GNXd026668
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 6 Nov 2007 17:16:24 -0800 (PST)
+Received: from blv-av-01.boeing.com (localhost [127.0.0.1])
+	by blv-av-01.boeing.com (8.14.0/8.14.0/DOWNSTREAM_RELAY) with ESMTP id lA71GNDA026614
+	for <netdev@vger.kernel.org>; Tue, 6 Nov 2007 17:16:23 -0800 (PST)
+Received: from XCH-NWBH-11.nw.nos.boeing.com (xch-nwbh-11.nw.nos.boeing.com [130.247.55.84])
+	by blv-av-01.boeing.com (8.14.0/8.14.0/UPSTREAM_RELAY) with ESMTP id lA71GLX1026498
+	for <netdev@vger.kernel.org>; Tue, 6 Nov 2007 17:16:23 -0800 (PST)
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 07, 2007 at 07:51:57AM +1100, James Morris wrote:
->
-> ---------- Forwarded message ----------
-> Date: Tue, 06 Nov 2007 14:53:30 +0100
-> From: Vicen=E7 <vbeltran@ac.upc.edu>
-> To: jmorris@intercode.com.au
-> Subject: Possible BUG on net/ipv4/ipcomp.c, line 358
->=20
-> Hi James,
->=20
-> I think there is a bug on net/ipv4/ipcomp.c line 358. The trivial pat=
-ch that
-> should fix it is:
+From: Fred L. Templin <fred.l.templin@boeing.com>
 
-Thanks for the report! The same bug exists in IPv6 too and
-this patch should fix both.
+This is experimental support for the Intra-Site Automatic
+Tunnel Addressing Protocol (ISATAP) per RFC4214. It uses
+the SIT module, and is configured using the unmodified
+"ip" utility with device names beginning with: "isatap".
 
-[IPSEC]: Fix crypto_alloc_comp error checking
+The following diffs are specific to the Linux 2.6.23
+kernel distribution.
 
-The function crypto_alloc_comp returns an errno instead of NULL
-to indicate error.  So it needs to be tested with IS_ERR.
+Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
 
-This is based on a patch by Vicen=E7 Beltran Querol.
+---
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
-index ca1b5fd..2c44a94 100644
---- a/net/ipv4/ipcomp.c
-+++ b/net/ipv4/ipcomp.c
+--- linux-2.6.23/net/ipv6/sit.c.orig	2007-10-09 13:31:38.000000000
+-0700
++++ linux-2.6.23/net/ipv6/sit.c	2007-11-06 15:32:27.000000000 -0800
 @@ -16,6 +16,7 @@
+  *	Changes:
+  * Roger Venning <r.venning@telstra.com>:	6to4 support
+  * Nate Thompson <nate@thebog.net>:		6to4 support
++ * Fred L. Templin <fltemplin@acm.org>:		isatap support
+  */
+ 
  #include <linux/module.h>
- #include <asm/semaphore.h>
- #include <linux/crypto.h>
-+#include <linux/err.h>
- #include <linux/pfkeyv2.h>
- #include <linux/percpu.h>
- #include <linux/smp.h>
-@@ -344,7 +345,7 @@ static struct crypto_comp **ipcomp_alloc_tfms(const=
- char *alg_name)
- 	for_each_possible_cpu(cpu) {
- 		struct crypto_comp *tfm =3D crypto_alloc_comp(alg_name, 0,
- 							    CRYPTO_ALG_ASYNC);
--		if (!tfm)
-+		if (IS_ERR(tfm))
- 			goto error;
- 		*per_cpu_ptr(tfms, cpu) =3D tfm;
+@@ -154,6 +155,14 @@ static struct ip_tunnel * ipip6_tunnel_l
+ 	struct net_device *dev;
+ 	char name[IFNAMSIZ];
+ 
++#if defined(CONFIG_IPV6_ISATAP)
++	/* ISATAP (RFC4214) - router address in daddr */
++	if (!strncmp(parms->name, "isatap", 6)) {
++		parms->i_key = parms->iph.daddr;
++		parms->iph.daddr = remote = 0;
++	}
++#endif
++
+ 	for (tp = __ipip6_bucket(parms); (t = *tp) != NULL; tp =
+&t->next) {
+ 		if (local == t->parms.iph.saddr && remote ==
+t->parms.iph.daddr)
+ 			return t;
+@@ -182,6 +191,11 @@ static struct ip_tunnel * ipip6_tunnel_l
+ 	dev->init = ipip6_tunnel_init;
+ 	nt->parms = *parms;
+ 
++#if defined(CONFIG_IPV6_ISATAP)
++	if (!strncmp(dev->name, "isatap", 6))
++		dev->priv_flags |= IFF_ISATAP;
++#endif
++
+ 	if (register_netdevice(dev) < 0) {
+ 		free_netdev(dev);
+ 		goto failed;
+@@ -382,6 +396,48 @@ static int ipip6_rcv(struct sk_buff *skb
+ 		IPCB(skb)->flags = 0;
+ 		skb->protocol = htons(ETH_P_IPV6);
+ 		skb->pkt_type = PACKET_HOST;
++#if defined(CONFIG_IPV6_ISATAP)
++		/* ISATAP (RFC4214) - check source address */
++		if (tunnel->dev->priv_flags & IFF_ISATAP) {
++		    struct neighbour *neigh;
++		    struct dst_entry *dst;
++		    struct flowi fl;
++		    struct in6_addr *addr6;
++		    struct ipv6hdr *iph6;
++
++		    /* from ISATAP router */
++		    if (iph->saddr == tunnel->parms.i_key) goto accept;
++
++		    iph6 = ipv6_hdr(skb);
++		    addr6 = &iph6->saddr;
++
++		    /* from legitimate previous hop */
++		    memset(&fl, 0, sizeof(fl));
++		    fl.proto = iph6->nexthdr;
++		    ipv6_addr_copy(&fl.fl6_dst, addr6);
++		    fl.oif = tunnel->dev->ifindex;
++		    security_skb_classify_flow(skb, &fl);
++
++		    if (!(dst = ip6_route_output(NULL, &fl)) ||
++			 (dst->dev != tunnel->dev) ||
++			 ((neigh = dst->neighbour) == NULL))
++			goto drop;
++
++		    addr6 = (struct in6_addr*)&neigh->primary_key;
++
++		    if (!(ipv6_addr_is_isatap(addr6)) ||
++			(addr6->s6_addr32[3] != iph->saddr)) {
++drop:
++			tunnel->stat.rx_errors++;
++			dst_release(dst);
++			kfree_skb(skb);
++			read_unlock(&ipip6_lock);
++			return 0;
++		    }
++		    dst_release(dst);
++		}
++accept:
++#endif
+ 		tunnel->stat.rx_packets++;
+ 		tunnel->stat.rx_bytes += skb->len;
+ 		skb->dev = tunnel->dev;
+@@ -395,8 +451,6 @@ static int ipip6_rcv(struct sk_buff *skb
  	}
-diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
-index 85eb479..0cd4056 100644
---- a/net/ipv6/ipcomp6.c
-+++ b/net/ipv6/ipcomp6.c
-@@ -36,6 +36,7 @@
- #include <net/ipcomp.h>
- #include <asm/semaphore.h>
- #include <linux/crypto.h>
-+#include <linux/err.h>
- #include <linux/pfkeyv2.h>
- #include <linux/random.h>
- #include <linux/percpu.h>
-@@ -358,7 +359,7 @@ static struct crypto_comp **ipcomp6_alloc_tfms(cons=
-t char *alg_name)
- 	for_each_possible_cpu(cpu) {
- 		struct crypto_comp *tfm =3D crypto_alloc_comp(alg_name, 0,
- 							    CRYPTO_ALG_ASYNC);
--		if (!tfm)
-+		if (IS_ERR(tfm))
- 			goto error;
- 		*per_cpu_ptr(tfms, cpu) =3D tfm;
- 	}
+ 
+ 	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
+-	kfree_skb(skb);
+-	read_unlock(&ipip6_lock);
+ out:
+ 	return 0;
+ }
+@@ -444,6 +498,31 @@ static int ipip6_tunnel_xmit(struct sk_b
+ 	if (skb->protocol != htons(ETH_P_IPV6))
+ 		goto tx_error;
+ 
++#if defined(CONFIG_IPV6_ISATAP)
++	/* ISATAP (RFC4214) - must come before 6to4 */
++	if (dev->priv_flags & IFF_ISATAP) {
++		struct neighbour *neigh = NULL;
++
++		if (skb->dst)
++			neigh = skb->dst->neighbour;
++
++		if (neigh == NULL) {
++			if (net_ratelimit())
++		    		printk(KERN_DEBUG "sit: nexthop ==
+NULL\n");
++			goto tx_error;
++	    	}
++
++		addr6 = (struct in6_addr*)&neigh->primary_key;
++		addr_type = ipv6_addr_type(addr6);
++
++		if ((addr_type & IPV6_ADDR_UNICAST) &&
++		     ipv6_addr_is_isatap(addr6))
++			dst = addr6->s6_addr32[3];
++		else
++			goto tx_error;
++	}
++#endif	/* CONFIG_IPV6_ISATAP */
++
+ 	if (!dst)
+ 		dst = try_6to4(&iph6->daddr);
