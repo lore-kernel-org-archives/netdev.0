@@ -1,274 +1,88 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH] Fix e100 on systems that have cache incoherent DMA
-Date: Thu, 08 Nov 2007 10:17:41 -0800
-Message-ID: <20071108181741.8648.61629.stgit@localhost.localdomain>
+From: Karsten Keil <kkeil@suse.de>
+Subject: Re: Why does a connect to IPv6 LLA address fail ?
+Date: Thu, 8 Nov 2007 19:32:22 +0100
+Message-ID: <20071108183221.GA17878@pingi.kke.suse.de>
+References: <20071107094007.GA15575@pingi.kke.suse.de> <20071107112838.GA22180@dhcp79.suse.cz> <4732151B.70309@hp.com> <200711081901.59334.agruen@suse.de> <47335258.4000806@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dacker@roinet.com,
-	auke-jan.h.kok@intel.com, jesse.brandeburg@intel.com,
-	miltonm@bga.com, e1000-devel@lists.sourceforge.net
-To: jeff@garzik.org, akpm@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andreas Gruenbacher <agruen@suse.de>, Jiri Bohac <jbohac@suse.cz>,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org, kkeil@suse.de
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:25869 "EHLO mga03.intel.com"
+Received: from ns.suse.de ([195.135.220.2]:34227 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759406AbXKHSRx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Nov 2007 13:17:53 -0500
+	id S1759423AbXKHScX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Nov 2007 13:32:23 -0500
+Content-Disposition: inline
+In-Reply-To: <47335258.4000806@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Acker <dacker@roinet.com>
+On Thu, Nov 08, 2007 at 01:15:52PM -0500, Vlad Yasevich wrote:
+> Andreas Gruenbacher wrote:
+> > On Wednesday 07 November 2007 20:42, Vlad Yasevich wrote:
+> >> The reason is that 2 different hosts may have the same link-local
+> >> address as long as they are on different links.  If the sender is
+> >> connected to both links then it may send the packet to the wrong
+> >> destination.
+> > 
+> > Good point.
+> > 
+> > What's confusing is that connect(2) fails even if the host itself has the 
+> > specified address. This isn't necessary.
+> 
+> Yes and no.  Since linux doesn't have the concept of default zone, we have
+> to fail, because from the perspective of the kernel, the address was not
+> fully specified.  OTOH, since this is our address, we 'could' have all
+> the info.
+> 
 
-On the systems that have cache incoherent DMA, including ARM, there
-is a race condition between software allocating a new receive buffer
-and hardware writing into a buffer.  The two race on touching the last
-Receive Frame Descriptor (RFD).  It has its el-bit set and its next
-link equal to 0.  When hardware encounters this buffer it attempts to
-write data to it and then update Status Word bits and Actual Count in
-the RFD.  At the same time software may try to clear the el-bit and
-set the link address to a new buffer.
+> The problem is that this verification happens before we hit the routing logic.
+> It's an explicit check the if the sin6_scope_id is not set and we are not bound
+> to an interface, it's an error.
+> 
 
-Since the entire RFD is once cache-line, the two write operations can
-collide.  This can lead to the receive unit stalling or interpreting
-random memory as its receive area.
+OK I run into this issue while running the TAHI testsuite. The test is as
+follows:
 
-The fix is to set the el-bit on and the size to 0 on the next to last
-buffer in the chain.  When the hardware encounters this buffer it stops
-and does not write to it at all.  The hardware issues an RNR interrupt
-with the receive unit in the No Resources state.  Software can write
-to the tail of the list because it knows hardware will stop on the
-previous descriptor that was marked as the end of list.
+  Check 03:
+    DNS Address: fec0::9
+    Candidate Source Addresses: fec0::1(SS) or LLA(LS)
+    Destination Address List: 3fff::2(GS) or fe80::2(LS)
+    Result: fe80::2 (src LLA) then 3fff::2 (src fec0::1)
 
-Once it has a new next to last buffer prepared, it can clear the el-bit
-and set the size on the previous one.  The race on this buffer is safe
-since the link already points to a valid next buffer and the software
-can handle the race setting the size (assuming aligned 16 bit writes
-are atomic with respect to the DMA read). If the hardware sees the
-el-bit cleared without the size set, it will move on to the next buffer
-and skip this one.  If it sees the size set but the el-bit still set,
-it will complete that buffer and then RNR interrupt and wait.
+    Scope(fe80::2) = Scope(LLA) and Scope(3fff::2) <> Scope(fec0::1), then prefer fe80::2
 
-Signed-off-by: David Acker <dacker@roinet.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
+the nameserver send following answer for the query:
 
- drivers/net/e100.c |  128 ++++++++++++++++++++++++++++++++++++++++------------
- 1 files changed, 99 insertions(+), 29 deletions(-)
+| | | | DNS_Question                    (length:21)
+| | | | | DNS_QuestionEntry               (length:21)
+| | | | | | Name                             = server.tahi.org.
+| | | | | | Type                             = 28 (AAAA)
+| | | | | | Class                            = 1
+| | | | DNS_Answer                      (length:86)
+| | | | | DNS_RR_AAAA                     (length:43)
+| | | | | | Name                             = server.tahi.org.
+| | | | | | Type                             = 28
+| | | | | | Class                            = 1
+| | | | | | TTL                              = 0
+| | | | | | Length                           = 16
+| | | | | | Address                          = 3fff::2
+| | | | | DNS_RR_AAAA                     (length:43)
+| | | | | | Name                             = server.tahi.org.
+| | | | | | Type                             = 28
+| | | | | | Class                            = 1
+| | | | | | TTL                              = 0
+| | | | | | Length                           = 16
+| | | | | | Address                          = fe80::2
 
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-index 3dbaec6..2153058 100644
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -106,6 +106,13 @@
-  *	the RFD, the RFD must be dma_sync'ed to maintain a consistent
-  *	view from software and hardware.
-  *
-+ *	In order to keep updates to the RFD link field from colliding with
-+ *	hardware writes to mark packets complete, we use the feature that
-+ *	hardware will not write to a size 0 descriptor and mark the previous
-+ *	packet as end-of-list (EL).   After updating the link, we remove EL
-+ *	and only then restore the size such that hardware may use the
-+ *	previous-to-end RFD.
-+ *
-  *	Under typical operation, the  receive unit (RU) is start once,
-  *	and the controller happily fills RFDs as frames arrive.  If
-  *	replacement RFDs cannot be allocated, or the RU goes non-active,
-@@ -281,6 +288,7 @@ struct csr {
- };
- 
- enum scb_status {
-+	rus_no_res       = 0x08,
- 	rus_ready        = 0x10,
- 	rus_mask         = 0x3C,
- };
-@@ -952,7 +960,7 @@ static void e100_get_defaults(struct nic *nic)
- 		((nic->mac >= mac_82558_D101_A4) ? cb_cid : cb_i));
- 
- 	/* Template for a freshly allocated RFD */
--	nic->blank_rfd.command = cpu_to_le16(cb_el);
-+	nic->blank_rfd.command = 0;
- 	nic->blank_rfd.rbd = 0xFFFFFFFF;
- 	nic->blank_rfd.size = cpu_to_le16(VLAN_ETH_FRAME_LEN);
- 
-@@ -1791,15 +1799,12 @@ static int e100_rx_alloc_skb(struct nic *nic, struct rx *rx)
- 	}
- 
- 	/* Link the RFD to end of RFA by linking previous RFD to
--	 * this one, and clearing EL bit of previous.  */
-+	 * this one.  We are safe to touch the previous RFD because
-+	 * it is protected by the before last buffer's el bit being set */
- 	if(rx->prev->skb) {
- 		struct rfd *prev_rfd = (struct rfd *)rx->prev->skb->data;
- 		put_unaligned(cpu_to_le32(rx->dma_addr),
- 			(u32 *)&prev_rfd->link);
--		wmb();
--		prev_rfd->command &= ~cpu_to_le16(cb_el);
--		pci_dma_sync_single_for_device(nic->pdev, rx->prev->dma_addr,
--			sizeof(struct rfd), PCI_DMA_TODEVICE);
- 	}
- 
- 	return 0;
-@@ -1824,8 +1829,19 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
- 	DPRINTK(RX_STATUS, DEBUG, "status=0x%04X\n", rfd_status);
- 
- 	/* If data isn't ready, nothing to indicate */
--	if(unlikely(!(rfd_status & cb_complete)))
-+	if (unlikely(!(rfd_status & cb_complete))) {
-+		/* If the next buffer has the el bit, but we think the receiver
-+		 * is still running, check to see if it really stopped while
-+		 * we had interrupts off.
-+		 * This allows for a fast restart without re-enabling
-+		 * interrupts */
-+		if ((le16_to_cpu(rfd->command) & cb_el) &&
-+		    (RU_RUNNING == nic->ru_running))
-+
-+			if (readb(&nic->csr->scb.status) & rus_no_res)
-+				nic->ru_running = RU_SUSPENDED;
- 		return -ENODATA;
-+	}
- 
- 	/* Get actual data size */
- 	actual_size = le16_to_cpu(rfd->actual_size) & 0x3FFF;
-@@ -1836,9 +1852,18 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
- 	pci_unmap_single(nic->pdev, rx->dma_addr,
- 		RFD_BUF_LEN, PCI_DMA_FROMDEVICE);
- 
--	/* this allows for a fast restart without re-enabling interrupts */
--	if(le16_to_cpu(rfd->command) & cb_el)
-+	/* If this buffer has the el bit, but we think the receiver
-+	 * is still running, check to see if it really stopped while
-+	 * we had interrupts off.
-+	 * This allows for a fast restart without re-enabling interrupts.
-+	 * This can happen when the RU sees the size change but also sees
-+	 * the el bit set. */
-+	if ((le16_to_cpu(rfd->command) & cb_el) &&
-+	    (RU_RUNNING == nic->ru_running)) {
-+
-+	    if (readb(&nic->csr->scb.status) & rus_no_res)
- 		nic->ru_running = RU_SUSPENDED;
-+	}
- 
- 	/* Pull off the RFD and put the actual data (minus eth hdr) */
- 	skb_reserve(skb, sizeof(struct rfd));
-@@ -1870,31 +1895,30 @@ static void e100_rx_clean(struct nic *nic, unsigned int *work_done,
- 	unsigned int work_to_do)
- {
- 	struct rx *rx;
--	int restart_required = 0;
--	struct rx *rx_to_start = NULL;
--
--	/* are we already rnr? then pay attention!!! this ensures that
--	 * the state machine progression never allows a start with a
--	 * partially cleaned list, avoiding a race between hardware
--	 * and rx_to_clean when in NAPI mode */
--	if(RU_SUSPENDED == nic->ru_running)
--		restart_required = 1;
-+	int restart_required = 0, err = 0;
-+	struct rx *old_before_last_rx, *new_before_last_rx;
-+	struct rfd *old_before_last_rfd, *new_before_last_rfd;
- 
- 	/* Indicate newly arrived packets */
- 	for(rx = nic->rx_to_clean; rx->skb; rx = nic->rx_to_clean = rx->next) {
--		int err = e100_rx_indicate(nic, rx, work_done, work_to_do);
--		if(-EAGAIN == err) {
--			/* hit quota so have more work to do, restart once
--			 * cleanup is complete */
--			restart_required = 0;
-+		err = e100_rx_indicate(nic, rx, work_done, work_to_do);
-+		/* Hit quota or no more to clean */
-+		if (-EAGAIN == err || -ENODATA == err)
- 			break;
--		} else if(-ENODATA == err)
--			break; /* No more to clean */
- 	}
- 
--	/* save our starting point as the place we'll restart the receiver */
--	if(restart_required)
--		rx_to_start = nic->rx_to_clean;
-+
-+	/* On EAGAIN, hit quota so have more work to do, restart once
-+	 * cleanup is complete.
-+	 * Else, are we already rnr? then pay attention!!! this ensures that
-+	 * the state machine progression never allows a start with a
-+	 * partially cleaned list, avoiding a race between hardware
-+	 * and rx_to_clean when in NAPI mode */
-+	if (-EAGAIN != err && RU_SUSPENDED == nic->ru_running)
-+		restart_required = 1;
-+
-+	old_before_last_rx = nic->rx_to_use->prev->prev;
-+	old_before_last_rfd = (struct rfd *)old_before_last_rx->skb->data;
- 
- 	/* Alloc new skbs to refill list */
- 	for(rx = nic->rx_to_use; !rx->skb; rx = nic->rx_to_use = rx->next) {
-@@ -1902,10 +1926,42 @@ static void e100_rx_clean(struct nic *nic, unsigned int *work_done,
- 			break; /* Better luck next time (see watchdog) */
- 	}
- 
-+	new_before_last_rx = nic->rx_to_use->prev->prev;
-+	if (new_before_last_rx != old_before_last_rx) {
-+		/* Set the el-bit on the buffer that is before the last buffer.
-+		 * This lets us update the next pointer on the last buffer
-+		 * without worrying about hardware touching it.
-+		 * We set the size to 0 to prevent hardware from touching this
-+		 * buffer.
-+		 * When the hardware hits the before last buffer with el-bit
-+		 * and size of 0, it will RNR interrupt, the RUS will go into
-+		 * the No Resources state.  It will not complete nor write to
-+		 * this buffer. */
-+		new_before_last_rfd =
-+			(struct rfd *)new_before_last_rx->skb->data;
-+		new_before_last_rfd->size = 0;
-+		new_before_last_rfd->command |= cpu_to_le16(cb_el);
-+		pci_dma_sync_single_for_device(nic->pdev,
-+			new_before_last_rx->dma_addr, sizeof(struct rfd),
-+			PCI_DMA_TODEVICE);
-+
-+		/* Now that we have a new stopping point, we can clear the old
-+		 * stopping point.  We must sync twice to get the proper
-+		 * ordering on the hardware side of things. */
-+		old_before_last_rfd->command &= ~cpu_to_le16(cb_el);
-+		pci_dma_sync_single_for_device(nic->pdev,
-+			old_before_last_rx->dma_addr, sizeof(struct rfd),
-+			PCI_DMA_TODEVICE);
-+		old_before_last_rfd->size = cpu_to_le16(VLAN_ETH_FRAME_LEN);
-+		pci_dma_sync_single_for_device(nic->pdev,
-+			old_before_last_rx->dma_addr, sizeof(struct rfd),
-+			PCI_DMA_TODEVICE);
-+	}
-+
- 	if(restart_required) {
- 		// ack the rnr?
- 		writeb(stat_ack_rnr, &nic->csr->scb.stat_ack);
--		e100_start_receiver(nic, rx_to_start);
-+		e100_start_receiver(nic, nic->rx_to_clean);
- 		if(work_done)
- 			(*work_done)++;
- 	}
-@@ -1937,6 +1993,7 @@ static int e100_rx_alloc_list(struct nic *nic)
- {
- 	struct rx *rx;
- 	unsigned int i, count = nic->params.rfds.count;
-+	struct rfd *before_last;
- 
- 	nic->rx_to_use = nic->rx_to_clean = NULL;
- 	nic->ru_running = RU_UNINITIALIZED;
-@@ -1952,6 +2009,19 @@ static int e100_rx_alloc_list(struct nic *nic)
- 			return -ENOMEM;
- 		}
- 	}
-+	/* Set the el-bit on the buffer that is before the last buffer.
-+	 * This lets us update the next pointer on the last buffer without
-+	 * worrying about hardware touching it.
-+	 * We set the size to 0 to prevent hardware from touching this buffer.
-+	 * When the hardware hits the before last buffer with el-bit and size
-+	 * of 0, it will RNR interrupt, the RU will go into the No Resources
-+	 * state.  It will not complete nor write to this buffer. */
-+	rx = nic->rxs->prev->prev;
-+	before_last = (struct rfd *)rx->skb->data;
-+	before_last->command |= cpu_to_le16(cb_el);
-+	before_last->size = 0;
-+	pci_dma_sync_single_for_device(nic->pdev, rx->dma_addr,
-+		sizeof(struct rfd), PCI_DMA_TODEVICE);
- 
- 	nic->rx_to_use = nic->rx_to_clean = nic->rxs;
- 	nic->ru_running = RU_SUSPENDED;
+
+
+So how we should handle this issue, claim that the test is wrong, the test
+should not use LLA for this ?
+
+-- 
+Karsten Keil
+SuSE Labs
+ISDN and VOIP development
+SUSE LINUX Products GmbH, Maxfeldstr.5 90409 Nuernberg, GF: Markus Rex, HRB 16746 (AG Nuernberg)
