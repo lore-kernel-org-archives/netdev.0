@@ -1,38 +1,41 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: ax88796: add superh to kconfig dependencies
-Date: Thu, 8 Nov 2007 12:47:58 -0500
-Message-ID: <20071108174758.GE3011@havoc.gtf.org>
-References: <20071108073105.3996.70418.sendpatchset@clockwork.opensource.se>
+From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+Subject: Re: Please pull 'fixes-jgarzik' branch of wireless-2.6 (3rd time
+	is the charm?)
+Date: Thu, 8 Nov 2007 12:53:28 -0500
+Message-ID: <20071108175328.GA3491@havoc.gtf.org>
+References: <20071108142626.GH11957@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, lethal@linux-sh.org, ben-linux@fluff.org,
-	akpm@linux-foundation.org
-To: Magnus Damm <magnus.damm@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:53145 "EHLO havoc.gtf.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760867AbXKHRr6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Nov 2007 12:47:58 -0500
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20071108073105.3996.70418.sendpatchset@clockwork.opensource.se>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20071108142626.GH11957-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 08, 2007 at 04:31:05PM +0900, Magnus Damm wrote:
-> ax88796: add superh to kconfig dependencies
+On Thu, Nov 08, 2007 at 09:26:26AM -0500, John W. Linville wrote:
+> Jeff,
 > 
-> This patch adds sh architecture support to the ax88796 kconfig.
+> OK, I think things are settled now.  I apologize for the confusion.
 > 
-> Signed-off-by: Magnus Damm <damm@igel.co.jp>
+> These are fixes intended for 2.6.24.  Please note that three of the
+> patches from Michael Buesch in the list below were already sent to
+> you directed for 2.6.25.  Upon further review, I think they belong in
+> 2.6.24 instead.  I cherry-picked them, so I'm fairly certain git will
+> be smart enough to drop them from your 2.6.25 branch when you rebase.
+> 
+> Please let me know if there are any problems.
+> 
+> Thanks!
+> 
+> John
+> 
 > ---
 > 
->  This patch was posted about a month ago but never picked up:
->  http://www.mail-archive.com/netdev@vger.kernel.org/msg50018.html
->  The rest of the sh support is already included in rc1. Please apply.
+> Individual patches are available here:
 > 
->  drivers/net/Kconfig |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> 	http://www.kernel.org/pub//linux/kernel/people/linville/wireless-2.6/fixes-jgarzik/
+> 
 
-applied
-
-
+pulled into #upstream-fixes; please check the merge in #upstream
