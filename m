@@ -1,7 +1,8 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 05/05] r8169: prevent bit sign expansion error in mdio_write
-Date: Fri, 9 Nov 2007 00:12:22 +0100
-Message-ID: <20071108231222.GF15968@electric-eye.fr.zoreil.com>
+Subject: [PATCH 02/05] r8169: do not enable the TBI for the 8168 and the
+	81x0
+Date: Fri, 9 Nov 2007 00:09:36 +0100
+Message-ID: <20071108230936.GC15968@electric-eye.fr.zoreil.com>
 References: <20071108230734.GA15968@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -21,60 +22,42 @@ Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
 	Edward Hsu <edward_hsu@realtek.com.tw>
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:38793 "EHLO
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:59776 "EHLO
 	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753686AbXKHXQZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2007 18:16:25 -0500
+	by vger.kernel.org with ESMTP id S1762483AbXKHXdp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2007 18:33:45 -0500
 Content-Disposition: inline
 In-Reply-To: <20071108230734.GA15968@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Oops.
-
-The current code does not like being given an u16 with the highest
-bit set as an argument to mdio_write. Let's enforce a correct range of
-values for both the register address and value (resp. 5 and 16 bits).
-
-The callers are currently left as-is.
+The 8168c and the 8100e choke on it. I have not seen an indication
+nor received a report that the TBI is being actively used on the
+remaining 8168b and 8110. Let's disable it for now until someone
+complains.
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Matthias Winkler <m.winkler@unicon-ka.de>
+Cc: Maarten Vanraes <maarten.vanraes@gmail.com>
 Cc: Edward Hsu <edward_hsu@realtek.com.tw>
 ---
- drivers/net/r8169.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/r8169.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index f9ba2e4..1f647b9 100644
+index 702334e..9dbab3f 100644
 --- a/drivers/net/r8169.c
 +++ b/drivers/net/r8169.c
-@@ -470,7 +470,7 @@ static void mdio_write(void __iomem *ioaddr, int reg_addr, int value)
- {
- 	int i;
+@@ -1741,7 +1741,8 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	tp->features |= rtl_try_msi(pdev, ioaddr, cfg);
+ 	RTL_W8(Cfg9346, Cfg9346_Lock);
  
--	RTL_W32(PHYAR, 0x80000000 | (reg_addr & 0xFF) << 16 | value);
-+	RTL_W32(PHYAR, 0x80000000 | (reg_addr & 0x1f) << 16 | (value & 0xffff));
- 
- 	for (i = 20; i > 0; i--) {
- 		/*
-@@ -487,7 +487,7 @@ static int mdio_read(void __iomem *ioaddr, int reg_addr)
- {
- 	int i, value = -1;
- 
--	RTL_W32(PHYAR, 0x0 | (reg_addr & 0xFF) << 16);
-+	RTL_W32(PHYAR, 0x0 | (reg_addr & 0x1f) << 16);
- 
- 	for (i = 20; i > 0; i--) {
- 		/*
-@@ -495,7 +495,7 @@ static int mdio_read(void __iomem *ioaddr, int reg_addr)
- 		 * the specified MII register.
- 		 */
- 		if (RTL_R32(PHYAR) & 0x80000000) {
--			value = (int) (RTL_R32(PHYAR) & 0xFFFF);
-+			value = RTL_R32(PHYAR) & 0xffff;
- 			break;
- 		}
- 		udelay(25);
+-	if (RTL_R8(PHYstatus) & TBI_Enable) {
++	if ((tp->mac_version <= RTL_GIGA_MAC_VER_06) &&
++	    (RTL_R8(PHYstatus) & TBI_Enable)) {
+ 		tp->set_speed = rtl8169_set_speed_tbi;
+ 		tp->get_settings = rtl8169_gset_tbi;
+ 		tp->phy_reset_enable = rtl8169_tbi_reset_enable;
 -- 
 1.5.3.3
 
