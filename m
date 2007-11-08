@@ -1,42 +1,32 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] sky2: new pci id's
-Date: Thu, 8 Nov 2007 08:20:17 -0800
-Message-ID: <20071108082018.56796e00@freepuppy.rosehill>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] [NETFILTER] Consolidate nf_sockopt and compat_nf_sockopt
+ v2
+Date: Thu, 08 Nov 2007 17:43:21 +0100
+Message-ID: <47333CA9.4010809@trash.net>
+References: <473025DE.1000906@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:55523 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756118AbXKHQ1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2007 11:27:31 -0500
+Received: from stinky.trash.net ([213.144.137.162]:64435 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759770AbXKHQnz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2007 11:43:55 -0500
+In-Reply-To: <473025DE.1000906@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Found a couple of more chips in the latest version of the vendor driver.
-They are minor variations on existing chips, so please incorporate into
-2.6.24.
+Pavel Emelyanov wrote:
+> Both lookup the nf_sockopt_ops object to call the get/set callbacks
+> from, but they perform it in a completely similar way.
+> 
+> Introduce the helper for finding the ops.
+> 
+> Ported at the top of today's net-2.6 tree to resolve conflict
+> with the patch from Alexey Dobriyan.
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
- 
 
---- a/drivers/net/sky2.c	2007-11-07 22:45:02.000000000 -0800
-+++ b/drivers/net/sky2.c	2007-11-07 22:46:29.000000000 -0800
-@@ -121,6 +121,7 @@ static const struct pci_device_id sky2_i
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4353) }, /* 88E8039 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4354) }, /* 88E8040 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4356) }, /* 88EC033 */
-+	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4357) }, /* 88E8042 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x435A) }, /* 88E8048 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4360) }, /* 88E8052 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4361) }, /* 88E8050 */
-@@ -134,6 +135,7 @@ static const struct pci_device_id sky2_i
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4369) }, /* 88EC042 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x436A) }, /* 88E8058 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x436B) }, /* 88E8071 */
-+	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x436C) }, /* 88E8072 */
- 	{ 0 }
- };
- 
+Applied, thanks Pavel.
+
