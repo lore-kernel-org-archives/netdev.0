@@ -1,79 +1,99 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: Why does a connect to IPv6 LLA address fail ?
-Date: Thu, 08 Nov 2007 13:15:52 -0500
-Message-ID: <47335258.4000806@hp.com>
-References: <20071107094007.GA15575@pingi.kke.suse.de> <20071107112838.GA22180@dhcp79.suse.cz> <4732151B.70309@hp.com> <200711081901.59334.agruen@suse.de>
+From: Kim Phillips <kim.phillips@freescale.com>
+Subject: Re: [PATCH 0/5] fixups for mpc8360 rev. 2.1 erratum #2 (RGMII Timing)
+Date: Thu, 8 Nov 2007 12:15:08 -0600
+Message-ID: <20071108121508.39a65c33.kim.phillips@freescale.com>
+References: <20071105121530.5c38fbb7.kim.phillips@freescale.com>
+	<20071108141611.GA5770@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Bohac <jbohac@suse.cz>, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, kkeil@suse.de
-To: Andreas Gruenbacher <agruen@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:53993 "EHLO palrel10.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755186AbXKHSPz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Nov 2007 13:15:55 -0500
-In-Reply-To: <200711081901.59334.agruen@suse.de>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, paulus@samba.org,
+	Li Yang <leoli@freescale.com>, jgarzik@pobox.com
+To: avorontsov@ru.mvista.com
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <20071108141611.GA5770@localhost.localdomain>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Andreas Gruenbacher wrote:
-> On Wednesday 07 November 2007 20:42, Vlad Yasevich wrote:
->> The reason is that 2 different hosts may have the same link-local
->> address as long as they are on different links.  If the sender is
->> connected to both links then it may send the packet to the wrong
->> destination.
+On Thu, 8 Nov 2007 17:16:11 +0300
+Anton Vorontsov <avorontsov@ru.mvista.com> wrote:
+
+> On Mon, Nov 05, 2007 at 12:15:30PM -0600, Kim Phillips wrote:
+> > Hello all,
+> > 
+> > the following patches fix RGMII timing for rev. 2.1 of the mpc8360,
+> > according to erratum #2 (erratum text included below).  Basically the
+> > most intrusive part is the addition of two new RGMII Internal Delay
+> > modes; one for TX delay only, and the other for RX delay only (i.e, not
+> > both at the same time).
+> > 
+> > Please review, and since this affects both netdev and powerpc trees,
+> > one maintainer should ack them for the other to push upstream (i.e,
+> > Kumar acks them, and Leo picks them up to go through netdev or the
+> > other way around; either way is fine with me).  I'm hoping they're
+> > trivial enough to go in 2.6.24.
+> > 
+> > Depending on how the review goes, a follow-on patch to u-boot will be
+> > sent out that fixes up the phy-connection-type in the device tree (from
+> > "rgmii-id" to "rgmii-rxid" iff on mpc8360rev2.1).
 > 
-> Good point.
+> I've upgraded CPU to rev2.1, board rev0.3.
 > 
-> What's confusing is that connect(2) fails even if the host itself has the 
-> specified address. This isn't necessary.
+thanks for testing this.  I tested these patches on a "pilot assy 0.3".
 
-Yes and no.  Since linux doesn't have the concept of default zone, we have
-to fail, because from the perspective of the kernel, the address was not
-fully specified.  OTOH, since this is our address, we 'could' have all
-the info.
-
-The problem is that this verification happens before we hit the routing logic.
-It's an explicit check the if the sin6_scope_id is not set and we are not bound
-to an interface, it's an error.
-
+> Applied 5/5 patches onto paulus/powerpc.git at e403149c92a. Here is
+> the results:
 > 
-> What's even more confusing is that the kernel doesn't seem to honor the 
-> interface in all cases: with
->    fe80::20f:20ff:fe3b:e9c3 on eth0 and
->    ::1 on lo,
-> I get the following:
+> If I use -rxid, then geth not able to transmit anything.
+> With -txid geth not able to receive anything.
 > 
->   ping6 fe80::20f:20ff:fe3b:e9c3		fails with EINVAL
->   ping6 fe80::20f:20ff:fe3b:e9c3%eth0		succeeds
-
-Yes, but if you run a capture, you'll see the packet on loopback.  That's
-because you have a route to this address.
-
->   ping6 fe80::20f:20ff:fe3b:e9c3%lo		succeeds
-
-Yes, same thing.  Routing code takes care of it.
-
+> With just -id everything works fine though...
 > 
-> At least the last ping should fail, shouldn't it?
-
-No, because both pings really go over loopback.  You are on the same system
-and have 'local' routes for those addresses:
-  ip -6 r l t local
-
 > 
->> A different and some might say 'better' alternative is to define a
->> default link.  Thus when the zone id is not specified the default is used.
->> This will work fine for link-scoped addresses.  A default zone would also
->> need to be defined for other scopes as well.  That's just one idea.
+> Maybe there should be another condition, in addition to cpu rev2.1?
 > 
-> I think at least for host with only one link (in addition to loopback), 
-> selecting that link for non-local addresses would make sense.
-> 
+the errata simply states 'pilot boards', but we can probably modify
+u-boot to look at the cpu rev and the board rev (BCSR 12).
 
-Yes, you could do that.  Or you can push the interface check to the routing code
-and do some logic to see if you can "select" an interface.
+My bcsr12 looks like:
 
--vlad
+=>  md.b f800000c 1
+f800000c: 10    .
+
+what is yours?
+
+If it's something like 0x03, the u-boot patch will probably look like:
+
+if ((bcsr[12] == 0x10) &&
+    (immr->sysconf.spridr == SPR_8360_REV21 ||
+     immr->sysconf.spridr == SPR_8360E_REV21))
+	/* if phy-connection-type is "rgmii-id", set it to "rgmii-rxid" */
+        ...
+
+but these linux patches would remain the same (the clk and data delay
+settings for the UCC's are still valid; it's just the PHY config
+that is triggering your problem from what I can tell).
+
+Thanks,
+
+Kim
+
+> > mpc8360 rev 2.1 erratum #2:
+> > -----------
+> > Recommended AC timings for chip 8360Rev2.1 UCC ETH RGMII  when working
+> > with Rev Pilot MDS for proper RGMII operation:
+> > 
+> > IMMR_BASE + 0x14A8[4:5] = 11 (clk delay for UCC 2)
+> > IMMR_BASE + 0x14A8[18:19] = 11 (clk delay for UCC 1)
+> > IMMR_BASE + 0x14AC[20:27] = 10101010 (data delay for both UCC's)
+> > 
+> > The Phy (Marvell 88e1111) should be configured NOT to work with RGMII
+> > delay for TxD.
