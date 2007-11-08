@@ -1,77 +1,49 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: [PATCH 0/5] fixups for mpc8360 rev. 2.1 erratum #2 (RGMII Timing)
-Date: Thu, 8 Nov 2007 17:16:11 +0300
-Message-ID: <20071108141611.GA5770@localhost.localdomain>
-References: <20071105121530.5c38fbb7.kim.phillips@freescale.com>
-Reply-To: avorontsov@ru.mvista.com
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 04/05] ipv6: RFC4214 Support
+Date: Thu, 08 Nov 2007 23:26:40 +0900 (JST)
+Message-ID: <20071108.232640.62039057.yoshfuji@linux-ipv6.org>
+References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDBF3@XCH-NW-7V2.nw.nos.boeing.com>
+	<20071107104524.2bd738cb@freepuppy.rosehill>
+	<39C363776A4E8C4A94691D2BD9D1C9A1029EDBF5@XCH-NW-7V2.nw.nos.boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Cc: Li Yang <leoli@freescale.com>,
-	Kumar Gala <galak@kernel.crashing.org>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, paulus@samba.org, jgarzik@pobox.com
-To: Kim Phillips <kim.phillips@freescale.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: Fred.L.Templin@boeing.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:53738 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755082AbXKHOSk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2007 09:18:40 -0500
-Content-Disposition: inline
-In-Reply-To: <20071105121530.5c38fbb7.kim.phillips@freescale.com>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:39743 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753972AbXKHO0g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2007 09:26:36 -0500
+In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDBF5@XCH-NW-7V2.nw.nos.boeing.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 05, 2007 at 12:15:30PM -0600, Kim Phillips wrote:
-> Hello all,
+In article <39C363776A4E8C4A94691D2BD9D1C9A1029EDBF5@XCH-NW-7V2.nw.nos.boeing.com> (at Wed, 7 Nov 2007 11:12:47 -0800), "Templin, Fred L" <Fred.L.Templin@boeing.com> says:
+
+> > > The goal was to avoid requiring changes to applications such as
+> > > 'iproute2', i.e., the intention was for a standalone code 
+> > insertion point
+> > > within the kernel itself. What do you suggest?
+> > 
+> > Agreed, magic names are evil.
+> > 
+> > Change iproute2 utilities, if it is more logical for administration.
 > 
-> the following patches fix RGMII timing for rev. 2.1 of the mpc8360,
-> according to erratum #2 (erratum text included below).  Basically the
-> most intrusive part is the addition of two new RGMII Internal Delay
-> modes; one for TX delay only, and the other for RX delay only (i.e, not
-> both at the same time).
-> 
-> Please review, and since this affects both netdev and powerpc trees,
-> one maintainer should ack them for the other to push upstream (i.e,
-> Kumar acks them, and Leo picks them up to go through netdev or the
-> other way around; either way is fine with me).  I'm hoping they're
-> trivial enough to go in 2.6.24.
-> 
-> Depending on how the review goes, a follow-on patch to u-boot will be
-> sent out that fixes up the phy-connection-type in the device tree (from
-> "rgmii-id" to "rgmii-rxid" iff on mpc8360rev2.1).
+> This being an experimental release, I would prefer to go
+> forward with a standalone kernel solution for the first
+> iteration then come back with the iproute2 changes at a
+> later time. IMHO, we should only touch iproute2 once, and
+> it should be an architected solution - not just a quick
+> hack. For the short term, timeliness of interoperability testing
+> with the other major OS's should be the highest priority, IMHO.
 
-I've upgraded CPU to rev2.1, board rev0.3.
+Hmm, what is missing from API POV?
 
-Applied 5/5 patches onto paulus/powerpc.git at e403149c92a. Here is
-the results:
+Since even if you do not change iproute2 now, users may need
+to change their configuration script twice anyway, we should
+be careful.
 
-If I use -rxid, then geth not able to transmit anything.
-With -txid geth not able to receive anything.
-
-With just -id everything works fine though...
-
-
-Maybe there should be another condition, in addition to cpu rev2.1?
-
-> Thanks,
-> 
-> Kim
-> 
-> mpc8360 rev 2.1 erratum #2:
-> -----------
-> Recommended AC timings for chip 8360Rev2.1 UCC ETH RGMII  when working
-> with Rev Pilot MDS for proper RGMII operation:
-> 
-> IMMR_BASE + 0x14A8[4:5] = 11 (clk delay for UCC 2)
-> IMMR_BASE + 0x14A8[18:19] = 11 (clk delay for UCC 1)
-> IMMR_BASE + 0x14AC[20:27] = 10101010 (data delay for both UCC's)
-> 
-> The Phy (Marvell 88e1111) should be configured NOT to work with RGMII
-> delay for TxD.
-
-Thanks,
-
--- 
-Anton Vorontsov
-email: cbou@mail.ru
-backup email: ya-cbou@yandex.ru
-irc://irc.freenode.net/bd2
+--yoshfuji
