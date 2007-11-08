@@ -1,66 +1,58 @@
-From: "Denis V. Lunev" <den@sw.ru>
-Subject: Re: [PATCH] No need to inc/dec packet_socks_nr if PACKET_REFCNT_DEBUG
- is not set
-Date: Thu, 08 Nov 2007 13:51:30 +0300
-Message-ID: <4732EA32.6060105@sw.ru>
-References: <20071108103731.GA22373@iris.sw.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, devel@openvz.org, containers@lists.osdl.org,
-	netdev@vger.kernel.org
-To: "Denis V. Lunev" <den@openvz.org>
+From: Radu Rendec <radu.rendec@ines.ro>
+Subject: [PATCH] [PKT_SCHED] CLS_U32: Use ffs() instead of C code on hash mask to get first set bit.
+Date: Thu,  8 Nov 2007 13:07:47 +0200
+Message-ID: <1194520067-20868-1-git-send-email-radu.rendec@ines.ro>
+Cc: hadi@cyberus.ca, jarkao2@o2.pl, davem@davemloft.net,
+	Radu Rendec <radu.rendec@ines.ro>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:53346 "EHLO iris"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753636AbXKHKry (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Nov 2007 05:47:54 -0500
-In-Reply-To: <20071108103731.GA22373@iris.sw.ru>
+Received: from NAT-173-Unkn.Local.iNES.RO ([80.86.100.173]:58293 "EHLO
+	vix-test.ines.ro" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754787AbXKHLIl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2007 06:08:41 -0500
+In-Reply-To: 20071107.012220.17723288.davem@davemloft.net
+References: 20071107.012220.17723288.davem@davemloft.net
+In-Reply-To: <20071107.012220.17723288.davem@davemloft.net>
+References: <20071107.012220.17723288.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-pls disregard this, Pavel have sent one similar already
+Computing the rank of the first set bit in the hash mask (for using later
+in u32_hash_fold()) was done with plain C code. Using ffs() instead makes
+the code more readable and improves performance (since ffs() is better
+optimized in assembler).
 
-Denis V. Lunev wrote:
-> No need to inc/dec packet_socks_nr if PACKET_REFCNT_DEBUG is not set.
-> 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
-> 
-> --- ./net/packet/af_packet.c.packetrefcnt	2007-11-08 13:48:22.000000000 +0300
-> +++ ./net/packet/af_packet.c	2007-11-08 13:54:29.000000000 +0300
-> @@ -135,7 +135,9 @@ dev->hard_header == NULL (ll header is a
->     packet classifier depends on it.
->   */
->  
-> +#ifdef PACKET_REFCNT_DEBUG
->  static atomic_t packet_socks_nr;
-> +#endif
->  
->  
->  /* Private packet socket structures. */
-> @@ -232,8 +234,8 @@ static void packet_sock_destruct(struct 
->  		return;
->  	}
->  
-> -	atomic_dec(&packet_socks_nr);
->  #ifdef PACKET_REFCNT_DEBUG
-> +	atomic_dec(&packet_socks_nr);
->  	printk(KERN_DEBUG "PACKET socket %p is free, %d are alive\n", sk, atomic_read(&packet_socks_nr));
->  #endif
->  }
-> @@ -1005,7 +1007,9 @@ static int packet_create(struct net *net
->  	po->num = proto;
->  
->  	sk->sk_destruct = packet_sock_destruct;
-> +#ifdef PACKET_REFCNT_DEBUG
->  	atomic_inc(&packet_socks_nr);
-> +#endif
->  
->  	/*
->  	 *	Attach a protocol block
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Using the conditional operator on hash mask before applying ntohl() also
+saves one ntohl() call if mask is 0.
+
+Signed-off-by: Radu Rendec <radu.rendec@ines.ro>
+---
+ net/sched/cls_u32.c |   12 +-----------
+ 1 files changed, 1 insertions(+), 11 deletions(-)
+
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index 5317102..c390082 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -613,17 +613,7 @@ static int u32_change(struct tcf_proto *tp, unsigned long base, u32 handle,
+ 	memcpy(&n->sel, s, sizeof(*s) + s->nkeys*sizeof(struct tc_u32_key));
+ 	n->ht_up = ht;
+ 	n->handle = handle;
+-{
+-	u8 i = 0;
+-	u32 mask = ntohl(s->hmask);
+-	if (mask) {
+-		while (!(mask & 1)) {
+-			i++;
+-			mask>>=1;
+-		}
+-	}
+-	n->fshift = i;
+-}
++	n->fshift = s->hmask ? ffs(ntohl(s->hmask)) - 1 : 0;
+ 
+ #ifdef CONFIG_CLS_U32_MARK
+ 	if (tb[TCA_U32_MARK-1]) {
+-- 
+1.5.3.2
 
