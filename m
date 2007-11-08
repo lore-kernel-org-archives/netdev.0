@@ -1,30 +1,49 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH] NET: Add the helper kernel_sock_shutdown()
-Date: Fri, 09 Nov 2007 01:44:14 +0000
-Message-ID: <18472.1194572654@redhat.com>
-References: <20071109000136.4700.8891.stgit@heimdal.trondhjem.org>
-Cc: dhowells@redhat.com, netdev@vger.kernel.org,
-	Paul Clements <Paul.Clements@steeleye.com>,
-	Mark Fasheh <mark.fasheh@oracle.com>,
-	Steve French <sfrench@samba.org>,
-	David S Miller <davem@davemloft.net>
-To: Trond Myklebust <Trond.Myklebust@netapp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 04/05] ipv6: RFC4214 Support
+Date: Thu, 08 Nov 2007 15:30:21 -0800 (PST)
+Message-ID: <20071108.153021.258449702.davem@davemloft.net>
+References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDBF5@XCH-NW-7V2.nw.nos.boeing.com>
+	<20071108.232640.62039057.yoshfuji@linux-ipv6.org>
+	<39C363776A4E8C4A94691D2BD9D1C9A1029EDC09@XCH-NW-7V2.nw.nos.boeing.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org
+To: Fred.L.Templin@boeing.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:59122 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752991AbXKIBpQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Nov 2007 20:45:16 -0500
-In-Reply-To: <20071109000136.4700.8891.stgit@heimdal.trondhjem.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51070
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755943AbXKIBuX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2007 20:50:23 -0500
+In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC09@XCH-NW-7V2.nw.nos.boeing.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Date: Thu, 8 Nov 2007 13:01:34 -0800
 
-Trond Myklebust <Trond.Myklebust@netapp.com> wrote:
+> > Hmm, what is missing from API POV?
+> 
+> This would have to be determined under a follow-on project (hopefully
+> with input from others) after we have gained operational experience.
 
-> Looking at the sock->op->shutdown() handlers, it looks as if all of them
-> take a SHUT_RD/SHUT_WR/SHUT_RDWR argument instead of the
-> RCV_SHUTDOWN/SEND_SHUTDOWN arguments.
-> Add a helper, and then define the SHUT_* enum to ensure that kernel users
-> of shutdown() don't get confused.
+I personally don't buy any of this desire to avoid iproute2
+changes at this time.
 
-Acked-by: David Howells <dhowells@redhat.com>
+This is never how we handle this kind of situation.
+
+We add in the new feature, and add support to iproute2 in
+parallel.  If we screw it up we figure that out quickly
+and fix things before it's been deployed for too long.
+
+I suspect you simply want users to just be able to use the
+new feature with only a kernel patch, but that's not an
+appropriate reason to not do things correctly when submitting
+a feature upstream.
+
+Please use the new name in the kernel side changes and implement
+iproute2 support for these ISATAP devices.
+
+Thank you.
+
