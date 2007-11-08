@@ -1,48 +1,40 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] ipconfig.c : implement DHCP Class-identifier
-Date: Thu, 8 Nov 2007 22:27:16 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0711082225330.26833@kivilampi-30.cs.helsinki.fi>
-References: <20071108143205.GA22490@mpi-sb.mpg.de>
+From: osprey67 <osprey67@yahoo.com>
+Subject: [PATCH 01/05] ipv6: RFC4214 Support (2)
+Date: Thu, 08 Nov 2007 12:29:39 -0800
+Message-ID: <473371B3.5030908@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	kaber@trash.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, pcernko@mpi-sws.mpg.de
-To: Rainer Jochem <rainer.jochem@mpi-sb.mpg.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:43856 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761348AbXKHU1S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2007 15:27:18 -0500
-In-Reply-To: <20071108143205.GA22490@mpi-sb.mpg.de>
+Received: from smtp121.plus.mail.mud.yahoo.com ([209.191.106.152]:48837 "HELO
+	smtp121.plus.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753895AbXKHUgb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2007 15:36:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 8 Nov 2007, Rainer Jochem wrote:
+From: Fred L. Templin <osprey67@yahoo.com>
 
-> @@ -620,6 +622,17 @@ ic_dhcp_init_options(u8 *options)
->  		*e++ = sizeof(ic_req_params);
->  		memcpy(e, ic_req_params, sizeof(ic_req_params));
->  		e += sizeof(ic_req_params);
-> +
-> +		// Send it only if the according kernel parameter was set
+This is experimental support for the Intra-Site Automatic
+Tunnel Addressing Protocol (ISATAP) per RFC4214. It uses
+the SIT module, and is configured using the unmodified
+"ip" utility with device names beginning with: "isatap".
 
-No C99 comments please. Though I'm not sure if this comment is that 
-necessary anyway...
+The following diffs are specific to the Linux 2.6.24-rc2
+kernel distribution.
 
-> +		if (*vendor_class_identifier) {
-> +			printk(KERN_INFO "Sending class identifier \"%s\"\n",
-> +			       vendor_class_identifier);
-> +			*e++ = 60;	/* Class-identifier */
-> +			*e++ = strlen(vendor_class_identifier);
-> +			memcpy(e, vendor_class_identifier,
-> +			       strlen(vendor_class_identifier));
-> +			e += strlen(vendor_class_identifier);
-> +		}
->  	}
->  
->  	*e++ = 255;	/* End of the list */
+Signed-off-by: Fred L. Templin <osprey67@yahoo.com>
 
--- 
- i.
+---
+
+--- linux-2.6.24-rc2/include/linux/if.h.orig    2007-11-08 12:05:47.000000000 -0800
++++ linux-2.6.24-rc2/include/linux/if.h 2007-11-08 08:26:44.000000000 -0800
+@@ -61,6 +61,7 @@
+  #define IFF_MASTER_ALB 0x10            /* bonding master, balance-alb. */
+  #define IFF_BONDING    0x20            /* bonding master or slave      */
+  #define IFF_SLAVE_NEEDARP 0x40         /* need ARPs for validation     */
++#define IFF_ISATAP     0x80            /* ISATAP interface (RFC4214)   */
+
+  #define IF_GET_IFACE   0x0001          /* for querying only */
+  #define IF_GET_PROTO   0x0002
