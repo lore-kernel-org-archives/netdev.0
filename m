@@ -1,147 +1,86 @@
-From: osprey67 <osprey67@yahoo.com>
-Subject: [PATCH 04/05] ipv6: RFC4214 Support (2)
-Date: Thu, 08 Nov 2007 12:41:48 -0800
-Message-ID: <4733748C.70602@yahoo.com>
+From: Matti Aarnio <matti.aarnio@zmailer.org>
+Subject: Re: No implementation of NETLINK_USERSOCK ?
+Date: Thu, 8 Nov 2007 22:45:00 +0200
+Message-ID: <20071108204500.GB6372@mea-ext.zmailer.org>
+References: <20071108151512.GY6372@mea-ext.zmailer.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp128.plus.mail.mud.yahoo.com ([209.191.106.159]:38394 "HELO
-	smtp128.plus.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1760662AbXKHUlv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2007 15:41:51 -0500
+Received: from z2.cat.iki.fi ([212.16.98.133]:51567 "EHLO z2.cat.iki.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760237AbXKHUpC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Nov 2007 15:45:02 -0500
+Received: (mea@mea-ext) by mail.zmailer.org id S3540074AbXKHUpA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2007 22:45:00 +0200
+Content-Disposition: inline
+In-Reply-To: <20071108151512.GY6372@mea-ext.zmailer.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Fred L. Templin <osprey67@yahoo.com>
+Following up on myself...
 
-This is experimental support for the Intra-Site Automatic
-Tunnel Addressing Protocol (ISATAP) per RFC4214. It uses
-the SIT module, and is configured using the unmodified
-"ip" utility with device names beginning with: "isatap".
+On Thu, Nov 08, 2007 at 05:15:12PM +0200, Matti Aarnio wrote:
+> Some 6 months ago I asked about a way to make network protocol
+> servers(s) that live in userspace, but whose application interface
+> still uses kernel socket calls.
+> 
+> I recall getting an answer that there is  NETLINK_USERSOCK for that
+> use.  I have tried to have a look into what NETLINK_USERSOCK
+> supplies to its users, but alas there appears to be no implementation
+> at all in existence.   Is it some sort of placeholder of things
+> to implement some day ?
 
-The following diffs are specific to the Linux 2.6.24-rc2
-kernel distribution.
+The more I am reading around places, the more it looks like there
+really is no implementation, but somebody thought that such would
+be a nice thing to have.
 
-Signed-off-by: Fred L. Templin <osprey67@yahoo.com>
+It did appear around  Linux 2.2, and probable reservation maker was
+Alexey N. Kuznetsov. 
 
----
+So, in order to implement the thing, something must be defined at
+first.  Requirements are at least:
 
---- linux-2.6.24-rc2/net/ipv6/sit.c.orig        2007-11-08 12:03:41.000000000 -0800
-+++ linux-2.6.24-rc2/net/ipv6/sit.c     2007-11-08 08:31:08.000000000 -0800
-@@ -16,6 +16,7 @@
-   *     Changes:
-   * Roger Venning <r.venning@telstra.com>:      6to4 support
-   * Nate Thompson <nate@thebog.net>:            6to4 support
-+ * Fred L. Templin <fltemplin@acm.org>:                isatap support
-   */
+   - Applications see SOCKET API, and addresses are presentable
+     via  struct sockaddr*   -- meaning that 16 bit sa_family leads
+     the record, or possibly leading byte is record size and
+     second one is family.
 
-  #include <linux/module.h>
-@@ -154,6 +155,14 @@ static struct ip_tunnel * ipip6_tunnel_l
-         struct net_device *dev;
-         char name[IFNAMSIZ];
+   - sa_family number space must be somehow managed, for example
+     with file:  /etc/socketfamilies
 
-+#if defined(CONFIG_IPV6_ISATAP)
-+       /* ISATAP (RFC4214) - router address in daddr */
-+       if (!strncmp(parms->name, "isatap", 6)) {
-+               parms->i_key = parms->iph.daddr;
-+               parms->iph.daddr = remote = 0;
-+       }
-+#endif
-+
-         for (tp = __ipip6_bucket(parms); (t = *tp) != NULL; tp = &t->next) {
-                 if (local == t->parms.iph.saddr && remote == t->parms.iph.daddr)
-                         return t;
-@@ -182,6 +191,11 @@ static struct ip_tunnel * ipip6_tunnel_l
-         dev->init = ipip6_tunnel_init;
-         nt->parms = *parms;
+           #PF_## value: 128-254
+           #    nn  'struct sockaddr' size in bytes
+           #         # PF_### keyword name
+           #                         Explanatory name
+           #
+           128  36  PF_USERSOCK1     Experimental usersock 1
+           129  80  PF_USERSOCK2     Experimental usersock 2
+           130  22  PF_USERSOCK3     Experimental usersock 3
 
-+#if defined(CONFIG_IPV6_ISATAP)
-+       if (!strncmp(dev->name, "isatap", 6))
-+               dev->priv_flags |= IFF_ISATAP;
-+#endif
-+
-         if (register_netdevice(dev) < 0) {
-                 free_netdev(dev);
-                 goto failed;
-@@ -382,6 +396,47 @@ static int ipip6_rcv(struct sk_buff *skb
-                 IPCB(skb)->flags = 0;
-                 skb->protocol = htons(ETH_P_IPV6);
-                 skb->pkt_type = PACKET_HOST;
-+#if defined(CONFIG_IPV6_ISATAP)
-+               /* ISATAP (RFC4214) - check source address */
-+               if (tunnel->dev->priv_flags & IFF_ISATAP) {
-+                       struct neighbour *neigh;
-+                       struct dst_entry *dst;
-+                       struct flowi fl;
-+                       struct in6_addr *addr6;
-+                       struct ipv6hdr *iph6;
-+
-+                       /* from ISATAP router */
-+                       if (iph->saddr == tunnel->parms.i_key) goto accept;
-+
-+                       iph6 = ipv6_hdr(skb);
-+                       addr6 = &iph6->saddr;
-+
-+                       /* from legitimate previous hop */
-+                       memset(&fl, 0, sizeof(fl));
-+                       fl.proto = iph6->nexthdr;
-+                       ipv6_addr_copy(&fl.fl6_dst, addr6);
-+                       fl.oif = tunnel->dev->ifindex;
-+                       security_skb_classify_flow(skb, &fl);
-+
-+                       if (!(dst = ip6_route_output(NULL, &fl)) ||
-+                            (dst->dev != tunnel->dev) ||
-+                            ((neigh = dst->neighbour) == NULL)) goto drop;
-+
-+                       addr6 = (struct in6_addr*)&neigh->primary_key;
-+
-+                       if (!(ipv6_addr_is_isatap(addr6)) ||
-+                            (addr6->s6_addr32[3] != iph->saddr)) {
-+drop:
-+                               tunnel->stat.rx_errors++;
-+                               read_unlock(&ipip6_lock);
-+                               dst_release(dst);
-+                               kfree_skb(skb);
-+                               return 0;
-+                       }
-+                       dst_release(dst);
-+               }
-+accept:
-+#endif
-                 tunnel->stat.rx_packets++;
-                 tunnel->stat.rx_bytes += skb->len;
-                 skb->dev = tunnel->dev;
-@@ -444,6 +499,31 @@ static int ipip6_tunnel_xmit(struct sk_b
-         if (skb->protocol != htons(ETH_P_IPV6))
-                 goto tx_error;
+     And why not all the built in "hard-coded" ones, too.
+ 
+     The sa_family numbers _must_ be static for at least machine
+     runtime, even if they are otherwise quite dynamic in nature.
+     (Registering and reading them from /proc/sys/...  -file is
+      a possibility.)
 
-+#if defined(CONFIG_IPV6_ISATAP)
-+       /* ISATAP (RFC4214) - must come before 6to4 */
-+       if (dev->priv_flags & IFF_ISATAP) {
-+               struct neighbour *neigh = NULL;
-+
-+               if (skb->dst)
-+                       neigh = skb->dst->neighbour;
-+
-+               if (neigh == NULL) {
-+                       if (net_ratelimit())
-+                               printk(KERN_DEBUG "sit: nexthop == NULL\n");
-+                       goto tx_error;
-+               }
-+
-+               addr6 = (struct in6_addr*)&neigh->primary_key;
-+               addr_type = ipv6_addr_type(addr6);
-+
-+               if ((addr_type & IPV6_ADDR_UNICAST) &&
-+                    ipv6_addr_is_isatap(addr6))
-+                       dst = addr6->s6_addr32[3];
-+               else
-+                       goto tx_error;
-+       }
-+#endif /* CONFIG_IPV6_ISATAP */
-+
-         if (!dst)
-                 dst = try_6to4(&iph6->daddr);
+   - There is only one  NETLINK_USERSOCK, but it should somehow
+     manage N different protocols.  N being at least 32.
 
+   - Netlink itself is unrealiable protocol, but applications
+     should still be able to read() and write() from it reliably.
+     There is some reliability-thing in documentation.
+
+   - For all intents and purposes the only difference from well
+     established socket API based protocols, applications using
+     NETLINK_USERSOCK implemented ones shall not be aware of
+     anything being different except with the the how PF_NNNN
+     literal is resolved.
+
+
+What else is needed ?
+Any pointers on how to construct this framework ?
+Or does it exist although I didn't spot it yet ?
+
+/Matti Aarnio
