@@ -1,67 +1,42 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: build #337 failed for 2.6.24-rc1-gb1d08ac In function
- `usbnet_set_settings':
-Date: Thu, 8 Nov 2007 08:08:03 -0800
-Message-ID: <20071108080803.a2b1201d.randy.dunlap@oracle.com>
-References: <200711012024.57412.toralf.foerster@gmx.de>
-	<200711021230.22588.david-b@pacbell.net>
-	<20071102195517.GW30287@stusta.de>
-	<200711071434.52607.david-b@pacbell.net>
-	<20071107225232.GB26163@stusta.de>
-	<20071108033010.GF26163@stusta.de>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] sky2: new pci id's
+Date: Thu, 8 Nov 2007 08:20:17 -0800
+Message-ID: <20071108082018.56796e00@freepuppy.rosehill>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Brownell <david-b@pacbell.net>,
-	David Miller <davem@davemloft.net>,
-	Toralf =?ISO-8859-1?Q?F=F6rster?= <toralf.foerster@gmx.de>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Adrian Bunk <bunk@kernel.org>
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:11448 "EHLO
-	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761269AbXKHQJQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2007 11:09:16 -0500
-In-Reply-To: <20071108033010.GF26163@stusta.de>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:55523 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756118AbXKHQ1b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2007 11:27:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 8 Nov 2007 04:30:10 +0100 Adrian Bunk wrote:
+Found a couple of more chips in the latest version of the vendor driver.
+They are minor variations on existing chips, so please incorporate into
+2.6.24.
 
-> On Wed, Nov 07, 2007 at 11:52:32PM +0100, Adrian Bunk wrote:
-> > On Wed, Nov 07, 2007 at 02:34:52PM -0800, David Brownell wrote:
-> > > > > But on the other hand, it seems that only the ASIX code will work
-> > > > > right; the DM9601 and MCS7830 Kconfig is different/wrong.
-> > > > 
-> > > > I'm not seeing the problem.
-> > > > 
-> > > > Which configuration will be handled wrongly?
-> > > 
-> > > Notice how only the ASIX kconfig depended on NET_ETHERNET...
-> > > since MII depends on NET_ETHERNET, and (last I knew) the
-> > > reverse dependencies didn't capture the complete dependency
-> > > tree, selecting only MII would leave out some stuff.
-> > 
-> > Except for one s390 net driver (I'll check why it's doing this) the 
-> > NET_ETHERNET option does not influence what code is being generated - 
-> > it's just a Kconfig-internal option allowing to disable a huge bunch
-> > of drivers at once.
-> 
-> Damn, I shouldn't have only grep'ed under drivers/.
-> 
-> @davem:
-> 
-> Please look at net/ipv4/arp.c:arp_process()
-> 
-> Am I right that CONFIG_NET_ETHERNET=n and CONFIG_NETDEV_1000=y or 
-> CONFIG_NETDEV_10000=y will not be handled correctly there?
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+ 
 
-I'd say yes, you are correct.
-
-> And the best solution is to nuke all #ifdef's in this function and make 
-> the code unconditionally available?
-
-
-
----
-~Randy
+--- a/drivers/net/sky2.c	2007-11-07 22:45:02.000000000 -0800
++++ b/drivers/net/sky2.c	2007-11-07 22:46:29.000000000 -0800
+@@ -121,6 +121,7 @@ static const struct pci_device_id sky2_i
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4353) }, /* 88E8039 */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4354) }, /* 88E8040 */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4356) }, /* 88EC033 */
++	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4357) }, /* 88E8042 */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x435A) }, /* 88E8048 */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4360) }, /* 88E8052 */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4361) }, /* 88E8050 */
+@@ -134,6 +135,7 @@ static const struct pci_device_id sky2_i
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4369) }, /* 88EC042 */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x436A) }, /* 88E8058 */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x436B) }, /* 88E8071 */
++	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x436C) }, /* 88E8072 */
+ 	{ 0 }
+ };
+ 
