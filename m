@@ -1,86 +1,70 @@
-From: Matti Aarnio <matti.aarnio@zmailer.org>
-Subject: Re: No implementation of NETLINK_USERSOCK ?
-Date: Thu, 8 Nov 2007 22:45:00 +0200
-Message-ID: <20071108204500.GB6372@mea-ext.zmailer.org>
-References: <20071108151512.GY6372@mea-ext.zmailer.org>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: Why does a connect to IPv6 LLA address fail ?
+Date: Thu, 08 Nov 2007 15:50:52 -0500
+Message-ID: <473376AC.7010808@hp.com>
+References: <20071107094007.GA15575@pingi.kke.suse.de> <20071107112838.GA22180@dhcp79.suse.cz> <4732151B.70309@hp.com> <200711081901.59334.agruen@suse.de> <47335258.4000806@hp.com> <20071108183221.GA17878@pingi.kke.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	Andreas Gruenbacher <agruen@suse.de>,
+	Jiri Bohac <jbohac@suse.cz>, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, kkeil@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from z2.cat.iki.fi ([212.16.98.133]:51567 "EHLO z2.cat.iki.fi"
+Received: from palrel12.hp.com ([156.153.255.237]:43062 "EHLO palrel12.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760237AbXKHUpC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Nov 2007 15:45:02 -0500
-Received: (mea@mea-ext) by mail.zmailer.org id S3540074AbXKHUpA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2007 22:45:00 +0200
-Content-Disposition: inline
-In-Reply-To: <20071108151512.GY6372@mea-ext.zmailer.org>
+	id S1759541AbXKHUuz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Nov 2007 15:50:55 -0500
+In-Reply-To: <20071108183221.GA17878@pingi.kke.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Following up on myself...
-
-On Thu, Nov 08, 2007 at 05:15:12PM +0200, Matti Aarnio wrote:
-> Some 6 months ago I asked about a way to make network protocol
-> servers(s) that live in userspace, but whose application interface
-> still uses kernel socket calls.
+Karsten Keil wrote:
 > 
-> I recall getting an answer that there is  NETLINK_USERSOCK for that
-> use.  I have tried to have a look into what NETLINK_USERSOCK
-> supplies to its users, but alas there appears to be no implementation
-> at all in existence.   Is it some sort of placeholder of things
-> to implement some day ?
+> OK I run into this issue while running the TAHI testsuite. The test is as
+> follows:
+> 
+>   Check 03:
+>     DNS Address: fec0::9
+>     Candidate Source Addresses: fec0::1(SS) or LLA(LS)
+>     Destination Address List: 3fff::2(GS) or fe80::2(LS)
+>     Result: fe80::2 (src LLA) then 3fff::2 (src fec0::1)
+> 
+>     Scope(fe80::2) = Scope(LLA) and Scope(3fff::2) <> Scope(fec0::1), then prefer fe80::2
+> 
+> the nameserver send following answer for the query:
+> 
+> | | | | DNS_Question                    (length:21)
+> | | | | | DNS_QuestionEntry               (length:21)
+> | | | | | | Name                             = server.tahi.org.
+> | | | | | | Type                             = 28 (AAAA)
+> | | | | | | Class                            = 1
+> | | | | DNS_Answer                      (length:86)
+> | | | | | DNS_RR_AAAA                     (length:43)
+> | | | | | | Name                             = server.tahi.org.
+> | | | | | | Type                             = 28
+> | | | | | | Class                            = 1
+> | | | | | | TTL                              = 0
+> | | | | | | Length                           = 16
+> | | | | | | Address                          = 3fff::2
+> | | | | | DNS_RR_AAAA                     (length:43)
+> | | | | | | Name                             = server.tahi.org.
+> | | | | | | Type                             = 28
+> | | | | | | Class                            = 1
+> | | | | | | TTL                              = 0
+> | | | | | | Length                           = 16
+> | | | | | | Address                          = fe80::2
+> 
+> 
+> 
+> So how we should handle this issue, claim that the test is wrong, the test
+> should not use LLA for this ?
+> 
 
-The more I am reading around places, the more it looks like there
-really is no implementation, but somebody thought that such would
-be a nice thing to have.
+You could argue that a DNS server should not return link-local addresses because there
+is no way for the DNS server to specify a correct zone.
 
-It did appear around  Linux 2.2, and probable reservation maker was
-Alexey N. Kuznetsov. 
+I believe this is actually documented somewhere...
 
-So, in order to implement the thing, something must be defined at
-first.  Requirements are at least:
+-vlad
 
-   - Applications see SOCKET API, and addresses are presentable
-     via  struct sockaddr*   -- meaning that 16 bit sa_family leads
-     the record, or possibly leading byte is record size and
-     second one is family.
-
-   - sa_family number space must be somehow managed, for example
-     with file:  /etc/socketfamilies
-
-           #PF_## value: 128-254
-           #    nn  'struct sockaddr' size in bytes
-           #         # PF_### keyword name
-           #                         Explanatory name
-           #
-           128  36  PF_USERSOCK1     Experimental usersock 1
-           129  80  PF_USERSOCK2     Experimental usersock 2
-           130  22  PF_USERSOCK3     Experimental usersock 3
-
-     And why not all the built in "hard-coded" ones, too.
- 
-     The sa_family numbers _must_ be static for at least machine
-     runtime, even if they are otherwise quite dynamic in nature.
-     (Registering and reading them from /proc/sys/...  -file is
-      a possibility.)
-
-   - There is only one  NETLINK_USERSOCK, but it should somehow
-     manage N different protocols.  N being at least 32.
-
-   - Netlink itself is unrealiable protocol, but applications
-     should still be able to read() and write() from it reliably.
-     There is some reliability-thing in documentation.
-
-   - For all intents and purposes the only difference from well
-     established socket API based protocols, applications using
-     NETLINK_USERSOCK implemented ones shall not be aware of
-     anything being different except with the the how PF_NNNN
-     literal is resolved.
-
-
-What else is needed ?
-Any pointers on how to construct this framework ?
-Or does it exist although I didn't spot it yet ?
-
-/Matti Aarnio
