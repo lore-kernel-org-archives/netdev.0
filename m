@@ -1,43 +1,45 @@
 From: Jiri Slaby <jirislaby@gmail.com>
-Subject: [PATCH 1/5] Net: ibm_newemac, remove SPIN_LOCK_UNLOCKED
-Date: Fri, 9 Nov 2007 18:31:26 -0500
-Message-ID: <4827138842526222333@pripojeni.net>
+Subject: [PATCH 5/5] Net: sunrpc, remove SPIN_LOCK_UNLOCKED
+Date: Fri, 9 Nov 2007 18:34:06 -0500
+Message-ID: <5566687663573801@pripojeni.net>
+References: <4827138842526222333@pripojeni.net>
 Cc: <linux-kernel@vger.kernel.org>
 To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760378AbXKIXbg@vger.kernel.org>
-Cc: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763218AbXKIXeU@vger.kernel.org>
+In-reply-to: <4827138842526222333@pripojeni.net>
 Cc: <netdev@vger.kernel.org>
-Cc: <bryan.wu@analog.com>
+Cc: <tom@opengridcomputing.com>
+Cc: <okir@monad.swb.de>
+Cc: <cel@netapp.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ibm_newemac, remove SPIN_LOCK_UNLOCKED
+sunrpc, remove SPIN_LOCK_UNLOCKED
 
 SPIN_LOCK_UNLOCKED is deprecated, use DEFINE_SPINLOCK instead
 
 Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>
 
 ---
-commit aefcf0f6b6ab925184e7cebff8b609e4da1f5c0d
-tree 9e1e6240f26c759826959e8812885726c520019d
-parent f87566db6dd9613dde8de59380cd2f423166511e
-author Jiri Slaby <jirislaby@gmail.com> Thu, 25 Oct 2007 11:54:41 +0200
-committer Jiri Slaby <jirislaby@gmail.com> Thu, 25 Oct 2007 11:54:41 +0200
+commit d5e782e62a4fe2663a012571c3444445d9887b02
+tree b993038b020d8c619f6ffdad412fbb992c073513
+parent 828042d12cc0aa515e049889aa76d4066df100c0
+author Jiri Slaby <jirislaby@gmail.com> Thu, 25 Oct 2007 12:00:13 +0200
+committer Jiri Slaby <jirislaby@gmail.com> Thu, 25 Oct 2007 12:00:13 +0200
 
- drivers/net/ibm_newemac/debug.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/sunrpc/xprt.c     |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ibm_newemac/debug.c b/drivers/net/ibm_newemac/debug.c
-index 170524e..ada13cd 100644
---- a/drivers/net/ibm_newemac/debug.c
-+++ b/drivers/net/ibm_newemac/debug.c
-@@ -21,7 +21,7 @@
+diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
+index 282a9a2..cd641c8 100644
+--- a/net/sunrpc/xprt.c
++++ b/net/sunrpc/xprt.c
+@@ -62,7 +62,7 @@ static inline void	do_xprt_reserve(struct rpc_task *);
+ static void	xprt_connect_status(struct rpc_task *task);
+ static int      __xprt_get_cong(struct rpc_xprt *, struct rpc_task *);
  
- #include "core.h"
+-static spinlock_t xprt_list_lock = SPIN_LOCK_UNLOCKED;
++static DEFINE_SPINLOCK(xprt_list_lock);
+ static LIST_HEAD(xprt_list);
  
--static spinlock_t emac_dbg_lock = SPIN_LOCK_UNLOCKED;
-+static DEFINE_SPINLOCK(emac_dbg_lock);
- 
- static void emac_desc_dump(struct emac_instance *p)
- {
+ /*
