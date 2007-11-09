@@ -1,64 +1,63 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 2/4] Add missed tunnel64_err handler
-Date: Fri, 09 Nov 2007 16:14:12 +0300
-Message-ID: <47345D24.7010603@openvz.org>
+Subject: [PATCH 3/4] Cleanup the xfrm4_tunnel_(un)register
+Date: Fri, 09 Nov 2007 16:16:23 +0300
+Message-ID: <47345DA7.2030107@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:45253 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:45444 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752298AbXKINOd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Nov 2007 08:14:33 -0500
+	id S1754171AbXKINQn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Nov 2007 08:16:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The tunnel64_protocol uses the tunnel4_protocol's err_handler and
-thus calls the tunnel4_protocol's handlers.
-
-This is not very good, as in case of (icmp) error the wrong error
-handlers will be called (e.g. ipip ones instead of sit) and this
-won't be noticed at all, because the error is not reported.
-
-Was that made deliberately and I miss something?
+Both check for the family to select an appropriate tunnel list.
+Consolidate this check and make the for() loop more readable.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
 
 diff --git a/net/ipv4/tunnel4.c b/net/ipv4/tunnel4.c
-index c71617c..7938430 100644
+index 7938430..b662a9e 100644
 --- a/net/ipv4/tunnel4.c
 +++ b/net/ipv4/tunnel4.c
-@@ -145,6 +145,17 @@ static void tunnel4_err(struct sk_buff *skb, u32 info)
- 			break;
- }
+@@ -18,6 +18,11 @@ static struct xfrm_tunnel *tunnel4_handlers;
+ static struct xfrm_tunnel *tunnel64_handlers;
+ static DEFINE_MUTEX(tunnel4_mutex);
  
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+static void tunnel64_err(struct sk_buff *skb, u32 info)
++static inline struct xfrm_tunnel **fam_handlers(unsigned short family)
 +{
-+	struct xfrm_tunnel *handler;
-+
-+	for (handler = tunnel64_handlers; handler; handler = handler->next)
-+		if (!handler->err_handler(skb, info))
-+			break;
++	return (family == AF_INET) ? &tunnel4_handlers : &tunnel64_handlers;
 +}
-+#endif
 +
- static struct net_protocol tunnel4_protocol = {
- 	.handler	=	tunnel4_rcv,
- 	.err_handler	=	tunnel4_err,
-@@ -154,7 +165,7 @@ static struct net_protocol tunnel4_protocol = {
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- static struct net_protocol tunnel64_protocol = {
- 	.handler	=	tunnel64_rcv,
--	.err_handler	=	tunnel4_err,
-+	.err_handler	=	tunnel64_err,
- 	.no_policy	=	1,
- };
- #endif
+ int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family)
+ {
+ 	struct xfrm_tunnel **pprev;
+@@ -26,8 +31,7 @@ int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family)
+ 
+ 	mutex_lock(&tunnel4_mutex);
+ 
+-	for (pprev = (family == AF_INET) ? &tunnel4_handlers : &tunnel64_handlers;
+-	     *pprev; pprev = &(*pprev)->next) {
++	for (pprev = fam_handlers(family); *pprev; pprev = &(*pprev)->next) {
+ 		if ((*pprev)->priority > priority)
+ 			break;
+ 		if ((*pprev)->priority == priority)
+@@ -54,8 +58,7 @@ int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family)
+ 
+ 	mutex_lock(&tunnel4_mutex);
+ 
+-	for (pprev = (family == AF_INET) ? &tunnel4_handlers : &tunnel64_handlers;
+-	     *pprev; pprev = &(*pprev)->next) {
++	for (pprev = fam_handlers(family); *pprev; pprev = &(*pprev)->next) {
+ 		if (*pprev == handler) {
+ 			*pprev = handler->next;
+ 			ret = 0;
 -- 
 1.5.3.4
 
