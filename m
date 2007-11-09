@@ -1,32 +1,39 @@
-From: Paul Mundt <lethal@linux-sh.org>
-Subject: Re: [RFC] dependencies for platform drivers (was Re: ax88796: add superh to kconfig dependencies)
-Date: Fri, 9 Nov 2007 18:40:23 +0900
-Message-ID: <20071109094023.GA7022@linux-sh.org>
-References: <20071108073105.3996.70418.sendpatchset@clockwork.opensource.se> <20071108081854.GN8181@ftp.linux.org.uk> <20071109092652.GA13350@linux-mips.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/1]: Using ICMP type and code in xfrm selector
+Date: Fri, 9 Nov 2007 19:29:13 +0800
+Message-ID: <20071109112913.GB27984@gondor.apana.org.au>
+References: <200711022317.lA2NHeX2018386@faith.austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Al Viro <viro@ftp.linux.org.uk>,
-	Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-	ben-linux@fluff.org, akpm@linux-foundation.org, jeff@garzik.org,
-	linux-arch@vger.kernel.org
-To: Ralf Baechle <ralf@linux-mips.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, tgraf@redhat.com
+To: Joy Latten <latten@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pip10.gyao.ne.jp ([61.122.117.248]:17792 "EHLO mx.gate01.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751523AbXKIJlF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Nov 2007 04:41:05 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:4084 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751883AbXKIL3o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2007 06:29:44 -0500
 Content-Disposition: inline
-In-Reply-To: <20071109092652.GA13350@linux-mips.org>
+In-Reply-To: <200711022317.lA2NHeX2018386@faith.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 09, 2007 at 09:26:52AM +0000, Ralf Baechle wrote:
-> If writesb() is not an official API then maybe the answer should have been
-> to either add that API to other architectures or fix the driver.
-> 
-> I guess this incident means I need to go through all Kconfig* files to
-> see what bogus architecture dependencies on MIPS or !MIPS exist ...
-> 
-While writesb() isn't an official API, the iowriteX_rep() interfaces
-theoretically are. Tidying up the driver for iomap is probably a better
-option.
+On Fri, Nov 02, 2007 at 06:17:40PM -0500, Joy Latten wrote:
+>
+> While fixing this I wondered why we put icmp message
+> type in sport and code in dport?
+
+Where we put the info in the kernel is not specified by the
+RFC.  It has to document where you put it in IKE because IKE
+is used by two systems which must agree on one format.
+
+Your patch looks OK to me but in general we want to encourage
+applications to use the xfrm_user interface as pf_key is not
+portable anyway because of the lack of a standard specification
+that covers the SPD.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
