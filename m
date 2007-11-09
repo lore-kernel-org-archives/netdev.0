@@ -1,59 +1,42 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [PATCH 02/05] ipv6: RFC4214 Support
-Date: Fri, 9 Nov 2007 19:12:02 +0100
-Message-ID: <200711091912.03419.netdev@axxeo.de>
-References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDBF2@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDBF4@XCH-NW-7V2.nw.nos.boeing.com> <20071108.044745.123583545.yoshfuji@linux-ipv6.org>
+From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] Fix infinite loop on dev_mc_unsync()
+Date: Fri, 9 Nov 2007 13:51:48 -0500
+Message-ID: <20071109183733.GA22714@pogo>
+References: <20071109151135.GA12982@pogo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Fred.L.Templin@boeing.com, netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki /
-	 =?utf-8?q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:2732 "EHLO mail.axxeo.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752429AbXKISMX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2007 13:12:23 -0500
-In-Reply-To: <20071108.044745.123583545.yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20071109151135.GA12982@pogo>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E schrieb:
-> In article <39C363776A4E8C4A94691D2BD9D1C9A1029EDBF4@XCH-NW-7V2.nw.no=
-s.boeing.com> (at Wed, 7 Nov 2007 10:52:47 -0800), "Templin, Fred L" <F=
-red.L.Templin@boeing.com> says:
->=20
-> > > > > > > +	if (((ipv4 >=3D 0x01000000) && (ipv4 < 0x0a000000)) ||
-> > > > > > > +	    ((ipv4 >=3D 0x0b000000) && (ipv4 < 0x7f000000)) ||
-> > > > > > > +	    ((ipv4 >=3D 0x80000000) && (ipv4 < 0xa9fe0000)) ||
-> > > > > > > +	    ((ipv4 >=3D 0xa9ff0000) && (ipv4 < 0xac100000)) ||
-> > > > > > > +	    ((ipv4 >=3D 0xac200000) && (ipv4 < 0xc0a80000)) ||
-> > > > > > > +	    ((ipv4 >=3D 0xc0a90000) && (ipv4 < 0xc6120000)) ||
-> > > > > > > +	    ((ipv4 >=3D 0xc6140000) && (ipv4 <=20
-> > > 0xe0000000))) eui[0] |=3D
-> > > > > > > 0x2;
->=20
-> > Maybe it is I who did not understand. Can you suggest a clean solut=
-ion?
->=20
-> You could write each element as LOOPBACK(), MULTICAST()
-> etc.
-> 	eui[0] =3D (!ZERONETO(a) &&
-> 	          !PRIVATE_10(a) &&
-> 		  !LINKLOCAL(a) &&
-> 		  !PRIVATE_172(a) &&
-> 		  !PRIVATE_192(a) &&
-> 		  !NETICDEVBENCH(a) &&
-> 		  !MULTICAST(a)) ? 2 : 0;
+Sorry, forgot to CC David.
 
-Oh, yes that's great! Now even *I* can read what this is all about=20
-without reading any RFC :-)
+On Fri, Nov 09, 2007 at 10:11:35AM -0500, Luis R. Rodriguez wrote:
 
-Please Fred, try to do it that way.
+While reviewing net/core/dev_mcast.c I found what I think is an 
+infinite loop on dev_mc_unsync(). This fixes it. We make use of
+this guy on mac80211 in ieee80211_stop(). This is untested.
 
+Signed-off-by: Luis R. Rodriguez <mcgrof-NvJAj8134tRxEa0u/P/EHDe48wsgrGvP@public.gmane.org>
 
-Best Regards
-
-Ingo Oeser
+diff --git a/net/core/dev_mcast.c b/net/core/dev_mcast.c
+index 15241cf..5373c03 100644
+--- a/net/core/dev_mcast.c
++++ b/net/core/dev_mcast.c
+@@ -168,8 +168,10 @@ void dev_mc_unsync(struct net_device *to, struct net_device *from)
+ 	da = from->mc_list;
+ 	while (da != NULL) {
+ 		next = da->next;
+-		if (!da->da_synced)
++		if (!da->da_synced) {
++			da = next;
+ 			continue;
++		}
+ 		__dev_addr_delete(&to->mc_list, &to->mc_count,
+ 				  da->da_addr, da->da_addrlen, 0);
+ 		da->da_synced = 0;
