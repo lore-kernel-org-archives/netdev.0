@@ -1,49 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 04/05] ipv6: RFC4214 Support
-Date: Thu, 08 Nov 2007 15:30:21 -0800 (PST)
-Message-ID: <20071108.153021.258449702.davem@davemloft.net>
-References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDBF5@XCH-NW-7V2.nw.nos.boeing.com>
-	<20071108.232640.62039057.yoshfuji@linux-ipv6.org>
-	<39C363776A4E8C4A94691D2BD9D1C9A1029EDC09@XCH-NW-7V2.nw.nos.boeing.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] [POWERPC] Fix typo #ifdef -> #ifndef
+Date: Thu, 8 Nov 2007 20:35:52 -0800
+Message-ID: <20071108203552.bcc1e5a8.akpm@linux-foundation.org>
+References: <472CC914.3030709@scram.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org
-To: Fred.L.Templin@boeing.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51070
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755943AbXKIBuX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2007 20:50:23 -0500
-In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC09@XCH-NW-7V2.nw.nos.boeing.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: jeff@garzik.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-embedded@ozlabs.org
+To: Jochen Friedrich <jochen@scram.de>
+Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <472CC914.3030709@scram.de>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
+List-Post: <mailto:linuxppc-embedded@ozlabs.org>
+List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Date: Thu, 8 Nov 2007 13:01:34 -0800
+> On Sat, 03 Nov 2007 20:16:36 +0100 Jochen Friedrich <jochen@scram.de> wrote:
+> Subject: [PATCH] [POWERPC] Fix typo #ifdef -> #ifndef
 
-> > Hmm, what is missing from API POV?
-> 
-> This would have to be determined under a follow-on project (hopefully
-> with input from others) after we have gained operational experience.
+Please put the "powerpc" outside the [].  Because things inside [] get
+removed when the receiver applies the patch, but the subsystem
+identification ("powerpc") is useful information which we want to carry
+into the permanent git record. (Although Paul might add it anyway - some
+git tree maintainers do).
 
-I personally don't buy any of this desire to avoid iproute2
-changes at this time.
+> User-Agent: Mozilla-Thunderbird 2.0.0.6 (X11/20071009)
 
-This is never how we handle this kind of situation.
+This seems to be setting a record for MUA vandalism.  Leading spaces were
+removed and various esoteric whitespace transformations were made.  The
+diffs were small so I fixed them by hand.
 
-We add in the new feature, and add support to iproute2 in
-parallel.  If we screw it up we figure that out quickly
-and fix things before it's been deployed for too long.
-
-I suspect you simply want users to just be able to use the
-new feature with only a kernel patch, but that's not an
-appropriate reason to not do things correctly when submitting
-a feature upstream.
-
-Please use the new name in the kernel side changes and implement
-iproute2 support for these ISATAP devices.
-
-Thank you.
-
+Please strangle your email client.
