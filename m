@@ -1,87 +1,51 @@
-From: Sergej Stepanov <Sergej.Stepanov@ids.de>
-Subject: Re: [PATCH] using mii-bitbang on different processor ports
-	-	update the booting-without-of.txt-file
-Date: Fri, 09 Nov 2007 12:38:03 +0100
-Message-ID: <1194608283.8755.10.camel@p60635-ste.ids.de>
-References: <1194339117.3467.8.camel@p60635-ste.ids.de>
-	 <20071106184649.GA5283@loki.buserror.net>
-	 <1194442844.3571.14.camel@p60635-ste.ids.de>
-	 <47336F9D.8060405@freescale.com>
+From: Russell King <rmk@arm.linux.org.uk>
+Subject: Re: [RFC] dependencies for platform drivers (was Re: ax88796: add superh to kconfig dependencies)
+Date: Fri, 9 Nov 2007 12:02:55 +0000
+Message-ID: <20071109120255.GB8101@flint.arm.linux.org.uk>
+References: <20071108073105.3996.70418.sendpatchset@clockwork.opensource.se> <20071108081854.GN8181@ftp.linux.org.uk> <20071109092652.GA13350@linux-mips.org> <20071109094023.GA7022@linux-sh.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, jgarzik@pobox.com
-To: Scott Wood <scottwood@freescale.com>
+Content-Type: text/plain; charset=us-ascii
+To: Paul Mundt <lethal@linux-sh.org>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Al Viro <viro@ftp.linux.org.uk>,
+	Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+	ben-linux@fluff.or
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ares.ids.de ([213.144.29.131]:41414 "EHLO ares.ids.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751906AbXKILiH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Nov 2007 06:38:07 -0500
-Received: from ares.ids.de (ares.ids.de [127.0.0.1])
-	by ares.ids.de (PGP Universal) with ESMTP id 78B72F491AE
-	for <netdev@vger.kernel.org>; Fri,  9 Nov 2007 12:38:03 +0100 (CET)
-In-Reply-To: <47336F9D.8060405@freescale.com>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:45406 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753595AbXKIMI5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2007 07:08:57 -0500
+Content-Disposition: inline
+In-Reply-To: <20071109094023.GA7022@linux-sh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Donnerstag, den 08.11.2007, 14:20 -0600 schrieb Scott Wood: 
-> Sergej Stepanov wrote:
-> > If both mdio and mdc controlling pins are on the same processor port,
-> > one resource should be used.
-> > Otherwise, two resources are used: the 1-st - mdio, the 2-nd - mdc.
-> 
-> How about:
-> The first reg resource is the I/O port register block on which MDIO 
-> resides.  The second reg resource is the I/O port register block on 
-> which MDC resides.  If there is only one reg resource, it is used for 
-> both MDIO and MDC.
-> 
-Ok.
+On Fri, Nov 09, 2007 at 06:40:23PM +0900, Paul Mundt wrote:
+> On Fri, Nov 09, 2007 at 09:26:52AM +0000, Ralf Baechle wrote:
+> > If writesb() is not an official API then maybe the answer should have been
+> > to either add that API to other architectures or fix the driver.
+> > 
+> > I guess this incident means I need to go through all Kconfig* files to
+> > see what bogus architecture dependencies on MIPS or !MIPS exist ...
+> > 
+> While writesb() isn't an official API, the iowriteX_rep() interfaces
+> theoretically are. Tidying up the driver for iomap is probably a better
+> option.
 
-> We also need to change the reference to port C in fsl,mdio-pin and 
-> fsl,mdc-pin.
-Do you mean this:
-   Currently defined compatibles:
-   fsl,pq1-fec-mdio (reg is same as first resource of FEC device)
--> fsl,cpm2-mdio-bitbang (reg is port C registers)
+writesb() predates iowriteX_rep() interfaces by quite a number of years,
+though if you're using writesb(), converting over to iowriteX_rep() is
+really a no-brainer.
 
-   Properties for fsl,cpm2-mdio-bitbang:
--> fsl,mdio-pin : pin of port C controlling mdio data
--> fsl,mdc-pin : pin of port C controlling mdio clock
+writesb() is effectively what mmio_outsb() is, and exists to do what
+outsb() does but for peripherals mapped using ioremap on ARM rather
+than trying to emulate them via the legacy x86 IO interfaces.
 
-Right. But i thought it would be related to the example,
-and than the reader gets the short comment about I/O ports.
+Note that it would've been far better that whoever invented mmio_outsb()
+looked around and noticed that some of us already have an implementation
+called writesb()... but time has proven that folk seem to be blinkered
+to anything not x86.
 
-Or the other variant would be:
---------------------
-   iv) MDIO
-
-   Currently defined compatibles:
-   fsl,pq1-fec-mdio (reg is same as first resource of FEC device)
-   fsl,cpm2-mdio-bitbang (reg is the I/O port register block(s))
-
-   Properties for fsl,cpm2-mdio-bitbang:
-   The first reg resource is the I/O port register block on which MDIO
-   resides.  The second reg resource is the I/O port register block on
-   which MDC resides.  If there is only one reg resource, it is used for
-   both MDIO and MDC.
-   fsl,mdio-pin : pin of chosen port for controlling mdio data
-   fsl,mdc-pin : pin of chosen port for controlling mdio clock
-
-   Example:
-	mdio@10d40 {
-	device_type = "mdio";
-	compatible = "fsl,mpc8272ads-mdio-bitbang",
-        	     "fsl,mpc8272-mdio-bitbang",
-       		     "fsl,cpm2-mdio-bitbang";
-	reg = <10d40 14>;
-	#address-cells = <1>;
-	#size-cells = <0>;
-	fsl,mdio-pin = <12>;
-	fsl,mdc-pin = <13>;
-	};
------------------
-
-Regards
-Sergej.
-
+-- 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:
