@@ -1,51 +1,74 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: [PATCH 0/5] fixups for mpc8360 rev. 2.1 erratum #2 (RGMII Timing)
-Date: Fri, 9 Nov 2007 16:33:50 +0300
-Message-ID: <20071109133350.GB21232@localhost.localdomain>
-References: <20071105121530.5c38fbb7.kim.phillips@freescale.com>
-Reply-To: avorontsov@ru.mvista.com
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][PACKET] Use existing sock refcnt debugging infrastructure
+Date: Fri, 09 Nov 2007 16:39:41 +0300
+Message-ID: <4734631D.6080807@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Cc: Li Yang <leoli@freescale.com>,
-	Kumar Gala <galak@kernel.crashing.org>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, paulus@samba.org, jgarzik@pobox.com
-To: Kim Phillips <kim.phillips@freescale.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:56162 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1759178AbXKINgV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2007 08:36:21 -0500
-Content-Disposition: inline
-In-Reply-To: <20071105121530.5c38fbb7.kim.phillips@freescale.com>
+Received: from sacred.ru ([62.205.161.221]:51945 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759203AbXKINjz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Nov 2007 08:39:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 05, 2007 at 12:15:30PM -0600, Kim Phillips wrote:
-> Hello all,
-> 
-> the following patches fix RGMII timing for rev. 2.1 of the mpc8360,
-> according to erratum #2 (erratum text included below).  Basically the
-> most intrusive part is the addition of two new RGMII Internal Delay
-> modes; one for TX delay only, and the other for RX delay only (i.e, not
-> both at the same time).
-> 
-> Please review, and since this affects both netdev and powerpc trees,
-> one maintainer should ack them for the other to push upstream (i.e,
-> Kumar acks them, and Leo picks them up to go through netdev or the
-> other way around; either way is fine with me).  I'm hoping they're
-> trivial enough to go in 2.6.24.
+The packet_socks_nr variable is used purely for debugging
+the number of sockets.
 
-All five patches are
+As Arnaldo pointed out, there's already an infrastructure
+for this purposes, so switch to using it.
 
-Tested-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
+---
 
-Let's hope they'll hit 2.6.24.
-
-Thanks,
-
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 4cb2dfb..36331a5 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -139,9 +139,6 @@ dev->hard_header == NULL (ll header is added by device, we cannot control it)
+ static HLIST_HEAD(packet_sklist);
+ static DEFINE_RWLOCK(packet_sklist_lock);
+ 
+-static atomic_t packet_socks_nr;
+-
+-
+ /* Private packet socket structures. */
+ 
+ struct packet_mclist
+@@ -236,10 +233,7 @@ static void packet_sock_destruct(struct sock *sk)
+ 		return;
+ 	}
+ 
+-	atomic_dec(&packet_socks_nr);
+-#ifdef PACKET_REFCNT_DEBUG
+-	printk(KERN_DEBUG "PACKET socket %p is free, %d are alive\n", sk, atomic_read(&packet_socks_nr));
+-#endif
++	sk_refcnt_debug_dec(sk);
+ }
+ 
+ 
+@@ -849,6 +843,7 @@ static int packet_release(struct socket *sock)
+ 	/* Purge queues */
+ 
+ 	skb_queue_purge(&sk->sk_receive_queue);
++	sk_refcnt_debug_release(sk);
+ 
+ 	sock_put(sk);
+ 	return 0;
+@@ -1010,7 +1005,7 @@ static int packet_create(struct net *net, struct socket *sock, int protocol)
+ 	po->num = proto;
+ 
+ 	sk->sk_destruct = packet_sock_destruct;
+-	atomic_inc(&packet_socks_nr);
++	sk_refcnt_debug_inc(sk);
+ 
+ 	/*
+ 	 *	Attach a protocol block
 -- 
-Anton Vorontsov
-email: cbou@mail.ru
-backup email: ya-cbou@yandex.ru
-irc://irc.freenode.net/bd2
+1.5.3.4
+
