@@ -1,86 +1,106 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][IPX] Use existing sock refcnt debugging infrastructure
-Date: Fri, 09 Nov 2007 16:42:05 +0300
-Message-ID: <473463AD.9000807@openvz.org>
+From: "Grant Likely" <grant.likely@secretlab.ca>
+Subject: Re: [PATCH] Fix buglets in mpc5200 FEC code that are corrupting memory.
+Date: Fri, 9 Nov 2007 06:57:58 -0700
+Message-ID: <fa686aa40711090557u1b6cb29ex388b82efcbad7c18@mail.gmail.com>
+References: <9e4733910711082131v70c4b7bm2b00445b7e62c33f@mail.gmail.com>
+	 <20071109091245.GA3148@nd47.coderock.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=WINDOWS-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Jon Smirl" <jonsmirl@gmail.com>,
+	"PowerPC dev list" <Linuxppc-dev@ozlabs.org>,
+	netdev <netdev@vger.kernel.org>
+To: "Domen Puncer" <domen.puncer@telargo.com>,
+	"Jeff Garzik" <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:52122 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758271AbXKINmV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Nov 2007 08:42:21 -0500
+Received: from an-out-0708.google.com ([209.85.132.243]:64730 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758601AbXKIN6A convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2007 08:58:00 -0500
+Received: by an-out-0708.google.com with SMTP id d14so121989and
+        for <netdev@vger.kernel.org>; Fri, 09 Nov 2007 05:57:59 -0800 (PST)
+In-Reply-To: <20071109091245.GA3148@nd47.coderock.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Just like in the af_packet.c, the ipx_sock_nr variable is used
-for debugging purposes.
+On 11/9/07, Domen Puncer <domen.puncer@telargo.com> wrote:
+> On 09/11/07 00:31 -0500, Jon Smirl wrote:
+> > This is the reason I couldn't get user space started or connect to =
+my
+> > nfs server. Patch is against current linus git.
+> >
+> > mpc5200 fec driver is corrupting memory. This patch fixes two bugs
+> > where the wrong skb buffer was being referenced.
+> >
+> > Signed-off-by: Jon Smirl <jonsmirl@gmail.com>
+>
+> Acked-by: Domen Puncer <domen.puncer@telargo.com>
 
-Switch to using existing infrastructure. Thanks to Arnaldo for
-pointing this out.
+Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Jeff, can you please pick this up for .24?
 
----
+Thanks,
+g.
 
-diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
-index a195a66..c76a952 100644
---- a/net/ipx/af_ipx.c
-+++ b/net/ipx/af_ipx.c
-@@ -92,11 +92,6 @@ extern int ipxrtr_route_skb(struct sk_buff *skb);
- extern struct ipx_route *ipxrtr_lookup(__be32 net);
- extern int ipxrtr_ioctl(unsigned int cmd, void __user *arg);
- 
--#undef IPX_REFCNT_DEBUG
--#ifdef IPX_REFCNT_DEBUG
--atomic_t ipx_sock_nr;
--#endif
--
- struct ipx_interface *ipx_interfaces_head(void)
- {
- 	struct ipx_interface *rc = NULL;
-@@ -151,14 +146,7 @@ static void ipx_destroy_socket(struct sock *sk)
- {
- 	ipx_remove_socket(sk);
- 	skb_queue_purge(&sk->sk_receive_queue);
--#ifdef IPX_REFCNT_DEBUG
--	atomic_dec(&ipx_sock_nr);
--	printk(KERN_DEBUG "IPX socket %p released, %d are still alive\n", sk,
--			atomic_read(&ipx_sock_nr));
--	if (atomic_read(&sk->sk_refcnt) != 1)
--		printk(KERN_DEBUG "Destruction sock ipx %p delayed, cnt=%d\n",
--				sk, atomic_read(&sk->sk_refcnt));
--#endif
-+	sk_refcnt_debug_dec(sk);
- 	sock_put(sk);
- }
- 
-@@ -1384,11 +1372,8 @@ static int ipx_create(struct net *net, struct socket *sock, int protocol)
- 	sk = sk_alloc(net, PF_IPX, GFP_KERNEL, &ipx_proto);
- 	if (!sk)
- 		goto out;
--#ifdef IPX_REFCNT_DEBUG
--	atomic_inc(&ipx_sock_nr);
--	printk(KERN_DEBUG "IPX socket %p created, now we have %d alive\n", sk,
--			atomic_read(&ipx_sock_nr));
--#endif
-+
-+	sk_refcnt_debug_inc(sk);
- 	sock_init_data(sock, sk);
- 	sk->sk_no_check = 1;		/* Checksum off by default */
- 	sock->ops = &ipx_dgram_ops;
-@@ -1409,6 +1394,7 @@ static int ipx_release(struct socket *sock)
- 
- 	sock_set_flag(sk, SOCK_DEAD);
- 	sock->sk = NULL;
-+	sk_refcnt_debug_release(sk);
- 	ipx_destroy_socket(sk);
- out:
- 	return 0;
--- 
-1.5.3.4
+>
+> I can't test it at the moment, but the patch is obviously correct,
+> mapped buffer should be the _same_ as submitted.
+>
+> >
+> > ---
+> >
+> >  drivers/net/fec_mpc52xx.c |    4 ++--
+> >  1 files changed, 2 insertions(+), 2 deletions(-)
+> >
+> >
+> > diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
+> > index a8a0ee2..ddfcc0b 100644
+> > --- a/drivers/net/fec_mpc52xx.c
+> > +++ b/drivers/net/fec_mpc52xx.c
+> > @@ -422,7 +422,7 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int
+> > irq, void *dev_id)
+> >
+> >               rskb =3D bcom_retrieve_buffer(priv->rx_dmatsk, &statu=
+s,
+> >                               (struct bcom_bd **)&bd);
+> > -             dma_unmap_single(&dev->dev, bd->skb_pa, skb->len, DMA=
+_FROM_DEVICE);
+> > +             dma_unmap_single(&dev->dev, bd->skb_pa, rskb->len, DM=
+A_FROM_DEVICE);
+> >
+> >               /* Test for errors in received frame */
+> >               if (status & BCOM_FEC_RX_BD_ERRORS) {
+> > @@ -467,7 +467,7 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int
+> > irq, void *dev_id)
+> >                       bcom_prepare_next_buffer(priv->rx_dmatsk);
+> >
+> >               bd->status =3D FEC_RX_BUFFER_SIZE;
+> > -             bd->skb_pa =3D dma_map_single(&dev->dev, rskb->data,
+> > +             bd->skb_pa =3D dma_map_single(&dev->dev, skb->data,
+> >                               FEC_RX_BUFFER_SIZE, DMA_FROM_DEVICE);
+> >
+> >               bcom_submit_next_buffer(priv->rx_dmatsk, skb);
+> >
+> >
+> > --
+> > Jon Smirl
+> > jonsmirl@gmail.com
+>
+> --
+> Domen Puncer | Research & Development
+> .....................................................................=
+=2E.......................
+> Telargo d.o.o. | Zagreb=9Aka cesta 20 | 2000 Maribor | Slovenia
+> .....................................................................=
+=2E.......................
+> www.telargo.com
+>
 
 
+--=20
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
+grant.likely@secretlab.ca
+(403) 399-0195
