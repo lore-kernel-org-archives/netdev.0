@@ -1,56 +1,169 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 01/05] r8169: add PCI ID for the 8168 in the Abit Fatal1ty
-	F-190HD motherboard
-Date: Fri, 9 Nov 2007 00:08:42 +0100
-Message-ID: <20071108230842.GB15968@electric-eye.fr.zoreil.com>
-References: <20071108230734.GA15968@electric-eye.fr.zoreil.com>
+From: Trond Myklebust <Trond.Myklebust@netapp.com>
+Subject: [PATCH] NET: Add the helper kernel_sock_shutdown()
+Date: Thu, 08 Nov 2007 20:01:43 -0500
+Message-ID: <1194570103.7655.130.camel@heimdal.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	Mark Lord <mlord@pobox.com>,
-	Ciaran McCreesh <ciaran.mccreesh@blueyonder.co.uk>,
-	Josh Logan <joshtlogan@gmail.com>,
-	cecco <f.cecco77@tiscali.it>,
-	Hans-Jurgen Koch <hjk@linutronix.de>,
-	David Gundersen <gundy@iinet.net.au>,
-	Will Trives <will@trivescon.com.au>,
-	"Alexander Y. Fomichev" <gluk@php4.ru>,
-	Rolf Eike Beer <eike-kernel@sf-tec.de>,
-	Daniel Drake <dsd@gentoo.org>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Philip Craig <philipc@snapgear.com>,
-	Edward Hsu <edward_hsu@realtek.com.tw>
-To: jgarzik@pobox.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41203 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751016AbXKHXMx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2007 18:12:53 -0500
-Content-Disposition: inline
-In-Reply-To: <20071108230734.GA15968@electric-eye.fr.zoreil.com>
+Received: from mx2.netapp.com ([216.240.18.37]:31362 "EHLO mx2.netapp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756154AbXKIA7J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Nov 2007 19:59:09 -0500
+Received: from svlexrs01.hq.netapp.com (svlexrs01.corp.netapp.com [10.57.156.158])
+	by smtp2.corp.netapp.com (8.13.1/8.13.1/NTAP-1.6) with ESMTP id lA90wpfW001491
+	for <netdev@vger.kernel.org>; Thu, 8 Nov 2007 16:58:51 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Ciaran McCreesh <ciaran.mccreesh@blueyonder.co.uk>
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Edward Hsu <edward_hsu@realtek.com.tw>
+From: Trond Myklebust <Trond.Myklebust@netapp.com>
+
+...and fix a couple of bugs in the NBD, CIFS and OCFS2 socket handlers.
+
+Looking at the sock->op->shutdown() handlers, it looks as if all of them
+take a SHUT_RD/SHUT_WR/SHUT_RDWR argument instead of the
+RCV_SHUTDOWN/SEND_SHUTDOWN arguments.
+Add a helper, and then define the SHUT_* enum to ensure that kernel users
+of shutdown() don't get confused.
+
+Signed-off-by: Trond Myklebust <Trond.Myklebust@netapp.com>
+Cc: Paul Clements <Paul.Clements@steeleye.com>
+Cc: Mark Fasheh <mark.fasheh@oracle.com>
+Cc: Steve French <sfrench@samba.org>
+Cc: David Howells <dhowells@redhat.com>
+Cc: David S Miller <davem@davemloft.net>
 ---
- drivers/net/r8169.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index b94fa7e..702334e 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -171,6 +171,8 @@ static struct pci_device_id rtl8169_pci_tbl[] = {
- 	{ PCI_DEVICE(0x16ec,			0x0116), 0, 0, RTL_CFG_0 },
- 	{ PCI_VENDOR_ID_LINKSYS,		0x1032,
- 		PCI_ANY_ID, 0x0024, 0, 0, RTL_CFG_0 },
-+	{ 0x0001,				0x8168,
-+		PCI_ANY_ID, 0x2410, 0, 0, RTL_CFG_2 },
- 	{0,},
- };
+ drivers/block/nbd.c    |    3 ++-
+ fs/cifs/connect.c      |    2 +-
+ fs/ocfs2/cluster/tcp.c |    4 ++--
+ include/linux/net.h    |    7 +++++++
+ net/rxrpc/ar-local.c   |    4 ++--
+ net/socket.c           |    6 ++++++
+ 6 files changed, 20 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
+index 6332aca..b4c0888 100644
+--- a/drivers/block/nbd.c
++++ b/drivers/block/nbd.c
+@@ -28,6 +28,7 @@
+ #include <linux/err.h>
+ #include <linux/kernel.h>
+ #include <net/sock.h>
++#include <linux/net.h>
  
--- 
-1.5.3.3
-
+ #include <asm/uaccess.h>
+ #include <asm/system.h>
+@@ -126,7 +127,7 @@ static void sock_shutdown(struct nbd_device *lo, int lock)
+ 	if (lo->sock) {
+ 		printk(KERN_WARNING "%s: shutting down socket\n",
+ 			lo->disk->disk_name);
+-		lo->sock->ops->shutdown(lo->sock, SEND_SHUTDOWN|RCV_SHUTDOWN);
++		kernel_sock_shutdown(lo->sock, SHUT_RDWR);
+ 		lo->sock = NULL;
+ 	}
+ 	if (lock)
+diff --git a/fs/cifs/connect.c b/fs/cifs/connect.c
+index 19ee11f..bea0d2e 100644
+--- a/fs/cifs/connect.c
++++ b/fs/cifs/connect.c
+@@ -160,7 +160,7 @@ cifs_reconnect(struct TCP_Server_Info *server)
+ 	if (server->ssocket) {
+ 		cFYI(1, ("State: 0x%x Flags: 0x%lx", server->ssocket->state,
+ 			server->ssocket->flags));
+-		server->ssocket->ops->shutdown(server->ssocket, SEND_SHUTDOWN);
++		kernel_sock_shutdown(server->ssocket, SHUT_WR);
+ 		cFYI(1, ("Post shutdown state: 0x%x Flags: 0x%lx",
+ 			server->ssocket->state,
+ 			server->ssocket->flags));
+diff --git a/fs/ocfs2/cluster/tcp.c b/fs/ocfs2/cluster/tcp.c
+index 685c180..d84bd15 100644
+--- a/fs/ocfs2/cluster/tcp.c
++++ b/fs/ocfs2/cluster/tcp.c
+@@ -58,6 +58,7 @@
+ #include <linux/slab.h>
+ #include <linux/idr.h>
+ #include <linux/kref.h>
++#include <linux/net.h>
+ #include <net/tcp.h>
+ 
+ #include <asm/uaccess.h>
+@@ -616,8 +617,7 @@ static void o2net_shutdown_sc(struct work_struct *work)
+ 		del_timer_sync(&sc->sc_idle_timeout);
+ 		o2net_sc_cancel_delayed_work(sc, &sc->sc_keepalive_work);
+ 		sc_put(sc);
+-		sc->sc_sock->ops->shutdown(sc->sc_sock,
+-					   RCV_SHUTDOWN|SEND_SHUTDOWN);
++		kernel_sock_shutdown(sc->sc_sock, SHUT_RDWR);
+ 	}
+ 
+ 	/* not fatal so failed connects before the other guy has our
+diff --git a/include/linux/net.h b/include/linux/net.h
+index dd79cdb..c804d81 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -95,6 +95,12 @@ enum sock_type {
+ 
+ #endif /* ARCH_HAS_SOCKET_TYPES */
+ 
++enum {
++	SHUT_RD		= 0,
++	SHUT_WR		= 1,
++	SHUT_RDWR	= 2,
++};
++
+ /**
+  *  struct socket - general BSD socket
+  *  @state: socket state (%SS_CONNECTED, etc)
+@@ -223,6 +229,7 @@ extern int kernel_setsockopt(struct socket *sock, int level, int optname,
+ extern int kernel_sendpage(struct socket *sock, struct page *page, int offset,
+ 			   size_t size, int flags);
+ extern int kernel_sock_ioctl(struct socket *sock, int cmd, unsigned long arg);
++extern int kernel_sock_shutdown(struct socket *sock, int how);
+ 
+ #ifndef CONFIG_SMP
+ #define SOCKOPS_WRAPPED(name) name
+diff --git a/net/rxrpc/ar-local.c b/net/rxrpc/ar-local.c
+index fe03f71..f3a2bd7 100644
+--- a/net/rxrpc/ar-local.c
++++ b/net/rxrpc/ar-local.c
+@@ -114,7 +114,7 @@ static int rxrpc_create_local(struct rxrpc_local *local)
+ 	return 0;
+ 
+ error:
+-	local->socket->ops->shutdown(local->socket, 2);
++	kernel_sock_shutdown(local->socket, SHUT_RDWR);
+ 	local->socket->sk->sk_user_data = NULL;
+ 	sock_release(local->socket);
+ 	local->socket = NULL;
+@@ -267,7 +267,7 @@ static void rxrpc_destroy_local(struct work_struct *work)
+ 	/* finish cleaning up the local descriptor */
+ 	rxrpc_purge_queue(&local->accept_queue);
+ 	rxrpc_purge_queue(&local->reject_queue);
+-	local->socket->ops->shutdown(local->socket, 2);
++	kernel_sock_shutdown(local->socket, SHUT_RDWR);
+ 	sock_release(local->socket);
+ 
+ 	up_read(&rxrpc_local_sem);
+diff --git a/net/socket.c b/net/socket.c
+index 5d879fd..1e41b15 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -2319,6 +2319,11 @@ int kernel_sock_ioctl(struct socket *sock, int cmd, unsigned long arg)
+ 	return err;
+ }
+ 
++int kernel_sock_shutdown(struct socket *sock, int how)
++{
++	return sock->ops->shutdown(sock, how);
++}
++
+ /* ABI emulation layers need these two */
+ EXPORT_SYMBOL(move_addr_to_kernel);
+ EXPORT_SYMBOL(move_addr_to_user);
+@@ -2345,3 +2350,4 @@ EXPORT_SYMBOL(kernel_getsockopt);
+ EXPORT_SYMBOL(kernel_setsockopt);
+ EXPORT_SYMBOL(kernel_sendpage);
+ EXPORT_SYMBOL(kernel_sock_ioctl);
++EXPORT_SYMBOL(kernel_sock_shutdown);
