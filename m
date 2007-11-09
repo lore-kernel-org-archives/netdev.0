@@ -1,125 +1,61 @@
-From: osprey67 <osprey67@yahoo.com>
-Subject: Re: [PATCH 02/05] ipv6: RFC4214 Support (2)
-Date: Fri, 09 Nov 2007 08:30:47 -0800
-Message-ID: <47348B37.7050808@yahoo.com>
-References: <47337483.3080309@yahoo.com> <20071109.082950.122508269.yoshfuji@linux-ipv6.org>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH] PCI: export pci_restore_msi_state()
+Date: Fri, 9 Nov 2007 10:42:39 -0600
+Message-ID: <20071109164239.GK4239@austin.ibm.com>
+References: <20071107214359.GJ4239@austin.ibm.com> <OFD31717CC.A38DF9AF-ON8725738E.00069FB3-8625738E.00077F2A@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-pci@atrey.karlin.mff.cuni.cz, mcarlson@broadcom.com,
+	mchan@broadcom.com, netdev@vger.kernel.org
+To: Wen Xiong <wenxiong@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp109.plus.mail.re1.yahoo.com ([69.147.102.72]:33172 "HELO
-	smtp109.plus.mail.re1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751348AbXKIQiA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2007 11:38:00 -0500
-In-Reply-To: <20071109.082950.122508269.yoshfuji@linux-ipv6.org>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:44241 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753832AbXKIQnF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2007 11:43:05 -0500
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id lA9Ggurn014738
+	for <netdev@vger.kernel.org>; Fri, 9 Nov 2007 11:42:56 -0500
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id lA9GgoxS043580
+	for <netdev@vger.kernel.org>; Fri, 9 Nov 2007 09:42:53 -0700
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lA9GgmHC026616
+	for <netdev@vger.kernel.org>; Fri, 9 Nov 2007 09:42:50 -0700
+Content-Disposition: inline
+In-Reply-To: <OFD31717CC.A38DF9AF-ON8725738E.00069FB3-8625738E.00077F2A@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
-> In article <47337483.3080309@yahoo.com> (at Thu, 08 Nov 2007 12:41:39=
- -0800), osprey67 <osprey67@yahoo.com> says:
->=20
->> From: Fred L. Templin <osprey67@yahoo.com>
->>
->> This is experimental support for the Intra-Site Automatic
->> Tunnel Addressing Protocol (ISATAP) per RFC4214. It uses
->> the SIT module, and is configured using the unmodified
->> "ip" utility with device names beginning with: "isatap".
->>
->> The following diffs are specific to the Linux 2.6.24-rc2
->> kernel distribution.
->>
->> Signed-off-by: Fred L. Templin <osprey67@yahoo.com>
->=20
-> Hmm...tabs are still mangled, and it's better to have your
-> official address.  Anyway...
+On Thu, Nov 08, 2007 at 07:21:01PM -0600, Wen Xiong wrote:
+> Hi Linas,
+> 
+> I saw you have submitted several patches to support pci-express network 
+> adapters EEH. But looks only this patch fixed something in linux kernel 
+> code.
 
-I have switched over to Thunderbird and POP mail. I submitted
-the patches by cutting and pasting from a text file into the
-mail message. Is there a way to stop it from clobbering tabs?
+And its an old patch, submitted long ago ... I've resubmitted, because
+it seems that its the best/most correct thing to do.
 
->> --- linux-2.6.24-rc2/include/net/addrconf.h.orig        2007-11-08 1=
-2:06:17.000000000 -0800
->> +++ linux-2.6.24-rc2/include/net/addrconf.h     2007-11-08 08:27:24.=
-000000000 -0800
->> @@ -241,6 +241,37 @@ static inline int ipv6_addr_is_ll_all_ro
->>                  addr->s6_addr32[3] =3D=3D htonl(0x00000002));
->>   }
->>
->> +#if defined(CONFIG_IPV6_ISATAP)
->> +static inline int ipv6_isatap_eui64(u8 *eui, __be32 addr)
->> +{
->> +
->> +       /* RFC3330 Special-Use IPv4 Addresses */
->> +       eui[0] =3D (((addr & htonl(0xFF000000)) =3D=3D htonl(0x00000=
-000)) ||
->> +                 ((addr & htonl(0xFF000000)) =3D=3D htonl(0x0A00000=
-0)) ||
->> +                 ((addr & htonl(0xFF000000)) =3D=3D htonl(0x0D00000=
-0)) ||
->> +                 ((addr & htonl(0xFF000000)) =3D=3D htonl(0x1800000=
-0)) ||
->> +                 ((addr & htonl(0xFF000000)) =3D=3D htonl(0x7F00000=
-0)) ||
->> +                 ((addr & htonl(0xFFFF0000)) =3D=3D htonl(0xA9FE000=
-0)) ||
->> +                 ((addr & htonl(0xFFF00000)) =3D=3D htonl(0xAC10000=
-0)) ||
->> +                 ((addr & htonl(0xFFFFFF00)) =3D=3D htonl(0xC000020=
-0)) ||
->> +                 ((addr & htonl(0xFFFFFF00)) =3D=3D htonl(0xC058630=
-0)) ||
->> +                 ((addr & htonl(0xFFFF0000)) =3D=3D htonl(0xC0A8000=
-0)) ||
->> +                 ((addr & htonl(0xFFFE0000)) =3D=3D htonl(0xC612000=
-0)) ||
->> +                 ((addr & htonl(0xF0000000)) =3D=3D htonl(0xE000000=
-0)) ||
->> +                 ((addr & htonl(0xF0000000)) =3D=3D htonl(0xF000000=
-0))) ?
->> +                       0x00 : 0x02;
->> +
->> +       eui[1] =3D 0; eui[2] =3D 0x5E; eui[3] =3D 0xFE;
->> +       memcpy (eui+4, &addr, 4);
->> +       return 0;
->> +}
->> +
->=20
-> Please put this function in net/ipv6/addrconf.c as addrconf_ifid_isat=
-ap().
->=20
-> Please use MULTICAST, LOCALNET etc. (and probaly introduce new macro
-> for others).  IMHO, it's better to add a comment for each entry, e.g.=
-,
-> 	MULTICAST(addr) ||		/* 224.0.0.0/4 */
-> instead of
-> 	((addr & htonl(0xF0000000)) =3D=3D htonl(0xE0000000)) ||
+> Do you mean I can test EEH callback functions in device driver after I 
+> apply  this patch in the kernel?
 
-OK - will do.
+Yes, please.  Note, however, I was never able to make the pci-e 
+version of the e1000 work. It comes up, generates interrupts, and
+registeres are readable and writeable. But it behvaes as if the PHY 
+is turned off -- no network traffic goes thorugh. (I tried turning
+PHY on explicitly; that didn't help). So there is still something 
+wrong somewhere, probably in the e1000 deice driver. I'm guessing
+the pci-e to pci-x bridge chip on that card is not quite resetting
+the card completely.
 
->> +static inline int ipv6_addr_is_isatap(const struct in6_addr *addr)
->> +{
->> +       return ((addr->s6_addr32[2] | htonl(0x02000000)) =3D=3D hton=
-l(0x02005EFE));
->> +}
->> +#endif
->> +
->=20
-> ipv6_addr_isatap(), maybe (to align with ipv6_addr_any() etc.).
+> Do you do "pci_save_msi_state" somewhere in the kernel? Or you suggest to 
+> do "pci_save_msi_state" and "pci_restore_msi_state" in each device driver?
 
-Well, if you look in addrconf.h immediately above this the convention
-seems to be to call it as "*_is_*" if it is testing an address and
-to omit the "*_is_*" if it is setting an address. Since this is an
-address test, maybe more consistent to keep the "*_is_*"?
+There is no "save state", the msi state can't be saved. The MSI regs
+are write-only, and they are controlled by firmware. The restore_state
+function is the only one you need.
 
-Thanks - Fred
-fred.l.templin@boeing.com
-
->=20
-> --yoshfuji
->=20
-
+--linas
