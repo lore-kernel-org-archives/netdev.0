@@ -1,61 +1,85 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH] PCI: export pci_restore_msi_state()
-Date: Fri, 9 Nov 2007 10:42:39 -0600
-Message-ID: <20071109164239.GK4239@austin.ibm.com>
-References: <20071107214359.GJ4239@austin.ibm.com> <OFD31717CC.A38DF9AF-ON8725738E.00069FB3-8625738E.00077F2A@us.ibm.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH 08/13] SCTP: Use hashed lookup when looking for an association.
+Date: Fri, 09 Nov 2007 11:48:12 -0500
+Message-ID: <47348F4C.8030504@hp.com>
+References: <11944575911538-git-send-email-vladislav.yasevich@hp.com> <11944575913296-git-send-email-vladislav.yasevich@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-pci@atrey.karlin.mff.cuni.cz, mcarlson@broadcom.com,
-	mchan@broadcom.com, netdev@vger.kernel.org
-To: Wen Xiong <wenxiong@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:44241 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753832AbXKIQnF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2007 11:43:05 -0500
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id lA9Ggurn014738
-	for <netdev@vger.kernel.org>; Fri, 9 Nov 2007 11:42:56 -0500
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id lA9GgoxS043580
-	for <netdev@vger.kernel.org>; Fri, 9 Nov 2007 09:42:53 -0700
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lA9GgmHC026616
-	for <netdev@vger.kernel.org>; Fri, 9 Nov 2007 09:42:50 -0700
-Content-Disposition: inline
-In-Reply-To: <OFD31717CC.A38DF9AF-ON8725738E.00069FB3-8625738E.00077F2A@us.ibm.com>
+Received: from palrel10.hp.com ([156.153.255.245]:60694 "EHLO palrel10.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754251AbXKIQsO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Nov 2007 11:48:14 -0500
+In-Reply-To: <11944575913296-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 08, 2007 at 07:21:01PM -0600, Wen Xiong wrote:
-> Hi Linas,
+Vlad Yasevich wrote:
+> A SCTP endpoint may have a lot of associations on them and walking
+> the list is fairly inefficient.  Instead, use a hashed lookup,
+> and filter out the hash list based on the endopoint we already have.
+
+This one is missing an unlock.  Will send an update shortly.
+
+-vlad
+
 > 
-> I saw you have submitted several patches to support pci-express network 
-> adapters EEH. But looks only this patch fixed something in linux kernel 
-> code.
+> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> ---
+>  net/sctp/endpointola.c |   33 +++++++++++++++++++++------------
+>  1 files changed, 21 insertions(+), 12 deletions(-)
+> 
+> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+> index 2d2d81e..f38fa0f 100644
+> --- a/net/sctp/endpointola.c
+> +++ b/net/sctp/endpointola.c
+> @@ -328,24 +328,33 @@ static struct sctp_association *__sctp_endpoint_lookup_assoc(
+>  	const union sctp_addr *paddr,
+>  	struct sctp_transport **transport)
+>  {
+> +	struct sctp_association *asoc = NULL;
+> +	struct sctp_transport *t = NULL;
+> +	struct sctp_hashbucket *head;
+> +	struct sctp_ep_common *epb;
+> +	int hash;
+>  	int rport;
+> -	struct sctp_association *asoc;
+> -	struct list_head *pos;
+>  
+> +	*transport = NULL;
+>  	rport = ntohs(paddr->v4.sin_port);
+>  
+> -	list_for_each(pos, &ep->asocs) {
+> -		asoc = list_entry(pos, struct sctp_association, asocs);
+> -		if (rport == asoc->peer.port) {
+> -			*transport = sctp_assoc_lookup_paddr(asoc, paddr);
+> -
+> -			if (*transport)
+> -				return asoc;
+> +	hash = sctp_assoc_hashfn(ep->base.bind_addr.port, rport);
+> +	head = &sctp_assoc_hashtable[hash];
+> +	read_lock(&head->lock);
+> +	for (epb = head->chain; epb; epb = epb->next) {
+> +		asoc = sctp_assoc(epb);
+> +		if (asoc->ep != ep || rport != asoc->peer.port)
+> +			goto next;
+> +
+> +		t = sctp_assoc_lookup_paddr(asoc, paddr);
+> +		if (t) {
+> +			*transport = t;
+> +			break;
+>  		}
+> +next:
+> +		asoc = NULL;
+>  	}
+> -
+> -	*transport = NULL;
+> -	return NULL;
+> +	return asoc;
+>  }
+>  
+>  /* Lookup association on an endpoint based on a peer address.  BH-safe.  */
 
-And its an old patch, submitted long ago ... I've resubmitted, because
-it seems that its the best/most correct thing to do.
-
-> Do you mean I can test EEH callback functions in device driver after I 
-> apply  this patch in the kernel?
-
-Yes, please.  Note, however, I was never able to make the pci-e 
-version of the e1000 work. It comes up, generates interrupts, and
-registeres are readable and writeable. But it behvaes as if the PHY 
-is turned off -- no network traffic goes thorugh. (I tried turning
-PHY on explicitly; that didn't help). So there is still something 
-wrong somewhere, probably in the e1000 deice driver. I'm guessing
-the pci-e to pci-x bridge chip on that card is not quite resetting
-the card completely.
-
-> Do you do "pci_save_msi_state" somewhere in the kernel? Or you suggest to 
-> do "pci_save_msi_state" and "pci_restore_msi_state" in each device driver?
-
-There is no "save state", the msi state can't be saved. The MSI regs
-are write-only, and they are controlled by firmware. The restore_state
-function is the only one you need.
-
---linas
