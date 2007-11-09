@@ -1,76 +1,45 @@
 From: Ben Dooks <ben@fluff.org>
 Subject: Re: [RFC] dependencies for platform drivers (was Re: ax88796: add
 	superh to kconfig dependencies)
-Date: Fri, 9 Nov 2007 12:06:48 +0000
-Message-ID: <20071109120648.GA31353@fluff.org.uk>
-References: <20071108073105.3996.70418.sendpatchset@clockwork.opensource.se> <20071108081854.GN8181@ftp.linux.org.uk>
+Date: Fri, 9 Nov 2007 12:08:44 +0000
+Message-ID: <20071109120844.GB31353@fluff.org.uk>
+References: <20071108073105.3996.70418.sendpatchset@clockwork.opensource.se> <20071108081854.GN8181@ftp.linux.org.uk> <20071109092652.GA13350@linux-mips.org> <20071109094023.GA7022@linux-sh.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-	lethal@linux-sh.org, ben-linux@fluff.org,
-	akpm@linux-foundation.org, jeff@garzik.org,
-	linux-arch@vger.kernel.org
-To: Al Viro <viro@ftp.linux.org.uk>
+To: Paul Mundt <lethal@linux-sh.org>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Al Viro <viro@ftp.linux.org.uk>,
+	Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+	ben-linux@fluff.or
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:65513 "EHLO
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:65512 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758360AbXKIMuE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2007 07:50:04 -0500
+	with ESMTP id S1754083AbXKIMuC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2007 07:50:02 -0500
 Content-Disposition: inline
-In-Reply-To: <20071108081854.GN8181@ftp.linux.org.uk>
+In-Reply-To: <20071109094023.GA7022@linux-sh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 08, 2007 at 08:18:54AM +0000, Al Viro wrote:
-> On Thu, Nov 08, 2007 at 04:31:05PM +0900, Magnus Damm wrote:
-> >  config AX88796
-> >  	tristate "ASIX AX88796 NE2000 clone support"
-> > -	depends on ARM || MIPS
-> > +	depends on ARM || MIPS || SUPERH
-> 
-> You know, that really sucks more and more.  How about doing the following:
-> 	a) making it depend on PLAT_HAS_AX88796
-> 	b) adding selects for all subarchitectures that have the corresponding
-> platform device
-> and setting that as a uniform policy for platform drivers?  For things like
-> SM501 we would do
-> config MFD_SM501
-> 	depends on PCI || PLAT_HAS_SM501
-> etc.
+On Fri, Nov 09, 2007 at 06:40:23PM +0900, Paul Mundt wrote:
+> On Fri, Nov 09, 2007 at 09:26:52AM +0000, Ralf Baechle wrote:
+> > If writesb() is not an official API then maybe the answer should have been
+> > to either add that API to other architectures or fix the driver.
+> > 
+> > I guess this incident means I need to go through all Kconfig* files to
+> > see what bogus architecture dependencies on MIPS or !MIPS exist ...
+> > 
+> While writesb() isn't an official API, the iowriteX_rep() interfaces
+> theoretically are. Tidying up the driver for iomap is probably a better
+> option.
 
-The PLAT_HAS_xxx method is nice, and I would like it applied to other places
-in the kernel (see libata arugment below), and would have acked
-this patch if it hadn't already been applied by Jeff.
+If anyone else isn't interested in doing this, and there are
+no objections to having it done, then I would be willing to
+look at moving to the iowrite interfaces.
 
-The only reservation is that this doesn't show up the posibilty
-of having the driver in the menuconfig, but anyone adding new
-board support (should) be bright enough to look through the
-Kconfig scripts before deciding they need to write an entirely
-new driver.
-
-I would note you may want to do PLAT_HAS_NET_AX88796 as there is
-entirely a posibility of confusing this with the simple parallel
-port driver which a board may not have support for.
-
-> Seriously, folks, we are getting shitloads of platform drivers with no
-> dependencies whatsoever, needed on a handful of targets and occasionally
-> failing to build on unrelated architectures.  Moreover, having a list
-> of architectures in dependencies for each of those suckers is a PITA
-> from the conflict POV.  Not to mention platform drivers that fall into
-> the mainline kernel with not a single platform device for them, etc.
-
-There is a general problem with chicken-vs-egg here, how do you submit
-support for a machine's platform device without the platform device
-being there (and vice-versa) with seperate maintainers for network
-and machine support?
-
-One of my colleagues has passed along comments you made about a pair
-of the simtec drivers (simtec-i2c and simtec-ide) which have been
-added, but have no current users as patches have been stalled either
-in submission process, or awaiting for an resolution. In the case
-of simtec-ide, I would like to replace it with platform-ata, but
-the libata maintainers seem wholy un-interested in
-PLAT_HAS_PLATFORM_ATA or similar.
+The only other way would be to add an 8/16bit configuration
+to drop the use of writesb, as I belive most people connect
+these devices in 16bit mode.
 
 -- 
 Ben (ben@fluff.org, http://www.fluff.org/)
