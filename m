@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 2/13] tg3: 5784 / 5764 GPHY power down fix
-Date: Fri, 09 Nov 2007 16:38:40 -0800
-Message-ID: <1194655120.5745.264.camel@teletran1>
+Subject: [PATCH 1/13] tg3: Fix 5761 PXEboot crash
+Date: Fri, 09 Nov 2007 16:38:37 -0800
+Message-ID: <1194655117.5745.263.camel@teletran1>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,108 +9,96 @@ Cc: netdev@vger.kernel.org, andy@greyhouse.net,
 	"Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2639 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3312 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753227AbXKJAjL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Nov 2007 19:39:11 -0500
+	id S1752540AbXKJAjK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Nov 2007 19:39:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-5784 and 5764 devices fail to link / pass traffic after one load /
-unload cycle.  This happens because of a hardware bug in the new CPMU.
-During normal operation, the MAC depends on the PHY clock being
-available.  When the PHY is powered down, the clock the MAC depends on
-is disabled.  The fix is to switch the MAC clock to an alternate source
-before powering down the PHY, and to restore the MAC clock to the PHY
-source upon device resume.
+When 5761 devices boot the machine using PXEboot, PXE leaves the device
+active when it terminates.  The tg3 driver has code to detect this
+condition and resets the device during initialization.  On 5761 devices,
+device resets involve sending a driver state update message to the APE
+on the 5761.  However, during this initialization stage, communications
+to the APE registers have not yet been set up.  The driver then
+dereferences a NULL pointer and crashes the machine.  The fix is to move
+the APE register access setup earlier in the initialization code to
+cover this condition.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index ddeaa0c..82b1cf0 100644
+index cad5199..ddeaa0c 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -1106,6 +1106,19 @@ static int tg3_phy_reset(struct tg3 *tp)
- 	if (err)
- 		return err;
- 
-+	if (tp->pci_chip_rev_id == CHIPREV_ID_5784_A0 ||
-+	    tp->pci_chip_rev_id == CHIPREV_ID_5761_A0) {
-+		u32 val;
-+
-+		val = tr32(TG3_CPMU_LSPD_1000MB_CLK);
-+		if ((val & CPMU_LSPD_1000MB_MACCLK_MASK) ==
-+		    CPMU_LSPD_1000MB_MACCLK_12_5) {
-+			val &= ~CPMU_LSPD_1000MB_MACCLK_MASK;
-+			udelay(40);
-+			tw32_f(TG3_CPMU_LSPD_1000MB_CLK, val);
-+		}
-+	}
-+
- out:
- 	if (tp->tg3_flags2 & TG3_FLG2_PHY_ADC_BUG) {
- 		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x0c00);
-@@ -1297,6 +1310,8 @@ static void tg3_nvram_unlock(struct tg3 *);
- 
- static void tg3_power_down_phy(struct tg3 *tp)
- {
-+	u32 val;
-+
- 	if (tp->tg3_flags2 & TG3_FLG2_PHY_SERDES) {
- 		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704) {
- 			u32 sg_dig_ctrl = tr32(SG_DIG_CTRL);
-@@ -1311,8 +1326,6 @@ static void tg3_power_down_phy(struct tg3 *tp)
+@@ -12464,6 +12464,28 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 		goto err_out_iounmap;
  	}
  
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906) {
--		u32 val;
--
- 		tg3_bmcr_reset(tp);
- 		val = tr32(GRC_MISC_CFG);
- 		tw32_f(GRC_MISC_CFG, val | GRC_MISC_CFG_EPHY_IDDQ);
-@@ -1332,6 +1345,15 @@ static void tg3_power_down_phy(struct tg3 *tp)
- 	    (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5780 &&
- 	     (tp->tg3_flags2 & TG3_FLG2_MII_SERDES)))
- 		return;
++	if (tp->tg3_flags3 & TG3_FLG3_ENABLE_APE) {
++		if (!(pci_resource_flags(pdev, 2) & IORESOURCE_MEM)) {
++			printk(KERN_ERR PFX "Cannot find proper PCI device "
++			       "base address for APE, aborting.\n");
++			err = -ENODEV;
++			goto err_out_iounmap;
++		}
 +
-+	if (tp->pci_chip_rev_id == CHIPREV_ID_5784_A0 ||
-+	    tp->pci_chip_rev_id == CHIPREV_ID_5761_A0) {
-+		val = tr32(TG3_CPMU_LSPD_1000MB_CLK);
-+		val &= ~CPMU_LSPD_1000MB_MACCLK_MASK;
-+		val |= CPMU_LSPD_1000MB_MACCLK_12_5;
-+		tw32_f(TG3_CPMU_LSPD_1000MB_CLK, val);
++		tg3reg_base = pci_resource_start(pdev, 2);
++		tg3reg_len = pci_resource_len(pdev, 2);
++
++		tp->aperegs = ioremap_nocache(tg3reg_base, tg3reg_len);
++		if (tp->aperegs == 0UL) {
++			printk(KERN_ERR PFX "Cannot map APE registers, "
++			       "aborting.\n");
++			err = -ENOMEM;
++			goto err_out_iounmap;
++		}
++
++		tg3_ape_lock_init(tp);
 +	}
 +
- 	tg3_writephy(tp, MII_BMCR, BMCR_PDOWN);
- }
+ 	/*
+ 	 * Reset chip in case UNDI or EFI driver did not shutdown
+ 	 * DMA self test will enable WDMAC and we'll see (spurious)
+@@ -12478,7 +12500,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 	err = tg3_test_dma(tp);
+ 	if (err) {
+ 		printk(KERN_ERR PFX "DMA engine test failed, aborting.\n");
+-		goto err_out_iounmap;
++		goto err_out_apeunmap;
+ 	}
  
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 1d5b2a3..4659697 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -109,6 +109,7 @@
- #define  CHIPREV_ID_5714_A2		 0x9002
- #define  CHIPREV_ID_5906_A1		 0xc001
- #define  CHIPREV_ID_5784_A0		 0x5784000
-+#define  CHIPREV_ID_5761_A0		 0x5761000
- #define  GET_ASIC_REV(CHIP_REV_ID)	((CHIP_REV_ID) >> 12)
- #define   ASIC_REV_5700			 0x07
- #define   ASIC_REV_5701			 0x00
-@@ -856,7 +857,13 @@
- #define  CPMU_CTRL_LINK_IDLE_MODE	 0x00000200
- #define  CPMU_CTRL_LINK_AWARE_MODE	 0x00000400
- #define  CPMU_CTRL_LINK_SPEED_MODE	 0x00004000
--/* 0x3604 --> 0x365c unused */
-+/* 0x3604 --> 0x360c unused */
-+
-+#define TG3_CPMU_LSPD_1000MB_CLK	0x0000360c
-+#define  CPMU_LSPD_1000MB_MACCLK_62_5	 0x00000000
-+#define  CPMU_LSPD_1000MB_MACCLK_12_5	 0x00110000
-+#define  CPMU_LSPD_1000MB_MACCLK_MASK	 0x001f0000
-+/* 0x3610 --> 0x365c unused */
+ 	/* Tigon3 can do ipv4 only... and some chips have buggy
+@@ -12501,28 +12523,6 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
  
- #define TG3_CPMU_MUTEX_REQ		0x0000365c
- #define  CPMU_MUTEX_REQ_DRIVER		 0x00001000
+ 	tg3_init_coal(tp);
+ 
+-	if (tp->tg3_flags3 & TG3_FLG3_ENABLE_APE) {
+-		if (!(pci_resource_flags(pdev, 2) & IORESOURCE_MEM)) {
+-			printk(KERN_ERR PFX "Cannot find proper PCI device "
+-			       "base address for APE, aborting.\n");
+-			err = -ENODEV;
+-			goto err_out_iounmap;
+-		}
+-
+-		tg3reg_base = pci_resource_start(pdev, 2);
+-		tg3reg_len = pci_resource_len(pdev, 2);
+-
+-		tp->aperegs = ioremap_nocache(tg3reg_base, tg3reg_len);
+-		if (tp->aperegs == 0UL) {
+-			printk(KERN_ERR PFX "Cannot map APE registers, "
+-			       "aborting.\n");
+-			err = -ENOMEM;
+-			goto err_out_iounmap;
+-		}
+-
+-		tg3_ape_lock_init(tp);
+-	}
+-
+ 	pci_set_drvdata(pdev, dev);
+ 
+ 	err = register_netdev(dev);
 
 
