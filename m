@@ -1,87 +1,60 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: SIS190.c
-Date: Sat, 10 Nov 2007 00:45:07 +0100
-Message-ID: <20071109234507.GA4196@electric-eye.fr.zoreil.com>
-References: <327198.23103.qm@web57010.mail.re3.yahoo.com>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH] Fix infinite loop on dev_mc_unsync()
+Date: Fri, 09 Nov 2007 16:08:40 -0800
+Message-ID: <1194653320.19522.28.camel@localhost>
+References: <20071109151135.GA12982@pogo> <20071109183733.GA22714@pogo>
+	 <1194635236.19522.3.camel@localhost> <20071109192033.GB22714@pogo>
+	 <4734E962.3010603@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, drnlmuller+bugs@gmail.com,
-	netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: j gleacher <jgleacher@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:42149 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1763887AbXKIXp2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2007 18:45:28 -0500
-Content-Disposition: inline
-In-Reply-To: <327198.23103.qm@web57010.mail.re3.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4734E962.3010603-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-j gleacher <jgleacher@yahoo.com> :
-[sorry for the delay, I was busy]
-> I'm not sure how to properly send you this information about subject,
-> but with a new Acer Desktop I needed to add 0x0968 to the below to
-> get the eth0 recognized.
+On Sat, 2007-11-10 at 00:12 +0100, Patrick McHardy wrote:
+> This may cause a use-after-free since __dev_addr_delete frees the address
+> when all references are gone.
 
-Ok. Can you check the patch below against 2.6.24-rc2 ?
+How about a comment then?  Perhaps:
 
-diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-index 7200883..51bbb60 100644
---- a/drivers/net/sis190.c
-+++ b/drivers/net/sis190.c
-@@ -1549,28 +1549,31 @@ static int __devinit sis190_get_mac_addr_from_eeprom(struct pci_dev *pdev,
- }
+diff --git a/net/core/dev_mcast.c b/net/core/dev_mcast.c
+index ae35405..63576aa 100644
+--- a/net/core/dev_mcast.c
++++ b/net/core/dev_mcast.c
+@@ -165,16 +165,23 @@ void dev_mc_unsync(struct net_device *to, struct net_device *from)
+ 	netif_tx_lock_bh(from);
+ 	netif_tx_lock_bh(to);
  
- /**
-- *	sis190_get_mac_addr_from_apc - Get MAC address for SiS965 model
-+ *	sis190_get_mac_addr_from_apc - Get MAC address for SiS96x model
-  *	@pdev: PCI device
-  *	@dev:  network device to get address for
-  *
-- *	SiS965 model, use APC CMOS RAM to store MAC address.
-+ *	SiS96x model, use APC CMOS RAM to store MAC address.
-  *	APC CMOS RAM is accessed through ISA bridge.
-  *	MAC address is read into @net_dev->dev_addr.
-  */
- static int __devinit sis190_get_mac_addr_from_apc(struct pci_dev *pdev,
- 						  struct net_device *dev)
- {
-+	static const u16 __devinitdata ids[] = { 0x0965, 0x0966, 0x0968 };
- 	struct sis190_private *tp = netdev_priv(dev);
- 	struct pci_dev *isa_bridge;
- 	u8 reg, tmp8;
--	int i;
-+	unsigned int i;
- 
- 	net_probe(tp, KERN_INFO "%s: Read MAC address from APC.\n",
- 		  pci_name(pdev));
- 
--	isa_bridge = pci_get_device(PCI_VENDOR_ID_SI, 0x0965, NULL);
--	if (!isa_bridge)
--		isa_bridge = pci_get_device(PCI_VENDOR_ID_SI, 0x0966, NULL);
-+	for (i = 0; i < ARRAY_SIZE(ids); i++) {
-+		isa_bridge = pci_get_device(PCI_VENDOR_ID_SI, ids[i], NULL);
-+		if (isa_bridge)
-+			break;
-+	}
- 
- 	if (!isa_bridge) {
- 		net_probe(tp, KERN_INFO "%s: Can not find ISA bridge.\n",
-
-> While this enables the interface, the performance is horrible as my
-> wlan0 if much faster and eth0 frequently hangs.  I'm learning about
-> drivers, so I could help if there is a need to troubleshoot this type
-> of issue. 
-
-"hangs" == no network or no computer ?
-
-Please send:
-- a complete dmesg (from boot to poor behavior)
-- the output of lspci -vvvxxxx
-- the output of mii-diag -v ethX
-- the content of /proc/interrupts
-
--- 
-Ueimor
++	/*
++	  This while loop can't be written as
++		for (da = from->mc_list; da; da = da->next)
++	  da = from->mc_list and __dev_addr_delete can kfree(from->mc_list)
++	  which could cause a use-after-free of da->next
++	*/
++
+ 	da = from->mc_list;
+ 	while (da != NULL) {
+ 		next = da->next;
+-		if (!da->da_synced)
+-			continue;
+-		__dev_addr_delete(&to->mc_list, &to->mc_count,
+-				  da->da_addr, da->da_addrlen, 0);
+-		da->da_synced = 0;
+-		__dev_addr_delete(&from->mc_list, &from->mc_count,
+-				  da->da_addr, da->da_addrlen, 0);
++		if (da->da_synced) {
++			__dev_addr_delete(&to->mc_list, &to->mc_count,
++					  da->da_addr, da->da_addrlen, 0);
++			da->da_synced = 0;
++			__dev_addr_delete(&from->mc_list, &from->mc_count,
++					  da->da_addr, da->da_addrlen, 0);
++		}
+ 		da = next;
+ 	}
+ 	__dev_set_rx_mode(to);
