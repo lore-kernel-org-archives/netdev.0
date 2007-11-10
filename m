@@ -1,47 +1,63 @@
-From: Guennadi Liakhovetski <lg@denx.de>
-Subject: IPSec in tunnel mode on ARM not working
-Date: Sat, 10 Nov 2007 12:57:13 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0711101243590.3320@axis700.grange>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: UDP-Lite and /proc/net/snmp
+Date: Sat, 10 Nov 2007 21:14:29 +0800
+Message-ID: <20071110131428.GA6447@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:53822 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751604AbXKJL5J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Nov 2007 06:57:09 -0500
-Received: from lyakh (helo=localhost)
-	by axis700.grange with local-esmtp (Exim 4.63)
-	(envelope-from <g.liakhovetski@gmx.de>)
-	id 1Iqoxd-00015j-9A
-	for netdev@vger.kernel.org; Sat, 10 Nov 2007 12:57:13 +0100
+Received: from rhun.apana.org.au ([64.62.148.172]:2397 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750791AbXKJNOk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Nov 2007 08:14:40 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi
+Hi Dave:
 
-Got two setups: with an ARM-based router and with a PC, connecting to 
-a remote site using IPSec in tunnel mode over ppp. Setup is identical, 
-PC works, ARM router doesn't. Kernel 2.6.23.1.
+It looks like the addition of UDP-Lite has upset netstat:
 
-The setup looks like
+$ netstat -s
+Ip:
+    1257344 total packets received
+    6 with invalid addresses
+    0 forwarded
+    0 incoming packets discarded
+    1257338 incoming packets delivered
+    1257151 requests sent out
+Icmp:
+    0 ICMP messages received
+    0 input ICMP message failed.
+    ICMP input histogram:
+    0 ICMP messages sent
+    0 ICMP messages failed
+    ICMP output histogram:
+Tcp:
+    2 active connections openings
+    3 passive connection openings
+    0 failed connection attempts
+    0 connection resets received
+    1 connections established
+    1257288 segments received
+    1257134 segments send out
+    0 segments retransmited
+    0 bad segments received.
+    0 resets sent
+Udp:
+    30 packets received
+    0 packets to unknown port received.
+    0 packet receive errors
+    17 packets sent
+UdpLite:
+error parsing /proc/net/snmp: Success
+$
 
-PCa --- routerA ==----== routerB --- PCb
+Should we remove it again or let it stay this time?
 
-where routerA is our problematic router. We issue ping from PCa to PCb, we 
-see ICMP packet coming to PCb, being answered, coming back to routerA, and 
-there it doesn't get through to PCa. We see it with iptables LOG coming 
-into the INPUT chain, and that's about it.
-
-Does anyone haveexperiences with IPSec in tunnel mode on ARM? Or does 
-anyone have debugging ideas? Is there a description somewhere how an 
-incoming packet traverses the networking stack in such a setup?
-
-Thanks
-Guennadi
----
-Guennadi Liakhovetski, Ph.D.
-
-DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
-HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
-Phone: +49-8142-66989-0 Fax: +49-8142-66989-80  Email: office@denx.de
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
