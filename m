@@ -1,35 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: UDP-Lite and /proc/net/snmp
-Date: Sat, 10 Nov 2007 23:43:31 +0800
-Message-ID: <20071110154331.GA7331@gondor.apana.org.au>
-References: <20071110131428.GA6447@gondor.apana.org.au> <20071110.223243.114494952.yoshfuji@linux-ipv6.org> <20071110143325.GA6888@gondor.apana.org.au> <20071110.234854.10674315.yoshfuji@linux-ipv6.org> <20071110145536.GA7024@gondor.apana.org.au> <4735C8E9.4030401@cosmosbay.com> <4735CB59.2050708@cosmosbay.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 2/2]: e1000: avoid lockup durig error
+	recovery
+Date: Sat, 10 Nov 2007 08:55:19 -0800
+Message-ID: <20071110085519.0b430069@shemminger-laptop>
+References: <20071107211935.GH4239@austin.ibm.com> <47323FFE.2060008@intel.com>
+	<20071107232119.GQ4239@austin.ibm.com>
+	<200711091802.36365.netdev@axxeo.de>
+	<20071109224005.GQ4239@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
-	<yoshfuji@linux-ipv6.org>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3243 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753760AbXKJPn4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Nov 2007 10:43:56 -0500
-Content-Disposition: inline
-In-Reply-To: <4735CB59.2050708@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Jeff Garzik <jeff@garzik.org>, e1000-devel@lists.sourceforge.net,
+	NetDev <netdev@vger.kernel.org>,
+	"Brandeburg,  Jesse" <jesse.brandeburg@intel.com>,
+	Ingo Oeser <netdev@axxeo.de>, john.ronciak@intel.com,
+	jeffrey.t.kirsher@intel.com, wenxiong@us.ibm.com
+To: linas@austin.ibm.com (Linas Vepstas)
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20071109224005.GQ4239@austin.ibm.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 10, 2007 at 04:16:41PM +0100, Eric Dumazet wrote:
->
-> It fails to parse /proc/net/netstat , because TcpExt line is bigger than 
-> 1024 chars.
+On Fri, 9 Nov 2007 16:40:05 -0600
+linas@austin.ibm.com (Linas Vepstas) wrote:
 
-Good catch.  Perhaps it's time someone rewrote this in netlink
-or add this to ss.
+> On Fri, Nov 09, 2007 at 06:02:34PM +0100, Ingo Oeser wrote:
+> > Linas Vepstas schrieb:
+> > > + *	napi_enabled_p - return non-zero if napi enabled
+> > > + * 
+> > > + * Mnemonic: _p stands for "predicate", returning a yes/no
+> > > + * answer to the question.
+> > 
+> > Call it "is_napi_enabled()" an nobody will ask :-)
+> 
+> Heh. The suffix _p is standard coding style for lisp/scheme
+> and first-order logic interpreters.  This was my lame attempt
+> to introduce it to the kernel. I guess that lame duck won't fly.
+> 
+> --linas
+> 
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+NO.  it reeks of hungarian notation.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >> http://get.splunk.com/
