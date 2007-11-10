@@ -1,44 +1,39 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 05/05] ipv6: RFC4214 Support (3)
-Date: Sat, 10 Nov 2007 10:44:17 +0900 (JST)
-Message-ID: <20071110.104417.24374383.yoshfuji@linux-ipv6.org>
-References: <473371B3.5030908@yahoo.com>
-	<4734FCEF.3080301@yahoo.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [RFC] dependencies for platform drivers (was Re: ax88796: add
+ superh to kconfig dependencies)
+Date: Fri, 09 Nov 2007 22:12:12 -0500
+Message-ID: <4735218C.2000202@garzik.org>
+References: <20071108073105.3996.70418.sendpatchset@clockwork.opensource.se> <20071108081854.GN8181@ftp.linux.org.uk> <20071109120648.GA31353@fluff.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: osprey67@yahoo.com
+Cc: Al Viro <viro@ftp.linux.org.uk>,
+	Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+	lethal@linux-sh.org, ben-linux@fluff.org,
+	akpm@linux-foundation.org, linux-arch@vger.kernel.org
+To: Ben Dooks <ben@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:39790 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755369AbXKJBoL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2007 20:44:11 -0500
-In-Reply-To: <4734FCEF.3080301@yahoo.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:38373 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750944AbXKJDMV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Nov 2007 22:12:21 -0500
+In-Reply-To: <20071109120648.GA31353@fluff.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <4734FCEF.3080301@yahoo.com> (at Fri, 09 Nov 2007 16:35:59 -0800), osprey67 <osprey67@yahoo.com> says:
+Ben Dooks wrote:
+> in submission process, or awaiting for an resolution. In the case
+> of simtec-ide, I would like to replace it with platform-ata, but
+> the libata maintainers seem wholy un-interested in
+> PLAT_HAS_PLATFORM_ATA or similar.
 
-> --- linux-2.6.24-rc2/include/linux/if_tunnel.h.orig	2007-11-09 09:06:16.000000000 -0800
-> +++ linux-2.6.24-rc2/include/linux/if_tunnel.h	2007-11-09 15:49:54.000000000 -0800
-> @@ -25,6 +25,8 @@ struct ip_tunnel_parm
->  	__be16			o_flags;
->  	__be32			i_key;
->  	__be32			o_key;
-> +	__be32			router;
-> +	__be32			lifetime;
->  	struct iphdr		iph;
->  };
->  
 
-No, you cannot simply change this.
-If you change ioctl structure, you need to change
-constants for SIOC{GET,ADD,CHG,DEL}TUNNEL.
-Rename ole ones to OSIOxxx and assign new values.
+I've either missed or forgotten your patch/proposal, want to repost to 
+linux-ide?
 
-If possible, new iproute2 should work with old kernels, and
-old iproute2 should work with new kernels (without new features).
+I want to spread libata to the far corner of the globe, and am quite 
+interested in supporting all architectures.
 
---yoshfuji
+	Jeff
+
+
