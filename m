@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 6/13] tg3: CPMU adjustments for loopback tests
-Date: Fri, 09 Nov 2007 16:38:52 -0800
-Message-ID: <1194655132.5745.268.camel@teletran1>
+Subject: [PATCH 10/13] tg3: Increase the PCI MRRS
+Date: Fri, 09 Nov 2007 16:39:01 -0800
+Message-ID: <1194655141.5745.272.camel@teletran1>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,56 +9,51 @@ Cc: netdev@vger.kernel.org, andy@greyhouse.net,
 	"Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3333 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2629 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752345AbXKJAjK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Nov 2007 19:39:10 -0500
+	id S1752829AbXKJAjL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Nov 2007 19:39:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the LINK_SPEED mode to the list of CPMU modes that can
-cause the loopback tests to fail.  These bugs are planned to be fixed in
-future revisions of the chip, so the patch qualifies the fixes as such.
+Previous devices hardcoded the PCI Maximum Read Request Size to 4K.  To
+better comply with the PCI spec, the hardware now defaults the MRRS to
+512 bytes.  This will yield poor driver performance if left untouched.
+This patch increases the MRRS to 4K on driver initialization.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index ef849b1..25e57d8 100644
+index ecd64a2..72db78b 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -9354,7 +9354,8 @@ static int tg3_test_loopback(struct tg3 *tp)
- 	if (err)
- 		return TG3_LOOPBACK_FAILED;
+@@ -5098,12 +5098,15 @@ static void tg3_restore_pci_state(struct tg3 *tp)
  
--	if (tp->tg3_flags & TG3_FLAG_CPMU_PRESENT) {
-+	if (tp->pci_chip_rev_id == CHIPREV_ID_5784_A0 ||
-+	    tp->pci_chip_rev_id == CHIPREV_ID_5761_A0) {
- 		int i;
- 		u32 status;
+ 	pci_write_config_word(tp->pdev, PCI_COMMAND, tp->pci_cmd);
  
-@@ -9371,17 +9372,18 @@ static int tg3_test_loopback(struct tg3 *tp)
- 		if (status != CPMU_MUTEX_GNT_DRIVER)
- 			return TG3_LOOPBACK_FAILED;
- 
--		cpmuctrl = tr32(TG3_CPMU_CTRL);
--
- 		/* Turn off power management based on link speed. */
-+		cpmuctrl = tr32(TG3_CPMU_CTRL);
- 		tw32(TG3_CPMU_CTRL,
--		     cpmuctrl & ~CPMU_CTRL_LINK_SPEED_MODE);
-+		     cpmuctrl & ~(CPMU_CTRL_LINK_SPEED_MODE |
-+				  CPMU_CTRL_LINK_AWARE_MODE));
+-	if (!(tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS)) {
++	if (tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS)
++		pcie_set_readrq(tp->pdev, 4096);
++	else {
+ 		pci_write_config_byte(tp->pdev, PCI_CACHE_LINE_SIZE,
+ 				      tp->pci_cacheline_sz);
+ 		pci_write_config_byte(tp->pdev, PCI_LATENCY_TIMER,
+ 				      tp->pci_lat_timer);
  	}
++
+ 	/* Make sure PCI-X relaxed ordering bit is clear. */
+ 	if (tp->pcix_cap) {
+ 		u16 pcix_cmd;
+@@ -11215,6 +11218,9 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 	pcie_cap = pci_find_capability(tp->pdev, PCI_CAP_ID_EXP);
+ 	if (pcie_cap != 0) {
+ 		tp->tg3_flags2 |= TG3_FLG2_PCI_EXPRESS;
++
++		pcie_set_readrq(tp->pdev, 4096);
++
+ 		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906) {
+ 			u16 lnkctl;
  
- 	if (tg3_run_loopback(tp, TG3_MAC_LOOPBACK))
- 		err |= TG3_MAC_LOOPBACK_FAILED;
- 
--	if (tp->tg3_flags & TG3_FLAG_CPMU_PRESENT) {
-+	if (tp->pci_chip_rev_id == CHIPREV_ID_5784_A0 ||
-+	    tp->pci_chip_rev_id == CHIPREV_ID_5761_A0) {
- 		tw32(TG3_CPMU_CTRL, cpmuctrl);
- 
- 		/* Release the mutex */
 
 
