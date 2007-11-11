@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][IPX] Use existing sock refcnt debugging infrastructure
-Date: Sat, 10 Nov 2007 21:39:40 -0800 (PST)
-Message-ID: <20071110.213940.05628721.davem@davemloft.net>
-References: <473463AD.9000807@openvz.org>
-	<20071109143908.GD12019@ghostprotocols.net>
+Subject: Re: [PATCH 1/4] Un-define the IPTUNNEL_XMIT() macro
+Date: Sat, 10 Nov 2007 21:42:28 -0800 (PST)
+Message-ID: <20071110.214228.117912463.davem@davemloft.net>
+References: <47345C26.3010502@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org
-To: acme@redhat.com
+Cc: netdev@vger.kernel.org, devel@openvz.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48585
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51012
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751748AbXKKFjl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Nov 2007 00:39:41 -0500
-In-Reply-To: <20071109143908.GD12019@ghostprotocols.net>
+	by vger.kernel.org with ESMTP id S1751080AbXKKFm3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Nov 2007 00:42:29 -0500
+In-Reply-To: <47345C26.3010502@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Arnaldo Carvalho de Melo" <acme@redhat.com>
-Date: Fri, 9 Nov 2007 12:39:08 -0200
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Fri, 09 Nov 2007 16:09:58 +0300
 
-> Em Fri, Nov 09, 2007 at 04:42:05PM +0300, Pavel Emelyanov escreveu:
-> > Just like in the af_packet.c, the ipx_sock_nr variable is used
-> > for debugging purposes.
-> > 
-> > Switch to using existing infrastructure. Thanks to Arnaldo for
-> > pointing this out.
-> > 
-> > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> This one is used in all the smth-to-ip tunnels we have and
+> looks ... not very good. Make this a regular function in the
+> tunnel4.ko module.
 > 
-> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Also applied, thanks!
+This breaks the build if NET_IPGRE is selected, and I don't think it's
+wise to add the dependency on INET_TUNNEL just for this one function.
