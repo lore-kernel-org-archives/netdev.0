@@ -1,33 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [RESEND] small possible memory leak in FIB rules
-Date: Sat, 10 Nov 2007 22:12:17 -0800 (PST)
-Message-ID: <20071110.221217.39233934.davem@davemloft.net>
-References: <20071107133636.GA10719@iris.sw.ru>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: [2.6 patch] net/ipv4/ipvs/: remove unused exports
+Date: Sun, 11 Nov 2007 07:48:40 +0100
+Message-ID: <20071111064840.GJ21669@stusta.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: devel@openvz.org, containers@lists.osdl.org, netdev@vger.kernel.org
-To: den@openvz.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Rumen G. Bogdanovski" <rumen@voicecho.com>, wensong@linux-vs.org,
+	horms@verge.net.au, ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58931
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751745AbXKKGMS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Nov 2007 01:12:18 -0500
-In-Reply-To: <20071107133636.GA10719@iris.sw.ru>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:32868 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752951AbXKKGtE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Nov 2007 01:49:04 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Wed, 7 Nov 2007 16:36:36 +0300
+This patch removes the following unused EXPORT_SYMBOL's:
+- ip_vs_try_bind_dest
+- ip_vs_find_dest
 
-> This patch fixes a small memory leak. Default fib rules can be deleted by
-> the user if the rule does not carry FIB_RULE_PERMANENT flag, f.e. by
-> 	ip rule flush
-> 
-> Such a rule will not be freed as the ref-counter has 2 on start and becomes
-> clearly unreachable after removal.
-> 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
-> Acked-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-Applied, thanks Denis.
+---
+
+ net/ipv4/ipvs/ip_vs_conn.c |    1 -
+ net/ipv4/ipvs/ip_vs_ctl.c  |    1 -
+ 2 files changed, 2 deletions(-)
+
+ad9f400d4f66ea3423f97e609d6ef2572055c603 
+diff --git a/net/ipv4/ipvs/ip_vs_conn.c b/net/ipv4/ipvs/ip_vs_conn.c
+index b7eeae6..0a9f3c3 100644
+--- a/net/ipv4/ipvs/ip_vs_conn.c
++++ b/net/ipv4/ipvs/ip_vs_conn.c
+@@ -441,7 +441,6 @@ struct ip_vs_dest *ip_vs_try_bind_dest(struct ip_vs_conn *cp)
+ 	} else
+ 		return NULL;
+ }
+-EXPORT_SYMBOL(ip_vs_try_bind_dest);
+ 
+ 
+ /*
+diff --git a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
+index 3c4d22a..b64cf45 100644
+--- a/net/ipv4/ipvs/ip_vs_ctl.c
++++ b/net/ipv4/ipvs/ip_vs_ctl.c
+@@ -604,7 +604,6 @@ struct ip_vs_dest *ip_vs_find_dest(__be32 daddr, __be16 dport,
+ 	ip_vs_service_put(svc);
+ 	return dest;
+ }
+-EXPORT_SYMBOL(ip_vs_find_dest);
+ 
+ /*
+  *  Lookup dest by {svc,addr,port} in the destination trash.
+
