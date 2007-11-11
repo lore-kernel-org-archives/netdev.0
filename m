@@ -1,36 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Use list_head-s in inetpeer.c
-Date: Sat, 10 Nov 2007 21:31:07 -0800 (PST)
-Message-ID: <20071110.213107.94486766.davem@davemloft.net>
-References: <4735C11A.7060501@openvz.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] Fix infinite loop on dev_mc_unsync()
+Date: Sat, 10 Nov 2007 21:34:33 -0800 (PST)
+Message-ID: <20071110.213433.76667260.davem@davemloft.net>
+References: <4734E962.3010603@trash.net>
+	<1194653320.19522.28.camel@localhost>
+	<4734F7B6.7060505@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org
-To: xemul@openvz.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58208
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751799AbXKKFbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Nov 2007 00:31:09 -0500
-In-Reply-To: <4735C11A.7060501@openvz.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org
+To: kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4734F7B6.7060505-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Sat, 10 Nov 2007 17:32:58 +0300
+From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Date: Sat, 10 Nov 2007 01:13:42 +0100
 
-> The inetpeer.c tracks the LRU list of inet_perr-s, but makes
-> it by hands. Use the list_head-s for this.
+> Joe Perches wrote:
+> > On Sat, 2007-11-10 at 00:12 +0100, Patrick McHardy wrote:
+> >   
+> >> This may cause a use-after-free since __dev_addr_delete frees the address
+> >> when all references are gone.
+> >>     
+> >
+> > How about a comment then?  Perhaps:
+> >
+> > diff --git a/net/core/dev_mcast.c b/net/core/dev_mcast.c
+> > index ae35405..63576aa 100644
+> > --- a/net/core/dev_mcast.c
+> > +++ b/net/core/dev_mcast.c
+> > @@ -165,16 +165,23 @@ void dev_mc_unsync(struct net_device *to, struct net_device *from)
+> >  	netif_tx_lock_bh(from);
+> >  	netif_tx_lock_bh(to);
+> >  
+> > +	/*
+> > +	  This while loop can't be written as
+> > +		for (da = from->mc_list; da; da = da->next)
+> > +	  da = from->mc_list and __dev_addr_delete can kfree(from->mc_list)
+> > +	  which could cause a use-after-free of da->next
+> > +	*/
+> >   
 > 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> Seems unnecessary to me, we also don't comment each list_for_each_entry_safe
+> iteration. I consider the use of a seperate next variable self-explanatory.
 
-This makes every inetpeer struct consume 8 more bytes, and on some
-systems we have can have many of these objects active.  That space
-savings is why this was done the way it was.
+Agreed, this comment is pointless.
 
-It would be nice to have "tailq" like interfaces in linux/list.h
-for situations like this.
-
-Please do not submit a patch implementing that until the 2.6.25
-merge window, however, thanks.
+I'll apply Joe's patch without the comment.
