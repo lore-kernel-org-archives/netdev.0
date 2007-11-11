@@ -1,38 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [PKT_SCHED] CLS_U32: Use ffs() instead of C code on
- hash mask to get first set bit.
-Date: Sat, 10 Nov 2007 21:55:06 -0800 (PST)
-Message-ID: <20071110.215506.214591476.davem@davemloft.net>
-References: <1194520067-20868-1-git-send-email-radu.rendec@ines.ro>
-	<1194529531.5743.9.camel@localhost>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: Please pull 'fixes-davem' branch of wireless-2.6 (this time
+ for real!)
+Date: Sat, 10 Nov 2007 22:02:29 -0800 (PST)
+Message-ID: <20071110.220229.88669209.davem@davemloft.net>
+References: <20071107185147.GA21097@tuxdriver.com>
+	<20071107.163200.25509588.davem@davemloft.net>
+	<20071108021119.GD11957@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: radu.rendec@ines.ro, netdev@vger.kernel.org, jarkao2@o2.pl
-To: hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33082
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750711AbXKKFzH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Nov 2007 00:55:07 -0500
-In-Reply-To: <1194529531.5743.9.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
+Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20071108021119.GD11957-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Thu, 08 Nov 2007 08:45:31 -0500
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Wed, 7 Nov 2007 21:11:19 -0500
 
-> On Thu, 2007-08-11 at 13:07 +0200, Radu Rendec wrote:
-> > Computing the rank of the first set bit in the hash mask (for using later
-> > in u32_hash_fold()) was done with plain C code. Using ffs() instead makes
-> > the code more readable and improves performance (since ffs() is better
-> > optimized in assembler).
+> On Wed, Nov 07, 2007 at 04:32:00PM -0800, David Miller wrote:
+> > From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> > Date: Wed, 7 Nov 2007 13:51:54 -0500
 > > 
-> > Using the conditional operator on hash mask before applying ntohl() also
-> > saves one ntohl() call if mask is 0.
+> > > Hold-off on this one for now if -- clearly Johannes and I need to
+> > > brush-up on our Kconfig skills... :-(
+> > > 
+> > > I'll post a new pull request soon.
 > > 
-> > Signed-off-by: Radu Rendec <radu.rendec@ines.ro>
+> > Ok.
 > 
-> Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
+> Dave,
+> 
+> These fixes are additive on top of the previous request archived here:
+> 
+> 	http://marc.info/?l=linux-wireless&m=119439453721827&w=2
+> 
+> I've been sending ssb patches to you, but I'm not sure if that is the
+> right place to send them.  If you don't want them, can you suggest where
+> else I should send them?
+> 
+> Anyway, let me know if there are any problems!
+ ...
+> The entire series (i.e. both from yesterday and today) is available
+> here:
+> 
+> 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/fixes-davem
 
-Applied, thanks everyone.
+I applied all of these as patches, thanks John!
