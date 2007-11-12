@@ -1,78 +1,107 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [patch 1/1][NETNS][IPV6] protect addrconf from loopback registration
-Date: Mon, 12 Nov 2007 18:01:22 +0100
-Message-ID: <473886E2.3020703@fr.ibm.com>
-References: <20071112151953.052335971@mai.toulouse-stg.fr.ibm.com> <20071112152403.273795630@mai.toulouse-stg.fr.ibm.com> <473879C3.5020301@sw.ru> <m1ejev4dap.fsf@ebiederm.dsl.xmission.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 2/2] [e1000 VLAN] Disable vlan hw accel when promiscuous
+ mode
+Date: Mon, 12 Nov 2007 09:12:40 -0800
+Message-ID: <47388988.1000506@intel.com>
+References: <47365200.0f10240a.0686.2173@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Denis V. Lunev" <den@sw.ru>, davem@davemloft.net,
-	netdev@vger.kernel.org, xemul@openvz.org,
-	containers@lists.osdl.org, yoshfuji@linux-ipv6.org,
-	Benjamin Thery <benjamin.thery@bull.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: 'David Miller' <davem@davemloft.net>, netdev@vger.kernel.org,
+	'Dave Johnson' <djohnson+linux-kernel@sw.starentnetworks.com>,
+	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: Joonwoo Park <joonwpark81@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.de.ibm.com ([195.212.29.157]:65299 "EHLO
-	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759694AbXKLRFy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 12:05:54 -0500
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate8.de.ibm.com (8.13.8/8.13.8) with ESMTP id lACH5rjZ134470
-	for <netdev@vger.kernel.org>; Mon, 12 Nov 2007 17:05:53 GMT
-Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.6) with ESMTP id lACH5rYl2015430
-	for <netdev@vger.kernel.org>; Mon, 12 Nov 2007 18:05:53 +0100
-Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lACH5q2W026555
-	for <netdev@vger.kernel.org>; Mon, 12 Nov 2007 18:05:53 +0100
-In-Reply-To: <m1ejev4dap.fsf@ebiederm.dsl.xmission.com>
+Received: from mga02.intel.com ([134.134.136.20]:25084 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752850AbXKLRNL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Nov 2007 12:13:11 -0500
+In-Reply-To: <47365200.0f10240a.0686.2173@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> "Denis V. Lunev" <den@sw.ru> writes:
+Joonwoo Park wrote:
+> IMHO even though netdevice is in the promiscuous mode, we should receive all of ingress packets.
+> This disable the vlan filtering feature when a vlan hw accel configured e1000 device goes into promiscuous mode.
+> This make packets visible to sniffers though it's not vlan id of itself.
+> Any check, comments will be appreciated.
+
+Actually I think this patch removes a choice from the user.
+
+Before this patch, the user can sniff all traffic by disabling vlans, or a
+specific vlan only by leaving vlans on when going into promisc mode.
+
+After this patch, the user has no choice but to sniff all vlans at all times.
+
+I don't think that that is such a good improvement.
+
+Auke
+
+
+> Thanks.
 > 
->>> Index: linux-2.6-netns/net/ipv6/addrconf.c
->>> ===================================================================
->>> --- linux-2.6-netns.orig/net/ipv6/addrconf.c
->>> +++ linux-2.6-netns/net/ipv6/addrconf.c
->>> @@ -2272,7 +2272,8 @@ static int addrconf_notify(struct notifi
->>>  
->>>  	switch(event) {
->>>  	case NETDEV_REGISTER:
->>> -		if (!idev && dev->mtu >= IPV6_MIN_MTU) {
->>> +		if (!(dev->flags & IFF_LOOPBACK) &&
->>> +		    !idev && dev->mtu >= IPV6_MIN_MTU) {
+> Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
+> ---
+>  drivers/net/e1000/e1000_main.c |   26 ++++++++++++++++++++------
+>  1 files changed, 20 insertions(+), 6 deletions(-)
 > 
-> It is idev being true here for the loopback device that would
-> prevent things not missing the REGISTER event.
+> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c index 72deff0..cdd5c84 100644
+> --- a/drivers/net/e1000/e1000_main.c
+> +++ b/drivers/net/e1000/e1000_main.c
+> @@ -2424,7 +2424,7 @@ e1000_set_multi(struct net_device *netdev)
+>  	struct e1000_adapter *adapter = netdev_priv(netdev);
+>  	struct e1000_hw *hw = &adapter->hw;
+>  	struct dev_mc_list *mc_ptr;
+> -	uint32_t rctl;
+> +	uint32_t rctl, ctrl;
+>  	uint32_t hash_value;
+>  	int i, rar_entries = E1000_RAR_ENTRIES;
+>  	int mta_reg_count = (hw->mac_type == e1000_ich8lan) ?
+> @@ -2441,14 +2441,25 @@ e1000_set_multi(struct net_device *netdev)
+>  	/* Check for Promiscuous and All Multicast modes */
+>  
+>  	rctl = E1000_READ_REG(hw, RCTL);
+> +	ctrl = E1000_READ_REG(&adapter->hw, CTRL);
+>  
+>  	if (netdev->flags & IFF_PROMISC) {
+>  		rctl |= (E1000_RCTL_UPE | E1000_RCTL_MPE);
+> -	} else if (netdev->flags & IFF_ALLMULTI) {
+> -		rctl |= E1000_RCTL_MPE;
+> -		rctl &= ~E1000_RCTL_UPE;
+> +		if (adapter->hw.mac_type != e1000_ich8lan) {
+> +			if (ctrl & E1000_CTRL_VME)
+> +				rctl &= ~E1000_RCTL_VFE;
+> +		}
+>  	} else {
+> -		rctl &= ~(E1000_RCTL_UPE | E1000_RCTL_MPE);
+> +		if (adapter->hw.mac_type != e1000_ich8lan) {
+> +			if (ctrl & E1000_CTRL_VME)
+> +				rctl |= E1000_RCTL_VFE;
+> +		}
+> +		if (netdev->flags & IFF_ALLMULTI) {
+> +			rctl |= E1000_RCTL_MPE;
+> +			rctl &= ~E1000_RCTL_UPE;
+> +		} else {
+> +			rctl &= ~(E1000_RCTL_UPE | E1000_RCTL_MPE);
+> +		}
+>  	}
+>  
+>  	E1000_WRITE_REG(hw, RCTL, rctl);
+> @@ -4952,7 +4963,10 @@ e1000_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
+>  		if (adapter->hw.mac_type != e1000_ich8lan) {
+>  			/* enable VLAN receive filtering */
+>  			rctl = E1000_READ_REG(&adapter->hw, RCTL);
+> -			rctl |= E1000_RCTL_VFE;
+> +			if (netdev->flags & IFF_PROMISC)
+> +				rctl &= ~E1000_RCTL_VFE;
+> +			else
+> +				rctl |= E1000_RCTL_VFE;
+>  			rctl &= ~E1000_RCTL_CFIEN;
+>  			E1000_WRITE_REG(&adapter->hw, RCTL, rctl);
+>  			e1000_update_mng_vlan(adapter);
+> ---
 > 
-> Hmm.  But we do call ipv6_add_dev on loopback and now the loopback
-> device is practically guaranteed to be the first device so we can
-> probably just remove the special case in addrconf_init.
-> 
-> Anyway Daniels patch makes increasingly less sense the more I look
-> at it.
-
-Let me try to clarify:
-
-  * when the init network namespace is created, the loopback is created 
-first, before ipv6, and the notifier call chain for ipv6 is not setup, 
-so the protocol does not receive the REGISTER event
-
-  * when the init network namespace is destroyed during shutdown, the 
-loopback is not unregistered, so there is no UNREGISTER event
-
-  * when we create a new network namespace, a new instance of the 
-loopback is created and a NETDEV_REGISTER is sent to ipv6 because the 
-notifier call chain has been setup by the init netns (while ipv6 
-protocol is not yet configured for the namespace which is being created)
-
-  * when the network namespace exits, the loopback is unregistered after 
-the ipv6 protocol but the NETDEV_UNREGISTER is sent to addrconf_notify 
-while the ipv6 protocol has been destroyed.
-
-
-The objective of the patch is to discard these events because they were 
-never taken into account and they are not expected to be receive by ipv6 
-protocol.
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
