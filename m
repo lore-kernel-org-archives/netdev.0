@@ -1,201 +1,100 @@
-From: osprey67 <osprey67@yahoo.com>
-Subject: [PATCH 03/05] ipv6: RFC4214 Support (4)
-Date: Mon, 12 Nov 2007 07:54:47 -0800
-Message-ID: <47387747.1010106@yahoo.com>
-References: <473371B3.5030908@yahoo.com> <4734FCEF.3080301@yahoo.com>
+From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Subject: [PATCH 01/01] iproute2-2.6.23: RFC4214 Support (4)
+Date: Mon, 12 Nov 2007 09:55:52 -0800
+Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC12@XCH-NW-7V2.nw.nos.boeing.com>
+References: <473371B3.5030908@yahoo.com> <4734FCEF.3080301@yahoo.com> <4734FE8D.5070107@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+	boundary="----_=_NextPart_001_01C82555.43EEDBB4"
+Cc: =?iso-2022-jp?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
+	<yoshfuji@linux-ipv6.org>, <osprey67@yahoo.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp113.plus.mail.sp1.yahoo.com ([69.147.95.76]:32922 "HELO
-	smtp113.plus.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752314AbXKLR4K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 12:56:10 -0500
-In-Reply-To: <4734FCEF.3080301@yahoo.com>
+Received: from slb-smtpout-01.boeing.com ([130.76.64.48]:44958 "EHLO
+	slb-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752645AbXKLR4N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 12:56:13 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <4734FE8D.5070107@yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+This is a multi-part message in MIME format.
+
+------_=_NextPart_001_01C82555.43EEDBB4
+Content-Type: text/plain;
+	charset="iso-2022-jp"
+Content-Transfer-Encoding: 7bit
 
 From: Fred L. Templin <fred.l.templin@boeing.com>
 
 This is experimental support for the Intra-Site Automatic
-Tunnel Addressing Protocol (ISATAP) per RFC4214. It uses
-the SIT module, and is configured using the unmodified
-"ip" utility with device names beginning with: "isatap".
-
-The following diffs are specific to the Linux 2.6.24-rc2
-kernel distribution.
+Tunnel Addressing Protocol (ISATAP) per RFC4214. The
+attached file includes diffs that are specific to the
+iproute2-2.6.23 software distribution.
 
 Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
 
----
+------_=_NextPart_001_01C82555.43EEDBB4
+Content-Type: text/plain;
+	name="isatap_iproute2.txt"
+Content-Transfer-Encoding: base64
+Content-Description: isatap_iproute2.txt
+Content-Disposition: attachment;
+	filename="isatap_iproute2.txt"
 
---- linux-2.6.24-rc2/net/ipv6/addrconf.c.orig   2007-11-08 11:59:35.000000000 -0800
-+++ linux-2.6.24-rc2/net/ipv6/addrconf.c        2007-11-12 07:04:27.000000000 -0800
-@@ -75,7 +75,7 @@
-  #include <net/ip.h>
-  #include <net/netlink.h>
-  #include <net/pkt_sched.h>
--#include <linux/if_tunnel.h>
-+#include <net/ipip.h>
-  #include <linux/rtnetlink.h>
+LS0tIGlwcm91dGUyLTIuNi4yMy9pcC9pcHR1bm5lbC5jLm9yaWcJMjAwNy0xMS0wOCAxNjoyNzoy
+NC4wMDAwMDAwMDAgLTA4MDANCisrKyBpcHJvdXRlMi0yLjYuMjMvaXAvaXB0dW5uZWwuYwkyMDA3
+LTExLTEyIDA2OjUzOjM4LjAwMDAwMDAwMCAtMDgwMA0KQEAgLTM5LDcgKzM5LDggQEAgc3RhdGlj
+IHZvaWQgdXNhZ2Uodm9pZCkgX19hdHRyaWJ1dGVfXygobg0KIHN0YXRpYyB2b2lkIHVzYWdlKHZv
+aWQpDQogew0KIAlmcHJpbnRmKHN0ZGVyciwgIlVzYWdlOiBpcCB0dW5uZWwgeyBhZGQgfCBjaGFu
+Z2UgfCBkZWwgfCBzaG93IH0gWyBOQU1FIF1cbiIpOw0KLQlmcHJpbnRmKHN0ZGVyciwgIiAgICAg
+ICAgICBbIG1vZGUgeyBpcGlwIHwgZ3JlIHwgc2l0IH0gXSBbIHJlbW90ZSBBRERSIF0gWyBsb2Nh
+bCBBRERSIF1cbiIpOw0KKwlmcHJpbnRmKHN0ZGVyciwgIiAgICAgICAgICBbIG1vZGUgeyBpcGlw
+IHwgZ3JlIHwgc2l0IHwgaXNhdGFwIH0gXVxuIik7DQorCWZwcmludGYoc3RkZXJyLCAiICAgICAg
+ICAgIFsgcmVtb3RlIEFERFIgXSBbIGxvY2FsIEFERFIgXSBbIHJvdXRlciBBRERSIF0gWyBsaWZl
+dGltZSBOVU1CRVIgXVxuIik7DQogCWZwcmludGYoc3RkZXJyLCAiICAgICAgICAgIFsgW2l8b11z
+ZXEgXSBbIFtpfG9da2V5IEtFWSBdIFsgW2l8b11jc3VtIF1cbiIpOw0KIAlmcHJpbnRmKHN0ZGVy
+ciwgIiAgICAgICAgICBbIHR0bCBUVEwgXSBbIHRvcyBUT1MgXSBbIFtub11wbXR1ZGlzYyBdIFsg
+ZGV2IFBIWVNfREVWIF1cbiIpOw0KIAlmcHJpbnRmKHN0ZGVyciwgIlxuIik7DQpAQCAtNTUsNiAr
+NTYsOSBAQCBzdGF0aWMgaW50IHBhcnNlX2FyZ3MoaW50IGFyZ2MsIGNoYXIgKiphDQogew0KIAlp
+bnQgY291bnQgPSAwOw0KIAljaGFyIG1lZGl1bVtJRk5BTVNJWl07DQorCWludCBpc2F0YXAgPSAw
+Ow0KKwl1bnNpZ25lZCByb3V0ZXIgPSAwOw0KKwl1bnNpZ25lZCBsaWZldGltZSA9IDA7DQogDQog
+CW1lbXNldChwLCAwLCBzaXplb2YoKnApKTsNCiAJbWVtc2V0KCZtZWRpdW0sIDAsIHNpemVvZiht
+ZWRpdW0pKTsNCkBAIC05MCw2ICs5NCwxMyBAQCBzdGF0aWMgaW50IHBhcnNlX2FyZ3MoaW50IGFy
+Z2MsIGNoYXIgKiphDQogCQkJCQlleGl0KC0xKTsNCiAJCQkJfQ0KIAkJCQlwLT5pcGgucHJvdG9j
+b2wgPSBJUFBST1RPX0lQVjY7DQorCQkJfSBlbHNlIGlmIChzdHJjbXAoKmFyZ3YsICJpc2F0YXAi
+KSA9PSAwKSB7DQorCQkJCWlmIChwLT5pcGgucHJvdG9jb2wgJiYgcC0+aXBoLnByb3RvY29sICE9
+IElQUFJPVE9fSVBWNikgew0KKwkJCQkJZnByaW50ZihzdGRlcnIsIllvdSBtYW5hZ2VkIHRvIGFz
+ayBmb3IgbW9yZSB0aGFuIG9uZSB0dW5uZWwgbW9kZS5cbiIpOw0KKwkJCQkJZXhpdCgtMSk7DQor
+CQkJCX0NCisJCQkJcC0+aXBoLnByb3RvY29sID0gSVBQUk9UT19JUFY2Ow0KKwkJCQlpc2F0YXAr
+KzsNCiAJCQl9IGVsc2Ugew0KIAkJCQlmcHJpbnRmKHN0ZGVyciwiQ2Fubm90IGd1ZXNzIHR1bm5l
+bCBtb2RlLlxuIik7DQogCQkJCWV4aXQoLTEpOw0KQEAgLTE2MCw2ICsxNzEsMTggQEAgc3RhdGlj
+IGludCBwYXJzZV9hcmdzKGludCBhcmdjLCBjaGFyICoqYQ0KIAkJCU5FWFRfQVJHKCk7DQogCQkJ
+aWYgKHN0cmNtcCgqYXJndiwgImFueSIpKQ0KIAkJCQlwLT5pcGguc2FkZHIgPSBnZXRfYWRkcjMy
+KCphcmd2KTsNCisJCX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAicm91dGVyIikgPT0gMCkgew0K
+KwkJCU5FWFRfQVJHKCk7DQorCQkJaWYgKHN0cmNtcCgqYXJndiwgImFueSIpKQ0KKwkJCQlyb3V0
+ZXIgPSBnZXRfYWRkcjMyKCphcmd2KTsNCisJCX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAibGlm
+ZXRpbWUiKSA9PSAwKSB7DQorCQkJdW5zaWduZWQgdXZhbDsNCisJCQlORVhUX0FSRygpOw0KKwkJ
+CWlmIChnZXRfdW5zaWduZWQoJnV2YWwsICphcmd2LCAwKSkgew0KKwkJCQlpbnZhcmcoImludmFs
+aWQgbGlmZXRpbWVcbiIsICphcmd2KTsNCisJCQkJZXhpdCgtMSk7DQorCQkJfQ0KKwkJCWxpZmV0
+aW1lID0gdXZhbDsNCiAJCX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAiZGV2IikgPT0gMCkgew0K
+IAkJCU5FWFRfQVJHKCk7DQogCQkJc3RybmNweShtZWRpdW0sICphcmd2LCBJRk5BTVNJWi0xKTsN
+CkBAIC0yMTIsNiArMjM1LDEwIEBAIHN0YXRpYyBpbnQgcGFyc2VfYXJncyhpbnQgYXJnYywgY2hh
+ciAqKmENCiAJCQlwLT5pcGgucHJvdG9jb2wgPSBJUFBST1RPX0lQSVA7DQogCQllbHNlIGlmICht
+ZW1jbXAocC0+bmFtZSwgInNpdCIsIDMpID09IDApDQogCQkJcC0+aXBoLnByb3RvY29sID0gSVBQ
+Uk9UT19JUFY2Ow0KKwkJZWxzZSBpZiAobWVtY21wKHAtPm5hbWUsICJpc2F0YXAiLCA2KSA9PSAw
+KSB7DQorCQkJcC0+aXBoLnByb3RvY29sID0gSVBQUk9UT19JUFY2Ow0KKwkJCWlzYXRhcCsrOw0K
+KwkJfQ0KIAl9DQogDQogCWlmIChwLT5pcGgucHJvdG9jb2wgPT0gSVBQUk9UT19JUElQIHx8IHAt
+PmlwaC5wcm90b2NvbCA9PSBJUFBST1RPX0lQVjYpIHsNCkBAIC0yMzksNiArMjY2LDIwIEBAIHN0
+YXRpYyBpbnQgcGFyc2VfYXJncyhpbnQgYXJnYywgY2hhciAqKmENCiAJCWZwcmludGYoc3RkZXJy
+LCAiQnJvYWRjYXN0IHR1bm5lbCByZXF1aXJlcyBhIHNvdXJjZSBhZGRyZXNzLlxuIik7DQogCQly
+ZXR1cm4gLTE7DQogCX0NCisJaWYgKGlzYXRhcCkgew0KKwkJaWYgKHAtPmlwaC5kYWRkcikgew0K
+KwkJCWZwcmludGYoc3RkZXJyLCAibm8gcmVtb3RlIHdpdGggaXNhdGFwLlxuIik7DQorCQkJcmV0
+dXJuIC0xOw0KKwkJfQ0KKwkJcC0+aV9rZXkgPSByb3V0ZXIgPyByb3V0ZXIgOiBJTkFERFJfTk9O
+RTsNCisJCXAtPm9fa2V5ID0gbGlmZXRpbWUgPyBsaWZldGltZSA6IDEyMDsJLyogUkZDNDIxNCBk
+ZWZhdWx0ICovDQorCX0gZWxzZSB7DQorCQlpZiAocm91dGVyIHx8IGxpZmV0aW1lKSB7DQorCQkJ
+ZnByaW50ZihzdGRlcnIsICJyb3V0ZXIvbGlmZXRpbWUgb25seSBmb3IgaXNhdGFwLlxuIik7DQor
+CQkJcmV0dXJuIC0xOw0KKwkJfQ0KKwl9DQorDQogCXJldHVybiAwOw0KIH0NCiANCg==
 
-  #ifdef CONFIG_IPV6_PRIVACY
-@@ -1424,6 +1424,22 @@ static int addrconf_ifid_infiniband(u8 *
-         return 0;
-  }
-
-+#if defined(CONFIG_IPV6_ISATAP)
-+static int addrconf_ifid_isatap(u8 *eui, __be32 addr)
-+{
-+
-+       eui[0] = 0x02; eui[1] = 0; eui[2] = 0x5E; eui[3] = 0xFE;
-+       memcpy (eui+4, &addr, 4);
-+
-+       if (ZERONET(addr) || PRIVATE_10(addr) || LOOPBACK(addr) ||
-+           LINKLOCAL_169(addr) || PRIVATE_172(addr) || TEST_192(addr) ||
-+           ANYCAST_6TO4(addr) || PRIVATE_192(addr) || TEST_198(addr) ||
-+           MULTICAST(addr) || BADCLASS(addr)) eui[0] &= ~0x02;
-+
-+       return 0;
-+}
-+#endif
-+
-  static int ipv6_generate_eui64(u8 *eui, struct net_device *dev)
-  {
-         switch (dev->type) {
-@@ -1435,6 +1451,11 @@ static int ipv6_generate_eui64(u8 *eui,
-                 return addrconf_ifid_arcnet(eui, dev);
-         case ARPHRD_INFINIBAND:
-                 return addrconf_ifid_infiniband(eui, dev);
-+#if defined(CONFIG_IPV6_ISATAP)
-+       case ARPHRD_SIT:
-+               if (dev->priv_flags & IFF_ISATAP)
-+                       return addrconf_ifid_isatap(eui, *(__be32 *)dev->dev_addr);
-+#endif
-         }
-         return -1;
-  }
-@@ -1470,8 +1491,7 @@ regen:
-          *
-          *  - Reserved subnet anycast (RFC 2526)
-          *      11111101 11....11 1xxxxxxx
--        *  - ISATAP (draft-ietf-ngtrans-isatap-13.txt) 5.1
--        *      00-00-5E-FE-xx-xx-xx-xx
-+        *  - ISATAP (RFC4214) 00-00-5E-FE-xx-xx-xx-xx - remove??
-          *  - value 0
-          *  - XXX: already assigned to an address on the device
-          */
-@@ -2201,6 +2221,31 @@ static void addrconf_sit_config(struct n
-                 return;
-         }
-
-+#if defined(CONFIG_IPV6_ISATAP)
-+       /* ISATAP (RFC4214) - NBMA link */
-+       if (dev->priv_flags & IFF_ISATAP) {
-+               struct in6_addr addr;
-+
-+               addrconf_add_lroute(dev);
-+
-+               ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
-+
-+               if (ipv6_generate_eui64(addr.s6_addr + 8, dev) == 0) {
-+                       struct inet6_ifaddr *ifp;
-+
-+                       ifp = ipv6_add_addr(idev, &addr, 64,
-+                                       IFA_LINK, IFA_F_PERMANENT);
-+                       if (!IS_ERR(ifp)) {
-+                               addrconf_prefix_route(&ifp->addr,
-+                                       ifp->prefix_len, idev->dev, 0, 0);
-+                               addrconf_dad_start(ifp, 0);
-+                               in6_ifa_put(ifp);
-+                       }
-+               }
-+               return;
-+       }
-+#endif
-+
-         sit_add_v4_addrs(idev);
-
-         if (dev->flags&IFF_POINTOPOINT) {
-@@ -2531,6 +2576,19 @@ static void addrconf_rs_timer(unsigned l
-                  *      Announcement received after solicitation
-                  *      was sent
-                  */
-+#if defined(CONFIG_IPV6_ISATAP)
-+               /* ISATAP (RFC4214) - schedule next RS/RA */
-+               if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
-+                       struct ip_tunnel *t  = netdev_priv(ifp->idev->dev);
-+                       if (t->parms.i_key != INADDR_NONE) {
-+                               spin_lock(&ifp->lock);
-+                               ifp->probes = 0;
-+                               ifp->idev->if_flags &= ~(IF_RS_SENT|IF_RA_RCVD);
-+                               addrconf_mod_timer(ifp, AC_DAD, t->parms.o_key*HZ);
-+                               spin_unlock(&ifp->lock);
-+                       }
-+               }
-+#endif
-                 goto out;
-         }
-
-@@ -2545,10 +2603,32 @@ static void addrconf_rs_timer(unsigned l
-                                    ifp->idev->cnf.rtr_solicit_interval);
-                 spin_unlock(&ifp->lock);
-
-+#if defined(CONFIG_IPV6_ISATAP)
-+               /* ISATAP (RFC4214) - unicast RS */
-+               if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
-+                       struct ip_tunnel *t = netdev_priv(ifp->idev->dev);
-+
-+                       if (t->parms.i_key == INADDR_NONE) goto out;
-+
-+                       ipv6_addr_set(&all_routers, htonl(0xFE800000), 0, 0, 0);
-+                       addrconf_ifid_isatap(all_routers.s6_addr + 8, t->parms.i_key);
-+               } else
-+#endif
-                 ipv6_addr_all_routers(&all_routers);
-
-                 ndisc_send_rs(ifp->idev->dev, &ifp->addr, &all_routers);
-         } else {
-+#if defined(CONFIG_IPV6_ISATAP)
-+               /* ISATAP (RFC4214) - try again later */
-+               if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
-+                       struct ip_tunnel *t = netdev_priv(ifp->idev->dev);
-+                       if (t->parms.i_key != INADDR_NONE) {
-+                               ifp->probes = 0;
-+                               ifp->idev->if_flags &= ~(IF_RS_SENT|IF_RA_RCVD);
-+                               addrconf_mod_timer(ifp, AC_DAD, t->parms.o_key*HZ);
-+                       }
-+               }
-+#endif
-                 spin_unlock(&ifp->lock);
-                 /*
-                  * Note: we do not support deprecated "all on-link"
-@@ -2594,6 +2674,9 @@ static void addrconf_dad_start(struct in
-         spin_lock_bh(&ifp->lock);
-
-         if (dev->flags&(IFF_NOARP|IFF_LOOPBACK) ||
-+#if defined(CONFIG_IPV6_ISATAP)
-+           dev->priv_flags&IFF_ISATAP ||
-+#endif
-             !(ifp->flags&IFA_F_TENTATIVE) ||
-             ifp->flags & IFA_F_NODAD) {
-                 ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC);
-@@ -2690,6 +2773,17 @@ static void addrconf_dad_completed(struc
-             (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {
-                 struct in6_addr all_routers;
-
-+#if defined(CONFIG_IPV6_ISATAP)
-+               /* ISATAP (RFC4214) - unicast RS */
-+               if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
-+                       struct ip_tunnel *t = netdev_priv(ifp->idev->dev);
-+
-+                       if (t->parms.i_key == INADDR_NONE) return;
-+
-+                       ipv6_addr_set(&all_routers, htonl(0xFE800000), 0, 0, 0);
-+                       addrconf_ifid_isatap(all_routers.s6_addr + 8, t->parms.i_key);
-+               } else
-+#endif
-                 ipv6_addr_all_routers(&all_routers);
-
-                 /*
+------_=_NextPart_001_01C82555.43EEDBB4--
