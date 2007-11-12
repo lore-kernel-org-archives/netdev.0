@@ -1,78 +1,80 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 05/14] SCTP: Correctly disable ADD-IP when AUTH is not supported.
-Date: Mon, 12 Nov 2007 11:38:20 -0500
-Message-ID: <11948855131587-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH 08/14] SCTP: Use hashed lookup when looking for an association.
+Date: Mon, 12 Nov 2007 11:38:23 -0500
+Message-ID: <11948855151734-git-send-email-vladislav.yasevich@hp.com>
 References: <11948855091808-git-send-email-vladislav.yasevich@hp.com>
 Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net,
 	Vlad Yasevich <vladislav.yasevich@hp.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel12.hp.com ([156.153.255.237]:56243 "EHLO palrel12.hp.com"
+Received: from palrel12.hp.com ([156.153.255.237]:56249 "EHLO palrel12.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754045AbXKLQif (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Nov 2007 11:38:35 -0500
+	id S1754190AbXKLQih (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Nov 2007 11:38:37 -0500
 In-Reply-To: <11948855091808-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+A SCTP endpoint may have a lot of associations on them and walking
+the list is fairly inefficient.  Instead, use a hashed lookup,
+and filter out the hash list based on the endopoing we already have.
+
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
- include/net/sctp/structs.h |    1 -
- net/sctp/associola.c       |    2 +-
- net/sctp/sm_make_chunk.c   |    5 +++--
- 3 files changed, 4 insertions(+), 4 deletions(-)
+ net/sctp/endpointola.c |   34 ++++++++++++++++++++++------------
+ 1 files changed, 22 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index a177017..41f1039 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -1540,7 +1540,6 @@ struct sctp_association {
- 		__u8    asconf_capable;  /* Does peer support ADDIP? */
- 		__u8    prsctp_capable;  /* Can peer do PR-SCTP? */
- 		__u8	auth_capable;	 /* Is peer doing SCTP-AUTH? */
--		__u8	addip_capable;	 /* Can peer do ADD-IP */
+diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+index 2d2d81e..68f0556 100644
+--- a/net/sctp/endpointola.c
++++ b/net/sctp/endpointola.c
+@@ -328,24 +328,34 @@ static struct sctp_association *__sctp_endpoint_lookup_assoc(
+ 	const union sctp_addr *paddr,
+ 	struct sctp_transport **transport)
+ {
++	struct sctp_association *asoc = NULL;
++	struct sctp_transport *t = NULL;
++	struct sctp_hashbucket *head;
++	struct sctp_ep_common *epb;
++	int hash;
+ 	int rport;
+-	struct sctp_association *asoc;
+-	struct list_head *pos;
  
- 		__u32   adaptation_ind;	 /* Adaptation Code point. */
++	*transport = NULL;
+ 	rport = ntohs(paddr->v4.sin_port);
  
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 03158e3..eaad5c5 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -265,7 +265,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
- 	/* Assume that the peer recongizes ASCONF until reported otherwise
- 	 * via an ERROR chunk.
- 	 */
--	asoc->peer.asconf_capable = 1;
-+	asoc->peer.asconf_capable = 0;
- 
- 	/* Create an input queue.  */
- 	sctp_inq_init(&asoc->base.inqueue);
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index c60564d..2ff3a3d 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -1847,7 +1847,7 @@ static void sctp_process_ext_param(struct sctp_association *asoc,
- 			    break;
- 		    case SCTP_CID_ASCONF:
- 		    case SCTP_CID_ASCONF_ACK:
--			    asoc->peer.addip_capable = 1;
-+			    asoc->peer.asconf_capable = 1;
- 			    break;
- 		    default:
- 			    break;
-@@ -2138,10 +2138,11 @@ int sctp_process_init(struct sctp_association *asoc, sctp_cid_t cid,
- 	/* If the peer claims support for ADD-IP without support
- 	 * for AUTH, disable support for ADD-IP.
- 	 */
--	if (asoc->peer.addip_capable && !asoc->peer.auth_capable) {
-+	if (asoc->peer.asconf_capable && !asoc->peer.auth_capable) {
- 		asoc->peer.addip_disabled_mask |= (SCTP_PARAM_ADD_IP |
- 						  SCTP_PARAM_DEL_IP |
- 						  SCTP_PARAM_SET_PRIMARY);
-+		asoc->peer.asconf_capable = 0;
+-	list_for_each(pos, &ep->asocs) {
+-		asoc = list_entry(pos, struct sctp_association, asocs);
+-		if (rport == asoc->peer.port) {
+-			*transport = sctp_assoc_lookup_paddr(asoc, paddr);
+-
+-			if (*transport)
+-				return asoc;
++	hash = sctp_assoc_hashfn(ep->base.bind_addr.port, rport);
++	head = &sctp_assoc_hashtable[hash];
++	read_lock(&head->lock);
++	for (epb = head->chain; epb; epb = epb->next) {
++		asoc = sctp_assoc(epb);
++		if (asoc->ep != ep || rport != asoc->peer.port)
++			goto next;
++
++		t = sctp_assoc_lookup_paddr(asoc, paddr);
++		if (t) {
++			*transport = t;
++			break;
+ 		}
++next:
++		asoc = NULL;
  	}
+-
+-	*transport = NULL;
+-	return NULL;
++	read_unlock(&head->lock);
++	return asoc;
+ }
  
- 	/* Walk list of transports, removing transports in the UNKNOWN state. */
+ /* Lookup association on an endpoint based on a peer address.  BH-safe.  */
 -- 
 1.5.2.4
 
