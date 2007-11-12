@@ -1,100 +1,64 @@
-From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Subject: [PATCH 01/01] iproute2-2.6.23: RFC4214 Support (4)
-Date: Mon, 12 Nov 2007 09:55:52 -0800
-Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC12@XCH-NW-7V2.nw.nos.boeing.com>
-References: <473371B3.5030908@yahoo.com> <4734FCEF.3080301@yahoo.com> <4734FE8D.5070107@yahoo.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 2/2] [e1000 VLAN] Disable vlan hw accel
+ when promiscuous mode
+Date: Mon, 12 Nov 2007 10:01:49 -0800
+Message-ID: <4738950D.7070902@intel.com>
+References: <47365200.0f10240a.0686.2173@mx.google.com>	<47388988.1000506@intel.com>
+	<47388B9F.7050308@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----_=_NextPart_001_01C82555.43EEDBB4"
-Cc: =?iso-2022-jp?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>, <osprey67@yahoo.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from slb-smtpout-01.boeing.com ([130.76.64.48]:44958 "EHLO
-	slb-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752645AbXKLR4N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 12:56:13 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <4734FE8D.5070107@yahoo.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	'Dave Johnson' <djohnson+linux-kernel@sw.starentnetworks.com>,
+	linux-kernel@vger.kernel.org, Joonwoo Park <joonwpark81@gmail.com>,
+	'David Miller' <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <47388B9F.7050308@trash.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
+Patrick McHardy wrote:
+> Kok, Auke wrote:
+>> Joonwoo Park wrote:
+>>> IMHO even though netdevice is in the promiscuous mode, we should receive all of ingress packets.
+>>> This disable the vlan filtering feature when a vlan hw accel configured e1000 device goes into promiscuous mode.
+>>> This make packets visible to sniffers though it's not vlan id of itself.
+>>> Any check, comments will be appreciated.
+>> Actually I think this patch removes a choice from the user.
+>>
+>> Before this patch, the user can sniff all traffic by disabling vlans, or a
+>> specific vlan only by leaving vlans on when going into promisc mode.
+>>
+>> After this patch, the user has no choice but to sniff all vlans at all times.
+>>
+>> I don't think that that is such a good improvement.
+> 
+> 
+> Do you really consider that a realistic choice? Who is going to
+> remove interfaces that are in use just to see traffic for other
+> VLANs? Sniffing specific VLANs can always be done on the VLAN
+> device itself.
 
-------_=_NextPart_001_01C82555.43EEDBB4
-Content-Type: text/plain;
-	charset="iso-2022-jp"
-Content-Transfer-Encoding: 7bit
+right, I had not thought of that.
 
-From: Fred L. Templin <fred.l.templin@boeing.com>
+> IMO its more a question of what we want promiscous mode to mean,
+> and I tend to agree with Joonwoo that it should receive all packets.
 
-This is experimental support for the Intra-Site Automatic
-Tunnel Addressing Protocol (ISATAP) per RFC4214. The
-attached file includes diffs that are specific to the
-iproute2-2.6.23 software distribution.
+OK, Joonwoo: can you submit a patch against e1000e as well?
 
-Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
+Auke
 
-------_=_NextPart_001_01C82555.43EEDBB4
-Content-Type: text/plain;
-	name="isatap_iproute2.txt"
-Content-Transfer-Encoding: base64
-Content-Description: isatap_iproute2.txt
-Content-Disposition: attachment;
-	filename="isatap_iproute2.txt"
-
-LS0tIGlwcm91dGUyLTIuNi4yMy9pcC9pcHR1bm5lbC5jLm9yaWcJMjAwNy0xMS0wOCAxNjoyNzoy
-NC4wMDAwMDAwMDAgLTA4MDANCisrKyBpcHJvdXRlMi0yLjYuMjMvaXAvaXB0dW5uZWwuYwkyMDA3
-LTExLTEyIDA2OjUzOjM4LjAwMDAwMDAwMCAtMDgwMA0KQEAgLTM5LDcgKzM5LDggQEAgc3RhdGlj
-IHZvaWQgdXNhZ2Uodm9pZCkgX19hdHRyaWJ1dGVfXygobg0KIHN0YXRpYyB2b2lkIHVzYWdlKHZv
-aWQpDQogew0KIAlmcHJpbnRmKHN0ZGVyciwgIlVzYWdlOiBpcCB0dW5uZWwgeyBhZGQgfCBjaGFu
-Z2UgfCBkZWwgfCBzaG93IH0gWyBOQU1FIF1cbiIpOw0KLQlmcHJpbnRmKHN0ZGVyciwgIiAgICAg
-ICAgICBbIG1vZGUgeyBpcGlwIHwgZ3JlIHwgc2l0IH0gXSBbIHJlbW90ZSBBRERSIF0gWyBsb2Nh
-bCBBRERSIF1cbiIpOw0KKwlmcHJpbnRmKHN0ZGVyciwgIiAgICAgICAgICBbIG1vZGUgeyBpcGlw
-IHwgZ3JlIHwgc2l0IHwgaXNhdGFwIH0gXVxuIik7DQorCWZwcmludGYoc3RkZXJyLCAiICAgICAg
-ICAgIFsgcmVtb3RlIEFERFIgXSBbIGxvY2FsIEFERFIgXSBbIHJvdXRlciBBRERSIF0gWyBsaWZl
-dGltZSBOVU1CRVIgXVxuIik7DQogCWZwcmludGYoc3RkZXJyLCAiICAgICAgICAgIFsgW2l8b11z
-ZXEgXSBbIFtpfG9da2V5IEtFWSBdIFsgW2l8b11jc3VtIF1cbiIpOw0KIAlmcHJpbnRmKHN0ZGVy
-ciwgIiAgICAgICAgICBbIHR0bCBUVEwgXSBbIHRvcyBUT1MgXSBbIFtub11wbXR1ZGlzYyBdIFsg
-ZGV2IFBIWVNfREVWIF1cbiIpOw0KIAlmcHJpbnRmKHN0ZGVyciwgIlxuIik7DQpAQCAtNTUsNiAr
-NTYsOSBAQCBzdGF0aWMgaW50IHBhcnNlX2FyZ3MoaW50IGFyZ2MsIGNoYXIgKiphDQogew0KIAlp
-bnQgY291bnQgPSAwOw0KIAljaGFyIG1lZGl1bVtJRk5BTVNJWl07DQorCWludCBpc2F0YXAgPSAw
-Ow0KKwl1bnNpZ25lZCByb3V0ZXIgPSAwOw0KKwl1bnNpZ25lZCBsaWZldGltZSA9IDA7DQogDQog
-CW1lbXNldChwLCAwLCBzaXplb2YoKnApKTsNCiAJbWVtc2V0KCZtZWRpdW0sIDAsIHNpemVvZiht
-ZWRpdW0pKTsNCkBAIC05MCw2ICs5NCwxMyBAQCBzdGF0aWMgaW50IHBhcnNlX2FyZ3MoaW50IGFy
-Z2MsIGNoYXIgKiphDQogCQkJCQlleGl0KC0xKTsNCiAJCQkJfQ0KIAkJCQlwLT5pcGgucHJvdG9j
-b2wgPSBJUFBST1RPX0lQVjY7DQorCQkJfSBlbHNlIGlmIChzdHJjbXAoKmFyZ3YsICJpc2F0YXAi
-KSA9PSAwKSB7DQorCQkJCWlmIChwLT5pcGgucHJvdG9jb2wgJiYgcC0+aXBoLnByb3RvY29sICE9
-IElQUFJPVE9fSVBWNikgew0KKwkJCQkJZnByaW50ZihzdGRlcnIsIllvdSBtYW5hZ2VkIHRvIGFz
-ayBmb3IgbW9yZSB0aGFuIG9uZSB0dW5uZWwgbW9kZS5cbiIpOw0KKwkJCQkJZXhpdCgtMSk7DQor
-CQkJCX0NCisJCQkJcC0+aXBoLnByb3RvY29sID0gSVBQUk9UT19JUFY2Ow0KKwkJCQlpc2F0YXAr
-KzsNCiAJCQl9IGVsc2Ugew0KIAkJCQlmcHJpbnRmKHN0ZGVyciwiQ2Fubm90IGd1ZXNzIHR1bm5l
-bCBtb2RlLlxuIik7DQogCQkJCWV4aXQoLTEpOw0KQEAgLTE2MCw2ICsxNzEsMTggQEAgc3RhdGlj
-IGludCBwYXJzZV9hcmdzKGludCBhcmdjLCBjaGFyICoqYQ0KIAkJCU5FWFRfQVJHKCk7DQogCQkJ
-aWYgKHN0cmNtcCgqYXJndiwgImFueSIpKQ0KIAkJCQlwLT5pcGguc2FkZHIgPSBnZXRfYWRkcjMy
-KCphcmd2KTsNCisJCX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAicm91dGVyIikgPT0gMCkgew0K
-KwkJCU5FWFRfQVJHKCk7DQorCQkJaWYgKHN0cmNtcCgqYXJndiwgImFueSIpKQ0KKwkJCQlyb3V0
-ZXIgPSBnZXRfYWRkcjMyKCphcmd2KTsNCisJCX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAibGlm
-ZXRpbWUiKSA9PSAwKSB7DQorCQkJdW5zaWduZWQgdXZhbDsNCisJCQlORVhUX0FSRygpOw0KKwkJ
-CWlmIChnZXRfdW5zaWduZWQoJnV2YWwsICphcmd2LCAwKSkgew0KKwkJCQlpbnZhcmcoImludmFs
-aWQgbGlmZXRpbWVcbiIsICphcmd2KTsNCisJCQkJZXhpdCgtMSk7DQorCQkJfQ0KKwkJCWxpZmV0
-aW1lID0gdXZhbDsNCiAJCX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAiZGV2IikgPT0gMCkgew0K
-IAkJCU5FWFRfQVJHKCk7DQogCQkJc3RybmNweShtZWRpdW0sICphcmd2LCBJRk5BTVNJWi0xKTsN
-CkBAIC0yMTIsNiArMjM1LDEwIEBAIHN0YXRpYyBpbnQgcGFyc2VfYXJncyhpbnQgYXJnYywgY2hh
-ciAqKmENCiAJCQlwLT5pcGgucHJvdG9jb2wgPSBJUFBST1RPX0lQSVA7DQogCQllbHNlIGlmICht
-ZW1jbXAocC0+bmFtZSwgInNpdCIsIDMpID09IDApDQogCQkJcC0+aXBoLnByb3RvY29sID0gSVBQ
-Uk9UT19JUFY2Ow0KKwkJZWxzZSBpZiAobWVtY21wKHAtPm5hbWUsICJpc2F0YXAiLCA2KSA9PSAw
-KSB7DQorCQkJcC0+aXBoLnByb3RvY29sID0gSVBQUk9UT19JUFY2Ow0KKwkJCWlzYXRhcCsrOw0K
-KwkJfQ0KIAl9DQogDQogCWlmIChwLT5pcGgucHJvdG9jb2wgPT0gSVBQUk9UT19JUElQIHx8IHAt
-PmlwaC5wcm90b2NvbCA9PSBJUFBST1RPX0lQVjYpIHsNCkBAIC0yMzksNiArMjY2LDIwIEBAIHN0
-YXRpYyBpbnQgcGFyc2VfYXJncyhpbnQgYXJnYywgY2hhciAqKmENCiAJCWZwcmludGYoc3RkZXJy
-LCAiQnJvYWRjYXN0IHR1bm5lbCByZXF1aXJlcyBhIHNvdXJjZSBhZGRyZXNzLlxuIik7DQogCQly
-ZXR1cm4gLTE7DQogCX0NCisJaWYgKGlzYXRhcCkgew0KKwkJaWYgKHAtPmlwaC5kYWRkcikgew0K
-KwkJCWZwcmludGYoc3RkZXJyLCAibm8gcmVtb3RlIHdpdGggaXNhdGFwLlxuIik7DQorCQkJcmV0
-dXJuIC0xOw0KKwkJfQ0KKwkJcC0+aV9rZXkgPSByb3V0ZXIgPyByb3V0ZXIgOiBJTkFERFJfTk9O
-RTsNCisJCXAtPm9fa2V5ID0gbGlmZXRpbWUgPyBsaWZldGltZSA6IDEyMDsJLyogUkZDNDIxNCBk
-ZWZhdWx0ICovDQorCX0gZWxzZSB7DQorCQlpZiAocm91dGVyIHx8IGxpZmV0aW1lKSB7DQorCQkJ
-ZnByaW50ZihzdGRlcnIsICJyb3V0ZXIvbGlmZXRpbWUgb25seSBmb3IgaXNhdGFwLlxuIik7DQor
-CQkJcmV0dXJuIC0xOw0KKwkJfQ0KKwl9DQorDQogCXJldHVybiAwOw0KIH0NCiANCg==
-
-------_=_NextPart_001_01C82555.43EEDBB4--
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >> http://get.splunk.com/
