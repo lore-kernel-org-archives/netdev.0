@@ -1,94 +1,53 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: 2.6.24-rc1-gb4f5550 oops
-Date: Mon, 12 Nov 2007 19:05:49 +0100
-Message-ID: <1194890749.9713.17.camel@twins>
-References: <20071105061158.3174d24d@worthy.swandive.local>
-	 <200711082242.21869.rjw@sisk.pl>
-	 <20071108221951.71224bd8@worthy.swandive.local>
-	 <200711082349.19344.rjw@sisk.pl>
+From: osprey67 <osprey67@yahoo.com>
+Subject: [PATCH 02/05] ipv6: RFC4214 Support (4)
+Date: Mon, 12 Nov 2007 07:54:33 -0800
+Message-ID: <47387739.2030001@yahoo.com>
+References: <473371B3.5030908@yahoo.com> <4734FCEF.3080301@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Grant Wilson <grant.wilson@zen.co.uk>, Ingo Molnar <mingo@elte.hu>,
-	lkml <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev <netdev@vger.kernel.org>, vatsa <vatsa@linux.vnet.ibm.com>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:50164 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751434AbXKLSGJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 13:06:09 -0500
-In-Reply-To: <200711082349.19344.rjw@sisk.pl>
+Received: from smtp112.plus.mail.sp1.yahoo.com ([69.147.95.75]:30453 "HELO
+	smtp112.plus.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751133AbXKLSWd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 13:22:33 -0500
+In-Reply-To: <4734FCEF.3080301@yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Fred L. Templin <fred.l.templin@boeing.com>
 
-On Thu, 2007-11-08 at 23:49 +0100, Rafael J. Wysocki wrote:
-> On Thursday, 8 of November 2007, Grant Wilson wrote:
-> > On Thu, 8 Nov 2007 22:42:21 +0100
-> > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > 
-> > > On Thursday, 8 of November 2007, Grant Wilson wrote:
-> > > > On Thu, 8 Nov 2007 16:53:10 +0100
-> > > > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > > > 
-> > > > > On Thursday, 8 of November 2007, Grant Wilson wrote:
-> > > > > > On Thu, 8 Nov 2007 01:06:21 +0100
-> > > > > > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > > > > > 
-> > > > > > > On Monday, 5 of November 2007, Grant Wilson wrote:
-> > > > > > > > Hi,
-> > > > > > > > I got this oops on 2.6.24-rc1-641-gb4f5550:
-> > > > > > > 
-> > > > > > > (1) Is this reproducible?
-> > > > > > > (2) Did it happen previously on your system?
-> > > > > > >
-> > > > > > > [18073.371126] Unable to handle kernel NULL pointer dereference at 0000000000000120 RIP: 
-> > > > > > > [18073.371134]  [<ffffffff8023572e>] check_preempt_wakeup+0x6e/0x110
-> > > > > > 
-> > > > > > This has now happened twice - the second time was last night when
-> > > > > > running 2.6.24-rc2.
-> > > > > > 
-> > > > > > Here's that second occurrence:
-> > > > > > 
-> > > > [snip]
-> > > > > 
-> > > > > Hmm.
-> > > > > 
-> > > > > Please run "gdb vmlinux" and see what code corresponds to
-> > > > > check_preempt_wakeup+0x6e in your kernel.
-> > > >
-> > > > 
-> > > > Dump of assembler code for function check_preempt_wakeup:
-> > > 
-> > > Well, thanks, but I meant the source code.  Please do "gdb vmlinux" and then
-> > > "l *check_preempt_wakeup+0x6e" in gdb.
-> > 
-> > Here's the requested output:
-> > 
-> > (gdb) l *check_preempt_wakeup+0x6e
-> > 0xffffffff802329ae is in check_preempt_wakeup (kernel/sched_fair.c:668).
-> > 663
-> > 664     /* Do the two (enqueued) entities belong to the same group ? */
-> > 665     static inline int
-> > 666     is_same_group(struct sched_entity *se, struct sched_entity *pse)
-> > 667     {
-> > 668             if (se->cfs_rq == pse->cfs_rq)
-> > 669                     return 1;
-> > 670
-> > 671             return 0;
-> > 672     }
-> 
-> Well, it looks like either se or pse is NULL.
-> 
-> Ingo, can you please have a look?
+This is experimental support for the Intra-Site Automatic
+Tunnel Addressing Protocol (ISATAP) per RFC4214. It uses
+the SIT module, and is configured using the unmodified
+"ip" utility with device names beginning with: "isatap".
 
-Most puzzling this, it should be guaranteed that the top sched_entities
-are of the same group, therefore avoiding this loop into NULL. Obviously
-something has gone wrong.
+The following diffs are specific to the Linux 2.6.24-rc2
+kernel distribution.
 
-Grant, is there anything specific you can tell us about how to reproduce
-this?
+Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
 
+---
+
+--- linux-2.6.24-rc2/net/ipv6/Kconfig.orig      2007-11-08 12:07:17.000000000 -0800
++++ linux-2.6.24-rc2/net/ipv6/Kconfig   2007-11-08 08:27:48.000000000 -0800
+@@ -57,6 +57,17 @@ config IPV6_ROUTE_INFO
+
+           If unsure, say N.
+
++config IPV6_ISATAP
++       bool "IPv6: ISATAP (RFC 4214) support (EXPERIMENTAL)"
++       depends on IPV6 && EXPERIMENTAL
++       ---help---
++         This is experimental support for the Intra-Site Automatic
++         Tunnel Addressing Protocol (ISATAP) per RFC4214. It uses
++         the SIT module, and is configured using the "ip" utility
++         with device names beginning with: "isatap".
++
++         If unsure, say N.
++
+  config IPV6_OPTIMISTIC_DAD
+         bool "IPv6: Enable RFC 4429 Optimistic DAD (EXPERIMENTAL)"
+         depends on IPV6 && EXPERIMENTAL
 
