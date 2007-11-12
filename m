@@ -1,57 +1,136 @@
-From: "Denis V. Lunev" <dlunev@gmail.com>
-Subject: Re: [patch 1/1][NETNS][IPV6] protect addrconf from loopback registration
-Date: Tue, 13 Nov 2007 00:00:08 +0300
-Message-ID: <4738BED8.4060701@gmail.com>
-References: <20071112151953.052335971@mai.toulouse-stg.fr.ibm.com> <20071112152403.273795630@mai.toulouse-stg.fr.ibm.com> <473879C3.5020301@sw.ru> <m1ejev4dap.fsf@ebiederm.dsl.xmission.com> <473886E2.3020703@fr.ibm.com>
+From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Subject: [Resend] [PATCH 01/01] iproute2-2.6.23: RFC4214 Support (4)
+Date: Mon, 12 Nov 2007 13:02:25 -0800
+Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC18@XCH-NW-7V2.nw.nos.boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+	charset="iso-2022-jp"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, xemul@openvz.org,
-	containers@lists.osdl.org, yoshfuji@linux-ipv6.org,
-	Benjamin Thery <benjamin.thery@bull.net>
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
+Cc: =?iso-2022-jp?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
+	<yoshfuji@linux-ipv6.org>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:11026 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751457AbXKLU4S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 15:56:18 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so817967ugc
-        for <netdev@vger.kernel.org>; Mon, 12 Nov 2007 12:56:16 -0800 (PST)
-In-Reply-To: <473886E2.3020703@fr.ibm.com>
+Received: from slb-smtpout-01.boeing.com ([130.76.64.48]:37414 "EHLO
+	slb-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757799AbXKLVCg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 16:02:36 -0500
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Let me try to clarify:
-> 
->  * when the init network namespace is created, the loopback is created
-> first, before ipv6, and the notifier call chain for ipv6 is not setup,
-> so the protocol does not receive the REGISTER event
-> 
->  * when the init network namespace is destroyed during shutdown, the
-> loopback is not unregistered, so there is no UNREGISTER event
-> 
->  * when we create a new network namespace, a new instance of the
-> loopback is created and a NETDEV_REGISTER is sent to ipv6 because the
-> notifier call chain has been setup by the init netns (while ipv6
-> protocol is not yet configured for the namespace which is being created)
-> 
->  * when the network namespace exits, the loopback is unregistered after
-> the ipv6 protocol but the NETDEV_UNREGISTER is sent to addrconf_notify
-> while the ipv6 protocol has been destroyed.
+ 
 
-this should not be a problem :). IPv6 exiting code could remove in_dev6
-at the protocol layer. In this case the notifier will be noop. This
-approach is completely equivalent to the unloading of IPv6 module with
-persistent loopback.
+-----Original Message-----
+From: osprey67 [mailto:osprey67@yahoo.com] 
+Sent: Monday, November 12, 2007 7:58 AM
+To: netdev@vger.kernel.org
+Subject: [PATCH 01/01] iproute2-2.6.23: RFC4214 Support (4)
 
-The registration is still the problem. May be we need to separate
-registration from initialization and perform it after protocol layer for
-all loopback devices? I'd like this right now, but this is tight change...
+From: Fred L. Templin <fred.l.templin@boeing.com>
 
-> 
-> 
-> The objective of the patch is to discard these events because they were
-> never taken into account and they are not expected to be receive by ipv6
-> protocol.
-> 
+This is experimental support for the Intra-Site Automatic
+Tunnel Addressing Protocol (ISATAP) per RFC4214. It uses
+the SIT module, and is configured using the unmodified
+"ip" utility with device names beginning with: "isatap".
+
+The following diffs are specific to the iproute2-2.6.23
+software distribution. The diff text file itself is also
+attached and should be suitable for use with the patch
+utility.
+
+Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
+
+---
+
+--- iproute2-2.6.23/ip/iptunnel.c.orig  2007-11-08 16:27:24.000000000 -0800
++++ iproute2-2.6.23/ip/iptunnel.c       2007-11-12 06:53:38.000000000 -0800
+@@ -39,7 +39,8 @@ static void usage(void) __attribute__((n
+  static void usage(void)
+  {
+         fprintf(stderr, "Usage: ip tunnel { add | change | del | show } [ NAME ]\n");
+-       fprintf(stderr, "          [ mode { ipip | gre | sit } ] [ remote ADDR ] [ local ADDR ]\n");
++       fprintf(stderr, "          [ mode { ipip | gre | sit | isatap } ]\n");
++       fprintf(stderr, "          [ remote ADDR ] [ local ADDR ] [ router ADDR ] [ lifetime NUMBER ]\n");
+         fprintf(stderr, "          [ [i|o]seq ] [ [i|o]key KEY ] [ [i|o]csum ]\n");
+         fprintf(stderr, "          [ ttl TTL ] [ tos TOS ] [ [no]pmtudisc ] [ dev PHYS_DEV ]\n");
+         fprintf(stderr, "\n");
+@@ -55,6 +56,9 @@ static int parse_args(int argc, char **a
+  {
+         int count = 0;
+         char medium[IFNAMSIZ];
++       int isatap = 0;
++       unsigned router = 0;
++       unsigned lifetime = 0;
+
+         memset(p, 0, sizeof(*p));
+         memset(&medium, 0, sizeof(medium));
+@@ -90,6 +94,13 @@ static int parse_args(int argc, char **a
+                                         exit(-1);
+                                 }
+                                 p->iph.protocol = IPPROTO_IPV6;
++                       } else if (strcmp(*argv, "isatap") == 0) {
++                               if (p->iph.protocol && p->iph.protocol != IPPROTO_IPV6) {
++                                       fprintf(stderr,"You managed to ask for more than one tunnel mode.\n");
++                                       exit(-1);
++                               }
++                               p->iph.protocol = IPPROTO_IPV6;
++                               isatap++;
+                         } else {
+                                 fprintf(stderr,"Cannot guess tunnel mode.\n");
+                                 exit(-1);
+@@ -160,6 +171,18 @@ static int parse_args(int argc, char **a
+                         NEXT_ARG();
+                         if (strcmp(*argv, "any"))
+                                 p->iph.saddr = get_addr32(*argv);
++               } else if (strcmp(*argv, "router") == 0) {
++                       NEXT_ARG();
++                       if (strcmp(*argv, "any"))
++                               router = get_addr32(*argv);
++               } else if (strcmp(*argv, "lifetime") == 0) {
++                       unsigned uval;
++                       NEXT_ARG();
++                       if (get_unsigned(&uval, *argv, 0)) {
++                               invarg("invalid lifetime\n", *argv);
++                               exit(-1);
++                       }
++                       lifetime = uval;
+                 } else if (strcmp(*argv, "dev") == 0) {
+                         NEXT_ARG();
+                         strncpy(medium, *argv, IFNAMSIZ-1);
+@@ -212,6 +235,10 @@ static int parse_args(int argc, char **a
+                         p->iph.protocol = IPPROTO_IPIP;
+                 else if (memcmp(p->name, "sit", 3) == 0)
+                         p->iph.protocol = IPPROTO_IPV6;
++               else if (memcmp(p->name, "isatap", 6) == 0) {
++                       p->iph.protocol = IPPROTO_IPV6;
++                       isatap++;
++               }
+         }
+
+         if (p->iph.protocol == IPPROTO_IPIP || p->iph.protocol == IPPROTO_IPV6) {
+@@ -239,6 +266,20 @@ static int parse_args(int argc, char **a
+                 fprintf(stderr, "Broadcast tunnel requires a source address.\n");
+                 return -1;
+         }
++       if (isatap) {
++               if (p->iph.daddr) {
++                       fprintf(stderr, "no remote with isatap.\n");
++                       return -1;
++               }
++               p->i_key = router ? router : INADDR_NONE;
++               p->o_key = lifetime ? lifetime : 120;   /* RFC4214 default */
++       } else {
++               if (router || lifetime) {
++                       fprintf(stderr, "router/lifetime only for isatap.\n");
++                       return -1;
++               }
++       }
++
+         return 0;
+  }
+
+
+-
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
