@@ -1,252 +1,157 @@
-From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Subject: [PATCH 05/05] ipv6: RFC4214 Support (4)
-Date: Mon, 12 Nov 2007 09:48:00 -0800
-Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC11@XCH-NW-7V2.nw.nos.boeing.com>
+From: osprey67 <osprey67@yahoo.com>
+Subject: [PATCH 04/05] ipv6: RFC4214 Support (4)
+Date: Mon, 12 Nov 2007 07:55:04 -0800
+Message-ID: <47387758.7080101@yahoo.com>
 References: <473371B3.5030908@yahoo.com> <4734FCEF.3080301@yahoo.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----_=_NextPart_001_01C82554.2A9E2468"
-Cc: "YOSHIFUJI Hideaki / ????" <yoshfuji@linux-ipv6.org>,
-	<osprey67@yahoo.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from blv-smtpout-01.boeing.com ([130.76.32.69]:38304 "EHLO
-	blv-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751178AbXKLRsS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 12:48:18 -0500
-Content-class: urn:content-classes:message
+Received: from smtp128.plus.mail.sp1.yahoo.com ([69.147.95.91]:27274 "HELO
+	smtp128.plus.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752083AbXKLRwW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 12:52:22 -0500
 In-Reply-To: <4734FCEF.3080301@yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
-
-------_=_NextPart_001_01C82554.2A9E2468
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-
 From: Fred L. Templin <fred.l.templin@boeing.com>
 
-This message attaches the combined diffs from
-messages 01/05 through 04/05. This file should be
-suitable for use with the patch utility.
+This is experimental support for the Intra-Site Automatic
+Tunnel Addressing Protocol (ISATAP) per RFC4214. It uses
+the SIT module, and is configured using the unmodified
+"ip" utility with device names beginning with: "isatap".
+
+The following diffs are specific to the Linux 2.6.24-rc2
+kernel distribution.
 
 Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
 
-------_=_NextPart_001_01C82554.2A9E2468
-Content-Type: text/plain;
-	name="isatap_linux.txt"
-Content-Transfer-Encoding: base64
-Content-Description: isatap_linux.txt
-Content-Disposition: attachment;
-	filename="isatap_linux.txt"
+---
 
-LS0tIGxpbnV4LTIuNi4yNC1yYzIvaW5jbHVkZS9saW51eC9pZi5oLm9yaWcJMjAwNy0xMS0wOCAx
-MjowNTo0Ny4wMDAwMDAwMDAgLTA4MDANCisrKyBsaW51eC0yLjYuMjQtcmMyL2luY2x1ZGUvbGlu
-dXgvaWYuaAkyMDA3LTExLTA4IDA4OjI2OjQ0LjAwMDAwMDAwMCAtMDgwMA0KQEAgLTYxLDYgKzYx
-LDcgQEANCiAjZGVmaW5lIElGRl9NQVNURVJfQUxCCTB4MTAJCS8qIGJvbmRpbmcgbWFzdGVyLCBi
-YWxhbmNlLWFsYi4JKi8NCiAjZGVmaW5lIElGRl9CT05ESU5HCTB4MjAJCS8qIGJvbmRpbmcgbWFz
-dGVyIG9yIHNsYXZlCSovDQogI2RlZmluZSBJRkZfU0xBVkVfTkVFREFSUCAweDQwCQkvKiBuZWVk
-IEFSUHMgZm9yIHZhbGlkYXRpb24JKi8NCisjZGVmaW5lIElGRl9JU0FUQVAJMHg4MAkJLyogSVNB
-VEFQIGludGVyZmFjZSAoUkZDNDIxNCkJKi8NCiANCiAjZGVmaW5lIElGX0dFVF9JRkFDRQkweDAw
-MDEJCS8qIGZvciBxdWVyeWluZyBvbmx5ICovDQogI2RlZmluZSBJRl9HRVRfUFJPVE8JMHgwMDAy
-DQotLS0gbGludXgtMi42LjI0LXJjMi9pbmNsdWRlL2xpbnV4L2luLmgub3JpZwkyMDA3LTExLTA5
-IDA4OjAwOjMyLjAwMDAwMDAwMCAtMDgwMA0KKysrIGxpbnV4LTIuNi4yNC1yYzIvaW5jbHVkZS9s
-aW51eC9pbi5oCTIwMDctMTEtMTIgMDc6Mzc6MDUuMDAwMDAwMDAwIC0wODAwDQpAQCAtMjUzLDYg
-KzI1MywxNCBAQCBzdHJ1Y3Qgc29ja2FkZHJfaW4gew0KICNkZWZpbmUgWkVST05FVCh4KQkoKCh4
-KSAmIGh0b25sKDB4ZmYwMDAwMDApKSA9PSBodG9ubCgweDAwMDAwMDAwKSkNCiAjZGVmaW5lIExP
-Q0FMX01DQVNUKHgpCSgoKHgpICYgaHRvbmwoMHhGRkZGRkYwMCkpID09IGh0b25sKDB4RTAwMDAw
-MDApKQ0KIA0KKy8qIFNwZWNpYWwtVXNlIElQdjQgQWRkcmVzc2VzIChSRkMzMzMwKSAqLw0KKyNk
-ZWZpbmUgUFJJVkFURV8xMCh4KQkoKCh4KSAmIGh0b25sKDB4ZmYwMDAwMDApKSA9PSBodG9ubCgw
-eDBBMDAwMDAwKSkNCisjZGVmaW5lIExJTktMT0NBTF8xNjkoeCkgKCgoeCkgJiBodG9ubCgweGZm
-ZmYwMDAwKSkgPT0gaHRvbmwoMHhBOUZFMDAwMCkpDQorI2RlZmluZSBQUklWQVRFXzE3Mih4KQko
-KCh4KSAmIGh0b25sKDB4ZmZmMDAwMDApKSA9PSBodG9ubCgweEFDMTAwMDAwKSkNCisjZGVmaW5l
-IFRFU1RfMTkyKHgpCSgoKHgpICYgaHRvbmwoMHhmZmZmZmYwMCkpID09IGh0b25sKDB4QzAwMDAy
-MDApKQ0KKyNkZWZpbmUgQU5ZQ0FTVF82VE80KHgpCSgoKHgpICYgaHRvbmwoMHhmZmZmZmYwMCkp
-ID09IGh0b25sKDB4QzA1ODYzMDApKQ0KKyNkZWZpbmUgUFJJVkFURV8xOTIoeCkJKCgoeCkgJiBo
-dG9ubCgweGZmZmYwMDAwKSkgPT0gaHRvbmwoMHhDMEE4MDAwMCkpDQorI2RlZmluZSBURVNUXzE5
-OCh4KQkoKCh4KSAmIGh0b25sKDB4ZmZmZTAwMDApKSA9PSBodG9ubCgweEM2MTIwMDAwKSkNCiAj
-ZW5kaWYNCiANCiAjZW5kaWYJLyogX0xJTlVYX0lOX0ggKi8NCi0tLSBsaW51eC0yLjYuMjQtcmMy
-L2luY2x1ZGUvbmV0L2FkZHJjb25mLmgub3JpZwkyMDA3LTExLTA4IDEyOjA2OjE3LjAwMDAwMDAw
-MCAtMDgwMA0KKysrIGxpbnV4LTIuNi4yNC1yYzIvaW5jbHVkZS9uZXQvYWRkcmNvbmYuaAkyMDA3
-LTExLTA5IDA4OjEyOjI5LjAwMDAwMDAwMCAtMDgwMA0KQEAgLTI0MSw2ICsyNDEsMTQgQEAgc3Rh
-dGljIGlubGluZSBpbnQgaXB2Nl9hZGRyX2lzX2xsX2FsbF9ybw0KIAkJYWRkci0+czZfYWRkcjMy
-WzNdID09IGh0b25sKDB4MDAwMDAwMDIpKTsNCiB9DQogDQorI2lmIGRlZmluZWQoQ09ORklHX0lQ
-VjZfSVNBVEFQKQ0KKy8qIG9ubHkgZm9yIElGRl9JU0FUQVAgaW50ZXJmYWNlcyAqLw0KK3N0YXRp
-YyBpbmxpbmUgaW50IGlwdjZfYWRkcl9pc19pc2F0YXAoY29uc3Qgc3RydWN0IGluNl9hZGRyICph
-ZGRyKQ0KK3sNCisJcmV0dXJuICgoYWRkci0+czZfYWRkcjMyWzJdIHwgaHRvbmwoMHgwMjAwMDAw
-MCkpID09IGh0b25sKDB4MDIwMDVFRkUpKTsNCit9DQorI2VuZGlmDQorDQogI2lmZGVmIENPTkZJ
-R19QUk9DX0ZTDQogZXh0ZXJuIGludCBpZjZfcHJvY19pbml0KHZvaWQpOw0KIGV4dGVybiB2b2lk
-IGlmNl9wcm9jX2V4aXQodm9pZCk7DQotLS0gbGludXgtMi42LjI0LXJjMi9uZXQvaXB2Ni9LY29u
-ZmlnLm9yaWcJMjAwNy0xMS0wOCAxMjowNzoxNy4wMDAwMDAwMDAgLTA4MDANCisrKyBsaW51eC0y
-LjYuMjQtcmMyL25ldC9pcHY2L0tjb25maWcJMjAwNy0xMS0wOCAwODoyNzo0OC4wMDAwMDAwMDAg
-LTA4MDANCkBAIC01Nyw2ICs1NywxNyBAQCBjb25maWcgSVBWNl9ST1VURV9JTkZPDQogDQogCSAg
-SWYgdW5zdXJlLCBzYXkgTi4NCiANCitjb25maWcgSVBWNl9JU0FUQVANCisJYm9vbCAiSVB2Njog
-SVNBVEFQIChSRkMgNDIxNCkgc3VwcG9ydCAoRVhQRVJJTUVOVEFMKSINCisJZGVwZW5kcyBvbiBJ
-UFY2ICYmIEVYUEVSSU1FTlRBTA0KKwktLS1oZWxwLS0tDQorCSAgVGhpcyBpcyBleHBlcmltZW50
-YWwgc3VwcG9ydCBmb3IgdGhlIEludHJhLVNpdGUgQXV0b21hdGljDQorCSAgVHVubmVsIEFkZHJl
-c3NpbmcgUHJvdG9jb2wgKElTQVRBUCkgcGVyIFJGQzQyMTQuIEl0IHVzZXMNCisJICB0aGUgU0lU
-IG1vZHVsZSwgYW5kIGlzIGNvbmZpZ3VyZWQgdXNpbmcgdGhlICJpcCIgdXRpbGl0eQ0KKwkgIHdp
-dGggZGV2aWNlIG5hbWVzIGJlZ2lubmluZyB3aXRoOiAiaXNhdGFwIi4NCisNCisJICBJZiB1bnN1
-cmUsIHNheSBOLg0KKw0KIGNvbmZpZyBJUFY2X09QVElNSVNUSUNfREFEDQogCWJvb2wgIklQdjY6
-IEVuYWJsZSBSRkMgNDQyOSBPcHRpbWlzdGljIERBRCAoRVhQRVJJTUVOVEFMKSINCiAJZGVwZW5k
-cyBvbiBJUFY2ICYmIEVYUEVSSU1FTlRBTA0KLS0tIGxpbnV4LTIuNi4yNC1yYzIvbmV0L2lwdjYv
-YWRkcmNvbmYuYy5vcmlnCTIwMDctMTEtMDggMTE6NTk6MzUuMDAwMDAwMDAwIC0wODAwDQorKysg
-bGludXgtMi42LjI0LXJjMi9uZXQvaXB2Ni9hZGRyY29uZi5jCTIwMDctMTEtMTIgMDc6MDQ6Mjcu
-MDAwMDAwMDAwIC0wODAwDQpAQCAtNzUsNyArNzUsNyBAQA0KICNpbmNsdWRlIDxuZXQvaXAuaD4N
-CiAjaW5jbHVkZSA8bmV0L25ldGxpbmsuaD4NCiAjaW5jbHVkZSA8bmV0L3BrdF9zY2hlZC5oPg0K
-LSNpbmNsdWRlIDxsaW51eC9pZl90dW5uZWwuaD4NCisjaW5jbHVkZSA8bmV0L2lwaXAuaD4NCiAj
-aW5jbHVkZSA8bGludXgvcnRuZXRsaW5rLmg+DQogDQogI2lmZGVmIENPTkZJR19JUFY2X1BSSVZB
-Q1kNCkBAIC0xNDI0LDYgKzE0MjQsMjIgQEAgc3RhdGljIGludCBhZGRyY29uZl9pZmlkX2luZmlu
-aWJhbmQodTggKg0KIAlyZXR1cm4gMDsNCiB9DQogDQorI2lmIGRlZmluZWQoQ09ORklHX0lQVjZf
-SVNBVEFQKQ0KK3N0YXRpYyBpbnQgYWRkcmNvbmZfaWZpZF9pc2F0YXAodTggKmV1aSwgX19iZTMy
-IGFkZHIpDQorew0KKw0KKwlldWlbMF0gPSAweDAyOyBldWlbMV0gPSAwOyBldWlbMl0gPSAweDVF
-OyBldWlbM10gPSAweEZFOw0KKwltZW1jcHkgKGV1aSs0LCAmYWRkciwgNCk7DQorDQorCWlmICha
-RVJPTkVUKGFkZHIpIHx8IFBSSVZBVEVfMTAoYWRkcikgfHwgTE9PUEJBQ0soYWRkcikgfHwNCisJ
-ICAgIExJTktMT0NBTF8xNjkoYWRkcikgfHwgUFJJVkFURV8xNzIoYWRkcikgfHwgVEVTVF8xOTIo
-YWRkcikgfHwNCisJICAgIEFOWUNBU1RfNlRPNChhZGRyKSB8fCBQUklWQVRFXzE5MihhZGRyKSB8
-fCBURVNUXzE5OChhZGRyKSB8fA0KKwkgICAgTVVMVElDQVNUKGFkZHIpIHx8IEJBRENMQVNTKGFk
-ZHIpKSBldWlbMF0gJj0gfjB4MDI7DQorDQorCXJldHVybiAwOw0KK30NCisjZW5kaWYNCisNCiBz
-dGF0aWMgaW50IGlwdjZfZ2VuZXJhdGVfZXVpNjQodTggKmV1aSwgc3RydWN0IG5ldF9kZXZpY2Ug
-KmRldikNCiB7DQogCXN3aXRjaCAoZGV2LT50eXBlKSB7DQpAQCAtMTQzNSw2ICsxNDUxLDExIEBA
-IHN0YXRpYyBpbnQgaXB2Nl9nZW5lcmF0ZV9ldWk2NCh1OCAqZXVpLCANCiAJCXJldHVybiBhZGRy
-Y29uZl9pZmlkX2FyY25ldChldWksIGRldik7DQogCWNhc2UgQVJQSFJEX0lORklOSUJBTkQ6DQog
-CQlyZXR1cm4gYWRkcmNvbmZfaWZpZF9pbmZpbmliYW5kKGV1aSwgZGV2KTsNCisjaWYgZGVmaW5l
-ZChDT05GSUdfSVBWNl9JU0FUQVApDQorCWNhc2UgQVJQSFJEX1NJVDoNCisJCWlmIChkZXYtPnBy
-aXZfZmxhZ3MgJiBJRkZfSVNBVEFQKQ0KKwkJCXJldHVybiBhZGRyY29uZl9pZmlkX2lzYXRhcChl
-dWksICooX19iZTMyICopZGV2LT5kZXZfYWRkcik7DQorI2VuZGlmDQogCX0NCiAJcmV0dXJuIC0x
-Ow0KIH0NCkBAIC0xNDcwLDggKzE0OTEsNyBAQCByZWdlbjoNCiAJICoNCiAJICogIC0gUmVzZXJ2
-ZWQgc3VibmV0IGFueWNhc3QgKFJGQyAyNTI2KQ0KIAkgKgkxMTExMTEwMSAxMS4uLi4xMSAxeHh4
-eHh4eA0KLQkgKiAgLSBJU0FUQVAgKGRyYWZ0LWlldGYtbmd0cmFucy1pc2F0YXAtMTMudHh0KSA1
-LjENCi0JICoJMDAtMDAtNUUtRkUteHgteHgteHgteHgNCisJICogIC0gSVNBVEFQIChSRkM0MjE0
-KSAwMC0wMC01RS1GRS14eC14eC14eC14eCAtIHJlbW92ZT8/DQogCSAqICAtIHZhbHVlIDANCiAJ
-ICogIC0gWFhYOiBhbHJlYWR5IGFzc2lnbmVkIHRvIGFuIGFkZHJlc3Mgb24gdGhlIGRldmljZQ0K
-IAkgKi8NCkBAIC0yMjAxLDYgKzIyMjEsMzEgQEAgc3RhdGljIHZvaWQgYWRkcmNvbmZfc2l0X2Nv
-bmZpZyhzdHJ1Y3Qgbg0KIAkJcmV0dXJuOw0KIAl9DQogDQorI2lmIGRlZmluZWQoQ09ORklHX0lQ
-VjZfSVNBVEFQKQ0KKwkvKiBJU0FUQVAgKFJGQzQyMTQpIC0gTkJNQSBsaW5rICovDQorCWlmIChk
-ZXYtPnByaXZfZmxhZ3MgJiBJRkZfSVNBVEFQKSB7DQorCQlzdHJ1Y3QgaW42X2FkZHIgYWRkcjsN
-CisNCisJCWFkZHJjb25mX2FkZF9scm91dGUoZGV2KTsNCisNCisJCWlwdjZfYWRkcl9zZXQoJmFk
-ZHIsICBodG9ubCgweEZFODAwMDAwKSwgMCwgMCwgMCk7DQorDQorCQlpZiAoaXB2Nl9nZW5lcmF0
-ZV9ldWk2NChhZGRyLnM2X2FkZHIgKyA4LCBkZXYpID09IDApIHsNCisJCQlzdHJ1Y3QgaW5ldDZf
-aWZhZGRyICppZnA7DQorDQorCQkJaWZwID0gaXB2Nl9hZGRfYWRkcihpZGV2LCAmYWRkciwgNjQs
-DQorCQkJCQlJRkFfTElOSywgSUZBX0ZfUEVSTUFORU5UKTsNCisJCQlpZiAoIUlTX0VSUihpZnAp
-KSB7DQorCQkJCWFkZHJjb25mX3ByZWZpeF9yb3V0ZSgmaWZwLT5hZGRyLA0KKwkJCQkJaWZwLT5w
-cmVmaXhfbGVuLCBpZGV2LT5kZXYsIDAsIDApOw0KKwkJCQlhZGRyY29uZl9kYWRfc3RhcnQoaWZw
-LCAwKTsNCisJCQkJaW42X2lmYV9wdXQoaWZwKTsNCisJCQl9DQorCQl9DQorCQlyZXR1cm47DQor
-CX0NCisjZW5kaWYNCisNCiAJc2l0X2FkZF92NF9hZGRycyhpZGV2KTsNCiANCiAJaWYgKGRldi0+
-ZmxhZ3MmSUZGX1BPSU5UT1BPSU5UKSB7DQpAQCAtMjUzMSw2ICsyNTc2LDE5IEBAIHN0YXRpYyB2
-b2lkIGFkZHJjb25mX3JzX3RpbWVyKHVuc2lnbmVkIGwNCiAJCSAqCUFubm91bmNlbWVudCByZWNl
-aXZlZCBhZnRlciBzb2xpY2l0YXRpb24NCiAJCSAqCXdhcyBzZW50DQogCQkgKi8NCisjaWYgZGVm
-aW5lZChDT05GSUdfSVBWNl9JU0FUQVApDQorCQkvKiBJU0FUQVAgKFJGQzQyMTQpIC0gc2NoZWR1
-bGUgbmV4dCBSUy9SQSAqLw0KKwkJaWYgKGlmcC0+aWRldi0+ZGV2LT5wcml2X2ZsYWdzICYgSUZG
-X0lTQVRBUCkgew0KKwkJCXN0cnVjdCBpcF90dW5uZWwgKnQgID0gbmV0ZGV2X3ByaXYoaWZwLT5p
-ZGV2LT5kZXYpOw0KKwkJCWlmICh0LT5wYXJtcy5pX2tleSAhPSBJTkFERFJfTk9ORSkgew0KKwkJ
-CQlzcGluX2xvY2soJmlmcC0+bG9jayk7DQorCQkJCWlmcC0+cHJvYmVzID0gMDsNCisJCQkJaWZw
-LT5pZGV2LT5pZl9mbGFncyAmPSB+KElGX1JTX1NFTlR8SUZfUkFfUkNWRCk7DQorCQkJCWFkZHJj
-b25mX21vZF90aW1lcihpZnAsIEFDX0RBRCwgdC0+cGFybXMub19rZXkqSFopOw0KKwkJCQlzcGlu
-X3VubG9jaygmaWZwLT5sb2NrKTsNCisJCQl9DQorCQl9DQorI2VuZGlmDQogCQlnb3RvIG91dDsN
-CiAJfQ0KIA0KQEAgLTI1NDUsMTAgKzI2MDMsMzIgQEAgc3RhdGljIHZvaWQgYWRkcmNvbmZfcnNf
-dGltZXIodW5zaWduZWQgbA0KIAkJCQkgICBpZnAtPmlkZXYtPmNuZi5ydHJfc29saWNpdF9pbnRl
-cnZhbCk7DQogCQlzcGluX3VubG9jaygmaWZwLT5sb2NrKTsNCiANCisjaWYgZGVmaW5lZChDT05G
-SUdfSVBWNl9JU0FUQVApDQorCQkvKiBJU0FUQVAgKFJGQzQyMTQpIC0gdW5pY2FzdCBSUyAqLw0K
-KwkJaWYgKGlmcC0+aWRldi0+ZGV2LT5wcml2X2ZsYWdzICYgSUZGX0lTQVRBUCkgew0KKwkJCXN0
-cnVjdCBpcF90dW5uZWwgKnQgPSBuZXRkZXZfcHJpdihpZnAtPmlkZXYtPmRldik7DQorDQorCQkJ
-aWYgKHQtPnBhcm1zLmlfa2V5ID09IElOQUREUl9OT05FKSBnb3RvIG91dDsNCisNCisJCQlpcHY2
-X2FkZHJfc2V0KCZhbGxfcm91dGVycywgaHRvbmwoMHhGRTgwMDAwMCksIDAsIDAsIDApOw0KKwkJ
-CWFkZHJjb25mX2lmaWRfaXNhdGFwKGFsbF9yb3V0ZXJzLnM2X2FkZHIgKyA4LCB0LT5wYXJtcy5p
-X2tleSk7DQorCQl9IGVsc2UNCisjZW5kaWYNCiAJCWlwdjZfYWRkcl9hbGxfcm91dGVycygmYWxs
-X3JvdXRlcnMpOw0KIA0KIAkJbmRpc2Nfc2VuZF9ycyhpZnAtPmlkZXYtPmRldiwgJmlmcC0+YWRk
-ciwgJmFsbF9yb3V0ZXJzKTsNCiAJfSBlbHNlIHsNCisjaWYgZGVmaW5lZChDT05GSUdfSVBWNl9J
-U0FUQVApDQorCQkvKiBJU0FUQVAgKFJGQzQyMTQpIC0gdHJ5IGFnYWluIGxhdGVyICovDQorCQlp
-ZiAoaWZwLT5pZGV2LT5kZXYtPnByaXZfZmxhZ3MgJiBJRkZfSVNBVEFQKSB7DQorCQkJc3RydWN0
-IGlwX3R1bm5lbCAqdCA9IG5ldGRldl9wcml2KGlmcC0+aWRldi0+ZGV2KTsNCisJCQlpZiAodC0+
-cGFybXMuaV9rZXkgIT0gSU5BRERSX05PTkUpIHsNCisJCQkJaWZwLT5wcm9iZXMgPSAwOw0KKwkJ
-CQlpZnAtPmlkZXYtPmlmX2ZsYWdzICY9IH4oSUZfUlNfU0VOVHxJRl9SQV9SQ1ZEKTsNCisJCQkJ
-YWRkcmNvbmZfbW9kX3RpbWVyKGlmcCwgQUNfREFELCB0LT5wYXJtcy5vX2tleSpIWik7DQorCQkJ
-fQ0KKwkJfQ0KKyNlbmRpZg0KIAkJc3Bpbl91bmxvY2soJmlmcC0+bG9jayk7DQogCQkvKg0KIAkJ
-ICogTm90ZTogd2UgZG8gbm90IHN1cHBvcnQgZGVwcmVjYXRlZCAiYWxsIG9uLWxpbmsiDQpAQCAt
-MjU5NCw2ICsyNjc0LDkgQEAgc3RhdGljIHZvaWQgYWRkcmNvbmZfZGFkX3N0YXJ0KHN0cnVjdCBp
-bg0KIAlzcGluX2xvY2tfYmgoJmlmcC0+bG9jayk7DQogDQogCWlmIChkZXYtPmZsYWdzJihJRkZf
-Tk9BUlB8SUZGX0xPT1BCQUNLKSB8fA0KKyNpZiBkZWZpbmVkKENPTkZJR19JUFY2X0lTQVRBUCkN
-CisJICAgIGRldi0+cHJpdl9mbGFncyZJRkZfSVNBVEFQIHx8DQorI2VuZGlmDQogCSAgICAhKGlm
-cC0+ZmxhZ3MmSUZBX0ZfVEVOVEFUSVZFKSB8fA0KIAkgICAgaWZwLT5mbGFncyAmIElGQV9GX05P
-REFEKSB7DQogCQlpZnAtPmZsYWdzICY9IH4oSUZBX0ZfVEVOVEFUSVZFfElGQV9GX09QVElNSVNU
-SUMpOw0KQEAgLTI2OTAsNiArMjc3MywxNyBAQCBzdGF0aWMgdm9pZCBhZGRyY29uZl9kYWRfY29t
-cGxldGVkKHN0cnVjDQogCSAgICAoaXB2Nl9hZGRyX3R5cGUoJmlmcC0+YWRkcikgJiBJUFY2X0FE
-RFJfTElOS0xPQ0FMKSkgew0KIAkJc3RydWN0IGluNl9hZGRyIGFsbF9yb3V0ZXJzOw0KIA0KKyNp
-ZiBkZWZpbmVkKENPTkZJR19JUFY2X0lTQVRBUCkNCisJCS8qIElTQVRBUCAoUkZDNDIxNCkgLSB1
-bmljYXN0IFJTICovDQorCQlpZiAoaWZwLT5pZGV2LT5kZXYtPnByaXZfZmxhZ3MgJiBJRkZfSVNB
-VEFQKSB7DQorCQkJc3RydWN0IGlwX3R1bm5lbCAqdCA9IG5ldGRldl9wcml2KGlmcC0+aWRldi0+
-ZGV2KTsNCisNCisJCQlpZiAodC0+cGFybXMuaV9rZXkgPT0gSU5BRERSX05PTkUpIHJldHVybjsN
-CisNCisJCQlpcHY2X2FkZHJfc2V0KCZhbGxfcm91dGVycywgaHRvbmwoMHhGRTgwMDAwMCksIDAs
-IDAsIDApOw0KKwkJCWFkZHJjb25mX2lmaWRfaXNhdGFwKGFsbF9yb3V0ZXJzLnM2X2FkZHIgKyA4
-LCB0LT5wYXJtcy5pX2tleSk7DQorCQl9IGVsc2UNCisjZW5kaWYNCiAJCWlwdjZfYWRkcl9hbGxf
-cm91dGVycygmYWxsX3JvdXRlcnMpOw0KIA0KIAkJLyoNCi0tLSBsaW51eC0yLjYuMjQtcmMyL25l
-dC9pcHY2L3NpdC5jLm9yaWcJMjAwNy0xMS0wOCAxMjowMzo0MS4wMDAwMDAwMDAgLTA4MDANCisr
-KyBsaW51eC0yLjYuMjQtcmMyL25ldC9pcHY2L3NpdC5jCTIwMDctMTEtMTIgMDc6MTM6MTMuMDAw
-MDAwMDAwIC0wODAwDQpAQCAtMTYsNiArMTYsNyBAQA0KICAqCUNoYW5nZXM6DQogICogUm9nZXIg
-VmVubmluZyA8ci52ZW5uaW5nQHRlbHN0cmEuY29tPjoJNnRvNCBzdXBwb3J0DQogICogTmF0ZSBU
-aG9tcHNvbiA8bmF0ZUB0aGVib2cubmV0PjoJCTZ0bzQgc3VwcG9ydA0KKyAqIEZyZWQgTC4gVGVt
-cGxpbiA8Zmx0ZW1wbGluQGFjbS5vcmc+OgkJaXNhdGFwIHN1cHBvcnQNCiAgKi8NCiANCiAjaW5j
-bHVkZSA8bGludXgvbW9kdWxlLmg+DQpAQCAtMTgyLDYgKzE4MywxMSBAQCBzdGF0aWMgc3RydWN0
-IGlwX3R1bm5lbCAqIGlwaXA2X3R1bm5lbF9sDQogCWRldi0+aW5pdCA9IGlwaXA2X3R1bm5lbF9p
-bml0Ow0KIAludC0+cGFybXMgPSAqcGFybXM7DQogDQorI2lmIGRlZmluZWQoQ09ORklHX0lQVjZf
-SVNBVEFQKQ0KKwlpZiAocGFybXMtPmlfa2V5KQ0KKwkJZGV2LT5wcml2X2ZsYWdzIHw9IElGRl9J
-U0FUQVA7DQorI2VuZGlmDQorDQogCWlmIChyZWdpc3Rlcl9uZXRkZXZpY2UoZGV2KSA8IDApIHsN
-CiAJCWZyZWVfbmV0ZGV2KGRldik7DQogCQlnb3RvIGZhaWxlZDsNCkBAIC0zODIsNiArMzg4LDQ4
-IEBAIHN0YXRpYyBpbnQgaXBpcDZfcmN2KHN0cnVjdCBza19idWZmICpza2INCiAJCUlQQ0Ioc2ti
-KS0+ZmxhZ3MgPSAwOw0KIAkJc2tiLT5wcm90b2NvbCA9IGh0b25zKEVUSF9QX0lQVjYpOw0KIAkJ
-c2tiLT5wa3RfdHlwZSA9IFBBQ0tFVF9IT1NUOw0KKyNpZiBkZWZpbmVkKENPTkZJR19JUFY2X0lT
-QVRBUCkNCisJCS8qIElTQVRBUCAoUkZDNDIxNCkgLSBjaGVjayBzb3VyY2UgYWRkcmVzcyAqLw0K
-KwkJaWYgKHR1bm5lbC0+ZGV2LT5wcml2X2ZsYWdzICYgSUZGX0lTQVRBUCkgew0KKwkJCXN0cnVj
-dCBuZWlnaGJvdXIgKm5laWdoOw0KKwkJCXN0cnVjdCBkc3RfZW50cnkgKmRzdDsNCisJCQlzdHJ1
-Y3QgZmxvd2kgZmw7DQorCQkJc3RydWN0IGluNl9hZGRyICphZGRyNjsNCisJCQlzdHJ1Y3QgaXB2
-NmhkciAqaXBoNjsNCisNCisJCQkvKiBmcm9tIElTQVRBUCByb3V0ZXIgKi8NCisJCQlpZiAoKHR1
-bm5lbC0+cGFybXMuaV9rZXkgIT0gSU5BRERSX05PTkUpICYmDQorCQkJICAgIChpcGgtPnNhZGRy
-ID09IHR1bm5lbC0+cGFybXMuaV9rZXkpKSBnb3RvIGFjY2VwdDsNCisNCisJCQlpcGg2ID0gaXB2
-Nl9oZHIoc2tiKTsNCisJCQlhZGRyNiA9ICZpcGg2LT5zYWRkcjsNCisNCisJCQkvKiBmcm9tIGxl
-Z2l0aW1hdGUgcHJldmlvdXMgaG9wICovDQorCQkJbWVtc2V0KCZmbCwgMCwgc2l6ZW9mKGZsKSk7
-DQorCQkJZmwucHJvdG8gPSBpcGg2LT5uZXh0aGRyOw0KKwkJCWlwdjZfYWRkcl9jb3B5KCZmbC5m
-bDZfZHN0LCBhZGRyNik7DQorCQkJZmwub2lmID0gdHVubmVsLT5kZXYtPmlmaW5kZXg7DQorCQkJ
-c2VjdXJpdHlfc2tiX2NsYXNzaWZ5X2Zsb3coc2tiLCAmZmwpOw0KKw0KKwkJCWlmICghKGRzdCA9
-IGlwNl9yb3V0ZV9vdXRwdXQoTlVMTCwgJmZsKSkgfHwNCisJCQkgICAgIChkc3QtPmRldiAhPSB0
-dW5uZWwtPmRldikgfHwNCisJCQkgICAgICgobmVpZ2ggPSBkc3QtPm5laWdoYm91cikgPT0gTlVM
-TCkpIGdvdG8gZHJvcDsNCisNCisJCQlhZGRyNiA9IChzdHJ1Y3QgaW42X2FkZHIqKSZuZWlnaC0+
-cHJpbWFyeV9rZXk7DQorDQorCQkJaWYgKCEoaXB2Nl9hZGRyX2lzX2lzYXRhcChhZGRyNikpIHx8
-DQorCQkJICAgICAoYWRkcjYtPnM2X2FkZHIzMlszXSAhPSBpcGgtPnNhZGRyKSkgew0KK2Ryb3A6
-DQorCQkJCXR1bm5lbC0+c3RhdC5yeF9lcnJvcnMrKzsNCisJCQkJcmVhZF91bmxvY2soJmlwaXA2
-X2xvY2spOw0KKwkJCQlkc3RfcmVsZWFzZShkc3QpOw0KKwkJCQlrZnJlZV9za2Ioc2tiKTsNCisJ
-CQkJcmV0dXJuIDA7DQorCQkgICAgCX0NCisJCQlkc3RfcmVsZWFzZShkc3QpOw0KKwkJfQ0KK2Fj
-Y2VwdDoNCisjZW5kaWYNCiAJCXR1bm5lbC0+c3RhdC5yeF9wYWNrZXRzKys7DQogCQl0dW5uZWwt
-PnN0YXQucnhfYnl0ZXMgKz0gc2tiLT5sZW47DQogCQlza2ItPmRldiA9IHR1bm5lbC0+ZGV2Ow0K
-QEAgLTQ0NCw2ICs0OTIsMzEgQEAgc3RhdGljIGludCBpcGlwNl90dW5uZWxfeG1pdChzdHJ1Y3Qg
-c2tfYg0KIAlpZiAoc2tiLT5wcm90b2NvbCAhPSBodG9ucyhFVEhfUF9JUFY2KSkNCiAJCWdvdG8g
-dHhfZXJyb3I7DQogDQorI2lmIGRlZmluZWQoQ09ORklHX0lQVjZfSVNBVEFQKQ0KKwkvKiBJU0FU
-QVAgKFJGQzQyMTQpIC0gbXVzdCBjb21lIGJlZm9yZSA2dG80ICovDQorCWlmIChkZXYtPnByaXZf
-ZmxhZ3MgJiBJRkZfSVNBVEFQKSB7DQorCQlzdHJ1Y3QgbmVpZ2hib3VyICpuZWlnaCA9IE5VTEw7
-DQorDQorCQlpZiAoc2tiLT5kc3QpDQorCQkJbmVpZ2ggPSBza2ItPmRzdC0+bmVpZ2hib3VyOw0K
-Kw0KKwkJaWYgKG5laWdoID09IE5VTEwpIHsNCisJCQlpZiAobmV0X3JhdGVsaW1pdCgpKQ0KKwkJ
-ICAgIAkJcHJpbnRrKEtFUk5fREVCVUcgInNpdDogbmV4dGhvcCA9PSBOVUxMXG4iKTsNCisJCQln
-b3RvIHR4X2Vycm9yOw0KKwkgICAgCX0NCisNCisJCWFkZHI2ID0gKHN0cnVjdCBpbjZfYWRkciop
-Jm5laWdoLT5wcmltYXJ5X2tleTsNCisJCWFkZHJfdHlwZSA9IGlwdjZfYWRkcl90eXBlKGFkZHI2
-KTsNCisNCisJCWlmICgoYWRkcl90eXBlICYgSVBWNl9BRERSX1VOSUNBU1QpICYmDQorCQkgICAg
-IGlwdjZfYWRkcl9pc19pc2F0YXAoYWRkcjYpKQ0KKwkJCWRzdCA9IGFkZHI2LT5zNl9hZGRyMzJb
-M107DQorCQllbHNlDQorCQkJZ290byB0eF9lcnJvcjsNCisJfQ0KKyNlbmRpZg0KKw0KIAlpZiAo
-IWRzdCkNCiAJCWRzdCA9IHRyeV82dG80KCZpcGg2LT5kYWRkcik7DQogDQpAQCAtNjUxLDYgKzcy
-NCwxMCBAQCBpcGlwNl90dW5uZWxfaW9jdGwgKHN0cnVjdCBuZXRfZGV2aWNlICpkDQogCQkJCWlw
-aXA2X3R1bm5lbF91bmxpbmsodCk7DQogCQkJCXQtPnBhcm1zLmlwaC5zYWRkciA9IHAuaXBoLnNh
-ZGRyOw0KIAkJCQl0LT5wYXJtcy5pcGguZGFkZHIgPSBwLmlwaC5kYWRkcjsNCisjaWYgZGVmaW5l
-ZChDT05GSUdfSVBWNl9JU0FUQVApDQorCQkJCXQtPnBhcm1zLmlfa2V5ID0gcC5pX2tleTsNCisJ
-CQkJdC0+cGFybXMub19rZXkgPSBwLm9fa2V5Ow0KKyNlbmRpZg0KIAkJCQltZW1jcHkoZGV2LT5k
-ZXZfYWRkciwgJnAuaXBoLnNhZGRyLCA0KTsNCiAJCQkJbWVtY3B5KGRldi0+YnJvYWRjYXN0LCAm
-cC5pcGguZGFkZHIsIDQpOw0KIAkJCQlpcGlwNl90dW5uZWxfbGluayh0KTsNCkBAIC02NjMsNiAr
-NzQwLDEwIEBAIGlwaXA2X3R1bm5lbF9pb2N0bCAoc3RydWN0IG5ldF9kZXZpY2UgKmQNCiAJCQlp
-ZiAoY21kID09IFNJT0NDSEdUVU5ORUwpIHsNCiAJCQkJdC0+cGFybXMuaXBoLnR0bCA9IHAuaXBo
-LnR0bDsNCiAJCQkJdC0+cGFybXMuaXBoLnRvcyA9IHAuaXBoLnRvczsNCisjaWYgZGVmaW5lZChD
-T05GSUdfSVBWNl9JU0FUQVApDQorCQkJCXQtPnBhcm1zLmlfa2V5ID0gcC5pX2tleTsNCisJCQkJ
-dC0+cGFybXMub19rZXkgPSBwLm9fa2V5Ow0KKyNlbmRpZg0KIAkJCX0NCiAJCQlpZiAoY29weV90
-b191c2VyKGlmci0+aWZyX2lmcnUuaWZydV9kYXRhLCAmdC0+cGFybXMsIHNpemVvZihwKSkpDQog
-CQkJCWVyciA9IC1FRkFVTFQ7DQo=
+--- linux-2.6.24-rc2/net/ipv6/sit.c.orig        2007-11-08 12:03:41.000000000 -0800
++++ linux-2.6.24-rc2/net/ipv6/sit.c     2007-11-12 07:13:13.000000000 -0800
+@@ -16,6 +16,7 @@
+   *     Changes:
+   * Roger Venning <r.venning@telstra.com>:      6to4 support
+   * Nate Thompson <nate@thebog.net>:            6to4 support
++ * Fred L. Templin <fltemplin@acm.org>:                isatap support
+   */
 
-------_=_NextPart_001_01C82554.2A9E2468--
+  #include <linux/module.h>
+@@ -182,6 +183,11 @@ static struct ip_tunnel * ipip6_tunnel_l
+         dev->init = ipip6_tunnel_init;
+         nt->parms = *parms;
+
++#if defined(CONFIG_IPV6_ISATAP)
++       if (parms->i_key)
++               dev->priv_flags |= IFF_ISATAP;
++#endif
++
+         if (register_netdevice(dev) < 0) {
+                 free_netdev(dev);
+                 goto failed;
+@@ -382,6 +388,48 @@ static int ipip6_rcv(struct sk_buff *skb
+                 IPCB(skb)->flags = 0;
+                 skb->protocol = htons(ETH_P_IPV6);
+                 skb->pkt_type = PACKET_HOST;
++#if defined(CONFIG_IPV6_ISATAP)
++               /* ISATAP (RFC4214) - check source address */
++               if (tunnel->dev->priv_flags & IFF_ISATAP) {
++                       struct neighbour *neigh;
++                       struct dst_entry *dst;
++                       struct flowi fl;
++                       struct in6_addr *addr6;
++                       struct ipv6hdr *iph6;
++
++                       /* from ISATAP router */
++                       if ((tunnel->parms.i_key != INADDR_NONE) &&
++                           (iph->saddr == tunnel->parms.i_key)) goto accept;
++
++                       iph6 = ipv6_hdr(skb);
++                       addr6 = &iph6->saddr;
++
++                       /* from legitimate previous hop */
++                       memset(&fl, 0, sizeof(fl));
++                       fl.proto = iph6->nexthdr;
++                       ipv6_addr_copy(&fl.fl6_dst, addr6);
++                       fl.oif = tunnel->dev->ifindex;
++                       security_skb_classify_flow(skb, &fl);
++
++                       if (!(dst = ip6_route_output(NULL, &fl)) ||
++                            (dst->dev != tunnel->dev) ||
++                            ((neigh = dst->neighbour) == NULL)) goto drop;
++
++                       addr6 = (struct in6_addr*)&neigh->primary_key;
++
++                       if (!(ipv6_addr_is_isatap(addr6)) ||
++                            (addr6->s6_addr32[3] != iph->saddr)) {
++drop:
++                               tunnel->stat.rx_errors++;
++                               read_unlock(&ipip6_lock);
++                               dst_release(dst);
++                               kfree_skb(skb);
++                               return 0;
++                       }
++                       dst_release(dst);
++               }
++accept:
++#endif
+                 tunnel->stat.rx_packets++;
+                 tunnel->stat.rx_bytes += skb->len;
+                 skb->dev = tunnel->dev;
+@@ -444,6 +492,31 @@ static int ipip6_tunnel_xmit(struct sk_b
+         if (skb->protocol != htons(ETH_P_IPV6))
+                 goto tx_error;
+
++#if defined(CONFIG_IPV6_ISATAP)
++       /* ISATAP (RFC4214) - must come before 6to4 */
++       if (dev->priv_flags & IFF_ISATAP) {
++               struct neighbour *neigh = NULL;
++
++               if (skb->dst)
++                       neigh = skb->dst->neighbour;
++
++               if (neigh == NULL) {
++                       if (net_ratelimit())
++                               printk(KERN_DEBUG "sit: nexthop == NULL\n");
++                       goto tx_error;
++               }
++
++               addr6 = (struct in6_addr*)&neigh->primary_key;
++               addr_type = ipv6_addr_type(addr6);
++
++               if ((addr_type & IPV6_ADDR_UNICAST) &&
++                    ipv6_addr_is_isatap(addr6))
++                       dst = addr6->s6_addr32[3];
++               else
++                       goto tx_error;
++       }
++#endif
++
+         if (!dst)
+                 dst = try_6to4(&iph6->daddr);
+
+@@ -651,6 +724,10 @@ ipip6_tunnel_ioctl (struct net_device *d
+                                 ipip6_tunnel_unlink(t);
+                                 t->parms.iph.saddr = p.iph.saddr;
+                                 t->parms.iph.daddr = p.iph.daddr;
++#if defined(CONFIG_IPV6_ISATAP)
++                               t->parms.i_key = p.i_key;
++                               t->parms.o_key = p.o_key;
++#endif
+                                 memcpy(dev->dev_addr, &p.iph.saddr, 4);
+                                 memcpy(dev->broadcast, &p.iph.daddr, 4);
+                                 ipip6_tunnel_link(t);
+@@ -663,6 +740,10 @@ ipip6_tunnel_ioctl (struct net_device *d
+                         if (cmd == SIOCCHGTUNNEL) {
+                                 t->parms.iph.ttl = p.iph.ttl;
+                                 t->parms.iph.tos = p.iph.tos;
++#if defined(CONFIG_IPV6_ISATAP)
++                               t->parms.i_key = p.i_key;
++                               t->parms.o_key = p.o_key;
++#endif
+                         }
+                         if (copy_to_user(ifr->ifr_ifru.ifru_data, &t->parms, sizeof(p)))
+                                 err = -EFAULT;
