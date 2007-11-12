@@ -1,83 +1,121 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH 2/2] [e1000 VLAN] Disable vlan hw accel
-	when promiscuous mode
-Date: Tue, 13 Nov 2007 00:15:16 +0100
-Message-ID: <20071112231516.GA15227@1wt.eu>
-References: <47388B9F.7050308@trash.net>
-	<20071112.143342.10809862.davem@davemloft.net>
-	<4738D70C.4060404@nortel.com>
-	<20071112.145716.06352378.davem@davemloft.net>
+From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Subject: [PATCH 01/01] iproute2-2.6.23: RFC4214 Support (v2.0)
+Date: Mon, 12 Nov 2007 15:17:42 -0800
+Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC25@XCH-NW-7V2.nw.nos.boeing.com>
+References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC18@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC20@XCH-NW-7V2.nw.nos.boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+	charset="iso-2022-jp"
 Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, djohnson+linux-kernel@sw.starentnetworks.com,
-	linux-kernel@vger.kernel.org, joonwpark81@gmail.com,
-	cfriesen@nortel.com, kaber@trash.net
-To: David Miller <davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <20071112.145716.06352378.davem@davemloft.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: =?iso-2022-jp?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
+	<yoshfuji@linux-ipv6.org>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stl-smtpout-01.boeing.com ([130.76.96.56]:50252 "EHLO
+	stl-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758265AbXKLXRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 18:17:54 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC20@XCH-NW-7V2.nw.nos.boeing.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 12, 2007 at 02:57:16PM -0800, David Miller wrote:
-> From: "Chris Friesen" <cfriesen@nortel.com>
-> Date: Mon, 12 Nov 2007 16:43:24 -0600
-> 
-> > David Miller wrote:
-> > 
-> > > When you select VLAN, you by definition are asking for non-VLAN
-> > > traffic to be elided.  It is like plugging the ethernet cable
-> > > into one switch or another.
-> > 
-> > For max functionality it seems like the raw eth device should show 
-> > everything on the wire in promiscuous mode.
-> > 
-> > If we want to sniff only the traffic for a specific vlan, we can sniff 
-> > the vlan device.
-> 
-> VLAN settings are a filter of sorts, much like plugging into
-> one switch or another filters traffic physically.
-> 
-> If you don't want that filter, turn the VLAN settings off.
+From: Fred L. Templin <fred.l.templin@boeing.com>
 
-I don't really agree with that view. Having spent a lot of time with
-tcpdump on production systems, I can say that sometimes you'd like to
-be aware that one of your VLANs is wrong and you'd simply like to
-sniff the wire to guess the correct tag. And on production, you simply
-cannot remove other VLANs, otherwise you disrupt the service.
+This patch includes support for the Intra-Site Automatic Tunnel
+Addressing Protocol (ISATAP) per RFC4214.
 
-Basically, what generally happens is that the guy responsible for the
-switch tells you "it's OK now", but for you it isn't and you cannot
-access the switch.
+The following diffs are specific to the iproute2-2.6.23
+software distribution. This message includes the full and
+patchable diff text; please use this version to apply patches.
 
-If the solution is to disable VLAN hardware acceleration, I agree that
-it is very risky to do that without the user being aware of it. But at
-least we should be able to do this by any means (eg: ethtool) without
-disabling what's running.
+Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
 
-And since you made the parallel with a switch, when you receive tagged
-traffic on a switch port, you generally can mirror that port to another
-one and catch all VLANs at once. A new feature that is starting to appear
-is the ability to mirror tagged traffic to a VLAN on another port (which
-means you get a double 802.1q tag). This is useful for inter-site links
-between data-centers for instance.
+---
 
-Regards,
-Willy
-
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >> http://get.splunk.com/
+--- iproute2-2.6.23/ip/iptunnel.c.orig	2007-11-08 16:27:24.000000000 -0800
++++ iproute2-2.6.23/ip/iptunnel.c	2007-11-12 06:53:38.000000000 -0800
+@@ -39,7 +39,8 @@ static void usage(void) __attribute__((n
+ static void usage(void)
+ {
+ 	fprintf(stderr, "Usage: ip tunnel { add | change | del | show } [ NAME ]\n");
+-	fprintf(stderr, "          [ mode { ipip | gre | sit } ] [ remote ADDR ] [ local ADDR ]\n");
++	fprintf(stderr, "          [ mode { ipip | gre | sit | isatap } ]\n");
++	fprintf(stderr, "          [ remote ADDR ] [ local ADDR ] [ router ADDR ] [ lifetime NUMBER ]\n");
+ 	fprintf(stderr, "          [ [i|o]seq ] [ [i|o]key KEY ] [ [i|o]csum ]\n");
+ 	fprintf(stderr, "          [ ttl TTL ] [ tos TOS ] [ [no]pmtudisc ] [ dev PHYS_DEV ]\n");
+ 	fprintf(stderr, "\n");
+@@ -55,6 +56,9 @@ static int parse_args(int argc, char **a
+ {
+ 	int count = 0;
+ 	char medium[IFNAMSIZ];
++	int isatap = 0;
++	unsigned router = 0;
++	unsigned lifetime = 0;
+ 
+ 	memset(p, 0, sizeof(*p));
+ 	memset(&medium, 0, sizeof(medium));
+@@ -90,6 +94,13 @@ static int parse_args(int argc, char **a
+ 					exit(-1);
+ 				}
+ 				p->iph.protocol = IPPROTO_IPV6;
++			} else if (strcmp(*argv, "isatap") == 0) {
++				if (p->iph.protocol && p->iph.protocol != IPPROTO_IPV6) {
++					fprintf(stderr,"You managed to ask for more than one tunnel mode.\n");
++					exit(-1);
++				}
++				p->iph.protocol = IPPROTO_IPV6;
++				isatap++;
+ 			} else {
+ 				fprintf(stderr,"Cannot guess tunnel mode.\n");
+ 				exit(-1);
+@@ -160,6 +171,18 @@ static int parse_args(int argc, char **a
+ 			NEXT_ARG();
+ 			if (strcmp(*argv, "any"))
+ 				p->iph.saddr = get_addr32(*argv);
++		} else if (strcmp(*argv, "router") == 0) {
++			NEXT_ARG();
++			if (strcmp(*argv, "any"))
++				router = get_addr32(*argv);
++		} else if (strcmp(*argv, "lifetime") == 0) {
++			unsigned uval;
++			NEXT_ARG();
++			if (get_unsigned(&uval, *argv, 0)) {
++				invarg("invalid lifetime\n", *argv);
++				exit(-1);
++			}
++			lifetime = uval;
+ 		} else if (strcmp(*argv, "dev") == 0) {
+ 			NEXT_ARG();
+ 			strncpy(medium, *argv, IFNAMSIZ-1);
+@@ -212,6 +235,10 @@ static int parse_args(int argc, char **a
+ 			p->iph.protocol = IPPROTO_IPIP;
+ 		else if (memcmp(p->name, "sit", 3) == 0)
+ 			p->iph.protocol = IPPROTO_IPV6;
++		else if (memcmp(p->name, "isatap", 6) == 0) {
++			p->iph.protocol = IPPROTO_IPV6;
++			isatap++;
++		}
+ 	}
+ 
+ 	if (p->iph.protocol == IPPROTO_IPIP || p->iph.protocol == IPPROTO_IPV6) {
+@@ -239,6 +266,20 @@ static int parse_args(int argc, char **a
+ 		fprintf(stderr, "Broadcast tunnel requires a source address.\n");
+ 		return -1;
+ 	}
++	if (isatap) {
++		if (p->iph.daddr) {
++			fprintf(stderr, "no remote with isatap.\n");
++			return -1;
++		}
++		p->i_key = router ? router : INADDR_NONE;
++		p->o_key = lifetime ? lifetime : 120;	/* RFC4214 default */
++	} else {
++		if (router || lifetime) {
++			fprintf(stderr, "router/lifetime only for isatap.\n");
++			return -1;
++		}
++	}
++
+ 	return 0;
+ }
