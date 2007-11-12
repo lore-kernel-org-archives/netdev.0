@@ -1,70 +1,63 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Problem with frame time stamping
-Date: Mon, 12 Nov 2007 17:47:59 +0100
-Message-ID: <20071112174759.c2777ea2.dada1@cosmosbay.com>
-References: <2cbbd8de0711120742h35f27441p5f096e5e99e1d7dc@mail.gmail.com>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [patch 1/1][NETNS][IPV6] protect addrconf from loopback
+	registration
+Date: Mon, 12 Nov 2007 09:51:58 -0700
+Message-ID: <m1ejev4dap.fsf@ebiederm.dsl.xmission.com>
+References: <20071112151953.052335971@mai.toulouse-stg.fr.ibm.com>
+	<20071112152403.273795630@mai.toulouse-stg.fr.ibm.com>
+	<473879C3.5020301@sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, patrik.arlos@bth.se
-To: "Antoine Zen-Ruffinen" <antoine.zen@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:46132 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752349AbXKLQsG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Nov 2007 11:48:06 -0500
-In-Reply-To: <2cbbd8de0711120742h35f27441p5f096e5e99e1d7dc@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org,
+        Benjamin Thery <benjamin.thery-6ktuUTfB/bM@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+        xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: "Denis V. Lunev" <den-3ImXcnM4P+0@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <473879C3.5020301-3ImXcnM4P+0@public.gmane.org> (Denis V. Lunev's message of "Mon, 12
+	Nov 2007 19:05:23 +0300")
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 12 Nov 2007 16:42:34 +0100
-"Antoine Zen-Ruffinen" <antoine.zen@gmail.com> wrote:
+"Denis V. Lunev" <den-3ImXcnM4P+0@public.gmane.org> writes:
 
-> Dear all,
-> 
-> I'm writing a network analyzer software using Linux and I need a VERY
-> precise frame time stamping. Therefor I am planing to add my own time
-> stamping algorithm on a modified network driver. For test purpose I
-> did so :
-> 
-> 	skb->tstamp.tv64 = 0x00010002;
-> 	netif_rx(skb);
-> 
-> On the user side, I ask for the timestamp that way :
-> 
-> 	...
-> 	sock = socket(AF_PACKET, SOCK_RAW, type);
-> 	...
-> 	//bind this socket with the interface using my modified driver.
-> 	...
-> 	recvByteCount = recv(sock, buffer, 1514, 0);
->     	ioctl(sock, SIOCGSTAMP, &timeStamp);
-> 
-> I was surprised to see that the var timeStamp was still holding a
-> count of second since  year 1970.
-> 
-> Investigating a bit into the kernel code, I found that ioctl(sock,
-> SIOCGSTAMP, ...) was giving just the current kernel time using
-> ktime_get_real().
-> 
-> Are my investigation wrong ?
-> Is that a bug in kernel code ?
-> Is there an other way to access skb.tstamp from user side ?
-> 
-> Thank's to any one that can help me !
+>> Index: linux-2.6-netns/net/ipv6/addrconf.c
+>> ===================================================================
+>> --- linux-2.6-netns.orig/net/ipv6/addrconf.c
+>> +++ linux-2.6-netns/net/ipv6/addrconf.c
+>> @@ -2272,7 +2272,8 @@ static int addrconf_notify(struct notifi
+>>  
+>>  	switch(event) {
+>>  	case NETDEV_REGISTER:
+>> -		if (!idev && dev->mtu >= IPV6_MIN_MTU) {
+>> +		if (!(dev->flags & IFF_LOOPBACK) &&
+>> +		    !idev && dev->mtu >= IPV6_MIN_MTU) {
 
-If your kernel is recent enough, you can already get nanosecond precision from skb tstamp, using SIOCGSTAMPNS ioctl or SO_TIMESTAMPNS / SCM_TIMESTAMPNS
+It is idev being true here for the loopback device that would
+prevent things not missing the REGISTER event.
 
-(changes where done in March/April this year)
+Hmm.  But we do call ipv6_add_dev on loopback and now the loopback
+device is practically guaranteed to be the first device so we can
+probably just remove the special case in addrconf_init.
 
-http://git2.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=b7aa0bf70c4afb9e38be25f5c0922498d0f8684c
-
-http://git2.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=ae40eb1ef30ab4120bd3c8b7e3da99ee53d27a23
-
-http://git2.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=92f37fd2ee805aa77925c1e64fd56088b46094fc
+Anyway Daniels patch makes increasingly less sense the more I look
+at it.
 
 
-No need to modify a network driver :)
+> Namespaces are good to catch leakage using standard codepaths, so they
+> should be preserved as much as possible. So, _all_ normal down code
+> should be called for a loopback device in other than init_net context.
 
+In any context. After the code path is aware of multiple network namespaces
+init_net should not be special in any way.
 
+I completely agree about the ability to catch weird leakage scenarios.
+
+Eric
