@@ -1,404 +1,166 @@
-From: osprey67 <osprey67@yahoo.com>
-Subject: [PATCH 05/05] ipv6: RFC4214 Support (4)
-Date: Mon, 12 Nov 2007 07:55:19 -0800
-Message-ID: <47387767.3060400@yahoo.com>
-References: <473371B3.5030908@yahoo.com> <4734FCEF.3080301@yahoo.com>
+From: Trond Myklebust <Trond.Myklebust@netapp.com>
+Subject: [PATCH][RESEND] NET: Add the helper kernel_sock_shutdown()
+Date: Mon, 12 Nov 2007 15:19:24 -0500
+Message-ID: <1194898764.7465.65.camel@heimdal.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030709050702030803010500"
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David S Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp109.plus.mail.sp1.yahoo.com ([69.147.95.72]:31501 "HELO
-	smtp109.plus.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751405AbXKLUPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 15:15:16 -0500
-In-Reply-To: <4734FCEF.3080301@yahoo.com>
+Received: from mx2.netapp.com ([216.240.18.37]:18325 "EHLO mx2.netapp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751246AbXKLUTp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Nov 2007 15:19:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030709050702030803010500
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+...and fix a couple of bugs in the NBD, CIFS and OCFS2 socket handlers.
 
-From: Fred L. Templin <fred.l.templin@boeing.com>
+Looking at the sock->op->shutdown() handlers, it looks as if all of them
+take a SHUT_RD/SHUT_WR/SHUT_RDWR argument instead of the
+RCV_SHUTDOWN/SEND_SHUTDOWN arguments.
+Add a helper, and then define the SHUT_* enum to ensure that kernel users
+of shutdown() don't get confused.
 
-This message attaches the combined diffs from
-messages 01/05 through 04/05. This file should be
-suitable for use with the patch utility.
-
-Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
-
+Signed-off-by: Trond Myklebust <Trond.Myklebust@netapp.com>
+Cc: Paul Clements <Paul.Clements@steeleye.com>
+Acked-by: Mark Fasheh <mark.fasheh@oracle.com>
+Cc: Steve French <sfrench@samba.org>
+Acked-by: David Howells <dhowells@redhat.com>
+Cc: David S. Miller <davem@davemloft.net>
 ---
 
+ drivers/block/nbd.c    |    3 ++-
+ fs/cifs/connect.c      |    2 +-
+ fs/ocfs2/cluster/tcp.c |    4 ++--
+ include/linux/net.h    |    8 ++++++++
+ net/rxrpc/ar-local.c   |    4 ++--
+ net/socket.c           |    6 ++++++
+ 6 files changed, 21 insertions(+), 6 deletions(-)
 
-
-
-
---------------030709050702030803010500
-Content-Type: text/plain;
- name="isatap_linux.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="isatap_linux.txt"
-
---- linux-2.6.24-rc2/include/linux/if.h.orig	2007-11-08 12:05:47.000000000 -0800
-+++ linux-2.6.24-rc2/include/linux/if.h	2007-11-08 08:26:44.000000000 -0800
-@@ -61,6 +61,7 @@
- #define IFF_MASTER_ALB	0x10		/* bonding master, balance-alb.	*/
- #define IFF_BONDING	0x20		/* bonding master or slave	*/
- #define IFF_SLAVE_NEEDARP 0x40		/* need ARPs for validation	*/
-+#define IFF_ISATAP	0x80		/* ISATAP interface (RFC4214)	*/
+diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
+index 6332aca..b4c0888 100644
+--- a/drivers/block/nbd.c
++++ b/drivers/block/nbd.c
+@@ -28,6 +28,7 @@
+ #include <linux/err.h>
+ #include <linux/kernel.h>
+ #include <net/sock.h>
++#include <linux/net.h>
  
- #define IF_GET_IFACE	0x0001		/* for querying only */
- #define IF_GET_PROTO	0x0002
---- linux-2.6.24-rc2/include/linux/in.h.orig	2007-11-09 08:00:32.000000000 -0800
-+++ linux-2.6.24-rc2/include/linux/in.h	2007-11-12 07:37:05.000000000 -0800
-@@ -253,6 +253,14 @@ struct sockaddr_in {
- #define ZERONET(x)	(((x) & htonl(0xff000000)) == htonl(0x00000000))
- #define LOCAL_MCAST(x)	(((x) & htonl(0xFFFFFF00)) == htonl(0xE0000000))
+ #include <asm/uaccess.h>
+ #include <asm/system.h>
+@@ -126,7 +127,7 @@ static void sock_shutdown(struct nbd_device *lo, int lock)
+ 	if (lo->sock) {
+ 		printk(KERN_WARNING "%s: shutting down socket\n",
+ 			lo->disk->disk_name);
+-		lo->sock->ops->shutdown(lo->sock, SEND_SHUTDOWN|RCV_SHUTDOWN);
++		kernel_sock_shutdown(lo->sock, SHUT_RDWR);
+ 		lo->sock = NULL;
+ 	}
+ 	if (lock)
+diff --git a/fs/cifs/connect.c b/fs/cifs/connect.c
+index 1102160..c52a76f 100644
+--- a/fs/cifs/connect.c
++++ b/fs/cifs/connect.c
+@@ -160,7 +160,7 @@ cifs_reconnect(struct TCP_Server_Info *server)
+ 	if (server->ssocket) {
+ 		cFYI(1, ("State: 0x%x Flags: 0x%lx", server->ssocket->state,
+ 			server->ssocket->flags));
+-		server->ssocket->ops->shutdown(server->ssocket, SEND_SHUTDOWN);
++		kernel_sock_shutdown(server->ssocket, SHUT_WR);
+ 		cFYI(1, ("Post shutdown state: 0x%x Flags: 0x%lx",
+ 			server->ssocket->state,
+ 			server->ssocket->flags));
+diff --git a/fs/ocfs2/cluster/tcp.c b/fs/ocfs2/cluster/tcp.c
+index 685c180..d84bd15 100644
+--- a/fs/ocfs2/cluster/tcp.c
++++ b/fs/ocfs2/cluster/tcp.c
+@@ -58,6 +58,7 @@
+ #include <linux/slab.h>
+ #include <linux/idr.h>
+ #include <linux/kref.h>
++#include <linux/net.h>
+ #include <net/tcp.h>
  
-+/* Special-Use IPv4 Addresses (RFC3330) */
-+#define PRIVATE_10(x)	(((x) & htonl(0xff000000)) == htonl(0x0A000000))
-+#define LINKLOCAL_169(x) (((x) & htonl(0xffff0000)) == htonl(0xA9FE0000))
-+#define PRIVATE_172(x)	(((x) & htonl(0xfff00000)) == htonl(0xAC100000))
-+#define TEST_192(x)	(((x) & htonl(0xffffff00)) == htonl(0xC0000200))
-+#define ANYCAST_6TO4(x)	(((x) & htonl(0xffffff00)) == htonl(0xC0586300))
-+#define PRIVATE_192(x)	(((x) & htonl(0xffff0000)) == htonl(0xC0A80000))
-+#define TEST_198(x)	(((x) & htonl(0xfffe0000)) == htonl(0xC6120000))
- #endif
+ #include <asm/uaccess.h>
+@@ -616,8 +617,7 @@ static void o2net_shutdown_sc(struct work_struct *work)
+ 		del_timer_sync(&sc->sc_idle_timeout);
+ 		o2net_sc_cancel_delayed_work(sc, &sc->sc_keepalive_work);
+ 		sc_put(sc);
+-		sc->sc_sock->ops->shutdown(sc->sc_sock,
+-					   RCV_SHUTDOWN|SEND_SHUTDOWN);
++		kernel_sock_shutdown(sc->sc_sock, SHUT_RDWR);
+ 	}
  
- #endif	/* _LINUX_IN_H */
---- linux-2.6.24-rc2/include/net/addrconf.h.orig	2007-11-08 12:06:17.000000000 -0800
-+++ linux-2.6.24-rc2/include/net/addrconf.h	2007-11-09 08:12:29.000000000 -0800
-@@ -241,6 +241,14 @@ static inline int ipv6_addr_is_ll_all_ro
- 		addr->s6_addr32[3] == htonl(0x00000002));
- }
+ 	/* not fatal so failed connects before the other guy has our
+diff --git a/include/linux/net.h b/include/linux/net.h
+index dd79cdb..596131e 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -95,6 +95,12 @@ enum sock_type {
  
-+#if defined(CONFIG_IPV6_ISATAP)
-+/* only for IFF_ISATAP interfaces */
-+static inline int ipv6_addr_is_isatap(const struct in6_addr *addr)
-+{
-+	return ((addr->s6_addr32[2] | htonl(0x02000000)) == htonl(0x02005EFE));
-+}
-+#endif
+ #endif /* ARCH_HAS_SOCKET_TYPES */
+ 
++enum sock_shutdown_cmd {
++	SHUT_RD		= 0,
++	SHUT_WR		= 1,
++	SHUT_RDWR	= 2,
++};
 +
- #ifdef CONFIG_PROC_FS
- extern int if6_proc_init(void);
- extern void if6_proc_exit(void);
---- linux-2.6.24-rc2/net/ipv6/Kconfig.orig	2007-11-08 12:07:17.000000000 -0800
-+++ linux-2.6.24-rc2/net/ipv6/Kconfig	2007-11-08 08:27:48.000000000 -0800
-@@ -57,6 +57,17 @@ config IPV6_ROUTE_INFO
+ /**
+  *  struct socket - general BSD socket
+  *  @state: socket state (%SS_CONNECTED, etc)
+@@ -223,6 +229,8 @@ extern int kernel_setsockopt(struct socket *sock, int level, int optname,
+ extern int kernel_sendpage(struct socket *sock, struct page *page, int offset,
+ 			   size_t size, int flags);
+ extern int kernel_sock_ioctl(struct socket *sock, int cmd, unsigned long arg);
++extern int kernel_sock_shutdown(struct socket *sock,
++				enum sock_shutdown_cmd how);
  
- 	  If unsure, say N.
- 
-+config IPV6_ISATAP
-+	bool "IPv6: ISATAP (RFC 4214) support (EXPERIMENTAL)"
-+	depends on IPV6 && EXPERIMENTAL
-+	---help---
-+	  This is experimental support for the Intra-Site Automatic
-+	  Tunnel Addressing Protocol (ISATAP) per RFC4214. It uses
-+	  the SIT module, and is configured using the "ip" utility
-+	  with device names beginning with: "isatap".
-+
-+	  If unsure, say N.
-+
- config IPV6_OPTIMISTIC_DAD
- 	bool "IPv6: Enable RFC 4429 Optimistic DAD (EXPERIMENTAL)"
- 	depends on IPV6 && EXPERIMENTAL
---- linux-2.6.24-rc2/net/ipv6/addrconf.c.orig	2007-11-08 11:59:35.000000000 -0800
-+++ linux-2.6.24-rc2/net/ipv6/addrconf.c	2007-11-12 07:04:27.000000000 -0800
-@@ -75,7 +75,7 @@
- #include <net/ip.h>
- #include <net/netlink.h>
- #include <net/pkt_sched.h>
--#include <linux/if_tunnel.h>
-+#include <net/ipip.h>
- #include <linux/rtnetlink.h>
- 
- #ifdef CONFIG_IPV6_PRIVACY
-@@ -1424,6 +1424,22 @@ static int addrconf_ifid_infiniband(u8 *
+ #ifndef CONFIG_SMP
+ #define SOCKOPS_WRAPPED(name) name
+diff --git a/net/rxrpc/ar-local.c b/net/rxrpc/ar-local.c
+index fe03f71..f3a2bd7 100644
+--- a/net/rxrpc/ar-local.c
++++ b/net/rxrpc/ar-local.c
+@@ -114,7 +114,7 @@ static int rxrpc_create_local(struct rxrpc_local *local)
  	return 0;
+ 
+ error:
+-	local->socket->ops->shutdown(local->socket, 2);
++	kernel_sock_shutdown(local->socket, SHUT_RDWR);
+ 	local->socket->sk->sk_user_data = NULL;
+ 	sock_release(local->socket);
+ 	local->socket = NULL;
+@@ -267,7 +267,7 @@ static void rxrpc_destroy_local(struct work_struct *work)
+ 	/* finish cleaning up the local descriptor */
+ 	rxrpc_purge_queue(&local->accept_queue);
+ 	rxrpc_purge_queue(&local->reject_queue);
+-	local->socket->ops->shutdown(local->socket, 2);
++	kernel_sock_shutdown(local->socket, SHUT_RDWR);
+ 	sock_release(local->socket);
+ 
+ 	up_read(&rxrpc_local_sem);
+diff --git a/net/socket.c b/net/socket.c
+index 5d879fd..74784df 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -2319,6 +2319,11 @@ int kernel_sock_ioctl(struct socket *sock, int cmd, unsigned long arg)
+ 	return err;
  }
  
-+#if defined(CONFIG_IPV6_ISATAP)
-+static int addrconf_ifid_isatap(u8 *eui, __be32 addr)
++int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how)
 +{
-+
-+	eui[0] = 0x02; eui[1] = 0; eui[2] = 0x5E; eui[3] = 0xFE;
-+	memcpy (eui+4, &addr, 4);
-+
-+	if (ZERONET(addr) || PRIVATE_10(addr) || LOOPBACK(addr) ||
-+	    LINKLOCAL_169(addr) || PRIVATE_172(addr) || TEST_192(addr) ||
-+	    ANYCAST_6TO4(addr) || PRIVATE_192(addr) || TEST_198(addr) ||
-+	    MULTICAST(addr) || BADCLASS(addr)) eui[0] &= ~0x02;
-+
-+	return 0;
++	return sock->ops->shutdown(sock, how);
 +}
-+#endif
 +
- static int ipv6_generate_eui64(u8 *eui, struct net_device *dev)
- {
- 	switch (dev->type) {
-@@ -1435,6 +1451,11 @@ static int ipv6_generate_eui64(u8 *eui, 
- 		return addrconf_ifid_arcnet(eui, dev);
- 	case ARPHRD_INFINIBAND:
- 		return addrconf_ifid_infiniband(eui, dev);
-+#if defined(CONFIG_IPV6_ISATAP)
-+	case ARPHRD_SIT:
-+		if (dev->priv_flags & IFF_ISATAP)
-+			return addrconf_ifid_isatap(eui, *(__be32 *)dev->dev_addr);
-+#endif
- 	}
- 	return -1;
- }
-@@ -1470,8 +1491,7 @@ regen:
- 	 *
- 	 *  - Reserved subnet anycast (RFC 2526)
- 	 *	11111101 11....11 1xxxxxxx
--	 *  - ISATAP (draft-ietf-ngtrans-isatap-13.txt) 5.1
--	 *	00-00-5E-FE-xx-xx-xx-xx
-+	 *  - ISATAP (RFC4214) 00-00-5E-FE-xx-xx-xx-xx - remove??
- 	 *  - value 0
- 	 *  - XXX: already assigned to an address on the device
- 	 */
-@@ -2201,6 +2221,31 @@ static void addrconf_sit_config(struct n
- 		return;
- 	}
- 
-+#if defined(CONFIG_IPV6_ISATAP)
-+	/* ISATAP (RFC4214) - NBMA link */
-+	if (dev->priv_flags & IFF_ISATAP) {
-+		struct in6_addr addr;
-+
-+		addrconf_add_lroute(dev);
-+
-+		ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
-+
-+		if (ipv6_generate_eui64(addr.s6_addr + 8, dev) == 0) {
-+			struct inet6_ifaddr *ifp;
-+
-+			ifp = ipv6_add_addr(idev, &addr, 64,
-+					IFA_LINK, IFA_F_PERMANENT);
-+			if (!IS_ERR(ifp)) {
-+				addrconf_prefix_route(&ifp->addr,
-+					ifp->prefix_len, idev->dev, 0, 0);
-+				addrconf_dad_start(ifp, 0);
-+				in6_ifa_put(ifp);
-+			}
-+		}
-+		return;
-+	}
-+#endif
-+
- 	sit_add_v4_addrs(idev);
- 
- 	if (dev->flags&IFF_POINTOPOINT) {
-@@ -2531,6 +2576,19 @@ static void addrconf_rs_timer(unsigned l
- 		 *	Announcement received after solicitation
- 		 *	was sent
- 		 */
-+#if defined(CONFIG_IPV6_ISATAP)
-+		/* ISATAP (RFC4214) - schedule next RS/RA */
-+		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
-+			struct ip_tunnel *t  = netdev_priv(ifp->idev->dev);
-+			if (t->parms.i_key != INADDR_NONE) {
-+				spin_lock(&ifp->lock);
-+				ifp->probes = 0;
-+				ifp->idev->if_flags &= ~(IF_RS_SENT|IF_RA_RCVD);
-+				addrconf_mod_timer(ifp, AC_DAD, t->parms.o_key*HZ);
-+				spin_unlock(&ifp->lock);
-+			}
-+		}
-+#endif
- 		goto out;
- 	}
- 
-@@ -2545,10 +2603,32 @@ static void addrconf_rs_timer(unsigned l
- 				   ifp->idev->cnf.rtr_solicit_interval);
- 		spin_unlock(&ifp->lock);
- 
-+#if defined(CONFIG_IPV6_ISATAP)
-+		/* ISATAP (RFC4214) - unicast RS */
-+		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
-+			struct ip_tunnel *t = netdev_priv(ifp->idev->dev);
-+
-+			if (t->parms.i_key == INADDR_NONE) goto out;
-+
-+			ipv6_addr_set(&all_routers, htonl(0xFE800000), 0, 0, 0);
-+			addrconf_ifid_isatap(all_routers.s6_addr + 8, t->parms.i_key);
-+		} else
-+#endif
- 		ipv6_addr_all_routers(&all_routers);
- 
- 		ndisc_send_rs(ifp->idev->dev, &ifp->addr, &all_routers);
- 	} else {
-+#if defined(CONFIG_IPV6_ISATAP)
-+		/* ISATAP (RFC4214) - try again later */
-+		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
-+			struct ip_tunnel *t = netdev_priv(ifp->idev->dev);
-+			if (t->parms.i_key != INADDR_NONE) {
-+				ifp->probes = 0;
-+				ifp->idev->if_flags &= ~(IF_RS_SENT|IF_RA_RCVD);
-+				addrconf_mod_timer(ifp, AC_DAD, t->parms.o_key*HZ);
-+			}
-+		}
-+#endif
- 		spin_unlock(&ifp->lock);
- 		/*
- 		 * Note: we do not support deprecated "all on-link"
-@@ -2594,6 +2674,9 @@ static void addrconf_dad_start(struct in
- 	spin_lock_bh(&ifp->lock);
- 
- 	if (dev->flags&(IFF_NOARP|IFF_LOOPBACK) ||
-+#if defined(CONFIG_IPV6_ISATAP)
-+	    dev->priv_flags&IFF_ISATAP ||
-+#endif
- 	    !(ifp->flags&IFA_F_TENTATIVE) ||
- 	    ifp->flags & IFA_F_NODAD) {
- 		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC);
-@@ -2690,6 +2773,17 @@ static void addrconf_dad_completed(struc
- 	    (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {
- 		struct in6_addr all_routers;
- 
-+#if defined(CONFIG_IPV6_ISATAP)
-+		/* ISATAP (RFC4214) - unicast RS */
-+		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
-+			struct ip_tunnel *t = netdev_priv(ifp->idev->dev);
-+
-+			if (t->parms.i_key == INADDR_NONE) return;
-+
-+			ipv6_addr_set(&all_routers, htonl(0xFE800000), 0, 0, 0);
-+			addrconf_ifid_isatap(all_routers.s6_addr + 8, t->parms.i_key);
-+		} else
-+#endif
- 		ipv6_addr_all_routers(&all_routers);
- 
- 		/*
---- linux-2.6.24-rc2/net/ipv6/sit.c.orig	2007-11-08 12:03:41.000000000 -0800
-+++ linux-2.6.24-rc2/net/ipv6/sit.c	2007-11-12 07:13:13.000000000 -0800
-@@ -16,6 +16,7 @@
-  *	Changes:
-  * Roger Venning <r.venning@telstra.com>:	6to4 support
-  * Nate Thompson <nate@thebog.net>:		6to4 support
-+ * Fred L. Templin <fltemplin@acm.org>:		isatap support
-  */
- 
- #include <linux/module.h>
-@@ -182,6 +183,11 @@ static struct ip_tunnel * ipip6_tunnel_l
- 	dev->init = ipip6_tunnel_init;
- 	nt->parms = *parms;
- 
-+#if defined(CONFIG_IPV6_ISATAP)
-+	if (parms->i_key)
-+		dev->priv_flags |= IFF_ISATAP;
-+#endif
-+
- 	if (register_netdevice(dev) < 0) {
- 		free_netdev(dev);
- 		goto failed;
-@@ -382,6 +388,48 @@ static int ipip6_rcv(struct sk_buff *skb
- 		IPCB(skb)->flags = 0;
- 		skb->protocol = htons(ETH_P_IPV6);
- 		skb->pkt_type = PACKET_HOST;
-+#if defined(CONFIG_IPV6_ISATAP)
-+		/* ISATAP (RFC4214) - check source address */
-+		if (tunnel->dev->priv_flags & IFF_ISATAP) {
-+			struct neighbour *neigh;
-+			struct dst_entry *dst;
-+			struct flowi fl;
-+			struct in6_addr *addr6;
-+			struct ipv6hdr *iph6;
-+
-+			/* from ISATAP router */
-+			if ((tunnel->parms.i_key != INADDR_NONE) &&
-+			    (iph->saddr == tunnel->parms.i_key)) goto accept;
-+
-+			iph6 = ipv6_hdr(skb);
-+			addr6 = &iph6->saddr;
-+
-+			/* from legitimate previous hop */
-+			memset(&fl, 0, sizeof(fl));
-+			fl.proto = iph6->nexthdr;
-+			ipv6_addr_copy(&fl.fl6_dst, addr6);
-+			fl.oif = tunnel->dev->ifindex;
-+			security_skb_classify_flow(skb, &fl);
-+
-+			if (!(dst = ip6_route_output(NULL, &fl)) ||
-+			     (dst->dev != tunnel->dev) ||
-+			     ((neigh = dst->neighbour) == NULL)) goto drop;
-+
-+			addr6 = (struct in6_addr*)&neigh->primary_key;
-+
-+			if (!(ipv6_addr_is_isatap(addr6)) ||
-+			     (addr6->s6_addr32[3] != iph->saddr)) {
-+drop:
-+				tunnel->stat.rx_errors++;
-+				read_unlock(&ipip6_lock);
-+				dst_release(dst);
-+				kfree_skb(skb);
-+				return 0;
-+		    	}
-+			dst_release(dst);
-+		}
-+accept:
-+#endif
- 		tunnel->stat.rx_packets++;
- 		tunnel->stat.rx_bytes += skb->len;
- 		skb->dev = tunnel->dev;
-@@ -444,6 +492,31 @@ static int ipip6_tunnel_xmit(struct sk_b
- 	if (skb->protocol != htons(ETH_P_IPV6))
- 		goto tx_error;
- 
-+#if defined(CONFIG_IPV6_ISATAP)
-+	/* ISATAP (RFC4214) - must come before 6to4 */
-+	if (dev->priv_flags & IFF_ISATAP) {
-+		struct neighbour *neigh = NULL;
-+
-+		if (skb->dst)
-+			neigh = skb->dst->neighbour;
-+
-+		if (neigh == NULL) {
-+			if (net_ratelimit())
-+		    		printk(KERN_DEBUG "sit: nexthop == NULL\n");
-+			goto tx_error;
-+	    	}
-+
-+		addr6 = (struct in6_addr*)&neigh->primary_key;
-+		addr_type = ipv6_addr_type(addr6);
-+
-+		if ((addr_type & IPV6_ADDR_UNICAST) &&
-+		     ipv6_addr_is_isatap(addr6))
-+			dst = addr6->s6_addr32[3];
-+		else
-+			goto tx_error;
-+	}
-+#endif
-+
- 	if (!dst)
- 		dst = try_6to4(&iph6->daddr);
- 
-@@ -651,6 +724,10 @@ ipip6_tunnel_ioctl (struct net_device *d
- 				ipip6_tunnel_unlink(t);
- 				t->parms.iph.saddr = p.iph.saddr;
- 				t->parms.iph.daddr = p.iph.daddr;
-+#if defined(CONFIG_IPV6_ISATAP)
-+				t->parms.i_key = p.i_key;
-+				t->parms.o_key = p.o_key;
-+#endif
- 				memcpy(dev->dev_addr, &p.iph.saddr, 4);
- 				memcpy(dev->broadcast, &p.iph.daddr, 4);
- 				ipip6_tunnel_link(t);
-@@ -663,6 +740,10 @@ ipip6_tunnel_ioctl (struct net_device *d
- 			if (cmd == SIOCCHGTUNNEL) {
- 				t->parms.iph.ttl = p.iph.ttl;
- 				t->parms.iph.tos = p.iph.tos;
-+#if defined(CONFIG_IPV6_ISATAP)
-+				t->parms.i_key = p.i_key;
-+				t->parms.o_key = p.o_key;
-+#endif
- 			}
- 			if (copy_to_user(ifr->ifr_ifru.ifru_data, &t->parms, sizeof(p)))
- 				err = -EFAULT;
-
---------------030709050702030803010500--
+ /* ABI emulation layers need these two */
+ EXPORT_SYMBOL(move_addr_to_kernel);
+ EXPORT_SYMBOL(move_addr_to_user);
+@@ -2345,3 +2350,4 @@ EXPORT_SYMBOL(kernel_getsockopt);
+ EXPORT_SYMBOL(kernel_setsockopt);
+ EXPORT_SYMBOL(kernel_sendpage);
+ EXPORT_SYMBOL(kernel_sock_ioctl);
++EXPORT_SYMBOL(kernel_sock_shutdown);
