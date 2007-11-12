@@ -1,44 +1,67 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 11/14] SCTP: Fix PR-SCTP to deliver all the accumulated ordered chunks
-Date: Mon, 12 Nov 2007 11:38:26 -0500
-Message-ID: <11948855172698-git-send-email-vladislav.yasevich@hp.com>
-References: <11948855091808-git-send-email-vladislav.yasevich@hp.com>
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [GIT PATCHES v2] SCTP bug fixes
+Date: Mon, 12 Nov 2007 11:38:15 -0500
+Message-ID: <11948855091808-git-send-email-vladislav.yasevich@hp.com>
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:35613 "EHLO palrel10.hp.com"
+Received: from palrel12.hp.com ([156.153.255.237]:56228 "EHLO palrel12.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754479AbXKLQij (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Nov 2007 11:38:39 -0500
-In-Reply-To: <11948855091808-git-send-email-vladislav.yasevich@hp.com>
+	id S1752504AbXKLQib (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Nov 2007 11:38:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is a small bug when we process a FWD-TSN.  We'll deliver
-anything upto the current next expected SSN.  However, if the
-next expected is already in the queue, it will take another
-chunk to trigger its delivery.  The fix is to simply check
-the current queued SSN is the next expected one.
+Hi David
 
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- net/sctp/ulpqueue.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I've updated the series of SCTP bugfixes.  These pass all of the regression
+tests.
 
-diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
-index 4be92d0..4908041 100644
---- a/net/sctp/ulpqueue.c
-+++ b/net/sctp/ulpqueue.c
-@@ -862,7 +862,7 @@ static inline void sctp_ulpq_reap_ordered(struct sctp_ulpq *ulpq, __u16 sid)
- 			continue;
- 
- 		/* see if this ssn has been marked by skipping */
--		if (!SSN_lt(cssn, sctp_ssn_peek(in, csid)))
-+		if (!SSN_lte(cssn, sctp_ssn_peek(in, csid)))
- 			break;
- 
- 		__skb_unlink(pos, &ulpq->lobby);
--- 
-1.5.2.4
+You can pull the changes from:
+ master.kernel.org:/pub/scm/linux/kernel/git/vxy/lksctp-dev.git pending
+
+Summary of changes:
+
+Jesper Juhl (1):
+      Fix memory leak in discard case of sctp_sf_abort_violation()
+
+Vlad Yasevich (11):
+      SCTP: Fix difference cases of retransmit.
+      SCTP: Update RCU handling during the ADD-IP case
+      SCTP: Correctly disable ADD-IP when AUTH is not supported.
+      SCTP: Allow ADD_IP to work with AUTH for backward compatibility.
+      SCTP: Fix a potential race between timers and receive path.
+      SCTP: Use hashed lookup when looking for an association.
+      SCTP: Convert custom hash lists to use hlist.
+      SCTP: Make sctp_verify_param return multiple indications.
+      SCTP: Fix PR-SCTP to deliver all the accumulated ordered chunks
+      SCTP: Clean-up some defines for regressions tests.
+      SCTP: Always flush the queue when uncorcking.
+
+Wei Yongjun (2):
+      SCTP : Fix bad formatted comment in outqueue.c
+      SCTP : Fix to process bundled ASCONF chunk correctly
+
+ include/net/sctp/command.h   |    1 +
+ include/net/sctp/constants.h |    3 +
+ include/net/sctp/sctp.h      |    5 +-
+ include/net/sctp/structs.h   |   22 +++---
+ net/sctp/associola.c         |   10 ++-
+ net/sctp/bind_addr.c         |   13 +---
+ net/sctp/endpointola.c       |   35 ++++++---
+ net/sctp/input.c             |   43 +++--------
+ net/sctp/inqueue.c           |    4 +
+ net/sctp/outqueue.c          |   41 +++++-----
+ net/sctp/proc.c              |    6 +-
+ net/sctp/protocol.c          |    7 +-
+ net/sctp/sm_make_chunk.c     |  170 ++++++++++++++++++++++-------------------
+ net/sctp/sm_sideeffect.c     |   10 ++-
+ net/sctp/sm_statefuns.c      |   12 ++--
+ net/sctp/socket.c            |   16 ++---
+ net/sctp/sysctl.c            |    9 ++
+ net/sctp/transport.c         |    5 +-
+ net/sctp/ulpqueue.c          |    2 +-
+ 19 files changed, 220 insertions(+), 194 deletions(-)
+
+
 
