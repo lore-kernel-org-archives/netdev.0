@@ -1,106 +1,80 @@
-From: Grant Wilson <grant.wilson@zen.co.uk>
-Subject: Re: 2.6.24-rc1-gb4f5550 oops
-Date: Mon, 12 Nov 2007 18:28:18 +0000
-Message-ID: <20071112182818.182d739f@worthy.swandive.local>
-References: <20071105061158.3174d24d@worthy.swandive.local>
-	<200711082242.21869.rjw@sisk.pl>
-	<20071108221951.71224bd8@worthy.swandive.local>
-	<200711082349.19344.rjw@sisk.pl>
-	<1194890749.9713.17.camel@twins>
+From: osprey67 <osprey67@yahoo.com>
+Subject: [PATCH 01/05] ipv6: RFC4214 Support (4)
+Date: Mon, 12 Nov 2007 07:54:23 -0800
+Message-ID: <4738772F.6040907@yahoo.com>
+References: <473371B3.5030908@yahoo.com> <4734FCEF.3080301@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, Ingo Molnar <mingo@elte.hu>,
-	lkml <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev <netdev@vger.kernel.org>, vatsa <vatsa@linux.vnet.ibm.com>
-To: Peter Zijlstra <peterz@infradead.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rutherford.zen.co.uk ([212.23.3.142]:52134 "EHLO
-	rutherford.zen.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752473AbXKLSaR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 13:30:17 -0500
-In-Reply-To: <1194890749.9713.17.camel@twins>
+Received: from smtp110.plus.mail.sp1.yahoo.com ([69.147.95.73]:32830 "HELO
+	smtp110.plus.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751029AbXKLSht (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 13:37:49 -0500
+In-Reply-To: <4734FCEF.3080301@yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 12 Nov 2007 19:05:49 +0100
-Peter Zijlstra <peterz@infradead.org> wrote:
+From: Fred L. Templin <fred.l.templin@boeing.com>
 
-> 
-> On Thu, 2007-11-08 at 23:49 +0100, Rafael J. Wysocki wrote:
-> > On Thursday, 8 of November 2007, Grant Wilson wrote:
-> > > On Thu, 8 Nov 2007 22:42:21 +0100
-> > > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > > 
-> > > > On Thursday, 8 of November 2007, Grant Wilson wrote:
-> > > > > On Thu, 8 Nov 2007 16:53:10 +0100
-> > > > > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > > > > 
-> > > > > > On Thursday, 8 of November 2007, Grant Wilson wrote:
-> > > > > > > On Thu, 8 Nov 2007 01:06:21 +0100
-> > > > > > > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > > > > > > 
-> > > > > > > > On Monday, 5 of November 2007, Grant Wilson wrote:
-> > > > > > > > > Hi,
-> > > > > > > > > I got this oops on 2.6.24-rc1-641-gb4f5550:
-> > > > > > > > 
-> > > > > > > > (1) Is this reproducible?
-> > > > > > > > (2) Did it happen previously on your system?
-> > > > > > > >
-> > > > > > > > [18073.371126] Unable to handle kernel NULL pointer dereference at 0000000000000120 RIP: 
-> > > > > > > > [18073.371134]  [<ffffffff8023572e>] check_preempt_wakeup+0x6e/0x110
-> > > > > > > 
-> > > > > > > This has now happened twice - the second time was last night when
-> > > > > > > running 2.6.24-rc2.
-> > > > > > > 
-> > > > > > > Here's that second occurrence:
-> > > > > > > 
-> > > > > [snip]
-> > > > > > 
-> > > > > > Hmm.
-> > > > > > 
-> > > > > > Please run "gdb vmlinux" and see what code corresponds to
-> > > > > > check_preempt_wakeup+0x6e in your kernel.
-> > > > >
-> > > > > 
-> > > > > Dump of assembler code for function check_preempt_wakeup:
-> > > > 
-> > > > Well, thanks, but I meant the source code.  Please do "gdb vmlinux" and then
-> > > > "l *check_preempt_wakeup+0x6e" in gdb.
-> > > 
-> > > Here's the requested output:
-> > > 
-> > > (gdb) l *check_preempt_wakeup+0x6e
-> > > 0xffffffff802329ae is in check_preempt_wakeup (kernel/sched_fair.c:668).
-> > > 663
-> > > 664     /* Do the two (enqueued) entities belong to the same group ? */
-> > > 665     static inline int
-> > > 666     is_same_group(struct sched_entity *se, struct sched_entity *pse)
-> > > 667     {
-> > > 668             if (se->cfs_rq == pse->cfs_rq)
-> > > 669                     return 1;
-> > > 670
-> > > 671             return 0;
-> > > 672     }
-> > 
-> > Well, it looks like either se or pse is NULL.
-> > 
-> > Ingo, can you please have a look?
-> 
-> Most puzzling this, it should be guaranteed that the top sched_entities
-> are of the same group, therefore avoiding this loop into NULL. Obviously
-> something has gone wrong.
-> 
-> Grant, is there anything specific you can tell us about how to reproduce
-> this?
+This is experimental support for the Intra-Site Automatic
+Tunnel Addressing Protocol (ISATAP) per RFC4214. It uses
+the SIT module, and is configured using the unmodified
+"ip" utility with device names beginning with: "isatap".
 
-I'm afraid not.  It has only happened twice and both times I was away
-from the box in question at the time of failure, so it wasn't doing a
-great deal.
+The following diffs are specific to the Linux 2.6.24-rc2
+kernel distribution.
 
-I'm running 2.6.24-rc2 on two boxes and both times it happened on the
-box running a quad core processor.
+Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
 
-Grant
+---
+
+--- linux-2.6.24-rc2/include/linux/if.h.orig    2007-11-08 12:05:47.000000000 -0800
++++ linux-2.6.24-rc2/include/linux/if.h 2007-11-08 08:26:44.000000000 -0800
+@@ -61,6 +61,7 @@
+  #define IFF_MASTER_ALB 0x10            /* bonding master, balance-alb. */
+  #define IFF_BONDING    0x20            /* bonding master or slave      */
+  #define IFF_SLAVE_NEEDARP 0x40         /* need ARPs for validation     */
++#define IFF_ISATAP     0x80            /* ISATAP interface (RFC4214)   */
+
+  #define IF_GET_IFACE   0x0001          /* for querying only */
+  #define IF_GET_PROTO   0x0002
+--- linux-2.6.24-rc2/include/linux/in.h.orig    2007-11-09 08:00:32.000000000 -0800
++++ linux-2.6.24-rc2/include/linux/in.h 2007-11-12 07:37:05.000000000 -0800
+@@ -253,6 +253,14 @@ struct sockaddr_in {
+  #define ZERONET(x)     (((x) & htonl(0xff000000)) == htonl(0x00000000))
+  #define LOCAL_MCAST(x) (((x) & htonl(0xFFFFFF00)) == htonl(0xE0000000))
+
++/* Special-Use IPv4 Addresses (RFC3330) */
++#define PRIVATE_10(x)  (((x) & htonl(0xff000000)) == htonl(0x0A000000))
++#define LINKLOCAL_169(x) (((x) & htonl(0xffff0000)) == htonl(0xA9FE0000))
++#define PRIVATE_172(x) (((x) & htonl(0xfff00000)) == htonl(0xAC100000))
++#define TEST_192(x)    (((x) & htonl(0xffffff00)) == htonl(0xC0000200))
++#define ANYCAST_6TO4(x)        (((x) & htonl(0xffffff00)) == htonl(0xC0586300))
++#define PRIVATE_192(x) (((x) & htonl(0xffff0000)) == htonl(0xC0A80000))
++#define TEST_198(x)    (((x) & htonl(0xfffe0000)) == htonl(0xC6120000))
+  #endif
+
+  #endif /* _LINUX_IN_H */
+--- linux-2.6.24-rc2/include/net/addrconf.h.orig        2007-11-08 12:06:17.000000000 -0800
++++ linux-2.6.24-rc2/include/net/addrconf.h     2007-11-09 08:12:29.000000000 -0800
+@@ -241,6 +241,14 @@ static inline int ipv6_addr_is_ll_all_ro
+                 addr->s6_addr32[3] == htonl(0x00000002));
+  }
+
++#if defined(CONFIG_IPV6_ISATAP)
++/* only for IFF_ISATAP interfaces */
++static inline int ipv6_addr_is_isatap(const struct in6_addr *addr)
++{
++       return ((addr->s6_addr32[2] | htonl(0x02000000)) == htonl(0x02005EFE));
++}
++#endif
++
+  #ifdef CONFIG_PROC_FS
+  extern int if6_proc_init(void);
+  extern void if6_proc_exit(void);
+
+
+
 
