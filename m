@@ -1,17 +1,17 @@
 From: osprey67 <osprey67@yahoo.com>
-Subject: [PATCH 04/05] ipv6: RFC4214 Support (4)
-Date: Mon, 12 Nov 2007 07:55:04 -0800
-Message-ID: <47387758.7080101@yahoo.com>
+Subject: [PATCH 03/05] ipv6: RFC4214 Support (4)
+Date: Mon, 12 Nov 2007 07:54:47 -0800
+Message-ID: <47387747.1010106@yahoo.com>
 References: <473371B3.5030908@yahoo.com> <4734FCEF.3080301@yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp128.plus.mail.sp1.yahoo.com ([69.147.95.91]:27274 "HELO
-	smtp128.plus.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752083AbXKLRwW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 12:52:22 -0500
+Received: from smtp113.plus.mail.sp1.yahoo.com ([69.147.95.76]:32922 "HELO
+	smtp113.plus.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752314AbXKLR4K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 12:56:10 -0500
 In-Reply-To: <4734FCEF.3080301@yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -30,128 +30,172 @@ Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
 
 ---
 
---- linux-2.6.24-rc2/net/ipv6/sit.c.orig        2007-11-08 12:03:41.000000000 -0800
-+++ linux-2.6.24-rc2/net/ipv6/sit.c     2007-11-12 07:13:13.000000000 -0800
-@@ -16,6 +16,7 @@
-   *     Changes:
-   * Roger Venning <r.venning@telstra.com>:      6to4 support
-   * Nate Thompson <nate@thebog.net>:            6to4 support
-+ * Fred L. Templin <fltemplin@acm.org>:                isatap support
-   */
+--- linux-2.6.24-rc2/net/ipv6/addrconf.c.orig   2007-11-08 11:59:35.000000000 -0800
++++ linux-2.6.24-rc2/net/ipv6/addrconf.c        2007-11-12 07:04:27.000000000 -0800
+@@ -75,7 +75,7 @@
+  #include <net/ip.h>
+  #include <net/netlink.h>
+  #include <net/pkt_sched.h>
+-#include <linux/if_tunnel.h>
++#include <net/ipip.h>
+  #include <linux/rtnetlink.h>
 
-  #include <linux/module.h>
-@@ -182,6 +183,11 @@ static struct ip_tunnel * ipip6_tunnel_l
-         dev->init = ipip6_tunnel_init;
-         nt->parms = *parms;
+  #ifdef CONFIG_IPV6_PRIVACY
+@@ -1424,6 +1424,22 @@ static int addrconf_ifid_infiniband(u8 *
+         return 0;
+  }
 
 +#if defined(CONFIG_IPV6_ISATAP)
-+       if (parms->i_key)
-+               dev->priv_flags |= IFF_ISATAP;
++static int addrconf_ifid_isatap(u8 *eui, __be32 addr)
++{
++
++       eui[0] = 0x02; eui[1] = 0; eui[2] = 0x5E; eui[3] = 0xFE;
++       memcpy (eui+4, &addr, 4);
++
++       if (ZERONET(addr) || PRIVATE_10(addr) || LOOPBACK(addr) ||
++           LINKLOCAL_169(addr) || PRIVATE_172(addr) || TEST_192(addr) ||
++           ANYCAST_6TO4(addr) || PRIVATE_192(addr) || TEST_198(addr) ||
++           MULTICAST(addr) || BADCLASS(addr)) eui[0] &= ~0x02;
++
++       return 0;
++}
 +#endif
 +
-         if (register_netdevice(dev) < 0) {
-                 free_netdev(dev);
-                 goto failed;
-@@ -382,6 +388,48 @@ static int ipip6_rcv(struct sk_buff *skb
-                 IPCB(skb)->flags = 0;
-                 skb->protocol = htons(ETH_P_IPV6);
-                 skb->pkt_type = PACKET_HOST;
+  static int ipv6_generate_eui64(u8 *eui, struct net_device *dev)
+  {
+         switch (dev->type) {
+@@ -1435,6 +1451,11 @@ static int ipv6_generate_eui64(u8 *eui,
+                 return addrconf_ifid_arcnet(eui, dev);
+         case ARPHRD_INFINIBAND:
+                 return addrconf_ifid_infiniband(eui, dev);
 +#if defined(CONFIG_IPV6_ISATAP)
-+               /* ISATAP (RFC4214) - check source address */
-+               if (tunnel->dev->priv_flags & IFF_ISATAP) {
-+                       struct neighbour *neigh;
-+                       struct dst_entry *dst;
-+                       struct flowi fl;
-+                       struct in6_addr *addr6;
-+                       struct ipv6hdr *iph6;
-+
-+                       /* from ISATAP router */
-+                       if ((tunnel->parms.i_key != INADDR_NONE) &&
-+                           (iph->saddr == tunnel->parms.i_key)) goto accept;
-+
-+                       iph6 = ipv6_hdr(skb);
-+                       addr6 = &iph6->saddr;
-+
-+                       /* from legitimate previous hop */
-+                       memset(&fl, 0, sizeof(fl));
-+                       fl.proto = iph6->nexthdr;
-+                       ipv6_addr_copy(&fl.fl6_dst, addr6);
-+                       fl.oif = tunnel->dev->ifindex;
-+                       security_skb_classify_flow(skb, &fl);
-+
-+                       if (!(dst = ip6_route_output(NULL, &fl)) ||
-+                            (dst->dev != tunnel->dev) ||
-+                            ((neigh = dst->neighbour) == NULL)) goto drop;
-+
-+                       addr6 = (struct in6_addr*)&neigh->primary_key;
-+
-+                       if (!(ipv6_addr_is_isatap(addr6)) ||
-+                            (addr6->s6_addr32[3] != iph->saddr)) {
-+drop:
-+                               tunnel->stat.rx_errors++;
-+                               read_unlock(&ipip6_lock);
-+                               dst_release(dst);
-+                               kfree_skb(skb);
-+                               return 0;
-+                       }
-+                       dst_release(dst);
-+               }
-+accept:
++       case ARPHRD_SIT:
++               if (dev->priv_flags & IFF_ISATAP)
++                       return addrconf_ifid_isatap(eui, *(__be32 *)dev->dev_addr);
 +#endif
-                 tunnel->stat.rx_packets++;
-                 tunnel->stat.rx_bytes += skb->len;
-                 skb->dev = tunnel->dev;
-@@ -444,6 +492,31 @@ static int ipip6_tunnel_xmit(struct sk_b
-         if (skb->protocol != htons(ETH_P_IPV6))
-                 goto tx_error;
+         }
+         return -1;
+  }
+@@ -1470,8 +1491,7 @@ regen:
+          *
+          *  - Reserved subnet anycast (RFC 2526)
+          *      11111101 11....11 1xxxxxxx
+-        *  - ISATAP (draft-ietf-ngtrans-isatap-13.txt) 5.1
+-        *      00-00-5E-FE-xx-xx-xx-xx
++        *  - ISATAP (RFC4214) 00-00-5E-FE-xx-xx-xx-xx - remove??
+          *  - value 0
+          *  - XXX: already assigned to an address on the device
+          */
+@@ -2201,6 +2221,31 @@ static void addrconf_sit_config(struct n
+                 return;
+         }
 
 +#if defined(CONFIG_IPV6_ISATAP)
-+       /* ISATAP (RFC4214) - must come before 6to4 */
++       /* ISATAP (RFC4214) - NBMA link */
 +       if (dev->priv_flags & IFF_ISATAP) {
-+               struct neighbour *neigh = NULL;
++               struct in6_addr addr;
 +
-+               if (skb->dst)
-+                       neigh = skb->dst->neighbour;
++               addrconf_add_lroute(dev);
 +
-+               if (neigh == NULL) {
-+                       if (net_ratelimit())
-+                               printk(KERN_DEBUG "sit: nexthop == NULL\n");
-+                       goto tx_error;
++               ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
++
++               if (ipv6_generate_eui64(addr.s6_addr + 8, dev) == 0) {
++                       struct inet6_ifaddr *ifp;
++
++                       ifp = ipv6_add_addr(idev, &addr, 64,
++                                       IFA_LINK, IFA_F_PERMANENT);
++                       if (!IS_ERR(ifp)) {
++                               addrconf_prefix_route(&ifp->addr,
++                                       ifp->prefix_len, idev->dev, 0, 0);
++                               addrconf_dad_start(ifp, 0);
++                               in6_ifa_put(ifp);
++                       }
 +               }
-+
-+               addr6 = (struct in6_addr*)&neigh->primary_key;
-+               addr_type = ipv6_addr_type(addr6);
-+
-+               if ((addr_type & IPV6_ADDR_UNICAST) &&
-+                    ipv6_addr_is_isatap(addr6))
-+                       dst = addr6->s6_addr32[3];
-+               else
-+                       goto tx_error;
++               return;
 +       }
 +#endif
 +
-         if (!dst)
-                 dst = try_6to4(&iph6->daddr);
+         sit_add_v4_addrs(idev);
 
-@@ -651,6 +724,10 @@ ipip6_tunnel_ioctl (struct net_device *d
-                                 ipip6_tunnel_unlink(t);
-                                 t->parms.iph.saddr = p.iph.saddr;
-                                 t->parms.iph.daddr = p.iph.daddr;
+         if (dev->flags&IFF_POINTOPOINT) {
+@@ -2531,6 +2576,19 @@ static void addrconf_rs_timer(unsigned l
+                  *      Announcement received after solicitation
+                  *      was sent
+                  */
 +#if defined(CONFIG_IPV6_ISATAP)
-+                               t->parms.i_key = p.i_key;
-+                               t->parms.o_key = p.o_key;
++               /* ISATAP (RFC4214) - schedule next RS/RA */
++               if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
++                       struct ip_tunnel *t  = netdev_priv(ifp->idev->dev);
++                       if (t->parms.i_key != INADDR_NONE) {
++                               spin_lock(&ifp->lock);
++                               ifp->probes = 0;
++                               ifp->idev->if_flags &= ~(IF_RS_SENT|IF_RA_RCVD);
++                               addrconf_mod_timer(ifp, AC_DAD, t->parms.o_key*HZ);
++                               spin_unlock(&ifp->lock);
++                       }
++               }
 +#endif
-                                 memcpy(dev->dev_addr, &p.iph.saddr, 4);
-                                 memcpy(dev->broadcast, &p.iph.daddr, 4);
-                                 ipip6_tunnel_link(t);
-@@ -663,6 +740,10 @@ ipip6_tunnel_ioctl (struct net_device *d
-                         if (cmd == SIOCCHGTUNNEL) {
-                                 t->parms.iph.ttl = p.iph.ttl;
-                                 t->parms.iph.tos = p.iph.tos;
+                 goto out;
+         }
+
+@@ -2545,10 +2603,32 @@ static void addrconf_rs_timer(unsigned l
+                                    ifp->idev->cnf.rtr_solicit_interval);
+                 spin_unlock(&ifp->lock);
+
 +#if defined(CONFIG_IPV6_ISATAP)
-+                               t->parms.i_key = p.i_key;
-+                               t->parms.o_key = p.o_key;
++               /* ISATAP (RFC4214) - unicast RS */
++               if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
++                       struct ip_tunnel *t = netdev_priv(ifp->idev->dev);
++
++                       if (t->parms.i_key == INADDR_NONE) goto out;
++
++                       ipv6_addr_set(&all_routers, htonl(0xFE800000), 0, 0, 0);
++                       addrconf_ifid_isatap(all_routers.s6_addr + 8, t->parms.i_key);
++               } else
 +#endif
-                         }
-                         if (copy_to_user(ifr->ifr_ifru.ifru_data, &t->parms, sizeof(p)))
-                                 err = -EFAULT;
+                 ipv6_addr_all_routers(&all_routers);
+
+                 ndisc_send_rs(ifp->idev->dev, &ifp->addr, &all_routers);
+         } else {
++#if defined(CONFIG_IPV6_ISATAP)
++               /* ISATAP (RFC4214) - try again later */
++               if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
++                       struct ip_tunnel *t = netdev_priv(ifp->idev->dev);
++                       if (t->parms.i_key != INADDR_NONE) {
++                               ifp->probes = 0;
++                               ifp->idev->if_flags &= ~(IF_RS_SENT|IF_RA_RCVD);
++                               addrconf_mod_timer(ifp, AC_DAD, t->parms.o_key*HZ);
++                       }
++               }
++#endif
+                 spin_unlock(&ifp->lock);
+                 /*
+                  * Note: we do not support deprecated "all on-link"
+@@ -2594,6 +2674,9 @@ static void addrconf_dad_start(struct in
+         spin_lock_bh(&ifp->lock);
+
+         if (dev->flags&(IFF_NOARP|IFF_LOOPBACK) ||
++#if defined(CONFIG_IPV6_ISATAP)
++           dev->priv_flags&IFF_ISATAP ||
++#endif
+             !(ifp->flags&IFA_F_TENTATIVE) ||
+             ifp->flags & IFA_F_NODAD) {
+                 ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC);
+@@ -2690,6 +2773,17 @@ static void addrconf_dad_completed(struc
+             (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {
+                 struct in6_addr all_routers;
+
++#if defined(CONFIG_IPV6_ISATAP)
++               /* ISATAP (RFC4214) - unicast RS */
++               if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
++                       struct ip_tunnel *t = netdev_priv(ifp->idev->dev);
++
++                       if (t->parms.i_key == INADDR_NONE) return;
++
++                       ipv6_addr_set(&all_routers, htonl(0xFE800000), 0, 0, 0);
++                       addrconf_ifid_isatap(all_routers.s6_addr + 8, t->parms.i_key);
++               } else
++#endif
+                 ipv6_addr_all_routers(&all_routers);
+
+                 /*
