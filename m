@@ -1,76 +1,118 @@
-From: Jesper Juhl <jesper.juhl@gmail.com>
-Subject: [PATCH] Fix memory leak in discard case of sctp_sf_abort_violation()
-Date: Sun, 11 Nov 2007 23:57:49 +0100
-Message-ID: <200711112357.49577.jesper.juhl@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] - in.h - IP4_ADDR
+Date: Sun, 11 Nov 2007 19:19:30 -0800
+Message-ID: <1194837570.9407.29.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	Jesper Juhl <jesper.juhl@gmail.com>
-To: lksctp developers <lksctp-developers@lists.sourceforge.net>
+Cc: netdev <netdev@vger.kernel.org>,
+	"Fred L. Templin" <fred.l.templin@boeing.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.188]:29529 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751074AbXKKXCY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Nov 2007 18:02:24 -0500
-Received: by mu-out-0910.google.com with SMTP id i10so1246214mue
-        for <netdev@vger.kernel.org>; Sun, 11 Nov 2007 15:02:22 -0800 (PST)
-Content-Disposition: inline
+Received: from DSL022.labridge.com ([206.117.136.22]:3176 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754253AbXKLDTe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Nov 2007 22:19:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesper Juhl <jesper.juhl@gmail.com>
+Add inline functions to in.h that make the IP4 address tests
+a bit easier to read and also add some type safety.
 
-In net/sctp/sm_statefuns.c::sctp_sf_abort_violation() we may leak 
-the storage allocated for 'abort' by returning from the function 
-without using or freeing it. This happens in case 
-"sctp_auth_recv_cid(SCTP_CID_ABORT, asoc)" is true and we jump to 
-the 'discard' label.
-Spotted by the Coverity checker.
+gcc optimizes IP4_ADDR to a constant (O2 or Os)
 
-The simple fix is to simply move the creation of the "abort chunk" 
-to after the possible jump to the 'discard' label. This way we don't   
-even have to allocate the memory at all in the problem case.
+Signed-off-by: Joe Perches <joe@perches.com
 
-
-Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
 ---
 
- sm_statefuns.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ include/linux/in.h |   75 ++++++++++++++++++++++++++++++++++++++++++++++++---
+ 1 files changed, 70 insertions(+), 5 deletions(-)
 
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index f01b408..4c5c5e7 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -4064,11 +4064,6 @@ static sctp_disposition_t sctp_sf_abort_violation(
- 	struct sctp_chunk *chunk =  arg;
- 	struct sctp_chunk *abort = NULL;
+diff --git a/include/linux/in.h b/include/linux/in.h
+index 3975cbf..17d1878 100644
+--- a/include/linux/in.h
++++ b/include/linux/in.h
+@@ -247,11 +247,76 @@ struct sockaddr_in {
  
--	/* Make the abort chunk. */
--	abort = sctp_make_abort_violation(asoc, chunk, payload, paylen);
--	if (!abort)
--		goto nomem;
--
- 	/* SCTP-AUTH, Section 6.3:
- 	 *    It should be noted that if the receiver wants to tear
- 	 *    down an association in an authenticated way only, the
-@@ -4083,6 +4078,11 @@ static sctp_disposition_t sctp_sf_abort_violation(
- 	if (sctp_auth_recv_cid(SCTP_CID_ABORT, asoc))
- 		goto discard;
- 
-+	/* Make the abort chunk. */
-+	abort = sctp_make_abort_violation(asoc, chunk, payload, paylen);
-+	if (!abort)
-+		goto nomem;
+ #ifdef __KERNEL__
+ /* Some random defines to make it easier in the kernel.. */
+-#define LOOPBACK(x)	(((x) & htonl(0xff000000)) == htonl(0x7f000000))
+-#define MULTICAST(x)	(((x) & htonl(0xf0000000)) == htonl(0xe0000000))
+-#define BADCLASS(x)	(((x) & htonl(0xf0000000)) == htonl(0xf0000000))
+-#define ZERONET(x)	(((x) & htonl(0xff000000)) == htonl(0x00000000))
+-#define LOCAL_MCAST(x)	(((x) & htonl(0xFFFFFF00)) == htonl(0xE0000000))
 +
- 	if (asoc) {
- 		sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
- 		SCTP_INC_STATS(SCTP_MIB_OUTCTRLCHUNKS);
-
++static inline __be32 IP4_ADDR(unsigned char a, unsigned char b, unsigned char c, unsigned char d)
++{
++	return htonl((((__u32)(a & 0xff)) << 24) |
++		     (((__u32)(b & 0xff)) << 16) |
++		     (((__u32)(c & 0xff)) << 8) |
++		     (((__u32)(d & 0xff)) << 0));
++}
++
++static inline bool LOOPBACK(__be32 x)
++{
++	return (x & IP4_ADDR(255,0,0,0)) == IP4_ADDR(127,0,0,0);
++}
++
++static inline bool MULTICAST(__be32 x)
++{
++	return (x & IP4_ADDR(240,0,0,0)) == IP4_ADDR(224,0,0,0);
++}
++
++static inline bool BADCLASS(__be32 x)
++{
++	return (x & IP4_ADDR(240,0,0,0)) == IP4_ADDR(240,0,0,0);
++}
++
++static inline bool ZERONET(__be32 x)
++{
++	return (x & IP4_ADDR(255,0,0,0)) == IP4_ADDR(0,0,0,0);
++}
++
++static inline bool LOCAL_MCAST(__be32 x)
++{
++	return (x & IP4_ADDR(255,255,255,0)) == IP4_ADDR(224,0,0,0);
++}
++
++/* Special-Use IPv4 Addresses (RFC3330) */
++
++static inline bool PRIVATE_10(__be32 x)
++{
++	return (x & IP4_ADDR(255,0,0,0)) == IP4_ADDR(10,0,0,0);
++}
++
++static inline bool PRIVATE_172(__be32 x)
++{
++	return (x & IP4_ADDR(255,240,0,0)) == IP4_ADDR(172,16,0,0);
++}
++
++static inline bool PRIVATE_192(__be32 x)
++{
++	return (x & IP4_ADDR(255,255,0,0)) == IP4_ADDR(192,168,0,0);
++}
++
++static inline bool TEST_192(__be32 x)
++{
++	return (x & IP4_ADDR(255,255,255,0)) == IP4_ADDR(192,0,2,0);
++}
++
++static inline bool TEST_198(__be32 x)
++{
++	return (x & IP4_ADDR(255,254,0,0)) == IP4_ADDR(198,18,0,0);
++}
++
++static inline bool ANYCAST_6TO4(__be32 x)
++{
++	return (x & IP4_ADDR(255,255,255,0)) == IP4_ADDR(192,88,99,0);
++}
++
++static inline bool LINK_169(__be32 x)
++{
++ 	return (x & IP4_ADDR(255,255,0,0)) == IP4_ADDR(169,254,0,0);
++}
+ 
+ #endif
+ 
 
 
