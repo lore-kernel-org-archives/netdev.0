@@ -1,58 +1,90 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/2] [e1000 VLAN] Disable vlan hw accel
- when promiscuous mode
-Date: Mon, 12 Nov 2007 18:21:35 +0100
-Message-ID: <47388B9F.7050308@trash.net>
-References: <47365200.0f10240a.0686.2173@mx.google.com>
-	<47388988.1000506@intel.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] sungem: fix suspend regression due to NAPI changes
+Date: Mon, 12 Nov 2007 18:45:46 +0100
+Message-ID: <1194889547.4456.4.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	'Dave Johnson' <djohnson+linux-kernel@sw.starentnetworks.com>,
-	linux-kernel@vger.kernel.org, Joonwoo Park <joonwpark81@gmail.com>,
-	'David Miller' <davem@davemloft.net>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <47388988.1000506@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	netdev <netdev@vger.kernel.org>,
+	linuxppc-dev list <linuxppc-dev@ozlabs.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:57443 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751246AbXKLRpS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 12:45:18 -0500
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
-> Joonwoo Park wrote:
->> IMHO even though netdevice is in the promiscuous mode, we should receive all of ingress packets.
->> This disable the vlan filtering feature when a vlan hw accel configured e1000 device goes into promiscuous mode.
->> This make packets visible to sniffers though it's not vlan id of itself.
->> Any check, comments will be appreciated.
-> 
-> Actually I think this patch removes a choice from the user.
-> 
-> Before this patch, the user can sniff all traffic by disabling vlans, or a
-> specific vlan only by leaving vlans on when going into promisc mode.
-> 
-> After this patch, the user has no choice but to sniff all vlans at all times.
-> 
-> I don't think that that is such a good improvement.
+Commit bea3348e (the NAPI changes) made sungem unconditionally enable
+NAPI when resuming and unconditionally disable when suspending, this,
+however, makes napi_disable() hang when suspending when the interface
+was taken down before suspend because taking the interface down also
+disables NAPI. This patch makes touching the napi struct in
+suspend/resume code paths depend on having the interface up, thereby
+fixing the hang on suspend.
+
+The patch also moves the napi_disable() in gem_close() under the lock so
+that the NAPI state is always modified atomically together with the
+"opened" variable.
+
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+
+---
+ drivers/net/sungem.c |   11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
+
+--- everything.orig/drivers/net/sungem.c	2007-11-12 18:22:49.948748047 +0100
++++ everything/drivers/net/sungem.c	2007-11-12 18:24:30.708748481 +0100
+@@ -2333,10 +2333,10 @@ static int gem_close(struct net_device *
+ {
+ 	struct gem *gp = dev->priv;
+ 
+-	napi_disable(&gp->napi);
+-
+ 	mutex_lock(&gp->pm_mutex);
+ 
++	napi_disable(&gp->napi);
++
+ 	gp->opened = 0;
+ 	if (!gp->asleep)
+ 		gem_do_stop(dev, 0);
+@@ -2355,8 +2355,6 @@ static int gem_suspend(struct pci_dev *p
+ 
+ 	mutex_lock(&gp->pm_mutex);
+ 
+-	napi_disable(&gp->napi);
+-
+ 	printk(KERN_INFO "%s: suspending, WakeOnLan %s\n",
+ 	       dev->name,
+ 	       (gp->wake_on_lan && gp->opened) ? "enabled" : "disabled");
+@@ -2370,6 +2368,8 @@ static int gem_suspend(struct pci_dev *p
+ 
+ 	/* If the driver is opened, we stop the MAC */
+ 	if (gp->opened) {
++		napi_disable(&gp->napi);
++
+ 		/* Stop traffic, mark us closed */
+ 		netif_device_detach(dev);
+ 
+@@ -2460,6 +2460,7 @@ static int gem_resume(struct pci_dev *pd
+ 		/* Re-attach net device */
+ 		netif_device_attach(dev);
+ 
++		napi_enable(&gp->napi);
+ 	}
+ 
+ 	spin_lock_irqsave(&gp->lock, flags);
+@@ -2479,8 +2480,6 @@ static int gem_resume(struct pci_dev *pd
+ 	spin_unlock(&gp->tx_lock);
+ 	spin_unlock_irqrestore(&gp->lock, flags);
+ 
+-	napi_enable(&gp->napi);
+-
+ 	mutex_unlock(&gp->pm_mutex);
+ 
+ 	return 0;
 
 
-Do you really consider that a realistic choice? Who is going to
-remove interfaces that are in use just to see traffic for other
-VLANs? Sniffing specific VLANs can always be done on the VLAN
-device itself.
-
-IMO its more a question of what we want promiscous mode to mean,
-and I tend to agree with Joonwoo that it should receive all packets.
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >> http://get.splunk.com/
