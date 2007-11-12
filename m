@@ -1,43 +1,49 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [Resend][PATCH 01/05] ipv6: RFC4214 Support (4)
-Date: Mon, 12 Nov 2007 17:22:48 -0500
-Message-ID: <4738D238.8050105@hp.com>
-References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC14@XCH-NW-7V2.nw.nos.boeing.com> <4738CF78.6030804@hp.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC21@XCH-NW-7V2.nw.nos.boeing.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 1/1][NETNS][IPV6] protect addrconf from loopback
+ registration
+Date: Mon, 12 Nov 2007 14:24:55 -0800 (PST)
+Message-ID: <20071112.142455.73541417.davem@davemloft.net>
+References: <473879C3.5020301@sw.ru>
+	<47387B31.20805@fr.ibm.com>
+	<473883FF.5010505@sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Cc: dlezcano@fr.ibm.com, netdev@vger.kernel.org, xemul@openvz.org,
+	ebiederm@xmission.com, containers@lists.osdl.org,
+	yoshfuji@linux-ipv6.org, benjamin.thery@bull.net
+To: den@sw.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:57892 "EHLO palrel10.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755226AbXKLWWt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Nov 2007 17:22:49 -0500
-In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC21@XCH-NW-7V2.nw.nos.boeing.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40451
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754088AbXKLWY4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 17:24:56 -0500
+In-Reply-To: <473883FF.5010505@sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Fred
+From: "Denis V. Lunev" <den@sw.ru>
+Date: Mon, 12 Nov 2007 19:49:03 +0300
 
-Templin, Fred L wrote:
-> Vlad,
-> 
-> Yes, I was breaking into multiples to ease review only.
-> The "[PATCH 01/04] ... (5)" thread includes the complete
-> reviewable and patchable final text in 4 files. In my
-> next message, I will put the entire patchfile as inline
-> text. (The "[PATCH 01/01] ... (5)" for 'iproute2' is
-> already complete.)
-> 
+> Unregister for a loopback in !init_net is a _valid_ operation and should
+> be clean, i.e. without kludges in the path. This is the only way to
+> check the ref-counting.
 
-Ok, thanks for the explanation.  One questions is though why
-do we need all the #if defines() throughout the file?
+For ipv6 the stack really wants to pin down the loopback
+device because we need a valid inet6_dev object to reference
+at all times in order to simplify the per-device SNMP
+statistic bumping.
 
-Most distros end up enabled almost everything anyway.  Looking
-at the code, there is really nothing that needs a conditional.
-Removing the conditionals would make things cleaner.
+When a non-loopback device goes down, we point any existing
+references to that device's idev to the loopback one instead.
 
-Just some of my thoughts.
+I really consider taking down the loopback device to be
+an invalid operation at least how things are implemented
+currently.
 
-Thanks
--vlad
+There was a suggestion to have a "dummy" device that takes the
+place of "point dangling idev refs to loopback's one".  But
+some people get upset when statistical events get lost, and
+rightly so.  Such a dummy device would either need to be
+invisible to the user, or show up and be utterly confusing.
+
