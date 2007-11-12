@@ -1,49 +1,98 @@
-From: "Antoine Zen-Ruffinen" <antoine.zen@gmail.com>
-Subject: Problem with frame time stamping
-Date: Mon, 12 Nov 2007 16:42:34 +0100
-Message-ID: <2cbbd8de0711120742h35f27441p5f096e5e99e1d7dc@mail.gmail.com>
+From: "Denis V. Lunev" <den@sw.ru>
+Subject: Re: [patch 1/1][NETNS][IPV6] protect addrconf from loopback registration
+Date: Mon, 12 Nov 2007 19:05:23 +0300
+Message-ID: <473879C3.5020301@sw.ru>
+References: <20071112151953.052335971@mai.toulouse-stg.fr.ibm.com> <20071112152403.273795630@mai.toulouse-stg.fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=KOI8-R
 Content-Transfer-Encoding: 7bit
-Cc: patrik.arlos@bth.se
-To: netdev@vger.kernel.org, linux-net@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-net-owner@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, xemul@openvz.org,
+	ebiederm@xmission.com, containers@lists.osdl.org,
+	yoshfuji@linux-ipv6.org, Benjamin Thery <benjamin.thery@bull.net>
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:58027 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753016AbXKLQBb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Nov 2007 11:01:31 -0500
+In-Reply-To: <20071112152403.273795630@mai.toulouse-stg.fr.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear all,
+Daniel Lezcano wrote:
+> The loopback is now dynamically allocated. The ipv6 code was written
+> considering the loopback is allocated before the ipv6 protocol 
+> initialization. This is still the case when we don't use multiple
+> network namespaces.
+> 
+> In the case of the network namespaces, ipv6 notification handler is
+> already setup and active (done by the initial network namespace), 
+> so when a network namespace is created, a new instance of the 
+> loopback device, via dynamic allocation, will trigger a REGISTER event
+> to addrconf_notify and this one will try to setup the network device
+> while the ipv6 protocol is not yet initialized for the network namespace.
+> 
+> Because the ipv6 is relying on the fact that the loopback device will
+> not trigger REGISTER/UNREGISTER events, I just protect the addrconf_notify
+> function when the loopback register event is triggered.
+> 
+> In the case of multiple network namespaces, the usual ipv6 protocol 
+> initialization will be done after the loopback initialization with 
+> the subsystem registration mechanism.
+> 
+> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+> Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
+> ---
+>  net/ipv6/addrconf.c |    9 +++++++--
+>  1 file changed, 7 insertions(+), 2 deletions(-)
+> 
+> Index: linux-2.6-netns/net/ipv6/addrconf.c
+> ===================================================================
+> --- linux-2.6-netns.orig/net/ipv6/addrconf.c
+> +++ linux-2.6-netns/net/ipv6/addrconf.c
+> @@ -2272,7 +2272,8 @@ static int addrconf_notify(struct notifi
+>  
+>  	switch(event) {
+>  	case NETDEV_REGISTER:
+> -		if (!idev && dev->mtu >= IPV6_MIN_MTU) {
+> +		if (!(dev->flags & IFF_LOOPBACK) &&
+> +		    !idev && dev->mtu >= IPV6_MIN_MTU) {
+>  			idev = ipv6_add_dev(dev);
+>  			if (!idev)
+>  				return notifier_from_errno(-ENOMEM);
+> @@ -2366,11 +2367,15 @@ static int addrconf_notify(struct notifi
+>  		/* MTU falled under IPV6_MIN_MTU. Stop IPv6 on this interface. */
+>  
+>  	case NETDEV_DOWN:
+> +		addrconf_ifdown(dev, 0);
+> +		break;
+> +
+>  	case NETDEV_UNREGISTER:
+>  		/*
+>  		 *	Remove all addresses from this interface.
+>  		 */
+> -		addrconf_ifdown(dev, event != NETDEV_DOWN);
+> +		if (!(dev->flags & IFF_LOOPBACK))
+> +			addrconf_ifdown(dev, 1);
+>  		break;
+>  
+>  	case NETDEV_CHANGENAME:
+> 
 
-I'm writing a network analyzer software using Linux and I need a VERY
-precise frame time stamping. Therefor I am planing to add my own time
-stamping algorithm on a modified network driver. For test purpose I
-did so :
+why should we care on down? we are destroying the device. It should
+gone. All references to it should also gone. So, we should perform the
+cleaning and remove all IPv6 addresses, so notifier should also work.
 
-	skb->tstamp.tv64 = 0x00010002;
-	netif_rx(skb);
+The code relies on the "persistent" loopback and this is a _bad_ thing.
+This is longstanding bug in the code, that the dst_entry should have a
+valid reference to a device. This is the only purpose for a loopback
+persistence. Though, at the namespace death no such entries must be and
+this will be checked during unregister process. This patch definitely
+breaks this assumption :(
 
-On the user side, I ask for the timestamp that way :
+Namespaces are good to catch leakage using standard codepaths, so they
+should be preserved as much as possible. So, _all_ normal down code
+should be called for a loopback device in other than init_net context.
 
-	...
-	sock = socket(AF_PACKET, SOCK_RAW, type);
-	...
-	//bind this socket with the interface using my modified driver.
-	...
-	recvByteCount = recv(sock, buffer, 1514, 0);
-    	ioctl(sock, SIOCGSTAMP, &timeStamp);
-
-I was surprised to see that the var timeStamp was still holding a
-count of second since  year 1970.
-
-Investigating a bit into the kernel code, I found that ioctl(sock,
-SIOCGSTAMP, ...) was giving just the current kernel time using
-ktime_get_real().
-
-Are my investigation wrong ?
-Is that a bug in kernel code ?
-Is there an other way to access skb.tstamp from user side ?
-
-Thank's to any one that can help me !
-
-Antoine Zen-Ruffinen
+Regards,
+	Den
