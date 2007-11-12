@@ -1,80 +1,74 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 08/14] SCTP: Use hashed lookup when looking for an association.
-Date: Mon, 12 Nov 2007 11:38:23 -0500
-Message-ID: <11948855151734-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH 02/14] SCTP : Fix to process bundled ASCONF chunk correctly
+Date: Mon, 12 Nov 2007 11:38:17 -0500
+Message-ID: <11948855112875-git-send-email-vladislav.yasevich@hp.com>
 References: <11948855091808-git-send-email-vladislav.yasevich@hp.com>
 Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net,
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
 	Vlad Yasevich <vladislav.yasevich@hp.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel12.hp.com ([156.153.255.237]:56249 "EHLO palrel12.hp.com"
+Received: from palrel10.hp.com ([156.153.255.245]:35599 "EHLO palrel10.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754190AbXKLQih (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Nov 2007 11:38:37 -0500
+	id S1752653AbXKLQid (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Nov 2007 11:38:33 -0500
 In-Reply-To: <11948855091808-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A SCTP endpoint may have a lot of associations on them and walking
-the list is fairly inefficient.  Instead, use a hashed lookup,
-and filter out the hash list based on the endopoing we already have.
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
 
+If ASCONF chunk is bundled with other chunks as the first chunk, when
+process the ASCONF parameters, full packet data will be process as the
+parameters of the ASCONF chunk, not only the real parameters. So if you
+send a ASCONF chunk bundled with other chunks, you will get an unexpect
+result.
+This problem also exists when ASCONF-ACK chunk is bundled with other chunks.
+
+This patch fix this problem.
+
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
- net/sctp/endpointola.c |   34 ++++++++++++++++++++++------------
- 1 files changed, 22 insertions(+), 12 deletions(-)
+ net/sctp/sm_make_chunk.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-index 2d2d81e..68f0556 100644
---- a/net/sctp/endpointola.c
-+++ b/net/sctp/endpointola.c
-@@ -328,24 +328,34 @@ static struct sctp_association *__sctp_endpoint_lookup_assoc(
- 	const union sctp_addr *paddr,
- 	struct sctp_transport **transport)
- {
-+	struct sctp_association *asoc = NULL;
-+	struct sctp_transport *t = NULL;
-+	struct sctp_hashbucket *head;
-+	struct sctp_ep_common *epb;
-+	int hash;
- 	int rport;
--	struct sctp_association *asoc;
--	struct list_head *pos;
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index c377e4e..5de4729 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -2848,10 +2848,11 @@ struct sctp_chunk *sctp_process_asconf(struct sctp_association *asoc,
  
-+	*transport = NULL;
- 	rport = ntohs(paddr->v4.sin_port);
+ 	__be16	err_code;
+ 	int	length = 0;
+-	int	chunk_len = asconf->skb->len;
++	int	chunk_len;
+ 	__u32	serial;
+ 	int	all_param_pass = 1;
  
--	list_for_each(pos, &ep->asocs) {
--		asoc = list_entry(pos, struct sctp_association, asocs);
--		if (rport == asoc->peer.port) {
--			*transport = sctp_assoc_lookup_paddr(asoc, paddr);
--
--			if (*transport)
--				return asoc;
-+	hash = sctp_assoc_hashfn(ep->base.bind_addr.port, rport);
-+	head = &sctp_assoc_hashtable[hash];
-+	read_lock(&head->lock);
-+	for (epb = head->chain; epb; epb = epb->next) {
-+		asoc = sctp_assoc(epb);
-+		if (asoc->ep != ep || rport != asoc->peer.port)
-+			goto next;
++	chunk_len = ntohs(asconf->chunk_hdr->length) - sizeof(sctp_chunkhdr_t);
+ 	hdr = (sctp_addiphdr_t *)asconf->skb->data;
+ 	serial = ntohl(hdr->serial);
+ 
+@@ -2990,7 +2991,7 @@ static __be16 sctp_get_asconf_response(struct sctp_chunk *asconf_ack,
+ 	sctp_addip_param_t	*asconf_ack_param;
+ 	sctp_errhdr_t		*err_param;
+ 	int			length;
+-	int			asconf_ack_len = asconf_ack->skb->len;
++	int			asconf_ack_len;
+ 	__be16			err_code;
+ 
+ 	if (no_err)
+@@ -2998,6 +2999,9 @@ static __be16 sctp_get_asconf_response(struct sctp_chunk *asconf_ack,
+ 	else
+ 		err_code = SCTP_ERROR_REQ_REFUSED;
+ 
++	asconf_ack_len = ntohs(asconf_ack->chunk_hdr->length) -
++			     sizeof(sctp_chunkhdr_t);
 +
-+		t = sctp_assoc_lookup_paddr(asoc, paddr);
-+		if (t) {
-+			*transport = t;
-+			break;
- 		}
-+next:
-+		asoc = NULL;
- 	}
--
--	*transport = NULL;
--	return NULL;
-+	read_unlock(&head->lock);
-+	return asoc;
- }
- 
- /* Lookup association on an endpoint based on a peer address.  BH-safe.  */
+ 	/* Skip the addiphdr from the asconf_ack chunk and store a pointer to
+ 	 * the first asconf_ack parameter.
+ 	 */
 -- 
 1.5.2.4
 
