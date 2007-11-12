@@ -1,62 +1,70 @@
-From: "Denis V. Lunev" <den@sw.ru>
-Subject: Re: [patch 1/1][NETNS][IPV6] protect addrconf from loopback registration
-Date: Mon, 12 Nov 2007 19:49:03 +0300
-Message-ID: <473883FF.5010505@sw.ru>
-References: <20071112151953.052335971@mai.toulouse-stg.fr.ibm.com> <20071112152403.273795630@mai.toulouse-stg.fr.ibm.com> <473879C3.5020301@sw.ru> <47387B31.20805@fr.ibm.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Problem with frame time stamping
+Date: Mon, 12 Nov 2007 17:47:59 +0100
+Message-ID: <20071112174759.c2777ea2.dada1@cosmosbay.com>
+References: <2cbbd8de0711120742h35f27441p5f096e5e99e1d7dc@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, xemul@openvz.org,
-	ebiederm@xmission.com, containers@lists.osdl.org,
-	yoshfuji@linux-ipv6.org, Benjamin Thery <benjamin.thery@bull.net>
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
+Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, patrik.arlos@bth.se
+To: "Antoine Zen-Ruffinen" <antoine.zen@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:54730 "EHLO iris"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758789AbXKLQpI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Nov 2007 11:45:08 -0500
-In-Reply-To: <47387B31.20805@fr.ibm.com>
+Received: from pfx2.jmh.fr ([194.153.89.55]:46132 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752349AbXKLQsG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Nov 2007 11:48:06 -0500
+In-Reply-To: <2cbbd8de0711120742h35f27441p5f096e5e99e1d7dc@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> why should we care on down? we are destroying the device. It should
->> gone. All references to it should also gone. So, we should perform the
->> cleaning and remove all IPv6 addresses, so notifier should also work.
+On Mon, 12 Nov 2007 16:42:34 +0100
+"Antoine Zen-Ruffinen" <antoine.zen@gmail.com> wrote:
+
+> Dear all,
 > 
-> We need to take care of netdev down, someone can put the loopback down
-> if he wants.
+> I'm writing a network analyzer software using Linux and I need a VERY
+> precise frame time stamping. Therefor I am planing to add my own time
+> stamping algorithm on a modified network driver. For test purpose I
+> did so :
 > 
->> The code relies on the "persistent" loopback and this is a _bad_ thing.
->> This is longstanding bug in the code, that the dst_entry should have a
->> valid reference to a device. This is the only purpose for a loopback
->> persistence. Though, at the namespace death no such entries must be and
->> this will be checked during unregister process. This patch definitely
->> breaks this assumption :(
->>
->> Namespaces are good to catch leakage using standard codepaths, so they
->> should be preserved as much as possible. So, _all_ normal down code
->> should be called for a loopback device in other than init_net context.
+> 	skb->tstamp.tv64 = 0x00010002;
+> 	netif_rx(skb);
 > 
-> I agree with you, this is a bug in ipv6 and the loopback; when playing
-> with ipv6 we found that the loopback is still referenced 9 times when
-> the system is shutdown.
+> On the user side, I ask for the timestamp that way :
+> 
+> 	...
+> 	sock = socket(AF_PACKET, SOCK_RAW, type);
+> 	...
+> 	//bind this socket with the interface using my modified driver.
+> 	...
+> 	recvByteCount = recv(sock, buffer, 1514, 0);
+>     	ioctl(sock, SIOCGSTAMP, &timeStamp);
+> 
+> I was surprised to see that the var timeStamp was still holding a
+> count of second since  year 1970.
+> 
+> Investigating a bit into the kernel code, I found that ioctl(sock,
+> SIOCGSTAMP, ...) was giving just the current kernel time using
+> ktime_get_real().
+> 
+> Are my investigation wrong ?
+> Is that a bug in kernel code ?
+> Is there an other way to access skb.tstamp from user side ?
+> 
+> Thank's to any one that can help me !
 
-Pff...  I can't guess right now where the error can be :( We have
-correct behavior of loopback even for IPv6 within OpenVZ. On down the
-count is 0 and device is destroyed correctly without these kludges. So,
-something is definitely wrong.
+If your kernel is recent enough, you can already get nanosecond precision from skb tstamp, using SIOCGSTAMPNS ioctl or SO_TIMESTAMPNS / SCM_TIMESTAMPNS
 
-> The purpose of this patch is to protect the __actual__ code from the new
-> loopback behavior. We are looking at a more generic approach with the
-> namespace for ipv6, as you mentioned, namespaces are good for network
-> leakage detection as we create several instances of the network stack.
+(changes where done in March/April this year)
 
-The only kludge required is already in place. addrconf_ifdown has a
-protection for init_net.
-        if (dev == init_net.loopback_dev && how == 1)
-                how = 0;
-Other places should be untouched.
+http://git2.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=b7aa0bf70c4afb9e38be25f5c0922498d0f8684c
 
-Unregister for a loopback in !init_net is a _valid_ operation and should
-be clean, i.e. without kludges in the path. This is the only way to
-check the ref-counting.
+http://git2.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=ae40eb1ef30ab4120bd3c8b7e3da99ee53d27a23
+
+http://git2.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=92f37fd2ee805aa77925c1e64fd56088b46094fc
+
+
+No need to modify a network driver :)
+
+
