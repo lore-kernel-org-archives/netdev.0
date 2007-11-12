@@ -1,40 +1,51 @@
-From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Subject: RE: [Resend][PATCH 01/05] ipv6: RFC4214 Support (4)
-Date: Mon, 12 Nov 2007 14:26:12 -0800
-Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC23@XCH-NW-7V2.nw.nos.boeing.com>
-References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC14@XCH-NW-7V2.nw.nos.boeing.com> <4738CF78.6030804@hp.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC21@XCH-NW-7V2.nw.nos.boeing.com> <4738D238.8050105@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] [e1000 VLAN] Disable vlan hw accel
+ when promiscuous mode
+Date: Mon, 12 Nov 2007 14:28:45 -0800 (PST)
+Message-ID: <20071112.142845.154035709.davem@davemloft.net>
+References: <47365200.0f10240a.0686.2173@mx.google.com>
+	<47388988.1000506@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <yoshfuji@linux-ipv6.org>
-To: "Vlad Yasevich" <vladislav.yasevich@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from blv-smtpout-01.boeing.com ([130.76.32.69]:58174 "EHLO
-	blv-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755286AbXKLW0u convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 17:26:50 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <4738D238.8050105@hp.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	djohnson+linux-kernel@sw.starentnetworks.com,
+	linux-kernel@vger.kernel.org, joonwpark81@gmail.com
+To: auke-jan.h.kok@intel.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <47388988.1000506@intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-> Ok, thanks for the explanation.  One questions is though why
-> do we need all the #if defines() throughout the file?
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Date: Mon, 12 Nov 2007 09:12:40 -0800
 
-Was just trying to follow what I thought was
-convention, but I'm willing to be educated...
-
-> Most distros end up enabled almost everything anyway.  Looking
-> at the code, there is really nothing that needs a conditional.
-> Removing the conditionals would make things cleaner.
-
-Works for me unless there are any objections. Anyone?
-
-Fred
-fred.l.templin@boeing.com
- 
-> Just some of my thoughts.
+> Actually I think this patch removes a choice from the user.
 > 
-> Thanks
-> -vlad
+> Before this patch, the user can sniff all traffic by disabling vlans, or a
+> specific vlan only by leaving vlans on when going into promisc mode.
+> 
+> After this patch, the user has no choice but to sniff all vlans at all times.
+> 
+> I don't think that that is such a good improvement.
+
+I agree.
+
+Look at the VLAN setting as being just like moving the
+ethernet cable from one switch to another.
+
+There is no logical difference.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >> http://get.splunk.com/
