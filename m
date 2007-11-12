@@ -1,7 +1,7 @@
 From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Subject: [PATCH 03/05] ipv6: RFC4214 Support (5)
-Date: Mon, 12 Nov 2007 14:03:18 -0800
-Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC1E@XCH-NW-7V2.nw.nos.boeing.com>
+Subject: [PATCH 01/04] ipv6: RFC4214 Support (5)
+Date: Mon, 12 Nov 2007 14:03:08 -0800
+Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC1C@XCH-NW-7V2.nw.nos.boeing.com>
 References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC14@XCH-NW-7V2.nw.nos.boeing.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -11,9 +11,9 @@ Cc: =?iso-2022-jp?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
 	<yoshfuji@linux-ipv6.org>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from slb-smtpout-01.boeing.com ([130.76.64.48]:51648 "EHLO
-	slb-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753255AbXKLWDa (ORCPT
+Received: from blv-smtpout-01.boeing.com ([130.76.32.69]:53366 "EHLO
+	blv-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753528AbXKLWDa (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 17:03:30 -0500
 Content-class: urn:content-classes:message
 In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC14@XCH-NW-7V2.nw.nos.boeing.com>
@@ -34,173 +34,47 @@ Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
 
 ---
 
---- linux-2.6.24-rc2/net/ipv6/addrconf.c.orig	2007-11-08 11:59:35.000000000 -0800
-+++ linux-2.6.24-rc2/net/ipv6/addrconf.c	2007-11-12 07:04:27.000000000 -0800
-@@ -75,7 +75,7 @@
- #include <net/ip.h>
- #include <net/netlink.h>
- #include <net/pkt_sched.h>
--#include <linux/if_tunnel.h>
-+#include <net/ipip.h>
- #include <linux/rtnetlink.h>
+--- linux-2.6.24-rc2/include/linux/if.h.orig	2007-11-08 12:05:47.000000000 -0800
++++ linux-2.6.24-rc2/include/linux/if.h	2007-11-08 08:26:44.000000000 -0800
+@@ -61,6 +61,7 @@
+ #define IFF_MASTER_ALB	0x10		/* bonding master, balance-alb.	*/
+ #define IFF_BONDING	0x20		/* bonding master or slave	*/
+ #define IFF_SLAVE_NEEDARP 0x40		/* need ARPs for validation	*/
++#define IFF_ISATAP	0x80		/* ISATAP interface (RFC4214)	*/
  
- #ifdef CONFIG_IPV6_PRIVACY
-@@ -1424,6 +1424,22 @@ static int addrconf_ifid_infiniband(u8 *
- 	return 0;
+ #define IF_GET_IFACE	0x0001		/* for querying only */
+ #define IF_GET_PROTO	0x0002
+--- linux-2.6.24-rc2/include/linux/in.h.orig	2007-11-09 08:00:32.000000000 -0800
++++ linux-2.6.24-rc2/include/linux/in.h	2007-11-12 07:37:05.000000000 -0800
+@@ -253,6 +253,14 @@ struct sockaddr_in {
+ #define ZERONET(x)	(((x) & htonl(0xff000000)) == htonl(0x00000000))
+ #define LOCAL_MCAST(x)	(((x) & htonl(0xFFFFFF00)) == htonl(0xE0000000))
+ 
++/* Special-Use IPv4 Addresses (RFC3330) */
++#define PRIVATE_10(x)	(((x) & htonl(0xff000000)) == htonl(0x0A000000))
++#define LINKLOCAL_169(x) (((x) & htonl(0xffff0000)) == htonl(0xA9FE0000))
++#define PRIVATE_172(x)	(((x) & htonl(0xfff00000)) == htonl(0xAC100000))
++#define TEST_192(x)	(((x) & htonl(0xffffff00)) == htonl(0xC0000200))
++#define ANYCAST_6TO4(x)	(((x) & htonl(0xffffff00)) == htonl(0xC0586300))
++#define PRIVATE_192(x)	(((x) & htonl(0xffff0000)) == htonl(0xC0A80000))
++#define TEST_198(x)	(((x) & htonl(0xfffe0000)) == htonl(0xC6120000))
+ #endif
+ 
+ #endif	/* _LINUX_IN_H */
+--- linux-2.6.24-rc2/include/net/addrconf.h.orig	2007-11-08 12:06:17.000000000 -0800
++++ linux-2.6.24-rc2/include/net/addrconf.h	2007-11-09 08:12:29.000000000 -0800
+@@ -241,6 +241,14 @@ static inline int ipv6_addr_is_ll_all_ro
+ 		addr->s6_addr32[3] == htonl(0x00000002));
  }
  
 +#if defined(CONFIG_IPV6_ISATAP)
-+static int addrconf_ifid_isatap(u8 *eui, __be32 addr)
++/* only for IFF_ISATAP interfaces */
++static inline int ipv6_addr_is_isatap(const struct in6_addr *addr)
 +{
-+
-+	eui[0] = 0x02; eui[1] = 0; eui[2] = 0x5E; eui[3] = 0xFE;
-+	memcpy (eui+4, &addr, 4);
-+
-+	if (ZERONET(addr) || PRIVATE_10(addr) || LOOPBACK(addr) ||
-+	    LINKLOCAL_169(addr) || PRIVATE_172(addr) || TEST_192(addr) ||
-+	    ANYCAST_6TO4(addr) || PRIVATE_192(addr) || TEST_198(addr) ||
-+	    MULTICAST(addr) || BADCLASS(addr)) eui[0] &= ~0x02;
-+
-+	return 0;
++	return ((addr->s6_addr32[2] | htonl(0x02000000)) == htonl(0x02005EFE));
 +}
 +#endif
 +
- static int ipv6_generate_eui64(u8 *eui, struct net_device *dev)
- {
- 	switch (dev->type) {
-@@ -1435,6 +1451,11 @@ static int ipv6_generate_eui64(u8 *eui, 
- 		return addrconf_ifid_arcnet(eui, dev);
- 	case ARPHRD_INFINIBAND:
- 		return addrconf_ifid_infiniband(eui, dev);
-+#if defined(CONFIG_IPV6_ISATAP)
-+	case ARPHRD_SIT:
-+		if (dev->priv_flags & IFF_ISATAP)
-+			return addrconf_ifid_isatap(eui, *(__be32 *)dev->dev_addr);
-+#endif
- 	}
- 	return -1;
- }
-@@ -1470,8 +1491,7 @@ regen:
- 	 *
- 	 *  - Reserved subnet anycast (RFC 2526)
- 	 *	11111101 11....11 1xxxxxxx
--	 *  - ISATAP (draft-ietf-ngtrans-isatap-13.txt) 5.1
--	 *	00-00-5E-FE-xx-xx-xx-xx
-+	 *  - ISATAP (RFC4214) 00-00-5E-FE-xx-xx-xx-xx - remove??
- 	 *  - value 0
- 	 *  - XXX: already assigned to an address on the device
- 	 */
-@@ -2201,6 +2221,31 @@ static void addrconf_sit_config(struct n
- 		return;
- 	}
- 
-+#if defined(CONFIG_IPV6_ISATAP)
-+	/* ISATAP (RFC4214) - NBMA link */
-+	if (dev->priv_flags & IFF_ISATAP) {
-+		struct in6_addr addr;
-+
-+		addrconf_add_lroute(dev);
-+
-+		ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
-+
-+		if (ipv6_generate_eui64(addr.s6_addr + 8, dev) == 0) {
-+			struct inet6_ifaddr *ifp;
-+
-+			ifp = ipv6_add_addr(idev, &addr, 64,
-+					IFA_LINK, IFA_F_PERMANENT);
-+			if (!IS_ERR(ifp)) {
-+				addrconf_prefix_route(&ifp->addr,
-+					ifp->prefix_len, idev->dev, 0, 0);
-+				addrconf_dad_start(ifp, 0);
-+				in6_ifa_put(ifp);
-+			}
-+		}
-+		return;
-+	}
-+#endif
-+
- 	sit_add_v4_addrs(idev);
- 
- 	if (dev->flags&IFF_POINTOPOINT) {
-@@ -2531,6 +2576,19 @@ static void addrconf_rs_timer(unsigned l
- 		 *	Announcement received after solicitation
- 		 *	was sent
- 		 */
-+#if defined(CONFIG_IPV6_ISATAP)
-+		/* ISATAP (RFC4214) - schedule next RS/RA */
-+		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
-+			struct ip_tunnel *t  = netdev_priv(ifp->idev->dev);
-+			if (t->parms.i_key != INADDR_NONE) {
-+				spin_lock(&ifp->lock);
-+				ifp->probes = 0;
-+				ifp->idev->if_flags &= ~(IF_RS_SENT|IF_RA_RCVD);
-+				addrconf_mod_timer(ifp, AC_DAD, t->parms.o_key*HZ);
-+				spin_unlock(&ifp->lock);
-+			}
-+		}
-+#endif
- 		goto out;
- 	}
- 
-@@ -2545,10 +2603,32 @@ static void addrconf_rs_timer(unsigned l
- 				   ifp->idev->cnf.rtr_solicit_interval);
- 		spin_unlock(&ifp->lock);
- 
-+#if defined(CONFIG_IPV6_ISATAP)
-+		/* ISATAP (RFC4214) - unicast RS */
-+		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
-+			struct ip_tunnel *t = netdev_priv(ifp->idev->dev);
-+
-+			if (t->parms.i_key == INADDR_NONE) goto out;
-+
-+			ipv6_addr_set(&all_routers, htonl(0xFE800000), 0, 0, 0);
-+			addrconf_ifid_isatap(all_routers.s6_addr + 8, t->parms.i_key);
-+		} else
-+#endif
- 		ipv6_addr_all_routers(&all_routers);
- 
- 		ndisc_send_rs(ifp->idev->dev, &ifp->addr, &all_routers);
- 	} else {
-+#if defined(CONFIG_IPV6_ISATAP)
-+		/* ISATAP (RFC4214) - try again later */
-+		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
-+			struct ip_tunnel *t = netdev_priv(ifp->idev->dev);
-+			if (t->parms.i_key != INADDR_NONE) {
-+				ifp->probes = 0;
-+				ifp->idev->if_flags &= ~(IF_RS_SENT|IF_RA_RCVD);
-+				addrconf_mod_timer(ifp, AC_DAD, t->parms.o_key*HZ);
-+			}
-+		}
-+#endif
- 		spin_unlock(&ifp->lock);
- 		/*
- 		 * Note: we do not support deprecated "all on-link"
-@@ -2594,6 +2674,9 @@ static void addrconf_dad_start(struct in
- 	spin_lock_bh(&ifp->lock);
- 
- 	if (dev->flags&(IFF_NOARP|IFF_LOOPBACK) ||
-+#if defined(CONFIG_IPV6_ISATAP)
-+	    dev->priv_flags&IFF_ISATAP ||
-+#endif
- 	    !(ifp->flags&IFA_F_TENTATIVE) ||
- 	    ifp->flags & IFA_F_NODAD) {
- 		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC);
-@@ -2690,6 +2773,17 @@ static void addrconf_dad_completed(struc
- 	    (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {
- 		struct in6_addr all_routers;
- 
-+#if defined(CONFIG_IPV6_ISATAP)
-+		/* ISATAP (RFC4214) - unicast RS */
-+		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
-+			struct ip_tunnel *t = netdev_priv(ifp->idev->dev);
-+
-+			if (t->parms.i_key == INADDR_NONE) return;
-+
-+			ipv6_addr_set(&all_routers, htonl(0xFE800000), 0, 0, 0);
-+			addrconf_ifid_isatap(all_routers.s6_addr + 8, t->parms.i_key);
-+		} else
-+#endif
- 		ipv6_addr_all_routers(&all_routers);
- 
- 		/*
- 
+ #ifdef CONFIG_PROC_FS
+ extern int if6_proc_init(void);
+ extern void if6_proc_exit(void);
