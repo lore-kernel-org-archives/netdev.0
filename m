@@ -1,64 +1,94 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 2/2] [e1000 VLAN] Disable vlan hw accel
- when promiscuous mode
-Date: Mon, 12 Nov 2007 10:01:49 -0800
-Message-ID: <4738950D.7070902@intel.com>
-References: <47365200.0f10240a.0686.2173@mx.google.com>	<47388988.1000506@intel.com>
-	<47388B9F.7050308@trash.net>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: 2.6.24-rc1-gb4f5550 oops
+Date: Mon, 12 Nov 2007 19:05:49 +0100
+Message-ID: <1194890749.9713.17.camel@twins>
+References: <20071105061158.3174d24d@worthy.swandive.local>
+	 <200711082242.21869.rjw@sisk.pl>
+	 <20071108221951.71224bd8@worthy.swandive.local>
+	 <200711082349.19344.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	'Dave Johnson' <djohnson+linux-kernel@sw.starentnetworks.com>,
-	linux-kernel@vger.kernel.org, Joonwoo Park <joonwpark81@gmail.com>,
-	'David Miller' <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <47388B9F.7050308@trash.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Grant Wilson <grant.wilson@zen.co.uk>, Ingo Molnar <mingo@elte.hu>,
+	lkml <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev <netdev@vger.kernel.org>, vatsa <vatsa@linux.vnet.ibm.com>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:50164 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751434AbXKLSGJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 13:06:09 -0500
+In-Reply-To: <200711082349.19344.rjw@sisk.pl>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Kok, Auke wrote:
->> Joonwoo Park wrote:
->>> IMHO even though netdevice is in the promiscuous mode, we should receive all of ingress packets.
->>> This disable the vlan filtering feature when a vlan hw accel configured e1000 device goes into promiscuous mode.
->>> This make packets visible to sniffers though it's not vlan id of itself.
->>> Any check, comments will be appreciated.
->> Actually I think this patch removes a choice from the user.
->>
->> Before this patch, the user can sniff all traffic by disabling vlans, or a
->> specific vlan only by leaving vlans on when going into promisc mode.
->>
->> After this patch, the user has no choice but to sniff all vlans at all times.
->>
->> I don't think that that is such a good improvement.
+
+On Thu, 2007-11-08 at 23:49 +0100, Rafael J. Wysocki wrote:
+> On Thursday, 8 of November 2007, Grant Wilson wrote:
+> > On Thu, 8 Nov 2007 22:42:21 +0100
+> > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+> > 
+> > > On Thursday, 8 of November 2007, Grant Wilson wrote:
+> > > > On Thu, 8 Nov 2007 16:53:10 +0100
+> > > > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+> > > > 
+> > > > > On Thursday, 8 of November 2007, Grant Wilson wrote:
+> > > > > > On Thu, 8 Nov 2007 01:06:21 +0100
+> > > > > > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+> > > > > > 
+> > > > > > > On Monday, 5 of November 2007, Grant Wilson wrote:
+> > > > > > > > Hi,
+> > > > > > > > I got this oops on 2.6.24-rc1-641-gb4f5550:
+> > > > > > > 
+> > > > > > > (1) Is this reproducible?
+> > > > > > > (2) Did it happen previously on your system?
+> > > > > > >
+> > > > > > > [18073.371126] Unable to handle kernel NULL pointer dereference at 0000000000000120 RIP: 
+> > > > > > > [18073.371134]  [<ffffffff8023572e>] check_preempt_wakeup+0x6e/0x110
+> > > > > > 
+> > > > > > This has now happened twice - the second time was last night when
+> > > > > > running 2.6.24-rc2.
+> > > > > > 
+> > > > > > Here's that second occurrence:
+> > > > > > 
+> > > > [snip]
+> > > > > 
+> > > > > Hmm.
+> > > > > 
+> > > > > Please run "gdb vmlinux" and see what code corresponds to
+> > > > > check_preempt_wakeup+0x6e in your kernel.
+> > > >
+> > > > 
+> > > > Dump of assembler code for function check_preempt_wakeup:
+> > > 
+> > > Well, thanks, but I meant the source code.  Please do "gdb vmlinux" and then
+> > > "l *check_preempt_wakeup+0x6e" in gdb.
+> > 
+> > Here's the requested output:
+> > 
+> > (gdb) l *check_preempt_wakeup+0x6e
+> > 0xffffffff802329ae is in check_preempt_wakeup (kernel/sched_fair.c:668).
+> > 663
+> > 664     /* Do the two (enqueued) entities belong to the same group ? */
+> > 665     static inline int
+> > 666     is_same_group(struct sched_entity *se, struct sched_entity *pse)
+> > 667     {
+> > 668             if (se->cfs_rq == pse->cfs_rq)
+> > 669                     return 1;
+> > 670
+> > 671             return 0;
+> > 672     }
 > 
+> Well, it looks like either se or pse is NULL.
 > 
-> Do you really consider that a realistic choice? Who is going to
-> remove interfaces that are in use just to see traffic for other
-> VLANs? Sniffing specific VLANs can always be done on the VLAN
-> device itself.
+> Ingo, can you please have a look?
 
-right, I had not thought of that.
+Most puzzling this, it should be guaranteed that the top sched_entities
+are of the same group, therefore avoiding this loop into NULL. Obviously
+something has gone wrong.
 
-> IMO its more a question of what we want promiscous mode to mean,
-> and I tend to agree with Joonwoo that it should receive all packets.
+Grant, is there anything specific you can tell us about how to reproduce
+this?
 
-OK, Joonwoo: can you submit a patch against e1000e as well?
 
-Auke
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >> http://get.splunk.com/
