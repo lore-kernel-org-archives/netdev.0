@@ -1,49 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/1][NETNS][IPV6] protect addrconf from loopback
- registration
-Date: Mon, 12 Nov 2007 14:24:55 -0800 (PST)
-Message-ID: <20071112.142455.73541417.davem@davemloft.net>
-References: <473879C3.5020301@sw.ru>
-	<47387B31.20805@fr.ibm.com>
-	<473883FF.5010505@sw.ru>
+From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Subject: RE: [Resend][PATCH 01/05] ipv6: RFC4214 Support (4)
+Date: Mon, 12 Nov 2007 14:26:12 -0800
+Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC23@XCH-NW-7V2.nw.nos.boeing.com>
+References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC14@XCH-NW-7V2.nw.nos.boeing.com> <4738CF78.6030804@hp.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC21@XCH-NW-7V2.nw.nos.boeing.com> <4738D238.8050105@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dlezcano@fr.ibm.com, netdev@vger.kernel.org, xemul@openvz.org,
-	ebiederm@xmission.com, containers@lists.osdl.org,
-	yoshfuji@linux-ipv6.org, benjamin.thery@bull.net
-To: den@sw.ru
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <yoshfuji@linux-ipv6.org>
+To: "Vlad Yasevich" <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40451
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754088AbXKLWY4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 17:24:56 -0500
-In-Reply-To: <473883FF.5010505@sw.ru>
+Received: from blv-smtpout-01.boeing.com ([130.76.32.69]:58174 "EHLO
+	blv-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755286AbXKLW0u convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 17:26:50 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <4738D238.8050105@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Denis V. Lunev" <den@sw.ru>
-Date: Mon, 12 Nov 2007 19:49:03 +0300
+> Ok, thanks for the explanation.  One questions is though why
+> do we need all the #if defines() throughout the file?
 
-> Unregister for a loopback in !init_net is a _valid_ operation and should
-> be clean, i.e. without kludges in the path. This is the only way to
-> check the ref-counting.
+Was just trying to follow what I thought was
+convention, but I'm willing to be educated...
 
-For ipv6 the stack really wants to pin down the loopback
-device because we need a valid inet6_dev object to reference
-at all times in order to simplify the per-device SNMP
-statistic bumping.
+> Most distros end up enabled almost everything anyway.  Looking
+> at the code, there is really nothing that needs a conditional.
+> Removing the conditionals would make things cleaner.
 
-When a non-loopback device goes down, we point any existing
-references to that device's idev to the loopback one instead.
+Works for me unless there are any objections. Anyone?
 
-I really consider taking down the loopback device to be
-an invalid operation at least how things are implemented
-currently.
-
-There was a suggestion to have a "dummy" device that takes the
-place of "point dangling idev refs to loopback's one".  But
-some people get upset when statistical events get lost, and
-rightly so.  Such a dummy device would either need to be
-invisible to the user, or show up and be utterly confusing.
-
+Fred
+fred.l.templin@boeing.com
+ 
+> Just some of my thoughts.
+> 
+> Thanks
+> -vlad
