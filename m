@@ -1,91 +1,71 @@
-From: Adrian Bunk <bunk@kernel.org>
+From: Russell King <rmk+lkml@arm.linux.org.uk>
 Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 20:30:35 +0100
-Message-ID: <20071113193035.GI4250@stusta.de>
-References: <20071113134029.GA30978@elte.hu> <4739AFE0.20705@rtr.ca> <20071113164650.GA28493@elte.hu> <4739E3D0.10201@rtr.ca> <20071113181228.GF4250@stusta.de> <4739EA83.5040006@rtr.ca> <20071113183605.GG4250@stusta.de> <4739F12E.5020807@rtr.ca> <20071113190428.GH4250@stusta.de> <4739F739.5040708@rtr.ca>
+Date: Tue, 13 Nov 2007 19:32:19 +0000
+Message-ID: <20071113193219.GC1356@flint.arm.linux.org.uk>
+References: <20071113034916.2556edd7.akpm@linux-foundation.org> <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org> <20071113.043207.44732743.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, protasnb@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org,
-	linux-input@atrey.karlin.mff.cuni.cz,
-	bugme-daemon@bugzilla.kernel.org
-To: Mark Lord <liml@rtr.ca>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, alsa-devel@alsa-project.org,
+	netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+	linux-kernel@vger.kernel.org, protasnb@gmail.com,
+	linux-ide@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	linux-input@atrey.karlin.mff.cuni.cz
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:55446 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752118AbXKMTcu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 14:32:50 -0500
 Content-Disposition: inline
-In-Reply-To: <4739F739.5040708@rtr.ca>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+In-Reply-To: <20071113.043207.44732743.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 13, 2007 at 02:12:57PM -0500, Mark Lord wrote:
-> Adrian Bunk wrote:
->> On Tue, Nov 13, 2007 at 01:47:10PM -0500, Mark Lord wrote:
->>> Adrian Bunk wrote:
->>> ...
->>>> I did bisecting myself, and I know that it costs time and work.
->>>>
->>>> But the first point is the above one that it makes otherwise nearly 
->>>> undebuggable problems debuggable and fixable.
->>> ..
->>>
->>> Definitely useful, no question.
->>>
->>> But the problem is now that kernel devs are addicted to it,
->>> many won't even consider resolving a problem any other way.
->>>
->>> That's not "maintaining" (or supporting) one's code.
->>
->> What you replaced with two dots contained the answer to this:
->>
->> Another point is that it shifts the work from the few experienced 
->> developers to the many users. Users (and voluntary testers) we have
->> many, but developer time for debugging bug reports is a quite scarce 
->> resource.
->>
->>> And when a "maintainer" is too busy to find/fix their own bugs,
->>> that could be a sign that they've bitten off too big of a chunk
->>> of the kernel, and it's time for them to distribute code maintainership.
->>
->> The problem is: Maintainers don't grow on trees.
->>
->> You need people who are both technically capable and willing to spend time 
->> on the non-sexy task of debugging problems.
->>
->> Where do you plan to find them?
->>
->> If you don't believe me, please find a maintainer for the currently 
->> unmaintained parallel port support.
->>
->> Or if you want a harder task, find a maintainer for the floppy driver...
-> ..
->
-> Again, the problem is:
->
->> But the problem is now that kernel devs are addicted to it,
->> many won't even consider resolving a problem any other way.
->
-> And that's simply not good enough.
+On Tue, Nov 13, 2007 at 04:32:07AM -0800, David Miller wrote:
+> Luckily if the report being ignored isn't chaff, it will show up again
+> (and again and again) and this triggers a reprioritization because not
+> only is the bug no longer chaff, it also now got a lot of information
+> tagged to it so it's a double worthwhile investment to work on the
+> problem.
 
-There is this silly limit that noone can work more than 168 hours per 
-week on the Linux kernel, and some kernel developers seem to take the 
-liberty of spending even less time on kernel development...
+Strongly agree.
 
-Considering our problems to cope with the amount of incoming bug 
-reports, everything that would require a kernel developer to spend more 
-time for getting a bug fixed would be a horrible mistake.
+This is exactly what happened to that ARM NO_HZ bug report.  The report
+in bugzilla was rather lacking (and wrong) in ways that have already
+been described.  HPET on ARM? 8)
 
-cu
-Adrian
+Then on the morning of 6th November, someone reported on the mailing list
+that "pxa270 doesn't work with oneshot timer" and that was the trigger to
+getting the bug resolved - because it was a narrowly defined bug report.
+
+Since it was a narrowly defined bug report, it became very easy to
+investigate and resolve.  About half an hour of time for an initial
+patch.
+
+
+There's another issue I want to raise concerning bugzilla.  We have the
+classic case of "not enough people reading bugzilla bugs" - which is one
+of the biggest problems with bugzilla.  Virtually no one in the ARM
+community looks for ARM bugs in bugzilla.
+
+Let's not forget that it would be a waste of time for people to manually
+check bugzilla for ARM bugs.  There's soo few people reporting ARM bugs
+into bugzilla that a weekly manual check by every maintainer would just
+return the same old boring results for months and months at a time.
+
+It would be far more productive if the ARM category was deleted from
+bugzilla and the few people who use bugzilla reported their bugs on the
+mailing list.  We've a couple of thousand people on the ARM kernel
+mailing list at the moment - that's 3 orders of magnitude more of eyes
+than look at bugzilla.
+
+(I'm not saying that if the ARM NO_HZ bug as reported in bugzilla had
+been reported on the correct mailing list would've been solved earlier;
+I doubt there'd be much difference.  However, the probability of a
+question being asked of the reporter would've been much higher, and
+_that_ might have led to an earlier resolution.)
 
 -- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:
