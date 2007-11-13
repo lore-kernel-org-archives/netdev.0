@@ -1,54 +1,44 @@
-From: Mark Lord <liml@rtr.ca>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 12:54:45 -0500
-Message-ID: <4739E4E5.2010602@rtr.ca>
-References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com> <20071113031553.3c7b5c16.akpm@linux-foundation.org> <4739ADA2.4060604@rtr.ca> <alpine.LFD.0.9999.0711131521590.3265@localhost.localdomain>
+From: Florian Boelstler <kernel@boelstler.net>
+Subject: Re: Strange delays / what usually happens every 10 min?
+Date: Tue, 13 Nov 2007 18:54:12 +0100
+Message-ID: <fhcocb$jv0$1@ger.gmane.org>
+References: <fhcc39$51b$1@ger.gmane.org> <4739CF81.8050704@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org,
-	linux-input@atrey.karlin.mff.cuni.cz,
-	bugme-daemon@bugzilla.kernel.org
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.0.9999.0711131521590.3265@localhost.localdomain>
-Sender: linux-ide-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760428AbXKMRzZ@vger.kernel.org>
+In-Reply-To: <4739CF81.8050704@cosmosbay.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Gleixner wrote:
-> On Tue, 13 Nov 2007, Mark Lord wrote:
-> 
->> > Andrew Morton wrote:
->>> > > On Mon, 12 Nov 2007 22:42:32 -0800 "Natalie Protasevich"
->>> > > <protasnb@gmail.com> wrote:
->> > ..
->>>> > > > with CONFIG_NO_HZ and/or CONFIG_HPET_TIMER set kernel 2.6.23 doesn't
->>>> > > > boot (ARM, Timer)
->>>> > > > http://bugzilla.kernel.org/show_bug.cgi?id=9229
->>>> > > > Kernel: 2.6.23
->>> > > 
->>> > > No response from developers
->> > ..
-> 
-> The bug report is bogus. ARM has no CONFIG_HPET_TIMER. 
->  
->> > Note:  that same bug exists/existed on i386 back when NO_HZ was
->> > introduced (2.6.21?).  I still see it from time to time on my Quad core
->> > system (very rare), but not any more on my Duo notebook where it used
->> > to happen about 1 in n boots (n < 10).
->> > 
->> > AFAICT no fix was ever released for it.
-> 
-> Hmm, at which point does the boot stop ? 
-..
+Hi Eric,
 
-Just as it prints out these messages, sometimes one of them,
-sometimes both (or all four on the quad core):
+Eric Dumazet wrote:
+> Instead of using less RAM, you could just boot with rhash_entries=1024 
+> to lower the size of this table.
 
-kernel: switched to high resolution mode on cpu 1
-kernel: switched to high resolution mode on cpu 0 
+I just tried that and it seems to reduce the scan time. This is the 
+result for the first 40 minutes of runtime:
 
+root@mpc0:/# /tmp/wait.rt
+looping 1 milli seconds nanosleep ...
+17:10:11/425384 #1 MAX 1996/83117/-268599896 us/tick/usec (at 2107848557)
+17:10:11/427385 #2 MAX 2001/83327/2001 us/tick/usec (at 2107931884)
+17:10:11/433534 #5 MAX 2149/89477/2150 us/tick/usec (at 2108187839)
+17:27:02/5897 #505291 MAX 2512/104576/2513 us/tick/usec (at 1223589469)
+
+The first ~10ms delay usually occurred after ~15 minutes. So one could 
+argue that the reported HIGH-value at 17:27:02 (GMT) is the first flush 
+of IP route cache. And all later flushes weren't longer than 2,5ms.
+
+Thanks to all of you, especially Eric. Now it seems I got an instrument 
+to lower system response time.
+
+Cheers,
+
+   Florian
+
+PS: Unfortunately I had to remove some CC:-entries since the local 
+firewall seems to not allow anything but NNTP (for gmane) and HTTP.
