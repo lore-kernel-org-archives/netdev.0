@@ -1,50 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPVS: Fix sysctl warnings about missing strategy
-Date: Tue, 13 Nov 2007 02:45:00 -0800 (PST)
-Message-ID: <20071113.024500.155458534.davem@davemloft.net>
-References: <200711131129.58868.borntraeger@de.ibm.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Problem with frame time stamping
+Date: Tue, 13 Nov 2007 11:55:35 +0100
+Message-ID: <473982A7.6040409@cosmosbay.com>
+References: <2cbbd8de0711120742h35f27441p5f096e5e99e1d7dc@mail.gmail.com>	 <20071112174759.c2777ea2.dada1@cosmosbay.com>	 <2cbbd8de0711130207t82f2f46h9ee1b876a61bad6a@mail.gmail.com>	 <47397C0C.4060106@cosmosbay.com> <2cbbd8de0711130239j67127e1cxf312033aee1ddd5a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com,
-	wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg
-To: borntraeger@de.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36386
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751420AbXKMKpC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 05:45:02 -0500
-In-Reply-To: <200711131129.58868.borntraeger@de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, patrik.arlos@bth.se
+To: Antoine Zen-Ruffinen <antoine.zen@gmail.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <2cbbd8de0711130239j67127e1cxf312033aee1ddd5a@mail.gmail.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Christian Borntraeger <borntraeger@de.ibm.com>
-Date: Tue, 13 Nov 2007 11:29:58 +0100
+Antoine Zen-Ruffinen a =E9crit :
+> This is exactly my problem : The driver of the network card I am usin=
+g
+> (see rt2x00.serialmonkey.com) do the minimum in the hardware interrup=
+t
+> (not filling skb->tstamp). Then netif_rx() is called later using a
+> tasklet (also not filling skb->tstamp). As it seem to me (maybe I am
+> wrong, if so please tell), the elapse time between the actual frame
+> arrival and the time where netif_rx() do net_timestamp(skb) is not
+> predicable !?
+>
+> Else, I would like to thank you to spend time helping me.
+>
+>
+>  =20
+A tasklet could process the skb much later than corresponding IRQ,=20
+depending on various things
+(other tasks/softirqs on system with higher priorities). So yes, it is=20
+not predictable at all.
 
-> Running the latest git code I get the following messages during boot:
-> sysctl table check failed: /net/ipv4/vs/drop_entry .3.5.21.4 Missing strategy
-> [...]		  
-> sysctl table check failed: /net/ipv4/vs/drop_packet .3.5.21.5 Missing strategy
-> [...]
-> sysctl table check failed: /net/ipv4/vs/secure_tcp .3.5.21.6 Missing strategy
-> [...]
-> sysctl table check failed: /net/ipv4/vs/sync_threshold .3.5.21.24 Missing strategy
-> 
-> I removed the binary sysctl handler for those messages and also removed
-> the definitions in ip_vs.h. The alternative would be to implement a 
-> proper strategy handler, but syscall sysctl is deprecated.
-> 
-> There are other sysctl definitions that are commented out or work with 
-> the default sysctl_data strategy. I did not touch these. 
-> 
-> Eric, IPVS team, are you ok with that change?
-> 
-> CC: Eric W. Biederman <ebiederm@xmission.com>
-> CC: Wensong Zhang <wensong@linux-vs.org>
-> CC: Simon Horman <horms@verge.net.au>
-> CC: Julian Anastasov <ja@ssi.bg>
-> Signed-off-by: Christian Borntraeger <borntraeger@de.ibm.com>
+Usually it doesnt matter, but if your business depends on precise tstam=
+ps,
+then just do skb->tstamp =3D ktime_get_real(); in IRQ handler (but it w=
+ill=20
+slow it a bit,
+depending on how fast is ktime_get_real() on the target machine)
+netif_rx() wont overwrite it.
 
-Simon planned to make a similar change to dice all of this
-stuff up.  He is travelling currently, and I think it's
-reasonable to give him some time to get to it.
+skb =3D dev_alloc_skb(desc.size + NET_IP_ALIGN);
+if (!skb)
+    return;
+skb->tstamp =3D ktime_get_real(); /* do it before other copies */
+skb_reserve(skb, NET_IP_ALIGN);
+skb_put(skb, desc.size);
+memcpy(skb->data, entry->data_addr, desc.size);
+
+=2E..
+
+
+
+
+
