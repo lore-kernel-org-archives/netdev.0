@@ -1,37 +1,38 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 05/05] ipv6: RFC4214 Support (3)
-Date: Tue, 13 Nov 2007 12:53:12 -0800
-Message-ID: <20071113125312.4c4d1391@freepuppy.rosehill>
-References: <473371B3.5030908@yahoo.com>
-	<4734FCEF.3080301@yahoo.com>
+Subject: Re: [Resend(2)] [PATCH 01/05] ipv6: RFC4214 Support (4)
+Date: Tue, 13 Nov 2007 13:10:38 -0800
+Message-ID: <20071113131038.50ad9914@freepuppy.rosehill>
+References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC1A@XCH-NW-7V2.nw.nos.boeing.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: osprey67 <osprey67@yahoo.com>, netdev@vger.kernel.org
-To: osprey67 <osprey67@yahoo.com>
+Cc: <netdev@vger.kernel.org>,
+	YOSHIFUJI Hideaki / =?UTF-8?B?5ZCJ6Jek6Iux?=
+	 =?UTF-8?B?5piO?= <yoshfuji@linux-ipv6.org>
+To: "Templin, Fred L" <Fred.L.Templin@boeing.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:57208 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:46525 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757789AbXKMUzG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 15:55:06 -0500
-In-Reply-To: <4734FCEF.3080301@yahoo.com>
+	by vger.kernel.org with ESMTP id S1753663AbXKMVMn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 16:12:43 -0500
+In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC1A@XCH-NW-7V2.nw.nos.boeing.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 09 Nov 2007 16:35:59 -0800
-osprey67 <osprey67@yahoo.com> wrote:
 
-> From: Fred L. Templin <fred.l.templin@boeing.com>
-> 
-> This message attaches the combined diffs from
-> messages 01/05 through 04/05. This file should be
-> suitable for use with the patch utility.
-> 
-> Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
-> 
+> +#if defined(CONFIG_IPV6_ISATAP)
+> +/* only for IFF_ISATAP interfaces */
+> +static inline int ipv6_addr_is_isatap(const struct in6_addr *addr)
+> +{
+> +       return ((addr->s6_addr32[2] | htonl(0x02000000)) == htonl(0x02005EFE));
+> +}
+> +#endif
+> +
 
-Isn't increasing the size of struct ip_tunnel_parm
-going to cause kernel ABI changes?
+No need to make this conditional, unless you want to define an equivalent
+inline for !ISATAP that always returns 0.
+
+
 
 -- 
 Stephen Hemminger <shemminger@linux-foundation.org>
