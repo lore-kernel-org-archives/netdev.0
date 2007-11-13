@@ -1,59 +1,125 @@
-From: Russell King <rmk+lkml@arm.linux.org.uk>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 19:37:50 +0000
-Message-ID: <20071113193750.GD1356@flint.arm.linux.org.uk>
-References: <20071113031553.3c7b5c16.akpm@linux-foundation.org> <20071113.033946.114918709.davem@davemloft.net> <20071113034916.2556edd7.akpm@linux-foundation.org> <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org> <20071113134029.GA30978@elte.hu> <4739AFE0.20705@rtr.ca>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, alsa-devel@alsa-project.org,
-	netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
-	linux-kernel@vger.kernel.org, protasnb@gmail.com,
-	linux-ide@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	linux-input@atrey.karlin.mff.cuni.cz,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: Mark Lord <liml@rtr.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:54625 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758534AbXKMTiO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 14:38:14 -0500
-Content-Disposition: inline
-In-Reply-To: <4739AFE0.20705@rtr.ca>
-Sender: netdev-owner@vger.kernel.org
+From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Subject: [RFC 6/7] LTTng instrumentation net
+Date: Tue, 13 Nov 2007 14:33:55 -0500
+Message-ID: <20071113194025.471646850@polymtl.ca>
+References: <20071113193349.214098508@polymtl.ca>
+Cc: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	netdev@vger.kernel.org
+To: akpm@linux-foundation.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761242AbXKMTkp@vger.kernel.org>
+Content-Disposition: inline; filename=lttng-instrumentation-net.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 13, 2007 at 09:08:32AM -0500, Mark Lord wrote:
-> Ingo Molnar wrote:
-> ..
-> > This is all QA-101 that _cannot be argued against on a rational basis_, 
-> > it's just that these sorts of things have been largely ignored for 
-> > years, in favor of the all-too-easy "open source means many eyeballs and 
-> > that is our QA" answer, which is a _good_ answer but by far not the most 
-> > intelligent answer! Today "many eyeballs" is simply not good enough and 
-> > nature (and other OS projects) will route us around if we dont change.
-> ..
-> 
-> QA-101 and "many eyeballs" are not at all in opposition.
-> The latter is how we find out about bugs on uncommon hardware,
-> and the former is what we need to track them and overall quality.
-> 
-> A HUGE problem I have with current "efforts", is that once someone
-> reports a bug, the onus seems to be 99% on the *reporter* to find
-> the exact line of code or commit.  Ghad what a repressive method.
+Network core events.
 
-99% on the reporter?  Is that why I always try to understand the
-reporters problem (*provided* it's in an area I know about) and come
-up with a patch to test a theory or fix the issue?
+Signed-off-by: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+CC: netdev@vger.kernel.org
+---
+ net/core/dev.c     |    5 +++++
+ net/ipv4/devinet.c |    5 +++++
+ net/socket.c       |   18 ++++++++++++++++++
+ 3 files changed, 28 insertions(+)
 
-I'm _less_ inclined to provide such a "service" for lazy maintainers
-who've moved off into new and wonderfully exciting technologies, to
-churn out more patches for me to merge (and eventually provide a free
-to them bug fixing service for.)
-
-That's "less" inclined, not "won't".
+Index: linux-2.6-lttng/net/core/dev.c
+===================================================================
+--- linux-2.6-lttng.orig/net/core/dev.c	2007-11-13 09:25:26.000000000 -0500
++++ linux-2.6-lttng/net/core/dev.c	2007-11-13 09:49:37.000000000 -0500
+@@ -1637,6 +1637,8 @@ int dev_queue_xmit(struct sk_buff *skb)
+ 	}
+ 
+ gso:
++	trace_mark(net_dev_xmit, "skb %p protocol #2u%hu", skb, skb->protocol);
++
+ 	spin_lock_prefetch(&dev->queue_lock);
+ 
+ 	/* Disable soft irqs for various locks below. Also
+@@ -2037,6 +2039,9 @@ int netif_receive_skb(struct sk_buff *sk
+ 
+ 	__get_cpu_var(netdev_rx_stat).total++;
+ 
++	trace_mark(net_dev_receive, "skb %p protocol #2u%hu",
++		skb, skb->protocol);
++
+ 	skb_reset_network_header(skb);
+ 	skb_reset_transport_header(skb);
+ 	skb->mac_len = skb->network_header - skb->mac_header;
+Index: linux-2.6-lttng/net/ipv4/devinet.c
+===================================================================
+--- linux-2.6-lttng.orig/net/ipv4/devinet.c	2007-11-13 09:25:26.000000000 -0500
++++ linux-2.6-lttng/net/ipv4/devinet.c	2007-11-13 09:49:37.000000000 -0500
+@@ -262,6 +262,8 @@ static void __inet_del_ifa(struct in_dev
+ 		struct in_ifaddr **ifap1 = &ifa1->ifa_next;
+ 
+ 		while ((ifa = *ifap1) != NULL) {
++			trace_mark(net_del_ifa_ipv4, "label %s",
++				ifa->ifa_label);
+ 			if (!(ifa->ifa_flags & IFA_F_SECONDARY) &&
+ 			    ifa1->ifa_scope <= ifa->ifa_scope)
+ 				last_prim = ifa;
+@@ -368,6 +370,9 @@ static int __inet_insert_ifa(struct in_i
+ 			}
+ 			ifa->ifa_flags |= IFA_F_SECONDARY;
+ 		}
++		trace_mark(net_insert_ifa_ipv4, "label %s address #4u%lu",
++			ifa->ifa_label,
++			(unsigned long)ifa->ifa_address);
+ 	}
+ 
+ 	if (!(ifa->ifa_flags & IFA_F_SECONDARY)) {
+Index: linux-2.6-lttng/net/socket.c
+===================================================================
+--- linux-2.6-lttng.orig/net/socket.c	2007-11-13 09:25:26.000000000 -0500
++++ linux-2.6-lttng/net/socket.c	2007-11-13 09:49:37.000000000 -0500
+@@ -563,6 +563,11 @@ int sock_sendmsg(struct socket *sock, st
+ 	struct sock_iocb siocb;
+ 	int ret;
+ 
++	trace_mark(net_socket_sendmsg,
++		"sock %p family %d type %d protocol %d size %zu",
++		sock, sock->sk->sk_family, sock->sk->sk_type,
++		sock->sk->sk_protocol, size);
++
+ 	init_sync_kiocb(&iocb, NULL);
+ 	iocb.private = &siocb;
+ 	ret = __sock_sendmsg(&iocb, sock, msg, size);
+@@ -646,7 +651,13 @@ int sock_recvmsg(struct socket *sock, st
+ 	struct sock_iocb siocb;
+ 	int ret;
+ 
++	trace_mark(net_socket_recvmsg,
++		"sock %p family %d type %d protocol %d size %zu",
++		sock, sock->sk->sk_family, sock->sk->sk_type,
++		sock->sk->sk_protocol, size);
++
+ 	init_sync_kiocb(&iocb, NULL);
++
+ 	iocb.private = &siocb;
+ 	ret = __sock_recvmsg(&iocb, sock, msg, size, flags);
+ 	if (-EIOCBQUEUED == ret)
+@@ -1212,6 +1223,11 @@ asmlinkage long sys_socket(int family, i
+ 	if (retval < 0)
+ 		goto out_release;
+ 
++	trace_mark(net_socket_create,
++		"sock %p family %d type %d protocol %d fd %d",
++		sock, sock->sk->sk_family, sock->sk->sk_type,
++		sock->sk->sk_protocol, retval);
++
+ out:
+ 	/* It may be already another descriptor 8) Not kernel problem. */
+ 	return retval;
+@@ -2021,6 +2037,8 @@ asmlinkage long sys_socketcall(int call,
+ 	a0 = a[0];
+ 	a1 = a[1];
+ 
++	trace_mark(net_socket_call, "call %d a0 %lu", call, a0);
++
+ 	switch (call) {
+ 	case SYS_SOCKET:
+ 		err = sys_socket(a0, a1, a[2]);
 
 -- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:
+Mathieu Desnoyers
+Computer Engineering Ph.D. Student, Ecole Polytechnique de Montreal
+OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
