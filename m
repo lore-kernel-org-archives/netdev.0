@@ -1,39 +1,46 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 18:25:16 +0000
-Message-ID: <20071113182516.250de873@the-village.bc.nu>
-References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com>
-	<20071113031553.3c7b5c16.akpm@linux-foundation.org>
-	<4739ADA2.4060604@rtr.ca>
-	<alpine.LFD.0.9999.0711131521590.3265@localhost.localdomain>
-	<20071113181053.GB1356@flint.arm.linux.org.uk>
+From: Chuck Lever <chuck.lever@oracle.com>
+Subject: [PATCH 00/25] RFC: AF_INET6 family support for the NFS client
+Date: Tue, 13 Nov 2007 13:30:59 -0500
+Message-ID: <20071113182226.5087.77009.stgit@manray.1015granger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>, Mark Lord <liml@rtr.ca>,
-        alsa-devel@alsa-project.org, netdev@vger.kernel.org,
-        linux-pcmcia@lists.infradead.org, linux-kernel@vger.kernel.org,
-        Natalie
- Protasevich <protasnb@gmail.com>, linux-ide@vger.kernel.org,
-        bugme-daemon@bugzilla.kernel.org, linux-input@atrey.karlin.mff.cuni.cz,
-        Andrew Morton <akpm@linux-foundation.org>
-To: Russell King <rmk+lkml@arm.linux.org.uk>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <20071113181053.GB1356@flint.arm.linux.org.uk>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Cc: netdev@vger.kernel.org
+To: nfs@lists.sourceforge.net
+Return-path: <nfs-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
+	<mailto:nfs-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=nfs>
+List-Post: <mailto:nfs@lists.sourceforge.net>
+List-Help: <mailto:nfs-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
+	<mailto:nfs-request@lists.sourceforge.net?subject=subscribe>
+Sender: nfs-bounces@lists.sourceforge.net
+Errors-To: nfs-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-> Given the wide range of ARM platforms today, it is utterly idiotic to
-> expect a single person to be able to provide responses for all ARM bugs.
-> I for one wish I'd never *VOLUNTEERED* to be a part of the kernel
-> bugzilla, and really *WISH* I could pull out of that function.
+These 25 patches add support for AF_INET6 addresses to the NFS client.
+This is a request for review of the proposed changes.
 
-You can. Perhaps that bugzilla needs to point to some kind of
-arm-maintainers@vger.kernel.org list for the various ARM platform
-maintainers ?
+This series does not add support for AF_INET6 addresses to the Linux
+NLM or NSM implementations, nor does it add support in the NFS server.
 
-Alan
+To use an IPv6 NFS server, the mount.nfs command will pass in an IPv6
+server address via the "addr" option.  IPv6 support in mount.nfs is yet
+to be implemented.
+
+This series has been tested only with IPv4 addresses to ensure there are no
+regressions.  Groupe Bull has tested earlier versions of these changes with
+other IPv6 NFS server implementations to sanity check the architecture.
+
+-- 
+corporate:    <chuck dot lever at oracle dot com>
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >> http://get.splunk.com/
+_______________________________________________
+NFS maillist  -  NFS@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/nfs
