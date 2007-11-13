@@ -1,63 +1,63 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 23:03:54 +0100
-Message-ID: <E1Is3rO-0002ze-1L@faramir.fjphome.nl>
-References: <20071113031553.3c7b5c16.akpm@linux-foundation.org> <20071113.033946.114918709.davem@davemloft.net> <20071113034916.2556edd7.akpm@linux-foundation.org> <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org> <20071113134029.GA30978@elte.hu> <4739AFE0.20705@rtr.ca> <4739C1B0.8000803@cateee.net> <2c0942db0711130757g295add20re0ee423b84921d28@mail.gmail.com> <20071113170141.GD4250@stusta.de> <1194976238.15745.17.camel@rukbat>
-Cc: akpm@linux-foundation.org, alsa-devel@alsa-project.org,
-    bugme-daemon@bugzilla.kernel.org, bunk@kernel.org, cate@cateee.net,
-    davem@davemloft.net, liml@rtr.ca, linux-ide@vger.kernel.org,
-    linux-input@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org,
-    linux-pcmcia@lists.infradead.org, mingo@elte.hu,
-    netdev@vger.kernel.org, protasnb@gmail.com, ray-lk@madrabbit.org
-To: Romano Giannetti <romanol@upcomillas.es>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-reply-To: <1194976238.15745.17.camel@rukbat>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] [TCP] FRTO: Limit snd_cwnd if TCP was application limited
+Date: Wed, 14 Nov 2007 00:08:18 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0711140004210.3997@kivilampi-30.cs.helsinki.fi>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-733907344-1194991698=:3997"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:33429 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760182AbXKMWIU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 17:08:20 -0500
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Romano Giannetti wrote:
-> This was what I did in my (in the end almost successful) bisecting when
-> trying to find the mmc problem (see the thread named "2.6.24-rc1 eat my
-> SD card"). This is true in theory, but it has some problem. The "this
-> commit does not compile is the easiest and in man git-bisect it's
-> explained how to solve it. The changes in .config options, added or
-> removed, are another problem when jumping back and forth from version.
-> 
-> The main problem I had, and that stopped me to arrive to a definite is
-> this situation:
-[...] 
-> (d was the series to change drivers to use sg helpers, and g was a "fix
-> fallout from sg helpers" patch). Now I have a series of kernels (d, e,
-> f) that did not work at all and so I cannot mark them good or bad. With
-> the number of patches added in the free-for-all week, this is a very
-> probable scenario. There is a way out from this using bisect?
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-I think there are three strategies you can use in this case:
-- create a kernel config that is as simple as possible, but still supports
-  your hardware and reproduces your problem; a simpler config will often
-  avoid compilation issues in parts of the kernel that you're not using
-  anyway and has the benefit of speeding up the compiles too
+---696243703-733907344-1194991698=:3997
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-- if you know/suspect in what part of the tree the bug is, first limit the
-  bisection to that; you will have to verify that you did indeed find the
-  correct (broken) change by doing a compile for the "last good commit + 1"
 
-- if you find a broken commit, use 'git-reset --hard' to try to jump past
-  the bad set of commits, but of course that does not help in the case:
-    g version-bad
-    f unrelated bug corrected
-    e
-    d the broken commit that caused your problem
-    c
-    b unrelated bug that breaks compilation or system introduced
-    a version-good
-  in that case the best you can reasonably be expected to do is report that
-  you narrowed it down to "between a and g" and leave the rest to the
-  developers
+Otherwise TCP might violate packet ordering principles that FRTO
+is based on. If conventional recovery path is chosen, this won't
+be significant at all. In practice, any small enough value will
+be sufficient to provide proper operation for FRTO, yet other
+users of snd_cwnd might benefit from a "close enough" value.
 
-Cheers,
-FJP
+FRTO's formula is now equal to what tcp_enter_cwr() uses.
+
+FRTO used to check application limitedness a bit differently but
+I changed that in commit 575ee7140dabe9b9c4f66f4f867039b97e548867
+and as a result checking for application limitedness became
+completely non-existing.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+
+Noticed this unrelated problem while thinking LOST bits and stuff...
+
+ net/ipv4/tcp_input.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index cc358d4..3f126ec 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1674,6 +1674,9 @@ void tcp_enter_frto(struct sock *sk)
+ 	}
+ 	tcp_verify_left_out(tp);
+ 
++	/* Too bad if TCP was application limited */
++	tp->snd_cwnd = min(tp->snd_cwnd, tcp_packets_in_flight(tp) + 1);
++
+ 	/* Earlier loss recovery underway (see RFC4138; Appendix B).
+ 	 * The last condition is necessary at least in tp->frto_counter case.
+ 	 */
+-- 
+1.5.0.6
+
+---696243703-733907344-1194991698=:3997--
