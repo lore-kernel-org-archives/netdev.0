@@ -1,34 +1,36 @@
-From: Jens Axboe <jens.axboe@oracle.com>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 12:24:36 +0100
-Message-ID: <20071113112435.GA16809@kernel.dk>
-References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com> <20071113031553.3c7b5c16.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] cleanup pernet operation without CONFIG_NET_NS
+Date: Tue, 13 Nov 2007 03:24:07 -0800 (PST)
+Message-ID: <20071113.032407.155828314.davem@davemloft.net>
+References: <20071107120007.GA10169@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Natalie Protasevich <protasnb@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org,
-	linux-input@atrey.karlin.mff.cuni.cz,
-	bugme-daemon@bugzilla.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-ide-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
-Sender: linux-ide-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: devel@openvz.org, containers@lists.osdl.org,
+	netdev@vger.kernel.org, clg@fr.ibm.com, benjamin.thery@bull.net
+To: den@openvz.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55947
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752656AbXKMLYI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 06:24:08 -0500
+In-Reply-To: <20071107120007.GA10169@iris.sw.ru>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 13 2007, Andrew Morton wrote:
-> > I/O STORAGE===========================================================
-> > 
-> > kernel bug from pktcdvd
-> > http://bugzilla.kernel.org/show_bug.cgi?id=9294
-> > Kernel: 2.6.23
+From: "Denis V. Lunev" <den@openvz.org>
+Date: Wed, 7 Nov 2007 15:00:07 +0300
+
+> If CONFIG_NET_NS is not set, the only namespace is possible.
 > 
-> I think we might have fixed this.
+> This patch removes list of pernet_operations and cleanups code a bit.
+> This list is not needed if there are no namespaces. We should just call
+> ->init method.
+> 
+> Additionally, the ->exit will be called on module unloading only. This
+> case is safe - the code is not discarded. For the in/kernel code, ->exit
+> should never be called.
+> 
+> Signed-off-by: Denis V. Lunev <den@openvz.org>
 
-It's fixed and merged, I just forgot to close the bugzilla. Did so now.
-
--- 
-Jens Axboe
-
+Applied.
