@@ -1,75 +1,63 @@
-From: "Antoine Zen-Ruffinen" <antoine.zen@gmail.com>
-Subject: Re: Problem with frame time stamping
-Date: Tue, 13 Nov 2007 13:34:34 +0100
-Message-ID: <2cbbd8de0711130434s75e78c35rfda90b81686ee9e1@mail.gmail.com>
-References: <2cbbd8de0711120742h35f27441p5f096e5e99e1d7dc@mail.gmail.com>
-	 <20071112174759.c2777ea2.dada1@cosmosbay.com>
-	 <2cbbd8de0711130207t82f2f46h9ee1b876a61bad6a@mail.gmail.com>
-	 <47397C0C.4060106@cosmosbay.com>
-	 <2cbbd8de0711130239j67127e1cxf312033aee1ddd5a@mail.gmail.com>
-	 <473982A7.6040409@cosmosbay.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [patch 1/1][NETNS][IPV6] protect addrconf from loopback registration
+Date: Tue, 13 Nov 2007 05:59:38 -0700
+Message-ID: <m1r6iu2tdx.fsf@ebiederm.dsl.xmission.com>
+References: <473879C3.5020301@sw.ru> <47387B31.20805@fr.ibm.com>
+	<473883FF.5010505@sw.ru>
+	<20071112.142455.73541417.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, patrik.arlos@bth.se
-To: "Eric Dumazet" <dada1@cosmosbay.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <473982A7.6040409@cosmosbay.com>
-Content-Disposition: inline
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: den@sw.ru, dlezcano@fr.ibm.com, netdev@vger.kernel.org,
+	xemul@openvz.org, containers@lists.osdl.org,
+	yoshfuji@linux-ipv6.org, benjamin.thery@bull.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:46647 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752023AbXKMNCh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 08:02:37 -0500
+In-Reply-To: <20071112.142455.73541417.davem@davemloft.net> (David Miller's
+	message of "Mon, 12 Nov 2007 14:24:55 -0800 (PST)")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-THIS is what I did at the beginning. But is seem me to be some thing
-wrong. So I put a static value in skb->tstamp  instead of
-ktime_get_real() for debug purpose. And I was still becoming the
-amount of second, microsecond since 1970. We are back to my initial
-mail ! The value of skb->tsamp doesn't seems to be returned by
-ioctl().
+David Miller <davem@davemloft.net> writes:
 
-2007/11/13, Eric Dumazet <dada1@cosmosbay.com>:
-> Antoine Zen-Ruffinen a =E9crit :
-> > This is exactly my problem : The driver of the network card I am us=
-ing
-> > (see rt2x00.serialmonkey.com) do the minimum in the hardware interr=
-upt
-> > (not filling skb->tstamp). Then netif_rx() is called later using a
-> > tasklet (also not filling skb->tstamp). As it seem to me (maybe I a=
-m
-> > wrong, if so please tell), the elapse time between the actual frame
-> > arrival and the time where netif_rx() do net_timestamp(skb) is not
-> > predicable !?
-> >
-> > Else, I would like to thank you to spend time helping me.
-> >
-> >
-> >
-> A tasklet could process the skb much later than corresponding IRQ,
-> depending on various things
-> (other tasks/softirqs on system with higher priorities). So yes, it i=
-s
-> not predictable at all.
+Well this is a weird way to get to this part of the conversation.
+
+> From: "Denis V. Lunev" <den@sw.ru>
+> Date: Mon, 12 Nov 2007 19:49:03 +0300
 >
-> Usually it doesnt matter, but if your business depends on precise tst=
-amps,
-> then just do skb->tstamp =3D ktime_get_real(); in IRQ handler (but it=
- will
-> slow it a bit,
-> depending on how fast is ktime_get_real() on the target machine)
-> netif_rx() wont overwrite it.
+>> Unregister for a loopback in !init_net is a _valid_ operation and should
+>> be clean, i.e. without kludges in the path. This is the only way to
+>> check the ref-counting.
 >
-> skb =3D dev_alloc_skb(desc.size + NET_IP_ALIGN);
-> if (!skb)
->     return;
-> skb->tstamp =3D ktime_get_real(); /* do it before other copies */
-> skb_reserve(skb, NET_IP_ALIGN);
-> skb_put(skb, desc.size);
-> memcpy(skb->data, entry->data_addr, desc.size);
+> For ipv6 the stack really wants to pin down the loopback
+> device because we need a valid inet6_dev object to reference
+> at all times in order to simplify the per-device SNMP
+> statistic bumping.
 >
-> ...
+> When a non-loopback device goes down, we point any existing
+> references to that device's idev to the loopback one instead.
 >
->
->
->
->
->
+> I really consider taking down the loopback device to be
+> an invalid operation at least how things are implemented
+> currently.
+
+In a secondary network namespace the current implementation
+registers the loopback device before all other network devices
+in a network namespace and it unregisters the loopback device
+after all other network devices.
+
+So we don't endanger the current scheme of pointing any existing
+reference to the loopback device.  In fact the current ipv6 addrconf_cleanup
+largely does the same thing.
+
+Unregistering the loopback device is definitely a case where we need
+to tread very carefully.
+
+Bug we absolutely need to do all of our cleanup for a network
+namespace went it goes away and that includes removing the per network
+namespace copy of the loopback device.
+
+Eric
