@@ -1,77 +1,103 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: [PATCH 24/25] NFS: Parse IPv6 addresses in
-	nfs_parse_server_address
-Date: Tue, 13 Nov 2007 13:33:07 -0500
-Message-ID: <20071113183307.5087.96750.stgit@manray.1015granger.net>
+From: Jochen Friedrich <jochen@scram.de>
+Subject: [PATCH] powerpc: Fix fs_enet module build
+Date: Tue, 13 Nov 2007 19:32:08 +0100
+Message-ID: <4739EDA8.6020800@scram.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nfs@lists.sourceforge.net
-Return-path: <nfs-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=nfs>
-List-Post: <mailto:nfs@lists.sourceforge.net>
-List-Help: <mailto:nfs-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=subscribe>
-Sender: nfs-bounces@lists.sourceforge.net
-Errors-To: nfs-bounces@lists.sourceforge.net
+Cc: Jeff Garzik <jeff@garzik.org>, netdev <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
+To: "linuxppc-embedded@ozlabs.org" <linuxppc-embedded@ozlabs.org>
+Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
+List-Post: <mailto:linuxppc-embedded@ozlabs.org>
+List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Add the ability to parse IPv6 addresses passed in via the 'addr=' and
-'mountaddr=' mount options.
+If fs_enet is build as module, on PPC_CPM_NEW_BINDING platforms
+mii-fec/mii-bitbang should be build as module, as well. On other
+platforms, mii-fec/mii-bitbang must be included into the main module.
+Otherwise some symbols remain undefined. Additionally, fs_enet uses
+libphy, so add a select PHYLIB.
 
-Signed-off-by: Chuck Lever <chuck.lever@oracle.com>
-Cc: Aurelien Charbon <aurelien.charbon@ext.bull.net>
+  Building modules, stage 2.
+  MODPOST 5 modules
+ERROR: "fs_scc_ops" [drivers/net/fs_enet/fs_enet.ko] undefined!
+make[1]: *** [__modpost] Error 1
+make: *** [modules] Error 2
+
+Signed-off-by: Jochen Friedrich <jochen@scram.de>
 ---
 
- fs/nfs/super.c |   24 +++++++++++++++++++-----
- 1 files changed, 19 insertions(+), 5 deletions(-)
+This patch replaces powerpc-fs_enet-select-phylib-as-the-driver-needs-it.patch
+from -mm.
 
-diff --git a/fs/nfs/super.c b/fs/nfs/super.c
-index 2abef88..c066016 100644
---- a/fs/nfs/super.c
-+++ b/fs/nfs/super.c
-@@ -622,11 +622,25 @@ static void nfs_parse_server_address(char *value,
- 				     struct sockaddr_storage *ssp,
- 				     size_t *len)
- {
--	struct sockaddr_in *ap = (struct sockaddr_in *)ssp;
--
--	ap->sin_family = AF_INET;
--	ap->sin_addr.s_addr = in_aton(value);
--	*len = sizeof(*ap);
-+	if (strchr(value, ':') == NULL) {
-+		struct sockaddr_in *ap = (struct sockaddr_in *)ssp;
-+		u8 buf[4];
-+
-+		if (in4_pton(value, -1, buf, '\0', NULL)) {
-+			ap->sin_family = AF_INET;
-+			memcpy(&ap->sin_addr.s_addr, buf, sizeof(buf));
-+			*len = sizeof(*ap);
-+		}
-+	} else {
-+		struct sockaddr_in6 *ap = (struct sockaddr_in6 *)ssp;
-+		u8 buf[16];
-+
-+		if (in6_pton(value, -1, buf, '\0', NULL)) {
-+			ap->sin6_family = AF_INET6;
-+			memcpy(&ap->sin6_addr.in6_u, buf, sizeof(buf));
-+			*len = sizeof(*ap);
-+		}
-+	}
- }
+ drivers/net/fs_enet/Kconfig  |   11 ++++++++++-
+ drivers/net/fs_enet/Makefile |   15 ++++++++++++---
+ 2 files changed, 22 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/fs_enet/Kconfig b/drivers/net/fs_enet/Kconfig
+index 2765e49..562ea68 100644
+--- a/drivers/net/fs_enet/Kconfig
++++ b/drivers/net/fs_enet/Kconfig
+@@ -2,6 +2,7 @@ config FS_ENET
+        tristate "Freescale Ethernet Driver"
+        depends on CPM1 || CPM2
+        select MII
++       select PHYLIB
  
- /*
-
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >> http://get.splunk.com/
-_______________________________________________
-NFS maillist  -  NFS@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/nfs
+ config FS_ENET_HAS_SCC
+ 	bool "Chip has an SCC usable for ethernet"
+@@ -11,11 +12,19 @@ config FS_ENET_HAS_SCC
+ config FS_ENET_HAS_FCC
+ 	bool "Chip has an FCC usable for ethernet"
+ 	depends on FS_ENET && CPM2
+-	select MDIO_BITBANG
+ 	default y
+ 
+ config FS_ENET_HAS_FEC
+ 	bool "Chip has an FEC usable for ethernet"
+ 	depends on FS_ENET && CPM1
++	select FS_ENET_MDIO_FEC
+ 	default y
+ 
++config FS_ENET_MDIO_FEC
++	tristate "MDIO driver for FEC"
++	depends on FS_ENET && CPM1
++
++config FS_ENET_MDIO_FCC
++	tristate "MDIO driver for FCC"
++	depends on FS_ENET && CPM2
++	select MDIO_BITBANG
+diff --git a/drivers/net/fs_enet/Makefile b/drivers/net/fs_enet/Makefile
+index 02d4dc1..1ffbe07 100644
+--- a/drivers/net/fs_enet/Makefile
++++ b/drivers/net/fs_enet/Makefile
+@@ -4,7 +4,16 @@
+ 
+ obj-$(CONFIG_FS_ENET) += fs_enet.o
+ 
+-obj-$(CONFIG_8xx) += mac-fec.o mac-scc.o mii-fec.o
+-obj-$(CONFIG_CPM2) += mac-fcc.o mii-bitbang.o
++fs_enet-$(CONFIG_FS_ENET_HAS_SCC) += mac-scc.o
++fs_enet-$(CONFIG_FS_ENET_HAS_FEC) += mac-fec.o
++fs_enet-$(CONFIG_FS_ENET_HAS_FCC) += mac-fcc.o
+ 
+-fs_enet-objs := fs_enet-main.o
++ifeq ($(CONFIG_PPC_CPM_NEW_BINDING),y)
++obj-$(CONFIG_FS_ENET_MDIO_FEC) += mii-fec.o
++obj-$(CONFIG_FS_ENET_MDIO_FCC) += mii-bitbang.o
++else
++fs_enet-$(CONFIG_FS_ENET_MDIO_FEC) += mii-fec.o
++fs_enet-$(CONFIG_FS_ENET_MDIO_FCC) += mii-bitbang.o
++endif
++
++fs_enet-objs := fs_enet-main.o $(fs_enet-m)
+-- 
+1.5.3.5
