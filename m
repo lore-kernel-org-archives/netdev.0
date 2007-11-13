@@ -1,41 +1,53 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 14:33:03 +0300
-Message-ID: <20071113113303.GB14494@2ka.mipt.ru>
-References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com> <20071113031553.3c7b5c16.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 13/24] [IPSEC]: Move x->outer_mode->output out of
+ locked section
+Date: Tue, 13 Nov 2007 03:33:48 -0800 (PST)
+Message-ID: <20071113.033348.13935138.davem@davemloft.net>
+References: <E1Ipla1-0001Hb-00@gondolin.me.apana.org.au>
+	<200711071717.43429.netdev@axxeo.de>
+	<20071108003903.GA11963@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Natalie Protasevich <protasnb@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@axxeo.de, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:38740 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753604AbXKMLc7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2007 06:32:59 -0500
-Content-Disposition: inline
-In-Reply-To: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58716
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752122AbXKMLdt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 06:33:49 -0500
+In-Reply-To: <20071108003903.GA11963@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 13, 2007 at 03:15:53AM -0800, Andrew Morton (akpm@linux-foundation.org) wrote:
-> > NETWORKING===========================================================
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 8 Nov 2007 08:39:03 +0800
+
+> On Wed, Nov 07, 2007 at 05:17:42PM +0100, Ingo Oeser wrote:
+> > Hi Herbert,
 > > 
-> > RTNLGRP_ND_USEROPT does not report ifindex (IPv6)
-> > http://bugzilla.kernel.org/show_bug.cgi?id=9349
-> > Kernel: 2.6.24+
+> > Herbert Xu schrieb:
+> > > diff --git a/net/ipv6/xfrm6_mode_ro.c b/net/ipv6/xfrm6_mode_ro.c
+> > > index a7bc8c6..4a01cb3 100644
+> > > --- a/net/ipv6/xfrm6_mode_ro.c
+> > > +++ b/net/ipv6/xfrm6_mode_ro.c
+> > > @@ -53,7 +54,9 @@ static int xfrm6_ro_output(struct xfrm_state *x, struct sk_buff *skb)
+> > >  	__skb_pull(skb, hdr_len);
+> > >  	memmove(ipv6_hdr(skb), iph, hdr_len);
+> > >  
+> > > +	spin_lock_bh(&x->lock);
+> > >  	x->lastused = get_seconds();
+> > > +	spin_unlock_bh(&x->lock);
+> > >  
+> > >  	return 0;
+> > >  }
+> > 
+> > Can you move the retrieval of the seconds outside the spinlock?
 > 
-> No response from developers
+> You certainly could.  Whether it's worth it I won't speculate :)
 
-Fixed (extended) in the DaveM's tree (or will be soon - patch was
-submitted by Pierre Ynard).
-
-Sorry, others are either driver related (and thus require
-hardware to be tested on and maintainers to be kicked in) 
-or too obscure (like 2.6.11 bug and weird network problem 
-which is undetectible on other systems).
-
-Yes, we suck, but we try to recover :)
-
--- 
-	Evgeniy Polyakov
+Make 'lastused' an 'unsigned long' (that's all that get_seconds()
+gives to us anyways), fix up the nla_total_size(x->lastused) thing in
+net/xfrm/xfrm_user.c, and then you can remove this lock acquisition
+completely because the store into x->lastused will now be atomic and
+therefore locks aren't protecting anything.
