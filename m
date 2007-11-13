@@ -1,86 +1,67 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Re : Oops preceded by WARNING: at net/ipv4/tcp_input.c:1571
- tcp_remove_reno_sacks()
-Date: Tue, 13 Nov 2007 23:35:39 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0711132321340.3997@kivilampi-30.cs.helsinki.fi>
-References: <902344.71635.qm@web26211.mail.ukl.yahoo.com>
- <Pine.LNX.4.64.0711111216170.12719@kivilampi-30.cs.helsinki.fi>
+From: =?utf-8?B?SsO2cm4=?= Engel <joern@logfs.org>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Tue, 13 Nov 2007 22:33:58 +0100
+Message-ID: <20071113213358.GC20167@lazybastard.org>
+References: <20071113031553.3c7b5c16.akpm@linux-foundation.org> <20071113.033946.114918709.davem@davemloft.net> <20071113034916.2556edd7.akpm@linux-foundation.org> <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org> <20071113134029.GA30978@elte.hu> <4739AFE0.20705@rtr.ca> <20071113193750.GD1356@flint.arm.linux.org.uk> <473A067F.3090007@rtr.ca>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243703-924179380-1194988972=:3997"
-Cc: Netdev <netdev@vger.kernel.org>
-To: Chazarain Guillaume <guichaz@yahoo.fr>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Ingo Molnar <mingo@elte.hu>, alsa-devel@alsa-project.org,
+	netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+	linux-kernel@vger.kernel.org, protasnb@gmail.com,
+	linux-ide@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	linux-input@atrey.karlin.mff.cuni.cz,
+	Andrew Morton <akpm@linux-foundation.org>,
 	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:49301 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760193AbXKMVfo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 16:35:44 -0500
-In-Reply-To: <Pine.LNX.4.64.0711111216170.12719@kivilampi-30.cs.helsinki.fi>
-Content-ID: <Pine.LNX.4.64.0711132324230.3997@kivilampi-30.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
+To: Mark Lord <liml@rtr.ca>
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
+Content-Disposition: inline
+In-Reply-To: <473A067F.3090007@rtr.ca>
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Tue, 13 November 2007 15:18:07 -0500, Mark Lord wrote:
+>=20
+> I just find it weird that something can be known broken for several -rc=
+*
+> kernels before I happen to install it, discover it's broken on my own=20
+> machine,
+> and then I track it down, fix it, and submit the patch, generally all=20
+> within a
+> couple of hours.  Where the heck was the dude(ess) that broke it ??  AW=
+OL.
+>=20
+> And when I receive hostility from the "maintainers" of said code for fi=
+xing
+> their bugs, well.. that really motivates me to continue reporting new o=
+nes..
 
----696243703-924179380-1194988972=:3997
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0711132324231.3997@kivilampi-30.cs.helsinki.fi>
+Given a decent bug report, I agree that having the bug not looked at is
+shameful.  But what can a developer do if a bug report effectively reads
+"there is some bug somewhere in recent kernels"?  How can I know that in
+this particular case it is my bug that I introduced?  It could just as
+easily be 50 other people and none of them are eager to debug it unless
+they suspect it to be their bug.
 
-On Mon, 12 Nov 2007, Ilpo Järvinen wrote:
+This is a common problem and fairly unrelated to linux in general or the
+kernel in particular.  Who is going to be the sucker that figures out
+which developer the bug belongs to?  And I have yet to find a project,
+commercial or opensource, where volunteers flock to become such a
+sucker.
 
-> Yeah, it's more likely a miscount somewhere rather than corruption but 
-> that wasn't obvious from the first mail...
-> 
-> ...but alas, I haven't yet been able to come up with any theory on how 
-> a miscount could occur....
+One option is to push this role to the bug reporter.  Another is to
+strong-arm some developers into this role, by whatever means.  A third
+would be for $LARGE_COMPANY to hire some people.  If you have a better
+idea or would volunteer your time, I'd be grateful.  Simply blaming one
+side, whether bug reporter or a random developer, for not being the
+sucker doesn't help anyone.
 
-Cancel that, first idea is presented in this patch (not sure if it's one 
-that fixes your symptoms, but at least it seems a potential place where 
-such thing could happen, no idea what events can cause that to occur 
-though :-():
+J=C3=B6rn
 
---
-[PATCH] [TCP] FRTO: Plug potential LOST-bit leak
-
-It might be possible that, in some extreme scenario that
-I just cannot now construct in my mind, end_seq <=
-frto_highmark check does not match causing the lost_out
-and LOST bits become out-of-sync due to clearing and
-recounting in the loop.
-
-This may fix LOST-bit leak reported by Chazarain Guillaume
-<guichaz@yahoo.fr>.
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_input.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 23a0092..cc358d4 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1706,6 +1706,8 @@ static void tcp_enter_frto_loss(struct sock *sk, int allowed_segments, int flag)
- 	tcp_for_write_queue(skb, sk) {
- 		if (skb == tcp_send_head(sk))
- 			break;
-+
-+		TCP_SKB_CB(skb)->sacked &= ~TCPCB_LOST;
- 		/*
- 		 * Count the retransmission made on RTO correctly (only when
- 		 * waiting for the first ACK and did not get it)...
-@@ -1719,7 +1721,7 @@ static void tcp_enter_frto_loss(struct sock *sk, int allowed_segments, int flag)
- 		} else {
- 			if (TCP_SKB_CB(skb)->sacked & TCPCB_RETRANS)
- 				tp->undo_marker = 0;
--			TCP_SKB_CB(skb)->sacked &= ~(TCPCB_LOST|TCPCB_SACKED_RETRANS);
-+			TCP_SKB_CB(skb)->sacked &= ~TCPCB_SACKED_RETRANS;
- 		}
- 
- 		/* Don't lost mark skbs that were fwd transmitted after RTO */
--- 
-1.5.0.6
-
----696243703-924179380-1194988972=:3997--
+--=20
+Joern's library part 2:
+http://www.art.net/~hopkins/Don/unix-haters/tirix/embarrassing-memo.html
