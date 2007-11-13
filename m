@@ -1,45 +1,31 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 03:49:16 -0800
-Message-ID: <20071113034916.2556edd7.akpm@linux-foundation.org>
-References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com>
-	<20071113031553.3c7b5c16.akpm@linux-foundation.org>
-	<20071113.033946.114918709.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NET] netfilter : xt_time should not assume CONFIG_KTIME_SCALAR
+Date: Tue, 13 Nov 2007 03:50:19 -0800 (PST)
+Message-ID: <20071113.035019.268404275.davem@davemloft.net>
+References: <47398ADD.2030509@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: protasnb@gmail.com, linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
-        linux-pcmcia@lists.infradead.org, linux-input@atrey.karlin.mff.cuni.cz,
-        bugme-daemon@bugzilla.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <20071113.033946.114918709.davem@davemloft.net>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: dada1@cosmosbay.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43378
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754556AbXKMLuU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 06:50:20 -0500
+In-Reply-To: <47398ADD.2030509@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Nov 2007 03:39:46 -0800 (PST) David Miller <davem@davemloft.net> wrote:
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Tue, 13 Nov 2007 12:30:37 +0100
 
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Date: Tue, 13 Nov 2007 03:15:53 -0800
+> It is not correct to assume one can get nsec from a ktime directly by 
+> using .tv64 field.
 > 
-> > > NETWORKING===========================================================
-> > > 
-> > > RTNLGRP_ND_USEROPT does not report ifindex (IPv6)
-> > > http://bugzilla.kernel.org/show_bug.cgi?id=9349
-> > > Kernel: 2.6.24+
-> > 
-> > No response from developers
-> 
-> That's funny, then how come there was a proper patch fix posted
-> and it's now in my tree ready to go to Linus?
-> 
-> I think you like just saying "No response from developers" over and
-> over again to make some of point about how developers are ignoring
-> lots of bugs.  That's fine, but at least be accurate about it :-)
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-Do you believe that our response to bug reports is adequate?
+Patrick, this is very clearly a correct bug fix, so I'm
+going to apply this directly.
+
+Applied, thanks Eric.
