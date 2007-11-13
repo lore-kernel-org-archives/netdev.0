@@ -1,47 +1,45 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: [PATCH]iwlwifi not correctly dealing with hotunplug
-Date: Tue, 13 Nov 2007 12:49:24 +0100
-Message-ID: <200711131249.25320.oliver@neukum.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Tue, 13 Nov 2007 03:49:16 -0800
+Message-ID: <20071113034916.2556edd7.akpm@linux-foundation.org>
+References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com>
+	<20071113031553.3c7b5c16.akpm@linux-foundation.org>
+	<20071113.033946.114918709.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out001.kontent.com ([81.88.40.215]:35691 "EHLO
-	smtp-out001.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752789AbXKMLrz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 06:47:55 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: protasnb@gmail.com, linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
+        linux-pcmcia@lists.infradead.org, linux-input@atrey.karlin.mff.cuni.cz,
+        bugme-daemon@bugzilla.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
+In-Reply-To: <20071113.033946.114918709.davem@davemloft.net>
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-It makes no sense to enable interrupts if a device has been unplugged.
-In addition if in doubt IRQ_HANDLED should be returned.
+On Tue, 13 Nov 2007 03:39:46 -0800 (PST) David Miller <davem@davemloft.net> wrote:
 
-Signed-off-by: Oliver Neukum <oneukum@suse.de>
+> From: Andrew Morton <akpm@linux-foundation.org>
+> Date: Tue, 13 Nov 2007 03:15:53 -0800
+> 
+> > > NETWORKING===========================================================
+> > > 
+> > > RTNLGRP_ND_USEROPT does not report ifindex (IPv6)
+> > > http://bugzilla.kernel.org/show_bug.cgi?id=9349
+> > > Kernel: 2.6.24+
+> > 
+> > No response from developers
+> 
+> That's funny, then how come there was a proper patch fix posted
+> and it's now in my tree ready to go to Linus?
+> 
+> I think you like just saying "No response from developers" over and
+> over again to make some of point about how developers are ignoring
+> lots of bugs.  That's fine, but at least be accurate about it :-)
 
-	Regards
-		Oliver
-
-----
-
---- linux-2.6.24-rc1/drivers/net/wireless/iwlwifi/iwl3945-base.c.alt	2007-11-13 12:23:07.000000000 +0100
-+++ linux-2.6.24-rc1/drivers/net/wireless/iwlwifi/iwl3945-base.c	2007-11-13 12:26:00.000000000 +0100
-@@ -4850,7 +4850,7 @@ static irqreturn_t iwl_isr(int irq, void
- 	if ((inta == 0xFFFFFFFF) || ((inta & 0xFFFFFFF0) == 0xa5a5a5a0)) {
- 		/* Hardware disappeared */
- 		IWL_WARNING("HARDWARE GONE?? INTA == 0x%080x\n", inta);
--		goto none;
-+		goto unplugged;
- 	}
- 
- 	IWL_DEBUG_ISR("ISR inta 0x%08x, enabled 0x%08x, fh 0x%08x\n",
-@@ -4858,6 +4858,7 @@ static irqreturn_t iwl_isr(int irq, void
- 
- 	/* iwl_irq_tasklet() will service interrupts and re-enable them */
- 	tasklet_schedule(&priv->irq_tasklet);
-+unplugged:
- 	spin_unlock(&priv->lock);
- 
- 	return IRQ_HANDLED;
+Do you believe that our response to bug reports is adequate?
