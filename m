@@ -1,7 +1,7 @@
 From: Mark Lord <liml@rtr.ca>
 Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 14:12:57 -0500
-Message-ID: <4739F739.5040708@rtr.ca>
+Date: Tue, 13 Nov 2007 14:26:05 -0500
+Message-ID: <4739FA4D.1050900@rtr.ca>
 References: <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org> <20071113134029.GA30978@elte.hu> <4739AFE0.20705@rtr.ca> <20071113164650.GA28493@elte.hu> <4739E3D0.10201@rtr.ca> <20071113181228.GF4250@stusta.de> <4739EA83.5040006@rtr.ca> <20071113183605.GG4250@stusta.de> <4739F12E.5020807@rtr.ca> <20071113190428.GH4250@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
@@ -15,30 +15,19 @@ Cc: Ingo Molnar <mingo@elte.hu>,
 	linux-input@atrey.karlin.mff.cuni.cz,
 	bugme-daemon@bugzilla.kernel.org
 To: Adrian Bunk <bunk@kernel.org>
-Return-path: <linux-ide-owner@vger.kernel.org>
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
 In-Reply-To: <20071113190428.GH4250@stusta.de>
-Sender: linux-ide-owner@vger.kernel.org
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
 Adrian Bunk wrote:
 > On Tue, Nov 13, 2007 at 01:47:10PM -0500, Mark Lord wrote:
 >> Adrian Bunk wrote:
->> ...
->>> I did bisecting myself, and I know that it costs time and work.
->>>
->>> But the first point is the above one that it makes otherwise nearly 
->>> undebuggable problems debuggable and fixable.
->> ..
->>
->> Definitely useful, no question.
->>
->> But the problem is now that kernel devs are addicted to it,
->> many won't even consider resolving a problem any other way.
->>
->> That's not "maintaining" (or supporting) one's code.
-> 
-> What you replaced with two dots contained the answer to this:
-> 
+..
 > Another point is that it shifts the work from the few experienced 
 > developers to the many users. Users (and voluntary testers) we have
 > many, but developer time for debugging bug reports is a quite scarce 
@@ -49,22 +38,19 @@ Adrian Bunk wrote:
 >> of the kernel, and it's time for them to distribute code maintainership.
 > 
 > The problem is: Maintainers don't grow on trees.
-> 
-> You need people who are both technically capable and willing to spend 
-> time on the non-sexy task of debugging problems.
-> 
-> Where do you plan to find them?
-> 
-> If you don't believe me, please find a maintainer for the currently 
-> unmaintained parallel port support.
-> 
-> Or if you want a harder task, find a maintainer for the floppy driver...
 ..
 
-Again, the problem is:
+Hey, if somebody has time to break things, then they damn well ought
+to be able to make time to fix them again.  And the best developers
+here on LKML do just that (fix what they break).
 
-> But the problem is now that kernel devs are addicted to it,
-> many won't even consider resolving a problem any other way.
+You broke it, you fix it.  A simple rule.
 
-And that's simply not good enough.
+Translation for the particularly daft:
 
+If you've been making significant updates to a driver/subsystem,
+and people are reporting that it is now broken for them,
+then it's your job to make it right.  The reporters can help,
+and many may even git-bisect or send patches.  
+
+But you cannot *expect* or *insist* upon them doing your job.
