@@ -1,50 +1,39 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 15:36:31 +0000
-Message-ID: <20071113153631.55b2ece2@the-village.bc.nu>
-References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com>
-	<20071113031553.3c7b5c16.akpm@linux-foundation.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [NET] netfilter : xt_time should not assume CONFIG_KTIME_SCALAR
+Date: Tue, 13 Nov 2007 16:38:23 +0100
+Message-ID: <4739C4EF.3050705@trash.net>
+References: <47398ADD.2030509@cosmosbay.com> <20071113.035019.268404275.davem@davemloft.net> <4739938E.6010905@trash.net> <47399D34.40306@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Natalie Protasevich" <protasnb@gmail.com>, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, alsa-devel@alsa-project.org,
-        linux-ide@vger.kernel.org, linux-pcmcia@lists.infradead.org,
-        linux-input@atrey.karlin.mff.cuni.cz, bugme-daemon@bugzilla.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:49027 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755269AbXKMPjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 10:39:07 -0500
+In-Reply-To: <47399D34.40306@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > pata_pdc202xx_old excessive ATA bus errors
-> > http://bugzilla.kernel.org/show_bug.cgi?id=9337
-> > 2.6.24-rc2
-> 
-> No response from developers
+Eric Dumazet wrote:
+> Patrick McHardy a =E9crit :
+>> David Miller wrote:
+>>>
+>>> Patrick, this is very clearly a correct bug fix, so I'm
+>>> going to apply this directly.
+>>
+>>
+>> Thanks, thats obviously correct. Still, I would prefer if
+>> people would CC netfilter-devel and myself, it has become
+>> a bad habit lately especially to skip netfilter-devel.
+>>
+>>
+> Sorry for forgeting netfilter-devel, I'll try to remember for next ti=
+me...
 
-Untrue. We've been discussing it on list in the past and its now on
-bugzilla. Not obvious from outside I realise. That one I'm afraid is
-probably a longer term item.
 
-> > DVD-RAM umount and disk free bug
-> > http://bugzilla.kernel.org/show_bug.cgi?id=9265
-> > Kernel: 2.6.15  (asked to try current kernel)
-> 
-> No response from developers
-
-Not actually sure who is looking after this now ?
-
-> > LPC IT8705 POST port making noise on parallel port
-> > http://bugzilla.kernel.org/show_bug.cgi?id=9306
-> > Kernel: 2.6.16+
-> > 
-> 
-> No response from developers
-
-Not sure who really owns parallel. Have grabbed and will sort
-out.
+Thanks Eric. I missed that I actually was CCed because greylisting
+took a bit longer to let it through :)
