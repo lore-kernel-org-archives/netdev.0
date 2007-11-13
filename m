@@ -1,79 +1,74 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
+From: "Antoine Zen-Ruffinen" <antoine.zen@gmail.com>
 Subject: Re: Problem with frame time stamping
-Date: Tue, 13 Nov 2007 11:36:37 +0100
-Message-ID: <47397E35.6080203@cosmosbay.com>
-References: <2cbbd8de0711120742h35f27441p5f096e5e99e1d7dc@mail.gmail.com>	 <20071112174759.c2777ea2.dada1@cosmosbay.com> <2cbbd8de0711130207t82f2f46h9ee1b876a61bad6a@mail.gmail.com>
+Date: Tue, 13 Nov 2007 11:39:28 +0100
+Message-ID: <2cbbd8de0711130239j67127e1cxf312033aee1ddd5a@mail.gmail.com>
+References: <2cbbd8de0711120742h35f27441p5f096e5e99e1d7dc@mail.gmail.com>
+	 <20071112174759.c2777ea2.dada1@cosmosbay.com>
+	 <2cbbd8de0711130207t82f2f46h9ee1b876a61bad6a@mail.gmail.com>
+	 <47397C0C.4060106@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, patrik.arlos@bth.se
-To: Antoine Zen-Ruffinen <antoine.zen@gmail.com>
+To: "Eric Dumazet" <dada1@cosmosbay.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <2cbbd8de0711130207t82f2f46h9ee1b876a61bad6a@mail.gmail.com>
+In-Reply-To: <47397C0C.4060106@cosmosbay.com>
+Content-Disposition: inline
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Antoine Zen-Ruffinen a =E9crit :
-> What does it bring me to have a nanosecond precision if it is not
-> related to the actual arrival of frame time ? As it seem I can feel
-> skb->tstamp with whatever I want, I always become something else usin=
-g
-> ioctl(). (I'm using kernel 2.6.23).
+This is exactly my problem : The driver of the network card I am using
+(see rt2x00.serialmonkey.com) do the minimum in the hardware interrupt
+(not filling skb->tstamp). Then netif_rx() is called later using a
+tasklet (also not filling skb->tstamp). As it seem to me (maybe I am
+wrong, if so please tell), the elapse time between the actual frame
+arrival and the time where netif_rx() do net_timestamp(skb) is not
+predicable !?
+
+Else, I would like to thank you to spend time helping me.
+
+
+
+2007/11/13, Eric Dumazet <dada1@cosmosbay.com>:
+> Antoine Zen-Ruffinen a =E9crit :
+> > What does it bring me to have a nanosecond precision if it is not
+> > related to the actual arrival of frame time ? As it seem I can feel
+> > skb->tstamp with whatever I want, I always become something else us=
+ing
+> > ioctl(). (I'm using kernel 2.6.23).
+> >
+> >
+> I guess you misunderstood kernel source, because it is related to
+> arrival time, more exactly when it was processed by network stack.
+> (Beware  modern NICS can delay the rx interrupt by some us (ethtool -=
+c
+> eth0), so that an interrupt can feed more than one packet to the OS)
 >
-> 2007/11/12, Eric Dumazet <dada1@cosmosbay.com>:
->  =20
->> On Mon, 12 Nov 2007 16:42:34 +0100
->> "Antoine Zen-Ruffinen" <antoine.zen@gmail.com> wrote:
->>
->>    =20
->>> Dear all,
->>>
->>> I'm writing a network analyzer software using Linux and I need a VE=
-RY
->>> precise frame time stamping. Therefor I am planing to add my own ti=
-me
->>> stamping algorithm on a modified network driver. For test purpose I
->>> did so :
->>>
->>>       skb->tstamp.tv64 =3D 0x00010002;
->>>       netif_rx(skb);
->>>
->>> On the user side, I ask for the timestamp that way :
->>>
->>>       ...
->>>       sock =3D socket(AF_PACKET, SOCK_RAW, type);
->>>       ...
->>>       //bind this socket with the interface using my modified drive=
-r.
->>>       ...
->>>       recvByteCount =3D recv(sock, buffer, 1514, 0);
->>>       ioctl(sock, SIOCGSTAMP, &timeStamp);
->>>
->>> I was surprised to see that the var timeStamp was still holding a
->>> count of second since  year 1970.
->>>      =20
-But then, maybe your problem comes from your code : timeStamp should be=
-=20
-declared as "struct timeval" of course, to get both tv_sec and tv_usec.
-
-struct timeval tv;
-ioctl(sock, SIOCSTAMP, &tv);
-printf("packet arrived at %ld.%06ld\n", (long)tv.tv_sec, (long)tv.tv_us=
-ec);
-
-
-If you *want* nanosecond resolution instead of microsecond, use :
-
-struct timespec ts;
-ioctl(sock, SIOCSTAMPNS, &ts);
-printf("packet arrived at %ld.%09ld\n", (long)ts.tv_sec, (long)ts.tv_ns=
-ec);
-
-
-
-
+> Check net/core/dev.c function netif_rx()
+>
+> {
+> ...
+>    if (!skb->tstamp.tv64)
+>        net_timestamp(skb);
+>
+> }
+>
+> So as soon your system as at least one socket 'asking for tsamps',
+> netstamp_needed is not null, and net_timestamp() will call __net_time=
+stamp()
+> wich does :
+>
+> skb->tstamp =3D ktime_get_real();
+>
+> So you should not 'feed' tstamp.tv64 and let it being 0, so that
+> netif_rx() can do its job.
+>
+>
+>
+>
+>
+>
 -
 To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
 el" in
