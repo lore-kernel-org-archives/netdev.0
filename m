@@ -1,47 +1,51 @@
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Subject: Re: [PATCH 2/2] [e1000 VLAN] Disable vlan hw accel
-	when promiscuous mode
-Date: Wed, 14 Nov 2007 15:15:46 +0900
-Message-ID: <b25c3fa70711132215q2e5d5d99sb2b03b7bef49c372@mail.gmail.com>
-References: <000001c82679$796d1770$9c94fea9@jason>
-	<473A83AD.6030101@foo-projects.org>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Subject: Re: 2.6.24-rc2: Network commit causes SLUB performance regression with tbench
+Date: Wed, 14 Nov 2007 05:14:27 +1100
+Message-ID: <200711140514.28159.nickpiggin@yahoo.com.au>
+References: <200711132241.59074.nickpiggin@yahoo.com.au> <200711140436.24492.nickpiggin@yahoo.com.au> <20071113.221242.153352652.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	djohnson+linux-kernel@sw.starentnetworks.com,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	cfriesen@nortel.com, w@1wt.eu
-To: "Kok, Auke" <sofar@foo-projects.org>,
-	"Patrick McHardy" <kaber@trash.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <473A83AD.6030101@foo-projects.org>
+Cc: clameter@sgi.com, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp105.mail.mud.yahoo.com ([209.191.85.215]:30699 "HELO
+	smtp105.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1758835AbXKNGQu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 01:16:50 -0500
+In-Reply-To: <20071113.221242.153352652.davem@davemloft.net>
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > I'll work e1000e too :-)
+On Wednesday 14 November 2007 17:12, David Miller wrote:
+> From: Nick Piggin <nickpiggin@yahoo.com.au>
+> Date: Wed, 14 Nov 2007 04:36:24 +1100
 >
-> awesome, looking forward to that.
+> > On Wednesday 14 November 2007 12:58, David Miller wrote:
+> > > I suspect the issue is about having a huge skb->data linear area for
+> > > TCP sends over loopback.  We're likely getting a much smaller
+> > > skb->data linear data area after the patch in question, the rest using
+> > > the sk_buff scatterlist pages which are a little bit more expensive to
+> > > process.
+> >
+> > It didn't seem to be noticeable at 1 client. Unless scatterlist
+> > processing is going to cause cacheline bouncing, I don't see why this
+> > hurts more as you add CPUs?
 >
+> Is your test system using HIGHMEM?
+>
+> That's one thing the page vector in the sk_buff can do a lot,
+> kmaps.
 
-BTW, It seems to need Patrick's unicast patch for e1000e first.
-I'll looking forward to that too.
+No, it's an x86-64, so no highmem.
 
-Thanks
-Joonwoo
+What's also interesting is that SLAB apparently doesn't have this
+condition. The first thing that sprung to mind is that SLAB caches
+order > 0 allocations, while SLUB does not. However if anything,
+that should actually favour the SLUB numbers if network is avoiding
+order > 0 allocations.
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >> http://get.splunk.com/
+I'm doing some oprofile runs now to see if I can get any more info.
