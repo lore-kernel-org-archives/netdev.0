@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] remove references to net-modules.txt
-Date: Mon, 12 Nov 2007 21:04:13 -0800 (PST)
-Message-ID: <20071112.210413.17069543.davem@davemloft.net>
-References: <20071109060141.GM26163@stusta.de>
+Subject: Re: [PATCH] [AF_PACKET] Fix minor code duplication
+Date: Mon, 12 Nov 2007 21:05:40 -0800 (PST)
+Message-ID: <20071112.210540.163820840.davem@davemloft.net>
+References: <ygfpryjaoe9.fsf@janus.isnogud.escape.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: bunk@kernel.org
+Cc: netdev@vger.kernel.org
+To: urs.thuermann@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48944
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48950
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750765AbXKMFEN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 00:04:13 -0500
-In-Reply-To: <20071109060141.GM26163@stusta.de>
+	by vger.kernel.org with ESMTP id S1750778AbXKMFFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 00:05:41 -0500
+In-Reply-To: <ygfpryjaoe9.fsf@janus.isnogud.escape.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@kernel.org>
-Date: Fri, 9 Nov 2007 07:01:41 +0100
+From: Urs Thuermann <urs.thuermann@gmx.de>
+Date: 09 Nov 2007 08:06:38 +0100
 
-> When I removed net-modules.txt because it only contained ancient 
-> information I missed that many Kconfig entries pointed to this ancient 
-> information.
+> Simplify some code by eliminating duplicate if-else clauses in
+> packet_do_bind().
 > 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> Signed-off-by: Urs Thuermann <urs@isnogud.escape.de>
 
-Applied, thanks Adrian.
+Applied, thanks Urs.
