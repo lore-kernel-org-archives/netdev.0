@@ -1,82 +1,48 @@
-From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Subject: RE: [PATCH 01/01] ipv6: RFC4214 Support (v2.0)
-Date: Tue, 13 Nov 2007 09:29:51 -0800
-Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC28@XCH-NW-7V2.nw.nos.boeing.com>
-References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC14@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC1F@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC22@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC24@XCH-NW-7V2.nw.nos.boeing.com> <4739C7EA.5070609@hp.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC27@XCH-NW-7V2.nw.nos.boeing.com> <4739D7F7.90300@hp.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Tue, 13 Nov 2007 17:30:19 +0000
+Message-ID: <20071113173019.14480202@the-village.bc.nu>
+References: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
+	<20071113.033946.114918709.davem@davemloft.net>
+	<20071113034916.2556edd7.akpm@linux-foundation.org>
+	<20071113.035824.40509981.davem@davemloft.net>
+	<20071113041259.79c9a8c5.akpm@linux-foundation.org>
+	<20071113134029.GA30978@elte.hu>
+	<4739AFE0.20705@rtr.ca>
+	<40f323d00711130752k19cab8eauc3456721274b3267@mail.gmail.com>
+	<20071113171356.GA25824@thunk.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-2022-jp"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	=?iso-2022-jp?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>
-To: "Vlad Yasevich" <vladislav.yasevich@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from slb-smtpout-01.boeing.com ([130.76.64.48]:64457 "EHLO
-	slb-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754425AbXKMR37 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 12:29:59 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <4739D7F7.90300@hp.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: Benoit Boissinot <bboissin@gmail.com>, Mark Lord <liml@rtr.ca>,
+        Ingo
+ Molnar <mingo@elte.hu>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        David
+ Miller <davem@davemloft.net>, protasnb@gmail.com,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
+        linux-pcmcia@lists.infradead.org, linux-input@atrey.karlin.mff.cuni.cz,
+        bugme-daemon@bugzilla.kernel.org
+To: Theodore Tso <tytso@mit.edu>
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
+In-Reply-To: <20071113171356.GA25824@thunk.org>
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-Vlad, 
+> The other an automated set of standard pre-built bisection points so
+> that testers can more easily localize a bug down to a few hundred
+> commits without needing to learn how to use "git bisect" (think Ubuntu
+> users).
 
-> -----Original Message-----
-> From: Vlad Yasevich [mailto:vladislav.yasevich@hp.com] 
-> Sent: Tuesday, November 13, 2007 9:00 AM
-> To: Templin, Fred L
-> Cc: netdev@vger.kernel.org; YOSHIFUJI Hideaki / 吉藤英明
-> Subject: Re: [PATCH 01/01] ipv6: RFC4214 Support (v2.0)
-> 
-> Hi Fred
-> 
-> Templin, Fred L wrote: 
-> >>> +		return;
-> >>> +	}
-> >>> +
-> >>>  	sit_add_v4_addrs(idev);
-> >>>  
-> >>>  	if (dev->flags&IFF_POINTOPOINT) {
-> >>> @@ -2531,6 +2570,18 @@ static void addrconf_rs_timer(unsigned l
-> >>>  		 *	Announcement received after solicitation
-> >>>  		 *	was sent
-> >>>  		 */
-> >>> +
-> >>> +		/* ISATAP (RFC4214) - schedule next RS/RA */
-> >>> +		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
-> >>> +			struct ip_tunnel *t  = 
-> >> netdev_priv(ifp->idev->dev);
-> >>> +			if (t->parms.i_key != INADDR_NONE) {
-> >>> +				spin_lock(&ifp->lock);
-> >>> +				ifp->probes = 0;
-> >>> +				ifp->idev->if_flags &= 
-> >> ~(IF_RS_SENT|IF_RA_RCVD);
-> >>> +				addrconf_mod_timer(ifp, AC_DAD, 
-> >> t->parms.o_key*HZ);
-> >>
-> >> You are using a DAD timer to schedule RS?
-> > 
-> > I am using the DAD timer to re-DAD the link local, which
-> > in turn schedules RS.
-> > 
-> 
-> Why?  Seems to me that using the RS timer (AC_RS) gets you 
-> everything you
-> want and nothing you don't.  You set probes to 0, which marks 
-> DAD complete,
-> thus you don't do DAD.  You already have code in the 
-> addrconf_rs_timer() to
-> properly send the RS.  So, your patch to sending the RS is 
-> much shorter if
-> you use the AC_RS timer.
-> 
-> Am I missing something?
+Before that you want a flowchart or instruction list of boot options to
+try. A lot of errors can be localised simply by asking the reported to
+boot with things like "iommu=off", "pci=routeirq", "apci=off" etc
 
-Probably not. "Re-DAD the link-local" just seemed to have a nice
-ring about it, but if we don't need it we can just as well go straight
-to the RS. I'll take a closer look to verify...
+That takes a lot less time to run through and can be very informative.
 
-Thanks - Fred
-fred.l.templin@boeing.com
+Alan
