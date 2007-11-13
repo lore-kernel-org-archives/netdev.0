@@ -1,28 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix incorrect usage of strncat in bdx_get_drvinfo();
- drivers/net/tehuti.c
-Date: Tue, 13 Nov 2007 03:17:29 -0800 (PST)
-Message-ID: <20071113.031729.155210307.davem@davemloft.net>
-References: <472F807B.3050901@tiscali.nl>
+From: Jens Axboe <jens.axboe@oracle.com>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Tue, 13 Nov 2007 12:24:36 +0100
+Message-ID: <20071113112435.GA16809@kernel.dk>
+References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com> <20071113031553.3c7b5c16.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: 12o3l@tiscali.nl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49064
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751527AbXKMLRa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 06:17:30 -0500
-In-Reply-To: <472F807B.3050901@tiscali.nl>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Natalie Protasevich <protasnb@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
+	linux-pcmcia@lists.infradead.org,
+	linux-input@atrey.karlin.mff.cuni.cz,
+	bugme-daemon@bugzilla.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-ide-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Roel Kluin <12o3l@tiscali.nl>
-Date: Mon, 05 Nov 2007 21:43:39 +0100
-
-> Fix incorrect length for strncat by replacing it with strlcat
+On Tue, Nov 13 2007, Andrew Morton wrote:
+> > I/O STORAGE===========================================================
+> > 
+> > kernel bug from pktcdvd
+> > http://bugzilla.kernel.org/show_bug.cgi?id=9294
+> > Kernel: 2.6.23
 > 
-> Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
+> I think we might have fixed this.
 
-Applied, thanks.
+It's fixed and merged, I just forgot to close the bugzilla. Did so now.
+
+-- 
+Jens Axboe
+
