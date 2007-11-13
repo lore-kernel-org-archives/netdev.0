@@ -1,30 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Add support for the RDC R6040 Fast Ethernet controller
-Date: Mon, 12 Nov 2007 21:31:32 -0800 (PST)
-Message-ID: <20071112.213132.105717381.davem@davemloft.net>
-References: <200711122358.51432.florian.fainelli@telecomint.eu>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] - in.h - IP4_ADDR
+Date: Mon, 12 Nov 2007 21:39:37 -0800
+Message-ID: <1194932377.9407.68.camel@localhost>
+References: <1194837570.9407.29.camel@localhost>
+	 <20071112.212814.130544552.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	jeff@garzik.org
-To: florian.fainelli@telecomint.eu
+Cc: netdev@vger.kernel.org, fred.l.templin@boeing.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59324
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754738AbXKMFbd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 00:31:33 -0500
-In-Reply-To: <200711122358.51432.florian.fainelli@telecomint.eu>
+Received: from DSL022.labridge.com ([206.117.136.22]:3940 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752005AbXKMFji (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2007 00:39:38 -0500
+In-Reply-To: <20071112.212814.130544552.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <florian.fainelli@telecomint.eu>
-Date: Mon, 12 Nov 2007 23:58:48 +0100
+On Mon, 2007-11-12 at 21:28 -0800, David Miller wrote:
+> I have no problems with this, but I'd like to add it along
+> with subsequent patches that use the new routines and
+> also I'd like to defer this to net-2.6.25 so please resubmit
+> this later.
 
-> This patch adds support for the RDC R6040 MAC we can find in the RDC R-321x System-on-chips.
-> 
-> Signed-off-by: Sten Wang <sten.wang@rdc.com.tw>
-> Signed-off-by: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
-> Signed-off-by: Florian Fainelli <florian.fainelli@telecomint.eu>
+I've since changed the functions in my tree to:
 
-I've added this to my netdev-2.6 tree, thanks!
+	static inline bool is_ip4_foo(__be32 addr)
+
+and added
+
+	# define FOO(x) is_ip4_foo(x)
+
+which I think makes more sense and allows macro
+removal when all current uses are converted.
+
+When you open net-2.6.25, I'll resubmit it.
+
