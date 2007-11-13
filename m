@@ -1,53 +1,52 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 04:12:59 -0800
-Message-ID: <20071113041259.79c9a8c5.akpm@linux-foundation.org>
-References: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
-	<20071113.033946.114918709.davem@davemloft.net>
-	<20071113034916.2556edd7.akpm@linux-foundation.org>
-	<20071113.035824.40509981.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2/2] [e1000 VLAN] Disable vlan hw accel when promiscuous mode
+Date: Tue, 13 Nov 2007 20:16:47 +0800
+Message-ID: <20071113121647.GA1330@gondor.apana.org.au>
+References: <E1Irtdz-0000DX-00@gondolin.me.apana.org.au> <20071113.033611.73195922.davem@davemloft.net> <20071113120328.GB1086@gondor.apana.org.au> <20071113.040624.43544149.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: protasnb@gmail.com, linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
-        linux-pcmcia@lists.infradead.org, linux-input@atrey.karlin.mff.cuni.cz,
-        bugme-daemon@bugzilla.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, joonwpark81@gmail.com, w@1wt.eu,
+	cfriesen@nortel.com, auke-jan.h.kok@intel.com,
+	netdev@vger.kernel.org,
+	djohnson+linux-kernel@sw.starentnetworks.com,
+	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net
 To: David Miller <davem@davemloft.net>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <20071113.035824.40509981.davem@davemloft.net>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:1677 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754316AbXKMMRO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 07:17:14 -0500
+Content-Disposition: inline
+In-Reply-To: <20071113.040624.43544149.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Nov 2007 03:58:24 -0800 (PST) David Miller <davem@davemloft.net> wrote:
-
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Date: Tue, 13 Nov 2007 03:49:16 -0800
+On Tue, Nov 13, 2007 at 04:06:24AM -0800, David Miller wrote:
+>
+> > In other words we can make it so that nobody is in promiscuous
+> > mode and therefore have to disable VLAN acceleration *unless*
+> > they really want to be in that state.  In which case it would
+> > imply that they wish to see everything and therefore we should
+> > disable VLAN acceleration.
 > 
-> > Do you believe that our response to bug reports is adequate?
-> 
-> Do you feel that making us feel and look like shit helps?
-> 
+> This is too complicated, we have multiple unicast MAC support
+> in the driver API already, let's simply use it.
 
-That doesn't answer my question.
+Yes I agree.  People not using Patrick's new API deserves to
+get poor performance so they can switch over sooner :)
 
-See, first we need to work out whether we have a problem.  If we do this,
-then we can then have a think about what to do about it.
+What I was trying to say above is that e1000 currently uses
+the old set_multicast_list interface (rather than dev_set_rx_mode)
+so it's not immediately obvious why we're in promiscuous mode.
+We could look at dev->promiscuity - !!uc_count but that feels a
+bit fragile.
 
-I tried to convince the 2006 KS attendees that we have a problem and I
-resoundingly failed.  People seemed to think that we're doing OK.
+Perhaps those who want to push this patch should be encouraged
+to convert e1000 to the new interface :)
 
-But it appears that data such as this contradicts that belief.
-
-
-This is not a minor matter.  If the kernel _is_ slowly deteriorating then
-this won't become readily apparent until it has been happening for a number
-of years.  By that stage there will be so much work to do to get us back to
-an acceptable level that it will take a huge effort.  And it will take a
-long time after that for the kerel to get its reputation back.
-
-So it is important that we catch deterioration *early* if it is happening.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
