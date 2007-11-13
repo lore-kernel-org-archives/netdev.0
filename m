@@ -1,40 +1,47 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 12:47:02 +0100
-Message-ID: <20071113114702.GA3865@ff.dom.local>
-References: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: [PATCH]iwlwifi not correctly dealing with hotunplug
+Date: Tue, 13 Nov 2007 12:49:24 +0100
+Message-ID: <200711131249.25320.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Natalie Protasevich <protasnb@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org,
-	linux-input@atrey.karlin.mff.cuni.cz,
-	bugme-daemon@bugzilla.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:52692 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754428AbXKMLnA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2007 06:43:00 -0500
+Received: from smtp-out001.kontent.com ([81.88.40.215]:35691 "EHLO
+	smtp-out001.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752789AbXKMLrz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 06:47:55 -0500
 Content-Disposition: inline
-In-Reply-To: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 13-11-2007 12:15, Andrew Morton wrote:
-...
-> Zero responses from developers
-...
-> No response from developers
-...
-> Andreas did some work, seemed to lose interest.
-...
-> Rafael poked Thomas a week ago, to no effect. Thomas has been travelling.
+It makes no sense to enable interrupts if a device has been unplugged.
+In addition if in doubt IRQ_HANDLED should be returned.
 
-Looks like very reproducible!
+Signed-off-by: Oliver Neukum <oneukum@suse.de>
 
-Maybe you should add this to ...bugzilla?
+	Regards
+		Oliver
 
-Regards,
-Jarek P.
+----
+
+--- linux-2.6.24-rc1/drivers/net/wireless/iwlwifi/iwl3945-base.c.alt	2007-11-13 12:23:07.000000000 +0100
++++ linux-2.6.24-rc1/drivers/net/wireless/iwlwifi/iwl3945-base.c	2007-11-13 12:26:00.000000000 +0100
+@@ -4850,7 +4850,7 @@ static irqreturn_t iwl_isr(int irq, void
+ 	if ((inta == 0xFFFFFFFF) || ((inta & 0xFFFFFFF0) == 0xa5a5a5a0)) {
+ 		/* Hardware disappeared */
+ 		IWL_WARNING("HARDWARE GONE?? INTA == 0x%080x\n", inta);
+-		goto none;
++		goto unplugged;
+ 	}
+ 
+ 	IWL_DEBUG_ISR("ISR inta 0x%08x, enabled 0x%08x, fh 0x%08x\n",
+@@ -4858,6 +4858,7 @@ static irqreturn_t iwl_isr(int irq, void
+ 
+ 	/* iwl_irq_tasklet() will service interrupts and re-enable them */
+ 	tasklet_schedule(&priv->irq_tasklet);
++unplugged:
+ 	spin_unlock(&priv->lock);
+ 
+ 	return IRQ_HANDLED;
