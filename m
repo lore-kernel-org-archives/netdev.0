@@ -1,115 +1,81 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH] IPV4: add raw drops counter
-Date: Tue, 13 Nov 2007 17:57:40 +0800
-Message-ID: <47397514.2070002@cn.fujitsu.com>
+From: "Antoine Zen-Ruffinen" <antoine.zen@gmail.com>
+Subject: Re: Problem with frame time stamping
+Date: Tue, 13 Nov 2007 11:07:45 +0100
+Message-ID: <2cbbd8de0711130207t82f2f46h9ee1b876a61bad6a@mail.gmail.com>
+References: <2cbbd8de0711120742h35f27441p5f096e5e99e1d7dc@mail.gmail.com>
+	 <20071112174759.c2777ea2.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, patrik.arlos@bth.se
+To: "Eric Dumazet" <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [222.73.24.84] ([222.73.24.84]:63182 "EHLO song.cn.fujitsu.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751250AbXKMJ7q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2007 04:59:46 -0500
-Received: from tang.cn.fujitsu.com (tang.cn.fujitsu.com [10.167.250.3])
-	by song.cn.fujitsu.com (Postfix) with ESMTP id 6D3F0170115
-	for <netdev@vger.kernel.org>; Tue, 13 Nov 2007 17:59:43 +0800 (CST)
-Received: from fnst.cn.fujitsu.com (localhost.localdomain [127.0.0.1])
-	by tang.cn.fujitsu.com (8.13.1/8.13.1) with ESMTP id lAD9xg8E016942
-	for <netdev@vger.kernel.org>; Tue, 13 Nov 2007 17:59:42 +0800
-Received: from [127.0.0.1] (unknown [10.167.141.199])
-	by fnst.cn.fujitsu.com (Postfix) with ESMTP id 62143D427B
-	for <netdev@vger.kernel.org>; Tue, 13 Nov 2007 18:01:52 +0800 (CST)
+Received: from nf-out-0910.google.com ([64.233.182.191]:49711 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751533AbXKMKHr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 05:07:47 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so1380580nfb
+        for <netdev@vger.kernel.org>; Tue, 13 Nov 2007 02:07:45 -0800 (PST)
+In-Reply-To: <20071112174759.c2777ea2.dada1@cosmosbay.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add raw drops counter for IPv4 in /proc/net/raw .
+What does it bring me to have a nanosecond precision if it is not
+related to the actual arrival of frame time ? As it seem I can feel
+skb->tstamp with whatever I want, I always become something else using
+ioctl(). (I'm using kernel 2.6.23).
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
- include/net/sock.h |    2 ++
- net/core/sock.c    |    1 +
- net/ipv4/raw.c     |   16 +++++++++-------
- 3 files changed, 12 insertions(+), 7 deletions(-)
-
-diff -Nurp linux-2.6.24-rc2.org/include/net/sock.h linux-2.6.24-rc2/include/net/sock.h
---- linux-2.6.24-rc2.org/include/net/sock.h	2007-11-09 16:37:08.000000000 +0800
-+++ linux-2.6.24-rc2/include/net/sock.h	2007-11-13 15:19:20.000000000 +0800
-@@ -156,6 +156,7 @@ struct sock_common {
-   *	@sk_prot_creator: sk_prot of original sock creator (see ipv6_setsockopt, IPV6_ADDRFORM for instance)
-   *	@sk_err: last error
-   *	@sk_err_soft: errors that don't cause failure but are the cause of a persistent failure not just 'timed out'
-+  *	@sk_drops: raw drops counter
-   *	@sk_ack_backlog: current listen backlog
-   *	@sk_max_ack_backlog: listen backlog set in listen()
-   *	@sk_priority: %SO_PRIORITY setting
-@@ -239,6 +240,7 @@ struct sock {
- 	rwlock_t		sk_callback_lock;
- 	int			sk_err,
- 				sk_err_soft;
-+	atomic_t		sk_drops;
- 	unsigned short		sk_ack_backlog;
- 	unsigned short		sk_max_ack_backlog;
- 	__u32			sk_priority;
-diff -Nurp linux-2.6.24-rc2.org/net/core/sock.c linux-2.6.24-rc2/net/core/sock.c
---- linux-2.6.24-rc2.org/net/core/sock.c	2007-11-09 16:37:40.000000000 +0800
-+++ linux-2.6.24-rc2/net/core/sock.c	2007-11-13 15:20:53.000000000 +0800
-@@ -1611,6 +1611,7 @@ void sock_init_data(struct socket *sock,
- 	sk->sk_stamp = ktime_set(-1L, -1L);
- 
- 	atomic_set(&sk->sk_refcnt, 1);
-+	atomic_set(&sk->sk_drops, 0);
- }
- 
- void fastcall lock_sock_nested(struct sock *sk, int subclass)
-diff -Nurp linux-2.6.24-rc2.org/net/ipv4/raw.c linux-2.6.24-rc2/net/ipv4/raw.c
---- linux-2.6.24-rc2.org/net/ipv4/raw.c	2007-11-09 16:37:56.000000000 +0800
-+++ linux-2.6.24-rc2/net/ipv4/raw.c	2007-11-13 15:48:17.000000000 +0800
-@@ -241,7 +241,7 @@ static int raw_rcv_skb(struct sock * sk,
- 	/* Charge it to the socket. */
- 
- 	if (sock_queue_rcv_skb(sk, skb) < 0) {
--		/* FIXME: increment a raw drops counter here */
-+		atomic_inc(&sk->sk_drops);	
- 		kfree_skb(skb);
- 		return NET_RX_DROP;
- 	}
-@@ -866,28 +866,30 @@ static __inline__ char *get_raw_sock(str
- 	      srcp  = inet->num;
- 
- 	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X"
--		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p",
-+		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p %d",
- 		i, src, srcp, dest, destp, sp->sk_state,
- 		atomic_read(&sp->sk_wmem_alloc),
- 		atomic_read(&sp->sk_rmem_alloc),
- 		0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
--		atomic_read(&sp->sk_refcnt), sp);
-+		atomic_read(&sp->sk_refcnt), sp, atomic_read(&sp->sk_drops));
- 	return tmpbuf;
- }
- 
-+#define TMPSZ 128
-+
- static int raw_seq_show(struct seq_file *seq, void *v)
- {
--	char tmpbuf[129];
-+	char tmpbuf[TMPSZ+1];
- 
- 	if (v == SEQ_START_TOKEN)
--		seq_printf(seq, "%-127s\n",
-+		seq_printf(seq, "%-*s\n", TMPSZ-1,
- 			       "  sl  local_address rem_address   st tx_queue "
- 			       "rx_queue tr tm->when retrnsmt   uid  timeout "
--			       "inode");
-+			       "inode  drops");
- 	else {
- 		struct raw_iter_state *state = raw_seq_private(seq);
- 
--		seq_printf(seq, "%-127s\n",
-+		seq_printf(seq, "%-*s\n", TMPSZ-1,
- 			   get_raw_sock(v, tmpbuf, state->bucket));
- 	}
- 	return 0;
-
-
+2007/11/12, Eric Dumazet <dada1@cosmosbay.com>:
+> On Mon, 12 Nov 2007 16:42:34 +0100
+> "Antoine Zen-Ruffinen" <antoine.zen@gmail.com> wrote:
+>
+> > Dear all,
+> >
+> > I'm writing a network analyzer software using Linux and I need a VERY
+> > precise frame time stamping. Therefor I am planing to add my own time
+> > stamping algorithm on a modified network driver. For test purpose I
+> > did so :
+> >
+> >       skb->tstamp.tv64 = 0x00010002;
+> >       netif_rx(skb);
+> >
+> > On the user side, I ask for the timestamp that way :
+> >
+> >       ...
+> >       sock = socket(AF_PACKET, SOCK_RAW, type);
+> >       ...
+> >       //bind this socket with the interface using my modified driver.
+> >       ...
+> >       recvByteCount = recv(sock, buffer, 1514, 0);
+> >       ioctl(sock, SIOCGSTAMP, &timeStamp);
+> >
+> > I was surprised to see that the var timeStamp was still holding a
+> > count of second since  year 1970.
+> >
+> > Investigating a bit into the kernel code, I found that ioctl(sock,
+> > SIOCGSTAMP, ...) was giving just the current kernel time using
+> > ktime_get_real().
+> >
+> > Are my investigation wrong ?
+> > Is that a bug in kernel code ?
+> > Is there an other way to access skb.tstamp from user side ?
+> >
+> > Thank's to any one that can help me !
+>
+> If your kernel is recent enough, you can already get nanosecond precision from skb tstamp, using SIOCGSTAMPNS ioctl or SO_TIMESTAMPNS / SCM_TIMESTAMPNS
+>
+> (changes where done in March/April this year)
+>
+> http://git2.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=b7aa0bf70c4afb9e38be25f5c0922498d0f8684c
+>
+> http://git2.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=ae40eb1ef30ab4120bd3c8b7e3da99ee53d27a23
+>
+> http://git2.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=92f37fd2ee805aa77925c1e64fd56088b46094fc
+>
+>
+> No need to modify a network driver :)
+>
+>
+>
