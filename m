@@ -1,97 +1,49 @@
-From: Thierry Reding <thierry.reding@avionic-design.de>
-Subject: [PATCH] Add the phy_device_release device method.
-Date: Tue, 13 Nov 2007 11:21:40 +0100
-Message-ID: <20071113102140.GA19820@avionic-tr-basi.adnet.avionic-design.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/2] [e1000 VLAN] Disable vlan hw accel when promiscuous
+ mode
+Date: Tue, 13 Nov 2007 11:21:39 +0100
+Message-ID: <47397AB3.90705@trash.net>
+References: <20071112231516.GA15227@1wt.eu>	 <20071112.151923.77768525.davem@davemloft.net>	 <20071112233257.GA15524@1wt.eu>	 <20071112.154046.117031917.davem@davemloft.net> <b25c3fa70711121721o32bcab0fldf64ff0434a44a3c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="vkogqOf2sHV7VnPd"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, w@1wt.eu, cfriesen@nortel.com,
+	auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
+	djohnson+linux-kernel@sw.starentnetworks.com,
+	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: Joonwoo Park <joonwpark81@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.179]:59725 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751561AbXKMKVU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 05:21:20 -0500
-Received: from localhost (unknown [192.168.0.64])
-	by benhur.intern.avionic-design.de (Postfix) with ESMTP id 283A72C4015
-	for <netdev@vger.kernel.org>; Tue, 13 Nov 2007 11:21:16 +0100 (CET)
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:41083 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751562AbXKMKVl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 05:21:41 -0500
+In-Reply-To: <b25c3fa70711121721o32bcab0fldf64ff0434a44a3c@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Joonwoo Park wrote:
+> 2007/11/13, David Miller <davem@davemloft.net>:
+>   
+>> From: Willy Tarreau <w@1wt.eu>
+>> Date: Tue, 13 Nov 2007 00:32:57 +0100
+>>
+>>     
+>>> At least, being able to disable the feature at module load time
+>>> would be acceptable. Many people who often need to sniff on decent
+>>> machines would always keep it disabled.
+>>>       
+>> I'm willing to accept the feature, in whatever form, as long
+>> as the performance issue is dealt with properly.
+>>     
+>
+> I agree with disabling the hw acceleration feature by manually would
+> be a non-negative solution.
+> IMO implementation in the ethtool seems better than module param.
+> As like Auke mentioned.
+> If you guys confirm it, I'll try it.
+>   
 
---vkogqOf2sHV7VnPd
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I still think promiscous mode should disable all filters (which would
+also provide a consistent view between accerlated and non-accerlated
+devices), but an ethtool option is better than nothing :)
 
-In cases where more than a single PHY is found on the MDIO bus, the kernel
-will print a warning that this method is missing for each PHY device that
-has not been attached to a networking device.
----
- drivers/net/phy/mdio_bus.c |   19 ++++++++++++++++++-
- 1 files changed, 18 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index fc2f0e6..cb7fb47 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -36,6 +36,23 @@
- #include <asm/uaccess.h>
-=20
- /**
-+ * phy_device_release - free a phy_device structure when all users of it a=
-re
-+ * 	finished.
-+ *
-+ * @dev: device that's been removed
-+ *
-+ * Will be called only by the device core when all users of this phy_device
-+ * are done.
-+ */
-+static void phy_device_release(struct device *dev)
-+{
-+	struct phy_device *phy;
-+
-+	phy =3D to_phy_device(dev);
-+	kfree(phy);
-+}
-+
-+/**
-  * mdiobus_register - bring up all the PHYs on a given bus and attach them=
- to bus
-  * @bus: target mii_bus
-  *
-@@ -83,6 +100,7 @@ int mdiobus_register(struct mii_bus *bus)
- 		if (phydev) {
- 			phydev->irq =3D bus->irq[i];
-=20
-+			phydev->dev.release =3D phy_device_release;
- 			phydev->dev.parent =3D bus->dev;
- 			phydev->dev.bus =3D &mdio_bus_type;
- 			snprintf(phydev->dev.bus_id, BUS_ID_SIZE, PHY_ID_FMT, bus->id, i);
-@@ -112,7 +130,6 @@ void mdiobus_unregister(struct mii_bus *bus)
- 	for (i =3D 0; i < PHY_MAX_ADDR; i++) {
- 		if (bus->phy_map[i]) {
- 			device_unregister(&bus->phy_map[i]->dev);
--			kfree(bus->phy_map[i]);
- 		}
- 	}
- }
---=20
-1.5.3.5
-
-
---vkogqOf2sHV7VnPd
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQFHOXq0/94dvhCMILwRAiOKAKC5AJzQrFqADSprLWH+oQWBVJU8VACdFWKG
-//B3//CBSyZWD5rtb2wxkXU=
-=3xtX
------END PGP SIGNATURE-----
-
---vkogqOf2sHV7VnPd--
