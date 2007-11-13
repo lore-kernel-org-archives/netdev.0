@@ -1,75 +1,249 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 20:04:28 +0100
-Message-ID: <20071113190428.GH4250@stusta.de>
-References: <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org> <20071113134029.GA30978@elte.hu> <4739AFE0.20705@rtr.ca> <20071113164650.GA28493@elte.hu> <4739E3D0.10201@rtr.ca> <20071113181228.GF4250@stusta.de> <4739EA83.5040006@rtr.ca> <20071113183605.GG4250@stusta.de> <4739F12E.5020807@rtr.ca>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH 01/01] ipv6: RFC4214 Support (v2.1)
+Date: Tue, 13 Nov 2007 14:03:28 -0500
+Message-ID: <4739F500.2030404@hp.com>
+References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC14@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC1F@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC22@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC24@XCH-NW-7V2.nw.nos.boeing.com> <4739C7EA.5070609@hp.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC27@XCH-NW-7V2.nw.nos.boeing.com> <4739D7F7.90300@hp.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC29@XCH-NW-7V2.nw.nos.boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, protasnb@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org,
-	linux-input@atrey.karlin.mff.cuni.cz,
-	bugme-daemon@bugzilla.kernel.org
-To: Mark Lord <liml@rtr.ca>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-Content-Disposition: inline
-In-Reply-To: <4739F12E.5020807@rtr.ca>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	=?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SBsoQg==?=
+	 =?ISO-2022-JP?B?GyRCRiMxUUxAGyhC?= <yoshfuji@linux-ipv6.org>
+To: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from palrel12.hp.com ([156.153.255.237]:41449 "EHLO palrel12.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763828AbXKMTDc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2007 14:03:32 -0500
+In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC29@XCH-NW-7V2.nw.nos.boeing.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 13, 2007 at 01:47:10PM -0500, Mark Lord wrote:
-> Adrian Bunk wrote:
-> ...
->> I did bisecting myself, and I know that it costs time and work.
->>
->> But the first point is the above one that it makes otherwise nearly 
->> undebuggable problems debuggable and fixable.
-> ..
->
-> Definitely useful, no question.
->
-> But the problem is now that kernel devs are addicted to it,
-> many won't even consider resolving a problem any other way.
->
-> That's not "maintaining" (or supporting) one's code.
+Hi Fred
 
-What you replaced with two dots contained the answer to this:
+Looks much better...  a few more comments...
 
-Another point is that it shifts the work from the few experienced 
-developers to the many users. Users (and voluntary testers) we have
-many, but developer time for debugging bug reports is a quite scarce 
-resource.
+Templin, Fred L wrote:
+> @@ -2531,6 +2552,18 @@ static void addrconf_rs_timer(unsigned l
+>  		 *	Announcement received after solicitation
+>  		 *	was sent
+>  		 */
+> +
+> +		/* ISATAP (RFC4214) - schedule next RS/RA */
+> +		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
+> +			struct ip_tunnel *t  = netdev_priv(ifp->idev->dev);
+> +			if (t->parms.i_key != INADDR_NONE) {
+> +				spin_lock(&ifp->lock);
+> +				ifp->probes = 0;
+> +				ifp->idev->if_flags &= ~(IF_RS_SENT|IF_RA_RCVD);
+> +				addrconf_mod_timer(ifp, AC_RS, t->parms.o_key*HZ);
+> +				spin_unlock(&ifp->lock);
+> +			}
+> +		}
+>  		goto out;
+>  	}
+>  
+> @@ -2545,10 +2578,28 @@ static void addrconf_rs_timer(unsigned l
+>  				   ifp->idev->cnf.rtr_solicit_interval);
+>  		spin_unlock(&ifp->lock);
+>  
+> -		ipv6_addr_all_routers(&all_routers);
+> +		/* ISATAP (RFC4214) - unicast RS */
+> +		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
+> +			struct ip_tunnel *t = netdev_priv(ifp->idev->dev);
+> +
+> +			if (t->parms.i_key == INADDR_NONE) goto out;
+> +
+> +			ipv6_addr_set(&all_routers, htonl(0xFE800000), 0, 0, 0);
+> +			addrconf_ifid_isatap(all_routers.s6_addr + 8, t->parms.i_key);
 
-> And when a "maintainer" is too busy to find/fix their own bugs,
-> that could be a sign that they've bitten off too big of a chunk
-> of the kernel, and it's time for them to distribute code maintainership.
+You have this piece of code here and once more in addrconf_dad_completed().  Move to
+its own static function.
 
-The problem is: Maintainers don't grow on trees.
+> +		} else
+> +			ipv6_addr_all_routers(&all_routers);
+>  
+>  		ndisc_send_rs(ifp->idev->dev, &ifp->addr, &all_routers);
+>  	} else {
+> +		/* ISATAP (RFC4214) - try again later */
+> +		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
+> +			struct ip_tunnel *t = netdev_priv(ifp->idev->dev);
+> +			if (t->parms.i_key != INADDR_NONE) {
+> +				ifp->probes = 0;
+> +				ifp->idev->if_flags &= ~(IF_RS_SENT|IF_RA_RCVD);
+> +				addrconf_mod_timer(ifp, AC_RS, t->parms.o_key*HZ);
+> +			}
+> +		}
+>  		spin_unlock(&ifp->lock);
 
-You need people who are both technically capable and willing to spend 
-time on the non-sexy task of debugging problems.
+Hm..  Just noticed.  You do this code block under lock, but the block above it is
+out of the lock.   Which way should it be?  Is there any way for it to be another
+piece of common code.  It shows up 3 times in the same function.
 
-Where do you plan to find them?
+>  		/*
+>  		 * Note: we do not support deprecated "all on-link"
+> @@ -2594,6 +2645,7 @@ static void addrconf_dad_start(struct in
+>  	spin_lock_bh(&ifp->lock);
+>  
+>  	if (dev->flags&(IFF_NOARP|IFF_LOOPBACK) ||
+> +	    dev->priv_flags&IFF_ISATAP ||
+>  	    !(ifp->flags&IFA_F_TENTATIVE) ||
+>  	    ifp->flags & IFA_F_NODAD) {
+>  		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC);
+> @@ -2690,7 +2742,16 @@ static void addrconf_dad_completed(struc
+>  	    (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {
+>  		struct in6_addr all_routers;
+>  
+> -		ipv6_addr_all_routers(&all_routers);
+> +		/* ISATAP (RFC4214) - unicast RS */
+> +		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
+> +			struct ip_tunnel *t = netdev_priv(ifp->idev->dev);
+> +
+> +			if (t->parms.i_key == INADDR_NONE) return;
+> +
+> +			ipv6_addr_set(&all_routers, htonl(0xFE800000), 0, 0, 0);
+> +			addrconf_ifid_isatap(all_routers.s6_addr + 8, t->parms.i_key);
+> +		} else
+> +			ipv6_addr_all_routers(&all_routers);
+>  
+>  		/*
+>  		 *	If a host as already performed a random delay
+> --- linux-2.6.24-rc2/net/ipv6/sit.c.orig	2007-11-08 12:03:41.000000000 -0800
+> +++ linux-2.6.24-rc2/net/ipv6/sit.c	2007-11-13 09:34:31.000000000 -0800
+> @@ -16,6 +16,7 @@
+>   *	Changes:
+>   * Roger Venning <r.venning@telstra.com>:	6to4 support
+>   * Nate Thompson <nate@thebog.net>:		6to4 support
+> + * Fred L. Templin <fltemplin@acm.org>:		isatap support
+>   */
+>  
+>  #include <linux/module.h>
+> @@ -182,6 +183,8 @@ static struct ip_tunnel * ipip6_tunnel_l
+>  	dev->init = ipip6_tunnel_init;
+>  	nt->parms = *parms;
+>  
+> +	if (parms->i_key) dev->priv_flags |= IFF_ISATAP;
+> +
 
-If you don't believe me, please find a maintainer for the currently 
-unmaintained parallel port support.
+2 lines please.
 
-Or if you want a harder task, find a maintainer for the floppy driver...
+>  	if (register_netdevice(dev) < 0) {
+>  		free_netdev(dev);
+>  		goto failed;
+> @@ -364,6 +367,44 @@ static inline void ipip6_ecn_decapsulate
+>  		IP6_ECN_set_ce(ipv6_hdr(skb));
+>  }
+>  
+> +/* ISATAP (RFC4214) - check source address */
+> +static inline int isatap_src_ok(struct sk_buff *skb, struct iphdr *iph, struct ip_tunnel *tunnel) {
 
-> Cheers
+Don't mark it 'inline' please.  It will usually automatically get inlined if it's called
+only once.
 
-cu
-Adrian
+Thanks
+-vlad
 
--- 
+> +	struct neighbour *neigh;
+> +	struct dst_entry *dst;
+> +	struct flowi fl;
+> +	struct in6_addr *addr6;
+> +	struct ipv6hdr *iph6;
+> +	int ok = 0;
+> +
+> +	/* from ISATAP router */
+> +	if ((iph->saddr == tunnel->parms.i_key) &&
+> +	    (tunnel->parms.i_key != INADDR_NONE))
+> +		return 1;
+> +
+> +	iph6 = ipv6_hdr(skb);
+> +	addr6 = &iph6->saddr;
+> +
+> +	/* from legitimate previous hop */
+> +	memset(&fl, 0, sizeof(fl));
+> +	fl.proto = iph6->nexthdr;
+> +	ipv6_addr_copy(&fl.fl6_dst, addr6);
+> +	fl.oif = tunnel->dev->ifindex;
+> +	security_skb_classify_flow(skb, &fl);
+> +
+> +	dst = ip6_route_output(NULL, &fl);
+> +	if (!dst->error && (dst->dev == tunnel->dev) &&
+> +	     ((neigh = dst->neighbour) != NULL)) {
+> +
+> +		addr6 = (struct in6_addr*)&neigh->primary_key;
+> +
+> +		if (ipv6_addr_is_isatap(addr6) &&
+> +		    (addr6->s6_addr32[3] == iph->saddr))
+> +			ok = 1;
+> +    	}
+> +	dst_release(dst);
+> +	return ok;
+> +}
+> +
+>  static int ipip6_rcv(struct sk_buff *skb)
+>  {
+>  	struct iphdr *iph;
+> @@ -382,6 +423,14 @@ static int ipip6_rcv(struct sk_buff *skb
+>  		IPCB(skb)->flags = 0;
+>  		skb->protocol = htons(ETH_P_IPV6);
+>  		skb->pkt_type = PACKET_HOST;
+> +
+> +		if ((tunnel->dev->priv_flags & IFF_ISATAP) &&
+> +		    !isatap_src_ok(skb, iph, tunnel)) {
+> +			tunnel->stat.rx_errors++;
+> +			read_unlock(&ipip6_lock);
+> +			kfree_skb(skb);
+> +			return 0;
+> +		}
+>  		tunnel->stat.rx_packets++;
+>  		tunnel->stat.rx_bytes += skb->len;
+>  		skb->dev = tunnel->dev;
+> @@ -444,6 +493,29 @@ static int ipip6_tunnel_xmit(struct sk_b
+>  	if (skb->protocol != htons(ETH_P_IPV6))
+>  		goto tx_error;
+>  
+> +	/* ISATAP (RFC4214) - must come before 6to4 */
+> +	if (dev->priv_flags & IFF_ISATAP) {
+> +		struct neighbour *neigh = NULL;
+> +
+> +		if (skb->dst)
+> +			neigh = skb->dst->neighbour;
+> +
+> +		if (neigh == NULL) {
+> +			if (net_ratelimit())
+> +		    		printk(KERN_DEBUG "sit: nexthop == NULL\n");
+> +			goto tx_error;
+> +	    	}
+> +
+> +		addr6 = (struct in6_addr*)&neigh->primary_key;
+> +		addr_type = ipv6_addr_type(addr6);
+> +
+> +		if ((addr_type & IPV6_ADDR_UNICAST) &&
+> +		     ipv6_addr_is_isatap(addr6))
+> +			dst = addr6->s6_addr32[3];
+> +		else
+> +			goto tx_error;
+> +	}
+> +
+>  	if (!dst)
+>  		dst = try_6to4(&iph6->daddr);
+>  
+> @@ -651,6 +723,8 @@ ipip6_tunnel_ioctl (struct net_device *d
+>  				ipip6_tunnel_unlink(t);
+>  				t->parms.iph.saddr = p.iph.saddr;
+>  				t->parms.iph.daddr = p.iph.daddr;
+> +				t->parms.i_key = p.i_key;
+> +				t->parms.o_key = p.o_key;
+>  				memcpy(dev->dev_addr, &p.iph.saddr, 4);
+>  				memcpy(dev->broadcast, &p.iph.daddr, 4);
+>  				ipip6_tunnel_link(t);
+> @@ -663,6 +737,8 @@ ipip6_tunnel_ioctl (struct net_device *d
+>  			if (cmd == SIOCCHGTUNNEL) {
+>  				t->parms.iph.ttl = p.iph.ttl;
+>  				t->parms.iph.tos = p.iph.tos;
+> +				t->parms.i_key = p.i_key;
+> +				t->parms.o_key = p.o_key;
+>  			}
+>  			if (copy_to_user(ifr->ifr_ifru.ifru_data, &t->parms, sizeof(p)))
+>  				err = -EFAULT;
+> 
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
