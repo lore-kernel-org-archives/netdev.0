@@ -1,8 +1,8 @@
 From: Chuck Lever <chuck.lever@oracle.com>
-Subject: [PATCH 09/25] NFS: Change cb_getattrargs to pass "struct
-	sockaddr *"	instead of sockaddr_in
-Date: Tue, 13 Nov 2007 13:31:48 -0500
-Message-ID: <20071113183148.5087.77719.stgit@manray.1015granger.net>
+Subject: [PATCH 08/25] NFS: Expand server address storage in
+	nfs_client struct
+Date: Tue, 13 Nov 2007 13:31:42 -0500
+Message-ID: <20071113183142.5087.5236.stgit@manray.1015granger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -20,57 +20,99 @@ Sender: nfs-bounces@lists.sourceforge.net
 Errors-To: nfs-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Change the addr field in the cb_getattrargs struct to a "struct sockaddr *"
-to support non-IPv4 addresses.
+Prepare for managing larger addresses in the NFS client by widening the
+nfs_client struct's cl_addr field and adding a field to store the address's
+length.
 
 Signed-off-by: Chuck Lever <chuck.lever@oracle.com>
 Cc: Aurelien Charbon <aurelien.charbon@ext.bull.net>
 ---
 
- fs/nfs/callback.h      |    2 +-
- fs/nfs/callback_proc.c |    2 +-
- fs/nfs/callback_xdr.c  |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ fs/nfs/client.c           |   11 +++++++----
+ fs/nfs/super.c            |    9 ++++++---
+ include/linux/nfs_fs_sb.h |    3 ++-
+ 3 files changed, 15 insertions(+), 8 deletions(-)
 
-diff --git a/fs/nfs/callback.h b/fs/nfs/callback.h
-index c2bb14e..ec0ffd9 100644
---- a/fs/nfs/callback.h
-+++ b/fs/nfs/callback.h
-@@ -38,7 +38,7 @@ struct cb_compound_hdr_res {
- };
+diff --git a/fs/nfs/client.c b/fs/nfs/client.c
+index 5ab1ca1..53bf8ab 100644
+--- a/fs/nfs/client.c
++++ b/fs/nfs/client.c
+@@ -117,7 +117,8 @@ static struct nfs_client *nfs_alloc_client(const char *hostname,
+ 	atomic_set(&clp->cl_count, 1);
+ 	clp->cl_cons_state = NFS_CS_INITING;
  
- struct cb_getattrargs {
--	struct sockaddr_in *addr;
-+	struct sockaddr *addr;
- 	struct nfs_fh fh;
- 	uint32_t bitmap[2];
- };
-diff --git a/fs/nfs/callback_proc.c b/fs/nfs/callback_proc.c
-index 019d939..2a1b14f 100644
---- a/fs/nfs/callback_proc.c
-+++ b/fs/nfs/callback_proc.c
-@@ -25,7 +25,7 @@ __be32 nfs4_callback_getattr(struct cb_getattrargs *args, struct cb_getattrres *
+-	memcpy(&clp->cl_addr, addr, sizeof(clp->cl_addr));
++	clp->cl_addrlen = sizeof(*addr);	/* for now */
++	memcpy(&clp->cl_addr, addr, clp->cl_addrlen);
  
- 	res->bitmap[0] = res->bitmap[1] = 0;
- 	res->status = htonl(NFS4ERR_BADHANDLE);
--	clp = nfs_find_client(args->addr, 4);
-+	clp = nfs_find_client((struct sockaddr_in *)args->addr, 4);
- 	if (clp == NULL)
- 		goto out;
+ 	if (hostname) {
+ 		clp->cl_hostname = kstrdup(hostname, GFP_KERNEL);
+@@ -214,6 +215,8 @@ static struct nfs_client *__nfs_find_client(const struct sockaddr_in *addr,
+ 	struct nfs_client *clp;
  
-diff --git a/fs/nfs/callback_xdr.c b/fs/nfs/callback_xdr.c
-index 97abd82..3eda1bc 100644
---- a/fs/nfs/callback_xdr.c
-+++ b/fs/nfs/callback_xdr.c
-@@ -176,7 +176,7 @@ static __be32 decode_getattr_args(struct svc_rqst *rqstp, struct xdr_stream *xdr
- 	status = decode_fh(xdr, &args->fh);
- 	if (unlikely(status != 0))
- 		goto out;
--	args->addr = svc_addr_in(rqstp);
-+	args->addr = svc_addr(rqstp);
- 	status = decode_bitmap(xdr, args->bitmap);
- out:
- 	dprintk("%s: exit with status = %d\n", __FUNCTION__, ntohl(status));
+ 	list_for_each_entry(clp, &nfs_client_list, cl_share_link) {
++		struct sockaddr_in *clap = (struct sockaddr_in *)&clp->cl_addr;
++
+ 		/* Don't match clients that failed to initialise properly */
+ 		if (clp->cl_cons_state < 0)
+ 			continue;
+@@ -222,10 +225,10 @@ static struct nfs_client *__nfs_find_client(const struct sockaddr_in *addr,
+ 		if (clp->rpc_ops->version != nfsversion)
+ 			continue;
+ 
+-		if (clp->cl_addr.sin_addr.s_addr != addr->sin_addr.s_addr)
++		if (clap->sin_addr.s_addr != addr->sin_addr.s_addr)
+ 			continue;
+ 
+-		if (!match_port || clp->cl_addr.sin_port == addr->sin_port)
++		if (!match_port || clap->sin_port == addr->sin_port)
+ 			goto found;
+ 	}
+ 
+@@ -380,7 +383,7 @@ static int nfs_create_rpc_client(struct nfs_client *clp, int proto,
+ 	struct rpc_create_args args = {
+ 		.protocol	= proto,
+ 		.address	= (struct sockaddr *)&clp->cl_addr,
+-		.addrsize	= sizeof(clp->cl_addr),
++		.addrsize	= clp->cl_addrlen,
+ 		.timeout	= &timeparms,
+ 		.servername	= clp->cl_hostname,
+ 		.program	= &nfs_program,
+diff --git a/fs/nfs/super.c b/fs/nfs/super.c
+index 5a742a8..6258a19 100644
+--- a/fs/nfs/super.c
++++ b/fs/nfs/super.c
+@@ -1332,10 +1332,13 @@ static int nfs_compare_super(struct super_block *sb, void *data)
+ 	struct nfs_server *server = sb_mntdata->server, *old = NFS_SB(sb);
+ 	int mntflags = sb_mntdata->mntflags;
+ 
+-	if (memcmp(&old->nfs_client->cl_addr,
+-				&server->nfs_client->cl_addr,
+-				sizeof(old->nfs_client->cl_addr)) != 0)
++	/* Check family, address, and port */
++	if (old->nfs_client->cl_addrlen != server->nfs_client->cl_addrlen)
+ 		return 0;
++	if (memcmp(&old->nfs_client->cl_addr, &server->nfs_client->cl_addr,
++		   old->nfs_client->cl_addrlen) != 0)
++		return 0;
++
+ 	/* Note: NFS_MOUNT_UNSHARED == NFS4_MOUNT_UNSHARED */
+ 	if (old->flags & NFS_MOUNT_UNSHARED)
+ 		return 0;
+diff --git a/include/linux/nfs_fs_sb.h b/include/linux/nfs_fs_sb.h
+index f2a0f20..5e3a43b 100644
+--- a/include/linux/nfs_fs_sb.h
++++ b/include/linux/nfs_fs_sb.h
+@@ -20,7 +20,8 @@ struct nfs_client {
+ #define NFS_CS_IDMAP		2		/* - idmap started */
+ #define NFS_CS_RENEWD		3		/* - renewd started */
+ 
+-	struct sockaddr_in	cl_addr;	/* server identifier */
++	struct sockaddr_storage	cl_addr;	/* server identifier */
++	size_t			cl_addrlen;
+ 	char *			cl_hostname;	/* hostname of server */
+ 	struct list_head	cl_share_link;	/* link in global client list */
+ 	struct list_head	cl_superblocks;	/* List of nfs_server structs */
 
 
 -------------------------------------------------------------------------
