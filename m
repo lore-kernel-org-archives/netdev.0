@@ -1,65 +1,82 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH 01/01] ipv6: RFC4214 Support (v2.0)
-Date: Tue, 13 Nov 2007 11:59:35 -0500
-Message-ID: <4739D7F7.90300@hp.com>
-References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC14@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC1F@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC22@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC24@XCH-NW-7V2.nw.nos.boeing.com> <4739C7EA.5070609@hp.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC27@XCH-NW-7V2.nw.nos.boeing.com>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Tue, 13 Nov 2007 18:01:41 +0100
+Message-ID: <20071113170141.GD4250@stusta.de>
+References: <20071113031553.3c7b5c16.akpm@linux-foundation.org> <20071113.033946.114918709.davem@davemloft.net> <20071113034916.2556edd7.akpm@linux-foundation.org> <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org> <20071113134029.GA30978@elte.hu> <4739AFE0.20705@rtr.ca> <4739C1B0.8000803@cateee.net> <2c0942db0711130757g295add20re0ee423b84921d28@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	=?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SBsoQg==?=
-	 =?ISO-2022-JP?B?GyRCRiMxUUxAGyhC?= <yoshfuji@linux-ipv6.org>
-To: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel13.hp.com ([156.153.255.238]:58143 "EHLO palrel13.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754466AbXKMQ7h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2007 11:59:37 -0500
-In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC27@XCH-NW-7V2.nw.nos.boeing.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: "Giacomo A. Catenazzi" <cate@cateee.net>, Mark Lord <liml@rtr.ca>,
+	Ingo Molnar <mingo@elte.hu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, protasnb@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
+	linux-pcmcia@lists.infradead.org,
+	linux-input@atrey.karlin.mff.cuni.cz,
+	bugme-daemon@bugzilla.kernel.org
+To: Ray Lee <ray-lk@madrabbit.org>
+Return-path: <linux-ide-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <2c0942db0711130757g295add20re0ee423b84921d28@mail.gmail.com>
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Fred
-
-Templin, Fred L wrote: 
->>> +		return;
->>> +	}
->>> +
->>>  	sit_add_v4_addrs(idev);
->>>  
->>>  	if (dev->flags&IFF_POINTOPOINT) {
->>> @@ -2531,6 +2570,18 @@ static void addrconf_rs_timer(unsigned l
->>>  		 *	Announcement received after solicitation
->>>  		 *	was sent
->>>  		 */
->>> +
->>> +		/* ISATAP (RFC4214) - schedule next RS/RA */
->>> +		if (ifp->idev->dev->priv_flags & IFF_ISATAP) {
->>> +			struct ip_tunnel *t  = 
->> netdev_priv(ifp->idev->dev);
->>> +			if (t->parms.i_key != INADDR_NONE) {
->>> +				spin_lock(&ifp->lock);
->>> +				ifp->probes = 0;
->>> +				ifp->idev->if_flags &= 
->> ~(IF_RS_SENT|IF_RA_RCVD);
->>> +				addrconf_mod_timer(ifp, AC_DAD, 
->> t->parms.o_key*HZ);
->>
->> You are using a DAD timer to schedule RS?
+On Tue, Nov 13, 2007 at 07:57:54AM -0800, Ray Lee wrote:
+> On Nov 13, 2007 7:24 AM, Giacomo A. Catenazzi <cate@cateee.net> wrote:
+> > As a long time kernel tester, I see some problem with the
+> > newer "new development model". In the short merge windows,
+> > after to much time, there are to many patches.
 > 
-> I am using the DAD timer to re-DAD the link local, which
-> in turn schedules RS.
-> 
+> I think the root issue there is that it's hard to get all testers to
+> run a bisect, but easy to ask them to test snapshots. Right now the
+> snapshots are generated nightly, but I think it would make more sense
+> if they were generated every N patches, for some value of N...
+>...
 
-Why?  Seems to me that using the RS timer (AC_RS) gets you everything you
-want and nothing you don't.  You set probes to 0, which marks DAD complete,
-thus you don't do DAD.  You already have code in the addrconf_rs_timer() to
-properly send the RS.  So, your patch to sending the RS is much shorter if
-you use the AC_RS timer.
+I don't see a point in doing that - that would be a more manual 
+bisecting, and the result would not be one guilty commit.
 
-Am I missing something?
+Testers are not expected to be able to hack a kernel, but it's 
+reasonable to expect testers to be able to build their own kernels
+(and your proposal wouldn't change that).
 
-Thanks
--vlad
+The small instruction below is enough for everyone who is able to 
+build his own kernel to do a git bisect.
 
+> Ray
+
+cu
+Adrian
+
+
+<--  snip  -->
+
+
+# install git
+
+# clone Linus' tree:
+git clone \ 
+git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.git
+
+# start bisecting:
+cd linux-2.6
+git bisect start
+git bisect bad v2.6.21
+git bisect good v2.6.20
+cp /path/to/.config .
+
+# start a round
+make oldconfig
+make
+# install kernel, check whether it's good or bad, then:
+git bisect [bad|good]
+# start next round
+
+
+After at about 10-15 reboots you'll have found the guilty commit
+("...  is first bad commit").
+
+
+More information on git bisecting:
+  man git-bisect
 
