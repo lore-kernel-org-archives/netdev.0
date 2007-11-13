@@ -1,35 +1,33 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: possible bug in tcp_probe
-Date: Tue, 13 Nov 2007 14:28:08 +0100
-Message-ID: <p73ir46z34n.fsf@bingen.suse.de>
-References: <20071113112615.GA7491@nuim.ie>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][NET] Convert init_timer into setup_timer
+Date: Tue, 13 Nov 2007 05:34:21 -0800 (PST)
+Message-ID: <20071113.053421.68786227.davem@davemloft.net>
+References: <4739A22B.20600@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Gavin McCullagh <Gavin.McCullagh@nuim.ie>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devel@openvz.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:41272 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751637AbXKMN2J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2007 08:28:09 -0500
-In-Reply-To: <20071113112615.GA7491@nuim.ie> (Gavin McCullagh's message of "Tue\, 13 Nov 2007 11\:26\:15 +0000")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46906
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751637AbXKMNeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 08:34:22 -0500
+In-Reply-To: <4739A22B.20600@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Gavin McCullagh <Gavin.McCullagh@nuim.ie> writes:
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Tue, 13 Nov 2007 16:10:03 +0300
 
-> I'm using linux v2.6.22.6 and tcp_probe with a couple of small
-> modifications[1]. 
->
-> Even with moderately large numbers of flows (16 on the one machine) and
-> increasingly as I monitor more flows than that, I get strange overflow
-> problems such as this one:
+> Many-many code in the kernel initialized the timer->function 
+> and  timer->data together with calling init_timer(timer). There 
+> is already a helper for this. Use it for networking code.
+> 
+> The patch is HUGE, but makes the code 130 lines shorter 
+> (98 insertions(+), 228 deletions(-)).
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-You probably just need to increase the buffer (bufsize option to the 
-module or tcp_probe.bufsize if compiled in) 
-
-In general I think tcp_probe was always more intended a demo of how kprobes
-could be used than a real production tool (with no offense to sch) 
-
--Andi
-
+I have no objection to this patch, but it is 2.6.25
+material for sure.
