@@ -1,48 +1,63 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 17:30:19 +0000
-Message-ID: <20071113173019.14480202@the-village.bc.nu>
-References: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
-	<20071113.033946.114918709.davem@davemloft.net>
-	<20071113034916.2556edd7.akpm@linux-foundation.org>
-	<20071113.035824.40509981.davem@davemloft.net>
-	<20071113041259.79c9a8c5.akpm@linux-foundation.org>
-	<20071113134029.GA30978@elte.hu>
-	<4739AFE0.20705@rtr.ca>
-	<40f323d00711130752k19cab8eauc3456721274b3267@mail.gmail.com>
-	<20071113171356.GA25824@thunk.org>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 2/2] [e1000 VLAN] Disable vlan hw accel
+ when promiscuous mode
+Date: Tue, 13 Nov 2007 09:30:17 -0800
+Message-ID: <4739DF29.6010901@intel.com>
+References: <E1Irtdz-0000DX-00@gondolin.me.apana.org.au>
+	<20071113.033611.73195922.davem@davemloft.net>
+	<20071113120328.GB1086@gondor.apana.org.au>
+	<20071113.040624.43544149.davem@davemloft.net>
+	<20071113121647.GA1330@gondor.apana.org.au>
+	<4739961E.90708@trash.net> <4739D3A5.4020503@intel.com>
+	<4739DE29.2030507@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Benoit Boissinot <bboissin@gmail.com>, Mark Lord <liml@rtr.ca>,
-        Ingo
- Molnar <mingo@elte.hu>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        David
- Miller <davem@davemloft.net>, protasnb@gmail.com,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
-        linux-pcmcia@lists.infradead.org, linux-input@atrey.karlin.mff.cuni.cz,
-        bugme-daemon@bugzilla.kernel.org
-To: Theodore Tso <tytso@mit.edu>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <20071113171356.GA25824@thunk.org>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	djohnson+linux-kernel@sw.starentnetworks.com,
+	linux-kernel@vger.kernel.org, joonwpark81@gmail.com,
+	David Miller <davem@davemloft.net>, cfriesen@nortel.com, w@1wt.eu
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <4739DE29.2030507@trash.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-> The other an automated set of standard pre-built bisection points so
-> that testers can more easily localize a bug down to a few hundred
-> commits without needing to learn how to use "git bisect" (think Ubuntu
-> users).
+Patrick McHardy wrote:
+> Kok, Auke wrote:
+>> Patrick McHardy wrote:
+>>
+>>> I already posted a patch for this, not sure what happened to it.
+>>> Auke, any news on merging the secondary unicast address support?
+>>
+>> I dropped the ball on that one. Care to resend it and send me one for
+>> e1000e as well?
+> 
+> Patch for e1000 attached.
+> 
+> Does e1000e also work with PCI cards if I add the proper IDs?
+> Otherwise I could only send an untested patch.
+> 
 
-Before that you want a flowchart or instruction list of boot options to
-try. A lot of errors can be localised simply by asking the reported to
-boot with things like "iommu=off", "pci=routeirq", "apci=off" etc
+no, e1000e will only work with pci-e adapters. The code however is largely the
+same, so if you can dish me out (off-list) some test cases I can have our labs do
+the testing and add this to our test repertoire.
 
-That takes a lot less time to run through and can be very informative.
+Cheers,
 
-Alan
+Auke
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >> http://get.splunk.com/
