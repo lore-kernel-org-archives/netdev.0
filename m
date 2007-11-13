@@ -1,38 +1,41 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [Resend(2)] [PATCH 01/05] ipv6: RFC4214 Support (4)
-Date: Tue, 13 Nov 2007 13:10:38 -0800
-Message-ID: <20071113131038.50ad9914@freepuppy.rosehill>
-References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC1A@XCH-NW-7V2.nw.nos.boeing.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Tue, 13 Nov 2007 21:12:56 +0000
+Message-ID: <20071113211256.1d18fe1a@the-village.bc.nu>
+References: <20071113134029.GA30978@elte.hu>
+	<4739AFE0.20705@rtr.ca>
+	<20071113164650.GA28493@elte.hu>
+	<4739E3D0.10201@rtr.ca>
+	<20071113181228.GF4250@stusta.de>
+	<4739EA83.5040006@rtr.ca>
+	<20071113183605.GG4250@stusta.de>
+	<4739F12E.5020807@rtr.ca>
+	<20071113190428.GH4250@stusta.de>
+	<4739FA4D.1050900@rtr.ca>
+	<20071113200028.GJ4250@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	YOSHIFUJI Hideaki / =?UTF-8?B?5ZCJ6Jek6Iux?=
-	 =?UTF-8?B?5piO?= <yoshfuji@linux-ipv6.org>
-To: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:46525 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753663AbXKMVMn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 16:12:43 -0500
-In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC1A@XCH-NW-7V2.nw.nos.boeing.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: Mark Lord <liml@rtr.ca>, Ingo Molnar <mingo@elte.hu>,
+        Andrew Morton
+ <akpm@linux-foundation.org>,
+        David Miller <davem@davemloft.net>, protasnb@gmail.com,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
+        linux-pcmcia@lists.infradead.org, linux-input@atrey.karlin.mff.cuni.cz,
+        bugme-daemon@bugzilla.kernel.org
+To: Adrian Bunk <bunk@kernel.org>
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
+In-Reply-To: <20071113200028.GJ4250@stusta.de>
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
+> Bug fixing is not about finding someone to blame, it's about getting the 
+> bug fixed.
 
-> +#if defined(CONFIG_IPV6_ISATAP)
-> +/* only for IFF_ISATAP interfaces */
-> +static inline int ipv6_addr_is_isatap(const struct in6_addr *addr)
-> +{
-> +       return ((addr->s6_addr32[2] | htonl(0x02000000)) == htonl(0x02005EFE));
-> +}
-> +#endif
-> +
-
-No need to make this conditional, unless you want to define an equivalent
-inline for !ISATAP that always returns 0.
-
-
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Partly - its also about understanding why the bug occurred and making it
+not happen again.
