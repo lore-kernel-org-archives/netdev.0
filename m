@@ -1,37 +1,40 @@
-From: David Miller <davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@o2.pl>
 Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 03:39:46 -0800 (PST)
-Message-ID: <20071113.033946.114918709.davem@davemloft.net>
-References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com>
-	<20071113031553.3c7b5c16.akpm@linux-foundation.org>
+Date: Tue, 13 Nov 2007 12:47:02 +0100
+Message-ID: <20071113114702.GA3865@ff.dom.local>
+References: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: protasnb@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, alsa-devel@alsa-project.org,
-	linux-ide@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Natalie Protasevich <protasnb@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
+	linux-pcmcia@lists.infradead.org,
 	linux-input@atrey.karlin.mff.cuni.cz,
 	bugme-daemon@bugzilla.kernel.org
-To: akpm@linux-foundation.org
-Return-path: <linux-ide-owner@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx12.go2.pl ([193.17.41.142]:52692 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754428AbXKMLnA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2007 06:43:00 -0500
+Content-Disposition: inline
 In-Reply-To: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
-Sender: linux-ide-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Tue, 13 Nov 2007 03:15:53 -0800
-
-> > NETWORKING===========================================================
-> > 
-> > RTNLGRP_ND_USEROPT does not report ifindex (IPv6)
-> > http://bugzilla.kernel.org/show_bug.cgi?id=9349
-> > Kernel: 2.6.24+
-> 
+On 13-11-2007 12:15, Andrew Morton wrote:
+...
+> Zero responses from developers
+...
 > No response from developers
+...
+> Andreas did some work, seemed to lose interest.
+...
+> Rafael poked Thomas a week ago, to no effect. Thomas has been travelling.
 
-That's funny, then how come there was a proper patch fix posted
-and it's now in my tree ready to go to Linus?
+Looks like very reproducible!
 
-I think you like just saying "No response from developers" over and
-over again to make some of point about how developers are ignoring
-lots of bugs.  That's fine, but at least be accurate about it :-)
+Maybe you should add this to ...bugzilla?
+
+Regards,
+Jarek P.
