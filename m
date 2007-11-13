@@ -1,113 +1,86 @@
-From: Romano Giannetti <romanol@upcomillas.es>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 18:50:38 +0100
-Message-ID: <1194976238.15745.17.camel@rukbat>
-References: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
-	 <20071113.033946.114918709.davem@davemloft.net>
-	 <20071113034916.2556edd7.akpm@linux-foundation.org>
-	 <20071113.035824.40509981.davem@davemloft.net>
-	 <20071113041259.79c9a8c5.akpm@linux-foundation.org>
-	 <20071113134029.GA30978@elte.hu> <4739AFE0.20705@rtr.ca>
-	 <4739C1B0.8000803@cateee.net>
-	 <2c0942db0711130757g295add20re0ee423b84921d28@mail.gmail.com>
-	 <20071113170141.GD4250@stusta.de>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Re : Oops preceded by WARNING: at net/ipv4/tcp_input.c:1571
+ tcp_remove_reno_sacks()
+Date: Tue, 13 Nov 2007 23:35:39 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0711132321340.3997@kivilampi-30.cs.helsinki.fi>
+References: <902344.71635.qm@web26211.mail.ukl.yahoo.com>
+ <Pine.LNX.4.64.0711111216170.12719@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: Ray Lee <ray-lk@madrabbit.org>,
-	"Giacomo A. Catenazzi" <cate@cateee.net>, Mark Lord <liml@rtr.ca>,
-	Ingo Molnar <mingo@elte.hu>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, protasnb@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org,
-	linux-input@atrey.karlin.mff.cuni.cz,
-	bugme-daemon@bugzilla.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <20071113170141.GD4250@stusta.de>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Content-Type: MULTIPART/MIXED; boundary="-696243703-924179380-1194988972=:3997"
+Cc: Netdev <netdev@vger.kernel.org>
+To: Chazarain Guillaume <guichaz@yahoo.fr>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:49301 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760193AbXKMVfo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 16:35:44 -0500
+In-Reply-To: <Pine.LNX.4.64.0711111216170.12719@kivilampi-30.cs.helsinki.fi>
+Content-ID: <Pine.LNX.4.64.0711132324230.3997@kivilampi-30.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-I jump in this discussion hoping to have some more insight on git and to
-report my experience as a tester. I consider myself as half-literate in
-this (I am here since 1991, more or less, and I am able to compile a
-kernel and even hand-apply a patch, although I am in no way a kernel
-programmer).=20
+---696243703-924179380-1194988972=:3997
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0711132324231.3997@kivilampi-30.cs.helsinki.fi>
 
-On Tue, 2007-11-13 at 18:01 +0100, Adrian Bunk wrote:
+On Mon, 12 Nov 2007, Ilpo Järvinen wrote:
 
-> The small instruction below is enough for everyone who is able to=20
-> build his own kernel to do a git bisect.
+> Yeah, it's more likely a miscount somewhere rather than corruption but 
+> that wasn't obvious from the first mail...
+> 
+> ...but alas, I haven't yet been able to come up with any theory on how 
+> a miscount could occur....
 
-> # start bisecting:
-> cd linux-2.6
-> git bisect start
-> git bisect bad v2.6.21
-> git bisect good v2.6.20
-> cp /path/to/.config .
->=20
-
-This was what I did in my (in the end almost successful) bisecting when
-trying to find the mmc problem (see the thread named "2.6.24-rc1 eat my
-SD card"). This is true in theory, but it has some problem. The "this
-commit does not compile is the easiest and in man git-bisect it's
-explained how to solve it. The changes in .config options, added or
-removed, are another problem when jumping back and forth from version (I
-was bitten by the gadzillions new options added to hda-intel alsa
-driver, but well, that is solvable with a bit of attention).
-
-The main problem I had, and that stopped me to arrive to a definite is
-this situation:
-
-j version-bad
-i
-h
-g unrelated (but similar) bug corrected
-f
-e
-d unrelated (but similar) bug introduced
-c
-b
-a version-good=20
-
-(d was the series to change drivers to use sg helpers, and g was a "fix
-fallout from sg helpers" patch). Now I have a series of kernels (d, e,
-f) that did not work at all and so I cannot mark them good or bad. With
-the number of patches added in the free-for-all week, this is a very
-probable scenario. There is a way out from this using bisect?
-
-Romano=20
-
-PS as a suggestion, I think that added a "Reported-by", or "Tested-by",
-or "Debugged-by" attribution in the repository, as happened to be in the
-MMC case, is a nice an d welcomed reward for the effort.   =20
-
---=20
-Sorry for the disclaimer --- =A1I cannot stop it!
-
-
+Cancel that, first idea is presented in this patch (not sure if it's one 
+that fixes your symptoms, but at least it seems a potential place where 
+such thing could happen, no idea what events can cause that to occur 
+though :-():
 
 --
-La presente comunicaci=F3n tiene car=E1cter confidencial y es para el exc=
-lusivo uso del destinatario indicado en la misma. Si Ud. no es el destina=
-tario indicado, le informamos que cualquier forma de distribuci=F3n, repr=
-oducci=F3n o uso de esta comunicaci=F3n y/o de la informaci=F3n contenida=
- en la misma est=E1n estrictamente prohibidos por la ley. Si Ud. ha recib=
-ido esta comunicaci=F3n por error, por favor, notif=EDquelo inmediatament=
-e al remitente contestando a este mensaje y proceda a continuaci=F3n a de=
-struirlo. Gracias por su colaboraci=F3n.
+[PATCH] [TCP] FRTO: Plug potential LOST-bit leak
 
-This communication contains confidential information. It is for the exclu=
-sive use of the intended addressee. If you are not the intended addressee=
-, please note that any form of distribution, copying or use of this commu=
-nication or the information in it is strictly prohibited by law. If you h=
-ave received this communication in error, please immediately notify the s=
-ender by reply e-mail and destroy this message. Thank you for your cooper=
-ation.=20
+It might be possible that, in some extreme scenario that
+I just cannot now construct in my mind, end_seq <=
+frto_highmark check does not match causing the lost_out
+and LOST bits become out-of-sync due to clearing and
+recounting in the loop.
+
+This may fix LOST-bit leak reported by Chazarain Guillaume
+<guichaz@yahoo.fr>.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_input.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 23a0092..cc358d4 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1706,6 +1706,8 @@ static void tcp_enter_frto_loss(struct sock *sk, int allowed_segments, int flag)
+ 	tcp_for_write_queue(skb, sk) {
+ 		if (skb == tcp_send_head(sk))
+ 			break;
++
++		TCP_SKB_CB(skb)->sacked &= ~TCPCB_LOST;
+ 		/*
+ 		 * Count the retransmission made on RTO correctly (only when
+ 		 * waiting for the first ACK and did not get it)...
+@@ -1719,7 +1721,7 @@ static void tcp_enter_frto_loss(struct sock *sk, int allowed_segments, int flag)
+ 		} else {
+ 			if (TCP_SKB_CB(skb)->sacked & TCPCB_RETRANS)
+ 				tp->undo_marker = 0;
+-			TCP_SKB_CB(skb)->sacked &= ~(TCPCB_LOST|TCPCB_SACKED_RETRANS);
++			TCP_SKB_CB(skb)->sacked &= ~TCPCB_SACKED_RETRANS;
+ 		}
+ 
+ 		/* Don't lost mark skbs that were fwd transmitted after RTO */
+-- 
+1.5.0.6
+
+---696243703-924179380-1194988972=:3997--
