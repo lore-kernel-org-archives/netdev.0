@@ -1,95 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 13/24] [IPSEC]: Move x->outer_mode->output out of locked section
-Date: Tue, 13 Nov 2007 19:51:19 +0800
-Message-ID: <20071113115119.GA1086@gondor.apana.org.au>
-References: <E1Ipla1-0001Hb-00@gondolin.me.apana.org.au> <200711071717.43429.netdev@axxeo.de> <20071108003903.GA11963@gondor.apana.org.au> <20071113.033348.13935138.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Tue, 13 Nov 2007 03:58:24 -0800 (PST)
+Message-ID: <20071113.035824.40509981.davem@davemloft.net>
+References: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
+	<20071113.033946.114918709.davem@davemloft.net>
+	<20071113034916.2556edd7.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@axxeo.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1459 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753981AbXKMLvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 06:51:32 -0500
-Content-Disposition: inline
-In-Reply-To: <20071113.033348.13935138.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: protasnb@gmail.com, linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org, alsa-devel@alsa-project.org,
+ linux-ide@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+ linux-input@atrey.karlin.mff.cuni.cz, bugme-daemon@bugzilla.kernel.org
+To: akpm@linux-foundation.org
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
+In-Reply-To: <20071113034916.2556edd7.akpm@linux-foundation.org>
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 13, 2007 at 03:33:48AM -0800, David Miller wrote:
->
-> Make 'lastused' an 'unsigned long' (that's all that get_seconds()
-> gives to us anyways), fix up the nla_total_size(x->lastused) thing in
-> net/xfrm/xfrm_user.c, and then you can remove this lock acquisition
-> completely because the store into x->lastused will now be atomic and
-> therefore locks aren't protecting anything.
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Tue, 13 Nov 2007 03:49:16 -0800
 
-Brilliant, make that patch 25/25 :)
+> Do you believe that our response to bug reports is adequate?
 
-[IPSEC]: Make x->lastused an unsigned long
+Do you feel that making us feel and look like shit helps?
 
-Currently x->lastused is u64 which means that it cannot be read/written
-atomically on all architectures.  David Miller observed that the value
-stored in it is only an unsigned long which is always atomic.
+I guess I'm just masterbating here all night long with the 46
+bug fixes I've reviewed fully and queued up into my tree.  Along
+with all the 10 or so -stable submissions I did tonight as well.
 
-So based on his suggestion this patch changes the internal representation
-from u64 to unsigned long while the user-interface still refers to it as
-u64.
+When someone like me is bug fixing full time, I take massive offense
+to the impression you're trying to give especially when it's directed
+at the networking.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
+So turn it down a notch Andrew.
 
- include/net/xfrm.h       |    2 +-
- net/ipv6/xfrm6_mode_ro.c |    2 --
- net/xfrm/xfrm_user.c     |    4 ++--
- 3 files changed, 3 insertions(+), 5 deletions(-)
-
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 944fdad..e184c11 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -183,7 +183,7 @@ struct xfrm_state
- 	struct timer_list	timer;
- 
- 	/* Last used time */
--	u64			lastused;
-+	unsigned long		lastused;
- 
- 	/* Reference to data common to all the instances of this
- 	 * transformer. */
-diff --git a/net/ipv6/xfrm6_mode_ro.c b/net/ipv6/xfrm6_mode_ro.c
-index 4a01cb3..63d5d49 100644
---- a/net/ipv6/xfrm6_mode_ro.c
-+++ b/net/ipv6/xfrm6_mode_ro.c
-@@ -54,9 +54,7 @@ static int xfrm6_ro_output(struct xfrm_state *x, struct sk_buff *skb)
- 	__skb_pull(skb, hdr_len);
- 	memmove(ipv6_hdr(skb), iph, hdr_len);
- 
--	spin_lock_bh(&x->lock);
- 	x->lastused = get_seconds();
--	spin_unlock_bh(&x->lock);
- 
- 	return 0;
- }
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index d41588d..02cf26f 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -1993,8 +1993,8 @@ static inline size_t xfrm_sa_len(struct xfrm_state *x)
- 	if (x->coaddr)
- 		l += nla_total_size(sizeof(*x->coaddr));
- 
--	/* Must count this as this may become non-zero behind our back. */
--	l += nla_total_size(sizeof(x->lastused));
-+	/* Must count x->lastused as it may become non-zero behind our back. */
-+	l += nla_total_size(sizeof(u64));
- 
- 	return l;
- }
-
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I bet if you did things like list explicitly by name every single
+person who adds a bug fix (however trivial) to an -mm release instead
+of a new feature, you'll better achieve your goal than what you're
+doing here.
