@@ -1,45 +1,61 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 2/2] [e1000 VLAN] Disable vlan hw accel
- when promiscuous mode
-Date: Tue, 13 Nov 2007 12:43:26 -0800
-Message-ID: <20071113124326.51c3607c@freepuppy.rosehill>
-References: <47365200.0f10240a.0686.2173@mx.google.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Tue, 13 Nov 2007 12:52:22 -0800
+Message-ID: <20071113125222.9eb53ac8.akpm@linux-foundation.org>
+References: <20071113034916.2556edd7.akpm@linux-foundation.org>
+	<20071113.035824.40509981.davem@davemloft.net>
+	<20071113041259.79c9a8c5.akpm@linux-foundation.org>
+	<20071113.043207.44732743.davem@davemloft.net>
+	<20071113193219.GC1356@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	'Dave Johnson' <djohnson+linux-kernel@sw.starentnetworks.com>,
-	'David Miller' <davem@davemloft.net>, linux-kernel@vger.kernel.org
-To: "Joonwoo Park" <joonwpark81@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <47365200.0f10240a.0686.2173@mx.google.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: David Miller <davem@davemloft.net>, alsa-devel@alsa-project.org,
+        netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+        linux-kernel@vger.kernel.org, protasnb@gmail.com,
+        linux-ide@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+        linux-input@atrey.karlin.mff.cuni.cz
+To: Russell King <rmk+lkml@arm.linux.org.uk>
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
+In-Reply-To: <20071113193219.GC1356@flint.arm.linux.org.uk>
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-On Sun, 11 Nov 2007 09:51:20 +0900
-"Joonwoo Park" <joonwpark81@gmail.com> wrote:
+On Tue, 13 Nov 2007 19:32:19 +0000 Russell King <rmk+lkml@arm.linux.org.uk> wrote:
 
-> IMHO even though netdevice is in the promiscuous mode, we should receive all of ingress packets.
-> This disable the vlan filtering feature when a vlan hw accel configured e1000 device goes into promiscuous mode.
-> This make packets visible to sniffers though it's not vlan id of itself.
-> Any check, comments will be appreciated.
-> Thanks.
-> 
-> Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
+> There's another issue I want to raise concerning bugzilla.  We have the
+> classic case of "not enough people reading bugzilla bugs" - which is one
+> of the biggest problems with bugzilla.  Virtually no one in the ARM
+> community looks for ARM bugs in bugzilla.
 
-Promiscuous has other uses such as bridging. Would this patch break any
-existing users startup scripts?
+Nor should they.
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >> http://get.splunk.com/
+> Let's not forget that it would be a waste of time for people to manually
+> check bugzilla for ARM bugs.  There's soo few people reporting ARM bugs
+> into bugzilla that a weekly manual check by every maintainer would just
+> return the same old boring results for months and months at a time.
+
+I screen all bugzilla reports.  100% of them.
+
+- I'll try to establish whether it is a regression
+
+- I'll solicit any extra information which I believe the reveloper will need
+
+- I'll ensure that an appropriate developer has seen the report
+
+And yes, the number of arm-specific reports in there is very small.
+
+> It would be far more productive if the ARM category was deleted from
+> bugzilla and the few people who use bugzilla reported their bugs on the
+> mailing list.  We've a couple of thousand people on the ARM kernel
+> mailing list at the moment - that's 3 orders of magnitude more of eyes
+> than look at bugzilla.
+
+Is that linux-arm-kernel@lists.arm.linux.org.uk?
+
+If so, MANITAINERS claims that it is subscribers-only.  That would cause
+some bug reporters to give up and go away.
