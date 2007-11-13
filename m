@@ -1,175 +1,104 @@
-From: "Jon Nelson" <jnelson@jamponi.net>
-Subject: tg3: strange errors and non-working-ness
-Date: Tue, 13 Nov 2007 12:57:10 -0600
-Message-ID: <cccedfc60711131057y41630b99h44e1c611f3e92fda@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Tue, 13 Nov 2007 11:02:59 -0800
+Message-ID: <20071113110259.44c56d42.akpm@linux-foundation.org>
+References: <20071113034916.2556edd7.akpm@linux-foundation.org>
+	<20071113.035824.40509981.davem@davemloft.net>
+	<20071113041259.79c9a8c5.akpm@linux-foundation.org>
+	<20071113.043207.44732743.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:24687 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758017AbXKMS5O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 13:57:14 -0500
-Received: by nf-out-0910.google.com with SMTP id g13so1523243nfb
-        for <netdev@vger.kernel.org>; Tue, 13 Nov 2007 10:57:11 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: protasnb@gmail.com, linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
+        linux-pcmcia@lists.infradead.org, linux-input@atrey.karlin.mff.cuni.cz,
+        bugme-daemon@bugzilla.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
+In-Reply-To: <20071113.043207.44732743.davem@davemloft.net>
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-I'm not sure if this is the right place, but I've got a pair of GiG-E
-cards that do not work correctly. Everything appears to come up just
-fine, but sooner or later (typically fairly quickly) the cards weird
-out and never really come back.
+On Tue, 13 Nov 2007 04:32:07 -0800 (PST) David Miller <davem@davemloft.net> wrote:
 
-The best info I've got is this:
+> From: Andrew Morton <akpm@linux-foundation.org>
+> Date: Tue, 13 Nov 2007 04:12:59 -0800
+> 
+> > On Tue, 13 Nov 2007 03:58:24 -0800 (PST) David Miller <davem@davemloft.net> wrote:
+> > 
+> > > From: Andrew Morton <akpm@linux-foundation.org>
+> > > Date: Tue, 13 Nov 2007 03:49:16 -0800
+> > > 
+> > > > Do you believe that our response to bug reports is adequate?
+> > > 
+> > > Do you feel that making us feel and look like shit helps?
+> > 
+> > That doesn't answer my question.
+> > 
+> > See, first we need to work out whether we have a problem.  If we do this,
+> > then we can then have a think about what to do about it.
+> > 
+> > I tried to convince the 2006 KS attendees that we have a problem and I
+> > resoundingly failed.  People seemed to think that we're doing OK.
+> > 
+> > But it appears that data such as this contradicts that belief.
+> > 
+> > This is not a minor matter.  If the kernel _is_ slowly deteriorating then
+> > this won't become readily apparent until it has been happening for a number
+> > of years.  By that stage there will be so much work to do to get us back to
+> > an acceptable level that it will take a huge effort.  And it will take a
+> > long time after that for the kerel to get its reputation back.
+> > 
+> > So it is important that we catch deterioration *early* if it is happening.
+> 
+> You tell me what I should spend my time working on, and I promise to
+> do it OK? :-)
 
-Nov 10 22:21:19 frank kernel: tg3.c:v3.65 (August 07, 2006)
-Nov 10 22:21:19 frank kernel: ACPI: PCI Interrupt 0000:00:0b.0[A] ->
-Link [LNKB] -> GSI 3 (level, low) -> IRQ 3
-Nov 10 22:21:19 frank kernel: eth0: Tigon3 [partno(AC91002A1) rev 0105
-PHY(5701)] (PCI:33MHz:32-bit) 10/100/1000BaseT Ethernet
-00:09:5b:09:b1:69
-Nov 10 22:21:19 frank kernel: eth0: RXcsums[1] LinkChgREG[0] MIirq[0]
-ASF[0] Split[0] WireSpeed[1] TSOcap[0]
-Nov 10 22:21:19 frank kernel: eth0: dma_rwctrl[76ff000f] dma_mask[64-bit]
-Nov 10 22:21:19 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset b (was 164514e4, writing 302a1385)
-Nov 10 22:21:19 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 3 (was 0, writing 4008)
-Nov 10 22:21:19 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 2 (was 2000000, writing 2000015)
-Nov 10 22:21:19 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 1 (was 2b00000, writing 2b00106)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 0 (was 164514e4, writing 3ea173b)
-Nov 10 22:21:20 frank kernel: tg3: eth0: Link is up at 1000 Mbps, full duplex.
-Nov 10 22:21:20 frank kernel: tg3: eth0: Flow control is on for TX and
-on for RX.
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset b (was 164514e4, writing 302a1385)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 3 (was 0, writing 4008)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 2 (was 2000000, writing 2000015)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 1 (was 2b00000, writing 2b00106)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 0 (was 164514e4, writing 3ea173b)
-Nov 10 22:21:20 frank kernel: ACPI: PCI interrupt for device
-0000:00:0b.0 disabled
-Nov 10 22:21:20 frank kernel: PCI: Enabling device 0000:00:0b.0 (0100 -> 0102)
-Nov 10 22:21:20 frank kernel: ACPI: PCI Interrupt 0000:00:0b.0[A] ->
-Link [LNKB] -> GSI 3 (level, low) -> IRQ 3
-Nov 10 22:21:20 frank kernel: eth0: Tigon3 [partno(AC91002A1) rev 0105
-PHY(5701)] (PCI:33MHz:32-bit) 10/100/1000BaseT Ethernet
-00:09:5b:09:b1:69
-Nov 10 22:21:20 frank kernel: eth0: RXcsums[1] LinkChgREG[0] MIirq[0]
-ASF[0] Split[0] WireSpeed[1] TSOcap[0]
-Nov 10 22:21:20 frank kernel: eth0: dma_rwctrl[76ff000f] dma_mask[64-bit]
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset b (was 164514e4, writing 302a1385)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 3 (was 0, writing 4008)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 2 (was 2000000, writing 2000015)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 1 (was 2b00000, writing 2b00106)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 0 (was 164514e4, writing 3ea173b)
-Nov 10 22:21:20 frank kernel: tg3: eth0: Link is up at 1000 Mbps, full duplex.
-Nov 10 22:21:20 frank kernel: tg3: eth0: Flow control is on for TX and
-on for RX.
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset b (was 164514e4, writing 302a1385)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 3 (was 0, writing 4008)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 2 (was 2000000, writing 2000015)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 1 (was 2b00000, writing 2b00106)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 0 (was 164514e4, writing 3ea173b)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset b (was 164514e4, writing 302a1385)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 3 (was 0, writing 4008)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 2 (was 2000000, writing 2000015)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 1 (was 2b00000, writing 2b00106)
-Nov 10 22:21:20 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 0 (was 164514e4, writing 3ea173b)
-Nov 10 22:21:20 frank kernel: tg3: eth0: Link is up at 1000 Mbps, full duplex.
-Nov 10 22:21:20 frank kernel: tg3: eth0: Flow control is on for TX and
-on for RX.
-Nov 10 22:24:40 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset b (was 164514e4, writing 302a1385)
-Nov 10 22:24:40 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 3 (was 0, writing 4008)
-Nov 10 22:24:40 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 2 (was 2000000, writing 2000015)
-Nov 10 22:24:40 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 1 (was 2b00000, writing 2b00106)
-Nov 10 22:24:40 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 0 (was 164514e4, writing 3ea173b)
-Nov 10 22:24:40 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset b (was 164514e4, writing 302a1385)
-Nov 10 22:24:40 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 3 (was 0, writing 4008)
-Nov 10 22:24:40 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 2 (was 2000000, writing 2000015)
-Nov 10 22:24:40 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 1 (was 2b00000, writing 2b00106)
-Nov 10 22:24:40 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 0 (was 164514e4, writing 3ea173b)
-Nov 10 22:41:48 frank kernel: nfs: server 192.168.2.1 not responding, timed out
-Nov 10 22:41:48 frank kernel: nfs: server 192.168.2.1 not responding, timed out
-Nov 10 22:41:48 frank kernel: nfs: server 192.168.2.1 not responding, timed out
-Nov 10 22:41:48 frank kernel: nfs: server 192.168.2.1 not responding, timed out
-Nov 10 22:41:48 frank kernel: nfs: server 192.168.2.1 not responding, timed out
-Nov 10 22:41:49 frank kernel: nfs: server 192.168.2.1 not responding, timed out
-Nov 10 22:41:49 frank kernel: nfs: server 192.168.2.1 not responding, timed out
-Nov 10 22:41:49 frank kernel: nfs: server 192.168.2.1 not responding, timed out
-Nov 10 22:41:49 frank kernel: nfs: server 192.168.2.1 not responding, timed out
-Nov 10 22:43:02 frank kernel: nfs: server 192.168.2.1 not responding, timed out
-Nov 10 22:45:52 frank kernel: NETDEV WATCHDOG: eth0: transmit timed out
-Nov 10 22:45:52 frank kernel: tg3: eth0: transmit timed out, resetting
-Nov 10 22:45:52 frank kernel: tg3: tg3_stop_block timed out, ofs=1400
-enable_bit=2
-Nov 10 22:45:52 frank kernel: tg3: tg3_stop_block timed out, ofs=c00
-enable_bit=2
-Nov 10 22:45:52 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset b (was 164514e4, writing 302a1385)
-Nov 10 22:45:52 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 3 (was 0, writing 4008)
-Nov 10 22:45:52 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 2 (was 2000000, writing 2000015)
-Nov 10 22:45:52 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 1 (was 2b00000, writing 2b00106)
-Nov 10 22:45:52 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 0 (was 164514e4, writing 3ea173b)
-Nov 10 22:45:52 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset b (was 164514e4, writing 302a1385)
-Nov 10 22:45:52 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 3 (was 0, writing 4008)
-Nov 10 22:45:52 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 2 (was 2000000, writing 2000015)
-Nov 10 22:45:52 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 1 (was 2b00000, writing 2b00106)
-Nov 10 22:45:52 frank kernel: PM: Writing back config space on device
-0000:00:0b.0 at offset 0 (was 164514e4, writing 3ea173b)
-Nov 10 22:45:52 frank kernel: tg3: eth0: Link is down.
-Nov 10 22:45:56 frank kernel: tg3: eth0: Link is up at 1000 Mbps, full duplex.
-Nov 10 22:45:56 frank kernel: tg3: eth0: Flow control is on for TX and
-on for RX.
-Nov 10 22:47:49 frank kernel: nfs: server 192.168.2.1 not responding, timed out
-Nov 10 22:47:49 frank kernel: nfs: server 192.168.2.1 not responding, timed out
-Nov 10 22:47:49 frank kernel: nfs: server 192.168.2.1 not responding, timed out
-Nov 10 22:49:02 frank kernel: nfs: server 192.168.2.1 not responding, timed out
+My suggestion: regressions.
 
-Other gig-e cards work OK in this box.
-I have a *pair* of the TG3 boards and they both do the same thing.
+If we're really active in chasing down the regressions then I think we can
+be confident that the kernel isn't deteriorating.  Probably it will be
+improving as we also fix some always-been-there bugs.
 
--- 
-Jon
+I think that we're fairly good about working the regressions in
+Adrian/Michal/Rafael's lists but once Linus releases 2.6.x we tend to let
+the unsolved ones slide, and we don't pay as much attention to the
+regressions which 2.6.x testers report.
+
+> For example, if I have a choice between a TCP crash just about anyone
+> can hit and some obscure issue only reported with some device nearly
+> nobody has, which one should I analyze and work on?
+> 
+> That's the problem.  All of us prioritize and it means the chaff
+> collects at the bottom.  You cannot fix that except by getting more
+> bug fixers so that the chaff pile has a chance to get smaller.
+> 
+> Luckily if the report being ignored isn't chaff, it will show up again
+> (and again and again) and this triggers a reprioritization because not
+> only is the bug no longer chaff, it also now got a lot of information
+> tagged to it so it's a double worthwhile investment to work on the
+> problem.
+> 
+> I think a lot of bugs that "aren't getting looked at" are simply
+> sitting in some early stage of this process.
+
+Yes, that's a useful technique.  If multiple people are being hurt a lot by
+a bug then that's a more important one to fix than the single-person
+minor-irritant bug.
+
+otoh that doesn't work very well with driver/platform bugs.  Often these
+are regressions which only a single person can reproduce within the time
+window which we have in which we can fix it.  If we don't fix it in that
+window it'll go out to distros and presumably some more people will hit it.
+
+So I don't see much alternative here to the traditional
+work-with-the-originator way of resolving it.
+
+git bisection should really help us with these regressions but it doesn't
+appear that people are using as much as one would like.  I'm hoping that
+the very good http://www.kernel.org/doc/local/git-quick.html will help us
+out here.  Thanks to the mystery person who prepared that.
