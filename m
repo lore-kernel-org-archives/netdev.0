@@ -1,47 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sungem: fix suspend regression due to NAPI changes
-Date: Mon, 12 Nov 2007 18:09:46 -0800 (PST)
-Message-ID: <20071112.180946.150182058.davem@davemloft.net>
-References: <1194889547.4456.4.camel@johannes.berg>
-	<1194906766.18185.79.camel@pasglop>
+Subject: Re: [PATCH][RESEND] NET: Add the helper kernel_sock_shutdown()
+Date: Mon, 12 Nov 2007 18:10:49 -0800 (PST)
+Message-ID: <20071112.181049.231646376.davem@davemloft.net>
+References: <1194898764.7465.65.camel@heimdal.trondhjem.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, shemminger@linux-foundation.org
-To: benh@kernel.crashing.org
+Cc: netdev@vger.kernel.org
+To: Trond.Myklebust@netapp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48748
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48752
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755262AbXKMCJq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 21:09:46 -0500
-In-Reply-To: <1194906766.18185.79.camel@pasglop>
+	by vger.kernel.org with ESMTP id S1751785AbXKMCKu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2007 21:10:50 -0500
+In-Reply-To: <1194898764.7465.65.camel@heimdal.trondhjem.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Tue, 13 Nov 2007 09:32:46 +1100
+From: Trond Myklebust <Trond.Myklebust@netapp.com>
+Date: Mon, 12 Nov 2007 15:19:24 -0500
 
+> ...and fix a couple of bugs in the NBD, CIFS and OCFS2 socket handlers.
 > 
-> On Mon, 2007-11-12 at 18:45 +0100, Johannes Berg wrote:
-> > Commit bea3348e (the NAPI changes) made sungem unconditionally enable
-> > NAPI when resuming and unconditionally disable when suspending, this,
-> > however, makes napi_disable() hang when suspending when the interface
-> > was taken down before suspend because taking the interface down also
-> > disables NAPI. This patch makes touching the napi struct in
-> > suspend/resume code paths depend on having the interface up, thereby
-> > fixing the hang on suspend.
-> > 
-> > The patch also moves the napi_disable() in gem_close() under the lock so
-> > that the NAPI state is always modified atomically together with the
-> > "opened" variable.
-> > 
-> > Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> Looking at the sock->op->shutdown() handlers, it looks as if all of them
+> take a SHUT_RD/SHUT_WR/SHUT_RDWR argument instead of the
+> RCV_SHUTDOWN/SEND_SHUTDOWN arguments.
+> Add a helper, and then define the SHUT_* enum to ensure that kernel users
+> of shutdown() don't get confused.
 > 
-> Thanks for fixing that !
-> 
-> Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Signed-off-by: Trond Myklebust <Trond.Myklebust@netapp.com>
+> Cc: Paul Clements <Paul.Clements@steeleye.com>
+> Acked-by: Mark Fasheh <mark.fasheh@oracle.com>
+> Cc: Steve French <sfrench@samba.org>
+> Acked-by: David Howells <dhowells@redhat.com>
+> Cc: David S. Miller <davem@davemloft.net>
 
-Indeed, thanks a lot Johannes.
-
-Patch applied.
+Applied, thanks Trond.
