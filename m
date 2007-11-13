@@ -1,103 +1,82 @@
-From: Jochen Friedrich <jochen@scram.de>
-Subject: [PATCH] powerpc: Fix fs_enet module build
-Date: Tue, 13 Nov 2007 19:32:08 +0100
-Message-ID: <4739EDA8.6020800@scram.de>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Tue, 13 Nov 2007 19:36:05 +0100
+Message-ID: <20071113183605.GG4250@stusta.de>
+References: <20071113.033946.114918709.davem@davemloft.net> <20071113034916.2556edd7.akpm@linux-foundation.org> <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org> <20071113134029.GA30978@elte.hu> <4739AFE0.20705@rtr.ca> <20071113164650.GA28493@elte.hu> <4739E3D0.10201@rtr.ca> <20071113181228.GF4250@stusta.de> <4739EA83.5040006@rtr.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
-To: "linuxppc-embedded@ozlabs.org" <linuxppc-embedded@ozlabs.org>
-Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Content-Type: text/plain; charset=utf-8
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, protasnb@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
+	linux-pcmcia@lists.infradead.org,
+	linux-input@atrey.karlin.mff.cuni.cz,
+	bugme-daemon@bugzilla.kernel.org
+To: Mark Lord <liml@rtr.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:56563 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751896AbXKMSg2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 13:36:28 -0500
+Content-Disposition: inline
+In-Reply-To: <4739EA83.5040006@rtr.ca>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If fs_enet is build as module, on PPC_CPM_NEW_BINDING platforms
-mii-fec/mii-bitbang should be build as module, as well. On other
-platforms, mii-fec/mii-bitbang must be included into the main module.
-Otherwise some symbols remain undefined. Additionally, fs_enet uses
-libphy, so add a select PHYLIB.
+On Tue, Nov 13, 2007 at 01:18:43PM -0500, Mark Lord wrote:
+> Adrian Bunk wrote:
+>> On Tue, Nov 13, 2007 at 12:50:08PM -0500, Mark Lord wrote:
+>>> Ingo Molnar wrote:
+>>>> for example git-bisect was godsent. I remember that years ago bisection 
+>>>> of a bug was a very laborous task so that it was only used as a final, 
+>>>> last-ditch approach for really nasty bugs. Today we can autonomouly 
+>>>> bisect build bugs via a simple shell command around "git-bisect run", 
+>>>> without any human interaction! This freed up testing resources 
+>>> ..
+>>>
+>>> It's only a godsend for the few people who happen to be kernel developers
+>>
+>> It's also godsend for users who want a regression they observe fixed.
+>>
+>> If you can tell which patch broke it you often turned a very hard to debug 
+>> problem into a relatively easy fixable problem.
+> ..
+>
+> Oh yes, definitely.  When that use happens to be a kernel dev + git user,
+> it saves the *fool who broke it* a hell of a lot of time, because they can
+> slough it off onto the poor bloke who notices it.
 
-  Building modules, stage 2.
-  MODPOST 5 modules
-ERROR: "fs_scc_ops" [drivers/net/fs_enet/fs_enet.ko] undefined!
-make[1]: *** [__modpost] Error 1
-make: *** [modules] Error 2
+"fool who broke it" are hard works. Bugs are part of software 
+development, so you'd have to name everyone who develops software
+a fool.
 
-Signed-off-by: Jochen Friedrich <jochen@scram.de>
----
+But the main point is that often you don't know who broke it until you 
+know which commit broke it.
 
-This patch replaces powerpc-fs_enet-select-phylib-as-the-driver-needs-it.patch
-from -mm.
+> Mind you, no arguing that this is effective when that poor bloke
+> has a day free to download the git-tree and build/reboot a dozen times.
 
- drivers/net/fs_enet/Kconfig  |   11 ++++++++++-
- drivers/net/fs_enet/Makefile |   15 ++++++++++++---
- 2 files changed, 22 insertions(+), 4 deletions(-)
+I did bisecting myself, and I know that it costs time and work.
 
-diff --git a/drivers/net/fs_enet/Kconfig b/drivers/net/fs_enet/Kconfig
-index 2765e49..562ea68 100644
---- a/drivers/net/fs_enet/Kconfig
-+++ b/drivers/net/fs_enet/Kconfig
-@@ -2,6 +2,7 @@ config FS_ENET
-        tristate "Freescale Ethernet Driver"
-        depends on CPM1 || CPM2
-        select MII
-+       select PHYLIB
- 
- config FS_ENET_HAS_SCC
- 	bool "Chip has an SCC usable for ethernet"
-@@ -11,11 +12,19 @@ config FS_ENET_HAS_SCC
- config FS_ENET_HAS_FCC
- 	bool "Chip has an FCC usable for ethernet"
- 	depends on FS_ENET && CPM2
--	select MDIO_BITBANG
- 	default y
- 
- config FS_ENET_HAS_FEC
- 	bool "Chip has an FEC usable for ethernet"
- 	depends on FS_ENET && CPM1
-+	select FS_ENET_MDIO_FEC
- 	default y
- 
-+config FS_ENET_MDIO_FEC
-+	tristate "MDIO driver for FEC"
-+	depends on FS_ENET && CPM1
-+
-+config FS_ENET_MDIO_FCC
-+	tristate "MDIO driver for FCC"
-+	depends on FS_ENET && CPM2
-+	select MDIO_BITBANG
-diff --git a/drivers/net/fs_enet/Makefile b/drivers/net/fs_enet/Makefile
-index 02d4dc1..1ffbe07 100644
---- a/drivers/net/fs_enet/Makefile
-+++ b/drivers/net/fs_enet/Makefile
-@@ -4,7 +4,16 @@
- 
- obj-$(CONFIG_FS_ENET) += fs_enet.o
- 
--obj-$(CONFIG_8xx) += mac-fec.o mac-scc.o mii-fec.o
--obj-$(CONFIG_CPM2) += mac-fcc.o mii-bitbang.o
-+fs_enet-$(CONFIG_FS_ENET_HAS_SCC) += mac-scc.o
-+fs_enet-$(CONFIG_FS_ENET_HAS_FEC) += mac-fec.o
-+fs_enet-$(CONFIG_FS_ENET_HAS_FCC) += mac-fcc.o
- 
--fs_enet-objs := fs_enet-main.o
-+ifeq ($(CONFIG_PPC_CPM_NEW_BINDING),y)
-+obj-$(CONFIG_FS_ENET_MDIO_FEC) += mii-fec.o
-+obj-$(CONFIG_FS_ENET_MDIO_FCC) += mii-bitbang.o
-+else
-+fs_enet-$(CONFIG_FS_ENET_MDIO_FEC) += mii-fec.o
-+fs_enet-$(CONFIG_FS_ENET_MDIO_FCC) += mii-bitbang.o
-+endif
-+
-+fs_enet-objs := fs_enet-main.o $(fs_enet-m)
+But the first point is the above one that it makes otherwise nearly 
+undebuggable problems debuggable and fixable.
+
+Another point is that it shifts the work from the few experienced 
+developers to the many users. Users (and voluntary testers) we have
+many, but developer time for debugging bug reports is a quite scarce 
+resource.
+
+And why "poor bloke"? Bisecting takes time, but that's not different 
+from e.g. writing code or cleaning up code or going through bug reports.
+
+cu
+Adrian
+
 -- 
-1.5.3.5
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
