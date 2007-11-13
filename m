@@ -1,58 +1,42 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 23:46:19 +0100 (CET)
-Message-ID: <alpine.LFD.0.9999.0711132345480.3265@localhost.localdomain>
-References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com> <20071113031553.3c7b5c16.akpm@linux-foundation.org> <4739ADA2.4060604@rtr.ca> <alpine.LFD.0.9999.0711131521590.3265@localhost.localdomain> <4739E4E5.2010602@rtr.ca>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Problems with ULI 526x driver
+Date: Tue, 13 Nov 2007 23:50:25 +0100
+Message-ID: <20071113225025.GA19060@electric-eye.fr.zoreil.com>
+References: <47389E72.7050907@freescale.com> <4738A7A4.1030004@freescale.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-        Natalie Protasevich <protasnb@gmail.com>, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, alsa-devel@alsa-project.org,
-        linux-ide@vger.kernel.org, linux-pcmcia@lists.infradead.org,
-        linux-input@atrey.karlin.mff.cuni.cz, bugme-daemon@bugzilla.kernel.org
-To: Mark Lord <liml@rtr.ca>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <4739E4E5.2010602@rtr.ca>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Content-Type: text/plain; charset=us-ascii
+Cc: peerchen@gmail.com, netdev@vger.kernel.org
+To: Timur Tabi <timur@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:57208 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754996AbXKMWzh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 17:55:37 -0500
+Content-Disposition: inline
+In-Reply-To: <4738A7A4.1030004@freescale.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Nov 2007, Mark Lord wrote:
-
-> Thomas Gleixner wrote:
-> > On Tue, 13 Nov 2007, Mark Lord wrote:
-> > 
-> > > > Andrew Morton wrote:
-> > > > > > On Mon, 12 Nov 2007 22:42:32 -0800 "Natalie Protasevich"
-> > > > > > <protasnb@gmail.com> wrote:
-> > > > ..
-> > > > > > > > with CONFIG_NO_HZ and/or CONFIG_HPET_TIMER set kernel 2.6.23
-> > > > > doesn't
-> > > > > > > > boot (ARM, Timer)
-> > > > > > > > http://bugzilla.kernel.org/show_bug.cgi?id=9229
-> > > > > > > > Kernel: 2.6.23
-> > > > > > > > No response from developers
-> > > > ..
-> > 
-> > The bug report is bogus. ARM has no CONFIG_HPET_TIMER.  
-> > > > Note:  that same bug exists/existed on i386 back when NO_HZ was
-> > > > introduced (2.6.21?).  I still see it from time to time on my Quad core
-> > > > system (very rare), but not any more on my Duo notebook where it used
-> > > > to happen about 1 in n boots (n < 10).
-> > > > > AFAICT no fix was ever released for it.
-> > 
-> > Hmm, at which point does the boot stop ? 
-> ..
+Timur Tabi <timur@freescale.com> :
+[...]
+> Update: I can ping anything on my subnet, but nothing else.  Also, it looks 
+> like my MAC address is hosed:
+[...]
+> It turns out that the driver is getting the MAC address from the ID table:
 > 
-> Just as it prints out these messages, sometimes one of them,
-> sometimes both (or all four on the quad core):
+> 	if(((u16 *) db->srom)[0] == 0xffff || ((u16 *) db->srom)[0] == 0) /* 
+> 	SROM absent, so read MAC address from ID Table */
+> 	{
 > 
-> kernel: switched to high resolution mode on cpu 1
-> kernel: switched to high resolution mode on cpu 0 
+> 
+> In my case, the address that is returned is all zeros.  I don't know 
+> anything about the ULI 526x hardware.  Is it possible that there's a 
+> missing EEPROM on my board that's supposed to hold the MAC address?  Are 
+> these registers user-writable?
 
-It's completely dead afterwards ?
+You previously said that the tulip driver + reverted change works with
+your card (TULIP_MMIO was not set, right ?). I guess it did correctly set
+the HW address, did it not ?
 
-     tglx
+-- 
+Ueimor
