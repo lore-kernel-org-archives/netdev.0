@@ -1,45 +1,39 @@
-From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Subject: [PATCH]iwlwifi not correctly dealing with hotunplug
-Date: Tue, 13 Nov 2007 19:26:53 +0100
-Message-ID: <200711131926.53732.oneukum@suse.de>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Tue, 13 Nov 2007 18:25:16 +0000
+Message-ID: <20071113182516.250de873@the-village.bc.nu>
+References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com>
+	<20071113031553.3c7b5c16.akpm@linux-foundation.org>
+	<4739ADA2.4060604@rtr.ca>
+	<alpine.LFD.0.9999.0711131521590.3265@localhost.localdomain>
+	<20071113181053.GB1356@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ipw2100-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Thomas Gleixner <tglx@linutronix.de>, Mark Lord <liml@rtr.ca>,
+        alsa-devel@alsa-project.org, netdev@vger.kernel.org,
+        linux-pcmcia@lists.infradead.org, linux-kernel@vger.kernel.org,
+        Natalie
+ Protasevich <protasnb@gmail.com>, linux-ide@vger.kernel.org,
+        bugme-daemon@bugzilla.kernel.org, linux-input@atrey.karlin.mff.cuni.cz,
+        Andrew Morton <akpm@linux-foundation.org>
+To: Russell King <rmk+lkml@arm.linux.org.uk>
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
+In-Reply-To: <20071113181053.GB1356@flint.arm.linux.org.uk>
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-It makes no sense to enable interrupts if a device has been unplugged.
-In addition if in doubt IRQ_HANDLED should be returned.
+> Given the wide range of ARM platforms today, it is utterly idiotic to
+> expect a single person to be able to provide responses for all ARM bugs.
+> I for one wish I'd never *VOLUNTEERED* to be a part of the kernel
+> bugzilla, and really *WISH* I could pull out of that function.
 
-Signed-off-by: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+You can. Perhaps that bugzilla needs to point to some kind of
+arm-maintainers@vger.kernel.org list for the various ARM platform
+maintainers ?
 
-	Regards
-		Oliver
-
-----
-
---- linux-2.6.24-rc1/drivers/net/wireless/iwlwifi/iwl3945-base.c.alt	2007-11-13 12:23:07.000000000 +0100
-+++ linux-2.6.24-rc1/drivers/net/wireless/iwlwifi/iwl3945-base.c	2007-11-13 12:26:00.000000000 +0100
-@@ -4850,7 +4850,7 @@ static irqreturn_t iwl_isr(int irq, void
- 	if ((inta == 0xFFFFFFFF) || ((inta & 0xFFFFFFF0) == 0xa5a5a5a0)) {
- 		/* Hardware disappeared */
- 		IWL_WARNING("HARDWARE GONE?? INTA == 0x%080x\n", inta);
--		goto none;
-+		goto unplugged;
- 	}
- 
- 	IWL_DEBUG_ISR("ISR inta 0x%08x, enabled 0x%08x, fh 0x%08x\n",
-@@ -4858,6 +4858,7 @@ static irqreturn_t iwl_isr(int irq, void
- 
- 	/* iwl_irq_tasklet() will service interrupts and re-enable them */
- 	tasklet_schedule(&priv->irq_tasklet);
-+unplugged:
- 	spin_unlock(&priv->lock);
- 
- 	return IRQ_HANDLED;
+Alan
