@@ -1,77 +1,89 @@
-From: "Antoine Zen-Ruffinen" <antoine.zen@gmail.com>
-Subject: Re: Problem with frame time stamping
-Date: Tue, 13 Nov 2007 15:46:09 +0100
-Message-ID: <2cbbd8de0711130646t3af4440em46e7f0a61eb4ecf1@mail.gmail.com>
-References: <2cbbd8de0711120742h35f27441p5f096e5e99e1d7dc@mail.gmail.com>
-	 <20071112174759.c2777ea2.dada1@cosmosbay.com>
-	 <2cbbd8de0711130207t82f2f46h9ee1b876a61bad6a@mail.gmail.com>
-	 <47397C0C.4060106@cosmosbay.com>
-	 <2cbbd8de0711130239j67127e1cxf312033aee1ddd5a@mail.gmail.com>
-	 <473982A7.6040409@cosmosbay.com>
-	 <2cbbd8de0711130434s75e78c35rfda90b81686ee9e1@mail.gmail.com>
-	 <4739A2FB.8030800@cosmosbay.com>
+From: "SANGTAE HA" <sangtae.ha@gmail.com>
+Subject: Re: possible bug in tcp_probe
+Date: Tue, 13 Nov 2007 09:59:15 -0500
+Message-ID: <649aecc70711130659p3040b532jff62c69d81414eef@mail.gmail.com>
+References: <20071113112615.GA7491@nuim.ie>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, patrik.arlos@bth.se
-To: "Eric Dumazet" <dada1@cosmosbay.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <4739A2FB.8030800@cosmosbay.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Gavin McCullagh" <Gavin.McCullagh@nuim.ie>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rn-out-0910.google.com ([64.233.170.191]:30142 "EHLO
+	rn-out-0102.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751963AbXKMO7S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 09:59:18 -0500
+Received: by rn-out-0102.google.com with SMTP id s46so1992542rnb
+        for <netdev@vger.kernel.org>; Tue, 13 Nov 2007 06:59:16 -0800 (PST)
+In-Reply-To: <20071113112615.GA7491@nuim.ie>
 Content-Disposition: inline
-Sender: linux-net-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ok, I now understood where my error was.  It was a mismatch between my
-old kernel headers and my new kernel that I am running !!!! Pretty
-stupid !
+Hi Gavin,
 
-Tank's you for your time, you learn me some stuff, I appreciate it.
+This is fixed in the current version of tcp_probe by Stephen.  Please
+see the below.
 
-Antoine
+commit 662ad4f8efd3ba2ed710d36003f968b500e6f123
+Author: Stephen Hemminger <shemminger@linux-foundation.org>
+Date:   Wed Jul 11 19:43:52 2007 -0700
 
-2007/11/13, Eric Dumazet <dada1@cosmosbay.com>:
-> Antoine Zen-Ruffinen a =E9crit :
-> > THIS is what I did at the beginning. But is seem me to be some thin=
-g
-> > wrong. So I put a static value in skb->tstamp  instead of
-> > ktime_get_real() for debug purpose. And I was still becoming the
-> > amount of second, microsecond since 1970. We are back to my initial
-> > mail ! The value of skb->tsamp doesn't seems to be returned by
-> > ioctl().
-> >
-> OK Antoine.
+   [TCP]: tcp probe wraparound handling and other changes
+
+   Switch from formatting messages in probe routine and copying with
+   kfifo, to using a small circular queue of information and formatting
+   on read.  This avoids wraparound issues with kfifo, and saves one
+   copy.
+
+   Also make sure to state correct license, rather than copying off some
+   other driver I started with.
+
+   Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+   Signed-off-by: David S. Miller <davem@davemloft.net>
+
+You can copy the current version of tcp_probe to your kernel version
+and it should work.
+Before this has not been fixed, in my case, I changed kfifo not to put
+the data if it doesn't have enough space.
+I will send you a patch if you want this.
+
+Regards,
+Sangtae
+
+On Nov 13, 2007 6:26 AM, Gavin McCullagh <Gavin.McCullagh@nuim.ie> wrote:
+> Hi,
 >
-> Yes, 'struct timeval' is as you discovered, ie relative to *something=
-*,
-> a given event in the past. (in your case, CLOCK_REALTIME Epoch : Janu=
-ary
-> 1th 1970)
+> I'm using linux v2.6.22.6 and tcp_probe with a couple of small
+> modifications[1].
 >
-> It is even documented (man gettimeofday)
+> Even with moderately large numbers of flows (16 on the one machine) and
+> increasingly as I monitor more flows than that, I get strange overflow
+> problems such as this one:
 >
-> DESCRIPTION
->        The  gettimeofday() function shall obtain the current time,
-> expressed as seconds and microseconds since the Epoch, and store it i=
-n the
->        timeval structure pointed to by tp.
+> 74.259589763 192.168.2.1 36988 192.168.3.5 5001 0x679c23dc 0x679bc3b4 18 13 9114624 78 76 10000 0 64
+> 74.260590660 192.168.2.1 44261 192.168.3.5 5006 0x573bb3ed 0x573b700d 13 9 5254144 155 127 10000 0 64
+> 74.261607478 192.168.2.1 44261 192.168.3.5 5006 0x588.066586741 192.168.2.1 33739 192.168.3.5 5009 0xe26d1767 0xe26cf577 2 3 13090816 443 15818 10000 0 64
+> 88.066690797 192.168.2.1 33739 192.168.3.5 5009 0xe26d1767 0xe26cfb1f 3 3 13092864 2365 15818 10000 0 64
+> 88.067625714 192.168.2.1 59385 192.168.3.5 5012 0x411c1090 0x411bd258 12 9 14578688 2807 15812 10000 0 64
 >
-> For timespec STAMPNS, see clock_gettime() description.
+> As you can see the third line has been truncated as well as the next
+> roughly 14 seconds of data after which data continues writing as usual.
 >
-> clock_gettime(CLOCK_REALTIME, &ts);
+> I don't think my small changes are causing this but perhaps I'm wrong.
+> Does anyone know what might be causing the above?
 >
-> If in your driver you stick in tstamp.tv64 a value like 0x00010002, t=
-hen
-> the result of ioctl(SIOCGSTAMP) will be :
-> tv.tv_sec =3D 0   (so yes, January 1th 1970)
-> tv.tv_usec =3D 65   (because 0x10002/1000 =3D 65)
+> Many thanks for any ideas,
+> Gavin
 >
-> Not counting the fact that .tv64 should not be directly set, unless f=
-or
-> 0 value, because it is not portable.
+> [1] I have slightly modified tcp_probe to print out information for a range
+> of ports (instead of one port or all) and to print info from the congestion
+> avoidance inet_csk_ca struct.  This adds a couple of extra fields to the
+> end.  If either of these are of interest as patches I'll happily submit
+> them.
 >
->
->
->
->
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 >
