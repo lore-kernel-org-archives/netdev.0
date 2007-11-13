@@ -1,29 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PATCHES v2] SCTP bug fixes
-Date: Mon, 12 Nov 2007 21:01:57 -0800 (PST)
-Message-ID: <20071112.210157.245880284.davem@davemloft.net>
-References: <11948855091808-git-send-email-vladislav.yasevich@hp.com>
+Subject: Re: [PATCH 1/1] [INET]: Remove leftover prototypes from
+ include/net/inet_common.h
+Date: Mon, 12 Nov 2007 21:03:08 -0800 (PST)
+Message-ID: <20071112.210308.09535295.davem@davemloft.net>
+References: <20071107192016.GB32752@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: vladislav.yasevich@hp.com
+Cc: netdev@vger.kernel.org
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39652
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48940
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750746AbXKMFB6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 00:01:58 -0500
-In-Reply-To: <11948855091808-git-send-email-vladislav.yasevich@hp.com>
+	by vger.kernel.org with ESMTP id S1750748AbXKMFDJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 00:03:09 -0500
+In-Reply-To: <20071107192016.GB32752@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Mon, 12 Nov 2007 11:38:15 -0500
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Wed, 7 Nov 2007 17:20:16 -0200
 
-> I've updated the series of SCTP bugfixes.  These pass all of the regression
-> tests.
-> 
-> You can pull the changes from:
->  master.kernel.org:/pub/scm/linux/kernel/git/vxy/lksctp-dev.git pending
+> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-Pulled, thanks a lot Vlad.
+Applied, thanks Arnaldo!
