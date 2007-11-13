@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] net/ipv4/ipvs/: remove unused exports
-Date: Mon, 12 Nov 2007 21:25:11 -0800 (PST)
-Message-ID: <20071112.212511.109029415.davem@davemloft.net>
-References: <20071111064840.GJ21669@stusta.de>
+Subject: Re: [PATCH] (resubmit) Use list_head-s in inetpeer.c
+Date: Mon, 12 Nov 2007 21:27:38 -0800 (PST)
+Message-ID: <20071112.212738.52184377.davem@davemloft.net>
+References: <473862B1.206@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rumen@voicecho.com, wensong@linux-vs.org, horms@verge.net.au,
-	ja@ssi.bg, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: bunk@kernel.org
+Cc: netdev@vger.kernel.org, devel@openvz.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33416
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33430
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1760803AbXKMFZM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 00:25:12 -0500
-In-Reply-To: <20071111064840.GJ21669@stusta.de>
+	by vger.kernel.org with ESMTP id S1752256AbXKMF1i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 00:27:38 -0500
+In-Reply-To: <473862B1.206@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@kernel.org>
-Date: Sun, 11 Nov 2007 07:48:40 +0100
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Mon, 12 Nov 2007 17:26:57 +0300
 
-> This patch removes the following unused EXPORT_SYMBOL's:
-> - ip_vs_try_bind_dest
-> - ip_vs_find_dest
+> The inetpeer.c tracks the LRU list of inet_perr-s, but makes
+> it by hands. Use the list_head-s for this.
 > 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Applied.
+Applied, thanks Pavel.
