@@ -1,21 +1,21 @@
-From: Andrew Morton <akpm@linux-foundation.org>
+From: Adrian Bunk <bunk@kernel.org>
 Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 11:02:59 -0800
-Message-ID: <20071113110259.44c56d42.akpm@linux-foundation.org>
-References: <20071113034916.2556edd7.akpm@linux-foundation.org>
-	<20071113.035824.40509981.davem@davemloft.net>
-	<20071113041259.79c9a8c5.akpm@linux-foundation.org>
-	<20071113.043207.44732743.davem@davemloft.net>
+Date: Tue, 13 Nov 2007 20:04:28 +0100
+Message-ID: <20071113190428.GH4250@stusta.de>
+References: <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org> <20071113134029.GA30978@elte.hu> <4739AFE0.20705@rtr.ca> <20071113164650.GA28493@elte.hu> <4739E3D0.10201@rtr.ca> <20071113181228.GF4250@stusta.de> <4739EA83.5040006@rtr.ca> <20071113183605.GG4250@stusta.de> <4739F12E.5020807@rtr.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: protasnb@gmail.com, linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
-        linux-pcmcia@lists.infradead.org, linux-input@atrey.karlin.mff.cuni.cz,
-        bugme-daemon@bugzilla.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, protasnb@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
+	linux-pcmcia@lists.infradead.org,
+	linux-input@atrey.karlin.mff.cuni.cz,
+	bugme-daemon@bugzilla.kernel.org
+To: Mark Lord <liml@rtr.ca>
 Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <20071113.043207.44732743.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <4739F12E.5020807@rtr.ca>
 Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
 List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
 List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
@@ -23,82 +23,53 @@ List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
 List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Nov 2007 04:32:07 -0800 (PST) David Miller <davem@davemloft.net> wrote:
+On Tue, Nov 13, 2007 at 01:47:10PM -0500, Mark Lord wrote:
+> Adrian Bunk wrote:
+> ...
+>> I did bisecting myself, and I know that it costs time and work.
+>>
+>> But the first point is the above one that it makes otherwise nearly 
+>> undebuggable problems debuggable and fixable.
+> ..
+>
+> Definitely useful, no question.
+>
+> But the problem is now that kernel devs are addicted to it,
+> many won't even consider resolving a problem any other way.
+>
+> That's not "maintaining" (or supporting) one's code.
 
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Date: Tue, 13 Nov 2007 04:12:59 -0800
-> 
-> > On Tue, 13 Nov 2007 03:58:24 -0800 (PST) David Miller <davem@davemloft.net> wrote:
-> > 
-> > > From: Andrew Morton <akpm@linux-foundation.org>
-> > > Date: Tue, 13 Nov 2007 03:49:16 -0800
-> > > 
-> > > > Do you believe that our response to bug reports is adequate?
-> > > 
-> > > Do you feel that making us feel and look like shit helps?
-> > 
-> > That doesn't answer my question.
-> > 
-> > See, first we need to work out whether we have a problem.  If we do this,
-> > then we can then have a think about what to do about it.
-> > 
-> > I tried to convince the 2006 KS attendees that we have a problem and I
-> > resoundingly failed.  People seemed to think that we're doing OK.
-> > 
-> > But it appears that data such as this contradicts that belief.
-> > 
-> > This is not a minor matter.  If the kernel _is_ slowly deteriorating then
-> > this won't become readily apparent until it has been happening for a number
-> > of years.  By that stage there will be so much work to do to get us back to
-> > an acceptable level that it will take a huge effort.  And it will take a
-> > long time after that for the kerel to get its reputation back.
-> > 
-> > So it is important that we catch deterioration *early* if it is happening.
-> 
-> You tell me what I should spend my time working on, and I promise to
-> do it OK? :-)
+What you replaced with two dots contained the answer to this:
 
-My suggestion: regressions.
+Another point is that it shifts the work from the few experienced 
+developers to the many users. Users (and voluntary testers) we have
+many, but developer time for debugging bug reports is a quite scarce 
+resource.
 
-If we're really active in chasing down the regressions then I think we can
-be confident that the kernel isn't deteriorating.  Probably it will be
-improving as we also fix some always-been-there bugs.
+> And when a "maintainer" is too busy to find/fix their own bugs,
+> that could be a sign that they've bitten off too big of a chunk
+> of the kernel, and it's time for them to distribute code maintainership.
 
-I think that we're fairly good about working the regressions in
-Adrian/Michal/Rafael's lists but once Linus releases 2.6.x we tend to let
-the unsolved ones slide, and we don't pay as much attention to the
-regressions which 2.6.x testers report.
+The problem is: Maintainers don't grow on trees.
 
-> For example, if I have a choice between a TCP crash just about anyone
-> can hit and some obscure issue only reported with some device nearly
-> nobody has, which one should I analyze and work on?
-> 
-> That's the problem.  All of us prioritize and it means the chaff
-> collects at the bottom.  You cannot fix that except by getting more
-> bug fixers so that the chaff pile has a chance to get smaller.
-> 
-> Luckily if the report being ignored isn't chaff, it will show up again
-> (and again and again) and this triggers a reprioritization because not
-> only is the bug no longer chaff, it also now got a lot of information
-> tagged to it so it's a double worthwhile investment to work on the
-> problem.
-> 
-> I think a lot of bugs that "aren't getting looked at" are simply
-> sitting in some early stage of this process.
+You need people who are both technically capable and willing to spend 
+time on the non-sexy task of debugging problems.
 
-Yes, that's a useful technique.  If multiple people are being hurt a lot by
-a bug then that's a more important one to fix than the single-person
-minor-irritant bug.
+Where do you plan to find them?
 
-otoh that doesn't work very well with driver/platform bugs.  Often these
-are regressions which only a single person can reproduce within the time
-window which we have in which we can fix it.  If we don't fix it in that
-window it'll go out to distros and presumably some more people will hit it.
+If you don't believe me, please find a maintainer for the currently 
+unmaintained parallel port support.
 
-So I don't see much alternative here to the traditional
-work-with-the-originator way of resolving it.
+Or if you want a harder task, find a maintainer for the floppy driver...
 
-git bisection should really help us with these regressions but it doesn't
-appear that people are using as much as one would like.  I'm hoping that
-the very good http://www.kernel.org/doc/local/git-quick.html will help us
-out here.  Thanks to the mystery person who prepared that.
+> Cheers
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
