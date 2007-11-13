@@ -1,63 +1,40 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch 1/1][NETNS][IPV6] protect addrconf from loopback registration
-Date: Tue, 13 Nov 2007 05:59:38 -0700
-Message-ID: <m1r6iu2tdx.fsf@ebiederm.dsl.xmission.com>
-References: <473879C3.5020301@sw.ru> <47387B31.20805@fr.ibm.com>
-	<473883FF.5010505@sw.ru>
-	<20071112.142455.73541417.davem@davemloft.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: possible bug in tcp_probe
+Date: Tue, 13 Nov 2007 16:02:43 +0300
+Message-ID: <20071113130243.GA4044@2ka.mipt.ru>
+References: <20071113112615.GA7491@nuim.ie>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: den@sw.ru, dlezcano@fr.ibm.com, netdev@vger.kernel.org,
-	xemul@openvz.org, containers@lists.osdl.org,
-	yoshfuji@linux-ipv6.org, benjamin.thery@bull.net
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Gavin McCullagh <Gavin.McCullagh@nuim.ie>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:46647 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752023AbXKMNCh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 08:02:37 -0500
-In-Reply-To: <20071112.142455.73541417.davem@davemloft.net> (David Miller's
-	message of "Mon, 12 Nov 2007 14:24:55 -0800 (PST)")
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:44855 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752394AbXKMNDR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2007 08:03:17 -0500
+Content-Disposition: inline
+In-Reply-To: <20071113112615.GA7491@nuim.ie>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+Hi.
 
-Well this is a weird way to get to this part of the conversation.
+On Tue, Nov 13, 2007 at 11:26:15AM +0000, Gavin McCullagh (Gavin.McCullagh@nuim.ie) wrote:
+> 74.259589763 192.168.2.1 36988 192.168.3.5 5001 0x679c23dc 0x679bc3b4 18 13 9114624 78 76 10000 0 64
+> 74.260590660 192.168.2.1 44261 192.168.3.5 5006 0x573bb3ed 0x573b700d 13 9 5254144 155 127 10000 0 64
+> 74.261607478 192.168.2.1 44261 192.168.3.5 5006 0x588.066586741 192.168.2.1 33739 192.168.3.5 5009 0xe26d1767 0xe26cf577 2 3 13090816 443 15818 10000 0 64
+> 88.066690797 192.168.2.1 33739 192.168.3.5 5009 0xe26d1767 0xe26cfb1f 3 3 13092864 2365 15818 10000 0 64
+> 88.067625714 192.168.2.1 59385 192.168.3.5 5012 0x411c1090 0x411bd258 12 9 14578688 2807 15812 10000 0 64
+> 
+> As you can see the third line has been truncated as well as the next
+> roughly 14 seconds of data after which data continues writing as usual.
+> 
+> I don't think my small changes are causing this but perhaps I'm wrong.
+> Does anyone know what might be causing the above?
 
-> From: "Denis V. Lunev" <den@sw.ru>
-> Date: Mon, 12 Nov 2007 19:49:03 +0300
->
->> Unregister for a loopback in !init_net is a _valid_ operation and should
->> be clean, i.e. without kludges in the path. This is the only way to
->> check the ref-counting.
->
-> For ipv6 the stack really wants to pin down the loopback
-> device because we need a valid inet6_dev object to reference
-> at all times in order to simplify the per-device SNMP
-> statistic bumping.
->
-> When a non-loopback device goes down, we point any existing
-> references to that device's idev to the loopback one instead.
->
-> I really consider taking down the loopback device to be
-> an invalid operation at least how things are implemented
-> currently.
+Log buffer has limited size, you can not write from different threads to
+it and expect all data being printed synchronously, there is nothing
+exceptional here.
 
-In a secondary network namespace the current implementation
-registers the loopback device before all other network devices
-in a network namespace and it unregisters the loopback device
-after all other network devices.
-
-So we don't endanger the current scheme of pointing any existing
-reference to the loopback device.  In fact the current ipv6 addrconf_cleanup
-largely does the same thing.
-
-Unregistering the loopback device is definitely a case where we need
-to tread very carefully.
-
-Bug we absolutely need to do all of our cleanup for a network
-namespace went it goes away and that includes removing the per network
-namespace copy of the loopback device.
-
-Eric
+-- 
+	Evgeniy Polyakov
