@@ -1,52 +1,38 @@
-From: Denys Vlasenko <vda.linux@googlemail.com>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 17:41:06 -0700
-Message-ID: <200711131741.06509.vda.linux@googlemail.com>
-References: <20071113031553.3c7b5c16.akpm@linux-foundation.org> <20071113175610.GE4250@stusta.de> <4739F399.2010605@googlemail.com>
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+Subject: [PATCH] SCHED: Fix unnecesary driver entries when queue is stopped
+Date: Tue, 13 Nov 2007 09:44:44 -0800
+Message-ID: <20071113174444.27916.1892.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@kernel.org>,
- Theodore Tso <tytso@mit.edu>,
- Benoit Boissinot <bboissin@gmail.com>,
- Mark Lord <liml@rtr.ca>,
- Ingo Molnar <mingo@elte.hu>,
- Andrew Morton <akpm@linux-foundation.org>,
- David Miller <davem@davemloft.net>,
- protasnb@gmail.com,
- linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org,
- alsa-devel@alsa-project.org,
- linux-ide@vger.kernel.org,
- linux-pcmcia@lists.infradead.org,
- linux-input@atrey.karlin.mff.cuni.cz,
- bugme-daemon@bugzilla.kernel.org
-To: Gabriel C <nix.or.die@googlemail.com>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <4739F399.2010605@googlemail.com>
-Content-Disposition: inline
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:15561 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761219AbXKNAmt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2007 19:42:49 -0500
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 13 November 2007 11:57, Gabriel C wrote:
-> > The main problem is finding experienced developers who spend time on
-> > looking into bug reports.
->
-> There are already. IMO the problem is the development model.
->
-> There are tons new features in each new kernel release and 'tons new bugs'
-> which are not fixed during the release cycle nor in the .XX stable kernels.
->
-> Maybe after XX kernel releases there should be one just with bug-fixes
-> _without_ any new features , eg: cleaning bugs from bugzilla , know
-> regressions , cleaning up code , removing broken drivers and the like.
+Dave,
 
-Won't work. You cannot force people to work on things they don't
-find interesting, long-term.
---
-vda
+This patch addresses an issue with multiqueue devices and non-multiqueue
+qdiscs which is causing performance issues.  This patch should be 
+considered for both 2.6.23-stable and 2.6.24 upstream.  Basically, if
+a driver is using the netif_*_subqueue() calls, then qdisc_restart() will
+happily call hard_start_xmit() even if subqueue 0 is stopped, which is bad.
+This re-adds the check for the subqueue state.
+
+Note that this check was removed when qdisc_restart() was rewritten.  At that
+time though, we didn't understand the full effect of multiqueue with respect
+to the qdiscs and queue management from a driver to kernel perspective.  Since
+the driver doesn't know what qdisc capabilities live above it, it needs to
+decide to use the queue or subqueue functions ahead of time.  This patch is
+just cleaning up a miss from that rewrite.
+
+Patch 1 is for 2.6.24, patch 2 is for 2.6.23 stable.
+
+Thanks,
+-- 
+PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
