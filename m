@@ -1,45 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 03:58:24 -0800 (PST)
-Message-ID: <20071113.035824.40509981.davem@davemloft.net>
-References: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
-	<20071113.033946.114918709.davem@davemloft.net>
-	<20071113034916.2556edd7.akpm@linux-foundation.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2/2] [e1000 VLAN] Disable vlan hw accel when promiscuous mode
+Date: Tue, 13 Nov 2007 20:03:28 +0800
+Message-ID: <20071113120328.GB1086@gondor.apana.org.au>
+References: <47397AB3.90705@trash.net> <E1Irtdz-0000DX-00@gondolin.me.apana.org.au> <20071113.033611.73195922.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: protasnb@gmail.com, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org, alsa-devel@alsa-project.org,
- linux-ide@vger.kernel.org, linux-pcmcia@lists.infradead.org,
- linux-input@atrey.karlin.mff.cuni.cz, bugme-daemon@bugzilla.kernel.org
-To: akpm@linux-foundation.org
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <20071113034916.2556edd7.akpm@linux-foundation.org>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, joonwpark81@gmail.com, w@1wt.eu,
+	cfriesen@nortel.com, auke-jan.h.kok@intel.com,
+	netdev@vger.kernel.org,
+	djohnson+linux-kernel@sw.starentnetworks.com,
+	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:1569 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757073AbXKMMDv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 07:03:51 -0500
+Content-Disposition: inline
+In-Reply-To: <20071113.033611.73195922.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Tue, 13 Nov 2007 03:49:16 -0800
+On Tue, Nov 13, 2007 at 03:36:11AM -0800, David Miller wrote:
+>
+> The performance implications can be pretty severe however.
+> I wish we could address this somehow.
 
-> Do you believe that our response to bug reports is adequate?
+Or perhaps we should just teach everyone to always run tcpdump
+with -p, like me :)
 
-Do you feel that making us feel and look like shit helps?
+Of course this would still have a negative impact on those who
+have to be in promiscuous mode all the time (heh) due to multiple
+unicast MAC addresses and such.  However, we should able to
+communicate that fact to the driver and the driver can then elect
+to not disable VLAN acceleration unless we really want to be in
+promiscuous mode.
 
-I guess I'm just masterbating here all night long with the 46
-bug fixes I've reviewed fully and queued up into my tree.  Along
-with all the 10 or so -stable submissions I did tonight as well.
+In other words we can make it so that nobody is in promiscuous
+mode and therefore have to disable VLAN acceleration *unless*
+they really want to be in that state.  In which case it would
+imply that they wish to see everything and therefore we should
+disable VLAN acceleration.
 
-When someone like me is bug fixing full time, I take massive offense
-to the impression you're trying to give especially when it's directed
-at the networking.
+So that means I'd like to see our current core/driver interface
+enhanced so that whether the user has requested us to be in
+promiscuous mode can be differentiated from whether the network
+stack wants us to be.
 
-So turn it down a notch Andrew.
+Once we have that then I would think that such a patch would be
+less controversial.
 
-I bet if you did things like list explicitly by name every single
-person who adds a bug fix (however trivial) to an -mm release instead
-of a new feature, you'll better achieve your goal than what you're
-doing here.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
