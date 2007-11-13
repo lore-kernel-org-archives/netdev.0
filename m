@@ -1,36 +1,53 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET] netfilter : xt_time should not assume CONFIG_KTIME_SCALAR
-Date: Tue, 13 Nov 2007 13:07:42 +0100
-Message-ID: <4739938E.6010905@trash.net>
-References: <47398ADD.2030509@cosmosbay.com> <20071113.035019.268404275.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Tue, 13 Nov 2007 04:12:59 -0800
+Message-ID: <20071113041259.79c9a8c5.akpm@linux-foundation.org>
+References: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
+	<20071113.033946.114918709.davem@davemloft.net>
+	<20071113034916.2556edd7.akpm@linux-foundation.org>
+	<20071113.035824.40509981.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
+Cc: protasnb@gmail.com, linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
+        linux-pcmcia@lists.infradead.org, linux-input@atrey.karlin.mff.cuni.cz,
+        bugme-daemon@bugzilla.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43482 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751134AbXKMMIZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 07:08:25 -0500
-In-Reply-To: <20071113.035019.268404275.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
+In-Reply-To: <20071113.035824.40509981.davem@davemloft.net>
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Tue, 13 Nov 2007 12:30:37 +0100
+On Tue, 13 Nov 2007 03:58:24 -0800 (PST) David Miller <davem@davemloft.net> wrote:
+
+> From: Andrew Morton <akpm@linux-foundation.org>
+> Date: Tue, 13 Nov 2007 03:49:16 -0800
 > 
->> It is not correct to assume one can get nsec from a ktime directly by 
->> using .tv64 field.
->>
->> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> > Do you believe that our response to bug reports is adequate?
 > 
-> Patrick, this is very clearly a correct bug fix, so I'm
-> going to apply this directly.
+> Do you feel that making us feel and look like shit helps?
+> 
+
+That doesn't answer my question.
+
+See, first we need to work out whether we have a problem.  If we do this,
+then we can then have a think about what to do about it.
+
+I tried to convince the 2006 KS attendees that we have a problem and I
+resoundingly failed.  People seemed to think that we're doing OK.
+
+But it appears that data such as this contradicts that belief.
 
 
-Thanks, thats obviously correct. Still, I would prefer if
-people would CC netfilter-devel and myself, it has become
-a bad habit lately especially to skip netfilter-devel.
+This is not a minor matter.  If the kernel _is_ slowly deteriorating then
+this won't become readily apparent until it has been happening for a number
+of years.  By that stage there will be so much work to do to get us back to
+an acceptable level that it will take a huge effort.  And it will take a
+long time after that for the kerel to get its reputation back.
 
+So it is important that we catch deterioration *early* if it is happening.
