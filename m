@@ -1,52 +1,73 @@
-From: Russell King <rmk+lkml@arm.linux.org.uk>
+From: Mark Lord <liml@rtr.ca>
 Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 23:29:54 +0000
-Message-ID: <20071113232954.GK1356@flint.arm.linux.org.uk>
-References: <20071113034916.2556edd7.akpm@linux-foundation.org> <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org> <20071113.043207.44732743.davem@davemloft.net> <20071113193219.GC1356@flint.arm.linux.org.uk> <20071113201319.GL4250@stusta.de>
+Date: Tue, 13 Nov 2007 18:37:21 -0500
+Message-ID: <473A3531.3030509@rtr.ca>
+References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com> <20071113031553.3c7b5c16.akpm@linux-foundation.org> <4739ADA2.4060604@rtr.ca> <alpine.LFD.0.9999.0711131521590.3265@localhost.localdomain> <4739E4E5.2010602@rtr.ca> <alpine.LFD.0.9999.0711132345480.3265@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	alsa-devel@alsa-project.org, netdev@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org, linux-kernel@vger.kernel.org,
-	protasnb@gmail.com, linux-ide@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	linux-input@atrey.karlin.mff.cuni.cz
-To: Adrian Bunk <bunk@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:48843 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754312AbXKMXay (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 18:30:54 -0500
-Content-Disposition: inline
-In-Reply-To: <20071113201319.GL4250@stusta.de>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
+	linux-pcmcia@lists.infradead.org,
+	linux-input@atrey.karlin.mff.cuni.cz,
+	bugme-daemon@bugzilla.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
+In-Reply-To: <alpine.LFD.0.9999.0711132345480.3265@localhost.localdomain>
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 13, 2007 at 09:13:19PM +0100, Adrian Bunk wrote:
-> On Tue, Nov 13, 2007 at 07:32:19PM +0000, Russell King wrote:
-> >...
-> > There's another issue I want to raise concerning bugzilla.  We have the
-> > classic case of "not enough people reading bugzilla bugs" - which is one
-> > of the biggest problems with bugzilla.  Virtually no one in the ARM
-> > community looks for ARM bugs in bugzilla.
-> > 
-> > Let's not forget that it would be a waste of time for people to manually
-> > check bugzilla for ARM bugs.  There's soo few people reporting ARM bugs
-> > into bugzilla that a weekly manual check by every maintainer would just
-> > return the same old boring results for months and months at a time.
-> >...
+Thomas Gleixner wrote:
+> On Tue, 13 Nov 2007, Mark Lord wrote:
 > 
-> What about having all ARM bugs in Bugzilla by default assigned to 
-> linux-arm-kernel@lists.arm.linux.org.uk? [1]
+>> Thomas Gleixner wrote:
+>>> On Tue, 13 Nov 2007, Mark Lord wrote:
+>>>
+>>>>> Andrew Morton wrote:
+>>>>>>> On Mon, 12 Nov 2007 22:42:32 -0800 "Natalie Protasevich"
+>>>>>>> <protasnb@gmail.com> wrote:
+>>>>> ..
+>>>>>>>>> with CONFIG_NO_HZ and/or CONFIG_HPET_TIMER set kernel 2.6.23
+>>>>>> doesn't
+>>>>>>>>> boot (ARM, Timer)
+>>>>>>>>> http://bugzilla.kernel.org/show_bug.cgi?id=9229
+>>>>>>>>> Kernel: 2.6.23
+>>>>>>>>> No response from developers
+>>>>> ..
+>>> The bug report is bogus. ARM has no CONFIG_HPET_TIMER.  
+>>>>> Note:  that same bug exists/existed on i386 back when NO_HZ was
+>>>>> introduced (2.6.21?).  I still see it from time to time on my Quad core
+>>>>> system (very rare), but not any more on my Duo notebook where it used
+>>>>> to happen about 1 in n boots (n < 10).
+>>>>>> AFAICT no fix was ever released for it.
+>>> Hmm, at which point does the boot stop ? 
+>> ..
+>>
+>> Just as it prints out these messages, sometimes one of them,
+>> sometimes both (or all four on the quad core):
+>>
+>> kernel: switched to high resolution mode on cpu 1
+>> kernel: switched to high resolution mode on cpu 0 
+> 
+> It's completely dead afterwards ?
 
-That would also work, probably much better than setting up yet another
-list.
+Yeah.  No magic sysrq key or anything.
+There's gotta be a race somewhere that's causing it,
+but it's not obvious where to look for it.
 
-My experience of trying to get mbligh to do this when I stopped looking
-after PCMCIA stuff was *extremely* painful.  Wonder if it's become any
-easier of late?
+My regular 2-core notebook no longer suffers from it,
+and subtle .config changes used to make it come and go
+back when it first appeared.
 
--- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:
+The quad-core has only done it twice on me thus far.
+
+Tracking this one down looks tricky.  It might require some early lockup
+detection code to be tailor made or something.
+
+Cheers
