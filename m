@@ -1,39 +1,59 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET] netfilter : xt_time should not assume CONFIG_KTIME_SCALAR
-Date: Tue, 13 Nov 2007 16:38:23 +0100
-Message-ID: <4739C4EF.3050705@trash.net>
-References: <47398ADD.2030509@cosmosbay.com> <20071113.035019.268404275.davem@davemloft.net> <4739938E.6010905@trash.net> <47399D34.40306@cosmosbay.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH]iwlwifi not correctly dealing with hotunplug
+Date: Tue, 13 Nov 2007 10:37:03 -0500
+Message-ID: <1194968223.2955.33.camel@localhost.localdomain>
+References: <200711131249.25320.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49027 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755269AbXKMPjH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 10:39:07 -0500
-In-Reply-To: <47399D34.40306@cosmosbay.com>
+Received: from mx1.redhat.com ([66.187.233.31]:60124 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754065AbXKMPpF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2007 10:45:05 -0500
+In-Reply-To: <200711131249.25320.oliver@neukum.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> Patrick McHardy a =E9crit :
->> David Miller wrote:
->>>
->>> Patrick, this is very clearly a correct bug fix, so I'm
->>> going to apply this directly.
->>
->>
->> Thanks, thats obviously correct. Still, I would prefer if
->> people would CC netfilter-devel and myself, it has become
->> a bad habit lately especially to skip netfilter-devel.
->>
->>
-> Sorry for forgeting netfilter-devel, I'll try to remember for next ti=
-me...
+On Tue, 2007-11-13 at 12:49 +0100, Oliver Neukum wrote:
+> It makes no sense to enable interrupts if a device has been unplugged.
+> In addition if in doubt IRQ_HANDLED should be returned.
+> 
+> Signed-off-by: Oliver Neukum <oneukum@suse.de>
 
+Might want to forward to linux-wireless@ ?  And maybe cc the ipw2100@
+sourceforge upstream lists too.
 
-Thanks Eric. I missed that I actually was CCed because greylisting
-took a bit longer to let it through :)
+Dan
+
+> 	Regards
+> 		Oliver
+> 
+> ----
+> 
+> --- linux-2.6.24-rc1/drivers/net/wireless/iwlwifi/iwl3945-base.c.alt	2007-11-13 12:23:07.000000000 +0100
+> +++ linux-2.6.24-rc1/drivers/net/wireless/iwlwifi/iwl3945-base.c	2007-11-13 12:26:00.000000000 +0100
+> @@ -4850,7 +4850,7 @@ static irqreturn_t iwl_isr(int irq, void
+>  	if ((inta == 0xFFFFFFFF) || ((inta & 0xFFFFFFF0) == 0xa5a5a5a0)) {
+>  		/* Hardware disappeared */
+>  		IWL_WARNING("HARDWARE GONE?? INTA == 0x%080x\n", inta);
+> -		goto none;
+> +		goto unplugged;
+>  	}
+>  
+>  	IWL_DEBUG_ISR("ISR inta 0x%08x, enabled 0x%08x, fh 0x%08x\n",
+> @@ -4858,6 +4858,7 @@ static irqreturn_t iwl_isr(int irq, void
+>  
+>  	/* iwl_irq_tasklet() will service interrupts and re-enable them */
+>  	tasklet_schedule(&priv->irq_tasklet);
+> +unplugged:
+>  	spin_unlock(&priv->lock);
+>  
+>  	return IRQ_HANDLED;
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
