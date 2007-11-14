@@ -1,38 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Remove notifier block from chain when register_netdevice_notifier fails
-Date: Wed, 14 Nov 2007 21:50:55 +0800
-Message-ID: <20071114135055.GA14982@gondor.apana.org.au>
-References: <473AE523.70501@openvz.org> <20071114133717.GA14746@gondor.apana.org.au> <473AFC6C.6000505@openvz.org>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Wed, 14 Nov 2007 13:24:48 +0000
+Message-ID: <20071114132448.GA5183@ucw.cz>
+References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com> <20071113031553.3c7b5c16.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2792 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754197AbXKNNu6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 08:50:58 -0500
+Cc: Natalie Protasevich <protasnb@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, alsa-devel@alsa-project.org,
+	linux-ide@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+	linux-input@atrey.karlin.mff.cuni.cz,
+	bugme-daemon@bugzilla.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
 Content-Disposition: inline
-In-Reply-To: <473AFC6C.6000505@openvz.org>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 14, 2007 at 04:47:24PM +0300, Pavel Emelyanov wrote:
->
-> BTW, I have one more question I can't find the answer to by 
-> myself. Why the unregister_netdevice_notifier doesn't produce 
-> the GOING_DOWN-DOWN-UNREGISTER event sequence for the notifier
-> block which is being unregistered? Was this made deliberately?
+Hi!
 
-I think it's more of an oversight :)
+> > Suspend to RAM resume hangs on a tickless (NO_HZ) kernel
+> > http://bugzilla.kernel.org/show_bug.cgi?id=9275
+> > Kernel: 2.6.23
+> > This is HP notebook nc6320 T2400 945GM
+> 
+> No response from developers
 
-Although it has no real impact because the only user that matters
-here is IPv6 and it can't be unloaded.
+Maybe I'm optimistic, but I expected Ingo/Thomas to look after nohz
+problems. nohz=off highres=off fixes more than one suspend problem...
 
-Cheers,
+...stuff I've seen with NOHZ even without suspend (cursor blinking
+irregulary) make me think that nohz perhaps should not be used in
+production just yet...
+
+							Pavel
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
