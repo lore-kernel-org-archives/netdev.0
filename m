@@ -1,55 +1,63 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
+From: Ingo Molnar <mingo@elte.hu>
 Subject: Re: [BUG] New Kernel Bugs
-Date: Wed, 14 Nov 2007 14:09:14 -0600
-Message-ID: <1195070954.8364.41.camel@localhost.localdomain>
-References: <20071113134029.GA30978@elte.hu>
-	 <20071113085514.3414aa52.rdunlap@xenotime.net>
-	 <20071114140847.GA11489@elte.hu>
-	 <20071114.115601.00715073.davem@davemloft.net>
+Date: Wed, 14 Nov 2007 21:16:39 +0100
+Message-ID: <20071114201639.GA17182@elte.hu>
+References: <20071113031553.3c7b5c16.akpm@linux-foundation.org> <20071113.033946.114918709.davem@davemloft.net> <20071113034916.2556edd7.akpm@linux-foundation.org> <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org> <20071113134029.GA30978@elte.hu> <20071113085514.3414aa52.rdunlap@xenotime.net> <20071114140847.GA11489@elte.hu> <20071114093820.ff3ad8f9.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, rdunlap@xenotime.net, akpm@linux-foundation.org,
-	protasnb@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, alsa-devel@alsa-project.org,
-	linux-ide@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, protasnb@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
+	linux-pcmcia@lists.infradead.org,
 	linux-input@atrey.karlin.mff.cuni.cz,
 	bugme-daemon@bugzilla.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <20071114.115601.00715073.davem@davemloft.net>
-Sender: linux-ide-owner@vger.kernel.org
+To: Randy Dunlap <rdunlap@xenotime.net>
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
+Content-Disposition: inline
+In-Reply-To: <20071114093820.ff3ad8f9.rdunlap@xenotime.net>
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-11-14 at 11:56 -0800, David Miller wrote:
-> From: Ingo Molnar <mingo@elte.hu>
-> Date: Wed, 14 Nov 2007 15:08:47 +0100
-> 
-> > In fact this thread is the very example: David points out that on netdev 
-> > some of those bugs were already discussed and resolved. Had it been all 
-> > on lkml we'd all be aware of it.
-> 
-> That's a rediculious argument.
-> 
-> One other reason these bugs are resolved, is that the networking
-> developers only need to subscribe to netdev and not have to listen to
-> all the noise on lkml.
-> 
-> People who want to manage bugs know what list to look on and
-> contact about problems.
-> 
-> Dumping even more crap on lkml is not the answer.
 
-I agree totally with David, and this goes for SCSI too.  If it's not
-reported on linux-scsi, there's a significant chance of us missing the
-bug report.  The fact that some people notice bugs go past on LKML and
-forward them to linux-scsi is a happy accident and not necessarily
-something to rely on.
+* Randy Dunlap <rdunlap@xenotime.net> wrote:
 
-LKML has 10-20x the traffic of linux-scsi and a much smaller signal to
-noise ratio.  Having a specialist list where all the experts in the
-field hangs out actually enhances our ability to fix bugs.
+> On Wed, 14 Nov 2007 15:08:47 +0100 Ingo Molnar wrote:
+> 
+> > 
+> > * Randy Dunlap <rdunlap@xenotime.net> wrote:
+> > 
+> > > > (and this is in no way directed at the networking folks - it holds 
+> > > > for all of us. I have one main complaint about networking: the 
+> > > > separate netdev list is a bad idea - networking regressions should 
+> > > > be discussed and fixed on lkml, like most other subsystems are. Any 
+> > > > artificial split of the lk discussion space is bad.)
+> > > 
+> > > but here I disagree.  LKML is already too busy and noisy. Major 
+> > > subsystems need their own discussion areas.
+> > 
+> > That's a stupid argument. We lose much more by forced isolation of 
+> > discussion than what we win by having less traffic! It's _MUCH_ 
+                                                        ^^^^^^^^^^^^
+> > easier to narrow down information (by filter by threads, by topics, 
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> > by people, etc.) than it is to gobble information together from 
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> > various fractured sources. We learned it _again and again_ that 
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> > isolation of kernel discussions causes bad things.
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> > 
+> > In fact this thread is the very example: David points out that on 
+> > netdev some of those bugs were already discussed and resolved. Had 
+> > it been all on lkml we'd all be aware of it.
+> 
+> or had <someone> been on netdev.
 
-James
- 
+countered by the underlined sentences above, just in case you missed it.
 
+	Ingo
