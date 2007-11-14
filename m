@@ -1,47 +1,60 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [PATCH] PATCH 1/2 [SCHED 2.6.24]: Check subqueue status before calling
- hard_start_xmit
-Date: Wed, 14 Nov 2007 13:17:13 +0530
-Message-ID: <OFBECB3B91.68D55578-ON65257393.002AB87D-65257393.002AC686@in.ibm.com>
-References: <20071113.221439.225154441.davem@davemloft.net>
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Wed, 14 Nov 2007 00:46:20 -0700
+Message-ID: <200711140046.20391.vda.linux@googlemail.com>
+References: <20071113031553.3c7b5c16.akpm@linux-foundation.org> <200711131739.45820.vda.linux@googlemail.com> <20071114072715.GO4250@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org, peter.p.waskiewicz.jr@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp07.in.ibm.com ([59.145.155.7]:42117 "EHLO
-	e28esmtp07.in.ibm.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750955AbXKNHou (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 02:44:50 -0500
-Received: from d28relay02.in.ibm.com (d28relay02.in.ibm.com [9.184.220.59])
-	by e28esmtp07.in.ibm.com (8.13.1/8.13.1) with ESMTP id lAE7ie6i016080
-	for <netdev@vger.kernel.org>; Wed, 14 Nov 2007 13:14:40 +0530
-Received: from d28av01.in.ibm.com (d28av01.in.ibm.com [9.184.220.63])
-	by d28relay02.in.ibm.com (8.13.8/8.13.8/NCO v8.6) with ESMTP id lAE7idI04419672
-	for <netdev@vger.kernel.org>; Wed, 14 Nov 2007 13:14:39 +0530
-Received: from d28av01.in.ibm.com (loopback [127.0.0.1])
-	by d28av01.in.ibm.com (8.13.1/8.13.3) with ESMTP id lAE7idGo020150
-	for <netdev@vger.kernel.org>; Wed, 14 Nov 2007 07:44:39 GMT
-In-Reply-To: <20071113.221439.225154441.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Theodore Tso <tytso@mit.edu>,
+ Benoit Boissinot <bboissin@gmail.com>,
+ Mark Lord <liml@rtr.ca>,
+ Ingo Molnar <mingo@elte.hu>,
+ Andrew Morton <akpm@linux-foundation.org>,
+ David Miller <davem@davemloft.net>,
+ protasnb@gmail.com,
+ linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org,
+ alsa-devel@alsa-project.org,
+ linux-ide@vger.kernel.org,
+ linux-pcmcia@lists.infradead.org,
+ linux-input@atrey.karlin.mff.cuni.cz,
+ bugme-daemon@bugzilla.kernel.org
+To: Adrian Bunk <bunk@kernel.org>
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
+In-Reply-To: <20071114072715.GO4250@stusta.de>
+Content-Disposition: inline
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
-
-David Miller <davem@davemloft.net> wrote on 11/14/2007 11:44:39 AM:
-
-> > You could optimize this by getting HARD_TX_LOCK after the check. I
-> > assume that netif_stop_subqueue (from another CPU) would always be
-> > called by the driver xmit, and that is not possible since we hold
-> > the __LINK_STATE_QDISC_RUNNING bit. Does that sound correct?
+On Wednesday 14 November 2007 00:27, Adrian Bunk wrote:
+> You missed the following in my email:
+> "we slowly scare them away due to the many bug reports without any
+>  reaction."
 >
-> I don't think this is a critical optimization at this time,
-> but something to certainly do along with the surgery
-> we'll undoubtedly be doing here in the future :-)
+> The problem is that bug reports take time. If you go away from easy
+> things like compile errors then even things like describing what does
+> no longer work, ideally producing a scenario where you can reproduce it
+> and verifying whether it was present in previous kernels can easily take
+> many hours that are spent before the initial bug report.
+>
+> If the bug report then gets ignored we discourage the person who sent
+> the bug report to do any work related to the kernel again.
 
-Agree. Will keep in mind for later :)
+Cannot agree more. I am in a similar position right now.
+My patch to aic7xxx driver was ubmitted four times
+with not much reaction from scsi guys.
 
-Thanks,
+Finally they replied and asked to rediff it against their
+git tree. I did that and sent patches back. No reply since then.
 
-- KK
-
+And mind you, the patch is not trying to do anything
+complex, it mostly moves code around, removes 'inline',
+adds 'const'. What should I think about it?
+--
+vda
