@@ -1,40 +1,62 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Wed, 14 Nov 2007 13:05:31 -0800
-Message-ID: <20071114130531.15d352fe.rdunlap@xenotime.net>
-References: <20071113.033946.114918709.davem@davemloft.net>
-	<20071113034916.2556edd7.akpm@linux-foundation.org>
-	<20071113.035824.40509981.davem@davemloft.net>
-	<20071113041259.79c9a8c5.akpm@linux-foundation.org>
-	<20071113134029.GA30978@elte.hu>
-	<20071113085514.3414aa52.rdunlap@xenotime.net>
-	<20071114140847.GA11489@elte.hu>
-	<20071114093820.ff3ad8f9.rdunlap@xenotime.net>
-	<20071114201639.GA17182@elte.hu>
-	<20071114122932.bc3bec04.rdunlap@xenotime.net>
-	<20071114203737.GA20606@elte.hu>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] NET : rt_check_expire() can take a long time, add a cond_resched()
+Date: Wed, 14 Nov 2007 22:34:13 +0100
+Message-ID: <473B69D5.2050805@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, protasnb@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org,
-	linux-input@atrey.karlin.mff.cuni.cz,
-	bugme-daemon@bugzilla.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <20071114203737.GA20606@elte.hu>
-Sender: linux-ide-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------050403000608020803030007"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:35342 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755389AbXKNVe0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 16:34:26 -0500
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Nov 2007 21:37:37 +0100 Ingo Molnar wrote:
+This is a multi-part message in MIME format.
+--------------050403000608020803030007
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> ok, then you conceded it by not replying to it? good ;-)
+On commit 39c90ece7565f5c47110c2fa77409d7a9478bd5b we converted 
+rt_check_expire() from softirq to workqueue, allowing the function to perform 
+all work it was supposed to do.
 
-No, I don't intend to carry on this discussion,
-but I appreciate the smiley.
+When the IP route cache is big, rt_check_expire() can take a long time to run.
+(default settings : 20% of the hash table is scanned at each invocation)
 
----
-~Randy
+Adding cond_resched() helps giving cpu to higher priority tasks if necessary.
+
+Using a "if (need_resched())" test before calling "cond_resched();" is 
+necessary to avoid spending too much time doing the resched check.
+(My tests gave a time reduction from 88 ms to 25 ms per rt_check_expire() run 
+on my i686 test machine)
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+
+--------------050403000608020803030007
+Content-Type: text/plain;
+ name="rt_check_expire_resched.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="rt_check_expire_resched.patch"
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index a9471b7..f0b28f9 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -580,6 +580,9 @@ static void rt_check_expire(struct work_struct *work)
+ 		i = (i + 1) & rt_hash_mask;
+ 		rthp = &rt_hash_table[i].chain;
+ 
++		if (need_resched())
++			cond_resched();
++
+ 		if (*rthp == NULL)
+ 			continue;
+ 		spin_lock_bh(rt_hash_lock_addr(i));
+
+--------------050403000608020803030007--
