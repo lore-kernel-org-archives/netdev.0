@@ -1,43 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Wed, 14 Nov 2007 11:56:01 -0800 (PST)
-Message-ID: <20071114.115601.00715073.davem@davemloft.net>
-References: <20071113134029.GA30978@elte.hu>
-	<20071113085514.3414aa52.rdunlap@xenotime.net>
-	<20071114140847.GA11489@elte.hu>
+Subject: Re: [PATCH 2.6.24 1/1]S2io: Support for add/delete/store/restore
+ ethernet addresses
+Date: Wed, 14 Nov 2007 12:03:59 -0800 (PST)
+Message-ID: <20071114.120359.21994235.davem@davemloft.net>
+References: <20071114.014324.78802691.davem@davemloft.net>
+	<78C9135A3D2ECE4B8162EBDCE82CAD770289B951@nekter>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rdunlap@xenotime.net, akpm@linux-foundation.org,
-	protasnb@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, alsa-devel@alsa-project.org,
-	linux-ide@vger.kernel.org, linux-pcmcia@lists.infradead.org,
-	linux-input@atrey.karlin.mff.cuni.cz,
-	bugme-daemon@bugzilla.kernel.org
-To: mingo@elte.hu
+Cc: Sreenivasa.Honnur@neterion.com, netdev@vger.kernel.org,
+	jeff@garzik.org, support@neterion.com
+To: Ramkrishna.Vepa@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46544
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50783
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754356AbXKNT4E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 14:56:04 -0500
-In-Reply-To: <20071114140847.GA11489@elte.hu>
+	by vger.kernel.org with ESMTP id S1754687AbXKNUEI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 15:04:08 -0500
+In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD770289B951@nekter>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Wed, 14 Nov 2007 15:08:47 +0100
+From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
+Date: Wed, 14 Nov 2007 11:47:34 -0500
 
-> In fact this thread is the very example: David points out that on netdev 
-> some of those bugs were already discussed and resolved. Had it been all 
-> on lkml we'd all be aware of it.
+> Scheduling for the 2.6.25 merge window is fine. Curious - why did you
+> have to remove the driver version? We use it to keep track of our
+> changes submitted.
 
-That's a rediculious argument.
-
-One other reason these bugs are resolved, is that the networking
-developers only need to subscribe to netdev and not have to listen to
-all the noise on lkml.
-
-People who want to manage bugs know what list to look on and
-contact about problems.
-
-Dumping even more crap on lkml is not the answer.
+Because it conflicted with the driver version bump you did
+for the MSI-X leak bug fix.
