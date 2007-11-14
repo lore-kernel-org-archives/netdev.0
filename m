@@ -1,57 +1,59 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH] IPV4: add raw drops counter
-Date: Wed, 14 Nov 2007 09:27:14 +0800
-Message-ID: <473A4EF2.5090507@cn.fujitsu.com>
-References: <47397514.2070002@cn.fujitsu.com> <47398655.4060400@cosmosbay.com>
+From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH]iwlwifi not correctly dealing with hotunplug
+Date: Wed, 14 Nov 2007 09:30:54 +0800
+Message-ID: <1195003854.3250.120.camel@debian.sh.intel.com>
+References: <200711131926.53732.oneukum@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [222.73.24.84] ([222.73.24.84]:51697 "EHLO song.cn.fujitsu.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752814AbXKNB3S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2007 20:29:18 -0500
-In-Reply-To: <47398655.4060400@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ipw2100-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
+	"John W.Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200711131926.53732.oneukum-l3A5Bk7waGM@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet said the following on 2007-11-13 19:11:
-> Wang Chen a =C3=A9crit :
->> Add raw drops counter for IPv4 in /proc/net/raw .
->>
->> +    atomic_t        sk_drops;
->>  =20
-> This doesnt need an atomic_t , just an 'unsigned int' is OK, since
-> sock_queue_rcv_skb() is called on a locked socket.
->=20
 
-Yes, sock_queue_rcv_skb() is called on a locked socket. But sk_drops
-will not only used with sock_queue_rcv_skb(), but also with=20
-xfrm4_policy_check(), skb_checksum_complete(), skb_kill_datagram(),etc.
-So, atomic_t ensure sk_drops will be atomic increment.
+On Tue, 2007-11-13 at 19:26 +0100, Oliver Neukum wrote:
+> It makes no sense to enable interrupts if a device has been unplugged.
+> In addition if in doubt IRQ_HANDLED should be returned.
+> 
+> Signed-off-by: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
 
-> Also, I suggest doing the sk_drops increment in sock_queue_rcv_skb() =
-so
-> that it can be used for other sockets as well ?
->=20
+ACK. Could you also do the same for iwl4965? Or John, do you mind to
+get the full patch from our GIT (with a little directory twick for the
+filename in the patch).
 
-As I described before, sk_drops will be used on different conditions,
-on which the raw drop happens.
-So doing sk_drops increment in upper caller is better than in=20
-sock_queue_rcv_skb().
+http://intellinuxwireless.org/repos/?p=iwlwifi.git;a=commitdiff_plain;h=96f1d448523930a04b3c81067c1cfafe56cc3768;hp=2355f9930372953d41ee884ea6bf1535d0b09099
 
-Thank you for your suggestion, I will make a new patch to add sk_drops
-increment in other places.
+Thanks,
+-yi
 
-> I like having this counter per socket, but only if an application can
-> retrieve its value with a getsockopt() call, dont you think ?
->=20
-> getsockopt(sock, SOL_SOCKET, SO_DROPSCNT, &val, &vallen);
->=20
->=20
-
-Yes. I agree.
-How do other people think about it?
-
+> ----
+> 
+> --- linux-2.6.24-rc1/drivers/net/wireless/iwlwifi/iwl3945-base.c.alt	2007-11-13 12:23:07.000000000 +0100
+> +++ linux-2.6.24-rc1/drivers/net/wireless/iwlwifi/iwl3945-base.c	2007-11-13 12:26:00.000000000 +0100
+> @@ -4850,7 +4850,7 @@ static irqreturn_t iwl_isr(int irq, void
+>  	if ((inta == 0xFFFFFFFF) || ((inta & 0xFFFFFFF0) == 0xa5a5a5a0)) {
+>  		/* Hardware disappeared */
+>  		IWL_WARNING("HARDWARE GONE?? INTA == 0x%080x\n", inta);
+> -		goto none;
+> +		goto unplugged;
+>  	}
+>  
+>  	IWL_DEBUG_ISR("ISR inta 0x%08x, enabled 0x%08x, fh 0x%08x\n",
+> @@ -4858,6 +4858,7 @@ static irqreturn_t iwl_isr(int irq, void
+>  
+>  	/* iwl_irq_tasklet() will service interrupts and re-enable them */
+>  	tasklet_schedule(&priv->irq_tasklet);
+> +unplugged:
+>  	spin_unlock(&priv->lock);
+>  
+>  	return IRQ_HANDLED;
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
