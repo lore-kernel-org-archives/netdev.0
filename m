@@ -1,33 +1,42 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 19/24] [IPSEC]: Merge most of the output path
-Date: Wed, 14 Nov 2007 10:19:26 +0100
-Message-ID: <473ABD9E.1040409@trash.net>
-References: <E1Ipla8-0001IO-00@gondolin.me.apana.org.au> <4732F1B1.204@trash.net> <20071108112921.GB16688@gondor.apana.org.au> <20071114.010722.141237256.davem@davemloft.net> <473ABC73.30807@trash.net> <20071114091642.GA12711@gondor.apana.org.au>
+From: Nj A <nj_a83@yahoo.fr>
+Subject: Bug in using inet_lookup ()
+Date: Wed, 14 Nov 2007 09:26:18 +0000 (GMT)
+Message-ID: <798108.90765.qm@web26108.mail.ukl.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38707 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752807AbXKNJTg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 04:19:36 -0500
-In-Reply-To: <20071114091642.GA12711@gondor.apana.org.au>
+Received: from web26108.mail.ukl.yahoo.com ([217.146.182.149]:33589 "HELO
+	web26108.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751408AbXKNJ0U convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2007 04:26:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Wed, Nov 14, 2007 at 10:14:27AM +0100, Patrick McHardy wrote:
->> Thanks Dave. As luck would have it, my HIFN card should arrive
->> within the next few hours, so I'll try to convert esp over to
->> async crypto and give this all some good testing :)
-> 
-> Actually I'm already working on that :)
-> 
-> I'm not just converting ESP over to async, I'm also changing
-> it to use the AEAD interface which is needed for it to properly
-> support algorithms such as CCM.
+Dear All,
+I need to use the inet_lookup function to find the sock structure of a TCP connection in a SYN_RECV state.
+Here is what I used to do so:
+/* The kernel TCP hashtable */
+struct inet_hashinfo __cacheline_aligned tcp_hashinfo = {
+.lhash_lock = __RW_LOCK_UNLOCKED (tcp_hashinfo.lhash_lock),
+.lhash_users = ATOMIC_INIT (0),
+.lhash_wait = __WAIT_QUEUE_HEAD_INITIALIZER (tcp_hashinfo.lhash_wait),
+};
+...
+struct sock *sk;
+struct sk_buff *skb;
+skb = alloc_skb (MAX_TCP_HEADER + 15, GFP_KERNEL);
+if (skb == NULL)
+printk ("%s: Unable to allocate memory \n", __FUNCTION__);
+sk = inet_lookup (&tcp_hashinfo, ip_src, src_port, ip_dst, dst_port, inet_iif (skb));
+if (!sk)
+...
+This portion of code seems to cause the kernel to panic due to dereferencing a NULL pointer.
+Can anyone please tell me what is the error above?
+Best Regards,
 
 
-Great. If you're looking for testers, just send it over :)
+      _____________________________________________________________________________ 
+Ne gardez plus qu'une seule adresse mail ! Copiez vos mails vers Yahoo! Mail 
