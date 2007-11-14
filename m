@@ -1,60 +1,35 @@
-From: Denys Vlasenko <vda.linux@googlemail.com>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Wed, 14 Nov 2007 00:46:20 -0700
-Message-ID: <200711140046.20391.vda.linux@googlemail.com>
-References: <20071113031553.3c7b5c16.akpm@linux-foundation.org> <200711131739.45820.vda.linux@googlemail.com> <20071114072715.GO4250@stusta.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [IPSEC]: Fix ip_local_out when NETFILTER is off
+Date: Wed, 14 Nov 2007 00:14:51 -0800 (PST)
+Message-ID: <20071114.001451.254172191.davem@davemloft.net>
+References: <20071114073425.GA11815@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Theodore Tso <tytso@mit.edu>,
- Benoit Boissinot <bboissin@gmail.com>,
- Mark Lord <liml@rtr.ca>,
- Ingo Molnar <mingo@elte.hu>,
- Andrew Morton <akpm@linux-foundation.org>,
- David Miller <davem@davemloft.net>,
- protasnb@gmail.com,
- linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org,
- alsa-devel@alsa-project.org,
- linux-ide@vger.kernel.org,
- linux-pcmcia@lists.infradead.org,
- linux-input@atrey.karlin.mff.cuni.cz,
- bugme-daemon@bugzilla.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <20071114072715.GO4250@stusta.de>
-Content-Disposition: inline
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42130
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753870AbXKNIOw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 03:14:52 -0500
+In-Reply-To: <20071114073425.GA11815@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 14 November 2007 00:27, Adrian Bunk wrote:
-> You missed the following in my email:
-> "we slowly scare them away due to the many bug reports without any
->  reaction."
->
-> The problem is that bug reports take time. If you go away from easy
-> things like compile errors then even things like describing what does
-> no longer work, ideally producing a scenario where you can reproduce it
-> and verifying whether it was present in previous kernels can easily take
-> many hours that are spent before the initial bug report.
->
-> If the bug report then gets ignored we discourage the person who sent
-> the bug report to do any work related to the kernel again.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 14 Nov 2007 15:34:25 +0800
 
-Cannot agree more. I am in a similar position right now.
-My patch to aic7xxx driver was ubmitted four times
-with not much reaction from scsi guys.
+> [IPSEC]: Fix ip_local_out when NETFILTER is off
+> 
+> Thanks for testing with NETFILTER off because I obviously didn't :)
+> The code for ip_local_out/ip6_local_out is completely broken in
+> that case.
+> 
+> This patch fixes and also makes the IPsec path use the correct
+> local_out function so that the loop executes properly and we
+> don't end up nesting too deep and overrun the stack.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Finally they replied and asked to rediff it against their
-git tree. I did that and sent patches back. No reply since then.
-
-And mind you, the patch is not trying to do anything
-complex, it mostly moves code around, removes 'inline',
-adds 'const'. What should I think about it?
---
-vda
+Applied, thanks Herbert.
