@@ -1,57 +1,64 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH 1/2][INET] Fix potential kfree on vmalloc-ed area of
- request_sock_queue
-Date: Wed, 14 Nov 2007 20:42:38 +0100
-Message-ID: <20071114204238.68662cbf.dada1@cosmosbay.com>
-References: <473B399D.2040004@openvz.org>
+From: Russell King <rmk+lkml@arm.linux.org.uk>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Wed, 14 Nov 2007 19:44:56 +0000
+Message-ID: <20071114194456.GC23221@flint.arm.linux.org.uk>
+References: <20071113143201.9441c940.akpm@linux-foundation.org> <20071113.175551.131375600.davem@davemloft.net> <20071114095507.GA32595@flint.arm.linux.org.uk> <20071114.020706.219917088.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: alsa-devel@alsa-project.org, netdev@vger.kernel.org,
+	linux-pcmcia@lists.infradead.org, linux-kernel@vger.kernel.org,
+	protasnb@gmail.com, linux-ide@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	linux-input@atrey.karlin.mff.cuni.cz, akpm@linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:39028 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753258AbXKNTmp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2007 14:42:45 -0500
-In-Reply-To: <473B399D.2040004@openvz.org>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:35430 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753484AbXKNTpl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 14:45:41 -0500
+Content-Disposition: inline
+In-Reply-To: <20071114.020706.219917088.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Nov 2007 21:08:29 +0300
-Pavel Emelyanov <xemul@openvz.org> wrote:
-
-> The request_sock_queue's listen_opt is either vmalloc-ed or
-> kmalloc-ed depending on the number of table entries. Thus it 
-> is expected to be handled properly on free, which is done in 
-> the reqsk_queue_destroy().
+On Wed, Nov 14, 2007 at 02:07:06AM -0800, David Miller wrote:
+> From: Russell King <rmk+lkml@arm.linux.org.uk>
+> Date: Wed, 14 Nov 2007 09:55:07 +0000
 > 
-> However the error path in inet_csk_listen_start() calls 
-> the lite version of reqsk_queue_destroy, called 
-> __reqsk_queue_destroy, which calls the kfree unconditionally. 
+> > On Tue, Nov 13, 2007 at 05:55:51PM -0800, David Miller wrote:
+> > > I've created linux-arm@vger.kernel.org
+> > 
+> > By doing so you've just said (implicitly) that you can not tolerate
+> > someone having a different opinion from your own.
 > 
-> Fix this and move the __reqsk_queue_destroy into a .c file as 
-> it looks too big to be inline.
+> I created a mailing list on a machine where I provide such services.
 > 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> People can choose to use or not use the new list, it is their choice.
 > 
-> ---
+> > While I accept *your* right to run *your* lists how you please, you
+> > are unable to accept *my* right to run *my* lists how I see fit.
 > 
+> I didn't tell you to take your list down or to run it in some other
+> way.  I didn't tell you to unsubscribe everyone and move them over
+> to the new list either.
 
-> +void __reqsk_queue_destroy(struct request_sock_queue *queue)
-> +{
-> +	struct listen_sock *lopt = reqsk_queue_yank_listen_sk(queue);
+I didn't say that you were.
 
-WARNING : lopt can be NULL here (or else the locking in reqsk_queue_yank_listen_sk() would be useless ?)
+> I've provided an alternative, and people can pick and choose how they
+> see fit.  I'm letting natural selection run it's course.  Are you
+> able to cope with the fact that people might not want to use your
+> list any longer?  Perhaps that is what bugs you so much about my
+> giving people a alternative choice.
 
-kfree(NULL) was ok, not NULL->nr_table_entries :)
+Absolutely, and if you'd have read my message you'd have seen that
+I'd said effectively the same thing that you're saying here.
 
-> +	size_t lopt_size = sizeof(struct listen_sock) +
-> +		lopt->nr_table_entries * sizeof(struct request_sock *);
-> +
-> +	if (lopt_size > PAGE_SIZE)
-> +		vfree(lopt);
-> +	else
-> +		kfree(lopt);
-> +}
+Having been flamed for not reading emails properly by AKPM shall
+I flame you for not reading my emails properly?  Oh no, it's merely
+human to occasionally have such misunderstandings.  Unless you're
+rmk.
+
+-- 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:
