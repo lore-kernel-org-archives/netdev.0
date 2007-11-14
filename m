@@ -1,7 +1,7 @@
 From: Hideo AOKI <haoki@redhat.com>
-Subject: [PATCH 1/5] fix send buffer check
-Date: Tue, 13 Nov 2007 21:47:49 -0500
-Message-ID: <473A61D5.8020203@redhat.com>
+Subject: [PATCH 2/5] accounting unit and variable
+Date: Tue, 13 Nov 2007 21:48:07 -0500
+Message-ID: <473A61E7.1060005@redhat.com>
 References: <473A5FD6.5010209@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
@@ -17,39 +17,81 @@ Cc: Hideo AOKI <haoki@redhat.com>,
 	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
 To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:58040 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:58052 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754219AbXKNCtO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2007 21:49:14 -0500
+	id S1754507AbXKNCt2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2007 21:49:28 -0500
 In-Reply-To: <473A5FD6.5010209@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduces sndbuf size check before memory allocation for
-send buffer.
+This patch introduces global variable for UDP memory accounting.
+The unit is page.
 
 signed-off-by: Satoshi Oshima <satoshi.oshima.fk@hitachi.com>
 signed-off-by: Hideo Aoki <haoki@redhat.com>
 ---
 
-  ip_output.c |    5 +++++
-  1 file changed, 5 insertions(+)
+  include/net/sock.h |    7 +++++++
+  include/net/udp.h  |    2 ++
+  net/ipv4/proc.c    |    3 ++-
+  net/ipv4/udp.c     |    2 ++
+  4 files changed, 13 insertions(+), 1 deletion(-)
 
-diff -pruN net-2.6/net/ipv4/ip_output.c net-2.6-udp-p1/net/ipv4/ip_output.c
---- net-2.6/net/ipv4/ip_output.c	2007-11-13 08:19:57.000000000 -0500
-+++ net-2.6-udp-p1/net/ipv4/ip_output.c	2007-11-13 16:10:03.000000000 -0500
-@@ -1004,6 +1004,11 @@ alloc_new_skb:
-  					frag = &skb_shinfo(skb)->frags[i];
-  				}
-  			} else if (i < MAX_SKB_FRAGS) {
-+				if (atomic_read(&sk->sk_wmem_alloc) + PAGE_SIZE
-+				    > 2 * sk->sk_sndbuf) {
-+					err = -ENOBUFS;
-+					goto error;
-+				}
-  				if (copy > PAGE_SIZE)
-  					copy = PAGE_SIZE;
-  				page = alloc_pages(sk->sk_allocation, 0);
+diff -pruN net-2.6-udp-p1/include/net/sock.h net-2.6-udp-p2/include/net/sock.h
+--- net-2.6-udp-p1/include/net/sock.h	2007-11-13 08:19:56.000000000 -0500
++++ net-2.6-udp-p2/include/net/sock.h	2007-11-13 16:10:05.000000000 -0500
+@@ -778,6 +778,13 @@ static inline int sk_stream_wmem_schedul
+  	       sk_stream_mem_schedule(sk, size, 0);
+  }
+
++#define SK_DATAGRAM_MEM_QUANTUM ((int)PAGE_SIZE)
++
++static inline int sk_datagram_pages(int amt)
++{
++	return DIV_ROUND_UP(amt, SK_DATAGRAM_MEM_QUANTUM);
++}
++
+  /* Used by processes to "lock" a socket state, so that
+   * interrupts and bottom half handlers won't change it
+   * from under us. It essentially blocks any incoming
+diff -pruN net-2.6-udp-p1/include/net/udp.h net-2.6-udp-p2/include/net/udp.h
+--- net-2.6-udp-p1/include/net/udp.h	2007-11-13 08:19:56.000000000 -0500
++++ net-2.6-udp-p2/include/net/udp.h	2007-11-13 16:10:05.000000000 -0500
+@@ -65,6 +65,8 @@ extern rwlock_t udp_hash_lock;
+
+  extern struct proto udp_prot;
+
++extern atomic_t udp_memory_allocated;
++
+  struct sk_buff;
+
+  /*
+diff -pruN net-2.6-udp-p1/net/ipv4/proc.c net-2.6-udp-p2/net/ipv4/proc.c
+--- net-2.6-udp-p1/net/ipv4/proc.c	2007-11-13 08:19:57.000000000 -0500
++++ net-2.6-udp-p2/net/ipv4/proc.c	2007-11-13 16:11:48.000000000 -0500
+@@ -56,7 +56,8 @@ static int sockstat_seq_show(struct seq_
+  		   sock_prot_inuse(&tcp_prot), atomic_read(&tcp_orphan_count),
+  		   tcp_death_row.tw_count, atomic_read(&tcp_sockets_allocated),
+  		   atomic_read(&tcp_memory_allocated));
+-	seq_printf(seq, "UDP: inuse %d\n", sock_prot_inuse(&udp_prot));
++	seq_printf(seq, "UDP: inuse %d mem %d\n", sock_prot_inuse(&udp_prot),
++		   atomic_read(&udp_memory_allocated));
+  	seq_printf(seq, "UDPLITE: inuse %d\n", sock_prot_inuse(&udplite_prot));
+  	seq_printf(seq, "RAW: inuse %d\n", sock_prot_inuse(&raw_prot));
+  	seq_printf(seq,  "FRAG: inuse %d memory %d\n",
+diff -pruN net-2.6-udp-p1/net/ipv4/udp.c net-2.6-udp-p2/net/ipv4/udp.c
+--- net-2.6-udp-p1/net/ipv4/udp.c	2007-11-13 08:19:57.000000000 -0500
++++ net-2.6-udp-p2/net/ipv4/udp.c	2007-11-13 16:10:05.000000000 -0500
+@@ -114,6 +114,8 @@ DEFINE_SNMP_STAT(struct udp_mib, udp_sta
+  struct hlist_head udp_hash[UDP_HTABLE_SIZE];
+  DEFINE_RWLOCK(udp_hash_lock);
+
++atomic_t udp_memory_allocated;
++
+  static inline int __udp_lib_lport_inuse(__u16 num,
+  					const struct hlist_head udptable[])
+  {
 --
 Hideo Aoki
 Hitachi Computer Products (America) Inc.
