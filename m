@@ -1,53 +1,43 @@
-From: Russell King <rmk+lkml@arm.linux.org.uk>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [BUG] New Kernel Bugs
-Date: Wed, 14 Nov 2007 19:52:08 +0000
-Message-ID: <20071114195208.GD23221@flint.arm.linux.org.uk>
-References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com> <20071113031553.3c7b5c16.akpm@linux-foundation.org> <20071114132448.GA5183@ucw.cz>
+Date: Wed, 14 Nov 2007 11:56:01 -0800 (PST)
+Message-ID: <20071114.115601.00715073.davem@davemloft.net>
+References: <20071113134029.GA30978@elte.hu>
+	<20071113085514.3414aa52.rdunlap@xenotime.net>
+	<20071114140847.GA11489@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	alsa-devel@alsa-project.org, netdev@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org, linux-kernel@vger.kernel.org,
-	Natalie Protasevich <protasnb@gmail.com>,
-	linux-ide@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	linux-input@atrey.karlin.mff.cuni.cz
-To: Pavel Machek <pavel@ucw.cz>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rdunlap@xenotime.net, akpm@linux-foundation.org,
+	protasnb@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, alsa-devel@alsa-project.org,
+	linux-ide@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+	linux-input@atrey.karlin.mff.cuni.cz,
+	bugme-daemon@bugzilla.kernel.org
+To: mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:45172 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756539AbXKNTwp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 14:52:45 -0500
-Content-Disposition: inline
-In-Reply-To: <20071114132448.GA5183@ucw.cz>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46544
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754356AbXKNT4E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 14:56:04 -0500
+In-Reply-To: <20071114140847.GA11489@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 14, 2007 at 01:24:48PM +0000, Pavel Machek wrote:
-> Hi!
-> 
-> > > Suspend to RAM resume hangs on a tickless (NO_HZ) kernel
-> > > http://bugzilla.kernel.org/show_bug.cgi?id=9275
-> > > Kernel: 2.6.23
-> > > This is HP notebook nc6320 T2400 945GM
-> > 
-> > No response from developers
-> 
-> Maybe I'm optimistic, but I expected Ingo/Thomas to look after nohz
-> problems. nohz=off highres=off fixes more than one suspend problem...
-> 
-> ...stuff I've seen with NOHZ even without suspend (cursor blinking
-> irregulary) make me think that nohz perhaps should not be used in
-> production just yet...
+From: Ingo Molnar <mingo@elte.hu>
+Date: Wed, 14 Nov 2007 15:08:47 +0100
 
-It appears that bug 9229 has been solved, and the reporter of that
-bug now says that:
+> In fact this thread is the very example: David points out that on netdev 
+> some of those bugs were already discussed and resolved. Had it been all 
+> on lkml we'd all be aware of it.
 
-  If I unset NO_TZ suspend/resume works.
-  If I set it suspend/resume doesn't works.
+That's a rediculious argument.
 
-So I think this guy is now suffering from bug #9275
+One other reason these bugs are resolved, is that the networking
+developers only need to subscribe to netdev and not have to listen to
+all the noise on lkml.
 
--- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:
+People who want to manage bugs know what list to look on and
+contact about problems.
+
+Dumping even more crap on lkml is not the answer.
