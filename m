@@ -1,68 +1,60 @@
-From: Nj A <nj_a83@yahoo.fr>
-Subject: Re : Re : Bug in using inet_lookup ()
-Date: Wed, 14 Nov 2007 16:47:22 +0000 (GMT)
-Message-ID: <256275.33084.qm@web26104.mail.ukl.yahoo.com>
+From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
+Subject: RE: [PATCH 2.6.24 1/1]S2io: Support for add/delete/store/restore ethernet addresses
+Date: Wed, 14 Nov 2007 11:47:34 -0500
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD770289B951@nekter>
+References: <20071114.014324.78802691.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <jeff@garzik.org>,
+	"support" <support@neterion.com>
+To: "David Miller" <davem@davemloft.net>,
+	"Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web26104.mail.ukl.yahoo.com ([217.146.182.145]:46067 "HELO
-	web26104.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753463AbXKNQrY convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2007 11:47:24 -0500
+Received: from mx.neterion.com ([72.1.205.142]:3246 "EHLO owa.neterion.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760135AbXKNQrh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 11:47:37 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20071114.014324.78802691.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-By setting the ID of the ingress device to the inet_lookup() to 0, the =
-machine reboots automatically.
-Setting proc/sys/kernel/panic* to non zero values dosn't help more..
+Scheduling for the 2.6.25 merge window is fine. Curious - why did you
+have to remove the driver version? We use it to keep track of our
+changes submitted.
 
-Cheers,
+Thanks,
+Ram
 
------ Message d'origine ----
-> De : Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> =C0 : Nj A <nj_a83@yahoo.fr>
-> Cc : netdev@vger.kernel.org
-> Envoy=E9 le : Mercredi, 14 Novembre 2007, 14h31mn 18s
-> Objet : Re: Re : Bug in using inet_lookup ()
->=20
-> On Wed, Nov 14, 2007 at 01:12:11PM +0000, Nj A (nj_a83@yahoo.fr) wrot=
-e:
-> > I suspected it could be that. However, can't see in ip_rcv the righ=
-t portion
-> that can help.
-> > Any further tip please?
->=20
-> It is ip_rcv_finish() called from ip_rcv():
-> if (skb->dst =3D=3D NULL) {
-> int err =3D ip_route_input(skb, iph->daddr, iph->saddr, iph->tos,
-> skb->dev);
-> if (unlikely(err)) {
-> if (err =3D=3D -EHOSTUNREACH)
-> IP_INC_STATS_BH(IPSTATS_MIB_INADDRERRORS);
-> else if (err =3D=3D -ENETUNREACH)
-> IP_INC_STATS_BH(IPSTATS_MIB_INNOROUTES);
-> goto drop;
-> }
-> }
->=20
-> So you will have to specify device, you got your skb via.
-> Actually it is not exactly needed in some cases, you will need interf=
-ace
-> index (dev->ifindex). You can find socket by using that number instea=
-d
-> of dereferencing dst.
->=20
-> --=20
-> Evgeniy
-> Polyakov
->
-
-
-      _________________________________________________________________=
-____________=20
-Ne gardez plus qu'une seule adresse mail ! Copiez vos mails vers Yahoo!=
- Mail=20
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, November 14, 2007 1:43 AM
+> To: Sreenivasa Honnur
+> Cc: netdev@vger.kernel.org; jeff@garzik.org; support
+> Subject: Re: [PATCH 2.6.24 1/1]S2io: Support for
+add/delete/store/restore
+> ethernet addresses
+> 
+> From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
+> Date: Wed, 14 Nov 2007 04:30:34 -0500 (EST)
+> 
+> > - Support to add/delete/store/restore 64 and 128 Ethernet addresses
+for
+> Xframe I and Xframe II respectively.
+> >
+> > - (Resubmit third time)
+> >
+> > Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
+> 
+> No, this is a feature patch, so I'm not going to queue this
+> up for 2.6.24, that is not appropriate at all.
+> 
+> Instead I've added this patch to netdev-2.6 which will
+> schedule it for the 2.6.25 merge window.
+> 
+> I had to remove the DRV_VERSION part of your changes as
+> a result.
+> 
+> Thanks.
