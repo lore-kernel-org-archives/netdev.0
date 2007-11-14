@@ -1,33 +1,46 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 19:52:17 -0500
-Message-ID: <473A46C1.3060000@redhat.com>
-References: <20071113134029.GA30978@elte.hu>	<4739AFE0.20705@rtr.ca>	<20071113164650.GA28493@elte.hu>	<4739E3D0.10201@rtr.ca>	<20071113181228.GF4250@stusta.de>	<4739EA83.5040006@rtr.ca>	<20071113183605.GG4250@stusta.de>	<4739F12E.5020807@rtr.ca>	<20071113190428.GH4250@stusta.de>	<4739FA4D.1050900@rtr.ca>	<20071113200028.GJ4250@stusta.de> <20071113211256.1d18fe1a@the-village.bc.nu>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH 5/6] e1000: Secondary unicast address support
+Date: Tue, 13 Nov 2007 17:05:27 -0800
+Message-ID: <473A49D7.2020400@candelatech.com>
+References: <20071113231110.13177.27339.stgit@localhost.localdomain> <20071113231133.13177.84769.stgit@localhost.localdomain> <Pine.LNX.4.64.0711140113400.15397@bizon.gios.gov.pl> <473A3EE9.4040700@candelatech.com> <Pine.LNX.4.64.0711140141320.15397@bizon.gios.gov.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@kernel.org>, Mark Lord <liml@rtr.ca>,
-        Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@linux-foundation.org>,
-        David Miller <davem@davemloft.net>, protasnb@gmail.com,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
-        linux-pcmcia@lists.infradead.org, linux-input@atrey.karlin.mff.cuni.cz,
-        bugme-daemon@bugzilla.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <20071113211256.1d18fe1a@the-village.bc.nu>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Cc: Auke Kok <auke-jan.h.kok@intel.com>, davem@davemloft.net,
+	jeff@garzik.org, netdev@vger.kernel.org, jesse.brandeburg@intel.com
+To: Krzysztof Oledzki <olel@ans.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns2.lanforge.com ([66.165.47.211]:34738 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763672AbXKNBFr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2007 20:05:47 -0500
+In-Reply-To: <Pine.LNX.4.64.0711140141320.15397@bizon.gios.gov.pl>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/13/2007 04:12 PM, Alan Cox wrote:
->> Bug fixing is not about finding someone to blame, it's about getting the 
->> bug fixed.
-> 
-> Partly - its also about understanding why the bug occurred and making it
-> not happen again.
+Krzysztof Oledzki wrote:
 
-Very few people think about that part.
+> I'm afraid mac-vlans is not a solution here. Having 2x more interfaces 
+> (ex. 2000 instead of 1000) makes everything (especially routing, 
+> firewalling and QoS) much more complicated. It would be nice to have 
+> something like "ip addr add a.b.c.d/24 dev vlan32 hwaddress 
+> aa:bb:cc:dd:ee:ff".
+
+I'll take your word for it, though I have had good luck using mac-vlans
+in my own app.  They are nice because the are full-fledged interfaces,
+so you can treat them basically as .1q vlans or ethernet devices, including
+all the routing and firewalling tricks.
+
+> BTW: is it possible to stack mac-vlans ontop of .1Q vlans?
+
+I believe it will work fine.  You could probably also stack .1q
+VLANs on top of mac-vlans so long as you use the same MAC for the VLANs as for
+the mac-vlan dev.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
