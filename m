@@ -1,43 +1,74 @@
-From: Larry Finger <larry.finger@lwfinger.net>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Wed, 14 Nov 2007 08:49:31 -0600
-Message-ID: <473B0AFB.2080400@lwfinger.net>
-References: <20071113.035824.40509981.davem@davemloft.net>	<20071113041259.79c9a8c5.akpm@linux-foundation.org>	<20071113134029.GA30978@elte.hu> <4739AFE0.20705@rtr.ca>	<20071113164650.GA28493@elte.hu> <4739E3D0.10201@rtr.ca>	<20071113183925.GF17785@parisc-linux.org> <4739F069.6050102@rtr.ca>	<20071113184902.GG17785@parisc-linux.org> <4739F2DD.5050802@rtr.ca> <20071114143040.GA31025@elte.hu>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] IPVS: Fix sysctl warnings about missing strategy
+Date: Tue, 13 Nov 2007 18:12:18 -0800
+Message-ID: <20071114021131.GB2523@verge.net.au>
+References: <200711131129.58868.borntraeger@de.ibm.com> <20071113.024500.155458534.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Mark Lord <liml@rtr.ca>, alsa-devel@alsa-project.org,
-	Matthew Wilcox <matthew@wil.cx>, netdev@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org, linux-kernel@vger.kernel.org,
-	protasnb@gmail.com, linux-ide@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	linux-input@atrey.karlin.mff.cuni.cz,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <20071114143040.GA31025@elte.hu>
-Sender: linux-ide-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: borntraeger@de.ibm.com, netdev@vger.kernel.org,
+	ebiederm@xmission.com, wensong@linux-vs.org, ja@ssi.bg
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from koto.vergenet.net ([210.128.90.7]:36555 "EHLO koto.vergenet.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754772AbXKNPWG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2007 10:22:06 -0500
+Content-Disposition: inline
+In-Reply-To: <20071113.024500.155458534.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ingo Molnar wrote:
-> * Mark Lord <liml@rtr.ca> wrote:
+On Tue, Nov 13, 2007 at 02:45:00AM -0800, David Miller wrote:
+> From: Christian Borntraeger <borntraeger@de.ibm.com>
+> Date: Tue, 13 Nov 2007 11:29:58 +0100
 > 
->>> You're assuming that everything in linux-2.6 was downloaded; that's 
->>> not true.  Everything in linux-2.6/.git was downloaded; but then you 
->>> do a checkout which happens to approximately double the size of the 
->>> linux-2.6 directory.
->> ..
->>
->> Ah, I wondered why it took only half an hour to download.
+> > Running the latest git code I get the following messages during boot:
+> > sysctl table check failed: /net/ipv4/vs/drop_entry .3.5.21.4 Missing strategy
+> > [...]		  
+> > sysctl table check failed: /net/ipv4/vs/drop_packet .3.5.21.5 Missing strategy
+> > [...]
+> > sysctl table check failed: /net/ipv4/vs/secure_tcp .3.5.21.6 Missing strategy
+> > [...]
+> > sysctl table check failed: /net/ipv4/vs/sync_threshold .3.5.21.24 Missing strategy
+> > 
+> > I removed the binary sysctl handler for those messages and also removed
+> > the definitions in ip_vs.h. The alternative would be to implement a 
+> > proper strategy handler, but syscall sysctl is deprecated.
+> > 
+> > There are other sysctl definitions that are commented out or work with 
+> > the default sysctl_data strategy. I did not touch these. 
+> > 
+> > Eric, IPVS team, are you ok with that change?
+> > 
+> > CC: Eric W. Biederman <ebiederm@xmission.com>
+> > CC: Wensong Zhang <wensong@linux-vs.org>
+> > CC: Simon Horman <horms@verge.net.au>
+> > CC: Julian Anastasov <ja@ssi.bg>
+> > Signed-off-by: Christian Borntraeger <borntraeger@de.ibm.com>
 > 
-> and you can get even lower than the 260MB by downloading a shallow clone 
-> of v2.6.23 and then populating the git tree from tht point on. (see the 
-> --depth parameter of git-clone) [because most of the time you want to 
-> bisect back to the last stable release, not back to 2 years of git 
-> history.]
+> Simon planned to make a similar change to dice all of this
+> stuff up.  He is travelling currently, and I think it's
+> reasonable to give him some time to get to it.
 
-When creating additional git trees (Linville's wireless-2.6 tree, for example) for driver
-development, you can save a lot of download bandwidth by using the --reference parameter of git-clone.
+Hi Christian, Hi Dave,
 
-Larry
+I have indeed been looking into this of late. Assuming that you use of
+CTL_UNNUMBERED is correct, this patch looks fine to me.  Acked.
+
+I was planning to do the same and also switch over all the other entries
+over to use CTL_UNNUMBERED, as its hard to imagine that anyone is using
+the sys_sysctl interface to IPVS.
+
+As for the commented out entries. They are supposed to be exposed by
+some other means - I believe the thinking was to comply with the don't
+expose stuff in proc any more idea. Where is the best place to expose
+this kind of stuff?
+
+Lastly, as Dave mentions, I'm travelling this week, so please
+excuse any slowness.
+
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
+
