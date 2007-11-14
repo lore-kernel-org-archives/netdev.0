@@ -1,100 +1,283 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH 2/2] SOCK: add raw6 drops counter
-Date: Wed, 14 Nov 2007 11:15:57 +0800
-Message-ID: <473A686D.9020200@cn.fujitsu.com>
-References: <47397514.2070002@cn.fujitsu.com> <473A6792.10405@cn.fujitsu.com>
+From: Tobin Davis <tdavis@dsl-only.net>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Tue, 13 Nov 2007 19:20:01 -0800
+Message-ID: <1195010401.3267.35.camel@razman.gruemaster.com>
+References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dada1@cosmosbay.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [222.73.24.84] ([222.73.24.84]:62897 "EHLO song.cn.fujitsu.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754747AbXKNDSC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2007 22:18:02 -0500
-In-Reply-To: <473A6792.10405@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: alsa-devel@alsa-project.org, bugme-daemon@kernel-bugs.osdl.org,
+	netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+	linux-kernel@vger.kernel.org, linux-ide@vger.kernel.org,
+	linux-input@atrey.karlin.mff.cuni.cz, akpm@linux-foundation.org
+To: Natalie Protasevich <protasnb@gmail.com>
+Return-path: <alsa-devel-bounces@alsa-project.org>
+In-Reply-To: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+	<mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+	<mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Sender: alsa-devel-bounces@alsa-project.org
+Errors-To: alsa-devel-bounces@alsa-project.org
 List-Id: netdev.vger.kernel.org
 
-Add raw drops counter for IPv6 in /proc/net/raw6 .
+Is there any chance this can be distributed individually to the
+respecive lists (i.e. ACPI issues go to their mailing list, ALSA to
+their mailing list, etc).
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
- raw.c |   15 ++++++++-------
- 1 files changed, 8 insertions(+), 7 deletions(-)
+I just spent the last 35 minutes reading 80 emails, mostly flame
+throwing, that had absolutely NOTHING to do with the bugs I work on
+(Alsa, snd-hda-intel to be specific).  Besides, a lot of the language is
+very unprofessional, and some of us have to read these at work.
 
-diff -Nurp linux-2.6.24-rc2.org/net/ipv6/raw.c linux-2.6.24-rc2/net/ipv6/raw.c
---- linux-2.6.24-rc2.org/net/ipv6/raw.c	2007-11-09 16:38:05.000000000 +0800
-+++ linux-2.6.24-rc2/net/ipv6/raw.c	2007-11-14 09:46:54.000000000 +0800
-@@ -354,14 +354,14 @@ static inline int rawv6_rcv_skb(struct s
- {
- 	if ((raw6_sk(sk)->checksum || sk->sk_filter) &&
- 	    skb_checksum_complete(skb)) {
--		/* FIXME: increment a raw6 drops counter here */
-+		atomic_inc(&sk->sk_drops);	
- 		kfree_skb(skb);
- 		return 0;
- 	}
- 
- 	/* Charge it to the socket. */
- 	if (sock_queue_rcv_skb(sk,skb)<0) {
--		/* FIXME: increment a raw6 drops counter here */
-+		atomic_inc(&sk->sk_drops);
- 		kfree_skb(skb);
- 		return 0;
- 	}
-@@ -382,6 +382,7 @@ int rawv6_rcv(struct sock *sk, struct sk
- 	struct raw6_sock *rp = raw6_sk(sk);
- 
- 	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb)) {
-+		atomic_inc(&sk->sk_drops);
- 		kfree_skb(skb);
- 		return NET_RX_DROP;
- 	}
-@@ -405,7 +406,7 @@ int rawv6_rcv(struct sock *sk, struct sk
- 
- 	if (inet->hdrincl) {
- 		if (skb_checksum_complete(skb)) {
--			/* FIXME: increment a raw6 drops counter here */
-+			atomic_inc(&sk->sk_drops);
- 			kfree_skb(skb);
- 			return 0;
- 		}
-@@ -496,7 +497,7 @@ csum_copy_err:
- 	   as some normal condition.
- 	 */
- 	err = (flags&MSG_DONTWAIT) ? -EAGAIN : -EHOSTUNREACH;
--	/* FIXME: increment a raw6 drops counter here */
-+	atomic_inc(&sk->sk_drops);
- 	goto out;
- }
- 
-@@ -1251,7 +1252,7 @@ static void raw6_sock_seq_show(struct se
- 	srcp  = inet_sk(sp)->num;
- 	seq_printf(seq,
- 		   "%4d: %08X%08X%08X%08X:%04X %08X%08X%08X%08X:%04X "
--		   "%02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p\n",
-+		   "%02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p %d\n",
- 		   i,
- 		   src->s6_addr32[0], src->s6_addr32[1],
- 		   src->s6_addr32[2], src->s6_addr32[3], srcp,
-@@ -1263,7 +1264,7 @@ static void raw6_sock_seq_show(struct se
- 		   0, 0L, 0,
- 		   sock_i_uid(sp), 0,
- 		   sock_i_ino(sp),
--		   atomic_read(&sp->sk_refcnt), sp);
-+		   atomic_read(&sp->sk_refcnt), sp, atomic_read(&sp->sk_drops));
- }
- 
- static int raw6_seq_show(struct seq_file *seq, void *v)
-@@ -1274,7 +1275,7 @@ static int raw6_seq_show(struct seq_file
- 			   "local_address                         "
- 			   "remote_address                        "
- 			   "st tx_queue rx_queue tr tm->when retrnsmt"
--			   "   uid  timeout inode\n");
-+			   "   uid  timeout inode  drops\n");
- 	else
- 		raw6_sock_seq_show(seq, v, raw6_seq_private(seq)->bucket);
- 	return 0;
+Thanks,
 
+Tobin Davis
+Part-time Alsa developer 
+
+
+
+On Mon, 2007-11-12 at 22:42 -0800, Natalie Protasevich wrote:
+
+> This is the listing of the open bugs that are relatively new, around
+> 2.6.22 and up. They are vaguely classified by specific area.
+> (not a full list, there are more :)
+> 
+> The good part is that reporters of the bugs below are still around and
+> haven't dissipated, or disposed of their hardware, so it is a good
+> time to get the bugs.
+> Those bugzillas that have been started as regressions on Rafael's list
+> are not mentioned here so far, since they are being tracked as new
+> regressions already.
+> 
+> It would be appreciated if the corresponding maintenance team could take a
+> look, close off any which are fixed and see if they can fix any which aren't.
+> 
+> NOTE: when replying to this email, please add the bug number to the Subject in
+> the form [Bug 1234] so that bugzilla will capture the discussion.
+> Thanks.
+> 
+> ACPI====================================================================
+> 
+> System does not load without acpi=off ide=nodma noapic
+> http://bugzilla.kernel.org/show_bug.cgi?id=9358
+> Kernel: 2.6.23.1
+> 
+> ACPI Error attaching device data
+> http://bugzilla.kernel.org/show_bug.cgi?id=9354
+> Kernel: 2.6.24-rc2
+> 
+> /proc/acpi/battery displays Incorrect voltages
+> http://bugzilla.kernel.org/show_bug.cgi?id=9341
+> Kernel: 2.6.23.1
+> 
+> PATA scan: ACPI Exception AE_AML_PACKAGE_LIMIT... is beyond end of object
+> http://bugzilla.kernel.org/show_bug.cgi?id=9320
+> Kernel: 2.6.24-rc2
+> (Tejun: calling _GTF without calling _STM first.  _GTM doesn't have any
+> prerequisite (it can't).  Can someone familiar with ACPI tell me why the method
+> is failing?  At any rate, libata should work fine regardless of ACPI failures.
+> Maybe it's time to start blacklist to skip ATA-ACPI for some boards to avoid
+> those annoying messages during boot)
+> 
+> ACPI Battery Info in /sys but not /proc/acpi
+> http://bugzilla.kernel.org/show_bug.cgi?id=9183
+> Kernel: 2.6.23-rc8-mm2
+> 
+> When using ACPI on a Compaq Presario V6221EU the laptop goes into
+> deadlock after a random amount of time
+> http://bugzilla.kernel.org/show_bug.cgi?id=9118
+> Kernel: 2.6.23-rc6
+> 
+> ACPI video driver should validate brightness level before setting it via _BCM
+> http://bugzilla.kernel.org/show_bug.cgi?id=9277
+> Kernel: 2.6.23
+> 
+> VIDEO/DVB
+> 
+> dvb driver reboot system
+> http://bugzilla.kernel.org/show_bug.cgi?id=9357
+> Kernel: 2.6.21.5
+> 
+> 
+> PLATFORM===============================================================
+> 
+> xipImage is built so that uBoot cant run it (ARM)
+> http://bugzilla.kernel.org/show_bug.cgi?id=9356
+> Kernel: 2.6.21
+> 
+> Samsung R20 - ACPI: PCI Root Bridge [PCI0] (0000:00)	
+> http://bugzilla.kernel.org/show_bug.cgi?id=9339
+> Kernel: 2.6.24
+> (boot is very long
+> ..MP-BIOS bug: 8254 timer not connected to IO-APIC
+> then the boot stop at :
+> ACPI: PCI Root Bridge [PCI0] (0000:00)
+> (during 3 minutes, and boot continue)
+> 
+> system_64.h: switch_to inline asm should be more robbust wrt optimizations
+> http://bugzilla.kernel.org/show_bug.cgi?id=9302
+> Kernel: 2.6.24-rc1
+> 
+> with CONFIG_NO_HZ and/or CONFIG_HPET_TIMER set kernel 2.6.23 doesn't
+> boot (ARM, Timer)
+> http://bugzilla.kernel.org/show_bug.cgi?id=9229
+> Kernel: 2.6.23
+> 
+> NETWORKING===========================================================
+> 
+> RTNLGRP_ND_USEROPT does not report ifindex (IPv6)
+> http://bugzilla.kernel.org/show_bug.cgi?id=9349
+> Kernel: 2.6.24+
+> 
+> a kernel error happend in the func: __skb_dequeue when using in
+> pfifo_fast_dequeue
+> http://bugzilla.kernel.org/show_bug.cgi?id=9342
+> Kernel: 2.6.11.1 - reporter asked to try recent kernel
+> 
+> e100 does not work after boot
+> http://bugzilla.kernel.org/show_bug.cgi?id=9336
+> Kernel: 2.6.23.1
+> 
+> 2.6.23.1-smp kernel panic (network-related)
+> http://bugzilla.kernel.org/show_bug.cgi?id=9318
+> Kernel: 2.6.23.1
+> Infiniband panic
+> 
+> sundance -> 4port D-Link System Inc DFE-580TX -> Log errors
+> http://bugzilla.kernel.org/show_bug.cgi?id=9311
+> Kernel: 2.6.22.9
+> 
+> via-rhine driver stalls with: PHY status 786d, resetting...
+> http://bugzilla.kernel.org/show_bug.cgi?id=9300
+> Kernel: 2.6.23+
+> 
+> 
+> Weird network problems with 2.6.23-rc2
+> http://bugzilla.kernel.org/show_bug.cgi?id=9080
+> http://lkml.org/lkml/2007/8/11/40 - description
+> 
+> rt2500pci: low TCP throughput (wireless)
+> http://bugzilla.kernel.org/show_bug.cgi?id=9273
+> Kernel: 2.6.24-rc1
+> This is a regression
+> 
+> Unable to build wifi network between zd1201 and b43
+> http://bugzilla.kernel.org/show_bug.cgi?id=9237
+> Kernel: 2.6.24-rc1
+> 
+> Crash after module unload in b43 (wireless)
+> http://bugzilla.kernel.org/show_bug.cgi?id=9233
+> Kernel: 2.6.24-rc1
+> 
+> (net typhoon) "no descs for cmd, had (needed) 0 (1) cmd, 31 (7) resp"
+> http://bugzilla.kernel.org/show_bug.cgi?id=9225
+> Kernel: 2.6.23.1
+> 
+> 
+> IDE/SATA=========================================================
+> 
+> pata_pdc202xx_old excessive ATA bus errors
+> http://bugzilla.kernel.org/show_bug.cgi?id=9337
+> 2.6.24-rc2
+> 
+> Drive seagate ST380011AS needs to be blacklisted
+> http://bugzilla.kernel.org/show_bug.cgi?id=9309
+> Kernel: 2.6.22.X
+> 
+> DVD-RAM umount and disk free bug
+> http://bugzilla.kernel.org/show_bug.cgi?id=9265
+> Kernel: 2.6.15  (asked to try current kernel)
+> 
+> FILE SYSTEMS=======================================================
+> 
+> ext4: delalloc space accounting problem drops data
+> http://bugzilla.kernel.org/show_bug.cgi?id=9329
+> Kernel: 2.6.24-rc1
+> 
+> POSIX Access Control Lists cause bogus file system check errors
+> http://bugzilla.kernel.org/show_bug.cgi?id=9241
+> Kernel: 2.6.23.1
+> 
+> MEMORY MANAGEMENT================================================
+> 
+> My system hangs when it has no more free memory to allocate via malloc()
+> http://bugzilla.kernel.org/show_bug.cgi?id=9316
+> Kernel: 2.6.23
+> User program, "My system hangs when it has no more free memory to
+> allocate via malloc()"
+> 
+> BUG: unable to handle kernel paging request at virtual address
+> 26121228/kswapd0[231] exited with preempt_count 1
+> http://bugzilla.kernel.org/show_bug.cgi?id=9305
+> EIP is at free_block+0x6d/0xe4
+> Kernel: 2.6.22.6
+> 
+> POWER MANAGEMENT==================================================
+> 
+> IBM X41 looses time after Suspend2Disk
+> http://bugzilla.kernel.org/show_bug.cgi?id=9314
+> Kernel: 2.6.23
+> 
+> Suspend to RAM resume hangs on a tickless (NO_HZ) kernel
+> http://bugzilla.kernel.org/show_bug.cgi?id=9275
+> Kernel: 2.6.23
+> This is HP notebook nc6320 T2400 945GM
+> 
+> 
+> VIDEO DRIVERS========================================================
+> 
+> No text consoles with FRAMEBUFFER_CONSOLE_DETECT_PRIMARY
+> http://bugzilla.kernel.org/show_bug.cgi?id=9310
+> Kernel: 2.6.24-rc1
+> This is a regression
+> 
+> 
+> PARALLEL PORT========================================================
+> 
+> LPC IT8705 POST port making noise on parallel port
+> http://bugzilla.kernel.org/show_bug.cgi?id=9306
+> Kernel: 2.6.16+
+> 
+> 
+> I/O STORAGE===========================================================
+> 
+> kernel bug from pktcdvd
+> http://bugzilla.kernel.org/show_bug.cgi?id=9294
+> Kernel: 2.6.23
+> 
+> After pci-e video card was installed, pci add-on usb card & firewire card fail
+> http://bugzilla.kernel.org/show_bug.cgi?id=9223
+> Kernel: 2.6.20 (testing of latest kernel requested)
+> 
+> SCSI==================================================================
+> 
+> qla2xxx: driver initialization does not complete when booting with
+> Port connected
+> http://bugzilla.kernel.org/show_bug.cgi?id=9267
+> Kernel: 2.6.23.1
+> 
+> SOUND ALSA============================================================
+> 
+> Unable to load snd-hda-intel module: Unknown symbol in module, or
+> unknown parameter
+> http://bugzilla.kernel.org/show_bug.cgi?id=9242
+> Kernel: 2.6.24-rc1
+> 
+> usbaudio microphone: regular sound distortion on several Logitech Webcams
+> http://bugzilla.kernel.org/show_bug.cgi?id=9230
+> Kernel: 2.6.22.9
+> 
+> HID====================================================================
+> 
+> Kernel NULL pointer dereference at :usbhid:hiddev_ioctl+0x2f/0xabc
+> http://bugzilla.kernel.org/show_bug.cgi?id=9216
+> Kernel: 2.6.23.1
+> Looks like this is a regression
+> _______________________________________________
+> Alsa-devel mailing list
+> Alsa-devel@alsa-project.org
+> http://mailman.alsa-project.org/mailman/listinfo/alsa-devel
