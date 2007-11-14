@@ -1,41 +1,61 @@
-From: Tony Battersby <tonyb@cybernetics.com>
-Subject: Re: BUG: sky2: hw csum failure with dual-port copper NIC on SMP
-Date: Wed, 14 Nov 2007 10:37:10 -0500
-Message-ID: <473B1626.20507@cybernetics.com>
-References: <4739E425.20408@cybernetics.com>	<20071113141414.0959735a@freepuppy.rosehill>	<473A2BC8.7000909@cybernetics.com> <20071113152755.4d55c86a@freepuppy.rosehill>
+From: Hideo AOKI <haoki@redhat.com>
+Subject: Re: [PATCH 2/5] accounting unit and variable
+Date: Wed, 14 Nov 2007 10:32:26 -0500
+Message-ID: <473B150A.8050208@redhat.com>
+References: <47264F3E.3080306@redhat.com>	<20071109123420.GD27984@gondor.apana.org.au>	<473A6B11.7090208@redhat.com> <20071113.195549.181119456.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org, satoshi.oshima.fk@hitachi.com,
+	andi@firstfloor.org, shemminger@linux-foundation.org,
+	johnpol@2ka.mipt.ru, yoshfuji@linux-ipv6.org,
+	yumiko.sugita.yf@hitachi.com
+To: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host06.cybernetics.com ([206.246.200.22]:2668 "EHLO
-	mail.cybernetics.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1755704AbXKNPhI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 10:37:08 -0500
-In-Reply-To: <20071113152755.4d55c86a@freepuppy.rosehill>
+Received: from mx1.redhat.com ([66.187.233.31]:53559 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754156AbXKNPj3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2007 10:39:29 -0500
+In-Reply-To: <20071113.195549.181119456.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
->> Do you want the test program I am using? It is a pretty basic
->> send()/recv() program, ~650 lines of C.
+David Miller wrote:
+> From: Hideo AOKI <haoki@redhat.com>
+> Date: Tue, 13 Nov 2007 22:27:13 -0500
+> 
+>> Herbert Xu wrote:
+>>> On Mon, Oct 29, 2007 at 05:23:10PM -0400, Hideo AOKI wrote:
+>>>>  
+>>>> +#define SK_DATAGRAM_MEM_QUANTUM ((int)PAGE_SIZE)
+>>>> +
+>>>> +static inline int sk_datagram_pages(int amt)
+>>>> +{
+>>>> +	return DIV_ROUND_UP(amt, SK_DATAGRAM_MEM_QUANTUM);
+>>>> +}
+>>> Does this really have to be int? Unsigned would let the compiler
+>>> optimise this to a simple shift.
+>> Thank you for the comment.
 >>
->> Tony
->>
->>     
->
-> Not really, iperf drives the problem fine.
->
->   
+>> This inline function is used to calculate the first argument of atomic_add()
+>> and atomic_sub(). Since the argument is int, I believe that using int is
+>> better than using unsigned int.
+> 
+> If you know the values will always be positive, as you will know here,
+> it is OK to us unsigned int here and avoids the unacceptable expensive
+> divide instruction.
+> 
+> Please fix this.
 
-Thanks for the tip; I hadn't tried iperf before today.  I can reproduce
-the problem with "iperf -s" on the system with the dual-port SysKonnect
-NIC and "iperf -c host -t 120" on the two Intel PRO/1000 (e1000 driver)
-client systems.  The problem doesn't seem to happen the other way around
-though (running the server on the two Intel PRO/1000 systems and two
-iperf clients on the SysKonnect system).  So the problem appears to be
-triggered by recv() on the SysKonnect side but not send().
+Hello,
 
-Tony
+Thanks for your comments. I finally understood.
+
+I'll fix it and resubmit the patch as soon as possible.
+
+Regards,
+Hideo
+
+--
+Hitachi Computer Products (America) Inc.
 
