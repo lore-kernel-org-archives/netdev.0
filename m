@@ -1,22 +1,27 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH] - [2/15] - remove defconfig ptr comparisons to 0 -
-	drivers/net
-Date: Tue, 13 Nov 2007 18:04:50 -0800
-Message-ID: <1195005890.5163.88.camel@localhost>
+Subject: [PATCH] - [15/15] - remove defconfig ptr comparisons to 0
+	-	net/sunrpc
+Date: Tue, 13 Nov 2007 18:05:39 -0800
+Message-ID: <1195005939.5163.101.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Michael Chan <mchan@broadcom.com>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	netdev <netdev@vger.kernel.org>
+Cc: Neil Brown <neilb@suse.de>,
+	Networking Team <netdev@vger.kernel.org>,
+	Trond Myklebust <trond.myklebust@fys.uio.no>,
+	"J. Bruce Fields" <bfields@fieldses.org>, nfs@lists.sourceforge.net,
+	Linus Torvalds <torvalds@linux-foundation.org>
 To: linux-kernel <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:4742 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761251AbXKNCEw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2007 21:04:52 -0500
-Sender: netdev-owner@vger.kernel.org
+Return-path: <nfs-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
+	<mailto:nfs-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=nfs>
+List-Post: <mailto:nfs@lists.sourceforge.net>
+List-Help: <mailto:nfs-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
+	<mailto:nfs-request@lists.sourceforge.net?subject=subscribe>
+Sender: nfs-bounces@lists.sourceforge.net
+Errors-To: nfs-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
 Remove defconfig ptr comparison to 0
@@ -27,40 +32,27 @@ Signed-off-by: Joe Perches <joe@perches.com>
 
 ---
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index da767d3..cec3cb4 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -2495,7 +2495,7 @@ reuse_rx:
- 		}
- 
- #ifdef BCM_VLAN
--		if ((status & L2_FHDR_STATUS_L2_VLAN_TAG) && (bp->vlgrp != 0)) {
-+		if ((status & L2_FHDR_STATUS_L2_VLAN_TAG) && bp->vlgrp) {
- 			vlan_hwaccel_receive_skb(skb, bp->vlgrp,
- 				rx_hdr->l2_fhdr_vlan_tag);
- 		}
-@@ -5134,7 +5134,7 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		vlan_tag_flags |= TX_BD_FLAGS_TCP_UDP_CKSUM;
- 	}
- 
--	if (bp->vlgrp != 0 && vlan_tx_tag_present(skb)) {
-+	if (bp->vlgrp && vlan_tx_tag_present(skb)) {
- 		vlan_tag_flags |=
- 			(TX_BD_FLAGS_VLAN_TAG | (vlan_tx_tag_get(skb) << 16));
- 	}
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 4942f7d..b189c47 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -12576,7 +12576,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 		tg3reg_len = pci_resource_len(pdev, 2);
- 
- 		tp->aperegs = ioremap_nocache(tg3reg_base, tg3reg_len);
--		if (tp->aperegs == 0UL) {
-+		if (!tp->aperegs) {
- 			printk(KERN_ERR PFX "Cannot map APE registers, "
- 			       "aborting.\n");
- 			err = -ENOMEM;
+diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+index 76be83e..1600df2 100644
+--- a/net/sunrpc/clnt.c
++++ b/net/sunrpc/clnt.c
+@@ -157,7 +157,7 @@ static struct rpc_clnt * rpc_new_client(struct rpc_xprt *xprt, char *servname, s
+ 	clnt->cl_server = clnt->cl_inline_name;
+ 	if (len > sizeof(clnt->cl_inline_name)) {
+ 		char *buf = kmalloc(len, GFP_KERNEL);
+-		if (buf != 0)
++		if (buf)
+ 			clnt->cl_server = buf;
+ 		else
+ 			len = sizeof(clnt->cl_inline_name);
 
 
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >> http://get.splunk.com/
+_______________________________________________
+NFS maillist  -  NFS@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/nfs
