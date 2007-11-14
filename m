@@ -1,42 +1,186 @@
-From: Nj A <nj_a83@yahoo.fr>
-Subject: Bug in using inet_lookup ()
-Date: Wed, 14 Nov 2007 09:26:18 +0000 (GMT)
-Message-ID: <798108.90765.qm@web26108.mail.ukl.yahoo.com>
+From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
+Subject: [PATCH 2.6.24 1/1]S2io: Fixed memory leak by freeing MSI-X local
+ entry memories when vector allocation fails
+Date: Wed, 14 Nov 2007 04:29:07 -0500 (EST)
+Message-ID: <Pine.GSO.4.10.10711140423410.18735-100000@guinness>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: support@neterion.com
+To: netdev@vger.kernel.org, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web26108.mail.ukl.yahoo.com ([217.146.182.149]:33589 "HELO
-	web26108.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751408AbXKNJ0U convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2007 04:26:20 -0500
+Received: from barracuda.s2io.com ([72.1.205.138]:43560 "EHLO
+	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750925AbXKNJ3K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 04:29:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear All,
-I need to use the inet_lookup function to find the sock structure of a TCP connection in a SYN_RECV state.
-Here is what I used to do so:
-/* The kernel TCP hashtable */
-struct inet_hashinfo __cacheline_aligned tcp_hashinfo = {
-.lhash_lock = __RW_LOCK_UNLOCKED (tcp_hashinfo.lhash_lock),
-.lhash_users = ATOMIC_INIT (0),
-.lhash_wait = __WAIT_QUEUE_HEAD_INITIALIZER (tcp_hashinfo.lhash_wait),
-};
-...
-struct sock *sk;
-struct sk_buff *skb;
-skb = alloc_skb (MAX_TCP_HEADER + 15, GFP_KERNEL);
-if (skb == NULL)
-printk ("%s: Unable to allocate memory \n", __FUNCTION__);
-sk = inet_lookup (&tcp_hashinfo, ip_src, src_port, ip_dst, dst_port, inet_iif (skb));
-if (!sk)
-...
-This portion of code seems to cause the kernel to panic due to dereferencing a NULL pointer.
-Can anyone please tell me what is the error above?
-Best Regards,
+- Fixed memory leak by freeing MSI-X local entry memories when vector allocation
+fails in s2io_add_isr.
+- Added two utility functions remove_msix_isr and remove_inta_isr to eliminate
+code duplication.
+- Incorporated following review comments from Jeff
+        - Removed redundant stats->mem_freed and synchronize_irq call
+        - do_rem_msix_isr is renamed as remove_msix_isr
+        - do_rem_inta_isr is renamed as remove_inta_isr
 
+- (Resubmit third time)
 
-      _____________________________________________________________________________ 
-Ne gardez plus qu'une seule adresse mail ! Copiez vos mails vers Yahoo! Mail 
+Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
+---
+diff -Nurp org/drivers/net/s2io.c patch1/drivers/net/s2io.c
+--- org/drivers/net/s2io.c	2007-11-12 22:00:23.000000000 +0530
++++ patch1/drivers/net/s2io.c	2007-11-12 23:53:19.000000000 +0530
+@@ -84,7 +84,7 @@
+ #include "s2io.h"
+ #include "s2io-regs.h"
+ 
+-#define DRV_VERSION "2.0.26.5"
++#define DRV_VERSION "2.0.26.6"
+ 
+ /* S2io Driver name & version. */
+ static char s2io_driver_name[] = "Neterion";
+@@ -3775,6 +3775,40 @@ static int __devinit s2io_test_msi(struc
+ 
+ 	return err;
+ }
++
++static void remove_msix_isr(struct s2io_nic *sp)
++{
++	int i;
++	u16 msi_control;
++
++	for (i = 0; i < MAX_REQUESTED_MSI_X; i++) {
++		if (sp->s2io_entries[i].in_use ==
++			MSIX_REGISTERED_SUCCESS) {
++			int vector = sp->entries[i].vector;
++			void *arg = sp->s2io_entries[i].arg;
++			free_irq(vector, arg);
++		}
++	}
++
++	kfree(sp->entries);
++	kfree(sp->s2io_entries);
++	sp->entries = NULL;
++	sp->s2io_entries = NULL;
++
++	pci_read_config_word(sp->pdev, 0x42, &msi_control);
++	msi_control &= 0xFFFE; /* Disable MSI */
++	pci_write_config_word(sp->pdev, 0x42, msi_control);
++
++	pci_disable_msix(sp->pdev);
++}
++
++static void remove_inta_isr(struct s2io_nic *sp)
++{
++	struct net_device *dev = sp->dev;
++
++	free_irq(sp->pdev->irq, dev);
++}
++
+ /* ********************************************************* *
+  * Functions defined below concern the OS part of the driver *
+  * ********************************************************* */
+@@ -3809,28 +3843,9 @@ static int s2io_open(struct net_device *
+ 		int ret = s2io_enable_msi_x(sp);
+ 
+ 		if (!ret) {
+-			u16 msi_control;
+-
+ 			ret = s2io_test_msi(sp);
+-
+ 			/* rollback MSI-X, will re-enable during add_isr() */
+-			kfree(sp->entries);
+-			sp->mac_control.stats_info->sw_stat.mem_freed +=
+-				(MAX_REQUESTED_MSI_X *
+-				sizeof(struct msix_entry));
+-			kfree(sp->s2io_entries);
+-			sp->mac_control.stats_info->sw_stat.mem_freed +=
+-				(MAX_REQUESTED_MSI_X *
+-				sizeof(struct s2io_msix_entry));
+-			sp->entries = NULL;
+-			sp->s2io_entries = NULL;
+-
+-			pci_read_config_word(sp->pdev, 0x42, &msi_control);
+-			msi_control &= 0xFFFE; /* Disable MSI */
+-			pci_write_config_word(sp->pdev, 0x42, msi_control);
+-
+-			pci_disable_msix(sp->pdev);
+-
++			remove_msix_isr(sp);
+ 		}
+ 		if (ret) {
+ 
+@@ -6719,15 +6734,22 @@ static int s2io_add_isr(struct s2io_nic 
+ 				}
+ 			}
+ 			if (err) {
++				remove_msix_isr(sp);
+ 				DBG_PRINT(ERR_DBG,"%s:MSI-X-%d registration "
+ 					  "failed\n", dev->name, i);
+-				DBG_PRINT(ERR_DBG, "Returned: %d\n", err);
+-				return -1;
++				DBG_PRINT(ERR_DBG, "%s: defaulting to INTA\n",
++						 dev->name);
++				sp->config.intr_type = INTA;
++				break;
+ 			}
+ 			sp->s2io_entries[i].in_use = MSIX_REGISTERED_SUCCESS;
+ 		}
+-		printk("MSI-X-TX %d entries enabled\n",msix_tx_cnt);
+-		printk("MSI-X-RX %d entries enabled\n",msix_rx_cnt);
++		if (!err) {
++			printk(KERN_INFO "MSI-X-TX %d entries enabled\n",
++				msix_tx_cnt);
++			printk(KERN_INFO "MSI-X-RX %d entries enabled\n",
++				msix_rx_cnt);
++		}
+ 	}
+ 	if (sp->config.intr_type == INTA) {
+ 		err = request_irq((int) sp->pdev->irq, s2io_isr, IRQF_SHARED,
+@@ -6742,40 +6764,10 @@ static int s2io_add_isr(struct s2io_nic 
+ }
+ static void s2io_rem_isr(struct s2io_nic * sp)
+ {
+-	struct net_device *dev = sp->dev;
+-	struct swStat *stats = &sp->mac_control.stats_info->sw_stat;
+-
+-	if (sp->config.intr_type == MSI_X) {
+-		int i;
+-		u16 msi_control;
+-
+-		for (i=1; (sp->s2io_entries[i].in_use ==
+-			MSIX_REGISTERED_SUCCESS); i++) {
+-			int vector = sp->entries[i].vector;
+-			void *arg = sp->s2io_entries[i].arg;
+-
+-			synchronize_irq(vector);
+-			free_irq(vector, arg);
+-		}
+-
+-		kfree(sp->entries);
+-		stats->mem_freed +=
+-			(MAX_REQUESTED_MSI_X * sizeof(struct msix_entry));
+-		kfree(sp->s2io_entries);
+-		stats->mem_freed +=
+-			(MAX_REQUESTED_MSI_X * sizeof(struct s2io_msix_entry));
+-		sp->entries = NULL;
+-		sp->s2io_entries = NULL;
+-
+-		pci_read_config_word(sp->pdev, 0x42, &msi_control);
+-		msi_control &= 0xFFFE; /* Disable MSI */
+-		pci_write_config_word(sp->pdev, 0x42, msi_control);
+-
+-		pci_disable_msix(sp->pdev);
+-	} else {
+-		synchronize_irq(sp->pdev->irq);
+-		free_irq(sp->pdev->irq, dev);
+-	}
++	if (sp->config.intr_type == MSI_X)
++		remove_msix_isr(sp);
++	else
++		remove_inta_isr(sp);
+ }
+ 
+ static void do_s2io_card_down(struct s2io_nic * sp, int do_io)
+
