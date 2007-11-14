@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix warning for token-ring from sysctl checker
-Date: Tue, 13 Nov 2007 21:15:40 -0800 (PST)
-Message-ID: <20071113.211540.97775009.davem@davemloft.net>
-References: <20071113072313.GB16842@lixom.net>
+Subject: Re: [PATCH] bonding: Fix resource use after free
+Date: Tue, 13 Nov 2007 21:16:43 -0800 (PST)
+Message-ID: <20071113.211643.94988047.davem@davemloft.net>
+References: <1194920136881-git-send-email-fubar@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ebiederm@xmission.com
-To: olof@lixom.net
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, monis@voltaire.com
+To: fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48494
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48500
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750722AbXKNFPl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 00:15:41 -0500
-In-Reply-To: <20071113072313.GB16842@lixom.net>
+	by vger.kernel.org with ESMTP id S1750927AbXKNFQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 00:16:43 -0500
+In-Reply-To: <1194920136881-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Olof Johansson <olof@lixom.net>
-Date: Tue, 13 Nov 2007 01:23:13 -0600
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Mon, 12 Nov 2007 18:15:36 -0800
 
-> As seen when booting ppc64_defconfig:
+> 	Fix bond_destroy and bond_free_all to not reference the
+> struct net_device after calling unregister_netdevice.
 > 
-> sysctl table check failed: /net/token-ring .3.14 procname does not match binary path procname
+> 	Bug and offending change reported by Moni Shoua <monis@voltaire.com>
 > 
-> 
-> Signed-off-by: Olof Johansson <olof@lixom.net>
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-Patch applied, thanks Olof.
+Applied to net-2.6, thanks Jay.
