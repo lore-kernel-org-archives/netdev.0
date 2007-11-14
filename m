@@ -1,138 +1,149 @@
 From: Urs Thuermann <urs.thuermann@gmx.de>
-Subject: [PATCH 1/7] CAN: Allocate protocol numbers for PF_CAN
-Date: Wed, 14 Nov 2007 13:13:40 +0100
-Message-ID: <20071114121424.25823.1@janus.isnogud.escape.de>
-References: <20071114121339.25823.0@janus.isnogud.escape.de>
+Subject: [PATCH 0/7] CAN: New PF_CAN protocol family for 2.6.25
+Date: Wed, 14 Nov 2007 13:13:39 +0100
+Message-ID: <20071114121339.25823.0@janus.isnogud.escape.de>
 Cc: Urs Thuermann <urs.thuermann@volkswagen.de>,
 	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:60870 "EHLO oker.escape.de"
+Received: from oker.escape.de ([194.120.234.254]:60873 "EHLO oker.escape.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751510AbXKNMZL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752976AbXKNMZL (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 14 Nov 2007 07:25:11 -0500
-Content-Disposition: inline; filename=01-can-proto-numbers.diff
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds a protocol/address family number, ARP hardware type,
-ethernet packet type, and a line discipline number for the SocketCAN
-implementation.
+Hello Dave, hello Patrick,
 
-Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
+this patch series that adds the PF_CAN protocol family for the
+Controller Area Network.  Since our last post we have changed:
 
----
- include/linux/if.h       |    4 +++-
- include/linux/if_arp.h   |    1 +
- include/linux/if_ether.h |    1 +
- include/linux/socket.h   |    2 ++
- include/linux/tty.h      |    3 ++-
- net/core/sock.c          |    4 ++--
- 6 files changed, 11 insertions(+), 4 deletions(-)
+* Fix a bug causing NULL pointer dereference when module autoloading fails.
+* Initialize skb using skb_reset_{transport,network}_header().
+* Use sock_alloc_send_skb() instead of alloc_skb().
+* Adapt to changes in sk_alloc() parameter list.
+* Rename some local variables for readability.
 
-Index: net-2.6.25/include/linux/if_arp.h
-===================================================================
---- net-2.6.25.orig/include/linux/if_arp.h	2007-11-14 13:04:26.000000000 +0100
-+++ net-2.6.25/include/linux/if_arp.h	2007-11-14 13:04:46.000000000 +0100
-@@ -52,6 +52,7 @@
- #define ARPHRD_ROSE	270
- #define ARPHRD_X25	271		/* CCITT X.25			*/
- #define ARPHRD_HWX25	272		/* Boards with X.25 in firmware	*/
-+#define ARPHRD_CAN	280		/* Controller Area Network      */
- #define ARPHRD_PPP	512
- #define ARPHRD_CISCO	513		/* Cisco HDLC	 		*/
- #define ARPHRD_HDLC	ARPHRD_CISCO
-Index: net-2.6.25/include/linux/if_ether.h
-===================================================================
---- net-2.6.25.orig/include/linux/if_ether.h	2007-11-14 13:04:26.000000000 +0100
-+++ net-2.6.25/include/linux/if_ether.h	2007-11-14 13:04:46.000000000 +0100
-@@ -90,6 +90,7 @@
- #define ETH_P_WAN_PPP   0x0007          /* Dummy type for WAN PPP frames*/
- #define ETH_P_PPP_MP    0x0008          /* Dummy type for PPP MP frames */
- #define ETH_P_LOCALTALK 0x0009		/* Localtalk pseudo type 	*/
-+#define ETH_P_CAN	0x000C		/* Controller Area Network      */
- #define ETH_P_PPPTALK	0x0010		/* Dummy type for Atalk over PPP*/
- #define ETH_P_TR_802_2	0x0011		/* 802.2 frames 		*/
- #define ETH_P_MOBITEX	0x0015		/* Mobitex (kaz@cafe.net)	*/
-Index: net-2.6.25/include/linux/socket.h
-===================================================================
---- net-2.6.25.orig/include/linux/socket.h	2007-11-14 13:04:26.000000000 +0100
-+++ net-2.6.25/include/linux/socket.h	2007-11-14 13:04:46.000000000 +0100
-@@ -185,6 +185,7 @@
- #define AF_PPPOX	24	/* PPPoX sockets		*/
- #define AF_WANPIPE	25	/* Wanpipe API Sockets */
- #define AF_LLC		26	/* Linux LLC			*/
-+#define AF_CAN		29	/* Controller Area Network      */
- #define AF_TIPC		30	/* TIPC sockets			*/
- #define AF_BLUETOOTH	31	/* Bluetooth sockets 		*/
- #define AF_IUCV		32	/* IUCV sockets			*/
-@@ -220,6 +221,7 @@
- #define PF_PPPOX	AF_PPPOX
- #define PF_WANPIPE	AF_WANPIPE
- #define PF_LLC		AF_LLC
-+#define PF_CAN		AF_CAN
- #define PF_TIPC		AF_TIPC
- #define PF_BLUETOOTH	AF_BLUETOOTH
- #define PF_IUCV		AF_IUCV
-Index: net-2.6.25/include/linux/tty.h
-===================================================================
---- net-2.6.25.orig/include/linux/tty.h	2007-11-14 13:04:26.000000000 +0100
-+++ net-2.6.25/include/linux/tty.h	2007-11-14 13:04:46.000000000 +0100
-@@ -23,7 +23,7 @@
-  */
- #define NR_UNIX98_PTY_DEFAULT	4096      /* Default maximum for Unix98 ptys */
- #define NR_UNIX98_PTY_MAX	(1 << MINORBITS) /* Absolute limit */
--#define NR_LDISCS		17
-+#define NR_LDISCS		18
- 
- /* line disciplines */
- #define N_TTY		0
-@@ -44,6 +44,7 @@
- #define N_SYNC_PPP	14	/* synchronous PPP */
- #define N_HCI		15	/* Bluetooth HCI UART */
- #define N_GIGASET_M101	16	/* Siemens Gigaset M101 serial DECT adapter */
-+#define N_SLCAN		17	/* Serial / USB serial CAN Adaptors */
- 
- /*
-  * This character is the same as _POSIX_VDISABLE: it cannot be used as
-Index: net-2.6.25/net/core/sock.c
-===================================================================
---- net-2.6.25.orig/net/core/sock.c	2007-11-14 13:04:26.000000000 +0100
-+++ net-2.6.25/net/core/sock.c	2007-11-14 13:04:47.000000000 +0100
-@@ -154,7 +154,7 @@
-   "sk_lock-AF_ASH"   , "sk_lock-AF_ECONET"   , "sk_lock-AF_ATMSVC"   ,
-   "sk_lock-21"       , "sk_lock-AF_SNA"      , "sk_lock-AF_IRDA"     ,
-   "sk_lock-AF_PPPOX" , "sk_lock-AF_WANPIPE"  , "sk_lock-AF_LLC"      ,
--  "sk_lock-27"       , "sk_lock-28"          , "sk_lock-29"          ,
-+  "sk_lock-27"       , "sk_lock-28"          , "sk_lock-AF_CAN"      ,
-   "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
-   "sk_lock-AF_RXRPC" , "sk_lock-AF_MAX"
- };
-@@ -168,7 +168,7 @@
-   "slock-AF_ASH"   , "slock-AF_ECONET"   , "slock-AF_ATMSVC"   ,
-   "slock-21"       , "slock-AF_SNA"      , "slock-AF_IRDA"     ,
-   "slock-AF_PPPOX" , "slock-AF_WANPIPE"  , "slock-AF_LLC"      ,
--  "slock-27"       , "slock-28"          , "slock-29"          ,
-+  "slock-27"       , "slock-28"          , "slock-AF_CAN"      ,
-   "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
-   "slock-AF_RXRPC" , "slock-AF_MAX"
- };
-Index: net-2.6.25/include/linux/if.h
-===================================================================
---- net-2.6.25.orig/include/linux/if.h	2007-11-14 13:04:26.000000000 +0100
-+++ net-2.6.25/include/linux/if.h	2007-11-14 13:04:47.000000000 +0100
-@@ -50,7 +50,9 @@
- #define IFF_LOWER_UP	0x10000		/* driver signals L1 up		*/
- #define IFF_DORMANT	0x20000		/* driver signals dormant	*/
- 
--#define IFF_VOLATILE	(IFF_LOOPBACK|IFF_POINTOPOINT|IFF_BROADCAST|\
-+#define IFF_ECHO	0x40000		/* echo sent packets		*/
-+
-+#define IFF_VOLATILE	(IFF_LOOPBACK|IFF_POINTOPOINT|IFF_BROADCAST|IFF_ECHO|\
- 		IFF_MASTER|IFF_SLAVE|IFF_RUNNING|IFF_LOWER_UP|IFF_DORMANT)
- 
- /* Private (from user) interface flags (netdevice->priv_flags). */
+This patch series applies against net-2.6.25 and is derived from Subversion
+revision r542 of http://svn.berlios.de/svnroot/repos/socketcan.
+It can be found in the directory
+http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
 
+Thanks very much for your work!
+
+Best regards,
+
+Urs Thuermann
+Oliver Hartkopp
+
+
+
+The changes in try #10 were:
+
+* Rename our static debug variables to {can,raw,bcm,vcan}_debug.
+* Use module_param_named() so that the module option names remain.
+* Remove raw_poll() and bcm_poll() functions and use datagram_poll instead.
+* Cleanup of can_addr union in sockaddr_can.
+* Change type of echo module parameter to boolean.
+
+The changes in try #9 were:
+
+* Changes suggested by Arnaldo Carvalho de Melo:
+  - Use gfp_any() instead of checking in_interrupt().
+  - Don't kfree() the sk_protinfo field.
+* Fixed licence text as pointed out by Yoshifuji Hideaki and Patrick McHardy.
+* Added IFF_ECHO to include/linux/if.h and use that instead of IFF_LOOPBACK,
+  as suggested by Eric W. Biederman.  IFF_LOOPBACK is only for the normal
+  loopback interface.
+
+The changes in try #8 were:
+
+* Some changes in debug code, following suggestions from Joe Perches:
+  - Remove dynamically allocated buffer for debug output.
+  - Use kernel functions for hexdumps.
+  - Don't interpret printf-style %-sequences in can_debug_cframe().
+  - Specify the fixed argument "fmt" to DBG() macro and use
+    GCC ## mechanism to remove , when args is empty.
+* Removed CAN_RAW_USER and CAN_BCM_USER Kconfig options following a
+  suggestion from Patrick.
+* Prevent overflow in statistics calculation.
+* Minor optimization.
+
+The changes in try #7 were:
+
+* Changes suggested by Patrick:
+  - protect proto_tab[] by a lock.
+  - add _rcu to some hlist traversals.
+  - use printk_ratelimit() for module autoload failures.
+  - make can_proto_unregister() and can_rx_unregister() return void.
+  - use return value of can_proto_register() and can_rx_register()
+    (this also removed a flaw in behavior of raw_bind() and raw_setsockopt()
+     in case of failure to can_rx_register() their filters).
+  - call kzalloc() with GFP_KERNEL in case NETDEV_REGISTER.
+  - use round_jiffies() to calculate expiration times.
+  - make some variables static and/or __read_mostly.
+  - in can_create() check for net namespace before auto loading modules.
+  - add build time check for struct sizes.
+  - use skb_share_chack() in vcan.
+  - fixed some comments.
+* Typos in documentation as pointed out by Randy Dunlap and Bill Fink.
+
+The changes in try #6 were:
+
+* Update code to work with namespaces in net-2.6.24.
+* Remove SET_MODULE_OWNER() from vcan.
+
+The changes in try #5 were:
+
+* Remove slab destructor from calls to kmem_cache_alloc().
+* Add comments about types defined in can.h.
+* Update comment on vcan loopback module parameter.
+* Fix typo in documentation.
+
+The changes in try #4 were:
+
+* Change vcan network driver to use the new RTNL API, as suggested by
+  Patrick.
+* Revert our change to use skb->iif instead of skb->cb.  After
+  discussion with Patrick and Jamal it turned out, our first
+  implementation was correct.
+* Use skb_tail_pointer() instead of skb->tail directly.
+* Coding style changes to satisfy linux/scripts/checkpatch.pl.
+* Minor changes for 64-bit-cleanliness.
+* Minor cleanup of #include's
+
+The changes in try #3 were:
+
+* Use sbk->sk and skb->pkt_type instead of skb->cb to pass loopback
+  flags and originating socket down to the driver and back to the
+  receiving socket.  Thanks to Patrick McHardy for pointing out our
+  wrong use of sbk->cb.
+* Use skb->iif instead of skb->cb to pass receiving interface from
+  raw_rcv() and bcm_rcv() up to raw_recvmsg() and bcm_recvmsg().
+* Set skb->protocol when sending CAN frames to netdevices.
+* Removed struct raw_opt and struct bcm_opt and integrated these
+  directly into struct raw_sock and bcm_sock resp., like most other
+  proto implementations do.
+* We have found and fixed race conditions between raw_bind(),
+  raw_{set,get}sockopt() and raw_notifier().  This resulted in
+  - complete removal of our own notifier list infrastructure in
+    af_can.c.  raw.c and bcm.c now use normal netdevice notifiers.
+  - removal of ro->lock spinlock.  We use lock_sock(sk) now.
+  - changed deletion of dev_rcv_lists, which are now marked for
+    deletion in the netdevice notifier in af_can.c and are actually
+    deleted when all entries have been deleted using can_rx_unregister().
+* Follow changes in 2.6.22 (e.g. ktime_t timestamps in skb).
+* Removed obsolete code from vcan.c, as pointed out by Stephen Hemminger.
+
+The changes in try #2 were:
+
+* reduced RCU callback overhead when deleting receiver lists (thx to
+  feedback from Paul E. McKenney).
+* eliminated some code duplication in net/can/proc.c.
+* renamed slock-29 and sk_lock-29 to slock-AF_CAN and sk_lock-AF_CAN in
+  net/core/sock.c
+* added entry for can.txt in Documentation/networking/00-INDEX
+* added error frame definitions in include/linux/can/error.h, which are to
+  be used by CAN network drivers.
 --
