@@ -1,21 +1,36 @@
-From: David Miller <davem@davemloft.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
 Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 17:10:51 -0800 (PST)
-Message-ID: <20071113.171051.199524749.davem@davemloft.net>
-References: <4739E3D0.10201@rtr.ca>
+Date: Tue, 13 Nov 2007 17:11:36 -0800
+Message-ID: <20071113171136.75ba098d@freepuppy.rosehill>
+References: <20071113134029.GA30978@elte.hu>
+	<4739AFE0.20705@rtr.ca>
+	<20071113164650.GA28493@elte.hu>
+	<4739E3D0.10201@rtr.ca>
 	<20071113181228.GF4250@stusta.de>
 	<4739EA83.5040006@rtr.ca>
+	<20071113183605.GG4250@stusta.de>
+	<4739F12E.5020807@rtr.ca>
+	<20071113190428.GH4250@stusta.de>
+	<4739FA4D.1050900@rtr.ca>
+	<20071113200028.GJ4250@stusta.de>
+	<20071113211256.1d18fe1a@the-village.bc.nu>
+	<473A46C1.3060000@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bunk@kernel.org, mingo@elte.hu, akpm@linux-foundation.org,
- protasnb@gmail.com, linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
- alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
- linux-pcmcia@lists.infradead.org, linux-input@atrey.karlin.mff.cuni.cz,
- bugme-daemon@bugzilla.kernel.org
-To: liml@rtr.ca
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, Adrian Bunk <bunk@kernel.org>,
+        Mark
+ Lord <liml@rtr.ca>, Ingo Molnar <mingo@elte.hu>,
+        Andrew Morton
+ <akpm@linux-foundation.org>,
+        David Miller <davem@davemloft.net>, protasnb@gmail.com,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
+        linux-pcmcia@lists.infradead.org, linux-input@atrey.karlin.mff.cuni.cz,
+        bugme-daemon@bugzilla.kernel.org
+To: Chuck Ebbert <cebbert@redhat.com>
 Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <4739EA83.5040006@rtr.ca>
+In-Reply-To: <473A46C1.3060000@redhat.com>
 Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
 List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
 List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
@@ -23,21 +38,30 @@ List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
 List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-From: Mark Lord <liml@rtr.ca>
-Date: Tue, 13 Nov 2007 13:18:43 -0500
+On Tue, 13 Nov 2007 19:52:17 -0500
+Chuck Ebbert <cebbert@redhat.com> wrote:
 
-> Mind you, no arguing that this is effective when that poor bloke has
-> a day free to download the git-tree and build/reboot a dozen times.
+> On 11/13/2007 04:12 PM, Alan Cox wrote:
+> >> Bug fixing is not about finding someone to blame, it's about getting the 
+> >> bug fixed.
+> > 
+> > Partly - its also about understanding why the bug occurred and making it
+> > not happen again.
+> 
+> Very few people think about that part.
 
-Like the internet, this time spent is beneficial because it's
-pushing the work out to the end nodes.  In fact git bisect is
-an awesome example of the end node principle in action for
-software development and QA.
+Why does the kernel have very few useful tests?
+ Lack of interest? resources? expertise?
+Ideally each new feature would just be a small add on to an existing test.
 
-For the end-user wanting their bug fixed and the developer it's a win
-win situation because the reporter is actually able to do something
-proactive which will help get the bug they want fixed faster.
+Unlike developing new features which seems to grow well with more developers.
+Bug fixing also seems to be a scarcity process. There often seems to be
+a very few people that understand the problem well enough or have the necessary
+hardware to reproduce and fix the problem.
 
-So I don't agree with framing this person as a "poor bloke".  Our
-testers are more empowered than ever to lead the process towards a
-fix.
+Recent changes like tickless and scheduler rework were well thought out and caused
+very little impact to 90% of the users. The problem is the 10% who do have problems.
+Worse, the developers often only hear about the a small sample of those.
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
