@@ -1,57 +1,43 @@
-From: "Fabio Comolli" <fabio.comolli@gmail.com>
+From: Ingo Molnar <mingo@elte.hu>
 Subject: Re: [BUG] New Kernel Bugs
-Date: Wed, 14 Nov 2007 15:14:46 +0100
-Message-ID: <b637ec0b0711140614s143d053ame7a3f13884c29bf4@mail.gmail.com>
-References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com>
-	 <20071113031553.3c7b5c16.akpm@linux-foundation.org>
-	 <20071114132448.GA5183@ucw.cz>
+Date: Wed, 14 Nov 2007 15:30:40 +0100
+Message-ID: <20071114143040.GA31025@elte.hu>
+References: <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org> <20071113134029.GA30978@elte.hu> <4739AFE0.20705@rtr.ca> <20071113164650.GA28493@elte.hu> <4739E3D0.10201@rtr.ca> <20071113183925.GF17785@parisc-linux.org> <4739F069.6050102@rtr.ca> <20071113184902.GG17785@parisc-linux.org> <4739F2DD.5050802@rtr.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@linux-foundation.org>,
-	"Natalie Protasevich" <protasnb@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Matthew Wilcox <matthew@wil.cx>, alsa-devel@alsa-project.org,
+	netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+	linux-kernel@vger.kernel.org, protasnb@gmail.com,
+	linux-ide@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
 	linux-input@atrey.karlin.mff.cuni.cz,
-	bugme-daemon@bugzilla.kernel.org
-To: "Pavel Machek" <pavel@ucw.cz>
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <20071114132448.GA5183@ucw.cz>
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Mark Lord <liml@rtr.ca>
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
 Content-Disposition: inline
-Sender: linux-ide-owner@vger.kernel.org
+In-Reply-To: <4739F2DD.5050802@rtr.ca>
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-FWIW, I see the same problem with another HP notebook, DV4378EA with
-radeon X700 video card. It does not happen frequently but I can say
-that since I disabled the tickless feature I can't reproduce the
-problem anymore.
 
-On Nov 14, 2007 2:24 PM, Pavel Machek <pavel@ucw.cz> wrote:
-> Hi!
+* Mark Lord <liml@rtr.ca> wrote:
+
+>> You're assuming that everything in linux-2.6 was downloaded; that's 
+>> not true.  Everything in linux-2.6/.git was downloaded; but then you 
+>> do a checkout which happens to approximately double the size of the 
+>> linux-2.6 directory.
+> ..
 >
-> > > Suspend to RAM resume hangs on a tickless (NO_HZ) kernel
-> > > http://bugzilla.kernel.org/show_bug.cgi?id=9275
-> > > Kernel: 2.6.23
-> > > This is HP notebook nc6320 T2400 945GM
-> >
-> > No response from developers
->
-> Maybe I'm optimistic, but I expected Ingo/Thomas to look after nohz
-> problems. nohz=off highres=off fixes more than one suspend problem...
->
-> ...stuff I've seen with NOHZ even without suspend (cursor blinking
-> irregulary) make me think that nohz perhaps should not be used in
-> production just yet...
->
->                                                         Pavel
-> --
-> (english) http://www.livejournal.com/~pavelmachek
-> (cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
->
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->
+> Ah, I wondered why it took only half an hour to download.
+
+and you can get even lower than the 260MB by downloading a shallow clone 
+of v2.6.23 and then populating the git tree from tht point on. (see the 
+--depth parameter of git-clone) [because most of the time you want to 
+bisect back to the last stable release, not back to 2 years of git 
+history.]
+
+	Ingo
