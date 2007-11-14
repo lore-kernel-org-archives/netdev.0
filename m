@@ -1,35 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 10/24] [IPSEC]: Move flow construction into
- xfrm_dst_lookup
-Date: Tue, 13 Nov 2007 21:37:39 -0800 (PST)
-Message-ID: <20071113.213739.260545863.davem@davemloft.net>
+Subject: Re: [PATCH 11/24] [IPSEC]: Merge common code into
+ xfrm_bundle_create
+Date: Tue, 13 Nov 2007 21:38:48 -0800 (PST)
+Message-ID: <20071113.213848.135920298.davem@davemloft.net>
 References: <20071107140701.GA4685@gondor.apana.org.au>
-	<E1IplZy-0001HD-00@gondolin.me.apana.org.au>
+	<E1IplZz-0001HL-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37458
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45829
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757286AbXKNFhk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 00:37:40 -0500
-In-Reply-To: <E1IplZy-0001HD-00@gondolin.me.apana.org.au>
+	by vger.kernel.org with ESMTP id S1757260AbXKNFit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 00:38:49 -0500
+In-Reply-To: <E1IplZz-0001HL-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 07 Nov 2007 22:08:26 +0800
+Date: Wed, 07 Nov 2007 22:08:27 +0800
 
-> [IPSEC]: Move flow construction into xfrm_dst_lookup
+> [IPSEC]: Merge common code into xfrm_bundle_create
 > 
-> This patch moves the flow construction from the callers of xfrm_dst_lookup
-> into that function.  It also changes xfrm_dst_lookup so that it takes an
-> xfrm state as its argument instead of explicit addresses.
+> Half of the code in xfrm4_bundle_create and xfrm6_bundle_create are common.
+> This patch extracts that logic and puts it into xfrm_bundle_create.  The
+> rest of it are then accessed through afinfo.
 > 
-> This removes any address-specific logic from the callers of xfrm_dst_lookup
-> which is needed to correctly support inter-family transforms.
+> As a result this fixes the problem with inter-family transforms where we
+> treat every xfrm dst in the bundle as if it belongs to the top family.
+> 
+> This patch also fixes a long-standing error-path bug where we may free the
+> xfrm states twice.
 > 
 > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
