@@ -1,34 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/2] [IPSEC]: Add async resume support on input
-Date: Wed, 14 Nov 2007 14:36:58 +0800
-Message-ID: <20071114063657.GA11293@gondor.apana.org.au>
-References: <20071113.214609.04000914.davem@davemloft.net> <20071114062758.GA11173@gondor.apana.org.au> <20071114062834.GB11173@gondor.apana.org.au> <20071113.223356.216207937.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.24-rc2: Network commit causes SLUB performance regression
+ with tbench
+Date: Tue, 13 Nov 2007 22:37:26 -0800 (PST)
+Message-ID: <20071113.223726.40898879.davem@davemloft.net>
+References: <200711140436.24492.nickpiggin@yahoo.com.au>
+	<20071113.221242.153352652.davem@davemloft.net>
+	<200711140514.28159.nickpiggin@yahoo.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: clameter@sgi.com, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org
+To: nickpiggin@yahoo.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2860 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756845AbXKNGhA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 01:37:00 -0500
-Content-Disposition: inline
-In-Reply-To: <20071113.223356.216207937.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52554
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1764157AbXKNGh0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 01:37:26 -0500
+In-Reply-To: <200711140514.28159.nickpiggin@yahoo.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 13, 2007 at 10:33:56PM -0800, David Miller wrote:
->
-> Also applied to net-2.6.25, thanks.
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Wed, 14 Nov 2007 05:14:27 +1100
+
+> On Wednesday 14 November 2007 17:12, David Miller wrote:
+> > Is your test system using HIGHMEM?
+> >
+> > That's one thing the page vector in the sk_buff can do a lot,
+> > kmaps.
 > 
-> I'll work on integrating Patrick's NF_INET_* patch next.
+> No, it's an x86-64, so no highmem.
 
-Thanks! With that you would be able to remove the nf_post_routing
-field from xfrm_state_afinfo.
+Ok.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> What's also interesting is that SLAB apparently doesn't have this
+> condition. The first thing that sprung to mind is that SLAB caches
+> order > 0 allocations, while SLUB does not. However if anything,
+> that should actually favour the SLUB numbers if network is avoiding
+> order > 0 allocations.
+> 
+> I'm doing some oprofile runs now to see if I can get any more info.
+
+Here are some other things you can play around with:
+
+1) Monitor the values of skb->len and skb->data_len for packets
+   going over loopback.
+
+2) Try removing NETIF_F_SG in drivers/net/loopback.c's dev->feastures
+   setting.
