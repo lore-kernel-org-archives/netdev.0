@@ -1,55 +1,62 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: Re: [PATCH 05/25] NFS: eliminate NIPQUAD(clp->cl_addr.sin_addr)
-Date: Wed, 14 Nov 2007 11:52:49 -0500
-Message-ID: <473B27E1.7020502@oracle.com>
-References: <20071113183126.5087.27810.stgit@manray.1015granger.net> <20071114.104533.127429382.yoshfuji@linux-ipv6.org>
-Reply-To: chuck.lever@oracle.com
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter : struct xt_table_info diet
+Date: Wed, 14 Nov 2007 18:19:41 +0100
+Message-ID: <473B2E2D.4010504@trash.net>
+References: <20071114164735.1ba04bc3.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050607080806050807070605"
-Cc: nfs@lists.sourceforge.net, netdev@vger.kernel.org
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
-	<yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:14439 "EHLO
-	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754283AbXKNQzI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 11:55:08 -0500
-In-Reply-To: <20071114.104533.127429382.yoshfuji@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20071114164735.1ba04bc3.dada1@cosmosbay.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050607080806050807070605
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
+[netfilter-devel CCed]
 
-YOSHIFUJI Hideaki / 吉藤英明 wrote:
-> In article <20071113183126.5087.27810.stgit@manray.1015granger.net> (at Tue, 13 Nov 2007 13:31:27 -0500), Chuck Lever <chuck.lever@oracle.com> says:
+Eric Dumazet wrote:
+> Hi David & Patrick
 > 
->>  		   clp->rpc_ops->version,
->> -		   NIPQUAD(clp->cl_addr.sin_addr),
->> -		   ntohs(clp->cl_addr.sin_port),
->> +		   rpc_peeraddr2str(clp->cl_rpcclient, RPC_DISPLAY_HEX_ADDR),
->> +		   rpc_peeraddr2str(clp->cl_rpcclient, RPC_DISPLAY_HEX_PORT),
->>  		   atomic_read(&clp->cl_count),
+> Please find a patch against net-2.6.25
 > 
-> Is this really safe?
+> Thank you
+> 
+> 
+> [PATCH] netfilter : struct xt_table_info diet
+> 
+> Instead of using a big array of NR_CPUS entries, we can compute the size needed at runtime, using nr_cpu_ids
+> 
+> This should save some ram (especially on David's machines where NR_CPUS=4096 : 32 KB can be saved per table, and 64KB for dynamically allocated ones (because of slab/slub alignements) )
+> 
+> In particular, the 'bootstrap' tables are not any more static (in data section) but on stack as their
+> size is now very small.
+> 
+> This also should reduce the size used on stack in compat functions 
+> (get_info() declares an automatic variable, that could be bigger than kernel stack size for big NR_CPUS)
 
-What's unsafe about it?  rpc_peeraddr2str() is designed to be called 
-this way.
 
---------------050607080806050807070605
-Content-Type: text/x-vcard; charset=utf-8;
- name="chuck.lever.vcf"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="chuck.lever.vcf"
+Thanks, this looks good. One question:
 
-YmVnaW46dmNhcmQNCmZuOkNodWNrIExldmVyDQpuOkxldmVyO0NodWNrDQpvcmc6T3JhY2xl
-IENvcnBvcmF0aW9uO0NvcnBvcmF0ZSBBcmNoaXRlY3R1cmU6IExpbnV4IFByb2plY3RzIEdy
-b3VwDQphZHI6OzsxMDE1IEdyYW5nZXIgQXZlbnVlO0FubiBBcmJvcjtNSTs0ODEwNDtVU0EN
-CnRpdGxlOlByaW5jaXBhbCBNZW1iZXIgb2YgU3RhZmYNCnRlbDt3b3JrOisxIDI0OCA2MTQg
-NTA5MQ0KeC1tb3ppbGxhLWh0bWw6RkFMU0UNCnZlcnNpb246Mi4xDQplbmQ6dmNhcmQNCg0K
+> diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+> index 2909c92..ed3bd0b 100644
+> --- a/net/ipv4/netfilter/arp_tables.c
+> +++ b/net/ipv4/netfilter/arp_tables.c
+> @@ -811,7 +811,7 @@ static int do_replace(void __user *user, unsigned int len)
+>  		return -ENOPROTOOPT;
+>  
+>  	/* overflow check */
+> -	if (tmp.size >= (INT_MAX - sizeof(struct xt_table_info)) / NR_CPUS -
+> +	if (tmp.size >= (INT_MAX - XT_TABLE_INFO_SZ) / NR_CPUS -
+>  			SMP_CACHE_BYTES)
 
---------------050607080806050807070605--
+
+Shouldn't NR_CPUs be replaced by nr_cpu_ids here? I'm wondering
+why we still include NR_CPUs in the calculation at all though,
+unlike in 2.4, we don't allocate one huge area of memory anymore
+but do one allocation per CPU. IIRC it even was you who changed
+that.
+
