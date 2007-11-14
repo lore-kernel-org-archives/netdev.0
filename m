@@ -1,36 +1,48 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Subject: Re: 2.6.24-rc2: Network commit causes SLUB performance regression with tbench
-Date: Tue, 13 Nov 2007 22:41:58 +1100
-Message-ID: <200711132241.59074.nickpiggin@yahoo.com.au>
-References: <200711092336.56172.nickpiggin@yahoo.com.au> <200711101229.35822.nickpiggin@yahoo.com.au> <Pine.LNX.4.64.0711121144001.26936@schroedinger.engr.sgi.com>
+From: Krzysztof Oledzki <olel@ans.pl>
+Subject: Re: [PATCH 5/6] e1000: Secondary unicast address support
+Date: Wed, 14 Nov 2007 01:16:52 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0711140113400.15397@bizon.gios.gov.pl>
+References: <20071113231110.13177.27339.stgit@localhost.localdomain>
+ <20071113231133.13177.84769.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-kernel@vger.kernel.org
-To: Christoph Lameter <clameter@sgi.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-12062025-1194999412=:15397"
+Cc: davem@davemloft.net, jeff@garzik.org, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com
+To: Auke Kok <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp110.mail.mud.yahoo.com ([209.191.85.220]:30068 "HELO
-	smtp110.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754693AbXKNAE1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 19:04:27 -0500
-In-Reply-To: <Pine.LNX.4.64.0711121144001.26936@schroedinger.engr.sgi.com>
-Content-Disposition: inline
+Received: from bizon.gios.gov.pl ([212.244.124.8]:48129 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755374AbXKNARX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 19:17:23 -0500
+In-Reply-To: <20071113231133.13177.84769.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 13 November 2007 06:44, Christoph Lameter wrote:
-> On Sat, 10 Nov 2007, Nick Piggin wrote:
-> > BTW. your size-2048 kmalloc cache is order-1 in the default setup,
-> > wheras kmalloc(1024) or kmalloc(4096) will be order-0 allocations. And
-> > SLAB also uses order-0 for size-2048. It would be nice if SLUB did the
-> > same...
->
-> You can try to see the effect that order 0 would have by booting with
->
-> slub_max_order=0
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Yeah, that didn't help much, but in general I think it would give
-more consistent and reliable behaviour from slub.
+---187430788-12062025-1194999412=:15397
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+
+
+
+On Tue, 13 Nov 2007, Auke Kok wrote:
+
+> From: Patrick McHardy <kaber@trash.net>
+>
+> Add support for configuring secondary unicast addresses. Unicast
+> addresses take precendece over multicast addresses when filling
+> the exact address filters to avoid going to promiscous mode.
+> When more unicast addresses are present than filter slots,
+> unicast filtering is disabled and all slots can be used for
+> multicast addresses.
+
+Is there any easy way to use it for VRRP? It would be really great to=20
+have two IP addresses on the same interface, each with a different hw=20
+address.
+
+Best regards,
+
+ =09=09=09=09 Krzysztof Ol=EAdzki
+---187430788-12062025-1194999412=:15397--
