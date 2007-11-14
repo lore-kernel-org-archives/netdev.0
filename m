@@ -1,73 +1,71 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 5/7] CAN: Add virtual CAN netdevice driver
-Date: Wed, 14 Nov 2007 13:51:59 +0100
-Message-ID: <473AEF6F.1070808@trash.net>
-References: <20071114121339.25823.0@janus.isnogud.escape.de> <20071114121426.25823.5@janus.isnogud.escape.de>
+From: Nj A <nj_a83@yahoo.fr>
+Subject: Re : Bug in using inet_lookup ()
+Date: Wed, 14 Nov 2007 13:12:11 +0000 (GMT)
+Message-ID: <867900.85129.qm@web26107.mail.ukl.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-To: Urs Thuermann <urs.thuermann@gmx.de>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43880 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750718AbXKNMwM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 07:52:12 -0500
-In-Reply-To: <20071114121426.25823.5@janus.isnogud.escape.de>
+Received: from web26107.mail.ukl.yahoo.com ([217.146.182.148]:43852 "HELO
+	web26107.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751697AbXKNNMP convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2007 08:12:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Urs Thuermann wrote:
-> +static int vcan_open(struct net_device *dev)
-> +{
-> +	DBG("%s: interface up\n", dev->name);
-> +
-> +	netif_start_queue(dev);
-> +	return 0;
-> +}
-> +
-> +static int vcan_stop(struct net_device *dev)
-> +{
-> +	DBG("%s: interface down\n", dev->name);
-> +
-> +	netif_stop_queue(dev);
-> +	return 0;
-> +}
+I suspected it could be that. However, can't see in ip_rcv the right po=
+rtion that can help.
+Any further tip please?
+
+Regards,
+----- Message d'origine ----
+> De : Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> =C0 : Nj A <nj_a83@yahoo.fr>
+> Cc : netdev@vger.kernel.org
+> Envoy=E9 le : Mercredi, 14 Novembre 2007, 12h13mn 05s
+> Objet : Re: Bug in using inet_lookup ()
+>=20
+> On Wed, Nov 14, 2007 at 09:26:18AM +0000, Nj A (nj_a83@yahoo.fr) wrot=
+e:
+> > /* The kernel TCP hashtable */
+> > struct inet_hashinfo __cacheline_aligned tcp_hashinfo =3D {
+> > .lhash_lock =3D __RW_LOCK_UNLOCKED (tcp_hashinfo.lhash_lock),
+> > .lhash_users =3D ATOMIC_INIT (0),
+> > .lhash_wait =3D __WAIT_QUEUE_HEAD_INITIALIZER (tcp_hashinfo.lhash_w=
+ait),
+> > };
+> > ...
+> > struct sock *sk;
+> > struct sk_buff *skb;
+> > skb =3D alloc_skb (MAX_TCP_HEADER + 15, GFP_KERNEL);
+> > if (skb =3D=3D NULL)
+> > printk ("%s: Unable to allocate memory \n", __FUNCTION__);
+> > sk =3D inet_lookup (&tcp_hashinfo, ip_src, src_port, ip_dst, dst_po=
+rt, inet_iif
+> (skb));
+> > if (!sk)
+> > ...
+> > This portion of code seems to cause the kernel to panic due to dere=
+ferencing a
+> NULL pointer.
+> > Can anyone please tell me what is the error above?
+> > Best Regards,
+>=20
+> Where exactly? Likely in inet_iif(), since it dereferences dst (routi=
+ng
+> info), which is not presented after simple alloc_skb().
+> You have to setup skb correctly, check how ip_rcv() does it.
+>=20
+> --=20
+> Evgeniy
+> Polyakov
+>
 
 
-These two functions look unnecessary, there's no need to manage
-the queue for pure software devices.
-
-> +static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
-> +{
-> +	struct net_device_stats *stats = &dev->stats;
-> +	int loop;
-> +
-> +	DBG("sending skbuff on interface %s\n", dev->name);
-> +
-> +	stats->tx_packets++;
-> +	stats->tx_bytes += skb->len;
-> +
-> +	/* set flag whether this packet has to be looped back */
-> +	loop = skb->pkt_type == PACKET_LOOPBACK;
-> +
-> +	if (!echo) {
-> +		/* no echo handling available inside this driver */
-> +
-> +		if (loop) {
-> +			/*
-> +			 * only count the packets here, because the
-> +			 * CAN core already did the echo for us
-> +			 */
-> +			stats->rx_packets++;
-> +			stats->rx_bytes += skb->len;
-> +		}
-> +		kfree_skb(skb);
-> +		return 0;
-
-Please use the NETDEV_TX codes.
-
-Besides these minor issues, looks fine.
-
+      _________________________________________________________________=
+____________=20
+Ne gardez plus qu'une seule adresse mail ! Copiez vos mails vers Yahoo!=
+ Mail=20
