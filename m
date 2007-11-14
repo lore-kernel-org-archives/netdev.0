@@ -1,42 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 19:47:46 -0800 (PST)
-Message-ID: <20071113.194746.47688258.davem@davemloft.net>
-References: <20071113143201.9441c940.akpm@linux-foundation.org>
-	<20071113.175551.131375600.davem@davemloft.net>
-	<20071113182700.ef821d0f.akpm@linux-foundation.org>
+Subject: Re: [PATCH 2/5] accounting unit and variable
+Date: Tue, 13 Nov 2007 19:55:49 -0800 (PST)
+Message-ID: <20071113.195549.181119456.davem@davemloft.net>
+References: <47264F3E.3080306@redhat.com>
+	<20071109123420.GD27984@gondor.apana.org.au>
+	<473A6B11.7090208@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rmk+lkml@arm.linux.org.uk, alsa-devel@alsa-project.org,
- netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
- linux-kernel@vger.kernel.org, protasnb@gmail.com,
- linux-ide@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
- linux-input@atrey.karlin.mff.cuni.cz
-To: akpm@linux-foundation.org
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <20071113182700.ef821d0f.akpm@linux-foundation.org>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	satoshi.oshima.fk@hitachi.com, andi@firstfloor.org,
+	shemminger@linux-foundation.org, johnpol@2ka.mipt.ru,
+	yoshfuji@linux-ipv6.org, yumiko.sugita.yf@hitachi.com
+To: haoki@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56922
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757676AbXKNDzu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 22:55:50 -0500
+In-Reply-To: <473A6B11.7090208@redhat.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Tue, 13 Nov 2007 18:27:00 -0800
+From: Hideo AOKI <haoki@redhat.com>
+Date: Tue, 13 Nov 2007 22:27:13 -0500
 
-> Let me just say - I'm astonished at how little spam gets though the vger
-> lists.  Considering how many times those email addresses must have been
-> added to spam databases.
+> Herbert Xu wrote:
+> > On Mon, Oct 29, 2007 at 05:23:10PM -0400, Hideo AOKI wrote:
+> >>  
+> >> +#define SK_DATAGRAM_MEM_QUANTUM ((int)PAGE_SIZE)
+> >> +
+> >> +static inline int sk_datagram_pages(int amt)
+> >> +{
+> >> +	return DIV_ROUND_UP(amt, SK_DATAGRAM_MEM_QUANTUM);
+> >> +}
+> > 
+> > Does this really have to be int? Unsigned would let the compiler
+> > optimise this to a simple shift.
 > 
-> It must be a lot of work, and whoever is doing it does it well.
+> Thank you for the comment.
 > 
-> I don't even know.  Is it Matti?  You?
+> This inline function is used to calculate the first argument of atomic_add()
+> and atomic_sub(). Since the argument is int, I believe that using int is
+> better than using unsigned int.
 
-Matti gets all the credit for setting up the bayesian et al.
-filters we have and training it as needed.
+If you know the values will always be positive, as you will know here,
+it is OK to us unsigned int here and avoids the unacceptable expensive
+divide instruction.
 
-> <contemplates linux-kernel@lists.sourceforge.net.  Shudders.>
-
-Yes, sourceforge is a complete joke.
+Please fix this.
