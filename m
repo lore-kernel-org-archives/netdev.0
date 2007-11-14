@@ -1,917 +1,685 @@
 From: Urs Thuermann <urs.thuermann@gmx.de>
-Subject: [PATCH 3/7] CAN: Add raw protocol
-Date: Wed, 14 Nov 2007 13:13:42 +0100
-Message-ID: <20071114121425.25823.3@janus.isnogud.escape.de>
+Subject: [PATCH 7/7] CAN: Add documentation
+Date: Wed, 14 Nov 2007 13:13:46 +0100
+Message-ID: <20071114121426.25823.7@janus.isnogud.escape.de>
 References: <20071114121339.25823.0@janus.isnogud.escape.de>
 Cc: Urs Thuermann <urs.thuermann@volkswagen.de>,
 	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:60874 "EHLO oker.escape.de"
+Received: from oker.escape.de ([194.120.234.254]:60879 "EHLO oker.escape.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753470AbXKNMZN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2007 07:25:13 -0500
-Content-Disposition: inline; filename=03-can-raw-proto.diff
+	id S1753993AbXKNMZR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2007 07:25:17 -0500
+Content-Disposition: inline; filename=07-can-doc.diff
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the CAN raw protocol.
+This patch adds documentation for the PF_CAN protocol family.
 
 Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
- include/linux/can/raw.h |   31 +
- net/can/Kconfig         |   11 
- net/can/Makefile        |    3 
- net/can/raw.c           |  811 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 856 insertions(+)
+ Documentation/networking/00-INDEX |    2 
+ Documentation/networking/can.txt  |  637 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 639 insertions(+)
 
-Index: net-2.6.25/include/linux/can/raw.h
+Index: net-2.6.25/Documentation/networking/can.txt
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.25/include/linux/can/raw.h	2007-11-14 13:04:51.000000000 +0100
-@@ -0,0 +1,31 @@
-+/*
-+ * linux/can/raw.h
-+ *
-+ * Definitions for raw CAN sockets
-+ *
-+ * Authors: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-+ *          Urs Thuermann   <urs.thuermann@volkswagen.de>
-+ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
-+ * All rights reserved.
-+ *
-+ * Send feedback to <socketcan-users@lists.berlios.de>
-+ *
-+ */
++++ net-2.6.25/Documentation/networking/can.txt	2007-11-14 13:04:57.000000000 +0100
+@@ -0,0 +1,637 @@
++============================================================================
 +
-+#ifndef CAN_RAW_H
-+#define CAN_RAW_H
++can.txt
 +
-+#include <linux/can.h>
++Readme file for the Controller Area Network Protocol Family (aka Socket CAN)
 +
-+#define SOL_CAN_RAW (SOL_CAN_BASE + CAN_RAW)
++This file contains
 +
-+/* for socket options affecting the socket (not the global system) */
++  1 Overview / What is Socket CAN
 +
-+enum {
-+	CAN_RAW_FILTER = 1,	/* set 0 .. n can_filter(s)          */
-+	CAN_RAW_ERR_FILTER,	/* set filter for error frames       */
-+	CAN_RAW_LOOPBACK,	/* local loopback (default:on)       */
-+	CAN_RAW_RECV_OWN_MSGS	/* receive my own msgs (default:off) */
-+};
++  2 Motivation / Why using the socket API
 +
-+#endif
-Index: net-2.6.25/net/can/Kconfig
++  3 Socket CAN concept
++    3.1 receive lists
++    3.2 local loopback of sent frames
++    3.3 network security issues (capabilities)
++    3.4 network problem notifications
++
++  4 How to use Socket CAN
++    4.1 RAW protocol sockets with can_filters (SOCK_RAW)
++      4.1.1 RAW socket option CAN_RAW_FILTER
++      4.1.2 RAW socket option CAN_RAW_ERR_FILTER
++      4.1.3 RAW socket option CAN_RAW_LOOPBACK
++      4.1.4 RAW socket option CAN_RAW_RECV_OWN_MSGS
++    4.2 Broadcast Manager protocol sockets (SOCK_DGRAM)
++    4.3 connected transport protocols (SOCK_SEQPACKET)
++    4.4 unconnected transport protocols (SOCK_DGRAM)
++
++  5 Socket CAN core module
++    5.1 can.ko module params
++    5.2 procfs content
++    5.3 writing own CAN protocol modules
++
++  6 CAN network drivers
++    6.1 general settings
++    6.2 local loopback of sent frames
++    6.3 CAN controller hardware filters
++    6.4 currently supported CAN hardware
++    6.5 todo
++
++  7 Credits
++
++============================================================================
++
++1. Overview / What is Socket CAN
++--------------------------------
++
++The socketcan package is an implementation of CAN protocols
++(Controller Area Network) for Linux.  CAN is a networking technology
++which has widespread use in automation, embedded devices, and
++automotive fields.  While there have been other CAN implementations
++for Linux based on character devices, Socket CAN uses the Berkeley
++socket API, the Linux network stack and implements the CAN device
++drivers as network interfaces.  The CAN socket API has been designed
++as similar as possible to the TCP/IP protocols to allow programmers,
++familiar with network programming, to easily learn how to use CAN
++sockets.
++
++2. Motivation / Why using the socket API
++----------------------------------------
++
++There have been CAN implementations for Linux before Socket CAN so the
++question arises, why we have started another project.  Most existing
++implementations come as a device driver for some CAN hardware, they
++are based on character devices and provide comparatively little
++functionality.  Usually, there is only a hardware-specific device
++driver which provides a character device interface to send and
++receive raw CAN frames, directly to/from the controller hardware.
++Queueing of frames and higher-level transport protocols like ISO-TP
++have to be implemented in user space applications.  Also, most
++character-device implementations support only one single process to
++open the device at a time, similar to a serial interface.  Exchanging
++the CAN controller requires employment of another device driver and
++often the need for adaption of large parts of the application to the
++new driver's API.
++
++Socket CAN was designed to overcome all of these limitations.  A new
++protocol family has been implemented which provides a socket interface
++to user space applications and which builds upon the Linux network
++layer, so to use all of the provided queueing functionality.  A device
++driver for CAN controller hardware registers itself with the Linux
++network layer as a network device, so that CAN frames from the
++controller can be passed up to the network layer and on to the CAN
++protocol family module and also vice-versa.  Also, the protocol family
++module provides an API for transport protocol modules to register, so
++that any number of transport protocols can be loaded or unloaded
++dynamically.  In fact, the can core module alone does not provide any
++protocol and cannot be used without loading at least one additional
++protocol module.  Multiple sockets can be opened at the same time,
++on different or the same protocol module and they can listen/send
++frames on different or the same CAN IDs.  Several sockets listening on
++the same interface for frames with the same CAN ID are all passed the
++same received matching CAN frames.  An application wishing to
++communicate using a specific transport protocol, e.g. ISO-TP, just
++selects that protocol when opening the socket, and then can read and
++write application data byte streams, without having to deal with
++CAN-IDs, frames, etc.
++
++Similar functionality visible from user-space could be provided by a
++character device, too, but this would lead to a technically inelegant
++solution for a couple of reasons:
++
++* Intricate usage.  Instead of passing a protocol argument to
++  socket(2) and using bind(2) to select a CAN interface and CAN ID, an
++  application would have to do all these operations using ioctl(2)s.
++
++* Code duplication.  A character device cannot make use of the Linux
++  network queueing code, so all that code would have to be duplicated
++  for CAN networking.
++
++* Abstraction.  In most existing character-device implementations, the
++  hardware-specific device driver for a CAN controller directly
++  provides the character device for the application to work with.
++  This is at least very unusual in Unix systems for both, char and
++  block devices.  For example you don't have a character device for a
++  certain UART of a serial interface, a certain sound chip in your
++  computer, a SCSI or IDE controller providing access to your hard
++  disk or tape streamer device.  Instead, you have abstraction layers
++  which provide a unified character or block device interface to the
++  application on the one hand, and a interface for hardware-specific
++  device drivers on the other hand.  These abstractions are provided
++  by subsystems like the tty layer, the audio subsystem or the SCSI
++  and IDE subsystems for the devices mentioned above.
++
++  The easiest way to implement a CAN device driver is as a character
++  device without such a (complete) abstraction layer, as is done by most
++  existing drivers.  The right way, however, would be to add such a
++  layer with all the functionality like registering for certain CAN
++  IDs, supporting several open file descriptors and (de)multiplexing
++  CAN frames between them, (sophisticated) queueing of CAN frames, and
++  providing an API for device drivers to register with.  However, then
++  it would be no more difficult, or may be even easier, to use the
++  networking framework provided by the Linux kernel, and this is what
++  Socket CAN does.
++
++  The use of the networking framework of the Linux kernel is just the
++  natural and most appropriate way to implement CAN for Linux.
++
++3. Socket CAN concept
++---------------------
++
++  As described in chapter 2 it is the main goal of Socket CAN to
++  provide a socket interface to user space applications which builds
++  upon the Linux network layer. In contrast to the commonly known
++  TCP/IP and ethernet networking, the CAN bus is a broadcast-only(!)
++  medium that has no MAC-layer addressing like ethernet. The CAN-identifier
++  (can_id) is used for arbitration on the CAN-bus. Therefore the CAN-IDs
++  have to be chosen uniquely on the bus. When designing a CAN-ECU
++  network the CAN-IDs are mapped to be sent by a specific ECU.
++  For this reason a CAN-ID can be treated best as a kind of source address.
++
++  3.1 receive lists
++
++  The network transparent access of multiple applications leads to the
++  problem that different applications may be interested in the same
++  CAN-IDs from the same CAN network interface. The Socket CAN core
++  module - which implements the protocol family CAN - provides several
++  high efficient receive lists for this reason. If e.g. a user space
++  application opens a CAN RAW socket, the raw protocol module itself
++  requests the (range of) CAN-IDs from the Socket CAN core that are
++  requested by the user. The subscription and unsubscription of
++  CAN-IDs can be done for specific CAN interfaces or for all(!) known
++  CAN interfaces with the can_rx_(un)register() functions provided to
++  CAN protocol modules by the SocketCAN core (see chapter 5).
++  To optimize the CPU usage at runtime the receive lists are split up
++  into several specific lists per device that match the requested
++  filter complexity for a given use-case.
++
++  3.2 local loopback of sent frames
++
++  As known from other networking concepts the data exchanging
++  applications may run on the same or different nodes without any
++  change (except for the according addressing information):
++
++         ___   ___   ___                   _______   ___
++        | _ | | _ | | _ |                 | _   _ | | _ |
++        ||A|| ||B|| ||C||                 ||A| |B|| ||C||
++        |___| |___| |___|                 |_______| |___|
++          |     |     |                       |       |
++        -----------------(1)- CAN bus -(2)---------------
++
++  To ensure that application A receives the same information in the
++  example (2) as it would receive in example (1) there is need for
++  some kind of local loopback of the sent CAN frames on the appropriate
++  node.
++
++  The Linux network devices (by default) just can handle the
++  transmission and reception of media dependent frames. Due to the
++  arbritration on the CAN bus the transmission of a low prio CAN-ID
++  may be delayed by the reception of a high prio CAN frame. To
++  reflect the correct* traffic on the node the loopback of the sent
++  data has to be performed right after a successful transmission. If
++  the CAN network interface is not capable of performing the loopback for
++  some reason the SocketCAN core can do this task as a fallback solution.
++  See chapter 6.2 for details (recommended).
++
++  The loopback functionality is enabled by default to reflect standard
++  networking behaviour for CAN applications. Due to some requests from
++  the RT-SocketCAN group the loopback optionally may be disabled for each
++  separate socket. See sockopts from the CAN RAW sockets in chapter 4.1.
++
++  * = you really like to have this when you're running analyser tools
++      like 'candump' or 'cansniffer' on the (same) node.
++
++  3.3 network security issues (capabilities)
++
++  The Controller Area Network is a local field bus transmitting only
++  broadcast messages without any routing and security concepts.
++  In the majority of cases the user application has to deal with
++  raw CAN frames. Therefore it might be reasonable NOT to restrict
++  the CAN access only to the user root, as known from other networks.
++  Since the currently implemented CAN_RAW and CAN_BCM sockets can only
++  send and receive frames to/from CAN interfaces it does not affect
++  security of others networks to allow all users to access the CAN.
++  To enable non-root users to access CAN_RAW and CAN_BCM protocol
++  sockets the Kconfig options CAN_RAW_USER and/or CAN_BCM_USER may be
++  selected at kernel compile time.
++
++  3.4 network problem notifications
++
++  The use of the CAN bus may lead to several problems on the physical
++  and media access control layer. Detecting and logging of these lower
++  layer problems is a vital requirement for CAN users to identify
++  hardware issues on the physical transceiver layer as well as
++  arbitration problems and error frames caused by the different
++  ECUs. The occurrence of detected errors are important for diagnosis
++  and have to be logged together with the exact timestamp. For this
++  reason the CAN interface driver can generate so called Error Frames
++  that can optionally be passed to the user application in the same
++  way as other CAN frames. Whenever an error on the physical layer
++  or the MAC layer is detected (e.g. by the CAN controller) the driver
++  creates an appropriate error frame. Error frames can be requested by
++  the user application using the common CAN filter mechanisms. Inside
++  this filter definition the (interested) type of errors may be
++  selected. The reception of error frames is disabled by default.
++
++4. How to use Socket CAN
++------------------------
++
++  Like TCP/IP, you first need to open a socket for communicating over a
++  CAN network. Since Socket CAN implements a new protocol family, you
++  need to pass PF_CAN as the first argument to the socket(2) system
++  call. Currently, there are two CAN protocols to choose from, the raw
++  socket protocol and the broadcast manager (BCM). So to open a socket,
++  you would write
++
++    s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
++
++  and
++
++    s = socket(PF_CAN, SOCK_DGRAM, CAN_BCM);
++
++  respectively.  After the successful creation of the socket, you would
++  normally use the bind(2) system call to bind the socket to a CAN
++  interface (which is different from TCP/IP due to different addressing
++  - see chapter 3). After binding (CAN_RAW) or connecting (CAN_BCM)
++  the socket, you can read(2) and write(2) from/to the socket or use
++  send(2), sendto(2), sendmsg(2) and the recv* counterpart operations
++  on the socket as usual. There are also CAN specific socket options
++  described below.
++
++  The basic CAN frame structure and the sockaddr structure are defined
++  in include/linux/can.h:
++
++    struct can_frame {
++            canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
++            __u8    can_dlc; /* data length code: 0 .. 8 */
++            __u8    data[8] __attribute__((aligned(8)));
++    };
++
++  The alignment of the (linear) payload data[] to a 64bit boundary
++  allows the user to define own structs and unions to easily access the
++  CAN payload. There is no given byteorder on the CAN bus by
++  default. A read(2) system call on a CAN_RAW socket transfers a
++  struct can_frame to the user space.
++
++  The sockaddr_can structure has an interface index like the
++  PF_PACKET socket, that also binds to a specific interface:
++
++    struct sockaddr_can {
++            sa_family_t can_family;
++            int         can_ifindex;
++            union {
++                    struct { canid_t rx_id, tx_id; } tp16;
++                    struct { canid_t rx_id, tx_id; } tp20;
++                    struct { canid_t rx_id, tx_id; } mcnet;
++                    struct { canid_t rx_id, tx_id; } isotp;
++            } can_addr;
++    };
++
++  To determine the interface index an appropriate ioctl() has to
++  be used (example for CAN_RAW sockets without error checking):
++
++    int s;
++    struct sockaddr_can addr;
++    struct ifreq ifr;
++
++    s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
++
++    strcpy(ifr.ifr_name, "can0" );
++    ioctl(s, SIOCGIFINDEX, &ifr);
++
++    addr.can_family = AF_CAN;
++    addr.can_ifindex = ifr.ifr_ifindex;
++
++    bind(s, (struct sockaddr *)&addr, sizeof(addr));
++
++    (..)
++
++  To bind a socket to all(!) CAN interfaces the interface index must
++  be 0 (zero). In this case the socket receives CAN frames from every
++  enabled CAN interface. To determine the originating CAN interface
++  the system call recvfrom(2) may be used instead of read(2). To send
++  on a socket that is bound to 'any' interface sendto(2) is needed to
++  specify the outgoing interface.
++
++  Reading CAN frames from a bound CAN_RAW socket (see above) consists
++  of reading a struct can_frame:
++
++    struct can_frame frame;
++
++    nbytes = read(s, &frame, sizeof(struct can_frame));
++
++    if (nbytes < 0) {
++            perror("can raw socket read");
++            return 1;
++    }
++
++    /* paraniod check ... */
++    if (nbytes < sizeof(struct can_frame)) {
++            fprintf(stderr, "read: incomplete CAN frame\n");
++            return 1;
++    }
++
++    /* do something with the received CAN frame */
++
++  Writing CAN frames can be done similarly, with the write(2) system call:
++
++    nbytes = write(s, &frame, sizeof(struct can_frame));
++
++  When the CAN interface is bound to 'any' existing CAN interface
++  (addr.can_ifindex = 0) it is recommended to use recvfrom(2) if the
++  information about the originating CAN interface is needed:
++
++    struct sockaddr_can addr;
++    struct ifreq ifr;
++    socklen_t len = sizeof(addr);
++    struct can_frame frame;
++
++    nbytes = recvfrom(s, &frame, sizeof(struct can_frame),
++                      0, (struct sockaddr*)&addr, &len);
++
++    /* get interface name of the received CAN frame */
++    ifr.ifr_ifindex = addr.can_ifindex;
++    ioctl(s, SIOCGIFNAME, &ifr);
++    printf("Received a CAN frame from interface %s", ifr.ifr_name);
++
++  To write CAN frames on sockets bound to 'any' CAN interface the
++  outgoing interface has to be defined certainly.
++
++    strcpy(ifr.ifr_name, "can0");
++    ioctl(s, SIOCGIFINDEX, &ifr);
++    addr.can_ifindex = ifr.ifr_ifindex;
++    addr.can_family  = AF_CAN;
++
++    nbytes = sendto(s, &frame, sizeof(struct can_frame),
++                    0, (struct sockaddr*)&addr, sizeof(addr));
++
++  4.1 RAW protocol sockets with can_filters (SOCK_RAW)
++
++  Using CAN_RAW sockets is extensively comparable to the commonly
++  known access to CAN character devices. To meet the new possibilities
++  provided by the multi user SocketCAN approach, some reasonable
++  defaults are set at RAW socket binding time:
++
++  - The filters are set to exactly one filter receiving everything
++  - The socket only receives valid data frames (=> no error frames)
++  - The loopback of sent CAN frames is enabled (see chapter 3.2)
++  - The socket does not receive its own sent frames (in loopback mode)
++
++  These default settings may be changed before or after binding the socket.
++  To use the referenced definitions of the socket options for CAN_RAW
++  sockets, include <linux/can/raw.h>.
++
++  4.1.1 RAW socket option CAN_RAW_FILTER
++
++  The reception of CAN frames using CAN_RAW sockets can be controlled
++  by defining 0 .. n filters with the CAN_RAW_FILTER socket option.
++
++  The CAN filter structure is defined in include/linux/can.h:
++
++    struct can_filter {
++            canid_t can_id;
++            canid_t can_mask;
++    };
++
++  A filter matches, when
++
++    <received_can_id> & mask == can_id & mask
++
++  which is analogous to known CAN controllers hardware filter semantics.
++  The filter can be inverted in this semantic, when the CAN_INV_FILTER
++  bit is set in can_id element of the can_filter structure. In
++  contrast to CAN controller hardware filters the user may set 0 .. n
++  receive filters for each open socket separately:
++
++    struct can_filter rfilter[2];
++
++    rfilter[0].can_id   = 0x123;
++    rfilter[0].can_mask = CAN_SFF_MASK;
++    rfilter[1].can_id   = 0x200;
++    rfilter[1].can_mask = 0x700;
++
++    setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter));
++
++  To disable the reception of CAN frames on the selected CAN_RAW socket:
++
++    setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0);
++
++  To set the filters to zero filters is quite obsolete as not read
++  data causes the raw socket to discard the received CAN frames. But
++  having this 'send only' use-case we may remove the receive list in the
++  Kernel to save a little (really a very little!) CPU usage.
++
++  4.1.2 RAW socket option CAN_RAW_ERR_FILTER
++
++  As described in chapter 3.4 the CAN interface driver can generate so
++  called Error Frames that can optionally be passed to the user
++  application in the same way as other CAN frames. The possible
++  errors are divided into different error classes that may be filtered
++  using the appropriate error mask. To register for every possible
++  error condition CAN_ERR_MASK can be used as value for the error mask.
++  The values for the error mask are defined in linux/can/error.h .
++
++    can_err_mask_t err_mask = ( CAN_ERR_TX_TIMEOUT | CAN_ERR_BUSOFF );
++
++    setsockopt(s, SOL_CAN_RAW, CAN_RAW_ERR_FILTER,
++               &err_mask, sizeof(err_mask));
++
++  4.1.3 RAW socket option CAN_RAW_LOOPBACK
++
++  To meet multi user needs the local loopback is enabled by default
++  (see chapter 3.2 for details). But in some embedded use-cases
++  (e.g. when only one application uses the CAN bus) this loopback
++  functionality can be disabled (separately for each socket):
++
++    int loopback = 0; /* 0 = disabled, 1 = enabled (default) */
++
++    setsockopt(s, SOL_CAN_RAW, CAN_RAW_LOOPBACK, &loopback, sizeof(loopback));
++
++  4.1.4 RAW socket option CAN_RAW_RECV_OWN_MSGS
++
++  When the local loopback is enabled, all the sent CAN frames are
++  looped back to the open CAN sockets that registered for the CAN
++  frames' CAN-ID on this given interface to meet the multi user
++  needs. The reception of the CAN frames on the same socket that was
++  sending the CAN frame is assumed to be unwanted and therefore
++  disabled by default. This default behaviour may be changed on
++  demand:
++
++    int recv_own_msgs = 1; /* 0 = disabled (default), 1 = enabled */
++
++    setsockopt(s, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS,
++               &recv_own_msgs, sizeof(recv_own_msgs));
++
++  4.2 Broadcast Manager protocol sockets (SOCK_DGRAM)
++  4.3 connected transport protocols (SOCK_SEQPACKET)
++  4.4 unconnected transport protocols (SOCK_DGRAM)
++
++
++5. Socket CAN core module
++-------------------------
++
++  The Socket CAN core module implements the protocol family
++  PF_CAN. CAN protocol modules are loaded by the core module at
++  runtime. The core module provides an interface for CAN protocol
++  modules to subscribe needed CAN IDs (see chapter 3.1).
++
++  5.1 can.ko module params
++
++  - stats_timer: To calculate the Socket CAN core statistics
++    (e.g. current/maximum frames per second) this 1 second timer is
++    invoked at can.ko module start time by default. This timer can be
++    disabled by using stattimer=0 on the module comandline.
++
++  - debug: When the Kconfig option CONFIG_CAN_DEBUG_CORE is set at
++    compile time, the debug output code is compiled into the module.
++    debug = 0x01 => print general debug information
++    debug = 0x02 => print content of processed CAN frames
++    debug = 0x04 => print content of processed socket buffers
++
++    It is possible to use ORed values e.g. 3 or 7 for an output of
++    all available debug information. Using 0x02 and 0x04 may flood
++    your kernel log - so be careful.
++
++  5.2 procfs content
++
++  As described in chapter 3.1 the Socket CAN core uses several filter
++  lists to deliver received CAN frames to CAN protocol modules. These
++  receive lists, their filters and the count of filter matches can be
++  checked in the appropriate receive list. All entries contain the
++  device and a protocol module identifier:
++
++    foo@bar:~$ cat /proc/net/can/rcvlist_all
++
++    receive list 'rx_all':
++      (vcan3: no entry)
++      (vcan2: no entry)
++      (vcan1: no entry)
++      device   can_id   can_mask  function  userdata   matches  ident
++       vcan0     000    00000000  f88e6370  f6c6f400         0  raw
++      (any: no entry)
++
++  In this example an application requests any CAN traffic from vcan0.
++
++    rcvlist_all - list for unfiltered entries (no filter operations)
++    rcvlist_eff - list for single extended frame (EFF) entries
++    rcvlist_err - list for error frames masks
++    rcvlist_fil - list for mask/value filters
++    rcvlist_inv - list for mask/value filters (inverse semantic)
++    rcvlist_sff - list for single standard frame (SFF) entries
++
++  Additional procfs files in /proc/net/can
++
++    stats       - Socket CAN core statistics (rx/tx frames, match ratios, ...)
++    reset_stats - manual statistic reset
++    version     - prints the Socket CAN core version and the ABI version
++
++  5.3 writing own CAN protocol modules
++
++  To implement a new protocol in the protocol family PF_CAN a new
++  protocol has to be defined in include/linux/can.h .
++  The prototypes and definitions to use the Socket CAN core can be
++  accessed by including include/linux/can/core.h .
++  In addition to functions that register the CAN protocol and the
++  CAN device notifier chain there are functions to subscribe CAN
++  frames received by CAN interfaces and to send CAN frames:
++
++    can_rx_register   - subscribe CAN frames from a specific interface
++    can_rx_unregister - unsubscribe CAN frames from a specific interface
++    can_send          - transmit a CAN frame (optional with local loopback)
++
++  For details see the kerneldoc documentation in net/can/af_can.c or
++  the source code of net/can/raw.c or net/can/bcm.c .
++
++6. CAN network drivers
++----------------------
++
++  Writing a CAN network device driver is much easier than writing a
++  CAN character device driver. Similar to other known network device
++  drivers you mainly have to deal with:
++
++  - TX: Put the CAN frame from the socket buffer to the CAN controller.
++  - RX: Put the CAN frame from the CAN controller to the socket buffer.
++
++  See e.g. at Documentation/networking/netdevices.txt . The differences
++  for writing CAN network device driver are described below:
++
++  6.1 general settings
++
++    dev->type  = ARPHRD_CAN; /* the netdevice hardware type */
++    dev->flags = IFF_NOARP;  /* CAN has no arp */
++
++    dev->mtu   = sizeof(struct can_frame);
++
++  The struct can_frame is the payload of each socket buffer in the
++  protocol family PF_CAN.
++
++  6.2 local loopback of sent frames
++
++  As described in chapter 3.2 the CAN network device driver should
++  support a local loopback functionality similar to the local echo
++  e.g. of tty devices. In this case the driver flag IFF_ECHO has to be
++  set to prevent the PF_CAN core from locally echoing sent frames
++  (aka loopback) as fallback solution:
++
++    dev->flags = (IFF_NOARP | IFF_ECHO);
++
++  6.3 CAN controller hardware filters
++
++  To reduce the interrupt load on deep embedded systems some CAN
++  controllers support the filtering of CAN IDs or ranges of CAN IDs.
++  These hardware filter capabilities vary from controller to
++  controller and have to be identified as not feasible in a multi-user
++  networking approach. The use of the very controller specific
++  hardware filters could make sense in a very dedicated use-case, as a
++  filter on driver level would affect all users in the multi-user
++  system. The high efficient filter sets inside the PF_CAN core allow
++  to set different multiple filters for each socket separately.
++  Therefore the use of hardware filters goes to the category 'handmade
++  tuning on deep embedded systems'. The author is running a MPC603e
++  @133MHz with four SJA1000 CAN controllers from 2002 under heavy bus
++  load without any problems ...
++
++  6.4 currently supported CAN hardware (September 2007)
++
++  On the project website http://developer.berlios.de/projects/socketcan
++  there are different drivers available:
++
++    vcan:    Virtual CAN interface driver (if no real hardware is available)
++    sja1000: Philips SJA1000 CAN controller (recommended)
++    i82527:  Intel i82527 CAN controller
++    mscan:   Motorola/Freescale CAN controller (e.g. inside SOC MPC5200)
++    ccan:    CCAN controller core (e.g. inside SOC h7202)
++    slcan:   For a bunch of CAN adaptors that are attached via a
++             serial line ASCII protocol (for serial / USB adaptors)
++
++  Additionally the different CAN adaptors (ISA/PCI/PCMCIA/USB/Parport)
++  from PEAK Systemtechnik support the CAN netdevice driver model
++  since Linux driver v6.0: http://www.peak-system.com/linux/index.htm
++
++  Please check the Mailing Lists on the berlios OSS project website.
++
++  6.5 todo (September 2007)
++
++  The configuration interface for CAN network drivers is still an open
++  issue that has not been finalized in the socketcan project. Also the
++  idea of having a library module (candev.ko) that holds functions
++  that are needed by all CAN netdevices is not ready to ship.
++  Your contribution is welcome.
++
++7. Credits
++----------
++
++  Oliver Hartkopp (PF_CAN core, filters, drivers, bcm)
++  Urs Thuermann (PF_CAN core, kernel integration, socket interfaces, raw, vcan)
++  Jan Kizka (RT-SocketCAN core, Socket-API reconciliation)
++  Wolfgang Grandegger (RT-SocketCAN core & drivers, Raw Socket-API reviews)
++  Robert Schwebel (design reviews, PTXdist integration)
++  Marc Kleine-Budde (design reviews, Kernel 2.6 cleanups, drivers)
++  Benedikt Spranger (reviews)
++  Thomas Gleixner (LKML reviews, coding style, posting hints)
++  Andrey Volkov (kernel subtree structure, ioctls, mscan driver)
++  Matthias Brukner (first SJA1000 CAN netdevice implementation Q2/2003)
++  Klaus Hitschler (PEAK driver integration)
++  Uwe Koppe (CAN netdevices with PF_PACKET approach)
++  Michael Schulze (driver layer loopback requirement, RT CAN drivers review)
+Index: net-2.6.25/Documentation/networking/00-INDEX
 ===================================================================
---- net-2.6.25.orig/net/can/Kconfig	2007-11-14 13:04:49.000000000 +0100
-+++ net-2.6.25/net/can/Kconfig	2007-11-14 13:04:51.000000000 +0100
-@@ -16,6 +16,17 @@
- 	  If you want CAN support you should say Y here and also to the
- 	  specific driver for your controller(s) below.
- 
-+config CAN_RAW
-+	tristate "Raw CAN Protocol (raw access with CAN-ID filtering)"
-+	depends on CAN
-+	default N
-+	---help---
-+	  The raw CAN protocol option offers access to the CAN bus via
-+	  the BSD socket API. You probably want to use the raw socket in
-+	  most cases where no higher level protocol is being used. The raw
-+	  socket has several filter options e.g. ID masking / error frames.
-+	  To receive/send raw CAN messages, use AF_CAN with protocol CAN_RAW.
-+
- config CAN_DEBUG_CORE
- 	bool "CAN Core debugging messages"
- 	depends on CAN
-Index: net-2.6.25/net/can/Makefile
-===================================================================
---- net-2.6.25.orig/net/can/Makefile	2007-11-14 13:04:49.000000000 +0100
-+++ net-2.6.25/net/can/Makefile	2007-11-14 13:04:51.000000000 +0100
-@@ -4,3 +4,6 @@
- 
- obj-$(CONFIG_CAN)	+= can.o
- can-objs		:= af_can.o proc.o
-+
-+obj-$(CONFIG_CAN_RAW)	+= can-raw.o
-+can-raw-objs		:= raw.o
-Index: net-2.6.25/net/can/raw.c
-===================================================================
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.25/net/can/raw.c	2007-11-14 13:04:51.000000000 +0100
-@@ -0,0 +1,811 @@
-+/*
-+ * raw.c - Raw sockets for protocol family CAN
-+ *
-+ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
-+ * All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the name of Volkswagen nor the names of its contributors
-+ *    may be used to endorse or promote products derived from this software
-+ *    without specific prior written permission.
-+ *
-+ * Alternatively, provided that this notice is retained in full, this
-+ * software may be distributed under the terms of the GNU General
-+ * Public License ("GPL") version 2, in which case the provisions of the
-+ * GPL apply INSTEAD OF those given above.
-+ *
-+ * The provided data structures and external interfaces from this code
-+ * are not restricted to be used by modules with a GPL compatible license.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
-+ * DAMAGE.
-+ *
-+ * Send feedback to <socketcan-users@lists.berlios.de>
-+ *
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/uio.h>
-+#include <linux/net.h>
-+#include <linux/netdevice.h>
-+#include <linux/socket.h>
-+#include <linux/if_arp.h>
-+#include <linux/skbuff.h>
-+#include <linux/can.h>
-+#include <linux/can/core.h>
-+#include <linux/can/raw.h>
-+#include <net/sock.h>
-+#include <net/net_namespace.h>
-+
-+#define CAN_RAW_VERSION CAN_VERSION
-+static __initdata const char banner[] =
-+	KERN_INFO "can: raw protocol (rev " CAN_RAW_VERSION ")\n";
-+
-+MODULE_DESCRIPTION("PF_CAN raw protocol");
-+MODULE_LICENSE("Dual BSD/GPL");
-+MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
-+
-+#ifdef CONFIG_CAN_DEBUG_CORE
-+#define DBG_PREFIX "can-raw"
-+#define DBG_VAR    raw_debug
-+static int raw_debug;
-+module_param_named(debug, raw_debug, int, S_IRUGO);
-+MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
-+#endif
-+
-+#define MASK_ALL 0
-+
-+/*
-+ * A raw socket has a list of can_filters attached to it, each receiving
-+ * the CAN frames matching that filter.  If the filter list is empty,
-+ * no CAN frames will be received by the socket.  The default after
-+ * opening the socket, is to have one filter which receives all frames.
-+ * The filter list is allocated dynamically with the exception of the
-+ * list containing only one item.  This common case is optimized by
-+ * storing the single filter in dfilter, to avoid using dynamic memory.
-+ */
-+
-+struct raw_sock {
-+	struct sock sk;
-+	int bound;
-+	int ifindex;
-+	struct notifier_block notifier;
-+	int loopback;
-+	int recv_own_msgs;
-+	int count;                 /* number of active filters */
-+	struct can_filter dfilter; /* default/single filter */
-+	struct can_filter *filter; /* pointer to filter(s) */
-+	can_err_mask_t err_mask;
-+};
-+
-+static inline struct raw_sock *raw_sk(const struct sock *sk)
-+{
-+	return (struct raw_sock *)sk;
-+}
-+
-+static void raw_rcv(struct sk_buff *skb, void *data)
-+{
-+	struct sock *sk = (struct sock *)data;
-+	struct raw_sock *ro = raw_sk(sk);
-+	struct sockaddr_can *addr;
-+	int error;
-+
-+	DBG("received skbuff %p, sk %p\n", skb, sk);
-+	DBG_SKB(skb);
-+
-+	if (!ro->recv_own_msgs) {
-+		/* check the received tx sock reference */
-+		if (skb->sk == sk) {
-+			DBG("trashed own tx msg\n");
-+			kfree_skb(skb);
-+			return;
-+		}
-+	}
-+
-+	/*
-+	 *  Put the datagram to the queue so that raw_recvmsg() can
-+	 *  get it from there.  We need to pass the interface index to
-+	 *  raw_recvmsg().  We pass a whole struct sockaddr_can in skb->cb
-+	 *  containing the interface index.
-+	 */
-+
-+	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct sockaddr_can));
-+	addr = (struct sockaddr_can *)skb->cb;
-+	memset(addr, 0, sizeof(*addr));
-+	addr->can_family  = AF_CAN;
-+	addr->can_ifindex = skb->dev->ifindex;
-+
-+	error = sock_queue_rcv_skb(sk, skb);
-+	if (error < 0) {
-+		DBG("sock_queue_rcv_skb failed: %d\n", error);
-+		DBG("freeing skbuff %p\n", skb);
-+		kfree_skb(skb);
-+	}
-+}
-+
-+static int raw_enable_filters(struct net_device *dev, struct sock *sk,
-+			      struct can_filter *filter,
-+			      int count)
-+{
-+	int err = 0;
-+	int i;
-+
-+	for (i = 0; i < count; i++) {
-+		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
-+		    filter[i].can_id, filter[i].can_mask,
-+		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
-+
-+		err = can_rx_register(dev, filter[i].can_id,
-+				      filter[i].can_mask,
-+				      raw_rcv, sk, "raw");
-+
-+		if (err) {
-+			/* clean up successfully registered filters */
-+			while (--i >= 0)
-+				can_rx_unregister(dev, filter[i].can_id,
-+						  filter[i].can_mask,
-+						  raw_rcv, sk);
-+			break;
-+		}
-+	}
-+
-+	return err;
-+}
-+
-+static int raw_enable_errfilter(struct net_device *dev, struct sock *sk,
-+				can_err_mask_t err_mask)
-+{
-+	int err = 0;
-+
-+	if (err_mask)
-+		err = can_rx_register(dev, 0, err_mask | CAN_ERR_FLAG,
-+				      raw_rcv, sk, "raw");
-+
-+	return err;
-+}
-+
-+static void raw_disable_filters(struct net_device *dev, struct sock *sk,
-+			      struct can_filter *filter,
-+			      int count)
-+{
-+	int i;
-+
-+	for (i = 0; i < count; i++) {
-+		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
-+		    filter[i].can_id, filter[i].can_mask,
-+		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
-+
-+		can_rx_unregister(dev, filter[i].can_id, filter[i].can_mask,
-+				  raw_rcv, sk);
-+	}
-+}
-+
-+static inline void raw_disable_errfilter(struct net_device *dev,
-+					 struct sock *sk,
-+					 can_err_mask_t err_mask)
-+
-+{
-+	if (err_mask)
-+		can_rx_unregister(dev, 0, err_mask | CAN_ERR_FLAG,
-+				  raw_rcv, sk);
-+}
-+
-+static inline void raw_disable_allfilters(struct net_device *dev,
-+					  struct sock *sk)
-+{
-+	struct raw_sock *ro = raw_sk(sk);
-+
-+	raw_disable_filters(dev, sk, ro->filter, ro->count);
-+	raw_disable_errfilter(dev, sk, ro->err_mask);
-+}
-+
-+static int raw_enable_allfilters(struct net_device *dev, struct sock *sk)
-+{
-+	struct raw_sock *ro = raw_sk(sk);
-+	int err;
-+
-+	err = raw_enable_filters(dev, sk, ro->filter, ro->count);
-+	if (!err) {
-+		err = raw_enable_errfilter(dev, sk, ro->err_mask);
-+		if (err)
-+			raw_disable_filters(dev, sk, ro->filter, ro->count);
-+	}
-+
-+	return err;
-+}
-+
-+static int raw_notifier(struct notifier_block *nb,
-+			unsigned long msg, void *data)
-+{
-+	struct net_device *dev = (struct net_device *)data;
-+	struct raw_sock *ro = container_of(nb, struct raw_sock, notifier);
-+	struct sock *sk = &ro->sk;
-+
-+	DBG("msg %ld for dev %p (%s idx %d) sk %p ro->ifindex %d\n",
-+	    msg, dev, dev->name, dev->ifindex, sk, ro->ifindex);
-+
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
-+	if (dev->type != ARPHRD_CAN)
-+		return NOTIFY_DONE;
-+
-+	if (ro->ifindex != dev->ifindex)
-+		return NOTIFY_DONE;
-+
-+	switch (msg) {
-+
-+	case NETDEV_UNREGISTER:
-+		lock_sock(sk);
-+		/* remove current filters & unregister */
-+		if (ro->bound)
-+			raw_disable_allfilters(dev, sk);
-+
-+		if (ro->count > 1)
-+			kfree(ro->filter);
-+
-+		ro->ifindex = 0;
-+		ro->bound   = 0;
-+		ro->count   = 0;
-+		release_sock(sk);
-+
-+		sk->sk_err = ENODEV;
-+		if (!sock_flag(sk, SOCK_DEAD))
-+			sk->sk_error_report(sk);
-+		break;
-+
-+	case NETDEV_DOWN:
-+		sk->sk_err = ENETDOWN;
-+		if (!sock_flag(sk, SOCK_DEAD))
-+			sk->sk_error_report(sk);
-+		break;
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static int raw_init(struct sock *sk)
-+{
-+	struct raw_sock *ro = raw_sk(sk);
-+
-+	ro->bound            = 0;
-+	ro->ifindex          = 0;
-+
-+	/* set default filter to single entry dfilter */
-+	ro->dfilter.can_id   = 0;
-+	ro->dfilter.can_mask = MASK_ALL;
-+	ro->filter           = &ro->dfilter;
-+	ro->count            = 1;
-+
-+	/* set default loopback behaviour */
-+	ro->loopback         = 1;
-+	ro->recv_own_msgs    = 0;
-+
-+	/* set notifier */
-+	ro->notifier.notifier_call = raw_notifier;
-+
-+	register_netdevice_notifier(&ro->notifier);
-+
-+	return 0;
-+}
-+
-+static int raw_release(struct socket *sock)
-+{
-+	struct sock *sk = sock->sk;
-+	struct raw_sock *ro = raw_sk(sk);
-+
-+	DBG("socket %p, sk %p, refcnt %d\n", sock, sk,
-+	    atomic_read(&sk->sk_refcnt));
-+
-+	unregister_netdevice_notifier(&ro->notifier);
-+
-+	lock_sock(sk);
-+
-+	/* remove current filters & unregister */
-+	if (ro->bound) {
-+		if (ro->ifindex) {
-+			struct net_device *dev;
-+
-+			dev = dev_get_by_index(&init_net, ro->ifindex);
-+			if (dev) {
-+				raw_disable_allfilters(dev, sk);
-+				dev_put(dev);
-+			}
-+		} else
-+			raw_disable_allfilters(NULL, sk);
-+	}
-+
-+	if (ro->count > 1)
-+		kfree(ro->filter);
-+
-+	ro->ifindex = 0;
-+	ro->bound   = 0;
-+	ro->count   = 0;
-+
-+	release_sock(sk);
-+	sock_put(sk);
-+
-+	return 0;
-+}
-+
-+static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
-+{
-+	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
-+	struct sock *sk = sock->sk;
-+	struct raw_sock *ro = raw_sk(sk);
-+	int ifindex;
-+	int err = 0;
-+	int notify_enetdown = 0;
-+
-+	DBG("socket %p to device %d\n", sock, addr->can_ifindex);
-+
-+	if (len < sizeof(*addr))
-+		return -EINVAL;
-+
-+	lock_sock(sk);
-+
-+	if (ro->bound && addr->can_ifindex == ro->ifindex)
-+		goto out;
-+
-+	if (addr->can_ifindex) {
-+		struct net_device *dev;
-+
-+		dev = dev_get_by_index(&init_net, addr->can_ifindex);
-+		if (!dev) {
-+			DBG("could not find device %d\n", addr->can_ifindex);
-+			err = -ENODEV;
-+			goto out;
-+		}
-+		if (dev->type != ARPHRD_CAN) {
-+			DBG("device %d no CAN device\n", addr->can_ifindex);
-+			dev_put(dev);
-+			err = -ENODEV;
-+			goto out;
-+		}
-+		if (!(dev->flags & IFF_UP))
-+			notify_enetdown = 1;
-+
-+		ifindex = dev->ifindex;
-+
-+		/* filters set by default/setsockopt */
-+		err = raw_enable_allfilters(dev, sk);
-+		dev_put(dev);
-+
-+	} else {
-+		ifindex = 0;
-+
-+		/* filters set by default/setsockopt */
-+		err = raw_enable_allfilters(NULL, sk);
-+	}
-+
-+	if (!err) {
-+		if (ro->bound) {
-+			/* unregister old filters */
-+			if (ro->ifindex) {
-+				struct net_device *dev;
-+
-+				dev = dev_get_by_index(&init_net, ro->ifindex);
-+				if (dev) {
-+					raw_disable_allfilters(dev, sk);
-+					dev_put(dev);
-+				}
-+			} else
-+				raw_disable_allfilters(NULL, sk);
-+		}
-+		ro->ifindex = ifindex;
-+		ro->bound = 1;
-+	}
-+
-+ out:
-+	release_sock(sk);
-+
-+	if (notify_enetdown) {
-+		sk->sk_err = ENETDOWN;
-+		if (!sock_flag(sk, SOCK_DEAD))
-+			sk->sk_error_report(sk);
-+	}
-+
-+	return err;
-+}
-+
-+static int raw_getname(struct socket *sock, struct sockaddr *uaddr,
-+		       int *len, int peer)
-+{
-+	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
-+	struct sock *sk = sock->sk;
-+	struct raw_sock *ro = raw_sk(sk);
-+
-+	if (peer)
-+		return -EOPNOTSUPP;
-+
-+	addr->can_family  = AF_CAN;
-+	addr->can_ifindex = ro->ifindex;
-+
-+	*len = sizeof(*addr);
-+
-+	return 0;
-+}
-+
-+static int raw_setsockopt(struct socket *sock, int level, int optname,
-+			  char __user *optval, int optlen)
-+{
-+	struct sock *sk = sock->sk;
-+	struct raw_sock *ro = raw_sk(sk);
-+	struct can_filter *filter = NULL;  /* dyn. alloc'ed filters */
-+	struct can_filter sfilter;         /* single filter */
-+	struct net_device *dev = NULL;
-+	can_err_mask_t err_mask = 0;
-+	int count = 0;
-+	int err = 0;
-+
-+	if (level != SOL_CAN_RAW)
-+		return -EINVAL;
-+	if (optlen < 0)
-+		return -EINVAL;
-+
-+	switch (optname) {
-+
-+	case CAN_RAW_FILTER:
-+		if (optlen % sizeof(struct can_filter) != 0)
-+			return -EINVAL;
-+
-+		count = optlen / sizeof(struct can_filter);
-+
-+		if (count > 1) {
-+			/* filter does not fit into dfilter => alloc space */
-+			filter = kmalloc(optlen, GFP_KERNEL);
-+			if (!filter)
-+				return -ENOMEM;
-+
-+			err = copy_from_user(filter, optval, optlen);
-+			if (err) {
-+				kfree(filter);
-+				return err;
-+			}
-+		} else if (count == 1) {
-+			err = copy_from_user(&sfilter, optval, optlen);
-+			if (err)
-+				return err;
-+		}
-+
-+		lock_sock(sk);
-+
-+		if (ro->bound && ro->ifindex)
-+			dev = dev_get_by_index(&init_net, ro->ifindex);
-+
-+		if (ro->bound) {
-+			/* (try to) register the new filters */
-+			if (count == 1)
-+				err = raw_enable_filters(dev, sk, &sfilter, 1);
-+			else
-+				err = raw_enable_filters(dev, sk, filter,
-+							 count);
-+			if (err) {
-+				if (count > 1)
-+					kfree(filter);
-+
-+				goto out_fil;
-+			}
-+
-+			/* remove old filter registrations */
-+			raw_disable_filters(dev, sk, ro->filter, ro->count);
-+		}
-+
-+		/* remove old filter space */
-+		if (ro->count > 1)
-+			kfree(ro->filter);
-+
-+		/* link new filters to the socket */
-+		if (count == 1) {
-+			/* copy filter data for single filter */
-+			ro->dfilter = sfilter;
-+			filter = &ro->dfilter;
-+		}
-+		ro->filter = filter;
-+		ro->count  = count;
-+
-+ out_fil:
-+		if (dev)
-+			dev_put(dev);
-+
-+		release_sock(sk);
-+
-+		break;
-+
-+	case CAN_RAW_ERR_FILTER:
-+		if (optlen != sizeof(err_mask))
-+			return -EINVAL;
-+
-+		err = copy_from_user(&err_mask, optval, optlen);
-+		if (err)
-+			return err;
-+
-+		err_mask &= CAN_ERR_MASK;
-+
-+		lock_sock(sk);
-+
-+		if (ro->bound && ro->ifindex)
-+			dev = dev_get_by_index(&init_net, ro->ifindex);
-+
-+		/* remove current error mask */
-+		if (ro->bound) {
-+			/* (try to) register the new err_mask */
-+			err = raw_enable_errfilter(dev, sk, err_mask);
-+
-+			if (err)
-+				goto out_err;
-+
-+			/* remove old err_mask registration */
-+			raw_disable_errfilter(dev, sk, ro->err_mask);
-+		}
-+
-+		/* link new err_mask to the socket */
-+		ro->err_mask = err_mask;
-+
-+ out_err:
-+		if (dev)
-+			dev_put(dev);
-+
-+		release_sock(sk);
-+
-+		break;
-+
-+	case CAN_RAW_LOOPBACK:
-+		if (optlen != sizeof(ro->loopback))
-+			return -EINVAL;
-+
-+		err = copy_from_user(&ro->loopback, optval, optlen);
-+
-+		break;
-+
-+	case CAN_RAW_RECV_OWN_MSGS:
-+		if (optlen != sizeof(ro->recv_own_msgs))
-+			return -EINVAL;
-+
-+		err = copy_from_user(&ro->recv_own_msgs, optval, optlen);
-+
-+		break;
-+
-+	default:
-+		return -ENOPROTOOPT;
-+	}
-+	return err;
-+}
-+
-+static int raw_getsockopt(struct socket *sock, int level, int optname,
-+			  char __user *optval, int __user *optlen)
-+{
-+	struct sock *sk = sock->sk;
-+	struct raw_sock *ro = raw_sk(sk);
-+	int len;
-+	void *val;
-+	int err = 0;
-+
-+	if (level != SOL_CAN_RAW)
-+		return -EINVAL;
-+	if (get_user(len, optlen))
-+		return -EFAULT;
-+	if (len < 0)
-+		return -EINVAL;
-+
-+	switch (optname) {
-+
-+	case CAN_RAW_FILTER:
-+		lock_sock(sk);
-+		if (ro->count > 0) {
-+			int fsize = ro->count * sizeof(struct can_filter);
-+			if (len > fsize)
-+				len = fsize;
-+			err = copy_to_user(optval, ro->filter, len);
-+		} else
-+			len = 0;
-+		release_sock(sk);
-+
-+		if (!err)
-+			err = put_user(len, optlen);
-+		return err;
-+
-+	case CAN_RAW_ERR_FILTER:
-+		if (len > sizeof(can_err_mask_t))
-+			len = sizeof(can_err_mask_t);
-+		val = &ro->err_mask;
-+		break;
-+
-+	case CAN_RAW_LOOPBACK:
-+		if (len > sizeof(int))
-+			len = sizeof(int);
-+		val = &ro->loopback;
-+		break;
-+
-+	case CAN_RAW_RECV_OWN_MSGS:
-+		if (len > sizeof(int))
-+			len = sizeof(int);
-+		val = &ro->recv_own_msgs;
-+		break;
-+
-+	default:
-+		return -ENOPROTOOPT;
-+	}
-+
-+	if (put_user(len, optlen))
-+		return -EFAULT;
-+	if (copy_to_user(optval, val, len))
-+		return -EFAULT;
-+	return 0;
-+}
-+
-+static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
-+		       struct msghdr *msg, size_t size)
-+{
-+	struct sock *sk = sock->sk;
-+	struct raw_sock *ro = raw_sk(sk);
-+	struct sk_buff *skb;
-+	struct net_device *dev;
-+	int ifindex;
-+	int err;
-+
-+	DBG("socket %p, sk %p\n", sock, sk);
-+
-+	if (msg->msg_name) {
-+		struct sockaddr_can *addr =
-+			(struct sockaddr_can *)msg->msg_name;
-+
-+		if (addr->can_family != AF_CAN)
-+			return -EINVAL;
-+
-+		ifindex = addr->can_ifindex;
-+	} else
-+		ifindex = ro->ifindex;
-+
-+	dev = dev_get_by_index(&init_net, ifindex);
-+	if (!dev) {
-+		DBG("device %d not found\n", ifindex);
-+		return -ENXIO;
-+	}
-+
-+	skb = sock_alloc_send_skb(sk, size, msg->msg_flags & MSG_DONTWAIT,
-+				  &err);
-+	if (!skb) {
-+		dev_put(dev);
-+		return err;
-+	}
-+
-+	err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
-+	if (err < 0) {
-+		kfree_skb(skb);
-+		dev_put(dev);
-+		return err;
-+	}
-+	skb->dev = dev;
-+	skb->sk  = sk;
-+
-+	DBG("sending skbuff to interface %d\n", ifindex);
-+	DBG_SKB(skb);
-+
-+	err = can_send(skb, ro->loopback);
-+
-+	dev_put(dev);
-+
-+	if (err)
-+		return err;
-+
-+	return size;
-+}
-+
-+static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
-+		       struct msghdr *msg, size_t size, int flags)
-+{
-+	struct sock *sk = sock->sk;
-+	struct sk_buff *skb;
-+	int error = 0;
-+	int noblock;
-+
-+	DBG("socket %p, sk %p\n", sock, sk);
-+
-+	noblock =  flags & MSG_DONTWAIT;
-+	flags   &= ~MSG_DONTWAIT;
-+
-+	skb = skb_recv_datagram(sk, flags, noblock, &error);
-+	if (!skb)
-+		return error;
-+
-+	DBG("delivering skbuff %p\n", skb);
-+	DBG_SKB(skb);
-+
-+	if (size < skb->len)
-+		msg->msg_flags |= MSG_TRUNC;
-+	else
-+		size = skb->len;
-+
-+	error = memcpy_toiovec(msg->msg_iov, skb->data, size);
-+	if (error < 0) {
-+		skb_free_datagram(sk, skb);
-+		return error;
-+	}
-+
-+	sock_recv_timestamp(msg, sk, skb);
-+
-+	if (msg->msg_name) {
-+		msg->msg_namelen = sizeof(struct sockaddr_can);
-+		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
-+	}
-+
-+	DBG("freeing sock %p, skbuff %p\n", sk, skb);
-+	skb_free_datagram(sk, skb);
-+
-+	return size;
-+}
-+
-+static struct proto_ops raw_ops __read_mostly = {
-+	.family        = PF_CAN,
-+	.release       = raw_release,
-+	.bind          = raw_bind,
-+	.connect       = sock_no_connect,
-+	.socketpair    = sock_no_socketpair,
-+	.accept        = sock_no_accept,
-+	.getname       = raw_getname,
-+	.poll          = datagram_poll,
-+	.ioctl         = NULL,		/* use can_ioctl() from af_can.c */
-+	.listen        = sock_no_listen,
-+	.shutdown      = sock_no_shutdown,
-+	.setsockopt    = raw_setsockopt,
-+	.getsockopt    = raw_getsockopt,
-+	.sendmsg       = raw_sendmsg,
-+	.recvmsg       = raw_recvmsg,
-+	.mmap          = sock_no_mmap,
-+	.sendpage      = sock_no_sendpage,
-+};
-+
-+static struct proto raw_proto __read_mostly = {
-+	.name       = "CAN_RAW",
-+	.owner      = THIS_MODULE,
-+	.obj_size   = sizeof(struct raw_sock),
-+	.init       = raw_init,
-+};
-+
-+static struct can_proto raw_can_proto __read_mostly = {
-+	.type       = SOCK_RAW,
-+	.protocol   = CAN_RAW,
-+	.capability = -1,
-+	.ops        = &raw_ops,
-+	.prot       = &raw_proto,
-+};
-+
-+static __init int raw_module_init(void)
-+{
-+	int err;
-+
-+	printk(banner);
-+
-+	err = can_proto_register(&raw_can_proto);
-+	if (err < 0)
-+		printk(KERN_ERR "can: registration of raw protocol failed\n");
-+
-+	return err;
-+}
-+
-+static __exit void raw_module_exit(void)
-+{
-+	can_proto_unregister(&raw_can_proto);
-+}
-+
-+module_init(raw_module_init);
-+module_exit(raw_module_exit);
+--- net-2.6.25.orig/Documentation/networking/00-INDEX	2007-11-14 13:04:23.000000000 +0100
++++ net-2.6.25/Documentation/networking/00-INDEX	2007-11-14 13:04:57.000000000 +0100
+@@ -24,6 +24,8 @@
+ 	- info on the driver for Baycom style amateur radio modems
+ bridge.txt
+ 	- where to get user space programs for ethernet bridging with Linux.
++can.txt
++	- documentation on CAN protocol family.
+ cops.txt
+ 	- info on the COPS LocalTalk Linux driver
+ cs89x0.txt
 
 --
