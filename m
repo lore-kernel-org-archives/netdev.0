@@ -1,64 +1,36 @@
-From: Russell King <rmk+lkml@arm.linux.org.uk>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Wed, 14 Nov 2007 19:44:56 +0000
-Message-ID: <20071114194456.GC23221@flint.arm.linux.org.uk>
-References: <20071113143201.9441c940.akpm@linux-foundation.org> <20071113.175551.131375600.davem@davemloft.net> <20071114095507.GA32595@flint.arm.linux.org.uk> <20071114.020706.219917088.davem@davemloft.net>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [NET] random : secure_tcp_sequence_number should not
+	assume CONFIG_KTIME_SCALAR
+Date: Wed, 14 Nov 2007 11:49:19 -0800
+Message-ID: <20071114194919.GC10318@kroah.com>
+References: <47398ADD.2030509@cosmosbay.com> <20071113.035019.268404275.davem@davemloft.net> <4739A97F.60206@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: alsa-devel@alsa-project.org, netdev@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org, linux-kernel@vger.kernel.org,
-	protasnb@gmail.com, linux-ide@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	linux-input@atrey.karlin.mff.cuni.cz, akpm@linux-foundation.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kaber@trash.net, stable@kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:35430 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753484AbXKNTpl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 14:45:41 -0500
+Received: from pentafluge.infradead.org ([213.146.154.40]:58272 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754110AbXKNTwB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 14:52:01 -0500
 Content-Disposition: inline
-In-Reply-To: <20071114.020706.219917088.davem@davemloft.net>
+In-Reply-To: <4739A97F.60206@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 14, 2007 at 02:07:06AM -0800, David Miller wrote:
-> From: Russell King <rmk+lkml@arm.linux.org.uk>
-> Date: Wed, 14 Nov 2007 09:55:07 +0000
-> 
-> > On Tue, Nov 13, 2007 at 05:55:51PM -0800, David Miller wrote:
-> > > I've created linux-arm@vger.kernel.org
-> > 
-> > By doing so you've just said (implicitly) that you can not tolerate
-> > someone having a different opinion from your own.
-> 
-> I created a mailing list on a machine where I provide such services.
-> 
-> People can choose to use or not use the new list, it is their choice.
-> 
-> > While I accept *your* right to run *your* lists how you please, you
-> > are unable to accept *my* right to run *my* lists how I see fit.
-> 
-> I didn't tell you to take your list down or to run it in some other
-> way.  I didn't tell you to unsubscribe everyone and move them over
-> to the new list either.
+On Tue, Nov 13, 2007 at 02:41:19PM +0100, Eric Dumazet wrote:
+> I discovered one other incorrect use of .tv64 (coming from me, I must 
+> confess)
+>
+> I guess this patch is  needed for 2.6.24 and stable (2.6.22 & 2.6.23)
+>
+> Thank you
 
-I didn't say that you were.
+Thanks for sending this to stable@, but David does a great job of
+forwarding these to us, so I'll wait for him to relay it to us before
+taking it into our tree.
 
-> I've provided an alternative, and people can pick and choose how they
-> see fit.  I'm letting natural selection run it's course.  Are you
-> able to cope with the fact that people might not want to use your
-> list any longer?  Perhaps that is what bugs you so much about my
-> giving people a alternative choice.
+thanks,
 
-Absolutely, and if you'd have read my message you'd have seen that
-I'd said effectively the same thing that you're saying here.
-
-Having been flamed for not reading emails properly by AKPM shall
-I flame you for not reading my emails properly?  Oh no, it's merely
-human to occasionally have such misunderstandings.  Unless you're
-rmk.
-
--- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:
+greg k-h
