@@ -1,41 +1,36 @@
-From: Marek Kierdelewicz <marek@koba.pl>
-Subject: skb processing in SMP kernel
-Date: Wed, 14 Nov 2007 21:14:37 +0100
-Message-ID: <20071114211437.7f4c79d2@catlap>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [stable] [PATCH 1/2] forcedeth new mcp79 device ids
+Date: Wed, 14 Nov 2007 12:26:29 -0800
+Message-ID: <20071114122629.7e74060e.akpm@linux-foundation.org>
+References: <473234F1.9000109@nvidia.com>
+	<20071114185553.GC14450@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	nedev <netdev@vger.kernel.org>, stable@kernel.org
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from psyche.piasta.pl ([83.175.144.5]:39497 "EHLO psyche.piasta.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755252AbXKNUU5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 15:20:57 -0500
-Received: from unknown ([127.0.0.2])
- by localhost (psyche.piasta.pl [127.0.0.2]) (amavisd-new, port 10628)
- id 27422-01 for <netdev@vger.kernel.org>;
- Wed, 14 Nov 2007 21:20:53 +0100 (CET)
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:41366 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758769AbXKNU1N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 15:27:13 -0500
+In-Reply-To: <20071114185553.GC14450@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi there,
+On Wed, 14 Nov 2007 10:55:53 -0800 Greg KH <greg@kroah.com> wrote:
 
-I'm looking at file /usr/src/linux/net/core/dev.c
-function "int netif_rx(struct sk_buff *skb)"
-and following line:
-=20
-queue =3D &__get_cpu_var(softnet_data);
+> On Wed, Nov 07, 2007 at 04:58:09PM -0500, Ayaz Abdulla wrote:
+> > This patch adds new device ids for mcp79 devices.
+> >
+> > Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+> 
+> I do not see these patches in Linus's tree yet.  Have they just not made
+> it for some reason?
+> 
 
-Is it possible to put skb into the queue of another CPU then the one
-servicing the interrupt? (Disclaimer: Yeah, I know it's probably not
-the smartest thing to do because of locks and cache line bounces). How
-could it be accomplished? Any lead, comment, link appreciated.
-
-
-pozdrawiam
---=20
-Marek Kierdelewicz
-Kierownik Dzia=B3u System=F3w Sieciowych, KoBa
-Manager of Network Systems Department, KoBa
-tel. (85) 7406466; fax. (85) 7406467
-e-mail: admin@koba.pl
+I have them in my tree.  I'm hoping to do a subsystem maintainer
+patchbombing today.
