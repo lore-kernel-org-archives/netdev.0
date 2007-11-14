@@ -1,71 +1,57 @@
-From: Nj A <nj_a83@yahoo.fr>
-Subject: Re : Bug in using inet_lookup ()
-Date: Wed, 14 Nov 2007 13:12:11 +0000 (GMT)
-Message-ID: <867900.85129.qm@web26107.mail.ukl.yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web26107.mail.ukl.yahoo.com ([217.146.182.148]:43852 "HELO
-	web26107.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751697AbXKNNMP convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2007 08:12:15 -0500
-Sender: netdev-owner@vger.kernel.org
+From: Chuck Lever <chuck.lever@oracle.com>
+Subject: Re: [PATCH 00/25] RFC: AF_INET6 family support for the NFS
+	client
+Date: Wed, 14 Nov 2007 08:26:05 -0500
+Message-ID: <6E3A8C73-D31F-4FE5-9389-37DF052C1154@oracle.com>
+References: <20071113182226.5087.77009.stgit@manray.1015granger.net>
+	<20071113.171424.267123659.davem@davemloft.net>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nfs@lists.sourceforge.net
+To: David Miller <davem@davemloft.net>
+Return-path: <nfs-bounces@lists.sourceforge.net>
+In-Reply-To: <20071113.171424.267123659.davem@davemloft.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
+	<mailto:nfs-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=nfs>
+List-Post: <mailto:nfs@lists.sourceforge.net>
+List-Help: <mailto:nfs-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
+	<mailto:nfs-request@lists.sourceforge.net?subject=subscribe>
+Sender: nfs-bounces@lists.sourceforge.net
+Errors-To: nfs-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-I suspected it could be that. However, can't see in ip_rcv the right po=
-rtion that can help.
-Any further tip please?
-
-Regards,
------ Message d'origine ----
-> De : Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> =C0 : Nj A <nj_a83@yahoo.fr>
-> Cc : netdev@vger.kernel.org
-> Envoy=E9 le : Mercredi, 14 Novembre 2007, 12h13mn 05s
-> Objet : Re: Bug in using inet_lookup ()
->=20
-> On Wed, Nov 14, 2007 at 09:26:18AM +0000, Nj A (nj_a83@yahoo.fr) wrot=
-e:
-> > /* The kernel TCP hashtable */
-> > struct inet_hashinfo __cacheline_aligned tcp_hashinfo =3D {
-> > .lhash_lock =3D __RW_LOCK_UNLOCKED (tcp_hashinfo.lhash_lock),
-> > .lhash_users =3D ATOMIC_INIT (0),
-> > .lhash_wait =3D __WAIT_QUEUE_HEAD_INITIALIZER (tcp_hashinfo.lhash_w=
-ait),
-> > };
-> > ...
-> > struct sock *sk;
-> > struct sk_buff *skb;
-> > skb =3D alloc_skb (MAX_TCP_HEADER + 15, GFP_KERNEL);
-> > if (skb =3D=3D NULL)
-> > printk ("%s: Unable to allocate memory \n", __FUNCTION__);
-> > sk =3D inet_lookup (&tcp_hashinfo, ip_src, src_port, ip_dst, dst_po=
-rt, inet_iif
-> (skb));
-> > if (!sk)
-> > ...
-> > This portion of code seems to cause the kernel to panic due to dere=
-ferencing a
-> NULL pointer.
-> > Can anyone please tell me what is the error above?
-> > Best Regards,
->=20
-> Where exactly? Likely in inet_iif(), since it dereferences dst (routi=
-ng
-> info), which is not presented after simple alloc_skb().
-> You have to setup skb correctly, check how ip_rcv() does it.
->=20
-> --=20
-> Evgeniy
-> Polyakov
+On Nov 13, 2007, at 8:14 PM, David Miller wrote:
+> From: Chuck Lever <chuck.lever@oracle.com>
+> Date: Tue, 13 Nov 2007 13:30:59 -0500
 >
+>> These 25 patches add support for AF_INET6 addresses to the NFS  
+>> client.
+>> This is a request for review of the proposed changes.
+>
+> Please start using the linux-nfs@vger.kernel.org mailing list
+> for future submissions instead of the sourceforge one.
+>
+> Thank you.
+
+Hi David-
+
+Neil Brown has discussed a transition plan.  There were no objections  
+to moving to vger, but we don't have a timeframe yet.
+
+--
+Chuck Lever
+chuck[dot]lever[at]oracle[dot]com
 
 
-      _________________________________________________________________=
-____________=20
-Ne gardez plus qu'une seule adresse mail ! Copiez vos mails vers Yahoo!=
- Mail=20
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >> http://get.splunk.com/
+_______________________________________________
+NFS maillist  -  NFS@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/nfs
