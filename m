@@ -1,349 +1,106 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH] bonding: Documentation update
-Date: Tue, 13 Nov 2007 18:58:53 -0800
-Message-ID: <11074.1195009133@death>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	"Andy Gospodarek" <andy@greyhouse.net>
-To: netdev@vger.kernel.org
+From: Ben Greear <greearb@candelatech.com>
+Subject: reproducible cxgb kernel panic in FC8 kernel 2.6.23.1-49
+Date: Tue, 13 Nov 2007 19:13:14 -0800
+Message-ID: <473A67CA.8030007@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:57894 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754534AbXKNC65 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 21:58:57 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id lAE2wudY031765
-	for <netdev@vger.kernel.org>; Tue, 13 Nov 2007 21:58:56 -0500
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id lAE2wuwX127246
-	for <netdev@vger.kernel.org>; Tue, 13 Nov 2007 19:58:56 -0700
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lAE2wtVD019180
-	for <netdev@vger.kernel.org>; Tue, 13 Nov 2007 19:58:55 -0700
+Received: from ns2.lanforge.com ([66.165.47.211]:34051 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755039AbXKNDNP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2007 22:13:15 -0500
+Received: from [192.168.100.224] (static-71-121-249-218.sttlwa.dsl-w.verizon.net [71.121.249.218])
+	(authenticated bits=0)
+	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id lAE3DEDQ012252
+	for <netdev@vger.kernel.org>; Tue, 13 Nov 2007 19:13:15 -0800
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This panic happens (almost?) immediately after starting TCP traffic between
+the cxgb nic on this system and another.  We also got at least one crash
+on a custom/tainted 2.6.20.12 kernel, but it would run for at least
+a few minutes at ~1Gbps first.
 
-	Update the bonding documentation: more discussion on
-initialization and configuration, changes to discussion of packet
-reordering in balance-rr, update some out of date information.
+I think my serial console chomped some of this..but it's very reproducible,
+so if you need more info I can make the terminal wider and do it again.
 
-	Based in part on input from Rick Jones <rick.jones2@hp.com> and
-Andy Gospodarek <andy@greyhouse.net>.
+I'm not sure it matters..but the peer NIC (directly connected w/fibre) is
+a similar cxgb NIC but with TOE support (the longer, more expensive one).
 
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
----
+root@lf1002-155 ~]# BUG: unable to handle kernel NULL pointer dereference at virtual address 00000194
+printing eip: f8a80b67 *pde = 7d0ac067
+Oops: 0002 [#1] SMP
+Modules linked in: arc4 michael_mic 8021q cxgb e1000 macvlan pktgen autofs4 sunrpc ipv6 loop dm_multipath i50d
+CPU:    1
+EIP:    0060:[<f8a80b67>]    Not tainted VLI
+EFLAGS: 00010206   (2.6.23.1-49.fc8 #1)
+EIP is at t1_poll+0x2e0/0x64a [cxgb]
+eax: fffd7d78   ebx: f6e56e02   ecx: f6e20500   edx: 00000000
+esi: f6ed8846   edi: f6f63428   ebp: f6820500   esp: c0789f7c
+ds: 007b   es: 007b   fs: 00d8  gs: 0000  ss: 0068
+Process swapper (pid: 0, ti=c0789000 task=f7c42c20 task.ti=c211d000)
+Stack: ffffffff 00000000 ffffffff c0789fd4 f6e20000 f6e20500 00000000 00000000
+        f69f2060 f6f63448 00000040 f6f63428 f6e20500 f6f63400 00000000 00000000
+        00000000 f6e20000 c2017714 c2017700 c05bdc74 fffd7d78 0000012c 00000001
+Call Trace:
+  [<c05bdc74>] net_rx_action+0x9a/0x196
+  [<c0431e06>] __do_softirq+0x66/0xd3
+  [<c04073d5>] do_softirq+0x6c/0xce
+  [<c0444675>] tick_do_update_jiffies64+0x15/0xa8
+  [<c044018b>] ktime_get+0xf/0x2b
+  [<c045bac7>] handle_edge_irq+0x0/0xfc
+  [<c0431cc9>] irq_exit+0x38/0x6b
+  [<c04074d6>] do_IRQ+0x9f/0xb9
+  [<c043ff60>] hrtimer_start+0xe6/0xf0
+  [<c0405b6f>] common_interrupt+0x23/0x28
+  [<c04032a1>] mwait_idle_with_hints+0x3b/0x3f
+  [<c04032a5>] mwait_idle+0x0/0x13
+  [<c040340b>] cpu_idle+0xab/0xcc
+  =======================
+Code: 68 b3 c7 e9 ef 01 00 00 8b 45 50 83 e8 08 3b 45 54 89 45 50 73 04 0f 0b eb fe 8d 43 08 8b 55 14 89 85 a
+EIP: [<f8a80b67>] t1_poll+0x2e0/0x64a [cxgb] SS:ESP 0068:c0789f7c
+Kernel panic - not syncing: Fatal exception in interrupt
 
-diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-index 1134062..eda0f06 100644
---- a/Documentation/networking/bonding.txt
-+++ b/Documentation/networking/bonding.txt
-@@ -1,7 +1,7 @@
- 
- 		Linux Ethernet Bonding Driver HOWTO
- 
--		Latest update: 24 April 2006
-+		Latest update: 12 November 2007
- 
- Initial release : Thomas Davis <tadavis at lbl.gov>
- Corrections, HA extensions : 2000/10/03-15 :
-@@ -166,12 +166,17 @@ to use ifenslave.
- 2. Bonding Driver Options
- =========================
- 
--	Options for the bonding driver are supplied as parameters to
--the bonding module at load time.  They may be given as command line
--arguments to the insmod or modprobe command, but are usually specified
--in either the /etc/modules.conf or /etc/modprobe.conf configuration
--file, or in a distro-specific configuration file (some of which are
--detailed in the next section).
-+	Options for the bonding driver are supplied as parameters to the
-+bonding module at load time, or are specified via sysfs.
-+
-+	Module options may be given as command line arguments to the
-+insmod or modprobe command, but are usually specified in either the
-+/etc/modules.conf or /etc/modprobe.conf configuration file, or in a
-+distro-specific configuration file (some of which are detailed in the next
-+section).
-+
-+	Details on bonding support for sysfs is provided in the
-+"Configuring Bonding Manually via Sysfs" section, below.
- 
- 	The available bonding driver parameters are listed below. If a
- parameter is not specified the default value is used.  When initially
-@@ -787,11 +792,13 @@ the system /etc/modules.conf or /etc/modprobe.conf configuration file.
- 3.2 Configuration with Initscripts Support
- ------------------------------------------
- 
--	This section applies to distros using a version of initscripts
--with bonding support, for example, Red Hat Linux 9 or Red Hat
--Enterprise Linux version 3 or 4.  On these systems, the network
--initialization scripts have some knowledge of bonding, and can be
--configured to control bonding devices.
-+	This section applies to distros using a recent version of
-+initscripts with bonding support, for example, Red Hat Enterprise Linux
-+version 3 or later, Fedora, etc.  On these systems, the network
-+initialization scripts have knowledge of bonding, and can be configured to
-+control bonding devices.  Note that older versions of the initscripts
-+package have lower levels of support for bonding; this will be noted where
-+applicable.
- 
- 	These distros will not automatically load the network adapter
- driver unless the ethX device is configured with an IP address.
-@@ -839,11 +846,31 @@ USERCTL=no
- 	Be sure to change the networking specific lines (IPADDR,
- NETMASK, NETWORK and BROADCAST) to match your network configuration.
- 
--	Finally, it is necessary to edit /etc/modules.conf (or
--/etc/modprobe.conf, depending upon your distro) to load the bonding
--module with your desired options when the bond0 interface is brought
--up.  The following lines in /etc/modules.conf (or modprobe.conf) will
--load the bonding module, and select its options:
-+	For later versions of initscripts, such as that found with Fedora
-+7 and Red Hat Enterprise Linux version 5 (or later), it is possible, and,
-+indeed, preferable, to specify the bonding options in the ifcfg-bond0
-+file, e.g. a line of the format:
-+
-+BONDING_OPTS="mode=active-backup arp_interval=60 arp_ip_target=+192.168.1.254"
-+
-+	will configure the bond with the specified options.  The options
-+specified in BONDING_OPTS are identical to the bonding module parameters
-+except for the arp_ip_target field.  Each target should be included as a
-+separate option and should be preceded by a '+' to indicate it should be
-+added to the list of queried targets, e.g.,
-+
-+	arp_ip_target=+192.168.1.1 arp_ip_target=+192.168.1.2
-+
-+	is the proper syntax to specify multiple targets.  When specifying
-+options via BONDING_OPTS, it is not necessary to edit /etc/modules.conf or
-+/etc/modprobe.conf.
-+
-+	For older versions of initscripts that do not support
-+BONDING_OPTS, it is necessary to edit /etc/modules.conf (or
-+/etc/modprobe.conf, depending upon your distro) to load the bonding module
-+with your desired options when the bond0 interface is brought up.  The
-+following lines in /etc/modules.conf (or modprobe.conf) will load the
-+bonding module, and select its options:
- 
- alias bond0 bonding
- options bond0 mode=balance-alb miimon=100
-@@ -858,9 +885,10 @@ up and running.
- 3.2.1 Using DHCP with Initscripts
- ---------------------------------
- 
--	Recent versions of initscripts (the version supplied with
--Fedora Core 3 and Red Hat Enterprise Linux 4 is reported to work) do
--have support for assigning IP information to bonding devices via DHCP.
-+	Recent versions of initscripts (the versions supplied with Fedora
-+Core 3 and Red Hat Enterprise Linux 4, or later versions, are reported to
-+work) have support for assigning IP information to bonding devices via
-+DHCP.
- 
- 	To configure bonding for DHCP, configure it as described
- above, except replace the line "BOOTPROTO=none" with "BOOTPROTO=dhcp"
-@@ -870,18 +898,14 @@ is case sensitive.
- 3.2.2 Configuring Multiple Bonds with Initscripts
- -------------------------------------------------
- 
--	At this writing, the initscripts package does not directly
--support loading the bonding driver multiple times, so the process for
--doing so is the same as described in the "Configuring Multiple Bonds
--Manually" section, below.
--
--	NOTE: It has been observed that some Red Hat supplied kernels
--are apparently unable to rename modules at load time (the "-o bond1"
--part).  Attempts to pass that option to modprobe will produce an
--"Operation not permitted" error.  This has been reported on some
--Fedora Core kernels, and has been seen on RHEL 4 as well.  On kernels
--exhibiting this problem, it will be impossible to configure multiple
--bonds with differing parameters.
-+	Initscripts packages that are included with Fedora 7 and Red Hat
-+Enterprise Linux 5 support multiple bonding interfaces by simply
-+specifying the appropriate BONDING_OPTS= in ifcfg-bondX where X is the
-+number of the bond.  This support requires sysfs support in the kernel,
-+and a bonding driver of version 3.0.0 or later.  Other configurations may
-+not support this method for specifying multiple bonding interfaces; for
-+those instances, see the "Configuring Multiple Bonds Manually" section,
-+below.
- 
- 3.3 Configuring Bonding Manually with Ifenslave
- -----------------------------------------------
-@@ -952,15 +976,58 @@ initialization scripts lack support for configuring multiple bonds.
- options, you may wish to use the "max_bonds" module parameter,
- documented above.
- 
--	To create multiple bonding devices with differing options, it
--is necessary to use bonding parameters exported by sysfs, documented
--in the section below.
-+	To create multiple bonding devices with differing options, it is
-+preferrable to use bonding parameters exported by sysfs, documented in the
-+section below.
-+
-+	For versions of bonding without sysfs support, the only means to
-+provide multiple instances of bonding with differing options is to load
-+the bonding driver multiple times.  Note that current versions of the
-+sysconfig network initialization scripts handle this automatically; if
-+your distro uses these scripts, no special action is needed.  See the
-+section Configuring Bonding Devices, above, if you're not sure about your
-+network initialization scripts.
-+
-+	To load multiple instances of the module, it is necessary to
-+specify a different name for each instance (the module loading system
-+requires that every loaded module, even multiple instances of the same
-+module, have a unique name).  This is accomplished by supplying multiple
-+sets of bonding options in /etc/modprobe.conf, for example:
-+
-+alias bond0 bonding
-+options bond0 -o bond0 mode=balance-rr miimon=100
-+
-+alias bond1 bonding
-+options bond1 -o bond1 mode=balance-alb miimon=50
-+
-+	will load the bonding module two times.  The first instance is
-+named "bond0" and creates the bond0 device in balance-rr mode with an
-+miimon of 100.  The second instance is named "bond1" and creates the
-+bond1 device in balance-alb mode with an miimon of 50.
-+
-+	In some circumstances (typically with older distributions),
-+the above does not work, and the second bonding instance never sees
-+its options.  In that case, the second options line can be substituted
-+as follows:
-+
-+install bond1 /sbin/modprobe --ignore-install bonding -o bond1 \
-+	mode=balance-alb miimon=50
- 
-+	This may be repeated any number of times, specifying a new and
-+unique name in place of bond1 for each subsequent instance.
-+
-+	It has been observed that some Red Hat supplied kernels are unable
-+to rename modules at load time (the "-o bond1" part).  Attempts to pass
-+that option to modprobe will produce an "Operation not permitted" error.
-+This has been reported on some Fedora Core kernels, and has been seen on
-+RHEL 4 as well.  On kernels exhibiting this problem, it will be impossible
-+to configure multiple bonds with differing parameters (as they are older
-+kernels, and also lack sysfs support).
- 
- 3.4 Configuring Bonding Manually via Sysfs
- ------------------------------------------
- 
--	Starting with version 3.0, Channel Bonding may be configured
-+	Starting with version 3.0.0, Channel Bonding may be configured
- via the sysfs interface.  This interface allows dynamic configuration
- of all bonds in the system without unloading the module.  It also
- allows for adding and removing bonds at runtime.  Ifenslave is no
-@@ -1005,9 +1072,6 @@ To enslave interface eth0 to bond bond0:
- To free slave eth0 from bond bond0:
- # echo -eth0 > /sys/class/net/bond0/bonding/slaves
- 
--	NOTE: The bond must be up before slaves can be added.  All
--slaves are freed when the interface is brought down.
--
- 	When an interface is enslaved to a bond, symlinks between the
- two are created in the sysfs filesystem.  In this case, you would get
- /sys/class/net/bond0/slave_eth0 pointing to /sys/class/net/eth0, and
-@@ -1597,6 +1661,15 @@ one for each switch in the network).  This will insure that,
- regardless of which switch is active, the ARP monitor has a suitable
- target to query.
- 
-+	Note, also, that of late many switches now support a functionality
-+generally referred to as "trunk failover."  This is a feature of the
-+switch that causes the link state of a particular switch port to be set
-+down (or up) when the state of another switch port goes down (or up).
-+It's purpose is to propogate link failures from logically "exterior" ports
-+to the logically "interior" ports that bonding is able to monitor via
-+miimon.  Availability and configuration for trunk failover varies by
-+switch, but this can be a viable alternative to the ARP monitor when using
-+suitable switches.
- 
- 12. Configuring Bonding for Maximum Throughput
- ==============================================
-@@ -1684,7 +1757,7 @@ balance-rr: This mode is the only mode that will permit a single
- 	interfaces. It is therefore the only mode that will allow a
- 	single TCP/IP stream to utilize more than one interface's
- 	worth of throughput.  This comes at a cost, however: the
--	striping often results in peer systems receiving packets out
-+	striping generally results in peer systems receiving packets out
- 	of order, causing TCP/IP's congestion control system to kick
- 	in, often by retransmitting segments.
- 
-@@ -1696,22 +1769,20 @@ balance-rr: This mode is the only mode that will permit a single
- 	interface's worth of throughput, even after adjusting
- 	tcp_reordering.
- 
--	Note that this out of order delivery occurs when both the
--	sending and receiving systems are utilizing a multiple
--	interface bond.  Consider a configuration in which a
--	balance-rr bond feeds into a single higher capacity network
--	channel (e.g., multiple 100Mb/sec ethernets feeding a single
--	gigabit ethernet via an etherchannel capable switch).  In this
--	configuration, traffic sent from the multiple 100Mb devices to
--	a destination connected to the gigabit device will not see
--	packets out of order.  However, traffic sent from the gigabit
--	device to the multiple 100Mb devices may or may not see
--	traffic out of order, depending upon the balance policy of the
--	switch.  Many switches do not support any modes that stripe
--	traffic (instead choosing a port based upon IP or MAC level
--	addresses); for those devices, traffic flowing from the
--	gigabit device to the many 100Mb devices will only utilize one
--	interface.
-+	Note that the fraction of packets that will be delivered out of
-+	order is highly variable, and is unlikely to be zero.  The level
-+	of reordering depends upon a variety of factors, including the
-+	networking interfaces, the switch, and the topology of the
-+	configuration.  Speaking in general terms, higher speed network
-+	cards produce more reordering (due to factors such as packet
-+	coalescing), and a "many to many" topology will reorder at a
-+	higher rate than a "many slow to one fast" configuration.
-+
-+	Many switches do not support any modes that stripe traffic
-+	(instead choosing a port based upon IP or MAC level addresses);
-+	for those devices, traffic for a particular connection flowing
-+	through the switch to a balance-rr bond will not utilize greater
-+	than one interface's worth of bandwidth.
- 
- 	If you are utilizing protocols other than TCP/IP, UDP for
- 	example, and your application can tolerate out of order
-@@ -1911,6 +1982,10 @@ Failover may be delayed via the downdelay bonding module option.
- 13.2 Duplicated Incoming Packets
- --------------------------------
- 
-+	NOTE: Starting with version 3.0.2, the bonding driver has logic to
-+suppress duplicate packets, which should largely eliminate this problem.
-+The following description is kept for reference.
-+
- 	It is not uncommon to observe a short burst of duplicated
- traffic when the bonding device is first used, or after it has been
- idle for some period of time.  This is most easily observed by issuing
-@@ -2071,6 +2146,9 @@ The new driver was designed to be SMP safe from the start.
- EtherExpress PRO/100 and a 3com 3c905b, for example).  For most modes,
- devices need not be of the same speed.
- 
-+	Starting with version 3.2.1, bonding also supports Infiniband
-+slaves in active-backup mode.
-+
- 3.  How many bonding devices can I have?
- 
- 	There is no limit.
-@@ -2129,11 +2207,15 @@ switches currently available support 802.3ad.
- 
- 8.  Where does a bonding device get its MAC address from?
- 
--	If not explicitly configured (with ifconfig or ip link), the
--MAC address of the bonding device is taken from its first slave
--device.  This MAC address is then passed to all following slaves and
--remains persistent (even if the first slave is removed) until the
--bonding device is brought down or reconfigured.
-+	When using slave devices that have fixed MAC addresses, or when
-+the fail_over_mac option is enabled, the bonding device's MAC address is
-+the MAC address of the active slave.
-+
-+	For other configurations, if not explicitly configured (with
-+ifconfig or ip link), the MAC address of the bonding device is taken from
-+its first slave device.  This MAC address is then passed to all following
-+slaves and remains persistent (even if the first slave is removed) until
-+the bonding device is brought down or reconfigured.
- 
- 	If you wish to change the MAC address, you can set it with
- ifconfig or ip link:
+
+lspci is below:
+
+[root@lf1002-155 ~]# lspci
+00:00.0 Host bridge: Intel Corporation 5000V Chipset Memory Controller Hub (rev b1)
+00:02.0 PCI bridge: Intel Corporation 5000 Series Chipset PCI Express x8 Port 2-3 (rev b1)
+00:08.0 System peripheral: Intel Corporation 5000 Series Chipset DMA Engine (rev b1)
+00:10.0 Host bridge: Intel Corporation 5000 Series Chipset FSB Registers (rev b1)
+00:10.1 Host bridge: Intel Corporation 5000 Series Chipset FSB Registers (rev b1)
+00:10.2 Host bridge: Intel Corporation 5000 Series Chipset FSB Registers (rev b1)
+00:11.0 Host bridge: Intel Corporation 5000 Series Chipset Reserved Registers (rev b1)
+00:13.0 Host bridge: Intel Corporation 5000 Series Chipset Reserved Registers (rev b1)
+00:15.0 Host bridge: Intel Corporation 5000 Series Chipset FBD Registers (rev b1)
+00:16.0 Host bridge: Intel Corporation 5000 Series Chipset FBD Registers (rev b1)
+00:1c.0 PCI bridge: Intel Corporation 631xESB/632xESB/3100 Chipset PCI Express Root Port 1 (rev 09)
+00:1d.0 USB Controller: Intel Corporation 631xESB/632xESB/3100 Chipset UHCI USB Controller #1 (rev 09)
+00:1d.1 USB Controller: Intel Corporation 631xESB/632xESB/3100 Chipset UHCI USB Controller #2 (rev 09)
+00:1d.2 USB Controller: Intel Corporation 631xESB/632xESB/3100 Chipset UHCI USB Controller #3 (rev 09)
+00:1d.3 USB Controller: Intel Corporation 631xESB/632xESB/3100 Chipset UHCI USB Controller #4 (rev 09)
+00:1d.7 USB Controller: Intel Corporation 631xESB/632xESB/3100 Chipset EHCI USB2 Controller (rev 09)
+00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev d9)
+00:1f.0 ISA bridge: Intel Corporation 631xESB/632xESB/3100 Chipset LPC Interface Controller (rev 09)
+00:1f.1 IDE interface: Intel Corporation 631xESB/632xESB IDE Controller (rev 09)
+00:1f.2 IDE interface: Intel Corporation 631xESB/632xESB/3100 Chipset SATA IDE Controller (rev 09)
+00:1f.3 SMBus: Intel Corporation 631xESB/632xESB/3100 Chipset SMBus Controller (rev 09)
+01:00.0 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express Upstream Port (rev 01)
+01:00.3 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express to PCI-X Bridge (rev 01)
+02:00.0 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express Downstream Port E1 (rev 01)
+02:02.0 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express Downstream Port E3 (rev 01)
+04:00.0 Ethernet controller: Intel Corporation 80003ES2LAN Gigabit Ethernet Controller (Copper) (rev 01)
+04:00.1 Ethernet controller: Intel Corporation 80003ES2LAN Gigabit Ethernet Controller (Copper) (rev 01)
+05:01.0 Ethernet controller: Chelsio Communications Inc Unknown device 000a 07:01.0 VGA compatible controller: ATI Technologies Inc ES1000 (rev 02)
+[root@lf1002-155 ~]#
+
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
