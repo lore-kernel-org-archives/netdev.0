@@ -1,41 +1,33 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] ipconfig.c : implement DHCP Class-identifier
-Date: Wed, 14 Nov 2007 10:48:43 +0100
-Message-ID: <473AC47B.9070509@trash.net>
-References: <20071108143205.GA22490@mpi-sb.mpg.de> <47332F1F.5040401@trash.net> <20071114084420.GA29241@mpi-sb.mpg.de> <473AB82F.8050801@trash.net> <20071114094508.GA6004@mpi-sb.mpg.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL] RFC3484 Configurable Policy Table.
+Date: Wed, 14 Nov 2007 01:52:51 -0800 (PST)
+Message-ID: <20071114.015251.235076857.davem@davemloft.net>
+References: <20071114.163728.134148765.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	pcernko@mpi-sws.mpg.de
-To: Rainer Jochem <rainer.jochem@mpi-sb.mpg.de>
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39455 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752810AbXKNJsy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 04:48:54 -0500
-In-Reply-To: <20071114094508.GA6004@mpi-sb.mpg.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53232
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754713AbXKNJww (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 04:52:52 -0500
+In-Reply-To: <20071114.163728.134148765.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rainer Jochem wrote:
-> 
->> I don't think its very useful since you can simply get this information
->> from /proc/cmdline in case something goes wrong, but if you insist at
->> least give it a meaningful prefix.
-> 
-> Added.
-> 
->> The initialization is unnecessary.
-> 
-> Removed.
-> 
->> Should be >= I think.
-> 
-> Fixed.
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Wed, 14 Nov 2007 16:37:28 +0900 (JST)
 
+> Please consider pulling from
+> 	inet6-2.6.25
+> branch at
+> 	<git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git>
+> which contains the following commits on top of your net-2.6.25 tree.
+ ...
+>     [IPV6] ADDRCONF: Rename ipv6_saddr_label() to ipv6_addr_label().
+>     [IPV6] ADDRCONF: Allow address selection policy with ifindex.
+>     [IPV6] ADDRCONF: Support RFC3484 configurable address selection policy table.
 
-Looks fine, thanks.
-
-
+Pulled and pushed back out to net-2.6.25, thanks a lot!
