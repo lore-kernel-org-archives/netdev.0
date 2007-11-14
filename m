@@ -1,53 +1,48 @@
-From: Hannes Reinecke <hare@suse.de>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Wed, 14 Nov 2007 14:35:33 +0100
-Message-ID: <473AF9A5.50707@suse.de>
-References: <20071113031553.3c7b5c16.akpm@linux-foundation.org> <200711131739.45820.vda.linux@googlemail.com> <20071114072715.GO4250@stusta.de> <200711140046.20391.vda.linux@googlemail.com> <20071114133034.GR17785@parisc-linux.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Remove notifier block from chain when register_netdevice_notifier fails
+Date: Wed, 14 Nov 2007 21:37:17 +0800
+Message-ID: <20071114133717.GA14746@gondor.apana.org.au>
+References: <473AE523.70501@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: Denys Vlasenko <vda.linux@googlemail.com>,
-	Adrian Bunk <bunk@kernel.org>, alsa-devel@alsa-project.org,
-	Theodore Tso <tytso@mit.edu>,
-	Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, linux-pcmcia@lists.infradead.org,
-	linux-kernel@vger.kernel.org, protasnb@gmail.com,
-	linux-ide@vger.kernel.org, Benoit Boissinot <bboissin@gmail.com>,
-	Mark Lord <liml@rtr.ca>, linux-input@atrey.karlin.mff.cuni.cz,
-	Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>
-To: Matthew Wilcox <matthew@wil.cx>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <20071114133034.GR17785@parisc-linux.org>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:2676 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753650AbXKNNhU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 08:37:20 -0500
+Content-Disposition: inline
+In-Reply-To: <473AE523.70501@openvz.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matthew Wilcox wrote:
-> On Wed, Nov 14, 2007 at 12:46:20AM -0700, Denys Vlasenko wrote:
->> Finally they replied and asked to rediff it against their
->> git tree. I did that and sent patches back. No reply since then.
->>
->> And mind you, the patch is not trying to do anything
->> complex, it mostly moves code around, removes 'inline',
->> adds 'const'. What should I think about it?
->=20
-> I'm waiting for an ACK/NAK from Hannes, the maintainer.  What should I
-> do?
->=20
-I haven't actually been able to test it here (too busy, sorry). If someon=
-e
-else confirms it does it's job then
+On Wed, Nov 14, 2007 at 03:08:03PM +0300, Pavel Emelyanov wrote:
+> Commit fcc5a03ac42564e9e255c1134dda47442289e466 makes the
+> register_netdevice_notifier() handle the error from the
+> NETDEV_REGISTER event, sent to the registering block. 
+> 
+> The bad news is that in this case the notifier block is 
+> not removed from the list, but the error is returned to the 
+> caller. In case the caller is in module init function and 
+> handles this error this can abort the module loading. The
+> notifier block will be then removed from the kernel, but 
+> will be left in the list. Oops :(
+> 
+> I think that the notifier block should be removed from the
+> chain in case of error, regardless whether this error is 
+> handled by the caller or not. In the worst case (the error 
+> is _not_ handled) module will not receive the events any 
+> longer.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Acked-by: Hannes Reinecke <hare@suse.de>
+Good catch.  Thanks Pavel!
 
-Cheers,
-
-Hannes
---=20
-Dr. Hannes Reinecke		      zSeries & Storage
-hare@suse.de			      +49 911 74053 688
-SUSE LINUX Products GmbH, Maxfeldstr. 5, 90409 N=FCrnberg
-GF: Markus Rex, HRB 16746 (AG N=FCrnberg)
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
