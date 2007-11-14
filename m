@@ -1,32 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netdev: create an "is_napi_enabled()" call
-Date: Tue, 13 Nov 2007 17:42:49 -0800 (PST)
-Message-ID: <20071113.174249.259628188.davem@davemloft.net>
-References: <20071113230636.GJ8421@austin.ibm.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 05/25] NFS: eliminate
+	NIPQUAD(clp->cl_addr.sin_addr)
+Date: Wed, 14 Nov 2007 10:45:33 +0900 (JST)
+Message-ID: <20071114.104533.127429382.yoshfuji@linux-ipv6.org>
+References: <20071113183126.5087.27810.stgit@manray.1015granger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, akpm@linux-foundation.org, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-To: linas@austin.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51283
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754262AbXKNBmu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 20:42:50 -0500
-In-Reply-To: <20071113230636.GJ8421@austin.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	nfs@lists.sourceforge.net
+To: chuck.lever@oracle.com
+Return-path: <nfs-bounces@lists.sourceforge.net>
+In-Reply-To: <20071113183126.5087.27810.stgit@manray.1015granger.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
+	<mailto:nfs-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=nfs>
+List-Post: <mailto:nfs@lists.sourceforge.net>
+List-Help: <mailto:nfs-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
+	<mailto:nfs-request@lists.sourceforge.net?subject=subscribe>
+Sender: nfs-bounces@lists.sourceforge.net
+Errors-To: nfs-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: linas@austin.ibm.com (Linas Vepstas)
-Date: Tue, 13 Nov 2007 17:06:36 -0600
+In article <20071113183126.5087.27810.stgit@manray.1015granger.net> (at Tue, 13 Nov 2007 13:31:27 -0500), Chuck Lever <chuck.lever@oracle.com> says:
 
-> 
-> In certain rare cases, it can be nice to be able to check
-> if napi is enabled or not. Create an is_napi_enabled() call.
-> 
-> Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+>  		   clp->rpc_ops->version,
+> -		   NIPQUAD(clp->cl_addr.sin_addr),
+> -		   ntohs(clp->cl_addr.sin_port),
+> +		   rpc_peeraddr2str(clp->cl_rpcclient, RPC_DISPLAY_HEX_ADDR),
+> +		   rpc_peeraddr2str(clp->cl_rpcclient, RPC_DISPLAY_HEX_PORT),
+>  		   atomic_read(&clp->cl_count),
 
-Can you show how you'll use this?
+Is this really safe?
 
-I'm just suspicious :-)
+--yoshfuji
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >> http://get.splunk.com/
+_______________________________________________
+NFS maillist  -  NFS@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/nfs
