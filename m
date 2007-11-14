@@ -1,42 +1,44 @@
-From: david@lang.hm
-Subject: Re: [BUG] New Kernel Bugs
-Date: Wed, 14 Nov 2007 13:05:26 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0711141303210.29641@asgard.lang.hm>
-References: <20071113134029.GA30978@elte.hu> <20071113085514.3414aa52.rdunlap@xenotime.net>
- <20071114140847.GA11489@elte.hu> <20071114.115601.00715073.davem@davemloft.net>
- <20071114204840.GB20606@elte.hu>
+From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
+Subject: RE: [PATCH 2.6.24 1/1]S2io: Support for add/delete/store/restore ethernet addresses
+Date: Wed, 14 Nov 2007 15:57:23 -0500
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD770289BA74@nekter>
+References: <20071114.120359.21994235.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: David Miller <davem@davemloft.net>, rdunlap@xenotime.net,
-        akpm@linux-foundation.org, protasnb@gmail.com,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
-        linux-pcmcia@lists.infradead.org, linux-input@atrey.karlin.mff.cuni.cz,
-        bugme-daemon@bugzilla.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <20071114204840.GB20606@elte.hu>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>,
+	<netdev@vger.kernel.org>, <jeff@garzik.org>,
+	"support" <support@neterion.com>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.neterion.com ([72.1.205.142]:45935 "EHLO owa.neterion.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1764945AbXKNU5Z convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 15:57:25 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20071114.120359.21994235.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Nov 2007, Ingo Molnar wrote:
+> > Scheduling for the 2.6.25 merge window is fine. Curious - why did
+you
+> > have to remove the driver version? We use it to keep track of our
+> > changes submitted.
+> 
+> Because it conflicted with the driver version bump you did
+> for the MSI-X leak bug fix.
 
->> Dumping even more crap on lkml is not the answer.
->
-> that "crap" that i'd like to see dumped upon lkml would be netdev
-> traffic mainly - most of the other kernel development lists (and i'm
-> subscribed to many of them) are low-traffic. netdev is the main reason
-> why we cannot do a "one common discussion forum" approach.
+[Ram] The version numbers are different for the 2 patches. Was the MSI-X
+leak bug fix applied prior to resubmission (we had swapped the version
+numbers on the patches for resubmission).
 
-hmm, how much work would it be to tweak the mail software on vger to have 
-a linux-all@vger.kernel.org that got a copy of any linux-* list hosted by 
-vger.
+[PATCH 2.6.24 1/1]S2io: Fixed memory leak by freeing MSI-X local entry
+memories when vector allocation fails 
++#define DRV_VERSION "2.0.26.6"
 
-this would solve half the problem (people on linux-kernel not seeing 
-discussions on the other lists)
+[PATCH 2.6.24 1/1]S2io: Support for add/delete/store/restore ethernet
+addresses 
++#define DRV_VERSION "2.0.26.7"
 
-David Lang
+Ram
