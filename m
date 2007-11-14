@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] SOCK: add raw6 drops counter
-Date: Tue, 13 Nov 2007 20:31:41 -0800 (PST)
-Message-ID: <20071113.203141.215714094.davem@davemloft.net>
-References: <47397514.2070002@cn.fujitsu.com>
-	<473A6792.10405@cn.fujitsu.com>
-	<473A686D.9020200@cn.fujitsu.com>
+Subject: Re: [PATCH 0/5] UDP memory accounting and limitation (take 7)
+Date: Tue, 13 Nov 2007 20:32:11 -0800 (PST)
+Message-ID: <20071113.203211.26204733.davem@davemloft.net>
+References: <473A5FD6.5010209@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dada1@cosmosbay.com
-To: wangchen@cn.fujitsu.com
+Cc: netdev@vger.kernel.org, satoshi.oshima.fk@hitachi.com,
+	herbert@gondor.apana.org.au, billfink@mindspring.com,
+	andi@firstfloor.org, johnpol@2ka.mipt.ru,
+	shemminger@linux-foundation.org, yoshfuji@linux-ipv6.org,
+	yumiko.sugita.yf@hitachi.com
+To: haoki@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60769
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60777
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755566AbXKNEbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 23:31:41 -0500
-In-Reply-To: <473A686D.9020200@cn.fujitsu.com>
+	by vger.kernel.org with ESMTP id S1755862AbXKNEcM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 23:32:12 -0500
+In-Reply-To: <473A5FD6.5010209@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Date: Wed, 14 Nov 2007 11:15:57 +0800
+From: Hideo AOKI <haoki@redhat.com>
+Date: Tue, 13 Nov 2007 21:39:18 -0500
 
-> Add raw drops counter for IPv6 in /proc/net/raw6 .
-> 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> I updated UDP memory accounting and limitation patch set.
 
-Applied to net-2.6.25, but again more whitespace problems:
-
-Adds trailing whitespace.
-diff:9:		atomic_inc(&sk->sk_drops);	
+I'm dropping this for now, please resubmit after the expensive
+divide is fixed.
