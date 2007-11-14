@@ -1,69 +1,40 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-2.6.25 2/4] net/core - Convert IP4 address class macros
-	to inline functions
-Date: Wed, 14 Nov 2007 07:53:28 -0800
-Message-ID: <1195055608.5163.180.camel@localhost>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] Fix warning for token-ring from sysctl checker
+Date: Wed, 14 Nov 2007 08:56:20 -0700
+Message-ID: <m1r6is253v.fsf@ebiederm.dsl.xmission.com>
+References: <20071113072313.GB16842@lixom.net>
+	<20071113.211540.97775009.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Patrick McHardy <kaber@coreworks.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: olof@lixom.net, akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:1477 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756477AbXKNPx2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2007 10:53:28 -0500
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:43018 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754431AbXKNP5M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 10:57:12 -0500
+In-Reply-To: <20071113.211540.97775009.davem@davemloft.net> (David Miller's
+	message of "Tue, 13 Nov 2007 21:15:40 -0800 (PST)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Change LOOPBACK MULTICAST LOCAL_MCAST BADCLASS and ZERONET
-macros to inline functions is_ip4_[type](__be32 addr)
-Adds some type safety and maybe some readability
+David Miller <davem@davemloft.net> writes:
 
-No change in compiled image size
+> From: Olof Johansson <olof@lixom.net>
+> Date: Tue, 13 Nov 2007 01:23:13 -0600
+>
+>> As seen when booting ppc64_defconfig:
+>> 
+>> sysctl table check failed: /net/token-ring .3.14 procname does not match
+> binary path procname
+>> 
+>> 
+>> Signed-off-by: Olof Johansson <olof@lixom.net>
+>
+> Patch applied, thanks Olof.
 
-Signed-off-by: Joe Perches <joe@perches.com>
+No objections but I think we already have this fixed in the -mm tree.
 
----
-
- net/core/netpoll.c |    2 +-
- net/core/pktgen.c  |    6 +++---
- 2 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index c499b5c..bf9b4db 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -418,7 +418,7 @@ static void arp_reply(struct sk_buff *skb)
- 	memcpy(&tip, arp_ptr, 4);
- 
- 	/* Should we ignore arp? */
--	if (tip != htonl(np->local_ip) || LOOPBACK(tip) || MULTICAST(tip))
-+	if (tip != htonl(np->local_ip) || is_ip4_loopback(tip) || is_ip4_multicast(tip))
- 		return;
- 
- 	size = sizeof(struct arphdr) + 2 * (skb->dev->addr_len + 4);
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index de33f36..0d5ef00 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2358,9 +2358,9 @@ static void mod_cur_headers(struct pktgen_dev *pkt_dev)
- 					t = random32() % (imx - imn) + imn;
- 					s = htonl(t);
- 
--					while (LOOPBACK(s) || MULTICAST(s)
--					       || BADCLASS(s) || ZERONET(s)
--					       || LOCAL_MCAST(s)) {
-+					while (is_ip4_loopback(s) || is_ip4_multicast(s)
-+					       || is_ip4_badclass(s) || is_ip4_zeronet(s)
-+					       || is_ip4_local_multicast(s)) {
- 						t = random32() % (imx - imn) + imn;
- 						s = htonl(t);
- 					}
-
+Eric
 
