@@ -1,81 +1,47 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Subject: Re: 2.6.24-rc2: Network commit causes SLUB performance regression with tbench
-Date: Wed, 14 Nov 2007 10:39:22 +1100
-Message-ID: <200711141039.22758.nickpiggin@yahoo.com.au>
-References: <200711140514.28159.nickpiggin@yahoo.com.au> <200711140927.39796.nickpiggin@yahoo.com.au> <20071114.031022.183117678.davem@davemloft.net>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: [PATCH 2/2] [e1000 VLAN] Disable vlan hw accel when promiscuous mode
+Date: Wed, 14 Nov 2007 12:48:04 +0100
+Message-ID: <m3sl39yrnv.fsf@ursa.amorsen.dk>
+References: <47365200.0f10240a.0686.2173@mx.google.com> <47388988.1000506@intel.com> <47388B9F.7050308@trash.net> <20071112.143342.10809862.davem@davemloft.net> <4738D70C.4060404@nortel.com> <4738D9AB.8080408@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: clameter@sgi.com, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: e1000-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp109.mail.mud.yahoo.com ([209.191.85.219]:25947 "HELO
-	smtp109.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751802AbXKNLlp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 06:41:45 -0500
-In-Reply-To: <20071114.031022.183117678.davem@davemloft.net>
-Content-Disposition: inline
+Received: from main.gmane.org ([80.91.229.2]:33108 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754709AbXKNLsY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2007 06:48:24 -0500
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1IsGjE-0002bQ-NS
+	for netdev@vger.kernel.org; Wed, 14 Nov 2007 11:48:20 +0000
+Received: from hd5b9080a.c45-01-12.sta.perspektivbredband.net ([213.185.8.10])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 14 Nov 2007 11:48:20 +0000
+Received: from benny+usenet by hd5b9080a.c45-01-12.sta.perspektivbredband.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 14 Nov 2007 11:48:20 +0000
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 14 November 2007 22:10, David Miller wrote:
-> From: Nick Piggin <nickpiggin@yahoo.com.au>
-> Date: Wed, 14 Nov 2007 09:27:39 +1100
->
-> > OK, in vanilla kernels, the page allocator definitely shows higher
-> > in the results (than with Herbert's patch reverted).
->
->  ...
->
-> > I can't see that these numbers show much useful, unfortunately.
->
-> Thanks for all of this data Nick.
->
-> So the thing that's being effected here in TCP is
-> net/ipv4/tcp.c:select_size(), specifically the else branch:
->
-> 	int tmp = tp->mss_cache;
->  ...
-> 		else {
-> 			int pgbreak = SKB_MAX_HEAD(MAX_TCP_HEADER);
->
-> 			if (tmp >= pgbreak &&
-> 			    tmp <= pgbreak + (MAX_SKB_FRAGS - 1) * PAGE_SIZE)
-> 				tmp = pgbreak;
-> 		}
->
-> This is deciding, in 'tmp', how much linear sk_buff space to
-> allocate.  'tmp' is initially set to the path MSS, which
-> for loopback is 16K - the space necessary for packet headers.
->
-> The SKB_MAX_HEAD() value has changed as a result of Herbert's
-> bug fix.   I suspect this 'if' test is passing both with and
-> without the patch.
->
-> But pgbreak is now smaller, and thus the skb->data linear
-> data area size we choose to use is smaller as well.
+>>>>> "AK" == Kok, Auke <auke-jan.h.kok@intel.com> writes:
 
-OK, that makes sense. BTW, are you taking advantage of kmalloc's
-"quantization" into slabs WRT the linear data area? I wonder if
-it would be at all useful...
+AK> actually the impact can be quite negative, imagine doing a tcpdump
+AK> on a 10gig interface with vlan's enabled - all of a sudden you
+AK> might accidentally flood the system with a 100-fold increase in
+AK> traffic and force the stack to dump all those packets for you.
+
+Why is the switch sending you all that traffic for VLAN's you don't
+care about? I have a hard time imagining such a scenario. Sure, you
+could have forgotten to limit the VLAN range sent to a particular
+host, or even have decided that it's administratively easier to just
+allow everything, but the switch still won't send unicast traffic out
+that port unless the destination MAC matches. If broadcast or
+non-solicited multicast takes up most of your bandwidth, you have
+other problems.
 
 
-> You can test if this is precisely what is causing the performance
-> regression by using the old calculation just here in select_size().
->
-> Add something like this local to net/ipv4/tcp.c:
->
-> #define OLD_SKB_WITH_OVERHEAD(X)	\
-> 	(((X) - sizeof(struct skb_shared_info)) & \
-> 	 ~(SMP_CACHE_BYTES - 1))
-> #define OLD_SKB_MAX_ORDER(X, ORDER) \
-> 	OLD_SKB_WITH_OVERHEAD((PAGE_SIZE << (ORDER)) - (X))
-> #define OLD_SKB_MAX_HEAD(X)		(OLD_SKB_MAX_ORDER((X), 0))
->
-> And then use OLD_SKB_MAX_HEAD() in select_size().
+/Benny
 
-That brings performance back up!
 
-I wonder why it isn't causing a problem for SLAB...
