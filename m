@@ -1,36 +1,53 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [NET] random : secure_tcp_sequence_number should not
-	assume CONFIG_KTIME_SCALAR
-Date: Wed, 14 Nov 2007 11:49:19 -0800
-Message-ID: <20071114194919.GC10318@kroah.com>
-References: <47398ADD.2030509@cosmosbay.com> <20071113.035019.268404275.davem@davemloft.net> <4739A97F.60206@cosmosbay.com>
+From: Russell King <rmk+lkml@arm.linux.org.uk>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Wed, 14 Nov 2007 19:52:08 +0000
+Message-ID: <20071114195208.GD23221@flint.arm.linux.org.uk>
+References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com> <20071113031553.3c7b5c16.akpm@linux-foundation.org> <20071114132448.GA5183@ucw.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kaber@trash.net, stable@kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	alsa-devel@alsa-project.org, netdev@vger.kernel.org,
+	linux-pcmcia@lists.infradead.org, linux-kernel@vger.kernel.org,
+	Natalie Protasevich <protasnb@gmail.com>,
+	linux-ide@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	linux-input@atrey.karlin.mff.cuni.cz
+To: Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:58272 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754110AbXKNTwB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 14:52:01 -0500
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:45172 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756539AbXKNTwp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 14:52:45 -0500
 Content-Disposition: inline
-In-Reply-To: <4739A97F.60206@cosmosbay.com>
+In-Reply-To: <20071114132448.GA5183@ucw.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 13, 2007 at 02:41:19PM +0100, Eric Dumazet wrote:
-> I discovered one other incorrect use of .tv64 (coming from me, I must 
-> confess)
->
-> I guess this patch is  needed for 2.6.24 and stable (2.6.22 & 2.6.23)
->
-> Thank you
+On Wed, Nov 14, 2007 at 01:24:48PM +0000, Pavel Machek wrote:
+> Hi!
+> 
+> > > Suspend to RAM resume hangs on a tickless (NO_HZ) kernel
+> > > http://bugzilla.kernel.org/show_bug.cgi?id=9275
+> > > Kernel: 2.6.23
+> > > This is HP notebook nc6320 T2400 945GM
+> > 
+> > No response from developers
+> 
+> Maybe I'm optimistic, but I expected Ingo/Thomas to look after nohz
+> problems. nohz=off highres=off fixes more than one suspend problem...
+> 
+> ...stuff I've seen with NOHZ even without suspend (cursor blinking
+> irregulary) make me think that nohz perhaps should not be used in
+> production just yet...
 
-Thanks for sending this to stable@, but David does a great job of
-forwarding these to us, so I'll wait for him to relay it to us before
-taking it into our tree.
+It appears that bug 9229 has been solved, and the reporter of that
+bug now says that:
 
-thanks,
+  If I unset NO_TZ suspend/resume works.
+  If I set it suspend/resume doesn't works.
 
-greg k-h
+So I think this guy is now suffering from bug #9275
+
+-- 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:
