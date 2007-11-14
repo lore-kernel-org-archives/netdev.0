@@ -1,82 +1,65 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.24-rc2: Network commit causes SLUB performance regression with tbench
-Date: Wed, 14 Nov 2007 19:48:44 +0800
-Message-ID: <20071114114844.GA13927@gondor.apana.org.au>
-References: <200711140514.28159.nickpiggin@yahoo.com.au> <20071113.223726.40898879.davem@davemloft.net> <200711140927.39796.nickpiggin@yahoo.com.au> <20071114.031022.183117678.davem@davemloft.net>
+From: Rene Herman <rene.herman@keyaccess.nl>
+Subject: Re: [alsa-devel] [BUG] New Kernel Bugs
+Date: Wed, 14 Nov 2007 12:46:24 +0100
+Message-ID: <473AE010.4090806@keyaccess.nl>
+References: <20071113143201.9441c940.akpm@linux-foundation.org>	<20071113.175551.131375600.davem@davemloft.net>	<20071114095507.GA32595@flint.arm.linux.org.uk> <20071114.020706.219917088.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nickpiggin@yahoo.com.au, clameter@sgi.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: rmk+lkml@arm.linux.org.uk,  alsa-devel@alsa-project.org,
+ netdev@vger.kernel.org,  linux-pcmcia@lists.infradead.org,
+ linux-kernel@vger.kernel.org,  protasnb@gmail.com,
+ linux-ide@vger.kernel.org,  bugme-daemon@bugzilla.kernel.org,
+ linux-input@atrey.karlin.mff.cuni.cz,  akpm@linux-foundation.org,
+ Jaroslav Kysela <perex@suse.cz>,
+ Takashi Iwai <tiwai@suse.de>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1996 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754330AbXKNLtG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 06:49:06 -0500
-Content-Disposition: inline
-In-Reply-To: <20071114.031022.183117678.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
+In-Reply-To: <20071114.020706.219917088.davem@davemloft.net>
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 14, 2007 at 03:10:22AM -0800, David Miller wrote:
+On 14-11-07 11:07, David Miller wrote:
+
+Added Jaroslav and Takashi to the already extensive CC....
+
+> From: Russell King <rmk+lkml@arm.linux.org.uk>
+
+>> So, when are you creating a replacement alsa-devel mailing list on
+>> vger?  That's also subscribers-only.
 > 
-> So the thing that's being effected here in TCP is
-> net/ipv4/tcp.c:select_size(), specifically the else branch:
+> The operative term is "alternative" rather than "replacement".
+> Perhaps this misunderstanding is what you're so upset about.
+> 
+> And yes, that alsa list bugs the crap out of me too.  I'm more than
+> happy to provide an alternative for that one as well.
 
-Thanks for the pointer.  Indeed there is a bug in that area.
-I'm not sure whether it's causing the problem at hand but it's
-certainly suboptimal.
+alsa-devel@alsa-project.org is not subscriber-only. Same as that arm list, 
+it's _moderated_ for non-subscribers and given that I and other moderators 
+have been doing our best to moderate quickly (I tend to stay logged in to 
+the moderation interface all day for example) what specifically bugged the 
+crap out of you? It's not something a poster needs to concern himself with.
 
-[TCP]: Fix size calculation in sk_stream_alloc_pskb
+Also for alsa-devel the moderators tend to add any valid non-subcribers to 
+a whitelist after landing in the queue the first time meaning even a delay 
+is just a one-time thing normally. So what's the trouble? Basically, noone 
+need even notice...
 
-We round up the header size in sk_stream_alloc_pskb so that
-TSO packets get zero tail room.  Unfortunately this rounding
-up is not coordinated with the select_size() function used by
-TCP to calculate the second parameter of sk_stream_alloc_pskb.
+> In fact, *poof*, there it is, linux-alsa@vger.kernel.org is there and
+> available for anyone who wants to use it.
 
-As a result, we may allocate more than a page of data in the
-non-TSO case when exactly one page is desired.
+Not that I think that moving alsa-devel over to vger wouldn't be a good idea 
+mind you; when the list moved from sourceforge, asking you to host it was my 
+preferred option. I do somewhat suspect that Jaroslav would like to keep the 
+alsa-devel@ name (and I'd like to ask you to then also host alsa-user@) and 
+would then rewrite mail to those lists @alsa-project.org to vger.
 
-In fact, rounding up the head room is detrimental in the non-TSO
-case because it makes memory that would otherwise be available to
-the payload head room.  TSO doesn't need this either, all it wants
-is the guarantee that there is no tail room.
+But what is the problem you speak of with the alsa-devel list? While I would 
+not mind loosing it, moderation hasn't been overly laborious and I'm not 
+aware of any serious problems.
 
-So this patch fixes this by adjusting the skb_reserve call so that
-exactly the requested amount (which all callers have calculated in
-a precise way) is made available as tail room.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 5504fb9..567e468 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1235,14 +1235,16 @@ static inline struct sk_buff *sk_stream_alloc_pskb(struct sock *sk,
- 						   gfp_t gfp)
- {
- 	struct sk_buff *skb;
--	int hdr_len;
- 
--	hdr_len = SKB_DATA_ALIGN(sk->sk_prot->max_header);
--	skb = alloc_skb_fclone(size + hdr_len, gfp);
-+	skb = alloc_skb_fclone(size + sk->sk_prot->max_header, gfp);
- 	if (skb) {
- 		skb->truesize += mem;
- 		if (sk_stream_wmem_schedule(sk, skb->truesize)) {
--			skb_reserve(skb, hdr_len);
-+			/*
-+			 * Make sure that we have exactly size bytes
-+			 * available to the caller, no more, no less.
-+			 */
-+			skb_reserve(skb, skb_tailroom(skb) - size);
- 			return skb;
- 		}
- 		__kfree_skb(skb);
+Rene.
