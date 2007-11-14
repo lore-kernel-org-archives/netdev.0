@@ -1,39 +1,67 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 18:27:00 -0800
-Message-ID: <20071113182700.ef821d0f.akpm@linux-foundation.org>
-References: <20071113125222.9eb53ac8.akpm@linux-foundation.org>
-	<20071113221801.GF1356@flint.arm.linux.org.uk>
-	<20071113143201.9441c940.akpm@linux-foundation.org>
-	<20071113.175551.131375600.davem@davemloft.net>
+From: Hideo AOKI <haoki@redhat.com>
+Subject: [PATCH 0/5] UDP memory accounting and limitation (take 7)
+Date: Tue, 13 Nov 2007 21:39:18 -0500
+Message-ID: <473A5FD6.5010209@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: rmk+lkml@arm.linux.org.uk, alsa-devel@alsa-project.org,
-        netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
-        linux-kernel@vger.kernel.org, protasnb@gmail.com,
-        linux-ide@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-        linux-input@atrey.karlin.mff.cuni.cz
-To: David Miller <davem@davemloft.net>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <20071113.175551.131375600.davem@davemloft.net>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Cc: Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Bill Fink <billfink@mindspring.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	yoshfuji@linux-ipv6.org,
+	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:52417 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754304AbXKNCnG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2007 21:43:06 -0500
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Nov 2007 17:55:51 -0800 (PST) David Miller <davem@davemloft.net> wrote:
+Hello,
 
-> I've created linux-arm@vger.kernel.org
+I updated UDP memory accounting and limitation patch set.
 
-Let me just say - I'm astonished at how little spam gets though the vger
-lists.  Considering how many times those email addresses must have been
-added to spam databases.
+According to comments against previous take, I renamed udp_[rw]mem to
+udp_[rw]mem_min. This patch set is for net-2.6.
 
-It must be a lot of work, and whoever is doing it does it well.
 
-I don't even know.  Is it Matti?  You?
+Changelog take 6 -> take 7:
+  * renamed /proc/sys/net/ipv4/udp_rmem to
+    /proc/sys/net/ipv4/udp_rmem_min
+  * renamed /proc/sys/net/ipv4/udp_wmem to
+    /proc/sys/net/ipv4/udp_wmem_min
+  * rebased to net-2.6
 
-<contemplates linux-kernel@lists.sourceforge.net.  Shudders.>
+
+Changelog take 5 -> take 6:
+
+  * removed minimal limit of /proc/sys/net/ipv4/udp_mem
+  * added udp_init() for default value calculation of parameters
+  * added /proc/sys/net/ipv4/udp_rmem and
+    /proc/sys/net/ipv4/udp_rmem
+  * added limitation code to ip_ufo_append_data()
+  * improved accounting for receiving packet
+  * fixed typos
+  * rebased to 2.6.24-rc1
+
+
+Changelog take 4 -> take 5:
+
+  * removing unnessesary EXPORT_SYMBOLs
+  * adding minimal limit of /proc/sys/net/ipv4/udp_mem
+  * bugfix of UDP limit affecting protocol other than UDP
+  * introducing __ip_check_max_skb_pages()
+  * using CTL_UNNUMBERED
+  * adding udp_mem usage to Documentation/networking/ip_sysctl.txt
+
+
+Best regards,
+Hideo Aoki
+
+--
+Hitachi Computer Products (America) Inc.
