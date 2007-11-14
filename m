@@ -1,63 +1,52 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Wed, 14 Nov 2007 21:16:39 +0100
-Message-ID: <20071114201639.GA17182@elte.hu>
-References: <20071113031553.3c7b5c16.akpm@linux-foundation.org> <20071113.033946.114918709.davem@davemloft.net> <20071113034916.2556edd7.akpm@linux-foundation.org> <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org> <20071113134029.GA30978@elte.hu> <20071113085514.3414aa52.rdunlap@xenotime.net> <20071114140847.GA11489@elte.hu> <20071114093820.ff3ad8f9.rdunlap@xenotime.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH 05/05] ipv6: RFC4214 Support (3)
+Date: Wed, 14 Nov 2007 15:09:17 -0500
+Message-ID: <473B55ED.9030104@hp.com>
+References: <473371B3.5030908@yahoo.com>	<4734FCEF.3080301@yahoo.com>	<20071113125312.4c4d1391@freepuppy.rosehill> <20071113.210513.157206334.davem@davemloft.net> <473A838A.5060603@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, protasnb@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org,
-	linux-input@atrey.karlin.mff.cuni.cz,
-	bugme-daemon@bugzilla.kernel.org
-To: Randy Dunlap <rdunlap@xenotime.net>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-Content-Disposition: inline
-In-Reply-To: <20071114093820.ff3ad8f9.rdunlap@xenotime.net>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, osprey67@yahoo.com,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:38023 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754926AbXKNUTK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 15:19:10 -0500
+In-Reply-To: <473A838A.5060603@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Stephen Hemminger wrote:
+> David Miller wrote:
+>> From: Stephen Hemminger <shemminger@linux-foundation.org>
+>> Date: Tue, 13 Nov 2007 12:53:12 -0800
+>>
+>>  
+>>> On Fri, 09 Nov 2007 16:35:59 -0800
+>>> osprey67 <osprey67@yahoo.com> wrote:
+>>>
+>>>    
+>>>> From: Fred L. Templin <fred.l.templin@boeing.com>
+>>>>
+>>>> This message attaches the combined diffs from
+>>>> messages 01/05 through 04/05. This file should be
+>>>> suitable for use with the patch utility.
+>>>>
+>>>> Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
+>>>>
+>>>>       
+>>> Isn't increasing the size of struct ip_tunnel_parm
+>>> going to cause kernel ABI changes?
+>>>     
+>>
+>> Yeah it is, unfortunately.
+>>   
+> So we can't take it.  It might be possible to extend the structure if
+> you put the
+> new parameters at the end and handled the compatibility cases correctly.
 
-* Randy Dunlap <rdunlap@xenotime.net> wrote:
+It's fixed in the later patch set.
 
-> On Wed, 14 Nov 2007 15:08:47 +0100 Ingo Molnar wrote:
-> 
-> > 
-> > * Randy Dunlap <rdunlap@xenotime.net> wrote:
-> > 
-> > > > (and this is in no way directed at the networking folks - it holds 
-> > > > for all of us. I have one main complaint about networking: the 
-> > > > separate netdev list is a bad idea - networking regressions should 
-> > > > be discussed and fixed on lkml, like most other subsystems are. Any 
-> > > > artificial split of the lk discussion space is bad.)
-> > > 
-> > > but here I disagree.  LKML is already too busy and noisy. Major 
-> > > subsystems need their own discussion areas.
-> > 
-> > That's a stupid argument. We lose much more by forced isolation of 
-> > discussion than what we win by having less traffic! It's _MUCH_ 
-                                                        ^^^^^^^^^^^^
-> > easier to narrow down information (by filter by threads, by topics, 
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> > by people, etc.) than it is to gobble information together from 
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> > various fractured sources. We learned it _again and again_ that 
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> > isolation of kernel discussions causes bad things.
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> > 
-> > In fact this thread is the very example: David points out that on 
-> > netdev some of those bugs were already discussed and resolved. Had 
-> > it been all on lkml we'd all be aware of it.
-> 
-> or had <someone> been on netdev.
-
-countered by the underlined sentences above, just in case you missed it.
-
-	Ingo
+-vlad
