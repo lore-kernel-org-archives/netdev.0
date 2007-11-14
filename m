@@ -1,33 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL] RFC3484 Configurable Policy Table.
-Date: Wed, 14 Nov 2007 01:52:51 -0800 (PST)
-Message-ID: <20071114.015251.235076857.davem@davemloft.net>
-References: <20071114.163728.134148765.yoshfuji@linux-ipv6.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Fix net-2.6.25 compiler error
+Date: Wed, 14 Nov 2007 10:52:53 +0100
+Message-ID: <473AC575.7020306@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Content-Type: multipart/mixed;
+ boundary="------------030707070907040708070707"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53232
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754713AbXKNJww (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 04:52:52 -0500
-In-Reply-To: <20071114.163728.134148765.yoshfuji@linux-ipv6.org>
+Received: from stinky.trash.net ([213.144.137.162]:39554 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754812AbXKNJxE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 04:53:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Wed, 14 Nov 2007 16:37:28 +0900 (JST)
+This is a multi-part message in MIME format.
+--------------030707070907040708070707
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Please consider pulling from
-> 	inet6-2.6.25
-> branch at
-> 	<git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git>
-> which contains the following commits on top of your net-2.6.25 tree.
- ...
->     [IPV6] ADDRCONF: Rename ipv6_saddr_label() to ipv6_addr_label().
->     [IPV6] ADDRCONF: Allow address selection policy with ifindex.
->     [IPV6] ADDRCONF: Support RFC3484 configurable address selection policy table.
+Fix a missed NF_IP6_LOCAL_OUT conversion.
 
-Pulled and pushed back out to net-2.6.25, thanks a lot!
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+--------------030707070907040708070707
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
+index 201e251..960ba17 100644
+--- a/net/ipv6/netfilter/ip6t_REJECT.c
++++ b/net/ipv6/netfilter/ip6t_REJECT.c
+@@ -164,7 +164,7 @@ static void send_reset(struct sk_buff *oldskb)
+ static inline void
+ send_unreach(struct sk_buff *skb_in, unsigned char code, unsigned int hooknum)
+ {
+-	if (hooknum == NF_IP6_LOCAL_OUT && skb_in->dev == NULL)
++	if (hooknum == NF_INET_LOCAL_OUT && skb_in->dev == NULL)
+ 		skb_in->dev = init_net.loopback_dev;
+ 
+ 	icmpv6_send(skb_in, ICMPV6_DEST_UNREACH, code, 0, NULL);
+
+--------------030707070907040708070707--
