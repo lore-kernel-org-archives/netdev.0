@@ -1,75 +1,76 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Wed, 14 Nov 2007 09:38:20 -0800
-Message-ID: <20071114093820.ff3ad8f9.rdunlap@xenotime.net>
-References: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
-	<20071113.033946.114918709.davem@davemloft.net>
-	<20071113034916.2556edd7.akpm@linux-foundation.org>
-	<20071113.035824.40509981.davem@davemloft.net>
-	<20071113041259.79c9a8c5.akpm@linux-foundation.org>
-	<20071113134029.GA30978@elte.hu>
-	<20071113085514.3414aa52.rdunlap@xenotime.net>
-	<20071114140847.GA11489@elte.hu>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] netfilter : struct xt_table_info diet
+Date: Wed, 14 Nov 2007 18:55:44 +0100
+Message-ID: <20071114185544.034ee7d1.dada1@cosmosbay.com>
+References: <20071114164735.1ba04bc3.dada1@cosmosbay.com>
+	<473B2E2D.4010504@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, protasnb@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org,
-	linux-input@atrey.karlin.mff.cuni.cz,
-	bugme-daemon@bugzilla.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761638AbXKNRik@vger.kernel.org>
-In-Reply-To: <20071114140847.GA11489@elte.hu>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <473B2E2D.4010504@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Nov 2007 15:08:47 +0100 Ingo Molnar wrote:
+On Wed, 14 Nov 2007 18:19:41 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
+> [netfilter-devel CCed]
 > 
-> * Randy Dunlap <rdunlap@xenotime.net> wrote:
-> 
-> > > (and this is in no way directed at the networking folks - it holds 
-> > > for all of us. I have one main complaint about networking: the 
-> > > separate netdev list is a bad idea - networking regressions should 
-> > > be discussed and fixed on lkml, like most other subsystems are. Any 
-> > > artificial split of the lk discussion space is bad.)
+> Eric Dumazet wrote:
+> > Hi David & Patrick
 > > 
-> > but here I disagree.  LKML is already too busy and noisy. Major 
-> > subsystems need their own discussion areas.
+> > Please find a patch against net-2.6.25
+> > 
+> > Thank you
+> > 
+> > 
+> > [PATCH] netfilter : struct xt_table_info diet
+> > 
+> > Instead of using a big array of NR_CPUS entries, we can compute the size needed at runtime, using nr_cpu_ids
+> > 
+> > This should save some ram (especially on David's machines where NR_CPUS=4096 : 32 KB can be saved per table, and 64KB for dynamically allocated ones (because of slab/slub alignements) )
+> > 
+> > In particular, the 'bootstrap' tables are not any more static (in data section) but on stack as their
+> > size is now very small.
+> > 
+> > This also should reduce the size used on stack in compat functions 
+> > (get_info() declares an automatic variable, that could be bigger than kernel stack size for big NR_CPUS)
 > 
-> That's a stupid argument. We lose much more by forced isolation of 
-> discussion than what we win by having less traffic! It's _MUCH_ easier 
-> to narrow down information (by filter by threads, by topics, by people, 
-> etc.) than it is to gobble information together from various fractured 
-> sources. We learned it _again and again_ that isolation of kernel 
-> discussions causes bad things.
 > 
-> In fact this thread is the very example: David points out that on netdev 
-> some of those bugs were already discussed and resolved. Had it been all 
-> on lkml we'd all be aware of it.
+> Thanks, this looks good. One question:
+> 
+> > diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+> > index 2909c92..ed3bd0b 100644
+> > --- a/net/ipv4/netfilter/arp_tables.c
+> > +++ b/net/ipv4/netfilter/arp_tables.c
+> > @@ -811,7 +811,7 @@ static int do_replace(void __user *user, unsigned int len)
+> >  		return -ENOPROTOOPT;
+> >  
+> >  	/* overflow check */
+> > -	if (tmp.size >= (INT_MAX - sizeof(struct xt_table_info)) / NR_CPUS -
+> > +	if (tmp.size >= (INT_MAX - XT_TABLE_INFO_SZ) / NR_CPUS -
+> >  			SMP_CACHE_BYTES)
+> 
+> 
+> Shouldn't NR_CPUs be replaced by nr_cpu_ids here? I'm wondering
+> why we still include NR_CPUs in the calculation at all though,
+> unlike in 2.4, we don't allocate one huge area of memory anymore
+> but do one allocation per CPU. IIRC it even was you who changed
+> that.
+> 
 
-or had <someone> been on netdev.
+Yes, doing an allocation per possible cpu was better than one giant 
+allocation (memory savings and NUMA aware)
 
-> this is a single kernel project that is released together as one 
-> codebase, so a central place of discussion is obvious and common-sense.
+Well, technically speaking you are right, we may also replace these 
+divides per NR_CPUS by nr_cpu_ids (or even better : num_possible_cpus())
 
-Central doesn't have to mean one-and-only-one-list-for-everything.
+Because with NR_CPUS=4096, we actually limit tmp.size to about 524000,
+ what a shame ! :)
 
-> so please stop this "too busy and too noisy" nonsense already. It was 
-> nonsense 10 years ago and it's nonsense today. In 10 years the kernel 
-> grew from a 1 million lines codebase to an 8 million lines codebase, so 
-> what? Deal with it and be intelligent about filtering your information 
-> influx instead of imposing a hard pre-filtering criteria that restricts 
-> intelligent processing of information.
-
-So you have a preferred method of handling email.  Please don't
-force it on the rest of us.
-
-I'll plan to use lkml-list-only when you have convinced DaveM to drop
-all of the other mailing lists at vger.kernel.org.  Yeah, sure.
-
----
-~Randy
