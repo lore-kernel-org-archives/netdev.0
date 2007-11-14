@@ -1,41 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [TCP] FRTO: Limit snd_cwnd if TCP was application
- limited
-Date: Tue, 13 Nov 2007 21:02:33 -0800 (PST)
-Message-ID: <20071113.210233.42884295.davem@davemloft.net>
-References: <Pine.LNX.4.64.0711140004210.3997@kivilampi-30.cs.helsinki.fi>
+Subject: Re: Re : Oops preceded by WARNING: at net/ipv4/tcp_input.c:1571
+ tcp_remove_reno_sacks()
+Date: Tue, 13 Nov 2007 21:04:31 -0800 (PST)
+Message-ID: <20071113.210431.141662500.davem@davemloft.net>
+References: <902344.71635.qm@web26211.mail.ukl.yahoo.com>
+	<Pine.LNX.4.64.0711111216170.12719@kivilampi-30.cs.helsinki.fi>
+	<Pine.LNX.4.64.0711132321340.3997@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Cc: guichaz@yahoo.fr, netdev@vger.kernel.org
 To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34376
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40373
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750727AbXKNFCe convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1750798AbXKNFEc convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2007 00:02:34 -0500
-In-Reply-To: <Pine.LNX.4.64.0711140004210.3997@kivilampi-30.cs.helsinki.fi>
+	Wed, 14 Nov 2007 00:04:32 -0500
+In-Reply-To: <Pine.LNX.4.64.0711132321340.3997@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 =46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Wed, 14 Nov 2007 00:08:18 +0200 (EET)
+Date: Tue, 13 Nov 2007 23:35:39 +0200 (EET)
 
+> [PATCH] [TCP] FRTO: Plug potential LOST-bit leak
 >=20
-> Otherwise TCP might violate packet ordering principles that FRTO
-> is based on. If conventional recovery path is chosen, this won't
-> be significant at all. In practice, any small enough value will
-> be sufficient to provide proper operation for FRTO, yet other
-> users of snd_cwnd might benefit from a "close enough" value.
+> It might be possible that, in some extreme scenario that
+> I just cannot now construct in my mind, end_seq <=3D
+> frto_highmark check does not match causing the lost_out
+> and LOST bits become out-of-sync due to clearing and
+> recounting in the loop.
 >=20
-> FRTO's formula is now equal to what tcp_enter_cwr() uses.
->=20
-> FRTO used to check application limitedness a bit differently but
-> I changed that in commit 575ee7140dabe9b9c4f66f4f867039b97e548867
-> and as a result checking for application limitedness became
-> completely non-existing.
+> This may fix LOST-bit leak reported by Chazarain Guillaume
+> <guichaz@yahoo.fr>.
 >=20
 > Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-Applied to net-2.6, thanks Ilpo.
+This patch looks correct to me, so I added it to net-2.6
+
+Chazarain please let us know if it does indeed cure your
+problem.
+
+Thanks.
