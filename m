@@ -1,41 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.24-rc2: Network commit causes SLUB performance regression
- with tbench
-Date: Tue, 13 Nov 2007 22:12:42 -0800 (PST)
-Message-ID: <20071113.221242.153352652.davem@davemloft.net>
-References: <200711132241.59074.nickpiggin@yahoo.com.au>
-	<20071113.175804.151698768.davem@davemloft.net>
-	<200711140436.24492.nickpiggin@yahoo.com.au>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Tue, 13 Nov 2007 22:13:13 -0800 (PST)
+Message-ID: <20071113.221313.257366194.davem@davemloft.net>
+References: <20071113125222.9eb53ac8.akpm@linux-foundation.org>
+	<20071113221801.GF1356@flint.arm.linux.org.uk>
+	<20071114055606.GA5458@uranus.ravnborg.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: clameter@sgi.com, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org
-To: nickpiggin@yahoo.com.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41189
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757489AbXKNGMn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 01:12:43 -0500
-In-Reply-To: <200711140436.24492.nickpiggin@yahoo.com.au>
-Sender: netdev-owner@vger.kernel.org
+Cc: akpm@linux-foundation.org, alsa-devel@alsa-project.org,
+ netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+ linux-kernel@vger.kernel.org, protasnb@gmail.com,
+ linux-ide@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+ linux-input@atrey.karlin.mff.cuni.cz
+To: sam@ravnborg.org
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
+In-Reply-To: <20071114055606.GA5458@uranus.ravnborg.org>
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Wed, 14 Nov 2007 04:36:24 +1100
+From: Sam Ravnborg <sam@ravnborg.org>
+Date: Wed, 14 Nov 2007 06:56:06 +0100
 
-> On Wednesday 14 November 2007 12:58, David Miller wrote:
-> > I suspect the issue is about having a huge skb->data linear area for
-> > TCP sends over loopback.  We're likely getting a much smaller
-> > skb->data linear data area after the patch in question, the rest using
-> > the sk_buff scatterlist pages which are a little bit more expensive to
-> > process.
+> > 
+> > > If so, MANITAINERS claims that it is subscribers-only.  That would cause
+> > > some bug reporters to give up and go away.
+> > 
+> > Find some other mailing list; I'm not hosting *nor* am I willing to run a
+> > non-subscribers only mailing list.  Period.  Not negotiable, so don't even
+> > try to change my mind.
 > 
-> It didn't seem to be noticeable at 1 client. Unless scatterlist
-> processing is going to cause cacheline bouncing, I don't see why this
-> hurts more as you add CPUs?
+> The postmasters at vger is pretty good at running mailing lists.
+> For linux-kbuild my effort so far has been to request it.
+> Thats not a big deal.
+> 
+> So if they accept it you could have linux-arm@vger.kernel.org for zero
+> overhead for you.
 
-Is your test system using HIGHMEM?
-
-That's one thing the page vector in the sk_buff can do a lot,
-kmaps.
+I already did, get a little deeper in your mailbox before
+replying :-)
