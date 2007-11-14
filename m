@@ -1,47 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Tue, 13 Nov 2007 17:56:16 -0800 (PST)
-Message-ID: <20071113.175616.129918600.davem@davemloft.net>
-References: <20071113193750.GD1356@flint.arm.linux.org.uk>
-	<473A067F.3090007@rtr.ca>
-	<20071113234033.GL1356@flint.arm.linux.org.uk>
+Subject: Re: 2.6.24-rc2: Network commit causes SLUB performance regression
+ with tbench
+Date: Tue, 13 Nov 2007 17:58:04 -0800 (PST)
+Message-ID: <20071113.175804.151698768.davem@davemloft.net>
+References: <200711101229.35822.nickpiggin@yahoo.com.au>
+	<Pine.LNX.4.64.0711121144001.26936@schroedinger.engr.sgi.com>
+	<200711132241.59074.nickpiggin@yahoo.com.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: liml@rtr.ca, mingo@elte.hu, alsa-devel@alsa-project.org,
- netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
- linux-kernel@vger.kernel.org, protasnb@gmail.com,
- linux-ide@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
- linux-input@atrey.karlin.mff.cuni.cz, akpm@linux-foundation.org
-To: rmk+lkml@arm.linux.org.uk
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <20071113234033.GL1356@flint.arm.linux.org.uk>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Cc: clameter@sgi.com, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org
+To: nickpiggin@yahoo.com.au
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759619AbXKNB6Z@vger.kernel.org>
+In-Reply-To: <200711132241.59074.nickpiggin@yahoo.com.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Russell King <rmk+lkml@arm.linux.org.uk>
-Date: Tue, 13 Nov 2007 23:40:33 +0000
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Tue, 13 Nov 2007 22:41:58 +1100
 
-> ARM ep93xx defconfig has been broken since 2.6.23-git1 due to:
+> On Tuesday 13 November 2007 06:44, Christoph Lameter wrote:
+> > On Sat, 10 Nov 2007, Nick Piggin wrote:
+> > > BTW. your size-2048 kmalloc cache is order-1 in the default setup,
+> > > wheras kmalloc(1024) or kmalloc(4096) will be order-0 allocations. And
+> > > SLAB also uses order-0 for size-2048. It would be nice if SLUB did the
+> > > same...
+> >
+> > You can try to see the effect that order 0 would have by booting with
+> >
+> > slub_max_order=0
 > 
-> drivers/net/arm/ep93xx_eth.c:420: error: implicit declaration of function '__netif_rx_schedule_prep'
-> 
-> caused by: [NET]: Make NAPI polling independent of struct net_device objects.
-> 
-> ARM netx defconfig has been broken since 2.6.23-git1 due to:
-> 
-> drivers/net/netx-eth.c: In function 'netx_eth_hard_start_xmit':
-> drivers/net/netx-eth.c:131: error: 'dev' undeclared (first use in this function)
-> drivers/net/netx-eth.c:131: error: (Each undeclared identifier is reported only once
-> drivers/net/netx-eth.c:131: error: for each function it appears in.)
-> drivers/net/netx-eth.c: In function 'netx_eth_receive':
-> drivers/net/netx-eth.c:158: error: 'dev' undeclared (first use in this function)
-> 
-> caused by: [NET] drivers/net: statistics cleanup #1 -- save memory and shrink code
-> 
+> Yeah, that didn't help much, but in general I think it would give
+> more consistent and reliable behaviour from slub.
 
-I'll fix these up, thanks for the report.
+Just a note that I'm not ignoring this issue, I just don't have time
+to get to it yet.
+
+I suspect the issue is about having a huge skb->data linear area for
+TCP sends over loopback.  We're likely getting a much smaller
+skb->data linear data area after the patch in question, the rest using
+the sk_buff scatterlist pages which are a little bit more expensive to
+process.
