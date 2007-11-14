@@ -1,58 +1,45 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [PATCH 10/10 REV5] [E1000] Implement batching
-Date: Wed, 14 Nov 2007 14:00:15 +0530
-Message-ID: <OF10FB1515.27A9A529-ON65257393.002E9CC9-65257393.002EB706@in.ibm.com>
-References: <473A16EE.6080101@intel.com>
+From: Russell King <rmk+lkml@arm.linux.org.uk>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Wed, 14 Nov 2007 08:30:39 +0000
+Message-ID: <20071114083039.GA19711@flint.arm.linux.org.uk>
+References: <20071113125222.9eb53ac8.akpm@linux-foundation.org> <20071113221801.GF1356@flint.arm.linux.org.uk> <20071113143201.9441c940.akpm@linux-foundation.org> <20071113.175551.131375600.davem@davemloft.net> <20071113182700.ef821d0f.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: davem@davemloft.net, gaagaan@gmail.com,
-	general@lists.openfabrics.org, hadi@cyberus.ca,
-	herbert@gondor.apana.org.au, jagana@us.ibm.com, jeff@garzik.org,
-	johnpol@2ka.mipt.ru, kaber@trash.net, kumarkr@linux.ibm.com,
-	mcarlson@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org,
-	peter.p.waskiewicz.jr@intel.com, randy.dunlap@oracle.com,
-	rdreier@cisco.com, rick.jones2@hp.com, Robert.Olsson@data.slu.se,
-	shemminger@linux-foundation.org, sri@us.ibm.com, tgraf@suug.ch,
-	xma@us.ibm.com
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, alsa-devel@alsa-project.org,
+	netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+	linux-kernel@vger.kernel.org, protasnb@gmail.com,
+	linux-ide@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	linux-input@atrey.karlin.mff.cuni.cz
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp02.in.ibm.com ([59.145.155.2]:38033 "EHLO
-	e28esmtp02.in.ibm.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752008AbXKNI2i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 03:28:38 -0500
-Received: from d28relay02.in.ibm.com (d28relay02.in.ibm.com [9.184.220.59])
-	by e28esmtp02.in.ibm.com (8.13.1/8.13.1) with ESMTP id lAE8S2dW004793
-	for <netdev@vger.kernel.org>; Wed, 14 Nov 2007 13:58:02 +0530
-Received: from d28av02.in.ibm.com (d28av02.in.ibm.com [9.184.220.64])
-	by d28relay02.in.ibm.com (8.13.8/8.13.8/NCO v8.6) with ESMTP id lAE8S2r14296706
-	for <netdev@vger.kernel.org>; Wed, 14 Nov 2007 13:58:02 +0530
-Received: from d28av02.in.ibm.com (loopback [127.0.0.1])
-	by d28av02.in.ibm.com (8.13.1/8.13.3) with ESMTP id lAE8S2Ff023519
-	for <netdev@vger.kernel.org>; Wed, 14 Nov 2007 08:28:02 GMT
-In-Reply-To: <473A16EE.6080101@intel.com>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:56259 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751805AbXKNIbV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 03:31:21 -0500
+Content-Disposition: inline
+In-Reply-To: <20071113182700.ef821d0f.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Auke,
+On Tue, Nov 13, 2007 at 06:27:00PM -0800, Andrew Morton wrote:
+> On Tue, 13 Nov 2007 17:55:51 -0800 (PST) David Miller <davem@davemloft.net> wrote:
+> 
+> > I've created linux-arm@vger.kernel.org
+> 
+> Let me just say - I'm astonished at how little spam gets though the vger
+> lists.  Considering how many times those email addresses must have been
+> added to spam databases.
+> 
+> It must be a lot of work, and whoever is doing it does it well.
+> 
+> I don't even know.  Is it Matti?  You?
+> 
+> <contemplates linux-kernel@lists.sourceforge.net.  Shudders.>
 
-"Kok, Auke" <auke-jan.h.kok@intel.com> wrote on 11/14/2007 02:58:14 AM:
+Martin's changed the owner for ARM bugs last night to the mailing list
+so the whole issue is now redundant.
 
-> this doesn't apply anymore and it would help if you could re-spin this
-for e1000e.
-> I don't know what the status for merging of the batched xmit patches is
-right now
-> but it would help if you could rewrite them against e1000e, which I
-assume is what
-> most people want to test with. There are also significant changes
-upstream right
-> now in jgarzik/netdev-2.6 #upstream...
->
-> I'm still very interested in these patches BTW.
-
-I will make a latest version and test it out for some numbers and try to
-send it this week.
-
-Thanks,
-
-- KK
-
+-- 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:
