@@ -1,41 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: Documentation update
-Date: Tue, 13 Nov 2007 20:26:07 -0800 (PST)
-Message-ID: <20071113.202607.156486081.davem@davemloft.net>
-References: <11074.1195009133@death>
-	<20071114032256.GA31203@gospo.usersys.redhat.com>
+Subject: Re: [PATCH 1/2] SOCK: add raw drops counter
+Date: Tue, 13 Nov 2007 20:30:40 -0800 (PST)
+Message-ID: <20071113.203040.67290528.davem@davemloft.net>
+References: <47397514.2070002@cn.fujitsu.com>
+	<473A6792.10405@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, netdev@vger.kernel.org, jgarzik@pobox.com,
-	rick.jones2@hp.com
-To: andy@greyhouse.net
+Cc: netdev@vger.kernel.org, dada1@cosmosbay.com
+To: wangchen@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54075
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60764
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753617AbXKNE0I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 23:26:08 -0500
-In-Reply-To: <20071114032256.GA31203@gospo.usersys.redhat.com>
+	by vger.kernel.org with ESMTP id S1750759AbXKNEap (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2007 23:30:45 -0500
+In-Reply-To: <473A6792.10405@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andy Gospodarek <andy@greyhouse.net>
-Date: Tue, 13 Nov 2007 22:22:56 -0500
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Date: Wed, 14 Nov 2007 11:12:18 +0800
 
-> On Tue, Nov 13, 2007 at 06:58:53PM -0800, Jay Vosburgh wrote:
-> > 
-> > 	Update the bonding documentation: more discussion on
-> > initialization and configuration, changes to discussion of packet
-> > reordering in balance-rr, update some out of date information.
-> > 
-> > 	Based in part on input from Rick Jones <rick.jones2@hp.com> and
-> > Andy Gospodarek <andy@greyhouse.net>.
-> > 
-> > Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-> > 
+> Add raw drops counter for IPv4 in /proc/net/raw .
 > 
-> Looks good.  Thanks, Jay!
-> 
-> Acked-by: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 
-Applied to netdev-2.6, thanks.
+Applied to net-2.6.25, but your patch a lot of whitespace
+problems:
+
+Adds trailing whitespace.
+diff:9:  *	@sk_flags: %SO_LINGER (l_onoff), %SO_BROADCAST, %SO_KEEPALIVE, 
+Adds trailing whitespace.
+diff:19:  *	@sk_prot_creator: sk_prot of original sock creator (see ipv6_setsockopt, 
+Adds trailing whitespace.
+diff:23:  *	@sk_err_soft: errors that don't cause failure but are the cause of a 
+Adds trailing whitespace.
+diff:56:		atomic_inc(&sk->sk_drops);	
+warning: 4 lines add whitespace errors.
+
+I fixed it by hand this time, but please fix this yourself before
+future submissions.
+
+Thank you.
