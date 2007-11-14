@@ -1,48 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.24-rc2: Network commit causes SLUB performance regression
- with tbench
-Date: Wed, 14 Nov 2007 15:46:16 -0800 (PST)
-Message-ID: <20071114.154616.46285694.davem@davemloft.net>
-References: <200711140927.39796.nickpiggin@yahoo.com.au>
-	<20071114.031022.183117678.davem@davemloft.net>
-	<20071114114844.GA13927@gondor.apana.org.au>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] Use sockfd_lookup_light in the rest of the net/socket.c
+Date: Wed, 14 Nov 2007 15:47:40 -0800
+Message-ID: <20071114234738.GI2368@verge.net.au>
+References: <473B256A.8080104@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nickpiggin@yahoo.com.au, clameter@sgi.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35207
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755413AbXKNXqR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 18:46:17 -0500
-In-Reply-To: <20071114114844.GA13927@gondor.apana.org.au>
+Received: from koto.vergenet.net ([210.128.90.7]:37050 "EHLO koto.vergenet.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752697AbXKNXrs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2007 18:47:48 -0500
+Content-Disposition: inline
+In-Reply-To: <473B256A.8080104@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 14 Nov 2007 19:48:44 +0800
+On Wed, Nov 14, 2007 at 07:42:18PM +0300, Pavel Emelyanov wrote:
+> Some time ago a sockfd_lookup_light was introduced and
+> most of the socket.c file was patched to use it. However
+> two routines were left - sys_sendto and sys_recvfrom.
+> 
+> Patch them as well, since this helper does exactly what
+> these two need.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-> [TCP]: Fix size calculation in sk_stream_alloc_pskb
-> 
-> We round up the header size in sk_stream_alloc_pskb so that
-> TSO packets get zero tail room.  Unfortunately this rounding
-> up is not coordinated with the select_size() function used by
-> TCP to calculate the second parameter of sk_stream_alloc_pskb.
-> 
-> As a result, we may allocate more than a page of data in the
-> non-TSO case when exactly one page is desired.
-> 
-> In fact, rounding up the head room is detrimental in the non-TSO
-> case because it makes memory that would otherwise be available to
-> the payload head room.  TSO doesn't need this either, all it wants
-> is the guarantee that there is no tail room.
-> 
-> So this patch fixes this by adjusting the skb_reserve call so that
-> exactly the requested amount (which all callers have calculated in
-> a precise way) is made available as tail room.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+This looks correct to me.
 
-Applied and I'll queue it up for -stable too.
+Acked-by: Simon Horman <horms@verge.net.au>
+
+-- 
+Horms, California Edition
+
