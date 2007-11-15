@@ -1,7 +1,7 @@
 From: "Eliezer Tamir" <eliezert@broadcom.com>
-Subject: Re: [PATCH 2.6.25] add bnx2x driver for BCM57710 - bnx2x_reg.h
-Date: Thu, 15 Nov 2007 21:49:21 +0200
-Message-ID: <1195156161.24548.45.camel@lb-tlvb-eliezer.il.broadcom.com>
+Subject: Re: [PATCH 2.6.25] add bnx2x driver for BCM57710 - bnx2x.c
+Date: Thu, 15 Nov 2007 21:46:23 +0200
+Message-ID: <1195155983.24548.35.camel@lb-tlvb-eliezer.il.broadcom.com>
 References: <1195154386.24548.29.camel@lb-tlvb-eliezer.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,10 +14,10 @@ Cc: davem@davemloft.net, jeff@garzik.org,
 	"Philip Oswald" <poswald@novell.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2730 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:4515 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752078AbXKOTvv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2007 14:51:51 -0500
+	id S1753160AbXKOTwb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 14:52:31 -0500
 In-Reply-To: <1195154386.24548.29.camel@lb-tlvb-eliezer.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -25,7 +25,7 @@ List-Id: netdev.vger.kernel.org
 posting individual files for comments.
 ---
 
-/* bnx2x_reg.h: Broadcom Everest network driver.
+/* bnx2x.c: Broadcom Everest network driver.
  *
  * Copyright (c) 2007 Broadcom Corporation
  *
@@ -33,4391 +33,9062 @@ posting individual files for comments.
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation.
  *
- * The registers description starts with the regsister Access type followed
- * by size in bits. For example [RW 32]. The access types are:
- * R  - Read only
- * RC - Clear on read
- * RW - Read/Write
- * ST - Statistics register (clear on read)
- * W  - Write only
- * WB - Wide bus register - the size is over 32 bits and it should be
- *      read/write in consecutive 32 bits accesses
- * WR - Write Clear (write 1 to clear the bit)
+ * Written by: Eliezer Tamir <eliezert@broadcom.com>
+ * Based on code from Michael Chan's bnx2 driver
+ * UDP CSUM errata workaround by Arik Gendelman
+ * Slowpath rework by Vladislav Zolotarov
+ * Statistics and Link managment by Yitchak Gertner
  *
  */
 
+/* define this to make the driver freeze on error
+ * to allow getting debug info
+ * (you will need to reboot afterwords)
+ */
+/*#define BNX2X_STOP_ON_ERROR*/
 
-/* [R 19] Interrupt register #0 read */
-#define BRB1_REG_BRB1_INT_STS					 0x6011c
-/* [RW 4] Parity mask register #0 read/write */
-#define BRB1_REG_BRB1_PRTY_MASK 				 0x60138
-/* [RW 10] At address BRB1_IND_FREE_LIST_PRS_CRDT initialize free head. At
-   address BRB1_IND_FREE_LIST_PRS_CRDT+1 initialize free tail. At address
-   BRB1_IND_FREE_LIST_PRS_CRDT+2 initialize parser initial credit. */
-#define BRB1_REG_FREE_LIST_PRS_CRDT				 0x60200
-/* [RW 23] LL RAM data. */
-#define BRB1_REG_LL_RAM 					 0x61000
-/* [R 24] The number of full blocks. */
-#define BRB1_REG_NUM_OF_FULL_BLOCKS				 0x60090
-/* [ST 32] The number of cycles that the write_full signal towards MAC #0
-   was asserted. */
-#define BRB1_REG_NUM_OF_FULL_CYCLES_0				 0x600c8
-#define BRB1_REG_NUM_OF_FULL_CYCLES_1				 0x600cc
-#define BRB1_REG_NUM_OF_FULL_CYCLES_2				 0x600d0
-#define BRB1_REG_NUM_OF_FULL_CYCLES_3				 0x600d4
-#define BRB1_REG_NUM_OF_FULL_CYCLES_4				 0x600d8
-/* [ST 32] The number of cycles that the pause signal towards MAC #0 was
-   asserted. */
-#define BRB1_REG_NUM_OF_PAUSE_CYCLES_0				 0x600b8
-#define BRB1_REG_NUM_OF_PAUSE_CYCLES_1				 0x600bc
-#define BRB1_REG_NUM_OF_PAUSE_CYCLES_2				 0x600c0
-#define BRB1_REG_NUM_OF_PAUSE_CYCLES_3				 0x600c4
-/* [RW 10] Write client 0: De-assert pause threshold. */
-#define BRB1_REG_PAUSE_HIGH_THRESHOLD_0 			 0x60078
-#define BRB1_REG_PAUSE_HIGH_THRESHOLD_1 			 0x6007c
-/* [RW 10] Write client 0: Assert pause threshold. */
-#define BRB1_REG_PAUSE_LOW_THRESHOLD_0				 0x60068
-#define BRB1_REG_PAUSE_LOW_THRESHOLD_1				 0x6006c
-/* [RW 1] Reset the design by software. */
-#define BRB1_REG_SOFT_RESET					 0x600dc
-/* [R 5] Used to read the value of the XX protection CAM occupancy counter. */
-#define CCM_REG_CAM_OCCUP					 0xd0188
-/* [RW 1] CM - CFC Interface enable. If 0 - the valid input is disregarded;
-   acknowledge output is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define CCM_REG_CCM_CFC_IFEN					 0xd003c
-/* [RW 1] CM - QM Interface enable. If 0 - the acknowledge input is
-   disregarded; valid is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define CCM_REG_CCM_CQM_IFEN					 0xd000c
-/* [RW 1] If set the Q index; received from the QM is inserted to event ID.
-   Otherwise 0 is inserted. */
-#define CCM_REG_CCM_CQM_USE_Q					 0xd00c0
-/* [RW 11] Interrupt mask register #0 read/write */
-#define CCM_REG_CCM_INT_MASK					 0xd01e4
-/* [R 11] Interrupt register #0 read */
-#define CCM_REG_CCM_INT_STS					 0xd01d8
-/* [RW 3] The size of AG context region 0 in REG-pairs. Designates the MS
-   REG-pair number (e.g. if region 0 is 6 REG-pairs; the value should be 5).
-   Is used to determine the number of the AG context REG-pairs written back;
-   when the input message Reg1WbFlg isn't set. */
-#define CCM_REG_CCM_REG0_SZ					 0xd00c4
-/* [RW 1] CM - STORM 0 Interface enable. If 0 - the acknowledge input is
-   disregarded; valid is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define CCM_REG_CCM_STORM0_IFEN 				 0xd0004
-/* [RW 1] CM - STORM 1 Interface enable. If 0 - the acknowledge input is
-   disregarded; valid is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define CCM_REG_CCM_STORM1_IFEN 				 0xd0008
-/* [RW 1] CDU AG read Interface enable. If 0 - the request input is
-   disregarded; valid output is deasserted; all other signals are treated as
-   usual; if 1 - normal activity. */
-#define CCM_REG_CDU_AG_RD_IFEN					 0xd0030
-/* [RW 1] CDU AG write Interface enable. If 0 - the request and valid input
-   are disregarded; all other signals are treated as usual; if 1 - normal
-   activity. */
-#define CCM_REG_CDU_AG_WR_IFEN					 0xd002c
-/* [RW 1] CDU STORM read Interface enable. If 0 - the request input is
-   disregarded; valid output is deasserted; all other signals are treated as
-   usual; if 1 - normal activity. */
-#define CCM_REG_CDU_SM_RD_IFEN					 0xd0038
-/* [RW 1] CDU STORM write Interface enable. If 0 - the request and valid
-   input is disregarded; all other signals are treated as usual; if 1 -
-   normal activity. */
-#define CCM_REG_CDU_SM_WR_IFEN					 0xd0034
-/* [RW 4] CFC output initial credit. Max credit available - 15.Write writes
-   the initial credit value; read returns the current value of the credit
-   counter. Must be initialized to 1 at start-up. */
-#define CCM_REG_CFC_INIT_CRD					 0xd0204
-/* [RW 2] Auxillary counter flag Q number 1. */
-#define CCM_REG_CNT_AUX1_Q					 0xd00c8
-/* [RW 2] Auxillary counter flag Q number 2. */
-#define CCM_REG_CNT_AUX2_Q					 0xd00cc
-/* [RW 28] The CM header value for QM request (primary). */
-#define CCM_REG_CQM_CCM_HDR_P					 0xd008c
-/* [RW 28] The CM header value for QM request (secondary). */
-#define CCM_REG_CQM_CCM_HDR_S					 0xd0090
-/* [RW 1] QM - CM Interface enable. If 0 - the valid input is disregarded;
-   acknowledge output is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define CCM_REG_CQM_CCM_IFEN					 0xd0014
-/* [RW 6] QM output initial credit. Max credit available - 32. Write writes
-   the initial credit value; read returns the current value of the credit
-   counter. Must be initialized to 32 at start-up. */
-#define CCM_REG_CQM_INIT_CRD					 0xd020c
-/* [RW 3] The weight of the QM (primary) input in the WRR mechanism. 0
-   stands for weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define CCM_REG_CQM_P_WEIGHT					 0xd00b8
-/* [RW 1] Input SDM Interface enable. If 0 - the valid input is disregarded;
-   acknowledge output is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define CCM_REG_CSDM_IFEN					 0xd0018
-/* [RC 1] Set when the message length mismatch (relative to last indication)
-   at the SDM interface is detected. */
-#define CCM_REG_CSDM_LENGTH_MIS 				 0xd0170
-/* [RW 28] The CM header for QM formatting in case of an error in the QM
-   inputs. */
-#define CCM_REG_ERR_CCM_HDR					 0xd0094
-/* [RW 8] The Event ID in case the input message ErrorFlg is set. */
-#define CCM_REG_ERR_EVNT_ID					 0xd0098
-/* [RW 8] FIC0 output initial credit. Max credit available - 255. Write
-   writes the initial credit value; read returns the current value of the
-   credit counter. Must be initialized to 64 at start-up. */
-#define CCM_REG_FIC0_INIT_CRD					 0xd0210
-/* [RW 8] FIC1 output initial credit. Max credit available - 255.Write
-   writes the initial credit value; read returns the current value of the
-   credit counter. Must be initialized to 64 at start-up. */
-#define CCM_REG_FIC1_INIT_CRD					 0xd0214
-/* [RW 1] Arbitration between Input Arbiter groups: 0 - fair Round-Robin; 1
-   - strict priority defined by ~ccm_registers_gr_ag_pr.gr_ag_pr;
-   ~ccm_registers_gr_ld0_pr.gr_ld0_pr and
-   ~ccm_registers_gr_ld1_pr.gr_ld1_pr. Groups are according to channels and
-   outputs to STORM: aggregation; load FIC0; load FIC1 and store. */
-#define CCM_REG_GR_ARB_TYPE					 0xd015c
-/* [RW 2] Load (FIC0) channel group priority. The lowest priority is 0; the
-   highest priority is 3. It is supposed; that the Store channel priority is
-   the compliment to 4 of the rest priorities - Aggregation channel; Load
-   (FIC0) channel and Load (FIC1). */
-#define CCM_REG_GR_LD0_PR					 0xd0164
-/* [RW 2] Load (FIC1) channel group priority. The lowest priority is 0; the
-   highest priority is 3. It is supposed; that the Store channel priority is
-   the compliment to 4 of the rest priorities - Aggregation channel; Load
-   (FIC0) channel and Load (FIC1). */
-#define CCM_REG_GR_LD1_PR					 0xd0168
-/* [RW 2] General flags index. */
-#define CCM_REG_INV_DONE_Q					 0xd0108
-/* [RW 4] The number of double REG-pairs(128 bits); loaded from the STORM
-   context and sent to STORM; for a specific connection type. The double
-   REG-pairs are used in order to align to STORM context row size of 128
-   bits. The offset of these data in the STORM context is always 0. Index
-   _(0..15) stands for the connection type (one of 16). */
-#define CCM_REG_N_SM_CTX_LD_0					 0xd004c
-#define CCM_REG_N_SM_CTX_LD_1					 0xd0050
-#define CCM_REG_N_SM_CTX_LD_10					 0xd0074
-#define CCM_REG_N_SM_CTX_LD_11					 0xd0078
-#define CCM_REG_N_SM_CTX_LD_12					 0xd007c
-#define CCM_REG_N_SM_CTX_LD_13					 0xd0080
-#define CCM_REG_N_SM_CTX_LD_14					 0xd0084
-#define CCM_REG_N_SM_CTX_LD_15					 0xd0088
-#define CCM_REG_N_SM_CTX_LD_2					 0xd0054
-#define CCM_REG_N_SM_CTX_LD_3					 0xd0058
-#define CCM_REG_N_SM_CTX_LD_4					 0xd005c
-/* [RW 1] Input pbf Interface enable. If 0 - the valid input is disregarded;
-   acknowledge output is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define CCM_REG_PBF_IFEN					 0xd0028
-/* [RC 1] Set when the message length mismatch (relative to last indication)
-   at the pbf interface is detected. */
-#define CCM_REG_PBF_LENGTH_MIS					 0xd0180
-/* [RW 3] The weight of the input pbf in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define CCM_REG_PBF_WEIGHT					 0xd00ac
-/* [RW 6] The physical queue number of queue number 1 per port index. */
-#define CCM_REG_PHYS_QNUM1_0					 0xd0134
-#define CCM_REG_PHYS_QNUM1_1					 0xd0138
-/* [RW 6] The physical queue number of queue number 2 per port index. */
-#define CCM_REG_PHYS_QNUM2_0					 0xd013c
-#define CCM_REG_PHYS_QNUM2_1					 0xd0140
-/* [RW 6] The physical queue number of queue number 3 per port index. */
-#define CCM_REG_PHYS_QNUM3_0					 0xd0144
-/* [RW 6] The physical queue number of queue number 0 with QOS equal 0 port
-   index 0. */
-#define CCM_REG_QOS_PHYS_QNUM0_0				 0xd0114
-#define CCM_REG_QOS_PHYS_QNUM0_1				 0xd0118
-/* [RW 6] The physical queue number of queue number 0 with QOS equal 1 port
-   index 0. */
-#define CCM_REG_QOS_PHYS_QNUM1_0				 0xd011c
-#define CCM_REG_QOS_PHYS_QNUM1_1				 0xd0120
-/* [RW 6] The physical queue number of queue number 0 with QOS equal 2 port
-   index 0. */
-#define CCM_REG_QOS_PHYS_QNUM2_0				 0xd0124
-/* [RW 1] STORM - CM Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define CCM_REG_STORM_CCM_IFEN					 0xd0010
-/* [RC 1] Set when the message length mismatch (relative to last indication)
-   at the STORM interface is detected. */
-#define CCM_REG_STORM_LENGTH_MIS				 0xd016c
-/* [RW 1] Input tsem Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define CCM_REG_TSEM_IFEN					 0xd001c
-/* [RC 1] Set when the message length mismatch (relative to last indication)
-   at the tsem interface is detected. */
-#define CCM_REG_TSEM_LENGTH_MIS 				 0xd0174
-/* [RW 3] The weight of the input tsem in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define CCM_REG_TSEM_WEIGHT					 0xd00a0
-/* [RW 1] Input usem Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define CCM_REG_USEM_IFEN					 0xd0024
-/* [RC 1] Set when message length mismatch (relative to last indication) at
-   the usem interface is detected. */
-#define CCM_REG_USEM_LENGTH_MIS 				 0xd017c
-/* [RW 3] The weight of the input usem in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define CCM_REG_USEM_WEIGHT					 0xd00a8
-/* [RW 1] Input xsem Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define CCM_REG_XSEM_IFEN					 0xd0020
-/* [RC 1] Set when the message length mismatch (relative to last indication)
-   at the xsem interface is detected. */
-#define CCM_REG_XSEM_LENGTH_MIS 				 0xd0178
-/* [RW 3] The weight of the input xsem in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define CCM_REG_XSEM_WEIGHT					 0xd00a4
-/* [RW 19] Indirect access to the descriptor table of the XX protection
-   mechanism. The fields are: [5:0] - message length; [12:6] - message
-   pointer; 18:13] - next pointer. */
-#define CCM_REG_XX_DESCR_TABLE					 0xd0300
-/* [R 7] Used to read the value of XX protection Free counter. */
-#define CCM_REG_XX_FREE 					 0xd0184
-/* [RW 6] Initial value for the credit counter; responsible for fulfilling
-   of the Input Stage XX protection buffer by the XX protection pending
-   messages. Max credit available - 127. Write writes the initial credit
-   value; read returns the current value of the credit counter. Must be
-   initialized to maximum XX protected message size - 2 at start-up. */
-#define CCM_REG_XX_INIT_CRD					 0xd0220
-/* [RW 7] The maximum number of pending messages; which may be stored in XX
-   protection. At read the ~ccm_registers_xx_free.xx_free counter is read.
-   At write comprises the start value of the ~ccm_registers_xx_free.xx_free
-   counter. */
-#define CCM_REG_XX_MSG_NUM					 0xd0224
-/* [RW 8] The Event ID; sent to the STORM in case of XX overflow. */
-#define CCM_REG_XX_OVFL_EVNT_ID 				 0xd0044
-/* [RW 18] Indirect access to the XX table of the XX protection mechanism.
-   The fields are: [5:0] - tail pointer; 11:6] - Link List size; 17:12] -
-   header pointer. */
-#define CCM_REG_XX_TABLE					 0xd0280
-#define CDU_REG_CDU_CHK_MASK0					 0x101000
-#define CDU_REG_CDU_CHK_MASK1					 0x101004
-#define CDU_REG_CDU_CONTROL0					 0x101008
-#define CDU_REG_CDU_DEBUG					 0x101010
-#define CDU_REG_CDU_GLOBAL_PARAMS				 0x101020
-/* [RW 7] Interrupt mask register #0 read/write */
-#define CDU_REG_CDU_INT_MASK					 0x10103c
-/* [R 7] Interrupt register #0 read */
-#define CDU_REG_CDU_INT_STS					 0x101030
-/* [RW 5] Parity mask register #0 read/write */
-#define CDU_REG_CDU_PRTY_MASK					 0x10104c
-/* [RC 32] logging of error data in case of a CDU load error:
-   {expected_cid[15:0]; xpected_type[2:0]; xpected_region[2:0]; ctive_error;
-   ype_error; ctual_active; ctual_compressed_context}; */
-#define CDU_REG_ERROR_DATA					 0x101014
-/* [WB 216] L1TT ram access. each entry has the following format :
-   {mrege_regions[7:0]; ffset12[5:0]...offset0[5:0];
-   ength12[5:0]...length0[5:0]; d12[3:0]...id0[3:0]} */
-#define CDU_REG_L1TT						 0x101800
-/* [WB 24] MATT ram access. each entry has the following
-   format:{RegionLength[11:0]; egionOffset[11:0]} */
-#define CDU_REG_MATT						 0x101100
-/* [R 1] indication the initializing the activity counter by the hardware
-   was done. */
-#define CFC_REG_AC_INIT_DONE					 0x104078
-/* [RW 13] activity counter ram access */
-#define CFC_REG_ACTIVITY_COUNTER				 0x104400
-#define CFC_REG_ACTIVITY_COUNTER_SIZE				 256
-/* [R 1] indication the initializing the cams by the hardware was done. */
-#define CFC_REG_CAM_INIT_DONE					 0x10407c
-/* [RW 2] Interrupt mask register #0 read/write */
-#define CFC_REG_CFC_INT_MASK					 0x104108
-/* [R 2] Interrupt register #0 read */
-#define CFC_REG_CFC_INT_STS					 0x1040fc
-/* [RC 2] Interrupt register #0 read clear */
-#define CFC_REG_CFC_INT_STS_CLR 				 0x104100
-/* [RW 4] Parity mask register #0 read/write */
-#define CFC_REG_CFC_PRTY_MASK					 0x104118
-/* [RW 21] CID cam access (21:1 - Data; alid - 0) */
-#define CFC_REG_CID_CAM 					 0x104800
-#define CFC_REG_CONTROL0					 0x104028
-#define CFC_REG_DEBUG0						 0x104050
-/* [RW 14] indicates per error (in #cfc_registers_cfc_error_vector.cfc_error
-   vector) whether the cfc should be disabled upon it */
-#define CFC_REG_DISABLE_ON_ERROR				 0x104044
-/* [RC 14] CFC error vector. when the CFC detects an internal error it will
-   set one of these bits. the bit description can be found in CFC
-   specifications */
-#define CFC_REG_ERROR_VECTOR					 0x10403c
-#define CFC_REG_INIT_REG					 0x10404c
-/* [RW 24] {weight_load_client7[2:0] to weight_load_client0[2:0]}. this
-   field allows changing the priorities of the weighted-round-robin arbiter
-   which selects which CFC load client should be served next */
-#define CFC_REG_LCREQ_WEIGHTS					 0x104084
-/* [R 1] indication the initializing the link list by the hardware was done. */
-#define CFC_REG_LL_INIT_DONE					 0x104074
-/* [R 9] Number of allocated LCIDs which are at empty state */
-#define CFC_REG_NUM_LCIDS_ALLOC 				 0x104020
-/* [R 9] Number of Arriving LCIDs in Link List Block */
-#define CFC_REG_NUM_LCIDS_ARRIVING				 0x104004
-/* [R 9] Number of Inside LCIDs in Link List Block */
-#define CFC_REG_NUM_LCIDS_INSIDE				 0x104008
-/* [R 9] Number of Leaving LCIDs in Link List Block */
-#define CFC_REG_NUM_LCIDS_LEAVING				 0x104018
-/* [RW 8] The event id for aggregated interrupt 0 */
-#define CSDM_REG_AGG_INT_EVENT_0				 0xc2038
-/* [RW 13] The start address in the internal RAM for the cfc_rsp lcid */
-#define CSDM_REG_CFC_RSP_START_ADDR				 0xc2008
-/* [RW 16] The maximum value of the competion counter #0 */
-#define CSDM_REG_CMP_COUNTER_MAX0				 0xc201c
-/* [RW 16] The maximum value of the competion counter #1 */
-#define CSDM_REG_CMP_COUNTER_MAX1				 0xc2020
-/* [RW 16] The maximum value of the competion counter #2 */
-#define CSDM_REG_CMP_COUNTER_MAX2				 0xc2024
-/* [RW 16] The maximum value of the competion counter #3 */
-#define CSDM_REG_CMP_COUNTER_MAX3				 0xc2028
-/* [RW 13] The start address in the internal RAM for the completion
-   counters. */
-#define CSDM_REG_CMP_COUNTER_START_ADDR 			 0xc200c
-/* [RW 32] Interrupt mask register #0 read/write */
-#define CSDM_REG_CSDM_INT_MASK_0				 0xc229c
-#define CSDM_REG_CSDM_INT_MASK_1				 0xc22ac
-/* [RW 11] Parity mask register #0 read/write */
-#define CSDM_REG_CSDM_PRTY_MASK 				 0xc22bc
-#define CSDM_REG_ENABLE_IN1					 0xc2238
-#define CSDM_REG_ENABLE_IN2					 0xc223c
-#define CSDM_REG_ENABLE_OUT1					 0xc2240
-#define CSDM_REG_ENABLE_OUT2					 0xc2244
-/* [RW 4] The initial number of messages that can be sent to the pxp control
-   interface without receiving any ACK. */
-#define CSDM_REG_INIT_CREDIT_PXP_CTRL				 0xc24bc
-/* [ST 32] The number of ACK after placement messages received */
-#define CSDM_REG_NUM_OF_ACK_AFTER_PLACE 			 0xc227c
-/* [ST 32] The number of packet end messages received from the parser */
-#define CSDM_REG_NUM_OF_PKT_END_MSG				 0xc2274
-/* [ST 32] The number of requests received from the pxp async if */
-#define CSDM_REG_NUM_OF_PXP_ASYNC_REQ				 0xc2278
-/* [ST 32] The number of commands received in queue 0 */
-#define CSDM_REG_NUM_OF_Q0_CMD					 0xc2248
-/* [ST 32] The number of commands received in queue 10 */
-#define CSDM_REG_NUM_OF_Q10_CMD 				 0xc226c
-/* [ST 32] The number of commands received in queue 11 */
-#define CSDM_REG_NUM_OF_Q11_CMD 				 0xc2270
-/* [ST 32] The number of commands received in queue 1 */
-#define CSDM_REG_NUM_OF_Q1_CMD					 0xc224c
-/* [ST 32] The number of commands received in queue 3 */
-#define CSDM_REG_NUM_OF_Q3_CMD					 0xc2250
-/* [ST 32] The number of commands received in queue 4 */
-#define CSDM_REG_NUM_OF_Q4_CMD					 0xc2254
-/* [ST 32] The number of commands received in queue 5 */
-#define CSDM_REG_NUM_OF_Q5_CMD					 0xc2258
-/* [ST 32] The number of commands received in queue 6 */
-#define CSDM_REG_NUM_OF_Q6_CMD					 0xc225c
-/* [ST 32] The number of commands received in queue 7 */
-#define CSDM_REG_NUM_OF_Q7_CMD					 0xc2260
-/* [ST 32] The number of commands received in queue 8 */
-#define CSDM_REG_NUM_OF_Q8_CMD					 0xc2264
-/* [ST 32] The number of commands received in queue 9 */
-#define CSDM_REG_NUM_OF_Q9_CMD					 0xc2268
-/* [RW 13] The start address in the internal RAM for queue counters */
-#define CSDM_REG_Q_COUNTER_START_ADDR				 0xc2010
-/* [R 1] pxp_ctrl rd_data fifo empty in sdm_dma_rsp block */
-#define CSDM_REG_RSP_PXP_CTRL_RDATA_EMPTY			 0xc2548
-/* [R 1] parser fifo empty in sdm_sync block */
-#define CSDM_REG_SYNC_PARSER_EMPTY				 0xc2550
-/* [R 1] parser serial fifo empty in sdm_sync block */
-#define CSDM_REG_SYNC_SYNC_EMPTY				 0xc2558
-/* [RW 32] Tick for timer counter. Applicable only when
-   ~csdm_registers_timer_tick_enable.timer_tick_enable =1 */
-#define CSDM_REG_TIMER_TICK					 0xc2000
-/* [RW 5] The number of time_slots in the arbitration cycle */
-#define CSEM_REG_ARB_CYCLE_SIZE 				 0x200034
-/* [RW 3] The source that is associated with arbitration element 0. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2 */
-#define CSEM_REG_ARB_ELEMENT0					 0x200020
-/* [RW 3] The source that is associated with arbitration element 1. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2.
-   Could not be equal to register ~csem_registers_arb_element0.arb_element0 */
-#define CSEM_REG_ARB_ELEMENT1					 0x200024
-/* [RW 3] The source that is associated with arbitration element 2. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2.
-   Could not be equal to register ~csem_registers_arb_element0.arb_element0
-   and ~csem_registers_arb_element1.arb_element1 */
-#define CSEM_REG_ARB_ELEMENT2					 0x200028
-/* [RW 3] The source that is associated with arbitration element 3. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2.Could
-   not be equal to register ~csem_registers_arb_element0.arb_element0 and
-   ~csem_registers_arb_element1.arb_element1 and
-   ~csem_registers_arb_element2.arb_element2 */
-#define CSEM_REG_ARB_ELEMENT3					 0x20002c
-/* [RW 3] The source that is associated with arbitration element 4. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2.
-   Could not be equal to register ~csem_registers_arb_element0.arb_element0
-   and ~csem_registers_arb_element1.arb_element1 and
-   ~csem_registers_arb_element2.arb_element2 and
-   ~csem_registers_arb_element3.arb_element3 */
-#define CSEM_REG_ARB_ELEMENT4					 0x200030
-/* [RW 32] Interrupt mask register #0 read/write */
-#define CSEM_REG_CSEM_INT_MASK_0				 0x200110
-#define CSEM_REG_CSEM_INT_MASK_1				 0x200120
-/* [RW 32] Parity mask register #0 read/write */
-#define CSEM_REG_CSEM_PRTY_MASK_0				 0x200130
-#define CSEM_REG_CSEM_PRTY_MASK_1				 0x200140
-#define CSEM_REG_ENABLE_IN					 0x2000a4
-#define CSEM_REG_ENABLE_OUT					 0x2000a8
-/* [RW 32] This address space contains all registers and memories that are
-   placed in SEM_FAST block. The SEM_FAST registers are described in
-   appendix B. In order to access the SEM_FAST registers the base address
-   CSEM_REGISTERS_FAST_MEMORY (Offset: 0x220000) should be added to each
-   SEM_FAST register offset. */
-#define CSEM_REG_FAST_MEMORY					 0x220000
-/* [RW 1] Disables input messages from FIC0 May be updated during run_time
-   by the microcode */
-#define CSEM_REG_FIC0_DISABLE					 0x200224
-/* [RW 1] Disables input messages from FIC1 May be updated during run_time
-   by the microcode */
-#define CSEM_REG_FIC1_DISABLE					 0x200234
-/* [RW 15] Interrupt table Read and write access to it is not possible in
-   the middle of the work */
-#define CSEM_REG_INT_TABLE					 0x200400
-/* [ST 24] Statistics register. The number of messages that entered through
-   FIC0 */
-#define CSEM_REG_MSG_NUM_FIC0					 0x200000
-/* [ST 24] Statistics register. The number of messages that entered through
-   FIC1 */
-#define CSEM_REG_MSG_NUM_FIC1					 0x200004
-/* [ST 24] Statistics register. The number of messages that were sent to
-   FOC0 */
-#define CSEM_REG_MSG_NUM_FOC0					 0x200008
-/* [ST 24] Statistics register. The number of messages that were sent to
-   FOC1 */
-#define CSEM_REG_MSG_NUM_FOC1					 0x20000c
-/* [ST 24] Statistics register. The number of messages that were sent to
-   FOC2 */
-#define CSEM_REG_MSG_NUM_FOC2					 0x200010
-/* [ST 24] Statistics register. The number of messages that were sent to
-   FOC3 */
-#define CSEM_REG_MSG_NUM_FOC3					 0x200014
-/* [RW 1] Disables input messages from the passive buffer May be updated
-   during run_time by the microcode */
-#define CSEM_REG_PAS_DISABLE					 0x20024c
-/* [WB 128] Debug only. Passive buffer memory */
-#define CSEM_REG_PASSIVE_BUFFER 				 0x202000
-/* [WB 46] pram memory. B45 is parity; b[44:0] - data. */
-#define CSEM_REG_PRAM						 0x240000
-/* [R 16] Valid sleeping threads indication have bit per thread */
-#define CSEM_REG_SLEEP_THREADS_VALID				 0x20026c
-/* [R 1] EXT_STORE FIFO is empty in sem_slow_ls_ext */
-#define CSEM_REG_SLOW_EXT_STORE_EMPTY				 0x2002a0
-/* [RW 16] List of free threads . There is a bit per thread. */
-#define CSEM_REG_THREADS_LIST					 0x2002e4
-/* [RW 3] The arbitration scheme of time_slot 0 */
-#define CSEM_REG_TS_0_AS					 0x200038
-/* [RW 3] The arbitration scheme of time_slot 10 */
-#define CSEM_REG_TS_10_AS					 0x200060
-/* [RW 3] The arbitration scheme of time_slot 11 */
-#define CSEM_REG_TS_11_AS					 0x200064
-/* [RW 3] The arbitration scheme of time_slot 12 */
-#define CSEM_REG_TS_12_AS					 0x200068
-/* [RW 3] The arbitration scheme of time_slot 13 */
-#define CSEM_REG_TS_13_AS					 0x20006c
-/* [RW 3] The arbitration scheme of time_slot 14 */
-#define CSEM_REG_TS_14_AS					 0x200070
-/* [RW 3] The arbitration scheme of time_slot 15 */
-#define CSEM_REG_TS_15_AS					 0x200074
-/* [RW 3] The arbitration scheme of time_slot 16 */
-#define CSEM_REG_TS_16_AS					 0x200078
-/* [RW 3] The arbitration scheme of time_slot 17 */
-#define CSEM_REG_TS_17_AS					 0x20007c
-/* [RW 3] The arbitration scheme of time_slot 18 */
-#define CSEM_REG_TS_18_AS					 0x200080
-/* [RW 3] The arbitration scheme of time_slot 1 */
-#define CSEM_REG_TS_1_AS					 0x20003c
-/* [RW 3] The arbitration scheme of time_slot 2 */
-#define CSEM_REG_TS_2_AS					 0x200040
-/* [RW 3] The arbitration scheme of time_slot 3 */
-#define CSEM_REG_TS_3_AS					 0x200044
-/* [RW 3] The arbitration scheme of time_slot 4 */
-#define CSEM_REG_TS_4_AS					 0x200048
-/* [RW 3] The arbitration scheme of time_slot 5 */
-#define CSEM_REG_TS_5_AS					 0x20004c
-/* [RW 3] The arbitration scheme of time_slot 6 */
-#define CSEM_REG_TS_6_AS					 0x200050
-/* [RW 3] The arbitration scheme of time_slot 7 */
-#define CSEM_REG_TS_7_AS					 0x200054
-/* [RW 3] The arbitration scheme of time_slot 8 */
-#define CSEM_REG_TS_8_AS					 0x200058
-/* [RW 3] The arbitration scheme of time_slot 9 */
-#define CSEM_REG_TS_9_AS					 0x20005c
-/* [RW 1] Parity mask register #0 read/write */
-#define DBG_REG_DBG_PRTY_MASK					 0xc0a8
-/* [RW 2] debug only: These bits indicate the credit for PCI request type 4
-   interface; MUST be configured AFTER pci_ext_buffer_strt_addr_lsb/msb are
-   configured */
-#define DBG_REG_PCI_REQ_CREDIT					 0xc120
-/* [RW 32] Commands memory. The address to command X; row Y is to calculated
-   as 14*X+Y. */
-#define DMAE_REG_CMD_MEM					 0x102400
-/* [RW 1] If 0 - the CRC-16c initial value is all zeroes; if 1 - the CRC-16c
-   initial value is all ones. */
-#define DMAE_REG_CRC16C_INIT					 0x10201c
-/* [RW 1] If 0 - the CRC-16 T10 initial value is all zeroes; if 1 - the
-   CRC-16 T10 initial value is all ones. */
-#define DMAE_REG_CRC16T10_INIT					 0x102020
-/* [RW 2] Interrupt mask register #0 read/write */
-#define DMAE_REG_DMAE_INT_MASK					 0x102054
-/* [RW 4] Parity mask register #0 read/write */
-#define DMAE_REG_DMAE_PRTY_MASK 				 0x102064
-/* [RW 1] Command 0 go. */
-#define DMAE_REG_GO_C0						 0x102080
-/* [RW 1] Command 1 go. */
-#define DMAE_REG_GO_C1						 0x102084
-/* [RW 1] Command 10 go. */
-#define DMAE_REG_GO_C10 					 0x102088
-#define DMAE_REG_GO_C10_SIZE					 1
-/* [RW 1] Command 11 go. */
-#define DMAE_REG_GO_C11 					 0x10208c
-#define DMAE_REG_GO_C11_SIZE					 1
-/* [RW 1] Command 12 go. */
-#define DMAE_REG_GO_C12 					 0x102090
-#define DMAE_REG_GO_C12_SIZE					 1
-/* [RW 1] Command 13 go. */
-#define DMAE_REG_GO_C13 					 0x102094
-#define DMAE_REG_GO_C13_SIZE					 1
-/* [RW 1] Command 14 go. */
-#define DMAE_REG_GO_C14 					 0x102098
-#define DMAE_REG_GO_C14_SIZE					 1
-/* [RW 1] Command 15 go. */
-#define DMAE_REG_GO_C15 					 0x10209c
-#define DMAE_REG_GO_C15_SIZE					 1
-/* [RW 1] Command 10 go. */
-#define DMAE_REG_GO_C10 					 0x102088
-/* [RW 1] Command 11 go. */
-#define DMAE_REG_GO_C11 					 0x10208c
-/* [RW 1] Command 12 go. */
-#define DMAE_REG_GO_C12 					 0x102090
-/* [RW 1] Command 13 go. */
-#define DMAE_REG_GO_C13 					 0x102094
-/* [RW 1] Command 14 go. */
-#define DMAE_REG_GO_C14 					 0x102098
-/* [RW 1] Command 15 go. */
-#define DMAE_REG_GO_C15 					 0x10209c
-/* [RW 1] Command 2 go. */
-#define DMAE_REG_GO_C2						 0x1020a0
-/* [RW 1] Command 3 go. */
-#define DMAE_REG_GO_C3						 0x1020a4
-/* [RW 1] Command 4 go. */
-#define DMAE_REG_GO_C4						 0x1020a8
-/* [RW 1] Command 5 go. */
-#define DMAE_REG_GO_C5						 0x1020ac
-/* [RW 1] Command 6 go. */
-#define DMAE_REG_GO_C6						 0x1020b0
-/* [RW 1] Command 7 go. */
-#define DMAE_REG_GO_C7						 0x1020b4
-/* [RW 1] Command 8 go. */
-#define DMAE_REG_GO_C8						 0x1020b8
-/* [RW 1] Command 9 go. */
-#define DMAE_REG_GO_C9						 0x1020bc
-/* [RW 1] DMAE GRC Interface (Target; aster) enable. If 0 - the acknowledge
-   input is disregarded; valid is deasserted; all other signals are treated
-   as usual; if 1 - normal activity. */
-#define DMAE_REG_GRC_IFEN					 0x102008
-/* [RW 1] DMAE PCI Interface (Request; ead; rite) enable. If 0 - the
-   acknowledge input is disregarded; valid is deasserted; full is asserted;
-   all other signals are treated as usual; if 1 - normal activity. */
-#define DMAE_REG_PCI_IFEN					 0x102004
-/* [RW 4] DMAE- PCI Request Interface initial credit. Write writes the
-   initial value to the credit counter; related to the address. Read returns
-   the current value of the counter. */
-#define DMAE_REG_PXP_REQ_INIT_CRD				 0x1020c0
-/* [RW 8] Aggregation command. */
-#define DORQ_REG_AGG_CMD0					 0x170060
-/* [RW 8] Aggregation command. */
-#define DORQ_REG_AGG_CMD1					 0x170064
-/* [RW 8] Aggregation command. */
-#define DORQ_REG_AGG_CMD2					 0x170068
-/* [RW 8] Aggregation command. */
-#define DORQ_REG_AGG_CMD3					 0x17006c
-/* [RW 28] UCM Header. */
-#define DORQ_REG_CMHEAD_RX					 0x170050
-/* [RW 5] Interrupt mask register #0 read/write */
-#define DORQ_REG_DORQ_INT_MASK					 0x170180
-/* [R 5] Interrupt register #0 read */
-#define DORQ_REG_DORQ_INT_STS					 0x170174
-/* [RC 5] Interrupt register #0 read clear */
-#define DORQ_REG_DORQ_INT_STS_CLR				 0x170178
-/* [RW 2] Parity mask register #0 read/write */
-#define DORQ_REG_DORQ_PRTY_MASK 				 0x170190
-/* [RW 8] The address to write the DPM CID to STORM. */
-#define DORQ_REG_DPM_CID_ADDR					 0x170044
-/* [RW 5] The DPM mode CID extraction offset. */
-#define DORQ_REG_DPM_CID_OFST					 0x170030
-/* [RW 12] The threshold of the DQ FIFO to send the almost full interrupt. */
-#define DORQ_REG_DQ_FIFO_AFULL_TH				 0x17007c
-/* [RW 12] The threshold of the DQ FIFO to send the full interrupt. */
-#define DORQ_REG_DQ_FIFO_FULL_TH				 0x170078
-/* [R 13] Current value of the DQ FIFO fill level according to following
-   pointer. The range is 0 - 256 FIFO rows; where each row stands for the
-   doorbell. */
-#define DORQ_REG_DQ_FILL_LVLF					 0x1700a4
-/* [R 1] DQ FIFO full status. Is set; when FIFO filling level is more or
-   equal to full threshold; reset on full clear. */
-#define DORQ_REG_DQ_FULL_ST					 0x1700c0
-/* [RW 28] The value sent to CM header in the case of CFC load error. */
-#define DORQ_REG_ERR_CMHEAD					 0x170058
-#define DORQ_REG_IF_EN						 0x170004
-#define DORQ_REG_MODE_ACT					 0x170008
-/* [RW 5] The normal mode CID extraction offset. */
-#define DORQ_REG_NORM_CID_OFST					 0x17002c
-/* [RW 28] TCM Header when only TCP context is loaded. */
-#define DORQ_REG_NORM_CMHEAD_TX 				 0x17004c
-/* [RW 3] The number of simultaneous outstanding requests to Context Fetch
-   Interface. */
-#define DORQ_REG_OUTST_REQ					 0x17003c
-#define DORQ_REG_REGN						 0x170038
-/* [R 4] Current value of response A counter credit. Initial credit is
-   configured through write to ~dorq_registers_rsp_init_crd.rsp_init_crd
-   register. */
-#define DORQ_REG_RSPA_CRD_CNT					 0x1700ac
-/* [R 4] Current value of response B counter credit. Initial credit is
-   configured through write to ~dorq_registers_rsp_init_crd.rsp_init_crd
-   register. */
-#define DORQ_REG_RSPB_CRD_CNT					 0x1700b0
-/* [RW 4] The initial credit at the Doorbell Response Interface. The write
-   writes the same initial credit to the rspa_crd_cnt and rspb_crd_cnt. The
-   read reads this written value. */
-#define DORQ_REG_RSP_INIT_CRD					 0x170048
-/* [RW 4] Initial activity counter value on the load request; when the
-   shortcut is done. */
-#define DORQ_REG_SHRT_ACT_CNT					 0x170070
-/* [RW 28] TCM Header when both ULP and TCP context is loaded. */
-#define DORQ_REG_SHRT_CMHEAD					 0x170054
-#define HC_CONFIG_0_REG_ATTN_BIT_EN_0				 (0x1<<4)
-#define HC_CONFIG_0_REG_INT_LINE_EN_0				 (0x1<<3)
-#define HC_CONFIG_0_REG_MSI_MSIX_INT_EN_0			 (0x1<<2)
-#define HC_CONFIG_0_REG_SINGLE_ISR_EN_0 			 (0x1<<1)
-#define HC_REG_AGG_INT_0					 0x108050
-#define HC_REG_AGG_INT_1					 0x108054
-/* [RW 16] attention bit and attention acknowledge bits status for port 0
-   and 1 according to the following address map: addr 0 - attn_bit_0; addr 1
-   - attn_ack_bit_0; addr 2 - attn_bit_1; addr 3 - attn_ack_bit_1; */
-#define HC_REG_ATTN_BIT 					 0x108120
-/* [RW 16] attn bits status index for attn bit msg; addr 0 - function 0;
-   addr 1 - functin 1 */
-#define HC_REG_ATTN_IDX 					 0x108100
-/* [RW 32] port 0 lower 32 bits address field for attn messag. */
-#define HC_REG_ATTN_MSG0_ADDR_L 				 0x108018
-/* [RW 32] port 1 lower 32 bits address field for attn messag. */
-#define HC_REG_ATTN_MSG1_ADDR_L 				 0x108020
-/* [RW 8] status block number for attn bit msg - function 0; */
-#define HC_REG_ATTN_NUM_P0					 0x108038
-/* [RW 8] status block number for attn bit msg - function 1 */
-#define HC_REG_ATTN_NUM_P1					 0x10803c
-#define HC_REG_CONFIG_0 					 0x108000
-#define HC_REG_CONFIG_1 					 0x108004
-/* [RW 3] Parity mask register #0 read/write */
-#define HC_REG_HC_PRTY_MASK					 0x1080a0
-/* [RW 17] status block interrupt mask; one in each bit means unmask; zerow
-   in each bit means mask; bit 0 - default SB; bit 1 - SB_0; bit 2 - SB_1...
-   bit 16- SB_15; addr 0 - port 0; addr 1 - port 1 */
-#define HC_REG_INT_MASK 					 0x108108
-/* [RW 16] port 0 attn bit condition monitoring; each bit that is set will
-   lock a change fron 0 to 1 in the corresponding attention signals that
-   comes from the AEU */
-#define HC_REG_LEADING_EDGE_0					 0x108040
-#define HC_REG_LEADING_EDGE_1					 0x108048
-/* [RW 16] all producer and consumer of port 0 according to the following
-   addresses; U_prod: 0-15; C_prod: 16-31; U_cons: 32-47; C_cons:48-63;
-   Defoult_prod: U/C/X/T/Attn-64/65/66/67/68; Defoult_cons:
-   U/C/X/T/Attn-69/70/71/72/73 */
-#define HC_REG_P0_PROD_CONS					 0x108200
-/* [RW 16] all producer and consumer of port 1according to the following
-   addresses; U_prod: 0-15; C_prod: 16-31; U_cons: 32-47; C_cons:48-63;
-   Defoult_prod: U/C/X/T/Attn-64/65/66/67/68; Defoult_cons:
-   U/C/X/T/Attn-69/70/71/72/73 */
-#define HC_REG_P1_PROD_CONS					 0x108400
-/* [W 1] This register is write only and has 4 addresses as follow: 0 =
-   clear all PBA bits port 0; 1 = clear all pending interrupts request
-   port0; 2 = clear all PBA bits port 1; 3 = clear all pending interrupts
-   request port1; here is no meaning for the data in this register */
-#define HC_REG_PBA_COMMAND					 0x108140
-#define HC_REG_PCI_CONFIG_0					 0x108010
-#define HC_REG_PCI_CONFIG_1					 0x108014
-/* [RW 24] all counters acording to the following address: LSB: 0=read; 1=
-   read_clear; 0-71 = HW counters (the inside order is the same as the
-   interrupt table in the spec); 72-219 = SW counters 1 (stops after first
-   consumer upd) the inside order is: 72-103 - U_non_default_p0; 104-135
-   C_non_defaul_p0; 36-145 U/C/X/T/Attn_default_p0; 146-177
-   U_non_default_p1; 178-209 C_non_defaul_p1; 10-219 U/C/X/T/Attn_default_p1
-   ; 220-367 = SW counters 2 (stops when prod=cons) the inside order is:
-   220-251 - U_non_default_p0; 252-283 C_non_defaul_p0; 84-293
-   U/C/X/T/Attn_default_p0; 294-325 U_non_default_p1; 326-357
-   C_non_defaul_p1; 58-367 U/C/X/T/Attn_default_p1 ; 368-515 = mailbox
-   counters; (the inside order of the mailbox counter is 368-431 U and C
-   non_default_p0; 432-441 U/C/X/T/Attn_default_p0; 442-505 U and C
-   non_default_p1; 506-515 U/C/X/T/Attn_default_p1) */
-#define HC_REG_STATISTIC_COUNTERS				 0x109000
-/* [RW 16] port 0 attn bit condition monitoring; each bit that is set will
-   lock a change fron 1 to 0 in the corresponding attention signals that
-   comes from the AEU */
-#define HC_REG_TRAILING_EDGE_0					 0x108044
-#define HC_REG_TRAILING_EDGE_1					 0x10804c
-#define HC_REG_UC_RAM_ADDR_0					 0x108028
-#define HC_REG_UC_RAM_ADDR_1					 0x108030
-/* [RW 16] ustorm address for coalesc now message */
-#define HC_REG_USTORM_ADDR_FOR_COALESCE 			 0x108068
-#define HC_REG_VQID_0						 0x108008
-#define HC_REG_VQID_1						 0x10800c
-#define MCP_REG_MCPR_NVM_ACCESS_ENABLE				 0x86424
-#define MCP_REG_MCPR_NVM_ADDR					 0x8640c
-#define MCP_REG_MCPR_NVM_CFG4					 0x8642c
-#define MCP_REG_MCPR_NVM_COMMAND				 0x86400
-#define MCP_REG_MCPR_NVM_READ					 0x86410
-#define MCP_REG_MCPR_NVM_SW_ARB 				 0x86420
-#define MCP_REG_MCPR_NVM_WRITE					 0x86408
-#define MCP_REG_MCPR_NVM_WRITE1 				 0x86428
-#define MCP_REG_MCPR_SCRATCH					 0xa0000
-/* [R 32] read first 32 bit after inversion of function 0. mapped as
-   follows: [0] NIG attention for function0; [1] NIG attention for
-   function1; [2] GPIO1 mcp; [3] GPIO2 mcp; [4] GPIO3 mcp; [5] GPIO4 mcp;
-   [6] GPIO1 function 1; [7] GPIO2 function 1; [8] GPIO3 function 1; [9]
-   GPIO4 function 1; [10] PCIE glue/PXP VPD event function0; [11] PCIE
-   glue/PXP VPD event function1; [12] PCIE glue/PXP Expansion ROM event0;
-   [13] PCIE glue/PXP Expansion ROM event1; [14] SPIO4; [15] SPIO5; [16]
-   MSI/X indication for mcp; [17] MSI/X indication for function 1; [18] BRB
-   Parity error; [19] BRB Hw interrupt; [20] PRS Parity error; [21] PRS Hw
-   interrupt; [22] SRC Parity error; [23] SRC Hw interrupt; [24] TSDM Parity
-   error; [25] TSDM Hw interrupt; [26] TCM Parity error; [27] TCM Hw
-   interrupt; [28] TSEMI Parity error; [29] TSEMI Hw interrupt; [30] PBF
-   Parity error; [31] PBF Hw interrupt; */
-#define MISC_REG_AEU_AFTER_INVERT_1_FUNC_0			 0xa42c
-#define MISC_REG_AEU_AFTER_INVERT_1_FUNC_1			 0xa430
-/* [R 32] read first 32 bit after inversion of mcp. mapped as follows: [0]
-   NIG attention for function0; [1] NIG attention for function1; [2] GPIO1
-   mcp; [3] GPIO2 mcp; [4] GPIO3 mcp; [5] GPIO4 mcp; [6] GPIO1 function 1;
-   [7] GPIO2 function 1; [8] GPIO3 function 1; [9] GPIO4 function 1; [10]
-   PCIE glue/PXP VPD event function0; [11] PCIE glue/PXP VPD event
-   function1; [12] PCIE glue/PXP Expansion ROM event0; [13] PCIE glue/PXP
-   Expansion ROM event1; [14] SPIO4; [15] SPIO5; [16] MSI/X indication for
-   mcp; [17] MSI/X indication for function 1; [18] BRB Parity error; [19]
-   BRB Hw interrupt; [20] PRS Parity error; [21] PRS Hw interrupt; [22] SRC
-   Parity error; [23] SRC Hw interrupt; [24] TSDM Parity error; [25] TSDM Hw
-   interrupt; [26] TCM Parity error; [27] TCM Hw interrupt; [28] TSEMI
-   Parity error; [29] TSEMI Hw interrupt; [30] PBF Parity error; [31] PBF Hw
-   interrupt; */
-#define MISC_REG_AEU_AFTER_INVERT_1_MCP 			 0xa434
-/* [R 32] read second 32 bit after inversion of function 0. mapped as
-   follows: [0] PBClient Parity error; [1] PBClient Hw interrupt; [2] QM
-   Parity error; [3] QM Hw interrupt; [4] Timers Parity error; [5] Timers Hw
-   interrupt; [6] XSDM Parity error; [7] XSDM Hw interrupt; [8] XCM Parity
-   error; [9] XCM Hw interrupt; [10] XSEMI Parity error; [11] XSEMI Hw
-   interrupt; [12] DoorbellQ Parity error; [13] DoorbellQ Hw interrupt; [14]
-   NIG Parity error; [15] NIG Hw interrupt; [16] Vaux PCI core Parity error;
-   [17] Vaux PCI core Hw interrupt; [18] Debug Parity error; [19] Debug Hw
-   interrupt; [20] USDM Parity error; [21] USDM Hw interrupt; [22] UCM
-   Parity error; [23] UCM Hw interrupt; [24] USEMI Parity error; [25] USEMI
-   Hw interrupt; [26] UPB Parity error; [27] UPB Hw interrupt; [28] CSDM
-   Parity error; [29] CSDM Hw interrupt; [30] CCM Parity error; [31] CCM Hw
-   interrupt; */
-#define MISC_REG_AEU_AFTER_INVERT_2_FUNC_0			 0xa438
-#define MISC_REG_AEU_AFTER_INVERT_2_FUNC_1			 0xa43c
-/* [R 32] read second 32 bit after inversion of mcp. mapped as follows: [0]
-   PBClient Parity error; [1] PBClient Hw interrupt; [2] QM Parity error;
-   [3] QM Hw interrupt; [4] Timers Parity error; [5] Timers Hw interrupt;
-   [6] XSDM Parity error; [7] XSDM Hw interrupt; [8] XCM Parity error; [9]
-   XCM Hw interrupt; [10] XSEMI Parity error; [11] XSEMI Hw interrupt; [12]
-   DoorbellQ Parity error; [13] DoorbellQ Hw interrupt; [14] NIG Parity
-   error; [15] NIG Hw interrupt; [16] Vaux PCI core Parity error; [17] Vaux
-   PCI core Hw interrupt; [18] Debug Parity error; [19] Debug Hw interrupt;
-   [20] USDM Parity error; [21] USDM Hw interrupt; [22] UCM Parity error;
-   [23] UCM Hw interrupt; [24] USEMI Parity error; [25] USEMI Hw interrupt;
-   [26] UPB Parity error; [27] UPB Hw interrupt; [28] CSDM Parity error;
-   [29] CSDM Hw interrupt; [30] CCM Parity error; [31] CCM Hw interrupt; */
-#define MISC_REG_AEU_AFTER_INVERT_2_MCP 			 0xa440
-/* [R 32] read third 32 bit after inversion of function 0. mapped as
-   follows: [0] CSEMI Parity error; [1] CSEMI Hw interrupt; [2] PXP Parity
-   error; [3] PXP Hw interrupt; [4] PXPpciClockClient Parity error; [5]
-   PXPpciClockClient Hw interrupt; [6] CFC Parity error; [7] CFC Hw
-   interrupt; [8] CDU Parity error; [9] CDU Hw interrupt; [10] DMAE Parity
-   error; [11] DMAE Hw interrupt; [12] IGU (HC) Parity error; [13] IGU (HC)
-   Hw interrupt; [14] MISC Parity error; [15] MISC Hw interrupt; [16]
-   pxp_misc_mps_attn; [17] Flash event; [18] SMB event; [19] MCP attn0; [20]
-   MCP attn1; [21] SW timers attn_1 func0; [22] SW timers attn_2 func0; [23]
-   SW timers attn_3 func0; [24] SW timers attn_4 func0; [25] PERST; [26] SW
-   timers attn_1 func1; [27] SW timers attn_2 func1; [28] SW timers attn_3
-   func1; [29] SW timers attn_4 func1; [30] General attn0; [31] General
-   attn1; */
-#define MISC_REG_AEU_AFTER_INVERT_3_FUNC_0			 0xa444
-#define MISC_REG_AEU_AFTER_INVERT_3_FUNC_1			 0xa448
-/* [R 32] read third 32 bit after inversion of mcp. mapped as follows: [0]
-   CSEMI Parity error; [1] CSEMI Hw interrupt; [2] PXP Parity error; [3] PXP
-   Hw interrupt; [4] PXPpciClockClient Parity error; [5] PXPpciClockClient
-   Hw interrupt; [6] CFC Parity error; [7] CFC Hw interrupt; [8] CDU Parity
-   error; [9] CDU Hw interrupt; [10] DMAE Parity error; [11] DMAE Hw
-   interrupt; [12] IGU (HC) Parity error; [13] IGU (HC) Hw interrupt; [14]
-   MISC Parity error; [15] MISC Hw interrupt; [16] pxp_misc_mps_attn; [17]
-   Flash event; [18] SMB event; [19] MCP attn0; [20] MCP attn1; [21] SW
-   timers attn_1 func0; [22] SW timers attn_2 func0; [23] SW timers attn_3
-   func0; [24] SW timers attn_4 func0; [25] PERST; [26] SW timers attn_1
-   func1; [27] SW timers attn_2 func1; [28] SW timers attn_3 func1; [29] SW
-   timers attn_4 func1; [30] General attn0; [31] General attn1; */
-#define MISC_REG_AEU_AFTER_INVERT_3_MCP 			 0xa44c
-/* [R 32] read fourth 32 bit after inversion of function 0. mapped as
-   follows: [0] General attn2; [1] General attn3; [2] General attn4; [3]
-   General attn5; [4] General attn6; [5] General attn7; [6] General attn8;
-   [7] General attn9; [8] General attn10; [9] General attn11; [10] General
-   attn12; [11] General attn13; [12] General attn14; [13] General attn15;
-   [14] General attn16; [15] General attn17; [16] General attn18; [17]
-   General attn19; [18] General attn20; [19] General attn21; [20] Main power
-   interrupt; [21] RBCR Latched attn; [22] RBCT Latched attn; [23] RBCN
-   Latched attn; [24] RBCU Latched attn; [25] RBCP Latched attn; [26] GRC
-   Latched timeout attention; [27] GRC Latched reserved access attention;
-   [28] MCP Latched rom_parity; [29] MCP Latched ump_rx_parity; [30] MCP
-   Latched ump_tx_parity; [31] MCP Latched scpad_parity; */
-#define MISC_REG_AEU_AFTER_INVERT_4_FUNC_0			 0xa450
-#define MISC_REG_AEU_AFTER_INVERT_4_FUNC_1			 0xa454
-/* [R 32] read fourth 32 bit after inversion of mcp. mapped as follows: [0]
-   General attn2; [1] General attn3; [2] General attn4; [3] General attn5;
-   [4] General attn6; [5] General attn7; [6] General attn8; [7] General
-   attn9; [8] General attn10; [9] General attn11; [10] General attn12; [11]
-   General attn13; [12] General attn14; [13] General attn15; [14] General
-   attn16; [15] General attn17; [16] General attn18; [17] General attn19;
-   [18] General attn20; [19] General attn21; [20] Main power interrupt; [21]
-   RBCR Latched attn; [22] RBCT Latched attn; [23] RBCN Latched attn; [24]
-   RBCU Latched attn; [25] RBCP Latched attn; [26] GRC Latched timeout
-   attention; [27] GRC Latched reserved access attention; [28] MCP Latched
-   rom_parity; [29] MCP Latched ump_rx_parity; [30] MCP Latched
-   ump_tx_parity; [31] MCP Latched scpad_parity; */
-#define MISC_REG_AEU_AFTER_INVERT_4_MCP 			 0xa458
-/* [W 11] write to this register results with the clear of the latched
-   signals; one in d0 clears RBCR latch; one in d1 clears RBCT latch; one in
-   d2 clears RBCN latch; one in d3 clears RBCU latch; one in d4 clears RBCP
-   latch; one in d5 clears GRC Latched timeout attention; one in d6 clears
-   GRC Latched reserved access attention; one in d7 clears Latched
-   rom_parity; one in d8 clears Latched ump_rx_parity; one in d9 clears
-   Latched ump_tx_parity; one in d10 clears Latched scpad_parity; read from
-   this register return zero */
-#define MISC_REG_AEU_CLR_LATCH_SIGNAL				 0xa45c
-/* [RW 32] first 32b for enabling the output for function 0 output0. mapped
-   as follows: [0] NIG attention for function0; [1] NIG attention for
-   function1; [2] GPIO1 function 0; [3] GPIO2 function 0; [4] GPIO3 function
-   0; [5] GPIO4 function 0; [6] GPIO1 function 1; [7] GPIO2 function 1; [8]
-   GPIO3 function 1; [9] GPIO4 function 1; [10] PCIE glue/PXP VPD event
-   function0; [11] PCIE glue/PXP VPD event function1; [12] PCIE glue/PXP
-   Expansion ROM event0; [13] PCIE glue/PXP Expansion ROM event1; [14]
-   SPIO4; [15] SPIO5; [16] MSI/X indication for function 0; [17] MSI/X
-   indication for function 1; [18] BRB Parity error; [19] BRB Hw interrupt;
-   [20] PRS Parity error; [21] PRS Hw interrupt; [22] SRC Parity error; [23]
-   SRC Hw interrupt; [24] TSDM Parity error; [25] TSDM Hw interrupt; [26]
-   TCM Parity error; [27] TCM Hw interrupt; [28] TSEMI Parity error; [29]
-   TSEMI Hw interrupt; [30] PBF Parity error; [31] PBF Hw interrupt; */
-#define MISC_REG_AEU_ENABLE1_FUNC_0_OUT_0			 0xa06c
-#define MISC_REG_AEU_ENABLE1_FUNC_0_OUT_1			 0xa07c
-#define MISC_REG_AEU_ENABLE1_FUNC_0_OUT_3			 0xa09c
-/* [RW 32] first 32b for enabling the output for function 1 output0. mapped
-   as follows: [0] NIG attention for function0; [1] NIG attention for
-   function1; [2] GPIO1 function 1; [3] GPIO2 function 1; [4] GPIO3 function
-   1; [5] GPIO4 function 1; [6] GPIO1 function 1; [7] GPIO2 function 1; [8]
-   GPIO3 function 1; [9] GPIO4 function 1; [10] PCIE glue/PXP VPD event
-   function0; [11] PCIE glue/PXP VPD event function1; [12] PCIE glue/PXP
-   Expansion ROM event0; [13] PCIE glue/PXP Expansion ROM event1; [14]
-   SPIO4; [15] SPIO5; [16] MSI/X indication for function 1; [17] MSI/X
-   indication for function 1; [18] BRB Parity error; [19] BRB Hw interrupt;
-   [20] PRS Parity error; [21] PRS Hw interrupt; [22] SRC Parity error; [23]
-   SRC Hw interrupt; [24] TSDM Parity error; [25] TSDM Hw interrupt; [26]
-   TCM Parity error; [27] TCM Hw interrupt; [28] TSEMI Parity error; [29]
-   TSEMI Hw interrupt; [30] PBF Parity error; [31] PBF Hw interrupt; */
-#define MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0			 0xa10c
-#define MISC_REG_AEU_ENABLE1_FUNC_1_OUT_1			 0xa11c
-#define MISC_REG_AEU_ENABLE1_FUNC_1_OUT_3			 0xa13c
-/* [RW 32] first 32b for enabling the output for close the gate nig 0.
-   mapped as follows: [0] NIG attention for function0; [1] NIG attention for
-   function1; [2] GPIO1 function 0; [3] GPIO2 function 0; [4] GPIO3 function
-   0; [5] GPIO4 function 0; [6] GPIO1 function 1; [7] GPIO2 function 1; [8]
-   GPIO3 function 1; [9] GPIO4 function 1; [10] PCIE glue/PXP VPD event
-   function0; [11] PCIE glue/PXP VPD event function1; [12] PCIE glue/PXP
-   Expansion ROM event0; [13] PCIE glue/PXP Expansion ROM event1; [14]
-   SPIO4; [15] SPIO5; [16] MSI/X indication for function 0; [17] MSI/X
-   indication for function 1; [18] BRB Parity error; [19] BRB Hw interrupt;
-   [20] PRS Parity error; [21] PRS Hw interrupt; [22] SRC Parity error; [23]
-   SRC Hw interrupt; [24] TSDM Parity error; [25] TSDM Hw interrupt; [26]
-   TCM Parity error; [27] TCM Hw interrupt; [28] TSEMI Parity error; [29]
-   TSEMI Hw interrupt; [30] PBF Parity error; [31] PBF Hw interrupt; */
-#define MISC_REG_AEU_ENABLE1_NIG_0				 0xa0ec
-#define MISC_REG_AEU_ENABLE1_NIG_1				 0xa18c
-/* [RW 32] first 32b for enabling the output for close the gate pxp 0.
-   mapped as follows: [0] NIG attention for function0; [1] NIG attention for
-   function1; [2] GPIO1 function 0; [3] GPIO2 function 0; [4] GPIO3 function
-   0; [5] GPIO4 function 0; [6] GPIO1 function 1; [7] GPIO2 function 1; [8]
-   GPIO3 function 1; [9] GPIO4 function 1; [10] PCIE glue/PXP VPD event
-   function0; [11] PCIE glue/PXP VPD event function1; [12] PCIE glue/PXP
-   Expansion ROM event0; [13] PCIE glue/PXP Expansion ROM event1; [14]
-   SPIO4; [15] SPIO5; [16] MSI/X indication for function 0; [17] MSI/X
-   indication for function 1; [18] BRB Parity error; [19] BRB Hw interrupt;
-   [20] PRS Parity error; [21] PRS Hw interrupt; [22] SRC Parity error; [23]
-   SRC Hw interrupt; [24] TSDM Parity error; [25] TSDM Hw interrupt; [26]
-   TCM Parity error; [27] TCM Hw interrupt; [28] TSEMI Parity error; [29]
-   TSEMI Hw interrupt; [30] PBF Parity error; [31] PBF Hw interrupt; */
-#define MISC_REG_AEU_ENABLE1_PXP_0				 0xa0fc
-#define MISC_REG_AEU_ENABLE1_PXP_1				 0xa19c
-/* [RW 32] second 32b for enabling the output for function 0 output0. mapped
-   as follows: [0] PBClient Parity error; [1] PBClient Hw interrupt; [2] QM
-   Parity error; [3] QM Hw interrupt; [4] Timers Parity error; [5] Timers Hw
-   interrupt; [6] XSDM Parity error; [7] XSDM Hw interrupt; [8] XCM Parity
-   error; [9] XCM Hw interrupt; [10] XSEMI Parity error; [11] XSEMI Hw
-   interrupt; [12] DoorbellQ Parity error; [13] DoorbellQ Hw interrupt; [14]
-   NIG Parity error; [15] NIG Hw interrupt; [16] Vaux PCI core Parity error;
-   [17] Vaux PCI core Hw interrupt; [18] Debug Parity error; [19] Debug Hw
-   interrupt; [20] USDM Parity error; [21] USDM Hw interrupt; [22] UCM
-   Parity error; [23] UCM Hw interrupt; [24] USEMI Parity error; [25] USEMI
-   Hw interrupt; [26] UPB Parity error; [27] UPB Hw interrupt; [28] CSDM
-   Parity error; [29] CSDM Hw interrupt; [30] CCM Parity error; [31] CCM Hw
-   interrupt; */
-#define MISC_REG_AEU_ENABLE2_FUNC_0_OUT_0			 0xa070
-#define MISC_REG_AEU_ENABLE2_FUNC_0_OUT_1			 0xa080
-/* [RW 32] second 32b for enabling the output for function 1 output0. mapped
-   as follows: [0] PBClient Parity error; [1] PBClient Hw interrupt; [2] QM
-   Parity error; [3] QM Hw interrupt; [4] Timers Parity error; [5] Timers Hw
-   interrupt; [6] XSDM Parity error; [7] XSDM Hw interrupt; [8] XCM Parity
-   error; [9] XCM Hw interrupt; [10] XSEMI Parity error; [11] XSEMI Hw
-   interrupt; [12] DoorbellQ Parity error; [13] DoorbellQ Hw interrupt; [14]
-   NIG Parity error; [15] NIG Hw interrupt; [16] Vaux PCI core Parity error;
-   [17] Vaux PCI core Hw interrupt; [18] Debug Parity error; [19] Debug Hw
-   interrupt; [20] USDM Parity error; [21] USDM Hw interrupt; [22] UCM
-   Parity error; [23] UCM Hw interrupt; [24] USEMI Parity error; [25] USEMI
-   Hw interrupt; [26] UPB Parity error; [27] UPB Hw interrupt; [28] CSDM
-   Parity error; [29] CSDM Hw interrupt; [30] CCM Parity error; [31] CCM Hw
-   interrupt; */
-#define MISC_REG_AEU_ENABLE2_FUNC_1_OUT_0			 0xa110
-#define MISC_REG_AEU_ENABLE2_FUNC_1_OUT_1			 0xa120
-/* [RW 32] second 32b for enabling the output for close the gate nig 0.
-   mapped as follows: [0] PBClient Parity error; [1] PBClient Hw interrupt;
-   [2] QM Parity error; [3] QM Hw interrupt; [4] Timers Parity error; [5]
-   Timers Hw interrupt; [6] XSDM Parity error; [7] XSDM Hw interrupt; [8]
-   XCM Parity error; [9] XCM Hw interrupt; [10] XSEMI Parity error; [11]
-   XSEMI Hw interrupt; [12] DoorbellQ Parity error; [13] DoorbellQ Hw
-   interrupt; [14] NIG Parity error; [15] NIG Hw interrupt; [16] Vaux PCI
-   core Parity error; [17] Vaux PCI core Hw interrupt; [18] Debug Parity
-   error; [19] Debug Hw interrupt; [20] USDM Parity error; [21] USDM Hw
-   interrupt; [22] UCM Parity error; [23] UCM Hw interrupt; [24] USEMI
-   Parity error; [25] USEMI Hw interrupt; [26] UPB Parity error; [27] UPB Hw
-   interrupt; [28] CSDM Parity error; [29] CSDM Hw interrupt; [30] CCM
-   Parity error; [31] CCM Hw interrupt; */
-#define MISC_REG_AEU_ENABLE2_NIG_0				 0xa0f0
-#define MISC_REG_AEU_ENABLE2_NIG_1				 0xa190
-/* [RW 32] second 32b for enabling the output for close the gate pxp 0.
-   mapped as follows: [0] PBClient Parity error; [1] PBClient Hw interrupt;
-   [2] QM Parity error; [3] QM Hw interrupt; [4] Timers Parity error; [5]
-   Timers Hw interrupt; [6] XSDM Parity error; [7] XSDM Hw interrupt; [8]
-   XCM Parity error; [9] XCM Hw interrupt; [10] XSEMI Parity error; [11]
-   XSEMI Hw interrupt; [12] DoorbellQ Parity error; [13] DoorbellQ Hw
-   interrupt; [14] NIG Parity error; [15] NIG Hw interrupt; [16] Vaux PCI
-   core Parity error; [17] Vaux PCI core Hw interrupt; [18] Debug Parity
-   error; [19] Debug Hw interrupt; [20] USDM Parity error; [21] USDM Hw
-   interrupt; [22] UCM Parity error; [23] UCM Hw interrupt; [24] USEMI
-   Parity error; [25] USEMI Hw interrupt; [26] UPB Parity error; [27] UPB Hw
-   interrupt; [28] CSDM Parity error; [29] CSDM Hw interrupt; [30] CCM
-   Parity error; [31] CCM Hw interrupt; */
-#define MISC_REG_AEU_ENABLE2_PXP_0				 0xa100
-#define MISC_REG_AEU_ENABLE2_PXP_1				 0xa1a0
-/* [RW 32] third 32b for enabling the output for function 0 output0. mapped
-   as follows: [0] CSEMI Parity error; [1] CSEMI Hw interrupt; [2] PXP
-   Parity error; [3] PXP Hw interrupt; [4] PXPpciClockClient Parity error;
-   [5] PXPpciClockClient Hw interrupt; [6] CFC Parity error; [7] CFC Hw
-   interrupt; [8] CDU Parity error; [9] CDU Hw interrupt; [10] DMAE Parity
-   error; [11] DMAE Hw interrupt; [12] IGU (HC) Parity error; [13] IGU (HC)
-   Hw interrupt; [14] MISC Parity error; [15] MISC Hw interrupt; [16]
-   pxp_misc_mps_attn; [17] Flash event; [18] SMB event; [19] MCP attn0; [20]
-   MCP attn1; [21] SW timers attn_1 func0; [22] SW timers attn_2 func0; [23]
-   SW timers attn_3 func0; [24] SW timers attn_4 func0; [25] PERST; [26] SW
-   timers attn_1 func1; [27] SW timers attn_2 func1; [28] SW timers attn_3
-   func1; [29] SW timers attn_4 func1; [30] General attn0; [31] General
-   attn1; */
-#define MISC_REG_AEU_ENABLE3_FUNC_0_OUT_0			 0xa074
-#define MISC_REG_AEU_ENABLE3_FUNC_0_OUT_1			 0xa084
-/* [RW 32] third 32b for enabling the output for function 1 output0. mapped
-   as follows: [0] CSEMI Parity error; [1] CSEMI Hw interrupt; [2] PXP
-   Parity error; [3] PXP Hw interrupt; [4] PXPpciClockClient Parity error;
-   [5] PXPpciClockClient Hw interrupt; [6] CFC Parity error; [7] CFC Hw
-   interrupt; [8] CDU Parity error; [9] CDU Hw interrupt; [10] DMAE Parity
-   error; [11] DMAE Hw interrupt; [12] IGU (HC) Parity error; [13] IGU (HC)
-   Hw interrupt; [14] MISC Parity error; [15] MISC Hw interrupt; [16]
-   pxp_misc_mps_attn; [17] Flash event; [18] SMB event; [19] MCP attn0; [20]
-   MCP attn1; [21] SW timers attn_1 func0; [22] SW timers attn_2 func0; [23]
-   SW timers attn_3 func0; [24] SW timers attn_4 func0; [25] PERST; [26] SW
-   timers attn_1 func1; [27] SW timers attn_2 func1; [28] SW timers attn_3
-   func1; [29] SW timers attn_4 func1; [30] General attn0; [31] General
-   attn1; */
-#define MISC_REG_AEU_ENABLE3_FUNC_1_OUT_0			 0xa114
-#define MISC_REG_AEU_ENABLE3_FUNC_1_OUT_1			 0xa124
-/* [RW 32] third 32b for enabling the output for close the gate nig 0.
-   mapped as follows: [0] CSEMI Parity error; [1] CSEMI Hw interrupt; [2]
-   PXP Parity error; [3] PXP Hw interrupt; [4] PXPpciClockClient Parity
-   error; [5] PXPpciClockClient Hw interrupt; [6] CFC Parity error; [7] CFC
-   Hw interrupt; [8] CDU Parity error; [9] CDU Hw interrupt; [10] DMAE
-   Parity error; [11] DMAE Hw interrupt; [12] IGU (HC) Parity error; [13]
-   IGU (HC) Hw interrupt; [14] MISC Parity error; [15] MISC Hw interrupt;
-   [16] pxp_misc_mps_attn; [17] Flash event; [18] SMB event; [19] MCP attn0;
-   [20] MCP attn1; [21] SW timers attn_1 func0; [22] SW timers attn_2 func0;
-   [23] SW timers attn_3 func0; [24] SW timers attn_4 func0; [25] PERST;
-   [26] SW timers attn_1 func1; [27] SW timers attn_2 func1; [28] SW timers
-   attn_3 func1; [29] SW timers attn_4 func1; [30] General attn0; [31]
-   General attn1; */
-#define MISC_REG_AEU_ENABLE3_NIG_0				 0xa0f4
-#define MISC_REG_AEU_ENABLE3_NIG_1				 0xa194
-/* [RW 32] third 32b for enabling the output for close the gate pxp 0.
-   mapped as follows: [0] CSEMI Parity error; [1] CSEMI Hw interrupt; [2]
-   PXP Parity error; [3] PXP Hw interrupt; [4] PXPpciClockClient Parity
-   error; [5] PXPpciClockClient Hw interrupt; [6] CFC Parity error; [7] CFC
-   Hw interrupt; [8] CDU Parity error; [9] CDU Hw interrupt; [10] DMAE
-   Parity error; [11] DMAE Hw interrupt; [12] IGU (HC) Parity error; [13]
-   IGU (HC) Hw interrupt; [14] MISC Parity error; [15] MISC Hw interrupt;
-   [16] pxp_misc_mps_attn; [17] Flash event; [18] SMB event; [19] MCP attn0;
-   [20] MCP attn1; [21] SW timers attn_1 func0; [22] SW timers attn_2 func0;
-   [23] SW timers attn_3 func0; [24] SW timers attn_4 func0; [25] PERST;
-   [26] SW timers attn_1 func1; [27] SW timers attn_2 func1; [28] SW timers
-   attn_3 func1; [29] SW timers attn_4 func1; [30] General attn0; [31]
-   General attn1; */
-#define MISC_REG_AEU_ENABLE3_PXP_0				 0xa104
-#define MISC_REG_AEU_ENABLE3_PXP_1				 0xa1a4
-/* [RW 32] fourth 32b for enabling the output for function 0 output0.mapped
-   as follows: [0] General attn2; [1] General attn3; [2] General attn4; [3]
-   General attn5; [4] General attn6; [5] General attn7; [6] General attn8;
-   [7] General attn9; [8] General attn10; [9] General attn11; [10] General
-   attn12; [11] General attn13; [12] General attn14; [13] General attn15;
-   [14] General attn16; [15] General attn17; [16] General attn18; [17]
-   General attn19; [18] General attn20; [19] General attn21; [20] Main power
-   interrupt; [21] RBCR Latched attn; [22] RBCT Latched attn; [23] RBCN
-   Latched attn; [24] RBCU Latched attn; [25] RBCP Latched attn; [26] GRC
-   Latched timeout attention; [27] GRC Latched reserved access attention;
-   [28] MCP Latched rom_parity; [29] MCP Latched ump_rx_parity; [30] MCP
-   Latched ump_tx_parity; [31] MCP Latched scpad_parity; */
-#define MISC_REG_AEU_ENABLE4_FUNC_0_OUT_0			 0xa078
-#define MISC_REG_AEU_ENABLE4_FUNC_0_OUT_2			 0xa098
-/* [RW 32] fourth 32b for enabling the output for function 1 output0.mapped
-   as follows: [0] General attn2; [1] General attn3; [2] General attn4; [3]
-   General attn5; [4] General attn6; [5] General attn7; [6] General attn8;
-   [7] General attn9; [8] General attn10; [9] General attn11; [10] General
-   attn12; [11] General attn13; [12] General attn14; [13] General attn15;
-   [14] General attn16; [15] General attn17; [16] General attn18; [17]
-   General attn19; [18] General attn20; [19] General attn21; [20] Main power
-   interrupt; [21] RBCR Latched attn; [22] RBCT Latched attn; [23] RBCN
-   Latched attn; [24] RBCU Latched attn; [25] RBCP Latched attn; [26] GRC
-   Latched timeout attention; [27] GRC Latched reserved access attention;
-   [28] MCP Latched rom_parity; [29] MCP Latched ump_rx_parity; [30] MCP
-   Latched ump_tx_parity; [31] MCP Latched scpad_parity; */
-#define MISC_REG_AEU_ENABLE4_FUNC_1_OUT_0			 0xa118
-#define MISC_REG_AEU_ENABLE4_FUNC_1_OUT_2			 0xa138
-/* [RW 32] fourth 32b for enabling the output for close the gate nig
-   0.mapped as follows: [0] General attn2; [1] General attn3; [2] General
-   attn4; [3] General attn5; [4] General attn6; [5] General attn7; [6]
-   General attn8; [7] General attn9; [8] General attn10; [9] General attn11;
-   [10] General attn12; [11] General attn13; [12] General attn14; [13]
-   General attn15; [14] General attn16; [15] General attn17; [16] General
-   attn18; [17] General attn19; [18] General attn20; [19] General attn21;
-   [20] Main power interrupt; [21] RBCR Latched attn; [22] RBCT Latched
-   attn; [23] RBCN Latched attn; [24] RBCU Latched attn; [25] RBCP Latched
-   attn; [26] GRC Latched timeout attention; [27] GRC Latched reserved
-   access attention; [28] MCP Latched rom_parity; [29] MCP Latched
-   ump_rx_parity; [30] MCP Latched ump_tx_parity; [31] MCP Latched
-   scpad_parity; */
-#define MISC_REG_AEU_ENABLE4_NIG_0				 0xa0f8
-#define MISC_REG_AEU_ENABLE4_NIG_1				 0xa198
-/* [RW 32] fourth 32b for enabling the output for close the gate pxp
-   0.mapped as follows: [0] General attn2; [1] General attn3; [2] General
-   attn4; [3] General attn5; [4] General attn6; [5] General attn7; [6]
-   General attn8; [7] General attn9; [8] General attn10; [9] General attn11;
-   [10] General attn12; [11] General attn13; [12] General attn14; [13]
-   General attn15; [14] General attn16; [15] General attn17; [16] General
-   attn18; [17] General attn19; [18] General attn20; [19] General attn21;
-   [20] Main power interrupt; [21] RBCR Latched attn; [22] RBCT Latched
-   attn; [23] RBCN Latched attn; [24] RBCU Latched attn; [25] RBCP Latched
-   attn; [26] GRC Latched timeout attention; [27] GRC Latched reserved
-   access attention; [28] MCP Latched rom_parity; [29] MCP Latched
-   ump_rx_parity; [30] MCP Latched ump_tx_parity; [31] MCP Latched
-   scpad_parity; */
-#define MISC_REG_AEU_ENABLE4_PXP_0				 0xa108
-#define MISC_REG_AEU_ENABLE4_PXP_1				 0xa1a8
-/* [RW 1] set/clr general attention 0; this will set/clr bit 94 in the aeu
-   128 bit vector */
-#define MISC_REG_AEU_GENERAL_ATTN_0				 0xa000
-#define MISC_REG_AEU_GENERAL_ATTN_1				 0xa004
-#define MISC_REG_AEU_GENERAL_ATTN_10				 0xa028
-#define MISC_REG_AEU_GENERAL_ATTN_11				 0xa02c
-#define MISC_REG_AEU_GENERAL_ATTN_12				 0xa030
-#define MISC_REG_AEU_GENERAL_ATTN_13				 0xa034
-#define MISC_REG_AEU_GENERAL_ATTN_14				 0xa038
-#define MISC_REG_AEU_GENERAL_ATTN_15				 0xa03c
-#define MISC_REG_AEU_GENERAL_ATTN_16				 0xa040
-#define MISC_REG_AEU_GENERAL_ATTN_17				 0xa044
-#define MISC_REG_AEU_GENERAL_ATTN_18				 0xa048
-#define MISC_REG_AEU_GENERAL_ATTN_19				 0xa04c
-#define MISC_REG_AEU_GENERAL_ATTN_11				 0xa02c
-#define MISC_REG_AEU_GENERAL_ATTN_2				 0xa008
-#define MISC_REG_AEU_GENERAL_ATTN_20				 0xa050
-#define MISC_REG_AEU_GENERAL_ATTN_21				 0xa054
-#define MISC_REG_AEU_GENERAL_ATTN_3				 0xa00c
-#define MISC_REG_AEU_GENERAL_ATTN_4				 0xa010
-#define MISC_REG_AEU_GENERAL_ATTN_5				 0xa014
-#define MISC_REG_AEU_GENERAL_ATTN_6				 0xa018
-/* [RW 32] first 32b for inverting the input for function 0; for each bit:
-   0= do not invert; 1= invert; mapped as follows: [0] NIG attention for
-   function0; [1] NIG attention for function1; [2] GPIO1 mcp; [3] GPIO2 mcp;
-   [4] GPIO3 mcp; [5] GPIO4 mcp; [6] GPIO1 function 1; [7] GPIO2 function 1;
-   [8] GPIO3 function 1; [9] GPIO4 function 1; [10] PCIE glue/PXP VPD event
-   function0; [11] PCIE glue/PXP VPD event function1; [12] PCIE glue/PXP
-   Expansion ROM event0; [13] PCIE glue/PXP Expansion ROM event1; [14]
-   SPIO4; [15] SPIO5; [16] MSI/X indication for mcp; [17] MSI/X indication
-   for function 1; [18] BRB Parity error; [19] BRB Hw interrupt; [20] PRS
-   Parity error; [21] PRS Hw interrupt; [22] SRC Parity error; [23] SRC Hw
-   interrupt; [24] TSDM Parity error; [25] TSDM Hw interrupt; [26] TCM
-   Parity error; [27] TCM Hw interrupt; [28] TSEMI Parity error; [29] TSEMI
-   Hw interrupt; [30] PBF Parity error; [31] PBF Hw interrupt; */
-#define MISC_REG_AEU_INVERTER_1_FUNC_0				 0xa22c
-#define MISC_REG_AEU_INVERTER_1_FUNC_1				 0xa23c
-/* [RW 32] second 32b for inverting the input for function 0; for each bit:
-   0= do not invert; 1= invert. mapped as follows: [0] PBClient Parity
-   error; [1] PBClient Hw interrupt; [2] QM Parity error; [3] QM Hw
-   interrupt; [4] Timers Parity error; [5] Timers Hw interrupt; [6] XSDM
-   Parity error; [7] XSDM Hw interrupt; [8] XCM Parity error; [9] XCM Hw
-   interrupt; [10] XSEMI Parity error; [11] XSEMI Hw interrupt; [12]
-   DoorbellQ Parity error; [13] DoorbellQ Hw interrupt; [14] NIG Parity
-   error; [15] NIG Hw interrupt; [16] Vaux PCI core Parity error; [17] Vaux
-   PCI core Hw interrupt; [18] Debug Parity error; [19] Debug Hw interrupt;
-   [20] USDM Parity error; [21] USDM Hw interrupt; [22] UCM Parity error;
-   [23] UCM Hw interrupt; [24] USEMI Parity error; [25] USEMI Hw interrupt;
-   [26] UPB Parity error; [27] UPB Hw interrupt; [28] CSDM Parity error;
-   [29] CSDM Hw interrupt; [30] CCM Parity error; [31] CCM Hw interrupt; */
-#define MISC_REG_AEU_INVERTER_2_FUNC_0				 0xa230
-#define MISC_REG_AEU_INVERTER_2_FUNC_1				 0xa240
-/* [RW 10] [7:0] = mask 8 attention output signals toward IGU function0;
-   [9:8] = mask close the gates signals of function 0 toward PXP [8] and NIG
-   [9]. Zero = mask; one = unmask */
-#define MISC_REG_AEU_MASK_ATTN_FUNC_0				 0xa060
-#define MISC_REG_AEU_MASK_ATTN_FUNC_1				 0xa064
-/* [R 4] This field indicates the type of the device. '0' - 2 Ports; '1' - 1
-   Port. */
-#define MISC_REG_BOND_ID					 0xa400
-/* [R 8] These bits indicate the metal revision of the chip. This value
-   starts at 0x00 for each all-layer tape-out and increments by one for each
-   tape-out. */
-#define MISC_REG_CHIP_METAL					 0xa404
-/* [R 16] These bits indicate the part number for the chip. */
-#define MISC_REG_CHIP_NUM					 0xa408
-/* [R 4] These bits indicate the base revision of the chip. This value
-   starts at 0x0 for the A0 tape-out and increments by one for each
-   all-layer tape-out. */
-#define MISC_REG_CHIP_REV					 0xa40c
-/* [RW 1] Setting this bit enables a timer in the GRC block to timeout any
-   access that does not finish within
-   ~misc_registers_grc_timout_val.grc_timeout_val cycles. When this bit is
-   cleared; this timeout is disabled. If this timeout occurs; the GRC shall
-   assert it attention output. */
-#define MISC_REG_GRC_TIMEOUT_EN 				 0xa280
-/* [RW 28] 28 LSB of LCPLL first register; reset val = 521. inside order of
-   the bits is: [2:0] OAC reset value 001) CML output buffer bias control;
-   111 for +40%; 011 for +20%; 001 for 0%; 000 for -20%. [5:3] Icp_ctrl
-   (reset value 001) Charge pump current control; 111 for 720u; 011 for
-   600u; 001 for 480u and 000 for 360u. [7:6] Bias_ctrl (reset value 00)
-   Global bias control; When bit 7 is high bias current will be 10 0gh; When
-   bit 6 is high bias will be 100w; Valid values are 00; 10; 01. [10:8]
-   Pll_observe (reset value 010) Bits to control observability. bit 10 is
-   for test bias; bit 9 is for test CK; bit 8 is test Vc. [12:11] Vth_ctrl
-   (reset value 00) Comparator threshold control. 00 for 0.6V; 01 for 0.54V
-   and 10 for 0.66V. [13] pllSeqStart (reset value 0) Enables VCO tuning
-   sequencer: 1= sequencer disabled; 0= sequencer enabled (inverted
-   internally). [14] reserved (reset value 0) Reset for VCO sequencer is
-   connected to RESET input directly. [15] capRetry_en (reset value 0)
-   enable retry on cap search failure (inverted). [16] freqMonitor_e (reset
-   value 0) bit to continuously monitor vco freq (inverted). [17]
-   freqDetRestart_en (reset value 0) bit to enable restart when not freq
-   locked (inverted). [18] freqDetRetry_en (reset value 0) bit to enable
-   retry on freq det failure(inverted). [19] pllForceFdone_en (reset value
-   0) bit to enable pllForceFdone & pllForceFpass into pllSeq. [20]
-   pllForceFdone (reset value 0) bit to force freqDone. [21] pllForceFpass
-   (reset value 0) bit to force freqPass. [22] pllForceDone_en (reset value
-   0) bit to enable pllForceCapDone. [23] pllForceCapDone (reset value 0)
-   bit to force capDone. [24] pllForceCapPass_en (reset value 0) bit to
-   enable pllForceCapPass. [25] pllForceCapPass (reset value 0) bit to force
-   capPass. [26] capRestart (reset value 0) bit to force cap sequencer to
-   restart. [27] capSelectM_en (reset value 0) bit to enable cap select
-   register bits. */
-#define MISC_REG_LCPLL_CTRL_1					 0xa2a4
-#define MISC_REG_LCPLL_CTRL_REG_2				 0xa2a8
-/* [RW 4] Interrupt mask register #0 read/write */
-#define MISC_REG_MISC_INT_MASK					 0xa388
-/* [RW 1] Parity mask register #0 read/write */
-#define MISC_REG_MISC_PRTY_MASK 				 0xa398
-/* [RW 32] 32 LSB of storm PLL first register; reset val = 0x 071d2911.
-   inside order of the bits is: [0] P1 divider[0] (reset value 1); [1] P1
-   divider[1] (reset value 0); [2] P1 divider[2] (reset value 0); [3] P1
-   divider[3] (reset value 0); [4] P2 divider[0] (reset value 1); [5] P2
-   divider[1] (reset value 0); [6] P2 divider[2] (reset value 0); [7] P2
-   divider[3] (reset value 0); [8] ph_det_dis (reset value 1); [9]
-   freq_det_dis (reset value 0); [10] Icpx[0] (reset value 0); [11] Icpx[1]
-   (reset value 1); [12] Icpx[2] (reset value 0); [13] Icpx[3] (reset value
-   1); [14] Icpx[4] (reset value 0); [15] Icpx[5] (reset value 0); [16]
-   Rx[0] (reset value 1); [17] Rx[1] (reset value 0); [18] vc_en (reset
-   value 1); [19] vco_rng[0] (reset value 1); [20] vco_rng[1] (reset value
-   1); [21] Kvco_xf[0] (reset value 0); [22] Kvco_xf[1] (reset value 0);
-   [23] Kvco_xf[2] (reset value 0); [24] Kvco_xs[0] (reset value 1); [25]
-   Kvco_xs[1] (reset value 1); [26] Kvco_xs[2] (reset value 1); [27]
-   testd_en (reset value 0); [28] testd_sel[0] (reset value 0); [29]
-   testd_sel[1] (reset value 0); [30] testd_sel[2] (reset value 0); [31]
-   testa_en (reset value 0); */
-#define MISC_REG_PLL_STORM_CTRL_1				 0xa294
-#define MISC_REG_PLL_STORM_CTRL_2				 0xa298
-#define MISC_REG_PLL_STORM_CTRL_3				 0xa29c
-#define MISC_REG_PLL_STORM_CTRL_4				 0xa2a0
-/* [RW 32] reset reg#1; rite/read one = the specific block is out of reset;
-   write/read zero = the specific block is in reset; addr 0-wr- the write
-   value will be written to the register; addr 1-set - one will be written
-   to all the bits that have the value of one in the data written (bits that
-   have the value of zero will not be change) ; addr 2-clear - zero will be
-   written to all the bits that have the value of one in the data written
-   (bits that have the value of zero will not be change); addr 3-ignore;
-   read ignore from all addr except addr 00; inside order of the bits is:
-   [0] rst_brb1; [1] rst_prs; [2] rst_src; [3] rst_tsdm; [4] rst_tsem; [5]
-   rst_tcm; [6] rst_rbcr; [7] rst_nig; [8] rst_usdm; [9] rst_ucm; [10]
-   rst_usem; [11] rst_upb; [12] rst_ccm; [13] rst_csem; [14] rst_csdm; [15]
-   rst_rbcu; [16] rst_pbf; [17] rst_qm; [18] rst_tm; [19] rst_dorq; [20]
-   rst_xcm; [21] rst_xsdm; [22] rst_xsem; [23] rst_rbct; [24] rst_cdu; [25]
-   rst_cfc; [26] rst_pxp; [27] rst_pxpv; [28] rst_rbcp; [29] rst_hc; [30]
-   rst_dmae; [31] rst_semi_rtc; */
-#define MISC_REG_RESET_REG_1					 0xa580
-#define MISC_REG_RESET_REG_2					 0xa590
-/* [RW 20] 20 bit GRC address where the scratch-pad of the MCP that is
-   shared with the driver resides */
-#define MISC_REG_SHARED_MEM_ADDR				 0xa2b4
-#define NIG_MASK_INTERRUPT_PORT0_REG_MASK_EMAC0_MISC_MI_INT	 (0x1<<0)
-#define NIG_MASK_INTERRUPT_PORT0_REG_MASK_SERDES0_LINK_STATUS	 (0x1<<9)
-#define NIG_MASK_INTERRUPT_PORT0_REG_MASK_XGXS0_LINK10G 	 (0x1<<15)
-#define NIG_MASK_INTERRUPT_PORT0_REG_MASK_XGXS0_LINK_STATUS	 (0xf<<18)
-/* [RW 1] Input enable for RX_BMAC0 IF */
-#define NIG_REG_BMAC0_IN_EN					 0x100ac
-/* [RW 1] output enable for TX_BMAC0 IF */
-#define NIG_REG_BMAC0_OUT_EN					 0x100e0
-/* [RW 1] output enable for TX BMAC pause port 0 IF */
-#define NIG_REG_BMAC0_PAUSE_OUT_EN				 0x10110
-/* [RW 1] output enable for RX_BMAC0_REGS IF */
-#define NIG_REG_BMAC0_REGS_OUT_EN				 0x100e8
-/* [RW 1] output enable for RX BRB1 port0 IF */
-#define NIG_REG_BRB0_OUT_EN					 0x100f8
-/* [RW 1] Input enable for TX BRB1 pause port 0 IF */
-#define NIG_REG_BRB0_PAUSE_IN_EN				 0x100c4
-/* [RW 1] output enable for RX BRB1 port1 IF */
-#define NIG_REG_BRB1_OUT_EN					 0x100fc
-/* [RW 1] Input enable for TX BRB1 pause port 1 IF */
-#define NIG_REG_BRB1_PAUSE_IN_EN				 0x100c8
-/* [RW 1] output enable for RX BRB1 LP IF */
-#define NIG_REG_BRB_LB_OUT_EN					 0x10100
-/* [WB_W 72] Debug packet to LP from RBC; Data spelling:[63:0] data; 64]
-   error; [67:65]eop_bvalid; [68]eop; [69]sop; [70]port_id; 71]flush */
-#define NIG_REG_DEBUG_PACKET_LB 				 0x10800
-/* [RW 1] Input enable for TX Debug packet */
-#define NIG_REG_EGRESS_DEBUG_IN_EN				 0x100dc
-/* [RW 1] If 1 - egress drain mode for port0 is active. In this mode all
-   packets from PBFare not forwarded to the MAC and just deleted from FIFO.
-   First packet may be deleted from the middle. And last packet will be
-   always deleted till the end. */
-#define NIG_REG_EGRESS_DRAIN0_MODE				 0x10060
-/* [RW 1] Output enable to EMAC0 */
-#define NIG_REG_EGRESS_EMAC0_OUT_EN				 0x10120
-/* [RW 1] MAC configuration for packets of port0. If 1 - all packet outputs
-   to emac for port0; other way to bmac for port0 */
-#define NIG_REG_EGRESS_EMAC0_PORT				 0x10058
-/* [RW 1] Input enable for TX PBF user packet port0 IF */
-#define NIG_REG_EGRESS_PBF0_IN_EN				 0x100cc
-/* [RW 1] Input enable for TX PBF user packet port1 IF */
-#define NIG_REG_EGRESS_PBF1_IN_EN				 0x100d0
-/* [RW 1] Input enable for RX_EMAC0 IF */
-#define NIG_REG_EMAC0_IN_EN					 0x100a4
-/* [RW 1] output enable for TX EMAC pause port 0 IF */
-#define NIG_REG_EMAC0_PAUSE_OUT_EN				 0x10118
-/* [R 1] status from emac0. This bit is set when MDINT from either the
-   EXT_MDINT pin or from the Copper PHY is driven low. This condition must
-   be cleared in the attached PHY device that is driving the MINT pin. */
-#define NIG_REG_EMAC0_STATUS_MISC_MI_INT			 0x10494
-/* [WB 48] This address space contains BMAC0 registers. The BMAC registers
-   are described in appendix A. In order to access the BMAC0 registers; the
-   base address; NIG_REGISTERS_INGRESS_BMAC0_MEM; Offset: 0x10c00; should be
-   added to each BMAC register offset */
-#define NIG_REG_INGRESS_BMAC0_MEM				 0x10c00
-/* [WB 48] This address space contains BMAC1 registers. The BMAC registers
-   are described in appendix A. In order to access the BMAC0 registers; the
-   base address; NIG_REGISTERS_INGRESS_BMAC1_MEM; Offset: 0x11000; should be
-   added to each BMAC register offset */
-#define NIG_REG_INGRESS_BMAC1_MEM				 0x11000
-/* [R 1] FIFO empty in EOP descriptor FIFO of LP in NIG_RX_EOP */
-#define NIG_REG_INGRESS_EOP_LB_EMPTY				 0x104e0
-/* [RW 17] Debug only. RX_EOP_DSCR_lb_FIFO in NIG_RX_EOP. Data
-   packet_length[13:0]; mac_error[14]; trunc_error[15]; parity[16] */
-#define NIG_REG_INGRESS_EOP_LB_FIFO				 0x104e4
-/* [RW 1] led 10g for port 0 */
-#define NIG_REG_LED_10G_P0					 0x10320
-/* [RW 1] Port0: This bit is set to enable the use of the
-   ~nig_registers_led_control_blink_rate_p0.led_control_blink_rate_p0 field
-   defined below. If this bit is cleared; then the blink rate will be about
-   8Hz. */
-#define NIG_REG_LED_CONTROL_BLINK_RATE_ENA_P0			 0x10318
-/* [RW 12] Port0: Specifies the period of each blink cycle (on + off) for
-   Traffic LED in milliseconds. Must be a non-zero value. This 12-bit field
-   is reset to 0x080; giving a default blink period of approximately 8Hz. */
-#define NIG_REG_LED_CONTROL_BLINK_RATE_P0			 0x10310
-/* [RW 1] Port0: If set along with the
-   nig_registers_led_control_override_traffic_p0.led_control_override_traffic_p0
-   bit and ~nig_registers_led_control_traffic_p0.led_control_traffic_p0 LED
-   bit; the Traffic LED will blink with the blink rate specified in
-   ~nig_registers_led_control_blink_rate_p0.led_control_blink_rate_p0 and
-   ~nig_registers_led_control_blink_rate_ena_p0.led_control_blink_rate_ena_p0
-   fields. */
-#define NIG_REG_LED_CONTROL_BLINK_TRAFFIC_P0			 0x10308
-/* [RW 1] Port0: If set overrides hardware control of the Traffic LED. The
-   Traffic LED will then be controlled via bit ~nig_registers_
-   led_control_traffic_p0.led_control_traffic_p0 and bit
-   ~nig_registers_led_control_blink_traffic_p0.led_control_blink_traffic_p0 */
-#define NIG_REG_LED_CONTROL_OVERRIDE_TRAFFIC_P0 		 0x102f8
-/* [RW 1] Port0: If set along with the led_control_override_trafic_p0 bit;
-   turns on the Traffic LED. If the led_control_blink_traffic_p0 bit is also
-   set; the LED will blink with blink rate specified in
-   ~nig_registers_led_control_blink_rate_p0.led_control_blink_rate_p0 and
-   ~nig_regsters_led_control_blink_rate_ena_p0.led_control_blink_rate_ena_p0
-   fields. */
-#define NIG_REG_LED_CONTROL_TRAFFIC_P0				 0x10300
-/* [RW 4] led mode for port0: 0 MAC; 1-3 PHY1; 4 MAC2; 5-7 PHY4; 8-MAC3;
-   9-11PHY7; 12 MAC4; 13-15 PHY10; */
-#define NIG_REG_LED_MODE_P0					 0x102f0
-#define NIG_REG_LLH0_BRB1_DRV_MASK				 0x10244
-/* [RW 1] send to BRB1 if no match on any of RMP rules. */
-#define NIG_REG_LLH0_BRB1_NOT_MCP				 0x1025c
-/* [RW 32] cm header for llh0 */
-#define NIG_REG_LLH0_CM_HEADER					 0x1007c
-#define NIG_REG_LLH0_ERROR_MASK 				 0x1008c
-/* [RW 8] event id for llh0 */
-#define NIG_REG_LLH0_EVENT_ID					 0x10084
-/* [RW 8] init credit counter for port0 in LLH */
-#define NIG_REG_LLH0_XCM_INIT_CREDIT				 0x10554
-#define NIG_REG_LLH0_XCM_MASK					 0x10130
-/* [RW 1] send to BRB1 if no match on any of RMP rules. */
-#define NIG_REG_LLH1_BRB1_NOT_MCP				 0x102dc
-/* [RW 32] cm header for llh1 */
-#define NIG_REG_LLH1_CM_HEADER					 0x10080
-#define NIG_REG_LLH1_ERROR_MASK 				 0x10090
-/* [RW 8] event id for llh1 */
-#define NIG_REG_LLH1_EVENT_ID					 0x10088
-/* [RW 8] init credit counter for port1 in LLH */
-#define NIG_REG_LLH1_XCM_INIT_CREDIT				 0x10564
-#define NIG_REG_LLH1_XCM_MASK					 0x10134
-#define NIG_REG_MASK_INTERRUPT_PORT0				 0x10330
-#define NIG_REG_MASK_INTERRUPT_PORT1				 0x10334
-/* [RW 1] Output signal from NIG to EMAC0. When set enables the EMAC0 block. */
-#define NIG_REG_NIG_EMAC0_EN					 0x1003c
-/* [RW 1] Output signal from NIG to TX_EMAC0. When set indicates to the
-   EMAC0 to strip the CRC from the ingress packets. */
-#define NIG_REG_NIG_INGRESS_EMAC0_NO_CRC			 0x10044
-/* [RW 1] Input enable for RX PBF LP IF */
-#define NIG_REG_PBF_LB_IN_EN					 0x100b4
-/* [RW 1] output enable for RX parser descriptor IF */
-#define NIG_REG_PRS_EOP_OUT_EN					 0x10104
-/* [RW 1] Input enable for RX parser request IF */
-#define NIG_REG_PRS_REQ_IN_EN					 0x100b8
-/* [RW 5] control to serdes - CL22 PHY_ADD and CL45 PRTAD */
-#define NIG_REG_SERDES0_CTRL_PHY_ADDR				 0x10374
-/* [R 1] status from serdes0 that inputs to interrupt logic of link status */
-#define NIG_REG_SERDES0_STATUS_LINK_STATUS			 0x10578
-/* [R 32] Rx statistics : In user packets discarded due to BRB backpressure
-   for port0 */
-#define NIG_REG_STAT0_BRB_DISCARD				 0x105f0
-/* [R 32] Rx statistics : In user packets discarded due to BRB backpressure
-   for port1 */
-#define NIG_REG_STAT1_BRB_DISCARD				 0x10628
-/* [WB_R 64] Rx statistics : User octets received for LP */
-#define NIG_REG_STAT2_BRB_OCTET 				 0x107e0
-#define NIG_REG_STATUS_INTERRUPT_PORT0				 0x10328
-#define NIG_REG_STATUS_INTERRUPT_PORT1				 0x1032c
-/* [RW 1] output enable for RX_XCM0 IF */
-#define NIG_REG_XCM0_OUT_EN					 0x100f0
-/* [RW 1] output enable for RX_XCM1 IF */
-#define NIG_REG_XCM1_OUT_EN					 0x100f4
-/* [RW 5] control to xgxs - CL45 DEVAD */
-#define NIG_REG_XGXS0_CTRL_MD_DEVAD				 0x1033c
-/* [RW 5] control to xgxs - CL22 PHY_ADD and CL45 PRTAD */
-#define NIG_REG_XGXS0_CTRL_PHY_ADDR				 0x10340
-/* [R 1] status from xgxs0 that inputs to interrupt logic of link10g. */
-#define NIG_REG_XGXS0_STATUS_LINK10G				 0x10680
-/* [R 4] status from xgxs0 that inputs to interrupt logic of link status */
-#define NIG_REG_XGXS0_STATUS_LINK_STATUS			 0x10684
-/* [RW 2] selection for XGXS lane of port 0 in NIG_MUX block */
-#define NIG_REG_XGXS_LANE_SEL_P0				 0x102e8
-/* [RW 1] selection for port0 for NIG_MUX block : 0 = SerDes; 1 = XGXS */
-#define NIG_REG_XGXS_SERDES0_MODE_SEL				 0x102e0
-#define NIG_STATUS_INTERRUPT_PORT0_REG_STATUS_SERDES0_LINK_STATUS (0x1<<9)
-#define NIG_STATUS_INTERRUPT_PORT0_REG_STATUS_XGXS0_LINK10G	 (0x1<<15)
-#define NIG_STATUS_INTERRUPT_PORT0_REG_STATUS_XGXS0_LINK_STATUS  (0xf<<18)
-#define NIG_STATUS_INTERRUPT_PORT0_REG_STATUS_XGXS0_LINK_STATUS_SIZE 18
-/* [RW 1] Disable processing further tasks from port 0 (after ending the
-   current task in process). */
-#define PBF_REG_DISABLE_NEW_TASK_PROC_P0			 0x14005c
-/* [RW 1] Disable processing further tasks from port 1 (after ending the
-   current task in process). */
-#define PBF_REG_DISABLE_NEW_TASK_PROC_P1			 0x140060
-/* [RW 1] Disable processing further tasks from port 4 (after ending the
-   current task in process). */
-#define PBF_REG_DISABLE_NEW_TASK_PROC_P4			 0x14006c
-#define PBF_REG_IF_ENABLE_REG					 0x140044
-/* [RW 1] Init bit. When set the initial credits are copied to the credit
-   registers (except the port credits). Should be set and then reset after
-   the configuration of the block has ended. */
-#define PBF_REG_INIT						 0x140000
-/* [RW 1] Init bit for port 0. When set the initial credit of port 0 is
-   copied to the credit register. Should be set and then reset after the
-   configuration of the port has ended. */
-#define PBF_REG_INIT_P0 					 0x140004
-/* [RW 1] Init bit for port 1. When set the initial credit of port 1 is
-   copied to the credit register. Should be set and then reset after the
-   configuration of the port has ended. */
-#define PBF_REG_INIT_P1 					 0x140008
-/* [RW 1] Init bit for port 4. When set the initial credit of port 4 is
-   copied to the credit register. Should be set and then reset after the
-   configuration of the port has ended. */
-#define PBF_REG_INIT_P4 					 0x14000c
-/* [RW 1] Enable for mac interface 0. */
-#define PBF_REG_MAC_IF0_ENABLE					 0x140030
-/* [RW 1] Enable for mac interface 1. */
-#define PBF_REG_MAC_IF1_ENABLE					 0x140034
-/* [RW 1] Enable for the loopback interface. */
-#define PBF_REG_MAC_LB_ENABLE					 0x140040
-/* [RW 10] Port 0 threshold used by arbiter in 16 byte lines used when pause
-   not suppoterd. */
-#define PBF_REG_P0_ARB_THRSH					 0x1400e4
-/* [R 11] Current credit for port 0 in the tx port buffers in 16 byte lines. */
-#define PBF_REG_P0_CREDIT					 0x140200
-/* [RW 11] Initial credit for port 0 in the tx port buffers in 16 byte
-   lines. */
-#define PBF_REG_P0_INIT_CRD					 0x1400d0
-/* [RW 1] Indication that pause is enabled for port 0. */
-#define PBF_REG_P0_PAUSE_ENABLE 				 0x140014
-/* [R 8] Number of tasks in port 0 task queue. */
-#define PBF_REG_P0_TASK_CNT					 0x140204
-/* [R 11] Current credit for port 1 in the tx port buffers in 16 byte lines. */
-#define PBF_REG_P1_CREDIT					 0x140208
-/* [RW 11] Initial credit for port 1 in the tx port buffers in 16 byte
-   lines. */
-#define PBF_REG_P1_INIT_CRD					 0x1400d4
-/* [R 8] Number of tasks in port 1 task queue. */
-#define PBF_REG_P1_TASK_CNT					 0x14020c
-/* [R 11] Current credit for port 4 in the tx port buffers in 16 byte lines. */
-#define PBF_REG_P4_CREDIT					 0x140210
-/* [RW 11] Initial credit for port 4 in the tx port buffers in 16 byte
-   lines. */
-#define PBF_REG_P4_INIT_CRD					 0x1400e0
-/* [R 8] Number of tasks in port 4 task queue. */
-#define PBF_REG_P4_TASK_CNT					 0x140214
-/* [RW 5] Interrupt mask register #0 read/write */
-#define PBF_REG_PBF_INT_MASK					 0x1401d4
-/* [R 5] Interrupt register #0 read */
-#define PBF_REG_PBF_INT_STS					 0x1401c8
-#define PB_REG_CONTROL						 0
-/* [RW 2] Interrupt mask register #0 read/write */
-#define PB_REG_PB_INT_MASK					 0x28
-/* [R 2] Interrupt register #0 read */
-#define PB_REG_PB_INT_STS					 0x1c
-/* [RW 4] Parity mask register #0 read/write */
-#define PB_REG_PB_PRTY_MASK					 0x38
-#define PRS_REG_A_PRSU_20					 0x40134
-/* [R 8] debug only: CFC load request current credit. Transaction based. */
-#define PRS_REG_CFC_LD_CURRENT_CREDIT				 0x40164
-/* [R 8] debug only: CFC search request current credit. Transaction based. */
-#define PRS_REG_CFC_SEARCH_CURRENT_CREDIT			 0x40168
-/* [RW 6] The initial credit for the search message to the CFC interface.
-   Credit is transaction based. */
-#define PRS_REG_CFC_SEARCH_INITIAL_CREDIT			 0x4011c
-/* [RW 24] CID for port 0 if no match */
-#define PRS_REG_CID_PORT_0					 0x400fc
-#define PRS_REG_CID_PORT_1					 0x40100
-/* [RW 32] The CM header for flush message where 'load existed' bit in CFC
-   load response is reset and packet type is 0. Used in packet start message
-   to TCM. */
-#define PRS_REG_CM_HDR_FLUSH_LOAD_TYPE_0			 0x400dc
-#define PRS_REG_CM_HDR_FLUSH_LOAD_TYPE_1			 0x400e0
-#define PRS_REG_CM_HDR_FLUSH_LOAD_TYPE_2			 0x400e4
-#define PRS_REG_CM_HDR_FLUSH_LOAD_TYPE_3			 0x400e8
-#define PRS_REG_CM_HDR_FLUSH_LOAD_TYPE_4			 0x400ec
-/* [RW 32] The CM header for flush message where 'load existed' bit in CFC
-   load response is set and packet type is 0. Used in packet start message
-   to TCM. */
-#define PRS_REG_CM_HDR_FLUSH_NO_LOAD_TYPE_0			 0x400bc
-#define PRS_REG_CM_HDR_FLUSH_NO_LOAD_TYPE_1			 0x400c0
-#define PRS_REG_CM_HDR_FLUSH_NO_LOAD_TYPE_2			 0x400c4
-#define PRS_REG_CM_HDR_FLUSH_NO_LOAD_TYPE_3			 0x400c8
-#define PRS_REG_CM_HDR_FLUSH_NO_LOAD_TYPE_4			 0x400cc
-/* [RW 32] The CM header for a match and packet type 1 for loopback port.
-   Used in packet start message to TCM. */
-#define PRS_REG_CM_HDR_LOOPBACK_TYPE_1				 0x4009c
-#define PRS_REG_CM_HDR_LOOPBACK_TYPE_2				 0x400a0
-#define PRS_REG_CM_HDR_LOOPBACK_TYPE_3				 0x400a4
-#define PRS_REG_CM_HDR_LOOPBACK_TYPE_4				 0x400a8
-/* [RW 32] The CM header for a match and packet type 0. Used in packet start
-   message to TCM. */
-#define PRS_REG_CM_HDR_TYPE_0					 0x40078
-#define PRS_REG_CM_HDR_TYPE_1					 0x4007c
-#define PRS_REG_CM_HDR_TYPE_2					 0x40080
-#define PRS_REG_CM_HDR_TYPE_3					 0x40084
-#define PRS_REG_CM_HDR_TYPE_4					 0x40088
-/* [RW 32] The CM header in case there was not a match on the connection */
-#define PRS_REG_CM_NO_MATCH_HDR 				 0x400b8
-/* [RW 8] The 8-bit event ID for a match and packet type 1. Used in packet
-   start message to TCM. */
-#define PRS_REG_EVENT_ID_1					 0x40054
-#define PRS_REG_EVENT_ID_2					 0x40058
-#define PRS_REG_EVENT_ID_3					 0x4005c
-/* [RW 8] Context region for flush packet with packet type 0. Used in CFC
-   load request message. */
-#define PRS_REG_FLUSH_REGIONS_TYPE_0				 0x40004
-#define PRS_REG_FLUSH_REGIONS_TYPE_1				 0x40008
-#define PRS_REG_FLUSH_REGIONS_TYPE_2				 0x4000c
-#define PRS_REG_FLUSH_REGIONS_TYPE_3				 0x40010
-#define PRS_REG_FLUSH_REGIONS_TYPE_4				 0x40014
-#define PRS_REG_FLUSH_REGIONS_TYPE_5				 0x40018
-#define PRS_REG_FLUSH_REGIONS_TYPE_6				 0x4001c
-#define PRS_REG_FLUSH_REGIONS_TYPE_7				 0x40020
-/* [RW 4] The increment value to send in the CFC load request message */
-#define PRS_REG_INC_VALUE					 0x40048
-/* [RW 1] If set indicates not to send messages to CFC on received packets */
-#define PRS_REG_NIC_MODE					 0x40138
-/* [RW 8] The 8-bit event ID for cases where there is no match on the
-   connection. Used in packet start message to TCM. */
-#define PRS_REG_NO_MATCH_EVENT_ID				 0x40070
-/* [ST 24] The number of input CFC flush packets */
-#define PRS_REG_NUM_OF_CFC_FLUSH_MESSAGES			 0x40128
-/* [ST 32] The number of cycles the Parser halted its operation since it
-   could not allocate the next serial number */
-#define PRS_REG_NUM_OF_DEAD_CYCLES				 0x40130
-/* [ST 24] The number of input packets */
-#define PRS_REG_NUM_OF_PACKETS					 0x40124
-/* [ST 24] The number of input transparent flush packets */
-#define PRS_REG_NUM_OF_TRANSPARENT_FLUSH_MESSAGES		 0x4012c
-/* [RW 8] Context region for received Ethernet packet with a match and
-   packet type 0. Used in CFC load request message */
-#define PRS_REG_PACKET_REGIONS_TYPE_0				 0x40028
-#define PRS_REG_PACKET_REGIONS_TYPE_1				 0x4002c
-#define PRS_REG_PACKET_REGIONS_TYPE_2				 0x40030
-#define PRS_REG_PACKET_REGIONS_TYPE_3				 0x40034
-#define PRS_REG_PACKET_REGIONS_TYPE_4				 0x40038
-#define PRS_REG_PACKET_REGIONS_TYPE_5				 0x4003c
-#define PRS_REG_PACKET_REGIONS_TYPE_6				 0x40040
-#define PRS_REG_PACKET_REGIONS_TYPE_7				 0x40044
-/* [R 2] debug only: Number of pending requests for CAC on port 0. */
-#define PRS_REG_PENDING_BRB_CAC0_RQ				 0x40174
-/* [R 2] debug only: Number of pending requests for header parsing. */
-#define PRS_REG_PENDING_BRB_PRS_RQ				 0x40170
-/* [R 1] Interrupt register #0 read */
-#define PRS_REG_PRS_INT_STS					 0x40188
-/* [RW 8] Parity mask register #0 read/write */
-#define PRS_REG_PRS_PRTY_MASK					 0x401a4
-/* [RW 8] Context region for pure acknowledge packets. Used in CFC load
-   request message */
-#define PRS_REG_PURE_REGIONS					 0x40024
-/* [R 32] debug only: Serial number status lsb 32 bits. '1' indicates this
-   serail number was released by SDM but cannot be used because a previous
-   serial number was not released. */
-#define PRS_REG_SERIAL_NUM_STATUS_LSB				 0x40154
-/* [R 32] debug only: Serial number status msb 32 bits. '1' indicates this
-   serail number was released by SDM but cannot be used because a previous
-   serial number was not released. */
-#define PRS_REG_SERIAL_NUM_STATUS_MSB				 0x40158
-/* [R 4] debug only: SRC current credit. Transaction based. */
-#define PRS_REG_SRC_CURRENT_CREDIT				 0x4016c
-/* [R 8] debug only: TCM current credit. Cycle based. */
-#define PRS_REG_TCM_CURRENT_CREDIT				 0x40160
-/* [R 8] debug only: TSDM current credit. Transaction based. */
-#define PRS_REG_TSDM_CURRENT_CREDIT				 0x4015c
-/* [R 6] Debug only: Number of used entries in the data FIFO */
-#define PXP2_REG_HST_DATA_FIFO_STATUS				 0x12047c
-/* [R 7] Debug only: Number of used entries in the header FIFO */
-#define PXP2_REG_HST_HEADER_FIFO_STATUS 			 0x120478
-#define PXP2_REG_PGL_CONTROL0					 0x120490
-#define PXP2_REG_PGL_CONTROL1					 0x120514
-/* [RW 32] Inbound interrupt table for CSDM: bits[31:16]-mask;
-   its[15:0]-address */
-#define PXP2_REG_PGL_INT_CSDM_0 				 0x1204f4
-#define PXP2_REG_PGL_INT_CSDM_1 				 0x1204f8
-#define PXP2_REG_PGL_INT_CSDM_2 				 0x1204fc
-#define PXP2_REG_PGL_INT_CSDM_3 				 0x120500
-#define PXP2_REG_PGL_INT_CSDM_4 				 0x120504
-#define PXP2_REG_PGL_INT_CSDM_5 				 0x120508
-#define PXP2_REG_PGL_INT_CSDM_6 				 0x12050c
-#define PXP2_REG_PGL_INT_CSDM_7 				 0x120510
-/* [RW 32] Inbound interrupt table for TSDM: bits[31:16]-mask;
-   its[15:0]-address */
-#define PXP2_REG_PGL_INT_TSDM_0 				 0x120494
-#define PXP2_REG_PGL_INT_TSDM_1 				 0x120498
-#define PXP2_REG_PGL_INT_TSDM_2 				 0x12049c
-#define PXP2_REG_PGL_INT_TSDM_3 				 0x1204a0
-#define PXP2_REG_PGL_INT_TSDM_4 				 0x1204a4
-#define PXP2_REG_PGL_INT_TSDM_5 				 0x1204a8
-#define PXP2_REG_PGL_INT_TSDM_6 				 0x1204ac
-#define PXP2_REG_PGL_INT_TSDM_7 				 0x1204b0
-/* [RW 32] Inbound interrupt table for USDM: bits[31:16]-mask;
-   its[15:0]-address */
-#define PXP2_REG_PGL_INT_USDM_0 				 0x1204b4
-#define PXP2_REG_PGL_INT_USDM_1 				 0x1204b8
-#define PXP2_REG_PGL_INT_USDM_2 				 0x1204bc
-#define PXP2_REG_PGL_INT_USDM_3 				 0x1204c0
-#define PXP2_REG_PGL_INT_USDM_4 				 0x1204c4
-#define PXP2_REG_PGL_INT_USDM_5 				 0x1204c8
-#define PXP2_REG_PGL_INT_USDM_6 				 0x1204cc
-#define PXP2_REG_PGL_INT_USDM_7 				 0x1204d0
-/* [RW 32] Inbound interrupt table for XSDM: bits[31:16]-mask;
-   its[15:0]-address */
-#define PXP2_REG_PGL_INT_XSDM_0 				 0x1204d4
-#define PXP2_REG_PGL_INT_XSDM_1 				 0x1204d8
-#define PXP2_REG_PGL_INT_XSDM_2 				 0x1204dc
-#define PXP2_REG_PGL_INT_XSDM_3 				 0x1204e0
-#define PXP2_REG_PGL_INT_XSDM_4 				 0x1204e4
-#define PXP2_REG_PGL_INT_XSDM_5 				 0x1204e8
-#define PXP2_REG_PGL_INT_XSDM_6 				 0x1204ec
-#define PXP2_REG_PGL_INT_XSDM_7 				 0x1204f0
-/* [R 1] this bit indicates that a read request was blocked because of
-   bus_master_en was deasserted */
-#define PXP2_REG_PGL_READ_BLOCKED				 0x120568
-/* [R 6] debug only */
-#define PXP2_REG_PGL_TXR_CDTS					 0x120528
-/* [R 18] debug only */
-#define PXP2_REG_PGL_TXW_CDTS					 0x12052c
-/* [R 1] this bit indicates that a write request was blocked because of
-   bus_master_en was deasserted */
-#define PXP2_REG_PGL_WRITE_BLOCKED				 0x120564
-#define PXP2_REG_PSWRQ_BW_ADD1					 0x1201c0
-#define PXP2_REG_PSWRQ_BW_ADD10 				 0x1201e4
-#define PXP2_REG_PSWRQ_BW_ADD11 				 0x1201e8
-#define PXP2_REG_PSWRQ_BW_ADD10 				 0x1201e4
-#define PXP2_REG_PSWRQ_BW_ADD11 				 0x1201e8
-#define PXP2_REG_PSWRQ_BW_ADD2					 0x1201c4
-#define PXP2_REG_PSWRQ_BW_ADD28 				 0x120228
-#define PXP2_REG_PSWRQ_BW_ADD28 				 0x120228
-#define PXP2_REG_PSWRQ_BW_ADD3					 0x1201c8
-#define PXP2_REG_PSWRQ_BW_ADD6					 0x1201d4
-#define PXP2_REG_PSWRQ_BW_ADD7					 0x1201d8
-#define PXP2_REG_PSWRQ_BW_ADD8					 0x1201dc
-#define PXP2_REG_PSWRQ_BW_ADD9					 0x1201e0
-#define PXP2_REG_PSWRQ_BW_CREDIT				 0x12032c
-#define PXP2_REG_PSWRQ_BW_L1					 0x1202b0
-#define PXP2_REG_PSWRQ_BW_L10					 0x1202d4
-#define PXP2_REG_PSWRQ_BW_L11					 0x1202d8
-#define PXP2_REG_PSWRQ_BW_L10					 0x1202d4
-#define PXP2_REG_PSWRQ_BW_L11					 0x1202d8
-#define PXP2_REG_PSWRQ_BW_L2					 0x1202b4
-#define PXP2_REG_PSWRQ_BW_L28					 0x120318
-#define PXP2_REG_PSWRQ_BW_L28					 0x120318
-#define PXP2_REG_PSWRQ_BW_L3					 0x1202b8
-#define PXP2_REG_PSWRQ_BW_L6					 0x1202c4
-#define PXP2_REG_PSWRQ_BW_L7					 0x1202c8
-#define PXP2_REG_PSWRQ_BW_L8					 0x1202cc
-#define PXP2_REG_PSWRQ_BW_L9					 0x1202d0
-#define PXP2_REG_PSWRQ_BW_RD					 0x120324
-#define PXP2_REG_PSWRQ_BW_UB1					 0x120238
-#define PXP2_REG_PSWRQ_BW_UB10					 0x12025c
-#define PXP2_REG_PSWRQ_BW_UB11					 0x120260
-#define PXP2_REG_PSWRQ_BW_UB10					 0x12025c
-#define PXP2_REG_PSWRQ_BW_UB11					 0x120260
-#define PXP2_REG_PSWRQ_BW_UB2					 0x12023c
-#define PXP2_REG_PSWRQ_BW_UB28					 0x1202a0
-#define PXP2_REG_PSWRQ_BW_UB28					 0x1202a0
-#define PXP2_REG_PSWRQ_BW_UB3					 0x120240
-#define PXP2_REG_PSWRQ_BW_UB6					 0x12024c
-#define PXP2_REG_PSWRQ_BW_UB7					 0x120250
-#define PXP2_REG_PSWRQ_BW_UB8					 0x120254
-#define PXP2_REG_PSWRQ_BW_UB9					 0x120258
-#define PXP2_REG_PSWRQ_BW_WR					 0x120328
-#define PXP2_REG_PSWRQ_CDU0_L2P 				 0x120000
-#define PXP2_REG_PSWRQ_QM0_L2P					 0x120038
-#define PXP2_REG_PSWRQ_SRC0_L2P 				 0x120054
-#define PXP2_REG_PSWRQ_TM0_L2P					 0x12001c
-/* [RW 25] Interrupt mask register #0 read/write */
-#define PXP2_REG_PXP2_INT_MASK					 0x120578
-/* [R 25] Interrupt register #0 read */
-#define PXP2_REG_PXP2_INT_STS					 0x12056c
-/* [RC 25] Interrupt register #0 read clear */
-#define PXP2_REG_PXP2_INT_STS_CLR				 0x120570
-/* [RW 32] Parity mask register #0 read/write */
-#define PXP2_REG_PXP2_PRTY_MASK_0				 0x120588
-#define PXP2_REG_PXP2_PRTY_MASK_1				 0x120598
-/* [R 1] Debug only: The 'almost full' indication from each fifo (gives
-   indication about backpressure) */
-#define PXP2_REG_RD_ALMOST_FULL_0				 0x120424
-/* [R 8] Debug only: The blocks counter - number of unused block ids */
-#define PXP2_REG_RD_BLK_CNT					 0x120418
-/* [RW 8] Debug only: Total number of available blocks in Tetris Buffer.
-   Must be bigger than 6. Normally should not be changed. */
-#define PXP2_REG_RD_BLK_NUM_CFG 				 0x12040c
-/* [RW 2] CDU byte swapping mode configuration for master read requests */
-#define PXP2_REG_RD_CDURD_SWAP_MODE				 0x120404
-/* [RW 1] When '1'; inputs to the PSWRD block are ignored */
-#define PXP2_REG_RD_DISABLE_INPUTS				 0x120374
-/* [R 1] PSWRD internal memories initialization is done */
-#define PXP2_REG_RD_INIT_DONE					 0x120370
-/* [RW 8] The maximum number of blocks in Tetris Buffer that can be
-   allocated for vq10 */
-#define PXP2_REG_RD_MAX_BLKS_VQ10				 0x1203a0
-/* [RW 8] The maximum number of blocks in Tetris Buffer that can be
-   allocated for vq11 */
-#define PXP2_REG_RD_MAX_BLKS_VQ11				 0x1203a4
-/* [RW 8] The maximum number of blocks in Tetris Buffer that can be
-   allocated for vq17 */
-#define PXP2_REG_RD_MAX_BLKS_VQ17				 0x1203bc
-/* [RW 8] The maximum number of blocks in Tetris Buffer that can be
-   allocated for vq18 */
-#define PXP2_REG_RD_MAX_BLKS_VQ18				 0x1203c0
-/* [RW 8] The maximum number of blocks in Tetris Buffer that can be
-   allocated for vq19 */
-#define PXP2_REG_RD_MAX_BLKS_VQ19				 0x1203c4
-/* [RW 8] The maximum number of blocks in Tetris Buffer that can be
-   allocated for vq22 */
-#define PXP2_REG_RD_MAX_BLKS_VQ22				 0x1203d0
-/* [RW 8] The maximum number of blocks in Tetris Buffer that can be
-   allocated for vq6 */
-#define PXP2_REG_RD_MAX_BLKS_VQ6				 0x120390
-/* [RW 8] The maximum number of blocks in Tetris Buffer that can be
-   allocated for vq9 */
-#define PXP2_REG_RD_MAX_BLKS_VQ9				 0x12039c
-/* [RW 2] PBF byte swapping mode configuration for master read requests */
-#define PXP2_REG_RD_PBF_SWAP_MODE				 0x1203f4
-/* [R 1] Debug only: Indication if delivery ports are idle */
-#define PXP2_REG_RD_PORT_IS_IDLE_0				 0x12041c
-#define PXP2_REG_RD_PORT_IS_IDLE_1				 0x120420
-/* [RW 2] QM byte swapping mode configuration for master read requests */
-#define PXP2_REG_RD_QM_SWAP_MODE				 0x1203f8
-/* [R 7] Debug only: The SR counter - number of unused sub request ids */
-#define PXP2_REG_RD_SR_CNT					 0x120414
-/* [RW 2] SRC byte swapping mode configuration for master read requests */
-#define PXP2_REG_RD_SRC_SWAP_MODE				 0x120400
-/* [RW 7] Debug only: Total number of available PCI read sub-requests. Must
-   be bigger than 1. Normally should not be changed. */
-#define PXP2_REG_RD_SR_NUM_CFG					 0x120408
-/* [RW 1] Signals the PSWRD block to start initializing internal memories */
-#define PXP2_REG_RD_START_INIT					 0x12036c
-/* [RW 2] TM byte swapping mode configuration for master read requests */
-#define PXP2_REG_RD_TM_SWAP_MODE				 0x1203fc
-/* [RW 10] Bandwidth addition to VQ0 write requests */
-#define PXP2_REG_RQ_BW_RD_ADD0					 0x1201bc
-/* [RW 10] Bandwidth addition to VQ12 read requests */
-#define PXP2_REG_RQ_BW_RD_ADD12 				 0x1201ec
-/* [RW 10] Bandwidth addition to VQ13 read requests */
-#define PXP2_REG_RQ_BW_RD_ADD13 				 0x1201f0
-/* [RW 10] Bandwidth addition to VQ14 read requests */
-#define PXP2_REG_RQ_BW_RD_ADD14 				 0x1201f4
-/* [RW 10] Bandwidth addition to VQ15 read requests */
-#define PXP2_REG_RQ_BW_RD_ADD15 				 0x1201f8
-/* [RW 10] Bandwidth addition to VQ16 read requests */
-#define PXP2_REG_RQ_BW_RD_ADD16 				 0x1201fc
-/* [RW 10] Bandwidth addition to VQ17 read requests */
-#define PXP2_REG_RQ_BW_RD_ADD17 				 0x120200
-/* [RW 10] Bandwidth addition to VQ18 read requests */
-#define PXP2_REG_RQ_BW_RD_ADD18 				 0x120204
-/* [RW 10] Bandwidth addition to VQ19 read requests */
-#define PXP2_REG_RQ_BW_RD_ADD19 				 0x120208
-/* [RW 10] Bandwidth addition to VQ20 read requests */
-#define PXP2_REG_RQ_BW_RD_ADD20 				 0x12020c
-/* [RW 10] Bandwidth addition to VQ22 read requests */
-#define PXP2_REG_RQ_BW_RD_ADD22 				 0x120210
-/* [RW 10] Bandwidth addition to VQ23 read requests */
-#define PXP2_REG_RQ_BW_RD_ADD23 				 0x120214
-/* [RW 10] Bandwidth addition to VQ24 read requests */
-#define PXP2_REG_RQ_BW_RD_ADD24 				 0x120218
-/* [RW 10] Bandwidth addition to VQ25 read requests */
-#define PXP2_REG_RQ_BW_RD_ADD25 				 0x12021c
-/* [RW 10] Bandwidth addition to VQ26 read requests */
-#define PXP2_REG_RQ_BW_RD_ADD26 				 0x120220
-/* [RW 10] Bandwidth addition to VQ27 read requests */
-#define PXP2_REG_RQ_BW_RD_ADD27 				 0x120224
-/* [RW 10] Bandwidth addition to VQ4 read requests */
-#define PXP2_REG_RQ_BW_RD_ADD4					 0x1201cc
-/* [RW 10] Bandwidth addition to VQ5 read requests */
-#define PXP2_REG_RQ_BW_RD_ADD5					 0x1201d0
-/* [RW 10] Bandwidth Typical L for VQ0 Read requests */
-#define PXP2_REG_RQ_BW_RD_L0					 0x1202ac
-/* [RW 10] Bandwidth Typical L for VQ12 Read requests */
-#define PXP2_REG_RQ_BW_RD_L12					 0x1202dc
-/* [RW 10] Bandwidth Typical L for VQ13 Read requests */
-#define PXP2_REG_RQ_BW_RD_L13					 0x1202e0
-/* [RW 10] Bandwidth Typical L for VQ14 Read requests */
-#define PXP2_REG_RQ_BW_RD_L14					 0x1202e4
-/* [RW 10] Bandwidth Typical L for VQ15 Read requests */
-#define PXP2_REG_RQ_BW_RD_L15					 0x1202e8
-/* [RW 10] Bandwidth Typical L for VQ16 Read requests */
-#define PXP2_REG_RQ_BW_RD_L16					 0x1202ec
-/* [RW 10] Bandwidth Typical L for VQ17 Read requests */
-#define PXP2_REG_RQ_BW_RD_L17					 0x1202f0
-/* [RW 10] Bandwidth Typical L for VQ18 Read requests */
-#define PXP2_REG_RQ_BW_RD_L18					 0x1202f4
-/* [RW 10] Bandwidth Typical L for VQ19 Read requests */
-#define PXP2_REG_RQ_BW_RD_L19					 0x1202f8
-/* [RW 10] Bandwidth Typical L for VQ20 Read requests */
-#define PXP2_REG_RQ_BW_RD_L20					 0x1202fc
-/* [RW 10] Bandwidth Typical L for VQ22 Read requests */
-#define PXP2_REG_RQ_BW_RD_L22					 0x120300
-/* [RW 10] Bandwidth Typical L for VQ23 Read requests */
-#define PXP2_REG_RQ_BW_RD_L23					 0x120304
-/* [RW 10] Bandwidth Typical L for VQ24 Read requests */
-#define PXP2_REG_RQ_BW_RD_L24					 0x120308
-/* [RW 10] Bandwidth Typical L for VQ25 Read requests */
-#define PXP2_REG_RQ_BW_RD_L25					 0x12030c
-/* [RW 10] Bandwidth Typical L for VQ26 Read requests */
-#define PXP2_REG_RQ_BW_RD_L26					 0x120310
-/* [RW 10] Bandwidth Typical L for VQ27 Read requests */
-#define PXP2_REG_RQ_BW_RD_L27					 0x120314
-/* [RW 10] Bandwidth Typical L for VQ4 Read requests */
-#define PXP2_REG_RQ_BW_RD_L4					 0x1202bc
-/* [RW 10] Bandwidth Typical L for VQ5 Read- currently not used */
-#define PXP2_REG_RQ_BW_RD_L5					 0x1202c0
-/* [RW 7] Bandwidth upper bound for VQ0 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND0				 0x120234
-/* [RW 7] Bandwidth upper bound for VQ12 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND12				 0x120264
-/* [RW 7] Bandwidth upper bound for VQ13 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND13				 0x120268
-/* [RW 7] Bandwidth upper bound for VQ14 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND14				 0x12026c
-/* [RW 7] Bandwidth upper bound for VQ15 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND15				 0x120270
-/* [RW 7] Bandwidth upper bound for VQ16 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND16				 0x120274
-/* [RW 7] Bandwidth upper bound for VQ17 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND17				 0x120278
-/* [RW 7] Bandwidth upper bound for VQ18 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND18				 0x12027c
-/* [RW 7] Bandwidth upper bound for VQ19 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND19				 0x120280
-/* [RW 7] Bandwidth upper bound for VQ20 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND20				 0x120284
-/* [RW 7] Bandwidth upper bound for VQ22 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND22				 0x120288
-/* [RW 7] Bandwidth upper bound for VQ23 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND23				 0x12028c
-/* [RW 7] Bandwidth upper bound for VQ24 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND24				 0x120290
-/* [RW 7] Bandwidth upper bound for VQ25 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND25				 0x120294
-/* [RW 7] Bandwidth upper bound for VQ26 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND26				 0x120298
-/* [RW 7] Bandwidth upper bound for VQ27 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND27				 0x12029c
-/* [RW 7] Bandwidth upper bound for VQ4 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND4				 0x120244
-/* [RW 7] Bandwidth upper bound for VQ5 read requests */
-#define PXP2_REG_RQ_BW_RD_UBOUND5				 0x120248
-/* [RW 10] Bandwidth addition to VQ29 write requests */
-#define PXP2_REG_RQ_BW_WR_ADD29 				 0x12022c
-/* [RW 10] Bandwidth addition to VQ30 write requests */
-#define PXP2_REG_RQ_BW_WR_ADD30 				 0x120230
-/* [RW 10] Bandwidth Typical L for VQ29 Write requests */
-#define PXP2_REG_RQ_BW_WR_L29					 0x12031c
-/* [RW 10] Bandwidth Typical L for VQ30 Write requests */
-#define PXP2_REG_RQ_BW_WR_L30					 0x120320
-/* [RW 7] Bandwidth upper bound for VQ29 */
-#define PXP2_REG_RQ_BW_WR_UBOUND29				 0x1202a4
-/* [RW 7] Bandwidth upper bound for VQ30 */
-#define PXP2_REG_RQ_BW_WR_UBOUND30				 0x1202a8
-/* [RW 2] Endian mode for cdu */
-#define PXP2_REG_RQ_CDU_ENDIAN_M				 0x1201a0
-/* [RW 3] page size in L2P table for CDU module; -4k; -8k; -16k; -32k; -64k;
-   -128k */
-#define PXP2_REG_RQ_CDU_P_SIZE					 0x120018
-/* [R 1] 1' indicates that the requester has finished its internal
-   configuration */
-#define PXP2_REG_RQ_CFG_DONE					 0x1201b4
-/* [RW 2] Endian mode for debug */
-#define PXP2_REG_RQ_DBG_ENDIAN_M				 0x1201a4
-/* [RW 1] When '1'; requests will enter input buffers but wont get out
-   towards the glue */
-#define PXP2_REG_RQ_DISABLE_INPUTS				 0x120330
-/* [RW 2] Endian mode for hc */
-#define PXP2_REG_RQ_HC_ENDIAN_M 				 0x1201a8
-/* [WB 53] Onchip address table */
-#define PXP2_REG_RQ_ONCHIP_AT					 0x122000
-/* [RW 2] Endian mode for qm */
-#define PXP2_REG_RQ_QM_ENDIAN_M 				 0x120194
-/* [RW 3] page size in L2P table for QM module; -4k; -8k; -16k; -32k; -64k;
-   -128k */
-#define PXP2_REG_RQ_QM_P_SIZE					 0x120050
-/* [RW 1] 1' indicates that the RBC has finished configurating the PSWRQ */
-#define PXP2_REG_RQ_RBC_DONE					 0x1201b0
-/* [RW 3] Max burst size filed for read requests port 0; 000 - 128B;
-   001:256B; 010: 512B; 11:1K:100:2K; 01:4K */
-#define PXP2_REG_RQ_RD_MBS0					 0x120160
-/* [RW 2] Endian mode for src */
-#define PXP2_REG_RQ_SRC_ENDIAN_M				 0x12019c
-/* [RW 3] page size in L2P table for SRC module; -4k; -8k; -16k; -32k; -64k;
-   -128k */
-#define PXP2_REG_RQ_SRC_P_SIZE					 0x12006c
-/* [RW 2] Endian mode for tm */
-#define PXP2_REG_RQ_TM_ENDIAN_M 				 0x120198
-/* [RW 3] page size in L2P table for TM module; -4k; -8k; -16k; -32k; -64k;
-   -128k */
-#define PXP2_REG_RQ_TM_P_SIZE					 0x120034
-/* [R 5] Number of entries in the ufifo; his fifo has l2p completions */
-#define PXP2_REG_RQ_UFIFO_NUM_OF_ENTRY				 0x12080c
-/* [R 8] Number of entries occupied by vq 0 in pswrq memory */
-#define PXP2_REG_RQ_VQ0_ENTRY_CNT				 0x120810
-/* [R 8] Number of entries occupied by vq 10 in pswrq memory */
-#define PXP2_REG_RQ_VQ10_ENTRY_CNT				 0x120818
-/* [R 8] Number of entries occupied by vq 11 in pswrq memory */
-#define PXP2_REG_RQ_VQ11_ENTRY_CNT				 0x120820
-/* [R 8] Number of entries occupied by vq 12 in pswrq memory */
-#define PXP2_REG_RQ_VQ12_ENTRY_CNT				 0x120828
-/* [R 8] Number of entries occupied by vq 13 in pswrq memory */
-#define PXP2_REG_RQ_VQ13_ENTRY_CNT				 0x120830
-/* [R 8] Number of entries occupied by vq 14 in pswrq memory */
-#define PXP2_REG_RQ_VQ14_ENTRY_CNT				 0x120838
-/* [R 8] Number of entries occupied by vq 15 in pswrq memory */
-#define PXP2_REG_RQ_VQ15_ENTRY_CNT				 0x120840
-/* [R 8] Number of entries occupied by vq 16 in pswrq memory */
-#define PXP2_REG_RQ_VQ16_ENTRY_CNT				 0x120848
-/* [R 8] Number of entries occupied by vq 17 in pswrq memory */
-#define PXP2_REG_RQ_VQ17_ENTRY_CNT				 0x120850
-/* [R 8] Number of entries occupied by vq 18 in pswrq memory */
-#define PXP2_REG_RQ_VQ18_ENTRY_CNT				 0x120858
-/* [R 8] Number of entries occupied by vq 19 in pswrq memory */
-#define PXP2_REG_RQ_VQ19_ENTRY_CNT				 0x120860
-/* [R 8] Number of entries occupied by vq 1 in pswrq memory */
-#define PXP2_REG_RQ_VQ1_ENTRY_CNT				 0x120868
-/* [R 8] Number of entries occupied by vq 20 in pswrq memory */
-#define PXP2_REG_RQ_VQ20_ENTRY_CNT				 0x120870
-/* [R 8] Number of entries occupied by vq 21 in pswrq memory */
-#define PXP2_REG_RQ_VQ21_ENTRY_CNT				 0x120878
-/* [R 8] Number of entries occupied by vq 22 in pswrq memory */
-#define PXP2_REG_RQ_VQ22_ENTRY_CNT				 0x120880
-/* [R 8] Number of entries occupied by vq 23 in pswrq memory */
-#define PXP2_REG_RQ_VQ23_ENTRY_CNT				 0x120888
-/* [R 8] Number of entries occupied by vq 24 in pswrq memory */
-#define PXP2_REG_RQ_VQ24_ENTRY_CNT				 0x120890
-/* [R 8] Number of entries occupied by vq 25 in pswrq memory */
-#define PXP2_REG_RQ_VQ25_ENTRY_CNT				 0x120898
-/* [R 8] Number of entries occupied by vq 26 in pswrq memory */
-#define PXP2_REG_RQ_VQ26_ENTRY_CNT				 0x1208a0
-/* [R 8] Number of entries occupied by vq 27 in pswrq memory */
-#define PXP2_REG_RQ_VQ27_ENTRY_CNT				 0x1208a8
-/* [R 8] Number of entries occupied by vq 28 in pswrq memory */
-#define PXP2_REG_RQ_VQ28_ENTRY_CNT				 0x1208b0
-/* [R 8] Number of entries occupied by vq 29 in pswrq memory */
-#define PXP2_REG_RQ_VQ29_ENTRY_CNT				 0x1208b8
-/* [R 8] Number of entries occupied by vq 2 in pswrq memory */
-#define PXP2_REG_RQ_VQ2_ENTRY_CNT				 0x1208c0
-/* [R 8] Number of entries occupied by vq 30 in pswrq memory */
-#define PXP2_REG_RQ_VQ30_ENTRY_CNT				 0x1208c8
-/* [R 8] Number of entries occupied by vq 31 in pswrq memory */
-#define PXP2_REG_RQ_VQ31_ENTRY_CNT				 0x1208d0
-/* [R 8] Number of entries occupied by vq 3 in pswrq memory */
-#define PXP2_REG_RQ_VQ3_ENTRY_CNT				 0x1208d8
-/* [R 8] Number of entries occupied by vq 4 in pswrq memory */
-#define PXP2_REG_RQ_VQ4_ENTRY_CNT				 0x1208e0
-/* [R 8] Number of entries occupied by vq 5 in pswrq memory */
-#define PXP2_REG_RQ_VQ5_ENTRY_CNT				 0x1208e8
-/* [R 8] Number of entries occupied by vq 6 in pswrq memory */
-#define PXP2_REG_RQ_VQ6_ENTRY_CNT				 0x1208f0
-/* [R 8] Number of entries occupied by vq 7 in pswrq memory */
-#define PXP2_REG_RQ_VQ7_ENTRY_CNT				 0x1208f8
-/* [R 8] Number of entries occupied by vq 8 in pswrq memory */
-#define PXP2_REG_RQ_VQ8_ENTRY_CNT				 0x120900
-/* [R 8] Number of entries occupied by vq 9 in pswrq memory */
-#define PXP2_REG_RQ_VQ9_ENTRY_CNT				 0x120908
-/* [RW 3] Max burst size filed for write requests port 0; 000 - 128B;
-   001:256B; 010: 512B; */
-#define PXP2_REG_RQ_WR_MBS0					 0x12015c
-/* [RW 10] if Number of entries in dmae fifo will be higer than this
-   threshold then has_payload indication will be asserted; the default value
-   should be equal to &gt;  write MBS size! */
-#define PXP2_REG_WR_DMAE_TH					 0x120368
-/* [R 1] debug only: Indication if PSWHST arbiter is idle */
-#define PXP_REG_HST_ARB_IS_IDLE 				 0x103004
-/* [R 8] debug only: A bit mask for all PSWHST arbiter clients. '1' means
-   this client is waiting for the arbiter. */
-#define PXP_REG_HST_CLIENTS_WAITING_TO_ARB			 0x103008
-/* [WB 160] Used for initialization of the inbound interrupts memory */
-#define PXP_REG_HST_INBOUND_INT 				 0x103800
-/* [RW 32] Interrupt mask register #0 read/write */
-#define PXP_REG_PXP_INT_MASK_0					 0x103074
-#define PXP_REG_PXP_INT_MASK_1					 0x103084
-/* [R 32] Interrupt register #0 read */
-#define PXP_REG_PXP_INT_STS_0					 0x103068
-#define PXP_REG_PXP_INT_STS_1					 0x103078
-/* [RC 32] Interrupt register #0 read clear */
-#define PXP_REG_PXP_INT_STS_CLR_0				 0x10306c
-/* [RW 26] Parity mask register #0 read/write */
-#define PXP_REG_PXP_PRTY_MASK					 0x103094
-/* [RW 4] The activity counter initial increment value sent in the load
-   request */
-#define QM_REG_ACTCTRINITVAL_0					 0x168040
-#define QM_REG_ACTCTRINITVAL_1					 0x168044
-#define QM_REG_ACTCTRINITVAL_2					 0x168048
-#define QM_REG_ACTCTRINITVAL_3					 0x16804c
-/* [RW 32] The base logical address (in bytes) of each physical queue. The
-   index I represents the physical queue number. The 12 lsbs are ignore and
-   considered zero so practically there are only 20 bits in this register. */
-#define QM_REG_BASEADDR 					 0x168900
-/* [RW 16] The byte credit cost for each task. This value is for both ports */
-#define QM_REG_BYTECRDCOST					 0x168234
-/* [RW 16] The initial byte credit value for both ports. */
-#define QM_REG_BYTECRDINITVAL					 0x168238
-/* [RW 32] A bit per physical queue. If the bit is cleared then the physical
-   queue uses port 0 else it uses port 1. */
-#define QM_REG_BYTECRDPORT_LSB					 0x168228
-/* [RW 32] A bit per physical queue. If the bit is cleared then the physical
-   queue uses port 0 else it uses port 1. */
-#define QM_REG_BYTECRDPORT_MSB					 0x168224
-/* [RW 16] The byte credit value that if above the QM is considered almost
-   full */
-#define QM_REG_BYTECREDITAFULLTHR				 0x168094
-/* [RW 4] The initial credit for interface */
-#define QM_REG_CMINITCRD_0					 0x1680cc
-#define QM_REG_CMINITCRD_1					 0x1680d0
-#define QM_REG_CMINITCRD_2					 0x1680d4
-#define QM_REG_CMINITCRD_3					 0x1680d8
-#define QM_REG_CMINITCRD_4					 0x1680dc
-#define QM_REG_CMINITCRD_5					 0x1680e0
-#define QM_REG_CMINITCRD_6					 0x1680e4
-#define QM_REG_CMINITCRD_7					 0x1680e8
-/* [RW 8] A mask bit per CM interface. If this bit is 0 then this interface
-   is masked */
-#define QM_REG_CMINTEN						 0x1680ec
-/* [RW 12] A bit vector which indicates which one of the queues are tied to
-   interface 0 */
-#define QM_REG_CMINTVOQMASK_0					 0x1681f4
-#define QM_REG_CMINTVOQMASK_1					 0x1681f8
-#define QM_REG_CMINTVOQMASK_2					 0x1681fc
-#define QM_REG_CMINTVOQMASK_3					 0x168200
-#define QM_REG_CMINTVOQMASK_4					 0x168204
-#define QM_REG_CMINTVOQMASK_5					 0x168208
-#define QM_REG_CMINTVOQMASK_6					 0x16820c
-#define QM_REG_CMINTVOQMASK_7					 0x168210
-/* [RW 20] The number of connections divided by 16 which dictates the size
-   of each queue per port 0 */
-#define QM_REG_CONNNUM_0					 0x168020
-/* [R 6] Keep the fill level of the fifo from write client 4 */
-#define QM_REG_CQM_WRC_FIFOLVL					 0x168018
-/* [RW 8] The context regions sent in the CFC load request */
-#define QM_REG_CTXREG_0 					 0x168030
-#define QM_REG_CTXREG_1 					 0x168034
-#define QM_REG_CTXREG_2 					 0x168038
-#define QM_REG_CTXREG_3 					 0x16803c
-/* [RW 12] The VOQ mask used to select the VOQs which needs to be full for
-   bypass enable */
-#define QM_REG_ENBYPVOQMASK					 0x16823c
-/* [RW 32] A bit mask per each physical queue. If a bit is set then the
-   physical queue uses the byte credit */
-#define QM_REG_ENBYTECRD_LSB					 0x168220
-/* [RW 32] A bit mask per each physical queue. If a bit is set then the
-   physical queue uses the byte credit */
-#define QM_REG_ENBYTECRD_MSB					 0x16821c
-/* [RW 4] If cleared then the secondary interface will not be served by the
-   RR arbiter */
-#define QM_REG_ENSEC						 0x1680f0
-/* [RW 32] A bit vector per each physical queue which selects which function
-   number to use on PCI access for that queue. */
-#define QM_REG_FUNCNUMSEL_LSB					 0x168230
-/* [RW 32] A bit vector per each physical queue which selects which function
-   number to use on PCI access for that queue. */
-#define QM_REG_FUNCNUMSEL_MSB					 0x16822c
-/* [RW 32] A mask register to mask the Almost empty signals which will not
-   be use for the almost empty indication to the HW block */
-#define QM_REG_HWAEMPTYMASK_LSB 				 0x168218
-/* [RW 32] A mask register to mask the Almost empty signals which will not
-   be use for the almost empty indication to the HW block */
-#define QM_REG_HWAEMPTYMASK_MSB 				 0x168214
-/* [RW 4] The number of outstanding request to CFC */
-#define QM_REG_OUTLDREQ 					 0x168804
-/* [RC 1] A flag to indicate that overflow error occurred in one of the
-   queues. */
-#define QM_REG_OVFERROR 					 0x16805c
-/* [RC 6] the Q were the qverflow occurs */
-#define QM_REG_OVFQNUM						 0x168058
-/* [R 32] Pause state for physical queues 31-0 */
-#define QM_REG_PAUSESTATE0					 0x168410
-/* [R 32] Pause state for physical queues 64-32 */
-#define QM_REG_PAUSESTATE1					 0x168414
-/* [RW 2] The PCI attributes field used in the PCI request. */
-#define QM_REG_PCIREQAT 					 0x168054
-/* [R 16] The byte credit of port 0 */
-#define QM_REG_PORT0BYTECRD					 0x168300
-/* [R 16] The byte credit of port 1 */
-#define QM_REG_PORT1BYTECRD					 0x168304
-/* [WB 54] Pointer Table Memory; The mapping is as follow: ptrtbl[53:30]
-   read pointer; ptrtbl[29:6] write pointer; ptrtbl[5:4] read bank0;
-   ptrtbl[3:2] read bank 1; ptrtbl[1:0] write bank; */
-#define QM_REG_PTRTBL						 0x168a00
-/* [RW 2] Interrupt mask register #0 read/write */
-#define QM_REG_QM_INT_MASK					 0x168444
-/* [R 2] Interrupt register #0 read */
-#define QM_REG_QM_INT_STS					 0x168438
-/* [RW 9] Parity mask register #0 read/write */
-#define QM_REG_QM_PRTY_MASK					 0x168454
-/* [R 32] Current queues in pipeline: Queues from 32 to 63 */
-#define QM_REG_QSTATUS_HIGH					 0x16802c
-/* [R 32] Current queues in pipeline: Queues from 0 to 31 */
-#define QM_REG_QSTATUS_LOW					 0x168028
-/* [R 24] The number of tasks queued for each queue */
-#define QM_REG_QTASKCTR_0					 0x168308
-/* [RW 4] Queue tied to VOQ */
-#define QM_REG_QVOQIDX_0					 0x1680f4
-#define QM_REG_QVOQIDX_10					 0x16811c
-#define QM_REG_QVOQIDX_11					 0x168120
-#define QM_REG_QVOQIDX_12					 0x168124
-#define QM_REG_QVOQIDX_13					 0x168128
-#define QM_REG_QVOQIDX_14					 0x16812c
-#define QM_REG_QVOQIDX_15					 0x168130
-#define QM_REG_QVOQIDX_16					 0x168134
-#define QM_REG_QVOQIDX_17					 0x168138
-#define QM_REG_QVOQIDX_21					 0x168148
-#define QM_REG_QVOQIDX_25					 0x168158
-#define QM_REG_QVOQIDX_29					 0x168168
-#define QM_REG_QVOQIDX_32					 0x168174
-#define QM_REG_QVOQIDX_33					 0x168178
-#define QM_REG_QVOQIDX_34					 0x16817c
-#define QM_REG_QVOQIDX_35					 0x168180
-#define QM_REG_QVOQIDX_36					 0x168184
-#define QM_REG_QVOQIDX_37					 0x168188
-#define QM_REG_QVOQIDX_38					 0x16818c
-#define QM_REG_QVOQIDX_39					 0x168190
-#define QM_REG_QVOQIDX_40					 0x168194
-#define QM_REG_QVOQIDX_41					 0x168198
-#define QM_REG_QVOQIDX_42					 0x16819c
-#define QM_REG_QVOQIDX_43					 0x1681a0
-#define QM_REG_QVOQIDX_44					 0x1681a4
-#define QM_REG_QVOQIDX_45					 0x1681a8
-#define QM_REG_QVOQIDX_46					 0x1681ac
-#define QM_REG_QVOQIDX_47					 0x1681b0
-#define QM_REG_QVOQIDX_48					 0x1681b4
-#define QM_REG_QVOQIDX_49					 0x1681b8
-#define QM_REG_QVOQIDX_5					 0x168108
-#define QM_REG_QVOQIDX_50					 0x1681bc
-#define QM_REG_QVOQIDX_51					 0x1681c0
-#define QM_REG_QVOQIDX_52					 0x1681c4
-#define QM_REG_QVOQIDX_53					 0x1681c8
-#define QM_REG_QVOQIDX_54					 0x1681cc
-#define QM_REG_QVOQIDX_55					 0x1681d0
-#define QM_REG_QVOQIDX_56					 0x1681d4
-#define QM_REG_QVOQIDX_57					 0x1681d8
-#define QM_REG_QVOQIDX_58					 0x1681dc
-#define QM_REG_QVOQIDX_59					 0x1681e0
-#define QM_REG_QVOQIDX_50					 0x1681bc
-#define QM_REG_QVOQIDX_51					 0x1681c0
-#define QM_REG_QVOQIDX_52					 0x1681c4
-#define QM_REG_QVOQIDX_53					 0x1681c8
-#define QM_REG_QVOQIDX_54					 0x1681cc
-#define QM_REG_QVOQIDX_55					 0x1681d0
-#define QM_REG_QVOQIDX_56					 0x1681d4
-#define QM_REG_QVOQIDX_57					 0x1681d8
-#define QM_REG_QVOQIDX_58					 0x1681dc
-#define QM_REG_QVOQIDX_59					 0x1681e0
-#define QM_REG_QVOQIDX_6					 0x16810c
-#define QM_REG_QVOQIDX_60					 0x1681e4
-#define QM_REG_QVOQIDX_61					 0x1681e8
-#define QM_REG_QVOQIDX_62					 0x1681ec
-#define QM_REG_QVOQIDX_63					 0x1681f0
-#define QM_REG_QVOQIDX_60					 0x1681e4
-#define QM_REG_QVOQIDX_61					 0x1681e8
-#define QM_REG_QVOQIDX_62					 0x1681ec
-#define QM_REG_QVOQIDX_63					 0x1681f0
-#define QM_REG_QVOQIDX_7					 0x168110
-#define QM_REG_QVOQIDX_8					 0x168114
-#define QM_REG_QVOQIDX_9					 0x168118
-/* [R 24] Remaining pause timeout for port 0 */
-#define QM_REG_REMAINPAUSETM0					 0x168418
-/* [R 24] Remaining pause timeout for port 1 */
-#define QM_REG_REMAINPAUSETM1					 0x16841c
-/* [RW 1] Initialization bit command */
-#define QM_REG_SOFT_RESET					 0x168428
-/* [RW 8] The credit cost per every task in the QM. A value per each VOQ */
-#define QM_REG_TASKCRDCOST_0					 0x16809c
-#define QM_REG_TASKCRDCOST_1					 0x1680a0
-#define QM_REG_TASKCRDCOST_10					 0x1680c4
-#define QM_REG_TASKCRDCOST_11					 0x1680c8
-#define QM_REG_TASKCRDCOST_2					 0x1680a4
-#define QM_REG_TASKCRDCOST_4					 0x1680ac
-#define QM_REG_TASKCRDCOST_5					 0x1680b0
-/* [R 6] Keep the fill level of the fifo from write client 3 */
-#define QM_REG_TQM_WRC_FIFOLVL					 0x168010
-/* [R 6] Keep the fill level of the fifo from write client 2 */
-#define QM_REG_UQM_WRC_FIFOLVL					 0x168008
-/* [RC 32] Credit update error register */
-#define QM_REG_VOQCRDERRREG					 0x168408
-/* [R 16] The credit value for each VOQ */
-#define QM_REG_VOQCREDIT_0					 0x1682d0
-#define QM_REG_VOQCREDIT_1					 0x1682d4
-#define QM_REG_VOQCREDIT_10					 0x1682f8
-#define QM_REG_VOQCREDIT_11					 0x1682fc
-#define QM_REG_VOQCREDIT_4					 0x1682e0
-/* [RW 16] The credit value that if above the QM is considered almost full */
-#define QM_REG_VOQCREDITAFULLTHR				 0x168090
-/* [RW 16] The init and maximum credit for each VoQ */
-#define QM_REG_VOQINITCREDIT_0					 0x168060
-#define QM_REG_VOQINITCREDIT_1					 0x168064
-#define QM_REG_VOQINITCREDIT_10 				 0x168088
-#define QM_REG_VOQINITCREDIT_11 				 0x16808c
-#define QM_REG_VOQINITCREDIT_2					 0x168068
-#define QM_REG_VOQINITCREDIT_4					 0x168070
-#define QM_REG_VOQINITCREDIT_5					 0x168074
-/* [RW 1] The port of which VOQ belongs */
-#define QM_REG_VOQPORT_1					 0x1682a4
-#define QM_REG_VOQPORT_10					 0x1682c8
-#define QM_REG_VOQPORT_11					 0x1682cc
-#define QM_REG_VOQPORT_2					 0x1682a8
-/* [RW 32] The physical queue number associated with each VOQ */
-#define QM_REG_VOQQMASK_0_LSB					 0x168240
-/* [RW 32] The physical queue number associated with each VOQ */
-#define QM_REG_VOQQMASK_0_MSB					 0x168244
-/* [RW 32] The physical queue number associated with each VOQ */
-#define QM_REG_VOQQMASK_1_MSB					 0x16824c
-/* [RW 32] The physical queue number associated with each VOQ */
-#define QM_REG_VOQQMASK_2_LSB					 0x168250
-/* [RW 32] The physical queue number associated with each VOQ */
-#define QM_REG_VOQQMASK_2_MSB					 0x168254
-/* [RW 32] The physical queue number associated with each VOQ */
-#define QM_REG_VOQQMASK_3_LSB					 0x168258
-/* [RW 32] The physical queue number associated with each VOQ */
-#define QM_REG_VOQQMASK_4_LSB					 0x168260
-/* [RW 32] The physical queue number associated with each VOQ */
-#define QM_REG_VOQQMASK_4_MSB					 0x168264
-/* [RW 32] The physical queue number associated with each VOQ */
-#define QM_REG_VOQQMASK_5_LSB					 0x168268
-/* [RW 32] The physical queue number associated with each VOQ */
-#define QM_REG_VOQQMASK_5_MSB					 0x16826c
-/* [RW 32] The physical queue number associated with each VOQ */
-#define QM_REG_VOQQMASK_6_LSB					 0x168270
-/* [RW 32] The physical queue number associated with each VOQ */
-#define QM_REG_VOQQMASK_6_MSB					 0x168274
-/* [RW 32] The physical queue number associated with each VOQ */
-#define QM_REG_VOQQMASK_7_LSB					 0x168278
-/* [RW 32] The physical queue number associated with each VOQ */
-#define QM_REG_VOQQMASK_7_MSB					 0x16827c
-/* [RW 32] The physical queue number associated with each VOQ */
-#define QM_REG_VOQQMASK_8_LSB					 0x168280
-/* [RW 32] The physical queue number associated with each VOQ */
-#define QM_REG_VOQQMASK_8_MSB					 0x168284
-/* [RW 32] The physical queue number associated with each VOQ */
-#define QM_REG_VOQQMASK_9_LSB					 0x168288
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_0					 0x16880c
-#define QM_REG_WRRWEIGHTS_1					 0x168810
-#define QM_REG_WRRWEIGHTS_10					 0x168814
-#define QM_REG_WRRWEIGHTS_10_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_11					 0x168818
-#define QM_REG_WRRWEIGHTS_11_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_12					 0x16881c
-#define QM_REG_WRRWEIGHTS_12_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_13					 0x168820
-#define QM_REG_WRRWEIGHTS_13_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_14					 0x168824
-#define QM_REG_WRRWEIGHTS_14_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_15					 0x168828
-#define QM_REG_WRRWEIGHTS_15_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_10					 0x168814
-#define QM_REG_WRRWEIGHTS_11					 0x168818
-#define QM_REG_WRRWEIGHTS_12					 0x16881c
-#define QM_REG_WRRWEIGHTS_13					 0x168820
-#define QM_REG_WRRWEIGHTS_14					 0x168824
-#define QM_REG_WRRWEIGHTS_15					 0x168828
-#define QM_REG_WRRWEIGHTS_2					 0x16882c
-#define QM_REG_WRRWEIGHTS_3					 0x168830
-#define QM_REG_WRRWEIGHTS_4					 0x168834
-#define QM_REG_WRRWEIGHTS_5					 0x168838
-#define QM_REG_WRRWEIGHTS_6					 0x16883c
-#define QM_REG_WRRWEIGHTS_7					 0x168840
-#define QM_REG_WRRWEIGHTS_8					 0x168844
-#define QM_REG_WRRWEIGHTS_9					 0x168848
-/* [R 6] Keep the fill level of the fifo from write client 1 */
-#define QM_REG_XQM_WRC_FIFOLVL					 0x168000
-#define DORQ_DORQ_INT_STS_REG_ADDRESS_ERROR			 (0x1<<0)
-#define DORQ_DORQ_INT_STS_REG_ADDRESS_ERROR_SIZE		 0
-#define DORQ_DORQ_INT_STS_CLR_REG_ADDRESS_ERROR 		 (0x1<<0)
-#define DORQ_DORQ_INT_STS_CLR_REG_ADDRESS_ERROR_SIZE		 0
-#define DORQ_DORQ_INT_STS_WR_REG_ADDRESS_ERROR			 (0x1<<0)
-#define DORQ_DORQ_INT_STS_WR_REG_ADDRESS_ERROR_SIZE		 0
-#define DORQ_DORQ_INT_MASK_REG_ADDRESS_ERROR			 (0x1<<0)
-#define DORQ_DORQ_INT_MASK_REG_ADDRESS_ERROR_SIZE		 0
-#define NIG_NIG_INT_STS_0_REG_ADDRESS_ERROR			 (0x1<<0)
-#define NIG_NIG_INT_STS_0_REG_ADDRESS_ERROR_SIZE		 0
-#define NIG_NIG_INT_STS_CLR_0_REG_ADDRESS_ERROR 		 (0x1<<0)
-#define NIG_NIG_INT_STS_CLR_0_REG_ADDRESS_ERROR_SIZE		 0
-#define NIG_NIG_INT_STS_WR_0_REG_ADDRESS_ERROR			 (0x1<<0)
-#define NIG_NIG_INT_STS_WR_0_REG_ADDRESS_ERROR_SIZE		 0
-#define NIG_NIG_INT_MASK_0_REG_ADDRESS_ERROR			 (0x1<<0)
-#define NIG_NIG_INT_MASK_0_REG_ADDRESS_ERROR_SIZE		 0
-#define TCM_TCM_INT_STS_REG_ADDRESS_ERROR			 (0x1<<0)
-#define TCM_TCM_INT_STS_REG_ADDRESS_ERROR_SIZE			 0
-#define TCM_TCM_INT_STS_CLR_REG_ADDRESS_ERROR			 (0x1<<0)
-#define TCM_TCM_INT_STS_CLR_REG_ADDRESS_ERROR_SIZE		 0
-#define TCM_TCM_INT_STS_WR_REG_ADDRESS_ERROR			 (0x1<<0)
-#define TCM_TCM_INT_STS_WR_REG_ADDRESS_ERROR_SIZE		 0
-#define TCM_TCM_INT_MASK_REG_ADDRESS_ERROR			 (0x1<<0)
-#define TCM_TCM_INT_MASK_REG_ADDRESS_ERROR_SIZE 		 0
-#define CFC_DEBUG1_REG_WRITE_AC 				 (0x1<<4)
-#define CFC_DEBUG1_REG_WRITE_AC_SIZE				 4
-/* [R 1] debug only: This bit indicates wheter indicates that external
-   buffer was wrapped (oldest data was thrown); Relevant only when
-   ~dbg_registers_debug_target=2 (PCI) & ~dbg_registers_full_mode=1 (wrap); */
-#define DBG_REG_WRAP_ON_EXT_BUFFER				 0xc124
-#define DBG_REG_WRAP_ON_EXT_BUFFER_SIZE 			 1
-/* [R 1] debug only: This bit indicates wheter the internal buffer was
-   wrapped (oldest data was thrown) Relevant only when
-   ~dbg_registers_debug_target=0 (internal buffer) */
-#define DBG_REG_WRAP_ON_INT_BUFFER				 0xc128
-#define DBG_REG_WRAP_ON_INT_BUFFER_SIZE 			 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_0					 0x16880c
-#define QM_REG_WRRWEIGHTS_0_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_1					 0x168810
-#define QM_REG_WRRWEIGHTS_1_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_10					 0x168814
-#define QM_REG_WRRWEIGHTS_10_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_11					 0x168818
-#define QM_REG_WRRWEIGHTS_11_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_12					 0x16881c
-#define QM_REG_WRRWEIGHTS_12_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_13					 0x168820
-#define QM_REG_WRRWEIGHTS_13_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_14					 0x168824
-#define QM_REG_WRRWEIGHTS_14_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_15					 0x168828
-#define QM_REG_WRRWEIGHTS_15_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_2					 0x16882c
-#define QM_REG_WRRWEIGHTS_2_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_3					 0x168830
-#define QM_REG_WRRWEIGHTS_3_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_4					 0x168834
-#define QM_REG_WRRWEIGHTS_4_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_5					 0x168838
-#define QM_REG_WRRWEIGHTS_5_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_6					 0x16883c
-#define QM_REG_WRRWEIGHTS_6_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_7					 0x168840
-#define QM_REG_WRRWEIGHTS_7_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_8					 0x168844
-#define QM_REG_WRRWEIGHTS_8_SIZE				 1
-/* [RW 32] Wrr weights */
-#define QM_REG_WRRWEIGHTS_9					 0x168848
-#define QM_REG_WRRWEIGHTS_9_SIZE				 1
-/* [RW 22] Number of free element in the free list of T2 entries - port 0. */
-#define SRC_REG_COUNTFREE0					 0x40500
-/* [WB 64] First free element in the free list of T2 entries - port 0. */
-#define SRC_REG_FIRSTFREE0					 0x40510
-#define SRC_REG_KEYRSS0_0					 0x40408
-#define SRC_REG_KEYRSS1_9					 0x40454
-/* [WB 64] Last free element in the free list of T2 entries - port 0. */
-#define SRC_REG_LASTFREE0					 0x40530
-/* [RW 5] The number of hash bits used for the search (h); Values can be 8
-   to 24. */
-#define SRC_REG_NUMBER_HASH_BITS0				 0x40400
-/* [RW 1] Reset internal state machines. */
-#define SRC_REG_SOFT_RST					 0x4049c
-/* [R 1] Interrupt register #0 read */
-#define SRC_REG_SRC_INT_STS					 0x404ac
-/* [RW 3] Parity mask register #0 read/write */
-#define SRC_REG_SRC_PRTY_MASK					 0x404c8
-/* [R 4] Used to read the value of the XX protection CAM occupancy counter. */
-#define TCM_REG_CAM_OCCUP					 0x5017c
-/* [RW 1] CDU AG read Interface enable. If 0 - the request input is
-   disregarded; valid output is deasserted; all other signals are treated as
-   usual; if 1 - normal activity. */
-#define TCM_REG_CDU_AG_RD_IFEN					 0x50034
-/* [RW 1] CDU AG write Interface enable. If 0 - the request and valid input
-   are disregarded; all other signals are treated as usual; if 1 - normal
-   activity. */
-#define TCM_REG_CDU_AG_WR_IFEN					 0x50030
-/* [RW 1] CDU STORM read Interface enable. If 0 - the request input is
-   disregarded; valid output is deasserted; all other signals are treated as
-   usual; if 1 - normal activity. */
-#define TCM_REG_CDU_SM_RD_IFEN					 0x5003c
-/* [RW 1] CDU STORM write Interface enable. If 0 - the request and valid
-   input is disregarded; all other signals are treated as usual; if 1 -
-   normal activity. */
-#define TCM_REG_CDU_SM_WR_IFEN					 0x50038
-/* [RW 4] CFC output initial credit. Max credit available - 15.Write writes
-   the initial credit value; read returns the current value of the credit
-   counter. Must be initialized to 1 at start-up. */
-#define TCM_REG_CFC_INIT_CRD					 0x50204
-/* [RW 3] The weight of the CP input in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define TCM_REG_CP_WEIGHT					 0x500c0
-/* [RW 1] Input csem Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define TCM_REG_CSEM_IFEN					 0x5002c
-/* [RC 1] Message length mismatch (relative to last indication) at the In#9
-   interface. */
-#define TCM_REG_CSEM_LENGTH_MIS 				 0x50174
-/* [RW 8] The Event ID in case of ErrorFlg is set in the input message. */
-#define TCM_REG_ERR_EVNT_ID					 0x500a0
-/* [RW 28] The CM erroneous header for QM and Timers formatting. */
-#define TCM_REG_ERR_TCM_HDR					 0x5009c
-/* [RW 8] The Event ID for Timers expiration. */
-#define TCM_REG_EXPR_EVNT_ID					 0x500a4
-/* [RW 8] FIC0 output initial credit. Max credit available - 255.Write
-   writes the initial credit value; read returns the current value of the
-   credit counter. Must be initialized to 64 at start-up. */
-#define TCM_REG_FIC0_INIT_CRD					 0x5020c
-/* [RW 8] FIC1 output initial credit. Max credit available - 255.Write
-   writes the initial credit value; read returns the current value of the
-   credit counter. Must be initialized to 64 at start-up. */
-#define TCM_REG_FIC1_INIT_CRD					 0x50210
-/* [RW 1] Arbitration between Input Arbiter groups: 0 - fair Round-Robin; 1
-   - strict priority defined by ~tcm_registers_gr_ag_pr.gr_ag_pr;
-   ~tcm_registers_gr_ld0_pr.gr_ld0_pr and
-   ~tcm_registers_gr_ld1_pr.gr_ld1_pr. */
-#define TCM_REG_GR_ARB_TYPE					 0x50114
-/* [RW 2] Load (FIC0) channel group priority. The lowest priority is 0; the
-   highest priority is 3. It is supposed that the Store channel is the
-   compliment of the other 3 groups. */
-#define TCM_REG_GR_LD0_PR					 0x5011c
-/* [RW 2] Load (FIC1) channel group priority. The lowest priority is 0; the
-   highest priority is 3. It is supposed that the Store channel is the
-   compliment of the other 3 groups. */
-#define TCM_REG_GR_LD1_PR					 0x50120
-/* [RW 4] The number of double REG-pairs; loaded from the STORM context and
-   sent to STORM; for a specific connection type. The double REG-pairs are
-   used to align to STORM context row size of 128 bits. The offset of these
-   data in the STORM context is always 0. Index _i stands for the connection
-   type (one of 16). */
-#define TCM_REG_N_SM_CTX_LD_0					 0x50050
-#define TCM_REG_N_SM_CTX_LD_1					 0x50054
-#define TCM_REG_N_SM_CTX_LD_10					 0x50078
-#define TCM_REG_N_SM_CTX_LD_11					 0x5007c
-#define TCM_REG_N_SM_CTX_LD_12					 0x50080
-#define TCM_REG_N_SM_CTX_LD_13					 0x50084
-#define TCM_REG_N_SM_CTX_LD_14					 0x50088
-#define TCM_REG_N_SM_CTX_LD_15					 0x5008c
-#define TCM_REG_N_SM_CTX_LD_2					 0x50058
-#define TCM_REG_N_SM_CTX_LD_3					 0x5005c
-#define TCM_REG_N_SM_CTX_LD_4					 0x50060
-/* [RW 1] Input pbf Interface enable. If 0 - the valid input is disregarded;
-   acknowledge output is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define TCM_REG_PBF_IFEN					 0x50024
-/* [RC 1] Message length mismatch (relative to last indication) at the In#7
-   interface. */
-#define TCM_REG_PBF_LENGTH_MIS					 0x5016c
-/* [RW 3] The weight of the input pbf in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define TCM_REG_PBF_WEIGHT					 0x500b4
-/* [RW 6] The physical queue number 0 per port index. */
-#define TCM_REG_PHYS_QNUM0_0					 0x500e0
-#define TCM_REG_PHYS_QNUM0_1					 0x500e4
-/* [RW 6] The physical queue number 1 per port index. */
-#define TCM_REG_PHYS_QNUM1_0					 0x500e8
-/* [RW 1] Input prs Interface enable. If 0 - the valid input is disregarded;
-   acknowledge output is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define TCM_REG_PRS_IFEN					 0x50020
-/* [RC 1] Message length mismatch (relative to last indication) at the In#6
-   interface. */
-#define TCM_REG_PRS_LENGTH_MIS					 0x50168
-/* [RW 3] The weight of the input prs in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define TCM_REG_PRS_WEIGHT					 0x500b0
-/* [RW 8] The Event ID for Timers formatting in case of stop done. */
-#define TCM_REG_STOP_EVNT_ID					 0x500a8
-/* [RC 1] Message length mismatch (relative to last indication) at the STORM
-   interface. */
-#define TCM_REG_STORM_LENGTH_MIS				 0x50160
-/* [RW 1] STORM - CM Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define TCM_REG_STORM_TCM_IFEN					 0x50010
-/* [RW 1] CM - CFC Interface enable. If 0 - the valid input is disregarded;
-   acknowledge output is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define TCM_REG_TCM_CFC_IFEN					 0x50040
-/* [RW 11] Interrupt mask register #0 read/write */
-#define TCM_REG_TCM_INT_MASK					 0x501dc
-/* [R 11] Interrupt register #0 read */
-#define TCM_REG_TCM_INT_STS					 0x501d0
-/* [RW 3] The size of AG context region 0 in REG-pairs. Designates the MS
-   REG-pair number (e.g. if region 0 is 6 REG-pairs; the value should be 5).
-   Is used to determine the number of the AG context REG-pairs written back;
-   when the input message Reg1WbFlg isn't set. */
-#define TCM_REG_TCM_REG0_SZ					 0x500d8
-/* [RW 1] CM - STORM 0 Interface enable. If 0 - the acknowledge input is
-   disregarded; valid is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define TCM_REG_TCM_STORM0_IFEN 				 0x50004
-/* [RW 1] CM - STORM 1 Interface enable. If 0 - the acknowledge input is
-   disregarded; valid is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define TCM_REG_TCM_STORM1_IFEN 				 0x50008
-/* [RW 1] CM - QM Interface enable. If 0 - the acknowledge input is
-   disregarded; valid is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define TCM_REG_TCM_TQM_IFEN					 0x5000c
-/* [RW 1] If set the Q index; received from the QM is inserted to event ID. */
-#define TCM_REG_TCM_TQM_USE_Q					 0x500d4
-/* [RW 28] The CM header for Timers expiration command. */
-#define TCM_REG_TM_TCM_HDR					 0x50098
-/* [RW 1] Timers - CM Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define TCM_REG_TM_TCM_IFEN					 0x5001c
-/* [RW 6] QM output initial credit. Max credit available - 32.Write writes
-   the initial credit value; read returns the current value of the credit
-   counter. Must be initialized to 32 at start-up. */
-#define TCM_REG_TQM_INIT_CRD					 0x5021c
-/* [RW 28] The CM header value for QM request (primary). */
-#define TCM_REG_TQM_TCM_HDR_P					 0x50090
-/* [RW 28] The CM header value for QM request (secondary). */
-#define TCM_REG_TQM_TCM_HDR_S					 0x50094
-/* [RW 1] QM - CM Interface enable. If 0 - the valid input is disregarded;
-   acknowledge output is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define TCM_REG_TQM_TCM_IFEN					 0x50014
-/* [RW 1] Input SDM Interface enable. If 0 - the valid input is disregarded;
-   acknowledge output is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define TCM_REG_TSDM_IFEN					 0x50018
-/* [RC 1] Message length mismatch (relative to last indication) at the SDM
-   interface. */
-#define TCM_REG_TSDM_LENGTH_MIS 				 0x50164
-/* [RW 3] The weight of the SDM input in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define TCM_REG_TSDM_WEIGHT					 0x500c4
-/* [RW 1] Input usem Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define TCM_REG_USEM_IFEN					 0x50028
-/* [RC 1] Message length mismatch (relative to last indication) at the In#8
-   interface. */
-#define TCM_REG_USEM_LENGTH_MIS 				 0x50170
-/* [RW 21] Indirect access to the descriptor table of the XX protection
-   mechanism. The fields are: [5:0] - length of the message; 15:6] - message
-   pointer; 20:16] - next pointer. */
-#define TCM_REG_XX_DESCR_TABLE					 0x50280
-/* [R 6] Use to read the value of XX protection Free counter. */
-#define TCM_REG_XX_FREE 					 0x50178
-/* [RW 6] Initial value for the credit counter; responsible for fulfilling
-   of the Input Stage XX protection buffer by the XX protection pending
-   messages. Max credit available - 127.Write writes the initial credit
-   value; read returns the current value of the credit counter. Must be
-   initialized to 19 at start-up. */
-#define TCM_REG_XX_INIT_CRD					 0x50220
-/* [RW 6] Maximum link list size (messages locked) per connection in the XX
-   protection. */
-#define TCM_REG_XX_MAX_LL_SZ					 0x50044
-/* [RW 6] The maximum number of pending messages; which may be stored in XX
-   protection. ~tcm_registers_xx_free.xx_free is read on read. */
-#define TCM_REG_XX_MSG_NUM					 0x50224
-/* [RW 8] The Event ID; sent to the STORM in case of XX overflow. */
-#define TCM_REG_XX_OVFL_EVNT_ID 				 0x50048
-/* [RW 16] Indirect access to the XX table of the XX protection mechanism.
-   The fields are:[4:0] - tail pointer; [10:5] - Link List size; 15:11] -
-   header pointer. */
-#define TCM_REG_XX_TABLE					 0x50240
-/* [RW 4] Load value for for cfc ac credit cnt. */
-#define TM_REG_CFC_AC_CRDCNT_VAL				 0x164208
-/* [RW 4] Load value for cfc cld credit cnt. */
-#define TM_REG_CFC_CLD_CRDCNT_VAL				 0x164210
-/* [RW 8] Client0 context region. */
-#define TM_REG_CL0_CONT_REGION					 0x164030
-/* [RW 8] Client1 context region. */
-#define TM_REG_CL1_CONT_REGION					 0x164034
-/* [RW 8] Client2 context region. */
-#define TM_REG_CL2_CONT_REGION					 0x164038
-/* [RW 2] Client in High priority client number. */
-#define TM_REG_CLIN_PRIOR0_CLIENT				 0x164024
-/* [RW 4] Load value for clout0 cred cnt. */
-#define TM_REG_CLOUT_CRDCNT0_VAL				 0x164220
-/* [RW 4] Load value for clout1 cred cnt. */
-#define TM_REG_CLOUT_CRDCNT1_VAL				 0x164228
-/* [RW 4] Load value for clout2 cred cnt. */
-#define TM_REG_CLOUT_CRDCNT2_VAL				 0x164230
-/* [RW 1] Enable client0 input. */
-#define TM_REG_EN_CL0_INPUT					 0x164008
-/* [RW 1] Enable client1 input. */
-#define TM_REG_EN_CL1_INPUT					 0x16400c
-/* [RW 1] Enable client2 input. */
-#define TM_REG_EN_CL2_INPUT					 0x164010
-/* [RW 1] Enable real time counter. */
-#define TM_REG_EN_REAL_TIME_CNT 				 0x1640d8
-/* [RW 1] Enable for Timers state machines. */
-#define TM_REG_EN_TIMERS					 0x164000
-/* [RW 4] Load value for expiration credit cnt. CFC max number of
-   outstanding load requests for timers (expiration) context loading. */
-#define TM_REG_EXP_CRDCNT_VAL					 0x164238
-/* [RW 18] Linear0 Max active cid. */
-#define TM_REG_LIN0_MAX_ACTIVE_CID				 0x164048
-/* [WB 64] Linear0 phy address. */
-#define TM_REG_LIN0_PHY_ADDR					 0x164270
-/* [RW 24] Linear0 array scan timeout. */
-#define TM_REG_LIN0_SCAN_TIME					 0x16403c
-/* [WB 64] Linear1 phy address. */
-#define TM_REG_LIN1_PHY_ADDR					 0x164280
-/* [RW 6] Linear timer set_clear fifo threshold. */
-#define TM_REG_LIN_SETCLR_FIFO_ALFULL_THR			 0x164070
-/* [RW 2] Load value for pci arbiter credit cnt. */
-#define TM_REG_PCIARB_CRDCNT_VAL				 0x164260
-/* [RW 1] Timer software reset - active high. */
-#define TM_REG_TIMER_SOFT_RST					 0x164004
-/* [RW 20] The amount of hardware cycles for each timer tick. */
-#define TM_REG_TIMER_TICK_SIZE					 0x16401c
-/* [RW 8] Timers Context region. */
-#define TM_REG_TM_CONTEXT_REGION				 0x164044
-/* [RW 1] Interrupt mask register #0 read/write */
-#define TM_REG_TM_INT_MASK					 0x1640fc
-/* [R 1] Interrupt register #0 read */
-#define TM_REG_TM_INT_STS					 0x1640f0
-/* [RW 8] The event id for aggregated interrupt 0 */
-#define TSDM_REG_AGG_INT_EVENT_0				 0x42038
-/* [RW 13] The start address in the internal RAM for the cfc_rsp lcid */
-#define TSDM_REG_CFC_RSP_START_ADDR				 0x42008
-/* [RW 16] The maximum value of the competion counter #0 */
-#define TSDM_REG_CMP_COUNTER_MAX0				 0x4201c
-/* [RW 16] The maximum value of the competion counter #1 */
-#define TSDM_REG_CMP_COUNTER_MAX1				 0x42020
-/* [RW 16] The maximum value of the competion counter #2 */
-#define TSDM_REG_CMP_COUNTER_MAX2				 0x42024
-/* [RW 16] The maximum value of the competion counter #3 */
-#define TSDM_REG_CMP_COUNTER_MAX3				 0x42028
-/* [RW 13] The start address in the internal RAM for the completion
-   counters. */
-#define TSDM_REG_CMP_COUNTER_START_ADDR 			 0x4200c
-#define TSDM_REG_ENABLE_IN1					 0x42238
-#define TSDM_REG_ENABLE_IN2					 0x4223c
-#define TSDM_REG_ENABLE_OUT1					 0x42240
-#define TSDM_REG_ENABLE_OUT2					 0x42244
-/* [RW 4] The initial number of messages that can be sent to the pxp control
-   interface without receiving any ACK. */
-#define TSDM_REG_INIT_CREDIT_PXP_CTRL				 0x424bc
-/* [ST 32] The number of ACK after placement messages received */
-#define TSDM_REG_NUM_OF_ACK_AFTER_PLACE 			 0x4227c
-/* [ST 32] The number of packet end messages received from the parser */
-#define TSDM_REG_NUM_OF_PKT_END_MSG				 0x42274
-/* [ST 32] The number of requests received from the pxp async if */
-#define TSDM_REG_NUM_OF_PXP_ASYNC_REQ				 0x42278
-/* [ST 32] The number of commands received in queue 0 */
-#define TSDM_REG_NUM_OF_Q0_CMD					 0x42248
-/* [ST 32] The number of commands received in queue 10 */
-#define TSDM_REG_NUM_OF_Q10_CMD 				 0x4226c
-/* [ST 32] The number of commands received in queue 11 */
-#define TSDM_REG_NUM_OF_Q11_CMD 				 0x42270
-/* [ST 32] The number of commands received in queue 1 */
-#define TSDM_REG_NUM_OF_Q1_CMD					 0x4224c
-/* [ST 32] The number of commands received in queue 3 */
-#define TSDM_REG_NUM_OF_Q3_CMD					 0x42250
-/* [ST 32] The number of commands received in queue 4 */
-#define TSDM_REG_NUM_OF_Q4_CMD					 0x42254
-/* [ST 32] The number of commands received in queue 5 */
-#define TSDM_REG_NUM_OF_Q5_CMD					 0x42258
-/* [ST 32] The number of commands received in queue 6 */
-#define TSDM_REG_NUM_OF_Q6_CMD					 0x4225c
-/* [ST 32] The number of commands received in queue 7 */
-#define TSDM_REG_NUM_OF_Q7_CMD					 0x42260
-/* [ST 32] The number of commands received in queue 8 */
-#define TSDM_REG_NUM_OF_Q8_CMD					 0x42264
-/* [ST 32] The number of commands received in queue 9 */
-#define TSDM_REG_NUM_OF_Q9_CMD					 0x42268
-/* [RW 13] The start address in the internal RAM for the packet end message */
-#define TSDM_REG_PCK_END_MSG_START_ADDR 			 0x42014
-/* [RW 13] The start address in the internal RAM for queue counters */
-#define TSDM_REG_Q_COUNTER_START_ADDR				 0x42010
-/* [R 1] pxp_ctrl rd_data fifo empty in sdm_dma_rsp block */
-#define TSDM_REG_RSP_PXP_CTRL_RDATA_EMPTY			 0x42548
-/* [R 1] parser fifo empty in sdm_sync block */
-#define TSDM_REG_SYNC_PARSER_EMPTY				 0x42550
-/* [R 1] parser serial fifo empty in sdm_sync block */
-#define TSDM_REG_SYNC_SYNC_EMPTY				 0x42558
-/* [RW 32] Tick for timer counter. Applicable only when
-   ~tsdm_registers_timer_tick_enable.timer_tick_enable =1 */
-#define TSDM_REG_TIMER_TICK					 0x42000
-/* [RW 32] Interrupt mask register #0 read/write */
-#define TSDM_REG_TSDM_INT_MASK_0				 0x4229c
-#define TSDM_REG_TSDM_INT_MASK_1				 0x422ac
-/* [RW 11] Parity mask register #0 read/write */
-#define TSDM_REG_TSDM_PRTY_MASK 				 0x422bc
-/* [RW 5] The number of time_slots in the arbitration cycle */
-#define TSEM_REG_ARB_CYCLE_SIZE 				 0x180034
-/* [RW 3] The source that is associated with arbitration element 0. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2 */
-#define TSEM_REG_ARB_ELEMENT0					 0x180020
-/* [RW 3] The source that is associated with arbitration element 1. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2.
-   Could not be equal to register ~tsem_registers_arb_element0.arb_element0 */
-#define TSEM_REG_ARB_ELEMENT1					 0x180024
-/* [RW 3] The source that is associated with arbitration element 2. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2.
-   Could not be equal to register ~tsem_registers_arb_element0.arb_element0
-   and ~tsem_registers_arb_element1.arb_element1 */
-#define TSEM_REG_ARB_ELEMENT2					 0x180028
-/* [RW 3] The source that is associated with arbitration element 3. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2.Could
-   not be equal to register ~tsem_registers_arb_element0.arb_element0 and
-   ~tsem_registers_arb_element1.arb_element1 and
-   ~tsem_registers_arb_element2.arb_element2 */
-#define TSEM_REG_ARB_ELEMENT3					 0x18002c
-/* [RW 3] The source that is associated with arbitration element 4. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2.
-   Could not be equal to register ~tsem_registers_arb_element0.arb_element0
-   and ~tsem_registers_arb_element1.arb_element1 and
-   ~tsem_registers_arb_element2.arb_element2 and
-   ~tsem_registers_arb_element3.arb_element3 */
-#define TSEM_REG_ARB_ELEMENT4					 0x180030
-#define TSEM_REG_ENABLE_IN					 0x1800a4
-#define TSEM_REG_ENABLE_OUT					 0x1800a8
-/* [RW 32] This address space contains all registers and memories that are
-   placed in SEM_FAST block. The SEM_FAST registers are described in
-   appendix B. In order to access the SEM_FAST registers the base address
-   TSEM_REGISTERS_FAST_MEMORY (Offset: 0x1a0000) should be added to each
-   SEM_FAST register offset. */
-#define TSEM_REG_FAST_MEMORY					 0x1a0000
-/* [RW 1] Disables input messages from FIC0 May be updated during run_time
-   by the microcode */
-#define TSEM_REG_FIC0_DISABLE					 0x180224
-/* [RW 1] Disables input messages from FIC1 May be updated during run_time
-   by the microcode */
-#define TSEM_REG_FIC1_DISABLE					 0x180234
-/* [RW 15] Interrupt table Read and write access to it is not possible in
-   the middle of the work */
-#define TSEM_REG_INT_TABLE					 0x180400
-/* [ST 24] Statistics register. The number of messages that entered through
-   FIC0 */
-#define TSEM_REG_MSG_NUM_FIC0					 0x180000
-/* [ST 24] Statistics register. The number of messages that entered through
-   FIC1 */
-#define TSEM_REG_MSG_NUM_FIC1					 0x180004
-/* [ST 24] Statistics register. The number of messages that were sent to
-   FOC0 */
-#define TSEM_REG_MSG_NUM_FOC0					 0x180008
-/* [ST 24] Statistics register. The number of messages that were sent to
-   FOC1 */
-#define TSEM_REG_MSG_NUM_FOC1					 0x18000c
-/* [ST 24] Statistics register. The number of messages that were sent to
-   FOC2 */
-#define TSEM_REG_MSG_NUM_FOC2					 0x180010
-/* [ST 24] Statistics register. The number of messages that were sent to
-   FOC3 */
-#define TSEM_REG_MSG_NUM_FOC3					 0x180014
-/* [RW 1] Disables input messages from the passive buffer May be updated
-   during run_time by the microcode */
-#define TSEM_REG_PAS_DISABLE					 0x18024c
-/* [WB 128] Debug only. Passive buffer memory */
-#define TSEM_REG_PASSIVE_BUFFER 				 0x181000
-/* [WB 46] pram memory. B45 is parity; b[44:0] - data. */
-#define TSEM_REG_PRAM						 0x1c0000
-/* [R 8] Valid sleeping threads indication have bit per thread */
-#define TSEM_REG_SLEEP_THREADS_VALID				 0x18026c
-/* [R 1] EXT_STORE FIFO is empty in sem_slow_ls_ext */
-#define TSEM_REG_SLOW_EXT_STORE_EMPTY				 0x1802a0
-/* [RW 8] List of free threads . There is a bit per thread. */
-#define TSEM_REG_THREADS_LIST					 0x1802e4
-/* [RW 3] The arbitration scheme of time_slot 0 */
-#define TSEM_REG_TS_0_AS					 0x180038
-/* [RW 3] The arbitration scheme of time_slot 10 */
-#define TSEM_REG_TS_10_AS					 0x180060
-/* [RW 3] The arbitration scheme of time_slot 11 */
-#define TSEM_REG_TS_11_AS					 0x180064
-/* [RW 3] The arbitration scheme of time_slot 12 */
-#define TSEM_REG_TS_12_AS					 0x180068
-/* [RW 3] The arbitration scheme of time_slot 13 */
-#define TSEM_REG_TS_13_AS					 0x18006c
-/* [RW 3] The arbitration scheme of time_slot 14 */
-#define TSEM_REG_TS_14_AS					 0x180070
-/* [RW 3] The arbitration scheme of time_slot 15 */
-#define TSEM_REG_TS_15_AS					 0x180074
-/* [RW 3] The arbitration scheme of time_slot 16 */
-#define TSEM_REG_TS_16_AS					 0x180078
-/* [RW 3] The arbitration scheme of time_slot 17 */
-#define TSEM_REG_TS_17_AS					 0x18007c
-/* [RW 3] The arbitration scheme of time_slot 18 */
-#define TSEM_REG_TS_18_AS					 0x180080
-/* [RW 3] The arbitration scheme of time_slot 1 */
-#define TSEM_REG_TS_1_AS					 0x18003c
-/* [RW 3] The arbitration scheme of time_slot 2 */
-#define TSEM_REG_TS_2_AS					 0x180040
-/* [RW 3] The arbitration scheme of time_slot 3 */
-#define TSEM_REG_TS_3_AS					 0x180044
-/* [RW 3] The arbitration scheme of time_slot 4 */
-#define TSEM_REG_TS_4_AS					 0x180048
-/* [RW 3] The arbitration scheme of time_slot 5 */
-#define TSEM_REG_TS_5_AS					 0x18004c
-/* [RW 3] The arbitration scheme of time_slot 6 */
-#define TSEM_REG_TS_6_AS					 0x180050
-/* [RW 3] The arbitration scheme of time_slot 7 */
-#define TSEM_REG_TS_7_AS					 0x180054
-/* [RW 3] The arbitration scheme of time_slot 8 */
-#define TSEM_REG_TS_8_AS					 0x180058
-/* [RW 3] The arbitration scheme of time_slot 9 */
-#define TSEM_REG_TS_9_AS					 0x18005c
-/* [RW 32] Interrupt mask register #0 read/write */
-#define TSEM_REG_TSEM_INT_MASK_0				 0x180100
-#define TSEM_REG_TSEM_INT_MASK_1				 0x180110
-/* [RW 32] Parity mask register #0 read/write */
-#define TSEM_REG_TSEM_PRTY_MASK_0				 0x180120
-#define TSEM_REG_TSEM_PRTY_MASK_1				 0x180130
-/* [R 5] Used to read the XX protection CAM occupancy counter. */
-#define UCM_REG_CAM_OCCUP					 0xe0170
-/* [RW 1] CDU AG read Interface enable. If 0 - the request input is
-   disregarded; valid output is deasserted; all other signals are treated as
-   usual; if 1 - normal activity. */
-#define UCM_REG_CDU_AG_RD_IFEN					 0xe0038
-/* [RW 1] CDU AG write Interface enable. If 0 - the request and valid input
-   are disregarded; all other signals are treated as usual; if 1 - normal
-   activity. */
-#define UCM_REG_CDU_AG_WR_IFEN					 0xe0034
-/* [RW 1] CDU STORM read Interface enable. If 0 - the request input is
-   disregarded; valid output is deasserted; all other signals are treated as
-   usual; if 1 - normal activity. */
-#define UCM_REG_CDU_SM_RD_IFEN					 0xe0040
-/* [RW 1] CDU STORM write Interface enable. If 0 - the request and valid
-   input is disregarded; all other signals are treated as usual; if 1 -
-   normal activity. */
-#define UCM_REG_CDU_SM_WR_IFEN					 0xe003c
-/* [RW 4] CFC output initial credit. Max credit available - 15.Write writes
-   the initial credit value; read returns the current value of the credit
-   counter. Must be initialized to 1 at start-up. */
-#define UCM_REG_CFC_INIT_CRD					 0xe0204
-/* [RW 3] The weight of the CP input in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define UCM_REG_CP_WEIGHT					 0xe00c4
-/* [RW 1] Input csem Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define UCM_REG_CSEM_IFEN					 0xe0028
-/* [RC 1] Set when the message length mismatch (relative to last indication)
-   at the csem interface is detected. */
-#define UCM_REG_CSEM_LENGTH_MIS 				 0xe0160
-/* [RW 3] The weight of the input csem in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define UCM_REG_CSEM_WEIGHT					 0xe00b8
-/* [RW 1] Input dorq Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define UCM_REG_DORQ_IFEN					 0xe0030
-/* [RC 1] Set when the message length mismatch (relative to last indication)
-   at the dorq interface is detected. */
-#define UCM_REG_DORQ_LENGTH_MIS 				 0xe0168
-/* [RW 8] The Event ID in case ErrorFlg input message bit is set. */
-#define UCM_REG_ERR_EVNT_ID					 0xe00a4
-/* [RW 28] The CM erroneous header for QM and Timers formatting. */
-#define UCM_REG_ERR_UCM_HDR					 0xe00a0
-/* [RW 8] The Event ID for Timers expiration. */
-#define UCM_REG_EXPR_EVNT_ID					 0xe00a8
-/* [RW 8] FIC0 output initial credit. Max credit available - 255.Write
-   writes the initial credit value; read returns the current value of the
-   credit counter. Must be initialized to 64 at start-up. */
-#define UCM_REG_FIC0_INIT_CRD					 0xe020c
-/* [RW 8] FIC1 output initial credit. Max credit available - 255.Write
-   writes the initial credit value; read returns the current value of the
-   credit counter. Must be initialized to 64 at start-up. */
-#define UCM_REG_FIC1_INIT_CRD					 0xe0210
-/* [RW 1] Arbitration between Input Arbiter groups: 0 - fair Round-Robin; 1
-   - strict priority defined by ~ucm_registers_gr_ag_pr.gr_ag_pr;
-   ~ucm_registers_gr_ld0_pr.gr_ld0_pr and
-   ~ucm_registers_gr_ld1_pr.gr_ld1_pr. */
-#define UCM_REG_GR_ARB_TYPE					 0xe0144
-/* [RW 2] Load (FIC0) channel group priority. The lowest priority is 0; the
-   highest priority is 3. It is supposed that the Store channel group is
-   compliment to the others. */
-#define UCM_REG_GR_LD0_PR					 0xe014c
-/* [RW 2] Load (FIC1) channel group priority. The lowest priority is 0; the
-   highest priority is 3. It is supposed that the Store channel group is
-   compliment to the others. */
-#define UCM_REG_GR_LD1_PR					 0xe0150
-/* [RW 2] The queue index for invalidate counter flag decision. */
-#define UCM_REG_INV_CFLG_Q					 0xe00e4
-/* [RW 5] The number of double REG-pairs; loaded from the STORM context and
-   sent to STORM; for a specific connection type. the double REG-pairs are
-   used in order to align to STORM context row size of 128 bits. The offset
-   of these data in the STORM context is always 0. Index _i stands for the
-   connection type (one of 16). */
-#define UCM_REG_N_SM_CTX_LD_0					 0xe0054
-#define UCM_REG_N_SM_CTX_LD_1					 0xe0058
-#define UCM_REG_N_SM_CTX_LD_10					 0xe007c
-#define UCM_REG_N_SM_CTX_LD_11					 0xe0080
-#define UCM_REG_N_SM_CTX_LD_12					 0xe0084
-#define UCM_REG_N_SM_CTX_LD_13					 0xe0088
-#define UCM_REG_N_SM_CTX_LD_14					 0xe008c
-#define UCM_REG_N_SM_CTX_LD_15					 0xe0090
-#define UCM_REG_N_SM_CTX_LD_2					 0xe005c
-#define UCM_REG_N_SM_CTX_LD_3					 0xe0060
-#define UCM_REG_N_SM_CTX_LD_4					 0xe0064
-/* [RW 6] The physical queue number 0 per port index (CID[23]) */
-#define UCM_REG_PHYS_QNUM0_0					 0xe0110
-#define UCM_REG_PHYS_QNUM0_1					 0xe0114
-/* [RW 6] The physical queue number 1 per port index (CID[23]) */
-#define UCM_REG_PHYS_QNUM1_0					 0xe0118
-#define UCM_REG_PHYS_QNUM1_1					 0xe011c
-/* [RW 8] The Event ID for Timers formatting in case of stop done. */
-#define UCM_REG_STOP_EVNT_ID					 0xe00ac
-/* [RC 1] Set when the message length mismatch (relative to last indication)
-   at the STORM interface is detected. */
-#define UCM_REG_STORM_LENGTH_MIS				 0xe0154
-/* [RW 1] STORM - CM Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define UCM_REG_STORM_UCM_IFEN					 0xe0010
-/* [RW 4] Timers output initial credit. Max credit available - 15.Write
-   writes the initial credit value; read returns the current value of the
-   credit counter. Must be initialized to 4 at start-up. */
-#define UCM_REG_TM_INIT_CRD					 0xe021c
-/* [RW 28] The CM header for Timers expiration command. */
-#define UCM_REG_TM_UCM_HDR					 0xe009c
-/* [RW 1] Timers - CM Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define UCM_REG_TM_UCM_IFEN					 0xe001c
-/* [RW 1] Input tsem Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define UCM_REG_TSEM_IFEN					 0xe0024
-/* [RC 1] Set when the message length mismatch (relative to last indication)
-   at the tsem interface is detected. */
-#define UCM_REG_TSEM_LENGTH_MIS 				 0xe015c
-/* [RW 3] The weight of the input tsem in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define UCM_REG_TSEM_WEIGHT					 0xe00b4
-/* [RW 1] CM - CFC Interface enable. If 0 - the valid input is disregarded;
-   acknowledge output is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define UCM_REG_UCM_CFC_IFEN					 0xe0044
-/* [RW 11] Interrupt mask register #0 read/write */
-#define UCM_REG_UCM_INT_MASK					 0xe01d4
-/* [R 11] Interrupt register #0 read */
-#define UCM_REG_UCM_INT_STS					 0xe01c8
-/* [RW 2] The size of AG context region 0 in REG-pairs. Designates the MS
-   REG-pair number (e.g. if region 0 is 6 REG-pairs; the value should be 5).
-   Is used to determine the number of the AG context REG-pairs written back;
-   when the Reg1WbFlg isn't set. */
-#define UCM_REG_UCM_REG0_SZ					 0xe00dc
-/* [RW 1] CM - STORM 0 Interface enable. If 0 - the acknowledge input is
-   disregarded; valid is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define UCM_REG_UCM_STORM0_IFEN 				 0xe0004
-/* [RW 1] CM - STORM 1 Interface enable. If 0 - the acknowledge input is
-   disregarded; valid is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define UCM_REG_UCM_STORM1_IFEN 				 0xe0008
-/* [RW 1] CM - Timers Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define UCM_REG_UCM_TM_IFEN					 0xe0020
-/* [RW 1] CM - QM Interface enable. If 0 - the acknowledge input is
-   disregarded; valid is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define UCM_REG_UCM_UQM_IFEN					 0xe000c
-/* [RW 1] If set the Q index; received from the QM is inserted to event ID. */
-#define UCM_REG_UCM_UQM_USE_Q					 0xe00d8
-/* [RW 6] QM output initial credit. Max credit available - 32.Write writes
-   the initial credit value; read returns the current value of the credit
-   counter. Must be initialized to 32 at start-up. */
-#define UCM_REG_UQM_INIT_CRD					 0xe0220
-/* [RW 3] The weight of the QM (primary) input in the WRR mechanism. 0
-   stands for weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define UCM_REG_UQM_P_WEIGHT					 0xe00cc
-/* [RW 28] The CM header value for QM request (primary). */
-#define UCM_REG_UQM_UCM_HDR_P					 0xe0094
-/* [RW 28] The CM header value for QM request (secondary). */
-#define UCM_REG_UQM_UCM_HDR_S					 0xe0098
-/* [RW 1] QM - CM Interface enable. If 0 - the valid input is disregarded;
-   acknowledge output is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define UCM_REG_UQM_UCM_IFEN					 0xe0014
-/* [RW 1] Input SDM Interface enable. If 0 - the valid input is disregarded;
-   acknowledge output is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define UCM_REG_USDM_IFEN					 0xe0018
-/* [RC 1] Set when the message length mismatch (relative to last indication)
-   at the SDM interface is detected. */
-#define UCM_REG_USDM_LENGTH_MIS 				 0xe0158
-/* [RW 1] Input xsem Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define UCM_REG_XSEM_IFEN					 0xe002c
-/* [RC 1] Set when the message length mismatch (relative to last indication)
-   at the xsem interface isdetected. */
-#define UCM_REG_XSEM_LENGTH_MIS 				 0xe0164
-/* [RW 20] Indirect access to the descriptor table of the XX protection
-   mechanism. The fields are:[5:0] - message length; 14:6] - message
-   pointer; 19:15] - next pointer. */
-#define UCM_REG_XX_DESCR_TABLE					 0xe0280
-/* [R 6] Use to read the XX protection Free counter. */
-#define UCM_REG_XX_FREE 					 0xe016c
-/* [RW 6] Initial value for the credit counter; responsible for fulfilling
-   of the Input Stage XX protection buffer by the XX protection pending
-   messages. Write writes the initial credit value; read returns the current
-   value of the credit counter. Must be initialized to 12 at start-up. */
-#define UCM_REG_XX_INIT_CRD					 0xe0224
-/* [RW 6] The maximum number of pending messages; which may be stored in XX
-   protection. ~ucm_registers_xx_free.xx_free read on read. */
-#define UCM_REG_XX_MSG_NUM					 0xe0228
-/* [RW 8] The Event ID; sent to the STORM in case of XX overflow. */
-#define UCM_REG_XX_OVFL_EVNT_ID 				 0xe004c
-/* [RW 16] Indirect access to the XX table of the XX protection mechanism.
-   The fields are: [4:0] - tail pointer; 10:5] - Link List size; 15:11] -
-   header pointer. */
-#define UCM_REG_XX_TABLE					 0xe0300
-/* [RW 8] The event id for aggregated interrupt 0 */
-#define USDM_REG_AGG_INT_EVENT_0				 0xc4038
-#define USDM_REG_AGG_INT_EVENT_1				 0xc403c
-#define USDM_REG_AGG_INT_EVENT_10				 0xc4060
-#define USDM_REG_AGG_INT_EVENT_11				 0xc4064
-#define USDM_REG_AGG_INT_EVENT_12				 0xc4068
-#define USDM_REG_AGG_INT_EVENT_13				 0xc406c
-#define USDM_REG_AGG_INT_EVENT_14				 0xc4070
-#define USDM_REG_AGG_INT_EVENT_15				 0xc4074
-#define USDM_REG_AGG_INT_EVENT_16				 0xc4078
-#define USDM_REG_AGG_INT_EVENT_17				 0xc407c
-#define USDM_REG_AGG_INT_EVENT_18				 0xc4080
-#define USDM_REG_AGG_INT_EVENT_19				 0xc4084
-/* [RW 1] For each aggregated interrupt index whether the mode is normal (0)
-   or auto-mask-mode (1) */
-#define USDM_REG_AGG_INT_MODE_0 				 0xc41b8
-#define USDM_REG_AGG_INT_MODE_1 				 0xc41bc
-#define USDM_REG_AGG_INT_MODE_10				 0xc41e0
-#define USDM_REG_AGG_INT_MODE_11				 0xc41e4
-#define USDM_REG_AGG_INT_MODE_12				 0xc41e8
-#define USDM_REG_AGG_INT_MODE_13				 0xc41ec
-#define USDM_REG_AGG_INT_MODE_14				 0xc41f0
-#define USDM_REG_AGG_INT_MODE_15				 0xc41f4
-#define USDM_REG_AGG_INT_MODE_16				 0xc41f8
-#define USDM_REG_AGG_INT_MODE_17				 0xc41fc
-#define USDM_REG_AGG_INT_MODE_18				 0xc4200
-#define USDM_REG_AGG_INT_MODE_19				 0xc4204
-/* [RW 13] The start address in the internal RAM for the cfc_rsp lcid */
-#define USDM_REG_CFC_RSP_START_ADDR				 0xc4008
-/* [RW 16] The maximum value of the competion counter #0 */
-#define USDM_REG_CMP_COUNTER_MAX0				 0xc401c
-/* [RW 16] The maximum value of the competion counter #1 */
-#define USDM_REG_CMP_COUNTER_MAX1				 0xc4020
-/* [RW 16] The maximum value of the competion counter #2 */
-#define USDM_REG_CMP_COUNTER_MAX2				 0xc4024
-/* [RW 16] The maximum value of the competion counter #3 */
-#define USDM_REG_CMP_COUNTER_MAX3				 0xc4028
-/* [RW 13] The start address in the internal RAM for the completion
-   counters. */
-#define USDM_REG_CMP_COUNTER_START_ADDR 			 0xc400c
-#define USDM_REG_ENABLE_IN1					 0xc4238
-#define USDM_REG_ENABLE_IN2					 0xc423c
-#define USDM_REG_ENABLE_OUT1					 0xc4240
-#define USDM_REG_ENABLE_OUT2					 0xc4244
-/* [RW 4] The initial number of messages that can be sent to the pxp control
-   interface without receiving any ACK. */
-#define USDM_REG_INIT_CREDIT_PXP_CTRL				 0xc44c0
-/* [ST 32] The number of ACK after placement messages received */
-#define USDM_REG_NUM_OF_ACK_AFTER_PLACE 			 0xc4280
-/* [ST 32] The number of packet end messages received from the parser */
-#define USDM_REG_NUM_OF_PKT_END_MSG				 0xc4278
-/* [ST 32] The number of requests received from the pxp async if */
-#define USDM_REG_NUM_OF_PXP_ASYNC_REQ				 0xc427c
-/* [ST 32] The number of commands received in queue 0 */
-#define USDM_REG_NUM_OF_Q0_CMD					 0xc4248
-/* [ST 32] The number of commands received in queue 10 */
-#define USDM_REG_NUM_OF_Q10_CMD 				 0xc4270
-/* [ST 32] The number of commands received in queue 11 */
-#define USDM_REG_NUM_OF_Q11_CMD 				 0xc4274
-/* [ST 32] The number of commands received in queue 1 */
-#define USDM_REG_NUM_OF_Q1_CMD					 0xc424c
-/* [ST 32] The number of commands received in queue 2 */
-#define USDM_REG_NUM_OF_Q2_CMD					 0xc4250
-/* [ST 32] The number of commands received in queue 3 */
-#define USDM_REG_NUM_OF_Q3_CMD					 0xc4254
-/* [ST 32] The number of commands received in queue 4 */
-#define USDM_REG_NUM_OF_Q4_CMD					 0xc4258
-/* [ST 32] The number of commands received in queue 5 */
-#define USDM_REG_NUM_OF_Q5_CMD					 0xc425c
-/* [ST 32] The number of commands received in queue 6 */
-#define USDM_REG_NUM_OF_Q6_CMD					 0xc4260
-/* [ST 32] The number of commands received in queue 7 */
-#define USDM_REG_NUM_OF_Q7_CMD					 0xc4264
-/* [ST 32] The number of commands received in queue 8 */
-#define USDM_REG_NUM_OF_Q8_CMD					 0xc4268
-/* [ST 32] The number of commands received in queue 9 */
-#define USDM_REG_NUM_OF_Q9_CMD					 0xc426c
-/* [RW 13] The start address in the internal RAM for the packet end message */
-#define USDM_REG_PCK_END_MSG_START_ADDR 			 0xc4014
-/* [RW 13] The start address in the internal RAM for queue counters */
-#define USDM_REG_Q_COUNTER_START_ADDR				 0xc4010
-/* [R 1] pxp_ctrl rd_data fifo empty in sdm_dma_rsp block */
-#define USDM_REG_RSP_PXP_CTRL_RDATA_EMPTY			 0xc4550
-/* [R 1] parser fifo empty in sdm_sync block */
-#define USDM_REG_SYNC_PARSER_EMPTY				 0xc4558
-/* [R 1] parser serial fifo empty in sdm_sync block */
-#define USDM_REG_SYNC_SYNC_EMPTY				 0xc4560
-/* [RW 32] Tick for timer counter. Applicable only when
-   ~usdm_registers_timer_tick_enable.timer_tick_enable =1 */
-#define USDM_REG_TIMER_TICK					 0xc4000
-/* [RW 32] Interrupt mask register #0 read/write */
-#define USDM_REG_USDM_INT_MASK_0				 0xc42a0
-#define USDM_REG_USDM_INT_MASK_1				 0xc42b0
-/* [RW 11] Parity mask register #0 read/write */
-#define USDM_REG_USDM_PRTY_MASK 				 0xc42c0
-/* [RW 5] The number of time_slots in the arbitration cycle */
-#define USEM_REG_ARB_CYCLE_SIZE 				 0x300034
-/* [RW 3] The source that is associated with arbitration element 0. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2 */
-#define USEM_REG_ARB_ELEMENT0					 0x300020
-/* [RW 3] The source that is associated with arbitration element 1. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2.
-   Could not be equal to register ~usem_registers_arb_element0.arb_element0 */
-#define USEM_REG_ARB_ELEMENT1					 0x300024
-/* [RW 3] The source that is associated with arbitration element 2. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2.
-   Could not be equal to register ~usem_registers_arb_element0.arb_element0
-   and ~usem_registers_arb_element1.arb_element1 */
-#define USEM_REG_ARB_ELEMENT2					 0x300028
-/* [RW 3] The source that is associated with arbitration element 3. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2.Could
-   not be equal to register ~usem_registers_arb_element0.arb_element0 and
-   ~usem_registers_arb_element1.arb_element1 and
-   ~usem_registers_arb_element2.arb_element2 */
-#define USEM_REG_ARB_ELEMENT3					 0x30002c
-/* [RW 3] The source that is associated with arbitration element 4. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2.
-   Could not be equal to register ~usem_registers_arb_element0.arb_element0
-   and ~usem_registers_arb_element1.arb_element1 and
-   ~usem_registers_arb_element2.arb_element2 and
-   ~usem_registers_arb_element3.arb_element3 */
-#define USEM_REG_ARB_ELEMENT4					 0x300030
-#define USEM_REG_ENABLE_IN					 0x3000a4
-#define USEM_REG_ENABLE_OUT					 0x3000a8
-/* [RW 32] This address space contains all registers and memories that are
-   placed in SEM_FAST block. The SEM_FAST registers are described in
-   appendix B. In order to access the SEM_FAST registers... the base address
-   USEM_REGISTERS_FAST_MEMORY (Offset: 0x320000) should be added to each
-   SEM_FAST register offset. */
-#define USEM_REG_FAST_MEMORY					 0x320000
-/* [RW 1] Disables input messages from FIC0 May be updated during run_time
-   by the microcode */
-#define USEM_REG_FIC0_DISABLE					 0x300224
-/* [RW 1] Disables input messages from FIC1 May be updated during run_time
-   by the microcode */
-#define USEM_REG_FIC1_DISABLE					 0x300234
-/* [RW 15] Interrupt table Read and write access to it is not possible in
-   the middle of the work */
-#define USEM_REG_INT_TABLE					 0x300400
-/* [ST 24] Statistics register. The number of messages that entered through
-   FIC0 */
-#define USEM_REG_MSG_NUM_FIC0					 0x300000
-/* [ST 24] Statistics register. The number of messages that entered through
-   FIC1 */
-#define USEM_REG_MSG_NUM_FIC1					 0x300004
-/* [ST 24] Statistics register. The number of messages that were sent to
-   FOC0 */
-#define USEM_REG_MSG_NUM_FOC0					 0x300008
-/* [ST 24] Statistics register. The number of messages that were sent to
-   FOC1 */
-#define USEM_REG_MSG_NUM_FOC1					 0x30000c
-/* [ST 24] Statistics register. The number of messages that were sent to
-   FOC2 */
-#define USEM_REG_MSG_NUM_FOC2					 0x300010
-/* [ST 24] Statistics register. The number of messages that were sent to
-   FOC3 */
-#define USEM_REG_MSG_NUM_FOC3					 0x300014
-/* [RW 1] Disables input messages from the passive buffer May be updated
-   during run_time by the microcode */
-#define USEM_REG_PAS_DISABLE					 0x30024c
-/* [WB 128] Debug only. Passive buffer memory */
-#define USEM_REG_PASSIVE_BUFFER 				 0x302000
-/* [WB 46] pram memory. B45 is parity; b[44:0] - data. */
-#define USEM_REG_PRAM						 0x340000
-/* [R 16] Valid sleeping threads indication have bit per thread */
-#define USEM_REG_SLEEP_THREADS_VALID				 0x30026c
-/* [R 1] EXT_STORE FIFO is empty in sem_slow_ls_ext */
-#define USEM_REG_SLOW_EXT_STORE_EMPTY				 0x3002a0
-/* [RW 16] List of free threads . There is a bit per thread. */
-#define USEM_REG_THREADS_LIST					 0x3002e4
-/* [RW 3] The arbitration scheme of time_slot 0 */
-#define USEM_REG_TS_0_AS					 0x300038
-/* [RW 3] The arbitration scheme of time_slot 10 */
-#define USEM_REG_TS_10_AS					 0x300060
-/* [RW 3] The arbitration scheme of time_slot 11 */
-#define USEM_REG_TS_11_AS					 0x300064
-/* [RW 3] The arbitration scheme of time_slot 12 */
-#define USEM_REG_TS_12_AS					 0x300068
-/* [RW 3] The arbitration scheme of time_slot 13 */
-#define USEM_REG_TS_13_AS					 0x30006c
-/* [RW 3] The arbitration scheme of time_slot 14 */
-#define USEM_REG_TS_14_AS					 0x300070
-/* [RW 3] The arbitration scheme of time_slot 15 */
-#define USEM_REG_TS_15_AS					 0x300074
-/* [RW 3] The arbitration scheme of time_slot 16 */
-#define USEM_REG_TS_16_AS					 0x300078
-/* [RW 3] The arbitration scheme of time_slot 17 */
-#define USEM_REG_TS_17_AS					 0x30007c
-/* [RW 3] The arbitration scheme of time_slot 18 */
-#define USEM_REG_TS_18_AS					 0x300080
-/* [RW 3] The arbitration scheme of time_slot 1 */
-#define USEM_REG_TS_1_AS					 0x30003c
-/* [RW 3] The arbitration scheme of time_slot 2 */
-#define USEM_REG_TS_2_AS					 0x300040
-/* [RW 3] The arbitration scheme of time_slot 3 */
-#define USEM_REG_TS_3_AS					 0x300044
-/* [RW 3] The arbitration scheme of time_slot 4 */
-#define USEM_REG_TS_4_AS					 0x300048
-/* [RW 3] The arbitration scheme of time_slot 5 */
-#define USEM_REG_TS_5_AS					 0x30004c
-/* [RW 3] The arbitration scheme of time_slot 6 */
-#define USEM_REG_TS_6_AS					 0x300050
-/* [RW 3] The arbitration scheme of time_slot 7 */
-#define USEM_REG_TS_7_AS					 0x300054
-/* [RW 3] The arbitration scheme of time_slot 8 */
-#define USEM_REG_TS_8_AS					 0x300058
-/* [RW 3] The arbitration scheme of time_slot 9 */
-#define USEM_REG_TS_9_AS					 0x30005c
-/* [RW 32] Interrupt mask register #0 read/write */
-#define USEM_REG_USEM_INT_MASK_0				 0x300110
-#define USEM_REG_USEM_INT_MASK_1				 0x300120
-/* [RW 32] Parity mask register #0 read/write */
-#define USEM_REG_USEM_PRTY_MASK_0				 0x300130
-#define USEM_REG_USEM_PRTY_MASK_1				 0x300140
-/* [RW 2] The queue index for registration on Aux1 counter flag. */
-#define XCM_REG_AUX1_Q						 0x20134
-/* [RW 2] Per each decision rule the queue index to register to. */
-#define XCM_REG_AUX_CNT_FLG_Q_19				 0x201b0
-/* [R 5] Used to read the XX protection CAM occupancy counter. */
-#define XCM_REG_CAM_OCCUP					 0x20244
-/* [RW 1] CDU AG read Interface enable. If 0 - the request input is
-   disregarded; valid output is deasserted; all other signals are treated as
-   usual; if 1 - normal activity. */
-#define XCM_REG_CDU_AG_RD_IFEN					 0x20044
-/* [RW 1] CDU AG write Interface enable. If 0 - the request and valid input
-   are disregarded; all other signals are treated as usual; if 1 - normal
-   activity. */
-#define XCM_REG_CDU_AG_WR_IFEN					 0x20040
-/* [RW 1] CDU STORM read Interface enable. If 0 - the request input is
-   disregarded; valid output is deasserted; all other signals are treated as
-   usual; if 1 - normal activity. */
-#define XCM_REG_CDU_SM_RD_IFEN					 0x2004c
-/* [RW 1] CDU STORM write Interface enable. If 0 - the request and valid
-   input is disregarded; all other signals are treated as usual; if 1 -
-   normal activity. */
-#define XCM_REG_CDU_SM_WR_IFEN					 0x20048
-/* [RW 4] CFC output initial credit. Max credit available - 15.Write writes
-   the initial credit value; read returns the current value of the credit
-   counter. Must be initialized to 1 at start-up. */
-#define XCM_REG_CFC_INIT_CRD					 0x20404
-/* [RW 3] The weight of the CP input in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define XCM_REG_CP_WEIGHT					 0x200dc
-/* [RW 1] Input csem Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define XCM_REG_CSEM_IFEN					 0x20028
-/* [RC 1] Set at message length mismatch (relative to last indication) at
-   the csem interface. */
-#define XCM_REG_CSEM_LENGTH_MIS 				 0x20228
-/* [RW 3] The weight of the input csem in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define XCM_REG_CSEM_WEIGHT					 0x200c4
-/* [RW 1] Input dorq Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define XCM_REG_DORQ_IFEN					 0x20030
-/* [RC 1] Set at message length mismatch (relative to last indication) at
-   the dorq interface. */
-#define XCM_REG_DORQ_LENGTH_MIS 				 0x20230
-/* [RW 8] The Event ID in case the ErrorFlg input message bit is set. */
-#define XCM_REG_ERR_EVNT_ID					 0x200b0
-/* [RW 28] The CM erroneous header for QM and Timers formatting. */
-#define XCM_REG_ERR_XCM_HDR					 0x200ac
-/* [RW 8] The Event ID for Timers expiration. */
-#define XCM_REG_EXPR_EVNT_ID					 0x200b4
-/* [RW 8] FIC0 output initial credit. Max credit available - 255.Write
-   writes the initial credit value; read returns the current value of the
-   credit counter. Must be initialized to 64 at start-up. */
-#define XCM_REG_FIC0_INIT_CRD					 0x2040c
-/* [RW 8] FIC1 output initial credit. Max credit available - 255.Write
-   writes the initial credit value; read returns the current value of the
-   credit counter. Must be initialized to 64 at start-up. */
-#define XCM_REG_FIC1_INIT_CRD					 0x20410
-/* [RW 8] The maximum delayed ACK counter value.Must be at least 2. Per port
-   value. */
-#define XCM_REG_GLB_DEL_ACK_MAX_CNT_0				 0x20118
-#define XCM_REG_GLB_DEL_ACK_MAX_CNT_1				 0x2011c
-/* [RW 28] The delayed ACK timeout in ticks. Per port value. */
-#define XCM_REG_GLB_DEL_ACK_TMR_VAL_0				 0x20108
-#define XCM_REG_GLB_DEL_ACK_TMR_VAL_1				 0x2010c
-/* [RW 1] Arbitratiojn between Input Arbiter groups: 0 - fair Round-Robin; 1
-   - strict priority defined by ~xcm_registers_gr_ag_pr.gr_ag_pr;
-   ~xcm_registers_gr_ld0_pr.gr_ld0_pr and
-   ~xcm_registers_gr_ld1_pr.gr_ld1_pr. */
-#define XCM_REG_GR_ARB_TYPE					 0x2020c
-/* [RW 2] Load (FIC0) channel group priority. The lowest priority is 0; the
-   highest priority is 3. It is supposed that the Channel group is the
-   compliment of the other 3 groups. */
-#define XCM_REG_GR_LD0_PR					 0x20214
-/* [RW 2] Load (FIC1) channel group priority. The lowest priority is 0; the
-   highest priority is 3. It is supposed that the Channel group is the
-   compliment of the other 3 groups. */
-#define XCM_REG_GR_LD1_PR					 0x20218
-/* [RW 1] Input nig0 Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define XCM_REG_NIG0_IFEN					 0x20038
-/* [RC 1] Set at message length mismatch (relative to last indication) at
-   the nig0 interface. */
-#define XCM_REG_NIG0_LENGTH_MIS 				 0x20238
-/* [RW 1] Input nig1 Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define XCM_REG_NIG1_IFEN					 0x2003c
-/* [RC 1] Set at message length mismatch (relative to last indication) at
-   the nig1 interface. */
-#define XCM_REG_NIG1_LENGTH_MIS 				 0x2023c
-/* [RW 3] The weight of the input nig1 in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define XCM_REG_NIG1_WEIGHT					 0x200d8
-/* [RW 5] The number of double REG-pairs; loaded from the STORM context and
-   sent to STORM; for a specific connection type. The double REG-pairs are
-   used in order to align to STORM context row size of 128 bits. The offset
-   of these data in the STORM context is always 0. Index _i stands for the
-   connection type (one of 16). */
-#define XCM_REG_N_SM_CTX_LD_0					 0x20060
-#define XCM_REG_N_SM_CTX_LD_1					 0x20064
-#define XCM_REG_N_SM_CTX_LD_10					 0x20088
-#define XCM_REG_N_SM_CTX_LD_11					 0x2008c
-#define XCM_REG_N_SM_CTX_LD_12					 0x20090
-#define XCM_REG_N_SM_CTX_LD_13					 0x20094
-#define XCM_REG_N_SM_CTX_LD_14					 0x20098
-#define XCM_REG_N_SM_CTX_LD_15					 0x2009c
-#define XCM_REG_N_SM_CTX_LD_2					 0x20068
-#define XCM_REG_N_SM_CTX_LD_3					 0x2006c
-#define XCM_REG_N_SM_CTX_LD_4					 0x20070
-/* [RW 1] Input pbf Interface enable. If 0 - the valid input is disregarded;
-   acknowledge output is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define XCM_REG_PBF_IFEN					 0x20034
-/* [RC 1] Set at message length mismatch (relative to last indication) at
-   the pbf interface. */
-#define XCM_REG_PBF_LENGTH_MIS					 0x20234
-/* [RW 3] The weight of the input pbf in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define XCM_REG_PBF_WEIGHT					 0x200d0
-/* [RW 8] The Event ID for Timers formatting in case of stop done. */
-#define XCM_REG_STOP_EVNT_ID					 0x200b8
-/* [RC 1] Set at message length mismatch (relative to last indication) at
-   the STORM interface. */
-#define XCM_REG_STORM_LENGTH_MIS				 0x2021c
-/* [RW 3] The weight of the STORM input in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define XCM_REG_STORM_WEIGHT					 0x200bc
-/* [RW 1] STORM - CM Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define XCM_REG_STORM_XCM_IFEN					 0x20010
-/* [RW 4] Timers output initial credit. Max credit available - 15.Write
-   writes the initial credit value; read returns the current value of the
-   credit counter. Must be initialized to 4 at start-up. */
-#define XCM_REG_TM_INIT_CRD					 0x2041c
-/* [RW 28] The CM header for Timers expiration command. */
-#define XCM_REG_TM_XCM_HDR					 0x200a8
-/* [RW 1] Timers - CM Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define XCM_REG_TM_XCM_IFEN					 0x2001c
-/* [RW 1] Input tsem Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define XCM_REG_TSEM_IFEN					 0x20024
-/* [RC 1] Set at message length mismatch (relative to last indication) at
-   the tsem interface. */
-#define XCM_REG_TSEM_LENGTH_MIS 				 0x20224
-/* [RW 3] The weight of the input tsem in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define XCM_REG_TSEM_WEIGHT					 0x200c0
-/* [RW 2] The queue index for registration on UNA greater NXT decision rule. */
-#define XCM_REG_UNA_GT_NXT_Q					 0x20120
-/* [RW 1] Input usem Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define XCM_REG_USEM_IFEN					 0x2002c
-/* [RC 1] Message length mismatch (relative to last indication) at the usem
-   interface. */
-#define XCM_REG_USEM_LENGTH_MIS 				 0x2022c
-/* [RW 3] The weight of the input usem in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define XCM_REG_USEM_WEIGHT					 0x200c8
-/* [RW 2] DA counter command; used in case of window update doorbell.The
-   first index stands for the value DaEnable of that connection. The second
-   index stands for port number. */
-#define XCM_REG_WU_DA_CNT_CMD00 				 0x201d4
-/* [RW 2] DA counter command; used in case of window update doorbell.The
-   first index stands for the value DaEnable of that connection. The second
-   index stands for port number. */
-#define XCM_REG_WU_DA_CNT_CMD01 				 0x201d8
-/* [RW 2] DA counter command; used in case of window update doorbell.The
-   first index stands for the value DaEnable of that connection. The second
-   index stands for port number. */
-#define XCM_REG_WU_DA_CNT_CMD10 				 0x201dc
-/* [RW 2] DA counter command; used in case of window update doorbell.The
-   first index stands for the value DaEnable of that connection. The second
-   index stands for port number. */
-#define XCM_REG_WU_DA_CNT_CMD11 				 0x201e0
-/* [RW 8] DA counter update value used in case of window update doorbell.The
-   first index stands for the value DaEnable of that connection. The second
-   index stands for port number. */
-#define XCM_REG_WU_DA_CNT_UPD_VAL00				 0x201e4
-/* [RW 8] DA counter update value; used in case of window update
-   doorbell.The first index stands for the value DaEnable of that
-   connection. The second index stands for port number. */
-#define XCM_REG_WU_DA_CNT_UPD_VAL01				 0x201e8
-/* [RW 8] DA counter update value; used in case of window update
-   doorbell.The first index stands for the value DaEnable of that
-   connection. The second index stands for port number. */
-#define XCM_REG_WU_DA_CNT_UPD_VAL10				 0x201ec
-/* [RW 8] DA counter update value; used in case of window update
-   doorbell.The first index stands for the value DaEnable of that
-   connection. The second index stands for port number. */
-#define XCM_REG_WU_DA_CNT_UPD_VAL11				 0x201f0
-/* [RW 1] DA timer command; used in case of window update doorbell.The first
-   index stands for the value DaEnable of that connection. The second index
-   stands for port number. */
-#define XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD00			 0x201c4
-/* [RW 1] DA timer command; used in case of window update doorbell.The first
-   index stands for the value DaEnable of that connection. The second index
-   stands for port number. */
-#define XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD01			 0x201c8
-/* [RW 1] DA timer command; used in case of window update doorbell.The first
-   index stands for the value DaEnable of that connection. The second index
-   stands for port number. */
-#define XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD10			 0x201cc
-/* [RW 1] DA timer command; used in case of window update doorbell.The first
-   index stands for the value DaEnable of that connection. The second index
-   stands for port number. */
-#define XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD11			 0x201d0
-/* [RW 1] CM - CFC Interface enable. If 0 - the valid input is disregarded;
-   acknowledge output is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define XCM_REG_XCM_CFC_IFEN					 0x20050
-/* [RW 14] Interrupt mask register #0 read/write */
-#define XCM_REG_XCM_INT_MASK					 0x202b4
-/* [R 14] Interrupt register #0 read */
-#define XCM_REG_XCM_INT_STS					 0x202a8
-/* [RW 4] The size of AG context region 0 in REG-pairs. Designates the MS
-   REG-pair number (e.g. if region 0 is 6 REG-pairs; the value should be 5).
-   Is used to determine the number of the AG context REG-pairs written back;
-   when the Reg1WbFlg isn't set. */
-#define XCM_REG_XCM_REG0_SZ					 0x200f4
-/* [RW 1] CM - STORM 0 Interface enable. If 0 - the acknowledge input is
-   disregarded; valid is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define XCM_REG_XCM_STORM0_IFEN 				 0x20004
-/* [RW 1] CM - STORM 1 Interface enable. If 0 - the acknowledge input is
-   disregarded; valid is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define XCM_REG_XCM_STORM1_IFEN 				 0x20008
-/* [RW 1] CM - Timers Interface enable. If 0 - the valid input is
-   disregarded; acknowledge output is deasserted; all other signals are
-   treated as usual; if 1 - normal activity. */
-#define XCM_REG_XCM_TM_IFEN					 0x20020
-/* [RW 1] CM - QM Interface enable. If 0 - the acknowledge input is
-   disregarded; valid is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define XCM_REG_XCM_XQM_IFEN					 0x2000c
-/* [RW 1] If set the Q index; received from the QM is inserted to event ID. */
-#define XCM_REG_XCM_XQM_USE_Q					 0x200f0
-/* [RW 4] The value by which CFC updates the activity counter at QM bypass. */
-#define XCM_REG_XQM_BYP_ACT_UPD 				 0x200fc
-/* [RW 6] QM output initial credit. Max credit available - 32.Write writes
-   the initial credit value; read returns the current value of the credit
-   counter. Must be initialized to 32 at start-up. */
-#define XCM_REG_XQM_INIT_CRD					 0x20420
-/* [RW 3] The weight of the QM (primary) input in the WRR mechanism. 0
-   stands for weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define XCM_REG_XQM_P_WEIGHT					 0x200e4
-/* [RW 28] The CM header value for QM request (primary). */
-#define XCM_REG_XQM_XCM_HDR_P					 0x200a0
-/* [RW 28] The CM header value for QM request (secondary). */
-#define XCM_REG_XQM_XCM_HDR_S					 0x200a4
-/* [RW 1] QM - CM Interface enable. If 0 - the valid input is disregarded;
-   acknowledge output is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define XCM_REG_XQM_XCM_IFEN					 0x20014
-/* [RW 1] Input SDM Interface enable. If 0 - the valid input is disregarded;
-   acknowledge output is deasserted; all other signals are treated as usual;
-   if 1 - normal activity. */
-#define XCM_REG_XSDM_IFEN					 0x20018
-/* [RC 1] Set at message length mismatch (relative to last indication) at
-   the SDM interface. */
-#define XCM_REG_XSDM_LENGTH_MIS 				 0x20220
-/* [RW 3] The weight of the SDM input in the WRR mechanism. 0 stands for
-   weight 8 (the most prioritised); 1 stands for weight 1(least
-   prioritised); 2 stands for weight 2; tc. */
-#define XCM_REG_XSDM_WEIGHT					 0x200e0
-/* [RW 17] Indirect access to the descriptor table of the XX protection
-   mechanism. The fields are: [5:0] - message length; 11:6] - message
-   pointer; 16:12] - next pointer. */
-#define XCM_REG_XX_DESCR_TABLE					 0x20480
-/* [R 6] Used to read the XX protection Free counter. */
-#define XCM_REG_XX_FREE 					 0x20240
-/* [RW 6] Initial value for the credit counter; responsible for fulfilling
-   of the Input Stage XX protection buffer by the XX protection pending
-   messages. Max credit available - 3.Write writes the initial credit value;
-   read returns the current value of the credit counter. Must be initialized
-   to 2 at start-up. */
-#define XCM_REG_XX_INIT_CRD					 0x20424
-/* [RW 6] The maximum number of pending messages; which may be stored in XX
-   protection. ~xcm_registers_xx_free.xx_free read on read. */
-#define XCM_REG_XX_MSG_NUM					 0x20428
-/* [RW 8] The Event ID; sent to the STORM in case of XX overflow. */
-#define XCM_REG_XX_OVFL_EVNT_ID 				 0x20058
-/* [RW 15] Indirect access to the XX table of the XX protection mechanism.
-   The fields are:[4:0] - tail pointer; 9:5] - Link List size; 14:10] -
-   header pointer. */
-#define XCM_REG_XX_TABLE					 0x20500
-/* [RW 8] The event id for aggregated interrupt 0 */
-#define XSDM_REG_AGG_INT_EVENT_0				 0x166038
-#define XSDM_REG_AGG_INT_EVENT_1				 0x16603c
-#define XSDM_REG_AGG_INT_EVENT_10				 0x166060
-#define XSDM_REG_AGG_INT_EVENT_11				 0x166064
-#define XSDM_REG_AGG_INT_EVENT_12				 0x166068
-#define XSDM_REG_AGG_INT_EVENT_13				 0x16606c
-#define XSDM_REG_AGG_INT_EVENT_14				 0x166070
-#define XSDM_REG_AGG_INT_EVENT_15				 0x166074
-#define XSDM_REG_AGG_INT_EVENT_16				 0x166078
-#define XSDM_REG_AGG_INT_EVENT_17				 0x16607c
-#define XSDM_REG_AGG_INT_EVENT_18				 0x166080
-#define XSDM_REG_AGG_INT_EVENT_19				 0x166084
-#define XSDM_REG_AGG_INT_EVENT_2				 0x166040
-#define XSDM_REG_AGG_INT_EVENT_20				 0x166088
-#define XSDM_REG_AGG_INT_EVENT_21				 0x16608c
-#define XSDM_REG_AGG_INT_EVENT_22				 0x166090
-#define XSDM_REG_AGG_INT_EVENT_23				 0x166094
-#define XSDM_REG_AGG_INT_EVENT_24				 0x166098
-#define XSDM_REG_AGG_INT_EVENT_25				 0x16609c
-#define XSDM_REG_AGG_INT_EVENT_26				 0x1660a0
-#define XSDM_REG_AGG_INT_EVENT_27				 0x1660a4
-#define XSDM_REG_AGG_INT_EVENT_28				 0x1660a8
-#define XSDM_REG_AGG_INT_EVENT_29				 0x1660ac
-/* [RW 1] For each aggregated interrupt index whether the mode is normal (0)
-   or auto-mask-mode (1) */
-#define XSDM_REG_AGG_INT_MODE_0 				 0x1661b8
-#define XSDM_REG_AGG_INT_MODE_1 				 0x1661bc
-#define XSDM_REG_AGG_INT_MODE_10				 0x1661e0
-#define XSDM_REG_AGG_INT_MODE_11				 0x1661e4
-#define XSDM_REG_AGG_INT_MODE_12				 0x1661e8
-#define XSDM_REG_AGG_INT_MODE_13				 0x1661ec
-#define XSDM_REG_AGG_INT_MODE_14				 0x1661f0
-#define XSDM_REG_AGG_INT_MODE_15				 0x1661f4
-#define XSDM_REG_AGG_INT_MODE_16				 0x1661f8
-#define XSDM_REG_AGG_INT_MODE_17				 0x1661fc
-#define XSDM_REG_AGG_INT_MODE_18				 0x166200
-#define XSDM_REG_AGG_INT_MODE_19				 0x166204
-/* [RW 13] The start address in the internal RAM for the cfc_rsp lcid */
-#define XSDM_REG_CFC_RSP_START_ADDR				 0x166008
-/* [RW 16] The maximum value of the competion counter #0 */
-#define XSDM_REG_CMP_COUNTER_MAX0				 0x16601c
-/* [RW 16] The maximum value of the competion counter #1 */
-#define XSDM_REG_CMP_COUNTER_MAX1				 0x166020
-/* [RW 16] The maximum value of the competion counter #2 */
-#define XSDM_REG_CMP_COUNTER_MAX2				 0x166024
-/* [RW 16] The maximum value of the competion counter #3 */
-#define XSDM_REG_CMP_COUNTER_MAX3				 0x166028
-/* [RW 13] The start address in the internal RAM for the completion
-   counters. */
-#define XSDM_REG_CMP_COUNTER_START_ADDR 			 0x16600c
-#define XSDM_REG_ENABLE_IN1					 0x166238
-#define XSDM_REG_ENABLE_IN2					 0x16623c
-#define XSDM_REG_ENABLE_OUT1					 0x166240
-#define XSDM_REG_ENABLE_OUT2					 0x166244
-/* [RW 4] The initial number of messages that can be sent to the pxp control
-   interface without receiving any ACK. */
-#define XSDM_REG_INIT_CREDIT_PXP_CTRL				 0x1664bc
-/* [ST 32] The number of ACK after placement messages received */
-#define XSDM_REG_NUM_OF_ACK_AFTER_PLACE 			 0x16627c
-/* [ST 32] The number of packet end messages received from the parser */
-#define XSDM_REG_NUM_OF_PKT_END_MSG				 0x166274
-/* [ST 32] The number of requests received from the pxp async if */
-#define XSDM_REG_NUM_OF_PXP_ASYNC_REQ				 0x166278
-/* [ST 32] The number of commands received in queue 0 */
-#define XSDM_REG_NUM_OF_Q0_CMD					 0x166248
-/* [ST 32] The number of commands received in queue 10 */
-#define XSDM_REG_NUM_OF_Q10_CMD 				 0x16626c
-/* [ST 32] The number of commands received in queue 11 */
-#define XSDM_REG_NUM_OF_Q11_CMD 				 0x166270
-/* [ST 32] The number of commands received in queue 1 */
-#define XSDM_REG_NUM_OF_Q1_CMD					 0x16624c
-/* [ST 32] The number of commands received in queue 3 */
-#define XSDM_REG_NUM_OF_Q3_CMD					 0x166250
-/* [ST 32] The number of commands received in queue 4 */
-#define XSDM_REG_NUM_OF_Q4_CMD					 0x166254
-/* [ST 32] The number of commands received in queue 5 */
-#define XSDM_REG_NUM_OF_Q5_CMD					 0x166258
-/* [ST 32] The number of commands received in queue 6 */
-#define XSDM_REG_NUM_OF_Q6_CMD					 0x16625c
-/* [ST 32] The number of commands received in queue 7 */
-#define XSDM_REG_NUM_OF_Q7_CMD					 0x166260
-/* [ST 32] The number of commands received in queue 8 */
-#define XSDM_REG_NUM_OF_Q8_CMD					 0x166264
-/* [ST 32] The number of commands received in queue 9 */
-#define XSDM_REG_NUM_OF_Q9_CMD					 0x166268
-/* [RW 13] The start address in the internal RAM for queue counters */
-#define XSDM_REG_Q_COUNTER_START_ADDR				 0x166010
-/* [R 1] pxp_ctrl rd_data fifo empty in sdm_dma_rsp block */
-#define XSDM_REG_RSP_PXP_CTRL_RDATA_EMPTY			 0x166548
-/* [R 1] parser fifo empty in sdm_sync block */
-#define XSDM_REG_SYNC_PARSER_EMPTY				 0x166550
-/* [R 1] parser serial fifo empty in sdm_sync block */
-#define XSDM_REG_SYNC_SYNC_EMPTY				 0x166558
-/* [RW 32] Tick for timer counter. Applicable only when
-   ~xsdm_registers_timer_tick_enable.timer_tick_enable =1 */
-#define XSDM_REG_TIMER_TICK					 0x166000
-/* [RW 32] Interrupt mask register #0 read/write */
-#define XSDM_REG_XSDM_INT_MASK_0				 0x16629c
-#define XSDM_REG_XSDM_INT_MASK_1				 0x1662ac
-/* [RW 11] Parity mask register #0 read/write */
-#define XSDM_REG_XSDM_PRTY_MASK 				 0x1662bc
-/* [RW 5] The number of time_slots in the arbitration cycle */
-#define XSEM_REG_ARB_CYCLE_SIZE 				 0x280034
-/* [RW 3] The source that is associated with arbitration element 0. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2 */
-#define XSEM_REG_ARB_ELEMENT0					 0x280020
-/* [RW 3] The source that is associated with arbitration element 1. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2.
-   Could not be equal to register ~xsem_registers_arb_element0.arb_element0 */
-#define XSEM_REG_ARB_ELEMENT1					 0x280024
-/* [RW 3] The source that is associated with arbitration element 2. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2.
-   Could not be equal to register ~xsem_registers_arb_element0.arb_element0
-   and ~xsem_registers_arb_element1.arb_element1 */
-#define XSEM_REG_ARB_ELEMENT2					 0x280028
-/* [RW 3] The source that is associated with arbitration element 3. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2.Could
-   not be equal to register ~xsem_registers_arb_element0.arb_element0 and
-   ~xsem_registers_arb_element1.arb_element1 and
-   ~xsem_registers_arb_element2.arb_element2 */
-#define XSEM_REG_ARB_ELEMENT3					 0x28002c
-/* [RW 3] The source that is associated with arbitration element 4. Source
-   decoding is: 0- foc0; 1-fic1; 2-sleeping thread with priority 0; 3-
-   sleeping thread with priority 1; 4- sleeping thread with priority 2.
-   Could not be equal to register ~xsem_registers_arb_element0.arb_element0
-   and ~xsem_registers_arb_element1.arb_element1 and
-   ~xsem_registers_arb_element2.arb_element2 and
-   ~xsem_registers_arb_element3.arb_element3 */
-#define XSEM_REG_ARB_ELEMENT4					 0x280030
-#define XSEM_REG_ENABLE_IN					 0x2800a4
-#define XSEM_REG_ENABLE_OUT					 0x2800a8
-/* [RW 32] This address space contains all registers and memories that are
-   placed in SEM_FAST block. The SEM_FAST registers are described in
-   appendix B. In order to access the SEM_FAST registers the base address
-   XSEM_REGISTERS_FAST_MEMORY (Offset: 0x2a0000) should be added to each
-   SEM_FAST register offset. */
-#define XSEM_REG_FAST_MEMORY					 0x2a0000
-/* [RW 1] Disables input messages from FIC0 May be updated during run_time
-   by the microcode */
-#define XSEM_REG_FIC0_DISABLE					 0x280224
-/* [RW 1] Disables input messages from FIC1 May be updated during run_time
-   by the microcode */
-#define XSEM_REG_FIC1_DISABLE					 0x280234
-/* [RW 15] Interrupt table Read and write access to it is not possible in
-   the middle of the work */
-#define XSEM_REG_INT_TABLE					 0x280400
-/* [ST 24] Statistics register. The number of messages that entered through
-   FIC0 */
-#define XSEM_REG_MSG_NUM_FIC0					 0x280000
-/* [ST 24] Statistics register. The number of messages that entered through
-   FIC1 */
-#define XSEM_REG_MSG_NUM_FIC1					 0x280004
-/* [ST 24] Statistics register. The number of messages that were sent to
-   FOC0 */
-#define XSEM_REG_MSG_NUM_FOC0					 0x280008
-/* [ST 24] Statistics register. The number of messages that were sent to
-   FOC1 */
-#define XSEM_REG_MSG_NUM_FOC1					 0x28000c
-/* [ST 24] Statistics register. The number of messages that were sent to
-   FOC2 */
-#define XSEM_REG_MSG_NUM_FOC2					 0x280010
-/* [ST 24] Statistics register. The number of messages that were sent to
-   FOC3 */
-#define XSEM_REG_MSG_NUM_FOC3					 0x280014
-/* [RW 1] Disables input messages from the passive buffer May be updated
-   during run_time by the microcode */
-#define XSEM_REG_PAS_DISABLE					 0x28024c
-/* [WB 128] Debug only. Passive buffer memory */
-#define XSEM_REG_PASSIVE_BUFFER 				 0x282000
-/* [WB 46] pram memory. B45 is parity; b[44:0] - data. */
-#define XSEM_REG_PRAM						 0x2c0000
-/* [R 16] Valid sleeping threads indication have bit per thread */
-#define XSEM_REG_SLEEP_THREADS_VALID				 0x28026c
-/* [R 1] EXT_STORE FIFO is empty in sem_slow_ls_ext */
-#define XSEM_REG_SLOW_EXT_STORE_EMPTY				 0x2802a0
-/* [RW 16] List of free threads . There is a bit per thread. */
-#define XSEM_REG_THREADS_LIST					 0x2802e4
-/* [RW 3] The arbitration scheme of time_slot 0 */
-#define XSEM_REG_TS_0_AS					 0x280038
-/* [RW 3] The arbitration scheme of time_slot 10 */
-#define XSEM_REG_TS_10_AS					 0x280060
-/* [RW 3] The arbitration scheme of time_slot 11 */
-#define XSEM_REG_TS_11_AS					 0x280064
-/* [RW 3] The arbitration scheme of time_slot 12 */
-#define XSEM_REG_TS_12_AS					 0x280068
-/* [RW 3] The arbitration scheme of time_slot 13 */
-#define XSEM_REG_TS_13_AS					 0x28006c
-/* [RW 3] The arbitration scheme of time_slot 14 */
-#define XSEM_REG_TS_14_AS					 0x280070
-/* [RW 3] The arbitration scheme of time_slot 15 */
-#define XSEM_REG_TS_15_AS					 0x280074
-/* [RW 3] The arbitration scheme of time_slot 16 */
-#define XSEM_REG_TS_16_AS					 0x280078
-/* [RW 3] The arbitration scheme of time_slot 17 */
-#define XSEM_REG_TS_17_AS					 0x28007c
-/* [RW 3] The arbitration scheme of time_slot 18 */
-#define XSEM_REG_TS_18_AS					 0x280080
-/* [RW 3] The arbitration scheme of time_slot 1 */
-#define XSEM_REG_TS_1_AS					 0x28003c
-/* [RW 3] The arbitration scheme of time_slot 2 */
-#define XSEM_REG_TS_2_AS					 0x280040
-/* [RW 3] The arbitration scheme of time_slot 3 */
-#define XSEM_REG_TS_3_AS					 0x280044
-/* [RW 3] The arbitration scheme of time_slot 4 */
-#define XSEM_REG_TS_4_AS					 0x280048
-/* [RW 3] The arbitration scheme of time_slot 5 */
-#define XSEM_REG_TS_5_AS					 0x28004c
-/* [RW 3] The arbitration scheme of time_slot 6 */
-#define XSEM_REG_TS_6_AS					 0x280050
-/* [RW 3] The arbitration scheme of time_slot 7 */
-#define XSEM_REG_TS_7_AS					 0x280054
-/* [RW 3] The arbitration scheme of time_slot 8 */
-#define XSEM_REG_TS_8_AS					 0x280058
-/* [RW 3] The arbitration scheme of time_slot 9 */
-#define XSEM_REG_TS_9_AS					 0x28005c
-/* [RW 32] Interrupt mask register #0 read/write */
-#define XSEM_REG_XSEM_INT_MASK_0				 0x280110
-#define XSEM_REG_XSEM_INT_MASK_1				 0x280120
-/* [RW 32] Parity mask register #0 read/write */
-#define XSEM_REG_XSEM_PRTY_MASK_0				 0x280130
-#define XSEM_REG_XSEM_PRTY_MASK_1				 0x280140
-#define MCPR_NVM_ACCESS_ENABLE_EN				 (1L<<0)
-#define MCPR_NVM_ACCESS_ENABLE_WR_EN				 (1L<<1)
-#define MCPR_NVM_ADDR_NVM_ADDR_VALUE				 (0xffffffL<<0)
-#define MCPR_NVM_CFG4_FLASH_SIZE				 (0x7L<<0)
-#define MCPR_NVM_COMMAND_DOIT					 (1L<<4)
-#define MCPR_NVM_COMMAND_DONE					 (1L<<3)
-#define MCPR_NVM_COMMAND_FIRST					 (1L<<7)
-#define MCPR_NVM_COMMAND_LAST					 (1L<<8)
-#define MCPR_NVM_COMMAND_WR					 (1L<<5)
-#define MCPR_NVM_COMMAND_WREN					 (1L<<16)
-#define MCPR_NVM_COMMAND_WREN_BITSHIFT				 16
-#define MCPR_NVM_COMMAND_WRDI					 (1L<<17)
-#define MCPR_NVM_COMMAND_WRDI_BITSHIFT				 17
-#define MCPR_NVM_SW_ARB_ARB_ARB1				 (1L<<9)
-#define MCPR_NVM_SW_ARB_ARB_REQ_CLR1				 (1L<<5)
-#define MCPR_NVM_SW_ARB_ARB_REQ_SET1				 (1L<<1)
-#define BIGMAC_REGISTER_BMAC_CONTROL				 (0x00<<3)
-#define BIGMAC_REGISTER_BMAC_XGXS_CONTROL			 (0x01<<3)
-#define BIGMAC_REGISTER_CNT_MAX_SIZE				 (0x05<<3)
-#define BIGMAC_REGISTER_RX_CONTROL				 (0x21<<3)
-#define BIGMAC_REGISTER_RX_LLFC_MSG_FLDS			 (0x46<<3)
-#define BIGMAC_REGISTER_RX_MAX_SIZE				 (0x23<<3)
-#define BIGMAC_REGISTER_RX_STAT_GR64				 (0x26<<3)
-#define BIGMAC_REGISTER_RX_STAT_GRIPJ				 (0x42<<3)
-#define BIGMAC_REGISTER_TX_CONTROL				 (0x07<<3)
-#define BIGMAC_REGISTER_TX_MAX_SIZE				 (0x09<<3)
-#define BIGMAC_REGISTER_TX_PAUSE_THRESHOLD			 (0x0A<<3)
-#define BIGMAC_REGISTER_TX_SOURCE_ADDR				 (0x08<<3)
-#define BIGMAC_REGISTER_TX_STAT_GTBYT				 (0x20<<3)
-#define BIGMAC_REGISTER_TX_STAT_GTPKT				 (0x0C<<3)
-#define EMAC_MDIO_COMM_COMMAND_ADDRESS				 (0L<<26)
-#define EMAC_MDIO_COMM_COMMAND_READ_22				 (2L<<26)
-#define EMAC_MDIO_COMM_COMMAND_READ_45				 (3L<<26)
-#define EMAC_MDIO_COMM_COMMAND_WRITE_22 			 (1L<<26)
-#define EMAC_MDIO_COMM_COMMAND_WRITE_45 			 (1L<<26)
-#define EMAC_MDIO_COMM_DATA					 (0xffffL<<0)
-#define EMAC_MDIO_COMM_START_BUSY				 (1L<<29)
-#define EMAC_MDIO_MODE_AUTO_POLL				 (1L<<4)
-#define EMAC_MDIO_MODE_CLAUSE_45				 (1L<<31)
-#define EMAC_MODE_25G_MODE					 (1L<<5)
-#define EMAC_MODE_ACPI_RCVD					 (1L<<20)
-#define EMAC_MODE_HALF_DUPLEX					 (1L<<1)
-#define EMAC_MODE_MPKT						 (1L<<18)
-#define EMAC_MODE_MPKT_RCVD					 (1L<<19)
-#define EMAC_MODE_PORT_GMII					 (2L<<2)
-#define EMAC_MODE_PORT_MII					 (1L<<2)
-#define EMAC_MODE_PORT_MII_10M					 (3L<<2)
-#define EMAC_MODE_RESET 					 (1L<<0)
-#define EMAC_REG_EMAC_MAC_MATCH 				 0x10
-#define EMAC_REG_EMAC_MDIO_COMM 				 0xac
-#define EMAC_REG_EMAC_MDIO_MODE 				 0xb4
-#define EMAC_REG_EMAC_MODE					 0x0
-#define EMAC_REG_EMAC_RX_MODE					 0xc8
-#define EMAC_REG_EMAC_RX_MTU_SIZE				 0x9c
-#define EMAC_REG_EMAC_RX_STAT_AC				 0x180
-#define EMAC_REG_EMAC_RX_STAT_AC_28				 0x1f4
-#define EMAC_REG_EMAC_RX_STAT_AC_COUNT				 23
-#define EMAC_REG_EMAC_TX_MODE					 0xbc
-#define EMAC_REG_EMAC_TX_STAT_AC				 0x280
-#define EMAC_REG_EMAC_TX_STAT_AC_COUNT				 22
-#define EMAC_RX_MODE_FLOW_EN					 (1L<<2)
-#define EMAC_RX_MODE_KEEP_VLAN_TAG				 (1L<<10)
-#define EMAC_RX_MODE_PROMISCUOUS				 (1L<<8)
-#define EMAC_RX_MTU_SIZE_JUMBO_ENA				 (1L<<31)
-#define EMAC_TX_MODE_EXT_PAUSE_EN				 (1L<<3)
-#define EMAC_TX_MODE_RESET					 (1L<<0)
-#define MISC_REGISTERS_RESET_REG_1_CLEAR			 0x588
-#define MISC_REGISTERS_RESET_REG_1_SET				 0x584
-#define MISC_REGISTERS_RESET_REG_2_CLEAR			 0x598
-#define MISC_REGISTERS_RESET_REG_2_RST_BMAC0			 (0x1<<0)
-#define MISC_REGISTERS_RESET_REG_2_RST_EMAC0_HARD_CORE		 (0x1<<14)
-#define MISC_REGISTERS_RESET_REG_2_SET				 0x594
-#define MISC_REGISTERS_RESET_REG_3_CLEAR			 0x5a8
-#define MISC_REGISTERS_RESET_REG_3_MISC_NIG_MUX_SERDES0_IDDQ	 (0x1<<1)
-#define MISC_REGISTERS_RESET_REG_3_MISC_NIG_MUX_SERDES0_PWRDWN	 (0x1<<2)
-#define MISC_REGISTERS_RESET_REG_3_MISC_NIG_MUX_SERDES0_PWRDWN_SD (0x1<<3)
-#define MISC_REGISTERS_RESET_REG_3_MISC_NIG_MUX_SERDES0_RSTB_HW  (0x1<<0)
-#define MISC_REGISTERS_RESET_REG_3_MISC_NIG_MUX_XGXS0_IDDQ	 (0x1<<5)
-#define MISC_REGISTERS_RESET_REG_3_MISC_NIG_MUX_XGXS0_PWRDWN	 (0x1<<6)
-#define MISC_REGISTERS_RESET_REG_3_MISC_NIG_MUX_XGXS0_PWRDWN_SD  (0x1<<7)
-#define MISC_REGISTERS_RESET_REG_3_MISC_NIG_MUX_XGXS0_RSTB_HW	 (0x1<<4)
-#define MISC_REGISTERS_RESET_REG_3_MISC_NIG_MUX_XGXS0_TXD_FIFO_RSTB (0x1<<8)
-#define MISC_REGISTERS_RESET_REG_3_SET				 0x5a4
-#define AEU_INPUTS_ATTN_BITS_BRB_PARITY_ERROR		      (1<<18)
-#define AEU_INPUTS_ATTN_BITS_CCM_HW_INTERRUPT		      (1<<31)
-#define AEU_INPUTS_ATTN_BITS_CDU_HW_INTERRUPT		      (1<<9)
-#define AEU_INPUTS_ATTN_BITS_CDU_PARITY_ERROR		      (1<<8)
-#define AEU_INPUTS_ATTN_BITS_CFC_HW_INTERRUPT		      (1<<7)
-#define AEU_INPUTS_ATTN_BITS_CFC_PARITY_ERROR		      (1<<6)
-#define AEU_INPUTS_ATTN_BITS_CSDM_HW_INTERRUPT		      (1<<29)
-#define AEU_INPUTS_ATTN_BITS_CSDM_PARITY_ERROR		      (1<<28)
-#define AEU_INPUTS_ATTN_BITS_CSEMI_HW_INTERRUPT 	      (1<<1)
-#define AEU_INPUTS_ATTN_BITS_CSEMI_PARITY_ERROR 	      (1<<0)
-#define AEU_INPUTS_ATTN_BITS_DEBUG_PARITY_ERROR 	      (1<<18)
-#define AEU_INPUTS_ATTN_BITS_DMAE_HW_INTERRUPT		      (1<<11)
-#define AEU_INPUTS_ATTN_BITS_DOORBELLQ_HW_INTERRUPT	      (1<<13)
-#define AEU_INPUTS_ATTN_BITS_DOORBELLQ_PARITY_ERROR	      (1<<12)
-#define AEU_INPUTS_ATTN_BITS_IGU_PARITY_ERROR		      (1<<12)
-#define AEU_INPUTS_ATTN_BITS_MISC_HW_INTERRUPT		      (1<<15)
-#define AEU_INPUTS_ATTN_BITS_MISC_PARITY_ERROR		      (1<<14)
-#define AEU_INPUTS_ATTN_BITS_PARSER_PARITY_ERROR	      (1<<20)
-#define AEU_INPUTS_ATTN_BITS_PBCLIENT_PARITY_ERROR	      (1<<0)
-#define AEU_INPUTS_ATTN_BITS_PBF_HW_INTERRUPT		      (1<<31)
-#define AEU_INPUTS_ATTN_BITS_PXP_HW_INTERRUPT		      (1<<3)
-#define AEU_INPUTS_ATTN_BITS_PXP_PARITY_ERROR		      (1<<2)
-#define AEU_INPUTS_ATTN_BITS_PXPPCICLOCKCLIENT_HW_INTERRUPT   (1<<5)
-#define AEU_INPUTS_ATTN_BITS_PXPPCICLOCKCLIENT_PARITY_ERROR   (1<<4)
-#define AEU_INPUTS_ATTN_BITS_QM_HW_INTERRUPT		      (1<<3)
-#define AEU_INPUTS_ATTN_BITS_QM_PARITY_ERROR		      (1<<2)
-#define AEU_INPUTS_ATTN_BITS_SEARCHER_PARITY_ERROR	      (1<<22)
-#define AEU_INPUTS_ATTN_BITS_TCM_HW_INTERRUPT		      (1<<27)
-#define AEU_INPUTS_ATTN_BITS_TIMERS_HW_INTERRUPT	      (1<<5)
-#define AEU_INPUTS_ATTN_BITS_TSDM_HW_INTERRUPT		      (1<<25)
-#define AEU_INPUTS_ATTN_BITS_TSDM_PARITY_ERROR		      (1<<24)
-#define AEU_INPUTS_ATTN_BITS_TSEMI_HW_INTERRUPT 	      (1<<29)
-#define AEU_INPUTS_ATTN_BITS_TSEMI_PARITY_ERROR 	      (1<<28)
-#define AEU_INPUTS_ATTN_BITS_UCM_HW_INTERRUPT		      (1<<23)
-#define AEU_INPUTS_ATTN_BITS_UPB_HW_INTERRUPT		      (1<<27)
-#define AEU_INPUTS_ATTN_BITS_UPB_PARITY_ERROR		      (1<<26)
-#define AEU_INPUTS_ATTN_BITS_USDM_HW_INTERRUPT		      (1<<21)
-#define AEU_INPUTS_ATTN_BITS_USDM_PARITY_ERROR		      (1<<20)
-#define AEU_INPUTS_ATTN_BITS_USEMI_HW_INTERRUPT 	      (1<<25)
-#define AEU_INPUTS_ATTN_BITS_USEMI_PARITY_ERROR 	      (1<<24)
-#define AEU_INPUTS_ATTN_BITS_VAUX_PCI_CORE_PARITY_ERROR       (1<<16)
-#define AEU_INPUTS_ATTN_BITS_XCM_HW_INTERRUPT		      (1<<9)
-#define AEU_INPUTS_ATTN_BITS_XSDM_HW_INTERRUPT		      (1<<7)
-#define AEU_INPUTS_ATTN_BITS_XSDM_PARITY_ERROR		      (1<<6)
-#define AEU_INPUTS_ATTN_BITS_XSEMI_HW_INTERRUPT 	      (1<<11)
-#define AEU_INPUTS_ATTN_BITS_XSEMI_PARITY_ERROR 	      (1<<10)
-#define RESERVED_GENERAL_ATTENTION_BIT_0	0
+#include <linux/module.h>
+#include <linux/moduleparam.h>
+#include <linux/kernel.h>
+#include <linux/device.h>  /* for dev_info() */
+#include <linux/timer.h>
+#include <linux/errno.h>
+#include <linux/ioport.h>
+#include <linux/slab.h>
+#include <linux/vmalloc.h>
+#include <linux/interrupt.h>
+#include <linux/pci.h>
+#include <linux/init.h>
+#include <linux/netdevice.h>
+#include <linux/etherdevice.h>
+#include <linux/skbuff.h>
+#include <linux/dma-mapping.h>
+#include <linux/bitops.h>
+#include <linux/irq.h>
+#include <linux/delay.h>
+#include <asm/byteorder.h>
+#include <linux/time.h>
+#include <linux/ethtool.h>
+#include <linux/mii.h>
+#ifdef NETIF_F_HW_VLAN_TX
+	#include <linux/if_vlan.h>
+	#define BCM_VLAN 1
+#endif
+#include <net/ip.h>
+#include <net/tcp.h>
+#include <net/checksum.h>
+#include <linux/workqueue.h>
+#include <linux/crc32.h>
+#include <linux/prefetch.h>
+#include <linux/zlib.h>
+#include <linux/version.h>
+#include <linux/io.h>
 
-#define EVEREST_GEN_ATTN_IN_USE_MASK		0x3e0
-#define EVEREST_LATCHED_ATTN_IN_USE_MASK	0xffe00000
+#include "bnx2x_reg.h"
+#include "bnx2x_fw_defs.h"
+#include "bnx2x_hsi.h"
+#include "bnx2x.h"
+#include "bnx2x_init.h"
 
-#define RESERVED_GENERAL_ATTENTION_BIT_6	6
-#define RESERVED_GENERAL_ATTENTION_BIT_7	7
-#define RESERVED_GENERAL_ATTENTION_BIT_8	8
-#define RESERVED_GENERAL_ATTENTION_BIT_9	9
-#define RESERVED_GENERAL_ATTENTION_BIT_10	10
-#define RESERVED_GENERAL_ATTENTION_BIT_11	11
-#define RESERVED_GENERAL_ATTENTION_BIT_12	12
-#define RESERVED_GENERAL_ATTENTION_BIT_13	13
-#define RESERVED_GENERAL_ATTENTION_BIT_14	14
-#define RESERVED_GENERAL_ATTENTION_BIT_15	15
-#define RESERVED_GENERAL_ATTENTION_BIT_16	16
-#define RESERVED_GENERAL_ATTENTION_BIT_17	17
-#define RESERVED_GENERAL_ATTENTION_BIT_18	18
-#define RESERVED_GENERAL_ATTENTION_BIT_19	19
-#define RESERVED_GENERAL_ATTENTION_BIT_20	20
-#define RESERVED_GENERAL_ATTENTION_BIT_21	21
+#define DRV_MODULE_VERSION      "0.40.15"
+#define DRV_MODULE_RELDATE      "$DateTime: 2007/11/15 07:28:37 $"
+#define BNX2X_BC_VER    	0x040009
 
-/* storm asserts attention bits */
-#define TSTORM_FATAL_ASSERT_ATTENTION_BIT     RESERVED_GENERAL_ATTENTION_BIT_7
-#define USTORM_FATAL_ASSERT_ATTENTION_BIT     RESERVED_GENERAL_ATTENTION_BIT_8
-#define CSTORM_FATAL_ASSERT_ATTENTION_BIT     RESERVED_GENERAL_ATTENTION_BIT_9
-#define XSTORM_FATAL_ASSERT_ATTENTION_BIT     RESERVED_GENERAL_ATTENTION_BIT_10
+/* Time in jiffies before concluding the transmitter is hung. */
+#define TX_TIMEOUT      	(5*HZ)
 
-/* mcp error attention bit */
-#define MCP_FATAL_ASSERT_ATTENTION_BIT	      RESERVED_GENERAL_ATTENTION_BIT_11
+static const char version[] __devinitdata =
+	"Broadcom NetXtreme II 577xx 10Gigabit Ethernet Driver "
+	DRV_MODULE_NAME " " DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
 
-#define LATCHED_ATTN_RBCR			23
-#define LATCHED_ATTN_RBCT			24
-#define LATCHED_ATTN_RBCN			25
-#define LATCHED_ATTN_RBCU			26
-#define LATCHED_ATTN_RBCP			27
-#define LATCHED_ATTN_TIMEOUT_GRC		28
-#define LATCHED_ATTN_RSVD_GRC			29
-#define LATCHED_ATTN_ROM_PARITY_MCP		30
-#define LATCHED_ATTN_UM_RX_PARITY_MCP		31
-#define LATCHED_ATTN_UM_TX_PARITY_MCP		32
-#define LATCHED_ATTN_SCPAD_PARITY_MCP		33
+MODULE_AUTHOR("Eliezer Tamir <eliezert@broadcom.com>");
+MODULE_DESCRIPTION("Broadcom NetXtreme II BCM57710 Driver");
+MODULE_LICENSE("GPL");
+MODULE_VERSION(DRV_MODULE_VERSION);
+MODULE_INFO(cvs_version, "$Revision: #356 $");
 
-#define GENERAL_ATTEN_WORD(atten_name)	       ((94 + atten_name) / 32)
-#define GENERAL_ATTEN_OFFSET(atten_name)       (1 << ((94 + atten_name) % 32))
+static int use_inta;
+static int poll;
+static int onefunc;
+static int nomcp;
+static int debug;
+static int use_multi;
+
+module_param(use_inta, int, 0);
+module_param(poll, int, 0);
+module_param(onefunc, int, 0);
+module_param(debug, int, 0);
+MODULE_PARM_DESC(use_inta, "use INT#A instead of MSI-X");
+MODULE_PARM_DESC(poll, "use polling (for debug)");
+MODULE_PARM_DESC(onefunc, "enable only first function");
+MODULE_PARM_DESC(nomcp, "ignore managment CPU (Implies onefunc)");
+MODULE_PARM_DESC(debug, "defualt debug msglevel");
+
+#ifdef BNX2X_MULTI
+module_param(use_multi, int, 0);
+MODULE_PARM_DESC(use_multi, "use per-CPU queues");
+#endif
+
+enum bnx2x_board_type {
+	BCM57710 = 0,
+};
+
+/* indexed by board_t, above */
+static const struct {
+	char *name;
+} board_info[] __devinitdata = {
+	{ "Broadcom NetXtreme II BCM57710 XGb" }
+};
+
+static const struct pci_device_id bnx2x_pci_tbl[] = {
+	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57710,
+		PCI_ANY_ID, PCI_ANY_ID, 0, 0, BCM57710 },
+	{ 0 }
+};
+
+MODULE_DEVICE_TABLE(pci, bnx2x_pci_tbl);
+
+/****************************************************************************
+* General service functions
+****************************************************************************/
+
+/* used only at init
+ * locking is done by mcp
+ */
+static void bnx2x_reg_wr_ind(struct bnx2x *bp, u32 addr, u32 val)
+{
+	pci_write_config_dword(bp->pdev, PCICFG_GRC_ADDRESS, addr);
+	pci_write_config_dword(bp->pdev, PCICFG_GRC_DATA, val);
+	pci_write_config_dword(bp->pdev, PCICFG_GRC_ADDRESS,
+			       PCICFG_VENDOR_ID_OFFSET);
+}
+
+#ifdef BNX2X_IND_RD
+static u32 bnx2x_reg_rd_ind(struct bnx2x *bp, u32 addr)
+{
+	u32 val;
+
+	pci_write_config_dword(bp->pdev, PCICFG_GRC_ADDRESS, addr);
+	pci_read_config_dword(bp->pdev, PCICFG_GRC_DATA, &val);
+	pci_write_config_dword(bp->pdev, PCICFG_GRC_ADDRESS,
+			       PCICFG_VENDOR_ID_OFFSET);
+
+	return val;
+}
+#endif
+
+static const u32 dmae_reg_go_c[] = {
+	DMAE_REG_GO_C0, DMAE_REG_GO_C1, DMAE_REG_GO_C2, DMAE_REG_GO_C3,
+	DMAE_REG_GO_C4, DMAE_REG_GO_C5, DMAE_REG_GO_C6, DMAE_REG_GO_C7,
+	DMAE_REG_GO_C8, DMAE_REG_GO_C9, DMAE_REG_GO_C10, DMAE_REG_GO_C11,
+	DMAE_REG_GO_C12, DMAE_REG_GO_C13, DMAE_REG_GO_C14, DMAE_REG_GO_C15
+};
+
+/* copy command into DMAE command memory and set DMAE command go */
+static void bnx2x_post_dmae(struct bnx2x *bp, struct dmae_command *dmae,
+			    int idx)
+{
+	u32 cmd_offset;
+	int i;
+
+	cmd_offset = (DMAE_REG_CMD_MEM + sizeof(struct dmae_command) * idx);
+	for (i = 0; i < (sizeof(struct dmae_command)/4); i++) {
+		REG_WR(bp, cmd_offset + i*4, *(((u32 *)dmae) + i));
+
+/*      	DP(NETIF_MSG_DMAE, "DMAE cmd[%d].%d (0x%08x) : 0x%08x\n",
+		   idx, i, cmd_offset + i*4, *(((u32 *)dmae) + i)); */
+	}
+	REG_WR(bp, dmae_reg_go_c[idx], 1);
+}
+
+static void bnx2x_write_dmae(struct bnx2x *bp, dma_addr_t dma_addr,
+			     u32 dst_addr, u32 len32)
+{
+	struct dmae_command *dmae = &bp->dmae;
+	int port = bp->port;
+	u32 *wb_comp = bnx2x_sp(bp, wb_comp);
+	int timeout = 200;
+
+	memset(dmae, 0, sizeof(struct dmae_command));
+
+	dmae->opcode = (DMAE_CMD_SRC_PCI | DMAE_CMD_DST_GRC |
+			DMAE_CMD_C_DST_PCI | DMAE_CMD_C_ENABLE |
+			DMAE_CMD_SRC_RESET | DMAE_CMD_DST_RESET |
+#ifdef __BIG_ENDIAN
+			DMAE_CMD_ENDIANITY_B_DW_SWAP |
+#else
+			DMAE_CMD_ENDIANITY_DW_SWAP |
+#endif
+			(port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0));
+	dmae->src_addr_lo = U64_LO(dma_addr);
+	dmae->src_addr_hi = U64_HI(dma_addr);
+	dmae->dst_addr_lo = dst_addr >> 2;
+	dmae->dst_addr_hi = 0;
+	dmae->len = len32;
+	dmae->comp_addr_lo = U64_LO(bnx2x_sp_mapping(bp, wb_comp));
+	dmae->comp_addr_hi = U64_HI(bnx2x_sp_mapping(bp, wb_comp));
+	dmae->comp_val = BNX2X_WB_COMP_VAL;
+
 /*
- * This file defines GRC base address for every block.
- * This file is included by chipsim, asm microcode and cpp microcode.
- * These values are used in Design.xml on regBase attribute
- * Use the base with the generated offsets of specific registers.
+	DP(NETIF_MSG_DMAE, "dmae: opcode 0x%08x\n"
+	   DP_LEVEL "src_addr  [%x:%08x]  len [%d *4]  "
+		    "dst_addr [%x:%08x (%08x)]\n"
+	   DP_LEVEL "comp_addr [%x:%08x]  comp_val 0x%08x\n",
+	   dmae->opcode, dmae->src_addr_hi, dmae->src_addr_lo,
+	   dmae->len, dmae->dst_addr_hi, dmae->dst_addr_lo, dst_addr,
+	   dmae->comp_addr_hi, dmae->comp_addr_lo, dmae->comp_val);
+*/
+/*
+	DP(NETIF_MSG_DMAE, "data [0x%08x 0x%08x 0x%08x 0x%08x]\n",
+	   bp->slowpath->wb_data[0], bp->slowpath->wb_data[1],
+	   bp->slowpath->wb_data[2], bp->slowpath->wb_data[3]);
+*/
+
+	*wb_comp = 0;
+
+	bnx2x_post_dmae(bp, dmae, port * 8);
+
+	udelay(5);
+	/* adjust timeout for emulation/FPGA */
+	if (CHIP_REV_IS_SLOW(bp))
+		timeout *= 100;
+	while (*wb_comp != BNX2X_WB_COMP_VAL) {
+/*      	DP(NETIF_MSG_DMAE, "wb_comp 0x%08x\n", *wb_comp); */
+		udelay(5);
+		if (!timeout) {
+			BNX2X_ERR("dmae timeout!\n");
+			break;
+		}
+		timeout--;
+	}
+}
+
+#ifdef BNX2X_DMAE_RD
+static void bnx2x_read_dmae(struct bnx2x *bp, u32 src_addr, u32 len32)
+{
+	struct dmae_command *dmae = &bp->dmae;
+	int port = bp->port;
+	u32 *wb_comp = bnx2x_sp(bp, wb_comp);
+	int timeout = 200;
+
+	memset(bnx2x_sp(bp, wb_data[0]), 0, sizeof(u32) * 4);
+	memset(dmae, 0, sizeof(struct dmae_command));
+
+	dmae->opcode = (DMAE_CMD_SRC_GRC | DMAE_CMD_DST_PCI |
+			DMAE_CMD_C_DST_PCI | DMAE_CMD_C_ENABLE |
+			DMAE_CMD_SRC_RESET | DMAE_CMD_DST_RESET |
+#ifdef __BIG_ENDIAN
+			DMAE_CMD_ENDIANITY_B_DW_SWAP |
+#else
+			DMAE_CMD_ENDIANITY_DW_SWAP |
+#endif
+			(port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0));
+	dmae->src_addr_lo = src_addr >> 2;
+	dmae->src_addr_hi = 0;
+	dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, wb_data));
+	dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, wb_data));
+	dmae->len = len32;
+	dmae->comp_addr_lo = U64_LO(bnx2x_sp_mapping(bp, wb_comp));
+	dmae->comp_addr_hi = U64_HI(bnx2x_sp_mapping(bp, wb_comp));
+	dmae->comp_val = BNX2X_WB_COMP_VAL;
+
+/*
+	DP(NETIF_MSG_DMAE, "dmae: opcode 0x%08x\n"
+	   DP_LEVEL "src_addr  [%x:%08x]  len [%d *4]  "
+		    "dst_addr [%x:%08x (%08x)]\n"
+	   DP_LEVEL "comp_addr [%x:%08x]  comp_val 0x%08x\n",
+	   dmae->opcode, dmae->src_addr_hi, dmae->src_addr_lo,
+	   dmae->len, dmae->dst_addr_hi, dmae->dst_addr_lo, src_addr,
+	   dmae->comp_addr_hi, dmae->comp_addr_lo, dmae->comp_val);
+*/
+
+	*wb_comp = 0;
+
+	bnx2x_post_dmae(bp, dmae, port * 8);
+
+	udelay(5);
+	while (*wb_comp != BNX2X_WB_COMP_VAL) {
+		udelay(5);
+		if (!timeout) {
+			BNX2X_ERR("dmae timeout!\n");
+			break;
+		}
+		timeout--;
+	}
+/*
+	DP(NETIF_MSG_DMAE, "data [0x%08x 0x%08x 0x%08x 0x%08x]\n",
+	   bp->slowpath->wb_data[0], bp->slowpath->wb_data[1],
+	   bp->slowpath->wb_data[2], bp->slowpath->wb_data[3]);
+*/
+}
+#endif
+
+static int bnx2x_mc_assert(struct bnx2x *bp)
+{
+	int i, j;
+	int rc = 0;
+	char last_idx;
+	const char storm[] = {"XTCU"};
+	const u32 intmem_base[] = {
+		BAR_XSTRORM_INTMEM,
+		BAR_TSTRORM_INTMEM,
+		BAR_CSTRORM_INTMEM,
+		BAR_USTRORM_INTMEM
+	};
+
+	/* Go through all instances of all SEMIs */
+	for (i = 0; i < 4; i++) {
+		last_idx = REG_RD8(bp, XSTORM_ASSERT_LIST_INDEX_OFFSET +
+				   intmem_base[i]);
+		BNX2X_ERR("DATA %cSTORM_ASSERT_LIST_INDEX 0x%x\n",
+			  storm[i], last_idx);
+
+		/* print the asserts */
+		for (j = 0; j < STROM_ASSERT_ARRAY_SIZE; j++) {
+			u32 row0, row1, row2, row3;
+
+			row0 = REG_RD(bp, XSTORM_ASSERT_LIST_OFFSET(j) +
+				      intmem_base[i]);
+			row1 = REG_RD(bp, XSTORM_ASSERT_LIST_OFFSET(j) + 4 +
+				      intmem_base[i]);
+			row2 = REG_RD(bp, XSTORM_ASSERT_LIST_OFFSET(j) + 8 +
+				      intmem_base[i]);
+			row3 = REG_RD(bp, XSTORM_ASSERT_LIST_OFFSET(j) + 12 +
+				      intmem_base[i]);
+
+			if (row0 != COMMON_ASM_INVALID_ASSERT_OPCODE) {
+				BNX2X_ERR("DATA %cSTORM_ASSERT_INDEX 0x%x ="
+					  " 0x%08x 0x%08x 0x%08x 0x%08x\n",
+					  storm[i], j, row3, row2, row1, row0);
+				rc++;
+			} else {
+				break;
+			}
+		}
+	}
+	return rc;
+}
+static void bnx2x_fw_dump(struct bnx2x *bp)
+{
+	u32 mark, offset;
+	u32 data[9];
+	int word;
+
+	mark = REG_RD(bp, MCP_REG_MCPR_SCRATCH + 0xf104);
+	printk(KERN_ERR PFX "begin fw dump (mark 0x%x)\n", mark);
+
+	for (offset = mark - 0x08000000; offset <= 0xF900; offset += 0x8*4) {
+		for (word = 0; word < 8; word++)
+			data[word] = htonl(REG_RD(bp, MCP_REG_MCPR_SCRATCH +
+						  offset + 4*word));
+		data[8] = 0x0;
+		printk(KERN_ERR PFX "%s", (char *)data);
+	}
+	for (offset = 0xF108; offset <= mark - 0x08000000; offset += 0x8*4) {
+		for (word = 0; word < 8; word++)
+			data[word] = htonl(REG_RD(bp, MCP_REG_MCPR_SCRATCH +
+						  offset + 4*word));
+		data[8] = 0x0;
+		printk(KERN_ERR PFX "%s", (char *)data);
+	}
+	printk("\n" KERN_ERR PFX "end of fw dump\n");
+}
+
+static void bnx2x_panic_dump(struct bnx2x *bp)
+{
+	int i;
+	u16 j, start, end;
+
+	BNX2X_ERR("begin crash dump -----------------\n");
+
+	for_each_queue(bp, i) {
+		struct bnx2x_fastpath *fp = &bp->fp[i];
+		struct eth_tx_db_data *hw_prods = fp->hw_tx_prods;
+
+		BNX2X_ERR("queue[%d]: tx_pkt_prod(%x)  tx_pkt_cons(%x)"
+			  "  tx_bd_prod(%x)  tx_bd_cons(%x)  *tx_cons_sb(%x)"
+			  "  *rx_cons_sb(%x)  rx_comp_prod(%x)"
+			  "  rx_comp_cons(%x)  fp_c_idx(%x)  fp_u_idx(%x)"
+			  "  bd data(%x,%x)\n",
+			  i, fp->tx_pkt_prod, fp->tx_pkt_cons, fp->tx_bd_prod,
+			  fp->tx_bd_cons, *fp->tx_cons_sb, *fp->rx_cons_sb,
+			  fp->rx_comp_prod, fp->rx_comp_cons, fp->fp_c_idx,
+			  fp->fp_u_idx, hw_prods->packets_prod,
+			  hw_prods->bds_prod);
+
+		start = TX_BD(le16_to_cpu(*fp->tx_cons_sb) - 10);
+		end = TX_BD(le16_to_cpu(*fp->tx_cons_sb) + 245);
+		for (j = start; j < end; j++) {
+			struct sw_tx_bd *sw_bd = &fp->tx_buf_ring[j];
+
+			BNX2X_ERR("packet[%x]=[%p,%x]\n", j,
+				  sw_bd->skb, sw_bd->first_bd);
+		}
+
+		start = TX_BD(fp->tx_bd_cons - 10);
+		end = TX_BD(fp->tx_bd_cons + 254);
+		for (j = start; j < end; j++) {
+			u32 *tx_bd = (u32 *)&fp->tx_desc_ring[j];
+
+			BNX2X_ERR("tx_bd[%x]=[%x:%x:%x:%x]\n",
+				  j, tx_bd[0], tx_bd[1], tx_bd[2], tx_bd[3]);
+		}
+
+		start = RX_BD(le16_to_cpu(*fp->rx_cons_sb) - 10);
+		end = RX_BD(le16_to_cpu(*fp->rx_cons_sb) + 503);
+		for (j = start; j < end; j++) {
+			u32 *rx_bd = (u32 *)&fp->rx_desc_ring[j];
+			struct sw_rx_bd *sw_bd = &fp->rx_buf_ring[j];
+
+			BNX2X_ERR("rx_bd[%x]=[%x:%x]  sw_bd=[%p]\n",
+				  j, rx_bd[0], rx_bd[1], sw_bd->skb);
+		}
+
+		start = RCQ_BD(fp->rx_comp_cons - 10);
+		end = RCQ_BD(fp->rx_comp_cons + 503);
+		for (j = start; j < end; j++) {
+			u32 *cqe = (u32 *)&fp->rx_comp_ring[j];
+
+			BNX2X_ERR("cqe[%x]=[%x:%x:%x:%x]\n",
+				  j, cqe[0], cqe[1], cqe[2], cqe[3]);
+		}
+	}
+
+	BNX2X_ERR("def_c_idx(%u)  def_u_idx(%u)  def_t_idx(%u)"
+		  "  def_x_idx(%u)  def_att_idx(%u)  attn_state(%u)"
+		  "  spq_prod_idx(%u)\n",
+		  bp->def_c_idx, bp->def_u_idx, bp->def_t_idx, bp->def_x_idx,
+		  bp->def_att_idx, bp->attn_state, bp->spq_prod_idx);
+
+
+	bnx2x_mc_assert(bp);
+	BNX2X_ERR("end crash dump -----------------\n");
+
+	bp->stats_state = STATS_STATE_DISABLE;
+	DP(BNX2X_MSG_STATS, "stats_state - DISABLE\n");
+}
+
+static void bnx2x_enable_int(struct bnx2x *bp)
+{
+	int port = bp->port;
+	u32 addr = port ? HC_REG_CONFIG_1 : HC_REG_CONFIG_0;
+	u32 val = REG_RD(bp, addr);
+	int msix = (bp->flags & USING_MSIX_FLAG) ? 1 : 0;
+
+	if (msix) {
+		val &= ~HC_CONFIG_0_REG_SINGLE_ISR_EN_0;
+		val |= (HC_CONFIG_0_REG_MSI_MSIX_INT_EN_0 |
+			HC_CONFIG_0_REG_ATTN_BIT_EN_0);
+	} else {
+		val |= (HC_CONFIG_0_REG_SINGLE_ISR_EN_0 |
+			HC_CONFIG_0_REG_INT_LINE_EN_0 |
+			HC_CONFIG_0_REG_ATTN_BIT_EN_0);
+		val &= ~HC_CONFIG_0_REG_MSI_MSIX_INT_EN_0;
+	}
+
+	DP(NETIF_MSG_INTR, "write %x to HC %d (addr 0x%x)  msi %d\n",
+	   val, port, addr, msix);
+
+	REG_WR(bp, addr, val);
+}
+
+static void bnx2x_disable_int(struct bnx2x *bp)
+{
+	int port = bp->port;
+	u32 addr = port ? HC_REG_CONFIG_1 : HC_REG_CONFIG_0;
+	u32 val = REG_RD(bp, addr);
+
+	val &= ~(HC_CONFIG_0_REG_SINGLE_ISR_EN_0 |
+		 HC_CONFIG_0_REG_MSI_MSIX_INT_EN_0 |
+		 HC_CONFIG_0_REG_INT_LINE_EN_0 |
+		 HC_CONFIG_0_REG_ATTN_BIT_EN_0);
+
+	DP(NETIF_MSG_INTR, "write %x to HC %d (addr 0x%x)\n",
+	   val, port, addr);
+
+	REG_WR(bp, addr, val);
+	if (REG_RD(bp, addr) != val)
+		BNX2X_ERR("BUG! proper val not read from IGU!\n");
+}
+
+static void bnx2x_disable_int_sync(struct bnx2x *bp)
+{
+
+	int msix = (bp->flags & USING_MSIX_FLAG) ? 1 : 0;
+	int i;
+
+	atomic_inc(&bp->intr_sem);
+	/* prevent the HW from sending interrupts*/
+	bnx2x_disable_int(bp);
+
+	/* make sure all ISRs are done */
+	if (msix) {
+		for_each_queue(bp, i)
+			synchronize_irq(bp->msix_table[i].vector);
+
+		/* one more for the Slow Path IRQ */
+		synchronize_irq(bp->msix_table[i].vector);
+	} else
+		synchronize_irq(bp->pdev->irq);
+
+	/* make sure sp_task is not running */
+	cancel_work_sync(&bp->sp_task);
+
+}
+
+/* fast path code */
+
+/*
+ * general service functions
  */
 
-#define GRCBASE_PXPCS		0x000000
-#define GRCBASE_PCICONFIG	0x002000
-#define GRCBASE_PCIREG		0x002400
-#define GRCBASE_EMAC0		0x008000
-#define GRCBASE_EMAC1		0x008400
-#define GRCBASE_DBU		0x008800
-#define GRCBASE_MISC		0x00A000
-#define GRCBASE_DBG		0x00C000
-#define GRCBASE_NIG		0x010000
-#define GRCBASE_XCM		0x020000
-#define GRCBASE_PRS		0x040000
-#define GRCBASE_SRCH		0x040400
-#define GRCBASE_TSDM		0x042000
-#define GRCBASE_TCM		0x050000
-#define GRCBASE_BRB1		0x060000
-#define GRCBASE_MCP		0x080000
-#define GRCBASE_UPB		0x0C1000
-#define GRCBASE_CSDM		0x0C2000
-#define GRCBASE_USDM		0x0C4000
-#define GRCBASE_CCM		0x0D0000
-#define GRCBASE_UCM		0x0E0000
-#define GRCBASE_CDU		0x101000
-#define GRCBASE_DMAE		0x102000
-#define GRCBASE_PXP		0x103000
-#define GRCBASE_CFC		0x104000
-#define GRCBASE_HC		0x108000
-#define GRCBASE_PXP2		0x120000
-#define GRCBASE_PBF		0x140000
-#define GRCBASE_XPB		0x161000
-#define GRCBASE_TIMERS		0x164000
-#define GRCBASE_XSDM		0x166000
-#define GRCBASE_QM		0x168000
-#define GRCBASE_DQ		0x170000
-#define GRCBASE_TSEM		0x180000
-#define GRCBASE_CSEM		0x200000
-#define GRCBASE_XSEM		0x280000
-#define GRCBASE_USEM		0x300000
-#define GRCBASE_MISC_AEU	GRCBASE_MISC
+static inline void bnx2x_ack_sb(struct bnx2x *bp, u8 id,
+				u8 storm, u16 index, u8 op, u8 update)
+{
+	u32 igu_addr = (IGU_ADDR_INT_ACK + IGU_PORT_BASE * bp->port) * 8;
+	struct igu_ack_register igu_ack;
+
+	igu_ack.status_block_index = index;
+	igu_ack.sb_id_and_flags =
+			((id << IGU_ACK_REGISTER_STATUS_BLOCK_ID_SHIFT) |
+			 (storm << IGU_ACK_REGISTER_STORM_ID_SHIFT) |
+			 (update << IGU_ACK_REGISTER_UPDATE_INDEX_SHIFT) |
+			 (op << IGU_ACK_REGISTER_INTERRUPT_MODE_SHIFT));
+
+/*      DP(NETIF_MSG_INTR, "write 0x%08x to IGU addr 0x%x\n",
+	   (*(u32 *)&igu_ack), BAR_IGU_INTMEM + igu_addr); */
+	REG_WR(bp, BAR_IGU_INTMEM + igu_addr, (*(u32 *)&igu_ack));
+}
+
+static inline u16 bnx2x_update_fpsb_idx(struct bnx2x_fastpath *fp)
+{
+	struct host_status_block *fpsb = fp->status_blk;
+	u16 rc = 0;
+
+	barrier(); /* status block is written to by the chip */
+	if (fp->fp_c_idx != fpsb->c_status_block.status_block_index) {
+		fp->fp_c_idx = fpsb->c_status_block.status_block_index;
+		rc |= 1;
+	}
+	if (fp->fp_u_idx != fpsb->u_status_block.status_block_index) {
+		fp->fp_u_idx = fpsb->u_status_block.status_block_index;
+		rc |= 2;
+	}
+	return rc;
+}
+
+static inline int bnx2x_has_work(struct bnx2x_fastpath *fp)
+{
+	u16 rx_cons_sb = le16_to_cpu(*fp->rx_cons_sb);
+
+	if ((rx_cons_sb & MAX_RCQ_DESC_CNT) == MAX_RCQ_DESC_CNT)
+		rx_cons_sb++;
+
+	if ((rx_cons_sb != fp->rx_comp_cons) ||
+	    (le16_to_cpu(*fp->tx_cons_sb) != fp->tx_pkt_cons))
+		return 1;
+
+	return 0;
+}
+
+static u16 bnx2x_ack_int(struct bnx2x *bp)
+{
+	u32 igu_addr = (IGU_ADDR_SIMD_MASK + IGU_PORT_BASE * bp->port) * 8;
+	u32 result = REG_RD(bp, BAR_IGU_INTMEM + igu_addr);
+
+/*      DP(NETIF_MSG_INTR, "read 0x%08x from IGU addr 0x%x\n",
+	   result, BAR_IGU_INTMEM + igu_addr); */
+
+#ifdef IGU_DEBUG
+#warning IGU_DEBUG active
+	if (result == 0) {
+		BNX2X_ERR("read %x from IGU\n", result);
+		REG_WR(bp, TM_REG_TIMER_SOFT_RST, 0);
+	}
+#endif
+	return result;
+}
 
 
-/*the offset of the configuration space in the pci core register*/
-#define PCICFG_OFFSET					0x2000
-#define PCICFG_VENDOR_ID_OFFSET 			0x00
-#define PCICFG_DEVICE_ID_OFFSET 			0x02
-#define PCICFG_SUBSYSTEM_VENDOR_ID_OFFSET		0x2c
-#define PCICFG_SUBSYSTEM_ID_OFFSET			0x2e
-#define PCICFG_INT_LINE 				0x3c
-#define PCICFG_INT_PIN					0x3d
-#define PCICFG_CACHE_LINE_SIZE				0x0c
-#define PCICFG_LATENCY_TIMER				0x0d
-#define PCICFG_REVESION_ID				0x08
-#define PCICFG_BAR_1_LOW				0x10
-#define PCICFG_BAR_1_HIGH				0x14
-#define PCICFG_BAR_2_LOW				0x18
-#define PCICFG_BAR_2_HIGH				0x1c
-#define PCICFG_GRC_ADDRESS				0x78
-#define PCICFG_GRC_DATA 				0x80
-#define PCICFG_DEVICE_CONTROL				0xb4
-#define PCICFG_LINK_CONTROL				0xbc
+/*
+ * fast path service functions
+ */
 
-#define BAR_USTRORM_INTMEM				0x400000
-#define BAR_CSTRORM_INTMEM				0x410000
-#define BAR_XSTRORM_INTMEM				0x420000
-#define BAR_TSTRORM_INTMEM				0x430000
+/* free skb in the packet ring at pos idx
+ * return idx of last bd freed
+ */
+static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+			     u16 idx)
+{
+	struct sw_tx_bd *tx_buf = &fp->tx_buf_ring[idx];
+	struct eth_tx_bd *tx_bd;
+	struct sk_buff *skb = tx_buf->skb;
+	u16 bd_idx = tx_buf->first_bd;
+	int nbd;
 
-#define BAR_IGU_INTMEM					0x440000
+	DP(BNX2X_MSG_OFF, "pkt_idx %d  buff @(%p)->skb %p\n",
+	   idx, tx_buf, skb);
 
-#define BAR_DOORBELL_OFFSET				0x800000
+	/* unmap first bd */
+	DP(BNX2X_MSG_OFF, "free bd_idx %d\n", bd_idx);
+	tx_bd = &fp->tx_desc_ring[bd_idx];
+	pci_unmap_single(bp->pdev, BD_UNMAP_ADDR(tx_bd),
+			 BD_UNMAP_LEN(tx_bd), PCI_DMA_TODEVICE);
 
-#define BAR_ME_REGISTER 				0x450000
+	nbd = le16_to_cpu(tx_bd->nbd) - 1;
+#ifdef BNX2X_STOP_ON_ERROR
+	if (nbd > (MAX_SKB_FRAGS + 2)) {
+		BNX2X_ERR("bad nbd!\n");
+		bnx2x_panic();
+	}
+#endif
+
+	/* Skip a parse bd and the TSO split header bd
+	   since they have no mapping */
+	if (nbd)
+		bd_idx = TX_BD(NEXT_TX_IDX(bd_idx));
+
+	if (tx_bd->bd_flags.as_bitfield & (ETH_TX_BD_FLAGS_IP_CSUM |
+					   ETH_TX_BD_FLAGS_TCP_CSUM |
+					   ETH_TX_BD_FLAGS_SW_LSO)) {
+		if (--nbd)
+			bd_idx = TX_BD(NEXT_TX_IDX(bd_idx));
+		tx_bd = &fp->tx_desc_ring[bd_idx];
+		/* is this a TSO split header bd? */
+		if (tx_bd->bd_flags.as_bitfield & ETH_TX_BD_FLAGS_SW_LSO) {
+			if (--nbd)
+				bd_idx = TX_BD(NEXT_TX_IDX(bd_idx));
+		}
+	}
+
+	/* now free frags */
+	while (nbd > 0) {
+
+		DP(BNX2X_MSG_OFF, "free frag bd_idx %d\n", bd_idx);
+		tx_bd = &fp->tx_desc_ring[bd_idx];
+		pci_unmap_page(bp->pdev, BD_UNMAP_ADDR(tx_bd),
+			       BD_UNMAP_LEN(tx_bd), PCI_DMA_TODEVICE);
+		if (--nbd)
+			bd_idx = TX_BD(NEXT_TX_IDX(bd_idx));
+	}
+
+	/* release skb */
+	BUG_TRAP(skb);
+	dev_kfree_skb(skb);
+	tx_buf->first_bd = 0;
+	tx_buf->skb = NULL;
+
+	return bd_idx;
+}
+
+static inline u32 bnx2x_tx_avail(struct bnx2x_fastpath *fp)
+{
+	u16 used;
+	u32 prod;
+	u32 cons;
+
+	/* Tell compiler that prod and cons can change */
+	barrier();
+	prod = fp->tx_bd_prod;
+	cons = fp->tx_bd_cons;
+
+	used = (NUM_TX_BD - NUM_TX_RINGS + prod - cons +
+		(cons / TX_DESC_CNT) - (prod / TX_DESC_CNT));
+
+	if (prod >= cons) {
+		/* used = prod - cons - prod/size + cons/size */
+		used -= NUM_TX_BD - NUM_TX_RINGS;
+	}
+
+	BUG_TRAP(used <= fp->bp->tx_ring_size);
+	BUG_TRAP((fp->bp->tx_ring_size - used) <= MAX_TX_AVAIL);
+
+	return (fp->bp->tx_ring_size - used);
+}
+
+static void bnx2x_tx_int(struct bnx2x_fastpath *fp, int work)
+{
+	struct bnx2x *bp = fp->bp;
+	u16 hw_cons, sw_cons, bd_cons = fp->tx_bd_cons;
+	int done = 0;
+
+#ifdef BNX2X_STOP_ON_ERROR
+	if (unlikely(bp->panic))
+		return;
+#endif
+
+	hw_cons = le16_to_cpu(*fp->tx_cons_sb);
+	sw_cons = fp->tx_pkt_cons;
+
+	while (sw_cons != hw_cons) {
+		u16 pkt_cons;
+
+		pkt_cons = TX_BD(sw_cons);
+
+		/* prefetch(bp->tx_buf_ring[pkt_cons].skb); */
+
+		DP(NETIF_MSG_TX_DONE, "hw_cons %u  sw_cons %u  pkt_cons %d\n",
+		   hw_cons, sw_cons, pkt_cons);
+
+/*      	if (NEXT_TX_IDX(sw_cons) != hw_cons) {
+			rmb();
+			prefetch(fp->tx_buf_ring[NEXT_TX_IDX(sw_cons)].skb);
+		}
+*/
+		bd_cons = bnx2x_free_tx_pkt(bp, fp, pkt_cons);
+		sw_cons++;
+		done++;
+
+		if (done == work)
+			break;
+	}
+
+	fp->tx_pkt_cons = sw_cons;
+	fp->tx_bd_cons = bd_cons;
+
+	/* Need to make the tx_cons update visible to start_xmit()
+	 * before checking for netif_queue_stopped().  Without the
+	 * memory barrier, there is a small possibility that start_xmit()
+	 * will miss it and cause the queue to be stopped forever.
+	 */
+	smp_mb();
+
+	/* TBD need a thresh? */
+	if (unlikely(netif_queue_stopped(bp->dev))) {
+
+		netif_tx_lock(bp->dev);
+
+		if (netif_queue_stopped(bp->dev) &&
+		    (bnx2x_tx_avail(fp) >= MAX_SKB_FRAGS + 3))
+			netif_wake_queue(bp->dev);
+
+		netif_tx_unlock(bp->dev);
+
+	}
+}
+
+static void bnx2x_sp_event(struct bnx2x_fastpath *fp,
+			   union eth_rx_cqe *rr_cqe)
+{
+	struct bnx2x *bp = fp->bp;
+	int cid = SW_CID(rr_cqe->ramrod_cqe.conn_and_cmd_data);
+	int command = CQE_CMD(rr_cqe->ramrod_cqe.conn_and_cmd_data);
+
+	DP(NETIF_MSG_RX_STATUS,
+	   "fp %d  cid %d  got ramrod #%d  state is %x  type is %d\n",
+	   fp->index, cid, command, bp->state, rr_cqe->ramrod_cqe.type);
+
+	bp->spq_left++;
+
+	if (fp->index) {
+		switch (command | fp->state) {
+		case (RAMROD_CMD_ID_ETH_CLIENT_SETUP |
+						BNX2X_FP_STATE_OPENING):
+			DP(NETIF_MSG_IFUP, "got MULTI[%d] setup ramrod\n",
+			   cid);
+			fp->state = BNX2X_FP_STATE_OPEN;
+			break;
+
+		case (RAMROD_CMD_ID_ETH_HALT | BNX2X_FP_STATE_HALTING):
+			DP(NETIF_MSG_IFDOWN, "got MULTI[%d] halt ramrod\n",
+			   cid);
+			fp->state = BNX2X_FP_STATE_HALTED;
+			break;
+
+		default:
+			BNX2X_ERR("unexpected MC reply(%d)  state is %x\n",
+				  command, fp->state);
+		}
+		mb(); /* force bnx2x_wait_ramrod to see the change */
+		return;
+	}
+	switch (command | bp->state) {
+	case (RAMROD_CMD_ID_ETH_PORT_SETUP | BNX2X_STATE_OPENING_WAIT4_PORT):
+		DP(NETIF_MSG_IFUP, "got setup ramrod\n");
+		bp->state = BNX2X_STATE_OPEN;
+		break;
+
+	case (RAMROD_CMD_ID_ETH_HALT | BNX2X_STATE_CLOSING_WAIT4_HALT):
+		DP(NETIF_MSG_IFDOWN, "got halt ramrod\n");
+		bp->state = BNX2X_STATE_CLOSING_WAIT4_DELETE;
+		fp->state = BNX2X_FP_STATE_HALTED;
+		break;
+
+	case (RAMROD_CMD_ID_ETH_PORT_DEL | BNX2X_STATE_CLOSING_WAIT4_DELETE):
+		DP(NETIF_MSG_IFDOWN, "got delete ramrod\n");
+		bp->state = BNX2X_STATE_CLOSING_WAIT4_UNLOAD;
+		break;
+
+	case (RAMROD_CMD_ID_ETH_CFC_DEL | BNX2X_STATE_CLOSING_WAIT4_HALT):
+		DP(NETIF_MSG_IFDOWN, "got delete ramrod for MULTI[%d]\n", cid);
+		bnx2x_fp(bp, cid, state) = BNX2X_FP_STATE_DELETED;
+		break;
+
+	case (RAMROD_CMD_ID_ETH_SET_MAC | BNX2X_STATE_OPEN):
+		DP(NETIF_MSG_IFUP, "got set mac ramrod\n");
+		break;
+
+	default:
+		BNX2X_ERR("unexpected ramrod (%d)  state is %x\n",
+			  command, bp->state);
+	}
+
+	mb(); /* force bnx2x_wait_ramrod to see the change */
+}
+
+static inline int bnx2x_alloc_rx_skb(struct bnx2x *bp,
+				     struct bnx2x_fastpath *fp, u16 index)
+{
+	struct sk_buff *skb;
+	struct sw_rx_bd *rx_buf = &fp->rx_buf_ring[index];
+	struct eth_rx_bd *rx_bd = &fp->rx_desc_ring[index];
+	dma_addr_t mapping;
+
+	skb = netdev_alloc_skb(bp->dev, bp->rx_buf_size);
+	if (unlikely(skb == NULL))
+		return -ENOMEM;
+
+	mapping = pci_map_single(bp->pdev, skb->data, bp->rx_buf_use_size,
+				 PCI_DMA_FROMDEVICE);
+	if (unlikely(dma_mapping_error(mapping))) {
+
+		dev_kfree_skb(skb);
+		return -ENOMEM;
+	}
+
+	rx_buf->skb = skb;
+	pci_unmap_addr_set(rx_buf, mapping, mapping);
+
+	rx_bd->addr_hi = cpu_to_le32(U64_HI(mapping));
+	rx_bd->addr_lo = cpu_to_le32(U64_LO(mapping));
+
+	return 0;
+}
+
+/* note that we are not allocating a new skb,
+ * we are just moving one from cons to prod
+ * we are not creating a new mapping,
+ * so there is no need to check for dma_mapping_error().
+ */
+static void bnx2x_reuse_rx_skb(struct bnx2x_fastpath *fp,
+			       struct sk_buff *skb, u16 cons, u16 prod)
+{
+	struct bnx2x *bp = fp->bp;
+	struct sw_rx_bd *cons_rx_buf = &fp->rx_buf_ring[cons];
+	struct sw_rx_bd *prod_rx_buf = &fp->rx_buf_ring[prod];
+	struct eth_rx_bd *cons_bd = &fp->rx_desc_ring[cons];
+	struct eth_rx_bd *prod_bd = &fp->rx_desc_ring[prod];
+
+	pci_dma_sync_single_for_device(bp->pdev,
+				       pci_unmap_addr(cons_rx_buf, mapping),
+				       bp->rx_offset + RX_COPY_THRESH,
+				       PCI_DMA_FROMDEVICE);
+
+	prod_rx_buf->skb = cons_rx_buf->skb;
+	pci_unmap_addr_set(prod_rx_buf, mapping,
+			   pci_unmap_addr(cons_rx_buf, mapping));
+	*prod_bd = *cons_bd;
+}
+
+static int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
+{
+	struct bnx2x *bp = fp->bp;
+	u16 bd_cons, bd_prod, comp_ring_cons;
+	u16 hw_comp_cons, sw_comp_cons, sw_comp_prod;
+	int rx_pkt = 0;
+
+#ifdef BNX2X_STOP_ON_ERROR
+	if (unlikely(bp->panic))
+		return 0;
+#endif
+
+	hw_comp_cons = le16_to_cpu(*fp->rx_cons_sb);
+	if ((hw_comp_cons & MAX_RCQ_DESC_CNT) == MAX_RCQ_DESC_CNT)
+		hw_comp_cons++;
+
+	bd_cons = fp->rx_bd_cons;
+	bd_prod = fp->rx_bd_prod;
+	sw_comp_cons = fp->rx_comp_cons;
+	sw_comp_prod = fp->rx_comp_prod;
+
+	/* Memory barrier necessary as speculative reads of the rx
+	 * buffer can be ahead of the index in the status block
+	 */
+	rmb();
+
+	DP(NETIF_MSG_RX_STATUS,
+	   "queue[%d]:  hw_comp_cons %u  sw_comp_cons %u\n",
+	   fp->index, hw_comp_cons, sw_comp_cons);
+
+	while (sw_comp_cons != hw_comp_cons) {
+		unsigned int len, pad;
+		struct sw_rx_bd *rx_buf;
+		struct sk_buff *skb;
+		union eth_rx_cqe *cqe;
+
+		comp_ring_cons = RCQ_BD(sw_comp_cons);
+		bd_prod = RX_BD(bd_prod);
+		bd_cons = RX_BD(bd_cons);
+
+		cqe = &fp->rx_comp_ring[comp_ring_cons];
+
+		DP(NETIF_MSG_RX_STATUS, "hw_comp_cons %u  sw_comp_cons %u"
+		   "  comp_ring (%u)  bd_ring (%u,%u)\n",
+		   hw_comp_cons, sw_comp_cons,
+		   comp_ring_cons, bd_prod, bd_cons);
+		DP(NETIF_MSG_RX_STATUS, "CQE type %x  err %x  status %x"
+		   "  queue %x  vlan %x  len %x\n",
+		   cqe->fast_path_cqe.type,
+		   cqe->fast_path_cqe.error_type_flags,
+		   cqe->fast_path_cqe.status_flags,
+		   cqe->fast_path_cqe.rss_hash_result,
+		   cqe->fast_path_cqe.vlan_tag, cqe->fast_path_cqe.pkt_len);
+
+		/* is this a slowpath msg? */
+		if (unlikely(cqe->fast_path_cqe.type)) {
+			bnx2x_sp_event(fp, cqe);
+			goto next_cqe;
+
+		/* this is an rx packet */
+		} else {
+			rx_buf = &fp->rx_buf_ring[bd_cons];
+			skb = rx_buf->skb;
+
+			len = le16_to_cpu(cqe->fast_path_cqe.pkt_len);
+			pad = cqe->fast_path_cqe.placement_offset;
+
+			pci_dma_sync_single_for_device(bp->pdev,
+					pci_unmap_addr(rx_buf, mapping),
+						       pad + RX_COPY_THRESH,
+						       PCI_DMA_FROMDEVICE);
+			prefetch(skb);
+			prefetch(((char *)(skb)) + 128);
+
+			/* is this an error packet? */
+			if (unlikely(cqe->fast_path_cqe.error_type_flags &
+							ETH_RX_ERROR_FALGS)) {
+			/* do we sometimes forward error packets anyway? */
+				DP(NETIF_MSG_RX_ERR,
+				   "ERROR flags(%u) Rx packet(%u)\n",
+				   cqe->fast_path_cqe.error_type_flags,
+				   sw_comp_cons);
+				/* TBD make sure MC counts this as a drop */
+				goto reuse_rx;
+			}
+
+			/* Since we don't have a jumbo ring
+			 * copy small packets if mtu > 1500
+			 */
+			if ((bp->dev->mtu > ETH_MAX_PACKET_SIZE) &&
+			    (len <= RX_COPY_THRESH)) {
+				struct sk_buff *new_skb;
+
+				new_skb = netdev_alloc_skb(bp->dev,
+							   len + pad);
+				if (new_skb == NULL) {
+					DP(NETIF_MSG_RX_ERR,
+					   "ERROR packet dropped "
+					   "because of alloc failure\n");
+					/* TBD count this as a drop? */
+					goto reuse_rx;
+				}
+
+				/* aligned copy */
+				skb_copy_from_linear_data_offset(skb, pad,
+						    new_skb->data + pad, len);
+				skb_reserve(new_skb, pad);
+				skb_put(new_skb, len);
+
+				bnx2x_reuse_rx_skb(fp, skb, bd_cons, bd_prod);
+
+				skb = new_skb;
+
+			} else if (bnx2x_alloc_rx_skb(bp, fp, bd_prod) == 0) {
+				pci_unmap_single(bp->pdev,
+					pci_unmap_addr(rx_buf, mapping),
+						 bp->rx_buf_use_size,
+						 PCI_DMA_FROMDEVICE);
+				skb_reserve(skb, pad);
+				skb_put(skb, len);
+
+			} else {
+				DP(NETIF_MSG_RX_ERR,
+				   "ERROR packet dropped because "
+				   "of alloc failure\n");
+reuse_rx:
+				bnx2x_reuse_rx_skb(fp, skb, bd_cons, bd_prod);
+				goto next_rx;
+			}
+
+			skb->protocol = eth_type_trans(skb, bp->dev);
+
+			skb->ip_summed = CHECKSUM_NONE;
+			if (bp->rx_csum && BNX2X_RX_SUM_OK(cqe))
+				skb->ip_summed = CHECKSUM_UNNECESSARY;
+
+			/* TBD do we pass bad csum packets in promisc */
+		}
+
+#ifdef BCM_VLAN
+		if ((le16_to_cpu(cqe->fast_path_cqe.pars_flags.flags)
+				& PARSING_FLAGS_NUMBER_OF_NESTED_VLANS)
+		    && (bp->vlgrp != NULL))
+			vlan_hwaccel_receive_skb(skb, bp->vlgrp,
+				le16_to_cpu(cqe->fast_path_cqe.vlan_tag));
+		else
+#endif
+		netif_receive_skb(skb);
+
+		bp->dev->last_rx = jiffies;
+
+next_rx:
+		rx_buf->skb = NULL;
+
+		bd_cons = NEXT_RX_IDX(bd_cons);
+		bd_prod = NEXT_RX_IDX(bd_prod);
+next_cqe:
+		sw_comp_prod = NEXT_RCQ_IDX(sw_comp_prod);
+		sw_comp_cons = NEXT_RCQ_IDX(sw_comp_cons);
+		rx_pkt++;
+
+		if ((rx_pkt == budget))
+			break;
+	} /* while */
+
+	fp->rx_bd_cons = bd_cons;
+	fp->rx_bd_prod = bd_prod;
+	fp->rx_comp_cons = sw_comp_cons;
+	fp->rx_comp_prod = sw_comp_prod;
+
+	REG_WR(bp, BAR_TSTRORM_INTMEM +
+	       TSTORM_RCQ_PROD_OFFSET(bp->port, fp->index), sw_comp_prod);
+
+	mmiowb(); /* keep prod updates ordered */
+
+	fp->rx_pkt += rx_pkt;
+	fp->rx_calls++;
+
+	return rx_pkt;
+}
+
+static irqreturn_t bnx2x_msix_fp_int(int irq, void *fp_cookie)
+{
+	struct bnx2x_fastpath *fp = fp_cookie;
+	struct bnx2x *bp = fp->bp;
+	struct net_device *dev = bp->dev;
+	int index = fp->index;
+
+	DP(NETIF_MSG_INTR, "got an msix interrupt on [%d]\n", index);
+	bnx2x_ack_sb(bp, index, USTORM_ID, 0, IGU_INT_DISABLE, 0);
+
+#ifdef BNX2X_STOP_ON_ERROR
+	if (unlikely(bp->panic))
+		return IRQ_HANDLED;
+#endif
+
+	prefetch(fp->rx_cons_sb);
+	prefetch(fp->tx_cons_sb);
+	prefetch(&fp->status_blk->c_status_block.status_block_index);
+	prefetch(&fp->status_blk->u_status_block.status_block_index);
+
+	netif_rx_schedule(dev, &bnx2x_fp(bp, index, napi));
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t bnx2x_interrupt(int irq, void *dev_instance)
+{
+	struct net_device *dev = dev_instance;
+	struct bnx2x *bp = netdev_priv(dev);
+	u16 status = bnx2x_ack_int(bp);
+
+	if (unlikely(status == 0)) {
+		DP(NETIF_MSG_INTR, "not our interrupt!\n");
+		return IRQ_NONE;
+	}
+
+	DP(NETIF_MSG_INTR, "got an interrupt status is %u\n", status);
+
+#ifdef BNX2X_STOP_ON_ERROR
+	if (unlikely(bp->panic))
+		return IRQ_HANDLED;
+#endif
+
+	/* Return here if interrupt is shared and is disabled */
+	if (unlikely(atomic_read(&bp->intr_sem) != 0)) {
+		DP(NETIF_MSG_INTR, "called but intr_sem not 0, returning\n");
+		return IRQ_HANDLED;
+	}
+
+	if (status & 0x2) {
+		struct bnx2x_fastpath *fp = &bp->fp[0];
+
+		prefetch(fp->rx_cons_sb);
+		prefetch(fp->tx_cons_sb);
+		prefetch(&fp->status_blk->c_status_block.status_block_index);
+		prefetch(&fp->status_blk->u_status_block.status_block_index);
+
+		netif_rx_schedule(dev, &bnx2x_fp(bp, 0, napi));
+
+		status &= ~0x2;
+		if (!status)
+			return IRQ_HANDLED;
+	}
+
+	if (unlikely(status & 0x1)) {
+
+		schedule_work(&bp->sp_task);
+
+		status &= ~0x1;
+		if (!status)
+			return IRQ_HANDLED;
+	}
+
+	DP(NETIF_MSG_INTR, "got an unknown interrupt! (status is %u)\n",
+	   status);
+
+	return IRQ_HANDLED;
+}
+
+/* end of fast path */
+
+/* PHY/MAC */
+
+/*
+ * General service functions
+ */
+
+static void bnx2x_leds_set(struct bnx2x *bp, unsigned int speed)
+{
+	int port = bp->port;
+
+	NIG_WR(NIG_REG_LED_MODE_P0 + port*4,
+	       ((bp->hw_config & SHARED_HW_CFG_LED_MODE_MASK) >>
+		SHARED_HW_CFG_LED_MODE_SHIFT));
+	NIG_WR(NIG_REG_LED_CONTROL_OVERRIDE_TRAFFIC_P0 + port*4, 0);
+
+	/* Set blinking rate to ~15.9Hz */
+	NIG_WR(NIG_REG_LED_CONTROL_BLINK_RATE_P0 + port*4,
+	       LED_BLINK_RATE_VAL);
+	NIG_WR(NIG_REG_LED_CONTROL_BLINK_RATE_ENA_P0 + port*4, 1);
+
+	/* On Ax chip versions for speeds less than 10G
+	   LED scheme is different */
+	if ((CHIP_REV(bp) == CHIP_REV_Ax) && (speed < SPEED_10000)) {
+		NIG_WR(NIG_REG_LED_CONTROL_OVERRIDE_TRAFFIC_P0 + port*4, 1);
+		NIG_WR(NIG_REG_LED_CONTROL_TRAFFIC_P0 + port*4, 0);
+		NIG_WR(NIG_REG_LED_CONTROL_BLINK_TRAFFIC_P0 + port*4, 1);
+	}
+}
+
+static void bnx2x_leds_unset(struct bnx2x *bp)
+{
+	int port = bp->port;
+
+	NIG_WR(NIG_REG_LED_10G_P0 + port*4, 0);
+	NIG_WR(NIG_REG_LED_MODE_P0 + port*4, SHARED_HW_CFG_LED_MAC1);
+}
+
+static u32 bnx2x_bits_en(struct bnx2x *bp, u32 reg, u32 bits)
+{
+	u32 val = REG_RD(bp, reg);
+
+	val |= bits;
+	REG_WR(bp, reg, val);
+	return val;
+}
+
+static u32 bnx2x_bits_dis(struct bnx2x *bp, u32 reg, u32 bits)
+{
+	u32 val = REG_RD(bp, reg);
+
+	val &= ~bits;
+	REG_WR(bp, reg, val);
+	return val;
+}
+
+static int bnx2x_mdio22_write(struct bnx2x *bp, u32 reg, u32 val)
+{
+	int rc;
+	u32 tmp, i;
+	int port = bp->port;
+	u32 emac_base = port ? GRCBASE_EMAC1 : GRCBASE_EMAC0;
+
+/*      DP(NETIF_MSG_HW, "phy_addr 0x%x  reg 0x%x  val 0x%08x\n",
+	   bp->phy_addr, reg, val); */
+
+	if (bp->phy_flags & PHY_INT_MODE_AUTO_POLLING_FLAG) {
+
+		tmp = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
+		tmp &= ~EMAC_MDIO_MODE_AUTO_POLL;
+		EMAC_WR(EMAC_REG_EMAC_MDIO_MODE, tmp);
+		REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
+		udelay(40);
+	}
+
+	tmp = ((bp->phy_addr << 21) | (reg << 16) |
+	       (val & EMAC_MDIO_COMM_DATA) |
+	       EMAC_MDIO_COMM_COMMAND_WRITE_22 |
+	       EMAC_MDIO_COMM_START_BUSY);
+	EMAC_WR(EMAC_REG_EMAC_MDIO_COMM, tmp);
+
+	for (i = 0; i < 50; i++) {
+		udelay(10);
+
+		tmp = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_COMM);
+		if (!(tmp & EMAC_MDIO_COMM_START_BUSY)) {
+			udelay(5);
+			break;
+		}
+	}
+
+	if (tmp & EMAC_MDIO_COMM_START_BUSY) {
+		BNX2X_ERR("write phy register failed\n");
+
+		rc = -EBUSY;
+	} else {
+		rc = 0;
+	}
+
+	if (bp->phy_flags & PHY_INT_MODE_AUTO_POLLING_FLAG) {
+
+		tmp = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
+		tmp |= EMAC_MDIO_MODE_AUTO_POLL;
+		EMAC_WR(EMAC_REG_EMAC_MDIO_MODE, tmp);
+	}
+
+	return rc;
+}
+
+static int bnx2x_mdio22_read(struct bnx2x *bp, u32 reg, u32 *ret_val)
+{
+	int port = bp->port;
+	u32 emac_base = port ? GRCBASE_EMAC1 : GRCBASE_EMAC0;
+	u32 val, i;
+	int rc;
+
+	if (bp->phy_flags & PHY_INT_MODE_AUTO_POLLING_FLAG) {
+
+		val = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
+		val &= ~EMAC_MDIO_MODE_AUTO_POLL;
+		EMAC_WR(EMAC_REG_EMAC_MDIO_MODE, val);
+		REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
+		udelay(40);
+	}
+
+	val = ((bp->phy_addr << 21) | (reg << 16) |
+	       EMAC_MDIO_COMM_COMMAND_READ_22 |
+	       EMAC_MDIO_COMM_START_BUSY);
+	EMAC_WR(EMAC_REG_EMAC_MDIO_COMM, val);
+
+	for (i = 0; i < 50; i++) {
+		udelay(10);
+
+		val = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_COMM);
+		if (!(val & EMAC_MDIO_COMM_START_BUSY)) {
+			val &= EMAC_MDIO_COMM_DATA;
+			break;
+		}
+	}
+
+	if (val & EMAC_MDIO_COMM_START_BUSY) {
+		BNX2X_ERR("read phy register failed\n");
+
+		*ret_val = 0x0;
+		rc = -EBUSY;
+	} else {
+		*ret_val = val;
+		rc = 0;
+	}
+
+	if (bp->phy_flags & PHY_INT_MODE_AUTO_POLLING_FLAG) {
+
+		val = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
+		val |= EMAC_MDIO_MODE_AUTO_POLL;
+		EMAC_WR(EMAC_REG_EMAC_MDIO_MODE, val);
+	}
+
+/*      DP(NETIF_MSG_HW, "phy_addr 0x%x  reg 0x%x  ret_val 0x%08x\n",
+	   bp->phy_addr, reg, *ret_val); */
+
+	return rc;
+}
+
+static int bnx2x_mdio45_write(struct bnx2x *bp, u32 reg, u32 addr, u32 val)
+{
+	int rc = 0;
+	u32 tmp, i;
+	int port = bp->port;
+	u32 emac_base = port ? GRCBASE_EMAC1 : GRCBASE_EMAC0;
+
+	if (bp->phy_flags & PHY_INT_MODE_AUTO_POLLING_FLAG) {
+
+		tmp = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
+		tmp &= ~EMAC_MDIO_MODE_AUTO_POLL;
+		EMAC_WR(EMAC_REG_EMAC_MDIO_MODE, tmp);
+		REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
+		udelay(40);
+	}
+
+	/* set clause 45 mode */
+	tmp = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
+	tmp |= EMAC_MDIO_MODE_CLAUSE_45;
+	EMAC_WR(EMAC_REG_EMAC_MDIO_MODE, tmp);
+
+	/* address */
+	tmp = ((bp->phy_addr << 21) | (reg << 16) | addr |
+	       EMAC_MDIO_COMM_COMMAND_ADDRESS |
+	       EMAC_MDIO_COMM_START_BUSY);
+	EMAC_WR(EMAC_REG_EMAC_MDIO_COMM, tmp);
+
+	for (i = 0; i < 50; i++) {
+		udelay(10);
+
+		tmp = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_COMM);
+		if (!(tmp & EMAC_MDIO_COMM_START_BUSY)) {
+			udelay(5);
+			break;
+		}
+	}
+
+	if (tmp & EMAC_MDIO_COMM_START_BUSY) {
+		BNX2X_ERR("write phy register failed\n");
+
+		rc = -EBUSY;
+	} else {
+		/* data */
+		tmp = ((bp->phy_addr << 21) | (reg << 16) | val |
+		       EMAC_MDIO_COMM_COMMAND_WRITE_45 |
+		       EMAC_MDIO_COMM_START_BUSY);
+		EMAC_WR(EMAC_REG_EMAC_MDIO_COMM, tmp);
+
+		for (i = 0; i < 50; i++) {
+			udelay(10);
+
+			tmp = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_COMM);
+			if (!(tmp & EMAC_MDIO_COMM_START_BUSY)) {
+				udelay(5);
+				break;
+			}
+		}
+
+		if (tmp & EMAC_MDIO_COMM_START_BUSY) {
+			BNX2X_ERR("write phy register failed\n");
+
+			rc = -EBUSY;
+		}
+	}
+
+	/* unset clause 45 mode */
+	tmp = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
+	tmp &= ~EMAC_MDIO_MODE_CLAUSE_45;
+	EMAC_WR(EMAC_REG_EMAC_MDIO_MODE, tmp);
+
+	if (bp->phy_flags & PHY_INT_MODE_AUTO_POLLING_FLAG) {
+
+		tmp = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
+		tmp |= EMAC_MDIO_MODE_AUTO_POLL;
+		EMAC_WR(EMAC_REG_EMAC_MDIO_MODE, tmp);
+	}
+
+	return rc;
+}
+
+static int bnx2x_mdio45_read(struct bnx2x *bp, u32 reg, u32 addr,
+			     u32 *ret_val)
+{
+	int port = bp->port;
+	u32 emac_base = port ? GRCBASE_EMAC1 : GRCBASE_EMAC0;
+	u32 val, i;
+	int rc = 0;
+
+	if (bp->phy_flags & PHY_INT_MODE_AUTO_POLLING_FLAG) {
+
+		val = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
+		val &= ~EMAC_MDIO_MODE_AUTO_POLL;
+		EMAC_WR(EMAC_REG_EMAC_MDIO_MODE, val);
+		REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
+		udelay(40);
+	}
+
+	/* set clause 45 mode */
+	val = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
+	val |= EMAC_MDIO_MODE_CLAUSE_45;
+	EMAC_WR(EMAC_REG_EMAC_MDIO_MODE, val);
+
+	/* address */
+	val = ((bp->phy_addr << 21) | (reg << 16) | addr |
+	       EMAC_MDIO_COMM_COMMAND_ADDRESS |
+	       EMAC_MDIO_COMM_START_BUSY);
+	EMAC_WR(EMAC_REG_EMAC_MDIO_COMM, val);
+
+	for (i = 0; i < 50; i++) {
+		udelay(10);
+
+		val = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_COMM);
+		if (!(val & EMAC_MDIO_COMM_START_BUSY)) {
+			udelay(5);
+			break;
+		}
+	}
+
+	if (val & EMAC_MDIO_COMM_START_BUSY) {
+		BNX2X_ERR("read phy register failed\n");
+
+		*ret_val = 0;
+		rc = -EBUSY;
+	} else {
+		/* data */
+		val = ((bp->phy_addr << 21) | (reg << 16) |
+		       EMAC_MDIO_COMM_COMMAND_READ_45 |
+		       EMAC_MDIO_COMM_START_BUSY);
+		EMAC_WR(EMAC_REG_EMAC_MDIO_COMM, val);
+
+		for (i = 0; i < 50; i++) {
+			udelay(10);
+
+			val = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_COMM);
+			if (!(val & EMAC_MDIO_COMM_START_BUSY)) {
+				val &= EMAC_MDIO_COMM_DATA;
+				break;
+			}
+		}
+
+		if (val & EMAC_MDIO_COMM_START_BUSY) {
+			BNX2X_ERR("read phy register failed\n");
+
+			val = 0;
+			rc = -EBUSY;
+		}
+
+		*ret_val = val;
+	}
+
+	/* unset clause 45 mode */
+	val = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
+	val &= ~EMAC_MDIO_MODE_CLAUSE_45;
+	EMAC_WR(EMAC_REG_EMAC_MDIO_MODE, val);
+
+	if (bp->phy_flags & PHY_INT_MODE_AUTO_POLLING_FLAG) {
+
+		val = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
+		val |= EMAC_MDIO_MODE_AUTO_POLL;
+		EMAC_WR(EMAC_REG_EMAC_MDIO_MODE, val);
+	}
+
+	return rc;
+}
+
+static int bnx2x_mdio45_vwrite(struct bnx2x *bp, u32 reg, u32 addr, u32 val)
+{
+	int i;
+	u32 rd_val;
+
+	might_sleep();
+	for (i = 0; i < 10; i++) {
+		bnx2x_mdio45_write(bp, reg, addr, val);
+		msleep(5);
+		bnx2x_mdio45_read(bp, reg, addr, &rd_val);
+		/* if the read value is not the same as the value we wrote,
+		   we should write it again */
+		if (rd_val == val)
+			return 0;
+	}
+	BNX2X_ERR("MDIO write in CL45 failed\n");
+	return -EBUSY;
+}
+
+/*
+ * link managment
+ */
+
+static void bnx2x_flow_ctrl_resolve(struct bnx2x *bp, u32 gp_status)
+{
+	u32 ld_pause;   /* local driver */
+	u32 lp_pause;   /* link partner */
+	u32 pause_result;
+
+	bp->flow_ctrl = 0;
+
+	/* reolve from gp_status in case of AN complete and not sgmii */
+	if ((bp->req_autoneg & AUTONEG_FLOW_CTRL) &&
+	    (gp_status & MDIO_AN_CL73_OR_37_COMPLETE) &&
+	    (!(bp->phy_flags & PHY_SGMII_FLAG)) &&
+	    (XGXS_EXT_PHY_TYPE(bp) == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT)) {
+
+		MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_COMBO_IEEE0);
+		bnx2x_mdio22_read(bp, MDIO_COMBO_IEEE0_AUTO_NEG_ADV,
+				  &ld_pause);
+		bnx2x_mdio22_read(bp,
+			MDIO_COMBO_IEEE0_AUTO_NEG_LINK_PARTNER_ABILITY1,
+				  &lp_pause);
+		pause_result = (ld_pause &
+				MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_MASK)>>5;
+		pause_result |= (lp_pause &
+				 MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_MASK)>>7;
+		DP(NETIF_MSG_LINK, "pause_result 0x%x\n", pause_result);
+
+		switch (pause_result) { 		/* ASYM P ASYM P */
+		case 0xb:       			/*   1  0   1  1 */
+			bp->flow_ctrl = FLOW_CTRL_TX;
+			break;
+
+		case 0xe:       			/*   1  1   1  0 */
+			bp->flow_ctrl = FLOW_CTRL_RX;
+			break;
+
+		case 0x5:       			/*   0  1   0  1 */
+		case 0x7:       			/*   0  1   1  1 */
+		case 0xd:       			/*   1  1   0  1 */
+		case 0xf:       			/*   1  1   1  1 */
+			bp->flow_ctrl = FLOW_CTRL_BOTH;
+			break;
+
+		default:
+			break;
+		}
+
+	} else { /* forced mode */
+		switch (bp->req_flow_ctrl) {
+		case FLOW_CTRL_AUTO:
+			if (bp->dev->mtu <= 4500)
+				bp->flow_ctrl = FLOW_CTRL_BOTH;
+			else
+				bp->flow_ctrl = FLOW_CTRL_TX;
+			break;
+
+		case FLOW_CTRL_TX:
+		case FLOW_CTRL_RX:
+		case FLOW_CTRL_BOTH:
+			bp->flow_ctrl = bp->req_flow_ctrl;
+			break;
+
+		case FLOW_CTRL_NONE:
+		default:
+			break;
+		}
+	}
+	DP(NETIF_MSG_LINK, "flow_ctrl 0x%x\n", bp->flow_ctrl);
+}
+
+static void bnx2x_link_settings_status(struct bnx2x *bp, u32 gp_status)
+{
+	bp->link_status = 0;
+
+	if (gp_status & MDIO_GP_STATUS_TOP_AN_STATUS1_LINK_STATUS) {
+		DP(NETIF_MSG_LINK, "link up\n");
+
+		bp->link_up = 1;
+		bp->link_status |= LINK_STATUS_LINK_UP;
+
+		if (gp_status & MDIO_GP_STATUS_TOP_AN_STATUS1_DUPLEX_STATUS)
+			bp->duplex = DUPLEX_FULL;
+		else
+			bp->duplex = DUPLEX_HALF;
+
+		bnx2x_flow_ctrl_resolve(bp, gp_status);
+
+		switch (gp_status & GP_STATUS_SPEED_MASK) {
+		case GP_STATUS_10M:
+			bp->line_speed = SPEED_10;
+			if (bp->duplex == DUPLEX_FULL)
+				bp->link_status |= LINK_10TFD;
+			else
+				bp->link_status |= LINK_10THD;
+			break;
+
+		case GP_STATUS_100M:
+			bp->line_speed = SPEED_100;
+			if (bp->duplex == DUPLEX_FULL)
+				bp->link_status |= LINK_100TXFD;
+			else
+				bp->link_status |= LINK_100TXHD;
+			break;
+
+		case GP_STATUS_1G:
+		case GP_STATUS_1G_KX:
+			bp->line_speed = SPEED_1000;
+			if (bp->duplex == DUPLEX_FULL)
+				bp->link_status |= LINK_1000TFD;
+			else
+				bp->link_status |= LINK_1000THD;
+			break;
+
+		case GP_STATUS_2_5G:
+			bp->line_speed = SPEED_2500;
+			if (bp->duplex == DUPLEX_FULL)
+				bp->link_status |= LINK_2500TFD;
+			else
+				bp->link_status |= LINK_2500THD;
+			break;
+
+		case GP_STATUS_5G:
+		case GP_STATUS_6G:
+			BNX2X_ERR("link speed unsupported  gp_status 0x%x\n",
+				  gp_status);
+			break;
+
+		case GP_STATUS_10G_KX4:
+		case GP_STATUS_10G_HIG:
+		case GP_STATUS_10G_CX4:
+			bp->line_speed = SPEED_10000;
+			bp->link_status |= LINK_10GTFD;
+			break;
+
+		case GP_STATUS_12G_HIG:
+			bp->line_speed = SPEED_12000;
+			bp->link_status |= LINK_12GTFD;
+			break;
+
+		case GP_STATUS_12_5G:
+			bp->line_speed = SPEED_12500;
+			bp->link_status |= LINK_12_5GTFD;
+			break;
+
+		case GP_STATUS_13G:
+			bp->line_speed = SPEED_13000;
+			bp->link_status |= LINK_13GTFD;
+			break;
+
+		case GP_STATUS_15G:
+			bp->line_speed = SPEED_15000;
+			bp->link_status |= LINK_15GTFD;
+			break;
+
+		case GP_STATUS_16G:
+			bp->line_speed = SPEED_16000;
+			bp->link_status |= LINK_16GTFD;
+			break;
+
+		default:
+			BNX2X_ERR("link speed unsupported  gp_status 0x%x\n",
+				  gp_status);
+			break;
+		}
+
+		bp->link_status |= LINK_STATUS_SERDES_LINK;
+
+		if (bp->req_autoneg & AUTONEG_SPEED) {
+			bp->link_status |= LINK_STATUS_AUTO_NEGOTIATE_ENABLED;
+
+			if (gp_status & MDIO_AN_CL73_OR_37_COMPLETE)
+				bp->link_status |=
+					LINK_STATUS_AUTO_NEGOTIATE_COMPLETE;
+
+			if (bp->autoneg & AUTONEG_PARALLEL)
+				bp->link_status |=
+					LINK_STATUS_PARALLEL_DETECTION_USED;
+		}
+
+		if (bp->flow_ctrl & FLOW_CTRL_TX)
+		       bp->link_status |= LINK_STATUS_TX_FLOW_CONTROL_ENABLED;
+
+		if (bp->flow_ctrl & FLOW_CTRL_RX)
+		       bp->link_status |= LINK_STATUS_RX_FLOW_CONTROL_ENABLED;
+
+	} else { /* link_down */
+		DP(NETIF_MSG_LINK, "link down\n");
+
+		bp->link_up = 0;
+
+		bp->line_speed = 0;
+		bp->duplex = DUPLEX_FULL;
+		bp->flow_ctrl = 0;
+	}
+
+	DP(NETIF_MSG_LINK, "gp_status 0x%x  link_up %d\n"
+	   DP_LEVEL "  line_speed %d  duplex %d  flow_ctrl 0x%x"
+		    "  link_status 0x%x\n",
+	   gp_status, bp->link_up, bp->line_speed, bp->duplex, bp->flow_ctrl,
+	   bp->link_status);
+}
+
+static void bnx2x_link_int_ack(struct bnx2x *bp, int is_10g)
+{
+	int port = bp->port;
+
+	/* first reset all status
+	 * we asume only one line will be change at a time */
+	bnx2x_bits_dis(bp, NIG_REG_STATUS_INTERRUPT_PORT0 + port*4,
+		       (NIG_XGXS0_LINK_STATUS |
+			NIG_SERDES0_LINK_STATUS |
+			NIG_STATUS_INTERRUPT_XGXS0_LINK10G));
+	if (bp->link_up) {
+		if (is_10g) {
+			/* Disable the 10G link interrupt
+			 * by writing 1 to the status register
+			 */
+			DP(NETIF_MSG_LINK, "10G XGXS link up\n");
+			bnx2x_bits_en(bp,
+				      NIG_REG_STATUS_INTERRUPT_PORT0 + port*4,
+				      NIG_STATUS_INTERRUPT_XGXS0_LINK10G);
+
+		} else if (bp->phy_flags & PHY_XGXS_FLAG) {
+			/* Disable the link interrupt
+			 * by writing 1 to the relevant lane
+			 * in the status register
+			 */
+			DP(NETIF_MSG_LINK, "1G XGXS link up\n");
+			bnx2x_bits_en(bp,
+				      NIG_REG_STATUS_INTERRUPT_PORT0 + port*4,
+				      ((1 << bp->ser_lane) <<
+				       NIG_XGXS0_LINK_STATUS_SIZE));
+
+		} else { /* SerDes */
+			DP(NETIF_MSG_LINK, "SerDes link up\n");
+			/* Disable the link interrupt
+			 * by writing 1 to the status register
+			 */
+			bnx2x_bits_en(bp,
+				      NIG_REG_STATUS_INTERRUPT_PORT0 + port*4,
+				      NIG_SERDES0_LINK_STATUS);
+		}
+
+	} else { /* link_down */
+	}
+}
+
+static int bnx2x_ext_phy_is_link_up(struct bnx2x *bp)
+{
+	u32 ext_phy_type;
+	u32 ext_phy_addr;
+	u32 local_phy;
+	u32 val = 0;
+	u32 rx_sd, pcs_status;
+
+	if (bp->phy_flags & PHY_XGXS_FLAG) {
+		local_phy = bp->phy_addr;
+		ext_phy_addr = ((bp->ext_phy_config &
+				 PORT_HW_CFG_XGXS_EXT_PHY_ADDR_MASK) >>
+				PORT_HW_CFG_XGXS_EXT_PHY_ADDR_SHIFT);
+		bp->phy_addr = (u8)ext_phy_addr;
+
+		ext_phy_type = XGXS_EXT_PHY_TYPE(bp);
+		switch (ext_phy_type) {
+		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT:
+			DP(NETIF_MSG_LINK, "XGXS Direct\n");
+			val = 1;
+			break;
+
+		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8705:
+			DP(NETIF_MSG_LINK, "XGXS 8705\n");
+			bnx2x_mdio45_read(bp, EXT_PHY_OPT_WIS_DEVAD,
+					  EXT_PHY_OPT_LASI_STATUS, &val);
+			DP(NETIF_MSG_LINK, "8705 LASI status is %d\n", val);
+
+			bnx2x_mdio45_read(bp, EXT_PHY_OPT_WIS_DEVAD,
+					  EXT_PHY_OPT_LASI_STATUS, &val);
+			DP(NETIF_MSG_LINK, "8705 LASI status is %d\n", val);
+
+			bnx2x_mdio45_read(bp, EXT_PHY_OPT_PMA_PMD_DEVAD,
+					  EXT_PHY_OPT_PMD_RX_SD, &rx_sd);
+			val = (rx_sd & 0x1);
+			break;
+
+		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8706:
+			DP(NETIF_MSG_LINK, "XGXS 8706\n");
+			bnx2x_mdio45_read(bp, EXT_PHY_OPT_PMA_PMD_DEVAD,
+					  EXT_PHY_OPT_LASI_STATUS, &val);
+			DP(NETIF_MSG_LINK, "8706 LASI status is %d\n", val);
+
+			bnx2x_mdio45_read(bp, EXT_PHY_OPT_PMA_PMD_DEVAD,
+					  EXT_PHY_OPT_LASI_STATUS, &val);
+			DP(NETIF_MSG_LINK, "8706 LASI status is %d\n", val);
+
+			bnx2x_mdio45_read(bp, EXT_PHY_OPT_PMA_PMD_DEVAD,
+					  EXT_PHY_OPT_PMD_RX_SD, &rx_sd);
+			bnx2x_mdio45_read(bp, EXT_PHY_OPT_PCS_DEVAD,
+					 EXT_PHY_OPT_PCS_STATUS, &pcs_status);
+			DP(NETIF_MSG_LINK, "8706 rx_sd 0x%x"
+			   "  pcs_status 0x%x\n", rx_sd, pcs_status);
+			/* link is up if both bit 0 of pmd_rx and
+			 * bit 0 of pcs_status are set
+			 */
+			val = (rx_sd & pcs_status);
+			break;
+
+		default:
+			DP(NETIF_MSG_LINK, "BAD XGXS ext_phy_config 0x%x\n",
+			   bp->ext_phy_config);
+			val = 0;
+			break;
+		}
+		bp->phy_addr = local_phy;
+
+	} else { /* SerDes */
+		ext_phy_type = SERDES_EXT_PHY_TYPE(bp);
+		switch (ext_phy_type) {
+		case PORT_HW_CFG_SERDES_EXT_PHY_TYPE_DIRECT:
+			DP(NETIF_MSG_LINK, "SerDes Direct\n");
+			val = 1;
+			break;
+
+		case PORT_HW_CFG_SERDES_EXT_PHY_TYPE_BCM5482:
+			DP(NETIF_MSG_LINK, "SerDes 5482\n");
+			val = 1;
+			break;
+
+		default:
+			DP(NETIF_MSG_LINK, "BAD SerDes ext_phy_config 0x%x\n",
+			   bp->ext_phy_config);
+			val = 0;
+			break;
+		}
+	}
+
+	return val;
+}
+
+static void bnx2x_bmac_enable(struct bnx2x *bp, int is_lb)
+{
+	int port = bp->port;
+	u32 bmac_addr = port ? NIG_REG_INGRESS_BMAC1_MEM :
+			       NIG_REG_INGRESS_BMAC0_MEM;
+	u32 wb_write[2];
+	u32 val;
+
+	DP(NETIF_MSG_LINK, "enableing BigMAC\n");
+	/* reset and unreset the BigMac */
+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_CLEAR,
+	       (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << port));
+	msleep(5);
+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_SET,
+	       (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << port));
+
+	/* enable access for bmac registers */
+	NIG_WR(NIG_REG_BMAC0_REGS_OUT_EN + port*4, 0x1);
+
+	/* XGXS control */
+	wb_write[0] = 0x3c;
+	wb_write[1] = 0;
+	REG_WR_DMAE(bp, bmac_addr + BIGMAC_REGISTER_BMAC_XGXS_CONTROL,
+		    wb_write, 2);
+
+	/* tx MAC SA */
+	wb_write[0] = ((bp->dev->dev_addr[2] << 24) |
+		       (bp->dev->dev_addr[3] << 16) |
+		       (bp->dev->dev_addr[4] << 8) |
+			bp->dev->dev_addr[5]);
+	wb_write[1] = ((bp->dev->dev_addr[0] << 8) |
+			bp->dev->dev_addr[1]);
+	REG_WR_DMAE(bp, bmac_addr + BIGMAC_REGISTER_TX_SOURCE_ADDR,
+		    wb_write, 2);
+
+	/* tx control */
+	val = 0xc0;
+	if (bp->flow_ctrl & FLOW_CTRL_TX)
+		val |= 0x800000;
+	wb_write[0] = val;
+	wb_write[1] = 0;
+	REG_WR_DMAE(bp, bmac_addr + BIGMAC_REGISTER_TX_CONTROL, wb_write, 2);
+
+	/* set tx mtu */
+	wb_write[0] = ETH_MAX_JUMBO_PACKET_SIZE + ETH_OVREHEAD; /* -CRC */
+	wb_write[1] = 0;
+	REG_WR_DMAE(bp, bmac_addr + BIGMAC_REGISTER_TX_MAX_SIZE, wb_write, 2);
+
+	/* mac control */
+	val = 0x3;
+	if (is_lb) {
+		val |= 0x4;
+		DP(NETIF_MSG_LINK, "enable bmac loopback\n");
+	}
+	wb_write[0] = val;
+	wb_write[1] = 0;
+	REG_WR_DMAE(bp, bmac_addr + BIGMAC_REGISTER_BMAC_CONTROL,
+		    wb_write, 2);
+
+	/* rx control set to don't strip crc */
+	val = 0x14;
+	if (bp->flow_ctrl & FLOW_CTRL_RX)
+		val |= 0x20;
+	wb_write[0] = val;
+	wb_write[1] = 0;
+	REG_WR_DMAE(bp, bmac_addr + BIGMAC_REGISTER_RX_CONTROL, wb_write, 2);
+
+	/* set rx mtu */
+	wb_write[0] = ETH_MAX_JUMBO_PACKET_SIZE + ETH_OVREHEAD;
+	wb_write[1] = 0;
+	REG_WR_DMAE(bp, bmac_addr + BIGMAC_REGISTER_RX_MAX_SIZE, wb_write, 2);
+
+	/* set cnt max size */
+	wb_write[0] = ETH_MAX_JUMBO_PACKET_SIZE + ETH_OVREHEAD; /* -VLAN */
+	wb_write[1] = 0;
+	REG_WR_DMAE(bp, bmac_addr + BIGMAC_REGISTER_CNT_MAX_SIZE,
+		    wb_write, 2);
+
+	/* configure safc */
+	wb_write[0] = 0x1000200;
+	wb_write[1] = 0;
+	REG_WR_DMAE(bp, bmac_addr + BIGMAC_REGISTER_RX_LLFC_MSG_FLDS,
+		    wb_write, 2);
+
+	/* fix for emulation */
+	if (CHIP_REV(bp) == CHIP_REV_EMUL) {
+		wb_write[0] = 0xf000;
+		wb_write[1] = 0;
+		REG_WR_DMAE(bp,
+			    bmac_addr + BIGMAC_REGISTER_TX_PAUSE_THRESHOLD,
+			    wb_write, 2);
+	}
+
+	/* reset old bmac stats */
+	memset(&bp->old_bmac, 0, sizeof(struct bmac_stats));
+
+	NIG_WR(NIG_REG_XCM0_OUT_EN + port*4, 0x0);
+
+	/* select XGXS */
+	NIG_WR(NIG_REG_XGXS_SERDES0_MODE_SEL + port*4, 0x1);
+	NIG_WR(NIG_REG_XGXS_LANE_SEL_P0 + port*4, 0x0);
+
+	/* disable the NIG in/out to the emac */
+	NIG_WR(NIG_REG_EMAC0_IN_EN + port*4, 0x0);
+	NIG_WR(NIG_REG_EMAC0_PAUSE_OUT_EN + port*4, 0x0);
+	NIG_WR(NIG_REG_EGRESS_EMAC0_OUT_EN + port*4, 0x0);
+
+	/* enable the NIG in/out to the bmac */
+	NIG_WR(NIG_REG_EGRESS_EMAC0_PORT + port*4, 0x0);
+
+	NIG_WR(NIG_REG_BMAC0_IN_EN + port*4, 0x1);
+	val = 0;
+	if (bp->flow_ctrl & FLOW_CTRL_TX)
+		val = 1;
+	NIG_WR(NIG_REG_BMAC0_PAUSE_OUT_EN + port*4, val);
+	NIG_WR(NIG_REG_BMAC0_OUT_EN + port*4, 0x1);
+
+	bp->phy_flags |= PHY_BMAC_FLAG;
+
+	bp->stats_state = STATS_STATE_ENABLE;
+}
+
+static void bnx2x_emac_enable(struct bnx2x *bp)
+{
+	int port = bp->port;
+	u32 emac_base = port ? GRCBASE_EMAC1 : GRCBASE_EMAC0;
+	u32 val;
+	int timeout;
+
+	DP(NETIF_MSG_LINK, "enableing EMAC\n");
+	/* reset and unreset the emac core */
+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_CLEAR,
+	       (MISC_REGISTERS_RESET_REG_2_RST_EMAC0_HARD_CORE << port));
+	msleep(5);
+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_SET,
+	       (MISC_REGISTERS_RESET_REG_2_RST_EMAC0_HARD_CORE << port));
+
+	/* enable emac and not bmac */
+	NIG_WR(NIG_REG_EGRESS_EMAC0_PORT + port*4, 1);
+
+	/* for paladium */
+	if (CHIP_REV(bp) == CHIP_REV_EMUL) {
+		/* Use lane 1 (of lanes 0-3) */
+		NIG_WR(NIG_REG_XGXS_LANE_SEL_P0 + port*4, 1);
+		NIG_WR(NIG_REG_XGXS_SERDES0_MODE_SEL + port*4, 1);
+	}
+	/* for fpga */
+	else if (CHIP_REV(bp) == CHIP_REV_FPGA) {
+		/* Use lane 1 (of lanes 0-3) */
+		NIG_WR(NIG_REG_XGXS_LANE_SEL_P0 + port*4, 1);
+		NIG_WR(NIG_REG_XGXS_SERDES0_MODE_SEL + port*4, 0);
+	}
+	/* ASIC */
+	else {
+		if (bp->phy_flags & PHY_XGXS_FLAG) {
+			DP(NETIF_MSG_LINK, "XGXS\n");
+			/* select the master lanes (out of 0-3) */
+			NIG_WR(NIG_REG_XGXS_LANE_SEL_P0 + port*4,
+			       bp->ser_lane);
+			/* select XGXS */
+			NIG_WR(NIG_REG_XGXS_SERDES0_MODE_SEL + port*4, 1);
+
+		} else { /* SerDes */
+			DP(NETIF_MSG_LINK, "SerDes\n");
+			/* select SerDes */
+			NIG_WR(NIG_REG_XGXS_SERDES0_MODE_SEL + port*4, 0);
+		}
+	}
+
+	/* enable emac */
+	NIG_WR(NIG_REG_NIG_EMAC0_EN + port*4, 1);
+
+	/* init emac - use read-modify-write */
+	/* self clear reset */
+	val = REG_RD(bp, emac_base + EMAC_REG_EMAC_MODE);
+	EMAC_WR(EMAC_REG_EMAC_MODE, (val | EMAC_MODE_RESET));
+
+	timeout = 200;
+	while (val & EMAC_MODE_RESET) {
+		val = REG_RD(bp, emac_base + EMAC_REG_EMAC_MODE);
+		DP(NETIF_MSG_LINK, "EMAC reset reg is %u\n", val);
+		if (!timeout) {
+			BNX2X_ERR("EMAC timeout!\n");
+			break;
+		}
+		timeout--;
+	}
+
+	/* reset tx part */
+	EMAC_WR(EMAC_REG_EMAC_TX_MODE, EMAC_TX_MODE_RESET);
+
+	timeout = 200;
+	while (val & EMAC_TX_MODE_RESET) {
+		val = REG_RD(bp, emac_base + EMAC_REG_EMAC_TX_MODE);
+		DP(NETIF_MSG_LINK, "EMAC reset reg is %u\n", val);
+		if (!timeout) {
+			BNX2X_ERR("EMAC timeout!\n");
+			break;
+		}
+		timeout--;
+	}
+
+	if (CHIP_REV_IS_SLOW(bp)) {
+		/* config GMII mode */
+		val = REG_RD(bp, emac_base + EMAC_REG_EMAC_MODE);
+		EMAC_WR(EMAC_REG_EMAC_MODE, (val | EMAC_MODE_PORT_GMII));
+
+	} else { /* ASIC */
+		/* pause enable/disable */
+		bnx2x_bits_dis(bp, emac_base + EMAC_REG_EMAC_RX_MODE,
+			       EMAC_RX_MODE_FLOW_EN);
+		if (bp->flow_ctrl & FLOW_CTRL_RX)
+			bnx2x_bits_en(bp, emac_base + EMAC_REG_EMAC_RX_MODE,
+				      EMAC_RX_MODE_FLOW_EN);
+
+		bnx2x_bits_dis(bp, emac_base + EMAC_REG_EMAC_TX_MODE,
+			       EMAC_TX_MODE_EXT_PAUSE_EN);
+		if (bp->flow_ctrl & FLOW_CTRL_TX)
+			bnx2x_bits_en(bp, emac_base + EMAC_REG_EMAC_TX_MODE,
+				      EMAC_TX_MODE_EXT_PAUSE_EN);
+	}
+
+	/* KEEP_VLAN_TAG, promiscous */
+	val = REG_RD(bp, emac_base + EMAC_REG_EMAC_RX_MODE);
+	val |= EMAC_RX_MODE_KEEP_VLAN_TAG | EMAC_RX_MODE_PROMISCUOUS;
+	EMAC_WR(EMAC_REG_EMAC_RX_MODE, val);
+
+	/* identify magic packets */
+	val = REG_RD(bp, emac_base + EMAC_REG_EMAC_MODE);
+	EMAC_WR(EMAC_REG_EMAC_MODE, (val | EMAC_MODE_MPKT));
+
+	/* enable emac for jumbo packets */
+	EMAC_WR(EMAC_REG_EMAC_RX_MTU_SIZE,
+		(EMAC_RX_MTU_SIZE_JUMBO_ENA |
+		 (ETH_MAX_JUMBO_PACKET_SIZE + ETH_OVREHEAD))); /* -VLAN */
+
+	/* strip CRC */
+	NIG_WR(NIG_REG_NIG_INGRESS_EMAC0_NO_CRC + port*4, 0x1);
+
+	val = ((bp->dev->dev_addr[0] << 8) |
+		bp->dev->dev_addr[1]);
+	EMAC_WR(EMAC_REG_EMAC_MAC_MATCH, val);
+
+	val = ((bp->dev->dev_addr[2] << 24) |
+	       (bp->dev->dev_addr[3] << 16) |
+	       (bp->dev->dev_addr[4] << 8) |
+		bp->dev->dev_addr[5]);
+	EMAC_WR(EMAC_REG_EMAC_MAC_MATCH + 4, val);
+
+	/* disable the NIG in/out to the bmac */
+	NIG_WR(NIG_REG_BMAC0_IN_EN + port*4, 0x0);
+	NIG_WR(NIG_REG_BMAC0_PAUSE_OUT_EN + port*4, 0x0);
+	NIG_WR(NIG_REG_BMAC0_OUT_EN + port*4, 0x0);
+
+	/* enable the NIG in/out to the emac */
+	NIG_WR(NIG_REG_EMAC0_IN_EN + port*4, 0x1);
+	val = 0;
+	if (bp->flow_ctrl & FLOW_CTRL_TX)
+		val = 1;
+	NIG_WR(NIG_REG_EMAC0_PAUSE_OUT_EN + port*4, val);
+	NIG_WR(NIG_REG_EGRESS_EMAC0_OUT_EN + port*4, 0x1);
+
+	if (CHIP_REV(bp) == CHIP_REV_FPGA) {
+		/* take the BigMac out of reset */
+		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_SET,
+		       (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << port));
+
+		/* enable access for bmac registers */
+		NIG_WR(NIG_REG_BMAC0_REGS_OUT_EN + port*4, 0x1);
+	}
+
+	bp->phy_flags |= PHY_EMAC_FLAG;
+
+	bp->stats_state = STATS_STATE_ENABLE;
+}
+
+static void bnx2x_emac_program(struct bnx2x *bp)
+{
+	u16 mode = 0;
+	int port = bp->port;
+
+	DP(NETIF_MSG_LINK, "setting link speed & duplex\n");
+	bnx2x_bits_dis(bp, GRCBASE_EMAC0 + port*0x400 + EMAC_REG_EMAC_MODE,
+		       (EMAC_MODE_25G_MODE |
+			EMAC_MODE_PORT_MII_10M |
+			EMAC_MODE_HALF_DUPLEX));
+	switch (bp->line_speed) {
+	case SPEED_10:
+		mode |= EMAC_MODE_PORT_MII_10M;
+		break;
+
+	case SPEED_100:
+		mode |= EMAC_MODE_PORT_MII;
+		break;
+
+	case SPEED_1000:
+		mode |= EMAC_MODE_PORT_GMII;
+		break;
+
+	case SPEED_2500:
+		mode |= (EMAC_MODE_25G_MODE | EMAC_MODE_PORT_GMII);
+		break;
+
+	default:
+		/* 10G not valid for EMAC */
+		BNX2X_ERR("Invalid line_speed 0x%x\n", bp->line_speed);
+		break;
+	}
+
+	if (bp->duplex == DUPLEX_HALF)
+		mode |= EMAC_MODE_HALF_DUPLEX;
+	bnx2x_bits_en(bp, GRCBASE_EMAC0 + port*0x400 + EMAC_REG_EMAC_MODE,
+		      mode);
+
+	bnx2x_leds_set(bp, bp->line_speed);
+}
+
+static void bnx2x_set_sgmii_tx_driver(struct bnx2x *bp)
+{
+	u32 lp_up2;
+	u32 tx_driver;
+
+	/* read precomp */
+	MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_OVER_1G);
+	bnx2x_mdio22_read(bp, MDIO_OVER_1G_LP_UP2, &lp_up2);
+
+	MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_TX0);
+	bnx2x_mdio22_read(bp, MDIO_TX0_TX_DRIVER, &tx_driver);
+
+	/* bits [10:7] at lp_up2, positioned at [15:12] */
+	lp_up2 = (((lp_up2 & MDIO_OVER_1G_LP_UP2_PREEMPHASIS_MASK) >>
+		   MDIO_OVER_1G_LP_UP2_PREEMPHASIS_SHIFT) <<
+		  MDIO_TX0_TX_DRIVER_PREEMPHASIS_SHIFT);
+
+	if ((lp_up2 != 0) &&
+	    (lp_up2 != (tx_driver & MDIO_TX0_TX_DRIVER_PREEMPHASIS_MASK))) {
+		/* replace tx_driver bits [15:12] */
+		tx_driver &= ~MDIO_TX0_TX_DRIVER_PREEMPHASIS_MASK;
+		tx_driver |= lp_up2;
+		bnx2x_mdio22_write(bp, MDIO_TX0_TX_DRIVER, tx_driver);
+	}
+}
+
+static void bnx2x_pbf_update(struct bnx2x *bp)
+{
+	int port = bp->port;
+	u32 init_crd, crd;
+	u32 count = 1000;
+	u32 pause = 0;
 
 
-#define GRC_CONFIG_2_SIZE_REG		    0x408 /* config_2 offset */
-#define PCI_CONFIG_2_BAR1_SIZE			    (0xfL<<0)
-#define PCI_CONFIG_2_BAR1_SIZE_DISABLED 	(0L<<0)
-#define PCI_CONFIG_2_BAR1_SIZE_64K		(1L<<0)
-#define PCI_CONFIG_2_BAR1_SIZE_128K		(2L<<0)
-#define PCI_CONFIG_2_BAR1_SIZE_256K		(3L<<0)
-#define PCI_CONFIG_2_BAR1_SIZE_512K		(4L<<0)
-#define PCI_CONFIG_2_BAR1_SIZE_1M		(5L<<0)
-#define PCI_CONFIG_2_BAR1_SIZE_2M		(6L<<0)
-#define PCI_CONFIG_2_BAR1_SIZE_4M		(7L<<0)
-#define PCI_CONFIG_2_BAR1_SIZE_8M		(8L<<0)
-#define PCI_CONFIG_2_BAR1_SIZE_16M		(9L<<0)
-#define PCI_CONFIG_2_BAR1_SIZE_32M		(10L<<0)
-#define PCI_CONFIG_2_BAR1_SIZE_64M		(11L<<0)
-#define PCI_CONFIG_2_BAR1_SIZE_128M		(12L<<0)
-#define PCI_CONFIG_2_BAR1_SIZE_256M		(13L<<0)
-#define PCI_CONFIG_2_BAR1_SIZE_512M		(14L<<0)
-#define PCI_CONFIG_2_BAR1_SIZE_1G		(15L<<0)
-#define PCI_CONFIG_2_BAR1_64ENA 		    (1L<<4)
-#define PCI_CONFIG_2_EXP_ROM_RETRY		    (1L<<5)
-#define PCI_CONFIG_2_CFG_CYCLE_RETRY		    (1L<<6)
-#define PCI_CONFIG_2_FIRST_CFG_DONE		    (1L<<7)
-#define PCI_CONFIG_2_EXP_ROM_SIZE		    (0xffL<<8)
-#define PCI_CONFIG_2_EXP_ROM_SIZE_DISABLED	(0L<<8)
-#define PCI_CONFIG_2_EXP_ROM_SIZE_2K		(1L<<8)
-#define PCI_CONFIG_2_EXP_ROM_SIZE_4K		(2L<<8)
-#define PCI_CONFIG_2_EXP_ROM_SIZE_8K		(3L<<8)
-#define PCI_CONFIG_2_EXP_ROM_SIZE_16K		(4L<<8)
-#define PCI_CONFIG_2_EXP_ROM_SIZE_32K		(5L<<8)
-#define PCI_CONFIG_2_EXP_ROM_SIZE_64K		(6L<<8)
-#define PCI_CONFIG_2_EXP_ROM_SIZE_128K		(7L<<8)
-#define PCI_CONFIG_2_EXP_ROM_SIZE_256K		(8L<<8)
-#define PCI_CONFIG_2_EXP_ROM_SIZE_512K		(9L<<8)
-#define PCI_CONFIG_2_EXP_ROM_SIZE_1M		(10L<<8)
-#define PCI_CONFIG_2_EXP_ROM_SIZE_2M		(11L<<8)
-#define PCI_CONFIG_2_EXP_ROM_SIZE_4M		(12L<<8)
-#define PCI_CONFIG_2_EXP_ROM_SIZE_8M		(13L<<8)
-#define PCI_CONFIG_2_EXP_ROM_SIZE_16M		(14L<<8)
-#define PCI_CONFIG_2_EXP_ROM_SIZE_32M		(15L<<8)
-#define PCI_CONFIG_2_BAR_PREFETCH		    (1L<<16)
-#define PCI_CONFIG_2_RESERVED0			    (0x7fffL<<17)
+	/* disable port */
+	REG_WR(bp, PBF_REG_DISABLE_NEW_TASK_PROC_P0 + port*4, 0x1);
 
-/* config_3 offset */
-#define GRC_CONFIG_3_SIZE_REG				(0x40c)
-#define PCI_CONFIG_3_STICKY_BYTE		    (0xffL<<0)
-#define PCI_CONFIG_3_FORCE_PME			    (1L<<24)
-#define PCI_CONFIG_3_PME_STATUS 		    (1L<<25)
-#define PCI_CONFIG_3_PME_ENABLE 		    (1L<<26)
-#define PCI_CONFIG_3_PM_STATE			    (0x3L<<27)
-#define PCI_CONFIG_3_VAUX_PRESET		    (1L<<30)
-#define PCI_CONFIG_3_PCI_POWER			    (1L<<31)
+	/* wait for init credit */
+	init_crd = REG_RD(bp, PBF_REG_P0_INIT_CRD + port*4);
+	crd = REG_RD(bp, PBF_REG_P0_CREDIT + port*8);
+	DP(NETIF_MSG_LINK, "init_crd 0x%x  crd 0x%x\n", init_crd, crd);
 
-/* config_2 offset */
-#define GRC_CONFIG_2_SIZE_REG		    0x408
+	while ((init_crd != crd) && count) {
+		msleep(5);
 
-#define GRC_BAR2_CONFIG 				0x4e0
-#define PCI_CONFIG_2_BAR2_SIZE			    (0xfL<<0)
-#define PCI_CONFIG_2_BAR2_SIZE_DISABLED 	    (0L<<0)
-#define PCI_CONFIG_2_BAR2_SIZE_64K		    (1L<<0)
-#define PCI_CONFIG_2_BAR2_SIZE_128K		    (2L<<0)
-#define PCI_CONFIG_2_BAR2_SIZE_256K		    (3L<<0)
-#define PCI_CONFIG_2_BAR2_SIZE_512K		    (4L<<0)
-#define PCI_CONFIG_2_BAR2_SIZE_1M		    (5L<<0)
-#define PCI_CONFIG_2_BAR2_SIZE_2M		    (6L<<0)
-#define PCI_CONFIG_2_BAR2_SIZE_4M		    (7L<<0)
-#define PCI_CONFIG_2_BAR2_SIZE_8M		    (8L<<0)
-#define PCI_CONFIG_2_BAR2_SIZE_16M		    (9L<<0)
-#define PCI_CONFIG_2_BAR2_SIZE_32M		    (10L<<0)
-#define PCI_CONFIG_2_BAR2_SIZE_64M		    (11L<<0)
-#define PCI_CONFIG_2_BAR2_SIZE_128M		    (12L<<0)
-#define PCI_CONFIG_2_BAR2_SIZE_256M		    (13L<<0)
-#define PCI_CONFIG_2_BAR2_SIZE_512M		    (14L<<0)
-#define PCI_CONFIG_2_BAR2_SIZE_1G		    (15L<<0)
-#define PCI_CONFIG_2_BAR2_64ENA 		    (1L<<4)
+		crd = REG_RD(bp, PBF_REG_P0_CREDIT + port*8);
+		count--;
+	}
+	crd = REG_RD(bp, PBF_REG_P0_CREDIT + port*8);
+	if (init_crd != crd)
+		BNX2X_ERR("BUG! init_crd 0x%x != crd 0x%x\n", init_crd, crd);
 
-#define PCI_PM_DATA_A					(0x410)
-#define PCI_PM_DATA_B					(0x414)
-#define PCI_ID_VAL1					(0x434)
-#define PCI_ID_VAL2					(0x438)
+	if (bp->flow_ctrl & FLOW_CTRL_RX)
+		pause = 1;
+	REG_WR(bp, PBF_REG_P0_PAUSE_ENABLE + port*4, pause);
+	if (pause) {
+		/* update threshold */
+		REG_WR(bp, PBF_REG_P0_ARB_THRSH + port*4, 0);
+		/* update init credit */
+		init_crd = 778; 	/* (800-18-4) */
 
-#define MDIO_REG_BANK_CL73_IEEEB0			0x0
-#define MDIO_CL73_IEEEB0_CL73_AN_CONTROL		0x0
-#define MDIO_CL73_IEEEB0_CL73_AN_CONTROL_RESTART_AN	0x0200
-#define MDIO_CL73_IEEEB0_CL73_AN_CONTROL_AN_EN		0x1000
-#define MDIO_CL73_IEEEB0_CL73_AN_CONTROL_MAIN_RST	0x8000
+	} else {
+		u32 thresh = (ETH_MAX_JUMBO_PACKET_SIZE + ETH_OVREHEAD)/16;
 
-#define MDIO_REG_BANK_CL73_IEEEB1			0x10
-#define MDIO_CL73_IEEEB1_AN_ADV2			0x01
-#define MDIO_CL73_IEEEB1_AN_ADV2_ADVR_1000M		0x0000
-#define MDIO_CL73_IEEEB1_AN_ADV2_ADVR_1000M_KX		0x0020
-#define MDIO_CL73_IEEEB1_AN_ADV2_ADVR_10G_KX4		0x0040
-#define MDIO_CL73_IEEEB1_AN_ADV2_ADVR_10G_KR		0x0080
+		/* update threshold */
+		REG_WR(bp, PBF_REG_P0_ARB_THRSH + port*4, thresh);
+		/* update init credit */
+		switch (bp->line_speed) {
+		case SPEED_10:
+		case SPEED_100:
+		case SPEED_1000:
+			init_crd = thresh + 55 - 22;
+			break;
 
-#define MDIO_REG_BANK_RX0				0x80b0
-#define MDIO_RX0_RX_EQ_BOOST				0x1c
-#define MDIO_RX0_RX_EQ_BOOST_EQUALIZER_CTRL_MASK	0x7
-#define MDIO_RX0_RX_EQ_BOOST_OFFSET_CTRL		0x10
+		case SPEED_2500:
+			init_crd = thresh + 138 - 22;
+			break;
 
-#define MDIO_REG_BANK_RX1				0x80c0
-#define MDIO_RX1_RX_EQ_BOOST				0x1c
-#define MDIO_RX1_RX_EQ_BOOST_EQUALIZER_CTRL_MASK	0x7
-#define MDIO_RX1_RX_EQ_BOOST_OFFSET_CTRL		0x10
+		case SPEED_10000:
+			init_crd = thresh + 553 - 22;
+			break;
 
-#define MDIO_REG_BANK_RX2				0x80d0
-#define MDIO_RX2_RX_EQ_BOOST				0x1c
-#define MDIO_RX2_RX_EQ_BOOST_EQUALIZER_CTRL_MASK	0x7
-#define MDIO_RX2_RX_EQ_BOOST_OFFSET_CTRL		0x10
+		default:
+			BNX2X_ERR("Invalid line_speed 0x%x\n",
+				  bp->line_speed);
+			break;
+		}
+	}
+	REG_WR(bp, PBF_REG_P0_INIT_CRD + port*4, init_crd);
+	DP(NETIF_MSG_LINK, "PBF updated to speed %d credit %d\n",
+	   bp->line_speed, init_crd);
 
-#define MDIO_REG_BANK_RX3				0x80e0
-#define MDIO_RX3_RX_EQ_BOOST				0x1c
-#define MDIO_RX3_RX_EQ_BOOST_EQUALIZER_CTRL_MASK	0x7
-#define MDIO_RX3_RX_EQ_BOOST_OFFSET_CTRL		0x10
+	/* probe the credit changes */
+	REG_WR(bp, PBF_REG_INIT_P0 + port*4, 0x1);
+	msleep(5);
+	REG_WR(bp, PBF_REG_INIT_P0 + port*4, 0x0);
 
-#define MDIO_REG_BANK_RX_ALL				0x80f0
-#define MDIO_RX_ALL_RX_EQ_BOOST 			0x1c
-#define MDIO_RX_ALL_RX_EQ_BOOST_EQUALIZER_CTRL_MASK	0x7
-#define MDIO_RX_ALL_RX_EQ_BOOST_OFFSET_CTRL		0x10
+	/* enable port */
+	REG_WR(bp, PBF_REG_DISABLE_NEW_TASK_PROC_P0 + port*4, 0x0);
+}
 
-#define MDIO_REG_BANK_TX0				0x8060
-#define MDIO_TX0_TX_DRIVER				0x17
-#define MDIO_TX0_TX_DRIVER_PREEMPHASIS_MASK		0xf000
-#define MDIO_TX0_TX_DRIVER_PREEMPHASIS_SHIFT		12
-#define MDIO_TX0_TX_DRIVER_IDRIVER_MASK 		0x0f00
-#define MDIO_TX0_TX_DRIVER_IDRIVER_SHIFT		8
-#define MDIO_TX0_TX_DRIVER_IPREDRIVER_MASK		0x00f0
-#define MDIO_TX0_TX_DRIVER_IPREDRIVER_SHIFT		4
-#define MDIO_TX0_TX_DRIVER_IFULLSPD_MASK		0x000e
-#define MDIO_TX0_TX_DRIVER_IFULLSPD_SHIFT		1
-#define MDIO_TX0_TX_DRIVER_ICBUF1T			1
+static void bnx2x_update_mng(struct bnx2x *bp)
+{
+	if (!nomcp)
+		SHMEM_WR(bp, drv_fw_mb[bp->port].link_status,
+			 bp->link_status);
+}
 
-#define MDIO_REG_BANK_XGXS_BLOCK0			0x8000
-#define MDIO_BLOCK0_XGXS_CONTROL			0x10
+static void bnx2x_link_report(struct bnx2x *bp)
+{
+	if (bp->link_up) {
+		netif_carrier_on(bp->dev);
+		printk(KERN_INFO PFX "%s NIC Link is Up, ", bp->dev->name);
 
-#define MDIO_REG_BANK_XGXS_BLOCK1			0x8010
-#define MDIO_BLOCK1_LANE_CTRL0				0x15
-#define MDIO_BLOCK1_LANE_CTRL1				0x16
-#define MDIO_BLOCK1_LANE_CTRL2				0x17
-#define MDIO_BLOCK1_LANE_PRBS				0x19
+		printk("%d Mbps ", bp->line_speed);
 
-#define MDIO_REG_BANK_XGXS_BLOCK2			0x8100
-#define MDIO_XGXS_BLOCK2_RX_LN_SWAP			0x10
-#define MDIO_XGXS_BLOCK2_RX_LN_SWAP_ENABLE		0x8000
-#define MDIO_XGXS_BLOCK2_RX_LN_SWAP_FORCE_ENABLE	0x4000
-#define MDIO_XGXS_BLOCK2_TX_LN_SWAP			0x11
-#define MDIO_XGXS_BLOCK2_TX_LN_SWAP_ENABLE		0x8000
-#define MDIO_XGXS_BLOCK2_TEST_MODE_LANE 		0x15
+		if (bp->duplex == DUPLEX_FULL)
+			printk("full duplex");
+		else
+			printk("half duplex");
 
-#define MDIO_REG_BANK_GP_STATUS 			0x8120
-#define MDIO_GP_STATUS_TOP_AN_STATUS1			    0x1B
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_CL73_AUTONEG_COMPLETE 0x0001
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_CL37_AUTONEG_COMPLETE 0x0002
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_LINK_STATUS	    0x0004
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_DUPLEX_STATUS	    0x0008
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_CL73_MR_LP_NP_AN_ABLE 0x0010
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_CL73_LP_NP_BAM_ABLE   0x0020
+		if (bp->flow_ctrl) {
+			if (bp->flow_ctrl & FLOW_CTRL_RX) {
+				printk(", receive ");
+				if (bp->flow_ctrl & FLOW_CTRL_TX)
+					printk("& transmit ");
+			} else {
+				printk(", transmit ");
+			}
+			printk("flow control ON");
+		}
+		printk("\n");
 
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_PAUSE_RSOLUTION_TXSIDE 0x0040
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_PAUSE_RSOLUTION_RXSIDE 0x0080
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_MASK     0x3f00
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_10M	    0x0000
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_100M     0x0100
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_1G	    0x0200
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_2_5G     0x0300
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_5G	    0x0400
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_6G	    0x0500
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_10G_HIG  0x0600
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_10G_CX4  0x0700
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_12G_HIG  0x0800
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_12_5G    0x0900
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_13G	    0x0A00
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_15G	    0x0B00
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_16G	    0x0C00
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_1G_KX    0x0D00
-#define MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_10G_KX4  0x0E00
+	} else { /* link_down */
+		netif_carrier_off(bp->dev);
+		printk(KERN_INFO PFX "%s NIC Link is Down\n", bp->dev->name);
+	}
+}
+
+static void bnx2x_link_up(struct bnx2x *bp)
+{
+	int port = bp->port;
+
+	/* PBF - link up */
+	bnx2x_pbf_update(bp);
+
+	/* disable drain */
+	NIG_WR(NIG_REG_EGRESS_DRAIN0_MODE + port*4, 0);
+
+	/* update shared memory */
+	bnx2x_update_mng(bp);
+
+	/* indicate link up */
+	bnx2x_link_report(bp);
+}
+
+static void bnx2x_link_down(struct bnx2x *bp)
+{
+	int port = bp->port;
+
+	/* notify stats */
+	if (bp->stats_state != STATS_STATE_DISABLE) {
+		bp->stats_state = STATS_STATE_STOP;
+		DP(BNX2X_MSG_STATS, "stats_state - STOP\n");
+	}
+
+	/* indicate link down */
+	bp->phy_flags &= ~(PHY_BMAC_FLAG | PHY_EMAC_FLAG);
+
+	/* reset BigMac */
+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_CLEAR,
+	       (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << port));
+
+	/* ignore drain flag interrupt */
+	/* activate nig drain */
+	NIG_WR(NIG_REG_EGRESS_DRAIN0_MODE + port*4, 1);
+
+	/* update shared memory */
+	bnx2x_update_mng(bp);
+
+	/* indicate link down */
+	bnx2x_link_report(bp);
+}
+
+static void bnx2x_init_mac_stats(struct bnx2x *bp);
+
+/* This function is called upon link interrupt */
+static void bnx2x_link_update(struct bnx2x *bp)
+{
+	u32 gp_status;
+	int port = bp->port;
+	int i;
+	int link_10g;
+
+	DP(NETIF_MSG_LINK, "port %x, is xgxs %x, stat_mask 0x%x,"
+	   " int_mask 0x%x, saved_mask 0x%x, MI_INT %x, SERDES_LINK %x,"
+	   " 10G %x, XGXS_LINK %x\n", port, (bp->phy_flags & PHY_XGXS_FLAG),
+	   REG_RD(bp, NIG_REG_STATUS_INTERRUPT_PORT0 + port*4),
+	   REG_RD(bp, NIG_REG_MASK_INTERRUPT_PORT0 + port*4), bp->nig_mask,
+	   REG_RD(bp, NIG_REG_EMAC0_STATUS_MISC_MI_INT + port*0x18),
+	   REG_RD(bp, NIG_REG_SERDES0_STATUS_LINK_STATUS + port*0x3c),
+	   REG_RD(bp, NIG_REG_XGXS0_STATUS_LINK10G + port*0x68),
+	   REG_RD(bp, NIG_REG_XGXS0_STATUS_LINK_STATUS + port*0x68)
+	);
+
+	might_sleep();
+	MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_GP_STATUS);
+	/* avoid fast toggling */
+	for (i = 0 ; i < 10 ; i++) {
+		msleep(10);
+		bnx2x_mdio22_read(bp, MDIO_GP_STATUS_TOP_AN_STATUS1,
+				  &gp_status);
+	}
+
+	bnx2x_link_settings_status(bp, gp_status);
+
+	/* anything 10 and over uses the bmac */
+	link_10g = ((bp->line_speed >= SPEED_10000) &&
+		    (bp->line_speed <= SPEED_16000));
+
+	bnx2x_link_int_ack(bp, link_10g);
+
+	/* link is up only if both local phy and external phy are up */
+	if (bp->link_up && bnx2x_ext_phy_is_link_up(bp)) {
+		if (link_10g) {
+			bnx2x_bmac_enable(bp, 0);
+			bnx2x_leds_set(bp, SPEED_10000);
+
+		} else {
+			bnx2x_emac_enable(bp);
+			bnx2x_emac_program(bp);
+
+			/* AN complete? */
+			if (gp_status & MDIO_AN_CL73_OR_37_COMPLETE) {
+				if (!(bp->phy_flags & PHY_SGMII_FLAG))
+					bnx2x_set_sgmii_tx_driver(bp);
+			}
+		}
+		bnx2x_link_up(bp);
+
+	} else { /* link down */
+		bnx2x_leds_unset(bp);
+		bnx2x_link_down(bp);
+	}
+
+	bnx2x_init_mac_stats(bp);
+}
+
+/*
+ * Init service functions
+ */
+
+static void bnx2x_set_aer_mmd(struct bnx2x *bp)
+{
+	u16 offset = (bp->phy_flags & PHY_XGXS_FLAG) ?
+					(bp->phy_addr + bp->ser_lane) : 0;
+
+	MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_AER_BLOCK);
+	bnx2x_mdio22_write(bp, MDIO_AER_BLOCK_AER_REG, 0x3800 + offset);
+}
+
+static void bnx2x_set_master_ln(struct bnx2x *bp)
+{
+	u32 new_master_ln;
+
+	/* set the master_ln for AN */
+	MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_XGXS_BLOCK2);
+	bnx2x_mdio22_read(bp, MDIO_XGXS_BLOCK2_TEST_MODE_LANE,
+			  &new_master_ln);
+	bnx2x_mdio22_write(bp, MDIO_XGXS_BLOCK2_TEST_MODE_LANE,
+			   (new_master_ln | bp->ser_lane));
+}
+
+static void bnx2x_reset_unicore(struct bnx2x *bp)
+{
+	u32 mii_control;
+	int i;
+
+	MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_COMBO_IEEE0);
+	bnx2x_mdio22_read(bp, MDIO_COMBO_IEEE0_MII_CONTROL, &mii_control);
+	/* reset the unicore */
+	bnx2x_mdio22_write(bp, MDIO_COMBO_IEEE0_MII_CONTROL,
+			   (mii_control | MDIO_COMBO_IEEO_MII_CONTROL_RESET));
+
+	/* wait for the reset to self clear */
+	for (i = 0; i < MDIO_ACCESS_TIMEOUT; i++) {
+		udelay(5);
+
+		/* the reset erased the previous bank value */
+		MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_COMBO_IEEE0);
+		bnx2x_mdio22_read(bp, MDIO_COMBO_IEEE0_MII_CONTROL,
+				  &mii_control);
+
+		if (!(mii_control & MDIO_COMBO_IEEO_MII_CONTROL_RESET)) {
+			udelay(5);
+			return;
+		}
+	}
+
+	BNX2X_ERR("BUG! unicore is still in reset!\n");
+}
+
+static void bnx2x_set_swap_lanes(struct bnx2x *bp)
+{
+	/* Each two bits represents a lane number:
+	   No swap is 0123 => 0x1b no need to enable the swap */
+
+	MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_XGXS_BLOCK2);
+	if (bp->rx_lane_swap != 0x1b) {
+		bnx2x_mdio22_write(bp, MDIO_XGXS_BLOCK2_RX_LN_SWAP,
+				   (bp->rx_lane_swap |
+				    MDIO_XGXS_BLOCK2_RX_LN_SWAP_ENABLE |
+				   MDIO_XGXS_BLOCK2_RX_LN_SWAP_FORCE_ENABLE));
+	} else {
+		bnx2x_mdio22_write(bp, MDIO_XGXS_BLOCK2_RX_LN_SWAP, 0);
+	}
+
+	if (bp->tx_lane_swap != 0x1b) {
+		bnx2x_mdio22_write(bp, MDIO_XGXS_BLOCK2_TX_LN_SWAP,
+				   (bp->tx_lane_swap |
+				    MDIO_XGXS_BLOCK2_TX_LN_SWAP_ENABLE));
+	} else {
+		bnx2x_mdio22_write(bp, MDIO_XGXS_BLOCK2_TX_LN_SWAP, 0);
+	}
+}
+
+static void bnx2x_set_parallel_detection(struct bnx2x *bp)
+{
+	u32 control2;
+
+	MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_SERDES_DIGITAL);
+	bnx2x_mdio22_read(bp, MDIO_SERDES_DIGITAL_A_1000X_CONTROL2,
+			  &control2);
+
+	if (bp->autoneg & AUTONEG_PARALLEL) {
+		control2 |= MDIO_SERDES_DIGITAL_A_1000X_CONTROL2_PRL_DT_EN;
+	} else {
+		control2 &= ~MDIO_SERDES_DIGITAL_A_1000X_CONTROL2_PRL_DT_EN;
+	}
+	bnx2x_mdio22_write(bp, MDIO_SERDES_DIGITAL_A_1000X_CONTROL2,
+			   control2);
+
+	if (bp->phy_flags & PHY_XGXS_FLAG) {
+		DP(NETIF_MSG_LINK, "XGXS\n");
+		MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_10G_PARALLEL_DETECT);
+
+		bnx2x_mdio22_write(bp,
+				   MDIO_10G_PARALLEL_DETECT_PAR_DET_10G_LINK,
+			       MDIO_10G_PARALLEL_DETECT_PAR_DET_10G_LINK_CNT);
+
+		bnx2x_mdio22_read(bp,
+				 MDIO_10G_PARALLEL_DETECT_PAR_DET_10G_CONTROL,
+				  &control2);
+
+		if (bp->autoneg & AUTONEG_PARALLEL) {
+			control2 |=
+		    MDIO_10G_PARALLEL_DETECT_PAR_DET_10G_CONTROL_PARDET10G_EN;
+		} else {
+			control2 &=
+		   ~MDIO_10G_PARALLEL_DETECT_PAR_DET_10G_CONTROL_PARDET10G_EN;
+		}
+		bnx2x_mdio22_write(bp,
+				 MDIO_10G_PARALLEL_DETECT_PAR_DET_10G_CONTROL,
+				   control2);
+	}
+}
+
+static void bnx2x_set_autoneg(struct bnx2x *bp)
+{
+	u32 reg_val;
+
+	/* CL37 Autoneg */
+	MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_COMBO_IEEE0);
+	bnx2x_mdio22_read(bp, MDIO_COMBO_IEEE0_MII_CONTROL, &reg_val);
+	if ((bp->req_autoneg & AUTONEG_SPEED) &&
+	    (bp->autoneg & AUTONEG_CL37)) {
+		/* CL37 Autoneg Enabled */
+		reg_val |= MDIO_COMBO_IEEO_MII_CONTROL_AN_EN;
+	} else {
+		/* CL37 Autoneg Disabled */
+		reg_val &= ~(MDIO_COMBO_IEEO_MII_CONTROL_AN_EN |
+			     MDIO_COMBO_IEEO_MII_CONTROL_RESTART_AN);
+	}
+	bnx2x_mdio22_write(bp, MDIO_COMBO_IEEE0_MII_CONTROL, reg_val);
+
+	/* Enable/Disable Autodetection */
+	MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_SERDES_DIGITAL);
+	bnx2x_mdio22_read(bp, MDIO_SERDES_DIGITAL_A_1000X_CONTROL1, &reg_val);
+	reg_val &= ~MDIO_SERDES_DIGITAL_A_1000X_CONTROL1_SIGNAL_DETECT_EN;
+
+	if ((bp->req_autoneg & AUTONEG_SPEED) &&
+	    (bp->autoneg & AUTONEG_SGMII_FIBER_AUTODET)) {
+		reg_val |= MDIO_SERDES_DIGITAL_A_1000X_CONTROL1_AUTODET;
+	} else {
+		reg_val &= ~MDIO_SERDES_DIGITAL_A_1000X_CONTROL1_AUTODET;
+	}
+	bnx2x_mdio22_write(bp, MDIO_SERDES_DIGITAL_A_1000X_CONTROL1, reg_val);
+
+	/* Enable TetonII and BAM autoneg */
+	MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_BAM_NEXT_PAGE);
+	bnx2x_mdio22_read(bp, MDIO_BAM_NEXT_PAGE_MP5_NEXT_PAGE_CTRL,
+			  &reg_val);
+	if ((bp->req_autoneg & AUTONEG_SPEED) &&
+	    (bp->autoneg & AUTONEG_CL37) && (bp->autoneg & AUTONEG_BAM)) {
+		/* Enable BAM aneg Mode and TetonII aneg Mode */
+		reg_val |= (MDIO_BAM_NEXT_PAGE_MP5_NEXT_PAGE_CTRL_BAM_MODE |
+			    MDIO_BAM_NEXT_PAGE_MP5_NEXT_PAGE_CTRL_TETON_AN);
+	} else {
+		/* TetonII and BAM Autoneg Disabled */
+		reg_val &= ~(MDIO_BAM_NEXT_PAGE_MP5_NEXT_PAGE_CTRL_BAM_MODE |
+			     MDIO_BAM_NEXT_PAGE_MP5_NEXT_PAGE_CTRL_TETON_AN);
+	}
+	bnx2x_mdio22_write(bp, MDIO_BAM_NEXT_PAGE_MP5_NEXT_PAGE_CTRL,
+			   reg_val);
+
+	/* Enable Clause 73 Aneg */
+	if ((bp->req_autoneg & AUTONEG_SPEED) &&
+	    (bp->autoneg & AUTONEG_CL73)) {
+		/* Enable BAM Station Manager */
+		MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_CL73_USERB0);
+		bnx2x_mdio22_write(bp, MDIO_CL73_USERB0_CL73_BAM_CTRL1,
+				   (MDIO_CL73_USERB0_CL73_BAM_CTRL1_BAM_EN |
+			MDIO_CL73_USERB0_CL73_BAM_CTRL1_BAM_STATION_MNGR_EN |
+			MDIO_CL73_USERB0_CL73_BAM_CTRL1_BAM_NP_AFTER_BP_EN));
+
+		/* Merge CL73 and CL37 aneg resolution */
+		bnx2x_mdio22_read(bp, MDIO_CL73_USERB0_CL73_BAM_CTRL3,
+				  &reg_val);
+		bnx2x_mdio22_write(bp, MDIO_CL73_USERB0_CL73_BAM_CTRL3,
+				   (reg_val |
+			MDIO_CL73_USERB0_CL73_BAM_CTRL3_USE_CL73_HCD_MR));
+
+		/* Set the CL73 AN speed */
+		MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_CL73_IEEEB1);
+		bnx2x_mdio22_read(bp, MDIO_CL73_IEEEB1_AN_ADV2, &reg_val);
+		/* In the SerDes we support only the 1G.
+		   In the XGXS we support the 10G KX4
+		   but we currently do not support the KR */
+		if (bp->phy_flags & PHY_XGXS_FLAG) {
+			DP(NETIF_MSG_LINK, "XGXS\n");
+			/* 10G KX4 */
+			reg_val |= MDIO_CL73_IEEEB1_AN_ADV2_ADVR_10G_KX4;
+		} else {
+			DP(NETIF_MSG_LINK, "SerDes\n");
+			/* 1000M KX */
+			reg_val |= MDIO_CL73_IEEEB1_AN_ADV2_ADVR_1000M_KX;
+		}
+		bnx2x_mdio22_write(bp, MDIO_CL73_IEEEB1_AN_ADV2, reg_val);
+
+		/* CL73 Autoneg Enabled */
+		reg_val = MDIO_CL73_IEEEB0_CL73_AN_CONTROL_AN_EN;
+	} else {
+		/* CL73 Autoneg Disabled */
+		reg_val = 0;
+	}
+	MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_CL73_IEEEB0);
+	bnx2x_mdio22_write(bp, MDIO_CL73_IEEEB0_CL73_AN_CONTROL, reg_val);
+}
+
+/* program SerDes, forced speed */
+static void bnx2x_program_serdes(struct bnx2x *bp)
+{
+	u32 reg_val;
+
+	/* program duplex, disable autoneg */
+	MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_COMBO_IEEE0);
+	bnx2x_mdio22_read(bp, MDIO_COMBO_IEEE0_MII_CONTROL, &reg_val);
+	reg_val &= ~(MDIO_COMBO_IEEO_MII_CONTROL_FULL_DUPLEX |
+		     MDIO_COMBO_IEEO_MII_CONTROL_AN_EN);
+	if (bp->req_duplex == DUPLEX_FULL)
+		reg_val |= MDIO_COMBO_IEEO_MII_CONTROL_FULL_DUPLEX;
+	bnx2x_mdio22_write(bp, MDIO_COMBO_IEEE0_MII_CONTROL, reg_val);
+
+	/* program speed
+	   - needed only if the speed is greater than 1G (2.5G or 10G) */
+	if (bp->req_line_speed > SPEED_1000) {
+		MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_SERDES_DIGITAL);
+		bnx2x_mdio22_read(bp, MDIO_SERDES_DIGITAL_MISC1, &reg_val);
+		/* clearing the speed value before setting the right speed */
+		reg_val &= ~MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_MASK;
+		reg_val |= (MDIO_SERDES_DIGITAL_MISC1_REFCLK_SEL_156_25M |
+			    MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_SEL);
+		if (bp->req_line_speed == SPEED_10000)
+			reg_val |=
+				MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_10G_CX4;
+		bnx2x_mdio22_write(bp, MDIO_SERDES_DIGITAL_MISC1, reg_val);
+	}
+}
+
+static void bnx2x_set_brcm_cl37_advertisment(struct bnx2x *bp)
+{
+	u32 val = 0;
+
+	/* configure the 48 bits for BAM AN */
+	MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_OVER_1G);
+
+	/* set extended capabilities */
+	if (bp->advertising & ADVERTISED_2500baseT_Full)
+		val |= MDIO_OVER_1G_UP1_2_5G;
+	if (bp->advertising & ADVERTISED_10000baseT_Full)
+		val |= MDIO_OVER_1G_UP1_10G;
+	bnx2x_mdio22_write(bp, MDIO_OVER_1G_UP1, val);
+
+	bnx2x_mdio22_write(bp, MDIO_OVER_1G_UP3, 0);
+}
+
+static void bnx2x_set_ieee_aneg_advertisment(struct bnx2x *bp)
+{
+	u32 an_adv;
+
+	/* for AN, we are always publishing full duplex */
+	an_adv = MDIO_COMBO_IEEE0_AUTO_NEG_ADV_FULL_DUPLEX;
+
+	/* set pause */
+	switch (bp->pause_mode) {
+	case PAUSE_SYMMETRIC:
+		an_adv |= MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_SYMMETRIC;
+		break;
+	case PAUSE_ASYMMETRIC:
+		an_adv |= MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_ASYMMETRIC;
+		break;
+	case PAUSE_BOTH:
+		an_adv |= MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_BOTH;
+		break;
+	case PAUSE_NONE:
+		an_adv |= MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_NONE;
+		break;
+	}
+
+	MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_COMBO_IEEE0);
+	bnx2x_mdio22_write(bp, MDIO_COMBO_IEEE0_AUTO_NEG_ADV, an_adv);
+}
+
+static void bnx2x_restart_autoneg(struct bnx2x *bp)
+{
+	if (bp->autoneg & AUTONEG_CL73) {
+		/* enable and restart clause 73 aneg */
+		u32 an_ctrl;
+
+		MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_CL73_IEEEB0);
+		bnx2x_mdio22_read(bp, MDIO_CL73_IEEEB0_CL73_AN_CONTROL,
+				  &an_ctrl);
+		bnx2x_mdio22_write(bp, MDIO_CL73_IEEEB0_CL73_AN_CONTROL,
+				   (an_ctrl |
+				    MDIO_CL73_IEEEB0_CL73_AN_CONTROL_AN_EN |
+				MDIO_CL73_IEEEB0_CL73_AN_CONTROL_RESTART_AN));
+
+	} else {
+		/* Enable and restart BAM/CL37 aneg */
+		u32 mii_control;
+
+		MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_COMBO_IEEE0);
+		bnx2x_mdio22_read(bp, MDIO_COMBO_IEEE0_MII_CONTROL,
+				  &mii_control);
+		bnx2x_mdio22_write(bp, MDIO_COMBO_IEEE0_MII_CONTROL,
+				   (mii_control |
+				    MDIO_COMBO_IEEO_MII_CONTROL_AN_EN |
+				    MDIO_COMBO_IEEO_MII_CONTROL_RESTART_AN));
+	}
+}
+
+static void bnx2x_initialize_sgmii_process(struct bnx2x *bp)
+{
+	u32 control1;
+
+	/* in SGMII mode, the unicore is always slave */
+	MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_SERDES_DIGITAL);
+	bnx2x_mdio22_read(bp, MDIO_SERDES_DIGITAL_A_1000X_CONTROL1,
+			  &control1);
+	control1 |= MDIO_SERDES_DIGITAL_A_1000X_CONTROL1_INVERT_SIGNAL_DETECT;
+	/* set sgmii mode (and not fiber) */
+	control1 &= ~(MDIO_SERDES_DIGITAL_A_1000X_CONTROL1_FIBER_MODE |
+		      MDIO_SERDES_DIGITAL_A_1000X_CONTROL1_AUTODET |
+		      MDIO_SERDES_DIGITAL_A_1000X_CONTROL1_MSTR_MODE);
+	bnx2x_mdio22_write(bp, MDIO_SERDES_DIGITAL_A_1000X_CONTROL1,
+			   control1);
+
+	/* if forced speed */
+	if (!(bp->req_autoneg & AUTONEG_SPEED)) {
+		/* set speed, disable autoneg */
+		u32 mii_control;
+
+		MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_COMBO_IEEE0);
+		bnx2x_mdio22_read(bp, MDIO_COMBO_IEEE0_MII_CONTROL,
+				  &mii_control);
+		mii_control &= ~(MDIO_COMBO_IEEO_MII_CONTROL_AN_EN |
+			       MDIO_COMBO_IEEO_MII_CONTROL_MAN_SGMII_SP_MASK |
+				 MDIO_COMBO_IEEO_MII_CONTROL_FULL_DUPLEX);
+
+		switch (bp->req_line_speed) {
+		case SPEED_100:
+			mii_control |=
+				MDIO_COMBO_IEEO_MII_CONTROL_MAN_SGMII_SP_100;
+			break;
+		case SPEED_1000:
+			mii_control |=
+				MDIO_COMBO_IEEO_MII_CONTROL_MAN_SGMII_SP_1000;
+			break;
+		case SPEED_10:
+			/* there is nothing to set for 10M */
+			break;
+		default:
+			/* invalid speed for SGMII */
+			DP(NETIF_MSG_LINK, "Invalid req_line_speed 0x%x\n",
+			   bp->req_line_speed);
+			break;
+		}
+
+		/* setting the full duplex */
+		if (bp->req_duplex == DUPLEX_FULL)
+			mii_control |=
+				MDIO_COMBO_IEEO_MII_CONTROL_FULL_DUPLEX;
+		bnx2x_mdio22_write(bp, MDIO_COMBO_IEEE0_MII_CONTROL,
+				   mii_control);
+
+	} else { /* AN mode */
+		/* enable and restart AN */
+		bnx2x_restart_autoneg(bp);
+	}
+}
+
+static void bnx2x_link_int_enable(struct bnx2x *bp)
+{
+	int port = bp->port;
+
+	/* setting the status to report on link up
+	   for either XGXS or SerDes */
+	bnx2x_bits_dis(bp, NIG_REG_STATUS_INTERRUPT_PORT0 + port*4,
+		       (NIG_XGXS0_LINK_STATUS |
+			NIG_STATUS_INTERRUPT_XGXS0_LINK10G |
+			NIG_SERDES0_LINK_STATUS));
+
+	if (bp->phy_flags & PHY_XGXS_FLAG) {
+		/* TBD -
+		 * in force mode (not AN) we can enable just the relevant
+		 * interrupt
+		 * Even in AN we might enable only one according to the AN
+		 * speed mask
+		 */
+		bnx2x_bits_en(bp, NIG_REG_MASK_INTERRUPT_PORT0 + port*4,
+			      (NIG_MASK_XGXS0_LINK_STATUS |
+			       NIG_MASK_XGXS0_LINK10G));
+		DP(NETIF_MSG_LINK, "enable XGXS interrupt\n");
+
+	} else { /* SerDes */
+		bnx2x_bits_en(bp, NIG_REG_MASK_INTERRUPT_PORT0 + port*4,
+			      NIG_MASK_SERDES0_LINK_STATUS);
+		DP(NETIF_MSG_LINK, "enable SerDes interrupt\n");
+	}
+}
+
+static void bnx2x_ext_phy_init(struct bnx2x *bp)
+{
+	int port = bp->port;
+	u32 ext_phy_type;
+	u32 ext_phy_addr;
+	u32 local_phy;
+
+	if (bp->phy_flags & PHY_XGXS_FLAG) {
+		local_phy = bp->phy_addr;
+		ext_phy_addr = ((bp->ext_phy_config &
+				 PORT_HW_CFG_XGXS_EXT_PHY_ADDR_MASK) >>
+				PORT_HW_CFG_XGXS_EXT_PHY_ADDR_SHIFT);
+
+		ext_phy_type = XGXS_EXT_PHY_TYPE(bp);
+		switch (ext_phy_type) {
+		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT:
+			DP(NETIF_MSG_LINK, "XGXS Direct\n");
+			break;
+
+		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8705:
+			DP(NETIF_MSG_LINK, "XGXS 8705\n");
+			bnx2x_bits_en(bp,
+				      NIG_REG_MASK_INTERRUPT_PORT0 + port*4,
+				      NIG_MASK_MI_INT);
+			DP(NETIF_MSG_LINK, "enabled extenal phy int\n");
+
+			bp->phy_addr = ext_phy_type;
+			bnx2x_mdio45_vwrite(bp, EXT_PHY_OPT_PMA_PMD_DEVAD,
+					    EXT_PHY_OPT_PMD_MISC_CNTL,
+					    0x8288);
+			bnx2x_mdio45_vwrite(bp, EXT_PHY_OPT_PMA_PMD_DEVAD,
+					    EXT_PHY_OPT_PHY_IDENTIFIER,
+					    0x7fbf);
+			bnx2x_mdio45_vwrite(bp, EXT_PHY_OPT_PMA_PMD_DEVAD,
+					    EXT_PHY_OPT_CMU_PLL_BYPASS,
+					    0x0100);
+			bnx2x_mdio45_vwrite(bp, EXT_PHY_OPT_WIS_DEVAD,
+					    EXT_PHY_OPT_LASI_CNTL, 0x1);
+			break;
+
+		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8706:
+			DP(NETIF_MSG_LINK, "XGXS 8706\n");
+			bnx2x_bits_en(bp,
+				      NIG_REG_MASK_INTERRUPT_PORT0 + port*4,
+				      NIG_MASK_MI_INT);
+			DP(NETIF_MSG_LINK, "enabled extenal phy int\n");
+
+			bp->phy_addr = ext_phy_type;
+			bnx2x_mdio45_vwrite(bp, EXT_PHY_OPT_PMA_PMD_DEVAD,
+					    EXT_PHY_OPT_PMD_DIGITAL_CNT,
+					    0x400);
+			bnx2x_mdio45_vwrite(bp, EXT_PHY_OPT_PMA_PMD_DEVAD,
+					    EXT_PHY_OPT_LASI_CNTL, 0x1);
+			break;
+
+		default:
+			DP(NETIF_MSG_LINK, "BAD XGXS ext_phy_config 0x%x\n",
+			   bp->ext_phy_config);
+			break;
+		}
+		bp->phy_addr = local_phy;
+
+	} else { /* SerDes */
+/*      	ext_phy_addr = ((bp->ext_phy_config &
+				 PORT_HW_CFG_SERDES_EXT_PHY_ADDR_MASK) >>
+				PORT_HW_CFG_SERDES_EXT_PHY_ADDR_SHIFT);
+*/
+		ext_phy_type = SERDES_EXT_PHY_TYPE(bp);
+		switch (ext_phy_type) {
+		case PORT_HW_CFG_SERDES_EXT_PHY_TYPE_DIRECT:
+			DP(NETIF_MSG_LINK, "SerDes Direct\n");
+			break;
+
+		case PORT_HW_CFG_SERDES_EXT_PHY_TYPE_BCM5482:
+			DP(NETIF_MSG_LINK, "SerDes 5482\n");
+			bnx2x_bits_en(bp,
+				      NIG_REG_MASK_INTERRUPT_PORT0 + port*4,
+				      NIG_MASK_MI_INT);
+			DP(NETIF_MSG_LINK, "enabled extenal phy int\n");
+			break;
+
+		default:
+			DP(NETIF_MSG_LINK, "BAD SerDes ext_phy_config 0x%x\n",
+			   bp->ext_phy_config);
+			break;
+		}
+	}
+}
+
+static void bnx2x_ext_phy_reset(struct bnx2x *bp)
+{
+	u32 ext_phy_type;
+	u32 ext_phy_addr;
+	u32 local_phy;
+
+	if (bp->phy_flags & PHY_XGXS_FLAG) {
+		ext_phy_type = XGXS_EXT_PHY_TYPE(bp);
+		switch (ext_phy_type) {
+		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT:
+			DP(NETIF_MSG_LINK, "XGXS Direct\n");
+			break;
+
+		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8705:
+		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8706:
+			DP(NETIF_MSG_LINK, "XGXS 8705/6\n");
+			local_phy = bp->phy_addr;
+			ext_phy_addr = ((bp->ext_phy_config &
+					PORT_HW_CFG_XGXS_EXT_PHY_ADDR_MASK) >>
+					PORT_HW_CFG_XGXS_EXT_PHY_ADDR_SHIFT);
+			bp->phy_addr = (u8)ext_phy_addr;
+			bnx2x_mdio45_write(bp, EXT_PHY_OPT_PMA_PMD_DEVAD,
+					   EXT_PHY_OPT_CNTL, 0xa040);
+			bp->phy_addr = local_phy;
+			break;
+
+		default:
+			DP(NETIF_MSG_LINK, "BAD XGXS ext_phy_config 0x%x\n",
+			   bp->ext_phy_config);
+			break;
+		}
+
+	} else { /* SerDes */
+		ext_phy_type = SERDES_EXT_PHY_TYPE(bp);
+		switch (ext_phy_type) {
+		case PORT_HW_CFG_SERDES_EXT_PHY_TYPE_DIRECT:
+			DP(NETIF_MSG_LINK, "SerDes Direct\n");
+			break;
+
+		case PORT_HW_CFG_SERDES_EXT_PHY_TYPE_BCM5482:
+			DP(NETIF_MSG_LINK, "SerDes 5482\n");
+			break;
+
+		default:
+			DP(NETIF_MSG_LINK, "BAD SerDes ext_phy_config 0x%x\n",
+			   bp->ext_phy_config);
+			break;
+		}
+	}
+}
+
+static void bnx2x_link_initialize(struct bnx2x *bp)
+{
+	int port = bp->port;
+
+	/* disable attentions */
+	bnx2x_bits_dis(bp, NIG_REG_MASK_INTERRUPT_PORT0 + port*4,
+		       (NIG_MASK_XGXS0_LINK_STATUS |
+			NIG_MASK_XGXS0_LINK10G |
+			NIG_MASK_SERDES0_LINK_STATUS |
+			NIG_MASK_MI_INT));
+
+	bnx2x_ext_phy_reset(bp);
+
+	bnx2x_set_aer_mmd(bp);
+
+	if (bp->phy_flags & PHY_XGXS_FLAG)
+		bnx2x_set_master_ln(bp);
+
+	/* reset the SerDes and wait for reset bit return low */
+	bnx2x_reset_unicore(bp);
+
+	bnx2x_set_aer_mmd(bp);
+
+	/* setting the masterLn_def again after the reset */
+	if (bp->phy_flags & PHY_XGXS_FLAG) {
+		bnx2x_set_master_ln(bp);
+		bnx2x_set_swap_lanes(bp);
+	}
+
+	/* Set Parallel Detect */
+	if (bp->req_autoneg & AUTONEG_SPEED)
+		bnx2x_set_parallel_detection(bp);
+
+	if (bp->phy_flags & PHY_XGXS_FLAG) {
+		if (bp->req_line_speed &&
+		    bp->req_line_speed < SPEED_1000) {
+			bp->phy_flags |= PHY_SGMII_FLAG;
+		} else {
+			bp->phy_flags &= ~PHY_SGMII_FLAG;
+		}
+	}
+
+	if (!(bp->phy_flags & PHY_SGMII_FLAG)) {
+		u16 bank, rx_eq;
+
+		rx_eq = ((bp->serdes_config &
+			  PORT_HW_CFG_SERDES_RX_DRV_EQUALIZER_MASK) >>
+			 PORT_HW_CFG_SERDES_RX_DRV_EQUALIZER_SHIFT);
+
+		DP(NETIF_MSG_LINK, "setting rx eq to %d\n", rx_eq);
+		for (bank = MDIO_REG_BANK_RX0; bank <= MDIO_REG_BANK_RX_ALL;
+			    bank += (MDIO_REG_BANK_RX1 - MDIO_REG_BANK_RX0)) {
+			MDIO_SET_REG_BANK(bp, bank);
+			bnx2x_mdio22_write(bp, MDIO_RX0_RX_EQ_BOOST,
+					   ((rx_eq &
+				MDIO_RX0_RX_EQ_BOOST_EQUALIZER_CTRL_MASK) |
+				MDIO_RX0_RX_EQ_BOOST_OFFSET_CTRL));
+		}
+
+		/* forced speed requested? */
+		if (!(bp->req_autoneg & AUTONEG_SPEED)) {
+			DP(NETIF_MSG_LINK, "not SGMII, no AN\n");
+
+			/* disable autoneg */
+			bnx2x_set_autoneg(bp);
+
+			/* program speed and duplex */
+			bnx2x_program_serdes(bp);
+
+		} else { /* AN_mode */
+			DP(NETIF_MSG_LINK, "not SGMII, AN\n");
+
+			/* AN enabled */
+			bnx2x_set_brcm_cl37_advertisment(bp);
+
+			/* program duplex & pause advertisment (for aneg) */
+			bnx2x_set_ieee_aneg_advertisment(bp);
+
+			/* enable autoneg */
+			bnx2x_set_autoneg(bp);
+
+			/* enalbe and restart AN */
+			bnx2x_restart_autoneg(bp);
+		}
+
+	} else { /* SGMII mode */
+		DP(NETIF_MSG_LINK, "SGMII\n");
+
+		bnx2x_initialize_sgmii_process(bp);
+	}
+
+	/* enable the interrupt */
+	bnx2x_link_int_enable(bp);
+
+	/* init ext phy and enable link state int */
+	bnx2x_ext_phy_init(bp);
+}
+
+static void bnx2x_phy_deassert(struct bnx2x *bp)
+{
+	int port = bp->port;
+	u32 val;
+
+	if (bp->phy_flags & PHY_XGXS_FLAG) {
+		DP(NETIF_MSG_LINK, "XGXS\n");
+		val = XGXS_RESET_BITS;
+
+	} else { /* SerDes */
+		DP(NETIF_MSG_LINK, "SerDes\n");
+		val = SERDES_RESET_BITS;
+	}
+
+	val = val << (port*16);
+
+	/* reset and unreset the SerDes/XGXS */
+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_3_CLEAR, val);
+	msleep(5);
+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_3_SET, val);
+}
+
+static int bnx2x_phy_init(struct bnx2x *bp)
+{
+	DP(NETIF_MSG_LINK, "started\n");
+	if (CHIP_REV(bp) == CHIP_REV_FPGA) {
+		bp->phy_flags |= PHY_EMAC_FLAG;
+		bp->link_up = 1;
+		bp->line_speed = SPEED_10000;
+		bp->duplex = DUPLEX_FULL;
+		NIG_WR(NIG_REG_EGRESS_DRAIN0_MODE + bp->port*4, 0);
+		bnx2x_emac_enable(bp);
+		bnx2x_link_report(bp);
+		return 0;
+
+	} else if (CHIP_REV(bp) == CHIP_REV_EMUL) {
+		bp->phy_flags |= PHY_BMAC_FLAG;
+		bp->link_up = 1;
+		bp->line_speed = SPEED_10000;
+		bp->duplex = DUPLEX_FULL;
+		NIG_WR(NIG_REG_EGRESS_DRAIN0_MODE + bp->port*4, 0);
+		bnx2x_bmac_enable(bp, 0);
+		bnx2x_link_report(bp);
+		return 0;
+
+	} else {
+		bnx2x_phy_deassert(bp);
+		bnx2x_link_initialize(bp);
+	}
+
+	return 0;
+}
+
+static void bnx2x_link_reset(struct bnx2x *bp)
+{
+	int port = bp->port;
+
+	/* disable attentions */
+	bnx2x_bits_dis(bp, NIG_REG_MASK_INTERRUPT_PORT0 + port*4,
+		       (NIG_MASK_XGXS0_LINK_STATUS |
+			NIG_MASK_XGXS0_LINK10G |
+			NIG_MASK_SERDES0_LINK_STATUS |
+			NIG_MASK_MI_INT));
+
+	bnx2x_ext_phy_reset(bp);
+
+	/* reset the SerDes/XGXS */
+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_3_CLEAR,
+	       (0x1ff << (port*16)));
+
+	/* reset EMAC / BMAC and disable NIG interfaces */
+	NIG_WR(NIG_REG_BMAC0_IN_EN + port*4, 0);
+	NIG_WR(NIG_REG_BMAC0_OUT_EN + port*4, 0);
+
+	NIG_WR(NIG_REG_NIG_EMAC0_EN + port*4, 0);
+	NIG_WR(NIG_REG_EMAC0_IN_EN + port*4, 0);
+	NIG_WR(NIG_REG_EGRESS_EMAC0_OUT_EN + port*4, 0);
+
+	NIG_WR(NIG_REG_EGRESS_DRAIN0_MODE + port*4, 1);
+}
+
+#ifdef BNX2X_XGXS_LB
+static void bnx2x_set_xgxs_loopback(struct bnx2x *bp, int is_10g)
+{
+	int port = bp->port;
+
+	if (is_10g) {
+		u32 md_devad;
+
+		DP(NETIF_MSG_LINK, "XGXS 10G loopback enable\n");
+
+		/* change the uni_phy_addr in the nig */
+		REG_RD(bp, (NIG_REG_XGXS0_CTRL_MD_DEVAD + port*0x18),
+		       &md_devad);
+		NIG_WR(NIG_REG_XGXS0_CTRL_MD_DEVAD + port*0x18, 0x5);
+
+		/* change the aer mmd */
+		MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_AER_BLOCK);
+		bnx2x_mdio22_write(bp, MDIO_AER_BLOCK_AER_REG, 0x2800);
+
+		/* config combo IEEE0 control reg for loopback */
+		MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_CL73_IEEEB0);
+		bnx2x_mdio22_write(bp, MDIO_CL73_IEEEB0_CL73_AN_CONTROL,
+				   0x6041);
+
+		/* set aer mmd back */
+		bnx2x_set_aer_mmd(bp);
+
+		/* and md_devad */
+		NIG_WR(NIG_REG_XGXS0_CTRL_MD_DEVAD + port*0x18, md_devad);
+
+	} else {
+		u32 mii_control;
+
+		DP(NETIF_MSG_LINK, "XGXS 1G loopback enable\n");
+
+		MDIO_SET_REG_BANK(bp, MDIO_REG_BANK_COMBO_IEEE0);
+		bnx2x_mdio22_read(bp, MDIO_COMBO_IEEE0_MII_CONTROL,
+				  &mii_control);
+		bnx2x_mdio22_write(bp, MDIO_COMBO_IEEE0_MII_CONTROL,
+				   (mii_control |
+				    MDIO_COMBO_IEEO_MII_CONTROL_LOOPBACK));
+	}
+}
+#endif
+
+/* end of PHY/MAC */
+
+/* slow path */
+
+/*
+ * General service functions
+ */
+
+/* the slow path queue is odd since completions arrive on the fastpath ring */
+static int bnx2x_sp_post(struct bnx2x *bp, int command, int cid,
+			 u32 data_hi, u32 data_lo, int common)
+{
+	int port = bp->port;
+
+	DP(NETIF_MSG_TIMER,
+	   "spe (%x:%x)  command %x  hw_cid %x  data (%x:%x)  left %x\n",
+	   (u32)U64_HI(bp->spq_mapping), (u32)(U64_LO(bp->spq_mapping) +
+	   (void *)bp->spq_prod_bd - (void *)bp->spq), command,
+	   HW_CID(bp, cid), data_hi, data_lo, bp->spq_left);
+
+#ifdef BNX2X_STOP_ON_ERROR
+	if (unlikely(bp->panic))
+		return -EIO;
+#endif
+
+	spin_lock(&bp->spq_lock);
+
+	if (!bp->spq_left) {
+		BNX2X_ERR("BUG! SPQ ring full!\n");
+		spin_unlock(&bp->spq_lock);
+		bnx2x_panic();
+		return -EBUSY;
+	}
+	/* CID needs port number to be encoded int it */
+	bp->spq_prod_bd->hdr.conn_and_cmd_data =
+			cpu_to_le32(((command << SPE_HDR_CMD_ID_SHIFT) |
+				     HW_CID(bp, cid)));
+	bp->spq_prod_bd->hdr.type = cpu_to_le16(ETH_CONNECTION_TYPE);
+	if (common)
+		bp->spq_prod_bd->hdr.type |=
+			cpu_to_le16((1 << SPE_HDR_COMMON_RAMROD_SHIFT));
+
+	bp->spq_prod_bd->data.mac_config_addr.hi = cpu_to_le32(data_hi);
+	bp->spq_prod_bd->data.mac_config_addr.lo = cpu_to_le32(data_lo);
+
+	bp->spq_left--;
+
+	if (bp->spq_prod_bd == bp->spq_last_bd) {
+		bp->spq_prod_bd = bp->spq;
+		bp->spq_prod_idx = 0;
+		DP(NETIF_MSG_TIMER, "end of spq\n");
+
+	} else {
+		bp->spq_prod_bd++;
+		bp->spq_prod_idx++;
+	}
+
+	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_SPQ_PROD_OFFSET(port),
+	       bp->spq_prod_idx);
+
+	spin_unlock(&bp->spq_lock);
+	return 0;
+}
+
+/* acquire split MCP access lock register */
+static int bnx2x_lock_alr(struct bnx2x *bp)
+{
+	int rc = 0;
+	u32 i, j, val;
+
+	might_sleep();
+	i = 100;
+	for (j = 0; j < i*10; j++) {
+		val = (1UL << 31);
+		REG_WR(bp, GRCBASE_MCP + 0x9c, val);
+		val = REG_RD(bp, GRCBASE_MCP + 0x9c);
+		if (val & (1L << 31))
+			break;
+
+		msleep(5);
+	}
+
+	if (!(val & (1L << 31))) {
+		BNX2X_ERR("Cannot acquire nvram interface\n");
+
+		rc = -EBUSY;
+	}
+
+	return rc;
+}
+
+/* Release split MCP access lock register */
+static void bnx2x_unlock_alr(struct bnx2x *bp)
+{
+	u32 val = 0;
+
+	REG_WR(bp, GRCBASE_MCP + 0x9c, val);
+}
+
+static inline u16 bnx2x_update_dsb_idx(struct bnx2x *bp)
+{
+	struct host_def_status_block *def_sb = bp->def_status_blk;
+	u16 rc = 0;
+
+	barrier(); /* status block is written to by the chip */
+
+	if (bp->def_att_idx != def_sb->atten_status_block.attn_bits_index) {
+		bp->def_att_idx = def_sb->atten_status_block.attn_bits_index;
+		rc |= 1;
+	}
+	if (bp->def_c_idx != def_sb->c_def_status_block.status_block_index) {
+		bp->def_c_idx = def_sb->c_def_status_block.status_block_index;
+		rc |= 2;
+	}
+	if (bp->def_u_idx != def_sb->u_def_status_block.status_block_index) {
+		bp->def_u_idx = def_sb->u_def_status_block.status_block_index;
+		rc |= 4;
+	}
+	if (bp->def_x_idx != def_sb->x_def_status_block.status_block_index) {
+		bp->def_x_idx = def_sb->x_def_status_block.status_block_index;
+		rc |= 8;
+	}
+	if (bp->def_t_idx != def_sb->t_def_status_block.status_block_index) {
+		bp->def_t_idx = def_sb->t_def_status_block.status_block_index;
+		rc |= 16;
+	}
+	return rc;
+}
+
+/*
+ * slow path service functions
+ */
+
+static void bnx2x_attn_int_asserted(struct bnx2x *bp, u32 asserted)
+{
+	int port = bp->port;
+	u32 igu_addr = (IGU_ADDR_ATTN_BITS_SET + IGU_PORT_BASE * port) * 8;
+	u32 aeu_addr = port ? MISC_REG_AEU_MASK_ATTN_FUNC_1 :
+			      MISC_REG_AEU_MASK_ATTN_FUNC_0;
+	u32 nig_mask_addr = port ? NIG_REG_MASK_INTERRUPT_PORT1 :
+				   NIG_REG_MASK_INTERRUPT_PORT0;
+
+	if (~bp->aeu_mask & (asserted & 0xff))
+		BNX2X_ERR("IGU ERROR\n");
+	if (bp->attn_state & asserted)
+		BNX2X_ERR("IGU ERROR\n");
+
+	DP(NETIF_MSG_HW, "aeu_mask %x  newly asserted %x\n",
+	   bp->aeu_mask, asserted);
+	bp->aeu_mask &= ~(asserted & 0xff);
+	DP(NETIF_MSG_HW, "after masking: aeu_mask %x\n", bp->aeu_mask);
+
+	REG_WR(bp, aeu_addr, bp->aeu_mask);
+
+	bp->attn_state |= asserted;
+
+	if (asserted & ATTN_HARD_WIRED_MASK) {
+		if (asserted & ATTN_NIG_FOR_FUNC) {
+			u32 nig_status_port;
+			u32 nig_int_addr = port ?
+					NIG_REG_STATUS_INTERRUPT_PORT1 :
+					NIG_REG_STATUS_INTERRUPT_PORT0;
+
+			bp->nig_mask = REG_RD(bp, nig_mask_addr);
+			REG_WR(bp, nig_mask_addr, 0);
+
+			nig_status_port = REG_RD(bp, nig_int_addr);
+			bnx2x_link_update(bp);
+
+			/* handle unicore attn? */
+		}
+		if (asserted & ATTN_SW_TIMER_4_FUNC)
+			DP(NETIF_MSG_HW, "ATTN_SW_TIMER_4_FUNC!\n");
+
+		if (asserted & GPIO_2_FUNC)
+			DP(NETIF_MSG_HW, "GPIO_2_FUNC!\n");
+
+		if (asserted & GPIO_3_FUNC)
+			DP(NETIF_MSG_HW, "GPIO_3_FUNC!\n");
+
+		if (asserted & GPIO_4_FUNC)
+			DP(NETIF_MSG_HW, "GPIO_4_FUNC!\n");
+
+		if (port == 0) {
+			if (asserted & ATTN_GENERAL_ATTN_1) {
+				DP(NETIF_MSG_HW, "ATTN_GENERAL_ATTN_1!\n");
+				REG_WR(bp, MISC_REG_AEU_GENERAL_ATTN_1, 0x0);
+			}
+			if (asserted & ATTN_GENERAL_ATTN_2) {
+				DP(NETIF_MSG_HW, "ATTN_GENERAL_ATTN_2!\n");
+				REG_WR(bp, MISC_REG_AEU_GENERAL_ATTN_2, 0x0);
+			}
+			if (asserted & ATTN_GENERAL_ATTN_3) {
+				DP(NETIF_MSG_HW, "ATTN_GENERAL_ATTN_3!\n");
+				REG_WR(bp, MISC_REG_AEU_GENERAL_ATTN_3, 0x0);
+			}
+		} else {
+			if (asserted & ATTN_GENERAL_ATTN_4) {
+				DP(NETIF_MSG_HW, "ATTN_GENERAL_ATTN_4!\n");
+				REG_WR(bp, MISC_REG_AEU_GENERAL_ATTN_4, 0x0);
+			}
+			if (asserted & ATTN_GENERAL_ATTN_5) {
+				DP(NETIF_MSG_HW, "ATTN_GENERAL_ATTN_5!\n");
+				REG_WR(bp, MISC_REG_AEU_GENERAL_ATTN_5, 0x0);
+			}
+			if (asserted & ATTN_GENERAL_ATTN_6) {
+				DP(NETIF_MSG_HW, "ATTN_GENERAL_ATTN_6!\n");
+				REG_WR(bp, MISC_REG_AEU_GENERAL_ATTN_6, 0x0);
+			}
+		}
+
+	} /* if hardwired */
+
+	DP(NETIF_MSG_HW, "about to mask 0x%08x at IGU addr 0x%x\n",
+	   asserted, BAR_IGU_INTMEM + igu_addr);
+	REG_WR(bp, BAR_IGU_INTMEM + igu_addr, asserted);
+
+	/* now set back the mask */
+	if (asserted & ATTN_NIG_FOR_FUNC)
+		REG_WR(bp, nig_mask_addr, bp->nig_mask);
+}
+
+static void bnx2x_attn_int_deasserted(struct bnx2x *bp, u32 deasserted)
+{
+	int port = bp->port;
+	int index;
+	struct attn_route attn;
+	struct attn_route group_mask;
+	u32 reg_addr;
+	u32 val;
+
+	/* need to take HW lock because MCP or other port might also
+	   try to handle this event */
+	bnx2x_lock_alr(bp);
+
+	attn.sig[0] = REG_RD(bp, MISC_REG_AEU_AFTER_INVERT_1_FUNC_0 + port*4);
+	attn.sig[1] = REG_RD(bp, MISC_REG_AEU_AFTER_INVERT_2_FUNC_0 + port*4);
+	attn.sig[2] = REG_RD(bp, MISC_REG_AEU_AFTER_INVERT_3_FUNC_0 + port*4);
+	attn.sig[3] = REG_RD(bp, MISC_REG_AEU_AFTER_INVERT_4_FUNC_0 + port*4);
+	DP(NETIF_MSG_HW, "attn %llx\n", (unsigned long long)attn.sig[0]);
+
+	for (index = 0; index < MAX_DYNAMIC_ATTN_GRPS; index++) {
+		if (deasserted & (1 << index)) {
+			group_mask = bp->attn_group[index];
+
+			DP(NETIF_MSG_HW, "group[%d]: %llx\n", index,
+			   (unsigned long long)group_mask.sig[0]);
+
+			if (attn.sig[3] & group_mask.sig[3] &
+			    EVEREST_GEN_ATTN_IN_USE_MASK) {
+
+				if (attn.sig[3] & BNX2X_MC_ASSERT_BITS) {
+
+					BNX2X_ERR("MC assert!\n");
+					bnx2x_panic();
+
+				} else if (attn.sig[3] & BNX2X_MCP_ASSERT) {
+
+					BNX2X_ERR("MCP assert!\n");
+					REG_WR(bp,
+					     MISC_REG_AEU_GENERAL_ATTN_11, 0);
+					bnx2x_mc_assert(bp);
+
+				} else {
+					BNX2X_ERR("UNKOWEN HW ASSERT!\n");
+				}
+			}
+
+			if (attn.sig[1] & group_mask.sig[1] &
+			    BNX2X_DOORQ_ASSERT) {
+
+				val = REG_RD(bp, DORQ_REG_DORQ_INT_STS_CLR);
+				BNX2X_ERR("DB hw attention 0x%x\n", val);
+				/* DORQ discard attention */
+				if (val & 0x2)
+					BNX2X_ERR("FATAL error from DORQ\n");
+			}
+
+			if (attn.sig[2] & group_mask.sig[2] &
+			    AEU_INPUTS_ATTN_BITS_CFC_HW_INTERRUPT) {
+
+				val = REG_RD(bp, CFC_REG_CFC_INT_STS_CLR);
+				BNX2X_ERR("CFC hw attention 0x%x\n", val);
+				/* CFC error attention */
+				if (val & 0x2)
+					BNX2X_ERR("FATAL error from CFC\n");
+			}
+
+			if (attn.sig[2] & group_mask.sig[2] &
+			    AEU_INPUTS_ATTN_BITS_PXP_HW_INTERRUPT) {
+
+				val = REG_RD(bp, PXP_REG_PXP_INT_STS_CLR_0);
+				BNX2X_ERR("PXP hw attention 0x%x\n", val);
+				/* RQ_USDMDP_FIFO_OVERFLOW */
+				if (val & 0x18000)
+					BNX2X_ERR("FATAL error from PXP\n");
+			}
+
+			if (attn.sig[3] & group_mask.sig[3] &
+			    EVEREST_LATCHED_ATTN_IN_USE_MASK) {
+
+				REG_WR(bp, MISC_REG_AEU_CLR_LATCH_SIGNAL,
+				       0x7ff);
+				DP(NETIF_MSG_HW, "got latched bits 0x%x\n",
+				   attn.sig[3]);
+			}
+
+			if ((attn.sig[0] & group_mask.sig[0] &
+						HW_INTERRUT_ASSERT_SET_0) ||
+			    (attn.sig[1] & group_mask.sig[1] &
+						HW_INTERRUT_ASSERT_SET_1) ||
+			    (attn.sig[2] & group_mask.sig[2] &
+						HW_INTERRUT_ASSERT_SET_2))
+				BNX2X_ERR("FATAL HW block attention\n");
+
+			if ((attn.sig[0] & group_mask.sig[0] &
+						HW_PRTY_ASSERT_SET_0) ||
+			    (attn.sig[1] & group_mask.sig[1] &
+						HW_PRTY_ASSERT_SET_1) ||
+			    (attn.sig[2] & group_mask.sig[2] &
+						HW_PRTY_ASSERT_SET_2))
+				BNX2X_ERR("FATAL HW block parity atention\n");
+		}
+	}
+
+	bnx2x_unlock_alr(bp);
+
+	reg_addr = (IGU_ADDR_ATTN_BITS_CLR + IGU_PORT_BASE * port) * 8;
+
+	val = ~deasserted;
+/*      DP(NETIF_MSG_INTR, "write 0x%08x to IGU addr 0x%x\n",
+	   val, BAR_IGU_INTMEM + reg_addr); */
+	REG_WR(bp, BAR_IGU_INTMEM + reg_addr, val);
+
+	if (bp->aeu_mask & (deasserted & 0xff))
+		BNX2X_ERR("IGU BUG\n");
+	if (~bp->attn_state & deasserted)
+		BNX2X_ERR("IGU BUG\n");
+
+	reg_addr = port ? MISC_REG_AEU_MASK_ATTN_FUNC_1 :
+			  MISC_REG_AEU_MASK_ATTN_FUNC_0;
+
+	DP(NETIF_MSG_HW, "aeu_mask %x\n", bp->aeu_mask);
+	bp->aeu_mask |= (deasserted & 0xff);
+
+	DP(NETIF_MSG_HW, "new mask %x\n", bp->aeu_mask);
+	REG_WR(bp, reg_addr, bp->aeu_mask);
+
+	DP(NETIF_MSG_HW, "attn_state %x\n", bp->attn_state);
+	bp->attn_state &= ~deasserted;
+	DP(NETIF_MSG_HW, "new state %x\n", bp->attn_state);
+}
+
+static void bnx2x_attn_int(struct bnx2x *bp)
+{
+	/* read local copy of bits */
+	u32 attn_bits = bp->def_status_blk->atten_status_block.attn_bits;
+	u32 attn_ack = bp->def_status_blk->atten_status_block.attn_bits_ack;
+	u32 attn_state = bp->attn_state;
+
+	/* look for changed bits */
+	u32 asserted   =  attn_bits & ~attn_ack & ~attn_state;
+	u32 deasserted = ~attn_bits &  attn_ack &  attn_state;
+
+	DP(NETIF_MSG_HW,
+	   "attn_bits %x  attn_ack %x  asserted %x  deasserted %x\n",
+	   attn_bits, attn_ack, asserted, deasserted);
+
+	if (~(attn_bits ^ attn_ack) & (attn_bits ^ attn_state))
+		BNX2X_ERR("bad attention state\n");
+
+	/* handle bits that were raised */
+	if (asserted)
+		bnx2x_attn_int_asserted(bp, asserted);
+
+	if (deasserted)
+		bnx2x_attn_int_deasserted(bp, deasserted);
+}
+
+static void bnx2x_sp_task(struct work_struct *work)
+{
+	struct bnx2x *bp = container_of(work, struct bnx2x, sp_task);
+	u16 status;
+
+	/* Return here if interrupt is disabled */
+	if (unlikely(atomic_read(&bp->intr_sem) != 0)) {
+		DP(NETIF_MSG_INTR, "called but intr_sem not 0, returning\n");
+		return;
+	}
+
+	status = bnx2x_update_dsb_idx(bp);
+	if (status == 0)
+		BNX2X_ERR("spurious slowpath interrupt!\n");
+
+	DP(NETIF_MSG_INTR, "got a slowpath interrupt (updated %x)\n", status);
+
+	if (status & 0x1) {
+		/* HW attentions */
+		bnx2x_attn_int(bp);
+	}
+
+	/* CStorm events: query_stats, cfc delete ramrods */
+	if (status & 0x2)
+		bp->stat_pending = 0;
+
+	bnx2x_ack_sb(bp, DEF_SB_ID, ATTENTION_ID, bp->def_att_idx,
+		     IGU_INT_NOP, 1);
+	bnx2x_ack_sb(bp, DEF_SB_ID, USTORM_ID, le16_to_cpu(bp->def_u_idx),
+		     IGU_INT_NOP, 1);
+	bnx2x_ack_sb(bp, DEF_SB_ID, CSTORM_ID, le16_to_cpu(bp->def_c_idx),
+		     IGU_INT_NOP, 1);
+	bnx2x_ack_sb(bp, DEF_SB_ID, XSTORM_ID, le16_to_cpu(bp->def_x_idx),
+		     IGU_INT_NOP, 1);
+	bnx2x_ack_sb(bp, DEF_SB_ID, TSTORM_ID, le16_to_cpu(bp->def_t_idx),
+		     IGU_INT_ENABLE, 1);
+}
+
+static irqreturn_t bnx2x_msix_sp_int(int irq, void *dev_instance)
+{
+	struct net_device *dev = dev_instance;
+	struct bnx2x *bp = netdev_priv(dev);
+
+	/* Return here if interrupt is disabled */
+	if (unlikely(atomic_read(&bp->intr_sem) != 0)) {
+		DP(NETIF_MSG_INTR, "called but intr_sem not 0, returning\n");
+		return IRQ_HANDLED;
+	}
+
+	bnx2x_ack_sb(bp, 16, XSTORM_ID, 0, IGU_INT_DISABLE, 0);
+
+#ifdef BNX2X_STOP_ON_ERROR
+	if (unlikely(bp->panic))
+		return IRQ_HANDLED;
+#endif
+
+	schedule_work(&bp->sp_task);
+
+	return IRQ_HANDLED;
+}
+
+/* end of slow path */
+
+/* Statistics */
+
+/****************************************************************************
+* Macros
+****************************************************************************/
+
+#define UPDATE_STAT(s, t) \
+	do { \
+		estats->t += new->s - old->s; \
+		old->s = new->s; \
+	} while (0)
+
+/* sum[hi:lo] += add[hi:lo] */
+#define ADD_64(s_hi, a_hi, s_lo, a_lo) \
+	do { \
+		s_lo += a_lo; \
+		s_hi += a_hi + (s_lo < a_lo) ? 1 : 0; \
+	} while (0)
+
+/* difference = minuend - subtrahend */
+#define DIFF_64(d_hi, m_hi, s_hi, d_lo, m_lo, s_lo) \
+	do { \
+		if (m_lo < s_lo) {      /* underflow */ \
+			d_hi = m_hi - s_hi; \
+			if (d_hi > 0) { /* we can 'loan' 1 */ \
+				d_hi--; \
+				d_lo = m_lo + (UINT_MAX - s_lo) + 1; \
+			} else {	/* m_hi <= s_hi */ \
+				d_hi = 0; \
+				d_lo = 0; \
+			} \
+		} else {		/* m_lo >= s_lo */ \
+			if (m_hi < s_hi) { \
+			    d_hi = 0; \
+			    d_lo = 0; \
+			} else {	/* m_hi >= s_hi */ \
+			    d_hi = m_hi - s_hi; \
+			    d_lo = m_lo - s_lo; \
+			} \
+		} \
+	} while (0)
+
+/* minuend -= subtrahend */
+#define SUB_64(m_hi, s_hi, m_lo, s_lo) \
+	do { \
+		DIFF_64(m_hi, m_hi, s_hi, m_lo, m_lo, s_lo); \
+	} while (0)
+
+#define UPDATE_STAT64(s_hi, t_hi, s_lo, t_lo) \
+	do { \
+		DIFF_64(diff.hi, new->s_hi, old->s_hi, \
+			diff.lo, new->s_lo, old->s_lo); \
+		old->s_hi = new->s_hi; \
+		old->s_lo = new->s_lo; \
+		ADD_64(estats->t_hi, diff.hi, \
+		       estats->t_lo, diff.lo); \
+	} while (0)
+
+/* sum[hi:lo] += add */
+#define ADD_EXTEND_64(s_hi, s_lo, a) \
+	do { \
+		s_lo += a; \
+		s_hi += (s_lo < a) ? 1 : 0; \
+	} while (0)
+
+#define UPDATE_EXTEND_STAT(s, t_hi, t_lo) \
+	do { \
+		ADD_EXTEND_64(estats->t_hi, estats->t_lo, new->s); \
+	} while (0)
+
+#define UPDATE_EXTEND_TSTAT(s, t_hi, t_lo) \
+	do { \
+		diff = le32_to_cpu(tclient->s) - old_tclient->s; \
+		old_tclient->s = le32_to_cpu(tclient->s); \
+		ADD_EXTEND_64(estats->t_hi, estats->t_lo, diff); \
+	} while (0)
+
+/*
+ * General service functions
+ */
+
+static inline long bnx2x_hilo(u32 *hiref)
+{
+	u32 lo = *(hiref + 1);
+#if (BITS_PER_LONG == 64)
+	u32 hi = *hiref;
+
+	return HILO_U64(hi, lo);
+#else
+	return lo;
+#endif
+}
+
+/*
+ * Init service functions
+ */
+
+static void bnx2x_init_mac_stats(struct bnx2x *bp)
+{
+	struct dmae_command *dmae;
+	int port = bp->port;
+	int loader_idx = port * 8;
+	u32 opcode;
+	u32 mac_addr;
+
+	bp->executer_idx = 0;
+	if (bp->fw_mb) {
+		/* MCP */
+		opcode = (DMAE_CMD_SRC_PCI | DMAE_CMD_DST_GRC |
+			  DMAE_CMD_SRC_RESET | DMAE_CMD_DST_RESET |
+#ifdef __BIG_ENDIAN
+			  DMAE_CMD_ENDIANITY_B_DW_SWAP |
+#else
+			  DMAE_CMD_ENDIANITY_DW_SWAP |
+#endif
+			  (port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0));
+
+		if (bp->link_up)
+			opcode |= (DMAE_CMD_C_DST_GRC | DMAE_CMD_C_ENABLE);
+
+		dmae = bnx2x_sp(bp, dmae[bp->executer_idx++]);
+		dmae->opcode = opcode;
+		dmae->src_addr_lo = U64_LO(bnx2x_sp_mapping(bp, eth_stats) +
+					   sizeof(u32));
+		dmae->src_addr_hi = U64_HI(bnx2x_sp_mapping(bp, eth_stats) +
+					   sizeof(u32));
+		dmae->dst_addr_lo = bp->fw_mb >> 2;
+		dmae->dst_addr_hi = 0;
+		dmae->len = (offsetof(struct bnx2x_eth_stats, mac_stx_end) -
+			     sizeof(u32)) >> 2;
+		if (bp->link_up) {
+			dmae->comp_addr_lo = dmae_reg_go_c[loader_idx] >> 2;
+			dmae->comp_addr_hi = 0;
+			dmae->comp_val = 1;
+		} else {
+			dmae->comp_addr_lo = 0;
+			dmae->comp_addr_hi = 0;
+			dmae->comp_val = 0;
+		}
+	}
+
+	if (!bp->link_up) {
+		/* no need to collect statistics in link down */
+		return;
+	}
+
+	opcode = (DMAE_CMD_SRC_GRC | DMAE_CMD_DST_PCI |
+		  DMAE_CMD_C_DST_GRC | DMAE_CMD_C_ENABLE |
+		  DMAE_CMD_SRC_RESET | DMAE_CMD_DST_RESET |
+#ifdef __BIG_ENDIAN
+		  DMAE_CMD_ENDIANITY_B_DW_SWAP |
+#else
+		  DMAE_CMD_ENDIANITY_DW_SWAP |
+#endif
+		  (port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0));
+
+	if (bp->phy_flags & PHY_BMAC_FLAG) {
+
+		mac_addr = (port ? NIG_REG_INGRESS_BMAC1_MEM :
+				   NIG_REG_INGRESS_BMAC0_MEM);
+
+		/* BIGMAC_REGISTER_TX_STAT_GTPKT ..
+		   BIGMAC_REGISTER_TX_STAT_GTBYT */
+		dmae = bnx2x_sp(bp, dmae[bp->executer_idx++]);
+		dmae->opcode = opcode;
+		dmae->src_addr_lo = (mac_addr +
+				     BIGMAC_REGISTER_TX_STAT_GTPKT) >> 2;
+		dmae->src_addr_hi = 0;
+		dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, mac_stats));
+		dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, mac_stats));
+		dmae->len = (8 + BIGMAC_REGISTER_TX_STAT_GTBYT -
+			     BIGMAC_REGISTER_TX_STAT_GTPKT) >> 2;
+		dmae->comp_addr_lo = dmae_reg_go_c[loader_idx] >> 2;
+		dmae->comp_addr_hi = 0;
+		dmae->comp_val = 1;
+
+		/* BIGMAC_REGISTER_RX_STAT_GR64 ..
+		   BIGMAC_REGISTER_RX_STAT_GRIPJ */
+		dmae = bnx2x_sp(bp, dmae[bp->executer_idx++]);
+		dmae->opcode = opcode;
+		dmae->src_addr_lo = (mac_addr +
+				     BIGMAC_REGISTER_RX_STAT_GR64) >> 2;
+		dmae->src_addr_hi = 0;
+		dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, mac_stats) +
+					offsetof(struct bmac_stats, rx_gr64));
+		dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, mac_stats) +
+					offsetof(struct bmac_stats, rx_gr64));
+		dmae->len = (8 + BIGMAC_REGISTER_RX_STAT_GRIPJ -
+			     BIGMAC_REGISTER_RX_STAT_GR64) >> 2;
+		dmae->comp_addr_lo = dmae_reg_go_c[loader_idx] >> 2;
+		dmae->comp_addr_hi = 0;
+		dmae->comp_val = 1;
+
+	} else if (bp->phy_flags & PHY_EMAC_FLAG) {
+
+		mac_addr = (port ? GRCBASE_EMAC1 : GRCBASE_EMAC0);
+
+		/* EMAC_REG_EMAC_RX_STAT_AC (EMAC_REG_EMAC_RX_STAT_AC_COUNT)*/
+		dmae = bnx2x_sp(bp, dmae[bp->executer_idx++]);
+		dmae->opcode = opcode;
+		dmae->src_addr_lo = (mac_addr +
+				     EMAC_REG_EMAC_RX_STAT_AC) >> 2;
+		dmae->src_addr_hi = 0;
+		dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, mac_stats));
+		dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, mac_stats));
+		dmae->len = EMAC_REG_EMAC_RX_STAT_AC_COUNT;
+		dmae->comp_addr_lo = dmae_reg_go_c[loader_idx] >> 2;
+		dmae->comp_addr_hi = 0;
+		dmae->comp_val = 1;
+
+		/* EMAC_REG_EMAC_RX_STAT_AC_28 */
+		dmae = bnx2x_sp(bp, dmae[bp->executer_idx++]);
+		dmae->opcode = opcode;
+		dmae->src_addr_lo = (mac_addr +
+				     EMAC_REG_EMAC_RX_STAT_AC_28) >> 2;
+		dmae->src_addr_hi = 0;
+		dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, mac_stats) +
+					   offsetof(struct emac_stats,
+						    rx_falsecarriererrors));
+		dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, mac_stats) +
+					   offsetof(struct emac_stats,
+						    rx_falsecarriererrors));
+		dmae->len = 1;
+		dmae->comp_addr_lo = dmae_reg_go_c[loader_idx] >> 2;
+		dmae->comp_addr_hi = 0;
+		dmae->comp_val = 1;
+
+		/* EMAC_REG_EMAC_TX_STAT_AC (EMAC_REG_EMAC_TX_STAT_AC_COUNT)*/
+		dmae = bnx2x_sp(bp, dmae[bp->executer_idx++]);
+		dmae->opcode = opcode;
+		dmae->src_addr_lo = (mac_addr +
+				     EMAC_REG_EMAC_TX_STAT_AC) >> 2;
+		dmae->src_addr_hi = 0;
+		dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, mac_stats) +
+					   offsetof(struct emac_stats,
+						    tx_ifhcoutoctets));
+		dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, mac_stats) +
+					   offsetof(struct emac_stats,
+						    tx_ifhcoutoctets));
+		dmae->len = EMAC_REG_EMAC_TX_STAT_AC_COUNT;
+		dmae->comp_addr_lo = dmae_reg_go_c[loader_idx] >> 2;
+		dmae->comp_addr_hi = 0;
+		dmae->comp_val = 1;
+	}
+
+	/* NIG */
+	dmae = bnx2x_sp(bp, dmae[bp->executer_idx++]);
+	dmae->opcode = (DMAE_CMD_SRC_GRC | DMAE_CMD_DST_PCI |
+			DMAE_CMD_C_DST_PCI | DMAE_CMD_C_ENABLE |
+			DMAE_CMD_SRC_RESET | DMAE_CMD_DST_RESET |
+#ifdef __BIG_ENDIAN
+			DMAE_CMD_ENDIANITY_B_DW_SWAP |
+#else
+			DMAE_CMD_ENDIANITY_DW_SWAP |
+#endif
+			(port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0));
+	dmae->src_addr_lo = (port ? NIG_REG_STAT1_BRB_DISCARD :
+				    NIG_REG_STAT0_BRB_DISCARD) >> 2;
+	dmae->src_addr_hi = 0;
+	dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, nig));
+	dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, nig));
+	dmae->len = (sizeof(struct nig_stats) - 2*sizeof(u32)) >> 2;
+	dmae->comp_addr_lo = U64_LO(bnx2x_sp_mapping(bp, nig) +
+				    offsetof(struct nig_stats, done));
+	dmae->comp_addr_hi = U64_HI(bnx2x_sp_mapping(bp, nig) +
+				    offsetof(struct nig_stats, done));
+	dmae->comp_val = 0xffffffff;
+}
+
+static void bnx2x_init_stats(struct bnx2x *bp)
+{
+	int port = bp->port;
+
+	bp->stats_state = STATS_STATE_DISABLE;
+	bp->executer_idx = 0;
+
+	bp->old_brb_discard = REG_RD(bp,
+				     NIG_REG_STAT0_BRB_DISCARD + port*0x38);
+
+	memset(&bp->old_bmac, 0, sizeof(struct bmac_stats));
+	memset(&bp->old_tclient, 0, sizeof(struct tstorm_per_client_stats));
+	memset(&bp->dev->stats, 0, sizeof(struct net_device_stats));
+
+	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_STATS_FLAGS_OFFSET(port), 1);
+	REG_WR(bp, BAR_XSTRORM_INTMEM +
+	       XSTORM_STATS_FLAGS_OFFSET(port) + 4, 0);
+
+	REG_WR(bp, BAR_TSTRORM_INTMEM + TSTORM_STATS_FLAGS_OFFSET(port), 1);
+	REG_WR(bp, BAR_TSTRORM_INTMEM +
+	       TSTORM_STATS_FLAGS_OFFSET(port) + 4, 0);
+
+	REG_WR(bp, BAR_CSTRORM_INTMEM + CSTORM_STATS_FLAGS_OFFSET(port), 0);
+	REG_WR(bp, BAR_CSTRORM_INTMEM +
+	       CSTORM_STATS_FLAGS_OFFSET(port) + 4, 0);
+
+	REG_WR(bp, BAR_XSTRORM_INTMEM +
+	       XSTORM_ETH_STATS_QUERY_ADDR_OFFSET(port),
+	       U64_LO(bnx2x_sp_mapping(bp, fw_stats)));
+	REG_WR(bp, BAR_XSTRORM_INTMEM +
+	       XSTORM_ETH_STATS_QUERY_ADDR_OFFSET(port) + 4,
+	       U64_HI(bnx2x_sp_mapping(bp, fw_stats)));
+
+	REG_WR(bp, BAR_TSTRORM_INTMEM +
+	       TSTORM_ETH_STATS_QUERY_ADDR_OFFSET(port),
+	       U64_LO(bnx2x_sp_mapping(bp, fw_stats)));
+	REG_WR(bp, BAR_TSTRORM_INTMEM +
+	       TSTORM_ETH_STATS_QUERY_ADDR_OFFSET(port) + 4,
+	       U64_HI(bnx2x_sp_mapping(bp, fw_stats)));
+}
+
+static void bnx2x_stop_stats(struct bnx2x *bp)
+{
+	might_sleep();
+	if (bp->stats_state != STATS_STATE_DISABLE) {
+		int timeout = 10;
+
+		bp->stats_state = STATS_STATE_STOP;
+		DP(BNX2X_MSG_STATS, "stats_state - STOP\n");
+
+		while (bp->stats_state != STATS_STATE_DISABLE) {
+			if (!timeout) {
+				BNX2X_ERR("timeout wating for stats stop\n");
+				break;
+			}
+			timeout--;
+			msleep(100);
+		}
+	}
+	DP(BNX2X_MSG_STATS, "stats_state - DISABLE\n");
+}
+
+/*
+ * Statistics service functions
+ */
+
+static void bnx2x_update_bmac_stats(struct bnx2x *bp)
+{
+	struct regp diff;
+	struct regp sum;
+	struct bmac_stats *new = bnx2x_sp(bp, mac_stats.bmac);
+	struct bmac_stats *old = &bp->old_bmac;
+	struct bnx2x_eth_stats *estats = bnx2x_sp(bp, eth_stats);
+
+	sum.hi = 0;
+	sum.lo = 0;
+
+	UPDATE_STAT64(tx_gtbyt.hi, total_bytes_transmitted_hi,
+		      tx_gtbyt.lo, total_bytes_transmitted_lo);
+
+	UPDATE_STAT64(tx_gtmca.hi, total_multicast_packets_transmitted_hi,
+		      tx_gtmca.lo, total_multicast_packets_transmitted_lo);
+	ADD_64(sum.hi, diff.hi, sum.lo, diff.lo);
+
+	UPDATE_STAT64(tx_gtgca.hi, total_broadcast_packets_transmitted_hi,
+		      tx_gtgca.lo, total_broadcast_packets_transmitted_lo);
+	ADD_64(sum.hi, diff.hi, sum.lo, diff.lo);
+
+	UPDATE_STAT64(tx_gtpkt.hi, total_unicast_packets_transmitted_hi,
+		      tx_gtpkt.lo, total_unicast_packets_transmitted_lo);
+	SUB_64(estats->total_unicast_packets_transmitted_hi, sum.hi,
+	       estats->total_unicast_packets_transmitted_lo, sum.lo);
+
+	UPDATE_STAT(tx_gtxpf.lo, pause_xoff_frames_transmitted);
+	UPDATE_STAT(tx_gt64.lo, frames_transmitted_64_bytes);
+	UPDATE_STAT(tx_gt127.lo, frames_transmitted_65_127_bytes);
+	UPDATE_STAT(tx_gt255.lo, frames_transmitted_128_255_bytes);
+	UPDATE_STAT(tx_gt511.lo, frames_transmitted_256_511_bytes);
+	UPDATE_STAT(tx_gt1023.lo, frames_transmitted_512_1023_bytes);
+	UPDATE_STAT(tx_gt1518.lo, frames_transmitted_1024_1522_bytes);
+	UPDATE_STAT(tx_gt2047.lo, frames_transmitted_1523_9022_bytes);
+	UPDATE_STAT(tx_gt4095.lo, frames_transmitted_1523_9022_bytes);
+	UPDATE_STAT(tx_gt9216.lo, frames_transmitted_1523_9022_bytes);
+	UPDATE_STAT(tx_gt16383.lo, frames_transmitted_1523_9022_bytes);
+
+	UPDATE_STAT(rx_grfcs.lo, crc_receive_errors);
+	UPDATE_STAT(rx_grund.lo, runt_packets_received);
+	UPDATE_STAT(rx_grovr.lo, stat_Dot3statsFramesTooLong);
+	UPDATE_STAT(rx_grxpf.lo, pause_xoff_frames_received);
+	UPDATE_STAT(rx_grxcf.lo, control_frames_received);
+	/* UPDATE_STAT(rx_grxpf.lo, control_frames_received); */
+	UPDATE_STAT(rx_grfrg.lo, error_runt_packets_received);
+	UPDATE_STAT(rx_grjbr.lo, error_jabber_packets_received);
+
+	UPDATE_STAT64(rx_grerb.hi, stat_IfHCInBadOctets_hi,
+		      rx_grerb.lo, stat_IfHCInBadOctets_lo);
+	UPDATE_STAT64(tx_gtufl.hi, stat_IfHCOutBadOctets_hi,
+		      tx_gtufl.lo, stat_IfHCOutBadOctets_lo);
+	UPDATE_STAT(tx_gterr.lo, stat_Dot3statsInternalMacTransmitErrors);
+	/* UPDATE_STAT(rx_grxpf.lo, stat_XoffStateEntered); */
+	estats->stat_XoffStateEntered = estats->pause_xoff_frames_received;
+}
+
+static void bnx2x_update_emac_stats(struct bnx2x *bp)
+{
+	struct emac_stats *new = bnx2x_sp(bp, mac_stats.emac);
+	struct bnx2x_eth_stats *estats = bnx2x_sp(bp, eth_stats);
+
+	UPDATE_EXTEND_STAT(tx_ifhcoutoctets, total_bytes_transmitted_hi,
+					     total_bytes_transmitted_lo);
+	UPDATE_EXTEND_STAT(tx_ifhcoutucastpkts,
+					total_unicast_packets_transmitted_hi,
+					total_unicast_packets_transmitted_lo);
+	UPDATE_EXTEND_STAT(tx_ifhcoutmulticastpkts,
+				      total_multicast_packets_transmitted_hi,
+				      total_multicast_packets_transmitted_lo);
+	UPDATE_EXTEND_STAT(tx_ifhcoutbroadcastpkts,
+				      total_broadcast_packets_transmitted_hi,
+				      total_broadcast_packets_transmitted_lo);
+
+	estats->pause_xon_frames_transmitted += new->tx_outxonsent;
+	estats->pause_xoff_frames_transmitted += new->tx_outxoffsent;
+	estats->single_collision_transmit_frames +=
+				new->tx_dot3statssinglecollisionframes;
+	estats->multiple_collision_transmit_frames +=
+				new->tx_dot3statsmultiplecollisionframes;
+	estats->late_collision_frames += new->tx_dot3statslatecollisions;
+	estats->excessive_collision_frames +=
+				new->tx_dot3statsexcessivecollisions;
+	estats->frames_transmitted_64_bytes += new->tx_etherstatspkts64octets;
+	estats->frames_transmitted_65_127_bytes +=
+				new->tx_etherstatspkts65octetsto127octets;
+	estats->frames_transmitted_128_255_bytes +=
+				new->tx_etherstatspkts128octetsto255octets;
+	estats->frames_transmitted_256_511_bytes +=
+				new->tx_etherstatspkts256octetsto511octets;
+	estats->frames_transmitted_512_1023_bytes +=
+				new->tx_etherstatspkts512octetsto1023octets;
+	estats->frames_transmitted_1024_1522_bytes +=
+				new->tx_etherstatspkts1024octetsto1522octet;
+	estats->frames_transmitted_1523_9022_bytes +=
+				new->tx_etherstatspktsover1522octets;
+
+	estats->crc_receive_errors += new->rx_dot3statsfcserrors;
+	estats->alignment_errors += new->rx_dot3statsalignmenterrors;
+	estats->false_carrier_detections += new->rx_falsecarriererrors;
+	estats->runt_packets_received += new->rx_etherstatsundersizepkts;
+	estats->stat_Dot3statsFramesTooLong += new->rx_dot3statsframestoolong;
+	estats->pause_xon_frames_received += new->rx_xonpauseframesreceived;
+	estats->pause_xoff_frames_received += new->rx_xoffpauseframesreceived;
+	estats->control_frames_received += new->rx_maccontrolframesreceived;
+	estats->error_runt_packets_received += new->rx_etherstatsfragments;
+	estats->error_jabber_packets_received += new->rx_etherstatsjabbers;
+
+	UPDATE_EXTEND_STAT(rx_ifhcinbadoctets, stat_IfHCInBadOctets_hi,
+					       stat_IfHCInBadOctets_lo);
+	UPDATE_EXTEND_STAT(tx_ifhcoutbadoctets, stat_IfHCOutBadOctets_hi,
+						stat_IfHCOutBadOctets_lo);
+	estats->stat_Dot3statsInternalMacTransmitErrors +=
+				new->tx_dot3statsinternalmactransmiterrors;
+	estats->stat_Dot3StatsCarrierSenseErrors +=
+				new->rx_dot3statscarriersenseerrors;
+	estats->stat_Dot3StatsDeferredTransmissions +=
+				new->tx_dot3statsdeferredtransmissions;
+	estats->stat_FlowControlDone += new->tx_flowcontroldone;
+	estats->stat_XoffStateEntered += new->rx_xoffstateentered;
+}
+
+static int bnx2x_update_storm_stats(struct bnx2x *bp)
+{
+	struct eth_stats_query *stats = bnx2x_sp(bp, fw_stats);
+	struct tstorm_common_stats *tstats = &stats->tstorm_common;
+	struct tstorm_per_client_stats *tclient =
+						&tstats->client_statistics[0];
+	struct tstorm_per_client_stats *old_tclient = &bp->old_tclient;
+	struct xstorm_common_stats *xstats = &stats->xstorm_common;
+	struct nig_stats *nstats = bnx2x_sp(bp, nig);
+	struct bnx2x_eth_stats *estats = bnx2x_sp(bp, eth_stats);
+	u32 diff;
+
+	/* are DMAE stats valid? */
+	if (nstats->done != 0xffffffff) {
+		DP(BNX2X_MSG_STATS, "stats not updated by dmae\n");
+		return -1;
+	}
+
+	/* are storm stats valid? */
+	if (tstats->done.hi != 0xffffffff) {
+		DP(BNX2X_MSG_STATS, "stats not updated by tstorm\n");
+		return -2;
+	}
+	if (xstats->done.hi != 0xffffffff) {
+		DP(BNX2X_MSG_STATS, "stats not updated by xstorm\n");
+		return -3;
+	}
+
+	estats->total_bytes_received_hi =
+	estats->valid_bytes_received_hi =
+				le32_to_cpu(tclient->total_rcv_bytes.hi);
+	estats->total_bytes_received_lo =
+	estats->valid_bytes_received_lo =
+				le32_to_cpu(tclient->total_rcv_bytes.lo);
+	ADD_64(estats->total_bytes_received_hi,
+	       le32_to_cpu(tclient->rcv_error_bytes.hi),
+	       estats->total_bytes_received_lo,
+	       le32_to_cpu(tclient->rcv_error_bytes.lo));
+
+	UPDATE_EXTEND_TSTAT(rcv_unicast_pkts,
+					total_unicast_packets_received_hi,
+					total_unicast_packets_received_lo);
+	UPDATE_EXTEND_TSTAT(rcv_multicast_pkts,
+					total_multicast_packets_received_hi,
+					total_multicast_packets_received_lo);
+	UPDATE_EXTEND_TSTAT(rcv_broadcast_pkts,
+					total_broadcast_packets_received_hi,
+					total_broadcast_packets_received_lo);
+
+	estats->frames_received_64_bytes = MAC_STX_NA;
+	estats->frames_received_65_127_bytes = MAC_STX_NA;
+	estats->frames_received_128_255_bytes = MAC_STX_NA;
+	estats->frames_received_256_511_bytes = MAC_STX_NA;
+	estats->frames_received_512_1023_bytes = MAC_STX_NA;
+	estats->frames_received_1024_1522_bytes = MAC_STX_NA;
+	estats->frames_received_1523_9022_bytes = MAC_STX_NA;
+
+	estats->x_total_sent_bytes_hi =
+				le32_to_cpu(xstats->total_sent_bytes.hi);
+	estats->x_total_sent_bytes_lo =
+				le32_to_cpu(xstats->total_sent_bytes.lo);
+	estats->x_total_sent_pkts = le32_to_cpu(xstats->total_sent_pkts);
+
+	estats->t_rcv_unicast_bytes_hi =
+				le32_to_cpu(tclient->rcv_unicast_bytes.hi);
+	estats->t_rcv_unicast_bytes_lo =
+				le32_to_cpu(tclient->rcv_unicast_bytes.lo);
+	estats->t_rcv_broadcast_bytes_hi =
+				le32_to_cpu(tclient->rcv_broadcast_bytes.hi);
+	estats->t_rcv_broadcast_bytes_lo =
+				le32_to_cpu(tclient->rcv_broadcast_bytes.lo);
+	estats->t_rcv_multicast_bytes_hi =
+				le32_to_cpu(tclient->rcv_multicast_bytes.hi);
+	estats->t_rcv_multicast_bytes_lo =
+				le32_to_cpu(tclient->rcv_multicast_bytes.lo);
+	estats->t_total_rcv_pkt = le32_to_cpu(tclient->total_rcv_pkts);
+
+	estats->checksum_discard = le32_to_cpu(tclient->checksum_discard);
+	estats->packets_too_big_discard =
+				le32_to_cpu(tclient->packets_too_big_discard);
+	estats->jabber_packets_received = estats->packets_too_big_discard +
+					  estats->stat_Dot3statsFramesTooLong;
+	estats->no_buff_discard = le32_to_cpu(tclient->no_buff_discard);
+	estats->ttl0_discard = le32_to_cpu(tclient->ttl0_discard);
+	estats->mac_discard = le32_to_cpu(tclient->mac_discard);
+	estats->mac_filter_discard = le32_to_cpu(tstats->mac_filter_discard);
+	estats->xxoverflow_discard = le32_to_cpu(tstats->xxoverflow_discard);
+	estats->brb_truncate_discard =
+				le32_to_cpu(tstats->brb_truncate_discard);
+
+	estats->brb_discard += nstats->brb_discard - bp->old_brb_discard;
+	bp->old_brb_discard = nstats->brb_discard;
+
+	estats->brb_packet = nstats->brb_packet;
+	estats->brb_truncate = nstats->brb_truncate;
+	estats->flow_ctrl_discard = nstats->flow_ctrl_discard;
+	estats->flow_ctrl_octets = nstats->flow_ctrl_octets;
+	estats->flow_ctrl_packet = nstats->flow_ctrl_packet;
+	estats->mng_discard = nstats->mng_discard;
+	estats->mng_octet_inp = nstats->mng_octet_inp;
+	estats->mng_octet_out = nstats->mng_octet_out;
+	estats->mng_packet_inp = nstats->mng_packet_inp;
+	estats->mng_packet_out = nstats->mng_packet_out;
+	estats->pbf_octets = nstats->pbf_octets;
+	estats->pbf_packet = nstats->pbf_packet;
+	estats->safc_inp = nstats->safc_inp;
+
+	xstats->done.hi = 0;
+	tstats->done.hi = 0;
+	nstats->done = 0;
+
+	return 0;
+}
+
+static void bnx2x_update_net_stats(struct bnx2x *bp)
+{
+	struct bnx2x_eth_stats *estats = bnx2x_sp(bp, eth_stats);
+	struct net_device_stats *nstats = &bp->dev->stats;
+
+	nstats->rx_packets =
+		bnx2x_hilo(&estats->total_unicast_packets_received_hi) +
+		bnx2x_hilo(&estats->total_multicast_packets_received_hi) +
+		bnx2x_hilo(&estats->total_broadcast_packets_received_hi);
+
+	nstats->tx_packets =
+		bnx2x_hilo(&estats->total_unicast_packets_transmitted_hi) +
+		bnx2x_hilo(&estats->total_multicast_packets_transmitted_hi) +
+		bnx2x_hilo(&estats->total_broadcast_packets_transmitted_hi);
+
+	nstats->rx_bytes = bnx2x_hilo(&estats->total_bytes_received_hi);
+
+	nstats->tx_bytes =
+		bnx2x_hilo(&estats->total_bytes_transmitted_hi);
+
+	nstats->rx_dropped = estats->checksum_discard +
+				   estats->mac_discard;
+	nstats->tx_dropped = 0;
+
+	nstats->multicast =
+		bnx2x_hilo(&estats->total_multicast_packets_transmitted_hi);
+
+	nstats->collisions =
+		estats->single_collision_transmit_frames +
+		estats->multiple_collision_transmit_frames +
+		estats->late_collision_frames +
+		estats->excessive_collision_frames;
+
+	nstats->rx_length_errors = estats->runt_packets_received +
+				   estats->jabber_packets_received;
+	nstats->rx_over_errors = estats->no_buff_discard;
+	nstats->rx_crc_errors = estats->crc_receive_errors;
+	nstats->rx_frame_errors = estats->alignment_errors;
+	nstats->rx_fifo_errors = estats->brb_discard +
+				       estats->brb_truncate_discard;
+	nstats->rx_missed_errors = estats->xxoverflow_discard;
+
+	nstats->rx_errors = nstats->rx_length_errors +
+			    nstats->rx_over_errors +
+			    nstats->rx_crc_errors +
+			    nstats->rx_frame_errors +
+			    nstats->rx_fifo_errors;
+
+	nstats->tx_aborted_errors = estats->late_collision_frames +
+					  estats->excessive_collision_frames;
+	nstats->tx_carrier_errors = estats->false_carrier_detections;
+	nstats->tx_fifo_errors = 0;
+	nstats->tx_heartbeat_errors = 0;
+	nstats->tx_window_errors = 0;
+
+	nstats->tx_errors = nstats->tx_aborted_errors +
+			    nstats->tx_carrier_errors;
+
+	estats->mac_stx_start = ++estats->mac_stx_end;
+}
+
+static void bnx2x_update_stats(struct bnx2x *bp)
+{
+	int i;
+
+	if (!bnx2x_update_storm_stats(bp)) {
+
+		if (bp->phy_flags & PHY_BMAC_FLAG) {
+			bnx2x_update_bmac_stats(bp);
+
+		} else if (bp->phy_flags & PHY_EMAC_FLAG) {
+			bnx2x_update_emac_stats(bp);
+
+		} else { /* unreached */
+			BNX2X_ERR("no MAC active\n");
+			return;
+		}
+
+		bnx2x_update_net_stats(bp);
+	}
+
+	if (bp->msglevel & NETIF_MSG_TIMER) {
+		struct bnx2x_eth_stats *estats = bnx2x_sp(bp, eth_stats);
+		struct net_device_stats *nstats = &bp->dev->stats;
+
+		printk(KERN_DEBUG "%s:\n", bp->dev->name);
+		printk(KERN_DEBUG "  tx avail (%4x)  tx hc idx (%x)"
+				  "  tx pkt (%lx)\n",
+		       bnx2x_tx_avail(bp->fp),
+		       *bp->fp->tx_cons_sb, nstats->tx_packets);
+		printk(KERN_DEBUG "  rx usage (%4x)  rx hc idx (%x)"
+				  "  rx pkt (%lx)\n",
+		       (u16)(*bp->fp->rx_cons_sb - bp->fp->rx_comp_cons),
+		       *bp->fp->rx_cons_sb, nstats->rx_packets);
+		printk(KERN_DEBUG "  %s (Xoff events %u)  brb drops %u\n",
+		       netif_queue_stopped(bp->dev)? "Xoff" : "Xon",
+		       estats->driver_xoff, estats->brb_discard);
+		printk(KERN_DEBUG "tstats: checksum_discard %u  "
+			"packets_too_big_discard %u  no_buff_discard %u  "
+			"mac_discard %u  mac_filter_discard %u  "
+			"xxovrflow_discard %u  brb_truncate_discard %u  "
+			"ttl0_discard %u\n",
+		       estats->checksum_discard,
+		       estats->packets_too_big_discard,
+		       estats->no_buff_discard, estats->mac_discard,
+		       estats->mac_filter_discard, estats->xxoverflow_discard,
+		       estats->brb_truncate_discard, estats->ttl0_discard);
+
+		for_each_queue(bp, i) {
+			printk(KERN_DEBUG "[%d]: %lu\t%lu\t%lu\n", i,
+			       bnx2x_fp(bp, i, tx_pkt),
+			       bnx2x_fp(bp, i, rx_pkt),
+			       bnx2x_fp(bp, i, rx_calls));
+		}
+	}
+
+	if (bp->state != BNX2X_STATE_OPEN) {
+		DP(BNX2X_MSG_STATS, "state is %x, returning\n", bp->state);
+		return;
+	}
+
+#ifdef BNX2X_STOP_ON_ERROR
+	if (unlikely(bp->panic))
+		return;
+#endif
+
+	/* loader */
+	if (bp->executer_idx) {
+		struct dmae_command *dmae = &bp->dmae;
+		int port = bp->port;
+		int loader_idx = port * 8;
+
+		memset(dmae, 0, sizeof(struct dmae_command));
+
+		dmae->opcode = (DMAE_CMD_SRC_PCI | DMAE_CMD_DST_GRC |
+				DMAE_CMD_C_DST_GRC | DMAE_CMD_C_ENABLE |
+				DMAE_CMD_DST_RESET |
+#ifdef __BIG_ENDIAN
+				DMAE_CMD_ENDIANITY_B_DW_SWAP |
+#else
+				DMAE_CMD_ENDIANITY_DW_SWAP |
+#endif
+				(port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0));
+		dmae->src_addr_lo = U64_LO(bnx2x_sp_mapping(bp, dmae[0]));
+		dmae->src_addr_hi = U64_HI(bnx2x_sp_mapping(bp, dmae[0]));
+		dmae->dst_addr_lo = (DMAE_REG_CMD_MEM +
+				     sizeof(struct dmae_command) *
+				     (loader_idx + 1)) >> 2;
+		dmae->dst_addr_hi = 0;
+		dmae->len = sizeof(struct dmae_command) >> 2;
+		dmae->len--;    /* !!! for A0/1 only */
+		dmae->comp_addr_lo = dmae_reg_go_c[loader_idx + 1] >> 2;
+		dmae->comp_addr_hi = 0;
+		dmae->comp_val = 1;
+
+		bnx2x_post_dmae(bp, dmae, loader_idx);
+	}
+
+	if (bp->stats_state != STATS_STATE_ENABLE) {
+		bp->stats_state = STATS_STATE_DISABLE;
+		return;
+	}
+
+	if (bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_STAT_QUERY, 0, 0, 0, 0) == 0) {
+		/* stats ramrod has it's own slot on the spe */
+		bp->spq_left++;
+		bp->stat_pending = 1;
+	}
+}
+
+static void bnx2x_timer(unsigned long data)
+{
+	struct bnx2x *bp = (struct bnx2x *) data;
+
+	if (!netif_running(bp->dev))
+		return;
+
+	if (atomic_read(&bp->intr_sem) != 0)
+		goto bnx2x_restart_timer;
+
+	if (poll) {
+		struct bnx2x_fastpath *fp = &bp->fp[0];
+		int rc;
+
+		bnx2x_tx_int(fp, 1000);
+		rc = bnx2x_rx_int(fp, 1000);
+	}
+
+	if (!nomcp && (bp->bc_ver >= 0x040003)) {
+		int port = bp->port;
+		u32 drv_pulse;
+		u32 mcp_pulse;
+
+		++bp->fw_drv_pulse_wr_seq;
+		bp->fw_drv_pulse_wr_seq &= DRV_PULSE_SEQ_MASK;
+		/* TBD - add SYSTEM_TIME */
+		drv_pulse = bp->fw_drv_pulse_wr_seq;
+		SHMEM_WR(bp, drv_fw_mb[port].drv_pulse_mb, drv_pulse);
+
+		mcp_pulse = (SHMEM_RD(bp, drv_fw_mb[port].mcp_pulse_mb) &
+			     MCP_PULSE_SEQ_MASK);
+		/* The delta between driver pulse and mcp response
+		 * should be 1 (before mcp response) or 0 (after mcp response)
+		 */
+		if ((drv_pulse != mcp_pulse) &&
+		    (drv_pulse != ((mcp_pulse + 1) & MCP_PULSE_SEQ_MASK))) {
+			/* someone lost a heartbeat... */
+			BNX2X_ERR("drv_pulse (0x%x) != mcp_pulse (0x%x)\n",
+				  drv_pulse, mcp_pulse);
+		}
+	}
+
+	if (bp->stats_state == STATS_STATE_DISABLE)
+		goto bnx2x_restart_timer;
+
+	bnx2x_update_stats(bp);
+
+bnx2x_restart_timer:
+	mod_timer(&bp->timer, jiffies + bp->current_interval);
+}
+
+/* end of Statistics */
+
+/* nic init */
+
+/*
+ * nic init service functions
+ */
+
+static void bnx2x_init_sb(struct bnx2x *bp, struct host_status_block *sb,
+			  dma_addr_t mapping, int id)
+{
+	int port = bp->port;
+	u64 section;
+	int index;
+
+	/* USTORM */
+	section = ((u64)mapping) + offsetof(struct host_status_block,
+					    u_status_block);
+	sb->u_status_block.status_block_id = id;
+
+	REG_WR(bp, BAR_USTRORM_INTMEM +
+	       USTORM_SB_HOST_SB_ADDR_OFFSET(port, id), U64_LO(section));
+	REG_WR(bp, BAR_USTRORM_INTMEM +
+	       ((USTORM_SB_HOST_SB_ADDR_OFFSET(port, id)) + 4),
+	       U64_HI(section));
+
+	for (index = 0; index < HC_USTORM_SB_NUM_INDICES; index++)
+		REG_WR16(bp, BAR_USTRORM_INTMEM +
+			 USTORM_SB_HC_DISABLE_OFFSET(port, id, index), 0x1);
+
+	/* CSTORM */
+	section = ((u64)mapping) + offsetof(struct host_status_block,
+					    c_status_block);
+	sb->c_status_block.status_block_id = id;
+
+	REG_WR(bp, BAR_CSTRORM_INTMEM +
+	       CSTORM_SB_HOST_SB_ADDR_OFFSET(port, id), U64_LO(section));
+	REG_WR(bp, BAR_CSTRORM_INTMEM +
+	       ((CSTORM_SB_HOST_SB_ADDR_OFFSET(port, id)) + 4),
+	       U64_HI(section));
+
+	for (index = 0; index < HC_CSTORM_SB_NUM_INDICES; index++)
+		REG_WR16(bp, BAR_CSTRORM_INTMEM +
+			 CSTORM_SB_HC_DISABLE_OFFSET(port, id, index), 0x1);
+
+	bnx2x_ack_sb(bp, id, CSTORM_ID, 0, IGU_INT_ENABLE, 0);
+}
+
+static void bnx2x_init_def_sb(struct bnx2x *bp,
+			      struct host_def_status_block *def_sb,
+			      dma_addr_t mapping, int id)
+{
+	int port = bp->port;
+	int index, val, reg_offset;
+	u64 section;
+
+	/* ATTN */
+	section = ((u64)mapping) + offsetof(struct host_def_status_block,
+					    atten_status_block);
+	def_sb->atten_status_block.status_block_id = id;
+
+	reg_offset = (port ? MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0 :
+			     MISC_REG_AEU_ENABLE1_FUNC_0_OUT_0);
+
+	for (index = 0; index < 3; index++) {
+		bp->attn_group[index].sig[0] = REG_RD(bp,
+						     reg_offset + 0x10*index);
+		bp->attn_group[index].sig[1] = REG_RD(bp,
+					       reg_offset + 0x4 + 0x10*index);
+		bp->attn_group[index].sig[2] = REG_RD(bp,
+					       reg_offset + 0x8 + 0x10*index);
+		bp->attn_group[index].sig[3] = REG_RD(bp,
+					       reg_offset + 0xc + 0x10*index);
+	}
+
+	bp->aeu_mask = REG_RD(bp, (port ? MISC_REG_AEU_MASK_ATTN_FUNC_1 :
+					  MISC_REG_AEU_MASK_ATTN_FUNC_0));
+
+	reg_offset = (port ? HC_REG_ATTN_MSG1_ADDR_L :
+			     HC_REG_ATTN_MSG0_ADDR_L);
+
+	REG_WR(bp, reg_offset, U64_LO(section));
+	REG_WR(bp, reg_offset + 4, U64_HI(section));
+
+	reg_offset = (port ? HC_REG_ATTN_NUM_P1 : HC_REG_ATTN_NUM_P0);
+
+	val = REG_RD(bp, reg_offset);
+	val |= id;
+	REG_WR(bp, reg_offset, val);
+
+	/* USTORM */
+	section = ((u64)mapping) + offsetof(struct host_def_status_block,
+					    u_def_status_block);
+	def_sb->u_def_status_block.status_block_id = id;
+
+	REG_WR(bp, BAR_USTRORM_INTMEM +
+	       USTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port), U64_LO(section));
+	REG_WR(bp, BAR_USTRORM_INTMEM +
+	       ((USTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port)) + 4),
+	       U64_HI(section));
+	REG_WR(bp, BAR_USTRORM_INTMEM + USTORM_HC_BTR_OFFSET(port),
+	       BNX2X_BTR);
+
+	for (index = 0; index < HC_USTORM_DEF_SB_NUM_INDICES; index++)
+		REG_WR16(bp, BAR_USTRORM_INTMEM +
+			 USTORM_DEF_SB_HC_DISABLE_OFFSET(port, index), 0x1);
+
+	/* CSTORM */
+	section = ((u64)mapping) + offsetof(struct host_def_status_block,
+					    c_def_status_block);
+	def_sb->c_def_status_block.status_block_id = id;
+
+	REG_WR(bp, BAR_CSTRORM_INTMEM +
+	       CSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port), U64_LO(section));
+	REG_WR(bp, BAR_CSTRORM_INTMEM +
+	       ((CSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port)) + 4),
+	       U64_HI(section));
+	REG_WR(bp, BAR_CSTRORM_INTMEM + CSTORM_HC_BTR_OFFSET(port),
+	       BNX2X_BTR);
+
+	for (index = 0; index < HC_CSTORM_DEF_SB_NUM_INDICES; index++)
+		REG_WR16(bp, BAR_CSTRORM_INTMEM +
+			 CSTORM_DEF_SB_HC_DISABLE_OFFSET(port, index), 0x1);
+
+	/* TSTORM */
+	section = ((u64)mapping) + offsetof(struct host_def_status_block,
+					    t_def_status_block);
+	def_sb->t_def_status_block.status_block_id = id;
+
+	REG_WR(bp, BAR_TSTRORM_INTMEM +
+	       TSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port), U64_LO(section));
+	REG_WR(bp, BAR_TSTRORM_INTMEM +
+	       ((TSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port)) + 4),
+	       U64_HI(section));
+	REG_WR(bp, BAR_TSTRORM_INTMEM + TSTORM_HC_BTR_OFFSET(port),
+	       BNX2X_BTR);
+
+	for (index = 0; index < HC_TSTORM_DEF_SB_NUM_INDICES; index++)
+		REG_WR16(bp, BAR_TSTRORM_INTMEM +
+			 TSTORM_DEF_SB_HC_DISABLE_OFFSET(port, index), 0x1);
+
+	/* XSTORM */
+	section = ((u64)mapping) + offsetof(struct host_def_status_block,
+					    x_def_status_block);
+	def_sb->x_def_status_block.status_block_id = id;
+
+	REG_WR(bp, BAR_XSTRORM_INTMEM +
+	       XSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port), U64_LO(section));
+	REG_WR(bp, BAR_XSTRORM_INTMEM +
+	       ((XSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port)) + 4),
+	       U64_HI(section));
+	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_HC_BTR_OFFSET(port),
+	       BNX2X_BTR);
+
+	for (index = 0; index < HC_XSTORM_DEF_SB_NUM_INDICES; index++)
+		REG_WR16(bp, BAR_XSTRORM_INTMEM +
+			 XSTORM_DEF_SB_HC_DISABLE_OFFSET(port, index), 0x1);
+
+	bnx2x_ack_sb(bp, id, CSTORM_ID, 0, IGU_INT_ENABLE, 0);
+}
+
+static void bnx2x_update_coalesce(struct bnx2x *bp)
+{
+	int port = bp->port;
+	int i;
+
+	for_each_queue(bp, i) {
+
+		/* HC_INDEX_U_ETH_RX_CQ_CONS */
+		REG_WR8(bp, BAR_USTRORM_INTMEM +
+			USTORM_SB_HC_TIMEOUT_OFFSET(port, i,
+						   HC_INDEX_U_ETH_RX_CQ_CONS),
+			bp->rx_ticks_int/12);
+		REG_WR16(bp, BAR_USTRORM_INTMEM +
+			 USTORM_SB_HC_DISABLE_OFFSET(port, i,
+						   HC_INDEX_U_ETH_RX_CQ_CONS),
+			 bp->rx_ticks_int ? 0 : 1);
+
+		/* HC_INDEX_C_ETH_TX_CQ_CONS */
+		REG_WR8(bp, BAR_CSTRORM_INTMEM +
+			CSTORM_SB_HC_TIMEOUT_OFFSET(port, i,
+						   HC_INDEX_C_ETH_TX_CQ_CONS),
+			bp->tx_ticks_int/12);
+		REG_WR16(bp, BAR_CSTRORM_INTMEM +
+			 CSTORM_SB_HC_DISABLE_OFFSET(port, i,
+						   HC_INDEX_C_ETH_TX_CQ_CONS),
+			 bp->tx_ticks_int ? 0 : 1);
+	}
+}
+
+static void bnx2x_init_rx_rings(struct bnx2x *bp)
+{
+	u16 ring_prod;
+	int i, j;
+	int port = bp->port;
+
+	bp->rx_buf_use_size = bp->dev->mtu;
+
+	bp->rx_buf_use_size += bp->rx_offset + ETH_OVREHEAD;
+	bp->rx_buf_size = bp->rx_buf_use_size + 64;
+
+	for_each_queue(bp, j) {
+		struct bnx2x_fastpath *fp = &bp->fp[j];
+
+		fp->rx_bd_cons = 0;
+		fp->rx_cons_sb = BNX2X_RX_SB_INDEX;
+
+		for (i = 1; i <= NUM_RX_RINGS; i++) {
+			struct eth_rx_bd *rx_bd;
+
+			rx_bd = &fp->rx_desc_ring[RX_DESC_CNT * i - 2];
+			rx_bd->addr_hi =
+				cpu_to_le32(U64_HI(fp->rx_desc_mapping +
+					   BCM_PAGE_SIZE*(i % NUM_RX_RINGS)));
+			rx_bd->addr_lo =
+				cpu_to_le32(U64_LO(fp->rx_desc_mapping +
+					   BCM_PAGE_SIZE*(i % NUM_RX_RINGS)));
+
+		}
+
+		for (i = 1; i <= NUM_RCQ_RINGS; i++) {
+			struct eth_rx_cqe_next_page *nextpg;
+
+			nextpg = (struct eth_rx_cqe_next_page *)
+				&fp->rx_comp_ring[RCQ_DESC_CNT * i - 1];
+			nextpg->addr_hi =
+				cpu_to_le32(U64_HI(fp->rx_comp_mapping +
+					  BCM_PAGE_SIZE*(i % NUM_RCQ_RINGS)));
+			nextpg->addr_lo =
+				cpu_to_le32(U64_LO(fp->rx_comp_mapping +
+					  BCM_PAGE_SIZE*(i % NUM_RCQ_RINGS)));
+		}
+
+		/* rx completion queue */
+		fp->rx_comp_cons = ring_prod = 0;
+
+		for (i = 0; i < bp->rx_ring_size; i++) {
+			if (bnx2x_alloc_rx_skb(bp, fp, ring_prod) < 0) {
+				BNX2X_ERR("was only able to allocate "
+					  "%d rx skbs\n", i);
+				break;
+			}
+			ring_prod = NEXT_RX_IDX(ring_prod);
+			BUG_TRAP(ring_prod > i);
+		}
+
+		fp->rx_bd_prod = fp->rx_comp_prod = ring_prod;
+		fp->rx_pkt = fp->rx_calls = 0;
+
+		/* Warning! this will genrate an interrupt (to the TSTORM) */
+		/* must only be done when chip is initialized */
+		REG_WR(bp, BAR_TSTRORM_INTMEM +
+		       TSTORM_RCQ_PROD_OFFSET(port, j), ring_prod);
+		if (j != 0)
+			continue;
+
+		REG_WR(bp, BAR_USTRORM_INTMEM +
+		       USTORM_MEM_WORKAROUND_ADDRESS_OFFSET(port),
+		       U64_LO(fp->rx_comp_mapping));
+		REG_WR(bp, BAR_USTRORM_INTMEM +
+		       USTORM_MEM_WORKAROUND_ADDRESS_OFFSET(port) + 4,
+		       U64_HI(fp->rx_comp_mapping));
+	}
+}
+
+static void bnx2x_init_tx_ring(struct bnx2x *bp)
+{
+	int i, j;
+
+	for_each_queue(bp, j) {
+		struct bnx2x_fastpath *fp = &bp->fp[j];
+
+		for (i = 1; i <= NUM_TX_RINGS; i++) {
+			struct eth_tx_bd *tx_bd =
+				&fp->tx_desc_ring[TX_DESC_CNT * i - 1];
+
+			tx_bd->addr_hi =
+				cpu_to_le32(U64_HI(fp->tx_desc_mapping +
+					   BCM_PAGE_SIZE*(i % NUM_TX_RINGS)));
+			tx_bd->addr_lo =
+				cpu_to_le32(U64_LO(fp->tx_desc_mapping +
+					   BCM_PAGE_SIZE*(i % NUM_TX_RINGS)));
+		}
+
+		fp->tx_pkt_prod = 0;
+		fp->tx_pkt_cons = 0;
+		fp->tx_bd_prod = 0;
+		fp->tx_bd_cons = 0;
+		fp->tx_cons_sb = BNX2X_TX_SB_INDEX;
+		fp->tx_pkt = 0;
+	}
+}
+
+static void bnx2x_init_sp_ring(struct bnx2x *bp)
+{
+	int port = bp->port;
+
+	spin_lock_init(&bp->spq_lock);
+
+	bp->spq_left = MAX_SPQ_PENDING;
+	bp->spq_prod_idx = 0;
+	bp->dsb_sp_prod_idx = 0;
+	bp->dsb_sp_prod = BNX2X_SP_DSB_INDEX;
+	bp->spq_prod_bd = bp->spq;
+	bp->spq_last_bd = bp->spq_prod_bd + MAX_SP_DESC_CNT;
+
+	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_SPQ_PAGE_BASE_OFFSET(port),
+	       U64_LO(bp->spq_mapping));
+	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_SPQ_PAGE_BASE_OFFSET(port) + 4,
+	       U64_HI(bp->spq_mapping));
+
+	REG_WR(bp, XSEM_REG_FAST_MEMORY + XSTORM_SPQ_PROD_OFFSET(port),
+	       bp->spq_prod_idx);
+}
+
+static void bnx2x_init_context(struct bnx2x *bp)
+{
+	int i;
+
+	for_each_queue(bp, i) {
+		struct eth_context *context = bnx2x_sp(bp, context[i].eth);
+		struct bnx2x_fastpath *fp = &bp->fp[i];
+
+		context->xstorm_st_context.tx_bd_page_base_hi =
+						U64_HI(fp->tx_desc_mapping);
+		context->xstorm_st_context.tx_bd_page_base_lo =
+						U64_LO(fp->tx_desc_mapping);
+		context->xstorm_st_context.db_data_addr_hi =
+						U64_HI(fp->tx_prods_mapping);
+		context->xstorm_st_context.db_data_addr_lo =
+						U64_LO(fp->tx_prods_mapping);
+
+		context->ustorm_st_context.rx_bd_page_base_hi =
+						U64_HI(fp->rx_desc_mapping);
+		context->ustorm_st_context.rx_bd_page_base_lo =
+						U64_LO(fp->rx_desc_mapping);
+		context->ustorm_st_context.status_block_id = i;
+		context->ustorm_st_context.sb_index_number =
+						HC_INDEX_U_ETH_RX_CQ_CONS;
+		context->ustorm_st_context.rcq_base_address_hi =
+						U64_HI(fp->rx_comp_mapping);
+		context->ustorm_st_context.rcq_base_address_lo =
+						U64_LO(fp->rx_comp_mapping);
+		context->ustorm_st_context.flags =
+				USTORM_ETH_ST_CONTEXT_ENABLE_MC_ALIGNMENT;
+		context->ustorm_st_context.mc_alignment_size = 64;
+		context->ustorm_st_context.num_rss = bp->num_queues;
+
+		context->cstorm_st_context.sb_index_number =
+						HC_INDEX_C_ETH_TX_CQ_CONS;
+		context->cstorm_st_context.status_block_id = i;
+
+		context->xstorm_ag_context.cdu_reserved =
+			CDU_RSRVD_VALUE_TYPE_A(HW_CID(bp, i),
+					       CDU_REGION_NUMBER_XCM_AG,
+					       ETH_CONNECTION_TYPE);
+		context->ustorm_ag_context.cdu_usage =
+			CDU_RSRVD_VALUE_TYPE_A(HW_CID(bp, i),
+					       CDU_REGION_NUMBER_UCM_AG,
+					       ETH_CONNECTION_TYPE);
+	}
+}
+
+static void bnx2x_init_ind_table(struct bnx2x *bp)
+{
+	int port = bp->port;
+	int i;
+
+	if (!is_multi(bp))
+		return;
+
+	for (i = 0; i < TSTORM_INDIRECTION_TABLE_SIZE; i++)
+		REG_WR8(bp, TSTORM_INDIRECTION_TABLE_OFFSET(port) + i,
+			i % bp->num_queues);
+
+	REG_WR(bp, PRS_REG_A_PRSU_20, 0xf);
+}
+
+static void bnx2x_set_storm_rx_mode(struct bnx2x *bp)
+{
+	int mode = bp->rx_mode;
+	int port = bp->port;
+	struct tstorm_eth_mac_filter_config tstorm_mac_filter = {0};
+	int i;
+
+	DP(NETIF_MSG_RX_STATUS, "rx mode is %d\n", mode);
+
+	switch (mode) {
+	case BNX2X_RX_MODE_NONE: /* no Rx */
+		tstorm_mac_filter.ucast_drop_all = 1;
+		tstorm_mac_filter.mcast_drop_all = 1;
+		tstorm_mac_filter.bcast_drop_all = 1;
+		break;
+	case BNX2X_RX_MODE_NORMAL:
+		tstorm_mac_filter.bcast_accept_all = 1;
+		break;
+	case BNX2X_RX_MODE_ALLMULTI:
+		tstorm_mac_filter.mcast_accept_all = 1;
+		tstorm_mac_filter.bcast_accept_all = 1;
+		break;
+	case BNX2X_RX_MODE_PROMISC:
+		tstorm_mac_filter.ucast_accept_all = 1;
+		tstorm_mac_filter.mcast_accept_all = 1;
+		tstorm_mac_filter.bcast_accept_all = 1;
+		break;
+	default:
+		BNX2X_ERR("bad rx mode (%d)\n", mode);
+	}
+
+	for (i = 0; i < sizeof(struct tstorm_eth_mac_filter_config)/4; i++) {
+		REG_WR(bp, BAR_TSTRORM_INTMEM +
+		       TSTORM_MAC_FILTER_CONFIG_OFFSET(port) + i * 4,
+		       ((u32 *)&tstorm_mac_filter)[i]);
+
+/*      	DP(NETIF_MSG_IFUP, "tstorm_mac_filter[%d]: 0x%08x\n", i,
+		   ((u32 *)&tstorm_mac_filter)[i]); */
+	}
+}
+
+static void bnx2x_set_client_config(struct bnx2x *bp, int client_id)
+{
+#ifdef BCM_VLAN
+	int mode = bp->rx_mode;
+#endif
+	int port = bp->port;
+	struct tstorm_eth_client_config tstorm_client = {0};
+
+	tstorm_client.mtu = bp->dev->mtu;
+	tstorm_client.statistics_counter_id = 0;
+	tstorm_client.config_flags =
+		TSTORM_ETH_CLIENT_CONFIG_STATSITICS_ENABLE;
+#ifdef BCM_VLAN
+	if (mode && bp->vlgrp) {
+		tstorm_client.config_flags |=
+				TSTORM_ETH_CLIENT_CONFIG_VLAN_REMOVAL_ENABLE;
+		DP(NETIF_MSG_IFUP, "vlan removal enabled\n");
+	}
+#endif
+	tstorm_client.drop_flags = (TSTORM_ETH_CLIENT_CONFIG_DROP_IP_CS_ERR |
+				    TSTORM_ETH_CLIENT_CONFIG_DROP_TCP_CS_ERR |
+				    TSTORM_ETH_CLIENT_CONFIG_DROP_UDP_CS_ERR |
+				    TSTORM_ETH_CLIENT_CONFIG_DROP_MAC_ERR);
+
+	REG_WR(bp, BAR_TSTRORM_INTMEM +
+	       TSTORM_CLIENT_CONFIG_OFFSET(port, client_id),
+	       ((u32 *)&tstorm_client)[0]);
+	REG_WR(bp, BAR_TSTRORM_INTMEM +
+	       TSTORM_CLIENT_CONFIG_OFFSET(port, client_id) + 4,
+	       ((u32 *)&tstorm_client)[1]);
+
+/*      DP(NETIF_MSG_IFUP, "tstorm_client: 0x%08x 0x%08x\n",
+	   ((u32 *)&tstorm_client)[0], ((u32 *)&tstorm_client)[1]); */
+}
+
+static void bnx2x_init_internal(struct bnx2x *bp)
+{
+	int port = bp->port;
+	struct tstorm_eth_function_common_config tstorm_config = {0};
+	struct stats_indication_flags stats_flags = {0};
+	int i;
+
+	if (is_multi(bp)) {
+		tstorm_config.config_flags = MULTI_FLAGS;
+		tstorm_config.rss_result_mask = MULTI_MASK;
+	}
+
+	REG_WR(bp, BAR_TSTRORM_INTMEM +
+	       TSTORM_FUNCTION_COMMON_CONFIG_OFFSET(port),
+	       (*(u32 *)&tstorm_config));
+
+/*      DP(NETIF_MSG_IFUP, "tstorm_config: 0x%08x\n",
+	   (*(u32 *)&tstorm_config)); */
+
+	bp->rx_mode = BNX2X_RX_MODE_NONE; /* no rx untill link is up */
+	bnx2x_set_storm_rx_mode(bp);
+
+	for_each_queue(bp, i)
+		bnx2x_set_client_config(bp, i);
 
 
-#define MDIO_REG_BANK_10G_PARALLEL_DETECT		0x8130
-#define MDIO_10G_PARALLEL_DETECT_PAR_DET_10G_CONTROL	    0x11
-#define MDIO_10G_PARALLEL_DETECT_PAR_DET_10G_CONTROL_PARDET10G_EN 0x1
-#define MDIO_10G_PARALLEL_DETECT_PAR_DET_10G_LINK	    0x13
-#define MDIO_10G_PARALLEL_DETECT_PAR_DET_10G_LINK_CNT	    (0xb71<<1)
+	stats_flags.collect_eth = cpu_to_le32(1);
 
-#define MDIO_REG_BANK_SERDES_DIGITAL			0x8300
-#define MDIO_SERDES_DIGITAL_A_1000X_CONTROL1		0x10
-#define MDIO_SERDES_DIGITAL_A_1000X_CONTROL1_FIBER_MODE 0x0001
-#define MDIO_SERDES_DIGITAL_A_1000X_CONTROL1_TBI_IF	0x0002
-#define MDIO_SERDES_DIGITAL_A_1000X_CONTROL1_SIGNAL_DETECT_EN	  0x0004
-#define MDIO_SERDES_DIGITAL_A_1000X_CONTROL1_INVERT_SIGNAL_DETECT 0x0008
-#define MDIO_SERDES_DIGITAL_A_1000X_CONTROL1_AUTODET	0x0010
-#define MDIO_SERDES_DIGITAL_A_1000X_CONTROL1_MSTR_MODE	0x0020
-#define MDIO_SERDES_DIGITAL_A_1000X_CONTROL2		0x11
-#define MDIO_SERDES_DIGITAL_A_1000X_CONTROL2_PRL_DT_EN	0x0001
-#define MDIO_SERDES_DIGITAL_A_1000X_CONTROL2_AN_FST_TMR 0x0040
-#define MDIO_SERDES_DIGITAL_A_1000X_STATUS1		0x14
-#define MDIO_SERDES_DIGITAL_A_1000X_STATUS1_DUPLEX	0x0004
-#define MDIO_SERDES_DIGITAL_A_1000X_STATUS1_SPEED_MASK	0x0018
-#define MDIO_SERDES_DIGITAL_A_1000X_STATUS1_SPEED_SHIFT 3
-#define MDIO_SERDES_DIGITAL_A_1000X_STATUS1_SPEED_2_5G	0x0018
-#define MDIO_SERDES_DIGITAL_A_1000X_STATUS1_SPEED_1G	0x0010
-#define MDIO_SERDES_DIGITAL_A_1000X_STATUS1_SPEED_100M	0x0008
-#define MDIO_SERDES_DIGITAL_A_1000X_STATUS1_SPEED_10M	0x0000
-#define MDIO_SERDES_DIGITAL_MISC1			0x18
-#define MDIO_SERDES_DIGITAL_MISC1_REFCLK_SEL_MASK	0xE000
-#define MDIO_SERDES_DIGITAL_MISC1_REFCLK_SEL_25M	0x0000
-#define MDIO_SERDES_DIGITAL_MISC1_REFCLK_SEL_100M	0x2000
-#define MDIO_SERDES_DIGITAL_MISC1_REFCLK_SEL_125M	0x4000
-#define MDIO_SERDES_DIGITAL_MISC1_REFCLK_SEL_156_25M	0x6000
-#define MDIO_SERDES_DIGITAL_MISC1_REFCLK_SEL_187_5M	0x8000
-#define MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_SEL	0x0010
-#define MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_MASK	0x000f
-#define MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_2_5G	0x0000
-#define MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_5G	0x0001
-#define MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_6G	0x0002
-#define MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_10G_HIG	0x0003
-#define MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_10G_CX4	0x0004
-#define MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_12G	0x0005
-#define MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_12_5G	0x0006
-#define MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_13G	0x0007
-#define MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_15G	0x0008
-#define MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_16G	0x0009
+	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_STATS_FLAGS_OFFSET(port),
+	       ((u32 *)&stats_flags)[0]);
+	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_STATS_FLAGS_OFFSET(port) + 4,
+	       ((u32 *)&stats_flags)[1]);
 
-#define MDIO_REG_BANK_OVER_1G				0x8320
-#define MDIO_OVER_1G_DIGCTL_3_4 			0x14
-#define MDIO_OVER_1G_DIGCTL_3_4_MP_ID_MASK		0xffe0
-#define MDIO_OVER_1G_DIGCTL_3_4_MP_ID_SHIFT		5
-#define MDIO_OVER_1G_UP1				0x19
-#define MDIO_OVER_1G_UP1_2_5G				0x0001
-#define MDIO_OVER_1G_UP1_5G				0x0002
-#define MDIO_OVER_1G_UP1_6G				0x0004
-#define MDIO_OVER_1G_UP1_10G				0x0010
-#define MDIO_OVER_1G_UP1_10GH				0x0008
-#define MDIO_OVER_1G_UP1_12G				0x0020
-#define MDIO_OVER_1G_UP1_12_5G				0x0040
-#define MDIO_OVER_1G_UP1_13G				0x0080
-#define MDIO_OVER_1G_UP1_15G				0x0100
-#define MDIO_OVER_1G_UP1_16G				0x0200
-#define MDIO_OVER_1G_UP2				0x1A
-#define MDIO_OVER_1G_UP2_IPREDRIVER_MASK		0x0007
-#define MDIO_OVER_1G_UP2_IDRIVER_MASK			0x0038
-#define MDIO_OVER_1G_UP2_PREEMPHASIS_MASK		0x03C0
-#define MDIO_OVER_1G_UP3				0x1B
-#define MDIO_OVER_1G_UP3_HIGIG2 			0x0001
-#define MDIO_OVER_1G_LP_UP1				0x1C
-#define MDIO_OVER_1G_LP_UP2				0x1D
-#define MDIO_OVER_1G_LP_UP2_MR_ADV_OVER_1G_MASK 	0x03ff
-#define MDIO_OVER_1G_LP_UP2_PREEMPHASIS_MASK		0x0780
-#define MDIO_OVER_1G_LP_UP2_PREEMPHASIS_SHIFT		7
-#define MDIO_OVER_1G_LP_UP3				0x1E
+	REG_WR(bp, BAR_TSTRORM_INTMEM + TSTORM_STATS_FLAGS_OFFSET(port),
+	       ((u32 *)&stats_flags)[0]);
+	REG_WR(bp, BAR_TSTRORM_INTMEM + TSTORM_STATS_FLAGS_OFFSET(port) + 4,
+	       ((u32 *)&stats_flags)[1]);
 
-#define MDIO_REG_BANK_BAM_NEXT_PAGE			0x8350
-#define MDIO_BAM_NEXT_PAGE_MP5_NEXT_PAGE_CTRL		0x10
-#define MDIO_BAM_NEXT_PAGE_MP5_NEXT_PAGE_CTRL_BAM_MODE	0x0001
-#define MDIO_BAM_NEXT_PAGE_MP5_NEXT_PAGE_CTRL_TETON_AN	0x0002
+	REG_WR(bp, BAR_CSTRORM_INTMEM + CSTORM_STATS_FLAGS_OFFSET(port),
+	       ((u32 *)&stats_flags)[0]);
+	REG_WR(bp, BAR_CSTRORM_INTMEM + CSTORM_STATS_FLAGS_OFFSET(port) + 4,
+	       ((u32 *)&stats_flags)[1]);
 
-#define MDIO_REG_BANK_CL73_USERB0			0x8370
-#define MDIO_CL73_USERB0_CL73_BAM_CTRL1 		0x12
-#define MDIO_CL73_USERB0_CL73_BAM_CTRL1_BAM_EN			0x8000
-#define MDIO_CL73_USERB0_CL73_BAM_CTRL1_BAM_STATION_MNGR_EN	0x4000
-#define MDIO_CL73_USERB0_CL73_BAM_CTRL1_BAM_NP_AFTER_BP_EN	0x2000
-#define MDIO_CL73_USERB0_CL73_BAM_CTRL3 		0x14
-#define MDIO_CL73_USERB0_CL73_BAM_CTRL3_USE_CL73_HCD_MR 0x0001
+/*      DP(NETIF_MSG_IFUP, "stats_flags: 0x%08x 0x%08x\n",
+	   ((u32 *)&stats_flags)[0], ((u32 *)&stats_flags)[1]); */
+}
 
-#define MDIO_REG_BANK_AER_BLOCK 			0xFFD0
-#define MDIO_AER_BLOCK_AER_REG				0x1E
+static void bnx2x_nic_init(struct bnx2x *bp)
+{
+	int i;
 
-#define MDIO_REG_BANK_COMBO_IEEE0			0xFFE0
-#define MDIO_COMBO_IEEE0_MII_CONTROL			0x10
-#define MDIO_COMBO_IEEO_MII_CONTROL_MAN_SGMII_SP_MASK	0x2040
-#define MDIO_COMBO_IEEO_MII_CONTROL_MAN_SGMII_SP_10	0x0000
-#define MDIO_COMBO_IEEO_MII_CONTROL_MAN_SGMII_SP_100	0x2000
-#define MDIO_COMBO_IEEO_MII_CONTROL_MAN_SGMII_SP_1000	0x0040
-#define MDIO_COMBO_IEEO_MII_CONTROL_FULL_DUPLEX 	0x0100
-#define MDIO_COMBO_IEEO_MII_CONTROL_RESTART_AN		0x0200
-#define MDIO_COMBO_IEEO_MII_CONTROL_AN_EN		0x1000
-#define MDIO_COMBO_IEEO_MII_CONTROL_LOOPBACK		0x4000
-#define MDIO_COMBO_IEEO_MII_CONTROL_RESET		0x8000
-#define MDIO_COMBO_IEEE0_MII_STATUS			0x11
-#define MDIO_COMBO_IEEE0_MII_STATUS_LINK_PASS		0x0004
-#define MDIO_COMBO_IEEE0_MII_STATUS_AUTONEG_COMPLETE	0x0020
-#define MDIO_COMBO_IEEE0_AUTO_NEG_ADV			0x14
-#define MDIO_COMBO_IEEE0_AUTO_NEG_ADV_FULL_DUPLEX	0x0020
-#define MDIO_COMBO_IEEE0_AUTO_NEG_ADV_HALF_DUPLEX	0x0040
-#define MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_MASK	0x0180
-#define MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_NONE	0x0000
-#define MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_SYMMETRIC	0x0080
-#define MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_ASYMMETRIC	0x0100
-#define MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_BOTH	0x0180
-#define MDIO_COMBO_IEEE0_AUTO_NEG_ADV_NEXT_PAGE 	0x8000
-#define MDIO_COMBO_IEEE0_AUTO_NEG_LINK_PARTNER_ABILITY1 0x15
-#define MDIO_COMBO_IEEE0_AUTO_NEG_LINK_PARTNER_ABILITY1_NEXT_PAGE    0x8000
-#define MDIO_COMBO_IEEE0_AUTO_NEG_LINK_PARTNER_ABILITY1_ACK	     0x4000
-#define MDIO_COMBO_IEEE0_AUTO_NEG_LINK_PARTNER_ABILITY1_PAUSE_MASK   0x0180
-#define MDIO_COMBO_IEEE0_AUTO_NEG_LINK_PARTNER_ABILITY1_PAUSE_NONE\
-	0x0000
-#define MDIO_COMBO_IEEE0_AUTO_NEG_LINK_PARTNER_ABILITY1_PAUSE_BOTH\
-	0x0180
-#define MDIO_COMBO_IEEE0_AUTO_NEG_LINK_PARTNER_ABILITY1_HALF_DUP_CAP 0x0040
-#define MDIO_COMBO_IEEE0_AUTO_NEG_LINK_PARTNER_ABILITY1_FULL_DUP_CAP 0x0020
-#define MDIO_COMBO_IEEE0_AUTO_NEG_LINK_PARTNER_ABILITY1_SGMII_MODE   0x0001
+	for_each_queue(bp, i) {
+		struct bnx2x_fastpath *fp = &bp->fp[i];
+
+		fp->state = BNX2X_FP_STATE_CLOSED;
+		DP(NETIF_MSG_IFUP, "bnx2x_init_sb(%p,%p,%d);\n",
+		   bp, fp->status_blk, i);
+		fp->index = i;
+		bnx2x_init_sb(bp, fp->status_blk, fp->status_blk_mapping, i);
+	}
+
+	bnx2x_init_def_sb(bp, bp->def_status_blk,
+			  bp->def_status_blk_mapping, 0x10);
+	bnx2x_update_coalesce(bp);
+	bnx2x_init_rx_rings(bp);
+	bnx2x_init_tx_ring(bp);
+	bnx2x_init_sp_ring(bp);
+	bnx2x_init_context(bp);
+	bnx2x_init_internal(bp);
+	bnx2x_init_stats(bp);
+	bnx2x_init_ind_table(bp);
+	bnx2x_enable_int(bp);
+
+}
+
+/* end of nic init */
+
+/*
+ * gzip service functions
+ */
+
+static int bnx2x_gunzip_init(struct bnx2x *bp)
+{
+	bp->gunzip_buf = pci_alloc_consistent(bp->pdev, FW_BUF_SIZE,
+					      &bp->gunzip_mapping);
+	if (bp->gunzip_buf  == NULL)
+		goto gunzip_nomem1;
+
+	bp->strm = kmalloc(sizeof(*bp->strm), GFP_KERNEL);
+	if (bp->strm  == NULL)
+		goto gunzip_nomem2;
+
+	bp->strm->workspace = kmalloc(zlib_inflate_workspacesize(),
+				      GFP_KERNEL);
+	if (bp->strm->workspace == NULL)
+		goto gunzip_nomem3;
+
+	return 0;
+
+gunzip_nomem3:
+	kfree(bp->strm);
+	bp->strm = NULL;
+
+gunzip_nomem2:
+	pci_free_consistent(bp->pdev, FW_BUF_SIZE, bp->gunzip_buf,
+			    bp->gunzip_mapping);
+	bp->gunzip_buf = NULL;
+
+gunzip_nomem1:
+	printk(KERN_ERR PFX "%s: Cannot allocate firmware buffer for"
+	       " uncompression\n", bp->dev->name);
+	return -ENOMEM;
+}
+
+static void bnx2x_gunzip_end(struct bnx2x *bp)
+{
+	kfree(bp->strm->workspace);
+
+	kfree(bp->strm);
+	bp->strm = NULL;
+
+	if (bp->gunzip_buf) {
+		pci_free_consistent(bp->pdev, FW_BUF_SIZE, bp->gunzip_buf,
+				    bp->gunzip_mapping);
+		bp->gunzip_buf = NULL;
+	}
+}
+
+static int bnx2x_gunzip(struct bnx2x *bp, u8 *zbuf, int len)
+{
+	int n, rc;
+
+	/* check gzip header */
+	if ((zbuf[0] != 0x1f) || (zbuf[1] != 0x8b) || (zbuf[2] != Z_DEFLATED))
+		return -EINVAL;
+
+	n = 10;
+
+#define FNAME   			0x8
+
+	if (zbuf[3] & FNAME)
+		while ((zbuf[n++] != 0) && (n < len));
+
+	bp->strm->next_in = zbuf + n;
+	bp->strm->avail_in = len - n;
+	bp->strm->next_out = bp->gunzip_buf;
+	bp->strm->avail_out = FW_BUF_SIZE;
+
+	rc = zlib_inflateInit2(bp->strm, -MAX_WBITS);
+	if (rc != Z_OK)
+		return rc;
+
+	rc = zlib_inflate(bp->strm, Z_FINISH);
+	if ((rc != Z_OK) && (rc != Z_STREAM_END))
+		printk(KERN_ERR PFX "%s: Firmware decompression error: %s\n",
+		       bp->dev->name, bp->strm->msg);
+
+	bp->gunzip_outlen = (FW_BUF_SIZE - bp->strm->avail_out);
+	if (bp->gunzip_outlen & 0x3)
+		printk(KERN_ERR PFX "%s: Firmware decompression error:"
+				    " gunzip_outlen (%d) not aligned\n",
+		       bp->dev->name, bp->gunzip_outlen);
+	bp->gunzip_outlen >>= 2;
+
+	zlib_inflateEnd(bp->strm);
+
+	if (rc == Z_STREAM_END)
+		return 0;
+
+	return rc;
+}
+
+/* nic load/unload */
+
+/*
+ * general service functions
+ */
+
+/* send a NIG loopback debug packet */
+static void bnx2x_lb_pckt(struct bnx2x *bp)
+{
+#ifdef USE_DMAE
+	u32 wb_write[3];
+#endif
+
+	/* Ethernet source and destination addresses */
+#ifdef USE_DMAE
+	wb_write[0] = 0x55555555;
+	wb_write[1] = 0x55555555;
+	wb_write[2] = 0x20;     	/* SOP */
+	REG_WR_DMAE(bp, NIG_REG_DEBUG_PACKET_LB, wb_write, 3);
+#else
+	REG_WR_IND(bp, NIG_REG_DEBUG_PACKET_LB, 0x55555555);
+	REG_WR_IND(bp, NIG_REG_DEBUG_PACKET_LB + 4, 0x55555555);
+	/* SOP */
+	REG_WR_IND(bp, NIG_REG_DEBUG_PACKET_LB + 8, 0x20);
+#endif
+
+	/* NON-IP protocol */
+#ifdef USE_DMAE
+	wb_write[0] = 0x09000000;
+	wb_write[1] = 0x55555555;
+	wb_write[2] = 0x10;     	/* EOP, eop_bvalid = 0 */
+	REG_WR_DMAE(bp, NIG_REG_DEBUG_PACKET_LB, wb_write, 3);
+#else
+	REG_WR_IND(bp, NIG_REG_DEBUG_PACKET_LB, 0x09000000);
+	REG_WR_IND(bp, NIG_REG_DEBUG_PACKET_LB + 4, 0x55555555);
+	/* EOP, eop_bvalid = 0 */
+	REG_WR_IND(bp, NIG_REG_DEBUG_PACKET_LB + 8, 0x10);
+#endif
+}
+
+/* some of the internal memories
+ * are not directly readable from the driver
+ * to test them we send debug packets
+ */
+static int bnx2x_int_mem_test(struct bnx2x *bp)
+{
+	int factor;
+	int count, i;
+	u32 val = 0;
+
+	switch (CHIP_REV(bp)) {
+	case CHIP_REV_EMUL:
+		factor = 200;
+		break;
+	case CHIP_REV_FPGA:
+		factor = 120;
+		break;
+	default:
+		factor = 1;
+		break;
+	}
+
+	DP(NETIF_MSG_HW, "start part1\n");
+
+	/* Disable inputs of parser neighbor blocks */
+	REG_WR(bp, TSDM_REG_ENABLE_IN1, 0x0);
+	REG_WR(bp, TCM_REG_PRS_IFEN, 0x0);
+	REG_WR(bp, CFC_REG_DEBUG0, 0x1);
+	NIG_WR(NIG_REG_PRS_REQ_IN_EN, 0x0);
+
+	/*  Write 0 to parser credits for CFC search request */
+	REG_WR(bp, PRS_REG_CFC_SEARCH_INITIAL_CREDIT, 0x0);
+
+	/* send Ethernet packet */
+	bnx2x_lb_pckt(bp);
+
+	/* TODO do i reset NIG statistic? */
+	/* Wait until NIG register shows 1 packet of size 0x10 */
+	count = 1000 * factor;
+	while (count) {
+#ifdef BNX2X_DMAE_RD
+		bnx2x_read_dmae(bp, NIG_REG_STAT2_BRB_OCTET, 2);
+		val = *bnx2x_sp(bp, wb_data[0]);
+#else
+		val = REG_RD(bp, NIG_REG_STAT2_BRB_OCTET);
+		REG_RD(bp, NIG_REG_STAT2_BRB_OCTET + 4);
+#endif
+		if (val == 0x10)
+			break;
+
+		msleep(10);
+		count--;
+	}
+	if (val != 0x10) {
+		BNX2X_ERR("NIG timeout  val = 0x%x\n", val);
+		return -1;
+	}
+
+	/* Wait until PRS register shows 1 packet */
+	count = 1000 * factor;
+	while (count) {
+		val = REG_RD(bp, PRS_REG_NUM_OF_PACKETS);
+
+		if (val == 1)
+			break;
+
+		msleep(10);
+		count--;
+	}
+	if (val != 0x1) {
+		BNX2X_ERR("PRS timeout val = 0x%x\n", val);
+		return -2;
+	}
+
+	/* Reset and init BRB, PRS */
+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_CLEAR, 0x3);
+	msleep(50);
+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_SET, 0x3);
+	msleep(50);
+	bnx2x_init_block(bp, BRB1_COMMON_START, BRB1_COMMON_END);
+	bnx2x_init_block(bp, PRS_COMMON_START, PRS_COMMON_END);
+
+	DP(NETIF_MSG_HW, "part2\n");
+
+	/* Disable inputs of parser neighbor blocks */
+	REG_WR(bp, TSDM_REG_ENABLE_IN1, 0x0);
+	REG_WR(bp, TCM_REG_PRS_IFEN, 0x0);
+	REG_WR(bp, CFC_REG_DEBUG0, 0x1);
+	NIG_WR(NIG_REG_PRS_REQ_IN_EN, 0x0);
+
+	/* Write 0 to parser credits for CFC search request */
+	REG_WR(bp, PRS_REG_CFC_SEARCH_INITIAL_CREDIT, 0x0);
+
+	/* send 10 Ethernet packets */
+	for (i = 0; i < 10; i++)
+		bnx2x_lb_pckt(bp);
+
+	/* Wait until NIG register shows 10 + 1
+	   packets of size 11*0x10 = 0xb0 */
+	count = 1000 * factor;
+	while (count) {
+#ifdef BNX2X_DMAE_RD
+		bnx2x_read_dmae(bp, NIG_REG_STAT2_BRB_OCTET, 2);
+		val = *bnx2x_sp(bp, wb_data[0]);
+#else
+		val = REG_RD(bp, NIG_REG_STAT2_BRB_OCTET);
+		REG_RD(bp, NIG_REG_STAT2_BRB_OCTET + 4);
+#endif
+		if (val == 0xb0)
+			break;
+
+		msleep(10);
+		count--;
+	}
+	if (val != 0xb0) {
+		BNX2X_ERR("NIG timeout  val = 0x%x\n", val);
+		return -3;
+	}
+
+	/* Wait until PRS register shows 2 packets */
+	val = REG_RD(bp, PRS_REG_NUM_OF_PACKETS);
+	if (val != 2)
+		BNX2X_ERR("PRS timeout  val = 0x%x\n", val);
+
+	/* Write 1 to parser credits for CFC search request */
+	REG_WR(bp, PRS_REG_CFC_SEARCH_INITIAL_CREDIT, 0x1);
+
+	/* Wait until PRS register shows 3 packets */
+	msleep(10 * factor);
+	/* Wait until NIG register shows 1 packet of size 0x10 */
+	val = REG_RD(bp, PRS_REG_NUM_OF_PACKETS);
+	if (val != 3)
+		BNX2X_ERR("PRS timeout  val = 0x%x\n", val);
+
+	/* clear NIG EOP FIFO */
+	for (i = 0; i < 11; i++)
+		REG_RD(bp, NIG_REG_INGRESS_EOP_LB_FIFO);
+	val = REG_RD(bp, NIG_REG_INGRESS_EOP_LB_EMPTY);
+	if (val != 1) {
+		BNX2X_ERR("clear of NIG failed\n");
+		return -4;
+	}
+
+	/* Reset and init BRB, PRS, NIG */
+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_CLEAR, 0x03);
+	msleep(50);
+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_SET, 0x03);
+	msleep(50);
+	bnx2x_init_block(bp, BRB1_COMMON_START, BRB1_COMMON_END);
+	bnx2x_init_block(bp, PRS_COMMON_START, PRS_COMMON_END);
+#ifndef BCM_ISCSI
+	/* set NIC mode */
+	REG_WR(bp, PRS_REG_NIC_MODE, 1);
+#endif
+
+	/* Enable inputs of parser neighbor blocks */
+	REG_WR(bp, TSDM_REG_ENABLE_IN1, 0x7fffffff);
+	REG_WR(bp, TCM_REG_PRS_IFEN, 0x1);
+	REG_WR(bp, CFC_REG_DEBUG0, 0x0);
+	NIG_WR(NIG_REG_PRS_REQ_IN_EN, 0x1);
+
+	DP(NETIF_MSG_HW, "done\n");
+
+	return 0; /* OK */
+}
+
+static void enable_blocks_attention(struct bnx2x *bp)
+{
+	REG_WR(bp, PXP_REG_PXP_INT_MASK_0, 0);
+	REG_WR(bp, PXP_REG_PXP_INT_MASK_1, 0);
+	REG_WR(bp, DORQ_REG_DORQ_INT_MASK, 0);
+	REG_WR(bp, CFC_REG_CFC_INT_MASK, 0);
+	REG_WR(bp, QM_REG_QM_INT_MASK, 0);
+	REG_WR(bp, TM_REG_TM_INT_MASK, 0);
+	REG_WR(bp, XSDM_REG_XSDM_INT_MASK_0, 0);
+	REG_WR(bp, XSDM_REG_XSDM_INT_MASK_1, 0);
+	REG_WR(bp, XCM_REG_XCM_INT_MASK, 0);
+/*      REG_WR(bp, XSEM_REG_XSEM_INT_MASK_0, 0); */
+/*      REG_WR(bp, XSEM_REG_XSEM_INT_MASK_1, 0); */
+	REG_WR(bp, USDM_REG_USDM_INT_MASK_0, 0);
+	REG_WR(bp, USDM_REG_USDM_INT_MASK_1, 0);
+	REG_WR(bp, UCM_REG_UCM_INT_MASK, 0);
+/*      REG_WR(bp, USEM_REG_USEM_INT_MASK_0, 0); */
+/*      REG_WR(bp, USEM_REG_USEM_INT_MASK_1, 0); */
+	REG_WR(bp, GRCBASE_UPB + PB_REG_PB_INT_MASK, 0);
+	REG_WR(bp, CSDM_REG_CSDM_INT_MASK_0, 0);
+	REG_WR(bp, CSDM_REG_CSDM_INT_MASK_1, 0);
+	REG_WR(bp, CCM_REG_CCM_INT_MASK, 0);
+/*      REG_WR(bp, CSEM_REG_CSEM_INT_MASK_0, 0); */
+/*      REG_WR(bp, CSEM_REG_CSEM_INT_MASK_1, 0); */
+	REG_WR(bp, PXP2_REG_PXP2_INT_MASK, 0x480000);
+	REG_WR(bp, TSDM_REG_TSDM_INT_MASK_0, 0);
+	REG_WR(bp, TSDM_REG_TSDM_INT_MASK_1, 0);
+	REG_WR(bp, TCM_REG_TCM_INT_MASK, 0);
+/*      REG_WR(bp, TSEM_REG_TSEM_INT_MASK_0, 0); */
+/*      REG_WR(bp, TSEM_REG_TSEM_INT_MASK_1, 0); */
+	REG_WR(bp, CDU_REG_CDU_INT_MASK, 0);
+	REG_WR(bp, DMAE_REG_DMAE_INT_MASK, 0);
+/*      REG_WR(bp, MISC_REG_MISC_INT_MASK, 0); */
+	REG_WR(bp, PBF_REG_PBF_INT_MASK, 0X18); 	/* bit 3,4 masked */
+}
+
+static int bnx2x_function_init(struct bnx2x *bp, int mode)
+{
+	int func = bp->port;
+	int port = func ? PORT1 : PORT0;
+	u32 val, i;
+#ifdef USE_DMAE
+	u32 wb_write[2];
+#endif
+
+	DP(BNX2X_MSG_MCP, "function is %d  mode is %x\n", func, mode);
+	if ((func != 0) && (func != 1)) {
+		BNX2X_ERR("BAD function number (%d)\n", func);
+		return -ENODEV;
+	}
+
+	bnx2x_gunzip_init(bp);
+
+	if (mode & 0x1) {       /* init common */
+		DP(BNX2X_MSG_MCP, "starting common init  func %d  mode %x\n",
+		   func, mode);
+		REG_WR(bp, MISC_REG_RESET_REG_1, 0xffffffff);
+		REG_WR(bp, MISC_REG_RESET_REG_2, 0xfffc);
+		bnx2x_init_block(bp, MISC_COMMON_START, MISC_COMMON_END);
+
+		REG_WR(bp, MISC_REG_LCPLL_CTRL_REG_2, 0x100);
+		msleep(30);
+		REG_WR(bp, MISC_REG_LCPLL_CTRL_REG_2, 0x0);
+
+		bnx2x_init_block(bp, PXP_COMMON_START, PXP_COMMON_END);
+		bnx2x_init_block(bp, PXP2_COMMON_START, PXP2_COMMON_END);
+
+		bnx2x_init_pxp(bp);
+
+		if (CHIP_REV(bp) == CHIP_REV_Ax) {
+			/* enable HW interrupt from PXP on USDM
+			   overflow bit 16 on INT_MASK_0 */
+			REG_WR(bp, PXP_REG_PXP_INT_MASK_0, 0);
+		}
+
+#ifdef __BIG_ENDIAN
+		REG_WR(bp, PXP2_REG_RQ_QM_ENDIAN_M, 1);
+		REG_WR(bp, PXP2_REG_RQ_TM_ENDIAN_M, 1);
+		REG_WR(bp, PXP2_REG_RQ_SRC_ENDIAN_M, 1);
+		REG_WR(bp, PXP2_REG_RQ_CDU_ENDIAN_M, 1);
+		REG_WR(bp, PXP2_REG_RQ_DBG_ENDIAN_M, 1);
+		REG_WR(bp, PXP2_REG_RQ_HC_ENDIAN_M, 1);
+
+/*      	REG_WR(bp, PXP2_REG_RD_PBF_SWAP_MODE, 1); */
+		REG_WR(bp, PXP2_REG_RD_QM_SWAP_MODE, 1);
+		REG_WR(bp, PXP2_REG_RD_TM_SWAP_MODE, 1);
+		REG_WR(bp, PXP2_REG_RD_SRC_SWAP_MODE, 1);
+		REG_WR(bp, PXP2_REG_RD_CDURD_SWAP_MODE, 1);
+#endif
+
+#ifndef BCM_ISCSI
+		/* set NIC mode */
+		REG_WR(bp, PRS_REG_NIC_MODE, 1);
+#endif
+
+		REG_WR(bp, PXP2_REG_RQ_CDU_P_SIZE, 5);
+#ifdef BCM_ISCSI
+		REG_WR(bp, PXP2_REG_RQ_TM_P_SIZE, 5);
+		REG_WR(bp, PXP2_REG_RQ_QM_P_SIZE, 5);
+		REG_WR(bp, PXP2_REG_RQ_SRC_P_SIZE, 5);
+#endif
+
+		bnx2x_init_block(bp, DMAE_COMMON_START, DMAE_COMMON_END);
+
+		/* let the HW do it's magic ... */
+		msleep(100);
+		/* finish PXP init
+		   (can be moved up if we want to use the DMAE) */
+		val = REG_RD(bp, PXP2_REG_RQ_CFG_DONE);
+		if (val != 1) {
+			BNX2X_ERR("PXP2 CFG failed\n");
+			return -EBUSY;
+		}
+
+		val = REG_RD(bp, PXP2_REG_RD_INIT_DONE);
+		if (val != 1) {
+			BNX2X_ERR("PXP2 RD_INIT failed\n");
+			return -EBUSY;
+		}
+
+		REG_WR(bp, PXP2_REG_RQ_DISABLE_INPUTS, 0);
+		REG_WR(bp, PXP2_REG_RD_DISABLE_INPUTS, 0);
+
+		bnx2x_init_fill(bp, TSEM_REG_PRAM, 0, 8);
+
+		bnx2x_init_block(bp, TCM_COMMON_START, TCM_COMMON_END);
+		bnx2x_init_block(bp, UCM_COMMON_START, UCM_COMMON_END);
+		bnx2x_init_block(bp, CCM_COMMON_START, CCM_COMMON_END);
+		bnx2x_init_block(bp, XCM_COMMON_START, XCM_COMMON_END);
+
+#ifdef BNX2X_DMAE_RD
+		bnx2x_read_dmae(bp, XSEM_REG_PASSIVE_BUFFER, 3);
+		bnx2x_read_dmae(bp, CSEM_REG_PASSIVE_BUFFER, 3);
+		bnx2x_read_dmae(bp, TSEM_REG_PASSIVE_BUFFER, 3);
+		bnx2x_read_dmae(bp, USEM_REG_PASSIVE_BUFFER, 3);
+#else
+		REG_RD(bp, XSEM_REG_PASSIVE_BUFFER);
+		REG_RD(bp, XSEM_REG_PASSIVE_BUFFER + 4);
+		REG_RD(bp, XSEM_REG_PASSIVE_BUFFER + 8);
+		REG_RD(bp, CSEM_REG_PASSIVE_BUFFER);
+		REG_RD(bp, CSEM_REG_PASSIVE_BUFFER + 4);
+		REG_RD(bp, CSEM_REG_PASSIVE_BUFFER + 8);
+		REG_RD(bp, TSEM_REG_PASSIVE_BUFFER);
+		REG_RD(bp, TSEM_REG_PASSIVE_BUFFER + 4);
+		REG_RD(bp, TSEM_REG_PASSIVE_BUFFER + 8);
+		REG_RD(bp, USEM_REG_PASSIVE_BUFFER);
+		REG_RD(bp, USEM_REG_PASSIVE_BUFFER + 4);
+		REG_RD(bp, USEM_REG_PASSIVE_BUFFER + 8);
+#endif
+		bnx2x_init_block(bp, QM_COMMON_START, QM_COMMON_END);
+		/* softrest pulse */
+		REG_WR(bp, QM_REG_SOFT_RESET, 1);
+		REG_WR(bp, QM_REG_SOFT_RESET, 0);
+
+#ifdef BCM_ISCSI
+		bnx2x_init_block(bp, TIMERS_COMMON_START, TIMERS_COMMON_END);
+#endif
+		bnx2x_init_block(bp, DQ_COMMON_START, DQ_COMMON_END);
+		REG_WR(bp, DORQ_REG_DPM_CID_OFST, BCM_PAGE_BITS);
+		if (CHIP_REV(bp) == CHIP_REV_Ax) {
+			/* enable hw interrupt from doorbell Q */
+			REG_WR(bp, DORQ_REG_DORQ_INT_MASK, 0);
+		}
+
+		bnx2x_init_block(bp, BRB1_COMMON_START, BRB1_COMMON_END);
+
+		if (CHIP_REV_IS_SLOW(bp)) {
+			/* fix for emulation and FPGA for no pause */
+			REG_WR(bp, BRB1_REG_PAUSE_HIGH_THRESHOLD_0, 513);
+			REG_WR(bp, BRB1_REG_PAUSE_HIGH_THRESHOLD_1, 513);
+			REG_WR(bp, BRB1_REG_PAUSE_LOW_THRESHOLD_0, 0);
+			REG_WR(bp, BRB1_REG_PAUSE_LOW_THRESHOLD_1, 0);
+		}
+
+		bnx2x_init_block(bp, PRS_COMMON_START, PRS_COMMON_END);
+
+		bnx2x_init_block(bp, TSDM_COMMON_START, TSDM_COMMON_END);
+		bnx2x_init_block(bp, CSDM_COMMON_START, CSDM_COMMON_END);
+		bnx2x_init_block(bp, USDM_COMMON_START, USDM_COMMON_END);
+		bnx2x_init_block(bp, XSDM_COMMON_START, XSDM_COMMON_END);
+
+		bnx2x_init_fill(bp, TSTORM_INTMEM_ADDR, 0, STORM_INTMEM_SIZE);
+		bnx2x_init_fill(bp, CSTORM_INTMEM_ADDR, 0, STORM_INTMEM_SIZE);
+		bnx2x_init_fill(bp, XSTORM_INTMEM_ADDR, 0, STORM_INTMEM_SIZE);
+		bnx2x_init_fill(bp, USTORM_INTMEM_ADDR, 0, STORM_INTMEM_SIZE);
+
+		bnx2x_init_block(bp, TSEM_COMMON_START, TSEM_COMMON_END);
+		bnx2x_init_block(bp, USEM_COMMON_START, USEM_COMMON_END);
+		bnx2x_init_block(bp, CSEM_COMMON_START, CSEM_COMMON_END);
+		bnx2x_init_block(bp, XSEM_COMMON_START, XSEM_COMMON_END);
+
+		/* sync semi rtc */
+		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_CLEAR,
+		       0x80000000);
+		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_SET,
+		       0x80000000);
+
+		bnx2x_init_block(bp, UPB_COMMON_START, UPB_COMMON_END);
+		bnx2x_init_block(bp, XPB_COMMON_START, XPB_COMMON_END);
+		bnx2x_init_block(bp, PBF_COMMON_START, PBF_COMMON_END);
+
+		REG_WR(bp, SRC_REG_SOFT_RST, 1);
+		for (i = SRC_REG_KEYRSS0_0; i <= SRC_REG_KEYRSS1_9; i += 4) {
+			REG_WR(bp, i, 0xc0cac01a);
+			/* TODO: repleace with something meaningfull */
+		}
+		/* SRCH COMMON comes here */
+		REG_WR(bp, SRC_REG_SOFT_RST, 0);
+
+		if (sizeof(union cdu_context) != 1024) {
+			/* we currently assume that a context is 1024 bytes */
+			printk(KERN_ALERT PFX "please adjust the size of"
+			       " cdu_context(%ld)\n",
+			       (long)sizeof(union cdu_context));
+		}
+		val = (4 << 24) + (0 << 12) + 1024;
+		REG_WR(bp, CDU_REG_CDU_GLOBAL_PARAMS, val);
+		bnx2x_init_block(bp, CDU_COMMON_START, CDU_COMMON_END);
+
+		bnx2x_init_block(bp, CFC_COMMON_START, CFC_COMMON_END);
+		REG_WR(bp, CFC_REG_INIT_REG, 0x7FF);
+
+		bnx2x_init_block(bp, HC_COMMON_START, HC_COMMON_END);
+		bnx2x_init_block(bp, MISC_AEU_COMMON_START,
+				 MISC_AEU_COMMON_END);
+		/* RXPCS COMMON comes here */
+		/* EMAC0 COMMON comes here */
+		/* EMAC1 COMMON comes here */
+		/* DBU COMMON comes here */
+		/* DBG COMMON comes here */
+		bnx2x_init_block(bp, NIG_COMMON_START, NIG_COMMON_END);
+
+		if (CHIP_REV_IS_SLOW(bp))
+			msleep(200);
+
+		/* finish CFC init */
+		val = REG_RD(bp, CFC_REG_LL_INIT_DONE);
+		if (val != 1) {
+			BNX2X_ERR("CFC LL_INIT failed\n");
+			return -EBUSY;
+		}
+
+		val = REG_RD(bp, CFC_REG_AC_INIT_DONE);
+		if (val != 1) {
+			BNX2X_ERR("CFC AC_INIT failed\n");
+			return -EBUSY;
+		}
+
+		val = REG_RD(bp, CFC_REG_CAM_INIT_DONE);
+		if (val != 1) {
+			BNX2X_ERR("CFC CAM_INIT failed\n");
+			return -EBUSY;
+		}
+
+		REG_WR(bp, CFC_REG_DEBUG0, 0);
+
+		/* read NIG statistic
+		   to see if this is our first up since powerup */
+#ifdef BNX2X_DMAE_RD
+		bnx2x_read_dmae(bp, NIG_REG_STAT2_BRB_OCTET, 2);
+		val = *bnx2x_sp(bp, wb_data[0]);
+#else
+		val = REG_RD(bp, NIG_REG_STAT2_BRB_OCTET);
+		REG_RD(bp, NIG_REG_STAT2_BRB_OCTET + 4);
+#endif
+		/* do internal memory self test */
+		if ((val == 0) && bnx2x_int_mem_test(bp)) {
+			BNX2X_ERR("internal mem selftest failed\n");
+			return -EBUSY;
+		}
+
+		/* clear PXP2 attentions */
+		REG_RD(bp, PXP2_REG_PXP2_INT_STS_CLR);
+
+		enable_blocks_attention(bp);
+		/* enable_blocks_parity(bp); */
+
+	} /* end of common init */
+
+	/* per port init */
+
+	/* the phys address is shifted right 12 bits and has an added
+	   1=valid bit added to the 53rd bit
+	   then since this is a wide register(TM)
+	   we split it into two 32 bit writes
+	 */
+#define RQ_ONCHIP_AT_PORT_SIZE  384
+#define ONCHIP_ADDR1(x)   ((u32)(((u64)x >> 12) & 0xFFFFFFFF))
+#define ONCHIP_ADDR2(x)   ((u32)((1 << 20) | ((u64)x >> 44)))
+#define PXP_ONE_ILT(x)    ((x << 10) | x)
+
+	DP(BNX2X_MSG_MCP, "starting per-function init port is %x\n", func);
+
+	REG_WR(bp, NIG_REG_MASK_INTERRUPT_PORT0 + func*4, 0);
+
+	/* Port PXP comes here */
+	/* Port PXP2 comes here */
+
+	/* Offset is
+	 * Port0  0
+	 * Port1  384 */
+	i = func * RQ_ONCHIP_AT_PORT_SIZE;
+#ifdef USE_DMAE
+	wb_write[0] = ONCHIP_ADDR1(bnx2x_sp_mapping(bp, context));
+	wb_write[1] = ONCHIP_ADDR2(bnx2x_sp_mapping(bp, context));
+	REG_WR_DMAE(bp, PXP2_REG_RQ_ONCHIP_AT + i*8, wb_write, 2);
+#else
+	REG_WR_IND(bp, PXP2_REG_RQ_ONCHIP_AT + i*8,
+		   ONCHIP_ADDR1(bnx2x_sp_mapping(bp, context)));
+	REG_WR_IND(bp, PXP2_REG_RQ_ONCHIP_AT + i*8 + 4,
+		   ONCHIP_ADDR2(bnx2x_sp_mapping(bp, context)));
+#endif
+	REG_WR(bp, PXP2_REG_PSWRQ_CDU0_L2P + func*4, PXP_ONE_ILT(i));
+
+#ifdef BCM_ISCSI
+	/* Port0  1
+	 * Port1  385 */
+	i++;
+	wb_write[0] = ONCHIP_ADDR1(bp->timers_mapping);
+	wb_write[1] = ONCHIP_ADDR2(bp->timers_mapping);
+	REG_WR_DMAE(bp, PXP2_REG_RQ_ONCHIP_AT + i*8, wb_write, 2);
+	REG_WR(bp, PXP2_REG_PSWRQ_TM0_L2P + func*4, PXP_ONE_ILT(i));
+
+	/* Port0  2
+	 * Port1  386 */
+	i++;
+	wb_write[0] = ONCHIP_ADDR1(bp->qm_mapping);
+	wb_write[1] = ONCHIP_ADDR2(bp->qm_mapping);
+	REG_WR_DMAE(bp, PXP2_REG_RQ_ONCHIP_AT + i*8, wb_write, 2);
+	REG_WR(bp, PXP2_REG_PSWRQ_QM0_L2P + func*4, PXP_ONE_ILT(i));
+
+	/* Port0  3
+	 * Port1  387 */
+	i++;
+	wb_write[0] = ONCHIP_ADDR1(bp->t1_mapping);
+	wb_write[1] = ONCHIP_ADDR2(bp->t1_mapping);
+	REG_WR_DMAE(bp, PXP2_REG_RQ_ONCHIP_AT + i*8, wb_write, 2);
+	REG_WR(bp, PXP2_REG_PSWRQ_SRC0_L2P + func*4, PXP_ONE_ILT(i));
+#endif
+
+	/* Port TCM comes here */
+	/* Port UCM comes here */
+	/* Port CCM comes here */
+	bnx2x_init_block(bp, func ? XCM_PORT1_START : XCM_PORT0_START,
+			     func ? XCM_PORT1_END : XCM_PORT0_END);
+
+#ifdef USE_DMAE
+	wb_write[0] = 0;
+	wb_write[1] = 0;
+#endif
+	for (i = 0; i < 32; i++) {
+		REG_WR(bp, QM_REG_BASEADDR + (func*32 + i)*4, 1024 * 4 * i);
+#ifdef USE_DMAE
+		REG_WR_DMAE(bp, QM_REG_PTRTBL + (func*32 + i)*8, wb_write, 2);
+#else
+		REG_WR_IND(bp, QM_REG_PTRTBL + (func*32 + i)*8, 0);
+		REG_WR_IND(bp, QM_REG_PTRTBL + (func*32 + i)*8 + 4, 0);
+#endif
+	}
+	REG_WR(bp, QM_REG_CONNNUM_0 + func*4, 1024/16 - 1);
+
+	/* Port QM comes here */
+
+#ifdef BCM_ISCSI
+	REG_WR(bp, TM_REG_LIN0_SCAN_TIME + func*4, 1024/64*20);
+	REG_WR(bp, TM_REG_LIN0_MAX_ACTIVE_CID + func*4, 31);
+
+	bnx2x_init_block(bp, func ? TIMERS_PORT1_START : TIMERS_PORT0_START,
+			     func ? TIMERS_PORT1_END : TIMERS_PORT0_END);
+#endif
+	/* Port DQ comes here */
+	/* Port BRB1 comes here */
+	bnx2x_init_block(bp, func ? PRS_PORT1_START : PRS_PORT0_START,
+			     func ? PRS_PORT1_END : PRS_PORT0_END);
+	/* Port TSDM comes here */
+	/* Port CSDM comes here */
+	/* Port USDM comes here */
+	/* Port XSDM comes here */
+	bnx2x_init_block(bp, func ? TSEM_PORT1_START : TSEM_PORT0_START,
+			     func ? TSEM_PORT1_END : TSEM_PORT0_END);
+	bnx2x_init_block(bp, func ? USEM_PORT1_START : USEM_PORT0_START,
+			     func ? USEM_PORT1_END : USEM_PORT0_END);
+	bnx2x_init_block(bp, func ? CSEM_PORT1_START : CSEM_PORT0_START,
+			     func ? CSEM_PORT1_END : CSEM_PORT0_END);
+	bnx2x_init_block(bp, func ? XSEM_PORT1_START : XSEM_PORT0_START,
+			     func ? XSEM_PORT1_END : XSEM_PORT0_END);
+	/* Port UPB comes here */
+	/* Port XSDM comes here */
+	bnx2x_init_block(bp, func ? PBF_PORT1_START : PBF_PORT0_START,
+			     func ? PBF_PORT1_END : PBF_PORT0_END);
+
+	/* configure PBF to work without PAUSE mtu 9000 */
+	REG_WR(bp, PBF_REG_P0_PAUSE_ENABLE + func*4, 0);
+
+	/* update threshold */
+	REG_WR(bp, PBF_REG_P0_ARB_THRSH + func*4, (9040/16));
+	/* update init credit */
+	REG_WR(bp, PBF_REG_P0_INIT_CRD + func*4, (9040/16) + 553 - 22);
+
+	/* probe changes */
+	REG_WR(bp, PBF_REG_INIT_P0 + func*4, 1);
+	msleep(5);
+	REG_WR(bp, PBF_REG_INIT_P0 + func*4, 0);
+
+#ifdef BCM_ISCSI
+	/* tell the searcher where the T2 table is */
+	REG_WR(bp, SRC_REG_COUNTFREE0 + func*4, 16*1024/64);
+
+	wb_write[0] = U64_LO(bp->t2_mapping);
+	wb_write[1] = U64_HI(bp->t2_mapping);
+	REG_WR_DMAE(bp, SRC_REG_FIRSTFREE0 + func*4, wb_write, 2);
+	wb_write[0] = U64_LO((u64)bp->t2_mapping + 16*1024 - 64);
+	wb_write[1] = U64_HI((u64)bp->t2_mapping + 16*1024 - 64);
+	REG_WR_DMAE(bp, SRC_REG_LASTFREE0 + func*4, wb_write, 2);
+
+	REG_WR(bp, SRC_REG_NUMBER_HASH_BITS0 + func*4, 10);
+	/* Port SRCH comes here */
+#endif
+	/* Port CDU comes here */
+	/* Port CFC comes here */
+	bnx2x_init_block(bp, func ? HC_PORT1_START : HC_PORT0_START,
+			     func ? HC_PORT1_END : HC_PORT0_END);
+	bnx2x_init_block(bp, func ? MISC_AEU_PORT1_START :
+				    MISC_AEU_PORT0_START,
+			     func ? MISC_AEU_PORT1_END : MISC_AEU_PORT0_END);
+	/* Port PXPCS comes here */
+	/* Port EMAC0 comes here */
+	/* Port EMAC1 comes here */
+	/* Port DBU comes here */
+	/* Port DBG comes here */
+	bnx2x_init_block(bp, func ? NIG_PORT1_START : NIG_PORT0_START,
+			     func ? NIG_PORT1_END : NIG_PORT0_END);
+	REG_WR(bp, NIG_REG_XGXS_SERDES0_MODE_SEL + func*4, 1);
+	/* Port MCP comes here */
+	/* Port DMAE comes here */
+
+	bnx2x_link_reset(bp);
+
+	/* Reset pciex errors for debug */
+	REG_WR(bp, 0x2114, 0xffffffff);
+	REG_WR(bp, 0x2120, 0xffffffff);
+	REG_WR(bp, 0x2814, 0xffffffff);
+
+	/* !!! move to init_values.h */
+	REG_WR(bp, XSDM_REG_INIT_CREDIT_PXP_CTRL, 0x1);
+	REG_WR(bp, USDM_REG_INIT_CREDIT_PXP_CTRL, 0x1);
+	REG_WR(bp, CSDM_REG_INIT_CREDIT_PXP_CTRL, 0x1);
+	REG_WR(bp, TSDM_REG_INIT_CREDIT_PXP_CTRL, 0x1);
+
+	REG_WR(bp, DBG_REG_PCI_REQ_CREDIT, 0x1);
+	REG_WR(bp, TM_REG_PCIARB_CRDCNT_VAL, 0x1);
+	REG_WR(bp, CDU_REG_CDU_DEBUG, 0x264);
+	REG_WR(bp, CDU_REG_CDU_DEBUG, 0x0);
+
+	bnx2x_gunzip_end(bp);
+
+	if (!nomcp) {
+		port = bp->port;
+
+		bp->fw_drv_pulse_wr_seq =
+				(SHMEM_RD(bp, drv_fw_mb[port].drv_pulse_mb) &
+				 DRV_PULSE_SEQ_MASK);
+		bp->fw_mb = SHMEM_RD(bp, drv_fw_mb[port].fw_mb_param);
+		DP(BNX2X_MSG_MCP, "drv_pulse 0x%x  fw_mb 0x%x\n",
+		   bp->fw_drv_pulse_wr_seq, bp->fw_mb);
+	} else {
+		bp->fw_mb = 0;
+	}
+
+	return 0;
+}
 
 
-#define EXT_PHY_OPT_PMA_PMD_DEVAD			0x1
-#define EXT_PHY_OPT_WIS_DEVAD				0x2
-#define EXT_PHY_OPT_PCS_DEVAD				0x3
-#define EXT_PHY_OPT_PHY_XS_DEVAD			0x4
-#define EXT_PHY_OPT_CNTL				0x0
-#define EXT_PHY_OPT_PMD_RX_SD				0xa
-#define EXT_PHY_OPT_PMD_MISC_CNTL			0xca0a
-#define EXT_PHY_OPT_PHY_IDENTIFIER			0xc800
-#define EXT_PHY_OPT_PMD_DIGITAL_CNT			0xc808
-#define EXT_PHY_OPT_PMD_DIGITAL_SATUS			0xc809
-#define EXT_PHY_OPT_CMU_PLL_BYPASS			0xca09
-#define EXT_PHY_OPT_LASI_CNTL				0x9002
-#define EXT_PHY_OPT_RX_ALARM				0x9003
-#define EXT_PHY_OPT_LASI_STATUS 			0x9005
-#define EXT_PHY_OPT_PCS_STATUS				0x0020
-#define EXT_PHY_OPT_XGXS_LANE_STATUS			0x0018
+/* send the MCP a request, block untill there is a reply */
+static u32 bnx2x_fw_command(struct bnx2x *bp, u32 command)
+{
+	u32 rc = 0;
+	u32 seq = ++bp->fw_seq;
+	int port = bp->port;
 
-#define EXT_PHY_KR_PMA_PMD_DEVAD			0x1
-#define EXT_PHY_KR_PCS_DEVAD				0x3
-#define EXT_PHY_KR_AUTO_NEG_DEVAD			0x7
-#define EXT_PHY_KR_CTRL 				0x0000
-#define EXT_PHY_KR_CTRL2				0x0007
-#define EXT_PHY_KR_PCS_STATUS				0x0020
-#define EXT_PHY_KR_PMD_CTRL				0x0096
-#define EXT_PHY_KR_LASI_CNTL				0x9002
-#define EXT_PHY_KR_LASI_STATUS				0x9005
-#define EXT_PHY_KR_MISC_CTRL1				0xca85
-#define EXT_PHY_KR_GEN_CTRL				0xca10
-#define EXT_PHY_KR_ROM_CODE				0xca19
+	SHMEM_WR(bp, drv_fw_mb[port].drv_mb_header, command|seq);
+	DP(BNX2X_MSG_MCP, "wrote command (%x) to FW MB\n", command|seq);
+
+	/* let the FW do it's magic ... */
+	msleep(100); /* TBD */
+
+	if (CHIP_REV_IS_SLOW(bp))
+		msleep(900);
+
+	rc = SHMEM_RD(bp, drv_fw_mb[port].fw_mb_header);
+
+	DP(BNX2X_MSG_MCP, "read (%x) seq is (%x) from FW MB\n", rc, seq);
+
+	/* is this a reply to our command? */
+	if (seq == (rc & FW_MSG_SEQ_NUMBER_MASK)) {
+		rc &= FW_MSG_CODE_MASK;
+	} else {
+		/* FW BUG! */
+		BNX2X_ERR("FW failed to respond!\n");
+		bnx2x_fw_dump(bp);
+		rc = 0;
+	}
+	return rc;
+}
+
+static void bnx2x_free_mem(struct bnx2x *bp)
+{
+
+#define BNX2X_PCI_FREE(x, y, size) \
+	do { \
+		if (x) { \
+			pci_free_consistent(bp->pdev, size, x, y); \
+			x = NULL; \
+			y = 0; \
+		} \
+	} while (0)
+
+#define BNX2X_FREE(x) \
+	do { \
+		if (x) { \
+			vfree(x); \
+			x = NULL; \
+		} \
+	} while (0)
+
+	int i;
+
+	/* fastpath */
+	for_each_queue(bp, i) {
+
+		/* Status blocks */
+		BNX2X_PCI_FREE(bnx2x_fp(bp, i, status_blk),
+			       bnx2x_fp(bp, i, status_blk_mapping),
+			       sizeof(struct host_status_block) +
+			       sizeof(struct eth_tx_db_data));
+
+		/* fast path rings: tx_buf tx_desc rx_buf rx_desc rx_comp */
+		BNX2X_FREE(bnx2x_fp(bp, i, tx_buf_ring));
+		BNX2X_PCI_FREE(bnx2x_fp(bp, i, tx_desc_ring),
+			       bnx2x_fp(bp, i, tx_desc_mapping),
+			       sizeof(struct eth_tx_bd) * NUM_TX_BD);
+
+		BNX2X_FREE(bnx2x_fp(bp, i, rx_buf_ring));
+		BNX2X_PCI_FREE(bnx2x_fp(bp, i, rx_desc_ring),
+			       bnx2x_fp(bp, i, rx_desc_mapping),
+			       sizeof(struct eth_rx_bd) * NUM_RX_BD);
+
+		BNX2X_PCI_FREE(bnx2x_fp(bp, i, rx_comp_ring),
+			       bnx2x_fp(bp, i, rx_comp_mapping),
+			       sizeof(struct eth_fast_path_rx_cqe) *
+			       NUM_RCQ_BD);
+	}
+
+	BNX2X_FREE(bp->fp);
+
+	/* end of fastpath */
+
+	BNX2X_PCI_FREE(bp->def_status_blk, bp->def_status_blk_mapping,
+		       (sizeof(struct host_def_status_block)));
+
+	BNX2X_PCI_FREE(bp->slowpath, bp->slowpath_mapping,
+		       (sizeof(struct bnx2x_slowpath)));
+
+#ifdef BCM_ISCSI
+	BNX2X_PCI_FREE(bp->t1, bp->t1_mapping, 64*1024);
+	BNX2X_PCI_FREE(bp->t2, bp->t2_mapping, 16*1024);
+	BNX2X_PCI_FREE(bp->timers, bp->timers_mapping, 8*1024);
+	BNX2X_PCI_FREE(bp->qm, bp->qm_mapping, 128*1024);
+#endif
+	BNX2X_PCI_FREE(bp->spq, bp->spq_mapping, PAGE_SIZE);
+
+#undef BNX2X_PCI_FREE
+#undef BNX2X_KFREE
+}
+
+static int bnx2x_alloc_mem(struct bnx2x *bp)
+{
+
+#define BNX2X_PCI_ALLOC(x, y, size) \
+	do { \
+		x = pci_alloc_consistent(bp->pdev, size, y); \
+		if (x == NULL) \
+			goto alloc_mem_err; \
+		memset(x, 0, size); \
+	} while (0)
+
+#define BNX2X_ALLOC(x, size) \
+	do { \
+		x = vmalloc(size); \
+		if (x == NULL) \
+			goto alloc_mem_err; \
+		memset(x, 0, size); \
+	} while (0)
+
+	int i;
+
+	/* fastpath */
+	BNX2X_ALLOC(bp->fp, sizeof(struct bnx2x_fastpath) * bp->num_queues);
+
+	for_each_queue(bp, i) {
+		bnx2x_fp(bp, i, bp) = bp;
+
+		/* Status blocks */
+		BNX2X_PCI_ALLOC(bnx2x_fp(bp, i, status_blk),
+				&bnx2x_fp(bp, i, status_blk_mapping),
+				sizeof(struct host_status_block) +
+				sizeof(struct eth_tx_db_data));
+
+		bnx2x_fp(bp, i, hw_tx_prods) =
+				(void *)(bnx2x_fp(bp, i, status_blk) + 1);
+
+		bnx2x_fp(bp, i, tx_prods_mapping) =
+				bnx2x_fp(bp, i, status_blk_mapping) +
+				sizeof(struct host_status_block);
+
+		/* fast path rings: tx_buf tx_desc rx_buf rx_desc rx_comp */
+		BNX2X_ALLOC(bnx2x_fp(bp, i, tx_buf_ring),
+				sizeof(struct sw_tx_bd) * NUM_TX_BD);
+		BNX2X_PCI_ALLOC(bnx2x_fp(bp, i, tx_desc_ring),
+				&bnx2x_fp(bp, i, tx_desc_mapping),
+				sizeof(struct eth_tx_bd) * NUM_TX_BD);
+
+		BNX2X_ALLOC(bnx2x_fp(bp, i, rx_buf_ring),
+				sizeof(struct sw_rx_bd) * NUM_RX_BD);
+		BNX2X_PCI_ALLOC(bnx2x_fp(bp, i, rx_desc_ring),
+				&bnx2x_fp(bp, i, rx_desc_mapping),
+				sizeof(struct eth_rx_bd) * NUM_RX_BD);
+
+		BNX2X_PCI_ALLOC(bnx2x_fp(bp, i, rx_comp_ring),
+				&bnx2x_fp(bp, i, rx_comp_mapping),
+				sizeof(struct eth_fast_path_rx_cqe) *
+				NUM_RCQ_BD);
+
+	}
+	/* end of fastpath */
+
+	BNX2X_PCI_ALLOC(bp->def_status_blk, &bp->def_status_blk_mapping,
+			sizeof(struct host_def_status_block));
+
+	BNX2X_PCI_ALLOC(bp->slowpath, &bp->slowpath_mapping,
+			sizeof(struct bnx2x_slowpath));
+
+#ifdef BCM_ISCSI
+	BNX2X_PCI_ALLOC(bp->t1, &bp->t1_mapping, 64*1024);
+
+	/* Initialize T1 */
+	for (i = 0; i < 64*1024; i += 64) {
+		*(u64 *)((char *)bp->t1 + i + 56) = 0x0UL;
+		*(u64 *)((char *)bp->t1 + i + 3) = 0x0UL;
+	}
+
+	/* allocate searcher T2 table
+	   we allocate 1/4 of alloc num for T2
+	  (which is not entered into the ILT) */
+	BNX2X_PCI_ALLOC(bp->t2, &bp->t2_mapping, 16*1024);
+
+	/* Initialize T2 */
+	for (i = 0; i < 16*1024; i += 64)
+		* (u64 *)((char *)bp->t2 + i + 56) = bp->t2_mapping + i + 64;
+
+	/* now sixup the last line in the block to point to the next block */
+	*(u64 *)((char *)bp->t2 + 1024*16-8) = bp->t2_mapping;
+
+	/* Timer block array (MAX_CONN*8) phys uncached for now 1024 conns */
+	BNX2X_PCI_ALLOC(bp->timers, &bp->timers_mapping, 8*1024);
+
+	/* QM queues (128*MAX_CONN) */
+	BNX2X_PCI_ALLOC(bp->qm, &bp->qm_mapping, 128*1024);
+#endif
+
+	/* Slow path ring */
+	BNX2X_PCI_ALLOC(bp->spq, &bp->spq_mapping, BCM_PAGE_SIZE);
+
+	return 0;
+
+alloc_mem_err:
+	bnx2x_free_mem(bp);
+	return -ENOMEM;
+
+#undef BNX2X_PCI_ALLOC
+#undef BNX2X_ALLOC
+}
+
+static void bnx2x_free_tx_skbs(struct bnx2x *bp)
+{
+	int i;
+
+	for_each_queue(bp, i) {
+		struct bnx2x_fastpath *fp = &bp->fp[i];
+
+		u16 bd_cons = fp->tx_bd_cons;
+		u16 sw_prod = fp->tx_pkt_prod;
+		u16 sw_cons = fp->tx_pkt_cons;
+
+		BUG_TRAP(fp->tx_buf_ring != NULL);
+
+		while (sw_cons != sw_prod) {
+			bd_cons = bnx2x_free_tx_pkt(bp, fp, TX_BD(sw_cons));
+			sw_cons++;
+		}
+	}
+}
+
+static void bnx2x_free_rx_skbs(struct bnx2x *bp)
+{
+	int i, j;
+
+	for_each_queue(bp, j) {
+		struct bnx2x_fastpath *fp = &bp->fp[j];
+
+		BUG_TRAP(fp->rx_buf_ring != NULL);
+
+		for (i = 0; i < NUM_RX_BD; i++) {
+			struct sw_rx_bd *rx_buf = &fp->rx_buf_ring[i];
+			struct sk_buff *skb = rx_buf->skb;
+
+			if (skb == NULL)
+				continue;
+
+			pci_unmap_single(bp->pdev,
+					 pci_unmap_addr(rx_buf, mapping),
+					 bp->rx_buf_use_size,
+					 PCI_DMA_FROMDEVICE);
+
+			rx_buf->skb = NULL;
+			dev_kfree_skb(skb);
+		}
+	}
+}
+
+static void bnx2x_free_skbs(struct bnx2x *bp)
+{
+	bnx2x_free_tx_skbs(bp);
+	bnx2x_free_rx_skbs(bp);
+}
+
+static void bnx2x_free_msix_irqs(struct bnx2x *bp)
+{
+	int i;
+
+	free_irq(bp->msix_table[0].vector, bp->dev);
+	DP(NETIF_MSG_IFDOWN, "rleased sp irq (%d)\n",
+	   bp->msix_table[0].vector);
+
+	for_each_queue(bp, i) {
+		DP(NETIF_MSG_IFDOWN, "about to rlease fp #%d->%d irq  "
+		   "state(%x)\n", i, bp->msix_table[i + 1].vector,
+		   bnx2x_fp(bp, i, state));
+
+		if (bnx2x_fp(bp, i, state) != BNX2X_FP_STATE_CLOSED) {
+
+			free_irq(bp->msix_table[i + 1].vector, &bp->fp[i]);
+			bnx2x_fp(bp, i, state) = BNX2X_FP_STATE_CLOSED;
+
+		} else
+			DP(NETIF_MSG_IFDOWN, "irq not freed\n");
+
+	}
+
+}
+
+static void bnx2x_free_irq(struct bnx2x *bp)
+{
+
+	if (bp->flags & USING_MSIX_FLAG) {
+
+		bnx2x_free_msix_irqs(bp);
+		pci_disable_msix(bp->pdev);
+
+		bp->flags &= ~USING_MSIX_FLAG;
+
+	} else
+		free_irq(bp->pdev->irq, bp->dev);
+}
+
+static int bnx2x_enable_msix(struct bnx2x *bp)
+{
+
+	int i;
+
+	bp->msix_table[0].entry = 0;
+	for_each_queue(bp, i)
+		bp->msix_table[i + 1].entry = i + 1;
+
+	if (pci_enable_msix(bp->pdev, &bp->msix_table[0],
+				     bp->num_queues + 1)){
+		BNX2X_ERR("failed to enable msix\n");
+		return -1;
+
+	}
+
+	bp->flags |= USING_MSIX_FLAG;
+
+	return 0;
+
+}
+
+
+static int bnx2x_req_msix_irqs(struct bnx2x *bp)
+{
+
+
+	int i, rc;
+
+	DP(NETIF_MSG_IFUP, "about to request sp irq\n");
+
+	rc = request_irq(bp->msix_table[0].vector, bnx2x_msix_sp_int, 0,
+			 bp->dev->name, bp->dev);
+
+	if (rc) {
+		BNX2X_ERR("request sp irq failed\n");
+		return -EBUSY;
+	}
+
+	for_each_queue(bp, i) {
+		rc = request_irq(bp->msix_table[i + 1].vector,
+				 bnx2x_msix_fp_int, 0,
+				 bp->dev->name, &bp->fp[i]);
+
+		if (rc) {
+			BNX2X_ERR("request fp #%d irq failed\n", i);
+			bnx2x_free_msix_irqs(bp);
+			return -EBUSY;
+		}
+
+		bnx2x_fp(bp, i, state) = BNX2X_FP_STATE_IRQ;
+
+	}
+
+	return 0;
+
+}
+
+static int bnx2x_req_irq(struct bnx2x *bp)
+{
+
+	int rc = request_irq(bp->pdev->irq, bnx2x_interrupt,
+			     IRQF_SHARED, bp->dev->name, bp->dev);
+	if (!rc)
+		bnx2x_fp(bp, 0, state) = BNX2X_FP_STATE_IRQ;
+
+	return rc;
+
+}
+
+/*
+ * Init service functions
+ */
+
+static void bnx2x_set_mac_addr(struct bnx2x *bp)
+{
+	struct mac_configuration_cmd *config = bnx2x_sp(bp, mac_config);
+
+	/* CAM allocation
+	 * unicasts 0-31:port0 32-63:port1
+	 * multicast 64-127:port0 128-191:port1
+	 */
+	config->hdr.length_6b = 2;
+	config->hdr.offset = bp->port ? 31 : 0;
+	config->hdr.reserved0 = 0;
+	config->hdr.reserved1 = 0;
+
+	/* primary MAC */
+	config->config_table[0].cam_entry.msb_mac_addr =
+					swab16(*(u16 *)&bp->dev->dev_addr[0]);
+	config->config_table[0].cam_entry.middle_mac_addr =
+					swab16(*(u16 *)&bp->dev->dev_addr[2]);
+	config->config_table[0].cam_entry.lsb_mac_addr =
+					swab16(*(u16 *)&bp->dev->dev_addr[4]);
+	config->config_table[0].cam_entry.flags = cpu_to_le16(bp->port);
+	config->config_table[0].target_table_entry.flags = 0;
+	config->config_table[0].target_table_entry.client_id = 0;
+	config->config_table[0].target_table_entry.vlan_id = 0;
+
+	DP(NETIF_MSG_IFUP, "setting MAC (%04x:%04x:%04x)\n",
+	   config->config_table[0].cam_entry.msb_mac_addr,
+	   config->config_table[0].cam_entry.middle_mac_addr,
+	   config->config_table[0].cam_entry.lsb_mac_addr);
+
+	/* broadcast */
+	config->config_table[1].cam_entry.msb_mac_addr = 0xffff;
+	config->config_table[1].cam_entry.middle_mac_addr = 0xffff;
+	config->config_table[1].cam_entry.lsb_mac_addr = 0xffff;
+	config->config_table[1].cam_entry.flags = cpu_to_le16(bp->port);
+	config->config_table[1].target_table_entry.flags =
+				TSTORM_CAM_TARGET_TABLE_ENTRY_BROADCAST;
+	config->config_table[1].target_table_entry.client_id = 0;
+	config->config_table[1].target_table_entry.vlan_id = 0;
+
+	bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_SET_MAC, 0,
+		      U64_HI(bnx2x_sp_mapping(bp, mac_config)),
+		      U64_LO(bnx2x_sp_mapping(bp, mac_config)), 0);
+}
+
+static int bnx2x_wait_ramrod(struct bnx2x *bp, int state, int idx,
+			     int *state_p, int poll)
+{
+	/* can take a while if any port is running */
+	int timeout = 500;
+
+	/* DP("waiting for state to become %d on IDX [%d]\n",
+	state, sb_idx); */
+
+	might_sleep();
+
+	while (timeout) {
+
+		if (poll) {
+			bnx2x_rx_int(bp->fp, 10);
+			/* If index is different from 0
+			 * The reply for some commands will
+			 * be on the none default queue
+			 */
+			if (idx)
+				bnx2x_rx_int(&bp->fp[idx], 10);
+		}
+
+		mb(); /* state is changed by bnx2x_sp_event()*/
+
+		if (*state_p != state)
+			return 0;
+
+		timeout--;
+		msleep(1);
+
+	}
+
+
+	/* timeout! */
+	BNX2X_ERR("timeout waiting for ramrod %d on %d\n", state, idx);
+	return -EBUSY;
+
+}
+
+static int bnx2x_setup_leading(struct bnx2x *bp)
+{
+
+	/* reset IGU staae */
+	bnx2x_ack_sb(bp, DEF_SB_ID, CSTORM_ID, 0, IGU_INT_ENABLE, 0);
+
+	/* SETUP ramrod */
+	bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_PORT_SETUP, 0, 0, 0, 0);
+
+	return bnx2x_wait_ramrod(bp, BNX2X_STATE_OPEN, 0, &(bp->state), 0);
+
+}
+
+static int bnx2x_setup_multi(struct bnx2x *bp, int index)
+{
+
+	/* reset IGU state */
+	bnx2x_ack_sb(bp, index, CSTORM_ID, 0, IGU_INT_ENABLE, 0);
+
+	bp->fp[index].state = BNX2X_FP_STATE_OPENING;
+	bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_CLIENT_SETUP, index, 0, index, 0);
+
+	/* Wait for completion */
+	return bnx2x_wait_ramrod(bp, BNX2X_FP_STATE_OPEN, index,
+				 &(bp->fp[index].state), 1);
+
+}
+
+
+static int bnx2x_poll(struct napi_struct *napi, int budget);
+static void bnx2x_set_rx_mode(struct net_device *dev);
+
+static int bnx2x_nic_load(struct bnx2x *bp, int req_irq)
+{
+	int rc;
+	int i = 0;
+
+	bp->state = BNX2X_STATE_OPENING_WAIT4_LOAD;
+
+	/* Send LOAD_REQUEST command to MCP.
+	   Returns the type of LOAD command: if it is the
+	   first port to be initialized common blocks should be
+	   initialized, otherwise - not.
+	*/
+	if (!nomcp) {
+		rc = bnx2x_fw_command(bp, DRV_MSG_CODE_LOAD_REQ);
+		if (rc == FW_MSG_CODE_DRV_LOAD_REFUSED) {
+			return -EBUSY; /* other port in diagnostic mode */
+		}
+	} else {
+		rc = FW_MSG_CODE_DRV_LOAD_COMMON;
+	}
+
+	DP(NETIF_MSG_IFUP, "set number of queues to %d\n", bp->num_queues);
+
+	/* if we can't use msix we only need one fp,
+	 * so try to enable msix with the requested number of fp's
+	 * and fallback to inta with one fp
+	 */
+	if (req_irq) {
+
+		if (use_inta) {
+			bp->num_queues = 1;
+		} else {
+			if (use_multi > 1 && use_multi <= 16)
+				/* user requested number */
+				bp->num_queues = use_multi;
+			else if (use_multi == 1)
+				bp->num_queues = num_online_cpus();
+			else
+				bp->num_queues = 1;
+
+			if (bnx2x_enable_msix(bp)) {
+				/* faild to enable msix */
+				bp->num_queues = 1;
+				if (use_multi)
+					BNX2X_ERR("Muti requested but failed"
+						  " to enable MSI-X\n");
+			}
+		}
+	}
+
+	if (bnx2x_alloc_mem(bp))
+		return -ENOMEM;
+
+	if (req_irq) {
+		if (bp->flags & USING_MSIX_FLAG) {
+			if (bnx2x_req_msix_irqs(bp)) {
+				pci_disable_msix(bp->pdev);
+				goto out_error;
+			}
+
+		} else {
+			if (bnx2x_req_irq(bp)) {
+				BNX2X_ERR("IRQ request failed, aborting\n");
+				goto out_error;
+			}
+		}
+	}
+
+	for_each_queue(bp, i)
+		netif_napi_add(bp->dev, &bnx2x_fp(bp, i, napi),
+			       bnx2x_poll, 128);
+
+
+	/* Initialize HW */
+	if (bnx2x_function_init(bp, (rc == FW_MSG_CODE_DRV_LOAD_COMMON))) {
+		BNX2X_ERR("HW init failed, aborting\n");
+		goto out_error;
+	}
+
+
+	atomic_set(&bp->intr_sem, 0);
+
+	/* Reenable SP tasklet */
+	/*if (bp->sp_task_en) { 	       */
+	/*        tasklet_enable(&bp->sp_task);*/
+	/*} else {      		       */
+	/*        bp->sp_task_en = 1;          */
+	/*}     			       */
+
+	/* Setup NIC internals and enable interrupts */
+	bnx2x_nic_init(bp);
+
+	/* Send LOAD_DONE command to MCP */
+	if (!nomcp) {
+		rc = bnx2x_fw_command(bp, DRV_MSG_CODE_LOAD_DONE);
+		DP(NETIF_MSG_IFUP, "rc = 0x%x\n", rc);
+		if (!rc) {
+			BNX2X_ERR("MCP response failure, unloading\n");
+			goto int_disable;
+		}
+	}
+
+	bp->state = BNX2X_STATE_OPENING_WAIT4_PORT;
+
+	/* Enable Rx interrupt handling before sending the ramrod
+	   as it's completed on Rx FP queue */
+	for_each_queue(bp, i)
+		napi_enable(&bnx2x_fp(bp, i, napi));
+
+	if (bnx2x_setup_leading(bp))
+		goto stop_netif;
+
+	for_each_nondefault_queue(bp, i)
+		if (bnx2x_setup_multi(bp, i))
+			goto stop_netif;
+
+	bnx2x_set_mac_addr(bp);
+
+	bnx2x_phy_init(bp);
+
+	/* Start fast path */
+	if (req_irq) { /* IRQ is only requested from bnx2x_open */
+		netif_start_queue(bp->dev);
+		if (bp->flags & USING_MSIX_FLAG)
+			printk(KERN_INFO PFX "%s: using MSI-X\n",
+			       bp->dev->name);
+
+	/* Otherwise Tx queue should be only reenabled */
+	} else if (netif_running(bp->dev)) {
+		netif_wake_queue(bp->dev);
+		bnx2x_set_rx_mode(bp->dev);
+	}
+
+	/* start the timer */
+	mod_timer(&bp->timer, jiffies + bp->current_interval);
+
+	return 0;
+
+stop_netif:
+	for_each_queue(bp, i)
+		napi_disable(&bnx2x_fp(bp, i, napi));
+
+int_disable:
+	bnx2x_disable_int_sync(bp);
+
+	bnx2x_free_skbs(bp);
+	bnx2x_free_irq(bp);
+
+out_error:
+	bnx2x_free_mem(bp);
+
+	/* TBD we really need to reset the chip
+	   if we want to recover from this */
+	return rc;
+}
+
+static void bnx2x_netif_stop(struct bnx2x *bp)
+{
+	int i;
+
+	bp->rx_mode = BNX2X_RX_MODE_NONE;
+	bnx2x_set_storm_rx_mode(bp);
+
+	bnx2x_disable_int_sync(bp);
+	bnx2x_link_reset(bp);
+
+	for_each_queue(bp, i)
+		napi_disable(&bnx2x_fp(bp, i, napi));
+
+	if (netif_running(bp->dev)) {
+		netif_tx_disable(bp->dev);
+		bp->dev->trans_start = jiffies; /* prevent tx timeout */
+	}
+}
+
+static void bnx2x_reset_chip(struct bnx2x *bp, u32 reset_code)
+{
+	int port = bp->port;
+#ifdef USE_DMAE
+	u32 wb_write[2];
+#endif
+	int base, i;
+
+	DP(NETIF_MSG_IFDOWN, "reset called with code %x\n", reset_code);
+
+	/* Do not rcv packets to BRB */
+	REG_WR(bp, NIG_REG_LLH0_BRB1_DRV_MASK + port*4, 0x0);
+	/* Do not direct rcv packets that are not for MCP to the BRB */
+	REG_WR(bp, (port ? NIG_REG_LLH1_BRB1_NOT_MCP :
+			   NIG_REG_LLH0_BRB1_NOT_MCP), 0x0);
+
+	/* Configure IGU and AEU */
+	REG_WR(bp, HC_REG_CONFIG_0 + port*4, 0x1000);
+	REG_WR(bp, MISC_REG_AEU_MASK_ATTN_FUNC_0 + port*4, 0);
+
+	/* TODO: Close Doorbell port? */
+
+	/* Clear ILT */
+#ifdef USE_DMAE
+	wb_write[0] = 0;
+	wb_write[1] = 0;
+#endif
+	base = port * RQ_ONCHIP_AT_PORT_SIZE;
+	for (i = base; i < base + RQ_ONCHIP_AT_PORT_SIZE; i++) {
+#ifdef USE_DMAE
+		REG_WR_DMAE(bp, PXP2_REG_RQ_ONCHIP_AT + i*8, wb_write, 2);
+#else
+		REG_WR_IND(bp, PXP2_REG_RQ_ONCHIP_AT, 0);
+		REG_WR_IND(bp, PXP2_REG_RQ_ONCHIP_AT + 4, 0);
+#endif
+	}
+
+	if (reset_code == FW_MSG_CODE_DRV_UNLOAD_COMMON) {
+		/* reset_common */
+		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_CLEAR,
+		       0xd3ffff7f);
+		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_CLEAR,
+		       0x1403);
+	}
+}
+
+static int bnx2x_stop_multi(struct bnx2x *bp, int index)
+{
+
+	int rc;
+
+	/* halt the connnection */
+	bp->fp[index].state = BNX2X_FP_STATE_HALTING;
+	bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_HALT, index, 0, 0, 0);
+
+
+	rc = bnx2x_wait_ramrod(bp, BNX2X_FP_STATE_HALTED, index,
+				       &(bp->fp[index].state), 1);
+	if (rc) /* timout */
+		return rc;
+
+	/* delete cfc entry */
+	bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_CFC_DEL, index, 0, 0, 1);
+
+	return bnx2x_wait_ramrod(bp, BNX2X_FP_STATE_DELETED, index,
+				 &(bp->fp[index].state), 1);
+
+}
+
+
+static void bnx2x_stop_leading(struct bnx2x *bp)
+{
+
+	/* if the other port is hadling traffic,
+	   this can take a lot of time */
+	int timeout = 500;
+
+	might_sleep();
+
+	/* Send HALT ramrod */
+	bp->fp[0].state = BNX2X_FP_STATE_HALTING;
+	bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_HALT, 0, 0, 0, 0);
+
+	if (bnx2x_wait_ramrod(bp, BNX2X_FP_STATE_HALTED, 0,
+			       &(bp->fp[0].state), 1))
+		return;
+
+	bp->dsb_sp_prod_idx = *bp->dsb_sp_prod;
+
+	/* Send CFC_DELETE ramrod */
+	bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_PORT_DEL, 0, 0, 0, 1);
+
+	/*
+	   Wait for completion.
+	   we are going to reset the chip anyway
+	   so there is not much to do if this times out
+	 */
+	while (bp->dsb_sp_prod_idx == *bp->dsb_sp_prod && timeout) {
+			timeout--;
+			msleep(1);
+	}
+
+}
+
+static int bnx2x_nic_unload(struct bnx2x *bp, int fre_irq)
+{
+	u32 reset_code = 0;
+	int rc;
+	int i;
+
+	bp->state = BNX2X_STATE_CLOSING_WAIT4_HALT;
+
+	/* Calling flush_scheduled_work() may deadlock because
+	 * linkwatch_event() may be on the workqueue and it will try to get
+	 * the rtnl_lock which we are holding.
+	 */
+
+	while (bp->in_reset_task)
+		msleep(1);
+
+	/* Delete the timer: do it before disabling interrupts, as it
+	   may be stil STAT_QUERY ramrod pending after stopping the timer */
+	del_timer_sync(&bp->timer);
+
+	/* Wait until stat ramrod returns and all SP tasks complete */
+	while (bp->stat_pending && (bp->spq_left != MAX_SPQ_PENDING))
+		msleep(1);
+
+	/* Stop fast path, disable MAC, disable interrupts, disable napi */
+	bnx2x_netif_stop(bp);
+
+	if (bp->flags & NO_WOL_FLAG)
+		reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_MCP;
+	else if (bp->wol) {
+		u32 emac_base = bp->port ? GRCBASE_EMAC0 : GRCBASE_EMAC1;
+		u8 *mac_addr = bp->dev->dev_addr;
+		u32 val = (EMAC_MODE_MPKT | EMAC_MODE_MPKT_RCVD |
+			   EMAC_MODE_ACPI_RCVD);
+
+		EMAC_WR(EMAC_REG_EMAC_MODE, val);
+
+		val = (mac_addr[0] << 8) | mac_addr[1];
+		EMAC_WR(EMAC_REG_EMAC_MAC_MATCH, val);
+
+		val = (mac_addr[2] << 24) | (mac_addr[3] << 16) |
+		      (mac_addr[4] << 8) | mac_addr[5];
+		EMAC_WR(EMAC_REG_EMAC_MAC_MATCH + 4, val);
+
+		reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_EN;
+	} else
+		reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_DIS;
+
+	for_each_nondefault_queue(bp, i)
+		if (bnx2x_stop_multi(bp, i))
+			goto error;
+
+
+	bnx2x_stop_leading(bp);
+
+error:
+	if (!nomcp)
+		rc = bnx2x_fw_command(bp, reset_code);
+	else
+		rc = FW_MSG_CODE_DRV_UNLOAD_COMMON;
+
+	/* Release IRQs */
+	if (fre_irq)
+		bnx2x_free_irq(bp);
+
+	/* Reset the chip */
+	bnx2x_reset_chip(bp, rc);
+
+	/* Report UNLOAD_DONE to MCP */
+	if (!nomcp)
+		bnx2x_fw_command(bp, DRV_MSG_CODE_UNLOAD_DONE);
+
+	/* Free SKBs and driver internals */
+	bnx2x_free_skbs(bp);
+	bnx2x_free_mem(bp);
+
+	bp->state = BNX2X_STATE_CLOSED;
+	/* Set link down */
+	bp->link_up = 0;
+	netif_carrier_off(bp->dev);
+
+	return 0;
+}
+
+/* end of nic load/unload */
+
+/* ethtool_ops */
+
+/*
+ * Init service functions
+ */
+
+static void bnx2x_link_settings_supported(struct bnx2x *bp, u32 switch_cfg)
+{
+	int port = bp->port;
+	u32 ext_phy_type;
+
+	bp->phy_flags = 0;
+
+	switch (switch_cfg) {
+	case SWITCH_CFG_1G:
+		BNX2X_DEV_INFO("switch_cfg 0x%x (1G)\n", switch_cfg);
+
+		ext_phy_type = SERDES_EXT_PHY_TYPE(bp);
+		switch (ext_phy_type) {
+		case PORT_HW_CFG_SERDES_EXT_PHY_TYPE_DIRECT:
+			BNX2X_DEV_INFO("ext_phy_type 0x%x (Direct)\n",
+				       ext_phy_type);
+
+			bp->supported |= (SUPPORTED_10baseT_Half |
+					  SUPPORTED_10baseT_Full |
+					  SUPPORTED_100baseT_Half |
+					  SUPPORTED_100baseT_Full |
+					  SUPPORTED_1000baseT_Full |
+					  SUPPORTED_2500baseT_Full |
+					  SUPPORTED_TP | SUPPORTED_FIBRE |
+					  SUPPORTED_Autoneg |
+					  SUPPORTED_Pause |
+					  SUPPORTED_Asym_Pause);
+			break;
+
+		case PORT_HW_CFG_SERDES_EXT_PHY_TYPE_BCM5482:
+			BNX2X_DEV_INFO("ext_phy_type 0x%x (5482)\n",
+				       ext_phy_type);
+
+			bp->phy_flags |= PHY_SGMII_FLAG;
+
+			bp->supported |= (/* SUPPORTED_10baseT_Half |
+					     SUPPORTED_10baseT_Full |
+					     SUPPORTED_100baseT_Half |
+					     SUPPORTED_100baseT_Full |*/
+					  SUPPORTED_1000baseT_Full |
+					  SUPPORTED_TP | SUPPORTED_FIBRE |
+					  SUPPORTED_Autoneg |
+					  SUPPORTED_Pause |
+					  SUPPORTED_Asym_Pause);
+			break;
+
+		default:
+			BNX2X_ERR("NVRAM config error. "
+				  "BAD SerDes ext_phy_config 0x%x\n",
+				  bp->ext_phy_config);
+			return;
+		}
+
+		bp->phy_addr = REG_RD(bp, NIG_REG_SERDES0_CTRL_PHY_ADDR +
+				      port*0x10);
+		BNX2X_DEV_INFO("phy_addr 0x%x\n", bp->phy_addr);
+		break;
+
+	case SWITCH_CFG_10G:
+		BNX2X_DEV_INFO("switch_cfg 0x%x (10G)\n", switch_cfg);
+
+		bp->phy_flags |= PHY_XGXS_FLAG;
+
+		ext_phy_type = XGXS_EXT_PHY_TYPE(bp);
+		switch (ext_phy_type) {
+		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT:
+			BNX2X_DEV_INFO("ext_phy_type 0x%x (Direct)\n",
+				       ext_phy_type);
+
+			bp->supported |= (SUPPORTED_10baseT_Half |
+					  SUPPORTED_10baseT_Full |
+					  SUPPORTED_100baseT_Half |
+					  SUPPORTED_100baseT_Full |
+					  SUPPORTED_1000baseT_Full |
+					  SUPPORTED_2500baseT_Full |
+					  SUPPORTED_10000baseT_Full |
+					  SUPPORTED_TP | SUPPORTED_FIBRE |
+					  SUPPORTED_Autoneg |
+					  SUPPORTED_Pause |
+					  SUPPORTED_Asym_Pause);
+			break;
+
+		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8705:
+		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8706:
+			BNX2X_DEV_INFO("ext_phy_type 0x%x (8705/6)\n",
+				       ext_phy_type);
+
+			bp->supported |= (SUPPORTED_10000baseT_Full |
+					  SUPPORTED_FIBRE |
+					  SUPPORTED_Pause |
+					  SUPPORTED_Asym_Pause);
+			break;
+
+		default:
+			BNX2X_ERR("NVRAM config error. "
+				  "BAD XGXS ext_phy_config 0x%x\n",
+				  bp->ext_phy_config);
+			return;
+		}
+
+		bp->phy_addr = REG_RD(bp, NIG_REG_XGXS0_CTRL_PHY_ADDR +
+				      port*0x18);
+		BNX2X_DEV_INFO("phy_addr 0x%x\n", bp->phy_addr);
+
+		bp->ser_lane = ((bp->lane_config &
+				 PORT_HW_CFG_LANE_SWAP_CFG_MASTER_MASK) >>
+				PORT_HW_CFG_LANE_SWAP_CFG_MASTER_SHIFT);
+		bp->rx_lane_swap = ((bp->lane_config &
+				     PORT_HW_CFG_LANE_SWAP_CFG_RX_MASK) >>
+				    PORT_HW_CFG_LANE_SWAP_CFG_RX_SHIFT);
+		bp->tx_lane_swap = ((bp->lane_config &
+				     PORT_HW_CFG_LANE_SWAP_CFG_TX_MASK) >>
+				    PORT_HW_CFG_LANE_SWAP_CFG_TX_SHIFT);
+		BNX2X_DEV_INFO("rx_lane_swap 0x%x  tx_lane_swap 0x%x\n",
+			       bp->rx_lane_swap, bp->tx_lane_swap);
+		break;
+
+	default:
+		BNX2X_ERR("BAD switch_cfg link_config 0x%x\n",
+			  bp->link_config);
+		return;
+	}
+
+	/* mask what we support according to speed_cap_mask */
+	if (!(bp->speed_cap_mask &
+	      PORT_HW_CFG_SPEED_CAPABILITY_D0_10M_HALF))
+		bp->supported &= ~SUPPORTED_10baseT_Half;
+
+	if (!(bp->speed_cap_mask &
+	      PORT_HW_CFG_SPEED_CAPABILITY_D0_10M_FULL))
+		bp->supported &= ~SUPPORTED_10baseT_Full;
+
+	if (!(bp->speed_cap_mask &
+	      PORT_HW_CFG_SPEED_CAPABILITY_D0_100M_HALF))
+		bp->supported &= ~SUPPORTED_100baseT_Half;
+
+	if (!(bp->speed_cap_mask &
+	      PORT_HW_CFG_SPEED_CAPABILITY_D0_100M_FULL))
+		bp->supported &= ~SUPPORTED_100baseT_Full;
+
+	if (!(bp->speed_cap_mask & PORT_HW_CFG_SPEED_CAPABILITY_D0_1G))
+		bp->supported &= ~(SUPPORTED_1000baseT_Half |
+				   SUPPORTED_1000baseT_Full);
+
+	if (!(bp->speed_cap_mask & PORT_HW_CFG_SPEED_CAPABILITY_D0_2_5G))
+		bp->supported &= ~SUPPORTED_2500baseT_Full;
+
+	if (!(bp->speed_cap_mask & PORT_HW_CFG_SPEED_CAPABILITY_D0_10G))
+		bp->supported &= ~SUPPORTED_10000baseT_Full;
+
+	BNX2X_DEV_INFO("supported 0x%x\n", bp->supported);
+}
+
+static void bnx2x_link_settings_requested(struct bnx2x *bp)
+{
+	bp->req_autoneg = 0;
+	bp->req_duplex = DUPLEX_FULL;
+
+	switch (bp->link_config & PORT_FEATURE_LINK_SPEED_MASK) {
+	case PORT_FEATURE_LINK_SPEED_AUTO:
+		if (bp->supported & SUPPORTED_Autoneg) {
+			bp->req_autoneg |= AUTONEG_SPEED;
+			bp->req_line_speed = 0;
+			bp->advertising = bp->supported;
+		} else {
+			u32 ext_phy_type;
+
+			ext_phy_type = XGXS_EXT_PHY_TYPE(bp);
+			if ((ext_phy_type ==
+				PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8705) ||
+			    (ext_phy_type ==
+				PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8706)) {
+				/* force 10G, no AN */
+				bp->req_line_speed = SPEED_10000;
+				bp->advertising =
+						(ADVERTISED_10000baseT_Full |
+						 ADVERTISED_FIBRE);
+				break;
+			}
+			BNX2X_ERR("NVRAM config error. "
+				  "Invalid link_config 0x%x"
+				  "  Autoneg not supported\n",
+				  bp->link_config);
+			return;
+		}
+		break;
+
+	case PORT_FEATURE_LINK_SPEED_10M_FULL:
+		if (bp->speed_cap_mask &
+		    PORT_HW_CFG_SPEED_CAPABILITY_D0_10M_FULL) {
+			bp->req_line_speed = SPEED_10;
+			bp->advertising = (ADVERTISED_10baseT_Full |
+					   ADVERTISED_TP);
+		} else {
+			BNX2X_ERR("NVRAM config error. "
+				  "Invalid link_config 0x%x"
+				  "  speed_cap_mask 0x%x\n",
+				  bp->link_config, bp->speed_cap_mask);
+			return;
+		}
+		break;
+
+	case PORT_FEATURE_LINK_SPEED_10M_HALF:
+		if (bp->speed_cap_mask &
+		    PORT_HW_CFG_SPEED_CAPABILITY_D0_10M_HALF) {
+			bp->req_line_speed = SPEED_10;
+			bp->req_duplex = DUPLEX_HALF;
+			bp->advertising = (ADVERTISED_10baseT_Half |
+					   ADVERTISED_TP);
+		} else {
+			BNX2X_ERR("NVRAM config error. "
+				  "Invalid link_config 0x%x"
+				  "  speed_cap_mask 0x%x\n",
+				  bp->link_config, bp->speed_cap_mask);
+			return;
+		}
+		break;
+
+	case PORT_FEATURE_LINK_SPEED_100M_FULL:
+		if (bp->speed_cap_mask &
+		    PORT_HW_CFG_SPEED_CAPABILITY_D0_100M_FULL) {
+			bp->req_line_speed = SPEED_100;
+			bp->advertising = (ADVERTISED_100baseT_Full |
+					   ADVERTISED_TP);
+		} else {
+			BNX2X_ERR("NVRAM config error. "
+				  "Invalid link_config 0x%x"
+				  "  speed_cap_mask 0x%x\n",
+				  bp->link_config, bp->speed_cap_mask);
+			return;
+		}
+		break;
+
+	case PORT_FEATURE_LINK_SPEED_100M_HALF:
+		if (bp->speed_cap_mask &
+		    PORT_HW_CFG_SPEED_CAPABILITY_D0_100M_HALF) {
+			bp->req_line_speed = SPEED_100;
+			bp->req_duplex = DUPLEX_HALF;
+			bp->advertising = (ADVERTISED_100baseT_Half |
+					   ADVERTISED_TP);
+		} else {
+			BNX2X_ERR("NVRAM config error. "
+				  "Invalid link_config 0x%x"
+				  "  speed_cap_mask 0x%x\n",
+				  bp->link_config, bp->speed_cap_mask);
+			return;
+		}
+		break;
+
+	case PORT_FEATURE_LINK_SPEED_1G:
+		if (bp->speed_cap_mask &
+		    PORT_HW_CFG_SPEED_CAPABILITY_D0_1G) {
+			bp->req_line_speed = SPEED_1000;
+			bp->advertising = (ADVERTISED_1000baseT_Full |
+					   ADVERTISED_TP);
+		} else {
+			BNX2X_ERR("NVRAM config error. "
+				  "Invalid link_config 0x%x"
+				  "  speed_cap_mask 0x%x\n",
+				  bp->link_config, bp->speed_cap_mask);
+			return;
+		}
+		break;
+
+	case PORT_FEATURE_LINK_SPEED_2_5G:
+		if (bp->speed_cap_mask &
+		    PORT_HW_CFG_SPEED_CAPABILITY_D0_2_5G) {
+			bp->req_line_speed = SPEED_2500;
+			bp->advertising = (ADVERTISED_2500baseT_Full |
+					   ADVERTISED_TP);
+		} else {
+			BNX2X_ERR("NVRAM config error. "
+				  "Invalid link_config 0x%x"
+				  "  speed_cap_mask 0x%x\n",
+				  bp->link_config, bp->speed_cap_mask);
+			return;
+		}
+		break;
+
+	case PORT_FEATURE_LINK_SPEED_10G_CX4:
+	case PORT_FEATURE_LINK_SPEED_10G_KX4:
+	case PORT_FEATURE_LINK_SPEED_10G_KR:
+		if (!(bp->phy_flags & PHY_XGXS_FLAG)) {
+			BNX2X_ERR("NVRAM config error. "
+				  "Invalid link_config 0x%x"
+				  "  phy_flags 0x%x\n",
+				  bp->link_config, bp->phy_flags);
+			return;
+		}
+		if (bp->speed_cap_mask &
+		    PORT_HW_CFG_SPEED_CAPABILITY_D0_10G) {
+			bp->req_line_speed = SPEED_10000;
+			bp->advertising = (ADVERTISED_10000baseT_Full |
+					   ADVERTISED_FIBRE);
+		} else {
+			BNX2X_ERR("NVRAM config error. "
+				  "Invalid link_config 0x%x"
+				  "  speed_cap_mask 0x%x\n",
+				  bp->link_config, bp->speed_cap_mask);
+			return;
+		}
+		break;
+
+	default:
+		BNX2X_ERR("NVRAM config error. "
+			  "BAD link speed link_config 0x%x\n",
+			  bp->link_config);
+		bp->req_autoneg |= AUTONEG_SPEED;
+		bp->req_line_speed = 0;
+		bp->advertising = bp->supported;
+		break;
+	}
+	BNX2X_DEV_INFO("req_line_speed %d  req_duplex %d\n",
+		       bp->req_line_speed, bp->req_duplex);
+
+	bp->req_flow_ctrl = (bp->link_config &
+			     PORT_FEATURE_FLOW_CONTROL_MASK);
+	/* Please refer to Table 28B-3 of the 802.3ab-1999 spec */
+	switch (bp->req_flow_ctrl) {
+	case FLOW_CTRL_AUTO:
+		bp->req_autoneg |= AUTONEG_FLOW_CTRL;
+		if (bp->dev->mtu <= 4500) {
+			bp->pause_mode = PAUSE_BOTH;
+			bp->advertising |= (ADVERTISED_Pause |
+					    ADVERTISED_Asym_Pause);
+		} else {
+			bp->pause_mode = PAUSE_ASYMMETRIC;
+			bp->advertising |= ADVERTISED_Asym_Pause;
+		}
+		break;
+
+	case FLOW_CTRL_TX:
+		bp->pause_mode = PAUSE_ASYMMETRIC;
+		bp->advertising |= ADVERTISED_Asym_Pause;
+		break;
+
+	case FLOW_CTRL_RX:
+	case FLOW_CTRL_BOTH:
+		bp->pause_mode = PAUSE_BOTH;
+		bp->advertising |= (ADVERTISED_Pause |
+				    ADVERTISED_Asym_Pause);
+		break;
+
+	case FLOW_CTRL_NONE:
+	default:
+		bp->pause_mode = PAUSE_NONE;
+		bp->advertising &= ~(ADVERTISED_Pause |
+				     ADVERTISED_Asym_Pause);
+		break;
+	}
+	BNX2X_DEV_INFO("req_autoneg 0x%x  req_flow_ctrl 0x%x\n"
+	     KERN_INFO "  pause_mode %d  advertising 0x%x\n",
+		       bp->req_autoneg, bp->req_flow_ctrl,
+		       bp->pause_mode, bp->advertising);
+}
+
+static void bnx2x_get_hwinfo(struct bnx2x *bp)
+{
+	u32 val, val2, val3, val4, id;
+	int port = bp->port;
+	u32 switch_cfg;
+
+	bp->shmem_base = REG_RD(bp, MISC_REG_SHARED_MEM_ADDR);
+	BNX2X_DEV_INFO("shmem offset is %x\n", bp->shmem_base);
+
+	/* Get the chip revision id and number. */
+	/* chip num:16-31, rev:12-15, metal:4-11, bond_id:0-3 */
+	val = REG_RD(bp, MISC_REG_CHIP_NUM);
+	id = ((val & 0xffff) << 16);
+	val = REG_RD(bp, MISC_REG_CHIP_REV);
+	id |= ((val & 0xf) << 12);
+	val = REG_RD(bp, MISC_REG_CHIP_METAL);
+	id |= ((val & 0xff) << 4);
+	REG_RD(bp, MISC_REG_BOND_ID);
+	id |= (val & 0xf);
+	bp->chip_id = id;
+	BNX2X_DEV_INFO("chip ID is %x\n", id);
+
+	if (!bp->shmem_base || (bp->shmem_base != 0xAF900)) {
+		BNX2X_DEV_INFO("MCP not active\n");
+		nomcp = 1;
+		goto set_mac;
+	}
+
+	val = SHMEM_RD(bp, validity_map[port]);
+	if ((val & (SHR_MEM_VALIDITY_DEV_INFO | SHR_MEM_VALIDITY_MB))
+		!= (SHR_MEM_VALIDITY_DEV_INFO | SHR_MEM_VALIDITY_MB))
+		BNX2X_ERR("MCP validity signature bad\n");
+
+	bp->fw_seq = (SHMEM_RD(bp, drv_fw_mb[port].drv_mb_header) &
+		      DRV_MSG_SEQ_NUMBER_MASK);
+
+	bp->hw_config = SHMEM_RD(bp, dev_info.shared_hw_config.config);
+
+	bp->serdes_config =
+		SHMEM_RD(bp, dev_info.port_hw_config[bp->port].serdes_config);
+	bp->lane_config =
+		SHMEM_RD(bp, dev_info.port_hw_config[port].lane_config);
+	bp->ext_phy_config =
+		SHMEM_RD(bp,
+			 dev_info.port_hw_config[port].external_phy_config);
+	bp->speed_cap_mask =
+		SHMEM_RD(bp,
+			 dev_info.port_hw_config[port].speed_capability_mask);
+
+	bp->link_config =
+		SHMEM_RD(bp, dev_info.port_feature_config[port].link_config);
+
+	BNX2X_DEV_INFO("hw_config (%08x)  serdes_config (%08x)\n"
+	     KERN_INFO "  lane_config (%08x)  ext_phy_config (%08x)\n"
+	     KERN_INFO "  speed_cap_mask (%08x)  link_config (%08x)"
+		       "  fw_seq (%08x)\n",
+		       bp->hw_config, bp->serdes_config, bp->lane_config,
+		       bp->ext_phy_config, bp->speed_cap_mask,
+		       bp->link_config, bp->fw_seq);
+
+	switch_cfg = (bp->link_config & PORT_FEATURE_CONNECTED_SWITCH_MASK);
+	bnx2x_link_settings_supported(bp, switch_cfg);
+
+	bp->autoneg = (bp->hw_config & SHARED_HW_CFG_AN_ENABLE_MASK);
+	/* for now disable cl73 */
+	bp->autoneg &= ~SHARED_HW_CFG_AN_ENABLE_CL73;
+	BNX2X_DEV_INFO("autoneg 0x%x\n", bp->autoneg);
+
+	bnx2x_link_settings_requested(bp);
+
+	val2 = SHMEM_RD(bp, dev_info.port_hw_config[port].mac_upper);
+	val = SHMEM_RD(bp, dev_info.port_hw_config[port].mac_lower);
+	bp->dev->dev_addr[0] = (u8)(val2 >> 8 & 0xff);
+	bp->dev->dev_addr[1] = (u8)(val2 & 0xff);
+	bp->dev->dev_addr[2] = (u8)(val >> 24 & 0xff);
+	bp->dev->dev_addr[3] = (u8)(val >> 16 & 0xff);
+	bp->dev->dev_addr[4] = (u8)(val >> 8  & 0xff);
+	bp->dev->dev_addr[5] = (u8)(val & 0xff);
+
+	memcpy(bp->dev->perm_addr, bp->dev->dev_addr, 6);
+
+
+	val = SHMEM_RD(bp, dev_info.shared_hw_config.part_num);
+	val2 = SHMEM_RD(bp, dev_info.shared_hw_config.part_num[4]);
+	val3 = SHMEM_RD(bp, dev_info.shared_hw_config.part_num[8]);
+	val4 = SHMEM_RD(bp, dev_info.shared_hw_config.part_num[12]);
+
+	printk(KERN_INFO PFX "part number %X-%X-%X-%X\n",
+	       val, val2, val3, val4);
+
+	/* bc ver */
+	if (!nomcp) {
+		bp->bc_ver = val = ((SHMEM_RD(bp, dev_info.bc_rev)) >> 8);
+		BNX2X_DEV_INFO("bc_ver %X\n", val);
+		if (val < BNX2X_BC_VER) {
+			/* for now only warn
+			 * later we might need to enforce this */
+			BNX2X_ERR("This driver needs bc_ver %X but found %X,"
+				  " please upgrade BC\n", BNX2X_BC_VER, val);
+		}
+	} else {
+		bp->bc_ver = 0;
+	}
+
+	val = REG_RD(bp, MCP_REG_MCPR_NVM_CFG4);
+	bp->flash_size = (NVRAM_1MB_SIZE << (val & MCPR_NVM_CFG4_FLASH_SIZE));
+	BNX2X_DEV_INFO("flash_size 0x%x (%d)\n",
+		       bp->flash_size, bp->flash_size);
+
+	return;
+
+set_mac: /* only supposed to happen on emulation/FPGA */
+	BNX2X_ERR("warning constant MAC workaround active\n");
+	bp->dev->dev_addr[0] = 0;
+	bp->dev->dev_addr[1] = 0x50;
+	bp->dev->dev_addr[2] = 0xc2;
+	bp->dev->dev_addr[3] = 0x2c;
+	bp->dev->dev_addr[4] = 0x71;
+	bp->dev->dev_addr[5] = port ? 0x0d : 0x0e;
+
+	memcpy(bp->dev->perm_addr, bp->dev->dev_addr, 6);
+
+}
+
+/*
+ * ethtool service functions
+ */
+
+/* All ethtool functions called with rtnl_lock */
+
+static int bnx2x_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	cmd->supported = bp->supported;
+	cmd->advertising = bp->advertising;
+
+	if (netif_carrier_ok(dev)) {
+		cmd->speed = bp->line_speed;
+		cmd->duplex = bp->duplex;
+	} else {
+		cmd->speed = bp->req_line_speed;
+		cmd->duplex = bp->req_duplex;
+	}
+
+	if (bp->phy_flags & PHY_XGXS_FLAG) {
+		cmd->port = PORT_FIBRE;
+	} else {
+		cmd->port = PORT_TP;
+	}
+
+	cmd->phy_address = bp->phy_addr;
+	cmd->transceiver = XCVR_INTERNAL;
+
+	if (bp->req_autoneg & AUTONEG_SPEED) {
+		cmd->autoneg = AUTONEG_ENABLE;
+	} else {
+		cmd->autoneg = AUTONEG_DISABLE;
+	}
+
+	cmd->maxtxpkt = 0;
+	cmd->maxrxpkt = 0;
+
+	DP(NETIF_MSG_LINK, "ethtool_cmd: cmd %d\n"
+	   DP_LEVEL "  supported 0x%x  advertising 0x%x  speed %d\n"
+	   DP_LEVEL "  duplex %d  port %d  phy_address %d  transceiver %d\n"
+	   DP_LEVEL "  autoneg %d  maxtxpkt %d  maxrxpkt %d\n",
+	   cmd->cmd, cmd->supported, cmd->advertising, cmd->speed,
+	   cmd->duplex, cmd->port, cmd->phy_address, cmd->transceiver,
+	   cmd->autoneg, cmd->maxtxpkt, cmd->maxrxpkt);
+
+	return 0;
+}
+
+static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+	u32 advertising;
+
+	DP(NETIF_MSG_LINK, "ethtool_cmd: cmd %d\n"
+	   DP_LEVEL "  supported 0x%x  advertising 0x%x  speed %d\n"
+	   DP_LEVEL "  duplex %d  port %d  phy_address %d  transceiver %d\n"
+	   DP_LEVEL "  autoneg %d  maxtxpkt %d  maxrxpkt %d\n",
+	   cmd->cmd, cmd->supported, cmd->advertising, cmd->speed,
+	   cmd->duplex, cmd->port, cmd->phy_address, cmd->transceiver,
+	   cmd->autoneg, cmd->maxtxpkt, cmd->maxrxpkt);
+
+	switch (cmd->port) {
+	case PORT_TP:
+		if (!(bp->supported & SUPPORTED_TP))
+			return -EINVAL;
+
+		if (bp->phy_flags & PHY_XGXS_FLAG) {
+			bnx2x_link_reset(bp);
+			bnx2x_link_settings_supported(bp, SWITCH_CFG_1G);
+			bnx2x_phy_deassert(bp);
+		}
+		break;
+
+	case PORT_FIBRE:
+		if (!(bp->supported & SUPPORTED_FIBRE))
+			return -EINVAL;
+
+		if (!(bp->phy_flags & PHY_XGXS_FLAG)) {
+			bnx2x_link_reset(bp);
+			bnx2x_link_settings_supported(bp, SWITCH_CFG_10G);
+			bnx2x_phy_deassert(bp);
+		}
+		break;
+
+	default:
+		return -EINVAL;
+	}
+
+	if (cmd->autoneg == AUTONEG_ENABLE) {
+		if (!(bp->supported & SUPPORTED_Autoneg))
+			return -EINVAL;
+
+		/* advertise the requested speed and duplex if supported */
+		cmd->advertising &= bp->supported;
+
+		bp->req_autoneg |= AUTONEG_SPEED;
+		bp->req_line_speed = 0;
+		bp->req_duplex = DUPLEX_FULL;
+		bp->advertising |= (ADVERTISED_Autoneg | cmd->advertising);
+
+	} else { /* forced speed */
+		/* advertise the requested speed and duplex if supported */
+		switch (cmd->speed) {
+		case SPEED_10:
+			if (cmd->duplex == DUPLEX_FULL) {
+				if (!(bp->supported & SUPPORTED_10baseT_Full))
+					return -EINVAL;
+
+				advertising = (ADVERTISED_10baseT_Full |
+					       ADVERTISED_TP);
+			} else {
+				if (!(bp->supported & SUPPORTED_10baseT_Half))
+					return -EINVAL;
+
+				advertising = (ADVERTISED_10baseT_Half |
+					       ADVERTISED_TP);
+			}
+			break;
+
+		case SPEED_100:
+			if (cmd->duplex == DUPLEX_FULL) {
+				if (!(bp->supported &
+						SUPPORTED_100baseT_Full))
+					return -EINVAL;
+
+				advertising = (ADVERTISED_100baseT_Full |
+					       ADVERTISED_TP);
+			} else {
+				if (!(bp->supported &
+						SUPPORTED_100baseT_Half))
+					return -EINVAL;
+
+				advertising = (ADVERTISED_100baseT_Half |
+					       ADVERTISED_TP);
+			}
+			break;
+
+		case SPEED_1000:
+			if (cmd->duplex != DUPLEX_FULL)
+				return -EINVAL;
+
+			if (!(bp->supported & SUPPORTED_1000baseT_Full))
+				return -EINVAL;
+
+			advertising = (ADVERTISED_1000baseT_Full |
+				       ADVERTISED_TP);
+			break;
+
+		case SPEED_2500:
+			if (cmd->duplex != DUPLEX_FULL)
+				return -EINVAL;
+
+			if (!(bp->supported & SUPPORTED_2500baseT_Full))
+				return -EINVAL;
+
+			advertising = (ADVERTISED_2500baseT_Full |
+				       ADVERTISED_TP);
+			break;
+
+		case SPEED_10000:
+			if (cmd->duplex != DUPLEX_FULL)
+				return -EINVAL;
+
+			if (!(bp->supported & SUPPORTED_10000baseT_Full))
+				return -EINVAL;
+
+			advertising = (ADVERTISED_10000baseT_Full |
+				       ADVERTISED_FIBRE);
+			break;
+
+		default:
+			return -EINVAL;
+		}
+
+		bp->req_autoneg &= ~AUTONEG_SPEED;
+		bp->req_line_speed = cmd->speed;
+		bp->req_duplex = cmd->duplex;
+		bp->advertising = advertising;
+	}
+
+	DP(NETIF_MSG_LINK, "req_autoneg 0x%x  req_line_speed %d\n"
+	   DP_LEVEL "  req_duplex %d  advertising 0x%x\n",
+	   bp->req_autoneg, bp->req_line_speed, bp->req_duplex,
+	   bp->advertising);
+
+	bnx2x_stop_stats(bp);
+	bnx2x_link_initialize(bp);
+
+	return 0;
+}
+
+static void bnx2x_get_drvinfo(struct net_device *dev,
+			      struct ethtool_drvinfo *info)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	strcpy(info->driver, DRV_MODULE_NAME);
+	strcpy(info->version, DRV_MODULE_VERSION);
+	snprintf(info->fw_version, 32, "%d.%d.%d:%d (BC VER %x)",
+		 BCM_5710_FW_MAJOR_VERSION, BCM_5710_FW_MINOR_VERSION,
+		 BCM_5710_FW_REVISION_VERSION, BCM_5710_FW_COMPILE_FLAGS,
+		 bp->bc_ver);
+	strcpy(info->bus_info, pci_name(bp->pdev));
+	info->n_stats = BNX2X_NUM_STATS;
+	info->testinfo_len = BNX2X_NUM_TESTS;
+	info->eedump_len = bp->flash_size;
+	info->regdump_len = 0;
+}
+
+static void bnx2x_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	if (bp->flags & NO_WOL_FLAG) {
+		wol->supported = 0;
+		wol->wolopts = 0;
+	} else {
+		wol->supported = WAKE_MAGIC;
+		if (bp->wol)
+			wol->wolopts = WAKE_MAGIC;
+		else
+			wol->wolopts = 0;
+	}
+	memset(&wol->sopass, 0, sizeof(wol->sopass));
+}
+
+static int bnx2x_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	if (wol->wolopts & ~WAKE_MAGIC)
+		return -EINVAL;
+
+	if (wol->wolopts & WAKE_MAGIC) {
+		if (bp->flags & NO_WOL_FLAG)
+			return -EINVAL;
+
+		bp->wol = 1;
+	} else {
+		bp->wol = 0;
+	}
+	return 0;
+}
+
+static u32 bnx2x_get_msglevel(struct net_device *dev)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	return bp->msglevel;
+}
+
+static void bnx2x_set_msglevel(struct net_device *dev, u32 level)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	if (capable(CAP_NET_ADMIN))
+		bp->msglevel = level;
+}
+
+static int bnx2x_nway_reset(struct net_device *dev)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	if (bp->state != BNX2X_STATE_OPEN) {
+		DP(NETIF_MSG_PROBE, "state is %x, returning\n", bp->state);
+		return -EAGAIN;
+	}
+
+	bnx2x_stop_stats(bp);
+	bnx2x_link_initialize(bp);
+
+	return 0;
+}
+
+static int bnx2x_get_eeprom_len(struct net_device *dev)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	return bp->flash_size;
+}
+
+static int bnx2x_acquire_nvram_lock(struct bnx2x *bp)
+{
+	int port = bp->port;
+	int count, i;
+	u32 val = 0;
+
+	/* adjust timeout for emulation/FPGA */
+	count = NVRAM_TIMEOUT_COUNT;
+	if (CHIP_REV_IS_SLOW(bp))
+		count *= 100;
+
+	/* request access to nvram interface */
+	REG_WR(bp, MCP_REG_MCPR_NVM_SW_ARB,
+	       (MCPR_NVM_SW_ARB_ARB_REQ_SET1 << port));
+
+	for (i = 0; i < count*10; i++) {
+		val = REG_RD(bp, MCP_REG_MCPR_NVM_SW_ARB);
+		if (val & (MCPR_NVM_SW_ARB_ARB_ARB1 << port))
+			break;
+
+		udelay(5);
+	}
+
+	if (!(val & (MCPR_NVM_SW_ARB_ARB_ARB1 << port))) {
+		DP(NETIF_MSG_NVM, "cannot get access to nvram interface\n");
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
+static int bnx2x_release_nvram_lock(struct bnx2x *bp)
+{
+	int port = bp->port;
+	int count, i;
+	u32 val = 0;
+
+	/* adjust timeout for emulation/FPGA */
+	count = NVRAM_TIMEOUT_COUNT;
+	if (CHIP_REV_IS_SLOW(bp))
+		count *= 100;
+
+	/* relinquish nvram interface */
+	REG_WR(bp, MCP_REG_MCPR_NVM_SW_ARB,
+	       (MCPR_NVM_SW_ARB_ARB_REQ_CLR1 << port));
+
+	for (i = 0; i < count*10; i++) {
+		val = REG_RD(bp, MCP_REG_MCPR_NVM_SW_ARB);
+		if (!(val & (MCPR_NVM_SW_ARB_ARB_ARB1 << port)))
+			break;
+
+		udelay(5);
+	}
+
+	if (val & (MCPR_NVM_SW_ARB_ARB_ARB1 << port)) {
+		DP(NETIF_MSG_NVM, "cannot free access to nvram interface\n");
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
+static void bnx2x_enable_nvram_access(struct bnx2x *bp)
+{
+	u32 val;
+
+	val = REG_RD(bp, MCP_REG_MCPR_NVM_ACCESS_ENABLE);
+
+	/* enable both bits, even on read */
+	REG_WR(bp, MCP_REG_MCPR_NVM_ACCESS_ENABLE,
+	       (val | MCPR_NVM_ACCESS_ENABLE_EN |
+		      MCPR_NVM_ACCESS_ENABLE_WR_EN));
+}
+
+static void bnx2x_disable_nvram_access(struct bnx2x *bp)
+{
+	u32 val;
+
+	val = REG_RD(bp, MCP_REG_MCPR_NVM_ACCESS_ENABLE);
+
+	/* disable both bits, even after read */
+	REG_WR(bp, MCP_REG_MCPR_NVM_ACCESS_ENABLE,
+	       (val & ~(MCPR_NVM_ACCESS_ENABLE_EN |
+			MCPR_NVM_ACCESS_ENABLE_WR_EN)));
+}
+
+static int bnx2x_nvram_read_dword(struct bnx2x *bp, u32 offset, u32 *ret_val,
+				  u32 cmd_flags)
+{
+	int rc;
+	int count, i;
+	u32 val;
+
+	/* build the command word */
+	cmd_flags |= MCPR_NVM_COMMAND_DOIT;
+
+	/* need to clear DONE bit separately */
+	REG_WR(bp, MCP_REG_MCPR_NVM_COMMAND, MCPR_NVM_COMMAND_DONE);
+
+	/* address of the NVRAM to read from */
+	REG_WR(bp, MCP_REG_MCPR_NVM_ADDR,
+	       (offset & MCPR_NVM_ADDR_NVM_ADDR_VALUE));
+
+	/* issue a read command */
+	REG_WR(bp, MCP_REG_MCPR_NVM_COMMAND, cmd_flags);
+
+	/* adjust timeout for emulation/FPGA */
+	count = NVRAM_TIMEOUT_COUNT;
+	if (CHIP_REV_IS_SLOW(bp))
+		count *= 100;
+
+	/* wait for completion */
+	*ret_val = 0;
+	rc = -EBUSY;
+	for (i = 0; i < count; i++) {
+		udelay(5);
+		val = REG_RD(bp, MCP_REG_MCPR_NVM_COMMAND);
+
+		if (val & MCPR_NVM_COMMAND_DONE) {
+			val = REG_RD(bp, MCP_REG_MCPR_NVM_READ);
+			DP(NETIF_MSG_NVM, "val 0x%08x\n", val);
+			/* we read nvram data in cpu order
+			 * but ethtool sees it as an array of bytes
+			 * converting to big-endian will do the work */
+			val = cpu_to_be32(val);
+			*ret_val = val;
+			rc = 0;
+			break;
+		}
+	}
+
+	return rc;
+}
+
+static int bnx2x_nvram_read(struct bnx2x *bp, u32 offset, u8 *ret_buf,
+			    int buf_size)
+{
+	int rc;
+	u32 cmd_flags;
+	u32 val;
+
+	if ((offset & 0x03) || (buf_size & 0x03) || (buf_size == 0)) {
+		DP(NETIF_MSG_NVM,
+		   "Invalid paramter: offset 0x%x  buf_size 0x%x\n",
+		   offset, buf_size);
+		return -EINVAL;
+	}
+
+	if (offset + buf_size > bp->flash_size) {
+		DP(NETIF_MSG_NVM, "Invalid paramter: offset (0x%x) +"
+				  " buf_size (0x%x) > flash_size (0x%x)\n",
+		   offset, buf_size, bp->flash_size);
+		return -EINVAL;
+	}
+
+	/* request access to nvram interface */
+	rc = bnx2x_acquire_nvram_lock(bp);
+	if (rc)
+		return rc;
+
+	/* enable access to nvram interface */
+	bnx2x_enable_nvram_access(bp);
+
+	/* read the first word(s) */
+	cmd_flags = MCPR_NVM_COMMAND_FIRST;
+	while ((buf_size > sizeof(u32)) && (rc == 0)) {
+		rc = bnx2x_nvram_read_dword(bp, offset, &val, cmd_flags);
+		memcpy(ret_buf, &val, 4);
+
+		/* advance to the next dword */
+		offset += sizeof(u32);
+		ret_buf += sizeof(u32);
+		buf_size -= sizeof(u32);
+		cmd_flags = 0;
+	}
+
+	if (rc == 0) {
+		cmd_flags |= MCPR_NVM_COMMAND_LAST;
+		rc = bnx2x_nvram_read_dword(bp, offset, &val, cmd_flags);
+		memcpy(ret_buf, &val, 4);
+	}
+
+	/* disable access to nvram interface */
+	bnx2x_disable_nvram_access(bp);
+	bnx2x_release_nvram_lock(bp);
+
+	return rc;
+}
+
+static int bnx2x_get_eeprom(struct net_device *dev,
+			    struct ethtool_eeprom *eeprom, u8 *eebuf)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+	int rc;
+
+	DP(NETIF_MSG_NVM, "ethtool_eeprom: cmd %d\n"
+	   DP_LEVEL "  magic 0x%x  offset 0x%x (%d)  len 0x%x (%d)\n",
+	   eeprom->cmd, eeprom->magic, eeprom->offset, eeprom->offset,
+	   eeprom->len, eeprom->len);
+
+	/* parameters already validated in ethtool_get_eeprom */
+
+	rc = bnx2x_nvram_read(bp, eeprom->offset, eebuf, eeprom->len);
+
+	return rc;
+}
+
+static int bnx2x_nvram_write_dword(struct bnx2x *bp, u32 offset, u32 val,
+				   u32 cmd_flags)
+{
+	int rc;
+	int count, i;
+
+	/* build the command word */
+	cmd_flags |= MCPR_NVM_COMMAND_DOIT | MCPR_NVM_COMMAND_WR;
+
+	/* need to clear DONE bit separately */
+	REG_WR(bp, MCP_REG_MCPR_NVM_COMMAND, MCPR_NVM_COMMAND_DONE);
+
+	/* write the data */
+	REG_WR(bp, MCP_REG_MCPR_NVM_WRITE, val);
+
+	/* address of the NVRAM to write to */
+	REG_WR(bp, MCP_REG_MCPR_NVM_ADDR,
+	       (offset & MCPR_NVM_ADDR_NVM_ADDR_VALUE));
+
+	/* issue the write command */
+	REG_WR(bp, MCP_REG_MCPR_NVM_COMMAND, cmd_flags);
+
+	/* adjust timeout for emulation/FPGA */
+	count = NVRAM_TIMEOUT_COUNT;
+	if (CHIP_REV_IS_SLOW(bp))
+		count *= 100;
+
+	/* wait for completion */
+	rc = -EBUSY;
+	for (i = 0; i < count; i++) {
+		udelay(5);
+		val = REG_RD(bp, MCP_REG_MCPR_NVM_COMMAND);
+		if (val & MCPR_NVM_COMMAND_DONE) {
+			rc = 0;
+			break;
+		}
+	}
+
+	return rc;
+}
+
+#define BYTE_OFFSET(offset)     	(8 * (offset & 0x03))
+
+static int bnx2x_nvram_write1(struct bnx2x *bp, u32 offset, u8 *data_buf,
+			      int buf_size)
+{
+	int rc;
+	u32 cmd_flags;
+	u32 align_offset;
+	u32 val;
+
+	if (offset + buf_size > bp->flash_size) {
+		DP(NETIF_MSG_NVM, "Invalid paramter: offset (0x%x) +"
+				  " buf_size (0x%x) > flash_size (0x%x)\n",
+		   offset, buf_size, bp->flash_size);
+		return -EINVAL;
+	}
+
+	/* request access to nvram interface */
+	rc = bnx2x_acquire_nvram_lock(bp);
+	if (rc)
+		return rc;
+
+	/* enable access to nvram interface */
+	bnx2x_enable_nvram_access(bp);
+
+	cmd_flags = (MCPR_NVM_COMMAND_FIRST | MCPR_NVM_COMMAND_LAST);
+	align_offset = (offset & ~0x03);
+	rc = bnx2x_nvram_read_dword(bp, align_offset, &val, cmd_flags);
+
+	if (rc == 0) {
+		val &= ~(0xff << BYTE_OFFSET(offset));
+		val |= (*data_buf << BYTE_OFFSET(offset));
+
+		/* nvram data is returned as an array of bytes
+		 * convert it back to cpu order */
+		val = be32_to_cpu(val);
+
+		DP(NETIF_MSG_NVM, "val 0x%08x\n", val);
+
+		rc = bnx2x_nvram_write_dword(bp, align_offset, val,
+					     cmd_flags);
+	}
+
+	/* disable access to nvram interface */
+	bnx2x_disable_nvram_access(bp);
+	bnx2x_release_nvram_lock(bp);
+
+	return rc;
+}
+
+static int bnx2x_nvram_write(struct bnx2x *bp, u32 offset, u8 *data_buf,
+			     int buf_size)
+{
+	int rc;
+	u32 cmd_flags;
+	u32 val;
+	u32 written_so_far;
+
+	if (buf_size == 1) {    /* ethtool */
+		return bnx2x_nvram_write1(bp, offset, data_buf, buf_size);
+	}
+
+	if ((offset & 0x03) || (buf_size & 0x03) || (buf_size == 0)) {
+		DP(NETIF_MSG_NVM,
+		   "Invalid paramter: offset 0x%x  buf_size 0x%x\n",
+		   offset, buf_size);
+		return -EINVAL;
+	}
+
+	if (offset + buf_size > bp->flash_size) {
+		DP(NETIF_MSG_NVM, "Invalid paramter: offset (0x%x) +"
+				  " buf_size (0x%x) > flash_size (0x%x)\n",
+		   offset, buf_size, bp->flash_size);
+		return -EINVAL;
+	}
+
+	/* request access to nvram interface */
+	rc = bnx2x_acquire_nvram_lock(bp);
+	if (rc)
+		return rc;
+
+	/* enable access to nvram interface */
+	bnx2x_enable_nvram_access(bp);
+
+	written_so_far = 0;
+	cmd_flags = MCPR_NVM_COMMAND_FIRST;
+	while ((written_so_far < buf_size) && (rc == 0)) {
+		if (written_so_far == (buf_size - sizeof(u32)))
+			cmd_flags |= MCPR_NVM_COMMAND_LAST;
+		else if (((offset + 4) % NVRAM_PAGE_SIZE) == 0)
+			cmd_flags |= MCPR_NVM_COMMAND_LAST;
+		else if ((offset % NVRAM_PAGE_SIZE) == 0)
+			cmd_flags |= MCPR_NVM_COMMAND_FIRST;
+
+		memcpy(&val, data_buf, 4);
+		DP(NETIF_MSG_NVM, "val 0x%08x\n", val);
+
+		rc = bnx2x_nvram_write_dword(bp, offset, val, cmd_flags);
+
+		/* advance to the next dword */
+		offset += sizeof(u32);
+		data_buf += sizeof(u32);
+		written_so_far += sizeof(u32);
+		cmd_flags = 0;
+	}
+
+	/* disable access to nvram interface */
+	bnx2x_disable_nvram_access(bp);
+	bnx2x_release_nvram_lock(bp);
+
+	return rc;
+}
+
+static int bnx2x_set_eeprom(struct net_device *dev,
+			    struct ethtool_eeprom *eeprom, u8 *eebuf)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+	int rc;
+
+	DP(NETIF_MSG_NVM, "ethtool_eeprom: cmd %d\n"
+	   DP_LEVEL "  magic 0x%x  offset 0x%x (%d)  len 0x%x (%d)\n",
+	   eeprom->cmd, eeprom->magic, eeprom->offset, eeprom->offset,
+	   eeprom->len, eeprom->len);
+
+	/* parameters already validated in ethtool_set_eeprom */
+
+	rc = bnx2x_nvram_write(bp, eeprom->offset, eebuf, eeprom->len);
+
+	return rc;
+}
+
+static int bnx2x_get_coalesce(struct net_device *dev,
+			      struct ethtool_coalesce *coal)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	memset(coal, 0, sizeof(struct ethtool_coalesce));
+
+	coal->rx_coalesce_usecs = bp->rx_ticks;
+	coal->tx_coalesce_usecs = bp->tx_ticks;
+	coal->stats_block_coalesce_usecs = bp->stats_ticks;
+
+	return 0;
+}
+
+static int bnx2x_set_coalesce(struct net_device *dev,
+			      struct ethtool_coalesce *coal)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	bp->rx_ticks = (u16) coal->rx_coalesce_usecs;
+	if (bp->rx_ticks > 3000)
+		bp->rx_ticks = 3000;
+
+	bp->tx_ticks = (u16) coal->tx_coalesce_usecs;
+	if (bp->tx_ticks > 0x3000)
+		bp->tx_ticks = 0x3000;
+
+	bp->stats_ticks = coal->stats_block_coalesce_usecs;
+	if (bp->stats_ticks > 0xffff00)
+		bp->stats_ticks = 0xffff00;
+	bp->stats_ticks &= 0xffff00;
+
+	if (netif_running(bp->dev))
+		bnx2x_update_coalesce(bp);
+
+	return 0;
+}
+
+static void bnx2x_get_ringparam(struct net_device *dev,
+				struct ethtool_ringparam *ering)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	ering->rx_max_pending = MAX_RX_AVAIL;
+	ering->rx_mini_max_pending = 0;
+	ering->rx_jumbo_max_pending = 0;
+
+	ering->rx_pending = bp->rx_ring_size;
+	ering->rx_mini_pending = 0;
+	ering->rx_jumbo_pending = 0;
+
+	ering->tx_max_pending = MAX_TX_AVAIL;
+	ering->tx_pending = bp->tx_ring_size;
+}
+
+static int bnx2x_set_ringparam(struct net_device *dev,
+			       struct ethtool_ringparam *ering)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	if ((ering->rx_pending > MAX_RX_AVAIL) ||
+	    (ering->tx_pending > MAX_TX_AVAIL) ||
+	    (ering->tx_pending <= MAX_SKB_FRAGS + 4))
+		return -EINVAL;
+
+	bp->rx_ring_size = ering->rx_pending;
+	bp->tx_ring_size = ering->tx_pending;
+
+	if (netif_running(bp->dev)) {
+		bnx2x_nic_unload(bp, 0);
+		bnx2x_nic_load(bp, 0);
+	}
+
+	return 0;
+}
+
+static void bnx2x_get_pauseparam(struct net_device *dev,
+				 struct ethtool_pauseparam *epause)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	epause->autoneg =
+		((bp->req_autoneg & AUTONEG_FLOW_CTRL) == AUTONEG_FLOW_CTRL);
+	epause->rx_pause = ((bp->flow_ctrl & FLOW_CTRL_RX) == FLOW_CTRL_RX);
+	epause->tx_pause = ((bp->flow_ctrl & FLOW_CTRL_TX) == FLOW_CTRL_TX);
+
+	DP(NETIF_MSG_LINK, "ethtool_pauseparam: cmd %d\n"
+	   DP_LEVEL "  autoneg %d  rx_pause %d  tx_pause %d\n",
+	   epause->cmd, epause->autoneg, epause->rx_pause, epause->tx_pause);
+}
+
+static int bnx2x_set_pauseparam(struct net_device *dev,
+				struct ethtool_pauseparam *epause)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	DP(NETIF_MSG_LINK, "ethtool_pauseparam: cmd %d\n"
+	   DP_LEVEL "  autoneg %d  rx_pause %d  tx_pause %d\n",
+	   epause->cmd, epause->autoneg, epause->rx_pause, epause->tx_pause);
+
+	bp->req_flow_ctrl = FLOW_CTRL_AUTO;
+	if (epause->autoneg) {
+		bp->req_autoneg |= AUTONEG_FLOW_CTRL;
+		if (bp->dev->mtu <= 4500) {
+			bp->pause_mode = PAUSE_BOTH;
+			bp->advertising |= (ADVERTISED_Pause |
+					    ADVERTISED_Asym_Pause);
+		} else {
+			bp->pause_mode = PAUSE_ASYMMETRIC;
+			bp->advertising |= ADVERTISED_Asym_Pause;
+		}
+
+	} else {
+		bp->req_autoneg &= ~AUTONEG_FLOW_CTRL;
+
+		if (epause->rx_pause)
+			bp->req_flow_ctrl |= FLOW_CTRL_RX;
+		if (epause->tx_pause)
+			bp->req_flow_ctrl |= FLOW_CTRL_TX;
+
+		switch (bp->req_flow_ctrl) {
+		case FLOW_CTRL_AUTO:
+			bp->req_flow_ctrl = FLOW_CTRL_NONE;
+			bp->pause_mode = PAUSE_NONE;
+			bp->advertising &= ~(ADVERTISED_Pause |
+					     ADVERTISED_Asym_Pause);
+			break;
+
+		case FLOW_CTRL_TX:
+			bp->pause_mode = PAUSE_ASYMMETRIC;
+			bp->advertising |= ADVERTISED_Asym_Pause;
+			break;
+
+		case FLOW_CTRL_RX:
+		case FLOW_CTRL_BOTH:
+			bp->pause_mode = PAUSE_BOTH;
+			bp->advertising |= (ADVERTISED_Pause |
+					    ADVERTISED_Asym_Pause);
+			break;
+		}
+	}
+
+	DP(NETIF_MSG_LINK, "req_autoneg 0x%x  req_flow_ctrl 0x%x\n"
+	   DP_LEVEL "  pause_mode %d  advertising 0x%x\n",
+	   bp->req_autoneg, bp->req_flow_ctrl, bp->pause_mode,
+	   bp->advertising);
+
+	bnx2x_stop_stats(bp);
+	bnx2x_link_initialize(bp);
+
+	return 0;
+}
+
+static u32 bnx2x_get_rx_csum(struct net_device *dev)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	return bp->rx_csum;
+}
+
+static int bnx2x_set_rx_csum(struct net_device *dev, u32 data)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	bp->rx_csum = data;
+	return 0;
+}
+
+static int bnx2x_set_tso(struct net_device *dev, u32 data)
+{
+	if (data)
+		dev->features |= (NETIF_F_TSO | NETIF_F_TSO_ECN);
+	else
+		dev->features &= ~(NETIF_F_TSO | NETIF_F_TSO_ECN);
+	return 0;
+}
+
+static struct {
+	char string[ETH_GSTRING_LEN];
+} bnx2x_tests_str_arr[BNX2X_NUM_TESTS] = {
+	{ "MC Errors  (online)" }
+};
+
+static int bnx2x_self_test_count(struct net_device *dev)
+{
+	return BNX2X_NUM_TESTS;
+}
+
+static void bnx2x_self_test(struct net_device *dev,
+			    struct ethtool_test *etest, u64 *buf)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+	int stats_state;
+
+	memset(buf, 0, sizeof(u64) * BNX2X_NUM_TESTS);
+
+	if (bp->state != BNX2X_STATE_OPEN) {
+		DP(NETIF_MSG_PROBE, "state is %x, returning\n", bp->state);
+		return;
+	}
+
+	stats_state = bp->stats_state;
+	bnx2x_stop_stats(bp);
+
+	if (bnx2x_mc_assert(bp) != 0) {
+		buf[0] = 1;
+		etest->flags |= ETH_TEST_FL_FAILED;
+	}
+
+#ifdef BNX2X_EXTRA_DEBUG
+	bnx2x_panic_dump(bp);
+#endif
+	bp->stats_state = stats_state;
+}
+
+static struct {
+	char string[ETH_GSTRING_LEN];
+} bnx2x_stats_str_arr[BNX2X_NUM_STATS] = {
+	{ "rx_bytes"},  			 /*  0 */
+	{ "rx_error_bytes"},    		 /*  1 */
+	{ "tx_bytes"},  			 /*  2 */
+	{ "tx_error_bytes"},    		 /*  3 */
+	{ "rx_ucast_packets"},  		 /*  4 */
+	{ "rx_mcast_packets"},  		 /*  5 */
+	{ "rx_bcast_packets"},  		 /*  6 */
+	{ "tx_ucast_packets"},  		 /*  7 */
+	{ "tx_mcast_packets"},  		 /*  8 */
+	{ "tx_bcast_packets"},  		 /*  9 */
+	{ "tx_mac_errors"},     		 /* 10 */
+	{ "tx_carrier_errors"}, 		 /* 11 */
+	{ "rx_crc_errors"},     		 /* 12 */
+	{ "rx_align_errors"},   		 /* 13 */
+	{ "tx_single_collisions"},      	 /* 14 */
+	{ "tx_multi_collisions"},       	 /* 15 */
+	{ "tx_deferred"},       		 /* 16 */
+	{ "tx_excess_collisions"},      	 /* 17 */
+	{ "tx_late_collisions"},		 /* 18 */
+	{ "tx_total_collisions"},       	 /* 19 */
+	{ "rx_fragments"},      		 /* 20 */
+	{ "rx_jabbers"},			 /* 21 */
+	{ "rx_undersize_packets"},      	 /* 22 */
+	{ "rx_oversize_packets"},       	 /* 23 */
+	{ "rx_xon_frames"},     		 /* 24 */
+	{ "rx_xoff_frames"},    		 /* 25 */
+	{ "tx_xon_frames"},     		 /* 26 */
+	{ "tx_xoff_frames"},    		 /* 27 */
+	{ "rx_mac_ctrl_frames"},		 /* 28 */
+	{ "rx_filtered_packets"},       	 /* 29 */
+	{ "rx_discards"},       		 /* 30 */
+};
+
+#define STATS_OFFSET32(offset_name) \
+	(offsetof(struct bnx2x_eth_stats, offset_name) / 4)
+
+static unsigned long bnx2x_stats_offset_arr[BNX2X_NUM_STATS] = {
+	STATS_OFFSET32(total_bytes_received_hi),		     /*  0 */
+	STATS_OFFSET32(stat_IfHCInBadOctets_hi),		     /*  1 */
+	STATS_OFFSET32(total_bytes_transmitted_hi),     	     /*  2 */
+	STATS_OFFSET32(stat_IfHCOutBadOctets_hi),       	     /*  3 */
+	STATS_OFFSET32(total_unicast_packets_received_hi),           /*  4 */
+	STATS_OFFSET32(total_multicast_packets_received_hi),         /*  5 */
+	STATS_OFFSET32(total_broadcast_packets_received_hi),         /*  6 */
+	STATS_OFFSET32(total_unicast_packets_transmitted_hi),        /*  7 */
+	STATS_OFFSET32(total_multicast_packets_transmitted_hi),      /*  8 */
+	STATS_OFFSET32(total_broadcast_packets_transmitted_hi),      /*  9 */
+	STATS_OFFSET32(stat_Dot3statsInternalMacTransmitErrors),     /* 10 */
+	STATS_OFFSET32(stat_Dot3StatsCarrierSenseErrors),            /* 11 */
+	STATS_OFFSET32(crc_receive_errors),     		     /* 12 */
+	STATS_OFFSET32(alignment_errors),       		     /* 13 */
+	STATS_OFFSET32(single_collision_transmit_frames),            /* 14 */
+	STATS_OFFSET32(multiple_collision_transmit_frames),          /* 15 */
+	STATS_OFFSET32(stat_Dot3StatsDeferredTransmissions),         /* 16 */
+	STATS_OFFSET32(excessive_collision_frames),     	     /* 17 */
+	STATS_OFFSET32(late_collision_frames),  		     /* 18 */
+	STATS_OFFSET32(number_of_bugs_found_in_stats_spec),          /* 19 */
+	STATS_OFFSET32(runt_packets_received),  		     /* 20 */
+	STATS_OFFSET32(jabber_packets_received),		     /* 21 */
+	STATS_OFFSET32(error_runt_packets_received),    	     /* 22 */
+	STATS_OFFSET32(error_jabber_packets_received),  	     /* 23 */
+	STATS_OFFSET32(pause_xon_frames_received),      	     /* 24 */
+	STATS_OFFSET32(pause_xoff_frames_received),     	     /* 25 */
+	STATS_OFFSET32(pause_xon_frames_transmitted),   	     /* 26 */
+	STATS_OFFSET32(pause_xoff_frames_transmitted),  	     /* 27 */
+	STATS_OFFSET32(control_frames_received),		     /* 28 */
+	STATS_OFFSET32(mac_filter_discard),     		     /* 29 */
+	STATS_OFFSET32(no_buff_discard),			     /* 30 */
+};
+
+static u8 bnx2x_stats_len_arr[BNX2X_NUM_STATS] = {
+	8, 0, 8, 0, 8, 8, 8, 8, 8, 8,
+	4, 0, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4,
+};
+
+static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+{
+	switch (stringset) {
+	case ETH_SS_STATS:
+		memcpy(buf, bnx2x_stats_str_arr, sizeof(bnx2x_stats_str_arr));
+		break;
+
+	case ETH_SS_TEST:
+		memcpy(buf, bnx2x_tests_str_arr, sizeof(bnx2x_tests_str_arr));
+		break;
+	}
+}
+
+static int bnx2x_get_stats_count(struct net_device *dev)
+{
+	return BNX2X_NUM_STATS;
+}
+
+static void bnx2x_get_ethtool_stats(struct net_device *dev,
+				    struct ethtool_stats *stats, u64 *buf)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+	u32 *hw_stats = (u32 *)bnx2x_sp_check(bp, eth_stats);
+	int i;
+
+	for (i = 0; i < BNX2X_NUM_STATS; i++) {
+		if (bnx2x_stats_len_arr[i] == 0) {
+			/* skip this counter */
+			buf[i] = 0;
+			continue;
+		}
+		if (!hw_stats) {
+			buf[i] = 0;
+			continue;
+		}
+		if (bnx2x_stats_len_arr[i] == 4) {
+			/* 4-byte counter */
+		       buf[i] = (u64) *(hw_stats + bnx2x_stats_offset_arr[i]);
+			continue;
+		}
+		/* 8-byte counter */
+		buf[i] = HILO_U64(*(hw_stats + bnx2x_stats_offset_arr[i]),
+				 *(hw_stats + bnx2x_stats_offset_arr[i] + 1));
+	}
+}
+
+static int bnx2x_phys_id(struct net_device *dev, u32 data)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+	int i;
+
+	if (data == 0)
+		data = 2;
+
+	for (i = 0; i < (data * 2); i++) {
+		if ((i % 2) == 0) {
+			bnx2x_leds_set(bp, SPEED_1000);
+		} else {
+			bnx2x_leds_unset(bp);
+		}
+		msleep_interruptible(500);
+		if (signal_pending(current))
+			break;
+	}
+
+	if (bp->link_up)
+		bnx2x_leds_set(bp, bp->line_speed);
+
+	return 0;
+}
+
+static struct ethtool_ops bnx2x_ethtool_ops = {
+	.get_settings   	= bnx2x_get_settings,
+	.set_settings   	= bnx2x_set_settings,
+	.get_drvinfo    	= bnx2x_get_drvinfo,
+	.get_wol		= bnx2x_get_wol,
+	.set_wol		= bnx2x_set_wol,
+	.get_msglevel   	= bnx2x_get_msglevel,
+	.set_msglevel   	= bnx2x_set_msglevel,
+	.nway_reset     	= bnx2x_nway_reset,
+	.get_link       	= ethtool_op_get_link,
+	.get_eeprom_len 	= bnx2x_get_eeprom_len,
+	.get_eeprom     	= bnx2x_get_eeprom,
+	.set_eeprom     	= bnx2x_set_eeprom,
+	.get_coalesce   	= bnx2x_get_coalesce,
+	.set_coalesce   	= bnx2x_set_coalesce,
+	.get_ringparam  	= bnx2x_get_ringparam,
+	.set_ringparam  	= bnx2x_set_ringparam,
+	.get_pauseparam 	= bnx2x_get_pauseparam,
+	.set_pauseparam 	= bnx2x_set_pauseparam,
+	.get_rx_csum    	= bnx2x_get_rx_csum,
+	.set_rx_csum    	= bnx2x_set_rx_csum,
+	.get_tx_csum    	= ethtool_op_get_tx_csum,
+	.set_tx_csum    	= ethtool_op_set_tx_csum,
+	.get_sg 		= ethtool_op_get_sg,
+	.set_sg 		= ethtool_op_set_sg,
+	.get_tso		= ethtool_op_get_tso,
+	.set_tso		= bnx2x_set_tso,
+	.self_test_count	= bnx2x_self_test_count,
+	.self_test      	= bnx2x_self_test,
+	.get_strings    	= bnx2x_get_strings,
+	.phys_id		= bnx2x_phys_id,
+	.get_stats_count	= bnx2x_get_stats_count,
+	.get_ethtool_stats      = bnx2x_get_ethtool_stats
+};
+
+/* end of ethtool_ops */
+
+/****************************************************************************
+* General service functions
+****************************************************************************/
+
+static int bnx2x_set_power_state(struct bnx2x *bp, pci_power_t state)
+{
+	u16 pmcsr;
+
+	pci_read_config_word(bp->pdev, bp->pm_cap + PCI_PM_CTRL, &pmcsr);
+
+	switch (state) {
+	case PCI_D0:
+		pci_write_config_word(bp->pdev,
+				      bp->pm_cap + PCI_PM_CTRL,
+				      ((pmcsr & ~PCI_PM_CTRL_STATE_MASK) |
+				       PCI_PM_CTRL_PME_STATUS));
+
+		if (pmcsr & PCI_PM_CTRL_STATE_MASK)
+		/* delay required during transition out of D3hot */
+			msleep(20);
+		break;
+
+	case PCI_D3hot:
+		pmcsr &= ~PCI_PM_CTRL_STATE_MASK;
+		pmcsr |= 3;
+
+		if (bp->wol)
+			pmcsr |= PCI_PM_CTRL_PME_ENABLE;
+
+		pci_write_config_word(bp->pdev, bp->pm_cap + PCI_PM_CTRL,
+				      pmcsr);
+
+		/* No more memory access after this point until
+		* device is brought back to D0.
+		*/
+		break;
+
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+/*
+ * net_device service functions
+ */
+
+/* Called with rtnl_lock from vlan functions and also netif_tx_lock
+ * from set_multicast.
+ */
+static void bnx2x_set_rx_mode(struct net_device *dev)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+	u32 rx_mode = BNX2X_RX_MODE_NORMAL;
+
+	DP(NETIF_MSG_IFUP, "called dev->flags = %x\n", dev->flags);
+
+	if (dev->flags & IFF_PROMISC)
+		rx_mode = BNX2X_RX_MODE_PROMISC;
+
+	else if ((dev->flags & IFF_ALLMULTI) ||
+		 (dev->mc_count > BNX2X_MAX_MULTICAST))
+		rx_mode = BNX2X_RX_MODE_ALLMULTI;
+
+	else { /* some multicasts */
+		int i, old, offset;
+		struct dev_mc_list *mclist;
+		struct mac_configuration_cmd *config =
+						bnx2x_sp(bp, mcast_config);
+
+		for (i = 0, mclist = dev->mc_list;
+		     mclist && (i < dev->mc_count);
+		     i++, mclist = mclist->next) {
+
+			config->config_table[i].cam_entry.msb_mac_addr =
+					swab16(*(u16 *)&mclist->dmi_addr[0]);
+			config->config_table[i].cam_entry.middle_mac_addr =
+					swab16(*(u16 *)&mclist->dmi_addr[2]);
+			config->config_table[i].cam_entry.lsb_mac_addr =
+					swab16(*(u16 *)&mclist->dmi_addr[4]);
+			config->config_table[i].cam_entry.flags =
+							cpu_to_le16(bp->port);
+			config->config_table[i].target_table_entry.flags = 0;
+			config->config_table[i].target_table_entry.
+								client_id = 0;
+			config->config_table[i].target_table_entry.
+								vlan_id = 0;
+
+			DP(NETIF_MSG_IFUP,
+			   "setting MCAST[%d] (%04x:%04x:%04x)\n",
+			   i, config->config_table[i].cam_entry.msb_mac_addr,
+			   config->config_table[i].cam_entry.middle_mac_addr,
+			   config->config_table[i].cam_entry.lsb_mac_addr);
+		}
+		old = config->hdr.length_6b;
+		if (old > i) {
+			for (; i < old; i++) {
+				if (CAM_IS_INVALID(config->config_table[i])) {
+					i--; /* already invalidated */
+					break;
+				}
+				/* invalidate */
+				CAM_INVALIDATE(config->config_table[i]);
+			}
+		}
+
+		if (CHIP_REV_IS_SLOW(bp))
+			offset = BNX2X_MAX_EMUL_MULTI*(1 + bp->port);
+		else
+			offset = BNX2X_MAX_MULTICAST*(1 + bp->port);
+
+		config->hdr.length_6b = i;
+		config->hdr.offset = offset;
+		config->hdr.reserved0 = 0;
+		config->hdr.reserved1 = 0;
+
+		bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_SET_MAC, 0,
+			      U64_HI(bnx2x_sp_mapping(bp, mcast_config)),
+			      U64_LO(bnx2x_sp_mapping(bp, mcast_config)), 0);
+	}
+
+	bp->rx_mode = rx_mode;
+	bnx2x_set_storm_rx_mode(bp);
+}
+
+static int bnx2x_poll(struct napi_struct *napi, int budget)
+{
+	struct bnx2x_fastpath *fp = container_of(napi, struct bnx2x_fastpath,
+						 napi);
+	struct bnx2x *bp = fp->bp;
+	int work_done = 0;
+
+#ifdef BNX2X_STOP_ON_ERROR
+	if (unlikely(bp->panic))
+		goto out_panic;
+#endif
+
+	prefetch(fp->tx_buf_ring[TX_BD(fp->tx_pkt_cons)].skb);
+	prefetch(fp->rx_buf_ring[RX_BD(fp->rx_bd_cons)].skb);
+	prefetch((char *)(fp->rx_buf_ring[RX_BD(fp->rx_bd_cons)].skb) + 256);
+
+	bnx2x_update_fpsb_idx(fp);
+
+	if (le16_to_cpu(*fp->tx_cons_sb) != fp->tx_pkt_cons)
+		bnx2x_tx_int(fp, budget);
+
+
+	if (le16_to_cpu(*fp->rx_cons_sb) != fp->rx_comp_cons)
+		work_done = bnx2x_rx_int(fp, budget);
+
+
+	rmb(); /* bnx2x_has_work() reads the status block */
+
+	/* must not complete if we consumed full budget */
+	if ((work_done < budget) && !bnx2x_has_work(fp)) {
+
+#ifdef BNX2X_STOP_ON_ERROR
+out_panic:
+#endif
+		netif_rx_complete(bp->dev, napi);
+
+		bnx2x_ack_sb(bp, fp->index, USTORM_ID,
+			     le16_to_cpu(fp->fp_u_idx), IGU_INT_NOP, 1);
+		bnx2x_ack_sb(bp, fp->index, CSTORM_ID,
+			     le16_to_cpu(fp->fp_c_idx), IGU_INT_ENABLE, 1);
+	}
+
+	return work_done;
+}
+
+/* Called with netif_tx_lock.
+ * bnx2x_tx_int() runs without netif_tx_lock unless it needs to call
+ * netif_wake_queue().
+ */
+static int bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+	struct bnx2x_fastpath *fp;
+	struct sw_tx_bd *tx_buf;
+	struct eth_tx_bd *tx_bd;
+	struct eth_tx_parse_bd *pbd = NULL;
+	u16 pkt_prod, bd_prod;
+	int nbd, fp_index = 0;
+	dma_addr_t mapping;
+
+#ifdef BNX2X_STOP_ON_ERROR
+	if (unlikely(bp->panic))
+		return NETDEV_TX_BUSY;
+#endif
+
+	fp_index = smp_processor_id() % (bp->num_queues);
+
+	fp = &bp->fp[fp_index];
+	if (unlikely(bnx2x_tx_avail(bp->fp) <
+					(skb_shinfo(skb)->nr_frags + 3))) {
+		bp->slowpath->eth_stats.driver_xoff++,
+		netif_stop_queue(dev);
+		BNX2X_ERR("BUG! Tx ring full when queue awake!\n");
+		return NETDEV_TX_BUSY;
+	}
+
+	/*
+	This is a bit ugly. First we use one BD which we mark as start,
+	then for TSO or xsum we have a parsing info BD,
+	and only then we have the rest of the TSO bds.
+	(don't forget to mark the last one as last,
+	and to unmap only AFTER you write to the BD ...)
+	I would like to thank DovH for this mess.
+	*/
+
+	pkt_prod = fp->tx_pkt_prod++;
+	bd_prod = fp->tx_bd_prod;
+	bd_prod = TX_BD(bd_prod);
+
+	/* get a tx_buff and first bd */
+	tx_buf = &fp->tx_buf_ring[TX_BD(pkt_prod)];
+	tx_bd = &fp->tx_desc_ring[bd_prod];
+
+	tx_bd->bd_flags.as_bitfield = ETH_TX_BD_FLAGS_START_BD;
+	tx_bd->general_data = (UNICAST_ADDRESS <<
+			       ETH_TX_BD_ETH_ADDR_TYPE_SHIFT);
+	tx_bd->general_data |= 1; /* header nbd */
+
+	/* remeber the first bd of the packet */
+	tx_buf->first_bd = bd_prod;
+
+	DP(NETIF_MSG_TX_QUEUED,
+	   "sending pkt %u @%p  next_idx %u  bd %u @%p\n",
+	   pkt_prod, tx_buf, fp->tx_pkt_prod, bd_prod, tx_bd);
+
+	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+		struct iphdr *iph = ip_hdr(skb);
+		u8 len;
+
+		tx_bd->bd_flags.as_bitfield |= ETH_TX_BD_FLAGS_IP_CSUM;
+
+		/* turn on parsing and get a bd */
+		bd_prod = TX_BD(NEXT_TX_IDX(bd_prod));
+		pbd = (void *)&fp->tx_desc_ring[bd_prod];
+		len = ((u8 *)iph - (u8 *)skb->data) / 2;
+
+		/* for now NS flag is not used in Linux */
+		pbd->global_data = (len |
+				    ((skb->protocol == ETH_P_8021Q) <<
+				     ETH_TX_PARSE_BD_LLC_SNAP_EN_SHIFT));
+		pbd->ip_hlen = ip_hdrlen(skb) / 2;
+		pbd->total_hlen = cpu_to_le16(len + pbd->ip_hlen);
+		if (iph->protocol == IPPROTO_TCP) {
+			struct tcphdr *th = tcp_hdr(skb);
+
+			tx_bd->bd_flags.as_bitfield |=
+						ETH_TX_BD_FLAGS_TCP_CSUM;
+			pbd->tcp_flags = htonl(tcp_flag_word(skb)) & 0xFFFF;
+			pbd->total_hlen += cpu_to_le16(tcp_hdrlen(skb) / 2);
+			pbd->tcp_pseudo_csum = swab16(th->check);
+
+		} else if (iph->protocol == IPPROTO_UDP) {
+			struct udphdr *uh = udp_hdr(skb);
+
+			tx_bd->bd_flags.as_bitfield |=
+						ETH_TX_BD_FLAGS_TCP_CSUM;
+			pbd->total_hlen += cpu_to_le16(4);
+			pbd->global_data |= ETH_TX_PARSE_BD_CS_ANY_FLG;
+			pbd->cs_offset = 5; /* 10 >> 1 */
+			pbd->tcp_pseudo_csum = 0;
+			/* HW bug: we need to subtract 10 bytes before the
+			 * UDP header from the csum
+			 */
+			uh->check = (u16) ~csum_fold(csum_sub(uh->check,
+				csum_partial(((u8 *)(uh)-10), 10, 0)));
+		}
+	}
+
+	if ((bp->vlgrp != NULL) && vlan_tx_tag_present(skb)) {
+		tx_bd->vlan = cpu_to_le16(vlan_tx_tag_get(skb));
+		tx_bd->bd_flags.as_bitfield |= ETH_TX_BD_FLAGS_VLAN_TAG;
+	} else {
+		tx_bd->vlan = cpu_to_le16(pkt_prod);
+	}
+
+	mapping = pci_map_single(bp->pdev, skb->data,
+				 skb->len, PCI_DMA_TODEVICE);
+
+	tx_bd->addr_hi = cpu_to_le32(U64_HI(mapping));
+	tx_bd->addr_lo = cpu_to_le32(U64_LO(mapping));
+	nbd = skb_shinfo(skb)->nr_frags + ((pbd == NULL)? 1 : 2);
+	tx_bd->nbd = cpu_to_le16(nbd);
+	tx_bd->nbytes = cpu_to_le16(skb_headlen(skb));
+
+	DP(NETIF_MSG_TX_QUEUED, "first bd @%p  addr (%x:%x)  nbd %d"
+	   "  nbytes %d  flags %x  vlan %u\n",
+	   tx_bd, tx_bd->addr_hi, tx_bd->addr_lo, tx_bd->nbd,
+	   tx_bd->nbytes, tx_bd->bd_flags.as_bitfield, tx_bd->vlan);
+
+	if (skb_shinfo(skb)->gso_size &&
+	    (skb->len > (bp->dev->mtu + ETH_HLEN))) {
+		int hlen = 2 * le32_to_cpu(pbd->total_hlen);
+
+		DP(NETIF_MSG_TX_QUEUED,
+		   "TSO packet len %d  hlen %d  total len %d  tso size %d\n",
+		   skb->len, hlen, skb_headlen(skb),
+		   skb_shinfo(skb)->gso_size);
+
+		tx_bd->bd_flags.as_bitfield |= ETH_TX_BD_FLAGS_SW_LSO;
+
+		if (tx_bd->nbytes > cpu_to_le16(hlen)) {
+			/* we split the first bd into headers and data bds
+			 * to ease the pain of our fellow micocode engineers
+			 * we use one mapping for both bds
+			 * So far this has only been observed to happen
+			 * in Other Operating Systems(TM)
+			 */
+
+			/* first fix first bd */
+			nbd++;
+			tx_bd->nbd = cpu_to_le16(nbd);
+			tx_bd->nbytes = cpu_to_le16(hlen);
+
+			/* we only print this as an error
+			 * because we don't think this will ever happen.
+			 */
+			BNX2X_ERR("TSO split header size is %d (%x:%x)"
+				  "  nbd %d\n", tx_bd->nbytes, tx_bd->addr_hi,
+				  tx_bd->addr_lo, tx_bd->nbd);
+
+			/* now get a new data bd
+			 * (after the pbd) and fill it */
+			bd_prod = TX_BD(NEXT_TX_IDX(bd_prod));
+			tx_bd = &fp->tx_desc_ring[bd_prod];
+
+			tx_bd->addr_hi = cpu_to_le32(U64_HI(mapping));
+			tx_bd->addr_lo = cpu_to_le32(U64_LO(mapping) + hlen);
+			tx_bd->nbytes = cpu_to_le16(skb_headlen(skb) - hlen);
+			tx_bd->vlan = cpu_to_le16(pkt_prod);
+			/* this marks the bd
+			 * as one that has no individual mapping
+			 * the FW ignors this flag in a bd not maked start
+			 */
+			tx_bd->bd_flags.as_bitfield = ETH_TX_BD_FLAGS_SW_LSO;
+			DP(NETIF_MSG_TX_QUEUED,
+			   "TSO split data size is %d (%x:%x)\n",
+			   tx_bd->nbytes, tx_bd->addr_hi, tx_bd->addr_lo);
+		}
+
+		if (!pbd) {
+			/* supposed to be unreached
+			 * (and therefore not handled properly...)
+			 */
+			BNX2X_ERR("LSO with no PBD\n");
+			BUG();
+		}
+
+		pbd->lso_mss = cpu_to_le16(skb_shinfo(skb)->gso_size);
+		pbd->tcp_send_seq = swab32(tcp_hdr(skb)->seq);
+		pbd->ip_id = swab16(ip_hdr(skb)->id);
+		pbd->tcp_pseudo_csum =
+				swab16(~csum_tcpudp_magic(ip_hdr(skb)->saddr,
+							  ip_hdr(skb)->daddr,
+							  0, IPPROTO_TCP, 0));
+		pbd->global_data |= ETH_TX_PARSE_BD_PSEUDO_CS_WITHOUT_LEN;
+	}
+
+	{
+		int i;
+
+		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+
+			bd_prod = TX_BD(NEXT_TX_IDX(bd_prod));
+			tx_bd = &fp->tx_desc_ring[bd_prod];
+
+			mapping = pci_map_page(bp->pdev, frag->page,
+					       frag->page_offset,
+					       frag->size, PCI_DMA_TODEVICE);
+
+			tx_bd->addr_hi = cpu_to_le32(U64_HI(mapping));
+			tx_bd->addr_lo = cpu_to_le32(U64_LO(mapping));
+			tx_bd->nbytes = cpu_to_le16(frag->size);
+			tx_bd->vlan = cpu_to_le16(pkt_prod);
+			tx_bd->bd_flags.as_bitfield = 0;
+			DP(NETIF_MSG_TX_QUEUED, "frag %d  bd @%p"
+			   "  addr (%x:%x)  nbytes %d  flags %x\n",
+			   i, tx_bd, tx_bd->addr_hi, tx_bd->addr_lo,
+			   tx_bd->nbytes, tx_bd->bd_flags.as_bitfield);
+		} /* for */
+	}
+
+	/* now at last mark the bd as the last bd */
+	tx_bd->bd_flags.as_bitfield |= ETH_TX_BD_FLAGS_END_BD;
+
+	DP(NETIF_MSG_TX_QUEUED, "last bd @%p  flags %x\n",
+	   tx_bd, tx_bd->bd_flags.as_bitfield);
+
+	tx_buf->skb = skb;
+
+	bd_prod = TX_BD(NEXT_TX_IDX(bd_prod));
+
+	/* now send a tx doorbell, counting the next bd
+	 * if the packet contains or ends with it
+	 */
+	if (TX_BD_POFF(bd_prod) < nbd)
+		nbd++;
+
+	if (pbd)
+		DP(NETIF_MSG_TX_QUEUED,
+		   "PBD @%p  ip_data %x  ip_hlen %u  ip_id %u  lso_mss %u"
+		   "  tcp_flags %x  xsum %x  seq %u  hlen %u\n",
+		   pbd, pbd->global_data, pbd->ip_hlen, pbd->ip_id,
+		   pbd->lso_mss, pbd->tcp_flags, pbd->tcp_pseudo_csum,
+		   pbd->tcp_send_seq, pbd->total_hlen);
+
+	DP(NETIF_MSG_TX_QUEUED, "doorbell: nbd %u  bd %d\n", nbd, bd_prod);
+
+	fp->hw_tx_prods->bds_prod += cpu_to_le16(nbd);
+	mb(); /* FW restriction: must not reorder writing nbd and packets */
+	fp->hw_tx_prods->packets_prod += cpu_to_le32(1);
+	DOORBELL(bp, fp_index, 0);
+
+	mmiowb();
+
+	fp->tx_bd_prod = bd_prod;
+	dev->trans_start = jiffies;
+
+	if (unlikely(bnx2x_tx_avail(fp) < MAX_SKB_FRAGS + 3)) {
+		netif_stop_queue(dev);
+		bp->slowpath->eth_stats.driver_xoff++;
+		if (bnx2x_tx_avail(fp) >= MAX_SKB_FRAGS + 3)
+			netif_wake_queue(dev);
+	}
+	fp->tx_pkt++;
+
+	return NETDEV_TX_OK;
+}
+
+static struct net_device_stats *bnx2x_get_stats(struct net_device *dev)
+{
+	return &dev->stats;
+}
+
+/* Called with rtnl_lock */
+static int bnx2x_open(struct net_device *dev)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	bnx2x_set_power_state(bp, PCI_D0);
+
+	return bnx2x_nic_load(bp, 1);
+}
+
+/* Called with rtnl_lock */
+static int bnx2x_close(struct net_device *dev)
+{
+	int rc;
+	struct bnx2x *bp = netdev_priv(dev);
+
+	/* Unload the driver, release IRQs */
+	rc = bnx2x_nic_unload(bp, 1);
+	if (rc) {
+		BNX2X_ERR("bnx2x_nic_unload failed: %d\n", rc);
+		return rc;
+	}
+	bnx2x_set_power_state(bp, PCI_D3hot);
+
+	return 0;
+}
+
+/* Called with rtnl_lock */
+static int bnx2x_change_mac_addr(struct net_device *dev, void *p)
+{
+	struct sockaddr *addr = p;
+	struct bnx2x *bp = netdev_priv(dev);
+
+	if (!is_valid_ether_addr(addr->sa_data))
+		return -EINVAL;
+
+	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+	if (netif_running(dev))
+		bnx2x_set_mac_addr(bp);
+
+	return 0;
+}
+
+/* Called with rtnl_lock */
+static int bnx2x_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+{
+	struct mii_ioctl_data *data = if_mii(ifr);
+	struct bnx2x *bp = netdev_priv(dev);
+	int err;
+
+	switch (cmd) {
+	case SIOCGMIIPHY:
+		data->phy_id = bp->phy_addr;
+
+		/* fallthru */
+	case SIOCGMIIREG: {
+		u32 mii_regval;
+
+		spin_lock_bh(&bp->phy_lock);
+		if (bp->state == BNX2X_STATE_OPEN) {
+			err = bnx2x_mdio22_read(bp, data->reg_num & 0x1f,
+						&mii_regval);
+
+			data->val_out = mii_regval;
+		} else {
+			err = -EAGAIN;
+		}
+		spin_unlock_bh(&bp->phy_lock);
+		return err;
+	}
+
+	case SIOCSMIIREG:
+		if (!capable(CAP_NET_ADMIN))
+			return -EPERM;
+
+		spin_lock_bh(&bp->phy_lock);
+		if (bp->state == BNX2X_STATE_OPEN) {
+			err = bnx2x_mdio22_write(bp, data->reg_num & 0x1f,
+						 data->val_in);
+		} else {
+			err = -EAGAIN;
+		}
+		spin_unlock_bh(&bp->phy_lock);
+		return err;
+
+	default:
+		/* do nothing */
+		break;
+	}
+
+	return -EOPNOTSUPP;
+}
+
+/* Called with rtnl_lock */
+static int bnx2x_change_mtu(struct net_device *dev, int new_mtu)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	if ((new_mtu > ETH_MAX_JUMBO_PACKET_SIZE) ||
+	    ((new_mtu + ETH_HLEN) < ETH_MIN_PACKET_SIZE))
+		return -EINVAL;
+
+	/* This does not race with packet allocation
+	 * because the actuall alloc size is
+	 * only updated as part of load
+	 */
+	dev->mtu = new_mtu;
+
+	if (netif_running(dev)) {
+		bnx2x_nic_unload(bp, 0);
+		bnx2x_nic_load(bp, 0);
+	}
+	return 0;
+}
+
+static void bnx2x_tx_timeout(struct net_device *dev)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+#ifdef BNX2X_STOP_ON_ERROR
+	if (!bp->panic)
+		bnx2x_panic();
+#endif
+	/* This allows the netif to be shutdown gracefully before resetting */
+	schedule_work(&bp->reset_task);
+}
+
+#ifdef BCM_VLAN
+/* Called with rtnl_lock */
+static void bnx2x_vlan_rx_register(struct net_device *dev,
+				   struct vlan_group *vlgrp)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	bp->vlgrp = vlgrp;
+	if (netif_running(dev))
+		bnx2x_set_rx_mode(dev);
+}
+#endif
+
+#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
+static void poll_bnx2x(struct net_device *dev)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	disable_irq(bp->pdev->irq);
+	bnx2x_interrupt(bp->pdev->irq, dev);
+	enable_irq(bp->pdev->irq);
+}
+#endif
+
+static void bnx2x_reset_task(struct work_struct *work)
+{
+	struct bnx2x *bp = container_of(work, struct bnx2x, reset_task);
+
+#ifdef BNX2X_STOP_ON_ERROR
+	BNX2X_ERR("reset task called but STOP_ON_ERROR defined"
+		  " so reset not done to allow debug dump,\n"
+	 KERN_ERR " you will need to reboot when done\n");
+	return;
+#endif
+
+	if (!netif_running(bp->dev))
+		return;
+
+	bp->in_reset_task = 1;
+
+	bnx2x_netif_stop(bp);
+
+	bnx2x_nic_unload(bp, 0);
+	bnx2x_nic_load(bp, 0);
+
+	bp->in_reset_task = 0;
+}
+
+static int __devinit bnx2x_init_board(struct pci_dev *pdev,
+				      struct net_device *dev)
+{
+	struct bnx2x *bp;
+	int rc;
+
+	SET_NETDEV_DEV(dev, &pdev->dev);
+	bp = netdev_priv(dev);
+
+	bp->flags = 0;
+	bp->port = PCI_FUNC(pdev->devfn);
+
+	rc = pci_enable_device(pdev);
+	if (rc) {
+		printk(KERN_ERR PFX "Cannot enable PCI device, aborting\n");
+		goto err_out;
+	}
+
+	if (!(pci_resource_flags(pdev, 0) & IORESOURCE_MEM)) {
+		printk(KERN_ERR PFX "Cannot find PCI device base address,"
+		       " aborting\n");
+		rc = -ENODEV;
+		goto err_out_disable;
+	}
+
+	if (!(pci_resource_flags(pdev, 2) & IORESOURCE_MEM)) {
+		printk(KERN_ERR PFX "Cannot find second PCI device"
+		       " base address, aborting\n");
+		rc = -ENODEV;
+		goto err_out_disable;
+	}
+
+	rc = pci_request_regions(pdev, DRV_MODULE_NAME);
+	if (rc) {
+		printk(KERN_ERR PFX "Cannot obtain PCI resources,"
+		       " aborting\n");
+		goto err_out_disable;
+	}
+
+	pci_set_master(pdev);
+
+	bp->pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
+	if (bp->pm_cap == 0) {
+		printk(KERN_ERR PFX "Cannot find power management"
+		       " capability, aborting\n");
+		rc = -EIO;
+		goto err_out_release;
+	}
+
+	bp->pcie_cap = pci_find_capability(pdev, PCI_CAP_ID_EXP);
+	if (bp->pcie_cap == 0) {
+		printk(KERN_ERR PFX "Cannot find PCI Express capability,"
+		       " aborting\n");
+		rc = -EIO;
+		goto err_out_release;
+	}
+
+	if (pci_set_dma_mask(pdev, DMA_64BIT_MASK) == 0) {
+		bp->flags |= USING_DAC_FLAG;
+		if (pci_set_consistent_dma_mask(pdev, DMA_64BIT_MASK) != 0) {
+			printk(KERN_ERR PFX "pci_set_consistent_dma_mask"
+			       " failed, aborting\n");
+			rc = -EIO;
+			goto err_out_release;
+		}
+
+	} else if (pci_set_dma_mask(pdev, DMA_32BIT_MASK) != 0) {
+		printk(KERN_ERR PFX "System does not support DMA,"
+		       " aborting\n");
+		rc = -EIO;
+		goto err_out_release;
+	}
+
+	bp->dev = dev;
+	bp->pdev = pdev;
+
+	spin_lock_init(&bp->phy_lock);
+
+	bp->in_reset_task = 0;
+
+	INIT_WORK(&bp->reset_task, bnx2x_reset_task);
+	INIT_WORK(&bp->sp_task, bnx2x_sp_task);
+
+	dev->base_addr = dev->mem_start = pci_resource_start(pdev, 0);
+	dev->mem_end = pci_resource_end(pdev, 0);
+
+	dev->irq = pdev->irq;
+
+	bp->regview = ioremap_nocache(dev->base_addr,
+				      pci_resource_len(pdev, 0));
+	if (!bp->regview) {
+		printk(KERN_ERR PFX "Cannot map register space, aborting\n");
+		rc = -ENOMEM;
+		goto err_out_release;
+	}
+
+	bp->doorbells = ioremap_nocache(pci_resource_start(pdev , 2),
+					pci_resource_len(pdev, 2));
+	if (!bp->doorbells) {
+		printk(KERN_ERR PFX "Cannot map doorbell space, aborting\n");
+		rc = -ENOMEM;
+		goto err_out_unmap;
+	}
+
+	bnx2x_set_power_state(bp, PCI_D0);
+
+	bnx2x_get_hwinfo(bp);
+
+	if (CHIP_REV(bp) == CHIP_REV_FPGA) {
+		printk(KERN_ERR PFX "FPGA detacted. MCP disabled,"
+		       " will only init first device\n");
+		onefunc = 1;
+		nomcp = 1;
+	}
+
+	if (nomcp) {
+		printk(KERN_ERR PFX "MCP disabled, will only"
+		       " init first device\n");
+		onefunc = 1;
+	}
+
+	if (onefunc && bp->port) {
+		printk(KERN_ERR PFX "Second device disabled, exiting\n");
+		rc = -ENODEV;
+		goto err_out_unmap;
+	}
+
+	bp->tx_ring_size = MAX_TX_AVAIL;
+	bp->rx_ring_size = MAX_RX_AVAIL;
+
+	bp->rx_csum = 1;
+
+	bp->rx_offset = 0;
+
+	bp->tx_quick_cons_trip_int = 0xff;
+	bp->tx_quick_cons_trip = 0xff;
+	bp->tx_ticks_int = 50;
+	bp->tx_ticks = 50;
+
+	bp->rx_quick_cons_trip_int = 0xff;
+	bp->rx_quick_cons_trip = 0xff;
+	bp->rx_ticks_int = 25;
+	bp->rx_ticks = 25;
+
+	bp->stats_ticks = 1000000 & 0xffff00;
+
+	bp->timer_interval = HZ;
+	bp->current_interval = (poll ? poll : HZ);
+
+	init_timer(&bp->timer);
+	bp->timer.expires = jiffies + bp->current_interval;
+	bp->timer.data = (unsigned long) bp;
+	bp->timer.function = bnx2x_timer;
+
+	return 0;
+
+err_out_unmap:
+	if (bp->regview) {
+		iounmap(bp->regview);
+		bp->regview = NULL;
+	}
+
+	if (bp->doorbells) {
+		iounmap(bp->doorbells);
+		bp->doorbells = NULL;
+	}
+
+err_out_release:
+	pci_release_regions(pdev);
+
+err_out_disable:
+	pci_disable_device(pdev);
+	pci_set_drvdata(pdev, NULL);
+
+err_out:
+	return rc;
+}
+
+static int __devinit bnx2x_init_one(struct pci_dev *pdev,
+				    const struct pci_device_id *ent)
+{
+	static int version_printed;
+	struct net_device *dev = NULL;
+	struct bnx2x *bp;
+	int rc, i;
+	int port = PCI_FUNC(pdev->devfn);
+
+	if (version_printed++ == 0)
+		printk(KERN_INFO "%s", version);
+
+	/* dev zeroed in init_etherdev */
+	dev = alloc_etherdev(sizeof(*bp));
+	if (!dev)
+		return -ENOMEM;
+
+	netif_carrier_off(dev);
+
+	bp = netdev_priv(dev);
+	bp->msglevel = debug;
+
+	if (port && onefunc) {
+		printk(KERN_ERR PFX "second function disabled. exiting\n");
+		return 0;
+	}
+
+	rc = bnx2x_init_board(pdev, dev);
+	if (rc < 0) {
+		free_netdev(dev);
+		return rc;
+	}
+
+	dev->hard_start_xmit = bnx2x_start_xmit;
+	dev->watchdog_timeo = TX_TIMEOUT;
+
+	dev->get_stats = bnx2x_get_stats;
+	dev->ethtool_ops = &bnx2x_ethtool_ops;
+	dev->open = bnx2x_open;
+	dev->stop = bnx2x_close;
+	dev->set_multicast_list = bnx2x_set_rx_mode;
+	dev->set_mac_address = bnx2x_change_mac_addr;
+	dev->do_ioctl = bnx2x_ioctl;
+	dev->change_mtu = bnx2x_change_mtu;
+	dev->tx_timeout = bnx2x_tx_timeout;
+#ifdef BCM_VLAN
+	dev->vlan_rx_register = bnx2x_vlan_rx_register;
+#endif
+#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
+	dev->poll_controller = poll_bnx2x;
+#endif
+	dev->features |= NETIF_F_SG;
+	if (bp->flags & USING_DAC_FLAG)
+		dev->features |= NETIF_F_HIGHDMA;
+	dev->features |= NETIF_F_IP_CSUM;
+#ifdef BCM_VLAN
+	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+#endif
+	dev->features |= NETIF_F_TSO | NETIF_F_TSO_ECN;
+
+	rc = register_netdev(dev);
+	if (rc) {
+		printk(KERN_ERR PFX "Cannot register net device\n");
+		if (bp->regview)
+			iounmap(bp->regview);
+		if (bp->doorbells)
+			iounmap(bp->doorbells);
+		pci_release_regions(pdev);
+		pci_disable_device(pdev);
+		pci_set_drvdata(pdev, NULL);
+		free_netdev(dev);
+		return rc;
+	}
+
+	pci_set_drvdata(pdev, dev);
+
+	bp->name = board_info[ent->driver_data].name;
+	printk(KERN_INFO "%s: %s (%c%d) PCI%s %s %dMHz "
+	       "found at mem %lx, IRQ %d, ",
+	       dev->name, bp->name,
+	       ((CHIP_ID(bp) & 0xf000) >> 12) + 'A',
+	       ((CHIP_ID(bp) & 0x0ff0) >> 4),
+	       ((bp->flags & PCIX_FLAG) ? "-X" : ""),
+	       ((bp->flags & PCI_32BIT_FLAG) ? "32-bit" : "64-bit"),
+	       bp->bus_speed_mhz,
+	       dev->base_addr,
+	       bp->pdev->irq);
+
+	printk("node addr ");
+	for (i = 0; i < 6; i++)
+		printk("%2.2x", dev->dev_addr[i]);
+	printk("\n");
+
+	return 0;
+}
+
+static void __devexit bnx2x_remove_one(struct pci_dev *pdev)
+{
+	struct net_device *dev = pci_get_drvdata(pdev);
+	struct bnx2x *bp = netdev_priv(dev);
+
+	flush_scheduled_work();
+	/*tasklet_kill(&bp->sp_task);*/
+	unregister_netdev(dev);
+
+	if (bp->regview)
+		iounmap(bp->regview);
+
+	if (bp->doorbells)
+		iounmap(bp->doorbells);
+
+	free_netdev(dev);
+	pci_release_regions(pdev);
+	pci_disable_device(pdev);
+	pci_set_drvdata(pdev, NULL);
+}
+
+static int bnx2x_suspend(struct pci_dev *pdev, pm_message_t state)
+{
+	struct net_device *dev = pci_get_drvdata(pdev);
+	struct bnx2x *bp = netdev_priv(dev);
+	int rc;
+
+	if (!netif_running(dev))
+		return 0;
+
+	rc = bnx2x_nic_unload(bp, 0);
+	if (!rc)
+		return rc;
+
+	netif_device_detach(dev);
+	pci_save_state(pdev);
+
+	bnx2x_set_power_state(bp, pci_choose_state(pdev, state));
+	return 0;
+}
+
+static int bnx2x_resume(struct pci_dev *pdev)
+{
+	struct net_device *dev = pci_get_drvdata(pdev);
+	struct bnx2x *bp = netdev_priv(dev);
+	int rc;
+
+	if (!netif_running(dev))
+		return 0;
+
+	pci_restore_state(pdev);
+
+	bnx2x_set_power_state(bp, PCI_D0);
+	netif_device_attach(dev);
+
+	rc = bnx2x_nic_load(bp, 0);
+	if (rc)
+		return rc;
+
+	return 0;
+}
+
+static struct pci_driver bnx2x_pci_driver = {
+	.name       = DRV_MODULE_NAME,
+	.id_table   = bnx2x_pci_tbl,
+	.probe      = bnx2x_init_one,
+	.remove     = __devexit_p(bnx2x_remove_one),
+	.suspend    = bnx2x_suspend,
+	.resume     = bnx2x_resume,
+};
+
+static int __init bnx2x_init(void)
+{
+	return pci_register_driver(&bnx2x_pci_driver);
+}
+
+static void __exit bnx2x_cleanup(void)
+{
+	pci_unregister_driver(&bnx2x_pci_driver);
+}
+
+module_init(bnx2x_init);
+module_exit(bnx2x_cleanup);
 
 
 
