@@ -1,98 +1,56 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 2/2][INET] Move the reqsk_queue_yank_listen_sk from header
-Date: Wed, 14 Nov 2007 16:12:30 -0800
-Message-ID: <20071115001226.GJ2368@verge.net.au>
-References: <473B3A3A.70207@openvz.org>
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: network interface state
+Date: Wed, 14 Nov 2007 16:12:28 -0800
+Message-ID: <473B8EEC.1010906@redhat.com>
+References: <473B61C8.3030302@redhat.com> <20071114.153103.230463871.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:37067 "EHLO koto.vergenet.net"
+Received: from mx1.redhat.com ([66.187.233.31]:33017 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752697AbXKOAMi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2007 19:12:38 -0500
-Content-Disposition: inline
-In-Reply-To: <473B3A3A.70207@openvz.org>
+	id S1752161AbXKOAMg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2007 19:12:36 -0500
+In-Reply-To: <20071114.153103.230463871.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 14, 2007 at 09:11:06PM +0300, Pavel Emelyanov wrote:
-> This function is used in the net/core/request_sock.c only.
-> No need in keeping it in the header file.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-I feel like I am missing something here, but 
-doesn't __reqsk_queue_destroy() in include/net/request_sock.h use
-reqsk_queue_yank_listen_sk()?
+David Miller wrote:
+> Most daemons handle this by listening for events on the netlink
+> socket, but I understand how that might not be practical for
+> glibc.
 
-static inline void __reqsk_queue_destroy(struct request_sock_queue
-*queue)
-{
-        kfree(reqsk_queue_yank_listen_sk(queue));
-}
+Right, this cannot work.  I have no inner loop which I can control.  I
+cannot install a listener.
 
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> 
-> ---
-> 
-> diff --git a/include/net/request_sock.h b/include/net/request_sock.h
-> index 0a954ee..e80b53f 100644
-> --- a/include/net/request_sock.h
-> +++ b/include/net/request_sock.h
-> @@ -123,19 +123,6 @@ struct request_sock_queue {
->  
->  extern int reqsk_queue_alloc(struct request_sock_queue *queue,
->  			     unsigned int nr_table_entries);
-> -
-> -static inline struct listen_sock *reqsk_queue_yank_listen_sk(struct request_sock_queue *queue)
-> -{
-> -	struct listen_sock *lopt;
-> -
-> -	write_lock_bh(&queue->syn_wait_lock);
-> -	lopt = queue->listen_opt;
-> -	queue->listen_opt = NULL;
-> -	write_unlock_bh(&queue->syn_wait_lock);
-> -
-> -	return lopt;
-> -}
-> -
->  extern void __reqsk_queue_destroy(struct request_sock_queue *queue);
->  extern void reqsk_queue_destroy(struct request_sock_queue *queue);
->  
-> diff --git a/net/core/request_sock.c b/net/core/request_sock.c
-> index 12a15f5..16b2ef0 100644
-> --- a/net/core/request_sock.c
-> +++ b/net/core/request_sock.c
-> @@ -71,6 +71,19 @@ int reqsk_queue_alloc(struct request_sock_queue *queue,
->  
->  EXPORT_SYMBOL(reqsk_queue_alloc);
->  
-> +static struct listen_sock *reqsk_queue_yank_listen_sk(
-> +		struct request_sock_queue *queue)
-> +{
-> +	struct listen_sock *lopt;
-> +
-> +	write_lock_bh(&queue->syn_wait_lock);
-> +	lopt = queue->listen_opt;
-> +	queue->listen_opt = NULL;
-> +	write_unlock_bh(&queue->syn_wait_lock);
-> +
-> +	return lopt;
-> +}
-> +
->  void __reqsk_queue_destroy(struct request_sock_queue *queue)
->  {
->  	struct listen_sock *lopt = reqsk_queue_yank_listen_sk(queue);
-> -- 
-> 1.5.3.4
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+At some point, when we have non-sequential, hidden file descriptors,
+I'll be able to leave a socket file descriptor open.  But that's about
+it.  Even then the generation counter interface is likely to be the bes=
+t
+choice.
 
--- 
-Horms, California Edition
 
+> It's part of the link information, Look in ifinfomsg->ifi_type
+
+Great, I fixed up the code.  I guess in future, once I can cache the
+data, I'll simply read the RTM_GETADDR and RTM_GETLINK data all at once
+and be done with it.
+
+BTW, is it possible to send both these requests out before starting to
+read the results?  This would reduce the amount of code quite a bit.
+
+- --
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
+t =E2=9E=A7 Mountain View, CA =E2=9D=96
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+
+iD8DBQFHO47s2ijCOnn/RHQRApIIAJwNATDabXkfszG2e+gtJWO9f4wm4wCdFuoQ
+Yn40KK+cs9Di4fq+WKTQalo=3D
+=3Dq02M
+-----END PGP SIGNATURE-----
