@@ -1,72 +1,56 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 01/01] ipv6: RFC4214 Support (v2.2)
-Date: Fri, 16 Nov 2007 03:44:16 +0900 (JST)
-Message-ID: <20071116.034416.19410547.yoshfuji@linux-ipv6.org>
-References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC2B@XCH-NW-7V2.nw.nos.boeing.com>
-	<20071115.204810.131957203.yoshfuji@linux-ipv6.org>
-	<39C363776A4E8C4A94691D2BD9D1C9A1029EDC31@XCH-NW-7V2.nw.nos.boeing.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] r6040 various bugfixes
+Date: Thu, 15 Nov 2007 10:53:04 -0800
+Message-ID: <20071115105304.76ef6f29@freepuppy.rosehill>
+References: <200711151937.44681.florian.fainelli@telecomint.eu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vladislav.yasevich@hp.com,
-	yoshfuji@linux-ipv6.org
-To: Fred.L.Templin@boeing.com
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Florian Fainelli <florian.fainelli@telecomint.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:33556 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760386AbXKOSoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 13:44:18 -0500
-In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC31@XCH-NW-7V2.nw.nos.boeing.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:34669 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751548AbXKOSyp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 13:54:45 -0500
+In-Reply-To: <200711151937.44681.florian.fainelli@telecomint.eu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <39C363776A4E8C4A94691D2BD9D1C9A1029EDC31@XCH-NW-7V2.nw.nos.boeing.com> (at Thu, 15 Nov 2007 10:11:16 -0800), "Templin, Fred L" <Fred.L.Templin@boeing.com> says:
+On Thu, 15 Nov 2007 19:37:43 +0100
+Florian Fainelli <florian.fainelli@telecomint.eu> wrote:
 
-> Yoshifuji, 
+> This patch fixes various bugfixes spotted by Stephen, thanks !
 > 
-> > -----Original Message-----
-> > From: YOSHIFUJI Hideaki / 吉藤英明 [mailto:yoshfuji@linux-ipv6.org] 
-> > Sent: Thursday, November 15, 2007 3:48 AM
-> > To: Templin, Fred L
-> > Cc: netdev@vger.kernel.org; vladislav.yasevich@hp.com; 
-> > yoshfuji@linux-ipv6.org
-> > Subject: Re: [PATCH 01/01] ipv6: RFC4214 Support (v2.2)
-> > 
-> > In article 
-> > <39C363776A4E8C4A94691D2BD9D1C9A1029EDC2B@XCH-NW-7V2.nw.nos.bo
-> > eing.com> (at Wed, 14 Nov 2007 22:44:17 -0800), "Templin, 
-> > Fred L" <Fred.L.Templin@boeing.com> says:
-> > 
-> > > From: Fred L. Templin <fred.l.templin@boeing.com>
-> > > 
-> > > This patch includes support for the Intra-Site Automatic Tunnel
-> > > Addressing Protocol (ISATAP) per RFC4214. It uses the SIT
-> > > module, and is configured using extensions to the "iproute2"
-> > > utility.
-> > > 
-> > > The following diffs are specific to the Linux 2.6.24-rc2 kernel
-> > > distribution. This message includes the full and patchable 
-> > diff text;
-> > > please use this version to apply patches.
-> > > 
-> > > Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
-> > 
-> > BTW, how will we handle DNS name (and TTL) and/or multiple PRL entries 
-> > in RFC4214?
-> > 
-> > I'm doubting if we really need to handle PRL refresh in kernel.
+> - add functions to allocate/free TX and RX buffers
+> - recover from transmit timeout and use the 4 helpers defined below
+> - use netdev_alloc_skb instead of dev_alloc_skb
+> - do not use a private stats structure to store statistics
+> - break each TX/RX error to a separate line for better reading
+> - suppress volatiles and make checkpatch happy
+> - better control of the timer
+> - fix spin_unlock_irq typo in netdev_get_settings
+> - fix various typos and spelling in the driver
 > 
-> DNS name and PRL refresh are done in a daemon that either exec's
-> 'ip' or issues the device ioctl's directly. When there are multiple default
-> router IPv4 addresses, the daemon picks one as the primary and writes
-> it to the kernel. It can then change to a different primary later if it wants
-> to. Also possible is something like VRRP to allow several routers for
-> fault tolerance even though there is only a single default router address. 
+> Signed-off-by: Florian Fainelli <florian.fainelli@telecomint.eu>
 
-Why?  All PRLs should be installed in kernel so that standard router 
-selection can be used.  For this, I think we should have just one
-isatap interface per set of PRLs provideing virtual link,
-especially if each of them provides the same prefix.
+Looks good, thanks:
 
---yoshfuji
+There is a function to make this easier:
+> @@ -756,10 +803,8 @@ r6040_open(struct net_device *dev)
+>  	if (lp->switch_sig != ICPLUS_PHY_ID) {
+>  		/* set and active a timer process */
+>  		init_timer(&lp->timer);
+> -		lp->timer.expires = TIMER_WUT;
+>  		lp->timer.data = (unsigned long)dev;
+>  		lp->timer.function = &r6040_timer;
+> -		add_timer(&lp->timer);
+
+Could be:
+	setup_timer(&lp->timer, r6040_timer, dev);
+	if (lp->switch_sig != ICPLUS_PHY_ID)
+		mod_timer(&lp->timer, jiffies + HZ);
+
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
