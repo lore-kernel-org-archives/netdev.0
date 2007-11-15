@@ -1,121 +1,86 @@
-From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Subject: [PATCH 01/01] iproute2-2.6.23: RFC4214 Support (v2.2)
-Date: Wed, 14 Nov 2007 22:46:23 -0800
-Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC2C@XCH-NW-7V2.nw.nos.boeing.com>
-References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC18@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC20@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC25@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC2A@XCH-NW-7V2.nw.nos.boeing.com>
+From: Bron Gondwana <brong@fastmail.fm>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Thu, 15 Nov 2007 15:16:13 +1100
+Message-ID: <20071115041613.GC15302__46848.6800128177$1195111046$gmane$org@brong.net>
+References: <20071113143201.9441c940.akpm@linux-foundation.org>
+	<20071113.175551.131375600.davem@davemloft.net>
+	<20071114095507.GA32595@flint.arm.linux.org.uk>
+	<20071114.020706.219917088.davem@davemloft.net>
+	<473AE010.4090806@keyaccess.nl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-2022-jp"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: =?iso-2022-jp?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from blv-smtpout-01.boeing.com ([130.76.32.69]:53329 "EHLO
-	blv-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932475AbXKOGqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 01:46:34 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC2A@XCH-NW-7V2.nw.nos.boeing.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: rmk+lkml@arm.linux.org.uk, Takashi Iwai <tiwai@suse.de>,
+	netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+	alsa-devel@alsa-project.org, protasnb@gmail.com,
+	linux-kernel@vger.kernel.org, linux-ide@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	linux-input@atrey.karlin.mff.cuni.cz, akpm@linux-foundation.org,
+	David Miller <davem@davemloft.net>, Jaroslav Kysela <perex@suse.cz>
+To: Rene Herman <rene.herman@keyaccess.nl>
+Return-path: <alsa-devel-bounces@alsa-project.org>
+Content-Disposition: inline
+In-Reply-To: <473AE010.4090806@keyaccess.nl>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+	<mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+	<mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Sender: alsa-devel-bounces@alsa-project.org
+Errors-To: alsa-devel-bounces@alsa-project.org
 List-Id: netdev.vger.kernel.org
 
-From: Fred L. Templin <fred.l.templin@boeing.com>
+On Wed, Nov 14, 2007 at 12:46:24PM +0100, Rene Herman wrote:
+> On 14-11-07 11:07, David Miller wrote:
+>
+> Added Jaroslav and Takashi to the already extensive CC....
+>
+>> From: Russell King <rmk+lkml@arm.linux.org.uk>
+>
+>>> So, when are you creating a replacement alsa-devel mailing list on
+>>> vger?  That's also subscribers-only.
+>> The operative term is "alternative" rather than "replacement".
+>> Perhaps this misunderstanding is what you're so upset about.
+>> And yes, that alsa list bugs the crap out of me too.  I'm more than
+>> happy to provide an alternative for that one as well.
+>
+> alsa-devel@alsa-project.org is not subscriber-only. Same as that arm list, 
+> it's _moderated_ for non-subscribers and given that I and other moderators 
+> have been doing our best to moderate quickly (I tend to stay logged in to 
+> the moderation interface all day for example) what specifically bugged the 
+> crap out of you? It's not something a poster needs to concern himself with.
 
-This patch includes support for the Intra-Site Automatic Tunnel
-Addressing Protocol (ISATAP) per RFC4214.
+Totally unrelated - I sent something to the kolab mailing list a couple
+of days ago (it's moderated for non subscribers) informing them that I
+had found the cause of some Cyrus bugs that they had problems with in
+the past and providing a link to my post to the cyrus list with the
+patches attached.
 
-The following diffs are specific to the iproute2-2.6.23
-software distribution. This message includes the full and
-patchable diff text; please use this version to apply patches.
+It sat in the moderation queue and then was rejected with "non
+subscriber post to subscription only list".  Not only was the reponse a
+day later when I had moved on to other things, but it got me really
+pissed off that I had put some effort into providing a good quality post
+that outlined the specific issues and how they applied to their project,
+and had been summarily dismissed, probably without the effort being put
+in.
 
-Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
+There's no way for a non-subscriber to know in advance if the list they
+are trying to post to will do that to them, completely negating the
+effort put in to writing something worthwhile to inform that community.
+It's insular, and it sucks.
 
----
+So yeah, my attitude now is that the Kolab folks can go screw themselves
+and track down the fix on their own or wait until I've convinced
+upstream to accept the fixes (likely) and they have moved to the new
+version (unlikely for a long time, and meanwhile they're missing out on
+the performance increases that having a more stable skiplist library 
+would give them)
 
---- iproute2-2.6.23/ip/iptunnel.c.orig	2007-11-08 16:27:24.000000000 -0800
-+++ iproute2-2.6.23/ip/iptunnel.c	2007-11-12 06:53:38.000000000 -0800
-@@ -39,7 +39,8 @@ static void usage(void) __attribute__((n
- static void usage(void)
- {
- 	fprintf(stderr, "Usage: ip tunnel { add | change | del | show } [ NAME ]\n");
--	fprintf(stderr, "          [ mode { ipip | gre | sit } ] [ remote ADDR ] [ local ADDR ]\n");
-+	fprintf(stderr, "          [ mode { ipip | gre | sit | isatap } ]\n");
-+	fprintf(stderr, "          [ remote ADDR ] [ local ADDR ] [ router ADDR ] [ lifetime NUMBER ]\n");
- 	fprintf(stderr, "          [ [i|o]seq ] [ [i|o]key KEY ] [ [i|o]csum ]\n");
- 	fprintf(stderr, "          [ ttl TTL ] [ tos TOS ] [ [no]pmtudisc ] [ dev PHYS_DEV ]\n");
- 	fprintf(stderr, "\n");
-@@ -55,6 +56,9 @@ static int parse_args(int argc, char **a
- {
- 	int count = 0;
- 	char medium[IFNAMSIZ];
-+	int isatap = 0;
-+	unsigned router = 0;
-+	unsigned lifetime = 0;
- 
- 	memset(p, 0, sizeof(*p));
- 	memset(&medium, 0, sizeof(medium));
-@@ -90,6 +94,13 @@ static int parse_args(int argc, char **a
- 					exit(-1);
- 				}
- 				p->iph.protocol = IPPROTO_IPV6;
-+			} else if (strcmp(*argv, "isatap") == 0) {
-+				if (p->iph.protocol && p->iph.protocol != IPPROTO_IPV6) {
-+					fprintf(stderr,"You managed to ask for more than one tunnel mode.\n");
-+					exit(-1);
-+				}
-+				p->iph.protocol = IPPROTO_IPV6;
-+				isatap++;
- 			} else {
- 				fprintf(stderr,"Cannot guess tunnel mode.\n");
- 				exit(-1);
-@@ -160,6 +171,18 @@ static int parse_args(int argc, char **a
- 			NEXT_ARG();
- 			if (strcmp(*argv, "any"))
- 				p->iph.saddr = get_addr32(*argv);
-+		} else if (strcmp(*argv, "router") == 0) {
-+			NEXT_ARG();
-+			if (strcmp(*argv, "any"))
-+				router = get_addr32(*argv);
-+		} else if (strcmp(*argv, "lifetime") == 0) {
-+			unsigned uval;
-+			NEXT_ARG();
-+			if (get_unsigned(&uval, *argv, 0)) {
-+				invarg("invalid lifetime\n", *argv);
-+				exit(-1);
-+			}
-+			lifetime = uval;
- 		} else if (strcmp(*argv, "dev") == 0) {
- 			NEXT_ARG();
- 			strncpy(medium, *argv, IFNAMSIZ-1);
-@@ -212,6 +235,10 @@ static int parse_args(int argc, char **a
- 			p->iph.protocol = IPPROTO_IPIP;
- 		else if (memcmp(p->name, "sit", 3) == 0)
- 			p->iph.protocol = IPPROTO_IPV6;
-+		else if (memcmp(p->name, "isatap", 6) == 0) {
-+			p->iph.protocol = IPPROTO_IPV6;
-+			isatap++;
-+		}
- 	}
- 
- 	if (p->iph.protocol == IPPROTO_IPIP || p->iph.protocol == IPPROTO_IPV6) {
-@@ -239,6 +266,20 @@ static int parse_args(int argc, char **a
- 		fprintf(stderr, "Broadcast tunnel requires a source address.\n");
- 		return -1;
- 	}
-+	if (isatap) {
-+		if (p->iph.daddr) {
-+			fprintf(stderr, "no remote with isatap.\n");
-+			return -1;
-+		}
-+		p->i_key = router ? router : INADDR_NONE;
-+		p->o_key = lifetime ? lifetime : 120;	/* RFC4214 default */
-+	} else {
-+		if (router || lifetime) {
-+			fprintf(stderr, "router/lifetime only for isatap.\n");
-+			return -1;
-+		}
-+	}
-+
- 	return 0;
- }
+I'm sure if I had something that I considered worth informing the ALSA
+project of, I'd be wary of spending the same effort writing a good
+post knowing it may be dropped in between the by a list moderator just
+selecing all and bouncing them.
+
+Bron.
