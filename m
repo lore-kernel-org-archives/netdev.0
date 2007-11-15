@@ -1,7 +1,7 @@
 From: Neil Brown <neilb@suse.de>
 Subject: Re: [BUG] New Kernel Bugs
 Date: Thu, 15 Nov 2007 13:50:43 +1100
-Message-ID: <18235.46083.293604.560507__33462.3285373256$1195095105$gmane$org@notabene.brown>
+Message-ID: <18235.46083.293604.560507__15259.4754742042$1195095125$gmane$org@notabene.brown>
 References: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
 	<20071113.033946.114918709.davem@davemloft.net>
 	<20071113034916.2556edd7.akpm@linux-foundation.org>
@@ -23,9 +23,9 @@ Cc: Randy Dunlap <rdunlap@xenotime.net>, Ingo Molnar <mingo@elte.hu>,
 	linux-input@atrey.karlin.mff.cuni.cz,
 	bugme-daemon@bugzilla.kernel.org
 To: "J. Bruce Fields" <bfields@fieldses.org>
-Return-path: <linux-ide-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760222AbXKOCvX@vger.kernel.org>
 In-Reply-To: message from J. Bruce Fields on Wednesday November 14
-Sender: linux-ide-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Wednesday November 14, bfields@fieldses.org wrote:
