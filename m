@@ -1,22 +1,35 @@
 From: Bron Gondwana <brong@fastmail.fm>
 Subject: Re: [alsa-devel] [BUG] New Kernel Bugs
 Date: Thu, 15 Nov 2007 15:16:13 +1100
-Message-ID: <20071115041613.GC15302__26040.81903487$1195100222$gmane$org@brong.net>
-References: <20071113143201.9441c940.akpm@linux-foundation.org> <20071113.175551.131375600.davem@davemloft.net> <20071114095507.GA32595@flint.arm.linux.org.uk> <20071114.020706.219917088.davem@davemloft.net> <473AE010.4090806@keyaccess.nl>
+Message-ID: <20071115041613.GC15302__13233.4723523401$1195100252$gmane$org@brong.net>
+References: <20071113143201.9441c940.akpm@linux-foundation.org>
+	<20071113.175551.131375600.davem@davemloft.net>
+	<20071114095507.GA32595@flint.arm.linux.org.uk>
+	<20071114.020706.219917088.davem@davemloft.net>
+	<473AE010.4090806@keyaccess.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, rmk+lkml@arm.linux.org.uk,
-	alsa-devel@alsa-project.org, netdev@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org, linux-kernel@vger.kernel.org,
-	protasnb@gmail.com, linux-ide@vger.kernel.org,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: rmk+lkml@arm.linux.org.uk, Takashi Iwai <tiwai@suse.de>,
+	netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+	alsa-devel@alsa-project.org, protasnb@gmail.com,
+	linux-kernel@vger.kernel.org, linux-ide@vger.kernel.org,
 	bugme-daemon@bugzilla.kernel.org,
 	linux-input@atrey.karlin.mff.cuni.cz, akpm@linux-foundation.org,
-	Jaroslav Kysela <perex@suse.cz>, Takashi Iwai <tiwai@suse.de>
+	David Miller <davem@davemloft.net>, Jaroslav Kysela <perex@suse.cz>
 To: Rene Herman <rene.herman@keyaccess.nl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757449AbXKOEQ3@vger.kernel.org>
+Return-path: <linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
 In-Reply-To: <473AE010.4090806@keyaccess.nl>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/listinfo/linux-pcmcia>,
+	<mailto:linux-pcmcia-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-pcmcia>
+List-Post: <mailto:linux-pcmcia@lists.infradead.org>
+List-Help: <mailto:linux-pcmcia-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-pcmcia>,
+	<mailto:linux-pcmcia-request@lists.infradead.org?subject=subscribe>
+Sender: linux-pcmcia-bounces@lists.infradead.org
+Errors-To: linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
 On Wed, Nov 14, 2007 at 12:46:24PM +0100, Rene Herman wrote:
