@@ -1,67 +1,50 @@
-From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Subject: RE: [PATCH 01/01] ipv6: RFC4214 Support (v2.2)
-Date: Thu, 15 Nov 2007 10:11:16 -0800
-Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC31@XCH-NW-7V2.nw.nos.boeing.com>
-References: <4739D7F7.90300@hp.com><39C363776A4E8C4A94691D2BD9D1C9A1029EDC29@XCH-NW-7V2.nw.nos.boeing.com><39C363776A4E8C4A94691D2BD9D1C9A1029EDC2B@XCH-NW-7V2.nw.nos.boeing.com> <20071115.204810.131957203.yoshfuji@linux-ipv6.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 2/2] move unneeded data to initdata section
+Date: Thu, 15 Nov 2007 11:19:26 -0700
+Message-ID: <m13av7xtg1.fsf@ebiederm.dsl.xmission.com>
+References: <20071107120100.GA10185@iris.sw.ru>
+	<m1abpfy3xz.fsf@ebiederm.dsl.xmission.com> <473C5ABC.5090204@sw.ru>
+	<20071115151429.GC22825@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-2022-jp"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <vladislav.yasevich@hp.com>
-To: =?iso-2022-jp?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Denis V. Lunev" <den@sw.ru>, "Denis V. Lunev" <den@openvz.org>,
+	davem@davemloft.net, containers@lists.osdl.org,
+	netdev@vger.kernel.org, clg@fr.ibm.com, benjamin.thery@bull.net
+To: Sam Ravnborg <sam@ravnborg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from blv-smtpout-01.boeing.com ([130.76.32.69]:56882 "EHLO
-	blv-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757020AbXKOSMU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 13:12:20 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20071115.204810.131957203.yoshfuji@linux-ipv6.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:45299 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751718AbXKOSVk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 13:21:40 -0500
+In-Reply-To: <20071115151429.GC22825@uranus.ravnborg.org> (Sam Ravnborg's
+	message of "Thu, 15 Nov 2007 16:14:29 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yoshifuji, 
+Sam Ravnborg <sam@ravnborg.org> writes:
 
-> -----Original Message-----
-> From: YOSHIFUJI Hideaki / 吉藤英明 [mailto:yoshfuji@linux-ipv6.org] 
-> Sent: Thursday, November 15, 2007 3:48 AM
-> To: Templin, Fred L
-> Cc: netdev@vger.kernel.org; vladislav.yasevich@hp.com; 
-> yoshfuji@linux-ipv6.org
-> Subject: Re: [PATCH 01/01] ipv6: RFC4214 Support (v2.2)
-> 
-> In article 
-> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC2B@XCH-NW-7V2.nw.nos.bo
-> eing.com> (at Wed, 14 Nov 2007 22:44:17 -0800), "Templin, 
-> Fred L" <Fred.L.Templin@boeing.com> says:
-> 
-> > From: Fred L. Templin <fred.l.templin@boeing.com>
-> > 
-> > This patch includes support for the Intra-Site Automatic Tunnel
-> > Addressing Protocol (ISATAP) per RFC4214. It uses the SIT
-> > module, and is configured using extensions to the "iproute2"
-> > utility.
-> > 
-> > The following diffs are specific to the Linux 2.6.24-rc2 kernel
-> > distribution. This message includes the full and patchable 
-> diff text;
-> > please use this version to apply patches.
-> > 
-> > Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
-> 
-> BTW, how will we handle DNS name (and TTL) and/or multiple PRL entries 
-> in RFC4214?
-> 
-> I'm doubting if we really need to handle PRL refresh in kernel.
+> On Thu, Nov 15, 2007 at 05:42:04PM +0300, Denis V. Lunev wrote:
+>> 
+>> nothing is discarded after module load. Though, I can be wrong. Could
+>> you point me to the exact place?
+> If __initdata is not discarded after module load then we should do it.
+> There is no reason to waste __initdata RAM when the module is loaded.
 
-DNS name and PRL refresh are done in a daemon that either exec's
-'ip' or issues the device ioctl's directly. When there are multiple default
-router IPv4 addresses, the daemon picks one as the primary and writes
-it to the kernel. It can then change to a different primary later if it wants
-to. Also possible is something like VRRP to allow several routers for
-fault tolerance even though there is only a single default router address. 
+Down at the bottom of sys_init_module we have:
 
-Thanks - Fred
-fred.l.templin@boeing.com
+	/* Drop initial reference. */
+	module_put(mod);
+	unwind_remove_table(mod->unwind_info, 1);
 
-> --yoshfuji
+	module_free(mod, mod->module_init);
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+	mod->module_init = NULL;
+	mod->init_size = 0;
+	mod->init_text_size = 0;
+	mutex_unlock(&module_mutex);
+
+	return 0;
+
+Which frees the memory for the .init sections.
+
+Eric
