@@ -1,7 +1,7 @@
 From: Daniel Barkalow <barkalow@iabervon.org>
 Subject: Re: [BUG] New Kernel Bugs
 Date: Thu, 15 Nov 2007 11:19:46 -0500 (EST)
-Message-ID: <Pine.LNX.4.64.0711151034340.12193__10891.1492316567$1195143617$gmane$org@iabervon.org>
+Message-ID: <Pine.LNX.4.64.0711151034340.12193__24536.9091317572$1195143638$gmane$org@iabervon.org>
 References: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
  <20071113.033946.114918709.davem@davemloft.net> <20071113034916.2556edd7.akpm@linux-foundation.org>
  <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org>
@@ -21,13 +21,9 @@ Cc: Benoit Boissinot <bboissin@gmail.com>, Mark Lord <liml@rtr.ca>,
 	linux-input@atrey.karlin.mff.cuni.cz,
 	bugme-daemon@bugzilla.kernel.org
 To: Theodore Tso <tytso@mit.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from iabervon.org ([66.92.72.58]:53478 "EHLO iabervon.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751102AbXKOQTs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2007 11:19:48 -0500
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763638AbXKOQUG@vger.kernel.org>
 In-Reply-To: <20071115153057.GE17180@thunk.org>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Thu, 15 Nov 2007, Theodore Tso wrote:
