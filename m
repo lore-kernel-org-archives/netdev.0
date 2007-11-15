@@ -1,58 +1,98 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2][INET] Fix potential kfree on vmalloc-ed area of
- request_sock_queue
-Date: Wed, 14 Nov 2007 16:09:05 -0800 (PST)
-Message-ID: <20071114.160905.94404396.davem@davemloft.net>
-References: <473B399D.2040004@openvz.org>
-	<20071114204238.68662cbf.dada1@cosmosbay.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 2/2][INET] Move the reqsk_queue_yank_listen_sk from header
+Date: Wed, 14 Nov 2007 16:12:30 -0800
+Message-ID: <20071115001226.GJ2368@verge.net.au>
+References: <473B3A3A.70207@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org
-To: dada1@cosmosbay.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40605
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752697AbXKOAJG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 19:09:06 -0500
-In-Reply-To: <20071114204238.68662cbf.dada1@cosmosbay.com>
+Received: from koto.vergenet.net ([210.128.90.7]:37067 "EHLO koto.vergenet.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752697AbXKOAMi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2007 19:12:38 -0500
+Content-Disposition: inline
+In-Reply-To: <473B3A3A.70207@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Wed, 14 Nov 2007 20:42:38 +0100
+On Wed, Nov 14, 2007 at 09:11:06PM +0300, Pavel Emelyanov wrote:
+> This function is used in the net/core/request_sock.c only.
+> No need in keeping it in the header file.
 
-> On Wed, 14 Nov 2007 21:08:29 +0300
-> Pavel Emelyanov <xemul@openvz.org> wrote:
-> 
-> > The request_sock_queue's listen_opt is either vmalloc-ed or
-> > kmalloc-ed depending on the number of table entries. Thus it 
-> > is expected to be handled properly on free, which is done in 
-> > the reqsk_queue_destroy().
-> > 
-> > However the error path in inet_csk_listen_start() calls 
-> > the lite version of reqsk_queue_destroy, called 
-> > __reqsk_queue_destroy, which calls the kfree unconditionally. 
-> > 
-> > Fix this and move the __reqsk_queue_destroy into a .c file as 
-> > it looks too big to be inline.
-> > 
-> > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> > 
-> > ---
-> > 
-> 
-> > +void __reqsk_queue_destroy(struct request_sock_queue *queue)
-> > +{
-> > +	struct listen_sock *lopt = reqsk_queue_yank_listen_sk(queue);
-> 
-> WARNING : lopt can be NULL here (or else the locking in reqsk_queue_yank_listen_sk() would be useless ?)
-> 
-> kfree(NULL) was ok, not NULL->nr_table_entries :)
+I feel like I am missing something here, but 
+doesn't __reqsk_queue_destroy() in include/net/request_sock.h use
+reqsk_queue_yank_listen_sk()?
 
-I think for the error recovery case he is trying to fix all of this
-locking is unnecessary and we know lopt is not NULL.
+static inline void __reqsk_queue_destroy(struct request_sock_queue
+*queue)
+{
+        kfree(reqsk_queue_yank_listen_sk(queue));
+}
 
-Pavel can you rework your fix a bit to deal with this?
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> 
+> ---
+> 
+> diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+> index 0a954ee..e80b53f 100644
+> --- a/include/net/request_sock.h
+> +++ b/include/net/request_sock.h
+> @@ -123,19 +123,6 @@ struct request_sock_queue {
+>  
+>  extern int reqsk_queue_alloc(struct request_sock_queue *queue,
+>  			     unsigned int nr_table_entries);
+> -
+> -static inline struct listen_sock *reqsk_queue_yank_listen_sk(struct request_sock_queue *queue)
+> -{
+> -	struct listen_sock *lopt;
+> -
+> -	write_lock_bh(&queue->syn_wait_lock);
+> -	lopt = queue->listen_opt;
+> -	queue->listen_opt = NULL;
+> -	write_unlock_bh(&queue->syn_wait_lock);
+> -
+> -	return lopt;
+> -}
+> -
+>  extern void __reqsk_queue_destroy(struct request_sock_queue *queue);
+>  extern void reqsk_queue_destroy(struct request_sock_queue *queue);
+>  
+> diff --git a/net/core/request_sock.c b/net/core/request_sock.c
+> index 12a15f5..16b2ef0 100644
+> --- a/net/core/request_sock.c
+> +++ b/net/core/request_sock.c
+> @@ -71,6 +71,19 @@ int reqsk_queue_alloc(struct request_sock_queue *queue,
+>  
+>  EXPORT_SYMBOL(reqsk_queue_alloc);
+>  
+> +static struct listen_sock *reqsk_queue_yank_listen_sk(
+> +		struct request_sock_queue *queue)
+> +{
+> +	struct listen_sock *lopt;
+> +
+> +	write_lock_bh(&queue->syn_wait_lock);
+> +	lopt = queue->listen_opt;
+> +	queue->listen_opt = NULL;
+> +	write_unlock_bh(&queue->syn_wait_lock);
+> +
+> +	return lopt;
+> +}
+> +
+>  void __reqsk_queue_destroy(struct request_sock_queue *queue)
+>  {
+>  	struct listen_sock *lopt = reqsk_queue_yank_listen_sk(queue);
+> -- 
+> 1.5.3.4
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Thanks a lot.
+-- 
+Horms, California Edition
+
