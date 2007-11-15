@@ -1,96 +1,35 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][NET-2.6.25] Move sock_valbool_flag to socket.c
-Date: Thu, 15 Nov 2007 12:43:51 +0300
-Message-ID: <473C14D7.80008@openvz.org>
+From: Andy Whitcroft <apw@shadowen.org>
+Subject: Re: 2.6.24-rc2-mm1 -- strange apparent network failures
+Date: Thu, 15 Nov 2007 10:02:09 +0000
+Message-ID: <20071115100209.GB2513@shadowen.org>
+References: <20071113175906.497a1a6a.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:55621 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758775AbXKOJoE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2007 04:44:04 -0500
+Received: from hellhawk.shadowen.org ([80.68.90.175]:1050 "EHLO
+	hellhawk.shadowen.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755433AbXKOKDT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 05:03:19 -0500
+Content-Disposition: inline
+In-Reply-To: <20071113175906.497a1a6a.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The sock_valbool_flag() helper is used in setsockopt to 
-set or reset some flag on the sock. This helper is required
-in the net/socket.c only, so move it there.
+When testing some of the later 2.6.24-rc2-mm1+hotfix combinations on three
+of our test systems one job from each batch (1/4) failed.  In each case the
+machine appears to have booted normally all the way to a login: prompt.
+However in the failed boots the networking though apparently initialised
+completely and correctly (as far as I can tell from the console output), is
+reported as not responding to ssh connections.  The network interface seems
+to have been initialised on the right port, and the ssh daemons started.
 
-Besides, patch two places in sys_setsockopt() that repeat
-this helper functionality manually.
+Two of the machines are powerpc boxes, the other an older x86_64.
+One machine is 4/4 in testing, just one.  Most of the other machines are
+still not able to compile this stack so do not contribute to our knowledge.
 
-Since this is not a bugfix, but a trivial cleanup, I
-prepared this patch against net-2.6.25, but it also
-applies (with a single offset) to the latest net-2.6.
+Any ideas?
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
----
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index cfb946a..80ca671 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1393,14 +1393,6 @@ extern int net_msg_warn;
- 				lock_sock(sk); \
- 				}
- 
--static inline void sock_valbool_flag(struct sock *sk, int bit, int valbool)
--{
--	if (valbool)
--		sock_set_flag(sk, bit);
--	else
--		sock_reset_flag(sk, bit);
--}
--
- extern __u32 sysctl_wmem_max;
- extern __u32 sysctl_rmem_max;
- 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 2029d09..98b243a 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -419,6 +419,14 @@ out:
- 	return ret;
- }
- 
-+static inline void sock_valbool_flag(struct sock *sk, int bit, int valbool)
-+{
-+	if (valbool)
-+		sock_set_flag(sk, bit);
-+	else
-+		sock_reset_flag(sk, bit);
-+}
-+
- /*
-  *	This is meant for all protocols to use and covers goings on
-  *	at the socket level. Everything here is generic.
-@@ -463,11 +471,8 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
- 	case SO_DEBUG:
- 		if (val && !capable(CAP_NET_ADMIN)) {
- 			ret = -EACCES;
--		}
--		else if (valbool)
--			sock_set_flag(sk, SOCK_DBG);
--		else
--			sock_reset_flag(sk, SOCK_DBG);
-+		} else
-+			sock_valbool_flag(sk, SOCK_DBG, valbool);
- 		break;
- 	case SO_REUSEADDR:
- 		sk->sk_reuse = valbool;
-@@ -477,10 +482,7 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
- 		ret = -ENOPROTOOPT;
- 		break;
- 	case SO_DONTROUTE:
--		if (valbool)
--			sock_set_flag(sk, SOCK_LOCALROUTE);
--		else
--			sock_reset_flag(sk, SOCK_LOCALROUTE);
-+		sock_valbool_flag(sk, SOCK_LOCALROUTE, valbool);
- 		break;
- 	case SO_BROADCAST:
- 		sock_valbool_flag(sk, SOCK_BROADCAST, valbool);
+-apw
