@@ -1,39 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.24-rc2: Network commit causes SLUB performance regression with tbench
-Date: Thu, 15 Nov 2007 09:11:10 +0800
-Message-ID: <20071115011110.GB21193@gondor.apana.org.au>
-References: <200711140927.39796.nickpiggin@yahoo.com.au> <20071114.031022.183117678.davem@davemloft.net> <20071114114844.GA13927@gondor.apana.org.au> <20071114.154616.46285694.davem@davemloft.net> <Pine.LNX.4.64.0711141650150.21965@schroedinger.engr.sgi.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] IPVS: Fix sysctl warnings about missing strategy
+Date: Wed, 14 Nov 2007 18:10:58 -0700
+Message-ID: <m1d4ucz525.fsf@ebiederm.dsl.xmission.com>
+References: <200711131129.58868.borntraeger@de.ibm.com>
+	<20071113.024500.155458534.davem@davemloft.net>
+	<20071114021131.GB2523@verge.net.au>
+	<Pine.LNX.4.58.0711150225280.3658@u.domain.uli>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, nickpiggin@yahoo.com.au,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Christoph Lameter <clameter@sgi.com>
+Cc: Simon Horman <horms@verge.net.au>,
+	David Miller <davem@davemloft.net>, borntraeger@de.ibm.com,
+	netdev@vger.kernel.org, wensong@linux-vs.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4384 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755461AbXKOBLS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 20:11:18 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0711141650150.21965@schroedinger.engr.sgi.com>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:58057 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758424AbXKOBMD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 20:12:03 -0500
+In-Reply-To: <Pine.LNX.4.58.0711150225280.3658@u.domain.uli> (Julian
+	Anastasov's message of "Thu, 15 Nov 2007 02:38:32 +0200 (EET)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 14, 2007 at 05:03:25PM -0800, Christoph Lameter wrote:
-> 
-> Well this is likely the result of the SLUB regression. If you allocate an 
-> order 1 page then the zone locks need to be taken. SLAB queues the a 
-> couple of higher order pages and can so serve a couple of requests without 
-> going into the page allocator whereas SLUB has to go directly to the page 
-> allocator for allocate and free. I guess that needs fixing in the page 
-> allocator. Or do I need to add a mechanism to buffer higher order page 
-> allcoations to SLUB?
+Julian Anastasov <ja@ssi.bg> writes:
 
-Actually this serves to discourage people from using high-order
-allocations which IMHO is a good thing :)
+> 	I assume /proc/sys is still valid place, only sysctl interface
+> is scheduled for removal. 
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Yes. The ascii versions of the sysctls that show up in /proc/sys are
+definitely still valid.
+
+> So, as long as these entries are not
+> accessible from sysctl it is safe to run without strategy handler but if
+> values can be changed then we will need strategy handler to
+> properly call update_defense_level() as done in proc_do_defense_mode()
+> as proc_handler. There could be side effects if new mode is not applied.
+
+Yes.  The current mode of 0644 allows them to be both read and updated
+with sys_sysctl.  By removing the ctl_name entry those entries become
+inaccessible from the /proc/sys interface.  Which is some easier then
+writing a strategy routine.
+
+Eric
