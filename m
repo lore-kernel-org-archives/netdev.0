@@ -1,63 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 9386] New: sis190 network driver crash
-Date: Thu, 15 Nov 2007 15:00:41 -0800 (PST)
-Message-ID: <20071115.150041.156510275.davem@davemloft.net>
-References: <bug-9386-10286@http.bugzilla.kernel.org/>
-	<20071115115841.30d43003.akpm@linux-foundation.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH 10/13] tg3: Increase the PCI MRRS
+Date: Thu, 15 Nov 2007 15:51:31 -0800
+Message-ID: <1195170691.5745.10.camel@dell>
+References: <1194655141.5745.272.camel@teletran1>
+ <20071112.212135.172019737.davem@davemloft.net>
+ <1195165211.20497.107.camel@teletran1>
+ <20071115.144103.24280158.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	chris@linuxepos.com, romieu@fr.zoreil.com
-To: akpm@linux-foundation.org
+Cc: mcarlson@broadcom.com, "netdev" <netdev@vger.kernel.org>,
+	andy@greyhouse.net
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44155
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1765545AbXKOXAl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 18:00:41 -0500
-In-Reply-To: <20071115115841.30d43003.akpm@linux-foundation.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:3918 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755180AbXKOXB4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 18:01:56 -0500
+In-Reply-To: <20071115.144103.24280158.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Thu, 15 Nov 2007 11:58:41 -0800
-
-> On Thu, 15 Nov 2007 07:30:53 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+On Thu, 2007-11-15 at 14:41 -0800, David Miller wrote:
+> From: "Matt Carlson" <mcarlson@broadcom.com>
+> Date: Thu, 15 Nov 2007 14:20:10 -0800
+> >
+> > Keeping the MRRS at 512 introduces DMA latencies that effectively
+> > prevent us from achieving linerate.  With a packet size of ~1.5K and the
+> > MRRS at 512 bytes, the DMA will be broken into at least 3 DMA reads.
+> > Each DMA read takes ~1usec to initiate.  It is this overhead that starts
+> > to cut into total throughput.
 > 
-> > http://bugzilla.kernel.org/show_bug.cgi?id=9386
- ...
-> > I have a problem where I can lock up a number of machines by 
-> > changing the link state on a sis190 Ethernet port. For example, during 
-> > a data transfer such as FTP if I unplug the Ethernet cable and plug it 
-> > back in, the Ethernet interface will stop responding and the machine 
-> > will lock up after a minute or so. This behaviour is repeatable. I have the
-> > sis190 driver loaded as a module.
-> > 
-> > I haven't found a kernel version where this doesn't happen. It happens with
-> > kernel 2.6.20.15, for example.
+> Ok, but wouldn't every networking device on PCI need to do this then?
 
-I wonder if somehow sis190_phy_task() is creating some kind
-of deadlock when handling the link down and up events.
+No, it depends on the design.  For example, a bigger maximum payload
+size will alleviate the problem (tg3 hardware is using 128).  Multiple
+DMA read channels to pipeline the multiple read requests will also help.
 
-It takes the RTNL semaphore in sis190_phy_task() but it doesn't
-call anything which can see deadlocking on that.
+We don't need to increase the MRRS on bnx2 hardware to get line-rate,
+for example.
 
-It does invoke the link-watch layer, indirectly via the
-various netif_carrier_{on,off}() calls it makes but those
-should be OK since they just schedule workqueue things.
+> 
+> I want to hear what you think about this wrt. what I mentioned about
+> fairness above.  What's the point of PCI specifying a limit to comply
+> with if nobody complies with the limit for localized performance
+> reasons?
 
-Perhaps what is contributing to the problem is that
-sis190_interrupt() still processes the RX and TX queues
-even when a link change event is signalled.  Perhaps
-the chip doesn't like that.
+Fairness is harder to know because it depends on chipset behavior.  PCIE
+is not shared so there's no fairness issue at the local PCIE.  Any
+fairness issue will be at the bridge.
 
-Francois, I noticed two issues while reviewing the driver for
-this bug:
+I don't know what's the exact rationale for defaulting to 512, but I
+will try to find out.
 
-1) The interrupt handler does no SMP locking, the chip might
-   not be happy with one thread (in phy_task) programming
-   the MDIO whilst another thread does RX/TX ring processing,
-   for example.
+> 
+> I think this is an important issue.  Someone down the road is going to
+> see bad disk throughput when doing lots of network transfers and
+> wonder why that is.  It will be hard to debug, but it won't be
+> difficult for us to do something proactive about this right now to
+> prevent that problem from happening in the first place.
+> 
+> Thanks.
+> 
 
-2) The timeout limit check in __mdio_cmd() is buggy, it should
-   be 99 instead of 999.
