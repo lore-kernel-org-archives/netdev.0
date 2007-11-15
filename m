@@ -1,47 +1,41 @@
-From: Florian Fainelli <florian.fainelli@telecomint.eu>
-Subject: Re: [PATCH] r6040 various bugfixes
-Date: Thu, 15 Nov 2007 19:57:57 +0100
-Message-ID: <200711151957.57708.florian.fainelli@telecomint.eu>
-References: <200711151937.44681.florian.fainelli@telecomint.eu> <20071115105304.76ef6f29@freepuppy.rosehill>
+From: "Jon Nelson" <jnelson@jamponi.net>
+Subject: Re: tg3: strange errors and non-working-ness
+Date: Thu, 15 Nov 2007 13:17:10 -0600
+Message-ID: <cccedfc60711151117v70b285fbl79bbc92ced176d54@mail.gmail.com>
+References: <20071115094728.GB2366@ff.dom.local> <1195154603.6360.9.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Jarek Poplawski" <jarkao2@o2.pl>, netdev <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org
+To: "Michael Chan" <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.int-evry.fr ([157.159.10.44]:37166 "EHLO
-	smtp1.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760708AbXKOS6L convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 13:58:11 -0500
-In-Reply-To: <20071115105304.76ef6f29@freepuppy.rosehill>
+Received: from nf-out-0910.google.com ([64.233.182.187]:51172 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758061AbXKOTRN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 14:17:13 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so582676nfb
+        for <netdev@vger.kernel.org>; Thu, 15 Nov 2007 11:17:10 -0800 (PST)
+In-Reply-To: <1195154603.6360.9.camel@dell>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Stephen,
-
-Le jeudi 15 novembre 2007, Stephen Hemminger a =E9crit=A0:
-> Looks good, thanks:
+On 11/15/07, Michael Chan <mchan@broadcom.com> wrote:
+> On Thu, 2007-11-15 at 10:47 +0100, Jarek Poplawski wrote:
+> > On 13-11-2007 19:57, Jon Nelson wrote:
+> > > The best info I've got is this:
 >
-> There is a function to make this easier:
-> > @@ -756,10 +803,8 @@ r6040_open(struct net_device *dev)
-> >  	if (lp->switch_sig !=3D ICPLUS_PHY_ID) {
-> >  		/* set and active a timer process */
-> >  		init_timer(&lp->timer);
-> > -		lp->timer.expires =3D TIMER_WUT;
-> >  		lp->timer.data =3D (unsigned long)dev;
-> >  		lp->timer.function =3D &r6040_timer;
-> > -		add_timer(&lp->timer);
->
-> Could be:
-> 	setup_timer(&lp->timer, r6040_timer, dev);
-> 	if (lp->switch_sig !=3D ICPLUS_PHY_ID)
-> 		mod_timer(&lp->timer, jiffies + HZ);
+> It looks like the card is being reset periodically.  Every time the card
+> gets reset, you'll see those PM messages in the version of the driver
+> you're using.  Do you see NETDEV WATCHDOG message as well in the dmesg
+> log?
 
-I will send a fix later when I have tested your suggestion to use sligh=
-tly=20
-larger buffer and skb_reserve(skb, NET_IP_ALIGN).
+Is this what you mean? I pulled this from the quoted text:
 
-Thank you.
---=20
-=46lorian
+Nov 10 22:45:52 frank kernel: NETDEV WATCHDOG: eth0: transmit timed out
+
+
+
+-- 
+Jon
