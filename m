@@ -1,68 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 10/13] tg3: Increase the PCI MRRS
-Date: Thu, 15 Nov 2007 14:41:03 -0800 (PST)
-Message-ID: <20071115.144103.24280158.davem@davemloft.net>
-References: <1194655141.5745.272.camel@teletran1>
-	<20071112.212135.172019737.davem@davemloft.net>
-	<1195165211.20497.107.camel@teletran1>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] IPVS: Fix sysctl warnings about missing strategy
+Date: Fri, 16 Nov 2007 00:53:25 +0200 (EET)
+Message-ID: <Pine.LNX.4.58.0711160039110.2986@u.domain.uli>
+References: <200711131129.58868.borntraeger@de.ibm.com>
+ <20071113.024500.155458534.davem@davemloft.net> <20071114021131.GB2523@verge.net.au>
+ <Pine.LNX.4.58.0711150225280.3658@u.domain.uli> <20071115011431.GA8325@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, mchan@broadcom.com
-To: mcarlson@broadcom.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, borntraeger@de.ibm.com,
+	netdev@vger.kernel.org, ebiederm@xmission.com, wensong@linux-vs.org
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50696
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1761748AbXKOWlD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 17:41:03 -0500
-In-Reply-To: <1195165211.20497.107.camel@teletran1>
+Received: from ja.ssi.bg ([217.79.71.194]:4598 "EHLO u.domain.uli"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751622AbXKOWxp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 17:53:45 -0500
+In-Reply-To: <20071115011431.GA8325@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Thu, 15 Nov 2007 14:20:10 -0800
 
-> On Mon, 2007-11-12 at 21:21 -0800, David Miller wrote:
-> > From: "Matt Carlson" <mcarlson@broadcom.com>
-> > Date: Fri, 09 Nov 2007 16:39:01 -0800
-> > 
-> > > Previous devices hardcoded the PCI Maximum Read Request Size to 4K.  To
-> > > better comply with the PCI spec, the hardware now defaults the MRRS to
-> > > 512 bytes.  This will yield poor driver performance if left untouched.
-> > > This patch increases the MRRS to 4K on driver initialization.
-> > > 
-> > > Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-> > > Signed-off-by: Michael Chan <mchan@broadcom.com>
-> > 
-> > I've applied this patch, but...
-> > 
-> > I sense that the PCI spec wants devices to use an MRRS value of 512 in
-> > order to get better fairness on a PCI-E segment amongst multiple
-> > devices.
-> > 
-> > From that perspective, jacking up the MRRS to 4096 unilaterally seems
-> > like a very bad idea.  If this was necessary for good performance, I'm
-> > sure the PCI spec folks would have choosen a higher value.
-> > 
-> > Or is this some tg3 specific performance issue?
+	Hello,
+
+On Wed, 14 Nov 2007, Simon Horman wrote:
+
+> > So, as long as these entries are not
+> > accessible from sysctl it is safe to run without strategy handler but if
+> > values can be changed then we will need strategy handler to
+> > properly call update_defense_level() as done in proc_do_defense_mode()
+> > as proc_handler. There could be side effects if new mode is not applied.
 > 
-> Keeping the MRRS at 512 introduces DMA latencies that effectively
-> prevent us from achieving linerate.  With a packet size of ~1.5K and the
-> MRRS at 512 bytes, the DMA will be broken into at least 3 DMA reads.
-> Each DMA read takes ~1usec to initiate.  It is this overhead that starts
-> to cut into total throughput.
+> I'm not sure what you are getting at there. I did write a stratergy
+> for update_defense_level(), but I didn't post it, as I thought that
+> it would not be needed if CTL_UNNUMBERED is used.
 
-Ok, but wouldn't every networking device on PCI need to do this then?
+	Thanks everyone! I now see that by using CTL_UNNUMBERED
+for ctl_name stops any writes to 'data', so there is no need for
+'strategy' handler.
 
-I want to hear what you think about this wrt. what I mentioned about
-fairness above.  What's the point of PCI specifying a limit to comply
-with if nobody complies with the limit for localized performance
-reasons?
+Regards
 
-I think this is an important issue.  Someone down the road is going to
-see bad disk throughput when doing lots of network transfers and
-wonder why that is.  It will be hard to debug, but it won't be
-difficult for us to do something proactive about this right now to
-prevent that problem from happening in the first place.
-
-Thanks.
+--
+Julian Anastasov <ja@ssi.bg>
