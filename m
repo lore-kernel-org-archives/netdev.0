@@ -1,105 +1,40 @@
-From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Subject: RE: [PATCH 01/01] ipv6: RFC4214 Support (v2.2)
-Date: Thu, 15 Nov 2007 13:59:34 -0800
-Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC34@XCH-NW-7V2.nw.nos.boeing.com>
-References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC2B@XCH-NW-7V2.nw.nos.boeing.com><20071115.204810.131957203.yoshfuji@linux-ipv6.org><39C363776A4E8C4A94691D2BD9D1C9A1029EDC31@XCH-NW-7V2.nw.nos.boeing.com> <20071116.034416.19410547.yoshfuji@linux-ipv6.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: tg3: strange errors and non-working-ness
+Date: Thu, 15 Nov 2007 23:11:10 +0100
+Message-ID: <473CC3FE.5080509@o2.pl>
+References: <20071115094728.GB2366@ff.dom.local> <1195154603.6360.9.camel@dell>	 <cccedfc60711151117v70b285fbl79bbc92ced176d54@mail.gmail.com>	 <1195158200.6360.17.camel@dell> <cccedfc60711151221p322894f8i94c540fefb0e4827@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-2022-jp"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <vladislav.yasevich@hp.com>
-To: =?iso-2022-jp?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>
+Cc: Michael Chan <mchan@broadcom.com>, netdev <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org
+To: Jon Nelson <jnelson@jamponi.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stl-smtpout-01.boeing.com ([130.76.96.56]:37068 "EHLO
-	stl-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757694AbXKOWAk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 17:00:40 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20071116.034416.19410547.yoshfuji@linux-ipv6.org>
+Received: from mx2.go2.pl ([193.17.41.42]:57935 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1762053AbXKOWJO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 17:09:14 -0500
+In-Reply-To: <cccedfc60711151221p322894f8i94c540fefb0e4827@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yoshifuji, 
+Jon Nelson wrote, On 11/15/2007 09:21 PM:
+...
 
-> -----Original Message-----
-> From: YOSHIFUJI Hideaki / 吉藤英明 [mailto:yoshfuji@linux-ipv6.org] 
-> Sent: Thursday, November 15, 2007 10:44 AM
-> To: Templin, Fred L
-> Cc: netdev@vger.kernel.org; vladislav.yasevich@hp.com; 
-> yoshfuji@linux-ipv6.org
-> Subject: Re: [PATCH 01/01] ipv6: RFC4214 Support (v2.2)
-> 
-> In article 
-> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC31@XCH-NW-7V2.nw.nos.bo
-> eing.com> (at Thu, 15 Nov 2007 10:11:16 -0800), "Templin, 
-> Fred L" <Fred.L.Templin@boeing.com> says:
-> 
-> > Yoshifuji, 
-> > 
-> > > -----Original Message-----
-> > > From: YOSHIFUJI Hideaki / 吉藤英明 [mailto:yoshfuji@linux-ipv6.org] 
-> > > Sent: Thursday, November 15, 2007 3:48 AM
-> > > To: Templin, Fred L
-> > > Cc: netdev@vger.kernel.org; vladislav.yasevich@hp.com; 
-> > > yoshfuji@linux-ipv6.org
-> > > Subject: Re: [PATCH 01/01] ipv6: RFC4214 Support (v2.2)
-> > > 
-> > > In article 
-> > > <39C363776A4E8C4A94691D2BD9D1C9A1029EDC2B@XCH-NW-7V2.nw.nos.bo
-> > > eing.com> (at Wed, 14 Nov 2007 22:44:17 -0800), "Templin, 
-> > > Fred L" <Fred.L.Templin@boeing.com> says:
-> > > 
-> > > > From: Fred L. Templin <fred.l.templin@boeing.com>
-> > > > 
-> > > > This patch includes support for the Intra-Site Automatic Tunnel
-> > > > Addressing Protocol (ISATAP) per RFC4214. It uses the SIT
-> > > > module, and is configured using extensions to the "iproute2"
-> > > > utility.
-> > > > 
-> > > > The following diffs are specific to the Linux 2.6.24-rc2 kernel
-> > > > distribution. This message includes the full and patchable 
-> > > diff text;
-> > > > please use this version to apply patches.
-> > > > 
-> > > > Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
-> > > 
-> > > BTW, how will we handle DNS name (and TTL) and/or multiple PRL entries 
-> > > in RFC4214?
-> > > 
-> > > I'm doubting if we really need to handle PRL refresh in kernel.
-> > 
-> > DNS name and PRL refresh are done in a daemon that either exec's
-> > 'ip' or issues the device ioctl's directly. When there are multiple default
-> > router IPv4 addresses, the daemon picks one as the primary and writes
-> > it to the kernel. It can then change to a different primary later if it wants
-> > to. Also possible is something like VRRP to allow several routers for
-> > fault tolerance even though there is only a single default router address. 
-> 
-> Why?  All PRLs should be installed in kernel so that standard router 
-> selection can be used.  For this, I think we should have just one
-> isatap interface per set of PRLs provideing virtual link,
-> especially if each of them provides the same prefix.
+> NOTE: to avoid list noise, I can make a bug out of this on
+> bugzilla.kernel.org and we can proceed from there if that is
+> preferred.
 
-I'm somewhat surprised that you would bring this up at this time, but
-let's talk about it. IMHO, there are two types of ISATAP routers; those
-that advertise themselves as default in their Router Advertisements
-(let's call these "ROUTERS") and those that only advertise more-specific
-routes (let's call these "routers"). In a well-maintained site, the former
-would consist of all IPv4 addresses returned from a FQDN lookup for
-"isatap.example.com" while the latter would consist of all other FQDNs
-in the domain "example.com".
+Why avoid list noise? These lists are made just for this. But, since
+this case needs a lot of space for your configs, maybe a lot of time,
+and maybe a bit more people to have a look at this as well, bugzilla
+could be very useful.
 
-So, how would we get the addresses of all ROUTERS into the kernel?
-IMHO, not by pumping them in one at a time using "ip". Instead, we
-could have an application that sends the RSs and lets the kernel
-process the RAs while also getting a copy of the RAs for itself. Is
-that what you want? If so, we should probably not be bothering with
-the RS/RA pinging for the single ISATAP router at all. What do you
-think?
+Of course, like Michael said, it would be better if you could do
+at least short test with a version as new as possible.
 
-Fred
-fred.l.templin@boeing.com
+Regards,
+Jarek P.
 
-> --yoshfuji
-> 
+PS: I've forgot to mention: lspci -vv, cat /proc/interrupts
+and maybe the same for these other, working gig-e cards.
