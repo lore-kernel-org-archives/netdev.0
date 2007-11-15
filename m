@@ -1,7 +1,7 @@
 From: Bron Gondwana <brong@fastmail.fm>
 Subject: Re: [alsa-devel] [BUG] New Kernel Bugs
 Date: Thu, 15 Nov 2007 15:16:13 +1100
-Message-ID: <20071115041613.GC15302__11751.5036058196$1195102328$gmane$org@brong.net>
+Message-ID: <20071115041613.GC15302__21704.6396261596$1195102328$gmane$org@brong.net>
 References: <20071113143201.9441c940.akpm@linux-foundation.org> <20071113.175551.131375600.davem@davemloft.net> <20071114095507.GA32595@flint.arm.linux.org.uk> <20071114.020706.219917088.davem@davemloft.net> <473AE010.4090806@keyaccess.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -13,14 +13,10 @@ Cc: David Miller <davem@davemloft.net>, rmk+lkml@arm.linux.org.uk,
 	linux-input@atrey.karlin.mff.cuni.cz, akpm@linux-foundation.org,
 	Jaroslav Kysela <perex@suse.cz>, Takashi Iwai <tiwai@suse.de>
 To: Rene Herman <rene.herman@keyaccess.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from paragon.brong.net ([74.52.187.94]:39058 "EHLO paragon.brong.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754929AbXKOEvi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2007 23:51:38 -0500
+Return-path: <linux-ide-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <473AE010.4090806@keyaccess.nl>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Wed, Nov 14, 2007 at 12:46:24PM +0100, Rene Herman wrote:
