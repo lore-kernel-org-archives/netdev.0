@@ -1,29 +1,39 @@
 From: Daniel Barkalow <barkalow@iabervon.org>
 Subject: Re: [BUG] New Kernel Bugs
 Date: Thu, 15 Nov 2007 11:19:46 -0500 (EST)
-Message-ID: <Pine.LNX.4.64.0711151034340.12193__24536.9091317572$1195143638$gmane$org@iabervon.org>
+Message-ID: <Pine.LNX.4.64.0711151034340.12193__22321.1494311274$1195143718$gmane$org@iabervon.org>
 References: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
- <20071113.033946.114918709.davem@davemloft.net> <20071113034916.2556edd7.akpm@linux-foundation.org>
- <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org>
- <20071113134029.GA30978@elte.hu> <4739AFE0.20705@rtr.ca>
- <40f323d00711130752k19cab8eauc3456721274b3267@mail.gmail.com>
- <20071113171356.GA25824@thunk.org> <Pine.LNX.4.64.0711141810110.12193@iabervon.org>
- <20071115153057.GE17180@thunk.org>
+	<20071113.033946.114918709.davem@davemloft.net>
+	<20071113034916.2556edd7.akpm@linux-foundation.org>
+	<20071113.035824.40509981.davem@davemloft.net>
+	<20071113041259.79c9a8c5.akpm@linux-foundation.org>
+	<20071113134029.GA30978@elte.hu> <4739AFE0.20705@rtr.ca>
+	<40f323d00711130752k19cab8eauc3456721274b3267@mail.gmail.com>
+	<20071113171356.GA25824@thunk.org>
+	<Pine.LNX.4.64.0711141810110.12193@iabervon.org>
+	<20071115153057.GE17180@thunk.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Benoit Boissinot <bboissin@gmail.com>, Mark Lord <liml@rtr.ca>,
-	Ingo Molnar <mingo@elte.hu>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, protasnb@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: alsa-devel@alsa-project.org, Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	linux-pcmcia@lists.infradead.org, linux-kernel@vger.kernel.org,
+	protasnb@gmail.com, linux-ide@vger.kernel.org,
+	Benoit Boissinot <bboissin@gmail.com>, Mark Lord <liml@rtr.ca>,
 	linux-input@atrey.karlin.mff.cuni.cz,
-	bugme-daemon@bugzilla.kernel.org
+	Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>
 To: Theodore Tso <tytso@mit.edu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763638AbXKOQUG@vger.kernel.org>
+Return-path: <linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org>
 In-Reply-To: <20071115153057.GE17180@thunk.org>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/listinfo/linux-pcmcia>,
+	<mailto:linux-pcmcia-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-pcmcia>
+List-Post: <mailto:linux-pcmcia@lists.infradead.org>
+List-Help: <mailto:linux-pcmcia-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-pcmcia>,
+	<mailto:linux-pcmcia-request@lists.infradead.org?subject=subscribe>
+Sender: linux-pcmcia-bounces@lists.infradead.org
+Errors-To: linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
 On Thu, 15 Nov 2007, Theodore Tso wrote:
