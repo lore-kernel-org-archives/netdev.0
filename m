@@ -1,36 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Please pull 'fixes-davem' branch of wireless-2.6
-Date: Wed, 14 Nov 2007 19:40:53 -0800 (PST)
-Message-ID: <20071114.194053.165159394.davem@davemloft.net>
-References: <20071115025150.GA738@tuxdriver.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] via-velocity: don't oops on MTU change.
+Date: Wed, 14 Nov 2007 19:38:44 -0800
+Message-ID: <20071114193844.0cab5c7d@freepuppy.rosehill>
+References: <bug-9382-10286@http.bugzilla.kernel.org/>
+	<20071114192319.e9423144.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, shemminger@linux-foundation.org,
-	romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: netdev@vger.kernel.org, jnelson-kernel-bugzilla@jamponi.net
+To: Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43234
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754567AbXKODk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 22:40:57 -0500
-In-Reply-To: <20071115025150.GA738@tuxdriver.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:52357 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755515AbXKODlC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 22:41:02 -0500
+In-Reply-To: <20071114192319.e9423144.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 14 Nov 2007 21:51:50 -0500
+Simple mtu change when device is down.
+Fix http://bugzilla.kernel.org/show_bug.cgi?id=9382.
 
-> Here are a few fixes for 2.6.24.  I don't think there is anything
-> controversial here.
- ...
-> The following changes since commit dbeeb816e805091e7cfc03baf36dc40b4adb2bbd:
->   Linus Torvalds (1):
->         Linux 2.6.24-rc2
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-davem
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-I'll pull this in, thanks a lot John.
+
+--- a/drivers/net/via-velocity.c	2007-10-22 09:38:11.000000000 -0700
++++ b/drivers/net/via-velocity.c	2007-11-14 19:34:30.000000000 -0800
+@@ -1963,6 +1963,11 @@ static int velocity_change_mtu(struct ne
+ 		return -EINVAL;
+ 	}
+ 
++	if (!netif_running(dev)) {
++		dev->mtu = new_mtu;
++		return 0;
++	}
++
+ 	if (new_mtu != oldmtu) {
+ 		spin_lock_irqsave(&vptr->lock, flags);
+ 
