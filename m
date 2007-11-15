@@ -1,405 +1,367 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 2.6.25 4/6] net: Make AF_PACKET handle multiple network
-	namespaces
-Date: Thu, 15 Nov 2007 18:59:54 +0300
-Message-ID: <20071115155954.GA25475@iris.sw.ru>
+Subject: [PATCH 2.6.25 5/6] net: Make AF_UNIX per network namespace safe
+	(v2)
+Date: Thu, 15 Nov 2007 19:00:41 +0300
+Message-ID: <20071115160041.GA25504@iris.sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
 	ebiederm@xmission.com, dlezcano@fr.ibm.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:55827 "EHLO iris"
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:64916 "EHLO iris"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755913AbXKOPzt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2007 10:55:49 -0500
+	id S1757912AbXKOP4f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 10:56:35 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is done by making packet_sklist_lock and packet_sklist per
-network namespace and adding an additional filter condition on
-received packets to ensure they came from the proper network
-namespace.
+>From 337f0867c81ab93a1bc645e62896a798d0c864ac Mon Sep 17 00:00:00 2001
+From: Denis V. Lunev <den@openvz.org>
+Date: Thu, 15 Nov 2007 15:04:12 +0300
+Subject: [PATCH] net: Make AF_UNIX per network namespace safe [v2]
+
+Because of the global nature of garbage collection, and because of the
+cost of per namespace hash tables unix_socket_table has been kept
+global.  With a filter added on lookups so we don't see sockets from
+the wrong namespace.
+
+Currently I don't fold the namesapce into the hash so multiple
+namespaces using the same socket name will be guaranteed a hash
+collision.
 
 Changes from v1:
-- prohibit to call inet_dgram_ops.ioctl in other than init_net
+- fixed unix_seq_open
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- include/net/net_namespace.h |    4 +
- net/packet/af_packet.c      |  131 ++++++++++++++++++++++++++++---------------
- 2 files changed, 89 insertions(+), 46 deletions(-)
+ net/unix/af_unix.c |  118 ++++++++++++++++++++++++++++++++++++++++-----------
+ 1 files changed, 92 insertions(+), 26 deletions(-)
 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 90802a6..4d0d634 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -32,6 +32,10 @@ struct net {
- 	struct hlist_head	*dev_index_head;
- 
- 	struct sock 		*rtnl;			/* rtnetlink socket */
-+
-+	/* List of all packet sockets. */
-+	rwlock_t		packet_sklist_lock;
-+	struct hlist_head	packet_sklist;
- };
- 
- #ifdef CONFIG_NET
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 8a7807d..45e3cbc 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -135,10 +135,6 @@ dev->hard_header == NULL (ll header is added by device, we cannot control it)
-    packet classifier depends on it.
-  */
- 
--/* List of all packet sockets. */
--static HLIST_HEAD(packet_sklist);
--static DEFINE_RWLOCK(packet_sklist_lock);
--
- /* Private packet socket structures. */
- 
- struct packet_mclist
-@@ -246,9 +242,6 @@ static int packet_rcv_spkt(struct sk_buff *skb, struct net_device *dev,  struct
- 	struct sock *sk;
- 	struct sockaddr_pkt *spkt;
- 
--	if (dev->nd_net != &init_net)
--		goto out;
--
- 	/*
- 	 *	When we registered the protocol we saved the socket in the data
- 	 *	field for just this event.
-@@ -270,6 +263,9 @@ static int packet_rcv_spkt(struct sk_buff *skb, struct net_device *dev,  struct
- 	if (skb->pkt_type == PACKET_LOOPBACK)
- 		goto out;
- 
-+	if (dev->nd_net != sk->sk_net)
-+		goto out;
-+
- 	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
- 		goto oom;
- 
-@@ -341,7 +337,7 @@ static int packet_sendmsg_spkt(struct kiocb *iocb, struct socket *sock,
- 	 */
- 
- 	saddr->spkt_device[13] = 0;
--	dev = dev_get_by_name(&init_net, saddr->spkt_device);
-+	dev = dev_get_by_name(sk->sk_net, saddr->spkt_device);
- 	err = -ENODEV;
- 	if (dev == NULL)
- 		goto out_unlock;
-@@ -449,15 +445,15 @@ static int packet_rcv(struct sk_buff *skb, struct net_device *dev, struct packet
- 	int skb_len = skb->len;
- 	unsigned int snaplen, res;
- 
--	if (dev->nd_net != &init_net)
--		goto drop;
--
- 	if (skb->pkt_type == PACKET_LOOPBACK)
- 		goto drop;
- 
- 	sk = pt->af_packet_priv;
- 	po = pkt_sk(sk);
- 
-+	if (dev->nd_net != sk->sk_net)
-+		goto drop;
-+
- 	skb->dev = dev;
- 
- 	if (dev->header_ops) {
-@@ -566,15 +562,15 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev, struct packe
- 	struct sk_buff *copy_skb = NULL;
- 	struct timeval tv;
- 
--	if (dev->nd_net != &init_net)
--		goto drop;
--
- 	if (skb->pkt_type == PACKET_LOOPBACK)
- 		goto drop;
- 
- 	sk = pt->af_packet_priv;
- 	po = pkt_sk(sk);
- 
-+	if (dev->nd_net != sk->sk_net)
-+		goto drop;
-+
- 	if (dev->header_ops) {
- 		if (sk->sk_type != SOCK_DGRAM)
- 			skb_push(skb, skb->data - skb_mac_header(skb));
-@@ -732,7 +728,7 @@ static int packet_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	}
- 
- 
--	dev = dev_get_by_index(&init_net, ifindex);
-+	dev = dev_get_by_index(sk->sk_net, ifindex);
- 	err = -ENXIO;
- 	if (dev == NULL)
- 		goto out_unlock;
-@@ -799,15 +795,17 @@ static int packet_release(struct socket *sock)
- {
- 	struct sock *sk = sock->sk;
- 	struct packet_sock *po;
-+	struct net *net;
- 
- 	if (!sk)
- 		return 0;
- 
-+	net = sk->sk_net;
- 	po = pkt_sk(sk);
- 
--	write_lock_bh(&packet_sklist_lock);
-+	write_lock_bh(&net->packet_sklist_lock);
- 	sk_del_node_init(sk);
--	write_unlock_bh(&packet_sklist_lock);
-+	write_unlock_bh(&net->packet_sklist_lock);
- 
- 	/*
- 	 *	Unhook packet receive handler.
-@@ -916,7 +914,7 @@ static int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr, int add
- 		return -EINVAL;
- 	strlcpy(name,uaddr->sa_data,sizeof(name));
- 
--	dev = dev_get_by_name(&init_net, name);
-+	dev = dev_get_by_name(sk->sk_net, name);
- 	if (dev) {
- 		err = packet_do_bind(sk, dev, pkt_sk(sk)->num);
- 		dev_put(dev);
-@@ -943,7 +941,7 @@ static int packet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len
- 
- 	if (sll->sll_ifindex) {
- 		err = -ENODEV;
--		dev = dev_get_by_index(&init_net, sll->sll_ifindex);
-+		dev = dev_get_by_index(sk->sk_net, sll->sll_ifindex);
- 		if (dev == NULL)
- 			goto out;
- 	}
-@@ -972,9 +970,6 @@ static int packet_create(struct net *net, struct socket *sock, int protocol)
- 	__be16 proto = (__force __be16)protocol; /* weird, but documented */
- 	int err;
- 
--	if (net != &init_net)
--		return -EAFNOSUPPORT;
--
- 	if (!capable(CAP_NET_RAW))
- 		return -EPERM;
- 	if (sock->type != SOCK_DGRAM && sock->type != SOCK_RAW &&
-@@ -1020,9 +1015,9 @@ static int packet_create(struct net *net, struct socket *sock, int protocol)
- 		po->running = 1;
- 	}
- 
--	write_lock_bh(&packet_sklist_lock);
--	sk_add_node(sk, &packet_sklist);
--	write_unlock_bh(&packet_sklist_lock);
-+	write_lock_bh(&net->packet_sklist_lock);
-+	sk_add_node(sk, &net->packet_sklist);
-+	write_unlock_bh(&net->packet_sklist_lock);
- 	return(0);
- out:
- 	return err;
-@@ -1140,7 +1135,7 @@ static int packet_getname_spkt(struct socket *sock, struct sockaddr *uaddr,
- 		return -EOPNOTSUPP;
- 
- 	uaddr->sa_family = AF_PACKET;
--	dev = dev_get_by_index(&init_net, pkt_sk(sk)->ifindex);
-+	dev = dev_get_by_index(sk->sk_net, pkt_sk(sk)->ifindex);
- 	if (dev) {
- 		strlcpy(uaddr->sa_data, dev->name, 15);
- 		dev_put(dev);
-@@ -1165,7 +1160,7 @@ static int packet_getname(struct socket *sock, struct sockaddr *uaddr,
- 	sll->sll_family = AF_PACKET;
- 	sll->sll_ifindex = po->ifindex;
- 	sll->sll_protocol = po->num;
--	dev = dev_get_by_index(&init_net, po->ifindex);
-+	dev = dev_get_by_index(sk->sk_net, po->ifindex);
- 	if (dev) {
- 		sll->sll_hatype = dev->type;
- 		sll->sll_halen = dev->addr_len;
-@@ -1217,7 +1212,7 @@ static int packet_mc_add(struct sock *sk, struct packet_mreq_max *mreq)
- 	rtnl_lock();
- 
- 	err = -ENODEV;
--	dev = __dev_get_by_index(&init_net, mreq->mr_ifindex);
-+	dev = __dev_get_by_index(sk->sk_net, mreq->mr_ifindex);
- 	if (!dev)
- 		goto done;
- 
-@@ -1271,7 +1266,7 @@ static int packet_mc_drop(struct sock *sk, struct packet_mreq_max *mreq)
- 			if (--ml->count == 0) {
- 				struct net_device *dev;
- 				*mlp = ml->next;
--				dev = dev_get_by_index(&init_net, ml->ifindex);
-+				dev = dev_get_by_index(sk->sk_net, ml->ifindex);
- 				if (dev) {
- 					packet_dev_mc(dev, ml, -1);
- 					dev_put(dev);
-@@ -1299,7 +1294,7 @@ static void packet_flush_mclist(struct sock *sk)
- 		struct net_device *dev;
- 
- 		po->mclist = ml->next;
--		if ((dev = dev_get_by_index(&init_net, ml->ifindex)) != NULL) {
-+		if ((dev = dev_get_by_index(sk->sk_net, ml->ifindex)) != NULL) {
- 			packet_dev_mc(dev, ml, -1);
- 			dev_put(dev);
- 		}
-@@ -1455,12 +1450,10 @@ static int packet_notifier(struct notifier_block *this, unsigned long msg, void
- 	struct sock *sk;
- 	struct hlist_node *node;
- 	struct net_device *dev = data;
-+	struct net *net = dev->nd_net;
- 
--	if (dev->nd_net != &init_net)
--		return NOTIFY_DONE;
--
--	read_lock(&packet_sklist_lock);
--	sk_for_each(sk, node, &packet_sklist) {
-+	read_lock(&net->packet_sklist_lock);
-+	sk_for_each(sk, node, &net->packet_sklist) {
- 		struct packet_sock *po = pkt_sk(sk);
- 
- 		switch (msg) {
-@@ -1499,7 +1492,7 @@ static int packet_notifier(struct notifier_block *this, unsigned long msg, void
- 			break;
- 		}
- 	}
--	read_unlock(&packet_sklist_lock);
-+	read_unlock(&net->packet_sklist_lock);
- 	return NOTIFY_DONE;
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index e835da8..93d7e55 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -270,7 +270,8 @@ static inline void unix_insert_socket(struct hlist_head *list, struct sock *sk)
+ 	spin_unlock(&unix_table_lock);
  }
  
-@@ -1547,6 +1540,8 @@ static int packet_ioctl(struct socket *sock, unsigned int cmd,
- 		case SIOCGIFDSTADDR:
- 		case SIOCSIFDSTADDR:
- 		case SIOCSIFFLAGS:
-+			if (sk->sk_net != &init_net)
-+				return -ENOIOCTLCMD;
- 			return inet_dgram_ops.ioctl(sock, cmd, arg);
- #endif
+-static struct sock *__unix_find_socket_byname(struct sockaddr_un *sunname,
++static struct sock *__unix_find_socket_byname(struct net *net,
++					      struct sockaddr_un *sunname,
+ 					      int len, int type, unsigned hash)
+ {
+ 	struct sock *s;
+@@ -279,6 +280,9 @@ static struct sock *__unix_find_socket_byname(struct sockaddr_un *sunname,
+ 	sk_for_each(s, node, &unix_socket_table[hash ^ type]) {
+ 		struct unix_sock *u = unix_sk(s);
  
-@@ -1862,12 +1857,12 @@ static struct notifier_block packet_netdev_notifier = {
- };
++		if (s->sk_net != net)
++			continue;
++
+ 		if (u->addr->len == len &&
+ 		    !memcmp(u->addr->name, sunname, len))
+ 			goto found;
+@@ -288,21 +292,22 @@ found:
+ 	return s;
+ }
  
- #ifdef CONFIG_PROC_FS
--static inline struct sock *packet_seq_idx(loff_t off)
-+static inline struct sock *packet_seq_idx(struct net *net, loff_t off)
+-static inline struct sock *unix_find_socket_byname(struct sockaddr_un *sunname,
++static inline struct sock *unix_find_socket_byname(struct net *net,
++						   struct sockaddr_un *sunname,
+ 						   int len, int type,
+ 						   unsigned hash)
+ {
+ 	struct sock *s;
+ 
+ 	spin_lock(&unix_table_lock);
+-	s = __unix_find_socket_byname(sunname, len, type, hash);
++	s = __unix_find_socket_byname(net, sunname, len, type, hash);
+ 	if (s)
+ 		sock_hold(s);
+ 	spin_unlock(&unix_table_lock);
+ 	return s;
+ }
+ 
+-static struct sock *unix_find_socket_byinode(struct inode *i)
++static struct sock *unix_find_socket_byinode(struct net *net, struct inode *i)
  {
  	struct sock *s;
  	struct hlist_node *node;
+@@ -312,6 +317,9 @@ static struct sock *unix_find_socket_byinode(struct inode *i)
+ 		    &unix_socket_table[i->i_ino & (UNIX_HASH_SIZE - 1)]) {
+ 		struct dentry *dentry = unix_sk(s)->dentry;
  
--	sk_for_each(s, node, &packet_sklist) {
-+	sk_for_each(s, node, &net->packet_sklist) {
- 		if (!off--)
++		if (s->sk_net != net)
++			continue;
++
+ 		if(dentry && dentry->d_inode == i)
+ 		{
+ 			sock_hold(s);
+@@ -631,9 +639,6 @@ out:
+ 
+ static int unix_create(struct net *net, struct socket *sock, int protocol)
+ {
+-	if (net != &init_net)
+-		return -EAFNOSUPPORT;
+-
+ 	if (protocol && protocol != PF_UNIX)
+ 		return -EPROTONOSUPPORT;
+ 
+@@ -677,6 +682,7 @@ static int unix_release(struct socket *sock)
+ static int unix_autobind(struct socket *sock)
+ {
+ 	struct sock *sk = sock->sk;
++	struct net *net = sk->sk_net;
+ 	struct unix_sock *u = unix_sk(sk);
+ 	static u32 ordernum = 1;
+ 	struct unix_address * addr;
+@@ -703,7 +709,7 @@ retry:
+ 	spin_lock(&unix_table_lock);
+ 	ordernum = (ordernum+1)&0xFFFFF;
+ 
+-	if (__unix_find_socket_byname(addr->name, addr->len, sock->type,
++	if (__unix_find_socket_byname(net, addr->name, addr->len, sock->type,
+ 				      addr->hash)) {
+ 		spin_unlock(&unix_table_lock);
+ 		/* Sanity yield. It is unusual case, but yet... */
+@@ -723,7 +729,8 @@ out:	mutex_unlock(&u->readlock);
+ 	return err;
+ }
+ 
+-static struct sock *unix_find_other(struct sockaddr_un *sunname, int len,
++static struct sock *unix_find_other(struct net *net,
++				    struct sockaddr_un *sunname, int len,
+ 				    int type, unsigned hash, int *error)
+ {
+ 	struct sock *u;
+@@ -741,7 +748,7 @@ static struct sock *unix_find_other(struct sockaddr_un *sunname, int len,
+ 		err = -ECONNREFUSED;
+ 		if (!S_ISSOCK(nd.dentry->d_inode->i_mode))
+ 			goto put_fail;
+-		u=unix_find_socket_byinode(nd.dentry->d_inode);
++		u=unix_find_socket_byinode(net, nd.dentry->d_inode);
+ 		if (!u)
+ 			goto put_fail;
+ 
+@@ -757,7 +764,7 @@ static struct sock *unix_find_other(struct sockaddr_un *sunname, int len,
+ 		}
+ 	} else {
+ 		err = -ECONNREFUSED;
+-		u=unix_find_socket_byname(sunname, len, type, hash);
++		u=unix_find_socket_byname(net, sunname, len, type, hash);
+ 		if (u) {
+ 			struct dentry *dentry;
+ 			dentry = unix_sk(u)->dentry;
+@@ -779,6 +786,7 @@ fail:
+ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ {
+ 	struct sock *sk = sock->sk;
++	struct net *net = sk->sk_net;
+ 	struct unix_sock *u = unix_sk(sk);
+ 	struct sockaddr_un *sunaddr=(struct sockaddr_un *)uaddr;
+ 	struct dentry * dentry = NULL;
+@@ -853,7 +861,7 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 
+ 	if (!sunaddr->sun_path[0]) {
+ 		err = -EADDRINUSE;
+-		if (__unix_find_socket_byname(sunaddr, addr_len,
++		if (__unix_find_socket_byname(net, sunaddr, addr_len,
+ 					      sk->sk_type, hash)) {
+ 			unix_release_addr(addr);
+ 			goto out_unlock;
+@@ -919,6 +927,7 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
+ 			      int alen, int flags)
+ {
+ 	struct sock *sk = sock->sk;
++	struct net *net = sk->sk_net;
+ 	struct sockaddr_un *sunaddr=(struct sockaddr_un*)addr;
+ 	struct sock *other;
+ 	unsigned hash;
+@@ -935,7 +944,7 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
+ 			goto out;
+ 
+ restart:
+-		other=unix_find_other(sunaddr, alen, sock->type, hash, &err);
++		other=unix_find_other(net, sunaddr, alen, sock->type, hash, &err);
+ 		if (!other)
+ 			goto out;
+ 
+@@ -1015,6 +1024,7 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+ {
+ 	struct sockaddr_un *sunaddr=(struct sockaddr_un *)uaddr;
+ 	struct sock *sk = sock->sk;
++	struct net *net = sk->sk_net;
+ 	struct unix_sock *u = unix_sk(sk), *newu, *otheru;
+ 	struct sock *newsk = NULL;
+ 	struct sock *other = NULL;
+@@ -1054,7 +1064,7 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+ 
+ restart:
+ 	/*  Find listening sock. */
+-	other = unix_find_other(sunaddr, addr_len, sk->sk_type, hash, &err);
++	other = unix_find_other(net, sunaddr, addr_len, sk->sk_type, hash, &err);
+ 	if (!other)
+ 		goto out;
+ 
+@@ -1330,6 +1340,7 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ {
+ 	struct sock_iocb *siocb = kiocb_to_siocb(kiocb);
+ 	struct sock *sk = sock->sk;
++	struct net *net = sk->sk_net;
+ 	struct unix_sock *u = unix_sk(sk);
+ 	struct sockaddr_un *sunaddr=msg->msg_name;
+ 	struct sock *other = NULL;
+@@ -1393,7 +1404,7 @@ restart:
+ 		if (sunaddr == NULL)
+ 			goto out_free;
+ 
+-		other = unix_find_other(sunaddr, namelen, sk->sk_type,
++		other = unix_find_other(net, sunaddr, namelen, sk->sk_type,
+ 					hash, &err);
+ 		if (other==NULL)
+ 			goto out_free;
+@@ -1999,12 +2010,18 @@ static unsigned int unix_poll(struct file * file, struct socket *sock, poll_tabl
+ 
+ 
+ #ifdef CONFIG_PROC_FS
+-static struct sock *unix_seq_idx(int *iter, loff_t pos)
++struct unix_iter_state {
++	struct net *net;
++	int i;
++};
++static struct sock *unix_seq_idx(struct unix_iter_state *iter, loff_t pos)
+ {
+ 	loff_t off = 0;
+ 	struct sock *s;
+ 
+-	for (s = first_unix_socket(iter); s; s = next_unix_socket(iter, s)) {
++	for (s = first_unix_socket(&iter->i); s; s = next_unix_socket(&iter->i, s)) {
++		if (s->sk_net != iter->net)
++			continue;
+ 		if (off == pos)
  			return s;
- 	}
-@@ -1876,21 +1871,24 @@ static inline struct sock *packet_seq_idx(loff_t off)
+ 		++off;
+@@ -2015,17 +2032,24 @@ static struct sock *unix_seq_idx(int *iter, loff_t pos)
  
- static void *packet_seq_start(struct seq_file *seq, loff_t *pos)
+ static void *unix_seq_start(struct seq_file *seq, loff_t *pos)
  {
--	read_lock(&packet_sklist_lock);
--	return *pos ? packet_seq_idx(*pos - 1) : SEQ_START_TOKEN;
-+	struct net *net = seq->private;
-+	read_lock(&net->packet_sklist_lock);
-+	return *pos ? packet_seq_idx(net, *pos - 1) : SEQ_START_TOKEN;
++	struct unix_iter_state *iter = seq->private;
+ 	spin_lock(&unix_table_lock);
+-	return *pos ? unix_seq_idx(seq->private, *pos - 1) : ((void *) 1);
++	return *pos ? unix_seq_idx(iter, *pos - 1) : ((void *) 1);
  }
  
- static void *packet_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ static void *unix_seq_next(struct seq_file *seq, void *v, loff_t *pos)
  {
-+	struct net *net = seq->private;
++	struct unix_iter_state *iter = seq->private;
++	struct sock *sk = v;
  	++*pos;
- 	return  (v == SEQ_START_TOKEN)
--		? sk_head(&packet_sklist)
-+		? sk_head(&net->packet_sklist)
- 		: sk_next((struct sock*)v) ;
+ 
+ 	if (v == (void *)1)
+-		return first_unix_socket(seq->private);
+-	return next_unix_socket(seq->private, v);
++		sk = first_unix_socket(&iter->i);
++	else
++		sk = next_unix_socket(&iter->i, sk);
++	while (sk && (sk->sk_net != iter->net))
++		sk = next_unix_socket(&iter->i, sk);
++	return sk;
  }
  
- static void packet_seq_stop(struct seq_file *seq, void *v)
+ static void unix_seq_stop(struct seq_file *seq, void *v)
+@@ -2087,7 +2111,27 @@ static const struct seq_operations unix_seq_ops = {
+ 
+ static int unix_seq_open(struct inode *inode, struct file *file)
  {
--	read_unlock(&packet_sklist_lock);
-+	struct net *net = seq->private;
-+	read_unlock(&net->packet_sklist_lock);
- }
- 
- static int packet_seq_show(struct seq_file *seq, void *v)
-@@ -1926,7 +1924,26 @@ static const struct seq_operations packet_seq_ops = {
- 
- static int packet_seq_open(struct inode *inode, struct file *file)
- {
--	return seq_open(file, &packet_seq_ops);
-+	struct seq_file *seq;
-+	int res;
-+	res = seq_open(file, &packet_seq_ops);
-+	if (!res) {
-+		seq = file->private_data;
-+		seq->private = get_proc_net(inode);
-+		if (!seq->private) {
-+			seq_release(inode, file);
-+			res = -ENXIO;
-+		}
-+	}
-+	return res;
-+}
-+
-+static int packet_seq_release(struct inode *inode, struct file *file)
-+{
-+	struct seq_file *seq=  file->private_data;
-+	struct net *net = seq->private;
-+	put_net(net);
-+	return seq_release(inode, file);
- }
- 
- static const struct file_operations packet_seq_fops = {
-@@ -1934,15 +1951,37 @@ static const struct file_operations packet_seq_fops = {
- 	.open		= packet_seq_open,
- 	.read		= seq_read,
- 	.llseek		= seq_lseek,
--	.release	= seq_release,
-+	.release	= packet_seq_release,
- };
- 
- #endif
- 
-+static int packet_net_init(struct net *net)
-+{
-+	rwlock_init(&net->packet_sklist_lock);
-+	INIT_HLIST_HEAD(&net->packet_sklist);
-+
-+	if (!proc_net_fops_create(net, "packet", 0, &packet_seq_fops))
+-	return seq_open_private(file, &unix_seq_ops, sizeof(int));
++	struct unix_iter_state *it;
++       
++	it = __seq_open_private(file, &unix_seq_ops,
++				sizeof(struct unix_iter_state));
++	if (it == NULL)
 +		return -ENOMEM;
 +
++	it->net = get_proc_net(inode);
++	if (it->net == NULL) {
++		seq_release_private(inode, file);
++		return -ENXIO;
++	}
 +	return 0;
 +}
 +
-+static void packet_net_exit(struct net *net)
++static int unix_seq_release(struct inode *inode, struct file *file)
 +{
-+	proc_net_remove(net, "packet");
++	struct seq_file *seq = file->private_data;
++	struct unix_iter_state *iter = seq->private;
++	put_net(iter->net);
++	return seq_release_private(inode, file);
+ }
+ 
+ static const struct file_operations unix_seq_fops = {
+@@ -2095,7 +2139,7 @@ static const struct file_operations unix_seq_fops = {
+ 	.open		= unix_seq_open,
+ 	.read		= seq_read,
+ 	.llseek		= seq_lseek,
+-	.release	= seq_release_private,
++	.release	= unix_seq_release,
+ };
+ 
+ #endif
+@@ -2106,6 +2150,30 @@ static struct net_proto_family unix_family_ops = {
+ 	.owner	= THIS_MODULE,
+ };
+ 
++
++static int unix_net_init(struct net *net)
++{
++	int error = -ENOMEM;
++
++#ifdef CONFIG_PROC_FS
++	if (!proc_net_fops_create(net, "unix", 0, &unix_seq_fops))
++		goto out;
++#endif
++	error = 0;
++out:
++	return 0;
 +}
 +
-+static struct pernet_operations packet_net_ops = {
-+	.init = packet_net_init,
-+	.exit = packet_net_exit,
++static void unix_net_exit(struct net *net)
++{
++	proc_net_remove(net, "unix");
++}
++
++static struct pernet_operations unix_net_ops = {
++	.init = unix_net_init,
++	.exit = unix_net_exit,
 +};
 +
-+
- static void __exit packet_exit(void)
+ static int __init af_unix_init(void)
  {
--	proc_net_remove(&init_net, "packet");
- 	unregister_netdevice_notifier(&packet_netdev_notifier);
-+	unregister_pernet_subsys(&packet_net_ops);
- 	sock_unregister(PF_PACKET);
- 	proto_unregister(&packet_proto);
- }
-@@ -1955,8 +1994,8 @@ static int __init packet_init(void)
- 		goto out;
+ 	int rc = -1;
+@@ -2121,9 +2189,7 @@ static int __init af_unix_init(void)
+ 	}
  
- 	sock_register(&packet_family_ops);
-+	register_pernet_subsys(&packet_net_ops);
- 	register_netdevice_notifier(&packet_netdev_notifier);
--	proc_net_fops_create(&init_net, "packet", 0, &packet_seq_fops);
+ 	sock_register(&unix_family_ops);
+-#ifdef CONFIG_PROC_FS
+-	proc_net_fops_create(&init_net, "unix", 0, &unix_seq_fops);
+-#endif
++	register_pernet_subsys(&unix_net_ops);
+ 	unix_sysctl_register();
  out:
  	return rc;
+@@ -2133,8 +2199,8 @@ static void __exit af_unix_exit(void)
+ {
+ 	sock_unregister(PF_UNIX);
+ 	unix_sysctl_unregister();
+-	proc_net_remove(&init_net, "unix");
+ 	proto_unregister(&unix_proto);
++	unregister_pernet_subsys(&unix_net_ops);
  }
+ 
+ module_init(af_unix_init);
 -- 
 1.5.3.rc5
 
