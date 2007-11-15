@@ -1,57 +1,56 @@
-From: Ben Dooks <ben@trinity.fluff.org>
-Subject: Re: [BUG] New Kernel Bugs
-Date: Thu, 15 Nov 2007 20:16:56 +0000
-Message-ID: <20071115201656.GD11305@trinity.fluff.org>
-References: <32209efe0711122242m3a5f081asf1c11a38b24db10c@mail.gmail.com>
-	<20071113031553.3c7b5c16.akpm@linux-foundation.org>
-	<4739ADA2.4060604@rtr.ca>
-	<alpine.LFD.0.9999.0711131521590.3265@localhost.localdomain>
-	<20071113181053.GB1356@flint.arm.linux.org.uk>
-	<20071113182516.250de873@the-village.bc.nu>
-	<20071113223437.GG1356@flint.arm.linux.org.uk>
+From: "Jon Nelson" <jnelson@jamponi.net>
+Subject: Re: tg3: strange errors and non-working-ness
+Date: Thu, 15 Nov 2007 14:21:01 -0600
+Message-ID: <cccedfc60711151221p322894f8i94c540fefb0e4827@mail.gmail.com>
+References: <20071115094728.GB2366@ff.dom.local> <1195154603.6360.9.camel@dell>
+	 <cccedfc60711151117v70b285fbl79bbc92ced176d54@mail.gmail.com>
+	 <1195158200.6360.17.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Thomas Gleixner <tglx@linutronix.de>, Mark Lord <liml@rtr.ca>,
-	alsa-devel@alsa-project.org, netdev@vger.kernel.org,
-	linux-pcmcia@lists.infradead.o
-Return-path: <linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org>
+Cc: "Jarek Poplawski" <jarkao2@o2.pl>, netdev <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org
+To: "Michael Chan" <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.190]:27859 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754190AbXKOUVE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 15:21:04 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so600166nfb
+        for <netdev@vger.kernel.org>; Thu, 15 Nov 2007 12:21:02 -0800 (PST)
+In-Reply-To: <1195158200.6360.17.camel@dell>
 Content-Disposition: inline
-In-Reply-To: <20071113223437.GG1356@flint.arm.linux.org.uk>
-List-Unsubscribe: <http://lists.infradead.org/mailman/listinfo/linux-pcmcia>,
-	<mailto:linux-pcmcia-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-pcmcia>
-List-Post: <mailto:linux-pcmcia@lists.infradead.org>
-List-Help: <mailto:linux-pcmcia-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-pcmcia>,
-	<mailto:linux-pcmcia-request@lists.infradead.org?subject=subscribe>
-Sender: linux-pcmcia-bounces@lists.infradead.org
-Errors-To: linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 13, 2007 at 10:34:37PM +0000, Russell King wrote:
-> On Tue, Nov 13, 2007 at 06:25:16PM +0000, Alan Cox wrote:
-> > > Given the wide range of ARM platforms today, it is utterly idiotic to
-> > > expect a single person to be able to provide responses for all ARM bugs.
-> > > I for one wish I'd never *VOLUNTEERED* to be a part of the kernel
-> > > bugzilla, and really *WISH* I could pull out of that function.
-> > 
-> > You can. Perhaps that bugzilla needs to point to some kind of
-> > arm-maintainers@vger.kernel.org list for the various ARM platform
-> > maintainers ?
-> 
-> That might work - though it would be hard to get all the platform
-> maintainers to be signed up to yet another mailing list, I'm sure
-> sufficient would do.
+On 11/15/07, Michael Chan <mchan@broadcom.com> wrote:
+> On Thu, 2007-11-15 at 13:17 -0600, Jon Nelson wrote:
+>
+> > Is this what you mean? I pulled this from the quoted text:
+> >
+> > Nov 10 22:45:52 frank kernel: NETDEV WATCHDOG: eth0: transmit timed out
+> >
+>
+> Right.  This explains the reset at 22:45:52, but not the earlier reset
+> at 22:24:40.  Link never came up after that earlier reset.
+>
+> Is this a new problem introduced by a new driver?  I notice you are
+> using tg3 3.65.  Have you used newer versions or older versions?
 
-As long as it would just be bug reports, I'm sure that most of us
-could be persuaded to subscribe. Adding another list for general
-discussions is probably not going to be read, the current list
-provides more than enough to keep us busy.
+This is not a new problem - these cards have done this or something
+like it for as long as I've had them*. They work just fine in 100 MBit
+mode but not in all of my machines, and in none of them at gig-e.
+I've tried every version of the driver since SUSE 9.1 without much
+luck (at least as far back as 2.6.9). I'd try a newer driver, esp. if
+I could make it compile on 2.6.22.12 (I prefer but do not require to
+stay with the stock distro kernel, modules notwithstanding).
+
+NOTE: to avoid list noise, I can make a bug out of this on
+bugzilla.kernel.org and we can proceed from there if that is
+preferred.
+
+[*] Actually, they worked OK in 2.4.something way-back-when but only
+for short durations at gig-e speeds.
 
 -- 
-Ben
-
-Q:      What's a light-year?
-A:      One-third less calories than a regular year.
+Jon
