@@ -1,60 +1,44 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH 06/10] [TCP]: Prior_fackets can be replaced by highest_sack seq
-Date: Thu, 15 Nov 2007 15:37:30 +0200
-Message-ID: <11951338543774-git-send-email-ilpo.jarvinen@helsinki.fi>
-References: <11951338542267-git-send-email-ilpo.jarvinen@helsinki.fi> <1195133854795-git-send-email-ilpo.jarvinen@helsinki.fi> <11951338543953-git-send-email-ilpo.jarvinen@helsinki.fi> <11951338542528-git-send-email-ilpo.jarvinen@helsinki.fi> <11951338542967-git-send-email-ilpo.jarvinen@helsinki.fi> <1195133854614-git-send-email-ilpo.jarvinen@helsinki.fi>
+From: Olivier Galibert <galibert@pobox.com>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Thu, 15 Nov 2007 14:17:27 +0100
+Message-ID: <20071115131727.GA13312__24285.9403406785$1195134863$gmane$org@dspnet.fr.eu.org>
+References: <20071113143201.9441c940.akpm@linux-foundation.org>
+	<20071113.175551.131375600.davem@davemloft.net>
+	<20071114095507.GA32595@flint.arm.linux.org.uk>
+	<20071114.020706.219917088.davem@davemloft.net>
+	<473AE010.4090806@keyaccess.nl> <20071115041613.GC15302@brong.net>
+	<473BE046.8070804@keyaccess.nl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:58594 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757476AbXKONhi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 08:37:38 -0500
-In-Reply-To: <1195133854614-git-send-email-ilpo.jarvinen@helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: rmk+lkml@arm.linux.org.uk, Takashi Iwai <tiwai@suse.de>,
+	netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+	alsa-devel@alsa-project.org, protasnb@gmail.com,
+	linux-kernel@vger.kernel.org, linux-ide@vger.kernel.org,
+	Bron Gondwana <brong@fastmail.fm>, bugme-daemon@bugzilla.kernel.org,
+	linux-input@atrey.karlin.mff.cuni.cz, akpm@linux-foundation.org,
+	David Miller <davem@davemloft.net>, Jaroslav Kysela <perex@suse.cz>
+To: Rene Herman <rene.herman@keyaccess.nl>
+Return-path: <alsa-devel-bounces@alsa-project.org>
+Content-Disposition: inline
+In-Reply-To: <473BE046.8070804@keyaccess.nl>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+	<mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+	<mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Sender: alsa-devel-bounces@alsa-project.org
+Errors-To: alsa-devel-bounces@alsa-project.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_input.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+On Thu, Nov 15, 2007 at 06:59:34AM +0100, Rene Herman wrote:
+> Totally unrelated indeed so why are spouting crap? If the kohab list has a 
+> problem take it up with them but keep ALSA out of it. alsa-devel has only 
+> ever moderated out spam -- nothing else.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index b7af304..29fff81 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1251,7 +1251,6 @@ tcp_sacktag_write_queue(struct sock *sk, struct s=
-k_buff *ack_skb, u32 prior_snd_
- 	struct sk_buff *cached_skb;
- 	int num_sacks =3D (ptr[1] - TCPOLEN_SACK_BASE)>>3;
- 	int reord =3D tp->packets_out;
--	int prior_fackets;
- 	int flag =3D 0;
- 	int found_dup_sack =3D 0;
- 	int cached_fack_count;
-@@ -1264,7 +1263,6 @@ tcp_sacktag_write_queue(struct sock *sk, struct s=
-k_buff *ack_skb, u32 prior_snd_
- 			tp->fackets_out =3D 0;
- 		tp->highest_sack =3D tcp_write_queue_head(sk);
- 	}
--	prior_fackets =3D tp->fackets_out;
-=20
- 	found_dup_sack =3D tcp_check_dsack(tp, ack_skb, sp,
- 					 num_sacks, prior_snd_una);
-@@ -1457,7 +1455,8 @@ tcp_sacktag_write_queue(struct sock *sk, struct s=
-k_buff *ack_skb, u32 prior_snd_
- 						/* New sack for not retransmitted frame,
- 						 * which was in hole. It is reordering.
- 						 */
--						if (fack_count < prior_fackets)
-+						if (before(TCP_SKB_CB(skb)->seq,
-+							   tcp_highest_sack_seq(tp)))
- 							reord =3D min(fack_count, reord);
-=20
- 						/* SACK enhanced F-RTO (RFC4138; Appendix B) */
---=20
-1.5.0.6
+That is incorrect.  Hopefully it is the case now though, since my
+experience of the subject was years ago.
 
+  OG.
