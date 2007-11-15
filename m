@@ -1,41 +1,44 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] NET : rt_check_expire() can take a long time, add a
  cond_resched()
-Date: Thu, 15 Nov 2007 00:52:08 -0800 (PST)
-Message-ID: <20071115.005208.60086049.davem@davemloft.net>
+Date: Thu, 15 Nov 2007 00:57:20 -0800 (PST)
+Message-ID: <20071115.005720.12599943.davem@davemloft.net>
 References: <473B69D5.2050805@cosmosbay.com>
 	<p73r6isc6ev.fsf@bingen.suse.de>
+	<473C0297.5090004@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
-To: andi@firstfloor.org
+Cc: andi@firstfloor.org, netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54817
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44612
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756478AbXKOIwJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 03:52:09 -0500
-In-Reply-To: <p73r6isc6ev.fsf@bingen.suse.de>
+	by vger.kernel.org with ESMTP id S1751613AbXKOI5V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 03:57:21 -0500
+In-Reply-To: <473C0297.5090004@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Thu, 15 Nov 2007 08:30:16 +0100
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Thu, 15 Nov 2007 09:25:59 +0100
 
-> Eric Dumazet <dada1@cosmosbay.com> writes:
-> >
-> > Using a "if (need_resched())" test before calling "cond_resched();" is
-> > necessary to avoid spending too much time doing the resched check.
+> Please note that :
 > 
-> The only difference between cond_resched() and if (need_resched())
-> cond_resched() is one function call less and one might_sleep less. If
-> the might_sleep or the function call are really problems (did you
-> measure it? -- i doubt it somewhat) then it would be better to fix the
-> generic code to either inline that or supply a __cond_resched()
-> without might_sleep.
+> if (need_resched())
+>      cond_resched();
 > 
-> A cheaper change might have been to just limit the number of buckets
-> scanned.
+> will re-test need_resched() once cond_resched() is called.
+> 
+> So it may sound unnecessary but in the rt_check_expire() case, with a loop 
+> potentially doing XXX.XXX iterations, being able to bypass the function call 
+> is a clear win (in my bench case, 25 ms instead of 88 ms). Impact on I-cache 
+> is irrelevant here as this rt_check_expires() runs once every 60 sec.
 
-Fix up unmap_vmas() too if this is done as it does a similar
-need_resched() check too.
+BTW, Eric, initially I was going to recommend that you do
+something like:
+
+	if ((goal % SOME_POWER_OF_2) == 0)
+		cond_resched();
+
+to mitigate this cost but decided it wasn't worth the bother.
