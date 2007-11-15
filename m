@@ -1,44 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET : rt_check_expire() can take a long time, add a
- cond_resched()
-Date: Thu, 15 Nov 2007 00:57:20 -0800 (PST)
-Message-ID: <20071115.005720.12599943.davem@davemloft.net>
-References: <473B69D5.2050805@cosmosbay.com>
-	<p73r6isc6ev.fsf@bingen.suse.de>
-	<473C0297.5090004@cosmosbay.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 1/2][INET] (resend) Fix potential kfree on vmalloc-ed
+ area of request_sock_queue
+Date: Thu, 15 Nov 2007 10:21:01 +0100
+Message-ID: <20071115102101.c1b928b7.dada1@cosmosbay.com>
+References: <473C0641.2010501@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44612
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751613AbXKOI5V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 03:57:21 -0500
-In-Reply-To: <473C0297.5090004@cosmosbay.com>
+Received: from pfx2.jmh.fr ([194.153.89.55]:53141 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758561AbXKOJVD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 04:21:03 -0500
+In-Reply-To: <473C0641.2010501@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Thu, 15 Nov 2007 09:25:59 +0100
+On Thu, 15 Nov 2007 11:41:37 +0300
+Pavel Emelyanov <xemul@openvz.org> wrote:
 
-> Please note that :
+> The request_sock_queue's listen_opt is either vmalloc-ed or
+> kmalloc-ed depending on the number of table entries. Thus it 
+> is expected to be handled properly on free, which is done in 
+> the reqsk_queue_destroy().
 > 
-> if (need_resched())
->      cond_resched();
+> However the error path in inet_csk_listen_start() calls 
+> the lite version of reqsk_queue_destroy, called 
+> __reqsk_queue_destroy, which calls the kfree unconditionally. 
 > 
-> will re-test need_resched() once cond_resched() is called.
+> Fix this and move the __reqsk_queue_destroy into a .c file as 
+> it looks too big to be inline.
 > 
-> So it may sound unnecessary but in the rt_check_expire() case, with a loop 
-> potentially doing XXX.XXX iterations, being able to bypass the function call 
-> is a clear win (in my bench case, 25 ms instead of 88 ms). Impact on I-cache 
-> is irrelevant here as this rt_check_expires() runs once every 60 sec.
+> As David also noticed, this is an error recovery path only,
+> so no locking is required and the lopt is known to be not NULL.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> 
 
-BTW, Eric, initially I was going to recommend that you do
-something like:
+Acked-by: Eric Dumazet <dada1@cosmosbay.com>
 
-	if ((goal % SOME_POWER_OF_2) == 0)
-		cond_resched();
+Thank you for finding this bug Pavel
 
-to mitigate this cost but decided it wasn't worth the bother.
