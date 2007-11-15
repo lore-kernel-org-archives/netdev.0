@@ -1,31 +1,47 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Subject: Re: 2.6.24-rc2: Network commit causes SLUB performance regression with tbench
-Date: Thu, 15 Nov 2007 11:21:36 +1100
-Message-ID: <200711151121.37080.nickpiggin@yahoo.com.au>
-References: <200711140927.39796.nickpiggin@yahoo.com.au> <20071114114844.GA13927@gondor.apana.org.au> <20071114.154616.46285694.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: network interface state
+Date: Wed, 14 Nov 2007 16:22:01 -0800 (PST)
+Message-ID: <20071114.162201.174150647.davem@davemloft.net>
+References: <473B61C8.3030302@redhat.com>
+	<20071114.153103.230463871.davem@davemloft.net>
+	<473B8EEC.1010906@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, clameter@sgi.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: drepper@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp103.mail.mud.yahoo.com ([209.191.85.213]:41122 "HELO
-	smtp103.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753363AbXKOAVp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 19:21:45 -0500
-In-Reply-To: <20071114.154616.46285694.davem@davemloft.net>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53245
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756233AbXKOAWB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 19:22:01 -0500
+In-Reply-To: <473B8EEC.1010906@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 15 November 2007 10:46, David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Wed, 14 Nov 2007 19:48:44 +0800
+From: Ulrich Drepper <drepper@redhat.com>
+Date: Wed, 14 Nov 2007 16:12:28 -0800
 
-> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
->
-> Applied and I'll queue it up for -stable too.
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+> 
+> David Miller wrote:
+> > Most daemons handle this by listening for events on the netlink
+> > socket, but I understand how that might not be practical for
+> > glibc.
+> 
+> Right, this cannot work.  I have no inner loop which I can control.  I
+> cannot install a listener.
+> 
+> At some point, when we have non-sequential, hidden file descriptors,
+> I'll be able to leave a socket file descriptor open.  But that's about
+> it.  Even then the generation counter interface is likely to be the best
+> choice.
 
-Good result. Thanks, everyone!
+Ok, I'll think about how to implement this.
+
+> BTW, is it possible to send both these requests out before starting to
+> read the results?  This would reduce the amount of code quite a bit.
+
+Unfortunately, that won't work.  Like datagram protocols,
+netlink assumes one message per sendmsg() call.
