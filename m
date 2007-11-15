@@ -1,38 +1,55 @@
-From: Guillaume Chazarain <guichaz@yahoo.fr>
-Subject: Re: Re : Oops preceded by WARNING: at net/ipv4/tcp_input.c:1571
- tcp_remove_reno_sacks()
-Date: Thu, 15 Nov 2007 11:31:20 +0100
-Message-ID: <20071115113120.7276ad52@cheypa.inria.fr>
-References: <902344.71635.qm@web26211.mail.ukl.yahoo.com>
-	<Pine.LNX.4.64.0711111216170.12719@kivilampi-30.cs.helsinki.fi>
-	<Pine.LNX.4.64.0711132321340.3997@kivilampi-30.cs.helsinki.fi>
-	<20071113.210431.141662500.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2][INET] (resend) Fix potential kfree on vmalloc-ed
+ area of request_sock_queue
+Date: Thu, 15 Nov 2007 02:58:03 -0800 (PST)
+Message-ID: <20071115.025803.22981639.davem@davemloft.net>
+References: <473C0641.2010501@openvz.org>
+	<20071115102101.c1b928b7.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:3814 "EHLO
-	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760593AbXKOKlN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 05:41:13 -0500
-In-Reply-To: <20071113.210431.141662500.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42212
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751519AbXKOK6I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 05:58:08 -0500
+In-Reply-To: <20071115102101.c1b928b7.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Thu, 15 Nov 2007 10:21:01 +0100
 
-> Chazarain please let us know if it does indeed cure your
-> problem.
+> On Thu, 15 Nov 2007 11:41:37 +0300
+> Pavel Emelyanov <xemul@openvz.org> wrote:
+> 
+> > The request_sock_queue's listen_opt is either vmalloc-ed or
+> > kmalloc-ed depending on the number of table entries. Thus it 
+> > is expected to be handled properly on free, which is done in 
+> > the reqsk_queue_destroy().
+> > 
+> > However the error path in inet_csk_listen_start() calls 
+> > the lite version of reqsk_queue_destroy, called 
+> > __reqsk_queue_destroy, which calls the kfree unconditionally. 
+> > 
+> > Fix this and move the __reqsk_queue_destroy into a .c file as 
+> > it looks too big to be inline.
+> > 
+> > As David also noticed, this is an error recovery path only,
+> > so no locking is required and the lopt is known to be not NULL.
+> > 
+> > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> > 
+> 
+> Acked-by: Eric Dumazet <dada1@cosmosbay.com>
+> 
+> Thank you for finding this bug Pavel
 
-Unfortunately, I couldn't manage to reproduce the problem with an
-unpatched kernel. But your investigation Ilpo was really impressive.
+Indeed.
 
-BTW, even though I messed up the yahoo webmail configuration, you can
-call me by my first name: Guillaume ;-)
+I applied this, but what I did was I combined both changes
+into one because to me they logically belong together.
 
-Thanks again for such an awesome bug fixing attitude!
-
--- 
-Guillaume
+Thanks again Pavel!
