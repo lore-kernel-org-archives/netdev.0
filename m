@@ -1,66 +1,36 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-2.6.25 1/4] include - Convert IP4 address class
-	macros	to inline functions
-Date: Wed, 14 Nov 2007 18:09:41 -0800
-Message-ID: <1195092581.27113.9.camel@localhost>
-References: <OF456A1240.FCBC428E-ON88257393.005C5D94-88257393.005CA64F@us.ibm.com>
-	 <1195091645.27053.1.camel@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Fred L. Templin" <fred.l.templin@boeing.com>,
-	David Miller <davem@davemloft.net>,
-	James Morris <jmorris@namei.org>,
-	Patrick McHardy <kaber@coreworks.de>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	netdev <netdev@vger.kernel.org>, netdev-owner@vger.kernel.org,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: David Stevens <dlstevens@us.ibm.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: network interface state
+Date: Thu, 15 Nov 2007 10:11:35 +0800
+Message-ID: <E1IsUCd-0005f4-00@gondolin.me.apana.org.au>
+References: <20071114.162201.174150647.davem@davemloft.net>
+Cc: drepper@redhat.com, netdev@vger.kernel.org
+To: davem@davemloft.net (David Miller)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:2009 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751779AbXKOCLU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2007 21:11:20 -0500
-In-Reply-To: <1195091645.27053.1.camel@localhost>
+Received: from rhun.apana.org.au ([64.62.148.172]:4857 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754553AbXKOCLp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 21:11:45 -0500
+In-Reply-To: <20071114.162201.174150647.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sorry, evolution died sending my mail and I didn't fully
-read the "recovered" mail before hitting send.
+David Miller <davem@davemloft.net> wrote:
+>
+>> BTW, is it possible to send both these requests out before starting to
+>> read the results?  This would reduce the amount of code quite a bit.
+> 
+> Unfortunately, that won't work.  Like datagram protocols,
+> netlink assumes one message per sendmsg() call.
 
-Here's a more readable one.
+Actually netlink packets come with headers so we do allow chaining.
+See netlink_rcv_skb for details.
 
----------
+We don't make use of that on recvmsg() though although theoretically
+user-space is supposed to be ready to handle that too.
 
-On Wed, 2007-11-14 at 08:53 -0800, David Stevens wrote: 
-> Maybe I'm more used to hex, but I personally don't think those are
-> more readable. It replaces 1-line macroes with 4-line functions, and
-> I think more vgrepping to pick out the relevant constant data.
-
-The rfcs generally use decimal octets. 
-
-To me htonl(0xC0586300) isn't as readable as ip4_addr_octets(192,88,99,0)
-is_ip4_multicast(addr) more intelligible than MULTICAST(x).
-
-I hope to eliminate the current use of macros for ip address tests
-and have no new macros added.  The existing macros are just for
-compatibility until the current code uses are converted.
-
-Fred Templin has some patches that add several more macros
-to in.h.  I just forwarded my patches to him too.
-
-http://marc.info/?l=linux-netdev&m=119490504022261&w=2
-
-His patch adds:
-
-+#define PRIVATE_10(x) (((x) & htonl(0xff000000)) == htonl(0x0A000000)) 
-+#define LINKLOCAL_169(x) (((x) & htonl(0xffff0000)) == htonl(0xA9FE0000))
-+#define PRIVATE_172(x)	(((x) & htonl(0xfff00000)) == htonl(0xAC100000))
-+#define TEST_192(x)	(((x) & htonl(0xffffff00)) == htonl(0xC0000200))
-+#define ANYCAST_6TO4(x)	(((x) & htonl(0xffffff00)) == htonl(0xC0586300))
-+#define PRIVATE_192(x)	(((x) & htonl(0xffff0000)) == htonl(0xC0A80000))
-+#define TEST_198(x)	(((x) & htonl(0xfffe0000)) == htonl(0xC6120000))
-
-cheers, Joe
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
