@@ -1,7 +1,7 @@
 From: Takashi Iwai <tiwai@suse.de>
 Subject: Re: [alsa-devel] [BUG] New Kernel Bugs
 Date: Thu, 15 Nov 2007 10:34:59 +0100
-Message-ID: <s5hve83df7g.wl%tiwai__2041.78807694024$1195133750$gmane$org@suse.de>
+Message-ID: <s5hve83df7g.wl%tiwai__34502.2831381813$1195133755$gmane$org@suse.de>
 References: <20071113143201.9441c940.akpm@linux-foundation.org>
 	<20071113.175551.131375600.davem@davemloft.net>
 	<20071114095507.GA32595@flint.arm.linux.org.uk>
@@ -22,9 +22,13 @@ Cc: Rene Herman <rene.herman@keyaccess.nl>,
 	linux-input@atrey.karlin.mff.cuni.cz, akpm@linux-foundation.org,
 	Jaroslav Kysela <perex@suse.cz>
 To: Olivier Galibert <galibert@pobox.com>
-Return-path: <linux-ide-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.suse.de ([195.135.220.2]:37274 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756690AbXKONfU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 08:35:20 -0500
 In-Reply-To: <20071115131727.GA13312@dspnet.fr.eu.org>
-Sender: linux-ide-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 At Thu, 15 Nov 2007 14:17:27 +0100,
