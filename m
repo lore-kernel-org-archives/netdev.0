@@ -1,55 +1,43 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter : struct xt_table_info diet
-Date: Thu, 15 Nov 2007 13:26:40 +0100
-Message-ID: <473C3B00.9090602@trash.net>
-References: <20071114164735.1ba04bc3.dada1@cosmosbay.com>	<473B2E2D.4010504@trash.net> <20071114185544.034ee7d1.dada1@cosmosbay.com>
+From: Rene Herman <rene.herman@keyaccess.nl>
+Subject: Re: [alsa-devel] [BUG] New Kernel Bugs
+Date: Thu, 15 Nov 2007 13:26:51 +0100
+Message-ID: <473C3B0B.30206@keyaccess.nl>
+References: <20071113143201.9441c940.akpm@linux-foundation.org> <20071113.175551.131375600.davem@davemloft.net> <20071114095507.GA32595@flint.arm.linux.org.uk> <20071114.020706.219917088.davem@davemloft.net> <473AE010.4090806@keyaccess.nl> <20071115041613.GC15302@brong.net> <473BE046.8070804@keyaccess.nl> <20071115120232.GB8297@brong.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20071114185544.034ee7d1.dada1@cosmosbay.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, rmk+lkml@arm.linux.org.uk,
+	alsa-devel@alsa-project.org, netdev@vger.kernel.org,
+	linux-pcmcia@lists.infradead.org, linux-kernel@vger.kernel.org,
+	protasnb@gmail.com, linux-ide@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	linux-input@atrey.karlin.mff.cuni.cz, akpm@linux-foundation.org,
+	Jaroslav Kysela <perex@suse.cz>, Takashi Iwai <tiwai@suse.de>
+To: Bron Gondwana <brong@fastmail.fm>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpq2.groni1.gr.home.nl ([213.51.130.201]:58027 "EHLO
+	smtpq2.groni1.gr.home.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753762AbXKOMba (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 07:31:30 -0500
+In-Reply-To: <20071115120232.GB8297@brong.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> On Wed, 14 Nov 2007 18:19:41 +0100
-> Patrick McHardy <kaber@trash.net> wrote:
-> 
->>>diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
->>>index 2909c92..ed3bd0b 100644
->>>--- a/net/ipv4/netfilter/arp_tables.c
->>>+++ b/net/ipv4/netfilter/arp_tables.c
->>>@@ -811,7 +811,7 @@ static int do_replace(void __user *user, unsigned int len)
->>> 		return -ENOPROTOOPT;
->>> 
->>> 	/* overflow check */
->>>-	if (tmp.size >= (INT_MAX - sizeof(struct xt_table_info)) / NR_CPUS -
->>>+	if (tmp.size >= (INT_MAX - XT_TABLE_INFO_SZ) / NR_CPUS -
->>> 			SMP_CACHE_BYTES)
->>
->>
->>Shouldn't NR_CPUs be replaced by nr_cpu_ids here? I'm wondering
->>why we still include NR_CPUs in the calculation at all though,
->>unlike in 2.4, we don't allocate one huge area of memory anymore
->>but do one allocation per CPU. IIRC it even was you who changed
->>that.
-> 
-> 
-> Yes, doing an allocation per possible cpu was better than one giant 
-> allocation (memory savings and NUMA aware)
-> 
-> Well, technically speaking you are right, we may also replace these 
-> divides per NR_CPUS by nr_cpu_ids (or even better : num_possible_cpus())
-> 
-> Because with NR_CPUS=4096, we actually limit tmp.size to about 524000,
->  what a shame ! :)
+On 15-11-07 13:02, Bron Gondwana wrote:
 
+> I get the same information from both project websites: "moderated for
+> non-members, public archives" - no way of knowing that ALSA will accept
+> me informing them of something they would be interested without
+> committing to reading or bit-bucketing their list.
 
-We actually had complaints about number of rule limitations, but that
-was more likely caused by vmalloc limits :) But of course we do need
-to include the number of CPUs in the check, I misread the code.
+Can you please just shelve this crap? You have a way of knowing that "ALSA 
+will accept you" and that is knowing or assuming that the ALSA project 
+doesn't consist of drooling retards.
+
+When a project list goes to the difficulty of moderating non-subscribers it 
+has made the explicit choice to _not_ become subscriber only. Then refusing 
+valid non-subscribers after all makes no sense whatsoever. I'm sorry you got 
+your feelings hurt by that other list but it was no doubt an accident; take 
+it up with them.
+
+Rene.
