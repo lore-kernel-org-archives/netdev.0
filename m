@@ -1,65 +1,112 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH 10/13] tg3: Increase the PCI MRRS
-Date: Thu, 15 Nov 2007 15:51:31 -0800
-Message-ID: <1195170691.5745.10.camel@dell>
-References: <1194655141.5745.272.camel@teletran1>
- <20071112.212135.172019737.davem@davemloft.net>
- <1195165211.20497.107.camel@teletran1>
- <20071115.144103.24280158.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 2.6.25] add bnx2x driver for BCM57710 - bnx2x.c
+Date: Thu, 15 Nov 2007 15:03:49 -0800
+Message-ID: <20071115150349.51e6d133@freepuppy.rosehill>
+References: <1195154386.24548.29.camel@lb-tlvb-eliezer.il.broadcom.com>
+	<1195155983.24548.35.camel@lb-tlvb-eliezer.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mcarlson@broadcom.com, "netdev" <netdev@vger.kernel.org>,
-	andy@greyhouse.net
-To: "David Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jeff@garzik.org,
+	"masbock" <masbock@us.ibm.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"Ram Pai" <linuxram@us.ibm.com>,
+	"Philip Oswald" <poswald@novell.com>
+To: "Eliezer Tamir" <eliezert@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3918 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755180AbXKOXB4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2007 18:01:56 -0500
-In-Reply-To: <20071115.144103.24280158.davem@davemloft.net>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:43147 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755111AbXKOXGD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 18:06:03 -0500
+In-Reply-To: <1195155983.24548.35.camel@lb-tlvb-eliezer.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-11-15 at 14:41 -0800, David Miller wrote:
-> From: "Matt Carlson" <mcarlson@broadcom.com>
-> Date: Thu, 15 Nov 2007 14:20:10 -0800
-> >
-> > Keeping the MRRS at 512 introduces DMA latencies that effectively
-> > prevent us from achieving linerate.  With a packet size of ~1.5K and the
-> > MRRS at 512 bytes, the DMA will be broken into at least 3 DMA reads.
-> > Each DMA read takes ~1usec to initiate.  It is this overhead that starts
-> > to cut into total throughput.
+1. Please use dev_err() to help user figure out which board has problem:
+Not:
+		printk(KERN_ERR PFX "Cannot register net device\n");
+Instead:
+		dev_err(&pdev->dev, "cannot register net device\n");
+
+
+2. Use new MAC_ADDR() rather than
+	printk("node addr ");
+	for (i = 0; i < 6; i++)
+		printk("%2.2x", dev->dev_addr[i]);
+	printk("\n");
+
+3. The reset task logic needs more cleanup/protection.
+Don't you want to cancel it on remove, and bp->in_reset_task is
+not sufficient protection on SMP??
+Could you not flush_scheduled_work(), instead use cancel_delayed_work_sync()?
+
+4. Rather than hard coding mac address, could you use random_ether_address()
+instead?
+
+5. Current style police will complain about single line {}
+	if (bp->phy_flags & PHY_XGXS_FLAG) {
+		cmd->port = PORT_FIBRE;
+	} else {
+		cmd->port = PORT_TP;
+	}
+instead:
+	if (bp->phy_flags & PHY_XGXS_FLAG)
+		cmd->port = PORT_FIBRE;
+	else
+		cmd->port = PORT_TP;
+
+6. The driver is using per-cpu tx queue, maybe it wants to have multi
+queue instead?
+
+7. bnx2x_get_stats() is uneeded. If you leave dev->get_stats() set to NULL
+then register_netdev will handle it.
+
+
+8. Spelling fixes:
+
+>  *
+>  * Written by: Eliezer Tamir <eliezert@broadcom.com>
+>  * Based on code from Michael Chan's bnx2 driver
+>  * UDP CSUM errata workaround by Arik Gendelman
+>  * Slowpath rework by Vladislav Zolotarov
+>  * Statistics and Link managment by Yitchak Gertner
+
+spelling fix: s/managment/management/
+
+
+...
+>MODULE_PARM_DESC(nomcp, "ignore managment CPU (Implies onefunc)");
+management
+
+>MODULE_PARM_DESC(debug, "defualt debug msglevel");
+default
+
+> /* indexed by board_t, above */
+> static const struct {
+> 	char *name;
+> } board_info[] __devinitdata = {
+> 	{ "Broadcom NetXtreme II BCM57710 XGb" }
+> };
+
+why not just 
+
+static const char *board_info[] = {
+	"NetXtreme II BCM57710 XGb",
+};
+
+> static const struct pci_device_id bnx2x_pci_tbl[] = {
+> 	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57710,
+> 		PCI_ANY_ID, PCI_ANY_ID, 0, 0, BCM57710 },
+> 	{ 0 }
+> };
 > 
-> Ok, but wouldn't every networking device on PCI need to do this then?
 
-No, it depends on the design.  For example, a bigger maximum payload
-size will alleviate the problem (tg3 hardware is using 128).  Multiple
-DMA read channels to pipeline the multiple read requests will also help.
+> 	/* reolve from gp_status in case of AN complete and not sgmii */
+resolve??
 
-We don't need to increase the MRRS on bnx2 hardware to get line-rate,
-for example.
 
-> 
-> I want to hear what you think about this wrt. what I mentioned about
-> fairness above.  What's the point of PCI specifying a limit to comply
-> with if nobody complies with the limit for localized performance
-> reasons?
+> 	DP(NETIF_MSG_LINK, "enableing BigMAC\n");
+enabling
 
-Fairness is harder to know because it depends on chipset behavior.  PCIE
-is not shared so there's no fairness issue at the local PCIE.  Any
-fairness issue will be at the bridge.
-
-I don't know what's the exact rationale for defaulting to 512, but I
-will try to find out.
-
-> 
-> I think this is an important issue.  Someone down the road is going to
-> see bad disk throughput when doing lots of network transfers and
-> wonder why that is.  It will be hard to debug, but it won't be
-> difficult for us to do something proactive about this right now to
-> prevent that problem from happening in the first place.
-> 
-> Thanks.
-> 
 
