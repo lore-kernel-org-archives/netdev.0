@@ -1,84 +1,47 @@
-From: "Jonas Danielsson" <the.sator@gmail.com>
-Subject: Re: [PATCH] net/ipv4/arp.c: Fix arp reply when sender ip 0 (was: Strange behavior in arp probe reply, bug or feature?)
-Date: Thu, 15 Nov 2007 22:40:13 +0100
-Message-ID: <cac0ab7d0711151340l1cc91a2dw5ebf36e166d16d7a@mail.gmail.com>
-References: <cac0ab7d0711150340p58eda94ah92894072ba328205@mail.gmail.com>
-	 <20071115154032.GA30391@ms2.inr.ac.ru>
+From: Hideo AOKI <haoki@redhat.com>
+Subject: Re: [PATCH 2/5] accounting unit and variable
+Date: Thu, 15 Nov 2007 16:37:27 -0500
+Message-ID: <473CBC17.7060608@redhat.com>
+References: <47264F3E.3080306@redhat.com> <20071109123420.GD27984@gondor.apana.org.au> <473A6B11.7090208@redhat.com> <20071113.195549.181119456.davem@davemloft.net> <473B150A.8050208@redhat.com> <473B852B.3010107@redhat.com> <20071115010909.GA21193@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	jmorris@namei.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: "Alexey Kuznetsov" <kuznet@ms2.inr.ac.ru>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	satoshi.oshima.fk@hitachi.com, andi@firstfloor.org,
+	shemminger@linux-foundation.org, johnpol@2ka.mipt.ru,
+	yoshfuji@linux-ipv6.org, yumiko.sugita.yf@hitachi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.176]:41357 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750956AbXKOVkT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 16:40:19 -0500
-Received: by wa-out-1112.google.com with SMTP id v27so800226wah
-        for <netdev@vger.kernel.org>; Thu, 15 Nov 2007 13:40:19 -0800 (PST)
-In-Reply-To: <20071115154032.GA30391@ms2.inr.ac.ru>
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:52296 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756270AbXKOVmC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 16:42:02 -0500
+In-Reply-To: <20071115010909.GA21193@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Herbert Xu wrote:
+> On Wed, Nov 14, 2007 at 06:30:51PM -0500, Hideo AOKI wrote:
+>> +#define SK_DATAGRAM_MEM_QUANTUM ((unsigned int)PAGE_SIZE)
+>> +
+>> +static inline int sk_datagram_pages(int amt)
+>> +{
+>> +	/* Cast to unsigned as an optimization, since amt is always 
+>> positive. */
+>> +	return DIV_ROUND_UP((unsigned int)amt, SK_DATAGRAM_MEM_QUANTUM);
+>> +}
+>> +
+> 
+> Thanks, this looks OK to me.
 
-I started to look at this code when I was working on a project of
-rewriting a dhcp-client.
-I wanted to make the client use arp to determine if the offered
-address was free or in use.
-Thats when I  noticed that linux machines responded in this, for me, odd way.
+Hello,
 
-The problem is not really the target ip address in the reply, it is
-the fact that the target hardware address is set to the hardware
-address of the machines that is sending the reply.
-The target hardware address should be the same as the destination
-address in the ethernet frame.
+Thank you for reviewing. Then, I'll send take 8 patch set later.
 
-The dhcp clients I examined, and the implementation of the arpcheck
-that I use will compare the target hardware field of the arp-reply and
-match it against its own mac, to verify the reply. And this fails with
-the current implementation in the kernel.
+Regards,
+Hideo
 
-As for the the target ip set to 0, that is the behavior I saw in
-Windows and OpenBSD machines and figured it was a valid approach. The
-main thing is however that the target machine address in the arp reply
-in this case will confuse dhcp-clients trying to verify the reply.
+-- 
+Hitachi Computer Products (America) Inc.
 
-And even if your arping implementation will work with any variant,
-other implementation of this approach of duplicate ip detection
-expects a differeant behavior.
 
-Is there a reason that the target hardware address isn't the target
-hardware address?
-
--Jonas
-
-2007/11/15, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>:
-> Hello!
->
-> > Send a correct arp reply instead of one with sender ip and sender
-> > hardware adress in target fields.
->
-> I do not see anything more legal in setting target address to 0.
->
->
-> Actually, semantics of target address in ARP reply is ambiguous.
-> If it is a reply to some real request, it is set to address of requestor
-> and protocol requires recipient of this arp reply to test that the address
-> matches its own address before creating new entry triggered by unsolicited
-> arp reply. That's all.
->
-> In the case of duplicate address detection, requestor does not have
-> any address, so that it is absolutely not essential what we use as target
-> address. The only place, which could depend on this is the tool, which
-> tests for duplicate address. At least, arping written by me, should
-> work with any variant.
->
-> So, please, could you explain what did force you to think that use of 0
-> is better?
->
-> Alexey
->
