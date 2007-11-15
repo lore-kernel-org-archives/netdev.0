@@ -1,48 +1,50 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [PATCH 2/2] move unneeded data to initdata section
-Date: Thu, 15 Nov 2007 16:14:29 +0100
-Message-ID: <20071115151429.GC22825@uranus.ravnborg.org>
-References: <20071107120100.GA10185@iris.sw.ru> <m1abpfy3xz.fsf@ebiederm.dsl.xmission.com> <473C5ABC.5090204@sw.ru>
+From: Theodore Tso <tytso@mit.edu>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Thu, 15 Nov 2007 10:30:57 -0500
+Message-ID: <20071115153057.GE17180@thunk.org>
+References: <20071113031553.3c7b5c16.akpm@linux-foundation.org> <20071113.033946.114918709.davem@davemloft.net> <20071113034916.2556edd7.akpm@linux-foundation.org> <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org> <20071113134029.GA30978@elte.hu> <4739AFE0.20705@rtr.ca> <40f323d00711130752k19cab8eauc3456721274b3267@mail.gmail.com> <20071113171356.GA25824@thunk.org> <Pine.LNX.4.64.0711141810110.12193@iabervon.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	"Denis V. Lunev" <den@openvz.org>, davem@davemloft.net,
-	containers@lists.osdl.org, netdev@vger.kernel.org, clg@fr.ibm.com,
-	benjamin.thery@bull.net
-To: "Denis V. Lunev" <den@sw.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpa.tele.dk ([80.160.77.114]:50371 "EHLO pasmtpA.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756488AbXKOPNE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2007 10:13:04 -0500
+Cc: Benoit Boissinot <bboissin@gmail.com>, Mark Lord <liml@rtr.ca>,
+	Ingo Molnar <mingo@elte.hu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, protasnb@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
+	linux-pcmcia@lists.infradead.org,
+	linux-input@atrey.karlin.mff.cuni.cz,
+	bugme-daemon@bugzilla.kernel.org
+To: Daniel Barkalow <barkalow@iabervon.org>
+Return-path: <linux-ide-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <473C5ABC.5090204@sw.ru>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <Pine.LNX.4.64.0711141810110.12193@iabervon.org>
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 15, 2007 at 05:42:04PM +0300, Denis V. Lunev wrote:
-> Eric W. Biederman wrote:
-> > "Denis V. Lunev" <den@openvz.org> writes:
-> > 
-> >> This patch reverts Eric's commit 2b008b0a8e96b726c603c5e1a5a7a509b5f61e35
-> >>
-> >> It diets .text & .data section of the kernel if CONFIG_NET_NS is not set.
-> >> This is safe after list operations cleanup.
-> > 
-> > Ok.  This patch is technically safe because none of the touched
-> > code can live in a module and so we never touch the exit code path.
-> > 
-> > However in the general case and as a code idiom this __net_initdata
-> > on struct pernet_operations is fundamentally horribly broken.
-> > 
-> > Look at what happens if we use this idiom in module.  There
-> > is only one definition of __initdata ".init.data".  The module
-> > loader places all sections that begin with .init in a region of
-> > memory that will be discarded after module initialization.  
-> 
-> nothing is discarded after module load. Though, I can be wrong. Could
-> you point me to the exact place?
-If __initdata is not discarded after module load then we should do it.
-There is no reason to waste __initdata RAM when the module is loaded.
+On Wed, Nov 14, 2007 at 06:23:34PM -0500, Daniel Barkalow wrote:
+> I don't see any reason that we couldn't have a tool accessible to Ubuntu 
+> users that does a real "git bisect". Git is really good at being scripted 
+> by fancy GUIs. It should be easy enough to have a drop down with all of 
+> the Ubuntu kernel package releases, where the user selects what works and 
+> what doesn't.
 
-	Sam
+It's possible users who haven't yet downloaded a git repository have
+to surmount some obstacles that might cause them to lose interest.
+First, they have to download some 190 megs of git repository, and if
+they have a slow link, that can take a while, and then they have to
+build each kernel, which can take a while.  A full kernel build with
+everything selected can take good 30 minutes or more, and that's on a
+fast dual-core machine with 4gigs of memory and 7200rpm disk drives.
+On a slower, memory limited laptop, doing a single kernel build can
+take more time than the user has patiences; multiply that by 7 or 8
+build and test boots, and it starts to get tiresome.  
+
+And then on top of that there are the issues about whether there is
+enough support for dealing with hitting kernel revisions that fail due
+to other bugs getting merged in during the -rc1 process, etc.
+
+I agree that a tool that automated the bisection process and walked
+the user through it would be helpful, but I believe it would be
+possible for us do better.
+
+						- Ted
