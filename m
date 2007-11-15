@@ -1,7 +1,8 @@
 From: Hideo AOKI <haoki@redhat.com>
-Subject: [PATCH 0/5] UDP memory accounting and limitation (take 8)
-Date: Thu, 15 Nov 2007 16:44:13 -0500
-Message-ID: <473CBDAD.1010708@redhat.com>
+Subject: [PATCH 2/5] udp: accounting unit and variable
+Date: Thu, 15 Nov 2007 16:49:50 -0500
+Message-ID: <473CBEFE.7020205@redhat.com>
+References: <473CBDAD.1010708@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -12,66 +13,84 @@ Cc: Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
 	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
 	Stephen Hemminger <shemminger@linux-foundation.org>,
 	yoshfuji@linux-ipv6.org,
-	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>,
-	Hideo AOKI <haoki@redhat.com>
+	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
 To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:33510 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:56863 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755970AbXKOVvv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2007 16:51:51 -0500
+	id S1752980AbXKOV4m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 16:56:42 -0500
+In-Reply-To: <473CBDAD.1010708@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+This patch introduces global variable for UDP memory accounting.
+The unit is page.
 
-This is the latest patch set of UDP memory accounting and limitation.
+signed-off-by: Satoshi Oshima <satoshi.oshima.fk@hitachi.com>
+signed-off-by: Hideo Aoki <haoki@redhat.com>
+---
 
-I modified sk_datagram_pages() to avoid using divide instruction.
+ include/net/sock.h |    8 ++++++++
+ include/net/udp.h  |    2 ++
+ net/ipv4/proc.c    |    3 ++-
+ net/ipv4/udp.c     |    2 ++
+ 4 files changed, 14 insertions(+), 1 deletion(-)
 
-In addition, I also fixed memory accounting code in udp_recvmsg(),
-since, in previous takes, the accounting code referred released
-sk_buff's truesize. The fix can be found in 3rd patch of the patch set.
+diff -pruN net-2.6-udp-p1/include/net/sock.h net-2.6-udp-p2/include/net/sock.h
+--- net-2.6-udp-p1/include/net/sock.h	2007-11-15 12:42:04.000000000 -0500
++++ net-2.6-udp-p2/include/net/sock.h	2007-11-15 14:44:13.000000000 -0500
+@@ -778,6 +778,14 @@ static inline int sk_stream_wmem_schedul
+ 	       sk_stream_mem_schedule(sk, size, 0);
+ }
 
-The patch set is for net-2.6. Please apply.
++#define SK_DATAGRAM_MEM_QUANTUM ((unsigned int)PAGE_SIZE)
++
++static inline int sk_datagram_pages(int amt)
++{
++	/* Cast to unsigned as an optimization, since amt is always positive. */
++	return DIV_ROUND_UP((unsigned int)amt, SK_DATAGRAM_MEM_QUANTUM);
++}
++
+ /* Used by processes to "lock" a socket state, so that
+  * interrupts and bottom half handlers won't change it
+  * from under us. It essentially blocks any incoming
+diff -pruN net-2.6-udp-p1/include/net/udp.h net-2.6-udp-p2/include/net/udp.h
+--- net-2.6-udp-p1/include/net/udp.h	2007-11-14 10:49:05.000000000 -0500
++++ net-2.6-udp-p2/include/net/udp.h	2007-11-15 14:44:13.000000000 -0500
+@@ -65,6 +65,8 @@ extern rwlock_t udp_hash_lock;
 
+ extern struct proto udp_prot;
 
-Changelog take 7 -> take 8:
- * sk_datagram_pages(): avoided using divide instruction
- * udp_recvmsg(): fixed referring released truesize in accounting
++extern atomic_t udp_memory_allocated;
++
+ struct sk_buff;
 
-Changelog take 6 -> take 7:
- * renamed /proc/sys/net/ipv4/udp_rmem to
-   /proc/sys/net/ipv4/udp_rmem_min
- * renamed /proc/sys/net/ipv4/udp_wmem to
-   /proc/sys/net/ipv4/udp_wmem_min
- * rebased to net-2.6
+ /*
+diff -pruN net-2.6-udp-p1/net/ipv4/proc.c net-2.6-udp-p2/net/ipv4/proc.c
+--- net-2.6-udp-p1/net/ipv4/proc.c	2007-11-14 10:49:07.000000000 -0500
++++ net-2.6-udp-p2/net/ipv4/proc.c	2007-11-15 14:44:13.000000000 -0500
+@@ -56,7 +56,8 @@ static int sockstat_seq_show(struct seq_
+ 		   sock_prot_inuse(&tcp_prot), atomic_read(&tcp_orphan_count),
+ 		   tcp_death_row.tw_count, atomic_read(&tcp_sockets_allocated),
+ 		   atomic_read(&tcp_memory_allocated));
+-	seq_printf(seq, "UDP: inuse %d\n", sock_prot_inuse(&udp_prot));
++	seq_printf(seq, "UDP: inuse %d mem %d\n", sock_prot_inuse(&udp_prot),
++		   atomic_read(&udp_memory_allocated));
+ 	seq_printf(seq, "UDPLITE: inuse %d\n", sock_prot_inuse(&udplite_prot));
+ 	seq_printf(seq, "RAW: inuse %d\n", sock_prot_inuse(&raw_prot));
+ 	seq_printf(seq,  "FRAG: inuse %d memory %d\n",
+diff -pruN net-2.6-udp-p1/net/ipv4/udp.c net-2.6-udp-p2/net/ipv4/udp.c
+--- net-2.6-udp-p1/net/ipv4/udp.c	2007-11-14 10:49:07.000000000 -0500
++++ net-2.6-udp-p2/net/ipv4/udp.c	2007-11-15 14:44:13.000000000 -0500
+@@ -114,6 +114,8 @@ DEFINE_SNMP_STAT(struct udp_mib, udp_sta
+ struct hlist_head udp_hash[UDP_HTABLE_SIZE];
+ DEFINE_RWLOCK(udp_hash_lock);
 
-
-Changelog take 5 -> take 6:
-
- * removed minimal limit of /proc/sys/net/ipv4/udp_mem
- * added udp_init() for default value calculation of parameters
- * added /proc/sys/net/ipv4/udp_rmem and
-   /proc/sys/net/ipv4/udp_rmem
- * added limitation code to ip_ufo_append_data()
- * improved accounting for receiving packet
- * fixed typos
- * rebased to 2.6.24-rc1
-
-
-Changelog take 4 -> take 5:
-
- * removing unnessesary EXPORT_SYMBOLs
- * adding minimal limit of /proc/sys/net/ipv4/udp_mem
- * bugfix of UDP limit affecting protocol other than UDP
- * introducing __ip_check_max_skb_pages()
- * using CTL_UNNUMBERED
- * adding udp_mem usage to Documentation/networking/ip_sysctl.txt
-
-
-Best regards,
-Hideo Aoki
-
---
++atomic_t udp_memory_allocated;
++
+ static inline int __udp_lib_lport_inuse(__u16 num,
+ 					const struct hlist_head udptable[])
+ {
+-- 
 Hitachi Computer Products (America) Inc.
