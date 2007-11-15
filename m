@@ -1,47 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: network interface state
-Date: Wed, 14 Nov 2007 16:22:01 -0800 (PST)
-Message-ID: <20071114.162201.174150647.davem@davemloft.net>
-References: <473B61C8.3030302@redhat.com>
-	<20071114.153103.230463871.davem@davemloft.net>
-	<473B8EEC.1010906@redhat.com>
+From: Olof Johansson <olof@lixom.net>
+Subject: Re: [PATCH] Fix warning for token-ring from sysctl checker
+Date: Wed, 14 Nov 2007 18:28:10 -0600
+Message-ID: <20071115002810.GA7337@lixom.net>
+References: <20071113072313.GB16842@lixom.net> <20071113.211540.97775009.davem@davemloft.net> <m1r6is253v.fsf@ebiederm.dsl.xmission.com> <20071114084528.0f092739.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: drepper@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Randy Dunlap <randy.dunlap@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53245
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756233AbXKOAWB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 19:22:01 -0500
-In-Reply-To: <473B8EEC.1010906@redhat.com>
+Received: from lixom.net ([66.141.50.11]:51783 "EHLO mail.lixom.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754247AbXKOA1H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2007 19:27:07 -0500
+Content-Disposition: inline
+In-Reply-To: <20071114084528.0f092739.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ulrich Drepper <drepper@redhat.com>
-Date: Wed, 14 Nov 2007 16:12:28 -0800
-
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA1
+On Wed, Nov 14, 2007 at 08:45:28AM -0800, Randy Dunlap wrote:
+> On Wed, 14 Nov 2007 08:56:20 -0700 Eric W. Biederman wrote:
 > 
-> David Miller wrote:
-> > Most daemons handle this by listening for events on the netlink
-> > socket, but I understand how that might not be practical for
-> > glibc.
+> > David Miller <davem@davemloft.net> writes:
+> > 
+> > > From: Olof Johansson <olof@lixom.net>
+> > > Date: Tue, 13 Nov 2007 01:23:13 -0600
+> > >
+> > >> As seen when booting ppc64_defconfig:
+> > >> 
+> > >> sysctl table check failed: /net/token-ring .3.14 procname does not match
+> > > binary path procname
+> > >> 
+> > >> 
+> > >> Signed-off-by: Olof Johansson <olof@lixom.net>
+> > >
+> > > Patch applied, thanks Olof.
+> > 
+> > No objections but I think we already have this fixed in the -mm tree.
 > 
-> Right, this cannot work.  I have no inner loop which I can control.  I
-> cannot install a listener.
-> 
-> At some point, when we have non-sequential, hidden file descriptors,
-> I'll be able to leave a socket file descriptor open.  But that's about
-> it.  Even then the generation counter interface is likely to be the best
-> choice.
+> Yes, I patched it several weeks ago and it's been in -mm for a while
+> now.  Apparently too long.
 
-Ok, I'll think about how to implement this.
+Ah, sorry for the duplicate patch then. I must have missed it at the
+original posting (and didn't search that far back and/or -mm before
+posting it myself).
 
-> BTW, is it possible to send both these requests out before starting to
-> read the results?  This would reduce the amount of code quite a bit.
 
-Unfortunately, that won't work.  Like datagram protocols,
-netlink assumes one message per sendmsg() call.
+-Olof
