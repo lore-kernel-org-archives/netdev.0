@@ -1,7 +1,7 @@
 From: Neil Brown <neilb@suse.de>
 Subject: Re: [BUG] New Kernel Bugs
 Date: Thu, 15 Nov 2007 13:50:43 +1100
-Message-ID: <18235.46083.293604.560507__11868.5755682693$1195095102$gmane$org@notabene.brown>
+Message-ID: <18235.46083.293604.560507__33462.3285373256$1195095105$gmane$org@notabene.brown>
 References: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
 	<20071113.033946.114918709.davem@davemloft.net>
 	<20071113034916.2556edd7.akpm@linux-foundation.org>
@@ -23,13 +23,9 @@ Cc: Randy Dunlap <rdunlap@xenotime.net>, Ingo Molnar <mingo@elte.hu>,
 	linux-input@atrey.karlin.mff.cuni.cz,
 	bugme-daemon@bugzilla.kernel.org
 To: "J. Bruce Fields" <bfields@fieldses.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:56013 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755973AbXKOCvE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2007 21:51:04 -0500
+Return-path: <linux-ide-owner@vger.kernel.org>
 In-Reply-To: message from J. Bruce Fields on Wednesday November 14
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Wednesday November 14, bfields@fieldses.org wrote:
