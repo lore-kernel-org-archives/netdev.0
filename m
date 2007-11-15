@@ -1,72 +1,47 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] IPVS: Fix sysctl warnings about missing strategy
-Date: Wed, 14 Nov 2007 17:33:12 -0800
-Message-ID: <20071115013308.GA8449@verge.net.au>
-References: <200711131129.58868.borntraeger@de.ibm.com> <20071113.024500.155458534.davem@davemloft.net> <20071114021131.GB2523@verge.net.au> <Pine.LNX.4.58.0711150225280.3658@u.domain.uli> <20071115011431.GA8325@verge.net.au> <m14pfoz4er.fsf@ebiederm.dsl.xmission.com>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Subject: Re: 2.6.24-rc2: Network commit causes SLUB performance regression with tbench
+Date: Thu, 15 Nov 2007 12:47:29 +1100
+Message-ID: <200711151247.29424.nickpiggin@yahoo.com.au>
+References: <200711140927.39796.nickpiggin@yahoo.com.au> <Pine.LNX.4.64.0711141650150.21965@schroedinger.engr.sgi.com> <20071115011110.GB21193@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julian Anastasov <ja@ssi.bg>, David Miller <davem@davemloft.net>,
-	borntraeger@de.ibm.com, netdev@vger.kernel.org,
-	wensong@linux-vs.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Lameter <clameter@sgi.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:37137 "EHLO koto.vergenet.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754170AbXKOBdS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2007 20:33:18 -0500
+Received: from smtp107.mail.mud.yahoo.com ([209.191.85.217]:43609 "HELO
+	smtp107.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750747AbXKOBrg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 20:47:36 -0500
+In-Reply-To: <20071115011110.GB21193@gondor.apana.org.au>
 Content-Disposition: inline
-In-Reply-To: <m14pfoz4er.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 14, 2007 at 06:25:00PM -0700, Eric W. Biederman wrote:
-> Simon Horman <horms@verge.net.au> writes:
-> 
-> > On Thu, Nov 15, 2007 at 02:38:32AM +0200, Julian Anastasov wrote:
-> >
-> > Hi Julian,
-> >
-> >> On Tue, 13 Nov 2007, Simon Horman wrote:
-> >
-> > [snip]
-> >
-> >> > As for the commented out entries. They are supposed to be exposed by
-> >> > some other means - I believe the thinking was to comply with the don't
-> >> > expose stuff in proc any more idea. Where is the best place to expose
-> >> > this kind of stuff?
-> >> 
-> >> 	I assume /proc/sys is still valid place, only sysctl interface
-> >> is scheduled for removal.
-> >
-> > I'm happy to add them there, so long as that is a good place.
-> 
-> For simple integer values /proc/sys (ala the ascii sysctl interface)
-> seems as good as any to me.
+On Thursday 15 November 2007 12:11, Herbert Xu wrote:
+> On Wed, Nov 14, 2007 at 05:03:25PM -0800, Christoph Lameter wrote:
+> > Well this is likely the result of the SLUB regression. If you allocate an
+> > order 1 page then the zone locks need to be taken. SLAB queues the a
 
-Understood.
+Yeah, it appears this is what happened. The lockless page allocator
+fastpath appears on the list and the slowpaths disappear after
+Herbert's patches. SLAB is doing its own thing, so it avoids that
+pitfall.
 
-> The binary interface is problematic because it doesn't get used and
-> so we don't show proper discipline with binary integers leading to
-> silent ABI changes, and the actual implementation of the handler
-> routines get out of sync with the proc side giving us different
-> meanings.
-> 
-> >> So, as long as these entries are not
-> >> accessible from sysctl it is safe to run without strategy handler but if
-> >> values can be changed then we will need strategy handler to
-> >> properly call update_defense_level() as done in proc_do_defense_mode()
-> >> as proc_handler. There could be side effects if new mode is not applied.
-> >
-> > I'm not sure what you are getting at there. I did write a stratergy
-> > for update_defense_level(), but I didn't post it, as I thought that
-> > it would not be needed if CTL_UNNUMBERED is used.
-> 
-> Strategy routines are never called if CTL_UNNUMBERED is used.  So you
-> should be safe just killing the ctl_name field or setting it
-> explicitly to CTL_UNNUMBERED.
 
-Thanks Eric, thats more or less what I thought.
+> > couple of higher order pages and can so serve a couple of requests
+> > without going into the page allocator whereas SLUB has to go directly to
+> > the page allocator for allocate and free. I guess that needs fixing in
+> > the page allocator. Or do I need to add a mechanism to buffer higher
+> > order page allcoations to SLUB?
+>
+> Actually this serves to discourage people from using high-order
+> allocations which IMHO is a good thing :)
 
--- 
-Horms, California Edition
+Yeah I completely agree. The right fix is in the caller...
+The bug / suboptimal allocation would not have been found in tcp
+if not for this ;)
 
