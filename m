@@ -1,53 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/5] udp: memory limitation by using udp_mem
-Date: Thu, 15 Nov 2007 15:23:53 -0800 (PST)
-Message-ID: <20071115.152353.100893781.davem@davemloft.net>
-References: <473CBDAD.1010708@redhat.com>
-	<473CBF16.8040001@redhat.com>
+Subject: Re: [PATCH] net/ipv4/arp.c: Fix arp reply when sender ip 0
+Date: Thu, 15 Nov 2007 15:28:13 -0800 (PST)
+Message-ID: <20071115.152813.89410917.davem@davemloft.net>
+References: <cac0ab7d0711150340p58eda94ah92894072ba328205@mail.gmail.com>
+	<20071115154032.GA30391@ms2.inr.ac.ru>
+	<cac0ab7d0711151340l1cc91a2dw5ebf36e166d16d7a@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, satoshi.oshima.fk@hitachi.com,
-	herbert@gondor.apana.org.au, billfink@mindspring.com,
-	andi@firstfloor.org, johnpol@2ka.mipt.ru,
-	shemminger@linux-foundation.org, yoshfuji@linux-ipv6.org,
-	yumiko.sugita.yf@hitachi.com
-To: haoki@redhat.com
+Cc: kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org,
+	jmorris@namei.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: the.sator@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38037
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56513
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752232AbXKOXXy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 18:23:54 -0500
-In-Reply-To: <473CBF16.8040001@redhat.com>
+	by vger.kernel.org with ESMTP id S1755180AbXKOX2O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 18:28:14 -0500
+In-Reply-To: <cac0ab7d0711151340l1cc91a2dw5ebf36e166d16d7a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hideo AOKI <haoki@redhat.com>
-Date: Thu, 15 Nov 2007 16:50:14 -0500
+From: "Jonas Danielsson" <the.sator@gmail.com>
+Date: Thu, 15 Nov 2007 22:40:13 +0100
 
-> +static inline int __ip_check_max_skb_pages(struct sock *sk, int size)
-> +{
-> +	switch(sk->sk_protocol) {
-> +	case IPPROTO_UDP:
-> +		if (atomic_read(sk->sk_prot->memory_allocated) + size
-> +		    > sk->sk_prot->sysctl_mem[0])
-> +			return -ENOBUFS;
-> +		/* Fall through */	
-> +	default:
-> +		break;
-> +	}
-> +	return 0;
-> +}
-> +
+> Is there a reason that the target hardware address isn't the target
+> hardware address?
 
-This check misses UDPLITE, and this whole patch set is a designed in a
-way that makes errors like this easy.
+Linux subscribes to the host based addressing model rather
+than an interface based addressing model.  Both approaches
+are valid by RFCs.
 
-These special case checks are all over the place.
+Because of this, in cases where a choice can be made Linux will
+advertise what is most likely to result in successful communication.
 
-We don't have tests all over the place to see if a socket is TCP or
-DCCP or SCTP in order to implement memory accounting there, because we
-did it for connection oriented protocols cleanly, seperating things
-via callbacks etc.
+This is likely why we are changing that target address to the one of
+the interface actually sending back the reply rather than the zero
+value you used.
 
-I would like to see the datagram memory accounting work similarly.
+In fact I think this information can be useful to the sender of
+the DAD request.
