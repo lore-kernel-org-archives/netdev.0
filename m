@@ -1,56 +1,40 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: network interface state
-Date: Wed, 14 Nov 2007 16:12:28 -0800
-Message-ID: <473B8EEC.1010906@redhat.com>
-References: <473B61C8.3030302@redhat.com> <20071114.153103.230463871.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] NET : rt_check_expire() can take a long time, add a
+ cond_resched()
+Date: Wed, 14 Nov 2007 16:13:08 -0800 (PST)
+Message-ID: <20071114.161308.66154917.davem@davemloft.net>
+References: <473B69D5.2050805@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:33017 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752161AbXKOAMg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2007 19:12:36 -0500
-In-Reply-To: <20071114.153103.230463871.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42143
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753804AbXKOANI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 19:13:08 -0500
+In-Reply-To: <473B69D5.2050805@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Wed, 14 Nov 2007 22:34:13 +0100
 
-David Miller wrote:
-> Most daemons handle this by listening for events on the netlink
-> socket, but I understand how that might not be practical for
-> glibc.
+> On commit 39c90ece7565f5c47110c2fa77409d7a9478bd5b we converted 
+> rt_check_expire() from softirq to workqueue, allowing the function to perform 
+> all work it was supposed to do.
+> 
+> When the IP route cache is big, rt_check_expire() can take a long time to run.
+> (default settings : 20% of the hash table is scanned at each invocation)
+> 
+> Adding cond_resched() helps giving cpu to higher priority tasks if necessary.
+> 
+> Using a "if (need_resched())" test before calling "cond_resched();" is 
+> necessary to avoid spending too much time doing the resched check.
+> (My tests gave a time reduction from 88 ms to 25 ms per rt_check_expire() run 
+> on my i686 test machine)
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-Right, this cannot work.  I have no inner loop which I can control.  I
-cannot install a listener.
-
-At some point, when we have non-sequential, hidden file descriptors,
-I'll be able to leave a socket file descriptor open.  But that's about
-it.  Even then the generation counter interface is likely to be the bes=
-t
-choice.
-
-
-> It's part of the link information, Look in ifinfomsg->ifi_type
-
-Great, I fixed up the code.  I guess in future, once I can cache the
-data, I'll simply read the RTM_GETADDR and RTM_GETLINK data all at once
-and be done with it.
-
-BTW, is it possible to send both these requests out before starting to
-read the results?  This would reduce the amount of code quite a bit.
-
-- --
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
-
-iD8DBQFHO47s2ijCOnn/RHQRApIIAJwNATDabXkfszG2e+gtJWO9f4wm4wCdFuoQ
-Yn40KK+cs9Di4fq+WKTQalo=3D
-=3Dq02M
------END PGP SIGNATURE-----
+Patch applied, thanks!
