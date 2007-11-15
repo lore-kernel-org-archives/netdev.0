@@ -1,50 +1,55 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 2/2] move unneeded data to initdata section
-Date: Thu, 15 Nov 2007 11:19:26 -0700
-Message-ID: <m13av7xtg1.fsf@ebiederm.dsl.xmission.com>
-References: <20071107120100.GA10185@iris.sw.ru>
-	<m1abpfy3xz.fsf@ebiederm.dsl.xmission.com> <473C5ABC.5090204@sw.ru>
-	<20071115151429.GC22825@uranus.ravnborg.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] via-velocity: don't oops on MTU change.
+Date: Thu, 15 Nov 2007 10:20:05 -0800
+Message-ID: <20071115102005.0cf46f9a@freepuppy.rosehill>
+References: <20071114193844.0cab5c7d@freepuppy.rosehill>
+	<20071115082600.GA2366@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Denis V. Lunev" <den@sw.ru>, "Denis V. Lunev" <den@openvz.org>,
-	davem@davemloft.net, containers@lists.osdl.org,
-	netdev@vger.kernel.org, clg@fr.ibm.com, benjamin.thery@bull.net
-To: Sam Ravnborg <sam@ravnborg.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"David S\. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	jnelson-kernel-bugzilla@jamponi.net
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:45299 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751718AbXKOSVk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 13:21:40 -0500
-In-Reply-To: <20071115151429.GC22825@uranus.ravnborg.org> (Sam Ravnborg's
-	message of "Thu, 15 Nov 2007 16:14:29 +0100")
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:58349 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1765011AbXKOSWd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 13:22:33 -0500
+In-Reply-To: <20071115082600.GA2366@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sam Ravnborg <sam@ravnborg.org> writes:
+On Thu, 15 Nov 2007 09:26:00 +0100
+Jarek Poplawski <jarkao2@o2.pl> wrote:
 
-> On Thu, Nov 15, 2007 at 05:42:04PM +0300, Denis V. Lunev wrote:
->> 
->> nothing is discarded after module load. Though, I can be wrong. Could
->> you point me to the exact place?
-> If __initdata is not discarded after module load then we should do it.
-> There is no reason to waste __initdata RAM when the module is loaded.
+> On 15-11-2007 04:38, Stephen Hemminger wrote:
+> > Simple mtu change when device is down.
+> > Fix http://bugzilla.kernel.org/show_bug.cgi?id=9382.
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> > 
+> > 
+> > --- a/drivers/net/via-velocity.c	2007-10-22 09:38:11.000000000 -0700
+> > +++ b/drivers/net/via-velocity.c	2007-11-14 19:34:30.000000000 -0800
+> > @@ -1963,6 +1963,11 @@ static int velocity_change_mtu(struct ne
+> >  		return -EINVAL;
+> >  	}
+> >  
+> > +	if (!netif_running(dev)) {
+> > +		dev->mtu = new_mtu;
+> > +		return 0;
+> > +	}
+> > +
+> >  	if (new_mtu != oldmtu) {
+> >  		spin_lock_irqsave(&vptr->lock, flags);
+> 
+> Shouldn't this latter 'if' be removed now, btw?
 
-Down at the bottom of sys_init_module we have:
+No, it makes sense that if mtu is same, no action need be taken.
 
-	/* Drop initial reference. */
-	module_put(mod);
-	unwind_remove_table(mod->unwind_info, 1);
+Actually, it would make sense to push the same check up into
+the netdevice core management.
 
-	module_free(mod, mod->module_init);
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-	mod->module_init = NULL;
-	mod->init_size = 0;
-	mod->init_text_size = 0;
-	mutex_unlock(&module_mutex);
-
-	return 0;
-
-Which frees the memory for the .init sections.
-
-Eric
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
