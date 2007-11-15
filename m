@@ -1,45 +1,80 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH] net/ipv4/arp.c: Fix arp reply when sender ip 0 (was: Strange behavior in arp probe reply, bug or feature?)
-Date: Thu, 15 Nov 2007 18:40:32 +0300
-Message-ID: <20071115154032.GA30391@ms2.inr.ac.ru>
-References: <cac0ab7d0711150340p58eda94ah92894072ba328205@mail.gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH, take2] netfilter : struct xt_table_info diet
+Date: Thu, 15 Nov 2007 16:45:16 +0100
+Message-ID: <20071115164516.ced96a9e.dada1@cosmosbay.com>
+References: <473B6D88.4010701@cosmosbay.com>
+	<473C3E92.30004@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	jmorris@namei.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: Jonas Danielsson <the.sator@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@lists.netfilter.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:51400 "HELO ms2.inr.ac.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1755924AbXKOPkr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2007 10:40:47 -0500
-Content-Disposition: inline
-In-Reply-To: <cac0ab7d0711150340p58eda94ah92894072ba328205@mail.gmail.com>
+Received: from pfx2.jmh.fr ([194.153.89.55]:60527 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757886AbXKOPpS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 10:45:18 -0500
+In-Reply-To: <473C3E92.30004@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Thu, 15 Nov 2007 13:41:54 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-> Send a correct arp reply instead of one with sender ip and sender
-> hardware adress in target fields.
+> Eric Dumazet wrote:
+> > [PATCH] netfilter : struct xt_table_info diet
+> > 
+> > Instead of using a big array of NR_CPUS entries, we can compute the size
+> > needed at runtime, using nr_cpu_ids
+> > 
+> > This should save some ram (especially on David's machines where
+> > NR_CPUS=4096 :
+> > 32 KB can be saved per table, and 64KB for dynamically allocated ones
+> > (because
+> > of slab/slub alignements) )
+> > 
+> > In particular, the 'bootstrap' tables are not any more static (in data
+> > section) but on stack as their size is now very small.
+> > 
+> > This also should reduce the size used on stack in compat functions
+> > (get_info() declares an automatic variable, that could be bigger than
+> > kernel
+> > stack size for big NR_CPUS)
+> 
+> 
+> I fixed a compilation error with CONFIG_COMPAT and applied it, thanks
+> Eric. One question though:
+> 
+> > +#define XT_TABLE_INFO_SZ (offsetof(struct xt_table_info, entries) \
+> > +			  + nr_cpu_ids * sizeof(char *))
+> 
+> 
+> >  	/* overflow check */
+> > -	if (tmp.size >= (INT_MAX - sizeof(struct xt_table_info)) / NR_CPUS -
+> > -			SMP_CACHE_BYTES)
+> > +	if (tmp.size >= INT_MAX / num_possible_cpus())
+> >  		return -ENOMEM;
+> 
+> We need to make sure offsetof(struct xt_table_info, entries) +
+> nr_cpu_ids * sizeof(char *) doesn't overflow, so why doesn't it
+> use nr_cpu_ids here as well?
+> 
 
-I do not see anything more legal in setting target address to 0.
+nr_cpu_ids is <= NR_CPUS, so XT_TABLE_INFO_SZ cannot overflow
+
+The 'overflow check' we do here is in fact not very usefull now
+that we dont need to multiply tmp.size by NR_CPUS and potentially
+overflow the result.
+
+We can delete the test, because kmalloc()/vmalloc() will probably
+fail gracefully if we ask too much memory.
+
+We could imagine a dual Opteron machine, with a total of 32GB of ram, and
+it could be possible to load a 3GB iptable  (that would consume 2*3GB of ram), 
+but the 'overflow check' test actually forbids such a scenario.
 
 
-Actually, semantics of target address in ARP reply is ambiguous.
-If it is a reply to some real request, it is set to address of requestor
-and protocol requires recipient of this arp reply to test that the address
-matches its own address before creating new entry triggered by unsolicited
-arp reply. That's all.
 
-In the case of duplicate address detection, requestor does not have
-any address, so that it is absolutely not essential what we use as target
-address. The only place, which could depend on this is the tool, which
-tests for duplicate address. At least, arping written by me, should
-work with any variant.
-
-So, please, could you explain what did force you to think that use of 0
-is better?
-
-Alexey
