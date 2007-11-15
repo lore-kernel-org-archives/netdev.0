@@ -1,85 +1,48 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 01/01] ipv6: RFC4214 Support (v2.2)
-Date: Thu, 15 Nov 2007 20:22:08 +0900 (JST)
-Message-ID: <20071115.202208.126883108.yoshfuji@linux-ipv6.org>
-References: <4739D7F7.90300@hp.com>
-	<39C363776A4E8C4A94691D2BD9D1C9A1029EDC29@XCH-NW-7V2.nw.nos.boeing.com>
-	<39C363776A4E8C4A94691D2BD9D1C9A1029EDC2B@XCH-NW-7V2.nw.nos.boeing.com>
+From: "Jonas Danielsson" <the.sator@gmail.com>
+Subject: [PATCH] net/ipv4/arp.c: Fix arp reply when sender ip 0 (was: Strange behavior in arp probe reply, bug or feature?)
+Date: Thu, 15 Nov 2007 12:40:22 +0100
+Message-ID: <cac0ab7d0711150340p58eda94ah92894072ba328205@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vladislav.yasevich@hp.com,
-	yoshfuji@linux-ipv6.org
-To: Fred.L.Templin@boeing.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:33173 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752033AbXKOLWL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 06:22:11 -0500
-In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC2B@XCH-NW-7V2.nw.nos.boeing.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1765490AbXKOLki@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <39C363776A4E8C4A94691D2BD9D1C9A1029EDC2B@XCH-NW-7V2.nw.nos.boeing.com> (at Wed, 14 Nov 2007 22:44:17 -0800), "Templin, Fred L" <Fred.L.Templin@boeing.com> says:
+Fix arp reply when received arp probe with sender ip 0.
 
-> --- linux-2.6.24-rc2/net/ipv6/addrconf.c.orig	2007-11-08 11:59:35.000000000 -0800
-> +++ linux-2.6.24-rc2/net/ipv6/addrconf.c	2007-11-14 22:17:28.000000000 -0800
-> @@ -1424,6 +1424,21 @@ static int addrconf_ifid_infiniband(u8 *
->  	return 0;
->  }
->  
-> +static int addrconf_ifid_isatap(u8 *eui, __be32 addr)
-> +{
-> +
-> +	eui[0] = 0x02; eui[1] = 0; eui[2] = 0x5E; eui[3] = 0xFE;
-> +	memcpy (eui+4, &addr, 4);
-> +
-> +	if (ZERONET(addr) || PRIVATE_10(addr) || LOOPBACK(addr) ||
-> +	    LINKLOCAL_169(addr) || PRIVATE_172(addr) || TEST_192(addr) ||
-> +	    ANYCAST_6TO4(addr) || PRIVATE_192(addr) || TEST_198(addr) ||
-> +	    MULTICAST(addr) || BADCLASS(addr))
-> +		eui[0] &= ~0x02;
-> +
-> +	return 0;
-> +}
-> +
->  static int ipv6_generate_eui64(u8 *eui, struct net_device *dev)
->  {
->  	switch (dev->type) {
+Can't find any ground in RFC2131 to send a non-valid arp-reply in
+the special case of sender ip being set to 0.
 
-{
-  eui[0] = (ZERONET(addr) || PRIVATE_10(addr) || LOOPBACK(addr) ||
-            LINKLOCAL_169(addr) || PRIVATE_172(addr) || TEST_192(addr) ||
-            ANYCAST_6TO4(addr) || PRIVATE_192(addr) || TEST_198(addr) ||
-            MULTICAST(addr) || BADCLASS(addr)) ? 0 : 2;
-  eui[1] = 0;
-  eui[2] = 0x5E;
-  eui[3] = 0xFE;
-  memcpy (eui+4, &addr, 4);
-}
+- Bug fix for arp handling when sender ip is set to 0.
+Send a correct arp reply instead of one with sender ip and sender
+hardware adress in target fields.
 
+Now sends target ip and target hw as received in arp probe.
 
-> @@ -2167,7 +2185,8 @@ static void addrconf_dev_config(struct n
->  	    (dev->type != ARPHRD_FDDI) &&
->  	    (dev->type != ARPHRD_IEEE802_TR) &&
->  	    (dev->type != ARPHRD_ARCNET) &&
-> -	    (dev->type != ARPHRD_INFINIBAND)) {
-> +	    (dev->type != ARPHRD_INFINIBAND) &&
-> +	    !(dev->priv_flags & IFF_ISATAP)) {
->  		/* Alas, we support only Ethernet autoconfiguration. */
->  		return;
->  	}
+Signed-off-by: Jonas Danielsson <the.sator@gmail.com>
 
-Because priv_flags are local to device type, you need to check dev->type:
-	(dev->type == ARPHRD_SIT && !(dev->priv_flags & IFF_ISATAP))
-or something like this.
+---
+arp.c |    3 ++-
+1 file changed, 2 insertions(+), 1 deletion(-)
 
-
-> +	struct ip_tunnel *t  = netdev_priv(ifp->idev->dev);
-> +	if (t->parms.i_key != INADDR_NONE) {
-> +		spin_lock(&ifp->lock);
-
-I guess INADDR_ANY.
-
---yoshfuji
+Index: arp.c
+===================================================================
+RCS file: /usr/local/cvs/linux/os/linux-2.6/net/ipv4/arp.c,v
+retrieving revision 1.22
+diff -u -w -r1.22 arp.c
+--- arp.c	13 Oct 2006 12:45:47 -0000	1.22
++++ arp.c	15 Nov 2007 10:34:44 -0000
+@@ -827,7 +827,8 @@
+ 		if (arp->ar_op == htons(ARPOP_REQUEST) &&
+ 		    inet_addr_type(tip) == RTN_LOCAL &&
+ 		    !arp_ignore(in_dev,dev,sip,tip))
+-			arp_send(ARPOP_REPLY,ETH_P_ARP,tip,dev,tip,sha,dev->dev_addr,dev->dev_addr);
++			arp_send(ARPOP_REPLY, ETH_P_ARP, sip, dev, tip, sha,
++				 dev->dev_addr, sha);
+ 		goto out;
+ 	}
