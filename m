@@ -1,44 +1,63 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] IPVS: Fix sysctl warnings about missing strategy
-Date: Fri, 16 Nov 2007 00:53:25 +0200 (EET)
-Message-ID: <Pine.LNX.4.58.0711160039110.2986@u.domain.uli>
-References: <200711131129.58868.borntraeger@de.ibm.com>
- <20071113.024500.155458534.davem@davemloft.net> <20071114021131.GB2523@verge.net.au>
- <Pine.LNX.4.58.0711150225280.3658@u.domain.uli> <20071115011431.GA8325@verge.net.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 9386] New: sis190 network driver crash
+Date: Thu, 15 Nov 2007 15:00:41 -0800 (PST)
+Message-ID: <20071115.150041.156510275.davem@davemloft.net>
+References: <bug-9386-10286@http.bugzilla.kernel.org/>
+	<20071115115841.30d43003.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, borntraeger@de.ibm.com,
-	netdev@vger.kernel.org, ebiederm@xmission.com, wensong@linux-vs.org
-To: Simon Horman <horms@verge.net.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	chris@linuxepos.com, romieu@fr.zoreil.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([217.79.71.194]:4598 "EHLO u.domain.uli"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751622AbXKOWxp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2007 17:53:45 -0500
-In-Reply-To: <20071115011431.GA8325@verge.net.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44155
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1765545AbXKOXAl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 18:00:41 -0500
+In-Reply-To: <20071115115841.30d43003.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Thu, 15 Nov 2007 11:58:41 -0800
 
-	Hello,
-
-On Wed, 14 Nov 2007, Simon Horman wrote:
-
-> > So, as long as these entries are not
-> > accessible from sysctl it is safe to run without strategy handler but if
-> > values can be changed then we will need strategy handler to
-> > properly call update_defense_level() as done in proc_do_defense_mode()
-> > as proc_handler. There could be side effects if new mode is not applied.
+> On Thu, 15 Nov 2007 07:30:53 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
 > 
-> I'm not sure what you are getting at there. I did write a stratergy
-> for update_defense_level(), but I didn't post it, as I thought that
-> it would not be needed if CTL_UNNUMBERED is used.
+> > http://bugzilla.kernel.org/show_bug.cgi?id=9386
+ ...
+> > I have a problem where I can lock up a number of machines by 
+> > changing the link state on a sis190 Ethernet port. For example, during 
+> > a data transfer such as FTP if I unplug the Ethernet cable and plug it 
+> > back in, the Ethernet interface will stop responding and the machine 
+> > will lock up after a minute or so. This behaviour is repeatable. I have the
+> > sis190 driver loaded as a module.
+> > 
+> > I haven't found a kernel version where this doesn't happen. It happens with
+> > kernel 2.6.20.15, for example.
 
-	Thanks everyone! I now see that by using CTL_UNNUMBERED
-for ctl_name stops any writes to 'data', so there is no need for
-'strategy' handler.
+I wonder if somehow sis190_phy_task() is creating some kind
+of deadlock when handling the link down and up events.
 
-Regards
+It takes the RTNL semaphore in sis190_phy_task() but it doesn't
+call anything which can see deadlocking on that.
 
---
-Julian Anastasov <ja@ssi.bg>
+It does invoke the link-watch layer, indirectly via the
+various netif_carrier_{on,off}() calls it makes but those
+should be OK since they just schedule workqueue things.
+
+Perhaps what is contributing to the problem is that
+sis190_interrupt() still processes the RX and TX queues
+even when a link change event is signalled.  Perhaps
+the chip doesn't like that.
+
+Francois, I noticed two issues while reviewing the driver for
+this bug:
+
+1) The interrupt handler does no SMP locking, the chip might
+   not be happy with one thread (in phy_task) programming
+   the MDIO whilst another thread does RX/TX ring processing,
+   for example.
+
+2) The timeout limit check in __mdio_cmd() is buggy, it should
+   be 99 instead of 999.
