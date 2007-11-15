@@ -1,65 +1,55 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Null pointer dereference in nf_nat_move_storage(), kernel 2.6.23.1
-Date: Thu, 15 Nov 2007 15:06:59 +0300
-Message-ID: <20071115120658.GA17667@2ka.mipt.ru>
-References: <473B3874.2020104@redhat.com> <473B83DB.5040303@redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter : struct xt_table_info diet
+Date: Thu, 15 Nov 2007 13:26:40 +0100
+Message-ID: <473C3B00.9090602@trash.net>
+References: <20071114164735.1ba04bc3.dada1@cosmosbay.com>	<473B2E2D.4010504@trash.net> <20071114185544.034ee7d1.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Chuck Ebbert <cebbert@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:54455 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759278AbXKOMGe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2007 07:06:34 -0500
-Content-Disposition: inline
-In-Reply-To: <473B83DB.5040303@redhat.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20071114185544.034ee7d1.dada1@cosmosbay.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Chuck.
+Eric Dumazet wrote:
+> On Wed, 14 Nov 2007 18:19:41 +0100
+> Patrick McHardy <kaber@trash.net> wrote:
+> 
+>>>diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+>>>index 2909c92..ed3bd0b 100644
+>>>--- a/net/ipv4/netfilter/arp_tables.c
+>>>+++ b/net/ipv4/netfilter/arp_tables.c
+>>>@@ -811,7 +811,7 @@ static int do_replace(void __user *user, unsigned int len)
+>>> 		return -ENOPROTOOPT;
+>>> 
+>>> 	/* overflow check */
+>>>-	if (tmp.size >= (INT_MAX - sizeof(struct xt_table_info)) / NR_CPUS -
+>>>+	if (tmp.size >= (INT_MAX - XT_TABLE_INFO_SZ) / NR_CPUS -
+>>> 			SMP_CACHE_BYTES)
+>>
+>>
+>>Shouldn't NR_CPUs be replaced by nr_cpu_ids here? I'm wondering
+>>why we still include NR_CPUs in the calculation at all though,
+>>unlike in 2.4, we don't allocate one huge area of memory anymore
+>>but do one allocation per CPU. IIRC it even was you who changed
+>>that.
+> 
+> 
+> Yes, doing an allocation per possible cpu was better than one giant 
+> allocation (memory savings and NUMA aware)
+> 
+> Well, technically speaking you are right, we may also replace these 
+> divides per NR_CPUS by nr_cpu_ids (or even better : num_possible_cpus())
+> 
+> Because with NR_CPUS=4096, we actually limit tmp.size to about 524000,
+>  what a shame ! :)
 
-On Wed, Nov 14, 2007 at 06:25:15PM -0500, Chuck Ebbert (cebbert@redhat.com) wrote:
-> > https://bugzilla.redhat.com/show_bug.cgi?id=259501#c14
 
-> >  [<f8b61643>] __nf_ct_ext_add+0x12f/0x1c4 [nf_conntrack] 
-
-> > nf_nat_move_storage():
-> > /usr/src/debug/kernel-2.6.23/linux-2.6.23.i686/net/ipv4/netfilter/nf_nat_core.c:612
-> >       87:       f7 47 64 80 01 00 00    testl  $0x180,0x64(%edi)
-> >       8e:       74 39                   je     c9 <nf_nat_move_storage+0x65>
-> > 
-> > line 612:
-> >         if (!(ct->status & IPS_NAT_DONE_MASK))
-> >                 return;
-
-Please test attached patch.
-
-This routing is called each time hash should be replaced, nf_conn has
-extension list which contains pointers to connection tracking users
-(like nat, which is right now the only such user), so when replace takes
-place it should copy own extensions. Loop above checks for own
-extension, but tries to move higer-layer one, which can lead to above
-oops.
-
-Not tested, derived from code observation only.
-
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-
-diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
-index a1a65a1..cf6ba66 100644
---- a/net/netfilter/nf_conntrack_extend.c
-+++ b/net/netfilter/nf_conntrack_extend.c
-@@ -109,7 +109,7 @@ void *__nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
- 			rcu_read_lock();
- 			t = rcu_dereference(nf_ct_ext_types[i]);
- 			if (t && t->move)
--				t->move(ct, ct->ext + ct->ext->offset[id]);
-+				t->move(ct, ct->ext + ct->ext->offset[i]);
- 			rcu_read_unlock();
- 		}
- 		kfree(ct->ext);
-
--- 
-	Evgeniy Polyakov
+We actually had complaints about number of rule limitations, but that
+was more likely caused by vmalloc limits :) But of course we do need
+to include the number of CPUs in the check, I misread the code.
