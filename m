@@ -1,35 +1,29 @@
-From: Andy Whitcroft <apw@shadowen.org>
-Subject: Re: 2.6.24-rc2-mm1 -- strange apparent network failures
-Date: Thu, 15 Nov 2007 10:02:09 +0000
-Message-ID: <20071115100209.GB2513@shadowen.org>
-References: <20071113175906.497a1a6a.akpm@linux-foundation.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Re : Re : Bug in using inet_lookup ()
+Date: Thu, 15 Nov 2007 13:12:28 +0300
+Message-ID: <20071115101228.GC16458@2ka.mipt.ru>
+References: <256275.33084.qm@web26104.mail.ukl.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: Nj A <nj_a83@yahoo.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hellhawk.shadowen.org ([80.68.90.175]:1050 "EHLO
-	hellhawk.shadowen.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755433AbXKOKDT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 05:03:19 -0500
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:41746 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754638AbXKOKMF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 05:12:05 -0500
 Content-Disposition: inline
-In-Reply-To: <20071113175906.497a1a6a.akpm@linux-foundation.org>
+In-Reply-To: <256275.33084.qm@web26104.mail.ukl.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When testing some of the later 2.6.24-rc2-mm1+hotfix combinations on three
-of our test systems one job from each batch (1/4) failed.  In each case the
-machine appears to have booted normally all the way to a login: prompt.
-However in the failed boots the networking though apparently initialised
-completely and correctly (as far as I can tell from the console output), is
-reported as not responding to ssh connections.  The network interface seems
-to have been initialised on the right port, and the ssh daemons started.
+On Wed, Nov 14, 2007 at 04:47:22PM +0000, Nj A (nj_a83@yahoo.fr) wrote:
+> By setting the ID of the ingress device to the inet_lookup() to 0, the machine reboots automatically.
+> Setting proc/sys/kernel/panic* to non zero values dosn't help more..
 
-Two of the machines are powerpc boxes, the other an older x86_64.
-One machine is 4/4 in testing, just one.  Most of the other machines are
-still not able to compile this stack so do not contribute to our knowledge.
+Sorry, I did not understand?
+You mean after you provide zero to inet_lookup() instead of device id it
+strted to reboot?
 
-Any ideas?
-
--apw
+-- 
+	Evgeniy Polyakov
