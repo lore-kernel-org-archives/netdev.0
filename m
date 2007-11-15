@@ -1,48 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/7] CAN: Add PF_CAN core module
-Date: Thu, 15 Nov 2007 04:05:30 -0800 (PST)
-Message-ID: <20071115.040530.205831740.davem@davemloft.net>
-References: <473BF7FD.7010403@hartkopp.net>
-	<1195113860.27113.34.camel@localhost>
-	<ygfmytfbubd.fsf@janus.isnogud.escape.de>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Null pointer dereference in nf_nat_move_storage(), kernel 2.6.23.1
+Date: Thu, 15 Nov 2007 15:06:59 +0300
+Message-ID: <20071115120658.GA17667@2ka.mipt.ru>
+References: <473B3874.2020104@redhat.com> <473B83DB.5040303@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, oliver@hartkopp.net,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	kaber@trash.net, oliver.hartkopp@volkswagen.de
-To: urs.thuermann@gmx.de
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Chuck Ebbert <cebbert@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48258
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757613AbXKOMFb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 07:05:31 -0500
-In-Reply-To: <ygfmytfbubd.fsf@janus.isnogud.escape.de>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:54455 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759278AbXKOMGe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 07:06:34 -0500
+Content-Disposition: inline
+In-Reply-To: <473B83DB.5040303@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Urs Thuermann <urs.thuermann@gmx.de>
-Date: 15 Nov 2007 12:51:34 +0100
+Hi Chuck.
 
-> I prefer our code because it is shorter (fits into one line) and can
-> be used anywhere where an expression is allowed compared to only where
-> a statement is allowed.  Actually, I first had
-> 
->         #define DBG( ... )   ((debug & 1) && printk( ... ))
-> 
-> and so on, but that didn't work with can_debug_{cframe,sbk} since they
-> return void.
-> 
-> Admitted, the benefit of expr vs. statement is really negligible and
-> since this issue has come up several times I will change these macros
-> using do-while.
+On Wed, Nov 14, 2007 at 06:25:15PM -0500, Chuck Ebbert (cebbert@redhat.com) wrote:
+> > https://bugzilla.redhat.com/show_bug.cgi?id=259501#c14
 
-I really frown upon these local debugging macros people tend to want
-to submit with their changes.
+> >  [<f8b61643>] __nf_ct_ext_add+0x12f/0x1c4 [nf_conntrack] 
 
-It really craps up the tree, even though it might be useful to you.
+> > nf_nat_move_storage():
+> > /usr/src/debug/kernel-2.6.23/linux-2.6.23.i686/net/ipv4/netfilter/nf_nat_core.c:612
+> >       87:       f7 47 64 80 01 00 00    testl  $0x180,0x64(%edi)
+> >       8e:       74 39                   je     c9 <nf_nat_move_storage+0x65>
+> > 
+> > line 612:
+> >         if (!(ct->status & IPS_NAT_DONE_MASK))
+> >                 return;
 
-So please remove this stuff or replace the debugging statements
-with some generic kernel debugging facility, there are several.
+Please test attached patch.
 
-Thank you.
+This routing is called each time hash should be replaced, nf_conn has
+extension list which contains pointers to connection tracking users
+(like nat, which is right now the only such user), so when replace takes
+place it should copy own extensions. Loop above checks for own
+extension, but tries to move higer-layer one, which can lead to above
+oops.
+
+Not tested, derived from code observation only.
+
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+
+diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
+index a1a65a1..cf6ba66 100644
+--- a/net/netfilter/nf_conntrack_extend.c
++++ b/net/netfilter/nf_conntrack_extend.c
+@@ -109,7 +109,7 @@ void *__nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
+ 			rcu_read_lock();
+ 			t = rcu_dereference(nf_ct_ext_types[i]);
+ 			if (t && t->move)
+-				t->move(ct, ct->ext + ct->ext->offset[id]);
++				t->move(ct, ct->ext + ct->ext->offset[i]);
+ 			rcu_read_unlock();
+ 		}
+ 		kfree(ct->ext);
+
+-- 
+	Evgeniy Polyakov
