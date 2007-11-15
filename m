@@ -1,47 +1,57 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Subject: Re: 2.6.24-rc2: Network commit causes SLUB performance regression with tbench
-Date: Thu, 15 Nov 2007 12:47:29 +1100
-Message-ID: <200711151247.29424.nickpiggin@yahoo.com.au>
-References: <200711140927.39796.nickpiggin@yahoo.com.au> <Pine.LNX.4.64.0711141650150.21965@schroedinger.engr.sgi.com> <20071115011110.GB21193@gondor.apana.org.au>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-2.6.25 1/4] include - Convert IP4 address class
+	macros	to inline functions
+Date: Wed, 14 Nov 2007 17:54:05 -0800
+Message-ID: <1195091645.27053.1.camel@localhost>
+References: <OF456A1240.FCBC428E-ON88257393.005C5D94-88257393.005CA64F@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Lameter <clameter@sgi.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: David Miller <davem@davemloft.net>,
+	James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@coreworks.de>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	netdev <netdev@vger.kernel.org>, netdev-owner@vger.kernel.org,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: David Stevens <dlstevens@us.ibm.com>,
+	"Fred L. Templin" <fred.l.templin@boeing.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp107.mail.mud.yahoo.com ([209.191.85.217]:43609 "HELO
-	smtp107.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750747AbXKOBrg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2007 20:47:36 -0500
-In-Reply-To: <20071115011110.GB21193@gondor.apana.org.au>
-Content-Disposition: inline
+Received: from DSL022.labridge.com ([206.117.136.22]:1995 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751322AbXKOB41 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2007 20:56:27 -0500
+In-Reply-To: <OF456A1240.FCBC428E-ON88257393.005C5D94-88257393.005CA64F@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 15 November 2007 12:11, Herbert Xu wrote:
-> On Wed, Nov 14, 2007 at 05:03:25PM -0800, Christoph Lameter wrote:
-> > Well this is likely the result of the SLUB regression. If you allocate an
-> > order 1 page then the zone locks need to be taken. SLAB queues the a
+On Wed, 2007-11-14 at 08:53 -0800, David Stevens wrote: 
+> Maybe I'm more used to hex, but I personally don't think those are
+> more readable. It replaces 1-line macroes with 4-line functions, and
+> I think more vgrepping to pick out the relevant constant data.
 
-Yeah, it appears this is what happened. The lockless page allocator
-fastpath appears on the list and the slowpaths disappear after
-Herbert's patches. SLAB is doing its own thing, so it avoids that
-pitfall.
+The rfcs generally use decimal octets. 
+To me htonl(0xC0586300) isn't as readable as ip4_addr_octets(192,88,99,0)
 
+Fred Templin has some patches that add several more macros
+to in.h.  I just forwarded my patches to him too.
 
-> > couple of higher order pages and can so serve a couple of requests
-> > without going into the page allocator whereas SLUB has to go directly to
-> > the page allocator for allocate and free. I guess that needs fixing in
-> > the page allocator. Or do I need to add a mechanism to buffer higher
-> > order page allcoations to SLUB?
->
-> Actually this serves to discourage people from using high-order
-> allocations which IMHO is a good thing :)
+is_ip4_multicast seems a lot more readable to me than MULTICAST(x)
+I prefer to eliminate the current use of macros for ip address tests
+and also get no new macros added.  The old macros are just for
+compatibility until the exis
 
-Yeah I completely agree. The right fix is in the caller...
-The bug / suboptimal allocation would not have been found in tcp
-if not for this ;)
+http://marc.info/?l=linux-netdev&m=119490504022261&w=2
+
+His patch adds:
+
++#define PRIVATE_10(x) (((x) & htonl(0xff000000)) == htonl(0x0A000000)) 
++#define LINKLOCAL_169(x) (((x) & htonl(0xffff0000)) == htonl(0xA9FE0000))
++#define PRIVATE_172(x)	(((x) & htonl(0xfff00000)) == htonl(0xAC100000))
++#define TEST_192(x)	(((x) & htonl(0xffffff00)) == htonl(0xC0000200))
++#define ANYCAST_6TO4(x)	(((x) & htonl(0xffffff00)) == htonl(0xC0586300))
++#define PRIVATE_192(x)	(((x) & htonl(0xffff0000)) == htonl(0xC0A80000))
++#define TEST_198(x)	(((x) & htonl(0xfffe0000)) == htonl(0xC6120000))
+
+cheers, Joe
 
