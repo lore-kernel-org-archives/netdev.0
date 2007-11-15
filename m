@@ -1,47 +1,77 @@
 From: Hideo AOKI <haoki@redhat.com>
-Subject: Re: [PATCH 2/5] accounting unit and variable
-Date: Thu, 15 Nov 2007 16:37:27 -0500
-Message-ID: <473CBC17.7060608@redhat.com>
-References: <47264F3E.3080306@redhat.com> <20071109123420.GD27984@gondor.apana.org.au> <473A6B11.7090208@redhat.com> <20071113.195549.181119456.davem@davemloft.net> <473B150A.8050208@redhat.com> <473B852B.3010107@redhat.com> <20071115010909.GA21193@gondor.apana.org.au>
+Subject: [PATCH 0/5] UDP memory accounting and limitation (take 8)
+Date: Thu, 15 Nov 2007 16:44:13 -0500
+Message-ID: <473CBDAD.1010708@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	satoshi.oshima.fk@hitachi.com, andi@firstfloor.org,
-	shemminger@linux-foundation.org, johnpol@2ka.mipt.ru,
-	yoshfuji@linux-ipv6.org, yumiko.sugita.yf@hitachi.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Bill Fink <billfink@mindspring.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	yoshfuji@linux-ipv6.org,
+	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>,
+	Hideo AOKI <haoki@redhat.com>
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:52296 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:33510 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756270AbXKOVmC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2007 16:42:02 -0500
-In-Reply-To: <20071115010909.GA21193@gondor.apana.org.au>
+	id S1755970AbXKOVvv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 16:51:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Wed, Nov 14, 2007 at 06:30:51PM -0500, Hideo AOKI wrote:
->> +#define SK_DATAGRAM_MEM_QUANTUM ((unsigned int)PAGE_SIZE)
->> +
->> +static inline int sk_datagram_pages(int amt)
->> +{
->> +	/* Cast to unsigned as an optimization, since amt is always 
->> positive. */
->> +	return DIV_ROUND_UP((unsigned int)amt, SK_DATAGRAM_MEM_QUANTUM);
->> +}
->> +
-> 
-> Thanks, this looks OK to me.
-
 Hello,
 
-Thank you for reviewing. Then, I'll send take 8 patch set later.
+This is the latest patch set of UDP memory accounting and limitation.
 
-Regards,
-Hideo
+I modified sk_datagram_pages() to avoid using divide instruction.
 
--- 
+In addition, I also fixed memory accounting code in udp_recvmsg(),
+since, in previous takes, the accounting code referred released
+sk_buff's truesize. The fix can be found in 3rd patch of the patch set.
+
+The patch set is for net-2.6. Please apply.
+
+
+Changelog take 7 -> take 8:
+ * sk_datagram_pages(): avoided using divide instruction
+ * udp_recvmsg(): fixed referring released truesize in accounting
+
+Changelog take 6 -> take 7:
+ * renamed /proc/sys/net/ipv4/udp_rmem to
+   /proc/sys/net/ipv4/udp_rmem_min
+ * renamed /proc/sys/net/ipv4/udp_wmem to
+   /proc/sys/net/ipv4/udp_wmem_min
+ * rebased to net-2.6
+
+
+Changelog take 5 -> take 6:
+
+ * removed minimal limit of /proc/sys/net/ipv4/udp_mem
+ * added udp_init() for default value calculation of parameters
+ * added /proc/sys/net/ipv4/udp_rmem and
+   /proc/sys/net/ipv4/udp_rmem
+ * added limitation code to ip_ufo_append_data()
+ * improved accounting for receiving packet
+ * fixed typos
+ * rebased to 2.6.24-rc1
+
+
+Changelog take 4 -> take 5:
+
+ * removing unnessesary EXPORT_SYMBOLs
+ * adding minimal limit of /proc/sys/net/ipv4/udp_mem
+ * bugfix of UDP limit affecting protocol other than UDP
+ * introducing __ip_check_max_skb_pages()
+ * using CTL_UNNUMBERED
+ * adding udp_mem usage to Documentation/networking/ip_sysctl.txt
+
+
+Best regards,
+Hideo Aoki
+
+--
 Hitachi Computer Products (America) Inc.
-
-
