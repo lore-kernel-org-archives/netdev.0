@@ -1,40 +1,46 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH 2/2][INET] Move the reqsk_queue_yank_listen_sk from header
-Date: Thu, 15 Nov 2007 11:12:33 +0300
-Message-ID: <473BFF71.60501@openvz.org>
-References: <473B3A3A.70207@openvz.org> <20071115001226.GJ2368@verge.net.au>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] via-velocity: don't oops on MTU change.
+Date: Thu, 15 Nov 2007 09:26:00 +0100
+Message-ID: <20071115082600.GA2366@ff.dom.local>
+References: <20071114193844.0cab5c7d@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"David S\. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	jnelson-kernel-bugzilla@jamponi.net
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:46349 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753004AbXKOING (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2007 03:13:06 -0500
-In-Reply-To: <20071115001226.GJ2368@verge.net.au>
+Received: from mx12.go2.pl ([193.17.41.142]:35010 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751753AbXKOIVx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 03:21:53 -0500
+Content-Disposition: inline
+In-Reply-To: <20071114193844.0cab5c7d@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Simon Horman wrote:
-> On Wed, Nov 14, 2007 at 09:11:06PM +0300, Pavel Emelyanov wrote:
->> This function is used in the net/core/request_sock.c only.
->> No need in keeping it in the header file.
+On 15-11-2007 04:38, Stephen Hemminger wrote:
+> Simple mtu change when device is down.
+> Fix http://bugzilla.kernel.org/show_bug.cgi?id=9382.
 > 
-> I feel like I am missing something here, but 
-> doesn't __reqsk_queue_destroy() in include/net/request_sock.h use
-> reqsk_queue_yank_listen_sk()?
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> 
+> 
+> --- a/drivers/net/via-velocity.c	2007-10-22 09:38:11.000000000 -0700
+> +++ b/drivers/net/via-velocity.c	2007-11-14 19:34:30.000000000 -0800
+> @@ -1963,6 +1963,11 @@ static int velocity_change_mtu(struct ne
+>  		return -EINVAL;
+>  	}
+>  
+> +	if (!netif_running(dev)) {
+> +		dev->mtu = new_mtu;
+> +		return 0;
+> +	}
+> +
+>  	if (new_mtu != oldmtu) {
+>  		spin_lock_irqsave(&vptr->lock, flags);
 
-It does, but this is a patch number 2. The patch number 1 moved this
-__reqsk_queue_destroy() into request_sock.c.
+Shouldn't this latter 'if' be removed now, btw?
 
-> static inline void __reqsk_queue_destroy(struct request_sock_queue
-> *queue)
-> {
->         kfree(reqsk_queue_yank_listen_sk(queue));
-> }
-
-Thanks,
-Pavel
+Regards,
+Jarek P.
