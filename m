@@ -1,7 +1,7 @@
 From: Neil Brown <neilb@suse.de>
 Subject: Re: [BUG] New Kernel Bugs
 Date: Thu, 15 Nov 2007 14:06:58 +1100
-Message-ID: <18235.47058.757009.665849__37617.5369056456$1195096073$gmane$org@notabene.brown>
+Message-ID: <18235.47058.757009.665849__20903.3575527885$1195096073$gmane$org@notabene.brown>
 References: <20071113031553.3c7b5c16.akpm@linux-foundation.org>
 	<20071113134029.GA30978@elte.hu>
 	<4739AFE0.20705@rtr.ca>
@@ -17,9 +17,9 @@ Cc: Mark Lord <liml@rtr.ca>, Ingo Molnar <mingo@elte.hu>,
 	linux-input@atrey.karlin.mff.cuni.cz,
 	bugme-daemon@bugzilla.kernel.org
 To: Denys Vlasenko <vda.linux@googlemail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758443AbXKODH1@vger.kernel.org>
+Return-path: <linux-ide-owner@vger.kernel.org>
 In-Reply-To: message from Denys Vlasenko on Tuesday November 13
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Tuesday November 13, vda.linux@googlemail.com wrote:
