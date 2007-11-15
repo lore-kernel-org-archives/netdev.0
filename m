@@ -1,46 +1,77 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] via-velocity: don't oops on MTU change.
-Date: Thu, 15 Nov 2007 09:26:00 +0100
-Message-ID: <20071115082600.GA2366@ff.dom.local>
-References: <20071114193844.0cab5c7d@freepuppy.rosehill>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] NET : rt_check_expire() can take a long time, add a cond_resched()
+Date: Thu, 15 Nov 2007 09:25:59 +0100
+Message-ID: <473C0297.5090004@cosmosbay.com>
+References: <473B69D5.2050805@cosmosbay.com> <p73r6isc6ev.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"David S\. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	jnelson-kernel-bugzilla@jamponi.net
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:35010 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751753AbXKOIVx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2007 03:21:53 -0500
-Content-Disposition: inline
-In-Reply-To: <20071114193844.0cab5c7d@freepuppy.rosehill>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:42084 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757336AbXKOI0L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 03:26:11 -0500
+In-Reply-To: <p73r6isc6ev.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 15-11-2007 04:38, Stephen Hemminger wrote:
-> Simple mtu change when device is down.
-> Fix http://bugzilla.kernel.org/show_bug.cgi?id=9382.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-> 
-> 
-> --- a/drivers/net/via-velocity.c	2007-10-22 09:38:11.000000000 -0700
-> +++ b/drivers/net/via-velocity.c	2007-11-14 19:34:30.000000000 -0800
-> @@ -1963,6 +1963,11 @@ static int velocity_change_mtu(struct ne
->  		return -EINVAL;
->  	}
->  
-> +	if (!netif_running(dev)) {
-> +		dev->mtu = new_mtu;
-> +		return 0;
-> +	}
-> +
->  	if (new_mtu != oldmtu) {
->  		spin_lock_irqsave(&vptr->lock, flags);
+Andi Kleen a =E9crit :
+> Eric Dumazet <dada1@cosmosbay.com> writes:
+>> Using a "if (need_resched())" test before calling "cond_resched();" =
+is
+>> necessary to avoid spending too much time doing the resched check.
+>=20
+> The only difference between cond_resched() and if (need_resched())
+> cond_resched() is one function call less and one might_sleep less. If
+> the might_sleep or the function call are really problems (did you
+> measure it? -- i doubt it somewhat) then it would be better to fix th=
+e
+> generic code to either inline that or supply a __cond_resched()
+> without might_sleep.
 
-Shouldn't this latter 'if' be removed now, btw?
+Please note that :
 
-Regards,
-Jarek P.
+if (need_resched())
+     cond_resched();
+
+will re-test need_resched() once cond_resched() is called.
+
+So it may sound unnecessary but in the rt_check_expire() case, with a l=
+oop=20
+potentially doing XXX.XXX iterations, being able to bypass the function=
+ call=20
+is a clear win (in my bench case, 25 ms instead of 88 ms). Impact on I-=
+cache=20
+is irrelevant here as this rt_check_expires() runs once every 60 sec.
+
+I think the actual cond_resched() is fine for other uses in the kernel,=
+ that=20
+are not used in a loop : In the general case, kernel text size should b=
+e as=20
+small as possible to reduce I-cache pressure, so a function call is bet=
+ter=20
+than an inline.
+
+>=20
+> A cheaper change might have been to just limit the number of buckets
+> scanned.
+>=20
+
+Well, not in some particular cases, when there are 3 millions of routes=
+ for=20
+example in the cache. We really want to scan/free them eventually :)
+
+An admin already has the possibility to tune=20
+/proc/sys/net/ipv4/route/gc_interval and /proc/sys/net/ipv4/route/gc_ti=
+meout,=20
+so on a big cache, it will probably set gc_interval to 1 instead of 60
+
+Next step will be to move "ip route flush cache" and rt_secret_rebuild(=
+)=20
+handling from softirq to process context too, since this still can kill=
+ a machine.
+
