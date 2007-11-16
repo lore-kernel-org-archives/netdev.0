@@ -1,35 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/2] [IPV4] UDP: Always checksum even if without socket filter
-Date: Fri, 16 Nov 2007 12:11:53 +0800
-Message-ID: <E1IssYb-0000KG-00@gondolin.me.apana.org.au>
-References: <473D0BF8.3060902@cn.fujitsu.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: wangchen@cn.fujitsu.com (Wang Chen)
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH 1/2] [IPV4] UDP: Always checksum even if without socket
+ filter
+Date: Fri, 16 Nov 2007 12:13:10 +0800
+Message-ID: <473D18D6.6050903@cn.fujitsu.com>
+References: <473D0482.4050705@cn.fujitsu.com>	<20071115.185403.138420969.davem@davemloft.net>	<473D0BF8.3060902@cn.fujitsu.com> <20071115.200431.102331739.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2953 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755171AbXKPEMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 23:12:05 -0500
-In-Reply-To: <473D0BF8.3060902@cn.fujitsu.com>
+Received: from [222.73.24.84] ([222.73.24.84]:56161 "EHLO song.cn.fujitsu.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1756574AbXKPEPa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 23:15:30 -0500
+In-Reply-To: <20071115.200431.102331739.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wang Chen <wangchen@cn.fujitsu.com> wrote:
->
-> So, I think the checksum in udp_queue_rcv_skb() actually does
-> the work, not that in udp_recvmsg() and udp_poll().
+David Miller said the following on 2007-11-16 12:04:
+> From: Wang Chen <wangchen@cn.fujitsu.com>
+> Date: Fri, 16 Nov 2007 11:18:16 +0800
 > 
-> If I am wrong, please point out.
+> That's right, InDataGrams will increase even if we haven't
+> verified the checksum yet.
+> 
+> When the user does a recvmsg() or a poll() on the socket,
+> we will notice the bad checksum then and increment InErrors.
+> We could in this case correct the InDatagrams counter by
+> decrementing it in this case.
+> 
 
-We may have a bug in the accounting area.  Check the recent
-patch made to UDP/IPv6 which is probably needed here as well.
+Yes, it's a good idea.
+I will make the patch and test it.
+Thank dave for the suggestion.
 
-Hmm, we really need to spend more time on merging stuff between
-IPv4 and IPv6 to save all this duplication of effort.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
