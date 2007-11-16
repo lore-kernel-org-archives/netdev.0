@@ -1,43 +1,60 @@
-From: Urs Thuermann <urs.thuermann@gmx.de>
-Subject: Re: [PATCH 2/7] CAN: Add PF_CAN core module
-Date: 16 Nov 2007 15:33:08 +0100
-Message-ID: <ygfr6iqmfa3.fsf@janus.isnogud.escape.de>
-References: <473BF7FD.7010403@hartkopp.net>
-	<1195113860.27113.34.camel@localhost>
-	<ygfmytfbubd.fsf@janus.isnogud.escape.de>
-	<20071115.040530.205831740.davem@davemloft.net>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH 6/6 net-2.6.25][RAW] Consolidate proc interface
+Date: Fri, 16 Nov 2007 17:39:21 +0300
+Message-ID: <473DAB99.7060903@openvz.org>
+References: <473DA6EF.5090004@openvz.org> <20071116.232455.82345485.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: joe@perches.com, oliver@hartkopp.net,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	kaber@trash.net, oliver.hartkopp@volkswagen.de
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, devel@openvz.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:42535 "EHLO oker.escape.de"
+Received: from sacred.ru ([62.205.161.221]:44712 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933927AbXKPOf2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Nov 2007 09:35:28 -0500
-In-Reply-To: <20071115.040530.205831740.davem@davemloft.net>; from David Miller on Thu, 15 Nov 2007 04:05:30 -0800 (PST)
+	id S1752130AbXKPOji (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Nov 2007 09:39:38 -0500
+In-Reply-To: <20071116.232455.82345485.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
-
-> I really frown upon these local debugging macros people tend to want
-> to submit with their changes.
+YOSHIFUJI Hideaki wrote:
+> NAK.
 > 
-> It really craps up the tree, even though it might be useful to you.
+> In article <473DA6EF.5090004@openvz.org> (at Fri, 16 Nov 2007 17:19:27 +0300), Pavel Emelyanov <xemul@openvz.org> says:
+> 
+>> @@ -858,7 +852,7 @@ static struct sock *raw_get_first(struct seq_file *seq)
+>>  			++state->bucket) {
+>>  		struct hlist_node *node;
+>>  
+>> -		sk_for_each(sk, node, &raw_v4_hashinfo.ht[state->bucket])
+>> +		sk_for_each(sk, node, &state->h->ht[state->bucket])
+>>  			if (sk->sk_family == PF_INET)
+>>  				goto found;
+>>  	}
+> 
+> This and
+> 
+>> -static struct sock *raw6_get_first(struct seq_file *seq)
+>> -{
+>> -	struct sock *sk;
+>> -	struct hlist_node *node;
+>> -	struct raw6_iter_state* state = raw6_seq_private(seq);
+>> -
+>> -	for (state->bucket = 0; state->bucket < RAW_HTABLE_SIZE;
+>> -			++state->bucket)
+>> -		sk_for_each(sk, node, &raw_v6_hashinfo.ht[state->bucket])
+>> -			if (sk->sk_family == PF_INET6)
+>> -				goto out;
+>> -	sk = NULL;
+>> -out:
+>> -	return sk;
+>> -}
+>> -
+> 
+> this are different.
 
-We have now removed the debug code completely.  The code is quite
-stable and we won't need these remnants from early days anymore.
+Oops... Indeed. Thanks for noticing. I've overlooked this :(
 
-> So please remove this stuff or replace the debugging statements
-> with some generic kernel debugging facility, there are several.
+> --yoshfuji
+> 
 
-I am not aware of any useful kernel facilities to replace our debug
-macros, i.e. printing of debug messages, controlled by a bit mask
-passed in as a module parameter, hexdumping of fames, etc.  Of course,
-there are other things like kprobes but sometimes printk(KERN_DEBUG...)
-is more convenient and that's why people write their own DBG() macros.
-
-urs
