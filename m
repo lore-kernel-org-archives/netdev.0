@@ -1,283 +1,142 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 6/6 net-2.6.25][RAW] Consolidate proc interface (v2)
-Date: Fri, 16 Nov 2007 18:06:16 +0300
-Message-ID: <473DB1E8.60902@openvz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: devel@openvz.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
+From: Urs Thuermann <urs.thuermann@gmx.de>
+Subject: [PATCH 1/7] CAN: Allocate protocol numbers for PF_CAN
+Date: Fri, 16 Nov 2007 16:02:46 +0100
+Message-ID: <20071116150554.28784.1@janus.isnogud.escape.de>
+References: <20071116150245.28784.0@janus.isnogud.escape.de>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Joe Perches <joe@perches.com>, Sam Ravnborg <sam@ravnborg.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver@hartkopp.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:60994 "EHLO sacred.ru"
+Received: from oker.escape.de ([194.120.234.254]:46255 "EHLO oker.escape.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752698AbXKPPGe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Nov 2007 10:06:34 -0500
+	id S1756635AbXKPPLO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Nov 2007 10:11:14 -0500
+Content-Disposition: inline; filename=01-can-proto-numbers.diff
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Both ipv6/raw.c and ipv4/raw.c use the seq files to walk
-through the raw sockets hash and show them.
+This patch adds a protocol/address family number, ARP hardware type,
+ethernet packet type, and a line discipline number for the SocketCAN
+implementation.
 
-The "walking" code is rather huge, but is identical in both
-cases. The difference is the hash table to walk over and
-the protocol family to check (this was not in the first
-virsion of the patch, which was noticed by YOSHIFUJI)
-
-Make the ->open store the needed hash table and the family
-on the allocated raw_iter_state and make the start/next/stop
-callbacks work with it.
-
-This removes most of the code.
-
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
+ include/linux/if.h       |    4 +++-
+ include/linux/if_arp.h   |    1 +
+ include/linux/if_ether.h |    1 +
+ include/linux/socket.h   |    2 ++
+ include/linux/tty.h      |    3 ++-
+ net/core/sock.c          |    4 ++--
+ 6 files changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/raw.h b/include/net/raw.h
-index 81a1773..4d1aba0 100644
---- a/include/net/raw.h
-+++ b/include/net/raw.h
-@@ -37,6 +37,20 @@ struct raw_hashinfo {
- #ifdef CONFIG_PROC_FS
- extern int  raw_proc_init(void);
- extern void raw_proc_exit(void);
-+
-+struct raw_iter_state {
-+	int bucket;
-+	unsigned short family;
-+	struct raw_hashinfo *h;
-+};
-+
-+#define raw_seq_private(seq) ((struct raw_iter_state *)(seq)->private)
-+void *raw_seq_start(struct seq_file *seq, loff_t *pos);
-+void *raw_seq_next(struct seq_file *seq, void *v, loff_t *pos);
-+void raw_seq_stop(struct seq_file *seq, void *v);
-+int raw_seq_open(struct file *file, struct raw_hashinfo *h,
-+		unsigned short family);
-+
- #endif
+Index: net-2.6.25/include/linux/if_arp.h
+===================================================================
+--- net-2.6.25.orig/include/linux/if_arp.h	2007-11-14 13:04:26.000000000 +0100
++++ net-2.6.25/include/linux/if_arp.h	2007-11-14 13:04:46.000000000 +0100
+@@ -52,6 +52,7 @@
+ #define ARPHRD_ROSE	270
+ #define ARPHRD_X25	271		/* CCITT X.25			*/
+ #define ARPHRD_HWX25	272		/* Boards with X.25 in firmware	*/
++#define ARPHRD_CAN	280		/* Controller Area Network      */
+ #define ARPHRD_PPP	512
+ #define ARPHRD_CISCO	513		/* Cisco HDLC	 		*/
+ #define ARPHRD_HDLC	ARPHRD_CISCO
+Index: net-2.6.25/include/linux/if_ether.h
+===================================================================
+--- net-2.6.25.orig/include/linux/if_ether.h	2007-11-14 13:04:26.000000000 +0100
++++ net-2.6.25/include/linux/if_ether.h	2007-11-14 13:04:46.000000000 +0100
+@@ -90,6 +90,7 @@
+ #define ETH_P_WAN_PPP   0x0007          /* Dummy type for WAN PPP frames*/
+ #define ETH_P_PPP_MP    0x0008          /* Dummy type for PPP MP frames */
+ #define ETH_P_LOCALTALK 0x0009		/* Localtalk pseudo type 	*/
++#define ETH_P_CAN	0x000C		/* Controller Area Network      */
+ #define ETH_P_PPPTALK	0x0010		/* Dummy type for Atalk over PPP*/
+ #define ETH_P_TR_802_2	0x0011		/* 802.2 frames 		*/
+ #define ETH_P_MOBITEX	0x0015		/* Mobitex (kaz@cafe.net)	*/
+Index: net-2.6.25/include/linux/socket.h
+===================================================================
+--- net-2.6.25.orig/include/linux/socket.h	2007-11-14 13:04:26.000000000 +0100
++++ net-2.6.25/include/linux/socket.h	2007-11-14 13:04:46.000000000 +0100
+@@ -185,6 +185,7 @@
+ #define AF_PPPOX	24	/* PPPoX sockets		*/
+ #define AF_WANPIPE	25	/* Wanpipe API Sockets */
+ #define AF_LLC		26	/* Linux LLC			*/
++#define AF_CAN		29	/* Controller Area Network      */
+ #define AF_TIPC		30	/* TIPC sockets			*/
+ #define AF_BLUETOOTH	31	/* Bluetooth sockets 		*/
+ #define AF_IUCV		32	/* IUCV sockets			*/
+@@ -220,6 +221,7 @@
+ #define PF_PPPOX	AF_PPPOX
+ #define PF_WANPIPE	AF_WANPIPE
+ #define PF_LLC		AF_LLC
++#define PF_CAN		AF_CAN
+ #define PF_TIPC		AF_TIPC
+ #define PF_BLUETOOTH	AF_BLUETOOTH
+ #define PF_IUCV		AF_IUCV
+Index: net-2.6.25/include/linux/tty.h
+===================================================================
+--- net-2.6.25.orig/include/linux/tty.h	2007-11-14 13:04:26.000000000 +0100
++++ net-2.6.25/include/linux/tty.h	2007-11-14 13:04:46.000000000 +0100
+@@ -23,7 +23,7 @@
+  */
+ #define NR_UNIX98_PTY_DEFAULT	4096      /* Default maximum for Unix98 ptys */
+ #define NR_UNIX98_PTY_MAX	(1 << MINORBITS) /* Absolute limit */
+-#define NR_LDISCS		17
++#define NR_LDISCS		18
  
- void raw_hash_sk(struct sock *sk, struct raw_hashinfo *h);
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index ffd7a4f..f99828e 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -843,12 +843,6 @@ struct proto raw_prot = {
+ /* line disciplines */
+ #define N_TTY		0
+@@ -44,6 +44,7 @@
+ #define N_SYNC_PPP	14	/* synchronous PPP */
+ #define N_HCI		15	/* Bluetooth HCI UART */
+ #define N_GIGASET_M101	16	/* Siemens Gigaset M101 serial DECT adapter */
++#define N_SLCAN		17	/* Serial / USB serial CAN Adaptors */
+ 
+ /*
+  * This character is the same as _POSIX_VDISABLE: it cannot be used as
+Index: net-2.6.25/net/core/sock.c
+===================================================================
+--- net-2.6.25.orig/net/core/sock.c	2007-11-14 13:04:26.000000000 +0100
++++ net-2.6.25/net/core/sock.c	2007-11-14 13:04:47.000000000 +0100
+@@ -154,7 +154,7 @@
+   "sk_lock-AF_ASH"   , "sk_lock-AF_ECONET"   , "sk_lock-AF_ATMSVC"   ,
+   "sk_lock-21"       , "sk_lock-AF_SNA"      , "sk_lock-AF_IRDA"     ,
+   "sk_lock-AF_PPPOX" , "sk_lock-AF_WANPIPE"  , "sk_lock-AF_LLC"      ,
+-  "sk_lock-27"       , "sk_lock-28"          , "sk_lock-29"          ,
++  "sk_lock-27"       , "sk_lock-28"          , "sk_lock-AF_CAN"      ,
+   "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
+   "sk_lock-AF_RXRPC" , "sk_lock-AF_MAX"
  };
- 
- #ifdef CONFIG_PROC_FS
--struct raw_iter_state {
--	int bucket;
--};
--
--#define raw_seq_private(seq) ((struct raw_iter_state *)(seq)->private)
--
- static struct sock *raw_get_first(struct seq_file *seq)
- {
- 	struct sock *sk;
-@@ -858,8 +852,8 @@ static struct sock *raw_get_first(struct seq_file *seq)
- 			++state->bucket) {
- 		struct hlist_node *node;
- 
--		sk_for_each(sk, node, &raw_v4_hashinfo.ht[state->bucket])
--			if (sk->sk_family == PF_INET)
-+		sk_for_each(sk, node, &state->h->ht[state->bucket])
-+			if (sk->sk_family == state->family)
- 				goto found;
- 	}
- 	sk = NULL;
-@@ -875,10 +869,10 @@ static struct sock *raw_get_next(struct seq_file *seq, struct sock *sk)
- 		sk = sk_next(sk);
- try_again:
- 		;
--	} while (sk && sk->sk_family != PF_INET);
-+	} while (sk && sk->sk_family != state->family);
- 
- 	if (!sk && ++state->bucket < RAW_HTABLE_SIZE) {
--		sk = sk_head(&raw_v4_hashinfo.ht[state->bucket]);
-+		sk = sk_head(&state->h->ht[state->bucket]);
- 		goto try_again;
- 	}
- 	return sk;
-@@ -894,13 +888,16 @@ static struct sock *raw_get_idx(struct seq_file *seq, loff_t pos)
- 	return pos ? NULL : sk;
- }
- 
--static void *raw_seq_start(struct seq_file *seq, loff_t *pos)
-+void *raw_seq_start(struct seq_file *seq, loff_t *pos)
- {
--	read_lock(&raw_v4_hashinfo.lock);
-+	struct raw_iter_state *state = raw_seq_private(seq);
-+
-+	read_lock(&state->h->lock);
- 	return *pos ? raw_get_idx(seq, *pos - 1) : SEQ_START_TOKEN;
- }
-+EXPORT_SYMBOL_GPL(raw_seq_start);
- 
--static void *raw_seq_next(struct seq_file *seq, void *v, loff_t *pos)
-+void *raw_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- {
- 	struct sock *sk;
- 
-@@ -911,11 +908,15 @@ static void *raw_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- 	++*pos;
- 	return sk;
- }
-+EXPORT_SYMBOL_GPL(raw_seq_next);
- 
--static void raw_seq_stop(struct seq_file *seq, void *v)
-+void raw_seq_stop(struct seq_file *seq, void *v)
- {
--	read_unlock(&raw_v4_hashinfo.lock);
-+	struct raw_iter_state *state = raw_seq_private(seq);
-+
-+	read_unlock(&state->h->lock);
- }
-+EXPORT_SYMBOL_GPL(raw_seq_stop);
- 
- static __inline__ char *get_raw_sock(struct sock *sp, char *tmpbuf, int i)
- {
-@@ -962,15 +963,30 @@ static const struct seq_operations raw_seq_ops = {
- 	.show  = raw_seq_show,
+@@ -168,7 +168,7 @@
+   "slock-AF_ASH"   , "slock-AF_ECONET"   , "slock-AF_ATMSVC"   ,
+   "slock-21"       , "slock-AF_SNA"      , "slock-AF_IRDA"     ,
+   "slock-AF_PPPOX" , "slock-AF_WANPIPE"  , "slock-AF_LLC"      ,
+-  "slock-27"       , "slock-28"          , "slock-29"          ,
++  "slock-27"       , "slock-28"          , "slock-AF_CAN"      ,
+   "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
+   "slock-AF_RXRPC" , "slock-AF_MAX"
  };
+Index: net-2.6.25/include/linux/if.h
+===================================================================
+--- net-2.6.25.orig/include/linux/if.h	2007-11-14 13:04:26.000000000 +0100
++++ net-2.6.25/include/linux/if.h	2007-11-14 13:04:47.000000000 +0100
+@@ -50,7 +50,9 @@
+ #define IFF_LOWER_UP	0x10000		/* driver signals L1 up		*/
+ #define IFF_DORMANT	0x20000		/* driver signals dormant	*/
  
--static int raw_seq_open(struct inode *inode, struct file *file)
-+int raw_seq_open(struct file *file, struct raw_hashinfo *h,
-+		unsigned short family)
- {
--	return seq_open_private(file, &raw_seq_ops,
-+	struct raw_iter_state *i;
+-#define IFF_VOLATILE	(IFF_LOOPBACK|IFF_POINTOPOINT|IFF_BROADCAST|\
++#define IFF_ECHO	0x40000		/* echo sent packets		*/
 +
-+	i = __seq_open_private(file, &raw_seq_ops,
- 			sizeof(struct raw_iter_state));
-+	if (i == NULL)
-+		return -ENOMEM;
-+
-+	i->h = h;
-+	i->family = family;
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(raw_seq_open);
-+
-+static int raw_v4_seq_open(struct inode *inode, struct file *file)
-+{
-+	return raw_seq_open(file, &raw_v4_hashinfo, PF_INET);
- }
++#define IFF_VOLATILE	(IFF_LOOPBACK|IFF_POINTOPOINT|IFF_BROADCAST|IFF_ECHO|\
+ 		IFF_MASTER|IFF_SLAVE|IFF_RUNNING|IFF_LOWER_UP|IFF_DORMANT)
  
- static const struct file_operations raw_seq_fops = {
- 	.owner	 = THIS_MODULE,
--	.open	 = raw_seq_open,
-+	.open	 = raw_v4_seq_open,
- 	.read	 = seq_read,
- 	.llseek	 = seq_lseek,
- 	.release = seq_release_private,
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 422d27c..b34631e 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -1200,77 +1200,6 @@ struct proto rawv6_prot = {
- };
- 
- #ifdef CONFIG_PROC_FS
--struct raw6_iter_state {
--	int bucket;
--};
--
--#define raw6_seq_private(seq) ((struct raw6_iter_state *)(seq)->private)
--
--static struct sock *raw6_get_first(struct seq_file *seq)
--{
--	struct sock *sk;
--	struct hlist_node *node;
--	struct raw6_iter_state* state = raw6_seq_private(seq);
--
--	for (state->bucket = 0; state->bucket < RAW_HTABLE_SIZE;
--			++state->bucket)
--		sk_for_each(sk, node, &raw_v6_hashinfo.ht[state->bucket])
--			if (sk->sk_family == PF_INET6)
--				goto out;
--	sk = NULL;
--out:
--	return sk;
--}
--
--static struct sock *raw6_get_next(struct seq_file *seq, struct sock *sk)
--{
--	struct raw6_iter_state* state = raw6_seq_private(seq);
--
--	do {
--		sk = sk_next(sk);
--try_again:
--		;
--	} while (sk && sk->sk_family != PF_INET6);
--
--	if (!sk && ++state->bucket < RAW_HTABLE_SIZE) {
--		sk = sk_head(&raw_v6_hashinfo.ht[state->bucket]);
--		goto try_again;
--	}
--	return sk;
--}
--
--static struct sock *raw6_get_idx(struct seq_file *seq, loff_t pos)
--{
--	struct sock *sk = raw6_get_first(seq);
--	if (sk)
--		while (pos && (sk = raw6_get_next(seq, sk)) != NULL)
--			--pos;
--	return pos ? NULL : sk;
--}
--
--static void *raw6_seq_start(struct seq_file *seq, loff_t *pos)
--{
--	read_lock(&raw_v6_hashinfo.lock);
--	return *pos ? raw6_get_idx(seq, *pos - 1) : SEQ_START_TOKEN;
--}
--
--static void *raw6_seq_next(struct seq_file *seq, void *v, loff_t *pos)
--{
--	struct sock *sk;
--
--	if (v == SEQ_START_TOKEN)
--		sk = raw6_get_first(seq);
--	else
--		sk = raw6_get_next(seq, v);
--	++*pos;
--	return sk;
--}
--
--static void raw6_seq_stop(struct seq_file *seq, void *v)
--{
--	read_unlock(&raw_v6_hashinfo.lock);
--}
--
- static void raw6_sock_seq_show(struct seq_file *seq, struct sock *sp, int i)
- {
- 	struct ipv6_pinfo *np = inet6_sk(sp);
-@@ -1308,21 +1237,20 @@ static int raw6_seq_show(struct seq_file *seq, void *v)
- 			   "st tx_queue rx_queue tr tm->when retrnsmt"
- 			   "   uid  timeout inode  drops\n");
- 	else
--		raw6_sock_seq_show(seq, v, raw6_seq_private(seq)->bucket);
-+		raw6_sock_seq_show(seq, v, raw_seq_private(seq)->bucket);
- 	return 0;
- }
- 
- static const struct seq_operations raw6_seq_ops = {
--	.start =	raw6_seq_start,
--	.next =		raw6_seq_next,
--	.stop =		raw6_seq_stop,
-+	.start =	raw_seq_start,
-+	.next =		raw_seq_next,
-+	.stop =		raw_seq_stop,
- 	.show =		raw6_seq_show,
- };
- 
- static int raw6_seq_open(struct inode *inode, struct file *file)
- {
--	return seq_open_private(file, &raw6_seq_ops,
--			sizeof(struct raw6_iter_state));
-+	return raw_seq_open(file, &raw_v6_hashinfo, PF_INET6);
- }
- 
- static const struct file_operations raw6_seq_fops = {
+ /* Private (from user) interface flags (netdevice->priv_flags). */
+
+--
