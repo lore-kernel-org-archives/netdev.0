@@ -1,32 +1,47 @@
-From: "Jon Nelson" <jnelson@jamponi.net>
-Subject: Re: tg3: strange errors and non-working-ness
-Date: Thu, 15 Nov 2007 20:12:05 -0600
-Message-ID: <cccedfc60711151812x300fa9dcm2ef8f1c5447dd499@mail.gmail.com>
-References: <20071115094728.GB2366@ff.dom.local> <1195154603.6360.9.camel@dell>
-	 <cccedfc60711151117v70b285fbl79bbc92ced176d54@mail.gmail.com>
-	 <1195158200.6360.17.camel@dell>
-	 <cccedfc60711151221p322894f8i94c540fefb0e4827@mail.gmail.com>
-	 <473CC3FE.5080509@o2.pl>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 4/5] udp: memory limitation by using udp_mem
+Date: Fri, 16 Nov 2007 10:12:42 +0800
+Message-ID: <20071116021241.GD32509@gondor.apana.org.au>
+References: <473CBDAD.1010708@redhat.com> <473CBF16.8040001@redhat.com> <20071115.152353.100893781.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Michael Chan" <mchan@broadcom.com>,
-	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: "Jarek Poplawski" <jarkao2@o2.pl>
+Content-Type: text/plain; charset=us-ascii
+Cc: haoki@redhat.com, netdev@vger.kernel.org,
+	satoshi.oshima.fk@hitachi.com, billfink@mindspring.com,
+	andi@firstfloor.org, johnpol@2ka.mipt.ru,
+	shemminger@linux-foundation.org, yoshfuji@linux-ipv6.org,
+	yumiko.sugita.yf@hitachi.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:56088 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755878AbXKPCMH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 21:12:07 -0500
-Received: by nf-out-0910.google.com with SMTP id g13so691509nfb
-        for <netdev@vger.kernel.org>; Thu, 15 Nov 2007 18:12:06 -0800 (PST)
-In-Reply-To: <473CC3FE.5080509@o2.pl>
+Received: from rhun.apana.org.au ([64.62.148.172]:1809 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754475AbXKPCN3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 21:13:29 -0500
 Content-Disposition: inline
+In-Reply-To: <20071115.152353.100893781.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I have created bug 9391 on bugzilla.kernel.org containing pretty much
-everything.
+On Thu, Nov 15, 2007 at 03:23:53PM -0800, David Miller wrote:
+>
+> We don't have tests all over the place to see if a socket is TCP or
+> DCCP or SCTP in order to implement memory accounting there, because we
+> did it for connection oriented protocols cleanly, seperating things
+> via callbacks etc.
+> 
+> I would like to see the datagram memory accounting work similarly.
 
+I agree.  In fact if we adopt some of the conventions used by
+stream protocols such as the use of sk_forward_alloc, we should
+be able to share code with TCP accounting too.
+
+As it is every packet updates a global counter, using sk_forward_alloc
+would mean that for most packets you only update a per-socket counter
+which then would feed into the global counter at points such as socket
+creation and destruction.
+
+Cheers,
 -- 
-Jon
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
