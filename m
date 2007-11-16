@@ -1,37 +1,40 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [Bugme-new] [Bug 9391] New: Netgear GA320T(tg3) strange
- errors and non-workingness
-Date: Fri, 16 Nov 2007 08:55:42 -0800
-Message-ID: <1551EAE59135BE47B544934E30FC4FC002AABB2E@nt-irva-0751.brcm.ad.broadcom.com>
-References: <cccedfc60711160608j1ff89979uf7c1f122dd050adc@mail.gmail.com>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: [PATCH 1/2] [IPV4] UDP: Always checksum even if without socket filter
+Date: Fri, 16 Nov 2007 18:02:37 +0100
+Message-ID: <m3hcjm6s42.fsf@ursa.amorsen.dk>
+References: <473D0482.4050705@cn.fujitsu.com> <20071115.185403.138420969.davem@davemloft.net> <473D0BF8.3060902@cn.fujitsu.com> <20071115.200431.102331739.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	"Andrew Morton" <akpm@linux-foundation.org>
-To: "Jon Nelson" <jnelson@jamponi.net>,
-	"Jarek Poplawski" <jarkao2@o2.pl>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3659 "EHLO mms2.broadcom.com"
+Received: from main.gmane.org ([80.91.229.2]:42991 "EHLO ciao.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750747AbXKPQzz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 11:55:55 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <cccedfc60711160608j1ff89979uf7c1f122dd050adc@mail.gmail.com>
+	id S1750747AbXKPRDE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Nov 2007 12:03:04 -0500
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1It4ai-0006ry-9T
+	for netdev@vger.kernel.org; Fri, 16 Nov 2007 17:02:52 +0000
+Received: from hd5b9080a.c45-01-12.sta.perspektivbredband.net ([213.185.8.10])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 16 Nov 2007 17:02:52 +0000
+Received: from benny+usenet by hd5b9080a.c45-01-12.sta.perspektivbredband.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 16 Nov 2007 17:02:52 +0000
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jon Nelson wrote:
+>>>>> "DM" == David Miller <davem@davemloft.net> writes:
 
-> The lspci is exactly as it was output. The dmesg is shortened only
-> slightly. The kernel is the latest available for openSUSE 10.3. No MSI
-> because this is an Athlon XP (read: 32bit, single core, regular old
-> 33MHz, 32bit PCI).
-> 
+DM> When the user does a recvmsg() or a poll() on the socket, we will
+DM> notice the bad checksum then and increment InErrors. We could in
+DM> this case correct the InDatagrams counter by decrementing it in
+DM> this case.
 
-The lspci doesn't look correct to me either.  We don't have AGP
-capability on these network cards.  Please provide:
+Does that mean that InDatagrams can decrease? I would expect some
+programs to interpret that as counter overflow.
 
-lspci -vvxxx -s0:0:b.0
+
+/Benny
+
 
