@@ -1,570 +1,90 @@
-From: Herbert Valerio Riedel <hvr@gnu.org>
-Subject: [PATCH,RFC] ep93xx_eth: conversion to phylib framework
-Date: Fri, 16 Nov 2007 10:38:20 +0100
-Message-ID: <1195205900-24481-1-git-send-email-hvr@gnu.org>
-Cc: Herbert Valerio Riedel <hvr@gnu.org>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Andy Fleming <afleming@freescale.com>
-To: netdev@vger.kernel.org
+From: Nj A <nj_a83@yahoo.fr>
+Subject: Re : Bug in using inet_lookup ()
+Date: Fri, 16 Nov 2007 09:47:08 +0000 (GMT)
+Message-ID: <409407.88982.qm@web26101.mail.ukl.yahoo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shswe.rise-s.com ([83.65.168.195]:59388 "EHLO shswe.swe"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751545AbXKPJqg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Nov 2007 04:46:36 -0500
+Received: from web26101.mail.ukl.yahoo.com ([217.146.182.142]:26480 "HELO
+	web26101.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754924AbXKPJrL convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Nov 2007 04:47:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently, the ep93xx_eth driver doesn't care about the PHY state,
-but it should, in order to tell the MAC when full duplex operation is
-required; failure to do so causes degraded performance on full duplex
-links. This patch implements proper PHY handling via the phylib framework:
+Hello,
+> Please show at least one bug trace when inet_lookup(&tcp_hashinfo, 0, 0, 0, 0,
+> 0) fails :)
+Trying this the system hangs :-( (setting panic* doesn't change more).
+However, using (&tcp_hashinfo, ip_src, p_src, ip_dst, p_dst, 0) gives the following oops:
+BUG: unable to handle kernel NULL pointer dereference at virtual address 0000xxxx
+printing eip:
+c02f19e1
+*pde = 00000000
+Oops: 0000 [#1]
+CPU:    0
+EIP:    0060:[<c02f19e1>]    Not tainted VLI
+EFLAGS: 00010282   (2.6.18 #1)
+EIP is at inet_lookup+0x300x500
+eax: 9e3779b9   ebx: 00000004   ecx: 9e377a57   edx: f4046f84
+esi: f46a6010   edi: 00000000   ebp: 0000009e   esp: f4046f38
+ds: 007b   es: 007b   ss: 0068
+Process knl-thread (pid: 3068, ti=f4046000 task=f46f0610 task.ti=f4046000)
+Stack: 22921900 f6953840 f46a6010 f46a6000 f4046f84 00000004 f46a6010 f46a6000
+f6953840 f8d3314a 00000004 b7f3a000 00000404 00000005 00000bfe 00000000
+00000bfe 00000404 00000000 f4046fa8 f6953840 f4aa7880 f4aa7800 f4046fa8
+Code: 00 00 00 8d bc 27 00 00 00 00 55 89 cd 57 0f b7 c9 56 81 e9 47 86 c8 61 53 83 ec 14 89 54 24 10 8b b8 54 02 00 00 b8 b9 79 37 9e <8b> 5f 10 29 d8 89 da 03 44 24 28 c1 ea 0d 29 c8 29 d9 31 d0 89
+EIP: [<c02f19e1>] inet_lookup +0x300x500 SS:ESP 0068:f4046f38
 
- - clean up ep93xx_mdio_{read,write} to conform to ep93xx manual
- - convert ep93xx_eth driver to phylib framework
- - set full duplex bit in configuration of MAC when FDX link detected
- - convert to use print_mac()
+> Yes, to show the code you are using.
+Ok so basically I am receiving via Netlink a state telling me the ip_src, psrc, ip_dst, pdst.
+The goal is to lookup the corresponding state. Going through the inet_lookup() function I see that's it is not amazing it returns the wrong thing.
+/* Receive state via Netlink in payload */
+...
+if ((s_skb = alloc_skb (MAX_TCP_HEADER + 15, GFP_ATOMIC)) == NULL)
+ {
+   err = -ENOMEM;
+ }
+  dev = s_skb->dev;
+  if (!dev)
+   {
+      goto pdev;
+   }
+sk =
+     inet_lookup (&tcp_hashinfo, payload->src, payload->p_src, payload->dst, payload->p_dst, inet_iif (s_skb));
+if (!sk)
+     goto no_tcp_socket;
+ if (sk->sk_state == TCP_TIME_WAIT)
+     goto time_wait_socket;
+ ...
+      bh_lock_sock (sk);
+ pdev:
+      spin_lock (&tmp_lock);
+      new_dev = list_entry (&tmp, struct net_device, todo_list);
+      spin_unlock (&tmp_lock);
+      if (!new_dev)
+            goto err;
+      s_skb->dev = new_dev;
+...
+ switch (sk->sk_state)
+ {
+  case TCP_SYN_RECV:
+   ..
+  case TCP_LISTEN:
+  ..
+  case TCP_SYN_SENT:
+  ..
+ }
+   bh_unlock_sock (sk);
+...
+/* send reply via Netlink */
 
-Signed-off-by: Herbert Valerio Riedel <hvr@gnu.org>
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>
-Cc: Andy Fleming <afleming@freescale.com>
----
-If you need me to split this patch, please let me know into 
-what parts
+Cheers,
 
- drivers/net/arm/Kconfig      |    1 +
- drivers/net/arm/ep93xx_eth.c |  354 +++++++++++++++++++++++++++++++++---------
- 2 files changed, 282 insertions(+), 73 deletions(-)
 
-diff --git a/drivers/net/arm/Kconfig b/drivers/net/arm/Kconfig
-index f9cc2b6..5860175 100644
---- a/drivers/net/arm/Kconfig
-+++ b/drivers/net/arm/Kconfig
-@@ -44,6 +44,7 @@ config EP93XX_ETH
- 	tristate "EP93xx Ethernet support"
- 	depends on ARM && ARCH_EP93XX
- 	select MII
-+	select PHYLIB
- 	help
- 	  This is a driver for the ethernet hardware included in EP93xx CPUs.
- 	  Say Y if you are building a kernel for EP93xx based devices.
-diff --git a/drivers/net/arm/ep93xx_eth.c b/drivers/net/arm/ep93xx_eth.c
-index 91a6590..6b9ac41 100644
---- a/drivers/net/arm/ep93xx_eth.c
-+++ b/drivers/net/arm/ep93xx_eth.c
-@@ -2,6 +2,7 @@
-  * EP93xx ethernet network device driver
-  * Copyright (C) 2006 Lennert Buytenhek <buytenh@wantstofly.org>
-  * Dedicated to Marija Kulikova.
-+ * Copyright (C) 2007 Herbert Valerio Riedel <hvr@gnu.org>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -14,6 +15,7 @@
- #include <linux/kernel.h>
- #include <linux/netdevice.h>
- #include <linux/mii.h>
-+#include <linux/phy.h>
- #include <linux/etherdevice.h>
- #include <linux/ethtool.h>
- #include <linux/init.h>
-@@ -37,6 +39,8 @@
- #define  REG_RXCTL_DEFAULT	0x00073800
- #define REG_TXCTL		0x0004
- #define  REG_TXCTL_ENABLE	0x00000001
-+#define REG_TESTCTL		0x0008
-+#define  REG_TESTCTL_MFDX	0x00000040
- #define REG_MIICMD		0x0010
- #define  REG_MIICMD_READ	0x00008000
- #define  REG_MIICMD_WRITE	0x00004000
-@@ -45,6 +49,9 @@
- #define  REG_MIISTS_BUSY	0x00000001
- #define REG_SELFCTL		0x0020
- #define  REG_SELFCTL_RESET	0x00000001
-+#define  REG_SELFCTL_MDCDIV_MSK 0x00007e00
-+#define  REG_SELFCTL_MDCDIV_OFS 9
-+#define  REG_SELFCTL_PSPRS	0x00000100
- #define REG_INTEN		0x0024
- #define  REG_INTEN_TX		0x00000008
- #define  REG_INTEN_RX		0x00000007
-@@ -174,8 +181,14 @@ struct ep93xx_priv
- 
- 	struct net_device_stats	stats;
- 
--	struct mii_if_info	mii;
- 	u8			mdc_divisor;
-+	int			phy_supports_mfps:1;
-+
-+	struct mii_bus		mii_bus;
-+	struct phy_device	*phy_dev;
-+	int			speed;
-+	int			duplex;
-+	int			link;
- };
- 
- #define rdb(ep, off)		__raw_readb((ep)->base_addr + (off))
-@@ -185,8 +198,6 @@ struct ep93xx_priv
- #define wrw(ep, off, val)	__raw_writew((val), (ep)->base_addr + (off))
- #define wrl(ep, off, val)	__raw_writel((val), (ep)->base_addr + (off))
- 
--static int ep93xx_mdio_read(struct net_device *dev, int phy_id, int reg);
--
- static struct net_device_stats *ep93xx_get_stats(struct net_device *dev)
- {
- 	struct ep93xx_priv *ep = netdev_priv(dev);
-@@ -542,12 +553,6 @@ static int ep93xx_start_hw(struct net_device *dev)
- 		return 1;
- 	}
- 
--	wrl(ep, REG_SELFCTL, ((ep->mdc_divisor - 1) << 9));
--
--	/* Does the PHY support preamble suppress?  */
--	if ((ep93xx_mdio_read(dev, ep->mii.phy_id, MII_BMSR) & 0x0040) != 0)
--		wrl(ep, REG_SELFCTL, ((ep->mdc_divisor - 1) << 9) | (1 << 8));
--
- 	/* Receive descriptor ring.  */
- 	addr = ep->descs_dma_addr + offsetof(struct ep93xx_descs, rdesc);
- 	wrl(ep, REG_RXDQBADD, addr);
-@@ -631,12 +636,11 @@ static int ep93xx_open(struct net_device *dev)
- 		return -ENOMEM;
- 
- 	if (is_zero_ether_addr(dev->dev_addr)) {
-+		DECLARE_MAC_BUF(mac_buf);
-+
- 		random_ether_addr(dev->dev_addr);
--		printk(KERN_INFO "%s: generated random MAC address "
--			"%.2x:%.2x:%.2x:%.2x:%.2x:%.2x.\n", dev->name,
--			dev->dev_addr[0], dev->dev_addr[1],
--			dev->dev_addr[2], dev->dev_addr[3],
--			dev->dev_addr[4], dev->dev_addr[5]);
-+		dev_info(&dev->dev, "generated random MAC address %s\n",
-+			 print_mac(mac_buf, dev->dev_addr));
- 	}
- 
- 	napi_enable(&ep->napi);
-@@ -664,6 +668,8 @@ static int ep93xx_open(struct net_device *dev)
- 
- 	wrl(ep, REG_GIINTMSK, REG_GIINTMSK_ENABLE);
- 
-+	phy_start(ep->phy_dev);
-+
- 	netif_start_queue(dev);
- 
- 	return 0;
-@@ -676,6 +682,9 @@ static int ep93xx_close(struct net_device *dev)
- 	napi_disable(&ep->napi);
- 	netif_stop_queue(dev);
- 
-+	if (ep->phy_dev)
-+		phy_stop(ep->phy_dev);
-+
- 	wrl(ep, REG_GIINTMSK, 0);
- 	free_irq(ep->irq, dev);
- 	ep93xx_stop_hw(dev);
-@@ -687,53 +696,103 @@ static int ep93xx_close(struct net_device *dev)
- static int ep93xx_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
- 	struct ep93xx_priv *ep = netdev_priv(dev);
--	struct mii_ioctl_data *data = if_mii(ifr);
- 
--	return generic_mii_ioctl(&ep->mii, data, cmd, NULL);
-+	return phy_mii_ioctl(ep->phy_dev, if_mii(ifr), cmd);
- }
- 
--static int ep93xx_mdio_read(struct net_device *dev, int phy_id, int reg)
-+/* common MII transactions should take < 100 iterations */
-+#define EP93XX_PHY_TIMEOUT 2000
-+
-+static int ep93xx_mdio_wait(struct mii_bus *bus)
- {
--	struct ep93xx_priv *ep = netdev_priv(dev);
--	int data;
--	int i;
-+	struct ep93xx_priv *ep = bus->priv;
-+	unsigned int timeout = EP93XX_PHY_TIMEOUT;
- 
--	wrl(ep, REG_MIICMD, REG_MIICMD_READ | (phy_id << 5) | reg);
-+	while ((rdl(ep, REG_MIISTS) & REG_MIISTS_BUSY)
-+	      && timeout--)
-+		cpu_relax();
- 
--	for (i = 0; i < 10; i++) {
--		if ((rdl(ep, REG_MIISTS) & REG_MIISTS_BUSY) == 0)
--			break;
--		msleep(1);
-+	if (timeout <= 0) {
-+		dev_err(bus->dev, "MII operation timed out\n");
-+		return -ETIMEDOUT;
- 	}
- 
--	if (i == 10) {
--		printk(KERN_INFO DRV_MODULE_NAME ": mdio read timed out\n");
--		data = 0xffff;
--	} else {
--		data = rdl(ep, REG_MIIDATA);
--	}
-+	return 0;
-+}
-+
-+
-+static int ep93xx_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
-+{
-+	struct ep93xx_priv *ep = bus->priv;
-+	u32 selfctl;
-+	u32 data;
-+
-+	if (ep93xx_mdio_wait(bus) < 0)
-+		return -ETIMEDOUT;
-+
-+	selfctl = rdl(ep, REG_SELFCTL);
-+
-+	if (ep->phy_supports_mfps)
-+	  wrl(ep, REG_SELFCTL, selfctl | REG_SELFCTL_PSPRS);
-+	else
-+	  wrl(ep, REG_SELFCTL, selfctl & ~REG_SELFCTL_PSPRS);
-+
-+	wrl(ep, REG_MIICMD, REG_MIICMD_READ | (mii_id << 5) | regnum);
-+
-+	if (ep93xx_mdio_wait(bus) < 0)
-+		return -ETIMEDOUT;
-+
-+	data =  rdl(ep, REG_MIIDATA);
-+
-+	wrl(ep, REG_SELFCTL, selfctl);
- 
- 	return data;
- }
- 
--static void ep93xx_mdio_write(struct net_device *dev, int phy_id, int reg, int data)
-+static int ep93xx_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
-+			     u16 value)
- {
--	struct ep93xx_priv *ep = netdev_priv(dev);
--	int i;
-+	struct ep93xx_priv *ep = bus->priv;
-+	u32 selfctl;
- 
--	wrl(ep, REG_MIIDATA, data);
--	wrl(ep, REG_MIICMD, REG_MIICMD_WRITE | (phy_id << 5) | reg);
-+	if (ep93xx_mdio_wait(bus) < 0)
-+		return -ETIMEDOUT;
- 
--	for (i = 0; i < 10; i++) {
--		if ((rdl(ep, REG_MIISTS) & REG_MIISTS_BUSY) == 0)
--			break;
--		msleep(1);
--	}
-+	selfctl = rdl(ep, REG_SELFCTL);
- 
--	if (i == 10)
--		printk(KERN_INFO DRV_MODULE_NAME ": mdio write timed out\n");
-+	if (ep->phy_supports_mfps)
-+	  wrl(ep, REG_SELFCTL, selfctl | REG_SELFCTL_PSPRS);
-+	else
-+	  wrl(ep, REG_SELFCTL, selfctl & ~REG_SELFCTL_PSPRS);
-+
-+	wrl(ep, REG_MIIDATA, value);
-+	wrl(ep, REG_MIICMD, REG_MIICMD_WRITE | (mii_id << 5) | regnum);
-+
-+	if (ep93xx_mdio_wait(bus) < 0)
-+		return -ETIMEDOUT;
-+
-+	wrl(ep, REG_SELFCTL, selfctl);
-+
-+	return 0;
-+}
-+
-+static int ep93xx_mdio_reset(struct mii_bus *bus)
-+{
-+	struct ep93xx_priv *ep = bus->priv;
-+
-+	u32 selfctl = rdl(ep, REG_SELFCTL);
-+
-+	selfctl &= ~(REG_SELFCTL_MDCDIV_MSK | REG_SELFCTL_PSPRS);
-+
-+	selfctl |= (ep->mdc_divisor - 1) << REG_SELFCTL_MDCDIV_OFS;
-+	selfctl |= REG_SELFCTL_PSPRS;
-+
-+	wrl(ep, REG_SELFCTL, selfctl);
-+
-+	return 0;
- }
- 
-+
- static void ep93xx_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
- {
- 	strcpy(info->driver, DRV_MODULE_NAME);
-@@ -743,33 +802,30 @@ static void ep93xx_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *i
- static int ep93xx_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct ep93xx_priv *ep = netdev_priv(dev);
--	return mii_ethtool_gset(&ep->mii, cmd);
-+	struct phy_device *phydev = ep->phy_dev;
-+
-+	if (!phydev)
-+		return -ENODEV;
-+
-+	return phy_ethtool_gset(phydev, cmd);
- }
- 
- static int ep93xx_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct ep93xx_priv *ep = netdev_priv(dev);
--	return mii_ethtool_sset(&ep->mii, cmd);
--}
-+	struct phy_device *phydev = ep->phy_dev;
- 
--static int ep93xx_nway_reset(struct net_device *dev)
--{
--	struct ep93xx_priv *ep = netdev_priv(dev);
--	return mii_nway_restart(&ep->mii);
--}
-+	if (!phydev)
-+		return -ENODEV;
- 
--static u32 ep93xx_get_link(struct net_device *dev)
--{
--	struct ep93xx_priv *ep = netdev_priv(dev);
--	return mii_link_ok(&ep->mii);
-+	return phy_ethtool_sset(phydev, cmd);
- }
- 
- static struct ethtool_ops ep93xx_ethtool_ops = {
- 	.get_drvinfo		= ep93xx_get_drvinfo,
- 	.get_settings		= ep93xx_get_settings,
- 	.set_settings		= ep93xx_set_settings,
--	.nway_reset		= ep93xx_nway_reset,
--	.get_link		= ep93xx_get_link,
-+	.get_link		= ethtool_op_get_link,
- };
- 
- struct net_device *ep93xx_dev_alloc(struct ep93xx_eth_data *data)
-@@ -824,15 +880,127 @@ static int ep93xx_eth_remove(struct platform_device *pdev)
- 	return 0;
- }
- 
-+static void ep93xx_adjust_link(struct net_device *dev)
-+{
-+	struct ep93xx_priv *ep = netdev_priv(dev);
-+	struct phy_device *phydev = ep->phy_dev;
-+
-+	int status_change = 0;
-+
-+	if (phydev->link) {
-+		if ((ep->speed != phydev->speed) ||
-+		    (ep->duplex != phydev->duplex)) {
-+			/* speed and/or duplex state changed */
-+			u32 testctl = rdl(ep, REG_TESTCTL);
-+
-+			if (DUPLEX_FULL == phydev->duplex)
-+				testctl |= REG_TESTCTL_MFDX;
-+			else
-+				testctl &= ~(REG_TESTCTL_MFDX);
-+
-+			wrl(ep, REG_TESTCTL, testctl);
-+
-+			ep->speed = phydev->speed;
-+			ep->duplex = phydev->duplex;
-+			status_change = 1;
-+		}
-+	}
-+
-+	/* test for online/offline link transition */
-+	if (phydev->link != ep->link) {
-+		if (phydev->link) /* link went online */
-+			netif_schedule(dev);
-+		else { /* link went offline */
-+			ep->speed = 0;
-+			ep->duplex = -1;
-+		}
-+		ep->link = phydev->link;
-+
-+		status_change = 1;
-+	}
-+
-+	if (status_change)
-+		phy_print_status(phydev);
-+}
-+
-+static int ep93xx_mii_probe(struct net_device *dev, int phy_addr)
-+{
-+	struct ep93xx_priv *ep = netdev_priv(dev);
-+	struct phy_device *phydev = NULL;
-+	int val;
-+
-+	if (phy_addr >= 0 && phy_addr < PHY_MAX_ADDR)
-+		phydev = ep->mii_bus.phy_map[phy_addr];
-+
-+	if (!phydev) {
-+		dev_info(&dev->dev,
-+			 "PHY not found at specified address,"
-+			 " trying autodetection\n");
-+
-+		/* find the first phy */
-+		for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++) {
-+			if (ep->mii_bus.phy_map[phy_addr]) {
-+				phydev = ep->mii_bus.phy_map[phy_addr];
-+				break;
-+			}
-+		}
-+	}
-+
-+	if (!phydev) {
-+		dev_err(&dev->dev, "no PHY found\n");
-+		return -ENODEV;
-+	}
-+
-+	phydev = phy_connect(dev, phydev->dev.bus_id,
-+			     ep93xx_adjust_link, 0, PHY_INTERFACE_MODE_MII);
-+
-+	if (IS_ERR(phydev)) {
-+		dev_err(&dev->dev, "Could not attach to PHY\n");
-+		return PTR_ERR(phydev);
-+	}
-+
-+	ep->phy_supports_mfps = 0;
-+
-+	val = phy_read(phydev, MII_BMSR);
-+	if (val < 0) {
-+		dev_err(&phydev->dev, "failed to read MII register\n");
-+		return val;
-+	}
-+
-+	if (val & 0x0040) {
-+		dev_info(&phydev->dev,
-+			 "PHY supports MII frame preamble suppression\n");
-+		ep->phy_supports_mfps = 1;
-+	}
-+
-+	phydev->supported &= PHY_BASIC_FEATURES;
-+
-+	phydev->advertising = phydev->supported;
-+
-+	ep->link = 0;
-+	ep->speed = 0;
-+	ep->duplex = -1;
-+	ep->phy_dev = phydev;
-+
-+	dev_info(&dev->dev, "attached PHY driver [%s] "
-+		 "(mii_bus:phy_addr=%s, irq=%d)\n",
-+		 phydev->drv->name, phydev->dev.bus_id, phydev->irq);
-+
-+	return 0;
-+}
-+
-+
- static int ep93xx_eth_probe(struct platform_device *pdev)
- {
- 	struct ep93xx_eth_data *data;
- 	struct net_device *dev;
- 	struct ep93xx_priv *ep;
--	int err;
-+	DECLARE_MAC_BUF(mac_buf);
-+	int err, i;
- 
- 	if (pdev == NULL)
- 		return -ENODEV;
-+
- 	data = pdev->dev.platform_data;
- 
- 	dev = ep93xx_dev_alloc(data);
-@@ -852,7 +1020,7 @@ static int ep93xx_eth_probe(struct platform_device *pdev)
- 	if (ep->res == NULL) {
- 		dev_err(&pdev->dev, "Could not reserve memory region\n");
- 		err = -ENOMEM;
--		goto err_out;
-+		goto err_out_request_mem_region;
- 	}
- 
- 	ep->base_addr = ioremap(pdev->resource[0].start,
-@@ -860,34 +1028,74 @@ static int ep93xx_eth_probe(struct platform_device *pdev)
- 	if (ep->base_addr == NULL) {
- 		dev_err(&pdev->dev, "Failed to ioremap ethernet registers\n");
- 		err = -EIO;
--		goto err_out;
-+		goto err_out_ioremap;
- 	}
- 	ep->irq = pdev->resource[1].start;
- 
--	ep->mii.phy_id = data->phy_id;
--	ep->mii.phy_id_mask = 0x1f;
--	ep->mii.reg_num_mask = 0x1f;
--	ep->mii.dev = dev;
--	ep->mii.mdio_read = ep93xx_mdio_read;
--	ep->mii.mdio_write = ep93xx_mdio_write;
-+	/* mdio/mii bus */
-+	ep->mii_bus.name = "ep93xx_mii_bus";
-+	ep->mii_bus.id = 0;
-+
-+	ep->mii_bus.read = ep93xx_mdio_read;
-+	ep->mii_bus.write = ep93xx_mdio_write;
-+	ep->mii_bus.reset = ep93xx_mdio_reset;
-+
-+	ep->mii_bus.phy_mask = 0;
-+
-+	ep->mii_bus.priv = ep;
-+	ep->mii_bus.dev = &dev->dev;
-+
-+	ep->mii_bus.irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
-+	if (NULL == ep->mii_bus.irq) {
-+		dev_err(&pdev->dev, "Could not allocate memory\n");
-+		err = -ENOMEM;
-+		goto err_out_mii_bus_irq_kmalloc;
-+	}
-+
-+	for (i = 0; i < PHY_MAX_ADDR; i++)
-+		ep->mii_bus.irq[i] = PHY_POLL;
-+
- 	ep->mdc_divisor = 40;	/* Max HCLK 100 MHz, min MDIO clk 2.5 MHz.  */
-+	ep->phy_supports_mfps = 0; /* probe without preamble suppression */
- 
- 	err = register_netdev(dev);
- 	if (err) {
- 		dev_err(&pdev->dev, "Failed to register netdev\n");
--		goto err_out;
-+		goto err_out_register_netdev;
- 	}
- 
--	printk(KERN_INFO "%s: ep93xx on-chip ethernet, IRQ %d, "
--			 "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x.\n", dev->name,
--			ep->irq, data->dev_addr[0], data->dev_addr[1],
--			data->dev_addr[2], data->dev_addr[3],
--			data->dev_addr[4], data->dev_addr[5]);
-+	err = mdiobus_register(&ep->mii_bus);
-+	if (err) {
-+		dev_err(&dev->dev, "Could not register MII bus\n");
-+		goto err_out_mdiobus_register;
-+	}
-+
-+	err = ep93xx_mii_probe(dev, data->phy_id);
-+	if (err) {
-+		dev_err(&dev->dev, "failed to probe MII bus\n");
-+		goto err_out_mii_probe;
-+	}
-+
-+	dev_info(&dev->dev, "ep93xx on-chip ethernet, IRQ %d, %s\n",
-+		 ep->irq, print_mac(mac_buf, dev->dev_addr));
- 
- 	return 0;
- 
-+err_out_mii_probe:
-+	mdiobus_unregister(&ep->mii_bus);
-+err_out_mdiobus_register:
-+	unregister_netdev(dev);
-+err_out_register_netdev:
-+	kfree(ep->mii_bus.irq);
-+err_out_mii_bus_irq_kmalloc:
-+	iounmap(ep->base_addr);
-+err_out_ioremap:
-+	release_resource(ep->res);
-+	kfree(ep->res);
-+err_out_request_mem_region:
-+	free_netdev(dev);
- err_out:
--	ep93xx_eth_remove(pdev);
-+
- 	return err;
- }
- 
--- 
-1.5.3.4
-
+      _____________________________________________________________________________ 
+Ne gardez plus qu'une seule adresse mail ! Copiez vos mails vers Yahoo! Mail 
