@@ -1,98 +1,126 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 1/2] [IPV4] SNMP: Decrement of UDP InDatagrams for bad checksum
-Date: Fri, 16 Nov 2007 10:59:04 +0000
-Message-ID: <20071116105904.GA12027@gerrit.erg.abdn.ac.uk>
-References: <473D636D.7090304@cn.fujitsu.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] NET : convert ip_rt_acct to per_cpu variables
+Date: Fri, 16 Nov 2007 11:58:52 +0100
+Message-ID: <20071116115852.518b696d.dada1@cosmosbay.com>
+References: <20071116095903.d2ef9c14.dada1@cosmosbay.com>
+	<20071116.011243.48184084.davem@davemloft.net>
+	<20071116103546.8320d985.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:53632 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755171AbXKPK4T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Nov 2007 05:56:19 -0500
-Content-Disposition: inline
-In-Reply-To: <473D636D.7090304@cn.fujitsu.com>
+Received: from pfx2.jmh.fr ([194.153.89.55]:43608 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755429AbXKPK6w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Nov 2007 05:58:52 -0500
+In-Reply-To: <20071116103546.8320d985.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-| If there is no socket filter, a bad checksum udp packet will be queued and
-| ready for user to read. At the same time the InDatagrams is increased.
-| So we need to decrement InDatagrams when recvmsg() or poll() notice the
-| bad checksum.
-| 
-| Seems Gerrit had fix it a year ago.(http://lkml.org/lkml/2006/8/28/218)
-| But it's not in kernel now. So I make the same patch for 2.6.24.rc2.
-| 
-The problem is known: packets with failed checksums will still increment
-InDatagrams. The solution is also known (as acknowledged above). I
-remember the discussion about this kind of solution: the problem is
-apparently that these variables may sit on different CPUs, so that first
-incrementing, and then later decrementing, would not have the desired
-effect.
-Desirable would be to only increment InDatagrams after passing all the 
-checksum tests (i.e. in udp_recvmsg). This solution was also discussed
-on netdev, but people said that this would lead to trouble with the
-data_ready handler (notably NFS).
+On Fri, 16 Nov 2007 10:35:46 +0100
+Eric Dumazet <dada1@cosmosbay.com> wrote:
 
-| If this patch ok, I will make the same one for IPv6 UDP.
-| 
-| [PATCH 1/2] [IPV4] SNMP: Decrement of UDP InDatagrams for bad checksum
-| Decrement UDP InDatagrams for bad checksum UDP packet in ready queue.
-| 
-| Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
-| ---
-|  include/net/snmp.h |    2 ++
-|  include/net/udp.h  |    3 +++
-|  net/ipv4/udp.c     |    2 ++
-|  3 files changed, 7 insertions(+)
-| 
-| diff -Nurp linux-2.6.24-rc2.org/include/net/snmp.h linux-2.6.24-rc2/include/net/snmp.h
-| --- linux-2.6.24-rc2.org/include/net/snmp.h	2007-11-09 16:37:08.000000000 +0800
-| +++ linux-2.6.24-rc2/include/net/snmp.h	2007-11-16 16:57:51.000000000 +0800
-| @@ -142,6 +142,8 @@ struct linux_mib {
-|  	(per_cpu_ptr(mib[!in_softirq()], raw_smp_processor_id())->mibs[field]++)
-|  #define SNMP_DEC_STATS(mib, field) 	\
-|  	(per_cpu_ptr(mib[!in_softirq()], raw_smp_processor_id())->mibs[field]--)
-| +#define SNMP_DEC_STATS_BH(mib, field)	\
-| +	(per_cpu_ptr(mib[0], raw_smp_processor_id())->mibs[field]--)
-|  #define SNMP_ADD_STATS_BH(mib, field, addend) 	\
-|  	(per_cpu_ptr(mib[0], raw_smp_processor_id())->mibs[field] += addend)
-|  #define SNMP_ADD_STATS_USER(mib, field, addend) 	\
-| diff -Nurp linux-2.6.24-rc2.org/include/net/udp.h linux-2.6.24-rc2/include/net/udp.h
-| --- linux-2.6.24-rc2.org/include/net/udp.h	2007-11-09 16:37:08.000000000 +0800
-| +++ linux-2.6.24-rc2/include/net/udp.h	2007-11-16 16:58:41.000000000 +0800
-| @@ -148,6 +148,9 @@ DECLARE_SNMP_STAT(struct udp_mib, udp_st
-|  #define UDP_INC_STATS_BH(field, is_udplite) 			       do  {  \
-|  	if (is_udplite) SNMP_INC_STATS_BH(udplite_statistics, field);         \
-|  	else		SNMP_INC_STATS_BH(udp_statistics, field);    }  while(0)
-| +#define UDP_DEC_STATS_BH(field, is_udplite)			       do {   \
-| +	if (is_udplite) SNMP_DEC_STATS_BH(udplite_statistics, field);         \
-| +	else		SNMP_DEC_STATS_BH(udp_statistics, field);    }  while(0)
-|  
-|  /* /proc */
-|  struct udp_seq_afinfo {
-| diff -Nurp linux-2.6.24-rc2.org/net/ipv4/udp.c linux-2.6.24-rc2/net/ipv4/udp.c
-| --- linux-2.6.24-rc2.org/net/ipv4/udp.c	2007-11-09 16:37:57.000000000 +0800
-| +++ linux-2.6.24-rc2/net/ipv4/udp.c	2007-11-16 15:02:44.000000000 +0800
-| @@ -897,6 +897,7 @@ out:
-|  
-|  csum_copy_err:
-|  	UDP_INC_STATS_BH(UDP_MIB_INERRORS, is_udplite);
-| +	UDP_DEC_STATS_BH(UDP_MIB_INDATAGRAMS, is_udplite);
-|  
-|  	skb_kill_datagram(sk, skb, flags);
-|  
-| @@ -1416,6 +1417,7 @@ unsigned int udp_poll(struct file *file,
-|  		while ((skb = skb_peek(rcvq)) != NULL &&
-|  		       udp_lib_checksum_complete(skb)) {
-|  			UDP_INC_STATS_BH(UDP_MIB_INERRORS, is_lite);
-| +			UDP_DEC_STATS_BH(UDP_MIB_INDATAGRAMS, is_lite);
-|  			__skb_unlink(skb, rcvq);
-|  			kfree_skb(skb);
-|  		}
-| 
-| 
+> On Fri, 16 Nov 2007 01:12:43 -0800 (PST)
+> David Miller <davem@davemloft.net> wrote:
+> 
+> > From: Eric Dumazet <dada1@cosmosbay.com>
+> > Date: Fri, 16 Nov 2007 09:59:03 +0100
+> > 
+> > > [PATCH] NET : NET_CLS_ROUTE : convert ip_rt_acct to per_cpu variables
+> > > 
+> > > ip_rt_acct needs 4096 bytes per cpu to perform some accounting.
+> > > It is actually allocated as a single huge array [4096*NR_CPUS]
+> > > (rounded up to a power of two)
+> > > 
+> > > Converting it to a per cpu variable is wanted to :
+> > >  - Save space on machines were num_possible_cpus() < NR_CPUS
+> > >  - Better NUMA placement (each cpu gets memory on its node)
+> > > 
+> > > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> > 
+> > This is better in one sense but worse in another.
+> > 
+> > At least the previous code dynamically allocated the thing,
+> > now at least one copy is taking up core kernel text image
+> > space.
+> 
+> Oh I see, you think that adding 4096 null bytes to the static percpu area might be a problem.
+> 
+> > 
+> > I think it's an alloc_percpu() candidate, what do you think?
+> > 
+> 
+> Yes absolutely, I will submit a new version.
+> 
+> Thank you
 
--- 
+[PATCH] NET : NET_CLS_ROUTE : convert ip_rt_acct to per_cpu variables
+
+ip_rt_acct needs 4096 bytes per cpu to perform some accounting.
+It is actually allocated as a single huge array [4096*NR_CPUS]
+(rounded up to a power of two)
+
+Converting it to a per cpu variable is wanted to :
+ - Save space on machines were num_possible_cpus() < NR_CPUS
+ - Better NUMA placement (each cpu gets memory on its node)
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+ net/ipv4/ip_input.c |    2 +-
+ net/ipv4/route.c    |   15 +++------------
+ 2 files changed, 4 insertions(+), 13 deletions(-)
+
+
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 5b8a760..4068e17 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -347,7 +347,7 @@ static int ip_rcv_finish(struct sk_buff *skb)
+ 
+ #ifdef CONFIG_NET_CLS_ROUTE
+ 	if (unlikely(skb->dst->tclassid)) {
+-		struct ip_rt_acct *st = ip_rt_acct + 256*smp_processor_id();
++		struct ip_rt_acct *st = per_cpu_ptr(ip_rt_acct, smp_processor_id());
+ 		u32 idx = skb->dst->tclassid;
+ 		st[idx&0xFF].o_packets++;
+ 		st[idx&0xFF].o_bytes+=skb->len;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 70529a9..856807c 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2855,12 +2855,10 @@ ctl_table ipv4_route_table[] = {
+ #endif
+ 
+ #ifdef CONFIG_NET_CLS_ROUTE
+-struct ip_rt_acct *ip_rt_acct;
+-
+-/* This code sucks.  But you should have seen it before! --RR */
++struct ip_rt_acct *ip_rt_acct __read_mostly;
+ 
+ /* IP route accounting ptr for this logical cpu number. */
+-#define IP_RT_ACCT_CPU(i) (ip_rt_acct + i * 256)
++#define IP_RT_ACCT_CPU(cpu) (per_cpu_ptr(ip_rt_acct, cpu))
+ 
+ #ifdef CONFIG_PROC_FS
+ static int ip_rt_acct_read(char *buffer, char **start, off_t offset,
+@@ -2920,16 +2918,9 @@ int __init ip_rt_init(void)
+ 			     (jiffies ^ (jiffies >> 7)));
+ 
+ #ifdef CONFIG_NET_CLS_ROUTE
+-	{
+-	int order;
+-	for (order = 0;
+-	     (PAGE_SIZE << order) < 256 * sizeof(struct ip_rt_acct) * NR_CPUS; order++)
+-		/* NOTHING */;
+-	ip_rt_acct = (struct ip_rt_acct *)__get_free_pages(GFP_KERNEL, order);
++	ip_rt_acct = __alloc_percpu(256 * sizeof(struct ip_rt_acct));
+ 	if (!ip_rt_acct)
+ 		panic("IP: failed to allocate ip_rt_acct\n");
+-	memset(ip_rt_acct, 0, PAGE_SIZE << order);
+-	}
+ #endif
+ 
+ 	ipv4_dst_ops.kmem_cachep =
+
