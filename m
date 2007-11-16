@@ -1,171 +1,99 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 8/9] cxgb3 - HW set up updates
-Date: Fri, 16 Nov 2007 11:22:16 -0800
-Message-ID: <20071116192216.31150.50259.stgit@speedy5>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH] net/ipv4/arp.c: Fix arp reply when sender ip 0
+Date: Fri, 16 Nov 2007 14:26:19 -0500
+Message-ID: <20071116142619.8746376e.billfink@mindspring.com>
+References: <cac0ab7d0711151340l1cc91a2dw5ebf36e166d16d7a@mail.gmail.com>
+	<20071115.152813.89410917.davem@davemloft.net>
+	<cac0ab7d0711160030w149c7a7s2db55ac56d0a05cc@mail.gmail.com>
+	<20071116.010548.94286711.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, swise@opengridcomputing.com,
-	wenxiong@us.ibm.com
-To: jeff@garzik.org
+Cc: the.sator@gmail.com, kuznet@ms2.inr.ac.ru,
+	linux-kernel@vger.kernel.org, jmorris@namei.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:15565 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932581AbXKPTWV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 14:22:21 -0500
+Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:34883 "EHLO
+	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756408AbXKPT0e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 14:26:34 -0500
+In-Reply-To: <20071116.010548.94286711.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Divy Le Ray <divy@chelsio.com>
+On Fri, 16 Nov 2007, David Miller wrote:
 
-Disable PEX errors. The HW generates false positives.
-Update RSS hash function to a symmetric algorithm.
-Update T3C HW support
+> From: "Jonas Danielsson" <the.sator@gmail.com>
+> Date: Fri, 16 Nov 2007 09:30:11 +0100
+> 
+> > 2007/11/16, David Miller <davem@davemloft.net>:
+> > > From: "Jonas Danielsson" <the.sator@gmail.com>
+> > > Date: Thu, 15 Nov 2007 22:40:13 +0100
+> > >
+> > > > Is there a reason that the target hardware address isn't the target
+> > > > hardware address?
+> > 
+> > > Because of this, in cases where a choice can be made Linux will
+> > > advertise what is most likely to result in successful communication.
+> > >
+> > > This is likely why we are changing that target address to the one of
+> > > the interface actually sending back the reply rather than the zero
+> > > value you used.
+> > >
+> > > In fact I think this information can be useful to the sender of
+> > > the DAD request.
+> > >
+> > 
+> > There seem to be some confusion about what my patch really does. It
+> > does not set the hardware address to a zero value.
+> 
+> I knew you were talking about the IP address not the hardware
+> address.
+> 
+> > The reply from the Linux kernel in computer A, before the patch would look like:
+> > 
+> > Reply:
+> > Opcode: reply (0x0002)
+> > Sender HW: 00:AA.00:AA:00:AA
+> > Sender IP:   192.168.0.1
+> > Target HW:  00:AA:00:AA:00:AA
+> > Target IP:    192.168.0.1
+> 
+> And this is exactly a sensible response in my opinion.
 
-Signed-off-by: Divy Le Ray <divy@chelsio.com>
----
+I don't see how you can say that, since it appears to be in violation
+of RFC 826:
 
- drivers/net/cxgb3/cxgb3_main.c |    2 +-
- drivers/net/cxgb3/regs.h       |   22 ++++++++++++++++++++++
- drivers/net/cxgb3/t3_hw.c      |   24 +++++++++++++++++++++---
- 3 files changed, 44 insertions(+), 4 deletions(-)
+	"The target hardware address is included for completeness and
+	network monitoring.  It has no meaning in the request form,
+	since it is this number that the machine is requesting.  Its
+	meaning in the reply form is the address of the machine making
+	the request.  In some implementations (which do not get to look
+	at the 14.byte ethernet header, for example) this may save some
+	register shuffling or stack space by sending this field to the
+	hardware driver as the hardware destination address of the
+	packet."
 
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-index b4ee18b..f24a27b 100644
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -336,7 +336,7 @@ static void setup_rss(struct adapter *adap)
- 
- 	t3_config_rss(adap, F_RQFEEDBACKENABLE | F_TNLLKPEN | F_TNLMAPEN |
- 		      F_TNLPRTEN | F_TNL2TUPEN | F_TNL4TUPEN |
--		      V_RRCPLCPUSIZE(6), cpus, rspq_map);
-+		      V_RRCPLCPUSIZE(6) | F_HASHTOEPLITZ, cpus, rspq_map);
- }
- 
- static void init_napi(struct adapter *adap)
-diff --git a/drivers/net/cxgb3/regs.h b/drivers/net/cxgb3/regs.h
-index 5e1bc0d..a7d5f65 100644
---- a/drivers/net/cxgb3/regs.h
-+++ b/drivers/net/cxgb3/regs.h
-@@ -965,6 +965,12 @@
- #define V_LOCKTID(x) ((x) << S_LOCKTID)
- #define F_LOCKTID    V_LOCKTID(1U)
- 
-+#define S_TABLELATENCYDELTA    0
-+#define M_TABLELATENCYDELTA    0xf
-+#define V_TABLELATENCYDELTA(x) ((x) << S_TABLELATENCYDELTA)
-+#define G_TABLELATENCYDELTA(x) \
-+	(((x) >> S_TABLELATENCYDELTA) & M_TABLELATENCYDELTA)
-+
- #define A_TP_PC_CONFIG2 0x34c
- 
- #define S_CHDRAFULL    4
-@@ -1146,6 +1152,10 @@
- #define V_RQFEEDBACKENABLE(x) ((x) << S_RQFEEDBACKENABLE)
- #define F_RQFEEDBACKENABLE    V_RQFEEDBACKENABLE(1U)
- 
-+#define S_HASHTOEPLITZ    2
-+#define V_HASHTOEPLITZ(x) ((x) << S_HASHTOEPLITZ)
-+#define F_HASHTOEPLITZ    V_HASHTOEPLITZ(1U)
-+
- #define S_DISABLE    0
- 
- #define A_TP_TM_PIO_ADDR 0x418
-@@ -1198,6 +1208,14 @@
- 
- #define A_TP_INT_ENABLE 0x470
- 
-+#define S_FLMTXFLSTEMPTY    30
-+#define V_FLMTXFLSTEMPTY(x) ((x) << S_FLMTXFLSTEMPTY)
-+#define F_FLMTXFLSTEMPTY    V_FLMTXFLSTEMPTY(1U)
-+
-+#define S_FLMRXFLSTEMPTY    29
-+#define V_FLMRXFLSTEMPTY(x) ((x) << S_FLMRXFLSTEMPTY)
-+#define F_FLMRXFLSTEMPTY    V_FLMRXFLSTEMPTY(1U)
-+
- #define A_TP_INT_CAUSE 0x474
- 
- #define A_TP_TX_MOD_Q1_Q0_RATE_LIMIT 0x8
-@@ -1291,6 +1309,10 @@
- 
- #define A_ULPTX_CONFIG 0x580
- 
-+#define S_CFG_CQE_SOP_MASK    1
-+#define V_CFG_CQE_SOP_MASK(x) ((x) << S_CFG_CQE_SOP_MASK)
-+#define F_CFG_CQE_SOP_MASK    V_CFG_CQE_SOP_MASK(1U)
-+
- #define S_CFG_RR_ARB    0
- #define V_CFG_RR_ARB(x) ((x) << S_CFG_RR_ARB)
- #define F_CFG_RR_ARB    V_CFG_RR_ARB(1U)
-diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
-index 4b6087a..b8ae12d 100644
---- a/drivers/net/cxgb3/t3_hw.c
-+++ b/drivers/net/cxgb3/t3_hw.c
-@@ -1280,7 +1280,7 @@ static int t3_handle_intr_status(struct adapter *adapter, unsigned int reg,
- #define PCIE_INTR_MASK (F_UNXSPLCPLERRR | F_UNXSPLCPLERRC | F_PCIE_PIOPARERR |\
- 			F_PCIE_WFPARERR | F_PCIE_RFPARERR | F_PCIE_CFPARERR | \
- 			/* V_PCIE_MSIXPARERR(M_PCIE_MSIXPARERR) | */ \
--			V_BISTERR(M_BISTERR) | F_PEXERR)
-+			V_BISTERR(M_BISTERR))
- #define ULPRX_INTR_MASK F_PARERR
- #define ULPTX_INTR_MASK 0
- #define CPLSW_INTR_MASK (F_TP_FRAMING_ERROR | \
-@@ -1383,8 +1383,16 @@ static void tp_intr_handler(struct adapter *adapter)
- 		{0}
- 	};
- 
-+	static struct intr_info tp_intr_info_t3c[] = {
-+		{ 0x1ffffff,  "TP parity error", -1, 1 },
-+		{ F_FLMRXFLSTEMPTY, "TP out of Rx pages", -1, 1 },
-+		{ F_FLMTXFLSTEMPTY, "TP out of Tx pages", -1, 1 },
-+		{ 0 }
-+	};
-+
- 	if (t3_handle_intr_status(adapter, A_TP_INT_CAUSE, 0xffffffff,
--				  tp_intr_info, NULL))
-+				  adapter->params.rev < T3_REV_C ?
-+					tp_intr_info : tp_intr_info_t3c, NULL))
- 		t3_fatal_err(adapter);
- }
- 
-@@ -1734,7 +1742,6 @@ void t3_intr_enable(struct adapter *adapter)
- 		 MC7_INTR_MASK},
- 		{A_MC5_DB_INT_ENABLE, MC5_INTR_MASK},
- 		{A_ULPRX_INT_ENABLE, ULPRX_INTR_MASK},
--		{A_TP_INT_ENABLE, 0x3bfffff},
- 		{A_PM1_TX_INT_ENABLE, PMTX_INTR_MASK},
- 		{A_PM1_RX_INT_ENABLE, PMRX_INTR_MASK},
- 		{A_CIM_HOST_INT_ENABLE, CIM_INTR_MASK},
-@@ -1744,6 +1751,8 @@ void t3_intr_enable(struct adapter *adapter)
- 	adapter->slow_intr_mask = PL_INTR_MASK;
- 
- 	t3_write_regs(adapter, intr_en_avp, ARRAY_SIZE(intr_en_avp), 0);
-+	t3_write_reg(adapter, A_TP_INT_ENABLE,
-+		     adapter->params.rev >= T3_REV_C ? 0x2bfffff : 0x3bfffff);
- 
- 	if (adapter->params.rev > 0) {
- 		t3_write_reg(adapter, A_CPL_INTR_ENABLE,
-@@ -2509,6 +2518,11 @@ static void tp_config(struct adapter *adap, const struct tp_params *p)
- 	} else
- 		t3_set_reg_field(adap, A_TP_PARA_REG3, 0, F_TXPACEFIXED);
- 
-+	if (adap->params.rev == T3_REV_C)
-+		t3_set_reg_field(adap, A_TP_PC_CONFIG,
-+				 V_TABLELATENCYDELTA(M_TABLELATENCYDELTA),
-+				 V_TABLELATENCYDELTA(4));
-+
- 	t3_write_reg(adap, A_TP_TX_MOD_QUEUE_WEIGHT1, 0);
- 	t3_write_reg(adap, A_TP_TX_MOD_QUEUE_WEIGHT0, 0);
- 	t3_write_reg(adap, A_TP_MOD_CHANNEL_WEIGHT, 0);
-@@ -3246,6 +3260,10 @@ int t3_init_hw(struct adapter *adapter, u32 fw_params)
- 	else
- 		t3_set_reg_field(adapter, A_PCIX_CFG, 0, F_CLIDECEN);
- 
-+	if (adapter->params.rev == T3_REV_C)
-+		t3_set_reg_field(adapter, A_ULPTX_CONFIG, 0,
-+				 F_CFG_CQE_SOP_MASK);
-+
- 	t3_write_reg(adapter, A_PM1_RX_CFG, 0xffffffff);
- 	t3_write_reg(adapter, A_PM1_RX_MODE, 0);
- 	t3_write_reg(adapter, A_PM1_TX_MODE, 0);
+Since the MAC address of the machine making the request is
+00:BB:00:BB:00:BB, and not 00:AA:00:AA:00:AA, Linux appears to
+be in violation of the ARP RFC.
+
+Regarding the Target IP, RFC 826 says:
+
+	"The target protocol address is necessary in the request form
+	of the packet so that a machine can determine whether or not
+	to enter the sender information in a table or to send a reply.
+	It is not necessarily needed in the reply form if one assumes
+	a reply is only provoked by a request.  It is included for
+	completeness, network monitoring, and to simplify the suggested
+	processing algorithm described above (which does not look at
+	the opcode until AFTER putting the sender information in a
+	table).
+
+So it's ambiguous about the target IP address in an ARP reply packet,
+but a value of 0.0.0.0 makes more logical sense to me than using
+192.168.0.1 in this example case, since it should reflect the requestor
+IP address, which is unknown in this case.
+
+						-Bill
