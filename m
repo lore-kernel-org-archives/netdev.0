@@ -1,55 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: FW: [PATCH 2/2] [e1000 VLAN] Disable vlan hw accel when promiscuous mode
-Date: Fri, 16 Nov 2007 22:33:48 +0800
-Message-ID: <20071116143348.GA10596@gondor.apana.org.au>
-References: <006601c82846$b0f99eb0$9c94fea9@jason>
+From: Urs Thuermann <urs.thuermann@gmx.de>
+Subject: Re: [PATCH 2/7] CAN: Add PF_CAN core module
+Date: 16 Nov 2007 15:33:08 +0100
+Message-ID: <ygfr6iqmfa3.fsf@janus.isnogud.escape.de>
+References: <473BF7FD.7010403@hartkopp.net>
+	<1195113860.27113.34.camel@localhost>
+	<ygfmytfbubd.fsf@janus.isnogud.escape.de>
+	<20071115.040530.205831740.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, 'David Miller' <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, greearb@candelatech.com,
-	'Patrick McHardy' <kaber@trash.net>, w@1wt.eu,
-	cfriesen@nortel.com, djohnson+linux-kernel@sw.starentnetworks.com,
-	e1000-devel@lists.sourceforge.net,
-	"'Kok, Auke'" <auke-jan.h.kok@intel.com>
-To: Joonwoo Park <joonwpark81@gmail.com>
+Cc: joe@perches.com, oliver@hartkopp.net,
+	shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	kaber@trash.net, oliver.hartkopp@volkswagen.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4026 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1763845AbXKPOep (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 09:34:45 -0500
-Content-Disposition: inline
-In-Reply-To: <006601c82846$b0f99eb0$9c94fea9@jason>
+Received: from oker.escape.de ([194.120.234.254]:42535 "EHLO oker.escape.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933927AbXKPOf2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Nov 2007 09:35:28 -0500
+In-Reply-To: <20071115.040530.205831740.davem@davemloft.net>; from David Miller on Thu, 15 Nov 2007 04:05:30 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 16, 2007 at 08:49:02PM +0900, Joonwoo Park wrote:
+David Miller <davem@davemloft.net> writes:
+
+> I really frown upon these local debugging macros people tend to want
+> to submit with their changes.
 > 
-> Not anymore about just e1000 :)
-> I made an another patch with different approach which doesn't fix nic driver.
-> In addition, this patch does disable all hw vlan acceleration features (rx, tx, filter) for promiscuous netdevice. (It makes
-> possible tcpdump -i eth0 vlan)
-> Actually, my previous patch did just disable filter for e1000, so we can't see vlan header of packet. (e1000 stripped off the
-> header)
-> I think this patch is much better than previous of mine.
-> How do you think?
+> It really craps up the tree, even though it might be useful to you.
 
-I don't like this :)
+We have now removed the debug code completely.  The code is quite
+stable and we won't need these remnants from early days anymore.
 
-Let's not turn promiscuous mode into catch-all flag that disables
-all optimisations that may interfere with tcpdump.  It should show
-us all the packets by disabling any hardware filtering but that's it.
+> So please remove this stuff or replace the debugging statements
+> with some generic kernel debugging facility, there are several.
 
-BTW, how does the VLAN TX acceleration work at all? It's using
-skb->cb to carry the tags but then calls dev_queue_xmit.  Once
-you do that packet schedulers can scribble all over skb->cb.
+I am not aware of any useful kernel facilities to replace our debug
+macros, i.e. printing of debug messages, controlled by a bit mask
+passed in as a module parameter, hexdumping of fames, etc.  Of course,
+there are other things like kprobes but sometimes printk(KERN_DEBUG...)
+is more convenient and that's why people write their own DBG() macros.
 
-Also vlan_skb_recv should be moved out-of-line.  It's absolutely
-humongous.  It'll generate tail-calls anyway so performance-wise
-it's useless.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+urs
