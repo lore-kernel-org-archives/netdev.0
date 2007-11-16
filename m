@@ -1,38 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] [IPV4] UDP: Always checksum even if without socket
- filter
-Date: Thu, 15 Nov 2007 18:54:03 -0800 (PST)
-Message-ID: <20071115.185403.138420969.davem@davemloft.net>
-References: <473D0482.4050705@cn.fujitsu.com>
+From: Corey Hickey <bugfood-ml@fatooh.org>
+Subject: Re: SFQ: backport some features from ESFQ (try 5)
+Date: Thu, 15 Nov 2007 18:59:05 -0800
+Message-ID: <473D0779.5050900@fatooh.org>
+References: <1193642587-32657-1-git-send-email-bugfood-ml@fatooh.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: wangchen@cn.fujitsu.com
+To: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53604
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752891AbXKPCyE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 21:54:04 -0500
-In-Reply-To: <473D0482.4050705@cn.fujitsu.com>
+Received: from hot.fatooh.org ([208.78.103.127]:57248 "EHLO hot.fatooh.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932175AbXKPC7J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 21:59:09 -0500
+In-Reply-To: <1193642587-32657-1-git-send-email-bugfood-ml@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Date: Fri, 16 Nov 2007 10:46:26 +0800
-
-> The current kernel doesn't verify the udp checksum if user doesn't set a
-> socket filter.It's fine for LAN. But for WAN, it's not a good option.
-> Shall we fix it? Below is the patch to make udp checksum be always 
-> available.
+Corey Hickey wrote:
+> Patchset try 2 addresses the review by Michael Buesch.
+> Patchset try 3 addresses the review by Patrick McHardy.
+> Patchset try 4 has a few cosmetic improvements.
+> Patchset try 5 addresses further review by Patrick McHardy.
 > 
-> [IPV4] UDP: Always checksum even if without socket filter
-> Make udp checksum be always available even if without socket filter.
-> 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> This set of patches is substantially the same as my previous try, with
+> changes made according to Patrick's recommendations.
 
-It checks the checksum in udp_recvmsg() and udp_poll().
+Any comments? Patrick? I know you're busy, but you've been sending
+reviews for my patches so far and yet another one would be much appreciated.
 
-Please do not fix bugs via code inspection without writing
-test programs to validate whether there is really a "bug"
-here or not.
+Thanks,
+Corey
