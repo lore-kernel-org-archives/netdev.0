@@ -1,29 +1,57 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: Please pull 'more-fixes-davem' branch of wireless-2.6
-Date: Thu, 15 Nov 2007 19:01:56 -0800 (PST)
-Message-ID: <20071115.190156.19874943.davem@davemloft.net>
-References: <20071115025150.GA738@tuxdriver.com>
-	<20071114.194053.165159394.davem@davemloft.net>
-	<20071116014917.GG12902@tuxdriver.com>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH 1/2] [IPV4] UDP: Always checksum even if without socket
+ filter
+Date: Fri, 16 Nov 2007 11:18:16 +0800
+Message-ID: <473D0BF8.3060902@cn.fujitsu.com>
+References: <473D0482.4050705@cn.fujitsu.com> <20071115.185403.138420969.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20071116014917.GG12902-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [222.73.24.84] ([222.73.24.84]:57779 "EHLO song.cn.fujitsu.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1755429AbXKPDUi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 22:20:38 -0500
+In-Reply-To: <20071115.185403.138420969.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Thu, 15 Nov 2007 20:49:17 -0500
-
-> Dave,
+David Miller said the following on 2007-11-16 10:54:
+> From: Wang Chen <wangchen@cn.fujitsu.com>
+> Date: Fri, 16 Nov 2007 10:46:26 +0800
 > 
-> Here is one more fix for 2.6.24.  This is additive to the pull request
-> from yesterday (2007-11-15), so if you haven't already pulled then
-> you can just pull this one to get all the fix patches.
+>> The current kernel doesn't verify the udp checksum if user doesn't set a
+>> socket filter.It's fine for LAN. But for WAN, it's not a good option.
+>> Shall we fix it? Below is the patch to make udp checksum be always 
+>> available.
+>>
+>> [IPV4] UDP: Always checksum even if without socket filter
+>> Make udp checksum be always available even if without socket filter.
+>>
+>> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> 
+> It checks the checksum in udp_recvmsg() and udp_poll().
+> 
 
-Pulled, thanks a lot John.
+Actually, I tested and found this issue.
+I sent 50 udp packets, which have wrong checksum, to my
+machine.
+Before the patch being applied, /proc/net/snmp's udp
+InDatagrams increased, and InErrors didn't increase.
+After the patch being applied, InErrors increased correctly
+and InDatagrams stayed unchanging.
+
+So, I think the checksum in udp_queue_rcv_skb() actually does
+the work, not that in udp_recvmsg() and udp_poll().
+
+If I am wrong, please point out.
+
+> Please do not fix bugs via code inspection without writing
+> test programs to validate whether there is really a "bug"
+> here or not.
+> 
+
+This is a bug from test, not from code inspection.
+
