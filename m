@@ -1,57 +1,55 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 6/6 net-2.6.25][RAW] Consolidate proc interface
-Date: Fri, 16 Nov 2007 23:24:55 +0900 (JST)
-Message-ID: <20071116.232455.82345485.yoshfuji@linux-ipv6.org>
-References: <473DA6EF.5090004@openvz.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: FW: [PATCH 2/2] [e1000 VLAN] Disable vlan hw accel when promiscuous mode
+Date: Fri, 16 Nov 2007 22:33:48 +0800
+Message-ID: <20071116143348.GA10596@gondor.apana.org.au>
+References: <006601c82846$b0f99eb0$9c94fea9@jason>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, devel@openvz.org,
-	yoshfuji@linux-ipv6.org
-To: xemul@openvz.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, 'David Miller' <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, greearb@candelatech.com,
+	'Patrick McHardy' <kaber@trash.net>, w@1wt.eu,
+	cfriesen@nortel.com, djohnson+linux-kernel@sw.starentnetworks.com,
+	e1000-devel@lists.sourceforge.net,
+	"'Kok, Auke'" <auke-jan.h.kok@intel.com>
+To: Joonwoo Park <joonwpark81@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:33572 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758015AbXKPOY5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 09:24:57 -0500
-In-Reply-To: <473DA6EF.5090004@openvz.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:4026 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1763845AbXKPOep (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 09:34:45 -0500
+Content-Disposition: inline
+In-Reply-To: <006601c82846$b0f99eb0$9c94fea9@jason>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-NAK.
+On Fri, Nov 16, 2007 at 08:49:02PM +0900, Joonwoo Park wrote:
+> 
+> Not anymore about just e1000 :)
+> I made an another patch with different approach which doesn't fix nic driver.
+> In addition, this patch does disable all hw vlan acceleration features (rx, tx, filter) for promiscuous netdevice. (It makes
+> possible tcpdump -i eth0 vlan)
+> Actually, my previous patch did just disable filter for e1000, so we can't see vlan header of packet. (e1000 stripped off the
+> header)
+> I think this patch is much better than previous of mine.
+> How do you think?
 
-In article <473DA6EF.5090004@openvz.org> (at Fri, 16 Nov 2007 17:19:27 +0300), Pavel Emelyanov <xemul@openvz.org> says:
+I don't like this :)
 
-> @@ -858,7 +852,7 @@ static struct sock *raw_get_first(struct seq_file *seq)
->  			++state->bucket) {
->  		struct hlist_node *node;
->  
-> -		sk_for_each(sk, node, &raw_v4_hashinfo.ht[state->bucket])
-> +		sk_for_each(sk, node, &state->h->ht[state->bucket])
->  			if (sk->sk_family == PF_INET)
->  				goto found;
->  	}
+Let's not turn promiscuous mode into catch-all flag that disables
+all optimisations that may interfere with tcpdump.  It should show
+us all the packets by disabling any hardware filtering but that's it.
 
-This and
+BTW, how does the VLAN TX acceleration work at all? It's using
+skb->cb to carry the tags but then calls dev_queue_xmit.  Once
+you do that packet schedulers can scribble all over skb->cb.
 
-> -static struct sock *raw6_get_first(struct seq_file *seq)
-> -{
-> -	struct sock *sk;
-> -	struct hlist_node *node;
-> -	struct raw6_iter_state* state = raw6_seq_private(seq);
-> -
-> -	for (state->bucket = 0; state->bucket < RAW_HTABLE_SIZE;
-> -			++state->bucket)
-> -		sk_for_each(sk, node, &raw_v6_hashinfo.ht[state->bucket])
-> -			if (sk->sk_family == PF_INET6)
-> -				goto out;
-> -	sk = NULL;
-> -out:
-> -	return sk;
-> -}
-> -
+Also vlan_skb_recv should be moved out-of-line.  It's absolutely
+humongous.  It'll generate tail-calls anyway so performance-wise
+it's useless.
 
-this are different.
-
---yoshfuji
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
