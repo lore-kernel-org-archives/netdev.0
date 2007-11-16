@@ -1,40 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] [IPV4] UDP: Always checksum even if without socket
- filter
-Date: Thu, 15 Nov 2007 20:04:31 -0800 (PST)
-Message-ID: <20071115.200431.102331739.davem@davemloft.net>
-References: <473D0482.4050705@cn.fujitsu.com>
-	<20071115.185403.138420969.davem@davemloft.net>
-	<473D0BF8.3060902@cn.fujitsu.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] via-velocity: don't oops on MTU change.
+Date: Thu, 15 Nov 2007 20:05:20 -0800
+Message-ID: <20071115200520.0a887abb@freepuppy.rosehill>
+References: <20071114193844.0cab5c7d@freepuppy.rosehill>
+	<20071115082600.GA2366@ff.dom.local>
+	<20071115102005.0cf46f9a@freepuppy.rosehill>
+	<473CD1F6.9030709@o2.pl>
+	<cccedfc60711151842l4aafe0ffo220e84a5e37b6a82@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: wangchen@cn.fujitsu.com
+Cc: "Jarek Poplawski" <jarkao2@o2.pl>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	jnelson-kernel-bugzilla@jamponi.net
+To: "Jon Nelson" <jnelson@jamponi.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50997
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757356AbXKPEEc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 23:04:32 -0500
-In-Reply-To: <473D0BF8.3060902@cn.fujitsu.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:48064 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756469AbXKPEHN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 23:07:13 -0500
+In-Reply-To: <cccedfc60711151842l4aafe0ffo220e84a5e37b6a82@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Date: Fri, 16 Nov 2007 11:18:16 +0800
+On Thu, 15 Nov 2007 20:42:55 -0600
+"Jon Nelson" <jnelson@jamponi.net> wrote:
 
-> Actually, I tested and found this issue.
-> I sent 50 udp packets, which have wrong checksum, to my
-> machine.
-> Before the patch being applied, /proc/net/snmp's udp
-> InDatagrams increased, and InErrors didn't increase.
-> After the patch being applied, InErrors increased correctly
-> and InDatagrams stayed unchanging.
+> On 11/15/07, Jarek Poplawski <jarkao2@o2.pl> wrote:
+> ..
+> 
+> > Sure! I was only worried velocity_open() treats dev->mtu
+> > a bit different than velocity_change_mtu(), so eg. after:
+> >
+> > velocity_change_mtu() // dev is down
+> > velocity_open()
+> > velocity_change_mtu() // dev is up
+> >
+> > with the same mtu, vptr->rx_buf_sz could be different than after:
+> >
+> > velocity_open()
+> > velocity_change_mtu() // dev is up
+> >
+> > But, probably, I miss someting.
+> 
+> There is a snag here: if I change the MTU after the device is UP
+> something ends up rather broken. A tcpdump shows nearly every outgoing
+> frame has a bad TCP checksum (and the card does not support H/W
+> checksumming or it is turned off as reported by ethtool).
+> 
 
-That's right, InDataGrams will increase even if we haven't
-verified the checksum yet.
+That is a different (and pre-existing bug). 
 
-When the user does a recvmsg() or a poll() on the socket,
-we will notice the bad checksum then and increment InErrors.
-We could in this case correct the InDatagrams counter by
-decrementing it in this case.
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
