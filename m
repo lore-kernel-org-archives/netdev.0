@@ -1,56 +1,49 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] via-velocity: don't oops on MTU change.
-Date: Thu, 15 Nov 2007 20:05:20 -0800
-Message-ID: <20071115200520.0a887abb@freepuppy.rosehill>
-References: <20071114193844.0cab5c7d@freepuppy.rosehill>
-	<20071115082600.GA2366@ff.dom.local>
-	<20071115102005.0cf46f9a@freepuppy.rosehill>
-	<473CD1F6.9030709@o2.pl>
-	<cccedfc60711151842l4aafe0ffo220e84a5e37b6a82@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NET]: rt_check_expire() can take a long time, add a
+ cond_resched()
+Date: Thu, 15 Nov 2007 20:07:14 -0800 (PST)
+Message-ID: <20071115.200714.109055797.davem@davemloft.net>
+References: <200711150401.lAF41mSs021898@hera.kernel.org>
+	<20071115193802.4ec64eef@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Jarek Poplawski" <jarkao2@o2.pl>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	jnelson-kernel-bugzilla@jamponi.net
-To: "Jon Nelson" <jnelson@jamponi.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	dada1@cosmosbay.com
+To: arjan@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:48064 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756469AbXKPEHN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 23:07:13 -0500
-In-Reply-To: <cccedfc60711151842l4aafe0ffo220e84a5e37b6a82@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56400
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756801AbXKPEHP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2007 23:07:15 -0500
+In-Reply-To: <20071115193802.4ec64eef@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 15 Nov 2007 20:42:55 -0600
-"Jon Nelson" <jnelson@jamponi.net> wrote:
+From: Arjan van de Ven <arjan@infradead.org>
+Date: Thu, 15 Nov 2007 19:38:02 -0800
 
-> On 11/15/07, Jarek Poplawski <jarkao2@o2.pl> wrote:
-> ..
+> On Thu, 15 Nov 2007 04:01:48 GMT
+> Linux Kernel Mailing List <linux-kernel@vger.kernel.org> wrote:
 > 
-> > Sure! I was only worried velocity_open() treats dev->mtu
-> > a bit different than velocity_change_mtu(), so eg. after:
-> >
-> > velocity_change_mtu() // dev is down
-> > velocity_open()
-> > velocity_change_mtu() // dev is up
-> >
-> > with the same mtu, vptr->rx_buf_sz could be different than after:
-> >
-> > velocity_open()
-> > velocity_change_mtu() // dev is up
-> >
-> > But, probably, I miss someting.
+> >     Using a "if (need_resched())" test before calling
+> > "cond_resched();" is necessary to avoid spending too much time doing
+> > the resched check. 
 > 
-> There is a snag here: if I change the MTU after the device is UP
-> something ends up rather broken. A tcpdump shows nearly every outgoing
-> frame has a bad TCP checksum (and the card does not support H/W
-> checksumming or it is turned off as reported by ethtool).
+> int __sched cond_resched(void)
+> {
+>         if (need_resched() &&  .....
 > 
+> somehow I wonder why the second if() is useful at all; it's another
+> spot for a branch predictor to miss... and a void function call is
+> really really cheap... 
 
-That is a different (and pre-existing bug). 
+Not by Eric's tests.  Please read the thread, he checked and it's
+50ms more expensive to make the function call.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Please, when you notice something interesting in something flying
+by on git-web, go check thing out we probably discussed the thing
+you're interested in.
+
+And please at least CC: netdev about networking patches, and also the
+patch author, which I've corrected in this reply.
