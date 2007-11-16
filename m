@@ -1,68 +1,36 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH net-2.6.25] [TCP]: Correct DSACK check placing
-Date: Fri, 16 Nov 2007 17:29:46 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0711161724050.24866@kivilampi-30.cs.helsinki.fi>
+From: "Jon Nelson" <jnelson@jamponi.net>
+Subject: Re: [PATCH] via-velocity: don't oops on MTU change.
+Date: Fri, 16 Nov 2007 10:21:25 -0600
+Message-ID: <cccedfc60711160821p5f1790eaq8d385e71726cd5a0@mail.gmail.com>
+References: <20071114193844.0cab5c7d@freepuppy.rosehill>
+	 <20071115082600.GA2366@ff.dom.local>
+	 <20071115102005.0cf46f9a@freepuppy.rosehill> <473CD1F6.9030709@o2.pl>
+	 <cccedfc60711151842l4aafe0ffo220e84a5e37b6a82@mail.gmail.com>
+	 <20071115203508.4ad025f2@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1787533568-1195226986=:24866"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Jarek Poplawski" <jarkao2@o2.pl>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	jnelson-kernel-bugzilla@jamponi.net
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:50081 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750820AbXKPP3t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 10:29:49 -0500
+Received: from nf-out-0910.google.com ([64.233.182.186]:54835 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751072AbXKPQVa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 11:21:30 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so865576nfb
+        for <netdev@vger.kernel.org>; Fri, 16 Nov 2007 08:21:26 -0800 (PST)
+In-Reply-To: <20071115203508.4ad025f2@freepuppy.rosehill>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+I get a segmentation fault.
 
----696243703-1787533568-1195226986=:24866
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+Should this patch be in addition to the one from bug 9382?
+http://bugzilla.kernel.org/attachment.cgi?id=13555&action=view
 
-Previously one of the in-block skip branches was missing it.
-
-Also, drop it from tail-fully-processed case because the next
-iteration will do exactly the same thing, i.e., process the
-SACK block that contains the DSACK information.
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_input.c |   15 +++++----------
- 1 files changed, 5 insertions(+), 10 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index cd6924e..dae000b 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1554,20 +1554,15 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
- 			}
- 
- 			/* Rest of the block already fully processed? */
--			if (!after(end_seq, cache->end_seq)) {
--				skb = tcp_maybe_skipping_dsack(skb, sk, next_dup, cache->end_seq,
--							       &fack_count, &reord, &flag);
-+			if (!after(end_seq, cache->end_seq))
- 				goto advance_sp;
--			}
-+
-+			skb = tcp_maybe_skipping_dsack(skb, sk, next_dup, cache->end_seq,
-+						       &fack_count, &reord, &flag);
- 
- 			/* ...tail remains todo... */
- 			if (TCP_SKB_CB(tp->highest_sack)->end_seq == cache->end_seq) {
--				/* ...but better entrypoint exists! Check that DSACKs are
--				 * properly accounted while skipping here
--				 */
--				tcp_maybe_skipping_dsack(skb, sk, next_dup, cache->end_seq,
--							 &fack_count, &reord, &flag);
--
-+				/* ...but better entrypoint exists! */
- 				skb = tcp_write_queue_next(sk, tp->highest_sack);
- 				fack_count = tp->fackets_out;
- 				cache++;
 -- 
-1.5.0.6
-
----696243703-1787533568-1195226986=:24866--
+Jon
