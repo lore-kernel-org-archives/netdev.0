@@ -1,33 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 04/10] [TCP]: Convert highest_sack to sk_buff to allow
- direct access
-Date: Thu, 15 Nov 2007 19:42:16 -0800 (PST)
-Message-ID: <20071115.194216.121056251.davem@davemloft.net>
-References: <11951338543953-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<11951338542528-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 05/10] [TCP]: Make lost retrans detection more
+ self-contained
+Date: Thu, 15 Nov 2007 19:43:14 -0800 (PST)
+Message-ID: <20071115.194314.62699193.davem@davemloft.net>
+References: <11951338542528-git-send-email-ilpo.jarvinen@helsinki.fi>
 	<11951338542967-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<1195133854614-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53502
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53508
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757040AbXKPDmQ convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1756217AbXKPDnP convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2007 22:42:16 -0500
-In-Reply-To: <11951338542967-git-send-email-ilpo.jarvinen@helsinki.fi>
+	Thu, 15 Nov 2007 22:43:15 -0500
+In-Reply-To: <1195133854614-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 =46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Thu, 15 Nov 2007 15:37:28 +0200
+Date: Thu, 15 Nov 2007 15:37:29 +0200
 
-> It is going to replace the sack fastpath hint quite soon... :-)
+> Highest_sack_end_seq is no longer calculated in the loop,
+> thus it can be pushed to the worker function altogether
+> making that function independent of the sacktag.
 >=20
 > Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-I always liked this patch, how can I not apply it? :-)
+Looks good, applied.
 
-Added to net-2.6.25, thanks Ilpo!
+Thanks Ilpo.
