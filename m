@@ -1,126 +1,66 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] NET : convert ip_rt_acct to per_cpu variables
-Date: Fri, 16 Nov 2007 11:58:52 +0100
-Message-ID: <20071116115852.518b696d.dada1@cosmosbay.com>
-References: <20071116095903.d2ef9c14.dada1@cosmosbay.com>
-	<20071116.011243.48184084.davem@davemloft.net>
-	<20071116103546.8320d985.dada1@cosmosbay.com>
+From: "Arnaldo Carvalho de Melo" <acme@redhat.com>
+Subject: Re: [Bugme-new] [Bug 9384] New: Appletalk packets are delivered to
+	the last interface FD_SET
+Date: Fri, 16 Nov 2007 09:23:04 -0200
+Message-ID: <20071116112304.GD24452@ghostprotocols.net>
+References: <bug-9384-10286@http.bugzilla.kernel.org/> <20071115021219.e5c71556.akpm@linux-foundation.org> <20071115.154935.96540711.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, trs80@ucc.asn.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:43608 "EHLO pfx2.jmh.fr"
+Received: from mx1.redhat.com ([66.187.233.31]:55126 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755429AbXKPK6w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Nov 2007 05:58:52 -0500
-In-Reply-To: <20071116103546.8320d985.dada1@cosmosbay.com>
+	id S1752950AbXKPLX6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Nov 2007 06:23:58 -0500
+Content-Disposition: inline
+In-Reply-To: <20071115.154935.96540711.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 16 Nov 2007 10:35:46 +0100
-Eric Dumazet <dada1@cosmosbay.com> wrote:
-
-> On Fri, 16 Nov 2007 01:12:43 -0800 (PST)
-> David Miller <davem@davemloft.net> wrote:
+Em Thu, Nov 15, 2007 at 03:49:35PM -0800, David Miller escreveu:
+> From: Andrew Morton <akpm@linux-foundation.org>
+> Date: Thu, 15 Nov 2007 02:12:19 -0800
 > 
-> > From: Eric Dumazet <dada1@cosmosbay.com>
-> > Date: Fri, 16 Nov 2007 09:59:03 +0100
-> > 
-> > > [PATCH] NET : NET_CLS_ROUTE : convert ip_rt_acct to per_cpu variables
+> > > Most recent kernel where this bug did not occur: 2.6.10. Maybe 2.6.15? It was
+> > > in 2.6.18 along with bug 7421 which caused me to disable netatalk until now.
+> > > Distribution: Debian etch (4.0)
+> > > Hardware Environment: Pentium 4 2.8GHz, HT off, Intel D865GLC motherboard,
+> > > 256MB RAM, onboard Intel GigE, PCI Intel e100.
+> > > Software Environment: Netatalk 2.0.3, ipset patch for iptables and kernel
+> > > Problem Description: Appletalk packets appear to come from the wrong interface,
+> > > specifically the last one FD_SET. Using wireshark I see Appletalk rtmp packets
+> > > arrive from the upstream router on eth1 (the e100). Netatalk then reports the
+> > > packet as having arrived on eth0.3, which is the only other appletalk enabled
+> > > interface, and prints "rtmp_packet interface mismatch" because the packet
+> > > appears to come from the wrong interface.
 > > > 
-> > > ip_rt_acct needs 4096 bytes per cpu to perform some accounting.
-> > > It is actually allocated as a single huge array [4096*NR_CPUS]
-> > > (rounded up to a power of two)
+> > > I'm fairly sure it's the kernel doing it, because wireshark is listening on
+> > > eth1 and shows the packet from the upstream router's MAC address and DDP
+> > > address, then the debug code in atalkd immediately after the recvfrom prints
+> > > the ifr_name which is eth0.3. Also netatalk 2.0.3 was released over 2 years
+> > > ago, so the only code that's changed is the kernel.
 > > > 
-> > > Converting it to a per cpu variable is wanted to :
-> > >  - Save space on machines were num_possible_cpus() < NR_CPUS
-> > >  - Better NUMA placement (each cpu gets memory on its node)
+> > > Enabling appletalk on eth0.2 clarifies the problem - packets are delivered to
+> > > fds belonging to the last interface FD_SET. Reordering the interfaces also
+> > > shows this, as in the config file changing the order of the interfaces changes
+> > > the order they're looped through for FD_SET.
 > > > 
-> > > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> > 
-> > This is better in one sense but worse in another.
-> > 
-> > At least the previous code dynamically allocated the thing,
-> > now at least one copy is taking up core kernel text image
-> > space.
+> > > Steps to reproduce: Set up a multi-interface netatalk config and watch for
+> > > rtmp_packet interface mismatch messages. I added a bunch of log statements to
+> > > debug this, the most useful places to put them are at the end of setaddr() and
+> > > after the select() in main().
+> > > 
+> > > The machine is a router, so I have to minimise the downtime of testing
+> > > different kernel versions. I am happy to instrument atalkd or provide packet
+> > > captures.
 > 
-> Oh I see, you think that adding 4096 null bytes to the static percpu area might be a problem.
+> I suspect there is some issue with the ordering of the atalk
+> interface list which is causing this.
 > 
-> > 
-> > I think it's an alloc_percpu() candidate, what do you think?
-> > 
-> 
-> Yes absolutely, I will submit a new version.
-> 
-> Thank you
+> Arnaldo, can you please take a look at this?
 
-[PATCH] NET : NET_CLS_ROUTE : convert ip_rt_acct to per_cpu variables
+I'll look at this in the afternoon.
 
-ip_rt_acct needs 4096 bytes per cpu to perform some accounting.
-It is actually allocated as a single huge array [4096*NR_CPUS]
-(rounded up to a power of two)
-
-Converting it to a per cpu variable is wanted to :
- - Save space on machines were num_possible_cpus() < NR_CPUS
- - Better NUMA placement (each cpu gets memory on its node)
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
- net/ipv4/ip_input.c |    2 +-
- net/ipv4/route.c    |   15 +++------------
- 2 files changed, 4 insertions(+), 13 deletions(-)
-
-
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index 5b8a760..4068e17 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -347,7 +347,7 @@ static int ip_rcv_finish(struct sk_buff *skb)
- 
- #ifdef CONFIG_NET_CLS_ROUTE
- 	if (unlikely(skb->dst->tclassid)) {
--		struct ip_rt_acct *st = ip_rt_acct + 256*smp_processor_id();
-+		struct ip_rt_acct *st = per_cpu_ptr(ip_rt_acct, smp_processor_id());
- 		u32 idx = skb->dst->tclassid;
- 		st[idx&0xFF].o_packets++;
- 		st[idx&0xFF].o_bytes+=skb->len;
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 70529a9..856807c 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2855,12 +2855,10 @@ ctl_table ipv4_route_table[] = {
- #endif
- 
- #ifdef CONFIG_NET_CLS_ROUTE
--struct ip_rt_acct *ip_rt_acct;
--
--/* This code sucks.  But you should have seen it before! --RR */
-+struct ip_rt_acct *ip_rt_acct __read_mostly;
- 
- /* IP route accounting ptr for this logical cpu number. */
--#define IP_RT_ACCT_CPU(i) (ip_rt_acct + i * 256)
-+#define IP_RT_ACCT_CPU(cpu) (per_cpu_ptr(ip_rt_acct, cpu))
- 
- #ifdef CONFIG_PROC_FS
- static int ip_rt_acct_read(char *buffer, char **start, off_t offset,
-@@ -2920,16 +2918,9 @@ int __init ip_rt_init(void)
- 			     (jiffies ^ (jiffies >> 7)));
- 
- #ifdef CONFIG_NET_CLS_ROUTE
--	{
--	int order;
--	for (order = 0;
--	     (PAGE_SIZE << order) < 256 * sizeof(struct ip_rt_acct) * NR_CPUS; order++)
--		/* NOTHING */;
--	ip_rt_acct = (struct ip_rt_acct *)__get_free_pages(GFP_KERNEL, order);
-+	ip_rt_acct = __alloc_percpu(256 * sizeof(struct ip_rt_acct));
- 	if (!ip_rt_acct)
- 		panic("IP: failed to allocate ip_rt_acct\n");
--	memset(ip_rt_acct, 0, PAGE_SIZE << order);
--	}
- #endif
- 
- 	ipv4_dst_ops.kmem_cachep =
-
+- Arnaldo
