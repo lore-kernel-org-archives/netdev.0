@@ -1,37 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET : convert ip_rt_acct to per_cpu variables
-Date: Fri, 16 Nov 2007 03:32:38 -0800 (PST)
-Message-ID: <20071116.033238.167839530.davem@davemloft.net>
-References: <20071116.011243.48184084.davem@davemloft.net>
-	<20071116103546.8320d985.dada1@cosmosbay.com>
-	<20071116115852.518b696d.dada1@cosmosbay.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Mcast packet loss 2.6.8.1 kernel
+Date: Fri, 16 Nov 2007 12:38:22 +0100
+Message-ID: <20071116123822.39babae8.dada1@cosmosbay.com>
+References: <1195112740.4853.14.camel@linux-ak10.SGC>
+	<E1IswSr-0006Nd-00@calista.eckenfels.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33894
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751746AbXKPLcj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 06:32:39 -0500
-In-Reply-To: <20071116115852.518b696d.dada1@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: akadwa@grintek.com, linux-net@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Bernd Eckenfels <ecki@lina.inka.de>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <E1IswSr-0006Nd-00@calista.eckenfels.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Fri, 16 Nov 2007 11:58:52 +0100
+On Fri, 16 Nov 2007 09:22:13 +0100
+Bernd Eckenfels <ecki@lina.inka.de> wrote:
 
-> [PATCH] NET : NET_CLS_ROUTE : convert ip_rt_acct to per_cpu variables
+> In article <1195112740.4853.14.camel@linux-ak10.SGC> you wrote:
+> > output of netstat after startup and before tx of packets
+> > /flash/sbin/netstat -s
+> ...
+> > error parsing /proc/net/snmp: Success
 > 
-> ip_rt_acct needs 4096 bytes per cpu to perform some accounting.
-> It is actually allocated as a single huge array [4096*NR_CPUS]
-> (rounded up to a power of two)
-> 
-> Converting it to a per cpu variable is wanted to :
->  - Save space on machines were num_possible_cpus() < NR_CPUS
->  - Better NUMA placement (each cpu gets memory on its node)
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> Could you sent me (net-tools maintainer) the output of netstat -V as well as
+> the content of "cat /proc/net/snmp > dump" so i can see if this is a fixable
+> problem?
 
-Applied to net-2.6.25, thanks Eric.
+Hello Bernd
+
+I did some investigations on the "netstat -s" problem and one
+ fix is to change the size of char buf1[1024], buf2[1024];
+
+(function process_fd(), file statistics.c)
+
+from 1024 to say 2048, because one line of /proc/net/netstat exceeds 1024 chars in current kernels.
+
+Thank you
+
+BTW, a real usefull thing would be to force reads of various 
+/proc files to use PAGE_SIZE buffers instead of standard 1024 ones.
+
+This can speedup netstat by a four factor at least. (reading of /proc/net/tcp file is O(N^2))
+
+--- netstat.c.orig	2007-11-16 12:28:15.000000000 +0100
++++ netstat.c	2007-11-16 12:33:12.000000000 +0100
+@@ -152,8 +152,24 @@
+ 
+ FILE *procinfo;
+ 
++FILE *myfopen_r(const char *name)
++{
++	static char *buffer;
++	static size_t pagesz;
++	FILE *res = fopen(name, "r");
++
++	if (res != NULL) {
++		if (!buffer) {
++			pagesz = getpagesize();
++			buffer = malloc(pagesz);
++		}
++		setvbuf(res, buffer, _IOFBF, pagesz); 
++	}
++	return res;
++}
++
+ #define INFO_GUTS1(file,name,proc)			\
+-  procinfo = fopen((file), "r");			\
++  procinfo = myfopen_r((file));			\
+   if (procinfo == NULL) {				\
+     if (errno != ENOENT) {				\
+       perror((file));					\
+@@ -174,7 +190,7 @@
+ #if HAVE_AFINET6
+ #define INFO_GUTS2(file,proc)				\
+   lnr = 0;						\
+-  procinfo = fopen((file), "r");		       	\
++  procinfo = myfopen_r((file));		       	\
+   if (procinfo != NULL) {				\
+     do {						\
+       if (fgets(buffer, sizeof(buffer), procinfo))	\
+
