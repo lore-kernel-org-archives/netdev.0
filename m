@@ -1,66 +1,37 @@
-From: "Arnaldo Carvalho de Melo" <acme@redhat.com>
-Subject: Re: [Bugme-new] [Bug 9384] New: Appletalk packets are delivered to
-	the last interface FD_SET
-Date: Fri, 16 Nov 2007 09:23:04 -0200
-Message-ID: <20071116112304.GD24452@ghostprotocols.net>
-References: <bug-9384-10286@http.bugzilla.kernel.org/> <20071115021219.e5c71556.akpm@linux-foundation.org> <20071115.154935.96540711.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] NET : convert ip_rt_acct to per_cpu variables
+Date: Fri, 16 Nov 2007 03:32:38 -0800 (PST)
+Message-ID: <20071116.033238.167839530.davem@davemloft.net>
+References: <20071116.011243.48184084.davem@davemloft.net>
+	<20071116103546.8320d985.dada1@cosmosbay.com>
+	<20071116115852.518b696d.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, trs80@ucc.asn.au
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:55126 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752950AbXKPLX6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Nov 2007 06:23:58 -0500
-Content-Disposition: inline
-In-Reply-To: <20071115.154935.96540711.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33894
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751746AbXKPLcj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 06:32:39 -0500
+In-Reply-To: <20071116115852.518b696d.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Thu, Nov 15, 2007 at 03:49:35PM -0800, David Miller escreveu:
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Date: Thu, 15 Nov 2007 02:12:19 -0800
-> 
-> > > Most recent kernel where this bug did not occur: 2.6.10. Maybe 2.6.15? It was
-> > > in 2.6.18 along with bug 7421 which caused me to disable netatalk until now.
-> > > Distribution: Debian etch (4.0)
-> > > Hardware Environment: Pentium 4 2.8GHz, HT off, Intel D865GLC motherboard,
-> > > 256MB RAM, onboard Intel GigE, PCI Intel e100.
-> > > Software Environment: Netatalk 2.0.3, ipset patch for iptables and kernel
-> > > Problem Description: Appletalk packets appear to come from the wrong interface,
-> > > specifically the last one FD_SET. Using wireshark I see Appletalk rtmp packets
-> > > arrive from the upstream router on eth1 (the e100). Netatalk then reports the
-> > > packet as having arrived on eth0.3, which is the only other appletalk enabled
-> > > interface, and prints "rtmp_packet interface mismatch" because the packet
-> > > appears to come from the wrong interface.
-> > > 
-> > > I'm fairly sure it's the kernel doing it, because wireshark is listening on
-> > > eth1 and shows the packet from the upstream router's MAC address and DDP
-> > > address, then the debug code in atalkd immediately after the recvfrom prints
-> > > the ifr_name which is eth0.3. Also netatalk 2.0.3 was released over 2 years
-> > > ago, so the only code that's changed is the kernel.
-> > > 
-> > > Enabling appletalk on eth0.2 clarifies the problem - packets are delivered to
-> > > fds belonging to the last interface FD_SET. Reordering the interfaces also
-> > > shows this, as in the config file changing the order of the interfaces changes
-> > > the order they're looped through for FD_SET.
-> > > 
-> > > Steps to reproduce: Set up a multi-interface netatalk config and watch for
-> > > rtmp_packet interface mismatch messages. I added a bunch of log statements to
-> > > debug this, the most useful places to put them are at the end of setaddr() and
-> > > after the select() in main().
-> > > 
-> > > The machine is a router, so I have to minimise the downtime of testing
-> > > different kernel versions. I am happy to instrument atalkd or provide packet
-> > > captures.
-> 
-> I suspect there is some issue with the ordering of the atalk
-> interface list which is causing this.
-> 
-> Arnaldo, can you please take a look at this?
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Fri, 16 Nov 2007 11:58:52 +0100
 
-I'll look at this in the afternoon.
+> [PATCH] NET : NET_CLS_ROUTE : convert ip_rt_acct to per_cpu variables
+> 
+> ip_rt_acct needs 4096 bytes per cpu to perform some accounting.
+> It is actually allocated as a single huge array [4096*NR_CPUS]
+> (rounded up to a power of two)
+> 
+> Converting it to a per cpu variable is wanted to :
+>  - Save space on machines were num_possible_cpus() < NR_CPUS
+>  - Better NUMA placement (each cpu gets memory on its node)
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-- Arnaldo
+Applied to net-2.6.25, thanks Eric.
