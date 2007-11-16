@@ -1,60 +1,48 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH 6/6 net-2.6.25][RAW] Consolidate proc interface
-Date: Fri, 16 Nov 2007 17:39:21 +0300
-Message-ID: <473DAB99.7060903@openvz.org>
-References: <473DA6EF.5090004@openvz.org> <20071116.232455.82345485.yoshfuji@linux-ipv6.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: FW: [PATCH 2/2] [e1000 VLAN] Disable vlan hw
+ accel when promiscuous mode
+Date: Fri, 16 Nov 2007 15:46:26 +0100
+Message-ID: <473DAD42.60603@trash.net>
+References: <006601c82846$b0f99eb0$9c94fea9@jason>
+	<20071116143348.GA10596@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, devel@openvz.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:44712 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752130AbXKPOji (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Nov 2007 09:39:38 -0500
-In-Reply-To: <20071116.232455.82345485.yoshfuji@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: "'Kok, Auke'" <auke-jan.h.kok@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	djohnson+linux-kernel@sw.starentnetworks.com,
+	linux-kernel@vger.kernel.org, Joonwoo Park <joonwpark81@gmail.com>,
+	'David Miller' <davem@davemloft.net>, cfriesen@nortel.com,
+	greearb@candelatech.com, w@1wt.eu
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20071116143348.GA10596@gondor.apana.org.au>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki wrote:
-> NAK.
+Herbert Xu wrote:
+> BTW, how does the VLAN TX acceleration work at all? It's using
+> skb->cb to carry the tags but then calls dev_queue_xmit.  Once
+> you do that packet schedulers can scribble all over skb->cb.
 > 
-> In article <473DA6EF.5090004@openvz.org> (at Fri, 16 Nov 2007 17:19:27 +0300), Pavel Emelyanov <xemul@openvz.org> says:
-> 
->> @@ -858,7 +852,7 @@ static struct sock *raw_get_first(struct seq_file *seq)
->>  			++state->bucket) {
->>  		struct hlist_node *node;
->>  
->> -		sk_for_each(sk, node, &raw_v4_hashinfo.ht[state->bucket])
->> +		sk_for_each(sk, node, &state->h->ht[state->bucket])
->>  			if (sk->sk_family == PF_INET)
->>  				goto found;
->>  	}
-> 
-> This and
-> 
->> -static struct sock *raw6_get_first(struct seq_file *seq)
->> -{
->> -	struct sock *sk;
->> -	struct hlist_node *node;
->> -	struct raw6_iter_state* state = raw6_seq_private(seq);
->> -
->> -	for (state->bucket = 0; state->bucket < RAW_HTABLE_SIZE;
->> -			++state->bucket)
->> -		sk_for_each(sk, node, &raw_v6_hashinfo.ht[state->bucket])
->> -			if (sk->sk_family == PF_INET6)
->> -				goto out;
->> -	sk = NULL;
->> -out:
->> -	return sk;
->> -}
->> -
-> 
-> this are different.
+> Also vlan_skb_recv should be moved out-of-line.  It's absolutely
+> humongous.  It'll generate tail-calls anyway so performance-wise
+> it's useless.
 
-Oops... Indeed. Thanks for noticing. I've overlooked this :(
 
-> --yoshfuji
-> 
+I have a number of VLAN cleanups queued and intend to do these
+two changes on top.
 
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
