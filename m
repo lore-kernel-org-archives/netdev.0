@@ -1,48 +1,79 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] IPV4 : Move ip route cache flush (secret_rebuild) from
- softirq to workqueue
-Date: Fri, 16 Nov 2007 22:23:58 +0100
-Message-ID: <473E0A6E.6070808@cosmosbay.com>
-References: <20071116174027.726e6eca.dada1@cosmosbay.com> <20071116194959.GE8971@verge.net.au>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH 2/9] cxgb3 - Use wild card for PCI vendor ID match
+Date: Fri, 16 Nov 2007 13:25:53 -0800
+Message-ID: <473E0AE1.2050904@chelsio.com>
+References: <20071116192144.31042.69591.stgit@speedy5>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, swise@opengridcomputing.com,
+	wenxiong@us.ibm.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:56462 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753893AbXKPVYM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 16:24:12 -0500
-In-Reply-To: <20071116194959.GE8971@verge.net.au>
+Received: from stargate.chelsio.com ([12.22.49.110]:32883 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752502AbXKPV0S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 16:26:18 -0500
+In-Reply-To: <20071116192144.31042.69591.stgit@speedy5>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Simon Horman a =E9crit :
-> Is it ever neccessary to call cond_resched() if rt_hash_table[i].chai=
-n
-> is NULL? If not, the following looks cleaner to my eyes:
->=20
-> 	for (i =3D 0; i <=3D rt_hash_mask; i++) {
-> 		rth =3D rt_hash_table[i].chain;
-> 		if (!rth)
-> 			continue;
->=20
-> 		spin_lock_bh(rt_hash_lock_addr(i));
-> 		rth =3D rt_hash_table[i].chain;
-> 		rt_hash_table[i].chain =3D NULL;
-> 		spin_unlock_bh(rt_hash_lock_addr(i));
->=20
-> 		...
->=20
+Divy Le Ray wrote:
+> From: Divy Le Ray <divy@chelsio.com>
+>
+> Vendor ID is not necessarily set to 1. 
+>   
+This patch modifies the sub-device id, not the vendor id ...
 
-Well, it depends if the table is empty or not, and its size.
-
-Some RT tasks want to to be wakeup every ms for example.
-
-With a 8MB hash table (one million slots on x86_64), the full scan is l=
-onger=20
-than 1 ms, even if no IRQ came and stole the cpu...
+> Use Vendor Id wild card for PCI device matching
+>
+> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+> ---
+>
+>  drivers/net/cxgb3/cxgb3_main.c |   24 ++++++++++++------------
+>  1 files changed, 12 insertions(+), 12 deletions(-)
+>
+> diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+> index bb0d1c8..d92da8f 100644
+> --- a/drivers/net/cxgb3/cxgb3_main.c
+> +++ b/drivers/net/cxgb3/cxgb3_main.c
+> @@ -76,20 +76,20 @@ enum {
+>  
+>  #define EEPROM_MAGIC 0x38E2F10C
+>  
+> -#define CH_DEVICE(devid, ssid, idx) \
+> -	{ PCI_VENDOR_ID_CHELSIO, devid, PCI_ANY_ID, ssid, 0, 0, idx }
+> +#define CH_DEVICE(devid, idx) \
+> +	{ PCI_VENDOR_ID_CHELSIO, devid, PCI_ANY_ID, PCI_ANY_ID, 0, 0, idx }
+>  
+>  static const struct pci_device_id cxgb3_pci_tbl[] = {
+> -	CH_DEVICE(0x20, 1, 0),	/* PE9000 */
+> -	CH_DEVICE(0x21, 1, 1),	/* T302E */
+> -	CH_DEVICE(0x22, 1, 2),	/* T310E */
+> -	CH_DEVICE(0x23, 1, 3),	/* T320X */
+> -	CH_DEVICE(0x24, 1, 1),	/* T302X */
+> -	CH_DEVICE(0x25, 1, 3),	/* T320E */
+> -	CH_DEVICE(0x26, 1, 2),	/* T310X */
+> -	CH_DEVICE(0x30, 1, 2),	/* T3B10 */
+> -	CH_DEVICE(0x31, 1, 3),	/* T3B20 */
+> -	CH_DEVICE(0x32, 1, 1),	/* T3B02 */
+> +	CH_DEVICE(0x20, 0),	/* PE9000 */
+> +	CH_DEVICE(0x21, 1),	/* T302E */
+> +	CH_DEVICE(0x22, 2),	/* T310E */
+> +	CH_DEVICE(0x23, 3),	/* T320X */
+> +	CH_DEVICE(0x24, 1),	/* T302X */
+> +	CH_DEVICE(0x25, 3),	/* T320E */
+> +	CH_DEVICE(0x26, 2),	/* T310X */
+> +	CH_DEVICE(0x30, 2),	/* T3B10 */
+> +	CH_DEVICE(0x31, 3),	/* T3B20 */
+> +	CH_DEVICE(0x32, 1),	/* T3B02 */
+>  	{0,}
+>  };
+>  
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   
 
