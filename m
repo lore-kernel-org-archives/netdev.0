@@ -1,7 +1,7 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 4/9] cxgb3 - Add EEH support
-Date: Fri, 16 Nov 2007 11:21:55 -0800
-Message-ID: <20071116192155.31079.95892.stgit@speedy5>
+Subject: [PATCH 5/9] cxgb3 - FW upgrade
+Date: Fri, 16 Nov 2007 11:22:00 -0800
+Message-ID: <20071116192200.31097.72325.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,145 +10,61 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	wenxiong@us.ibm.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:14591 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:5140 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1765116AbXKPTWA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 14:22:00 -0500
+	with ESMTP id S1765770AbXKPTWH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 14:22:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Add PCI recovery support
+Bump up FW version to 5.0.
+Do not downgrade FW within the same major version range.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/cxgb3_main.c |  107 ++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 107 insertions(+), 0 deletions(-)
+ drivers/net/cxgb3/t3_hw.c   |   10 +++++++---
+ drivers/net/cxgb3/version.h |    4 ++--
+ 2 files changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-index 9d14652..1b9a711 100644
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -2316,6 +2316,112 @@ void t3_fatal_err(struct adapter *adapter)
- 
+diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
+index d4ee00d..4b6087a 100644
+--- a/drivers/net/cxgb3/t3_hw.c
++++ b/drivers/net/cxgb3/t3_hw.c
+@@ -988,13 +988,17 @@ int t3_check_fw_version(struct adapter *adapter, int *must_load)
+ 		CH_ERR(adapter, "found wrong FW version(%u.%u), "
+ 		       "driver needs version %u.%u\n", major, minor,
+ 		       FW_VERSION_MAJOR, FW_VERSION_MINOR);
+-	else {
++	else if (minor < FW_VERSION_MINOR) {
+ 		*must_load = 0;
+-		CH_WARN(adapter, "found wrong FW minor version(%u.%u), "
++		CH_WARN(adapter, "found old FW minor version(%u.%u), "
++		        "driver compiled for version %u.%u\n", major, minor,
++			FW_VERSION_MAJOR, FW_VERSION_MINOR);
++	} else {
++		CH_WARN(adapter, "found newer FW version(%u.%u), "
+ 		        "driver compiled for version %u.%u\n", major, minor,
+ 			FW_VERSION_MAJOR, FW_VERSION_MINOR);
++			return 0;
+ 	}
+-
+ 	return -EINVAL;
  }
  
-+/**
-+ * t3_io_error_detected - called when PCI error is detected
-+ * @pdev: Pointer to PCI device
-+ * @state: The current pci connection state
-+ *
-+ * This function is called after a PCI bus error affecting
-+ * this device has been detected.
-+ */
-+static pci_ers_result_t t3_io_error_detected(struct pci_dev *pdev,
-+					     pci_channel_state_t state)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+	struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adapter = pi->adapter;
-+	int i;
-+
-+	/* Stop all ports */
-+	for_each_port(adapter, i) {
-+		struct net_device *netdev = adapter->port[i];
-+
-+		if (netif_running(netdev))
-+			cxgb_close(netdev);
-+	}
-+
-+	if (is_offload(adapter) && 
-+	    test_bit(OFFLOAD_DEVMAP_BIT, &adapter->open_device_map))
-+		offload_close(&adapter->tdev);
-+
-+	/* Free sge resources */
-+	t3_free_sge_resources(adapter);
-+
-+	adapter->flags &= ~FULL_INIT_DONE;
-+
-+	pci_disable_device(pdev);
-+
-+	/* Request a slot slot reset. */
-+	return PCI_ERS_RESULT_NEED_RESET;
-+}
-+
-+/**
-+ * t3_io_slot_reset - called after the pci bus has been reset.
-+ * @pdev: Pointer to PCI device
-+ *
-+ * Restart the card from scratch, as if from a cold-boot.
-+ */
-+static pci_ers_result_t t3_io_slot_reset(struct pci_dev *pdev)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+	struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adapter = pi->adapter;
-+
-+	if (pci_enable_device(pdev)) {
-+		dev_err(&pdev->dev,
-+			"Cannot re-enable PCI device after reset.\n");
-+		return PCI_ERS_RESULT_DISCONNECT;
-+	}
-+	pci_set_master(pdev);
-+
-+	t3_prep_adapter(adapter, adapter->params.info, 1);
-+
-+	return PCI_ERS_RESULT_RECOVERED;
-+}
-+
-+/**
-+ * t3_io_resume - called when traffic can start flowing again.
-+ * @pdev: Pointer to PCI device
-+ *
-+ * This callback is called when the error recovery driver tells us that
-+ * its OK to resume normal operation.
-+ */
-+static void t3_io_resume(struct pci_dev *pdev)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+	struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adapter = pi->adapter;
-+	int i;
-+
-+	/* Restart the ports */
-+	for_each_port(adapter, i) {
-+		struct net_device *netdev = adapter->port[i];
-+
-+		if (netif_running(netdev)) {
-+			if (cxgb_open(netdev)) {
-+				dev_err(&pdev->dev,
-+					"can't bring device back up"
-+					" after reset\n");
-+				continue;
-+			}
-+			netif_device_attach(netdev);
-+		}
-+	}
-+
-+	if (is_offload(adapter)) {
-+		__set_bit(OFFLOAD_DEVMAP_BIT, &adapter->registered_device_map);
-+		if (offload_open(dev))
-+			printk(KERN_WARNING
-+			       "Could not bring back offload capabilities\n");
-+	}
-+}
-+
-+static struct pci_error_handlers t3_err_handler = {
-+	.error_detected = t3_io_error_detected,
-+	.slot_reset = t3_io_slot_reset,
-+	.resume = t3_io_resume,
-+};
-+
- static int __devinit cxgb_enable_msix(struct adapter *adap)
- {
- 	struct msix_entry entries[SGE_QSETS + 1];
-@@ -2616,6 +2722,7 @@ static struct pci_driver driver = {
- 	.id_table = cxgb3_pci_tbl,
- 	.probe = init_one,
- 	.remove = __devexit_p(remove_one),
-+	.err_handler = &t3_err_handler,
- };
+diff --git a/drivers/net/cxgb3/version.h b/drivers/net/cxgb3/version.h
+index ef1c633..229303f 100644
+--- a/drivers/net/cxgb3/version.h
++++ b/drivers/net/cxgb3/version.h
+@@ -38,7 +38,7 @@
+ #define DRV_VERSION "1.0-ko"
  
- static int __init cxgb3_init_module(void)
+ /* Firmware version */
+-#define FW_VERSION_MAJOR 4
+-#define FW_VERSION_MINOR 6
++#define FW_VERSION_MAJOR 5
++#define FW_VERSION_MINOR 0
+ #define FW_VERSION_MICRO 0
+ #endif				/* __CHELSIO_VERSION_H */
