@@ -1,83 +1,74 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH] e1000: Fix for 32 bits platforms with 64 bits resources
-Date: Fri, 16 Nov 2007 18:37:38 +1100
-Message-ID: <20071116073821.548CCDDDF4@ozlabs.org>
-Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
-	<jgarzik@pobox.com>
-To: auke-jan.h.kok@intel.com
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Subject: Re: [PATCH 2.6.25] add bnx2x driver for BCM57710 - bnx2x.c
+Date: Fri, 16 Nov 2007 09:55:13 +0200
+Message-ID: <473D4CE1.9070102@broadcom.com>
+References: <1195154386.24548.29.camel@lb-tlvb-eliezer.il.broadcom.com>
+ <1195155983.24548.35.camel@lb-tlvb-eliezer.il.broadcom.com>
+ <20071115150349.51e6d133@freepuppy.rosehill>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=iso-8859-1;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jeff@garzik.org,
+	"masbock" <masbock@us.ibm.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"Ram Pai" <linuxram@us.ibm.com>,
+	"Philip Oswald" <poswald@novell.com>
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:49532 "EHLO ozlabs.org"
+Received: from mms2.broadcom.com ([216.31.210.18]:2858 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751972AbXKPHiW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Nov 2007 02:38:22 -0500
+	id S1752103AbXKPH4f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Nov 2007 02:56:35 -0500
+In-Reply-To: <20071115150349.51e6d133@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The e1000 driver stores the content of the PCI resources into
-unsigned long's before ioremapping. This breaks on 32 bits
-platforms that support 64 bits MMIO resources such as ppc 44x.
+Stephen,
 
-This fixes it by removing those temporary variables and passing
-directly the result of pci_resource_start/len to ioremap.
+Thank you for taking the time to go over this.
 
-The side effect is that I removed the assignments to the netdev
-fields mem_start, mem_end and base_addr, which are totally useless
-for PCI devices.
+Stephen Hemminger wrote:
+> 1. Please use dev_err() to help user figure out which board has problem:
+OK
 
-Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
---
+> 2. Use new MAC_ADDR() rather than
+OK
 
- drivers/net/e1000/e1000_main.c |   18 +++++-------------
- 1 file changed, 5 insertions(+), 13 deletions(-)
+> 3. The reset task logic needs more cleanup/protection.
+OK
 
-Index: linux-work/drivers/net/e1000/e1000_main.c
-===================================================================
---- linux-work.orig/drivers/net/e1000/e1000_main.c	2007-11-16 17:14:32.000000000 +1100
-+++ linux-work/drivers/net/e1000/e1000_main.c	2007-11-16 18:32:07.000000000 +1100
-@@ -861,8 +861,6 @@ e1000_probe(struct pci_dev *pdev,
- {
- 	struct net_device *netdev;
- 	struct e1000_adapter *adapter;
--	unsigned long mmio_start, mmio_len;
--	unsigned long flash_start, flash_len;
- 
- 	static int cards_found = 0;
- 	static int global_quad_port_a = 0; /* global ksp3 port a indication */
-@@ -905,11 +903,9 @@ e1000_probe(struct pci_dev *pdev,
- 	adapter->hw.back = adapter;
- 	adapter->msg_enable = (1 << debug) - 1;
- 
--	mmio_start = pci_resource_start(pdev, BAR_0);
--	mmio_len = pci_resource_len(pdev, BAR_0);
--
- 	err = -EIO;
--	adapter->hw.hw_addr = ioremap(mmio_start, mmio_len);
-+	adapter->hw.hw_addr = ioremap(pci_resource_start(pdev, BAR_0),
-+				      pci_resource_len(pdev, BAR_0));
- 	if (!adapter->hw.hw_addr)
- 		goto err_ioremap;
- 
-@@ -944,10 +940,6 @@ e1000_probe(struct pci_dev *pdev,
- #endif
- 	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
- 
--	netdev->mem_start = mmio_start;
--	netdev->mem_end = mmio_start + mmio_len;
--	netdev->base_addr = adapter->hw.io_base;
--
- 	adapter->bd_number = cards_found;
- 
- 	/* setup the private structure */
-@@ -960,9 +952,9 @@ e1000_probe(struct pci_dev *pdev,
- 	 * because it depends on mac_type */
- 	if ((adapter->hw.mac_type == e1000_ich8lan) &&
- 	   (pci_resource_flags(pdev, 1) & IORESOURCE_MEM)) {
--		flash_start = pci_resource_start(pdev, 1);
--		flash_len = pci_resource_len(pdev, 1);
--		adapter->hw.flash_address = ioremap(flash_start, flash_len);
-+		adapter->hw.flash_address =
-+			ioremap(pci_resource_start(pdev, 1),
-+				pci_resource_len(pdev, 1));
- 		if (!adapter->hw.flash_address)
- 			goto err_flashmap;
- 	}
+> 4. Rather than hard coding mac address, could you use random_ether_address()
+> instead?
+I'm not sure,
+This is only for some of the chip simulation environments that don't have an NVRAM.
+Not for a real chip.
+
+> 5. Current style police will complain about single line {}
+OK (we all love the police. funny that checkpatch.pl did not find this)
+
+> 6. The driver is using per-cpu tx queue, maybe it wants to have multi
+> queue instead?
+This is still not enabled by default.
+We are limited to 16 queues and they are rather expansive, so I'm not sure what would be best.
+Can you please give me pointers to examples?
+In any case on the TX side you don't need more than one per cpu.
+
+> 7. bnx2x_get_stats() is uneeded. If you leave dev->get_stats() set to NULL
+> then register_netdev will handle it.
+OK
+
+> 8. Spelling fixes:
+Thanks...
+
+I will send the fixes as patches.
+The reset change needs to be very carefully tested so this will only happen early next week.
+
+Thanks,
+Eliezer
+
+
+
+
