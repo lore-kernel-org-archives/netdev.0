@@ -1,97 +1,83 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [NET]: rt_check_expire() can take a long time, add a
- cond_resched()
-Date: Thu, 15 Nov 2007 21:59:38 -0800
-Message-ID: <20071115215938.44233733@laptopd505.fenrus.org>
-References: <200711150401.lAF41mSs021898@hera.kernel.org>
-	<20071115193802.4ec64eef@laptopd505.fenrus.org>
-	<473D131A.5000200@cosmosbay.com>
-	<473D18A5.2090309@cosmosbay.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	davem@davemloft.net, netdev@vget.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752827AbXKPGBN@vger.kernel.org>
-In-Reply-To: <473D18A5.2090309@cosmosbay.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: [PATCH] e1000: Fix for 32 bits platforms with 64 bits resources
+Date: Fri, 16 Nov 2007 18:37:38 +1100
+Message-ID: <20071116073821.548CCDDDF4@ozlabs.org>
+Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
+	<jgarzik@pobox.com>
+To: auke-jan.h.kok@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:49532 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751972AbXKPHiW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Nov 2007 02:38:22 -0500
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 16 Nov 2007 05:12:21 +0100
-Eric Dumazet <dada1@cosmosbay.com> wrote:
+The e1000 driver stores the content of the PCI resources into
+unsigned long's before ioremapping. This breaks on 32 bits
+platforms that support 64 bits MMIO resources such as ppc 44x.
 
-> Eric Dumazet a =C3=A9crit :
-> > Arjan van de Ven a =C3=A9crit :
-> >> On Thu, 15 Nov 2007 04:01:48 GMT
-> >> Linux Kernel Mailing List <linux-kernel@vger.kernel.org> wrote:
-> >>
-> >>> Gitweb:
-> >>> http://git.kernel.org/git/?p=3Dlinux/kernel/git/torvalds/linux-2.=
-6.git;a=3Dcommit;h=3Dd90bf5a976793edfa88d3bb2393f0231eb8ce1e5=20
-> >>>
-> >>> Commit:     d90bf5a976793edfa88d3bb2393f0231eb8ce1e5 Parent:
-> >>> 66ba886254edbbd9442d30f1eef6f6fb0145027d Author:     Eric Dumazet
-> >>> <dada1@cosmosbay.com> AuthorDate: Wed Nov 14 16:14:05 2007 -0800
-> >>> Committer:  David S. Miller <davem@davemloft.net>
-> >>> CommitDate: Wed Nov 14 16:14:05 2007 -0800
-> >>>
-> >>>     [NET]: rt_check_expire() can take a long time, add a
-> >>> cond_resched()     On commit
-> >>> 39c90ece7565f5c47110c2fa77409d7a9478bd5b:
-> >>
-> >>>     When the IP route cache is big, rt_check_expire() can take a
-> >>> long time to run.  (default settings : 20% of the hash table is
-> >>> scanned at each invocation)
-> >>>         Adding cond_resched() helps giving cpu to higher priority=
-=20
-> >>> tasks if
-> >>>     necessary.
-> >>>         Using a "if (need_resched())" test before calling
-> >>> "cond_resched();" is necessary to avoid spending too much time
-> >>> doing the resched check.=20
-> >>
-> >> int __sched cond_resched(void)
-> >> {
-> >>         if (need_resched() &&  .....
-> >>
-> >> somehow I wonder why the second if() is useful at all; it's anothe=
-r
-> >> spot for a branch predictor to miss... and a void function call is
-> >> really really cheap...=20
-> >=20
-> > Its not that cheap. The ChangeLog included my own numbers, on a
-> > Pentium M machine. (i686, 1.6 GHz, 1.5 GB ram)
-> >=20
-> > Without "if (need_resched())" (so calling need_resched() X.XXX.XXX=20
-> > times), each run takes 88ms
-> >=20
-> > With the extra check (and *much* less function calls), each run
-> > takes 25ms
-> >=20
->=20
-> Looking at cond_resched(), I think the extra cost comes from
-> "mov %esp,%edx ; and $0xffffe000,%edx" (current_thread_info())
->=20
-> I dont have oprofile numbers yet, but I suspect CPU may have some
-> delays to compute this pointer value, since %esp is probably 'busy'
-> because of the preceding "call"
+This fixes it by removing those temporary variables and passing
+directly the result of pci_resource_start/len to ioremap.
 
-yeah the explicit reference makes the stack pointer tracking engine do =
-a
-commit I suspect which then also creates a data dependency in the code
-flow.
+The side effect is that I removed the assignments to the netdev
+fields mem_start, mem_end and base_addr, which are totally useless
+for PCI devices.
 
-however... this is likely a good argument for making cond_resched() as =
-a
-whole a #define (or inline) that does this test and then calls the out
-of line code (which then doesn't need to retest, so it avoids the
-double test)...
+Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+--
 
+ drivers/net/e1000/e1000_main.c |   18 +++++-------------
+ 1 file changed, 5 insertions(+), 13 deletions(-)
 
-
-
---=20
-If you want to reach me at my work email, use arjan@linux.intel.com
-=46or development, discussion and tips for power savings,=20
-visit http://www.lesswatts.org
+Index: linux-work/drivers/net/e1000/e1000_main.c
+===================================================================
+--- linux-work.orig/drivers/net/e1000/e1000_main.c	2007-11-16 17:14:32.000000000 +1100
++++ linux-work/drivers/net/e1000/e1000_main.c	2007-11-16 18:32:07.000000000 +1100
+@@ -861,8 +861,6 @@ e1000_probe(struct pci_dev *pdev,
+ {
+ 	struct net_device *netdev;
+ 	struct e1000_adapter *adapter;
+-	unsigned long mmio_start, mmio_len;
+-	unsigned long flash_start, flash_len;
+ 
+ 	static int cards_found = 0;
+ 	static int global_quad_port_a = 0; /* global ksp3 port a indication */
+@@ -905,11 +903,9 @@ e1000_probe(struct pci_dev *pdev,
+ 	adapter->hw.back = adapter;
+ 	adapter->msg_enable = (1 << debug) - 1;
+ 
+-	mmio_start = pci_resource_start(pdev, BAR_0);
+-	mmio_len = pci_resource_len(pdev, BAR_0);
+-
+ 	err = -EIO;
+-	adapter->hw.hw_addr = ioremap(mmio_start, mmio_len);
++	adapter->hw.hw_addr = ioremap(pci_resource_start(pdev, BAR_0),
++				      pci_resource_len(pdev, BAR_0));
+ 	if (!adapter->hw.hw_addr)
+ 		goto err_ioremap;
+ 
+@@ -944,10 +940,6 @@ e1000_probe(struct pci_dev *pdev,
+ #endif
+ 	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
+ 
+-	netdev->mem_start = mmio_start;
+-	netdev->mem_end = mmio_start + mmio_len;
+-	netdev->base_addr = adapter->hw.io_base;
+-
+ 	adapter->bd_number = cards_found;
+ 
+ 	/* setup the private structure */
+@@ -960,9 +952,9 @@ e1000_probe(struct pci_dev *pdev,
+ 	 * because it depends on mac_type */
+ 	if ((adapter->hw.mac_type == e1000_ich8lan) &&
+ 	   (pci_resource_flags(pdev, 1) & IORESOURCE_MEM)) {
+-		flash_start = pci_resource_start(pdev, 1);
+-		flash_len = pci_resource_len(pdev, 1);
+-		adapter->hw.flash_address = ioremap(flash_start, flash_len);
++		adapter->hw.flash_address =
++			ioremap(pci_resource_start(pdev, 1),
++				pci_resource_len(pdev, 1));
+ 		if (!adapter->hw.flash_address)
+ 			goto err_flashmap;
+ 	}
