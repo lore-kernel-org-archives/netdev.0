@@ -1,201 +1,231 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [RFC PATCH 09/10] [TCP]: Rewrite SACK block processing &
- sack_recv_cache use
-Date: Fri, 16 Nov 2007 15:44:40 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0711161306490.29353@kivilampi-30.cs.helsinki.fi>
-References: <11951338541495-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1195133854112-git-send-email-ilpo.jarvinen@helsinki.fi>
- <11951338541351-git-send-email-ilpo.jarvinen@helsinki.fi>
- <20071115.200032.115040183.davem@davemloft.net>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH 1/6 net-2.6.25] IPv4 RAW: Compact the API for the kernel
+Date: Fri, 16 Nov 2007 17:05:59 +0300
+Message-ID: <473DA3C7.4080201@openvz.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-899914299-1195220680=:29353"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: devel@openvz.org
+To: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:54942 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757351AbXKPNon (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 08:44:43 -0500
-In-Reply-To: <20071115.200032.115040183.davem@davemloft.net>
+Received: from sacred.ru ([62.205.161.221]:58455 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759104AbXKPOGP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Nov 2007 09:06:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+The raw sockets functions are explicitly used from 
+inside the kernel in two places:
 
----696243703-899914299-1195220680=:29353
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+1. in ip_local_deliver_finish to intercept skb-s
+2. in icmp_error
 
-On Thu, 15 Nov 2007, David Miller wrote:
+For this purposes many functions and even data structures,
+that are naturally internal for raw protocol, are exported.
 
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Thu, 15 Nov 2007 15:37:33 +0200
-> 
-> > Key points of this patch are:
-> > 
-> >   - In case new SACK information is advance only type, no skb
-> >     processing below previously discovered highest point is done
-> >   - Optimize cases below highest point too since there's no need
-> >     to always go up to highest point (which is very likely still
-> >     present in that SACK), this is not entirely true though
-> >     because I'm dropping the fastpath_skb_hint which could
-> >     previously optimize those cases even better. Whether that's
-> >     significant, I'm not too sure.
-> > 
-> > Corrently it will provide skipping by walking. Combined with
-> > RB-tree, all skipping would become fast too regardless of window
-> > size (can be done incrementally later).
-> > 
-> > Previously a number of cases in TCP SACK processing fails to
-> > take advantage of costly stored information in sack_recv_cache,
-> > most importantly, expected events such as cumulative ACK and new
-> > hole ACKs. Processing on such ACKs result in rather long walks
-> > building up latencies (which easily gets nasty when window is
-> > huge). Those latencies are often completely unnecessary
-> > compared with the amount of _new_ information received, usually
-> > for cumulative ACK there's no new information at all, yet TCP
-> > walks whole queue unnecessary potentially taking a number of
-> > costly cache misses on the way, etc.!
-> > 
-> > Since the inclusion of highest_sack, there's a lot information
-> > that is very likely redundant (SACK fastpath hint stuff,
-> > fackets_out, highest_sack), though there's no ultimate guarantee
-> > that they'll remain the same whole the time (in all unearthly
-> > scenarios). Take advantage of this knowledge here and drop
-> > fastpath hint and use direct access to highest SACKed skb as
-> > a replacement.
-> > 
-> > Effectively "special cased" fastpath is dropped. This change
-> > adds some complexity to introduce better coveraged "fastpath",
-> > though the added complexity should make TCP behave more cache
-> > friendly.
-> > 
-> > The current ACK's SACK blocks are compared against each cached
-> > block individially and only ranges that are new are then scanned
-> > by the high constant walk. For other parts of write queue, even
-> > when in previously known part of the SACK blocks, a faster skip
-> > function is used (if necessary at all). In addition, whenever
-> > possible, TCP fast-forwards to highest_sack skb that was made
-> > available by an earlier patch. In typical case, no other things
-> > but this fast-forward and mandatory markings after that occur
-> > making the access pattern quite similar to the former fastpath
-> > "special case".
-> > 
-> > DSACKs are special case that must always be walked.
-> > 
-> > The local to recv_sack_cache copying could be more intelligent
-> > w.r.t DSACKs which are likely to be there only once but that
-> > is left to a separate patch.
-> > 
-> > Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-> 
-> I like this patch a lot, and if there are any errors in it
-> they are in the details not the design, and we have lots of
-> time to sort that out before the 2.6.25 merge window so
-> I have applied this.
-> 
-> I have been thinking off an on about the core SACK cost problem.
+Compact the API to two functions and hide all the other
+(including hash table and rwlock) inside the net/ipv4/raw.c
 
-...Me too.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-> One thing that keeps occuring to me is that to conquer this fully we
-> have to change the domain of the problem in our favor.
->
-> Basically, even if we have RB-trie and all of these nice fastpaths, we
-> still can walk the complete queue for a receiver which maliciously
-> advertises lots of SACK information in one ACK (say covering every
-> retransmit queue SKB except one) and then nearly no SACK information
-> in the next one.  Repeating this cycle we can get into excessive usage
-> of cpu cycles.
+---
 
-I agree. I made this change not to optimize malicious cases but to
-remove sub-optimalities that non-malicious flows experience in
-_typical cases_, people are already hit by them in legitimate scenarios.
-
-I think that we cannot prevent malicious guys from inventing ways to 
-circumvent the tweak and optimization that may exists for the typical,
-legitimate use cases. This patch falls to that category. Currently we
-just don't know if removing the recv_sack_cache is going to cost too
-much, that is should be kept. It can always be removed separately if
-cache misses are not that bad.
-
-...It may well turn out that this change wouldn't have been necessary
-with the new approach we're now discussing, however, as long as the old 
-code lives, the approach shouldn't hurt either (except the unsurity 
-related to the fastpath_skb_hint != tp->highest_sack case).
-
-...It's just that we're on quite unsure grounds when moving to something 
-completely new, it's not some funny new protocol which nobody has used 
-before, people have high expectations on reliability and how it such 
-perform in their favorite, legimitate scenario. :-) Thus it's IMHO also 
-about having a safe enough fallback available (without horrible revert 
-resolution if there's a need to back off).
-
-> Only in situations of severe memory constraints will a receiver
-> release out-of-order packets and thus remove sequences from previously
-> advertised SACK blocks (which by RFCs we must handle).  And in such
-> cases it is OK to resort to timeout based recovery.
-
-RFCs basically have specified only RTO recovery for that, they don't 
-specify nor mention any other method (IIRC). Not that Linux' way is in 
-violation of them but it likely rare enough that it may receive the most 
-insignicant optimization award. Having that RTO break might actually help 
-a legitimate receiver to sort out its problems more than hurt.
-
-Alternatively it could be handled by adding CA_SackReneging state which 
-would retransmit also sacked skb but there are tradeoffs in that approach 
-too (either may result in suboptimal behavior by rexmitting also not 
-discarded segments that are reported by SACK after RTO, or makes code more 
-messy by using last ACK's SACK blocks to avoid that). ...It might still be 
-useful for removing a need for costly rebuilding of RB-tree or whatever at 
-RTO in such case though (for legitimate this is really a corner case and 
-malicious can still push sender to that extra work too easily).
-
-> This simplifies everything and puts a very strict upper bound of
-> the amount of processing the most aggressive "bad guy" receiver
-> can impose upon us.  One full SKB queue scan per window/RTT.
-
-Upper-bound we lack, yeah. But I'd say that's somewhat underestimating
-the problem because CA_Recovery is going cost another "scan", unless 
-somebody is going to combine that to SACK processing as well (sounds 
-scary). Luckily, due to cache effects, it's likely going to be a cheaper 
-scan.
-
-> With all of those other weird cases out of the way, there is only
-> one event to process: SACKS cover more data.
->
-> Ilpo what do you think about these ideas?
-
-Besides the log(n) search for which patches already exists, only O(new 
-information) scan start..end range would be necessary. Or had you 
-something else in mind (I'm not that sure what the "ideas", in plural,
-were :-))? ...I haven't forgotten the RB-tree things either (and I'm
-well aware of the limited scope of things this patch addresses).
-
-One idea probably not mentioned earlier: I've thought (ab)using skb's 
-end_seq to lazily point to the end of SACK blocks but that's probably 
-going to a dead-end because of the laziness.
-
-Couple of things that are still on the way making things not that 
-straighforward. DSACKs which are significant for already SACKed if 
-EVER_RETRANS bit is not set and for S|R skbs, and lost_retrans loop
-is interested in S|R skbs too... Have you thought how to solve them
-if the only optimized event would be "SACKS cover more data"?
-
-...Also there's the third problem which may constrain us quite a lot. 
-Any additional cache misses to the typical, legitimate, use case might be 
-too much wrt. high expectation of the current users. They have just very 
-few skb accesses currently (and I made it hopefully even better with
-this patch ;-)). Adding log(n) cache misses to that per ACK with SACK, may 
-well be significant, though it may be closer to log(outstanding not acked) 
-which is considerably smaller on average. Therefore something like I've 
-now done in this patch might still be necessary.
-
-
-...anyway, I'll have to get some work done today as well... :-)
-
--- 
- i.
-
----696243703-899914299-1195220680=:29353--
+diff --git a/include/net/raw.h b/include/net/raw.h
+index e4af597..7fc3c77 100644
+--- a/include/net/raw.h
++++ b/include/net/raw.h
+@@ -22,23 +22,10 @@
+ 
+ extern struct proto raw_prot;
+ 
+-extern void 	raw_err(struct sock *, struct sk_buff *, u32 info);
+-extern int 	raw_rcv(struct sock *, struct sk_buff *);
+-
+-/* Note: v4 ICMP wants to get at this stuff, if you change the
+- *       hashing mechanism, make sure you update icmp.c as well.
+- */
+-#define RAWV4_HTABLE_SIZE	MAX_INET_PROTOS
+-extern struct hlist_head raw_v4_htable[RAWV4_HTABLE_SIZE];
+-
+-extern rwlock_t raw_v4_lock;
++void raw_icmp_error(struct sk_buff *, int, u32);
++int raw_local_deliver(struct sk_buff *, int);
+ 
+-
+-extern struct sock *__raw_v4_lookup(struct sock *sk, unsigned short num,
+-				    __be32 raddr, __be32 laddr,
+-				    int dif);
+-
+-extern int raw_v4_input(struct sk_buff *skb, struct iphdr *iph, int hash);
++extern int 	raw_rcv(struct sock *, struct sk_buff *);
+ 
+ #ifdef CONFIG_PROC_FS
+ extern int  raw_proc_init(void);
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 233de06..c0898c5 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -604,7 +604,6 @@ static void icmp_unreach(struct sk_buff *skb)
+ 	struct icmphdr *icmph;
+ 	int hash, protocol;
+ 	struct net_protocol *ipprot;
+-	struct sock *raw_sk;
+ 	u32 info = 0;
+ 
+ 	/*
+@@ -698,21 +697,9 @@ static void icmp_unreach(struct sk_buff *skb)
+ 	/*
+ 	 *	Deliver ICMP message to raw sockets. Pretty useless feature?
+ 	 */
++	raw_icmp_error(skb, protocol, info);
+ 
+-	/* Note: See raw.c and net/raw.h, RAWV4_HTABLE_SIZE==MAX_INET_PROTOS */
+ 	hash = protocol & (MAX_INET_PROTOS - 1);
+-	read_lock(&raw_v4_lock);
+-	if ((raw_sk = sk_head(&raw_v4_htable[hash])) != NULL) {
+-		while ((raw_sk = __raw_v4_lookup(raw_sk, protocol, iph->daddr,
+-						 iph->saddr,
+-						 skb->dev->ifindex)) != NULL) {
+-			raw_err(raw_sk, skb, info);
+-			raw_sk = sk_next(raw_sk);
+-			iph = (struct iphdr *)skb->data;
+-		}
+-	}
+-	read_unlock(&raw_v4_lock);
+-
+ 	rcu_read_lock();
+ 	ipprot = rcu_dereference(inet_protos[hash]);
+ 	if (ipprot && ipprot->err_handler)
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 5b8a760..11281d6 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -204,22 +204,14 @@ static int ip_local_deliver_finish(struct sk_buff *skb)
+ 
+ 	rcu_read_lock();
+ 	{
+-		/* Note: See raw.c and net/raw.h, RAWV4_HTABLE_SIZE==MAX_INET_PROTOS */
+ 		int protocol = ip_hdr(skb)->protocol;
+-		int hash;
+-		struct sock *raw_sk;
++		int hash, raw;
+ 		struct net_protocol *ipprot;
+ 
+ 	resubmit:
+-		hash = protocol & (MAX_INET_PROTOS - 1);
+-		raw_sk = sk_head(&raw_v4_htable[hash]);
+-
+-		/* If there maybe a raw socket we must check - if not we
+-		 * don't care less
+-		 */
+-		if (raw_sk && !raw_v4_input(skb, ip_hdr(skb), hash))
+-			raw_sk = NULL;
++		raw = raw_local_deliver(skb, protocol);
+ 
++		hash = protocol & (MAX_INET_PROTOS - 1);
+ 		if ((ipprot = rcu_dereference(inet_protos[hash])) != NULL) {
+ 			int ret;
+ 
+@@ -237,7 +229,7 @@ static int ip_local_deliver_finish(struct sk_buff *skb)
+ 			}
+ 			IP_INC_STATS_BH(IPSTATS_MIB_INDELIVERS);
+ 		} else {
+-			if (!raw_sk) {
++			if (!raw) {
+ 				if (xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
+ 					IP_INC_STATS_BH(IPSTATS_MIB_INUNKNOWNPROTOS);
+ 					icmp_send(skb, ICMP_DEST_UNREACH,
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 3c12aa1..9fda2f9 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -80,8 +80,10 @@
+ #include <linux/netfilter.h>
+ #include <linux/netfilter_ipv4.h>
+ 
+-struct hlist_head raw_v4_htable[RAWV4_HTABLE_SIZE];
+-DEFINE_RWLOCK(raw_v4_lock);
++#define RAWV4_HTABLE_SIZE	MAX_INET_PROTOS
++
++static struct hlist_head raw_v4_htable[RAWV4_HTABLE_SIZE];
++static DEFINE_RWLOCK(raw_v4_lock);
+ 
+ static void raw_v4_hash(struct sock *sk)
+ {
+@@ -102,7 +104,7 @@ static void raw_v4_unhash(struct sock *sk)
+ 	write_unlock_bh(&raw_v4_lock);
+ }
+ 
+-struct sock *__raw_v4_lookup(struct sock *sk, unsigned short num,
++static struct sock *__raw_v4_lookup(struct sock *sk, unsigned short num,
+ 			     __be32 raddr, __be32 laddr,
+ 			     int dif)
+ {
+@@ -150,7 +152,7 @@ static __inline__ int icmp_filter(struct sock *sk, struct sk_buff *skb)
+  * RFC 1122: SHOULD pass TOS value up to the transport layer.
+  * -> It does. And not only TOS, but all IP header.
+  */
+-int raw_v4_input(struct sk_buff *skb, struct iphdr *iph, int hash)
++static int raw_v4_input(struct sk_buff *skb, struct iphdr *iph, int hash)
+ {
+ 	struct sock *sk;
+ 	struct hlist_head *head;
+@@ -182,7 +184,25 @@ out:
+ 	return delivered;
+ }
+ 
+-void raw_err (struct sock *sk, struct sk_buff *skb, u32 info)
++int raw_local_deliver(struct sk_buff *skb, int protocol)
++{
++	int hash;
++	struct sock *raw_sk;
++
++	hash = protocol & (RAWV4_HTABLE_SIZE - 1);
++	raw_sk = sk_head(&raw_v4_htable[hash]);
++
++	/* If there maybe a raw socket we must check - if not we
++	 * don't care less
++	 */
++	if (raw_sk && !raw_v4_input(skb, ip_hdr(skb), hash))
++		raw_sk = NULL;
++
++	return raw_sk != NULL;
++
++}
++
++static void raw_err(struct sock *sk, struct sk_buff *skb, u32 info)
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	const int type = icmp_hdr(skb)->type;
+@@ -236,6 +256,29 @@ void raw_err (struct sock *sk, struct sk_buff *skb, u32 info)
+ 	}
+ }
+ 
++void raw_icmp_error(struct sk_buff *skb, int protocol, u32 info)
++{
++	int hash;
++	struct sock *raw_sk;
++	struct iphdr *iph;
++
++	hash = protocol & (RAWV4_HTABLE_SIZE - 1);
++
++	read_lock(&raw_v4_lock);
++	raw_sk = sk_head(&raw_v4_htable[hash]);
++	if (raw_sk != NULL) {
++		iph = (struct iphdr *)skb->data;
++		while ((raw_sk = __raw_v4_lookup(raw_sk, protocol, iph->daddr,
++						iph->saddr,
++						skb->dev->ifindex)) != NULL) {
++			raw_err(raw_sk, skb, info);
++			raw_sk = sk_next(raw_sk);
++			iph = (struct iphdr *)skb->data;
++		}
++	}
++	read_unlock(&raw_v4_lock);
++}
++
+ static int raw_rcv_skb(struct sock * sk, struct sk_buff * skb)
+ {
+ 	/* Charge it to the socket. */
