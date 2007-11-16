@@ -1,52 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Null pointer dereference in nf_nat_move_storage(), kernel
- 2.6.23.1
-Date: Thu, 15 Nov 2007 16:02:00 -0800 (PST)
-Message-ID: <20071115.160200.255764472.davem@davemloft.net>
-References: <20071115120658.GA17667@2ka.mipt.ru>
-	<20071115.155509.107545186.davem@davemloft.net>
-	<473CDD96.6090102@trash.net>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [BUG] New Kernel Bugs
+Date: Thu, 15 Nov 2007 19:05:39 -0500
+Message-ID: <20071116000539.GA3032@fieldses.org>
+References: <20071113.033946.114918709.davem@davemloft.net> <20071113034916.2556edd7.akpm@linux-foundation.org> <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org> <20071113134029.GA30978@elte.hu> <20071113085514.3414aa52.rdunlap@xenotime.net> <20071114140847.GA11489@elte.hu> <20071114093820.ff3ad8f9.rdunlap@xenotime.net> <20071114182351.GI14254@fieldses.org> <18235.46083.293604.560507@notabene.brown>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, cebbert@redhat.com,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <473CDD96.6090102@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Randy Dunlap <rdunlap@xenotime.net>, Ingo Molnar <mingo@elte.hu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, protasnb@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
+	linux-input@atrey.karlin.mff.cuni.cz,
+	bugme-daemon@bugzilla.kernel.org
+To: Neil Brown <neilb@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.fieldses.org ([66.93.2.214]:33981 "EHLO fieldses.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754408AbXKPAGE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2007 19:06:04 -0500
+Content-Disposition: inline
+In-Reply-To: <18235.46083.293604.560507@notabene.brown>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Fri, 16 Nov 2007 01:00:22 +0100
-
-> David Miller wrote:
-> > From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> > Date: Thu, 15 Nov 2007 15:06:59 +0300
-> >
-> >> Please test attached patch.
-> >>
-> >> This routing is called each time hash should be replaced, nf_conn has
-> >> extension list which contains pointers to connection tracking users
-> >> (like nat, which is right now the only such user), so when replace takes
-> >> place it should copy own extensions. Loop above checks for own
-> >> extension, but tries to move higer-layer one, which can lead to above
-> >> oops.
-> >>
-> >> Not tested, derived from code observation only.
-> >>
-> >> Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> >
-> > It looks extremely correct to me.  Therefore I'm going to apply
-> > this and queue it up for -stable.
-> >
-> > Thanks Evgeniy, keep up the excellent work!
-> >
-> > Patrick, please let me know if you have any objections.
+On Thu, Nov 15, 2007 at 01:50:43PM +1100, Neil Brown wrote:
+> Virtual Folders.
 > 
-> The patch looks fine, thanks. I was just waiting for confirmation
-> from Chuck.
+> I use VM mode in EMACS, but I believe some other mail readers have the
+> same functionality.
+> I have a virtual folder called "nfs" which shows me all mail in my
+> inbox which has the string 'nfs' or 'lockd' in a To, Cc, or Subject
+> field.  When I visit that folder, I see all mail about nfs, whether it
+> was sent to me personally, or to a relevant list, or to lkml.
 
-I have to hold off the -stable submission until it hits
-Linus's tree anyways, so I'll make sure we see test feedback
-by that time as well.
+Hm (googling around for "mutt" and "virtual folders"): looks like I can
+get most of the way there in mutt with some macros based on its "limit"
+command:
+
+	http://www.tummy.com/journals/entries/jafo_20060303_044440
+
+Thanks.--b.
