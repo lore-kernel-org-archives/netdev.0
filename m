@@ -1,7 +1,7 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 9/9] cxgb3 - Fix I/O synchronization
-Date: Fri, 16 Nov 2007 11:22:21 -0800
-Message-ID: <20071116192221.31168.15389.stgit@speedy5>
+Subject: [PATCH 8/9] cxgb3 - HW set up updates
+Date: Fri, 16 Nov 2007 11:22:16 -0800
+Message-ID: <20071116192216.31150.50259.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,74 +10,162 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	wenxiong@us.ibm.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:23379 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:15565 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932641AbXKPTW1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 14:22:27 -0500
+	with ESMTP id S932581AbXKPTWV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 14:22:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Synchronize memory access before ringing 
-the Tx door bell.
+Disable PEX errors. The HW generates false positives.
+Update RSS hash function to a symmetric algorithm.
+Update T3C HW support
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/sge.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/cxgb3/cxgb3_main.c |    2 +-
+ drivers/net/cxgb3/regs.h       |   22 ++++++++++++++++++++++
+ drivers/net/cxgb3/t3_hw.c      |   24 +++++++++++++++++++++---
+ 3 files changed, 44 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
-index 7b13d8a..666c317 100644
---- a/drivers/net/cxgb3/sge.c
-+++ b/drivers/net/cxgb3/sge.c
-@@ -174,6 +174,7 @@ static inline struct sge_qset *txq_to_qset(const struct sge_txq *q, int qidx)
- static inline void refill_rspq(struct adapter *adapter,
- 			       const struct sge_rspq *q, unsigned int credits)
- {
-+	rmb();
- 	t3_write_reg(adapter, A_SG_RSPQ_CREDIT_RETURN,
- 		     V_RSPQ(q->cntxt_id) | V_CREDITS(credits));
- }
-@@ -458,7 +459,7 @@ nomem:				q->alloc_failed++;
- 		}
- 		q->credits++;
- 	}
--
-+	wmb();
- 	t3_write_reg(adap, A_SG_KDOORBELL, V_EGRCNTX(q->cntxt_id));
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+index b4ee18b..f24a27b 100644
+--- a/drivers/net/cxgb3/cxgb3_main.c
++++ b/drivers/net/cxgb3/cxgb3_main.c
+@@ -336,7 +336,7 @@ static void setup_rss(struct adapter *adap)
+ 
+ 	t3_config_rss(adap, F_RQFEEDBACKENABLE | F_TNLLKPEN | F_TNLMAPEN |
+ 		      F_TNLPRTEN | F_TNL2TUPEN | F_TNL4TUPEN |
+-		      V_RRCPLCPUSIZE(6), cpus, rspq_map);
++		      V_RRCPLCPUSIZE(6) | F_HASHTOEPLITZ, cpus, rspq_map);
  }
  
-@@ -1353,6 +1354,7 @@ static void restart_ctrlq(unsigned long data)
- 	}
+ static void init_napi(struct adapter *adap)
+diff --git a/drivers/net/cxgb3/regs.h b/drivers/net/cxgb3/regs.h
+index 5e1bc0d..a7d5f65 100644
+--- a/drivers/net/cxgb3/regs.h
++++ b/drivers/net/cxgb3/regs.h
+@@ -965,6 +965,12 @@
+ #define V_LOCKTID(x) ((x) << S_LOCKTID)
+ #define F_LOCKTID    V_LOCKTID(1U)
  
- 	spin_unlock(&q->lock);
-+	wmb();
- 	t3_write_reg(qs->adap, A_SG_KDOORBELL,
- 		     F_SELEGRCNTX | V_EGRCNTX(q->cntxt_id));
++#define S_TABLELATENCYDELTA    0
++#define M_TABLELATENCYDELTA    0xf
++#define V_TABLELATENCYDELTA(x) ((x) << S_TABLELATENCYDELTA)
++#define G_TABLELATENCYDELTA(x) \
++	(((x) >> S_TABLELATENCYDELTA) & M_TABLELATENCYDELTA)
++
+ #define A_TP_PC_CONFIG2 0x34c
+ 
+ #define S_CHDRAFULL    4
+@@ -1146,6 +1152,10 @@
+ #define V_RQFEEDBACKENABLE(x) ((x) << S_RQFEEDBACKENABLE)
+ #define F_RQFEEDBACKENABLE    V_RQFEEDBACKENABLE(1U)
+ 
++#define S_HASHTOEPLITZ    2
++#define V_HASHTOEPLITZ(x) ((x) << S_HASHTOEPLITZ)
++#define F_HASHTOEPLITZ    V_HASHTOEPLITZ(1U)
++
+ #define S_DISABLE    0
+ 
+ #define A_TP_TM_PIO_ADDR 0x418
+@@ -1198,6 +1208,14 @@
+ 
+ #define A_TP_INT_ENABLE 0x470
+ 
++#define S_FLMTXFLSTEMPTY    30
++#define V_FLMTXFLSTEMPTY(x) ((x) << S_FLMTXFLSTEMPTY)
++#define F_FLMTXFLSTEMPTY    V_FLMTXFLSTEMPTY(1U)
++
++#define S_FLMRXFLSTEMPTY    29
++#define V_FLMRXFLSTEMPTY(x) ((x) << S_FLMRXFLSTEMPTY)
++#define F_FLMRXFLSTEMPTY    V_FLMRXFLSTEMPTY(1U)
++
+ #define A_TP_INT_CAUSE 0x474
+ 
+ #define A_TP_TX_MOD_Q1_Q0_RATE_LIMIT 0x8
+@@ -1291,6 +1309,10 @@
+ 
+ #define A_ULPTX_CONFIG 0x580
+ 
++#define S_CFG_CQE_SOP_MASK    1
++#define V_CFG_CQE_SOP_MASK(x) ((x) << S_CFG_CQE_SOP_MASK)
++#define F_CFG_CQE_SOP_MASK    V_CFG_CQE_SOP_MASK(1U)
++
+ #define S_CFG_RR_ARB    0
+ #define V_CFG_RR_ARB(x) ((x) << S_CFG_RR_ARB)
+ #define F_CFG_RR_ARB    V_CFG_RR_ARB(1U)
+diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
+index 4b6087a..b8ae12d 100644
+--- a/drivers/net/cxgb3/t3_hw.c
++++ b/drivers/net/cxgb3/t3_hw.c
+@@ -1280,7 +1280,7 @@ static int t3_handle_intr_status(struct adapter *adapter, unsigned int reg,
+ #define PCIE_INTR_MASK (F_UNXSPLCPLERRR | F_UNXSPLCPLERRC | F_PCIE_PIOPARERR |\
+ 			F_PCIE_WFPARERR | F_PCIE_RFPARERR | F_PCIE_CFPARERR | \
+ 			/* V_PCIE_MSIXPARERR(M_PCIE_MSIXPARERR) | */ \
+-			V_BISTERR(M_BISTERR) | F_PEXERR)
++			V_BISTERR(M_BISTERR))
+ #define ULPRX_INTR_MASK F_PARERR
+ #define ULPTX_INTR_MASK 0
+ #define CPLSW_INTR_MASK (F_TP_FRAMING_ERROR | \
+@@ -1383,8 +1383,16 @@ static void tp_intr_handler(struct adapter *adapter)
+ 		{0}
+ 	};
+ 
++	static struct intr_info tp_intr_info_t3c[] = {
++		{ 0x1ffffff,  "TP parity error", -1, 1 },
++		{ F_FLMRXFLSTEMPTY, "TP out of Rx pages", -1, 1 },
++		{ F_FLMTXFLSTEMPTY, "TP out of Tx pages", -1, 1 },
++		{ 0 }
++	};
++
+ 	if (t3_handle_intr_status(adapter, A_TP_INT_CAUSE, 0xffffffff,
+-				  tp_intr_info, NULL))
++				  adapter->params.rev < T3_REV_C ?
++					tp_intr_info : tp_intr_info_t3c, NULL))
+ 		t3_fatal_err(adapter);
  }
-@@ -1572,6 +1574,7 @@ static void restart_offloadq(unsigned long data)
- 	set_bit(TXQ_RUNNING, &q->flags);
- 	set_bit(TXQ_LAST_PKT_DB, &q->flags);
- #endif
-+	wmb();
- 	t3_write_reg(adap, A_SG_KDOORBELL,
- 		     F_SELEGRCNTX | V_EGRCNTX(q->cntxt_id));
- }
-@@ -1737,7 +1740,6 @@ static inline int rx_offload(struct t3cdev *tdev, struct sge_rspq *rq,
- 			     struct sk_buff *skb, struct sk_buff *rx_gather[],
- 			     unsigned int gather_idx)
- {
--	rq->offload_pkts++;
- 	skb_reset_mac_header(skb);
- 	skb_reset_network_header(skb);
- 	skb_reset_transport_header(skb);
-@@ -2031,6 +2033,7 @@ no_mem:
- 			if (eth)
- 				rx_eth(adap, q, skb, ethpad);
- 			else {
-+				q->offload_pkts++;
- 				/* Preserve the RSS info in csum & priority */
- 				skb->csum = rss_hi;
- 				skb->priority = rss_lo;
+ 
+@@ -1734,7 +1742,6 @@ void t3_intr_enable(struct adapter *adapter)
+ 		 MC7_INTR_MASK},
+ 		{A_MC5_DB_INT_ENABLE, MC5_INTR_MASK},
+ 		{A_ULPRX_INT_ENABLE, ULPRX_INTR_MASK},
+-		{A_TP_INT_ENABLE, 0x3bfffff},
+ 		{A_PM1_TX_INT_ENABLE, PMTX_INTR_MASK},
+ 		{A_PM1_RX_INT_ENABLE, PMRX_INTR_MASK},
+ 		{A_CIM_HOST_INT_ENABLE, CIM_INTR_MASK},
+@@ -1744,6 +1751,8 @@ void t3_intr_enable(struct adapter *adapter)
+ 	adapter->slow_intr_mask = PL_INTR_MASK;
+ 
+ 	t3_write_regs(adapter, intr_en_avp, ARRAY_SIZE(intr_en_avp), 0);
++	t3_write_reg(adapter, A_TP_INT_ENABLE,
++		     adapter->params.rev >= T3_REV_C ? 0x2bfffff : 0x3bfffff);
+ 
+ 	if (adapter->params.rev > 0) {
+ 		t3_write_reg(adapter, A_CPL_INTR_ENABLE,
+@@ -2509,6 +2518,11 @@ static void tp_config(struct adapter *adap, const struct tp_params *p)
+ 	} else
+ 		t3_set_reg_field(adap, A_TP_PARA_REG3, 0, F_TXPACEFIXED);
+ 
++	if (adap->params.rev == T3_REV_C)
++		t3_set_reg_field(adap, A_TP_PC_CONFIG,
++				 V_TABLELATENCYDELTA(M_TABLELATENCYDELTA),
++				 V_TABLELATENCYDELTA(4));
++
+ 	t3_write_reg(adap, A_TP_TX_MOD_QUEUE_WEIGHT1, 0);
+ 	t3_write_reg(adap, A_TP_TX_MOD_QUEUE_WEIGHT0, 0);
+ 	t3_write_reg(adap, A_TP_MOD_CHANNEL_WEIGHT, 0);
+@@ -3246,6 +3260,10 @@ int t3_init_hw(struct adapter *adapter, u32 fw_params)
+ 	else
+ 		t3_set_reg_field(adapter, A_PCIX_CFG, 0, F_CLIDECEN);
+ 
++	if (adapter->params.rev == T3_REV_C)
++		t3_set_reg_field(adapter, A_ULPTX_CONFIG, 0,
++				 F_CFG_CQE_SOP_MASK);
++
+ 	t3_write_reg(adapter, A_PM1_RX_CFG, 0xffffffff);
+ 	t3_write_reg(adapter, A_PM1_RX_MODE, 0);
+ 	t3_write_reg(adapter, A_PM1_TX_MODE, 0);
