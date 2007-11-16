@@ -1,154 +1,276 @@
 From: Urs Thuermann <urs.thuermann@gmx.de>
-Subject: [PATCH 0/7] CAN: New PF_CAN protocol family for 2.6.25, update
-Date: Fri, 16 Nov 2007 16:02:45 +0100
-Message-ID: <20071116150245.28784.0@janus.isnogud.escape.de>
+Subject: [PATCH 5/7] CAN: Add virtual CAN netdevice driver
+Date: Fri, 16 Nov 2007 16:02:50 +0100
+Message-ID: <20071116150556.28784.5@janus.isnogud.escape.de>
+References: <20071116150245.28784.0@janus.isnogud.escape.de>
 Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
 	Joe Perches <joe@perches.com>, Sam Ravnborg <sam@ravnborg.org>,
 	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver@hartkopp.net>
+	Oliver Hartkopp <oliver@hartkopp.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>
 To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:46270 "EHLO oker.escape.de"
+Received: from oker.escape.de ([194.120.234.254]:46275 "EHLO oker.escape.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933060AbXKPPL0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S933167AbXKPPL0 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 16 Nov 2007 10:11:26 -0500
+Content-Disposition: inline; filename=05-can-vcan-driver.diff
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Dave, hello Patrick,
+This patch adds the virtual CAN bus (vcan) network driver.
+The vcan device is just a loopback device for CAN frames, no
+real CAN hardware is involved.
 
-this patch series adds the PF_CAN protocol family for the
-Controller Area Network.  Since our last post we have changed:
+Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
-* Remove vcan_open() and vcan_stop().
-* return NETDEV_TX_OK instead of 0.
-* Add can_ prefix to some global vars.
-* Remove all debug code completely.
-* Cleanup of timer code.
+---
+ drivers/net/Makefile     |    1 
+ drivers/net/can/Kconfig  |   25 ++++++
+ drivers/net/can/Makefile |    5 +
+ drivers/net/can/vcan.c   |  169 +++++++++++++++++++++++++++++++++++++++++++++++
+ net/can/Kconfig          |    3 
+ 5 files changed, 203 insertions(+)
 
-This patch series applies against net-2.6.25 and is derived from Subversion
-revision r560 of http://svn.berlios.de/svnroot/repos/socketcan.
-It can be found in the directory
-http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
+Index: net-2.6.25/drivers/net/Makefile
+===================================================================
+--- net-2.6.25.orig/drivers/net/Makefile	2007-11-16 14:50:12.000000000 +0100
++++ net-2.6.25/drivers/net/Makefile	2007-11-16 14:50:18.000000000 +0100
+@@ -12,6 +12,7 @@
+ obj-$(CONFIG_CHELSIO_T1) += chelsio/
+ obj-$(CONFIG_CHELSIO_T3) += cxgb3/
+ obj-$(CONFIG_EHEA) += ehea/
++obj-$(CONFIG_CAN) += can/
+ obj-$(CONFIG_BONDING) += bonding/
+ obj-$(CONFIG_ATL1) += atl1/
+ obj-$(CONFIG_GIANFAR) += gianfar_driver.o
+Index: net-2.6.25/drivers/net/can/Kconfig
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ net-2.6.25/drivers/net/can/Kconfig	2007-11-16 14:50:18.000000000 +0100
+@@ -0,0 +1,25 @@
++menu "CAN Device Drivers"
++	depends on CAN
++
++config CAN_VCAN
++	tristate "Virtual Local CAN Interface (vcan)"
++ 	depends on CAN
++	default N
++ 	---help---
++	  Similar to the network loopback devices, vcan offers a
++	  virtual local CAN interface.
++
++	  This driver can also be built as a module.  If so, the module
++	  will be called vcan.
++
++config CAN_DEBUG_DEVICES
++	bool "CAN devices debugging messages"
++	depends on CAN
++	default N
++	---help---
++	  Say Y here if you want the CAN device drivers to produce a bunch of
++	  debug messages to the system log.  Select this if you are having
++	  a problem with CAN support and want to see more of what is going
++	  on.
++
++endmenu
+Index: net-2.6.25/drivers/net/can/Makefile
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ net-2.6.25/drivers/net/can/Makefile	2007-11-16 14:50:18.000000000 +0100
+@@ -0,0 +1,5 @@
++#
++#  Makefile for the Linux Controller Area Network drivers.
++#
++
++obj-$(CONFIG_CAN_VCAN)		+= vcan.o
+Index: net-2.6.25/drivers/net/can/vcan.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ net-2.6.25/drivers/net/can/vcan.c	2007-11-16 14:51:53.000000000 +0100
+@@ -0,0 +1,169 @@
++/*
++ * vcan.c - Virtual CAN interface
++ *
++ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the name of Volkswagen nor the names of its contributors
++ *    may be used to endorse or promote products derived from this software
++ *    without specific prior written permission.
++ *
++ * Alternatively, provided that this notice is retained in full, this
++ * software may be distributed under the terms of the GNU General
++ * Public License ("GPL") version 2, in which case the provisions of the
++ * GPL apply INSTEAD OF those given above.
++ *
++ * The provided data structures and external interfaces from this code
++ * are not restricted to be used by modules with a GPL compatible license.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
++ * DAMAGE.
++ *
++ * Send feedback to <socketcan-users@lists.berlios.de>
++ *
++ */
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/netdevice.h>
++#include <linux/if_arp.h>
++#include <linux/if_ether.h>
++#include <linux/can.h>
++#include <net/rtnetlink.h>
++
++static __initdata const char banner[] =
++	KERN_INFO "vcan: Virtual CAN interface driver\n";
++
++MODULE_DESCRIPTION("virtual CAN interface");
++MODULE_LICENSE("Dual BSD/GPL");
++MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
++
++
++/*
++ * CAN test feature:
++ * Enable the echo on driver level for testing the CAN core echo modes.
++ * See Documentation/networking/can.txt for details.
++ */
++
++static int echo; /* echo testing. Default: 0 (Off) */
++module_param(echo, bool, S_IRUGO);
++MODULE_PARM_DESC(echo, "Echo sent frames (for testing). Default: 0 (Off)");
++
++
++static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
++{
++	struct net_device_stats *stats = &dev->stats;
++
++	stats->rx_packets++;
++	stats->rx_bytes += skb->len;
++
++	skb->protocol  = htons(ETH_P_CAN);
++	skb->pkt_type  = PACKET_BROADCAST;
++	skb->dev       = dev;
++	skb->ip_summed = CHECKSUM_UNNECESSARY;
++
++	netif_rx(skb);
++}
++
++static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
++{
++	struct net_device_stats *stats = &dev->stats;
++	int loop;
++
++	stats->tx_packets++;
++	stats->tx_bytes += skb->len;
++
++	/* set flag whether this packet has to be looped back */
++	loop = skb->pkt_type == PACKET_LOOPBACK;
++
++	if (!echo) {
++		/* no echo handling available inside this driver */
++
++		if (loop) {
++			/*
++			 * only count the packets here, because the
++			 * CAN core already did the echo for us
++			 */
++			stats->rx_packets++;
++			stats->rx_bytes += skb->len;
++		}
++		kfree_skb(skb);
++		return NETDEV_TX_OK;
++	}
++
++	/* perform standard echo handling for CAN network interfaces */
++
++	if (loop) {
++		struct sock *srcsk = skb->sk;
++
++		skb = skb_share_check(skb, GFP_ATOMIC);
++		if (!skb)
++			return NETDEV_TX_OK;
++
++		/* receive with packet counting */
++		skb->sk = srcsk;
++		vcan_rx(skb, dev);
++	} else {
++		/* no looped packets => no counting */
++		kfree_skb(skb);
++	}
++	return NETDEV_TX_OK;
++}
++
++static void vcan_setup(struct net_device *dev)
++{
++	dev->type              = ARPHRD_CAN;
++	dev->mtu               = sizeof(struct can_frame);
++	dev->hard_header_len   = 0;
++	dev->addr_len          = 0;
++	dev->tx_queue_len      = 0;
++	dev->flags             = IFF_NOARP;
++
++	/* set flags according to driver capabilities */
++	if (echo)
++		dev->flags |= IFF_ECHO;
++
++	dev->hard_start_xmit   = vcan_tx;
++	dev->destructor        = free_netdev;
++}
++
++static struct rtnl_link_ops vcan_link_ops __read_mostly = {
++       .kind           = "vcan",
++       .setup          = vcan_setup,
++};
++
++static __init int vcan_init_module(void)
++{
++	printk(banner);
++
++	if (echo)
++		printk(KERN_INFO "vcan: enabled echo on driver level.\n");
++
++	return rtnl_link_register(&vcan_link_ops);
++}
++
++static __exit void vcan_cleanup_module(void)
++{
++	rtnl_link_unregister(&vcan_link_ops);
++}
++
++module_init(vcan_init_module);
++module_exit(vcan_cleanup_module);
+Index: net-2.6.25/net/can/Kconfig
+===================================================================
+--- net-2.6.25.orig/net/can/Kconfig	2007-11-16 14:50:18.000000000 +0100
++++ net-2.6.25/net/can/Kconfig	2007-11-16 14:50:18.000000000 +0100
+@@ -39,3 +39,6 @@
+ 	  You probably want to use the bcm socket in most cases where cyclic
+ 	  CAN messages are used on the bus (e.g. in automotive environments).
+ 	  To use the Broadcast Manager, use AF_CAN with protocol CAN_BCM.
++
++
++source "drivers/net/can/Kconfig"
 
-Urs Thuermann
-Oliver Hartkopp
-
-
-The changes in try #11 were:
-
-* Fix a bug causing NULL pointer dereference when module autoloading fails.
-* Initialize skb using skb_reset_{transport,network}_header().
-* Use sock_alloc_send_skb() instead of alloc_skb().
-* Adapt to changes in sk_alloc() parameter list.
-* Rename some local variables for readability.
-
-The changes in try #10 were:
-
-* Rename our static debug variables to {can,raw,bcm,vcan}_debug.
-* Use module_param_named() so that the module option names remain.
-* Remove raw_poll() and bcm_poll() functions and use datagram_poll instead.
-* Cleanup of can_addr union in sockaddr_can.
-* Change type of echo module parameter to boolean.
-
-The changes in try #9 were:
-
-* Changes suggested by Arnaldo Carvalho de Melo:
-  - Use gfp_any() instead of checking in_interrupt().
-  - Don't kfree() the sk_protinfo field.
-* Fixed licence text as pointed out by Yoshifuji Hideaki and Patrick McHardy.
-* Added IFF_ECHO to include/linux/if.h and use that instead of IFF_LOOPBACK,
-  as suggested by Eric W. Biederman.  IFF_LOOPBACK is only for the normal
-  loopback interface.
-
-The changes in try #8 were:
-
-* Some changes in debug code, following suggestions from Joe Perches:
-  - Remove dynamically allocated buffer for debug output.
-  - Use kernel functions for hexdumps.
-  - Don't interpret printf-style %-sequences in can_debug_cframe().
-  - Specify the fixed argument "fmt" to DBG() macro and use
-    GCC ## mechanism to remove , when args is empty.
-* Removed CAN_RAW_USER and CAN_BCM_USER Kconfig options following a
-  suggestion from Patrick.
-* Prevent overflow in statistics calculation.
-* Minor optimization.
-
-The changes in try #7 were:
-
-* Changes suggested by Patrick:
-  - protect proto_tab[] by a lock.
-  - add _rcu to some hlist traversals.
-  - use printk_ratelimit() for module autoload failures.
-  - make can_proto_unregister() and can_rx_unregister() return void.
-  - use return value of can_proto_register() and can_rx_register()
-    (this also removed a flaw in behavior of raw_bind() and raw_setsockopt()
-     in case of failure to can_rx_register() their filters).
-  - call kzalloc() with GFP_KERNEL in case NETDEV_REGISTER.
-  - use round_jiffies() to calculate expiration times.
-  - make some variables static and/or __read_mostly.
-  - in can_create() check for net namespace before auto loading modules.
-  - add build time check for struct sizes.
-  - use skb_share_chack() in vcan.
-  - fixed some comments.
-* Typos in documentation as pointed out by Randy Dunlap and Bill Fink.
-
-The changes in try #6 were:
-
-* Update code to work with namespaces in net-2.6.24.
-* Remove SET_MODULE_OWNER() from vcan.
-
-The changes in try #5 were:
-
-* Remove slab destructor from calls to kmem_cache_alloc().
-* Add comments about types defined in can.h.
-* Update comment on vcan loopback module parameter.
-* Fix typo in documentation.
-
-The changes in try #4 were:
-
-* Change vcan network driver to use the new RTNL API, as suggested by
-  Patrick.
-* Revert our change to use skb->iif instead of skb->cb.  After
-  discussion with Patrick and Jamal it turned out, our first
-  implementation was correct.
-* Use skb_tail_pointer() instead of skb->tail directly.
-* Coding style changes to satisfy linux/scripts/checkpatch.pl.
-* Minor changes for 64-bit-cleanliness.
-* Minor cleanup of #include's
-
-The changes in try #3 were:
-
-* Use sbk->sk and skb->pkt_type instead of skb->cb to pass loopback
-  flags and originating socket down to the driver and back to the
-  receiving socket.  Thanks to Patrick McHardy for pointing out our
-  wrong use of sbk->cb.
-* Use skb->iif instead of skb->cb to pass receiving interface from
-  raw_rcv() and bcm_rcv() up to raw_recvmsg() and bcm_recvmsg().
-* Set skb->protocol when sending CAN frames to netdevices.
-* Removed struct raw_opt and struct bcm_opt and integrated these
-  directly into struct raw_sock and bcm_sock resp., like most other
-  proto implementations do.
-* We have found and fixed race conditions between raw_bind(),
-  raw_{set,get}sockopt() and raw_notifier().  This resulted in
-  - complete removal of our own notifier list infrastructure in
-    af_can.c.  raw.c and bcm.c now use normal netdevice notifiers.
-  - removal of ro->lock spinlock.  We use lock_sock(sk) now.
-  - changed deletion of dev_rcv_lists, which are now marked for
-    deletion in the netdevice notifier in af_can.c and are actually
-    deleted when all entries have been deleted using can_rx_unregister().
-* Follow changes in 2.6.22 (e.g. ktime_t timestamps in skb).
-* Removed obsolete code from vcan.c, as pointed out by Stephen Hemminger.
-
-The changes in try #2 were:
-
-* reduced RCU callback overhead when deleting receiver lists (thx to
-  feedback from Paul E. McKenney).
-* eliminated some code duplication in net/can/proc.c.
-* renamed slock-29 and sk_lock-29 to slock-AF_CAN and sk_lock-AF_CAN in
-  net/core/sock.c
-* added entry for can.txt in Documentation/networking/00-INDEX
-* added error frame definitions in include/linux/can/error.h, which are to
-  be used by CAN network drivers.
 --
