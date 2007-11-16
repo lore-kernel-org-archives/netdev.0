@@ -1,44 +1,37 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] via-velocity: don't oops on MTU change.
-Date: Fri, 16 Nov 2007 08:47:06 -0800
-Message-ID: <20071116084706.467aa834@freepuppy.rosehill>
-References: <20071114193844.0cab5c7d@freepuppy.rosehill>
-	<20071115082600.GA2366@ff.dom.local>
-	<20071115102005.0cf46f9a@freepuppy.rosehill>
-	<473CD1F6.9030709@o2.pl>
-	<cccedfc60711151842l4aafe0ffo220e84a5e37b6a82@mail.gmail.com>
-	<20071115203508.4ad025f2@freepuppy.rosehill>
-	<cccedfc60711160821p5f1790eaq8d385e71726cd5a0@mail.gmail.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [Bugme-new] [Bug 9391] New: Netgear GA320T(tg3) strange
+ errors and non-workingness
+Date: Fri, 16 Nov 2007 08:55:42 -0800
+Message-ID: <1551EAE59135BE47B544934E30FC4FC002AABB2E@nt-irva-0751.brcm.ad.broadcom.com>
+References: <cccedfc60711160608j1ff89979uf7c1f122dd050adc@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Jarek Poplawski" <jarkao2@o2.pl>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	jnelson-kernel-bugzilla@jamponi.net
-To: "Jon Nelson" <jnelson@jamponi.net>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	"Andrew Morton" <akpm@linux-foundation.org>
+To: "Jon Nelson" <jnelson@jamponi.net>,
+	"Jarek Poplawski" <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:39205 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753583AbXKPQs6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 11:48:58 -0500
-In-Reply-To: <cccedfc60711160821p5f1790eaq8d385e71726cd5a0@mail.gmail.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:3659 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750747AbXKPQzz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 11:55:55 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <cccedfc60711160608j1ff89979uf7c1f122dd050adc@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 16 Nov 2007 10:21:25 -0600
-"Jon Nelson" <jnelson@jamponi.net> wrote:
+Jon Nelson wrote:
 
-> I get a segmentation fault.
+> The lspci is exactly as it was output. The dmesg is shortened only
+> slightly. The kernel is the latest available for openSUSE 10.3. No MSI
+> because this is an Athlon XP (read: 32bit, single core, regular old
+> 33MHz, 32bit PCI).
 > 
-> Should this patch be in addition to the one from bug 9382?
-> http://bugzilla.kernel.org/attachment.cgi?id=13555&action=view
-> 
-Yes. The new patch adds just recomputes the rx buf size in
-one place, so it can be set when device is down.
-Also, the computation will always yield same result now, the old
-code computed different values depending on whether it was initial
-or changed MTU.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+The lspci doesn't look correct to me either.  We don't have AGP
+capability on these network cards.  Please provide:
+
+lspci -vvxxx -s0:0:b.0
+
