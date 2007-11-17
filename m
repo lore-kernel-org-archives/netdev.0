@@ -1,83 +1,47 @@
-From: Andrew Morgan <morgan@kernel.org>
-Subject: Re: 2.6.24-rc2-mm1 -- strange apparent network failures
-Date: Fri, 16 Nov 2007 21:16:58 -0800
-Message-ID: <473E794A.4060107@kernel.org>
-References: <20071113175906.497a1a6a.akpm@linux-foundation.org>	<20071115100209.GB2513@shadowen.org>	<200711152028.29734.kjwinchester@gmail.com> <20071115164441.67a8e2df.akpm@linux-foundation.org>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: Re: SFQ: backport some features from ESFQ (try 5)
+Date: Sat, 17 Nov 2007 07:34:39 +0200
+Message-ID: <20071117053343.M46543@visp.net.lb>
+References: <1193642587-32657-1-git-send-email-bugfood-ml@fatooh.org> <473D0779.5050900@fatooh.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kamalesh@linux.vnet.ibm.com
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Kevin Winchester <kjwinchester@gmail.com>, apw@shadowen.org
+Content-Type: text/plain;
+	charset=koi8-r
+To: Corey Hickey <bugfood-ml@fatooh.org>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from twinlark.arctic.org ([207.29.250.54]:52087 "EHLO
-	twinlark.arctic.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750835AbXKQFRA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2007 00:17:00 -0500
-In-Reply-To: <20071115164441.67a8e2df.akpm@linux-foundation.org>
+Received: from usermail.globalproof.net ([194.146.153.18]:57868 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751051AbXKQFez (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2007 00:34:55 -0500
+In-Reply-To: <473D0779.5050900@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
-
-Hi,
-
-This warning is just saying that you might want to reconsider
-recompiling your dhclient with a newer libcap - which has native support
-for 64-bit capabilities. This is supposed to be informative, and not be
-associated with any particular error.
-
-- From your comments, you believe that this patch causes something in your
-boot process to fail. Can you supply some detail about the version of
-dhclient you are using? I'd like to understand exactly what it is doing
-(via libcap).
-
-Thanks
-
-Andrew
-
-Andrew Morton wrote:
-> On Thu, 15 Nov 2007 20:28:29 -0400
-> Kevin Winchester <kjwinchester@gmail.com> wrote:
+On Thu, 15 Nov 2007 18:59:05 -0800, Corey Hickey wrote
+> Corey Hickey wrote:
+> > Patchset try 2 addresses the review by Michael Buesch.
+> > Patchset try 3 addresses the review by Patrick McHardy.
+> > Patchset try 4 has a few cosmetic improvements.
+> > Patchset try 5 addresses further review by Patrick McHardy.
+> > 
+> > This set of patches is substantially the same as my previous try, with
+> > changes made according to Patrick's recommendations.
 > 
->> On November 15, 2007 06:02:09 am Andy Whitcroft wrote:
->>> When testing some of the later 2.6.24-rc2-mm1+hotfix combinations on three
->>> of our test systems one job from each batch (1/4) failed.  In each case the
->>> machine appears to have booted normally all the way to a login: prompt.
->>> However in the failed boots the networking though apparently initialised
->>> completely and correctly (as far as I can tell from the console output), is
->>> reported as not responding to ssh connections.  The network interface seems
->>> to have been initialised on the right port, and the ssh daemons started.
->>>
->>> Two of the machines are powerpc boxes, the other an older x86_64.
->>> One machine is 4/4 in testing, just one.  Most of the other machines are
->>> still not able to compile this stack so do not contribute to our knowledge.
->>>
->>> Any ideas?
->>>
->> I see this as well - the computer boots fine but no network.  The only clues 
->> in the dmesg are:
->>
->> [  294.097876] warning: process `dhclient' gets w/ old libcap
->> [  294.097893] warning: process `dhclient' sets w/ old libcap
->>
->> So I'll try backing up the patch series to before:
->>
->> add-64-bit-capability-support-to-the-kernel.patch
+> Any comments? Patrick? I know you're busy, but you've been sending
+> reviews for my patches so far and yet another one would be much appreciated.
 > 
-> Yes, that's a good one to suspect.
-> 
-> What a peculiar error message.
-> 
->> or so, and see if that's the problem.  If anyone has any other ideas, let me 
->> know.
-> 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
+> Thanks,
+> Corey
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+For me also it is very interesting to have SFQ with this patches, cause right 
+now SFQ suitable only for low-bandwidth customers. With this patch i can use 
+it much more, and QOS will become much more flexible for me.
 
-iD8DBQFHPnlIQheEq9QabfIRAlglAKCG2NG1xnwMT8G/Lk8GoEPwtBzq9QCdFLYi
-k+pt5Sd2AdtOJ+TjMIt1y6g=
-=5wpX
------END PGP SIGNATURE-----
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
+
