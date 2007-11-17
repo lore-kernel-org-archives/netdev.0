@@ -1,42 +1,50 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH 1/2] [IPV4] UDP: Always checksum even if without socket filter
-Date: Sat, 17 Nov 2007 14:18:46 +0100
-Message-ID: <p73bq9tau2x.fsf@bingen.suse.de>
-References: <E1IssYb-0000KG-00@gondolin.me.apana.org.au>
-	<473D19EC.6030903@cn.fujitsu.com>
+From: Andy Whitcroft <apw@shadowen.org>
+Subject: Re: 2.6.24-rc2-mm1 -- strange apparent network failures
+Date: Sat, 17 Nov 2007 13:57:00 +0000
+Message-ID: <20071117135640.GA22058@shadowen.org>
+References: <20071113175906.497a1a6a.akpm@linux-foundation.org> <20071115100209.GB2513@shadowen.org> <200711152028.29734.kjwinchester@gmail.com> <20071115164441.67a8e2df.akpm@linux-foundation.org> <473E794A.4060107@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Kevin Winchester <kjwinchester@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	kamalesh@linux.vnet.ibm.com
+To: Andrew Morgan <morgan@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:50674 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751928AbXKQNSs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Nov 2007 08:18:48 -0500
-In-Reply-To: <473D19EC.6030903@cn.fujitsu.com> (Wang Chen's message of "Fri\, 16 Nov 2007 12\:17\:48 +0800")
+Received: from hellhawk.shadowen.org ([80.68.90.175]:1848 "EHLO
+	hellhawk.shadowen.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752826AbXKQN5b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2007 08:57:31 -0500
+Content-Disposition: inline
+In-Reply-To: <473E794A.4060107@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wang Chen <wangchen@cn.fujitsu.com> writes:
+On Fri, Nov 16, 2007 at 09:16:58PM -0800, Andrew Morgan wrote:
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+> 
+> Hi,
+> 
+> This warning is just saying that you might want to reconsider
+> recompiling your dhclient with a newer libcap - which has native support
+> for 64-bit capabilities. This is supposed to be informative, and not be
+> associated with any particular error.
+> 
+> - From your comments, you believe that this patch causes something in your
+> boot process to fail. Can you supply some detail about the version of
+> dhclient you are using? I'd like to understand exactly what it is doing
+> (via libcap).
+> 
+> Thanks
 
-> Herbert Xu said the following on 2007-11-16 12:11:
->> Wang Chen <wangchen@cn.fujitsu.com> wrote:
->>> So, I think the checksum in udp_queue_rcv_skb() actually does
->>> the work, not that in udp_recvmsg() and udp_poll().
->>>
->>> If I am wrong, please point out.
->> 
->> We may have a bug in the accounting area.  Check the recent
->> patch made to UDP/IPv6 which is probably needed here as well.
->> 
->
-> Like dave said, decrementing the InDataGrams in this case is an
-> option.
-> I will check the same place of UDP/IPv6.
+The machine which show this problem for me are using static network
+configurations, so I don't know if libcap is still in the mix there.
 
-And like Benny pointed out it's probably a bad idea because
-decrementing counters will be an unexpected ABI change for monitoring 
-programs who have no other way to detect overflow.
+I've just compared the boot logs from a successful and unsuccessful boot
+on this kernel, and I don't see that particular message, nor do I see
+any significant differences overall.
 
--Andi
+Perlexed.
+
+-apw
