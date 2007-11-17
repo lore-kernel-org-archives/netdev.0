@@ -1,50 +1,68 @@
-From: Andy Whitcroft <apw@shadowen.org>
-Subject: Re: 2.6.24-rc2-mm1 -- strange apparent network failures
-Date: Sat, 17 Nov 2007 13:57:00 +0000
-Message-ID: <20071117135640.GA22058@shadowen.org>
-References: <20071113175906.497a1a6a.akpm@linux-foundation.org> <20071115100209.GB2513@shadowen.org> <200711152028.29734.kjwinchester@gmail.com> <20071115164441.67a8e2df.akpm@linux-foundation.org> <473E794A.4060107@kernel.org>
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Subject: [PATCH] tun: use iov_length()
+Date: Sat, 17 Nov 2007 22:55:00 +0900
+Message-ID: <20071117135500.GA14691@APFDCB5C>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Kevin Winchester <kjwinchester@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kamalesh@linux.vnet.ibm.com
-To: Andrew Morgan <morgan@kernel.org>
+Cc: vtun@office.satix.net, Maxim Krasnyansky <maxk@qualcomm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hellhawk.shadowen.org ([80.68.90.175]:1848 "EHLO
-	hellhawk.shadowen.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752826AbXKQN5b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2007 08:57:31 -0500
+Received: from rv-out-0910.google.com ([209.85.198.185]:23485 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751926AbXKQOA7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2007 09:00:59 -0500
+Received: by rv-out-0910.google.com with SMTP id k20so984357rvb
+        for <netdev@vger.kernel.org>; Sat, 17 Nov 2007 06:00:58 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <473E794A.4060107@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 16, 2007 at 09:16:58PM -0800, Andrew Morgan wrote:
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA1
-> 
-> Hi,
-> 
-> This warning is just saying that you might want to reconsider
-> recompiling your dhclient with a newer libcap - which has native support
-> for 64-bit capabilities. This is supposed to be informative, and not be
-> associated with any particular error.
-> 
-> - From your comments, you believe that this patch causes something in your
-> boot process to fail. Can you supply some detail about the version of
-> dhclient you are using? I'd like to understand exactly what it is doing
-> (via libcap).
-> 
-> Thanks
+Use iov_length() instead of tun's homemade iov_total().
 
-The machine which show this problem for me are using static network
-configurations, so I don't know if libcap is still in the mix there.
+Cc: Maxim Krasnyansky <maxk@qualcomm.com>
+Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
 
-I've just compared the boot logs from a successful and unsuccessful boot
-on this kernel, and I don't see that particular message, nor do I see
-any significant differences overall.
+---
+ drivers/net/tun.c |   15 ++-------------
+ 1 file changed, 2 insertions(+), 13 deletions(-)
 
-Perlexed.
-
--apw
+Index: 2.6-mm/drivers/net/tun.c
+===================================================================
+--- 2.6-mm.orig/drivers/net/tun.c
++++ 2.6-mm/drivers/net/tun.c
+@@ -292,17 +292,6 @@ static __inline__ ssize_t tun_get_user(s
+ 	return count;
+ }
+ 
+-static inline size_t iov_total(const struct iovec *iv, unsigned long count)
+-{
+-	unsigned long i;
+-	size_t len;
+-
+-	for (i = 0, len = 0; i < count; i++)
+-		len += iv[i].iov_len;
+-
+-	return len;
+-}
+-
+ static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
+ 			      unsigned long count, loff_t pos)
+ {
+@@ -313,7 +302,7 @@ static ssize_t tun_chr_aio_write(struct 
+ 
+ 	DBG(KERN_INFO "%s: tun_chr_write %ld\n", tun->dev->name, count);
+ 
+-	return tun_get_user(tun, (struct iovec *) iv, iov_total(iv, count));
++	return tun_get_user(tun, (struct iovec *) iv, iov_length(iv, count));
+ }
+ 
+ /* Put packet to the user space buffer */
+@@ -364,7 +353,7 @@ static ssize_t tun_chr_aio_read(struct k
+ 
+ 	DBG(KERN_INFO "%s: tun_chr_read\n", tun->dev->name);
+ 
+-	len = iov_total(iv, count);
++	len = iov_length(iv, count);
+ 	if (len < 0)
+ 		return -EINVAL;
+ 
