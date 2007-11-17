@@ -1,55 +1,97 @@
-From: "Denys" <nuclearcat@nuclearcat.com>
-Subject: Re: r8169 crash
-Date: Sun, 18 Nov 2007 00:44:38 +0200
-Message-ID: <20071117224224.M6133@nuclearcat.com>
-References: <20071117053920.M40084@nuclearcat.com> <20071117220759.GA2862@electric-eye.fr.zoreil.com>
+From: Andrew Morgan <morgan@kernel.org>
+Subject: Re: 2.6.24-rc2-mm1 -- strange apparent network failures
+Date: Sat, 17 Nov 2007 15:52:59 -0800
+Message-ID: <473F7EDB.60701@kernel.org>
+References: <20071113175906.497a1a6a.akpm@linux-foundation.org> <20071115164441.67a8e2df.akpm@linux-foundation.org> <473E794A.4060107@kernel.org> <200711170848.35726.kjwinchester@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, apw@shadowen.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	kamalesh@linux.vnet.ibm.com
+To: Kevin Winchester <kjwinchester@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:46206 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750971AbXKQWoy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2007 17:44:54 -0500
-In-Reply-To: <20071117220759.GA2862@electric-eye.fr.zoreil.com>
+Received: from twinlark.arctic.org ([207.29.250.54]:47421 "EHLO
+	twinlark.arctic.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755540AbXKQXxH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2007 18:53:07 -0500
+In-Reply-To: <200711170848.35726.kjwinchester@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Before it happens on 2.6.22, i tried to attach good cable, plug-unplug, 
-whatever, interface up/down - card still remains dead.
+Kevin,
 
-I try to plug cable to laptop with rtl8139 and pc with e100 - it is worked 
-when i shake bad cable(interface was going up/down as well), and good cable 
-also worked fine, and never crashed. On 2.6.22 i was able to reproduce it 
-easily, but later i can't cause it is server in internet cafe, and customers 
-going crazy.
+Can you try this quick hack?
 
+diff --git a/kernel/capability.c b/kernel/capability.c
+index e57d1aa..4088610 100644
+- --- a/kernel/capability.c
++++ b/kernel/capability.c
+@@ -109,7 +109,7 @@ out:
+                        kdata[i].permitted = pP.cap[i];
+                        kdata[i].inheritable = pI.cap[i];
+                }
+- -               while (i < _LINUX_CAPABILITY_U32S) {
++               while (0 && (i < _LINUX_CAPABILITY_U32S)) {
+                        if (pE.cap[i] || pP.cap[i] || pP.cap[i]) {
+                                /* Cannot represent w/ legacy structure */
+                                return -ERANGE;
 
-On Sat, 17 Nov 2007 23:07:59 +0100, Francois Romieu wrote
-> Denys <nuclearcat@nuclearcat.com> :
-> [...]
-> > After that i have.
-> > Nov 15 22:11:37 vzone NETDEV WATCHDOG: eth1: transmit timed out
-> > Nov 15 22:11:49 vzone NETDEV WATCHDOG: eth1: transmit timed out
-> > Nov 15 22:12:01 vzone NETDEV WATCHDOG: eth1: transmit timed out
-> > Nov 15 22:12:13 vzone NETDEV WATCHDOG: eth1: transmit timed out
-> > Nov 15 22:12:25 vzone NETDEV WATCHDOG: eth1: transmit timed out
-> > Nov 15 22:12:37 vzone NETDEV WATCHDOG: eth1: transmit timed out
-> > Nov 15 22:12:49 vzone NETDEV WATCHDOG: eth1: transmit timed out
-> > Nov 15 22:13:01 vzone NETDEV WATCHDOG: eth1: transmit timed out
+Thanks
+
+Andrew
+
+Kevin Winchester wrote:
+> On November 17, 2007 01:16:58 am Andrew Morgan wrote:
+>> Hi,
+>>
+>> This warning is just saying that you might want to reconsider
+>> recompiling your dhclient with a newer libcap - which has native support
+>> for 64-bit capabilities. This is supposed to be informative, and not be
+>> associated with any particular error.
+>>
+>> From your comments, you believe that this patch causes something in your
+>> boot process to fail. Can you supply some detail about the version of
+>> dhclient you are using? I'd like to understand exactly what it is doing
+>> (via libcap).
+>>
+>> Thanks
+>>
 > 
-> Is there a chance for you to verify that the network interface does
-> not recover if a real cable is plugged at this point ?
+> The boot succeeds (and appears to bring initialize the network adapter 
+> properly - it autonegotiates a 100Mbps link speed), but the dhcp client is 
+> never able to get an address.  However, applying the rc2-mm1 patch series up 
+> to just before:
 > 
-> -- 
-> Ueimor
+>   add-64-bit-capability-support-to-the-kernel.patch
+> 
+> results in a working kernel.  Applying just this patch causes the failure.  To 
+> be sure, I also tried applying the above patch plus the following ones:
+> 
+>   add-64-bit-capability-support-to-the-kernel-checkpatch-fixes.patch
+>   add-64-bit-capability-support-to-the-kernel-fix.patch
+>   add-64-bit-capability-support-to-the-kernel-fix-fix.patch
+>   remove-unnecessary-include-from-include-linux-capabilityh.patch
+> 
+> but the problem still occurs even with all of these.
+> 
+> As to versions, I'm running Kubuntu gutsy, so I have the default:
+> 
+> dhcp3-client           3.0.5-3ubuntu4
+> libcap1                1:1.10-14build1
+> 
+> packages installed.
+> 
+> Let me know if you need any other information, or if you have a patch you 
+> would like tested.
+> 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
 
-
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
-
+iD8DBQFHP37LQheEq9QabfIRAst5AJ9Nsw0RtF2NDuUAMvQZh5OFWEB4ugCeIxMH
+lp5/Ka7SJZLIrQpZDijrd1E=
+=GN18
+-----END PGP SIGNATURE-----
