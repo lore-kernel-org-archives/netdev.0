@@ -1,60 +1,31 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] IPV4 : Move ip route cache flush (secret_rebuild) from softirq to workqueue
-Date: Sun, 18 Nov 2007 00:29:39 +0800
-Message-ID: <20071117162939.GA21563@gondor.apana.org.au>
-References: <20071116174027.726e6eca.dada1@cosmosbay.com> <20071116.165445.172804063.davem@davemloft.net> <473EB75B.7000607@cosmosbay.com> <20071117143622.GA20813@gondor.apana.org.au> <473F145B.5090303@cosmosbay.com>
+From: Martin Michlmayr <tbm@cyrius.com>
+Subject: Re: Netconsole and logging everything from /dev/console
+Date: Sat, 17 Nov 2007 20:31:09 +0100
+Message-ID: <20071117193109.GR23935@deprecation.cyrius.com>
+References: <20071116174315.GA20401@deprecation.cyrius.com> <20071116185036.GH19691@waste.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: Satyam Sharma <satyam.sharma@gmail.com>, netdev@vger.kernel.org,
+	hpa@zytor.com
+To: Matt Mackall <mpm@selenic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4774 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751332AbXKQQ3s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2007 11:29:48 -0500
+Received: from sorrow.cyrius.com ([65.19.161.204]:3756 "EHLO sorrow.cyrius.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755546AbXKQTb2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Nov 2007 14:31:28 -0500
 Content-Disposition: inline
-In-Reply-To: <473F145B.5090303@cosmosbay.com>
+In-Reply-To: <20071116185036.GH19691@waste.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 17, 2007 at 05:18:35PM +0100, Eric Dumazet wrote:
->
-> >This seems to be the only potentially softirq caller of rt_run_flush.
-> >However, I just checked the callers of it and most of them seem to
-> >hold the RTNL which would indicate that they're in process context.
-> >
-> >So do you know if you we have any real softirq callers left?
-> >If we do perhaps we can look at either moving them out or see
-> >if they can cope with the flush occuring after the call returns.
-> >
-> >If not we can get rid of the softirq special case.
+* Matt Mackall <mpm@selenic.com> [2007-11-16 12:50]:
+> > Do you think that would be possible?
 > 
-> Unfortunatly we have softirq callers left. But my goal is to move 
-> everything to process context yes. I choose small patches, so that they can 
-> be more easyly reviewed and accepted.
-> 
-> The most common case is triggered by "ip route flush cache"
-> Since it's arming a 2 second timer (ip_rt_min_delay) . When this
-> timer is fired (softirq), it is flushing the table.
-> 
-> Then, every calls to rt_cache_flush(-1) are asking the same thing, while 
-> rt_cache_flush(0) are synchronous (immediate flushing unless a flush 
-> already is in flight)
+> It is, definitely, you just need to wire up a tty struct's write
+> method to netconsole's and add it to the console registration. But I
+> haven't had any time to work on this in a while.
 
-Right.  Obviously the ones with non-zero arguments aren't an
-issue because it's delayed anyway.
-
-What I meant above is that which of the ones that call it with
-zero are really in a softirq context.  As the ones I looked at
-all seem to hold the RTNL it would suggest that most of them
-are already in process context.
-
-However, since you're already working on this as your next step
-I can wait :)
-
-Cheers,
+Where would I look for examples I could follow?
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Martin Michlmayr
+http://www.cyrius.com/
