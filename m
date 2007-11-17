@@ -1,68 +1,51 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH] tun: use iov_length()
-Date: Sat, 17 Nov 2007 22:55:00 +0900
-Message-ID: <20071117135500.GA14691@APFDCB5C>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] IPV4 : Move ip route cache flush (secret_rebuild) from softirq to workqueue
+Date: Sat, 17 Nov 2007 22:36:22 +0800
+Message-ID: <20071117143622.GA20813@gondor.apana.org.au>
+References: <20071116174027.726e6eca.dada1@cosmosbay.com> <20071116.165445.172804063.davem@davemloft.net> <473EB75B.7000607@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: vtun@office.satix.net, Maxim Krasnyansky <maxk@qualcomm.com>
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.185]:23485 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751926AbXKQOA7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2007 09:00:59 -0500
-Received: by rv-out-0910.google.com with SMTP id k20so984357rvb
-        for <netdev@vger.kernel.org>; Sat, 17 Nov 2007 06:00:58 -0800 (PST)
+Received: from rhun.apana.org.au ([64.62.148.172]:3589 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752123AbXKQOgd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2007 09:36:33 -0500
 Content-Disposition: inline
+In-Reply-To: <473EB75B.7000607@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use iov_length() instead of tun's homemade iov_total().
+On Sat, Nov 17, 2007 at 09:41:47AM +0000, Eric Dumazet wrote:
+>
+> [PATCH] IPV4 : Move ip route cache flush (secret_rebuild) from softirq to 
+> workqueue
 
-Cc: Maxim Krasnyansky <maxk@qualcomm.com>
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+Thanks for your work on this Eric! It's very much needed.
 
----
- drivers/net/tun.c |   15 ++-------------
- 1 file changed, 2 insertions(+), 13 deletions(-)
+> @@ -667,7 +697,7 @@ void rt_cache_flush(int delay)
+>  
+>  	if (delay <= 0) {
+>  		spin_unlock_bh(&rt_flush_lock);
+> -		rt_run_flush(0);
+> +		rt_run_flush(user_mode);
+>  		return;
+>  	}
 
-Index: 2.6-mm/drivers/net/tun.c
-===================================================================
---- 2.6-mm.orig/drivers/net/tun.c
-+++ 2.6-mm/drivers/net/tun.c
-@@ -292,17 +292,6 @@ static __inline__ ssize_t tun_get_user(s
- 	return count;
- }
- 
--static inline size_t iov_total(const struct iovec *iv, unsigned long count)
--{
--	unsigned long i;
--	size_t len;
--
--	for (i = 0, len = 0; i < count; i++)
--		len += iv[i].iov_len;
--
--	return len;
--}
--
- static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
- 			      unsigned long count, loff_t pos)
- {
-@@ -313,7 +302,7 @@ static ssize_t tun_chr_aio_write(struct 
- 
- 	DBG(KERN_INFO "%s: tun_chr_write %ld\n", tun->dev->name, count);
- 
--	return tun_get_user(tun, (struct iovec *) iv, iov_total(iv, count));
-+	return tun_get_user(tun, (struct iovec *) iv, iov_length(iv, count));
- }
- 
- /* Put packet to the user space buffer */
-@@ -364,7 +353,7 @@ static ssize_t tun_chr_aio_read(struct k
- 
- 	DBG(KERN_INFO "%s: tun_chr_read\n", tun->dev->name);
- 
--	len = iov_total(iv, count);
-+	len = iov_length(iv, count);
- 	if (len < 0)
- 		return -EINVAL;
- 
+This seems to be the only potentially softirq caller of rt_run_flush.
+However, I just checked the callers of it and most of them seem to
+hold the RTNL which would indicate that they're in process context.
+
+So do you know if you we have any real softirq callers left?
+If we do perhaps we can look at either moving them out or see
+if they can cope with the flush occuring after the call returns.
+
+If not we can get rid of the softirq special case.
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
