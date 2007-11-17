@@ -1,67 +1,39 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 2/9 RESEND] cxgb3 - Use wild card for PCI subdevice ID match
-Date: Fri, 16 Nov 2007 14:26:44 -0800
-Message-ID: <20071116222644.533.66665.stgit@speedy5>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/7] CAN: New PF_CAN protocol family for 2.6.25, update
+Date: Fri, 16 Nov 2007 16:10:23 -0800 (PST)
+Message-ID: <20071116.161023.03295712.davem@davemloft.net>
+References: <20071116150245.28784.0@janus.isnogud.escape.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, swise@opengridcomputing.com,
-	wenxiong@us.ibm.com
-To: jeff@garzik.org
+Cc: netdev@vger.kernel.org, kaber@trash.net,
+	shemminger@linux-foundation.org, joe@perches.com, sam@ravnborg.org,
+	tglx@linutronix.de, oliver@hartkopp.net
+To: urs.thuermann@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:30851 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756878AbXKPW0w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 17:26:52 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53755
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756531AbXKQAK3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2007 19:10:29 -0500
+In-Reply-To: <20071116150245.28784.0@janus.isnogud.escape.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Divy Le Ray <divy@chelsio.com>
+From: Urs Thuermann <urs.thuermann@gmx.de>
+Date: Fri, 16 Nov 2007 16:02:45 +0100
 
-Subdevice ID is not necessarily set to 1. 
-Use wild card for PCI device matching
+> this patch series adds the PF_CAN protocol family for the
+> Controller Area Network.  Since our last post we have changed:
+> 
+> * Remove vcan_open() and vcan_stop().
+> * return NETDEV_TX_OK instead of 0.
+> * Add can_ prefix to some global vars.
+> * Remove all debug code completely.
+> * Cleanup of timer code.
+> 
+> This patch series applies against net-2.6.25 and is derived from Subversion
+> revision r560 of http://svn.berlios.de/svnroot/repos/socketcan.
+> It can be found in the directory
+> http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
 
-Signed-off-by: Divy Le Ray <divy@chelsio.com>
----
-
- drivers/net/cxgb3/cxgb3_main.c |   24 ++++++++++++------------
- 1 files changed, 12 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-index bb0d1c8..d92da8f 100644
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -76,20 +76,20 @@ enum {
- 
- #define EEPROM_MAGIC 0x38E2F10C
- 
--#define CH_DEVICE(devid, ssid, idx) \
--	{ PCI_VENDOR_ID_CHELSIO, devid, PCI_ANY_ID, ssid, 0, 0, idx }
-+#define CH_DEVICE(devid, idx) \
-+	{ PCI_VENDOR_ID_CHELSIO, devid, PCI_ANY_ID, PCI_ANY_ID, 0, 0, idx }
- 
- static const struct pci_device_id cxgb3_pci_tbl[] = {
--	CH_DEVICE(0x20, 1, 0),	/* PE9000 */
--	CH_DEVICE(0x21, 1, 1),	/* T302E */
--	CH_DEVICE(0x22, 1, 2),	/* T310E */
--	CH_DEVICE(0x23, 1, 3),	/* T320X */
--	CH_DEVICE(0x24, 1, 1),	/* T302X */
--	CH_DEVICE(0x25, 1, 3),	/* T320E */
--	CH_DEVICE(0x26, 1, 2),	/* T310X */
--	CH_DEVICE(0x30, 1, 2),	/* T3B10 */
--	CH_DEVICE(0x31, 1, 3),	/* T3B20 */
--	CH_DEVICE(0x32, 1, 1),	/* T3B02 */
-+	CH_DEVICE(0x20, 0),	/* PE9000 */
-+	CH_DEVICE(0x21, 1),	/* T302E */
-+	CH_DEVICE(0x22, 2),	/* T310E */
-+	CH_DEVICE(0x23, 3),	/* T320X */
-+	CH_DEVICE(0x24, 1),	/* T302X */
-+	CH_DEVICE(0x25, 3),	/* T320E */
-+	CH_DEVICE(0x26, 2),	/* T310X */
-+	CH_DEVICE(0x30, 2),	/* T3B10 */
-+	CH_DEVICE(0x31, 3),	/* T3B20 */
-+	CH_DEVICE(0x32, 1),	/* T3B02 */
- 	{0,}
- };
- 
+I've applied all 7 patches to net-2.6.25, thanks a lot!
