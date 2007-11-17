@@ -1,33 +1,42 @@
 From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] NET : rt_check_expire() can take a long time, add a cond_resched()
-Date: Sat, 17 Nov 2007 14:08:26 +0100
-Message-ID: <p73fxz5auk5.fsf@bingen.suse.de>
-References: <473B69D5.2050805@cosmosbay.com> <p73r6isc6ev.fsf@bingen.suse.de>
-	<473C0297.5090004@cosmosbay.com>
+Subject: Re: [PATCH 1/2] [IPV4] UDP: Always checksum even if without socket filter
+Date: Sat, 17 Nov 2007 14:18:46 +0100
+Message-ID: <p73bq9tau2x.fsf@bingen.suse.de>
+References: <E1IssYb-0000KG-00@gondolin.me.apana.org.au>
+	<473D19EC.6030903@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suse.de ([195.135.220.2]:50032 "EHLO mx1.suse.de"
+Received: from ns1.suse.de ([195.135.220.2]:50674 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751361AbXKQNI2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Nov 2007 08:08:28 -0500
-In-Reply-To: <473C0297.5090004@cosmosbay.com> (Eric Dumazet's message of "Thu\, 15 Nov 2007 09\:25\:59 +0100")
+	id S1751928AbXKQNSs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Nov 2007 08:18:48 -0500
+In-Reply-To: <473D19EC.6030903@cn.fujitsu.com> (Wang Chen's message of "Fri\, 16 Nov 2007 12\:17\:48 +0800")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <dada1@cosmosbay.com> writes:
+Wang Chen <wangchen@cn.fujitsu.com> writes:
 
-> So it may sound unnecessary but in the rt_check_expire() case, with a
-> loop potentially doing XXX.XXX iterations, being able to bypass the
-> function call is a clear win (in my bench case, 25 ms instead of 88
-> ms). Impact on I-cache is irrelevant here as this rt_check_expires()
+> Herbert Xu said the following on 2007-11-16 12:11:
+>> Wang Chen <wangchen@cn.fujitsu.com> wrote:
+>>> So, I think the checksum in udp_queue_rcv_skb() actually does
+>>> the work, not that in udp_recvmsg() and udp_poll().
+>>>
+>>> If I am wrong, please point out.
+>> 
+>> We may have a bug in the accounting area.  Check the recent
+>> patch made to UDP/IPv6 which is probably needed here as well.
+>> 
+>
+> Like dave said, decrementing the InDataGrams in this case is an
+> option.
+> I will check the same place of UDP/IPv6.
 
-Measuring what? And really milli-seconds? The number does not sound plausible 
-to me.
+And like Benny pointed out it's probably a bad idea because
+decrementing counters will be an unexpected ABI change for monitoring 
+programs who have no other way to detect overflow.
 
 -Andi
-
