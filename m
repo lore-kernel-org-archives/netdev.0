@@ -1,46 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [TCP]: Fix TCP header misalignment
-Date: Sun, 18 Nov 2007 13:36:02 -0800 (PST)
-Message-ID: <20071118.133602.193701128.davem@davemloft.net>
-References: <20071118121530.GA27963@gondor.apana.org.au>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 1/2] [IPV4] UDP: Always checksum even if without socket filter
+Date: Sun, 18 Nov 2007 22:45:15 +0100
+Message-ID: <20071118214515.GA8161@one.firstfloor.org>
+References: <E1IssYb-0000KG-00@gondolin.me.apana.org.au> <473D19EC.6030903@cn.fujitsu.com> <p73bq9tau2x.fsf@bingen.suse.de> <20071117.160926.232024605.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: andi@firstfloor.org, wangchen@cn.fujitsu.com,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60057
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752148AbXKRVgG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Nov 2007 16:36:06 -0500
-In-Reply-To: <20071118121530.GA27963@gondor.apana.org.au>
+Received: from one.firstfloor.org ([213.235.205.2]:57074 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751759AbXKRVpU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Nov 2007 16:45:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20071117.160926.232024605.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sun, 18 Nov 2007 20:15:30 +0800
+> We could defer the increment until we check the checksum,
+> but that is likely to break even more things because people
+> (as Wang Chen did initially) will send a packet to some
+> port with an app that doesn't eat the packets, and expect the
+> InDatagrams counter to increase once the stack eats the packet.
 
-> [TCP]: Fix TCP header misalignment
-> 
-> Indeed my previous change to alloc_pskb has made it possible
-> for the TCP header to be misaligned iff the MTU is not a multiple
-> of 4 (and less than a page).  So I suspect the optimised IPsec
-> MTU calculation is giving you just such an MTU :)
-> 
-> This patch fixes it by changing alloc_pskb to make sure that
-> the size is at least 32-bit aligned.  This does not cause the
-> problem fixed by the previous patch because max_header is always
-> 32-bit aligned which means that in the SG/NOTSO case this will
-> be a no-op.
-> 
-> I thought about putting this in the callers but all the current
-> callers are from TCP.  If and when we get a non-TCP caller we
-> can always create a TCP wrapper for this function and move the
-> alignment over there.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Who expects that? Is there really any program who relies on that?
 
-I'm getting this without IPSEC FWIW.  I believe it occurs when I talk
-to sites with sub-1500 MTUs.
+If it's just a human: there are a couple of "non intuitive" behaviours
+in the stack. This would be just another one. Not too big a deal.
 
-I'll test your patch and let you know how it goes, thanks.
+> But it won't until the application does the read.
+> 
+> All of our options suck, we just have to choose the least sucking one
+> and right now to me that's decrementing the counter as much as I
+> empathize with the SNMP application overflow detection issue.
+
+If the SNMP monitor detects an false overflow the error it reports 
+will be much worse than a single missing packet. So you would replace 
+one error with a worse error.
+
+-Andi
