@@ -1,36 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET : rt_check_expire() can take a long time, add a
- cond_resched()
-Date: Sat, 17 Nov 2007 16:27:43 -0800 (PST)
-Message-ID: <20071117.162743.93964350.davem@davemloft.net>
-References: <p73fxz5auk5.fsf@bingen.suse.de>
-	<473F1589.9080101@cosmosbay.com>
-	<20071117214640.GA16314@one.firstfloor.org>
+Subject: Re: [PATCH] IPV4 : Move ip route cache flush (secret_rebuild) from
+ softirq to workqueue
+Date: Sat, 17 Nov 2007 16:45:42 -0800 (PST)
+Message-ID: <20071117.164542.253082483.davem@davemloft.net>
+References: <20071117143622.GA20813@gondor.apana.org.au>
+	<473F145B.5090303@cosmosbay.com>
+	<20071117162939.GA21563@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
-To: andi@firstfloor.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37886
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43782
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751237AbXKRA1o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2007 19:27:44 -0500
-In-Reply-To: <20071117214640.GA16314@one.firstfloor.org>
+	by vger.kernel.org with ESMTP id S1753530AbXKRApm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2007 19:45:42 -0500
+In-Reply-To: <20071117162939.GA21563@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Sat, 17 Nov 2007 22:46:40 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sun, 18 Nov 2007 00:29:39 +0800
 
-> > The 25.000.000 ns and 88.000.000 ns numbers where on an empty table, but 
-> > large (16 MB of memory)
-> 
-> This would mean that cond_resched() needs ~4x as much time as checking
-> an empty bucket. I find that somewhat hard to believe.
+> However, since you're already working on this as your next step
+> I can wait :)
 
-Based upon Arjan's analysis of the stall created by the
-cond_resched() assembler, this doesn't surprise me.
+Me too.
 
-I also don't believe Eric would make up such numbers or
-measure them carelessly and then present them as fact.
+Herbert, you asked about just nop'ing out cond_resched() when we're
+doing real preemption.
+
+A lot of code goes:
+
+	if (need_resched()) {
+		/* drop some locks, etc. */
+		cond_resched();
+		/* reacquire locks, etc. */
+	}
+
+So it has to do something even with real preemption enabled.
