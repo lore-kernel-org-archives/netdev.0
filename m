@@ -1,59 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [TCP]: Fix TCP header misalignment
-Date: Sun, 18 Nov 2007 20:15:30 +0800
-Message-ID: <20071118121530.GA27963@gondor.apana.org.au>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: size of git repository (was Re: [BUG] New Kernel Bugs)
+Date: Sun, 18 Nov 2007 12:44:05 +0000
+Message-ID: <20071118124404.GA4037@ucw.cz>
+References: <20071113031553.3c7b5c16.akpm@linux-foundation.org> <20071113.033946.114918709.davem@davemloft.net> <20071113034916.2556edd7.akpm@linux-foundation.org> <20071113.035824.40509981.davem@davemloft.net> <20071113041259.79c9a8c5.akpm@linux-foundation.org> <20071113134029.GA30978@elte.hu> <4739AFE0.20705@rtr.ca> <20071113164650.GA28493@elte.hu> <4739E3D0.10201@rtr.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, protasnb@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	alsa-devel@alsa-project.org, linux-ide@vger.kernel.org,
+	linux-pcmcia@lists.infradead.org,
+	linux-input@atrey.karlin.mff.cuni.cz,
+	bugme-daemon@bugzilla.kernel.org
+To: Mark Lord <liml@rtr.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3639 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751376AbXKRMPd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Nov 2007 07:15:33 -0500
+Received: from gprs189-60.eurotel.cz ([160.218.189.60]:1552 "EHLO spitz.ucw.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751579AbXKRMoP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Nov 2007 07:44:15 -0500
 Content-Disposition: inline
+In-Reply-To: <4739E3D0.10201@rtr.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave:
+On Tue 2007-11-13 12:50:08, Mark Lord wrote:
+> Ingo Molnar wrote:
+> >
+> >for example git-bisect was godsent. I remember that 
+> >years ago bisection of a bug was a very laborous task 
+> >so that it was only used as a final, last-ditch 
+> >approach for really nasty bugs. Today we can 
+> >autonomouly bisect build bugs via a simple shell 
+> >command around "git-bisect run", without any human 
+> >interaction! This freed up testing resources 
+> ..
+> 
+> It's only a godsend for the few people who happen to be 
+> kernel developers
+> and who happen to already use git.
+> 
+> It's a 540MByte download over a slow link for everyone 
+> else.
 
-[TCP]: Fix TCP header misalignment
-
-Indeed my previous change to alloc_pskb has made it possible
-for the TCP header to be misaligned iff the MTU is not a multiple
-of 4 (and less than a page).  So I suspect the optimised IPsec
-MTU calculation is giving you just such an MTU :)
-
-This patch fixes it by changing alloc_pskb to make sure that
-the size is at least 32-bit aligned.  This does not cause the
-problem fixed by the previous patch because max_header is always
-32-bit aligned which means that in the SG/NOTSO case this will
-be a no-op.
-
-I thought about putting this in the callers but all the current
-callers are from TCP.  If and when we get a non-TCP caller we
-can always create a TCP wrapper for this function and move the
-alignment over there.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
+Hmmm, clean-cg is 7.7G on my machine, and yes I tried
+git-prune-packed. What am I doing wrong?
+						Pavel
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 567e468..6f67b91 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1236,6 +1236,9 @@ static inline struct sk_buff *sk_stream_alloc_pskb(struct sock *sk,
- {
- 	struct sk_buff *skb;
- 
-+	/* The TCP header must be at least 32-bit aligned.  */
-+	size = ALIGN(size, 4);
-+
- 	skb = alloc_skb_fclone(size + sk->sk_prot->max_header, gfp);
- 	if (skb) {
- 		skb->truesize += mem;
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
