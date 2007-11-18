@@ -1,55 +1,74 @@
-From: David <david@unsolicited.net>
-Subject: Re: Netfilter: kernel panic with REDIRECT target. (2.6.23 and 2.6.23.8)
-Date: Mon, 19 Nov 2007 19:59:03 +0000
-Message-ID: <4741EB07.50706@unsolicited.net>
-References: <47408BBC.6040608@unsolicited.net> <200711182131.38388.ismail@pardus.org.tr> <474093E0.3090007@unsolicited.net> <47409863.8000902@trash.net> <4741DB3A.2030304@unsolicited.net> <20071119192423.GA26449@2ka.mipt.ru> <20071119193143.GA12640@2ka.mipt.ru>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH] forcedeth boot delay fix
+Date: Sun, 18 Nov 2007 14:13:41 -0500
+Message-ID: <47408EE5.2040302@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	=?ISO-8859-1?Q?Ismail_D=F6nmez?= <ismail@pardus.org.tr>,
-	netdev@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: multipart/mixed;
+ boundary="------------040108080706070904020703"
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>,
+	stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns01.unsolicited.net ([69.10.132.115]:33055 "EHLO
-	ns01.unsolicited.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751734AbXKSUAq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 15:00:46 -0500
-In-Reply-To: <20071119193143.GA12640@2ka.mipt.ru>
+Received: from hqemgate04.nvidia.com ([216.228.112.152]:16664 "EHLO
+	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750759AbXKSUKr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 15:10:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> On Mon, Nov 19, 2007 at 10:24:23PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
->   
->> On Mon, Nov 19, 2007 at 06:51:38PM +0000, David (david@unsolicited.net) wrote:
->>     
->>> Patrick McHardy wrote:
->>>       
->>>>>>>     iptables -t nat -A PREROUTING -j REDIRECT -i eth2 -p udp --dport
->>>>>>> 5061 --to-ports 5060
->>>>>>>
->>>>>>>         
->>>>>>>               
->>>>>> Also post the kernel panic log.
->>>>>>       
->>>>>>             
->>>> Please try if this patch fixes the problem.
->>>>         
->>> No luck with the patch I'm afraid, panic log attached (of patched kernel).
->>>       
->> Ok, let's try it hard way.
->> Please check attached patch and tell if it helped (it will produce
->> some debug though).
->>     
->
-> With both patches applied - one Patrick showed and this one.
->   
-Now works, with this in dmesg
+This is a multi-part message in MIME format.
+--------------040108080706070904020703
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-conntrack: ea94159c, new: ead4d7c4, old: ead4d7d0, ct: 00000000.
+This patch fixes a long boot delay in the forcedeth driver. During 
+initialization, the timeout for the handshake between mgmt unit and 
+driver can be very long. The patch reduces the timeout by eliminating a 
+extra loop around the timeout logic.
 
-Cheers
-David
+Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
 
+--------------040108080706070904020703
+Content-Type: text/plain;
+ name="patch-forcedeth-sema-fix"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-sema-fix"
+
+--- old/drivers/net/forcedeth.c	2007-11-08 17:33:00.000000000 -0500
++++ new/drivers/net/forcedeth.c	2007-11-08 17:34:25.000000000 -0500
+@@ -5286,20 +5286,17 @@
+ 		if (readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_PHY_INIT) {
+ 			np->mac_in_use = readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_MGMT_ST;
+ 			dprintk(KERN_INFO "%s: mgmt unit is running. mac in use %x.\n", pci_name(pci_dev), np->mac_in_use);
+-			for (i = 0; i < 5000; i++) {
+-				msleep(1);
+-				if (nv_mgmt_acquire_sema(dev)) {
+-					/* management unit setup the phy already? */
+-					if ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_MASK) ==
+-					    NVREG_XMITCTL_SYNC_PHY_INIT) {
+-						/* phy is inited by mgmt unit */
+-						phyinitialized = 1;
+-						dprintk(KERN_INFO "%s: Phy already initialized by mgmt unit.\n", pci_name(pci_dev));
+-					} else {
+-						/* we need to init the phy */
+-					}
+-					break;
++			if (nv_mgmt_acquire_sema(dev)) {
++				/* management unit setup the phy already? */
++				if ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_MASK) ==
++				    NVREG_XMITCTL_SYNC_PHY_INIT) {
++					/* phy is inited by mgmt unit */
++					phyinitialized = 1;
++					dprintk(KERN_INFO "%s: Phy already initialized by mgmt unit.\n", pci_name(pci_dev));
++				} else {
++					/* we need to init the phy */
+ 				}
++				break;
+ 			}
+ 		}
+ 	}
+
+--------------040108080706070904020703--
