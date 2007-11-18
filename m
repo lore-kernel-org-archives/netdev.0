@@ -1,42 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPV4 : Move ip route cache flush (secret_rebuild) from
- softirq to workqueue
-Date: Sat, 17 Nov 2007 16:45:42 -0800 (PST)
-Message-ID: <20071117.164542.253082483.davem@davemloft.net>
-References: <20071117143622.GA20813@gondor.apana.org.au>
-	<473F145B.5090303@cosmosbay.com>
-	<20071117162939.GA21563@gondor.apana.org.au>
+From: Kevin Winchester <kjwinchester@gmail.com>
+Subject: Re: 2.6.24-rc2-mm1 -- strange apparent network failures
+Date: Sat, 17 Nov 2007 20:50:14 -0400
+Message-ID: <473F8C46.4070308@gmail.com>
+References: <20071113175906.497a1a6a.akpm@linux-foundation.org> <20071115164441.67a8e2df.akpm@linux-foundation.org> <473E794A.4060107@kernel.org> <200711170848.35726.kjwinchester@gmail.com> <473F7EDB.60701@kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: Andrew Morton <akpm@linux-foundation.org>, apw@shadowen.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	kamalesh@linux.vnet.ibm.com
+To: Andrew Morgan <morgan@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43782
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753530AbXKRApm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2007 19:45:42 -0500
-In-Reply-To: <20071117162939.GA21563@gondor.apana.org.au>
+Received: from simmts5-qfe0.srvr.bell.ca ([206.47.199.163]:47050 "EHLO
+	simmts5-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752278AbXKRAuW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2007 19:50:22 -0500
+In-Reply-To: <473F7EDB.60701@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sun, 18 Nov 2007 00:29:39 +0800
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-> However, since you're already working on this as your next step
-> I can wait :)
+Andrew Morgan wrote:
+> Kevin,
+> 
+> Can you try this quick hack?
+> 
+> diff --git a/kernel/capability.c b/kernel/capability.c
+> index e57d1aa..4088610 100644
+> --- a/kernel/capability.c
+> +++ b/kernel/capability.c
+> @@ -109,7 +109,7 @@ out:
+>                         kdata[i].permitted = pP.cap[i];
+>                         kdata[i].inheritable = pI.cap[i];
+>                 }
+> -               while (i < _LINUX_CAPABILITY_U32S) {
+> +               while (0 && (i < _LINUX_CAPABILITY_U32S)) {
+>                         if (pE.cap[i] || pP.cap[i] || pP.cap[i]) {
+>                                 /* Cannot represent w/ legacy structure */
+>                                 return -ERANGE;
+> 
 
-Me too.
+Well, something went wrong with the patch - it has extra negative signs
+in my mail reader, and on lkml, but now that I've hit reply and it's
+been quoted, it looks fine in my mail client.  So I have no idea what
+went on.
 
-Herbert, you asked about just nop'ing out cond_resched() when we're
-doing real preemption.
+However, I got around the problem by making the code change manually -
+and my network connection is now working.  Looking at the code being
+bypassed:
 
-A lot of code goes:
+    if (pE.cap[i] || pP.cap[i] || pP.cap[i])
 
-	if (need_resched()) {
-		/* drop some locks, etc. */
-		cond_resched();
-		/* reacquire locks, etc. */
-	}
+looks somewhat weird as it is testing the same condition twice.  Should
+it have been:
 
-So it has to do something even with real preemption enabled.
+    if (pE.cap[i] || pP.cap[i] || pI.cap[i])
+
+?
+
+I'm about to test that change instead of bypassing the loop, so I'll let
+you know the results.
+
+- --
+Kevin Winchester
+
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iD8DBQFHP4xGKPGFQbiQ3tQRAooWAJ9c6exhOiD4VUZ04hS9z77/RmERUACfauTE
+BV/JAexzlm2zSmG4laYi+HQ=
+=IPkA
+-----END PGP SIGNATURE-----
