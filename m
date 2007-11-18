@@ -1,89 +1,107 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Netfilter: kernel panic with REDIRECT target. (2.6.23 and 2.6.23.8)
-Date: Sun, 18 Nov 2007 20:54:11 +0100
-Message-ID: <47409863.8000902@trash.net>
-References: <47408BBC.6040608@unsolicited.net> <200711182131.38388.ismail@pardus.org.tr> <474093E0.3090007@unsolicited.net>
+From: Florin Iucha <florin@iucha.net>
+Subject: crash in ieee80211_rate with linux-2.6.24-rc3
+Date: Sun, 18 Nov 2007 14:18:28 -0600
+Message-ID: <20071118201828.GT4456@iucha.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020507060706030908040200"
-Cc: =?UTF-8?B?SXNtYWlsIETDtm5tZXo=?= <ismail@pardus.org.tr>,
-	netdev@vger.kernel.org
-To: David <david@unsolicited.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="9a0qdc/o2xg/hSha"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:44146 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751889AbXKRTyT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Nov 2007 14:54:19 -0500
-In-Reply-To: <474093E0.3090007@unsolicited.net>
+Received: from iucha.net ([209.98.146.184]:35574 "EHLO mail.iucha.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752180AbXKRU1J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Nov 2007 15:27:09 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020507060706030908040200
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
 
-David wrote:
-> Ismail Dönmez wrote:
->   
->> Sunday 18 November 2007 Tarihinde 21:00:12 yazmıştı:
->>   
->>     
->>> I'm (very) far from being firewall configuration expert, but I'm seeing
->>> a consistent kernel panic when the following rule is triggered.
->>>
->>>     iptables -t nat -A PREROUTING -j REDIRECT -i eth2 -p udp --dport
->>> 5061 --to-ports 5060
->>>
->>> (I'm trying to redirect an alternate port to a SIP server)
->>>
->>> Am I just being very stupid, or is there something I'm not seeing here?
->>>     
->>>       
->> Also post the kernel panic log.
->>   
->>     
-> This is a bit difficult since the server is headless (normally). I can
-> try to obtain the panic via a temporary console, but it may have to wait
-> for a day or two.
->   
+--9a0qdc/o2xg/hSha
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Please try if this patch fixes the problem.
+I'm trying to get the iwl3945 driver working on my laptop, using the
+latest kernels.
 
---------------020507060706030908040200
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="x"
+Upon boot, when udev loads the driver, it does not create the proper
+device.  This is the contents of the kernel log:
 
-W05FVEZJTFRFUl06IEZpeCBOVUxMIHBvaW50ZXIgZGVyZWZlcmVuY2UgaW4gbmZfbmF0X21v
-dmVfc3RvcmFnZSgpCgpSZXBvcnRlZCBieSBDaHVjayBFYmJlcnQgYXM6CgoJaHR0cHM6Ly9i
-dWd6aWxsYS5yZWRoYXQuY29tL3Nob3dfYnVnLmNnaT9pZD0yNTk1MDEjYzE0CgpUaGlzIHJv
-dXRpbmUgaXMgY2FsbGVkIGVhY2ggdGltZSBoYXNoIHNob3VsZCBiZSByZXBsYWNlZCwgbmZf
-Y29ubiBoYXMKZXh0ZW5zaW9uIGxpc3Qgd2hpY2ggY29udGFpbnMgcG9pbnRlcnMgdG8gY29u
-bmVjdGlvbiB0cmFja2luZyB1c2VycwoobGlrZSBuYXQsIHdoaWNoIGlzIHJpZ2h0IG5vdyB0
-aGUgb25seSBzdWNoIHVzZXIpLCBzbyB3aGVuIHJlcGxhY2UgdGFrZXMKcGxhY2UgaXQgc2hv
-dWxkIGNvcHkgb3duIGV4dGVuc2lvbnMuIExvb3AgYWJvdmUgY2hlY2tzIGZvciBvd24KZXh0
-ZW5zaW9uLCBidXQgdHJpZXMgdG8gbW92ZSBoaWdlci1sYXllciBvbmUsIHdoaWNoIGNhbiBs
-ZWFkIHRvIGFib3ZlCm9vcHMuCgpTaWduZWQtb2ZmLWJ5OiBFdmdlbml5IFBvbHlha292IDxq
-b2hucG9sQDJrYS5taXB0LnJ1PgpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRh
-dmVtQGRhdmVtbG9mdC5uZXQ+CgotLS0KY29tbWl0IDc3OTk2NTI1NTdkOTY2ZTQ5NTEyNDc5
-ZjRkM2I5MDc5YmJjMDFmZmYKdHJlZSBjMDg5NTA4NGUwNzViZjUzNjk3YTY2ODE2ZTZiZmNi
-ZTI4ZDM4NTlkCnBhcmVudCBhNWE5NzI2M2E5ZmQ2YTk0Zjk1NGQ0MWFlMzIzM2VhNjVhOTBi
-ZDhhCmF1dGhvciBFdmdlbml5IFBvbHlha292IDxqb2hucG9sQDJrYS5taXB0LnJ1PiBUaHUs
-IDE1IE5vdiAyMDA3IDE1OjUyOjMyIC0wODAwCmNvbW1pdHRlciBEYXZpZCBTLiBNaWxsZXIg
-PGRhdmVtQGRhdmVtbG9mdC5uZXQ+IFRodSwgMTUgTm92IDIwMDcgMTU6NTI6MzIgLTA4MDAK
-CiBuZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19leHRlbmQuYyB8ICAgIDIgKy0KIDEgZmls
-ZXMgY2hhbmdlZCwgMSBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdp
-dCBhL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX2V4dGVuZC5jIGIvbmV0L25ldGZpbHRl
-ci9uZl9jb25udHJhY2tfZXh0ZW5kLmMKaW5kZXggYTFhNjVhMS4uY2Y2YmE2NiAxMDA2NDQK
-LS0tIGEvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tfZXh0ZW5kLmMKKysrIGIvbmV0L25l
-dGZpbHRlci9uZl9jb25udHJhY2tfZXh0ZW5kLmMKQEAgLTEwOSw3ICsxMDksNyBAQCB2b2lk
-ICpfX25mX2N0X2V4dF9hZGQoc3RydWN0IG5mX2Nvbm4gKmN0LCBlbnVtIG5mX2N0X2V4dF9p
-ZCBpZCwgZ2ZwX3QgZ2ZwKQogCQkJcmN1X3JlYWRfbG9jaygpOwogCQkJdCA9IHJjdV9kZXJl
-ZmVyZW5jZShuZl9jdF9leHRfdHlwZXNbaV0pOwogCQkJaWYgKHQgJiYgdC0+bW92ZSkKLQkJ
-CQl0LT5tb3ZlKGN0LCBjdC0+ZXh0ICsgY3QtPmV4dC0+b2Zmc2V0W2lkXSk7CisJCQkJdC0+
-bW92ZShjdCwgY3QtPmV4dCArIGN0LT5leHQtPm9mZnNldFtpXSk7CiAJCQlyY3VfcmVhZF91
-bmxvY2soKTsKIAkJfQogCQlrZnJlZShjdC0+ZXh0KTsK
---------------020507060706030908040200--
+[   29.694882] iwl3945: Detected Intel PRO/Wireless 3945ABG Network Connect=
+ion
+[   29.781011] Bluetooth: HCI USB driver ver 2.9
+[   29.781104] usbcore: registered new interface driver hci_usb
+[   30.145481] iwl3945: Tunable channels: 11 802.11bg, 13 802.11a channels
+[   30.145742] phy0: Selected rate control algorithm 'iwl-3945-rs'
+[   30.145756] phy0: Failed to initialize wep
+[   30.153205] iwl3945: Failed to register network device (error -12)
+[   30.357032] lp0: using parport0 (interrupt-driven).
+[   30.369224] ieee80211_crypt: registered algorithm 'NULL'
+[   30.371757] ieee80211_crypt: registered algorithm 'WEP'
+[   30.374179] ieee80211_crypt: registered algorithm 'TKIP'
+[   30.376401] ieee80211_crypt: registered algorithm 'CCMP'
+
+I suspect loading ieee80211_crypt after iwl3945 has something to do
+with it.  Do I need to build ieee80211_crypt in the monolithic kernel
+(as opposed to a module)?
+
+Anyway, the module is loaded - but just sitting there.  If I rmmod it
+then insmod it back, I get this:
+
+[   64.830431] ACPI: PCI interrupt for device 0000:03:00.0 disabled
+[   64.877506] iwl3945: Intel(R) PRO/Wireless 3945ABG/BG Network Connection=
+ driver for Linux, 1.1.17kds
+[   64.877515] iwl3945: Copyright(c) 2003-2007 Intel Corporation
+[   64.877632] ACPI: PCI Interrupt 0000:03:00.0[A] -> GSI 17 (level, low) -=
+> IRQ 17
+[   64.877656] PCI: Setting latency timer of device 0000:03:00.0 to 64
+[   64.879326] iwl3945: Detected Intel PRO/Wireless 3945ABG Network Connect=
+ion
+[   64.947524] iwl3945: Tunable channels: 11 802.11bg, 13 802.11a channels
+[   64.947539] WARNING: at net/mac80211/ieee80211_rate.c:35 ieee80211_rate_=
+control_register()
+[   64.947543]=20
+[   64.947544] Call Trace:
+[   64.947586]  [<ffffffff880589dc>] :mac80211:ieee80211_rate_control_regis=
+ter+0xa7/0xdd
+[   64.947606]  [<ffffffff880811ad>] :iwl3945:iwl_bg_alive_start+0xc97/0xefa
+[   64.947617]  [<ffffffff80513dc4>] thread_return+0x3d/0x81
+[   64.947636]  [<ffffffff88080516>] :iwl3945:iwl_bg_alive_start+0x0/0xefa
+[   64.947645]  [<ffffffff8023eb2d>] run_workqueue+0x7f/0x10b
+[   64.947652]  [<ffffffff8023f449>] worker_thread+0x0/0xe4
+[   64.947657]  [<ffffffff8023f523>] worker_thread+0xda/0xe4
+[   64.947664]  [<ffffffff80242470>] autoremove_wake_function+0x0/0x2e
+[   64.947671]  [<ffffffff8024235f>] kthread+0x47/0x74
+[   64.947678]  [<ffffffff8020c408>] child_rip+0xa/0x12
+[   64.947688]  [<ffffffff80242318>] kthread+0x0/0x74
+[   64.947694]  [<ffffffff8020c3fe>] child_rip+0x0/0x12
+
+And the machine becomes unhappy enough that is not willing to start
+new terminals, or reboot cleanly.
+
+The userspace is Ubuntu 7.10, only the kernel is vanilla from git.
+The hardware is a Thinkpad T60, with the kernel compiled for AMD64.
+
+Let me know if you need more details or if you want me to try a patch.
+
+Cheers,
+florin
+
+--=20
+Bruce Schneier expects the Spanish Inquisition.
+      http://geekz.co.uk/schneierfacts/fact/163
+
+--9a0qdc/o2xg/hSha
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFHQJ4TND0rFCN2b1sRAukCAJ92RHANsI6+RJIzI8g06n7b/P2U1ACfVROe
+CSxk/6q8YWdhmWLmh2JcgxI=
+=ydaa
+-----END PGP SIGNATURE-----
+
+--9a0qdc/o2xg/hSha--
