@@ -1,60 +1,66 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: [PATCH 1/1]: SAs created although tmpl->optional set
-Date: Mon, 19 Nov 2007 02:53:50 -0600
-Message-ID: <200711190853.lAJ8ro9f006107@faith.austin.ibm.com>
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au
-To: netdev@vger.kernel.org
+From: "Denys" <nuclearcat@nuclearcat.com>
+Subject: Re: r8169 crash
+Date: Mon, 19 Nov 2007 01:31:17 +0200
+Message-ID: <20071118233010.M61920@nuclearcat.com>
+References: <20071117053920.M40084@nuclearcat.com> <20071117220759.GA2862@electric-eye.fr.zoreil.com> <20071117224224.M6133@nuclearcat.com> <20071118210038.GA5907@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:47789 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752287AbXKSI7F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 03:59:05 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id lAJ8x2SJ030914
-	for <netdev@vger.kernel.org>; Mon, 19 Nov 2007 03:59:02 -0500
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lAJ8x2g8091460
-	for <netdev@vger.kernel.org>; Mon, 19 Nov 2007 01:59:02 -0700
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lAJ8x2qb008032
-	for <netdev@vger.kernel.org>; Mon, 19 Nov 2007 01:59:02 -0700
+Received: from usermail.globalproof.net ([194.146.153.18]:59195 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752328AbXKSJd5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 04:33:57 -0500
+In-Reply-To: <20071118210038.GA5907@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Although tmpl->optional is set, kernel still attempts
-to create a set of SAs. 
+Maybe it is good idea to print some registers/etc in watchdog message?
 
-In xfrm_tmpl_resolve_one(), xfrm_state_find() is called
-to find an SA. First time, there won't be an SA, so an
-ACQUIRE will be sent and code then returns to 
-xfrm_tmpl_resolv_one() who then checks tmpl->optional. 
-Since tmpl->optional is set, the xfrm code will then 
-allow flow to pass not transformed.
+I will try to reproduce problem with debug enabled, maybe it will be possible 
+to catch problem with more debug. 
 
-I may have misinterpreted semantics of tmpl->optional,
-(I thought it meant use an SA only if there is one, otherwise
-do not transform) but do we want to create an SA as well as
-send flow without xfrm'ing?
+On Sun, 18 Nov 2007 22:00:38 +0100, Francois Romieu wrote
+> Denys <nuclearcat@nuclearcat.com> :
+> > 
+> > Before it happens on 2.6.22, i tried to attach good cable, plug-unplug, 
+> > whatever, interface up/down - card still remains dead.
+> 
+> A few things have changed since 2.6.22 but I'll take that it is a
+> real bug and that 2.6.23 would not recover either. Can you fill a
+> PR at http://bugzilla.kernel.org, add a lspci -vvvxxxx and a dmesg ?
+> 
+> A dmesg including the watchdog message would be nice but if you can
+> not retrieve one, a dmesg from your current 2.6.23.x kernel should be
+> enough.
+> 
+> I'll take care of it once I am done with the sis190 watchdog failure
+> (nothing hard, simply ugly).
+> 
+> [...]
+> > I try to plug cable to laptop with rtl8139 and pc with e100 - it is 
+worked 
+> > when i shake bad cable(interface was going up/down as well), and good 
+cable 
+> > also worked fine, and never crashed. On 2.6.22 i was able to reproduce it 
+> > easily, but later i can't cause it is server in internet cafe, and 
+customers 
+> > going crazy.
+> 
+> :o/
+> 
+> -- 
+> Ueimor
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-regards,
-Joy
 
-Signed-off-by: Joy Latten <latten@austin.ibm.com>
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
 
-
-diff -urpN linux-2.6.orig/net/xfrm/xfrm_state.c linux-2.6.spd/net/xfrm/xfrm_state.c
---- linux-2.6.orig/net/xfrm/xfrm_state.c	2007-11-18 16:53:16.000000000 -0600
-+++ linux-2.6.spd/net/xfrm/xfrm_state.c	2007-11-18 23:38:08.000000000 -0600
-@@ -814,6 +814,12 @@ xfrm_state_find(xfrm_address_t *daddr, x
- 			error = -EEXIST;
- 			goto out;
- 		}
-+
-+		if (tmpl->optional) {
-+			error = 0;
-+			goto out;
-+		}
-+
- 		x = xfrm_state_alloc();
- 		if (x == NULL) {
- 			error = -ENOMEM;
