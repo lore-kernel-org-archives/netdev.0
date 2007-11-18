@@ -1,53 +1,53 @@
-From: Andrew Morgan <morgan@kernel.org>
-Subject: Re: 2.6.24-rc2-mm1 -- strange apparent network failures
-Date: Sat, 17 Nov 2007 17:57:22 -0800
-Message-ID: <473F9C02.1040401@kernel.org>
-References: <20071113175906.497a1a6a.akpm@linux-foundation.org> <20071115164441.67a8e2df.akpm@linux-foundation.org> <473E794A.4060107@kernel.org> <200711170848.35726.kjwinchester@gmail.com> <473F7EDB.60701@kernel.org> <473F8C46.4070308@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] IPV4 : Move ip route cache flush (secret_rebuild) from softirq to workqueue
+Date: Sun, 18 Nov 2007 10:07:37 +0800
+Message-ID: <20071118020737.GA24821@gondor.apana.org.au>
+References: <20071117143622.GA20813@gondor.apana.org.au> <473F145B.5090303@cosmosbay.com> <20071117162939.GA21563@gondor.apana.org.au> <20071117.164542.253082483.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, apw@shadowen.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kamalesh@linux.vnet.ibm.com
-To: Kevin Winchester <kjwinchester@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from twinlark.arctic.org ([207.29.250.54]:40675 "EHLO
-	twinlark.arctic.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752504AbXKRB53 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2007 20:57:29 -0500
-In-Reply-To: <473F8C46.4070308@gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:3996 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751899AbXKRCIP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2007 21:08:15 -0500
+Content-Disposition: inline
+In-Reply-To: <20071117.164542.253082483.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
-
-Kevin Winchester wrote:
-> However, I got around the problem by making the code change manually -
-> and my network connection is now working.  Looking at the code being
-> bypassed:
+On Sat, Nov 17, 2007 at 04:45:42PM -0800, David Miller wrote:
+>
+> Herbert, you asked about just nop'ing out cond_resched() when we're
+> doing real preemption.
 > 
->     if (pE.cap[i] || pP.cap[i] || pP.cap[i])
+> A lot of code goes:
 > 
-> looks somewhat weird as it is testing the same condition twice.  Should
-> it have been:
+> 	if (need_resched()) {
+> 		/* drop some locks, etc. */
+> 		cond_resched();
+> 		/* reacquire locks, etc. */
+> 	}
 > 
->     if (pE.cap[i] || pP.cap[i] || pI.cap[i])
+> So it has to do something even with real preemption enabled.
 
-Yes, that was also a bug. However, upon reflection (and as per my "0 &&"
-hack), I now believe these few lines of code are problematic in general.
+Actually that shouldn't be necessary.  Because things like spin_unlock
+does preempt_enable which in turn does:
 
-Thanks for reporting this bug. I'll post a more clear patch (that isn't
-GPG'd).
+#define preempt_enable() \
+do { \
+        preempt_enable_no_resched(); \
+        barrier(); \
+        preempt_check_resched(); \
+} while (0)
 
-Cheers
+when CONFIG_PREEMPT is enabled.  So at least in this case the
+cond_resched call is superfluous.
 
-Andrew
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iD8DBQFHP5vy+bHCR3gb8jsRAliTAKCvCsfZuNN7Og57S0s8O4SZNveSUwCgq4VP
-vHUE/S+x09l5I24E2/rmLj4=
-=JaWT
------END PGP SIGNATURE-----
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
