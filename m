@@ -1,37 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] [IPV4] UDP: Always checksum even if without socket
- filter
-Date: Mon, 19 Nov 2007 00:32:54 -0800 (PST)
-Message-ID: <20071119.003254.41095932.davem@davemloft.net>
-References: <20071118214515.GA8161@one.firstfloor.org>
-	<20071118.144010.236028466.davem@davemloft.net>
-	<20071119044117.GA1880@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, wangchen@cn.fujitsu.com,
-	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+From: Joy Latten <latten@austin.ibm.com>
+Subject: [PATCH 1/1]: SAs created although tmpl->optional set
+Date: Mon, 19 Nov 2007 02:53:50 -0600
+Message-ID: <200711190853.lAJ8ro9f006107@faith.austin.ibm.com>
+Cc: davem@davemloft.net, herbert@gondor.apana.org.au
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34030
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751792AbXKSIcz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 03:32:55 -0500
-In-Reply-To: <20071119044117.GA1880@gondor.apana.org.au>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:47789 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752287AbXKSI7F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 03:59:05 -0500
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id lAJ8x2SJ030914
+	for <netdev@vger.kernel.org>; Mon, 19 Nov 2007 03:59:02 -0500
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lAJ8x2g8091460
+	for <netdev@vger.kernel.org>; Mon, 19 Nov 2007 01:59:02 -0700
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lAJ8x2qb008032
+	for <netdev@vger.kernel.org>; Mon, 19 Nov 2007 01:59:02 -0700
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 19 Nov 2007 12:41:17 +0800
+Although tmpl->optional is set, kernel still attempts
+to create a set of SAs. 
 
-> On Sun, Nov 18, 2007 at 02:40:10PM -0800, David Miller wrote:
-> >
-> > This can be fixed, the above cannot.
-> 
-> That's a good point.  Perhaps one way of getting that info to
-> the user without putting it in UDPInDatagrams is to create an
-> inet_diag interface for UDP and put the number of queued packets
-> for each socket in it.
+In xfrm_tmpl_resolve_one(), xfrm_state_find() is called
+to find an SA. First time, there won't be an SA, so an
+ACQUIRE will be sent and code then returns to 
+xfrm_tmpl_resolv_one() who then checks tmpl->optional. 
+Since tmpl->optional is set, the xfrm code will then 
+allow flow to pass not transformed.
 
-Right, if it's not what the RFC specifies, it's an auxiliary
-statistic we can provide some other way.
+I may have misinterpreted semantics of tmpl->optional,
+(I thought it meant use an SA only if there is one, otherwise
+do not transform) but do we want to create an SA as well as
+send flow without xfrm'ing?
+
+regards,
+Joy
+
+Signed-off-by: Joy Latten <latten@austin.ibm.com>
+
+
+diff -urpN linux-2.6.orig/net/xfrm/xfrm_state.c linux-2.6.spd/net/xfrm/xfrm_state.c
+--- linux-2.6.orig/net/xfrm/xfrm_state.c	2007-11-18 16:53:16.000000000 -0600
++++ linux-2.6.spd/net/xfrm/xfrm_state.c	2007-11-18 23:38:08.000000000 -0600
+@@ -814,6 +814,12 @@ xfrm_state_find(xfrm_address_t *daddr, x
+ 			error = -EEXIST;
+ 			goto out;
+ 		}
++
++		if (tmpl->optional) {
++			error = 0;
++			goto out;
++		}
++
+ 		x = xfrm_state_alloc();
+ 		if (x == NULL) {
+ 			error = -ENOMEM;
