@@ -1,42 +1,51 @@
-From: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-Subject: [PATCH 1/2] virtio: fix net driver loop case where we fail
-	to restart
-Date: Mon, 19 Nov 2007 11:20:15 +1100
-Message-ID: <200711191120.15596.rusty@rustcorp.com.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/2] [IPV4] UDP: Always checksum even if without socket filter
+Date: Mon, 19 Nov 2007 09:09:29 +0800
+Message-ID: <20071119010929.GA32651@gondor.apana.org.au>
+References: <p73bq9tau2x.fsf@bingen.suse.de> <20071117.160926.232024605.davem@davemloft.net> <20071118214515.GA8161@one.firstfloor.org> <20071118.144010.236028466.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-To: lguest <lguest-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
-Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: andi@firstfloor.org, wangchen@cn.fujitsu.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:2122 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752444AbXKSBK0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Nov 2007 20:10:26 -0500
 Content-Disposition: inline
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/lguest>,
-	<mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/lguest>
-List-Post: <mailto:lguest-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
-List-Help: <mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/lguest>,
-	<mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=subscribe>
-Sender: lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
-Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
+In-Reply-To: <20071118.144010.236028466.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-skb is only NULL the first time around: it's more correct to test for
-being under-budget.
+On Sun, Nov 18, 2007 at 02:40:10PM -0800, David Miller wrote:
+>
+> The networking stack DID receive the packet.  Just because a socket
+> owner is busy doing something else or blocked on some other event
+> is no excuse not to bump the InDataGgrams counter.
 
-Signed-off-by: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+Actually if we ever implement the memory reclaim stuff for UDP
+when we're short on system memory then it could be possible for
+us to want to remove packets that are sitting on a socket's rcv
+queue.  In that case it would be nice if InDataGrams wasn't
+incremented until the app took the packet off the socket.
 
-diff -r 2a94425ac7d5 drivers/net/virtio_net.c
---- a/drivers/net/virtio_net.c	Thu Nov 15 13:47:28 2007 +1100
-+++ b/drivers/net/virtio_net.c	Thu Nov 15 23:10:44 2007 +1100
-@@ -198,8 +198,8 @@ again:
- 	if (vi->num < vi->max / 2)
- 		try_fill_recv(vi);
- 
--	/* All done? */
--	if (!skb) {
-+	/* Out of packets? */
-+	if (received < budget) {
- 		netif_rx_complete(vi->dev, napi);
- 		if (unlikely(!vi->rvq->vq_ops->restart(vi->rvq))
- 		    && netif_rx_reschedule(vi->dev, napi))
+In any case, I just looked up RFC1213 and it says:
+
+          udpInDatagrams OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of UDP datagrams delivered to
+                      UDP users."
+              ::= { udp 1 }
+
+So I think incrementing it in recvmsg is acceptable.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
