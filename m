@@ -1,74 +1,33 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH] forcedeth boot delay fix
-Date: Sun, 18 Nov 2007 14:13:41 -0500
-Message-ID: <47408EE5.2040302@nvidia.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 2.6.25 6/6] net: consolidate net namespace related proc files creation
+Date: Mon, 19 Nov 2007 13:15:19 -0700
+Message-ID: <m1lk8uuh48.fsf@ebiederm.dsl.xmission.com>
+References: <20071115160150.GA25520@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040108080706070904020703"
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>,
-	stable@kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, containers@lists.osdl.org,
+	netdev@vger.kernel.org, dlezcano@fr.ibm.com
+To: "Denis V. Lunev" <den@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate04.nvidia.com ([216.228.112.152]:16664 "EHLO
-	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750759AbXKSUKr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 15:10:47 -0500
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:35748 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751293AbXKSUQt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 15:16:49 -0500
+In-Reply-To: <20071115160150.GA25520@iris.sw.ru> (Denis V. Lunev's message of
+	"Thu, 15 Nov 2007 19:01:50 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040108080706070904020703
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+"Denis V. Lunev" <den@openvz.org> writes:
 
-This patch fixes a long boot delay in the forcedeth driver. During 
-initialization, the timeout for the handshake between mgmt unit and 
-driver can be very long. The patch reduces the timeout by eliminating a 
-extra loop around the timeout logic.
+> net: consolidate net namespace related proc files creation
+>
+> Signed-off-by: Denis V. Lunev <den@openvz.org>
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
+Looks good to me, and it looks like there are a lot more places
+we can use this as more code is converted.
 
---------------040108080706070904020703
-Content-Type: text/plain;
- name="patch-forcedeth-sema-fix"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-sema-fix"
-
---- old/drivers/net/forcedeth.c	2007-11-08 17:33:00.000000000 -0500
-+++ new/drivers/net/forcedeth.c	2007-11-08 17:34:25.000000000 -0500
-@@ -5286,20 +5286,17 @@
- 		if (readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_PHY_INIT) {
- 			np->mac_in_use = readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_MGMT_ST;
- 			dprintk(KERN_INFO "%s: mgmt unit is running. mac in use %x.\n", pci_name(pci_dev), np->mac_in_use);
--			for (i = 0; i < 5000; i++) {
--				msleep(1);
--				if (nv_mgmt_acquire_sema(dev)) {
--					/* management unit setup the phy already? */
--					if ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_MASK) ==
--					    NVREG_XMITCTL_SYNC_PHY_INIT) {
--						/* phy is inited by mgmt unit */
--						phyinitialized = 1;
--						dprintk(KERN_INFO "%s: Phy already initialized by mgmt unit.\n", pci_name(pci_dev));
--					} else {
--						/* we need to init the phy */
--					}
--					break;
-+			if (nv_mgmt_acquire_sema(dev)) {
-+				/* management unit setup the phy already? */
-+				if ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_MASK) ==
-+				    NVREG_XMITCTL_SYNC_PHY_INIT) {
-+					/* phy is inited by mgmt unit */
-+					phyinitialized = 1;
-+					dprintk(KERN_INFO "%s: Phy already initialized by mgmt unit.\n", pci_name(pci_dev));
-+				} else {
-+					/* we need to init the phy */
- 				}
-+				break;
- 			}
- 		}
- 	}
-
---------------040108080706070904020703--
+Eric
