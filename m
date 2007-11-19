@@ -1,51 +1,66 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH] net/ipv4/arp.c: Fix arp reply when sender ip 0 (was: Strange behavior in arp probe reply, bug or feature?)
-Date: Mon, 19 Nov 2007 16:06:10 +0300
-Message-ID: <20071119130610.GB6952@ms2.inr.ac.ru>
-References: <cac0ab7d0711150340p58eda94ah92894072ba328205@mail.gmail.com> <20071115154032.GA30391@ms2.inr.ac.ru> <cac0ab7d0711151340l1cc91a2dw5ebf36e166d16d7a@mail.gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH net-2.6] [TCP] MTUprobe: fix potential sk_send_head corruption
+Date: Mon, 19 Nov 2007 16:02:49 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0711191559060.24866@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	jmorris@namei.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: Jonas Danielsson <the.sator@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754721AbXKSNG3@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <cac0ab7d0711151340l1cc91a2dw5ebf36e166d16d7a@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-153072018-1195480969=:24866"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:45272 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753042AbXKSOCw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 09:02:52 -0500
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> Is there a reason that the target hardware address isn't the target
-> hardware address?
+---696243703-153072018-1195480969=:24866
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-It is bound only to the fact that linux uses protocol address
-of the machine, which responds. It would be highly confusing
-(more than confusing :-)), if we used our protocol address and hardware
-address of requestor.
 
-But if you use zero protocol address as source, you really can use
-any hw address.
+When the abstraction functions got added, conversion was made
+here incorrectly. As a result, the skb may end up pointing
+to skb which got included to the probe skb and then was freed.
+For it to trigger, however, transmit_skb must fail sending as
+well.
 
-> The dhcp clients I examined, and the implementation of the arpcheck
-> that I use will compare the target hardware field of the arp-reply and
-> match it against its own mac, to verify the reply. And this fails with
-> the current implementation in the kernel.
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ include/net/tcp.h     |    3 +++
+ net/ipv4/tcp_output.c |    1 -
+ 2 files changed, 3 insertions(+), 1 deletions(-)
 
-1. Do not do this. Mainly, because you already know that this does not work
-   with linux. :-) Logically, target hw address in arp reply is just
-   a nonsensial redundancy, it should not be checked and even looked at.
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index decd8f3..c11b613 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1342,6 +1342,9 @@ static inline void tcp_insert_write_queue_before(struct sk_buff *new,
+ {
+ 	__skb_insert(new, skb->prev, skb, &sk->sk_write_queue);
+ 	tcp_rb_insert(new, &tcp_sk(sk)->write_queue_rb);
++
++	if (sk->sk_send_head == skb)
++		sk->sk_send_head = new;
+ }
+ 
+ static inline void tcp_unlink_write_queue(struct sk_buff *skb, struct sock *sk)
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 8fe3ee2..1654fac 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1343,7 +1343,6 @@ static int tcp_mtu_probe(struct sock *sk)
+ 	TCP_SKB_CB(nskb)->seq = TCP_SKB_CB(skb)->seq;
+ 	TCP_SKB_CB(nskb)->end_seq = TCP_SKB_CB(skb)->seq + probe_size;
+ 	tcp_insert_write_queue_before(nskb, skb, sk);
+-	tcp_advance_send_head(sk, skb);
+ 
+ 	TCP_SKB_CB(nskb)->flags = TCPCB_FLAG_ACK;
+ 	TCP_SKB_CB(nskb)->sacked = 0;
+-- 
+1.5.0.6
 
-2. What's about your suggestion, I thought about this and I am going to agree.
-
-   Arguments, which convinced me are:
-
-   - arping still works.
-   - any piece of reasonable software should work.
-   - if Windows understands DaD (is it really true? I cannot believe)
-     and it is unhappy about our responce and does not block use
-     of duplicate address only due to this, we _must_ accomodate ASAP.
-   - if we do,we have to use 0 protocol address, no choice.
-
-Alexey
+---696243703-153072018-1195480969=:24866--
