@@ -1,99 +1,86 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: [patch 07/22] NET: DM9000: Use msleep() instead of udelay()
-Date: Mon, 19 Nov 2007 20:39:17 +0000
-Message-ID: <20071119204013.911269341@fluff.org>
+Subject: [patch 14/22] NET: DM9000: Remove unnecessary changelog in header comment
+Date: Mon, 19 Nov 2007 20:39:24 +0000
+Message-ID: <20071119204015.084862418@fluff.org>
 References: <20071119203910.687238131@fluff.org>
 Cc: vince@simtec.co.uk, Ben Dooks <ben-linux@fluff.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:61688 "EHLO
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:61691 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752063AbXKSVSN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 16:18:13 -0500
-Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-phy-msleep.patch
+	with ESMTP id S1751908AbXKSVSP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 16:18:15 -0500
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-tidy-remove-changelog.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We can use sleeping functions when reading and writing the
-PHY registers, so let us sleep instead of busy waiting for
-the PHY.
-
-Note, this also fixes a bug reading the PHY where only 100uS
-was being used instead of 150uS
+We have a perfectly good version control system, so we do not
+need to duplicate change comments in the header for this code.
 
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
-Index: linux-2.6.23-quilt3/drivers/net/dm9000.c
+Index: linux-2.6.23-quilt2/drivers/net/dm9000.c
 ===================================================================
---- linux-2.6.23-quilt3.orig/drivers/net/dm9000.c
-+++ linux-2.6.23-quilt3/drivers/net/dm9000.c
-@@ -114,6 +114,7 @@ typedef struct board_info {
- 	u8 io_mode;		/* 0:word, 2:byte */
- 	u8 phy_addr;
- 	unsigned int flags;
-+	unsigned int in_suspend :1;
- 
- 	int debug_level;
- 
-@@ -1174,6 +1175,18 @@ dm9000_hash_table(struct net_device *dev
- 
- 
+--- linux-2.6.23-quilt2.orig/drivers/net/dm9000.c
++++ linux-2.6.23-quilt2/drivers/net/dm9000.c
+@@ -1,7 +1,5 @@
  /*
-+ * Sleep, either by using msleep() or if we are suspending, then
-+ * use mdelay() to sleep.
-+ */
-+static void dm9000_msleep(board_info_t *db, unsigned int ms)
-+{
-+	if (db->in_suspend)
-+		mdelay(ms);
-+	else
-+		msleep(ms);
-+}
-+
-+/*
-  *   Read a word from phyxcer
+- *   dm9000.c: Version 1.2 03/18/2003
+- *
+- *         A Davicom DM9000 ISA NIC fast Ethernet driver for Linux.
++ *      Davicom DM9000 Fast Ethernet driver for Linux.
+  * 	Copyright (C) 1997  Sten Wang
+  *
+  * 	This program is free software; you can redistribute it and/or
+@@ -14,44 +12,11 @@
+  * 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * 	GNU General Public License for more details.
+  *
+- *   (C)Copyright 1997-1998 DAVICOM Semiconductor,Inc. All Rights Reserved.
+- *
+- * V0.11	06/20/2001	REG_0A bit3=1, default enable BP with DA match
+- * 	06/22/2001 	Support DM9801 progrmming
+- * 	 	 	E3: R25 = ((R24 + NF) & 0x00ff) | 0xf000
+- * 		 	E4: R25 = ((R24 + NF) & 0x00ff) | 0xc200
+- * 		     		R17 = (R17 & 0xfff0) | NF + 3
+- * 		 	E5: R25 = ((R24 + NF - 3) & 0x00ff) | 0xc200
+- * 		     		R17 = (R17 & 0xfff0) | NF
+- *
+- * v1.00               	modify by simon 2001.9.5
+- *                         change for kernel 2.4.x
+- *
+- * v1.1   11/09/2001      	fix force mode bug
+- *
+- * v1.2   03/18/2003       Weilun Huang <weilun_huang@davicom.com.tw>:
+- * 			Fixed phy reset.
+- * 			Added tx/rx 32 bit mode.
+- * 			Cleaned up for kernel merge.
+- *
+- *        03/03/2004    Sascha Hauer <s.hauer@pengutronix.de>
+- *                      Port to 2.6 kernel
+- *
+- *	  24-Sep-2004   Ben Dooks <ben@simtec.co.uk>
+- *			Cleanup of code to remove ifdefs
+- *			Allowed platform device data to influence access width
+- *			Reformatting areas of code
+- *
+- *        17-Mar-2005   Sascha Hauer <s.hauer@pengutronix.de>
+- *                      * removed 2.4 style module parameters
+- *                      * removed removed unused stat counter and fixed
+- *                        net_device_stats
+- *                      * introduced tx_timeout function
+- *                      * reworked locking
++ * (C) Copyright 1997-1998 DAVICOM Semiconductor,Inc. All Rights Reserved.
+  *
+- *	  01-Jul-2005   Ben Dooks <ben@simtec.co.uk>
+- *			* fixed spinlock call without pointer
+- *			* ensure spinlock is initialised
++ * Additional updates, Copyright:
++ *	Ben Dooks <ben@simtec.co.uk>
++ *	Sascha Hauer <s.hauer@pengutronix.de>
   */
- static int
-@@ -1197,7 +1210,7 @@ dm9000_phy_read(struct net_device *dev, 
- 	writeb(reg_save, db->io_addr);
- 	spin_unlock_irqrestore(&db->lock,flags);
  
--	udelay(100);		/* Wait read complete */
-+	dm9000_msleep(db, 1);		/* Wait read complete */
- 
- 	spin_lock_irqsave(&db->lock,flags);
- 	reg_save = readb(db->io_addr);
-@@ -1241,7 +1254,7 @@ dm9000_phy_write(struct net_device *dev,
- 	writeb(reg_save, db->io_addr);
- 	spin_unlock_irqrestore(&db->lock,flags);
- 
--	udelay(500);		/* Wait write complete */
-+	dm9000_msleep(db, 1);		/* Wait write complete */
- 
- 	spin_lock_irqsave(&db->lock,flags);
- 	reg_save = readb(db->io_addr);
-@@ -1258,8 +1271,12 @@ static int
- dm9000_drv_suspend(struct platform_device *dev, pm_message_t state)
- {
- 	struct net_device *ndev = platform_get_drvdata(dev);
-+	board_info_t *db;
- 
- 	if (ndev) {
-+		db = (board_info_t *) ndev->priv;
-+		db->in_suspend = 1;
-+
- 		if (netif_running(ndev)) {
- 			netif_device_detach(ndev);
- 			dm9000_shutdown(ndev);
-@@ -1282,6 +1299,8 @@ dm9000_drv_resume(struct platform_device
- 
- 			netif_device_attach(ndev);
- 		}
-+
-+		db->in_suspend = 0;
- 	}
- 	return 0;
- }
+ #include <linux/module.h>
 
 -- 
 Ben (ben@fluff.org, http://www.fluff.org/)
