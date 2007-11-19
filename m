@@ -1,38 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/1]: SAs created although tmpl->optional set
-Date: Mon, 19 Nov 2007 17:49:03 +0800
-Message-ID: <20071119094903.GA4246@gondor.apana.org.au>
-References: <200711190853.lAJ8ro9f006107@faith.austin.ibm.com>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: HTB/HSFC shaping precision
+Date: Mon, 19 Nov 2007 10:55:17 +0200
+Message-ID: <20071119083849.M87605@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Joy Latten <latten@austin.ibm.com>
+Content-Type: text/plain;
+	charset=koi8-r
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4955 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751599AbXKSJtJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 04:49:09 -0500
-Content-Disposition: inline
-In-Reply-To: <200711190853.lAJ8ro9f006107@faith.austin.ibm.com>
+Received: from usermail.globalproof.net ([194.146.153.18]:47721 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752604AbXKSJyF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 04:54:05 -0500
+Received: from visp.net.lb (localhost [127.0.0.1])
+	by usermail.globalproof.net (Postfix) with ESMTP id 7C389410170
+	for <netdev@vger.kernel.org>; Mon, 19 Nov 2007 10:55:17 +0200 (EET)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 19, 2007 at 02:53:50AM -0600, Joy Latten wrote:
-> Although tmpl->optional is set, kernel still attempts
-> to create a set of SAs. 
+Hi 2 all again
 
-Heh I made the same mistake when I first read this piece of
-code too :) The optional flag isn't saying that it doesn't need
-to be protected, but rather that the SA may not be present on
-input.  It's only used for IPComp where we may skip the IPComp
-if the data is not compressible.
+This is not a bug report this time :-) 
+Just it is very interesting question, about using Linux "shaping" technologies
+in serious jobs.
 
-In other words the optional flag is really only meaningful on
-inbuond policy checks.
+What i realised few days ago, many ISP's set on their STM-1(155520000 bits/s)
+links (over Cisco) packet buffer/queue 40 packets(for example).
+It means 103680  pps with 1500 byte packets,  and if buffer is only 40
+packets, it means it require at least 0.3ms scheduler precision? Otherwise i
+can have buffer overflow and as result packetloss(what is much worse than
+delay in most of situations).
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+What i am interested - to utilise such links nearby 100%. So anything not
+precise will kill idea.
+Thats important, cause price for links in my area is about $1000-$1500 Mbit/s,
+and just 1% lost/not utilised on STM-1 is up to $2325/USD lost per month.
+I have to count also overhead, LAN jitter, and etc.
+
+As far as i test, on HFSC if i set dmax 1ms-10ms it works much better (i am
+talking about precision) than HTB with quantum 1514 (it is over ethernet). 
+
+Anybody have ideas what is the precision of bandwidth shaping in HFSC/HTB?
+
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
+
