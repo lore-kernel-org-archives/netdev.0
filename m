@@ -1,82 +1,34 @@
-From: Giacomo <delleceste@gmail.com>
-Subject: Get the IP address of an interface with a given name
-Date: Mon, 19 Nov 2007 15:39:46 +0100
-Message-ID: <885896af0711190639x5804d29eqdd6a6878a07b4f0a@mail.gmail.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 1/2] [IPV4] UDP: Always checksum even if without socket filter
+Date: Mon, 19 Nov 2007 16:29:33 +0100
+Message-ID: <20071119152933.GA19126@one.firstfloor.org>
+References: <p73bq9tau2x.fsf@bingen.suse.de> <20071117.160926.232024605.davem@davemloft.net> <20071118214515.GA8161@one.firstfloor.org> <20071118.144010.236028466.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: andi@firstfloor.org, wangchen@cn.fujitsu.com,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.182]:58408 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751703AbXKSOjs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 09:39:48 -0500
-Received: by py-out-1112.google.com with SMTP id u77so5817398pyb
-        for <netdev@vger.kernel.org>; Mon, 19 Nov 2007 06:39:48 -0800 (PST)
+Received: from one.firstfloor.org ([213.235.205.2]:35982 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753835AbXKSP3g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 10:29:36 -0500
 Content-Disposition: inline
+In-Reply-To: <20071118.144010.236028466.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- /* returns in *addr the internet address having the name ifname */
- int get_ifaddr_by_name(const char *ifname, __u32 * addr)
- {
-        struct net_device *pnet_device;
-        struct in_device *pin_device;
-        struct in_ifaddr* inet_ifaddr;
+> > > 
+> > > All of our options suck, we just have to choose the least sucking one
+> > > and right now to me that's decrementing the counter as much as I
+> > > empathize with the SNMP application overflow detection issue.
+> > 
+> > If the SNMP monitor detects an false overflow the error it reports 
+> > will be much worse than a single missing packet. So you would replace 
+> > one error with a worse error.
+> 
+> This can be fixed, the above cannot.
 
-        read_lock_bh(&dev_base_lock);
- #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-        pnet_device = dev_base;
- #else
-        pnet_device = first_net_device();
- #endif
-        while (pnet_device != NULL)
-        {
-                if ((netif_running(pnet_device))
-                                && (pnet_device->ip_ptr != NULL)
-                                && (strcmp(pnet_device->name, ifname) == 0))
-                {
-                        pin_device =
-                                (struct in_device *) pnet_device->ip_ptr;
-                        inet_ifaddr = pin_device->ifa_list;
-                        if(inet_ifaddr == NULL)
-                        {
-                                printk("ifa_list is null!\n");
-                                break;
-                        }
-                        /* ifa_local: ifa_address is the remote point in ppp */
-                        *addr = (inet_ifaddr->ifa_local);
-                          read_unlock_bh(&dev_base_lock);
-                        return 1;
-                }
- #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-                pnet_device = pnet_device->next;
- #else
-                pnet_device = next_net_device(pnet_device);
- #endif
-
-        }
-
-        read_unlock_bh(&dev_base_lock);
-        return -1;              /* address not found! */
- }
-
-
--- 
-Giacomo S.
-http://www.giacomos.it
-
-- - - - - - - - - - - - - - - - - - - - - -
-
-IPFIREwall (http://www.giacomos.it/ipfire) viene presentato
-all'Universita` degli Studi di Udine, il 28 ottobre, in occasione del
-Linux Day 2006:
-http://iglu.cc.uniud.it/linuxday
-
-- - - - - - - - - - - - - - - - - - - - - -
-
- . ''  `.
-:   :'    :
- `.  ` '
-    `- Debian GNU/Linux -- The power of freedom
-        http://www.debian.org
+I don't see how, short of breaking the interface
+(e.g. reporting 64bit or separate overflow counts)
+-Andi
