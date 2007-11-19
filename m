@@ -1,33 +1,47 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.24-rc3: find complains about /proc/net
-Date: Mon, 19 Nov 2007 23:04:24 +0100
-Message-ID: <200711192304.25087.rjw@sisk.pl>
-References: <20071119191000.GA1560@elf.ucw.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] [IPV4] UDP: Always checksum even if without socket
+ filter
+Date: Mon, 19 Nov 2007 14:23:13 -0800 (PST)
+Message-ID: <20071119.142313.63549156.davem@davemloft.net>
+References: <20071118214515.GA8161@one.firstfloor.org>
+	<20071118.144010.236028466.davem@davemloft.net>
+	<20071119152933.GA19126@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kernel list <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755146AbXKSVq6@vger.kernel.org>
-In-Reply-To: <20071119191000.GA1560@elf.ucw.cz>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: wangchen@cn.fujitsu.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: andi@firstfloor.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38435
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752030AbXKSWXN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 17:23:13 -0500
+In-Reply-To: <20071119152933.GA19126@one.firstfloor.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday, 19 of November 2007, Pavel Machek wrote:
-> Hi!
-> 
-> I think that this worked before:
-> 
-> root@amd:/proc# find . -name "timer_info"
-> find: WARNING: Hard link count is wrong for ./net: this may be a bug
-> in your filesystem driver.  Automatically turning on find's -noleaf
-> option.  Earlier results may have failed to include directories that
-> should have been searched.
-> root@amd:/proc#
+From: Andi Kleen <andi@firstfloor.org>
+Date: Mon, 19 Nov 2007 16:29:33 +0100
 
-I'm seeing that too.
+> > > > 
+> > > > All of our options suck, we just have to choose the least sucking one
+> > > > and right now to me that's decrementing the counter as much as I
+> > > > empathize with the SNMP application overflow detection issue.
+> > > 
+> > > If the SNMP monitor detects an false overflow the error it reports 
+> > > will be much worse than a single missing packet. So you would replace 
+> > > one error with a worse error.
+> > 
+> > This can be fixed, the above cannot.
+> 
+> I don't see how, short of breaking the interface
+> (e.g. reporting 64bit or separate overflow counts)
 
-Rafael
+As someone who just spent an entire weekend working on
+cpu performance counter code, I know it's possible.
+
+When you overflow, the new value is "a lot" less than
+the last sampled one.  When the value backtracks like
+we're discussing it could here, it only decrease
+a very little bit.
