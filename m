@@ -1,22 +1,21 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: [patch 12/22] NET: DM9000: Remove EEPROM initialisation code.
-Date: Mon, 19 Nov 2007 20:39:22 +0000
-Message-ID: <20071119204014.711925889@fluff.org>
+Subject: [patch 10/22] NET: DM9000: Add ethtool support for reading and writing EEPROM
+Date: Mon, 19 Nov 2007 20:39:20 +0000
+Message-ID: <20071119204014.385873523@fluff.org>
 References: <20071119203910.687238131@fluff.org>
 Cc: vince@simtec.co.uk, Ben Dooks <ben-linux@fluff.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:61700 "EHLO
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:61686 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752002AbXKSVSV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 16:18:21 -0500
-Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-remove-eeprom-program.patch
+	with ESMTP id S1752014AbXKSVSG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 16:18:06 -0500
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-ethtool-eeprom.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove the old hack to program an initial EEPROM setting
-into the DM9000 as we now have ethtool support for reading
-and writing the EEPROM.
+Add ethtool support to access the configuration EEPROM
+connected to the DM9000.
 
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
@@ -24,56 +23,121 @@ Index: linux-2.6.23-quilt3/drivers/net/dm9000.c
 ===================================================================
 --- linux-2.6.23-quilt3.orig/drivers/net/dm9000.c
 +++ linux-2.6.23-quilt3/drivers/net/dm9000.c
-@@ -196,10 +196,6 @@ static void dm9000_write_eeprom(board_in
+@@ -191,7 +191,8 @@ static int dm9000_phy_read(struct net_de
+ static void dm9000_phy_write(struct net_device *dev, int phyaddr_unused, int reg,
+ 			   int value);
+ 
+-static void dm9000_read_eeprom(board_info_t *, int addr, unsigned char *to);
++static void dm9000_read_eeprom(board_info_t *, int addr, u8 *to);
++static void dm9000_write_eeprom(board_info_t *, int addr, u8 *dp);
  static void dm9000_rx(struct net_device *);
  static void dm9000_hash_table(struct net_device *);
  
--//#define DM9000_PROGRAM_EEPROM
--#ifdef DM9000_PROGRAM_EEPROM
--static void program_eeprom(board_info_t * db);
--#endif
- /* DM9000 network board routine ---------------------------- */
+@@ -414,12 +415,65 @@ static u32 dm9000_get_link(struct net_de
+ 	return mii_link_ok(&dm->mii);
+ }
  
++#define DM_EEPROM_MAGIC		(0x444D394B)
++
++static int dm9000_get_eeprom_len(struct net_device *dev)
++{
++	return 128;
++}
++
++static int dm9000_get_eeprom(struct net_device *dev,
++			     struct ethtool_eeprom *ee, u8 *data)
++{
++	board_info_t *dm = to_dm9000_board(dev);
++	int offset = ee->offset;
++	int len = ee->len;
++	int i;
++
++	/* EEPROM access is aligned to two bytes */
++
++	if ((len & 1) != 0 || (offset & 1) != 0)
++		return -EINVAL;
++
++	ee->magic = DM_EEPROM_MAGIC;
++
++	for (i = 0; i < len; i += 2)
++		dm9000_read_eeprom(dm, (offset + i) / 2, data + i);
++
++	return 0;
++}
++
++static int dm9000_set_eeprom(struct net_device *dev,
++			     struct ethtool_eeprom *ee, u8 *data)
++{
++	board_info_t *dm = to_dm9000_board(dev);
++	int offset = ee->offset;
++	int len = ee->len;
++	int i;
++
++	/* EEPROM access is aligned to two bytes */
++
++	if ((len & 1) != 0 || (offset & 1) != 0)
++		return -EINVAL;
++
++	if (ee->magic != DM_EEPROM_MAGIC)
++		return -EINVAL;
++
++	for (i = 0; i < len; i += 2)
++		dm9000_write_eeprom(dm, (offset + i) / 2, data + i);
++
++	return 0;
++}
++
+ static const struct ethtool_ops dm9000_ethtool_ops = {
+ 	.get_drvinfo		= dm9000_get_drvinfo,
+ 	.get_settings		= dm9000_get_settings,
+ 	.set_settings		= dm9000_set_settings,
+ 	.nway_reset		= dm9000_nway_reset,
+ 	.get_link		= dm9000_get_link,
++ 	.get_eeprom_len		= dm9000_get_eeprom_len,
++ 	.get_eeprom		= dm9000_get_eeprom,
++ 	.set_eeprom		= dm9000_set_eeprom,
+ };
+ 
+ 
+@@ -1074,7 +1128,7 @@ dm9000_rx(struct net_device *dev)
+  *  Read a word data from EEPROM
+  */
  static void
-@@ -707,9 +703,6 @@ dm9000_probe(struct platform_device *pde
- 	ndev->poll_controller	 = &dm9000_poll_controller;
- #endif
+-dm9000_read_eeprom(board_info_t *db, int offset, unsigned char *to)
++dm9000_read_eeprom(board_info_t *db, int offset, u8 *to)
+ {
+ 	mutex_lock(&db->addr_lock);
  
--#ifdef DM9000_PROGRAM_EEPROM
--	program_eeprom(db);
--#endif
- 	db->msg_enable       = NETIF_MSG_LINK;
- 	db->mii.phy_id_mask  = 0x1f;
- 	db->mii.reg_num_mask = 0x1f;
-@@ -1178,28 +1171,6 @@ dm9000_write_eeprom(board_info_t *db, in
+@@ -1090,18 +1144,17 @@ dm9000_read_eeprom(board_info_t *db, int
  	mutex_unlock(&db->addr_lock);
  }
  
 -#ifdef DM9000_PROGRAM_EEPROM
--/*
-- * Only for development:
-- * Here we write static data to the eeprom in case
-- * we don't have valid content on a new board
-- */
--static void
--program_eeprom(board_info_t * db)
--{
--	u16 eeprom[] = { 0x0c00, 0x007f, 0x1300,	/* MAC Address */
--		0x0000,		/* Autoload: accept nothing */
--		0x0a46, 0x9000,	/* Vendor / Product ID */
--		0x0000,		/* pin control */
--		0x0000,
--	};			/* Wake-up mode control */
--	int i;
--	for (i = 0; i < 8; i++)
--		write_srom_word(db, i, eeprom[i]);
--}
--#endif
--
--
  /*
-  *  Calculate the CRC valude of the Rx packet
-  *  flag = 1 : return the reverse CRC (for the received packet CRC)
+  * Write a word data to SROM
+  */
+ static void
+-write_srom_word(board_info_t * db, int offset, u16 val)
++dm9000_write_eeprom(board_info_t *db, int offset, u8 *data)
+ {
+ 	mutex_lock(&db->addr_lock);
+ 
+ 	iow(db, DM9000_EPAR, offset);
+-	iow(db, DM9000_EPDRH, ((val >> 8) & 0xff));
+-	iow(db, DM9000_EPDRL, (val & 0xff));
++	iow(db, DM9000_EPDRH, data[1]);
++	iow(db, DM9000_EPDRL, data[0]);
+ 	iow(db, DM9000_EPCR, EPCR_WEP | EPCR_ERPRW);
+ 	mdelay(8);		/* same shit */
+ 	iow(db, DM9000_EPCR, 0);
+@@ -1109,6 +1162,7 @@ write_srom_word(board_info_t * db, int o
+ 	mutex_unlock(&db->addr_lock);
+ }
+ 
++#ifdef DM9000_PROGRAM_EEPROM
+ /*
+  * Only for development:
+  * Here we write static data to the eeprom in case
 
 -- 
 Ben (ben@fluff.org, http://www.fluff.org/)
