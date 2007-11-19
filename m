@@ -1,111 +1,38 @@
-From: Kirill Korotaev <dev@sw.ru>
-Subject: Re: [PATCH][net-2.6.25][NETNS] make netns cleanup to run in a separate
- workqueue
-Date: Mon, 19 Nov 2007 14:08:49 +0300
-Message-ID: <47416EC1.7080702@sw.ru>
-References: <47416909.4000602@fr.ibm.com> <47416DF3.700@sw.ru>
+From: "Arnaldo Carvalho de Melo" <acme@redhat.com>
+Subject: Re: [PATCH 1/2] [IPV4] UDP: Always checksum even if without socket
+	filter
+Date: Mon, 19 Nov 2007 09:49:36 -0200
+Message-ID: <20071119114936.GE14882@ghostprotocols.net>
+References: <p73bq9tau2x.fsf@bingen.suse.de> <20071117.160926.232024605.davem@davemloft.net> <20071118214515.GA8161@one.firstfloor.org> <20071118.144010.236028466.davem@davemloft.net> <20071119044117.GA1880@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	"Denis V. Lunev" <den@openvz.org>,
-	David Miller <davem@davemloft.net>,
-	Benjamin Thery <benjamin.thery@bull.net>
-To: Kirill Korotaev <dev@sw.ru>
+Cc: David Miller <davem@davemloft.net>, andi@firstfloor.org,
+	wangchen@cn.fujitsu.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:9551 "EHLO relay.sw.ru"
+Received: from mx1.redhat.com ([66.187.233.31]:45564 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751803AbXKSLFB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Nov 2007 06:05:01 -0500
-In-Reply-To: <47416DF3.700@sw.ru>
+	id S1751861AbXKSLtz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Nov 2007 06:49:55 -0500
+Content-Disposition: inline
+In-Reply-To: <20071119044117.GA1880@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ah, sorry. Didn't notice it's called only on boot.
+Em Mon, Nov 19, 2007 at 12:41:17PM +0800, Herbert Xu escreveu:
+> On Sun, Nov 18, 2007 at 02:40:10PM -0800, David Miller wrote:
+> >
+> > This can be fixed, the above cannot.
+> 
+> That's a good point.  Perhaps one way of getting that info to
+> the user without putting it in UDPInDatagrams is to create an
+> inet_diag interface for UDP and put the number of queued packets
+> for each socket in it.
 
-Acked-By: Kirill Korotaev <dev@sw.ru>
+This is something I would love to see: UDP refactored so that it gets
+its hash tables/lookup code more and more looking like what we have in
+inet_hashtables (struct inet_hashinfo, etc) so that udp_diag would just
+fit in the inet_diag infrastructure, like dccp, that is in some aspects
+like TCP and in others like UDP and already uses this infrastructure.
 
-Kirill Korotaev wrote:
-> imho panic() is too much.
-> create_singlethread_workqueue() can fail e.g. due to out of memory...
-> 
-> Thanks,
-> Kirill
-> 
-> 
-> Daniel Lezcano wrote:
-> 
->>Subject: make netns cleanup to run in a separate queue
->>From: Benjamin Thery <benjamin.thery@bull.net>
->>
->>This patch adds a separate workqueue for cleaning up a network 
->>namespace. If we use the keventd workqueue to execute cleanup_net(), 
->>there is a problem to unregister devices in IPv6. Indeed the code 
->>that cleans up also schedule work in keventd: as long as cleanup_net() 
->>hasn't return, dst_gc_task() cannot run and as long as dst_gc_task() has
->>not run, there are still some references pending on the net devices and
->>cleanup_net() can not unregister and exit the keventd workqueue.
->>
->>Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
->>Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
->>Acked-by: Denis V. Lunev <den@openvz.org>
->>---
->> net/core/net_namespace.c |    9 ++++++++-
->> 1 file changed, 8 insertions(+), 1 deletion(-)
->>
->>Index: net-2.6.25/net/core/net_namespace.c
->>===================================================================
->>--- net-2.6.25.orig/net/core/net_namespace.c
->>+++ net-2.6.25/net/core/net_namespace.c
->>@@ -58,6 +58,7 @@ out_undo:
->> 
->> #ifdef CONFIG_NET_NS
->> static struct kmem_cache *net_cachep;
->>+static struct workqueue_struct *netns_wq;
->> 
->> static struct net *net_alloc(void)
->> {
->>@@ -149,7 +150,7 @@ void __put_net(struct net *net)
->> {
->> 	/* Cleanup the network namespace in process context */
->> 	INIT_WORK(&net->work, cleanup_net);
->>-	schedule_work(&net->work);
->>+	queue_work(netns_wq, &net->work);
->> }
->> EXPORT_SYMBOL_GPL(__put_net);
->> 
->>@@ -171,7 +172,13 @@ static int __init net_ns_init(void)
->> 	net_cachep = kmem_cache_create("net_namespace", sizeof(struct net),
->> 					SMP_CACHE_BYTES,
->> 					SLAB_PANIC, NULL);
->>+
->>+	/* Create workqueue for cleanup */
->>+	netns_wq = create_singlethread_workqueue("netns");
->>+	if (!netns_wq)
->>+		panic("Could not create netns workq");
-> 
-> 
->> #endif
->>+
->> 	mutex_lock(&net_mutex);
->> 	err = setup_net(&init_net);
->> 
->>
->>
->>------------------------------------------------------------------------
->>
->>_______________________________________________
->>Containers mailing list
->>Containers@lists.linux-foundation.org
->>https://lists.linux-foundation.org/mailman/listinfo/containers
-> 
-> 
-> _______________________________________________
-> Containers mailing list
-> Containers@lists.linux-foundation.org
-> https://lists.linux-foundation.org/mailman/listinfo/containers
-> 
-
+- Arnaldo
