@@ -1,21 +1,23 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: [patch 20/22] NET: DM9000: Add support for MII ioctl() calls
-Date: Mon, 19 Nov 2007 20:39:30 +0000
-Message-ID: <20071119204016.148267229@fluff.org>
+Subject: [patch 19/22] NET: DM9000: Add platform flag for no attached EEPROM
+Date: Mon, 19 Nov 2007 20:39:29 +0000
+Message-ID: <20071119204015.990366794@fluff.org>
 References: <20071119203910.687238131@fluff.org>
 Cc: vince@simtec.co.uk, Ben Dooks <ben-linux@fluff.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:61661 "EHLO
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:61675 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751762AbXKSVOZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 16:14:25 -0500
-Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-mii-ioctl.patch
+	with ESMTP id S1751750AbXKSVRr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 16:17:47 -0500
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-no-eeprom-flag.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add entry to handle the MII ioctl() calls via the
-generic_mii_ioctl call.
+Allow the platform data to specify to the DM9000 driver
+that there is no posibility of an attached EEPROM on the
+device, so default all reads to 0xff and ignore any
+write operations.
 
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
@@ -23,40 +25,61 @@ Index: linux-2.6.23-quilt3/drivers/net/dm9000.c
 ===================================================================
 --- linux-2.6.23-quilt3.orig/drivers/net/dm9000.c
 +++ linux-2.6.23-quilt3/drivers/net/dm9000.c
-@@ -148,6 +148,8 @@ static int dm9000_mii_thread(void *data)
+@@ -410,6 +410,9 @@ static int dm9000_get_eeprom(struct net_
+ 	if ((len & 1) != 0 || (offset & 1) != 0)
+ 		return -EINVAL;
  
- static void dm9000_init_dm9000(struct net_device *);
- 
-+static int dm9000_ioctl(struct net_device *dev, struct ifreq *req, int cmd);
++	if (dm->flags & DM9000_PLATF_NO_EEPROM)
++		return -ENOENT;
 +
- static struct net_device_stats *dm9000_get_stats(struct net_device *);
+ 	ee->magic = DM_EEPROM_MAGIC;
  
- static irqreturn_t dm9000_interrupt(int, void *);
-@@ -337,6 +339,16 @@ static void dm9000_poll_controller(struc
- }
- #endif
+ 	for (i = 0; i < len; i += 2)
+@@ -431,6 +434,9 @@ static int dm9000_set_eeprom(struct net_
+ 	if ((len & 1) != 0 || (offset & 1) != 0)
+ 		return -EINVAL;
  
-+static int dm9000_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
-+{
-+	board_info_t *dm = to_dm9000_board(dev);
++	if (dm->flags & DM9000_PLATF_NO_EEPROM)
++		return -ENOENT;
 +
-+	if (!netif_running(dev))
-+		return -EINVAL;
-+
-+	return generic_mii_ioctl(&dm->mii, if_mii(req), cmd, NULL);
-+}
-+
- /* ethtool ops */
+ 	if (ee->magic != DM_EEPROM_MAGIC)
+ 		return -EINVAL;
  
- static void dm9000_get_drvinfo(struct net_device *dev,
-@@ -669,6 +681,7 @@ dm9000_probe(struct platform_device *pde
- 	ndev->get_stats		 = &dm9000_get_stats;
- 	ndev->set_multicast_list = &dm9000_hash_table;
- 	ndev->ethtool_ops	 = &dm9000_ethtool_ops;
-+	ndev->do_ioctl		 = &dm9000_ioctl;
+@@ -1166,6 +1172,12 @@ dm9000_read_eeprom(board_info_t *db, int
+ {
+ 	unsigned long flags;
  
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	ndev->poll_controller	 = &dm9000_poll_controller;
++	if (db->flags & DM9000_PLATF_NO_EEPROM) {
++		to[0] = 0xff;
++		to[1] = 0xff;
++		return;
++	}
++
+ 	mutex_lock(&db->addr_lock);
+ 
+ 	spin_lock_irqsave(&db->lock, flags);
+@@ -1200,6 +1212,9 @@ dm9000_write_eeprom(board_info_t *db, in
+ {
+ 	unsigned long flags;
+ 
++	if (db->flags & DM9000_PLATF_NO_EEPROM)
++		return;
++
+ 	mutex_lock(&db->addr_lock);
+ 
+ 	spin_lock_irqsave(&db->lock, flags);
+Index: linux-2.6.23-quilt3/include/linux/dm9000.h
+===================================================================
+--- linux-2.6.23-quilt3.orig/include/linux/dm9000.h
++++ linux-2.6.23-quilt3/include/linux/dm9000.h
+@@ -20,6 +20,7 @@
+ #define DM9000_PLATF_16BITONLY	(0x0002)
+ #define DM9000_PLATF_32BITONLY	(0x0004)
+ #define DM9000_PLATF_EXT_PHY	(0x0008)
++#define DM9000_PLATF_NO_EEPROM	(0x0010)
+ 
+ /* platfrom data for platfrom device structure's platfrom_data field */
+ 
 
 -- 
 Ben (ben@fluff.org, http://www.fluff.org/)
