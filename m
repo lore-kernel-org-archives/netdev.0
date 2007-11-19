@@ -1,48 +1,51 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: HTB/HSFC shaping precision
-Date: Mon, 19 Nov 2007 10:55:17 +0200
-Message-ID: <20071119083849.M87605@visp.net.lb>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][IPVS] Relax the module get/put in ip_vs_app.c
+Date: Mon, 19 Nov 2007 12:58:14 +0300
+Message-ID: <47415E36.8030001@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:47721 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752604AbXKSJyF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 04:54:05 -0500
-Received: from visp.net.lb (localhost [127.0.0.1])
-	by usermail.globalproof.net (Postfix) with ESMTP id 7C389410170
-	for <netdev@vger.kernel.org>; Mon, 19 Nov 2007 10:55:17 +0200 (EET)
+Received: from sacred.ru ([62.205.161.221]:60648 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751995AbXKSJ7B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Nov 2007 04:59:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi 2 all again
+Both try_module_get/module_put already handle the module == NULL
+case, so no need in manual checking.
 
-This is not a bug report this time :-) 
-Just it is very interesting question, about using Linux "shaping" technologies
-in serious jobs.
+This patch fits both net-2.6 and net-2.6.25.
 
-What i realised few days ago, many ISP's set on their STM-1(155520000 bits/s)
-links (over Cisco) packet buffer/queue 40 packets(for example).
-It means 103680  pps with 1500 byte packets,  and if buffer is only 40
-packets, it means it require at least 0.3ms scheduler precision? Otherwise i
-can have buffer overflow and as result packetloss(what is much worse than
-delay in most of situations).
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-What i am interested - to utilise such links nearby 100%. So anything not
-precise will kill idea.
-Thats important, cause price for links in my area is about $1000-$1500 Mbit/s,
-and just 1% lost/not utilised on STM-1 is up to $2325/USD lost per month.
-I have to count also overhead, LAN jitter, and etc.
+---
 
-As far as i test, on HFSC if i set dmax 1ms-10ms it works much better (i am
-talking about precision) than HTB with quantum 1514 (it is over ethernet). 
-
-Anybody have ideas what is the precision of bandwidth shaping in HFSC/HTB?
-
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
-
+diff --git a/net/ipv4/ipvs/ip_vs_app.c b/net/ipv4/ipvs/ip_vs_app.c
+index 664cb8e..535abe0 100644
+--- a/net/ipv4/ipvs/ip_vs_app.c
++++ b/net/ipv4/ipvs/ip_vs_app.c
+@@ -51,18 +51,13 @@ static DEFINE_MUTEX(__ip_vs_app_mutex);
+  */
+ static inline int ip_vs_app_get(struct ip_vs_app *app)
+ {
+-	/* test and get the module atomically */
+-	if (app->module)
+-		return try_module_get(app->module);
+-	else
+-		return 1;
++	return try_module_get(app->module);
+ }
+ 
+ 
+ static inline void ip_vs_app_put(struct ip_vs_app *app)
+ {
+-	if (app->module)
+-		module_put(app->module);
++	module_put(app->module);
+ }
+ 
+ 
