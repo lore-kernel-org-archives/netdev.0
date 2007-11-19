@@ -1,95 +1,51 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] Compact sk_stream_mem_schedule() code
-Date: Mon, 19 Nov 2007 15:13:44 +0300
-Message-ID: <47417DF8.6040204@openvz.org>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH] net/ipv4/arp.c: Fix arp reply when sender ip 0 (was: Strange behavior in arp probe reply, bug or feature?)
+Date: Mon, 19 Nov 2007 16:06:10 +0300
+Message-ID: <20071119130610.GB6952@ms2.inr.ac.ru>
+References: <cac0ab7d0711150340p58eda94ah92894072ba328205@mail.gmail.com> <20071115154032.GA30391@ms2.inr.ac.ru> <cac0ab7d0711151340l1cc91a2dw5ebf36e166d16d7a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: devel@openvz.org, Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:43577 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752236AbXKSMNz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Nov 2007 07:13:55 -0500
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	jmorris@namei.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: Jonas Danielsson <the.sator@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754721AbXKSNG3@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <cac0ab7d0711151340l1cc91a2dw5ebf36e166d16d7a@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This function references sk->sk_prot->xxx for many times.
-It turned out, that there's so many code in it, that gcc 
-cannot always optimize access to sk->sk_prot's fields.
+Hello!
 
-After saving the sk->sk_prot on the stack and comparing
-disassembled code, it turned out that the function became
-~10 bytes shorter and made less dereferences (on i386 and 
-x86_64). Stack consumption didn't grow.
+> Is there a reason that the target hardware address isn't the target
+> hardware address?
 
-Besides, this patch drives most of this function into the
-80 columns limit.
+It is bound only to the fact that linux uses protocol address
+of the machine, which responds. It would be highly confusing
+(more than confusing :-)), if we used our protocol address and hardware
+address of requestor.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+But if you use zero protocol address as source, you really can use
+any hw address.
 
----
+> The dhcp clients I examined, and the implementation of the arpcheck
+> that I use will compare the target hardware field of the arp-reply and
+> match it against its own mac, to verify the reply. And this fails with
+> the current implementation in the kernel.
 
-diff --git a/net/core/stream.c b/net/core/stream.c
-index 755bacb..b2fb846 100644
---- a/net/core/stream.c
-+++ b/net/core/stream.c
-@@ -210,35 +210,36 @@ EXPORT_SYMBOL(__sk_stream_mem_reclaim);
- int sk_stream_mem_schedule(struct sock *sk, int size, int kind)
- {
- 	int amt = sk_stream_pages(size);
-+	struct proto *prot = sk->sk_prot;
- 
- 	sk->sk_forward_alloc += amt * SK_STREAM_MEM_QUANTUM;
--	atomic_add(amt, sk->sk_prot->memory_allocated);
-+	atomic_add(amt, prot->memory_allocated);
- 
- 	/* Under limit. */
--	if (atomic_read(sk->sk_prot->memory_allocated) < sk->sk_prot->sysctl_mem[0]) {
--		if (*sk->sk_prot->memory_pressure)
--			*sk->sk_prot->memory_pressure = 0;
-+	if (atomic_read(prot->memory_allocated) < prot->sysctl_mem[0]) {
-+		if (*prot->memory_pressure)
-+			*prot->memory_pressure = 0;
- 		return 1;
- 	}
- 
- 	/* Over hard limit. */
--	if (atomic_read(sk->sk_prot->memory_allocated) > sk->sk_prot->sysctl_mem[2]) {
--		sk->sk_prot->enter_memory_pressure();
-+	if (atomic_read(prot->memory_allocated) > prot->sysctl_mem[2]) {
-+		prot->enter_memory_pressure();
- 		goto suppress_allocation;
- 	}
- 
- 	/* Under pressure. */
--	if (atomic_read(sk->sk_prot->memory_allocated) > sk->sk_prot->sysctl_mem[1])
--		sk->sk_prot->enter_memory_pressure();
-+	if (atomic_read(prot->memory_allocated) > prot->sysctl_mem[1])
-+		prot->enter_memory_pressure();
- 
- 	if (kind) {
--		if (atomic_read(&sk->sk_rmem_alloc) < sk->sk_prot->sysctl_rmem[0])
-+		if (atomic_read(&sk->sk_rmem_alloc) < prot->sysctl_rmem[0])
- 			return 1;
--	} else if (sk->sk_wmem_queued < sk->sk_prot->sysctl_wmem[0])
-+	} else if (sk->sk_wmem_queued < prot->sysctl_wmem[0])
- 		return 1;
- 
--	if (!*sk->sk_prot->memory_pressure ||
--	    sk->sk_prot->sysctl_mem[2] > atomic_read(sk->sk_prot->sockets_allocated) *
-+	if (!*prot->memory_pressure ||
-+	    prot->sysctl_mem[2] > atomic_read(prot->sockets_allocated) *
- 				sk_stream_pages(sk->sk_wmem_queued +
- 						atomic_read(&sk->sk_rmem_alloc) +
- 						sk->sk_forward_alloc))
-@@ -258,7 +259,7 @@ suppress_allocation:
- 
- 	/* Alas. Undo changes. */
- 	sk->sk_forward_alloc -= amt * SK_STREAM_MEM_QUANTUM;
--	atomic_sub(amt, sk->sk_prot->memory_allocated);
-+	atomic_sub(amt, prot->memory_allocated);
- 	return 0;
- }
- 
+1. Do not do this. Mainly, because you already know that this does not work
+   with linux. :-) Logically, target hw address in arp reply is just
+   a nonsensial redundancy, it should not be checked and even looked at.
+
+2. What's about your suggestion, I thought about this and I am going to agree.
+
+   Arguments, which convinced me are:
+
+   - arping still works.
+   - any piece of reasonable software should work.
+   - if Windows understands DaD (is it really true? I cannot believe)
+     and it is unhappy about our responce and does not block use
+     of duplicate address only due to this, we _must_ accomodate ASAP.
+   - if we do,we have to use 0 protocol address, no choice.
+
+Alexey
