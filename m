@@ -1,7 +1,8 @@
 From: Ramkrishna Vepa <ram.vepa@neterion.com>
-Subject: [PATCH 2.6.24 2/2]S2io: Fix to aggregate vlan tagged packets
-Date: 19 Nov 2007 14:06:19 -0800
-Message-ID: <1195509978.1995.46.camel@flash>
+Subject: [PATCH 2.6.24 1/2]S2io: Strip the vlan tag if the vlan group is
+	not NULL
+Date: 19 Nov 2007 14:00:37 -0800
+Message-ID: <1195509636.1995.39.camel@flash>
 Reply-To: ram.vepa@neterion.com
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,236 +10,248 @@ Content-Transfer-Encoding: 7bit
 Cc: jeff@garzik.org, support@neterion.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:50550 "EHLO
+Received: from barracuda.s2io.com ([72.1.205.138]:50610 "EHLO
 	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750959AbXKSUbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 15:31:09 -0500
+	with ESMTP id S1751201AbXKSUiO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 15:38:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-- Fix to aggregate vlan packets. IP offset is incremented by 
-  4 bytes if the packet contains vlan header.
+- Updated the vlan tag stripping code as per Dave Johnson's patch
+  <djohnson@sw.starentnetworks.com>
+  Below is the driver behaviour for vlan_tag_strip loadable paramter,
+	vlan_tag_strip - 0: Don't strip the vlan tag
+	vlan_tag_strip - 1: Always strip the vlan tag
+	vlan_tag_strip - 2 (default): strip the vlan tag if the 
+	  vlan group is not NULL.
 
 Signed-off-by: Santoshkumar Rastapur <santosh.rastapur@neterion.com>
 Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
 ---
-diff -Nurp 2.0.26.8P1/drivers/net/s2io.c 2.0.26.8P2/drivers/net/s2io.c
---- 2.0.26.8P1/drivers/net/s2io.c	2007-11-15 18:15:00.000000000 -0800
-+++ 2.0.26.8P2/drivers/net/s2io.c	2007-11-15 18:17:41.000000000 -0800
-@@ -84,7 +84,7 @@
- #include "s2io.h"
- #include "s2io-regs.h"
+diff -Nurp 2.0.26.6/drivers/net/s2io.c 2.0.26.8P1/drivers/net/s2io.c
+--- 2.0.26.6/drivers/net/s2io.c	2007-11-15 18:19:42.000000000 -0800
++++ 2.0.26.8P1/drivers/net/s2io.c	2007-11-15 18:15:00.000000000 -0800
+@@ -46,10 +46,10 @@
+  *     Possible values '1' for enable and '0' for disable. Default is '1'
+  * ufo: This parameter used to enable/disable UDP Fragmentation Offload(UFO)
+  *      Possible values '1' for enable and '0' for disable. Default is '0'
+- * vlan_tag_strip: This can be used to enable or disable vlan stripping.
+- *                 Possible values '1' for enable , '0' for disable.
+- *                 Default is '2' - which means disable in promisc mode
+- *                 and enable in non-promiscuous mode.
++ * vlan_tag_strip: This can be used to enable or disable vlan tag stripping.
++ *      Possible values '2' for driver default, '1' for enable and
++ *      '0' for disable
++ *      Default is '2' - VLAN tag stripping enabled if vlan group present
+  ************************************************************************/
  
--#define DRV_VERSION "2.0.26.6"
-+#define DRV_VERSION "2.0.26.8"
- 
- /* S2io Driver name & version. */
- static char s2io_driver_name[] = "Neterion";
-@@ -2926,7 +2926,7 @@ static void rx_intr_handler(struct ring_
- 			struct lro *lro = &nic->lro0_n[i];
- 			if (lro->in_use) {
- 				update_L3L4_header(nic, lro);
--				queue_rx_frame(lro->parent);
-+				queue_rx_frame(lro->parent, lro->vlan_tag);
- 				clear_lro_session(lro);
- 			}
- 		}
-@@ -7163,7 +7163,8 @@ static int rx_osm_handler(struct ring_in
- 					{
- 						lro_append_pkt(sp, lro,
- 							skb, tcp_len);
--						queue_rx_frame(lro->parent);
-+						queue_rx_frame(lro->parent,
-+							lro->vlan_tag);
- 						clear_lro_session(lro);
- 						sp->mac_control.stats_info->
- 						    sw_stat.flush_max_pkts++;
-@@ -7174,7 +7175,8 @@ static int rx_osm_handler(struct ring_in
- 							lro->frags_len;
- 						sp->mac_control.stats_info->
- 						     sw_stat.sending_both++;
--						queue_rx_frame(lro->parent);
-+						queue_rx_frame(lro->parent,
-+							lro->vlan_tag);
- 						clear_lro_session(lro);
- 						goto send_up;
- 					case 0: /* sessions exceeded */
-@@ -7204,27 +7206,8 @@ static int rx_osm_handler(struct ring_in
- 		skb->ip_summed = CHECKSUM_NONE;
- 	}
- 	sp->mac_control.stats_info->sw_stat.mem_freed += skb->truesize;
--	if (!sp->lro) {
--		skb->protocol = eth_type_trans(skb, dev);
--		if ((sp->vlan_strip_flag == S2IO_STRIP_VLAN_TAG) &&
--			RXD_GET_VLAN_TAG(rxdp->Control_2)) {
--			/* Queueing the vlan frame to the upper layer */
--			if (napi)
--				vlan_hwaccel_receive_skb(skb, sp->vlgrp,
--					RXD_GET_VLAN_TAG(rxdp->Control_2));
--			else
--				vlan_hwaccel_rx(skb, sp->vlgrp,
--					RXD_GET_VLAN_TAG(rxdp->Control_2));
--		} else {
--			if (napi)
--				netif_receive_skb(skb);
--			else
--				netif_rx(skb);
--		}
--	} else {
- send_up:
--		queue_rx_frame(skb);
--	}
-+	queue_rx_frame(skb, RXD_GET_VLAN_TAG(rxdp->Control_2));
- 	dev->last_rx = jiffies;
- aggregate:
- 	atomic_dec(&sp->rx_bufs_left[ring_no]);
-@@ -7855,7 +7838,8 @@ module_init(s2io_starter);
- module_exit(s2io_closer);
- 
- static int check_L2_lro_capable(u8 *buffer, struct iphdr **ip,
--		struct tcphdr **tcp, struct RxD_t *rxdp)
-+		struct tcphdr **tcp, struct RxD_t *rxdp,
-+		struct s2io_nic *sp)
- {
- 	int ip_off;
- 	u8 l2_type = (u8)((rxdp->Control_1 >> 37) & 0x7), ip_len;
-@@ -7866,19 +7850,19 @@ static int check_L2_lro_capable(u8 *buff
- 		return -1;
- 	}
- 
--	/* TODO:
--	 * By default the VLAN field in the MAC is stripped by the card, if this
--	 * feature is turned off in rx_pa_cfg register, then the ip_off field
--	 * has to be shifted by a further 2 bytes
--	 */
--	switch (l2_type) {
--		case 0: /* DIX type */
--		case 4: /* DIX type with VLAN */
--			ip_off = HEADER_ETHERNET_II_802_3_SIZE;
--			break;
-+	if ((l2_type == 0) ||	 /* DIX type */
-+		(l2_type == 4)) {	 /* DIX type with VLAN */
-+		ip_off = HEADER_ETHERNET_II_802_3_SIZE;
-+		/*
-+		* If vlan stripping is disabled and the frame is VLAN tagged,
-+		* shift the offset by the VLAN header size bytes.
-+		*/
-+		if ((sp->vlan_strip_flag == S2IO_DO_NOT_STRIP_VLAN_TAG) &&
-+			(rxdp->Control_1 & RXD_FRAME_VLAN_TAG))
-+			ip_off += HEADER_VLAN_SIZE;
-+	} else {
- 		/* LLC, SNAP etc are considered non-mergeable */
--		default:
--			return -1;
-+		return -1;
- 	}
- 
- 	*ip = (struct iphdr *)((u8 *)buffer + ip_off);
-@@ -7905,7 +7889,8 @@ static inline int get_l4_pyld_length(str
+ #include <linux/module.h>
+@@ -365,20 +365,57 @@ static void do_s2io_copy_mac_addr(struct
+ 	sp->def_mac_addr[offset].mac_addr[1] = (u8) (mac_addr >> 32);
+ 	sp->def_mac_addr[offset].mac_addr[0] = (u8) (mac_addr >> 40);
  }
- 
- static void initiate_new_session(struct lro *lro, u8 *l2h,
--		     struct iphdr *ip, struct tcphdr *tcp, u32 tcp_pyld_len)
-+		struct iphdr *ip, struct tcphdr *tcp,
-+		u32 tcp_pyld_len, u16 vlan_tag)
++
++/* Progran the hardware to Enable/Disable vlan tag strippng dynamically */
++static void s2io_handle_vlan_tag_strip(struct s2io_nic *nic, int flag)
++{
++	struct XENA_dev_config __iomem *bar0 = nic->bar0;
++	u64 val64;
++
++	val64 = readq(&bar0->rx_pa_cfg);
++	if (flag == S2IO_DO_NOT_STRIP_VLAN_TAG)
++		val64 &= ~RX_PA_CFG_STRIP_VLAN_TAG;
++	else
++		val64 |= RX_PA_CFG_STRIP_VLAN_TAG;
++
++	writeq(val64, &bar0->rx_pa_cfg);
++}
++
+ /* Add the vlan */
+ static void s2io_vlan_rx_register(struct net_device *dev,
+ 					struct vlan_group *grp)
  {
- 	DBG_PRINT(INFO_DBG,"%s: Been here...\n", __FUNCTION__);
- 	lro->l2h = l2h;
-@@ -7916,6 +7901,7 @@ static void initiate_new_session(struct 
- 	lro->sg_num = 1;
- 	lro->total_len = ntohs(ip->tot_len);
- 	lro->frags_len = 0;
-+	lro->vlan_tag = vlan_tag;
- 	/*
- 	 * check if we saw TCP timestamp. Other consistency checks have
- 	 * already been done.
-@@ -8047,15 +8033,17 @@ s2io_club_tcp_session(u8 *buffer, u8 **t
- 	struct iphdr *ip;
- 	struct tcphdr *tcph;
- 	int ret = 0, i;
-+	u16 vlan_tag = 0;
+ 	struct s2io_nic *nic = dev->priv;
+ 	unsigned long flags;
++	struct config_param *config = &nic->config;
  
- 	if (!(ret = check_L2_lro_capable(buffer, &ip, (struct tcphdr **)tcp,
--					 rxdp))) {
-+					 rxdp, sp))) {
- 		DBG_PRINT(INFO_DBG,"IP Saddr: %x Daddr: %x\n",
- 			  ip->saddr, ip->daddr);
- 	} else {
- 		return ret;
- 	}
- 
-+	vlan_tag = RXD_GET_VLAN_TAG(rxdp->Control_2);
- 	tcph = (struct tcphdr *)*tcp;
- 	*tcp_len = get_l4_pyld_length(ip, tcph);
- 	for (i=0; i<MAX_LRO_SESSIONS; i++) {
-@@ -8115,7 +8103,8 @@ s2io_club_tcp_session(u8 *buffer, u8 **t
- 
- 	switch (ret) {
- 		case 3:
--			initiate_new_session(*lro, buffer, ip, tcph, *tcp_len);
-+			initiate_new_session(*lro, buffer, ip, tcph,
-+					*tcp_len, vlan_tag);
- 			break;
- 		case 2:
- 			update_L3L4_header(sp, *lro);
-@@ -8143,15 +8132,24 @@ static void clear_lro_session(struct lro
- 	memset(lro, 0, lro_struct_size);
- }
- 
--static void queue_rx_frame(struct sk_buff *skb)
-+static void queue_rx_frame(struct sk_buff *skb, u16 vlan_tag)
- {
- 	struct net_device *dev = skb->dev;
-+	struct s2io_nic *sp = dev->priv;
- 
- 	skb->protocol = eth_type_trans(skb, dev);
--	if (napi)
--		netif_receive_skb(skb);
--	else
--		netif_rx(skb);
-+	if (vlan_tag && (sp->vlan_strip_flag == S2IO_STRIP_VLAN_TAG)) {
-+		/* Queueing the vlan frame to the upper layer */
-+		if (sp->config.napi)
-+			vlan_hwaccel_receive_skb(skb, sp->vlgrp, vlan_tag);
+ 	spin_lock_irqsave(&nic->tx_lock, flags);
+ 	nic->vlgrp = grp;
++
++	/* if vlgrp is NULL disable VLAN stripping */
++	if (config->vlan_tag_strip == S2IO_DEFAULT_STRIP_MODE_VLAN_TAG) {
++		if (!grp)
++			nic->vlan_strip_flag = S2IO_DO_NOT_STRIP_VLAN_TAG;
 +		else
-+			vlan_hwaccel_rx(skb, sp->vlgrp, vlan_tag);
-+	} else {
-+		if (sp->config.napi)
-+			netif_receive_skb(skb);
-+		else
-+			netif_rx(skb);
++			nic->vlan_strip_flag = S2IO_STRIP_VLAN_TAG;
 +	}
++
++	s2io_handle_vlan_tag_strip(nic, nic->vlan_strip_flag);
+ 	spin_unlock_irqrestore(&nic->tx_lock, flags);
  }
  
- static void lro_append_pkt(struct s2io_nic *sp, struct lro *lro,
-diff -Nurp 2.0.26.8P1/drivers/net/s2io.h 2.0.26.8P2/drivers/net/s2io.h
---- 2.0.26.8P1/drivers/net/s2io.h	2007-11-15 18:15:00.000000000 -0800
-+++ 2.0.26.8P2/drivers/net/s2io.h	2007-11-15 18:17:41.000000000 -0800
-@@ -531,6 +531,7 @@ struct RxD_t {
- #define RXD_OWN_XENA            s2BIT(7)
- #define RXD_T_CODE              (s2BIT(12)|s2BIT(13)|s2BIT(14)|s2BIT(15))
- #define RXD_FRAME_PROTO         vBIT(0xFFFF,24,8)
-+#define RXD_FRAME_VLAN_TAG      s2BIT(24)
- #define RXD_FRAME_PROTO_IPV4    s2BIT(27)
- #define RXD_FRAME_PROTO_IPV6    s2BIT(28)
- #define RXD_FRAME_IP_FRAG	s2BIT(29)
-@@ -799,6 +800,7 @@ struct lro {
- 	int		sg_num;
- 	int		in_use;
- 	__be16		window;
-+	u16		vlan_tag;
- 	u32		cur_tsval;
- 	u32		cur_tsecr;
- 	u8		saw_ts;
-@@ -1075,7 +1077,7 @@ static int
- s2io_club_tcp_session(u8 *buffer, u8 **tcp, u32 *tcp_len, struct lro **lro,
- 		      struct RxD_t *rxdp, struct s2io_nic *sp);
- static void clear_lro_session(struct lro *lro);
--static void queue_rx_frame(struct sk_buff *skb);
-+static void queue_rx_frame(struct sk_buff *skb, u16 vlan_tag);
- static void update_L3L4_header(struct s2io_nic *sp, struct lro *lro);
- static void lro_append_pkt(struct s2io_nic *sp, struct lro *lro,
- 			   struct sk_buff *skb, u32 tcp_len);
+-/* A flag indicating whether 'RX_PA_CFG_STRIP_VLAN_TAG' bit is set or not */
+-static int vlan_strip_flag;
++/* Unregister the vlan */
++static void s2io_vlan_rx_kill_vid(struct net_device *dev, unsigned long vid)
++{
++	unsigned long flags;
++	struct s2io_nic *nic = dev->priv;
++
++	spin_lock_irqsave(&nic->tx_lock, flags);
++	if (nic->vlgrp)
++		vlan_group_set_device(nic->vlgrp, vid, NULL);
++
++	spin_unlock_irqrestore(&nic->tx_lock, flags);
++}
+ 
+ /*
+  * Constants to be programmed into the Xena's registers, to configure
+@@ -479,7 +516,7 @@ S2IO_PARM_INT(indicate_max_pkts, 0);
+ 
+ S2IO_PARM_INT(napi, 1);
+ S2IO_PARM_INT(ufo, 0);
+-S2IO_PARM_INT(vlan_tag_strip, NO_STRIP_IN_PROMISC);
++S2IO_PARM_INT(vlan_tag_strip, S2IO_DEFAULT_STRIP_MODE_VLAN_TAG);
+ 
+ static unsigned int tx_fifo_len[MAX_TX_FIFOS] =
+     {DEFAULT_FIFO_0_LEN, [1 ...(MAX_TX_FIFOS - 1)] = DEFAULT_FIFO_1_7_LEN};
+@@ -2147,12 +2184,7 @@ static int start_nic(struct s2io_nic *ni
+ 		writeq(val64, &bar0->rx_pa_cfg);
+ 	}
+ 
+-	if (vlan_tag_strip == 0) {
+-		val64 = readq(&bar0->rx_pa_cfg);
+-		val64 &= ~RX_PA_CFG_STRIP_VLAN_TAG;
+-		writeq(val64, &bar0->rx_pa_cfg);
+-		vlan_strip_flag = 0;
+-	}
++	s2io_handle_vlan_tag_strip(nic, nic->vlan_strip_flag);
+ 
+ 	/*
+ 	 * Enabling MC-RLDRAM. After enabling the device, we timeout
+@@ -4766,13 +4798,6 @@ static void s2io_set_multicast(struct ne
+ 		writeq(RMAC_CFG_KEY(0x4C0D), &bar0->rmac_cfg_key);
+ 		writel((u32) (val64 >> 32), (add + 4));
+ 
+-		if (vlan_tag_strip != 1) {
+-			val64 = readq(&bar0->rx_pa_cfg);
+-			val64 &= ~RX_PA_CFG_STRIP_VLAN_TAG;
+-			writeq(val64, &bar0->rx_pa_cfg);
+-			vlan_strip_flag = 0;
+-		}
+-
+ 		val64 = readq(&bar0->mac_cfg);
+ 		sp->promisc_flg = 1;
+ 		DBG_PRINT(INFO_DBG, "%s: entered promiscuous mode\n",
+@@ -4788,13 +4813,6 @@ static void s2io_set_multicast(struct ne
+ 		writeq(RMAC_CFG_KEY(0x4C0D), &bar0->rmac_cfg_key);
+ 		writel((u32) (val64 >> 32), (add + 4));
+ 
+-		if (vlan_tag_strip != 0) {
+-			val64 = readq(&bar0->rx_pa_cfg);
+-			val64 |= RX_PA_CFG_STRIP_VLAN_TAG;
+-			writeq(val64, &bar0->rx_pa_cfg);
+-			vlan_strip_flag = 1;
+-		}
+-
+ 		val64 = readq(&bar0->mac_cfg);
+ 		sp->promisc_flg = 0;
+ 		DBG_PRINT(INFO_DBG, "%s: left promiscuous mode\n",
+@@ -7188,8 +7206,8 @@ static int rx_osm_handler(struct ring_in
+ 	sp->mac_control.stats_info->sw_stat.mem_freed += skb->truesize;
+ 	if (!sp->lro) {
+ 		skb->protocol = eth_type_trans(skb, dev);
+-		if ((sp->vlgrp && RXD_GET_VLAN_TAG(rxdp->Control_2) &&
+-			vlan_strip_flag)) {
++		if ((sp->vlan_strip_flag == S2IO_STRIP_VLAN_TAG) &&
++			RXD_GET_VLAN_TAG(rxdp->Control_2)) {
+ 			/* Queueing the vlan frame to the upper layer */
+ 			if (napi)
+ 				vlan_hwaccel_receive_skb(skb, sp->vlgrp,
+@@ -7295,6 +7313,16 @@ static int s2io_verify_parm(struct pci_d
+ 		DBG_PRINT(ERR_DBG, "s2io: Default to 8 Rx rings\n");
+ 		rx_ring_num = 8;
+ 	}
++
++	if (vlan_tag_strip) {
++		if (vlan_tag_strip > S2IO_DEFAULT_STRIP_MODE_VLAN_TAG) {
++			DBG_PRINT(ERR_DBG, "s2io: Unsupported vlan tag "
++				"sripping option. Enabling vlan tag "
++				"stripping if vlan group present\n");
++			vlan_tag_strip = S2IO_DEFAULT_STRIP_MODE_VLAN_TAG;
++		}
++	}
++
+ 	if (*dev_intr_type != INTA)
+ 		napi = 0;
+ 
+@@ -7463,6 +7491,11 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 
+ 	config->napi = napi;
+ 
++	config->vlan_tag_strip = vlan_tag_strip;
++	sp->vlan_strip_flag = config->vlan_tag_strip;
++	if (sp->vlan_strip_flag == S2IO_DEFAULT_STRIP_MODE_VLAN_TAG)
++		sp->vlan_strip_flag = S2IO_DO_NOT_STRIP_VLAN_TAG;
++
+ 	/* Tx side parameters. */
+ 	config->tx_fifo_num = tx_fifo_num;
+ 	for (i = 0; i < MAX_TX_FIFOS; i++) {
+@@ -7557,6 +7590,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 	SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
+ 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+ 	dev->vlan_rx_register = s2io_vlan_rx_register;
++	dev->vlan_rx_kill_vid = (void *)s2io_vlan_rx_kill_vid;
+ 
+ 	/*
+ 	 * will use eth_mac_addr() for  dev->set_mac_address
+@@ -7725,6 +7759,14 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 	if (ufo)
+ 		DBG_PRINT(ERR_DBG, "%s: UDP Fragmentation Offload(UFO)"
+ 					" enabled\n", dev->name);
++
++	if (vlan_tag_strip == S2IO_STRIP_VLAN_TAG) {
++		DBG_PRINT(ERR_DBG, "%s: Vlan tag stripping enabled\n",
++			dev->name);
++	} else if (vlan_tag_strip == S2IO_DO_NOT_STRIP_VLAN_TAG)
++		DBG_PRINT(ERR_DBG, "%s: Vlan tag stripping disabled\n",
++			dev->name);
++
+ 	/* Initialize device name */
+ 	sprintf(sp->name, "%s Neterion %s", dev->name, sp->product_name);
+ 
+diff -Nurp 2.0.26.6/drivers/net/s2io.h 2.0.26.8P1/drivers/net/s2io.h
+--- 2.0.26.6/drivers/net/s2io.h	2007-11-15 18:19:42.000000000 -0800
++++ 2.0.26.8P1/drivers/net/s2io.h	2007-11-15 18:15:00.000000000 -0800
+@@ -348,8 +348,10 @@ struct stat_block {
+ 	struct xpakStat xpak_stat;
+ };
+ 
+-/* Default value for 'vlan_strip_tag' configuration parameter */
+-#define NO_STRIP_IN_PROMISC 2
++/* Macros for vlan tag handling */
++#define S2IO_DO_NOT_STRIP_VLAN_TAG 0
++#define S2IO_STRIP_VLAN_TAG 1
++#define S2IO_DEFAULT_STRIP_MODE_VLAN_TAG 2
+ 
+ /*
+  * Structures representing different init time configuration
+@@ -458,6 +460,7 @@ struct config_param {
+ #define MAX_MTU_JUMBO               (MAX_PYLD_JUMBO+18)
+ #define MAX_MTU_JUMBO_VLAN          (MAX_PYLD_JUMBO+22)
+ 	u16 bus_speed;
++	u8 vlan_tag_strip;
+ };
+ 
+ /* Structure representing MAC Addrs */
+@@ -915,6 +918,7 @@ struct s2io_nic {
+ #define VPD_STRING_LEN 80
+ 	u8  product_name[VPD_STRING_LEN];
+ 	u8  serial_num[VPD_STRING_LEN];
++	u8  vlan_strip_flag;
+ };
+ 
+ #define RESET_ERROR 1;
 
 
 
