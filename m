@@ -1,44 +1,36 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH, take2] netfilter : struct xt_table_info diet
-Date: Tue, 20 Nov 2007 08:54:56 +0100
-Message-ID: <474292D0.7000603@trash.net>
-References: <473B6D88.4010701@cosmosbay.com> <20071120063225.GA18035@verge.net.au>
+From: "Mike Frysinger" <vapier.adi@gmail.com>
+Subject: Re: netconsole=y and rtl8139=m
+Date: Tue, 20 Nov 2007 02:57:16 -0500
+Message-ID: <8bd0f97a0711192357o3c3e66c3w97e08a2a96bac1e4@mail.gmail.com>
+References: <Pine.LNX.4.64.0711200815220.32378@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@lists.netfilter.org>
-To: Simon Horman <horms@verge.net.au>
+Cc: netdev@vger.kernel.org
+To: "Jan Engelhardt" <jengelh@computergmbh.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56519 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756627AbXKTHzD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 02:55:03 -0500
-In-Reply-To: <20071120063225.GA18035@verge.net.au>
+Received: from wr-out-0506.google.com ([64.233.184.227]:10892 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757407AbXKTH5R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 02:57:17 -0500
+Received: by wr-out-0506.google.com with SMTP id c49so996669wra
+        for <netdev@vger.kernel.org>; Mon, 19 Nov 2007 23:57:17 -0800 (PST)
+In-Reply-To: <Pine.LNX.4.64.0711200815220.32378@fbirervta.pbzchgretzou.qr>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Simon Horman wrote:
-> From: Eric Dumazet <dada1@cosmosbay.com>
+On Nov 20, 2007 2:17 AM, Jan Engelhardt <jengelh@computergmbh.de> wrote:
+> I get this during boot:
 >
-> Instead of using a big array of NR_CPUS entries, we can compute the size
-> needed at runtime, using nr_cpu_ids
+> [   40.821740] netconsole: eth1 doesn't exist, aborting.
 >
-> This should save some ram (especially on David's machines where NR_CPUS=4096 :
-> 32 KB can be saved per table, and 64KB for dynamically allocated ones (because
-> of slab/slub alignements) )
->
-> In particular, the 'bootstrap' tables are not any more static (in data
-> section) but on stack as their size is now very small.
->
-> This also should reduce the size used on stack in compat functions
-> (get_info() declares an automatic variable, that could be bigger than kernel
-> stack size for big NR_CPUS)
+> Given that CONFIG_NETCONSOLE=y and CONFIG_8139TOO=m, I can imagine.
+> Is there a way to get this working without making 8139TOO=y or
+> NETCONSOLE=m?
 
-This seems to be identical to the patch I already got queued
-apart from reintroducing the NR_CPUS check. Am I missing
-something?
-
+i guess that depends on what your expectations are.  what do you think
+would qualify as a fix ?  that netconsoles could get added/removed
+dynamically based on network drivers being loaded/unloaded instead of
+netconsole being set up just once at netconsole init time ?
+-mike
