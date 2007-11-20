@@ -1,124 +1,55 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: Re: [PATCH] forcedeth boot delay fix
-Date: Mon, 19 Nov 2007 13:13:12 -0500
-Message-ID: <4741D238.4050005@nvidia.com>
-References: <47408EE5.2040302@nvidia.com> <20071120010858.4d098194.akpm@linux-foundation.org>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] LRO ack aggregation
+Date: Tue, 20 Nov 2007 11:45:54 -0800
+Message-ID: <47433972.10903@hp.com>
+References: <471E0F3B.2020703@myri.com> <20071119.210919.177660672.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050908080007060706070101"
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	nedev <netdev@vger.kernel.org>, stable@kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: gallatin@myri.com, netdev@vger.kernel.org, ossthema@de.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate02.nvidia.com ([216.228.112.143]:1953 "EHLO
-	HQEMGATE02.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755276AbXKTTGg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 14:06:36 -0500
-In-Reply-To: <20071120010858.4d098194.akpm@linux-foundation.org>
+Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:39180 "EHLO
+	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751649AbXKTTqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 14:46:16 -0500
+In-Reply-To: <20071119.210919.177660672.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050908080007060706070101
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Missed that "break". Here is the corrected patch.
-
-Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
-
-
-
-Andrew Morton wrote:
-> On Sun, 18 Nov 2007 14:13:41 -0500 Ayaz Abdulla <aabdulla@nvidia.com> wrote:
+David Miller wrote:
+> From: Andrew Gallatin <gallatin@myri.com>
+> Date: Tue, 23 Oct 2007 11:11:55 -0400
 > 
 > 
->>This patch fixes a long boot delay in the forcedeth driver. During 
->>initialization, the timeout for the handshake between mgmt unit and 
->>driver can be very long. The patch reduces the timeout by eliminating a 
->>extra loop around the timeout logic.
->>
->>Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
->>
->>
->>
->>[patch-forcedeth-sema-fix  text/plain (1.3KB)]
->>--- old/drivers/net/forcedeth.c	2007-11-08 17:33:00.000000000 -0500
->>+++ new/drivers/net/forcedeth.c	2007-11-08 17:34:25.000000000 -0500
->>@@ -5286,20 +5286,17 @@
->> 		if (readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_PHY_INIT) {
->> 			np->mac_in_use = readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_MGMT_ST;
->> 			dprintk(KERN_INFO "%s: mgmt unit is running. mac in use %x.\n", pci_name(pci_dev), np->mac_in_use);
->>-			for (i = 0; i < 5000; i++) {
->>-				msleep(1);
->>-				if (nv_mgmt_acquire_sema(dev)) {
->>-					/* management unit setup the phy already? */
->>-					if ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_MASK) ==
->>-					    NVREG_XMITCTL_SYNC_PHY_INIT) {
->>-						/* phy is inited by mgmt unit */
->>-						phyinitialized = 1;
->>-						dprintk(KERN_INFO "%s: Phy already initialized by mgmt unit.\n", pci_name(pci_dev));
->>-					} else {
->>-						/* we need to init the phy */
->>-					}
->>-					break;
->>+			if (nv_mgmt_acquire_sema(dev)) {
->>+				/* management unit setup the phy already? */
->>+				if ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_MASK) ==
->>+				    NVREG_XMITCTL_SYNC_PHY_INIT) {
->>+					/* phy is inited by mgmt unit */
->>+					phyinitialized = 1;
->>+					dprintk(KERN_INFO "%s: Phy already initialized by mgmt unit.\n", pci_name(pci_dev));
->>+				} else {
->>+					/* we need to init the phy */
->> 				}
->>+				break;
->> 			}
->> 		}
->> 	}
+>>I've attached a patch which adds support to inet_lro for aggregating
+>>pure acks.
 > 
 > 
-> drivers/net/forcedeth.c: In function 'nv_probe':
-> drivers/net/forcedeth.c:5307: error: break statement not within loop or switch  
+> I've applied this patch to net-2.6.25... but!
+> 
+> This needs some serious thinking.  What this patch ends up doing is creating
+> big stretch-ACKs, and those can hurt performance.
+> 
+> Stretch ACKs are particularly harmful when either the receiver is cpu
+> weak (lacking enough cpu power to fill the pipe completely no matter
+> what optimizations are applied) or when there is packet loss (less
+> feedback information and ACK clocking).
+> 
+> It also means that the sender will be more bursty, because it will now
+> swallow ACKs covering huge portions of the send window, and then have
+> large chunks of it's send queue it can send out all at once.
+> 
+> Fundamentally, I really don't like this change, it batches to the
+> point where it begins to erode the natural ACK clocking of TCP, and I
+> therefore am very likely to revert it before merging to Linus.
 
---------------050908080007060706070101
-Content-Type: text/plain;
- name="patch-forcedeth-sema-fix"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-sema-fix"
+Sounds like one might as well go ahead and implement HP-UX/Solaris-like 
+ACK sending avoidance at the receiver and not bother with LRO-ACK on the 
+sender.
 
---- old/drivers/net/forcedeth.c	2007-11-08 17:33:00.000000000 -0500
-+++ new/drivers/net/forcedeth.c	2007-11-19 13:09:03.000000000 -0500
-@@ -5286,19 +5286,15 @@
- 		if (readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_PHY_INIT) {
- 			np->mac_in_use = readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_MGMT_ST;
- 			dprintk(KERN_INFO "%s: mgmt unit is running. mac in use %x.\n", pci_name(pci_dev), np->mac_in_use);
--			for (i = 0; i < 5000; i++) {
--				msleep(1);
--				if (nv_mgmt_acquire_sema(dev)) {
--					/* management unit setup the phy already? */
--					if ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_MASK) ==
--					    NVREG_XMITCTL_SYNC_PHY_INIT) {
--						/* phy is inited by mgmt unit */
--						phyinitialized = 1;
--						dprintk(KERN_INFO "%s: Phy already initialized by mgmt unit.\n", pci_name(pci_dev));
--					} else {
--						/* we need to init the phy */
--					}
--					break;
-+			if (nv_mgmt_acquire_sema(dev)) {
-+				/* management unit setup the phy already? */
-+				if ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_MASK) ==
-+				    NVREG_XMITCTL_SYNC_PHY_INIT) {
-+					/* phy is inited by mgmt unit */
-+					phyinitialized = 1;
-+					dprintk(KERN_INFO "%s: Phy already initialized by mgmt unit.\n", pci_name(pci_dev));
-+				} else {
-+					/* we need to init the phy */
- 				}
- 			}
- 		}
+In some experiements a while back I thought I saw that LRO on the 
+receiver was causing him to send fewer ACKs already?  IIRC that was with 
+a Myricom card, perhaps I was fooled by it's own ACK LRO it was doing.
 
---------------050908080007060706070101--
+rick jones
