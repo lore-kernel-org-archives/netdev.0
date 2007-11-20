@@ -1,147 +1,114 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 35/59] drivers/net/wireless: Add missing "space"
-Date: Tue, 20 Nov 2007 11:41:54 -0500
-Message-ID: <1195576914.3389.30.camel@localhost.localdomain>
-References: 1234567 <1195523331-15303-1-git-send-email-joe@perches.com>
-	 <1195523331-15303-2-git-send-email-joe@perches.com>
-	 <1195523331-15303-3-git-send-email-joe@perches.com>
-	 <1195523331-15303-4-git-send-email-joe@perches.com>
-	 <1195523331-15303-5-git-send-email-joe@perches.com>
-	 <1195523331-15303-6-git-send-email-joe@perches.com>
-	 <1195523331-15303-7-git-send-email-joe@perches.com>
-	 <1195523331-15303-8-git-send-email-joe@perches.com>
-	 <1195523331-15303-9-git-send-email-joe@perches.com>
-	 <1195523331-15303-10-git-send-email-joe@perches.com>
-	 <1195523331-15303-11-git-send-email-joe@perches.com>
-	 <1195523331-15303-12-git-send-email-joe@perches.com>
-	 <1195523331-15303-13-git-send-email-joe@perches.com>
-	 <1195523331-15303-14-git-send-email-joe@perches.com>
-	 <1195523331-15303-15-git-send-email-joe@perches.com>
-	 <1195523331-15303-16-git-send-email-joe@perches.com>
-	 <1195523331-15303-17-git-send-email-joe@perches.com>
-	 <1195523331-15303-18-git-send-email-joe@perches.com>
-	 <1195523331-15303-19-git-send-email-joe@perches.com>
-	 <1195523331-15303-20-git-send-email-joe@perches.com>
-	 <1195523331-15303-21-git-send-email-joe@perches.com>
-	 <1195523331-15303-22-git-send-email-joe@perches.com>
-	 <1195523331-15303-23-git-send-email-joe@perches.com>
-	 <1195523331-15303-24-git-send-email-joe@perches.com>
-	 <1195523331-15303-25-git-send-email-joe@perches.com>
-	 <1195523331-15303-26-git-send-email-joe@perches.com>
-	 <1195523331-15303-27-git-send-email-joe@perches.com>
-	 <1195523331-15303-28-git-send-email-joe@perches.com>
-	 <1195523331-15303-29-git-send-email-joe@perches.com>
-	 <1195523331-15303-30-git-send-email-joe@perches.com>
-	 <1195523331-15303-31-git-send-email-joe@perches.com>
-	 <1195523331-15303-32-git-send-email-joe@perches.com>
-	 <1195523331-15303-33-git-send-email-joe@perches.com>
-	 <1195523331-15303-34-git-send-email-joe@perches.com>
-	 <1195523331-15303-35-git-send-email-joe@perches.com>
-	 <5908c0bbfc91b572502351586cdf98fe9ca9aeec.1195454435.git.joe@perches.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH] e100: free IRQ to remove warning
+	whenrebooting
+Date: Tue, 20 Nov 2007 09:11:38 -0800
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5203D28BC3@orsmsx418.amr.corp.intel.com>
+References: <20071120053044.GE29070@cse.unsw.EDU.AU>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>,
-	libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5908c0bbfc91b572502351586cdf98fe9ca9aeec.1195454435.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: e1000-devel@lists.sourceforge.net,
+	netdev mailing list <netdev@vger.kernel.org>,
+	"Kok,  Auke-jan H" <auke-jan.h.kok@intel.com>,
+	linux-kernel@vger.kernel.org
+To: "Ian Wienand" <ianw@gelato.unsw.edu.au>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-class: urn:content-classes:message
+In-Reply-To: <20071120053044.GE29070@cse.unsw.EDU.AU>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-11-19 at 17:48 -0800, Joe Perches wrote:
-> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-> ---
->  drivers/net/wireless/b43/phy.c             |    2 +-
->  drivers/net/wireless/b43legacy/phy.c       |    2 +-
->  drivers/net/wireless/bcm43xx/bcm43xx_phy.c |    2 +-
->  drivers/net/wireless/libertas/wext.c       |    2 +-
->  drivers/net/wireless/netwave_cs.c          |    2 +-
->  drivers/net/wireless/p54usb.c              |    2 +-
->  6 files changed, 6 insertions(+), 6 deletions(-)
+<forwarding whole message for netdev to review>
+
+Ian Wienand wrote:
+> Hi,
 > 
-> diff --git a/drivers/net/wireless/b43/phy.c b/drivers/net/wireless/b43/phy.c
-> index 3d4ed64..7ff091e 100644
-> --- a/drivers/net/wireless/b43/phy.c
-> +++ b/drivers/net/wireless/b43/phy.c
-> @@ -2214,7 +2214,7 @@ int b43_phy_init_tssi2dbm_table(struct b43_wldev *dev)
->  		}
->  		dyn_tssi2dbm = kmalloc(64, GFP_KERNEL);
->  		if (dyn_tssi2dbm == NULL) {
-> -			b43err(dev->wl, "Could not allocate memory"
-> +			b43err(dev->wl, "Could not allocate memory "
->  			       "for tssi2dbm table\n");
->  			return -ENOMEM;
->  		}
-> diff --git a/drivers/net/wireless/b43legacy/phy.c b/drivers/net/wireless/b43legacy/phy.c
-> index 22a4b3d..491e518 100644
-> --- a/drivers/net/wireless/b43legacy/phy.c
-> +++ b/drivers/net/wireless/b43legacy/phy.c
-> @@ -2020,7 +2020,7 @@ int b43legacy_phy_init_tssi2dbm_table(struct b43legacy_wldev *dev)
->  			phy->idle_tssi = 62;
->  		dyn_tssi2dbm = kmalloc(64, GFP_KERNEL);
->  		if (dyn_tssi2dbm == NULL) {
-> -			b43legacyerr(dev->wl, "Could not allocate memory"
-> +			b43legacyerr(dev->wl, "Could not allocate memory "
->  			       "for tssi2dbm table\n");
->  			return -ENOMEM;
->  		}
-> diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_phy.c b/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
-> index b37f1e3..af3de33 100644
-> --- a/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
-> +++ b/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
-> @@ -2149,7 +2149,7 @@ int bcm43xx_phy_init_tssi2dbm_table(struct bcm43xx_private *bcm)
->  		}
->  		dyn_tssi2dbm = kmalloc(64, GFP_KERNEL);
->  		if (dyn_tssi2dbm == NULL) {
-> -			printk(KERN_ERR PFX "Could not allocate memory"
-> +			printk(KERN_ERR PFX "Could not allocate memory "
->  					    "for tssi2dbm table\n");
->  			return -ENOMEM;
->  		}
-> diff --git a/drivers/net/wireless/libertas/wext.c b/drivers/net/wireless/libertas/wext.c
-> index c6f5aa3..395b788 100644
-> --- a/drivers/net/wireless/libertas/wext.c
-> +++ b/drivers/net/wireless/libertas/wext.c
-> @@ -1528,7 +1528,7 @@ static int wlan_set_encodeext(struct net_device *dev,
->  			&& (ext->key_len != KEY_LEN_WPA_TKIP))
->  		    || ((alg == IW_ENCODE_ALG_CCMP)
->  		        && (ext->key_len != KEY_LEN_WPA_AES))) {
-> -				lbs_deb_wext("invalid size %d for key of alg"
-> +				lbs_deb_wext("invalid size %d for key of alg "
->  				       "type %d\n",
->  				       ext->key_len,
->  				       alg);
+> When rebooting today I got
+> 
+> Will now restart.
+> ACPI: PCI interrupt for device 0000:00:03.0 disabled
+> GSI 20 (level, low) -> CPU 1 (0x0100) vector 53 unregistered
+> Destroying IRQ53 without calling free_irq
+> WARNING: at
+> /home/insecure/ianw/programs/git-kernel/linux-2.6/kernel/irq/chip.c:76
+> dynamic_irq_cleanup()  
+> 
+> Call Trace:
+>  [<a000000100014340>] show_stack+0x40/0xa0
+>                                 sp=e00000407c927b40
+>  bsp=e00000407c920eb8 [<a0000001000143d0>] dump_stack+0x30/0x60
+>                                 sp=e00000407c927d10
+>  bsp=e00000407c920ea0 [<a0000001000e58e0>]
+>                                 dynamic_irq_cleanup+0x160/0x1e0
+>  sp=e00000407c927d10 bsp=e00000407c920e70 [<a0000001000106b0>]
+>                                 destroy_and_reserve_irq+0x30/0xc0
+>  sp=e00000407c927d10 bsp=e00000407c920e40 [<a0000001000508f0>]
+>                                 iosapic_unregister_intr+0x5b0/0x5e0
+>  sp=e00000407c927d10 bsp=e00000407c920dd8 [<a00000010000aa70>]
+>                                 acpi_unregister_gsi+0x30/0x60
+>  sp=e00000407c927d10 bsp=e00000407c920db8 [<a00000010042e300>]
+>                                 acpi_pci_irq_disable+0x140/0x160
+>  sp=e00000407c927d10 bsp=e00000407c920d88 [<a000000100774200>]
+>                                 pcibios_disable_device+0xa0/0xc0
+>  sp=e00000407c927d20 bsp=e00000407c920d68 [<a0000001003778d0>]
+>                                 pci_disable_device+0x130/0x160
+>  sp=e00000407c927d20 bsp=e00000407c920d38 [<a000000100525d20>]
+>                                 e100_shutdown+0x1c0/0x220
+>  sp=e00000407c927d30 bsp=e00000407c920d08 [<a00000010037d0e0>]
+>                                 pci_device_shutdown+0x80/0xc0
+>  sp=e00000407c927d30 bsp=e00000407c920ce8 [<a0000001004ecb70>]
+>                                 device_shutdown+0xf0/0x180
+>  sp=e00000407c927d30 bsp=e00000407c920cc8 [<a0000001000ac4e0>]
+>                                 kernel_restart+0x60/0x120
+>  sp=e00000407c927d30 bsp=e00000407c920ca8 [<a0000001000ac990>]
+>                                 sys_reboot+0x3b0/0x480
+>  sp=e00000407c927d30 bsp=e00000407c920c30 [<a00000010000b4e0>]
+>                                 ia64_ret_from_syscall+0x0/0x20
+>  sp=e00000407c927e30 bsp=e00000407c920c30 [<a000000000010620>]
+>                                 ia64_ivt+0xffffffff00010620/0x400
+> sp=e00000407c928000 bsp=e00000407c920c30 
+> Restarting system.
+> 
+> I think the solution might be to free the IRQ before the
+> pci_device_shutdown 
 
-Acked-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+I believe you are correct.  Our other drivers appear to do this
+correctly.
 
-> diff --git a/drivers/net/wireless/netwave_cs.c b/drivers/net/wireless/netwave_cs.c
-> index 2402cb8..d2fa079 100644
-> --- a/drivers/net/wireless/netwave_cs.c
-> +++ b/drivers/net/wireless/netwave_cs.c
-> @@ -806,7 +806,7 @@ static int netwave_pcmcia_config(struct pcmcia_device *link) {
->      for (i = 0; i < 6; i++) 
->  	dev->dev_addr[i] = readb(ramBase + NETWAVE_EREG_PA + i);
->  
-> -    printk(KERN_INFO "%s: Netwave: port %#3lx, irq %d, mem %lx"
-> +    printk(KERN_INFO "%s: Netwave: port %#3lx, irq %d, mem %lx, "
->  	   "id %c%c, hw_addr %s\n",
->  	   dev->name, dev->base_addr, dev->irq,
->  	   (u_long) ramBase,
-> diff --git a/drivers/net/wireless/p54usb.c b/drivers/net/wireless/p54usb.c
-> index 755482a..60d286e 100644
-> --- a/drivers/net/wireless/p54usb.c
-> +++ b/drivers/net/wireless/p54usb.c
-> @@ -308,7 +308,7 @@ static int p54u_read_eeprom(struct ieee80211_hw *dev)
->  
->  	buf = kmalloc(0x2020, GFP_KERNEL);
->  	if (!buf) {
-> -		printk(KERN_ERR "prism54usb: cannot allocate memory for"
-> +		printk(KERN_ERR "prism54usb: cannot allocate memory for "
->  		       "eeprom readback!\n");
->  		return -ENOMEM;
+> Signed-off-by: Ian Wienand <ianw@gelato.unsw.edu.au>
+
+Auke will add this and push it next week.
+
+Thanks!
+
+> 
+> ---
+> 
+>  e100.c |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+> index 3dbaec6..8ae5ac3 100644
+> --- a/drivers/net/e100.c
+> +++ b/drivers/net/e100.c
+> @@ -2782,6 +2782,7 @@ static void e100_shutdown(struct pci_dev *pdev)
+>  		pci_enable_wake(pdev, PCI_D3cold, 0);
 >  	}
+> 
+> +	free_irq(pdev->irq, netdev);
+>  	pci_disable_device(pdev);
+>  	pci_set_power_state(pdev, PCI_D3hot);
+>  }
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
