@@ -1,112 +1,137 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [RFC PATCH 09/10] [TCP]: Rewrite SACK block processing &
- sack_recv_cache use
-Date: Tue, 20 Nov 2007 11:22:58 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0711201029540.25934@kivilampi-30.cs.helsinki.fi>
-References: <11951338541351-git-send-email-ilpo.jarvinen@helsinki.fi>
- <20071115.200032.115040183.davem@davemloft.net>
- <Pine.LNX.4.64.0711161306490.29353@kivilampi-30.cs.helsinki.fi>
- <20071119.220807.216500794.davem@davemloft.net>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: Re: HTB/HSFC shaping precision
+Date: Tue, 20 Nov 2007 11:43:28 +0200
+Message-ID: <20071120092317.M96721@visp.net.lb>
+References: <20071119083849.M87605@visp.net.lb> <1195489494.4445.119.camel@localhost>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1710446576-1195550578=:25934"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:33086 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753922AbXKTJXB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 04:23:01 -0500
-In-Reply-To: <20071119.220807.216500794.davem@davemloft.net>
+Received: from usermail.globalproof.net ([194.146.153.18]:42248 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750797AbXKTJnj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 04:43:39 -0500
+In-Reply-To: <1195489494.4445.119.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+I wish i can setup soon my own lab (getting finally my personal room in 
+company).
 
----696243703-1710446576-1195550578=:25934
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+About CBQ, i didn't use it since long time. There is anything good in it?
 
-On Mon, 19 Nov 2007, David Miller wrote:
+What is interesting i did few tests with iperf as example, and what i found 
+out:
+iperf running 60 seconds with 1Mbit bandwidth set (iperf -c 192.168.0.1 -u -b 
+1M -t 60) in shaper: 7718892 bytes passed(confirmed in two tests), what is 
+128648.2 bytes/second 
+If it is counting by IEC standarts - it will be 7500000 bytes. If pre-IEC 
+(1024 divider) - 7864320. 
+It seems iperf running pre-IEC standarts, with precision -1.84% on 60 seconds.
 
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Fri, 16 Nov 2007 15:44:40 +0200 (EET)
+With 240 seconds duration iperf sent 30861564 bytes what is 128589/second and 
+it has to be 31457280. What means again precision is -1.89% 
+
+With 120 seconds and 10Mbit/s send 154269492, which is 1285579.1 b/s and it 
+has to be 1310720 b/s or 157286400, as result precision is -1.918%
+
+And thats amazing. ISP provide me 88Mbps link, sure it is set on new IEC 
+standarts, means 88000000 bps,  and they test iperf and not able to get more 
+than 85Mbps. That time we count it is overhead, and not a big deal. But... 
+after all 3Mbps - it is more than $3k bucks. And i set 85Mbps in QoS (to 
+avoid packetloss), because iperf gave me result that 85 only works fine. And 
+iproute2 for example fully conform standarts (and 1Mbits = 1000000 bps) . I 
+must blame only my stupidiness, that i didn't look to code of iperf. Except 
+standarts issue, it is also seems have issue with timers and bandwidth 
+precision.
+
+And i am absolutely not sure, how iperf sending traffic, bursty or in regular 
+intervals. Probably i must check also each traffic simulation program, cause 
+it is very important to measure how shaper working in real life (not only 
+theory) - to have precise packet generator.
+
+Probably i will try to setup my own application(with realtime priority) based 
+on  libpcap and realtime kernel(?), and will log each packet with timestamp. 
+Not sure in details, how i will get high precision timers in userspace, 
+especially cause i am not developer, and wrote only few trivial libpcap 
+applications,since on bandwidth 30-40 megs - let's say iptraf and trafshow 
+very unprecide,but i will try. Also i think if i will put sequence number, 
+and later i will dump all this things (packet sequence number and arrival 
+time) in file, i can have good picture - how shaper is working and what is a 
+precision. Sure i must count also on PCI/PCI-X/PCI-express bus latency and 
+other things. For now no idea how i will do that :-)
+Sure i will try to test on both - HPET and TSC.
+
+If let's say i will limit bandwidth to 1Mbps, and will try to send packets 
+will 100Mbps speed, and will check which packets will be dropped.
+
+
+For me HFSC and HTB looks much more clear in setup.
+But what is worrying me a lot, with clear "bandwidth tree" setup, let's say 
+to 88Mbit/s, in case of some kind of DDoS, even if i set overhead value and 
+it is matching media overhead, my bandwidth still going out of limits. And 
+sure link is going down, even hardware used on QoS server able to withstand 
+this attack. This means something wrong or in my shaping tree configuration 
+(that time HTB) or in shaper code. Thats why i try to dig in this things more 
+deeply.
+
+On Mon, 19 Nov 2007 11:24:54 -0500, jamal wrote
+> Denys,
 > 
-> > Besides the log(n) search for which patches already exists, only O(new 
-> > information) scan start..end range would be necessary. Or had you 
-> > something else in mind (I'm not that sure what the "ideas", in plural,
-> > were :-))? ...I haven't forgotten the RB-tree things either (and I'm
-> > well aware of the limited scope of things this patch addresses).
+> You certainly make a very compelling case. It is always compelling if
+> you can translate a bug/feature into $$;->.
 > 
-> Since you brought it up, can you respin the RB-tree patches?
-
-Ok, I've the rb-tree directly in my tree. I'll check the fack_count 
-patches since Tom (IIRC, with a long last name :-)) made some fixes 
-to that.
-
-I've also already done initial combining of things in the new lost marker 
-(include the bug fixes & cleanups to the original ones) but its 
-optimizations are awaiting the solution that is made for sacktag which may 
-reduce need for them a lot.
-
-> Let's just put them into net-2.6.25 and let them cook in there for
-> a  long time.
+> So in your measurements, what kind of clock sources did you use?
+> I think the parameters to worry about are: packet size, rate and 
+> clock source. I know that based on very old measurements i did on 
+> CBQ, regardless of the clock source if you have a long-lived flow 
+> the bandwidth measurement corrects itself. I wouldnt recommend going 
+> to CBQ, but a good start is to test and post some results.
 > 
-> If they prove to be too expensive in the no-loss case we can do
-> something like lazy tree creation or simply improving the
-> insert/delete implmentation.
->
-> I think it's important to put RB-tree in because a lot of the ideas
-> we are discussing have different implications if we go one way or
-> the other so we should commit to something now in order to focus
-> our efforts better.
-
-I was thinking of trying a split approach where SACKed not yet SACKed 
-would reside in a different trees. I've also observed that most of the 
-range scan operations are insensitive to ordering, and if that's not yet 
-fully implemented, they can deal with the mixed ordering fine after minor 
-modifications. Therefore access to ->next available seems overkill 
-requirement as well (would make dropping list easier). However, it's a bit 
-complex to implement tree walker for a range because RB-tree is going to 
-live underneath the walker (at least in clean_rtx_queue and sacktag) :-); 
-if anyone knows some resources where such issue is dealt it might help, 
-pointer would be nice :-). ...Maybe I just use list in the first step.
-
-But we're still bound to extra walking for a while if a made up large 
-DSACK block comes in. I was thinking of putting some sane limit to how 
-many skbs the DSACK can deal (in normal case there shouldn't be no
-more than two; two because of fragmenting cause by other dir SACK
-blocks, with MTU probes up 2 times that seems valid).
-
-
-For the record, another idea I had (have SACK-lowtree and others trees
-here):
-
-For each SACK block
-	search_after_or_equal start_seq in SACK-lowtree
-	if after end_seq
-		search from others tree, move skb to SACK-lowtree
-		block done
-	endif
-
-	loop
-		search_before_or_equal end_seq in SACK-lowtree
-		if they were the same skb
-			update the skb in SACK-lowtree
-			block done
-		endif
-
-		move end_seq result skb back to others tree
-	end loop
-endfor
-
-But the laziness didn't help that much (would need to know R-bits; L-bits 
-could be derived) and malicious guys could still do crazy thing by telling 
-no S-bit, S, no S-bit, S, ... pattern for the whole window first and then 
-SACKing them all in a single ACK => uh-oh, would have to do all those 
-lowtree => others moves for 1/2 of the window.
+> cheers,
+> jamal
+> 
+> On Mon, 2007-19-11 at 10:55 +0200, Denys Fedoryshchenko wrote:
+> > Hi 2 all again
+> > 
+> > This is not a bug report this time :-) 
+> > Just it is very interesting question, about using Linux "shaping" 
+technologies
+> > in serious jobs.
+> > 
+> > What i realised few days ago, many ISP's set on their STM-1(155520000 
+bits/s)
+> > links (over Cisco) packet buffer/queue 40 packets(for example).
+> > It means 103680  pps with 1500 byte packets,  and if buffer is only 40
+> > packets, it means it require at least 0.3ms scheduler precision? 
+Otherwise i
+> > can have buffer overflow and as result packetloss(what is much worse than
+> > delay in most of situations).
+> > 
+> > What i am interested - to utilise such links nearby 100%. So anything not
+> > precise will kill idea.
+> > Thats important, cause price for links in my area is about $1000-$1500 
+Mbit/s,
+> > and just 1% lost/not utilised on STM-1 is up to $2325/USD lost per month.
+> > I have to count also overhead, LAN jitter, and etc.
+> > 
+> > As far as i test, on HFSC if i set dmax 1ms-10ms it works much better (i 
+am
+> > talking about precision) than HTB with quantum 1514 (it is over 
+ethernet). 
+> > 
+> > Anybody have ideas what is the precision of bandwidth shaping in HFSC/HTB?
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
--- 
- i.
----696243703-1710446576-1195550578=:25934--
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
+
