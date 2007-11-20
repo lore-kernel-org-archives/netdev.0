@@ -1,69 +1,43 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] forcedeth boot delay fix
-Date: Tue, 20 Nov 2007 01:08:58 -0800
-Message-ID: <20071120010858.4d098194.akpm@linux-foundation.org>
-References: <47408EE5.2040302@nvidia.com>
+From: Jan Engelhardt <jengelh@computergmbh.de>
+Subject: Re: netconsole=y and rtl8139=m
+Date: Tue, 20 Nov 2007 10:17:00 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0711201015520.32378@fbirervta.pbzchgretzou.qr>
+References: <Pine.LNX.4.64.0711200815220.32378@fbirervta.pbzchgretzou.qr>
+ <8bd0f97a0711192357o3c3e66c3w97e08a2a96bac1e4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	nedev <netdev@vger.kernel.org>, stable@kernel.org
-To: Ayaz Abdulla <aabdulla@nvidia.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Mike Frysinger <vapier.adi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:45709 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757043AbXKTJJn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 04:09:43 -0500
-In-Reply-To: <47408EE5.2040302@nvidia.com>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:40369 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754940AbXKTJRD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 04:17:03 -0500
+In-Reply-To: <8bd0f97a0711192357o3c3e66c3w97e08a2a96bac1e4@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 18 Nov 2007 14:13:41 -0500 Ayaz Abdulla <aabdulla@nvidia.com> wrote:
 
-> This patch fixes a long boot delay in the forcedeth driver. During 
-> initialization, the timeout for the handshake between mgmt unit and 
-> driver can be very long. The patch reduces the timeout by eliminating a 
-> extra loop around the timeout logic.
-> 
-> Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
-> 
-> 
-> 
-> [patch-forcedeth-sema-fix  text/plain (1.3KB)]
-> --- old/drivers/net/forcedeth.c	2007-11-08 17:33:00.000000000 -0500
-> +++ new/drivers/net/forcedeth.c	2007-11-08 17:34:25.000000000 -0500
-> @@ -5286,20 +5286,17 @@
->  		if (readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_PHY_INIT) {
->  			np->mac_in_use = readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_MGMT_ST;
->  			dprintk(KERN_INFO "%s: mgmt unit is running. mac in use %x.\n", pci_name(pci_dev), np->mac_in_use);
-> -			for (i = 0; i < 5000; i++) {
-> -				msleep(1);
-> -				if (nv_mgmt_acquire_sema(dev)) {
-> -					/* management unit setup the phy already? */
-> -					if ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_MASK) ==
-> -					    NVREG_XMITCTL_SYNC_PHY_INIT) {
-> -						/* phy is inited by mgmt unit */
-> -						phyinitialized = 1;
-> -						dprintk(KERN_INFO "%s: Phy already initialized by mgmt unit.\n", pci_name(pci_dev));
-> -					} else {
-> -						/* we need to init the phy */
-> -					}
-> -					break;
-> +			if (nv_mgmt_acquire_sema(dev)) {
-> +				/* management unit setup the phy already? */
-> +				if ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_MASK) ==
-> +				    NVREG_XMITCTL_SYNC_PHY_INIT) {
-> +					/* phy is inited by mgmt unit */
-> +					phyinitialized = 1;
-> +					dprintk(KERN_INFO "%s: Phy already initialized by mgmt unit.\n", pci_name(pci_dev));
-> +				} else {
-> +					/* we need to init the phy */
->  				}
-> +				break;
->  			}
->  		}
->  	}
+On Nov 20 2007 02:57, Mike Frysinger wrote:
+>On Nov 20, 2007 2:17 AM, Jan Engelhardt <jengelh@computergmbh.de> wrote:
+>> I get this during boot:
+>>
+>> [   40.821740] netconsole: eth1 doesn't exist, aborting.
+>>
+>> Given that CONFIG_NETCONSOLE=y and CONFIG_8139TOO=m, I can imagine.
+>> Is there a way to get this working without making 8139TOO=y or
+>> NETCONSOLE=m?
+>
+>i guess that depends on what your expectations are.  what do you think
+>would qualify as a fix ?  that netconsoles could get added/removed
+>dynamically based on network drivers being loaded/unloaded instead of
+>netconsole being set up just once at netconsole init time ?
 
-drivers/net/forcedeth.c: In function 'nv_probe':
-drivers/net/forcedeth.c:5307: error: break statement not within loop or switch  
+If I can get that bonus, yes :)
+
+Also, does netconsole cope with interface renames?
+
+
+thanks,
+jan
