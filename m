@@ -1,45 +1,97 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25 0/4] Convert IP4 address class macros to
- inline functions
-Date: Tue, 20 Nov 2007 00:03:13 -0800 (PST)
-Message-ID: <20071120.000313.49219676.davem@davemloft.net>
-References: <1195540812.4675.89.camel@localhost>
-	<20071120070601.GE10490@verge.net.au>
-	<1195543124.4675.114.camel@localhost>
+From: Giacomo <delleceste@gmail.com>
+Subject: Get the IP address of an interface with a given name
+Date: Tue, 20 Nov 2007 09:09:33 +0100
+Message-ID: <885896af0711200009idcc8bd9q781888efe84dc49c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, netdev@vger.kernel.org, pekkas@netcore.fi,
-	kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, jmorris@namei.org,
-	kaber@coreworks.de
-To: joe@perches.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43757
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751527AbXKTIDO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 03:03:14 -0500
-In-Reply-To: <1195543124.4675.114.camel@localhost>
+Received: from wa-out-1112.google.com ([209.85.146.179]:37390 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755248AbXKTIJf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 03:09:35 -0500
+Received: by wa-out-1112.google.com with SMTP id v27so2286175wah
+        for <netdev@vger.kernel.org>; Tue, 20 Nov 2007 00:09:35 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Mon, 19 Nov 2007 23:18:44 -0800
+Good morning.
 
-> On Tue, 2007-11-20 at 16:06 +0900, Simon Horman wrote:
-> > Also, as the function names are longer than the macro name
-> > you are creating lines that are > 80 columns wide that used
-> > not to be in that state. For my eyes that reduced readability
-> > (substantially).
-> 
-> David? You want a patch for that too?
+ I have written a kernel function which needs to get the IP address of
+an active network interface
+ given its name.
 
-These patches are just clumsy and awkward, this much I will
-say.
+ The actual implementation i have done is like this
+ but i suspect this does not always work.
+ Is there any API already provided by the kernel to do the same?
 
-BTW, these seemingly odd macro names come from BSD.
-Terefore they are quite readable for many of us :-)
+ Thanks a lot
 
-I don't know what to do with these patches, they feel like
-just plain noise to me even though I like the type checking.
+ Giacomo
 
-I'm going to defer for now, sorry.
+ -- actual implementation: ---
+
+ /* returns in *addr the internet address having the name ifname */
+ int get_ifaddr_by_name(const char *ifname, __u32 * addr)
+ {
+        struct net_device *pnet_device;
+        struct in_device *pin_device;
+        struct in_ifaddr* inet_ifaddr;
+
+        read_lock_bh(&dev_base_lock);
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
+        pnet_device = dev_base;
+ #else
+        pnet_device = first_net_device();
+ #endif
+        while (pnet_device != NULL)
+        {
+                if ((netif_running(pnet_device))
+                                && (pnet_device->ip_ptr != NULL)
+                                && (strcmp(pnet_device->name, ifname) == 0))
+                {
+                        pin_device =
+                                (struct in_device *) pnet_device->ip_ptr;
+                        inet_ifaddr = pin_device->ifa_list;
+                        if(inet_ifaddr == NULL)
+                        {
+                                printk("ifa_list is null!\n");
+                                break;
+                        }
+                        /* ifa_local: ifa_address is the remote point in ppp */
+                        *addr = (inet_ifaddr->ifa_local);
+                          read_unlock_bh(&dev_base_lock);
+                        return 1;
+                }
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
+                pnet_device = pnet_device->next;
+ #else
+                pnet_device = next_net_device(pnet_device);
+ #endif
+
+        }
+
+        read_unlock_bh(&dev_base_lock);
+        return -1;              /* address not found! */
+ }
+
+-- 
+Giacomo S.
+http://www.giacomos.it
+
+- - - - - - - - - - - - - - - - - - - - - -
+
+IPFIREwall (http://www.giacomos.it/ipfire) viene presentato
+all'Universita` degli Studi di Udine, il 28 ottobre, in occasione del
+Linux Day 2006:
+http://iglu.cc.uniud.it/linuxday
+
+- - - - - - - - - - - - - - - - - - - - - -
+
+ . ''  `.
+:   :'    :
+ `.  ` '
+    `- Debian GNU/Linux -- The power of freedom
+        http://www.debian.org
