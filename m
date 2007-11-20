@@ -1,59 +1,108 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH] LRO ack aggregation
-Date: Tue, 20 Nov 2007 17:03:12 +0300
-Message-ID: <20071120140312.GA6695@2ka.mipt.ru>
-References: <E1IuMIQ-0003gc-00@gondolin.me.apana.org.au> <20071119.222214.81458569.davem@davemloft.net> <4742C96D.3050203@myri.com> <20071120.035558.214794900.davem@davemloft.net> <4742E0A9.2070205@myri.com> <20071120133509.GA17377@2ka.mipt.ru> <20071120135056.GA18266@gondor.apana.org.au>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 1/2] [IPV4] UDP: Always checksum even if without socket filter
+Date: Tue, 20 Nov 2007 15:05:18 +0100
+Message-ID: <20071120140518.GA1502@one.firstfloor.org>
+References: <20071118214515.GA8161@one.firstfloor.org> <20071118.144010.236028466.davem@davemloft.net> <20071119152933.GA19126@one.firstfloor.org> <20071119.142313.63549156.davem@davemloft.net> <20071120002945.91fafb2b.billfink@mindspring.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Gallatin <gallatin@myri.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	ossthema@de.ibm.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: David Miller <davem@davemloft.net>, andi@firstfloor.org,
+	wangchen@cn.fujitsu.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:50744 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755673AbXKTODc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Nov 2007 09:03:32 -0500
+Received: from one.firstfloor.org ([213.235.205.2]:56679 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752231AbXKTOFV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 09:05:21 -0500
 Content-Disposition: inline
-In-Reply-To: <20071120135056.GA18266@gondor.apana.org.au>
+In-Reply-To: <20071120002945.91fafb2b.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 20, 2007 at 09:50:56PM +0800, Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> On Tue, Nov 20, 2007 at 04:35:09PM +0300, Evgeniy Polyakov wrote:
-> > 
-> > On Tue, Nov 20, 2007 at 08:27:05AM -0500, Andrew Gallatin (gallatin@myri.com) wrote:
-> > > Hmm.. rather than a global tunable, what if it was a
-> > > network driver managed tunable which toggled a flag in the
-> > > lro_mgr features?  Would that be better?
-> > 
-> > What about ethtool control to set LRO_simple and LRO_ACK_aggregation?
-> 
-> I have two concerns about this:
-> 
-> 1) That same option can still be turned on by distros.
+On Tue, Nov 20, 2007 at 12:29:45AM -0500, Bill Fink wrote:
+> While I agree with your analysis that it could be worked around,
+> who knows how all the various SNMP monitoring applications out there
+> would interpret such an unusual event.  I liked Stephen's suggestion
+> of a deferred decrement that would insure the counter didn't ever
+> run backwards.  But the best approach seems to be just not to count
+> it in the first place until tha application has actually received
+> the packet, since as Herbert pointed out, that's what the RFC
+> actually specifies for the meaning of the udpInDatagrams counter.
 
-FC and Debian turn on hardware checksumm offloading in e1000 and I have
-a card where this results in more than 10% performance _decrease_.
-I do not know why, but Im able to run script which disables it via
-ethtool.
+Together with another counter that counts "edge datagrams received"
+that would be an excellent idea.
 
-> 2) This doesn't make sense because the code is actually in the
->    core networking stack.
+Here's a patch.
 
-It depends. Software lro can be controlled by simple procfs switch, but
-hardware one? I recall it was number of times pointed that hardware LRO
-is possible and likely being implemented in some asics.
+-Andi
 
-> I'm particular unhappy about 2) because I don't want be in a
-> situation down the track where every driver is going to add this
-> option so that they're not left behind in the arms race.
+---
 
-For software lro I agree, but this looks exactly like gso/tso case and
-additional tweak for software gso. Having it per-system is fine, and I
-believe no one should ever care that some distro will do bad/good things
-with it. Actually we do have so much tricky options in procfs already
-which can kill performance...
+Split UDP receive count into UdpInDatagrams and UdpInEarlyDatagrams
 
--- 
-	Evgeniy Polyakov
+UdpInDatagrams can be confusing because it counts packets that 
+might be dropped later.
+
+Move UdpInDatagrams into recvmsg() as allowed by the RFC.
+
+Add a new UdpInEarlyDatagrams counter to count datagrams received early,
+but which might be dropped later
+
+Signed-off-by: Andi Kleen <ak@suse.de>
+
+Index: linux-2.6.24-rc1-hack/include/linux/snmp.h
+===================================================================
+--- linux-2.6.24-rc1-hack.orig/include/linux/snmp.h
++++ linux-2.6.24-rc1-hack/include/linux/snmp.h
+@@ -138,6 +138,7 @@ enum
+ 	UDP_MIB_OUTDATAGRAMS,			/* OutDatagrams */
+ 	UDP_MIB_RCVBUFERRORS,			/* RcvbufErrors */
+ 	UDP_MIB_SNDBUFERRORS,			/* SndbufErrors */
++	UDP_MIB_INEARLYDATAGRAMS,		/* Early Datagrams Received */
+ 	__UDP_MIB_MAX
+ };
+ 
+Index: linux-2.6.24-rc1-hack/net/ipv4/udp.c
+===================================================================
+--- linux-2.6.24-rc1-hack.orig/net/ipv4/udp.c
++++ linux-2.6.24-rc1-hack/net/ipv4/udp.c
+@@ -873,6 +873,8 @@ try_again:
+ 	if (err)
+ 		goto out_free;
+ 
++	UDP_INC_STATS_USER(UDP_MIB_INDATAGRAMS, is_udplite);
++
+ 	sock_recv_timestamp(msg, sk, skb);
+ 
+ 	/* Copy the address. */
+@@ -967,7 +969,8 @@ int udp_queue_rcv_skb(struct sock * sk, 
+ 
+ 			ret = (*up->encap_rcv)(sk, skb);
+ 			if (ret <= 0) {
+-				UDP_INC_STATS_BH(UDP_MIB_INDATAGRAMS, up->pcflag);
++				UDP_INC_STATS_BH(UDP_MIB_INEARLYDATAGRAMS,
++						 up->pcflag);
+ 				return -ret;
+ 			}
+ 		}
+@@ -1023,7 +1026,7 @@ int udp_queue_rcv_skb(struct sock * sk, 
+ 		goto drop;
+ 	}
+ 
+-	UDP_INC_STATS_BH(UDP_MIB_INDATAGRAMS, up->pcflag);
++	UDP_INC_STATS_BH(UDP_MIB_INEARLYDATAGRAMS, up->pcflag);
+ 	return 0;
+ 
+ drop:
+Index: linux-2.6.24-rc1-hack/net/ipv4/proc.c
+===================================================================
+--- linux-2.6.24-rc1-hack.orig/net/ipv4/proc.c
++++ linux-2.6.24-rc1-hack/net/ipv4/proc.c
+@@ -173,6 +173,7 @@ static const struct snmp_mib snmp4_udp_l
+ 	SNMP_MIB_ITEM("OutDatagrams", UDP_MIB_OUTDATAGRAMS),
+ 	SNMP_MIB_ITEM("RcvbufErrors", UDP_MIB_RCVBUFERRORS),
+ 	SNMP_MIB_ITEM("SndbufErrors", UDP_MIB_SNDBUFERRORS),
++	SNMP_MIB_ITEM("InEarlyDatagrams", UDP_MIB_INEARLYDATAGRAMS),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
