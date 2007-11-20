@@ -1,68 +1,31 @@
-From: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
-Subject: Re: mm snapshot broken-out-2007-11-20-01-45 Build Fail - net/wireless
- driver
-Date: Tue, 20 Nov 2007 18:53:15 +0530
-Message-ID: <4742DFC3.80305@linux.vnet.ibm.com>
-References: <200711200953.lAK9qxjO030444@imap1.linux-foundation.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH] LRO ack aggregation
+Date: Tue, 20 Nov 2007 16:35:09 +0300
+Message-ID: <20071120133509.GA17377@2ka.mipt.ru>
+References: <E1IuMIQ-0003gc-00@gondolin.me.apana.org.au> <20071119.222214.81458569.davem@davemloft.net> <4742C96D.3050203@myri.com> <20071120.035558.214794900.davem@davemloft.net> <4742E0A9.2070205@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: mm-commits@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mick@madwifi.org, netdev@vger.kernel.org,
-	Andy Whitcroft <apw@shadowen.org>,
-	Balbir Singh <balbir@linux.vnet.ibm.com>
-To: akpm@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, ossthema@de.ibm.com
+To: Andrew Gallatin <gallatin@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from E23SMTP03.au.ibm.com ([202.81.18.172]:45031 "EHLO
-	e23smtp03.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750914AbXKTNaq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 08:30:46 -0500
-In-Reply-To: <200711200953.lAK9qxjO030444@imap1.linux-foundation.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:37163 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751530AbXKTNfq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Nov 2007 08:35:46 -0500
+Content-Disposition: inline
+In-Reply-To: <4742E0A9.2070205@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+Hi.
 
-The kernel build fails, with following message
+On Tue, Nov 20, 2007 at 08:27:05AM -0500, Andrew Gallatin (gallatin@myri.com) wrote:
+> Hmm.. rather than a global tunable, what if it was a
+> network driver managed tunable which toggled a flag in the
+> lro_mgr features?  Would that be better?
 
-  LD      drivers/net/wireless/built-in.o
-drivers/net/wireless/rtl8187.o: In function `rtl8225z2_rf_init':
-(.opd+0x180): multiple definition of `rtl8225z2_rf_init'
-drivers/net/wireless/rtl8180.o:(.opd+0x1b0): first defined here
-drivers/net/wireless/rtl8187.o: In function `rtl8225z2_rf_init':
-/root/linux-2.6.24-rc3/drivers/net/wireless/rtl8187_rtl8225.c:571: multiple definition of `.rtl8225z2_rf_init'
-drivers/net/wireless/rtl8180.o:/root/linux-2.6.24-rc3/drivers/net/wireless/rtl8180_rtl8225.c:561: first defined here
-ld: Warning: size of symbol `.rtl8225z2_rf_init' changed from 3836 in drivers/net/wireless/rtl8180.o to 3544 in drivers/net/wireless/rtl8187.o
-drivers/net/wireless/rtl8187.o: In function `rtl8225_rf_set_channel':
-(.opd+0x160): multiple definition of `rtl8225_rf_set_channel'
-drivers/net/wireless/rtl8180.o:(.opd+0x1d0): first defined here
-drivers/net/wireless/rtl8187.o: In function `rtl8225_rf_init':
-/root/linux-2.6.24-rc3/drivers/net/wireless/rtl8187_rtl8225.c:329: multiple definition of `.rtl8225_rf_init'
-drivers/net/wireless/rtl8180.o:/root/linux-2.6.24-rc3/drivers/net/wireless/rtl8180_rtl8225.c:322: first defined here
-ld: Warning: size of symbol `.rtl8225_rf_init' changed from 3492 in drivers/net/wireless/rtl8180.o to 3528 in drivers/net/wireless/rtl8187.o
-drivers/net/wireless/rtl8187.o: In function `rtl8225_rf_stop':
-(.opd+0x190): multiple definition of `rtl8225_rf_stop'
-drivers/net/wireless/rtl8180.o:(.opd+0x1c0): first defined here
-drivers/net/wireless/rtl8187.o: In function `rtl8225_rf_set_channel':
-/root/linux-2.6.24-rc3/drivers/net/wireless/rtl8187_rtl8225.c:735: multiple definition of `.rtl8225_rf_set_channel'
-drivers/net/wireless/rtl8180.o:/root/linux-2.6.24-rc3/drivers/net/wireless/rtl8180_rtl8225.c:753: first defined here
-ld: Warning: size of symbol `.rtl8225_rf_set_channel' changed from 360 in drivers/net/wireless/rtl8180.o to 136 in drivers/net/wireless/rtl8187.o
-drivers/net/wireless/rtl8187.o: In function `rtl8225_rf_init':
-(.opd+0x170): multiple definition of `rtl8225_rf_init'
-drivers/net/wireless/rtl8180.o:(.opd+0x1a0): first defined here
-drivers/net/wireless/rtl8187.o: In function `rtl8225_rf_stop':
-/root/linux-2.6.24-rc3/drivers/net/wireless/rtl8187_rtl8225.c:719: multiple definition of `.rtl8225_rf_stop'
-drivers/net/wireless/rtl8180.o:/root/linux-2.6.24-rc3/drivers/net/wireless/rtl8180_rtl8225.c:736: first defined here
-ld: Warning: size of symbol `.rtl8225_rf_stop' changed from 244 in drivers/net/wireless/rtl8180.o to 632 in drivers/net/wireless/rtl8187.o
-make[3]: *** [drivers/net/wireless/built-in.o] Error 1
-make[2]: *** [drivers/net/wireless] Error 2
-make[1]: *** [drivers/net] Error 2
-make: *** [drivers] Error 2
-
-The patch causing this build failure, might be git-wireless.patch.
+What about ethtool control to set LRO_simple and LRO_ACK_aggregation?
 
 -- 
-Thanks & Regards,
-Kamalesh Babulal,
-Linux Technology Center,
-IBM, ISTL.
+	Evgeniy Polyakov
