@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 56/59] net/sunrpc: Add missing "space"
-Date: Mon, 19 Nov 2007 17:53:43 -0800
-Message-ID: <4a6aeee33cf9dc9a3e329e73b6bc584b7650ed51.1195454436.git.joe__26163.5262905203$1195524719$gmane$org@perches.com>
+Subject: [PATCH 55/59] net/sctp: Add missing "space"
+Date: Mon, 19 Nov 2007 17:53:42 -0800
+Message-ID: <c7b79830e5796ae4499e169a357b575320fb0fe0.1195454436.git.joe__48681.4049225815$1195524724$gmane$org@perches.com>
 References: 1234567
  <1195523627-15389-1-git-send-email-joe@perches.com>
  <1195523627-15389-2-git-send-email-joe@perches.com>
@@ -15,16 +15,14 @@ References: 1234567
  <1195523627-15389-10-git-send-email-joe@perches.com>
  <1195523627-15389-11-git-send-email-joe@perches.com>
  <1195523627-15389-12-git-send-email-joe@perches.com>
- <1195523627-15389-13-git-send-email-joe@perches.com>
-Cc: "J. Bruce Fields" <bfields@fieldses.org>,
-	Neil Brown <neilb@suse.de>,
-	Networking Team <netdev@vger.kernel.org>,
-	Trond Myklebust <trond.myklebust@fys.uio.no>,
-	linux-kernel@vger.kernel.org, nfs@lists.sourceforge.net
+Cc: Networking Team <netdev@vger.kernel.org>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>,
+	lksctp-developers@lists.sourceforge.net
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760413AbXKTCL0@vger.kernel.org>
-In-Reply-To: <1195523627-15389-13-git-send-email-joe@perches.com>
-Message-Id: <4a6aeee33cf9dc9a3e329e73b6bc584b7650ed51.1195454436.git.joe@perches.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762038AbXKTCKz@vger.kernel.org>
+In-Reply-To: <1195523627-15389-12-git-send-email-joe@perches.com>
+Message-Id: <c7b79830e5796ae4499e169a357b575320fb0fe0.1195454436.git.joe@perches.com>
 In-Reply-To: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com>
 References: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -33,21 +31,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/sunrpc/auth_gss/auth_gss.c |    2 +-
+ net/sctp/sm_statefuns.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
-index 53995af..22906b8 100644
---- a/net/sunrpc/auth_gss/auth_gss.c
-+++ b/net/sunrpc/auth_gss/auth_gss.c
-@@ -967,7 +967,7 @@ gss_validate(struct rpc_task *task, __be32 *p)
- 	if (maj_stat == GSS_S_CONTEXT_EXPIRED)
- 		clear_bit(RPCAUTH_CRED_UPTODATE, &cred->cr_flags);
- 	if (maj_stat) {
--		dprintk("RPC: %5u gss_validate: gss_verify_mic returned"
-+		dprintk("RPC: %5u gss_validate: gss_verify_mic returned "
- 				"error 0x%08x\n", task->tk_pid, maj_stat);
- 		goto out_bad;
- 	}
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 5ebbe80..b8bbb96 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -1146,7 +1146,7 @@ sctp_disposition_t sctp_sf_backbeat_8_3(const struct sctp_endpoint *ep,
+ 	/* Check if the timestamp looks valid.  */
+ 	if (time_after(hbinfo->sent_at, jiffies) ||
+ 	    time_after(jiffies, hbinfo->sent_at + max_interval)) {
+-		SCTP_DEBUG_PRINTK("%s: HEARTBEAT ACK with invalid timestamp"
++		SCTP_DEBUG_PRINTK("%s: HEARTBEAT ACK with invalid timestamp "
+ 				  "received for transport: %p\n",
+ 				   __FUNCTION__, link);
+ 		return SCTP_DISPOSITION_DISCARD;
 -- 
 1.5.3.5.652.gf192c
