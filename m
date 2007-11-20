@@ -1,46 +1,57 @@
-From: Roland McGrath <roland@redhat.com>
-Subject: Re: 2.6.24-rc3: find complains about /proc/net
-Date: Tue, 20 Nov 2007 15:51:14 -0800 (PST)
-Message-ID: <20071120235114.0B85226F8BE@magilla.localdomain>
-References: <4743026B.2020907@openvz.org>
-	<m11wakshyz.fsf@ebiederm.dsl.xmission.com>
-	<20071120215914.GE24156@elte.hu>
-	<m1ve7wr28z.fsf@ebiederm.dsl.xmission.com>
-	<20071120223559.GA6655@elte.hu>
-	<20071120225457.B6E2D26F8BE@magilla.localdomain>
-	<20071120230106.GD24380@elte.hu>
-	<3d8471ca0711201506t6b2b88a0h9484f8a40a1f2e40@mail.gmail.com>
-	<20071120232600.F1D2F26F8BE@magilla.localdomain>
-	<47436E7F.2060901@redhat.com>
-	<20071120234505.GF23667@elte.hu>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH 34/59] drivers/net/wan: Add missing "space"
+Date: Wed, 21 Nov 2007 00:52:36 +0100
+Message-ID: <m3lk8sv5iz.fsf@maximus.localdomain>
+References: <1195523331-15303-1-git-send-email-joe@perches.com>
+	<1195523331-15303-17-git-send-email-joe@perches.com>
+	<1195523331-15303-18-git-send-email-joe@perches.com>
+	<1195523331-15303-19-git-send-email-joe@perches.com>
+	<1195523331-15303-20-git-send-email-joe@perches.com>
+	<1195523331-15303-21-git-send-email-joe@perches.com>
+	<1195523331-15303-22-git-send-email-joe@perches.com>
+	<1195523331-15303-23-git-send-email-joe@perches.com>
+	<1195523331-15303-24-git-send-email-joe@perches.com>
+	<1195523331-15303-25-git-send-email-joe@perches.com>
+	<1195523331-15303-26-git-send-email-joe@perches.com>
+	<1195523331-15303-27-git-send-email-joe@perches.com>
+	<1195523331-15303-28-git-send-email-joe@perches.com>
+	<1195523331-15303-29-git-send-email-joe@perches.com>
+	<1195523331-15303-30-git-send-email-joe@perches.com>
+	<1195523331-15303-31-git-send-email-joe@perches.com>
+	<1195523331-15303-32-git-send-email-joe@perches.com>
+	<1195523331-15303-33-git-send-email-joe@perches.com>
+	<1195523331-15303-34-git-send-email-joe@perches.com>
+	<ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com>
+	<1195523331-15303-35-git-send-email-joe@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Ulrich Drepper <drepper@redhat.com>,
-	Guillaume Chazarain <guichaz@yahoo.fr>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
-	kernel list <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
+Cc: linux-kernel@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>,
+	netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:43333 "EHLO mx1.redhat.com"
+Received: from khc.piap.pl ([195.187.100.11]:47402 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762367AbXKTXvR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Nov 2007 18:51:17 -0500
-In-Reply-To: Ingo Molnar's message of  Wednesday, 21 November 2007 00:45:05 +0100 <20071120234505.GF23667@elte.hu>
+	id S1764879AbXKTXwj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Nov 2007 18:52:39 -0500
+In-Reply-To: <1195523331-15303-35-git-send-email-joe@perches.com> (Joe Perches's message of "Mon, 19 Nov 2007 17:48:26 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> can you see any danger to providing a /proc/self_task/ link? (or can you 
-> think of a better name/API/approach)
+Joe Perches <joe@perches.com> writes:
 
-That is a poor name to choose given /proc/self/task exists as something
-else (just try writing a sentence comparing them and then read it aloud).
-Probably /proc/self/task/self is what makes the most sense structurally.
-I don't know if it matters to whatever use you are concerned with to have
-two more steps in the lookup.
+> --- a/drivers/net/wan/wanxl.c
+> +++ b/drivers/net/wan/wanxl.c
+> @@ -743,7 +743,7 @@ static int __devinit wanxl_pci_init_one(struct pci_dev *pdev,
+>  	}while (time_after(timeout, jiffies));
+>  
+>  	if (!stat) {
+> -		printk(KERN_WARNING "wanXL %s: timeout while initializing card"
+> +		printk(KERN_WARNING "wanXL %s: timeout while initializing card "
+>  		       "firmware\n", pci_name(pdev));
+>  		wanxl_pci_remove_one(pdev);
+>  		return -ENODEV;
 
-Thanks,
-Roland
+Acked-by: Krzysztof Halasa <khc@pm.waw.pl>
+Thanks.
+-- 
+Krzysztof Halasa
