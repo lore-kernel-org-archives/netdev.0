@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 55/59] net/sctp: Add missing "space"
-Date: Mon, 19 Nov 2007 17:53:42 -0800
-Message-ID: <c7b79830e5796ae4499e169a357b575320fb0fe0.1195454436.git.joe__48681.4049225815$1195524724$gmane$org@perches.com>
+Subject: [PATCH 54/59] net/irda: Add missing "space"
+Date: Mon, 19 Nov 2007 17:53:41 -0800
+Message-ID: <40f9ed858135b417a27a0a628667cc0da0d91e73.1195454436.git.joe__15305.7557101876$1195524727$gmane$org@perches.com>
 References: 1234567
  <1195523627-15389-1-git-send-email-joe@perches.com>
  <1195523627-15389-2-git-send-email-joe@perches.com>
@@ -14,15 +14,12 @@ References: 1234567
  <1195523627-15389-9-git-send-email-joe@perches.com>
  <1195523627-15389-10-git-send-email-joe@perches.com>
  <1195523627-15389-11-git-send-email-joe@perches.com>
- <1195523627-15389-12-git-send-email-joe@perches.com>
 Cc: Networking Team <netdev@vger.kernel.org>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	lksctp-developers@lists.sourceforge.net
+	Samuel Ortiz <samuel@sortiz.org>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762038AbXKTCKz@vger.kernel.org>
-In-Reply-To: <1195523627-15389-12-git-send-email-joe@perches.com>
-Message-Id: <c7b79830e5796ae4499e169a357b575320fb0fe0.1195454436.git.joe@perches.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762070AbXKTCKg@vger.kernel.org>
+In-Reply-To: <1195523627-15389-11-git-send-email-joe@perches.com>
+Message-Id: <40f9ed858135b417a27a0a628667cc0da0d91e73.1195454436.git.joe@perches.com>
 In-Reply-To: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com>
 References: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -31,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/sctp/sm_statefuns.c |    2 +-
+ net/irda/iriap.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 5ebbe80..b8bbb96 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -1146,7 +1146,7 @@ sctp_disposition_t sctp_sf_backbeat_8_3(const struct sctp_endpoint *ep,
- 	/* Check if the timestamp looks valid.  */
- 	if (time_after(hbinfo->sent_at, jiffies) ||
- 	    time_after(jiffies, hbinfo->sent_at + max_interval)) {
--		SCTP_DEBUG_PRINTK("%s: HEARTBEAT ACK with invalid timestamp"
-+		SCTP_DEBUG_PRINTK("%s: HEARTBEAT ACK with invalid timestamp "
- 				  "received for transport: %p\n",
- 				   __FUNCTION__, link);
- 		return SCTP_DISPOSITION_DISCARD;
+diff --git a/net/irda/iriap.c b/net/irda/iriap.c
+index dc5e34a..a86a5d8 100644
+--- a/net/irda/iriap.c
++++ b/net/irda/iriap.c
+@@ -928,7 +928,7 @@ void iriap_call_indication(struct iriap_cb *self, struct sk_buff *skb)
+ 
+ 	opcode = fp[0];
+ 	if (~opcode & 0x80) {
+-		IRDA_WARNING("%s: IrIAS multiframe commands or results"
++		IRDA_WARNING("%s: IrIAS multiframe commands or results "
+ 			     "is not implemented yet!\n", __FUNCTION__);
+ 		return;
+ 	}
 -- 
 1.5.3.5.652.gf192c
