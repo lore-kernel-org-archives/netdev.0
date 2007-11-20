@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][PKTGEN] Fix double unlock of xfrm_state->lock
-Date: Mon, 19 Nov 2007 22:51:53 -0800 (PST)
-Message-ID: <20071119.225153.33244677.davem@davemloft.net>
-References: <47415B94.1010002@openvz.org>
+Subject: Re: [PATCH][IPVS] Relax the module get/put in ip_vs_app.c
+Date: Mon, 19 Nov 2007 22:53:00 -0800 (PST)
+Message-ID: <20071119.225300.120591949.davem@davemloft.net>
+References: <47415E36.8030001@openvz.org>
+	<20071120022816.GL24412@verge.net.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org
-To: xemul@openvz.org
+Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org
+To: horms@verge.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60651
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60655
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756540AbXKTGvx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 01:51:53 -0500
-In-Reply-To: <47415B94.1010002@openvz.org>
+	by vger.kernel.org with ESMTP id S1756804AbXKTGxB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 01:53:01 -0500
+In-Reply-To: <20071120022816.GL24412@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Mon, 19 Nov 2007 12:47:00 +0300
+From: Simon Horman <horms@verge.net.au>
+Date: Tue, 20 Nov 2007 11:28:18 +0900
 
-> The pktgen_output_ipsec() function can unlock this lock twice
-> due to merged error and plain paths. Remove one of the calls
-> to spin_unlock.
+> On Mon, Nov 19, 2007 at 12:58:14PM +0300, Pavel Emelyanov wrote:
+> > Both try_module_get/module_put already handle the module == NULL
+> > case, so no need in manual checking.
+> > 
+> > This patch fits both net-2.6 and net-2.6.25.
+> > 
+> > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 > 
-> Other possible solution would be to place "return 0" right 
-> after the first unlock, but at this place the err is known 
-> to be 0, so these solutions are the same except for this one
-> makes the code shorter.
+> Thanks, that looks fine to me.
 > 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> Acked-by: Simon Horman <horms@verge.net.au>
 
-Applied, thanks Pavel.
+Me too, applied to net-2.6.25, thanks Pavel.
