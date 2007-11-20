@@ -1,123 +1,73 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9418] New: Funcation tcp_v6_md5_do_del return
- has error.
-Date: Tue, 20 Nov 2007 12:46:18 -0800
-Message-ID: <20071120124618.9a348f33.akpm@linux-foundation.org>
-References: <bug-9418-10286@http.bugzilla.kernel.org/>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: Re: HTB/HSFC shaping precision
+Date: Tue, 20 Nov 2007 23:21:02 +0200
+Message-ID: <20071120211258.M55249@visp.net.lb>
+References: <20071119083849.M87605@visp.net.lb> <1195489494.4445.119.camel@localhost> <20071120092317.M96721@visp.net.lb> <47433CF8.70501@o2.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, ming-baini@163.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset=koi8-r
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:36392 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762744AbXKTUqY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 15:46:24 -0500
-In-Reply-To: <bug-9418-10286@http.bugzilla.kernel.org/>
+Received: from usermail.globalproof.net ([194.146.153.18]:45467 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756329AbXKTVVO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 16:21:14 -0500
+In-Reply-To: <47433CF8.70501@o2.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 20 Nov 2007 07:13:00 -0800 (PST)
-bugme-daemon@bugzilla.kernel.org wrote:
+On Tue, 20 Nov 2007 21:00:56 +0100, Jarek Poplawski wrote
+> Denys Fedoryshchenko wrote, On 11/20/2007 10:43 AM:
+> ....
+> 
+> > If let's say i will limit bandwidth to 1Mbps, and will try to send 
+packets 
+> > will 100Mbps speed, and will check which packets will be dropped.
+> 
+> As a matter of fact, I wonder why you're so afraid of this dropping. 
+> It's usual method of auto-regulation e.g. for tcp. You've written 
+> latency isn't so much problem, then slightly overloading ISP's queue 
+> you'll always get full bandwidth, you've payed for. You didn't write 
+> what kind of traffic you service, but I doubt you can get rid of 
+> dropping everywhere: on your HTB etc. queues or on incoming traffic.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=9418
-> 
->            Summary: Funcation tcp_v6_md5_do_del return has error.
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.23
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV6
->         AssignedTo: yoshfuji@linux-ipv6.org
->         ReportedBy: ming-baini@163.com
-> 
-> 
-> Most recent kernel where this bug did not occur:
-> None, I always had this problem with the md5 in tcpv6. 
-> Distribution:
-> Hardware Environment:  
-> Software Environment:
-> Problem Description:
-> When you creat two or more tcpv6 md5 entries,and you may del someone.For
-> example, if you added two ipv6 address(2000::9, 2000::10) to a sk, so the sk
-> first md5 entry is for 2000::9 and second entry is for 2000::10, and then the
-> sk has two entries. If you want to del the second md5 entry , the funcation
-> "tcp_v6_md5_do_del"  will not sub the tp->md5sig_info->entries6 for the first
-> loop, because this time the address is not 2000::9.For the second loop, the
-> tp->md5sig_info->entries6 will sub 1,but this time tp->md5sig_info->entries6 is
-> not 0 but 1, so the funcation return -ENOENT.When application get the return
-> vlaue may occur error.
-> 
-> for (i = 0; i < tp->md5sig_info->entries6; i++) {
->     if (ipv6_addr_cmp(&tp->md5sig_info->keys6[i].addr, peer) == 0) {
->         /* Free the key */
->         kfree(tp->md5sig_info->keys6[i].base.key);
->         tp->md5sig_info->entries6--;
-> 
->         if (tp->md5sig_info->entries6 == 0) {
->             kfree(tp->md5sig_info->keys6);
->             tp->md5sig_info->keys6 = NULL;
->             tp->md5sig_info->alloced6 = 0;
-> 
->             tcp_free_md5sig_pool();
-> 
->             /*return 0;*/    /*not in here*/
->         } else {
->             /* shrink the database */
->             if (tp->md5sig_info->entries6 != i)
->                 memmove(&tp->md5sig_info->keys6[i],
->                     &tp->md5sig_info->keys6[i+1],
->                     (tp->md5sig_info->entries6 - i)
->                     * sizeof (tp->md5sig_info->keys6[0]));
->         }
->     }
->     return 0;/*should be return here*/
-> }
-> 
-> 
-> Steps to reproduce:
-> Create two tcpv6 md5 entry ,and then delete the second.
-> 
+If traffic is dropped - it will be resent, a lot of energy will be wasted for 
+nothing. Same bytes will pass all long way around earth just because i am not 
+able to manage my QoS box :-)
 
-and
+Plus uplink bandwidth will be used for that, i am using my own protocol(it is 
+TCP "accelerator" for satellite communications based on NACK and "streaming" 
+compression, so each resend - it is few bytes more on uplink and additional 
+delay. Ah yes, even resend over TCP it is more delay, than if it will be 
+queued for few milliseconds on bottleneck. 
 
-> I have a mistake. The code shoule be :
-> static int tcp_v6_md5_do_del(struct sock *sk, struct in6_addr *peer)
-> {
->     struct tcp_sock *tp = tcp_sk(sk);
->     int i;
+Plus if buffer on STM-1 interface way too small - smallest spike will cause 
+packetlossy, and sitation can be far away from congestion. As result it will 
+be very difficult to reach maximum bandwidth on such link. And linux box in 
+this situation is magic box, which can help to save energy, hungry people and 
+help to use resources efficiently :-)
+
+
 > 
->     for (i = 0; i < tp->md5sig_info->entries6; i++) {
->         if (ipv6_addr_cmp(&tp->md5sig_info->keys6[i].addr, peer) == 0) {
->             /* Free the key */
->             kfree(tp->md5sig_info->keys6[i].base.key);
->             tp->md5sig_info->entries6--;
+> > [...] This means something wrong or in my shaping tree configuration 
+> > (that time HTB) or in shaper code. Thats why i try to dig in this things 
+more 
+> > deeply.
 > 
->             if (tp->md5sig_info->entries6 == 0) {
->                 kfree(tp->md5sig_info->keys6);
->                 tp->md5sig_info->keys6 = NULL;
->                 tp->md5sig_info->alloced6 = 0;
+> Did you try to dig at this very nice HTB page?:
+> http://luxik.cdi.cz/~devik/qos/htb/
+Yes, for sure. Thats what i am reading almost each day, when i dont 
+understand something clearly. But, my english is far away from good, so 
+sometimes i just misunderstand something even in good manual.
+
 > 
->                 /*tcp_free_md5sig_pool();*/   /*this also wrong*/
-> 
->                 /*return 0;*/    /*not in here*/
->             } else {
->                 /* shrink the database */
->                 if (tp->md5sig_info->entries6 != i)
->                     memmove(&tp->md5sig_info->keys6[i],
->                         &tp->md5sig_info->keys6[i+1],
->                         (tp->md5sig_info->entries6 - i)
->                         * sizeof (tp->md5sig_info->keys6[0]));
->             }
->             tcp_free_md5sig_pool();   /*should be put here*/
->             return 0;           /*should be return here*/
->         }
->     }
->     return -ENOENT;
-> }
+> Regards,
+> Jarek P.
+
+
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
+
