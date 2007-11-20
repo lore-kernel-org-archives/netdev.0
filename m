@@ -1,59 +1,28 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [patch 06/22] NET: DM9000: Use kthread to probe MII status when device open
-Date: Tue, 20 Nov 2007 07:46:27 +0000
-Message-ID: <20071120074627.GA31558@infradead.org>
-References: <20071119203910.687238131@fluff.org> <20071119204013.745821010@fluff.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 51/59] net/dccp: Add missing "space"
+Date: Mon, 19 Nov 2007 23:48:40 -0800 (PST)
+Message-ID: <20071119.234840.211782071.davem@davemloft.net>
+References: <1195523627-15389-8-git-send-email-joe@perches.com>
+	<ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com>
+	<1195523627-15389-9-git-send-email-joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, vince@simtec.co.uk
-To: Ben Dooks <ben-linux@fluff.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, acme@ghostprotocols.net,
+	netdev@vger.kernel.org, dccp@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:58422 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754628AbXKTHqa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 02:46:30 -0500
-Content-Disposition: inline
-In-Reply-To: <20071119204013.745821010@fluff.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40735
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757411AbXKTHsl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 02:48:41 -0500
+In-Reply-To: <1195523627-15389-9-git-send-email-joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> +static void dm9000_start_thread(struct net_device *dev)
-> +{
-> +	board_info_t *db = (board_info_t *) dev->priv;
-> +
-> +	/* Create a thread to keep track of the state of the phy
-> +	 * as we do not get an interrupt when the PHY state changes.
-> +	 *
-> +	 * Note, we do not abort the open if we fail to create the
-> +	 * thread, as this is mainly to ensure the user is kept up to
-> +	 * date with the device's state. PHY accesses will still work
-> +	 * via the MII read and write methods.
-> +	 */
-> +
-> +	db->thread = kthread_create(dm9000_mii_thread, db, dev->name);
-> +	if (IS_ERR(db->thread)) {
-> +		dev_err(db->dev, "failed to create MII thread\n");
-> +		db->thread = NULL;
-> +	} else
-> +		wake_up_process(db->thread);
-> +}
-> +
->  /*
->   *  Open the interface.
->   *  The interface is opened whenever "ifconfig" actives it.
-> @@ -704,12 +724,7 @@ dm9000_open(struct net_device *dev)
->  	/* Init driver variable */
->  	db->dbug_cnt = 0;
->  
-> -	/* set and active a timer process */
-> -	init_timer(&db->timer);
-> -	db->timer.expires  = DM9000_TIMER_WUT;
-> -	db->timer.data     = (unsigned long) dev;
-> -	db->timer.function = &dm9000_timer;
-> -	add_timer(&db->timer);
-> +	dm9000_start_thread(dev);
+From: Joe Perches <joe@perches.com>
+Date: Mon, 19 Nov 2007 17:53:38 -0800
 
-Please don't just ignore the error.  Just inline the content of
-dm9000_start_thread into the caller and use proper goto-based
-unwinding.
+> Signed-off-by: Joe Perches <joe@perches.com>
 
+Applied.
