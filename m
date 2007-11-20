@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 29/59] drivers/net/chelsio: Add missing "space"
-Date: Mon, 19 Nov 2007 17:48:21 -0800
-Message-ID: <6a2d5da40bdf6d7a6595ac2482dd88b7182a74b1.1195454435.git.joe__27448.5527691015$1195524087$gmane$org@perches.com>
+Subject: [PATCH 34/59] drivers/net/wan: Add missing "space"
+Date: Mon, 19 Nov 2007 17:48:26 -0800
+Message-ID: <8c0ecd8ae2baa9b0596d352f53c4c3527f3528bd.1195454435.git.joe__18441.7659919292$1195524248$gmane$org@perches.com>
 References: 1234567
  <1195523331-15303-1-git-send-email-joe@perches.com>
  <1195523331-15303-2-git-send-email-joe@perches.com>
@@ -32,11 +32,17 @@ References: 1234567
  <1195523331-15303-27-git-send-email-joe@perches.com>
  <1195523331-15303-28-git-send-email-joe@perches.com>
  <1195523331-15303-29-git-send-email-joe@perches.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+ <1195523331-15303-30-git-send-email-joe@perches.com>
+ <1195523331-15303-31-git-send-email-joe@perches.com>
+ <1195523331-15303-32-git-send-email-joe@perches.com>
+ <1195523331-15303-33-git-send-email-joe@perches.com>
+ <1195523331-15303-34-git-send-email-joe@perches.com>
+Cc: Jeff Garzik <jgarzik@pobox.com>, Krzysztof Halasa <khc@pm.waw.pl>,
+	netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760750AbXKTCAA@vger.kernel.org>
-In-Reply-To: <1195523331-15303-29-git-send-email-joe@perches.com>
-Message-Id: <6a2d5da40bdf6d7a6595ac2482dd88b7182a74b1.1195454435.git.joe@perches.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758959AbXKTCBy@vger.kernel.org>
+In-Reply-To: <1195523331-15303-34-git-send-email-joe@perches.com>
+Message-Id: <8c0ecd8ae2baa9b0596d352f53c4c3527f3528bd.1195454435.git.joe@perches.com>
 In-Reply-To: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com>
 References: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -45,21 +51,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/chelsio/cxgb2.c |    2 +-
+ drivers/net/wan/wanxl.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/chelsio/cxgb2.c b/drivers/net/chelsio/cxgb2.c
-index 2dbf8dc..3eca4e3 100644
---- a/drivers/net/chelsio/cxgb2.c
-+++ b/drivers/net/chelsio/cxgb2.c
-@@ -1006,7 +1006,7 @@ static int __devinit init_one(struct pci_dev *pdev,
- 		pci_using_dac = 1;
+diff --git a/drivers/net/wan/wanxl.c b/drivers/net/wan/wanxl.c
+index 8e320b7..ad8c865 100644
+--- a/drivers/net/wan/wanxl.c
++++ b/drivers/net/wan/wanxl.c
+@@ -743,7 +743,7 @@ static int __devinit wanxl_pci_init_one(struct pci_dev *pdev,
+ 	}while (time_after(timeout, jiffies));
  
- 		if (pci_set_consistent_dma_mask(pdev, DMA_64BIT_MASK)) {
--			CH_ERR("%s: unable to obtain 64-bit DMA for"
-+			CH_ERR("%s: unable to obtain 64-bit DMA for "
- 			       "consistent allocations\n", pci_name(pdev));
- 			err = -ENODEV;
- 			goto out_disable_pdev;
+ 	if (!stat) {
+-		printk(KERN_WARNING "wanXL %s: timeout while initializing card"
++		printk(KERN_WARNING "wanXL %s: timeout while initializing card "
+ 		       "firmware\n", pci_name(pdev));
+ 		wanxl_pci_remove_one(pdev);
+ 		return -ENODEV;
 -- 
 1.5.3.5.652.gf192c
