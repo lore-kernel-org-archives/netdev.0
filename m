@@ -1,81 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] LRO ack aggregation
-Date: Tue, 20 Nov 2007 03:55:58 -0800 (PST)
-Message-ID: <20071120.035558.214794900.davem@davemloft.net>
-References: <E1IuMIQ-0003gc-00@gondolin.me.apana.org.au>
-	<20071119.222214.81458569.davem@davemloft.net>
-	<4742C96D.3050203@myri.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Netfilter: kernel panic with REDIRECT target. (2.6.23 and 2.6.23.8)
+Date: Tue, 20 Nov 2007 14:55:20 +0300
+Message-ID: <20071120115520.GB30752@2ka.mipt.ru>
+References: <47408BBC.6040608@unsolicited.net> <200711182131.38388.ismail@pardus.org.tr> <474093E0.3090007@unsolicited.net> <47409863.8000902@trash.net> <4741DB3A.2030304@unsolicited.net> <20071119192423.GA26449@2ka.mipt.ru> <20071119193143.GA12640@2ka.mipt.ru> <4741EB07.50706@unsolicited.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	ossthema@de.ibm.com
-To: gallatin@myri.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Ismail =?utf8?Q?D=C3=B6nmez?= <ismail@pardus.org.tr>,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: David <david@unsolicited.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37343
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752915AbXKTLz7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 06:55:59 -0500
-In-Reply-To: <4742C96D.3050203@myri.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:47159 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756225AbXKTL4M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Nov 2007 06:56:12 -0500
+Content-Disposition: inline
+In-Reply-To: <4741EB07.50706@unsolicited.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Gallatin <gallatin@myri.com>
-Date: Tue, 20 Nov 2007 06:47:57 -0500
-
-> David Miller wrote:
->  > From: Herbert Xu <herbert@gondor.apana.org.au>
->  > Date: Tue, 20 Nov 2007 14:09:18 +0800
->  >
->  >> David Miller <davem@davemloft.net> wrote:
->  >>> Fundamentally, I really don't like this change, it batches to the
->  >>> point where it begins to erode the natural ACK clocking of TCP, and I
->  >>> therefore am very likely to revert it before merging to Linus.
->  >> Perhaps make it a tunable that defaults to off?
->  >
->  > That's one idea.
+> >> Ok, let's try it hard way.
+> >> Please check attached patch and tell if it helped (it will produce
+> >> some debug though).
+> >
+> > With both patches applied - one Patrick showed and this one.
+> >   
+> Now works, with this in dmesg
 > 
-> I'd certainly prefer the option to have a tunable to having our
-> customers see performance regressions when they switch to
-> the kernel's LRO.
+> conntrack: ea94159c, new: ead4d7c4, old: ead4d7d0, ct: 00000000.
 
-Please qualify this because by itself it's an inaccurate statement.
+David (Miller :), please apply attached patch, which also needed to fix
+netfilter connection tracking bug.
+When connection tracking entry (nf_conn) is about to copy itself it can
+have some of its extension users (like nat) as being already freed and
+thus not required to be copied.
+Frankly saying, it can be not the correct fix, but from code observation
+and test, perfomed by David <david@unsolicited.net> it is.
 
-It would cause a performance regression in situations where the is
-nearly no packet loss, no packet reordering, and the receiver has
-strong enough cpu power.
+Actually looking at this function I suspect it was copied from
+nf_nat_setup_info() and thus bug was introduced.
 
-Because in fact, some "customers" might see performance regressions
-by using this ack aggregation code.  In particular if they are
-talking to the real internet at all.
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 
-> If vendors are going to pick this up, there is the risk of them just
-> applying this patch (which currently has no tunable to disable it),
-> leaving their users stuck with it enabled.
+diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+index 70e7997..86b465b 100644
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
+@@ -607,13 +607,10 @@ static void nf_nat_move_storage(struct nf_conn *conntrack, void *old)
+ 	struct nf_conn_nat *new_nat = nf_ct_ext_find(conntrack, NF_CT_EXT_NAT);
+ 	struct nf_conn_nat *old_nat = (struct nf_conn_nat *)old;
+ 	struct nf_conn *ct = old_nat->ct;
+-	unsigned int srchash;
+ 
+-	if (!(ct->status & IPS_NAT_DONE_MASK))
++	if (!ct || !(ct->status & IPS_NAT_DONE_MASK))
+ 		return;
+ 
+-	srchash = hash_by_src(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
+-
+ 	write_lock_bh(&nf_nat_lock);
+ 	hlist_replace_rcu(&old_nat->bysource, &new_nat->bysource);
+ 	new_nat->ct = ct;
 
-I will watch out for this and make sure to advise them strongly not to
-do this.
-
-So you can be sure this won't happen. :-)
-
-> FWIW, we've seen TCP perform well in a WAN setting using our NICs and
-> our LRO which does this ack aggregation.  For example, the last 2
-> Supercomputing "Bandwidth Challenges" (making the most of a 10Gb/s
-> WAN connection) were won by teams using our NICs, with drivers that
-> did this sort of ack aggregation.
-
-And basically nearly no packet loss, which just supports my objections
-to this even more.  ANd this doesn't even begin to consider the RX
-cpu limited cases, where again ACK stretching hurts a lot.
-
-The bandwidth challenge cases are not very realistic at all, and are
-about as far from the realities of real internet traffic as you can
-get.
-
-Show me something over real backbones, talking to hundres or thousands
-of clients scattered all over the world.  That's what people will be
-using these high end NICs for front facing services, and that's where
-loss happens and stretch ACKs hurt performance.
-
-ACK stretching is bad bad bad for everything outside of some well
-controlled test network bubble.
+-- 
+	Evgeniy Polyakov
