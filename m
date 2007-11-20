@@ -1,42 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ipv4/arp.c: Fix arp reply when sender ip 0
-Date: Mon, 19 Nov 2007 23:49:43 -0800 (PST)
-Message-ID: <20071119.234943.214163033.davem@davemloft.net>
-References: <cac0ab7d0711151340l1cc91a2dw5ebf36e166d16d7a@mail.gmail.com>
-	<20071119130610.GB6952@ms2.inr.ac.ru>
-	<20071120001607.916f4537.billfink@mindspring.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH, take2] netfilter : struct xt_table_info diet
+Date: Tue, 20 Nov 2007 08:50:15 +0100
+Message-ID: <474291B7.6060602@trash.net>
+References: <E1IuN87-0003r5-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, the.sator@gmail.com,
-	linux-kernel@vger.kernel.org, jmorris@namei.org,
-	netdev@vger.kernel.org, akpm@linux-foundation.org
-To: billfink@mindspring.com
+Cc: Simon Horman <horms@verge.net.au>, dada1@cosmosbay.com,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40785
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759242AbXKTHto (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 02:49:44 -0500
-In-Reply-To: <20071120001607.916f4537.billfink@mindspring.com>
+Received: from stinky.trash.net ([213.144.137.162]:56398 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759614AbXKTHuU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 02:50:20 -0500
+In-Reply-To: <E1IuN87-0003r5-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bill Fink <billfink@mindspring.com>
-Date: Tue, 20 Nov 2007 00:16:07 -0500
+Herbert Xu wrote:
+> Simon Horman <horms@verge.net.au> wrote:
+>   
+>> @@ -269,9 +269,12 @@ struct xt_table_info
+>>        unsigned int underflow[NF_INET_NUMHOOKS];
+>>
+>>        /* ipt_entry tables: one per CPU */
+>> -       char *entries[NR_CPUS];
+>> +       /* Note : this field MUST be the last one, see XT_TABLE_INFO_SZ */
+>> +       char *entries[1];
+>>     
+>
+> Just do
+>
+> 	char *entries[];
+>
+> Not only is it ISO C99, but the compiler will die if it's not at
+> the end.
+>
+> Actually I haven't read the rest of the patch, so scratch this
+> comment if you really need to have one entry there for some reason :)
+>   
 
-> On Mon, 19 Nov 2007, Alexey Kuznetsov wrote:
-> 
-> > 2. What's about your suggestion, I thought about this and I am going to agree.
-> > 
-> >    Arguments, which convinced me are:
-> > 
-> >    - arping still works.
-> >    - any piece of reasonable software should work.
-> >    - if Windows understands DaD (is it really true? I cannot believe)
-> >      and it is unhappy about our responce and does not block use
-> >      of duplicate address only due to this, we _must_ accomodate ASAP.
-> >    - if we do,we have to use 0 protocol address, no choice.
-> 
-> I agree the target protocol address should be 0 in this case.
-
-Patches, someone :-)
+I thought this too, but its needed for the bootstrap tables, which are
+declared on the stack :)
