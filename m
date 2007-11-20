@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/6 net-2.6.25] IPv6 RAW: Compact the API for the kernel
-Date: Mon, 19 Nov 2007 22:36:10 -0800 (PST)
-Message-ID: <20071119.223610.130444916.davem@davemloft.net>
-References: <473DA465.6020301@openvz.org>
+Subject: Re: [PATCH 3/6 net-2.6.25][RAW] Introduce raw_hashinfo structure
+Date: Mon, 19 Nov 2007 22:36:59 -0800 (PST)
+Message-ID: <20071119.223659.40918942.davem@davemloft.net>
+References: <473DA54F.6040801@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, devel@openvz.org
 To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57863
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57866
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753731AbXKTGgK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 01:36:10 -0500
-In-Reply-To: <473DA465.6020301@openvz.org>
+	by vger.kernel.org with ESMTP id S1753975AbXKTGg7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 01:36:59 -0500
+In-Reply-To: <473DA54F.6040801@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Pavel Emelyanov <xemul@openvz.org>
-Date: Fri, 16 Nov 2007 17:08:37 +0300
+Date: Fri, 16 Nov 2007 17:12:31 +0300
 
-> Same as in the previous patch for ipv4, compact the
-> API and hide hash table and rwlock inside the raw.c
-> file.
+> The ipv4/raw.c and ipv6/raw.c contain many common code (most
+> of which is proc interface) which can be consolidated.
 > 
-> Plus fix some "bad" places from checkpatch.pl point 
-> of view (assignments inside if()).
+> Most of the places to consolidate deal with the raw sockets
+> hashtable, so introduce a struct raw_hashinfo which describes 
+> the raw sockets hash.
 > 
 > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Applied, thanks.
+Applied.
