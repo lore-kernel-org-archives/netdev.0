@@ -1,55 +1,59 @@
-From: Laszlo Attila Toth <panther@balabit.hu>
-Subject: Re: [PATCHv6 0/3] Interface group patches
-Date: Tue, 20 Nov 2007 14:52:12 +0100
-Message-ID: <4742E68C.2000802@balabit.hu>
-References: <11955644701165-git-send-email-panther@balabit.hu> <Pine.LNX.4.64.0711201425530.32378@fbirervta.pbzchgretzou.qr>
-Reply-To: panther@balabit.hu
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH] LRO ack aggregation
+Date: Tue, 20 Nov 2007 17:03:12 +0300
+Message-ID: <20071120140312.GA6695@2ka.mipt.ru>
+References: <E1IuMIQ-0003gc-00@gondolin.me.apana.org.au> <20071119.222214.81458569.davem@davemloft.net> <4742C96D.3050203@myri.com> <20071120.035558.214794900.davem@davemloft.net> <4742E0A9.2070205@myri.com> <20071120133509.GA17377@2ka.mipt.ru> <20071120135056.GA18266@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Jan Engelhardt <jengelh@computergmbh.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0711201425530.32378@fbirervta.pbzchgretzou.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Gallatin <gallatin@myri.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	ossthema@de.ibm.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:50744 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755673AbXKTODc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Nov 2007 09:03:32 -0500
+Content-Disposition: inline
+In-Reply-To: <20071120135056.GA18266@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jan Engelhardt =EDrta:
-> On Nov 20 2007 14:14, Laszlo Attila Toth wrote:
->> This is the 6th version of our interface group patches.
->>
->> The interface group value can be used to manage different interfaces
->> at the same time such as in netfilter/iptables.
->=20
-> I take it you could not use...?
-> 	iptables -i iif1 -j dosomething
-> 	iptables -i iif2 -j dosomething
+On Tue, Nov 20, 2007 at 09:50:56PM +0800, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> On Tue, Nov 20, 2007 at 04:35:09PM +0300, Evgeniy Polyakov wrote:
+> > 
+> > On Tue, Nov 20, 2007 at 08:27:05AM -0500, Andrew Gallatin (gallatin@myri.com) wrote:
+> > > Hmm.. rather than a global tunable, what if it was a
+> > > network driver managed tunable which toggled a flag in the
+> > > lro_mgr features?  Would that be better?
+> > 
+> > What about ethtool control to set LRO_simple and LRO_ACK_aggregation?
+> 
+> I have two concerns about this:
+> 
+> 1) That same option can still be turned on by distros.
 
-This kind of usage requires static interface names. But there are=20
-dynamic interfaces such as ppp, where the actual name is not always=20
-known or sometimes they exist sometimes not. It is difficult to use=20
-iptables this way, and every ifup/ifdown requires change in the iptable=
-s=20
-ruleset (donwload it, modify and upload to the kernel). It may be too s=
-low.
+FC and Debian turn on hardware checksumm offloading in e1000 and I have
+a card where this results in more than 10% performance _decrease_.
+I do not know why, but Im able to run script which disables it via
+ethtool.
 
->=20
->> The netfilter patch
->> is ready but future plan is the same for ip/tc commands (except
->> the ifgroup value change which happens via "ip link set" command).
->=20
-> How can it be useful in conjunction with tc?
+> 2) This doesn't make sense because the code is actually in the
+>    core networking stack.
 
-jamal wrote it previously:
-http://marc.info/?l=3Dlinux-netdev&m=3D119253403415810&w=3D2
+It depends. Software lro can be controlled by simple procfs switch, but
+hardware one? I recall it was number of times pointed that hardware LRO
+is possible and likely being implemented in some asics.
 
---=20
-Attila
--
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> I'm particular unhappy about 2) because I don't want be in a
+> situation down the track where every driver is going to add this
+> option so that they're not left behind in the arms race.
+
+For software lro I agree, but this looks exactly like gso/tso case and
+additional tweak for software gso. Having it per-system is fine, and I
+believe no one should ever care that some distro will do bad/good things
+with it. Actually we do have so much tricky options in procfs already
+which can kill performance...
+
+-- 
+	Evgeniy Polyakov
