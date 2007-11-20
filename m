@@ -1,67 +1,59 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH net-2.6.25 0/4] Convert IP4 address class macros to inline functions
-Date: Tue, 20 Nov 2007 16:42:33 +0900
-Message-ID: <20071120074231.GB3402@verge.net.au>
-References: <1195540812.4675.89.camel@localhost> <20071120070601.GE10490@verge.net.au> <1195543124.4675.114.camel@localhost>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [patch 06/22] NET: DM9000: Use kthread to probe MII status when device open
+Date: Tue, 20 Nov 2007 07:46:27 +0000
+Message-ID: <20071120074627.GA31558@infradead.org>
+References: <20071119203910.687238131@fluff.org> <20071119204013.745821010@fluff.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Patrick McHardy <kaber@coreworks.de>
-To: Joe Perches <joe@perches.com>
+Cc: netdev@vger.kernel.org, vince@simtec.co.uk
+To: Ben Dooks <ben-linux@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:44780 "EHLO koto.vergenet.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755484AbXKTHme (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Nov 2007 02:42:34 -0500
+Received: from pentafluge.infradead.org ([213.146.154.40]:58422 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754628AbXKTHqa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 02:46:30 -0500
 Content-Disposition: inline
-In-Reply-To: <1195543124.4675.114.camel@localhost>
+In-Reply-To: <20071119204013.745821010@fluff.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 19, 2007 at 11:18:44PM -0800, Joe Perches wrote:
-> On Tue, 2007-11-20 at 16:06 +0900, Simon Horman wrote:
-> > On Mon, Nov 19, 2007 at 10:40:12PM -0800, Joe Perches wrote:
-> > > Change LOOPBACK MULTICAST LOCAL_MCAST BADCLASS and ZERONET
-> > > macros to inline functions ipv4_is_<type>(__be32 addr)
-> > > Adds some type safety and arguably some readability
-> > > No change in compiled image size
-> > > Signed-off-by: Joe Perches <joe@perches.com>
-> > I can understand the motivation for moving the functionality into
-> > inline functions in order to get some type safety. But what is
-> > the motivation for changing all the macro calls to function calls,
-> > when you have set up the marcos to call the appropriate functions?
-> 
-> It's just a sequence that allows the kernel to compile.
-> 
-> I expect to remove the macros when the other callsites,
-> drivers/infiniband and drivers/parisc, are converted.
-> 
-> > Surely if you want to do that you should just ditch the marcos all
-> > together. Perhaps I am missing a patch?
-> 
-> That's what I'd like to do but in sequence.
-> 
-> David Miller can reasonably accept the net changes, but
-> I'm not too sure he can accept the drivers changes.
-> 
-> If/when this change is accepted and patches for drivers are
-> accepted, I'll submit a patch to remove the macros.
+> +static void dm9000_start_thread(struct net_device *dev)
+> +{
+> +	board_info_t *db = (board_info_t *) dev->priv;
+> +
+> +	/* Create a thread to keep track of the state of the phy
+> +	 * as we do not get an interrupt when the PHY state changes.
+> +	 *
+> +	 * Note, we do not abort the open if we fail to create the
+> +	 * thread, as this is mainly to ensure the user is kept up to
+> +	 * date with the device's state. PHY accesses will still work
+> +	 * via the MII read and write methods.
+> +	 */
+> +
+> +	db->thread = kthread_create(dm9000_mii_thread, db, dev->name);
+> +	if (IS_ERR(db->thread)) {
+> +		dev_err(db->dev, "failed to create MII thread\n");
+> +		db->thread = NULL;
+> +	} else
+> +		wake_up_process(db->thread);
+> +}
+> +
+>  /*
+>   *  Open the interface.
+>   *  The interface is opened whenever "ifconfig" actives it.
+> @@ -704,12 +724,7 @@ dm9000_open(struct net_device *dev)
+>  	/* Init driver variable */
+>  	db->dbug_cnt = 0;
+>  
+> -	/* set and active a timer process */
+> -	init_timer(&db->timer);
+> -	db->timer.expires  = DM9000_TIMER_WUT;
+> -	db->timer.data     = (unsigned long) dev;
+> -	db->timer.function = &dm9000_timer;
+> -	add_timer(&db->timer);
+> +	dm9000_start_thread(dev);
 
-Thanks for the clarification. I realised after I sent my
-mail that you were probably having to cope with other callers.
-
-> > Also, as the function names are longer than the macro name
-> > you are creating lines that are > 80 columns wide that used
-> > not to be in that state. For my eyes that reduced readability
-> > (substantially).
-> 
-> David? You want a patch for that too?
-
--- 
-Horms
+Please don't just ignore the error.  Just inline the content of
+dm9000_start_thread into the caller and use proper goto-based
+unwinding.
 
