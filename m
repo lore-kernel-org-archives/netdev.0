@@ -1,52 +1,40 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 1/2] virtio: fix net driver loop case where we fail to restart
-Date: Tue, 20 Nov 2007 16:20:55 +0900
-Message-ID: <20071120072053.GF10490@verge.net.au>
-References: <200711191120.15596.rusty@rustcorp.com.au>
+From: "Jesper Bengtsson" <jesper.bengtsson@axis.com>
+Subject: Async crypto support in IPsec
+Date: Tue, 20 Nov 2007 08:22:29 +0100
+Message-ID: <BFECAF9E178F144FAEF2BF4CE739C668039A0CD0@exmail1.se.axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lguest <lguest@ozlabs.org>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:44693 "EHLO koto.vergenet.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754242AbXKTHU6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Nov 2007 02:20:58 -0500
-Content-Disposition: inline
-In-Reply-To: <200711191120.15596.rusty@rustcorp.com.au>
+Received: from miranda.se.axis.com ([193.13.178.8]:45517 "EHLO
+	miranda.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752880AbXKTHWd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 02:22:33 -0500
+Received: from exgate.se.axis.com (exgate.se.axis.com [10.0.5.55])
+	by miranda.se.axis.com (8.13.4/8.13.4/Debian-3sarge3) with SMTP id lAK7MV6K026973
+	for <netdev@vger.kernel.org>; Tue, 20 Nov 2007 08:22:31 +0100
+content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 19, 2007 at 11:20:15AM +1100, Rusty Russell wrote:
-> skb is only NULL the first time around: it's more correct to test for
-> being under-budget.
-> 
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Hi,
 
-That looks better to me.
+I'm investigating IPsec with hw-accelerated encryption, using the AXIS
+crisv32 built-in crypto accelerator.
+The crisv32 crypto accelerator does however require asynchronous crypto
+support in crypto API and IPsec stack.
 
-Acked-by: Simon Horman <horms@verge.net.au>
+I've seen that async crypto support made it's way into the crypto API in
+2.6.22.
+>From skimming the netdev-list I can see that some of you are working on
+async crypto support in IPsec as well. Do you have any idea when it will
+be available?
 
-> diff -r 2a94425ac7d5 drivers/net/virtio_net.c
-> --- a/drivers/net/virtio_net.c	Thu Nov 15 13:47:28 2007 +1100
-> +++ b/drivers/net/virtio_net.c	Thu Nov 15 23:10:44 2007 +1100
-> @@ -198,8 +198,8 @@ again:
->  	if (vi->num < vi->max / 2)
->  		try_fill_recv(vi);
->  
-> -	/* All done? */
-> -	if (!skb) {
-> +	/* Out of packets? */
-> +	if (received < budget) {
->  		netif_rx_complete(vi->dev, napi);
->  		if (unlikely(!vi->rvq->vq_ops->restart(vi->rvq))
->  		    && netif_rx_reschedule(vi->dev, napi))
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The crisv32 crypto accelerator supports hashing and encryption in one
+single operation. Do you have any plans for supporting hashing and
+encryption in one operation?
 
--- 
-Horms
-
+Thanks in advance,
+Jesper
