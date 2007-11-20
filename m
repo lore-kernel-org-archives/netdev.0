@@ -1,134 +1,101 @@
-From: "Rami Rosen" <roszenrami@gmail.com>
-Subject: Re: Get the IP address of an interface with a given name
-Date: Tue, 20 Nov 2007 15:00:48 +0200
-Message-ID: <b25312890711200500l862fcafy10c6e08b7072966a@mail.gmail.com>
-References: <885896af0711200009idcc8bd9q781888efe84dc49c@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Giacomo <delleceste@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:34000 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756876AbXKTNAz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 08:00:55 -0500
-Received: by nf-out-0910.google.com with SMTP id g13so1736269nfb
-        for <netdev@vger.kernel.org>; Tue, 20 Nov 2007 05:00:54 -0800 (PST)
-In-Reply-To: <885896af0711200009idcc8bd9q781888efe84dc49c@mail.gmail.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+From: Laszlo Attila Toth <panther@balabit.hu>
+Subject: [PATCHv6 1/3] rtnetlink: setlink changes are unprotected; with single notification
+Date: Tue, 20 Nov 2007 14:14:25 +0100
+Message-ID: <1195564470928-git-send-email-panther@balabit.hu>
+References: <11955644701165-git-send-email-panther@balabit.hu>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Laszlo Attila Toth <panther@balabit.hu>
+To: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <11955644701165-git-send-email-panther@balabit.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Giacomo,
+In do_setlink the device changes don't need to be protected. Notification
+is sent at the end of the function once if any modification occured
+and once if an address has been changed.
 
-  Consider using the dev_get_by_name/() kernel method; this is a
-simplified example which works with device named "eth0" :
+Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
+---
+ net/core/rtnetlink.c |   32 ++++++++++++++++++++------------
+ 1 files changed, 20 insertions(+), 12 deletions(-)
 
-  struct net_device* device;
-  struct in_device* in_dev;
-  struct in_ifaddr* if_info;
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 4a07e83..20cb67e 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -542,7 +542,7 @@ int rtnl_put_cacheinfo(struct sk_buff *skb, struct dst_entry *dst, u32 id,
+ 
+ EXPORT_SYMBOL_GPL(rtnl_put_cacheinfo);
+ 
+-static void set_operstate(struct net_device *dev, unsigned char transition)
++static int set_operstate(struct net_device *dev, unsigned char transition)
+ {
+ 	unsigned char operstate = dev->operstate;
+ 
+@@ -562,11 +562,10 @@ static void set_operstate(struct net_device *dev, unsigned char transition)
+ 	}
+ 
+ 	if (dev->operstate != operstate) {
+-		write_lock_bh(&dev_base_lock);
+ 		dev->operstate = operstate;
+-		write_unlock_bh(&dev_base_lock);
+-		netdev_state_change(dev);
+-	}
++		return 1;
++	} else
++		return 0;
+ }
+ 
+ static void copy_rtnl_link_stats(struct rtnl_link_stats *a,
+@@ -860,6 +859,7 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
+ 	if (tb[IFLA_BROADCAST]) {
+ 		nla_memcpy(dev->broadcast, tb[IFLA_BROADCAST], dev->addr_len);
+ 		send_addr_notify = 1;
++		modified = 1;
+ 	}
+ 
+ 	if (ifm->ifi_flags || ifm->ifi_change) {
+@@ -872,16 +872,22 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
+ 		dev_change_flags(dev, flags);
+ 	}
+ 
+-	if (tb[IFLA_TXQLEN])
+-		dev->tx_queue_len = nla_get_u32(tb[IFLA_TXQLEN]);
++	if (tb[IFLA_TXQLEN]) {
++		if (dev->tx_queue_len != nla_get_u32(tb[IFLA_TXQLEN])) {
++			dev->tx_queue_len = nla_get_u32(tb[IFLA_TXQLEN]);
++			modified = 1;
++		}
++	}
+ 
+-	if (tb[IFLA_OPERSTATE])
+-		set_operstate(dev, nla_get_u8(tb[IFLA_OPERSTATE]));
++	if (tb[IFLA_OPERSTATE]) {
++		modified |= set_operstate(dev, nla_get_u8(tb[IFLA_OPERSTATE]));
++	}
+ 
+ 	if (tb[IFLA_LINKMODE]) {
+-		write_lock_bh(&dev_base_lock);
+-		dev->link_mode = nla_get_u8(tb[IFLA_LINKMODE]);
+-		write_unlock_bh(&dev_base_lock);
++		if (dev->link_mode != nla_get_u8(tb[IFLA_LINKMODE])) {
++			dev->link_mode = nla_get_u8(tb[IFLA_LINKMODE]);
++			modified = 1;
++		}
+ 	}
+ 
+ 	err = 0;
+@@ -895,6 +901,8 @@ errout:
+ 
+ 	if (send_addr_notify)
+ 		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
++	if (modified)
++		netdev_state_change(dev);
+ 	return err;
+ }
+ 
+-- 
+1.5.2.5
 
-  device = dev_get_by_name("eth0");
-  in_dev = (struct in_device *)device->ip_ptr;
-  if_info = in_dev->ifa_list;
-	for (;if_info;if_info=if_info->ifa_next)
-		{
-		if (!(strcmp(if_info->ifa_label,"eth0")))
-			{
-			printk("if_info->ifa_address=%x\n",if_info->ifa_address);	
-			break;
-			}
-		}
-
-
-Yous should of course add check for NULL, etc.
-
-Regards,
-Rami Rosen
-
-
-On Nov 20, 2007 10:09 AM, Giacomo <delleceste@gmail.com> wrote:
-> Good morning.
->
->  I have written a kernel function which needs to get the IP address of
-> an active network interface
->  given its name.
->
->  The actual implementation i have done is like this
->  but i suspect this does not always work.
->  Is there any API already provided by the kernel to do the same?
->
->  Thanks a lot
->
->  Giacomo
->
->  -- actual implementation: ---
->
->  /* returns in *addr the internet address having the name ifname */
->  int get_ifaddr_by_name(const char *ifname, __u32 * addr)
->  {
->         struct net_device *pnet_device;
->         struct in_device *pin_device;
->         struct in_ifaddr* inet_ifaddr;
->
->         read_lock_bh(&dev_base_lock);
->  #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
->         pnet_device = dev_base;
->  #else
->         pnet_device = first_net_device();
->  #endif
->         while (pnet_device != NULL)
->         {
->                 if ((netif_running(pnet_device))
->                                 && (pnet_device->ip_ptr != NULL)
->                                 && (strcmp(pnet_device->name, ifname) == 0))
->                 {
->                         pin_device =
->                                 (struct in_device *) pnet_device->ip_ptr;
->                         inet_ifaddr = pin_device->ifa_list;
->                         if(inet_ifaddr == NULL)
->                         {
->                                 printk("ifa_list is null!\n");
->                                 break;
->                         }
->                         /* ifa_local: ifa_address is the remote point in ppp */
->                         *addr = (inet_ifaddr->ifa_local);
->                           read_unlock_bh(&dev_base_lock);
->                         return 1;
->                 }
->  #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
->                 pnet_device = pnet_device->next;
->  #else
->                 pnet_device = next_net_device(pnet_device);
->  #endif
->
->         }
->
->         read_unlock_bh(&dev_base_lock);
->         return -1;              /* address not found! */
->  }
->
-> --
-> Giacomo S.
-> http://www.giacomos.it
->
-> - - - - - - - - - - - - - - - - - - - - - -
->
-> IPFIREwall (http://www.giacomos.it/ipfire) viene presentato
-> all'Universita` degli Studi di Udine, il 28 ottobre, in occasione del
-> Linux Day 2006:
-> http://iglu.cc.uniud.it/linuxday
->
-> - - - - - - - - - - - - - - - - - - - - - -
->
->  . ''  `.
-> :   :'    :
->  `.  ` '
->     `- Debian GNU/Linux -- The power of freedom
->         http://www.debian.org
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
