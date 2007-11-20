@@ -1,92 +1,47 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: 2.6.24-rc3: find complains about /proc/net
-Date: Tue, 20 Nov 2007 18:51:07 +0300
-Message-ID: <4743026B.2020907@openvz.org>
-References: <20071119191000.GA1560@elf.ucw.cz> <200711192304.25087.rjw@sisk.pl>
+From: "Jonas Danielsson" <the.sator@gmail.com>
+Subject: [PATCH][v2] net/ipv4/arp.c: Fix arp reply when sender ip 0
+Date: Tue, 20 Nov 2007 17:28:22 +0100
+Message-ID: <cac0ab7d0711200828n3548fadn48cce2837ed6a7c6@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: kernel list <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+Cc: "David Miller" <davem@davemloft.net>,
+	"Alexey Kuznetsov" <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:41045 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755513AbXKTPwV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Nov 2007 10:52:21 -0500
-In-Reply-To: <200711192304.25087.rjw@sisk.pl>
+Received: from wa-out-1112.google.com ([209.85.146.181]:49016 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752325AbXKTQ2X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 11:28:23 -0500
+Received: by wa-out-1112.google.com with SMTP id v27so2434090wah
+        for <netdev@vger.kernel.org>; Tue, 20 Nov 2007 08:28:22 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rafael J. Wysocki wrote:
-> On Monday, 19 of November 2007, Pavel Machek wrote:
->> Hi!
->>
->> I think that this worked before:
->>
->> root@amd:/proc# find . -name "timer_info"
->> find: WARNING: Hard link count is wrong for ./net: this may be a bug
->> in your filesystem driver.  Automatically turning on find's -noleaf
->> option.  Earlier results may have failed to include directories that
->> should have been searched.
->> root@amd:/proc#
-> 
-> I'm seeing that too.
+Fix arp reply when received arp probe with sender ip 0.
 
-I have a better things with 2.6.24-rc3 ;)
+Send arp reply with target ip address 0.0.0.0 and target hardware address
+set to hardware address of requester. Previously sent reply with target
+ip address and target hardware address set to same as source fields.
 
-# cd /proc/net
-# ls ..
-ls: reading directory ..: Not a directory
 
-and this
+Signed-off-by: Jonas Danielsson <the.sator@gmail.com>
+Acked-by: Alexey Kuznetov <kuznet@ms2.inr.ac.ru>
+---
+arp.c |    3 ++-
+1 file changed, 2 insertions(+), 1 deletion(-)
 
-# cd /proc
-# find
-...
-./net
-find: . changed during execution of find
-# find net
-find: net changed during execution of find
-# find net/
-<this works ok however>
-
-Moreover. Program that opens /proc/net and dumps the /proc/self/fd
-files produces the following:
-
-# cd /
-# a.out /proc/net
-...
-lr-x------  1 root root 64 Nov 20 18:02 3 -> /proc/net/net (deleted)
-...
-# cd /proc/net
-# a.out .
-...
-lr-x------  1 root root 64 Nov 20 18:03 3 -> /proc/net/net (deleted)
-...
-# a.out ..
-...
-lr-x------  1 root root 64 Nov 20 18:03 3 -> /proc/net
-...
-
-This all is somehow related to the shadow proc files.
-E.g. the first problem (with -ENOTDIR) is due to the shadow /proc/net
-dentry doesn't implement the .readdir method:
-
-static const struct file_operations proc_net_dir_operations = {
-        .read                   = generic_read_dir,
-};
-
-And I haven't managed to find out why the rest problems
-occur...
-
-Eric, do you have fixes for it?
-
-> Rafael
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -828,7 +828,8 @@ static int arp_process(struct sk_buff *skb)
+                if (arp->ar_op == htons(ARPOP_REQUEST) &&
+                    inet_addr_type(tip) == RTN_LOCAL &&
+                    !arp_ignore(in_dev,dev,sip,tip))
+-
+arp_send(ARPOP_REPLY,ETH_P_ARP,tip,dev,tip,sha,dev->dev_addr,dev->dev_addr);
++                       arp_send(ARPOP_REPLY, ETH_P_ARP, sip, dev, tip, sha,
++                                dev->dev_addr, sha);
+                goto out;
+        }
