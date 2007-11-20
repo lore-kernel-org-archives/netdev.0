@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 3/3] IPVS: Move remaining sysctl handlers over to
- CTL_UNNUMBERED
-Date: Mon, 19 Nov 2007 21:51:26 -0800 (PST)
-Message-ID: <20071119.215126.219391970.davem@davemloft.net>
-References: <20071114180615.251592665@natsuko.shinjuku.tokyo.vergenet.net>
-	<20071114180824.652798827@natsuko.shinjuku.tokyo.vergenet.net>
+Subject: Re: [patch 1/2] ipvs: Flag synced connections and expose them in
+ proc
+Date: Mon, 19 Nov 2007 21:52:55 -0800 (PST)
+Message-ID: <20071119.215255.33380832.davem@davemloft.net>
+References: <20071114182439.821730508@natsuko.shinjuku.tokyo.vergenet.net>
+	<20071114182717.864165392@natsuko.shinjuku.tokyo.vergenet.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com,
-	wensong@linux-vs.org, ja@ssi.bg, borntraeger@de.ibm.com
+Cc: netdev@vger.kernel.org, wensong@linux-vs.org, ja@ssi.bg,
+	jmack@wm7d.net, graeme@graemef.net, rumen@voicecho.com
 To: horms@verge.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58557
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58565
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752272AbXKTFv1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 00:51:27 -0500
-In-Reply-To: <20071114180824.652798827@natsuko.shinjuku.tokyo.vergenet.net>
+	by vger.kernel.org with ESMTP id S1751548AbXKTFw4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 00:52:56 -0500
+In-Reply-To: <20071114182717.864165392@natsuko.shinjuku.tokyo.vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Simon Horman <horms@verge.net.au>
-Date: Wed, 14 Nov 2007 10:06:18 -0800
+Date: Wed, 14 Nov 2007 10:24:40 -0800
 
-> Switch the remaining IPVS sysctl entries over to to use CTL_UNNUMBERED,
-> I stronly doubt that anyone is using the sys_sysctl interface to
-> these variables.
+> From: Rumen Bogdanovski <rumen@voicecho.com>
 > 
-> Cc: Eric W. Biederman <ebiederm@xmission.com>
-> Cc: Wensong Zhang <wensong@linux-vs.org>
-> Cc: Julian Anastasov <ja@ssi.bg>
-> Cc: Christian Borntraeger <borntraeger@de.ibm.com>
+> This patch labels the sync-created connections with IP_VS_CONN_F_SYNC
+> flag and creates /proc/net/ip_vs_conn_sync to enable monitoring of the
+> origin of the connections, if they are local or created by the 
+> synchronization.
+> 
+> Signed-off-by: Rumen G. Bogdanovski <rumen@voicecho.com>
 > Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Also applied, thanks.
+Applied to net-2.6.25
