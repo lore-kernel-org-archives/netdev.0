@@ -1,32 +1,28 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH][IPVS] Relax the module get/put in ip_vs_app.c
-Date: Tue, 20 Nov 2007 11:28:18 +0900
-Message-ID: <20071120022816.GL24412@verge.net.au>
-References: <47415E36.8030001@openvz.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 01/11] netpoll: use skb_queue_purge
+Date: Mon, 19 Nov 2007 19:15:16 -0800 (PST)
+Message-ID: <20071119.191516.20628947.davem@davemloft.net>
+References: <20071103184314.216145305@linux-foundation.org>
+	<20071103184338.438809660@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: satyam@infradead.org, netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:44227 "EHLO koto.vergenet.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750728AbXKTC2W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Nov 2007 21:28:22 -0500
-Content-Disposition: inline
-In-Reply-To: <47415E36.8030001@openvz.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38798
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752224AbXKTDPR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2007 22:15:17 -0500
+In-Reply-To: <20071103184338.438809660@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 19, 2007 at 12:58:14PM +0300, Pavel Emelyanov wrote:
-> Both try_module_get/module_put already handle the module == NULL
-> case, so no need in manual checking.
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Sat, 03 Nov 2007 11:43:15 -0700
+
+> Use standard route for flushing queue.
 > 
-> This patch fits both net-2.6 and net-2.6.25.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-Thanks, that looks fine to me.
-
-Acked-by: Simon Horman <horms@verge.net.au>
-
+Applied to net-2.6.25, thanks!
