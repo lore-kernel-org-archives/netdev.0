@@ -1,46 +1,44 @@
 From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [PATCH, take2] netfilter : struct xt_table_info diet
-Date: Tue, 20 Nov 2007 08:50:15 +0100
-Message-ID: <474291B7.6060602@trash.net>
-References: <E1IuN87-0003r5-00@gondolin.me.apana.org.au>
+Date: Tue, 20 Nov 2007 08:54:56 +0100
+Message-ID: <474292D0.7000603@trash.net>
+References: <473B6D88.4010701@cosmosbay.com> <20071120063225.GA18035@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>, dada1@cosmosbay.com,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@lists.netfilter.org>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56398 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:56519 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759614AbXKTHuU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 02:50:20 -0500
-In-Reply-To: <E1IuN87-0003r5-00@gondolin.me.apana.org.au>
+	with ESMTP id S1756627AbXKTHzD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 02:55:03 -0500
+In-Reply-To: <20071120063225.GA18035@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> Simon Horman <horms@verge.net.au> wrote:
->   
->> @@ -269,9 +269,12 @@ struct xt_table_info
->>        unsigned int underflow[NF_INET_NUMHOOKS];
->>
->>        /* ipt_entry tables: one per CPU */
->> -       char *entries[NR_CPUS];
->> +       /* Note : this field MUST be the last one, see XT_TABLE_INFO_SZ */
->> +       char *entries[1];
->>     
+Simon Horman wrote:
+> From: Eric Dumazet <dada1@cosmosbay.com>
 >
-> Just do
+> Instead of using a big array of NR_CPUS entries, we can compute the size
+> needed at runtime, using nr_cpu_ids
 >
-> 	char *entries[];
+> This should save some ram (especially on David's machines where NR_CPUS=4096 :
+> 32 KB can be saved per table, and 64KB for dynamically allocated ones (because
+> of slab/slub alignements) )
 >
-> Not only is it ISO C99, but the compiler will die if it's not at
-> the end.
+> In particular, the 'bootstrap' tables are not any more static (in data
+> section) but on stack as their size is now very small.
 >
-> Actually I haven't read the rest of the patch, so scratch this
-> comment if you really need to have one entry there for some reason :)
->   
+> This also should reduce the size used on stack in compat functions
+> (get_info() declares an automatic variable, that could be bigger than kernel
+> stack size for big NR_CPUS)
 
-I thought this too, but its needed for the bootstrap tables, which are
-declared on the stack :)
+This seems to be identical to the patch I already got queued
+apart from reintroducing the NR_CPUS check. Am I missing
+something?
+
