@@ -1,75 +1,43 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 52/59] net/ipv4: Add missing "space"
-Date: Tue, 20 Nov 2007 15:59:59 +0900
-Message-ID: <20071120065958.GD10490@verge.net.au>
-References: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com> <f047768599df11a74301f81e61903c87417ea9e4.1195454436.git.joe@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Networking Team <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>, coreteam@netfilter.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH, take2] netfilter : struct xt_table_info diet
+Date: Tue, 20 Nov 2007 15:02:43 +0800
+Message-ID: <E1IuN87-0003r5-00@gondolin.me.apana.org.au>
+References: <20071120063225.GA18035@verge.net.au>
+Cc: dada1@cosmosbay.com, kaber@trash.net, davem@davemloft.net,
+	netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+To: horms@verge.net.au (Simon Horman)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:44529 "EHLO koto.vergenet.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755034AbXKTHAB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Nov 2007 02:00:01 -0500
-Content-Disposition: inline
-In-Reply-To: <f047768599df11a74301f81e61903c87417ea9e4.1195454436.git.joe@perches.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:3629 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759568AbXKTHDa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 02:03:30 -0500
+In-Reply-To: <20071120063225.GA18035@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 19, 2007 at 05:53:39PM -0800, Joe Perches wrote:
+Simon Horman <horms@verge.net.au> wrote:
+>
+> @@ -269,9 +269,12 @@ struct xt_table_info
+>        unsigned int underflow[NF_INET_NUMHOOKS];
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+>        /* ipt_entry tables: one per CPU */
+> -       char *entries[NR_CPUS];
+> +       /* Note : this field MUST be the last one, see XT_TABLE_INFO_SZ */
+> +       char *entries[1];
 
-Acked-by: Simon Horman <horms@verge.net.au>
+Just do
 
-> ---
->  net/ipv4/ipvs/ip_vs_core.c       |    2 +-
->  net/ipv4/netfilter/iptable_raw.c |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/ipvs/ip_vs_core.c b/net/ipv4/ipvs/ip_vs_core.c
-> index 20c884a..8fba202 100644
-> --- a/net/ipv4/ipvs/ip_vs_core.c
-> +++ b/net/ipv4/ipvs/ip_vs_core.c
-> @@ -637,7 +637,7 @@ static int ip_vs_out_icmp(struct sk_buff *skb, int *related)
->  	verdict = NF_DROP;
->  
->  	if (IP_VS_FWD_METHOD(cp) != 0) {
-> -		IP_VS_ERR("shouldn't reach here, because the box is on the"
-> +		IP_VS_ERR("shouldn't reach here, because the box is on the "
->  			  "half connection in the tun/dr module.\n");
->  	}
->  
-> diff --git a/net/ipv4/netfilter/iptable_raw.c b/net/ipv4/netfilter/iptable_raw.c
-> index 5de6e57..f867865 100644
-> --- a/net/ipv4/netfilter/iptable_raw.c
-> +++ b/net/ipv4/netfilter/iptable_raw.c
-> @@ -66,7 +66,7 @@ ipt_local_hook(unsigned int hook,
->  	if (skb->len < sizeof(struct iphdr) ||
->  	    ip_hdrlen(skb) < sizeof(struct iphdr)) {
->  		if (net_ratelimit())
-> -			printk("iptable_raw: ignoring short SOCK_RAW"
-> +			printk("iptable_raw: ignoring short SOCK_RAW "
->  			       "packet.\n");
->  		return NF_ACCEPT;
->  	}
-> -- 
-> 1.5.3.5.652.gf192c
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	char *entries[];
 
+Not only is it ISO C99, but the compiler will die if it's not at
+the end.
+
+Actually I haven't read the rest of the patch, so scratch this
+comment if you really need to have one entry there for some reason :)
+
+Cheers,
 -- 
-Horms
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
