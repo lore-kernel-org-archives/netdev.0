@@ -1,39 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 6/6 net-2.6.25][RAW] Consolidate proc interface (v2)
-Date: Mon, 19 Nov 2007 22:38:43 -0800 (PST)
-Message-ID: <20071119.223843.100278186.davem@davemloft.net>
-References: <473DB1E8.60902@openvz.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-2.6.25 0/4] Convert IP4 address class macros to inline
+	functions
+Date: Mon, 19 Nov 2007 22:40:12 -0800
+Message-ID: <1195540812.4675.89.camel@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org, yoshfuji@linux-ipv6.org
-To: xemul@openvz.org
+Cc: netdev <netdev@vger.kernel.org>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@coreworks.de>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57875
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757209AbXKTGio (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 01:38:44 -0500
-In-Reply-To: <473DB1E8.60902@openvz.org>
+Received: from DSL022.labridge.com ([206.117.136.22]:2489 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751989AbXKTGkL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Nov 2007 01:40:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Fri, 16 Nov 2007 18:06:16 +0300
+Change LOOPBACK MULTICAST LOCAL_MCAST BADCLASS and ZERONET
+macros to inline functions ipv4_is_<type>(__be32 addr)
 
-> Both ipv6/raw.c and ipv4/raw.c use the seq files to walk
-> through the raw sockets hash and show them.
-> 
-> The "walking" code is rather huge, but is identical in both
-> cases. The difference is the hash table to walk over and
-> the protocol family to check (this was not in the first
-> virsion of the patch, which was noticed by YOSHIFUJI)
-> 
-> Make the ->open store the needed hash table and the family
-> on the allocated raw_iter_state and make the start/next/stop
-> callbacks work with it.
-> 
-> This removes most of the code.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Adds some type safety and arguably some readability
 
-Also applied, thanks a lot.
+No change in compiled image size
+
+Signed-off-by: Joe Perches <joe@perches.com>
+
+
