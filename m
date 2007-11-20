@@ -1,97 +1,42 @@
-From: Giacomo <delleceste@gmail.com>
-Subject: Get the IP address of an interface with a given name
-Date: Tue, 20 Nov 2007 09:09:33 +0100
-Message-ID: <885896af0711200009idcc8bd9q781888efe84dc49c@mail.gmail.com>
+From: Sebastian Siewior <netdev@ml.breakpoint.cc>
+Subject: Re: Async crypto support in IPsec
+Date: Tue, 20 Nov 2007 09:43:04 +0100
+Message-ID: <20071120084304.GA30366@Chamillionaire.breakpoint.cc>
+References: <BFECAF9E178F144FAEF2BF4CE739C668039A0CD0@exmail1.se.axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Cc: netdev@vger.kernel.org
+To: Jesper Bengtsson <jesper.bengtsson@axis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.179]:37390 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755248AbXKTIJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 03:09:35 -0500
-Received: by wa-out-1112.google.com with SMTP id v27so2286175wah
-        for <netdev@vger.kernel.org>; Tue, 20 Nov 2007 00:09:35 -0800 (PST)
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:50263 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753568AbXKTInG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 03:43:06 -0500
 Content-Disposition: inline
+In-Reply-To: <BFECAF9E178F144FAEF2BF4CE739C668039A0CD0@exmail1.se.axis.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Good morning.
+* Jesper Bengtsson | 2007-11-20 08:22:29 [+0100]:
 
- I have written a kernel function which needs to get the IP address of
-an active network interface
- given its name.
+>I've seen that async crypto support made it's way into the crypto API in
+>2.6.22.
+>From skimming the netdev-list I can see that some of you are working on
+>async crypto support in IPsec as well. Do you have any idea when it will
+>be available?
+Async IPsec is in David Miller's .25 tree.
 
- The actual implementation i have done is like this
- but i suspect this does not always work.
- Is there any API already provided by the kernel to do the same?
+>The crisv32 crypto accelerator supports hashing and encryption in one
+>single operation. Do you have any plans for supporting hashing and
+>encryption in one operation?
+The s390 supports crypto and hashing in one single operation as well.
+Take a look on [1] for hasing and [2] crypto. Evgeniy made a HW driver
+for the async API [3] which sould be in .25.
 
- Thanks a lot
+[1] linux 2.6.23 arch/s390/crypto/sha1_s390.c
+[2] linux 2.6.23 arch/s390/crypto/aes_s390.c
+[3] http://git.kernel.org/?p=linux/kernel/git/herbert/cryptodev-2.6.git;a=commit;h=c93e237e8c73f2b20c8c7b3fbcb2bd77ad06b4b6
 
- Giacomo
-
- -- actual implementation: ---
-
- /* returns in *addr the internet address having the name ifname */
- int get_ifaddr_by_name(const char *ifname, __u32 * addr)
- {
-        struct net_device *pnet_device;
-        struct in_device *pin_device;
-        struct in_ifaddr* inet_ifaddr;
-
-        read_lock_bh(&dev_base_lock);
- #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-        pnet_device = dev_base;
- #else
-        pnet_device = first_net_device();
- #endif
-        while (pnet_device != NULL)
-        {
-                if ((netif_running(pnet_device))
-                                && (pnet_device->ip_ptr != NULL)
-                                && (strcmp(pnet_device->name, ifname) == 0))
-                {
-                        pin_device =
-                                (struct in_device *) pnet_device->ip_ptr;
-                        inet_ifaddr = pin_device->ifa_list;
-                        if(inet_ifaddr == NULL)
-                        {
-                                printk("ifa_list is null!\n");
-                                break;
-                        }
-                        /* ifa_local: ifa_address is the remote point in ppp */
-                        *addr = (inet_ifaddr->ifa_local);
-                          read_unlock_bh(&dev_base_lock);
-                        return 1;
-                }
- #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-                pnet_device = pnet_device->next;
- #else
-                pnet_device = next_net_device(pnet_device);
- #endif
-
-        }
-
-        read_unlock_bh(&dev_base_lock);
-        return -1;              /* address not found! */
- }
-
--- 
-Giacomo S.
-http://www.giacomos.it
-
-- - - - - - - - - - - - - - - - - - - - - -
-
-IPFIREwall (http://www.giacomos.it/ipfire) viene presentato
-all'Universita` degli Studi di Udine, il 28 ottobre, in occasione del
-Linux Day 2006:
-http://iglu.cc.uniud.it/linuxday
-
-- - - - - - - - - - - - - - - - - - - - - -
-
- . ''  `.
-:   :'    :
- `.  ` '
-    `- Debian GNU/Linux -- The power of freedom
-        http://www.debian.org
+>Thanks in advance,
+>Jesper
+Sebastian
