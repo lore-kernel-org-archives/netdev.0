@@ -1,36 +1,45 @@
-From: "Mike Frysinger" <vapier.adi@gmail.com>
-Subject: Re: netconsole=y and rtl8139=m
-Date: Tue, 20 Nov 2007 02:57:16 -0500
-Message-ID: <8bd0f97a0711192357o3c3e66c3w97e08a2a96bac1e4@mail.gmail.com>
-References: <Pine.LNX.4.64.0711200815220.32378@fbirervta.pbzchgretzou.qr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.25 0/4] Convert IP4 address class macros to
+ inline functions
+Date: Tue, 20 Nov 2007 00:03:13 -0800 (PST)
+Message-ID: <20071120.000313.49219676.davem@davemloft.net>
+References: <1195540812.4675.89.camel@localhost>
+	<20071120070601.GE10490@verge.net.au>
+	<1195543124.4675.114.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Jan Engelhardt" <jengelh@computergmbh.de>
+Cc: horms@verge.net.au, netdev@vger.kernel.org, pekkas@netcore.fi,
+	kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, jmorris@namei.org,
+	kaber@coreworks.de
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.227]:10892 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757407AbXKTH5R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 02:57:17 -0500
-Received: by wr-out-0506.google.com with SMTP id c49so996669wra
-        for <netdev@vger.kernel.org>; Mon, 19 Nov 2007 23:57:17 -0800 (PST)
-In-Reply-To: <Pine.LNX.4.64.0711200815220.32378@fbirervta.pbzchgretzou.qr>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43757
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751527AbXKTIDO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 03:03:14 -0500
+In-Reply-To: <1195543124.4675.114.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Nov 20, 2007 2:17 AM, Jan Engelhardt <jengelh@computergmbh.de> wrote:
-> I get this during boot:
->
-> [   40.821740] netconsole: eth1 doesn't exist, aborting.
->
-> Given that CONFIG_NETCONSOLE=y and CONFIG_8139TOO=m, I can imagine.
-> Is there a way to get this working without making 8139TOO=y or
-> NETCONSOLE=m?
+From: Joe Perches <joe@perches.com>
+Date: Mon, 19 Nov 2007 23:18:44 -0800
 
-i guess that depends on what your expectations are.  what do you think
-would qualify as a fix ?  that netconsoles could get added/removed
-dynamically based on network drivers being loaded/unloaded instead of
-netconsole being set up just once at netconsole init time ?
--mike
+> On Tue, 2007-11-20 at 16:06 +0900, Simon Horman wrote:
+> > Also, as the function names are longer than the macro name
+> > you are creating lines that are > 80 columns wide that used
+> > not to be in that state. For my eyes that reduced readability
+> > (substantially).
+> 
+> David? You want a patch for that too?
+
+These patches are just clumsy and awkward, this much I will
+say.
+
+BTW, these seemingly odd macro names come from BSD.
+Terefore they are quite readable for many of us :-)
+
+I don't know what to do with these patches, they feel like
+just plain noise to me even though I like the type checking.
+
+I'm going to defer for now, sorry.
