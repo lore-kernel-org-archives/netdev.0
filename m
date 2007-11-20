@@ -1,7 +1,7 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 35/59] drivers/net/wireless: Add missing "space"
-Date: Mon, 19 Nov 2007 17:48:27 -0800
-Message-ID: <1195523331-15303-36-git-send-email-joe@perches.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 32/59] drivers/net/netxen: Add missing "space"
+Date: Mon, 19 Nov 2007 17:48:24 -0800
+Message-ID: <1195523331-15303-33-git-send-email-joe@perches.com>
 References: 1234567
  <1195523331-15303-1-git-send-email-joe@perches.com>
  <1195523331-15303-2-git-send-email-joe@perches.com>
@@ -35,112 +35,104 @@ References: 1234567
  <1195523331-15303-30-git-send-email-joe@perches.com>
  <1195523331-15303-31-git-send-email-joe@perches.com>
  <1195523331-15303-32-git-send-email-joe@perches.com>
- <1195523331-15303-33-git-send-email-joe@perches.com>
- <1195523331-15303-34-git-send-email-joe@perches.com>
- <1195523331-15303-35-git-send-email-joe@perches.com>
-Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>,
-	libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1195523331-15303-35-git-send-email-joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Message-Id: <5908c0bbfc91b572502351586cdf98fe9ca9aeec.1195454435.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-In-Reply-To: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-References: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "Amit S. Kale" <amitkale@netxen.com>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from DSL022.labridge.com ([206.117.136.22]:2118 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756345AbXKTBtV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Nov 2007 20:49:21 -0500
+In-Reply-To: <1195523331-15303-32-git-send-email-joe@perches.com>
+Message-Id: <3ed0b0aee275e6a8632b1be454a61f3a2b73639c.1195454435.git.joe@perches.com>
+In-Reply-To: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com>
+References: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/wireless/b43/phy.c             |    2 +-
- drivers/net/wireless/b43legacy/phy.c       |    2 +-
- drivers/net/wireless/bcm43xx/bcm43xx_phy.c |    2 +-
- drivers/net/wireless/libertas/wext.c       |    2 +-
- drivers/net/wireless/netwave_cs.c          |    2 +-
- drivers/net/wireless/p54usb.c              |    2 +-
- 6 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/netxen/netxen_nic_hw.c   |    2 +-
+ drivers/net/netxen/netxen_nic_init.c |    4 ++--
+ drivers/net/netxen/netxen_nic_main.c |    6 +++---
+ drivers/net/netxen/netxen_nic_niu.c  |    4 ++--
+ 4 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/wireless/b43/phy.c b/drivers/net/wireless/b43/phy.c
-index 3d4ed64..7ff091e 100644
---- a/drivers/net/wireless/b43/phy.c
-+++ b/drivers/net/wireless/b43/phy.c
-@@ -2214,7 +2214,7 @@ int b43_phy_init_tssi2dbm_table(struct b43_wldev *dev)
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index 2c19b8d..8d692e2 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -664,7 +664,7 @@ void netxen_nic_pci_change_crbwindow(struct netxen_adapter *adapter, u32 wndw)
+ 					NETXEN_PCIX_PH_REG(PCIX_CRB_WINDOW_F3));
+ 			break;
+ 		default:
+-			printk(KERN_INFO "Changing the window for PCI function"
++			printk(KERN_INFO "Changing the window for PCI function "
+ 					"%d\n",	adapter->ahw.pci_func);
+ 			offset = PCI_OFFSET_SECOND_RANGE(adapter,
+ 					NETXEN_PCIX_PH_REG(PCIX_CRB_WINDOW));
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index 3758926..89d9b53 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -1102,8 +1102,8 @@ netxen_process_rcv(struct netxen_adapter *adapter, int ctxid,
  		}
- 		dyn_tssi2dbm = kmalloc(64, GFP_KERNEL);
- 		if (dyn_tssi2dbm == NULL) {
--			b43err(dev->wl, "Could not allocate memory"
-+			b43err(dev->wl, "Could not allocate memory "
- 			       "for tssi2dbm table\n");
- 			return -ENOMEM;
- 		}
-diff --git a/drivers/net/wireless/b43legacy/phy.c b/drivers/net/wireless/b43legacy/phy.c
-index 22a4b3d..491e518 100644
---- a/drivers/net/wireless/b43legacy/phy.c
-+++ b/drivers/net/wireless/b43legacy/phy.c
-@@ -2020,7 +2020,7 @@ int b43legacy_phy_init_tssi2dbm_table(struct b43legacy_wldev *dev)
- 			phy->idle_tssi = 62;
- 		dyn_tssi2dbm = kmalloc(64, GFP_KERNEL);
- 		if (dyn_tssi2dbm == NULL) {
--			b43legacyerr(dev->wl, "Could not allocate memory"
-+			b43legacyerr(dev->wl, "Could not allocate memory "
- 			       "for tssi2dbm table\n");
- 			return -ENOMEM;
- 		}
-diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_phy.c b/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
-index b37f1e3..af3de33 100644
---- a/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
-+++ b/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
-@@ -2149,7 +2149,7 @@ int bcm43xx_phy_init_tssi2dbm_table(struct bcm43xx_private *bcm)
- 		}
- 		dyn_tssi2dbm = kmalloc(64, GFP_KERNEL);
- 		if (dyn_tssi2dbm == NULL) {
--			printk(KERN_ERR PFX "Could not allocate memory"
-+			printk(KERN_ERR PFX "Could not allocate memory "
- 					    "for tssi2dbm table\n");
- 			return -ENOMEM;
- 		}
-diff --git a/drivers/net/wireless/libertas/wext.c b/drivers/net/wireless/libertas/wext.c
-index c6f5aa3..395b788 100644
---- a/drivers/net/wireless/libertas/wext.c
-+++ b/drivers/net/wireless/libertas/wext.c
-@@ -1528,7 +1528,7 @@ static int wlan_set_encodeext(struct net_device *dev,
- 			&& (ext->key_len != KEY_LEN_WPA_TKIP))
- 		    || ((alg == IW_ENCODE_ALG_CCMP)
- 		        && (ext->key_len != KEY_LEN_WPA_AES))) {
--				lbs_deb_wext("invalid size %d for key of alg"
-+				lbs_deb_wext("invalid size %d for key of alg "
- 				       "type %d\n",
- 				       ext->key_len,
- 				       alg);
-diff --git a/drivers/net/wireless/netwave_cs.c b/drivers/net/wireless/netwave_cs.c
-index 2402cb8..d2fa079 100644
---- a/drivers/net/wireless/netwave_cs.c
-+++ b/drivers/net/wireless/netwave_cs.c
-@@ -806,7 +806,7 @@ static int netwave_pcmcia_config(struct pcmcia_device *link) {
-     for (i = 0; i < 6; i++) 
- 	dev->dev_addr[i] = readb(ramBase + NETWAVE_EREG_PA + i);
+ 		if (buffer->lro_current_frags != buffer->lro_expected_frags) {
+ 			if (buffer->lro_expected_frags != 0) {
+-				printk("LRO: (refhandle:%x) recv frag."
+-				       "wait for last. flags: %x expected:%d"
++				printk("LRO: (refhandle:%x) recv frag. "
++				       "wait for last. flags: %x expected:%d "
+ 				       "have:%d\n", index,
+ 				       netxen_get_sts_desc_lro_last_frag(desc),
+ 				       buffer->lro_expected_frags,
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index a80f0cd..f648d43 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -287,7 +287,7 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	printk(KERN_INFO "%s \n", netxen_nic_driver_string);
  
--    printk(KERN_INFO "%s: Netwave: port %#3lx, irq %d, mem %lx"
-+    printk(KERN_INFO "%s: Netwave: port %#3lx, irq %d, mem %lx, "
- 	   "id %c%c, hw_addr %s\n",
- 	   dev->name, dev->base_addr, dev->irq,
- 	   (u_long) ramBase,
-diff --git a/drivers/net/wireless/p54usb.c b/drivers/net/wireless/p54usb.c
-index 755482a..60d286e 100644
---- a/drivers/net/wireless/p54usb.c
-+++ b/drivers/net/wireless/p54usb.c
-@@ -308,7 +308,7 @@ static int p54u_read_eeprom(struct ieee80211_hw *dev)
- 
- 	buf = kmalloc(0x2020, GFP_KERNEL);
- 	if (!buf) {
--		printk(KERN_ERR "prism54usb: cannot allocate memory for"
-+		printk(KERN_ERR "prism54usb: cannot allocate memory for "
- 		       "eeprom readback!\n");
- 		return -ENOMEM;
+ 	if (pdev->class != 0x020000) {
+-		printk(KERN_ERR"NetXen function %d, class %x will not"
++		printk(KERN_ERR"NetXen function %d, class %x will not "
+ 				"be enabled.\n",pci_func_id, pdev->class);
+ 		return -ENODEV;
  	}
+@@ -511,7 +511,7 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 			    vmalloc(RCV_BUFFSIZE);
+ 
+ 			if (rcv_desc->rx_buf_arr == NULL) {
+-				printk(KERN_ERR "%s: Could not allocate"
++				printk(KERN_ERR "%s: Could not allocate "
+ 				       "rcv_desc->rx_buf_arr memory:%d\n",
+ 				       netxen_nic_driver_name,
+ 				       (int)RCV_BUFFSIZE);
+@@ -983,7 +983,7 @@ static int netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	}
+ 
+ 	if (frag_count > MAX_BUFFERS_PER_CMD) {
+-		printk("%s: %s netxen_nic_xmit_frame: frag_count (%d)"
++		printk("%s: %s netxen_nic_xmit_frame: frag_count (%d) "
+ 		       "too large, can handle only %d frags\n",
+ 		       netxen_nic_driver_name, netdev->name,
+ 		       frag_count, MAX_BUFFERS_PER_CMD);
+diff --git a/drivers/net/netxen/netxen_nic_niu.c b/drivers/net/netxen/netxen_nic_niu.c
+index 5b9e1b3..155429d 100644
+--- a/drivers/net/netxen/netxen_nic_niu.c
++++ b/drivers/net/netxen/netxen_nic_niu.c
+@@ -544,8 +544,8 @@ int netxen_niu_gbe_handle_phy_interrupt(struct netxen_adapter *adapter,
+ 								    port,
+ 								    enable);
+ 				} else {
+-					printk(KERN_ERR PFX "ERROR reading"
+-					       "PHY status. Illegal speed.\n");
++					printk(KERN_ERR PFX "ERROR reading "
++					       "PHY status. Invalid speed.\n");
+ 					result = -1;
+ 				}
+ 			} else {
 -- 
 1.5.3.5.652.gf192c
+
