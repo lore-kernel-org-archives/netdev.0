@@ -1,43 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH, take2] netfilter : struct xt_table_info diet
-Date: Tue, 20 Nov 2007 15:02:43 +0800
-Message-ID: <E1IuN87-0003r5-00@gondolin.me.apana.org.au>
-References: <20071120063225.GA18035@verge.net.au>
-Cc: dada1@cosmosbay.com, kaber@trash.net, davem@davemloft.net,
-	netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-To: horms@verge.net.au (Simon Horman)
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH net-2.6.25 0/4] Convert IP4 address class macros to inline functions
+Date: Tue, 20 Nov 2007 16:06:03 +0900
+Message-ID: <20071120070601.GE10490@verge.net.au>
+References: <1195540812.4675.89.camel@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@coreworks.de>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3629 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759568AbXKTHDa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 02:03:30 -0500
-In-Reply-To: <20071120063225.GA18035@verge.net.au>
+Received: from koto.vergenet.net ([210.128.90.7]:44613 "EHLO koto.vergenet.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756624AbXKTHGG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Nov 2007 02:06:06 -0500
+Content-Disposition: inline
+In-Reply-To: <1195540812.4675.89.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Simon Horman <horms@verge.net.au> wrote:
->
-> @@ -269,9 +269,12 @@ struct xt_table_info
->        unsigned int underflow[NF_INET_NUMHOOKS];
+On Mon, Nov 19, 2007 at 10:40:12PM -0800, Joe Perches wrote:
+> Change LOOPBACK MULTICAST LOCAL_MCAST BADCLASS and ZERONET
+> macros to inline functions ipv4_is_<type>(__be32 addr)
 > 
->        /* ipt_entry tables: one per CPU */
-> -       char *entries[NR_CPUS];
-> +       /* Note : this field MUST be the last one, see XT_TABLE_INFO_SZ */
-> +       char *entries[1];
+> Adds some type safety and arguably some readability
+> 
+> No change in compiled image size
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Just do
+I can understand the motivation for moving the functionality into
+inline functions in order to get some type safety. But what is
+the motivation for changing all the macro calls to function calls,
+when you have set up the marcos to call the appropriate functions?
+Surely if you want to do that you should just ditch the marcos all
+together. Perhaps I am missing a patch?
 
-	char *entries[];
+Also, as the function names are longer than the macro name
+you are creating lines that are > 80 columns wide that used
+not to be in that state. For my eyes that reduced readability
+(substantially).
 
-Not only is it ISO C99, but the compiler will die if it's not at
-the end.
-
-Actually I haven't read the rest of the patch, so scratch this
-comment if you really need to have one entry there for some reason :)
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Horms
+
