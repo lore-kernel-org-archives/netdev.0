@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 50/59] net/bridge: Add missing "space"
-Date: Mon, 19 Nov 2007 17:53:37 -0800
-Message-ID: <9a9f50d85954bdc384d07e363cc586161a37f93b.1195454436.git.joe__20879.6385246844$1195524711$gmane$org@perches.com>
+Subject: [PATCH 53/59] net/ipv6: Add missing "space"
+Date: Mon, 19 Nov 2007 17:53:40 -0800
+Message-ID: <e6a341b03ca9134b944d3021738a795c4e9085c7.1195454436.git.joe__49203.3546594486$1195524712$gmane$org@perches.com>
 References: 1234567
  <1195523627-15389-1-git-send-email-joe@perches.com>
  <1195523627-15389-2-git-send-email-joe@perches.com>
@@ -10,16 +10,20 @@ References: 1234567
  <1195523627-15389-5-git-send-email-joe@perches.com>
  <1195523627-15389-6-git-send-email-joe@perches.com>
  <1195523627-15389-7-git-send-email-joe@perches.com>
-Cc: Bart De Schuymer <bart.de.schuymer@pandora.be>,
+ <1195523627-15389-8-git-send-email-joe@perches.com>
+ <1195523627-15389-9-git-send-email-joe@perches.com>
+ <1195523627-15389-10-git-send-email-joe@perches.com>
+Cc: "Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	James Morris <jmorris@namei.org>,
 	Networking Team <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>, coreteam@netfilter.org,
-	ebtables-devel@lists.sourceforge.net,
-	ebtables-user@lists.sourceforge.net,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org
+	Patrick McHardy <kaber@trash.net>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757937AbXKTCI7@vger.kernel.org>
-In-Reply-To: <1195523627-15389-7-git-send-email-joe@perches.com>
-Message-Id: <9a9f50d85954bdc384d07e363cc586161a37f93b.1195454436.git.joe@perches.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760746AbXKTCKA@vger.kernel.org>
+In-Reply-To: <1195523627-15389-10-git-send-email-joe@perches.com>
+Message-Id: <e6a341b03ca9134b944d3021738a795c4e9085c7.1195454436.git.joe@perches.com>
 In-Reply-To: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com>
 References: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -28,21 +32,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/bridge/netfilter/ebt_among.c |    2 +-
+ net/ipv6/addrconf.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/bridge/netfilter/ebt_among.c b/net/bridge/netfilter/ebt_among.c
-index 392d877..6436d30 100644
---- a/net/bridge/netfilter/ebt_among.c
-+++ b/net/bridge/netfilter/ebt_among.c
-@@ -187,7 +187,7 @@ static int ebt_among_check(const char *tablename, unsigned int hookmask,
- 
- 	if (datalen != EBT_ALIGN(expected_length)) {
- 		printk(KERN_WARNING
--		       "ebtables: among: wrong size: %d"
-+		       "ebtables: among: wrong size: %d "
- 		       "against expected %d, rounded to %Zd\n",
- 		       datalen, expected_length,
- 		       EBT_ALIGN(expected_length));
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 1bd8d81..567664e 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -967,7 +967,7 @@ int ipv6_dev_get_saddr(struct net_device *daddr_dev,
+ 			if (unlikely(score.addr_type == IPV6_ADDR_ANY ||
+ 				     score.addr_type & IPV6_ADDR_MULTICAST)) {
+ 				LIMIT_NETDEBUG(KERN_DEBUG
+-					       "ADDRCONF: unspecified / multicast address"
++					       "ADDRCONF: unspecified / multicast address "
+ 					       "assigned as unicast address on %s",
+ 					       dev->name);
+ 				continue;
 -- 
 1.5.3.5.652.gf192c
