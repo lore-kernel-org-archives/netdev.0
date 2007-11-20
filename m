@@ -1,42 +1,69 @@
-From: Sebastian Siewior <netdev@ml.breakpoint.cc>
-Subject: Re: Async crypto support in IPsec
-Date: Tue, 20 Nov 2007 09:43:04 +0100
-Message-ID: <20071120084304.GA30366@Chamillionaire.breakpoint.cc>
-References: <BFECAF9E178F144FAEF2BF4CE739C668039A0CD0@exmail1.se.axis.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] forcedeth boot delay fix
+Date: Tue, 20 Nov 2007 01:08:58 -0800
+Message-ID: <20071120010858.4d098194.akpm@linux-foundation.org>
+References: <47408EE5.2040302@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: netdev@vger.kernel.org
-To: Jesper Bengtsson <jesper.bengtsson@axis.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	nedev <netdev@vger.kernel.org>, stable@kernel.org
+To: Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:50263 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753568AbXKTInG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 03:43:06 -0500
-Content-Disposition: inline
-In-Reply-To: <BFECAF9E178F144FAEF2BF4CE739C668039A0CD0@exmail1.se.axis.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:45709 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757043AbXKTJJn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 04:09:43 -0500
+In-Reply-To: <47408EE5.2040302@nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Jesper Bengtsson | 2007-11-20 08:22:29 [+0100]:
+On Sun, 18 Nov 2007 14:13:41 -0500 Ayaz Abdulla <aabdulla@nvidia.com> wrote:
 
->I've seen that async crypto support made it's way into the crypto API in
->2.6.22.
->From skimming the netdev-list I can see that some of you are working on
->async crypto support in IPsec as well. Do you have any idea when it will
->be available?
-Async IPsec is in David Miller's .25 tree.
+> This patch fixes a long boot delay in the forcedeth driver. During 
+> initialization, the timeout for the handshake between mgmt unit and 
+> driver can be very long. The patch reduces the timeout by eliminating a 
+> extra loop around the timeout logic.
+> 
+> Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+> 
+> 
+> 
+> [patch-forcedeth-sema-fix  text/plain (1.3KB)]
+> --- old/drivers/net/forcedeth.c	2007-11-08 17:33:00.000000000 -0500
+> +++ new/drivers/net/forcedeth.c	2007-11-08 17:34:25.000000000 -0500
+> @@ -5286,20 +5286,17 @@
+>  		if (readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_PHY_INIT) {
+>  			np->mac_in_use = readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_MGMT_ST;
+>  			dprintk(KERN_INFO "%s: mgmt unit is running. mac in use %x.\n", pci_name(pci_dev), np->mac_in_use);
+> -			for (i = 0; i < 5000; i++) {
+> -				msleep(1);
+> -				if (nv_mgmt_acquire_sema(dev)) {
+> -					/* management unit setup the phy already? */
+> -					if ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_MASK) ==
+> -					    NVREG_XMITCTL_SYNC_PHY_INIT) {
+> -						/* phy is inited by mgmt unit */
+> -						phyinitialized = 1;
+> -						dprintk(KERN_INFO "%s: Phy already initialized by mgmt unit.\n", pci_name(pci_dev));
+> -					} else {
+> -						/* we need to init the phy */
+> -					}
+> -					break;
+> +			if (nv_mgmt_acquire_sema(dev)) {
+> +				/* management unit setup the phy already? */
+> +				if ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_MASK) ==
+> +				    NVREG_XMITCTL_SYNC_PHY_INIT) {
+> +					/* phy is inited by mgmt unit */
+> +					phyinitialized = 1;
+> +					dprintk(KERN_INFO "%s: Phy already initialized by mgmt unit.\n", pci_name(pci_dev));
+> +				} else {
+> +					/* we need to init the phy */
+>  				}
+> +				break;
+>  			}
+>  		}
+>  	}
 
->The crisv32 crypto accelerator supports hashing and encryption in one
->single operation. Do you have any plans for supporting hashing and
->encryption in one operation?
-The s390 supports crypto and hashing in one single operation as well.
-Take a look on [1] for hasing and [2] crypto. Evgeniy made a HW driver
-for the async API [3] which sould be in .25.
-
-[1] linux 2.6.23 arch/s390/crypto/sha1_s390.c
-[2] linux 2.6.23 arch/s390/crypto/aes_s390.c
-[3] http://git.kernel.org/?p=linux/kernel/git/herbert/cryptodev-2.6.git;a=commit;h=c93e237e8c73f2b20c8c7b3fbcb2bd77ad06b4b6
-
->Thanks in advance,
->Jesper
-Sebastian
+drivers/net/forcedeth.c: In function 'nv_probe':
+drivers/net/forcedeth.c:5307: error: break statement not within loop or switch  
