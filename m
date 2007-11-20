@@ -1,73 +1,66 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: [NFS] [PATCH 56/59] net/sunrpc: Add missing "space"
-Date: Mon, 19 Nov 2007 17:53:43 -0800
-Message-ID: <4a6aeee33cf9dc9a3e329e73b6bc584b7650ed51.1195454436.git.joe__29991.7693868794$1195523857$gmane$org@perches.com>
-References: 1234567 <1195523627-15389-1-git-send-email-joe@perches.com>
-	<1195523627-15389-2-git-send-email-joe@perches.com>
-	<1195523627-15389-3-git-send-email-joe@perches.com>
-	<1195523627-15389-4-git-send-email-joe@perches.com>
-	<1195523627-15389-5-git-send-email-joe@perches.com>
-	<1195523627-15389-6-git-send-email-joe@perches.com>
-	<1195523627-15389-7-git-send-email-joe@perches.com>
-	<1195523627-15389-8-git-send-email-joe@perches.com>
-	<1195523627-15389-9-git-send-email-joe@perches.com>
-	<1195523627-15389-10-git-send-email-joe@perches.com>
-	<1195523627-15389-11-git-send-email-joe@perches.com>
-	<1195523627-15389-12-git-send-email-joe@perches.com>
-	<1195523627-15389-13-git-send-email-joe@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	Networking Team <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, nfs-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1195523627-15389-13-git-send-email-joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Message-Id: <4a6aeee33cf9dc9a3e329e73b6bc584b7650ed51.1195454436.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-In-Reply-To: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-References: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 30/59] drivers/net/cxgb3: Add missing "space"
+Date: Mon, 19 Nov 2007 17:48:22 -0800
+Message-ID: <1020259349705ef83d6011e837dce32c1f08299c.1195454435.git.joe__9631.58384333855$1195524078$gmane$org@perches.com>
+References: 1234567
+ <1195523331-15303-1-git-send-email-joe@perches.com>
+ <1195523331-15303-2-git-send-email-joe@perches.com>
+ <1195523331-15303-3-git-send-email-joe@perches.com>
+ <1195523331-15303-4-git-send-email-joe@perches.com>
+ <1195523331-15303-5-git-send-email-joe@perches.com>
+ <1195523331-15303-6-git-send-email-joe@perches.com>
+ <1195523331-15303-7-git-send-email-joe@perches.com>
+ <1195523331-15303-8-git-send-email-joe@perches.com>
+ <1195523331-15303-9-git-send-email-joe@perches.com>
+ <1195523331-15303-10-git-send-email-joe@perches.com>
+ <1195523331-15303-11-git-send-email-joe@perches.com>
+ <1195523331-15303-12-git-send-email-joe@perches.com>
+ <1195523331-15303-13-git-send-email-joe@perches.com>
+ <1195523331-15303-14-git-send-email-joe@perches.com>
+ <1195523331-15303-15-git-send-email-joe@perches.com>
+ <1195523331-15303-16-git-send-email-joe@perches.com>
+ <1195523331-15303-17-git-send-email-joe@perches.com>
+ <1195523331-15303-18-git-send-email-joe@perches.com>
+ <1195523331-15303-19-git-send-email-joe@perches.com>
+ <1195523331-15303-20-git-send-email-joe@perches.com>
+ <1195523331-15303-21-git-send-email-joe@perches.com>
+ <1195523331-15303-22-git-send-email-joe@perches.com>
+ <1195523331-15303-23-git-send-email-joe@perches.com>
+ <1195523331-15303-24-git-send-email-joe@perches.com>
+ <1195523331-15303-25-git-send-email-joe@perches.com>
+ <1195523331-15303-26-git-send-email-joe@perches.com>
+ <1195523331-15303-27-git-send-email-joe@perches.com>
+ <1195523331-15303-28-git-send-email-joe@perches.com>
+ <1195523331-15303-29-git-send-email-joe@perches.com>
+ <1195523331-15303-30-git-send-email-joe@perches.com>
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760089AbXKTCAc@vger.kernel.org>
+In-Reply-To: <1195523331-15303-30-git-send-email-joe@perches.com>
+Message-Id: <1020259349705ef83d6011e837dce32c1f08299c.1195454435.git.joe@perches.com>
+In-Reply-To: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com>
+References: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/sunrpc/auth_gss/auth_gss.c |    2 +-
+ drivers/net/cxgb3/cxgb3_offload.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
-index 53995af..22906b8 100644
---- a/net/sunrpc/auth_gss/auth_gss.c
-+++ b/net/sunrpc/auth_gss/auth_gss.c
-@@ -967,7 +967,7 @@ gss_validate(struct rpc_task *task, __be32 *p)
- 	if (maj_stat == GSS_S_CONTEXT_EXPIRED)
- 		clear_bit(RPCAUTH_CRED_UPTODATE, &cred->cr_flags);
- 	if (maj_stat) {
--		dprintk("RPC: %5u gss_validate: gss_verify_mic returned"
-+		dprintk("RPC: %5u gss_validate: gss_verify_mic returned "
- 				"error 0x%08x\n", task->tk_pid, maj_stat);
- 		goto out_bad;
+diff --git a/drivers/net/cxgb3/cxgb3_offload.c b/drivers/net/cxgb3/cxgb3_offload.c
+index bd25421..7086f76 100644
+--- a/drivers/net/cxgb3/cxgb3_offload.c
++++ b/drivers/net/cxgb3/cxgb3_offload.c
+@@ -1004,7 +1004,7 @@ void cxgb_redirect(struct dst_entry *old, struct dst_entry *new)
+ 	if (!is_offloading(olddev))
+ 		return;
+ 	if (!is_offloading(newdev)) {
+-		printk(KERN_WARNING "%s: Redirect to non-offload"
++		printk(KERN_WARNING "%s: Redirect to non-offload "
+ 		       "device ignored.\n", __FUNCTION__);
+ 		return;
  	}
 -- 
 1.5.3.5.652.gf192c
-
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2005.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
-_______________________________________________
-NFS maillist  -  NFS-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-https://lists.sourceforge.net/lists/listinfo/nfs
-_______________________________________________
-Please note that nfs-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org is being discontinued.
-Please subscribe to linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org instead.
-    http://vger.kernel.org/vger-lists.html#linux-nfs
-
--
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
