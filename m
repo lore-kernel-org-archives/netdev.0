@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 52/59] net/ipv4: Add missing "space"
-Date: Mon, 19 Nov 2007 17:53:39 -0800
-Message-ID: <f047768599df11a74301f81e61903c87417ea9e4.1195454436.git.joe__31678.6703457639$1195523719$gmane$org@perches.com>
+Subject: [PATCH 54/59] net/irda: Add missing "space"
+Date: Mon, 19 Nov 2007 17:53:41 -0800
+Message-ID: <1195523627-15389-12-git-send-email-joe@perches.com>
 References: 1234567
  <1195523627-15389-1-git-send-email-joe@perches.com>
  <1195523627-15389-2-git-send-email-joe@perches.com>
@@ -12,55 +12,41 @@ References: 1234567
  <1195523627-15389-7-git-send-email-joe@perches.com>
  <1195523627-15389-8-git-send-email-joe@perches.com>
  <1195523627-15389-9-git-send-email-joe@perches.com>
-Cc: "Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Networking Team <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>, coreteam@netfilter.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org
+ <1195523627-15389-10-git-send-email-joe@perches.com>
+ <1195523627-15389-11-git-send-email-joe@perches.com>
+Cc: Networking Team <netdev@vger.kernel.org>,
+	Samuel Ortiz <samuel@sortiz.org>
 To: linux-kernel@vger.kernel.org
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <1195523627-15389-9-git-send-email-joe@perches.com>
-Message-Id: <f047768599df11a74301f81e61903c87417ea9e4.1195454436.git.joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from DSL022.labridge.com ([206.117.136.22]:2214 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758761AbXKTBx6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Nov 2007 20:53:58 -0500
+In-Reply-To: <1195523627-15389-11-git-send-email-joe@perches.com>
+Message-Id: <40f9ed858135b417a27a0a628667cc0da0d91e73.1195454436.git.joe@perches.com>
 In-Reply-To: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com>
 References: <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com>
-Sender: netfilter-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/ipv4/ipvs/ip_vs_core.c       |    2 +-
- net/ipv4/netfilter/iptable_raw.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ net/irda/iriap.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/ipvs/ip_vs_core.c b/net/ipv4/ipvs/ip_vs_core.c
-index 20c884a..8fba202 100644
---- a/net/ipv4/ipvs/ip_vs_core.c
-+++ b/net/ipv4/ipvs/ip_vs_core.c
-@@ -637,7 +637,7 @@ static int ip_vs_out_icmp(struct sk_buff *skb, int *related)
- 	verdict = NF_DROP;
+diff --git a/net/irda/iriap.c b/net/irda/iriap.c
+index dc5e34a..a86a5d8 100644
+--- a/net/irda/iriap.c
++++ b/net/irda/iriap.c
+@@ -928,7 +928,7 @@ void iriap_call_indication(struct iriap_cb *self, struct sk_buff *skb)
  
- 	if (IP_VS_FWD_METHOD(cp) != 0) {
--		IP_VS_ERR("shouldn't reach here, because the box is on the"
-+		IP_VS_ERR("shouldn't reach here, because the box is on the "
- 			  "half connection in the tun/dr module.\n");
- 	}
- 
-diff --git a/net/ipv4/netfilter/iptable_raw.c b/net/ipv4/netfilter/iptable_raw.c
-index 5de6e57..f867865 100644
---- a/net/ipv4/netfilter/iptable_raw.c
-+++ b/net/ipv4/netfilter/iptable_raw.c
-@@ -66,7 +66,7 @@ ipt_local_hook(unsigned int hook,
- 	if (skb->len < sizeof(struct iphdr) ||
- 	    ip_hdrlen(skb) < sizeof(struct iphdr)) {
- 		if (net_ratelimit())
--			printk("iptable_raw: ignoring short SOCK_RAW"
-+			printk("iptable_raw: ignoring short SOCK_RAW "
- 			       "packet.\n");
- 		return NF_ACCEPT;
+ 	opcode = fp[0];
+ 	if (~opcode & 0x80) {
+-		IRDA_WARNING("%s: IrIAS multiframe commands or results"
++		IRDA_WARNING("%s: IrIAS multiframe commands or results "
+ 			     "is not implemented yet!\n", __FUNCTION__);
+ 		return;
  	}
 -- 
 1.5.3.5.652.gf192c
