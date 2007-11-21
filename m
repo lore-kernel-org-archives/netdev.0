@@ -1,41 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/2] [LIB]: Introduce struct pcounter
-Date: Wed, 21 Nov 2007 22:09:29 +0800
-Message-ID: <20071121140929.GA31033@gondor.apana.org.au>
-References: <20071107161615.GL27345@ghostprotocols.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, dada1@cosmosbay.com,
-	netdev@vger.kernel.org
-To: Arnaldo Carvalho de Melo <acme@redhat.com>
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: [PATCH] smc911x: Fix unused variable warning.
+Date: Wed, 21 Nov 2007 15:34:15 +0100
+Message-ID: <E1IuqlV-0002f9-LF@nanv.dk>
+To: netdev@vger.kernel.org, jeff@garzik.org, dustin@sensoria.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3852 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753909AbXKUOJs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 09:09:48 -0500
-Content-Disposition: inline
-In-Reply-To: <20071107161615.GL27345@ghostprotocols.net>
+Received: from vps.korsgaard.com ([64.79.194.204]:40473 "EHLO nanv.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750728AbXKUOlY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Nov 2007 09:41:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 07, 2007 at 04:16:15PM +0000, Arnaldo Carvalho de Melo wrote:
-> This just generalises what was introduced by Eric Dumazet for the struct proto
-> inuse field in 286ab3d46058840d68e5d7d52e316c1f7e98c59f:
-> 
->     [NET]: Define infrastructure to keep 'inuse' changes in an efficent SMP/NUMA way.
-> 
-> Please look at the comment in there to see the rationale.
-> 
-> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+The smc911x_local pointer in smc911x_rcv is only used in the SMC_USE_DMA
+case. Move it under the #ifdef so GCC doesn't generate a warning in the
+non-DMA case.
+---
+ drivers/net/smc911x.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Both patches applied.  Thanks Arnaldo!
-
-This patch had some trailing white spaces picked up by git which
-I've fixed.
-
-Cheers,
+diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
+index dd18af0..69a78b3 100644
+--- a/drivers/net/smc911x.c
++++ b/drivers/net/smc911x.c
+@@ -428,7 +428,6 @@ static inline void smc911x_drop_pkt(struct net_device *dev)
+  */
+ static inline void	 smc911x_rcv(struct net_device *dev)
+ {
+-	struct smc911x_local *lp = netdev_priv(dev);
+ 	unsigned long ioaddr = dev->base_addr;
+ 	unsigned int pkt_len, status;
+ 	struct sk_buff *skb;
+@@ -473,6 +472,7 @@ static inline void	 smc911x_rcv(struct net_device *dev)
+ 		skb_put(skb,pkt_len-4);
+ #ifdef SMC_USE_DMA
+ 		{
++		struct smc911x_local *lp = netdev_priv(dev);
+ 		unsigned int fifo;
+ 		/* Lower the FIFO threshold if possible */
+ 		fifo = SMC_GET_FIFO_INT();
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.5.3.4
+
