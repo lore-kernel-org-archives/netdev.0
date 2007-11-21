@@ -1,94 +1,74 @@
-From: Balazs Scheidler <bazsi@balabit.hu>
-Subject: Re: [PATCHv6 0/3] Interface group patches
-Date: Wed, 21 Nov 2007 16:56:02 +0100
-Message-ID: <1195660563.6691.5.camel@bzorp.balabit>
-References: <11955644701165-git-send-email-panther@balabit.hu>
-	 <Pine.LNX.4.64.0711201425530.32378@fbirervta.pbzchgretzou.qr>
-	 <4742E68C.2000802@balabit.hu>
-	 <20071120.134242.177093096.davem@davemloft.net>
-	 <47437B12.9090009@trash.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFC][PATCH 1/3] NET_SCHED: PSPacer qdisc module
+Date: Wed, 21 Nov 2007 16:58:47 +0100
+Message-ID: <474455B7.3080005@cosmosbay.com>
+References: <20071121.191840.07671434.takano@axe-inc.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, panther@balabit.hu,
-	jengelh@computergmbh.de, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <47437B12.9090009@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	t.kudoh@aist.go.jp
+To: Ryousei Takano <takano-ryousei@aist.go.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:55122 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755496AbXKUP7K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 10:59:10 -0500
+In-Reply-To: <20071121.191840.07671434.takano@axe-inc.co.jp>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-On Wed, 2007-11-21 at 01:25 +0100, Patrick McHardy wrote:
-> David Miller wrote:
-> > From: Laszlo Attila Toth <panther@balabit.hu>
-> > Date: Tue, 20 Nov 2007 14:52:12 +0100
-> >=20
-> >> Jan Engelhardt =C3=ADrta:
-> >>> On Nov 20 2007 14:14, Laszlo Attila Toth wrote:
-> >>>> This is the 6th version of our interface group patches.
-> >>>>
-> >>>> The interface group value can be used to manage different interf=
-aces
-> >>>> at the same time such as in netfilter/iptables.
-> >>> I take it you could not use...?
-> >>> 	iptables -i iif1 -j dosomething
-> >>> 	iptables -i iif2 -j dosomething
-> >> This kind of usage requires static interface names. But there are=20
-> >> dynamic interfaces such as ppp, where the actual name is not alway=
-s=20
-> >> known or sometimes they exist sometimes not. It is difficult to us=
-e=20
-> >> iptables this way, and every ifup/ifdown requires change in the ip=
-tables=20
-> >> ruleset (donwload it, modify and upload to the kernel). It may be =
-too slow.
-> >=20
-> > This is actually not true these days.
-> >=20
-> > When network devices are created user events are generated and the
-> > user can rename the device however they like using a mapping table =
-of
-> > any kind.
-> >=20
-> > And at such point the problem you present doesn't actually exist, y=
-ou
-> > can know what the device will be named.
-> >=20
-> > And if rule loading dynamically is slow, we should fix that instead=
- of
-> > creating infrastructure and interfaces we don't actually need.
+Ryousei Takano a =E9crit :
+> This patch includes the PSPacer (Precise Software Pacer) qdisc
+> module, which achieves precise transmission bandwidth control.
+> You can find more information at the project web page
+> (http://www.gridmpi.org/gridtcp.jsp).
 >=20
->=20
-> I actually like this feature. Matching on names in iptables
-> has always been one of the major bottlenecks, taking
-> (according to my last measurement, which is some time ago)
-> about 1-2% of the total performance. This is of course in
-> large parts because the interface match is present on *every*
-> rule, but still some way to logically group interfaces seems
-> useful to me, not only for iptables, but also for routing rules,
-> traffic classifiers, af_packet sockets etc.
->=20
-> I'm working on the incremental ruleset changing API BTW :)
-> One of the changes will be that interface matching is not
-> a default part of every rule, and without wildcards it will
-> use the ifindex. But since the cost of this feature seems
-> pretty low, I don't see a compelling reason against it.
+> Signed-off-by: Ryousei Takano <takano-ryousei@aist.go.jp>
 
-We are also using interface groups from userspace applications (hence
-the netlink notification).=20
 
-ppp comes up, an interface is created according to the pppd
-configuration, which then assigns the interface to the given group.
-another application (a proxy based firewall in our example) listens to
-this notification and binds to the new interface as well.
+> +static struct sk_buff *alloc_gap_packet(struct Qdisc* sch, int size)
+> +{
+> +	struct sk_buff *skb;
+> +	struct net_device *dev =3D sch->dev;
+> +	unsigned char *pkt;
+> +	int pause_time =3D 0;
+> +	int pktsize =3D size + 2;
+> +
+> +	skb =3D alloc_skb(pktsize, GFP_ATOMIC);
+> +	if (!skb)
+> +		return NULL;
+> +
+> +	skb_reserve(skb, 2);
 
---=20
-Bazsi
+minor nit, but skb_reserve is not *needed* here.
 
--
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+skb_reserve() is used to align IP header on a 16 bytes boundary, and
+we do it on rx side to speedup IP stack, at the cost of a possibly more
+expensive DMA transfert.
+
+Here you dont send an IP packet, do you ?
+
+> +
+> +	pkt =3D skb->data;
+> +	memset(pkt, 0xff, pktsize);
+> +	pkt[0] =3D 0x01; /* dst address: 01:80:c2:00:00:01 */
+> +	pkt[1] =3D 0x80;
+> +	pkt[2] =3D 0xc2;
+> +	pkt[3] =3D 0x00;
+> +	pkt[4] =3D 0x00;
+> +	pkt[5] =3D 0x01;
+> +	memcpy(pkt + 6, dev->dev_addr, ETH_ALEN /* dev->addr_len */);
+> +
+> +	pkt[12] =3D 0x88; /* MAC control:        88 08 */
+> +	pkt[13] =3D 0x08;
+> +	pkt[14] =3D 0;    /* MAC control opcode: 00 01 */
+> +	pkt[15] =3D 1;
+> +	pkt[16] =3D pause_time >> 8;
+> +	pkt[17] =3D pause_time;
+> +
+> +	skb_put(skb, size);
+> +
+> +	skb->dev =3D sch->dev;
+
