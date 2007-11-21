@@ -1,30 +1,25 @@
-From: <wyb@topsec.com.cn>
-Subject: is it useful testing __LINK_STATE_RX_SCHED in dev_close()?
-Date: Wed, 21 Nov 2007 09:40:16 +0800
-Message-ID: <200711210142.AYF83693@topsec.com.cn>
+From: David Miller <davem@davemloft.net>
+Subject: [README] away until Dec 3rd
+Date: Tue, 20 Nov 2007 20:29:21 -0800 (PST)
+Message-ID: <20071120.202921.78239222.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Cc: herbert@gondor.apana.org.au
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.topsec.com.cn ([202.99.27.222]:56218 "EHLO
-	mail1.topsec.com.cn" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751676AbXKUBp2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 20:45:28 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35165
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750712AbXKUE3W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 23:29:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-cpu0 calling netif_rx_schedule_prep(), cpu1 calling dev_close():
 
-cpu0: testing __LINK_STATE_START, already set
-cpu1: clear__LINK_STATE_START
-cpu1: testing __LINK_STATE_RX_SCHED, not set
-cpu0: set __LINK_STATE_RX_SCHED
-cpu0: enter net poll, ...
+I will be away on vacation until Dec. 3rd
 
-when cpu1 return from dev_close(),__LINK_STATE_RX_SCHED is still set, the
-testing maybe of no use.
+During this time Herbert Xu (CC:'d) will take care of both the net-2.6
+stable tree and the net-2.6.25 devel tree.
 
-
-
+Therefore please CC: him on all networking patches just as you
+normally would me.
