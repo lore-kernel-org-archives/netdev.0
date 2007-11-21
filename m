@@ -1,42 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][v2] net/ipv4/arp.c: Fix arp reply when sender ip 0
-Date: Tue, 20 Nov 2007 17:38:04 -0800 (PST)
-Message-ID: <20071120.173804.34897945.davem@davemloft.net>
-References: <cac0ab7d0711200828n3548fadn48cce2837ed6a7c6@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH][IPVS] Fix compiler warning about unused register_ip_vs_protocol
+Date: Wed, 21 Nov 2007 10:38:02 +0900
+Message-ID: <20071121013801.GB11665@verge.net.au>
+References: <4742CE4A.2000102@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: the.sator@gmail.com
+Content-Type: text/plain; charset=iso-2022-jp
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51726
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758622AbXKUBiF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 20:38:05 -0500
-In-Reply-To: <cac0ab7d0711200828n3548fadn48cce2837ed6a7c6@mail.gmail.com>
+Received: from koto.vergenet.net ([210.128.90.7]:45934 "EHLO koto.vergenet.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756463AbXKUBiI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Nov 2007 20:38:08 -0500
+Content-Disposition: inline
+In-Reply-To: <4742CE4A.2000102@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Jonas Danielsson" <the.sator@gmail.com>
-Date: Tue, 20 Nov 2007 17:28:22 +0100
-
-> Fix arp reply when received arp probe with sender ip 0.
+On Tue, Nov 20, 2007 at 03:08:42PM +0300, Pavel Emelyanov wrote:
+> This is silly, but I have turned the CONFIG_IP_VS to m,
+> to check the compilation of one (recently sent) fix
+> and set all the CONFIG_IP_VS_PROTO_XXX options to n to
+> speed up the compilation.
 > 
-> Send arp reply with target ip address 0.0.0.0 and target hardware address
-> set to hardware address of requester. Previously sent reply with target
-> ip address and target hardware address set to same as source fields.
+> In this configuration the compiler warns me about
 > 
+>   CC [M]  net/ipv4/ipvs/ip_vs_proto.o
+> net/ipv4/ipvs/ip_vs_proto.c:49: warning: ‘register_ip_vs_protocol’ defined but not used
 > 
-> Signed-off-by: Jonas Danielsson <the.sator@gmail.com>
-> Acked-by: Alexey Kuznetov <kuznet@ms2.inr.ac.ru>
+> Indeed. With no protocols selected there are no
+> calls to this function - all are compiled out with
+> ifdefs.
+> 
+> Maybe the best fix would be to surround this call with
+> ifdef-s or tune the Kconfig dependences, but I think that
+> marking this register function as __used is enough. No?
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-I'm applying this but you gmail folks really have to get your
-act together when submitting patches.  The patches from gmail
-accounts come out corrupted 9 times out of 10.
+That is kind of interesting.
 
-This time line breaks were added and all tab characters were
-turned into spaces.
+On the one hand it might be more correct in some way to use some Kconfig
+foo to get rid of register_ip_vs_protocol, and also most of
+the body of ‘register_ip_vs_protocol() if no protocols are defined.
 
-Please correct this before any future patch submissions.
+But on the other hand, its really a corner case, because in practice if
+you are going to use IPVS then you are going to need at least one
+protocol. So I'm happy with the simplicity of the __used solution, even
+though strictly speaking it is a lie.
+
+Acked-by: Simon Horman <horms@verge.net.au>
+
+> 
+> ---
+> 
+> diff --git a/net/ipv4/ipvs/ip_vs_proto.c b/net/ipv4/ipvs/ip_vs_proto.c
+> index e844ddb..c0e11ec 100644
+> --- a/net/ipv4/ipvs/ip_vs_proto.c
+> +++ b/net/ipv4/ipvs/ip_vs_proto.c
+> @@ -45,7 +45,7 @@ static struct ip_vs_protocol *ip_vs_proto_table[IP_VS_PROTO_TAB_SIZE];
+>  /*
+>   *	register an ipvs protocol
+>   */
+> -static int register_ip_vs_protocol(struct ip_vs_protocol *pp)
+> +static int __used register_ip_vs_protocol(struct ip_vs_protocol *pp)
+>  {
+>  	unsigned hash = IP_VS_PROTO_HASH(pp->protocol);
+>  
+> -- 
+> 1.5.3.4
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+-- 
+Horms
+
