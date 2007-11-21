@@ -1,53 +1,37 @@
-From: <wyb@topsec.com.cn>
-Subject: RE:RE: is it useful testing __LINK_STATE_RX_SCHED in dev_close()?
-Date: Wed, 21 Nov 2007 15:09:52 +0800
-Message-ID: <200711210712.AYG00766@topsec.com.cn>
-References: <E1IuhbM-0006tD-00@gondolin.me.apana.org.au>
+From: Stefan Roese <sr@denx.de>
+Subject: Re: [PATCH 8/8] ibm_newemac: Skip EMACs that are marked unused by the firmware
+Date: Wed, 21 Nov 2007 08:13:51 +0100
+Message-ID: <200711210813.51525.sr@denx.de>
+References: <20071121060737.6AA72DDE0C@ozlabs.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="US-ASCII"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "'Herbert Xu'" <herbert@gondor.apana.org.au>
-To: <netdev@vger.kernel.org>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	jgarzik@pobox.com, netdev@vger.kernel.org
+To: linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.topsec.com.cn ([202.99.27.222]:56384 "EHLO
-	mail1.topsec.com.cn" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754354AbXKUHKq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 02:10:46 -0500
-In-Reply-To: <E1IuhbM-0006tD-00@gondolin.me.apana.org.au>
+Received: from moutng.kundenserver.de ([212.227.126.187]:55200 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755105AbXKUHNa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 02:13:30 -0500
+In-Reply-To: <20071121060737.6AA72DDE0C@ozlabs.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wednesday 21 November 2007, Benjamin Herrenschmidt wrote:
+> From: Hugh Blemings <hugh@blemings.org>
+>
+> Depending on how the 44x processors are wired, some EMAC cells
+> might not be useable (and not connected to a PHY). However, some
+> device-trees may choose to still expose them (since their registers
+> are present in the MMIO space) but with an "unused" property in them.
+>
+> Signed-off-by: Hugh Blemings <hugh@blemings.org>
+> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
-__LINK_STATE_RX_SCHED still exist in kernel 2.6.23.8.
+Acked-by: Stefan Roese <sr@denx.de>
 
-Netdevice.h:
-
-/* Test if receive needs to be scheduled */
-static inline int __netif_rx_schedule_prep(struct net_device *dev)
-{
-	return !test_and_set_bit(__LINK_STATE_RX_SCHED, &dev->state);
-}
-
-/* Test if receive needs to be scheduled but only if up */
-static inline int netif_rx_schedule_prep(struct net_device *dev)
-{
-	return netif_running(dev) && __netif_rx_schedule_prep(dev);
-}
-
-Dev.c:
-int dev_close(struct net_device *dev)
-{
-	...
-	while (test_bit(__LINK_STATE_RX_SCHED, &dev->state)) {
-     	/* No hurry. */
-         msleep(1);
-    }
-	...
-}
-
-Test_bit() in dev_close() maybe between the calling of netif_running() and
-__netif_rx_schedule_prep() in netif_rx_schedule_prep.
-
-
-
+Best regards,
+Stefan
