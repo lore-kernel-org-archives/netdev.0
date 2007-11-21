@@ -1,7 +1,7 @@
 From: Thomas Klein <osstklei@de.ibm.com>
-Subject: [PATCH 1/2][2.6.24] ehea: Improve tx packets counting
-Date: Wed, 21 Nov 2007 17:37:58 +0100
-Message-ID: <200711211737.58789.osstklei@de.ibm.com>
+Subject: [PATCH 2/2][2.6.24] ehea: Reworked rcv queue handling to log only fatal errors
+Date: Wed, 21 Nov 2007 17:42:27 +0100
+Message-ID: <200711211742.27706.osstklei@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -15,69 +15,80 @@ Cc: Christoph Raisch <raisch@de.ibm.com>,
 	Stefan Roscher <stefan.roscher@de.ibm.com>
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.uk.ibm.com ([195.212.29.134]:57474 "EHLO
-	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753866AbXKUQj4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 11:39:56 -0500
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:54673 "EHLO
+	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751579AbXKUQn6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 11:43:58 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Using own tx_packets counter instead of firmware counters.
+Prevent driver from brawly logging packet checksum errors.
 
 Signed-off-by: Thomas Klein <tklein@de.ibm.com>
 
 ---
  drivers/net/ehea/ehea.h      |    2 +-
- drivers/net/ehea/ehea_main.c |    9 +++++++--
- 2 files changed, 8 insertions(+), 3 deletions(-)
+ drivers/net/ehea/ehea_main.c |   11 +++++------
+ drivers/net/ehea/ehea_qmr.h  |    4 ++--
+ 3 files changed, 8 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ehea/ehea.h b/drivers/net/ehea/ehea.h
-index f78e5bf..5935899 100644
+index 5935899..ea67615 100644
 --- a/drivers/net/ehea/ehea.h
 +++ b/drivers/net/ehea/ehea.h
 @@ -40,7 +40,7 @@
  #include <asm/io.h>
  
  #define DRV_NAME	"ehea"
--#define DRV_VERSION	"EHEA_0080"
-+#define DRV_VERSION	"EHEA_0082"
+-#define DRV_VERSION	"EHEA_0082"
++#define DRV_VERSION	"EHEA_0083"
  
  /* eHEA capability flags */
  #define DLPAR_PORT_ADD_REM 1
 diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index f0319f1..d2f715d 100644
+index d2f715d..869e160 100644
 --- a/drivers/net/ehea/ehea_main.c
 +++ b/drivers/net/ehea/ehea_main.c
-@@ -136,7 +136,7 @@ static struct net_device_stats *ehea_get_stats(struct net_device *dev)
- 	struct ehea_port *port = netdev_priv(dev);
- 	struct net_device_stats *stats = &port->stats;
- 	struct hcp_ehea_port_cb2 *cb2;
--	u64 hret, rx_packets;
-+	u64 hret, rx_packets, tx_packets;
- 	int i;
+@@ -410,11 +410,6 @@ static int ehea_treat_poll_error(struct ehea_port_res *pr, int rq,
+ 	if (cqe->status & EHEA_CQE_STAT_ERR_CRC)
+ 		pr->p_stats.err_frame_crc++;
  
- 	memset(stats, 0, sizeof(*stats));
-@@ -162,7 +162,11 @@ static struct net_device_stats *ehea_get_stats(struct net_device *dev)
- 	for (i = 0; i < port->num_def_qps; i++)
- 		rx_packets += port->port_res[i].rx_packets;
- 
--	stats->tx_packets = cb2->txucp + cb2->txmcp + cb2->txbcp;
-+	tx_packets = 0;
-+	for (i = 0; i < port->num_def_qps + port->num_add_tx_qps; i++)
-+		tx_packets += port->port_res[i].tx_packets;
-+
-+	stats->tx_packets = tx_packets;
- 	stats->multicast = cb2->rxmcp;
- 	stats->rx_errors = cb2->rxuerr;
- 	stats->rx_bytes = cb2->rxo;
-@@ -2000,6 +2004,7 @@ static int ehea_start_xmit(struct sk_buff *skb, struct net_device *dev)
+-	if (netif_msg_rx_err(pr->port)) {
+-		ehea_error("CQE Error for QP %d", pr->qp->init_attr.qp_nr);
+-		ehea_dump(cqe, sizeof(*cqe), "CQE");
+-	}
+-
+ 	if (rq == 2) {
+ 		*processed_rq2 += 1;
+ 		skb = get_skb_by_index(pr->rq2_skba.arr, pr->rq2_skba.len, cqe);
+@@ -426,7 +421,11 @@ static int ehea_treat_poll_error(struct ehea_port_res *pr, int rq,
  	}
  
- 	ehea_post_swqe(pr->qp, swqe);
-+	pr->tx_packets++;
+ 	if (cqe->status & EHEA_CQE_STAT_FAT_ERR_MASK) {
+-		ehea_error("Critical receive error. Resetting port.");
++		if (netif_msg_rx_err(pr->port)) {
++			ehea_error("Critical receive error for QP %d. "
++				   "Resetting port.", pr->qp->init_attr.qp_nr);
++			ehea_dump(cqe, sizeof(*cqe), "CQE");
++		}
+ 		schedule_work(&pr->port->reset_task);
+ 		return 1;
+ 	}
+diff --git a/drivers/net/ehea/ehea_qmr.h b/drivers/net/ehea/ehea_qmr.h
+index 562de0e..bc62d38 100644
+--- a/drivers/net/ehea/ehea_qmr.h
++++ b/drivers/net/ehea/ehea_qmr.h
+@@ -145,8 +145,8 @@ struct ehea_rwqe {
+ #define EHEA_CQE_VLAN_TAG_XTRACT   0x0400
  
- 	if (unlikely(atomic_read(&pr->swqe_avail) <= 1)) {
- 		spin_lock_irqsave(&pr->netif_queue, flags);
+ #define EHEA_CQE_TYPE_RQ           0x60
+-#define EHEA_CQE_STAT_ERR_MASK     0x720F
+-#define EHEA_CQE_STAT_FAT_ERR_MASK 0x1F
++#define EHEA_CQE_STAT_ERR_MASK     0x700F
++#define EHEA_CQE_STAT_FAT_ERR_MASK 0xF
+ #define EHEA_CQE_STAT_ERR_TCP      0x4000
+ #define EHEA_CQE_STAT_ERR_IP       0x2000
+ #define EHEA_CQE_STAT_ERR_CRC      0x1000
 -- 
 1.5.2
