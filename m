@@ -1,45 +1,38 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 1/8] ibm_newemac: Fix possible lockup on close
-Date: Thu, 22 Nov 2007 06:53:11 +1100
-Message-ID: <1195674791.6970.95.camel@pasglop>
-References: <1195625198.76200.922309668615.qpush@grosgo>
-	 <20071121060729.71A1FDDE01@ozlabs.org>  <20071121154123.GB23589@lst.de>
-Reply-To: benh@kernel.crashing.org
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: Routing tables associated with VLANs dissappear when parent
+ ethX down/up
+Date: Wed, 21 Nov 2007 12:00:27 -0800
+Message-ID: <20071121120027.54c277ea@freepuppy.rosehill>
+References: <474387E4.7020802@candelatech.com>
+	<47448C4F.3060107@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Christoph Hellwig <hch@lst.de>
+Cc: NetDev <netdev@vger.kernel.org>, Patrick McHardy <kaber@trash.net>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:43405 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753402AbXKUTzI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Nov 2007 14:55:08 -0500
-In-Reply-To: <20071121154123.GB23589@lst.de>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:52578 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751376AbXKUUBL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 15:01:11 -0500
+In-Reply-To: <47448C4F.3060107@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 21 Nov 2007 11:51:43 -0800
+Ben Greear <greearb@candelatech.com> wrote:
 
-On Wed, 2007-11-21 at 16:41 +0100, Christoph Hellwig wrote:
-> On Wed, Nov 21, 2007 at 05:06:39PM +1100, Benjamin Herrenschmidt wrote:
-> > It's a bad idea to call flush_scheduled_work from within a
-> > netdev->stop because the linkwatch will occasionally take the
-> > rtnl lock from a workqueue context, and thus that can deadlock.
-> > 
-> > This reworks things a bit in that area to avoid the problem.
+> For consideration, this patch seems to work for me.  I'm not sure
+> why we ever listed to these events.  I've only tested on a NIC that
+> doesn't support hw-accel at the moment..will test with e1000 later.
 > 
-> So from the name of the driver you want to keep the previous emac
-> driver around.  Is there a good reason for that?
+> Thanks,
+> Ben
+> 
 
-Until arch/ppc is gone... the previous driver works with arch/ppc the
-new one with arch/powerpc.
+But then if you are doing bonding or bridging of vlan's 
+and you bring down the root network device, the upper layer is not
+notified (for failover).
 
-If we kill arch/ppc in .25, then we'll remove the old driver and rename
-the new one. If not, that will wait til .26
-
-I'm hard at work porting as much of 4xx over I can to get to the point
-where we -can- kill arch/ppc but I'm not done yet.
-
-Cheers,
-Ben.
-
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
