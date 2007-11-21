@@ -1,72 +1,58 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: [PATCH] amd8111e: don't call napi_enable if configured w/o NAPI
-Date: Wed, 21 Nov 2007 13:40:07 +0100
-Message-ID: <20071121124007.GB3335@dwarf.suse.cz>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [RFC/PATCH] SO_NO_CHECK for IPv6
+Date: Wed, 21 Nov 2007 07:45:32 -0500
+Message-ID: <20071121124532.GA17263@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: jgarzik@pobox.com
+Cc: LKML <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:33270 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752209AbXKUMkJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Nov 2007 07:40:09 -0500
+Received: from havoc.gtf.org ([69.61.125.42]:38634 "EHLO havoc.gtf.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753189AbXKUMpd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Nov 2007 07:45:33 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The amd8111e network driver was broken by 
-bea3348eef27e6044b6161fd04c3152215f96411, which makes the driver
-call napi_enable() and napi_disable() even if the driver had been 
-configured without CONFIG_AMD8111E_NAPI, and thus
-netif_napi_add() had not been called on initialization.
-This triggers a BUG in napi_enable().
 
-This patch fixes the problem. Please apply.
+SO_NO_CHECK support for IPv6 appeared to be missing. This is presented,
+based on a reading of net/ipv4/udp.c.
 
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+I wonder if IPv4's CHECKSUM_PARTIAL check from udp_push_pending_frames()
+also needs to be copied to IPv6?
 
+Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
+---
+ net/ipv6/udp.c |   10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/amd8111e.c b/drivers/net/amd8111e.c
-index eebf5bb..e7fdd81 100644
---- a/drivers/net/amd8111e.c
-+++ b/drivers/net/amd8111e.c
-@@ -1340,7 +1340,9 @@ static int amd8111e_close(struct net_device * dev)
- 	struct amd8111e_priv *lp = netdev_priv(dev);
- 	netif_stop_queue(dev);
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index ee1cc3f..7927e69 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -538,9 +538,14 @@ static int udp_v6_push_pending_frames(struct sock *sk)
+ 	uh->len = htons(up->len);
+ 	uh->check = 0;
  
-+#ifdef CONFIG_AMD8111E_NAPI
- 	napi_disable(&lp->napi);
-+#endif
+-	if (up->pcflag)
++	if (up->pcflag)					/*     UDP-Lite      */
+ 		csum = udplite_csum_outgoing(sk, skb);
+-	 else
++
++	else if (sk->sk_no_check == UDP_CSUM_NOXMIT) {	/* UDP csum disabled */
++		skb->ip_summed = CHECKSUM_NONE;
++		goto send;
++
++	} else
+ 		csum = udp_csum_outgoing(sk, skb);
  
- 	spin_lock_irq(&lp->lock);
+ 	/* add protocol-dependent pseudo-header */
+@@ -549,6 +554,7 @@ static int udp_v6_push_pending_frames(struct sock *sk)
+ 	if (uh->check == 0)
+ 		uh->check = CSUM_MANGLED_0;
  
-@@ -1372,7 +1374,9 @@ static int amd8111e_open(struct net_device * dev )
- 					 dev->name, dev))
- 		return -EAGAIN;
- 
-+#ifdef CONFIG_AMD8111E_NAPI
- 	napi_enable(&lp->napi);
-+#endif
- 
- 	spin_lock_irq(&lp->lock);
- 
-@@ -1380,7 +1384,9 @@ static int amd8111e_open(struct net_device * dev )
- 
- 	if(amd8111e_restart(dev)){
- 		spin_unlock_irq(&lp->lock);
-+#ifdef CONFIG_AMD8111E_NAPI
- 		napi_disable(&lp->napi);
-+#endif
- 		if (dev->irq)
- 			free_irq(dev->irq, dev);
- 		return -ENOMEM;
-
-
-
-
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
-
++send:
+ 	err = ip6_push_pending_frames(sk);
+ out:
+ 	up->len = 0;
