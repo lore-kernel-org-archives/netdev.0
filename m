@@ -1,67 +1,104 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Routing tables associated with VLANs dissappear when parent ethX
- down/up
-Date: Wed, 21 Nov 2007 23:24:35 +0100
-Message-ID: <4744B023.60504@trash.net>
-References: <474387E4.7020802@candelatech.com>	<47448C4F.3060107@candelatech.com> <20071121120027.54c277ea@freepuppy.rosehill> <4744943E.2010000@trash.net> <47449AE9.5020301@candelatech.com> <47449F57.7080500@trash.net> <4744A8A3.8060406@candelatech.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: BUG: skge ethernet breakage (PCI: Unable to reserve mem region)
+Date: Wed, 21 Nov 2007 14:31:30 -0800
+Message-ID: <20071121143130.07d1f5fd@freepuppy.rosehill>
+References: <1189183355.3784.11.camel@localhost>
+	<20070911102110.1f32fa7e@oldman>
+	<1189508304.4069.5.camel@localhost>
+	<20070911143701.628c8d18@oldman>
+	<1189517941.4069.15.camel@localhost>
+	<1190235469.4034.77.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Cc: netdev@vger.kernel.org
+To: Jan Gukelberger <g.u.g.i@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43791 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753497AbXKUWYq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 17:24:46 -0500
-In-Reply-To: <4744A8A3.8060406@candelatech.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:50978 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751921AbXKUWbt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 17:31:49 -0500
+In-Reply-To: <1190235469.4034.77.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> Patrick McHardy wrote:
->>
->> That comes from iproute itself, but the missing LOWER-UP flag
->> indicates it and that should be enough for bridging and bonding.
->> I'm unsure about this though since its still a big difference in
->> userspace visible behaviour, people might just as well manually
->> configure failover once routing disappears or the device goes down,
->> or just have routing fall through to different routes. All this
->> wouldn't work anymore.
->>
->> Maybe we can make this optional somehow without too much uglyness?
->
-> I'm fine with that..we can just add a new vlan-device flag similar to the
-> reorder-header flag.
+On Wed, 19 Sep 2007 22:57:49 +0200
+Jan Gukelberger <g.u.g.i@gmx.de> wrote:
 
-An alternative to this would be something like Julian Anastasov static 
-routes
-patch. Not sure if it has ever been considered for merging, but its a 
-cleaner
-way than doing per-device hacks.
+> Hi,
+> 
+> seems as if there are currently no more ideas?
+> 
+> So shall I perhaps open a bug in Kernel Bugzilla?
+> 
+> Thanks,
+> Jan
+> 
+> On Tue, 2007-09-11 at 15:39 +0200, Jan Gukelberger wrote:
+> > On Tue, 2007-09-11 at 14:37 +0200, Stephen Hemminger wrote:
+> > > On Tue, 11 Sep 2007 12:58:24 +0200
+> > > Jan Gukelberger <g.u.g.i@gmx.de> wrote:
+> > > 
+> > > > On Tue, 2007-09-11 at 10:21 +0200, Stephen Hemminger wrote:
+> > > > > On Fri, 07 Sep 2007 18:42:35 +0200
+> > > > > Jan Gukelberger <g.u.g.i@gmx.de> wrote:
+> > > > [...]
+> > > > > > The key problem seem to be the following lines in dmesg:
+> > > > > > ------------------------------------------------------------------------
+> > > > > > ACPI: PCI Interrupt 0000:04:04.0[A] -> GSI 19 (level, low) -> IRQ 19
+> > > > > > PCI: Unable to reserve mem region #1:4000@ff9f8000 for device 0000:04:04.0
+> > > > > > skge 0000:04:04.0: cannot obtain PCI resources
+> > > > > > ACPI: PCI interrupt for device 0000:04:04.0 disabled
+> > > > > > skge: probe of 0000:04:04.0 failed with error -16
+> > > > > > ------------------------------------------------------------------------
+> > > > > > 
+> > > > > 
+> > > > > There is some kind of device conflict, please provide lspci -vvvxx output.
+> > > > 
+> > > > I'm attaching the output of 'lspci -vvvxx' on the working 2.6.20 kernel
+> > > > as well as the output of 'lspci -vvxxx' on 2.6.23-rc5 which I recorded
+> > > > earlier.
+> > > > I you specifically need 'lspci -vvvxx' on 2.6.23-rc5 please drop me a
+> > > > note and I'll reboot quickly.
+> > > > 
+> > > > Thanks,
+> > > > Jan
+> > > 
+> > > All looks in order, on the PCI tables. There is a firewire control just
+> > > above the skge device, perhaps you enabled one of the firewire stacks
+> > > in the configuration? 
+> > 
+> > I did a quick diff of the respective kernel .config's (this is the
+> > configuration you mean, right?) and haven't found any notable
+> > differences in the firewire options.
+> > 
+> > >  Perhaps the console (dmesg) output will show some clue.
+> > 
+> > I'm attaching a diff between dmesg of a working and a non-working boot.
+> > You can find the full dmesg records in my first mail and in the Debian
+> > BTS respectively.
+> > 
+> > The only thing I can see there is the old  kernel having some problems
+> > with the SATA controller - even though I did never notice any unusual
+> > behaviour apart from these messages:
+> > ------------------------------------------------------------------------
+> > PCI: Device 0000:02:00.0 not available because of resource collisions
+> > ahci: probe of 0000:02:00.0 failed with error -22
+> > JMB363: IDE controller at PCI slot 0000:02:00.0
+> > PCI: Device 0000:02:00.0 not available because of resource collisions
+> > ACPI: PCI Interrupt 0000:02:00.0[A] -> GSI 16 (level, low) -> IRQ 16
+> > JMB363: BIOS configuration fixed.
+> > ------------------------------------------------------------------------
+> > 
+> > Don't know whether this could be related?
+> > 
+> > Thanks,
+> > Jan
+> 
 
-http://www.ssi.bg/~ja/
+The problem is in the tables (ACPI) from the BIOS. So ACPI
+driver (and/or BIOS) have to work out the resource assignments,
+the driver really has nothing to do with it.
 
->
-> With the current code, on 'UP' of the underlying
-> code, all of the VLANs will also go UP, even if the user had previously
-> put them DOWN.  That seems like it could be quite dangerous/unexpected
-> to me..but I guess it's required if we are going to automatically DOWN 
-> them...
-
-Yeah, I too never liked this behaviour.
-
->
-> One other thought:  Maybe we could tell a small lie and say that we have
-> NO-CARRIER on the VLAN when the underlying device is down OR has no 
-> carrier?
->
-> That way we keep normal link up/down semantics w/out having to change the
-> admin state of the VLANs...
-
-Thats pretty much what the operstate is doing, it should go to
-IF_OPER_LOWERLAYERDOWN when the lower device is down. But as I
-said above, people could actually rely on routes disappearing.
-
-
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
