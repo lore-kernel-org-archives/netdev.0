@@ -1,7 +1,7 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 2/8] ibm_newemac: Add BCM5248 and Marvell 88E1111 PHY support
-Date: Wed, 21 Nov 2007 17:06:40 +1100
-Message-ID: <20071121060730.A691CDDE3D@ozlabs.org>
+Subject: [PATCH 4/8] ibm_newemac: Fix ZMII refcounting bug
+Date: Wed, 21 Nov 2007 17:06:42 +1100
+Message-ID: <20071121060732.9C138DDDFF@ozlabs.org>
 References: <1195625198.76200.922309668615.qpush@grosgo>
 Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
 	Josh Boyer <jwboyer@linux.vnet.ibm.com>
@@ -9,74 +9,40 @@ To: <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from ozlabs.org ([203.10.76.45]:38867 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752861AbXKUGHc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Nov 2007 01:07:32 -0500
+	id S1752979AbXKUGHd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Nov 2007 01:07:33 -0500
 In-Reply-To: <1195625198.76200.922309668615.qpush@grosgo>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stefan Roese <sr@denx.de>
+When using ZMII for MDIO only (such as 440GX with RGMII for data and ZMII for
+MDIO), the ZMII code would fail to properly refcount, thus triggering a
+BUG_ON().
 
-This patch adds BCM5248 and Marvell 88E1111 PHY support to NEW EMAC driver.
-These PHY chips are used on PowerPC 440EPx boards.
-The PHY code is based on the previous work by Stefan Roese <sr@denx.de>
-
-Signed-off-by: Stefan Roese <sr@denx.de>
-Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Acked-by: Stefan Roese <sr@denx.de>
 ---
 
---- linux.orig/drivers/net/ibm_newemac/phy.c	2007-06-15 21:45:18.000000000 +0400
-+++ linux/drivers/net/ibm_newemac/phy.c	2007-06-15 20:45:15.000000000 +0400
-@@ -306,8 +306,47 @@
- 	.ops		= &cis8201_phy_ops
- };
+ drivers/net/ibm_newemac/zmii.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+Index: linux-work/drivers/net/ibm_newemac/zmii.c
+===================================================================
+--- linux-work.orig/drivers/net/ibm_newemac/zmii.c	2007-11-08 15:45:32.000000000 +1100
++++ linux-work/drivers/net/ibm_newemac/zmii.c	2007-11-08 15:46:21.000000000 +1100
+@@ -83,12 +83,14 @@ int __devinit zmii_attach(struct of_devi
  
-+static struct mii_phy_def bcm5248_phy_def = {
-+
-+	.phy_id		= 0x0143bc00,
-+	.phy_id_mask	= 0x0ffffff0,
-+	.name		= "BCM5248 10/100 SMII Ethernet",
-+	.ops		= &generic_phy_ops
-+};
-+
-+static int m88e1111_init(struct mii_phy *phy)
-+{
-+	printk("%s: Marvell 88E1111 Ethernet\n", __FUNCTION__);
-+	phy_write(phy, 0x14, 0x0ce3);
-+	phy_write(phy, 0x18, 0x4101);
-+	phy_write(phy, 0x09, 0x0e00);
-+	phy_write(phy, 0x04, 0x01e1);
-+	phy_write(phy, 0x00, 0x9140);
-+	phy_write(phy, 0x00, 0x1140);
-+
-+	return  0;
-+}
-+
-+static struct mii_phy_ops m88e1111_phy_ops = {
-+	.init		= m88e1111_init,
-+	.setup_aneg	= genmii_setup_aneg,
-+	.setup_forced	= genmii_setup_forced,
-+	.poll_link	= genmii_poll_link,
-+	.read_link	= genmii_read_link
-+};
-+
-+static struct mii_phy_def m88e1111_phy_def = {
-+
-+	.phy_id		= 0x01410CC0,
-+	.phy_id_mask	= 0x0ffffff0,
-+	.name		= "Marvell 88E1111 Ethernet",
-+	.ops		= &m88e1111_phy_ops,
-+};
-+
- static struct mii_phy_def *mii_phy_table[] = {
- 	&cis8201_phy_def,
-+	&bcm5248_phy_def,
-+	&m88e1111_phy_def,
- 	&genmii_phy_def,
- 	NULL
- };
-_______________________________________________
-Linuxppc-dev mailing list
-Linuxppc-dev@ozlabs.org
-https://ozlabs.org/mailman/listinfo/linuxppc-dev
+ 	ZMII_DBG(dev, "init(%d, %d)" NL, input, *mode);
+ 
+-	if (!zmii_valid_mode(*mode))
++	if (!zmii_valid_mode(*mode)) {
+ 		/* Probably an EMAC connected to RGMII,
+ 		 * but it still may need ZMII for MDIO so
+ 		 * we don't fail here.
+ 		 */
++		dev->users++;
+ 		return 0;
++	}
+ 
+ 	mutex_lock(&dev->lock);
+ 
