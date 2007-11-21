@@ -1,48 +1,42 @@
 From: akpm@linux-foundation.org
-Subject: [patch 3/4] tlan list is subscribers-only
+Subject: [patch 4/4] Net: sunrpc, remove SPIN_LOCK_UNLOCKED
 Date: Wed, 21 Nov 2007 15:02:15 -0800
-Message-ID: <200711212302.lALN2FFu013607@imap1.linux-foundation.org>
+Message-ID: <200711212302.lALN2G3A013610@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	nix.or.die@googlemail.com
+	jirislaby@gmail.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:52148 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:35723 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753848AbXKUXCT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 18:02:19 -0500
+	by vger.kernel.org with ESMTP id S1753863AbXKUXCU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 18:02:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Gabriel C <nix.or.die@googlemail.com>
+From: Jiri Slaby <jirislaby@gmail.com>
 
-Your mail to 'Tlan-devel' with the subject
+sunrpc, remove SPIN_LOCK_UNLOCKED
 
-    drivers/net/tlan question
+SPIN_LOCK_UNLOCKED is deprecated, use DEFINE_SPINLOCK instead
 
-Is being held until the list moderator can review it for approval.
-
-The reason it is being held:
-
-    Post by non-member to a members-only list
-
-Signed-off-by: Gabriel Craciunescu <nix.or.die@googlemail.com>
-
+Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- MAINTAINERS |    2 +-
+ net/sunrpc/xprt.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN MAINTAINERS~tlan-list-is-subscribers-only MAINTAINERS
---- a/MAINTAINERS~tlan-list-is-subscribers-only
-+++ a/MAINTAINERS
-@@ -3733,7 +3733,7 @@ S:	Maintained
- TLAN NETWORK DRIVER
- P:	Samuel Chessman
- M:	chessman@tux.org
--L:	tlan-devel@lists.sourceforge.net
-+L:	tlan-devel@lists.sourceforge.net (subscribers-only)
- W:	http://sourceforge.net/projects/tlan/
- S:	Maintained
+diff -puN net/sunrpc/xprt.c~net-sunrpc-remove-spin_lock_unlocked net/sunrpc/xprt.c
+--- a/net/sunrpc/xprt.c~net-sunrpc-remove-spin_lock_unlocked
++++ a/net/sunrpc/xprt.c
+@@ -62,7 +62,7 @@ static inline void	do_xprt_reserve(struc
+ static void	xprt_connect_status(struct rpc_task *task);
+ static int      __xprt_get_cong(struct rpc_xprt *, struct rpc_task *);
  
+-static spinlock_t xprt_list_lock = SPIN_LOCK_UNLOCKED;
++static DEFINE_SPINLOCK(xprt_list_lock);
+ static LIST_HEAD(xprt_list);
+ 
+ /*
 _
