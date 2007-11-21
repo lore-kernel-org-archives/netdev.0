@@ -1,48 +1,94 @@
-From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
-Subject: Re: [PATCH 1/8] ibm_newemac: Fix possible lockup on close
-Date: Wed, 21 Nov 2007 09:43:50 -0600
-Message-ID: <20071121094350.44a18e26@weaponx>
-References: <1195625198.76200.922309668615.qpush@grosgo>
-	<20071121060729.71A1FDDE01@ozlabs.org>
-	<20071121154123.GB23589@lst.de>
+From: Balazs Scheidler <bazsi@balabit.hu>
+Subject: Re: [PATCHv6 0/3] Interface group patches
+Date: Wed, 21 Nov 2007 16:56:02 +0100
+Message-ID: <1195660563.6691.5.camel@bzorp.balabit>
+References: <11955644701165-git-send-email-panther@balabit.hu>
+	 <Pine.LNX.4.64.0711201425530.32378@fbirervta.pbzchgretzou.qr>
+	 <4742E68C.2000802@balabit.hu>
+	 <20071120.134242.177093096.davem@davemloft.net>
+	 <47437B12.9090009@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	netdev@vger.kernel.org, jgarzik@pobox.com, linuxppc-dev@ozlabs.org
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:50790 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753051AbXKUPoA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 10:44:00 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e32.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id lALEgo4P007173
-	for <netdev@vger.kernel.org>; Wed, 21 Nov 2007 09:42:50 -0500
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lALFhq7b091796
-	for <netdev@vger.kernel.org>; Wed, 21 Nov 2007 08:43:52 -0700
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lALFhpno013990
-	for <netdev@vger.kernel.org>; Wed, 21 Nov 2007 08:43:52 -0700
-In-Reply-To: <20071121154123.GB23589@lst.de>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, panther@balabit.hu,
+	jengelh@computergmbh.de, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <47437B12.9090009@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 21 Nov 2007 16:41:23 +0100
-Christoph Hellwig <hch@lst.de> wrote:
 
-> On Wed, Nov 21, 2007 at 05:06:39PM +1100, Benjamin Herrenschmidt wrote:
-> > It's a bad idea to call flush_scheduled_work from within a
-> > netdev->stop because the linkwatch will occasionally take the
-> > rtnl lock from a workqueue context, and thus that can deadlock.
-> > 
-> > This reworks things a bit in that area to avoid the problem.
-> 
-> So from the name of the driver you want to keep the previous emac
-> driver around.  Is there a good reason for that?
+On Wed, 2007-11-21 at 01:25 +0100, Patrick McHardy wrote:
+> David Miller wrote:
+> > From: Laszlo Attila Toth <panther@balabit.hu>
+> > Date: Tue, 20 Nov 2007 14:52:12 +0100
+> >=20
+> >> Jan Engelhardt =C3=ADrta:
+> >>> On Nov 20 2007 14:14, Laszlo Attila Toth wrote:
+> >>>> This is the 6th version of our interface group patches.
+> >>>>
+> >>>> The interface group value can be used to manage different interf=
+aces
+> >>>> at the same time such as in netfilter/iptables.
+> >>> I take it you could not use...?
+> >>> 	iptables -i iif1 -j dosomething
+> >>> 	iptables -i iif2 -j dosomething
+> >> This kind of usage requires static interface names. But there are=20
+> >> dynamic interfaces such as ppp, where the actual name is not alway=
+s=20
+> >> known or sometimes they exist sometimes not. It is difficult to us=
+e=20
+> >> iptables this way, and every ifup/ifdown requires change in the ip=
+tables=20
+> >> ruleset (donwload it, modify and upload to the kernel). It may be =
+too slow.
+> >=20
+> > This is actually not true these days.
+> >=20
+> > When network devices are created user events are generated and the
+> > user can rename the device however they like using a mapping table =
+of
+> > any kind.
+> >=20
+> > And at such point the problem you present doesn't actually exist, y=
+ou
+> > can know what the device will be named.
+> >=20
+> > And if rule loading dynamically is slow, we should fix that instead=
+ of
+> > creating infrastructure and interfaces we don't actually need.
+>=20
+>=20
+> I actually like this feature. Matching on names in iptables
+> has always been one of the major bottlenecks, taking
+> (according to my last measurement, which is some time ago)
+> about 1-2% of the total performance. This is of course in
+> large parts because the interface match is present on *every*
+> rule, but still some way to logically group interfaces seems
+> useful to me, not only for iptables, but also for routing rules,
+> traffic classifiers, af_packet sockets etc.
+>=20
+> I'm working on the incremental ruleset changing API BTW :)
+> One of the changes will be that interface matching is not
+> a default part of every rule, and without wildcards it will
+> use the ifindex. But since the cost of this feature seems
+> pretty low, I don't see a compelling reason against it.
 
-It's being kept around until arch/ppc dies.  Then things should get
-renamed.
+We are also using interface groups from userspace applications (hence
+the netlink notification).=20
 
-josh
+ppp comes up, an interface is created according to the pppd
+configuration, which then assigns the interface to the given group.
+another application (a proxy based firewall in our example) listens to
+this notification and binds to the new interface as well.
+
+--=20
+Bazsi
+
+-
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
