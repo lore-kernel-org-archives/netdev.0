@@ -1,49 +1,30 @@
-From: Shaddy Baddah <shaddy_baddah-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: ZD1211RW unaligned accesses...
-Date: Thu, 22 Nov 2007 00:00:44 +1100
-Message-ID: <47442BFC.8090008@hotmail.com>
-References: <20071120.040546.222294375.davem@davemloft.net>
-Reply-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	   Shaddy Baddah <shaddy_baddah-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>,
-	   David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [RFC/PATCH] SO_NO_CHECK for IPv6
+Date: Wed, 21 Nov 2007 22:20:51 +0900 (JST)
+Message-ID: <20071121.222051.94402865.yoshfuji@linux-ipv6.org>
+References: <20071121124532.GA17263@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20071120.040546.222294375.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:36285 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751401AbXKUNUs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 08:20:48 -0500
+In-Reply-To: <20071121124532.GA17263@havoc.gtf.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+In article <20071121124532.GA17263@havoc.gtf.org> (at Wed, 21 Nov 2007 07:45:32 -0500), Jeff Garzik <jeff@garzik.org> says:
 
-David Miller wrote:
-> Shaddy I attach a hack patch that you can use which should get
-> rid of the warnings.
+> 
+> SO_NO_CHECK support for IPv6 appeared to be missing. This is presented,
+> based on a reading of net/ipv4/udp.c.
 
-It hasn't seemed to. I patched the source (confirming the patched lines 
-are in), compiled, installed and rebooted to effect the changes. My 
-zd1211rw modules timestamp indicates that I have an updated module:
+Disagree. UDP checksum is mandatory in IPv6.
 
-$ ls -l /lib/modules/2.6.22/kernel/drivers/net/wireless/zd1211rw/zd1211rw.ko
--rw-r--r-- 1 root root 84536 2007-11-21 23:18 
-/lib/modules/2.6.22/kernel/drivers/net/wireless/zd1211rw/zd1211rw.ko
-
-lsmod confirms the module is loaded. After activating the interface 
-(without configuring it yet):
-
-$ ifconfig eth2 up
-
-I start getting the messages over and over on the console:
-
-Kernel unaligned access at TPC[100ee624] do_rx+0x394/0x5ec [zd1211rw]
-Kernel unaligned access at TPC[100ee62c] do_rx+0x39c/0x5ec [zd1211rw]
-Kernel unaligned access at TPC[100ee638] do_rx+0x3a8/0x5ec [zd1211rw]
-
-Sorry that this has not been successful this time, but thanks for your 
-help. I will be trying to follow-up on some of the other questions put 
-to me.
-
-Regards,
-Shaddy
+--yoshfuji
