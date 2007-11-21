@@ -1,36 +1,35 @@
 From: Ryousei Takano <takano-ryousei@aist.go.jp>
-Subject: [RFC][PATCH 1/3] NET_SCHED: PSPacer qdisc module
-Date: Wed, 21 Nov 2007 19:18:40 +0900 (JST)
-Message-ID: <20071121.191840.07671434.takano@axe-inc.co.jp>
+Subject: [RFC][PATCH 2/3] TC: PSPacer qdisc module
+Date: Wed, 21 Nov 2007 19:18:52 +0900 (JST)
+Message-ID: <20071121.191852.31412890.takano@axe-inc.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: shemminger@linux-foundation.org, t.kudoh@aist.go.jp
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from axekw.axe-inc.co.jp ([61.199.217.67]:61928 "EHLO
+Received: from axekw.axe-inc.co.jp ([61.199.217.67]:50520 "EHLO
 	axekw.axe-inc.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752404AbXKUKSr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 05:18:47 -0500
+	with ESMTP id S1757171AbXKUKTA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 05:19:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This patch includes the PSPacer (Precise Software Pacer) qdisc
-module, which achieves precise transmission bandwidth control.
+tc part, which achieves precise transmission bandwidth control.
 You can find more information at the project web page
 (http://www.gridmpi.org/gridtcp.jsp).
 
 Signed-off-by: Ryousei Takano <takano-ryousei@aist.go.jp>
 ---
- include/linux/pkt_sched.h |   38 ++
- net/sched/Kconfig         |    9 +
- net/sched/Makefile        |    1 +
- net/sched/sch_psp.c       |  959 +++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 1007 insertions(+), 0 deletions(-)
- create mode 100644 net/sched/sch_psp.c
+ include/linux/pkt_sched.h |   38 +++++++++
+ tc/Makefile               |    1 +
+ tc/q_psp.c                |  200 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 239 insertions(+), 0 deletions(-)
+ create mode 100644 tc/q_psp.c
 
 diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index 919af93..d3f8afd 100644
+index 268c515..c708082 100644
 --- a/include/linux/pkt_sched.h
 +++ b/include/linux/pkt_sched.h
 @@ -430,6 +430,44 @@ enum {
@@ -78,46 +77,26 @@ index 919af93..d3f8afd 100644
  /* Network emulator */
  
  enum
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 9c15c48..ec40e43 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -184,6 +184,15 @@ config NET_SCH_DSMARK
- 	  To compile this code as a module, choose M here: the
- 	  module will be called sch_dsmark.
- 
-+config NET_SCH_PSP
-+	tristate "Precise Software Pacer (PSP)"
-+	---help---
-+	  Say Y here if you want to include PSPacer module, which means
-+	  that you will be able to control precise pacing.
-+
-+	  To compile this driver as a module, choose M here: the
-+	  module will be called sch_psp.
-+
- config NET_SCH_NETEM
- 	tristate "Network emulator (NETEM)"
- 	---help---
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 81ecbe8..85425c2 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -27,6 +27,7 @@ obj-$(CONFIG_NET_SCH_TBF)	+= sch_tbf.o
- obj-$(CONFIG_NET_SCH_TEQL)	+= sch_teql.o
- obj-$(CONFIG_NET_SCH_PRIO)	+= sch_prio.o
- obj-$(CONFIG_NET_SCH_ATM)	+= sch_atm.o
-+obj-$(CONFIG_NET_SCH_PSP)	+= sch_psp.o
- obj-$(CONFIG_NET_SCH_NETEM)	+= sch_netem.o
- obj-$(CONFIG_NET_CLS_U32)	+= cls_u32.o
- obj-$(CONFIG_NET_CLS_ROUTE4)	+= cls_route.o
-diff --git a/net/sched/sch_psp.c b/net/sched/sch_psp.c
+diff --git a/tc/Makefile b/tc/Makefile
+index a715566..836df9d 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -12,6 +12,7 @@ TCMODULES += q_prio.o
+ TCMODULES += q_tbf.o
+ TCMODULES += q_cbq.o
+ TCMODULES += q_rr.o
++TCMODULES += q_psp.o
+ TCMODULES += q_netem.o
+ TCMODULES += f_rsvp.o
+ TCMODULES += f_u32.o
+diff --git a/tc/q_psp.c b/tc/q_psp.c
 new file mode 100644
-index 0000000..5c56742
+index 0000000..e3f4cf7
 --- /dev/null
-+++ b/net/sched/sch_psp.c
-@@ -0,0 +1,959 @@
++++ b/tc/q_psp.c
+@@ -0,0 +1,200 @@
 +/*
-+ * net/sched/sch_psp.c	PSPacer: Precise Software Pacer
++ * q_psp.c		PSPacer: Precise Software Pacer
 + *
 + *		Copyright (C) 2004-2007 National Institute of Advanced 
 + *		Industrial Science and Technology (AIST), Japan.
@@ -128,953 +107,194 @@ index 0000000..5c56742
 + *		2 of the License, or (at your option) any later version.
 + *
 + * Authors:	Ryousei Takano, <takano-ryousei@aist.go.jp>
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/netdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/ethtool.h>
-+#include <linux/if_arp.h>
-+#include <linux/in.h>
-+#include <linux/ip.h>
-+#include <net/pkt_sched.h>
-+
-+/* PSPacer achieves precise rate regulation results, and no microscopic
-+ * burst transmission which exceeds the limit is generated.
 + *
-+ * The basic idea is that transmission timing can be precisely controlled,
-+ * if packets are sent back-to-back at the wire rate.  PSPacer controls 
-+ * the packet transmision intervals by inserting additional packets, 
-+ * called gap packets, between adjacent packets.  The transmission interval
-+ * can be controlled accurately by adjusting the number and size of the gap
-+ * packets. PSPacer uses the 802.3x PAUSE frame as the gap packet.
-+ *
-+ * For the purpose of adjusting the gap size, this Qdisc maintains a byte
-+ * clock which is recorded by a total transmitted byte per connection.
-+ * Each sub-class has a class local clock which is used to make decision
-+ * whether to send a packet or not.  If there is not any packets to send,
-+ * gap packets are inserted.
-+ *
-+ * References:
-+ * [1] R.Takano, T.Kudoh, Y.Kodama, M.Matsuda, H.Tezuka, and Y.Ishikawa,
-+ *     "Design and Evaluation of Precise Software Pacing Mechanisms for
-+ *     Fast Long-Distance Networks", PFLDnet2005.
-+ * [2] http://www.gridmpi.org/gridtcp.jsp
 + */
 +
-+#define HW_GAP (16)	/* Preamble(8) + Inter Frame Gap(8) */
-+#define FCS    (4)	/* Frame Check Sequence(4) */
-+#define MIN_GAP (64)	/* Minimum size of gap packet */
-+#define MIN_TARGET_RATE (1000) /* 1 KB/s (= 8 Kbps) */
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <syslog.h>
++#include <fcntl.h>
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++#include <string.h>
 +
-+#define PSP_HSIZE (16)
++#include "utils.h"
++#include "tc_util.h"
 +
-+#define BIT2BYTE(n) ((n) >> 3)
-+
-+struct psp_class
++static void explain(void)
 +{
-+	u32 classid;			/* class id */
-+	int refcnt;			/* reference count */
-+
-+	struct gnet_stats_basic bstats;	/* basic stats */
-+	struct gnet_stats_queue qstats;	/* queue stats */
-+
-+	int level;			/* class level in hierarchy */
-+	struct psp_class *parent;	/* parent class */
-+	struct list_head sibling;	/* sibling classes */
-+	struct list_head children;	/* child classes */
-+
-+	struct Qdisc *qdisc;		/* leaf qdisc */
-+
-+	struct tcf_proto *filter_list;	/* filter list */
-+	int filter_cnt;			/* filter count */
-+
-+	struct list_head hlist;		/* hash list */
-+	struct list_head dlist;		/* drop list */
-+	struct list_head plist;		/* normal/pacing class qdisc list */
-+
-+	int activity;			/* activity flag */
-+#define FLAG_ACTIVE (0x00000001)	/*  this class has packets or not */
-+#define FLAG_DMARK  (0x00000002)	/*  reset mark */
-+#define MASK_ACTIVE (~FLAG_ACTIVE)
-+#define MASK_DMARK  (~FLAG_DMARK)
-+	int mode;			/* normal/pacing */
-+	u32 rate;			/* current target rate */
-+	u32 max_rate;			/* maximum target rate */
-+	u32 allocated_rate;		/* allocated rate to children */
-+	int gapsize;			/* current gapsize */
-+	gapclock_t clock;		/* class local clock */
-+	long qtime;			/* sender-side queuing time (us) */
-+};
-+
-+struct psp_sched_data
-+{
-+	int defcls;				/* default class id */
-+	struct list_head root;			/* root class list */
-+	struct list_head hash[PSP_HSIZE];	/* class hash */
-+	struct list_head drop_list;		/* active leaf class list (for
-+						   dropping) */
-+	struct list_head pacing_list;		/* gap leaf class list 
-+						   (in order of the gap size */
-+	struct list_head normal_list;		/* no gap leaf class list */
-+
-+	struct sk_buff_head requeue;		/* requeued packet */
-+	long direct_pkts;
-+
-+	struct tcf_proto *filter_list;		/* filter list */
-+	int filter_cnt;				/* filter count */
-+
-+	u32 max_rate;				/* physical rate */
-+	u32 allocated_rate;			/* sum of allocated rate */
-+	int mtu;				/* interface MTU size
-+						   (included ethernet heaer) */
-+	gapclock_t clock;			/* wall clock */
-+
-+	struct sk_buff *gap;			/* template of gap packets */
-+	struct tc_psp_xstats xstats;		/* psp specific stats */
-+};
-+
-+
-+static struct sk_buff *alloc_gap_packet(struct Qdisc* sch, int size)
-+{
-+	struct sk_buff *skb;
-+	struct net_device *dev = sch->dev;
-+	unsigned char *pkt;
-+	int pause_time = 0;
-+	int pktsize = size + 2;
-+
-+	skb = alloc_skb(pktsize, GFP_ATOMIC);
-+	if (!skb)
-+		return NULL;
-+
-+	skb_reserve(skb, 2);
-+
-+	pkt = skb->data;
-+	memset(pkt, 0xff, pktsize);
-+	pkt[0] = 0x01; /* dst address: 01:80:c2:00:00:01 */
-+	pkt[1] = 0x80;
-+	pkt[2] = 0xc2;
-+	pkt[3] = 0x00;
-+	pkt[4] = 0x00;
-+	pkt[5] = 0x01;
-+	memcpy(pkt + 6, dev->dev_addr, ETH_ALEN /* dev->addr_len */);
-+
-+	pkt[12] = 0x88; /* MAC control:        88 08 */
-+	pkt[13] = 0x08;
-+	pkt[14] = 0;    /* MAC control opcode: 00 01 */
-+	pkt[15] = 1;
-+	pkt[16] = pause_time >> 8;
-+	pkt[17] = pause_time;
-+
-+	skb_put(skb, size);
-+
-+	skb->dev = sch->dev;
-+	skb->protocol = ETH_P_802_3;
-+	skb_reset_network_header(skb); /* It is refered at dev_queue_xmit_nit(). */
-+
-+	return skb;
++	fprintf(stderr, 
++"Usage: ... qdisc add ... psp [ default N ] [rate RATE]\n"
++" default  minor id of class to which unclassified packets are sent {0}\n"
++" rate     physical interface bandwidth\n\n"
++"... class add ... psp mode M [ rate MBPS ]\n"
++" mode     target rate estimation method (NORMAL=0 STATIC=1) {0}\n"
++" rate     rate allocated to this class\n");
 +}
 +
-+#define PSP_DIRECT (struct psp_class *)(-1)
-+static inline unsigned int psp_hash(u32 h)
++static void explain1(char *arg)
 +{
-+	h ^= h >> 8;
-+	h ^= h >> 4;
-+	return h & (PSP_HSIZE - 1);
++	fprintf(stderr, "Illegal \"%s\"\n", arg);
++	explain();
 +}
 +
-+static inline struct psp_class *psp_find(u32 handle, struct Qdisc *sch)
++
++static int psp_parse_opt(struct qdisc_util *qu, int argc, char **argv,
++			 struct nlmsghdr *n)
 +{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	struct psp_class *cl;
-+
-+	list_for_each_entry(cl, &q->hash[psp_hash(handle)], hlist) {
-+		if (cl->classid == handle)
-+			return cl;
-+	}
-+	return NULL;
-+}
-+
-+static inline int is_leaf_class(struct psp_class *cl)
-+{
-+	return cl->level == 0;
-+}
-+
-+static struct psp_class *psp_classify(struct sk_buff *skb, struct Qdisc *sch,
-+				      int *qres)
-+{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	struct psp_class *cl;
-+	struct tcf_result res;
-+	struct tcf_proto *tcf;
-+	int result;
-+
-+	if ((cl = psp_find(skb->priority, sch)) != NULL && cl->level == 0)
-+		return cl;
-+	tcf = q->filter_list;
-+	if (tcf && (result = tc_classify(skb, tcf, &res)) >= 0) {
-+		if ((cl = (struct psp_class *)res.class) == NULL) {
-+			if ((cl = psp_find(res.classid, sch)) == NULL) {
-+				/* filter selected invalid classid */
-+				goto try_default;
-+			}
-+		}
-+		if (is_leaf_class(cl))
-+			return cl; /* hit leaf class */
-+
-+		/* apply inner filter chain */
-+		tcf = cl->filter_list;
-+	}
-+
-+ try_default:
-+	/* classification failed, try default class */
-+	cl = psp_find(TC_H_MAKE(TC_H_MAJ(sch->handle), q->defcls), sch);
-+	if (cl == NULL || cl->level > 0)
-+		return PSP_DIRECT;
-+	return cl;
-+}
-+
-+static inline void psp_activate(struct psp_sched_data *q, struct psp_class *cl)
-+{
-+	cl->activity |= FLAG_ACTIVE;
-+	list_add_tail(&cl->dlist, &q->drop_list);
-+}
-+
-+static inline void psp_deactivate(struct psp_sched_data *q,
-+				  struct psp_class *cl)
-+{
-+	cl->activity &= MASK_ACTIVE;
-+	list_del_init(&cl->dlist);
-+}
-+
-+#define COUNT(x, y) (((x) + ((y) - 1)) / (y))
-+static void add_leaf_class(struct psp_sched_data *q, struct psp_class *cl)
-+{
-+	struct psp_class *p;
-+	int mtu = q->mtu + FCS;
-+
-+	/* chain normal/pacing class list */
-+	switch (cl->mode) {
-+	case MODE_NORMAL:
-+		list_add_tail(&cl->plist, &q->normal_list);
-+		break;
-+	case MODE_STATIC:
-+		cl->gapsize = (((q->max_rate / 1000) * mtu)
-+			       / (cl->rate / 1000)) - mtu;
-+		cl->gapsize -= (HW_GAP + FCS) * COUNT(q->max_rate, cl->rate);
-+		cl->gapsize = max_t(int, cl->gapsize, MIN_GAP);
-+		cl->activity |= FLAG_DMARK;
-+		list_for_each_entry(p, &q->pacing_list, plist) {
-+			if (cl->gapsize < p->gapsize)
-+				break;
-+		}
-+		list_add_tail(&cl->plist, &p->plist);
-+		break;
-+	}
-+}
-+
-+static int recalc_gapsize(struct sk_buff* skb, struct Qdisc *sch)
-+{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	int ret;
-+	struct psp_class *cl = psp_classify(skb, sch, &ret);
-+	int len = skb->len;
-+	int gapsize = 0;
-+
-+	switch (cl->mode) {
-+	case MODE_STATIC:
-+		gapsize = cl->gapsize;
-+		if (len < q->mtu) { /* workaround for overflow */
-+			if (gapsize > INT_MAX / len) {
-+				gapsize = (gapsize / q->mtu) * len;
-+			} else {
-+				gapsize = gapsize * len / q->mtu;
-+			}
-+		}
-+		break;
-+	}
-+
-+	return max_t(int, gapsize, MIN_GAP);
-+}
-+
-+/* Update byte clocks
-+ *   a packet is sent out:
-+ *     Qdisc's clock += packet length;
-+ *     if the class is the pacing class
-+ *         class's clock += packet length + gap length
-+ */
-+static void update_clocks(struct sk_buff *skb, struct Qdisc *sch, 
-+			  struct psp_class *cl)
-+{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	int len = skb->len;
-+	int gaplen;
-+
-+	q->clock += len;
-+	if (cl == NULL || cl->mode == MODE_NORMAL)
-+		return;
-+
-+	/* pacing class */
-+	gaplen = recalc_gapsize(skb, sch);
-+	if (!(cl->activity & FLAG_DMARK)) {
-+		cl->clock += len + gaplen;
-+	} else { /* reset class clock */
-+		cl->activity &= MASK_DMARK;
-+		cl->clock = q->clock + gaplen;
-+	}
-+}
-+
-+/* Lookup next target class
-+ * Firstly, search the pacing class list:
-+ *     If the Qdisc's clock < the class's clock then the class is selected.
-+ * Secondly, search the normal class list.
-+ * 
-+ * Finally, a gap packet is inserted, because there is not any packets
-+ * to send out.  And it returns the size of the gap packet.
-+ */
-+static struct psp_class *lookup_next_class(struct Qdisc *sch, int *gapsize)
-+{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	struct psp_class *cl, *next = NULL;
-+	gapclock_t diff;
-+	int shortest;
-+
-+	/* pacing class */
-+	shortest = q->mtu;
-+	list_for_each_entry(cl, &q->pacing_list, plist) {
-+		diff = cl->clock - q->clock;
-+		if (diff > 0) {
-+			if (shortest > (int)diff)
-+				shortest = (int)diff;
-+			continue;
-+		}
-+		if (!(cl->activity & FLAG_ACTIVE)) {
-+			cl->activity |= FLAG_DMARK;
-+			continue;
-+		}
-+
-+		if (next == NULL)
-+			next = cl;
-+	}
-+	if (next)
-+		return next;
-+	
-+
-+	/* normal class */
-+	list_for_each_entry(cl, &q->normal_list, plist) {
-+		if (!(cl->activity & FLAG_ACTIVE))
-+			continue;
-+
-+		list_move_tail(&cl->plist, &q->normal_list);
-+		return cl;
-+	}
-+
-+	/* gap packet */
-+	*gapsize = max_t(int, shortest, 18);
-+	return NULL;
-+}
-+
-+static int psp_enqueue(struct sk_buff *skb, struct Qdisc *sch)
-+{
-+	int ret;
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	struct psp_class *cl = psp_classify(skb, sch, &ret);
-+
-+	if (cl == PSP_DIRECT) {
-+		/* enqueue to helper queue */
-+		__skb_queue_tail(&q->requeue, skb);
-+		q->direct_pkts++;
-+	} else if (cl == NULL) {
-+		kfree_skb(skb);
-+		sch->qstats.drops++;
-+		return NET_XMIT_DROP;
-+	} else {
-+		ret = cl->qdisc->ops->enqueue(skb, cl->qdisc);
-+		if (ret != NET_XMIT_SUCCESS) {
-+			sch->qstats.drops++;
-+			cl->qstats.drops++;
-+			return ret;
-+		}
-+
-+		cl->bstats.packets++;
-+		cl->bstats.bytes += skb->len;
-+		if (!(cl->activity & FLAG_ACTIVE))
-+			psp_activate(q, cl);
-+	}
-+
-+	sch->q.qlen++;
-+	sch->bstats.packets++;
-+	sch->bstats.bytes += skb->len;
-+
-+	return NET_XMIT_SUCCESS;
-+}
-+
-+static int psp_requeue(struct sk_buff *skb, struct Qdisc* sch)
-+{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+
-+	__skb_queue_head(&q->requeue, skb);
-+	sch->q.qlen++;
-+	sch->qstats.requeues++;
-+
-+	return NET_XMIT_SUCCESS;
-+}
-+
-+static struct sk_buff *psp_dequeue(struct Qdisc* sch)
-+{
-+	struct sk_buff *skb = NULL;
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	struct psp_class *cl;
-+	int gapsize;
-+
-+	if (sch->q.qlen == 0)
-+		return NULL;
-+
-+	/* requeue */
-+	if ((skb = __skb_dequeue(&q->requeue)) != NULL) {
-+		sch->q.qlen--;
-+		return skb;
-+	}
-+
-+	/* normal/pacing class */
-+	cl = lookup_next_class(sch, &gapsize);
-+	if (cl != NULL) {
-+		skb = cl->qdisc->ops->dequeue(cl->qdisc);
-+		if (skb == NULL) {
-+			return NULL;
-+		}
-+		sch->q.qlen--;
-+
-+		goto update_clocks;
-+	}
-+
-+	/* gap packets */
-+	skb = skb_clone(q->gap, GFP_ATOMIC);
-+	BUG_TRAP(skb);
-+	skb_trim(skb, gapsize);
-+	cl = NULL;
-+	q->xstats.bytes += gapsize;
-+	q->xstats.packets++;
-+
-+ update_clocks:
-+	update_clocks(skb, sch, cl);
-+	if (cl && cl->qdisc->q.qlen == 0)
-+		psp_deactivate(q, cl);
-+	return skb;
-+}
-+
-+static unsigned int psp_drop(struct Qdisc* sch)
-+{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	struct psp_class *cl;
-+	unsigned int len;
-+
-+	list_for_each_entry(cl, &q->drop_list, dlist) {
-+		if (cl->qdisc->ops->drop != NULL
-+		    && (len = cl->qdisc->ops->drop(cl->qdisc)) > 0) {
-+			if (cl->qdisc->q.qlen == 0) {
-+				psp_deactivate(q, cl);
-+			} else {
-+				list_move_tail(&cl->dlist, &q->drop_list);
-+			}
-+			cl->qstats.drops++;
-+			sch->qstats.drops++;
-+			sch->q.qlen--;
-+			return len;
-+		}
-+	}
-+	return 0;
-+}
-+
-+static void psp_reset(struct Qdisc* sch)
-+{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	struct psp_class *cl;
-+	int i;
-+
-+	for (i = 0; i < PSP_HSIZE; i++) {
-+		list_for_each_entry(cl, &q->hash[i], hlist) {
-+			if (is_leaf_class(cl) && cl->qdisc != NULL)
-+				qdisc_reset(cl->qdisc);
-+		}
-+	}
-+
-+	sch->q.qlen = 0;
-+}
-+
-+static void psp_destroy_class(struct Qdisc* sch, struct psp_class *cl)
-+{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+
-+	if (cl->mode == MODE_STATIC) {
-+		if (cl->parent) {
-+			cl->parent->allocated_rate -= cl->rate;
-+		} else {
-+			q->allocated_rate -= cl->rate;
-+		}
-+	}
-+	if (is_leaf_class(cl)) {
-+		sch->q.qlen -= cl->qdisc->q.qlen;
-+		qdisc_destroy(cl->qdisc);
-+	}
-+
-+	tcf_destroy_chain(q->filter_list);
-+
-+	while (!list_empty(&cl->children))
-+		psp_destroy_class(sch, list_entry(cl->children.next,
-+						  struct psp_class, sibling));
-+
-+	list_del(&cl->hlist);
-+	list_del(&cl->sibling);
-+	psp_deactivate(q, cl);
-+	if (is_leaf_class(cl))
-+		list_del(&cl->plist);
-+	kfree(cl);
-+}
-+
-+static void psp_destroy(struct Qdisc* sch)
-+{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+
-+	tcf_destroy_chain(q->filter_list);
-+
-+	while (!list_empty(&q->root))
-+		psp_destroy_class(sch, list_entry(q->root.next,
-+						  struct psp_class, sibling));
-+	__skb_queue_purge(&q->requeue);
-+
-+	/* free gap packet */
-+	kfree_skb(q->gap);
-+}
-+
-+static int psp_change_qdisc(struct Qdisc *sch, struct rtattr *opt)
-+{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	struct rtattr *tb[TCA_PSP_QOPT];
-+	struct tc_psp_qopt *qopt;
-+
-+	if (!opt || rtattr_parse_nested(tb, TCA_PSP_QOPT, opt) ||
-+	    tb[TCA_PSP_QOPT-1] == NULL ||
-+	    RTA_PAYLOAD(tb[TCA_PSP_QOPT-1]) < sizeof(*qopt)) {
-+		return -EINVAL;
-+	}
-+
-+	qopt = RTA_DATA(tb[TCA_PSP_QOPT-1]);
-+
-+	sch_tree_lock(sch);
-+	q->defcls = qopt->defcls;
-+	if (qopt->rate)
-+		q->max_rate = qopt->rate;
-+	sch_tree_unlock(sch);
-+	return 0;
-+}
-+
-+static int psp_init(struct Qdisc *sch, struct rtattr *opt)
-+{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	struct rtattr *tb[TCA_PSP_QOPT];
-+	struct net_device *dev = sch->dev;
-+	struct tc_psp_qopt *qopt;
-+	struct ethtool_cmd cmd = { ETHTOOL_GSET };
-+	int i;
-+
-+	if (dev->type != ARPHRD_ETHER) {
-+		printk(KERN_ERR "psp: PSPacer only supports Ethernet " \
-+		       "devices.\n");
-+		return -EINVAL;
-+	}
-+
-+#ifdef NETIF_F_TSO
-+	/* check TSO support */
-+	if (ethtool_op_get_tso(dev)) {
-+		printk(KERN_ERR "psp: PSPacer does not support TSO.  " \
-+		       "You must disable it: \"ethtool -K %s tso off\"\n",
-+		       dev->name);
-+		return -EINVAL;
-+	}
-+#endif
-+
-+	if (!opt || rtattr_parse_nested(tb, TCA_PSP_QOPT, opt) ||
-+	    tb[TCA_PSP_QOPT-1] == NULL ||
-+	    RTA_PAYLOAD(tb[TCA_PSP_QOPT-1]) < sizeof(*qopt)) {
-+		return -EINVAL;
-+	}
-+
-+	qopt = RTA_DATA(tb[TCA_PSP_QOPT-1]);
-+
-+	memset(q, 0, sizeof(*q));
-+	q->defcls = qopt->defcls;
-+	q->mtu = dev->mtu + dev->hard_header_len;
-+	q->gap = alloc_gap_packet(sch, q->mtu);
-+	if (q->gap == NULL)
-+		return -ENOBUFS;
-+	if (qopt->rate == 0) {
-+		/* set qdisc max rate.  If the kernel supports ethtool ioctl,
-+		 * it sets to that value, otherwise it statically sets to 
-+		 * the GbE transmission rate (i.e. 125MB/s). */
-+		/* NOTE: Since ethtool's {cmd.speed} specifies Mbps, 
-+		   the value is converted in units of byte/sec */
-+		q->max_rate = 125000000;
-+
-+		if (dev->ethtool_ops && dev->ethtool_ops->get_settings) {
-+			if (dev->ethtool_ops->get_settings(dev, &cmd) == 0) {
-+				q->max_rate = BIT2BYTE(cmd.speed * 1000000);
-+			}
-+		}
-+	} else {
-+		q->max_rate = qopt->rate;
-+	}
-+
-+	INIT_LIST_HEAD(&q->root);
-+	for (i = 0; i < PSP_HSIZE; i++)
-+		INIT_LIST_HEAD(q->hash + i);
-+	INIT_LIST_HEAD(&q->drop_list);
-+	INIT_LIST_HEAD(&q->pacing_list);
-+	INIT_LIST_HEAD(&q->normal_list);
-+	skb_queue_head_init(&q->requeue);
-+
-+	return 0;
-+}
-+
-+static int psp_dump_qdisc(struct Qdisc *sch, struct sk_buff *skb)
-+{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	unsigned char *b = skb_tail_pointer(skb);
-+	struct rtattr *rta;
 +	struct tc_psp_qopt qopt;
++	struct rtattr *tail;
++	memset(&qopt, 0, sizeof(qopt));
 +
-+	qopt.defcls = q->defcls;
-+	qopt.rate = q->max_rate;
-+	qopt.direct_pkts = q->direct_pkts;
-+	rta = (struct rtattr*)b;
-+	RTA_PUT(skb, TCA_OPTIONS, 0, NULL);
-+	RTA_PUT(skb, TCA_PSP_QOPT, sizeof(qopt), &qopt);
-+	rta->rta_len = skb_tail_pointer(skb) - b;
-+
-+	return skb->len;
-+
-+rtattr_failure:
-+	skb_trim(skb, skb_tail_pointer(skb) - skb->data);
-+	return -1;
-+}
-+
-+static int psp_dump_qdisc_stats(struct Qdisc *sch, struct gnet_dump *d)
-+{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+
-+	return gnet_stats_copy_app(d, &q->xstats, sizeof(q->xstats));
-+}
-+
-+static int psp_dump_class(struct Qdisc *sch, unsigned long arg, 
-+			  struct sk_buff *skb, struct tcmsg *tcm)
-+{
-+	struct psp_class *cl = (struct psp_class *)arg;
-+	unsigned char *b = skb_tail_pointer(skb);
-+	struct rtattr *rta;
-+	struct tc_psp_copt copt;
-+
-+	tcm->tcm_parent = cl->parent ? cl->parent->classid : TC_H_ROOT;
-+	tcm->tcm_handle = cl->classid;
-+	if (is_leaf_class(cl) && cl->qdisc != NULL) {
-+		tcm->tcm_info = cl->qdisc->handle;
-+		cl->qstats.qlen = cl->qdisc->q.qlen;
-+	}
-+
-+	rta = (struct rtattr *)b;
-+	RTA_PUT(skb, TCA_OPTIONS, 0, NULL);
-+	memset(&copt, 0, sizeof(copt));
-+	copt.level = cl->level;
-+	copt.mode = cl->mode;
-+	copt.rate = cl->max_rate;
-+	RTA_PUT(skb, TCA_PSP_COPT, sizeof(copt), &copt);
-+	RTA_PUT(skb, TCA_PSP_QOPT, 0, NULL);
-+	rta->rta_len = skb_tail_pointer(skb) - b;
-+
-+	return skb->len;
-+ rtattr_failure:
-+	skb_trim(skb, b - skb->data);
-+	return -1;
-+}
-+
-+static int psp_dump_class_stats(struct Qdisc *sch, unsigned long arg,
-+				struct gnet_dump *d)
-+{
-+	struct psp_class *cl = (struct psp_class *)arg;
-+
-+	if (gnet_stats_copy_basic(d, &cl->bstats) < 0
-+	    || gnet_stats_copy_queue(d, &cl->qstats) < 0)
-+		return -1;
-+	return 0;
-+}
-+
-+static int psp_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
-+		     struct Qdisc **old)
-+{
-+	struct psp_class *cl = (struct psp_class *)arg;
-+
-+	if (cl == NULL)
-+		return -ENOENT;
-+	if (!is_leaf_class(cl))
-+		return -EINVAL;
-+	if (new == NULL) {
-+		new = qdisc_create_dflt(sch->dev, &pfifo_qdisc_ops,
-+					cl->classid);
-+		if (new == NULL)
-+			new = &noop_qdisc;
-+	}
-+
-+	sch_tree_lock(sch);
-+	*old = xchg(&cl->qdisc, new);
-+	sch->q.qlen -= (*old)->q.qlen;
-+	qdisc_reset(*old);
-+	sch_tree_unlock(sch);
-+	return 0;
-+}
-+
-+static struct Qdisc *psp_leaf(struct Qdisc *sch, unsigned long arg)
-+{
-+	struct psp_class *cl = (struct psp_class *)arg;
-+	return (cl != NULL && is_leaf_class(cl)) ? cl->qdisc : NULL;
-+}
-+
-+static unsigned long psp_get(struct Qdisc *sch, u32 classid)
-+{
-+	struct psp_class *cl = psp_find(classid, sch);
-+	if (cl)
-+		cl->refcnt++;
-+	return (unsigned long)cl;
-+}
-+
-+static void psp_put(struct Qdisc *sch, unsigned long arg)
-+{
-+	struct psp_class *cl = (struct psp_class *)arg;
-+
-+	if (--cl->refcnt == 0)
-+		psp_destroy_class(sch, cl);
-+}
-+
-+static int psp_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
-+			    struct rtattr **tca, unsigned long *arg)
-+{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	struct psp_class *cl = (struct psp_class *)*arg, *parent;
-+	struct rtattr *opt = tca[TCA_OPTIONS-1];
-+	struct rtattr *tb[TCA_PSP_QOPT];
-+	struct tc_psp_copt *copt;
-+	unsigned int limit;
-+
-+	if (opt == NULL
-+	    || rtattr_parse(tb, TCA_PSP_QOPT, RTA_DATA(opt), RTA_PAYLOAD(opt)))
-+		return -EINVAL;
-+
-+	copt = RTA_DATA(tb[TCA_PSP_COPT - 1]);
-+
-+	parent = (parentid == TC_H_ROOT ? NULL : psp_find(parentid, sch));
-+
-+	if (cl == NULL) { /* create new class */
-+		struct Qdisc *new_q;
-+
-+		cl = kmalloc(sizeof(struct psp_class), GFP_KERNEL);
-+		if (cl == NULL)
-+			return -ENOBUFS;
-+		memset(cl, 0, sizeof(struct psp_class));
-+		cl->refcnt = 1;
-+		INIT_LIST_HEAD(&cl->sibling);
-+		INIT_LIST_HEAD(&cl->children);
-+		INIT_LIST_HEAD(&cl->hlist);
-+		INIT_LIST_HEAD(&cl->dlist);
-+		INIT_LIST_HEAD(&cl->plist);
-+
-+		new_q = qdisc_create_dflt(sch->dev, &pfifo_qdisc_ops, classid);
-+
-+		sch_tree_lock(sch);
-+		while (parent && !is_leaf_class(parent)) {
-+			/* turn parent into inner node */
-+			sch->q.qlen -= parent->qdisc->q.qlen;
-+			qdisc_destroy(parent->qdisc);
-+			psp_deactivate(q, cl);
-+			list_del(&parent->plist);
-+
-+			parent->level = (parent->parent
-+					 ? parent->parent->level
-+					 : TC_PSP_MAXDEPTH) - 1;
-+		}
-+		cl->qdisc = new_q ? new_q : &noop_qdisc;
-+		cl->classid = classid;
-+		cl->parent = parent;
-+
-+		list_add_tail(&cl->hlist, q->hash + psp_hash(classid));
-+		list_add_tail(&cl->sibling, (parent
-+					     ? &parent->children : &q->root));
-+	} else {
-+		if (cl->mode == MODE_STATIC) {
-+			q->allocated_rate -= cl->rate;
-+		}
-+		sch_tree_lock(sch);
-+	}
-+
-+	/* setup mode and target rate */
-+	cl->mode = copt->mode;
-+	if (copt->rate < MIN_TARGET_RATE)
-+		copt->rate = MIN_TARGET_RATE;
-+	cl->max_rate = copt->rate;
-+	switch (cl->mode) {
-+	case MODE_STATIC:
-+		limit = (parent ? parent->allocated_rate : q->allocated_rate) 
-+			+ cl->max_rate;
-+		if (limit > q->max_rate) {
-+			printk(KERN_ERR "psp: target rate is oversubscribed!");
-+			list_del_init(&cl->hlist);
-+			psp_deactivate(q, cl);
-+			if (--cl->refcnt == 0)
-+				psp_destroy_class(sch, cl);
-+			sch_tree_unlock(sch);
-+			return -EINVAL;
-+		}
-+		cl->rate = cl->max_rate;
-+		if (parent) {
-+			parent->allocated_rate += cl->rate;
++	while (argc > 0) {
++		if (matches(*argv, "rate") == 0) {
++			NEXT_ARG();
++			if (get_rate(&qopt.rate, *argv)) {
++				explain1("rate");
++				return -1;
++			}
++		} else if (matches(*argv, "default") == 0) {
++			NEXT_ARG();
++			if (get_u32(&qopt.defcls, *argv, 16)) {
++				explain1("default");
++				return -1;
++			}
++		} else if (matches(*argv, "help") == 0) {
++			explain();
++			return -1;
 +		} else {
-+			q->allocated_rate += cl->rate;
++			fprintf(stderr, "What is \"%s\"?\n", *argv);
++			explain();
++			return -1;
 +		}
-+		break;
++		argc--;
++		argv++;
 +	}
 +
-+	if (is_leaf_class(cl)) {
-+		if (!list_empty(&cl->plist))
-+			list_del(&cl->plist);
-+		add_leaf_class(q, cl);
-+	}
-+	sch_tree_unlock(sch);
-+	*arg = (unsigned long)cl;
++	tail = NLMSG_TAIL(n);
++	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
++	addattr_l(n, 2024, TCA_OPTIONS, &qopt, NLMSG_ALIGN(sizeof(qopt)));
++	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
 +	return 0;
 +}
 +
-+static struct tcf_proto **psp_find_tcf(struct Qdisc *sch, unsigned long arg)
++static int psp_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 +{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	struct psp_class *cl = (struct psp_class *)arg;
-+	struct tcf_proto **fl = cl ? &cl->filter_list : & q->filter_list;
-+	return fl;
-+}
++	struct rtattr *tb[TCA_PSP_QOPT+1];
++	struct tc_psp_copt *copt;
++	struct tc_psp_qopt *qopt;
++	SPRINT_BUF(b);
 +
-+static unsigned long psp_bind_filter(struct Qdisc *sch, unsigned long parent,
-+				     u32 classid)
-+{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	struct psp_class *cl = psp_find(classid, sch);
++	if (opt == NULL)
++		return 0;
 +
-+	if (cl)
-+		cl->filter_cnt++;
-+	else
-+		q->filter_cnt++;
-+	return (unsigned long)cl;
-+}
++	memset(tb, 0, sizeof(tb));
++	parse_rtattr_nested(tb, TCA_PSP_QOPT, opt);
 +
-+static void psp_unbind_filter(struct Qdisc *sch, unsigned long arg)
-+{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	struct psp_class *cl = (struct psp_class *)arg;
-+
-+	if (cl)
-+		cl->filter_cnt--;
-+	else
-+		q->filter_cnt--;
-+}
-+
-+static int psp_delete(struct Qdisc *sch, unsigned long arg)
-+{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	struct psp_class *cl = (struct psp_class *)arg;
-+
-+	if (!list_empty(&cl->children) || cl->filter_cnt)
-+		return -EBUSY;
-+
-+	sch_tree_lock(sch);
-+
-+	list_del_init(&cl->hlist);
-+	psp_deactivate(q, cl);
-+	list_del_init(&cl->plist);
-+	if (--cl->refcnt == 0)
-+		psp_destroy_class(sch, cl);
-+
-+	sch_tree_unlock(sch);
++	if (tb[TCA_PSP_COPT]) {
++		copt = RTA_DATA(tb[TCA_PSP_COPT]);
++		if (RTA_PAYLOAD(tb[TCA_PSP_COPT]) < sizeof(*copt))
++			return -1;
++		fprintf(f, "level %d ", (int)copt->level);
++		switch (copt->mode) {
++		case MODE_NORMAL:
++			fprintf(f, "mode NORMAL ");
++			break;
++		case MODE_STATIC:
++			fprintf(f, "mode STATIC (%s) ", 
++				sprint_rate(copt->rate, b));
++			break;
++		}
++	}
++	if (tb[TCA_PSP_QOPT]) {
++		qopt = RTA_DATA(tb[TCA_PSP_QOPT]);
++		if (RTA_PAYLOAD(tb[TCA_PSP_QOPT])  < sizeof(*qopt))
++			return -1;
++		fprintf(f, "default %x direct pkts %u max rate %s", 
++			qopt->defcls, qopt->direct_pkts,
++			sprint_rate(qopt->rate, b));
++	}
 +	return 0;
 +}
 +
-+static void psp_walk(struct Qdisc *sch, struct qdisc_walker *arg)
++static int psp_print_xstats(struct qdisc_util *qu, FILE *f,
++			    struct rtattr *xstats)
 +{
-+	struct psp_sched_data *q = qdisc_priv(sch);
-+	int i;
++	struct tc_psp_xstats *st;
++	if (xstats == NULL)
++		return 0;
 +
-+	if (arg->stop)
-+		return;
++	if (RTA_PAYLOAD(xstats) < sizeof(*st))
++		return -1;
 +
-+	for (i = 0; i < PSP_HSIZE; i++) {
-+		struct psp_class *cl;
-+		list_for_each_entry(cl, &q->hash[i], hlist) {
-+			if (arg->count < arg->skip) {
-+				arg->count++;
-+				continue;
++	st = RTA_DATA(xstats);
++	fprintf(f, "  gap %u bytes %u pkts", st->bytes, st->packets);
++	return 0;
++}
++
++static int psp_parse_class_opt(struct qdisc_util *qu, int argc, char **argv, 
++			       struct nlmsghdr *n)
++{
++	struct tc_psp_copt copt;
++	struct rtattr *tail;
++
++	memset(&copt, 0, sizeof(copt));
++	copt.mode = MODE_STATIC; /* default mode */
++
++	while (argc > 0) {
++		if (matches(*argv, "rate") == 0) {
++			NEXT_ARG();
++			if (get_rate(&copt.rate, *argv)) {
++				explain1("rate");
++				return -1;
 +			}
-+			if (arg->fn(sch, (unsigned long)cl, arg) < 0) {
-+				arg->stop = 1;
-+				return;
++		} else if (matches(*argv, "mode") == 0) {
++			NEXT_ARG();
++			if (get_u32(&copt.mode, *argv, 10)) {
++				explain1("mode");
++				return -1;
 +			}
-+			arg->count++;
++		} else if (matches(*argv, "help") == 0) {
++			explain();
++			return -1;
++		} else {
++			fprintf(stderr, "What is \"%s\"?\n", *argv);
++			explain();
++			return -1;
 +		}
++		argc--; argv++;
 +	}
++
++	if (copt.mode == MODE_NORMAL && copt.rate != 0) {
++		fprintf(stderr, "You can not set to \"rate\" parameter "
++			"in normal mode\n");
++		explain1("rate");
++		return -1;
++	} else if (copt.mode == MODE_STATIC && copt.rate == 0) {
++		fprintf(stderr, "You need set to \"rate\" parameter "
++			"in static target rate mode.\n");
++		explain1("rate");
++		return -1;
++	}
++
++	tail = NLMSG_TAIL(n);
++	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
++	addattr_l(n, 2024, TCA_PSP_COPT, &copt, sizeof(copt));
++	tail->rta_len = (void *)NLMSG_TAIL(n) - (void *)tail;
++	return 0;
 +}
 +
-+static struct Qdisc_class_ops psp_class_ops = {
-+	.graft		=	psp_graft,
-+	.leaf		=	psp_leaf,
-+	.get		=	psp_get,
-+	.put		=	psp_put,
-+	.change		=	psp_change_class,
-+	.delete		=	psp_delete,
-+	.walk		=	psp_walk,
-+	.tcf_chain	=	psp_find_tcf,
-+	.bind_tcf	=	psp_bind_filter,
-+	.unbind_tcf	=	psp_unbind_filter,
-+	.dump		=	psp_dump_class,
-+	.dump_stats	=	psp_dump_class_stats,
++struct qdisc_util psp_qdisc_util = {
++	.id		= "psp",
++	.parse_qopt	= psp_parse_opt,
++	.print_qopt	= psp_print_opt,
++	.print_xstats	= psp_print_xstats,
++	.parse_copt	= psp_parse_class_opt,
++	.print_copt	= psp_print_opt
 +};
 +
-+static struct Qdisc_ops psp_qdisc_ops = {
-+	.next		=	NULL,
-+	.cl_ops		=	&psp_class_ops,
-+	.id		=	"psp",
-+	.priv_size	=	sizeof(struct psp_sched_data),
-+	.enqueue	=	psp_enqueue,
-+	.dequeue	=	psp_dequeue,
-+	.requeue	=	psp_requeue,
-+	.drop		=	psp_drop,
-+	.init		=	psp_init,
-+	.reset		=	psp_reset,
-+	.destroy	=	psp_destroy,
-+	.change		=	psp_change_qdisc,
-+	.dump		=	psp_dump_qdisc,
-+	.dump_stats	=	psp_dump_qdisc_stats,
-+	.owner		=	THIS_MODULE,
-+};
-+
-+static int __init psp_module_init(void)
-+{
-+	return register_qdisc(&psp_qdisc_ops);
-+}
-+
-+static void __exit psp_module_exit(void) 
-+{
-+	unregister_qdisc(&psp_qdisc_ops);
-+}
-+
-+module_init(psp_module_init)
-+module_exit(psp_module_exit)
-+MODULE_LICENSE("GPL");
 -- 
 1.5.3.4
 
