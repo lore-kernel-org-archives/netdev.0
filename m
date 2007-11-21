@@ -1,58 +1,59 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: 2.6.24-rc3: find complains about /proc/net
-Date: Tue, 20 Nov 2007 18:41:56 -0700
-Message-ID: <m1pry4pe6z.fsf@ebiederm.dsl.xmission.com>
-References: <fa.zy7JwM3jsOSgOCtqK2+rvFfdGjQ@ifi.uio.no>
-	<fa.Zx9jkdx74KRPk1qghLrg9BCvfFU@ifi.uio.no>
-	<fa.1TKmo5fKBZfHOQYq1bH4uMxOQek@ifi.uio.no>
-	<fa.fjJG0rd93RGzZ4PSv/glscvAI0A@ifi.uio.no>
-	<fa.7XLWa+gAWL3Q6I3O+hiS4UfcWpM@ifi.uio.no>
-	<fa.QqYdKsBUWKSLLGXmxJCAtZxLYnE@ifi.uio.no> <47438820.5010300@shaw.ca>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][IPVS] Fix compiler warning about unused
+ register_ip_vs_protocol
+Date: Tue, 20 Nov 2007 17:44:24 -0800 (PST)
+Message-ID: <20071120.174424.119977201.davem@davemloft.net>
+References: <4742CE4A.2000102@openvz.org>
+	<20071121013801.GB11665@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ulrich Drepper <drepper@redhat.com>,
-	Roland McGrath <roland@redhat.com>,
-	Guillaume Chazarain <guichaz@yahoo.fr>,
-	Ingo Molnar <mingo@elte.hu>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
-	kernel list <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Robert Hancock <hancockr@shaw.ca>
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org
+To: horms@verge.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:51756 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755544AbXKUBnx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 20:43:53 -0500
-In-Reply-To: <47438820.5010300@shaw.ca> (Robert Hancock's message of "Tue, 20
-	Nov 2007 19:21:36 -0600")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35637
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753307AbXKUBo0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 20:44:26 -0500
+In-Reply-To: <20071121013801.GB11665@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Robert Hancock <hancockr@shaw.ca> writes:
+From: Simon Horman <horms@verge.net.au>
+Date: Wed, 21 Nov 2007 10:38:02 +0900
 
-> Eric W. Biederman wrote:
->> Could you elaborate a bit on how the semantics of returning the
->> wrong information are more useful?
->>
->> In particular if a thread does the logical equivalent of:
->> grep Pid: /proc/self/status.  It always get the tgid despite
->> having a different process id.
->
-> The POSIX-defined userspace concept of a PID requires that all threads appear to
-> have the same PID. This is something that Linux didn't comply with under the old
-> LinuxThreads implementation and was finally fixed with NPTL. This isn't a
-> POSIX-defined interface, but I assume it's trying to be consistent with
-> getpid(), etc.
+> On Tue, Nov 20, 2007 at 03:08:42PM +0300, Pavel Emelyanov wrote:
+> > This is silly, but I have turned the CONFIG_IP_VS to m,
+> > to check the compilation of one (recently sent) fix
+> > and set all the CONFIG_IP_VS_PROTO_XXX options to n to
+> > speed up the compilation.
+> > 
+> > In this configuration the compiler warns me about
+> > 
+> >   CC [M]  net/ipv4/ipvs/ip_vs_proto.o
+> > net/ipv4/ipvs/ip_vs_proto.c:49: warning: ‘register_ip_vs_protocol’ defined but not used
+> > 
+> > Indeed. With no protocols selected there are no
+> > calls to this function - all are compiled out with
+> > ifdefs.
+> > 
+> > Maybe the best fix would be to surround this call with
+> > ifdef-s or tune the Kconfig dependences, but I think that
+> > marking this register function as __used is enough. No?
+> > 
+> > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> 
+> That is kind of interesting.
+> 
+> On the one hand it might be more correct in some way to use some Kconfig
+> foo to get rid of register_ip_vs_protocol, and also most of
+> the body of ‘register_ip_vs_protocol() if no protocols are defined.
+> 
+> But on the other hand, its really a corner case, because in practice if
+> you are going to use IPVS then you are going to need at least one
+> protocol. So I'm happy with the simplicity of the __used solution, even
+> though strictly speaking it is a lie.
+> 
+> Acked-by: Simon Horman <horms@verge.net.au>
 
-
-Linux exports two fields in /proc/self/status:
-Tgid:   32698
-Pid:    32698
-
-The tgid maps to the posix concept.  The pid is this context is the
-thread id.
-
-So it seems broken to me to return the same thread id for different threads.
-
-Eric
+Ok, I've applied Pavel's patch.
