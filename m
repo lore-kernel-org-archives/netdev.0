@@ -1,40 +1,48 @@
 From: akpm@linux-foundation.org
-Subject: [patch 1/4] pfkey: sending an SADB_GET responds with an SADB_GET
-Date: Wed, 21 Nov 2007 15:02:13 -0800
-Message-ID: <200711212302.lALN2DYa013601@imap1.linux-foundation.org>
+Subject: [patch 3/4] tlan list is subscribers-only
+Date: Wed, 21 Nov 2007 15:02:15 -0800
+Message-ID: <200711212302.lALN2FFu013607@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	chardin@2wire.com
+	nix.or.die@googlemail.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:33679 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:52148 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754087AbXKUXCX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 18:02:23 -0500
+	by vger.kernel.org with ESMTP id S1753848AbXKUXCT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 18:02:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Charles Hardin <chardin@2wire.com>
+From: Gabriel C <nix.or.die@googlemail.com>
 
-Kernel needs to respond to an SADB_GET with the same message type to
-conform to the RFC 2367 Section 3.1.5
+Your mail to 'Tlan-devel' with the subject
 
-Cc: "David S. Miller" <davem@davemloft.net>
+    drivers/net/tlan question
+
+Is being held until the list moderator can review it for approval.
+
+The reason it is being held:
+
+    Post by non-member to a members-only list
+
+Signed-off-by: Gabriel Craciunescu <nix.or.die@googlemail.com>
+
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- net/key/af_key.c |    2 +-
+ MAINTAINERS |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN net/key/af_key.c~pfkey-sending-an-sadb_get-responds-with-an-sadb_get net/key/af_key.c
---- a/net/key/af_key.c~pfkey-sending-an-sadb_get-responds-with-an-sadb_get
-+++ a/net/key/af_key.c
-@@ -1552,7 +1552,7 @@ static int pfkey_get(struct sock *sk, st
+diff -puN MAINTAINERS~tlan-list-is-subscribers-only MAINTAINERS
+--- a/MAINTAINERS~tlan-list-is-subscribers-only
++++ a/MAINTAINERS
+@@ -3733,7 +3733,7 @@ S:	Maintained
+ TLAN NETWORK DRIVER
+ P:	Samuel Chessman
+ M:	chessman@tux.org
+-L:	tlan-devel@lists.sourceforge.net
++L:	tlan-devel@lists.sourceforge.net (subscribers-only)
+ W:	http://sourceforge.net/projects/tlan/
+ S:	Maintained
  
- 	out_hdr = (struct sadb_msg *) out_skb->data;
- 	out_hdr->sadb_msg_version = hdr->sadb_msg_version;
--	out_hdr->sadb_msg_type = SADB_DUMP;
-+	out_hdr->sadb_msg_type = SADB_GET;
- 	out_hdr->sadb_msg_satype = pfkey_proto2satype(proto);
- 	out_hdr->sadb_msg_errno = 0;
- 	out_hdr->sadb_msg_reserved = 0;
 _
