@@ -1,57 +1,50 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [RFC PATCH 2/2] [TCP] MTUprobe: Cleanup send queue check (no need to loop)
-Date: Wed, 21 Nov 2007 18:01:28 +0200
-Message-ID: <1195660888907-git-send-email-ilpo.jarvinen@helsinki.fi>
-References: <11956608882424-git-send-email-ilpo.jarvinen@helsinki.fi> <11956608882602-git-send-email-ilpo.jarvinen@helsinki.fi>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][IRDA] Compilation for CONFIG_INET=n case
+Date: Wed, 21 Nov 2007 19:03:16 +0300
+Message-ID: <474456C4.8010309@openvz.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	John Heffner <jheffner@psc.edu>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Samuel Ortiz <samuel@sortiz.org>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:58850 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755854AbXKUQBa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 11:01:30 -0500
-In-Reply-To: <11956608882602-git-send-email-ilpo.jarvinen@helsinki.fi>
+Received: from sacred.ru ([62.205.161.221]:35837 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754660AbXKUQGj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Nov 2007 11:06:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The original code has striking complexity to perform a query
-which can be reduced to a very simple compare.
+Found this occasionally. 
 
-=46IN seqno may be included to write_seq but it should not make
-any significant difference here compared to skb->len which was
-used previously. One won't end up there with SYN still queued.
+The CONFIG_INET=n is hardly ever set, but if it is the 
+irlan_eth_send_gratuitous_arp() compilation should produce a 
+warning about unused variable in_dev.
 
-Use of write_seq check guarantees that there's a valid skb in
-send_head so I removed the extra check.
+Too pedantic? :)
 
-Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
 ---
- net/ipv4/tcp_output.c |    7 +------
- 1 files changed, 1 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index ff22ce8..1822ce6 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1315,12 +1315,7 @@ static int tcp_mtu_probe(struct sock *sk)
- 	}
-=20
- 	/* Have enough data in the send queue to probe? */
--	len =3D 0;
--	if ((skb =3D tcp_send_head(sk)) =3D=3D NULL)
--		return -1;
--	while ((len +=3D skb->len) < size_needed && !tcp_skb_is_last(sk, skb)=
-)
--		skb =3D tcp_write_queue_next(sk, skb);
--	if (len < size_needed)
-+	if (tp->write_seq - tp->snd_nxt < size_needed)
- 		return -1;
-=20
- 	if (tp->snd_wnd < size_needed)
---=20
-1.5.0.6
-
+diff --git a/net/irda/irlan/irlan_eth.c b/net/irda/irlan/irlan_eth.c
+index 7f9c854..c682207 100644
+--- a/net/irda/irlan/irlan_eth.c
++++ b/net/irda/irlan/irlan_eth.c
+@@ -296,6 +296,7 @@ void irlan_eth_flow_indication(void *instance, void *sap, LOCAL_FLOW flow)
+  */
+ void irlan_eth_send_gratuitous_arp(struct net_device *dev)
+ {
++#ifdef CONFIG_INET
+ 	struct in_device *in_dev;
+ 
+ 	/*
+@@ -303,7 +304,6 @@ void irlan_eth_send_gratuitous_arp(struct net_device *dev)
+ 	 * is useful if we have changed access points on the same
+ 	 * subnet.
+ 	 */
+-#ifdef CONFIG_INET
+ 	IRDA_DEBUG(4, "IrLAN: Sending gratuitous ARP\n");
+ 	rcu_read_lock();
+ 	in_dev = __in_dev_get_rcu(dev);
