@@ -1,45 +1,50 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: [PATCH] smc911x: Fix unused variable warning.
-Date: Wed, 21 Nov 2007 15:34:15 +0100
-Message-ID: <E1IuqyC-0004ek-R2@nanv.dk>
-To: netdev@vger.kernel.org, jeff@garzik.org, dustin@sensoria.com
+From: jamal <hadi@cyberus.ca>
+Subject: Re: HTB/HSFC shaping precision
+Date: Wed, 21 Nov 2007 10:06:47 -0500
+Message-ID: <1195657607.4437.8.camel@localhost>
+References: <20071120211258.M55249@visp.net.lb>
+	 <20071121094710.GA2295@ff.dom.local>  <20071121103024.M12218@visp.net.lb>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@o2.pl>, netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps.korsgaard.com ([64.79.194.204]:40924 "EHLO nanv.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755698AbXKUOya (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Nov 2007 09:54:30 -0500
+Received: from py-out-1112.google.com ([64.233.166.182]:39026 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753561AbXKUPG6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 10:06:58 -0500
+Received: by py-out-1112.google.com with SMTP id u77so7248376pyb
+        for <netdev@vger.kernel.org>; Wed, 21 Nov 2007 07:06:57 -0800 (PST)
+In-Reply-To: <20071121103024.M12218@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The smc911x_local pointer in smc911x_rcv is only used in the SMC_USE_DMA
-case. Move it under the #ifdef so GCC doesn't generate a warning in the
-non-DMA case.
+On Wed, 2007-21-11 at 12:31 +0200, Denys Fedoryshchenko wrote:
+> On Wed, 21 Nov 2007 10:47:10 +0100, Jarek Poplawski wrote
+> > 
+> > But, if you have full control on your side, it looks like a kind of
+> > realtime traffic, and then HFSC should be more appropriate for this
+> > (but I only 'heard' about this).
+> 
+> One message later, thats what i dreamed about :-)
+> Subject: [RFC][PATCH 1/3] NET_SCHED: PSPacer qdisc module 
+> On website they have very good explanation... 
+> http://www.gridmpi.org/gridtcp.jsp
 
-Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
----
- drivers/net/smc911x.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+That looks interesting - without reading the papers a few questions are
+developing in my brain cells; for example it looks very similar to what
+the chelsio NICs claim to do (which could be a good thing for TCP).
+Whenever i see someone implementing something in hardware, i always get
+flushes of "patents". 
 
-diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
-index dd18af0..69a78b3 100644
---- a/drivers/net/smc911x.c
-+++ b/drivers/net/smc911x.c
-@@ -428,7 +428,6 @@ static inline void smc911x_drop_pkt(struct net_device *dev)
-  */
- static inline void	 smc911x_rcv(struct net_device *dev)
- {
--	struct smc911x_local *lp = netdev_priv(dev);
- 	unsigned long ioaddr = dev->base_addr;
- 	unsigned int pkt_len, status;
- 	struct sk_buff *skb;
-@@ -473,6 +472,7 @@ static inline void	 smc911x_rcv(struct net_device *dev)
- 		skb_put(skb,pkt_len-4);
- #ifdef SMC_USE_DMA
- 		{
-+		struct smc911x_local *lp = netdev_priv(dev);
- 		unsigned int fifo;
- 		/* Lower the FIFO threshold if possible */
- 		fifo = SMC_GET_FIFO_INT();
--- 
-1.5.3.4
+Denys, one of the things i have noticed with iperf is it tries to be
+clever and "probe" the available bandwidth first. So you may not get the
+most optimal use of of your bandwidth. Try something like pktgen, its
+quiet accurate in its measurements. Just add a tc drop rule on the
+receiver to get the accounting.
+
+cheers,
+jamal
 
