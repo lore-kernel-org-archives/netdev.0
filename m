@@ -1,72 +1,73 @@
 From: akpm@linux-foundation.org
-Subject: [patch 6/8] forcedeth: new mcp79 device ids
-Date: Wed, 21 Nov 2007 15:02:57 -0800
-Message-ID: <200711212302.lALN2vH3013667@imap1.linux-foundation.org>
+Subject: [patch 1/5] bluetooth: hidp_process_hid_control remove unnecessary parameter dealing
+Date: Wed, 21 Nov 2007 15:03:55 -0800
+Message-ID: <200711212303.lALN3uMR013716@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	aabdulla@nvidia.com, jgarzik@pobox.com, manfred@colorfullife.com,
-	stable@kernel.org
-To: jeff@garzik.org
+	hidave.darkstar@gmail.com
+To: marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:33605 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:56235 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754570AbXKUXDl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 18:03:41 -0500
+	by vger.kernel.org with ESMTP id S1753550AbXKUXET (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 18:04:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ayaz Abdulla <aabdulla@nvidia.com>
+From: Dave Young <hidave.darkstar@gmail.com>
 
-Add new device ids and features for mcp79 devices into the forcedeth driver.
+According to the bluetooth HID spec v1.0 chapter 7.4.2
 
-Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>
-Cc: Manfred Spraul <manfred@colorfullife.com>
-Cc: <stable@kernel.org>
+"This code requests a major state change in a BT-HID device.  A HID_CONTROL
+request does not generate a HANDSHAKE response."
+
+"A HID_CONTROL packet with a parameter of VIRTUAL_CABLE_UNPLUG is the only
+HID_CONTROL packet a device can send to a host.  A host will ignore all other
+packets."
+
+So in the hidp_precess_hid_control function, we just need to deal with the
+UNLUG packet.
+
+Signed-off-by: Dave Young <hidave.darkstar@gmail.com>
+Cc: Marcel Holtmann <marcel@holtmann.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/forcedeth.c |   16 ++++++++++++++++
- include/linux/pci_ids.h |    4 ++++
- 2 files changed, 20 insertions(+)
+ net/bluetooth/hidp/core.c |   19 +------------------
+ 1 file changed, 1 insertion(+), 18 deletions(-)
 
-diff -puN drivers/net/forcedeth.c~forcedeth-new-mcp79-device-ids drivers/net/forcedeth.c
---- a/drivers/net/forcedeth.c~forcedeth-new-mcp79-device-ids
-+++ a/drivers/net/forcedeth.c
-@@ -5621,6 +5621,22 @@ static struct pci_device_id pci_tbl[] = 
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_35),
- 		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
-+	{	/* MCP79 Ethernet Controller */
-+		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_36),
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+	},
-+	{	/* MCP79 Ethernet Controller */
-+		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_37),
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+	},
-+	{	/* MCP79 Ethernet Controller */
-+		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_38),
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+	},
-+	{	/* MCP79 Ethernet Controller */
-+		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_39),
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+	},
- 	{0,},
- };
+diff -puN net/bluetooth/hidp/core.c~bluetooth-hidp_process_hid_control-remove-unnecessary-parameter-dealing net/bluetooth/hidp/core.c
+--- a/net/bluetooth/hidp/core.c~bluetooth-hidp_process_hid_control-remove-unnecessary-parameter-dealing
++++ a/net/bluetooth/hidp/core.c
+@@ -369,30 +369,13 @@ static inline void hidp_process_hid_cont
+ {
+ 	BT_DBG("session %p param 0x%02x", session, param);
  
-diff -puN include/linux/pci_ids.h~forcedeth-new-mcp79-device-ids include/linux/pci_ids.h
---- a/include/linux/pci_ids.h~forcedeth-new-mcp79-device-ids
-+++ a/include/linux/pci_ids.h
-@@ -1237,6 +1237,10 @@
- #define PCI_DEVICE_ID_NVIDIA_NVENET_33              0x0761
- #define PCI_DEVICE_ID_NVIDIA_NVENET_34              0x0762
- #define PCI_DEVICE_ID_NVIDIA_NVENET_35              0x0763
-+#define PCI_DEVICE_ID_NVIDIA_NVENET_36              0x0AB0
-+#define PCI_DEVICE_ID_NVIDIA_NVENET_37              0x0AB1
-+#define PCI_DEVICE_ID_NVIDIA_NVENET_38              0x0AB2
-+#define PCI_DEVICE_ID_NVIDIA_NVENET_39              0x0AB3
+-	switch (param) {
+-	case HIDP_CTRL_NOP:
+-		break;
+-
+-	case HIDP_CTRL_VIRTUAL_CABLE_UNPLUG:
++	if (param == HIDP_CTRL_VIRTUAL_CABLE_UNPLUG) {
+ 		/* Flush the transmit queues */
+ 		skb_queue_purge(&session->ctrl_transmit);
+ 		skb_queue_purge(&session->intr_transmit);
  
- #define PCI_VENDOR_ID_IMS		0x10e0
- #define PCI_DEVICE_ID_IMS_TT128		0x9128
+ 		/* Kill session thread */
+ 		atomic_inc(&session->terminate);
+-		break;
+-
+-	case HIDP_CTRL_HARD_RESET:
+-	case HIDP_CTRL_SOFT_RESET:
+-	case HIDP_CTRL_SUSPEND:
+-	case HIDP_CTRL_EXIT_SUSPEND:
+-		/* FIXME: We have to parse these and return no error */
+-		break;
+-
+-	default:
+-		__hidp_send_ctrl_message(session,
+-			HIDP_TRANS_HANDSHAKE | HIDP_HSHK_ERR_INVALID_PARAMETER, NULL, 0);
+-		break;
+ 	}
+ }
+ 
 _
