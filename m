@@ -1,42 +1,64 @@
 From: akpm@linux-foundation.org
-Subject: [patch 4/4] Net: sunrpc, remove SPIN_LOCK_UNLOCKED
-Date: Wed, 21 Nov 2007 15:02:15 -0800
-Message-ID: <200711212302.lALN2G3A013610@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	jirislaby@gmail.com
+Subject: [patch 2/4] make sunrpc/xprtsock.c:xs_setup_{udp,tcp}() static
+Date: Wed, 21 Nov 2007 15:02:14 -0800
+Message-ID: <200711212302.lALN2Eoj013604@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, bunk@kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:35723 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:59126 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753863AbXKUXCU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 18:02:20 -0500
+	by vger.kernel.org with ESMTP id S1753237AbXKUXC3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 18:02:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jiri Slaby <jirislaby@gmail.com>
+From: Adrian Bunk <bunk@kernel.org>
 
-sunrpc, remove SPIN_LOCK_UNLOCKED
+xs_setup_{udp,tcp}() can now become static.
 
-SPIN_LOCK_UNLOCKED is deprecated, use DEFINE_SPINLOCK instead
-
-Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- net/sunrpc/xprt.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/linux/sunrpc/xprtsock.h |    6 ------
+ net/sunrpc/xprtsock.c           |    4 ++--
+ 2 files changed, 2 insertions(+), 8 deletions(-)
 
-diff -puN net/sunrpc/xprt.c~net-sunrpc-remove-spin_lock_unlocked net/sunrpc/xprt.c
---- a/net/sunrpc/xprt.c~net-sunrpc-remove-spin_lock_unlocked
-+++ a/net/sunrpc/xprt.c
-@@ -62,7 +62,7 @@ static inline void	do_xprt_reserve(struc
- static void	xprt_connect_status(struct rpc_task *task);
- static int      __xprt_get_cong(struct rpc_xprt *, struct rpc_task *);
+diff -puN include/linux/sunrpc/xprtsock.h~make-sunrpc-xprtsockcxs_setup_udptcp-static include/linux/sunrpc/xprtsock.h
+--- a/include/linux/sunrpc/xprtsock.h~make-sunrpc-xprtsockcxs_setup_udptcp-static
++++ a/include/linux/sunrpc/xprtsock.h
+@@ -9,12 +9,6 @@
  
--static spinlock_t xprt_list_lock = SPIN_LOCK_UNLOCKED;
-+static DEFINE_SPINLOCK(xprt_list_lock);
- static LIST_HEAD(xprt_list);
+ #ifdef __KERNEL__
  
- /*
+-/*
+- * Socket transport setup operations
+- */
+-struct rpc_xprt *xs_setup_udp(struct xprt_create *args);
+-struct rpc_xprt *xs_setup_tcp(struct xprt_create *args);
+-
+ int		init_socket_xprt(void);
+ void		cleanup_socket_xprt(void);
+ 
+diff -puN net/sunrpc/xprtsock.c~make-sunrpc-xprtsockcxs_setup_udptcp-static net/sunrpc/xprtsock.c
+--- a/net/sunrpc/xprtsock.c~make-sunrpc-xprtsockcxs_setup_udptcp-static
++++ a/net/sunrpc/xprtsock.c
+@@ -1828,7 +1828,7 @@ static struct rpc_xprt *xs_setup_xprt(st
+  * @args: rpc transport creation arguments
+  *
+  */
+-struct rpc_xprt *xs_setup_udp(struct xprt_create *args)
++static struct rpc_xprt *xs_setup_udp(struct xprt_create *args)
+ {
+ 	struct sockaddr *addr = args->dstaddr;
+ 	struct rpc_xprt *xprt;
+@@ -1894,7 +1894,7 @@ struct rpc_xprt *xs_setup_udp(struct xpr
+  * @args: rpc transport creation arguments
+  *
+  */
+-struct rpc_xprt *xs_setup_tcp(struct xprt_create *args)
++static struct rpc_xprt *xs_setup_tcp(struct xprt_create *args)
+ {
+ 	struct sockaddr *addr = args->dstaddr;
+ 	struct rpc_xprt *xprt;
 _
