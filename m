@@ -1,33 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] [IPV6] TCPMD5: Fix deleting key operation.
-Date: Tue, 20 Nov 2007 17:31:40 -0800 (PST)
-Message-ID: <20071120.173140.147599576.davem@davemloft.net>
-References: <20071121.015432.109301152.yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 01/01] ipv6: RFC4214 Support (v2.4)
+Date: Tue, 20 Nov 2007 17:34:59 -0800 (PST)
+Message-ID: <20071120.173459.88096876.davem@davemloft.net>
+References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC29@XCH-NW-7V2.nw.nos.boeing.com>
+	<39C363776A4E8C4A94691D2BD9D1C9A1029EDC2B@XCH-NW-7V2.nw.nos.boeing.com>
+	<39C363776A4E8C4A94691D2BD9D1C9A1029EDC3F@XCH-NW-7V2.nw.nos.boeing.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	ming-baini@163.com
-To: yoshfuji@linux-ipv6.org
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	vladislav.yasevich@hp.com
+To: Fred.L.Templin@boeing.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53166
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53175
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752732AbXKUBbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 20:31:41 -0500
-In-Reply-To: <20071121.015432.109301152.yoshfuji@linux-ipv6.org>
+	by vger.kernel.org with ESMTP id S1751832AbXKUBfA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2007 20:35:00 -0500
+In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC3F@XCH-NW-7V2.nw.nos.boeing.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Wed, 21 Nov 2007 01:54:32 +0900 (JST)
+From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Date: Tue, 20 Nov 2007 09:36:26 -0800
 
-> Due to the bug, refcnt for md5sig pool was leaked when
-> an user try to delete a key if we have more than one key.
-> In addition to the leakage, we returned incorrect return
-> result value for userspace.
+> From: Fred L. Templin <fred.l.templin@boeing.com>
 > 
-> This fix should close Bug #9418, reported by <ming-baini@163.com>.
+> This patch includes support for the Intra-Site Automatic Tunnel
+> Addressing Protocol (ISATAP) per RFC4214. It uses the SIT
+> module, and is configured using extensions to the "iproute2"
+> utility. The diffs are specific to the Linux 2.6.24-rc2 kernel
+> distribution.
 > 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> This version reflects changes based on netdev list discussions
+> on 11/14/07 thru 11/15/07. It does away with in-the-kernel RS/RA
+> pinging and now asks that the task be performed by an application.
+> The application will essentially entail a port of the FreeBSD 'rtsold'
+> daemon, and will use the standard socket API.
+> 
+> Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
 
-Also applied, thanks a lot for fixing these bugs.
+I think we've made Fred jump through enough hoops :-)
+I've added this to net-2.6.25, any fixups should be
+sent relative to this, thanks.
+
+Although that default router lookup on every packet doesn't
+look so cheap, I wonder if there is a less expensive way to
+implement that bit.
