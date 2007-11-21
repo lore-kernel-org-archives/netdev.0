@@ -1,70 +1,52 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Routing tables associated with VLANs dissappear when parent ethX
- down/up
-Date: Wed, 21 Nov 2007 11:51:43 -0800
-Message-ID: <47448C4F.3060107@candelatech.com>
-References: <474387E4.7020802@candelatech.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] cassini: NAPI configuration
+Date: Wed, 21 Nov 2007 11:53:58 -0800
+Message-ID: <20071121115358.2e31fb91@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070706060804040006000706"
-Cc: Patrick McHardy <kaber@trash.net>
-To: NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:37714 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753371AbXKUTvt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Nov 2007 14:51:49 -0500
-In-Reply-To: <474387E4.7020802@candelatech.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:60773 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752837AbXKUTyp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 14:54:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070706060804040006000706
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+The Cassini driver has NAPI support, but it not possible to configure it.
+Compile tested only, no idea if it works (no hardware).
+Get rid of warning from lefover variable in now visible code.
 
-For consideration, this patch seems to work for me.  I'm not sure
-why we ever listed to these events.  I've only tested on a NIC that
-doesn't support hw-accel at the moment..will test with e1000 later.
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
-
---------------070706060804040006000706
-Content-Type: text/x-patch;
- name="vlan.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="vlan.patch"
-
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index c4209c8..acbf0ff 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -615,6 +615,11 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 		}
- 		break;
+--- a/drivers/net/Kconfig	2007-11-19 18:56:12.000000000 -0800
++++ b/drivers/net/Kconfig	2007-11-21 11:28:20.000000000 -0800
+@@ -587,6 +587,15 @@ config CASSINI
+ 	  Support for the Sun Cassini chip, aka Sun GigaSwift Ethernet. See also
+ 	  <http://www.sun.com/products-n-solutions/hardware/docs/pdf/817-4341-10.pdf>
  
-+#if 0
-+		/* Don't propagate management state from base dev to VLANs.  If you do this,
-+		 * then if you 'ifconfig eth0 down; ifconfig eth0 up', you also lose all the
-+		 * routes for eth0.* VLANs. --Ben
-+		 */
- 	case NETDEV_DOWN:
- 		/* Put all VLANs for this dev in the down state too.  */
- 		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
-@@ -644,6 +649,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 			dev_change_flags(vlandev, flgs | IFF_UP);
- 		}
- 		break;
-+#endif
- 		
- 	case NETDEV_UNREGISTER:
- 		/* Delete all VLANs for this dev. */
-
---------------070706060804040006000706--
++config CASSINI_NAPI
++	bool "Use Rx Polling (NAPI) (EXPERIMENTAL)"
++	depends on CASSINI && EXPERIMENTAL
++	help
++	  NAPI is a new driver API designed to reduce CPU and interrupt load
++	  when the driver is receiving lots of packets from the card.
++
++	  If in doubt, say N.
++
+ config SUNVNET
+ 	tristate "Sun Virtual Network support"
+ 	depends on SUN_LDOMS
+--- a/drivers/net/cassini.c	2007-11-16 16:17:20.000000000 -0800
++++ b/drivers/net/cassini.c	2007-11-21 11:30:43.000000000 -0800
+@@ -2611,7 +2611,7 @@ static int cas_poll(struct napi_struct *
+ {
+ 	struct cas *cp = container_of(napi, struct cas, napi);
+ 	struct net_device *dev = cp->dev;
+-	int i, enable_intr, todo, credits;
++	int i, enable_intr, credits;
+ 	u32 status = readl(cp->regs + REG_INTR_STATUS);
+ 	unsigned long flags;
+ 
