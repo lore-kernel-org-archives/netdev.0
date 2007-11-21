@@ -1,33 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC/PATCH] SO_NO_CHECK for IPv6
-Date: Wed, 21 Nov 2007 10:35:31 -0800 (PST)
-Message-ID: <20071121.103531.267691506.davem@davemloft.net>
-References: <20071121124532.GA17263@havoc.gtf.org>
+From: "Anil Veerabhadrappa" <anilgv@broadcom.com>
+Subject: Re: [PATCH v3 2/2][BNX2]: Add iSCSI support to BNX2 devices.
+Date: Wed, 21 Nov 2007 10:38:16 -0800
+Message-ID: <1195670296.8767.9.camel@dhcp-10-13-106-205.broadcom.com>
+References: <1188599815.5176.12.camel@dell>
+ <46DEF69D.3090901@redhat.com>
+ <1189027622.19638.42.camel@dhcp-10-13-106-205.broadcom.com>
+ <46E1CF4B.9080407@cs.wisc.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45594
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750716AbXKUSfc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 13:35:32 -0500
-In-Reply-To: <20071121124532.GA17263@havoc.gtf.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: "Mike Christie" <mchristi@redhat.com>,
+	"Michael Chan" <mchan@broadcom.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
+	talm@broadcom.com, lusinsky@broadcom.com, uri@broadcom.com,
+	"SCSI Mailing List" <linux-scsi@vger.kernel.org>
+To: "Mike Christie" <michaelc@cs.wisc.edu>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <46E1CF4B.9080407@cs.wisc.edu>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Wed, 21 Nov 2007 07:45:32 -0500
 
+> >> The sysfs bits related to the hba should be use one of the scsi sysfs 
+> >> facilities or if they are related to iscsi bits and are generic then 
+> >> through the iscsi hba
+> > 
+> > bnx2i needs 2 sysfs entries -
+> > 1. QP size info - this is used to size per connection shared data
+> > structures to issue work requests to chip (login, scsi cmd, tmf, nopin)
+> > and get completions from the chip (scsi completions, async messages,
+> > etc'). This is a iSCSI HBA attribute
+> > 2. port mapper - we can be more flexible on classifying this as either
+> > iSCSI HBA attribute or bnx2i driver global attribute
+> > Can hooks be added to iSCSI transport class to include these?
+> > 
 > 
-> SO_NO_CHECK support for IPv6 appeared to be missing. This is presented,
-> based on a reading of net/ipv4/udp.c.
+> Which ones were they exactly? I think JamesB wanted only common 
+> transport values in the transport class. If it is driver specific then 
+> it should go on the host or target or device with the scsi_host_template 
+> attrs.
 > 
-> I wonder if IPv4's CHECKSUM_PARTIAL check from udp_push_pending_frames()
-> also needs to be copied to IPv6?
-> 
-> Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
 
-IPV6 specifies that, unlike ipv4, this no-checksum behavior
-is not allowed.
+It's a chicken & egg issue to put "port mapper" sysfs entry in scsi host
+attributes. Application won't see sysfs unless initiator creates an
+iSCSI session and driver can't create an iSCSI session without a tcp
+port. I was wondering if there is a better way than using IOCTL in this
+situation?
+
