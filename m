@@ -1,93 +1,118 @@
-From: Hideo AOKI <haoki@redhat.com>
-Subject: Re: [PATCH 4/5] udp: memory limitation by using udp_mem
-Date: Wed, 21 Nov 2007 18:25:19 -0500
-Message-ID: <4744BE5F.3060901@redhat.com>
-References: <473CBDAD.1010708@redhat.com>	<473CBF16.8040001@redhat.com> <20071115.152353.100893781.davem@davemloft.net>
+From: "Ayaz Abdulla" <AAbdulla@nvidia.com>
+Subject: RE: [patch 2/8] forcedeth: fix MAC address detection on network card (regression in 2.6.23)
+Date: Wed, 21 Nov 2007 15:34:52 -0800
+Message-ID: <F72FA20C31DD4F4C997B91C5B3690A091A9857@hqemmail07.nvidia.com>
+References: <200711212302.lALN2sF8013655@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, satoshi.oshima.fk@hitachi.com,
-	billfink@mindspring.com, andi@firstfloor.org, johnpol@2ka.mipt.ru,
-	shemminger@linux-foundation.org, yoshfuji@linux-ipv6.org,
-	yumiko.sugita.yf@hitachi.com, haoki@redhat.com
-To: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <michael.pyne@kdemail.net>,
+	<stable@kernel.org>
+To: <akpm@linux-foundation.org>, <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:52729 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752206AbXKUXh6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Nov 2007 18:37:58 -0500
-In-Reply-To: <20071115.152353.100893781.davem@davemloft.net>
+Received: from hqemgate04.nvidia.com ([216.228.112.152]:7263 "EHLO
+	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751889AbXKUXmD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 18:42:03 -0500
+In-Reply-To: <200711212302.lALN2sF8013655@imap1.linux-foundation.org>
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Hideo AOKI <haoki@redhat.com>
-> Date: Thu, 15 Nov 2007 16:50:14 -0500
-> 
->> +static inline int __ip_check_max_skb_pages(struct sock *sk, int size)
->> +{
->> +	switch(sk->sk_protocol) {
->> +	case IPPROTO_UDP:
->> +		if (atomic_read(sk->sk_prot->memory_allocated) + size
->> +		    > sk->sk_prot->sysctl_mem[0])
->> +			return -ENOBUFS;
->> +		/* Fall through */	
->> +	default:
->> +		break;
->> +	}
->> +	return 0;
->> +}
->> +
-<snip>
-> 
-> These special case checks are all over the place.
-> 
-> We don't have tests all over the place to see if a socket is TCP or
-> DCCP or SCTP in order to implement memory accounting there, because we
-> did it for connection oriented protocols cleanly, seperating things
-> via callbacks etc.
-> 
-> I would like to see the datagram memory accounting work similarly.
+The solution is to get the OEM to update their BIOS (instead of
+integrating this patch) since the MCP61 specs indicate that the MAC
+Address should be in correct order from BIOS.
 
-Hello,
+By changing the feature DEV_HAS_CORRECT_MACADDR to all MCP61 boards, it
+could cause it to break on other OEM systems who have implemented it
+correctly.
 
-I'm still thinking this and focusing on enhancement of above function.
-However, I feel difficulty because socket buffer allocation of UDP
-sending packet is in IP layer: ip_append_data(). Moreover, the function
-is called from several protocols including TCP. This makes setting
-callback hard without changing function interface or core data structure.
+Thanks,
+Ayaz
 
-Then, I would like to know if the following implementation could be
-acceptable.
 
- - Adding sk_datagram_{rw}mem_schedule() as a memory schedule function
-   for datagram protocols.
 
- - Adding sk_wmem_schedule().
-   In the function, sk_stream_wmem_schedule() is called if the caller
-   socket is stream protocols. Moreover, sk_datagram_wmem_schedule()
-   is called if the socket is datagram like this:
+-----Original Message-----
+From: akpm@linux-foundation.org [mailto:akpm@linux-foundation.org] 
+Sent: Wednesday, November 21, 2007 3:03 PM
+To: jeff@garzik.org
+Cc: netdev@vger.kernel.org; akpm@linux-foundation.org;
+michael.pyne@kdemail.net; Ayaz Abdulla; stable@kernel.org
+Subject: [patch 2/8] forcedeth: fix MAC address detection on network
+card (regression in 2.6.23)
 
-   int sk_wmem_schedule(struct sock *sk, int size)
-   {
-	    ...
-	    switch (sk->sk_type) {
-	    case SOCK_STREAM:
-	            return sk_stream_wmem_schedule(sk, size);
-	    case SOCK_DGRAM:
-	            return sk_datagram_wmem_schedule(sk, size);
-	    default:
-	            return 1;
-	    }
-   }
 
- - In ip_append_data(), sk_wmem_schedule() is called to execute
-   memory accounting.
+From: Michael Pyne <michael.pyne@kdemail.net>
 
-Please let me know if you have any comments about this.
+Partially revert a change to mac address detection introduced to the
+forcedeth
+driver.  The change was intended to correct mac address detection for
+newer
+nVidia chipsets where the mac address was stored in reverse order.  One
+of
+those chipsets appears to still have the mac address in reverse order
+(or at
+least, it does on my system).
 
-Best regards,
-Hideo
+The change that broke mac address detection for my card was commit
+ef756b3e56c68a4d76d9d7b9a73fa8f4f739180f "forcedeth: mac address
+correct"
 
--- 
-Hitachi Computer Products (America) Inc.
+My network card is an nVidia built-in Ethernet card, output from lspci
+as
+follows (with text and numeric ids):
+$ lspci | grep Ethernet
+00:07.0 Bridge: nVidia Corporation MCP61 Ethernet (rev a2)
+$ lspci -n | grep 07.0
+00:07.0 0680: 10de:03ef (rev a2)
+
+The vendor id is, of course, nVidia.  The device id corresponds to the
+NVIDIA_NVENET_19 entry.
+
+The included patch fixes the MAC address detection on my system.
+Interestingly, the MAC address appears to be in the range reserved for
+my
+motherboard manufacturer (Gigabyte) and not nVidia.
+
+Signed-off-by: Michael J. Pyne <michael.pyne@kdemail.net>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+Cc: <stable@kernel.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ drivers/net/forcedeth.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff -puN
+drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-c
+ard-regression-in-2623 drivers/net/forcedeth.c
+---
+a/drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network
+-card-regression-in-2623
++++ a/drivers/net/forcedeth.c
+@@ -5555,7 +5555,7 @@ static struct pci_device_id pci_tbl[] = 
+ 	},
+ 	{	/* MCP61 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA,
+PCI_DEVICE_ID_NVIDIA_NVENET_19),
+-		.driver_data =
+DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTR
+L|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_E
+XTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data =
+DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTR
+L|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_E
+XTENDED|DEV_HAS_MGMT_UNIT,
+ 	},
+ 	{	/* MCP65 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA,
+PCI_DEVICE_ID_NVIDIA_NVENET_20),
+_
+-----------------------------------------------------------------------------------
+This email message is for the sole use of the intended recipient(s) and may contain
+confidential information.  Any unauthorized review, use, disclosure or distribution
+is prohibited.  If you are not the intended recipient, please contact the sender by
+reply email and destroy all copies of the original message.
+-----------------------------------------------------------------------------------
