@@ -1,89 +1,84 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 5/8] ibm_newemac: Workaround reset timeout when no link
-Date: Wed, 21 Nov 2007 17:06:43 +1100
-Message-ID: <20071121060733.95E3CDDEDC@ozlabs.org>
+Subject: [PATCH 3/8] ibm_newemac: Add ET1011c PHY support
+Date: Wed, 21 Nov 2007 17:06:41 +1100
+Message-ID: <20071121060731.D383FDDDF2@ozlabs.org>
 References: <1195625198.76200.922309668615.qpush@grosgo>
 Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
 	Josh Boyer <jwboyer@linux.vnet.ibm.com>
 To: <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:38967 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:38900 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752454AbXKUGHg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Nov 2007 01:07:36 -0500
+	id S1752923AbXKUGHe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Nov 2007 01:07:34 -0500
 In-Reply-To: <1195625198.76200.922309668615.qpush@grosgo>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With some PHYs, when the link goes away, the EMAC reset fails due
-to the loss of the RX clock I believe.
+From: Stefan Roese <sr@denx.de>
 
-The old EMAC driver worked around that using some internal chip-specific
-clock force bits that are different on various 44x implementations.
+This adds support for the Agere ET1011c PHY as found on the AMCC Taishan
+board.
 
-This is an attempt at doing it differently, by avoiding the reset when
-there is no link, but forcing loopback mode instead. It seems to work
-on my Taishan 440GX based board so far.
-
+Signed-off-by: Stefan Roese <sr@denx.de>
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Acked-by: Stefan Roese <sr@denx.de>
 ---
 
- drivers/net/ibm_newemac/core.c |   20 ++++++++++++++------
- 1 file changed, 14 insertions(+), 6 deletions(-)
+ drivers/net/ibm_newemac/phy.c |   37 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
 
-Index: linux-work/drivers/net/ibm_newemac/core.c
+Index: linux-work/drivers/net/ibm_newemac/phy.c
 ===================================================================
---- linux-work.orig/drivers/net/ibm_newemac/core.c	2007-11-20 14:46:51.000000000 +1100
-+++ linux-work/drivers/net/ibm_newemac/core.c	2007-11-20 14:46:58.000000000 +1100
-@@ -464,26 +464,34 @@ static int emac_configure(struct emac_in
- {
- 	struct emac_regs __iomem *p = dev->emacp;
- 	struct net_device *ndev = dev->ndev;
--	int tx_size, rx_size;
-+	int tx_size, rx_size, link = netif_carrier_ok(dev->ndev);
- 	u32 r, mr1 = 0;
+--- linux-work.orig/drivers/net/ibm_newemac/phy.c	2007-11-08 18:54:12.000000000 +1100
++++ linux-work/drivers/net/ibm_newemac/phy.c	2007-11-08 18:54:13.000000000 +1100
+@@ -327,6 +327,42 @@ static int m88e1111_init(struct mii_phy 
+ 	return  0;
+ }
  
- 	DBG(dev, "configure" NL);
- 
--	if (emac_reset(dev) < 0)
-+	if (!link) {
-+		out_be32(&p->mr1, in_be32(&p->mr1)
-+			 | EMAC_MR1_FDE | EMAC_MR1_ILE);
-+		udelay(100);
-+	} else if (emac_reset(dev) < 0)
- 		return -ETIMEDOUT;
- 
- 	if (emac_has_feature(dev, EMAC_FTR_HAS_TAH))
- 		tah_reset(dev->tah_dev);
- 
--	DBG(dev, " duplex = %d, pause = %d, asym_pause = %d\n",
--	    dev->phy.duplex, dev->phy.pause, dev->phy.asym_pause);
-+	DBG(dev, " link = %d duplex = %d, pause = %d, asym_pause = %d\n",
-+	    link, dev->phy.duplex, dev->phy.pause, dev->phy.asym_pause);
- 
- 	/* Default fifo sizes */
- 	tx_size = dev->tx_fifo_size;
- 	rx_size = dev->rx_fifo_size;
- 
-+	/* No link, force loopback */
-+	if (!link)
-+		mr1 = EMAC_MR1_FDE | EMAC_MR1_ILE;
++static int et1011c_init(struct mii_phy *phy)
++{
++        u16 reg_short;
 +
- 	/* Check for full duplex */
--	if (dev->phy.duplex == DUPLEX_FULL)
-+	else if (dev->phy.duplex == DUPLEX_FULL)
- 		mr1 |= EMAC_MR1_FDE | EMAC_MR1_MWSW_001;
++        reg_short = (u16)(phy_read(phy,0x16));
++        reg_short &= ~(0x7);
++        reg_short |= 0x6;       /* RGMII Trace Delay*/
++        phy_write(phy, 0x16, reg_short);
++
++        reg_short = (u16)(phy_read(phy, 0x17));
++        reg_short &= ~(0x40);
++        phy_write(phy, 0x17, reg_short);
++
++        phy_write(phy,0x1c,0x74f0);
++        return 0;
++}
++
++static struct mii_phy_ops et1011c_phy_ops = {
++        .init           = et1011c_init,
++        .setup_aneg     = genmii_setup_aneg,
++        .setup_forced   = genmii_setup_forced,
++        .poll_link      = genmii_poll_link,
++        .read_link      = genmii_read_link
++};
++
++static struct mii_phy_def et1011c_phy_def = {
++        .phy_id         = 0x0282f000,
++        .phy_id_mask    = 0x0fffff00,
++        .name           = "ET1011C Gigabit Ethernet",
++        .ops            = &et1011c_phy_ops
++};
++
++
++
++
++
+ static struct mii_phy_ops m88e1111_phy_ops = {
+ 	.init		= m88e1111_init,
+ 	.setup_aneg	= genmii_setup_aneg,
+@@ -344,6 +380,7 @@ static struct mii_phy_def m88e1111_phy_d
+ };
  
- 	/* Adjust fifo sizes, mr1 and timeouts based on link speed */
-@@ -1165,9 +1173,9 @@ static void emac_link_timer(struct work_
- 		link_poll_interval = PHY_POLL_LINK_ON;
- 	} else {
- 		if (netif_carrier_ok(dev->ndev)) {
--			emac_reinitialize(dev);
- 			netif_carrier_off(dev->ndev);
- 			netif_tx_disable(dev->ndev);
-+			emac_reinitialize(dev);
- 			emac_print_link_status(dev);
- 		}
- 		link_poll_interval = PHY_POLL_LINK_OFF;
+ static struct mii_phy_def *mii_phy_table[] = {
++	&et1011c_phy_def,
+ 	&cis8201_phy_def,
+ 	&bcm5248_phy_def,
+ 	&m88e1111_phy_def,
