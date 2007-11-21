@@ -1,50 +1,48 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: HTB/HSFC shaping precision
-Date: Wed, 21 Nov 2007 10:06:47 -0500
-Message-ID: <1195657607.4437.8.camel@localhost>
-References: <20071120211258.M55249@visp.net.lb>
-	 <20071121094710.GA2295@ff.dom.local>  <20071121103024.M12218@visp.net.lb>
+Subject: Re: [RFC][PATCH 1/3] NET_SCHED: PSPacer qdisc module
+Date: Wed, 21 Nov 2007 10:15:30 -0500
+Message-ID: <1195658130.4437.17.camel@localhost>
+References: <20071121.191840.07671434.takano@axe-inc.co.jp>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@o2.pl>, netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	t.kudoh@aist.go.jp
+To: Ryousei Takano <takano-ryousei@aist.go.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.182]:39026 "EHLO
+Received: from py-out-1112.google.com ([64.233.166.182]:49136 "EHLO
 	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753561AbXKUPG6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 10:06:58 -0500
-Received: by py-out-1112.google.com with SMTP id u77so7248376pyb
-        for <netdev@vger.kernel.org>; Wed, 21 Nov 2007 07:06:57 -0800 (PST)
-In-Reply-To: <20071121103024.M12218@visp.net.lb>
+	with ESMTP id S1755546AbXKUPPo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 10:15:44 -0500
+Received: by py-out-1112.google.com with SMTP id u77so7253916pyb
+        for <netdev@vger.kernel.org>; Wed, 21 Nov 2007 07:15:35 -0800 (PST)
+In-Reply-To: <20071121.191840.07671434.takano@axe-inc.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-21-11 at 12:31 +0200, Denys Fedoryshchenko wrote:
-> On Wed, 21 Nov 2007 10:47:10 +0100, Jarek Poplawski wrote
-> > 
-> > But, if you have full control on your side, it looks like a kind of
-> > realtime traffic, and then HFSC should be more appropriate for this
-> > (but I only 'heard' about this).
-> 
-> One message later, thats what i dreamed about :-)
-> Subject: [RFC][PATCH 1/3] NET_SCHED: PSPacer qdisc module 
-> On website they have very good explanation... 
-> http://www.gridmpi.org/gridtcp.jsp
+On Wed, 2007-21-11 at 19:18 +0900, Ryousei Takano wrote:
+> This patch includes the PSPacer (Precise Software Pacer) qdisc
+> module, which achieves precise transmission bandwidth control.
+> You can find more information at the project web page
+> (http://www.gridmpi.org/gridtcp.jsp).
 
-That looks interesting - without reading the papers a few questions are
-developing in my brain cells; for example it looks very similar to what
-the chelsio NICs claim to do (which could be a good thing for TCP).
-Whenever i see someone implementing something in hardware, i always get
-flushes of "patents". 
+Good stuff.
+I have not read your paper - There are NICs out there (chelsio comes to
+mind) which claim to do pacing and have shown impressive numbers with
+TCP. Is your approach similar? Are there patents involved by some of
+these hardware vendors? (It would not be suprising if they exist).
 
-Denys, one of the things i have noticed with iperf is it tries to be
-clever and "probe" the available bandwidth first. So you may not get the
-most optimal use of of your bandwidth. Try something like pktgen, its
-quiet accurate in its measurements. Just add a tc drop rule on the
-receiver to get the accounting.
+The advantage with NICs is they have very good control of the timing
+(clock granularity being extremely important in cases like this) - what
+were your measurements based on i.e what clock source did you use on
+Linux?
+Also, the idea of using a PAUSE frame to add gaps is interesting, but
+you should note that in linux a qdisc may be attached to any network
+device and this for example maybe a PPP device etc. What would you use
+for gaps in that case? 
+I apologize if the answers are in your papers - i just glossed over.
 
 cheers,
-jamal
+jamal 
 
