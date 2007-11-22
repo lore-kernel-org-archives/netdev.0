@@ -1,47 +1,40 @@
-From: Dave Jones <davej@redhat.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
 Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
-Date: Wed, 21 Nov 2007 22:52:37 -0500
-Message-ID: <20071122035237.GB15764@redhat.com>
+Date: Thu, 22 Nov 2007 14:56:22 +1100
+Message-ID: <200711221456.22297.rusty@rustcorp.com.au>
 References: <20071122343.446909000@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sam@ravnborg.org, rusty@rustcorp.com.au
+	sam@ravnborg.org
 To: Andi Kleen <ak@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:42680 "EHLO mx1.redhat.com"
+Received: from ozlabs.org ([203.10.76.45]:41235 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752580AbXKVDwr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Nov 2007 22:52:47 -0500
-Content-Disposition: inline
+	id S1753133AbXKVD4f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Nov 2007 22:56:35 -0500
 In-Reply-To: <20071122343.446909000@suse.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 22, 2007 at 03:43:06AM +0100, Andi Kleen wrote:
+On Thursday 22 November 2007 13:43:06 Andi Kleen wrote:
+> There seems to be rough consensus that the kernel currently has too many
+> exported symbols. A lot of these exports are generally usable utility
+> functions or important driver interfaces; but another large part are
+> functions intended by only one or two very specific modules for a very
+> specific purpose.
 
- > There seems to be rough consensus that the kernel currently has too many 
- > exported symbols. A lot of these exports are generally usable utility 
- > functions or important driver interfaces; but another large part are functions
- > intended by only one or two very specific modules for a very specific purpose.
- > One example is the TCP code. It has most of its internals exported, but 
- > only for use by tcp_ipv6.c (and now a few more by the TCP/IP congestion modules) 
- > But it doesn't make sense to include these exported for a specific module
- > functions into a broader "kernel interface".   External modules assume
- > they can use these functions, but they were never intended for that.
- > 
- > This patch allows to export symbols only for specific modules by 
- > introducing symbol name spaces. A module name space has a white
- > list of modules that are allowed to import symbols for it; all others
- > can't use the symbols.
+Hi Andi,
 
-I really like this patchset.   Definitely a step in the right direction imo.
-Looks like some nits there that checkpatch will probably pick up on,
-but otherwise, looks very straightforward too.
+    This is an interesting idea, thanks for the code!  My only question is 
+whether we can get most of this benefit by dropping the indirection of 
+namespaces and have something like "EXPORT_SYMBOL_TO(sym, modname)"?  It
+doesn't work so well for exporting to a group of modules, but that seems
+a reasonable line to draw anyway.
 
-Kudos.
-
-	Dave
-
--- 
-http://www.codemonkey.org.uk
+Cheers,
+Rusty.
+PS.  Probably better to use the standard warnx and errx in modpost, too.
