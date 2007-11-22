@@ -1,96 +1,67 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][UNIX] Move the unix sock iterators in to proper place
-Date: Thu, 22 Nov 2007 16:22:30 +0300
-Message-ID: <47458296.60908@openvz.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [RFC] bridging: don't forward EAPOL frames
+Date: Thu, 22 Nov 2007 14:23:28 +0100
+Message-ID: <1195737808.6323.102.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev <netdev@vger.kernel.org>,
+	bridge <bridge@linux-foundation.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:41668 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751643AbXKVNXV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Nov 2007 08:23:21 -0500
+Received: from crystal.sipsolutions.net ([195.210.38.204]:60879 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752108AbXKVN2e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2007 08:28:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The first_unix_socket() and next_unix_sockets() are now used
-in proc file and in forall_unix_socets macro only.
+This patch makes the bridging code drop EAPOL frames as recommended by
+802.1X-2004 in C.3.3.
 
-The forall_unix_sockets is not used in this file at all so
-remove it. After this move the helpers to where they really 
-belong, i.e. closer to proc code under the #ifdef CONFIG_PROC_FS
-option.
-
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
+Is this really the right place to put it?
 ---
+ include/linux/if_ether.h |    1 +
+ include/net/ieee80211.h  |    6 ------
+ net/bridge/br_input.c    |    3 +++
+ 3 files changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 6be6d87..b62a271 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -127,32 +127,6 @@ static atomic_t unix_nr_socks = ATOMIC_INIT(0);
+--- everything.orig/include/linux/if_ether.h	2007-11-22 11:47:14.178686360 +0100
++++ everything/include/linux/if_ether.h	2007-11-22 11:48:21.438679036 +0100
+@@ -74,6 +74,7 @@
+ #define ETH_P_ATMFATE	0x8884		/* Frame-based ATM Transport
+ 					 * over Ethernet
+ 					 */
++#define ETH_P_PAE	0x888E		/* Port Access Entity (IEEE 802.1X) */
+ #define ETH_P_AOE	0x88A2		/* ATA over Ethernet		*/
+ #define ETH_P_TIPC	0x88CA		/* TIPC 			*/
  
- #define UNIX_ABSTRACT(sk)	(unix_sk(sk)->addr->hash != UNIX_HASH_SIZE)
+--- everything.orig/include/net/ieee80211.h	2007-11-22 11:46:29.908682888 +0100
++++ everything/include/net/ieee80211.h	2007-11-22 11:48:51.908679037 +0100
+@@ -183,12 +183,6 @@ const char *escape_essid(const char *ess
+ #endif
+ #include <net/iw_handler.h>	/* new driver API */
  
--static struct sock *first_unix_socket(int *i)
--{
--	for (*i = 0; *i <= UNIX_HASH_SIZE; (*i)++) {
--		if (!hlist_empty(&unix_socket_table[*i]))
--			return __sk_head(&unix_socket_table[*i]);
--	}
--	return NULL;
--}
+-#ifndef ETH_P_PAE
+-#define ETH_P_PAE 0x888E	/* Port Access Entity (IEEE 802.1X) */
+-#endif				/* ETH_P_PAE */
 -
--static struct sock *next_unix_socket(int *i, struct sock *s)
--{
--	struct sock *next = sk_next(s);
--	/* More in this chain? */
--	if (next)
--		return next;
--	/* Look for next non-empty chain. */
--	for ((*i)++; *i <= UNIX_HASH_SIZE; (*i)++) {
--		if (!hlist_empty(&unix_socket_table[*i]))
--			return __sk_head(&unix_socket_table[*i]);
--	}
--	return NULL;
--}
+-#define ETH_P_PREAUTH 0x88C7	/* IEEE 802.11i pre-authentication */
 -
--#define forall_unix_sockets(i, s) \
--	for (s = first_unix_socket(&(i)); s; s = next_unix_socket(&(i),(s)))
--
- #ifdef CONFIG_SECURITY_NETWORK
- static void unix_get_secdata(struct scm_cookie *scm, struct sk_buff *skb)
- {
-@@ -2010,6 +1984,29 @@ static unsigned int unix_poll(struct file * file, struct socket *sock, poll_tabl
+ #ifndef ETH_P_80211_RAW
+ #define ETH_P_80211_RAW (ETH_P_ECONET + 1)
+ #endif
+--- everything.orig/net/bridge/br_input.c	2007-11-22 11:54:44.798683106 +0100
++++ everything/net/bridge/br_input.c	2007-11-22 11:57:23.248680285 +0100
+@@ -145,6 +145,9 @@ struct sk_buff *br_handle_frame(struct n
+ 		}
+ 	}
  
- 
- #ifdef CONFIG_PROC_FS
-+static struct sock *first_unix_socket(int *i)
-+{
-+	for (*i = 0; *i <= UNIX_HASH_SIZE; (*i)++) {
-+		if (!hlist_empty(&unix_socket_table[*i]))
-+			return __sk_head(&unix_socket_table[*i]);
-+	}
-+	return NULL;
-+}
++	if (unlikely(skb->protocol = htons(ETH_P_PAE)))
++		goto drop;
 +
-+static struct sock *next_unix_socket(int *i, struct sock *s)
-+{
-+	struct sock *next = sk_next(s);
-+	/* More in this chain? */
-+	if (next)
-+		return next;
-+	/* Look for next non-empty chain. */
-+	for ((*i)++; *i <= UNIX_HASH_SIZE; (*i)++) {
-+		if (!hlist_empty(&unix_socket_table[*i]))
-+			return __sk_head(&unix_socket_table[*i]);
-+	}
-+	return NULL;
-+}
-+
- struct unix_iter_state {
- 	struct seq_net_private p;
- 	int i;
+ 	switch (p->state) {
+ 	case BR_STATE_FORWARDING:
+ 
+
+
