@@ -1,50 +1,32 @@
-From: TAKANO Ryousei <takano@axe-inc.co.jp>
-Subject: Re: [RFC][PATCH 1/3] NET_SCHED: PSPacer qdisc module
-Date: Thu, 22 Nov 2007 18:59:14 +0900 (JST)
-Message-ID: <20071122.185914.17090750.takano@axe-inc.co.jp>
-References: <20071121.191840.07671434.takano@axe-inc.co.jp>
-	<474455B7.3080005@cosmosbay.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
+Date: Thu, 22 Nov 2007 11:05:45 +0000
+Message-ID: <20071122110545.GA4552@infradead.org>
+References: <20071122343.446909000@suse.de> <200711221456.22297.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: takano-ryousei@aist.go.jp, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, t.kudoh@aist.go.jp
-To: dada1@cosmosbay.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@suse.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sam@ravnborg.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from axekw.axe-inc.co.jp ([61.199.217.67]:49876 "EHLO
-	axekw.axe-inc.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751494AbXKVJ70 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2007 04:59:26 -0500
-In-Reply-To: <474455B7.3080005@cosmosbay.com>
+Received: from pentafluge.infradead.org ([213.146.154.40]:38575 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752085AbXKVLFt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2007 06:05:49 -0500
+Content-Disposition: inline
+In-Reply-To: <200711221456.22297.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+On Thu, Nov 22, 2007 at 02:56:22PM +1100, Rusty Russell wrote:
+>     This is an interesting idea, thanks for the code!  My only question is 
+> whether we can get most of this benefit by dropping the indirection of 
+> namespaces and have something like "EXPORT_SYMBOL_TO(sym, modname)"?  It
+> doesn't work so well for exporting to a group of modules, but that seems
+> a reasonable line to draw anyway.
 
-> > +static struct sk_buff *alloc_gap_packet(struct Qdisc* sch, int size)
-> > +{
-> > +	struct sk_buff *skb;
-> > +	struct net_device *dev = sch->dev;
-> > +	unsigned char *pkt;
-> > +	int pause_time = 0;
-> > +	int pktsize = size + 2;
-> > +
-> > +	skb = alloc_skb(pktsize, GFP_ATOMIC);
-> > +	if (!skb)
-> > +		return NULL;
-> > +
-> > +	skb_reserve(skb, 2);
-> 
-> minor nit, but skb_reserve is not *needed* here.
-> 
-> skb_reserve() is used to align IP header on a 16 bytes boundary, and
-> we do it on rx side to speedup IP stack, at the cost of a possibly more
-> expensive DMA transfert.
-> 
-> Here you dont send an IP packet, do you ?
-> 
-Yes, I send not an IP packet but an Ethernet frame. I removed it
-and confirmed to work. Thanks for your comment.
+I'd say exporting to a group of modules is the main use case.  E.g. in
+scsi there would be symbols exported to transport class modules only
+or lots of the vfs_ symbols would be exported only to stackable filesystems
+or nfsd.
 
-Best regards,
-Ryousei Takano
