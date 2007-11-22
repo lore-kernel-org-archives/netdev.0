@@ -1,78 +1,48 @@
-From: Michael Pyne <michael.pyne@kdemail.net>
-Subject: Re: [patch 2/8] forcedeth: fix MAC address detection on network card (regression in 2.6.23)
-Date: Wed, 21 Nov 2007 18:50:31 -0500
-Message-ID: <200711211850.36744.michael.pyne@kdemail.net>
-References: <200711212302.lALN2sF8013655@imap1.linux-foundation.org> <F72FA20C31DD4F4C997B91C5B3690A091A9857@hqemmail07.nvidia.com> <20071121154723.34c5f647.akpm@linux-foundation.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [RFC/PATCH] SO_NO_CHECK for IPv6
+Date: Wed, 21 Nov 2007 19:17:40 -0500
+Message-ID: <4744CAA4.50102@garzik.org>
+References: <20071121124532.GA17263@havoc.gtf.org> <20071121.222051.94402865.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1785084.xTenOpkFBb";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: "Ayaz Abdulla" <AAbdulla@nvidia.com>, jeff@garzik.org,
-	netdev@vger.kernel.org, stable@kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hapkido.dreamhost.com ([66.33.216.122]:48655 "EHLO
-	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753283AbXKUX45 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 18:56:57 -0500
-Received: from postalmail-a4.g.dreamhost.com (sd-green-bigip-202.dreamhost.com [208.97.132.202])
-	by hapkido.dreamhost.com (Postfix) with ESMTP id AFFDA178CF3
-	for <netdev@vger.kernel.org>; Wed, 21 Nov 2007 15:56:56 -0800 (PST)
-In-Reply-To: <20071121154723.34c5f647.akpm@linux-foundation.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:47594 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752252AbXKVARy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Nov 2007 19:17:54 -0500
+In-Reply-To: <20071121.222051.94402865.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1785084.xTenOpkFBb
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> In article <20071121124532.GA17263@havoc.gtf.org> (at Wed, 21 Nov 200=
+7 07:45:32 -0500), Jeff Garzik <jeff@garzik.org> says:
+>=20
+>> SO_NO_CHECK support for IPv6 appeared to be missing. This is present=
+ed,
+>> based on a reading of net/ipv4/udp.c.
+>=20
+> Disagree. UDP checksum is mandatory in IPv6.
 
-On Wednesday 21 November 2007, Andrew Morton wrote:
-> On Wed, 21 Nov 2007 15:34:52 -0800
->
-> "Ayaz Abdulla" <AAbdulla@nvidia.com> wrote:
-> > The solution is to get the OEM to update their BIOS (instead of
-> > integrating this patch) since the MCP61 specs indicate that the MAC
-> > Address should be in correct order from BIOS.
-> >
-> > By changing the feature DEV_HAS_CORRECT_MACADDR to all MCP61 boards, it
-> > could cause it to break on other OEM systems who have implemented it
-> > correctly.
->
-> Getting an OEM to fix their BIOS isn't always a simple thing...
->
-> Perhaps Michael's change should be enabled by a module parameter for
-> those who happen to have the busted BIOS?
+Ah, you mean that I need to turn off UDP checksum on receive end as wel=
+l=20
+in IPv6...  true.
 
-I have contacted the motherboard vendor about this a couple of weeks ago pe=
-r=20
-Ayaz's request and have received no response.  I've also upgraded to the=20
-latest firmware for this motherboard and the bug remains.
-
-I think it would be ideal if there were a way to detect broken MCP61's (i.e=
-=2E=20
-those with a Gigabyte MAC ID instead of the nVidia one) and only reverse th=
-e=20
-MAC address then.  A module parameter would also work but then I'd need to=
+=46or those interested, I am dealing with a UDP app that already does v=
+ery=20
+strong checksumming and encryption, so additional software checksumming=
 =20
-remember to apply it. :)
+at the lower layers is quite simply a waste of CPU cycles.  Hardware=20
+checksumming is fine, as long as its "free."
 
-Regards,
- - Michael Pyne
+	Jeff
 
---nextPart1785084.xTenOpkFBb
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
 
-iD8DBQBHRMRIqjQYp5Omm0oRArdhAKDfQpGcO4OxVQRsrNEKOY+PitAaXQCgulCD
-hsKOB3B1Xa7jluq5aWyNzpc=
-=vNA/
------END PGP SIGNATURE-----
-
---nextPart1785084.xTenOpkFBb--
