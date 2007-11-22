@@ -1,28 +1,31 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [patch 2/4] make sunrpc/xprtsock.c:xs_setup_{udp,tcp}() static
-Date: Thu, 22 Nov 2007 19:38:33 +0800
-Message-ID: <20071122113833.GB9020@gondor.apana.org.au>
-References: <200711212302.lALN2Eoj013604@imap1.linux-foundation.org>
+Subject: Re: [patch 4/4] Net: sunrpc, remove SPIN_LOCK_UNLOCKED
+Date: Thu, 22 Nov 2007 19:40:37 +0800
+Message-ID: <20071122114037.GC9020@gondor.apana.org.au>
+References: <200711212302.lALN2G3A013610@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, bunk@kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jirislaby@gmail.com
 To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4402 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:4493 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751044AbXKVLik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2007 06:38:40 -0500
+	with ESMTP id S1751240AbXKVLko (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2007 06:40:44 -0500
 Content-Disposition: inline
-In-Reply-To: <200711212302.lALN2Eoj013604@imap1.linux-foundation.org>
+In-Reply-To: <200711212302.lALN2G3A013610@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 21, 2007 at 11:02:14PM +0000, akpm@linux-foundation.org wrote:
-> From: Adrian Bunk <bunk@kernel.org>
+On Wed, Nov 21, 2007 at 11:02:15PM +0000, akpm@linux-foundation.org wrote:
+> From: Jiri Slaby <jirislaby@gmail.com>
 > 
-> xs_setup_{udp,tcp}() can now become static.
+> sunrpc, remove SPIN_LOCK_UNLOCKED
 > 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> SPIN_LOCK_UNLOCKED is deprecated, use DEFINE_SPINLOCK instead
+> 
+> Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
 > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
 Applied.
