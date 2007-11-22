@@ -1,50 +1,37 @@
-From: "Ryousei Takano" <ryousei@gmail.com>
-Subject: Re: HTB/HSFC shaping precision
-Date: Thu, 22 Nov 2007 11:07:20 +0900
-Message-ID: <b30d1c3b0711211807h499923f3p1abe1e63c545de87@mail.gmail.com>
-References: <20071120211258.M55249@visp.net.lb>
-	 <20071121094710.GA2295@ff.dom.local>
-	 <20071121103024.M12218@visp.net.lb>
-	 <1195657607.4437.8.camel@localhost>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC/PATCH] SO_NO_CHECK for IPv6
+Date: Thu, 22 Nov 2007 10:34:03 +0800
+Message-ID: <20071122023403.GA3409@gondor.apana.org.au>
+References: <20071121124532.GA17263@havoc.gtf.org> <20071121.222051.94402865.yoshfuji@linux-ipv6.org> <4744CAA4.50102@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Denys Fedoryshchenko" <denys@visp.net.lb>,
-	"Jarek Poplawski" <jarkao2@o2.pl>, netdev@vger.kernel.org,
-	takano-ryousei@aist.go.jp
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=us-ascii
+Cc: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from el-out-1112.google.com ([209.85.162.178]:18866 "EHLO
-	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751970AbXKVCHX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 21:07:23 -0500
-Received: by el-out-1112.google.com with SMTP id v27so1024036ele
-        for <netdev@vger.kernel.org>; Wed, 21 Nov 2007 18:07:22 -0800 (PST)
-In-Reply-To: <1195657607.4437.8.camel@localhost>
+Received: from rhun.apana.org.au ([64.62.148.172]:3123 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750905AbXKVCe3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2007 21:34:29 -0500
 Content-Disposition: inline
+In-Reply-To: <4744CAA4.50102@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi jamal and denys,
-
-> > One message later, thats what i dreamed about :-)
-> > Subject: [RFC][PATCH 1/3] NET_SCHED: PSPacer qdisc module
-> > On website they have very good explanation...
-> > http://www.gridmpi.org/gridtcp.jsp
+On Wed, Nov 21, 2007 at 07:17:40PM -0500, Jeff Garzik wrote:
 >
-> That looks interesting - without reading the papers a few questions are
-> developing in my brain cells; for example it looks very similar to what
-> the chelsio NICs claim to do (which could be a good thing for TCP).
-> Whenever i see someone implementing something in hardware, i always get
-> flushes of "patents".
->
-Thanks for looking our web page.
+> For those interested, I am dealing with a UDP app that already does very 
+> strong checksumming and encryption, so additional software checksumming 
+> at the lower layers is quite simply a waste of CPU cycles.  Hardware 
+> checksumming is fine, as long as its "free."
 
-PSPacer has quite accurate shaping precision.
-The point is that special hardware like the chelsio NICs is not required of it.
-PSPacer uses a gap packet, whose format is IEEE 802.3x pause frame,
-to control the interval between outgoing packets.
-As far as I know, it is a unique approach.
+No matter how strong your underlying checksumming is it's not
+going to protect the IPv6 header is it :)
 
-Best Regards,
-Ryousei Takano
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
