@@ -1,35 +1,38 @@
-From: Andi Kleen <ak@suse.de>
+From: "Arnaldo Carvalho de Melo" <acme@redhat.com>
 Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
-Date: Thu, 22 Nov 2007 12:54:49 +0100
-Message-ID: <200711221254.50256.ak@suse.de>
-References: <20071122343.446909000@suse.de> <20071122110622.GB4552@infradead.org>
+Date: Thu, 22 Nov 2007 10:01:10 -0200
+Message-ID: <20071122120110.GA17441@ghostprotocols.net>
+References: <20071122343.446909000@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	sam@ravnborg.org, rusty@rustcorp.com.au
-To: Christoph Hellwig <hch@infradead.org>
+To: Andi Kleen <ak@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:60205 "EHLO mx2.suse.de"
+Received: from mx1.redhat.com ([66.187.233.31]:51469 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751993AbXKVL7I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Nov 2007 06:59:08 -0500
-In-Reply-To: <20071122110622.GB4552@infradead.org>
+	id S1752390AbXKVMBV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Nov 2007 07:01:21 -0500
 Content-Disposition: inline
+In-Reply-To: <20071122343.446909000@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 22 November 2007 12:06, Christoph Hellwig wrote:
-> Very nice, looking forward to organize the exports mess a bit more.
+Em Thu, Nov 22, 2007 at 03:43:06AM +0100, Andi Kleen escreveu:
+> 
+> There seems to be rough consensus that the kernel currently has too many 
+> exported symbols. A lot of these exports are generally usable utility 
+> functions or important driver interfaces; but another large part are functions
+> intended by only one or two very specific modules for a very specific purpose.
+> One example is the TCP code. It has most of its internals exported, but 
+> only for use by tcp_ipv6.c (and now a few more by the TCP/IP congestion modules) 
+> But it doesn't make sense to include these exported for a specific module
+> functions into a broader "kernel interface".   External modules assume
+> they can use these functions, but they were never intended for that.
 
-I would need people to help me converting more subsystems to this new scheme.
+Thank you for doing this.
 
-In particular all exports that are only used by a single module are direct 
-candidates for a namespace. For the others it has to be checked by someone
-who knows the particular subsystem well.
+Creating the DCCP and its congestion control infrastructure (CCID)
+module namespaces is now on my TODO list. :-)
 
-e.g. for SCSI it would be nice to put the symbols only used by sd/sr/sg etc.
-into a namespace.
-
--Andi
+- Arnaldo
