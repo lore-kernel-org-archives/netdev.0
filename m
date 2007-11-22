@@ -1,61 +1,81 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: [PATCH] NET: dmfe: don't access configuration space in D3 state
-Date: Fri, 23 Nov 2007 01:30:15 +0200
-Message-ID: <200711230130.15939.maximlevitsky@gmail.com>
-References: <200711230129.02570.maximlevitsky@gmail.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH net-2.6.25] Add packet filtering based on process's
+ security context.
+Date: Fri, 23 Nov 2007 10:29:46 +1100 (EST)
+Message-ID: <Xine.LNX.4.64.0711231005270.4252@us.intercode.com.au>
+References: <200711212130.EJJ43745.LFOFHOSMJOtFVQ@I-love.SAKURA.ne.jp>
+ <200711222235.GCA05378.HtMOJQVFSFOLFO@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: LKML <linux-kernel@vger.kernel.org>
-To: Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.189]:60973 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751143AbXKVXab convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2007 18:30:31 -0500
-Received: by nf-out-0910.google.com with SMTP id g13so2585510nfb
-        for <netdev@vger.kernel.org>; Thu, 22 Nov 2007 15:30:30 -0800 (PST)
-In-Reply-To: <200711230129.02570.maximlevitsky@gmail.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-security-module@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@lists.netfilter.org,
+	Stephen Smalley <sds@tycho.nsa.gov>
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <200711222235.GCA05378.HtMOJQVFSFOLFO@I-love.SAKURA.ne.jp>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->From 7e24227257f315e52fe0b494dc1253d2a0ce5dff Mon Sep 17 00:00:00 2001
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Date: Fri, 23 Nov 2007 01:15:36 +0200
-Subject: [PATCH] NET: dmfe: don't access configuration space in D3 state
- Accidently I reversed the order of pci_save_state and
- pci_set_power_state in .suspend()/.resume() callbacks
+On Thu, 22 Nov 2007, Tetsuo Handa wrote:
 
-Signed-off-by: Maxim Levitsky <maximlevitsky@gmail.com>
----
- drivers/net/tulip/dmfe.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+> This patch allows LSM modules filter incoming connections/datagrams
+> based on the process's security context who is attempting to pick up.
+> 
+> There are already hooks to filter incoming connections/datagrams
+> based on the socket's security context, but these hooks are not
+> applicable when one wants to do TCP Wrapper-like filtering
+> (e.g. App1 is permitted to accept TCP connections from 192.168.0.0/16).
 
-diff --git a/drivers/net/tulip/dmfe.c b/drivers/net/tulip/dmfe.c
-index 390d02d..9d199b0 100644
---- a/drivers/net/tulip/dmfe.c
-+++ b/drivers/net/tulip/dmfe.c
-@@ -2118,8 +2118,8 @@ static int dmfe_suspend(struct pci_dev *pci_dev, pm_message_t state)
- 	pci_enable_wake(pci_dev, PCI_D3cold, 1);
- 
- 	/* Power down device*/
--	pci_set_power_state(pci_dev, pci_choose_state (pci_dev,state));
- 	pci_save_state(pci_dev);
-+	pci_set_power_state(pci_dev, pci_choose_state (pci_dev,state));
- 
- 	return 0;
- }
-@@ -2129,8 +2129,8 @@ static int dmfe_resume(struct pci_dev *pci_dev)
- 	struct net_device *dev = pci_get_drvdata(pci_dev);
- 	u32 tmp;
- 
--	pci_restore_state(pci_dev);
- 	pci_set_power_state(pci_dev, PCI_D0);
-+	pci_restore_state(pci_dev);
- 
- 	/* Re-initilize DM910X board */
- 	dmfe_init_dm910x(dev);
+This functionality looks like it could be useful in that we currently have 
+no direct security mapping from incoming packet to user process, but only 
+to the receiving socket, as you mention.  For SELinux, it may help us 
+simplify/clarify policy.
+
+It's also been long-desired for netfilter/iptables, to allow ipt_owner to 
+work cleanly for incoming packets.
+
+So, this probably needs to be implemented in a way which works for both LSM 
+and netfilter.  There have been several discussions on the issue from the 
+netfilter side, although I don't know what the latest status of that is 
+(I've expanded the cc list to hopefully get some more feedback).
+
+>From memory, one approach under discussion was to add netfilter hooks to 
+the transport layer, which could be invoked correctly by each type of 
+protocol when the target process is selected.
+
+If this is done for netfilter, then an LSM hook is probably not needed at 
+all, as security modules can utilize netfilter hooks directly.
+
+> Precautions: This approach has a side effect which unlikely occurs.
+> 
+> If a socket is shared by multiple processes with differnt policy,
+> the process who should be able to accept this connection
+> will not be able to accept this connection
+> because socket_post_accept() aborts this connection.
+> But if socket_post_accept() doesn't abort this connection,
+> the process who must not be able to accept this connection
+> will repeat accept() forever, which is a worse side effect.
+> 
+> Similarly, if a socket is shared by multiple processes with differnt policy,
+> the process who should be able to pick up this datagram
+> will not be able to pick up this datagram
+> because socket_post_recv_datagram() discards this datagram.
+> But if socket_post_recv_datagram() doesn't discard this datagram,
+> the process who must not be able to pick up this datagram
+> will repeat recvmsg() forever, which is a worse side effect.
+> 
+> So, don't give different permissions between processes who share one socket.
+> Otherwise, some connections/datagrams cannot be delivered to intended process.
+
+These semantics changes are concerning, and lead me to wonder if there are 
+any more.  Needs more review by networking folk.
+
+
+
+- James
 -- 
-1.5.3.4
-
+James Morris
+<jmorris@namei.org>
