@@ -1,454 +1,545 @@
 From: Andi Kleen <ak@suse.de>
-Subject: [PATCH RFC] [7/9] Convert TCP exports into namespaces
-Date: Thu, 22 Nov 2007 03:43:12 +0100 (CET)
-Message-ID: <20071122024312.DB1FD14D68@wotan.suse.de>
+Subject: [PATCH RFC] [9/9] Add a inet namespace
+Date: Thu, 22 Nov 2007 03:43:14 +0100 (CET)
+Message-ID: <20071122024315.09E8114D68@wotan.suse.de>
 References: <20071122343.446909000@suse.de>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	sam@ravnborg.org, rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.suse.de ([195.135.220.2]:58883 "EHLO mx1.suse.de"
+Received: from mx2.suse.de ([195.135.220.15]:37778 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751807AbXKVCnO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Nov 2007 21:43:14 -0500
+	id S1751741AbXKVCnQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Nov 2007 21:43:16 -0500
 In-Reply-To: <20071122343.446909000@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-I defined two namespaces: tcp for TCP internals which are only used by 
-tcp_ipv6.ko And tcpcong for exports used by the TCP congestion modules
+Shared by IP, IPv6, DCCP, UDPLITE, SCTP. 
 
-No need to export any TCP internals to anybody else. So express this in a namespace.
-
-I admit I'm not 100% sure tcpcong makes sense -- there might be a legitimate
-need to have external out of tree congestion modules. They seem nearly like
-drivers, but only nearly. If that was deemed the case it would be possible to 
-remove tcpcong again to allow everybody to access this.
-
-This implicitely turns all exports into GPL only, but that won't matter
-because all modules allowed to import TCP functions are GPLed.
+The symbols used by tunnel modules weren't put into any name space
+because there are quite a lot of them.
 
 ---
- net/ipv4/tcp.c           |   71 +++++++++++++++++++++++++++--------------------
- net/ipv4/tcp_cong.c      |   14 ++++-----
- net/ipv4/tcp_input.c     |   12 +++----
- net/ipv4/tcp_ipv4.c      |   38 ++++++++++++-------------
- net/ipv4/tcp_minisocks.c |   12 +++----
- net/ipv4/tcp_output.c    |   12 +++----
- net/ipv4/tcp_timer.c     |    2 -
- 7 files changed, 87 insertions(+), 74 deletions(-)
+ net/core/fib_rules.c            |    9 ++++--
+ net/ipv4/af_inet.c              |   52 ++++++++++++++++++++++++----------------
+ net/ipv4/arp.c                  |    1 
+ net/ipv4/icmp.c                 |   10 +++----
+ net/ipv4/inet_connection_sock.c |   40 +++++++++++++++---------------
+ net/ipv4/inet_diag.c            |    4 +--
+ net/ipv4/inet_hashtables.c      |    8 +++---
+ net/ipv4/inet_timewait_sock.c   |   12 ++++-----
+ net/ipv4/ip_input.c             |    2 -
+ net/ipv4/ip_output.c            |    7 +++--
+ net/ipv4/ip_sockglue.c          |   10 +++----
+ 11 files changed, 86 insertions(+), 69 deletions(-)
 
-Index: linux/net/ipv4/tcp.c
+Index: linux/net/ipv4/af_inet.c
 ===================================================================
---- linux.orig/net/ipv4/tcp.c
-+++ linux/net/ipv4/tcp.c
-@@ -275,21 +275,21 @@ DEFINE_SNMP_STAT(struct tcp_mib, tcp_sta
+--- linux.orig/net/ipv4/af_inet.c
++++ linux/net/ipv4/af_inet.c
+@@ -218,7 +218,7 @@ out:
+ }
  
- atomic_t tcp_orphan_count = ATOMIC_INIT(0);
- 
--EXPORT_SYMBOL_GPL(tcp_orphan_count);
-+EXPORT_SYMBOL_NS(tcp, tcp_orphan_count);
- 
- int sysctl_tcp_mem[3] __read_mostly;
- int sysctl_tcp_wmem[3] __read_mostly;
- int sysctl_tcp_rmem[3] __read_mostly;
- 
--EXPORT_SYMBOL(sysctl_tcp_mem);
--EXPORT_SYMBOL(sysctl_tcp_rmem);
--EXPORT_SYMBOL(sysctl_tcp_wmem);
-+EXPORT_SYMBOL_NS(tcp, sysctl_tcp_mem);
-+EXPORT_SYMBOL_NS(tcp, sysctl_tcp_rmem);
-+EXPORT_SYMBOL_NS(tcp, sysctl_tcp_wmem);
- 
- atomic_t tcp_memory_allocated;	/* Current allocated memory. */
- atomic_t tcp_sockets_allocated;	/* Current number of TCP sockets. */
- 
--EXPORT_SYMBOL(tcp_memory_allocated);
--EXPORT_SYMBOL(tcp_sockets_allocated);
-+EXPORT_SYMBOL_NS(tcp, tcp_memory_allocated);
-+EXPORT_SYMBOL_NS(tcp, tcp_sockets_allocated);
+ u32 inet_ehash_secret __read_mostly;
+-EXPORT_SYMBOL(inet_ehash_secret);
++EXPORT_SYMBOL_NS(inet, inet_ehash_secret);
  
  /*
-  * Pressure flag: try to collapse.
-@@ -299,7 +299,7 @@ EXPORT_SYMBOL(tcp_sockets_allocated);
-  */
- int tcp_memory_pressure __read_mostly;
+  * inet_ehash_secret must be set exactly once
+@@ -235,7 +235,7 @@ void build_ehash_secret(void)
+ 		inet_ehash_secret = rnd;
+ 	spin_unlock_bh(&inetsw_lock);
+ }
+-EXPORT_SYMBOL(build_ehash_secret);
++EXPORT_SYMBOL_NS(inet, build_ehash_secret);
  
--EXPORT_SYMBOL(tcp_memory_pressure);
-+EXPORT_SYMBOL_NS(tcp, tcp_memory_pressure);
+ /*
+  *	Create an inet socket.
+@@ -1127,7 +1127,7 @@ int inet_sk_rebuild_header(struct sock *
+ 	return err;
+ }
  
- void tcp_enter_memory_pressure(void)
+-EXPORT_SYMBOL(inet_sk_rebuild_header);
++EXPORT_SYMBOL_NS(inet,inet_sk_rebuild_header);
+ 
+ static int inet_gso_send_check(struct sk_buff *skb)
  {
-@@ -309,7 +309,7 @@ void tcp_enter_memory_pressure(void)
+@@ -1235,6 +1235,8 @@ unsigned long snmp_fold_field(void *mib[
+ 	}
+ 	return res;
+ }
++/* AK: Not in inet namespace because they're a generic facility. Probably
++   should be in another file though. */
+ EXPORT_SYMBOL_GPL(snmp_fold_field);
+ 
+ int snmp_mib_init(void *ptr[2], size_t mibsize, size_t mibalign)
+@@ -1499,20 +1501,30 @@ static int __init ipv4_proc_init(void)
+ 
+ MODULE_ALIAS_NETPROTO(PF_INET);
+ 
+-EXPORT_SYMBOL(inet_accept);
+-EXPORT_SYMBOL(inet_bind);
+-EXPORT_SYMBOL(inet_dgram_connect);
+-EXPORT_SYMBOL(inet_dgram_ops);
+-EXPORT_SYMBOL(inet_getname);
+-EXPORT_SYMBOL(inet_ioctl);
+-EXPORT_SYMBOL(inet_listen);
+-EXPORT_SYMBOL(inet_register_protosw);
+-EXPORT_SYMBOL(inet_release);
+-EXPORT_SYMBOL(inet_sendmsg);
+-EXPORT_SYMBOL(inet_shutdown);
+-EXPORT_SYMBOL(inet_sock_destruct);
+-EXPORT_SYMBOL(inet_stream_connect);
+-EXPORT_SYMBOL(inet_stream_ops);
+-EXPORT_SYMBOL(inet_unregister_protosw);
+-EXPORT_SYMBOL(net_statistics);
+-EXPORT_SYMBOL(sysctl_ip_nonlocal_bind);
++MODULE_NAMESPACE_ALLOW(inet, ipv6);
++MODULE_NAMESPACE_ALLOW(inet, udplite);
++MODULE_NAMESPACE_ALLOW(inet, dccp_ipv6);
++MODULE_NAMESPACE_ALLOW(inet, dccp_ipv4);
++MODULE_NAMESPACE_ALLOW(inet, dccp);
++MODULE_NAMESPACE_ALLOW(inet, sctp);
++
++/* RED-PEN: would be better to fix wanrouter */
++MODULE_NAMESPACE_ALLOW(inet, wanrouter);
++
++EXPORT_SYMBOL_NS(inet,inet_accept);
++EXPORT_SYMBOL_NS(inet,inet_bind);
++EXPORT_SYMBOL_NS(inet,inet_dgram_connect);
++EXPORT_SYMBOL_NS(inet,inet_dgram_ops);
++EXPORT_SYMBOL_NS(inet,inet_getname);
++EXPORT_SYMBOL_NS(inet,inet_ioctl);
++EXPORT_SYMBOL_NS(inet,inet_listen);
++EXPORT_SYMBOL_NS(inet,inet_register_protosw);
++EXPORT_SYMBOL_NS(inet,inet_release);
++EXPORT_SYMBOL_NS(inet,inet_sendmsg);
++EXPORT_SYMBOL_NS(inet,inet_shutdown);
++EXPORT_SYMBOL_NS(inet,inet_sock_destruct);
++EXPORT_SYMBOL_NS(inet,inet_stream_connect);
++EXPORT_SYMBOL_NS(inet,inet_stream_ops);
++EXPORT_SYMBOL_NS(inet,inet_unregister_protosw);
++EXPORT_SYMBOL_NS(inet,net_statistics);
++EXPORT_SYMBOL_NS(inet,sysctl_ip_nonlocal_bind);
+Index: linux/net/ipv4/arp.c
+===================================================================
+--- linux.orig/net/ipv4/arp.c
++++ linux/net/ipv4/arp.c
+@@ -1406,6 +1406,7 @@ static int __init arp_proc_init(void)
+ 
+ #endif /* CONFIG_PROC_FS */
+ 
++/* No namespace because those are used by various drivers */
+ EXPORT_SYMBOL(arp_broken_ops);
+ EXPORT_SYMBOL(arp_find);
+ EXPORT_SYMBOL(arp_create);
+Index: linux/net/ipv4/icmp.c
+===================================================================
+--- linux.orig/net/ipv4/icmp.c
++++ linux/net/ipv4/icmp.c
+@@ -1101,7 +1101,7 @@ void __init icmp_init(struct net_proto_f
  	}
  }
  
--EXPORT_SYMBOL(tcp_enter_memory_pressure);
-+EXPORT_SYMBOL_NS(tcp, tcp_enter_memory_pressure);
+-EXPORT_SYMBOL(icmp_err_convert);
+-EXPORT_SYMBOL(icmp_send);
+-EXPORT_SYMBOL(icmp_statistics);
+-EXPORT_SYMBOL(xrlim_allow);
++EXPORT_SYMBOL_NS(inet, icmp_err_convert);
++EXPORT_SYMBOL_NS(inet, icmp_send);
++EXPORT_SYMBOL_NS(inet, icmp_statistics);
++EXPORT_SYMBOL_NS(inet, xrlim_allow);
+Index: linux/net/ipv4/inet_connection_sock.c
+===================================================================
+--- linux.orig/net/ipv4/inet_connection_sock.c
++++ linux/net/ipv4/inet_connection_sock.c
+@@ -26,7 +26,7 @@
+ 
+ #ifdef INET_CSK_DEBUG
+ const char inet_csk_timer_bug_msg[] = "inet_csk BUG: unknown timer value\n";
+-EXPORT_SYMBOL(inet_csk_timer_bug_msg);
++EXPORT_SYMBOL_NS(inet, inet_csk_timer_bug_msg);
+ #endif
  
  /*
-  *	Wait for a TCP event.
-@@ -1995,7 +1995,7 @@ int compat_tcp_setsockopt(struct sock *s
- 	return do_tcp_setsockopt(sk, level, optname, optval, optlen);
+@@ -73,7 +73,7 @@ int inet_csk_bind_conflict(const struct 
+ 	return node != NULL;
  }
  
--EXPORT_SYMBOL(compat_tcp_setsockopt);
-+EXPORT_SYMBOL_NS(tcp, compat_tcp_setsockopt);
+-EXPORT_SYMBOL_GPL(inet_csk_bind_conflict);
++EXPORT_SYMBOL_NS(inet, inet_csk_bind_conflict);
+ 
+ /* Obtain a reference to a local port for the given sock,
+  * if snum is zero it means select any available local port.
+@@ -170,7 +170,7 @@ fail:
+ 	return ret;
+ }
+ 
+-EXPORT_SYMBOL_GPL(inet_csk_get_port);
++EXPORT_SYMBOL_NS(inet, inet_csk_get_port);
+ 
+ /*
+  * Wait for an incoming connection, avoid race conditions. This must be called
+@@ -263,7 +263,7 @@ out_err:
+ 	goto out;
+ }
+ 
+-EXPORT_SYMBOL(inet_csk_accept);
++EXPORT_SYMBOL_NS(inet, inet_csk_accept);
+ 
+ /*
+  * Using different timers for retransmit, delayed acks and probes
+@@ -292,7 +292,7 @@ void inet_csk_init_xmit_timers(struct so
+ 	icsk->icsk_pending = icsk->icsk_ack.pending = 0;
+ }
+ 
+-EXPORT_SYMBOL(inet_csk_init_xmit_timers);
++EXPORT_SYMBOL_NS(inet, inet_csk_init_xmit_timers);
+ 
+ void inet_csk_clear_xmit_timers(struct sock *sk)
+ {
+@@ -305,21 +305,21 @@ void inet_csk_clear_xmit_timers(struct s
+ 	sk_stop_timer(sk, &sk->sk_timer);
+ }
+ 
+-EXPORT_SYMBOL(inet_csk_clear_xmit_timers);
++EXPORT_SYMBOL_NS(inet, inet_csk_clear_xmit_timers);
+ 
+ void inet_csk_delete_keepalive_timer(struct sock *sk)
+ {
+ 	sk_stop_timer(sk, &sk->sk_timer);
+ }
+ 
+-EXPORT_SYMBOL(inet_csk_delete_keepalive_timer);
++EXPORT_SYMBOL_NS(inet, inet_csk_delete_keepalive_timer);
+ 
+ void inet_csk_reset_keepalive_timer(struct sock *sk, unsigned long len)
+ {
+ 	sk_reset_timer(sk, &sk->sk_timer, jiffies + len);
+ }
+ 
+-EXPORT_SYMBOL(inet_csk_reset_keepalive_timer);
++EXPORT_SYMBOL_NS(inet, inet_csk_reset_keepalive_timer);
+ 
+ struct dst_entry* inet_csk_route_req(struct sock *sk,
+ 				     const struct request_sock *req)
+@@ -352,7 +352,7 @@ struct dst_entry* inet_csk_route_req(str
+ 	return &rt->u.dst;
+ }
+ 
+-EXPORT_SYMBOL_GPL(inet_csk_route_req);
++EXPORT_SYMBOL_NS(inet, inet_csk_route_req);
+ 
+ static inline u32 inet_synq_hash(const __be32 raddr, const __be16 rport,
+ 				 const u32 rnd, const u32 synq_hsize)
+@@ -394,7 +394,7 @@ struct request_sock *inet_csk_search_req
+ 	return req;
+ }
+ 
+-EXPORT_SYMBOL_GPL(inet_csk_search_req);
++EXPORT_SYMBOL_NS(inet, inet_csk_search_req);
+ 
+ void inet_csk_reqsk_queue_hash_add(struct sock *sk, struct request_sock *req,
+ 				   unsigned long timeout)
+@@ -411,7 +411,7 @@ void inet_csk_reqsk_queue_hash_add(struc
+ /* Only thing we need from tcp.h */
+ extern int sysctl_tcp_synack_retries;
+ 
+-EXPORT_SYMBOL_GPL(inet_csk_reqsk_queue_hash_add);
++EXPORT_SYMBOL_NS(inet, inet_csk_reqsk_queue_hash_add);
+ 
+ void inet_csk_reqsk_queue_prune(struct sock *parent,
+ 				const unsigned long interval,
+@@ -500,7 +500,7 @@ void inet_csk_reqsk_queue_prune(struct s
+ 		inet_csk_reset_keepalive_timer(parent, interval);
+ }
+ 
+-EXPORT_SYMBOL_GPL(inet_csk_reqsk_queue_prune);
++EXPORT_SYMBOL_NS(inet, inet_csk_reqsk_queue_prune);
+ 
+ struct sock *inet_csk_clone(struct sock *sk, const struct request_sock *req,
+ 			    const gfp_t priority)
+@@ -528,7 +528,7 @@ struct sock *inet_csk_clone(struct sock 
+ 	return newsk;
+ }
+ 
+-EXPORT_SYMBOL_GPL(inet_csk_clone);
++EXPORT_SYMBOL_NS(inet, inet_csk_clone);
+ 
+ /*
+  * At this point, there should be no process reference to this
+@@ -559,7 +559,7 @@ void inet_csk_destroy_sock(struct sock *
+ 	sock_put(sk);
+ }
+ 
+-EXPORT_SYMBOL(inet_csk_destroy_sock);
++EXPORT_SYMBOL_NS(inet, inet_csk_destroy_sock);
+ 
+ int inet_csk_listen_start(struct sock *sk, const int nr_table_entries)
+ {
+@@ -594,7 +594,7 @@ int inet_csk_listen_start(struct sock *s
+ 	return -EADDRINUSE;
+ }
+ 
+-EXPORT_SYMBOL_GPL(inet_csk_listen_start);
++EXPORT_SYMBOL_NS(inet, inet_csk_listen_start);
+ 
+ /*
+  *	This routine closes sockets which have been at least partially
+@@ -649,7 +649,7 @@ void inet_csk_listen_stop(struct sock *s
+ 	BUG_TRAP(!sk->sk_ack_backlog);
+ }
+ 
+-EXPORT_SYMBOL_GPL(inet_csk_listen_stop);
++EXPORT_SYMBOL_NS(inet, inet_csk_listen_stop);
+ 
+ void inet_csk_addr2sockaddr(struct sock *sk, struct sockaddr *uaddr)
+ {
+@@ -661,7 +661,7 @@ void inet_csk_addr2sockaddr(struct sock 
+ 	sin->sin_port		= inet->dport;
+ }
+ 
+-EXPORT_SYMBOL_GPL(inet_csk_addr2sockaddr);
++EXPORT_SYMBOL_NS(inet, inet_csk_addr2sockaddr);
+ 
+ int inet_csk_ctl_sock_create(struct socket **sock, unsigned short family,
+ 			     unsigned short type, unsigned char protocol)
+@@ -680,7 +680,7 @@ int inet_csk_ctl_sock_create(struct sock
+ 	return rc;
+ }
+ 
+-EXPORT_SYMBOL_GPL(inet_csk_ctl_sock_create);
++EXPORT_SYMBOL_NS(inet, inet_csk_ctl_sock_create);
+ 
+ #ifdef CONFIG_COMPAT
+ int inet_csk_compat_getsockopt(struct sock *sk, int level, int optname,
+@@ -695,7 +695,7 @@ int inet_csk_compat_getsockopt(struct so
+ 					     optval, optlen);
+ }
+ 
+-EXPORT_SYMBOL_GPL(inet_csk_compat_getsockopt);
++EXPORT_SYMBOL_NS(inet, inet_csk_compat_getsockopt);
+ 
+ int inet_csk_compat_setsockopt(struct sock *sk, int level, int optname,
+ 			       char __user *optval, int optlen)
+@@ -709,5 +709,5 @@ int inet_csk_compat_setsockopt(struct so
+ 					     optval, optlen);
+ }
+ 
+-EXPORT_SYMBOL_GPL(inet_csk_compat_setsockopt);
++EXPORT_SYMBOL_NS(inet, inet_csk_compat_setsockopt);
  #endif
- 
- /* Return information about state of tcp endpoint in API format. */
-@@ -2061,7 +2061,7 @@ void tcp_get_info(struct sock *sk, struc
- 	info->tcpi_total_retrans = tp->total_retrans;
+Index: linux/net/ipv4/ip_output.c
+===================================================================
+--- linux.orig/net/ipv4/ip_output.c
++++ linux/net/ipv4/ip_output.c
+@@ -669,7 +669,7 @@ fail:
+ 	return err;
  }
  
--EXPORT_SYMBOL_GPL(tcp_get_info);
-+EXPORT_SYMBOL_NS(tcp, tcp_get_info);
+-EXPORT_SYMBOL(ip_fragment);
++EXPORT_SYMBOL_NS(inet,ip_fragment);
  
- static int do_tcp_getsockopt(struct sock *sk, int level,
- 		int optname, char __user *optval, int __user *optlen)
-@@ -2174,7 +2174,7 @@ int compat_tcp_getsockopt(struct sock *s
- 	return do_tcp_getsockopt(sk, level, optname, optval, optlen);
- }
- 
--EXPORT_SYMBOL(compat_tcp_getsockopt);
-+EXPORT_SYMBOL_NS(tcp, compat_tcp_getsockopt);
+ int
+ ip_generic_getfrag(void *from, char *to, int offset, int len, int odd, struct sk_buff *skb)
+@@ -1409,6 +1409,7 @@ void __init ip_init(void)
  #endif
+ }
  
- struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
-@@ -2262,7 +2262,7 @@ struct sk_buff *tcp_tso_segment(struct s
+-EXPORT_SYMBOL(ip_generic_getfrag);
+-EXPORT_SYMBOL(ip_queue_xmit);
++EXPORT_SYMBOL_NS(inet,ip_generic_getfrag);
++EXPORT_SYMBOL_NS(inet,ip_queue_xmit);
++/* ip_send_check is widely used by netfilter modules */
+ EXPORT_SYMBOL(ip_send_check);
+Index: linux/net/ipv4/inet_diag.c
+===================================================================
+--- linux.orig/net/ipv4/inet_diag.c
++++ linux/net/ipv4/inet_diag.c
+@@ -873,7 +873,7 @@ int inet_diag_register(const struct inet
  out:
- 	return segs;
+ 	return err;
  }
--EXPORT_SYMBOL(tcp_tso_segment);
-+EXPORT_SYMBOL_NS(tcp, tcp_tso_segment);
+-EXPORT_SYMBOL_GPL(inet_diag_register);
++EXPORT_SYMBOL_NS(inet, inet_diag_register);
  
- #ifdef CONFIG_TCP_MD5SIG
- static unsigned long tcp_md5sig_users;
-@@ -2298,7 +2298,7 @@ void tcp_free_md5sig_pool(void)
- 		__tcp_free_md5sig_pool(pool);
- }
- 
--EXPORT_SYMBOL(tcp_free_md5sig_pool);
-+EXPORT_SYMBOL_NS(tcp, tcp_free_md5sig_pool);
- 
- static struct tcp_md5sig_pool **__tcp_alloc_md5sig_pool(void)
+ void inet_diag_unregister(const struct inet_diag_handler *h)
  {
-@@ -2371,7 +2371,7 @@ retry:
- 	return pool;
+@@ -888,7 +888,7 @@ void inet_diag_unregister(const struct i
+ 
+ 	synchronize_rcu();
  }
+-EXPORT_SYMBOL_GPL(inet_diag_unregister);
++EXPORT_SYMBOL_NS(inet, inet_diag_unregister);
  
--EXPORT_SYMBOL(tcp_alloc_md5sig_pool);
-+EXPORT_SYMBOL_NS(tcp, tcp_alloc_md5sig_pool);
- 
- struct tcp_md5sig_pool *__tcp_get_md5sig_pool(int cpu)
+ static int __init inet_diag_init(void)
  {
-@@ -2384,14 +2384,14 @@ struct tcp_md5sig_pool *__tcp_get_md5sig
- 	return (p ? *per_cpu_ptr(p, cpu) : NULL);
- }
- 
--EXPORT_SYMBOL(__tcp_get_md5sig_pool);
-+EXPORT_SYMBOL_NS(tcp, __tcp_get_md5sig_pool);
- 
- void __tcp_put_md5sig_pool(void)
- {
- 	tcp_free_md5sig_pool();
- }
- 
--EXPORT_SYMBOL(__tcp_put_md5sig_pool);
-+EXPORT_SYMBOL_NS(tcp, __tcp_put_md5sig_pool);
- #endif
- 
- void tcp_done(struct sock *sk)
-@@ -2409,7 +2409,7 @@ void tcp_done(struct sock *sk)
- 	else
- 		inet_csk_destroy_sock(sk);
- }
--EXPORT_SYMBOL_GPL(tcp_done);
-+EXPORT_SYMBOL_NS(tcp, tcp_done);
- 
- extern void __skb_cb_too_small_for_tcp(int, int);
- extern struct tcp_congestion_ops tcp_reno;
-@@ -2524,15 +2524,28 @@ void __init tcp_init(void)
- 	tcp_register_congestion_control(&tcp_reno);
- }
- 
--EXPORT_SYMBOL(tcp_close);
--EXPORT_SYMBOL(tcp_disconnect);
--EXPORT_SYMBOL(tcp_getsockopt);
--EXPORT_SYMBOL(tcp_ioctl);
--EXPORT_SYMBOL(tcp_poll);
--EXPORT_SYMBOL(tcp_read_sock);
--EXPORT_SYMBOL(tcp_recvmsg);
--EXPORT_SYMBOL(tcp_sendmsg);
--EXPORT_SYMBOL(tcp_sendpage);
--EXPORT_SYMBOL(tcp_setsockopt);
--EXPORT_SYMBOL(tcp_shutdown);
--EXPORT_SYMBOL(tcp_statistics);
-+EXPORT_SYMBOL_NS(tcp, tcp_close);
-+EXPORT_SYMBOL_NS(tcp, tcp_disconnect);
-+EXPORT_SYMBOL_NS(tcp, tcp_getsockopt);
-+EXPORT_SYMBOL_NS(tcp, tcp_ioctl);
-+EXPORT_SYMBOL_NS(tcp, tcp_poll);
-+EXPORT_SYMBOL_NS(tcp, tcp_read_sock);
-+EXPORT_SYMBOL_NS(tcp, tcp_recvmsg);
-+EXPORT_SYMBOL_NS(tcp, tcp_sendmsg);
-+EXPORT_SYMBOL_NS(tcp, tcp_sendpage);
-+EXPORT_SYMBOL_NS(tcp, tcp_setsockopt);
-+EXPORT_SYMBOL_NS(tcp, tcp_shutdown);
-+EXPORT_SYMBOL_NS(tcp, tcp_statistics);
-+
-+MODULE_NAMESPACE_ALLOW(tcp, ipv6);
-+MODULE_NAMESPACE_ALLOW(tcpcong, ipv6);
-+
-+MODULE_NAMESPACE_ALLOW(tcpcong, tcp_bic);
-+MODULE_NAMESPACE_ALLOW(tcpcong, tcp_cubic);
-+MODULE_NAMESPACE_ALLOW(tcpcong, tcp_westwood);
-+MODULE_NAMESPACE_ALLOW(tcpcong, tcp_hyspeed);
-+MODULE_NAMESPACE_ALLOW(tcpcong, tcp_hybla);
-+MODULE_NAMESPACE_ALLOW(tcpcong, tcp_htcp);
-+MODULE_NAMESPACE_ALLOW(tcpcong, tcp_vegas);
-+MODULE_NAMESPACE_ALLOW(tcpcong, tcp_scalable);
-+MODULE_NAMESPACE_ALLOW(tcpcong, tcp_lp);
-Index: linux/net/ipv4/tcp_ipv4.c
+Index: linux/net/ipv4/inet_hashtables.c
 ===================================================================
---- linux.orig/net/ipv4/tcp_ipv4.c
-+++ linux/net/ipv4/tcp_ipv4.c
-@@ -163,7 +163,7 @@ int tcp_twsk_unique(struct sock *sk, str
- 	return 0;
+--- linux.orig/net/ipv4/inet_hashtables.c
++++ linux/net/ipv4/inet_hashtables.c
+@@ -86,7 +86,7 @@ void inet_put_port(struct inet_hashinfo 
+ 	local_bh_enable();
  }
  
--EXPORT_SYMBOL_GPL(tcp_twsk_unique);
-+EXPORT_SYMBOL_NS(tcp, tcp_twsk_unique);
- 
- /* This will initiate an outgoing connection. */
- int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
-@@ -845,7 +845,7 @@ struct tcp_md5sig_key *tcp_v4_md5_lookup
- 	return tcp_v4_md5_do_lookup(sk, inet_sk(addr_sk)->daddr);
- }
- 
--EXPORT_SYMBOL(tcp_v4_md5_lookup);
-+EXPORT_SYMBOL_NS(tcp, tcp_v4_md5_lookup);
- 
- static struct tcp_md5sig_key *tcp_v4_reqsk_md5_lookup(struct sock *sk,
- 						      struct request_sock *req)
-@@ -913,7 +913,7 @@ int tcp_v4_md5_do_add(struct sock *sk, _
- 	return 0;
- }
- 
--EXPORT_SYMBOL(tcp_v4_md5_do_add);
-+EXPORT_SYMBOL_NS(tcp, tcp_v4_md5_do_add);
- 
- static int tcp_v4_md5_add_func(struct sock *sk, struct sock *addr_sk,
- 			       u8 *newkey, u8 newkeylen)
-@@ -951,7 +951,7 @@ int tcp_v4_md5_do_del(struct sock *sk, _
- 	return -ENOENT;
- }
- 
--EXPORT_SYMBOL(tcp_v4_md5_do_del);
-+EXPORT_SYMBOL_NS(tcp, tcp_v4_md5_do_del);
- 
- static void tcp_v4_clear_md5_list(struct sock *sk)
- {
-@@ -1127,7 +1127,7 @@ int tcp_v4_calc_md5_hash(char *md5_hash,
- 				       th, protocol, tcplen);
- }
- 
--EXPORT_SYMBOL(tcp_v4_calc_md5_hash);
-+EXPORT_SYMBOL_NS(tcp, tcp_v4_calc_md5_hash);
- 
- static int tcp_v4_inbound_md5_hash(struct sock *sk, struct sk_buff *skb)
- {
-@@ -1936,7 +1936,7 @@ int tcp_v4_destroy_sock(struct sock *sk)
- 	return 0;
- }
- 
--EXPORT_SYMBOL(tcp_v4_destroy_sock);
-+EXPORT_SYMBOL_NS(tcp, tcp_v4_destroy_sock);
- 
- #ifdef CONFIG_PROC_FS
- /* Proc filesystem TCP sock list dumping. */
-@@ -2455,20 +2455,20 @@ void __init tcp_v4_init(struct net_proto
- 		panic("Failed to create the TCP control socket.\n");
- }
- 
--EXPORT_SYMBOL(ipv4_specific);
--EXPORT_SYMBOL(tcp_hashinfo);
--EXPORT_SYMBOL(tcp_prot);
--EXPORT_SYMBOL(tcp_unhash);
--EXPORT_SYMBOL(tcp_v4_conn_request);
--EXPORT_SYMBOL(tcp_v4_connect);
--EXPORT_SYMBOL(tcp_v4_do_rcv);
--EXPORT_SYMBOL(tcp_v4_remember_stamp);
--EXPORT_SYMBOL(tcp_v4_send_check);
--EXPORT_SYMBOL(tcp_v4_syn_recv_sock);
-+EXPORT_SYMBOL_NS(tcp, ipv4_specific);
-+EXPORT_SYMBOL_NS(tcp, tcp_hashinfo);
-+EXPORT_SYMBOL_NS(tcp, tcp_prot);
-+EXPORT_SYMBOL_NS(tcp, tcp_unhash);
-+EXPORT_SYMBOL_NS(tcp, tcp_v4_conn_request);
-+EXPORT_SYMBOL_NS(tcp, tcp_v4_connect);
-+EXPORT_SYMBOL_NS(tcp, tcp_v4_do_rcv);
-+EXPORT_SYMBOL_NS(tcp, tcp_v4_remember_stamp);
-+EXPORT_SYMBOL_NS(tcp, tcp_v4_send_check);
-+EXPORT_SYMBOL_NS(tcp, tcp_v4_syn_recv_sock);
- 
- #ifdef CONFIG_PROC_FS
--EXPORT_SYMBOL(tcp_proc_register);
--EXPORT_SYMBOL(tcp_proc_unregister);
-+EXPORT_SYMBOL_NS(tcp, tcp_proc_register);
-+EXPORT_SYMBOL_NS(tcp, tcp_proc_unregister);
- #endif
--EXPORT_SYMBOL(sysctl_tcp_low_latency);
-+EXPORT_SYMBOL_NS(tcp, sysctl_tcp_low_latency);
- 
-Index: linux/net/ipv4/tcp_minisocks.c
-===================================================================
---- linux.orig/net/ipv4/tcp_minisocks.c
-+++ linux/net/ipv4/tcp_minisocks.c
-@@ -53,7 +53,7 @@ struct inet_timewait_death_row tcp_death
- 					    (unsigned long)&tcp_death_row),
- };
- 
--EXPORT_SYMBOL_GPL(tcp_death_row);
-+EXPORT_SYMBOL_NS(tcp, tcp_death_row);
- 
- static __inline__ int tcp_in_window(u32 seq, u32 end_seq, u32 s_win, u32 e_win)
- {
-@@ -366,7 +366,7 @@ void tcp_twsk_destructor(struct sock *sk
- #endif
- }
- 
--EXPORT_SYMBOL_GPL(tcp_twsk_destructor);
-+EXPORT_SYMBOL_NS(tcp, tcp_twsk_destructor);
- 
- static inline void TCP_ECN_openreq_child(struct tcp_sock *tp,
- 					 struct request_sock *req)
-@@ -734,7 +734,7 @@ int tcp_child_process(struct sock *paren
- 	return ret;
- }
- 
--EXPORT_SYMBOL(tcp_check_req);
--EXPORT_SYMBOL(tcp_child_process);
--EXPORT_SYMBOL(tcp_create_openreq_child);
--EXPORT_SYMBOL(tcp_timewait_state_process);
-+EXPORT_SYMBOL_NS(tcp, tcp_check_req);
-+EXPORT_SYMBOL_NS(tcp, tcp_child_process);
-+EXPORT_SYMBOL_NS(tcp, tcp_create_openreq_child);
-+EXPORT_SYMBOL_NS(tcp, tcp_timewait_state_process);
-Index: linux/net/ipv4/tcp_output.c
-===================================================================
---- linux.orig/net/ipv4/tcp_output.c
-+++ linux/net/ipv4/tcp_output.c
-@@ -2599,9 +2599,9 @@ void tcp_send_probe0(struct sock *sk)
- 	}
- }
- 
--EXPORT_SYMBOL(tcp_connect);
--EXPORT_SYMBOL(tcp_make_synack);
--EXPORT_SYMBOL(tcp_simple_retransmit);
--EXPORT_SYMBOL(tcp_sync_mss);
--EXPORT_SYMBOL(sysctl_tcp_tso_win_divisor);
--EXPORT_SYMBOL(tcp_mtup_init);
-+EXPORT_SYMBOL_NS(tcp, tcp_connect);
-+EXPORT_SYMBOL_NS(tcp, tcp_make_synack);
-+EXPORT_SYMBOL_NS(tcp, tcp_simple_retransmit);
-+EXPORT_SYMBOL_NS(tcp, tcp_sync_mss);
-+EXPORT_SYMBOL_NS(tcpcong, sysctl_tcp_tso_win_divisor);
-+EXPORT_SYMBOL_NS(tcp, tcp_mtup_init);
-Index: linux/net/ipv4/tcp_timer.c
-===================================================================
---- linux.orig/net/ipv4/tcp_timer.c
-+++ linux/net/ipv4/tcp_timer.c
-@@ -42,7 +42,7 @@ void tcp_init_xmit_timers(struct sock *s
- 				  &tcp_keepalive_timer);
- }
- 
--EXPORT_SYMBOL(tcp_init_xmit_timers);
-+EXPORT_SYMBOL_NS(tcp, tcp_init_xmit_timers);
- 
- static void tcp_write_err(struct sock *sk)
- {
-Index: linux/net/ipv4/tcp_cong.c
-===================================================================
---- linux.orig/net/ipv4/tcp_cong.c
-+++ linux/net/ipv4/tcp_cong.c
-@@ -57,7 +57,7 @@ int tcp_register_congestion_control(stru
- 
- 	return ret;
- }
--EXPORT_SYMBOL_GPL(tcp_register_congestion_control);
-+EXPORT_SYMBOL_NS(tcpcong, tcp_register_congestion_control);
+-EXPORT_SYMBOL(inet_put_port);
++EXPORT_SYMBOL_NS(inet, inet_put_port);
  
  /*
-  * Remove congestion control algorithm, called from
-@@ -71,7 +71,7 @@ void tcp_unregister_congestion_control(s
- 	list_del_rcu(&ca->list);
- 	spin_unlock(&tcp_cong_list_lock);
- }
--EXPORT_SYMBOL_GPL(tcp_unregister_congestion_control);
-+EXPORT_SYMBOL_NS(tcpcong, tcp_unregister_congestion_control);
- 
- /* Assign choice of congestion control. */
- void tcp_init_congestion_control(struct sock *sk)
-@@ -315,7 +315,7 @@ void tcp_slow_start(struct tcp_sock *tp)
- 			tp->snd_cwnd++;
+  * This lock without WQ_FLAG_EXCLUSIVE is good on UP and it can be very bad on SMP.
+@@ -116,7 +116,7 @@ void inet_listen_wlock(struct inet_hashi
  	}
  }
--EXPORT_SYMBOL_GPL(tcp_slow_start);
-+EXPORT_SYMBOL_NS(tcpcong, tcp_slow_start);
+ 
+-EXPORT_SYMBOL(inet_listen_wlock);
++EXPORT_SYMBOL_NS(inet, inet_listen_wlock);
  
  /*
-  * TCP Reno congestion control
-@@ -355,7 +355,7 @@ void tcp_reno_cong_avoid(struct sock *sk
- 			tp->snd_cwnd_cnt++;
+  * Don't inline this cruft. Here are some nice properties to exploit here. The
+@@ -188,7 +188,7 @@ sherry_cache:
+ 	read_unlock(&hashinfo->lhash_lock);
+ 	return sk;
+ }
+-EXPORT_SYMBOL_GPL(__inet_lookup_listener);
++EXPORT_SYMBOL_NS(inet, __inet_lookup_listener);
+ 
+ /* called with local bh disabled */
+ static int __inet_check_established(struct inet_timewait_death_row *death_row,
+@@ -364,4 +364,4 @@ out:
  	}
  }
--EXPORT_SYMBOL_GPL(tcp_reno_cong_avoid);
-+EXPORT_SYMBOL_NS(tcpcong, tcp_reno_cong_avoid);
  
- /* Slow start threshold is half the congestion window (min 2) */
- u32 tcp_reno_ssthresh(struct sock *sk)
-@@ -363,7 +363,7 @@ u32 tcp_reno_ssthresh(struct sock *sk)
- 	const struct tcp_sock *tp = tcp_sk(sk);
- 	return max(tp->snd_cwnd >> 1U, 2U);
- }
--EXPORT_SYMBOL_GPL(tcp_reno_ssthresh);
-+EXPORT_SYMBOL_NS(tcpcong, tcp_reno_ssthresh);
- 
- /* Lower bound on congestion window with halving. */
- u32 tcp_reno_min_cwnd(const struct sock *sk)
-@@ -371,7 +371,7 @@ u32 tcp_reno_min_cwnd(const struct sock 
- 	const struct tcp_sock *tp = tcp_sk(sk);
- 	return tp->snd_ssthresh/2;
- }
--EXPORT_SYMBOL_GPL(tcp_reno_min_cwnd);
-+EXPORT_SYMBOL_NS(tcpcong, tcp_reno_min_cwnd);
- 
- struct tcp_congestion_ops tcp_reno = {
- 	.flags		= TCP_CONG_NON_RESTRICTED,
-@@ -393,4 +393,4 @@ struct tcp_congestion_ops tcp_init_conge
- 	.cong_avoid	= tcp_reno_cong_avoid,
- 	.min_cwnd	= tcp_reno_min_cwnd,
- };
--EXPORT_SYMBOL_GPL(tcp_init_congestion_ops);
-+EXPORT_SYMBOL_NS(tcpcong, tcp_init_congestion_ops);
-Index: linux/net/ipv4/tcp_input.c
+-EXPORT_SYMBOL_GPL(inet_hash_connect);
++EXPORT_SYMBOL_NS(inet, inet_hash_connect);
+Index: linux/net/ipv4/ip_input.c
 ===================================================================
---- linux.orig/net/ipv4/tcp_input.c
-+++ linux/net/ipv4/tcp_input.c
-@@ -5163,9 +5163,9 @@ discard:
- 	return 0;
+--- linux.orig/net/ipv4/ip_input.c
++++ linux/net/ipv4/ip_input.c
+@@ -453,4 +453,4 @@ out:
+ 	return NET_RX_DROP;
  }
  
--EXPORT_SYMBOL(sysctl_tcp_ecn);
--EXPORT_SYMBOL(sysctl_tcp_reordering);
--EXPORT_SYMBOL(tcp_parse_options);
--EXPORT_SYMBOL(tcp_rcv_established);
--EXPORT_SYMBOL(tcp_rcv_state_process);
--EXPORT_SYMBOL(tcp_initialize_rcv_mss);
-+EXPORT_SYMBOL_NS(tcp, sysctl_tcp_ecn);
-+EXPORT_SYMBOL_NS(tcp, sysctl_tcp_reordering);
-+EXPORT_SYMBOL_NS(tcp, tcp_parse_options);
-+EXPORT_SYMBOL_NS(tcp, tcp_rcv_established);
-+EXPORT_SYMBOL_NS(tcp, tcp_rcv_state_process);
-+EXPORT_SYMBOL_NS(tcp, tcp_initialize_rcv_mss);
+-EXPORT_SYMBOL(ip_statistics);
++EXPORT_SYMBOL_NS(inet, ip_statistics);
+Index: linux/net/core/fib_rules.c
+===================================================================
+--- linux.orig/net/core/fib_rules.c
++++ linux/net/core/fib_rules.c
+@@ -100,7 +100,7 @@ errout:
+ 	return err;
+ }
+ 
+-EXPORT_SYMBOL_GPL(fib_rules_register);
++EXPORT_SYMBOL_NS(fib, fib_rules_register);
+ 
+ static void cleanup_ops(struct fib_rules_ops *ops)
+ {
+@@ -135,7 +135,7 @@ out:
+ 	return err;
+ }
+ 
+-EXPORT_SYMBOL_GPL(fib_rules_unregister);
++EXPORT_SYMBOL_NS(fib, fib_rules_unregister);
+ 
+ static int fib_rule_match(struct fib_rule *rule, struct fib_rules_ops *ops,
+ 			  struct flowi *fl, int flags)
+@@ -195,7 +195,7 @@ out:
+ 	return err;
+ }
+ 
+-EXPORT_SYMBOL_GPL(fib_rules_lookup);
++EXPORT_SYMBOL_NS(fib, fib_rules_lookup);
+ 
+ static int validate_rulemsg(struct fib_rule_hdr *frh, struct nlattr **tb,
+ 			    struct fib_rules_ops *ops)
+@@ -658,3 +658,6 @@ static int __init fib_rules_init(void)
+ }
+ 
+ subsys_initcall(fib_rules_init);
++
++MODULE_NAMESPACE_ALLOW(fib, ipv6);
++MODULE_NAMESPACE_ALLOW(fib, decnet);
+Index: linux/net/ipv4/inet_timewait_sock.c
+===================================================================
+--- linux.orig/net/ipv4/inet_timewait_sock.c
++++ linux/net/ipv4/inet_timewait_sock.c
+@@ -85,7 +85,7 @@ void __inet_twsk_hashdance(struct inet_t
+ 	write_unlock(lock);
+ }
+ 
+-EXPORT_SYMBOL_GPL(__inet_twsk_hashdance);
++EXPORT_SYMBOL_NS(inet, __inet_twsk_hashdance);
+ 
+ struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk, const int state)
+ {
+@@ -117,7 +117,7 @@ struct inet_timewait_sock *inet_twsk_all
+ 	return tw;
+ }
+ 
+-EXPORT_SYMBOL_GPL(inet_twsk_alloc);
++EXPORT_SYMBOL_NS(inet, inet_twsk_alloc);
+ 
+ /* Returns non-zero if quota exceeded.  */
+ static int inet_twdr_do_twkill_work(struct inet_timewait_death_row *twdr,
+@@ -192,7 +192,7 @@ out:
+ 	spin_unlock(&twdr->death_lock);
+ }
+ 
+-EXPORT_SYMBOL_GPL(inet_twdr_hangman);
++EXPORT_SYMBOL_NS(inet, inet_twdr_hangman);
+ 
+ extern void twkill_slots_invalid(void);
+ 
+@@ -225,7 +225,7 @@ void inet_twdr_twkill_work(struct work_s
+ 	}
+ }
+ 
+-EXPORT_SYMBOL_GPL(inet_twdr_twkill_work);
++EXPORT_SYMBOL_NS(inet, inet_twdr_twkill_work);
+ 
+ /* These are always called from BH context.  See callers in
+  * tcp_input.c to verify this.
+@@ -326,7 +326,7 @@ void inet_twsk_schedule(struct inet_time
+ 	spin_unlock(&twdr->death_lock);
+ }
+ 
+-EXPORT_SYMBOL_GPL(inet_twsk_schedule);
++EXPORT_SYMBOL_NS(inet, inet_twsk_schedule);
+ 
+ void inet_twdr_twcal_tick(unsigned long data)
+ {
+@@ -382,4 +382,4 @@ out:
+ 	spin_unlock(&twdr->death_lock);
+ }
+ 
+-EXPORT_SYMBOL_GPL(inet_twdr_twcal_tick);
++EXPORT_SYMBOL_NS(inet, inet_twdr_twcal_tick);
+Index: linux/net/ipv4/ip_sockglue.c
+===================================================================
+--- linux.orig/net/ipv4/ip_sockglue.c
++++ linux/net/ipv4/ip_sockglue.c
+@@ -943,7 +943,7 @@ int compat_ip_setsockopt(struct sock *sk
+ 	return err;
+ }
+ 
+-EXPORT_SYMBOL(compat_ip_setsockopt);
++EXPORT_SYMBOL_NS(inet, compat_ip_setsockopt);
+ #endif
+ 
+ /*
+@@ -1206,10 +1206,10 @@ int compat_ip_getsockopt(struct sock *sk
+ 	return err;
+ }
+ 
+-EXPORT_SYMBOL(compat_ip_getsockopt);
++EXPORT_SYMBOL_NS(inet, compat_ip_getsockopt);
+ #endif
+ 
+-EXPORT_SYMBOL(ip_cmsg_recv);
++EXPORT_SYMBOL_NS(inet, ip_cmsg_recv);
+ 
+-EXPORT_SYMBOL(ip_getsockopt);
+-EXPORT_SYMBOL(ip_setsockopt);
++EXPORT_SYMBOL_NS(inet, ip_getsockopt);
++EXPORT_SYMBOL_NS(inet, ip_setsockopt);
