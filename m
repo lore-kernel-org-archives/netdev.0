@@ -1,40 +1,46 @@
-From: Laszlo Attila Toth <panther@balabit.hu>
-Subject: Re: [PATCHv6 0/3] Interface group patches
-Date: Thu, 22 Nov 2007 10:05:53 +0100
-Message-ID: <47454671.6020905@balabit.hu>
-References: <4742E68C.2000802@balabit.hu>	<20071120.134242.177093096.davem@davemloft.net>	<47437B12.9090009@trash.net> <20071120.171743.04294220.davem@davemloft.net>
-Reply-To: panther@balabit.hu
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH 1/2] [TCP]: MTUprobe: receiver window & data available checks fixed
+Date: Thu, 22 Nov 2007 17:27:29 +0800
+Message-ID: <20071122092729.GA7897@gondor.apana.org.au>
+References: <11956608882424-git-send-email-ilpo.jarvinen@helsinki.fi> <11956608882602-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kaber@trash.net, jengelh@computergmbh.de, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20071120.171743.04294220.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: John Heffner <jheffner@psc.edu>, netdev@vger.kernel.org
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:1878 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751279AbXKVJ1p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2007 04:27:45 -0500
+Content-Disposition: inline
+In-Reply-To: <11956608882602-git-send-email-ilpo.jarvinen@helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller =EDrta:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Wed, 21 Nov 2007 01:25:54 +0100
->=20
->> I'm working on the incremental ruleset changing API BTW :)
->> One of the changes will be that interface matching is not
->> a default part of every rule, and without wildcards it will
->> use the ifindex. But since the cost of this feature seems
->> pretty low, I don't see a compelling reason against it.
->=20
-> Fair enough :)
->=20
+On Wed, Nov 21, 2007 at 06:01:27PM +0200, Ilpo J=E4rvinen wrote:
+>
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-If this means the patch is ok, please apply it. Thanks.
+Thanks for the patch Ilpo!
 
---
-Attila
--
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I've just got a couple small questions.
+
+> @@ -1307,6 +1308,7 @@ static int tcp_mtu_probe(struct sock *sk)
+>  	/* Very simple search strategy: just double the MSS. */
+>  	mss_now =3D tcp_current_mss(sk, 0);
+>  	probe_size =3D 2*tp->mss_cache;
+> +	size_needed =3D probe_size + (tp->reordering + 1) * mss_now;
+
+Should we use mss_now here or mss_cache? It would seem that an
+over-estimate would be safer than an under-estimate.
+
+Also should that be Tcprexmtthresh segments at the current MTU
+or the probed MTU?
+
+Cheers,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
