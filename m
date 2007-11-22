@@ -1,67 +1,317 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [RFC] bridging: don't forward EAPOL frames
-Date: Thu, 22 Nov 2007 14:23:28 +0100
-Message-ID: <1195737808.6323.102.camel@johannes.berg>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: [PATCH net-2.6.25] Add packet filtering based on process's security context.
+Date: Thu, 22 Nov 2007 22:35:43 +0900
+Message-ID: <200711222235.GCA05378.HtMOJQVFSFOLFO@I-love.SAKURA.ne.jp>
+References: <200711212130.EJJ43745.LFOFHOSMJOtFVQ@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	bridge <bridge@linux-foundation.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:60879 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752108AbXKVN2e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2007 08:28:34 -0500
+Received: from wine.ocn.ne.jp ([122.1.235.145]:62157 "EHLO smtp.wine.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752232AbXKVNfr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Nov 2007 08:35:47 -0500
+In-Reply-To: <200711212130.EJJ43745.LFOFHOSMJOtFVQ@I-love.SAKURA.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes the bridging code drop EAPOL frames as recommended by
-802.1X-2004 in C.3.3.
+Hello.
 
-Is this really the right place to put it?
----
- include/linux/if_ether.h |    1 +
- include/net/ieee80211.h  |    6 ------
- net/bridge/br_input.c    |    3 +++
- 3 files changed, 4 insertions(+), 6 deletions(-)
+Herbert Xu wrote:
+> On Thu, Nov 22, 2007 at 09:57:14PM +0900, Tetsuo Handa wrote:
+> >
+> > But you say that I should make patches based on the net-2.6.25 tree.
+> > Which tree ("-mm" or "net-2.6.25") should I use for making this patch?
+> 
+> The net-2.6.25 tree is the one.  Please use the tree at
+> 
+> 	git://git.kernel.org/pub/scm/linux/kernel/git/herbert/net-2.6.25.git/
+> 
+> while Dave is away.
 
---- everything.orig/include/linux/if_ether.h	2007-11-22 11:47:14.178686360 +0100
-+++ everything/include/linux/if_ether.h	2007-11-22 11:48:21.438679036 +0100
-@@ -74,6 +74,7 @@
- #define ETH_P_ATMFATE	0x8884		/* Frame-based ATM Transport
- 					 * over Ethernet
- 					 */
-+#define ETH_P_PAE	0x888E		/* Port Access Entity (IEEE 802.1X) */
- #define ETH_P_AOE	0x88A2		/* ATA over Ethernet		*/
- #define ETH_P_TIPC	0x88CA		/* TIPC 			*/
+Thank you.
+
+I refreshed the patch based on net-2.6.25 tree.
+
+Regards.
+
+-----
+Subject: Add packet filtering based on process's security context.
+
+This patch allows LSM modules filter incoming connections/datagrams
+based on the process's security context who is attempting to pick up.
+
+There are already hooks to filter incoming connections/datagrams
+based on the socket's security context, but these hooks are not
+applicable when one wants to do TCP Wrapper-like filtering
+(e.g. App1 is permitted to accept TCP connections from 192.168.0.0/16).
+
+Precautions: This approach has a side effect which unlikely occurs.
+
+If a socket is shared by multiple processes with differnt policy,
+the process who should be able to accept this connection
+will not be able to accept this connection
+because socket_post_accept() aborts this connection.
+But if socket_post_accept() doesn't abort this connection,
+the process who must not be able to accept this connection
+will repeat accept() forever, which is a worse side effect.
+
+Similarly, if a socket is shared by multiple processes with differnt policy,
+the process who should be able to pick up this datagram
+will not be able to pick up this datagram
+because socket_post_recv_datagram() discards this datagram.
+But if socket_post_recv_datagram() doesn't discard this datagram,
+the process who must not be able to pick up this datagram
+will repeat recvmsg() forever, which is a worse side effect.
+
+So, don't give different permissions between processes who share one socket.
+Otherwise, some connections/datagrams cannot be delivered to intended process.
+
+Signed-off-by: Kentaro Takeda <takedakn@nttdata.co.jp>
+Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+
+ include/linux/security.h |   34 +++++++++++++++++++++++++++++-----
+ net/core/datagram.c      |   26 ++++++++++++++++++++++++--
+ net/socket.c             |    7 +++++--
+ security/dummy.c         |   13 ++++++++++---
+ security/security.c      |   10 ++++++++--
+ 5 files changed, 76 insertions(+), 14 deletions(-)
+
+--- net-2.6.25.orig/include/linux/security.h
++++ net-2.6.25/include/linux/security.h
+@@ -781,8 +781,12 @@ struct request_sock;
+  * @socket_post_accept:
+  *	This hook allows a security module to copy security
+  *	information into the newly created socket's inode.
++ *	This hook also allows a security module to filter connections
++ *	from unwanted peers based on the process accepting this connection.
++ *	The connection will be aborted if this hook returns nonzero.
+  *	@sock contains the listening socket structure.
+  *	@newsock contains the newly created server socket for connection.
++ *	Return 0 if permission is granted.
+  * @socket_sendmsg:
+  *	Check permission before transmitting a message to another socket.
+  *	@sock contains the socket structure.
+@@ -796,6 +800,15 @@ struct request_sock;
+  *	@size contains the size of message structure.
+  *	@flags contains the operational flags.
+  *	Return 0 if permission is granted.  
++ * @socket_post_recv_datagram:
++ *	Check permission after receiving a datagram.
++ *	This hook allows a security module to filter packets
++ *	from unwanted peers based on the process receiving this datagram.
++ *	The packet will be discarded if this hook returns nonzero.
++ *	@sk contains the socket.
++ *	@skb contains the socket buffer (may be NULL).
++ *	@flags contains the operational flags.
++ *	Return 0 if permission is granted.
+  * @socket_getsockname:
+  *	Check permission before the local address (name) of the socket object
+  *	@sock is retrieved.
+@@ -1387,12 +1400,13 @@ struct security_operations {
+ 			       struct sockaddr * address, int addrlen);
+ 	int (*socket_listen) (struct socket * sock, int backlog);
+ 	int (*socket_accept) (struct socket * sock, struct socket * newsock);
+-	void (*socket_post_accept) (struct socket * sock,
+-				    struct socket * newsock);
++	int (*socket_post_accept) (struct socket *sock, struct socket *newsock);
+ 	int (*socket_sendmsg) (struct socket * sock,
+ 			       struct msghdr * msg, int size);
+ 	int (*socket_recvmsg) (struct socket * sock,
+ 			       struct msghdr * msg, int size, int flags);
++	int (*socket_post_recv_datagram) (struct sock *sk, struct sk_buff *skb,
++					  unsigned int flags);
+ 	int (*socket_getsockname) (struct socket * sock);
+ 	int (*socket_getpeername) (struct socket * sock);
+ 	int (*socket_getsockopt) (struct socket * sock, int level, int optname);
+@@ -2297,10 +2311,12 @@ int security_socket_bind(struct socket *
+ int security_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen);
+ int security_socket_listen(struct socket *sock, int backlog);
+ int security_socket_accept(struct socket *sock, struct socket *newsock);
+-void security_socket_post_accept(struct socket *sock, struct socket *newsock);
++int security_socket_post_accept(struct socket *sock, struct socket *newsock);
+ int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size);
+ int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,
+ 			    int size, int flags);
++int security_socket_post_recv_datagram(struct sock *sk, struct sk_buff *skb,
++				       unsigned int flags);
+ int security_socket_getsockname(struct socket *sock);
+ int security_socket_getpeername(struct socket *sock);
+ int security_socket_getsockopt(struct socket *sock, int level, int optname);
+@@ -2376,9 +2392,10 @@ static inline int security_socket_accept
+ 	return 0;
+ }
  
---- everything.orig/include/net/ieee80211.h	2007-11-22 11:46:29.908682888 +0100
-+++ everything/include/net/ieee80211.h	2007-11-22 11:48:51.908679037 +0100
-@@ -183,12 +183,6 @@ const char *escape_essid(const char *ess
- #endif
- #include <net/iw_handler.h>	/* new driver API */
+-static inline void security_socket_post_accept(struct socket * sock, 
+-					       struct socket * newsock)
++static inline int security_socket_post_accept(struct socket *sock,
++					      struct socket *newsock)
+ {
++	return 0;
+ }
  
--#ifndef ETH_P_PAE
--#define ETH_P_PAE 0x888E	/* Port Access Entity (IEEE 802.1X) */
--#endif				/* ETH_P_PAE */
--
--#define ETH_P_PREAUTH 0x88C7	/* IEEE 802.11i pre-authentication */
--
- #ifndef ETH_P_80211_RAW
- #define ETH_P_80211_RAW (ETH_P_ECONET + 1)
- #endif
---- everything.orig/net/bridge/br_input.c	2007-11-22 11:54:44.798683106 +0100
-+++ everything/net/bridge/br_input.c	2007-11-22 11:57:23.248680285 +0100
-@@ -145,6 +145,9 @@ struct sk_buff *br_handle_frame(struct n
- 		}
+ static inline int security_socket_sendmsg(struct socket * sock, 
+@@ -2394,6 +2411,13 @@ static inline int security_socket_recvms
+ 	return 0;
+ }
+ 
++static inline int security_socket_post_recv_datagram(struct sock *sk,
++						     struct sk_buff *skb,
++						     unsigned int flags)
++{
++	return 0;
++}
++
+ static inline int security_socket_getsockname(struct socket * sock)
+ {
+ 	return 0;
+--- net-2.6.25.orig/net/socket.c
++++ net-2.6.25/net/socket.c
+@@ -1455,13 +1455,16 @@ asmlinkage long sys_accept(int fd, struc
+ 			goto out_fd;
  	}
  
-+	if (unlikely(skb->protocol = htons(ETH_P_PAE)))
-+		goto drop;
++	/* Filter connections from unwanted peers. */
++	err = security_socket_post_accept(sock, newsock);
++	if (err)
++		goto out_fd;
 +
- 	switch (p->state) {
- 	case BR_STATE_FORWARDING:
+ 	/* File flags are not inherited via accept() unlike another OSes. */
  
-
+ 	fd_install(newfd, newfile);
+ 	err = newfd;
+ 
+-	security_socket_post_accept(sock, newsock);
+-
+ out_put:
+ 	fput_light(sock->file, fput_needed);
+ out:
+--- net-2.6.25.orig/security/dummy.c
++++ net-2.6.25/security/dummy.c
+@@ -748,10 +748,10 @@ static int dummy_socket_accept (struct s
+ 	return 0;
+ }
+ 
+-static void dummy_socket_post_accept (struct socket *sock, 
+-				      struct socket *newsock)
++static int dummy_socket_post_accept(struct socket *sock,
++				    struct socket *newsock)
+ {
+-	return;
++	return 0;
+ }
+ 
+ static int dummy_socket_sendmsg (struct socket *sock, struct msghdr *msg,
+@@ -766,6 +766,12 @@ static int dummy_socket_recvmsg (struct 
+ 	return 0;
+ }
+ 
++static int dummy_socket_post_recv_datagram(struct sock *sk, struct sk_buff *skb,
++					   unsigned int flags)
++{
++	return 0;
++}
++
+ static int dummy_socket_getsockname (struct socket *sock)
+ {
+ 	return 0;
+@@ -1099,6 +1105,7 @@ void security_fixup_ops (struct security
+ 	set_to_dummy_if_null(ops, socket_post_accept);
+ 	set_to_dummy_if_null(ops, socket_sendmsg);
+ 	set_to_dummy_if_null(ops, socket_recvmsg);
++	set_to_dummy_if_null(ops, socket_post_recv_datagram);
+ 	set_to_dummy_if_null(ops, socket_getsockname);
+ 	set_to_dummy_if_null(ops, socket_getpeername);
+ 	set_to_dummy_if_null(ops, socket_setsockopt);
+--- net-2.6.25.orig/net/core/datagram.c
++++ net-2.6.25/net/core/datagram.c
+@@ -55,6 +55,7 @@
+ #include <net/checksum.h>
+ #include <net/sock.h>
+ #include <net/tcp_states.h>
++#include <linux/security.h>
+ 
+ /*
+  *	Is a socket 'connection oriented' ?
+@@ -148,6 +149,7 @@ struct sk_buff *skb_recv_datagram(struct
+ {
+ 	struct sk_buff *skb;
+ 	long timeo;
++	unsigned long cpu_flags;
+ 	/*
+ 	 * Caller is allowed not to check sk->sk_err before skb_recv_datagram()
+ 	 */
+@@ -166,8 +168,6 @@ struct sk_buff *skb_recv_datagram(struct
+ 		 * However, this function was corrent in any case. 8)
+ 		 */
+ 		if (flags & MSG_PEEK) {
+-			unsigned long cpu_flags;
+-
+ 			spin_lock_irqsave(&sk->sk_receive_queue.lock,
+ 					  cpu_flags);
+ 			skb = skb_peek(&sk->sk_receive_queue);
+@@ -178,6 +178,11 @@ struct sk_buff *skb_recv_datagram(struct
+ 		} else
+ 			skb = skb_dequeue(&sk->sk_receive_queue);
+ 
++		/* Filter packets from unwanted peers. */
++		error = security_socket_post_recv_datagram(sk, skb, flags);
++		if (error)
++			goto force_dequeue;
++
+ 		if (skb)
+ 			return skb;
+ 
+@@ -190,6 +195,23 @@ struct sk_buff *skb_recv_datagram(struct
+ 
+ 	return NULL;
+ 
++force_dequeue:
++	/* Drop this packet because LSM says "Don't pass it to the caller". */
++	if (!(flags & MSG_PEEK))
++		goto no_peek;
++	/*
++	 * If this packet is MSG_PEEK'ed, dequeue it forcibly
++	 * so that this packet won't prevent the caller from picking up
++	 * next packet.
++	 */
++	spin_lock_irqsave(&sk->sk_receive_queue.lock, cpu_flags);
++	if (skb == skb_peek(&sk->sk_receive_queue)) {
++		__skb_unlink(skb, &sk->sk_receive_queue);
++		atomic_dec(&skb->users);
++	}
++	spin_unlock_irqrestore(&sk->sk_receive_queue.lock, cpu_flags);
++no_peek:
++	kfree_skb(skb);
+ no_packet:
+ 	*err = error;
+ 	return NULL;
+--- net-2.6.25.orig/security/security.c
++++ net-2.6.25/security/security.c
+@@ -869,9 +869,9 @@ int security_socket_accept(struct socket
+ 	return security_ops->socket_accept(sock, newsock);
+ }
+ 
+-void security_socket_post_accept(struct socket *sock, struct socket *newsock)
++int security_socket_post_accept(struct socket *sock, struct socket *newsock)
+ {
+-	security_ops->socket_post_accept(sock, newsock);
++	return security_ops->socket_post_accept(sock, newsock);
+ }
+ 
+ int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
+@@ -885,6 +885,12 @@ int security_socket_recvmsg(struct socke
+ 	return security_ops->socket_recvmsg(sock, msg, size, flags);
+ }
+ 
++int security_socket_post_recv_datagram(struct sock *sk, struct sk_buff *skb,
++				       unsigned int flags)
++{
++	return security_ops->socket_post_recv_datagram(sk, skb, flags);
++}
++
+ int security_socket_getsockname(struct socket *sock)
+ {
+ 	return security_ops->socket_getsockname(sock);
 
