@@ -1,55 +1,38 @@
-From: Joerg Pommnitz <pommnitz@yahoo.com>
-Subject: Does tc-prio really work as advertised?
-Date: Fri, 23 Nov 2007 06:47:13 -0800 (PST)
-Message-ID: <292416.28036.qm@web51406.mail.re2.yahoo.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-2.6.25] [TCP]: Move FRTO checks out from write queue abstraction funcs
+Date: Fri, 23 Nov 2007 22:51:08 +0800
+Message-ID: <20071123145108.GA20508@gondor.apana.org.au>
+References: <Pine.LNX.4.64.0711231422500.24866@kivilampi-30.cs.helsinki.fi> <20071123133428.GK18862@gondor.apana.org.au> <Pine.LNX.4.64.0711231601490.7738@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: OLSR discussion and development <olsr-users@olsr.org>
-To: netdev@vger.kernel.org
-Return-path: <olsr-users-bounces@lists.olsr.org>
-List-Unsubscribe: <http://lists.olsr.org/mailman/listinfo/olsr-users>,
-	<mailto:olsr-users-request@lists.olsr.org?subject=unsubscribe>
-List-Archive: <http://lists.olsr.org/pipermail/olsr-users>
-List-Post: <mailto:olsr-users@lists.olsr.org>
-List-Help: <mailto:olsr-users-request@lists.olsr.org?subject=help>
-List-Subscribe: <http://lists.olsr.org/mailman/listinfo/olsr-users>,
-	<mailto:olsr-users-request@lists.olsr.org?subject=subscribe>
-Sender: olsr-users-bounces@lists.olsr.org
-Errors-To: olsr-users-bounces@lists.olsr.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:2212 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753460AbXKWOvL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2007 09:51:11 -0500
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0711231601490.7738@kivilampi-30.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello all,
-I might make a fool out of me, but I think the prio qdisc doesn't work as advertised in any document I could lay my hands on.
+On Fri, Nov 23, 2007 at 04:14:03PM +0200, Ilpo J=E4rvinen wrote:
+>
+> The purpose of the tcp_advance_send_head & friends was/is to abstract
+> the write queue from the TCP worker code. RB-tree wq can then be put =
+in
+> place more easily (and I'm hopefully coming to that soon). There are =
+some
+> other similar functions in tcp.h as well which currently have only a
+> single caller. Please don't undo that work while DaveM is away for a =
+short
+> while :-).
 
-My problem was that the link quality reported by the olsr.org olsrd degraded depending on the amount of payload traffic transferred through an adhoc/mesh interface. The LQ is calculated from the packet loss of LQ Hello packets sent through this interface. To make sure normal traffic does not interfere with this value, olsrd sets the TOS field to 0x10 (Minimize-Delay) by default. This should give olsr traffic the highest priority on the link.
-
-Investigating this issue I replaced the default Pfifo_fast with a prio qdisc and attached a pfifo on each of the bands:
-
-    INTERFACE=wifi0
-    tc qdisc add dev $INTERFACE root handle 1: prio
-    tc qdisc add dev $INTERFACE parent 1:1 handle 10: pfifo
-    tc qdisc add dev $INTERFACE parent 1:2 handle 20: pfifo
-    tc qdisc add dev $INTERFACE parent 1:3 handle 30: pfifo
-
-The I used ping -Q TOSVALUE to send packets with different TOS values through the interface. tcpdump confirmed the correct TOS values in the outgoing packets.
-
-With "tc -s qdisc ls dev wifi0" I could observe the effects of the different TOS values. The result: no effect at all! Every single packet used the band indicated by the first value in the priomap (e.g. band 1 by default, in my case the pfifo with handle 20:). I can't square this observation with the available documentation.
-
-Looking at the source code, it seems that sched_prio uses the skb->priority value to select the outgoing band. According to some documentation I found, an application can set this value.
-
-Now I'm at a loss. I can work around this problem with filters, but I don't think that this is the correct solution. Any suggestions?
-
- 
-
-
-
-
-
-
-      Heute schon einen Blick in die Zukunft von E-Mails wagen? www.yahoo.de/mail
-
--- 
-Olsr-users mailing list
-Olsr-users@lists.olsr.org
-http://lists.olsr.org/mailman/listinfo/olsr-users
+Thanks for the explanation! I'll apply this patch.
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
