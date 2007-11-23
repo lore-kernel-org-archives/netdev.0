@@ -1,81 +1,40 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: 2.6.23 WARNING: at kernel/softirq.c:139 local_bh_enable()
-Date: Fri, 23 Nov 2007 13:11:20 -0600
-Message-ID: <20071123191120.GA19691@waste.org>
-References: <4745DCD7.8070805@simon.arlott.org.uk> <20071123002157.cb27f4a1.akpm@linux-foundation.org> <20071123105518.GA22062@2ka.mipt.ru> <20071123170756.GV19691@waste.org> <20071123175757.GA23991@2ka.mipt.ru> <20071123184851.GA14415@2ka.mipt.ru> <20071123185101.GA17582@2ka.mipt.ru> <20071123185906.GA23710@2ka.mipt.ru>
+From: Valentine Barshak <vbarshak@ru.mvista.com>
+Subject: [PATCH 2/3] PowerPC: ibm_newemac tah_ph typo fix
+Date: Fri, 23 Nov 2007 22:11:52 +0300
+Message-ID: <20071123191152.GA25720@ru.mvista.com>
+References: <20071123190747.GA25654@ru.mvista.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Simon Arlott <simon@fire.lp0.eu>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Ingo Molnar <mingo@redhat.com>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Cc: benh@kernel.crashing.org, netdev@vger.kernel.org,
+	jgarzik@pobox.com, jwboyer@linux.vnet.ibm.com
+To: linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([66.93.16.53]:50241 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755267AbXKWTQ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Nov 2007 14:16:28 -0500
+Received: from [212.176.242.38] ([212.176.242.38]:50750 "EHLO
+	vaxon.spb.rtsoft.ru" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755218AbXKWTS5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2007 14:18:57 -0500
 Content-Disposition: inline
-In-Reply-To: <20071123185906.GA23710@2ka.mipt.ru>
+In-Reply-To: <20071123190747.GA25654@ru.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 23, 2007 at 09:59:06PM +0300, Evgeniy Polyakov wrote:
-> On Fri, Nov 23, 2007 at 09:51:01PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> > On Fri, Nov 23, 2007 at 09:48:51PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> > > Stop, we are trying to free skb without destructor and catch connection
-> > > tracking, so it is not a solution. To fix the problem we need to check
-> > > if it is not netfilter related, kind of this (not tested), Simon please
-> > > give it a try:
-> > 
-> > And to be really cool we need to bypass skbs with xfrm attached, since
-> > its freeing also assumes BH context.
-> 
-> What about compile options?
+This patch fixes a typo in ibm_newemac/core.c
+(tah_port should be used instead of tah_ph)
 
-What about my original suggestion that we mark skbs owned by netpoll
-and free only those. Much safer, no? Untested:
+Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
+---
+ drivers/net/ibm_newemac/core.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
-diff -r c60016ba6237 net/core/netpoll.c
---- a/net/core/netpoll.c	Tue Nov 13 09:09:36 2007 -0800
-+++ b/net/core/netpoll.c	Fri Nov 23 13:10:28 2007 -0600
-@@ -203,6 +203,12 @@ static void refill_skbs(void)
- 	spin_unlock_irqrestore(&skb_pool.lock, flags);
- }
- 
-+/* used to mark an skb as owned by netpoll */
-+static void netpoll_skb_destroy(struct sk_buff *skb)
-+{
-+	return;
-+}
-+
- static void zap_completion_queue(void)
- {
- 	unsigned long flags;
-@@ -219,10 +225,12 @@ static void zap_completion_queue(void)
- 		while (clist != NULL) {
- 			struct sk_buff *skb = clist;
- 			clist = clist->next;
--			if (skb->destructor)
-+			if (skb->destructor == netpoll_skb_destroy) {
-+				skb->destructor = NULL;
-+				__kfree_skb(skb);
-+			}
-+			else
- 				dev_kfree_skb_any(skb); /* put this one back */
--			else
--				__kfree_skb(skb);
- 		}
- 	}
- 
-@@ -252,6 +260,7 @@ repeat:
- 
- 	atomic_set(&skb->users, 1);
- 	skb_reserve(skb, reserve);
-+	skb->destructor = netpoll_skb_destroy;
- 	return skb;
- }
- 
-
--- 
-Mathematics is the supreme nostalgia of our time.
+diff -pruN linux-2.6.orig/drivers/net/ibm_newemac/core.c linux-2.6/drivers/net/ibm_newemac/core.c
+--- linux-2.6.orig/drivers/net/ibm_newemac/core.c	2007-11-23 21:27:57.000000000 +0300
++++ linux-2.6/drivers/net/ibm_newemac/core.c	2007-11-23 21:36:00.000000000 +0300
+@@ -2427,7 +2427,7 @@ static int __devinit emac_init_config(st
+ 	if (emac_read_uint_prop(np, "tah-device", &dev->tah_ph, 0))
+ 		dev->tah_ph = 0;
+ 	if (emac_read_uint_prop(np, "tah-channel", &dev->tah_port, 0))
+-		dev->tah_ph = 0;
++		dev->tah_port = 0;
+ 	if (emac_read_uint_prop(np, "mdio-device", &dev->mdio_ph, 0))
+ 		dev->mdio_ph = 0;
+ 	if (emac_read_uint_prop(np, "zmii-device", &dev->zmii_ph, 0))
