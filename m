@@ -1,52 +1,74 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: ZD1211RW unaligned accesses...
-Date: Fri, 23 Nov 2007 11:41:26 +0100
-Message-ID: <1195814486.4149.83.camel@johannes.berg>
-References: <20071120.040546.222294375.davem@davemloft.net>
-	 (sfid-20071120_120554_491311_552F5A44)
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH net-2.6.25] [TCP]: Move FRTO checks out from write queue
+ abstraction funcs
+Date: Fri, 23 Nov 2007 14:25:08 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0711231422500.24866@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	shaddy_baddah-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20071120.040546.222294375.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (sfid-20071120_120554_491311_552F5A44)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-807877614-1195820708=:24866"
+Cc: Netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:37277 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756383AbXKWMZK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2007 07:25:10 -0500
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> The problem is
-> drivers/net/wireless/zd1211/zd_mac.c:update_qual_rssi().
-> Specifically the compare_ether_addr() call
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-I don't believe this is true. Shaddy seems to back that up by the patch
-not helping.
+---696243703-807877614-1195820708=:24866
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-> Wireless folks, I would suggest we do some auditing of the
-> compare_ether_addr() calls and for the ones that are operating
-> on these potentially unaligned structs we change it to either
-> a straight memcmp() or some new routine which will more reflect
-> the issue (say something like "compare_ether_addr_unaligned()"
-> or "ieee80211_compare_ether_addr()").
 
-All MAC addresses in 802.11 headers are at least aligned on 16-bit
-boundaries. Hence, if the some MAC address like the BSSID here was
-unaligned we'd also have the IP header unaligned causing a lot more
-trouble than this.
+Better place exists in update_send_head (other non-queue related
+adjustments are done there as well) which is the only caller of 
+tcp_advance_send_head (now that the bogus call from mtu_probe is
+gone).
 
-Shaddy, please rebuild zd1211 with the patch below, it should make the
-compiler not inline all those static functions allowing us to pinpoint
-much better where the problem occurs. You will probably need to delete
-all *.o files in the zd1211rw/ directory to the them rebuilt after the
-Makefile change.
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ include/net/tcp.h     |    5 -----
+ net/ipv4/tcp_output.c |    4 ++++
+ 2 files changed, 4 insertions(+), 5 deletions(-)
 
---- everything.orig/drivers/net/wireless/zd1211rw/Makefile	2007-11-23 11:36:30.652094075 +0100
-+++ everything/drivers/net/wireless/zd1211rw/Makefile	2007-11-23 11:36:57.112090711 +0100
-@@ -1,5 +1,7 @@
- obj-$(CONFIG_ZD1211RW) += zd1211rw.o
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index ebe7347..59c1bce 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1241,14 +1241,9 @@ static inline struct sk_buff *tcp_send_head(struct sock *sk)
  
-+EXTRA_CFLAGS += -fno-inline-functions-called-once
+ static inline void tcp_advance_send_head(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct tcp_sock *tp = tcp_sk(sk);
+-
+ 	sk->sk_send_head = skb->next;
+ 	if (sk->sk_send_head == (struct sk_buff *)&sk->sk_write_queue)
+ 		sk->sk_send_head = NULL;
+-	/* Don't override Nagle indefinately with F-RTO */
+-	if (tp->frto_counter == 2)
+-		tp->frto_counter = 3;
+ }
+ 
+ static inline void tcp_check_send_head(struct sock *sk, struct sk_buff *skb_unlinked)
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 44d70db..3b17688 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -80,6 +80,10 @@ static void update_send_head(struct sock *sk, struct sk_buff *skb)
+ 	tcp_advance_send_head(sk, skb);
+ 	tp->snd_nxt = TCP_SKB_CB(skb)->end_seq;
+ 	tcp_packets_out_inc(sk, skb);
 +
- zd1211rw-objs := zd_chip.o zd_ieee80211.o \
- 		zd_mac.o zd_netdev.o \
- 		zd_rf_al2230.o zd_rf_rf2959.o \
++	/* Don't override Nagle indefinately with F-RTO */
++	if (tp->frto_counter == 2)
++		tp->frto_counter = 3;
+ }
+ 
+ /* SND.NXT, if window was not shrunk.
+-- 
+1.5.0.6
+
+---696243703-807877614-1195820708=:24866--
