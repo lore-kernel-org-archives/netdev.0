@@ -1,53 +1,62 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH] [RFC] New driver "sfc" for Solarstorm SFC4000 controller
-Date: Fri, 23 Nov 2007 17:08:15 +0000
-Message-ID: <20071123170815.GH31093@solarflare.com>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: 2.6.23 WARNING: at kernel/softirq.c:139 local_bh_enable()
+Date: Fri, 23 Nov 2007 11:07:56 -0600
+Message-ID: <20071123170756.GV19691@waste.org>
+References: <4745DCD7.8070805@simon.arlott.org.uk> <20071123002157.cb27f4a1.akpm@linux-foundation.org> <20071123105518.GA22062@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-net-drivers@solarflare.com
-To: netdev@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Simon Arlott <simon@fire.lp0.eu>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Ingo Molnar <mingo@redhat.com>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pythagoras.zen.co.uk ([212.23.3.140]:32803 "EHLO
-	pythagoras.zen.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751965AbXKWRIV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2007 12:08:21 -0500
-Received: from [82.69.137.158] (helo=opal.uk.level5networks.com)
-	by pythagoras.zen.co.uk with esmtp (Exim 4.50)
-	id 1Ivc0p-0006bA-3U
-	for netdev@vger.kernel.org; Fri, 23 Nov 2007 17:08:19 +0000
+Received: from waste.org ([66.93.16.53]:39581 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752597AbXKWRJI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Nov 2007 12:09:08 -0500
 Content-Disposition: inline
+In-Reply-To: <20071123105518.GA22062@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a net driver (and MTD driver, sfc_mtd) for our SFC4000 10G
-Ethernet controller, branded "Solarstorm", with various PHYs.  It is
-intended to support our NIC reference designs SFE4001 (10GBASE-T),
-SFE4002 (XFP), SFE4003 (10GBASE-CX4), OEM designs based on them, and
-some development boards.  We have been maintaining drivers out-of-tree
-for some time but are now preparing them to work in-tree.
+On Fri, Nov 23, 2007 at 01:55:19PM +0300, Evgeniy Polyakov wrote:
+> On Fri, Nov 23, 2007 at 12:21:57AM -0800, Andrew Morton (akpm@linux-foundation.org) wrote:
+> > > [2059664.615816] __iptables__: init4 IN=ppp0 OUT=ppp0 WARNING: at kernel/softirq.c:139 local_bh_enable()
+> > > [2059664.620535]  [<80120364>] local_bh_enable+0x3c/0x97
+> 
+> > > [2059664.620657]  [<8011c205>] __call_console_drivers+0x61/0x6d
+> > > [2059664.620669]  [<8011c3fc>] release_console_sem+0x164/0x1bf
+> > > [2059664.620679]  [<8011c81f>] vprintk+0x27a/0x2ff
+>  
+> > If that trace is to be beieved we're doing nefilter stuff on packets which
+> > were sent across netconsole.
+> > 
+> > This probably isn't anything the netfilter guys have thought about.  And
+> > probably we don't want them to.  Is there some simple way in which we can
+> > exempt netconsole from netfilter processing?
+> 
+> This is not about netfilter, but about freeing skb in interrupt context, 
+> which is not allowed, and in interrupt skbs are queued to be freed in softirq,
+> but netcnsole wants to flush softirq freeing queue. That is a question: why?
 
-There are some issues that might need to be addressed:
+My memory here is hazy, but I think this exists to rescue netconsole
+in low-memory situations. This bit originated with Ingo, so maybe he
+can recall.
 
-1. When we enable NAPI polling, we need to set __LINK_STATE_START in
-   the net device used for NAPI.  This bit is commented as private in
-   netdevice.h, but e1000 also does this.  Is this incorrect?
+Netpoll can process an arbitrary number of skbs inside a single
+interrupt. Think sysrq-t at one packet per line or kgdboe where the
+entire trace session can happen inside one very long interrupt.
 
-2. We added a lot of definitions and code for 10G MDIO.  This is mostly
-   generic and could be moved into core code.
+Perhaps we can refine this to mark netpoll's skbs (perhaps with
+->destructor?) and delete only skbs we own. As these are never passed
+through any of the other route/xfrm/filter code, they should be safe
+to delete even in irq context, yes?
 
-We welcome review comments and are ready to address them.
+> Removing zap_completion_queue() from find_skb() will fix the warning,
+> but I'm not sure this is a correct fix. I've added Matt to the Cc list.
 
-The patch (against net-2.6.25) is at:
-    https://support.solarflare.com/netdev/net-2.6.25-sfc-2.2.0019.patch
-
-The new files may also be downloaded as a tarball:
-    https://support.solarflare.com/netdev/net-2.6.25-sfc-2.2.0019.tar.gz
-
-And for verification there is:
-    https://support.solarflare.com/netdev/MD5SUMS
-
-Ben.
+Care to try the sysrq-t or OOM message tests?
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+Mathematics is the supreme nostalgia of our time.
