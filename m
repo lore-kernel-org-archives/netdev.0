@@ -1,65 +1,53 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] Fix memory leak in inet_hashtables.h when NUMA is on
-Date: Fri, 23 Nov 2007 19:13:11 +0300
-Message-ID: <4746FC17.9010300@openvz.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH] [RFC] New driver "sfc" for Solarstorm SFC4000 controller
+Date: Fri, 23 Nov 2007 17:08:15 +0000
+Message-ID: <20071123170815.GH31093@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-net-drivers@solarflare.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:43695 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753133AbXKWQNh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Nov 2007 11:13:37 -0500
+Received: from pythagoras.zen.co.uk ([212.23.3.140]:32803 "EHLO
+	pythagoras.zen.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751965AbXKWRIV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2007 12:08:21 -0500
+Received: from [82.69.137.158] (helo=opal.uk.level5networks.com)
+	by pythagoras.zen.co.uk with esmtp (Exim 4.50)
+	id 1Ivc0p-0006bA-3U
+	for netdev@vger.kernel.org; Fri, 23 Nov 2007 17:08:19 +0000
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The inet_ehash_locks_alloc() looks like this:
+This is a net driver (and MTD driver, sfc_mtd) for our SFC4000 10G
+Ethernet controller, branded "Solarstorm", with various PHYs.  It is
+intended to support our NIC reference designs SFE4001 (10GBASE-T),
+SFE4002 (XFP), SFE4003 (10GBASE-CX4), OEM designs based on them, and
+some development boards.  We have been maintaining drivers out-of-tree
+for some time but are now preparing them to work in-tree.
 
-#ifdef CONFIG_NUMA
-	if (size > PAGE_SIZE)
-		x = vmalloc(...);
-	else
-#endif
-		x = kmalloc(...);
+There are some issues that might need to be addressed:
 
-Unlike it, the inet_ehash_locks_alloc() looks like this:
+1. When we enable NAPI polling, we need to set __LINK_STATE_START in
+   the net device used for NAPI.  This bit is commented as private in
+   netdevice.h, but e1000 also does this.  Is this incorrect?
 
-#ifdef CONFIG_NUMA
-	if (size > PAGE_SIZE)
-		vfree(x);
-	else
-#else
-		kfree(x);
-#endif
+2. We added a lot of definitions and code for 10G MDIO.  This is mostly
+   generic and could be moved into core code.
 
-The error is obvious - if the NUMA is on and the size
-is less than the PAGE_SIZE we leak the pointer (kfree is
-inside the #else branch).
+We welcome review comments and are ready to address them.
 
-Compiler doesn't warn us because after the kfree(x) there's
-a "x = NULL" assignment, so here's another (minor?) bug: we 
-don't set x to NULL under certain circumstances.
+The patch (against net-2.6.25) is at:
+    https://support.solarflare.com/netdev/net-2.6.25-sfc-2.2.0019.patch
 
-Boring explanation, I know... Patch explains it better.
+The new files may also be downloaded as a tarball:
+    https://support.solarflare.com/netdev/net-2.6.25-sfc-2.2.0019.tar.gz
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+And for verification there is:
+    https://support.solarflare.com/netdev/MD5SUMS
 
----
+Ben.
 
-diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 469216d..37f6cb1 100644
---- a/include/net/inet_hashtables.h
-+++ b/include/net/inet_hashtables.h
-@@ -186,9 +186,8 @@ static inline void inet_ehash_locks_free(struct inet_hashinfo *hashinfo)
- 		if (size > PAGE_SIZE)
- 			vfree(hashinfo->ehash_locks);
- 		else
--#else
--		kfree(hashinfo->ehash_locks);
- #endif
-+		kfree(hashinfo->ehash_locks);
- 		hashinfo->ehash_locks = NULL;
- 	}
- }
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
