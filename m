@@ -1,48 +1,95 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC/PATCH] SO_NO_CHECK for IPv6
-Date: Thu, 22 Nov 2007 17:13:06 -0800 (PST)
-Message-ID: <20071122.171306.166854987.davem@davemloft.net>
-References: <20071121124532.GA17263@havoc.gtf.org>
-	<20071121.222051.94402865.yoshfuji@linux-ipv6.org>
-	<4744CAA4.50102@garzik.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 9440] New: Problem in joinning a socket to
+ ipv6 multicast address in specific scenario
+Date: Thu, 22 Nov 2007 17:23:42 -0800
+Message-ID: <20071122172342.721ee232.akpm@linux-foundation.org>
+References: <bug-9440-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au
-To: jeff@garzik.org
+Cc: bugme-daemon@bugzilla.kernel.org, aviad.yehezkel5@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46647
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751654AbXKWBNH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2007 20:13:07 -0500
-In-Reply-To: <4744CAA4.50102@garzik.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:52218 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752202AbXKWBYA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2007 20:24:00 -0500
+In-Reply-To: <bug-9440-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Wed, 21 Nov 2007 19:17:40 -0500
+On Thu, 22 Nov 2007 11:02:04 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
 
-> YOSHIFUJI Hideaki / 吉藤英明 wrote:
-> > In article <20071121124532.GA17263@havoc.gtf.org> (at Wed, 21 Nov 2007 07:45:32 -0500), Jeff Garzik <jeff@garzik.org> says:
-> > 
-> >> SO_NO_CHECK support for IPv6 appeared to be missing. This is presented,
-> >> based on a reading of net/ipv4/udp.c.
-> > 
-> > Disagree. UDP checksum is mandatory in IPv6.
+> http://bugzilla.kernel.org/show_bug.cgi?id=9440
 > 
-> Ah, you mean that I need to turn off UDP checksum on receive end as well 
-> in IPv6...  true.
+>            Summary: Problem in joinning a socket to ipv6 multicast address
+>                     in specific scenario
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: high
+>           Priority: P1
+>          Component: IPV6
+>         AssignedTo: yoshfuji@linux-ipv6.org
+>         ReportedBy: aviad.yehezkel5@gmail.com
 > 
-> For those interested, I am dealing with a UDP app that already does very 
-> strong checksumming and encryption, so additional software checksumming 
-> at the lower layers is quite simply a waste of CPU cycles.  Hardware 
-> checksumming is fine, as long as its "free."
-
-Regardless of whatever verifications your application is doing
-on the data, it is not checksumming the ports and that's what
-the pseudo-header is helping with.
-
-You cannot disable checksums in ipv6/UDP, they are not optional and
-with %99.9999999 of cards doing the checksum in hardware, and even if
-we do have to compute it it's free during the copy during recvmsg().
+> 
+> Hi,
+> I have a problem in joinning a socket to multicast address in the following
+> scenario (maybe kernel bug):
+> 
+> 1. I am changing the mtu size of the eth device to a small size - "ifconfig
+> eth1 mtu 100"
+> 
+> 2. After that i am resizing the mtu for it's orginal size - "ifconfig eth1 mtu
+> 1500"
+> 
+> 3. Now i am running a program i wrote in c that opens a dgram socket
+> (sock_fd[i] = socket(test_data->protocol, SOCK_DGRAM, 0);)  and join it to
+> multicast ipv6 address. 
+> if i am running this program after steps 1+2 i get the following error:
+> "Resource temporarily unavailable" when trying to join the socket to the
+> multicast ipv6 address by the
+> system call : 
+> 
+> struct ipv6_mreq maddr6_group; 
+> ...
+> setsockopt(sock_fd,
+>        IPPROTO_IPV6,
+>        IPV6_JOIN_GROUP,
+>        (char *)&maddr6_group,
+>        sizeof(maddr6_group));
+> 
+> but if i am running my program after reset of the driver (before steps 1+2) it
+> is working fine.
+> if i am trying to run the program and join a socket to ipv4 multicast address
+> (instead of ipv6) i get no errors - this doesn't work only when trying to join
+> to ipv6 multicast address. 
+> 
+> I got this error in broadcom device ("Broadcom Corporation NetXtreme BCM5721
+> Gigabit Ethernet PCI Express (rev 21)") but i don't think this is a bug in
+> broadcom driver,
+> because i tried it on differnt devices, in some devices i got the following
+> error instead: "Invalid argument" with the same multicast address.
+> As i said before if i am trying to join a socket to multicast ipv6 address
+> before resizing the mtu size it is working fine, all the problems are after
+> step 1+2.
+> 
+> All my tries were OS:
+> 1. SLES10.0 - 2.6.16.21-0.8-smp 
+> 2. REDHAT5.0 - 2.6.18-8.el5 #1 SMP.
+> 
+> 
+> I am waiting for an answer,
+> thanks a lot,
+> Aviad Yehezkel.
+> 
+> 
+> -- 
+> Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
+> ------- You are receiving this mail because: -------
+> You are on the CC list for the bug, or are watching someone who is.
