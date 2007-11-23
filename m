@@ -1,35 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cassini: NAPI configuration
-Date: Thu, 22 Nov 2007 17:00:08 -0800 (PST)
-Message-ID: <20071122.170008.193709839.davem@davemloft.net>
-References: <20071121115358.2e31fb91@freepuppy.rosehill>
+Subject: Re: [RFC/PATCH] SO_NO_CHECK for IPv6
+Date: Thu, 22 Nov 2007 17:13:06 -0800 (PST)
+Message-ID: <20071122.171306.166854987.davem@davemloft.net>
+References: <20071121124532.GA17263@havoc.gtf.org>
+	<20071121.222051.94402865.yoshfuji@linux-ipv6.org>
+	<4744CAA4.50102@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51737
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46647
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751409AbXKWBAJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2007 20:00:09 -0500
-In-Reply-To: <20071121115358.2e31fb91@freepuppy.rosehill>
+	by vger.kernel.org with ESMTP id S1751654AbXKWBNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2007 20:13:07 -0500
+In-Reply-To: <4744CAA4.50102@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Wed, 21 Nov 2007 11:53:58 -0800
+From: Jeff Garzik <jeff@garzik.org>
+Date: Wed, 21 Nov 2007 19:17:40 -0500
 
-> The Cassini driver has NAPI support, but it not possible to configure it.
-> Compile tested only, no idea if it works (no hardware).
-> Get rid of warning from lefover variable in now visible code.
+> YOSHIFUJI Hideaki / 吉藤英明 wrote:
+> > In article <20071121124532.GA17263@havoc.gtf.org> (at Wed, 21 Nov 2007 07:45:32 -0500), Jeff Garzik <jeff@garzik.org> says:
+> > 
+> >> SO_NO_CHECK support for IPv6 appeared to be missing. This is presented,
+> >> based on a reading of net/ipv4/udp.c.
+> > 
+> > Disagree. UDP checksum is mandatory in IPv6.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> Ah, you mean that I need to turn off UDP checksum on receive end as well 
+> in IPv6...  true.
+> 
+> For those interested, I am dealing with a UDP app that already does very 
+> strong checksumming and encryption, so additional software checksumming 
+> at the lower layers is quite simply a waste of CPU cycles.  Hardware 
+> checksumming is fine, as long as its "free."
 
-This driver needs massive amounts of work, and along with some
-contacts within Sun I plan to make this soon after I get back
-from Korea.
+Regardless of whatever verifications your application is doing
+on the data, it is not checksumming the ports and that's what
+the pseudo-header is helping with.
 
-Therefore, please leave this stuff alone for a bit.
-
-Thanks.
+You cannot disable checksums in ipv6/UDP, they are not optional and
+with %99.9999999 of cards doing the checksum in hardware, and even if
+we do have to compute it it's free during the copy during recvmsg().
