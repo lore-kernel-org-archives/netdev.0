@@ -1,57 +1,55 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH net-2.6.25] [TCP]: Move FRTO checks out from write queue
- abstraction funcs
-Date: Fri, 23 Nov 2007 16:14:03 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0711231601490.7738@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0711231422500.24866@kivilampi-30.cs.helsinki.fi>
- <20071123133428.GK18862@gondor.apana.org.au>
+From: Joerg Pommnitz <pommnitz@yahoo.com>
+Subject: Does tc-prio really work as advertised?
+Date: Fri, 23 Nov 2007 06:47:13 -0800 (PST)
+Message-ID: <292416.28036.qm@web51406.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1636456764-1195827243=:7738"
-Cc: Netdev <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:56191 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752649AbXKWOOI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2007 09:14:08 -0500
-In-Reply-To: <20071123133428.GK18862@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: OLSR discussion and development <olsr-users@olsr.org>
+To: netdev@vger.kernel.org
+Return-path: <olsr-users-bounces@lists.olsr.org>
+List-Unsubscribe: <http://lists.olsr.org/mailman/listinfo/olsr-users>,
+	<mailto:olsr-users-request@lists.olsr.org?subject=unsubscribe>
+List-Archive: <http://lists.olsr.org/pipermail/olsr-users>
+List-Post: <mailto:olsr-users@lists.olsr.org>
+List-Help: <mailto:olsr-users-request@lists.olsr.org?subject=help>
+List-Subscribe: <http://lists.olsr.org/mailman/listinfo/olsr-users>,
+	<mailto:olsr-users-request@lists.olsr.org?subject=subscribe>
+Sender: olsr-users-bounces@lists.olsr.org
+Errors-To: olsr-users-bounces@lists.olsr.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hello all,
+I might make a fool out of me, but I think the prio qdisc doesn't work as advertised in any document I could lay my hands on.
 
----696243703-1636456764-1195827243=:7738
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+My problem was that the link quality reported by the olsr.org olsrd degraded depending on the amount of payload traffic transferred through an adhoc/mesh interface. The LQ is calculated from the packet loss of LQ Hello packets sent through this interface. To make sure normal traffic does not interfere with this value, olsrd sets the TOS field to 0x10 (Minimize-Delay) by default. This should give olsr traffic the highest priority on the link.
 
-On Fri, 23 Nov 2007, Herbert Xu wrote:
+Investigating this issue I replaced the default Pfifo_fast with a prio qdisc and attached a pfifo on each of the bands:
 
-> On Fri, Nov 23, 2007 at 02:25:08PM +0200, Ilpo Järvinen wrote:
-> > 
-> > Better place exists in update_send_head (other non-queue related
-> > adjustments are done there as well) which is the only caller of
-> > tcp_advance_send_head (now that the bogus call from mtu_probe is
-> > gone).
-> > 
-> > Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-> 
-> Hmm, why don't we just get rid of tcp_advance_send_head?
-> Or are you planning to start using it again?
+    INTERFACE=wifi0
+    tc qdisc add dev $INTERFACE root handle 1: prio
+    tc qdisc add dev $INTERFACE parent 1:1 handle 10: pfifo
+    tc qdisc add dev $INTERFACE parent 1:2 handle 20: pfifo
+    tc qdisc add dev $INTERFACE parent 1:3 handle 30: pfifo
 
-The purpose of the tcp_advance_send_head & friends was/is to abstract
-the write queue from the TCP worker code. RB-tree wq can then be put in 
-place more easily (and I'm hopefully coming to that soon). There are some 
-other similar functions in tcp.h as well which currently have only a 
-single caller. Please don't undo that work while DaveM is away for a short 
-while :-).
+The I used ping -Q TOSVALUE to send packets with different TOS values through the interface. tcpdump confirmed the correct TOS values in the outgoing packets.
 
-IMHO it was a mistake from my side to add frto code into the wq abstaction 
-function in the first place though I could use the bogus call that 
-tcp_mtu_probe used to make there as an excuse :-), the TCP worker code is 
-much better place for it (and it does similar stuff already)...
+With "tc -s qdisc ls dev wifi0" I could observe the effects of the different TOS values. The result: no effect at all! Every single packet used the band indicated by the first value in the priomap (e.g. band 1 by default, in my case the pfifo with handle 20:). I can't square this observation with the available documentation.
 
+Looking at the source code, it seems that sched_prio uses the skb->priority value to select the outgoing band. According to some documentation I found, an application can set this value.
+
+Now I'm at a loss. I can work around this problem with filters, but I don't think that this is the correct solution. Any suggestions?
+
+ 
+
+
+
+
+
+
+      Heute schon einen Blick in die Zukunft von E-Mails wagen? www.yahoo.de/mail
 
 -- 
- i.
----696243703-1636456764-1195827243=:7738--
+Olsr-users mailing list
+Olsr-users@lists.olsr.org
+http://lists.olsr.org/mailman/listinfo/olsr-users
