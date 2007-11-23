@@ -1,95 +1,57 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9440] New: Problem in joinning a socket to
- ipv6 multicast address in specific scenario
-Date: Thu, 22 Nov 2007 17:23:42 -0800
-Message-ID: <20071122172342.721ee232.akpm@linux-foundation.org>
-References: <bug-9440-10286@http.bugzilla.kernel.org/>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
+Date: Fri, 23 Nov 2007 02:36:22 +0100
+Message-ID: <200711230236.22759.ak@suse.de>
+References: <20071122343.446909000@suse.de> <20071122110545.GA4552@infradead.org> <200711231125.12832.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, aviad.yehezkel5@gmail.com
-To: netdev@vger.kernel.org
+Cc: Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sam@ravnborg.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:52218 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752202AbXKWBYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2007 20:24:00 -0500
-In-Reply-To: <bug-9440-10286@http.bugzilla.kernel.org/>
+Received: from cantor.suse.de ([195.135.220.2]:37879 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753070AbXKWBlc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Nov 2007 20:41:32 -0500
+In-Reply-To: <200711231125.12832.rusty@rustcorp.com.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 22 Nov 2007 11:02:04 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+On Friday 23 November 2007 01:25, Rusty Russell wrote:
+> On Thursday 22 November 2007 22:05:45 Christoph Hellwig wrote:
+> > On Thu, Nov 22, 2007 at 02:56:22PM +1100, Rusty Russell wrote:
+> > >     This is an interesting idea, thanks for the code!  My only question
+> > > is whether we can get most of this benefit by dropping the indirection
+> > > of namespaces and have something like "EXPORT_SYMBOL_TO(sym, modname)"?
+> > >  It doesn't work so well for exporting to a group of modules, but that
+> > > seems a reasonable line to draw anyway.
+> >
+> > I'd say exporting to a group of modules is the main use case.  E.g. in
+> > scsi there would be symbols exported to transport class modules only
+> > or lots of the vfs_ symbols would be exported only to stackable
+> > filesystems or nfsd.
+>
+> That's my point.  If there's a whole class of modules which can use a
+> symbol, why are we ruling out external modules? 
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=9440
-> 
->            Summary: Problem in joinning a socket to ipv6 multicast address
->                     in specific scenario
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: high
->           Priority: P1
->          Component: IPV6
->         AssignedTo: yoshfuji@linux-ipv6.org
->         ReportedBy: aviad.yehezkel5@gmail.com
-> 
-> 
-> Hi,
-> I have a problem in joinning a socket to multicast address in the following
-> scenario (maybe kernel bug):
-> 
-> 1. I am changing the mtu size of the eth device to a small size - "ifconfig
-> eth1 mtu 100"
-> 
-> 2. After that i am resizing the mtu for it's orginal size - "ifconfig eth1 mtu
-> 1500"
-> 
-> 3. Now i am running a program i wrote in c that opens a dgram socket
-> (sock_fd[i] = socket(test_data->protocol, SOCK_DGRAM, 0);)  and join it to
-> multicast ipv6 address. 
-> if i am running this program after steps 1+2 i get the following error:
-> "Resource temporarily unavailable" when trying to join the socket to the
-> multicast ipv6 address by the
-> system call : 
-> 
-> struct ipv6_mreq maddr6_group; 
-> ...
-> setsockopt(sock_fd,
->        IPPROTO_IPV6,
->        IPV6_JOIN_GROUP,
->        (char *)&maddr6_group,
->        sizeof(maddr6_group));
-> 
-> but if i am running my program after reset of the driver (before steps 1+2) it
-> is working fine.
-> if i am trying to run the program and join a socket to ipv4 multicast address
-> (instead of ipv6) i get no errors - this doesn't work only when trying to join
-> to ipv6 multicast address. 
-> 
-> I got this error in broadcom device ("Broadcom Corporation NetXtreme BCM5721
-> Gigabit Ethernet PCI Express (rev 21)") but i don't think this is a bug in
-> broadcom driver,
-> because i tried it on differnt devices, in some devices i got the following
-> error instead: "Invalid argument" with the same multicast address.
-> As i said before if i am trying to join a socket to multicast ipv6 address
-> before resizing the mtu size it is working fine, all the problems are after
-> step 1+2.
-> 
-> All my tries were OS:
-> 1. SLES10.0 - 2.6.16.21-0.8-smp 
-> 2. REDHAT5.0 - 2.6.18-8.el5 #1 SMP.
-> 
-> 
-> I am waiting for an answer,
-> thanks a lot,
-> Aviad Yehezkel.
-> 
-> 
-> -- 
-> Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
-> ------- You are receiving this mail because: -------
-> You are on the CC list for the bug, or are watching someone who is.
+The point is to get cleaner interfaces. Anything which is kind of internal
+should only be used by closely related in tree modules which can be updated. 
+Point of is not to be some kind of license enforcer or similar, there 
+are already other mechanisms for that. Just to get the set of really
+public kernel interfaces down to a manageable level.
+
+But I still think exporting only to a single module would be to limiting 
+for this case even. It would work for the TCP<->ipv6.ko post child,
+but not for some of the other networking cases where it makes sense.
+
+> If that's what you want, 
+> why not have a list of permitted modules compiled into the kernel and allow
+> no others?
+
+That would not make the relationship explicit, which would not further
+the goal.
+
+-Andi
