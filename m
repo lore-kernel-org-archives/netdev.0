@@ -1,40 +1,51 @@
 From: Valentine Barshak <vbarshak@ru.mvista.com>
-Subject: [PATCH 2/3] PowerPC: ibm_newemac tah_ph typo fix
-Date: Fri, 23 Nov 2007 22:11:52 +0300
-Message-ID: <20071123191152.GA25720@ru.mvista.com>
+Subject: [PATCH 3/3] PowerPC: ibm_newemac call dev_set_drvdata() before
+	tah_reset()
+Date: Fri, 23 Nov 2007 22:14:10 +0300
+Message-ID: <20071123191410.GA25742@ru.mvista.com>
 References: <20071123190747.GA25654@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: benh@kernel.crashing.org, netdev@vger.kernel.org,
-	jgarzik@pobox.com, jwboyer@linux.vnet.ibm.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
 To: linuxppc-dev@ozlabs.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [212.176.242.38] ([212.176.242.38]:50750 "EHLO
-	vaxon.spb.rtsoft.ru" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755218AbXKWTS5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2007 14:18:57 -0500
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
 Content-Disposition: inline
 In-Reply-To: <20071123190747.GA25654@ru.mvista.com>
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes a typo in ibm_newemac/core.c
-(tah_port should be used instead of tah_ph)
+The patch moves dev_set_drvdata(&ofdev->dev, dev) up before tah_reset(ofdev)
+is called to avoid a NULL pointer dereference, since tah_reset uses drvdata.
 
 Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
 ---
- drivers/net/ibm_newemac/core.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ibm_newemac/tah.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletion(-)
 
-diff -pruN linux-2.6.orig/drivers/net/ibm_newemac/core.c linux-2.6/drivers/net/ibm_newemac/core.c
---- linux-2.6.orig/drivers/net/ibm_newemac/core.c	2007-11-23 21:27:57.000000000 +0300
-+++ linux-2.6/drivers/net/ibm_newemac/core.c	2007-11-23 21:36:00.000000000 +0300
-@@ -2427,7 +2427,7 @@ static int __devinit emac_init_config(st
- 	if (emac_read_uint_prop(np, "tah-device", &dev->tah_ph, 0))
- 		dev->tah_ph = 0;
- 	if (emac_read_uint_prop(np, "tah-channel", &dev->tah_port, 0))
--		dev->tah_ph = 0;
-+		dev->tah_port = 0;
- 	if (emac_read_uint_prop(np, "mdio-device", &dev->mdio_ph, 0))
- 		dev->mdio_ph = 0;
- 	if (emac_read_uint_prop(np, "zmii-device", &dev->zmii_ph, 0))
+diff -pruN linux-2.6.orig/drivers/net/ibm_newemac/tah.c linux-2.6/drivers/net/ibm_newemac/tah.c
+--- linux-2.6.orig/drivers/net/ibm_newemac/tah.c	2007-11-23 21:27:57.000000000 +0300
++++ linux-2.6/drivers/net/ibm_newemac/tah.c	2007-11-23 21:35:12.000000000 +0300
+@@ -116,13 +116,14 @@ static int __devinit tah_probe(struct of
+ 		goto err_free;
+ 	}
+ 
++	dev_set_drvdata(&ofdev->dev, dev);
++
+ 	/* Initialize TAH and enable IPv4 checksum verification, no TSO yet */
+ 	tah_reset(ofdev);
+ 
+ 	printk(KERN_INFO
+ 	       "TAH %s initialized\n", ofdev->node->full_name);
+ 	wmb();
+-	dev_set_drvdata(&ofdev->dev, dev);
+ 
+ 	return 0;
