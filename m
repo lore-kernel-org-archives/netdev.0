@@ -1,37 +1,33 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-2.6.25] [TCP]: Move FRTO checks out from write queue abstraction funcs
-Date: Fri, 23 Nov 2007 21:34:28 +0800
-Message-ID: <20071123133428.GK18862@gondor.apana.org.au>
-References: <Pine.LNX.4.64.0711231422500.24866@kivilampi-30.cs.helsinki.fi>
+Subject: Re: [PATCH][UNIX] Move the unix sock iterators in to proper place
+Date: Fri, 23 Nov 2007 21:37:12 +0800
+Message-ID: <20071123133712.GL18862@gondor.apana.org.au>
+References: <47458296.60908@openvz.org> <20071123123036.GD18862@gondor.apana.org.au> <4746D130.2060305@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1209 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:1262 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754876AbXKWNeb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2007 08:34:31 -0500
+	with ESMTP id S1755584AbXKWNhR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2007 08:37:17 -0500
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0711231422500.24866@kivilampi-30.cs.helsinki.fi>
+In-Reply-To: <4746D130.2060305@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 23, 2007 at 02:25:08PM +0200, Ilpo J=E4rvinen wrote:
->=20
-> Better place exists in update_send_head (other non-queue related
-> adjustments are done there as well) which is the only caller of
-> tcp_advance_send_head (now that the bogus call from mtu_probe is
-> gone).
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+On Fri, Nov 23, 2007 at 04:10:08PM +0300, Pavel Emelyanov wrote:
+>
+> I'm afraid to become importunate, but is the net-2.6 (not 25)
+> tree is currently the David's tree (unlike net-2.6.25, which
+> has temporary switched to your one)?
 
-Hmm, why don't we just get rid of tcp_advance_send_head?
-Or are you planning to start using it again?
+I'm about to do a push soon which will create net-2.6 in the
+same place as my net-2.6.25 tree.
 
-Thanks,
---=20
+Cheers,
+-- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
