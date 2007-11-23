@@ -1,255 +1,79 @@
-From: Pekka J Enberg <penberg@cs.helsinki.fi>
-Subject: [PATCH 8/8] ipg: fix checkpatch reported errors
-Date: Fri, 23 Nov 2007 10:20:19 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0711231020040.18378@sbz-30.cs.Helsinki.FI>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: 2.6.23 WARNING: at kernel/softirq.c:139 local_bh_enable()
+Date: Fri, 23 Nov 2007 00:21:57 -0800
+Message-ID: <20071123002157.cb27f4a1.akpm@linux-foundation.org>
+References: <4745DCD7.8070805@simon.arlott.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: romieu@fr.zoreil.com, sorbica@icplus.com.tw, jesse@icplus.com.tw,
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org
+To: Simon Arlott <simon@fire.lp0.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:42513 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753166AbXKWIUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2007 03:20:21 -0500
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:57958 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753252AbXKWIWm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2007 03:22:42 -0500
+In-Reply-To: <4745DCD7.8070805@simon.arlott.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pekka Enberg <penberg@cs.helsinki.fi>
+On Thu, 22 Nov 2007 19:47:35 +0000 Simon Arlott <simon@fire.lp0.eu> wrote:
 
-Cc: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Sorbica Shieh <sorbica@icplus.com.tw>
-Cc: Jesse Huang <jesse@icplus.com.tw>
-Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
----
- drivers/net/ipg.c |   48 +++++++++++++++++++++++++-----------------------
- drivers/net/ipg.h |   32 ++++++++++++++++----------------
- 2 files changed, 41 insertions(+), 39 deletions(-)
+> WARN during log message being output to ttyS0 and netconsole:
+> 
+> [2059664.615816] __iptables__: init4 IN=ppp0 OUT=ppp0 WARNING: at kernel/softirq.c:139 local_bh_enable()
+> [2059664.620535]  [<80120364>] local_bh_enable+0x3c/0x97
+> [2059664.620553]  [<802e3356>] __nf_ct_ext_destroy+0x35/0x5b
+> [2059664.620569]  [<802dfbeb>] destroy_conntrack+0x5e/0xf6
+> [2059664.620577]  [<802db821>] nf_conntrack_destroy+0x1f/0x3f
+> [2059664.620585]  [<802c0c71>] __kfree_skb+0xb8/0xf6
+> [2059664.620597]  [<802d00f0>] zap_completion_queue+0x3e/0x64
+> [2059664.620606]  [<802d0583>] find_skb+0x14/0x6b
+> [2059664.620612]  [<801167cc>] inc_nr_running+0x12/0x25
+> [2059664.620622]  [<802d0fd8>] netpoll_send_udp+0x2d/0x251
+> [2059664.620630]  [<80226135>] uart_console_write+0x2a/0x33
+> [2059664.620645]  [<80241319>] write_msg+0x32/0x41
+> [2059664.620657]  [<8011c205>] __call_console_drivers+0x61/0x6d
+> [2059664.620669]  [<8011c3fc>] release_console_sem+0x164/0x1bf
+> [2059664.620679]  [<8011c81f>] vprintk+0x27a/0x2ff
+> [2059664.620692]  [<8013881e>] handle_IRQ_event+0x1a/0x3f
+> [2059664.620702]  [<801203a5>] local_bh_enable+0x7d/0x97
+> [2059664.620709]  [<8031ae6a>] fn_hash_lookup+0xb0/0xcd
+> [2059664.620723]  [<8011c8bf>] printk+0x1b/0x1f
+> [2059664.620731]  [<8032b372>] ipt_log_packet+0x71/0x15e
+> [2059664.620747]  [<8032b4a0>] ipt_log_target+0x41/0x4a
+> [2059664.620757]  [<802ea446>] ipt_limit_match+0x58/0x76
+> [2059664.620766]  [<8032b45f>] ipt_log_target+0x0/0x4a
+> [2059664.620774]  [<803288c5>] ipt_do_table+0x3e2/0x479
+> [2059664.620785]  [<80331228>] xfrm_policy_put_afinfo+0xa/0x1e
+> [2059664.620800]  [<80332219>] xfrm_lookup+0x15/0x69
+> [2059664.620809]  [<802db7d0>] nf_iterate+0x38/0x6a
+> [2059664.620822]  [<802dbb60>] nf_hook_slow+0x57/0xe0
+> [2059664.620830]  [<802f1e7c>] ip_forward_finish+0x0/0x22
+> [2059664.620841]  [<802f20d1>] ip_forward+0x233/0x2ae
+> [2059664.620849]  [<802f1e7c>] ip_forward_finish+0x0/0x22
+> [2059664.620859]  [<802f0e7a>] ip_rcv+0x46f/0x49c
+> [2059664.620866]  [<802f04a8>] ip_rcv_finish+0x0/0x2ab
+> [2059664.620876]  [<802f0a0b>] ip_rcv+0x0/0x49c
+> [2059664.620884]  [<802c544a>] netif_receive_skb+0x326/0x3ae
+> [2059664.620894]  [<802c6efe>] process_backlog+0x6d/0xd2
+> [2059664.620903]  [<802c766e>] net_rx_action+0x86/0x193
+> [2059664.620911]  [<80120001>] __do_softirq+0x40/0x85
+> [2059664.620919]  [<8012006d>] do_softirq+0x27/0x2b
+> [2059664.620925]  [<8012023d>] irq_exit+0x2d/0x37
+> [2059664.620931]  [<801062d9>] do_IRQ+0x7a/0x8d
+> [2059664.620943]  [<8010479b>] common_interrupt+0x23/0x28
+> [2059664.620954]  [<80209f85>] acpi_processor_idle+0x235/0x3a0
+> [2059664.620967]  [<80102344>] cpu_idle+0x43/0x6c
+> [2059664.620973]  [<804aa99e>] start_kernel+0x210/0x215
+> [2059664.620989]  [<804aa317>] unknown_bootoption+0x0/0x195
+> [2059664.620998]  =======================
+> [2059664.852188] SRC=66.249.93.147 DST=* LEN=40 TOS=0x00 PREC=0x00 TTL=53 ID=23868 DF PROTO=TCP SPT=80 DPT=55219 WINDOW=0 RES=0x00 RST URGP=0
 
-Index: 2.6/drivers/net/ipg.c
-===================================================================
---- 2.6.orig/drivers/net/ipg.c	2007-11-23 10:08:41.000000000 +0200
-+++ 2.6/drivers/net/ipg.c	2007-11-23 10:14:00.000000000 +0200
-@@ -34,9 +34,9 @@  * Copyright (C) 2003, 2007  IC Plus Cor
- 	 IPG_AC_DMA | IPG_AC_FIFO | IPG_AC_NETWORK | IPG_AC_HOST | \
- 	 IPG_AC_AUTO_INIT)
- 
--#define ipg_w32(val32,reg)	iowrite32((val32), ioaddr + (reg))
--#define ipg_w16(val16,reg)	iowrite16((val16), ioaddr + (reg))
--#define ipg_w8(val8,reg)	iowrite8((val8), ioaddr + (reg))
-+#define ipg_w32(val32, reg)	iowrite32((val32), ioaddr + (reg))
-+#define ipg_w16(val16, reg)	iowrite16((val16), ioaddr + (reg))
-+#define ipg_w8(val8, reg)	iowrite8((val8), ioaddr + (reg))
- 
- #define ipg_r32(reg)		ioread32(ioaddr + (reg))
- #define ipg_r16(reg)		ioread16(ioaddr + (reg))
-@@ -54,20 +54,22 @@ MODULE_AUTHOR("IC Plus Corp. 2003");
- MODULE_DESCRIPTION("IC Plus IP1000 Gigabit Ethernet Adapter Linux Driver");
- MODULE_LICENSE("GPL");
- 
--//variable record -- index by leading revision/length
--//Revision/Length(=N*4), Address1, Data1, Address2, Data2,...,AddressN,DataN
-+/*
-+ * variable record -- index by leading revision/length
-+ * Revision/Length(=N*4), Address1, Data1, Address2, Data2,...,AddressN,DataN
-+ */
- static unsigned short DefaultPhyParam[] = {
--	// 11/12/03 IP1000A v1-3 rev=0x40
-+	/* 11/12/03 IP1000A v1-3 rev=0x40 */
- 	/*--------------------------------------------------------------------------
- 	(0x4000|(15*4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002, 22, 0x85bd, 24, 0xfff2,
- 				 27, 0x0c10, 28, 0x0c10, 29, 0x2c10, 31, 0x0003, 23, 0x92f6,
- 				 31, 0x0000, 23, 0x003d, 30, 0x00de, 20, 0x20e7,  9, 0x0700,
- 	  --------------------------------------------------------------------------*/
--	// 12/17/03 IP1000A v1-4 rev=0x40
-+	/* 12/17/03 IP1000A v1-4 rev=0x40 */
- 	(0x4000 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002, 27, 0xeb8e, 31,
- 	    0x0000,
- 	30, 0x005e, 9, 0x0700,
--	// 01/09/04 IP1000A v1-5 rev=0x41
-+	/* 01/09/04 IP1000A v1-5 rev=0x41 */
- 	(0x4100 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002, 27, 0xeb8e, 31,
- 	    0x0000,
- 	30, 0x005e, 9, 0x0700,
-@@ -187,7 +189,7 @@ 	ipg_w8((IPG_PC_MGMTCLK_LO | (IPG_PC_MGM
- 		phyctrlpolarity) & IPG_PC_RSVD_MASK, PHY_CTRL);
- }
- 
--static u16 read_phy_bit(void __iomem * ioaddr, u8 phyctrlpolarity)
-+static u16 read_phy_bit(void __iomem *ioaddr, u8 phyctrlpolarity)
- {
- 	u16 bit_data;
- 
-@@ -204,7 +206,7 @@ static u16 read_phy_bit(void __iomem * i
-  * Read a register from the Physical Layer device located
-  * on the IPG NIC, using the IPG PHYCTRL register.
-  */
--static int mdio_read(struct net_device * dev, int phy_id, int phy_reg)
-+static int mdio_read(struct net_device *dev, int phy_id, int phy_reg)
- {
- 	void __iomem *ioaddr = ipg_ioaddr(dev);
- 	/*
-@@ -548,7 +550,7 @@ 		return 0;
- 		printk("\n");
- 	} else {
- 		/* Configure IPG for half duplex operation. */
--	        printk(KERN_INFO "%s: setting half duplex, "
-+		printk(KERN_INFO "%s: setting half duplex, "
- 		       "no TX flow control, no RX flow control.\n", dev->name);
- 
- 		mac_ctrl_val &= ~IPG_MC_DUPLEX_SELECT_FD &
-@@ -1089,12 +1091,12 @@ 	return 0;
- #ifdef JUMBO_FRAME
- 
- /* use jumboindex and jumbosize to control jumbo frame status
--   initial status is jumboindex=-1 and jumbosize=0
--   1. jumboindex = -1 and jumbosize=0 : previous jumbo frame has been done.
--   2. jumboindex != -1 and jumbosize != 0 : jumbo frame is not over size and receiving
--   3. jumboindex = -1 and jumbosize != 0 : jumbo frame is over size, already dump
--                previous receiving and need to continue dumping the current one
--*/
-+ * initial status is jumboindex=-1 and jumbosize=0
-+ * 1. jumboindex = -1 and jumbosize=0 : previous jumbo frame has been done.
-+ * 2. jumboindex != -1 and jumbosize != 0 : jumbo frame is not over size and receiving
-+ * 3. jumboindex = -1 and jumbosize != 0 : jumbo frame is over size, already dump
-+ *               previous receiving and need to continue dumping the current one
-+ */
- enum {
- 	NORMAL_PACKET,
- 	ERROR_PACKET
-@@ -1209,7 +1211,7 @@ 		jumbo->current_size = 0;
- 		jumbo->skb = NULL;
- 	}
- 
--	// 1: found error, 0 no error
-+	/* 1: found error, 0 no error */
- 	if (ipg_nic_rx_check_error(dev) != NORMAL_PACKET)
- 		return;
- 
-@@ -1217,7 +1219,7 @@ 	// 1: found error, 0 no error
- 	if (!skb)
- 		return;
- 
--	// accept this frame and send to upper layer
-+	/* accept this frame and send to upper layer */
- 	framelen = le64_to_cpu(rxfd->rfs) & IPG_RFS_RXFRAMELEN;
- 	if (framelen > IPG_RXFRAG_SIZE)
- 		framelen = IPG_RXFRAG_SIZE;
-@@ -1238,11 +1240,11 @@ static void ipg_nic_rx_with_start(struct
- 	struct pci_dev *pdev = sp->pdev;
- 	struct sk_buff *skb;
- 
--	// 1: found error, 0 no error
-+	/* 1: found error, 0 no error */
- 	if (ipg_nic_rx_check_error(dev) != NORMAL_PACKET)
- 		return;
- 
--	// accept this frame and send to upper layer
-+	/* accept this frame and send to upper layer */
- 	skb = sp->rx_buff[entry];
- 	if (!skb)
- 		return;
-@@ -1269,7 +1271,7 @@ static void ipg_nic_rx_with_end(struct n
- {
- 	struct ipg_jumbo *jumbo = &sp->jumbo;
- 
--	//1: found error, 0 no error
-+	/* 1: found error, 0 no error */
- 	if (ipg_nic_rx_check_error(dev) == NORMAL_PACKET) {
- 		struct sk_buff *skb = sp->rx_buff[entry];
- 
-@@ -1320,7 +1322,7 @@ static void ipg_nic_rx_no_start_no_end(s
- {
- 	struct ipg_jumbo *jumbo = &sp->jumbo;
- 
--	//1: found error, 0 no error
-+	/* 1: found error, 0 no error */
- 	if (ipg_nic_rx_check_error(dev) == NORMAL_PACKET) {
- 		struct sk_buff *skb = sp->rx_buff[entry];
- 
-Index: 2.6/drivers/net/ipg.h
-===================================================================
---- 2.6.orig/drivers/net/ipg.h	2007-11-23 10:08:41.000000000 +0200
-+++ 2.6/drivers/net/ipg.h	2007-11-23 10:12:05.000000000 +0200
-@@ -51,7 +51,7 @@ #define         GMII_TA_WRITE           
- /* I/O register offsets. */
- enum ipg_regs {
- 	DMA_CTRL		= 0x00,
--	RX_DMA_STATUS		= 0x08, // Unused + reserved
-+	RX_DMA_STATUS		= 0x08, /* Unused + reserved */
- 	TFD_LIST_PTR_0		= 0x10,
- 	TFD_LIST_PTR_1		= 0x14,
- 	TX_DMA_BURST_THRESH	= 0x18,
-@@ -64,21 +64,21 @@ 	RX_DMA_URGENT_THRESH	= 0x25,
- 	RX_DMA_POLL_PERIOD	= 0x26,
- 	DEBUG_CTRL		= 0x2c,
- 	ASIC_CTRL		= 0x30,
--	FIFO_CTRL		= 0x38, // Unused
-+	FIFO_CTRL		= 0x38, /* Unused */
- 	FLOW_OFF_THRESH		= 0x3c,
- 	FLOW_ON_THRESH		= 0x3e,
- 	EEPROM_DATA		= 0x48,
- 	EEPROM_CTRL		= 0x4a,
--	EXPROM_ADDR		= 0x4c, // Unused
--	EXPROM_DATA		= 0x50, // Unused
--	WAKE_EVENT		= 0x51, // Unused
--	COUNTDOWN		= 0x54, // Unused
-+	EXPROM_ADDR		= 0x4c, /* Unused */
-+	EXPROM_DATA		= 0x50, /* Unused */
-+	WAKE_EVENT		= 0x51, /* Unused */
-+	COUNTDOWN		= 0x54, /* Unused */
- 	INT_STATUS_ACK		= 0x5a,
- 	INT_ENABLE		= 0x5c,
--	INT_STATUS		= 0x5e, // Unused
-+	INT_STATUS		= 0x5e, /* Unused */
- 	TX_STATUS		= 0x60,
- 	MAC_CTRL		= 0x6c,
--	VLAN_TAG		= 0x70, // Unused
-+	VLAN_TAG		= 0x70, /* Unused */
- 	PHY_SET			= 0x75,
- 	PHY_CTRL		= 0x76,
- 	STATION_ADDRESS_0	= 0x78,
-@@ -90,11 +90,11 @@ 	HASHTABLE_0		= 0x8c,
- 	HASHTABLE_1		= 0x90,
- 	RMON_STATISTICS_MASK	= 0x98,
- 	STATISTICS_MASK		= 0x9c,
--	RX_JUMBO_FRAMES		= 0xbc, // Unused
--	TCP_CHECKSUM_ERRORS	= 0xc0, // Unused
--	IP_CHECKSUM_ERRORS	= 0xc2, // Unused
--	UDP_CHECKSUM_ERRORS	= 0xc4, // Unused
--	TX_JUMBO_FRAMES		= 0xf4  // Unused
-+	RX_JUMBO_FRAMES		= 0xbc, /* Unused */
-+	TCP_CHECKSUM_ERRORS	= 0xc0, /* Unused */
-+	IP_CHECKSUM_ERRORS	= 0xc2, /* Unused */
-+	UDP_CHECKSUM_ERRORS	= 0xc4, /* Unused */
-+	TX_JUMBO_FRAMES		= 0xf4  /* Unused */
- };
- 
- /* Ethernet MIB statistic register offsets. */
-@@ -590,7 +590,7 @@ /* Size of allocated received buffers. N
-  * Define larger if expecting jumbo frames.
-  */
- #ifdef JUMBO_FRAME
--//IPG_TXFRAG_SIZE must <= 0x2b00, or TX will crash
-+/* IPG_TXFRAG_SIZE must <= 0x2b00, or TX will crash */
- #define		IPG_TXFRAG_SIZE		JUMBO_FRAME_SIZE
- #endif
- 
-@@ -598,7 +598,7 @@ /* Size of allocated received buffers. N
-  * Define larger if expecting jumbo frames.
-  */
- #ifdef JUMBO_FRAME
--//4088=4096-8
-+/* 4088=4096-8 */
- #define		IPG_RXFRAG_SIZE		__IPG_RXFRAG_SIZE
- #define     IPG_RXSUPPORT_SIZE   IPG_MAX_RXFRAME_SIZE
- #else
-@@ -628,7 +628,7 @@ #define		IPG_MINUSEDRFDSTOFREE	0x80
- /* specify the jumbo frame maximum size
-  * per unit is 0x600 (the rx_buffer size that one RFD can carry)
-  */
--#define     MAX_JUMBOSIZE	        0x8	// max is 12K
-+#define     MAX_JUMBOSIZE	        0x8	/* max is 12K */
- 
- /* Key register values loaded at driver start up. */
- 
+If that trace is to be beieved we're doing nefilter stuff on packets which
+were sent across netconsole.
+
+This probably isn't anything the netfilter guys have thought about.  And
+probably we don't want them to.  Is there some simple way in which we can
+exempt netconsole from netfilter processing?
