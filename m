@@ -1,38 +1,65 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-2.6.25] [TCP]: Move FRTO checks out from write queue abstraction funcs
-Date: Fri, 23 Nov 2007 22:51:08 +0800
-Message-ID: <20071123145108.GA20508@gondor.apana.org.au>
-References: <Pine.LNX.4.64.0711231422500.24866@kivilampi-30.cs.helsinki.fi> <20071123133428.GK18862@gondor.apana.org.au> <Pine.LNX.4.64.0711231601490.7738@kivilampi-30.cs.helsinki.fi>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH] Fix memory leak in inet_hashtables.h when NUMA is on
+Date: Fri, 23 Nov 2007 19:13:11 +0300
+Message-ID: <4746FC17.9010300@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2212 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753460AbXKWOvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2007 09:51:11 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0711231601490.7738@kivilampi-30.cs.helsinki.fi>
+Received: from sacred.ru ([62.205.161.221]:43695 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753133AbXKWQNh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Nov 2007 11:13:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 23, 2007 at 04:14:03PM +0200, Ilpo J=E4rvinen wrote:
->
-> The purpose of the tcp_advance_send_head & friends was/is to abstract
-> the write queue from the TCP worker code. RB-tree wq can then be put =
-in
-> place more easily (and I'm hopefully coming to that soon). There are =
-some
-> other similar functions in tcp.h as well which currently have only a
-> single caller. Please don't undo that work while DaveM is away for a =
-short
-> while :-).
+The inet_ehash_locks_alloc() looks like this:
 
-Thanks for the explanation! I'll apply this patch.
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+#ifdef CONFIG_NUMA
+	if (size > PAGE_SIZE)
+		x = vmalloc(...);
+	else
+#endif
+		x = kmalloc(...);
+
+Unlike it, the inet_ehash_locks_alloc() looks like this:
+
+#ifdef CONFIG_NUMA
+	if (size > PAGE_SIZE)
+		vfree(x);
+	else
+#else
+		kfree(x);
+#endif
+
+The error is obvious - if the NUMA is on and the size
+is less than the PAGE_SIZE we leak the pointer (kfree is
+inside the #else branch).
+
+Compiler doesn't warn us because after the kfree(x) there's
+a "x = NULL" assignment, so here's another (minor?) bug: we 
+don't set x to NULL under certain circumstances.
+
+Boring explanation, I know... Patch explains it better.
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+
+diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
+index 469216d..37f6cb1 100644
+--- a/include/net/inet_hashtables.h
++++ b/include/net/inet_hashtables.h
+@@ -186,9 +186,8 @@ static inline void inet_ehash_locks_free(struct inet_hashinfo *hashinfo)
+ 		if (size > PAGE_SIZE)
+ 			vfree(hashinfo->ehash_locks);
+ 		else
+-#else
+-		kfree(hashinfo->ehash_locks);
+ #endif
++		kfree(hashinfo->ehash_locks);
+ 		hashinfo->ehash_locks = NULL;
+ 	}
+ }
