@@ -1,32 +1,29 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] ibm_newemac: Fix possible lockup on close
-Date: Fri, 23 Nov 2007 20:52:25 -0500
-Message-ID: <474783D9.2070700@pobox.com>
-References: <20071120035134.970DCDDE9E@ozlabs.org>
+Subject: Re: [PATCH 1/2] forcedeth new mcp79 device ids
+Date: Fri, 23 Nov 2007 20:54:17 -0500
+Message-ID: <47478449.60800@pobox.com>
+References: <473234F1.9000109@nvidia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>,
+	stable@kernel.org
+To: Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51356 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:52732 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753044AbXKXBw2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Nov 2007 20:52:28 -0500
-In-Reply-To: <20071120035134.970DCDDE9E@ozlabs.org>
+	id S1753058AbXKXByZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Nov 2007 20:54:25 -0500
+In-Reply-To: <473234F1.9000109@nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Benjamin Herrenschmidt wrote:
-> It's a bad idea to call flush_scheduled_work from within a
-> netdev->stop because the linkwatch will occasionally take the
-> rtnl lock from a workqueue context, and thus that can deadlock.
+Ayaz Abdulla wrote:
+> This patch adds new device ids for mcp79 devices.
 > 
-> This reworks things a bit in that area to avoid the problem.
-> 
-> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> ---
-> 
+> Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
-applied #upstream-fixes (2.6.24-rc)
+applied 1-2 to #upstream-fixes, after combining into a single patch
+
 
