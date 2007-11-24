@@ -1,92 +1,95 @@
-From: Ian Kumlien <pomac@vapor.com>
-Subject: [SKY2] Problems (2.6.24-rc3-git1)
-Date: Sat, 24 Nov 2007 17:23:51 +0100
-Message-ID: <1195921431.8378.5.camel@localhost>
-References: <1191372129.26233.12.camel@localhost>
-	 <20071002180209.47c350a3@freepuppy.rosehill>
-	 <1191375274.26233.17.camel@localhost>
-	 <20071002215914.13d1e8cf@freepuppy.rosehill>
-Reply-To: pomac@vapor.com
+From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
+Subject: RE: [PATCH 2.6.24 1/2]S2io: Strip the vlan tag if the vlan group is not NULL
+Date: Sat, 24 Nov 2007 13:11:58 -0500
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7702952493@nekter>
+References: <474794BC.5030709@garzik.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-B2cTkVzA2dWPV0yY7J+n"
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, "support" <support@neterion.com>
+To: "Jeff Garzik" <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vapor.com ([85.114.133.49]:56119 "EHLO mail.vapor.com"
+Received: from mx.neterion.com ([72.1.205.142]:15812 "EHLO owa.neterion.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751938AbXKXQ6E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Nov 2007 11:58:04 -0500
-In-Reply-To: <20071002215914.13d1e8cf@freepuppy.rosehill>
+	id S1752909AbXKXSMu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Nov 2007 13:12:50 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <474794BC.5030709@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Jeff,
 
---=-B2cTkVzA2dWPV0yY7J+n
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+I don't think this functionality is present in ethtool. I only see
+#ifdef code in most of the drivers. What functionality do you mean?
 
-Hi,
+We created this patch in response to the following thread with subject
+line -
+RE: [PATCH 2/2] NET: Re-add VLAN tag for devices incapable of keeping it
 
-A little while ago, something went horribly wrong.
+Since the Xframe hardware can dynamically turn Vlan stripping on and
+off, we gave an option to the user to leave it in the default state
+(strip the Vlan tag if a vlan group is present, else no stripping) or to
+always turn OFF stripping (if say in promiscuous mode) or always turn it
+ON (always strip vlan tags).
 
-I could still use my mouse and the desktop was still alive more or
-less... everything using networking was dead AND the keyboard was
-dead... So i composed commands using existing text on the screen.
-
-The device:
-sky2 0000:02:00.0: v1.20 addr 0xdbffc000 irq 17 Yukon-EC (0xb6) rev 2
-sky2 0000:02:00.0: PCI Express Advanced Error Reporting not configured or M=
-MCONFIG problem?
-sky2 0000:02:00.0: No interrupt generated using MSI, switching to INTx mode=
-.
-sky2 eth0: addr 00:15:f2:aa:8b:3e
-
-=46rom dmesg:
-sky2 eth0: hung mac 124:39 fifo 195 (185:180)
-sky2 eth0: receiver hang detected
-sky2 eth0: disabling interface
-NETDEV WATCHDOG: eth0: transmit timed out
-sky2 eth0: tx timeout
-sky2 eth0: transmit ring 442 .. 461 report=3D442 done=3D442
-NETDEV WATCHDOG: eth0: transmit timed out
-sky2 eth0: tx timeout
-sky2 eth0: transmit ring 442 .. 461 report=3D442 done=3D442
-NETDEV WATCHDOG: eth0: transmit timed out
-sky2 eth0: tx timeout
-sky2 eth0: transmit ring 442 .. 461 report=3D442 done=3D442
-NETDEV WATCHDOG: eth0: transmit timed out
-sky2 eth0: tx timeout
-sky2 eth0: transmit ring 442 .. 461 report=3D442 done=3D442
-NETDEV WATCHDOG: eth0: transmit timed out
-sky2 eth0: tx timeout
-sky2 eth0: transmit ring 442 .. 461 report=3D442 done=3D442
-NETDEV WATCHDOG: eth0: transmit timed out
-sky2 eth0: tx timeout
-sky2 eth0: transmit ring 442 .. 461 report=3D442 done=3D442
-NETDEV WATCHDOG: eth0: transmit timed out
-sky2 eth0: tx timeout
-sky2 eth0: transmit ring 442 .. 461 report=3D442 done=3D442
-NETDEV WATCHDOG: eth0: transmit timed out
-sky2 eth0: tx timeout
-sky2 eth0: transmit ring 442 .. 461 report=3D442 done=3D442
-
-And it continues until i press the reset button.
-
-
---=20
-Ian Kumlien <pomac () vapor ! com> -- http://pomac.netswarm.net
-
---=-B2cTkVzA2dWPV0yY7J+n
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7-ecc0.1.6 (GNU/Linux)
-
-iD8DBQBHSFAU7F3Euyc51N8RAtzVAJ4klY24N/ebyN5fwl7FUtrhQSAXoACfSHad
-0muKTN+6bK7Nkf+UEN9GHzE=
-=wNcH
------END PGP SIGNATURE-----
-
---=-B2cTkVzA2dWPV0yY7J+n--
+Ram
+> -----Original Message-----
+> From: Jeff Garzik [mailto:jeff@garzik.org]
+> Sent: Friday, November 23, 2007 7:04 PM
+> To: ram.vepa@neterion.com
+> Cc: netdev@vger.kernel.org; support
+> Subject: Re: [PATCH 2.6.24 1/2]S2io: Strip the vlan tag if the vlan
+group
+> is not NULL
+> 
+> Ramkrishna Vepa wrote:
+> > - Updated the vlan tag stripping code as per Dave Johnson's patch
+> >   <djohnson@sw.starentnetworks.com>
+> >   Below is the driver behaviour for vlan_tag_strip loadable
+paramter,
+> > 	vlan_tag_strip - 0: Don't strip the vlan tag
+> > 	vlan_tag_strip - 1: Always strip the vlan tag
+> > 	vlan_tag_strip - 2 (default): strip the vlan tag if the
+> > 	  vlan group is not NULL.
+> >
+> > Signed-off-by: Santoshkumar Rastapur <santosh.rastapur@neterion.com>
+> > Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
+> > ---
+> > diff -Nurp 2.0.26.6/drivers/net/s2io.c 2.0.26.8P1/drivers/net/s2io.c
+> > --- 2.0.26.6/drivers/net/s2io.c	2007-11-15 18:19:42.000000000
+-0800
+> > +++ 2.0.26.8P1/drivers/net/s2io.c	2007-11-15 18:15:00.000000000
+-0800
+> > @@ -46,10 +46,10 @@
+> >   *     Possible values '1' for enable and '0' for disable. Default
+is
+> '1'
+> >   * ufo: This parameter used to enable/disable UDP Fragmentation
+> Offload(UFO)
+> >   *      Possible values '1' for enable and '0' for disable. Default
+is
+> '0'
+> > - * vlan_tag_strip: This can be used to enable or disable vlan
+> stripping.
+> > - *                 Possible values '1' for enable , '0' for
+disable.
+> > - *                 Default is '2' - which means disable in promisc
+mode
+> > - *                 and enable in non-promiscuous mode.
+> > + * vlan_tag_strip: This can be used to enable or disable vlan tag
+> stripping.
+> > + *      Possible values '2' for driver default, '1' for enable and
+> > + *      '0' for disable
+> > + *      Default is '2' - VLAN tag stripping enabled if vlan group
+> present
+> >
+>
+************************************************************************
+/
+> 
+> this should be controlled via ethtool and behave like other net
+drivers
+> 
 
