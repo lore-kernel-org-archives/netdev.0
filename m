@@ -1,80 +1,59 @@
-From: Ulrich Kunitz <kune@deine-taler.de>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 Subject: Re: wireless vs. alignment requirements
-Date: Sat, 24 Nov 2007 14:11:29 +0100
-Message-ID: <20071124131128.GA28785@deine-taler.de>
-References: <20071123000922.C44009D4A1F@zog.reactivated.net> <1195850001.4149.165.camel@johannes.berg>
+Date: Sat, 24 Nov 2007 14:49:36 +0100
+Message-ID: <1195912176.4149.194.camel@johannes.berg>
+References: <E1IvoID-0006aR-00@gondolin.me.apana.org.au>
+	 <1195893216.4149.186.camel@johannes.berg>
+	 <20071124133200.GA27531@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Drake <dsd@gentoo.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from deine-taler.de ([217.160.107.63]:59562 "EHLO deine-taler.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751063AbXKXNlW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Nov 2007 08:41:22 -0500
-Content-Disposition: inline
-In-Reply-To: <1195850001.4149.165.camel@johannes.berg>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-z6mzj2kzrRRV8Bepqh0v"
+Cc: dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20071124133200.GA27531-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Johannes,
 
-> Hence, going back to the 802.11 header and the IP header alignment
-> requirement, if we get the IP header alignment requirement right now I
-> cannot possibly see any way we would use compare_ether_addr() on an
-> address that is not at least two-byte aligned as required.
+--=-z6mzj2kzrRRV8Bepqh0v
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-ACK. I agree completely.
 
-The problem with the zd1211rw driver is, that it copies the
-complete frame received from the device into the SKB and pulls
-later the five bytes ZD1211 uses for the PLCP information.
-This causes the 802.11 header to be on an odd address. The
-reported problems are caused by this.
+On Sat, 2007-11-24 at 21:32 +0800, Herbert Xu wrote:
+> On Sat, Nov 24, 2007 at 09:33:36AM +0100, Johannes Berg wrote:
+> >
+> > We still require four-byte alignment, no?
+>=20
+> Not at all.  If NET_IP_ALIGN is zero then it won't be four-byte
+> aligned (since the Ethernet header is 14 bytes long).
 
-The zd1211rw-mac80211 is not affected, because the PLCP header is
-not copied into the skb and this way the 802.11 header becomes
-correctly aligned.
+Right. I just didn't think that would be a valid value for an
+architecture to set.
 
-Here is a patch, which should solve the zd1211rw alignment issues.
-It compiles, but it is not tested right now, because I got the
-idea while writing this e-mail. An official submission will
-follow.
+johannes
 
-Uli
+--=-z6mzj2kzrRRV8Bepqh0v
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
-index a903645..fb54cd7 100644
---- a/drivers/net/wireless/zd1211rw/zd_mac.c
-+++ b/drivers/net/wireless/zd1211rw/zd_mac.c
-@@ -1166,15 +1166,22 @@ static void do_rx(unsigned long mac_ptr)
- int zd_mac_rx_irq(struct zd_mac *mac, const u8 *buffer, unsigned int length)
- {
- 	struct sk_buff *skb;
-+	unsigned int length_to_reserve;
- 
--	skb = dev_alloc_skb(sizeof(struct zd_rt_hdr) + length);
-+	/* This ensures that there is enough place for the radiotap header
-+	 * and the the 802.11 header is aligned by four following the
-+	 * five-byte ZD1211-specific PLCP header.
-+	 */
-+	length_to_reserve = ((sizeof(struct zd_rt_hdr) + 3) & ~3) + 3;
-+
-+	skb = dev_alloc_skb(length_to_reserve + length);
- 	if (!skb) {
- 		struct ieee80211_device *ieee = zd_mac_to_ieee80211(mac);
- 		dev_warn(zd_mac_dev(mac), "Could not allocate skb.\n");
- 		ieee->stats.rx_dropped++;
- 		return -ENOMEM;
- 	}
--	skb_reserve(skb, sizeof(struct zd_rt_hdr));
-+	skb_reserve(skb, length_to_reserve);
- 	memcpy(__skb_put(skb, length), buffer, length);
- 	skb_queue_tail(&mac->rx_queue, skb);
- 	tasklet_schedule(&mac->rx_tasklet);
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
--- 
-Uli Kunitz
+iQIVAwUAR0gr76Vg1VMiehFYAQKFbQ/8CuwA8tBGbjSffTdl/xRaIUB+7eyoVdtn
+wYgbij9M1986+2YTD7BLLyyAbsJUyBuIAPBrTUHnfD8/HKNqFG1pU51xOiSD1vV8
+LqR8ZFfoMAE4tD+s8ZcbPao9YA3uZi47kPJcPCggxIgLbN4tQShiURBm0OBs0HOf
+ki1HGAMKUAbtxMOy06mhr8jK71QHVMK/7z9AvG4ysNYGNrNc7o8NecxBurXbLM8r
+lDd4TdwQoYTxHUHY0syylO0i7t1BT32uTOXUekBx1Nq0uLAzI/fedN8W97C1/4+U
+v3hIvz8fNZE2+KsOF6ZtAmePlNeMfJiT1x3TkCKDO0PiPWe9aVBN+fOcmwmKXrsU
+AYqyU8OOc7nicnJPnA60h/G/Gxr4Ecc9WzP9/N4nVZXISINM5rknQjqgEXhsHE7K
+QizTgTtLcAjcCbz1IxQwtiS87Yrbycj3q7V7mYQhXWCtfo5yeQZmD4mYh7nFVjSg
+Av60PzoYmaTbj80iGqOozF9aYbfQEJa2aeJWTC1zCIZ8dwWlmMhrn/cZyQvB016H
+lVtwT1YdiP4YlNVtfhUQjqMOqltckhN8PguTTNeymZkc1oggUnx13eSxwFr04h9k
+PD+Wf8VUbgrFYmN0xaO4wXlhvEGG0xsyEU+6vXEFxxuhv5dIQBKJLuDGDb5P4NJR
+QwIXANxwg4s=
+=BJAW
+-----END PGP SIGNATURE-----
+
+--=-z6mzj2kzrRRV8Bepqh0v--
