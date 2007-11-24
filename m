@@ -1,68 +1,41 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH net-2.6.25] Add packet filtering based on process'ssecurity context.
-Date: Sat, 24 Nov 2007 11:14:50 +0900
-Message-ID: <200711241114.FCJ30702.JSMOFQtVHFFOOL@I-love.SAKURA.ne.jp>
-References: <200711212130.EJJ43745.LFOFHOSMJOtFVQ@I-love.SAKURA.ne.jp>
-	<200711222235.GCA05378.HtMOJQVFSFOLFO@I-love.SAKURA.ne.jp>
-	<Xine.LNX.4.64.0711231005270.4252@us.intercode.com.au>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] e1000: Fix for 32 bits platforms with 64 bits resources
+Date: Fri, 23 Nov 2007 21:52:03 -0500
+Message-ID: <474791D3.1090607@pobox.com>
+References: <20071116073821.548CCDDDF4@ozlabs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	davem@davemloft.net, linux-security-module@vger.kernel.org,
-	kaber@trash.net, netfilter-devel@lists.netfilter.org,
-	sds@tycho.nsa.gov
-To: jmorris@namei.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wine.ocn.ne.jp ([122.1.235.145]:56534 "EHLO smtp.wine.ocn.ne.jp"
+Received: from srv5.dvmed.net ([207.36.208.214]:40542 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752089AbXKXCO4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Nov 2007 21:14:56 -0500
-In-Reply-To: <Xine.LNX.4.64.0711231005270.4252@us.intercode.com.au>
+	id S1753659AbXKXCwI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Nov 2007 21:52:08 -0500
+In-Reply-To: <20071116073821.548CCDDDF4@ozlabs.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
-
-James Morris wrote:
-> From memory, one approach under discussion was to add netfilter hooks to 
-> the transport layer, which could be invoked correctly by each type of 
-> protocol when the target process is selected.
+Benjamin Herrenschmidt wrote:
+> The e1000 driver stores the content of the PCI resources into
+> unsigned long's before ioremapping. This breaks on 32 bits
+> platforms that support 64 bits MMIO resources such as ppc 44x.
 > 
-> If this is done for netfilter, then an LSM hook is probably not needed at 
-> all, as security modules can utilize netfilter hooks directly.
+> This fixes it by removing those temporary variables and passing
+> directly the result of pci_resource_start/len to ioremap.
+> 
+> The side effect is that I removed the assignments to the netdev
+> fields mem_start, mem_end and base_addr, which are totally useless
+> for PCI devices.
+> 
+> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> --
+> 
+>  drivers/net/e1000/e1000_main.c |   18 +++++-------------
+>  1 file changed, 5 insertions(+), 13 deletions(-)
 
-Patrick McHardy says (at http://marc.info/?l=linux-netdev&m=118495005800410&w=2 )
-"Even with socket filters netfilter doesn't know the final receipient
- process, that is not known until it calls recvmsg and the data is read,
- which is too late for netfilter."
+Looks good to me.  auke?
 
-
-
-> > Precautions: This approach has a side effect which unlikely occurs.
-> > 
-> > If a socket is shared by multiple processes with different policy,
-> > the process who should be able to accept this connection
-> > will not be able to accept this connection
-> > because socket_post_accept() aborts this connection.
-> > But if socket_post_accept() doesn't abort this connection,
-> > the process who must not be able to accept this connection
-> > will repeat accept() forever, which is a worse side effect.
-I think this change is needed regardless of whether to use connection filtering or not.
-Currently, SELinux doesn't use socket_post_accept().
-
-|  * @socket_post_accept:
-|  *	This hook allows a security module to copy security
-|  *	information into the newly created socket's inode.
-
-But if one wants to *copy* security information to accept()ed socket,
-the location after fd_install() is too late to copy
-because the userland process can access accept()ed socket's fd
-whose security information is not copied yet.
-
-Also, if one wants to *assign* security information to accept()ed socket,
-it might attend memory allocation which can fail.
-So, use of void for socket_post_accept() deprives a security module of a chance to
-abort this connection if the security module failed to *assign* security information.
-
-Regards.
 
