@@ -1,57 +1,92 @@
-From: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
-Subject: Re: ZD1211RW unaligned accesses...
-Date: Sat, 24 Nov 2007 17:52:01 +0100
-Message-ID: <20071124165201.GA31677@deine-taler.de>
-References: <20071120.040546.222294375.davem@davemloft.net> <47442BFC.8090008@hotmail.com> <20071124150216.GA28153@gondor.apana.org.au>
+From: Ian Kumlien <pomac@vapor.com>
+Subject: [SKY2] Problems (2.6.24-rc3-git1)
+Date: Sat, 24 Nov 2007 17:23:51 +0100
+Message-ID: <1195921431.8378.5.camel@localhost>
+References: <1191372129.26233.12.camel@localhost>
+	 <20071002180209.47c350a3@freepuppy.rosehill>
+	 <1191375274.26233.17.camel@localhost>
+	 <20071002215914.13d1e8cf@freepuppy.rosehill>
+Reply-To: pomac@vapor.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Shaddy Baddah <shaddy_baddah-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20071124150216.GA28153-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-B2cTkVzA2dWPV0yY7J+n"
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vapor.com ([85.114.133.49]:56119 "EHLO mail.vapor.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751938AbXKXQ6E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Nov 2007 11:58:04 -0500
+In-Reply-To: <20071002215914.13d1e8cf@freepuppy.rosehill>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
 
-> So please try the following patch (instead of the original one)
-> which should fix all the unailgned accesses in do_rx.
-> 
-> Cheers,
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> --
-> diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
-> index a903645..d06b05b 100644
-> --- a/drivers/net/wireless/zd1211rw/zd_mac.c
-> +++ b/drivers/net/wireless/zd1211rw/zd_mac.c
-> @@ -1166,15 +1166,16 @@ static void do_rx(unsigned long mac_ptr)
->  int zd_mac_rx_irq(struct zd_mac *mac, const u8 *buffer, unsigned int length)
->  {
->  	struct sk_buff *skb;
-> +	unsigned int hlen = ALIGN(sizeof(struct zd_rt_hdr), 16);
->  
-> -	skb = dev_alloc_skb(sizeof(struct zd_rt_hdr) + length);
-> +	skb = dev_alloc_skb(hlen + length);
->  	if (!skb) {
->  		struct ieee80211_device *ieee = zd_mac_to_ieee80211(mac);
->  		dev_warn(zd_mac_dev(mac), "Could not allocate skb.\n");
->  		ieee->stats.rx_dropped++;
->  		return -ENOMEM;
->  	}
-> -	skb_reserve(skb, sizeof(struct zd_rt_hdr));
-> +	skb_reserve(skb, hlen - ZD_PLCP_HEADER_SIZE);
->  	memcpy(__skb_put(skb, length), buffer, length);
->  	skb_queue_tail(&mac->rx_queue, skb);
->  	tasklet_schedule(&mac->rx_tasklet);
+--=-B2cTkVzA2dWPV0yY7J+n
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-ACK. This patch should solve it and is better than my patch.
+Hi,
 
--- 
-Uli Kunitz
+A little while ago, something went horribly wrong.
+
+I could still use my mouse and the desktop was still alive more or
+less... everything using networking was dead AND the keyboard was
+dead... So i composed commands using existing text on the screen.
+
+The device:
+sky2 0000:02:00.0: v1.20 addr 0xdbffc000 irq 17 Yukon-EC (0xb6) rev 2
+sky2 0000:02:00.0: PCI Express Advanced Error Reporting not configured or M=
+MCONFIG problem?
+sky2 0000:02:00.0: No interrupt generated using MSI, switching to INTx mode=
+.
+sky2 eth0: addr 00:15:f2:aa:8b:3e
+
+=46rom dmesg:
+sky2 eth0: hung mac 124:39 fifo 195 (185:180)
+sky2 eth0: receiver hang detected
+sky2 eth0: disabling interface
+NETDEV WATCHDOG: eth0: transmit timed out
+sky2 eth0: tx timeout
+sky2 eth0: transmit ring 442 .. 461 report=3D442 done=3D442
+NETDEV WATCHDOG: eth0: transmit timed out
+sky2 eth0: tx timeout
+sky2 eth0: transmit ring 442 .. 461 report=3D442 done=3D442
+NETDEV WATCHDOG: eth0: transmit timed out
+sky2 eth0: tx timeout
+sky2 eth0: transmit ring 442 .. 461 report=3D442 done=3D442
+NETDEV WATCHDOG: eth0: transmit timed out
+sky2 eth0: tx timeout
+sky2 eth0: transmit ring 442 .. 461 report=3D442 done=3D442
+NETDEV WATCHDOG: eth0: transmit timed out
+sky2 eth0: tx timeout
+sky2 eth0: transmit ring 442 .. 461 report=3D442 done=3D442
+NETDEV WATCHDOG: eth0: transmit timed out
+sky2 eth0: tx timeout
+sky2 eth0: transmit ring 442 .. 461 report=3D442 done=3D442
+NETDEV WATCHDOG: eth0: transmit timed out
+sky2 eth0: tx timeout
+sky2 eth0: transmit ring 442 .. 461 report=3D442 done=3D442
+NETDEV WATCHDOG: eth0: transmit timed out
+sky2 eth0: tx timeout
+sky2 eth0: transmit ring 442 .. 461 report=3D442 done=3D442
+
+And it continues until i press the reset button.
+
+
+--=20
+Ian Kumlien <pomac () vapor ! com> -- http://pomac.netswarm.net
+
+--=-B2cTkVzA2dWPV0yY7J+n
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7-ecc0.1.6 (GNU/Linux)
+
+iD8DBQBHSFAU7F3Euyc51N8RAtzVAJ4klY24N/ebyN5fwl7FUtrhQSAXoACfSHad
+0muKTN+6bK7Nkf+UEN9GHzE=
+=wNcH
+-----END PGP SIGNATURE-----
+
+--=-B2cTkVzA2dWPV0yY7J+n--
+
