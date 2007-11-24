@@ -1,254 +1,68 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [CFT][PATCH] proc_net: Remove userspace visible changes.
-Date: Sat, 24 Nov 2007 16:34:00 -0700
-Message-ID: <m1prxznrpz.fsf_-_@ebiederm.dsl.xmission.com>
-References: <20071119191000.GA1560@elf.ucw.cz>
-	<200711192304.25087.rjw@sisk.pl> <4743026B.2020907@openvz.org>
+From: Alistair John Strachan <alistair@devzero.co.uk>
+Subject: 2.6.24-rc3, 4GB RAM, swiotlb, r8169, out of space
+Date: Sat, 24 Nov 2007 23:44:49 +0000
+Message-ID: <200711242344.49958.alistair@devzero.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
-	kernel list <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Pavel Emelyanov <xemul@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:40495 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752219AbXKXXfZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Nov 2007 18:35:25 -0500
-In-Reply-To: <4743026B.2020907@openvz.org> (Pavel Emelyanov's message of "Tue,
-	20 Nov 2007 18:51:07 +0300")
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756371AbXKXXpb@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
-Ok.  I have kicked around a lot implementation ideas and took a good hard
-look at my /proc/net implementation.  The patch below should close all
-of the holes with /proc/net that I am aware of.
+I have recently assembled a Core 2 Duo system with 4GB RAM and I believe there 
+might be a bug in the r8169 driver in >4GB RAM configurations.
 
-Bind mounts work and properly capture /proc/net/
-stat of /proc/net and /proc/net/ return the same information.
-cd /proc/net/ ; ls .. works
-The dentry has the proper parent and no longer appears deleted.
+Initially I can use one of two active r8169 NICs on the motherboard with this 
+quantity of RAM with other devices, without issue. But after some amount of 
+data (generally about 50MB), no more network packets are sent/received.
 
-As well as few more theoretical cases I have been able to imagine,
-like open("/proc/net", O_NOFOLLOW | O_DIRECTORY) getdents...
+The "choke" affects other devices on the system too, notably libata, which 
+does not recover gracefully. In my logs, I see a stream of:
 
-Please take a look and kick this patch around.  I don't expect anyone
-to find any issues but a few more eyeballs before I send this
-along to Linus would be appreciated.  Thanks.
+DMA: Out of SW-IOMMU space for 7222 bytes at device 0000:04:00.0
+DMA: Out of SW-IOMMU space for 7222 bytes at device 0000:04:00.0
 
+The device 0000:04:00.0 corresponds to one of the r8169s.
 
-From: Eric W. Biederman <ebiederm@xmission.com>
-Subject: [PATCH] proc_net: Remove userspace visible changes.
+The reason I believe r8169 is at fault is that I was doing a rebuild of my 
+RAID5 across 3 SATA drives via libata's ahci driver, and transferring over the 
+network. When the "choke" occurred the RAID sync stopped, libata errors were 
+seen, and I simply did a "ifconfig br0 down" (which contained the r8169) and 
+the messages went away. Bringing the NIC up again would see some initial 
+functionality then very rapidly it would go back to the same error messages.
 
-This patch fixes some bugs in corner cases of the /proc/net
-implementation.
+The Intel chipset I am using does not support any kind of hardware IOMMU, so I 
+am forced to use swiotlb in a 4GB RAM configuration. In an attempt to delay 
+the failures, I used the swiotlb option to increase the swiotlb's page 
+allocation with "swiotlb=65536" (which seems to correspond to a 256MB bounce 
+buffer).
 
-In proc_net_shadow_dentry.
-- Set the parent dentry properly.
-- Make the dentry appear hashed so .. works.
+Assuming both libata and r8169 use the swiotlb, and both systems are impaired 
+when these messages appear, removing r8169 would appear to be key. Indeed, if 
+there is no significant libata activity, the problem still occurs on the NIC 
+within approximately the same amount of transfer.
 
-Remove the unreachable proc_net_lookup.
+This option delays the failure for some time but it will happen eventually, 
+which makes me suspicious that maybe the driver is somehow pinning an area of 
+the buffer and not releasing it. (I hunted bugzilla for reports similar to 
+this one, but couldn't find anything.)
 
-Implement proc_net_getattr to complete the
-set of implemented inode operations.
+Having tested the r8169 driver on an AMD system I did not experience the same 
+problems with 4GB RAM, so this could be a bug specific to swiotlb. I would 
+have added more people to CC but I have no idea who might be responsible.
 
-Implement proc_net_open which changes the directory we
-are openting to remove the need to implement any other
-file operations.
+Andrew, I've added you just in case you're aware of other similar reports 
+(maybe r8169 on big iron) and have anybody from the sw-iommu camp that could 
+be added to CC.
 
-Add a big fat comment on how /proc/net works to make it
-easier for someone else to look at and understand this code.
-
-This patch should remove the last of the accidental user visible artifacts
-that arose from adding network namespace support to /proc/net.
-
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
----
- fs/proc/proc_net.c |  116 +++++++++++++++++++++++++++++++++++++++++----------
- 1 files changed, 93 insertions(+), 23 deletions(-)
-
-diff --git a/fs/proc/proc_net.c b/fs/proc/proc_net.c
-index 131f9c6..b0b4b3f 100644
---- a/fs/proc/proc_net.c
-+++ b/fs/proc/proc_net.c
-@@ -50,24 +50,69 @@ struct net *get_proc_net(const struct inode *inode)
- }
- EXPORT_SYMBOL_GPL(get_proc_net);
- 
-+/*
-+ * The contents of the files under /proc/net depend on which network
-+ * namespace you are in.  
-+ *
-+ * This implementation relies on the following properties.
-+ *
-+ * - Each network namespaces has it's own /proc/net dcache tree.
-+ * - A directory with a follow_link method never calls lookup
-+ * - It is possible in ->open to competely change which underlying
-+ *   filesystem, path, and inode the struct file refers to.
-+ * - A dcache entry with DCACHE_UNHASHED clear and pprev set
-+ *   appares hashed (and thus valid) to the dcache.
-+ *
-+ * To give each network namespace it's own /proc/net directory
-+ * in a manner transparent to user space (and not requiring /proc)
-+ * be remounted we do the following things:
-+ *
-+ *   Keep a different dentry tree for each network namespace under
-+ *   /proc/net.
-+ *
-+ *   Have the root of the /proc/net dentry tree be a ``unhashed''
-+ *   dentry with it's root pointing at the /proc dentry.  Making
-+ *   it appear in parallel with the normal /proc/net.
-+ *
-+ *   Redirect all opens of the normal /proc/net to the one appropriate
-+ *   for the opening process in ->open.
-+ *
-+ *   Redirect all directory traversals onto the appropriate /proc/net
-+ *   with a follow_link method.
-+ *
-+ *   Wrap all other applicable inode operations so they appear to
-+ *   happen not on the normal /proc/net but on the network namespace
-+ *   specific one.
-+ *
-+ * Currently we can use a bind mount inside a network namespace
-+ * to /proc/net visible to processes outside that network namespace.
-+ * Long term /proc/net should migrate to /proc/<pid>/net removing
-+ * the need for the bind mount for monitoring processes.
-+ */
-+
- static struct proc_dir_entry *proc_net_shadow;
- 
--static struct dentry *proc_net_shadow_dentry(struct dentry *parent,
--						struct proc_dir_entry *de)
-+static struct dentry *proc_net_shadow_dentry(struct net *net,
-+					     struct dentry *dentry)
- {
-+	struct proc_dir_entry *de = net->proc_net;
- 	struct dentry *shadow = NULL;
- 	struct inode *inode;
- 	if (!de)
- 		goto out;
- 	de_get(de);
--	inode = proc_get_inode(parent->d_inode->i_sb, de->low_ino, de);
-+	inode = proc_get_inode(dentry->d_sb, de->low_ino, de);
- 	if (!inode)
- 		goto out_de_put;
--	shadow = d_alloc_name(parent, de->name);
-+	shadow = d_alloc(dentry->d_parent, &dentry->d_name);
- 	if (!shadow)
- 		goto out_iput;
--	shadow->d_op = parent->d_op; /* proc_dentry_operations */
-+	shadow->d_op = dentry->d_op; /* proc_dentry_operations */
- 	d_instantiate(shadow, inode);
-+
-+	/* Make the dentry looked hashed */
-+	shadow->d_hash.pprev = &shadow->d_hash.next;
-+	shadow->d_flags &= ~DCACHE_UNHASHED;
- out:
- 	return shadow;
- out_iput:
-@@ -77,36 +122,36 @@ out_de_put:
- 	goto out;
- }
- 
--static void *proc_net_follow_link(struct dentry *parent, struct nameidata *nd)
-+static void *proc_net_follow_link(struct dentry *dentry, struct nameidata *nd)
- {
- 	struct net *net = current->nsproxy->net_ns;
- 	struct dentry *shadow;
--	shadow = proc_net_shadow_dentry(parent, net->proc_net);
-+
-+	shadow = proc_net_shadow_dentry(net, dentry);
- 	if (!shadow)
--		return ERR_PTR(-ENOENT);
-+		goto out_err;
- 
- 	dput(nd->dentry);
--	/* My dentry count is 1 and that should be enough as the
--	 * shadow dentry is thrown away immediately.
--	 */
- 	nd->dentry = shadow;
-+
- 	return NULL;
-+out_err:
-+	return ERR_PTR(-ENOENT);
- }
- 
--static struct dentry *proc_net_lookup(struct inode *dir, struct dentry *dentry,
--				      struct nameidata *nd)
-+static int proc_net_getattr(struct vfsmount *mnt, struct dentry *dentry,
-+			    struct kstat *stat)
- {
- 	struct net *net = current->nsproxy->net_ns;
- 	struct dentry *shadow;
-+	int ret;
- 
--	shadow = proc_net_shadow_dentry(nd->dentry, net->proc_net);
-+	shadow = proc_net_shadow_dentry(net, dentry);
- 	if (!shadow)
--		return ERR_PTR(-ENOENT);
--
--	dput(nd->dentry);
--	nd->dentry = shadow;
--
--	return shadow->d_inode->i_op->lookup(shadow->d_inode, dentry, nd);
-+		return -ENOENT;
-+	ret = shadow->d_inode->i_op->getattr(mnt, shadow, stat);
-+	dput(shadow);
-+	return ret;
- }
- 
- static int proc_net_setattr(struct dentry *dentry, struct iattr *iattr)
-@@ -115,7 +160,7 @@ static int proc_net_setattr(struct dentry *dentry, struct iattr *iattr)
- 	struct dentry *shadow;
- 	int ret;
- 
--	shadow = proc_net_shadow_dentry(dentry->d_parent, net->proc_net);
-+	shadow = proc_net_shadow_dentry(net, dentry);
- 	if (!shadow)
- 		return -ENOENT;
- 	ret = shadow->d_inode->i_op->setattr(shadow, iattr);
-@@ -123,13 +168,38 @@ static int proc_net_setattr(struct dentry *dentry, struct iattr *iattr)
- 	return ret;
- }
- 
-+static int proc_net_open(struct inode *inode, struct file *filp)
-+{
-+	struct net *net = current->nsproxy->net_ns;
-+	struct dentry *shadow;
-+	int ret;
-+
-+	shadow = proc_net_shadow_dentry(net, filp->f_dentry);
-+	if (!shadow)
-+		return -ENOENT;
-+
-+	inode = shadow->d_inode;
-+
-+	fops_put(filp->f_op);
-+	dput(filp->f_dentry);
-+
-+	filp->f_mapping = inode->i_mapping;
-+	filp->f_op = fops_get(inode->i_fop);
-+	filp->f_dentry = shadow;
-+
-+	ret = 0;
-+	if (filp->f_op && filp->f_op->open)
-+		ret = filp->f_op->open(inode, filp);
-+	return ret;
-+}
-+
- static const struct file_operations proc_net_dir_operations = {
--	.read			= generic_read_dir,
-+	.open			= proc_net_open,
- };
- 
- static struct inode_operations proc_net_dir_inode_operations = {
- 	.follow_link	= proc_net_follow_link,
--	.lookup		= proc_net_lookup,
-+	.getattr	= proc_net_getattr,
- 	.setattr	= proc_net_setattr,
- };
- 
 -- 
-1.5.3.rc6.17.g1911
+Cheers,
+Alistair.
 
+137/1 Warrender Park Road, Edinburgh, UK.
