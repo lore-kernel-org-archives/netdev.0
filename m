@@ -1,68 +1,41 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: 2.6.23 WARNING: at kernel/softirq.c:139 local_bh_enable()
-Date: Sat, 24 Nov 2007 12:19:53 -0600
-Message-ID: <20071124181953.GI17536@waste.org>
-References: <4745DCD7.8070805@simon.arlott.org.uk> <20071123002157.cb27f4a1.akpm@linux-foundation.org> <20071123105518.GA22062@2ka.mipt.ru> <20071123170756.GV19691@waste.org> <20071123175757.GA23991@2ka.mipt.ru> <20071123184851.GA14415@2ka.mipt.ru> <20071123185101.GA17582@2ka.mipt.ru> <20071123185906.GA23710@2ka.mipt.ru> <20071123191120.GA19691@waste.org>
+From: Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: wireless vs. alignment requirements
+Date: Sat, 24 Nov 2007 12:11:08 -0800
+Message-ID: <4748855C.5090103@linux-foundation.org>
+References: <E1IvoID-0006aR-00@gondolin.me.apana.org.au> <1195893216.4149.186.camel@johannes.berg> <20071124133200.GA27531@gondor.apana.org.au> <1195912176.4149.194.camel@johannes.berg> <20071124141319.GA27819@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Ingo Molnar <mingo@redhat.com>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-To: Simon Arlott <simon@fire.lp0.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([66.93.16.53]:60361 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753034AbXKXSVR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Nov 2007 13:21:17 -0500
-Content-Disposition: inline
-In-Reply-To: <20071123191120.GA19691@waste.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20071124141319.GA27819-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Simon, can you test this patch? I think it's the most straightforward
-2.6.24 fix.
+Herbert Xu wrote:
+> On Sat, Nov 24, 2007 at 02:49:36PM +0100, Johannes Berg wrote:
+>   
+>> Right. I just didn't think that would be a valid value for an
+>> architecture to set.
+>>     
+>
+> OK.  Let me clarify this a bit more.  We require at least one
+> of the following rules to be met:
+>
+> * the IPv4/IPv6 header is aligned by 8 bytes on reception;
+> * or the platform provides unaligned exception handlers.
+>
+> So if your platform violates both rules then it won't work with
+> the IP stack, simple as that.  Fortunately I don't think such a
+> platform exists currently on Linux.
+>
+> Cheers,
+>   
 
-diff -r c60016ba6237 net/core/netpoll.c
---- a/net/core/netpoll.c	Tue Nov 13 09:09:36 2007 -0800
-+++ b/net/core/netpoll.c	Fri Nov 23 13:10:28 2007 -0600
-@@ -203,6 +203,12 @@ static void refill_skbs(void)
- 	spin_unlock_irqrestore(&skb_pool.lock, flags);
- }
- 
-+/* used to mark an skb as owned by netpoll */
-+static void netpoll_skb_destroy(struct sk_buff *skb)
-+{
-+	return;
-+}
-+
- static void zap_completion_queue(void)
- {
- 	unsigned long flags;
-@@ -219,10 +225,12 @@ static void zap_completion_queue(void)
- 		while (clist != NULL) {
- 			struct sk_buff *skb = clist;
- 			clist = clist->next;
--			if (skb->destructor)
-+			if (skb->destructor == netpoll_skb_destroy) {
-+				skb->destructor = NULL;
-+				__kfree_skb(skb);
-+			}
-+			else
- 				dev_kfree_skb_any(skb); /* put this one back */
--			else
--				__kfree_skb(skb);
- 		}
- 	}
- 
-@@ -252,6 +260,7 @@ repeat:
- 
- 	atomic_set(&skb->users, 1);
- 	skb_reserve(skb, reserve);
-+	skb->destructor = netpoll_skb_destroy;
- 	return skb;
- }
- 
-
--- 
-Mathematics is the supreme nostalgia of our time.
+Then what about hardware that can't dma ethernet to non-aligned address.
+Sky2 hardware breaks if DMA is not 8 byte aligned.  IMHO the IP stack should
+handle any alignment, and do the appropriate memove if the CPU requires 
+alignment.
