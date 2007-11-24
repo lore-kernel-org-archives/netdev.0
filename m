@@ -1,37 +1,43 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] amd8111e: don't call napi_enable if configured w/o NAPI
-Date: Fri, 23 Nov 2007 22:09:36 -0500
-Message-ID: <474795F0.1040600@pobox.com>
-References: <20071121124007.GB3335@dwarf.suse.cz>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] smc911x: Fix undefined CONFIG_ symbol warning
+Date: Fri, 23 Nov 2007 22:09:46 -0500
+Message-ID: <474795FA.5050701@garzik.org>
+References: <E1IuqlV-0002f6-IO@nanv.dk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jiri Bohac <jbohac@suse.cz>
+Cc: netdev@vger.kernel.org, super.firetwister@googlemail.com
+To: Peter Korsgaard <jacmet@sunsite.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:44327 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:44330 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753671AbXKXDJm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Nov 2007 22:09:42 -0500
-In-Reply-To: <20071121124007.GB3335@dwarf.suse.cz>
+	id S1753757AbXKXDJs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Nov 2007 22:09:48 -0500
+In-Reply-To: <E1IuqlV-0002f6-IO@nanv.dk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jiri Bohac wrote:
-> The amd8111e network driver was broken by 
-> bea3348eef27e6044b6161fd04c3152215f96411, which makes the driver
-> call napi_enable() and napi_disable() even if the driver had been 
-> configured without CONFIG_AMD8111E_NAPI, and thus
-> netif_napi_add() had not been called on initialization.
-> This triggers a BUG in napi_enable().
+Peter Korsgaard wrote:
+> elif defined(CONFIG_*) should be used instead of elif CONFIG_*
+> so GCC doesn't give warnings about undefined symbols when the config
+> option is disabled.
+> ---
+>  drivers/net/smc911x.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> This patch fixes the problem. Please apply.
-> 
-> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
-> 
+> diff --git a/drivers/net/smc911x.h b/drivers/net/smc911x.h
+> index 16a0edc..d04e4fa 100644
+> --- a/drivers/net/smc911x.h
+> +++ b/drivers/net/smc911x.h
+> @@ -37,7 +37,7 @@
+>    #define SMC_USE_16BIT		0
+>    #define SMC_USE_32BIT		1
+>    #define SMC_IRQ_SENSE		IRQF_TRIGGER_FALLING
+> -#elif CONFIG_SH_MAGIC_PANEL_R2
+> +#elif defined(CONFIG_SH_MAGIC_PANEL_R2)
+>    #define SMC_USE_SH_DMA	0
+>    #define SMC_USE_16BIT		0
 
-applied #upstream-fixes
+applied all three to #upstream-fixes
 
-would you consider creating and testing a patch that removed the 
-non-NAPI path completely?
+
