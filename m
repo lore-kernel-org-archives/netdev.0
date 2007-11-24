@@ -1,37 +1,42 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+From: Jeff Garzik <jeff@garzik.org>
 Subject: Re: [PATCH 0/3] PowerPC: ibm_newemac minor fixes.
-Date: Sat, 24 Nov 2007 12:18:22 +1100
-Message-ID: <1195867102.7195.31.camel@pasglop>
-References: <20071123190747.GA25654@ru.mvista.com>
-Reply-To: benh@kernel.crashing.org
+Date: Fri, 23 Nov 2007 20:20:21 -0500
+Message-ID: <47477C55.8090209@garzik.org>
+References: <20071123190747.GA25654@ru.mvista.com> <1195867102.7195.31.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, jgarzik@pobox.com,
+Cc: Valentine Barshak <vbarshak@ru.mvista.com>,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
 	jwboyer@linux.vnet.ibm.com
-To: Valentine Barshak <vbarshak@ru.mvista.com>
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:50449 "EHLO gate.crashing.org"
+Received: from srv5.dvmed.net ([207.36.208.214]:38277 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752621AbXKXBTL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Nov 2007 20:19:11 -0500
-In-Reply-To: <20071123190747.GA25654@ru.mvista.com>
+	id S1752784AbXKXBU3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Nov 2007 20:20:29 -0500
+In-Reply-To: <1195867102.7195.31.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Benjamin Herrenschmidt wrote:
+> On Fri, 2007-11-23 at 22:07 +0300, Valentine Barshak wrote:
+> 
+>> These patches have some minor ibm_newemac fixes.
+> 
+> All 3 patches look good, thanks. I'll sign them off and forward them
+> to Jeff in my next batch.
+> 
+> Jeff, did you already pick up my previous drop of EMAC patches from last
+> week for .25 or not ? If not, I will resend the whole lot along with
+> Valentine's patches sometime next week.
 
-On Fri, 2007-11-23 at 22:07 +0300, Valentine Barshak wrote:
+Just got back from Thanksgiving holiday, and am about to go through the 
+lot that's sitting in my inbox.
 
-> These patches have some minor ibm_newemac fixes.
+Just let me know what you would prefer me to do, starting from today.
 
-All 3 patches look good, thanks. I'll sign them off and forward them
-to Jeff in my next batch.
+	Jeff
 
-Jeff, did you already pick up my previous drop of EMAC patches from last
-week for .25 or not ? If not, I will resend the whole lot along with
-Valentine's patches sometime next week.
-
-Cheers,
-Ben.
 
 
