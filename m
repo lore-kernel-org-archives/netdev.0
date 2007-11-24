@@ -1,49 +1,36 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 3/8] ucc_geth-fix-build-break-introduced-by-commit-09f75cd7bf13720738e6a196cc0107ce9a5bd5a0-checkpatch-fixes
-Date: Fri, 23 Nov 2007 20:58:51 -0500
-Message-ID: <4747855B.5060606@garzik.org>
-References: <200711212302.lALN2tJG013658@imap1.linux-foundation.org>
+Subject: Re: [patch 8/8] forcedeth boot delay fix
+Date: Fri, 23 Nov 2007 21:00:09 -0500
+Message-ID: <474785A9.3000207@garzik.org>
+References: <200711212302.lALN2ww0013673@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Emilian.Medve@Freescale.com,
-	davem@davemloft.net, galak@gate.crashing.org, leoli@Freescale.com,
-	paulus@samba.org
+Cc: netdev@vger.kernel.org, aabdulla@nvidia.com, astinus@gentoo.org
 To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:41852 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:41864 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753303AbXKXB64 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Nov 2007 20:58:56 -0500
-In-Reply-To: <200711212302.lALN2tJG013658@imap1.linux-foundation.org>
+	id S1753381AbXKXCAM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Nov 2007 21:00:12 -0500
+In-Reply-To: <200711212302.lALN2ww0013673@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 akpm@linux-foundation.org wrote:
-> From: Andrew Morton <akpm@linux-foundation.org>
+> From: Ayaz Abdulla <aabdulla@nvidia.com>
 > 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Emil Medve <Emilian.Medve@Freescale.com>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Cc: Kumar Gala <galak@gate.crashing.org>
-> Cc: Li Yang <leoli@freescale.com>
-> Cc: Paul Mackerras <paulus@samba.org>
+> Fix a long boot delay in the forcedeth driver.  During initialization, the
+> timeout for the handshake between mgmt unit and driver can be very long. 
+> The patch reduces the timeout by eliminating a extra loop around the
+> timeout logic.
+> 
+> Addresses http://bugzilla.kernel.org/show_bug.cgi?id=9308
+> 
+> Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+> Cc: Alex Howells <astinus@gentoo.org>
 > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
-> 
->  drivers/net/ucc_geth.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff -puN drivers/net/ucc_geth.c~ucc_geth-fix-build-break-introduced-by-commit-09f75cd7bf13720738e6a196cc0107ce9a5bd5a0-checkpatch-fixes drivers/net/ucc_geth.c
-> --- a/drivers/net/ucc_geth.c~ucc_geth-fix-build-break-introduced-by-commit-09f75cd7bf13720738e6a196cc0107ce9a5bd5a0-checkpatch-fixes
-> +++ a/drivers/net/ucc_geth.c
-> @@ -3443,7 +3443,7 @@ static int ucc_geth_rx(struct ucc_geth_p
->  	u16 length, howmany = 0;
->  	u32 bd_status;
->  	u8 *bdBuffer;
-> -	struct net_device * dev;
-> +	struct net_device *dev;
 
-ACK with a fixed description...
+applied #upstream-fixes
 
 
