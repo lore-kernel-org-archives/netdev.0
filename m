@@ -1,35 +1,46 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] Add VLAN (802.1q) support to sis900 driver
-Date: Fri, 23 Nov 2007 22:11:31 -0500
-Message-ID: <47479663.8080400@garzik.org>
-References: <20060417112553.GA22890@renditai.milesteg.arr>
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Subject: Re: [PATCH] NET: dmfe: don't access configuration space in D3 state
+Date: Sat, 24 Nov 2007 05:48:27 +0200
+Message-ID: <200711240548.28165.maximlevitsky@gmail.com>
+References: <200711230129.02570.maximlevitsky@gmail.com> <200711230130.15939.maximlevitsky@gmail.com> <4747962D.5010506@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:44390 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754098AbXKXDLd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Nov 2007 22:11:33 -0500
-Received: from cpe-069-134-071-233.nc.res.rr.com ([69.134.71.233] helo=core.yyz.us)
-	by mail.dvmed.net with esmtpsa (Exim 4.63 #1 (Red Hat Linux))
-	id 1IvlQa-0006qK-AA
-	for netdev@vger.kernel.org; Sat, 24 Nov 2007 03:11:32 +0000
-In-Reply-To: <20060417112553.GA22890@renditai.milesteg.arr>
-Sender: netdev-owner@vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754429AbXKXDtL@vger.kernel.org>
+In-Reply-To: <4747962D.5010506@garzik.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Daniele Venzano wrote:
-> The attached patch adds support for VLANs to the sis900 driver and bumps
-> the version number. It is based on an old (2003) patch for the 2.4
-> series by Hamid Hashemi Golpayegani. It applies on top of 2.6.16(.5).
-> I have one report that it works and behaves as intended.
-> Please review and consider for inclusion.
+On Saturday 24 November 2007 05:10:37 Jeff Garzik wrote:
+> Maxim Levitsky wrote:
+> >>From 7e24227257f315e52fe0b494dc1253d2a0ce5dff Mon Sep 17 00:00:00 2001
+> > From: Maxim Levitsky <maximlevitsky@gmail.com>
+> > Date: Fri, 23 Nov 2007 01:15:36 +0200
+> > Subject: [PATCH] NET: dmfe: don't access configuration space in D3 state
+> >  Accidently I reversed the order of pci_save_state and
+> >  pci_set_power_state in .suspend()/.resume() callbacks
+> > 
+> > Signed-off-by: Maxim Levitsky <maximlevitsky@gmail.com>
+> > ---
+> >  drivers/net/tulip/dmfe.c |    4 ++--
+> >  1 files changed, 2 insertions(+), 2 deletions(-)
+> > 
 > 
-> Signed-off-by: Daniele Venzano <venza@brownhat.org>
+> applied #upstream-fixes, after hand-editing patch changelog taking by 
+> git-am from email body
+> 
+> 
+> 
 
-I just found this buried in my inbox... can you resubmit for the latest 
-kernel?
+Hi,
 
+Thanks,
+Next time I will be more careful with changelogs.
 
+Best regards,
+	Maxim Levitsky
