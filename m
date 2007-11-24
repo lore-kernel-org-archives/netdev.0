@@ -1,46 +1,60 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: Re: [PATCH] NET: dmfe: don't access configuration space in D3 state
-Date: Sat, 24 Nov 2007 05:48:27 +0200
-Message-ID: <200711240548.28165.maximlevitsky@gmail.com>
-References: <200711230129.02570.maximlevitsky@gmail.com> <200711230130.15939.maximlevitsky@gmail.com> <4747962D.5010506@garzik.org>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
+Date: Sat, 24 Nov 2007 15:53:34 +1100
+Message-ID: <200711241553.34744.rusty@rustcorp.com.au>
+References: <20071122343.446909000@suse.de> <200711231435.05788.rusty@rustcorp.com.au> <20071123195330.GA24223@one.firstfloor.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754429AbXKXDtL@vger.kernel.org>
-In-Reply-To: <4747962D.5010506@garzik.org>
+Cc: Andi Kleen <ak@suse.de>, Christoph Hellwig <hch@infradead.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sam@ravnborg.org
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:37400 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751204AbXKXEyA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Nov 2007 23:54:00 -0500
+In-Reply-To: <20071123195330.GA24223@one.firstfloor.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 24 November 2007 05:10:37 Jeff Garzik wrote:
-> Maxim Levitsky wrote:
-> >>From 7e24227257f315e52fe0b494dc1253d2a0ce5dff Mon Sep 17 00:00:00 2001
-> > From: Maxim Levitsky <maximlevitsky@gmail.com>
-> > Date: Fri, 23 Nov 2007 01:15:36 +0200
-> > Subject: [PATCH] NET: dmfe: don't access configuration space in D3 state
-> >  Accidently I reversed the order of pci_save_state and
-> >  pci_set_power_state in .suspend()/.resume() callbacks
-> > 
-> > Signed-off-by: Maxim Levitsky <maximlevitsky@gmail.com>
-> > ---
-> >  drivers/net/tulip/dmfe.c |    4 ++--
-> >  1 files changed, 2 insertions(+), 2 deletions(-)
-> > 
-> 
-> applied #upstream-fixes, after hand-editing patch changelog taking by 
-> git-am from email body
-> 
-> 
-> 
+On Saturday 24 November 2007 06:53:30 Andi Kleen wrote:
+> This serves as a documentation 
+> on what is considered internal. And if some obscure module (in or
+> out of tree) wants to use an internal interface they first have
+> to send the module maintainer a patch and get some review this way.
 
-Hi,
+So, you're saying that there's a problem with in-tree modules using symbols 
+they shouldn't?  Can you give an example?
 
-Thanks,
-Next time I will be more careful with changelogs.
+> I believe that is fairly important in tree too because the
+> kernel has become so big now that review cannot be the only
+> enforcement mechanism for this anymore.
 
-Best regards,
-	Maxim Levitsky
+If people aren't reviewing, this won't make them review.  I don't think the 
+problem is that people are conniving to avoid review.
+
+> Another secondary reason is that there are too many exported interfaces
+> in general.
+
+Probably, but this doesn't reduce it.  
+
+> Several distributions have policies that require to 
+> keep the changes to these exported interfaces minimal and that
+> is very hard with thousands of exported symbol.  With name spaces
+> the number of truly publicly exported symbols will hopefully
+> shrink to a much smaller, more manageable set.
+
+*This* makes sense.  But it's not clear that the burden should be placed on 
+kernel coders.  You can create a list yourself.  How do I tell the difference 
+between "truly publicly exported" symbols and others?
+
+If a symbol has more than one in-tree user, it's hard to argue against an 
+out-of-tree module using the symbol, unless you're arguing against *all* 
+out-of-tree modules.
+
+Sorry,
+Rusty.
