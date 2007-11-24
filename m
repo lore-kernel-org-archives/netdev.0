@@ -1,68 +1,68 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [patch 3/8]
- ucc_geth-fix-build-break-introduced-by-commit-09f75cd7bf13720738e6a196cc0107ce9a5bd5a0-checkpatch-fixes
-Date: Fri, 23 Nov 2007 18:04:58 -0800
-Message-ID: <20071123180458.ad3bd98e.akpm@linux-foundation.org>
-References: <200711212302.lALN2tJG013658@imap1.linux-foundation.org>
-	<4747855B.5060606@garzik.org>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH net-2.6.25] Add packet filtering based on process'ssecurity context.
+Date: Sat, 24 Nov 2007 11:14:50 +0900
+Message-ID: <200711241114.FCJ30702.JSMOFQtVHFFOOL@I-love.SAKURA.ne.jp>
+References: <200711212130.EJJ43745.LFOFHOSMJOtFVQ@I-love.SAKURA.ne.jp>
+	<200711222235.GCA05378.HtMOJQVFSFOLFO@I-love.SAKURA.ne.jp>
+	<Xine.LNX.4.64.0711231005270.4252@us.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Emilian.Medve@Freescale.com,
-	davem@davemloft.net, galak@gate.crashing.org, leoli@Freescale.com,
-	paulus@samba.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	davem@davemloft.net, linux-security-module@vger.kernel.org,
+	kaber@trash.net, netfilter-devel@lists.netfilter.org,
+	sds@tycho.nsa.gov
+To: jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:37700 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753012AbXKXCFu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2007 21:05:50 -0500
-In-Reply-To: <4747855B.5060606@garzik.org>
+Received: from wine.ocn.ne.jp ([122.1.235.145]:56534 "EHLO smtp.wine.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752089AbXKXCO4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Nov 2007 21:14:56 -0500
+In-Reply-To: <Xine.LNX.4.64.0711231005270.4252@us.intercode.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 23 Nov 2007 20:58:51 -0500 Jeff Garzik <jeff@garzik.org> wrote:
+Hello.
 
-> akpm@linux-foundation.org wrote:
-> > From: Andrew Morton <akpm@linux-foundation.org>
-> > 
-> > Cc: "David S. Miller" <davem@davemloft.net>
-> > Cc: Emil Medve <Emilian.Medve@Freescale.com>
-> > Cc: Jeff Garzik <jeff@garzik.org>
-> > Cc: Kumar Gala <galak@gate.crashing.org>
-> > Cc: Li Yang <leoli@freescale.com>
-> > Cc: Paul Mackerras <paulus@samba.org>
-> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> > ---
-> > 
-> >  drivers/net/ucc_geth.c |    2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > 
-> > diff -puN drivers/net/ucc_geth.c~ucc_geth-fix-build-break-introduced-by-commit-09f75cd7bf13720738e6a196cc0107ce9a5bd5a0-checkpatch-fixes drivers/net/ucc_geth.c
-> > --- a/drivers/net/ucc_geth.c~ucc_geth-fix-build-break-introduced-by-commit-09f75cd7bf13720738e6a196cc0107ce9a5bd5a0-checkpatch-fixes
-> > +++ a/drivers/net/ucc_geth.c
-> > @@ -3443,7 +3443,7 @@ static int ucc_geth_rx(struct ucc_geth_p
-> >  	u16 length, howmany = 0;
-> >  	u32 bd_status;
-> >  	u8 *bdBuffer;
-> > -	struct net_device * dev;
-> > +	struct net_device *dev;
+James Morris wrote:
+> From memory, one approach under discussion was to add netfilter hooks to 
+> the transport layer, which could be invoked correctly by each type of 
+> protocol when the target process is selected.
 > 
-> ACK with a fixed description...
-> 
+> If this is done for netfilter, then an LSM hook is probably not needed at 
+> all, as security modules can utilize netfilter hooks directly.
 
-Well...  I do these little fixups
+Patrick McHardy says (at http://marc.info/?l=linux-netdev&m=118495005800410&w=2 )
+"Even with socket filters netfilter doesn't know the final receipient
+ process, that is not known until it calls recvmsg and the data is read,
+ which is too late for netfilter."
 
-a) to remind originators that they should be checking their stuff with
-checkpatch
 
-b) to fold into the offending base patch prior to sending upstream
 
-c) to let upstream (in this case you) know that the patch had coding-style
-problems.
+> > Precautions: This approach has a side effect which unlikely occurs.
+> > 
+> > If a socket is shared by multiple processes with different policy,
+> > the process who should be able to accept this connection
+> > will not be able to accept this connection
+> > because socket_post_accept() aborts this connection.
+> > But if socket_post_accept() doesn't abort this connection,
+> > the process who must not be able to accept this connection
+> > will repeat accept() forever, which is a worse side effect.
+I think this change is needed regardless of whether to use connection filtering or not.
+Currently, SELinux doesn't use socket_post_accept().
 
-as it appears that you merged the base patch without noticing the error,
-and without running checkpatch I don't think it's worth merging a silly
-one-liner like this on its own.
+|  * @socket_post_accept:
+|  *	This hook allows a security module to copy security
+|  *	information into the newly created socket's inode.
 
+But if one wants to *copy* security information to accept()ed socket,
+the location after fd_install() is too late to copy
+because the userland process can access accept()ed socket's fd
+whose security information is not copied yet.
+
+Also, if one wants to *assign* security information to accept()ed socket,
+it might attend memory allocation which can fail.
+So, use of void for socket_post_accept() deprives a security module of a chance to
+abort this connection if the security module failed to *assign* security information.
+
+Regards.
 
