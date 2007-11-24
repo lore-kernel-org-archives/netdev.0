@@ -1,29 +1,37 @@
-From: Roel Kluin <12o3l@tiscali.nl>
-Subject: cqe, cqe_skb: return when both or when either NULL?
-Date: Fri, 23 Nov 2007 22:54:17 +0100
-Message-ID: <47474C09.1020107@tiscali.nl>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 0/3] PowerPC: ibm_newemac minor fixes.
+Date: Sat, 24 Nov 2007 12:18:22 +1100
+Message-ID: <1195867102.7195.31.camel@pasglop>
+References: <20071123190747.GA25654@ru.mvista.com>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, themann@de.ibm.com
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, jgarzik@pobox.com,
+	jwboyer@linux.vnet.ibm.com
+To: Valentine Barshak <vbarshak@ru.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out3.tiscali.nl ([195.241.79.178]:34929 "EHLO
-	smtp-out3.tiscali.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757529AbXKWVyX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2007 16:54:23 -0500
+Received: from gate.crashing.org ([63.228.1.57]:50449 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752621AbXKXBTL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Nov 2007 20:19:11 -0500
+In-Reply-To: <20071123190747.GA25654@ru.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In function ehea_poll() drivers/net/ehea/ehea_main.c:667, in a loop cqe and
-cqe_skb - both struct ehea_cqe pointers - are assigned:
---
-cqe = ehea_poll_rq1(pr->qp, &wqe_index);
-cqe_skb = ehea_poll_cq(pr->send_cq);
 
-if (!cqe && !cqe_skb)
-	return rx;
---
-Is it intended that only when both are NULL there is a return, or should there
-be returned when either is NULL (and the && replaced with ||).
+On Fri, 2007-11-23 at 22:07 +0300, Valentine Barshak wrote:
 
-If the code is ok as is, sorry for the noise.
+> These patches have some minor ibm_newemac fixes.
+
+All 3 patches look good, thanks. I'll sign them off and forward them
+to Jeff in my next batch.
+
+Jeff, did you already pick up my previous drop of EMAC patches from last
+week for .25 or not ? If not, I will resend the whole lot along with
+Valentine's patches sometime next week.
+
+Cheers,
+Ben.
+
+
