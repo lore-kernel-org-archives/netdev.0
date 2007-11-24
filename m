@@ -1,35 +1,36 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] sky2: disable rx checksum on Yukon XL
-Date: Fri, 23 Nov 2007 22:10:10 -0500
-Message-ID: <47479612.4090200@pobox.com>
-References: <20071121145526.1f0b9f06@freepuppy.rosehill>
+From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 1/2] Blackfin SMC91x Driver: punt
+ CONFIG_BFIN -- we already have CONFIG_BLACKFIN
+Date: Fri, 23 Nov 2007 22:10:46 -0500
+Message-ID: <47479636.4090102@garzik.org>
+References: <1195811751-25319-1-git-send-email-bryan.wu@analog.com>
+	<1195811751-25319-2-git-send-email-bryan.wu@analog.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:44350 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754208AbXKXDKM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Nov 2007 22:10:12 -0500
-In-Reply-To: <20071121145526.1f0b9f06@freepuppy.rosehill>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mike Frysinger <michael.frysinger-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+To: Bryan Wu <bryan.wu-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
+Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+In-Reply-To: <1195811751-25319-2-git-send-email-bryan.wu-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
+List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
+List-Subscribe: <http://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
+Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> The Marvell Yukon XL chipset appears to have a hardware glitch
-> where it will repeat the checksum of the last packet. Of course, this is
-> timing sensitive and only happens sometimes...
+Bryan Wu wrote:
+> From: Mike Frysinger <michael.frysinger-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
 > 
-> More info: http://bugzilla.kernel.org/show_bug.cgi?id=9381
-> 
-> As a workaround just disable hardware checksumming by default on
-> this chip version. The earlier workaround for PCIX, dual port
-> was also on Yukon XL so don't need to disable checksumming there.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> Signed-off-by: Mike Frysinger <michael.frysinger-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Bryan Wu <bryan.wu-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
+> ---
+>  drivers/net/Kconfig  |    2 +-
+>  drivers/net/smc91x.h |    2 +-
 
-applied #upstream-fixes
-
-
+applied 1-2 to #upstream-fixes
