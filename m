@@ -1,29 +1,49 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 29/59] drivers/net/chelsio: Add missing "space"
-Date: Fri, 23 Nov 2007 20:57:44 -0500
-Message-ID: <47478518.7030006@pobox.com>
-References: 1234567 <1195523331-15303-13-git-send-email-joe@perches.com> <1195523331-15303-14-git-send-email-joe@perches.com> <1195523331-15303-15-git-send-email-joe@perches.com> <1195523331-15303-16-git-send-email-joe@perches.com> <1195523331-15303-17-git-send-email-joe@perches.com> <1195523331-15303-18-git-send-email-joe@perches.com> <1195523331-15303-19-git-send-email-joe@perches.com> <1195523331-15303-20-git-send-email-joe@perches.com> <1195523331-15303-21-git-send-email-joe@perches.com> <1195523331-15303-22-git-send-email-joe@perches.com> <1195523331-15303-23-git-send-email-joe@perches.com> <1195523331-15303-24-git-send-email-joe@perches.com> <1195523331-15303-25-git-send-email-joe@perches.com> <1195523331-15303-26-git-send-email-joe@perches.com> <1195523331-15303-27-git-send-email-jo
- e@perches.com> <1195523331-15303-28-git-send-email-joe@perches.com> <1195523331-15303-29-git-send-email-joe@perches.com> <1195523331-15303-30-git-send-email-joe@perches.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch 3/8] ucc_geth-fix-build-break-introduced-by-commit-09f75cd7bf13720738e6a196cc0107ce9a5bd5a0-checkpatch-fixes
+Date: Fri, 23 Nov 2007 20:58:51 -0500
+Message-ID: <4747855B.5060606@garzik.org>
+References: <200711212302.lALN2tJG013658@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Cc: netdev@vger.kernel.org, Emilian.Medve@Freescale.com,
+	davem@davemloft.net, galak@gate.crashing.org, leoli@Freescale.com,
+	paulus@samba.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52762 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:41852 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753250AbXKXB5q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Nov 2007 20:57:46 -0500
-In-Reply-To: <1195523331-15303-30-git-send-email-joe@perches.com>
+	id S1753303AbXKXB64 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Nov 2007 20:58:56 -0500
+In-Reply-To: <200711212302.lALN2tJG013658@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Joe Perches wrote:
-> Signed-off-by: Joe Perches <joe@perches.com>
+akpm@linux-foundation.org wrote:
+> From: Andrew Morton <akpm@linux-foundation.org>
+> 
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Emil Medve <Emilian.Medve@Freescale.com>
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Cc: Kumar Gala <galak@gate.crashing.org>
+> Cc: Li Yang <leoli@freescale.com>
+> Cc: Paul Mackerras <paulus@samba.org>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 > ---
->  drivers/net/chelsio/cxgb2.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+>  drivers/net/ucc_geth.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff -puN drivers/net/ucc_geth.c~ucc_geth-fix-build-break-introduced-by-commit-09f75cd7bf13720738e6a196cc0107ce9a5bd5a0-checkpatch-fixes drivers/net/ucc_geth.c
+> --- a/drivers/net/ucc_geth.c~ucc_geth-fix-build-break-introduced-by-commit-09f75cd7bf13720738e6a196cc0107ce9a5bd5a0-checkpatch-fixes
+> +++ a/drivers/net/ucc_geth.c
+> @@ -3443,7 +3443,7 @@ static int ucc_geth_rx(struct ucc_geth_p
+>  	u16 length, howmany = 0;
+>  	u32 bd_status;
+>  	u8 *bdBuffer;
+> -	struct net_device * dev;
+> +	struct net_device *dev;
 
-appied 29-36 to netdev#upstream
+ACK with a fixed description...
 
 
