@@ -1,36 +1,32 @@
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 1/2] Blackfin SMC91x Driver: punt
- CONFIG_BFIN -- we already have CONFIG_BLACKFIN
-Date: Fri, 23 Nov 2007 22:10:46 -0500
-Message-ID: <47479636.4090102@garzik.org>
-References: <1195811751-25319-1-git-send-email-bryan.wu@analog.com>
-	<1195811751-25319-2-git-send-email-bryan.wu@analog.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] NET: dmfe: don't access configuration space in D3 state
+Date: Fri, 23 Nov 2007 22:10:37 -0500
+Message-ID: <4747962D.5010506@garzik.org>
+References: <200711230129.02570.maximlevitsky@gmail.com> <200711230130.15939.maximlevitsky@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mike Frysinger <michael.frysinger-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-To: Bryan Wu <bryan.wu-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
-Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-In-Reply-To: <1195811751-25319-2-git-send-email-bryan.wu-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
-List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
-List-Subscribe: <http://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
-Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Maxim Levitsky <maximlevitsky@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754405AbXKXDKx@vger.kernel.org>
+In-Reply-To: <200711230130.15939.maximlevitsky@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bryan Wu wrote:
-> From: Mike Frysinger <michael.frysinger-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
+Maxim Levitsky wrote:
+>>From 7e24227257f315e52fe0b494dc1253d2a0ce5dff Mon Sep 17 00:00:00 2001
+> From: Maxim Levitsky <maximlevitsky@gmail.com>
+> Date: Fri, 23 Nov 2007 01:15:36 +0200
+> Subject: [PATCH] NET: dmfe: don't access configuration space in D3 state
+>  Accidently I reversed the order of pci_save_state and
+>  pci_set_power_state in .suspend()/.resume() callbacks
 > 
-> Signed-off-by: Mike Frysinger <michael.frysinger-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Bryan Wu <bryan.wu-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Maxim Levitsky <maximlevitsky@gmail.com>
 > ---
->  drivers/net/Kconfig  |    2 +-
->  drivers/net/smc91x.h |    2 +-
+>  drivers/net/tulip/dmfe.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
 
-applied 1-2 to #upstream-fixes
+applied #upstream-fixes, after hand-editing patch changelog taking by 
+git-am from email body
