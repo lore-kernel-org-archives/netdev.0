@@ -1,108 +1,58 @@
-From: Elvis Pranskevichus <el@prans.net>
-Subject: Re: sky2: eth0: hung mac 7:69 fifo 0 (165:176)
-Date: Sun, 25 Nov 2007 16:57:42 -0500
-Message-ID: <200711251657.42821.el@prans.net>
-References: <873av03c0f.fsf@burly.wgtn.ondioline.org> <E1Iw7Ig-0000zL-6Z@asgard.prans.org> <4749E832.1060800@linux-foundation.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 12/21] r8169: confusion between hardware and IP header
+	alignment
+Date: Mon, 26 Nov 2007 00:05:24 +0100
+Message-ID: <20071125230524.GC21363@electric-eye.fr.zoreil.com>
+References: <20070629201212.GA3240@electric-eye.fr.zoreil.com> <20070629202555.GN3240@electric-eye.fr.zoreil.com> <20071123074549.GE18081@deprecation.cyrius.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Paul Collins <paul@burly.ondioline.org>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Edward Hsu <edward_hsu@realtek.com.tw>,
+	bunk@stusta.de
+To: Martin Michlmayr <tbm@cyrius.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.prans.org ([64.79.206.200]:49698 "EHLO mail.prans.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753062AbXKYWjp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Nov 2007 17:39:45 -0500
-In-Reply-To: <4749E832.1060800@linux-foundation.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:60983 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757787AbXKYXKt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Nov 2007 18:10:49 -0500
 Content-Disposition: inline
+In-Reply-To: <20071123074549.GE18081@deprecation.cyrius.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday November 25 2007 04:25:06 pm Stephen Hemminger wrote:
->
-> Two important bits of data:
->
-> 1) What is hardware (output of lspci and dmesg) would be useful to know
-> which type
-> of board is involved.
+Martin Michlmayr <tbm@cyrius.com> :
+[...]
+> I'd like to backport the fix to the 2.6.18 kernel that is in our
+> stable release and have a couple of questions:
+>  - Does your later patch "align the IP header when there is no DMA
+>    constraint" fix any bugs or is it merely an improvement?
 
-uname -srvm:
+It fixes a "it was faster before" problem.
 
-Linux 2.6.24-rc3 #1 SMP PREEMPT Sat Nov 17 00:26:41 EST 2007 x86_64
+>  - Should I change "align" to 8 for RTL_CFG_1, as it's done in
+>    current kernels?
 
-CONFIG_NO_HZ=y
+No. RTL_CFG_1 is for the 8168 (slightly different beast).
 
-lscpi -vvvv:
+> I'd like to backport only the changes needed to actually fix the bug
+> in order to make sure I won't break any other devices.  The patch
+> below works for me but I'd like to hear your opinion about my
+> questions above.
 
-03:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8053 PCI-E Gigabit Ethernet Controller (rev 22)
-        Subsystem: Giga-byte Technology Marvell 88E8053 Gigabit Ethernet Controller (Gigabyte)
-        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
-        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
-        Latency: 0, Cache Line Size: 32 bytes
-        Interrupt: pin A routed to IRQ 315
-        Region 0: Memory at f1000000 (64-bit, non-prefetchable) [size=16K]
-        Region 2: I/O ports at a000 [size=256]
-        [virtual] Expansion ROM at f0000000 [disabled] [size=128K]
-        Capabilities: [48] Power Management version 2
-                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
-                Status: D0 PME-Enable- DSel=0 DScale=1 PME-
-        Capabilities: [50] Vital Product Data
-        Capabilities: [5c] Message Signalled Interrupts: Mask- 64bit+ Queue=0/1 Enable+
-                Address: 00000000fee0300c  Data: 4199
-        Capabilities: [e0] Express (v1) Legacy Endpoint, MSI 00
-                DevCap: MaxPayload 128 bytes, PhantFunc 0, Latency L0s unlimited, L1 unlimited
-                        ExtTag- AttnBtn- AttnInd- PwrInd- RBE- FLReset-
-                DevCtl: Report errors: Correctable+ Non-Fatal+ Fatal+ Unsupported+
-                        RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
-                        MaxPayload 128 bytes, MaxReadReq 512 bytes
-                DevSta: CorrErr+ UncorrErr+ FatalErr- UnsuppReq+ AuxPwr+ TransPend-
-                LnkCap: Port #0, Speed 2.5GT/s, Width x1, ASPM L0s, Latency L0 <256ns, L1 unlimited
-                        ClockPM- Suprise- LLActRep- BwNot-
-                LnkCtl: ASPM Disabled; RCB 128 bytes Disabled- Retrain- CommClk-
-                        ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-                LnkSta: Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ DLActive- BWMgmt- ABWMgmt-
-        Capabilities: [100] Advanced Error Reporting
+If you have 6dccd16b7c2703e8bbf8bca62b5cf248332afbe2 applied, you
+want c946b3047205d7e107be16885bbb42ab9f10350a too.
 
-dmesg | grep sky2:
+[...]
+> Some background: the Thecus N2100 is an ARM based NAS device with two
+> 8169 ports. The chips exhibit PCI parity problems so
+> dev->broken_parity_status is set on this platform.
 
-sky2 0000:03:00.0: v1.20 addr 0xf1000000 irq 16 Yukon-EC (0xb6) rev 2
-sky2 eth0: addr 00:16:e6:84:58:5d
-sky2 eth0: enabling interface
-sky2 eth0: Link is up at 100 Mbps, full duplex, flow control both
+I remember it.
 
-Error related part:
+If you move from the 8110SB to the 8110SC, you will probably want to apply
+65d916d95314566f426cc40ff0f17b754a773b0b
 
-sky2 eth0: hung mac 123:3 fifo 194 (150:144)
-sky2 eth0: receiver hang detected
-sky2 eth0: disabling interface
-NETDEV WATCHDOG: eth0: transmit timed out
-sky2 eth0: tx timeout
-sky2 eth0: transmit ring 178 .. 188 report=178 done=178
-NETDEV WATCHDOG: eth0: transmit timed out
-sky2 eth0: tx timeout
-sky2 eth0: transmit ring 178 .. 188 report=178 done=178
-...
-<repeats endlessly>
+Btw, could you send me a dmesg from a recent kernel ? I'd like to keep a
+trace of the XID value for your device.
 
->
-> 2) Is this a regression, or always the case.  Does 2.6.23 work okay?
->
-
-2.6.23 works okay in terms of restarting the controller properly, 
-i.e sky2_watchdog() actually works. While in 2.6.24 I only see that
-sky2_down() is called and never gets to sky2_up(). Moreover, the entire
-box becomes unresponsive to events (e.g the keyboard doesn't work etc).
-
-> The problems with FIFO in the past, have been limited to Yukon-EC
-> without flow control.
-> The hardware has bugs where if the FIFO gets exactly filled it hangs.
-> Flow control avoids
-> the problem.
-
-Yeah, unfortunately it's Yukon-EC.
-
-
-Thanks,
 -- 
-                Elvis
+Ueimor
