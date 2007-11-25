@@ -1,38 +1,45 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: wireless vs. alignment requirements
-Date: Sun, 25 Nov 2007 09:08:14 +0800
-Message-ID: <20071125010814.GD31668@gondor.apana.org.au>
-References: <E1IvoID-0006aR-00@gondolin.me.apana.org.au> <1195893216.4149.186.camel@johannes.berg> <20071124133200.GA27531@gondor.apana.org.au> <1195912176.4149.194.camel@johannes.berg> <20071124141319.GA27819@gondor.apana.org.au> <4748855C.5090103@linux-foundation.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: 2.6.24-rc3, 4GB RAM, swiotlb, r8169, out of space
+Date: Sun, 25 Nov 2007 02:15:51 +0100
+Message-ID: <20071125011550.GB30759@electric-eye.fr.zoreil.com>
+References: <200711242344.49958.alistair@devzero.co.uk> <20071125003910.3e58e3b3@the-village.bc.nu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Alistair John Strachan <alistair@devzero.co.uk>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:55082 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753120AbXKYBTG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Nov 2007 20:19:06 -0500
 Content-Disposition: inline
-In-Reply-To: <4748855C.5090103-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20071125003910.3e58e3b3@the-village.bc.nu>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 24, 2007 at 12:11:08PM -0800, Stephen Hemminger wrote:
->
-> Then what about hardware that can't dma ethernet to non-aligned address.
-> Sky2 hardware breaks if DMA is not 8 byte aligned.  IMHO the IP stack should
-> handle any alignment, and do the appropriate memove if the CPU requires 
-> alignment.
+Alan Cox <alan@lxorguk.ukuu.org.uk> :
+[...]
+> You seem to have a leak, which actually isn't suprising
+> 
+> 	rtl8169_xmit_frags allocates a set of maps for a fragmented packet
+> 
+> 	rtl8169_start_xmit allocates a buffer
+> 
+> When we finish the transit we free the main buffer (always using skb->len
+> when sometimes its skb->headlne. We don't seem to free the fragment
+> buffers at all.
+> Looks like the unmap path for fragmented packets is broken with any kind
+> of iommu
 
-Luckily all sky2 users have been on x86 so far :)
+Are you referring to the pci_unmap part ?
 
-Here's an idea.  Put the data of the packet into the page frags
-where alignment is not an issue but copy the header so that it
-is aligned.
+There is a 1:1 correspondance between a Tx descriptor entry and
+{an unfragmented skb or a fragment of a skb}. Afaiks rtl8169_unmap_tx_skb()
+is issued for each Tx descriptor entry, be it after a Tx completion irq or
+a general Tx ring cleanup.
 
-Would that work?
+I'll read it again after some sleep but the leak does not seem clear to me.
 
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ueimor
