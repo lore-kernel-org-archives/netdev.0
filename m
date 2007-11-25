@@ -1,32 +1,38 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
-Date: Sun, 25 Nov 2007 12:29:39 -0800
-Message-ID: <adaprxyrrv0.fsf@cisco.com>
-References: <20071122343.446909000@suse.de>
-	<200711221456.22297.rusty@rustcorp.com.au>
-	<200711221246.23994.ak@suse.de>
-	<200711231129.25982.rusty@rustcorp.com.au>
+From: Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: wireless vs. alignment requirements
+Date: Sun, 25 Nov 2007 13:21:44 -0800
+Message-ID: <4749E768.9040002@linux-foundation.org>
+References: <E1IvoID-0006aR-00@gondolin.me.apana.org.au> <1195893216.4149.186.camel@johannes.berg> <20071124133200.GA27531@gondor.apana.org.au> <1195912176.4149.194.camel@johannes.berg> <20071124141319.GA27819@gondor.apana.org.au> <4748855C.5090103@linux-foundation.org> <20071125010814.GD31668@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@suse.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sam@ravnborg.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-5.cisco.com ([171.68.10.87]:21121 "EHLO
-	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756023AbXKYU3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Nov 2007 15:29:40 -0500
-In-Reply-To: <200711231129.25982.rusty@rustcorp.com.au> (Rusty Russell's message of "Fri, 23 Nov 2007 11:29:25 +1100")
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20071125010814.GD31668-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
- > Yes, and if a symbol is already used by multiple modules, it's generically 
- > useful.  And if so, why restrict it to in-tree modules?
-
-I agree that we shouldn't make things too hard for out-of-tree
-modules, but I disagree with your first statement: there clearly is a
-large class of symbols that are used by multiple modules but which are
-not generically useful -- they are only useful by a certain small class
-of modules.
-
- - R.
+Herbert Xu wrote:
+> On Sat, Nov 24, 2007 at 12:11:08PM -0800, Stephen Hemminger wrote:
+>   
+>> Then what about hardware that can't dma ethernet to non-aligned address.
+>> Sky2 hardware breaks if DMA is not 8 byte aligned.  IMHO the IP stack should
+>> handle any alignment, and do the appropriate memove if the CPU requires 
+>> alignment.
+>>     
+>
+> Luckily all sky2 users have been on x86 so far :)
+>
+> Here's an idea.  Put the data of the packet into the page frags
+> where alignment is not an issue but copy the header so that it
+> is aligned.
+>
+> Would that work?
+>
+> Cheers,
+>   
+No too wasteful. I'm working a patch to eth_type_trans to realign if 
+needed for any device.
