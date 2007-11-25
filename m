@@ -1,53 +1,40 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: wireless vs. alignment requirements
-Date: Sun, 25 Nov 2007 09:44:46 +0800
-Message-ID: <20071125014446.GA32104@gondor.apana.org.au>
-References: <E1IvoID-0006aR-00@gondolin.me.apana.org.au> <1195893216.4149.186.camel@johannes.berg> <20071124133200.GA27531@gondor.apana.org.au> <1195912176.4149.194.camel@johannes.berg> <20071124141319.GA27819@gondor.apana.org.au> <1195938799.4149.197.camel@johannes.berg>
+From: Alistair John Strachan <alistair@devzero.co.uk>
+Subject: Re: 2.6.24-rc3, 4GB RAM, swiotlb, r8169, out of space
+Date: Sun, 25 Nov 2007 01:48:31 +0000
+Message-ID: <200711250148.31695.alistair@devzero.co.uk>
+References: <200711242344.49958.alistair@devzero.co.uk> <20071125002510.GA30759@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.betherenow.co.uk ([87.194.0.68]:34701 "EHLO
+	smtp1.bethere.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753464AbXKYBse (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Nov 2007 20:48:34 -0500
+In-Reply-To: <20071125002510.GA30759@electric-eye.fr.zoreil.com>
 Content-Disposition: inline
-In-Reply-To: <1195938799.4149.197.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 24, 2007 at 10:13:19PM +0100, Johannes Berg wrote:
+On Sunday 25 November 2007 00:25:10 Francois Romieu wrote:
+> Alistair John Strachan <alistair@devzero.co.uk> :
+> [...]
 >
-> Eight bytes really sucks for wireless, many things are multiples of four
-> and QoS vs. non-QoS frames have a multiple of four and common hardware
-> only adds two padding bytes to get it aligned on four bytes so there's
-> no easy way to get hardware to align it properly. Hmm.
+> > The "choke" affects other devices on the system too, notably libata,
+> > which does not recover gracefully. In my logs, I see a stream of:
+> >
+> > DMA: Out of SW-IOMMU space for 7222 bytes at device 0000:04:00.0
+> > DMA: Out of SW-IOMMU space for 7222 bytes at device 0000:04:00.0
+>
+> You are using jumbo frames, aren't you ?
 
-Sorry I was wrong about the 8 bytes requirement.  Although the
-IPv6 protocol does try to maintain an 8-byte alignment the Linux
-stack never does anything that requires that.
+Yes, 7200 byte frames. I'll certainly try out your patch and report back.
 
-So 4 bytes is enough.
-
-However, the wireless core is definitely not out of the woods.
-It needs to support variable hardware header lengths that are
-not always a multiple of 4.
-
-So here's my suggestion.  Modify the wireless core to fix up any
-packets which aren't aligned correctly.  That should make it
-work albeit in a way that's less than optimal.
-
-Then for each driver where you care about this performance
-(seriously I wouldn't for the speeds these things run at :),
-pick the most common wireless hardware header length and have
-the IP (or any other upper-level protocol) header aligned to
-at least 4 bytes.  Or better if you know what hardware header
-length that you're going to get (e.g., based on what mode you're
-in) then do the skb_reserve accordingly.
-
-It's a good thing these things aren't running at 10Gb :)
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Cheers,
+Alistair.
+
+137/1 Warrender Park Road, Edinburgh, UK.
