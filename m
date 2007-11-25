@@ -1,42 +1,78 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: wireless vs. alignment requirements
-Date: Sun, 25 Nov 2007 22:01:21 +0800
-Message-ID: <20071125140121.GA12665@gondor.apana.org.au>
-References: <E1IvoID-0006aR-00@gondolin.me.apana.org.au> <1195893216.4149.186.camel@johannes.berg> <20071124133200.GA27531@gondor.apana.org.au> <1195912176.4149.194.camel@johannes.berg> <20071124141319.GA27819@gondor.apana.org.au> <1195938799.4149.197.camel@johannes.berg> <20071125014446.GA32104@gondor.apana.org.au> <1195988428.4149.225.camel@johannes.berg> <20071125112251.GA10039@gondor.apana.org.au> <1195998864.4149.229.camel@johannes.berg>
+From: "Ian Brown" <ianbrn@gmail.com>
+Subject: DST_NOHASH flag and IPsec transformers routing tables - need some clarification
+Date: Sun, 25 Nov 2007 16:36:15 +0200
+Message-ID: <d0383f90711250636ha8a419emeab52c7107c1d480@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from py-out-1112.google.com ([64.233.166.182]:18880 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752031AbXKYOgR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Nov 2007 09:36:17 -0500
+Received: by py-out-1112.google.com with SMTP id u77so753863pyb
+        for <netdev@vger.kernel.org>; Sun, 25 Nov 2007 06:36:15 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1195998864.4149.229.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 25, 2007 at 02:54:24PM +0100, Johannes Berg wrote:
->
-> But I do have a choice where to fix it up and I'd prefer the drivers to
-> do it where necessary. For that, the warning would work because it'd
-> show driver authors that they need to fix something.
+Hello, netdev,
 
-Fair enough.
+I try, in vain, to understand what is DST_NOHASH for.
+I looked for DST_NOHASH under the linux source tree (http://lxr.linux.no/source)
+and found that it appears in 4 files:
 
-> Hmm. I don't think so. Take an AP for example. It gets a lot of packets
-> from stations. Now, if you're not QoS capable then all is well. But i
-> you are and some stations are as well then all those stations send QoS
-> packets (+2 bytes). Or take an AP connected via wireless (WPS), WPS has
-> +6 bytes so I get all incoming upstream traffic with such unaligned
-> headers.
+1) in include/net/dst.h (just defined there, #define DST_NOHASH 8)
 
-The question is does this actually change all the time.  Let's
-say you took a random sample of a second worth of IP packets
-over wireless, what proportion of them are going to have the
-same hardware header length modulo 4?
+2)
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+in xfrm4_policy.c:
+static int
+__xfrm4_bundle_create()
+{
+  ...
+  ...
+  dst1->flags |= DST_NOHASH;
+  ...
+  ...
+}
+
+3) in net/core/dst.c:
+struct dst_entry *dst_destroy(struct dst_entry * dst)
+	{
+	...
+	...	
+  int nohash = dst->flags & DST_NOHASH;
+	...
+	...	
+}
+
+4) in Linux/net/ipv6/xfrm6_policy.c
+
+
+__xfrm6_bundle_create()
+ {
+  ...
+  ...
+
+ else {
+                         dst_prev->child = dst1;
+                         dst1->flags |= DST_NOHASH;
+...
+...
+
+
+}
+
+We see here a definition and 3 places with assignment ; So I don't
+understand what is the DST_NOHASH flag for ?
+It seems to me that it has to do with IPSec transformers routing tables entires
+but again, it seems that this flag is not accessed
+(except for assigning this flag).
+
+I would appreciate of anybody will say some words about this flag and its
+usage (maybe it is redundant and should be removed?)
+
+Regards,
+Ian
