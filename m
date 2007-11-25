@@ -1,78 +1,53 @@
-From: "Ian Brown" <ianbrn@gmail.com>
-Subject: DST_NOHASH flag and IPsec transformers routing tables - need some clarification
-Date: Sun, 25 Nov 2007 16:36:15 +0200
-Message-ID: <d0383f90711250636ha8a419emeab52c7107c1d480@mail.gmail.com>
+From: "David Schwartz" <davids@webmaster.com>
+Subject: RE: [RFC/PATCH] SO_NO_CHECK for IPv6
+Date: Sun, 25 Nov 2007 07:41:52 -0800
+Message-ID: <MDEHLPKNGKAHNMBLJOLKCENAIGAC.davids@webmaster.com>
+References: <E1Ivo4H-0006Z2-00@gondolin.me.apana.org.au>
+Reply-To: davids@webmaster.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: "Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.182]:18880 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752031AbXKYOgR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Nov 2007 09:36:17 -0500
-Received: by py-out-1112.google.com with SMTP id u77so753863pyb
-        for <netdev@vger.kernel.org>; Sun, 25 Nov 2007 06:36:15 -0800 (PST)
-Content-Disposition: inline
+Received: from mail1.webmaster.com ([216.152.64.169]:1145 "EHLO
+	mail1.webmaster.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753178AbXKYPlk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Nov 2007 10:41:40 -0500
+In-Reply-To: <E1Ivo4H-0006Z2-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello, netdev,
 
-I try, in vain, to understand what is DST_NOHASH for.
-I looked for DST_NOHASH under the linux source tree (http://lxr.linux.no/source)
-and found that it appears in 4 files:
+> David Schwartz <davids@webmaster.com> wrote:
 
-1) in include/net/dst.h (just defined there, #define DST_NOHASH 8)
+> >> Regardless of whatever verifications your application is doing
+> >> on the data, it is not checksumming the ports and that's what
+> >> the pseudo-header is helping with.
 
-2)
+> > So what? We are in the case where the data has already gotten
+> > to him. If it
+> > got to him in error, he'll reject it anyway. The receive
+> > checksum check will
+> > only reject packets that he would reject anyway. That makes it needless.
 
-in xfrm4_policy.c:
-static int
-__xfrm4_bundle_create()
-{
-  ...
-  ...
-  dst1->flags |= DST_NOHASH;
-  ...
-  ...
-}
+> What if it goes to the wrong recipient who doesn't have the upper-
+> level checksums?
 
-3) in net/core/dst.c:
-struct dst_entry *dst_destroy(struct dst_entry * dst)
-	{
-	...
-	...	
-  int nohash = dst->flags & DST_NOHASH;
-	...
-	...	
-}
+Since that's not him, he has no control over its policy and thus no ability
+to harm it or help it.
 
-4) in Linux/net/ipv6/xfrm6_policy.c
+> This is the whole point, IPv6 unlike IPv4 does not have IP header
+> checksums so the high-level needs to protect it by checksumming
+> the pseudo-header.
+
+Exactly. But *he* doesn't need to check that checksum, given that he already
+got the packet, since he has an upper-level checksum. He is not saying that
+his reasoning applies to everyone, just that it applies to him. He is not
+talking about disabling the send checksum, but the receive checksum. He
+knows that he does not need it.
+
+DS
 
 
-__xfrm6_bundle_create()
- {
-  ...
-  ...
-
- else {
-                         dst_prev->child = dst1;
-                         dst1->flags |= DST_NOHASH;
-...
-...
-
-
-}
-
-We see here a definition and 3 places with assignment ; So I don't
-understand what is the DST_NOHASH flag for ?
-It seems to me that it has to do with IPSec transformers routing tables entires
-but again, it seems that this flag is not accessed
-(except for assigning this flag).
-
-I would appreciate of anybody will say some words about this flag and its
-usage (maybe it is redundant and should be removed?)
-
-Regards,
-Ian
