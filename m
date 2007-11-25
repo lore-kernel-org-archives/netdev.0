@@ -1,120 +1,79 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] ipv4/arp.c:arp_process(): remove bogus #ifdef mess
-Date: Sun, 25 Nov 2007 17:30:03 +0100
-Message-ID: <20071125163003.GC21947@stusta.de>
-References: <200711071434.52607.david-b@pacbell.net> <20071107225232.GB26163@stusta.de> <20071108033010.GF26163@stusta.de> <20071119.212639.217993660.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: wireless vs. alignment requirements
+Date: Sun, 25 Nov 2007 18:04:17 +0100
+Message-ID: <1196010257.4149.234.camel@johannes.berg>
+References: <E1IvoID-0006aR-00@gondolin.me.apana.org.au>
+	 <1195893216.4149.186.camel@johannes.berg>
+	 <20071124133200.GA27531@gondor.apana.org.au>
+	 <1195912176.4149.194.camel@johannes.berg>
+	 <20071124141319.GA27819@gondor.apana.org.au>
+	 <1195938799.4149.197.camel@johannes.berg>
+	 <20071125014446.GA32104@gondor.apana.org.au>
+	 <1195988428.4149.225.camel@johannes.berg>
+	 <20071125112251.GA10039@gondor.apana.org.au>
+	 <1195998864.4149.229.camel@johannes.berg>
+	 <20071125140121.GA12665@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: david-b@pacbell.net, randy.dunlap@oracle.com,
-	toralf.foerster@gmx.de, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756558AbXKYQac@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20071119.212639.217993660.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-x97m9NRiaMTqgg2izU1L"
+Cc: dsd@gentoo.org, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:57343 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752273AbXKYREm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Nov 2007 12:04:42 -0500
+In-Reply-To: <20071125140121.GA12665@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 19, 2007 at 09:26:39PM -0800, David Miller wrote:
-> From: Adrian Bunk <bunk@kernel.org>
-> Date: Thu, 8 Nov 2007 04:30:10 +0100
-> 
-> > @davem:
-> > 
-> > Please look at net/ipv4/arp.c:arp_process()
-> > 
-> > Am I right that CONFIG_NET_ETHERNET=n and CONFIG_NETDEV_1000=y or 
-> > CONFIG_NETDEV_10000=y will not be handled correctly there?
-> > 
-> > And the best solution is to nuke all #ifdef's in this function and make 
-> > the code unconditionally available?
-> 
-> I think removing those specific ifdefs in arp_process()
-> is the best option, yes.
 
-Patch below.
-
-cu
-Adrian
+--=-x97m9NRiaMTqgg2izU1L
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
 
-<--  snip  -->
+> > Hmm. I don't think so. Take an AP for example. It gets a lot of packets
+> > from stations. Now, if you're not QoS capable then all is well. But i
+> > you are and some stations are as well then all those stations send QoS
+> > packets (+2 bytes). Or take an AP connected via wireless (WPS), WPS has
+> > +6 bytes so I get all incoming upstream traffic with such unaligned
+> > headers.
+>=20
+> The question is does this actually change all the time.  Let's
+> say you took a random sample of a second worth of IP packets
+> over wireless, what proportion of them are going to have the
+> same hardware header length modulo 4?
 
+I'd think that totally depends on the traffic. If you have a non-QoS AP
+with WPS upstream connection, then the traffic to stations will be
+four-byte aligned while the WPS upstream will be at a 2-byte-mod-4
+boundary. And you'll have all packets from stations come in aligned and
+all response packets from wherever come in as WPS.
 
-The #ifdef's in arp_process() were not only a mess, they were also wrong 
-in the CONFIG_NET_ETHERNET=n and (CONFIG_NETDEV_1000=y or 
-CONFIG_NETDEV_10000=y) cases.
+johannes
 
-Since they are not required this patch removes them.
+--=-x97m9NRiaMTqgg2izU1L
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-Also removed are some #ifdef's around #include's that caused compile 
-errors after this change.
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
+iQIVAwUAR0mrEKVg1VMiehFYAQIFAA//UXB0E0PGaYxne15/l4wYiHE6+pQyTQtV
+t57rgJBwPgN18l/PmWCn5EMv+0h0DlF1MRMA3dUusUy4b7MVoUdVF1YX8qoEtfEI
+UP/whJNH6nYzZGH0bpiQSCi3CQ+kvb1NEkkxotxPDc50TEkQNHoNYKhbK+pD2zCn
+ll2aIAOVtse9EyXNOeM6qe35EisS+GSP5R1oDX2aHUAkJMRly6lO0AtFjVI2LuWu
+PcUHkSOH1H6Ow5Tj99yvMM1/GJKOh5AUJAwhgIGdGRfDmdsMVAdhUaWbJE19uVJE
+y7GuwGsreBewoE2DcicQ6asY4f3a9cOy4L5SnxxOJRjH9wNw7/L347Zi2fmlBFvX
+PL0+VvkvznlERe3tEe/yzn0/SbTzYViNQrNfgYzgWThu1dwU2y9hRau4fuTufS0p
+aHDDIinfQfsr5+Ss4NiAAjC4YsOshRbh5FEQUNLPG96gG0Gyyu/0lgrZjZjQYOZA
+OYGC0DiKZ63Z0daVSDbzVv7BnTUt4EN6DzEZiFhrGl00G1Oyx0sqbacH5wzn7zzG
+WjAh3cZGoX5WJObEmRxYcpm4mIoReyKh0rOFX9z/Ubt2n1xLYKeR2abOTKGPGuJg
+pY0YppdHhxP8MfSopIzzExQmQl3311h3wfRc81txXhNrEZFBDg1goauODT2v3gPL
+k8SBopTpMcI=
+=T5Up
+-----END PGP SIGNATURE-----
 
----
+--=-x97m9NRiaMTqgg2izU1L--
 
- net/ipv4/arp.c |   19 -------------------
- 1 file changed, 19 deletions(-)
-
-759b820456b1400b2a6b061eca9667bf7a6f053d 
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 36d6798..0c5d549 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -111,12 +111,8 @@
- #include <net/tcp.h>
- #include <net/sock.h>
- #include <net/arp.h>
--#if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
- #include <net/ax25.h>
--#if defined(CONFIG_NETROM) || defined(CONFIG_NETROM_MODULE)
- #include <net/netrom.h>
--#endif
--#endif
- #if defined(CONFIG_ATM_CLIP) || defined(CONFIG_ATM_CLIP_MODULE)
- #include <net/atmclip.h>
- struct neigh_table *clip_tbl_hook;
-@@ -731,20 +727,10 @@ static int arp_process(struct sk_buff *skb)
- 		    htons(dev_type) != arp->ar_hrd)
- 			goto out;
- 		break;
--#ifdef CONFIG_NET_ETHERNET
- 	case ARPHRD_ETHER:
--#endif
--#ifdef CONFIG_TR
- 	case ARPHRD_IEEE802_TR:
--#endif
--#ifdef CONFIG_FDDI
- 	case ARPHRD_FDDI:
--#endif
--#ifdef CONFIG_NET_FC
- 	case ARPHRD_IEEE802:
--#endif
--#if defined(CONFIG_NET_ETHERNET) || defined(CONFIG_TR) || \
--    defined(CONFIG_FDDI)	 || defined(CONFIG_NET_FC)
- 		/*
- 		 * ETHERNET, Token Ring and Fibre Channel (which are IEEE 802
- 		 * devices, according to RFC 2625) devices will accept ARP
-@@ -759,21 +745,16 @@ static int arp_process(struct sk_buff *skb)
- 		    arp->ar_pro != htons(ETH_P_IP))
- 			goto out;
- 		break;
--#endif
--#if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
- 	case ARPHRD_AX25:
- 		if (arp->ar_pro != htons(AX25_P_IP) ||
- 		    arp->ar_hrd != htons(ARPHRD_AX25))
- 			goto out;
- 		break;
--#if defined(CONFIG_NETROM) || defined(CONFIG_NETROM_MODULE)
- 	case ARPHRD_NETROM:
- 		if (arp->ar_pro != htons(AX25_P_IP) ||
- 		    arp->ar_hrd != htons(ARPHRD_NETROM))
- 			goto out;
- 		break;
--#endif
--#endif
- 	}
- 
- 	/* Understand only these message types */
