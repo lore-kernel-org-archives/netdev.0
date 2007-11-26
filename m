@@ -1,77 +1,42 @@
-From: Kim Phillips <kim.phillips@freescale.com>
-Subject: [PATCH 2/3][RESEND] phylib: marvell: add support for TX-only and
- RX-only Internal Delay
-Date: Mon, 26 Nov 2007 16:17:52 -0600
-Message-ID: <20071126161752.5b4bd09d.kim.phillips@freescale.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
+Date: Mon, 26 Nov 2007 14:18:25 -0800
+Message-ID: <adave7or6q6.fsf@cisco.com>
+References: <20071122343.446909000@suse.de> <adatznarrzc.fsf@cisco.com>
+	<200711261228.15155.rusty@rustcorp.com.au>
+	<20071126102533.1c774870@freepuppy.rosehill.pdx.hemminger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Li Yang <leoli@freescale.com>,
-	Kumar Gala <galak@kernel.crashing.org>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: jgarzik@pobox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:57687 "EHLO
-	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754821AbXKZWS1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 17:18:27 -0500
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>, Andi Kleen <ak@suse.de>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sam@ravnborg.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757018AbXKZWSr@vger.kernel.org>
+In-Reply-To: <20071126102533.1c774870@freepuppy.rosehill.pdx.hemminger.net> (Stephen Hemminger's message of "Mon, 26 Nov 2007 10:25:33 -0800")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Previously, Internal Delay specification implied the delay be
-applied to both TX and RX.  This patch allows for separate TX/RX-only
-internal delay specification.
+ > Agreed. On first glance, I was intrigued but:
+ > 
+ > 1) Why is everyone so concerned that export symbol space is large?
+ > 	- does it cost cpu or running memory?
+ > 	- does it cause bugs?
+ > 	- or are you just worried about "evil modules"?
+ > 
+ > 2) These aren't real namespaces
+ > 	- all global names still have to be unique
+ > 	- still have to handle the "non-modular build" namespace conflicts
+ > 	- there isn't a big problem with conflicting symbols today.
 
-Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
-Tested-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-Acked-by: Li Yang <leoli@freescale.com>
----
- drivers/net/phy/marvell.c |   26 +++++++++++++++++---------
- 1 files changed, 17 insertions(+), 9 deletions(-)
+Perhaps changing the name from "namespace" to "interface" would help?
+Then a module could have something like
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 035fd41..f057407 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -143,21 +143,29 @@ static int m88e1111_config_init(struct phy_device *phydev)
- 	int err;
- 
- 	if ((phydev->interface == PHY_INTERFACE_MODE_RGMII) ||
--	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)) {
-+	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) ||
-+	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID) ||
-+	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)) {
- 		int temp;
- 
--		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
--			temp = phy_read(phydev, MII_M1111_PHY_EXT_CR);
--			if (temp < 0)
--				return temp;
-+		temp = phy_read(phydev, MII_M1111_PHY_EXT_CR);
-+		if (temp < 0)
-+			return temp;
- 
-+		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
- 			temp |= (MII_M1111_RX_DELAY | MII_M1111_TX_DELAY);
--
--			err = phy_write(phydev, MII_M1111_PHY_EXT_CR, temp);
--			if (err < 0)
--				return err;
-+		} else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID) {
-+			temp &= ~MII_M1111_TX_DELAY;
-+			temp |= MII_M1111_RX_DELAY;
-+		} else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID) {
-+			temp &= ~MII_M1111_RX_DELAY;
-+			temp |= MII_M1111_TX_DELAY;
- 		}
- 
-+		err = phy_write(phydev, MII_M1111_PHY_EXT_CR, temp);
-+		if (err < 0)
-+			return err;
-+
- 		temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
- 		if (temp < 0)
- 			return temp;
--- 
-1.5.2.2
+MODULE_USE_INTERFACE(foo);
 
+and I think that makes it clearer what the advantage of this is: it
+marks symbols as being part of a certain interface, requires modules
+that use that interface to declare that use explicitly, and allows
+reviewers to say "Hey why is this code using the scsi interface when
+it's a webcam driver?"
+
+ - R.
