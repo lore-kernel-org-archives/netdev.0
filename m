@@ -1,67 +1,37 @@
-From: Luke Browning <lukebr@linux.vnet.ibm.com>
-Subject: Re: [PATCH] ehea: Add kdump support
-Date: Mon, 26 Nov 2007 13:41:37 -0200
-Message-ID: <1196091697.7513.30.camel@luke-laptop.br.ibm.com>
-References: <200711091433.51259.osstklei@de.ibm.com>
-	 <1196064988.19855.15.camel@concordia>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [XFRM]: Fix leak of expired xfrm_states
+Date: Mon, 26 Nov 2007 23:46:25 +0800
+Message-ID: <20071126154625.GI28022@gondor.apana.org.au>
+References: <474AE0B7.5010709@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Klein <osstklei@de.ibm.com>,
-	Michael Neuling <mikey@neuling.org>,
-	Jeff Garzik <jeff@garzik.org>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Paul Mackerras <paulus@samba.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>
-To: michael@ellerman.id.au
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from igw3.br.ibm.com ([32.104.18.26]:55291 "EHLO igw3.br.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751495AbXKZPlU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Nov 2007 10:41:20 -0500
-In-Reply-To: <1196064988.19855.15.camel@concordia>
+Received: from rhun.apana.org.au ([64.62.148.172]:4161 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751977AbXKZPqb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 10:46:31 -0500
+Content-Disposition: inline
+In-Reply-To: <474AE0B7.5010709@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-11-26 at 19:16 +1100, Michael Ellerman wrote:
+On Mon, Nov 26, 2007 at 04:05:27PM +0100, Patrick McHardy wrote:
+> This patch fixes a xfrm_state leak, which appears to be a
+> regression from the reference count simplifications.
 
-> 
-> Hi Thomas,
-> 
-> I'm sorry, but this patch is all wrong IMHO.
-> 
-> For kdump we have to assume that the kernel is fundamentally broken,
-> we've panicked, so something bad has happened - every line of kernel
-> code that is run decreases the chance that we'll successfully make it
-> into the kdump kernel.
+I was going to say this was a good find :)
 
-I agree with Michael.
+But digging deeper it seems that it might not be a bug after
+all.  Even though the ref count on x may now drop to zero, it
+won't be freed until del_timer_sync returns which should be
+sufficient, no?
 
-> Solutions that might be better:
-> 
->  a) if there are a finite number of handles and we can predict their 
->     values, just delete them all in the kdump kernel before the driver
->     loads.
-
-This is a good solution if handles are predefined.
-
->  b) if there are a small & finite number of handles, save their values 
->     in a device tree property and have the kdump kernel read them and 
->     delete them before the driver loads.
-
-Also good but is more complicated.  
-
->  c) if neither of those work, provide a minimal routine that _only_
->     deletes the handles in the crashed kernel.
->  d) <something else>
-
-Can the driver or configuration method for the driver query PHYP to
-determine if there are any pre-existing mappings... 
-
-Regards, Luke
-
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
