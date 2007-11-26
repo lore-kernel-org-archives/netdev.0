@@ -1,45 +1,32 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
-Date: Mon, 26 Nov 2007 12:28:14 +1100
-Message-ID: <200711261228.15155.rusty@rustcorp.com.au>
-References: <20071122343.446909000@suse.de> <adatznarrzc.fsf@cisco.com>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: wireless vs. alignment requirements
+Date: Mon, 26 Nov 2007 09:36:55 +0800
+Message-ID: <20071126013655.GA22528@gondor.apana.org.au>
+References: <20071124133200.GA27531@gondor.apana.org.au> <1195912176.4149.194.camel@johannes.berg> <20071124141319.GA27819@gondor.apana.org.au> <1195938799.4149.197.camel@johannes.berg> <20071125014446.GA32104@gondor.apana.org.au> <1195988428.4149.225.camel@johannes.berg> <20071125112251.GA10039@gondor.apana.org.au> <1195998864.4149.229.camel@johannes.berg> <20071125140121.GA12665@gondor.apana.org.au> <1196010257.4149.234.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@suse.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sam@ravnborg.org
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:41798 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752792AbXKZB2R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Nov 2007 20:28:17 -0500
-In-Reply-To: <adatznarrzc.fsf@cisco.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <1196010257.4149.234.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 26 November 2007 07:27:03 Roland Dreier wrote:
->  > This patch allows to export symbols only for specific modules by
->  > introducing symbol name spaces. A module name space has a white
->  > list of modules that are allowed to import symbols for it; all others
->  > can't use the symbols.
->  >
->  > It adds two new macros:
->  >
->  > MODULE_NAMESPACE_ALLOW(namespace, module);
+On Sun, Nov 25, 2007 at 06:04:17PM +0100, Johannes Berg wrote:
 >
-> I definitely like the idea of organizing exported symbols into
-> namespaces.  However, I feel like it would make more sense to have
-> something like
->
-> MODULE_NAMESPACE_IMPORT(namespace);
+> I'd think that totally depends on the traffic. If you have a non-QoS AP
+> with WPS upstream connection, then the traffic to stations will be
+> four-byte aligned while the WPS upstream will be at a 2-byte-mod-4
+> boundary. And you'll have all packets from stations come in aligned and
+> all response packets from wherever come in as WPS.
 
-Except C doesn't have namespaces and this mechanism doesn't create them.  So 
-this is just complete and utter makework; as I said before, noone's going to 
-confuse all those udp_* functions if they're not in the udp namespace.
+OK, sounds like you'll just have to fix them up after DMA.
 
-For better or worse, this is not C++.
-
-Rusty.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
