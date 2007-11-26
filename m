@@ -1,51 +1,84 @@
-From: Joerg Pommnitz <pommnitz@yahoo.com>
-Subject: AW: Does tc-prio really work as advertised?
-Date: Tue, 27 Nov 2007 05:00:55 -0800 (PST)
-Message-ID: <759014.71791.qm@web51409.mail.re2.yahoo.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] sungem: fix napi regression with reset work
+Date: Mon, 26 Nov 2007 21:02:08 +0100
+Message-ID: <1196107328.8459.8.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web51409.mail.re2.yahoo.com ([206.190.38.188]:28571 "HELO
-	web51409.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754872AbXK0NA5 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2007 08:00:57 -0500
+Received: from crystal.sipsolutions.net ([195.210.38.204]:59231 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754857AbXK0NGf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 08:06:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> So, are you still sure you've tested such a case?
+sungem's gem_reset_task() will unconditionally try to disable NAPI even
+when it's called while the interface is not operating and hence the NAPI
+struct isn't enabled. Make napi_disable() depend on gp->running.
 
-Well, the problem that triggered my investigation was
-that the OLSR daemon (www.olsr.org) calculates the quality
-of a link according to the packet loss for LQ HELLO packets
-(UDP broadcast packets). To prevent other traffic from
-interfering with the LQ calculation, olsrd sends the HELLO
-packets with a TOS value of 0x10 (minimize delay). This
-should give them the highest priority.
+Also removes a superfluous test of gp->running in the same function.
 
-What I saw was a degrading Link quality with more user traffic
-over a link. The LQ fell so far that olsrd judged the other host
-unreachable and deleted the routing entry. The user traffic in
-question was iperf (TOS value 0x00).
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+---
+Not exactly sure how I got there but I did get stuck in there (sysrq-W)
+when I plugged in the network cable and booted the computer on the other
+end of it... while the interface was down. I would've thought that the
+driver wouldn't even notice the fact that I plugged in the cable while
+the interface is down, but maybe it does. Or it sets up the device
+wrongly at resume time when the interface was down at suspend.
 
-The OLSR traffic was obviously generated locally (not forwarded).
-You claim, that the TOS value for locally generated traffic does
-not influence its priority?
+In any case, this should fix the issue.
 
-Now I THINK that I did my tests both, for forwarded and for
-local traffic, but I'll redo my tests to make sure.
+ drivers/net/sungem.c |   11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
+--- everything.orig/drivers/net/sungem.c	2007-11-26 20:48:11.489044815 +0100
++++ everything/drivers/net/sungem.c	2007-11-26 21:01:28.519045736 +0100
+@@ -2279,34 +2279,33 @@ static void gem_reset_task(struct work_s
+ {
+ 	struct gem *gp = container_of(work, struct gem, reset_task);
  
---  
-Regards and thanks for taking an interest
-
+ 	mutex_lock(&gp->pm_mutex);
  
-       Joerg
+-	napi_disable(&gp->napi);
++	if (gp->opened)
++		napi_disable(&gp->napi);
+ 
+ 	spin_lock_irq(&gp->lock);
+ 	spin_lock(&gp->tx_lock);
+ 
+-	if (gp->running == 0)
+-		goto not_running;
+-
+ 	if (gp->running) {
+ 		netif_stop_queue(gp->dev);
+ 
+ 		/* Reset the chip & rings */
+ 		gem_reinit_chip(gp);
+ 		if (gp->lstate == link_up)
+ 			gem_set_link_modes(gp);
+ 		netif_wake_queue(gp->dev);
+ 	}
+- not_running:
++
+ 	gp->reset_task_pending = 0;
+ 
+ 	spin_unlock(&gp->tx_lock);
+ 	spin_unlock_irq(&gp->lock);
+ 
+-	napi_enable(&gp->napi);
++	if (gp->opened)
++		napi_enable(&gp->napi);
+ 
+ 	mutex_unlock(&gp->pm_mutex);
+ }
+ 
+ 
 
 
-
-
-        __________________________________  Ihr erstes Baby? Holen Sie sich Tipps von anderen Eltern.  www.yahoo.de/clever
