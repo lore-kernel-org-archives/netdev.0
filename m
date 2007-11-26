@@ -1,62 +1,35 @@
-From: "Arnaldo Carvalho de Melo" <acme@redhat.com>
-Subject: Re: [PATCH net-2.6.25] Fix pcounter build error without CONFIG_SMP
-Date: Mon, 26 Nov 2007 13:23:05 -0200
-Message-ID: <20071126152305.GD14520@ghostprotocols.net>
-References: <Pine.LNX.4.64.0711261630020.18529@kivilampi-30.cs.helsinki.fi>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/4] xfrm_hash: kmalloc + memset conversion to kzalloc
+Date: Mon, 26 Nov 2007 23:24:15 +0800
+Message-ID: <20071126152415.GE28022@gondor.apana.org.au>
+References: <007c01c8300b$176975a0$9c94fea9@jason> <474A8D97.2030808@trash.net> <000301c83016$774dcba0$9c94fea9@jason>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: 'Patrick McHardy' <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joonwoo Park <joonwpark81@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:59489 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750875AbXKZPXZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Nov 2007 10:23:25 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:3802 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750914AbXKZPYX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 10:24:23 -0500
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0711261630020.18529@kivilampi-30.cs.helsinki.fi>
+In-Reply-To: <000301c83016$774dcba0$9c94fea9@jason>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Mon, Nov 26, 2007 at 04:35:38PM +0200, Ilpo J=E4rvinen escreveu:
->=20
-> I keep getting this build error and couldn't find anyone fixing
-> it in archives. ...Maybe all net developers except me build
-> just SMP kernels :-).
+On Mon, Nov 26, 2007 at 10:23:51AM +0000, Joonwoo Park wrote:
+> 2007/11/26, Patrick McHardy <kaber@trash.net>:
+> > How about also switching vmalloc/get_free_pages to GFP_ZERO
+> > and getting rid of the memset entirely while you're at it?
+> > 
+> 
+> xfrm_hash: kmalloc + memset conversion to kzalloc
+> fix to avoid memset entirely.
 
-Thank you! UP is for sissies anyway :-P
-
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-=20
-> In file included from include/net/sock.h:50,
->                  from ipc/mqueue.c:35:
-> include/linux/pcounter.h: In function 'pcounter_add':
-> include/linux/pcounter.h:87: error: 'struct pcounter' has no
-> member named 'value'
-> make[1]: *** [ipc/mqueue.o] Error 1
-> make: *** [ipc] Error 2
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-> ---
->  include/linux/pcounter.h |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->=20
-> diff --git a/include/linux/pcounter.h b/include/linux/pcounter.h
-> index 620aade..9c4760a 100644
-> --- a/include/linux/pcounter.h
-> +++ b/include/linux/pcounter.h
-> @@ -84,7 +84,7 @@ static inline int pcounter_getval(const struct pcou=
-nter *self)
-> =20
->  static inline void pcounter_add(struct pcounter *self, int inc)
->  {
-> -	self->value +=3D inc;
-> +	self->val +=3D inc;
->  }
-> =20
->  static inline int pcounter_getval(const struct pcounter *self)
-> --=20
-> 1.5.0.6
-
+Patch applied.  Thanks everyone!
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
