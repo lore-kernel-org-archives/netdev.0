@@ -1,49 +1,72 @@
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Subject: Re: [PATCH 4/4] atm/ambassador: kmalloc + memset conversion to kzalloc
-Date: Mon, 26 Nov 2007 19:53:19 +0900
-Message-ID: <b25c3fa70711260253we514310g2652d40440dc514e@mail.gmail.com>
-References: <007f01c8300b$1b89ac40$9c94fea9@jason>
-	 <alpine.LFD.0.9999.0711260409110.551@localhost.localdomain>
-	 <b25c3fa70711260223w5a15bb1bk4652b3ab8f05c40c@mail.gmail.com>
-	 <alpine.LFD.0.9999.0711260523420.12603@localhost.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 6/7] [IPSEC]: Lock state when copying non-atomic fields to user-space
+Date: Mon, 26 Nov 2007 19:07:21 +0800
+Message-ID: <20071126110720.GA26479@gondor.apana.org.au>
+References: <20071009143517.GA20486@gondor.apana.org.au> <20071009.133307.88477317.davem@davemloft.net> <20071010004822.GB25265@gondor.apana.org.au> <200711261203.46195.nakam@linux-ipv6.org> <20071126031845.GA23417@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil,
-	linux-kernel@vger.kernel.org
-To: "Robert P. J. Day" <rpjday@crashcourse.ca>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ingo Molnar <mingo@elte.hu>
+To: Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.189]:64078 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752396AbXKZKxT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 05:53:19 -0500
-Received: by rv-out-0910.google.com with SMTP id k20so482218rvb
-        for <netdev@vger.kernel.org>; Mon, 26 Nov 2007 02:53:19 -0800 (PST)
-In-Reply-To: <alpine.LFD.0.9999.0711260523420.12603@localhost.localdomain>
+Received: from rhun.apana.org.au ([64.62.148.172]:4144 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753535AbXKZLH3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 06:07:29 -0500
 Content-Disposition: inline
+In-Reply-To: <20071126031845.GA23417@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2007/11/26, Robert P. J. Day <rpjday@crashcourse.ca>:
-> i realized that.  but all you can say is that only amb_init() calls
-> setup_dev() *currently*.  when you're not looking, someone else might
-> (for whatever reason) call setup_dev() from elsewhere, and *that* call
-> might not zero that memory area.
+On Mon, Nov 26, 2007 at 11:18:45AM +0800, Herbert Xu wrote:
 >
-> IMHO, the only safe transforms of kmalloc+memset -> kzalloc are those
-> in which the flow of control is unmistakable and invariant.  splitting
-> that across a function call seems like a dangerous thing to do.
-> (except, of course, in the case, where the kzalloc() is added inside
-> the function -- then all callers are entitled to simplify *their*
-> code.  but that's different.)
->
-> in any event, i just thought i'd point it out.  if you're absolutely
-> sure there will never be another call to setup_dev() from somewhere
-> else, then, yes, it's safe.
->
+> I'm just going to revert this patch for 2.6.24 since we've lived
+> with this race for so long anyway.
 
-I understood your opinions. and partially agree with you.
-But isn't it a unfounded fear?
+Actually, instead of reverting it completely I'm just going to
+remove the newly added locks which should be just as effective.
 
-Thanks
-Joonwoo
+This would reduce the churn in the code as we'd be putting most
+of it back soon anyway.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 3b2d864..878039b 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -1015,9 +1015,7 @@ static inline struct sk_buff *pfkey_xfrm_state2msg(struct xfrm_state *x)
+ {
+ 	struct sk_buff *skb;
+ 
+-	spin_lock_bh(&x->lock);
+ 	skb = __pfkey_xfrm_state2msg(x, 1, 3);
+-	spin_unlock_bh(&x->lock);
+ 
+ 	return skb;
+ }
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index d41588d..e75dbdc 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -507,7 +507,6 @@ static int copy_to_user_state_extra(struct xfrm_state *x,
+ 				    struct xfrm_usersa_info *p,
+ 				    struct sk_buff *skb)
+ {
+-	spin_lock_bh(&x->lock);
+ 	copy_to_user_state(x, p);
+ 
+ 	if (x->coaddr)
+@@ -515,7 +514,6 @@ static int copy_to_user_state_extra(struct xfrm_state *x,
+ 
+ 	if (x->lastused)
+ 		NLA_PUT_U64(skb, XFRMA_LASTUSED, x->lastused);
+-	spin_unlock_bh(&x->lock);
+ 
+ 	if (x->aalg)
+ 		NLA_PUT(skb, XFRMA_ALG_AUTH, alg_len(x->aalg), x->aalg);
