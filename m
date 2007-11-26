@@ -1,46 +1,62 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [2.6 patch] ipv4/arp.c:arp_process(): remove bogus #ifdef mess
-Date: Mon, 26 Nov 2007 23:19:26 +0800
-Message-ID: <20071126151926.GD28022@gondor.apana.org.au>
-References: <200711071434.52607.david-b@pacbell.net> <20071107225232.GB26163@stusta.de> <20071108033010.GF26163@stusta.de> <20071119.212639.217993660.davem@davemloft.net> <20071125163003.GC21947@stusta.de>
+From: "Arnaldo Carvalho de Melo" <acme@redhat.com>
+Subject: Re: [PATCH net-2.6.25] Fix pcounter build error without CONFIG_SMP
+Date: Mon, 26 Nov 2007 13:23:05 -0200
+Message-ID: <20071126152305.GD14520@ghostprotocols.net>
+References: <Pine.LNX.4.64.0711261630020.18529@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, david-b@pacbell.net,
-	randy.dunlap@oracle.com, toralf.foerster@gmx.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3730 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754280AbXKZPT5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 10:19:57 -0500
+Received: from mx1.redhat.com ([66.187.233.31]:59489 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750875AbXKZPXZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Nov 2007 10:23:25 -0500
 Content-Disposition: inline
-In-Reply-To: <20071125163003.GC21947@stusta.de>
+In-Reply-To: <Pine.LNX.4.64.0711261630020.18529@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 25, 2007 at 04:30:03PM +0000, Adrian Bunk wrote:
-> > > 
-> > > Please look at net/ipv4/arp.c:arp_process()
-> > > 
-> > > Am I right that CONFIG_NET_ETHERNET=n and CONFIG_NETDEV_1000=y or 
-> > > CONFIG_NETDEV_10000=y will not be handled correctly there?
-> > > 
-> > > And the best solution is to nuke all #ifdef's in this function and make 
-> > > the code unconditionally available?
-> > 
-> > I think removing those specific ifdefs in arp_process()
-> > is the best option, yes.
-> 
-> Patch below.
+Em Mon, Nov 26, 2007 at 04:35:38PM +0200, Ilpo J=E4rvinen escreveu:
+>=20
+> I keep getting this build error and couldn't find anyone fixing
+> it in archives. ...Maybe all net developers except me build
+> just SMP kernels :-).
 
-Thanks Adrian.  Patch applied to net-2.6.
+Thank you! UP is for sissies anyway :-P
 
-Do we need this for stable too?
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+=20
+> In file included from include/net/sock.h:50,
+>                  from ipc/mqueue.c:35:
+> include/linux/pcounter.h: In function 'pcounter_add':
+> include/linux/pcounter.h:87: error: 'struct pcounter' has no
+> member named 'value'
+> make[1]: *** [ipc/mqueue.o] Error 1
+> make: *** [ipc] Error 2
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> ---
+>  include/linux/pcounter.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/include/linux/pcounter.h b/include/linux/pcounter.h
+> index 620aade..9c4760a 100644
+> --- a/include/linux/pcounter.h
+> +++ b/include/linux/pcounter.h
+> @@ -84,7 +84,7 @@ static inline int pcounter_getval(const struct pcou=
+nter *self)
+> =20
+>  static inline void pcounter_add(struct pcounter *self, int inc)
+>  {
+> -	self->value +=3D inc;
+> +	self->val +=3D inc;
+>  }
+> =20
+>  static inline int pcounter_getval(const struct pcounter *self)
+> --=20
+> 1.5.0.6
 
-Chers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
