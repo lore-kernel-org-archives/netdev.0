@@ -1,83 +1,71 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFC] bridging: don't forward EAPOL frames
-Date: Mon, 26 Nov 2007 09:36:26 -0800
-Message-ID: <20071126093626.08c22a9d@freepuppy.rosehill.pdx.hemminger.net>
-References: <1195737808.6323.102.camel@johannes.berg>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 01/01] ipv6: RFC4214 Support (v2.5)
+Date: Tue, 27 Nov 2007 03:00:53 +0900 (JST)
+Message-ID: <20071127.030053.69931033.yoshfuji@linux-ipv6.org>
+References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC2B@XCH-NW-7V2.nw.nos.boeing.com>
+	<39C363776A4E8C4A94691D2BD9D1C9A1029EDC3F@XCH-NW-7V2.nw.nos.boeing.com>
+	<39C363776A4E8C4A94691D2BD9D1C9A1029EDC45@XCH-NW-7V2.nw.nos.boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	bridge <bridge@linux-foundation.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: Fred.L.Templin@boeing.com, netdev@vger.kernel.org,
+	vladislav.yasevich@hp.com, davem@davemloft.net,
+	yoshfuji@linux-ipv6.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:53444 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755469AbXKZRiw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 12:38:52 -0500
-In-Reply-To: <1195737808.6323.102.camel@johannes.berg>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:37203 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751904AbXKZSAp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 13:00:45 -0500
+In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC45@XCH-NW-7V2.nw.nos.boeing.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 22 Nov 2007 14:23:28 +0100
-Johannes Berg <johannes@sipsolutions.net> wrote:
+In article <39C363776A4E8C4A94691D2BD9D1C9A1029EDC45@XCH-NW-7V2.nw.nos.boeing.com> (at Mon, 26 Nov 2007 09:16:16 -0800), "Templin, Fred L" <Fred.L.Templin@boeing.com> says:
 
-> This patch makes the bridging code drop EAPOL frames as recommended by
-> 802.1X-2004 in C.3.3.
+> From: Fred L. Templin <fred.l.templin@boeing.com>
 > 
-> Is this really the right place to put it?
-> ---
->  include/linux/if_ether.h |    1 +
->  include/net/ieee80211.h  |    6 ------
->  net/bridge/br_input.c    |    3 +++
->  3 files changed, 4 insertions(+), 6 deletions(-)
+> This patch includes support for the Intra-Site Automatic Tunnel
+> Addressing Protocol (ISATAP) per RFC4214. It uses the SIT
+> module, and is configured using extensions to the "iproute2"
+> utility. The diffs are specific to the Linux 2.6.24-rc2 kernel
+> distribution.
 > 
-> --- everything.orig/include/linux/if_ether.h	2007-11-22 11:47:14.178686360 +0100
-> +++ everything/include/linux/if_ether.h	2007-11-22 11:48:21.438679036 +0100
-> @@ -74,6 +74,7 @@
->  #define ETH_P_ATMFATE	0x8884		/* Frame-based ATM Transport
->  					 * over Ethernet
->  					 */
-> +#define ETH_P_PAE	0x888E		/* Port Access Entity (IEEE 802.1X) */
->  #define ETH_P_AOE	0x88A2		/* ATA over Ethernet		*/
->  #define ETH_P_TIPC	0x88CA		/* TIPC 			*/
->  
-> --- everything.orig/include/net/ieee80211.h	2007-11-22 11:46:29.908682888 +0100
-> +++ everything/include/net/ieee80211.h	2007-11-22 11:48:51.908679037 +0100
-> @@ -183,12 +183,6 @@ const char *escape_essid(const char *ess
->  #endif
->  #include <net/iw_handler.h>	/* new driver API */
->  
-> -#ifndef ETH_P_PAE
-> -#define ETH_P_PAE 0x888E	/* Port Access Entity (IEEE 802.1X) */
-> -#endif				/* ETH_P_PAE */
-> -
-> -#define ETH_P_PREAUTH 0x88C7	/* IEEE 802.11i pre-authentication */
-> -
->  #ifndef ETH_P_80211_RAW
->  #define ETH_P_80211_RAW (ETH_P_ECONET + 1)
->  #endif
-> --- everything.orig/net/bridge/br_input.c	2007-11-22 11:54:44.798683106 +0100
-> +++ everything/net/bridge/br_input.c	2007-11-22 11:57:23.248680285 +0100
-> @@ -145,6 +145,9 @@ struct sk_buff *br_handle_frame(struct n
->  		}
->  	}
->  
-> +	if (unlikely(skb->protocol = htons(ETH_P_PAE)))
-> +		goto drop;
-> +
->  	switch (p->state) {
->  	case BR_STATE_FORWARDING:
+> This version includes the diff for ./include/linux/if.h which was
+> missing in the v2.4 submission and is needed to make the
+> patch compile. The patch has been installed, compiled and
+> tested in a clean 2.6.24-rc2 kernel build area.
+> 
+> Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
+Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Not needed because the bridge is already handling it:
+Note:
+With linux-2.6:
+| % patch -p1 < /tmp/isatap.patch 
+| patching file include/linux/if.h
+| patching file include/linux/if_tunnel.h
+| patching file include/linux/in.h
+| patching file include/net/addrconf.h
+| patching file net/ipv6/addrconf.c
+| patching file net/ipv6/route.c
+| Hunk #1 succeeded at 1660 (offset -8 lines).
+| patching file net/ipv6/sit.c
 
-1) If running STP (ie true bridge), then all link local multicast is only received by
-the bridge and never forwarded.
+With net-2.6.24:
+| % patch -p1 < /tmp/isatap.patch
+| % patch -p1 < /tmp/isatap.patch 
+| patching file include/linux/if.h
+| patching file include/linux/if_tunnel.h
+| patching file include/linux/in.h
+| patching file include/net/addrconf.h
+| patching file net/ipv6/addrconf.c
+| Hunk #1 succeeded at 378 (offset -1 lines).
+| Hunk #2 succeeded at 1441 (offset -1 lines).
+| Hunk #3 succeeded at 1479 (offset -1 lines).
+| Hunk #4 succeeded at 2210 (offset -1 lines).
+| patching file net/ipv6/route.c
+| Hunk #1 succeeded at 1727 (offset 59 lines).
+| patching file net/ipv6/sit.c
 
-2) If not running sTP (ie invisible bridge), then it will be forwarded.
-
-Despite what the standards say, many users are using bridging code for invisible
-firewalls etc, and in those cases they want STP and EAPOL frames to be forwarded.
-
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+--yoshfuji
