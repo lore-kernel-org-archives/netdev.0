@@ -1,123 +1,96 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 2/2] Eliminate unused argument from sk_stream_alloc_pskb
-Date: Mon, 26 Nov 2007 20:17:27 +0300
-Message-ID: <474AFFA7.2090102@openvz.org>
+From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Subject: [PATCH 01/01] iproute2-2.6.23: RFC4214 Support (v2.5)
+Date: Mon, 26 Nov 2007 09:20:07 -0800
+Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC46@XCH-NW-7V2.nw.nos.boeing.com>
+References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC18@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC20@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC25@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC2A@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC2C@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC40@XCH-NW-7V2.nw.nos.boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+	charset="iso-2022-jp"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: =?iso-2022-jp?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
+	<yoshfuji@linux-ipv6.org>,
+	"Vlad Yasevich" <vladislav.yasevich@hp.com>,
+	"Stephane Bortzmeyer" <bortzmeyer@nic.fr>,
+	"David Miller" <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:35264 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752599AbXKZRRh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Nov 2007 12:17:37 -0500
+Received: from blv-smtpout-01.boeing.com ([130.76.32.69]:52516 "EHLO
+	blv-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755575AbXKZRVA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 12:21:00 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC40@XCH-NW-7V2.nw.nos.boeing.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The 3rd argument is always zero (according to grep :) Eliminate
-it and merge the function with sk_stream_alloc_skb.
+From: Fred L. Templin <fred.l.templin@boeing.com>
 
-This saves 44 more bytes, and together with the previous patch
-we have:
+This patch includes support for the Intra-Site Automatic Tunnel
+Addressing Protocol (ISATAP) per RFC4214.
 
-add/remove: 1/0 grow/shrink: 0/8 up/down: 183/-751 (-568)
-function                                     old     new   delta
-sk_stream_alloc_skb                            -     183    +183
-ip_rt_init                                   529     525      -4
-arp_ignore                                   112     107      -5
-__inet_lookup_listener                       284     274     -10
-tcp_sendmsg                                 2583    2481    -102
-tcp_sendpage                                1449    1300    -149
-tso_fragment                                 417     258    -159
-tcp_fragment                                1149     988    -161
-__tcp_push_pending_frames                   1998    1837    -161
+The following diffs are specific to the iproute2-2.6.23
+software distribution. This message includes the full and
+patchable diff text; please use this version to apply patches.
 
-Question: is this 2.6.24 material (good space saving) or should I
-rework this against 2.6.25 (it applies with fuzzes, but seems to
-compile)?
-
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
 
 ---
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 492dc4a..a469ed8 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1230,15 +1230,7 @@ static inline void sk_stream_moderate_sndbuf(struct sock *sk)
- 	}
- }
  
--struct sk_buff *sk_stream_alloc_pskb(struct sock *sk,
--		int size, int mem, gfp_t gfp);
--
--static inline struct sk_buff *sk_stream_alloc_skb(struct sock *sk,
--						  int size,
--						  gfp_t gfp)
--{
--	return sk_stream_alloc_pskb(sk, size, 0, gfp);
--}
-+struct sk_buff *sk_stream_alloc_skb(struct sock *sk, int size, gfp_t gfp);
- 
- static inline struct page *sk_stream_alloc_page(struct sock *sk)
+--- iproute2-2.6.23/ip/iptunnel.c.orig	2007-11-08 16:27:24.000000000 -0800
++++ iproute2-2.6.23/ip/iptunnel.c	2007-11-19 05:57:47.000000000 -0800
+@@ -39,7 +39,7 @@ static void usage(void) __attribute__((n
+ static void usage(void)
  {
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 0dfda20..1965c37 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -501,8 +501,7 @@ static inline void tcp_push(struct sock *sk, int flags, int mss_now,
- 	}
- }
- 
--struct sk_buff *sk_stream_alloc_pskb(struct sock *sk,
--		int size, int mem, gfp_t gfp)
-+struct sk_buff *sk_stream_alloc_skb(struct sock *sk, int size, gfp_t gfp)
+ 	fprintf(stderr, "Usage: ip tunnel { add | change | del | show } [ NAME ]\n");
+-	fprintf(stderr, "          [ mode { ipip | gre | sit } ] [ remote ADDR ] [ local ADDR ]\n");
++	fprintf(stderr, "          [ mode { ipip | gre | sit | isatap } ] [ remote ADDR ] [ local ADDR ]\n");
+ 	fprintf(stderr, "          [ [i|o]seq ] [ [i|o]key KEY ] [ [i|o]csum ]\n");
+ 	fprintf(stderr, "          [ ttl TTL ] [ tos TOS ] [ [no]pmtudisc ] [ dev PHYS_DEV ]\n");
+ 	fprintf(stderr, "\n");
+@@ -55,6 +55,7 @@ static int parse_args(int argc, char **a
  {
- 	struct sk_buff *skb;
+ 	int count = 0;
+ 	char medium[IFNAMSIZ];
++	int isatap = 0;
  
-@@ -511,7 +510,6 @@ struct sk_buff *sk_stream_alloc_pskb(struct sock *sk,
+ 	memset(p, 0, sizeof(*p));
+ 	memset(&medium, 0, sizeof(medium));
+@@ -90,6 +91,13 @@ static int parse_args(int argc, char **a
+ 					exit(-1);
+ 				}
+ 				p->iph.protocol = IPPROTO_IPV6;
++			} else if (strcmp(*argv, "isatap") == 0) {
++				if (p->iph.protocol && p->iph.protocol != IPPROTO_IPV6) {
++					fprintf(stderr,"You managed to ask for more than one tunnel mode.\n");
++					exit(-1);
++				}
++				p->iph.protocol = IPPROTO_IPV6;
++				isatap++;
+ 			} else {
+ 				fprintf(stderr,"Cannot guess tunnel mode.\n");
+ 				exit(-1);
+@@ -212,6 +220,10 @@ static int parse_args(int argc, char **a
+ 			p->iph.protocol = IPPROTO_IPIP;
+ 		else if (memcmp(p->name, "sit", 3) == 0)
+ 			p->iph.protocol = IPPROTO_IPV6;
++		else if (memcmp(p->name, "isatap", 6) == 0) {
++			p->iph.protocol = IPPROTO_IPV6;
++			isatap++;
++		}
+ 	}
  
- 	skb = alloc_skb_fclone(size + sk->sk_prot->max_header, gfp);
- 	if (skb) {
--		skb->truesize += mem;
- 		if (sk_stream_wmem_schedule(sk, skb->truesize)) {
- 			/*
- 			 * Make sure that we have exactly size bytes
-@@ -564,8 +562,7 @@ new_segment:
- 			if (!sk_stream_memory_free(sk))
- 				goto wait_for_sndbuf;
- 
--			skb = sk_stream_alloc_pskb(sk, 0, 0,
--						   sk->sk_allocation);
-+			skb = sk_stream_alloc_skb(sk, 0, sk->sk_allocation);
- 			if (!skb)
- 				goto wait_for_memory;
- 
-@@ -745,8 +742,8 @@ new_segment:
- 				if (!sk_stream_memory_free(sk))
- 					goto wait_for_sndbuf;
- 
--				skb = sk_stream_alloc_pskb(sk, select_size(sk),
--							   0, sk->sk_allocation);
-+				skb = sk_stream_alloc_skb(sk, select_size(sk),
-+						sk->sk_allocation);
- 				if (!skb)
- 					goto wait_for_memory;
- 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index e5130a7..132e16b 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1183,7 +1183,7 @@ static int tso_fragment(struct sock *sk, struct sk_buff *skb, unsigned int len,
- 	if (skb->len != skb->data_len)
- 		return tcp_fragment(sk, skb, len, mss_now);
- 
--	buff = sk_stream_alloc_pskb(sk, 0, 0, GFP_ATOMIC);
-+	buff = sk_stream_alloc_skb(sk, 0, GFP_ATOMIC);
- 	if (unlikely(buff == NULL))
- 		return -ENOMEM;
- 
--- 
-1.5.3.4
-
+ 	if (p->iph.protocol == IPPROTO_IPIP || p->iph.protocol == IPPROTO_IPV6) {
+@@ -239,6 +251,14 @@ static int parse_args(int argc, char **a
+ 		fprintf(stderr, "Broadcast tunnel requires a source address.\n");
+ 		return -1;
+ 	}
++	if (isatap) {
++		if (p->iph.daddr) {
++			fprintf(stderr, "no remote with isatap.\n");
++			return -1;
++		}
++		p->i_flags |= SIT_ISATAP;
++	}
++
+ 	return 0;
+ }
