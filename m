@@ -1,71 +1,56 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 01/01] ipv6: RFC4214 Support (v2.5)
-Date: Tue, 27 Nov 2007 03:00:53 +0900 (JST)
-Message-ID: <20071127.030053.69931033.yoshfuji@linux-ipv6.org>
-References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC2B@XCH-NW-7V2.nw.nos.boeing.com>
-	<39C363776A4E8C4A94691D2BD9D1C9A1029EDC3F@XCH-NW-7V2.nw.nos.boeing.com>
-	<39C363776A4E8C4A94691D2BD9D1C9A1029EDC45@XCH-NW-7V2.nw.nos.boeing.com>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH] ehea: Add kdump support
+Date: Mon, 26 Nov 2007 12:11:49 -0600
+Message-ID: <20071126181148.GF4551@austin.ibm.com>
+References: <200711091433.51259.osstklei@de.ibm.com> <1196064988.19855.15.camel@concordia> <1196091697.7513.30.camel@luke-laptop.br.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Fred.L.Templin@boeing.com, netdev@vger.kernel.org,
-	vladislav.yasevich@hp.com, davem@davemloft.net,
-	yoshfuji@linux-ipv6.org
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: michael@ellerman.id.au, Michael Neuling <mikey@neuling.org>,
+	Jeff Garzik <jeff@garzik.org>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Thomas Klein <osstklei@de.ibm.com>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Paul Mackerras <paulus@samba.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>,
+	ahuja@austin.ibm.com
+To: Luke Browning <lukebr@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:37203 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751904AbXKZSAp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 13:00:45 -0500
-In-Reply-To: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC45@XCH-NW-7V2.nw.nos.boeing.com>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:55979 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751714AbXKZSMJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 13:12:09 -0500
+Content-Disposition: inline
+In-Reply-To: <1196091697.7513.30.camel@luke-laptop.br.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <39C363776A4E8C4A94691D2BD9D1C9A1029EDC45@XCH-NW-7V2.nw.nos.boeing.com> (at Mon, 26 Nov 2007 09:16:16 -0800), "Templin, Fred L" <Fred.L.Templin@boeing.com> says:
 
-> From: Fred L. Templin <fred.l.templin@boeing.com>
+Hi,
+
+On Mon, Nov 26, 2007 at 01:41:37PM -0200, Luke Browning wrote:
+> On Mon, 2007-11-26 at 19:16 +1100, Michael Ellerman wrote:
 > 
-> This patch includes support for the Intra-Site Automatic Tunnel
-> Addressing Protocol (ISATAP) per RFC4214. It uses the SIT
-> module, and is configured using extensions to the "iproute2"
-> utility. The diffs are specific to the Linux 2.6.24-rc2 kernel
-> distribution.
-> 
-> This version includes the diff for ./include/linux/if.h which was
-> missing in the v2.4 submission and is needed to make the
-> patch compile. The patch has been installed, compiled and
-> tested in a clean 2.6.24-rc2 kernel build area.
-> 
-> Signed-off-by: Fred L. Templin <fred.l.templin@boeing.com>
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> > For kdump we have to assume that the kernel is fundamentally broken,
 
-Note:
-With linux-2.6:
-| % patch -p1 < /tmp/isatap.patch 
-| patching file include/linux/if.h
-| patching file include/linux/if_tunnel.h
-| patching file include/linux/in.h
-| patching file include/net/addrconf.h
-| patching file net/ipv6/addrconf.c
-| patching file net/ipv6/route.c
-| Hunk #1 succeeded at 1660 (offset -8 lines).
-| patching file net/ipv6/sit.c
+If I may so humbly suggest: since ehea is a power6 thing only,
+we should refocus our energies on "hypervisor assisted dump",
+which solves all of these problems. 
 
-With net-2.6.24:
-| % patch -p1 < /tmp/isatap.patch
-| % patch -p1 < /tmp/isatap.patch 
-| patching file include/linux/if.h
-| patching file include/linux/if_tunnel.h
-| patching file include/linux/in.h
-| patching file include/net/addrconf.h
-| patching file net/ipv6/addrconf.c
-| Hunk #1 succeeded at 378 (offset -1 lines).
-| Hunk #2 succeeded at 1441 (offset -1 lines).
-| Hunk #3 succeeded at 1479 (offset -1 lines).
-| Hunk #4 succeeded at 2210 (offset -1 lines).
-| patching file net/ipv6/route.c
-| Hunk #1 succeeded at 1727 (offset 59 lines).
-| patching file net/ipv6/sit.c
+In short, upon crash, the hypervisor will reset the 
+pci devices into working order, and will then boot
+a new fresh kernel into a tiny corner of ram. The rest
+of ram is not cleared, and can be dumped. After the 
+dump, the mem is returned to general use.
 
---yoshfuji
+The key point here, for ehea, is "the hypervisor
+will reset he device state to something rational".
+
+Preliminary patches are at
+http://patchwork.ozlabs.org/linuxppc/patch?id=14884
+and following.
+
+--linas
