@@ -1,307 +1,52 @@
-From: Ryousei Takano <takano-ryousei@aist.go.jp>
-Subject: Re: [PATCHv2 2/3] TC: PSPacer qdisc module
-Date: Tue, 27 Nov 2007 01:27:46 +0900 (JST)
-Message-ID: <20071127.012746.75118044.takano@axe-inc.co.jp>
-References: <20071127.005051.71865540.takano@axe-inc.co.jp>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, kaber@trash.net,
-	dada1@cosmosbay.com, t.kudoh@aist.go.jp
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH 1/1][ATM]: [he] initialize lock and tasklet earlier
+Date: Mon, 26 Nov 2007 11:33:31 -0500
+Message-ID: <200711261633.lAQGXWvr027742@cmf.nrl.navy.mil>
+Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from axekw.axe-inc.co.jp ([61.199.217.67]:63964 "EHLO
-	axekw.axe-inc.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752354AbXKZQ1y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 11:27:54 -0500
-In-Reply-To: <20071127.005051.71865540.takano@axe-inc.co.jp>
+Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:61385 "EHLO
+	ginger.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751870AbXKZQeI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 11:34:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I am sorry I sent an old patch.
-Please see this one.
+if you are lucky (unlucky?) enough to have shared interrupts, the
+interrupt handler can be called before the tasklet and lock are ready
+for use.
 
---
-[PATCHv2 2/3] TC: PSPacer qdisc module
+commit 44b3e82778b0edf73147529c8b1c115d241a6a4d
+Author: chas williams - CONTRACTOR <chas@thirdoffive.cmf.nrl.navy.mil>
+Date:   Mon Nov 26 11:30:33 2007 -0500
 
-This patch includes the PSPacer (Precise Software Pacer) qdisc
-tc part, which achieves precise transmission bandwidth control.
-You can find more information at the project web page
-(http://www.gridmpi.org/gridtcp.jsp).
+    [ATM]: [he] initialize lock and tasklet earlier
 
-Signed-off-by: Ryousei Takano <takano-ryousei@aist.go.jp>
----
- include/linux/pkt_sched.h |   37 +++++++++
- tc/Makefile               |    1 +
- tc/q_psp.c                |  199 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 237 insertions(+), 0 deletions(-)
- create mode 100644 tc/q_psp.c
-
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index 268c515..ed21e26 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -430,6 +430,43 @@ enum {
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+index d33aba6..3b64a99 100644
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -394,6 +394,11 @@ he_init_one(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
+ 	he_dev->atm_dev->dev_data = he_dev;
+ 	atm_dev->dev_data = he_dev;
+ 	he_dev->number = atm_dev->number;
++#ifdef USE_TASKLET
++	tasklet_init(&he_dev->tasklet, he_tasklet, (unsigned long) he_dev);
++#endif
++	spin_lock_init(&he_dev->global_lock);
++
+ 	if (he_start(atm_dev)) {
+ 		he_stop(he_dev);
+ 		err = -ENODEV;
+@@ -1173,11 +1178,6 @@ he_start(struct atm_dev *dev)
+ 	if ((err = he_init_irq(he_dev)) != 0)
+ 		return err;
  
- #define TCA_ATM_MAX	(__TCA_ATM_MAX - 1)
- 
-+/* Precise Software Pacer section */
-+
-+#define TC_PSP_MAXDEPTH (8)
-+
-+typedef long long gapclock_t;
-+
-+enum {
-+	MODE_NORMAL = 0,
-+	MODE_STATIC = 1,
-+};
-+
-+struct tc_psp_copt
-+{
-+	__u32	level;
-+	__u32	mode;
-+	__u32	rate;
-+};
-+
-+struct tc_psp_qopt
-+{
-+	__u32	defcls;
-+	__u32	rate;
-+};
-+
-+struct tc_psp_xstats
-+{
-+	__u32	bytes;		/* gap packet statistics */
-+	__u32	packets;
-+};
-+
-+enum
-+{
-+	TCA_PSP_UNSPEC,
-+	TCA_PSP_COPT,
-+	TCA_PSP_QOPT,
-+};
-+
- /* Network emulator */
- 
- enum
-diff --git a/tc/Makefile b/tc/Makefile
-index a715566..836df9d 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -12,6 +12,7 @@ TCMODULES += q_prio.o
- TCMODULES += q_tbf.o
- TCMODULES += q_cbq.o
- TCMODULES += q_rr.o
-+TCMODULES += q_psp.o
- TCMODULES += q_netem.o
- TCMODULES += f_rsvp.o
- TCMODULES += f_u32.o
-diff --git a/tc/q_psp.c b/tc/q_psp.c
-new file mode 100644
-index 0000000..1806b66
---- /dev/null
-+++ b/tc/q_psp.c
-@@ -0,0 +1,199 @@
-+/*
-+ * q_psp.c		PSPacer: Precise Software Pacer
-+ *
-+ *		Copyright (C) 2004-2007 National Institute of Advanced
-+ *		Industrial Science and Technology (AIST), Japan.
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Ryousei Takano, <takano-ryousei@aist.go.jp>
-+ *
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+#include <syslog.h>
-+#include <fcntl.h>
-+#include <sys/socket.h>
-+#include <netinet/in.h>
-+#include <arpa/inet.h>
-+#include <string.h>
-+
-+#include "utils.h"
-+#include "tc_util.h"
-+
-+static void explain(void)
-+{
-+	fprintf(stderr,
-+"Usage: ... qdisc add ... psp [ default N ] [rate RATE]\n"
-+" default  minor id of class to which unclassified packets are sent {0}\n"
-+" rate     physical interface bandwidth\n\n"
-+"... class add ... psp mode M [ rate MBPS ]\n"
-+" mode     target rate estimation method (NORMAL=0 STATIC=1) {0}\n"
-+" rate     rate allocated to this class\n");
-+}
-+
-+static void explain1(char *arg)
-+{
-+	fprintf(stderr, "Illegal \"%s\"\n", arg);
-+	explain();
-+}
-+
-+
-+static int psp_parse_opt(struct qdisc_util *qu, int argc, char **argv,
-+			 struct nlmsghdr *n)
-+{
-+	struct tc_psp_qopt qopt;
-+	struct rtattr *tail;
-+	memset(&qopt, 0, sizeof(qopt));
-+
-+	while (argc > 0) {
-+		if (matches(*argv, "rate") == 0) {
-+			NEXT_ARG();
-+			if (get_rate(&qopt.rate, *argv)) {
-+				explain1("rate");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "default") == 0) {
-+			NEXT_ARG();
-+			if (get_u32(&qopt.defcls, *argv, 16)) {
-+				explain1("default");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "help") == 0) {
-+			explain();
-+			return -1;
-+		} else {
-+			fprintf(stderr, "What is \"%s\"?\n", *argv);
-+			explain();
-+			return -1;
-+		}
-+		argc--;
-+		argv++;
-+	}
-+
-+	tail = NLMSG_TAIL(n);
-+	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
-+	addattr_l(n, 2024, TCA_OPTIONS, &qopt, NLMSG_ALIGN(sizeof(qopt)));
-+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
-+	return 0;
-+}
-+
-+static int psp_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
-+{
-+	struct rtattr *tb[TCA_PSP_QOPT+1];
-+	struct tc_psp_copt *copt;
-+	struct tc_psp_qopt *qopt;
-+	SPRINT_BUF(b);
-+
-+	if (opt == NULL)
-+		return 0;
-+
-+	memset(tb, 0, sizeof(tb));
-+	parse_rtattr_nested(tb, TCA_PSP_QOPT, opt);
-+
-+	if (tb[TCA_PSP_COPT]) {
-+		copt = RTA_DATA(tb[TCA_PSP_COPT]);
-+		if (RTA_PAYLOAD(tb[TCA_PSP_COPT]) < sizeof(*copt))
-+			return -1;
-+		fprintf(f, "level %d ", (int)copt->level);
-+		switch (copt->mode) {
-+		case MODE_NORMAL:
-+			fprintf(f, "mode NORMAL ");
-+			break;
-+		case MODE_STATIC:
-+			fprintf(f, "mode STATIC (%s) ",
-+				sprint_rate(copt->rate, b));
-+			break;
-+		}
-+	}
-+	if (tb[TCA_PSP_QOPT]) {
-+		qopt = RTA_DATA(tb[TCA_PSP_QOPT]);
-+		if (RTA_PAYLOAD(tb[TCA_PSP_QOPT])  < sizeof(*qopt))
-+			return -1;
-+		fprintf(f, "default %x max rate %s",
-+			qopt->defcls, sprint_rate(qopt->rate, b));
-+	}
-+	return 0;
-+}
-+
-+static int psp_print_xstats(struct qdisc_util *qu, FILE *f,
-+			    struct rtattr *xstats)
-+{
-+	struct tc_psp_xstats *st;
-+	if (xstats == NULL)
-+		return 0;
-+
-+	if (RTA_PAYLOAD(xstats) < sizeof(*st))
-+		return -1;
-+
-+	st = RTA_DATA(xstats);
-+	fprintf(f, "  gap %u bytes %u pkts", st->bytes, st->packets);
-+	return 0;
-+}
-+
-+static int psp_parse_class_opt(struct qdisc_util *qu, int argc, char **argv,
-+			       struct nlmsghdr *n)
-+{
-+	struct tc_psp_copt copt;
-+	struct rtattr *tail;
-+
-+	memset(&copt, 0, sizeof(copt));
-+	copt.mode = MODE_STATIC; /* default mode */
-+
-+	while (argc > 0) {
-+		if (matches(*argv, "rate") == 0) {
-+			NEXT_ARG();
-+			if (get_rate(&copt.rate, *argv)) {
-+				explain1("rate");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "mode") == 0) {
-+			NEXT_ARG();
-+			if (get_u32(&copt.mode, *argv, 10)) {
-+				explain1("mode");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "help") == 0) {
-+			explain();
-+			return -1;
-+		} else {
-+			fprintf(stderr, "What is \"%s\"?\n", *argv);
-+			explain();
-+			return -1;
-+		}
-+		argc--; argv++;
-+	}
-+
-+	if (copt.mode == MODE_NORMAL && copt.rate != 0) {
-+		fprintf(stderr, "You can not set to \"rate\" parameter "
-+			"in normal mode\n");
-+		explain1("rate");
-+		return -1;
-+	} else if (copt.mode == MODE_STATIC && copt.rate == 0) {
-+		fprintf(stderr, "You need set to \"rate\" parameter "
-+			"in static target rate mode.\n");
-+		explain1("rate");
-+		return -1;
-+	}
-+
-+	tail = NLMSG_TAIL(n);
-+	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
-+	addattr_l(n, 2024, TCA_PSP_COPT, &copt, sizeof(copt));
-+	tail->rta_len = (void *)NLMSG_TAIL(n) - (void *)tail;
-+	return 0;
-+}
-+
-+struct qdisc_util psp_qdisc_util = {
-+	.id		= "psp",
-+	.parse_qopt	= psp_parse_opt,
-+	.print_qopt	= psp_print_opt,
-+	.print_xstats	= psp_print_xstats,
-+	.parse_copt	= psp_parse_class_opt,
-+	.print_copt	= psp_print_opt
-+};
-+
--- 
-1.5.3.4
-
+-#ifdef USE_TASKLET
+-	tasklet_init(&he_dev->tasklet, he_tasklet, (unsigned long) he_dev);
+-#endif
+-	spin_lock_init(&he_dev->global_lock);
+-
+ 	/* 4.11 enable pci bus controller state machines */
+ 	host_cntl |= (OUTFF_ENB | CMDFF_ENB |
+ 				QUICK_RD_RETRY | QUICK_WR_RETRY | PERR_INT_ENB);
