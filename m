@@ -1,72 +1,83 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [ofa-general] [PATCH 2.6.25 1/2] RDMA/cxgb3: Hold rtnl_lock() around
-	ethtool get_drvinfo call.
-Date: Mon, 26 Nov 2007 11:28:44 -0600
-Message-ID: <20071126172844.22792.46023.stgit@dell3.ogc.int>
-References: <20071126172457.22792.62583.stgit@dell3.ogc.int>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, ewg@lists.openfabrics.org,
-	general@lists.openfabrics.org
-To: rdreier@cisco.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20071126172457.22792.62583.stgit@dell3.ogc.int>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [RFC] bridging: don't forward EAPOL frames
+Date: Mon, 26 Nov 2007 09:36:26 -0800
+Message-ID: <20071126093626.08c22a9d@freepuppy.rosehill.pdx.hemminger.net>
+References: <1195737808.6323.102.camel@johannes.berg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	bridge <bridge@linux-foundation.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:53444 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755469AbXKZRiw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 12:38:52 -0500
+In-Reply-To: <1195737808.6323.102.camel@johannes.berg>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 22 Nov 2007 14:23:28 +0100
+Johannes Berg <johannes@sipsolutions.net> wrote:
 
-RDMA/cxgb3: Hold rtnl_lock() around ethtool get_drvinfo call.
+> This patch makes the bridging code drop EAPOL frames as recommended by
+> 802.1X-2004 in C.3.3.
+> 
+> Is this really the right place to put it?
+> ---
+>  include/linux/if_ether.h |    1 +
+>  include/net/ieee80211.h  |    6 ------
+>  net/bridge/br_input.c    |    3 +++
+>  3 files changed, 4 insertions(+), 6 deletions(-)
+> 
+> --- everything.orig/include/linux/if_ether.h	2007-11-22 11:47:14.178686360 +0100
+> +++ everything/include/linux/if_ether.h	2007-11-22 11:48:21.438679036 +0100
+> @@ -74,6 +74,7 @@
+>  #define ETH_P_ATMFATE	0x8884		/* Frame-based ATM Transport
+>  					 * over Ethernet
+>  					 */
+> +#define ETH_P_PAE	0x888E		/* Port Access Entity (IEEE 802.1X) */
+>  #define ETH_P_AOE	0x88A2		/* ATA over Ethernet		*/
+>  #define ETH_P_TIPC	0x88CA		/* TIPC 			*/
+>  
+> --- everything.orig/include/net/ieee80211.h	2007-11-22 11:46:29.908682888 +0100
+> +++ everything/include/net/ieee80211.h	2007-11-22 11:48:51.908679037 +0100
+> @@ -183,12 +183,6 @@ const char *escape_essid(const char *ess
+>  #endif
+>  #include <net/iw_handler.h>	/* new driver API */
+>  
+> -#ifndef ETH_P_PAE
+> -#define ETH_P_PAE 0x888E	/* Port Access Entity (IEEE 802.1X) */
+> -#endif				/* ETH_P_PAE */
+> -
+> -#define ETH_P_PREAUTH 0x88C7	/* IEEE 802.11i pre-authentication */
+> -
+>  #ifndef ETH_P_80211_RAW
+>  #define ETH_P_80211_RAW (ETH_P_ECONET + 1)
+>  #endif
+> --- everything.orig/net/bridge/br_input.c	2007-11-22 11:54:44.798683106 +0100
+> +++ everything/net/bridge/br_input.c	2007-11-22 11:57:23.248680285 +0100
+> @@ -145,6 +145,9 @@ struct sk_buff *br_handle_frame(struct n
+>  		}
+>  	}
+>  
+> +	if (unlikely(skb->protocol = htons(ETH_P_PAE)))
+> +		goto drop;
+> +
+>  	switch (p->state) {
+>  	case BR_STATE_FORWARDING:
 
-Currently the call into cxgb3 to get the driver info is not serialized.
-The iw_cxgb3 module needs to hold the rtnl_lock around the ethtool ops
-call like dev_ioctl() does.
+Not needed because the bridge is already handling it:
 
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
----
+1) If running STP (ie true bridge), then all link local multicast is only received by
+the bridge and never forwarded.
 
- drivers/infiniband/hw/cxgb3/iwch_provider.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+2) If not running sTP (ie invisible bridge), then it will be forwarded.
 
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_provider.c b/drivers/infini=
-band/hw/cxgb3/iwch_provider.c
-index b5436ca..69b1204 100644
---- a/drivers/infiniband/hw/cxgb3/iwch_provider.c
-+++ b/drivers/infiniband/hw/cxgb3/iwch_provider.c
-@@ -39,6 +39,7 @@
- #include <linux/list.h>
- #include <linux/spinlock.h>
- #include <linux/ethtool.h>
-+#include <linux/rtnetlink.h>
-=20
- #include <asm/io.h>
- #include <asm/irq.h>
-@@ -1053,7 +1054,9 @@ static ssize_t show_fw_ver(struct class_device *cde=
-v, char *buf)
- 	struct net_device *lldev =3D dev->rdev.t3cdev_p->lldev;
-=20
- 	PDBG("%s class dev 0x%p\n", __FUNCTION__, cdev);
-+	rtnl_lock();
- 	lldev->ethtool_ops->get_drvinfo(lldev, &info);
-+	rtnl_unlock();
- 	return sprintf(buf, "%s\n", info.fw_version);
- }
-=20
-@@ -1065,7 +1068,9 @@ static ssize_t show_hca(struct class_device *cdev, =
-char *buf)
- 	struct net_device *lldev =3D dev->rdev.t3cdev_p->lldev;
-=20
- 	PDBG("%s class dev 0x%p\n", __FUNCTION__, cdev);
-+	rtnl_lock();
- 	lldev->ethtool_ops->get_drvinfo(lldev, &info);
-+	rtnl_unlock();
- 	return sprintf(buf, "%s\n", info.driver);
- }
-=20
+Despite what the standards say, many users are using bridging code for invisible
+firewalls etc, and in those cases they want STP and EAPOL frames to be forwarded.
+
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
