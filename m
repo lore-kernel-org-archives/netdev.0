@@ -1,48 +1,64 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 5/6] skge: increase TX threshold for Jumbo
-Date: Mon, 26 Nov 2007 11:54:52 -0800
-Message-ID: <20071126195557.762317974@linux-foundation.org>
+Subject: [PATCH 3/6] skge: retry on MAC shutdown
+Date: Mon, 26 Nov 2007 11:54:50 -0800
+Message-ID: <20071126195557.657291575@linux-foundation.org>
 References: <20071126195447.846382144@linux-foundation.org>
 Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:47448 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:44440 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753580AbXKZUEN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 15:04:13 -0500
-Content-Disposition: inline; filename=skge-tx-thr.patch
+	by vger.kernel.org with ESMTP id S1754219AbXKZUEg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 15:04:36 -0500
+Content-Disposition: inline; filename=skge-stopping-retry.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Need to increase TX threshold when doing Jumbo frames on dual port board
-to avoid underruns. (Code from sk98lin).
+Make sure and retry when shutting down the MAC. This code is copied
+from sk98lin driver.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
 
---- a/drivers/net/skge.c	2007-11-21 14:05:59.000000000 -0800
-+++ b/drivers/net/skge.c	2007-11-21 14:06:15.000000000 -0800
-@@ -1633,15 +1633,14 @@ static void genesis_mac_init(struct skge
- 	}
- 	xm_write16(hw, port, XM_RX_CMD, r);
+--- a/drivers/net/skge.c	2007-11-21 14:40:58.000000000 -0800
++++ b/drivers/net/skge.c	2007-11-21 14:44:02.000000000 -0800
+@@ -1713,7 +1713,7 @@ static void genesis_stop(struct skge_por
+ {
+ 	struct skge_hw *hw = skge->hw;
+ 	int port = skge->port;
+-	u32 reg;
++	unsigned retries = 1000;
  
--
- 	/* We want short frames padded to 60 bytes. */
- 	xm_write16(hw, port, XM_TX_CMD, XM_TX_AUTO_PAD);
+ 	genesis_reset(hw, port);
+ 
+@@ -1721,20 +1721,17 @@ static void genesis_stop(struct skge_por
+ 	skge_write16(hw, B3_PA_CTRL,
+ 		     port == 0 ? PA_CLR_TO_TX1 : PA_CLR_TO_TX2);
  
 -	/*
--	 * Bump up the transmit threshold. This helps hold off transmit
--	 * underruns when we're blasting traffic from both ports at once.
+-	 * If the transfer sticks at the MAC the STOP command will not
+-	 * terminate if we don't flush the XMAC's transmit FIFO !
 -	 */
--	xm_write16(hw, port, XM_TX_THR, 512);
-+	/* Increase threshold for jumbo frames on dual port */
-+	if (hw->ports > 1 && jumbo)
-+		xm_write16(hw, port, XM_TX_THR, 1020);
-+	else
-+		xm_write16(hw, port, XM_TX_THR, 512);
+-	xm_write32(hw, port, XM_MODE,
+-			xm_read32(hw, port, XM_MODE)|XM_MD_FTF);
+-
+-
+ 	/* Reset the MAC */
+-	skge_write16(hw, SK_REG(port, TX_MFF_CTRL1), MFF_SET_MAC_RST);
++	skge_write16(hw, SK_REG(port, TX_MFF_CTRL1), MFF_CLR_MAC_RST);
++	do {
++		skge_write16(hw, SK_REG(port, TX_MFF_CTRL1), MFF_SET_MAC_RST);
++		if (!(skge_read16(hw, SK_REG(port, TX_MFF_CTRL1)) & MFF_SET_MAC_RST))
++			break;
++	} while (--retries > 0);
  
- 	/*
- 	 * Enable the reception of all error frames. This is is
+ 	/* For external PHYs there must be special handling */
+ 	if (hw->phy_type != SK_PHY_XMAC) {
+-		reg = skge_read32(hw, B2_GP_IO);
++		u32 reg = skge_read32(hw, B2_GP_IO);
+ 		if (port == 0) {
+ 			reg |= GP_DIR_0;
+ 			reg &= ~GP_IO_0;
 
 -- 
 Stephen Hemminger <shemminger@linux-foundation.org>
