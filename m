@@ -1,65 +1,59 @@
-From: Vitaly Bordug <vitb@kernel.crashing.org>
-Subject: [PATCH 3/3] [POWERPC] MPC8349E-mITX: Vitesse 7385 PHY is not
-	connected to the MDIO bus
-Date: Mon, 26 Nov 2007 17:29:22 +0300
-Message-ID: <20071126142922.19642.47964.stgit@localhost.localdomain>
-References: <20071126142906.19642.45540.stgit@localhost.localdomain>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH net-2.6.25] Fix pcounter build error without CONFIG_SMP
+Date: Mon, 26 Nov 2007 16:35:38 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0711261630020.18529@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1289721590-1196087738=:18529"
+Cc: Netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:48617 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754635AbXKZO3d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Nov 2007 09:29:33 -0500
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: linuxppc-dev@ozlabs.org
-In-Reply-To: <20071126142906.19642.45540.stgit@localhost.localdomain>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:49947 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753033AbXKZOfk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 09:35:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-...thus use fixed-link to register proper "Fixed PHY"
+---696243703-1289721590-1196087738=:18529
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-Signed-off-by: Vitaly Bordug <vitb@kernel.crashing.org>
 
+I keep getting this build error and couldn't find anyone fixing
+it in archives. ...Maybe all net developers except me build
+just SMP kernels :-).
+
+In file included from include/net/sock.h:50,
+                 from ipc/mqueue.c:35:
+include/linux/pcounter.h: In function 'pcounter_add':
+include/linux/pcounter.h:87: error: 'struct pcounter' has no
+member named 'value'
+make[1]: *** [ipc/mqueue.o] Error 1
+make: *** [ipc] Error 2
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
 ---
+ include/linux/pcounter.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
- arch/powerpc/boot/dts/mpc8349emitx.dts |   11 ++---------
- 1 files changed, 2 insertions(+), 9 deletions(-)
-
-
-diff --git a/arch/powerpc/boot/dts/mpc8349emitx.dts b/arch/powerpc/boot/dts/mpc8349emitx.dts
-index 5072f6d..e2d00f1 100644
---- a/arch/powerpc/boot/dts/mpc8349emitx.dts
-+++ b/arch/powerpc/boot/dts/mpc8349emitx.dts
-@@ -115,14 +115,6 @@
- 				reg = <1c>;
- 				device_type = "ethernet-phy";
- 			};
--
--			/* Vitesse 7385 */
--			phy1f: ethernet-phy@1f {
--				interrupt-parent = < &ipic >;
--				interrupts = <12 8>;
--				reg = <1f>;
--				device_type = "ethernet-phy";
--			};
- 		};
+diff --git a/include/linux/pcounter.h b/include/linux/pcounter.h
+index 620aade..9c4760a 100644
+--- a/include/linux/pcounter.h
++++ b/include/linux/pcounter.h
+@@ -84,7 +84,7 @@ static inline int pcounter_getval(const struct pcounter *self)
  
- 		ethernet@24000 {
-@@ -159,7 +151,8 @@
- 			local-mac-address = [ 00 00 00 00 00 00 ];
- 			interrupts = <23 8 24 8 25 8>;
- 			interrupt-parent = < &ipic >;
--			phy-handle = < &phy1f >;
-+			/* Vitesse 7385 isn't on the MDIO bus */
-+			fixed-link = <1 1 d#1000>;
- 			linux,network-index = <1>;
- 		};
+ static inline void pcounter_add(struct pcounter *self, int inc)
+ {
+-	self->value += inc;
++	self->val += inc;
+ }
  
+ static inline int pcounter_getval(const struct pcounter *self)
+-- 
+1.5.0.6
 
+---696243703-1289721590-1196087738=:18529--
