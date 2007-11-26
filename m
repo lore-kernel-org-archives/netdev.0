@@ -1,48 +1,82 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: Missing audit information in xfrm_audit_common_policyinfo()?
-Date: Mon, 26 Nov 2007 11:52:03 -0500
-Message-ID: <200711261152.03686.paul.moore@hp.com>
-References: <OFDEF5C6F1.0AEFC4FF-ON8725739F.005BF832-8625739F.005C2038@us.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [XFRM]: Fix leak of expired xfrm_states
+Date: Mon, 26 Nov 2007 17:52:15 +0100
+Message-ID: <474AF9BF.2050603@trash.net>
+References: <474AE0B7.5010709@trash.net> <20071126154625.GI28022@gondor.apana.org.au> <474AEB8E.9040903@trash.net> <20071126155408.GA29097@gondor.apana.org.au> <474AEC91.5090907@trash.net> <20071126162223.GA29293@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-audit@redhat.com
-To: Joy Latten <latten@us.ibm.com>
-Return-path: <linux-audit-bounces@redhat.com>
-In-Reply-To: <OFDEF5C6F1.0AEFC4FF-ON8725739F.005BF832-8625739F.005C2038@us.ibm.com>
-Content-Disposition: inline
-List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/linux-audit>
-List-Post: <mailto:linux-audit@redhat.com>
-List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=subscribe>
-Sender: linux-audit-bounces@redhat.com
-Errors-To: linux-audit-bounces@redhat.com
+Content-Type: multipart/mixed;
+ boundary="------------050507030207080902030906"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:61448 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754743AbXKZQxI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 11:53:08 -0500
+In-Reply-To: <20071126162223.GA29293@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 26 November 2007 11:47:09 am Joy Latten wrote:
-> Paul Moore <paul.moore@hp.com> wrote on 11/21/2007 03:34:31 PM:
-> > I just noticed that the IPsec auditing code does not appear to audit the
-> >
-> > netmask for the selector source and destination addresses in
-> > xfrm_audit_common_policyinfo().  Before I threw a patch together I
->
-> thought I
->
-> > would check to see if there was a reason for this that I am missing ...
->
-> I don't think we ever discussed including netmask when we added the
-> ipsec audit info...
+This is a multi-part message in MIME format.
+--------------050507030207080902030906
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Hmmm ... okay.  I'm almost certain it should be included when auditing changes 
-to the SPD as the netmask/prefixlen is very important when considering which 
-traffic will be matched by a particular SPD entry.
+Herbert Xu wrote:
+> On Mon, Nov 26, 2007 at 04:56:01PM +0100, Patrick McHardy wrote:
+>> That should work as long as we keep the del_timer_sync to avoid
+>> a use-after-free. It seems a bit fragile though.
+> 
+> Well we're relying on the del_timer_sync already to avoid the
+> ref count on the timer.  Otherwise if the admin deletes the
+> SA while the timer is running it'll go up in smoke too.
+> 
+> If you look in the history you'll find that the same patch
+> that removed the ref count on the timer introduced the call
+> to del_timer_sync :)
 
-I'm working on a patch now.
 
--- 
-paul moore
-linux security @ hp
+OK, here's a patch to use xfrm_state_put in __xfrm_state_delete().
+I've checked the other callers and it should be fine. lock ordering
+between x->lock and xfrm_state_gc_lock also doesn't seem to be an
+issue.
+
+
+
+--------------050507030207080902030906
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+commit ba63b1baf5d8a63f3bb3097a7201de75c1b77e2d
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Mon Nov 26 16:00:50 2007 +0100
+
+    [XFRM]: Fix leak of expired xfrm_states
+
+    The xfrm_timer calls __xfrm_state_delete, which drops the final reference
+    manually without triggering destruction of the state. Change it to use
+    xfrm_state_put to add the state to the gc list when we're dropping the
+    last reference. The timer function may still continue to use the state
+    safely since the final destruction does a del_timer_sync().
+
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 224b44e..cf43c49 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -552,7 +552,7 @@ int __xfrm_state_delete(struct xfrm_state *x)
+ 		 * The xfrm_state_alloc call gives a reference, and that
+ 		 * is what we are dropping here.
+ 		 */
+-		__xfrm_state_put(x);
++		xfrm_state_put(x);
+ 		err = 0;
+ 	}
+ 
+
+--------------050507030207080902030906--
