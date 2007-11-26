@@ -1,7 +1,8 @@
 From: Steve Wise <swise@opengridcomputing.com>
-Subject: [ofa-general] [PATCH 2.6.25 2/2] RDMA/cxgb3: Support 5.0 firmware.
-Date: Mon, 26 Nov 2007 11:28:46 -0600
-Message-ID: <20071126172846.22792.8854.stgit@dell3.ogc.int>
+Subject: [ofa-general] [PATCH 2.6.25 1/2] RDMA/cxgb3: Hold rtnl_lock() around
+	ethtool get_drvinfo call.
+Date: Mon, 26 Nov 2007 11:28:44 -0600
+Message-ID: <20071126172844.22792.46023.stgit@dell3.ogc.int>
 References: <20071126172457.22792.62583.stgit@dell3.ogc.int>
 Content-Type: text/plain; charset=utf-8; format=fixed
 Content-Transfer-Encoding: quoted-printable
@@ -22,61 +23,50 @@ Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
 
-RDMA/cxgb3: Support 5.0 firmware.
+RDMA/cxgb3: Hold rtnl_lock() around ethtool get_drvinfo call.
 
-The 5.0 firmware now supports translating sgls in recv wrs, so remove
-the host driver logic currently doing the translation.
-
-Note: this change requires 5.0 firmware.
+Currently the call into cxgb3 to get the driver info is not serialized.
+The iw_cxgb3 module needs to hold the rtnl_lock around the ethtool ops
+call like dev_ioctl() does.
 
 Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
 
- drivers/infiniband/hw/cxgb3/iwch_qp.c |   21 ++-------------------
- 1 files changed, 2 insertions(+), 19 deletions(-)
+ drivers/infiniband/hw/cxgb3/iwch_provider.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_qp.c b/drivers/infiniband/h=
-w/cxgb3/iwch_qp.c
-index dd89b6b..9bb8112 100644
---- a/drivers/infiniband/hw/cxgb3/iwch_qp.c
-+++ b/drivers/infiniband/hw/cxgb3/iwch_qp.c
-@@ -208,36 +208,19 @@ static int iwch_sgl2pbl_map(struct iwch_dev *rhp, s=
-truct ib_sge *sg_list,
- static int iwch_build_rdma_recv(struct iwch_dev *rhp, union t3_wr *wqe,
- 				struct ib_recv_wr *wr)
- {
--	int i, err =3D 0;
--	u32 pbl_addr[4];
--	u8 page_size[4];
-+	int i;
- 	if (wr->num_sge > T3_MAX_SGE)
- 		return -EINVAL;
--	err =3D iwch_sgl2pbl_map(rhp, wr->sg_list, wr->num_sge, pbl_addr,
--			       page_size);
--	if (err)
--		return err;
--	wqe->recv.pagesz[0] =3D page_size[0];
--	wqe->recv.pagesz[1] =3D page_size[1];
--	wqe->recv.pagesz[2] =3D page_size[2];
--	wqe->recv.pagesz[3] =3D page_size[3];
- 	wqe->recv.num_sgle =3D cpu_to_be32(wr->num_sge);
- 	for (i =3D 0; i < wr->num_sge; i++) {
- 		wqe->recv.sgl[i].stag =3D cpu_to_be32(wr->sg_list[i].lkey);
- 		wqe->recv.sgl[i].len =3D cpu_to_be32(wr->sg_list[i].length);
--
--		/* to in the WQE =3D=3D the offset into the page */
--		wqe->recv.sgl[i].to =3D cpu_to_be64(((u32) wr->sg_list[i].addr) %
--				(1UL << (12 + page_size[i])));
--
--		/* pbl_addr is the adapters address in the PBL */
--		wqe->recv.pbl_addr[i] =3D cpu_to_be32(pbl_addr[i]);
-+		wqe->recv.sgl[i].to =3D cpu_to_be64(wr->sg_list[i].addr);
- 	}
- 	for (; i < T3_MAX_SGE; i++) {
- 		wqe->recv.sgl[i].stag =3D 0;
- 		wqe->recv.sgl[i].len =3D 0;
- 		wqe->recv.sgl[i].to =3D 0;
--		wqe->recv.pbl_addr[i] =3D 0;
- 	}
- 	return 0;
+diff --git a/drivers/infiniband/hw/cxgb3/iwch_provider.c b/drivers/infini=
+band/hw/cxgb3/iwch_provider.c
+index b5436ca..69b1204 100644
+--- a/drivers/infiniband/hw/cxgb3/iwch_provider.c
++++ b/drivers/infiniband/hw/cxgb3/iwch_provider.c
+@@ -39,6 +39,7 @@
+ #include <linux/list.h>
+ #include <linux/spinlock.h>
+ #include <linux/ethtool.h>
++#include <linux/rtnetlink.h>
+=20
+ #include <asm/io.h>
+ #include <asm/irq.h>
+@@ -1053,7 +1054,9 @@ static ssize_t show_fw_ver(struct class_device *cde=
+v, char *buf)
+ 	struct net_device *lldev =3D dev->rdev.t3cdev_p->lldev;
+=20
+ 	PDBG("%s class dev 0x%p\n", __FUNCTION__, cdev);
++	rtnl_lock();
+ 	lldev->ethtool_ops->get_drvinfo(lldev, &info);
++	rtnl_unlock();
+ 	return sprintf(buf, "%s\n", info.fw_version);
  }
+=20
+@@ -1065,7 +1068,9 @@ static ssize_t show_hca(struct class_device *cdev, =
+char *buf)
+ 	struct net_device *lldev =3D dev->rdev.t3cdev_p->lldev;
+=20
+ 	PDBG("%s class dev 0x%p\n", __FUNCTION__, cdev);
++	rtnl_lock();
+ 	lldev->ethtool_ops->get_drvinfo(lldev, &info);
++	rtnl_unlock();
+ 	return sprintf(buf, "%s\n", info.driver);
+ }
+=20
