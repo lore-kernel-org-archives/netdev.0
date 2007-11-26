@@ -1,78 +1,59 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [XFRM]: Fix leak of expired xfrm_states
-Date: Mon, 26 Nov 2007 16:05:27 +0100
-Message-ID: <474AE0B7.5010709@trash.net>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: [PATCH 2/3] [POWERPC] fsl_soc: add support for gianfar for
+	fixed-link property
+Date: Mon, 26 Nov 2007 16:04:08 +0100
+Message-ID: <1196089448.12625.62.camel@gentoo-jocke.transmode.se>
+References: <20071126142906.19642.45540.stgit@localhost.localdomain>
+	<20071126142915.19642.5842.stgit@localhost.localdomain>
+Reply-To: joakim.tjernlund@transmode.se
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080600000603070804050004"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58733 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750728AbXKZPGS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 10:06:18 -0500
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, linux-kernel@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+To: Vitaly Bordug <vitb@kernel.crashing.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <20071126142915.19642.5842.stgit@localhost.localdomain>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080600000603070804050004
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+On Mon, 2007-11-26 at 17:29 +0300, Vitaly Bordug wrote:
+> fixed-link says: register new "Fixed/emulated PHY", i.e. PHY that
+> not connected to the real MDIO bus.
+> 
+> Signed-off-by: Vitaly Bordug <vitb@kernel.crashing.org>
+> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+> 
+> ---
+> 
+>  Documentation/powerpc/booting-without-of.txt |    3 +
+>  arch/powerpc/sysdev/fsl_soc.c                |   56 ++++++++++++++++++--------
+>  2 files changed, 42 insertions(+), 17 deletions(-)
+> 
+> 
+> diff --git a/Documentation/powerpc/booting-without-of.txt b/Documentation/powerpc/booting-without-of.txt
+> index e9a3cb1..cf25070 100644
+> --- a/Documentation/powerpc/booting-without-of.txt
+> +++ b/Documentation/powerpc/booting-without-of.txt
+> @@ -1254,6 +1254,9 @@ platforms are moved over to use the flattened-device-tree model.
+>        services interrupts for this device.
+>      - phy-handle : The phandle for the PHY connected to this ethernet
+>        controller.
+> +    - fixed-link : <a b c> where a is emulated phy id - choose any,
+> +      but unique to the all specified fixed-links, b is duplex - 0 half,
+> +      1 full, c is link speed - d#10/d#100/d#1000.
 
-This patch fixes a xfrm_state leak, which appears to be a
-regression from the reference count simplifications.
+Good work!
+May I suggest adding a "d" to <a b c> where d is flow control - 0 no, 1 yes
 
+flow control or not just popped up here today so I got a use for it.
 
---------------080600000603070804050004
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-commit 817252c2a475371f9764883c7d0f0cde63b3cfe8
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Mon Nov 26 16:00:50 2007 +0100
-
-    [XFRM]: Fix leak of expired xfrm_states
-    
-    The xfrm_timer calls __xfrm_state_delete, which drops the final reference
-    manually without triggering destruction of the state.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 224b44e..11e9a48 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -416,7 +416,7 @@ static inline unsigned long make_jiffies(long secs)
- 
- static void xfrm_timer_handler(unsigned long data)
- {
--	struct xfrm_state *x = (struct xfrm_state*)data;
-+	struct xfrm_state *x = (struct xfrm_state*)data, *del = NULL;
- 	unsigned long now = get_seconds();
- 	long next = LONG_MAX;
- 	int warn = 0;
-@@ -479,6 +479,8 @@ expired:
- 		goto resched;
- 	}
- 
-+	del = x;
-+	xfrm_state_hold(del);
- 	err = __xfrm_state_delete(x);
- 	if (!err && x->id.spi)
- 		km_state_expired(x, 1, 0);
-@@ -488,6 +490,8 @@ expired:
- 
- out:
- 	spin_unlock(&x->lock);
-+	if (del)
-+		xfrm_state_put(del);
- }
- 
- static void xfrm_replay_timer_handler(unsigned long data);
-
---------------080600000603070804050004--
+ Jocke 
