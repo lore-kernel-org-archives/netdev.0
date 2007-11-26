@@ -1,63 +1,49 @@
-From: Christoph Raisch <RAISCH@de.ibm.com>
-Subject: Re: [PATCH] ehea: Add kdump support
-Date: Mon, 26 Nov 2007 11:45:02 +0100
-Message-ID: <OF94123F44.9DB75CE9-ONC125739F.00398E63-C125739F.003B2AFE@de.ibm.com>
-References: <200711091433.51259.osstklei@de.ibm.com> <1196064988.19855.15.camel@concordia>
+From: "Joonwoo Park" <joonwpark81@gmail.com>
+Subject: Re: [PATCH 4/4] atm/ambassador: kmalloc + memset conversion to kzalloc
+Date: Mon, 26 Nov 2007 19:53:19 +0900
+Message-ID: <b25c3fa70711260253we514310g2652d40440dc514e@mail.gmail.com>
+References: <007f01c8300b$1b89ac40$9c94fea9@jason>
+	 <alpine.LFD.0.9999.0711260409110.551@localhost.localdomain>
+	 <b25c3fa70711260223w5a15bb1bk4652b3ab8f05c40c@mail.gmail.com>
+	 <alpine.LFD.0.9999.0711260523420.12603@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Jan-Bernd Themann <THEMANN@de.ibm.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <MEDER@de.ibm.com>,
-	Michael Neuling <mikey@neuling.org>,
-	netdev <netdev@vger.kernel.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>,
-	tklein@linux.ibm.com
-To: michael@ellerman.id.au
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil,
+	linux-kernel@vger.kernel.org
+To: "Robert P. J. Day" <rpjday@crashcourse.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.de.ibm.com ([195.212.29.152]:25954 "EHLO
-	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753300AbXKZKpG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 05:45:06 -0500
-In-Reply-To: <1196064988.19855.15.camel@concordia>
+Received: from rv-out-0910.google.com ([209.85.198.189]:64078 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752396AbXKZKxT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 05:53:19 -0500
+Received: by rv-out-0910.google.com with SMTP id k20so482218rvb
+        for <netdev@vger.kernel.org>; Mon, 26 Nov 2007 02:53:19 -0800 (PST)
+In-Reply-To: <alpine.LFD.0.9999.0711260523420.12603@localhost.localdomain>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Ellerman wrote on 26.11.2007 09:16:28:
-> Solutions that might be better:
+2007/11/26, Robert P. J. Day <rpjday@crashcourse.ca>:
+> i realized that.  but all you can say is that only amb_init() calls
+> setup_dev() *currently*.  when you're not looking, someone else might
+> (for whatever reason) call setup_dev() from elsewhere, and *that* call
+> might not zero that memory area.
 >
->  a) if there are a finite number of handles and we can predict their
->     values, just delete them all in the kdump kernel before the driver
->     loads.
+> IMHO, the only safe transforms of kmalloc+memset -> kzalloc are those
+> in which the flow of control is unmistakable and invariant.  splitting
+> that across a function call seems like a dangerous thing to do.
+> (except, of course, in the case, where the kzalloc() is added inside
+> the function -- then all callers are entitled to simplify *their*
+> code.  but that's different.)
+>
+> in any event, i just thought i'd point it out.  if you're absolutely
+> sure there will never be another call to setup_dev() from somewhere
+> else, then, yes, it's safe.
+>
 
-Guessing the values does not work, because of the handle structure
-defined by the hypervisor.
+I understood your opinions. and partially agree with you.
+But isn't it a unfounded fear?
 
->  b) if there are a small & finite number of handles, save their values
->     in a device tree property and have the kdump kernel read them and
->     delete them before the driver loads.
-
-5*16*nr_ports+1+1=   >82. a ML16 has 4 adapters with up to 16 ports, so the
-number
-is not small anymore....
-The device tree functions are currently not exported.
-
-If you crashdump to a new kernel, will it get the device tree
-representation
-of the crashed kernel or of the initial one of open firmware?
-
->  c) if neither of those work, provide a minimal routine that _only_
->     deletes the handles in the crashed kernel.
-
-I would hope this has the highest chance to actually work.
-For this we would have to add a proper notifier chain.
-Do you agree?
-
->  d) <something else>
-
-Firmware change? But that's not something you will get very soon.
-
-Christoph R.
-
+Thanks
+Joonwoo
