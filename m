@@ -1,57 +1,69 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Fix memory leak in inet_hashtables.h when NUMA is on
-Date: Mon, 26 Nov 2007 20:36:09 +0800
-Message-ID: <20071126123609.GA27228@gondor.apana.org.au>
-References: <4746FC17.9010300@openvz.org>
+From: "Ian Brown" <ianbrn@gmail.com>
+Subject: Re: DST_NOHASH flag and IPsec transformers routing tables - need some clarification
+Date: Mon, 26 Nov 2007 15:15:43 +0200
+Message-ID: <d0383f90711260515p6155bd7bt196016fb4d8d4cdf@mail.gmail.com>
+References: <d0383f90711250636ha8a419emeab52c7107c1d480@mail.gmail.com>
+	 <E1IwU4G-00062t-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3028 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752441AbXKZMgL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 07:36:11 -0500
+Received: from rv-out-0910.google.com ([209.85.198.189]:60381 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752731AbXKZNPo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 08:15:44 -0500
+Received: by rv-out-0910.google.com with SMTP id k20so516202rvb
+        for <netdev@vger.kernel.org>; Mon, 26 Nov 2007 05:15:43 -0800 (PST)
+In-Reply-To: <E1IwU4G-00062t-00@gondolin.me.apana.org.au>
 Content-Disposition: inline
-In-Reply-To: <4746FC17.9010300@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 23, 2007 at 07:13:11PM +0300, Pavel Emelyanov wrote:
-> The inet_ehash_locks_alloc() looks like this:
-> 
-> #ifdef CONFIG_NUMA
-> 	if (size > PAGE_SIZE)
-> 		x = vmalloc(...);
-> 	else
-> #endif
-> 		x = kmalloc(...);
-> 
-> Unlike it, the inet_ehash_locks_alloc() looks like this:
-> 
-> #ifdef CONFIG_NUMA
-> 	if (size > PAGE_SIZE)
-> 		vfree(x);
-> 	else
-> #else
-> 		kfree(x);
-> #endif
-> 
-> The error is obvious - if the NUMA is on and the size
-> is less than the PAGE_SIZE we leak the pointer (kfree is
-> inside the #else branch).
-> 
-> Compiler doesn't warn us because after the kfree(x) there's
-> a "x = NULL" assignment, so here's another (minor?) bug: we 
-> don't set x to NULL under certain circumstances.
-> 
-> Boring explanation, I know... Patch explains it better.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Hello,
 
-Good catch! Applied to net-2.6.  Thanks.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks!
+
+This make things clear a bit.
+
+What I understand from thee code (__dst_free() in dst.c) is that if we
+are freeing a
+dst_entry  (by calling __dst_free() ), than in case this dst_entry was
+created as an IPsec dst_entry it has the DST_NOHASH flag set and this
+dst_entry is the first in the list; all dst_entries in this
+list represent IPsec transformations, except the last dst_entry in
+this list; and in such a case, dst_free traverses the list
+until the last dst_entry. And if this dst_entry is NOT created as an IPsec
+dst_entry, than we freeing it and only it. But I am sorry, I still don't
+understand the semantics; why is the name DST_NOHASH?;
+NOHASH hints that we do not keep the
+an entry in a hash. I doubt that such dst_entries , which are created with
+IPsec and so has the DST_NOHASH flag set, are not kept in the routing cache?
+
+Ian
+
+On Nov 26, 2007 4:51 AM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> Ian Brown <ianbrn@gmail.com> wrote:
+> >
+> > 3) in net/core/dst.c:
+> > struct dst_entry *dst_destroy(struct dst_entry * dst)
+> >        {
+> >        ...
+> >        ...
+> >  int nohash = dst->flags & DST_NOHASH;
+> >        ...
+> >        ...
+> > }
+>
+> You were so close :)
+>
+> This is where it's used.  Look harder.
+>
+> Cheers,
+> --
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+>
