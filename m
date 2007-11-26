@@ -1,61 +1,42 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
-Date: Mon, 26 Nov 2007 10:25:33 -0800
-Message-ID: <20071126102533.1c774870@freepuppy.rosehill.pdx.hemminger.net>
-References: <20071122343.446909000@suse.de>
-	<adatznarrzc.fsf@cisco.com>
-	<200711261228.15155.rusty@rustcorp.com.au>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] ethtool: fix typo on setting speed 10000
+Date: Mon, 26 Nov 2007 10:39:06 -0800
+Message-ID: <20071126183906.31340.99442.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <rdreier@cisco.com>, Andi Kleen <ak@suse.de>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sam@ravnborg.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757726AbXKZS1C@vger.kernel.org>
-In-Reply-To: <200711261228.15155.rusty@rustcorp.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, jesse.brandeburg@intel.com,
+	auke-jan.h.kok@intel.com, davem@davemloft.net
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:63786 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752640AbXKZSjM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Nov 2007 13:39:12 -0500
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 26 Nov 2007 12:28:14 +1100
-Rusty Russell <rusty@rustcorp.com.au> wrote:
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-> On Monday 26 November 2007 07:27:03 Roland Dreier wrote:
-> >  > This patch allows to export symbols only for specific modules by
-> >  > introducing symbol name spaces. A module name space has a white
-> >  > list of modules that are allowed to import symbols for it; all others
-> >  > can't use the symbols.
-> >  >
-> >  > It adds two new macros:
-> >  >
-> >  > MODULE_NAMESPACE_ALLOW(namespace, module);
-> >
-> > I definitely like the idea of organizing exported symbols into
-> > namespaces.  However, I feel like it would make more sense to have
-> > something like
-> >
-> > MODULE_NAMESPACE_IMPORT(namespace);
-> 
-> Except C doesn't have namespaces and this mechanism doesn't create them.  So 
-> this is just complete and utter makework; as I said before, noone's going to 
-> confuse all those udp_* functions if they're not in the udp namespace.
-> 
-> For better or worse, this is not C++.
-> 
+fix the typo in speed 10000 setting.
 
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
-Agreed. On first glance, I was intrigued but:
+ ethtool.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-1) Why is everyone so concerned that export symbol space is large?
-	- does it cost cpu or running memory?
-	- does it cause bugs?
-	- or are you just worried about "evil modules"?
-
-2) These aren't real namespaces
-	- all global names still have to be unique
-	- still have to handle the "non-modular build" namespace conflicts
-	- there isn't a big problem with conflicting symbols today.
-
-So why bother adding complexity.
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+diff --git a/ethtool.c b/ethtool.c
+index 3adf843..a668b49 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -524,7 +524,7 @@ static void parse_cmdline(int argc, char **argp)
+ 					speed_wanted = SPEED_1000;
+ 				else if (!strcmp(argp[i], "2500"))
+ 					speed_wanted = SPEED_2500;
+-				else if (!strcmp(argp[1], "10000"))
++				else if (!strcmp(argp[i], "10000"))
+ 					speed_wanted = SPEED_10000;
+ 				else
+ 					show_usage(1);
