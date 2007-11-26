@@ -1,59 +1,40 @@
-From: "Robert P. J. Day" <rpjday@crashcourse.ca>
-Subject: Re: [PATCH 4/4] atm/ambassador: kmalloc + memset conversion to
- kzalloc
-Date: Mon, 26 Nov 2007 05:29:35 -0500 (EST)
-Message-ID: <alpine.LFD.0.9999.0711260523420.12603@localhost.localdomain>
-References: <007f01c8300b$1b89ac40$9c94fea9@jason>  <alpine.LFD.0.9999.0711260409110.551@localhost.localdomain> <b25c3fa70711260223w5a15bb1bk4652b3ab8f05c40c@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] add compare_ether_addr_unaligned
+Date: Mon, 26 Nov 2007 18:39:44 +0800
+Message-ID: <20071126103944.GA26250@gondor.apana.org.au>
+References: <20071123000922.C44009D4A1F@zog.reactivated.net> <20071123132631.GI18862@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil,
-	linux-kernel@vger.kernel.org
-To: Joonwoo Park <joonwpark81@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Daniel Drake <dsd@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from astoria.ccjclearline.com ([64.235.106.9]:47329 "EHLO
-	astoria.ccjclearline.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753535AbXKZKbd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 05:31:33 -0500
-In-Reply-To: <b25c3fa70711260223w5a15bb1bk4652b3ab8f05c40c@mail.gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:3347 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753399AbXKZKjv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 05:39:51 -0500
+Content-Disposition: inline
+In-Reply-To: <20071123132631.GI18862@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 26 Nov 2007, Joonwoo Park wrote:
+On Fri, Nov 23, 2007 at 09:26:31PM +0800, Herbert Xu wrote:
+> On Fri, Nov 23, 2007 at 12:09:22AM +0000, Daniel Drake wrote:
+> > David Miller found a problem in a wireless driver where I was using
+> > compare_ether_addr() on potentially unaligned data. Document that
+> > compare_ether_addr() is not safe for use everywhere, and add an equivalent
+> > function that works regardless of alignment.
+> > 
+> > Signed-off-by: Daniel Drake <dsd@gentoo.org>
+> 
+> Patch applied to net-2.6.  Thanks.
 
-> 2007/11/26, Robert P. J. Day <rpjday@crashcourse.ca>:
-> > i'm not sure the above is a safe thing to do, as you're zeroing that
-> > area, then making a function call and assuming, upon entry to the
-> > function call, that the caller has done the right thing.  i don't see
-> > how you can count on that, depending on who else might want to call
-> > that routine and whether they get sloppy about it.  unless you're
-> > prepared to guarantee that there will never be another call to
-> > setup_dev() from elsewhere.
->
-> Thanks for your response. But setup_dev is static function and only
-> amb_init calls it.
+Since it turned out that this function wouldn't be useful in
+the case that you originally intended it for, I'm going to drop
+it until such a time when a new need arises.
 
-i realized that.  but all you can say is that only amb_init() calls
-setup_dev() *currently*.  when you're not looking, someone else might
-(for whatever reason) call setup_dev() from elsewhere, and *that* call
-might not zero that memory area.
-
-IMHO, the only safe transforms of kmalloc+memset -> kzalloc are those
-in which the flow of control is unmistakable and invariant.  splitting
-that across a function call seems like a dangerous thing to do.
-(except, of course, in the case, where the kzalloc() is added inside
-the function -- then all callers are entitled to simplify *their*
-code.  but that's different.)
-
-in any event, i just thought i'd point it out.  if you're absolutely
-sure there will never be another call to setup_dev() from somewhere
-else, then, yes, it's safe.
-
-rday
-
-========================================================================
-Robert P. J. Day
-Linux Consulting, Training and Annoying Kernel Pedantry
-Waterloo, Ontario, CANADA
-
-http://crashcourse.ca
-========================================================================
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
