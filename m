@@ -1,68 +1,80 @@
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Subject: RE: [PATCH] [NET]: Fix TX bug VLAN in VLAN
-Date: Tue, 27 Nov 2007 16:02:19 +0900
-Message-ID: <002801c830c3$783319f0$9c94fea9@jason>
-References: <003f01c82dca$305acd40$9c94fea9@jason> <20071126112631.GA26599@gondor.apana.org.au> <b25c3fa70711262132r3f88db02mcede6d14b82d5fc0@mail.gmail.com> <20071127063859.GB2942@gondor.apana.org.au>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: bonding sysfs output
+Date: Tue, 27 Nov 2007 00:44:45 -0800
+Message-ID: <20071127004445.a046f791.akpm@linux-foundation.org>
+References: <87tznafjeu.fsf@szonett.ki.iif.hu>
+	<20071125205150.4e49915f.akpm@linux-foundation.org>
+	<87lk8lflzf.fsf@szonett.ki.iif.hu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<davem@davemloft.net>, <tristan_schmelcher@alumni.uwaterloo.ca>,
-	<acme@ghostprotocols.net>
-To: "'Herbert Xu'" <herbert@gondor.apana.org.au>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Wagner Ferenc <wferi@niif.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.182]:2092 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751020AbXK0HCi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 02:02:38 -0500
-Received: by wa-out-1112.google.com with SMTP id v27so1115824wah
-        for <netdev@vger.kernel.org>; Mon, 26 Nov 2007 23:02:38 -0800 (PST)
-In-Reply-To: <20071127063859.GB2942@gondor.apana.org.au>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:46701 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751705AbXK0Io6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 03:44:58 -0500
+In-Reply-To: <87lk8lflzf.fsf@szonett.ki.iif.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2007/11/27, Herbert Xu <herbert@gondor.apana.org.au>:
-> On Tue, Nov 27, 2007 at 02:32:49PM +0900, Joonwoo Park wrote:
-> >
-> > Thanks Herbert.
-> > Well.. I think patch would work propely for AF_PACKET also.
-> > (I did not insert BUG() macro in my patch)
-> > How do you think?
-> 
-> Are you sure? I thought you need to check both in the xmit function.
-> That is,
-> 
->        if (veth->h_vlan_proto != htons(ETH_P_8021Q) ||
->            VLAN_DEV_INFO(dev)->flags & VLAN_FLAG_REORDER_HDR) {
-> 
-> Otherwise you'll miss AF_PACKET packets when REORDER is off.
+On Mon, 26 Nov 2007 09:29:40 +0100 Wagner Ferenc <wferi@niif.hu> wrote:
 
-Thanks Herbert!
-I agree with you.
+> Andrew Morton <akpm@linux-foundation.org> writes:
+> 
+> > On Sun, 25 Nov 2007 16:12:57 +0100 Wagner Ferenc <wferi@niif.hu> wrote:
+> >
+> >> I propose it as a fix for trailing NULs and spaces like eg.
+> >> 
+> >> $ od -c /sys/class/net/bond0/bonding/slaves 
+> >> 0000000   e   t   h   -   l   e   f   t       e   t   h   -   r   i   g
+> >> 0000020   h   t      \n  \0
+> >> 0000025
+> >> 
+> >> I'm afraid there're other problems with "++more++" handling, but let's
+> >> not consider those just yet.  Find the patch attached.  The first
+> >> hunks also renames buffer to buf, for consistency's shake.
+> >> 
+> >> The original version had varying behaviour for Not Applicable cases.
+> >> This patch also settles for empty files (not even a line feed) in
+> >> those cases, but I'm not sure about the general policy on this matter.
+> >
+> > hm, there are a lot of changes there.  Were they all actually needed to fix
+> > the one bug which you have described?
+> 
+> Trailing NULs are present in each file under /sys/class/net/*/bonding
+> and also in /sys/class/net/bonding_masters.  That is, in every file
+> provided by drivers/net/bonding/bond_sysfs.c.  Most of the patch is
+> concerned with this.
+> 
+> Closely related is the presence of trailing spaces in multivalue
+> files.  There are three such files, one of them has the trailing space
+> removed.  This patch removes it from the other two.  During this it
+> also renames one function argument 'buffer' to 'buf', for consistency.
+> 
+> On the policy side: some files are not applicable to some types of
+> bonds, and return a single linefeed in that case.  Except for one
+> single case, which returns 'NA\n'.  The patch changes these cases into
+> emtpy files.
+> 
+> If these are worthy changes, I'm absolutely willing to split up the
+> patch into three parts as the above.
+
+Well that would be good if poss, thanks.
+
+But fixing bugs is way more important than niceties of patch presentation
+however I wasn't prepared to fix the rejects which that patch is hitting in
+the considerably-changed bonding_show_ad_partner_mac().  Please:
+
+- raise patches against the latest Linus tree
+(ftp://ftp.kernel.org/pub/linux/kernel/v2.6/snapshots/)
+
+- cc netdev@vger.kernel.org on networking-related matters
+
+- Include a Signed-off-by: as per Documentation/SubmittingPatches
+
+- Try to ensure that the full explanation (such as you have above) is
+covered in the changelog text.
 
 Thanks.
-Joonwoo
-
-[NET]: Fix TX bug VLAN in VLAN
-Fix misbehavior of vlan_dev_hard_start_xmit() for recursive encapsulations.
-
-Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
-
----
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 7a36878..4f99bb8 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -462,7 +462,8 @@ int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 * OTHER THINGS LIKE FDDI/TokenRing/802.3 SNAPs...
- 	 */
- 
--	if (veth->h_vlan_proto != htons(ETH_P_8021Q)) {
-+	if (veth->h_vlan_proto != htons(ETH_P_8021Q) ||
-+		VLAN_DEV_INFO(dev)->flags & VLAN_FLAG_REORDER_HDR) {
- 		int orig_headroom = skb_headroom(skb);
- 		unsigned short veth_TCI;
- 
----
-
