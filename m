@@ -1,50 +1,51 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
-Date: Tue, 27 Nov 2007 22:38:37 +0100
-Message-ID: <20071127213837.GG3406@stusta.de>
-References: <20071122343.446909000@suse.de> <adatznarrzc.fsf@cisco.com> <200711261228.15155.rusty@rustcorp.com.au> <20071126102533.1c774870@freepuppy.rosehill.pdx.hemminger.net> <20071127190037.GB30057@redhat.com> <20071127210942.GF3406@stusta.de> <474C88EB.9040300@hp.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: 2.6.23-mm1 tg3 wake-on-lan oddity...
+Date: Tue, 27 Nov 2007 16:50:39 -0500
+Message-ID: <31913.1196200239@turing-police.cc.vt.edu>
+References: <24400.1196156118@turing-police.cc.vt.edu>
+            <1196199297.7323.10.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Dave Jones <davej@redhat.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Roland Dreier <rdreier@cisco.com>, Andi Kleen <ak@suse.de>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sam@ravnborg.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: multipart/signed; boundary="==_Exmh_1196200239_2895P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:33849 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757495AbXK0Vis (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 16:38:48 -0500
-Content-Disposition: inline
-In-Reply-To: <474C88EB.9040300@hp.com>
+Received: from turing-police.cc.vt.edu ([128.173.14.107]:44067 "EHLO
+	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756716AbXK0Vvl (ORCPT
+	<RFC822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 16:51:41 -0500
+In-Reply-To: Your message of "Tue, 27 Nov 2007 13:34:57 PST."
+             <1196199297.7323.10.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 27, 2007 at 01:15:23PM -0800, Rick Jones wrote:
->> The real problem is that these drivers are not in the upstream kernel.
->>
->> Are there common reasons why these drivers are not upstream?
->
-> One might be that upstream has not accepted them.  Anything doing or 
-> smelling of TOE comes to mind right away.
+--==_Exmh_1196200239_2895P
+Content-Type: text/plain; charset=us-ascii
 
-Which modules doing or smelling of TOE do work with unmodified vendor 
-kernels?
+On Tue, 27 Nov 2007 13:34:57 PST, Michael Chan said:
 
-AFAIR TOE was both not a module and required some hooks in the network 
-stack, so it's completely outside the scope of this thread.
+> Ideally, the BIOS should modify the NVRAM's setting when it is changed.
+> We will talk to Dell to get their opinion on this as this is very
+> confusing to the user.
 
-> rick jones
+That would certainly explain what I'm seeing, and I can certainly wait
+if the answer is indeed "Buggy BIOS, fixed in D820 A08 or A09 or whenever".
+(If Dell cares, I'm at BIOS A07 already).
 
-cu
-Adrian
+In the meantime, I just stuck an 'ethtool -s eth0 wol d' in /etc/rc.local
+until a proper fix shows up.
 
--- 
+--==_Exmh_1196200239_2895P
+Content-Type: application/pgp-signature
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
 
+iD8DBQFHTJEvcC3lWbTT17ARAiFlAJ9busDEgNlG21KtqThegab5GmgQDACgl9Ur
+S9FwWUDBgJO/4s8T1YAIhl4=
+=spKL
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1196200239_2895P--
