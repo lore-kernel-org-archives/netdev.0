@@ -1,147 +1,126 @@
-From: TAKANO Ryousei <takano@axe-inc.co.jp>
-Subject: Re: [PATCHv2 1/3] NET_SCHED: PSPacer qdisc module
-Date: Tue, 27 Nov 2007 20:08:03 +0900 (JST)
-Message-ID: <20071127.200803.24564635.takano@axe-inc.co.jp>
-References: <20071127.005042.92637908.takano@axe-inc.co.jp>
-	<474B0D5D.2090506@trash.net>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH 2.6.24-rc3] Fix /proc/net breakage
+Date: Tue, 27 Nov 2007 14:20:35 +0300
+Message-ID: <474BFD83.6060500@openvz.org>
+References: <20071119191000.GA1560@elf.ucw.cz>	<200711192304.25087.rjw@sisk.pl> <4743026B.2020907@openvz.org> <m1hcj8mz1p.fsf_-_@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: takano-ryousei@aist.go.jp, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, dada1@cosmosbay.com,
-	t.kudoh@aist.go.jp
-To: kaber@trash.net
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
+	kernel list <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from axekw.axe-inc.co.jp ([61.199.217.67]:52455 "EHLO
-	axekw.axe-inc.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751453AbXK0LIL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 06:08:11 -0500
-In-Reply-To: <474B0D5D.2090506@trash.net>
+Received: from sacred.ru ([62.205.161.221]:38491 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753588AbXK0LVk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2007 06:21:40 -0500
+In-Reply-To: <m1hcj8mz1p.fsf_-_@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Patrick,
+[snip]
 
-I appreciate your comments.
-I will update and resend patches.
+> 
+> Well I clearly goofed when I added the initial network namespace support
+> for /proc/net.  Currently things work but there are odd details visible
+> to user space, even when we have a single network namespace.
+> 
+> Since we do not cache proc_dir_entry dentries at the moment we can
+> just modify ->lookup to return a different directory inode depending
+> on the network namespace of the process looking at /proc/net, replacing
+> the current technique of using a magic and fragile follow_link method.
+> 
+> To accomplish that this patch:
+> - introduces a shadow_proc method to allow different dentries to
+>   be returned from proc_lookup.
+> - Removes the old /proc/net follow_link magic
+> - Fixes a weakness in our not caching of proc generic dentries.
+> 
+> As shadow_proc uses a task struct to decided which dentry to return we
+> can go back later and fix the proc generic caching without modifying any code that
+> uses the shadow_proc method.
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
-> > +typedef long long gapclock_t;
-> 
-> It seems you only add to this, does it need to be signed?
-> How about using a fixed size type (u64) and getting rid
-> of the typedef?
-> 
-OK. I will use u64 instead of gapclock_t, and remove the typedef.
+Thanks, Eric. 
 
-> > +struct tc_psp_qopt
-> > +{
-> > +	__u32	defcls;
-> > +	__u32	rate;
-> > +};
-> 
-> 
-> What unit is rate measured in?
-> 
-'rate' is the transmission rate in bytes per sec.
+Much better ('find /proc' works and so does 'ls ..'), but one 
+issue is still unsolved :(
 
-> > +struct tc_psp_xstats
-> > +{
-> > +	__u32	bytes;		/* gap packet statistics */
-> > +	__u32	packets;
-> > +};
-> 
-> How about using gnet_stats_basic for this?
-> 
-OK. I will use gnet_stats_basic.
+I mentioned the program, that opens the directory and dumps the
+content of the /proc/self/fd. Here it is (stupid but simple):
 
-> > +	if (!skb)
-> > +		return NULL;
-> > +
-> > +	memset(skb->data, 0xff, size);
-> 
-> memsetting the header portion seems unnecessary since you overwrite
-> it again directly below.
-> 
-The size of a gap packet is variable, so it fills a whole gap packet
-with 0xff, where 'size' indicates the interface MTU size.
+==== prog.c
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <asm/fcntl.h>
+#include <unistd.h>
 
-> > +	skb_put(skb, size);
-> 
-> This is usually done before putting data in the packet.
-> 
-Therefore, skb_put() is needed.
+int main(int argc, char **argv)
+{
+        int fd;
 
-> > +static int recalc_gapsize(struct sk_buff *skb, struct Qdisc *sch)
-> > +{
-> > +	struct psp_sched_data *q = qdisc_priv(sch);
-> > +	struct psp_class *cl;
-> > +	unsigned int len = skb->len;
-> > +	int gapsize = 0;
-> > +	int err;
-> > +
-> > +	cl = psp_classify(skb, sch, &err);
-> > +	switch (cl->mode) {
-> > +	case MODE_STATIC:
-> > +		gapsize = cl->gapsize;
-> > +		if (len < q->mtu) /* workaround for overflow */
-> > +			gapsize = (int)((long long)gapsize * len / q->mtu);
-> 
-> No need to cast to the LHS type. Shouldn't this also be rounded up
-> like the other gapsize calculation?
-> 
-How about this?
+        fd = open(argv[1], O_RDONLY|O_DIRECTORY);
+        if (fd == -1) {
+                perror("Can't open");
+                return 1;
+        }
 
-	u64 gapsize = 0;
-	:
-	case MODE_STATIC:
-		gapsize = (u64)cl->gapsize * len / q->mtu;
-		gapsize = min_t(u64, gapsize, UINT_MAX);
-		break;
-	}
+        system("ls -l /proc/self/fd");
+        return 0;
+}
+====
 
-> > +static struct psp_class *lookup_next_class(struct Qdisc *sch, int *gapsize)
-> > +{
-> > +	struct psp_sched_data *q = qdisc_priv(sch);
-> > +	struct psp_class *cl, *next = NULL;
-> > +	gapclock_t diff;
-> > +	int shortest;
-> > +
-> > +	/* pacing class */
-> > +	shortest = q->mtu;
-> > +	list_for_each_entry(cl, &q->pacing_list, plist) {
-> > +		diff = cl->clock - q->clock;
-> > +		if (diff > 0) {
-> > +			if ((gapclock_t)shortest > diff)
-> > +				shortest = (int)diff;
-> 
-> Is diff guaranteed not to exceed an int?
-> 
-No. But actually, 'diff' is much smaller than INT_MAX.
-How about this?
+So. Here's the result of running this program:
 
-	u64 diff, shortest;
-	:
-		if (q->clock < cl->clock) {
-			diff = cl->clock - q->clock;
-			if (shortest > diff)
-				shortest = diff;
-			continue;
-		}
+# cd /proc/net/
+# pwd
+/proc/net
+# ~/a.out .
+total 0
+lrwx------  1 root root 64 Nov 27 13:27 0 -> /dev/pts/0
+lrwx------  1 root root 64 Nov 27 13:27 1 -> /dev/pts/0
+lrwx------  1 root root 64 Nov 27 13:27 2 -> /dev/pts/0
+lr-x------  1 root root 64 Nov 27 13:27 3 -> /proc/net (deleted)
+lr-x------  1 root root 64 Nov 27 13:27 4 -> /proc/4475/fd
 
+# cd /proc
+# pwd         
+/proc
+# ~/a.out net
+total 0
+lrwx------  1 root root 64 Nov 27 13:27 0 -> /dev/pts/0
+lrwx------  1 root root 64 Nov 27 13:27 1 -> /dev/pts/0
+lrwx------  1 root root 64 Nov 27 13:27 2 -> /dev/pts/0
+lr-x------  1 root root 64 Nov 27 13:27 3 -> /proc/net
+lr-x------  1 root root 64 Nov 27 13:27 4 -> /proc/4477/fd
 
-> > +static void psp_destroy(struct Qdisc *sch)
-> > +{
-> > +	struct psp_sched_data *q = qdisc_priv(sch);
-> > +
-> > +	tcf_destroy_chain(q->filter_list);
-> > +
-> > +	while (!list_empty(&q->root))
-> > +		psp_destroy_class(sch, list_entry(q->root.next,
-> > +						  struct psp_class, sibling));
-> 
-> list_for_each_entry_safe.
-> 
-I think it works well. Should I need to use list_for_each_entry_safe?
+# cd /proc/net/stat
+# pwd
+/proc/net/stat
+# ~/a.out ..
+total 0
+lrwx------  1 root root 64 Nov 27 13:29 0 -> /dev/pts/0
+lrwx------  1 root root 64 Nov 27 13:29 1 -> /dev/pts/0
+lrwx------  1 root root 64 Nov 27 13:29 2 -> /dev/pts/0
+lr-x------  1 root root 64 Nov 27 13:29 3 -> /proc/net (deleted)
+lr-x------  1 root root 64 Nov 27 13:29 4 -> /proc/4482/fd
+# ~/a.out .
+total 0
+lrwx------  1 root root 64 Nov 27 13:32 0 -> /dev/pts/0
+lrwx------  1 root root 64 Nov 27 13:32 1 -> /dev/pts/0
+lrwx------  1 root root 64 Nov 27 13:32 2 -> /dev/pts/0
+lr-x------  1 root root 64 Nov 27 13:32 3 -> /proc/net/stat
+lr-x------  1 root root 64 Nov 27 13:32 4 -> /proc/4488/fd
 
-Best regards,
-Ryousei Takano
+Bad thing is that . when cdir is /proc/net and .. when cdir is
+anything under /proc/net (i.e. the /proc/net itself) is marked as "(deleted)".
+
+[snip]
+
+Thanks,
+Pavel
