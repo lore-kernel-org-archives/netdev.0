@@ -1,79 +1,46 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH (resubmit)][BRIDGE] Properly dereference the br_should_route_hook
-Date: Tue, 27 Nov 2007 19:21:08 +0300
-Message-ID: <474C43F4.5080704@openvz.org>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH] SGISEEQ: use cached memory access to make driver work
+	on IP28
+Date: Tue, 27 Nov 2007 16:32:57 +0000
+Message-ID: <20071127163257.GB23642@linux-mips.org>
+References: <20071126223934.84BE7C2B26@solo.franken.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, bridge@lists.osdl.org,
-	devel@openvz.org
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
+	jgarzik@pobox.com
+To: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:49170 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756582AbXK0QV3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2007 11:21:29 -0500
+Received: from ftp.linux-mips.org ([194.74.144.162]:43352 "EHLO
+	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753570AbXK0QdQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 11:33:16 -0500
+Received: from localhost.localdomain ([127.0.0.1]:10202 "EHLO
+	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
+	id S20027488AbXK0QdN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2007 16:33:13 +0000
+Content-Disposition: inline
+In-Reply-To: <20071126223934.84BE7C2B26@solo.franken.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This hook is protected with the RCU, so simple
+On Sat, Nov 24, 2007 at 01:29:19PM +0100, Thomas Bogendoerfer wrote:
 
-	if (br_should_route_hook)
-		br_should_route_hook(...)
+> Following patch is clearly 2.6.25 material and is needed to get SGI IP28
+> machines supported.
+> 
+> Thomas.
+> 
+> SGI IP28 machines would need special treatment (enable adding addtional
+> wait states) when accessing memory uncached. To avoid this pain I changed
+> the driver to use only cached access to memory.
+> 
+> Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 
-is not enough on some architectures.
+IP28 is clearly a maximum weirdo beast.  Technically the patch looks fine
+it's just a few stilistic issues such as there no reason for
+DMA_SYNC_DESC_CPU and DMA_SYNC_DESC_DEV being macros so why not using
+inlines.
 
-Use the rcu_dereference/rcu_assign_pointer in this case.
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
 
-Fixed Stephen's comment concerning using the typeof().
-
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
----
-
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 3cedd4e..0ee79a7 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -122,6 +122,7 @@ static inline int is_link_local(const unsigned char *dest)
- struct sk_buff *br_handle_frame(struct net_bridge_port *p, struct sk_buff *skb)
- {
- 	const unsigned char *dest = eth_hdr(skb)->h_dest;
-+	int (*rhook)(struct sk_buff *skb);
- 
- 	if (!is_valid_ether_addr(eth_hdr(skb)->h_source))
- 		goto drop;
-@@ -147,9 +148,9 @@ struct sk_buff *br_handle_frame(struct net_bridge_port *p, struct sk_buff *skb)
- 
- 	switch (p->state) {
- 	case BR_STATE_FORWARDING:
--
--		if (br_should_route_hook) {
--			if (br_should_route_hook(skb))
-+		rhook = rcu_dereference(br_should_route_hook);
-+		if (rhook != NULL) {
-+			if (rhook(skb))
- 				return skb;
- 			dest = eth_hdr(skb)->h_dest;
- 		}
-diff --git a/net/bridge/netfilter/ebtable_broute.c b/net/bridge/netfilter/ebtable_broute.c
-index e44519e..be6f186 100644
---- a/net/bridge/netfilter/ebtable_broute.c
-+++ b/net/bridge/netfilter/ebtable_broute.c
-@@ -70,13 +70,13 @@ static int __init ebtable_broute_init(void)
- 	if (ret < 0)
- 		return ret;
- 	/* see br_input.c */
--	br_should_route_hook = ebt_broute;
-+	rcu_assign_pointer(br_should_route_hook, ebt_broute);
- 	return ret;
- }
- 
- static void __exit ebtable_broute_fini(void)
- {
--	br_should_route_hook = NULL;
-+	rcu_assign_pointer(br_should_route_hook, NULL);
- 	synchronize_net();
- 	ebt_unregister_table(&broute_table);
- }
+  Ralf
