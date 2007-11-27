@@ -1,84 +1,35 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: [PATCH 2/3] [POWERPC] fsl_soc: add support for gianfar for
-	fixed-link property
-Date: Tue, 27 Nov 2007 15:01:30 +0100
-Message-ID: <1196172090.9816.23.camel@gentoo-jocke.transmode.se>
-References: <20071126142906.19642.45540.stgit@localhost.localdomain>
-	 <20071126142915.19642.5842.stgit@localhost.localdomain>
-	 <1196089448.12625.62.camel@gentoo-jocke.transmode.se>
-	 <20071127113935.GA26867@localhost.localdomain>
-	 <1196169432.9816.16.camel@gentoo-jocke.transmode.se>
-	 <20071127135952.GA1483@localhost.localdomain>
-Reply-To: joakim.tjernlund@transmode.se
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Does tc-prio really work as advertised?
+Date: Tue, 27 Nov 2007 15:12:51 +0100
+Message-ID: <20071127141251.GA4291@ff.dom.local>
+References: <759014.71791.qm@web51409.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Vitaly Bordug <vitb@kernel.crashing.org>, linuxppc-dev@ozlabs.org,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org
-To: avorontsov@ru.mvista.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Joerg Pommnitz <pommnitz@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.transmode.se ([83.241.175.147]:39850 "EHLO
-	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753022AbXK0OBc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 09:01:32 -0500
-In-Reply-To: <20071127135952.GA1483@localhost.localdomain>
+Received: from mx10.go2.pl ([193.17.41.74]:57780 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756429AbXK0OIQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2007 09:08:16 -0500
+Content-Disposition: inline
+In-Reply-To: <759014.71791.qm@web51409.mail.re2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Nov 27, 2007 at 05:00:55AM -0800, Joerg Pommnitz wrote:
+...
+> The OLSR traffic was obviously generated locally (not forwarded).
+> You claim, that the TOS value for locally generated traffic does
+> not influence its priority?
 
-On Tue, 2007-11-27 at 16:59 +0300, Anton Vorontsov wrote:
-> On Tue, Nov 27, 2007 at 02:17:11PM +0100, Joakim Tjernlund wrote:
-> > 
-> > On Tue, 2007-11-27 at 14:39 +0300, Anton Vorontsov wrote:
-> > > On Mon, Nov 26, 2007 at 04:04:08PM +0100, Joakim Tjernlund wrote:
-> > > > On Mon, 2007-11-26 at 17:29 +0300, Vitaly Bordug wrote:
-> > > > > fixed-link says: register new "Fixed/emulated PHY", i.e. PHY that
-> > > > > not connected to the real MDIO bus.
-> > > > > 
-> > > > > Signed-off-by: Vitaly Bordug <vitb@kernel.crashing.org>
-> > > > > Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-> > > > > 
-> > > > > ---
-> > > > > 
-> > > > >  Documentation/powerpc/booting-without-of.txt |    3 +
-> > > > >  arch/powerpc/sysdev/fsl_soc.c                |   56 ++++++++++++++++++--------
-> > > > >  2 files changed, 42 insertions(+), 17 deletions(-)
-> > > > > 
-> > > > > 
-> > > > > diff --git a/Documentation/powerpc/booting-without-of.txt b/Documentation/powerpc/booting-without-of.txt
-> > > > > index e9a3cb1..cf25070 100644
-> > > > > --- a/Documentation/powerpc/booting-without-of.txt
-> > > > > +++ b/Documentation/powerpc/booting-without-of.txt
-> > > > > @@ -1254,6 +1254,9 @@ platforms are moved over to use the flattened-device-tree model.
-> > > > >        services interrupts for this device.
-> > > > >      - phy-handle : The phandle for the PHY connected to this ethernet
-> > > > >        controller.
-> > > > > +    - fixed-link : <a b c> where a is emulated phy id - choose any,
-> > > > > +      but unique to the all specified fixed-links, b is duplex - 0 half,
-> > > > > +      1 full, c is link speed - d#10/d#100/d#1000.
-> > > > 
-> > > > Good work!
-> > > > May I suggest adding a "d" to <a b c> where d is flow control - 0 no, 1 yes
-> > > 
-> > > Well, I see no reference of the "flow" neither in the include/linux/mii.h
-> > > nor in the drivers/net/phy/*. :-/ Thus today there is no such register
-> > > bit we can emulate?..
-> > 
-> > Well, as good as I can recall, flow control(pause) is something that the
-> > PHY negotiates, just like FDX/HDX and should be dealt with in the
-> > adjust_link callback but not many do currently.
-> > 
-> > If you seach for pause in phy_device.c you will find it.
-> 
-> Ah, pause. Sure, we can emulate that.
+I wouldn't say "I claim": I've found something like this 'long time
+ago' (enough to forget), and didn't need this information since
+then. Now, I see you have 'nearby' problem, so it's only a hint.
+After your first message I think you should be able to check this
+by yourself. But, if there are any problems with this, you find my
+idea wrong or not valid anymore, I'm interested in knowing about
+this.
 
-Good, looking into phy_device there seems to be 2 pauses:
-ADVERTISED_Pause and ADVERTISE_PAUSE_ASYM which
-maps to phydev->pause and phydev->asym_pause
-so "d" should reflect that or a "e" should be added
-for the asym pause.
-
- Jocke
-
- Jocke
+Cheers,
+Jarek P.
