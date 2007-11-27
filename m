@@ -1,54 +1,68 @@
-From: Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
-Subject: Re: [PATCH 2/10] [SKBUFF]: Add skb_morph
-Date: Tue, 27 Nov 2007 15:50:15 +0900 (JST)
-Message-ID: <200711270650.lAR6oGDr005426@toshiba.co.jp>
-References: <E1Igv4m-00030E-00@gondolin.me.apana.org.au>
-	<200711260650.lAQ6oOL9006774@toshiba.co.jp>
-	<20071126151030.GC28022@gondor.apana.org.au>
+From: "Joonwoo Park" <joonwpark81@gmail.com>
+Subject: RE: [PATCH] [NET]: Fix TX bug VLAN in VLAN
+Date: Tue, 27 Nov 2007 16:02:19 +0900
+Message-ID: <002801c830c3$783319f0$9c94fea9@jason>
+References: <003f01c82dca$305acd40$9c94fea9@jason> <20071126112631.GA26599@gondor.apana.org.au> <b25c3fa70711262132r3f88db02mcede6d14b82d5fc0@mail.gmail.com> <20071127063859.GB2942@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: yasuyuki.kozakai@toshiba.co.jp, kaber@trash.net,
-	davem@davemloft.net, hadi@cyberus.ca, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru
-To: herbert@gondor.apana.org.au
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<davem@davemloft.net>, <tristan_schmelcher@alumni.uwaterloo.ca>,
+	<acme@ghostprotocols.net>
+To: "'Herbert Xu'" <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imx9.toshiba.co.jp ([202.33.96.51]:55501 "EHLO
-	imx9.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750729AbXK0G6X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 01:58:23 -0500
-Received: from imx12.toshiba.co.jp (imx12 [61.202.160.132])
-	by imx9.toshiba.co.jp  with ESMTP id lAR6wKF3010304
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 27 Nov 2007 15:58:21 +0900 (JST)
-Received: from arc11.toshiba.co.jp ([133.199.90.127])
-	by imx12.toshiba.co.jp  with ESMTP id lAR6oISg028263
-	for <netdev@vger.kernel.org>; Tue, 27 Nov 2007 15:50:18 +0900 (JST)
-Received: (from root@localhost)
-	by arc11.toshiba.co.jp  id lAR6oImk029424
-	for netdev@vger.kernel.org; Tue, 27 Nov 2007 15:50:18 +0900 (JST)
-Received: from mx2.toshiba.co.jp (localhost [127.0.0.1])
-	by ovp11.toshiba.co.jp  with ESMTP id lAR6oHg4025627
-	for <netdev@vger.kernel.org>; Tue, 27 Nov 2007 15:50:17 +0900 (JST)
-In-Reply-To: <20071126151030.GC28022@gondor.apana.org.au>
+Received: from wa-out-1112.google.com ([209.85.146.182]:2092 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751020AbXK0HCi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 02:02:38 -0500
+Received: by wa-out-1112.google.com with SMTP id v27so1115824wah
+        for <netdev@vger.kernel.org>; Mon, 26 Nov 2007 23:02:38 -0800 (PST)
+In-Reply-To: <20071127063859.GB2942@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-From: Herbert Xu <herbert@gondor.apana.org.au>
-
-> On Mon, Nov 26, 2007 at 03:50:22PM +0900, Yasuyuki KOZAKAI wrote:
+2007/11/27, Herbert Xu <herbert@gondor.apana.org.au>:
+> On Tue, Nov 27, 2007 at 02:32:49PM +0900, Joonwoo Park wrote:
 > >
-> > The refcount of nfct is leaked by this function. As a result,
-> > nf_conntrack_ipv6.ko cannot be unloaded after doing "ping6 -s 2000 ..." .
-> > dst->dst and dst->secpath are also needed to be released, I think.
-> > 
-> > Please consider to apply this patch.
+> > Thanks Herbert.
+> > Well.. I think patch would work propely for AF_PACKET also.
+> > (I did not insert BUG() macro in my patch)
+> > How do you think?
 > 
-> Good catch! Thanks for spotting this.
+> Are you sure? I thought you need to check both in the xmit function.
+> That is,
 > 
-> I'm going to add the following patch to net-2.6.
+>        if (veth->h_vlan_proto != htons(ETH_P_8021Q) ||
+>            VLAN_DEV_INFO(dev)->flags & VLAN_FLAG_REORDER_HDR) {
+> 
+> Otherwise you'll miss AF_PACKET packets when REORDER is off.
 
-That looks better.
+Thanks Herbert!
+I agree with you.
 
--- Yasuyuki Kozakai
+Thanks.
+Joonwoo
+
+[NET]: Fix TX bug VLAN in VLAN
+Fix misbehavior of vlan_dev_hard_start_xmit() for recursive encapsulations.
+
+Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
+
+---
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 7a36878..4f99bb8 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -462,7 +462,8 @@ int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 * OTHER THINGS LIKE FDDI/TokenRing/802.3 SNAPs...
+ 	 */
+ 
+-	if (veth->h_vlan_proto != htons(ETH_P_8021Q)) {
++	if (veth->h_vlan_proto != htons(ETH_P_8021Q) ||
++		VLAN_DEV_INFO(dev)->flags & VLAN_FLAG_REORDER_HDR) {
+ 		int orig_headroom = skb_headroom(skb);
+ 		unsigned short veth_TCI;
+ 
+---
+
