@@ -1,32 +1,53 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: Dave Jones <davej@redhat.com>
 Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
-Date: Tue, 27 Nov 2007 13:15:23 -0800
-Message-ID: <474C88EB.9040300@hp.com>
-References: <20071122343.446909000@suse.de> <adatznarrzc.fsf@cisco.com>	<200711261228.15155.rusty@rustcorp.com.au>	<20071126102533.1c774870@freepuppy.rosehill.pdx.hemminger.net>	<20071127190037.GB30057@redhat.com> <20071127210942.GF3406@stusta.de>
+Date: Tue, 27 Nov 2007 16:25:58 -0500
+Message-ID: <20071127212558.GA27481@redhat.com>
+References: <20071122343.446909000@suse.de> <adatznarrzc.fsf@cisco.com> <200711261228.15155.rusty@rustcorp.com.au> <20071126102533.1c774870@freepuppy.rosehill.pdx.hemminger.net> <20071127190037.GB30057@redhat.com> <20071127210942.GF3406@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Dave Jones <davej@redhat.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
 	Rusty Russell <rusty@rustcorp.com.au>,
 	Roland Dreier <rdreier@cisco.com>, Andi Kleen <ak@suse.de>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	sam@ravnborg.org
 To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:40340 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756332AbXK0VP0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 16:15:26 -0500
+Received: from mx1.redhat.com ([66.187.233.31]:56002 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757428AbXK0V01 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2007 16:26:27 -0500
+Content-Disposition: inline
 In-Reply-To: <20071127210942.GF3406@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> The real problem is that these drivers are not in the upstream kernel.
-> 
-> Are there common reasons why these drivers are not upstream?
+On Tue, Nov 27, 2007 at 10:09:42PM +0100, Adrian Bunk wrote:
+ > On Tue, Nov 27, 2007 at 02:00:37PM -0500, Dave Jones wrote:
+ > > On Mon, Nov 26, 2007 at 10:25:33AM -0800, Stephen Hemminger wrote:
+ > >  
+ > >  > 1) Why is everyone so concerned that export symbol space is large?
+ > >  > 	- does it cost cpu or running memory?
+ > >  > 	- does it cause bugs?
+ > >  > 	- or are you just worried about "evil modules"?
+ > > 
+ > > To clarify something here, by "evil", don't necessarily think "binary only". 
+ > > 
+ > > Out of tree modules are frequently using symbols that they shouldn't be.
+ > > Because they get no peer-review here, they 'get away with it' for the most part.
+ > > Until distro vendors push rebased kernel updates that removed exports that
+ > > should never have been exported, and suddenly people like me get bombed
+ > > with "Fedora broke my xyz driver" mails.
+ > >...
+ > 
+ > The real problem is that these drivers are not in the upstream kernel.
 
-One might be that upstream has not accepted them.  Anything doing or 
-smelling of TOE comes to mind right away.
+You're preaching to the choir.
 
-rick jones
+ > Are there common reasons why these drivers are not upstream?
+
+It varies case by case.
+
+	Dave
+
+-- 
+http://www.codemonkey.org.uk
