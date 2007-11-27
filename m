@@ -1,78 +1,31 @@
-From: tony@bakeyournoodle.com (Tony Breeds)
-Subject: Re: mm snapshot broken-out-2007-11-20-01-45 Build Fail - net/wireless driver
-Date: Tue, 27 Nov 2007 11:59:50 +1100
-Message-ID: <20071127005950.GZ24243@bakeyournoodle.com>
-References: <200711200953.lAK9qxjO030444@imap1.linux-foundation.org> <4742DFC3.80305@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: akpm@linux-foundation.org, mm-commits@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mick@madwifi.org,
-	netdev@vger.kernel.org, Andy Whitcroft <apw@shadowen.org>,
-	Balbir Singh <balbir@linux.vnet.ibm.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org
-To: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758001AbXK0BAF@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4742DFC3.80305@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: DST_NOHASH flag and IPsec transformers routing tables - need some clarification
+Date: Tue, 27 Nov 2007 09:57:05 +0800
+Message-ID: <E1IwphB-0000Ff-00@gondolin.me.apana.org.au>
+References: <d0383f90711260515p6155bd7bt196016fb4d8d4cdf@mail.gmail.com>
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: ianbrn@gmail.com (Ian Brown)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:4559 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753146AbXK0B5J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 20:57:09 -0500
+In-Reply-To: <d0383f90711260515p6155bd7bt196016fb4d8d4cdf@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 20, 2007 at 06:53:15PM +0530, Kamalesh Babulal wrote:
-> Hi Andrew,
-> 
-> The kernel build fails, with following message
-> 
->   LD      drivers/net/wireless/built-in.o
-> drivers/net/wireless/rtl8187.o: In function `rtl8225z2_rf_init':
-> (.opd+0x180): multiple definition of `rtl8225z2_rf_init'
-> drivers/net/wireless/rtl8180.o:(.opd+0x1b0): first defined here
-> drivers/net/wireless/rtl8187.o: In function `rtl8225z2_rf_init':
-> /root/linux-2.6.24-rc3/drivers/net/wireless/rtl8187_rtl8225.c:571: multiple definition of `.rtl8225z2_rf_init'
-> drivers/net/wireless/rtl8180.o:/root/linux-2.6.24-rc3/drivers/net/wireless/rtl8180_rtl8225.c:561: first defined here
-> ld: Warning: size of symbol `.rtl8225z2_rf_init' changed from 3836 in drivers/net/wireless/rtl8180.o to 3544 in drivers/net/wireless/rtl8187.o
+Ian Brown <ianbrn@gmail.com> wrote:
+>
+> NOHASH hints that we do not keep the
+> an entry in a hash. I doubt that such dst_entries , which are created with
+> IPsec and so has the DST_NOHASH flag set, are not kept in the routing cache?
 
-<snip>
+Exactly, they're not in the routing cache (for IPv4 anyway,
+there is no cache at all for IPv6).
 
-The patch below is a little ugly but will allow allyesconfig to work.  I
-don't know enough about the Realtek devices to make intellegent
-suggestions on how to fix this particular problem.  Clearly the 2
-drivers share a lot of common code so perhaps they can be merged?
-
-I assumed that the RTL8180, is still somewhat WiP based on the commit
-message for a2645795713c4374ff2efda960251cdc30b63430 (wireless-2.6.git).
-
-Appologies for the uber long CC line, wasn't sure who can be pruned.
-
-From: Tony Breeds <tony@bakeyournoodle.com>
-
-Temporarily ensure that Realtek 8185 and 8187 aren't compiled together.
-
-These two drivers share a number of common (global) functions.  While RTL8180
-is still being worked on ensure that it's not built together with the RTL8187
-(ie allyseconfig).
-
-Signed-off-by: Tony Breeds <tony@bakeyournoodle.com>
-
----
-
- drivers/net/wireless/Kconfig |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
-index 82e5de7..ab2eac0 100644
---- a/drivers/net/wireless/Kconfig
-+++ b/drivers/net/wireless/Kconfig
-@@ -555,6 +555,7 @@ config USB_ZD1201
- config RTL8180
- 	tristate "Realtek 8185 PCI support"
- 	depends on MAC80211 && PCI && WLAN_80211 && EXPERIMENTAL
-+	depends on !RTL8187
- 	select EEPROM_93CX6
- 
- config RTL8187
-
-Yours Tony
-
-  linux.conf.au        http://linux.conf.au/ || http://lca2008.linux.org.au/
-  Jan 28 - Feb 02 2008 The Australian Linux Technical Conference!
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
