@@ -1,8 +1,8 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
 Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
-Date: Tue, 27 Nov 2007 15:26:52 +1100
-Message-ID: <200711271526.53065.rusty@rustcorp.com.au>
-References: <20071122343.446909000@suse.de> <200711261225.44415.rusty@rustcorp.com.au> <adalk8lsg3z.fsf@cisco.com>
+Date: Tue, 27 Nov 2007 15:49:37 +1100
+Message-ID: <200711271549.37670.rusty@rustcorp.com.au>
+References: <20071122343.446909000@suse.de> <200711261228.15155.rusty@rustcorp.com.au> <adahcj9sfan.fsf@cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
@@ -11,51 +11,55 @@ Cc: Andi Kleen <ak@suse.de>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, sam@ravnborg.org
 To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:43551 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:53336 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754755AbXK0E0x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Nov 2007 23:26:53 -0500
-In-Reply-To: <adalk8lsg3z.fsf@cisco.com>
+	id S1750703AbXK0FAX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2007 00:00:23 -0500
+In-Reply-To: <adahcj9sfan.fsf@cisco.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 26 November 2007 16:58:08 Roland Dreier wrote:
->  > > I agree that we shouldn't make things too hard for out-of-tree
->  > > modules, but I disagree with your first statement: there clearly is a
->  > > large class of symbols that are used by multiple modules but which are
->  > > not generically useful -- they are only useful by a certain small
->  > > class of modules.
->  >
->  > If it is so clear, you should be able to easily provide examples?
+On Monday 26 November 2007 17:15:44 Roland Dreier wrote:
+>  > Except C doesn't have namespaces and this mechanism doesn't create them.
+>  >  So this is just complete and utter makework; as I said before, noone's
+>  > going to confuse all those udp_* functions if they're not in the udp
+>  > namespace.
 >
-> Sure -- Andi's example of symbols required only by TCP congestion
-> modules;
+> I don't understand why you're so opposed to organizing the kernel's
+> exported symbols in a more self-documenting way.
 
-Exactly.  Why exactly should someone not write a new TCP congestion module?
+No, I was the one who moved exports near their declarations.  That's 
+organised.  I just don't see how this new "organization" will help: oh good, 
+I won't accidentally use the udp functions any more?!?
 
-> the SCSI internals that Christoph wants to mark
+> It seems pretty   
+> clear to me that having a mechanism that requires modules to make
+> explicit which (semi-)internal APIs makes reviewing easier
 
-He didn't justify those though, either.
+Perhaps you've got lots of patches were people are using internal APIs they 
+shouldn't?
 
-> ; the symbols  exported by my mlx4_core driver (which I admit are
-> currently only used 
-> by the mlx4_ib driver, but which will also be used by at least the
-> ethernet NIC driver for the same hardware).
+> , makes it 
+> easier to communicate "please don't use that API" to module authors,
 
-Right.  So presumably there will only ever be two drivers using this core 
-code, so no new users will ever be written?  Now we've found one use case, is 
-it worth the complexity of namespaces?  Is it worth the halfway point of 
-export-to-module?
+Well, introduce an EXPORT_SYMBOL_INTERNAL().  It's a lot less code.  But you'd 
+still need to show that people are having trouble knowing what APIs to use.
 
-What problem will it solve?
+> and takes at least a small step towards bringing the kernel's exported
+> API under control.
 
-> I thought this was 
-> already covered repeatedly in the thread and indeed in Andi's code so
-> there was no need to repeat it...
+There is no "exported API" to bring under control.  There are symbols we 
+expose for the kernel's own use which can be used by external modules at 
+their own risk.  
 
-No, we've seen the solution and various people applying it.  I'm still trying 
-to discover the problem it's solving.
+> What's the real downside? 
 
-Hope that helps,
+No.  That's the wrong question.  What's the real upside?
+
+Let's not put code in the core because "it doesn't seem to hurt".
+
+I'm sure you think there's a real problem, but I'm still waiting for someone 
+to *show* it to me.  Then we can look at solutions.
+
 Rusty.
