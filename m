@@ -1,55 +1,42 @@
-From: Tom Tucker <tom@opengridcomputing.com>
-Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
-Date: Tue, 27 Nov 2007 11:45:37 -0600
-Message-ID: <1196185537.24469.21.camel@trinity.ogc.int>
-References: <20071122343.446909000@suse.de>
-	 <200711261228.15155.rusty@rustcorp.com.au> <adahcj9sfan.fsf@cisco.com>
-	 <200711271549.37670.rusty@rustcorp.com.au>
-	 <1196141742.9876.49.camel@trinity.ogc.int>
-	 <20071127171542.GB3406@stusta.de>
+From: Lukas Hejtmanek <xhejtman@ics.muni.cz>
+Subject: Re: e1000 driver problems
+Date: Tue, 27 Nov 2007 18:44:56 +0100
+Message-ID: <20071127174456.GH4365@ics.muni.cz>
+References: <20061017205316.25914.qmail@web83109.mail.mud.yahoo.com> <45354850.6050900@intel.com> <20071120143803.GA5638@ics.muni.cz> <474B5610.4030800@intel.com> <20071127150700.GB4365@ics.muni.cz> <474C4A74.90705@intel.com> <20071127173146.GG4365@ics.muni.cz> <474C5678.3060609@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Roland Dreier <rdreier@cisco.com>, Andi Kleen <ak@suse.de>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sam@ravnborg.org
-To: Adrian Bunk <bunk@kernel.org>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: NetDev <netdev@vger.kernel.org>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 209-198-142-2-host.prismnet.net ([209.198.142.2]:54529 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756781AbXK0Rlp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 12:41:45 -0500
-In-Reply-To: <20071127171542.GB3406@stusta.de>
+Received: from minas.ics.muni.cz ([147.251.4.40]:48058 "EHLO minas.ics.muni.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756415AbXK0SCF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2007 13:02:05 -0500
+Content-Disposition: inline
+In-Reply-To: <474C5678.3060609@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Nov 27, 2007 at 09:40:08AM -0800, Kok, Auke wrote:
+> > I'm afraid, I'm missing the point as you have stated that in-kernel=
+ drivers
+> > have problem with suspicious board hang...
+>=20
+> my mistake, sorry for that confusion.
+>=20
+> the fake hangs on 82562/6 devices occur on 10mbit link only. You can =
+check in the
+> code for a line that says:
+>=20
+> 	adapter->tx_timeout_factor =3D 8;
+>=20
+> change that number to 16 to cope with the problem on 10mbit link part=
+ners.
+> However this won't fix the issue on 100mbit partners and we need to
+> investigate that if that is the case.
 
-On Tue, 2007-11-27 at 18:15 +0100, Adrian Bunk wrote:
-> On Mon, Nov 26, 2007 at 11:35:42PM -0600, Tom Tucker wrote:
-> > On Tue, 2007-11-27 at 15:49 +1100, Rusty Russell wrote:
-> >...
-> > > No.  That's the wrong question.  What's the real upside?
-> > 
-> > Explicitly documenting what comprises the kernel API (external,
-> > supported) and what comprises the kernel implementation (internal, not
-> > supported).
-> >...
-> 
-> There is not, never was, and never will be, any supported external API 
-> of the kernel.
+100mbit is the issue in my case.
 
-Philosophically I understand what you're saying, but in practical terms
-there is the issue of managing core API like kmalloc. Although kmalloc
-_could_ change, doing so would be extremely painful. In fact anyone who
-proposed such a change would have to have a profoundly powerful argument
-as to why it was necessary.
-
-I think this patchset is an attempt to make it easier to identify and
-review these kinds of interfaces.
-
->  
-> cu
-> Adrian
-> 
-
+--=20
+Luk=E1=B9 Hejtm=E1nek
