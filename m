@@ -1,133 +1,68 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCHv2 1/3] NET_SCHED: PSPacer qdisc module
-Date: Tue, 27 Nov 2007 13:16:34 +0100
-Message-ID: <474C0AA2.5040900@trash.net>
-References: <20071127.005042.92637908.takano@axe-inc.co.jp>	<474B0D5D.2090506@trash.net> <20071127.200803.24564635.takano@axe-inc.co.jp>
+Subject: Re: Does tc-prio really work as advertised?
+Date: Tue, 27 Nov 2007 13:29:25 +0100
+Message-ID: <474C0DA5.3030004@trash.net>
+References: <636518.43765.qm@web51402.mail.re2.yahoo.com> <20071127115849.GA3427@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: takano-ryousei@aist.go.jp, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, dada1@cosmosbay.com,
-	t.kudoh@aist.go.jp
-To: TAKANO Ryousei <takano@axe-inc.co.jp>
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Joerg Pommnitz <pommnitz@yahoo.com>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56340 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:56972 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753946AbXK0MQn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 07:16:43 -0500
-In-Reply-To: <20071127.200803.24564635.takano@axe-inc.co.jp>
+	with ESMTP id S1752169AbXK0M3d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 07:29:33 -0500
+In-Reply-To: <20071127115849.GA3427@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-TAKANO Ryousei wrote:
-> Hi Patrick,
-> 
->>> +struct tc_psp_qopt
->>> +{
->>> +	__u32	defcls;
->>> +	__u32	rate;
->>> +};
+Jarek Poplawski wrote:
+> On Tue, Nov 27, 2007 at 02:54:10AM -0800, Joerg Pommnitz wrote:
+>> Jarek,
+>> this is all about outgoing packets, e.g. egress to use your word.
+>> It doesn't matter whether the packets are originated locally or
+>> whether the packets are forwarded from another host (I tried
+>> both).
 >>
->> What unit is rate measured in?
+>> To restate the problem: according to my observations the prio qdisc
+>> (and probably pfifo_fast, but I couldn't observe this) does not prio=
+ritize
+>> at all and always uses the band indicated by the first entry in the
+>> priomap.
 >>
-> 'rate' is the transmission rate in bytes per sec.
-
-
-So wouldn't it make sense to use u64 then for 10GBit networks?
-
->>> +	skb_put(skb, size);
->> This is usually done before putting data in the packet.
+>> By default the priomap looks like this:
+>> qdisc prio 1: dev eth1 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 =
+1 1
 >>
-> Therefore, skb_put() is needed.
-
-
-I meant this is usually done before writing to the packet data,
-so you should move it up a few lines.
-
->>> +static int recalc_gapsize(struct sk_buff *skb, struct Qdisc *sch)
->>> +{
->>> +	struct psp_sched_data *q = qdisc_priv(sch);
->>> +	struct psp_class *cl;
->>> +	unsigned int len = skb->len;
->>> +	int gapsize = 0;
->>> +	int err;
->>> +
->>> +	cl = psp_classify(skb, sch, &err);
->>> +	switch (cl->mode) {
->>> +	case MODE_STATIC:
->>> +		gapsize = cl->gapsize;
->>> +		if (len < q->mtu) /* workaround for overflow */
->>> +			gapsize = (int)((long long)gapsize * len / q->mtu);
->> No need to cast to the LHS type. Shouldn't this also be rounded up
->> like the other gapsize calculation?
+>> there are 3 bands (1:1, 1:2 and 1:3). In theory the traffic should g=
+o through
+>> the different bands according to the TOS value of the packets. My ob=
+servation
+>> is, that the traffic always uses the band pointed to by the first en=
+try in the
+>> priomap. This value is 1 by default, so all traffic goes through ban=
+d 1:2.
 >>
-> How about this?
-> 
-> 	u64 gapsize = 0;
-> 	:
-> 	case MODE_STATIC:
-> 		gapsize = (u64)cl->gapsize * len / q->mtu;
-> 		gapsize = min_t(u64, gapsize, UINT_MAX);
-
-
-Really a minimum of UINT_MAX? This will probably also break on 32 bit
-unless you use do_div().
-
-> 		break;
-> 	}
-> 
->>> +static struct psp_class *lookup_next_class(struct Qdisc *sch, int *gapsize)
->>> +{
->>> +	struct psp_sched_data *q = qdisc_priv(sch);
->>> +	struct psp_class *cl, *next = NULL;
->>> +	gapclock_t diff;
->>> +	int shortest;
->>> +
->>> +	/* pacing class */
->>> +	shortest = q->mtu;
->>> +	list_for_each_entry(cl, &q->pacing_list, plist) {
->>> +		diff = cl->clock - q->clock;
->>> +		if (diff > 0) {
->>> +			if ((gapclock_t)shortest > diff)
->>> +				shortest = (int)diff;
->> Is diff guaranteed not to exceed an int?
+>> Now it's entirely possible that I did something stupid, but nobody c=
+ame forward
+>> to show me the error of my ways (neither here nor on the lartc list)=
+=2E
 >>
-> No. But actually, 'diff' is much smaller than INT_MAX.
-> How about this?
-> 
-> 	u64 diff, shortest;
-> 	:
-> 		if (q->clock < cl->clock) {
-> 			diff = cl->clock - q->clock;
-> 			if (shortest > diff)
-> 				shortest = diff;
-> 			continue;
-> 		}
+>=20
+> I don't think there could be anything stupid if something is maybe no=
+t
+> enough documented. But, this really should work - just like you've
+> found: TOS should be recalculated to skb->priority, and this should
+> affect prio. You should only consider that this recalculation isn't
+> done for all packets, but only forwarded ones (if I can remember, did=
+n't
+> miss something, and nothing changed later...). So, are you still sure
+> you've tested such a case? (Btw., there are some other tools which ca=
+n
+> change this priority field, so I hope you don't use them too.)
 
 
-I don't know, its your qdisc :) I was merely wondering whether
-you need larger types since there seems to be some inconsisteny.
-Your old code had a check for diff > 0, so it appears that
-cl->clock could be smaller than q->clock.
-
->>> +	while (!list_empty(&q->root))
->>> +		psp_destroy_class(sch, list_entry(q->root.next,
->>> +						  struct psp_class, sibling));
->> list_for_each_entry_safe.
->>
-> I think it works well. Should I need to use list_for_each_entry_safe?
-
-
-I don't doubt that it works, but list_for_each_entry_safe is
-the proper interface for this.
-
-One more thing: your qdisc can only be used as root qdisc since it
-produces packets itself and thereby violates the rule that a qdisc
-can only hand out packets that were previously enqueued to it.
-Using it as a leaf qdisc can make the upper qdiscs qlen counter
-go negative, causing infinite dequeue-loops, so you should make
-sure that its only possibly to use as root qdisc by checking the
-parent. It would also be better to do something like netem
-(enqueue produced packets at the root) to make sure the qlen
-counter is always accurate.
-
+It works fine here, I'm guessing that J=F6rg is using an old kernel
+version that had a bug in prio classification without filters.
