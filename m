@@ -1,96 +1,86 @@
-From: Florian Zumbiehl <florz@florz.de>
-Subject: [PATCH][UNIX] EOF on non-blocking SOCK_SEQPACKET
-Date: Tue, 27 Nov 2007 10:33:23 +0100
-Message-ID: <20071127093323.GA2690@florz.florz.dyndns.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
+Date: Tue, 27 Nov 2007 11:50:16 +0100
+Message-ID: <20071127105016.GC24223@one.firstfloor.org>
+References: <20071122343.446909000@suse.de> <200711261225.44415.rusty@rustcorp.com.au> <adalk8lsg3z.fsf@cisco.com> <200711271526.53065.rusty@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: Roland Dreier <rdreier@cisco.com>, Andi Kleen <ak@suse.de>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sam@ravnborg.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from odnb-4d0aa522.pool.mediaWays.net ([77.10.165.34]:43504 "EHLO
-	rain.florz.dyndns.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751353AbXK0KTM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 05:19:12 -0500
-Received: from florz.florz.dyndns.org ([192.168.0.121])
-	by rain.florz.dyndns.org with esmtp (Exim 4.63)
-	(envelope-from <florz@florz.de>)
-	id 1Iwwol-0001T5-TR
-	for netdev@vger.kernel.org; Tue, 27 Nov 2007 10:33:23 +0100
-Received: from florz by florz.florz.dyndns.org with local (Exim 3.35 #1 (Debian))
-	id 1Iwwol-000189-00
-	for <netdev@vger.kernel.org>; Tue, 27 Nov 2007 10:33:23 +0100
+Received: from one.firstfloor.org ([213.235.205.2]:33274 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751300AbXK0KuV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 05:50:21 -0500
 Content-Disposition: inline
+In-Reply-To: <200711271526.53065.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, Nov 27, 2007 at 03:26:52PM +1100, Rusty Russell wrote:
+> On Monday 26 November 2007 16:58:08 Roland Dreier wrote:
+> >  > > I agree that we shouldn't make things too hard for out-of-tree
+> >  > > modules, but I disagree with your first statement: there clearly is a
+> >  > > large class of symbols that are used by multiple modules but which are
+> >  > > not generically useful -- they are only useful by a certain small
+> >  > > class of modules.
+> >  >
+> >  > If it is so clear, you should be able to easily provide examples?
+> >
+> > Sure -- Andi's example of symbols required only by TCP congestion
+> > modules;
+> 
+> Exactly.  Why exactly should someone not write a new TCP congestion module?
 
-I am not absolutely sure whether this actually is a bug (as in: I've got
-no clue what the standards say or what other implementations do), but at
-least I was pretty surprised when I noticed that a recv() on a
-non-blocking unix domain socket of type SOCK_SEQPACKET (which is connection
-oriented, after all) where the remote end has closed the connection
-returned -1 (EAGAIN) rather than 0 to indicate end of file.
+Agreed the congestion modules are a corner case. I even mentioned that in the
+patch. I would be happy to drop that one if that is the consensus.
+It was more done as a example anyways. That is why I made it an separate
+namespace from "tcp"
 
-This is a test case:
+But for many other TCP symbols it makes a lot of sense: all the functions
+only used by tcp_ipv6.c. If someone wants to write support for a "IPv7" or
+similar they really should do it in tree. So I think the "tcp" and  "inet"
+namespaces make a lot of sense.
 
-| #include <sys/types.h>
-| #include <unistd.h>
-| #include <sys/socket.h>
-| #include <sys/un.h>
-| #include <fcntl.h>
-| #include <string.h>
-| #include <stdlib.h>
-| 
-| int main(){
-| 	int sock;
-| 	struct sockaddr_un addr;
-| 	char buf[4096];
-| 	int pfds[2];
-| 
-| 	pipe(pfds);
-| 	sock=socket(PF_UNIX,SOCK_SEQPACKET,0);
-| 	addr.sun_family=AF_UNIX;
-| 	strcpy(addr.sun_path,"/tmp/foobar_testsock");
-| 	bind(sock,(struct sockaddr *)&addr,sizeof(addr));
-| 	listen(sock,1);
-| 	if(fork()){
-| 		close(sock);
-| 		sock=socket(PF_UNIX,SOCK_SEQPACKET,0);
-| 		connect(sock,(struct sockaddr *)&addr,sizeof(addr));
-| 		fcntl(sock,F_SETFL,fcntl(sock,F_GETFL)|O_NONBLOCK);
-| 		close(pfds[1]);
-| 		read(pfds[0],buf,sizeof(buf));
-| 		recv(sock,buf,sizeof(buf),0); // <-- this one
-| 	}else accept(sock,NULL,NULL);
-| 	exit(0);
-| }
+> Right.  So presumably there will only ever be two drivers using this core 
+> code, so no new users will ever be written?  Now we've found one use case, is 
 
-If you try it, make sure /tmp/foobar_testsock doesn't exist.
+If there are new users they will need to get proper review and should
+be in tree.  MODULE_ALLOW() enforces that.
 
-The marked recv() returns -1 (EAGAIN) on 2.6.23.9. Below you find a
-patch that fixes that.
+> it worth the complexity of namespaces?  Is it worth the halfway point of 
 
-Florian
+What complexity? You're always claiming it is complex. It isn't really.
 
----------------------------------------------------------------------------
-Signed-off-by: Florian Zumbiehl <florz@florz.de>
+> export-to-module?
+> 
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index a05c342..fa0aec5 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1632,8 +1632,13 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	mutex_lock(&u->readlock);
- 
- 	skb = skb_recv_datagram(sk, flags, noblock, &err);
--	if (!skb)
-+	if (!skb) {
-+		unix_state_lock(sk);
-+		if (sk->sk_type==SOCK_SEQPACKET && err==-EAGAIN && (sk->sk_shutdown&RCV_SHUTDOWN))
-+			err=0; /* signal EOF on disconnected non-blocking SEQPACKET socket */
-+		unix_state_unlock(sk);
- 		goto out_unlock;
-+	}
- 
- 	wake_up_interruptible(&u->peer_wait);
- 
+> No, we've seen the solution and various people applying it.  I'm still trying 
+> to discover the problem it's solving.
+
+Again for rusty @)
+
+Goals are:
+- Limit the interfaces available for out of tree modules to reasonably 
+stable ones that are already used by a larger set of drivers.
+
+This can also have further downstream advantages.
+For example it might be a reasonable future rule to require all unconditionally
+EXPORT_SYMBOL()s to have a complete LinuxDoc documentation entry.
+
+- Explicitely declare in source what is clearly internal and not intended to
+be a generally usable interface.
+
+e.g. for the LinuxDoc example above such internal functions don't necessarily
+need full LinuxDoc documentation.
+
+- Force review from core maintainers for use of such internal interfaces
+
+- Limit size of exported API to make stable ABIs for enterprise
+distributions easier
+[Yes I know that is not a popular topic on l-k, but it's a day-to-day
+problem for these distros and out of tree solutions do not work]
+
+-Andi
