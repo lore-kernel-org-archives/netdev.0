@@ -1,87 +1,58 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: net_rx_action/NAPI oops [PATCH]
-Date: Tue, 27 Nov 2007 14:55:37 -0800
-Message-ID: <20071127145537.6bf1af68@freepuppy.rosehill>
-References: <18252.26472.319078.165019@robur.slu.se>
-	<20071127140904.20c4cba8@freepuppy.rosehill>
-	<474C9B84.5090103@intel.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
+Date: Tue, 27 Nov 2007 18:00:25 -0500
+Message-ID: <4027.1196204425@turing-police.cc.vt.edu>
+References: <20071122343.446909000@suse.de> <adatznarrzc.fsf@cisco.com> <200711261228.15155.rusty@rustcorp.com.au> <20071126102533.1c774870@freepuppy.rosehill.pdx.hemminger.net> <20071127190037.GB30057@redhat.com>
+            <20071127210942.GF3406@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/signed; boundary="==_Exmh_1196204425_2895P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Cc: Dave Jones <davej@redhat.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Roland Dreier <rdreier@cisco.com>, Andi Kleen <ak@suse.de>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sam@ravnborg.org
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:37613 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752896AbXK0W4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 17:56:16 -0500
-In-Reply-To: <474C9B84.5090103@intel.com>
+Received: from turing-police.cc.vt.edu ([128.173.14.107]:50511 "EHLO
+	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752491AbXK0XBK (ORCPT
+	<RFC822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 18:01:10 -0500
+In-Reply-To: Your message of "Tue, 27 Nov 2007 22:09:42 +0100."
+             <20071127210942.GF3406@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 27 Nov 2007 14:34:44 -0800
-"Kok, Auke" <auke-jan.h.kok@intel.com> wrote:
+--==_Exmh_1196204425_2895P
+Content-Type: text/plain; charset=us-ascii
 
-> Stephen Hemminger wrote:
-> > On Tue, 27 Nov 2007 19:52:24 +0100
-> > Robert Olsson <Robert.Olsson@data.slu.se> wrote:
-> > 
-> >> Hello!
-> >>
-> >> I've discovered a bug while testing the new multiQ NAPI code. In hi-load 
-> >> situations when we take down an interface we get a kernel panic. The
-> >> oops is below.
-> >>
-> >> From what I see this happens when driver does napi_disable() and clears
-> >> NAPI_STATE_SCHED. In net_rx_action there is a check for work == weight 
-> >> a sort indirect test but that's now not enough to cover the load situation. 
-> >> where we have NAPI_STATE_SCHED cleared by e1000_down in my case and still 
-> >> full quota. Latest git but I'll guess the is the same in all later kernels.
-> >> There might be different solutions... one variant is below:
-> > 
-> > It is considered a driver bug in 2.6.24 to call netif_rx_complete (clear NAPI_STATE_SCHED)
-> > and do a full quota. That bug already had to be fixed in other drivers,
-> > look like e1000 has same problem.
-> 
-> Stephen,
-> 
-> please enlighten me, can you e.g. show me a commit of other drivers where you
-> fixed this up?
-> 
-> Thanks,
-> 
-> Auke
+On Tue, 27 Nov 2007 22:09:42 +0100, Adrian Bunk said:
 
-Author: David S. Miller <davem@sunset.davemloft.net>  2007-10-11 18:08:29
-Committer: David S. Miller <davem@sunset.davemloft.net>  2007-10-11 18:08:29
-Parent: b9f2c0440d806e01968c3ed4def930a43be248ad ([netdrvr] Stop using legacy hooks ->self_test_count, ->get_stats_count)
-Child:  266918303226cceac7eca38ced30f15f277bd89c ([SKY2]: status polling loop (post merge))
-Branches: master, origin
-Follows: v2.6.23
-Precedes: v2.6.24-rc1
+> Are there common reasons why these drivers are not upstream?
 
-    [NET]: Fix NAPI completion handling in some drivers.
-    
-    In order for the list handling in net_rx_action() to be
-    correct, drivers must follow certain rules as stated by
-    this comment in net_rx_action():
-    
-    		/* Drivers must not modify the NAPI state if they
-    		 * consume the entire weight.  In such cases this code
-    		 * still "owns" the NAPI instance and therefore can
-    		 * move the instance around on the list at-will.
-    		 */
-    
-    A few drivers do not do this because they mix the budget checks
-    with reading hardware state, resulting in crashes like the one
-    reported by takano@axe-inc.co.jp.
-    
-    BNX2 and TG3 are taken care of here, SKY2 fix is from Stephen
-    Hemminger.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Well, on my laptop, I'm currently dragging along 3 out-of-tree kernel modules.
+2 are well-known binary blobs so it's between me and the vendor, as usual.
 
+The third is a USB webcam driver that happened to get caught at the wrong
+end of the colorspace-conversion-in-kernel bunfight in the V4L playpen.
+Somebody wants to figure out how to get the gspca drivers into the kernel,
+they're at http://mxhaard.free.fr/download.html waiting for attention. ;)
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+(Don't look at *me*, I don't understand the code, or the bunfight - I just
+happen to have one of the 244 supported webcams, and it works with that driver)
+
+--==_Exmh_1196204425_2895P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFHTKGJcC3lWbTT17ARAjgQAKCluFWSSLmEm7HErQspBjK/H//HIACghONZ
+fp5ZIi9y3DAH5dIj5ACLViI=
+=kEKB
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1196204425_2895P--
