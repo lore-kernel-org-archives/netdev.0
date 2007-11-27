@@ -1,56 +1,70 @@
-From: Joerg Pommnitz <pommnitz@yahoo.com>
-Subject: Re: Does tc-prio really work as advertised?
-Date: Tue, 27 Nov 2007 05:07:27 -0800 (PST)
-Message-ID: <677950.98010.qm@web51406.mail.re2.yahoo.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCHv6 1/3] rtnetlink: setlink changes are unprotected; with
+ single notification
+Date: Tue, 27 Nov 2007 14:07:28 +0100
+Message-ID: <474C1690.3010405@trash.net>
+References: <11955644701165-git-send-email-panther@balabit.hu> <1195564470928-git-send-email-panther@balabit.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jarek Poplawski <jarkao2@o2.pl>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Laszlo Attila Toth <panther@balabit.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web51406.mail.re2.yahoo.com ([206.190.38.185]:24040 "HELO
-	web51406.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755102AbXK0NH2 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2007 08:07:28 -0500
+Received: from stinky.trash.net ([213.144.137.162]:58627 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755829AbXK0NHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 08:07:36 -0500
+In-Reply-To: <1195564470928-git-send-email-panther@balabit.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Great :-(. I went over the ChangeLogs for later kernel versions, but
-couldn't find anything.
+Laszlo Attila Toth wrote:
+> In do_setlink the device changes don't need to be protected. Notification
+> is sent at the end of the function once if any modification occured
+> and once if an address has been changed.
+> 
+> Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
+> ---
+>  net/core/rtnetlink.c |   32 ++++++++++++++++++++------------
+>  1 files changed, 20 insertions(+), 12 deletions(-)
+> 
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 4a07e83..20cb67e 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -542,7 +542,7 @@ int rtnl_put_cacheinfo(struct sk_buff *skb, struct dst_entry *dst, u32 id,
+>  
+>  EXPORT_SYMBOL_GPL(rtnl_put_cacheinfo);
+>  
+> -static void set_operstate(struct net_device *dev, unsigned char transition)
+> +static int set_operstate(struct net_device *dev, unsigned char transition)
+>  {
+>  	unsigned char operstate = dev->operstate;
+>  
+> @@ -562,11 +562,10 @@ static void set_operstate(struct net_device *dev, unsigned char transition)
+>  	}
+>  
+>  	if (dev->operstate != operstate) {
+> -		write_lock_bh(&dev_base_lock);
+>  		dev->operstate = operstate;
+> -		write_unlock_bh(&dev_base_lock);
+> -		netdev_state_change(dev);
+> -	}
+> +		return 1;
+> +	} else
+> +		return 0;
 
-I'll try to come up with a working .config for the most current kernel
-that works on my hardware and test again.
 
-Do you have a pointer to the fix so that I could try to patch a 2.6.20
-kernel?
-=20
--- =20
-Regards
-=20
-       Joerg
+The locking changes belong in a seperate patch with an explanation.
 
------ Urspr=FCngliche Mail ----
-Von: Patrick McHardy <kaber@trash.net>
-An: Joerg Pommnitz <pommnitz@yahoo.com>
-CC: Jarek Poplawski <jarkao2@o2.pl>; netdev@vger.kernel.org
-Gesendet: Dienstag, den 27. November 2007, 13:54:11 Uhr
-Betreff: Re: AW: Does tc-prio really work as advertised?
+>  
+> -	if (tb[IFLA_OPERSTATE])
+> -		set_operstate(dev, nla_get_u8(tb[IFLA_OPERSTATE]));
+> +	if (tb[IFLA_OPERSTATE]) {
+> +		modified |= set_operstate(dev, nla_get_u8(tb[IFLA_OPERSTATE]));
+> +	}
 
-Joerg Pommnitz wrote:
->  > It works fine here, I'm guessing that J=F6rg is using an old kerne=
-l
->  > version that had a bug in prio classification without filters.
->=20
-> This is 2.6.20.21, from 17-Oct-2007.=20
+Please don't add braces here.
 
-
-Yes, that version is broken. I think it was fixed in 2.6.22 or 2.6.23.
-
-
-
-
-
-
-      Jetzt Mails schnell in einem Vorschaufenster =FCberfliegen. Dies =
-und viel mehr bietet das neue Yahoo! Mail - www.yahoo.de/mail
+The rest looks fine.
