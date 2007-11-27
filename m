@@ -1,86 +1,88 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
-Date: Tue, 27 Nov 2007 11:50:16 +0100
-Message-ID: <20071127105016.GC24223@one.firstfloor.org>
-References: <20071122343.446909000@suse.de> <200711261225.44415.rusty@rustcorp.com.au> <adalk8lsg3z.fsf@cisco.com> <200711271526.53065.rusty@rustcorp.com.au>
+From: Joerg Pommnitz <pommnitz@yahoo.com>
+Subject: AW: Does tc-prio really work as advertised?
+Date: Tue, 27 Nov 2007 02:54:10 -0800 (PST)
+Message-ID: <636518.43765.qm@web51402.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roland Dreier <rdreier@cisco.com>, Andi Kleen <ak@suse.de>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sam@ravnborg.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:33274 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751300AbXK0KuV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 05:50:21 -0500
-Content-Disposition: inline
-In-Reply-To: <200711271526.53065.rusty@rustcorp.com.au>
+Received: from web51402.mail.re2.yahoo.com ([206.190.38.181]:44560 "HELO
+	web51402.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755314AbXK0KyL convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2007 05:54:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 27, 2007 at 03:26:52PM +1100, Rusty Russell wrote:
-> On Monday 26 November 2007 16:58:08 Roland Dreier wrote:
-> >  > > I agree that we shouldn't make things too hard for out-of-tree
-> >  > > modules, but I disagree with your first statement: there clearly is a
-> >  > > large class of symbols that are used by multiple modules but which are
-> >  > > not generically useful -- they are only useful by a certain small
-> >  > > class of modules.
-> >  >
-> >  > If it is so clear, you should be able to easily provide examples?
-> >
-> > Sure -- Andi's example of symbols required only by TCP congestion
-> > modules;
-> 
-> Exactly.  Why exactly should someone not write a new TCP congestion module?
+Jarek,
+this is all about outgoing packets, e.g. egress to use your word.
+It doesn't matter whether the packets are originated locally or
+whether the packets are forwarded from another host (I tried
+both).
 
-Agreed the congestion modules are a corner case. I even mentioned that in the
-patch. I would be happy to drop that one if that is the consensus.
-It was more done as a example anyways. That is why I made it an separate
-namespace from "tcp"
+To restate the problem: according to my observations the prio qdisc
+(and probably pfifo_fast, but I couldn't observe this) does not priorit=
+ize
+at all and always uses the band indicated by the first entry in the
+priomap.
 
-But for many other TCP symbols it makes a lot of sense: all the functions
-only used by tcp_ipv6.c. If someone wants to write support for a "IPv7" or
-similar they really should do it in tree. So I think the "tcp" and  "inet"
-namespaces make a lot of sense.
+By default the priomap looks like this:
+qdisc prio 1: dev eth1 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
 
-> Right.  So presumably there will only ever be two drivers using this core 
-> code, so no new users will ever be written?  Now we've found one use case, is 
+there are 3 bands (1:1, 1:2 and 1:3). In theory the traffic should go t=
+hrough
+the different bands according to the TOS value of the packets. My obser=
+vation
+is, that the traffic always uses the band pointed to by the first entry=
+ in the
+priomap. This value is 1 by default, so all traffic goes through band 1=
+:2.
 
-If there are new users they will need to get proper review and should
-be in tree.  MODULE_ALLOW() enforces that.
+Now it's entirely possible that I did something stupid, but nobody came=
+ forward
+to show me the error of my ways (neither here nor on the lartc list).
 
-> it worth the complexity of namespaces?  Is it worth the halfway point of 
+-- Regards
+=20
+       Joerg
 
-What complexity? You're always claiming it is complex. It isn't really.
+----- Urspr=FCngliche Mail ----
+Von: Jarek Poplawski <jarkao2@o2.pl>
+An: Joerg Pommnitz <pommnitz@yahoo.com>
+CC: netdev@vger.kernel.org
+Gesendet: Dienstag, den 27. November 2007, 10:58:38 Uhr
+Betreff: Re: Does tc-prio really work as advertised?
 
-> export-to-module?
-> 
+On Tue, Nov 27, 2007 at 01:28:43AM -0800, Joerg Pommnitz wrote:
+> Jarek,
+> iptables chains (this is what I think you are referring to) are not  =
+the issue.
 
-> No, we've seen the solution and various people applying it.  I'm still trying 
-> to discover the problem it's solving.
+Yes, but this could (wrongly) look like this according to my 1-st  mess=
+age.
 
-Again for rusty @)
+> This
+> is about the qdisc that sits immediately over the device driver and  =
+decides the
+> order waiting packets are sent over the line/air/carrier pigeon/... .
+> My suspicion is that skb->priority used to be set to a value that  de=
+rived from the
+> TOS bits. Then something changed and nobody noticed.
 
-Goals are:
-- Limit the interfaces available for out of tree modules to reasonably 
-stable ones that are already used by a larger set of drivers.
+I'm not sure of your problem: did you try this on a box which
+gets packets with TOS set earlier, does forwarding, and uses this
+prio on egress? If so, and this doesn't work, then you are right
+something could be wrong.
 
-This can also have further downstream advantages.
-For example it might be a reasonable future rule to require all unconditionally
-EXPORT_SYMBOL()s to have a complete LinuxDoc documentation entry.
+Regards,
+Jarek P.
 
-- Explicitely declare in source what is clearly internal and not intended to
-be a generally usable interface.
 
-e.g. for the LinuxDoc example above such internal functions don't necessarily
-need full LinuxDoc documentation.
 
-- Force review from core maintainers for use of such internal interfaces
 
-- Limit size of exported API to make stable ABIs for enterprise
-distributions easier
-[Yes I know that is not a popular topic on l-k, but it's a day-to-day
-problem for these distros and out of tree solutions do not work]
 
--Andi
+
+        __________________________________  Ihr erstes Baby? Holen Sie =
+sich Tipps von anderen Eltern.  www.yahoo.de/clever
