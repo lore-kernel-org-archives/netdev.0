@@ -1,46 +1,78 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 31/59] drivers/net/ixgb: Add missing "space"
-Date: Mon, 26 Nov 2007 15:16:11 -0800
-Message-ID: <474B53BB.3030002@intel.com>
-References: 1234567 <1195523331-15303-15-git-send-email-joe@perches.com> <1195523331-15303-16-git-send-email-joe@perches.com> <1195523331-15303-17-git-send-email-joe@perches.com> <1195523331-15303-18-git-send-email-joe@perches.com> <1195523331-15303-19-git-send-email-joe@perches.com> <1195523331-15303-20-git-send-email-joe@perches.com> <1195523331-15303-21-git-send-email-joe@perches.com> <1195523331-15303-22-git-send-email-joe@perches.com> <1195523331-15303-23-git-send-email-joe@perches.com> <1195523331-15303-24-git-send-email-joe@perches.com> <1195523331-15303-25-git-send-email-joe@perches.com> <1195523331-15303-26-git-send-email-joe@perches.com> <1195523331-15303-27-git-send-email-joe@perches.com> <1195523331-15303-28-git-send-email-joe@perches.com> <1195523331-15303-29-git-send-email-jo
- e@perches.com> <1195523331-15303-30-git-send-email-joe@perches.com> <1195523331-15303-31-git-send-email-joe@perches.com> <1195523331-15303-32-git-send-email-joe@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+From: Michael Neuling <mikey@neuling.org>
+Subject: Re: [PATCH] ehea: Add kdump support
+Date: Tue, 27 Nov 2007 11:35:18 +1100
+Message-ID: <11699.1196123718@neuling.org>
+References: <200711091433.51259.osstklei@de.ibm.com> <1196064988.19855.15.camel@concordia> <OF94123F44.9DB75CE9-ONC125739F.00398E63-C125739F.003B2AFE@de.ibm.com>
+Cc: michael@ellerman.id.au, Jan-Bernd Themann <THEMANN@de.ibm.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <MEDER@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>,
+	tklein@linux.ibm.com
+To: Christoph Raisch <RAISCH@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:9241 "EHLO mga01.intel.com"
+Received: from ozlabs.org ([203.10.76.45]:33427 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756088AbXKZXQg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Nov 2007 18:16:36 -0500
-In-Reply-To: <1195523331-15303-32-git-send-email-joe@perches.com>
+	id S1754469AbXK0Afm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Nov 2007 19:35:42 -0500
+In-reply-to: <OF94123F44.9DB75CE9-ONC125739F.00398E63-C125739F.003B2AFE@de.ibm.com> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Joe Perches wrote:
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  drivers/net/ixgbe/ixgbe_common.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+In message <OF94123F44.9DB75CE9-ONC125739F.00398E63-C125739F.003B2AFE@de.ibm.com> you wrote:
+> Michael Ellerman wrote on 26.11.2007 09:16:28:
+> > Solutions that might be better:
+> >
+> >  a) if there are a finite number of handles and we can predict their
+> >     values, just delete them all in the kdump kernel before the driver
+> >     loads.
 > 
-> diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
-> index 512e3b2..b7e50bc 100644
-> --- a/drivers/net/ixgbe/ixgbe_common.c
-> +++ b/drivers/net/ixgbe/ixgbe_common.c
-> @@ -950,7 +950,7 @@ s32 ixgbe_setup_fc(struct ixgbe_hw *hw, s32 packetbuf_num)
->  	u32 rmcs_reg;
->  
->  	if (packetbuf_num < 0 || packetbuf_num > 7)
-> -		hw_dbg(hw, "Invalid packet buffer number [%d], expected range"
-> +		hw_dbg(hw, "Invalid packet buffer number [%d], expected range "
->  		       "is 0-7\n", packetbuf_num);
->  
->  	frctl_reg = IXGBE_READ_REG(hw, IXGBE_FCTRL);
+> Guessing the values does not work, because of the handle structure
+> defined by the hypervisor.
+> 
+> >  b) if there are a small & finite number of handles, save their values
+> >     in a device tree property and have the kdump kernel read them and
+> >     delete them before the driver loads.
+> 
+> 5*16*nr_ports+1+1=   >82. a ML16 has 4 adapters with up to 16 ports, so the
+> number is not small anymore....
 
-Jeff, please apply in case you didn't do so yet.
+I assume this machine with a huge number of adapters has a huge amount
+of memory too! :-)
 
-Acked-by: Auke Kok <auke-jan.h.kok@intel.com>
+> The device tree functions are currently not exported.
 
-Auke
+We can add this.
+
+> If you crashdump to a new kernel, will it get the device tree
+> representation of the crashed kernel or of the initial one of open
+> firmware?
+
+The kexec tools userspace control this.  Normally it just takes the
+current device tree plus some modifications (eg. initrd location
+changes).
+
+So provided the ehea driver export this info somewhere, it can be
+grabbed by the kexec tools and stuffed in the device tree of the new
+kernel.  
+
+That being said, the proper place to have this would be original device
+tree.
+
+> 
+> >  c) if neither of those work, provide a minimal routine that _only_
+> >     deletes the handles in the crashed kernel.
+> 
+> I would hope this has the highest chance to actually work.
+> For this we would have to add a proper notifier chain.
+> Do you agree?
+> 
+> >  d) <something else>
+> 
+> Firmware change? But that's not something you will get very soon.
+> 
+> Christoph R.
+> 
