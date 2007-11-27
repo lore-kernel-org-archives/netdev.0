@@ -1,33 +1,29 @@
-From: Joerg Pommnitz <pommnitz@yahoo.com>
-Subject: AW: Does tc-prio really work as advertised?
-Date: Tue, 27 Nov 2007 04:48:10 -0800 (PST)
-Message-ID: <773358.67616.qm@web51408.mail.re2.yahoo.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: AW: Does tc-prio really work as advertised?
+Date: Tue, 27 Nov 2007 13:54:11 +0100
+Message-ID: <474C1373.6080308@trash.net>
+References: <773358.67616.qm@web51408.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>, Jarek Poplawski <jarkao2@o2.pl>
+Cc: Jarek Poplawski <jarkao2@o2.pl>, netdev@vger.kernel.org
+To: Joerg Pommnitz <pommnitz@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web51408.mail.re2.yahoo.com ([206.190.38.187]:36981 "HELO
-	web51408.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753742AbXK0MsL convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2007 07:48:11 -0500
+Received: from stinky.trash.net ([213.144.137.162]:58038 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752407AbXK0MyT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 07:54:19 -0500
+In-Reply-To: <773358.67616.qm@web51408.mail.re2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > It works fine here, I'm guessing that J=F6rg is using an old kernel
- > version that had a bug in prio classification without filters.
-
-This is 2.6.20.21, from 17-Oct-2007.=20
-=20
--- =20
-Regards
-=20
-       Joerg
+Joerg Pommnitz wrote:
+>  > It works fine here, I'm guessing that J=F6rg is using an old kerne=
+l
+>  > version that had a bug in prio classification without filters.
+>=20
+> This is 2.6.20.21, from 17-Oct-2007.=20
 
 
-
-
-       __________________________________  Ihre erste Baustelle? Wissen=
-swertes f=FCr Bastler und Hobby Handwerker. www.yahoo.de/clever
+Yes, that version is broken. I think it was fixed in 2.6.22 or 2.6.23.
