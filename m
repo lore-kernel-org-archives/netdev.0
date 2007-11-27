@@ -1,35 +1,46 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Does tc-prio really work as advertised?
-Date: Tue, 27 Nov 2007 15:12:51 +0100
-Message-ID: <20071127141251.GA4291@ff.dom.local>
-References: <759014.71791.qm@web51409.mail.re2.yahoo.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
+Date: Tue, 27 Nov 2007 15:12:42 +0100
+Message-ID: <20071127141242.GA26794@one.firstfloor.org>
+References: <20071127105016.GC24223@one.firstfloor.org> <E1Ix0ws-0001Vh-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Joerg Pommnitz <pommnitz@yahoo.com>
+Cc: Andi Kleen <andi@firstfloor.org>, rusty@rustcorp.com.au,
+	rdreier@cisco.com, ak@suse.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sam@ravnborg.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:57780 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756429AbXK0OIQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2007 09:08:16 -0500
+Received: from one.firstfloor.org ([213.235.205.2]:56894 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754295AbXK0OMr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 09:12:47 -0500
 Content-Disposition: inline
-In-Reply-To: <759014.71791.qm@web51409.mail.re2.yahoo.com>
+In-Reply-To: <E1Ix0ws-0001Vh-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 27, 2007 at 05:00:55AM -0800, Joerg Pommnitz wrote:
-...
-> The OLSR traffic was obviously generated locally (not forwarded).
-> You claim, that the TOS value for locally generated traffic does
-> not influence its priority?
+> OK, short of making IPv4 a module (which would be a worthy task :)
 
-I wouldn't say "I claim": I've found something like this 'long time
-ago' (enough to forget), and didn't need this information since
-then. Now, I see you have 'nearby' problem, so it's only a hint.
-After your first message I think you should be able to check this
-by yourself. But, if there are any problems with this, you find my
-idea wrong or not valid anymore, I'm interested in knowing about
-this.
+At some point there were patches, it is probably not very difficult.
+But DaveM resisted at some point because he didn't want people
+to replace the network stack (although I personally don't have a problem
+with that)
 
-Cheers,
-Jarek P.
+> do you have an example where a symbol is used by more than one module
+> but needs to be put into a namespace?
+
+For SCSI: SD,SR,SG etc.
+For Networking: e.g. symbols i put into inet, which are only
+used by protocols (sctp, dccp, udplite, ipv6)
+I already caught someone doing something wrong with that BTW -- 
+wanrouter clearly does some things it shouldn't be doing. 
+Or the fib namespace, where all the fib functions should be only
+used by the two fib_* modules and ipv6/decnet.
+For KVM: the exports used by kvm_amd/intel
+For arch/x86: e.g. e820_*, IO_APIC_get_PCI_irq_vector, swiotlb, 
+a lot of stuff only used by acpi processor.c, pcibios*, etc.etc.
+Roland gave another example for Infiniband.
+
+Also in general it allows flexibility later if modules get split.
+
+-Andi
