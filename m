@@ -1,49 +1,34 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][BRIDGE] Lost call to br_fdb_fini() in br_init() error path
-Date: Tue, 27 Nov 2007 17:39:42 +0300
-Message-ID: <474C2C2E.7050001@openvz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH 4/4] atm/ambassador: kmalloc + memset conversion to kzalloc
+Date: Tue, 27 Nov 2007 09:40:39 -0500
+Message-ID: <200711271440.lAREedEK011753@cmf.nrl.navy.mil>
+References: <alpine.LFD.0.9999.0711260619580.10766@localhost.localdomain>
+Reply-To: chas3@users.sourceforge.net
+Cc: Joonwoo Park <joonwpark81@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Robert P. J. Day" <rpjday@crashcourse.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:37214 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751020AbXK0OkG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2007 09:40:06 -0500
+Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:63290 "EHLO
+	ginger.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753851AbXK0OlW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 09:41:22 -0500
+Reply-To: chas3@users.sourceforge.net
+In-reply-to: <alpine.LFD.0.9999.0711260619580.10766@localhost.localdomain> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In case the br_netfilter_init() (or any subsequent call) 
-fails, the br_fdb_fini() must be called to free the allocated
-in br_fdb_init() br_fdb_cache kmem cache.
+In message <alpine.LFD.0.9999.0711260619580.10766@localhost.localdomain>,"Rober
+t P. J. Day" writes:
+>> > in any event, i just thought i'd point it out.  if you're absolutely
+>> > sure there will never be another call to setup_dev() from somewhere
+>> > else, then, yes, it's safe.
+>>
+>> I understood your opinions. and partially agree with you.
+>> But isn't it a unfounded fear?
+>
+>i don't know, i just thought i'd mention it.  if no one thinks it's an
+>issue, it's certainly fine with me.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
----
-
-diff --git a/net/bridge/br.c b/net/bridge/br.c
-index 93867bb..a901828 100644
---- a/net/bridge/br.c
-+++ b/net/bridge/br.c
-@@ -39,7 +39,7 @@ static int __init br_init(void)
- 
- 	err = br_fdb_init();
- 	if (err)
--		goto err_out1;
-+		goto err_out;
- 
- 	err = br_netfilter_init();
- 	if (err)
-@@ -65,6 +65,8 @@ err_out3:
- err_out2:
- 	br_netfilter_fini();
- err_out1:
-+	br_fdb_fini();
-+err_out:
- 	llc_sap_put(br_stp_sap);
- 	return err;
- }
+its very unlikely that setup_dev() is likely to be called from another
+code path.  this patch looks fine to me.  i will take it and get it
+submitted on the next merge.
