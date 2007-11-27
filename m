@@ -1,54 +1,84 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
-Date: Tue, 27 Nov 2007 21:58:02 +0800
-Message-ID: <E1Ix0ws-0001Vh-00@gondolin.me.apana.org.au>
-References: <20071127105016.GC24223@one.firstfloor.org>
-Cc: rusty@rustcorp.com.au, rdreier@cisco.com, ak@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sam@ravnborg.org
-To: andi@firstfloor.org (Andi Kleen)
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: [PATCH 2/3] [POWERPC] fsl_soc: add support for gianfar for
+	fixed-link property
+Date: Tue, 27 Nov 2007 15:01:30 +0100
+Message-ID: <1196172090.9816.23.camel@gentoo-jocke.transmode.se>
+References: <20071126142906.19642.45540.stgit@localhost.localdomain>
+	 <20071126142915.19642.5842.stgit@localhost.localdomain>
+	 <1196089448.12625.62.camel@gentoo-jocke.transmode.se>
+	 <20071127113935.GA26867@localhost.localdomain>
+	 <1196169432.9816.16.camel@gentoo-jocke.transmode.se>
+	 <20071127135952.GA1483@localhost.localdomain>
+Reply-To: joakim.tjernlund@transmode.se
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Vitaly Bordug <vitb@kernel.crashing.org>, linuxppc-dev@ozlabs.org,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	netdev@vger.kernel.org
+To: avorontsov@ru.mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4274 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753271AbXK0N6n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 08:58:43 -0500
-In-Reply-To: <20071127105016.GC24223@one.firstfloor.org>
+Received: from mail.transmode.se ([83.241.175.147]:39850 "EHLO
+	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753022AbXK0OBc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 09:01:32 -0500
+In-Reply-To: <20071127135952.GA1483@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen <andi@firstfloor.org> wrote:
-> On Tue, Nov 27, 2007 at 03:26:52PM +1100, Rusty Russell wrote:
->> On Monday 26 November 2007 16:58:08 Roland Dreier wrote:
->> >  > > I agree that we shouldn't make things too hard for out-of-tree
->> >  > > modules, but I disagree with your first statement: there clearly is a
->> >  > > large class of symbols that are used by multiple modules but which are
->> >  > > not generically useful -- they are only useful by a certain small
->> >  > > class of modules.
->> >  >
->> >  > If it is so clear, you should be able to easily provide examples?
->> >
->> > Sure -- Andi's example of symbols required only by TCP congestion
->> > modules;
->> 
->> Exactly.  Why exactly should someone not write a new TCP congestion module?
-> 
-> Agreed the congestion modules are a corner case. I even mentioned that in the
-> patch. I would be happy to drop that one if that is the consensus.
-> It was more done as a example anyways. That is why I made it an separate
-> namespace from "tcp"
-> 
-> But for many other TCP symbols it makes a lot of sense: all the functions
-> only used by tcp_ipv6.c. If someone wants to write support for a "IPv7" or
-> similar they really should do it in tree. So I think the "tcp" and  "inet"
-> namespaces make a lot of sense.
 
-OK, short of making IPv4 a module (which would be a worthy task :)
-do you have an example where a symbol is used by more than one module
-but needs to be put into a namespace?
+On Tue, 2007-11-27 at 16:59 +0300, Anton Vorontsov wrote:
+> On Tue, Nov 27, 2007 at 02:17:11PM +0100, Joakim Tjernlund wrote:
+> > 
+> > On Tue, 2007-11-27 at 14:39 +0300, Anton Vorontsov wrote:
+> > > On Mon, Nov 26, 2007 at 04:04:08PM +0100, Joakim Tjernlund wrote:
+> > > > On Mon, 2007-11-26 at 17:29 +0300, Vitaly Bordug wrote:
+> > > > > fixed-link says: register new "Fixed/emulated PHY", i.e. PHY that
+> > > > > not connected to the real MDIO bus.
+> > > > > 
+> > > > > Signed-off-by: Vitaly Bordug <vitb@kernel.crashing.org>
+> > > > > Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+> > > > > 
+> > > > > ---
+> > > > > 
+> > > > >  Documentation/powerpc/booting-without-of.txt |    3 +
+> > > > >  arch/powerpc/sysdev/fsl_soc.c                |   56 ++++++++++++++++++--------
+> > > > >  2 files changed, 42 insertions(+), 17 deletions(-)
+> > > > > 
+> > > > > 
+> > > > > diff --git a/Documentation/powerpc/booting-without-of.txt b/Documentation/powerpc/booting-without-of.txt
+> > > > > index e9a3cb1..cf25070 100644
+> > > > > --- a/Documentation/powerpc/booting-without-of.txt
+> > > > > +++ b/Documentation/powerpc/booting-without-of.txt
+> > > > > @@ -1254,6 +1254,9 @@ platforms are moved over to use the flattened-device-tree model.
+> > > > >        services interrupts for this device.
+> > > > >      - phy-handle : The phandle for the PHY connected to this ethernet
+> > > > >        controller.
+> > > > > +    - fixed-link : <a b c> where a is emulated phy id - choose any,
+> > > > > +      but unique to the all specified fixed-links, b is duplex - 0 half,
+> > > > > +      1 full, c is link speed - d#10/d#100/d#1000.
+> > > > 
+> > > > Good work!
+> > > > May I suggest adding a "d" to <a b c> where d is flow control - 0 no, 1 yes
+> > > 
+> > > Well, I see no reference of the "flow" neither in the include/linux/mii.h
+> > > nor in the drivers/net/phy/*. :-/ Thus today there is no such register
+> > > bit we can emulate?..
+> > 
+> > Well, as good as I can recall, flow control(pause) is something that the
+> > PHY negotiates, just like FDX/HDX and should be dealt with in the
+> > adjust_link callback but not many do currently.
+> > 
+> > If you seach for pause in phy_device.c you will find it.
+> 
+> Ah, pause. Sure, we can emulate that.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Good, looking into phy_device there seems to be 2 pauses:
+ADVERTISED_Pause and ADVERTISE_PAUSE_ASYM which
+maps to phydev->pause and phydev->asym_pause
+so "d" should reflect that or a "e" should be added
+for the asym pause.
+
+ Jocke
+
+ Jocke
