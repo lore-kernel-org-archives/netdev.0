@@ -1,34 +1,31 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/1][ATM]: [he] initialize lock and tasklet earlier
-Date: Tue, 27 Nov 2007 11:04:16 +0800
-Message-ID: <20071127030416.GA1502@gondor.apana.org.au>
-References: <200711261633.lAQGXWvr027742@cmf.nrl.navy.mil> <20071127030341.GA1444@gondor.apana.org.au>
+Subject: Re: [XFRM]: Fix leak of expired xfrm_states
+Date: Tue, 27 Nov 2007 11:11:28 +0800
+Message-ID: <20071127031128.GB1444@gondor.apana.org.au>
+References: <474AE0B7.5010709@trash.net> <20071126154625.GI28022@gondor.apana.org.au> <474AEB8E.9040903@trash.net> <20071126155408.GA29097@gondor.apana.org.au> <474AEC91.5090907@trash.net> <20071126162223.GA29293@gondor.apana.org.au> <474AF9BF.2050603@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1357 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:1434 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753954AbXK0DET (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 22:04:19 -0500
+	with ESMTP id S1753383AbXK0DLe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2007 22:11:34 -0500
 Content-Disposition: inline
-In-Reply-To: <20071127030341.GA1444@gondor.apana.org.au>
+In-Reply-To: <474AF9BF.2050603@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 27, 2007 at 11:03:41AM +0800, Herbert Xu wrote:
-> On Mon, Nov 26, 2007 at 04:33:31PM +0000, chas williams - CONTRACTOR wrote:
-> > if you are lucky (unlucky?) enough to have shared interrupts, the
-> > interrupt handler can be called before the tasklet and lock are ready
-> > for use.
-> 
-> Patch applied.  Thanks Chas!
+On Mon, Nov 26, 2007 at 05:52:15PM +0100, Patrick McHardy wrote:
+>
+> OK, here's a patch to use xfrm_state_put in __xfrm_state_delete().
+> I've checked the other callers and it should be fine. lock ordering
+> between x->lock and xfrm_state_gc_lock also doesn't seem to be an
+> issue.
 
-Oh please don't forget to add a Signed-off-by header next time.
-I've added it for you this time.
-
-Thanks,
+Patch applied.  Thanks a lot Patrick!
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
