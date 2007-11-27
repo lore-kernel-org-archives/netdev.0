@@ -1,61 +1,38 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: 2.6.23-mm1 tg3 wake-on-lan oddity...
-Date: Tue, 27 Nov 2007 04:35:18 -0500
-Message-ID: <24400.1196156118@turing-police.cc.vt.edu>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Does tc-prio really work as advertised?
+Date: Tue, 27 Nov 2007 10:58:38 +0100
+Message-ID: <20071127095838.GA2772@ff.dom.local>
+References: <716567.82573.qm@web51408.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1196156118_2790P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: mchan@broadcom.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Joerg Pommnitz <pommnitz@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from turing-police.cc.vt.edu ([128.173.14.107]:34851 "EHLO
-	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752758AbXK0JfU (ORCPT
-	<RFC822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 04:35:20 -0500
+Received: from mx2.go2.pl ([193.17.41.42]:54225 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753464AbXK0JyF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2007 04:54:05 -0500
+Content-Disposition: inline
+In-Reply-To: <716567.82573.qm@web51408.mail.re2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1196156118_2790P
-Content-Type: text/plain; charset="us-ascii"
-Content-Id: <24394.1196156118.1@turing-police.cc.vt.edu>
+On Tue, Nov 27, 2007 at 01:28:43AM -0800, Joerg Pommnitz wrote:
+> Jarek,
+> iptables chains (this is what I think you are referring to) are not the issue.
 
-Scenario - Dell Latitude D820 laptop, tg3 driver says this at boot:
+Yes, but this could (wrongly) look like this according to my 1-st message.
 
-eth0: Tigon3 [partno(BCM5752KFBG) rev 6002 PHY(5752)] (PCI Express) 10/100/1000Base-T Ethernet 00:15:c5:c8:33:4e
-eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] WireSpeed[1] TSOcap[1]
-eth0: dma_rwctrl[76180000] dma_mask[64-bit]
+> This
+> is about the qdisc that sits immediately over the device driver and decides the
+> order waiting packets are sent over the line/air/carrier pigeon/... .
+> My suspicion is that skb->priority used to be set to a value that derived from the
+> TOS bits. Then something changed and nobody noticed.
 
-# (lspci; lspci -n) | grep 09
-09:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5752 Gigabit Ethernet PCI Express (rev 02)
-09:00.0 0200: 14e4:1600 (rev 02)
+I'm not sure of your problem: did you try this on a box which
+gets packets with TOS set earlier, does forwarding, and uses this
+prio on egress? If so, and this doesn't work, then you are right
+something could be wrong.
 
-(I think that's most of the likely-relevant info...)
-
-Issue:
-
-I (for unrelated reasons) run powertop, and it suggests I conserve power
-by doing 'ethtool -s eth0 wol d'.  I look at it, and think that it's daft,
-because (a) the Dell factory default is WOL disabled and (b) if it wasn't
-the default, I'd have *set* it to disabled, and (c) I even went back and
-rebooted and checked the BIOS setting - disabled. Nonetheless:
-
-# ethtool eth0 | grep Wake
-        Supports Wake-on: g
-        Wake-on: g
-
-Is this expected behavior?
-
---==_Exmh_1196156118_2790P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFHS+TWcC3lWbTT17ARApEWAKDWCl3iX1sGcQLMS80cIblSREuOfwCgiWWc
-pzMcG2P9/3vRFPIfghy3Rz0=
-=L00V
------END PGP SIGNATURE-----
-
---==_Exmh_1196156118_2790P--
+Regards,
+Jarek P.
