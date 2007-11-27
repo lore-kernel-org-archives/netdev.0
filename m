@@ -1,40 +1,77 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: 2.6.23-mm1 tg3 wake-on-lan oddity...
-Date: Tue, 27 Nov 2007 08:04:28 -0800
-Message-ID: <1551EAE59135BE47B544934E30FC4FC002AABB51@nt-irva-0751.brcm.ad.broadcom.com>
-References: <24400.1196156118@turing-police.cc.vt.edu>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][BRIDGE] Properly dereference the br_should_route_hook
+Date: Tue, 27 Nov 2007 19:12:11 +0300
+Message-ID: <474C41DB.4080007@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Valdis.Kletnieks@vt.edu
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: bridge@lists.osdl.org, Linux Netdev List <netdev@vger.kernel.org>,
+	devel@openvz.org
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4269 "EHLO MMS3.broadcom.com"
+Received: from sacred.ru ([62.205.161.221]:49959 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754667AbXK0QEk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 11:04:40 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <24400.1196156118@turing-police.cc.vt.edu>
+	id S1754099AbXK0QMg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2007 11:12:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Valdis.Kletnieks@vt.edu wrote:
+This hook is protected with the RCU, so simple
 
-> (a) the Dell factory default is WOL disabled and (b) 
-> if it wasn't
-> the default, I'd have *set* it to disabled, and (c) I even 
-> went back and
-> rebooted and checked the BIOS setting - disabled. Nonetheless:
-> 
-> # ethtool eth0 | grep Wake
->         Supports Wake-on: g
->         Wake-on: g
-> 
-> Is this expected behavior?
-> 
+	if (br_should_route_hook)
+		br_should_route_hook(...)
 
-The new tg3 is supposed to follow the WoL setting in the
-NVRAM, so this is not expected.  We'll have to look into
-this.
+is not enough on some architectures.
 
+Use the rcu_dereference/rcu_assign_pointer in this case.
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 3cedd4e..b42b192 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -122,6 +122,7 @@ static inline int is_link_local(const unsigned char *dest)
+ struct sk_buff *br_handle_frame(struct net_bridge_port *p, struct sk_buff *skb)
+ {
+ 	const unsigned char *dest = eth_hdr(skb)->h_dest;
++	typeof(br_should_route_hook) rhook;
+ 
+ 	if (!is_valid_ether_addr(eth_hdr(skb)->h_source))
+ 		goto drop;
+@@ -147,9 +148,9 @@ struct sk_buff *br_handle_frame(struct net_bridge_port *p, struct sk_buff *skb)
+ 
+ 	switch (p->state) {
+ 	case BR_STATE_FORWARDING:
+-
+-		if (br_should_route_hook) {
+-			if (br_should_route_hook(skb))
++		rhook = rcu_dereference(br_should_route_hook);
++		if (rhook != NULL) {
++			if (rhook(skb))
+ 				return skb;
+ 			dest = eth_hdr(skb)->h_dest;
+ 		}
+diff --git a/net/bridge/netfilter/ebtable_broute.c b/net/bridge/netfilter/ebtable_broute.c
+index e44519e..be6f186 100644
+--- a/net/bridge/netfilter/ebtable_broute.c
++++ b/net/bridge/netfilter/ebtable_broute.c
+@@ -70,13 +70,13 @@ static int __init ebtable_broute_init(void)
+ 	if (ret < 0)
+ 		return ret;
+ 	/* see br_input.c */
+-	br_should_route_hook = ebt_broute;
++	rcu_assign_pointer(br_should_route_hook, ebt_broute);
+ 	return ret;
+ }
+ 
+ static void __exit ebtable_broute_fini(void)
+ {
+-	br_should_route_hook = NULL;
++	rcu_assign_pointer(br_should_route_hook, NULL);
+ 	synchronize_net();
+ 	ebt_unregister_table(&broute_table);
+ }
