@@ -1,34 +1,60 @@
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH 4/4] atm/ambassador: kmalloc + memset conversion to kzalloc
-Date: Tue, 27 Nov 2007 09:40:39 -0500
-Message-ID: <200711271440.lAREedEK011753@cmf.nrl.navy.mil>
-References: <alpine.LFD.0.9999.0711260619580.10766@localhost.localdomain>
-Reply-To: chas3@users.sourceforge.net
-Cc: Joonwoo Park <joonwpark81@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Robert P. J. Day" <rpjday@crashcourse.ca>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: [PATCH]: fix lro_gen_skb() alignment
+Date: Tue, 27 Nov 2007 09:47:23 -0500
+Message-ID: <474C2DFB.1090706@myri.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------050402040004040003060500"
+Cc: Jan-Bernd Themann <ossthema@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:63290 "EHLO
-	ginger.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753851AbXK0OlW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 09:41:22 -0500
-Reply-To: chas3@users.sourceforge.net
-In-reply-to: <alpine.LFD.0.9999.0711260619580.10766@localhost.localdomain> 
+Received: from mailbox2.myri.com ([64.172.73.26]:2015 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753598AbXK0Orj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2007 09:47:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In message <alpine.LFD.0.9999.0711260619580.10766@localhost.localdomain>,"Rober
-t P. J. Day" writes:
->> > in any event, i just thought i'd point it out.  if you're absolutely
->> > sure there will never be another call to setup_dev() from somewhere
->> > else, then, yes, it's safe.
->>
->> I understood your opinions. and partially agree with you.
->> But isn't it a unfounded fear?
->
->i don't know, i just thought i'd mention it.  if no one thinks it's an
->issue, it's certainly fine with me.
+This is a multi-part message in MIME format.
+--------------050402040004040003060500
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-its very unlikely that setup_dev() is likely to be called from another
-code path.  this patch looks fine to me.  i will take it and get it
-submitted on the next merge.
+The inet_lro.c:lro_gen_skb() function fails to include
+NET_IP_ALIGN padding at the front of the sk_buffs it creates,
+leading to alignment warnings on architectures which require
+strict alignment (seen on sparc64).  The attached patch
+adds NET_IP_ALIGN padding.
+
+Signed off by: Andrew Gallatin <gallatin@myri.com>
+
+Drew
+
+
+--------------050402040004040003060500
+Content-Type: text/plain; x-mac-type="0"; x-mac-creator="0";
+ name="lro_align.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="lro_align.diff"
+
+diff --git a/net/ipv4/inet_lro.c b/net/ipv4/inet_lro.c
+index ac3b1d3..91e9371 100644
+--- a/net/ipv4/inet_lro.c
++++ b/net/ipv4/inet_lro.c
+@@ -401,10 +401,11 @@ static struct sk_buff *lro_gen_skb(struc
+ 	int data_len = len;
+ 	int hdr_len = min(len, hlen);
+ 
+-	skb = netdev_alloc_skb(lro_mgr->dev, hlen);
++	skb = netdev_alloc_skb(lro_mgr->dev, hlen + NET_IP_ALIGN);
+ 	if (!skb)
+ 		return NULL;
+ 
++	skb_reserve(skb, NET_IP_ALIGN);
+ 	skb->len = len;
+ 	skb->data_len = len - hdr_len;
+ 	skb->truesize += true_size;
+
+--------------050402040004040003060500--
