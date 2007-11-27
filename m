@@ -1,46 +1,49 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
-Date: Tue, 27 Nov 2007 15:12:42 +0100
-Message-ID: <20071127141242.GA26794@one.firstfloor.org>
-References: <20071127105016.GC24223@one.firstfloor.org> <E1Ix0ws-0001Vh-00@gondolin.me.apana.org.au>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][BRIDGE] Lost call to br_fdb_fini() in br_init() error path
+Date: Tue, 27 Nov 2007 17:39:42 +0300
+Message-ID: <474C2C2E.7050001@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, rusty@rustcorp.com.au,
-	rdreier@cisco.com, ak@suse.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sam@ravnborg.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: bridge@lists.linux-foundation.org,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:56894 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754295AbXK0OMr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 09:12:47 -0500
-Content-Disposition: inline
-In-Reply-To: <E1Ix0ws-0001Vh-00@gondolin.me.apana.org.au>
+Received: from sacred.ru ([62.205.161.221]:37214 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751020AbXK0OkG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2007 09:40:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> OK, short of making IPv4 a module (which would be a worthy task :)
+In case the br_netfilter_init() (or any subsequent call) 
+fails, the br_fdb_fini() must be called to free the allocated
+in br_fdb_init() br_fdb_cache kmem cache.
 
-At some point there were patches, it is probably not very difficult.
-But DaveM resisted at some point because he didn't want people
-to replace the network stack (although I personally don't have a problem
-with that)
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-> do you have an example where a symbol is used by more than one module
-> but needs to be put into a namespace?
+---
 
-For SCSI: SD,SR,SG etc.
-For Networking: e.g. symbols i put into inet, which are only
-used by protocols (sctp, dccp, udplite, ipv6)
-I already caught someone doing something wrong with that BTW -- 
-wanrouter clearly does some things it shouldn't be doing. 
-Or the fib namespace, where all the fib functions should be only
-used by the two fib_* modules and ipv6/decnet.
-For KVM: the exports used by kvm_amd/intel
-For arch/x86: e.g. e820_*, IO_APIC_get_PCI_irq_vector, swiotlb, 
-a lot of stuff only used by acpi processor.c, pcibios*, etc.etc.
-Roland gave another example for Infiniband.
-
-Also in general it allows flexibility later if modules get split.
-
--Andi
+diff --git a/net/bridge/br.c b/net/bridge/br.c
+index 93867bb..a901828 100644
+--- a/net/bridge/br.c
++++ b/net/bridge/br.c
+@@ -39,7 +39,7 @@ static int __init br_init(void)
+ 
+ 	err = br_fdb_init();
+ 	if (err)
+-		goto err_out1;
++		goto err_out;
+ 
+ 	err = br_netfilter_init();
+ 	if (err)
+@@ -65,6 +65,8 @@ err_out3:
+ err_out2:
+ 	br_netfilter_fini();
+ err_out1:
++	br_fdb_fini();
++err_out:
+ 	llc_sap_put(br_stp_sap);
+ 	return err;
+ }
