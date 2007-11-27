@@ -1,59 +1,47 @@
-From: Jon Masters <jonathan@jonmasters.org>
+From: Andi Kleen <andi@firstfloor.org>
 Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
-Date: Tue, 27 Nov 2007 17:31:38 -0500
-Message-ID: <1196202698.3415.119.camel__11070.5670821064$1196204685$gmane$org@jcmlaptop>
-References: <20071122343.446909000@suse.de>
-	 <200711261228.15155.rusty@rustcorp.com.au> <adahcj9sfan.fsf@cisco.com>
-	 <200711271549.37670.rusty@rustcorp.com.au>
+Date: Wed, 28 Nov 2007 00:06:45 +0100
+Message-ID: <20071127230645.GB31491@one.firstfloor.org>
+References: <20071122343.446909000@suse.de> <200711261228.15155.rusty@rustcorp.com.au> <adahcj9sfan.fsf@cisco.com> <200711271549.37670.rusty@rustcorp.com.au> <1196202698.3415.119.camel@jcmlaptop> <20071127223743.GI24223@one.firstfloor.org> <20071127150022.61bdff7e@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <rdreier@cisco.com>, Andi Kleen <ak@suse.de>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Jon Masters <jonathan@jonmasters.org>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Roland Dreier <rdreier@cisco.com>, Andi Kleen <ak@suse.de>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	sam@ravnborg.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from panic.printk.net ([217.147.83.20]:35783 "EHLO panic.printk.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752592AbXK0XEQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2007 18:04:16 -0500
-In-Reply-To: <200711271549.37670.rusty@rustcorp.com.au>
-Sender: netdev-owner@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760564AbXK0XHB@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20071127150022.61bdff7e@freepuppy.rosehill>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-11-27 at 15:49 +1100, Rusty Russell wrote:
-> On Monday 26 November 2007 17:15:44 Roland Dreier wrote:
-
-> > It seems pretty   
-> > clear to me that having a mechanism that requires modules to make
-> > explicit which (semi-)internal APIs makes reviewing easier
+On Tue, Nov 27, 2007 at 03:00:22PM -0800, Stephen Hemminger wrote:
+> On Tue, 27 Nov 2007 23:37:43 +0100
+> Andi Kleen <andi@firstfloor.org> wrote:
 > 
-> Perhaps you've got lots of patches were people are using internal APIs they 
-> shouldn't?
-
-With my "Enterprise" hat on, I can see where Andi was coming from
-originally. Just like we do in RHEL, SuSE have a concept of a kernel ABI
-and we too have a concept of a whitelist of symbols - a subset of kernel
-ABI that is approved for use by third parties (this is nothing to do
-with licensing, this is to do with ABI stability we try to ensure).
-
-As part of figuring out what should and should not be used by external
-modules (outside of the core kernel), we've gained a bit of experience,
-and it would be nice to be able to help others - this is nothing to do
-with upstream "ABI stability", but just to be of a public service by
-documenting those functions that are never intended for modules but
-which necessarily are exported because they have one or two users.
-
-> > , makes it 
-> > easier to communicate "please don't use that API" to module authors,
+> > > With my "Enterprise" hat on, I can see where Andi was coming from
+> > > originally. 
+> > 
+> > For the record my original motivation was to fix the "TCP exports everything
+> > for ipv6.ko" case cleanly. I later realized that it would be useful for the
+> > ABI stability issues too, but it was really not my primary motivation.
+> > This is why I didn't even mention that in the original patch description.
 > 
-> Well, introduce an EXPORT_SYMBOL_INTERNAL().  It's a lot less code.  But you'd 
-> still need to show that people are having trouble knowing what APIs to use.
+> Since ipv6 can never be removed because it references itself, the whole concept
 
-I suggested this exact idea privately at OLS. I still think it's the
-best compromise, though I like bits of the namespace idea. An
-EXPORT_SYMBOL_INTERNAL would indeed be trivial.
+AFAIK that is obsolete anyways. It was done because it was feared it would
+be broken, but at least the broken cases I knew about were all fixed
+a long time ago. Most likely it could be safely removed.
 
-Jon.
+> of a modular ipv6 is flawed. 
 
+Modules that cannot be unloaded are still useful. Standard case: Distributions
+like to offer an option to not use ipv6 because that is popular workaround
+for the common "DNS server eats AAAA queries and causes delays" issue.
+Forcing the user to rebuild the kernel for this wouldn't be practical.
+If ipv6 wasn't modular that would be hard to do.
 
+-Andi
