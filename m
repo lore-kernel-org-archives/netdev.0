@@ -1,45 +1,48 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
-Date: Tue, 27 Nov 2007 18:15:42 +0100
-Message-ID: <20071127171542.GB3406@stusta.de>
-References: <20071122343.446909000@suse.de> <200711261228.15155.rusty@rustcorp.com.au> <adahcj9sfan.fsf@cisco.com> <200711271549.37670.rusty@rustcorp.com.au> <1196141742.9876.49.camel@trinity.ogc.int>
+From: "H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>
+Subject: Re: wireless vs. alignment requirements
+Date: Tue, 27 Nov 2007 09:16:07 -0800
+Message-ID: <474C50D7.5010901@zytor.com>
+References: <E1IvoID-0006aR-00@gondolin.me.apana.org.au> <1195893216.4149.186.camel@johannes.berg> <20071124133200.GA27531@gondor.apana.org.au> <1195912176.4149.194.camel@johannes.berg> <20071124141319.GA27819@gondor.apana.org.au> <4748855C.5090103@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Roland Dreier <rdreier@cisco.com>, Andi Kleen <ak@suse.de>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sam@ravnborg.org
-To: Tom Tucker <tom@opengridcomputing.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:41120 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756836AbXK0RPx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 12:15:53 -0500
-Content-Disposition: inline
-In-Reply-To: <1196141742.9876.49.camel@trinity.ogc.int>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4748855C.5090103-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 26, 2007 at 11:35:42PM -0600, Tom Tucker wrote:
-> On Tue, 2007-11-27 at 15:49 +1100, Rusty Russell wrote:
->...
-> > No.  That's the wrong question.  What's the real upside?
+Stephen Hemminger wrote:
+> Herbert Xu wrote:
+>> On Sat, Nov 24, 2007 at 02:49:36PM +0100, Johannes Berg wrote:
+>>  
+>>> Right. I just didn't think that would be a valid value for an
+>>> architecture to set.
+>>>     
+>>
+>> OK.  Let me clarify this a bit more.  We require at least one
+>> of the following rules to be met:
+>>
+>> * the IPv4/IPv6 header is aligned by 8 bytes on reception;
+>> * or the platform provides unaligned exception handlers.
+>>
+>> So if your platform violates both rules then it won't work with
+>> the IP stack, simple as that.  Fortunately I don't think such a
+>> platform exists currently on Linux.
+>>
+>> Cheers,
+>>   
 > 
-> Explicitly documenting what comprises the kernel API (external,
-> supported) and what comprises the kernel implementation (internal, not
-> supported).
->...
+> Then what about hardware that can't dma ethernet to non-aligned address.
+> Sky2 hardware breaks if DMA is not 8 byte aligned.  IMHO the IP stack 
+> should handle any alignment, and do the appropriate memove if the CPU requires 
+> alignment.
 
-There is not, never was, and never will be, any supported external API 
-of the kernel.
- 
-cu
-Adrian
+I wrote a patch for the IP stack to realign packets if necessary at one 
+point.  I should dredge it up again and submit it for collective flamage.
 
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+	-hpa
