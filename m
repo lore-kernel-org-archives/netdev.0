@@ -1,66 +1,61 @@
-From: Joerg Pommnitz <pommnitz@yahoo.com>
-Subject: RE: Does tc-prio really work as advertised?
-Date: Tue, 27 Nov 2007 01:28:43 -0800 (PST)
-Message-ID: <716567.82573.qm@web51408.mail.re2.yahoo.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: 2.6.23-mm1 tg3 wake-on-lan oddity...
+Date: Tue, 27 Nov 2007 04:35:18 -0500
+Message-ID: <24400.1196156118@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: multipart/signed; boundary="==_Exmh_1196156118_2790P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web51408.mail.re2.yahoo.com ([206.190.38.187]:33151 "HELO
-	web51408.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1758315AbXK0J2o convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2007 04:28:44 -0500
+Received: from turing-police.cc.vt.edu ([128.173.14.107]:34851 "EHLO
+	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752758AbXK0JfU (ORCPT
+	<RFC822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 04:35:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek,
-iptables chains (this is what I think you are referring to) are not the=
- issue. This
-is about the qdisc that sits immediately over the device driver and dec=
-ides the
-order waiting packets are sent over the line/air/carrier pigeon/... .
-My suspicion is that skb->priority used to be set to a value that deriv=
-ed from the
-TOS bits. Then something changed and nobody noticed.
---=20
-=20
-Regards
-=20
-       Joerg
-=20
+--==_Exmh_1196156118_2790P
+Content-Type: text/plain; charset="us-ascii"
+Content-Id: <24394.1196156118.1@turing-police.cc.vt.edu>
 
+Scenario - Dell Latitude D820 laptop, tg3 driver says this at boot:
 
------ Urspr=FCngliche Mail ----
-Von: Jarek Poplawski <jarkao2@o2.pl>
-An: Jarek Poplawski <jarkao2@o2.pl>
-CC: Joerg Pommnitz <pommnitz@yahoo.com>; netdev@vger.kernel.org; OLSR d=
-iscussion and development <olsr-users@olsr.org>
-Gesendet: Dienstag, den 27. November 2007, 07:46:04 Uhr
-Betreff: Re: Does tc-prio really work as advertised?
+eth0: Tigon3 [partno(BCM5752KFBG) rev 6002 PHY(5752)] (PCI Express) 10/100/1000Base-T Ethernet 00:15:c5:c8:33:4e
+eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] WireSpeed[1] TSOcap[1]
+eth0: dma_rwctrl[76180000] dma_mask[64-bit]
 
-On 26-11-2007 23:25, Jarek Poplawski wrote:
-=2E..
-> Are you doing this on the same box? I was tracing this long time ago =
- too, and, if
-> I didn't miss something, it was about the place! So, as I recall  (af=
-ter finding
-> some old message) this TOS is considered only for packets going  thro=
-ugh the FORWARD
-> chain. (But, I haven't checked this at all now, so "no  complaints"..=
-=2E)
+# (lspci; lspci -n) | grep 09
+09:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5752 Gigabit Ethernet PCI Express (rev 02)
+09:00.0 0200: 14e4:1600 (rev 02)
 
-=2E..Too exactly! Iptables aren't needed for this, so "going through
-the forward." should be enough...
+(I think that's most of the likely-relevant info...)
 
-Jarek P.
+Issue:
 
+I (for unrelated reasons) run powertop, and it suggests I conserve power
+by doing 'ethtool -s eth0 wol d'.  I look at it, and think that it's daft,
+because (a) the Dell factory default is WOL disabled and (b) if it wasn't
+the default, I'd have *set* it to disabled, and (c) I even went back and
+rebooted and checked the BIOS setting - disabled. Nonetheless:
 
+# ethtool eth0 | grep Wake
+        Supports Wake-on: g
+        Wake-on: g
 
+Is this expected behavior?
 
+--==_Exmh_1196156118_2790P
+Content-Type: application/pgp-signature
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
 
-      Machen Sie Yahoo! zu Ihrer Startseite. Los geht's:=20
-http://de.yahoo.com/set
+iD8DBQFHS+TWcC3lWbTT17ARApEWAKDWCl3iX1sGcQLMS80cIblSREuOfwCgiWWc
+pzMcG2P9/3vRFPIfghy3Rz0=
+=L00V
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1196156118_2790P--
