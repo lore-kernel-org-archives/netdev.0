@@ -1,44 +1,43 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: net_rx_action/NAPI oops [PATCH]
-Date: Tue, 27 Nov 2007 14:09:04 -0800
-Message-ID: <20071127140904.20c4cba8@freepuppy.rosehill>
-References: <18252.26472.319078.165019@robur.slu.se>
+Subject: [PATCH 3/3] sky2: turn of dynamic Tx watermark workaround (FE+
+ only)
+Date: Tue, 27 Nov 2007 11:02:07 -0800
+Message-ID: <20071127110207.0d65e820@freepuppy.rosehill>
+References: <20071127105727.1bcfa56f@freepuppy.rosehill>
+	<20071127110036.0268c0a9@freepuppy.rosehill>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Robert.Olsson@data.slu.se, Auke Kok <sofar@foo-projects.org>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
+Cc: netdev@vger.kernel.org, Tim Gardner <tim.gardner@canonical.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:50001 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:38159 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758667AbXK0WJz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 17:09:55 -0500
-In-Reply-To: <18252.26472.319078.165019@robur.slu.se>
+	by vger.kernel.org with ESMTP id S1757944AbXK0WKb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 17:10:31 -0500
+In-Reply-To: <20071127110036.0268c0a9@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 27 Nov 2007 19:52:24 +0100
-Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+Add workaround for issues FE+ (A0) transmit watermark.
+This is copied verbatim from vendor driver sk98lin (10.22.4.3).
+Don't have that chip version and no more information seems to be available.
 
-> 
-> Hello!
-> 
-> I've discovered a bug while testing the new multiQ NAPI code. In hi-load 
-> situations when we take down an interface we get a kernel panic. The
-> oops is below.
-> 
-> From what I see this happens when driver does napi_disable() and clears
-> NAPI_STATE_SCHED. In net_rx_action there is a check for work == weight 
-> a sort indirect test but that's now not enough to cover the load situation. 
-> where we have NAPI_STATE_SCHED cleared by e1000_down in my case and still 
-> full quota. Latest git but I'll guess the is the same in all later kernels.
-> There might be different solutions... one variant is below:
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-It is considered a driver bug in 2.6.24 to call netif_rx_complete (clear NAPI_STATE_SCHED)
-and do a full quota. That bug already had to be fixed in other drivers,
-look like e1000 has same problem.
-
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+--- a/drivers/net/sky2.c	2007-11-26 14:02:36.000000000 -0800
++++ b/drivers/net/sky2.c	2007-11-26 14:28:47.000000000 -0800
+@@ -845,6 +845,13 @@ static void sky2_mac_init(struct sky2_hw
+ 		sky2_set_tx_stfwd(hw, port);
+ 	}
+ 
++	if (hw->chip_id == CHIP_ID_YUKON_FE_P &&
++	    hw->chip_rev == CHIP_REV_YU_FE2_A0) {
++		/* disable dynamic watermark */
++		reg = sky2_read16(hw, SK_REG(port, TX_GMF_EA));
++		reg &= ~TX_DYN_WM_ENA;
++		sky2_write16(hw, SK_REG(port, TX_GMF_EA), reg);
++	}
+ }
+ 
+ /* Assign Ram Buffer allocation to queue */
