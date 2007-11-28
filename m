@@ -1,34 +1,44 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [ANNOUNCE] Open-FCoE - Fibre Channel over Ethernet Project
-Date: Wed, 28 Nov 2007 07:44:26 +0000
-Message-ID: <20071128074426.GA30468@infradead.org>
-References: <10A7D0016239E24092DEF05CCC582E43028A636B@fmsmsx411.amr.corp.intel.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
+Date: Tue, 27 Nov 2007 18:01:20 -0800
+Message-ID: <474CCBF0.5060809@hp.com>
+References: <20071122343.446909000@suse.de> <adatznarrzc.fsf@cisco.com>	<200711261228.15155.rusty@rustcorp.com.au>	<20071126102533.1c774870@freepuppy.rosehill.pdx.hemminger.net>	<20071127190037.GB30057@redhat.com>	<20071127210942.GF3406@stusta.de> <474C88EB.9040300@hp.com> <20071127213837.GG3406@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-scsi@vger.kernel.org,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	devel@open-fcoe.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Rob Love <robert.w.love@linux.intel.com>,
-	"Leech, Christopher" <christopher.leech@intel.com>,
-	"Zou, Yi" <yi.zou@intel.com>, "Dev, Vasu" <vasu.dev@intel.com>,
-	james.bottomley@hansenpartnership.com, davem@davemloft.net,
-	jeff@garzik.org, "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Van De Ven, Arjan" <arjan.van.de.ven@intel.com>,
-	Mike Christie <michaelc@cs.wisc.edu>
-To: "Love, Robert W" <robert.w.love@intel.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <10A7D0016239E24092DEF05CCC582E43028A636B@fmsmsx411.amr.corp.intel.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dave Jones <davej@redhat.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Roland Dreier <rdreier@cisco.com>, Andi Kleen <ak@suse.de>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sam@ravnborg.org
+To: Adrian Bunk <bunk@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:15267 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751463AbXK1CCX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2007 21:02:23 -0500
+In-Reply-To: <20071127213837.GG3406@stusta.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I just did a very quick glance over the tree.  Some extremly highlevel
-comments to start with before actually starting the source review:
+Adrian Bunk wrote:
+> On Tue, Nov 27, 2007 at 01:15:23PM -0800, Rick Jones wrote:
+> 
+>>>The real problem is that these drivers are not in the upstream kernel.
+>>>
+>>>Are there common reasons why these drivers are not upstream?
+>>
+>>One might be that upstream has not accepted them.  Anything doing or 
+>>smelling of TOE comes to mind right away.
+> 
+> 
+> Which modules doing or smelling of TOE do work with unmodified vendor 
+> kernels?
 
+At the very real risk of further demonstrating my Linux vocabulary 
+limitations, I believe there is a "Linux Sockets Acceleration" 
+module/whatnot for NetXen and related 10G NICs, and a cxgb3_toe (?) 
+module for Chelsio 10G NICs.
 
- - why do you need your own libcrc?  lib/crc32.c has a crc32_le
- - libsa should go.  Much of it is just wrappers of kernel functions
-   that should be used directly.  Other like that hash, even or state
-   helpers might either be opencoded in the caller or made completely
-   generic in lib/.  Probably the former but we'll have to see.
+rick jones
