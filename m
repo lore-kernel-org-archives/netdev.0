@@ -1,43 +1,43 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH 1/3] Remove trailing NULs from network bonding sysfs interface.
-Date: Wed, 28 Nov 2007 07:38:43 -0800
-Message-ID: <474D8B83.9050609@oracle.com>
-References: <871wabkxcd.fsf@szonett.ki.iif.hu>	<20071127194929.757e4ebe.randy.dunlap@oracle.com> <87bq9ekb8m.fsf@szonett.ki.iif.hu>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: net_rx_action/NAPI oops [PATCH]
+Date: Wed, 28 Nov 2007 08:38:26 -0800
+Message-ID: <20071128083826.3a9400d1@freepuppy.rosehill>
+References: <18252.26472.319078.165019@robur.slu.se>
+	<20071127140904.20c4cba8@freepuppy.rosehill>
+	<474C9B84.5090103@intel.com>
+	<20071127145537.6bf1af68@freepuppy.rosehill>
+	<474CB54A.2060804@intel.com>
+	<18253.24783.174884.502970@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Wagner Ferenc <wferi@niif.hu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761204AbXK1PjX@vger.kernel.org>
-In-Reply-To: <87bq9ekb8m.fsf@szonett.ki.iif.hu>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:44646 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759856AbXK1QjK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2007 11:39:10 -0500
+In-Reply-To: <18253.24783.174884.502970@robur.slu.se>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wagner Ferenc wrote:
-> Randy Dunlap <randy.dunlap@oracle.com> writes:
-> 
->> On Wed, 28 Nov 2007 01:49:54 +0100 =?utf-8?q?Ferenc_W=C3=A1gner?= wrote:
->>
->> Patches 1 & 3 use
->>
->> 	if (res) statement;
->>
->> but the preferred form is
->>
->> 	if (res)
->> 		statement;
->>
->> Even if this style was already used in the source file, it should
->> be cleaned up.
-> 
-> No principal problem.  So that I learn something useful: how should I
-> go about this?  I created the patches with git-format-patch, and they
-> depend on each other, so I'd rather not git-reset, if possible...
-> 
-> Can I just create a follow-up patch which fixes this stylistic issue?
+Would this fix it?
 
-That's OK with me.  I can't say how it might be done with git.
-
-Thanks,
--- 
-~Randy
+--- a/drivers/net/e1000/e1000_main.c	2007-11-15 21:13:12.000000000 -0800
++++ b/drivers/net/e1000/e1000_main.c	2007-11-28 08:37:03.000000000 -0800
+@@ -630,10 +630,10 @@ e1000_down(struct e1000_adapter *adapter
+ 	 * reschedule our watchdog timer */
+ 	set_bit(__E1000_DOWN, &adapter->flags);
+ 
++	e1000_irq_disable(adapter);
+ #ifdef CONFIG_E1000_NAPI
+-	napi_disable(&adapter->napi);
++	napi_synchronize(&adapter->napi);
+ #endif
+-	e1000_irq_disable(adapter);
+ 
+ 	del_timer_sync(&adapter->tx_fifo_stall_timer);
+ 	del_timer_sync(&adapter->watchdog_timer);
