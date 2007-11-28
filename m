@@ -1,40 +1,59 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
-Date: Wed, 28 Nov 2007 18:31:27 +0100
-Message-ID: <200711281831.27379.ak@suse.de>
-References: <20071122343.446909000@suse.de> <20071127230645.GB31491@one.firstfloor.org> <20071128164817.GK3406@stusta.de>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: net_rx_action/NAPI oops [PATCH]
+Date: Wed, 28 Nov 2007 18:22:56 +0100
+Message-ID: <18253.41968.996941.498155@robur.slu.se>
+References: <18252.26472.319078.165019@robur.slu.se>
+	<20071127140904.20c4cba8@freepuppy.rosehill>
+	<474C9B84.5090103@intel.com>
+	<20071127145537.6bf1af68@freepuppy.rosehill>
+	<474CB54A.2060804@intel.com>
+	<18253.24783.174884.502970@robur.slu.se>
+	<20071128083826.3a9400d1@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Jon Masters <jonathan@jonmasters.org>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sam@ravnborg.org
-To: Adrian Bunk <bunk@kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762018AbXK1Rcc@vger.kernel.org>
-In-Reply-To: <20071128164817.GK3406@stusta.de>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.slu.se ([130.238.96.70]:43086 "EHLO mx1.slu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758861AbXK1RXH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Nov 2007 12:23:07 -0500
+In-Reply-To: <20071128083826.3a9400d1@freepuppy.rosehill>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 28 November 2007 17:48:17 Adrian Bunk wrote:
-> On Wed, Nov 28, 2007 at 12:06:45AM +0100, Andi Kleen wrote:
-> > On Tue, Nov 27, 2007 at 03:00:22PM -0800, Stephen Hemminger wrote:
-> >...
-> > > of a modular ipv6 is flawed. 
-> > 
-> > Modules that cannot be unloaded are still useful. Standard case: Distributions
-> > like to offer an option to not use ipv6 because that is popular workaround
-> > for the common "DNS server eats AAAA queries and causes delays" issue.
-> > Forcing the user to rebuild the kernel for this wouldn't be practical.
-> > If ipv6 wasn't modular that would be hard to do.
-> 
-> It should be trivial doing it similar to the selinux=0 boot option.
 
-They safe also a few hundred KB of memory this way.
-I know it is not en vogue anymore to care about memory bloat, but
-I personally like that.
 
--Andi 
+ No it doesn't. besides napi_disable and napi_synchronize are identical. 
+ I was trying to disarm interrupts this way too. 
+
+ The patch I did send yesterday is the only cure so-far but I don't if 
+ it's 100% bullet proof either.
+
+ I was stress-testing it patch but ran into new problems...(scheduling)
+ 
+ Cheers.
+					--ro
+
+
+Stephen Hemminger writes:
+ > Would this fix it?
+ > 
+ > --- a/drivers/net/e1000/e1000_main.c	2007-11-15 21:13:12.000000000 -0800
+ > +++ b/drivers/net/e1000/e1000_main.c	2007-11-28 08:37:03.000000000 -0800
+ > @@ -630,10 +630,10 @@ e1000_down(struct e1000_adapter *adapter
+ >  	 * reschedule our watchdog timer */
+ >  	set_bit(__E1000_DOWN, &adapter->flags);
+ >  
+ > +	e1000_irq_disable(adapter);
+ >  #ifdef CONFIG_E1000_NAPI
+ > -	napi_disable(&adapter->napi);
+ > +	napi_synchronize(&adapter->napi);
+ >  #endif
+ > -	e1000_irq_disable(adapter);
+ >  
+ >  	del_timer_sync(&adapter->tx_fifo_stall_timer);
+ >  	del_timer_sync(&adapter->watchdog_timer);
