@@ -1,71 +1,81 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] via-velocity: don't oops on MTU change (resend)
-Date: Wed, 28 Nov 2007 14:20:16 -0800
-Message-ID: <20071128142016.0eecbd2c@freepuppy.rosehill>
-References: <20071114193844.0cab5c7d@freepuppy.rosehill>
-	<20071115082600.GA2366@ff.dom.local>
-	<20071115102005.0cf46f9a@freepuppy.rosehill>
-	<473CD1F6.9030709@o2.pl>
-	<cccedfc60711151842l4aafe0ffo220e84a5e37b6a82@mail.gmail.com>
-	<20071115203508.4ad025f2@freepuppy.rosehill>
-	<cccedfc60711281402m397a37d2mda83645211633202@mail.gmail.com>
+Subject: [PATCH 1/2] sky2: align IP header on Rx if possible
+Date: Wed, 28 Nov 2007 14:27:03 -0800
+Message-ID: <20071128142703.7f0b5e5d@freepuppy.rosehill>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Jon Nelson" <jnelson@jamponi.net>,
-	"Jarek Poplawski" <jarkao2@o2.pl>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:58014 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:37720 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756944AbXK1WVy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2007 17:21:54 -0500
-In-Reply-To: <cccedfc60711281402m397a37d2mda83645211633202@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1755143AbXK1Xaw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2007 18:30:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The VIA veloicty driver needs the following to allow changing MTU when down.
-The buffer size needs to be computed when device is brought up, not when
-device is initialized.  This also fixes a bug where the buffer size was
-computed differently on change_mtu versus initial setting.
+The sky2 driver was not aligning the IP header on receive buffers.
+This workaround is only needed on hardware with broken FIFO, newer chips
+without FIFO can just DMA to unaligned address.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
 ---
-This is a properly formatted version of previously submitted patch.
-Please apply for 2.6.24
+Please apply for 2.6.25 this is not urgent.
 
---- a/drivers/net/via-velocity.c	2007-11-15 20:11:12.000000000 -0800
-+++ b/drivers/net/via-velocity.c	2007-11-15 20:32:14.000000000 -0800
-@@ -1242,6 +1242,9 @@ static int velocity_rx_refill(struct vel
- static int velocity_init_rd_ring(struct velocity_info *vptr)
+--- a/drivers/net/sky2.c	2007-11-26 16:30:57.000000000 -0800
++++ b/drivers/net/sky2.c	2007-11-26 17:18:27.000000000 -0800
+@@ -64,7 +64,6 @@
+ #define RX_LE_BYTES		(RX_LE_SIZE*sizeof(struct sky2_rx_le))
+ #define RX_MAX_PENDING		(RX_LE_SIZE/6 - 2)
+ #define RX_DEF_PENDING		RX_MAX_PENDING
+-#define RX_SKB_ALIGN		8
+ 
+ #define TX_RING_SIZE		512
+ #define TX_DEF_PENDING		(TX_RING_SIZE - 1)
+@@ -1171,24 +1170,32 @@ static void sky2_vlan_rx_register(struct
+ /*
+  * Allocate an skb for receiving. If the MTU is large enough
+  * make the skb non-linear with a fragment list of pages.
+- *
+- * It appears the hardware has a bug in the FIFO logic that
+- * cause it to hang if the FIFO gets overrun and the receive buffer
+- * is not 64 byte aligned. The buffer returned from netdev_alloc_skb is
+- * aligned except if slab debugging is enabled.
+  */
+ static struct sk_buff *sky2_rx_alloc(struct sky2_port *sky2)
  {
- 	int ret;
-+	int mtu = vptr->dev->mtu;
-+
-+	vptr->rx_buf_sz = (mtu <= ETH_DATA_LEN) ? PKT_BUF_SZ : mtu + 32;
+ 	struct sk_buff *skb;
+-	unsigned long p;
+ 	int i;
  
- 	vptr->rd_info = kcalloc(vptr->options.numrx,
- 				sizeof(struct velocity_rd_info), GFP_KERNEL);
-@@ -1898,8 +1901,6 @@ static int velocity_open(struct net_devi
- 	struct velocity_info *vptr = netdev_priv(dev);
- 	int ret;
- 
--	vptr->rx_buf_sz = (dev->mtu <= 1504 ? PKT_BUF_SZ : dev->mtu + 32);
+-	skb = netdev_alloc_skb(sky2->netdev, sky2->rx_data_size + RX_SKB_ALIGN);
+-	if (!skb)
+-		goto nomem;
 -
- 	ret = velocity_init_rings(vptr);
- 	if (ret < 0)
- 		goto out;
-@@ -1978,12 +1979,6 @@ static int velocity_change_mtu(struct ne
- 		velocity_free_rd_ring(vptr);
+-	p = (unsigned long) skb->data;
+-	skb_reserve(skb, ALIGN(p, RX_SKB_ALIGN) - p);
++	if (sky2->hw->flags & SKY2_HW_FIFO_HANG_CHECK) {
++		unsigned char *start;
++		/*
++		 * Workaround for a bug in FIFO that cause hang
++		 * if the FIFO if the receive buffer is not 64 byte aligned.
++		 * The buffer returned from netdev_alloc_skb is
++		 * aligned except if slab debugging is enabled.
++		 */
++		skb = netdev_alloc_skb(sky2->netdev, sky2->rx_data_size + 8);
++		if (!skb)
++			goto nomem;
++		start = PTR_ALIGN(skb->data, 8);
++		skb_reserve(skb, start - skb->data);
++	} else {
++		skb = netdev_alloc_skb(sky2->netdev,
++				       sky2->rx_data_size + NET_IP_ALIGN);
++		if (!skb)
++			goto nomem;
++		skb_reserve(skb, NET_IP_ALIGN);
++	}
  
- 		dev->mtu = new_mtu;
--		if (new_mtu > 8192)
--			vptr->rx_buf_sz = 9 * 1024;
--		else if (new_mtu > 4096)
--			vptr->rx_buf_sz = 8192;
--		else
--			vptr->rx_buf_sz = 4 * 1024;
- 
- 		ret = velocity_init_rd_ring(vptr);
- 		if (ret < 0)
+ 	for (i = 0; i < sky2->rx_nfrags; i++) {
+ 		struct page *page = alloc_page(GFP_ATOMIC);
