@@ -1,56 +1,95 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: [PATCH] e1000: Fix for 32 bits platforms with 64 bits resources
-Date: Wed, 28 Nov 2007 10:47:17 -0800
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5203DF7871@orsmsx418.amr.corp.intel.com>
-References: <20071116073821.548CCDDDF4@ozlabs.org>
+From: Hideo AOKI <haoki@redhat.com>
+Subject: [PATCH 0/4] UDP memory accounting and limitation (take 9)
+Date: Wed, 28 Nov 2007 13:48:46 -0500
+Message-ID: <474DB80E.5070403@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
-	"Jeff Garzik" <jeff@garzik.org>
-To: "Benjamin Herrenschmidt" <benh@kernel.crashing.org>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: haoki@redhat.com, David Miller <davem@davemloft.net>,
+	Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
+	Bill Fink <billfink@mindspring.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	yoshfuji@linux-ipv6.org,
+	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:15764 "EHLO mga11.intel.com"
+Received: from mx1.redhat.com ([66.187.233.31]:46446 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750878AbXK1SrS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2007 13:47:18 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20071116073821.548CCDDDF4@ozlabs.org>
+	id S1752891AbXK1Swa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Nov 2007 13:52:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Benjamin Herrenschmidt wrote:
-> The e1000 driver stores the content of the PCI resources into
-> unsigned long's before ioremapping. This breaks on 32 bits
-> platforms that support 64 bits MMIO resources such as ppc 44x.
-> 
-> This fixes it by removing those temporary variables and passing
-> directly the result of pci_resource_start/len to ioremap.
+Hello,
 
-the patch is mostly fine, but looking through the tree, doesn't every
-driver that has 64 bit capable resources have this problem?
+This is the latest patch set of UDP memory accounting and limitation.
 
-in fact, skeleton module has this problem, if I'm not mistaken.  e1000
-isn't the only one. :-)
- 
-> The side effect is that I removed the assignments to the netdev
-> fields mem_start, mem_end and base_addr, which are totally useless
-> for PCI devices.
+I implemented memory schedule functions for datagram protocols
+like stream protocols. Moreover, to call memory schedule functions
+from IP layer, I added a wrapper function, sk_wmem_schedule(), as
+I proposed last week:
 
-also, concerning this, ifconfig shows the output of these variables, I
-don't think we want to blatantly remove them, as it is actually removing
-information that is, if not used, at least displayed to user space.
+http://www.spinics.net/lists/netdev/msg47950.html
 
-eth6      Link encap:Ethernet  HWaddr 00:0E:01:0C:02:03
-          inet addr:134.134.3.121  Bcast:134.134.3.255
-Mask:255.255.255.0
-          inet6 addr: fe80::20e:1ff:fe0c:203/64 Scope:Link
-          UP BROADCAST NOTRAILERS RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:9022519 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:1303701 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:4044613454 (3857.2 Mb)  TX bytes:118365109 (112.8 Mb)
-          Base address:0xf000 Memory:feac0000-feae0000
-                                     ^^^^^^^^^^^^^^^^^
+I would like to know whether this is acceptable.
+
+In addition, I restructured patch set. I merged UDP IPv4 memory
+accounting code at once and re-divided into introducing sysctls patch
+and accounting patch. I think that new structure is easier to review
+than previous ones.
+
+The patch set is for net-2.6.
+
+By the way, sk_forward_alloc support is my future work. I'm going
+to do it if this patch set is acceptable.
+
+
+Changelog take 8 -> take 9:
+ * introduced mem_schdeule functions for datargram protocols
+ * removed protocol check function, from patch set
+ * restructured patch set
+
+Changelog take 7 -> take 8:
+
+ * sk_datagram_pages(): avoided using divide instruction
+ * udp_recvmsg(): fixed referring released truesize in accounting
+
+
+Changelog take 6 -> take 7:
+ * renamed /proc/sys/net/ipv4/udp_rmem to
+   /proc/sys/net/ipv4/udp_rmem_min
+ * renamed /proc/sys/net/ipv4/udp_wmem to
+   /proc/sys/net/ipv4/udp_wmem_min
+ * rebased to net-2.6
+
+
+Changelog take 5 -> take 6:
+
+ * removed minimal limit of /proc/sys/net/ipv4/udp_mem
+ * added udp_init() for default value calculation of parameters
+ * added /proc/sys/net/ipv4/udp_rmem and
+   /proc/sys/net/ipv4/udp_rmem
+ * added limitation code to ip_ufo_append_data()
+ * improved accounting for receiving packet
+ * fixed typos
+ * rebased to 2.6.24-rc1
+
+
+Changelog take 4 -> take 5:
+
+ * removing unnessesary EXPORT_SYMBOLs
+ * adding minimal limit of /proc/sys/net/ipv4/udp_mem
+ * bugfix of UDP limit affecting protocol other than UDP
+ * introducing __ip_check_max_skb_pages()
+ * using CTL_UNNUMBERED
+ * adding udp_mem usage to Documentation/networking/ip_sysctl.txt
+
+
+Best regards,
+Hideo Aoki
+
+--
+Hitachi Computer Products (America) Inc.
