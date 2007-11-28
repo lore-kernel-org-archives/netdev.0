@@ -1,61 +1,46 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [Bugme-new] [Bug 9440] New: Problem in joinning a socket to ipv6 multicast address in specific scenario
-Date: Wed, 28 Nov 2007 14:18:14 +0300
-Message-ID: <20071128111814.GA10246@2ka.mipt.ru>
-References: <bug-9440-10286@http.bugzilla.kernel.org/> <20071122172342.721ee232.akpm@linux-foundation.org> <20071123105924.GB22062@2ka.mipt.ru>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH] Nicer WARN_ON in netstat_show
+Date: Wed, 28 Nov 2007 13:11:24 +0300
+Message-ID: <474D3ECC.8030703@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	aviad.yehezkel5@gmail.com, Herbert Xu <herbert@gondor.apana.org.au>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:51937 "EHLO 2ka.mipt.ru"
+Received: from sacred.ru ([62.205.161.221]:53440 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756297AbXK1LSp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Nov 2007 06:18:45 -0500
-Content-Disposition: inline
-In-Reply-To: <20071123105924.GB22062@2ka.mipt.ru>
+	id S1756309AbXK1KLy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Nov 2007 05:11:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi.
+The
 
-Avaid provided test application, so bug got fixed.
+	if (statement)
+		WARN_ON(1);
 
-IPv6 addrconf removes ipv6 inner device from netdev each time cmu
-changes and new value is less than IPV6_MIN_MTU (1280 bytes).
-When mtu is changed and new value is greater than IPV6_MIN_MTU,
-it does not add ipv6 addresses and inner device bac.
+looks much better as
 
-This patch fixes that.
+	WARN_ON(statement);
 
-Tested with Avaid's application, which works ok now.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 567664e..4f7e46c 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2357,12 +2358,18 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
- 		break;
+---
+
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 61ead1d..e41f4b9 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -247,9 +247,8 @@ static ssize_t netstat_show(const struct device *d,
+ 	struct net_device_stats *stats;
+ 	ssize_t ret = -EINVAL;
  
- 	case NETDEV_CHANGEMTU:
--		if ( idev && dev->mtu >= IPV6_MIN_MTU) {
-+		if (idev && dev->mtu >= IPV6_MIN_MTU) {
- 			rt6_mtu_change(dev, dev->mtu);
- 			idev->cnf.mtu6 = dev->mtu;
- 			break;
- 		}
+-	if (offset > sizeof(struct net_device_stats) ||
+-	    offset % sizeof(unsigned long) != 0)
+-		WARN_ON(1);
++	WARN_ON(offset > sizeof(struct net_device_stats) ||
++			offset % sizeof(unsigned long) != 0);
  
-+		if (!idev && dev->mtu >= IPV6_MIN_MTU) {
-+			idev = ipv6_add_dev(dev);
-+			if (idev)
-+				break;
-+		}
-+
- 		/* MTU falled under IPV6_MIN_MTU. Stop IPv6 on this interface. */
- 
- 	case NETDEV_DOWN:
-
--- 
-	Evgeniy Polyakov
+ 	read_lock(&dev_base_lock);
+ 	if (dev_isalive(dev) && dev->get_stats &&
