@@ -1,76 +1,49 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 2/2] sky2: rx allocation threshold change
-Date: Wed, 28 Nov 2007 14:50:16 -0800
-Message-ID: <20071128145016.2e7e85b8@freepuppy.rosehill>
-References: <20071128142703.7f0b5e5d@freepuppy.rosehill>
+Subject: [PATCH] tcp-illinois: incorrect beta usage
+Date: Wed, 28 Nov 2007 15:47:25 -0800
+Message-ID: <20071128154725.29af2852@freepuppy.rosehill>
+References: <aa7d2c6d0711261023m3d2dd850o76a8f44aef022f39@mail.gmail.com>
+	<001001c83063$9adbc9d0$d5897e82@csp.uiuc.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: "'Lachlan Andrew'" <lachlan.andrew@gmail.com>,
+	<shaoliu@Princeton.EDU>, "'Douglas Leith'" <doug.leith@nuim.ie>,
+	"'Robert Shorten'" <robert.shorten@nuim.ie>, netdev@vger.kernel.org
+To: "Julian Shao Liu" <shaoliu@uiuc.edu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:55744 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:59130 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758505AbXK1Xf7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2007 18:35:59 -0500
-In-Reply-To: <20071128142703.7f0b5e5d@freepuppy.rosehill>
+	by vger.kernel.org with ESMTP id S1752154AbXK1XuX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2007 18:50:23 -0500
+In-Reply-To: <001001c83063$9adbc9d0$d5897e82@csp.uiuc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When using larger MTU's sky2 driver changes from allocating one
-data area, to using multiple pages. The threshold for this was based on
-a heuristic where the cost of a single allocation is bigger than one
-page.  Since the allocator has changed, this heuristic is now incorrect;
-instead just make the threshold be when the total size of the allocation
-is greater than one page.
+Lachlan Andrew observed that my TCP-Illinois implementation uses the
+beta value incorrectly:
+  The parameter  beta  in the paper specifies the amount to decrease
+  *by*:  that is, on loss,
+     W <-  W -  beta*W
+  but in   tcp_illinois_ssthresh() uses  beta  as the amount
+  to decrease  *to*: W <- beta*W
+
+This bug makes the Linux TCP-Illinois get less-aggressive on uncongested network,
+hurting performance. Note: since the base beta value is .5, it has no
+impact on a congested network.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
---- a/drivers/net/sky2.c	2007-11-28 08:46:57.000000000 -0800
-+++ b/drivers/net/sky2.c	2007-11-28 14:48:26.000000000 -0800
-@@ -1231,7 +1231,7 @@ static int sky2_rx_start(struct sky2_por
- 	struct sky2_hw *hw = sky2->hw;
- 	struct rx_ring_info *re;
- 	unsigned rxq = rxqaddr[sky2->port];
--	unsigned i, size, space, thresh;
-+	unsigned i, size, thresh;
+--- a/net/ipv4/tcp_illinois.c	2007-08-18 07:50:15.000000000 -0700
++++ b/net/ipv4/tcp_illinois.c	2007-11-28 15:39:04.000000000 -0800
+@@ -298,7 +298,7 @@ static u32 tcp_illinois_ssthresh(struct 
+ 	struct illinois *ca = inet_csk_ca(sk);
  
- 	sky2->rx_put = sky2->rx_next = 0;
- 	sky2_qset(hw, rxq);
-@@ -1258,28 +1258,18 @@ static int sky2_rx_start(struct sky2_por
- 	/* Stopping point for hardware truncation */
- 	thresh = (size - 8) / sizeof(u32);
+ 	/* Multiplicative decrease */
+-	return max((tp->snd_cwnd * ca->beta) >> BETA_SHIFT, 2U);
++	return max(tp->snd_cwnd - ((tp->snd_cwnd * ca->beta) >> BETA_SHIFT), 2U);
+ }
  
--	/* Account for overhead of skb - to avoid order > 0 allocation */
--	space = SKB_DATA_ALIGN(size) + NET_SKB_PAD
--		+ sizeof(struct skb_shared_info);
--
--	sky2->rx_nfrags = space >> PAGE_SHIFT;
-+	sky2->rx_nfrags = size >> PAGE_SHIFT;
- 	BUG_ON(sky2->rx_nfrags > ARRAY_SIZE(re->frag_addr));
  
--	if (sky2->rx_nfrags != 0) {
--		/* Compute residue after pages */
--		space = sky2->rx_nfrags << PAGE_SHIFT;
-+	/* Compute residue after pages */
-+	size -= sky2->rx_nfrags << PAGE_SHIFT;
- 
--		if (space < size)
--			size -= space;
--		else
--			size = 0;
-+	/* Optimize to handle small packets and headers */
-+	if (size < copybreak)
-+		size = copybreak;
-+	if (size < ETH_HLEN)
-+		size = ETH_HLEN;
- 
--		/* Optimize to handle small packets and headers */
--		if (size < copybreak)
--			size = copybreak;
--		if (size < ETH_HLEN)
--			size = ETH_HLEN;
--	}
- 	sky2->rx_data_size = size;
- 
- 	/* Fill Rx ring */
