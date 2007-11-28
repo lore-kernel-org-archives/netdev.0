@@ -1,41 +1,43 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: Re: [PATCH 6/7] [IPSEC]: Lock state when copying non-atomic fields to user-space
-Date: Wed, 28 Nov 2007 10:16:40 +0900
-Message-ID: <200711281016.40946.nakam@linux-ipv6.org>
-References: <20071009143517.GA20486@gondor.apana.org.au> <20071126031845.GA23417@gondor.apana.org.au> <20071126110720.GA26479@gondor.apana.org.au>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCHv2 1/3] NET_SCHED: PSPacer qdisc module
+Date: Wed, 28 Nov 2007 10:17:30 +0100
+Message-ID: <474D322A.9090207@trash.net>
+References: <474B0D5D.2090506@trash.net>	<20071127.200803.24564635.takano@axe-inc.co.jp>	<474C0AA2.5040900@trash.net> <20071128.161905.109761213.takano@axe-inc.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	dada1@cosmosbay.com, t.kudoh@aist.go.jp
+To: Ryousei Takano <takano-ryousei@aist.go.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.178.140.9] ([203.178.140.9]:39738 "EHLO mail.gomagoma.org"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1757500AbXK1BRH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2007 20:17:07 -0500
-In-Reply-To: <20071126110720.GA26479@gondor.apana.org.au>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:41260 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752369AbXK1JRh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2007 04:17:37 -0500
+In-Reply-To: <20071128.161905.109761213.takano@axe-inc.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert,
-
-Monday 26 November 2007 20:07, Herbert Xu wrote:
-> On Mon, Nov 26, 2007 at 11:18:45AM +0800, Herbert Xu wrote:
-> >
-> > I'm just going to revert this patch for 2.6.24 since we've lived
-> > with this race for so long anyway.
+Ryousei Takano wrote:
+> Hi Patrick,
 > 
-> Actually, instead of reverting it completely I'm just going to
-> remove the newly added locks which should be just as effective.
-> 
-> This would reduce the churn in the code as we'd be putting most
-> of it back soon anyway.
+>>>>> +struct tc_psp_qopt
+>>>>> +{
+>>>>> +	__u32	defcls;
+>>>>> +	__u32	rate;
+>>>>> +};
+>>>> What unit is rate measured in?
+>>>>
+>>> 'rate' is the transmission rate in bytes per sec.
+>>
+>> So wouldn't it make sense to use u64 then for 10GBit networks?
+>>
+> I decided to use u32 after tc_ratespec.rate is u32.
+> u32 is large enough for 10Gbit networks, but small for 40Gbit.
+> I will use u64, because code becomes simple and consistent.
 
-With the patch you sent, the xfrm_state_walk() issue I reported
-is solved at current net-2.6.25.
 
--- 
-Masahide NAKAMURA
+Right, I was thinking about bits per second :)
+
+
+
