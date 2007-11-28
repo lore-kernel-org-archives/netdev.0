@@ -1,47 +1,40 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] sungem: fix napi regression with reset work
-Date: Wed, 28 Nov 2007 10:28:44 +1100
-Message-ID: <1196206124.7157.60.camel@pasglop>
-References: <1196107328.8459.8.camel@johannes.berg>
-Reply-To: benh@kernel.crashing.org
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] e1000: Fix NAPI state bug when Rx complete
+Date: Tue, 27 Nov 2007 16:26:36 -0800
+Message-ID: <20071128002636.26015.28453.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org, Robert.Olsson@data.slu.se,
+	shemminger@linux-foundation.org, davem@davemloft.net
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:58607 "EHLO gate.crashing.org"
+Received: from mga02.intel.com ([134.134.136.20]:28432 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752440AbXK0XbY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2007 18:31:24 -0500
-In-Reply-To: <1196107328.8459.8.camel@johannes.berg>
+	id S1754986AbXK1A2d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2007 19:28:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Don't exit polling when we have not yet used our budget, this causes
+the NAPI system to end up with a messed up poll list.
 
-On Mon, 2007-11-26 at 21:02 +0100, Johannes Berg wrote:
-> sungem's gem_reset_task() will unconditionally try to disable NAPI even
-> when it's called while the interface is not operating and hence the NAPI
-> struct isn't enabled. Make napi_disable() depend on gp->running.
-> 
-> Also removes a superfluous test of gp->running in the same function.
-> 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-> ---
-> Not exactly sure how I got there but I did get stuck in there (sysrq-W)
-> when I plugged in the network cable and booted the computer on the other
-> end of it... while the interface was down. I would've thought that the
-> driver wouldn't even notice the fact that I plugged in the cable while
-> the interface is down, but maybe it does. Or it sets up the device
-> wrongly at resume time when the interface was down at suspend.
-> 
-> In any case, this should fix the issue.
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
-Thanks.
+ drivers/net/e1000/e1000_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Ben.
-
-
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index b7c3070..724f067 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -3926,7 +3926,7 @@ e1000_clean(struct napi_struct *napi, int budget)
+ 	                  &work_done, budget);
+ 
+ 	/* If no Tx and not enough Rx work done, exit the polling mode */
+-	if ((!tx_cleaned && (work_done < budget)) ||
++	if ((!tx_cleaned && (work_done == 0)) ||
+ 	   !netif_running(poll_dev)) {
+ quit_polling:
+ 		if (likely(adapter->itr_setting & 3))
