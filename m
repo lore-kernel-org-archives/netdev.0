@@ -1,52 +1,118 @@
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Subject: [PATCH 2/2] [net/wireless/iwlwifi] : iwlwifi 4965
-	Fix race conditional panic.
-Date: Wed, 28 Nov 2007 19:41:08 +0900
-Message-ID: <00e601c831ab$30475910$9c94fea9@jason>
+From: =?big5?B?U3RlbiBXYW5nICik/aVAqfcp?= <Sten.Wang@rdc.com.tw>
+Subject: RE: drivers/net/r6040.c warnings on x86_64
+Date: Wed, 28 Nov 2007 16:38:52 +0800
+Message-ID: <07905E0D268758488D76D7D747F21BB602079E37@rdc8.rdc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: <yi.zhu@intel.com>, <ipw3945-devel@lists.sourceforge.net>,
-	<linux-wireless@vger.kernel.org>
-Return-path: <ipw3945-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
-	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=ipw3945-devel>
-List-Post: <mailto:ipw3945-devel@lists.sourceforge.net>
-List-Help: <mailto:ipw3945-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
-	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: ipw3945-devel-bounces@lists.sourceforge.net
-Errors-To: ipw3945-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=big5
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?big5?B?VGltIENoZW4gKLOvpOXZeSk=?= <Tim.Chen@rdc.com.tw>
+To: "Andrew Morton" <akpm@linux-foundation.org>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 219-87-157-151.static.tfn.net.tw ([219.87.157.151]:53768 "EHLO
+	rdc1.rdc" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752558AbXK1I46 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2007 03:56:58 -0500
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I think 4965 may suffer it too, but I could not test.
+Dear Andrew:
 
-Thanks
-Joonwoo
+Thanks very much for your test.
+Yes, you can fix it.
+If you have any problem that we can help, please feel free to mail me o=
+r Tim.
+Thnaks.
 
-[net/wireless/iwlwifi] : iwlwifi 4965 Fix race conditional panic.
+Best Regards,
 
-Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
----
-diff --git a/drivers/net/wireless/iwlwifi/iwl4965-base.c b/drivers/net/wireless/iwlwifi/iwl4965-base.c
-index 9918780..a71a572 100644
---- a/drivers/net/wireless/iwlwifi/iwl4965-base.c
-+++ b/drivers/net/wireless/iwlwifi/iwl4965-base.c
-@@ -9165,6 +9165,7 @@ static void iwl_pci_remove(struct pci_dev *pdev)
- 	IWL_DEBUG_INFO("*** UNLOAD DRIVER ***\n");
- 
- 	mutex_lock(&priv->mutex);
-+	cancel_delayed_work_sync(&priv->init_alive_start);
- 	set_bit(STATUS_EXIT_PENDING, &priv->status);
- 	__iwl_down(priv);
- 	mutex_unlock(&priv->mutex);
----
+Sten
+
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D
+
+                      E-mail Confidentiality Notice =20
+
+The information in this e-mail is confidential and may be legally privi=
+leged otherwise protected from disclosure .It is intended solely for th=
+e addressee .Access to this e-mail by anyone else is unauthorized .If y=
+ou are not the intended recipient, any disclosure, copying, distributio=
+n or any action taken or omitted to be taken in reliance on it, is proh=
+ibited and maybe unlawful.Please delete the message and any attachments=
+ from your computer system; and destroy all hard copies.=20
+
+ALL Intellectual Property Rights of RDC Reserved.
 
 
--------------------------------------------------------------------------
-SF.Net email is sponsored by: The Future of Linux Business White Paper
-from Novell.  From the desktop to the data center, Linux is going
-mainstream.  Let it simplify your IT future.
-http://altfarm.mediaplex.com/ad/ck/8857-50307-18918-4
+-----Original Message-----
+=46rom: Andrew Morton [mailto:akpm@linux-foundation.org]=20
+Sent: Wednesday, November 28, 2007 3:06 PM
+To: Sten Wang (=A4=FD=A5@=A9=F7); netdev@vger.kernel.org
+Subject: Re: drivers/net/r6040.c warnings on x86_64
+
+On Tue, 27 Nov 2007 20:45:36 -0800 Andrew Morton <akpm@google.com> wrot=
+e:
+
+> drivers/net/r6040.c: In function 'rx_buf_alloc':
+> drivers/net/r6040.c:262: warning: passing argument 2 of 'pci_map_sing=
+le' makes pointer from integer without a cast
+> drivers/net/r6040.c: In function 'r6040_up':
+> drivers/net/r6040.c:631: warning: cast from pointer to integer of dif=
+ferent size
+> drivers/net/r6040.c:632: warning: cast to pointer from integer of dif=
+ferent size
+> drivers/net/r6040.c:637: warning: cast from pointer to integer of dif=
+ferent size
+> drivers/net/r6040.c:638: warning: cast to pointer from integer of dif=
+ferent size
+>=20
+> can we fix these please?
+
+it breaks the sparc64 build too
+
+drivers/net/r6040.c: In function `rx_buf_alloc':
+drivers/net/r6040.c:262: warning: passing arg 2 of `pci_map_single' mak=
+es pointer from integer without a cast
+drivers/net/r6040.c:262: warning: passing arg 2 of `pci_map_single' mak=
+es pointer from integer without a cast
+drivers/net/r6040.c:262: warning: passing arg 2 of `pci_map_single' mak=
+es pointer from integer without a cast
+drivers/net/r6040.c:262: warning: passing arg 2 of `pci_map_single' mak=
+es pointer from integer without a cast
+drivers/net/r6040.c:262: warning: passing arg 2 of `pci_map_single' mak=
+es pointer from integer without a cast
+drivers/net/r6040.c:262: warning: passing arg 2 of `pci_map_single' mak=
+es pointer from integer without a cast
+drivers/net/r6040.c: In function `r6040_up':
+drivers/net/r6040.c:631: warning: cast from pointer to integer of diffe=
+rent size
+drivers/net/r6040.c:631: warning: cast from pointer to integer of diffe=
+rent size
+drivers/net/r6040.c:631: warning: cast from pointer to integer of diffe=
+rent size
+drivers/net/r6040.c:631: warning: cast from pointer to integer of diffe=
+rent size
+drivers/net/r6040.c:631: warning: cast from pointer to integer of diffe=
+rent size
+drivers/net/r6040.c:631: warning: cast from pointer to integer of diffe=
+rent size
+drivers/net/r6040.c:632: error: implicit declaration of function `virt_=
+to_bus'
+drivers/net/r6040.c:632: warning: cast to pointer from integer of diffe=
+rent size
+drivers/net/r6040.c:637: warning: cast from pointer to integer of diffe=
+rent size
+drivers/net/r6040.c:637: warning: cast from pointer to integer of diffe=
+rent size
+drivers/net/r6040.c:637: warning: cast from pointer to integer of diffe=
+rent size
+drivers/net/r6040.c:637: warning: cast from pointer to integer of diffe=
+rent size
+drivers/net/r6040.c:637: warning: cast from pointer to integer of diffe=
+rent size
+drivers/net/r6040.c:637: warning: cast from pointer to integer of diffe=
+rent size
+drivers/net/r6040.c:638: warning: cast to pointer from integer of diffe=
+rent size
