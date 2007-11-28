@@ -1,44 +1,43 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
 Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
-Date: Wed, 28 Nov 2007 12:27:49 +1100
-Message-ID: <200711281227.50136.rusty@rustcorp.com.au>
-References: <20071122343.446909000@suse.de> <200711271549.37670.rusty@rustcorp.com.au> <1196141742.9876.49.camel@trinity.ogc.int>
+Date: Wed, 28 Nov 2007 12:34:02 +1100
+Message-ID: <200711281234.03381.rusty@rustcorp.com.au>
+References: <20071122343.446909000@suse.de> <200711271526.53065.rusty@rustcorp.com.au> <20071127105016.GC24223@one.firstfloor.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="utf-8"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: Roland Dreier <rdreier@cisco.com>, Andi Kleen <ak@suse.de>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	sam@ravnborg.org
-To: Tom Tucker <tom@opengridcomputing.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:41083 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754708AbXK1C3j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2007 21:29:39 -0500
-In-Reply-To: <1196141742.9876.49.camel@trinity.ogc.int>
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760281AbXK1Cal@vger.kernel.org>
+In-Reply-To: <20071127105016.GC24223@one.firstfloor.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 27 November 2007 16:35:42 Tom Tucker wrote:
-> On Tue, 2007-11-27 at 15:49 +1100, Rusty Russell wrote:
-> Explicitly documenting what comprises the kernel API (external,
-> supported) and what comprises the kernel implementation (internal, not
-> supported).
+On Tuesday 27 November 2007 21:50:16 Andi Kleen wrote:
+> Goals are:
+> - Limit the interfaces available for out of tree modules to reasonably
+> stable ones that are already used by a larger set of drivers.
 
-But the former is currently an empty set.
+Not the goals.  I haven't seen the *problem* yet.
 
-> - making it obvious to developers when they are binding their
-> implementation to a particular kernel release
+> - Limit size of exported API to make stable ABIs for enterprise
+> distributions easier
+> [Yes I know that is not a popular topic on l-k, but it's a day-to-day
+> problem for these distros and out of tree solutions do not work]
 
-See, there's your problem.  All interfaces can, and will, change.  You're 
-always binding yourself to a particular release.
+That's a real problem, and I sympathise with the idea of marking symbols as 
+externally useful (or, practically, mark internal).
 
-So you're not proposing we mark what's not stable, you're arguing that we 
-create a subset which is stable.
+But we now need to decide what's "externally useful".  The currently line for 
+exports is simple: someone in-tree needs it.  You dislike the suggestion to 
+extend this to "if more than one in-tree needs it it's open".
 
-That's an argument we're not (yet) having.
+Currently your criterion seems to be "does the maintainer hate external 
+modules?" which I don't think will be what you want...
 
 Cheers,
 Rusty.
