@@ -1,87 +1,40 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH net-2.6.25 (v2)] [TCP]: Two fixes to new sacktag code
-Date: Wed, 28 Nov 2007 18:52:51 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0711281847360.18529@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0711281614500.18529@kivilampi-30.cs.helsinki.fi>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
+Date: Wed, 28 Nov 2007 18:31:27 +0100
+Message-ID: <200711281831.27379.ak@suse.de>
+References: <20071122343.446909000@suse.de> <20071127230645.GB31491@one.firstfloor.org> <20071128164817.GK3406@stusta.de>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-2127161314-1196268771=:18529"
-Cc: Netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:50981 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753859AbXK1Qwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2007 11:52:53 -0500
-In-Reply-To: <Pine.LNX.4.64.0711281614500.18529@kivilampi-30.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Jon Masters <jonathan@jonmasters.org>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sam@ravnborg.org
+To: Adrian Bunk <bunk@kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762018AbXK1Rcc@vger.kernel.org>
+In-Reply-To: <20071128164817.GK3406@stusta.de>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Wednesday 28 November 2007 17:48:17 Adrian Bunk wrote:
+> On Wed, Nov 28, 2007 at 12:06:45AM +0100, Andi Kleen wrote:
+> > On Tue, Nov 27, 2007 at 03:00:22PM -0800, Stephen Hemminger wrote:
+> >...
+> > > of a modular ipv6 is flawed. 
+> > 
+> > Modules that cannot be unloaded are still useful. Standard case: Distributions
+> > like to offer an option to not use ipv6 because that is popular workaround
+> > for the common "DNS server eats AAAA queries and causes delays" issue.
+> > Forcing the user to rebuild the kernel for this wouldn't be practical.
+> > If ipv6 wasn't modular that would be hard to do.
+> 
+> It should be trivial doing it similar to the selinux=0 boot option.
 
----696243703-2127161314-1196268771=:18529
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+They safe also a few hundred KB of memory this way.
+I know it is not en vogue anymore to care about memory bloat, but
+I personally like that.
 
-On Wed, 28 Nov 2007, Ilpo Järvinen wrote:
-
-> @@ -1575,7 +1575,7 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
->  			continue;
->  		}
->  
-> -		if (!before(start_seq, tcp_highest_sack_seq(tp))) {
-> +		if (tp->sacked_out && after(start_seq, tcp_highest_sack_seq(tp))) {
-
-In this v2, of this patch I'll put !before back here instead, change 
-to after is unnecessary here, checking that a sacked skb exists is
-enough to avoid skipping in the problematic head case.
-
---
-
-[PATCH] [TCP]: Two fixes to new sacktag code
-
-1) Skip condition used to be wrong way around which made SACK
-processing very broken, missed many blocks because of that.
-
-2) Use highest_sack advancement only if some skbs are already
-sacked because otherwise tcp_write_queue_next may move things
-too far (occurs mainly with GSO). The other similar advancement
-is not problem because highest_sack was previosly put to point
-a sacked skb.
-
-These problems were located because of problem report from Matt
-Mathis <mathis@psc.edu>.
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_input.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 0cee3dc..9f12541 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1384,7 +1384,7 @@ static struct sk_buff *tcp_sacktag_skip(struct sk_buff *skb, struct sock *sk,
- 		if (skb == tcp_send_head(sk))
- 			break;
- 
--		if (before(TCP_SKB_CB(skb)->end_seq, skip_to_seq))
-+		if (!before(TCP_SKB_CB(skb)->end_seq, skip_to_seq))
- 			break;
- 	}
- 	return skb;
-@@ -1575,7 +1575,7 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
- 			continue;
- 		}
- 
--		if (!before(start_seq, tcp_highest_sack_seq(tp))) {
-+		if (tp->sacked_out && !before(start_seq, tcp_highest_sack_seq(tp))) {
- 			skb = tcp_write_queue_next(sk, tp->highest_sack);
- 			fack_count = tp->fackets_out;
- 		}
--- 
-1.5.0.6
-
----696243703-2127161314-1196268771=:18529--
+-Andi 
