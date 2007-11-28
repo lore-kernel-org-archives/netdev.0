@@ -1,7 +1,7 @@
 From: Ryousei Takano <takano-ryousei@aist.go.jp>
-Subject: [PATCHv3 3/3] TC: PSPacer man page
-Date: Wed, 28 Nov 2007 20:48:05 +0900 (JST)
-Message-ID: <20071128.204805.57920776.takano@axe-inc.co.jp>
+Subject: [PATCHv3 2/3] TC: PSPacer qdisc module
+Date: Wed, 28 Nov 2007 20:47:59 +0900 (JST)
+Message-ID: <20071128.204759.105236951.takano@axe-inc.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -9,194 +9,283 @@ Cc: shemminger@linux-foundation.org, kaber@trash.net,
 	dada1@cosmosbay.com, t.kudoh@aist.go.jp
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from axekw.axe-inc.co.jp ([61.199.217.67]:58494 "EHLO
+Received: from axekw.axe-inc.co.jp ([61.199.217.67]:64501 "EHLO
 	axekw.axe-inc.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759955AbXK1LsL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2007 06:48:11 -0500
+	with ESMTP id S1758927AbXK1LsG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2007 06:48:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch includes the man page of the PSPacer (Precise Software
-Pacing) qdisc module.
+This patch includes the PSPacer (Precise Software Pacer) qdisc
+tc part, which achieves precise transmission bandwidth control.
+You can find more information at the project web page
+(http://www.gridmpi.org/gridtcp.jsp).
 
 Signed-off-by: Ryousei Takano <takano-ryousei@aist.go.jp>
 ---
- man/man8/tc-psp.8 |  166 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 166 insertions(+), 0 deletions(-)
- create mode 100644 man/man8/tc-psp.8
+ include/linux/pkt_sched.h |   29 +++++++
+ tc/Makefile               |    1 +
+ tc/q_psp.c                |  199 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 229 insertions(+), 0 deletions(-)
+ create mode 100644 tc/q_psp.c
 
-diff --git a/man/man8/tc-psp.8 b/man/man8/tc-psp.8
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index 268c515..be7b466 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -430,6 +430,35 @@ enum {
+ 
+ #define TCA_ATM_MAX	(__TCA_ATM_MAX - 1)
+ 
++/* Precise Software Pacer section */
++
++#define TC_PSP_MAXDEPTH (8)
++
++enum {
++	MODE_NORMAL = 0,
++	MODE_STATIC = 1,
++};
++
++struct tc_psp_copt
++{
++	__u32	level;
++	__u32	mode;
++	__u32	rate;		/* bytes/sec */
++};
++
++struct tc_psp_qopt
++{
++	__u32	defcls;
++	__u32	rate;		/* bytes/sec */
++};
++
++enum
++{
++	TCA_PSP_UNSPEC,
++	TCA_PSP_COPT,
++	TCA_PSP_QOPT,
++};
++
+ /* Network emulator */
+ 
+ enum
+diff --git a/tc/Makefile b/tc/Makefile
+index a715566..836df9d 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -12,6 +12,7 @@ TCMODULES += q_prio.o
+ TCMODULES += q_tbf.o
+ TCMODULES += q_cbq.o
+ TCMODULES += q_rr.o
++TCMODULES += q_psp.o
+ TCMODULES += q_netem.o
+ TCMODULES += f_rsvp.o
+ TCMODULES += f_u32.o
+diff --git a/tc/q_psp.c b/tc/q_psp.c
 new file mode 100644
-index 0000000..a6e26bf
+index 0000000..db5d42d
 --- /dev/null
-+++ b/man/man8/tc-psp.8
-@@ -0,0 +1,166 @@
-+.TH PSP 8 "13 October 2007" "iproute2" "Linux"
-+.SH NAME
-+PSP \- Precise Software Pacer
-+.SH SYNOPSIS
-+.B tc qdisc ... dev
-+dev
-+.B  ( parent
-+classid 
-+.B | root) [ handle 
-+major: 
-+.B ] psp [ default 
-+minor-id
-+.B ] [ rate
-+rate
-+.B ] 
++++ b/tc/q_psp.c
+@@ -0,0 +1,199 @@
++/*
++ * q_psp.c		PSPacer: Precise Software Pacer
++ *
++ *		Copyright (C) 2004-2007 National Institute of Advanced
++ *		Industrial Science and Technology (AIST), Japan.
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ * Authors:	Ryousei Takano, <takano-ryousei@aist.go.jp>
++ *
++ */
 +
-+.B tc class ... dev
-+dev
-+.B parent 
-+major:[minor]
-+.B [ classid 
-+major:minor
-+.B ] psp rate
-+rate
-+.B ] [ mode 
-+mode
-+.B ] 
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <syslog.h>
++#include <fcntl.h>
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++#include <string.h>
 +
-+.SH DESCRIPTION
-+Precise Software Pacer (PSPacer) is a classful queuing discipline 
-+which controls traffic with
-+.BR tc (8)
-+command.
-+PSP achieves a precise pacing per class.
++#include "utils.h"
++#include "tc_util.h"
 +
-+.SH GAP PACKET
-+The key to realizing precise pacing is to control the starting time of 
-+the transmission of each packet.  We propose a simple yet accurate 
-+mechanism to trigger the transmission of a packet.  That is, to insert 
-+a gap packet between the real packets.  The gap packet produces a gap 
-+between sequentially transmitted real packets.
-+We employ a PAUSE packet as a gap packet.  A PAUSE packet is defined in 
-+the IEEE 802.3x flow control.
++static void explain(void)
++{
++	fprintf(stderr,
++"Usage: ... qdisc add ... psp [ default N ] [rate RATE]\n"
++" default  minor id of class to which unclassified packets are sent {0}\n"
++" rate     physical interface bandwidth\n\n"
++"... class add ... psp mode M [ rate MBPS ]\n"
++" mode     target rate estimation method (NORMAL=0 STATIC=1) {0}\n"
++" rate     rate allocated to this class\n");
++}
 +
-+By changing the gap packet size, the starting time of 
-+the next real packet transmission can be precisely controlled.
-+For example, to control a half rate transmission, a gap packet is inserted 
-+between every real packet where the gap packet size is the same as 
-+that of the real packets.
++static void explain1(char *arg)
++{
++	fprintf(stderr, "Illegal \"%s\"\n", arg);
++	explain();
++}
 +
-+.SH BYTE CLOCK SCHEDULING
-+Packet transmission is scheduled based on the inter-packet gap of each 
-+class (i.e. target rate).
-+If the network has multiple bottleneck links, it is necessary to 
-+schedule the order of packet transmission and the packet interval.  
 +
-+PSPacer maintains a virtual clock which is counted by the total transmitted 
-+byte instead of real time clock.  Each sub-class has its local clock 
-+which is used to make decision whether to send a packet or not.
-+If there is an idle time, a gap packet is inserted.
++static int psp_parse_opt(struct qdisc_util *qu, int argc, char **argv,
++			 struct nlmsghdr *n)
++{
++	struct tc_psp_qopt qopt;
++	struct rtattr *tail;
++	memset(&qopt, 0, sizeof(qopt));
 +
-+.SH CLASSIFICATION
-+Within one PSP instance, many classes may exist. Each of these classes
-+contains its own qdisc.
++	while (argc > 0) {
++		if (matches(*argv, "rate") == 0) {
++			NEXT_ARG();
++			if (get_rate(&qopt.rate, *argv)) {
++				explain1("rate");
++				return -1;
++			}
++		} else if (matches(*argv, "default") == 0) {
++			NEXT_ARG();
++			if (get_u32(&qopt.defcls, *argv, 16)) {
++				explain1("default");
++				return -1;
++			}
++		} else if (matches(*argv, "help") == 0) {
++			explain();
++			return -1;
++		} else {
++			fprintf(stderr, "What is \"%s\"?\n", *argv);
++			explain();
++			return -1;
++		}
++		argc--;
++		argv++;
++	}
 +
-+When enqueuing a packet, PSP starts at the root and uses various methods to 
-+determine which class should be used to obtain the data to be enqueued. 
++	tail = NLMSG_TAIL(n);
++	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
++	addattr_l(n, 2024, TCA_OPTIONS, &qopt, NLMSG_ALIGN(sizeof(qopt)));
++	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
++	return 0;
++}
 +
-+In the standard configuration, this process is rather easy. 
-+At each node we look for an instruction, and then go to the class the 
-+instruction refers to. If the class found is a leaf-node (without 
-+children), we enqueue the packet there. If it is not yet a leaf node, we do 
-+the same thing over again starting from that node. 
++static int psp_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
++{
++	struct rtattr *tb[TCA_PSP_QOPT+1];
++	struct tc_psp_copt *copt;
++	struct tc_psp_qopt *qopt;
++	SPRINT_BUF(b);
 +
-+The following actions are performed in order at each node we visit, until 
-+move to another node, or terminates the process.
-+.TP
-+(i)
-+Consult filters attached to the class. If we are at a leaf node, we are done. 
-+Otherwise, restart.
-+.TP
-+(ii)
-+If none of the above returned with an instruction, send to the default class.
-+.P
-+./ This algorithm makes sure that a packet always ends up somewhere, even while
-+./ you are busy building your configuration. 
++	if (opt == NULL)
++		return 0;
 +
-+.SH QDISC
-+The root of a PSP qdisc class tree has the following parameters:
++	memset(tb, 0, sizeof(tb));
++	parse_rtattr_nested(tb, TCA_PSP_QOPT, opt);
 +
-+.TP 
-+parent major:minor | root
-+This mandatory parameter determines the place of the PSP instance, 
-+either at the
-+.B root
-+of an interface or within an existing class.
-+.TP
-+handle major:
-+Like all other qdiscs, the PSP can be assigned a handle. It should consist only
-+of a major number, followed by a colon. Optional, but it is very useful 
-+if classes will be generated within this qdisc.
-+.TP 
-+default minor-id
-+Unclassified traffic is sent to the class with this minor-id.
-+.TP
-+rate rate
-+Optional.  You can explicitly specify the maximum transmission rate.
-+For example, if a 33MHz/32bit PCI bus is used to connect a Gigabit 
-+Ethernet network interface, the bottleneck is the PCI bus, and the 
-+system can not transmit packets at the rate of gigabit/sec. 
++	if (tb[TCA_PSP_COPT]) {
++		copt = RTA_DATA(tb[TCA_PSP_COPT]);
++		if (RTA_PAYLOAD(tb[TCA_PSP_COPT]) < sizeof(*copt))
++			return -1;
++		fprintf(f, "level %d ", (int)copt->level);
++		switch (copt->mode) {
++		case MODE_NORMAL:
++			fprintf(f, "mode NORMAL ");
++			break;
++		case MODE_STATIC:
++			fprintf(f, "mode STATIC (%s) ",
++				sprint_rate(copt->rate, b));
++			break;
++		}
++	}
++	if (tb[TCA_PSP_QOPT]) {
++		qopt = RTA_DATA(tb[TCA_PSP_QOPT]);
++		if (RTA_PAYLOAD(tb[TCA_PSP_QOPT])  < sizeof(*qopt))
++			return -1;
++		fprintf(f, "default %x max rate %s",
++			qopt->defcls, sprint_rate(qopt->rate, b));
++	}
++	return 0;
++}
 +
-+.SH CLASSES
-+Classes have a host of parameters to configure their operation.
++static int psp_print_xstats(struct qdisc_util *qu, FILE *f,
++			    struct rtattr *gstats)
++{
++	struct gnet_stats_basic *st;
++	if (gstats == NULL)
++		return 0;
 +
-+.TP 
-+parent major:minor
-+Specifies the place of this class within the hierarchy. If attached directly 
-+to a qdisc and not to another class, minor can be omitted. Mandatory.
-+.TP 
-+classid major:minor
-+Like qdiscs, classes can be named. The major number must be equal to the
-+major number of the qdisc to which it belongs. Optional, but needed if this 
-+class is going to have children.
-+.TP 
-+rate rate
-+Maximum transmission rate this class including all its children are assigned. 
-+Optional, but required if this class is set to mode 1 (static target rate).
-+.TP
-+mode mode
-+Range from 0 to 1.  The mode 0 is without pacing.  The mode 1 is
-+pacing based on static target rate estimation.
-+Default is set to 0.
++	if (RTA_PAYLOAD(gstats) < sizeof(*st))
++		return -1;
 +
-+.SH EXAMPLE
-+The output bandwidth of eth0 regulates at 500Mbps:
-+.in +5
-+ # tc qdisc add dev eth0 root handle 1: psp default 1
-+ # tc class add dev eth0 parent 1: classid 1:1 psp rate 500mbit
-+ # tc qdisc add dev eth0 parent 1:1 handle 10: pfifo
++	st = RTA_DATA(gstats);
++	fprintf(f, "  gap %llu bytes %u pkts", st->bytes, st->packets);
++	return 0;
++}
 +
-+.SH TODO
-+.TP
-+o
-+In the current version, the dynamic target rate estimation mode is disabled.
-+.TP
-+o
-+TCP Segmentation Offloading (TSO) feature is not supported.
-+You must disable TSO by ethtool:
-+.in +5
-+# /sbin/ethtool -K eth0 tso off
++static int psp_parse_class_opt(struct qdisc_util *qu, int argc, char **argv,
++			       struct nlmsghdr *n)
++{
++	struct tc_psp_copt copt;
++	struct rtattr *tail;
 +
-+.SH SOURCES
-+.TP
-+o
-+http://www.gridmpi.org/gridtcp.jsp
-+.TP
-+o
-+R.Takano, T.Kudoh, Y.Kodama, M.Matsuda, H.Tezuka, and Y.Ishikawa,
-+"Design and Evaluation of Precise Software Pacing Mechanisms for 
-+Fast Long-Distance Networks," PFLDnet05, 2005.
++	memset(&copt, 0, sizeof(copt));
++	copt.mode = MODE_STATIC; /* default mode */
 +
-+.SH SEE ALSO
-+.BR tc (8)
++	while (argc > 0) {
++		if (matches(*argv, "rate") == 0) {
++			NEXT_ARG();
++			if (get_rate(&copt.rate, *argv)) {
++				explain1("rate");
++				return -1;
++			}
++		} else if (matches(*argv, "mode") == 0) {
++			NEXT_ARG();
++			if (get_u32(&copt.mode, *argv, 10)) {
++				explain1("mode");
++				return -1;
++			}
++		} else if (matches(*argv, "help") == 0) {
++			explain();
++			return -1;
++		} else {
++			fprintf(stderr, "What is \"%s\"?\n", *argv);
++			explain();
++			return -1;
++		}
++		argc--; argv++;
++	}
 +
-+.SH AUTHOR
-+Ryousei Takano <takano-ryousei@aist.go.jp>.
++	if (copt.mode == MODE_NORMAL && copt.rate != 0) {
++		fprintf(stderr, "You can not set to \"rate\" parameter "
++			"in normal mode\n");
++		explain1("rate");
++		return -1;
++	} else if (copt.mode == MODE_STATIC && copt.rate == 0) {
++		fprintf(stderr, "You need set to \"rate\" parameter "
++			"in static target rate mode.\n");
++		explain1("rate");
++		return -1;
++	}
++
++	tail = NLMSG_TAIL(n);
++	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
++	addattr_l(n, 2024, TCA_PSP_COPT, &copt, sizeof(copt));
++	tail->rta_len = (void *)NLMSG_TAIL(n) - (void *)tail;
++	return 0;
++}
++
++struct qdisc_util psp_qdisc_util = {
++	.id		= "psp",
++	.parse_qopt	= psp_parse_opt,
++	.print_qopt	= psp_print_opt,
++	.print_xstats	= psp_print_xstats,
++	.parse_copt	= psp_parse_class_opt,
++	.print_copt	= psp_print_opt
++};
++
 -- 
 1.5.3.4
 
