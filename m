@@ -1,10 +1,12 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 2/4] sysctl: Remember the ctl_table we passed to register_sysctl_paths
-Date: Thu, 29 Nov 2007 10:46:26 -0700
-Message-ID: <m1fxypc5cd.fsf_-_@ebiederm.dsl.xmission.com>
+Subject: [PATCH 4/4] net: Implement the per network namespace sysctl infrastructure
+Date: Thu, 29 Nov 2007 10:53:29 -0700
+Message-ID: <m17ik1c50m.fsf_-_@ebiederm.dsl.xmission.com>
 References: <4742C73C.3010904@openvz.org>
 	<m1odddc5mf.fsf@ebiederm.dsl.xmission.com>
 	<m1k5o1c5eh.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1fxypc5cd.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1bq9dc53d.fsf_-_@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Serge Hallyn <serue@us.ibm.com>,
@@ -12,57 +14,132 @@ Cc: Serge Hallyn <serue@us.ibm.com>,
 	Cedric Le Goater <clg@fr.ibm.com>,
 	Linux Containers <containers@lists.osdl.org>,
 	Pavel Emelyanov <xemul@openvz.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	Olaf Kirch <okir@suse.de>, Olaf Hering <olaf@aepfle.de>
+	<linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>
 To: Herbert Xu <herbert@gondor.apana.org.au>,
 	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:48090 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:48119 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761318AbXK2RyG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 12:54:06 -0500
-In-Reply-To: <m1k5o1c5eh.fsf_-_@ebiederm.dsl.xmission.com> (Eric
-	W. Biederman's message of "Thu, 29 Nov 2007 10:45:10 -0700")
+	with ESMTP id S1759739AbXK2Rzw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 12:55:52 -0500
+In-Reply-To: <m1bq9dc53d.fsf_-_@ebiederm.dsl.xmission.com> (Eric
+	W. Biederman's message of "Thu, 29 Nov 2007 10:51:50 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-By doing this we allow users of register_sysctl_paths that build
-and dynamically allocate their ctl_table to be simpler.  This allows
-them to just remember the ctl_table_header returned from
-register_sysctl_paths from which they can now find the
-ctl_table array they need to free.
+The user interface is: register_net_sysctl_table and
+unregister_net_sysctl_table.  Very much like the current
+interface except there is a network namespace parameter.
+
+With this any sysctl registered with register_net_sysctl_table
+will only show up to tasks in the same network namespace.
+
+All other sysctls continue to be globally visible.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- include/linux/sysctl.h |    1 +
- kernel/sysctl.c        |    1 +
- 2 files changed, 2 insertions(+), 0 deletions(-)
+ include/net/net_namespace.h |    9 +++++++
+ net/sysctl_net.c            |   57 +++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 66 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-index eb522bf..8b2e9e0 100644
---- a/include/linux/sysctl.h
-+++ b/include/linux/sysctl.h
-@@ -1063,6 +1063,7 @@ struct ctl_table_header
- 	struct list_head ctl_entry;
- 	int used;
- 	struct completion *unregistering;
-+	struct ctl_table *ctl_table_arg;
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 4d0d634..235214c 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -25,6 +25,8 @@ struct net {
+ 	struct proc_dir_entry 	*proc_net_stat;
+ 	struct proc_dir_entry 	*proc_net_root;
+ 
++	struct list_head	sysctl_table_headers;
++
+ 	struct net_device       *loopback_dev;          /* The loopback */
+ 
+ 	struct list_head 	dev_base_head;
+@@ -144,4 +146,11 @@ extern void unregister_pernet_subsys(struct pernet_operations *);
+ extern int register_pernet_device(struct pernet_operations *);
+ extern void unregister_pernet_device(struct pernet_operations *);
+ 
++struct ctl_path;
++struct ctl_table;
++struct ctl_table_header;
++extern struct ctl_table_header *register_net_sysctl_table(struct net *net,
++	const struct ctl_path *path, struct ctl_table *table);
++extern void unregister_net_sysctl_table(struct ctl_table_header *header);
++
+ #endif /* __NET_NET_NAMESPACE_H */
+diff --git a/net/sysctl_net.c b/net/sysctl_net.c
+index cd4eafb..c50c793 100644
+--- a/net/sysctl_net.c
++++ b/net/sysctl_net.c
+@@ -14,6 +14,7 @@
+ 
+ #include <linux/mm.h>
+ #include <linux/sysctl.h>
++#include <linux/nsproxy.h>
+ 
+ #include <net/sock.h>
+ 
+@@ -54,3 +55,59 @@ struct ctl_table net_table[] = {
+ #endif
+ 	{ 0 },
  };
- 
- /* struct ctl_path describes where in the hierarchy a table is added */
-diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index fa92e70..effae87 100644
---- a/kernel/sysctl.c
-+++ b/kernel/sysctl.c
-@@ -1598,6 +1598,7 @@ struct ctl_table_header *register_sysctl_paths(const struct ctl_path *path,
- 		new += 2;
- 	}
- 	*prevp = table;
-+	header->ctl_table_arg = table;
- 
- 	INIT_LIST_HEAD(&header->ctl_entry);
- 	header->used = 0;
++
++static struct list_head *
++net_ctl_header_lookup(struct ctl_table_root *root, struct nsproxy *namespaces)
++{
++	return &namespaces->net_ns->sysctl_table_headers;
++}
++
++static struct ctl_table_root net_sysctl_root = {
++	.lookup = net_ctl_header_lookup,
++};
++
++static int sysctl_net_init(struct net *net)
++{
++	INIT_LIST_HEAD(&net->sysctl_table_headers);
++	return 0;
++}
++
++static void sysctl_net_exit(struct net *net)
++{
++	WARN_ON(!list_empty(&net->sysctl_table_headers));
++	return;
++}
++
++static struct pernet_operations sysctl_pernet_ops = {
++	.init = sysctl_net_init,
++	.exit = sysctl_net_exit,
++};
++
++static __init int sysctl_init(void)
++{
++	int ret;
++	ret = register_pernet_subsys(&sysctl_pernet_ops);
++	if (ret)
++		goto out;
++	register_sysctl_root(&net_sysctl_root);
++out:
++	return ret;
++}
++subsys_initcall(sysctl_init);
++
++struct ctl_table_header *register_net_sysctl_table(struct net *net,
++	const struct ctl_path *path, struct ctl_table *table)
++{
++	struct nsproxy namespaces;
++	namespaces = *current->nsproxy;
++	namespaces.net_ns = net;
++	return __register_sysctl_paths(&net_sysctl_root,
++					&namespaces, path, table);
++}
++EXPORT_SYMBOL_GPL(register_net_sysctl_table);
++
++void unregister_net_sysctl_table(struct ctl_table_header *header)
++{
++	return unregister_sysctl_table(header);
++}
++EXPORT_SYMBOL_GPL(unregister_net_sysctl_table);
 -- 
 1.5.3.rc6.17.g1911
 
