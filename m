@@ -1,44 +1,58 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH] Fix inet_diag.ko register vs rcv race
-Date: Thu, 29 Nov 2007 10:47:17 -0200
-Message-ID: <20071129124717.GD12069@ghostprotocols.net>
-References: <474C1717.4040607@openvz.org> <20071129123733.GC30420@gondor.apana.org.au>
+From: Laszlo Attila Toth <panther@balabit.hu>
+Subject: Re: [PATCHv6 iptables]Interface group match
+Date: Thu, 29 Nov 2007 13:50:13 +0100
+Message-ID: <474EB585.30407@balabit.hu>
+References: <11955644701165-git-send-email-panther@balabit.hu> <1195564470928-git-send-email-panther@balabit.hu> <11955644702451-git-send-email-panther@balabit.hu> <11955644701536-git-send-email-panther@balabit.hu> <11955644702194-git-send-email-panther@balabit.hu> <20071123133933.GA31396@innominate.com>
+Reply-To: panther@balabit.hu
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Emelyanov <xemul@openvz.org>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:39159 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755959AbXK2MrZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Nov 2007 07:47:25 -0500
-Content-Disposition: inline
-In-Reply-To: <20071129123733.GC30420@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Lutz Jaenicke <ljaenicke@innominate.com>,
+	David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20071123133933.GA31396@innominate.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Thu, Nov 29, 2007 at 11:37:34PM +1100, Herbert Xu escreveu:
-> On Tue, Nov 27, 2007 at 04:09:43PM +0300, Pavel Emelyanov wrote:
-> > The following race is possible when one cpu unregisters the handler
-> > while other one is trying to receive a message and call this one:
-> 
-> Good catch! But I think we need a bit more to close this fully.
-> 
-> Dumps can resume asynchronously which means that they won't be
-> holding inet_diag_mutex.  We can fix that pretty easily by
-> giving that as our cb_mutex.
-> 
-> So could you add that to your patch and resubmit?
-> 
-> Arnaldo, synchronize_rcu() doesn't work on its own.  Whoever accesses
-> the object that it's supposed to protect has to use the correct RCU
-> primitives for this to work.
-> 
-> Synchronisation is like tango, it always takes two to make it work :)
+Lutz Jaenicke =EDrta:
+> On Tue, Nov 20, 2007 at 02:14:28PM +0100, Laszlo Attila Toth wrote:
+>> Interface group values can be checked on both input and output inter=
+faces
+>> with optional mask.
+>=20
+>> Index: extensions/libxt_ifgroup.c
+>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>> --- extensions/libxt_ifgroup.c	(revision 0)
+>> +++ extensions/libxt_ifgroup.c	(revision 0)
+>=20
+>> +		info->in_group =3D strtoul(optarg, &end, 0);
+>=20
+> This is somewhat inconsistent with the iproute patch which targets
+> specific groups (with names).
+> Should iptables be allowed to read "/etc/iproute2/rt_ifgroup"?
 
-Agreed, I didn't checked that when refactoring inet_diag, leaving this
-as it was before I put my hands on it :-)
+It would be good but cannot be used if a mask is set and only values=20
+less than 256 can be used with names.
 
-- Arnaldo
+> There is no standard API like getservbyname()...
+
+The code of iproute2 should be copied. If Patrick says it is ok,  I'll=20
+write this part.
+
+>=20
+> I do have a draft patch for physdev which is however against
+> iptables-1.3.8 and linux-2.6.19 so it will need some more work
+> but I will attach it for discussion.
+
+Thanks. I will send soon for net-2.6.25 and iptables svn version.
+
+-
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
