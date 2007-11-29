@@ -1,67 +1,80 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCHv6 iptables]Interface group match
-Date: Thu, 29 Nov 2007 17:27:26 +0100
-Message-ID: <474EE86E.2010201@trash.net>
-References: <11955644701165-git-send-email-panther@balabit.hu> <1195564470928-git-send-email-panther@balabit.hu> <11955644702451-git-send-email-panther@balabit.hu> <11955644701536-git-send-email-panther@balabit.hu> <11955644702194-git-send-email-panther@balabit.hu> <20071123133933.GA31396@innominate.com> <474EB585.30407@balabit.hu> <474EE5C6.9070500@trash.net> <474EE79F.2000409@balabit.hu>
+From: Robert Stonehouse <rstonehouse@solarflare.com>
+Subject: Re: [PATCH] [RFC] New driver "sfc" for Solarstorm SFC4000 controller
+Date: Thu, 29 Nov 2007 16:27:41 +0000
+Message-ID: <474EE87D.6010702@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Lutz Jaenicke <ljaenicke@innominate.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: panther@balabit.hu
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	bhutchings@solarflare.com
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:50053 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760539AbXK2Q1d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 11:27:33 -0500
-In-Reply-To: <474EE79F.2000409@balabit.hu>
+Received: from smtp.nextweb.net ([216.237.6.30]:40707 "EHLO
+	smtp.covadwireless.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760370AbXK2Q1s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 11:27:48 -0500
+Received: from mail.nextweb.net (mail.nextweb.net [216.237.6.33])
+	by smtp.covadwireless.net (Spam Firewall) with ESMTP id 105D7193B59F
+	for <netdev@vger.kernel.org>; Thu, 29 Nov 2007 08:27:46 -0800 (PST)
+Received: from mail.nextweb.net (mail.nextweb.net [216.237.6.33]) by smtp.covadwireless.net with ESMTP id Dk7N5YP6unxVOAIM for <netdev@vger.kernel.org>; Thu, 29 Nov 2007 08:27:46 -0800 (PST)
+Received: from unknown (HELO mail.solarflare.com) ([216.237.3.213])
+          (envelope-sender <rstonehouse@solarflare.com>)
+          by mail.nextweb.net (qmail-ldap-1.03) with SMTP
+          for <netdev@vger.kernel.org>; 29 Nov 2007 16:27:45 -0000
+Received: from OCEX01.SolarFlarecom.com (unknown [10.20.40.32])
+	by mail.solarflare.com (Postfix) with ESMTP id 65FDF4492E
+	for <netdev@vger.kernel.org>; Thu, 29 Nov 2007 08:27:44 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Laszlo Attila Toth wrote:
-> Patrick McHardy =EDrta:
->> Laszlo Attila Toth wrote:
->>> Lutz Jaenicke =EDrta:
+Stephen Hemminger wrote:
+> On Fri, 23 Nov 2007 17:08:15 +0000
+> Ben Hutchings <bhutchings@solarflare.com> wrote:
+>   
+>> 1. When we enable NAPI polling, we need to set __LINK_STATE_START in
+>>    the net device used for NAPI.  This bit is commented as private in
+>>    netdevice.h, but e1000 also does this.  Is this incorrect?
+>>     
+> Why are you using it directly?
+>   
+It seems this line is historic and we can remove it.
 
->>>> Should iptables be allowed to read "/etc/iproute2/rt_ifgroup"?
->>>
->>> It would be good but cannot be used if a mask is set and only value=
-s=20
->>> less than 256 can be used with names.
->>
->>
->> Why 256? I can see no such limitation. For masks you could
->> simply allow to define masks in rt_ifgroup too and use
->> name/name or simply name/0xmask.
->=20
->=20
-> 256 because it is the size of a static array (and I don't want alloca=
-te=20
-> too much memory when other arrays such as the routing table names als=
-o=20
-> have this size). In the current version I posted some minutes ago=20
-> 0..2^32-1  can be used.
+> The driver is pretty big (28K loc), and non trivial to get a good review.
 
-Its a hash. You can put as much in there as you like :)
+We are aware that it appears to be a large amount of code.
 
-> The syntax "name/0xmask" is simply too strange for me.
+The driver does support many types of PHY (10Gbase-T, XFP, CX4) on five
+different 10G reference designs and one 1G NIC ref design.
 
-Then how about name/name with masks also defined in rt_ifgroup?
-The same question applies for marks of course.
+There is also support for two generations of controller silicon, full
+ethtool support, start of day self-tests and an mtd driver for putting
+PXE images into flash.
 
->>>> There is no standard API like getservbyname()...
->>>
->>> The code of iproute2 should be copied. If Patrick says it is ok, =20
->>> I'll write this part.
->>
->>
->> Of course. Please put the tab part somewhere common, I always
->> wanted to have named firewall marks shared with ip and tc
->> and I believe Balazs wanted that too :)
->=20
-> Ok. Yes, he wants :)
->=20
->=20
+Perhaps we could help making it more reviewable by suggesting some sets
+of files that can be reviewed together that represent different parts of
+the functionality. The main functionality is contained in efx.c, rx.c,
+tx.c and falcon.c if that helps.
 
+
+> Minor note:
+> * use u8 not uint8_t (etc.)
+> * gone overboard with docbook style comments, they are only needed
+>   on external API's.
+> * Please use dev_err() rather than reinventing own message macros.
+
+OK - we will look at addressing these as well as checkpatch violations
+and resubmit a patch shortly.
+
+> * why are you exporting symbol's?
+>   
+We need a small API so that other drivers can use parts of the hardware
+after the main driver has performed initialisation.
+
+One example is the mtd driver to access the flash. Another example is an
+accelerated driver for Xen that Solarflare is in the process of
+submitting.
+
+Regards
+
+-- 
+Rob Stonehouse
