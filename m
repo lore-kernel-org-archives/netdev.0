@@ -1,58 +1,47 @@
-From: Laszlo Attila Toth <panther@balabit.hu>
-Subject: Re: [PATCHv6 iptables]Interface group match
-Date: Thu, 29 Nov 2007 13:50:13 +0100
-Message-ID: <474EB585.30407@balabit.hu>
-References: <11955644701165-git-send-email-panther@balabit.hu> <1195564470928-git-send-email-panther@balabit.hu> <11955644702451-git-send-email-panther@balabit.hu> <11955644701536-git-send-email-panther@balabit.hu> <11955644702194-git-send-email-panther@balabit.hu> <20071123133933.GA31396@innominate.com>
-Reply-To: panther@balabit.hu
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [0/4] dst: Distributed storage.
+Date: Thu, 29 Nov 2007 15:53:23 +0300
+Message-ID: <11963408033624@2ka.mipt.ru>
+References: <aqqqqasdzxczc036@2ka.mipt.ru>
+Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Lutz Jaenicke <ljaenicke@innominate.com>,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20071123133933.GA31396@innominate.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: lkml <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cs-studio.ru ([195.178.208.66]:38742 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755230AbXK2Mxi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 07:53:38 -0500
+In-Reply-To: <aqqqqasdzxczc036@2ka.mipt.ru>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lutz Jaenicke =EDrta:
-> On Tue, Nov 20, 2007 at 02:14:28PM +0100, Laszlo Attila Toth wrote:
->> Interface group values can be checked on both input and output inter=
-faces
->> with optional mask.
->=20
->> Index: extensions/libxt_ifgroup.c
->> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->> --- extensions/libxt_ifgroup.c	(revision 0)
->> +++ extensions/libxt_ifgroup.c	(revision 0)
->=20
->> +		info->in_group =3D strtoul(optarg, &end, 0);
->=20
-> This is somewhat inconsistent with the iproute patch which targets
-> specific groups (with names).
-> Should iptables be allowed to read "/etc/iproute2/rt_ifgroup"?
 
-It would be good but cannot be used if a mask is set and only values=20
-less than 256 can be used with names.
+Distributed storage.
 
-> There is no standard API like getservbyname()...
+I'm pleased to announce the 9'th release of the distributed
+storage subsystem (DST). This is maintenance release and include
+bug fixing only.
 
-The code of iproute2 should be copied. If Patrick says it is ok,  I'll=20
-write this part.
+DST allows to form a storage on top of local and remote nodes
+and combine them into linear or mirroring setup, which in
+turn can be exported to remote nodes.
 
->=20
-> I do have a draft patch for physdev which is however against
-> iptables-1.3.8 and linux-2.6.19 so it will need some more work
-> but I will attach it for discussion.
+Short changelog:
+ * use node's size in sectors instead of bytes
+ * fixed old/new ages for the first node. 
+	Error spotted by Matthew Hodgson <matthew@mxtelecom.com>
+ * fixed debug printk declaration
+ * it is now called 'astonishingly screwed tapeworm'
 
-Thanks. I will send soon for net-2.6.25 and iptables svn version.
+Overall list of features of the DST can be found on project's homepage:
 
--
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+http://tservice.net.ru/~s0mbre/old/?section=projects&item=dst
+
+Thank you.
+
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+
+
