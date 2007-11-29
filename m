@@ -1,34 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH][BRIDGE] Lost call to br_fdb_fini() in br_init() error path
-Date: Thu, 29 Nov 2007 23:45:22 +1100
-Message-ID: <20071129124522.GD30420@gondor.apana.org.au>
-References: <474C2C2E.7050001@openvz.org>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH] Fix inet_diag.ko register vs rcv race
+Date: Thu, 29 Nov 2007 10:47:17 -0200
+Message-ID: <20071129124717.GD12069@ghostprotocols.net>
+References: <474C1717.4040607@openvz.org> <20071129123733.GC30420@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	bridge@lists.linux-foundation.org,
+Cc: Pavel Emelyanov <xemul@openvz.org>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
 	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3189 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755414AbXK2Mpb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 07:45:31 -0500
+Received: from mx1.redhat.com ([66.187.233.31]:39159 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755959AbXK2MrZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Nov 2007 07:47:25 -0500
 Content-Disposition: inline
-In-Reply-To: <474C2C2E.7050001@openvz.org>
+In-Reply-To: <20071129123733.GC30420@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 27, 2007 at 05:39:42PM +0300, Pavel Emelyanov wrote:
-> In case the br_netfilter_init() (or any subsequent call) 
-> fails, the br_fdb_fini() must be called to free the allocated
-> in br_fdb_init() br_fdb_cache kmem cache.
+Em Thu, Nov 29, 2007 at 11:37:34PM +1100, Herbert Xu escreveu:
+> On Tue, Nov 27, 2007 at 04:09:43PM +0300, Pavel Emelyanov wrote:
+> > The following race is possible when one cpu unregisters the handler
+> > while other one is trying to receive a message and call this one:
 > 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> Good catch! But I think we need a bit more to close this fully.
+> 
+> Dumps can resume asynchronously which means that they won't be
+> holding inet_diag_mutex.  We can fix that pretty easily by
+> giving that as our cb_mutex.
+> 
+> So could you add that to your patch and resubmit?
+> 
+> Arnaldo, synchronize_rcu() doesn't work on its own.  Whoever accesses
+> the object that it's supposed to protect has to use the correct RCU
+> primitives for this to work.
+> 
+> Synchronisation is like tango, it always takes two to make it work :)
 
-Patch applied to net-2.6.  Thanks Pavel!
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Agreed, I didn't checked that when refactoring inet_diag, leaving this
+as it was before I put my hands on it :-)
+
+- Arnaldo
