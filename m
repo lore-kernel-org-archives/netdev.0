@@ -1,66 +1,56 @@
 From: Laszlo Attila Toth <panther@balabit.hu>
-Subject: [PATCHv7 4/5] Ifgroup read/write support in sysfs
-Date: Thu, 29 Nov 2007 17:11:45 +0100
-Message-ID: <11963527103391-git-send-email-panther@balabit.hu>
+Subject: [PATCHv7 1/5] Remove unnecessary locks from rtnetlink (in do_setlink)
+Date: Thu, 29 Nov 2007 17:11:42 +0100
+Message-ID: <11963527103201-git-send-email-panther@balabit.hu>
 References: <11963527094077-git-send-email-panther@balabit.hu>
- <11963527103201-git-send-email-panther@balabit.hu>
- <1196352710402-git-send-email-panther@balabit.hu>
- <11963527101876-git-send-email-panther@balabit.hu>
 Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
 	Laszlo Attila Toth <panther@balabit.hu>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.balabit.hu ([212.92.18.33]:38140 "EHLO lists.balabit.hu"
+Received: from www.balabit.hu ([212.92.18.33]:50920 "EHLO lists.balabit.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757285AbXK2QL6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Nov 2007 11:11:58 -0500
+	id S1756620AbXK2QL5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Nov 2007 11:11:57 -0500
 Received: from balabit.hu (unknown [10.80.0.254])
-	by lists.balabit.hu (Postfix) with ESMTP id 69573C14C4
-	for <netdev@vger.kernel.org>; Thu, 29 Nov 2007 17:11:57 +0100 (CET)
-In-Reply-To: <11963527101876-git-send-email-panther@balabit.hu>
+	by lists.balabit.hu (Postfix) with ESMTP id 59C37C160B
+	for <netdev@vger.kernel.org>; Thu, 29 Nov 2007 17:11:56 +0100 (CET)
+In-Reply-To: <11963527094077-git-send-email-panther@balabit.hu>
 In-Reply-To: <ifgroup-20071129-165736-1196351856-panther@balabit.hu>
 References: <ifgroup-20071129-165736-1196351856-panther@balabit.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ifgroup member of each net device can be read and changed in sysfs.
+The do_setlink function is protected by rtnl, additional locks are unnecessary,
+and the set_operstate() function is called from protected parts. Locks removed
+from both functions.
 
-Author: Lutz Jaenicke <ljaenicke@innominate.com>
+Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
 ---
 
- net/core/net-sysfs.c |   15 +++++++++++++++
- 1 files changed, 15 insertions(+), 0 deletions(-)
+ net/core/rtnetlink.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 61ead1d..5bd6d35 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -219,6 +219,20 @@ static ssize_t store_tx_queue_len(struct device *dev,
- 	return netdev_store(dev, attr, buf, len, change_tx_queue_len);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 4a07e83..f95c6c5 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -562,9 +562,7 @@ static void set_operstate(struct net_device *dev, unsigned char transition)
+ 	}
+ 
+ 	if (dev->operstate != operstate) {
+-		write_lock_bh(&dev_base_lock);
+ 		dev->operstate = operstate;
+-		write_unlock_bh(&dev_base_lock);
+ 		netdev_state_change(dev);
+ 	}
  }
+@@ -879,9 +877,7 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
+ 		set_operstate(dev, nla_get_u8(tb[IFLA_OPERSTATE]));
  
-+NETDEVICE_SHOW(ifgroup, fmt_hex);
-+
-+static int change_ifgroup(struct net_device *net, unsigned long new_ifgroup)
-+{
-+	net->ifgroup = new_ifgroup;
-+	return 0;
-+}
-+
-+static ssize_t store_ifgroup(struct device *dev, struct device_attribute *attr,
-+			   const char *buf, size_t len)
-+{
-+	return netdev_store(dev, attr, buf, len, change_ifgroup);
-+}
-+
- static struct device_attribute net_class_attributes[] = {
- 	__ATTR(addr_len, S_IRUGO, show_addr_len, NULL),
- 	__ATTR(iflink, S_IRUGO, show_iflink, NULL),
-@@ -235,6 +249,7 @@ static struct device_attribute net_class_attributes[] = {
- 	__ATTR(flags, S_IRUGO | S_IWUSR, show_flags, store_flags),
- 	__ATTR(tx_queue_len, S_IRUGO | S_IWUSR, show_tx_queue_len,
- 	       store_tx_queue_len),
-+	__ATTR(ifgroup, S_IRUGO | S_IWUSR, show_ifgroup, store_ifgroup),
- 	{}
- };
+ 	if (tb[IFLA_LINKMODE]) {
+-		write_lock_bh(&dev_base_lock);
+ 		dev->link_mode = nla_get_u8(tb[IFLA_LINKMODE]);
+-		write_unlock_bh(&dev_base_lock);
+ 	}
  
+ 	err = 0;
