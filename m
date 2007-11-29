@@ -1,102 +1,97 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH (resubmit)][BRIDGE] Properly dereference the br_should_route_hook
-Date: Thu, 29 Nov 2007 06:36:50 -0800
-Message-ID: <20071129143650.GD32449@linux.vnet.ibm.com>
-References: <474C43F4.5080704@openvz.org> <20071129130420.GA8487@gondor.apana.org.au>
-Reply-To: paulmck@linux.vnet.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Emelyanov <xemul@openvz.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	bridge@lists.osdl.org, devel@openvz.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Laszlo Attila Toth <panther@balabit.hu>
+Subject: [PATCHv7 3/5] Interface group: core (netlink) part
+Date: Thu, 29 Nov 2007 17:11:44 +0100
+Message-ID: <11963527101876-git-send-email-panther@balabit.hu>
+References: <11963527094077-git-send-email-panther@balabit.hu>
+ <11963527103201-git-send-email-panther@balabit.hu>
+ <1196352710402-git-send-email-panther@balabit.hu>
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	Laszlo Attila Toth <panther@balabit.hu>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:53544 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756854AbXK2QA4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 11:00:56 -0500
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e31.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id lATG0nYg023028
-	for <netdev@vger.kernel.org>; Thu, 29 Nov 2007 11:00:49 -0500
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lATG0d5b055854
-	for <netdev@vger.kernel.org>; Thu, 29 Nov 2007 09:00:48 -0700
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lATG0X3A012768
-	for <netdev@vger.kernel.org>; Thu, 29 Nov 2007 09:00:34 -0700
-Content-Disposition: inline
-In-Reply-To: <20071129130420.GA8487@gondor.apana.org.au>
+Received: from www.balabit.hu ([212.92.18.33]:50908 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755461AbXK2QLx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Nov 2007 11:11:53 -0500
+Received: from balabit.hu (unknown [10.80.0.254])
+	by lists.balabit.hu (Postfix) with ESMTP id 11925C160A
+	for <netdev@vger.kernel.org>; Thu, 29 Nov 2007 17:11:52 +0100 (CET)
+In-Reply-To: <1196352710402-git-send-email-panther@balabit.hu>
+In-Reply-To: <ifgroup-20071129-165736-1196351856-panther@balabit.hu>
+References: <ifgroup-20071129-165736-1196351856-panther@balabit.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 30, 2007 at 12:04:20AM +1100, Herbert Xu wrote:
-> On Tue, Nov 27, 2007 at 07:21:08PM +0300, Pavel Emelyanov wrote:
-> > This hook is protected with the RCU, so simple
-> > 
-> > 	if (br_should_route_hook)
-> > 		br_should_route_hook(...)
-> > 
-> > is not enough on some architectures.
-> > 
-> > Use the rcu_dereference/rcu_assign_pointer in this case.
-> > 
-> > Fixed Stephen's comment concerning using the typeof().
-> > 
-> > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> 
-> Applied to net-2.6.  Thanks Pavel!
-> 
-> >  static void __exit ebtable_broute_fini(void)
-> >  {
-> > -	br_should_route_hook = NULL;
-> > +	rcu_assign_pointer(br_should_route_hook, NULL);
-> 
-> Just for the record, rcu_assign_pointer is never necessary when
-> you're assigning NULL.  The reason is that rcu_assign_pointer serves
-> as a barrier between the initialisation of the content of what you're
-> assigning and the actual assignment.  Since NULL does not need to be
-> initialised you don't need the barrier :)
+Interface groups let handle different interfaces together.
+Modified net device structure and netlink interface.
 
-Of course, if the rcu_assign_pointer() of NULL is not on a hot code
-path, the extra memory barrier might not be hurting enough to care.
+Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
+---
 
-> Hmm, perhaps we could even build this logic into rcu_assign_pointer.
+ include/linux/if_link.h   |    2 ++
+ include/linux/netdevice.h |    2 ++
+ net/core/rtnetlink.c      |   11 +++++++++++
+ 3 files changed, 15 insertions(+), 0 deletions(-)
 
-That certainly is an interesting tradeoff...  Save a memory barrier
-when assigning NULL, but pay an extra test and branch in all cases.
-Though it does make for a simpler rule -- just use rcu_assign_pointer()
-in all cases.  Of course, if almost all rcu_assign_pointer() executions
-assign non-NULL pointers, the optimal strategy would be to leave the
-implementation of rcu_assign_pointer() alone, and simply enforce use
-of rcu_assign_pointer(), even if the pointer being assigned is NULL.
-
-For a rough guess, if fewer than a few percent of rcu_assign_pointer()
-executions assign NULL, then it is best to simply change the rule.
-If more than about ten percent of rcu_assign_pointer() executions
-assign NULL, then it would make sense to put the check into the
-rcu_assign_pointer() primitive.  The percentages would be of dynamic
-executions, rather than static counts of lines of code.
-
-So, any intuitions on what fraction of the time rcu_assign_pointer()
-is assigning NULL?  Failing that, what workload should be used to take
-the measurements?  ;-)
-
-> Then again, who still uses an Alpha? Mine died years ago :)
-
-Although rcu_dereference() does a memory barrier only on Alpha, that of
-rcu_assign_pointer() is needed on any machine that does not preserve store
-order (Itanium, POWER, ARM, some MIPS boxes according to rumor, ...).
-
-						Thanx, Paul
-
-> Cheers,
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index 84c3492..722b25c 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -79,6 +79,8 @@ enum
+ 	IFLA_LINKINFO,
+ #define IFLA_LINKINFO IFLA_LINKINFO
+ 	IFLA_NET_NS_PID,
++	IFLA_IFGROUP,
++#define IFLA_IFGROUP IFLA_IFGROUP
+ 	__IFLA_MAX
+ };
+ 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 1e6af4f..b1bdcb2 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -519,6 +519,8 @@ struct net_device
+ 	/* Interface index. Unique device identifier	*/
+ 	int			ifindex;
+ 	int			iflink;
++	/* interface group this interface belongs to */
++	u_int32_t		ifgroup;
+ 
+ 
+ 	struct net_device_stats* (*get_stats)(struct net_device *dev);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 6be8608..61c7367 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -614,6 +614,7 @@ static inline size_t if_nlmsg_size(const struct net_device *dev)
+ 	       + nla_total_size(4) /* IFLA_MTU */
+ 	       + nla_total_size(4) /* IFLA_LINK */
+ 	       + nla_total_size(4) /* IFLA_MASTER */
++	       + nla_total_size(4) /* IFLA_IFGROUP */
+ 	       + nla_total_size(1) /* IFLA_OPERSTATE */
+ 	       + nla_total_size(1) /* IFLA_LINKMODE */
+ 	       + rtnl_link_get_size(dev); /* IFLA_LINKINFO */
+@@ -651,6 +652,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	if (dev->master)
+ 		NLA_PUT_U32(skb, IFLA_MASTER, dev->master->ifindex);
+ 
++	if (dev->ifgroup)
++		NLA_PUT_U32(skb, IFLA_IFGROUP, dev->ifgroup);
++
+ 	if (dev->qdisc_sleeping)
+ 		NLA_PUT_STRING(skb, IFLA_QDISC, dev->qdisc_sleeping->ops->id);
+ 
+@@ -889,6 +893,13 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
+ 		} 
+ 	}
+ 
++	if (tb[IFLA_IFGROUP]) {
++		if (dev->ifgroup != nla_get_u32(tb[IFLA_IFGROUP])) {
++			dev->ifgroup = nla_get_u32(tb[IFLA_IFGROUP]);
++			modified = 1;
++		}
++	}
++
+ 	err = 0;
+ 
+ errout:
