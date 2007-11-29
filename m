@@ -1,85 +1,50 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: + xfrm_policy-warning-fix.patch added to -mm tree
-Date: Fri, 30 Nov 2007 00:51:33 +1100
-Message-ID: <20071129135132.GI8487@gondor.apana.org.au>
-References: <200711281056.lASAupF5028450@imap1.linux-foundation.org>
+Subject: Re: [PATCH net-2.6.25 (v2)] [TCP]: Two fixes to new sacktag code
+Date: Fri, 30 Nov 2007 01:00:53 +1100
+Message-ID: <20071129140053.GA9145@gondor.apana.org.au>
+References: <Pine.LNX.4.64.0711281614500.18529@kivilampi-30.cs.helsinki.fi> <Pine.LNX.4.64.0711281847360.18529@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mm-commits@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: akpm@linux-foundation.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3955 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:4044 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755488AbXK2Nvj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 08:51:39 -0500
+	with ESMTP id S1758139AbXK2OA5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 09:00:57 -0500
 Content-Disposition: inline
-In-Reply-To: <200711281056.lASAupF5028450@imap1.linux-foundation.org>
+In-Reply-To: <Pine.LNX.4.64.0711281847360.18529@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 28, 2007 at 02:56:51AM -0800, akpm@linux-foundation.org wrote:
-> 
-> The patch titled
->      xfrm_policy warning fix
-> has been added to the -mm tree.  Its filename is
->      xfrm_policy-warning-fix.patch
-> 
-> *** Remember to use Documentation/SubmitChecklist when testing your code ***
-> 
-> See http://www.zip.com.au/~akpm/linux/patches/stuff/added-to-mm.txt to find
-> out what to do about this
-> 
-> ------------------------------------------------------
-> Subject: xfrm_policy warning fix
-> From: Andrew Morton <akpm@linux-foundation.org>
-> 
-> Fix this:
-> 
-> net/xfrm/xfrm_policy.c: In function '__xfrm_lookup':
-> net/xfrm/xfrm_policy.c:1449: warning: 'dst' may be used uninitialized in this function
-> 
-> by checking for impossible values in the switch().
+On Wed, Nov 28, 2007 at 06:52:51PM +0200, Ilpo J=E4rvinen wrote:
+> On Wed, 28 Nov 2007, Ilpo J=E4rvinen wrote:
+>=20
+> > @@ -1575,7 +1575,7 @@ tcp_sacktag_write_queue(struct sock *sk, stru=
+ct sk_buff *ack_skb, u32 prior_snd_
+> >  			continue;
+> >  		}
+> >
+> > -		if (!before(start_seq, tcp_highest_sack_seq(tp))) {
+> > +		if (tp->sacked_out && after(start_seq, tcp_highest_sack_seq(tp))=
+) {
+>=20
+> In this v2, of this patch I'll put !before back here instead, change
+> to after is unnecessary here, checking that a sacked skb exists is
+> enough to avoid skipping in the problematic head case.
 
-Thanks Andrew.  I've added the following patch to net-2.6.
--- 
+Thanks Ilpo, patch applied to net-2.6.25.
+
+BTW, how's the RB-tree stuff coming along? David wanted it to be in as
+early as possible so that it gets the maximum amount of testing before
+the next merge window.
+
+Cheers,
+--=20
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-commit 5e5234ff17ef98932688116025b30958bd28a940
-Author: Herbert Xu <herbert@gondor.apana.org.au>
-Date:   Fri Nov 30 00:50:31 2007 +1100
-
-    [IPSEC]: Fix uninitialised dst warning in __xfrm_lookup
-    
-    Andrew Morton reported that __xfrm_lookup generates this warning:
-    
-    net/xfrm/xfrm_policy.c: In function '__xfrm_lookup':
-    net/xfrm/xfrm_policy.c:1449: warning: 'dst' may be used uninitialized in this function
-    
-    This is because if policy->action is of an unexpected value then dst will
-    not be initialised.  Of course, in practice this should never happen since
-    the input layer xfrm_user/af_key will filter out all illegal values.  But
-    the compiler doesn't know that of course.
-    
-    So this patch fixes this by taking the conservative approach and treat all
-    unknown actions the same as a blocking action.
-    
-    Thanks to Andrew for finding this and providing an initial fix.
-    
-    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index b702bd8..9a4cf2e 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1344,6 +1344,7 @@ restart:
- 	xfrm_nr += pols[0]->xfrm_nr;
- 
- 	switch (policy->action) {
-+	default:
- 	case XFRM_POLICY_BLOCK:
- 		/* Prohibit the flow */
- 		err = -EPERM;
