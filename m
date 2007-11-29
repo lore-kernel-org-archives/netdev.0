@@ -1,32 +1,25 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: net-2.6.25 rebased
-Date: Fri, 30 Nov 2007 01:32:19 +1100
-Message-ID: <20071129143219.GA2886@gondor.apana.org.au>
+Subject: Re: [NET 00/02]: Remove NET_ACT_NAT dependency on NETFILTER
+Date: Fri, 30 Nov 2007 01:32:58 +1100
+Message-ID: <20071129143258.GA3456@gondor.apana.org.au>
+References: <20071129095733.11756.86966.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4430 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757010AbXK2OcX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 09:32:23 -0500
-Received: from gondolin.me.apana.org.au ([192.168.0.6] ident=mail)
-	by arnor.apana.org.au with esmtp (Exim 4.50 #1 (Debian))
-	id 1IxkRB-0004ax-Dl
-	for <netdev@vger.kernel.org>; Fri, 30 Nov 2007 01:32:21 +1100
-Received: from herbert by gondolin.me.apana.org.au with local (Exim 3.36 #1 (Debian))
-	id 1IxkRA-0000t3-00
-	for <netdev@vger.kernel.org>; Fri, 30 Nov 2007 01:32:20 +1100
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20071129095733.11756.86966.sendpatchset@localhost.localdomain>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi:
+On Thu, Nov 29, 2007 at 10:57:34AM +0100, Patrick McHardy wrote:
+> These patches remove the dependency of NET_ACT_NAT on NETFILTER
+> by moving the netfilter checksum helpers to include/net/checksum
+> and net/core/utils.c. I didn't find more appropriate locations,
+> but I'd happily change it if someone suggests something better.
 
-Just to let you all know that I've just rebased net-2.6.25 so that it now
-contains all of net-2.6 as it currently stands.
-
-Cheers,
+Looks good to me.  I've applied both to net-2.6.25.  Thanks Patrick!
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
