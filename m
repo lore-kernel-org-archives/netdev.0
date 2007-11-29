@@ -1,183 +1,150 @@
 From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH] [8/12] pasemi_mac: Software-based LRO support
-Date: Wed, 28 Nov 2007 20:57:27 -0600
-Message-ID: <20071129025727.GI17215@lixom.net>
+Subject: [PATCH] [9/12] pasemi_mac: SKB unmap optimization
+Date: Wed, 28 Nov 2007 20:57:45 -0600
+Message-ID: <20071129025745.GJ17215@lixom.net>
 References: <20071129025410.GA17215@lixom.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:36907 "EHLO mail.lixom.net"
+Received: from lixom.net ([66.141.50.11]:36916 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757295AbXK2CyQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Nov 2007 21:54:16 -0500
+	id S1758755AbXK2Cye (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Nov 2007 21:54:34 -0500
 Content-Disposition: inline
 In-Reply-To: <20071129025410.GA17215@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-pasemi_mac: Software-based LRO support
+pasemi_mac: SKB unmap optimization
 
-Implement LRO for pasemi_mac. Pretty straightforward.
+Avoid touching skb_shinfo() in the unmap path, since it turns out to
+normally cause cache misses and delays. instead, save number of fragments
+in the TX_RING_INFO structures since that's all that's needed anyway.
 
 
 Signed-off-by: Olof Johansson <olof@lixom.net>
 
 ---
- drivers/net/Kconfig      |    1 
- drivers/net/pasemi_mac.c |   53 +++++++++++++++++++++++++++++++++++++++++++----
- drivers/net/pasemi_mac.h |    5 ++++
- 3 files changed, 55 insertions(+), 4 deletions(-)
+ drivers/net/pasemi_mac.c |   39 +++++++++++++++++++++++++--------------
+ 1 file changed, 25 insertions(+), 14 deletions(-)
 
 Index: k.org/drivers/net/pasemi_mac.c
 ===================================================================
 --- k.org.orig/drivers/net/pasemi_mac.c
 +++ k.org/drivers/net/pasemi_mac.c
-@@ -32,6 +32,7 @@
- #include <linux/ip.h>
- #include <linux/tcp.h>
- #include <net/checksum.h>
-+#include <linux/inet_lro.h>
- 
- #include <asm/irq.h>
- #include <asm/firmware.h>
-@@ -56,9 +57,11 @@
- 
- 
- /* Must be a power of two */
--#define RX_RING_SIZE 1024
-+#define RX_RING_SIZE 2048
- #define TX_RING_SIZE 4096
- 
-+#define LRO_MAX_AGGR 64
-+
- #define DEFAULT_MSG_ENABLE	  \
- 	(NETIF_MSG_DRV		| \
- 	 NETIF_MSG_PROBE	| \
-@@ -206,7 +209,6 @@ static int pasemi_get_mac_addr(struct pa
- 		return -ENOENT;
- 	}
- 
--
- 	if (sscanf(maddr, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &addr[0],
- 		   &addr[1], &addr[2], &addr[3], &addr[4], &addr[5]) != 6) {
- 		dev_warn(&pdev->dev,
-@@ -219,6 +221,37 @@ static int pasemi_get_mac_addr(struct pa
- 	return 0;
+@@ -253,11 +253,11 @@ static int get_skb_hdr(struct sk_buff *s
  }
  
-+static int get_skb_hdr(struct sk_buff *skb, void **iphdr,
-+		       void **tcph, u64 *hdr_flags, void *data)
-+{
-+	u64 macrx = (u64) data;
-+	unsigned int ip_len;
-+	struct iphdr *iph;
-+
-+	/* IPv4 header checksum failed */
-+	if ((macrx & XCT_MACRX_HTY_M) != XCT_MACRX_HTY_IPV4_OK)
-+		return -1;
-+
-+	/* non tcp packet */
-+	skb_reset_network_header(skb);
-+	iph = ip_hdr(skb);
-+	if (iph->protocol != IPPROTO_TCP)
-+		return -1;
-+
-+	ip_len = ip_hdrlen(skb);
-+	skb_set_transport_header(skb, ip_len);
-+	*tcph = tcp_hdr(skb);
-+
-+	/* check if ip header and tcp header are complete */
-+	if (iph->tot_len < ip_len + tcp_hdrlen(skb))
-+		return -1;
-+
-+	*hdr_flags = LRO_IPV4 | LRO_TCP;
-+	*iphdr = iph;
-+
-+	return 0;
-+}
-+
  static int pasemi_mac_unmap_tx_skb(struct pasemi_mac *mac,
++				    const int nfrags,
  				    struct sk_buff *skb,
  				    const dma_addr_t *dmas)
-@@ -662,7 +695,7 @@ static int pasemi_mac_clean_rx(struct pa
- 		skb_put(skb, len-4);
+ {
+ 	int f;
+-	int nfrags = skb_shinfo(skb)->nr_frags;
+ 	struct pci_dev *pdev = mac->dma_pdev;
  
- 		skb->protocol = eth_type_trans(skb, mac->netdev);
--		netif_receive_skb(skb);
-+		lro_receive_skb(&mac->lro_mgr, skb, (void *)macrx);
+ 	pci_unmap_single(pdev, dmas[0], skb_headlen(skb), PCI_DMA_TODEVICE);
+@@ -425,7 +425,7 @@ static void pasemi_mac_free_tx_resources
+ 	unsigned int i, j;
+ 	struct pasemi_mac_buffer *info;
+ 	dma_addr_t dmas[MAX_SKB_FRAGS+1];
+-	int freed;
++	int freed, nfrags;
+ 	int start, limit;
  
- next:
- 		RX_DESC(rx, n) = 0;
-@@ -684,6 +717,8 @@ next:
+ 	start = txring->next_to_clean;
+@@ -438,10 +438,12 @@ static void pasemi_mac_free_tx_resources
+ 	for (i = start; i < limit; i += freed) {
+ 		info = &txring->ring_info[(i+1) & (TX_RING_SIZE-1)];
+ 		if (info->dma && info->skb) {
+-			for (j = 0; j <= skb_shinfo(info->skb)->nr_frags; j++)
++			nfrags = skb_shinfo(info->skb)->nr_frags;
++			for (j = 0; j <= nfrags; j++)
+ 				dmas[j] = txring->ring_info[(i+1+j) &
+ 						(TX_RING_SIZE-1)].dma;
+-			freed = pasemi_mac_unmap_tx_skb(mac, info->skb, dmas);
++			freed = pasemi_mac_unmap_tx_skb(mac, nfrags,
++							info->skb, dmas);
+ 		} else
+ 			freed = 2;
+ 	}
+@@ -749,6 +751,8 @@ static int pasemi_mac_clean_tx(struct pa
+ 	unsigned long flags;
+ 	struct sk_buff *skbs[TX_CLEAN_BATCHSIZE];
+ 	dma_addr_t dmas[TX_CLEAN_BATCHSIZE][MAX_SKB_FRAGS+1];
++	int nf[TX_CLEAN_BATCHSIZE];
++	int nr_frags;
  
- 	rx_ring(mac)->next_to_clean = n;
+ 	total_count = 0;
+ 	batch_limit = TX_CLEAN_BATCHSIZE;
+@@ -758,6 +762,8 @@ restart:
+ 	start = txring->next_to_clean;
+ 	ring_limit = txring->next_to_fill;
  
-+	lro_flush_all(&mac->lro_mgr);
++	prefetch(&TX_DESC_INFO(txring, start+1).skb);
 +
- 	/* Increase is in number of 16-byte entries, and since each descriptor
- 	 * with an 8BRES takes up 3x8 bytes (padded to 4x8), increase with
- 	 * count*2.
-@@ -988,7 +1023,7 @@ static int pasemi_mac_open(struct net_de
- 		      PAS_IOB_DMA_COM_TIMEOUTCFG_TCNT(0x3ff));
+ 	/* Compensate for when fill has wrapped but clean has not */
+ 	if (start > ring_limit)
+ 		ring_limit += TX_RING_SIZE;
+@@ -771,6 +777,9 @@ restart:
+ 		u64 mactx = TX_DESC(txring, i);
+ 		struct sk_buff *skb;
  
- 	write_iob_reg(PAS_IOB_DMA_RXCH_CFG(mac->rx->chan.chno),
--		      PAS_IOB_DMA_RXCH_CFG_CNTTH(128));
-+		      PAS_IOB_DMA_RXCH_CFG_CNTTH(256));
- 
- 	write_iob_reg(PAS_IOB_DMA_TXCH_CFG(mac->tx->chan.chno),
- 		      PAS_IOB_DMA_TXCH_CFG_CNTTH(32));
-@@ -1368,6 +1403,16 @@ pasemi_mac_probe(struct pci_dev *pdev, c
- 	dev->features = NETIF_F_HW_CSUM | NETIF_F_LLTX | NETIF_F_SG |
- 			NETIF_F_HIGHDMA;
- 
-+	mac->lro_mgr.max_aggr = LRO_MAX_AGGR;
-+	mac->lro_mgr.max_desc = MAX_LRO_DESCRIPTORS;
-+	mac->lro_mgr.lro_arr = mac->lro_desc;
-+	mac->lro_mgr.get_skb_header = get_skb_hdr;
-+	mac->lro_mgr.features = LRO_F_NAPI | LRO_F_EXTRACT_VLAN_ID;
-+	mac->lro_mgr.dev = mac->netdev;
-+	mac->lro_mgr.ip_summed = CHECKSUM_UNNECESSARY;
-+	mac->lro_mgr.ip_summed_aggr = CHECKSUM_UNNECESSARY;
++		skb = TX_DESC_INFO(txring, i+1).skb;
++		nr_frags = TX_DESC_INFO(txring, i).dma;
 +
+ 		if ((mactx  & XCT_MACTX_E) ||
+ 		    (*chan->status & PAS_STATUS_ERROR))
+ 			pasemi_mac_tx_error(mac, mactx);
+@@ -779,21 +788,22 @@ restart:
+ 			/* Not yet transmitted */
+ 			break;
+ 
+-		skb = TX_DESC_INFO(txring, i+1).skb;
+-		skbs[descr_count] = skb;
++		buf_count = 2 + nr_frags;
++		/* Since we always fill with an even number of entries, make
++		 * sure we skip any unused one at the end as well.
++		 */
++		if (buf_count & 1)
++			buf_count++;
+ 
+-		buf_count = 2 + skb_shinfo(skb)->nr_frags;
+-		for (j = 0; j <= skb_shinfo(skb)->nr_frags; j++)
++		for (j = 0; j <= nr_frags; j++)
+ 			dmas[descr_count][j] = TX_DESC_INFO(txring, i+1+j).dma;
+ 
++		skbs[descr_count] = skb;
++		nf[descr_count] = nr_frags;
 +
- 	mac->dma_pdev = pci_get_device(PCI_VENDOR_ID_PASEMI, 0xa007, NULL);
- 	if (!mac->dma_pdev) {
- 		dev_err(&mac->pdev->dev, "Can't find DMA Controller\n");
-Index: k.org/drivers/net/pasemi_mac.h
-===================================================================
---- k.org.orig/drivers/net/pasemi_mac.h
-+++ k.org/drivers/net/pasemi_mac.h
-@@ -26,6 +26,8 @@
- #include <linux/spinlock.h>
- #include <linux/phy.h>
+ 		TX_DESC(txring, i) = 0;
+ 		TX_DESC(txring, i+1) = 0;
  
-+#define MAX_LRO_DESCRIPTORS 8
-+
- struct pasemi_mac_txring {
- 	struct pasemi_dmachan chan; /* Must be first */
- 	spinlock_t	 lock;
-@@ -64,7 +66,10 @@ struct pasemi_mac {
+-		/* Since we always fill with an even number of entries, make
+-		 * sure we skip any unused one at the end as well.
+-		 */
+-		if (buf_count & 1)
+-			buf_count++;
+ 		descr_count++;
+ 	}
+ 	txring->next_to_clean = i & (TX_RING_SIZE-1);
+@@ -802,7 +812,7 @@ restart:
+ 	netif_wake_queue(mac->netdev);
  
- 	u8		mac_addr[6];
+ 	for (i = 0; i < descr_count; i++)
+-		pasemi_mac_unmap_tx_skb(mac, skbs[i], dmas[i]);
++		pasemi_mac_unmap_tx_skb(mac, nf[i], skbs[i], dmas[i]);
  
-+	struct net_lro_mgr	lro_mgr;
-+	struct net_lro_desc	lro_desc[MAX_LRO_DESCRIPTORS];
- 	struct timer_list	rxtimer;
-+	unsigned int		lro_max_aggr;
+ 	total_count += descr_count;
  
- 	struct pasemi_mac_txring *tx;
- 	struct pasemi_mac_rxring *rx;
-Index: k.org/drivers/net/Kconfig
-===================================================================
---- k.org.orig/drivers/net/Kconfig
-+++ k.org/drivers/net/Kconfig
-@@ -2566,6 +2566,7 @@ config PASEMI_MAC
- 	tristate "PA Semi 1/10Gbit MAC"
- 	depends on PPC64 && PCI
- 	select PHYLIB
-+	select INET_LRO
- 	help
- 	  This driver supports the on-chip 1/10Gbit Ethernet controller on
- 	  PA Semi's PWRficient line of chips.
+@@ -1299,6 +1309,7 @@ static int pasemi_mac_start_tx(struct sk
+ 	}
+ 
+ 	TX_DESC(txring, fill) = mactx;
++	TX_DESC_INFO(txring, fill).dma = nfrags;
+ 	fill++;
+ 	TX_DESC_INFO(txring, fill).skb = skb;
+ 	for (i = 0; i <= nfrags; i++) {
