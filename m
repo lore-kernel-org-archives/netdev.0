@@ -1,35 +1,32 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: DST_NOHASH flag and IPsec transformers routing tables - need some clarification
-Date: Thu, 29 Nov 2007 10:59:22 +0800
-Message-ID: <20071129025922.GA20723@gondor.apana.org.au>
-References: <d0383f90711260515p6155bd7bt196016fb4d8d4cdf@mail.gmail.com> <E1IwphB-0000Ff-00@gondolin.me.apana.org.au> <d0383f90711280555s6fa62802w92bcd026f78bb5ac@mail.gmail.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [ofa-general] Re: [PATCH 2.6.25 2/2] RDMA/cxgb3: Support 5.0
+	firmware.
+Date: Wed, 28 Nov 2007 19:41:22 -0800
+Message-ID: <aday7chn2fx.fsf@cisco.com>
+References: <20071126172457.22792.62583.stgit@dell3.ogc.int>
+	<20071126172846.22792.8854.stgit@dell3.ogc.int>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Ian Brown <ianbrn@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2316 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758392AbXK2C7a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2007 21:59:30 -0500
-Content-Disposition: inline
-In-Reply-To: <d0383f90711280555s6fa62802w92bcd026f78bb5ac@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, ewg@lists.openfabrics.org,
+	general@lists.openfabrics.org
+To: Steve Wise <swise@opengridcomputing.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20071126172846.22792.8854.stgit@dell3.ogc.int> (Steve Wise's
+	message of "Mon, 26 Nov 2007 11:28:46 -0600")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 28, 2007 at 03:55:19PM +0200, Ian Brown wrote:
->
-> no need to cache this entry ? because as I understand it , next
-> sk_buff with the same dest IP will have to get this same
-> dst_entry (the head of the list). So why not cache this head of the
-> list of dst_entries ?
+OK, applied 1 and 2...
 
-It's not in the routing cache because IPsec lookups are done through the
-flow cache.
+ > Note: this change requires 5.0 firmware.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I assume the change to the cxgb3 FW versions is pending in a net
+driver change for 2.6.25?
