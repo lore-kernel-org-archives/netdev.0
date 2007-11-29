@@ -1,32 +1,33 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 01/01] ipv6: RFC4214 Support (v2.5)
-Date: Thu, 29 Nov 2007 22:12:18 +1100
-Message-ID: <20071129111218.GG22537@gondor.apana.org.au>
-References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC29@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC45@XCH-NW-7V2.nw.nos.boeing.com> <20071129102940.GC22537@gondor.apana.org.au> <20071129.195459.55971471.yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] [NET]: Fix TX bug VLAN in VLAN
+Date: Thu, 29 Nov 2007 22:19:03 +1100
+Message-ID: <20071129111903.GI22537@gondor.apana.org.au>
+References: <003f01c82dca$305acd40$9c94fea9@jason> <20071126112631.GA26599@gondor.apana.org.au> <b25c3fa70711262132r3f88db02mcede6d14b82d5fc0@mail.gmail.com> <20071127063859.GB2942@gondor.apana.org.au> <002801c830c3$783319f0$9c94fea9@jason>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Fred.L.Templin@boeing.com, netdev@vger.kernel.org,
-	vladislav.yasevich@hp.com, davem@davemloft.net
-To: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, tristan_schmelcher@alumni.uwaterloo.ca,
+	acme@ghostprotocols.net
+To: Joonwoo Park <joonwpark81@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2334 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:2414 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752747AbXK2LMY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 06:12:24 -0500
+	with ESMTP id S1752648AbXK2LTI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 06:19:08 -0500
 Content-Disposition: inline
-In-Reply-To: <20071129.195459.55971471.yoshfuji@linux-ipv6.org>
+In-Reply-To: <002801c830c3$783319f0$9c94fea9@jason>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 29, 2007 at 07:54:59PM +0900, YOSHIFUJI Hideaki / =E5=90=89=
-=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
->=20
-> I've fixed up those errors.
+On Tue, Nov 27, 2007 at 04:02:19PM +0900, Joonwoo Park wrote:
+> 
+> [NET]: Fix TX bug VLAN in VLAN
+> Fix misbehavior of vlan_dev_hard_start_xmit() for recursive encapsulations.
+> 
+> Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
 
-OK, patch applied to net-2.6.25.  Thanks everyone!
---=20
+Applied to net-2.6.  Thanks!
+-- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
