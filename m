@@ -1,44 +1,46 @@
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Subject: RE: [PATCH 2/2] [net/wireless/iwlwifi] : iwlwifi 4965 Fix race conditional panic.
-Date: Thu, 29 Nov 2007 10:43:16 +0900
-Message-ID: <016501c83229$3abdbbe0$9c94fea9@jason>
+From: Olof Johansson <olof@lixom.net>
+Subject: [PATCH] [0/12] pasemi_mac updates for 2.6.25 + DMA channel
+	management library
+Date: Wed, 28 Nov 2007 20:54:10 -0600
+Message-ID: <20071129025410.GA17215@lixom.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: <yi.zhu@intel.com>, <ipw3945-devel@lists.sourceforge.net>,
-	<linux-wireless@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.176]:63523 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761951AbXK2Bni (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2007 20:43:38 -0500
-Received: by wa-out-1112.google.com with SMTP id v27so2006558wah
-        for <netdev@vger.kernel.org>; Wed, 28 Nov 2007 17:43:38 -0800 (PST)
-References: 
-In-Reply-To: 
+Received: from lixom.net ([66.141.50.11]:39619 "EHLO mail.lixom.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753560AbXK2Cu7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Nov 2007 21:50:59 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The cancel_delayed_work_sync has moved into ilw_cancel_deferred_work.
-Thanks Zhu Yi.
+Hi,
 
-[net/wireless/iwlwifi] : iwlwifi 4965 Fix race conditional panic.
+The following series contains driver updates for 2.6.25, together with a
+couple of patches that introduces a library for abstracting DMA channel
+allocation and access.
 
-Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
----
-diff --git a/drivers/net/wireless/iwlwifi/iwl4965-base.c b/drivers/net/wireless/iwlwifi/iwl4965-base.c
-index 9918780..2474eba 100644
---- a/drivers/net/wireless/iwlwifi/iwl4965-base.c
-+++ b/drivers/net/wireless/iwlwifi/iwl4965-base.c
-@@ -8864,6 +8864,7 @@ static void iwl_cancel_deferred_work(struct iwl_priv *priv)
- {
- 	iwl_hw_cancel_deferred_work(priv);
- 
-+	cancel_delayed_work_sync(&priv->init_alive_start);
- 	cancel_delayed_work(&priv->scan_check);
- 	cancel_delayed_work(&priv->alive_start);
- 	cancel_delayed_work(&priv->post_associate);
----
+While the DMA stuff (patches 5 and 6) isn't really netdev material, the
+driver updates depend on them, and it'd just be easier to merge them up
+the netdev path.
 
+The patches are:
+
+1/12: pasemi_mac: RX/TX ring management cleanup
+2/12: pasemi_mac: Remove SKB copy/recycle logic
+3/12: pasemi_mac: Print warning when not attaching to a PHY
+4/12: pasemi_mac: Don't enable RX/TX without a link (if possible)
+5/12: pasemi_mac: Move register definitions to include/asm-powerpc
+6/12: pasemi: DMA engine management library
+7/12: pasemi_mac: Convert to new dma library
+8/12: pasemi_mac: performance tweaks
+9/12: pasemi_mac: Fix TX cleaning
+10/12: pasemi_mac: Improve RX interrupt mitigation
+l1/12: pasemi_mac: Software-based LRO support
+12/12: pasemi_mac: SKB unmap optimization
+
+
+
+-Olof
