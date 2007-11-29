@@ -1,46 +1,76 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] tcp-illinois: incorrect beta usage
-Date: Wed, 28 Nov 2007 16:43:31 -0800
-Message-ID: <474E0B33.2060108@linux-foundation.org>
-References: <aa7d2c6d0711261023m3d2dd850o76a8f44aef022f39@mail.gmail.com>	 <001001c83063$9adbc9d0$d5897e82@csp.uiuc.edu>	 <20071128154725.29af2852@freepuppy.rosehill> <aa7d2c6d0711281625m44bf3ca3me188a7041d3421da@mail.gmail.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH 4/3] net/bonding: Adhere to coding style: break line after
+ the if condition
+Date: Wed, 28 Nov 2007 17:01:23 -0800
+Message-ID: <474E0F63.5060702@oracle.com>
+References: <871wabkxcd.fsf@szonett.ki.iif.hu>	<20071127194929.757e4ebe.randy.dunlap@oracle.com>	<87bq9ekb8m.fsf@szonett.ki.iif.hu> <474D8B83.9050609@oracle.com> <87wss1c3d8.fsf_-_@szonett.ki.iif.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	shaoliu@princeton.edu, Douglas Leith <doug.leith@nuim.ie>,
-	Robert Shorten <robert.shorten@nuim.ie>, netdev@vger.kernel.org
-To: Lachlan Andrew <lachlan.andrew@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: =?utf-8?q?Ferenc_W=C3=A1gner?= <wferi@niif.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:35538 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756843AbXK2Aoi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2007 19:44:38 -0500
-In-Reply-To: <aa7d2c6d0711281625m44bf3ca3me188a7041d3421da@mail.gmail.com>
+Received: from rgminet01.oracle.com ([148.87.113.118]:24956 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757010AbXK2BC3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2007 20:02:29 -0500
+In-Reply-To: <87wss1c3d8.fsf_-_@szonett.ki.iif.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lachlan Andrew wrote:
-> Thanks Stephen.
->
-> A related problem (largely due to the published algorithm itself) is
-> that Illinois is very aggressive when it over-estimates the maximum
-> RTT.
->
-> At high load (say 200Mbps and 200ms RTT), a backlog of packets builds
-> up just after a loss, causing the RTT estimate to become large.  This
-> makes Illinois think that *all* losses are due to corruption not
-> congestion, and so only back off by 1/8 instead of 1/2.
->
-> I can't think how to fix this except by better RTT estimation, or
-> changes to Illinois itself.  Currently, I ignore RTT measurements when
->    sacked_out != 0    and have a heuristic "RTT aging" mechanism, but
-> that's pretty ugly.
->
-> Cheers,
-> Lachlan
->
->   
-Ageing the RTT estimates needs to be done anyway.
-Maybe something can be reused from H-TCP. The two are closely related.
+=3D?utf-8?q?Ferenc_W=3DC3=3DA1gner?=3D wrote:
+> Signed-off-by: Ferenc W=E1gner <wferi@niif.hu>
 
+Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
+
+Thanks.
+
+> ---
+> Randy Dunlap <randy.dunlap@oracle.com> writes:
+>=20
+>  drivers/net/bonding/bond_sysfs.c |    9 ++++++---
+>  1 files changed, 6 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/b=
+ond_sysfs.c
+> index 5c31f5c..9de2c52 100644
+> --- a/drivers/net/bonding/bond_sysfs.c
+> +++ b/drivers/net/bonding/bond_sysfs.c
+> @@ -91,7 +91,8 @@ static ssize_t bonding_show_bonds(struct class *cls=
+, char *buf)
+>  		}
+>  		res +=3D sprintf(buf + res, "%s ", bond->dev->name);
+>  	}
+> -	if (res) buf[res-1] =3D '\n'; /* eat the leftover space */
+> +	if (res)
+> +		buf[res-1] =3D '\n'; /* eat the leftover space */
+>  	up_read(&(bonding_rwsem));
+>  	return res;
+>  }
+> @@ -239,7 +240,8 @@ static ssize_t bonding_show_slaves(struct device =
+*d,
+>  		res +=3D sprintf(buf + res, "%s ", slave->dev->name);
+>  	}
+>  	read_unlock(&bond->lock);
+> -	if (res) buf[res-1] =3D '\n'; /* eat the leftover space */
+> +	if (res)
+> +		buf[res-1] =3D '\n'; /* eat the leftover space */
+>  	return res;
+>  }
+> =20
+> @@ -705,7 +707,8 @@ static ssize_t bonding_show_arp_targets(struct de=
+vice *d,
+>  			res +=3D sprintf(buf + res, "%u.%u.%u.%u ",
+>  			       NIPQUAD(bond->params.arp_targets[i]));
+>  	}
+> -	if (res) buf[res-1] =3D '\n'; /* eat the leftover space */
+> +	if (res)
+> +		buf[res-1] =3D '\n'; /* eat the leftover space */
+>  	return res;
+>  }
+> =20
+
+
+--=20
+~Randy
