@@ -1,51 +1,67 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCHv7 0/5 + 3] Interface group patches
-Date: Thu, 29 Nov 2007 17:25:27 +0100
-Message-ID: <474EE7F7.5000108@trash.net>
-References: <11963527094077-git-send-email-panther@balabit.hu>
+Subject: Re: [PATCHv6 iptables]Interface group match
+Date: Thu, 29 Nov 2007 17:27:26 +0100
+Message-ID: <474EE86E.2010201@trash.net>
+References: <11955644701165-git-send-email-panther@balabit.hu> <1195564470928-git-send-email-panther@balabit.hu> <11955644702451-git-send-email-panther@balabit.hu> <11955644701536-git-send-email-panther@balabit.hu> <11955644702194-git-send-email-panther@balabit.hu> <20071123133933.GA31396@innominate.com> <474EB585.30407@balabit.hu> <474EE5C6.9070500@trash.net> <474EE79F.2000409@balabit.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Laszlo Attila Toth <panther@balabit.hu>
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Lutz Jaenicke <ljaenicke@innominate.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: panther@balabit.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49991 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:50053 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758303AbXK2QZd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 11:25:33 -0500
-In-Reply-To: <11963527094077-git-send-email-panther@balabit.hu>
+	with ESMTP id S1760539AbXK2Q1d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 11:27:33 -0500
+In-Reply-To: <474EE79F.2000409@balabit.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Laszlo Attila Toth wrote:
-> Hello,
-> 
-> This is the 7th version of our interface group patches.
+> Patrick McHardy =EDrta:
+>> Laszlo Attila Toth wrote:
+>>> Lutz Jaenicke =EDrta:
 
+>>>> Should iptables be allowed to read "/etc/iproute2/rt_ifgroup"?
+>>>
+>>> It would be good but cannot be used if a mask is set and only value=
+s=20
+>>> less than 256 can be used with names.
+>>
+>>
+>> Why 256? I can see no such limitation. For masks you could
+>> simply allow to define masks in rt_ifgroup too and use
+>> name/name or simply name/0xmask.
+>=20
+>=20
+> 256 because it is the size of a static array (and I don't want alloca=
+te=20
+> too much memory when other arrays such as the routing table names als=
+o=20
+> have this size). In the current version I posted some minutes ago=20
+> 0..2^32-1  can be used.
 
-> Patches:
->  [1/5] Remove unnecessary locks from rtnetlink (in do_setlink)
->  [2/5] rtnetlink: send a single notification on device state changes
->  [3/5] Interface group: core (netlink) part
->  [4/5] Ifgroup read/write support in sysfs
+Its a hash. You can put as much in there as you like :)
 
-I vote for these to go in, they're ready and there's no use in
-reposting them again and again.
+> The syntax "name/0xmask" is simply too strange for me.
 
->  [5/5] Netfilter Interface group match
+Then how about name/name with masks also defined in rt_ifgroup?
+The same question applies for marks of course.
 
-Then I'd queue this one and fix it up on top of my current tree
-
->  [iptables]Interface group match
-
-This one I would queue until we have released the 1.4.0 version
-of iptables. I don't want to release things that are not in
-at least a -rc kernel yet.
-
->  [iproute2 1/2] Added IFLA_NET_NS_PID as in kernel v2.6.24-rc1
->  [iproute2 2/2] Interface group as new ip link option
-
-And for these Stephen has to decide, but both look fine to me.
+>>>> There is no standard API like getservbyname()...
+>>>
+>>> The code of iproute2 should be copied. If Patrick says it is ok, =20
+>>> I'll write this part.
+>>
+>>
+>> Of course. Please put the tab part somewhere common, I always
+>> wanted to have named firewall marks shared with ip and tc
+>> and I believe Balazs wanted that too :)
+>=20
+> Ok. Yes, he wants :)
+>=20
+>=20
 
