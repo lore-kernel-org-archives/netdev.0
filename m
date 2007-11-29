@@ -1,103 +1,183 @@
 From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH] [7/12] pasemi_mac: Improve RX interrupt mitigation
-Date: Wed, 28 Nov 2007 20:57:09 -0600
-Message-ID: <20071129025709.GH17215@lixom.net>
+Subject: [PATCH] [8/12] pasemi_mac: Software-based LRO support
+Date: Wed, 28 Nov 2007 20:57:27 -0600
+Message-ID: <20071129025727.GI17215@lixom.net>
 References: <20071129025410.GA17215@lixom.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:36893 "EHLO mail.lixom.net"
+Received: from lixom.net ([66.141.50.11]:36907 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755978AbXK2Cx6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Nov 2007 21:53:58 -0500
+	id S1757295AbXK2CyQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Nov 2007 21:54:16 -0500
 Content-Disposition: inline
 In-Reply-To: <20071129025410.GA17215@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-pasemi_mac: Improve RX interrupt mitigation
+pasemi_mac: Software-based LRO support
 
-Currently the receive side interrupts will go off on the reception of
-a packet, NAPI will poll the ring and keep polling as long as there's
-a decent amount of packets to receive.
-
-This is less than optimal, especially for LRO where it's better if we
-have a more substantial amount of packets to process at once, to get
-the real LRO benefits.
-
-So, set the count threshold to a higher value and use the timeout feature
-that will give us an interrupt even if not enough packets have come in
-to set off the count threshold.
-
-FIXME: It'd be real nice to have ethtool support for users to tune this
-at runtime.
+Implement LRO for pasemi_mac. Pretty straightforward.
 
 
 Signed-off-by: Olof Johansson <olof@lixom.net>
 
-
 ---
- drivers/net/pasemi_mac.c |   18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
+ drivers/net/Kconfig      |    1 
+ drivers/net/pasemi_mac.c |   53 +++++++++++++++++++++++++++++++++++++++++++----
+ drivers/net/pasemi_mac.h |    5 ++++
+ 3 files changed, 55 insertions(+), 4 deletions(-)
 
 Index: k.org/drivers/net/pasemi_mac.c
 ===================================================================
 --- k.org.orig/drivers/net/pasemi_mac.c
 +++ k.org/drivers/net/pasemi_mac.c
-@@ -504,15 +504,19 @@ static void pasemi_mac_replenish_rx_ring
+@@ -32,6 +32,7 @@
+ #include <linux/ip.h>
+ #include <linux/tcp.h>
+ #include <net/checksum.h>
++#include <linux/inet_lro.h>
  
- static void pasemi_mac_restart_rx_intr(const struct pasemi_mac *mac)
- {
-+	struct pasemi_mac_rxring *rx = rx_ring(mac);
- 	unsigned int reg, pcnt;
- 	/* Re-enable packet count interrupts: finally
- 	 * ack the packet count interrupt we got in rx_intr.
- 	 */
+ #include <asm/irq.h>
+ #include <asm/firmware.h>
+@@ -56,9 +57,11 @@
  
--	pcnt = *rx_ring(mac)->chan.status & PAS_STATUS_PCNT_M;
-+	pcnt = *rx->chan.status & PAS_STATUS_PCNT_M;
  
- 	reg = PAS_IOB_DMA_RXCH_RESET_PCNT(pcnt) | PAS_IOB_DMA_RXCH_RESET_PINTC;
+ /* Must be a power of two */
+-#define RX_RING_SIZE 1024
++#define RX_RING_SIZE 2048
+ #define TX_RING_SIZE 4096
  
-+	if (*rx->chan.status & PAS_STATUS_TIMER)
-+		reg |= PAS_IOB_DMA_RXCH_RESET_TINTC;
++#define LRO_MAX_AGGR 64
 +
- 	write_iob_reg(PAS_IOB_DMA_RXCH_RESET(mac->rx->chan.chno), reg);
+ #define DEFAULT_MSG_ENABLE	  \
+ 	(NETIF_MSG_DRV		| \
+ 	 NETIF_MSG_PROBE	| \
+@@ -206,7 +209,6 @@ static int pasemi_get_mac_addr(struct pa
+ 		return -ENOENT;
+ 	}
+ 
+-
+ 	if (sscanf(maddr, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &addr[0],
+ 		   &addr[1], &addr[2], &addr[3], &addr[4], &addr[5]) != 6) {
+ 		dev_warn(&pdev->dev,
+@@ -219,6 +221,37 @@ static int pasemi_get_mac_addr(struct pa
+ 	return 0;
  }
  
-@@ -795,8 +799,6 @@ static irqreturn_t pasemi_mac_rx_intr(in
- 		reg |= PAS_IOB_DMA_RXCH_RESET_SINTC;
- 	if (*chan->status & PAS_STATUS_ERROR)
- 		reg |= PAS_IOB_DMA_RXCH_RESET_DINTC;
--	if (*chan->status & PAS_STATUS_TIMER)
--		reg |= PAS_IOB_DMA_RXCH_RESET_TINTC;
- 
- 	netif_rx_schedule(dev, &mac->napi);
- 
-@@ -972,10 +974,6 @@ static int pasemi_mac_open(struct net_de
- 
- 	write_mac_reg(mac, PAS_MAC_CFG_TXP, flags);
- 
--	/* 0xffffff is max value, about 16ms */
--	write_iob_reg(PAS_IOB_DMA_COM_TIMEOUTCFG,
--		      PAS_IOB_DMA_COM_TIMEOUTCFG_TCNT(0xffffff));
--
- 	ret = pasemi_mac_setup_rx_resources(dev);
- 	if (ret)
- 		goto out_rx_resources;
-@@ -985,8 +983,12 @@ static int pasemi_mac_open(struct net_de
- 	if (!mac->tx)
- 		goto out_tx_ring;
- 
-+	/* 0x3ff with 33MHz clock is about 31us */
-+	write_iob_reg(PAS_IOB_DMA_COM_TIMEOUTCFG,
-+		      PAS_IOB_DMA_COM_TIMEOUTCFG_TCNT(0x3ff));
++static int get_skb_hdr(struct sk_buff *skb, void **iphdr,
++		       void **tcph, u64 *hdr_flags, void *data)
++{
++	u64 macrx = (u64) data;
++	unsigned int ip_len;
++	struct iphdr *iph;
 +
++	/* IPv4 header checksum failed */
++	if ((macrx & XCT_MACRX_HTY_M) != XCT_MACRX_HTY_IPV4_OK)
++		return -1;
++
++	/* non tcp packet */
++	skb_reset_network_header(skb);
++	iph = ip_hdr(skb);
++	if (iph->protocol != IPPROTO_TCP)
++		return -1;
++
++	ip_len = ip_hdrlen(skb);
++	skb_set_transport_header(skb, ip_len);
++	*tcph = tcp_hdr(skb);
++
++	/* check if ip header and tcp header are complete */
++	if (iph->tot_len < ip_len + tcp_hdrlen(skb))
++		return -1;
++
++	*hdr_flags = LRO_IPV4 | LRO_TCP;
++	*iphdr = iph;
++
++	return 0;
++}
++
+ static int pasemi_mac_unmap_tx_skb(struct pasemi_mac *mac,
+ 				    struct sk_buff *skb,
+ 				    const dma_addr_t *dmas)
+@@ -662,7 +695,7 @@ static int pasemi_mac_clean_rx(struct pa
+ 		skb_put(skb, len-4);
+ 
+ 		skb->protocol = eth_type_trans(skb, mac->netdev);
+-		netif_receive_skb(skb);
++		lro_receive_skb(&mac->lro_mgr, skb, (void *)macrx);
+ 
+ next:
+ 		RX_DESC(rx, n) = 0;
+@@ -684,6 +717,8 @@ next:
+ 
+ 	rx_ring(mac)->next_to_clean = n;
+ 
++	lro_flush_all(&mac->lro_mgr);
++
+ 	/* Increase is in number of 16-byte entries, and since each descriptor
+ 	 * with an 8BRES takes up 3x8 bytes (padded to 4x8), increase with
+ 	 * count*2.
+@@ -988,7 +1023,7 @@ static int pasemi_mac_open(struct net_de
+ 		      PAS_IOB_DMA_COM_TIMEOUTCFG_TCNT(0x3ff));
+ 
  	write_iob_reg(PAS_IOB_DMA_RXCH_CFG(mac->rx->chan.chno),
--		      PAS_IOB_DMA_RXCH_CFG_CNTTH(0));
-+		      PAS_IOB_DMA_RXCH_CFG_CNTTH(128));
+-		      PAS_IOB_DMA_RXCH_CFG_CNTTH(128));
++		      PAS_IOB_DMA_RXCH_CFG_CNTTH(256));
  
  	write_iob_reg(PAS_IOB_DMA_TXCH_CFG(mac->tx->chan.chno),
  		      PAS_IOB_DMA_TXCH_CFG_CNTTH(32));
+@@ -1368,6 +1403,16 @@ pasemi_mac_probe(struct pci_dev *pdev, c
+ 	dev->features = NETIF_F_HW_CSUM | NETIF_F_LLTX | NETIF_F_SG |
+ 			NETIF_F_HIGHDMA;
+ 
++	mac->lro_mgr.max_aggr = LRO_MAX_AGGR;
++	mac->lro_mgr.max_desc = MAX_LRO_DESCRIPTORS;
++	mac->lro_mgr.lro_arr = mac->lro_desc;
++	mac->lro_mgr.get_skb_header = get_skb_hdr;
++	mac->lro_mgr.features = LRO_F_NAPI | LRO_F_EXTRACT_VLAN_ID;
++	mac->lro_mgr.dev = mac->netdev;
++	mac->lro_mgr.ip_summed = CHECKSUM_UNNECESSARY;
++	mac->lro_mgr.ip_summed_aggr = CHECKSUM_UNNECESSARY;
++
++
+ 	mac->dma_pdev = pci_get_device(PCI_VENDOR_ID_PASEMI, 0xa007, NULL);
+ 	if (!mac->dma_pdev) {
+ 		dev_err(&mac->pdev->dev, "Can't find DMA Controller\n");
+Index: k.org/drivers/net/pasemi_mac.h
+===================================================================
+--- k.org.orig/drivers/net/pasemi_mac.h
++++ k.org/drivers/net/pasemi_mac.h
+@@ -26,6 +26,8 @@
+ #include <linux/spinlock.h>
+ #include <linux/phy.h>
+ 
++#define MAX_LRO_DESCRIPTORS 8
++
+ struct pasemi_mac_txring {
+ 	struct pasemi_dmachan chan; /* Must be first */
+ 	spinlock_t	 lock;
+@@ -64,7 +66,10 @@ struct pasemi_mac {
+ 
+ 	u8		mac_addr[6];
+ 
++	struct net_lro_mgr	lro_mgr;
++	struct net_lro_desc	lro_desc[MAX_LRO_DESCRIPTORS];
+ 	struct timer_list	rxtimer;
++	unsigned int		lro_max_aggr;
+ 
+ 	struct pasemi_mac_txring *tx;
+ 	struct pasemi_mac_rxring *rx;
+Index: k.org/drivers/net/Kconfig
+===================================================================
+--- k.org.orig/drivers/net/Kconfig
++++ k.org/drivers/net/Kconfig
+@@ -2566,6 +2566,7 @@ config PASEMI_MAC
+ 	tristate "PA Semi 1/10Gbit MAC"
+ 	depends on PPC64 && PCI
+ 	select PHYLIB
++	select INET_LRO
+ 	help
+ 	  This driver supports the on-chip 1/10Gbit Ethernet controller on
+ 	  PA Semi's PWRficient line of chips.
