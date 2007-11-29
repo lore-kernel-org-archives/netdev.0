@@ -1,48 +1,85 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH] XFRM: SPD auditing fix to include the netmask/prefix-length
-Date: Thu, 29 Nov 2007 08:45:46 -0500
-Message-ID: <200711290845.46623.paul.moore@hp.com>
-References: <20071126195512.6176.10448.stgit@flek.americas.hpqcorp.net> <20071129103459.GD22537@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: + xfrm_policy-warning-fix.patch added to -mm tree
+Date: Fri, 30 Nov 2007 00:51:33 +1100
+Message-ID: <20071129135132.GI8487@gondor.apana.org.au>
+References: <200711281056.lASAupF5028450@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-audit@redhat.com,
-	Joy Latten <latten@us.ibm.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: mm-commits@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.hp.com ([192.151.27.10]:49839 "EHLO mailhub.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754610AbXK2Nqj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Nov 2007 08:46:39 -0500
-In-Reply-To: <20071129103459.GD22537@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:3955 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755488AbXK2Nvj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 08:51:39 -0500
 Content-Disposition: inline
+In-Reply-To: <200711281056.lASAupF5028450@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 29 November 2007 5:34:59 am Herbert Xu wrote:
-> On Mon, Nov 26, 2007 at 07:55:12PM +0000, Paul Moore wrote:
-> > Currently the netmask/prefix-length of an IPsec SPD entry is not included
-> > in any of the SPD related audit messages.  This can cause a problem when
-> > the audit log is examined as the netmask/prefix-length is vital in
-> > determining what network traffic is affected by a particular SPD entry. 
-> > This patch fixes this problem by adding two additional fields,
-> > "src_prefixlen" and "dst_prefixlen", to the SPD audit messages to
-> > indicate the source and destination netmasks.  These new fields are only
-> > included in the audit message when the netmask/prefix-length is less than
-> > the address length, i.e. the SPD entry applies to a network address and
-> > not a host address.
->
-> Any reason why we don't just always include them?
+On Wed, Nov 28, 2007 at 02:56:51AM -0800, akpm@linux-foundation.org wrote:
+> 
+> The patch titled
+>      xfrm_policy warning fix
+> has been added to the -mm tree.  Its filename is
+>      xfrm_policy-warning-fix.patch
+> 
+> *** Remember to use Documentation/SubmitChecklist when testing your code ***
+> 
+> See http://www.zip.com.au/~akpm/linux/patches/stuff/added-to-mm.txt to find
+> out what to do about this
+> 
+> ------------------------------------------------------
+> Subject: xfrm_policy warning fix
+> From: Andrew Morton <akpm@linux-foundation.org>
+> 
+> Fix this:
+> 
+> net/xfrm/xfrm_policy.c: In function '__xfrm_lookup':
+> net/xfrm/xfrm_policy.c:1449: warning: 'dst' may be used uninitialized in this function
+> 
+> by checking for impossible values in the switch().
 
-The audit folks seem to be very sensitive to the size/length of the audit 
-messages, they prefer they be as small as possible.  I thought that one way 
-to save space would be to only print the prefix length information when the 
-address referred to a network and not a single host.
-
-Would you prefer it if the prefix length information was always included in 
-the audit message?  Joy?  Audit folks?
-
+Thanks Andrew.  I've added the following patch to net-2.6.
 -- 
-paul moore
-linux security @ hp
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+commit 5e5234ff17ef98932688116025b30958bd28a940
+Author: Herbert Xu <herbert@gondor.apana.org.au>
+Date:   Fri Nov 30 00:50:31 2007 +1100
+
+    [IPSEC]: Fix uninitialised dst warning in __xfrm_lookup
+    
+    Andrew Morton reported that __xfrm_lookup generates this warning:
+    
+    net/xfrm/xfrm_policy.c: In function '__xfrm_lookup':
+    net/xfrm/xfrm_policy.c:1449: warning: 'dst' may be used uninitialized in this function
+    
+    This is because if policy->action is of an unexpected value then dst will
+    not be initialised.  Of course, in practice this should never happen since
+    the input layer xfrm_user/af_key will filter out all illegal values.  But
+    the compiler doesn't know that of course.
+    
+    So this patch fixes this by taking the conservative approach and treat all
+    unknown actions the same as a blocking action.
+    
+    Thanks to Andrew for finding this and providing an initial fix.
+    
+    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index b702bd8..9a4cf2e 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1344,6 +1344,7 @@ restart:
+ 	xfrm_nr += pols[0]->xfrm_nr;
+ 
+ 	switch (policy->action) {
++	default:
+ 	case XFRM_POLICY_BLOCK:
+ 		/* Prohibit the flow */
+ 		err = -EPERM;
