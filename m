@@ -1,43 +1,32 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] tcp-illinois: incorrect beta usage
-Date: Fri, 30 Nov 2007 01:12:55 +1100
-Message-ID: <20071129141254.GC9145@gondor.apana.org.au>
-References: <aa7d2c6d0711261023m3d2dd850o76a8f44aef022f39@mail.gmail.com> <001001c83063$9adbc9d0$d5897e82@csp.uiuc.edu> <20071128154725.29af2852@freepuppy.rosehill>
+Subject: net-2.6.25 rebased
+Date: Fri, 30 Nov 2007 01:32:19 +1100
+Message-ID: <20071129143219.GA2886@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Julian Shao Liu <shaoliu@uiuc.edu>,
-	"David S. Miller" <davem@davemloft.net>,
-	'Lachlan Andrew' <lachlan.andrew@gmail.com>,
-	shaoliu@Princeton.EDU, 'Douglas Leith' <doug.leith@nuim.ie>,
-	'Robert Shorten' <robert.shorten@nuim.ie>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4385 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:4430 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1760658AbXK2OXh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 09:23:37 -0500
+	with ESMTP id S1757010AbXK2OcX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 09:32:23 -0500
+Received: from gondolin.me.apana.org.au ([192.168.0.6] ident=mail)
+	by arnor.apana.org.au with esmtp (Exim 4.50 #1 (Debian))
+	id 1IxkRB-0004ax-Dl
+	for <netdev@vger.kernel.org>; Fri, 30 Nov 2007 01:32:21 +1100
+Received: from herbert by gondolin.me.apana.org.au with local (Exim 3.36 #1 (Debian))
+	id 1IxkRA-0000t3-00
+	for <netdev@vger.kernel.org>; Fri, 30 Nov 2007 01:32:20 +1100
 Content-Disposition: inline
-In-Reply-To: <20071128154725.29af2852@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 28, 2007 at 03:47:25PM -0800, Stephen Hemminger wrote:
-> Lachlan Andrew observed that my TCP-Illinois implementation uses the
-> beta value incorrectly:
->   The parameter  beta  in the paper specifies the amount to decrease
->   *by*:  that is, on loss,
->      W <-  W -  beta*W
->   but in   tcp_illinois_ssthresh() uses  beta  as the amount
->   to decrease  *to*: W <- beta*W
-> 
-> This bug makes the Linux TCP-Illinois get less-aggressive on uncongested network,
-> hurting performance. Note: since the base beta value is .5, it has no
-> impact on a congested network.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+Hi:
 
-Applied to net-2.6.  Thanks Stephen!
+Just to let you all know that I've just rebased net-2.6.25 so that it now
+contains all of net-2.6 as it currently stands.
+
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
