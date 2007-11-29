@@ -1,56 +1,112 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][DECNET] dn_nl_deladdr() almost always returns no error
-Date: Thu, 29 Nov 2007 19:29:20 +0300
-Message-ID: <474EE8E0.3050107@openvz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Patrick Caulfield <patrick@tykepenguin.com>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org,
-	linux-decnet-user@lists.sourceforge.net
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Ursula Braun <braunu@de.ibm.com>
+Subject: [patch 1/1] ctc: make use of alloc_netdev()
+Date: Thu, 29 Nov 2007 17:36:27 +0100
+Message-ID: <20071129163934.296999000@linux.vnet.ibm.com>
+References: <20071129163626.573067000@linux.vnet.ibm.com>
+Cc: Peter Tiedemann <ptiedem@de.ibm.com>
+To: jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:52469 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758808AbXK2Qa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Nov 2007 11:30:26 -0500
+Received: from mtagate2.de.ibm.com ([195.212.29.151]:3945 "EHLO
+	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760142AbXK2Qji (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 11:39:38 -0500
+Content-Disposition: inline; filename=ctc.diff
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As far as I see from the err variable initialization
-the dn_nl_deladdr() routine was designed to report errors
-like "EADDRNOTAVAIL" and probaby "ENODEV".
+From: Peter Tiedemann <ptiedem@de.ibm.com>
 
-But the code sets this err to 0 after the first nlmsg_parse
-and goes on, returning this 0 in any case.
+Currently ctc-device initialization is broken (kernel bug in
+ctc_new_device).
+The new network namespace code reveals a deficiency of the
+ctc driver. It should make use of alloc_netdev() as described
+in Documentation/networking/netdevices.txt.
 
-Is this made deliberately, or the patch below is correct?
-
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
+Signed-off-by: Peter Tiedemann <ptiedem@de.ibm.com>
+Signed-off-by: Ursula Braun <braunu@de.ibm.com>
 ---
+ drivers/s390/net/ctcmain.c |   45 ++++++++++++++++-----------------------------
+ 1 file changed, 16 insertions(+), 29 deletions(-)
 
-diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
-index 66e266f..3bc82dc 100644
---- a/net/decnet/dn_dev.c
-+++ b/net/decnet/dn_dev.c
-@@ -651,16 +651,18 @@ static int dn_nl_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	struct dn_dev *dn_db;
- 	struct ifaddrmsg *ifm;
- 	struct dn_ifaddr *ifa, **ifap;
--	int err = -EADDRNOTAVAIL;
-+	int err;
+Index: linux-2.6-uschi/drivers/s390/net/ctcmain.c
+===================================================================
+--- linux-2.6-uschi.orig/drivers/s390/net/ctcmain.c
++++ linux-2.6-uschi/drivers/s390/net/ctcmain.c
+@@ -2782,35 +2782,14 @@ ctc_probe_device(struct ccwgroup_device 
+ }
  
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, dn_ifa_policy);
- 	if (err < 0)
- 		goto errout;
+ /**
+- * Initialize everything of the net device except the name and the
+- * channel structs.
++ * Device setup function called by alloc_netdev().
++ *
++ * @param dev  Device to be setup.
+  */
+-static struct net_device *
+-ctc_init_netdevice(struct net_device * dev, int alloc_device,
+-		   struct ctc_priv *privptr)
++void ctc_init_netdevice(struct net_device * dev)
+ {
+-	if (!privptr)
+-		return NULL;
+-
+ 	DBF_TEXT(setup, 3, __FUNCTION__);
  
-+	err = -ENODEV;
- 	ifm = nlmsg_data(nlh);
- 	if ((dn_db = dn_dev_by_index(ifm->ifa_index)) == NULL)
- 		goto errout;
+-	if (alloc_device) {
+-		dev = kzalloc(sizeof(struct net_device), GFP_KERNEL);
+-		if (!dev)
+-			return NULL;
+-	}
+-
+-	dev->priv = privptr;
+-	privptr->fsm = init_fsm("ctcdev", dev_state_names,
+-				dev_event_names, CTC_NR_DEV_STATES, CTC_NR_DEV_EVENTS,
+-				dev_fsm, DEV_FSM_LEN, GFP_KERNEL);
+-	if (privptr->fsm == NULL) {
+-		if (alloc_device)
+-			kfree(dev);
+-		return NULL;
+-	}
+-	fsm_newstate(privptr->fsm, DEV_STATE_STOPPED);
+-	fsm_settimer(privptr->fsm, &privptr->restart_timer);
+ 	if (dev->mtu == 0)
+ 		dev->mtu = CTC_BUFSIZE_DEFAULT - LL_HEADER_LENGTH - 2;
+ 	dev->hard_start_xmit = ctc_tx;
+@@ -2823,7 +2802,7 @@ ctc_init_netdevice(struct net_device * d
+ 	dev->type = ARPHRD_SLIP;
+ 	dev->tx_queue_len = 100;
+ 	dev->flags = IFF_POINTOPOINT | IFF_NOARP;
+-	return dev;
++	SET_MODULE_OWNER(dev);
+ }
  
-+	err = -EADDRNOTAVAIL;
- 	for (ifap = &dn_db->ifa_list; (ifa = *ifap); ifap = &ifa->ifa_next) {
- 		if (tb[IFA_LOCAL] &&
- 		    nla_memcmp(tb[IFA_LOCAL], &ifa->ifa_local, 2))
+ 
+@@ -2879,14 +2858,22 @@ ctc_new_device(struct ccwgroup_device *c
+ 		 	"ccw_device_set_online (cdev[1]) failed with ret = %d\n", ret);
+ 	}
+ 
+-	dev = ctc_init_netdevice(NULL, 1, privptr);
+-
++	dev = alloc_netdev(0, "ctc%d", ctc_init_netdevice);
+ 	if (!dev) {
+ 		ctc_pr_warn("ctc_init_netdevice failed\n");
+ 		goto out;
+ 	}
++	dev->priv = privptr;
+ 
+-	strlcpy(dev->name, "ctc%d", IFNAMSIZ);
++	privptr->fsm = init_fsm("ctcdev", dev_state_names,
++			dev_event_names, CTC_NR_DEV_STATES, CTC_NR_DEV_EVENTS,
++			dev_fsm, DEV_FSM_LEN, GFP_KERNEL);
++	if (privptr->fsm == NULL) {
++		free_netdev(dev);
++		goto out;
++	}
++	fsm_newstate(privptr->fsm, DEV_STATE_STOPPED);
++	fsm_settimer(privptr->fsm, &privptr->restart_timer);
+ 
+ 	for (direction = READ; direction <= WRITE; direction++) {
+ 		privptr->channel[direction] =
+
+-- 
