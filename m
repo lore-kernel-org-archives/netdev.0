@@ -1,115 +1,59 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH (resubmit)] Fix inet_diag.ko register vs rcv race
-Date: Thu, 29 Nov 2007 16:01:25 +0300
-Message-ID: <474EB825.8000601@openvz.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH (resubmit)][BRIDGE] Properly dereference the br_should_route_hook
+Date: Fri, 30 Nov 2007 00:04:20 +1100
+Message-ID: <20071129130420.GA8487@gondor.apana.org.au>
+References: <474C43F4.5080704@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	bridge@lists.osdl.org, devel@openvz.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:36973 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756408AbXK2NCF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Nov 2007 08:02:05 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:3476 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757940AbXK2NEZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 08:04:25 -0500
+Content-Disposition: inline
+In-Reply-To: <474C43F4.5080704@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following race is possible when one cpu unregisters the handler
-while other one is trying to receive a message and call this one:
+On Tue, Nov 27, 2007 at 07:21:08PM +0300, Pavel Emelyanov wrote:
+> This hook is protected with the RCU, so simple
+> 
+> 	if (br_should_route_hook)
+> 		br_should_route_hook(...)
+> 
+> is not enough on some architectures.
+> 
+> Use the rcu_dereference/rcu_assign_pointer in this case.
+> 
+> Fixed Stephen's comment concerning using the typeof().
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-CPU1:                                                 CPU2:
-inet_diag_rcv()                                       inet_diag_unregister()
-  mutex_lock(&inet_diag_mutex);
-  netlink_rcv_skb(skb, &inet_diag_rcv_msg);
-    if (inet_diag_table[nlh->nlmsg_type] == 
-                               NULL) /* false handler is still registered */
-    ...
-    netlink_dump_start(idiagnl, skb, nlh,
-                           inet_diag_dump, NULL);
-           cb = kzalloc(sizeof(*cb), GFP_KERNEL);
-                   /* sleep here freeing memory 
-                    * or preempt
-                    * or sleep later on nlk->cb_mutex
-                    */
-                                                         spin_lock(&inet_diag_register_lock);
-                                                         inet_diag_table[type] = NULL;
-    ...                                                  spin_unlock(&inet_diag_register_lock);
-                                                         synchronize_rcu();
-                                                         /* CPU1 is sleeping - RCU quiescent
-                                                          * state is passed
-                                                          */
-                                                         return;
-    /* inet_diag_dump is finally called: */
-    inet_diag_dump()
-      handler = inet_diag_table[cb->nlh->nlmsg_type];
-      BUG_ON(handler == NULL); 
-      /* OOPS! While we slept the unregister has set
-       * handler to NULL :(
-       */
+Applied to net-2.6.  Thanks Pavel!
 
-Grep showed, that the register/unregister functions are called
-from init/fini module callbacks for tcp_/dccp_diag, so it's OK
-to use the inet_diag_mutex to synchronize manipulations with the
-inet_diag_table and the access to it.
+>  static void __exit ebtable_broute_fini(void)
+>  {
+> -	br_should_route_hook = NULL;
+> +	rcu_assign_pointer(br_should_route_hook, NULL);
 
-Besides, as Herbert pointed out, asynchronous dumps should hold 
-this mutex as well, and thus, we provide the mutex as cb_mutex one.
+Just for the record, rcu_assign_pointer is never necessary when
+you're assigning NULL.  The reason is that rcu_assign_pointer serves
+as a barrier between the initialisation of the content of what you're
+assigning and the actual assignment.  Since NULL does not need to be
+initialised you don't need the barrier :)
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Hmm, perhaps we could even build this logic into rcu_assign_pointer.
 
----
+Then again, who still uses an Alpha? Mine died years ago :)
 
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index b017073..6b3fffb 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -853,8 +853,6 @@ static void inet_diag_rcv(struct sk_buff *skb)
- 	mutex_unlock(&inet_diag_mutex);
- }
- 
--static DEFINE_SPINLOCK(inet_diag_register_lock);
--
- int inet_diag_register(const struct inet_diag_handler *h)
- {
- 	const __u16 type = h->idiag_type;
-@@ -863,13 +861,13 @@ int inet_diag_register(const struct inet_diag_handler *h)
- 	if (type >= INET_DIAG_GETSOCK_MAX)
- 		goto out;
- 
--	spin_lock(&inet_diag_register_lock);
-+	mutex_lock(&inet_diag_mutex);
- 	err = -EEXIST;
- 	if (inet_diag_table[type] == NULL) {
- 		inet_diag_table[type] = h;
- 		err = 0;
- 	}
--	spin_unlock(&inet_diag_register_lock);
-+	mutex_unlock(&inet_diag_mutex);
- out:
- 	return err;
- }
-@@ -882,11 +880,9 @@ void inet_diag_unregister(const struct inet_diag_handler *h)
- 	if (type >= INET_DIAG_GETSOCK_MAX)
- 		return;
- 
--	spin_lock(&inet_diag_register_lock);
-+	mutex_lock(&inet_diag_mutex);
- 	inet_diag_table[type] = NULL;
--	spin_unlock(&inet_diag_register_lock);
--
--	synchronize_rcu();
-+	mutex_unlock(&inet_diag_mutex);
- }
- EXPORT_SYMBOL_GPL(inet_diag_unregister);
- 
-@@ -901,7 +897,7 @@ static int __init inet_diag_init(void)
- 		goto out;
- 
- 	idiagnl = netlink_kernel_create(&init_net, NETLINK_INET_DIAG, 0,
--					inet_diag_rcv, NULL, THIS_MODULE);
-+			inet_diag_rcv, &inet_diag_mutex, THIS_MODULE);
- 	if (idiagnl == NULL)
- 		goto out_free_table;
- 	err = 0;
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
