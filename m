@@ -1,84 +1,68 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: ZD1211RW unaligned accesses...
-Date: Thu, 29 Nov 2007 16:45:33 -0500
-Message-ID: <20071129214533.GD32730@tuxdriver.com>
-References: <20071120.040546.222294375.davem@davemloft.net> <47442BFC.8090008@hotmail.com> <20071124150216.GA28153@gondor.apana.org.au>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 0/2] netem: trace enhancement
+Date: Thu, 29 Nov 2007 13:45:54 -0800
+Message-ID: <20071129134554.5c25a891@freepuppy.rosehill>
+References: <20071120231131.oqn4s5eda84k4csw@email.ee.ethz.ch>
+	<474C2246.50205@ee.ethz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	Shaddy Baddah <shaddy_baddah@hotmail.com>,
-	David Miller <davem@davemloft.net>, dsd@gentoo.org,
-	kune@deine-taler.de
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	Rainer Baumann <baumann@tik.ee.ethz.ch>
+To: Ariane Keller <ariane.keller@tik.ee.ethz.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4152 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757600AbXK2VqT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Nov 2007 16:46:19 -0500
-Content-Disposition: inline
-In-Reply-To: <20071124150216.GA28153@gondor.apana.org.au>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:51007 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1762479AbXK2VrX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 16:47:23 -0500
+In-Reply-To: <474C2246.50205@ee.ethz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-So, did the patch below fix the problem?  Should I apply it?
+On Tue, 27 Nov 2007 14:57:26 +0100
+Ariane Keller <ariane.keller@tik.ee.ethz.ch> wrote:
 
-John
+> I just wanted to ask whether there is a general interest in this patch.
+> If yes: great, how to proceed?
+> otherwise: please let me know why.
+> 
+> Thanks!
+> 
+> 
+> 
+> 
+> Ariane Keller wrote:
+> > Hi Stephen
+> > 
+> > Approximately a year ago we discussed an enhancement to netem,
+> > which we called "trace control for netem".
+> > 
+> > We obtain the value for the packet delay, drop, duplication and 
+> > corruption from a so called "trace file". The trace file may be obtained 
+> > by monitoring network traffic and thus enables us to emulate "real 
+> > world" network behavior.
+> > 
+> > Traces can ether be generated individually (we supply a set of tools to 
+> > do this) or can be downloaded from our homepage: http://tcn.hypert.net .
+> > 
+> > Since our last submission on 2006-12-15 we did some code clean up and 
+> > have created two new patches one against kernel 2.6.23.8 and one against 
+> > iproute2-2.6.23.
+> > To refer to our discussion from last year please have a look at messages 
+> > with subject "LARTC: trace control for netem".
+> > 
+> > We are looking forward for any comments, suggestions and instructions to 
+> > bring the trace enhancement to the kernel and to iproute2.
+> > 
+> > Thanks,
+> > Ariane
 
-On Sat, Nov 24, 2007 at 11:02:16PM +0800, Herbert Xu wrote:
-> On Wed, Nov 21, 2007 at 01:00:44PM +0000, Shaddy Baddah wrote:
-> >
-> > It hasn't seemed to. I patched the source (confirming the patched lines 
-> > are in), compiled, installed and rebooted to effect the changes. My 
-> > zd1211rw modules timestamp indicates that I have an updated module:
-> 
-> Thanks for your quick response and sorry for my late answer :)
-> 
-> I think Dave's patch is definietly on the right track but there
-> are subsequent unaligned accesses of a similar kind which is
-> why it still appears to be broken if you look at the kernel
-> messages.
-> 
-> But there is definitely progress because those addresses are now
-> bigger (0x394/0x39c/0x3a8 vs. 0x2** earlier).
-> 
-> So please try the following patch (instead of the original one)
-> which should fix all the unailgned accesses in do_rx.
-> 
-> Cheers,
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> --
-> diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
-> index a903645..d06b05b 100644
-> --- a/drivers/net/wireless/zd1211rw/zd_mac.c
-> +++ b/drivers/net/wireless/zd1211rw/zd_mac.c
-> @@ -1166,15 +1166,16 @@ static void do_rx(unsigned long mac_ptr)
->  int zd_mac_rx_irq(struct zd_mac *mac, const u8 *buffer, unsigned int length)
->  {
->  	struct sk_buff *skb;
-> +	unsigned int hlen = ALIGN(sizeof(struct zd_rt_hdr), 16);
->  
-> -	skb = dev_alloc_skb(sizeof(struct zd_rt_hdr) + length);
-> +	skb = dev_alloc_skb(hlen + length);
->  	if (!skb) {
->  		struct ieee80211_device *ieee = zd_mac_to_ieee80211(mac);
->  		dev_warn(zd_mac_dev(mac), "Could not allocate skb.\n");
->  		ieee->stats.rx_dropped++;
->  		return -ENOMEM;
->  	}
-> -	skb_reserve(skb, sizeof(struct zd_rt_hdr));
-> +	skb_reserve(skb, hlen - ZD_PLCP_HEADER_SIZE);
->  	memcpy(__skb_put(skb, length), buffer, length);
->  	skb_queue_tail(&mac->rx_queue, skb);
->  	tasklet_schedule(&mac->rx_tasklet);
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Still interested in this. I got part way through integrating it but had
+concerns about the API from the application to netem for getting the data.
+It seemed like there ought to be a better way to do it that could handle large
+data sets better, but never really got a good solution worked out (that is why
+I never said anything).
 
+The 2.6.23.8 patch seems to be unavailable right now.
 -- 
-John W. Linville
-linville@tuxdriver.com
+Stephen Hemminger <shemminger@linux-foundation.org>
