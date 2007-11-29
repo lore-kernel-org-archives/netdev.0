@@ -1,44 +1,38 @@
-From: "Joonwoo Park" <joonwpark81-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: RE: [PATCH 1/2] [net/wireless/iwlwifi] : iwlwifi 3945 Fix raceconditional panic.
-Date: Thu, 29 Nov 2007 10:42:49 +0900
-Message-ID: <016401c83229$3302d250$9c94fea9@jason>
-References: <00e501c831ab$2e78daa0$9c94fea9@jason> <1196298656.7614.77.camel@debian.sh.intel.com>
+From: "Joonwoo Park" <joonwpark81@gmail.com>
+Subject: RE: [PATCH 2/2] [net/wireless/iwlwifi] : iwlwifi 4965 Fix race conditional panic.
+Date: Thu, 29 Nov 2007 10:43:16 +0900
+Message-ID: <016501c83229$3abdbbe0$9c94fea9@jason>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: <ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "'Zhu Yi'" <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1196298656.7614.77.camel-F7Q/YMNgnyhhZnBKgDE8z0EOCMrvLtNR@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <yi.zhu@intel.com>, <ipw3945-devel@lists.sourceforge.net>,
+	<linux-wireless@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wa-out-1112.google.com ([209.85.146.176]:63523 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761951AbXK2Bni (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2007 20:43:38 -0500
+Received: by wa-out-1112.google.com with SMTP id v27so2006558wah
+        for <netdev@vger.kernel.org>; Wed, 28 Nov 2007 17:43:38 -0800 (PST)
+References: 
+In-Reply-To: 
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2007/11/29, Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>:
-> 
-> Good catch. But it will be better if you add it into
-> iwl_cancel_deferred_work().
-> 
+The cancel_delayed_work_sync has moved into ilw_cancel_deferred_work.
+Thanks Zhu Yi.
 
-Thanks.
-I agree with you. 
-Actually, I considered it, but I was afraid of side effect.
-Anyway, I'm attaching a new one.
+[net/wireless/iwlwifi] : iwlwifi 4965 Fix race conditional panic.
 
-Thanks.
-Joonwoo
-
-[net/wireless/iwlwifi] : iwlwifi 3945 Fix race conditional panic.
-
-Signed-off-by: Joonwoo Park <joonwpark81-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
 ---
-diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-index 465da4f..e51e872 100644
---- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
-+++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-@@ -8270,6 +8270,7 @@ static void iwl_cancel_deferred_work(struct iwl_priv *priv)
+diff --git a/drivers/net/wireless/iwlwifi/iwl4965-base.c b/drivers/net/wireless/iwlwifi/iwl4965-base.c
+index 9918780..2474eba 100644
+--- a/drivers/net/wireless/iwlwifi/iwl4965-base.c
++++ b/drivers/net/wireless/iwlwifi/iwl4965-base.c
+@@ -8864,6 +8864,7 @@ static void iwl_cancel_deferred_work(struct iwl_priv *priv)
  {
  	iwl_hw_cancel_deferred_work(priv);
  
@@ -47,3 +41,4 @@ index 465da4f..e51e872 100644
  	cancel_delayed_work(&priv->alive_start);
  	cancel_delayed_work(&priv->post_associate);
 ---
+
