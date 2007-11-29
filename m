@@ -1,32 +1,33 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 1/2] [IPV4] UDP: Always checksum even if without socket filter
-Date: Thu, 29 Nov 2007 10:56:48 +0000
-Message-ID: <20071129105648.GB17629@gerrit.erg.abdn.ac.uk>
-References: <20071119.142313.63549156.davem@davemloft.net> <20071120002945.91fafb2b.billfink@mindspring.com> <20071120140518.GA1502@one.firstfloor.org> <20071120.173928.53148729.davem@davemloft.net> <474E707A.3080106@cn.fujitsu.com> <20071129092136.GB30066@gondor.apana.org.au> <474E8F9E.7040309@cn.fujitsu.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 01/01] ipv6: RFC4214 Support (v2.5)
+Date: Thu, 29 Nov 2007 22:12:18 +1100
+Message-ID: <20071129111218.GG22537@gondor.apana.org.au>
+References: <39C363776A4E8C4A94691D2BD9D1C9A1029EDC29@XCH-NW-7V2.nw.nos.boeing.com> <39C363776A4E8C4A94691D2BD9D1C9A1029EDC45@XCH-NW-7V2.nw.nos.boeing.com> <20071129102940.GC22537@gondor.apana.org.au> <20071129.195459.55971471.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, andi@firstfloor.org,
-	netdev@vger.kernel.org, bfields@fieldses.org, neilb@suse.de
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Fred.L.Templin@boeing.com, netdev@vger.kernel.org,
+	vladislav.yasevich@hp.com, davem@davemloft.net
+To: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:45273 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750987AbXK2K6s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Nov 2007 05:58:48 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:2334 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752747AbXK2LMY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 06:12:24 -0500
 Content-Disposition: inline
-In-Reply-To: <474E8F9E.7040309@cn.fujitsu.com>
+In-Reply-To: <20071129.195459.55971471.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thank you for doing this work, there is a small comment below.
+On Thu, Nov 29, 2007 at 07:54:59PM +0900, YOSHIFUJI Hideaki / =E5=90=89=
+=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+>=20
+> I've fixed up those errors.
 
-| --- linux-2.6.24.rc3.org/Documentation/networking/udplite.txt	2007-11-19 12:37:40.000000000 +0800
-| +++ linux-2.6.24.rc3/Documentation/networking/udplite.txt	2007-11-28 18:35:29.000000000 +0800
-| @@ -236,7 +236,7 @@
-|  
-|    This displays UDP-Lite statistics variables, whose meaning is as follows.
-|  
-| -   InDatagrams:     Total number of received datagrams.
-| +   InDatagrams:     The total number of UDP datagrams delivered to UDP users.
-You are in the UDP-Lite documentation -- it should read "UDP-Lite", not UDP.
+OK, patch applied to net-2.6.25.  Thanks everyone!
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
