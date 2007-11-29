@@ -1,33 +1,49 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 0/2] netem: trace enhancement
-Date: Thu, 29 Nov 2007 23:03:05 +0100
-Message-ID: <474F3719.30101@trash.net>
-References: <20071120231131.oqn4s5eda84k4csw@email.ee.ethz.ch>	<474C2246.50205@ee.ethz.ch> <20071129134554.5c25a891@freepuppy.rosehill>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 2/2] [IPSEC]: Reinject v6 packet on input
+	instead	of	calling netfilter
+Date: Thu, 29 Nov 2007 17:05:56 -0500
+Message-ID: <1196373956.5699.2.camel@localhost>
+References: <1196369551.4437.24.camel@localhost>
+	 <474F275D.3030401@trash.net> <1196370761.4437.28.camel@localhost>
+	 <474F2D41.60707@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Ariane Keller <ariane.keller@tik.ee.ethz.ch>,
-	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	Rainer Baumann <baumann@tik.ee.ethz.ch>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:57804 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752544AbXK2WDh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 17:03:37 -0500
-In-Reply-To: <20071129134554.5c25a891@freepuppy.rosehill>
+Received: from py-out-1112.google.com ([64.233.166.182]:2202 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761284AbXK2WGA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 17:06:00 -0500
+Received: by py-out-1112.google.com with SMTP id u77so3897974pyb
+        for <netdev@vger.kernel.org>; Thu, 29 Nov 2007 14:05:59 -0800 (PST)
+In-Reply-To: <474F2D41.60707@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Still interested in this. I got part way through integrating it but had
-> concerns about the API from the application to netem for getting the data.
-> It seemed like there ought to be a better way to do it that could handle large
-> data sets better, but never really got a good solution worked out (that is why
-> I never said anything).
+On Thu, 2007-29-11 at 22:21 +0100, Patrick McHardy wrote:
 
-Would spreading them over multiple netlink messages work? A different,
-slightly ugly possibility would be to simply use copy_from_user, netlink
-is synchronous now (still better than using configfs IMO).
+> 
+> http://lists.openwall.net/netdev/2007/10/16/88
+> > I wouldnt mind just ipv4 going in - but that would be lacking
+> > consistency. Is there anything that can be done to get the extension
+> > headers to be processed only once?
+> >   
+> 
+> I would prefer to keep things consistent between IPv4 and IPv6. 
 
+Makes sense.
+
+> Not sure if anything could be done, perhaps we could keep the necessary
+> parts of the IP6CB and skip parsing up to the ESP nexthdr.
+
+I will compute in the background and talk to Yoshfuji (hopefully will
+bump into him next week;->). Herbert, if you have any clever ideas
+please shoot.
+
+cheers,
+jamal
 
