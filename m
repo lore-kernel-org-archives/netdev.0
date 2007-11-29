@@ -1,32 +1,45 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: ZD1211RW unaligned accesses...
-Date: Fri, 30 Nov 2007 10:43:27 +1100
-Message-ID: <20071129234327.GA23769@gondor.apana.org.au>
-References: <20071120.040546.222294375.davem@davemloft.net> <47442BFC.8090008@hotmail.com> <20071124150216.GA28153@gondor.apana.org.au> <20071129214533.GD32730@tuxdriver.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH -mm] [RFC] I/OAT: Handle incoming udp through ioatdma
+Date: Thu, 29 Nov 2007 18:43:35 -0500
+Message-ID: <1196379815.4450.2.camel@localhost>
+References: <BAE9DCEF64577A439B3A37F36F9B691C03853146@orsmsx418.amr.corp.intel.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Shaddy Baddah <shaddy_baddah-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org,
-	kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20071129214533.GD32730-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Nelson, Shannon" <shannon.nelson@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from py-out-1112.google.com ([64.233.166.178]:47120 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763513AbXK2Xnj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 18:43:39 -0500
+Received: by py-out-1112.google.com with SMTP id u77so3959428pyb
+        for <netdev@vger.kernel.org>; Thu, 29 Nov 2007 15:43:39 -0800 (PST)
+In-Reply-To: <BAE9DCEF64577A439B3A37F36F9B691C03853146@orsmsx418.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 29, 2007 at 04:45:33PM -0500, John W. Linville wrote:
-> So, did the patch below fix the problem?  Should I apply it?
+On Thu, 2007-29-11 at 12:08 -0800, Nelson, Shannon wrote:
+> [RFC] I/OAT: Handle incoming udp through ioatdma
+> 
+> From: Shannon Nelson <shannon.nelson@intel.com>
+> 
+> If the incoming udp packet is larger than sysctl_udp_dma_copybreak, try
+> pushing it through the ioatdma asynchronous memcpy.  This is very much
+> the
+> same as the tcp copy offload.  This is an RFC because we know there are
+> stability problems under high traffic.
 
-I'm keen to find out the result too :)
 
-Chances are it does make progress however we may still have the
-general wireless/IP stack alignment issue that we are still discussing.
+What stability problems?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Is there some magic sysctl_udp_dma_copybreak threshold value where you
+start seeing the benefit of IOAT-ing? Since you mentioned
+"students"<evil grin here>, it would be interesting to see data where
+udp starts benefitting.
+
+
+cheers,
+jamal
+
