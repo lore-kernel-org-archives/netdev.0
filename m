@@ -1,92 +1,80 @@
-From: =?us-ascii?Q?=3D=3Futf-8=3Fq=3FFerenc=5FW=3DC3=3DA1gner=3F=3D?=
-	<wferi@niif.hu>
-Subject: [PATCH 4/3] net/bonding: Adhere to coding style: break line after the if condition
-Date: Thu, 29 Nov 2007 01:16:51 +0100
-Message-ID: <87wss1c3d8.fsf_-_@szonett.ki.iif.hu>
-References: <871wabkxcd.fsf@szonett.ki.iif.hu>
-	<20071127194929.757e4ebe.randy.dunlap@oracle.com>
-	<87bq9ekb8m.fsf@szonett.ki.iif.hu> <474D8B83.9050609@oracle.com>
+From: "Lachlan Andrew" <lachlan.andrew@gmail.com>
+Subject: Re: [PATCH] tcp-illinois: incorrect beta usage
+Date: Wed, 28 Nov 2007 16:25:35 -0800
+Message-ID: <aa7d2c6d0711281625m44bf3ca3me188a7041d3421da@mail.gmail.com>
+References: <aa7d2c6d0711261023m3d2dd850o76a8f44aef022f39@mail.gmail.com>
+	 <001001c83063$9adbc9d0$d5897e82@csp.uiuc.edu>
+	 <20071128154725.29af2852@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org, wferi@niif.hu
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762116AbXK2ARR@vger.kernel.org>
-In-Reply-To: <474D8B83.9050609@oracle.com> (Randy Dunlap's message of "Wed, 28
-	Nov 2007 07:38:43 -0800")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>, shaoliu@princeton.edu,
+	"Douglas Leith" <doug.leith@nuim.ie>,
+	"Robert Shorten" <robert.shorten@nuim.ie>, netdev@vger.kernel.org
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nz-out-0506.google.com ([64.233.162.234]:3543 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753112AbXK2AZh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2007 19:25:37 -0500
+Received: by nz-out-0506.google.com with SMTP id s18so1270186nze
+        for <netdev@vger.kernel.org>; Wed, 28 Nov 2007 16:25:36 -0800 (PST)
+In-Reply-To: <20071128154725.29af2852@freepuppy.rosehill>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Ferenc W=C3=A1gner <wferi@niif.hu>
----
-Randy Dunlap <randy.dunlap@oracle.com> writes:
+Thanks Stephen.
 
-> Wagner Ferenc wrote:
->> Randy Dunlap <randy.dunlap@oracle.com> writes:
->>
->>> Patches 1 & 3 use
->>>
->>> 	if (res) statement;
->>>
->>> but the preferred form is
->>>
->>> 	if (res)
->>> 		statement;
->>>
->>> Even if this style was already used in the source file, it should
->>> be cleaned up.
->>
->> No principal problem.  So that I learn something useful: how should =
-I
->> go about this?  I created the patches with git-format-patch, and the=
-y
->> depend on each other, so I'd rather not git-reset, if possible...
->>
->> Can I just create a follow-up patch which fixes this stylistic issue=
-?
+A related problem (largely due to the published algorithm itself) is
+that Illinois is very aggressive when it over-estimates the maximum
+RTT.
+
+At high load (say 200Mbps and 200ms RTT), a backlog of packets builds
+up just after a loss, causing the RTT estimate to become large.  This
+makes Illinois think that *all* losses are due to corruption not
+congestion, and so only back off by 1/8 instead of 1/2.
+
+I can't think how to fix this except by better RTT estimation, or
+changes to Illinois itself.  Currently, I ignore RTT measurements when
+   sacked_out != 0    and have a heuristic "RTT aging" mechanism, but
+that's pretty ugly.
+
+Cheers,
+Lachlan
+
+On 28/11/2007, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+> Lachlan Andrew observed that my TCP-Illinois implementation uses the
+> beta value incorrectly:
+>   The parameter  beta  in the paper specifies the amount to decrease
+>   *by*:  that is, on loss,
+>      W <-  W -  beta*W
+>   but in   tcp_illinois_ssthresh() uses  beta  as the amount
+>   to decrease  *to*: W <- beta*W
 >
-> That's OK with me.  I can't say how it might be done with git.
+> This bug makes the Linux TCP-Illinois get less-aggressive on uncongested network,
+> hurting performance. Note: since the base beta value is .5, it has no
+> impact on a congested network.
+>
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+>
+> --- a/net/ipv4/tcp_illinois.c   2007-08-18 07:50:15.000000000 -0700
+> +++ b/net/ipv4/tcp_illinois.c   2007-11-28 15:39:04.000000000 -0800
+> @@ -298,7 +298,7 @@ static u32 tcp_illinois_ssthresh(struct
+>         struct illinois *ca = inet_csk_ca(sk);
+>
+>         /* Multiplicative decrease */
+> -       return max((tp->snd_cwnd * ca->beta) >> BETA_SHIFT, 2U);
+> +       return max(tp->snd_cwnd - ((tp->snd_cwnd * ca->beta) >> BETA_SHIFT), 2U);
+>  }
+>
+>
+>
 
- drivers/net/bonding/bond_sysfs.c |    9 ++++++---
- 1 files changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bon=
-d_sysfs.c
-index 5c31f5c..9de2c52 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -91,7 +91,8 @@ static ssize_t bonding_show_bonds(struct class *cls, =
-char *buf)
- 		}
- 		res +=3D sprintf(buf + res, "%s ", bond->dev->name);
- 	}
--	if (res) buf[res-1] =3D '\n'; /* eat the leftover space */
-+	if (res)
-+		buf[res-1] =3D '\n'; /* eat the leftover space */
- 	up_read(&(bonding_rwsem));
- 	return res;
- }
-@@ -239,7 +240,8 @@ static ssize_t bonding_show_slaves(struct device *d=
-,
- 		res +=3D sprintf(buf + res, "%s ", slave->dev->name);
- 	}
- 	read_unlock(&bond->lock);
--	if (res) buf[res-1] =3D '\n'; /* eat the leftover space */
-+	if (res)
-+		buf[res-1] =3D '\n'; /* eat the leftover space */
- 	return res;
- }
-=20
-@@ -705,7 +707,8 @@ static ssize_t bonding_show_arp_targets(struct devi=
-ce *d,
- 			res +=3D sprintf(buf + res, "%u.%u.%u.%u ",
- 			       NIPQUAD(bond->params.arp_targets[i]));
- 	}
--	if (res) buf[res-1] =3D '\n'; /* eat the leftover space */
-+	if (res)
-+		buf[res-1] =3D '\n'; /* eat the leftover space */
- 	return res;
- }
-=20
---=20
-1.4.4.4
+-- 
+Lachlan Andrew  Dept of Computer Science, Caltech
+1200 E California Blvd, Mail Code 256-80, Pasadena CA 91125, USA
+Ph: +1 (626) 395-8820    Fax: +1 (626) 568-3603
+http://netlab.caltech.edu/~lachlan
