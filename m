@@ -1,52 +1,58 @@
 From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH] [2/12] pasemi_mac: Move register definitions to
-	include/asm-powerpc
-Date: Wed, 28 Nov 2007 20:56:04 -0600
-Message-ID: <20071129025604.GC17215@lixom.net>
+Subject: [PATCH] [3/12] pasemi: DMA engine management library
+Date: Wed, 28 Nov 2007 20:56:20 -0600
+Message-ID: <20071129025620.GD17215@lixom.net>
 References: <20071129025410.GA17215@lixom.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:36831 "EHLO mail.lixom.net"
+Received: from lixom.net ([66.141.50.11]:36844 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756029AbXK2Cwy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Nov 2007 21:52:54 -0500
+	id S1758261AbXK2CxK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Nov 2007 21:53:10 -0500
 Content-Disposition: inline
 In-Reply-To: <20071129025410.GA17215@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-pasemi_mac: Move register definitions to include/asm-powerpc
+pasemi: DMA engine management library
 
-Move the common register formats and descriptor layouts from
-drivers/net/pasemi_mac.h to include/asm-poewrpc/pasemi_dma.h
-
-Previously only the ethernet driver was using them, but other drivers
-are coming up that will also use them, so it makes sense to share the
-constants.
+Introduce a DMA management library to manage the various DMA resources
+on the PA Semi SoCs. Since several drivers need to allocate these shared
+resources, provide some abstractions as well as allocation/free functions
+for channels, etc.
 
 
 Signed-off-by: Olof Johansson <olof@lixom.net>
 
 ---
- drivers/net/pasemi_mac.c         |    1 
- drivers/net/pasemi_mac.h         |  336 ---------------------------------
- include/asm-powerpc/pasemi_dma.h |  391 +++++++++++++++++++++++++++++++++++++++
- 3 files changed, 394 insertions(+), 334 deletions(-)
+ arch/powerpc/platforms/pasemi/Makefile  |    2 
+ arch/powerpc/platforms/pasemi/dma_lib.c |  487 ++++++++++++++++++++++++++++++++
+ arch/powerpc/platforms/pasemi/pasemi.h  |    1 
+ include/asm-powerpc/pasemi_dma.h        |   76 ++++
+ 4 files changed, 565 insertions(+), 1 deletion(-)
 
-Index: k.org/include/asm-powerpc/pasemi_dma.h
+Index: k.org/arch/powerpc/platforms/pasemi/Makefile
+===================================================================
+--- k.org.orig/arch/powerpc/platforms/pasemi/Makefile
++++ k.org/arch/powerpc/platforms/pasemi/Makefile
+@@ -1,4 +1,4 @@
+-obj-y	+= setup.o pci.o time.o idle.o powersave.o iommu.o
++obj-y	+= setup.o pci.o time.o idle.o powersave.o iommu.o dma_lib.o
+ obj-$(CONFIG_PPC_PASEMI_MDIO)	+= gpio_mdio.o
+ obj-$(CONFIG_ELECTRA_IDE) += electra_ide.o
+ obj-$(CONFIG_PPC_PASEMI_CPUFREQ) += cpufreq.o
+Index: k.org/arch/powerpc/platforms/pasemi/dma_lib.c
 ===================================================================
 --- /dev/null
-+++ k.org/include/asm-powerpc/pasemi_dma.h
-@@ -0,0 +1,391 @@
++++ k.org/arch/powerpc/platforms/pasemi/dma_lib.c
+@@ -0,0 +1,487 @@
 +/*
-+ * Copyright (C) 2006 PA Semi, Inc
++ * Copyright (C) 2006-2007 PA Semi, Inc
 + *
-+ * Hardware register layout and descriptor formats for the on-board
-+ * DMA engine on PA Semi PWRficient. Used by ethernet, function and security
-+ * drivers.
++ * Common functions for DMA access on PA Semi PWRficient
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License version 2 as
@@ -62,737 +68,580 @@ Index: k.org/include/asm-powerpc/pasemi_dma.h
 + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 + */
 +
-+#ifndef ASM_PASEMI_DMA_H
-+#define ASM_PASEMI_DMA_H
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/pci.h>
++#include <linux/of.h>
 +
-+/* status register layout in IOB region, at 0xfb800000 */
-+struct pasdma_status {
-+	u64 rx_sta[64];		/* RX channel status */
-+	u64 tx_sta[20];		/* TX channel status */
-+};
-+
-+
-+/* All these registers live in the PCI configuration space for the DMA PCI
-+ * device. Use the normal PCI config access functions for them.
-+ */
-+enum {
-+	PAS_DMA_COM_TXCMD = 0x100,	/* Transmit Command Register  */
-+	PAS_DMA_COM_TXSTA = 0x104,	/* Transmit Status Register   */
-+	PAS_DMA_COM_RXCMD = 0x108,	/* Receive Command Register   */
-+	PAS_DMA_COM_RXSTA = 0x10c,	/* Receive Status Register    */
-+};
-+#define PAS_DMA_COM_TXCMD_EN	0x00000001 /* enable */
-+#define PAS_DMA_COM_TXSTA_ACT	0x00000001 /* active */
-+#define PAS_DMA_COM_RXCMD_EN	0x00000001 /* enable */
-+#define PAS_DMA_COM_RXSTA_ACT	0x00000001 /* active */
-+
-+
-+/* Per-interface and per-channel registers */
-+#define _PAS_DMA_RXINT_STRIDE		0x20
-+#define PAS_DMA_RXINT_RCMDSTA(i)	(0x200+(i)*_PAS_DMA_RXINT_STRIDE)
-+#define    PAS_DMA_RXINT_RCMDSTA_EN	0x00000001
-+#define    PAS_DMA_RXINT_RCMDSTA_ST	0x00000002
-+#define    PAS_DMA_RXINT_RCMDSTA_MBT	0x00000008
-+#define    PAS_DMA_RXINT_RCMDSTA_MDR	0x00000010
-+#define    PAS_DMA_RXINT_RCMDSTA_MOO	0x00000020
-+#define    PAS_DMA_RXINT_RCMDSTA_MBP	0x00000040
-+#define    PAS_DMA_RXINT_RCMDSTA_BT	0x00000800
-+#define    PAS_DMA_RXINT_RCMDSTA_DR	0x00001000
-+#define    PAS_DMA_RXINT_RCMDSTA_OO	0x00002000
-+#define    PAS_DMA_RXINT_RCMDSTA_BP	0x00004000
-+#define    PAS_DMA_RXINT_RCMDSTA_TB	0x00008000
-+#define    PAS_DMA_RXINT_RCMDSTA_ACT	0x00010000
-+#define    PAS_DMA_RXINT_RCMDSTA_DROPS_M	0xfffe0000
-+#define    PAS_DMA_RXINT_RCMDSTA_DROPS_S	17
-+#define PAS_DMA_RXINT_CFG(i)		(0x204+(i)*_PAS_DMA_RXINT_STRIDE)
-+#define    PAS_DMA_RXINT_CFG_RBP	0x80000000
-+#define    PAS_DMA_RXINT_CFG_ITRR	0x40000000
-+#define    PAS_DMA_RXINT_CFG_DHL_M	0x07000000
-+#define    PAS_DMA_RXINT_CFG_DHL_S	24
-+#define    PAS_DMA_RXINT_CFG_DHL(x)	(((x) << PAS_DMA_RXINT_CFG_DHL_S) & \
-+					 PAS_DMA_RXINT_CFG_DHL_M)
-+#define    PAS_DMA_RXINT_CFG_ITR	0x00400000
-+#define    PAS_DMA_RXINT_CFG_LW		0x00200000
-+#define    PAS_DMA_RXINT_CFG_L2		0x00100000
-+#define    PAS_DMA_RXINT_CFG_HEN	0x00080000
-+#define    PAS_DMA_RXINT_CFG_WIF	0x00000002
-+#define    PAS_DMA_RXINT_CFG_WIL	0x00000001
-+
-+#define PAS_DMA_RXINT_INCR(i)		(0x210+(i)*_PAS_DMA_RXINT_STRIDE)
-+#define    PAS_DMA_RXINT_INCR_INCR_M	0x0000ffff
-+#define    PAS_DMA_RXINT_INCR_INCR_S	0
-+#define    PAS_DMA_RXINT_INCR_INCR(x)	((x) & 0x0000ffff)
-+#define PAS_DMA_RXINT_BASEL(i)		(0x218+(i)*_PAS_DMA_RXINT_STRIDE)
-+#define    PAS_DMA_RXINT_BASEL_BRBL(x)	((x) & ~0x3f)
-+#define PAS_DMA_RXINT_BASEU(i)		(0x21c+(i)*_PAS_DMA_RXINT_STRIDE)
-+#define    PAS_DMA_RXINT_BASEU_BRBH(x)	((x) & 0xfff)
-+#define    PAS_DMA_RXINT_BASEU_SIZ_M	0x3fff0000	/* # of cache lines worth of buffer ring */
-+#define    PAS_DMA_RXINT_BASEU_SIZ_S	16		/* 0 = 16K */
-+#define    PAS_DMA_RXINT_BASEU_SIZ(x)	(((x) << PAS_DMA_RXINT_BASEU_SIZ_S) & \
-+					 PAS_DMA_RXINT_BASEU_SIZ_M)
-+
-+
-+#define _PAS_DMA_TXCHAN_STRIDE	0x20    /* Size per channel		*/
-+#define _PAS_DMA_TXCHAN_TCMDSTA	0x300	/* Command / Status		*/
-+#define _PAS_DMA_TXCHAN_CFG	0x304	/* Configuration		*/
-+#define _PAS_DMA_TXCHAN_DSCRBU	0x308	/* Descriptor BU Allocation	*/
-+#define _PAS_DMA_TXCHAN_INCR	0x310	/* Descriptor increment		*/
-+#define _PAS_DMA_TXCHAN_CNT	0x314	/* Descriptor count/offset	*/
-+#define _PAS_DMA_TXCHAN_BASEL	0x318	/* Descriptor ring base (low)	*/
-+#define _PAS_DMA_TXCHAN_BASEU	0x31c	/*			(high)	*/
-+#define PAS_DMA_TXCHAN_TCMDSTA(c) (0x300+(c)*_PAS_DMA_TXCHAN_STRIDE)
-+#define    PAS_DMA_TXCHAN_TCMDSTA_EN	0x00000001	/* Enabled */
-+#define    PAS_DMA_TXCHAN_TCMDSTA_ST	0x00000002	/* Stop interface */
-+#define    PAS_DMA_TXCHAN_TCMDSTA_ACT	0x00010000	/* Active */
-+#define    PAS_DMA_TXCHAN_TCMDSTA_SZ	0x00000800
-+#define    PAS_DMA_TXCHAN_TCMDSTA_DB	0x00000400
-+#define    PAS_DMA_TXCHAN_TCMDSTA_DE	0x00000200
-+#define    PAS_DMA_TXCHAN_TCMDSTA_DA	0x00000100
-+#define PAS_DMA_TXCHAN_CFG(c)     (0x304+(c)*_PAS_DMA_TXCHAN_STRIDE)
-+#define    PAS_DMA_TXCHAN_CFG_TY_IFACE	0x00000000	/* Type = interface */
-+#define    PAS_DMA_TXCHAN_CFG_TATTR_M	0x0000003c
-+#define    PAS_DMA_TXCHAN_CFG_TATTR_S	2
-+#define    PAS_DMA_TXCHAN_CFG_TATTR(x)	(((x) << PAS_DMA_TXCHAN_CFG_TATTR_S) & \
-+					 PAS_DMA_TXCHAN_CFG_TATTR_M)
-+#define    PAS_DMA_TXCHAN_CFG_WT_M	0x000001c0
-+#define    PAS_DMA_TXCHAN_CFG_WT_S	6
-+#define    PAS_DMA_TXCHAN_CFG_WT(x)	(((x) << PAS_DMA_TXCHAN_CFG_WT_S) & \
-+					 PAS_DMA_TXCHAN_CFG_WT_M)
-+#define    PAS_DMA_TXCHAN_CFG_TRD	0x00010000	/* translate data */
-+#define    PAS_DMA_TXCHAN_CFG_TRR	0x00008000	/* translate rings */
-+#define    PAS_DMA_TXCHAN_CFG_UP	0x00004000	/* update tx descr when sent */
-+#define    PAS_DMA_TXCHAN_CFG_CL	0x00002000	/* Clean last line */
-+#define    PAS_DMA_TXCHAN_CFG_CF	0x00001000	/* Clean first line */
-+#define PAS_DMA_TXCHAN_INCR(c)    (0x310+(c)*_PAS_DMA_TXCHAN_STRIDE)
-+#define PAS_DMA_TXCHAN_BASEL(c)   (0x318+(c)*_PAS_DMA_TXCHAN_STRIDE)
-+#define    PAS_DMA_TXCHAN_BASEL_BRBL_M	0xffffffc0
-+#define    PAS_DMA_TXCHAN_BASEL_BRBL_S	0
-+#define    PAS_DMA_TXCHAN_BASEL_BRBL(x)	(((x) << PAS_DMA_TXCHAN_BASEL_BRBL_S) & \
-+					 PAS_DMA_TXCHAN_BASEL_BRBL_M)
-+#define PAS_DMA_TXCHAN_BASEU(c)   (0x31c+(c)*_PAS_DMA_TXCHAN_STRIDE)
-+#define    PAS_DMA_TXCHAN_BASEU_BRBH_M	0x00000fff
-+#define    PAS_DMA_TXCHAN_BASEU_BRBH_S	0
-+#define    PAS_DMA_TXCHAN_BASEU_BRBH(x)	(((x) << PAS_DMA_TXCHAN_BASEU_BRBH_S) & \
-+					 PAS_DMA_TXCHAN_BASEU_BRBH_M)
-+/* # of cache lines worth of buffer ring */
-+#define    PAS_DMA_TXCHAN_BASEU_SIZ_M	0x3fff0000
-+#define    PAS_DMA_TXCHAN_BASEU_SIZ_S	16		/* 0 = 16K */
-+#define    PAS_DMA_TXCHAN_BASEU_SIZ(x)	(((x) << PAS_DMA_TXCHAN_BASEU_SIZ_S) & \
-+					 PAS_DMA_TXCHAN_BASEU_SIZ_M)
-+
-+#define _PAS_DMA_RXCHAN_STRIDE	0x20    /* Size per channel		*/
-+#define _PAS_DMA_RXCHAN_CCMDSTA	0x800	/* Command / Status		*/
-+#define _PAS_DMA_RXCHAN_CFG	0x804	/* Configuration		*/
-+#define _PAS_DMA_RXCHAN_INCR	0x810	/* Descriptor increment		*/
-+#define _PAS_DMA_RXCHAN_CNT	0x814	/* Descriptor count/offset	*/
-+#define _PAS_DMA_RXCHAN_BASEL	0x818	/* Descriptor ring base (low)	*/
-+#define _PAS_DMA_RXCHAN_BASEU	0x81c	/*			(high)	*/
-+#define PAS_DMA_RXCHAN_CCMDSTA(c) (0x800+(c)*_PAS_DMA_RXCHAN_STRIDE)
-+#define    PAS_DMA_RXCHAN_CCMDSTA_EN	0x00000001	/* Enabled */
-+#define    PAS_DMA_RXCHAN_CCMDSTA_ST	0x00000002	/* Stop interface */
-+#define    PAS_DMA_RXCHAN_CCMDSTA_ACT	0x00010000	/* Active */
-+#define    PAS_DMA_RXCHAN_CCMDSTA_DU	0x00020000
-+#define    PAS_DMA_RXCHAN_CCMDSTA_OD	0x00002000
-+#define    PAS_DMA_RXCHAN_CCMDSTA_FD	0x00001000
-+#define    PAS_DMA_RXCHAN_CCMDSTA_DT	0x00000800
-+#define PAS_DMA_RXCHAN_CFG(c)     (0x804+(c)*_PAS_DMA_RXCHAN_STRIDE)
-+#define    PAS_DMA_RXCHAN_CFG_CTR	0x00000400
-+#define    PAS_DMA_RXCHAN_CFG_HBU_M	0x00000380
-+#define    PAS_DMA_RXCHAN_CFG_HBU_S	7
-+#define    PAS_DMA_RXCHAN_CFG_HBU(x)	(((x) << PAS_DMA_RXCHAN_CFG_HBU_S) & \
-+					 PAS_DMA_RXCHAN_CFG_HBU_M)
-+#define PAS_DMA_RXCHAN_INCR(c)    (0x810+(c)*_PAS_DMA_RXCHAN_STRIDE)
-+#define PAS_DMA_RXCHAN_BASEL(c)   (0x818+(c)*_PAS_DMA_RXCHAN_STRIDE)
-+#define    PAS_DMA_RXCHAN_BASEL_BRBL_M	0xffffffc0
-+#define    PAS_DMA_RXCHAN_BASEL_BRBL_S	0
-+#define    PAS_DMA_RXCHAN_BASEL_BRBL(x)	(((x) << PAS_DMA_RXCHAN_BASEL_BRBL_S) & \
-+					 PAS_DMA_RXCHAN_BASEL_BRBL_M)
-+#define PAS_DMA_RXCHAN_BASEU(c)   (0x81c+(c)*_PAS_DMA_RXCHAN_STRIDE)
-+#define    PAS_DMA_RXCHAN_BASEU_BRBH_M	0x00000fff
-+#define    PAS_DMA_RXCHAN_BASEU_BRBH_S	0
-+#define    PAS_DMA_RXCHAN_BASEU_BRBH(x)	(((x) << PAS_DMA_RXCHAN_BASEU_BRBH_S) & \
-+					 PAS_DMA_RXCHAN_BASEU_BRBH_M)
-+/* # of cache lines worth of buffer ring */
-+#define    PAS_DMA_RXCHAN_BASEU_SIZ_M	0x3fff0000
-+#define    PAS_DMA_RXCHAN_BASEU_SIZ_S	16		/* 0 = 16K */
-+#define    PAS_DMA_RXCHAN_BASEU_SIZ(x)	(((x) << PAS_DMA_RXCHAN_BASEU_SIZ_S) & \
-+					 PAS_DMA_RXCHAN_BASEU_SIZ_M)
-+
-+#define    PAS_STATUS_PCNT_M		0x000000000000ffffull
-+#define    PAS_STATUS_PCNT_S		0
-+#define    PAS_STATUS_DCNT_M		0x00000000ffff0000ull
-+#define    PAS_STATUS_DCNT_S		16
-+#define    PAS_STATUS_BPCNT_M		0x0000ffff00000000ull
-+#define    PAS_STATUS_BPCNT_S		32
-+#define    PAS_STATUS_CAUSE_M		0xf000000000000000ull
-+#define    PAS_STATUS_TIMER		0x1000000000000000ull
-+#define    PAS_STATUS_ERROR		0x2000000000000000ull
-+#define    PAS_STATUS_SOFT		0x4000000000000000ull
-+#define    PAS_STATUS_INT		0x8000000000000000ull
-+
-+#define PAS_IOB_COM_PKTHDRCNT		0x120
-+#define    PAS_IOB_COM_PKTHDRCNT_PKTHDR1_M	0x0fff0000
-+#define    PAS_IOB_COM_PKTHDRCNT_PKTHDR1_S	16
-+#define    PAS_IOB_COM_PKTHDRCNT_PKTHDR0_M	0x00000fff
-+#define    PAS_IOB_COM_PKTHDRCNT_PKTHDR0_S	0
-+
-+#define PAS_IOB_DMA_RXCH_CFG(i)		(0x1100 + (i)*4)
-+#define    PAS_IOB_DMA_RXCH_CFG_CNTTH_M		0x00000fff
-+#define    PAS_IOB_DMA_RXCH_CFG_CNTTH_S		0
-+#define    PAS_IOB_DMA_RXCH_CFG_CNTTH(x)	(((x) << PAS_IOB_DMA_RXCH_CFG_CNTTH_S) & \
-+						 PAS_IOB_DMA_RXCH_CFG_CNTTH_M)
-+#define PAS_IOB_DMA_TXCH_CFG(i)		(0x1200 + (i)*4)
-+#define    PAS_IOB_DMA_TXCH_CFG_CNTTH_M		0x00000fff
-+#define    PAS_IOB_DMA_TXCH_CFG_CNTTH_S		0
-+#define    PAS_IOB_DMA_TXCH_CFG_CNTTH(x)	(((x) << PAS_IOB_DMA_TXCH_CFG_CNTTH_S) & \
-+						 PAS_IOB_DMA_TXCH_CFG_CNTTH_M)
-+#define PAS_IOB_DMA_RXCH_STAT(i)	(0x1300 + (i)*4)
-+#define    PAS_IOB_DMA_RXCH_STAT_INTGEN	0x00001000
-+#define    PAS_IOB_DMA_RXCH_STAT_CNTDEL_M	0x00000fff
-+#define    PAS_IOB_DMA_RXCH_STAT_CNTDEL_S	0
-+#define    PAS_IOB_DMA_RXCH_STAT_CNTDEL(x)	(((x) << PAS_IOB_DMA_RXCH_STAT_CNTDEL_S) &\
-+						 PAS_IOB_DMA_RXCH_STAT_CNTDEL_M)
-+#define PAS_IOB_DMA_TXCH_STAT(i)	(0x1400 + (i)*4)
-+#define    PAS_IOB_DMA_TXCH_STAT_INTGEN	0x00001000
-+#define    PAS_IOB_DMA_TXCH_STAT_CNTDEL_M	0x00000fff
-+#define    PAS_IOB_DMA_TXCH_STAT_CNTDEL_S	0
-+#define    PAS_IOB_DMA_TXCH_STAT_CNTDEL(x)	(((x) << PAS_IOB_DMA_TXCH_STAT_CNTDEL_S) &\
-+						 PAS_IOB_DMA_TXCH_STAT_CNTDEL_M)
-+#define PAS_IOB_DMA_RXCH_RESET(i)	(0x1500 + (i)*4)
-+#define    PAS_IOB_DMA_RXCH_RESET_PCNT_M	0xffff0000
-+#define    PAS_IOB_DMA_RXCH_RESET_PCNT_S	16
-+#define    PAS_IOB_DMA_RXCH_RESET_PCNT(x)	(((x) << PAS_IOB_DMA_RXCH_RESET_PCNT_S) & \
-+						 PAS_IOB_DMA_RXCH_RESET_PCNT_M)
-+#define    PAS_IOB_DMA_RXCH_RESET_PCNTRST	0x00000020
-+#define    PAS_IOB_DMA_RXCH_RESET_DCNTRST	0x00000010
-+#define    PAS_IOB_DMA_RXCH_RESET_TINTC		0x00000008
-+#define    PAS_IOB_DMA_RXCH_RESET_DINTC		0x00000004
-+#define    PAS_IOB_DMA_RXCH_RESET_SINTC		0x00000002
-+#define    PAS_IOB_DMA_RXCH_RESET_PINTC		0x00000001
-+#define PAS_IOB_DMA_TXCH_RESET(i)	(0x1600 + (i)*4)
-+#define    PAS_IOB_DMA_TXCH_RESET_PCNT_M	0xffff0000
-+#define    PAS_IOB_DMA_TXCH_RESET_PCNT_S	16
-+#define    PAS_IOB_DMA_TXCH_RESET_PCNT(x)	(((x) << PAS_IOB_DMA_TXCH_RESET_PCNT_S) & \
-+						 PAS_IOB_DMA_TXCH_RESET_PCNT_M)
-+#define    PAS_IOB_DMA_TXCH_RESET_PCNTRST	0x00000020
-+#define    PAS_IOB_DMA_TXCH_RESET_DCNTRST	0x00000010
-+#define    PAS_IOB_DMA_TXCH_RESET_TINTC		0x00000008
-+#define    PAS_IOB_DMA_TXCH_RESET_DINTC		0x00000004
-+#define    PAS_IOB_DMA_TXCH_RESET_SINTC		0x00000002
-+#define    PAS_IOB_DMA_TXCH_RESET_PINTC		0x00000001
-+
-+#define PAS_IOB_DMA_COM_TIMEOUTCFG		0x1700
-+#define    PAS_IOB_DMA_COM_TIMEOUTCFG_TCNT_M	0x00ffffff
-+#define    PAS_IOB_DMA_COM_TIMEOUTCFG_TCNT_S	0
-+#define    PAS_IOB_DMA_COM_TIMEOUTCFG_TCNT(x)	(((x) << PAS_IOB_DMA_COM_TIMEOUTCFG_TCNT_S) & \
-+						 PAS_IOB_DMA_COM_TIMEOUTCFG_TCNT_M)
-+
-+/* Transmit descriptor fields */
-+#define	XCT_MACTX_T		0x8000000000000000ull
-+#define	XCT_MACTX_ST		0x4000000000000000ull
-+#define XCT_MACTX_NORES		0x0000000000000000ull
-+#define XCT_MACTX_8BRES		0x1000000000000000ull
-+#define XCT_MACTX_24BRES	0x2000000000000000ull
-+#define XCT_MACTX_40BRES	0x3000000000000000ull
-+#define XCT_MACTX_I		0x0800000000000000ull
-+#define XCT_MACTX_O		0x0400000000000000ull
-+#define XCT_MACTX_E		0x0200000000000000ull
-+#define XCT_MACTX_VLAN_M	0x0180000000000000ull
-+#define XCT_MACTX_VLAN_NOP	0x0000000000000000ull
-+#define XCT_MACTX_VLAN_REMOVE	0x0080000000000000ull
-+#define XCT_MACTX_VLAN_INSERT   0x0100000000000000ull
-+#define XCT_MACTX_VLAN_REPLACE  0x0180000000000000ull
-+#define XCT_MACTX_CRC_M		0x0060000000000000ull
-+#define XCT_MACTX_CRC_NOP	0x0000000000000000ull
-+#define XCT_MACTX_CRC_INSERT	0x0020000000000000ull
-+#define XCT_MACTX_CRC_PAD	0x0040000000000000ull
-+#define XCT_MACTX_CRC_REPLACE	0x0060000000000000ull
-+#define XCT_MACTX_SS		0x0010000000000000ull
-+#define XCT_MACTX_LLEN_M	0x00007fff00000000ull
-+#define XCT_MACTX_LLEN_S	32ull
-+#define XCT_MACTX_LLEN(x)	((((long)(x)) << XCT_MACTX_LLEN_S) & \
-+				 XCT_MACTX_LLEN_M)
-+#define XCT_MACTX_IPH_M		0x00000000f8000000ull
-+#define XCT_MACTX_IPH_S		27ull
-+#define XCT_MACTX_IPH(x)	((((long)(x)) << XCT_MACTX_IPH_S) & \
-+				 XCT_MACTX_IPH_M)
-+#define XCT_MACTX_IPO_M		0x0000000007c00000ull
-+#define XCT_MACTX_IPO_S		22ull
-+#define XCT_MACTX_IPO(x)	((((long)(x)) << XCT_MACTX_IPO_S) & \
-+				 XCT_MACTX_IPO_M)
-+#define XCT_MACTX_CSUM_M	0x0000000000000060ull
-+#define XCT_MACTX_CSUM_NOP	0x0000000000000000ull
-+#define XCT_MACTX_CSUM_TCP	0x0000000000000040ull
-+#define XCT_MACTX_CSUM_UDP	0x0000000000000060ull
-+#define XCT_MACTX_V6		0x0000000000000010ull
-+#define XCT_MACTX_C		0x0000000000000004ull
-+#define XCT_MACTX_AL2		0x0000000000000002ull
-+
-+/* Receive descriptor fields */
-+#define	XCT_MACRX_T		0x8000000000000000ull
-+#define	XCT_MACRX_ST		0x4000000000000000ull
-+#define XCT_MACRX_RR_M		0x3000000000000000ull
-+#define XCT_MACRX_RR_NORES	0x0000000000000000ull
-+#define XCT_MACRX_RR_8BRES	0x1000000000000000ull
-+#define XCT_MACRX_O		0x0400000000000000ull
-+#define XCT_MACRX_E		0x0200000000000000ull
-+#define XCT_MACRX_FF		0x0100000000000000ull
-+#define XCT_MACRX_PF		0x0080000000000000ull
-+#define XCT_MACRX_OB		0x0040000000000000ull
-+#define XCT_MACRX_OD		0x0020000000000000ull
-+#define XCT_MACRX_FS		0x0010000000000000ull
-+#define XCT_MACRX_NB_M		0x000fc00000000000ull
-+#define XCT_MACRX_NB_S		46ULL
-+#define XCT_MACRX_NB(x)		((((long)(x)) << XCT_MACRX_NB_S) & \
-+				 XCT_MACRX_NB_M)
-+#define XCT_MACRX_LLEN_M	0x00003fff00000000ull
-+#define XCT_MACRX_LLEN_S	32ULL
-+#define XCT_MACRX_LLEN(x)	((((long)(x)) << XCT_MACRX_LLEN_S) & \
-+				 XCT_MACRX_LLEN_M)
-+#define XCT_MACRX_CRC		0x0000000080000000ull
-+#define XCT_MACRX_LEN_M		0x0000000060000000ull
-+#define XCT_MACRX_LEN_TOOSHORT	0x0000000020000000ull
-+#define XCT_MACRX_LEN_BELOWMIN	0x0000000040000000ull
-+#define XCT_MACRX_LEN_TRUNC	0x0000000060000000ull
-+#define XCT_MACRX_CAST_M	0x0000000018000000ull
-+#define XCT_MACRX_CAST_UNI	0x0000000000000000ull
-+#define XCT_MACRX_CAST_MULTI	0x0000000008000000ull
-+#define XCT_MACRX_CAST_BROAD	0x0000000010000000ull
-+#define XCT_MACRX_CAST_PAUSE	0x0000000018000000ull
-+#define XCT_MACRX_VLC_M		0x0000000006000000ull
-+#define XCT_MACRX_FM		0x0000000001000000ull
-+#define XCT_MACRX_HTY_M		0x0000000000c00000ull
-+#define XCT_MACRX_HTY_IPV4_OK	0x0000000000000000ull
-+#define XCT_MACRX_HTY_IPV6 	0x0000000000400000ull
-+#define XCT_MACRX_HTY_IPV4_BAD	0x0000000000800000ull
-+#define XCT_MACRX_HTY_NONIP	0x0000000000c00000ull
-+#define XCT_MACRX_IPP_M		0x00000000003f0000ull
-+#define XCT_MACRX_IPP_S		16
-+#define XCT_MACRX_CSUM_M	0x000000000000ffffull
-+#define XCT_MACRX_CSUM_S	0
-+
-+#define XCT_PTR_T		0x8000000000000000ull
-+#define XCT_PTR_LEN_M		0x7ffff00000000000ull
-+#define XCT_PTR_LEN_S		44
-+#define XCT_PTR_LEN(x)		((((long)(x)) << XCT_PTR_LEN_S) & \
-+				 XCT_PTR_LEN_M)
-+#define XCT_PTR_ADDR_M		0x00000fffffffffffull
-+#define XCT_PTR_ADDR_S		0
-+#define XCT_PTR_ADDR(x)		((((long)(x)) << XCT_PTR_ADDR_S) & \
-+				 XCT_PTR_ADDR_M)
-+
-+/* Receive interface 8byte result fields */
-+#define XCT_RXRES_8B_L4O_M	0xff00000000000000ull
-+#define XCT_RXRES_8B_L4O_S	56
-+#define XCT_RXRES_8B_RULE_M	0x00ffff0000000000ull
-+#define XCT_RXRES_8B_RULE_S	40
-+#define XCT_RXRES_8B_EVAL_M	0x000000ffff000000ull
-+#define XCT_RXRES_8B_EVAL_S	24
-+#define XCT_RXRES_8B_HTYPE_M	0x0000000000f00000ull
-+#define XCT_RXRES_8B_HASH_M	0x00000000000fffffull
-+#define XCT_RXRES_8B_HASH_S	0
-+
-+/* Receive interface buffer fields */
-+#define XCT_RXB_LEN_M		0x0ffff00000000000ull
-+#define XCT_RXB_LEN_S		44
-+#define XCT_RXB_LEN(x)		((((long)(x)) << XCT_RXB_LEN_S) & \
-+				 XCT_RXB_LEN_M)
-+#define XCT_RXB_ADDR_M		0x00000fffffffffffull
-+#define XCT_RXB_ADDR_S		0
-+#define XCT_RXB_ADDR(x)		((((long)(x)) << XCT_RXB_ADDR_S) & \
-+				 XCT_RXB_ADDR_M)
-+
-+/* Copy descriptor fields */
-+#define XCT_COPY_T		0x8000000000000000ull
-+#define XCT_COPY_ST		0x4000000000000000ull
-+#define XCT_COPY_RR_M		0x3000000000000000ull
-+#define XCT_COPY_RR_NORES	0x0000000000000000ull
-+#define XCT_COPY_RR_8BRES	0x1000000000000000ull
-+#define XCT_COPY_RR_24BRES	0x2000000000000000ull
-+#define XCT_COPY_RR_40BRES	0x3000000000000000ull
-+#define XCT_COPY_I		0x0800000000000000ull
-+#define XCT_COPY_O		0x0400000000000000ull
-+#define XCT_COPY_E		0x0200000000000000ull
-+#define XCT_COPY_STY_ZERO	0x01c0000000000000ull
-+#define XCT_COPY_DTY_PREF	0x0038000000000000ull
-+#define XCT_COPY_LLEN_M		0x0007ffff00000000ull
-+#define XCT_COPY_LLEN_S		32
-+#define XCT_COPY_LLEN(x)	((((long)(x)) << XCT_COPY_LLEN_S) & \
-+				 XCT_COPY_LLEN_M)
-+#define XCT_COPY_SE		0x0000000000000001ull
-+
-+/* Control descriptor fields */
-+#define CTRL_CMD_T		0x8000000000000000ull
-+#define CTRL_CMD_META_EVT	0x2000000000000000ull
-+#define CTRL_CMD_O		0x0400000000000000ull
-+#define CTRL_CMD_REG_M		0x000000000000000full
-+#define CTRL_CMD_REG_S		0
-+#define CTRL_CMD_REG(x)		((((long)(x)) << CTRL_CMD_REG_S) & \
-+				 CTRL_CMD_REG_M)
-+
-+
-+#endif /* ASM_PASEMI_DMA_H */
-Index: k.org/drivers/net/pasemi_mac.c
-===================================================================
---- k.org.orig/drivers/net/pasemi_mac.c
-+++ k.org/drivers/net/pasemi_mac.c
-@@ -35,6 +35,7 @@
- 
- #include <asm/irq.h>
- #include <asm/firmware.h>
 +#include <asm/pasemi_dma.h>
- 
- #include "pasemi_mac.h"
- 
-Index: k.org/drivers/net/pasemi_mac.h
-===================================================================
---- k.org.orig/drivers/net/pasemi_mac.h
-+++ k.org/drivers/net/pasemi_mac.h
-@@ -96,11 +96,8 @@ struct pasemi_mac_buffer {
- };
- 
- 
--/* status register layout in IOB region, at 0xfb800000 */
--struct pasdma_status {
--	u64 rx_sta[64];
--	u64 tx_sta[20];
--};
-+/* PCI register offsets and formats */
 +
++#define MAX_TXCH 64
++#define MAX_RXCH 64
++
++static struct pasdma_status *dma_status;
++
++static void __iomem *iob_regs;
++static void __iomem *mac_regs[6];
++static void __iomem *dma_regs;
++
++static int base_hw_irq;
++
++static int num_txch, num_rxch;
++
++static struct pci_dev *dma_pdev;
++
++/* Bitmaps to handle allocation of channels */
++
++static DECLARE_BITMAP(txch_free, MAX_TXCH);
++static DECLARE_BITMAP(rxch_free, MAX_RXCH);
++
++/* pasemi_read_iob_reg - read IOB register
++ * @reg: Register to read (offset into PCI CFG space)
++ */
++unsigned int pasemi_read_iob_reg(unsigned int reg)
++{
++	return in_le32(iob_regs+reg);
++}
++EXPORT_SYMBOL(pasemi_read_iob_reg);
++
++/* pasemi_write_iob_reg - write IOB register
++ * @reg: Register to write to (offset into PCI CFG space)
++ * @val: Value to write
++ */
++void pasemi_write_iob_reg(unsigned int reg, unsigned int val)
++{
++	out_le32(iob_regs+reg, val);
++}
++EXPORT_SYMBOL(pasemi_write_iob_reg);
++
++/* pasemi_read_mac_reg - read MAC register
++ * @intf: MAC interface
++ * @reg: Register to read (offset into PCI CFG space)
++ */
++unsigned int pasemi_read_mac_reg(int intf, unsigned int reg)
++{
++	return in_le32(mac_regs[intf]+reg);
++}
++EXPORT_SYMBOL(pasemi_read_mac_reg);
++
++/* pasemi_write_mac_reg - write MAC register
++ * @intf: MAC interface
++ * @reg: Register to write to (offset into PCI CFG space)
++ * @val: Value to write
++ */
++void pasemi_write_mac_reg(int intf, unsigned int reg, unsigned int val)
++{
++	out_le32(mac_regs[intf]+reg, val);
++}
++EXPORT_SYMBOL(pasemi_write_mac_reg);
++
++/* pasemi_read_dma_reg - read DMA register
++ * @reg: Register to read (offset into PCI CFG space)
++ */
++unsigned int pasemi_read_dma_reg(unsigned int reg)
++{
++	return in_le32(dma_regs+reg);
++}
++EXPORT_SYMBOL(pasemi_read_dma_reg);
++
++/* pasemi_write_dma_reg - write DMA register
++ * @reg: Register to write to (offset into PCI CFG space)
++ * @val: Value to write
++ */
++void pasemi_write_dma_reg(unsigned int reg, unsigned int val)
++{
++	out_le32(dma_regs+reg, val);
++}
++EXPORT_SYMBOL(pasemi_write_dma_reg);
++
++static int pasemi_alloc_tx_chan(enum pasemi_dmachan_type type)
++{
++	int bit;
++	int start, limit;
++
++	switch (type & (TXCHAN_EVT0|TXCHAN_EVT1)) {
++	case TXCHAN_EVT0:
++		start = 0;
++		limit = 10;
++		break;
++	case TXCHAN_EVT1:
++		start = 10;
++		limit = MAX_TXCH;
++		break;
++	default:
++		start = 0;
++		limit = MAX_TXCH;
++		break;
++	}
++retry:
++	bit = find_next_bit(txch_free, MAX_TXCH, start);
++	if (bit >= limit)
++		return -ENOSPC;
++	if (!test_and_clear_bit(bit, txch_free))
++		goto retry;
++
++	return bit;
++}
++
++static void pasemi_free_tx_chan(int chan)
++{
++	BUG_ON(test_bit(chan, txch_free));
++	set_bit(chan, txch_free);
++}
++
++static int pasemi_alloc_rx_chan(void)
++{
++	int bit;
++retry:
++	bit = find_first_bit(rxch_free, MAX_RXCH);
++	if (bit >= MAX_TXCH)
++		return -ENOSPC;
++	if (!test_and_clear_bit(bit, rxch_free))
++		goto retry;
++
++	return bit;
++}
++
++static void pasemi_free_rx_chan(int chan)
++{
++	BUG_ON(test_bit(chan, rxch_free));
++	set_bit(chan, rxch_free);
++}
++
++/* pasemi_dma_alloc_chan - Allocate a DMA channel
++ * @type: Type of channel to allocate
++ * @total_size: Total size of structure to allocate (to allow for more
++ *		room behind the structure to be used by the client)
++ * @offset: Offset in bytes from start of the total structure to the beginning
++ *	    of struct pasemi_dmachan. Needed when struct pasemi_dmachan is
++ *	    not the first member of the client structure.
++ *
++ * pasemi_dma_alloc_chan allocates a DMA channel for use by a client. The
++ * type argument specifies whether it's a RX or TX channel, and in the case
++ * of TX channels which group it needs to belong to (if any).
++ *
++ * Returns a pointer to the total structure allocated on success, NULL
++ * on failure.
++ */
++void *pasemi_dma_alloc_chan(enum pasemi_dmachan_type type,
++			    int total_size, int offset)
++{
++	void *buf;
++	struct pasemi_dmachan *chan;
++	int chno;
++
++	BUG_ON(total_size < sizeof(struct pasemi_dmachan));
++
++	buf = kzalloc(total_size, GFP_KERNEL);
++
++	if (!buf)
++		return NULL;
++	chan = buf + offset;
++
++	chan->priv = buf;
++
++	switch (type & (TXCHAN|RXCHAN)) {
++	case RXCHAN:
++		chno = pasemi_alloc_rx_chan();
++		chan->chno = chno;
++		chan->irq = irq_create_mapping(NULL,
++					       base_hw_irq + num_txch + chno);
++		chan->status = &dma_status->rx_sta[chno];
++		break;
++	case TXCHAN:
++		chno = pasemi_alloc_tx_chan(type);
++		chan->chno = chno;
++		chan->irq = irq_create_mapping(NULL, base_hw_irq + chno);
++		chan->status = &dma_status->tx_sta[chno];
++		break;
++	}
++
++	chan->chan_type = type;
++
++	return chan;
++}
++EXPORT_SYMBOL(pasemi_dma_alloc_chan);
++
++/* pasemi_dma_free_chan - Free a previously allocated channel
++ * @chan: Channel to free
++ *
++ * Frees a previously allocated channel. It will also deallocate any
++ * descriptor ring associated with the channel, if allocated.
++ */
++void pasemi_dma_free_chan(struct pasemi_dmachan *chan)
++{
++	if (chan->ring_virt)
++		pasemi_dma_free_ring(chan);
++
++	switch (chan->chan_type & (RXCHAN|TXCHAN)) {
++	case RXCHAN:
++		pasemi_free_rx_chan(chan->chno);
++		break;
++	case TXCHAN:
++		pasemi_free_tx_chan(chan->chno);
++		break;
++	}
++
++	kfree(chan->priv);
++}
++EXPORT_SYMBOL(pasemi_dma_free_chan);
++
++/* pasemi_dma_alloc_ring - Allocate descriptor ring for a channel
++ * @chan: Channel for which to allocate
++ * @ring_size: Ring size in 64-bit (8-byte) words
++ *
++ * Allocate a descriptor ring for a channel. Returns 0 on success, errno
++ * on failure. The passed in struct pasemi_dmachan is updated with the
++ * virtual and DMA addresses of the ring.
++ */
++int pasemi_dma_alloc_ring(struct pasemi_dmachan *chan, int ring_size)
++{
++	BUG_ON(chan->ring_virt);
++
++	chan->ring_size = ring_size;
++
++	chan->ring_virt = dma_alloc_coherent(&dma_pdev->dev,
++					     ring_size * sizeof(u64),
++					     &chan->ring_dma, GFP_KERNEL);
++
++	if (!chan->ring_virt)
++		return -ENOMEM;
++
++	memset(chan->ring_virt, 0, ring_size * sizeof(u64));
++
++	return 0;
++}
++EXPORT_SYMBOL(pasemi_dma_alloc_ring);
++
++/* pasemi_dma_free_ring - Free an allocated descriptor ring for a channel
++ * @chan: Channel for which to free the descriptor ring
++ *
++ * Frees a previously allocated descriptor ring for a channel.
++ */
++void pasemi_dma_free_ring(struct pasemi_dmachan *chan)
++{
++	BUG_ON(!chan->ring_virt);
++
++	dma_free_coherent(&dma_pdev->dev, chan->ring_size * sizeof(u64),
++			  chan->ring_virt, chan->ring_dma);
++	chan->ring_virt = NULL;
++	chan->ring_size = 0;
++	chan->ring_dma = 0;
++}
++EXPORT_SYMBOL(pasemi_dma_free_ring);
++
++/* pasemi_dma_start_chan - Start a DMA channel
++ * @chan: Channel to start
++ * @cmdsta: Additional CCMDSTA/TCMDSTA bits to write
++ *
++ * Enables (starts) a DMA channel with optional additional arguments.
++ */
++void pasemi_dma_start_chan(const struct pasemi_dmachan *chan, const u32 cmdsta)
++{
++	if (chan->chan_type == RXCHAN)
++		pasemi_write_dma_reg(PAS_DMA_RXCHAN_CCMDSTA(chan->chno),
++				     cmdsta | PAS_DMA_RXCHAN_CCMDSTA_EN);
++	else
++		pasemi_write_dma_reg(PAS_DMA_TXCHAN_TCMDSTA(chan->chno),
++				     cmdsta | PAS_DMA_TXCHAN_TCMDSTA_EN);
++}
++EXPORT_SYMBOL(pasemi_dma_start_chan);
++
++/* pasemi_dma_stop_chan - Stop a DMA channel
++ * @chan: Channel to stop
++ *
++ * Stops (disables) a DMA channel. This is done by setting the ST bit in the
++ * CMDSTA register and waiting on the ACT (active) bit to clear, then
++ * finally disabling the whole channel.
++ *
++ * This function will only try for a short while for the channel to stop, if
++ * it doesn't it will return failure.
++ *
++ * Returns 1 on success, 0 on failure.
++ */
++#define MAX_RETRIES 5000
++int pasemi_dma_stop_chan(const struct pasemi_dmachan *chan)
++{
++	int reg, retries;
++	u32 sta;
++
++	if (chan->chan_type == RXCHAN) {
++		reg = PAS_DMA_RXCHAN_CCMDSTA(chan->chno);
++		pasemi_write_dma_reg(reg, PAS_DMA_RXCHAN_CCMDSTA_ST);
++		for (retries = 0; retries < MAX_RETRIES; retries++) {
++			sta = pasemi_read_dma_reg(reg);
++			if (!(sta & PAS_DMA_RXCHAN_CCMDSTA_ACT)) {
++				pasemi_write_dma_reg(reg, 0);
++				return 1;
++			}
++			cond_resched();
++		}
++	} else {
++		reg = PAS_DMA_TXCHAN_TCMDSTA(chan->chno);
++		pasemi_write_dma_reg(reg, PAS_DMA_TXCHAN_TCMDSTA_ST);
++		for (retries = 0; retries < MAX_RETRIES; retries++) {
++			sta = pasemi_read_dma_reg(reg);
++			if (!(sta & PAS_DMA_TXCHAN_TCMDSTA_ACT)) {
++				pasemi_write_dma_reg(reg, 0);
++				return 1;
++			}
++			cond_resched();
++		}
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL(pasemi_dma_stop_chan);
++
++/* pasemi_dma_alloc_buf - Allocate a buffer to use for DMA
++ * @chan: Channel to allocate for
++ * @size: Size of buffer in bytes
++ * @handle: DMA handle
++ *
++ * Allocate a buffer to be used by the DMA engine for read/write,
++ * similar to dma_alloc_coherent().
++ *
++ * Returns the virtual address of the buffer, or NULL in case of failure.
++ */
++void *pasemi_dma_alloc_buf(struct pasemi_dmachan *chan, int size,
++			   dma_addr_t *handle)
++{
++	return dma_alloc_coherent(&dma_pdev->dev, size, handle, GFP_KERNEL);
++}
++EXPORT_SYMBOL(pasemi_dma_alloc_buf);
++
++/* pasemi_dma_free_buf - Free a buffer used for DMA
++ * @chan: Channel the buffer was allocated for
++ * @size: Size of buffer in bytes
++ * @handle: DMA handle
++ *
++ * Frees a previously allocated buffer.
++ */
++void pasemi_dma_free_buf(struct pasemi_dmachan *chan, int size,
++			 dma_addr_t *handle)
++{
++	dma_free_coherent(&dma_pdev->dev, size, handle, GFP_KERNEL);
++}
++EXPORT_SYMBOL(pasemi_dma_free_buf);
++
++static void *map_onedev(struct pci_dev *p, int index)
++{
++	struct device_node *dn;
++	void __iomem *ret;
++
++	dn = pci_device_to_OF_node(p);
++	if (!dn)
++		goto fallback;
++
++	ret = of_iomap(dn, index);
++	if (!ret)
++		goto fallback;
++
++	return ret;
++fallback:
++	/* This is hardcoded and ugly, but we have some firmware versions
++	 * that don't provide the register space in the device tree. Luckily
++	 * they are at well-known locations so we can just do the math here.
++	 */
++	return ioremap(0xe0000000 + (p->devfn << 12), 0x2000);
++}
++
++/* pasemi_dma_init - Initialize the PA Semi DMA library
++ *
++ * This function initializes the DMA library. It must be called before
++ * any other function in the library.
++ *
++ * Returns 0 on success, errno on failure.
++ */
++int pasemi_dma_init(void)
++{
++	static spinlock_t init_lock = SPIN_LOCK_UNLOCKED;
++	struct pci_dev *iob_pdev;
++	struct pci_dev *pdev;
++	struct resource res;
++	struct device_node *dn;
++	int i, intf, err = 0;
++	u32 tmp;
++
++	if (!machine_is(pasemi))
++		return -ENODEV;
++
++	spin_lock(&init_lock);
++
++	/* Make sure we haven't already initialized */
++	if (dma_pdev)
++		goto out;
++
++	iob_pdev = pci_get_device(PCI_VENDOR_ID_PASEMI, 0xa001, NULL);
++	if (!iob_pdev) {
++		BUG();
++		printk(KERN_WARNING "Can't find I/O Bridge\n");
++		err = -ENODEV;
++		goto out;
++	}
++	iob_regs = map_onedev(iob_pdev, 0);
++
++	dma_pdev = pci_get_device(PCI_VENDOR_ID_PASEMI, 0xa007, NULL);
++	if (!dma_pdev) {
++		BUG();
++		printk(KERN_WARNING "Can't find DMA controller\n");
++		err = -ENODEV;
++		goto out;
++	}
++	dma_regs = map_onedev(dma_pdev, 0);
++	base_hw_irq = virq_to_hw(dma_pdev->irq);
++
++	pci_read_config_dword(dma_pdev, PAS_DMA_CAP_TXCH, &tmp);
++	num_txch = (tmp & PAS_DMA_CAP_TXCH_TCHN_M) >> PAS_DMA_CAP_TXCH_TCHN_S;
++
++	pci_read_config_dword(dma_pdev, PAS_DMA_CAP_RXCH, &tmp);
++	num_rxch = (tmp & PAS_DMA_CAP_RXCH_RCHN_M) >> PAS_DMA_CAP_RXCH_RCHN_S;
++
++	intf = 0;
++	for (pdev = pci_get_device(PCI_VENDOR_ID_PASEMI, 0xa006, NULL);
++	     pdev;
++	     pdev = pci_get_device(PCI_VENDOR_ID_PASEMI, 0xa006, pdev))
++		mac_regs[intf++] = map_onedev(pdev, 0);
++
++	pci_dev_put(pdev);
++
++	for (pdev = pci_get_device(PCI_VENDOR_ID_PASEMI, 0xa005, NULL);
++	     pdev;
++	     pdev = pci_get_device(PCI_VENDOR_ID_PASEMI, 0xa005, pdev))
++		mac_regs[intf++] = map_onedev(pdev, 0);
++
++	pci_dev_put(pdev);
++
++	dn = pci_device_to_OF_node(iob_pdev);
++	if (dn)
++		err = of_address_to_resource(dn, 1, &res);
++	if (!dn || err) {
++		/* Fallback for old firmware */
++		res.start = 0xfd800000;
++		res.end = res.start + 0x1000;
++	}
++	dma_status = __ioremap(res.start, res.end-res.start, 0);
++	pci_dev_put(iob_pdev);
++
++	for (i = 0; i < MAX_TXCH; i++)
++		__set_bit(i, txch_free);
++
++	for (i = 0; i < MAX_RXCH; i++)
++		__set_bit(i, rxch_free);
++
++	printk(KERN_INFO "PA Semi PWRficient DMA library initialized "
++		"(%d tx, %d rx channels)\n", num_txch, num_rxch);
++
++out:
++	spin_unlock(&init_lock);
++	return err;
++}
+Index: k.org/arch/powerpc/platforms/pasemi/pasemi.h
+===================================================================
+--- k.org.orig/arch/powerpc/platforms/pasemi/pasemi.h
++++ k.org/arch/powerpc/platforms/pasemi/pasemi.h
+@@ -9,6 +9,7 @@ extern void __devinit pas_pci_dma_dev_se
+ extern void __iomem *pasemi_pci_getcfgaddr(struct pci_dev *dev, int offset);
  
- /* MAC CFG register offsets */
+ extern void __init alloc_iobmap_l2(void);
++extern void __init pasemi_map_registers(void);
+ 
+ /* Power savings modes, implemented in asm */
+ extern void idle_spin(void);
+Index: k.org/include/asm-powerpc/pasemi_dma.h
+===================================================================
+--- k.org.orig/include/asm-powerpc/pasemi_dma.h
++++ k.org/include/asm-powerpc/pasemi_dma.h
+@@ -33,11 +33,27 @@ struct pasdma_status {
+  * device. Use the normal PCI config access functions for them.
+  */
  enum {
-@@ -174,333 +171,4 @@ enum {
- #define PAS_MAC_IPC_CHNL_BCH(x)		(((x) << PAS_MAC_IPC_CHNL_BCH_S) & \
- 					 PAS_MAC_IPC_CHNL_BCH_M)
++	PAS_DMA_CAP_TXCH  = 0x44,	/* Transmit Channel Info      */
++	PAS_DMA_CAP_RXCH  = 0x48,	/* Transmit Channel Info      */
++	PAS_DMA_CAP_IFI	  = 0x4c,	/* Interface Info	      */
+ 	PAS_DMA_COM_TXCMD = 0x100,	/* Transmit Command Register  */
+ 	PAS_DMA_COM_TXSTA = 0x104,	/* Transmit Status Register   */
+ 	PAS_DMA_COM_RXCMD = 0x108,	/* Receive Command Register   */
+ 	PAS_DMA_COM_RXSTA = 0x10c,	/* Receive Status Register    */
+ };
++
++
++#define PAS_DMA_CAP_TXCH_TCHN_M	0x00ff0000 /* # of TX channels */
++#define PAS_DMA_CAP_TXCH_TCHN_S	16
++
++#define PAS_DMA_CAP_RXCH_RCHN_M	0x00ff0000 /* # of RX channels */
++#define PAS_DMA_CAP_RXCH_RCHN_S	16
++
++#define PAS_DMA_CAP_IFI_IOFF_M	0xff000000 /* Cfg reg for intf pointers */
++#define PAS_DMA_CAP_IFI_IOFF_S	24
++#define PAS_DMA_CAP_IFI_NIN_M	0x00ff0000 /* # of interfaces */
++#define PAS_DMA_CAP_IFI_NIN_S	16
++
+ #define PAS_DMA_COM_TXCMD_EN	0x00000001 /* enable */
+ #define PAS_DMA_COM_TXSTA_ACT	0x00000001 /* active */
+ #define PAS_DMA_COM_RXCMD_EN	0x00000001 /* enable */
+@@ -388,4 +404,64 @@ enum {
+ 				 CTRL_CMD_REG_M)
  
--/* All these registers live in the PCI configuration space for the DMA PCI
-- * device. Use the normal PCI config access functions for them.
-- */
--enum {
--	PAS_DMA_COM_TXCMD = 0x100,	/* Transmit Command Register  */
--	PAS_DMA_COM_TXSTA = 0x104,	/* Transmit Status Register   */
--	PAS_DMA_COM_RXCMD = 0x108,	/* Receive Command Register   */
--	PAS_DMA_COM_RXSTA = 0x10c,	/* Receive Status Register    */
--};
--#define PAS_DMA_COM_TXCMD_EN	0x00000001 /* enable */
--#define PAS_DMA_COM_TXSTA_ACT	0x00000001 /* active */
--#define PAS_DMA_COM_RXCMD_EN	0x00000001 /* enable */
--#define PAS_DMA_COM_RXSTA_ACT	0x00000001 /* active */
--
--
--/* Per-interface and per-channel registers */
--#define _PAS_DMA_RXINT_STRIDE		0x20
--#define PAS_DMA_RXINT_RCMDSTA(i)	(0x200+(i)*_PAS_DMA_RXINT_STRIDE)
--#define    PAS_DMA_RXINT_RCMDSTA_EN	0x00000001
--#define    PAS_DMA_RXINT_RCMDSTA_ST	0x00000002
--#define    PAS_DMA_RXINT_RCMDSTA_MBT	0x00000008
--#define    PAS_DMA_RXINT_RCMDSTA_MDR	0x00000010
--#define    PAS_DMA_RXINT_RCMDSTA_MOO	0x00000020
--#define    PAS_DMA_RXINT_RCMDSTA_MBP	0x00000040
--#define    PAS_DMA_RXINT_RCMDSTA_BT	0x00000800
--#define    PAS_DMA_RXINT_RCMDSTA_DR	0x00001000
--#define    PAS_DMA_RXINT_RCMDSTA_OO	0x00002000
--#define    PAS_DMA_RXINT_RCMDSTA_BP	0x00004000
--#define    PAS_DMA_RXINT_RCMDSTA_TB	0x00008000
--#define    PAS_DMA_RXINT_RCMDSTA_ACT	0x00010000
--#define    PAS_DMA_RXINT_RCMDSTA_DROPS_M	0xfffe0000
--#define    PAS_DMA_RXINT_RCMDSTA_DROPS_S	17
--#define PAS_DMA_RXINT_CFG(i)		(0x204+(i)*_PAS_DMA_RXINT_STRIDE)
--#define    PAS_DMA_RXINT_CFG_RBP	0x80000000
--#define    PAS_DMA_RXINT_CFG_ITRR	0x40000000
--#define    PAS_DMA_RXINT_CFG_DHL_M	0x07000000
--#define    PAS_DMA_RXINT_CFG_DHL_S	24
--#define    PAS_DMA_RXINT_CFG_DHL(x)	(((x) << PAS_DMA_RXINT_CFG_DHL_S) & \
--					 PAS_DMA_RXINT_CFG_DHL_M)
--#define    PAS_DMA_RXINT_CFG_ITR	0x00400000
--#define    PAS_DMA_RXINT_CFG_LW		0x00200000
--#define    PAS_DMA_RXINT_CFG_L2		0x00100000
--#define    PAS_DMA_RXINT_CFG_HEN	0x00080000
--#define    PAS_DMA_RXINT_CFG_WIF	0x00000002
--#define    PAS_DMA_RXINT_CFG_WIL	0x00000001
--
--#define PAS_DMA_RXINT_INCR(i)		(0x210+(i)*_PAS_DMA_RXINT_STRIDE)
--#define    PAS_DMA_RXINT_INCR_INCR_M	0x0000ffff
--#define    PAS_DMA_RXINT_INCR_INCR_S	0
--#define    PAS_DMA_RXINT_INCR_INCR(x)	((x) & 0x0000ffff)
--#define PAS_DMA_RXINT_BASEL(i)		(0x218+(i)*_PAS_DMA_RXINT_STRIDE)
--#define    PAS_DMA_RXINT_BASEL_BRBL(x)	((x) & ~0x3f)
--#define PAS_DMA_RXINT_BASEU(i)		(0x21c+(i)*_PAS_DMA_RXINT_STRIDE)
--#define    PAS_DMA_RXINT_BASEU_BRBH(x)	((x) & 0xfff)
--#define    PAS_DMA_RXINT_BASEU_SIZ_M	0x3fff0000	/* # of cache lines worth of buffer ring */
--#define    PAS_DMA_RXINT_BASEU_SIZ_S	16		/* 0 = 16K */
--#define    PAS_DMA_RXINT_BASEU_SIZ(x)	(((x) << PAS_DMA_RXINT_BASEU_SIZ_S) & \
--					 PAS_DMA_RXINT_BASEU_SIZ_M)
--
--
--#define _PAS_DMA_TXCHAN_STRIDE	0x20    /* Size per channel		*/
--#define _PAS_DMA_TXCHAN_TCMDSTA	0x300	/* Command / Status		*/
--#define _PAS_DMA_TXCHAN_CFG	0x304	/* Configuration		*/
--#define _PAS_DMA_TXCHAN_DSCRBU	0x308	/* Descriptor BU Allocation	*/
--#define _PAS_DMA_TXCHAN_INCR	0x310	/* Descriptor increment		*/
--#define _PAS_DMA_TXCHAN_CNT	0x314	/* Descriptor count/offset	*/
--#define _PAS_DMA_TXCHAN_BASEL	0x318	/* Descriptor ring base (low)	*/
--#define _PAS_DMA_TXCHAN_BASEU	0x31c	/*			(high)	*/
--#define PAS_DMA_TXCHAN_TCMDSTA(c) (0x300+(c)*_PAS_DMA_TXCHAN_STRIDE)
--#define    PAS_DMA_TXCHAN_TCMDSTA_EN	0x00000001	/* Enabled */
--#define    PAS_DMA_TXCHAN_TCMDSTA_ST	0x00000002	/* Stop interface */
--#define    PAS_DMA_TXCHAN_TCMDSTA_ACT	0x00010000	/* Active */
--#define    PAS_DMA_TXCHAN_TCMDSTA_SZ	0x00000800
--#define    PAS_DMA_TXCHAN_TCMDSTA_DB	0x00000400
--#define    PAS_DMA_TXCHAN_TCMDSTA_DE	0x00000200
--#define    PAS_DMA_TXCHAN_TCMDSTA_DA	0x00000100
--#define PAS_DMA_TXCHAN_CFG(c)     (0x304+(c)*_PAS_DMA_TXCHAN_STRIDE)
--#define    PAS_DMA_TXCHAN_CFG_TY_IFACE	0x00000000	/* Type = interface */
--#define    PAS_DMA_TXCHAN_CFG_TATTR_M	0x0000003c
--#define    PAS_DMA_TXCHAN_CFG_TATTR_S	2
--#define    PAS_DMA_TXCHAN_CFG_TATTR(x)	(((x) << PAS_DMA_TXCHAN_CFG_TATTR_S) & \
--					 PAS_DMA_TXCHAN_CFG_TATTR_M)
--#define    PAS_DMA_TXCHAN_CFG_WT_M	0x000001c0
--#define    PAS_DMA_TXCHAN_CFG_WT_S	6
--#define    PAS_DMA_TXCHAN_CFG_WT(x)	(((x) << PAS_DMA_TXCHAN_CFG_WT_S) & \
--					 PAS_DMA_TXCHAN_CFG_WT_M)
--#define    PAS_DMA_TXCHAN_CFG_TRD	0x00010000	/* translate data */
--#define    PAS_DMA_TXCHAN_CFG_TRR	0x00008000	/* translate rings */
--#define    PAS_DMA_TXCHAN_CFG_UP	0x00004000	/* update tx descr when sent */
--#define    PAS_DMA_TXCHAN_CFG_CL	0x00002000	/* Clean last line */
--#define    PAS_DMA_TXCHAN_CFG_CF	0x00001000	/* Clean first line */
--#define PAS_DMA_TXCHAN_INCR(c)    (0x310+(c)*_PAS_DMA_TXCHAN_STRIDE)
--#define PAS_DMA_TXCHAN_BASEL(c)   (0x318+(c)*_PAS_DMA_TXCHAN_STRIDE)
--#define    PAS_DMA_TXCHAN_BASEL_BRBL_M	0xffffffc0
--#define    PAS_DMA_TXCHAN_BASEL_BRBL_S	0
--#define    PAS_DMA_TXCHAN_BASEL_BRBL(x)	(((x) << PAS_DMA_TXCHAN_BASEL_BRBL_S) & \
--					 PAS_DMA_TXCHAN_BASEL_BRBL_M)
--#define PAS_DMA_TXCHAN_BASEU(c)   (0x31c+(c)*_PAS_DMA_TXCHAN_STRIDE)
--#define    PAS_DMA_TXCHAN_BASEU_BRBH_M	0x00000fff
--#define    PAS_DMA_TXCHAN_BASEU_BRBH_S	0
--#define    PAS_DMA_TXCHAN_BASEU_BRBH(x)	(((x) << PAS_DMA_TXCHAN_BASEU_BRBH_S) & \
--					 PAS_DMA_TXCHAN_BASEU_BRBH_M)
--/* # of cache lines worth of buffer ring */
--#define    PAS_DMA_TXCHAN_BASEU_SIZ_M	0x3fff0000
--#define    PAS_DMA_TXCHAN_BASEU_SIZ_S	16		/* 0 = 16K */
--#define    PAS_DMA_TXCHAN_BASEU_SIZ(x)	(((x) << PAS_DMA_TXCHAN_BASEU_SIZ_S) & \
--					 PAS_DMA_TXCHAN_BASEU_SIZ_M)
--
--#define _PAS_DMA_RXCHAN_STRIDE	0x20    /* Size per channel		*/
--#define _PAS_DMA_RXCHAN_CCMDSTA	0x800	/* Command / Status		*/
--#define _PAS_DMA_RXCHAN_CFG	0x804	/* Configuration		*/
--#define _PAS_DMA_RXCHAN_INCR	0x810	/* Descriptor increment		*/
--#define _PAS_DMA_RXCHAN_CNT	0x814	/* Descriptor count/offset	*/
--#define _PAS_DMA_RXCHAN_BASEL	0x818	/* Descriptor ring base (low)	*/
--#define _PAS_DMA_RXCHAN_BASEU	0x81c	/*			(high)	*/
--#define PAS_DMA_RXCHAN_CCMDSTA(c) (0x800+(c)*_PAS_DMA_RXCHAN_STRIDE)
--#define    PAS_DMA_RXCHAN_CCMDSTA_EN	0x00000001	/* Enabled */
--#define    PAS_DMA_RXCHAN_CCMDSTA_ST	0x00000002	/* Stop interface */
--#define    PAS_DMA_RXCHAN_CCMDSTA_ACT	0x00010000	/* Active */
--#define    PAS_DMA_RXCHAN_CCMDSTA_DU	0x00020000
--#define    PAS_DMA_RXCHAN_CCMDSTA_OD	0x00002000
--#define    PAS_DMA_RXCHAN_CCMDSTA_FD	0x00001000
--#define    PAS_DMA_RXCHAN_CCMDSTA_DT	0x00000800
--#define PAS_DMA_RXCHAN_CFG(c)     (0x804+(c)*_PAS_DMA_RXCHAN_STRIDE)
--#define    PAS_DMA_RXCHAN_CFG_CTR	0x00000400
--#define    PAS_DMA_RXCHAN_CFG_HBU_M	0x00000380
--#define    PAS_DMA_RXCHAN_CFG_HBU_S	7
--#define    PAS_DMA_RXCHAN_CFG_HBU(x)	(((x) << PAS_DMA_RXCHAN_CFG_HBU_S) & \
--					 PAS_DMA_RXCHAN_CFG_HBU_M)
--#define PAS_DMA_RXCHAN_INCR(c)    (0x810+(c)*_PAS_DMA_RXCHAN_STRIDE)
--#define PAS_DMA_RXCHAN_BASEL(c)   (0x818+(c)*_PAS_DMA_RXCHAN_STRIDE)
--#define    PAS_DMA_RXCHAN_BASEL_BRBL_M	0xffffffc0
--#define    PAS_DMA_RXCHAN_BASEL_BRBL_S	0
--#define    PAS_DMA_RXCHAN_BASEL_BRBL(x)	(((x) << PAS_DMA_RXCHAN_BASEL_BRBL_S) & \
--					 PAS_DMA_RXCHAN_BASEL_BRBL_M)
--#define PAS_DMA_RXCHAN_BASEU(c)   (0x81c+(c)*_PAS_DMA_RXCHAN_STRIDE)
--#define    PAS_DMA_RXCHAN_BASEU_BRBH_M	0x00000fff
--#define    PAS_DMA_RXCHAN_BASEU_BRBH_S	0
--#define    PAS_DMA_RXCHAN_BASEU_BRBH(x)	(((x) << PAS_DMA_RXCHAN_BASEU_BRBH_S) & \
--					 PAS_DMA_RXCHAN_BASEU_BRBH_M)
--/* # of cache lines worth of buffer ring */
--#define    PAS_DMA_RXCHAN_BASEU_SIZ_M	0x3fff0000
--#define    PAS_DMA_RXCHAN_BASEU_SIZ_S	16		/* 0 = 16K */
--#define    PAS_DMA_RXCHAN_BASEU_SIZ(x)	(((x) << PAS_DMA_RXCHAN_BASEU_SIZ_S) & \
--					 PAS_DMA_RXCHAN_BASEU_SIZ_M)
--
--#define    PAS_STATUS_PCNT_M		0x000000000000ffffull
--#define    PAS_STATUS_PCNT_S		0
--#define    PAS_STATUS_DCNT_M		0x00000000ffff0000ull
--#define    PAS_STATUS_DCNT_S		16
--#define    PAS_STATUS_BPCNT_M		0x0000ffff00000000ull
--#define    PAS_STATUS_BPCNT_S		32
--#define    PAS_STATUS_CAUSE_M		0xf000000000000000ull
--#define    PAS_STATUS_TIMER		0x1000000000000000ull
--#define    PAS_STATUS_ERROR		0x2000000000000000ull
--#define    PAS_STATUS_SOFT		0x4000000000000000ull
--#define    PAS_STATUS_INT		0x8000000000000000ull
--
--#define PAS_IOB_COM_PKTHDRCNT		0x120
--#define    PAS_IOB_COM_PKTHDRCNT_PKTHDR1_M	0x0fff0000
--#define    PAS_IOB_COM_PKTHDRCNT_PKTHDR1_S	16
--#define    PAS_IOB_COM_PKTHDRCNT_PKTHDR0_M	0x00000fff
--#define    PAS_IOB_COM_PKTHDRCNT_PKTHDR0_S	0
--
--#define PAS_IOB_DMA_RXCH_CFG(i)		(0x1100 + (i)*4)
--#define    PAS_IOB_DMA_RXCH_CFG_CNTTH_M		0x00000fff
--#define    PAS_IOB_DMA_RXCH_CFG_CNTTH_S		0
--#define    PAS_IOB_DMA_RXCH_CFG_CNTTH(x)	(((x) << PAS_IOB_DMA_RXCH_CFG_CNTTH_S) & \
--						 PAS_IOB_DMA_RXCH_CFG_CNTTH_M)
--#define PAS_IOB_DMA_TXCH_CFG(i)		(0x1200 + (i)*4)
--#define    PAS_IOB_DMA_TXCH_CFG_CNTTH_M		0x00000fff
--#define    PAS_IOB_DMA_TXCH_CFG_CNTTH_S		0
--#define    PAS_IOB_DMA_TXCH_CFG_CNTTH(x)	(((x) << PAS_IOB_DMA_TXCH_CFG_CNTTH_S) & \
--						 PAS_IOB_DMA_TXCH_CFG_CNTTH_M)
--#define PAS_IOB_DMA_RXCH_STAT(i)	(0x1300 + (i)*4)
--#define    PAS_IOB_DMA_RXCH_STAT_INTGEN	0x00001000
--#define    PAS_IOB_DMA_RXCH_STAT_CNTDEL_M	0x00000fff
--#define    PAS_IOB_DMA_RXCH_STAT_CNTDEL_S	0
--#define    PAS_IOB_DMA_RXCH_STAT_CNTDEL(x)	(((x) << PAS_IOB_DMA_RXCH_STAT_CNTDEL_S) &\
--						 PAS_IOB_DMA_RXCH_STAT_CNTDEL_M)
--#define PAS_IOB_DMA_TXCH_STAT(i)	(0x1400 + (i)*4)
--#define    PAS_IOB_DMA_TXCH_STAT_INTGEN	0x00001000
--#define    PAS_IOB_DMA_TXCH_STAT_CNTDEL_M	0x00000fff
--#define    PAS_IOB_DMA_TXCH_STAT_CNTDEL_S	0
--#define    PAS_IOB_DMA_TXCH_STAT_CNTDEL(x)	(((x) << PAS_IOB_DMA_TXCH_STAT_CNTDEL_S) &\
--						 PAS_IOB_DMA_TXCH_STAT_CNTDEL_M)
--#define PAS_IOB_DMA_RXCH_RESET(i)	(0x1500 + (i)*4)
--#define    PAS_IOB_DMA_RXCH_RESET_PCNT_M	0xffff0000
--#define    PAS_IOB_DMA_RXCH_RESET_PCNT_S	16
--#define    PAS_IOB_DMA_RXCH_RESET_PCNT(x)	(((x) << PAS_IOB_DMA_RXCH_RESET_PCNT_S) & \
--						 PAS_IOB_DMA_RXCH_RESET_PCNT_M)
--#define    PAS_IOB_DMA_RXCH_RESET_PCNTRST	0x00000020
--#define    PAS_IOB_DMA_RXCH_RESET_DCNTRST	0x00000010
--#define    PAS_IOB_DMA_RXCH_RESET_TINTC		0x00000008
--#define    PAS_IOB_DMA_RXCH_RESET_DINTC		0x00000004
--#define    PAS_IOB_DMA_RXCH_RESET_SINTC		0x00000002
--#define    PAS_IOB_DMA_RXCH_RESET_PINTC		0x00000001
--#define PAS_IOB_DMA_TXCH_RESET(i)	(0x1600 + (i)*4)
--#define    PAS_IOB_DMA_TXCH_RESET_PCNT_M	0xffff0000
--#define    PAS_IOB_DMA_TXCH_RESET_PCNT_S	16
--#define    PAS_IOB_DMA_TXCH_RESET_PCNT(x)	(((x) << PAS_IOB_DMA_TXCH_RESET_PCNT_S) & \
--						 PAS_IOB_DMA_TXCH_RESET_PCNT_M)
--#define    PAS_IOB_DMA_TXCH_RESET_PCNTRST	0x00000020
--#define    PAS_IOB_DMA_TXCH_RESET_DCNTRST	0x00000010
--#define    PAS_IOB_DMA_TXCH_RESET_TINTC		0x00000008
--#define    PAS_IOB_DMA_TXCH_RESET_DINTC		0x00000004
--#define    PAS_IOB_DMA_TXCH_RESET_SINTC		0x00000002
--#define    PAS_IOB_DMA_TXCH_RESET_PINTC		0x00000001
--
--#define PAS_IOB_DMA_COM_TIMEOUTCFG		0x1700
--#define    PAS_IOB_DMA_COM_TIMEOUTCFG_TCNT_M	0x00ffffff
--#define    PAS_IOB_DMA_COM_TIMEOUTCFG_TCNT_S	0
--#define    PAS_IOB_DMA_COM_TIMEOUTCFG_TCNT(x)	(((x) << PAS_IOB_DMA_COM_TIMEOUTCFG_TCNT_S) & \
--						 PAS_IOB_DMA_COM_TIMEOUTCFG_TCNT_M)
--
--/* Transmit descriptor fields */
--#define	XCT_MACTX_T		0x8000000000000000ull
--#define	XCT_MACTX_ST		0x4000000000000000ull
--#define XCT_MACTX_NORES		0x0000000000000000ull
--#define XCT_MACTX_8BRES		0x1000000000000000ull
--#define XCT_MACTX_24BRES	0x2000000000000000ull
--#define XCT_MACTX_40BRES	0x3000000000000000ull
--#define XCT_MACTX_I		0x0800000000000000ull
--#define XCT_MACTX_O		0x0400000000000000ull
--#define XCT_MACTX_E		0x0200000000000000ull
--#define XCT_MACTX_VLAN_M	0x0180000000000000ull
--#define XCT_MACTX_VLAN_NOP	0x0000000000000000ull
--#define XCT_MACTX_VLAN_REMOVE	0x0080000000000000ull
--#define XCT_MACTX_VLAN_INSERT   0x0100000000000000ull
--#define XCT_MACTX_VLAN_REPLACE  0x0180000000000000ull
--#define XCT_MACTX_CRC_M		0x0060000000000000ull
--#define XCT_MACTX_CRC_NOP	0x0000000000000000ull
--#define XCT_MACTX_CRC_INSERT	0x0020000000000000ull
--#define XCT_MACTX_CRC_PAD	0x0040000000000000ull
--#define XCT_MACTX_CRC_REPLACE	0x0060000000000000ull
--#define XCT_MACTX_SS		0x0010000000000000ull
--#define XCT_MACTX_LLEN_M	0x00007fff00000000ull
--#define XCT_MACTX_LLEN_S	32ull
--#define XCT_MACTX_LLEN(x)	((((long)(x)) << XCT_MACTX_LLEN_S) & \
--				 XCT_MACTX_LLEN_M)
--#define XCT_MACTX_IPH_M		0x00000000f8000000ull
--#define XCT_MACTX_IPH_S		27ull
--#define XCT_MACTX_IPH(x)	((((long)(x)) << XCT_MACTX_IPH_S) & \
--				 XCT_MACTX_IPH_M)
--#define XCT_MACTX_IPO_M		0x0000000007c00000ull
--#define XCT_MACTX_IPO_S		22ull
--#define XCT_MACTX_IPO(x)	((((long)(x)) << XCT_MACTX_IPO_S) & \
--				 XCT_MACTX_IPO_M)
--#define XCT_MACTX_CSUM_M	0x0000000000000060ull
--#define XCT_MACTX_CSUM_NOP	0x0000000000000000ull
--#define XCT_MACTX_CSUM_TCP	0x0000000000000040ull
--#define XCT_MACTX_CSUM_UDP	0x0000000000000060ull
--#define XCT_MACTX_V6		0x0000000000000010ull
--#define XCT_MACTX_C		0x0000000000000004ull
--#define XCT_MACTX_AL2		0x0000000000000002ull
--
--/* Receive descriptor fields */
--#define	XCT_MACRX_T		0x8000000000000000ull
--#define	XCT_MACRX_ST		0x4000000000000000ull
--#define XCT_MACRX_RR_M		0x3000000000000000ull
--#define XCT_MACRX_RR_NORES	0x0000000000000000ull
--#define XCT_MACRX_RR_8BRES	0x1000000000000000ull
--#define XCT_MACRX_O		0x0400000000000000ull
--#define XCT_MACRX_E		0x0200000000000000ull
--#define XCT_MACRX_FF		0x0100000000000000ull
--#define XCT_MACRX_PF		0x0080000000000000ull
--#define XCT_MACRX_OB		0x0040000000000000ull
--#define XCT_MACRX_OD		0x0020000000000000ull
--#define XCT_MACRX_FS		0x0010000000000000ull
--#define XCT_MACRX_NB_M		0x000fc00000000000ull
--#define XCT_MACRX_NB_S		46ULL
--#define XCT_MACRX_NB(x)		((((long)(x)) << XCT_MACRX_NB_S) & \
--				 XCT_MACRX_NB_M)
--#define XCT_MACRX_LLEN_M	0x00003fff00000000ull
--#define XCT_MACRX_LLEN_S	32ULL
--#define XCT_MACRX_LLEN(x)	((((long)(x)) << XCT_MACRX_LLEN_S) & \
--				 XCT_MACRX_LLEN_M)
--#define XCT_MACRX_CRC		0x0000000080000000ull
--#define XCT_MACRX_LEN_M		0x0000000060000000ull
--#define XCT_MACRX_LEN_TOOSHORT	0x0000000020000000ull
--#define XCT_MACRX_LEN_BELOWMIN	0x0000000040000000ull
--#define XCT_MACRX_LEN_TRUNC	0x0000000060000000ull
--#define XCT_MACRX_CAST_M	0x0000000018000000ull
--#define XCT_MACRX_CAST_UNI	0x0000000000000000ull
--#define XCT_MACRX_CAST_MULTI	0x0000000008000000ull
--#define XCT_MACRX_CAST_BROAD	0x0000000010000000ull
--#define XCT_MACRX_CAST_PAUSE	0x0000000018000000ull
--#define XCT_MACRX_VLC_M		0x0000000006000000ull
--#define XCT_MACRX_FM		0x0000000001000000ull
--#define XCT_MACRX_HTY_M		0x0000000000c00000ull
--#define XCT_MACRX_HTY_IPV4_OK	0x0000000000000000ull
--#define XCT_MACRX_HTY_IPV6 	0x0000000000400000ull
--#define XCT_MACRX_HTY_IPV4_BAD	0x0000000000800000ull
--#define XCT_MACRX_HTY_NONIP	0x0000000000c00000ull
--#define XCT_MACRX_IPP_M		0x00000000003f0000ull
--#define XCT_MACRX_IPP_S		16
--#define XCT_MACRX_CSUM_M	0x000000000000ffffull
--#define XCT_MACRX_CSUM_S	0
--
--#define XCT_PTR_T		0x8000000000000000ull
--#define XCT_PTR_LEN_M		0x7ffff00000000000ull
--#define XCT_PTR_LEN_S		44
--#define XCT_PTR_LEN(x)		((((long)(x)) << XCT_PTR_LEN_S) & \
--				 XCT_PTR_LEN_M)
--#define XCT_PTR_ADDR_M		0x00000fffffffffffull
--#define XCT_PTR_ADDR_S		0
--#define XCT_PTR_ADDR(x)		((((long)(x)) << XCT_PTR_ADDR_S) & \
--				 XCT_PTR_ADDR_M)
--
--/* Receive interface 8byte result fields */
--#define XCT_RXRES_8B_L4O_M	0xff00000000000000ull
--#define XCT_RXRES_8B_L4O_S	56
--#define XCT_RXRES_8B_RULE_M	0x00ffff0000000000ull
--#define XCT_RXRES_8B_RULE_S	40
--#define XCT_RXRES_8B_EVAL_M	0x000000ffff000000ull
--#define XCT_RXRES_8B_EVAL_S	24
--#define XCT_RXRES_8B_HTYPE_M	0x0000000000f00000ull
--#define XCT_RXRES_8B_HASH_M	0x00000000000fffffull
--#define XCT_RXRES_8B_HASH_S	0
--
--/* Receive interface buffer fields */
--#define XCT_RXB_LEN_M		0x0ffff00000000000ull
--#define XCT_RXB_LEN_S		44
--#define XCT_RXB_LEN(x)		((((long)(x)) << XCT_PTR_LEN_S) & XCT_PTR_LEN_M)
--#define XCT_RXB_ADDR_M		0x00000fffffffffffull
--#define XCT_RXB_ADDR_S		0
--#define XCT_RXB_ADDR(x)		((((long)(x)) << XCT_PTR_ADDR_S) & XCT_PTR_ADDR_M)
--
--
- #endif /* PASEMI_MAC_H */
+ 
++
++/* Prototypes for the shared DMA functions in the platform code. */
++
++/* DMA TX Channel type. Right now only limitations used are event types 0/1,
++ * for event-triggered DMA transactions.
++ */
++
++enum pasemi_dmachan_type {
++	RXCHAN = 0,		/* Any RX chan */
++	TXCHAN = 1,		/* Any TX chan */
++	TXCHAN_EVT0 = 0x1001,	/* TX chan in event class 0 (chan 0-9) */
++	TXCHAN_EVT1 = 0x2001,	/* TX chan in event class 1 (chan 10-19) */
++};
++
++struct pasemi_dmachan {
++	int		 chno;		/* Channel number */
++	enum pasemi_dmachan_type chan_type;	/* TX / RX */
++	u64		*status;	/* Ptr to cacheable status */
++	int		 irq;		/* IRQ used by channel */
++	unsigned int	 ring_size;	/* size of allocated ring */
++	dma_addr_t	 ring_dma;	/* DMA address for ring */
++	u64		*ring_virt;	/* Virt address for ring */
++	void		*priv;		/* Ptr to start of client struct */
++};
++
++/* Read/write the different registers in the I/O Bridge, Ethernet
++ * and DMA Controller
++ */
++extern unsigned int pasemi_read_iob_reg(unsigned int reg);
++extern void pasemi_write_iob_reg(unsigned int reg, unsigned int val);
++
++extern unsigned int pasemi_read_mac_reg(int intf, unsigned int reg);
++extern void pasemi_write_mac_reg(int intf, unsigned int reg, unsigned int val);
++
++extern unsigned int pasemi_read_dma_reg(unsigned int reg);
++extern void pasemi_write_dma_reg(unsigned int reg, unsigned int val);
++
++/* Channel management routines */
++
++extern void *pasemi_dma_alloc_chan(enum pasemi_dmachan_type type,
++				   int total_size, int offset);
++extern void pasemi_dma_free_chan(struct pasemi_dmachan *chan);
++
++extern void pasemi_dma_start_chan(const struct pasemi_dmachan *chan,
++				  const u32 cmdsta);
++extern int pasemi_dma_stop_chan(const struct pasemi_dmachan *chan);
++
++/* Common routines to allocate rings and buffers */
++
++extern int pasemi_dma_alloc_ring(struct pasemi_dmachan *chan, int ring_size);
++extern void pasemi_dma_free_ring(struct pasemi_dmachan *chan);
++
++extern void *pasemi_dma_alloc_buf(struct pasemi_dmachan *chan, int size,
++				  dma_addr_t *handle);
++extern void pasemi_dma_free_buf(struct pasemi_dmachan *chan, int size,
++				dma_addr_t *handle);
++
++/* Initialize the library, must be called before any other functions */
++extern int pasemi_dma_init(void);
++
+ #endif /* ASM_PASEMI_DMA_H */
