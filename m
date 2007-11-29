@@ -1,32 +1,35 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] [NET]: Fix TX bug VLAN in VLAN
-Date: Thu, 29 Nov 2007 22:19:03 +1100
-Message-ID: <20071129111903.GI22537@gondor.apana.org.au>
-References: <003f01c82dca$305acd40$9c94fea9@jason> <20071126112631.GA26599@gondor.apana.org.au> <b25c3fa70711262132r3f88db02mcede6d14b82d5fc0@mail.gmail.com> <20071127063859.GB2942@gondor.apana.org.au> <002801c830c3$783319f0$9c94fea9@jason>
+Subject: Re: [PATCH 1/2] [IPV4] UDP: Always checksum even if without socket filter
+Date: Thu, 29 Nov 2007 23:01:12 +1100
+Message-ID: <20071129120112.GJ22537@gondor.apana.org.au>
+References: <20071119.142313.63549156.davem@davemloft.net> <20071120002945.91fafb2b.billfink@mindspring.com> <20071120140518.GA1502@one.firstfloor.org> <20071120.173928.53148729.davem@davemloft.net> <474E707A.3080106@cn.fujitsu.com> <20071129092136.GB30066@gondor.apana.org.au> <474E8F9E.7040309@cn.fujitsu.com> <20071129105648.GB17629@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, tristan_schmelcher@alumni.uwaterloo.ca,
-	acme@ghostprotocols.net
-To: Joonwoo Park <joonwpark81@gmail.com>
+Cc: Wang Chen <wangchen@cn.fujitsu.com>,
+	David Miller <davem@davemloft.net>, andi@firstfloor.org,
+	netdev@vger.kernel.org, bfields@fieldses.org, neilb@suse.de
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2414 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:2753 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752648AbXK2LTI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 06:19:08 -0500
+	with ESMTP id S1762927AbXK2MBZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 07:01:25 -0500
 Content-Disposition: inline
-In-Reply-To: <002801c830c3$783319f0$9c94fea9@jason>
+In-Reply-To: <20071129105648.GB17629@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 27, 2007 at 04:02:19PM +0900, Joonwoo Park wrote:
-> 
-> [NET]: Fix TX bug VLAN in VLAN
-> Fix misbehavior of vlan_dev_hard_start_xmit() for recursive encapsulations.
-> 
-> Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
+On Thu, Nov 29, 2007 at 10:56:48AM +0000, Gerrit Renker wrote:
+>
+> | -   InDatagrams:     Total number of received datagrams.
+> | +   InDatagrams:     The total number of UDP datagrams delivered to UDP users.
+> You are in the UDP-Lite documentation -- it should read "UDP-Lite", not UDP.
 
-Applied to net-2.6.  Thanks!
+We could just drop the mention of UDP completely:
+
+	The total number of datagrams delivered to applications.
+
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
