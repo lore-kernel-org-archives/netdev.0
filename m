@@ -1,48 +1,40 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: [PATCH]: fix lro_gen_skb() alignment
-Date: Fri, 30 Nov 2007 14:35:43 -0500
-Message-ID: <4750660F.7000704@myri.com>
-References: <E1Iy2ey-0005eY-00@gondolin.me.apana.org.au>	<475057E4.3000909@myri.com> <ada3aunlf4s.fsf@cisco.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 2/11] ibm_newemac: Add ET1011c PHY support
+Date: Sat, 01 Dec 2007 07:59:16 +1100
+Message-ID: <1196456356.13230.104.camel@pasglop>
+References: <1196401223.5661.297518056501.qpush@grosgo>
+	<20071130054126.E3EFADDE0C@ozlabs.org>
+	<20071130142904.GC3117@lixom.net>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
-	ossthema@de.ibm.com, netdev@vger.kernel.org
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1924 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755035AbXK3Tgy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Nov 2007 14:36:54 -0500
-In-Reply-To: <ada3aunlf4s.fsf@cisco.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, linuxppc-dev@ozlabs.org
+To: Olof Johansson <olof@lixom.net>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <20071130142904.GC3117@lixom.net>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Roland Dreier wrote:
->  > >> -       skb = netdev_alloc_skb(lro_mgr->dev, hlen);
->  > >> +       skb = netdev_alloc_skb(lro_mgr->dev, hlen + NET_IP_ALIGN);
->  > > NET_IP_ALIGN should only be used if you're DMAing into the skb head.
->  > > Otherwise you should say 2.  It would be nice to have another macro
->  > > for that I suppose.
->  > 
->  > It is certainly simple enough to say 2.  Thank you for pointing
->  > this out.  I have attached a patch to do that..
->  > 
->  > Signed off by: Andrew Gallatin <gallatin@myri.com>
+
+On Fri, 2007-11-30 at 08:29 -0600, Olof Johansson wrote:
+> Hi,
 > 
-> Isn't the value of 2 ethernet-specific (to round the 14-byte header up
-> to 16)?  Given that the rest of the lro code is fairly careful to
-> calculate mac_hdr_len etc it seems as if it would be cleaner to make
-> this independent of the specific L2 being used.
+> On Fri, Nov 30, 2007 at 04:40:24PM +1100, Benjamin Herrenschmidt wrote:
 > 
-> (And I plan on using the LRO module for IP-over-InfiniBand so this is
-> not completely theoretical)
+> > This adds support for the Agere ET1011c PHY as found on the AMCC Taishan
+> > board.
+> 
+> The whole patch has whitespace messed up (tabs vs spaces).
 
-Good point.  I tend to think all the world is ethernet.
-Perhaps the better way would be to simply add an alignment pad
-field to lro_mgr?  When the driver initializes it, it specifies
-any padding needed.  Ethernet drivers would specify 2.
+Thanks for noticing it on the ...3rd time those are sent to the list...
 
-Is this acceptable?
-
-Drew
+Ben.
