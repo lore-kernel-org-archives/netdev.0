@@ -1,34 +1,24 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: net-2.6.25 rebased
-Date: Sat, 1 Dec 2007 00:32:36 +1100
-Message-ID: <20071130133236.GA6622@gondor.apana.org.au>
-References: <20071129143219.GA2886@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4627 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1762418AbXK3Nci (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2007 08:32:38 -0500
-Received: from gondolin.me.apana.org.au ([192.168.0.6] ident=mail)
-	by arnor.apana.org.au with esmtp (Exim 4.50 #1 (Debian))
-	id 1Iy5yv-0003g5-AD
-	for <netdev@vger.kernel.org>; Sat, 01 Dec 2007 00:32:37 +1100
-Received: from herbert by gondolin.me.apana.org.au with local (Exim 3.36 #1 (Debian))
-	id 1Iy5yv-0001p7-00
-	for <netdev@vger.kernel.org>; Sat, 01 Dec 2007 00:32:37 +1100
-Content-Disposition: inline
-In-Reply-To: <20071129143219.GA2886@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Subject: Re: [PATCH] AF_RXRPC: Configure crypto correctly for AF_RXRPC
+Date: Sat, 01 Dec 2007 00:36:38 +1100
+Message-ID: <E1Iy62o-0002OV-00@gondolin.me.apana.org.au>
+References: <20071130121147.GB2665@elte.hu>
+Cc: herbert@gondor.apana.org.au, dhowells@redhat.com,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: mingo@elte.hu (Ingo Molnar)
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934970AbXK3NhQ@vger.kernel.org>
+In-Reply-To: <20071130121147.GB2665@elte.hu>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 30, 2007 at 01:32:19AM +1100, Herbert Xu wrote:
+Ingo Molnar <mingo@elte.hu> wrote:
+>
+>> Patch applied to net-2.6.  Thanks.
 > 
-> Just to let you all know that I've just rebased net-2.6.25 so that it now
-> contains all of net-2.6 as it currently stands.
+> aimed at 2.6.24 merging, right?
 
-I've rebased it again.
+Yep.  net-2.6 is for 2.6.24 while net-2.6.25 is for 2.6.25.
 
 Cheers,
 -- 
