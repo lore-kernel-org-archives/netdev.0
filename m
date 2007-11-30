@@ -1,7 +1,8 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 1/4 net-2.6.25][UNIX] Extend unix_sysctl_(un)register prototypes
-Date: Fri, 30 Nov 2007 19:26:51 +0300
-Message-ID: <475039CB.5010204@openvz.org>
+Subject: [PATCH 2/4 net-2.6.25][UNIX] Move the sysctl_unix_max_dgram_qlen
+ on struct net
+Date: Fri, 30 Nov 2007 19:29:03 +0300
+Message-ID: <47503A4F.9060402@openvz.org>
 References: <47503919.8060103@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -12,86 +13,82 @@ Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
 	Daniel Lezcano <dlezcano@fr.ibm.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:58280 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:33520 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761232AbXK3Q1n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Nov 2007 11:27:43 -0500
+	id S933612AbXK3Qa2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Nov 2007 11:30:28 -0500
 In-Reply-To: <47503919.8060103@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add the struct net * argument to both of them to use in 
-the future. Also make the register one return an error code. 
+This will make all the sub-namespaces always use the
+default value (10) and leave the tuning via sysctl
+to the init namespace only.
 
-It is useless right now, but will make the future patches
-much simpler.
+Per-namespace tuning is coming.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
 
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index a1c805d..e0fba26 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -60,11 +60,11 @@ struct unix_sock {
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 235214c..b0cf075 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -38,6 +38,9 @@ struct net {
+ 	/* List of all packet sockets. */
+ 	rwlock_t		packet_sklist_lock;
+ 	struct hlist_head	packet_sklist;
++
++	/* unix sockets */
++	int			sysctl_unix_max_dgram_qlen;
+ };
  
- #ifdef CONFIG_SYSCTL
- extern int sysctl_unix_max_dgram_qlen;
--extern void unix_sysctl_register(void);
--extern void unix_sysctl_unregister(void);
-+extern int unix_sysctl_register(struct net *net);
-+extern void unix_sysctl_unregister(struct net *net);
- #else
--static inline void unix_sysctl_register(void) {}
--static inline void unix_sysctl_unregister(void) {}
-+static inline int unix_sysctl_register(struct net *net) { return 0; }
-+static inline void unix_sysctl_unregister(struct net *net) {}
- #endif
- #endif
- #endif
+ #ifdef CONFIG_NET
 diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 393197a..a0aa6d3 100644
+index a0aa6d3..73620d6 100644
 --- a/net/unix/af_unix.c
 +++ b/net/unix/af_unix.c
-@@ -2175,7 +2175,7 @@ static int __init af_unix_init(void)
+@@ -117,8 +117,6 @@
+ #include <net/checksum.h>
+ #include <linux/security.h>
  
- 	sock_register(&unix_family_ops);
- 	register_pernet_subsys(&unix_net_ops);
--	unix_sysctl_register();
-+	unix_sysctl_register(&init_net);
- out:
- 	return rc;
- }
-@@ -2183,7 +2183,7 @@ out:
- static void __exit af_unix_exit(void)
+-int sysctl_unix_max_dgram_qlen __read_mostly = 10;
+-
+ static struct hlist_head unix_socket_table[UNIX_HASH_SIZE + 1];
+ static DEFINE_SPINLOCK(unix_table_lock);
+ static atomic_t unix_nr_socks = ATOMIC_INIT(0);
+@@ -594,7 +592,7 @@ static struct sock * unix_create1(struct net *net, struct socket *sock)
+ 				&af_unix_sk_receive_queue_lock_key);
+ 
+ 	sk->sk_write_space	= unix_write_space;
+-	sk->sk_max_ack_backlog	= sysctl_unix_max_dgram_qlen;
++	sk->sk_max_ack_backlog	= net->sysctl_unix_max_dgram_qlen;
+ 	sk->sk_destruct		= unix_sock_destructor;
+ 	u	  = unix_sk(sk);
+ 	u->dentry = NULL;
+@@ -2140,6 +2138,8 @@ static int unix_net_init(struct net *net)
  {
- 	sock_unregister(PF_UNIX);
--	unix_sysctl_unregister();
-+	unix_sysctl_unregister(&init_net);
- 	proto_unregister(&unix_proto);
- 	unregister_pernet_subsys(&unix_net_ops);
- }
+ 	int error = -ENOMEM;
+ 
++	net->sysctl_unix_max_dgram_qlen = 10;
++
+ #ifdef CONFIG_PROC_FS
+ 	if (!proc_net_fops_create(net, "unix", 0, &unix_seq_fops))
+ 		goto out;
 diff --git a/net/unix/sysctl_net_unix.c b/net/unix/sysctl_net_unix.c
-index eb0bd57..b2e0407 100644
+index b2e0407..c46cec0 100644
 --- a/net/unix/sysctl_net_unix.c
 +++ b/net/unix/sysctl_net_unix.c
-@@ -48,12 +48,13 @@ static ctl_table unix_root_table[] = {
- 
- static struct ctl_table_header * unix_sysctl_header;
- 
--void unix_sysctl_register(void)
-+int unix_sysctl_register(struct net *net)
- {
- 	unix_sysctl_header = register_sysctl_table(unix_root_table);
-+	return unix_sysctl_header == NULL ? -ENOMEM : 0;
- }
- 
--void unix_sysctl_unregister(void)
-+void unix_sysctl_unregister(struct net *net)
- {
- 	unregister_sysctl_table(unix_sysctl_header);
- }
+@@ -18,7 +18,7 @@ static ctl_table unix_table[] = {
+ 	{
+ 		.ctl_name	= NET_UNIX_MAX_DGRAM_QLEN,
+ 		.procname	= "max_dgram_qlen",
+-		.data		= &sysctl_unix_max_dgram_qlen,
++		.data		= &init_net.sysctl_unix_max_dgram_qlen,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec
 -- 
 1.5.3.4
 
