@@ -1,160 +1,74 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.25 3/3][IPV4] Use ctl paths to register devinet sysctls
-Date: Fri, 30 Nov 2007 21:32:04 +0300
-Message-ID: <47505724.7060509@openvz.org>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: [PATCH]: fix lro_gen_skb() alignment
+Date: Fri, 30 Nov 2007 13:35:16 -0500
+Message-ID: <475057E4.3000909@myri.com>
+References: <E1Iy2ey-0005eY-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+Content-Type: multipart/mixed;
+ boundary="------------000004090007080503060901"
+Cc: davem@davemloft.net, ossthema@de.ibm.com, netdev@vger.kernel.org
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:33310 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758856AbXK3ScR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Nov 2007 13:32:17 -0500
+Received: from mailbox2.myri.com ([64.172.73.26]:1855 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1761214AbXK3SgG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Nov 2007 13:36:06 -0500
+In-Reply-To: <E1Iy2ey-0005eY-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This looks very much like the patch for neighbors.
+This is a multi-part message in MIME format.
+--------------000004090007080503060901
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-The path is also located on the stack and is prepared
-inside the function. This time, the call to the registering
-function is guarded with the RTNL lock, but I decided
-to keep it on the stack not to litter the devinet.c file
-with unneeded names and to make it look similar to the
-neighbors code.
+Herbert Xu wrote:
+> Andrew Gallatin <gallatin@myri.com> wrote:
+>> diff --git a/net/ipv4/inet_lro.c b/net/ipv4/inet_lro.c
+>> index ac3b1d3..91e9371 100644
+>> --- a/net/ipv4/inet_lro.c
+>> +++ b/net/ipv4/inet_lro.c
+>> @@ -401,10 +401,11 @@ static struct sk_buff *lro_gen_skb(struc
+>>        int data_len = len;
+>>        int hdr_len = min(len, hlen);
+>>
+>> -       skb = netdev_alloc_skb(lro_mgr->dev, hlen);
+>> +       skb = netdev_alloc_skb(lro_mgr->dev, hlen + NET_IP_ALIGN);
+> 
+> NET_IP_ALIGN should only be used if you're DMAing into the skb head.
+> Otherwise you should say 2.  It would be nice to have another macro
+> for that I suppose.
 
-This is also intended to help us with the net namespaces
-and saves the vmlinux size as well - this time by more 
-than 670 bytes.
+It is certainly simple enough to say 2.  Thank you for pointing
+this out.  I have attached a patch to do that..
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Signed off by: Andrew Gallatin <gallatin@myri.com>
 
----
+Drew
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index f65c350..e3ac78a 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1432,11 +1432,8 @@ int ipv4_doint_and_flush_strategy(ctl_table *table, int __user *name, int nlen,
- 
- static struct devinet_sysctl_table {
- 	struct ctl_table_header *sysctl_header;
--	ctl_table		devinet_vars[__NET_IPV4_CONF_MAX];
--	ctl_table		devinet_dev[2];
--	ctl_table		devinet_conf_dir[2];
--	ctl_table		devinet_proto_dir[2];
--	ctl_table		devinet_root_dir[2];
-+	struct ctl_table devinet_vars[__NET_IPV4_CONF_MAX];
-+	char *dev_name;
- } devinet_sysctl = {
- 	.devinet_vars = {
- 		DEVINET_SYSCTL_COMPLEX_ENTRY(FORWARDING, "forwarding",
-@@ -1468,38 +1465,6 @@ static struct devinet_sysctl_table {
- 		DEVINET_SYSCTL_FLUSHING_ENTRY(PROMOTE_SECONDARIES,
- 					      "promote_secondaries"),
- 	},
--	.devinet_dev = {
--		{
--			.ctl_name	= NET_PROTO_CONF_ALL,
--			.procname	= "all",
--			.mode		= 0555,
--			.child		= devinet_sysctl.devinet_vars,
--		},
--	},
--	.devinet_conf_dir = {
--		{
--			.ctl_name	= NET_IPV4_CONF,
--			.procname	= "conf",
--			.mode		= 0555,
--			.child		= devinet_sysctl.devinet_dev,
--		},
--	},
--	.devinet_proto_dir = {
--		{
--			.ctl_name	= NET_IPV4,
--			.procname	= "ipv4",
--			.mode		= 0555,
--			.child 		= devinet_sysctl.devinet_conf_dir,
--		},
--	},
--	.devinet_root_dir = {
--		{
--			.ctl_name	= CTL_NET,
--			.procname 	= "net",
--			.mode		= 0555,
--			.child		= devinet_sysctl.devinet_proto_dir,
--		},
--	},
- };
- 
- static void __devinet_sysctl_register(char *dev_name, int ctl_name,
-@@ -1508,6 +1473,16 @@ static void __devinet_sysctl_register(char *dev_name, int ctl_name,
- 	int i;
- 	struct devinet_sysctl_table *t;
- 
-+#define DEVINET_CTL_PATH_DEV	3
-+
-+	struct ctl_path devinet_ctl_path[] = {
-+		{ .procname = "net", .ctl_name = CTL_NET, },
-+		{ .procname = "ipv4", .ctl_name = NET_IPV4, },
-+		{ .procname = "conf", .ctl_name = NET_IPV4_CONF, },
-+		{ /* to be set */ },
-+		{ },
-+	};
-+
- 	t = kmemdup(&devinet_sysctl, sizeof(*t), GFP_KERNEL);
- 	if (!t)
- 		goto out;
-@@ -1517,24 +1492,20 @@ static void __devinet_sysctl_register(char *dev_name, int ctl_name,
- 		t->devinet_vars[i].extra1 = p;
- 	}
- 
--	t->devinet_dev[0].ctl_name = ctl_name;
--
- 	/*
- 	 * Make a copy of dev_name, because '.procname' is regarded as const
- 	 * by sysctl and we wouldn't want anyone to change it under our feet
- 	 * (see SIOCSIFNAME).
- 	 */
--	dev_name = kstrdup(dev_name, GFP_KERNEL);
--	if (!dev_name)
-+	t->dev_name = kstrdup(dev_name, GFP_KERNEL);
-+	if (!t->dev_name)
- 		goto free;
- 
--	t->devinet_dev[0].procname    = dev_name;
--	t->devinet_dev[0].child	      = t->devinet_vars;
--	t->devinet_conf_dir[0].child  = t->devinet_dev;
--	t->devinet_proto_dir[0].child = t->devinet_conf_dir;
--	t->devinet_root_dir[0].child  = t->devinet_proto_dir;
-+	devinet_ctl_path[DEVINET_CTL_PATH_DEV].procname = t->dev_name;
-+	devinet_ctl_path[DEVINET_CTL_PATH_DEV].ctl_name = ctl_name;
- 
--	t->sysctl_header = register_sysctl_table(t->devinet_root_dir);
-+	t->sysctl_header = register_sysctl_paths(devinet_ctl_path,
-+			t->devinet_vars);
- 	if (!t->sysctl_header)
- 		goto free_procname;
- 
-@@ -1542,7 +1513,7 @@ static void __devinet_sysctl_register(char *dev_name, int ctl_name,
- 	return;
- 
- free_procname:
--	kfree(dev_name);
-+	kfree(t->dev_name);
- free:
- 	kfree(t);
- out:
-@@ -1561,7 +1532,7 @@ static void devinet_sysctl_unregister(struct ipv4_devconf *p)
- 		struct devinet_sysctl_table *t = p->sysctl;
- 		p->sysctl = NULL;
- 		unregister_sysctl_table(t->sysctl_header);
--		kfree(t->devinet_dev[0].procname);
-+		kfree(t->dev_name);
- 		kfree(t);
- 	}
- }
--- 
-1.5.3.4
+--------------000004090007080503060901
+Content-Type: text/plain; x-mac-type="0"; x-mac-creator="0";
+ name="lro_align_2.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="lro_align_2.diff"
 
+diff --git a/net/ipv4/inet_lro.c b/net/ipv4/inet_lro.c
+index ac3b1d3..35b816e 100644
+--- a/net/ipv4/inet_lro.c
++++ b/net/ipv4/inet_lro.c
+@@ -401,10 +401,11 @@ static struct sk_buff *lro_gen_skb(struc
+ 	int data_len = len;
+ 	int hdr_len = min(len, hlen);
+ 
+-	skb = netdev_alloc_skb(lro_mgr->dev, hlen);
++	skb = netdev_alloc_skb(lro_mgr->dev, hlen + 2);
+ 	if (!skb)
+ 		return NULL;
+ 
++	skb_reserve(skb, 2);
+ 	skb->len = len;
+ 	skb->data_len = len - hdr_len;
+ 	skb->truesize += true_size;
+
+--------------000004090007080503060901--
