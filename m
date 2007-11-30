@@ -1,47 +1,34 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: + xfrm_policy-warning-fix.patch added to -mm tree
-Date: Fri, 30 Nov 2007 11:02:05 +1100
-Message-ID: <20071130000205.GG23769@gondor.apana.org.au>
-References: <200711281056.lASAupF5028450@imap1.linux-foundation.org> <20071129135132.GI8487@gondor.apana.org.au> <20071129093202.c638b45a.akpm@linux-foundation.org>
+Subject: Re: wireless vs. alignment requirements
+Date: Fri, 30 Nov 2007 11:26:21 +1100
+Message-ID: <20071130002621.GI23769@gondor.apana.org.au>
+References: <E1IvoID-0006aR-00@gondolin.me.apana.org.au> <1195893216.4149.186.camel@johannes.berg> <20071124133200.GA27531@gondor.apana.org.au> <1195912176.4149.194.camel@johannes.berg> <20071124141319.GA27819@gondor.apana.org.au> <4748855C.5090103@linux-foundation.org> <474C50D7.5010901@zytor.com> <20071129131107.GC8487@gondor.apana.org.au> <474EFBEB.5000804@zytor.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Johannes Berg <johannes@sipsolutions.net>, dsd@gentoo.org,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: "H. Peter Anvin" <hpa@zytor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2647 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:2775 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755547AbXK3ACS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 19:02:18 -0500
+	with ESMTP id S1762831AbXK3A11 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 19:27:27 -0500
 Content-Disposition: inline
-In-Reply-To: <20071129093202.c638b45a.akpm@linux-foundation.org>
+In-Reply-To: <474EFBEB.5000804@zytor.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 29, 2007 at 09:32:02AM -0800, Andrew Morton wrote:
+On Thu, Nov 29, 2007 at 09:50:35AM -0800, H. Peter Anvin wrote:
 >
-> > diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-> > index b702bd8..9a4cf2e 100644
-> > --- a/net/xfrm/xfrm_policy.c
-> > +++ b/net/xfrm/xfrm_policy.c
-> > @@ -1344,6 +1344,7 @@ restart:
-> >  	xfrm_nr += pols[0]->xfrm_nr;
-> >  
-> >  	switch (policy->action) {
-> > +	default:
-> >  	case XFRM_POLICY_BLOCK:
-> >  		/* Prohibit the flow */
-> >  		err = -EPERM;
-> 
-> hm.  If someone feeds a bad value into here we want to know about it rather
-> than silently fixing it up, don't we?
+> Uhm, most cards affected *ARE* Ethernet cards, due to the bloody 14-byte 
+> header.
 
-As I said, we already check all policy actions when they enter the kernel
-from user-space.  For example, in xfrm_user we make sure that action is
-one of these values.  So this is mainly to shut gcc up.
+Well most Ethernet drivers are using NET_IP_ALIGN which means that IP
+stack gets aligned packets only.
 
-Even if we did somehow get an illegal value through, dropping the packet
-sounds like a sane action to follow and I'm sure people will notice pretty
-quickly when packets don't flow anymore :)
+sky2 is the exception here, not the rule.
 
 Cheers,
 -- 
