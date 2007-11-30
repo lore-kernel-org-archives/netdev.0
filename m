@@ -1,58 +1,51 @@
-From: "Holger Hoffstaette" <holger@wizards.de>
-Subject: Re: Reproducible data corruption with sendfile+vsftp - splice regression?
-Date: Fri, 30 Nov 2007 10:20:26 +0100
-Message-ID: <pan.2007.11.30.09.20.24.737500@wizards.de>
-References: <pan.2007.11.29.23.42.52.661624@wizards.de> <474FC4D9.3020506@cosmosbay.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: ZD1211RW unaligned accesses...
+Date: Fri, 30 Nov 2007 20:50:39 +1100
+Message-ID: <20071130095039.GA17911@gondor.apana.org.au>
+References: <20071120.040546.222294375.davem@davemloft.net> <47442BFC.8090008@hotmail.com> <20071124150216.GA28153@gondor.apana.org.au> <20071129214533.GD32730@tuxdriver.com> <20071129234327.GA23769@gondor.apana.org.au> <474FBD20.10202@hotmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762240AbXK3JVF@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	David Miller <davem@davemloft.net>, dsd@gentoo.org,
+	kune@deine-taler.de
+To: Shaddy Baddah <shaddy_baddah@hotmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:2667 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751414AbXK3Jus (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2007 04:50:48 -0500
+Content-Disposition: inline
+In-Reply-To: <474FBD20.10202@hotmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 30 Nov 2007 09:07:53 +0100, Eric Dumazet wrote:
+On Fri, Nov 30, 2007 at 06:34:56PM +1100, Shaddy Baddah wrote:
+> 
+> OK... so I've applied patches left right and centre. As there have been 
+> a few, I'll in-line them all at the bottom of this email.
+> 
+> The result is that there are no more unaligned access messages at all. 
 
-> CC to netdev, it might concern network guys
+Good stuff! I was sort of worried that you might end up getting unaligned
+traps in the IP stack but it's good to see that you didn't.  Of course
+it's still something that we need to fix up at some point for other
+configurations.
 
-It is indeed related to network/r8169, more below.
+John, you can apply my patch now.
 
-> Could you try with a test file containing unique patterns ?
+> However, I still can only scan one (occasionally two) AP, using iwlist 
+> eth2 scanning command before a bus error. Jean, I missed your emails 
+> regarding compiling the wireless-tools, I will try these and see if they 
+> help.
 
-Same result, here is new information.
+That's kind of expected because we haven't completely fixed up the
+user-kernel wireless interface for the 32-in-64 case.  But rest assured
+we will be working on that.
 
-- contrary to my first posting, the corruption does not reliably occur
-when a second client pulls the file; sorry for that. The difference is
-that the box that gets corrupted data only has a 100mbit interface, while
-the one that gets working data is completely gigabit (all on the same
-switch though).
-
-- after some digging in my server changelogs I noticed that I had enabled
-misc. r8169 offload options not too long ago (while migrating to gigabit
-and perftesting the new network), and bingo! Turning off tso (leaving all
-others on except for UDP which is apparently not implemented) singled out
-the corruption while ftp'ing to the slower 100mbit client.
-
-I have since just permanently disabled tso and everything is
-fine with and without sendfile. So this seems to be either a bug with the
-r8169 or some bad interaction of tso with sendfile, but then maybe it's
-just the symptom of a race condition/timing problem. Is tso on the r8169
-known to be kaput?
-
-lspci says:
-
-00:08.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8169 Gigabit Ethernet (rev 10)
-        Subsystem: Realtek Semiconductor Co., Ltd. RTL-8169 Gigabit Ethernet
-        Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 17
-        I/O ports at d000 [size=256]
-        Memory at f6022000 (32-bit, non-prefetchable) [size=256]
-        [virtual] Expansion ROM at 60000000 [disabled] [size=128K]
-        Capabilities: [dc] Power Management version 2
-
-Further suggestions welcome, looks like we're getting somewhere.
-I can still create broken files with tso and the unique patterns that Eric
-suggested, if that helps tracking down the tso corruption.
-
-thank you!
-Holger
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
