@@ -1,46 +1,49 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH (resubmit)][BRIDGE] Properly dereference the br_should_route_hook
-Date: Fri, 30 Nov 2007 10:49:00 +1100
-Message-ID: <20071129234900.GB23769@gondor.apana.org.au>
-References: <474C43F4.5080704@openvz.org> <20071129130420.GA8487@gondor.apana.org.au> <20071129143650.GD32449@linux.vnet.ibm.com>
+Subject: Re: + xfrm_policy-warning-fix.patch added to -mm tree
+Date: Fri, 30 Nov 2007 11:02:05 +1100
+Message-ID: <20071130000205.GG23769@gondor.apana.org.au>
+References: <200711281056.lASAupF5028450@imap1.linux-foundation.org> <20071129135132.GI8487@gondor.apana.org.au> <20071129093202.c638b45a.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Emelyanov <xemul@openvz.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	bridge@lists.osdl.org, devel@openvz.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2561 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:2647 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1761976AbXK2XtL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 18:49:11 -0500
+	with ESMTP id S1755547AbXK3ACS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 19:02:18 -0500
 Content-Disposition: inline
-In-Reply-To: <20071129143650.GD32449@linux.vnet.ibm.com>
+In-Reply-To: <20071129093202.c638b45a.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 29, 2007 at 06:36:50AM -0800, Paul E. McKenney wrote:
+On Thu, Nov 29, 2007 at 09:32:02AM -0800, Andrew Morton wrote:
 >
-> That certainly is an interesting tradeoff...  Save a memory barrier
-> when assigning NULL, but pay an extra test and branch in all cases.
-> Though it does make for a simpler rule -- just use rcu_assign_pointer()
-> in all cases.  Of course, if almost all rcu_assign_pointer() executions
-> assign non-NULL pointers, the optimal strategy would be to leave the
-> implementation of rcu_assign_pointer() alone, and simply enforce use
-> of rcu_assign_pointer(), even if the pointer being assigned is NULL.
+> > diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> > index b702bd8..9a4cf2e 100644
+> > --- a/net/xfrm/xfrm_policy.c
+> > +++ b/net/xfrm/xfrm_policy.c
+> > @@ -1344,6 +1344,7 @@ restart:
+> >  	xfrm_nr += pols[0]->xfrm_nr;
+> >  
+> >  	switch (policy->action) {
+> > +	default:
+> >  	case XFRM_POLICY_BLOCK:
+> >  		/* Prohibit the flow */
+> >  		err = -EPERM;
+> 
+> hm.  If someone feeds a bad value into here we want to know about it rather
+> than silently fixing it up, don't we?
 
-I was thinking of something much simpler.  If the second argument is
-constant and NULL, then skip the barrier.  No run-time slow-down at
-all.
- 
-> Although rcu_dereference() does a memory barrier only on Alpha, that of
-> rcu_assign_pointer() is needed on any machine that does not preserve store
-> order (Itanium, POWER, ARM, some MIPS boxes according to rumor, ...).
+As I said, we already check all policy actions when they enter the kernel
+from user-space.  For example, in xfrm_user we make sure that action is
+one of these values.  So this is mainly to shut gcc up.
 
-Good point!
+Even if we did somehow get an illegal value through, dropping the packet
+sounds like a sane action to follow and I'm sure people will notice pretty
+quickly when packets don't flow anymore :)
 
-Thanks,
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
