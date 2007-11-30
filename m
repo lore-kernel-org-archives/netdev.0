@@ -1,153 +1,127 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 4/4 (resent) net-2.6.25][UNIX] Make the unix sysctl tables
- per-namespace
-Date: Fri, 30 Nov 2007 19:37:28 +0300
-Message-ID: <47503C48.8020001@openvz.org>
-References: <47503919.8060103@openvz.org>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: net_rx_action/NAPI oops [PATCH]
+Date: Fri, 30 Nov 2007 17:56:44 +0100
+Message-ID: <18256.16588.515008.897975@robur.slu.se>
+References: <18252.26472.319078.165019@robur.slu.se>
+	<20071127140904.20c4cba8@freepuppy.rosehill>
+	<474C9B84.5090103@intel.com>
+	<20071127145537.6bf1af68@freepuppy.rosehill>
+	<474CB54A.2060804@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Containers <containers@lists.osdl.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:33272 "EHLO sacred.ru"
+Received: from mx1.slu.se ([130.238.96.70]:54545 "EHLO mx1.slu.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753160AbXK3QiT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Nov 2007 11:38:19 -0500
-In-Reply-To: <47503919.8060103@openvz.org>
+	id S1762678AbXK3Q46 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Nov 2007 11:56:58 -0500
+In-Reply-To: <474CB54A.2060804@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I'm awfully sorry, but I noticed, that I sent the wrong patch
-right after I pressed the "Send" button. The first version
-contains a fatal error - the return code in register function
-should be inverted (the if (net->unix_ctl != NULL) one). Otherwise 
-the registered table will be freed :(
 
-Sorry. This is the correct patch.
+ Hello!
 
-This is the core. 
+ After further investigations. The bug was just in front of us...
 
- * add the ctl_table_header on the struct net;
- * make the unix_sysctl_register and _unregister clone the table;
- * moves calls to them into per-net init and exit callbacks;
- * move the .data pointer in the proper place.
+ ifconfig down in combination with the test for || !netif_running() can 
+ return a full quota and netif_rx_complete() done which causes the oops 
+ in net_rx_action. Of course the load must be high enough to fill the 
+ quota.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+ I've found a bunch of drivers having this bug.
 
----
+ Cheers.
+					--ro
 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index b0cf075..f97b2a4 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -11,6 +11,8 @@
- struct proc_dir_entry;
- struct net_device;
- struct sock;
-+struct ctl_table_header;
+ 
+Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
+
+
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index cf39473..f4137ad 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -3947,6 +3947,10 @@ e1000_clean(struct napi_struct *napi, int budget)
+ quit_polling:
+ 		if (likely(adapter->itr_setting & 3))
+ 			e1000_set_itr(adapter);
 +
- struct net {
- 	atomic_t		count;		/* To decided when the network
- 						 *  namespace should be freed.
-@@ -41,6 +43,7 @@ struct net {
- 
- 	/* unix sockets */
- 	int			sysctl_unix_max_dgram_qlen;
-+	struct ctl_table_header	*unix_ctl;
- };
- 
- #ifdef CONFIG_NET
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 73620d6..b8a2189 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2139,10 +2139,14 @@ static int unix_net_init(struct net *net)
- 	int error = -ENOMEM;
- 
- 	net->sysctl_unix_max_dgram_qlen = 10;
-+	if (unix_sysctl_register(net))
-+		goto out;
- 
- #ifdef CONFIG_PROC_FS
--	if (!proc_net_fops_create(net, "unix", 0, &unix_seq_fops))
-+	if (!proc_net_fops_create(net, "unix", 0, &unix_seq_fops)) {
-+		unix_sysctl_unregister(net);
- 		goto out;
-+	}
- #endif
- 	error = 0;
- out:
-@@ -2151,6 +2155,7 @@ out:
- 
- static void unix_net_exit(struct net *net)
- {
-+	unix_sysctl_unregister(net);
- 	proc_net_remove(net, "unix");
- }
- 
-@@ -2175,7 +2180,6 @@ static int __init af_unix_init(void)
- 
- 	sock_register(&unix_family_ops);
- 	register_pernet_subsys(&unix_net_ops);
--	unix_sysctl_register(&init_net);
- out:
- 	return rc;
- }
-@@ -2183,7 +2187,6 @@ out:
- static void __exit af_unix_exit(void)
- {
- 	sock_unregister(PF_UNIX);
--	unix_sysctl_unregister(&init_net);
- 	proto_unregister(&unix_proto);
- 	unregister_pernet_subsys(&unix_net_ops);
- }
-diff --git a/net/unix/sysctl_net_unix.c b/net/unix/sysctl_net_unix.c
-index 43dd356..1c57f8f 100644
---- a/net/unix/sysctl_net_unix.c
-+++ b/net/unix/sysctl_net_unix.c
-@@ -32,16 +32,33 @@ static struct ctl_path unix_path[] = {
- 	{ },
- };
- 
--static struct ctl_table_header * unix_sysctl_header;
--
- int unix_sysctl_register(struct net *net)
- {
--	unix_sysctl_header = register_sysctl_paths(unix_path, unix_table);
--	return unix_sysctl_header == NULL ? -ENOMEM : 0;
-+	struct ctl_table *table;
++		if(work_done == budget)
++			work_done--;
++	
+ 		netif_rx_complete(poll_dev, napi);
+ 		e1000_irq_enable(adapter);
+ 	}
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 4fd2e23..e43b5ca 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -1408,6 +1408,9 @@ static int e1000_clean(struct napi_struct *napi, int budget)
+ 	if ((!tx_cleaned && (work_done < budget)) ||
+ 	   !netif_running(poll_dev)) {
+ quit_polling:
++		if(work_done == budget)
++			work_done--;
 +
-+	table = kmemdup(unix_table, sizeof(unix_table), GFP_KERNEL);
-+	if (table == NULL)
-+		goto err_alloc;
-+
-+	table[0].data = &net->sysctl_unix_max_dgram_qlen;
-+	net->unix_ctl = register_net_sysctl_table(net, unix_path, table);
-+	if (net->unix_ctl == NULL)
-+		goto err_reg;
-+
-+	return 0;
-+
-+err_reg:
-+	kfree(table);
-+err_alloc:
-+	return -ENOMEM;
- }
+ 		if (adapter->itr_setting & 3)
+ 			e1000_set_itr(adapter);
+ 		netif_rx_complete(poll_dev, napi);
+diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
+index 3021234..e3064ef 100644
+--- a/drivers/net/ixgb/ixgb_main.c
++++ b/drivers/net/ixgb/ixgb_main.c
+@@ -1783,6 +1783,10 @@ ixgb_clean(struct napi_struct *napi, int budget)
  
- void unix_sysctl_unregister(struct net *net)
- {
--	unregister_sysctl_table(unix_sysctl_header);
-+	struct ctl_table *table;
+ 	/* if no Tx and not enough Rx work done, exit the polling mode */
+ 	if((!tx_cleaned && (work_done == 0)) || !netif_running(netdev)) {
 +
-+	table = net->unix_ctl->ctl_table_arg;
-+	unregister_sysctl_table(net->unix_ctl);
-+	kfree(table);
- }
++		if(work_done == budget)
++			work_done--;
++
+ 		netif_rx_complete(netdev, napi);
+ 		ixgb_irq_enable(adapter);
+ 	}
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 00bc525..204f5fa 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -579,6 +579,9 @@ static int ixgbe_clean_rxonly(struct napi_struct *napi, int budget)
+ 	/* If no Tx and not enough Rx work done, exit the polling mode */
+ 	if ((work_done < budget) || !netif_running(netdev)) {
+ quit_polling:
++		if(work_done == budget)
++			work_done--;
++
+ 		netif_rx_complete(netdev, napi);
+ 		if (!test_bit(__IXGBE_DOWN, &adapter->state))
+ 			IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMS,
+@@ -1483,6 +1486,9 @@ static int ixgbe_clean(struct napi_struct *napi, int budget)
+ 	if ((!tx_cleaned && (work_done < budget)) ||
+ 	    !netif_running(adapter->netdev)) {
+ quit_polling:
++		if(work_done == budget)
++			work_done--;
++
+ 		netif_rx_complete(netdev, napi);
+ 		ixgbe_irq_enable(adapter);
+ 	}
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+index 3dbaec6..c566491 100644
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -1998,6 +1998,10 @@ static int e100_poll(struct napi_struct *napi, int budget)
  
--- 
-1.5.3.4
-
+ 	/* If no Rx and Tx cleanup work was done, exit polling mode. */
+ 	if((!tx_cleaned && (work_done == 0)) || !netif_running(netdev)) {
++
++		if(work_done == budget)
++			work_done--;
++
+ 		netif_rx_complete(netdev, napi);
+ 		e100_enable_irq(nic);
+ 	}
