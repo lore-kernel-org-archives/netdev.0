@@ -1,88 +1,126 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 4/11] ibm_newemac: Workaround reset timeout when no link
-Date: Fri, 30 Nov 2007 16:40:26 +1100
-Message-ID: <20071130054129.C7EADDDE9E@ozlabs.org>
+Subject: [PATCH 6/11] ibm_newemac: Cleanup/fix support for STACR register variants
+Date: Fri, 30 Nov 2007 16:40:29 +1100
+Message-ID: <20071130054132.94859DDE21@ozlabs.org>
 References: <1196401223.5661.297518056501.qpush@grosgo>
 Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>
 To: <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:48333 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:48397 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751814AbXK3Flb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Nov 2007 00:41:31 -0500
+	id S1751994AbXK3Fld (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Nov 2007 00:41:33 -0500
 In-Reply-To: <1196401223.5661.297518056501.qpush@grosgo>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With some PHYs, when the link goes away, the EMAC reset fails due
-to the loss of the RX clock I believe.
-
-The old EMAC driver worked around that using some internal chip-specific
-clock force bits that are different on various 44x implementations.
-
-This is an attempt at doing it differently, by avoiding the reset when
-there is no link, but forcing loopback mode instead. It seems to work
-on my Taishan 440GX based board so far.
+There are a few variants of the STACR register that affect more than
+just the "AXON" version of EMAC. Replace the current test of various
+chip models with tests for generic properties in the device-tree.
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Acked-by: Stefan Roese <sr@denx.de>
 ---
 
- drivers/net/ibm_newemac/core.c |   20 ++++++++++++++------
- 1 file changed, 14 insertions(+), 6 deletions(-)
+ arch/powerpc/boot/dts/sequoia.dts |    4 ++++
+ drivers/net/ibm_newemac/core.c    |   23 +++++++++++++----------
+ drivers/net/ibm_newemac/core.h    |    6 +++---
+ 3 files changed, 20 insertions(+), 13 deletions(-)
 
+Index: linux-work/arch/powerpc/boot/dts/sequoia.dts
+===================================================================
+--- linux-work.orig/arch/powerpc/boot/dts/sequoia.dts	2007-11-20 14:47:01.000000000 +1100
++++ linux-work/arch/powerpc/boot/dts/sequoia.dts	2007-11-20 14:47:02.000000000 +1100
+@@ -274,6 +274,8 @@
+ 				zmii-channel = <0>;
+ 				rgmii-device = <&RGMII0>;
+ 				rgmii-channel = <0>;
++				has-inverted-stacr-oc;
++				has-new-stacr-staopc;
+ 			};
+ 
+ 			EMAC1: ethernet@ef600f00 {
+@@ -302,6 +304,8 @@
+ 				zmii-channel = <1>;
+ 				rgmii-device = <&RGMII0>;
+ 				rgmii-channel = <1>;
++				has-inverted-stacr-oc;
++				has-new-stacr-staopc;
+ 			};
+ 		};
+ 	};
 Index: linux-work/drivers/net/ibm_newemac/core.c
 ===================================================================
---- linux-work.orig/drivers/net/ibm_newemac/core.c	2007-11-20 14:46:51.000000000 +1100
-+++ linux-work/drivers/net/ibm_newemac/core.c	2007-11-20 14:46:58.000000000 +1100
-@@ -464,26 +464,34 @@ static int emac_configure(struct emac_in
- {
- 	struct emac_regs __iomem *p = dev->emacp;
- 	struct net_device *ndev = dev->ndev;
--	int tx_size, rx_size;
-+	int tx_size, rx_size, link = netif_carrier_ok(dev->ndev);
- 	u32 r, mr1 = 0;
- 
- 	DBG(dev, "configure" NL);
- 
--	if (emac_reset(dev) < 0)
-+	if (!link) {
-+		out_be32(&p->mr1, in_be32(&p->mr1)
-+			 | EMAC_MR1_FDE | EMAC_MR1_ILE);
-+		udelay(100);
-+	} else if (emac_reset(dev) < 0)
- 		return -ETIMEDOUT;
- 
- 	if (emac_has_feature(dev, EMAC_FTR_HAS_TAH))
- 		tah_reset(dev->tah_dev);
- 
--	DBG(dev, " duplex = %d, pause = %d, asym_pause = %d\n",
--	    dev->phy.duplex, dev->phy.pause, dev->phy.asym_pause);
-+	DBG(dev, " link = %d duplex = %d, pause = %d, asym_pause = %d\n",
-+	    link, dev->phy.duplex, dev->phy.pause, dev->phy.asym_pause);
- 
- 	/* Default fifo sizes */
- 	tx_size = dev->tx_fifo_size;
- 	rx_size = dev->rx_fifo_size;
- 
-+	/* No link, force loopback */
-+	if (!link)
-+		mr1 = EMAC_MR1_FDE | EMAC_MR1_ILE;
+--- linux-work.orig/drivers/net/ibm_newemac/core.c	2007-11-20 14:46:58.000000000 +1100
++++ linux-work/drivers/net/ibm_newemac/core.c	2007-11-20 14:47:02.000000000 +1100
+@@ -711,7 +711,7 @@ static int __emac_mdio_read(struct emac_
+ 		r = EMAC_STACR_BASE(dev->opb_bus_freq);
+ 	if (emac_has_feature(dev, EMAC_FTR_STACR_OC_INVERT))
+ 		r |= EMAC_STACR_OC;
+-	if (emac_has_feature(dev, EMAC_FTR_HAS_AXON_STACR))
++	if (emac_has_feature(dev, EMAC_FTR_HAS_NEW_STACR))
+ 		r |= EMACX_STACR_STAC_READ;
+ 	else
+ 		r |= EMAC_STACR_STAC_READ;
+@@ -783,7 +783,7 @@ static void __emac_mdio_write(struct ema
+ 		r = EMAC_STACR_BASE(dev->opb_bus_freq);
+ 	if (emac_has_feature(dev, EMAC_FTR_STACR_OC_INVERT))
+ 		r |= EMAC_STACR_OC;
+-	if (emac_has_feature(dev, EMAC_FTR_HAS_AXON_STACR))
++	if (emac_has_feature(dev, EMAC_FTR_HAS_NEW_STACR))
+ 		r |= EMACX_STACR_STAC_WRITE;
+ 	else
+ 		r |= EMAC_STACR_STAC_WRITE;
+@@ -2480,16 +2480,19 @@ static int __devinit emac_init_config(st
+ 	/* Check EMAC version */
+ 	if (of_device_is_compatible(np, "ibm,emac4"))
+ 		dev->features |= EMAC_FTR_EMAC4;
+-	if (of_device_is_compatible(np, "ibm,emac-axon")
+-	    || of_device_is_compatible(np, "ibm,emac-440epx"))
+-		dev->features |= EMAC_FTR_HAS_AXON_STACR
+-			| EMAC_FTR_STACR_OC_INVERT;
+-	if (of_device_is_compatible(np, "ibm,emac-440spe"))
 +
- 	/* Check for full duplex */
--	if (dev->phy.duplex == DUPLEX_FULL)
-+	else if (dev->phy.duplex == DUPLEX_FULL)
- 		mr1 |= EMAC_MR1_FDE | EMAC_MR1_MWSW_001;
++	/* Fixup some feature bits based on the device tree */
++	if (of_get_property(np, "has-inverted-stacr-oc", NULL))
+ 		dev->features |= EMAC_FTR_STACR_OC_INVERT;
++	if (of_get_property(np, "has-new-stacr-staopc", NULL))
++		dev->features |= EMAC_FTR_HAS_NEW_STACR;
  
- 	/* Adjust fifo sizes, mr1 and timeouts based on link speed */
-@@ -1165,9 +1173,9 @@ static void emac_link_timer(struct work_
- 		link_poll_interval = PHY_POLL_LINK_ON;
- 	} else {
- 		if (netif_carrier_ok(dev->ndev)) {
--			emac_reinitialize(dev);
- 			netif_carrier_off(dev->ndev);
- 			netif_tx_disable(dev->ndev);
-+			emac_reinitialize(dev);
- 			emac_print_link_status(dev);
- 		}
- 		link_poll_interval = PHY_POLL_LINK_OFF;
+-	/* Fixup some feature bits based on the device tree and verify
+-	 * we have support for them compiled in
+-	 */
++	/* CAB lacks the appropriate properties */
++	if (of_device_is_compatible(np, "ibm,emac-axon"))
++		dev->features |= EMAC_FTR_HAS_NEW_STACR |
++			EMAC_FTR_STACR_OC_INVERT;
++
++	/* Enable TAH/ZMII/RGMII features as found */
+ 	if (dev->tah_ph != 0) {
+ #ifdef CONFIG_IBM_NEW_EMAC_TAH
+ 		dev->features |= EMAC_FTR_HAS_TAH;
+Index: linux-work/drivers/net/ibm_newemac/core.h
+===================================================================
+--- linux-work.orig/drivers/net/ibm_newemac/core.h	2007-11-20 14:46:51.000000000 +1100
++++ linux-work/drivers/net/ibm_newemac/core.h	2007-11-20 14:47:02.000000000 +1100
+@@ -293,9 +293,9 @@ struct emac_instance {
+  */
+ #define EMAC_FTR_HAS_RGMII		0x00000020
+ /*
+- * Set if we have axon-type STACR
++ * Set if we have new type STACR with STAOPC
+  */
+-#define EMAC_FTR_HAS_AXON_STACR		0x00000040
++#define EMAC_FTR_HAS_NEW_STACR		0x00000040
+ 
+ 
+ /* Right now, we don't quite handle the always/possible masks on the
+@@ -307,7 +307,7 @@ enum {
+ 
+ 	EMAC_FTRS_POSSIBLE	=
+ #ifdef CONFIG_IBM_NEW_EMAC_EMAC4
+-	    EMAC_FTR_EMAC4	| EMAC_FTR_HAS_AXON_STACR	|
++	    EMAC_FTR_EMAC4	| EMAC_FTR_HAS_NEW_STACR	|
+ 	    EMAC_FTR_STACR_OC_INVERT	|
+ #endif
+ #ifdef CONFIG_IBM_NEW_EMAC_TAH
