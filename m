@@ -1,116 +1,58 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
+From: "Holger Hoffstaette" <holger@wizards.de>
 Subject: Re: Reproducible data corruption with sendfile+vsftp - splice regression?
-Date: Fri, 30 Nov 2007 09:07:53 +0100
-Message-ID: <474FC4D9.3020506@cosmosbay.com>
-References: <pan.2007.11.29.23.42.52.661624@wizards.de>
+Date: Fri, 30 Nov 2007 10:20:26 +0100
+Message-ID: <pan.2007.11.30.09.20.24.737500@wizards.de>
+References: <pan.2007.11.29.23.42.52.661624@wizards.de> <474FC4D9.3020506@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Holger Hoffstaette <holger@wizards.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:60312 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932355AbXK3IIB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2007 03:08:01 -0500
-In-Reply-To: <pan.2007.11.29.23.42.52.661624@wizards.de>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762240AbXK3JVF@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Holger Hoffstaette a =E9crit :
-> Hi -
->=20
-> This regular Linux user and lkml lurker just noticed data corruption =
-in
-> ftp'ed files and narrowed it down to vsftpd using sendfile(). So far =
-this
-> has never caused problems in the past; I have not noticed this with
-> 2.6.22.x but may have missed it. I do remember reading about some cha=
-nges
-> to the underlying splice stuff since .23 so that may have something t=
-o do
-> with it.
->=20
-> The scenario:
->=20
-> - created a file with known bit pattern on Linux server
-> - ftp-got this file to Windows client: file has bad crc (yes, binary)
-> - verified with another client: same result
->=20
-> I have thus far eliminated (to the best of my knowledge) NICs, switch=
-es,
-> cables, the Windows FTP clients, the hard disk in the server (SATA, e=
-xt3):
-> nothing suspicious in any logs. Box is an AMD Sempron 2600+ with 1.5 =
-GB
-> RAM, added rt8169 card, Gentoo, vsftpd stable 2.0.5 - nothing fancy.
-> Transferring the file with samba (interestingly with sendfile enabled=
-) and
-> via ftp but from /dev/shm repeatably works fine; pulling from disk cr=
-eates
-> bad crc, every time. The file is readable and can be copied, verified=
- etc.
-> over and over so I'm sure that I'm not falling prey to a false positi=
-ve.
-> ifconfig indicates no dropped or otherwise corrupted packets.
-> I noticed this first with 2.6.4-rc3, but also just tried the latest s=
-table
-> 2.6.23.9 with the same config, with no change in behaviour. After set=
-ting
-> vsftpd to use_sendfile=3DNO, gigs can be transferred without corrupti=
-on.
->=20
-> The data corruption is sporadic, but absolutely repeatable. The file =
-with
-> the known good pattern just contains multiple lines of:
->=20
-> 012345678901234567890123456789012345678901234567890
-> 012345678901234567890123456789012345678901234567890
-> 012345678901234567890123456789012345678901234567890
-> ..etc..
->=20
-> A corrupted file is missing random characters, so that the corrupted =
-lines
-> looks like this (line numbers added by me):
->=20
-> 19785: 012345678901234567890123456789012345678901234567890
-> 19786: 01234567890123456789012345678901234567890123678901234567890
-> 19787: 012345678901234567890123456789012345678901234567890
->=20
-> or:
->=20
-> 20074: 012345678901234567890123456789012345678901234567890
-> 20075: 01234567890123456789012345678901234567890123012345678901234567=
-890123456789012345678901234567890
-> 20076: 012345678901234567890123456789012345678901234567890
->=20
-> Again, other network or hd traffic shows no signs of gremlins; the bo=
-x is
-> perfectly stable, and turning sendfile on or off triggers/untriggers =
-the
-> corruption reliably.  I will try 2.6.22.x over the weekend, and befor=
-e I
-> bother lkml with dmesg/.config etc. I wanted to fish for initial thou=
-ghts.
->=20
+On Fri, 30 Nov 2007 09:07:53 +0100, Eric Dumazet wrote:
 
-CC to netdev, it might concern network guys
+> CC to netdev, it might concern network guys
 
-Could you try with a test file containing unique patterns ?
+It is indeed related to network/r8169, more below.
 
-like a 80 MB file :
+> Could you try with a test file containing unique patterns ?
 
-#include <stdio.h>
-main()
-{
-unsigned long ul;
-for (ul =3D 0 ; ul < 10000000 ; ul++)
-    printf("%8lu", ul);
-return 0;
-}
+Same result, here is new information.
 
+- contrary to my first posting, the corruption does not reliably occur
+when a second client pulls the file; sorry for that. The difference is
+that the box that gets corrupted data only has a 100mbit interface, while
+the one that gets working data is completely gigabit (all on the same
+switch though).
 
-Thank you
+- after some digging in my server changelogs I noticed that I had enabled
+misc. r8169 offload options not too long ago (while migrating to gigabit
+and perftesting the new network), and bingo! Turning off tso (leaving all
+others on except for UDP which is apparently not implemented) singled out
+the corruption while ftp'ing to the slower 100mbit client.
 
+I have since just permanently disabled tso and everything is
+fine with and without sendfile. So this seems to be either a bug with the
+r8169 or some bad interaction of tso with sendfile, but then maybe it's
+just the symptom of a race condition/timing problem. Is tso on the r8169
+known to be kaput?
+
+lspci says:
+
+00:08.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8169 Gigabit Ethernet (rev 10)
+        Subsystem: Realtek Semiconductor Co., Ltd. RTL-8169 Gigabit Ethernet
+        Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 17
+        I/O ports at d000 [size=256]
+        Memory at f6022000 (32-bit, non-prefetchable) [size=256]
+        [virtual] Expansion ROM at 60000000 [disabled] [size=128K]
+        Capabilities: [dc] Power Management version 2
+
+Further suggestions welcome, looks like we're getting somewhere.
+I can still create broken files with tso and the unique patterns that Eric
+suggested, if that helps tracking down the tso corruption.
+
+thank you!
+Holger
