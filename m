@@ -1,57 +1,40 @@
-From: Michael Blizek <michi1@michaelblizek.homelinux.net>
-Subject: Re: Does tc-prio really work as advertised?
-Date: Fri, 30 Nov 2007 19:39:46 +0100
-Message-ID: <20071130183946.GB2368@grml.local>
-References: <759014.71791.qm@web51409.mail.re2.yahoo.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH]: fix lro_gen_skb() alignment
+Date: Fri, 30 Nov 2007 11:14:43 -0800
+Message-ID: <ada3aunlf4s.fsf@cisco.com>
+References: <E1Iy2ey-0005eY-00@gondolin.me.apana.org.au>
+	<475057E4.3000909@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Joerg Pommnitz <pommnitz@yahoo.com>,
-	Jarek Poplawski <jarkao2@o2.pl>
-To: netdev@vger.kernel.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	ossthema@de.ibm.com, netdev@vger.kernel.org
+To: Andrew Gallatin <gallatin@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from michaelblizek.homelinux.net ([193.238.157.55]:59355 "EHLO
-	michaelblizek.homelinux.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762813AbXK3TLg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2007 14:11:36 -0500
-Content-Disposition: inline
-In-Reply-To: <759014.71791.qm@web51409.mail.re2.yahoo.com>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:19396 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760921AbXK3TOx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2007 14:14:53 -0500
+In-Reply-To: <475057E4.3000909@myri.com> (Andrew Gallatin's message of "Fri, 30 Nov 2007 13:35:16 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
+ > >> -       skb = netdev_alloc_skb(lro_mgr->dev, hlen);
+ > >> +       skb = netdev_alloc_skb(lro_mgr->dev, hlen + NET_IP_ALIGN);
+ > > NET_IP_ALIGN should only be used if you're DMAing into the skb head.
+ > > Otherwise you should say 2.  It would be nice to have another macro
+ > > for that I suppose.
+ > 
+ > It is certainly simple enough to say 2.  Thank you for pointing
+ > this out.  I have attached a patch to do that..
+ > 
+ > Signed off by: Andrew Gallatin <gallatin@myri.com>
 
-On 05:00 Tue 27 Nov     , Joerg Pommnitz wrote:
-> > So, are you still sure you've tested such a case?
-> 
-> Well, the problem that triggered my investigation was
-> that the OLSR daemon (www.olsr.org) calculates the quality
-> of a link according to the packet loss for LQ HELLO packets
-> (UDP broadcast packets). To prevent other traffic from
-> interfering with the LQ calculation, olsrd sends the HELLO
-> packets with a TOS value of 0x10 (minimize delay). This
-> should give them the highest priority.
-> 
-> What I saw was a degrading Link quality with more user traffic
-> over a link. The LQ fell so far that olsrd judged the other host
-> unreachable and deleted the routing entry. The user traffic in
-> question was iperf (TOS value 0x00).
-> --  
-> Regards and thanks for taking an interest
-> 
->  
->        Joerg
+Isn't the value of 2 ethernet-specific (to round the 14-byte header up
+to 16)?  Given that the rest of the lro code is fairly careful to
+calculate mac_hdr_len etc it seems as if it would be cleaner to make
+this independent of the specific L2 being used.
 
-There is another possible cause of this problem.
+(And I plan on using the LRO module for IP-over-InfiniBand so this is
+not completely theoretical)
 
-In WLANs all packets are acked or retransmitted. This is done to
-prevent packet loss due to noise and collisions. But this is not
-done with broadcast packets.
-
-I can't tell you if this can be enough to trigger the bevaviour
-you experienced. Is the signal barely receivable?
-
-Michi
--- 
-programing a layer 3+4 network protocol for mesh networks
-see http://michaelblizek.homelinux.net
-
+ - R.
