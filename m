@@ -1,49 +1,32 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 2/11] ibm_newemac: Add ET1011c PHY support
-Date: Fri, 30 Nov 2007 15:56:09 -0600
-Message-ID: <EBE86B51-C550-47BA-8A71-1F7284E09F0E@kernel.crashing.org>
-References: <1196401223.5661.297518056501.qpush@grosgo>
-	<20071130054126.E3EFADDE0C@ozlabs.org>
-	<20071130142904.GC3117@lixom.net>
-	<1196456356.13230.104.camel@pasglop>
-Mime-Version: 1.0 (Apple Message framework v915)
-Content-Type: text/plain; charset="us-ascii"
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCHv7 1/5] Remove unnecessary locks from rtnetlink (in do_setlink)
+Date: Fri, 30 Nov 2007 23:13:04 +0100
+Message-ID: <47508AF0.7070204@o2.pl>
+References: <11963527094077-git-send-email-panther@balabit.hu> <11963527103201-git-send-email-panther@balabit.hu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Olof Johansson <olof@lixom.net>, netdev@vger.kernel.org, jgarzik@pobox.com,
-	linuxppc-dev@ozlabs.org
-To: benh@kernel.crashing.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <1196456356.13230.104.camel@pasglop>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Laszlo Attila Toth <panther@balabit.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx12.go2.pl ([193.17.41.142]:54851 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753079AbXK3WLg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Nov 2007 17:11:36 -0500
+In-Reply-To: <11963527103201-git-send-email-panther@balabit.hu>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Laszlo Attila Toth wrote, On 11/29/2007 05:11 PM:
 
-On Nov 30, 2007, at 2:59 PM, Benjamin Herrenschmidt wrote:
+> The do_setlink function is protected by rtnl, additional locks are unnecessary,
+> and the set_operstate() function is called from protected parts. Locks removed
+> from both functions.
 
->
-> On Fri, 2007-11-30 at 08:29 -0600, Olof Johansson wrote:
->> Hi,
->>
->> On Fri, Nov 30, 2007 at 04:40:24PM +1100, Benjamin Herrenschmidt  
->> wrote:
->>
->>> This adds support for the Agere ET1011c PHY as found on the AMCC  
->>> Taishan
->>> board.
->>
->> The whole patch has whitespace messed up (tabs vs spaces).
->
-> Thanks for noticing it on the ...3rd time those are sent to the  
-> list...
+It doesn't look like in accordance with a comment to dev_base_lock in dev.c.
+And it makes eg. rfc2863_policy() locking from link_watch.c looking strange.
+Isn't there needed some additional comment to this?
 
-Clearly if you used checkpatch.pl you'd have noticed this by now. :)
-
-- k
+Regards,
+Jarek P.
