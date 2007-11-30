@@ -1,181 +1,45 @@
-From: Peter Tiedemann <PTIEDEM@de.ibm.com>
-Subject: Re: [patch 1/1] ctc: make use of alloc_netdev()
-Date: Fri, 30 Nov 2007 02:33:57 +0100
-Message-ID: <OFC3760A10.997938DA-ONC12573A3.00077088-C12573A3.00089A9D@de.ibm.com>
-References: <20071129091235.7884f0ad@freepuppy.rosehill>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH RFC] [1/9] Core module symbol namespaces code and intro.
+Date: Fri, 30 Nov 2007 13:18:33 +1100
+Message-ID: <200711301318.34379.rusty@rustcorp.com.au>
+References: <20071122343.446909000@suse.de> <20071126102533.1c774870@freepuppy.rosehill.pdx.hemminger.net> <20071129085334.5793a922@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jgarzik@pobox.com, linux-s390@vger.kernel.org,
-	netdev@vger.kernel.org, Ursula Braun1 <braunu@de.ibm.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Roland Dreier <rdreier@cisco.com>, Andi Kleen <ak@suse.de>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sam@ravnborg.org
+To: Arjan van de Ven <arjan@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.de.ibm.com ([195.212.29.156]:51626 "EHLO
-	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763732AbXK3BeC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 20:34:02 -0500
-In-Reply-To: <20071129091235.7884f0ad@freepuppy.rosehill>
+Received: from ozlabs.org ([203.10.76.45]:52919 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758190AbXK3CSh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Nov 2007 21:18:37 -0500
+In-Reply-To: <20071129085334.5793a922@laptopd505.fenrus.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-To maintain the area used for sysfs attribute data which may be stored
-already previously.
-
-Mit freundlichen Gr=FC=DFen / Best regards / Saluti,
-          Peter Tiedemann
----------------------------------
-phone: +49-7031-16-4172   fax: ++3159    e-mail: PTiedem@de.ibm.com
-IBM Deutschland Entwicklung GmbH
-Linux for eServer Development, Dept. 3303
-Schoenaicher Str. 220
-71032 Boeblingen, Germany
-
-IBM Deutschland Entwicklung GmbH, Vorsitzender des Aufsichtsrats: Marti=
-n
-Jetter, Gesch=E4ftsf=FChrung: Herbert Kircher
-Sitz der Gesellschaft: B=F6blingen, Registergericht: Amtsgericht Stuttg=
-art,
-HRB 243294
-
-
-                                                                       =
-   =20
-             Stephen Hemminger                                         =
-   =20
-             <shemminger@linux                                         =
-   =20
-             -foundation.org>                                          =
- To=20
-                                       Ursula Braun1/Germany/IBM@IBMDE =
-   =20
-             29.11.2007 18:12                                          =
- cc=20
-                                       jgarzik@pobox.com,              =
-   =20
-                                       netdev@vger.kernel.org,         =
-   =20
-                                       linux-s390@vger.kernel.org, Pete=
-r  =20
-                                       Tiedemann/Germany/IBM@IBMDE     =
-   =20
-                                                                   Subj=
-ect=20
-                                       Re: [patch 1/1] ctc: make use of=
-   =20
-                                       alloc_netdev()                  =
-   =20
-                                                                       =
-   =20
-                                                                       =
-   =20
-                                                                       =
-   =20
-                                                                       =
-   =20
-                                                                       =
-   =20
-                                                                       =
-   =20
-
-
-
-
-On Thu, 29 Nov 2007 17:36:27 +0100
-Ursula Braun <braunu@de.ibm.com> wrote:
-
-> From: Peter Tiedemann <ptiedem@de.ibm.com>
+On Friday 30 November 2007 03:53:34 Arjan van de Ven wrote:
+> On Mon, 26 Nov 2007 10:25:33 -0800
 >
-> Currently ctc-device initialization is broken (kernel bug in
-> ctc_new_device).
-> The new network namespace code reveals a deficiency of the
-> ctc driver. It should make use of alloc_netdev() as described
-> in Documentation/networking/netdevices.txt.
+> > Agreed. On first glance, I was intrigued but:
+> >
+> > 1) Why is everyone so concerned that export symbol space is large?
+> > 	- does it cost cpu or running memory?
 >
-> Signed-off-by: Peter Tiedemann <ptiedem@de.ibm.com>
-> Signed-off-by: Ursula Braun <braunu@de.ibm.com>
-> ---
->  drivers/s390/net/ctcmain.c |   45
-++++++++++++++++-----------------------------
->  1 file changed, 16 insertions(+), 29 deletions(-)
->
-> Index: linux-2.6-uschi/drivers/s390/net/ctcmain.c
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> --- linux-2.6-uschi.orig/drivers/s390/net/ctcmain.c
-> +++ linux-2.6-uschi/drivers/s390/net/ctcmain.c
-> @@ -2782,35 +2782,14 @@ ctc_probe_device(struct ccwgroup_device
->  }
->
->  /**
-> - * Initialize everything of the net device except the name and the
-> - * channel structs.
-> + * Device setup function called by alloc_netdev().
-> + *
-> + * @param dev  Device to be setup.
->   */
-> -static struct net_device *
-> -ctc_init_netdevice(struct net_device * dev, int alloc_device,
-> -                         struct ctc_priv *privptr)
-> +void ctc_init_netdevice(struct net_device * dev)
->  {
-> -          if (!privptr)
-> -                      return NULL;
-> -
->            DBF_TEXT(setup, 3, __FUNCTION__);
->
-> -          if (alloc_device) {
-> -                      dev =3D kzalloc(sizeof(struct net_device),
-GFP_KERNEL);
-> -                      if (!dev)
-> -                                  return NULL;
-> -          }
-> -
-> -          dev->priv =3D privptr;
-> -          privptr->fsm =3D init_fsm("ctcdev", dev_state_names,
-> -                                              dev_event_names,
-CTC_NR_DEV_STATES, CTC_NR_DEV_EVENTS,
-> -                                              dev_fsm, DEV_FSM_LEN,
-GFP_KERNEL);
-> -          if (privptr->fsm =3D=3D NULL) {
-> -                      if (alloc_device)
-> -                                  kfree(dev);
-> -                      return NULL;
-> -          }
-> -          fsm_newstate(privptr->fsm, DEV_STATE_STOPPED);
-> -          fsm_settimer(privptr->fsm, &privptr->restart_timer);
->            if (dev->mtu =3D=3D 0)
->                        dev->mtu =3D CTC_BUFSIZE_DEFAULT - LL_HEADER_L=
-ENGTH
-- 2;
->            dev->hard_start_xmit =3D ctc_tx;
-> @@ -2823,7 +2802,7 @@ ctc_init_netdevice(struct net_device * d
->            dev->type =3D ARPHRD_SLIP;
->            dev->tx_queue_len =3D 100;
->            dev->flags =3D IFF_POINTOPOINT | IFF_NOARP;
-> -          return dev;
-> +          SET_MODULE_OWNER(dev);
->  }
->
->
-> @@ -2879,14 +2858,22 @@ ctc_new_device(struct ccwgroup_device *c
->                                    "ccw_device_set_online (cdev[1])
-failed with ret =3D %d\n", ret);
->            }
->
-> -          dev =3D ctc_init_netdevice(NULL, 1, privptr);
-> -
-> +          dev =3D alloc_netdev(0, "ctc%d", ctc_init_netdevice);
->            if (!dev) {
->                        ctc_pr_warn("ctc_init_netdevice failed\n");
->                        goto out;
->            }
-> +          dev->priv =3D privptr;
->
-Why not use standard private data area, rather than allocating
-it separately?
+> yes. about 120 bytes per symbol
 
---
-Stephen Hemminger <shemminger@linux-foundation.org>
+But this patch makes that worse, not better.
 
+> > 	- does it cause bugs?
+>
+> yes, bad apis are causing bugs... sys_open is just the starter of that.
 
+Sure, but this doesn't change the APIs, either.  We seem to have fixed 
+sys_open the right way, and since we're not supposed to care about 
+out-of-tree modules...
+
+Rusty.
