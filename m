@@ -1,7 +1,8 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 4/4 net-2.6.25][UNIX] Make the unix sysctl tables per-namespace
-Date: Fri, 30 Nov 2007 19:34:09 +0300
-Message-ID: <47503B81.1060101@openvz.org>
+Subject: [PATCH 4/4 (resent) net-2.6.25][UNIX] Make the unix sysctl tables
+ per-namespace
+Date: Fri, 30 Nov 2007 19:37:28 +0300
+Message-ID: <47503C48.8020001@openvz.org>
 References: <47503919.8060103@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -12,13 +13,21 @@ Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
 	Daniel Lezcano <dlezcano@fr.ibm.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:32822 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:33272 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754102AbXK3Qe0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Nov 2007 11:34:26 -0500
+	id S1753160AbXK3QiT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Nov 2007 11:38:19 -0500
 In-Reply-To: <47503919.8060103@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+I'm awfully sorry, but I noticed, that I sent the wrong patch
+right after I pressed the "Send" button. The first version
+contains a fatal error - the return code in register function
+should be inverted (the if (net->unix_ctl != NULL) one). Otherwise 
+the registered table will be freed :(
+
+Sorry. This is the correct patch.
 
 This is the core. 
 
@@ -118,7 +127,7 @@ index 43dd356..1c57f8f 100644
 +
 +	table[0].data = &net->sysctl_unix_max_dgram_qlen;
 +	net->unix_ctl = register_net_sysctl_table(net, unix_path, table);
-+	if (net->unix_ctl != NULL)
++	if (net->unix_ctl == NULL)
 +		goto err_reg;
 +
 +	return 0;
