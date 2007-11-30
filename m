@@ -1,47 +1,88 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 3/11] ibm_newemac: Fix ZMII refcounting bug
-Date: Fri, 30 Nov 2007 16:40:25 +1100
-Message-ID: <20071130054127.D15F2DDE18@ozlabs.org>
+Subject: [PATCH 4/11] ibm_newemac: Workaround reset timeout when no link
+Date: Fri, 30 Nov 2007 16:40:26 +1100
+Message-ID: <20071130054129.C7EADDDE9E@ozlabs.org>
 References: <1196401223.5661.297518056501.qpush@grosgo>
 Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>
 To: <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:48281 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:48333 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751608AbXK3Fl2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Nov 2007 00:41:28 -0500
+	id S1751814AbXK3Flb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Nov 2007 00:41:31 -0500
 In-Reply-To: <1196401223.5661.297518056501.qpush@grosgo>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When using ZMII for MDIO only (such as 440GX with RGMII for data and ZMII for
-MDIO), the ZMII code would fail to properly refcount, thus triggering a
-BUG_ON().
+With some PHYs, when the link goes away, the EMAC reset fails due
+to the loss of the RX clock I believe.
+
+The old EMAC driver worked around that using some internal chip-specific
+clock force bits that are different on various 44x implementations.
+
+This is an attempt at doing it differently, by avoiding the reset when
+there is no link, but forcing loopback mode instead. It seems to work
+on my Taishan 440GX based board so far.
 
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Acked-by: Stefan Roese <sr@denx.de>
 ---
 
- drivers/net/ibm_newemac/zmii.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ibm_newemac/core.c |   20 ++++++++++++++------
+ 1 file changed, 14 insertions(+), 6 deletions(-)
 
-Index: linux-work/drivers/net/ibm_newemac/zmii.c
+Index: linux-work/drivers/net/ibm_newemac/core.c
 ===================================================================
---- linux-work.orig/drivers/net/ibm_newemac/zmii.c	2007-11-08 15:45:32.000000000 +1100
-+++ linux-work/drivers/net/ibm_newemac/zmii.c	2007-11-08 15:46:21.000000000 +1100
-@@ -83,12 +83,14 @@ int __devinit zmii_attach(struct of_devi
+--- linux-work.orig/drivers/net/ibm_newemac/core.c	2007-11-20 14:46:51.000000000 +1100
++++ linux-work/drivers/net/ibm_newemac/core.c	2007-11-20 14:46:58.000000000 +1100
+@@ -464,26 +464,34 @@ static int emac_configure(struct emac_in
+ {
+ 	struct emac_regs __iomem *p = dev->emacp;
+ 	struct net_device *ndev = dev->ndev;
+-	int tx_size, rx_size;
++	int tx_size, rx_size, link = netif_carrier_ok(dev->ndev);
+ 	u32 r, mr1 = 0;
  
- 	ZMII_DBG(dev, "init(%d, %d)" NL, input, *mode);
+ 	DBG(dev, "configure" NL);
  
--	if (!zmii_valid_mode(*mode))
-+	if (!zmii_valid_mode(*mode)) {
- 		/* Probably an EMAC connected to RGMII,
- 		 * but it still may need ZMII for MDIO so
- 		 * we don't fail here.
- 		 */
-+		dev->users++;
- 		return 0;
-+	}
+-	if (emac_reset(dev) < 0)
++	if (!link) {
++		out_be32(&p->mr1, in_be32(&p->mr1)
++			 | EMAC_MR1_FDE | EMAC_MR1_ILE);
++		udelay(100);
++	} else if (emac_reset(dev) < 0)
+ 		return -ETIMEDOUT;
  
- 	mutex_lock(&dev->lock);
+ 	if (emac_has_feature(dev, EMAC_FTR_HAS_TAH))
+ 		tah_reset(dev->tah_dev);
  
+-	DBG(dev, " duplex = %d, pause = %d, asym_pause = %d\n",
+-	    dev->phy.duplex, dev->phy.pause, dev->phy.asym_pause);
++	DBG(dev, " link = %d duplex = %d, pause = %d, asym_pause = %d\n",
++	    link, dev->phy.duplex, dev->phy.pause, dev->phy.asym_pause);
+ 
+ 	/* Default fifo sizes */
+ 	tx_size = dev->tx_fifo_size;
+ 	rx_size = dev->rx_fifo_size;
+ 
++	/* No link, force loopback */
++	if (!link)
++		mr1 = EMAC_MR1_FDE | EMAC_MR1_ILE;
++
+ 	/* Check for full duplex */
+-	if (dev->phy.duplex == DUPLEX_FULL)
++	else if (dev->phy.duplex == DUPLEX_FULL)
+ 		mr1 |= EMAC_MR1_FDE | EMAC_MR1_MWSW_001;
+ 
+ 	/* Adjust fifo sizes, mr1 and timeouts based on link speed */
+@@ -1165,9 +1173,9 @@ static void emac_link_timer(struct work_
+ 		link_poll_interval = PHY_POLL_LINK_ON;
+ 	} else {
+ 		if (netif_carrier_ok(dev->ndev)) {
+-			emac_reinitialize(dev);
+ 			netif_carrier_off(dev->ndev);
+ 			netif_tx_disable(dev->ndev);
++			emac_reinitialize(dev);
+ 			emac_print_link_status(dev);
+ 		}
+ 		link_poll_interval = PHY_POLL_LINK_OFF;
