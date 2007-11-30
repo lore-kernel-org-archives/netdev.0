@@ -1,120 +1,181 @@
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Subject: RE: [PATCH -mm] [RFC] I/OAT: Handle incoming udp through ioatdma
-Date: Thu, 29 Nov 2007 17:27:36 -0800
-Message-ID: <BAE9DCEF64577A439B3A37F36F9B691C03853691@orsmsx418.amr.corp.intel.com>
-References: <BAE9DCEF64577A439B3A37F36F9B691C03853146@orsmsx418.amr.corp.intel.com> <1196379815.4450.2.camel@localhost>
+From: Peter Tiedemann <PTIEDEM@de.ibm.com>
+Subject: Re: [patch 1/1] ctc: make use of alloc_netdev()
+Date: Fri, 30 Nov 2007 02:33:57 +0100
+Message-ID: <OFC3760A10.997938DA-ONC12573A3.00077088-C12573A3.00089A9D@de.ibm.com>
+References: <20071129091235.7884f0ad@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: <hadi@cyberus.ca>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jgarzik@pobox.com, linux-s390@vger.kernel.org,
+	netdev@vger.kernel.org, Ursula Braun1 <braunu@de.ibm.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:65464 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932616AbXK3B2i convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 20:28:38 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <1196379815.4450.2.camel@localhost>
+Received: from mtagate7.de.ibm.com ([195.212.29.156]:51626 "EHLO
+	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763732AbXK3BeC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2007 20:34:02 -0500
+In-Reply-To: <20071129091235.7884f0ad@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->From: J Hadi Salim [mailto:j.hadi123@gmail.com] On Behalf Of jamal
+To maintain the area used for sysfs attribute data which may be stored
+already previously.
+
+Mit freundlichen Gr=FC=DFen / Best regards / Saluti,
+          Peter Tiedemann
+---------------------------------
+phone: +49-7031-16-4172   fax: ++3159    e-mail: PTiedem@de.ibm.com
+IBM Deutschland Entwicklung GmbH
+Linux for eServer Development, Dept. 3303
+Schoenaicher Str. 220
+71032 Boeblingen, Germany
+
+IBM Deutschland Entwicklung GmbH, Vorsitzender des Aufsichtsrats: Marti=
+n
+Jetter, Gesch=E4ftsf=FChrung: Herbert Kircher
+Sitz der Gesellschaft: B=F6blingen, Registergericht: Amtsgericht Stuttg=
+art,
+HRB 243294
+
+
+                                                                       =
+   =20
+             Stephen Hemminger                                         =
+   =20
+             <shemminger@linux                                         =
+   =20
+             -foundation.org>                                          =
+ To=20
+                                       Ursula Braun1/Germany/IBM@IBMDE =
+   =20
+             29.11.2007 18:12                                          =
+ cc=20
+                                       jgarzik@pobox.com,              =
+   =20
+                                       netdev@vger.kernel.org,         =
+   =20
+                                       linux-s390@vger.kernel.org, Pete=
+r  =20
+                                       Tiedemann/Germany/IBM@IBMDE     =
+   =20
+                                                                   Subj=
+ect=20
+                                       Re: [patch 1/1] ctc: make use of=
+   =20
+                                       alloc_netdev()                  =
+   =20
+                                                                       =
+   =20
+                                                                       =
+   =20
+                                                                       =
+   =20
+                                                                       =
+   =20
+                                                                       =
+   =20
+                                                                       =
+   =20
+
+
+
+
+On Thu, 29 Nov 2007 17:36:27 +0100
+Ursula Braun <braunu@de.ibm.com> wrote:
+
+> From: Peter Tiedemann <ptiedem@de.ibm.com>
 >
->On Thu, 2007-29-11 at 12:08 -0800, Nelson, Shannon wrote:
->> [RFC] I/OAT: Handle incoming udp through ioatdma
->> 
->> From: Shannon Nelson <shannon.nelson@intel.com>
->> 
->> If the incoming udp packet is larger than 
->sysctl_udp_dma_copybreak, try
->> pushing it through the ioatdma asynchronous memcpy.  This is 
->very much
->> the
->> same as the tcp copy offload.  This is an RFC because we 
->know there are
->> stability problems under high traffic.
+> Currently ctc-device initialization is broken (kernel bug in
+> ctc_new_device).
+> The new network namespace code reveals a deficiency of the
+> ctc driver. It should make use of alloc_netdev() as described
+> in Documentation/networking/netdevices.txt.
+>
+> Signed-off-by: Peter Tiedemann <ptiedem@de.ibm.com>
+> Signed-off-by: Ursula Braun <braunu@de.ibm.com>
+> ---
+>  drivers/s390/net/ctcmain.c |   45
+++++++++++++++++-----------------------------
+>  1 file changed, 16 insertions(+), 29 deletions(-)
+>
+> Index: linux-2.6-uschi/drivers/s390/net/ctcmain.c
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> --- linux-2.6-uschi.orig/drivers/s390/net/ctcmain.c
+> +++ linux-2.6-uschi/drivers/s390/net/ctcmain.c
+> @@ -2782,35 +2782,14 @@ ctc_probe_device(struct ccwgroup_device
+>  }
+>
+>  /**
+> - * Initialize everything of the net device except the name and the
+> - * channel structs.
+> + * Device setup function called by alloc_netdev().
+> + *
+> + * @param dev  Device to be setup.
+>   */
+> -static struct net_device *
+> -ctc_init_netdevice(struct net_device * dev, int alloc_device,
+> -                         struct ctc_priv *privptr)
+> +void ctc_init_netdevice(struct net_device * dev)
+>  {
+> -          if (!privptr)
+> -                      return NULL;
+> -
+>            DBF_TEXT(setup, 3, __FUNCTION__);
+>
+> -          if (alloc_device) {
+> -                      dev =3D kzalloc(sizeof(struct net_device),
+GFP_KERNEL);
+> -                      if (!dev)
+> -                                  return NULL;
+> -          }
+> -
+> -          dev->priv =3D privptr;
+> -          privptr->fsm =3D init_fsm("ctcdev", dev_state_names,
+> -                                              dev_event_names,
+CTC_NR_DEV_STATES, CTC_NR_DEV_EVENTS,
+> -                                              dev_fsm, DEV_FSM_LEN,
+GFP_KERNEL);
+> -          if (privptr->fsm =3D=3D NULL) {
+> -                      if (alloc_device)
+> -                                  kfree(dev);
+> -                      return NULL;
+> -          }
+> -          fsm_newstate(privptr->fsm, DEV_STATE_STOPPED);
+> -          fsm_settimer(privptr->fsm, &privptr->restart_timer);
+>            if (dev->mtu =3D=3D 0)
+>                        dev->mtu =3D CTC_BUFSIZE_DEFAULT - LL_HEADER_L=
+ENGTH
+- 2;
+>            dev->hard_start_xmit =3D ctc_tx;
+> @@ -2823,7 +2802,7 @@ ctc_init_netdevice(struct net_device * d
+>            dev->type =3D ARPHRD_SLIP;
+>            dev->tx_queue_len =3D 100;
+>            dev->flags =3D IFF_POINTOPOINT | IFF_NOARP;
+> -          return dev;
+> +          SET_MODULE_OWNER(dev);
+>  }
 >
 >
->What stability problems?
-
-Under a heavy stress test combining TCP and UDP traffic we would get a
-kernel panic from a NULL dereference in dma_unpin_iovec_pages().  Remove
-this patch and the panic goes away.  Unfortunately, this problem is
-below our priority line so it has received little attention since then.
-We know of interest in this patch, however, so decided to release it
-into the wild and see if it garners any other attention.
-
-Part of the panic message:
-
-Unable to handle kernel NULL pointer dereference at 0000000000000000
-RIP: 
- [<ffffffff8025b406>] set_page_dirty_lock+0xe/0x3a
-PGD 2b91f067 PUD 2a04b067 PMD 0 
-Oops: 0002 [1] SMP 
-CPU 5 
-Modules linked in: ioatdma dca igb i2c_dev i2c_core e1000
-Pid: 10998, comm: netserver Not tainted 2.6.22.9_CB-2.05_patched #1
-RIP: 0010:[<ffffffff8025b406>]  [<ffffffff8025b406>]
-set_page_dirty_lock+0xe/0x3a
-RSP: 0018:ffff810028fedb68  EFLAGS: 00010246
-RAX: 0000000000000000 RBX: ffff81003afea648 RCX: ffff81002a382b88
-RDX: ffff810028fedfd8 RSI: 0000000000000282 RDI: 0000000000000000
-RBP: 0000000000000000 R08: 0000000000000001 R09: 0000000000000000
-R10: ffffffff806c13e0 R11: 0000000000000246 R12: 0000000000000000
-R13: 0000000000000001 R14: 0000000000000000 R15: ffff81003afea660
-FS:  00002b23ba4177c0(0000) GS:ffff810001164e40(0000)
-knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 0000000000000000 CR3: 0000000029831000 CR4: 00000000000006e0
-Process netserver (pid: 10998, threadinfo ffff810028fec000, task
-ffff81003a881590)
-Stack:  ffff810039887c80 ffff81003afea648 ffff81003afea640
-ffffffff8048545a
- fffffffffffffff4 ffff810028fedf38 ffff81003afea658 ffff81003afea670
- ffff81003afea640 ffffffff80485657 ffff81003afea660 0000000000000000
-Call Trace:
- [<ffffffff8048545a>] dma_unpin_iovec_pages+0x31/0x6e
- [<ffffffff80485657>] dma_pin_iovec_pages+0x1c0/0x1d9
- [<ffffffff804ce479>] udp_recvmsg+0x94/0x43e
- [<ffffffff8049268e>] sock_common_recvmsg+0x30/0x45
- [<ffffffff80491013>] sock_recvmsg+0xd5/0xed
- [<ffffffff80518d48>] mutex_lock+0xd/0x1e
- [<ffffffff802425ff>] autoremove_wake_function+0x0/0x2e
- [<ffffffff802564ca>] find_get_page+0x21/0x50
- [<ffffffff80258572>] filemap_nopage+0x180/0x2b0
- [<ffffffff80262b59>] __handle_mm_fault+0x404/0x9fc
- [<ffffffff80245b35>] getnstimeofday+0x32/0x8d
- [<ffffffff80245b35>] getnstimeofday+0x32/0x8d
- [<ffffffff80491dc8>] sys_recvfrom+0xe2/0x130
- [<ffffffff802445ca>] enqueue_hrtimer+0x64/0x6b
- [<ffffffff80244b18>] hrtimer_start+0xf2/0x104
- [<ffffffff80234d27>] do_setitimer+0x15e/0x329
- [<ffffffff80234fb9>] alarm_setitimer+0x35/0x65
- [<ffffffff8020935e>] system_call+0x7e/0x83
-
-
-Code: f0 0f ba 6d 00 00 19 c0 85 c0 74 08 48 89 ef e8 89 ce ff ff 
-RIP  [<ffffffff8025b406>] set_page_dirty_lock+0xe/0x3a
- RSP <ffff810028fedb68>
-CR2: 0000000000000000
-
+> @@ -2879,14 +2858,22 @@ ctc_new_device(struct ccwgroup_device *c
+>                                    "ccw_device_set_online (cdev[1])
+failed with ret =3D %d\n", ret);
+>            }
 >
->Is there some magic sysctl_udp_dma_copybreak threshold value where you
->start seeing the benefit of IOAT-ing? Since you mentioned
->"students"<evil grin here>, it would be interesting to see data where
->udp starts benefitting.
+> -          dev =3D ctc_init_netdevice(NULL, 1, privptr);
+> -
+> +          dev =3D alloc_netdev(0, "ctc%d", ctc_init_netdevice);
+>            if (!dev) {
+>                        ctc_pr_warn("ctc_init_netdevice failed\n");
+>                        goto out;
+>            }
+> +          dev->priv =3D privptr;
+>
+Why not use standard private data area, rather than allocating
+it separately?
 
-As I said, this is low on our priority list, so this data has not been
-gathered.
-
->cheers,
->jamal
-
-Thanks for your interest.
-sln
 --
-======================================================================
-Mr. Shannon Nelson                 LAN Access Division, Intel Corp.
-Shannon.Nelson@intel.com                I don't speak for Intel
-(503) 712-7659                    Parents can't afford to be squeamish.
+Stephen Hemminger <shemminger@linux-foundation.org>
+
+
