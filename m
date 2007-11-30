@@ -1,51 +1,61 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 3/3] [UDP6]: Counter increment on BH mode
-Date: Fri, 30 Nov 2007 11:19:49 +0000
-Message-ID: <20071130111949.GB28277@gerrit.erg.abdn.ac.uk>
-References: <474F7EE8.2040009@cn.fujitsu.com> <474F8255.5060501@cn.fujitsu.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: ZD1211RW unaligned accesses...
+Date: Fri, 30 Nov 2007 12:33:47 +0100
+Message-ID: <1196422427.6058.179.camel@johannes.berg>
+References: <20071120.040546.222294375.davem@davemloft.net>
+	 <47442BFC.8090008@hotmail.com> <20071124150216.GA28153@gondor.apana.org.au>
+	 <20071129214533.GD32730@tuxdriver.com>
+	 <20071129234327.GA23769@gondor.apana.org.au>
+	 (sfid-20071129_234339_196157_36CABDC6)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
-	andi@firstfloor.org, netdev@vger.kernel.org
-To: Wang Chen <wangchen@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:56347 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755306AbXK3LUr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Nov 2007 06:20:47 -0500
-Content-Disposition: inline
-In-Reply-To: <474F8255.5060501@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-VxnZnbr2cjTv3E47Cbie"
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Shaddy Baddah <shaddy_baddah-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org,
+	kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20071129234327.GA23769-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org> (sfid-20071129_234339_196157_36CABDC6)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Wang Chen:
-| (This patch base on "PATCH 2/3".)
-| 
-| UDP_MIB_INERRORS increment is in different way for IPv4
-| and IPv6. For the consistence, change UDP6_INC_STATS_USER
-| to UDP6_INC_STATS_BH.
-| 
-| Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
-| ---
-|  udp.c |    2 +-
-|  1 files changed, 1 insertion(+), 1 deletion(-)
-| 
-| --- linux-2.6.24.rc3.org/net/ipv6/udp.c	2007-11-30 10:38:36.000000000 +0800
-| +++ linux-2.6.24.rc3/net/ipv6/udp.c	2007-11-30 10:39:01.000000000 +0800
-| @@ -207,7 +207,7 @@ out:
-|  	return err;
-|  
-|  csum_copy_err:
-| -	UDP6_INC_STATS_USER(UDP_MIB_INERRORS, is_udplite);
-| +	UDP6_INC_STATS_BH(UDP_MIB_INERRORS, is_udplite);
-|  	skb_kill_datagram(sk, skb, flags);
-|  
-|  	if (flags & MSG_DONTWAIT)
-| 
-Is it not the other way round ?? :- 
 
-	struct proto udp{,v6}_prot = {
-		// ...
-		.recvmsg           = udp{,v6}_recvmsg,
-	};
+--=-VxnZnbr2cjTv3E47Cbie
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
+
+> Chances are it does make progress however we may still have the
+> general wireless/IP stack alignment issue that we are still discussing.
+
+Yeah, it's still on my list. I'll make a patch to WARN_ON unaligned data
+in a packet... although this is a bit complicated. ath5k actually had a
+bug with this where they simply ignored the hardware-added padding in
+QoS frames initially which would result in "corrupted" data...
+
+johannes
+
+--=-VxnZnbr2cjTv3E47Cbie
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIVAwUAR0/1GqVg1VMiehFYAQK+/A/+Il9sZxzucdZFTVbKM5G0oZHwos/UxvGf
+wqsNzdC+EeqxmpG2MzbogI8mZD5xXIqJ3d483+2WktOKWOFQTiaBxDbLxx6XlxnO
+B3PJyWBr2WmW/eM8PHZehVpBPB2Mx6IhxSLYbe1Ux7VbrjzlOIpbJAK0YmZjrD3C
+CbOOAg5wWmpbI0oLs7ySEy2LxWteA9ZdIfDRNy49lwl6dT9ApXJxcOP5JNeFHEtn
+Y+OshIWyXqAfRIuH/O3jz6hTLiBgYxE8OAduP00dBKQCWw9hA06HNvDrZcZSwhPE
+LSo5KGPljWvAv3MvTCtZQNl28cU/slhFisf9TPA4p8eLVuwss5K26TscStIw3ep2
+9zMxLNeDATDMTD1ywqTh82lshGlCJuJhEAVJCYBCJZwJPsQZdK++WvhizHQfnzcG
+0vjs2RXMvwVMwEdiyV6cSGGmPSI7ih3W0CptJiEcOODn6g6Q/veJg447q6m70HLl
+eND+WEo1STftHRSDmNmce+KV7h6rZkvKUdHnvLHgkjrKOwzxX4ExAT3SHGjaib6k
+oCYC00nsHEh88iZFmiFAwKZBCAAyjMxG36EBkDfjCNcrsih/TKzQtKHPs3hQVKUn
+Fw8wZyo0wlkjqg5tvPtq6ZtFc7dbaTfIBeyyvLyAI467ei9yHyUwYi11erq35fNQ
+zne2AyReIfQ=
+=d+S4
+-----END PGP SIGNATURE-----
+
+--=-VxnZnbr2cjTv3E47Cbie--
