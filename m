@@ -1,67 +1,37 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [Bugme-new] [Bug 9440] New: Problem in joinning a socket to ipv6 multicast address in specific scenario
-Date: Fri, 30 Nov 2007 15:25:16 +0300
-Message-ID: <20071130122516.GA28027@2ka.mipt.ru>
-References: <bug-9440-10286@http.bugzilla.kernel.org/> <20071122172342.721ee232.akpm@linux-foundation.org> <20071123105924.GB22062@2ka.mipt.ru> <20071128111814.GA10246@2ka.mipt.ru> <20071130120219.GA26848@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [GIT PULL] SCTP bug fixes for net-2.6
+Date: Fri, 30 Nov 2007 23:29:34 +1100
+Message-ID: <20071130122934.GD26848@gondor.apana.org.au>
+References: <1196351141-24722-1-git-send-email-vladislav.yasevich@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, aviad.yehezkel5@gmail.com,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:34658 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752713AbXK3MZm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Nov 2007 07:25:42 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:4059 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752983AbXK3M3i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2007 07:29:38 -0500
 Content-Disposition: inline
-In-Reply-To: <20071130120219.GA26848@gondor.apana.org.au>
+In-Reply-To: <1196351141-24722-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 30, 2007 at 11:02:19PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> OK, this looks like a good change.  However, we should also
-> change NETDEV_UP as well to recreate idev if it isn't there
-> and the MTU is big enough.
+On Thu, Nov 29, 2007 at 10:45:41AM -0500, Vlad Yasevich wrote:
+> 
+> Hi Herbert
+> 
+> The following changes since commit a357dde9df33f28611e6a3d4f88265e39bcc8880:
+>   Stephen Hemminger (1):
+>         [TCP] illinois: Incorrect beta usage
+> 
+> are available in the git repository at:
+> 
+>   aster.kernel.org:/pub/scm/linux/kernel/git/vxy/lksctp-dev.git pending
 
-Ok, added netdev_up too.
-
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 567664e..e8c3475 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2293,6 +2293,9 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
- 				break;
- 			}
- 
-+			if (!idev && dev->mtu >= IPV6_MIN_MTU)
-+				idev = ipv6_add_dev(dev);
-+
- 			if (idev)
- 				idev->if_flags |= IF_READY;
- 		} else {
-@@ -2357,12 +2360,18 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
- 		break;
- 
- 	case NETDEV_CHANGEMTU:
--		if ( idev && dev->mtu >= IPV6_MIN_MTU) {
-+		if (idev && dev->mtu >= IPV6_MIN_MTU) {
- 			rt6_mtu_change(dev, dev->mtu);
- 			idev->cnf.mtu6 = dev->mtu;
- 			break;
- 		}
- 
-+		if (!idev && dev->mtu >= IPV6_MIN_MTU) {
-+			idev = ipv6_add_dev(dev);
-+			if (idev)
-+				break;
-+		}
-+
- 		/* MTU falled under IPV6_MIN_MTU. Stop IPv6 on this interface. */
- 
- 	case NETDEV_DOWN:
-
+Pulled.  Thanks Vlad!
 -- 
-	Evgeniy Polyakov
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
