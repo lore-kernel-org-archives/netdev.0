@@ -1,57 +1,34 @@
-From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 4/4 (resent) net-2.6.25][UNIX] Make the unix sysctl
- tables per-namespace
-Date: Sat, 01 Dec 2007 16:07:05 +0300
-Message-ID: <47515C79.9060903@openvz.org>
-References: <47503919.8060103@openvz.org> <47503C48.8020001@openvz.org>
-	<20071201125726.GC15910@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-2.6.25 2/3][IPV4] Unify and cleanup calls to devinet_sysctl_register
+Date: Sun, 2 Dec 2007 00:28:59 +1100
+Message-ID: <20071201132859.GI15910@gondor.apana.org.au>
+References: <475055F2.4090509@openvz.org> <20071201132000.GG15910@gondor.apana.org.au> <475160C1.9050808@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-        Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <20071201125726.GC15910-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:3605 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751334AbXLAN3C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 08:29:02 -0500
+Content-Disposition: inline
+In-Reply-To: <475160C1.9050808@openvz.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Fri, Nov 30, 2007 at 07:37:28PM +0300, Pavel Emelyanov wrote:
->> Signed-off-by: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+On Sat, Dec 01, 2007 at 04:25:21PM +0300, Pavel Emelyanov wrote:
+>
+> > How about just giving it in_dev instead?
 > 
-> All applied to net-2.6.25.
-> 
->> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
->> index b0cf075..f97b2a4 100644
->> --- a/include/net/net_namespace.h
->> +++ b/include/net/net_namespace.h
->> @@ -41,6 +43,7 @@ struct net {
->>  
->>  	/* unix sockets */
->>  	int			sysctl_unix_max_dgram_qlen;
->> +	struct ctl_table_header	*unix_ctl;
->>  };
-> 
-> But I gotta say this struct/file is going to be enormous.  It's also
-> one of those files that causes everything to get recompiled.  Maybe
-> we ought to make a rule that each subsystem only gets to have at most
-> one entry in it :)
-> 
-> Thanks,
+> Hmm... Makes sense. Should I recreate the while set or
+> just make the incremental one?
 
-Good point, thanks. We'll start thinking in that direction. Right now it
-is not finally cursed with all staff around.
+I've applied 1/3 for both cases so please just resend 2/3 and 3/3.
 
-Regards,
-	Den
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
