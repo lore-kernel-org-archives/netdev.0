@@ -1,48 +1,48 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCHv7 iptables] Interface group match
-Date: Sat, 01 Dec 2007 22:23:53 +0100
-Message-ID: <4751D0E9.8090708@o2.pl>
-References: <11963527094077-git-send-email-panther@balabit.hu> <11963527103201-git-send-email-panther@balabit.hu> <1196352710402-git-send-email-panther@balabit.hu> <11963527101876-git-send-email-panther@balabit.hu> <11963527103391-git-send-email-panther@balabit.hu> <11963527102332-git-send-email-panther@balabit.hu> <11963527101629-git-send-email-panther@balabit.hu> <4751CFC9.6000607@o2.pl>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2.6.24 1/1]S2io: Fixed the case when the card initialization
+ fails on mtu change
+Date: Sat, 01 Dec 2007 16:33:22 -0500
+Message-ID: <4751D322.3030100@garzik.org>
+References: <Pine.GSO.4.10.10711300143550.6586-100000@guinness>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Laszlo Attila Toth <panther@balabit.hu>,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
+Cc: netdev@vger.kernel.org, support@neterion.com
+To: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:33079 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752608AbXLAVWX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Dec 2007 16:22:23 -0500
-In-Reply-To: <4751CFC9.6000607@o2.pl>
+Received: from srv5.dvmed.net ([207.36.208.214]:32843 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750723AbXLAVd0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Dec 2007 16:33:26 -0500
+In-Reply-To: <Pine.GSO.4.10.10711300143550.6586-100000@guinness>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote, On 12/01/2007 10:19 PM:
-
-> Laszlo Attila Toth wrote, On 11/29/2007 05:11 PM:
-> ...
+Sreenivasa Honnur wrote:
+> Fix the case when the card initialization fails on a mtu change and then 
+> close is called (due to ifdown), which frees non existent rx buffers.
+> - Returning appropriate error codes in init_nic function.
+> - In s2io_close function s2io_card_down is called only when device is up.
+> - In s2io_change_mtu function return value of s2io_card_up function
+>   is checked and returned if it failed.
 > 
->> Index: extensions/libxt_ifgroup.man
+> Signed-off-by: Surjit Reang <surjit.reang@neterion.com>
+> Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
+> Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
+> ---
+> diff -Nurp patch_8/drivers/net/s2io.c patch_9/drivers/net/s2io.c
+> --- patch_8/drivers/net/s2io.c	2007-11-20 23:31:57.000000000 +0530
+> +++ patch_9/drivers/net/s2io.c	2007-11-20 23:13:24.000000000 +0530
+> @@ -84,7 +84,7 @@
+>  #include "s2io.h"
+>  #include "s2io-regs.h"
+>  
+> -#define DRV_VERSION "2.0.26.8"
+> +#define DRV_VERSION "2.0.26.9"
+>  
+>  /* S2io Driver name & version. */
+>  static char s2io_driver_name[] = "Neterion";
+
+applied patch to 2.6.24-rc, except for the above chunk, which failed
 
 
-...
-
->> +Valid only in the in the
-
-   +Valid only in the
-
->> +.B FORWARD
->> +and
->> +.B OUTPUT
->> +and
->> +.B POSTROUTING
->> +chains, and user-defined chains which are only called from those
->> +chains. 
->> +.RS
->> +.PP
->> +
-> 
-> Regards,
-> Jarek P.
