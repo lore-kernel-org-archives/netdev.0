@@ -1,13 +1,16 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: namespace support requires network modules to say "GPL"
-Date: Sat, 01 Dec 2007 12:54:52 -0700
-Message-ID: <m1bq9a5gxf.fsf@ebiederm.dsl.xmission.com>
+Date: Sat, 01 Dec 2007 13:13:46 -0700
+Message-ID: <m13aum5g1x.fsf@ebiederm.dsl.xmission.com>
 References: <m163zi9425.fsf@ebiederm.dsl.xmission.com>
 	<47515D39.9030900@rtr.ca> <20071201111736.297dd99a@freepuppy.rosehill>
+	<20071201192341.6750fbdb@the-village.bc.nu>
+	<20071201113815.5df0960a@freepuppy.rosehill>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Mark Lord <lkml@rtr.ca>, Greg Kroah-Hartman <gregkh@suse.de>,
-	Greg KH <greg@kroah.com>, Tejun Heo <htejun@gmail.com>,
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, Mark Lord <lkml@rtr.ca>,
+	Greg Kroah-Hartman <gregkh@suse.de>, Greg KH <greg@kroah.com>,
+	Tejun Heo <htejun@gmail.com>,
 	Linux Containers <containers@lists.osdl.org>,
 	netdev@vger.kernel.org, cornelia.huck@de.ibm.com,
 	stern@rowland.harvard.edu, kay.sievers@vrfy.org,
@@ -18,61 +21,49 @@ Cc: Mark Lord <lkml@rtr.ca>, Greg Kroah-Hartman <gregkh@suse.de>,
 	Linus Torvalds <torvalds@linux-foundation.org>
 To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:47187 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:54669 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751457AbXLAT5M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 14:57:12 -0500
-In-Reply-To: <20071201111736.297dd99a@freepuppy.rosehill> (Stephen Hemminger's
-	message of "Sat, 1 Dec 2007 11:17:36 -0800")
+	with ESMTP id S1751457AbXLAUQT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 15:16:19 -0500
+In-Reply-To: <20071201113815.5df0960a@freepuppy.rosehill> (Stephen Hemminger's
+	message of "Sat, 1 Dec 2007 11:38:15 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Stephen Hemminger <shemminger@linux-foundation.org> writes:
 
-> On Sat, 01 Dec 2007 08:10:17 -0500
-> Mark Lord <lkml@rtr.ca> wrote:
->
->> > Now that we have network namespace support merged it is time to
->> > revisit the sysfs support so we can remove the dependency on !SYSFS.
->> ...
->> 
->> Now that the namespace updates are part of 2.6.24,
->> there is a major inconsistency in network EXPORT_SYMBOLs.
->> 
->> It used to be that an external network module could get away without
->> having to add a MODULE_LICENSE("GPL*") line to the source.
->> 
->> In support of that, common networking functions (still) use EXPORT_SYMBOL()
->> rather than the more restrictive EXPORT_SYMBOL_GPL().
->> 
->> Eg.  register_netdev(), sk_alloc(), __dev_get_by_name().
->> 
->> But now, none of those three are actually usable by default,
->> because they all require "init_net", which is EXPORT_SYMBOL_GPL().
+> Actually, the whole mess would go away if the api for dev_get_by_XXXX hadn't
+> been changed in the namespace transition. IMHO the interface to
+> dev_get_by_name()
+> should not have added a namespace parameter, of the callers in the tree, only
+> two use a different namespace. So it would have been better to to introduce
+> dev_get_by_name_ns() with the extra parameter.
 
-Which alternative kernel does the above comment apply to?
+As a general rule if you are calling dev_get_by_name and taking an &init_net
+parameter that means you code has not yet been converted to actually support
+network namespaces.
 
-> Then init_net needs to be not GPL limited. Sorry, we need to allow
-> non GPL network drivers.
+Not everything can be safely changed at once so we take it by steps.  When
+the code fully supports network namespaces practically nothing will take
+an &init_net parameter.  The network namespace parameter will come in
+some form from userspace.  Either from current or from the network
+socket.
 
-For the record network drivers should not be affected.  As a practical
-measure that just gets unmaintainable and it is unnecessary.
+Except for boot time initialization I don't know of any cases using
+dev_get_by_XXXX that won't need to be modified before the network
+namespace work is complete.
 
-There are specific exceptions where network drivers mess with the userspace
-interfaces where I do have some impact.  However if you are messing
-with our userspace interface especially with network namespaces in place
-I don't see how it is possible for you to be anything other then a derivative
-work, and something we need in tree to keep maintenance a manageable thing.
+I believe I mentioned that this getting the fully network namespace
+support was going to take a while and a bunch of patches at the
+outset.
 
-It should just be the core of the network stack that struct net has some
-effect on.
+> Can we get this resolved before 2.6.24 is released? Going back and forth
+> on API's is just needless frottage.
 
-> There is a fine line between keeping the
-> binary seething masses from accessing random kernel functions, and allowing
-> reasonable (but still non GPL) things like ndiswrapper to use network
-> device interface.
+Sure.  We keep the updated dev_get_by_XXXX that takes a network
+namespace parameter.
 
-Does ndiswrapper break?  If so what dubious and unsupportable thing is
-it doing?
+Or is their some legitimate usage of it by out of tree code that
+I'm not aware of?
 
 Eric
