@@ -1,50 +1,78 @@
-From: Sebastian Siewior <netdev@ml.breakpoint.cc>
-Subject: [PATCH] [net] RxRPC session sockets depend on crypto
-Date: Sat, 1 Dec 2007 13:20:12 +0100
-Message-ID: <20071201122012.GC8048@Chamillionaire.breakpoint.cc>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 4/4] udp: memory accounting in IPv4
+Date: Sat, 1 Dec 2007 23:21:20 +1100
+Message-ID: <20071201122120.GB14368@gondor.apana.org.au>
+References: <474DB80E.5070403@redhat.com> <474DB930.5080409@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
+	Bill Fink <billfink@mindspring.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	yoshfuji@linux-ipv6.org,
+	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
+To: Hideo AOKI <haoki@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:42937 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753527AbXLAMUO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 07:20:14 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:3119 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752625AbXLAMVY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 07:21:24 -0500
 Content-Disposition: inline
+In-Reply-To: <474DB930.5080409@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-net/built-in.o: In function `rxrpc_destroy_s':
-ar-key.c:(.text+0x653cd): undefined reference to `crypto_free_tfm'
-net/built-in.o: In function `rxrpc_instantiate_s':
-ar-key.c:(.text+0x65496): undefined reference to `crypto_alloc_base'
+On Wed, Nov 28, 2007 at 01:53:36PM -0500, Hideo AOKI wrote:
+>
+> +/**
+> + *	__skb_queue_purge_and_sub_memory_allocated
+> + *		- empty a list and subtruct memory allocation counter
+> + *	@sk:   sk
+> + *	@list: list to empty
+> + *	Delete all buffers on an &sk_buff list and subtruct the
+> + *	truesize of the sk_buff for memory accounting. Each buffer
+> + *	is removed from the list and one reference dropped. This
+> + *	function does not take the list lock and the caller must
+> + *	hold the relevant locks to use it.
+> + */
+> +static inline void __skb_queue_purge_and_sub_memory_allocated(struct sock *sk,
+> +					struct sk_buff_head *list)
+> +{
+> +	struct sk_buff *skb;
+> +	int purged_skb_size = 0;
+> +	while ((skb = __skb_dequeue(list)) != NULL) {
+> +		purged_skb_size += sk_datagram_pages(skb->truesize);
+> +		kfree_skb(skb);
+> +	}
+> +	atomic_sub(purged_skb_size, sk->sk_prot->memory_allocated);
+> +}
 
-Signed-off-by: Sebastian Siewior <sebastian@breakpoint.cc>
----
- net/rxrpc/Kconfig |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Thanks, this is a lot better than before!
 
-diff --git a/net/rxrpc/Kconfig b/net/rxrpc/Kconfig
-index e662f1d..60c4738 100644
---- a/net/rxrpc/Kconfig
-+++ b/net/rxrpc/Kconfig
-@@ -6,6 +6,7 @@ config AF_RXRPC
- 	tristate "RxRPC session sockets"
- 	depends on INET && EXPERIMENTAL
- 	select KEYS
-+	select CRYPTO
- 	help
- 	  Say Y or M here to include support for RxRPC session sockets (just
- 	  the transport part, not the presentation part: (un)marshalling is
-@@ -31,7 +32,6 @@ config AF_RXRPC_DEBUG
- config RXKAD
- 	tristate "RxRPC Kerberos security"
- 	depends on AF_RXRPC
--	select CRYPTO
- 	select CRYPTO_MANAGER
- 	select CRYPTO_BLKCIPHER
- 	select CRYPTO_PCBC
+However, I'm still a little concerned about the effect of two more
+atomic op's per packet that we're adding here.  Hang on a sec, that
+should've been Dave's line since atomic ops are cheap on x86 :)
+
+But seriously, it's not so much that we have two more atomic op's
+per packet, but we have two more writes to a single global counter
+for each packet.  This is going to really suck on SMP.
+
+So what I'd like to see is a scheme that's similar to sk_forward_alloc.
+The idea is that each socket allocates memory using mem_schedule and
+then stores it in sk_forward_alloc.  Each packet then only has to
+add to/subtract from sk_forward_alloc.
+
+There is one big problem with this though, UDP is not serialised like
+TCP.  So you can't just use sk_forward_alloc since it's not an atomic_t.
+
+We'll need to think about this one a bit more.
+
+Cheers,
 -- 
-1.5.3.4
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
