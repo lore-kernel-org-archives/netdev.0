@@ -1,37 +1,49 @@
-From: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
-Subject: Re: ZD1211RW unaligned accesses...
-Date: Sat, 1 Dec 2007 11:33:50 +0100
-Message-ID: <20071201103350.GB25387@deine-taler.de>
-References: <20071120.040546.222294375.davem@davemloft.net> <47442BFC.8090008@hotmail.com> <20071124150216.GA28153@gondor.apana.org.au> <20071129214533.GD32730@tuxdriver.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2/4] datagram: mem_scheudle functions
+Date: Sat, 1 Dec 2007 23:09:46 +1100
+Message-ID: <20071201120946.GA14368@gondor.apana.org.au>
+References: <474DB80E.5070403@redhat.com> <474DB90B.9090107@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Shaddy Baddah <shaddy_baddah-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
+	Bill Fink <billfink@mindspring.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	yoshfuji@linux-ipv6.org,
+	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
+To: Hideo AOKI <haoki@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:3024 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752406AbXLAMKC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 07:10:02 -0500
 Content-Disposition: inline
-In-Reply-To: <20071129214533.GD32730-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <474DB90B.9090107@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-John W. Linville wrote:
+On Wed, Nov 28, 2007 at 01:52:59PM -0500, Hideo AOKI wrote:
+>
+> +static inline int sk_wmem_schedule(struct sock *sk, int size)
+> +{
+> +	if (sk->sk_type == SOCK_STREAM)
+> +		return sk_stream_wmem_schedule(sk, size);
+> +	else if (sk->sk_type == SOCK_DGRAM)
+> +		return sk_datagram_wmem_schedule(sk, size);
+> +	else
+> +		return 1;
+> +}
 
-> So, did the patch below fix the problem?  Should I apply it?
-> 
-> John
+Why do we need this function? As far as I can see we always know
+whether it's a stream or datagram socket at compile time so doing
+a run-time test is pointless.
 
-John,
-
-the patch would have worked, but I have sent a second one to the
-list, which is based on Herbert's and has an assert to be able to test
-the patch on x86.
-
-You should be notify that the mac80211 driver, doesn't suffer
-from the problem and Daniel has already provided a patch to
-replace zd1211rw by the mac80211 driver. Daniel's patch must of
-course break by the new patch.
-
+Cheers,
 -- 
-Uli Kunitz
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
