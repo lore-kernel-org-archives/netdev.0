@@ -1,64 +1,73 @@
-From: Mark Lord <lkml@rtr.ca>
-Subject: namespace support requires network modules to say "GPL"
-Date: Sat, 01 Dec 2007 08:10:17 -0500
-Message-ID: <47515D39.9030900@rtr.ca>
-References: <m163zi9425.fsf@ebiederm.dsl.xmission.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-2.6.25 6/6][CORE] Remove the empty net_table
+Date: Sat, 01 Dec 2007 16:11:28 +0300
+Message-ID: <47515D80.4000208@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@suse.de>, Greg KH <greg@kroah.com>,
-	Tejun Heo <htejun@gmail.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, cornelia.huck@de.ibm.com,
-	stern@rowland.harvard.edu, kay.sievers@vrfy.org,
-	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@osdl.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtr.ca ([76.10.145.34]:3712 "EHLO mail.rtr.ca"
+Received: from sacred.ru ([62.205.161.221]:55381 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751229AbXLANKT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Dec 2007 08:10:19 -0500
-In-Reply-To: <m163zi9425.fsf@ebiederm.dsl.xmission.com>
+	id S1751566AbXLANLg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Dec 2007 08:11:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Now that we have network namespace support merged it is time to
-> revisit the sysfs support so we can remove the dependency on !SYSFS.
-...
+I have removed all the entries from this table (core_table,
+ipv4_table and tr_table), so now we can safely drop it.
 
-Now that the namespace updates are part of 2.6.24,
-there is a major inconsistency in network EXPORT_SYMBOLs.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-It used to be that an external network module could get away without
-having to add a MODULE_LICENSE("GPL*") line to the source.
+---
 
-In support of that, common networking functions (still) use EXPORT_SYMBOL()
-rather than the more restrictive EXPORT_SYMBOL_GPL().
+diff --git a/include/linux/net.h b/include/linux/net.h
+index f95f12c..c414d90 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -337,7 +337,6 @@ static const struct proto_ops name##_ops = {			\
+ 
+ #ifdef CONFIG_SYSCTL
+ #include <linux/sysctl.h>
+-extern ctl_table net_table[];
+ extern int net_msg_cost;
+ extern int net_msg_burst;
+ #endif
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index 946a01c..894a177 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -199,14 +199,6 @@ static struct ctl_table root_table[] = {
+ 		.mode		= 0555,
+ 		.child		= vm_table,
+ 	},
+-#ifdef CONFIG_NET
+-	{
+-		.ctl_name	= CTL_NET,
+-		.procname	= "net",
+-		.mode		= 0555,
+-		.child		= net_table,
+-	},
+-#endif
+ 	{
+ 		.ctl_name	= CTL_FS,
+ 		.procname	= "fs",
+diff --git a/net/sysctl_net.c b/net/sysctl_net.c
+index 16ad14b..665e856 100644
+--- a/net/sysctl_net.c
++++ b/net/sysctl_net.c
+@@ -30,10 +30,6 @@
+ #include <linux/if_tr.h>
+ #endif
+ 
+-struct ctl_table net_table[] = {
+-	{ 0 },
+-};
+-
+ static struct list_head *
+ net_ctl_header_lookup(struct ctl_table_root *root, struct nsproxy *namespaces)
+ {
+-- 
+1.5.3.4
 
-Eg.  register_netdev(), sk_alloc(), __dev_get_by_name().
-
-But now, none of those three are actually usable by default,
-because they all require "init_net", which is EXPORT_SYMBOL_GPL().
-
-So.. It appears that one of three things should really happen next:
-
-1) Change the other exports to also be EXPORT_SYMBOL_GPL.
-
-2) Have register_netdev, sk_alloc, and __dev_get_by_name default
-to using init_net when NULL is specified in the namespace field.
-
-or 
-
-3) Change init_net to be EXPORT_SYMBOL_GPL.
-
-Right now, things are just a bit inconsistent, and it's not clear
-whether the namespace changes intended this consequence or not.
-
-Cheers
-
-(as for me, I think all kernel modules are GPL, whether they have
- the MODULE_LICENSE line or not, so flames to /dev/null on that).
