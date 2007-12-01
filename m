@@ -1,31 +1,32 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/3] cxgb - fix T2 GSO
-Date: Sat, 01 Dec 2007 16:34:03 -0500
-Message-ID: <4751D34B.9030908@garzik.org>
-References: <20071127213009.804.49490.stgit@speedy5>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/3] sky2: revert to access PCI config via device space
+Date: Sat, 01 Dec 2007 16:34:14 -0500
+Message-ID: <4751D356.7060606@pobox.com>
+References: <20071127105727.1bcfa56f@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	greearb@candelatech.com
-To: Divy Le Ray <divy@chelsio.com>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:32876 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:32882 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750915AbXLAVeF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Dec 2007 16:34:05 -0500
-In-Reply-To: <20071127213009.804.49490.stgit@speedy5>
+	id S1751508AbXLAVeP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Dec 2007 16:34:15 -0500
+In-Reply-To: <20071127105727.1bcfa56f@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Divy Le Ray wrote:
-> From: Divy Le Ray <divy@chelsio.com>
+Stephen Hemminger wrote:
+> Using the hardware window into PCI config space is more reliable
+> and smaller/faster than using the pci_config routines. It avoids issues
+> with MMCONFIG etc.
 > 
-> The patch ensures that a GSO skb has enough headroom
-> to push an encapsulating cpl_tx_pkt_lso header.
+> Reverts: 167f53d05fccb47b6eeadac7f6705b3f2f042d03
 > 
-> Signed-off-by: Divy Le Ray <divy@chelsio.com>
-> ---
+> Please apply for 2.6.24
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
 applied 1-3
 
