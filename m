@@ -1,82 +1,64 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [PATCH 4/4] net: Implement the per network namespace sysctl
-	infrastructure
-Date: Fri, 30 Nov 2007 18:01:50 -0600
-Message-ID: <20071201000150.GA18758@sergelap.austin.ibm.com>
-References: <4742C73C.3010904@openvz.org> <m1odddc5mf.fsf@ebiederm.dsl.xmission.com> <m1k5o1c5eh.fsf_-_@ebiederm.dsl.xmission.com> <m1fxypc5cd.fsf_-_@ebiederm.dsl.xmission.com> <m1bq9dc53d.fsf_-_@ebiederm.dsl.xmission.com> <m17ik1c50m.fsf_-_@ebiederm.dsl.xmission.com> <20071130161856.GA10588@sergelap.austin.ibm.com> <m13aun9zfe.fsf@ebiederm.dsl.xmission.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: [PATCH] Remove rcu_assign_pointer() penalty for NULL pointers
+Date: Fri, 30 Nov 2007 16:37:21 -0800
+Message-ID: <20071201003721.GA22726@linux.vnet.ibm.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Cedric Le Goater <clg@fr.ibm.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: herbert@gondor.apana.org.au, ego@in.ibm.com,
+	netdev@vger.kernel.org, bridge@lists.osdl.org, devel@openvz.org,
+	shemminger@linux-foundation.org, xemul@openvz.org,
+	dipankar@in.ibm.com, akpm@linux-foundation.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:40418 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755756AbXLAABr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2007 19:01:47 -0500
+Received: from e35.co.us.ibm.com ([32.97.110.153]:45900 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758155AbXLAAhX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2007 19:37:23 -0500
 Content-Disposition: inline
-In-Reply-To: <m13aun9zfe.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Eric W. Biederman (ebiederm@xmission.com):
-> "Serge E. Hallyn" <serue@us.ibm.com> writes:
-> 
-> >
-> > Hey Eric,
-> >
-> > the patches look nice.
-> >
-> > The hand-forcing of the passed-in net_ns into a copy of current->nsproxy
-> > does make it seem like nsproxy may not be the best choice of what to
-> > pass in.  Doesn't only net_sysctl_root->lookup() look at the argument?
-> 
-> Yes.  Although I call it from __register_sysctl_paths.
-> 
-> > But I assume you don't want to be more general than sending in a
-> > nsproxy so as to dissuade abuse of this interface for needlessly complex
-> > sysctl interfaces?
-> 
-> A bit of that.  I would love to pass in a task_struct so you can use
-> anything from a task.  The trouble is I don't have any task_structs or
-> nsproxys with the proper value at the point where I am first setting
-> this up.  Further I have to have the full sysctl lookup working or I
-> could not call sysctl_check.
-> 
-> > (Well I expect that'll become clear once the the patches using this
-> > come out.)
-> >
-> > Are you planning to use this infrastructure for the uts and ipc
-> > sysctls as well?
-> 
-> Yes.  Where it comes in especially useful, is I can move /proc/sys
-> to /proc/sys/<tgid>/task/<pid>/sys.  And get a particular processes
-> view of sysctl.  
-> 
-> We also get a little more reuse of common functions.
-> 
-> Otherwise Pavel does have a point that using this for uts and ipc
-> is not a savings lines of code wise.
-> 
-> After having seen Pavel changes I am asking myself if there is a sane
-> way to remove the ctl_name argument from the ctl_path.
-> 
-> Anyway where I am with the nsproxy question was that I don't
-> see anything easily better.  What I have works and gets the job
-> done, and doesn't have any module unload races or holes where a sloppy
-> programmer can mess up the sysctl tree.  We needed a solution.
-> Trying any harder to find something better would take ages.  So
-> I figured this implementation was good enough.
+Hello!
 
-I agree.  So it's already in -mm but still
+The rcu_assign_pointer() primitive currently unconditionally executes
+a memory barrier, even when a NULL pointer is being assigned.  This
+has lead some to avoid using rcu_assign_pointer() for NULL pointers,
+which loses the self-documenting advantages of rcu_assign_pointer()
+This patch uses __builtin_const_p() to omit needless memory barriers
+for NULL-pointer assignments at compile time with no runtime penalty,
+as discussed in the following thread:
 
-Acked-by: Serge Hallyn <serue@us.ibm.com>
+	http://www.mail-archive.com/netdev@vger.kernel.org/msg54852.html
 
-thanks,
--serge
+Tested on x86_64 and ppc64, also compiled the four cases (NULL/non-NULL
+and const/non-const) with gcc version 4.1.2, and hand-checked the
+assembly output.
+
+Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+---
+
+ rcupdate.h |   11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff -urpNa -X dontdiff linux-2.6.24-rc1-ego/include/linux/rcupdate.h linux-2.6.24-rc1-egoxu/include/linux/rcupdate.h
+--- linux-2.6.24-rc1-ego/include/linux/rcupdate.h	2007-11-06 15:30:02.000000000 -0800
++++ linux-2.6.24-rc1-egoxu/include/linux/rcupdate.h	2007-11-30 09:06:11.000000000 -0800
+@@ -191,10 +191,13 @@ static inline void rcu_preempt_boost(voi
+  * code.
+  */
+ 
+-#define rcu_assign_pointer(p, v)	({ \
+-						smp_wmb(); \
+-						(p) = (v); \
+-					})
++#define rcu_assign_pointer(p, v) \
++	({ \
++		if (!__builtin_constant_p(v) || \
++		    ((v) != NULL)) \
++			smp_wmb(); \
++		(p) = (v); \
++	})
+ 
+ /**
+  * synchronize_sched - block until all CPUs have exited any non-preemptive
