@@ -1,47 +1,50 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.25 1/6][CORE] Remove unneeded ifdefs from sysctl_net_core.c
-Date: Sat, 01 Dec 2007 15:57:13 +0300
-Message-ID: <47515A29.3070806@openvz.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 4/4 (resent) net-2.6.25][UNIX] Make the unix sysctl tables per-namespace
+Date: Sat, 1 Dec 2007 23:57:26 +1100
+Message-ID: <20071201125726.GC15910@gondor.apana.org.au>
+References: <47503919.8060103@openvz.org> <47503C48.8020001@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:60858 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753069AbXLAM5Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Dec 2007 07:57:25 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:3336 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753402AbXLAM5i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 07:57:38 -0500
+Content-Disposition: inline
+In-Reply-To: <47503C48.8020001@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-They include the whole file, but it is already compiled
-out when SYSCTL=n, since it is obj-$(CONFIG_SYSCTL) target
-in the Makefile.
+On Fri, Nov 30, 2007 at 07:37:28PM +0300, Pavel Emelyanov wrote:
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+All applied to net-2.6.25.
 
----
+> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+> index b0cf075..f97b2a4 100644
+> --- a/include/net/net_namespace.h
+> +++ b/include/net/net_namespace.h
+> @@ -41,6 +43,7 @@ struct net {
+>  
+>  	/* unix sockets */
+>  	int			sysctl_unix_max_dgram_qlen;
+> +	struct ctl_table_header	*unix_ctl;
+>  };
 
-diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-index 113cc72..277c8fa 100644
---- a/net/core/sysctl_net_core.c
-+++ b/net/core/sysctl_net_core.c
-@@ -13,8 +13,6 @@
- #include <net/sock.h>
- #include <net/xfrm.h>
- 
--#ifdef CONFIG_SYSCTL
--
- ctl_table core_table[] = {
- #ifdef CONFIG_NET
- 	{
-@@ -151,5 +149,3 @@ ctl_table core_table[] = {
- 	},
- 	{ .ctl_name = 0 }
- };
--
--#endif
+But I gotta say this struct/file is going to be enormous.  It's also
+one of those files that causes everything to get recompiled.  Maybe
+we ought to make a rule that each subsystem only gets to have at most
+one entry in it :)
+
+Thanks,
 -- 
-1.5.3.4
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
