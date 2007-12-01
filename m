@@ -1,40 +1,50 @@
 From: Sebastian Siewior <netdev@ml.breakpoint.cc>
-Subject: [PATCH] [net] xrfm depends on crypto
-Date: Sat, 1 Dec 2007 13:19:53 +0100
-Message-ID: <20071201121953.GB8048@Chamillionaire.breakpoint.cc>
+Subject: [PATCH] [net] RxRPC session sockets depend on crypto
+Date: Sat, 1 Dec 2007 13:20:12 +0100
+Message-ID: <20071201122012.GC8048@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-15
-Cc: herbert@gondor.apana.org.au, davem@davemloft.net
+Cc: davem@davemloft.net, herbert@gondor.apana.org.au
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:42933 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:42937 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752564AbXLAMTz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 07:19:55 -0500
+	by vger.kernel.org with ESMTP id S1753527AbXLAMUO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 07:20:14 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-net/built-in.o: In function `xfrm_find_algo':
-xfrm_algo.c:(.text+0x61c82): undefined reference to `crypto_has_alg'
+net/built-in.o: In function `rxrpc_destroy_s':
+ar-key.c:(.text+0x653cd): undefined reference to `crypto_free_tfm'
+net/built-in.o: In function `rxrpc_instantiate_s':
+ar-key.c:(.text+0x65496): undefined reference to `crypto_alloc_base'
 
 Signed-off-by: Sebastian Siewior <sebastian@breakpoint.cc>
 ---
- net/xfrm/Kconfig |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/rxrpc/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/xfrm/Kconfig b/net/xfrm/Kconfig
-index 577a4f8..35ed342 100644
---- a/net/xfrm/Kconfig
-+++ b/net/xfrm/Kconfig
-@@ -4,6 +4,7 @@
- config XFRM
-        bool
-        depends on NET
-+       select CRYPTO
- 
- config XFRM_USER
- 	tristate "Transformation user configuration interface"
+diff --git a/net/rxrpc/Kconfig b/net/rxrpc/Kconfig
+index e662f1d..60c4738 100644
+--- a/net/rxrpc/Kconfig
++++ b/net/rxrpc/Kconfig
+@@ -6,6 +6,7 @@ config AF_RXRPC
+ 	tristate "RxRPC session sockets"
+ 	depends on INET && EXPERIMENTAL
+ 	select KEYS
++	select CRYPTO
+ 	help
+ 	  Say Y or M here to include support for RxRPC session sockets (just
+ 	  the transport part, not the presentation part: (un)marshalling is
+@@ -31,7 +32,6 @@ config AF_RXRPC_DEBUG
+ config RXKAD
+ 	tristate "RxRPC Kerberos security"
+ 	depends on AF_RXRPC
+-	select CRYPTO
+ 	select CRYPTO_MANAGER
+ 	select CRYPTO_BLKCIPHER
+ 	select CRYPTO_PCBC
 -- 
 1.5.3.4
 
