@@ -1,39 +1,68 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-2.6.25 2/3][IPV4] Unify and cleanup calls to devinet_sysctl_register
-Date: Sun, 2 Dec 2007 00:20:00 +1100
-Message-ID: <20071201132000.GG15910@gondor.apana.org.au>
-References: <475055F2.4090509@openvz.org>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH 4/4 (resent) net-2.6.25][UNIX] Make the unix sysctl tables
+ per-namespace
+Date: Sat, 01 Dec 2007 16:19:43 +0300
+Message-ID: <47515F6F.1090805@openvz.org>
+References: <47503919.8060103@openvz.org> <47503C48.8020001@openvz.org> <20071201125726.GC15910@gondor.apana.org.au> <47515C79.9060903@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>
+To: "Denis V. Lunev" <den@openvz.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3532 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751938AbXLANUC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 08:20:02 -0500
-Content-Disposition: inline
-In-Reply-To: <475055F2.4090509@openvz.org>
+Received: from sacred.ru ([62.205.161.221]:35090 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752345AbXLANUi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Dec 2007 08:20:38 -0500
+In-Reply-To: <47515C79.9060903@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 30, 2007 at 09:26:58PM +0300, Pavel Emelyanov wrote:
+Denis V. Lunev wrote:
+> Herbert Xu wrote:
+>> On Fri, Nov 30, 2007 at 07:37:28PM +0300, Pavel Emelyanov wrote:
+>>> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+>> All applied to net-2.6.25.
+>>
+>>> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+>>> index b0cf075..f97b2a4 100644
+>>> --- a/include/net/net_namespace.h
+>>> +++ b/include/net/net_namespace.h
+>>> @@ -41,6 +43,7 @@ struct net {
+>>>  
+>>>  	/* unix sockets */
+>>>  	int			sysctl_unix_max_dgram_qlen;
+>>> +	struct ctl_table_header	*unix_ctl;
+>>>  };
+>> But I gotta say this struct/file is going to be enormous.  It's also
+>> one of those files that causes everything to get recompiled.  Maybe
+>> we ought to make a rule that each subsystem only gets to have at most
+>> one entry in it :)
+>>
+>> Thanks,
 > 
-> Besides, the inet_device is passed to this function, but
-> it is not needed there at all - just the device name and
-> ifindex are required.
+> Good point, thanks. We'll start thinking in that direction. Right now it
+> is not finally cursed with all staff around.
 
-But it is called devinet_* so an in_dev kind of makes sense :)
+Agree, the point is good :) but it has one pitfall :(
 
->  #ifdef CONFIG_SYSCTL
-> -	devinet_sysctl_register(in_dev, &in_dev->cnf);
-> +	devinet_sysctl_register(dev, &in_dev->cnf);
+Look, now we make _one_ dereference to get any net->xxx variable 
+(sysctl, list head, lock, etc). When we force each subsystem 
+has it's "private" pointer on this, we'll make them take _two_ 
+dereferences. Before the whole net namespace stuff started we
+made _zero_ dereferences :) This may tell upon the performance.
 
-How about just giving it in_dev instead?
+I'm not claiming that this is the major case against this idea,
+but when developing this idea, I think we should keep that fact
+in ming and pay good attention to performance regressions.
+
+> Regards,
+> 	Den
 
 Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Pavel
+
