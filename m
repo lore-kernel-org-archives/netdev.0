@@ -1,7 +1,8 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 0/10] sysfs network namespace support
-Date: Sat, 01 Dec 2007 02:06:58 -0700
-Message-ID: <m163zi9425.fsf@ebiederm.dsl.xmission.com>
+Subject: [PATCH 01/10] sysfs: Make sysfs_mount static again.
+Date: Sat, 01 Dec 2007 02:12:27 -0700
+Message-ID: <m11wa693t0.fsf@ebiederm.dsl.xmission.com>
+References: <m163zi9425.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Tejun Heo <htejun@gmail.com>,
@@ -14,44 +15,71 @@ Cc: Tejun Heo <htejun@gmail.com>,
 	David Miller <davem@davemloft.net>
 To: Greg Kroah-Hartman <gregkh@suse.de>, Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:35447 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:46672 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751012AbXLAJJR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 04:09:17 -0500
+	with ESMTP id S1750938AbXLAJOW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 04:14:22 -0500
+In-Reply-To: <m163zi9425.fsf@ebiederm.dsl.xmission.com> (Eric W. Biederman's
+	message of "Sat, 01 Dec 2007 02:06:58 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Now that we have network namespace support merged it is time to
-revisit the sysfs support so we can remove the dependency on !SYSFS.
+In preparation for supporting multiple mounts of sysfs I need to
+remove all assumptions that we have a single mount of sysfs.  So this
+patch modifies sysfs_open_file to use the vfsmount from the struct
+file instead of fibbing and using the global vfsmount.
 
-I'm not even trying to base this on any of Tejun's very interesting 
-work on sysfs to remove the coupling between kobjects and
-sysfs_dirents.  For my objective that just means I would need to
-spend several more weeks staring at sysfs trying to figure out
-how to get where I am going and iterating several times from yet
-another new starting place.  I want to get something working before I
-try for anymore perfection.
+We get a little more noise this way but we should continue to get the
+useful part of the debugging information.
 
-I don't expect the userspace side of this to ever change which is
-close enough to perfect for me.
+This was the reason I made sysfs_mount static earlier.
 
-The bulk of the patches are the changes to allow multiple sysfs
-superblocks.
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ fs/sysfs/file.c  |    2 +-
+ fs/sysfs/mount.c |    2 +-
+ fs/sysfs/sysfs.h |    1 -
+ 3 files changed, 2 insertions(+), 3 deletions(-)
 
-Then comes the tagged directory sysfs support which uses information
-captured at mount time to decide which object with which tag will
-appear in a directory.
+diff --git a/fs/sysfs/file.c b/fs/sysfs/file.c
+index 87e4a0e..ad13151 100644
+--- a/fs/sysfs/file.c
++++ b/fs/sysfs/file.c
+@@ -330,7 +330,7 @@ static int sysfs_open_file(struct inode *inode, struct file *file)
+ 	int error = -EACCES;
+ 	char *p;
+ 
+-	p = d_path(file->f_dentry, sysfs_mount, last_sysfs_file,
++	p = d_path(file->f_dentry, file->f_vfsmnt, last_sysfs_file,
+ 		   sizeof(last_sysfs_file));
+ 	if (p)
+ 		memmove(last_sysfs_file, p, strlen(p) + 1);
+diff --git a/fs/sysfs/mount.c b/fs/sysfs/mount.c
+index a3410d6..7416826 100644
+--- a/fs/sysfs/mount.c
++++ b/fs/sysfs/mount.c
+@@ -22,7 +22,7 @@
+ /* Random magic number */
+ #define SYSFS_MAGIC 0x62656572
+ 
+-struct vfsmount *sysfs_mount;
++static struct vfsmount *sysfs_mount;
+ struct super_block * sysfs_sb = NULL;
+ struct kmem_cache *sysfs_dir_cachep;
+ 
+diff --git a/fs/sysfs/sysfs.h b/fs/sysfs/sysfs.h
+index 52aaa8c..ff17f8d 100644
+--- a/fs/sysfs/sysfs.h
++++ b/fs/sysfs/sysfs.h
+@@ -91,7 +91,6 @@ struct sysfs_addrm_cxt {
+ extern struct sysfs_dirent sysfs_root;
+ extern struct super_block *sysfs_sb;
+ extern struct kmem_cache *sysfs_dir_cachep;
+-extern struct vfsmount *sysfs_mount;
+ 
+ /*
+  * dir.c
+-- 
+1.5.3.rc6.17.g1911
 
-Then the support for renaming and deleting objects where the source
-may be ambiguous because of tagging.
-
-Then finally the network namespace support so it is clear how all
-of this tied together.
-
-Greg the last patch that enables tagged directory support seems
-to make most sense living in your tree, as it lives half in
-fs/sysfs/mount.c, and half in net/core/net-sysfs.c and all of
-it's dependencies are in Linus tree except for this patchset.
-
-Eric
