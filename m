@@ -1,46 +1,50 @@
-From: Vitaly Bordug <vitb@kernel.crashing.org>
-Subject: Re: [PATCH 1/3] [NET] phy/fixed.c: rework to not duplicate PHY
- layer functionality
-Date: Sun, 2 Dec 2007 01:22:35 +0300
-Message-ID: <20071202012235.4ad9abc3@kernel.crashing.org>
-References: <20071126142906.19642.45540.stgit@localhost.localdomain>
-	<47516646.9000803@scram.de>
-	<20071201213403.GA2350@zarina>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH 01/21] [TCP]: Move LOSTRETRANS MIB outside !(L|S) check
+Date: Sun,  2 Dec 2007 00:47:56 +0200
+Message-ID: <11965492964079-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <11965492963603-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jochen Friedrich <jochen@scram.de>, linuxppc-dev@ozlabs.org,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org
-To: cbou@mail.ru
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"=?ISO-8859-1?q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+To: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:41584 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750720AbXLAWW7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Dec 2007 17:22:59 -0500
-In-Reply-To: <20071201213403.GA2350@zarina>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:47544 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752355AbXLAWsS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 17:48:18 -0500
+In-Reply-To: <11965492963603-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2 Dec 2007 00:34:03 +0300
-Anton Vorontsov wrote:
+=46rom: =3D?ISO-8859-1?q?Ilpo_J=3DE4rvinen?=3D <ilpo.jarvinen@helsinki.=
+fi>
 
-> > If i understand your code correctly, you seem to rely on the fact 
-> > that fixed_phy_add() is called before the fixed MDIO bus is scanned
-> > for devices.  
-> 
-> Yes, indeed. The other name of "fixed phys" are "platform phys"
-> or "platform MDIO bus" on which virtual PHYs are placed.
-> 
-> That is, these phys supposed to be created by the platform setup
-> code (arch/). The rationale here is: we do hardware emulation, thus
-> to make drivers actually see that "hardware", we have to create it
-> early.
+Usually those skbs will have L set, not counting them as lost
+retransmissions is misleading.
 
-well that was the intention but... The point is - as device is emulated, (nearly) everything is doable,
-and the only tradeoff to consider, is how far will we go with that emulation. IOW, PHYlib could be tricked
-to "do the right thing", and I thought about adding module flexibility...
+Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_input.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-But thinking more about it, it seems that BSP-code-phy-creation just sucks less and is clear enough yet flexible.
--- 
-Sincerely, Vitaly
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 9f12541..ba05e16 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1160,8 +1160,8 @@ static int tcp_mark_lost_retrans(struct sock *sk)
+ 				tp->lost_out +=3D tcp_skb_pcount(skb);
+ 				TCP_SKB_CB(skb)->sacked |=3D TCPCB_LOST;
+ 				flag |=3D FLAG_DATA_SACKED;
+-				NET_INC_STATS_BH(LINUX_MIB_TCPLOSTRETRANSMIT);
+ 			}
++			NET_INC_STATS_BH(LINUX_MIB_TCPLOSTRETRANSMIT);
+ 		} else {
+ 			if (before(ack_seq, new_low_seq))
+ 				new_low_seq =3D ack_seq;
+--=20
+1.5.0.6
+
