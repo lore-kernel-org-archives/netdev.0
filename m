@@ -1,73 +1,98 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.25 6/6][CORE] Remove the empty net_table
-Date: Sat, 01 Dec 2007 16:11:28 +0300
-Message-ID: <47515D80.4000208@openvz.org>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 4/4] udp: memory accounting in IPv4
+Date: Sat, 01 Dec 2007 14:08:31 +0100
+Message-ID: <47515CCF.3030009@cosmosbay.com>
+References: <474DB80E.5070403@redhat.com> <474DB930.5080409@redhat.com> <20071201122120.GB14368@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hideo AOKI <haoki@redhat.com>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
+	Bill Fink <billfink@mindspring.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	yoshfuji@linux-ipv6.org,
+	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:55381 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751566AbXLANLg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Dec 2007 08:11:36 -0500
+Received: from gw1.cosmosbay.com ([86.65.150.130]:36696 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751700AbXLANMq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 08:12:46 -0500
+In-Reply-To: <20071201122120.GB14368@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have removed all the entries from this table (core_table,
-ipv4_table and tr_table), so now we can safely drop it.
+Herbert Xu a =E9crit :
+> On Wed, Nov 28, 2007 at 01:53:36PM -0500, Hideo AOKI wrote:
+>> +/**
+>> + *	__skb_queue_purge_and_sub_memory_allocated
+>> + *		- empty a list and subtruct memory allocation counter
+>> + *	@sk:   sk
+>> + *	@list: list to empty
+>> + *	Delete all buffers on an &sk_buff list and subtruct the
+>> + *	truesize of the sk_buff for memory accounting. Each buffer
+>> + *	is removed from the list and one reference dropped. This
+>> + *	function does not take the list lock and the caller must
+>> + *	hold the relevant locks to use it.
+>> + */
+>> +static inline void __skb_queue_purge_and_sub_memory_allocated(struc=
+t sock *sk,
+>> +					struct sk_buff_head *list)
+>> +{
+>> +	struct sk_buff *skb;
+>> +	int purged_skb_size =3D 0;
+>> +	while ((skb =3D __skb_dequeue(list)) !=3D NULL) {
+>> +		purged_skb_size +=3D sk_datagram_pages(skb->truesize);
+>> +		kfree_skb(skb);
+>> +	}
+>> +	atomic_sub(purged_skb_size, sk->sk_prot->memory_allocated);
+>> +}
+>=20
+> Thanks, this is a lot better than before!
+>=20
+> However, I'm still a little concerned about the effect of two more
+> atomic op's per packet that we're adding here.  Hang on a sec, that
+> should've been Dave's line since atomic ops are cheap on x86 :)
+>=20
+> But seriously, it's not so much that we have two more atomic op's
+> per packet, but we have two more writes to a single global counter
+> for each packet.  This is going to really suck on SMP.
+>=20
+> So what I'd like to see is a scheme that's similar to sk_forward_allo=
+c.
+> The idea is that each socket allocates memory using mem_schedule and
+> then stores it in sk_forward_alloc.  Each packet then only has to
+> add to/subtract from sk_forward_alloc.
+>=20
+> There is one big problem with this though, UDP is not serialised like
+> TCP.  So you can't just use sk_forward_alloc since it's not an atomic=
+_t.
+>=20
+> We'll need to think about this one a bit more.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+I agree adding yet another atomics ops is a big problem.
 
----
+Another idea, coupled with recent work on percpu storage done by Christ=
+oph=20
+Lameter, would be to use kind of a percpu_counter :
 
-diff --git a/include/linux/net.h b/include/linux/net.h
-index f95f12c..c414d90 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -337,7 +337,6 @@ static const struct proto_ops name##_ops = {			\
- 
- #ifdef CONFIG_SYSCTL
- #include <linux/sysctl.h>
--extern ctl_table net_table[];
- extern int net_msg_cost;
- extern int net_msg_burst;
- #endif
-diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index 946a01c..894a177 100644
---- a/kernel/sysctl.c
-+++ b/kernel/sysctl.c
-@@ -199,14 +199,6 @@ static struct ctl_table root_table[] = {
- 		.mode		= 0555,
- 		.child		= vm_table,
- 	},
--#ifdef CONFIG_NET
--	{
--		.ctl_name	= CTL_NET,
--		.procname	= "net",
--		.mode		= 0555,
--		.child		= net_table,
--	},
--#endif
- 	{
- 		.ctl_name	= CTL_FS,
- 		.procname	= "fs",
-diff --git a/net/sysctl_net.c b/net/sysctl_net.c
-index 16ad14b..665e856 100644
---- a/net/sysctl_net.c
-+++ b/net/sysctl_net.c
-@@ -30,10 +30,6 @@
- #include <linux/if_tr.h>
- #endif
- 
--struct ctl_table net_table[] = {
--	{ 0 },
--};
--
- static struct list_head *
- net_ctl_header_lookup(struct ctl_table_root *root, struct nsproxy *namespaces)
- {
--- 
-1.5.3.4
+We dont really need strong and precise memory accounting (UDP , but TCP=
+ as=20
+well), just some kind of limit to avoid memory to be too much used.
+
+That is, updating a percpu variable, and doing some updates to a global=
+=20
+counter only when this percpu variable escapes from a given range.
+
+Lot of contended cache lines could benefit from this relaxing (count of=
+=20
+sockets...)
+
+I would wait first that Christoph work is done, so that we dont need at=
+omic=20
+ops on local cpu storage (and no need to disable preemption too).
 
