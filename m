@@ -1,43 +1,74 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: namespace support requires network modules to say "GPL"
-Date: Sat, 1 Dec 2007 19:23:41 +0000
-Message-ID: <20071201192341.6750fbdb@the-village.bc.nu>
-References: <m163zi9425.fsf@ebiederm.dsl.xmission.com>
-	<47515D39.9030900@rtr.ca>
-	<20071201111736.297dd99a@freepuppy.rosehill>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 4/4 (resent) net-2.6.25][UNIX] Make the unix sysctl tables per-namespace
+Date: Sat, 01 Dec 2007 12:32:02 -0700
+Message-ID: <m1odda5hzh.fsf@ebiederm.dsl.xmission.com>
+References: <47503919.8060103@openvz.org> <47503C48.8020001@openvz.org>
+	<20071201125726.GC15910@gondor.apana.org.au>
+	<47515C79.9060903@openvz.org> <47515F6F.1090805@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Mark Lord <lkml@rtr.ca>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>, Greg KH <greg@kroah.com>,
-	Tejun Heo <htejun@gmail.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, cornelia.huck@de.ibm.com,
-	stern@rowland.harvard.edu, kay.sievers@vrfy.org,
-	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "Denis V. Lunev" <den@openvz.org>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:48268 "EHLO
-	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752731AbXLAT2U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 14:28:20 -0500
-In-Reply-To: <20071201111736.297dd99a@freepuppy.rosehill>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:38714 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750709AbXLATh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 14:37:59 -0500
+In-Reply-To: <47515F6F.1090805@openvz.org> (Pavel Emelyanov's message of "Sat,
+	01 Dec 2007 16:19:43 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Then init_net needs to be not GPL limited. Sorry, we need to allow
-> non GPL network drivers.  There is a fine line between keeping the
+Pavel Emelyanov <xemul@openvz.org> writes:
 
-Why - they aren't exactly likely to be permissible by law
+>>> But I gotta say this struct/file is going to be enormous.  It's also
+>>> one of those files that causes everything to get recompiled.  Maybe
+>>> we ought to make a rule that each subsystem only gets to have at most
+>>> one entry in it :)
+>>>
+>>> Thanks,
+>> 
+>> Good point, thanks. We'll start thinking in that direction. Right now it
+>> is not finally cursed with all staff around.
+>
+> Agree, the point is good :) but it has one pitfall :(
+>
+> Look, now we make _one_ dereference to get any net->xxx variable 
+> (sysctl, list head, lock, etc). When we force each subsystem 
+> has it's "private" pointer on this, we'll make them take _two_ 
+> dereferences. Before the whole net namespace stuff started we
+> made _zero_ dereferences :) This may tell upon the performance.
+>
+> I'm not claiming that this is the major case against this idea,
+> but when developing this idea, I think we should keep that fact
+> in ming and pay good attention to performance regressions.
 
-> binary seething masses from accessing random kernel functions, and allowing
-> reasonable (but still non GPL) things like ndiswrapper to use network
-> device interface.
+Currently in my proof of concept tree I am at 65 variables and 648 bytes.
+This includes patches that are largely complete for ipv4.  In number
+of variables this is about half of the current struct net_device,
+so I think the usage looks managable.
 
-Its up to the ndiswrapper authors how the licence their code, but they
-should respect how we licence ours.
+I agree that both performance and size are significant concerns,
+and that is essentially why struct net has the structure it does
+today.
+
+I print the size of struct net out at boot, we have to actually look
+at struct net when we make changes, so I don't think size bloat
+is going to happen unnoticed.
+
+By keeping the size below PAGE_SIZE, and keeping the number of
+variables per network subsystem few and small we should be ok.
+
+The fact that changing struct net causes the core of
+the networking stack to recompile is an added bonus
+that should also discourage people from playing with it to
+much.
+
+My recommendation is to keep an eye on struct net and if what we
+are doing there becomes a problem address it then.
+
+Eric
