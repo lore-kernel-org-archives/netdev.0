@@ -1,45 +1,32 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/3] [NET] phy/fixed.c: rework to not duplicate PHY layer
- functionality
-Date: Sat, 01 Dec 2007 16:59:52 -0500
-Message-ID: <4751D958.6060500@garzik.org>
-References: <20071126142906.19642.45540.stgit@localhost.localdomain>
+Subject: Re: Fw: [PATCH] Add the phy_device_release device method.
+Date: Sat, 01 Dec 2007 17:02:27 -0500
+Message-ID: <4751D9F3.5090502@garzik.org>
+References: <20071119.214215.207388094.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Vitaly Bordug <vitb@kernel.crashing.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Thierry Reding <thierry.reding@avionic-design.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45683 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:59331 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750938AbXLAV7y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Dec 2007 16:59:54 -0500
-In-Reply-To: <20071126142906.19642.45540.stgit@localhost.localdomain>
+	id S1751359AbXLAWC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Dec 2007 17:02:29 -0500
+In-Reply-To: <20071119.214215.207388094.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vitaly Bordug wrote:
-> With that patch fixed.c now fully emulates MDIO bus, thus no need
-> to duplicate PHY layer functionality. That, in turn, drastically
-> simplifies the code, and drops down line count.
-> 
-> As an additional bonus, now there is no need to register MDIO bus
-> for each PHY, all emulated PHYs placed on the platform fixed MDIO bus.
-> There is also no more need to pre-allocate PHYs via .config option,
-> this is all now handled dynamically.
-> 
-> p.s. Don't even try to understand patch content! Better: apply patch
-> and look into resulting drivers/net/phy/fixed.c.
-> 
-> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-> Signed-off-by: Vitaly Bordug <vitb@kernel.crashing.org>
+Thierry, could you resend this patch to me?
 
-what's the context of this patchset?  2.6.25?
+I do not seem to have an apply-able version of this patch anywhere.
 
-it's late for 2.6.24-rc, IMO.
+The copy DaveM forwarded to me had problems (though the technical 
+content looks OK)
 
-Do I have the latest version (sent Nov 26 @ 9:29am)?
+Thanks,
 
 	Jeff
 
