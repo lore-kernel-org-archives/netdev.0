@@ -1,30 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] remove extra memset from dn_fib_check_nh
-Date: Sat, 1 Dec 2007 23:31:30 +1100
-Message-ID: <20071201123130.GB15910@gondor.apana.org.au>
-References: <20071130155401.GA10051@iris.sw.ru>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-2.6.25 1/6][CORE] Remove unneeded ifdefs from sysctl_net_core.c
+Date: Sat, 01 Dec 2007 15:57:13 +0300
+Message-ID: <47515A29.3070806@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devel@openvz.org, netdev@vger.kernel.org, davem@davemloft.net
-To: "Denis V. Lunev" <den@openvz.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3204 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751369AbXLAMbe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 07:31:34 -0500
-Content-Disposition: inline
-In-Reply-To: <20071130155401.GA10051@iris.sw.ru>
+Received: from sacred.ru ([62.205.161.221]:60858 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753069AbXLAM5Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Dec 2007 07:57:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 30, 2007 at 06:54:01PM +0300, Denis V. Lunev wrote:
-> [PATCH] remove extra memset from dn_fib_check_nh
-> 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
+They include the whole file, but it is already compiled
+out when SYSCTL=n, since it is obj-$(CONFIG_SYSCTL) target
+in the Makefile.
 
-Applied to net-2.6.25.  Thanks Denis!
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index 113cc72..277c8fa 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -13,8 +13,6 @@
+ #include <net/sock.h>
+ #include <net/xfrm.h>
+ 
+-#ifdef CONFIG_SYSCTL
+-
+ ctl_table core_table[] = {
+ #ifdef CONFIG_NET
+ 	{
+@@ -151,5 +149,3 @@ ctl_table core_table[] = {
+ 	},
+ 	{ .ctl_name = 0 }
+ };
+-
+-#endif
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.5.3.4
+
