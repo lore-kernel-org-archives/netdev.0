@@ -1,54 +1,80 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH 0/3] cxgb - driver fixes.
-Date: Sat, 01 Dec 2007 15:26:15 -0800
-Message-ID: <4751ED97.5090804@chelsio.com>
-References: <474C8BF8.9080609@chelsio.com> <474F0422.6090309@candelatech.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH 1/3] [NET] phy/fixed.c: rework to not duplicate PHY
+ layer functionality
+Date: Sun, 2 Dec 2007 10:27:39 +1100
+Message-ID: <20071202102739.490ae468.sfr@canb.auug.org.au>
+References: <20071126142906.19642.45540.stgit@localhost.localdomain>
+	<47516646.9000803@scram.de>
+	<20071201213403.GA2350@zarina>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, NetDev <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, Greg KH <greg@kroah.com>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Sun__2_Dec_2007_10_27_39_+1100_P8UzWhXZL=bMA0n_"
+Cc: Jochen Friedrich <jochen@scram.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	linuxppc-dev@ozlabs.org
+To: cbou@mail.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:8869 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752648AbXLAX0m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 18:26:42 -0500
-In-Reply-To: <474F0422.6090309@candelatech.com>
+Received: from chilli.pcug.org.au ([203.10.76.44]:57667 "EHLO smtps.tip.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752707AbXLAX1w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Dec 2007 18:27:52 -0500
+In-Reply-To: <20071201213403.GA2350@zarina>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Greear wrote:
-> Divy Le Ray wrote:
->> Jeff,
->>
->> I'm submitting a patch series for inclusion in 2.6.24 for the cxgb 
->> driver.
->> The patches are built against Linus'git tree.
->>
->> Here is a brief description:
->> - Ensure that GSO skbs have enough headroom before encapsulating them,
->> - Fix a crash in NAPI mode,
->> - Fix statistics accounting and report.
->
-> We ran pktgen overnight on 2.6.23 with patch 1 and 3 applied (patch 2
-> not needed on .23 it seems) and it was stable at about 1.5Gbps 
-> bi-directional
-> using 1500 MTU sized frames.
->
-> We'll run some more tests with user-space TCP & UDP today, but it 
-> looks good
-> so far.
->
-> Perhaps these patches should be considered for .23 stable as well?
->
-> Thanks,
-> Ben
->
+--Signature=_Sun__2_Dec_2007_10_27_39_+1100_P8UzWhXZL=bMA0n_
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Yes, patches 1 and 3 could be considered for .22 and .23-stable, along 
-with the previous fix:
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=7de6af0f23b25df8da9719ecae1916b669d0b03d
+Just a little reminder ...
 
+On Sun, 2 Dec 2007 00:34:03 +0300 Anton Vorontsov <cbou@mail.ru> wrote:
+>
+> static int __init of_add_fixed_phys(void)
+> {
+> 	struct device_node *np;
+> 	const u32 *prop;
+> 	struct fixed_phy_status status =3D {};
+>=20
+> 	while ((np =3D of_find_node_by_name(NULL, "ethernet"))) {
+
+	for_each_node_by_name(np, "ethernet") {
+(this probably does what you want instead of finding just the first
+ethernet over and over again. :-))
+
+> 		data  =3D of_get_property(np, "fixed-link", NULL);
+> 		if (!data)
+> 			continue;
+>=20
+> 		status.link =3D 1;
+> 		status.duplex =3D data[1];
+> 		status.speed  =3D data[2];
+>=20
+> 		ret =3D fixed_phy_add(PHY_POLL, data[0], &status);
+> 		if (ret)
+> 			return ret;
+		if (ret) {
+			of_put_node(np);
+			retun ret;
+		}
+> 	}
+
+--=20
 Cheers,
-Divy
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Sun__2_Dec_2007_10_27_39_+1100_P8UzWhXZL=bMA0n_
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFHUe3yTgG2atn1QN8RAnKXAJ0atAh7fRzQ8PgPUE1+yoK4aNVJQgCfY29E
+kx+R21nK1BHD63ePkedAKeE=
+=D5Cu
+-----END PGP SIGNATURE-----
+
+--Signature=_Sun__2_Dec_2007_10_27_39_+1100_P8UzWhXZL=bMA0n_--
