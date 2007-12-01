@@ -1,46 +1,39 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Remove rcu_assign_pointer() penalty for NULL pointers
-Date: Sat, 1 Dec 2007 12:07:52 +1100
-Message-ID: <20071201010752.GA26621@gondor.apana.org.au>
-References: <20071201003721.GA22726@linux.vnet.ibm.com>
+Subject: Re: [PATCH 3/3] [UDP6]: Counter increment on BH mode
+Date: Sat, 1 Dec 2007 12:54:38 +1100
+Message-ID: <20071201015438.GC26895@gondor.apana.org.au>
+References: <474F7EE8.2040009@cn.fujitsu.com> <474F8255.5060501@cn.fujitsu.com> <20071130111949.GB28277@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, ego@in.ibm.com,
-	netdev@vger.kernel.org, bridge@lists.osdl.org, devel@openvz.org,
-	shemminger@linux-foundation.org, xemul@openvz.org,
-	dipankar@in.ibm.com, akpm@linux-foundation.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Cc: Wang Chen <wangchen@cn.fujitsu.com>, davem@davemloft.net,
+	andi@firstfloor.org, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2950 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:3224 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753620AbXLABH7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2007 20:07:59 -0500
+	with ESMTP id S1755756AbXLABy6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2007 20:54:58 -0500
 Content-Disposition: inline
-In-Reply-To: <20071201003721.GA22726@linux.vnet.ibm.com>
+In-Reply-To: <20071130111949.GB28277@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 30, 2007 at 04:37:21PM -0800, Paul E. McKenney wrote:
-> 
-> The rcu_assign_pointer() primitive currently unconditionally executes
-> a memory barrier, even when a NULL pointer is being assigned.  This
-> has lead some to avoid using rcu_assign_pointer() for NULL pointers,
-> which loses the self-documenting advantages of rcu_assign_pointer()
-> This patch uses __builtin_const_p() to omit needless memory barriers
-> for NULL-pointer assignments at compile time with no runtime penalty,
-> as discussed in the following thread:
-> 
-> 	http://www.mail-archive.com/netdev@vger.kernel.org/msg54852.html
-> 
-> Tested on x86_64 and ppc64, also compiled the four cases (NULL/non-NULL
-> and const/non-const) with gcc version 4.1.2, and hand-checked the
-> assembly output.
-> 
-> Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+On Fri, Nov 30, 2007 at 11:19:49AM +0000, Gerrit Renker wrote:
+>
+> |  csum_copy_err:
+> | -	UDP6_INC_STATS_USER(UDP_MIB_INERRORS, is_udplite);
+> | +	UDP6_INC_STATS_BH(UDP_MIB_INERRORS, is_udplite);
+> |  	skb_kill_datagram(sk, skb, flags);
+> |  
+> |  	if (flags & MSG_DONTWAIT)
+> | 
+> Is it not the other way round ?? :- 
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+I agree.  Wang Chen, please change this and other appropriate
+BH calls to USER.  Basically recvmsg should always be USER while
+rcv is BH.
 
-Thanks a lot for following through with this Paul!
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
