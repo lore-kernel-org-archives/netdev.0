@@ -1,30 +1,32 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: Please pull 'upstream-davem' branch of wireless-2.6
-Date: Sun, 2 Dec 2007 00:54:08 +1100
-Message-ID: <20071201135408.GK15910@gondor.apana.org.au>
-References: <20071201022306.GA28032@tuxdriver.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-2.6.25 (resend) 3/3][IPV4] Use ctl paths to register devinet sysctls
+Date: Sun, 2 Dec 2007 00:57:43 +1100
+Message-ID: <20071201135743.GL15910@gondor.apana.org.au>
+References: <475055F2.4090509@openvz.org> <20071201132000.GG15910@gondor.apana.org.au> <475160C1.9050808@openvz.org> <20071201132859.GI15910@gondor.apana.org.au> <4751642E.8020101@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:3847 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751551AbXLAN5q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 08:57:46 -0500
 Content-Disposition: inline
-In-Reply-To: <20071201022306.GA28032-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4751642E.8020101@openvz.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 30, 2007 at 09:23:06PM -0500, John W. Linville wrote:
-> Dave/Herbert,
+On Sat, Dec 01, 2007 at 04:39:58PM +0300, Pavel Emelyanov wrote:
+>
+> The difference from the first version is just the patch
+> offsets, that changed due to changes in the patch #2.
 > 
-> Here are a few intended for 2.6.25.  The bulk of them are the beginnings
-> of support for 802.11n in mac80211.  There is also a rework of the
-> support for devices which can run scans in hardware, and a couple of
-> additions to feature-removal-schedule.txt heralding the end of softmac.
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-All applied to net-2.6.25.  Thanks John!
+All applied to net-2.6.25.  Thanks Pavel.
 -- 
 Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
