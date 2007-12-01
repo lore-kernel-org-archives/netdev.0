@@ -1,51 +1,61 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: SSB: No is not an answer
-Date: Sat, 1 Dec 2007 21:27:49 +0100
-Message-ID: <200712012127.50137.mb@bu3sch.de>
-References: <20071201171744.GJ30008@ghostprotocols.net> <20071201174532.GA3809@tuxdriver.com> <20071201190023.GK30008@ghostprotocols.net>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: namespace support requires network modules to say "GPL"
+Date: Sat, 1 Dec 2007 12:29:26 -0800
+Message-ID: <20071201122926.5c887588@laptopd505.fenrus.org>
+References: <m163zi9425.fsf@ebiederm.dsl.xmission.com>
+	<47515D39.9030900@rtr.ca>
+	<20071201111736.297dd99a@freepuppy.rosehill>
+	<20071201192341.6750fbdb@the-village.bc.nu>
+	<20071201113815.5df0960a@freepuppy.rosehill>
+	<m13aum5g1x.fsf@ebiederm.dsl.xmission.com>
+	<4751C238.6010609@rtr.ca>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
-To: Arnaldo Carvalho de Melo <acme@redhat.com>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Greg Kroah-Hartman <gregkh@suse.de>, Greg KH <greg@kroah.com>,
+	Tejun Heo <htejun@gmail.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, cornelia.huck@de.ibm.com,
+	stern@rowland.harvard.edu, kay.sievers@vrfy.org,
+	linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Mark Lord <lkml@rtr.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:49227
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751063AbXLAU3q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 15:29:46 -0500
-In-Reply-To: <20071201190023.GK30008@ghostprotocols.net>
-Content-Disposition: inline
+Received: from pentafluge.infradead.org ([213.146.154.40]:48803 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751282AbXLAUay (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 15:30:54 -0500
+In-Reply-To: <4751C238.6010609@rtr.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 01 December 2007 20:00:23 Arnaldo Carvalho de Melo wrote:
-> Em Sat, Dec 01, 2007 at 12:45:32PM -0500, John W. Linville escreveu:
-> > On Sat, Dec 01, 2007 at 03:17:44PM -0200, Arnaldo Carvalho de Melo wrote:
-> > > Sonics Silicon Backplane support (SSB) [M/y/?] (NEW) n
-> > > 
-> > > Support for the Sonics Silicon Backplane bus.
-> > > You only need to enable this option, if you are
-> > > configuring a kernel for an embedded system with
-> > > this bus.
-> > > It will be auto-selected if needed in other
-> > > environments.
-> > > 
-> > > The module will be called ssb.
-> > > 
-> > > If unsure, say N.
-> > > 
-> > > Sonics Silicon Backplane support (SSB) [M/y/?] (NEW)
-> > 
-> > I think this is OK -- it isn't really offering the choice to say
-> > no anyway.  You must have turned-on B44 or B43(LEGACY) already?
-> > 
-> > So, your choice is merely whether to have it built-in or as a module.
-> 
-> Ok, so the comment on being unsure is wrong as we can't say N as
-> suggested :-)
+On Sat, 01 Dec 2007 15:21:12 -0500
+Mark Lord <lkml@rtr.ca> wrote:
 
-Oh, come on... Read the _whole_ comment.
+> Eric W. Biederman wrote:
+> > Stephen Hemminger <shemminger@linux-foundation.org> writes:
+> > Sure.  We keep the updated dev_get_by_XXXX that takes a network
+> > namespace parameter.
+> ..
+> 
+> And what should code be passing in when "# CONFIG_NET_NS is not set" ?
+
+network drivers probably really really don't want to call
+dev_get_by_XXX...
+
+in fact no NIC driver in drivers/net does so!
+Sounds like whatever driver you're looking at has a nasty bug in that
+it's using non-driver APIs...
+
+
 
 -- 
-Greetings Michael.
+If you want to reach me at my work email, use arjan@linux.intel.com
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
