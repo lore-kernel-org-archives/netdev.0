@@ -1,44 +1,40 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] e1000: Fix NAPI state bug when Rx complete
-Date: Sat, 01 Dec 2007 16:34:31 -0500
-Message-ID: <4751D367.3030908@garzik.org>
-References: <20071128002636.26015.28453.stgit@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] SET_NETDEV_DEV() in fec_mpc52xx.c
+Date: Sat, 01 Dec 2007 16:35:57 -0500
+Message-ID: <4751D3BD.6020106@pobox.com>
+References: <1196273071.30806.46.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Robert.Olsson@data.slu.se,
-	shemminger@linux-foundation.org, davem@davemloft.net
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: linuxppc-dev@ozlabs.org, Domen Puncer <domen.puncer@telargo.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:32894 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:32926 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751059AbXLAVee (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Dec 2007 16:34:34 -0500
-In-Reply-To: <20071128002636.26015.28453.stgit@localhost.localdomain>
+	id S1750763AbXLAVgI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Dec 2007 16:36:08 -0500
+In-Reply-To: <1196273071.30806.46.camel@pmac.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Auke Kok wrote:
-> Don't exit polling when we have not yet used our budget, this causes
-> the NAPI system to end up with a messed up poll list.
+David Woodhouse wrote:
+> This helps to allow the Fedora installer to use the built-in Ethernet on
+> the Efika for a network install.
 > 
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> ---
+> Signed-off-by: David Woodhouse <dwmw2@infradead.org>
 > 
->  drivers/net/e1000/e1000_main.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-> index b7c3070..724f067 100644
-> --- a/drivers/net/e1000/e1000_main.c
-> +++ b/drivers/net/e1000/e1000_main.c
-> @@ -3926,7 +3926,7 @@ e1000_clean(struct napi_struct *napi, int budget)
->  	                  &work_done, budget);
+> --- a/drivers/net/fec_mpc52xx.c
+> +++ b/drivers/net/fec_mpc52xx.c
+> @@ -971,6 +971,8 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
 >  
->  	/* If no Tx and not enough Rx work done, exit the polling mode */
-> -	if ((!tx_cleaned && (work_done < budget)) ||
-> +	if ((!tx_cleaned && (work_done == 0)) ||
->  	   !netif_running(poll_dev)) {
+>  	mpc52xx_fec_reset_stats(ndev);
+>  
+> +	SET_NETDEV_DEV(ndev, &op->dev);
+> +
+>  	/* Register the new network device */
+>  	rv = register_netdev(ndev);
 
 applied
 
