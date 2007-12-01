@@ -1,52 +1,52 @@
-From: Mark Lord <lkml@rtr.ca>
-Subject: Re: namespace support requires network modules to say "GPL"
-Date: Sat, 01 Dec 2007 17:13:13 -0500
-Message-ID: <4751DC79.3010408@rtr.ca>
-References: <m163zi9425.fsf@ebiederm.dsl.xmission.com>	<47515D39.9030900@rtr.ca> <20071201111736.297dd99a@freepuppy.rosehill>	<20071201192341.6750fbdb@the-village.bc.nu>	<20071201113815.5df0960a@freepuppy.rosehill> <m13aum5g1x.fsf@ebiederm.dsl.xmission.com> <4751C238.6010609@rtr.ca>
+From: Vitaly Bordug <vitb@kernel.crashing.org>
+Subject: Re: [PATCH 1/3] [NET] phy/fixed.c: rework to not duplicate PHY
+ layer functionality
+Date: Sun, 2 Dec 2007 01:16:40 +0300
+Message-ID: <20071202011640.3f64ed4d@kernel.crashing.org>
+References: <20071126142906.19642.45540.stgit@localhost.localdomain>
+	<4751D958.6060500@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Greg Kroah-Hartman <gregkh@suse.de>, Greg KH <greg@kroah.com>,
-	Tejun Heo <htejun@gmail.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, cornelia.huck@de.ibm.com,
-	stern@rowland.harvard.edu, kay.sievers@vrfy.org,
-	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>, arjan@infradead.org
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtr.ca ([76.10.145.34]:4587 "EHLO mail.rtr.ca"
+Received: from gate.crashing.org ([63.228.1.57]:40175 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750938AbXLAWNP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Dec 2007 17:13:15 -0500
-In-Reply-To: <4751C238.6010609@rtr.ca>
+	id S1751460AbXLAWQ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Dec 2007 17:16:56 -0500
+In-Reply-To: <4751D958.6060500@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arjan van de Ven wrote:
-> On Sat, 01 Dec 2007 15:21:12 -0500
-> Mark Lord <lkml@rtr.ca> wrote:
->
->> Eric W. Biederman wrote:
->>> Stephen Hemminger <shemminger@linux-foundation.org> writes:
->>> Sure.  We keep the updated dev_get_by_XXXX that takes a network
->>> namespace parameter.
->> ..
->>
->> And what should code be passing in when "# CONFIG_NET_NS is not set" ?
->
-> network drivers probably really really don't want to call
-> dev_get_by_XXX...
-..
+On Sat, 01 Dec 2007 16:59:52 -0500
+Jeff Garzik wrote:
 
-Fine.  But all of them want to call sk_alloc(),
-and many want to do register_netdev().
+> Vitaly Bordug wrote:
+> > With that patch fixed.c now fully emulates MDIO bus, thus no need
+> > to duplicate PHY layer functionality. That, in turn, drastically
+> > simplifies the code, and drops down line count.
+> > 
+> > As an additional bonus, now there is no need to register MDIO bus
+> > for each PHY, all emulated PHYs placed on the platform fixed MDIO
+> > bus. There is also no more need to pre-allocate PHYs via .config
+> > option, this is all now handled dynamically.
+> > 
+> > p.s. Don't even try to understand patch content! Better: apply patch
+> > and look into resulting drivers/net/phy/fixed.c.
+> > 
+> > Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+> > Signed-off-by: Vitaly Bordug <vitb@kernel.crashing.org>
+> 
+> what's the context of this patchset?  2.6.25?
+> 
+Fine with it.
 
-So what should they be using there ?
+> it's late for 2.6.24-rc, IMO.
+> 
+> Do I have the latest version (sent Nov 26 @ 9:29am)?
+yes, that's it.
 
-And please STOP trimming the CC list.
+-- 
+Sincerely, Vitaly
