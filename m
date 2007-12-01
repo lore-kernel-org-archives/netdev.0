@@ -1,76 +1,32 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 4/4] udp: memory accounting in IPv4
-Date: Sat, 1 Dec 2007 23:21:20 +1100
-Message-ID: <20071201122120.GB14368@gondor.apana.org.au>
-References: <474DB80E.5070403@redhat.com> <474DB930.5080409@redhat.com>
+Subject: Re: [PATCH] XFRM: SPD auditing fix to include the netmask/prefix-length
+Date: Sat, 1 Dec 2007 23:28:34 +1100
+Message-ID: <20071201122834.GA15910@gondor.apana.org.au>
+References: <20071126195512.6176.10448.stgit@flek.americas.hpqcorp.net> <20071129103459.GD22537@gondor.apana.org.au> <200711290845.46623.paul.moore@hp.com> <200711300951.48964.paul.moore@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
-	Bill Fink <billfink@mindspring.com>,
-	Andi Kleen <andi@firstfloor.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	yoshfuji@linux-ipv6.org,
-	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
-To: Hideo AOKI <haoki@redhat.com>
+Cc: linux-audit@redhat.com, Joy Latten <latten@us.ibm.com>,
+	Steve Grubb <sgrubb@redhat.com>, netdev@vger.kernel.org
+To: Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3119 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:3175 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752625AbXLAMVY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 07:21:24 -0500
+	with ESMTP id S1752772AbXLAM2z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 07:28:55 -0500
 Content-Disposition: inline
-In-Reply-To: <474DB930.5080409@redhat.com>
+In-Reply-To: <200711300951.48964.paul.moore@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 28, 2007 at 01:53:36PM -0500, Hideo AOKI wrote:
+On Fri, Nov 30, 2007 at 09:51:48AM -0500, Paul Moore wrote:
 >
-> +/**
-> + *	__skb_queue_purge_and_sub_memory_allocated
-> + *		- empty a list and subtruct memory allocation counter
-> + *	@sk:   sk
-> + *	@list: list to empty
-> + *	Delete all buffers on an &sk_buff list and subtruct the
-> + *	truesize of the sk_buff for memory accounting. Each buffer
-> + *	is removed from the list and one reference dropped. This
-> + *	function does not take the list lock and the caller must
-> + *	hold the relevant locks to use it.
-> + */
-> +static inline void __skb_queue_purge_and_sub_memory_allocated(struct sock *sk,
-> +					struct sk_buff_head *list)
-> +{
-> +	struct sk_buff *skb;
-> +	int purged_skb_size = 0;
-> +	while ((skb = __skb_dequeue(list)) != NULL) {
-> +		purged_skb_size += sk_datagram_pages(skb->truesize);
-> +		kfree_skb(skb);
-> +	}
-> +	atomic_sub(purged_skb_size, sk->sk_prot->memory_allocated);
-> +}
+> Steve and/or Joy, could we get a verdict on this issue?  The lack of a netmask 
+> in the SPD audit messages is pretty serious so I'd like to see this fixed as 
+> soon as possible.
 
-Thanks, this is a lot better than before!
+I'll take the resounding silence as an indication of approval :)
 
-However, I'm still a little concerned about the effect of two more
-atomic op's per packet that we're adding here.  Hang on a sec, that
-should've been Dave's line since atomic ops are cheap on x86 :)
-
-But seriously, it's not so much that we have two more atomic op's
-per packet, but we have two more writes to a single global counter
-for each packet.  This is going to really suck on SMP.
-
-So what I'd like to see is a scheme that's similar to sk_forward_alloc.
-The idea is that each socket allocates memory using mem_schedule and
-then stores it in sk_forward_alloc.  Each packet then only has to
-add to/subtract from sk_forward_alloc.
-
-There is one big problem with this though, UDP is not serialised like
-TCP.  So you can't just use sk_forward_alloc since it's not an atomic_t.
-
-We'll need to think about this one a bit more.
-
-Cheers,
+Patch applied to net-2.6.25.  Thanks Paul.
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
