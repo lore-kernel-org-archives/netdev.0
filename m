@@ -1,164 +1,83 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.25 (resend) 3/3][IPV6] Use ctl paths to register addrconf
- sysctls
-Date: Sat, 01 Dec 2007 16:46:41 +0300
-Message-ID: <475165C1.9050307@openvz.org>
-References: <47505C7B.7070905@openvz.org> <20071201132422.GH15910@gondor.apana.org.au>
+From: Jochen Friedrich <jochen@scram.de>
+Subject: Re: [PATCH 1/3] [NET] phy/fixed.c: rework to not duplicate PHY layer
+ functionality
+Date: Sat, 01 Dec 2007 14:48:54 +0100
+Message-ID: <47516646.9000803@scram.de>
+References: <20071126142906.19642.45540.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Jeff Garzik <jeff@garzik.org>, linuxppc-dev@ozlabs.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Scott Wood <scottwood@freescale.com>
+To: Vitaly Bordug <vitb@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:58205 "EHLO sacred.ru"
+Received: from mail0.scram.de ([78.47.204.202]:34868 "EHLO mail0.scram.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751166AbXLANqt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Dec 2007 08:46:49 -0500
-In-Reply-To: <20071201132422.GH15910@gondor.apana.org.au>
+	id S1751239AbXLANsz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Dec 2007 08:48:55 -0500
+In-Reply-To: <20071126142906.19642.45540.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This looks very much like the patch for ipv4's devinet.
+Hi Vitaly,
 
-This is also intended to help us with the net namespaces
-and saves the ipv6.ko size by ~320 bytes.
+> With that patch fixed.c now fully emulates MDIO bus, thus no need
+> to duplicate PHY layer functionality. That, in turn, drastically
+> simplifies the code, and drops down line count.
+>
+> As an additional bonus, now there is no need to register MDIO bus
+> for each PHY, all emulated PHYs placed on the platform fixed MDIO bus.
+> There is also no more need to pre-allocate PHYs via .config option,
+> this is all now handled dynamically.
+>
+> p.s. Don't even try to understand patch content! Better: apply patch
+> and look into resulting drivers/net/phy/fixed.c.
+>   
+If i understand your code correctly, you seem to rely on the fact 
+that fixed_phy_add() is called before the fixed MDIO bus is scanned for 
+devices. How is this supposed to work for modules or for the 
+PPC_CPM_NEW_BINDING mode where the device tree is no longer scanned 
+during fs_soc initialization but during device initialization?
 
-The difference from the first version is just the patch
-offsets, that changed due to changes in the patch #2.
+I tried to add fixed-phy support to fs_enet, but the fixed phy is not 
+found this way.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
----
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index ea1673d..dbff389 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3848,10 +3848,7 @@ static struct addrconf_sysctl_table
- {
- 	struct ctl_table_header *sysctl_header;
- 	ctl_table addrconf_vars[__NET_IPV6_MAX];
--	ctl_table addrconf_dev[2];
--	ctl_table addrconf_conf_dir[2];
--	ctl_table addrconf_proto_dir[2];
--	ctl_table addrconf_root_dir[2];
-+	char *dev_name;
- } addrconf_sysctl __read_mostly = {
- 	.sysctl_header = NULL,
- 	.addrconf_vars = {
-@@ -4072,50 +4069,6 @@ static struct addrconf_sysctl_table
- 			.ctl_name	=	0,	/* sentinel */
- 		}
- 	},
--	.addrconf_dev = {
--		{
--			.ctl_name	=	NET_PROTO_CONF_ALL,
--			.procname	=	"all",
--			.mode		=	0555,
--			.child		=	addrconf_sysctl.addrconf_vars,
--		},
--		{
--			.ctl_name	=	0,	/* sentinel */
--		}
--	},
--	.addrconf_conf_dir = {
--		{
--			.ctl_name	=	NET_IPV6_CONF,
--			.procname	=	"conf",
--			.mode		=	0555,
--			.child		=	addrconf_sysctl.addrconf_dev,
--		},
--		{
--			.ctl_name	=	0,	/* sentinel */
--		}
--	},
--	.addrconf_proto_dir = {
--		{
--			.ctl_name	=	NET_IPV6,
--			.procname	=	"ipv6",
--			.mode		=	0555,
--			.child		=	addrconf_sysctl.addrconf_conf_dir,
--		},
--		{
--			.ctl_name	=	0,	/* sentinel */
--		}
--	},
--	.addrconf_root_dir = {
--		{
--			.ctl_name	=	CTL_NET,
--			.procname	=	"net",
--			.mode		=	0555,
--			.child		=	addrconf_sysctl.addrconf_proto_dir,
--		},
--		{
--			.ctl_name	=	0,	/* sentinel */
--		}
--	},
- };
+--- a/drivers/net/fs_enet/fs_enet-main.c
++++ b/drivers/net/fs_enet/fs_enet-main.c
+@@ -36,6 +36,7 @@
+ #include <linux/fs.h>
+ #include <linux/platform_device.h>
+ #include <linux/phy.h>
++#include <linux/phy_fixed.h>
  
- static void __addrconf_sysctl_register(char *dev_name, int ctl_name,
-@@ -4124,6 +4077,17 @@ static void __addrconf_sysctl_register(char *dev_name, int ctl_name,
- 	int i;
- 	struct addrconf_sysctl_table *t;
- 
-+#define ADDRCONF_CTL_PATH_DEV	3
+ #include <linux/vmalloc.h>
+ #include <asm/pgtable.h>
+@@ -1174,8 +1175,24 @@ static int __devinit find_phy(struct device_node *np,
+        struct device_node *phynode, *mdionode;
+        struct resource res;
+        int ret = 0, len;
++       const u32 *data;
++       struct fixed_phy_status status = {};
 +
-+	struct ctl_path addrconf_ctl_path[] = {
-+		{ .procname = "net", .ctl_name = CTL_NET, },
-+		{ .procname = "ipv6", .ctl_name = NET_IPV6, },
-+		{ .procname = "conf", .ctl_name = NET_IPV6_CONF, },
-+		{ /* to be set */ },
-+		{ },
-+	};
++       data  = of_get_property(np, "fixed-link", NULL);
++       if (data) {
++               status.link = 1;
++               status.duplex = data[1];
++               status.speed  = data[2];
 +
++               ret = fixed_phy_add(PHY_POLL, data[0], &status);
++               if (ret)
++                       return ret;
 +
- 	t = kmemdup(&addrconf_sysctl, sizeof(*t), GFP_KERNEL);
- 	if (t == NULL)
- 		goto out;
-@@ -4138,19 +4102,15 @@ static void __addrconf_sysctl_register(char *dev_name, int ctl_name,
- 	 * by sysctl and we wouldn't want anyone to change it under our feet
- 	 * (see SIOCSIFNAME).
- 	 */
--	dev_name = kstrdup(dev_name, GFP_KERNEL);
--	if (!dev_name)
-+	t->dev_name = kstrdup(dev_name, GFP_KERNEL);
-+	if (!t->dev_name)
- 		goto free;
++               snprintf(fpi->bus_id, 16, PHY_ID_FMT, 0, *data);
++               return 0;
++       }
  
--	t->addrconf_dev[0].ctl_name = ctl_name;
--	t->addrconf_dev[0].procname = dev_name;
--
--	t->addrconf_dev[0].child = t->addrconf_vars;
--	t->addrconf_conf_dir[0].child = t->addrconf_dev;
--	t->addrconf_proto_dir[0].child = t->addrconf_conf_dir;
--	t->addrconf_root_dir[0].child = t->addrconf_proto_dir;
-+	addrconf_ctl_path[ADDRCONF_CTL_PATH_DEV].procname = t->dev_name;
-+	addrconf_ctl_path[ADDRCONF_CTL_PATH_DEV].ctl_name = ctl_name;
- 
--	t->sysctl_header = register_sysctl_table(t->addrconf_root_dir);
-+	t->sysctl_header = register_sysctl_paths(addrconf_ctl_path,
-+			t->addrconf_vars);
- 	if (t->sysctl_header == NULL)
- 		goto free_procname;
- 
-@@ -4158,7 +4118,7 @@ static void __addrconf_sysctl_register(char *dev_name, int ctl_name,
- 	return;
- 
- free_procname:
--	kfree(dev_name);
-+	kfree(t->dev_name);
- free:
- 	kfree(t);
- out:
-@@ -4177,7 +4137,7 @@ static void addrconf_sysctl_unregister(struct ipv6_devconf *p)
- 		struct addrconf_sysctl_table *t = p->sysctl;
- 		p->sysctl = NULL;
- 		unregister_sysctl_table(t->sysctl_header);
--		kfree(t->addrconf_dev[0].procname);
-+		kfree(t->dev_name);
- 		kfree(t);
- 	}
- }
--- 
-1.5.3.4
+-       const u32 *data = of_get_property(np, "phy-handle", &len);
++       data = of_get_property(np, "phy-handle", &len);
+        if (!data || len != 4)
+                return -EINVAL;
 
+Thanks,
+Jochen
