@@ -1,74 +1,70 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 4/4 (resent) net-2.6.25][UNIX] Make the unix sysctl tables per-namespace
-Date: Sat, 01 Dec 2007 12:32:02 -0700
-Message-ID: <m1odda5hzh.fsf@ebiederm.dsl.xmission.com>
-References: <47503919.8060103@openvz.org> <47503C48.8020001@openvz.org>
-	<20071201125726.GC15910@gondor.apana.org.au>
-	<47515C79.9060903@openvz.org> <47515F6F.1090805@openvz.org>
+From: Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: namespace support requires network modules to say "GPL"
+Date: Sat, 1 Dec 2007 11:38:15 -0800
+Message-ID: <20071201113815.5df0960a@freepuppy.rosehill>
+References: <m163zi9425.fsf@ebiederm.dsl.xmission.com>
+	<47515D39.9030900@rtr.ca>
+	<20071201111736.297dd99a@freepuppy.rosehill>
+	<20071201192341.6750fbdb@the-village.bc.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Denis V. Lunev" <den@openvz.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Containers <containers@lists.osdl.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>
-To: Pavel Emelyanov <xemul@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:38714 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750709AbXLATh7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 14:37:59 -0500
-In-Reply-To: <47515F6F.1090805@openvz.org> (Pavel Emelyanov's message of "Sat,
-	01 Dec 2007 16:19:43 +0300")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Tejun Heo <htejun-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, kay.sievers-tD+1rO4QERM@public.gmane.org,
+        Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cornelia.huck-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
+        stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org, "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>,
+        Mark Lord <lkml-gsilrlXbHYg@public.gmane.org>, Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+        Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+To: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20071201192341.6750fbdb-v58gJUvfdfWUJIigds3554dd74u8MsAO@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Pavel Emelyanov <xemul@openvz.org> writes:
+On Sat, 1 Dec 2007 19:23:41 +0000
+Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org> wrote:
 
->>> But I gotta say this struct/file is going to be enormous.  It's also
->>> one of those files that causes everything to get recompiled.  Maybe
->>> we ought to make a rule that each subsystem only gets to have at most
->>> one entry in it :)
->>>
->>> Thanks,
->> 
->> Good point, thanks. We'll start thinking in that direction. Right now it
->> is not finally cursed with all staff around.
->
-> Agree, the point is good :) but it has one pitfall :(
->
-> Look, now we make _one_ dereference to get any net->xxx variable 
-> (sysctl, list head, lock, etc). When we force each subsystem 
-> has it's "private" pointer on this, we'll make them take _two_ 
-> dereferences. Before the whole net namespace stuff started we
-> made _zero_ dereferences :) This may tell upon the performance.
->
-> I'm not claiming that this is the major case against this idea,
-> but when developing this idea, I think we should keep that fact
-> in ming and pay good attention to performance regressions.
+> > Then init_net needs to be not GPL limited. Sorry, we need to allow
+> > non GPL network drivers.  There is a fine line between keeping the
+> 
+> Why - they aren't exactly likely to be permissible by law
 
-Currently in my proof of concept tree I am at 65 variables and 648 bytes.
-This includes patches that are largely complete for ipv4.  In number
-of variables this is about half of the current struct net_device,
-so I think the usage looks managable.
+Matter of debate in which there are several opinions.
+I don't like binary modules either, but don't feel qualified to render
+a legal opinion.
 
-I agree that both performance and size are significant concerns,
-and that is essentially why struct net has the structure it does
-today.
+> 
+> > binary seething masses from accessing random kernel functions, and allowing
+> > reasonable (but still non GPL) things like ndiswrapper to use network
+> > device interface.
+> 
+> Its up to the ndiswrapper authors how the licence their code, but they
+> should respect how we licence ours.
 
-I print the size of struct net out at boot, we have to actually look
-at struct net when we make changes, so I don't think size bloat
-is going to happen unnoticed.
+Then change the license, explicitly and get it approved, forcing license
+changes by technically subversive means is bad policy. It is like Euro bureaucrats
+sneaking in software patents in regulations. If you want to have the debate and
+can get it resolved, then I support you.
 
-By keeping the size below PAGE_SIZE, and keeping the number of
-variables per network subsystem few and small we should be ok.
+Actually, the whole mess would go away if the api for dev_get_by_XXXX hadn't
+been changed in the namespace transition. IMHO the interface to dev_get_by_name()
+should not have added a namespace parameter, of the callers in the tree, only
+two use a different namespace. So it would have been better to to introduce
+dev_get_by_name_ns() with the extra parameter.
 
-The fact that changing struct net causes the core of
-the networking stack to recompile is an added bonus
-that should also discourage people from playing with it to
-much.
+Can we get this resolved before 2.6.24 is released? Going back and forth
+on API's is just needless frottage.
 
-My recommendation is to keep an eye on struct net and if what we
-are doing there becomes a problem address it then.
-
-Eric
+-- 
+Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
