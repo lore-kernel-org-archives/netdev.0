@@ -1,34 +1,43 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Fw: [PATCH] Add the phy_device_release device method.
-Date: Sat, 01 Dec 2007 17:02:27 -0500
-Message-ID: <4751D9F3.5090502@garzik.org>
-References: <20071119.214215.207388094.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCHv7 iproute2 2/2] Interface group as new ip link option
+Date: Sat, 01 Dec 2007 23:10:50 +0100
+Message-ID: <4751DBEA.3050705@o2.pl>
+References: <11963527094077-git-send-email-panther@balabit.hu> <11963527103201-git-send-email-panther@balabit.hu> <1196352710402-git-send-email-panther@balabit.hu> <11963527101876-git-send-email-panther@balabit.hu> <11963527103391-git-send-email-panther@balabit.hu> <11963527102332-git-send-email-panther@balabit.hu> <11963527101629-git-send-email-panther@balabit.hu> <11963527101123-git-send-email-panther@balabit.hu> <11963527101117-git-send-email-panther@balabit.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Thierry Reding <thierry.reding@avionic-design.de>
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Laszlo Attila Toth <panther@balabit.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59331 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751359AbXLAWC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Dec 2007 17:02:29 -0500
-In-Reply-To: <20071119.214215.207388094.davem@davemloft.net>
+Received: from mx12.go2.pl ([193.17.41.142]:46420 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751221AbXLAWJV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Dec 2007 17:09:21 -0500
+In-Reply-To: <11963527101117-git-send-email-panther@balabit.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thierry, could you resend this patch to me?
+Laszlo Attila Toth wrote, On 11/29/2007 05:11 PM:
 
-I do not seem to have an apply-able version of this patch anywhere.
+> Interfaces can be grouped and each group has an unique positive integer ID.
+> It can be set via ip link. Symbolic names can be specified in
+> /etc/iproute2/rt_ifgroup. Any value of unsigned int32 is valid.
 
-The copy DaveM forwarded to me had problems (though the technical 
-content looks OK)
+...
 
-Thanks,
+> diff --git a/lib/rt_names.c b/lib/rt_names.c
+> index 8d019a0..ec6638c 100644
+> --- a/lib/rt_names.c
+> +++ b/lib/rt_names.c
+> @@ -439,10 +439,72 @@ int rtnl_dsfield_a2n(__u32 *id, char *arg)
+>  		}
+>  	}
+>  
+> -	res = strtoul(arg, &end, 16);
+> +	res = strtoul(arg, &end, 0);
 
-	Jeff
 
+Won't this break any scripts?
 
-
+Jarek P.
