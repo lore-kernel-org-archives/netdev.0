@@ -1,60 +1,49 @@
-From: Mark Lord <lkml@rtr.ca>
-Subject: Re: namespace support requires network modules to say "GPL"
-Date: Sat, 01 Dec 2007 08:13:48 -0500
-Message-ID: <47515E0C.9010405@rtr.ca>
-References: <m163zi9425.fsf@ebiederm.dsl.xmission.com> <47515D39.9030900@rtr.ca>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 4/4] udp: memory accounting in IPv4
+Date: Sun, 2 Dec 2007 00:16:43 +1100
+Message-ID: <20071201131643.GE15910@gondor.apana.org.au>
+References: <474DB80E.5070403@redhat.com> <474DB930.5080409@redhat.com> <20071201122120.GB14368@gondor.apana.org.au> <47515CCF.3030009@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@suse.de>, Greg KH <greg@kroah.com>,
-	Tejun Heo <htejun@gmail.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, cornelia.huck@de.ibm.com,
-	stern@rowland.harvard.edu, kay.sievers@vrfy.org,
-	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Hideo AOKI <haoki@redhat.com>, netdev <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@osdl.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+	Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
+	Bill Fink <billfink@mindspring.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	yoshfuji@linux-ipv6.org,
+	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtr.ca ([76.10.145.34]:4012 "EHLO mail.rtr.ca"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751439AbXLANNu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Dec 2007 08:13:50 -0500
-In-Reply-To: <47515D39.9030900@rtr.ca>
+Received: from rhun.apana.org.au ([64.62.148.172]:3494 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750818AbXLANQz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 08:16:55 -0500
+Content-Disposition: inline
+In-Reply-To: <47515CCF.3030009@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mark Lord wrote:
->> Now that we have network namespace support merged it is time to
->> revisit the sysfs support so we can remove the dependency on !SYSFS.
-> ...
-> Now that the namespace updates are part of 2.6.24,
-> there is a major inconsistency in network EXPORT_SYMBOLs.
+On Sat, Dec 01, 2007 at 02:08:31PM +0100, Eric Dumazet wrote:
 > 
-> It used to be that an external network module could get away without
-> having to add a MODULE_LICENSE("GPL*") line to the source.
+> I agree adding yet another atomics ops is a big problem.
 > 
-> In support of that, common networking functions (still) use EXPORT_SYMBOL()
-> rather than the more restrictive EXPORT_SYMBOL_GPL().
-> 
-> Eg.  register_netdev(), sk_alloc(), __dev_get_by_name().
-> 
-> But now, none of those three are actually usable by default,
-> because they all require "init_net", which is EXPORT_SYMBOL_GPL().
-> 
-> So.. It appears that one of three things should really happen next:
-> 
-> 1) Change the other exports to also be EXPORT_SYMBOL_GPL.
-> 
-> 2) Have register_netdev, sk_alloc, and __dev_get_by_name default
-> to using init_net when NULL is specified in the namespace field.
-> 
-> or
-> 3) Change init_net to be EXPORT_SYMBOL_GPL.
-..
+> Another idea, coupled with recent work on percpu storage done by Christoph 
+> Lameter, would be to use kind of a percpu_counter :
 
-Obviously that should instead say:
+Yes that's an interesting idea.
 
-3) Change init_net to be EXPORT_SYMBOL instead of EXPORT_SYMBOL_GPL.
+> We dont really need strong and precise memory accounting (UDP , but TCP as 
+> well), just some kind of limit to avoid memory to be too much used.
+
+BTW it's no big deal for TCP because it's completely serialised so it
+doesn't use atomic ops for the accounting.  More importantly, it uses
+sk_forward_alloc so not every packet needs to touch the global counter.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
