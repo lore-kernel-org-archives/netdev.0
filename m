@@ -1,54 +1,52 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: namespace support requires network modules to say "GPL"
-Date: Sat, 1 Dec 2007 20:23:54 -0800
-Message-ID: <20071201202354.672aed18@freepuppy.rosehill>
-References: <m163zi9425.fsf@ebiederm.dsl.xmission.com>
-	<47515D39.9030900@rtr.ca>
-	<20071201111736.297dd99a@freepuppy.rosehill>
-	<20071201163035.321fd554@freepuppy.rosehill>
-	<475227B1.2060802@rtr.ca>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: [PATCH] gianfar: fix compile warning
+Date: Sat, 01 Dec 2007 22:10:03 -0700
+Message-ID: <20071202050927.8827.27154.stgit@trillian.secretlab.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	containers@lists.osdl.org
-To: Mark Lord <lkml@rtr.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:57178 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753519AbXLBEYo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 23:24:44 -0500
-In-Reply-To: <475227B1.2060802@rtr.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, galak@kernel.crashing.org,
+	jgarzik@pobox.com, afleming@freescale.com
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 01 Dec 2007 22:34:09 -0500
-Mark Lord <lkml@rtr.ca> wrote:
+From: Grant Likely <grant.likely@secretlab.ca>
 
-> Stephen Hemminger wrote:
-> > On Sat, 1 Dec 2007 11:17:36 -0800
-> > Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> > 
-> >> Then init_net needs to be not GPL limited. Sorry, we need to allow
-> >> non GPL network drivers.  There is a fine line between keeping the
-> >> binary seething masses from accessing random kernel functions, and allowing
-> >> reasonable (but still non GPL) things like ndiswrapper to use network
-> >> device interface.
-> >>
-> > I spoke too soon earlier, ndiswrapper builds and loads against current
-> > 2.6.24-rc3. Vmware and proprietary VPN software probably do not. Once again I don't
-> > give a damn, but the enterprise distro vendors certainly care.
-> ...
-> 
-> Naw, enterprise (or any other) distro vendors shouldn't have any issues here,
-> since they can just patch their kernels around any issues.
-> 
-> But it looks like Eric has this one thought out well enough.
+Eliminate an uninitialized variable warning.  The code is correct, but
+a pointer to the automatic variable 'addr' is passed to dma_alloc_coherent.
+Since addr has never been initialized, and the compiler doesn't know
+what dma_alloc_coherent will do with it, it complains.
 
-So you are saying all this is not a problem, fine.
-Any affected parties can certainly lobby for themselves. But I suspect
-they all think the kernel community is a bunch of ... and will just ignore
-the problem. 
+Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+---
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Jeff, this one should go in for 2.6.24
+
+Cheers,
+g.
+
+ drivers/net/gianfar.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 38268d7..0431e9e 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -696,7 +696,7 @@ int startup_gfar(struct net_device *dev)
+ {
+ 	struct txbd8 *txbdp;
+ 	struct rxbd8 *rxbdp;
+-	dma_addr_t addr;
++	dma_addr_t addr = 0;
+ 	unsigned long vaddr;
+ 	int i;
+ 	struct gfar_private *priv = netdev_priv(dev);
