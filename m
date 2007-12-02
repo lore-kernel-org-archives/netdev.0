@@ -1,68 +1,57 @@
-From: Anton Vorontsov <cbou@mail.ru>
-Subject: Re: [PATCH 1/3] [NET] phy/fixed.c: rework to not duplicate
-	PHYlayer functionality
-Date: Sun, 2 Dec 2007 15:13:12 +0300
-Message-ID: <20071202121312.GA2996@zarina>
-References: <20071201213403.GA2350@zarina> <051e01c834da$1cce82f0$5267a8c0@Jocke>
-Reply-To: cbou@mail.ru
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: SSB: No is not an answer
+Date: Sun, 2 Dec 2007 10:19:35 -0200
+Message-ID: <20071202121935.GL30008@ghostprotocols.net>
+References: <20071201171744.GJ30008@ghostprotocols.net> <20071201174532.GA3809@tuxdriver.com> <20071201190023.GK30008@ghostprotocols.net> <200712012127.50137.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Cc: 'Jochen Friedrich' <jochen@scram.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, 'Jeff Garzik' <jeff@garzik.org>,
-	linuxppc-dev@ozlabs.org
-To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx33.mail.ru ([194.67.23.194]:34599 "EHLO mx33.mail.ru"
+Received: from mx1.redhat.com ([66.187.233.31]:38726 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751877AbXLBMUa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Dec 2007 07:20:30 -0500
+	id S1754527AbXLBMUh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Dec 2007 07:20:37 -0500
 Content-Disposition: inline
-In-Reply-To: <051e01c834da$1cce82f0$5267a8c0@Jocke>
+In-Reply-To: <200712012127.50137.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 02, 2007 at 12:54:36PM +0100, Joakim Tjernlund wrote:
-> [SNIP]
-> > ^^ the correct solution is to implement arch_initcall function
-> > which will create fixed PHYs, and then leave only
-> > snprintf(fpi->bus_id, 16, PHY_ID_FMT, 0, *data); part in the
-> > fs_enet's find_phy().
+Em Sat, Dec 01, 2007 at 09:27:49PM +0100, Michael Buesch escreveu:
+> On Saturday 01 December 2007 20:00:23 Arnaldo Carvalho de Melo wrote:
+> > Em Sat, Dec 01, 2007 at 12:45:32PM -0500, John W. Linville escreveu:
+> > > On Sat, Dec 01, 2007 at 03:17:44PM -0200, Arnaldo Carvalho de Melo wrote:
+> > > > Sonics Silicon Backplane support (SSB) [M/y/?] (NEW) n
+> > > > 
+> > > > Support for the Sonics Silicon Backplane bus.
+> > > > You only need to enable this option, if you are
+> > > > configuring a kernel for an embedded system with
+> > > > this bus.
+> > > > It will be auto-selected if needed in other
+> > > > environments.
+> > > > 
+> > > > The module will be called ssb.
+> > > > 
+> > > > If unsure, say N.
+> > > > 
+> > > > Sonics Silicon Backplane support (SSB) [M/y/?] (NEW)
+> > > 
+> > > I think this is OK -- it isn't really offering the choice to say
+> > > no anyway.  You must have turned-on B44 or B43(LEGACY) already?
+> > > 
+> > > So, your choice is merely whether to have it built-in or as a module.
 > > 
-> > Try add something like this to the fsl_soc.c (compile untested):
-> > 
-> > - - - -
-> > static int __init of_add_fixed_phys(void)
-> > {
-> > 	struct device_node *np;
-> > 	const u32 *prop;
-> > 	struct fixed_phy_status status = {};
-> > 
-> > 	while ((np = of_find_node_by_name(NULL, "ethernet"))) {
-> > 		data  = of_get_property(np, "fixed-link", NULL);
-> > 		if (!data)
-> > 			continue;
-> > 
-> > 		status.link = 1;
-> > 		status.duplex = data[1];
-> > 		status.speed  = data[2];
+> > Ok, so the comment on being unsure is wrong as we can't say N as
+> > suggested :-)
 > 
-> What about Pause and Asym_Pause?
+> Oh, come on... Read the _whole_ comment.
 
-Will be addressed in the next respin of these patches. Let's
-hope on Monday.
+Oh well, if you think that it is OK, so be it, I found it confusing and
+reported, you find it ok to suggest chosing 'N' when 'M' or 'y' are the
+only possible answers. 
 
-> Dunno why so few, if any, eth drivers
-> impl. it, but the PHY lib supports it.
-> Even if fixed PHYs doesn't support it directly I think the OF interface
-> should have it.
-> 
->     - fixed-link : <a b c d e> where a is emulated phy id - choose any,
->       but unique to the all specified fixed-links, b is duplex - 0 half,
->       1 full, c is link speed - d#10/d#100/d#1000, d is pause - 0 no pause,
->       1 pause, d asym_pause - 0 no asym_pause, 1 asym_pause.
+Perhaps telling that N is not a possible answer when B44 or B43 was
+previously selected could help, up to you.
 
--- 
-Anton Vorontsov
-email: cbou@mail.ru
-backup email: ya-cbou@yandex.ru
-irc://irc.freenode.net/bd2
+- Arnaldo
