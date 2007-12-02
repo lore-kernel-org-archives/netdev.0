@@ -1,42 +1,36 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH] cxgb - revert file mode changes.
-Date: Sat, 01 Dec 2007 15:57:17 -0800
-Message-ID: <20071201235717.22418.24800.stgit@speedy5>
+Subject: Re: [LIKELY_SPAM][git patches] net driver fixes
+Date: Sat, 01 Dec 2007 16:01:16 -0800
+Message-ID: <4751F5CC.8020904@chelsio.com>
+References: <20071201233711.GA9698@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeff@garzik.org
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:3189 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:15530 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752735AbXLAX5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 18:57:22 -0500
+	with ESMTP id S1753047AbXLBAB3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 19:01:29 -0500
+In-Reply-To: <20071201233711.GA9698@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Divy Le Ray <divy@chelsio.com>
+Jeff Garzik wrote:
+>
+> Notes:
+>
+> 1) Several of these are resends from the last submission.
+>
+> 2) That chelsio file mode change (644->755) is a bit annoying.  Can git
+> do chmod as a changeset by itself?
+>
 
-revert inavertant file mode changes
+Sorry for this. I had not noticed it.
+If any help, I just submitted a patch reverting the file mode changes.
 
-Signed-off-by: Divy Le Ray <divy@chelsio.com>
----
-
- drivers/net/chelsio/cxgb2.c  |    0 
- drivers/net/chelsio/pm3393.c |    0 
- drivers/net/chelsio/sge.c    |    0 
- drivers/net/chelsio/sge.h    |    0 
- 4 files changed, 0 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/chelsio/cxgb2.c b/drivers/net/chelsio/cxgb2.c
-old mode 100755
-new mode 100644
-diff --git a/drivers/net/chelsio/pm3393.c b/drivers/net/chelsio/pm3393.c
-old mode 100755
-new mode 100644
-diff --git a/drivers/net/chelsio/sge.c b/drivers/net/chelsio/sge.c
-old mode 100755
-new mode 100644
-diff --git a/drivers/net/chelsio/sge.h b/drivers/net/chelsio/sge.h
-old mode 100755
-new mode 100644
+Cheers,
+Divy
