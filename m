@@ -1,165 +1,74 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH] gianfar driver: eliminate compiler warnings and unnecessary
-	macros
-Date: Sat, 01 Dec 2007 22:12:45 -0700
-Message-ID: <20071202051245.8918.24063.stgit@trillian.secretlab.ca>
+Subject: [PATCH] Fix buglets in mpc5200 FEC code that are corrupting memory.
+Date: Sat, 01 Dec 2007 23:00:57 -0700
+Message-ID: <20071202055937.20940.38500.stgit@trillian.secretlab.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
+Cc: domen.puncer@telargo.com, dwmw2@infradead.org
 To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	galak@kernel.crashing.org, jgarzik@pobox.com,
-	afleming@freescale.com
+	jonsmirl@gmail.com, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from idcmail-mo1so.shaw.ca ([24.71.223.10]:39844 "EHLO
-	pd3mo1so.prod.shaw.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750964AbXLBFMs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 00:12:48 -0500
-Received: from pd2mr1so.prod.shaw.ca
- (pd2mr1so-qfe3.prod.shaw.ca [10.0.141.110]) by l-daemon
- (Sun ONE Messaging Server 6.0 HotFix 1.01 (built Mar 15 2004))
- with ESMTP id <0JSE004RMP5BBQ50@l-daemon> for netdev@vger.kernel.org; Sat,
- 01 Dec 2007 22:12:47 -0700 (MST)
-Received: from pn2ml6so.prod.shaw.ca ([10.0.121.150])
- by pd2mr1so.prod.shaw.ca (Sun Java System Messaging Server 6.2-7.05 (built Sep
- 5 2006)) with ESMTP id <0JSE00K2XP5A8O40@pd2mr1so.prod.shaw.ca> for
- netdev@vger.kernel.org; Sat, 01 Dec 2007 22:12:48 -0700 (MST)
-Received: from trillian.cg.shawcable.net ([68.147.67.118])
+Received: from idcmail-mo1so.shaw.ca ([24.71.223.10]:7797 "EHLO
+	pd3mo3so.prod.shaw.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751075AbXLBGBj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 01:01:39 -0500
+Received: from pd2mr6so.prod.shaw.ca (pd2mr6so-qfe3.prod.shaw.ca [10.0.141.9])
  by l-daemon (Sun ONE Messaging Server 6.0 HotFix 1.01 (built Mar 15 2004))
- with ESMTP id <0JSE007HSP59DM40@l-daemon> for netdev@vger.kernel.org; Sat,
- 01 Dec 2007 22:12:45 -0700 (MST)
+ with ESMTP id <0JSE00L2HRDMAQ30@l-daemon> for netdev@vger.kernel.org; Sat,
+ 01 Dec 2007 23:00:58 -0700 (MST)
+Received: from pn2ml2so.prod.shaw.ca ([10.0.121.146])
+ by pd2mr6so.prod.shaw.ca (Sun Java System Messaging Server 6.2-7.05 (built Sep
+ 5 2006)) with ESMTP id <0JSE00GQCRDNP230@pd2mr6so.prod.shaw.ca> for
+ netdev@vger.kernel.org; Sat, 01 Dec 2007 23:00:59 -0700 (MST)
+Received: from trillian.cg.shawcable.net ([68.147.67.118])
+ by l-daemon (Sun Java System Messaging Server 6.2-7.05 (built Sep  5 2006))
+ with ESMTP id <0JSE00E9ORDL1A30@l-daemon> for netdev@vger.kernel.org; Sat,
+ 01 Dec 2007 23:00:58 -0700 (MST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Grant Likely <grant.likely@secretlab.ca>
+From: Jon Smirl <jonsmirl@gmail.com>
 
-This patch eliminates the warning of unused return values when the driver
-registers it sysfs files.  Now the driver will print an error if it is
-unable to register the sysfs files.
+This is the reason I couldn't get user space started or connect to my
+nfs server. Patch is against current linus git.
 
-It also eliminates the macros used to wrap the DEVICE_ATTR macro and the
-device_create_file function call.  The macros don't reduce the number of
-lines of source code in the file and the name munging makes is so that
-cscope and friends don't see the references to the functions.  It's better
-to just call the kernel API directly.
+mpc5200 fec driver is corrupting memory. This patch fixes two bugs
+where the wrong skb buffer was being referenced.
 
-While we're at it, the DEVICE_ATTR instances have been moved down to
-be grouped with the functions they depend on.
-
+Signed-off-by: Jon Smirl <jonsmirl@gmail.com>
+Acked-by: Domen Puncer <domen.puncer@telargo.com>
 Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 ---
 
- drivers/net/gianfar_sysfs.c |   50 ++++++++++++++++++++++---------------------
- 1 files changed, 25 insertions(+), 25 deletions(-)
+Jeff, this one hasn't been picked up for 2.6.24 yet and in needs to go in.
 
-diff --git a/drivers/net/gianfar_sysfs.c b/drivers/net/gianfar_sysfs.c
-index aec9ab1..230878b 100644
---- a/drivers/net/gianfar_sysfs.c
-+++ b/drivers/net/gianfar_sysfs.c
-@@ -37,24 +37,6 @@
+Thanks,
+g.
+
+ drivers/net/fec_mpc52xx.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
+index a8a0ee2..ddfcc0b 100644
+--- a/drivers/net/fec_mpc52xx.c
++++ b/drivers/net/fec_mpc52xx.c
+@@ -422,7 +422,7 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int irq, void *dev_id)
  
- #include "gianfar.h"
+ 		rskb = bcom_retrieve_buffer(priv->rx_dmatsk, &status,
+ 				(struct bcom_bd **)&bd);
+-		dma_unmap_single(&dev->dev, bd->skb_pa, skb->len, DMA_FROM_DEVICE);
++		dma_unmap_single(&dev->dev, bd->skb_pa, rskb->len, DMA_FROM_DEVICE);
  
--#define GFAR_ATTR(_name) \
--static ssize_t gfar_show_##_name(struct device *dev, \
--	 struct device_attribute *attr, char *buf); \
--static ssize_t gfar_set_##_name(struct device *dev, \
--		struct device_attribute *attr, \
--		const char *buf, size_t count); \
--static DEVICE_ATTR(_name, 0644, gfar_show_##_name, gfar_set_##_name)
--
--#define GFAR_CREATE_FILE(_dev, _name) \
--	device_create_file(&_dev->dev, &dev_attr_##_name)
--
--GFAR_ATTR(bd_stash);
--GFAR_ATTR(rx_stash_size);
--GFAR_ATTR(rx_stash_index);
--GFAR_ATTR(fifo_threshold);
--GFAR_ATTR(fifo_starve);
--GFAR_ATTR(fifo_starve_off);
--
- static ssize_t gfar_show_bd_stash(struct device *dev,
- 				  struct device_attribute *attr, char *buf)
- {
-@@ -100,6 +82,8 @@ static ssize_t gfar_set_bd_stash(struct device *dev,
- 	return count;
- }
+ 		/* Test for errors in received frame */
+ 		if (status & BCOM_FEC_RX_BD_ERRORS) {
+@@ -467,7 +467,7 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int irq, void *dev_id)
+ 			bcom_prepare_next_buffer(priv->rx_dmatsk);
  
-+DEVICE_ATTR(bd_stash, 0644, gfar_show_bd_stash, gfar_set_bd_stash);
-+
- static ssize_t gfar_show_rx_stash_size(struct device *dev,
- 				       struct device_attribute *attr, char *buf)
- {
-@@ -146,6 +130,9 @@ static ssize_t gfar_set_rx_stash_size(struct device *dev,
- 	return count;
- }
+ 		bd->status = FEC_RX_BUFFER_SIZE;
+-		bd->skb_pa = dma_map_single(&dev->dev, rskb->data,
++		bd->skb_pa = dma_map_single(&dev->dev, skb->data,
+ 				FEC_RX_BUFFER_SIZE, DMA_FROM_DEVICE);
  
-+DEVICE_ATTR(rx_stash_size, 0644, gfar_show_rx_stash_size,
-+	    gfar_set_rx_stash_size);
-+
- /* Stashing will only be enabled when rx_stash_size != 0 */
- static ssize_t gfar_show_rx_stash_index(struct device *dev,
- 					struct device_attribute *attr,
-@@ -184,6 +171,9 @@ static ssize_t gfar_set_rx_stash_index(struct device *dev,
- 	return count;
- }
- 
-+DEVICE_ATTR(rx_stash_index, 0644, gfar_show_rx_stash_index,
-+	    gfar_set_rx_stash_index);
-+
- static ssize_t gfar_show_fifo_threshold(struct device *dev,
- 					struct device_attribute *attr,
- 					char *buf)
-@@ -219,6 +209,9 @@ static ssize_t gfar_set_fifo_threshold(struct device *dev,
- 	return count;
- }
- 
-+DEVICE_ATTR(fifo_threshold, 0644, gfar_show_fifo_threshold,
-+	    gfar_set_fifo_threshold);
-+
- static ssize_t gfar_show_fifo_starve(struct device *dev,
- 				     struct device_attribute *attr, char *buf)
- {
-@@ -253,6 +246,8 @@ static ssize_t gfar_set_fifo_starve(struct device *dev,
- 	return count;
- }
- 
-+DEVICE_ATTR(fifo_starve, 0644, gfar_show_fifo_starve, gfar_set_fifo_starve);
-+
- static ssize_t gfar_show_fifo_starve_off(struct device *dev,
- 					 struct device_attribute *attr,
- 					 char *buf)
-@@ -288,9 +283,13 @@ static ssize_t gfar_set_fifo_starve_off(struct device *dev,
- 	return count;
- }
- 
-+DEVICE_ATTR(fifo_starve_off, 0644, gfar_show_fifo_starve_off,
-+	    gfar_set_fifo_starve_off);
-+
- void gfar_init_sysfs(struct net_device *dev)
- {
- 	struct gfar_private *priv = netdev_priv(dev);
-+	int rc;
- 
- 	/* Initialize the default values */
- 	priv->rx_stash_size = DEFAULT_STASH_LENGTH;
-@@ -301,11 +300,12 @@ void gfar_init_sysfs(struct net_device *dev)
- 	priv->bd_stash_en = DEFAULT_BD_STASH;
- 
- 	/* Create our sysfs files */
--	GFAR_CREATE_FILE(dev, bd_stash);
--	GFAR_CREATE_FILE(dev, rx_stash_size);
--	GFAR_CREATE_FILE(dev, rx_stash_index);
--	GFAR_CREATE_FILE(dev, fifo_threshold);
--	GFAR_CREATE_FILE(dev, fifo_starve);
--	GFAR_CREATE_FILE(dev, fifo_starve_off);
--
-+	rc = device_create_file(&dev->dev, &dev_attr_bd_stash);
-+	rc |= device_create_file(&dev->dev, &dev_attr_rx_stash_size);
-+	rc |= device_create_file(&dev->dev, &dev_attr_rx_stash_index);
-+	rc |= device_create_file(&dev->dev, &dev_attr_fifo_threshold);
-+	rc |= device_create_file(&dev->dev, &dev_attr_fifo_starve);
-+	rc |= device_create_file(&dev->dev, &dev_attr_fifo_starve_off);
-+	if (rc)
-+		dev_err(&dev->dev, "Error creating gianfar sysfs files.\n");
- }
+ 		bcom_submit_next_buffer(priv->rx_dmatsk, skb);
 
