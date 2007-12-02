@@ -1,64 +1,61 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Inconsistent lock  state and possible irq lock inversion dependency
- detected in ax25.ko
-Date: Sun, 02 Dec 2007 23:02:08 +0100
-Message-ID: <47532B60.8030205@o2.pl>
-References: <20071003185413.GA16242@martell.zuzino.mipt.ru> <4744AD8B.2000908@ccr.jussieu.fr> <4752ED3D.2060204@ccr.jussieu.fr>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: namespace support requires network modules to say "GPL"
+Date: Sun, 02 Dec 2007 22:59:46 +0100
+Message-ID: <47532AD2.8090704@trash.net>
+References: <m163zi9425.fsf@ebiederm.dsl.xmission.com> <47515D39.9030900@rtr.ca> <20071201111736.297dd99a@freepuppy.rosehill> <20071201163035.321fd554@freepuppy.rosehill> <475227B1.2060802@rtr.ca> <20071201202354.672aed18@freepuppy.rosehill> <47530778.7030605@candelatech.com> <47530FAC.1070804@trash.net> <20071202204356.GN15974@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, davem@davemloft.net, netdev@vger.kernel.org,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: Bernard Pidoux <pidoux@ccr.jussieu.fr>
+Cc: Ben Greear <greearb@candelatech.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Mark Lord <lkml@rtr.ca>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, containers@lists.osdl.org
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:53009 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750942AbXLBV4T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Dec 2007 16:56:19 -0500
-In-Reply-To: <4752ED3D.2060204@ccr.jussieu.fr>
+Received: from stinky.trash.net ([213.144.137.162]:46990 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750914AbXLBV7x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 16:59:53 -0500
+In-Reply-To: <20071202204356.GN15974@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bernard Pidoux wrote, On 12/02/2007 06:37 PM:
+Adrian Bunk wrote:
+> On Sun, Dec 02, 2007 at 09:03:56PM +0100, Patrick McHardy wrote:
+>
+>> For all I care binary modules can break, but frankly I don't see
+>> how encapsulating a couple of structures and pointers in a new
+>> structure and adding a new argument to existing functions shifts
+>> the decision about how a function should be usable to the namespace
+>> guys. IMO all functions should continue to be usable as before,
+>> as decided by whoever actually wrote them.
+>> ...
+> 
+> Even ignoring the fact that it's unclear whether distributing modules 
+> with not GPLv2 compatible licences is legal at all or might bring you in 
+> jail,
 
-> Hi,
-> 
-> Many thanks for your patch for ~/net/ax25/ax25_subr.c
-> 
-> Introduction of local_bh_disable() ... local_bh_enable()
-> 
-> cured the inconsistent lock state related to AX25 connect timeout.
-> 
-> I have now a stable monoprocessor system running AX25 and ROSE network 
-> packet switching application FPAC, whether kernel is compiled with or 
-> without hack option.
-> 
-> There is no more problem during normal operations.
-> 
-> This was achieved, thanks to your AX25 patch and the patch from Alexey 
-> Dobriyan for rose module.
-> 
-> I also patched rose module in order to get packet routing more 
-> efficient, taking into account the "restarted" flag that is raised when 
-> a neighbour node is already connected.
-> 
-> To summarize the present situation on my Linux machine, I built a patch 
-> against kernel 2.6.23.9.
-> 
-> I would appreciate if you could make it included into a next kernel release.
-... 
+Agreed, lets ignore that :)
 
-Bernard, I'm very glad I could be a little helpful, but I'm not sure of
-your intentions: my patch proposal is rather trivial interpretation of
-lockdep's report; I haven't studied AX25 enough even to be sure there is
-a real lockup possible in this place. Since this change looks not very
-costly and quite safe, I can 'take a risk' to sign this off after your
-testing. But anything more is beyond my 'range'.
+> your statement has an interesting implication:
+> 
+> Stuff like e.g. the EXPORT_SYMBOL(sk_alloc) predates the 
+> EXPORT_SYMBOL_GPL stuff.
+> 
+> Who is considered the author of this code?
+> 
+> And when should he state whether he prefers to use EXPORT_SYMBOL_GPL 
+> but wasn't able to use it at that when he wrote it since his code 
+> predates it and is glad to be able to decide this now?
 
-So, since you've spent quite a lot of time on this all, maybe it would
-be simpler if you've tried the same with the current kernel, and resent
-"proper" (not gzipped and with changelog) patch or patches. Then, I hope,
-Ralf, as the maintainer, will make the rest.
 
-Regards,
-Jarek P.
+He can state it when he feels like it, I don't see the point.
+Authors generally get to decide whether they use EXPORT_SYMBOL
+or EXPORT_SYMBOL_GPL unless in cases where its really clear-cut
+that EXPORT_SYMBOL is inapproriate. But thats a different matter.
+
+If a symbol was OK to be used previously and something using it
+would not automatically be considered a derived work, how does
+passing &init_net to the function just to make the compiler
+happy, avoid BUG_ONs and generally keep things working as before
+make it more of a derived work?
