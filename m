@@ -1,53 +1,64 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [PATCH 6/7] [CCID3]: The receiver of a half-connection does not set window counter values
-Date: Sun,  2 Dec 2007 19:36:55 -0200
-Message-ID: <1196631416-17778-7-git-send-email-acme@redhat.com>
-References: <1196631416-17778-1-git-send-email-acme@redhat.com>
- <1196631416-17778-2-git-send-email-acme@redhat.com>
- <1196631416-17778-3-git-send-email-acme@redhat.com>
- <1196631416-17778-4-git-send-email-acme@redhat.com>
- <1196631416-17778-5-git-send-email-acme@redhat.com>
- <1196631416-17778-6-git-send-email-acme@redhat.com>
-Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	Ian McDonald <ian.mcdonald@jandi.co.nz>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Inconsistent lock  state and possible irq lock inversion dependency
+ detected in ax25.ko
+Date: Sun, 02 Dec 2007 23:02:08 +0100
+Message-ID: <47532B60.8030205@o2.pl>
+References: <20071003185413.GA16242@martell.zuzino.mipt.ru> <4744AD8B.2000908@ccr.jussieu.fr> <4752ED3D.2060204@ccr.jussieu.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: ralf@linux-mips.org, davem@davemloft.net, netdev@vger.kernel.org,
+	Alexey Dobriyan <adobriyan@gmail.com>
+To: Bernard Pidoux <pidoux@ccr.jussieu.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.241]:47046 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750787AbXLBVio (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 16:38:44 -0500
-Received: by an-out-0708.google.com with SMTP id d31so625744and
-        for <netdev@vger.kernel.org>; Sun, 02 Dec 2007 13:38:43 -0800 (PST)
-In-Reply-To: <1196631416-17778-6-git-send-email-acme@redhat.com>
+Received: from mx12.go2.pl ([193.17.41.142]:53009 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750942AbXLBV4T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Dec 2007 16:56:19 -0500
+In-Reply-To: <4752ED3D.2060204@ccr.jussieu.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Bernard Pidoux wrote, On 12/02/2007 06:37 PM:
 
-Only the sender sets window counters [RFC 4342, sections 5 and 8.1].
+> Hi,
+> 
+> Many thanks for your patch for ~/net/ax25/ax25_subr.c
+> 
+> Introduction of local_bh_disable() ... local_bh_enable()
+> 
+> cured the inconsistent lock state related to AX25 connect timeout.
+> 
+> I have now a stable monoprocessor system running AX25 and ROSE network 
+> packet switching application FPAC, whether kernel is compiled with or 
+> without hack option.
+> 
+> There is no more problem during normal operations.
+> 
+> This was achieved, thanks to your AX25 patch and the patch from Alexey 
+> Dobriyan for rose module.
+> 
+> I also patched rose module in order to get packet routing more 
+> efficient, taking into account the "restarted" flag that is raised when 
+> a neighbour node is already connected.
+> 
+> To summarize the present situation on my Linux machine, I built a patch 
+> against kernel 2.6.23.9.
+> 
+> I would appreciate if you could make it included into a next kernel release.
+... 
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
----
- net/dccp/ccids/ccid3.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+Bernard, I'm very glad I could be a little helpful, but I'm not sure of
+your intentions: my patch proposal is rather trivial interpretation of
+lockdep's report; I haven't studied AX25 enough even to be sure there is
+a real lockup possible in this place. Since this change looks not very
+costly and quite safe, I can 'take a risk' to sign this off after your
+testing. But anything more is beyond my 'range'.
 
-diff --git a/net/dccp/ccids/ccid3.c b/net/dccp/ccids/ccid3.c
-index c95dca8..5ff5aab 100644
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -733,7 +733,6 @@ static int ccid3_hc_rx_insert_options(struct sock *sk, struct sk_buff *skb)
- 		return 0;
- 
- 	hcrx = ccid3_hc_rx_sk(sk);
--	DCCP_SKB_CB(skb)->dccpd_ccval = hcrx->ccid3hcrx_ccval_last_counter;
- 
- 	if (dccp_packet_without_ack(skb))
- 		return 0;
--- 
-1.5.3.4
+So, since you've spent quite a lot of time on this all, maybe it would
+be simpler if you've tried the same with the current kernel, and resent
+"proper" (not gzipped and with changelog) patch or patches. Then, I hope,
+Ralf, as the maintainer, will make the rest.
 
+Regards,
+Jarek P.
