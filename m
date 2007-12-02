@@ -1,66 +1,43 @@
-From: Wagner Ferenc <wferi@niif.hu>
-Subject: [PATCH 5/5] net/bonding: Allow setting and querying xmit policy regardless of mode
-Date: Sun, 02 Dec 2007 14:11:13 +0100
-Message-ID: <87ir3hz1fy.fsf_-_@szonett.ki.iif.hu>
-References: <87wss3jin5.fsf@szonett.ki.iif.hu>
-	<871wabkxcd.fsf@szonett.ki.iif.hu>
-	<20071127194929.757e4ebe.randy.dunlap@oracle.com>
-	<87bq9ekb8m.fsf@szonett.ki.iif.hu> <474D8B83.9050609@oracle.com>
-	<87wss1c3d8.fsf_-_@szonett.ki.iif.hu> <26966.1196298795@death>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: namespace support requires network modules to say "GPL"
+Date: Sun, 2 Dec 2007 13:51:04 +0000
+Message-ID: <20071202135104.006c5a15@the-village.bc.nu>
+References: <m163zi9425.fsf@ebiederm.dsl.xmission.com>
+	<47515D39.9030900@rtr.ca>
+	<20071201111736.297dd99a@freepuppy.rosehill>
+	<20071201163035.321fd554@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Randy Dunlap <randy.dunlap@oracle.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755757AbXLBNLh@vger.kernel.org>
-In-Reply-To: <26966.1196298795@death> (Jay Vosburgh's message of "Wed, 28 Nov
-	2007 17:13:15 -0800, Wed, 28 Nov 2007 17:01:23 -0800")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	containers@lists.osdl.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:33830 "EHLO
+	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752952AbXLBNzP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 08:55:15 -0500
+In-Reply-To: <20071201163035.321fd554@freepuppy.rosehill>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-For consistency with the behaviour of the arp_ip_target option,
-let /sys/class/net/bond0/bonding/xmit_hash_policy accept and report
-current policy even if the bonding mode in effect does not use it.
+On Sat, 1 Dec 2007 16:30:35 -0800
+Stephen Hemminger <shemminger@linux-foundation.org> wrote:
 
-Signed-off-by: Ferenc Wagner <wferi@niif.hu>
----
- drivers/net/bonding/bond_sysfs.c |   21 +++------------------
- 1 files changed, 3 insertions(+), 18 deletions(-)
+> On Sat, 1 Dec 2007 11:17:36 -0800
+> Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+> 
+> > Then init_net needs to be not GPL limited. Sorry, we need to allow
+> > non GPL network drivers.  There is a fine line between keeping the
+> > binary seething masses from accessing random kernel functions, and allowing
+> > reasonable (but still non GPL) things like ndiswrapper to use network
+> > device interface.
+> > 
+> I spoke too soon earlier, ndiswrapper builds and loads against current
+> 2.6.24-rc3. Vmware and proprietary VPN software probably do not. Once again I don't
+> give a damn, but the enterprise distro vendors certainly care.
 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 9de2c52..11b76b3 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -456,17 +456,11 @@ static ssize_t bonding_show_xmit_hash(struct device *d,
- 				      struct device_attribute *attr,
- 				      char *buf)
- {
--	int count = 0;
- 	struct bonding *bond = to_bond(d);
- 
--	if ((bond->params.mode == BOND_MODE_XOR) ||
--	    (bond->params.mode == BOND_MODE_8023AD)) {
--		count = sprintf(buf, "%s %d\n",
--			xmit_hashtype_tbl[bond->params.xmit_policy].modename,
--			bond->params.xmit_policy);
--	}
--
--	return count;
-+	return sprintf(buf, "%s %d\n",
-+		       xmit_hashtype_tbl[bond->params.xmit_policy].modename,
-+		       bond->params.xmit_policy);
- }
- 
- static ssize_t bonding_store_xmit_hash(struct device *d,
-@@ -484,15 +478,6 @@ static ssize_t bonding_store_xmit_hash(struct device *d,
- 		goto out;
- 	}
- 
--	if ((bond->params.mode != BOND_MODE_XOR) &&
--	    (bond->params.mode != BOND_MODE_8023AD)) {
--		printk(KERN_ERR DRV_NAME
--		       "%s: Transmit hash policy is irrelevant in this mode.\n",
--		       bond->dev->name);
--		ret = -EPERM;
--		goto out;
--	}
+Enterprise distro vendors ship kernels from the 2.6.19 era, so I don't
+see why they care.
+
+Alan
