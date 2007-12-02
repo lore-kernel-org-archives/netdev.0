@@ -1,43 +1,57 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: sock_valbool_flag is required by VMware
-Date: Sun, 2 Dec 2007 13:58:51 +0000
-Message-ID: <20071202135851.GA1164@infradead.org>
-References: <47508616.4030705@gmail.com>
+From: "Holger Hoffstaette" <holger@wizards.de>
+Subject: Re: Reproducible data corruption with sendfile+vsftp - splice regression?
+Date: Sun, 02 Dec 2007 17:00:03 +0100
+Message-ID: <pan.2007.12.02.16.00.03.568000@wizards.de>
+References: <pan.2007.11.29.23.42.52.661624@wizards.de> <474FC4D9.3020506@cosmosbay.com> <pan.2007.11.30.09.20.24.737500@wizards.de> <475055EE.9060105@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Emelyanov <xemul@openvz.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jiri Slaby <jirislaby@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:36873 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754159AbXLBN6y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 08:58:54 -0500
-Content-Disposition: inline
-In-Reply-To: <47508616.4030705@gmail.com>
+Received: from main.gmane.org ([80.91.229.2]:43126 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751120AbXLBQAp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Dec 2007 11:00:45 -0500
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1IyrFA-00047f-BF
+	for netdev@vger.kernel.org; Sun, 02 Dec 2007 16:00:32 +0000
+Received: from port-87-234-135-174.dynamic.qsc.de ([87.234.135.174])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 02 Dec 2007 16:00:32 +0000
+Received: from holger by port-87-234-135-174.dynamic.qsc.de with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 02 Dec 2007 16:00:32 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 30, 2007 at 10:52:22PM +0100, Jiri Slaby wrote:
-> Hi,
-> 
-> this commit:
->     [NET]: Move sock_valbool_flag to socket.c
-> 
->     The sock_valbool_flag() helper is used in setsockopt to
->     set or reset some flag on the sock. This helper is required
->     in the net/socket.c only, so move it there.
-> 
->     Besides, patch two places in sys_setsockopt() that repeat
->     this helper functionality manually.
-> 
->     Since this is not a bugfix, but a trivial cleanup, I
->     prepared this patch against net-2.6.25, but it also
->     applies (with a single offset) to the latest net-2.6.
-> 
-> breaks vmware module compilation, since it uses sock_valbool_flag(). Is this
-> their business (and they should use sock_set_flag/sock_reset_flag) or should
-> this be reverted?
 
-It's their business, they should never have used it.
+On Fri, 30 Nov 2007 10:26:54 -0800, Rick Jones wrote:
+
+> Could the corruption be seen in a tcpdump trace prior to transmission (ie
+> taken on the sender) or was it only seen after the data passed out the
+> NIC?
+
+I did the following:
+
+1) turn on tso on the server's r8169: ethtool --offload eth0 tso on
+2) on the server: tcpdump -i eth0 -s 0 -w <file>
+3) ftp'ed file to 100mbit client
+
+As expected the file was corrupted, and the various corrupted byte
+sequences also show up in the tcpdump file at the corresponding offsets.
+
+I did this with 2.6.22.14, so it does not seem to be a recent regression
+in .23/.24.
+
+All files can be found here:
+http://hoho.dyndns.org/~holger/dist/r8169-tso/
+
+I will gladly try out any other tweaks but need some guidance as I don't
+know what exactly to change - maybe without NAPI for the r8169?
+
+thank you
+Holger
+
 
