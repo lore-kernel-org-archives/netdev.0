@@ -1,7 +1,7 @@
 From: Wagner Ferenc <wferi@niif.hu>
-Subject: [PATCH 4/5] net/bonding: Adhere to coding style: break line after the if condition
-Date: Sun, 02 Dec 2007 14:10:34 +0100
-Message-ID: <87mystz1h1.fsf_-_@szonett.ki.iif.hu>
+Subject: [PATCH 5/5] net/bonding: Allow setting and querying xmit policy regardless of mode
+Date: Sun, 02 Dec 2007 14:11:13 +0100
+Message-ID: <87ir3hz1fy.fsf_-_@szonett.ki.iif.hu>
 References: <87wss3jin5.fsf@szonett.ki.iif.hu>
 	<871wabkxcd.fsf@szonett.ki.iif.hu>
 	<20071127194929.757e4ebe.randy.dunlap@oracle.com>
@@ -12,55 +12,55 @@ Content-Type: text/plain; charset=us-ascii
 Cc: Randy Dunlap <randy.dunlap@oracle.com>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tac.ki.iif.hu ([193.6.222.43]:34899 "EHLO tac.ki.iif.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752373AbXLBNKr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Dec 2007 08:10:47 -0500
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755757AbXLBNLh@vger.kernel.org>
 In-Reply-To: <26966.1196298795@death> (Jay Vosburgh's message of "Wed, 28 Nov
 	2007 17:13:15 -0800, Wed, 28 Nov 2007 17:01:23 -0800")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+For consistency with the behaviour of the arp_ip_target option,
+let /sys/class/net/bond0/bonding/xmit_hash_policy accept and report
+current policy even if the bonding mode in effect does not use it.
 
 Signed-off-by: Ferenc Wagner <wferi@niif.hu>
 ---
- drivers/net/bonding/bond_sysfs.c |    9 ++++++---
- 1 files changed, 6 insertions(+), 3 deletions(-)
+ drivers/net/bonding/bond_sysfs.c |   21 +++------------------
+ 1 files changed, 3 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 5c31f5c..9de2c52 100644
+index 9de2c52..11b76b3 100644
 --- a/drivers/net/bonding/bond_sysfs.c
 +++ b/drivers/net/bonding/bond_sysfs.c
-@@ -91,7 +91,8 @@ static ssize_t bonding_show_bonds(struct class *cls, char *buf)
- 		}
- 		res += sprintf(buf + res, "%s ", bond->dev->name);
- 	}
--	if (res) buf[res-1] = '\n'; /* eat the leftover space */
-+	if (res)
-+		buf[res-1] = '\n'; /* eat the leftover space */
- 	up_read(&(bonding_rwsem));
- 	return res;
- }
-@@ -239,7 +240,8 @@ static ssize_t bonding_show_slaves(struct device *d,
- 		res += sprintf(buf + res, "%s ", slave->dev->name);
- 	}
- 	read_unlock(&bond->lock);
--	if (res) buf[res-1] = '\n'; /* eat the leftover space */
-+	if (res)
-+		buf[res-1] = '\n'; /* eat the leftover space */
- 	return res;
+@@ -456,17 +456,11 @@ static ssize_t bonding_show_xmit_hash(struct device *d,
+ 				      struct device_attribute *attr,
+ 				      char *buf)
+ {
+-	int count = 0;
+ 	struct bonding *bond = to_bond(d);
+ 
+-	if ((bond->params.mode == BOND_MODE_XOR) ||
+-	    (bond->params.mode == BOND_MODE_8023AD)) {
+-		count = sprintf(buf, "%s %d\n",
+-			xmit_hashtype_tbl[bond->params.xmit_policy].modename,
+-			bond->params.xmit_policy);
+-	}
+-
+-	return count;
++	return sprintf(buf, "%s %d\n",
++		       xmit_hashtype_tbl[bond->params.xmit_policy].modename,
++		       bond->params.xmit_policy);
  }
  
-@@ -705,7 +707,8 @@ static ssize_t bonding_show_arp_targets(struct device *d,
- 			res += sprintf(buf + res, "%u.%u.%u.%u ",
- 			       NIPQUAD(bond->params.arp_targets[i]));
+ static ssize_t bonding_store_xmit_hash(struct device *d,
+@@ -484,15 +478,6 @@ static ssize_t bonding_store_xmit_hash(struct device *d,
+ 		goto out;
  	}
--	if (res) buf[res-1] = '\n'; /* eat the leftover space */
-+	if (res)
-+		buf[res-1] = '\n'; /* eat the leftover space */
- 	return res;
- }
  
--- 
-1.4.4.4
-
+-	if ((bond->params.mode != BOND_MODE_XOR) &&
+-	    (bond->params.mode != BOND_MODE_8023AD)) {
+-		printk(KERN_ERR DRV_NAME
+-		       "%s: Transmit hash policy is irrelevant in this mode.\n",
+-		       bond->dev->name);
+-		ret = -EPERM;
+-		goto out;
+-	}
