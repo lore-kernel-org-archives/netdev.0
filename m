@@ -1,96 +1,67 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [RFC][PATCHES 0/7]: Reorganization of RX history patches
-Date: Sun,  2 Dec 2007 19:36:49 -0200
-Message-ID: <1196631416-17778-1-git-send-email-acme@redhat.com>
+Subject: [PATCH 2/7] [DCCP]: Introduce generic function to test for `data packets'
+Date: Sun,  2 Dec 2007 19:36:51 -0200
+Message-ID: <1196631416-17778-3-git-send-email-acme@redhat.com>
+References: <1196631416-17778-1-git-send-email-acme@redhat.com>
+ <1196631416-17778-2-git-send-email-acme@redhat.com>
 Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>
+	Ingo Molnar <mingo@elte.hu>,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Ian McDonald <ian.mcdonald@jandi.co.nz>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
 To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.247]:59362 "EHLO
+Received: from an-out-0708.google.com ([209.85.132.246]:20565 "EHLO
 	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751155AbXLBWEt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 17:04:49 -0500
-Received: by an-out-0708.google.com with SMTP id d31so628728and
-        for <netdev@vger.kernel.org>; Sun, 02 Dec 2007 14:04:48 -0800 (PST)
+	with ESMTP id S1750962AbXLBWN3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 17:13:29 -0500
+Received: by an-out-0708.google.com with SMTP id d31so629727and
+        for <netdev@vger.kernel.org>; Sun, 02 Dec 2007 14:13:28 -0800 (PST)
+In-Reply-To: <1196631416-17778-2-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-WARNING: After reading some messages from Ingo Molnar on lkml I think we should really
-         trim the number of lists we use for kernel development. And since I moved
-	 back to using mutt for reading e-mails, something I should have never, ever
-	 stopped doing, I guess we should move the DCCP discussions to netdev,
-	 where we hopefully can get more people interested and reviewing the work we
-	 do, so please consider moving DCCP discussion to netdev@vger.kernel.org,
-	 where lots of smart networking folks are present and can help our efforts
-	 on turning RFCs to code.
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-Back to business...:
+as per  RFC 4340, sec. 7.7.
 
-Hi Gerrit,
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+ net/dccp/dccp.h |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
-	Please take a look at this patch series where I reorganized your work on the new
-TFRC rx history handling code. I'll wait for your considerations and then do as many
-interactions as reasonable to get your work merged.
+diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
+index ee97950..f4a5ea1 100644
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -334,6 +334,7 @@ struct dccp_skb_cb {
+ 
+ #define DCCP_SKB_CB(__skb) ((struct dccp_skb_cb *)&((__skb)->cb[0]))
+ 
++/* RFC 4340, sec. 7.7 */
+ static inline int dccp_non_data_packet(const struct sk_buff *skb)
+ {
+ 	const __u8 type = DCCP_SKB_CB(skb)->dccpd_type;
+@@ -346,6 +347,17 @@ static inline int dccp_non_data_packet(const struct sk_buff *skb)
+ 	       type == DCCP_PKT_SYNCACK;
+ }
+ 
++/* RFC 4340, sec. 7.7 */
++static inline int dccp_data_packet(const struct sk_buff *skb)
++{
++	const __u8 type = DCCP_SKB_CB(skb)->dccpd_type;
++
++	return type == DCCP_PKT_DATA	 ||
++	       type == DCCP_PKT_DATAACK  ||
++	       type == DCCP_PKT_REQUEST  ||
++	       type == DCCP_PKT_RESPONSE;
++}
++
+ static inline int dccp_packet_without_ack(const struct sk_buff *skb)
+ {
+ 	const __u8 type = DCCP_SKB_CB(skb)->dccpd_type;
+-- 
+1.5.3.4
 
-	It should be completely equivalent, plus some fixes and optimizations, such as:
-
-. The code that allocates the RX ring deals with failures when one of the entries in
-  the ring buffer is not successfully allocated, the original code was leaking the
-  successfully allocated entries.
-
-. We do just one allocation for the ring buffer, as the number of entries is fixed we
-  should just do one allocation and not TFRC_NDUPACK times.
-
-. I haven't checked if all the code was commited, as I tried to introduce just what was
-  immediatelly used, probably we'll need to do some changes when working on the merge
-  of your loss intervals code.
-
-. I changed the ccid3_hc_rx_packet_recv code to set hcrx->ccid3hcrx_s for the first
-  non-data packet instead of calling ccid3_hc_rx_set_state, that would use 0 as the
-  initial value in the EWMA calculation.
-
-. I also moved some patch parts (hunks) around trying to improve the readability of
-  the patches, trying to get things that logically replaced what was there before
-  closer together.
-
-. Separation of parts of your patches and combination of others is also another thing
-  you'll see in this patch set. I understand that it is difficult to find the right
-  compromise and I hope you don't feel too bad with the decisions I made, eventually
-  we'll find a common ground.
-
-. Another change was related to namespacing, I added tfrc_rx_hist_ to a number of
-  functions and in some cases just normalised the naming to be consistent.
-
-. I'm not that happy with deferring changes to the loss intervals code that uses
-  rx handling data structures, but I'm OK with leaving some code commented out till
-  we get to merging the new loss intervals code.
-
-	For what is worth I leave her my deep appreciation of your work and also my
-(repeated) apologies for not being able to do these kinds of review sessions months ago,
-but I also I'm willing and able to cure these shortcomings by continuing the work I've
-been doing recently on finally reviewing your hard work, keep it up!
-
-	It is available at:
-
-master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.25
-
-Best Regards,
-
-- Arnaldo
-
- b/net/dccp/ccids/Kconfig                       |   13
- b/net/dccp/ccids/ccid3.c                       |   35 -
- b/net/dccp/ccids/ccid3.h                       |   14
- b/net/dccp/ccids/lib/Makefile                  |    2
- b/net/dccp/ccids/lib/loss_interval.c           |   14
- b/net/dccp/ccids/lib/packet_history.c          |   27 -
- b/net/dccp/ccids/lib/packet_history.h          |    3
- b/net/dccp/ccids/lib/packet_history_internal.h |   68 +++
- b/net/dccp/ccids/lib/tfrc.c                    |   48 ++
- b/net/dccp/ccids/lib/tfrc.h                    |   18
- b/net/dccp/dccp.h                              |   13
- net/dccp/ccids/ccid3.c                         |  289 ++++----------
- net/dccp/ccids/lib/loss_interval.c             |   14
- net/dccp/ccids/lib/packet_history.c            |  483 +++++++++++++------------
- net/dccp/ccids/lib/packet_history.h            |  175 +++------
- 15 files changed, 602 insertions(+), 614 deletions(-)
