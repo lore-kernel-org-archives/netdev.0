@@ -1,46 +1,84 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 12/21] [TCP]: Introduce per skb fack_counts to retransmit queue
-Date: Sun, 2 Dec 2007 22:36:28 +1100
-Message-ID: <20071202113628.GA20942@gondor.apana.org.au>
-References: <1196549296588-git-send-email-ilpo.jarvinen@helsinki.fi> <11965492962509-git-send-email-ilpo.jarvinen@helsinki.fi> <11965492962214-git-send-email-ilpo.jarvinen@helsinki.fi> <11965492963057-git-send-email-ilpo.jarvinen@helsinki.fi> <1196549296324-git-send-email-ilpo.jarvinen@helsinki.fi> <11965492962283-git-send-email-ilpo.jarvinen@helsinki.fi> <11965492961234-git-send-email-ilpo.jarvinen@helsinki.fi> <11965492963381-git-send-email-ilpo.jarvinen@helsinki.fi> <20071202062751.GA30937@gondor.apana.org.au> <Pine.LNX.4.64.0712021321410.6477@kivilampi-30.cs.helsinki.fi>
+From: "Joakim Tjernlund" <joakim.tjernlund@transmode.se>
+Subject: RE: [PATCH 1/3] [NET] phy/fixed.c: rework to not duplicate PHYlayer functionality
+Date: Sun, 2 Dec 2007 12:54:36 +0100
+Message-ID: <051e01c834da$1cce82f0$5267a8c0@Jocke>
+References: <20071126142906.19642.45540.stgit@localhost.localdomain><47516646.9000803@scram.de> <20071201213403.GA2350@zarina>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	"'Jeff Garzik'" <jeff@garzik.org>, <linuxppc-dev@ozlabs.org>
+To: <cbou@mail.ru>, "'Jochen Friedrich'" <jochen@scram.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4210 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751568AbXLBLgi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 06:36:38 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0712021321410.6477@kivilampi-30.cs.helsinki.fi>
+Received: from mail.transmode.se ([83.241.175.147]:21867 "EHLO
+	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751125AbXLBLym (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 06:54:42 -0500
+In-Reply-To: <20071201213403.GA2350@zarina>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 02, 2007 at 01:29:36PM +0200, Ilpo J=E4rvinen wrote:
->
-> Hmm didn't crash for me, probably a silent corruption instead :-(.
+[SNIP]
+> ^^ the correct solution is to implement arch_initcall function
+> which will create fixed PHYs, and then leave only
+> snprintf(fpi->bus_id, 16, PHY_ID_FMT, 0, *data); part in the
+> fs_enet's find_phy().
+> 
+> Try add something like this to the fsl_soc.c (compile untested):
+> 
+> - - - -
+> static int __init of_add_fixed_phys(void)
+> {
+> 	struct device_node *np;
+> 	const u32 *prop;
+> 	struct fixed_phy_status status = {};
+> 
+> 	while ((np = of_find_node_by_name(NULL, "ethernet"))) {
+> 		data  = of_get_property(np, "fixed-link", NULL);
+> 		if (!data)
+> 			continue;
+> 
+> 		status.link = 1;
+> 		status.duplex = data[1];
+> 		status.speed  = data[2];
 
-It crashed during NIS start-up and I suppose I'm the only still
-running NIS :)
+What about Pause and Asym_Pause? Dunno why so few, if any, eth drivers
+impl. it, but the PHY lib supports it.
+Even if fixed PHYs doesn't support it directly I think the OF interface
+should have it.
 
-> Maybe I could add catch for invalid skb dereferences (those list head=
-s) to
-> TCP_SKB_CB and tcp_skb_pcount if some DEBUG thing is set. Those two s=
-hould
-> catch at least 98% of the invalid users.
->=20
-> ...Not sure if CONFIG_DEBUG_LIST is right one to use, suggestion welc=
-ome.
+    - fixed-link : <a b c d e> where a is emulated phy id - choose any,
+      but unique to the all specified fixed-links, b is duplex - 0 half,
+      1 full, c is link speed - d#10/d#100/d#1000, d is pause - 0 no pause,
+      1 pause, d asym_pause - 0 no asym_pause, 1 asym_pause.
 
-Sounds OK to me.
+Jocke
 
-Thanks,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> 
+> 		ret = fixed_phy_add(PHY_POLL, data[0], &status);
+> 		if (ret)
+> 			return ret;
+> 	}
+> 
+> 	return 0;
+> }
+> arch_initcall(of_add_fixed_phys);
+> - - - -
+> 
+> And remove fixed_phy_add() from the fs_enet. This should work
+> nicely and also should be ideologically correct. ;-)
+> 
+> > How is this supposed to work for modules or for the
+> > PPC_CPM_NEW_BINDING mode where the device tree is no longer scanned
+> > during fs_soc initialization but during device initialization?
+> 
+> We should mark fixed.c as bool. Fake/virtual/fixed/platform PHYs
+> creation is architecture code anyway, can't be =m.
+> 
+> -- 
+> Anton Vorontsov
+> email: cbou@mail.ru
+> backup email: ya-cbou@yandex.ru
+> irc://irc.freenode.net/bd2
+
