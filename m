@@ -1,43 +1,43 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: namespace support requires network modules to say "GPL"
-Date: Sun, 2 Dec 2007 13:51:04 +0000
-Message-ID: <20071202135104.006c5a15@the-village.bc.nu>
-References: <m163zi9425.fsf@ebiederm.dsl.xmission.com>
-	<47515D39.9030900@rtr.ca>
-	<20071201111736.297dd99a@freepuppy.rosehill>
-	<20071201163035.321fd554@freepuppy.rosehill>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: sock_valbool_flag is required by VMware
+Date: Sun, 2 Dec 2007 13:58:51 +0000
+Message-ID: <20071202135851.GA1164@infradead.org>
+References: <47508616.4030705@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	containers@lists.osdl.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pavel Emelyanov <xemul@openvz.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jiri Slaby <jirislaby@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:33830 "EHLO
-	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752952AbXLBNzP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 08:55:15 -0500
-In-Reply-To: <20071201163035.321fd554@freepuppy.rosehill>
+Received: from pentafluge.infradead.org ([213.146.154.40]:36873 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754159AbXLBN6y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 08:58:54 -0500
+Content-Disposition: inline
+In-Reply-To: <47508616.4030705@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 1 Dec 2007 16:30:35 -0800
-Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-
-> On Sat, 1 Dec 2007 11:17:36 -0800
-> Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+On Fri, Nov 30, 2007 at 10:52:22PM +0100, Jiri Slaby wrote:
+> Hi,
 > 
-> > Then init_net needs to be not GPL limited. Sorry, we need to allow
-> > non GPL network drivers.  There is a fine line between keeping the
-> > binary seething masses from accessing random kernel functions, and allowing
-> > reasonable (but still non GPL) things like ndiswrapper to use network
-> > device interface.
-> > 
-> I spoke too soon earlier, ndiswrapper builds and loads against current
-> 2.6.24-rc3. Vmware and proprietary VPN software probably do not. Once again I don't
-> give a damn, but the enterprise distro vendors certainly care.
+> this commit:
+>     [NET]: Move sock_valbool_flag to socket.c
+> 
+>     The sock_valbool_flag() helper is used in setsockopt to
+>     set or reset some flag on the sock. This helper is required
+>     in the net/socket.c only, so move it there.
+> 
+>     Besides, patch two places in sys_setsockopt() that repeat
+>     this helper functionality manually.
+> 
+>     Since this is not a bugfix, but a trivial cleanup, I
+>     prepared this patch against net-2.6.25, but it also
+>     applies (with a single offset) to the latest net-2.6.
+> 
+> breaks vmware module compilation, since it uses sock_valbool_flag(). Is this
+> their business (and they should use sock_set_flag/sock_reset_flag) or should
+> this be reverted?
 
-Enterprise distro vendors ship kernels from the 2.6.19 era, so I don't
-see why they care.
+It's their business, they should never have used it.
 
-Alan
