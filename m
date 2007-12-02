@@ -1,57 +1,45 @@
-From: "Holger Hoffstaette" <holger@wizards.de>
-Subject: Re: Reproducible data corruption with sendfile+vsftp - splice regression?
-Date: Sun, 02 Dec 2007 17:00:03 +0100
-Message-ID: <pan.2007.12.02.16.00.03.568000@wizards.de>
-References: <pan.2007.11.29.23.42.52.661624@wizards.de> <474FC4D9.3020506@cosmosbay.com> <pan.2007.11.30.09.20.24.737500@wizards.de> <475055EE.9060105@hp.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH net-2.6.25] TCP: Fix copy-paste (or code move) error
+Date: Sun, 2 Dec 2007 18:45:44 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0712021841050.11818@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1999548504-1196613944=:11818"
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:43126 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751120AbXLBQAp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Dec 2007 11:00:45 -0500
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1IyrFA-00047f-BF
-	for netdev@vger.kernel.org; Sun, 02 Dec 2007 16:00:32 +0000
-Received: from port-87-234-135-174.dynamic.qsc.de ([87.234.135.174])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sun, 02 Dec 2007 16:00:32 +0000
-Received: from holger by port-87-234-135-174.dynamic.qsc.de with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sun, 02 Dec 2007 16:00:32 +0000
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:52932 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753412AbXLBQpq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 11:45:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-On Fri, 30 Nov 2007 10:26:54 -0800, Rick Jones wrote:
+---696243703-1999548504-1196613944=:11818
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-> Could the corruption be seen in a tcpdump trace prior to transmission (ie
-> taken on the sender) or was it only seen after the data passed out the
-> NIC?
+Should get the skb from the same queue. I had it first elsewhere
+and missed this change while moving.
 
-I did the following:
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
 
-1) turn on tso on the server's r8169: ethtool --offload eth0 tso on
-2) on the server: tcpdump -i eth0 -s 0 -w <file>
-3) ftp'ed file to 100mbit client
-
-As expected the file was corrupted, and the various corrupted byte
-sequences also show up in the tcpdump file at the corresponding offsets.
-
-I did this with 2.6.22.14, so it does not seem to be a recent regression
-in .23/.24.
-
-All files can be found here:
-http://hoho.dyndns.org/~holger/dist/r8169-tso/
-
-I will gladly try out any other tweaks but need some guidance as I don't
-know what exactly to change - maybe without NAPI for the r8169?
-
-thank you
-Holger
-
-
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 7ae72c3..5929022 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1524,7 +1524,7 @@ static inline void tcp_reset_fack_counts(struct sock *sk, struct sk_buff *inskb)
+ 		/* Lazy find for the other queue */
+ 		if (skb[queue] == NULL) {
+ 			skb[queue] = tcp_write_queue_find(sk, TCP_SKB_CB(prev)->seq,
+-						          queue ^ TCP_WQ_SACKED);
++						          queue);
+ 			if (skb[queue] == NULL)
+ 				break;
+ 		}
+--
+1.5.0.6
+---696243703-1999548504-1196613944=:11818--
