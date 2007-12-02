@@ -1,86 +1,96 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [PATCH 3/7] [TFRC]: Rename tfrc_tx_hist to tfrc_tx_hist_slab, for consistency
-Date: Sun,  2 Dec 2007 19:36:52 -0200
-Message-ID: <1196631416-17778-4-git-send-email-acme@redhat.com>
-References: <1196631416-17778-1-git-send-email-acme@redhat.com>
- <1196631416-17778-2-git-send-email-acme@redhat.com>
- <1196631416-17778-3-git-send-email-acme@redhat.com>
+Subject: [RFC][PATCHES 0/7]: Reorganization of RX history patches
+Date: Sun,  2 Dec 2007 19:36:49 -0200
+Message-ID: <1196631416-17778-1-git-send-email-acme@redhat.com>
 Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>
+	Ingo Molnar <mingo@elte.hu>
 To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.250]:55842 "EHLO
+Received: from an-out-0708.google.com ([209.85.132.247]:59362 "EHLO
 	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750746AbXLBWDh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 17:03:37 -0500
-Received: by an-out-0708.google.com with SMTP id d31so628579and
-        for <netdev@vger.kernel.org>; Sun, 02 Dec 2007 14:03:36 -0800 (PST)
-In-Reply-To: <1196631416-17778-3-git-send-email-acme@redhat.com>
+	with ESMTP id S1751155AbXLBWEt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 17:04:49 -0500
+Received: by an-out-0708.google.com with SMTP id d31so628728and
+        for <netdev@vger.kernel.org>; Sun, 02 Dec 2007 14:04:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
----
- net/dccp/ccids/lib/packet_history.c |   20 ++++++++++----------
- 1 files changed, 10 insertions(+), 10 deletions(-)
+WARNING: After reading some messages from Ingo Molnar on lkml I think we should really
+         trim the number of lists we use for kernel development. And since I moved
+	 back to using mutt for reading e-mails, something I should have never, ever
+	 stopped doing, I guess we should move the DCCP discussions to netdev,
+	 where we hopefully can get more people interested and reviewing the work we
+	 do, so please consider moving DCCP discussion to netdev@vger.kernel.org,
+	 where lots of smart networking folks are present and can help our efforts
+	 on turning RFCs to code.
 
-diff --git a/net/dccp/ccids/lib/packet_history.c b/net/dccp/ccids/lib/packet_history.c
-index 1d4d6ee..b628714 100644
---- a/net/dccp/ccids/lib/packet_history.c
-+++ b/net/dccp/ccids/lib/packet_history.c
-@@ -53,7 +53,7 @@ struct tfrc_tx_hist_entry {
- /*
-  * Transmitter History Routines
-  */
--static struct kmem_cache *tfrc_tx_hist;
-+static struct kmem_cache *tfrc_tx_hist_slab;
- 
- static struct tfrc_tx_hist_entry *
- 	tfrc_tx_hist_find_entry(struct tfrc_tx_hist_entry *head, u64 seqno)
-@@ -66,7 +66,7 @@ static struct tfrc_tx_hist_entry *
- 
- int tfrc_tx_hist_add(struct tfrc_tx_hist_entry **headp, u64 seqno)
- {
--	struct tfrc_tx_hist_entry *entry = kmem_cache_alloc(tfrc_tx_hist, gfp_any());
-+	struct tfrc_tx_hist_entry *entry = kmem_cache_alloc(tfrc_tx_hist_slab, gfp_any());
- 
- 	if (entry == NULL)
- 		return -ENOBUFS;
-@@ -85,7 +85,7 @@ void tfrc_tx_hist_purge(struct tfrc_tx_hist_entry **headp)
- 	while (head != NULL) {
- 		struct tfrc_tx_hist_entry *next = head->next;
- 
--		kmem_cache_free(tfrc_tx_hist, head);
-+		kmem_cache_free(tfrc_tx_hist_slab, head);
- 		head = next;
- 	}
- 
-@@ -278,17 +278,17 @@ EXPORT_SYMBOL_GPL(dccp_rx_hist_purge);
- 
- __init int packet_history_init(void)
- {
--	tfrc_tx_hist = kmem_cache_create("tfrc_tx_hist",
--					 sizeof(struct tfrc_tx_hist_entry), 0,
--					 SLAB_HWCACHE_ALIGN, NULL);
-+	tfrc_tx_hist_slab = kmem_cache_create("tfrc_tx_hist",
-+					      sizeof(struct tfrc_tx_hist_entry), 0,
-+					      SLAB_HWCACHE_ALIGN, NULL);
- 
--	return tfrc_tx_hist == NULL ? -ENOBUFS : 0;
-+	return tfrc_tx_hist_slab == NULL ? -ENOBUFS : 0;
- }
- 
- void packet_history_exit(void)
- {
--	if (tfrc_tx_hist != NULL) {
--		kmem_cache_destroy(tfrc_tx_hist);
--		tfrc_tx_hist = NULL;
-+	if (tfrc_tx_hist_slab != NULL) {
-+		kmem_cache_destroy(tfrc_tx_hist_slab);
-+		tfrc_tx_hist_slab = NULL;
- 	}
- }
--- 
-1.5.3.4
+Back to business...:
 
+Hi Gerrit,
+
+	Please take a look at this patch series where I reorganized your work on the new
+TFRC rx history handling code. I'll wait for your considerations and then do as many
+interactions as reasonable to get your work merged.
+
+	It should be completely equivalent, plus some fixes and optimizations, such as:
+
+. The code that allocates the RX ring deals with failures when one of the entries in
+  the ring buffer is not successfully allocated, the original code was leaking the
+  successfully allocated entries.
+
+. We do just one allocation for the ring buffer, as the number of entries is fixed we
+  should just do one allocation and not TFRC_NDUPACK times.
+
+. I haven't checked if all the code was commited, as I tried to introduce just what was
+  immediatelly used, probably we'll need to do some changes when working on the merge
+  of your loss intervals code.
+
+. I changed the ccid3_hc_rx_packet_recv code to set hcrx->ccid3hcrx_s for the first
+  non-data packet instead of calling ccid3_hc_rx_set_state, that would use 0 as the
+  initial value in the EWMA calculation.
+
+. I also moved some patch parts (hunks) around trying to improve the readability of
+  the patches, trying to get things that logically replaced what was there before
+  closer together.
+
+. Separation of parts of your patches and combination of others is also another thing
+  you'll see in this patch set. I understand that it is difficult to find the right
+  compromise and I hope you don't feel too bad with the decisions I made, eventually
+  we'll find a common ground.
+
+. Another change was related to namespacing, I added tfrc_rx_hist_ to a number of
+  functions and in some cases just normalised the naming to be consistent.
+
+. I'm not that happy with deferring changes to the loss intervals code that uses
+  rx handling data structures, but I'm OK with leaving some code commented out till
+  we get to merging the new loss intervals code.
+
+	For what is worth I leave her my deep appreciation of your work and also my
+(repeated) apologies for not being able to do these kinds of review sessions months ago,
+but I also I'm willing and able to cure these shortcomings by continuing the work I've
+been doing recently on finally reviewing your hard work, keep it up!
+
+	It is available at:
+
+master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.25
+
+Best Regards,
+
+- Arnaldo
+
+ b/net/dccp/ccids/Kconfig                       |   13
+ b/net/dccp/ccids/ccid3.c                       |   35 -
+ b/net/dccp/ccids/ccid3.h                       |   14
+ b/net/dccp/ccids/lib/Makefile                  |    2
+ b/net/dccp/ccids/lib/loss_interval.c           |   14
+ b/net/dccp/ccids/lib/packet_history.c          |   27 -
+ b/net/dccp/ccids/lib/packet_history.h          |    3
+ b/net/dccp/ccids/lib/packet_history_internal.h |   68 +++
+ b/net/dccp/ccids/lib/tfrc.c                    |   48 ++
+ b/net/dccp/ccids/lib/tfrc.h                    |   18
+ b/net/dccp/dccp.h                              |   13
+ net/dccp/ccids/ccid3.c                         |  289 ++++----------
+ net/dccp/ccids/lib/loss_interval.c             |   14
+ net/dccp/ccids/lib/packet_history.c            |  483 +++++++++++++------------
+ net/dccp/ccids/lib/packet_history.h            |  175 +++------
+ 15 files changed, 602 insertions(+), 614 deletions(-)
