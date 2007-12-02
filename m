@@ -1,50 +1,155 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: namespace support requires network modules to say "GPL"
-Date: Sat, 1 Dec 2007 16:30:35 -0800
-Message-ID: <20071201163035.321fd554@freepuppy.rosehill>
+Date: Sat, 01 Dec 2007 18:08:09 -0700
+Message-ID: <m1eje552fa.fsf@ebiederm.dsl.xmission.com>
 References: <m163zi9425.fsf@ebiederm.dsl.xmission.com>
-	<47515D39.9030900@rtr.ca>
-	<20071201111736.297dd99a@freepuppy.rosehill>
+	<47515D39.9030900@rtr.ca> <20071201111736.297dd99a@freepuppy.rosehill>
+	<20071201192341.6750fbdb@the-village.bc.nu>
+	<20071201113815.5df0960a@freepuppy.rosehill>
+	<m13aum5g1x.fsf@ebiederm.dsl.xmission.com> <4751C238.6010609@rtr.ca>
+	<20071201122926.5c887588@laptopd505.fenrus.org>
+	<4751DC3C.1050606@rtr.ca> <m1tzn23t6k.fsf@ebiederm.dsl.xmission.com>
+	<4751F380.7040309@rtr.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: containers@lists.osdl.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Arjan van de Ven <arjan@infradead.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Greg Kroah-Hartman <gregkh@suse.de>, Greg KH <greg@kroah.com>,
+	Tejun Heo <htejun@gmail.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, cornelia.huck@de.ibm.com,
+	stern@rowland.harvard.edu, kay.sievers@vrfy.org,
+	linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Mark Lord <lkml@rtr.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:43980 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753084AbXLBAbe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Dec 2007 19:31:34 -0500
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1Iyck4-0000UT-2M
-	for netdev@vger.kernel.org; Sun, 02 Dec 2007 00:31:28 +0000
-Received: from 069-064-229-129.pdx.net ([69.64.229.129])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sun, 02 Dec 2007 00:31:28 +0000
-Received: from shemminger by 069-064-229-129.pdx.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sun, 02 Dec 2007 00:31:28 +0000
-In-Reply-To: <20071201111736.297dd99a@freepuppy.rosehill>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:50075 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753323AbXLBBKe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2007 20:10:34 -0500
+In-Reply-To: <4751F380.7040309@rtr.ca> (Mark Lord's message of "Sat, 01 Dec
+	2007 18:51:28 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 1 Dec 2007 11:17:36 -0800
-Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+Mark Lord <lkml@rtr.ca> writes:
 
-> Then init_net needs to be not GPL limited. Sorry, we need to allow
-> non GPL network drivers.  There is a fine line between keeping the
-> binary seething masses from accessing random kernel functions, and allowing
-> reasonable (but still non GPL) things like ndiswrapper to use network
-> device interface.
-> 
-I spoke too soon earlier, ndiswrapper builds and loads against current
-2.6.24-rc3. Vmware and proprietary VPN software probably do not. Once again I don't
-give a damn, but the enterprise distro vendors certainly care.
+> Eric W. Biederman wrote:
+>> Mark Lord <lkml@rtr.ca> writes:
+>>
+>>> Arjan van de Ven wrote:
+>>>> On Sat, 01 Dec 2007 15:21:12 -0500
+>>>> Mark Lord <lkml@rtr.ca> wrote:
+>>>>
+>>>>> Eric W. Biederman wrote:
+>>>>>> Stephen Hemminger <shemminger@linux-foundation.org> writes:
+>>>>>> Sure.  We keep the updated dev_get_by_XXXX that takes a network
+>>>>>> namespace parameter.
+>>>>> ..
+>>>>>
+>>>>> And what should code be passing in when "# CONFIG_NET_NS is not set" ?
+>>>> network drivers probably really really don't want to call
+>>>> dev_get_by_XXX...
+>>> ..
+>>>
+>>> Fine.  But all of them want to call sk_alloc(),
+>>
+>> network drivers should be calling sk_alloc less then they should
+>> call dev_get_by_XXXX.  Only protocols call sk_alloc.
+> ..
+>
+> I think I saw some bridge code that calls it, too.
+> Regardless, it's EXPORT_SYMBOL(), but now unusable
+> due to the GPL-only symbol "init_net".
+>
+> Meanwhile, you are avoiding answering the question:
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+What EXPORT_SYMBOL_GPL means is I don't have a clue how you
+can use this without being a derivative work of the linux kernel.  I
+think that is true for init_net and I stand by that.  It is a very
+internal symbol.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Further the only case that I think might pass the derivative work
+test would be a network driver, and I am not affecting those.
 
+I also believe that since it isn't mandatory you get your struct
+net pointer by taking the address of a GPL only symbol that
+those interfaces can continue to be used.
+
+However I do suspect you are right that it may be more correct
+to realized that only a derivative work could possibly use those
+interfaces and tell 3rd parties that loud and clear.
+
+We also have the policy of not changing exports from EXPORT_SYMBOL
+to EXPORT_SYMBOL_GPL.  So making that such a change is difficult.
+
+>>>>> And what should code be passing in when "# CONFIG_NET_NS is not set" ?
+> ..
+>
+>>> and many want to do register_netdev().
+>>
+>> I haven't even touched register_netdev.
+> ..
+>
+> Bull-pucky.  Somebody did:
+>
+>> @@ -3361,6 +3595,8 @@ int register_netdevice(struct net_device *dev)
+>>
+>>         /* When net_device's are persistent, this will be fatal. */
+>>         BUG_ON(dev->reg_state != NETREG_UNINITIALIZED);
+>> +       BUG_ON(!dev->nd_net);
+>> +       net = dev->nd_net;
+>>
+>>         spin_lock_init(&dev->queue_lock);
+>>         spin_lock_init(&dev->_xmit_lock);
+> ..
+>
+> That new BUG_ON() line complains if nd_net has not been initialized,
+> and the only thing I see drivers putting there is GPL-only "&init_net".
+
+Yes and alloc_netdev initializes it.  All network drivers are required
+to call alloc_netdev.
+
+So register_netdev from a device driver perspective has not changed.
+
+Anything the above change breaks happens to be a broken network device
+driver.
+
+>>> So what should they be using there ?
+>>
+>> What are you having problems with?
+> ..
+>
+> Avoiding the question again there, too.
+
+No.  I am saying that I don't see a problem.  All of the real world
+problems that I actually know of are code bugs.  I asked for
+a real world problem to see if there was something I was missing
+in my analysis.  That isn't avoiding the problem that is trying
+to see if I was wrong.
+
+> I personally am not having problems with anything.
+> But I noticed the API change, and would like somebody to fix it.
+> Any of the three ways (or a fourth, if you've got one) might do.
+
+Honestly I think I have done the best I can with the knowledge and
+information that I have.    I do not think dropping the GPL from
+the export of init_net makes sense.  I think turning a NULL into
+init_net is a technical joke.  That parameter is there because
+that is someplace where we need to pay attention to our network
+namespace.
+
+Which only leaves your first option of making more symbols
+EXPORT_SYMBOL_GPL as even interesting.
+
+That would seem to make some sense, given the attitudes and
+perceptions of the current network developers.  
+
+However I'm not volunteering for that one as finishing up the network
+and pid namespaces already has my plate full.
+
+Eric
