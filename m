@@ -1,64 +1,253 @@
-From: "Holger Hoffstaette" <holger@wizards.de>
-Subject: Re: Reproducible data corruption with sendfile+vsftp - splice regression?
-Date: Sun, 02 Dec 2007 21:49:42 +0100
-Message-ID: <pan.2007.12.02.20.49.42.675000@wizards.de>
-References: <pan.2007.11.29.23.42.52.661624@wizards.de> <474FC4D9.3020506@cosmosbay.com> <pan.2007.11.30.09.20.24.737500@wizards.de> <475055EE.9060105@hp.com> <pan.2007.12.02.16.00.03.568000@wizards.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: [PATCH 1/7] [TFRC]: Provide central source file and debug facility
+Date: Sun,  2 Dec 2007 19:36:50 -0200
+Message-ID: <1196631416-17778-2-git-send-email-acme@redhat.com>
+References: <1196631416-17778-1-git-send-email-acme@redhat.com>
+Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
+	Ingo Molnar <mingo@elte.hu>,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Ian McDonald <ian.mcdonald@jandi.co.nz>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:37479 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751526AbXLBUvK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Dec 2007 15:51:10 -0500
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1Iyvlg-0007My-6k
-	for netdev@vger.kernel.org; Sun, 02 Dec 2007 20:50:24 +0000
-Received: from port-87-234-135-174.dynamic.qsc.de ([87.234.135.174])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sun, 02 Dec 2007 20:50:24 +0000
-Received: from holger by port-87-234-135-174.dynamic.qsc.de with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sun, 02 Dec 2007 20:50:24 +0000
+Received: from an-out-0708.google.com ([209.85.132.247]:42958 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750975AbXLBVhU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 16:37:20 -0500
+Received: by an-out-0708.google.com with SMTP id d31so625573and
+        for <netdev@vger.kernel.org>; Sun, 02 Dec 2007 13:37:19 -0800 (PST)
+In-Reply-To: <1196631416-17778-1-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 02 Dec 2007 17:00:03 +0100, Holger Hoffstaette wrote:
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-> On Fri, 30 Nov 2007 10:26:54 -0800, Rick Jones wrote:
-> 
->> Could the corruption be seen in a tcpdump trace prior to transmission
->> (ie taken on the sender) or was it only seen after the data passed out
->> the NIC?
-> 
-> I did the following:
-> 
-> 1) turn on tso on the server's r8169: ethtool --offload eth0 tso on
-> 2) on the server: tcpdump -i eth0 -s 0 -w <file>
-> 3) ftp'ed file to 100mbit client
-> 
-> As expected the file was corrupted, and the various corrupted byte
-> sequences also show up in the tcpdump file at the corresponding offsets.
-> 
-> I did this with 2.6.22.14, so it does not seem to be a recent regression
-> in .23/.24.
-> 
-> All files can be found here:
-> http://hoho.dyndns.org/~holger/dist/r8169-tso/
-> 
-> I will gladly try out any other tweaks but need some guidance as I don't
-> know what exactly to change - maybe without NAPI for the r8169?
+This patch changes the tfrc_lib module in the following manner:
 
-Ta-daa! Rebuilding 2.6.22.14 (and I suspect all other versions) without
-NAPI for the r8169 but with tso enabled yields NO data corruption; the
-ftp'ed file has a good crc, repeatedly.
+ (1) a dedicated tfrc source file to call the packet history &
+     loss interval init/exit functions.
+ (2) a dedicated tfrc_pr_debug macro with toggle switch `tfrc_debug'.
 
-Any suggestions how to proceed? Should I file this in bugzilla?
+Commiter note: renamed tfrc_module.c to tfrc.c, and made CONFIG_IP_DCCP_CCID3
+select IP_DCCP_TFRC_LIB.
 
-thanks
-Holger
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+ net/dccp/ccids/Kconfig              |   13 ++++++---
+ net/dccp/ccids/lib/Makefile         |    2 +-
+ net/dccp/ccids/lib/packet_history.c |   27 ++-----------------
+ net/dccp/ccids/lib/packet_history.h |    3 +-
+ net/dccp/ccids/lib/tfrc.c           |   48 +++++++++++++++++++++++++++++++++++
+ net/dccp/ccids/lib/tfrc.h           |   17 +++++++++---
+ 6 files changed, 75 insertions(+), 35 deletions(-)
+ create mode 100644 net/dccp/ccids/lib/tfrc.c
 
+diff --git a/net/dccp/ccids/Kconfig b/net/dccp/ccids/Kconfig
+index 3d7d867..1227594 100644
+--- a/net/dccp/ccids/Kconfig
++++ b/net/dccp/ccids/Kconfig
+@@ -38,6 +38,7 @@ config IP_DCCP_CCID2_DEBUG
+ config IP_DCCP_CCID3
+ 	tristate "CCID3 (TCP-Friendly) (EXPERIMENTAL)"
+ 	def_tristate IP_DCCP
++	select IP_DCCP_TFRC_LIB
+ 	---help---
+ 	  CCID 3 denotes TCP-Friendly Rate Control (TFRC), an equation-based
+ 	  rate-controlled congestion control mechanism.  TFRC is designed to
+@@ -63,10 +64,6 @@ config IP_DCCP_CCID3
+ 
+ 	  If in doubt, say M.
+ 
+-config IP_DCCP_TFRC_LIB
+-	depends on IP_DCCP_CCID3
+-	def_tristate IP_DCCP_CCID3
+-
+ config IP_DCCP_CCID3_DEBUG
+ 	  bool "CCID3 debugging messages"
+ 	  depends on IP_DCCP_CCID3
+@@ -110,5 +107,13 @@ config IP_DCCP_CCID3_RTO
+ 	    is serious network congestion: experimenting with larger values should
+ 	    therefore not be performed on WANs.
+ 
++config IP_DCCP_TFRC_LIB
++	tristate
++	default n
++
++config IP_DCCP_TFRC_DEBUG
++	bool
++	depends on IP_DCCP_TFRC_LIB
++	default y if IP_DCCP_CCID3_DEBUG
+ 
+ endmenu
+diff --git a/net/dccp/ccids/lib/Makefile b/net/dccp/ccids/lib/Makefile
+index 5f940a6..68c93e3 100644
+--- a/net/dccp/ccids/lib/Makefile
++++ b/net/dccp/ccids/lib/Makefile
+@@ -1,3 +1,3 @@
+ obj-$(CONFIG_IP_DCCP_TFRC_LIB) += dccp_tfrc_lib.o
+ 
+-dccp_tfrc_lib-y := loss_interval.o packet_history.o tfrc_equation.o
++dccp_tfrc_lib-y := tfrc.o tfrc_equation.o packet_history.o loss_interval.o
+diff --git a/net/dccp/ccids/lib/packet_history.c b/net/dccp/ccids/lib/packet_history.c
+index 4805de9..1d4d6ee 100644
+--- a/net/dccp/ccids/lib/packet_history.c
++++ b/net/dccp/ccids/lib/packet_history.c
+@@ -35,7 +35,6 @@
+  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+  */
+ 
+-#include <linux/module.h>
+ #include <linux/string.h>
+ #include "packet_history.h"
+ 
+@@ -277,39 +276,19 @@ void dccp_rx_hist_purge(struct dccp_rx_hist *hist, struct list_head *list)
+ 
+ EXPORT_SYMBOL_GPL(dccp_rx_hist_purge);
+ 
+-extern int __init dccp_li_init(void);
+-extern void dccp_li_exit(void);
+-
+-static __init int packet_history_init(void)
++__init int packet_history_init(void)
+ {
+-	if (dccp_li_init() != 0)
+-		goto out;
+-
+ 	tfrc_tx_hist = kmem_cache_create("tfrc_tx_hist",
+ 					 sizeof(struct tfrc_tx_hist_entry), 0,
+ 					 SLAB_HWCACHE_ALIGN, NULL);
+-	if (tfrc_tx_hist == NULL)
+-		goto out_li_exit;
+ 
+-	return 0;
+-out_li_exit:
+-	dccp_li_exit();
+-out:
+-	return -ENOBUFS;
++	return tfrc_tx_hist == NULL ? -ENOBUFS : 0;
+ }
+-module_init(packet_history_init);
+ 
+-static __exit void packet_history_exit(void)
++void packet_history_exit(void)
+ {
+ 	if (tfrc_tx_hist != NULL) {
+ 		kmem_cache_destroy(tfrc_tx_hist);
+ 		tfrc_tx_hist = NULL;
+ 	}
+-	dccp_li_exit();
+ }
+-module_exit(packet_history_exit);
+-
+-MODULE_AUTHOR("Ian McDonald <ian.mcdonald@jandi.co.nz>, "
+-	      "Arnaldo Carvalho de Melo <acme@ghostprotocols.net>");
+-MODULE_DESCRIPTION("DCCP TFRC library");
+-MODULE_LICENSE("GPL");
+diff --git a/net/dccp/ccids/lib/packet_history.h b/net/dccp/ccids/lib/packet_history.h
+index 0670f46..9a2642e 100644
+--- a/net/dccp/ccids/lib/packet_history.h
++++ b/net/dccp/ccids/lib/packet_history.h
+@@ -39,8 +39,7 @@
+ #include <linux/ktime.h>
+ #include <linux/list.h>
+ #include <linux/slab.h>
+-
+-#include "../../dccp.h"
++#include "tfrc.h"
+ 
+ /* Number of later packets received before one is considered lost */
+ #define TFRC_RECV_NUM_LATE_LOSS	 3
+diff --git a/net/dccp/ccids/lib/tfrc.c b/net/dccp/ccids/lib/tfrc.c
+new file mode 100644
+index 0000000..3a7a183
+--- /dev/null
++++ b/net/dccp/ccids/lib/tfrc.c
+@@ -0,0 +1,48 @@
++/*
++ * TFRC: main module holding the pieces of the TFRC library together
++ *
++ * Copyright (c) 2007 The University of Aberdeen, Scotland, UK
++ * Copyright (c) 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
++ */
++#include <linux/module.h>
++#include <linux/moduleparam.h>
++#include "tfrc.h"
++
++#ifdef CONFIG_IP_DCCP_TFRC_DEBUG
++int tfrc_debug;
++module_param(tfrc_debug, bool, 0444);
++MODULE_PARM_DESC(tfrc_debug, "Enable debug messages");
++#endif
++
++extern int  dccp_li_init(void);
++extern void dccp_li_exit(void);
++extern int packet_history_init(void);
++extern void packet_history_exit(void);
++
++static int __init tfrc_module_init(void)
++{
++	int rc = dccp_li_init();
++
++	if (rc == 0) {
++		rc = packet_history_init();
++		if (rc != 0)
++			dccp_li_exit();
++	}
++
++	return rc;
++}
++
++static void __exit tfrc_module_exit(void)
++{
++	packet_history_exit();
++	dccp_li_exit();
++}
++
++module_init(tfrc_module_init);
++module_exit(tfrc_module_exit);
++
++MODULE_AUTHOR("Gerrit Renker <gerrit@erg.abdn.ac.uk>, "
++	      "Ian McDonald <ian.mcdonald@jandi.co.nz>, "
++	      "Arnaldo Carvalho de Melo <acme@redhat.com>");
++MODULE_DESCRIPTION("DCCP TFRC library");
++MODULE_LICENSE("GPL");
+diff --git a/net/dccp/ccids/lib/tfrc.h b/net/dccp/ccids/lib/tfrc.h
+index 5a0ba86..ab8848c 100644
+--- a/net/dccp/ccids/lib/tfrc.h
++++ b/net/dccp/ccids/lib/tfrc.h
+@@ -3,10 +3,11 @@
+ /*
+  *  net/dccp/ccids/lib/tfrc.h
+  *
+- *  Copyright (c) 2005 The University of Waikato, Hamilton, New Zealand.
+- *  Copyright (c) 2005 Ian McDonald <ian.mcdonald@jandi.co.nz>
+- *  Copyright (c) 2005 Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+- *  Copyright (c) 2003 Nils-Erik Mattsson, Joacim Haggmark, Magnus Erixzon
++ *  Copyright (c) 2007   The University of Aberdeen, Scotland, UK
++ *  Copyright (c) 2005-6 The University of Waikato, Hamilton, New Zealand.
++ *  Copyright (c) 2005-6 Ian McDonald <ian.mcdonald@jandi.co.nz>
++ *  Copyright (c) 2005   Arnaldo Carvalho de Melo <acme@conectiva.com.br>
++ *  Copyright (c) 2003   Nils-Erik Mattsson, Joacim Haggmark, Magnus Erixzon
+  *
+  *  This program is free software; you can redistribute it and/or modify
+  *  it under the terms of the GNU General Public License as published by
+@@ -15,6 +16,14 @@
+  */
+ #include <linux/types.h>
+ #include <asm/div64.h>
++#include "../../dccp.h"
++
++#ifdef CONFIG_IP_DCCP_TFRC_DEBUG
++extern int tfrc_debug;
++#define tfrc_pr_debug(format, a...)	DCCP_PR_DEBUG(tfrc_debug, format, ##a)
++#else
++#define tfrc_pr_debug(format, a...)
++#endif
+ 
+ /* integer-arithmetic divisions of type (a * 1000000)/b */
+ static inline u64 scaled_div(u64 a, u32 b)
+-- 
+1.5.3.4
 
