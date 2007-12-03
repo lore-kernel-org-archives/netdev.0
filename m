@@ -1,202 +1,230 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [RFC][PATCHES 0/7]: Reorganization of RX history patches
-Date: Mon, 3 Dec 2007 13:49:47 +0000
-Message-ID: <20071203134947.GD18547@gerrit.erg.abdn.ac.uk>
-References: <1196631416-17778-1-git-send-email-acme@redhat.com> <20071203083512.GA5484@gerrit.erg.abdn.ac.uk> <20071203124412.GC15034@ghostprotocols.net>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-2.6.25 1/2][INET] Merge sys.net.ipv4.ip_forward and sys.net.ipv4.conf.all.forwarding
+Date: Mon, 03 Dec 2007 17:29:37 +0300
+Message-ID: <475412D1.40300@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Arnaldo Carvalho de Melo <acme@redhat.com>, netdev@vger.kernel.org,
-	dccp@vger.kernel.org, Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36969 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752561AbXLCNux (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Dec 2007 08:50:53 -0500
-Content-Disposition: inline
-In-Reply-To: <20071203124412.GC15034@ghostprotocols.net>
+Received: from sacred.ru ([62.205.161.221]:34524 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751034AbXLCO35 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Dec 2007 09:29:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > Are you suggesting using netdev exclusively or in addition to dccp@vger.kernel.org?
-| 
-| Well, since at least one person that has contributed significantly in
-| the past has said he can't cope with traffic on netdev, we can CC
-| dccp@vger.kernel.org
-I have a similar problem with the traffic but agree and will copy as well.
+AFAIS these two entries should do the same thing - change the
+forwarding state on ipv4_devconf and on all the devices.
 
+I propose to merge the handlers together using ctl paths.
 
-| > have been posted and re-posted for a period of over 9 months on dccp@vger, and
-| 
-| Being posted and re-posted does not guarantee that the patch is OK or
-| that is in a form that is acceptable to all tree maintainers.
-With the first point I couldn't agree more, but this is not really what I meant - the point
-was that despite posting and re-posting there was often silence. And now there is feedback,
-in form of a patchset made by you; and all that I am asking for is just to be given the time to
-look that through. Last time a RFC patch appeared at 3pm and was checked in the same evening
-(only found out next morning).
-With your experience and long background as a maintainer maybe you expect quicker turn-around
-times, but I also had waited patiently until you had had a chance to review the stuff I sent.
+The inet_forward_change() is static after this and I move
+it higher to make code organized like
+<helpers (including this)>
+<proc/sysctl handlers>
+<tables>
+rather than mixing it altogether.
 
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-| > | . The code that allocates the RX ring deals with failures when one of the entries in
-| > |   the ring buffer is not successfully allocated, the original code was leaking the
-| > |   successfully allocated entries.
-| 
-| Sorry for not point out exactly this, here it goes:
-| 
-| Your original patch:
-| 
-| +int tfrc_rx_hist_init(struct tfrc_rx_hist *h)
-| +{
-| +	int i;
-| +
-| +	for (i = 0; i <= NDUPACK; i++) {
-| +		h->ring[i] = kmem_cache_alloc(tfrc_rxh_cache, GFP_ATOMIC);
-| +		if (h->ring[i] == NULL)
-| +			return 1;
-| +	}
-| +	h->loss_count = 0;
-| +	h->loss_start = 0;
-| +	return 0;
-| +}
-| +EXPORT_SYMBOL_GPL(tfrc_rx_hist_init);
-| 
-I expected this and it actually was very clear from your original message. I fully back up
-your solution in this point, see below. But my question above was rather: are there any
-other bugs rather than the above leakage, which is what the previous email seemed to indicate?
+---
 
-With regard to your solution - you are using
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index d83fee2..dd093ea 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -135,7 +135,6 @@ extern struct in_device	*inetdev_by_index(int);
+ extern __be32		inet_select_addr(const struct net_device *dev, __be32 dst, int scope);
+ extern __be32		inet_confirm_addr(const struct net_device *dev, __be32 dst, __be32 local, int scope);
+ extern struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix, __be32 mask);
+-extern void		inet_forward_change(void);
+ 
+ static __inline__ int inet_ifa_match(__be32 addr, struct in_ifaddr *ifa)
+ {
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index c19c8db..0b5f042 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1264,6 +1264,28 @@ static void devinet_copy_dflt_conf(int i)
+ 	read_unlock(&dev_base_lock);
+ }
+ 
++static void inet_forward_change(void)
++{
++	struct net_device *dev;
++	int on = IPV4_DEVCONF_ALL(FORWARDING);
++
++	IPV4_DEVCONF_ALL(ACCEPT_REDIRECTS) = !on;
++	IPV4_DEVCONF_DFLT(FORWARDING) = on;
++
++	read_lock(&dev_base_lock);
++	for_each_netdev(&init_net, dev) {
++		struct in_device *in_dev;
++		rcu_read_lock();
++		in_dev = __in_dev_get_rcu(dev);
++		if (in_dev)
++			IN_DEV_CONF_SET(in_dev, FORWARDING, on);
++		rcu_read_unlock();
++	}
++	read_unlock(&dev_base_lock);
++
++	rt_cache_flush(0);
++}
++
+ static int devinet_conf_proc(ctl_table *ctl, int write,
+ 			     struct file* filp, void __user *buffer,
+ 			     size_t *lenp, loff_t *ppos)
+@@ -1333,28 +1355,6 @@ static int devinet_conf_sysctl(ctl_table *table, int __user *name, int nlen,
+ 	return 1;
+ }
+ 
+-void inet_forward_change(void)
+-{
+-	struct net_device *dev;
+-	int on = IPV4_DEVCONF_ALL(FORWARDING);
+-
+-	IPV4_DEVCONF_ALL(ACCEPT_REDIRECTS) = !on;
+-	IPV4_DEVCONF_DFLT(FORWARDING) = on;
+-
+-	read_lock(&dev_base_lock);
+-	for_each_netdev(&init_net, dev) {
+-		struct in_device *in_dev;
+-		rcu_read_lock();
+-		in_dev = __in_dev_get_rcu(dev);
+-		if (in_dev)
+-			IN_DEV_CONF_SET(in_dev, FORWARDING, on);
+-		rcu_read_unlock();
+-	}
+-	read_unlock(&dev_base_lock);
+-
+-	rt_cache_flush(0);
+-}
+-
+ static int devinet_sysctl_forward(ctl_table *ctl, int write,
+ 				  struct file* filp, void __user *buffer,
+ 				  size_t *lenp, loff_t *ppos)
+@@ -1537,6 +1537,27 @@ static void devinet_sysctl_unregister(struct ipv4_devconf *p)
+ }
+ #endif
+ 
++static struct ctl_table ctl_forward_entry[] = {
++	{
++		.ctl_name	= NET_IPV4_FORWARD,
++		.procname	= "ip_forward",
++		.data		= &ipv4_devconf.data[
++					NET_IPV4_CONF_FORWARDING - 1],
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= devinet_sysctl_forward,
++		.strategy	= devinet_conf_sysctl,
++		.extra1		= &ipv4_devconf,
++	},
++	{ },
++};
++
++static __initdata struct ctl_path net_ipv4_path[] = {
++	{ .procname = "net", .ctl_name = CTL_NET, },
++	{ .procname = "ipv4", .ctl_name = NET_IPV4, },
++	{ },
++};
++
+ void __init devinet_init(void)
+ {
+ 	register_gifconf(PF_INET, inet_gifconf);
+@@ -1550,6 +1571,7 @@ void __init devinet_init(void)
+ 			&ipv4_devconf);
+ 	__devinet_sysctl_register("default", NET_PROTO_CONF_DEFAULT,
+ 			&ipv4_devconf_dflt);
++	register_sysctl_paths(net_ipv4_path, ctl_forward_entry);
+ #endif
+ }
+ 
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index bec6fe8..8c16077 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -35,62 +35,6 @@ struct ipv4_config ipv4_config;
+ 
+ #ifdef CONFIG_SYSCTL
+ 
+-static
+-int ipv4_sysctl_forward(ctl_table *ctl, int write, struct file * filp,
+-			void __user *buffer, size_t *lenp, loff_t *ppos)
+-{
+-	int val = IPV4_DEVCONF_ALL(FORWARDING);
+-	int ret;
+-
+-	ret = proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
+-
+-	if (write && IPV4_DEVCONF_ALL(FORWARDING) != val)
+-		inet_forward_change();
+-
+-	return ret;
+-}
+-
+-static int ipv4_sysctl_forward_strategy(ctl_table *table,
+-			 int __user *name, int nlen,
+-			 void __user *oldval, size_t __user *oldlenp,
+-			 void __user *newval, size_t newlen)
+-{
+-	int *valp = table->data;
+-	int new;
+-
+-	if (!newval || !newlen)
+-		return 0;
+-
+-	if (newlen != sizeof(int))
+-		return -EINVAL;
+-
+-	if (get_user(new, (int __user *)newval))
+-		return -EFAULT;
+-
+-	if (new == *valp)
+-		return 0;
+-
+-	if (oldval && oldlenp) {
+-		size_t len;
+-
+-		if (get_user(len, oldlenp))
+-			return -EFAULT;
+-
+-		if (len) {
+-			if (len > table->maxlen)
+-				len = table->maxlen;
+-			if (copy_to_user(oldval, valp, len))
+-				return -EFAULT;
+-			if (put_user(len, oldlenp))
+-				return -EFAULT;
+-		}
+-	}
+-
+-	*valp = new;
+-	inet_forward_change();
+-	return 1;
+-}
+-
+ extern seqlock_t sysctl_port_range_lock;
+ extern int sysctl_local_port_range[2];
+ 
+@@ -290,15 +234,6 @@ ctl_table ipv4_table[] = {
+ 		.proc_handler	= &proc_dointvec
+ 	},
+ 	{
+-		.ctl_name	= NET_IPV4_FORWARD,
+-		.procname	= "ip_forward",
+-		.data		= &IPV4_DEVCONF_ALL(FORWARDING),
+-		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= &ipv4_sysctl_forward,
+-		.strategy	= &ipv4_sysctl_forward_strategy
+-	},
+-	{
+ 		.ctl_name	= NET_IPV4_DEFAULT_TTL,
+ 		.procname	= "ip_default_ttl",
+ 		.data		= &sysctl_ip_default_ttl,
+-- 
+1.5.3.4
 
-	int tfrc_rx_hist_alloc(struct tfrc_rx_hist *h)
-	{
-		h->ring = kmem_cache_alloc(tfrc_rx_hist_slab, GFP_ATOMIC);
-		h->loss_count = h->loss_start = 0;
-		return h->ring == NULL;
-	}
-
-which is better not only for one but for two reasons. It solves the leakage and in addition makes
-the entire code simpler. Fully agreed.
-  
-
-| 
-| > | . I haven't checked if all the code was commited, as I tried to introduce just what was
-| > |   immediatelly used, probably we'll need to do some changes when working on the merge
-| > |   of your loss intervals code.
-| > Sorry I don't understand this point.
-| 
-| Let me check now and tell you for sure:
-| 
-| tfrc_rx_hist_delta_seqno and tfrc_rx_hist_swap were not included, as
-| they were not used, we should introduce them later, when getting to the
-| working on the loss interval code.
-Ah thanks, that was really not clear. Just beginning to work through the set.
-
-| > 	static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
-| > 	{
-| > 		// ...
-| > 		u32 sample, payload_size = skb->len - dccp_hdr(skb)->dccph_doff * 4;
-| > 
-| > 		if (unlikely(hcrx->ccid3hcrx_state == TFRC_RSTATE_NO_DATA)) {
-| > 			if (is_data_packet) {
-| > 				do_feedback = FBACK_INITIAL;
-| > 				ccid3_hc_rx_set_state(sk, TFRC_RSTATE_DATA);
-| > 				ccid3_hc_rx_update_s(hcrx, payload_size);
-| > 			}
-| > 			goto update_records;
-| > 		}
-| > 
-| > ==> Non-data packets are ignored for the purposes of computing s (this is in the RFC),
-| >     consequently update_s() is only called for data packets; using the two following
-| >     functions:
-| > 
-| > 
-| > 	static inline u32 tfrc_ewma(const u32 avg, const u32 newval, const u8 weight)
-| > 	{
-| > 		return avg ? (weight * avg + (10 - weight) * newval) / 10 : newval;
-| > 	}
-| 
-| I hadn't considered that tfrc_ewma would for every packet check if the
-| avg was 0 and I find it suboptimal now that I look at it, we are just
-| feeding data packets, no? 
-Yes exactly, only data packets are used for s.
-
-| > 	static inline void ccid3_hc_rx_update_s(struct ccid3_hc_rx_sock *hcrx, int len)
-| > 	{
-| > 		if (likely(len > 0))	/* don't update on empty packets (e.g. ACKs) */
-| > 			hcrx->ccid3hcrx_s = tfrc_ewma(hcrx->ccid3hcrx_s, len, 9);
-| > 	}
-| 
-| 	And we also just do test for len > 0 in update_s, that looks like
-| also excessive, no?
-Hm, I think we need to make it robust against API bugs and/or zero-sized
-data packets. The check `len > 0' may seem redundant but it catches such
-a condition. For a moving average an accidental zero value will have
-quite an impact on the overall value. In CCID3 it is
-
-  	x_new = 0.9 * x_old + 0.1 * len
-
-So if len is accidentally 0 where it should not be, then each time the
-moving average is reduced to 90%.
-
-|As we should pass just data packets, perhaps we should just do a BUG_ON there.
-That is a good idea, can we make it a DCCP_WARN-like thing so that the computer does
-not freeze? 
-
-| Understood, consider this one then an optimization and not a bugfix. My
-| motivation to add this as an optimization had I realized that tfrc_ewma
-| checks for avg being zero would have been greatly diminished, 
-| but since we are having all this discussion, I think the optimization is
-| OK to have merged.
-I see your point but as this is in patch 7/7 can you please allow me
-some time to digest it.  
-
-| > | 
-| > | 	It is available at:
-| > | 
-| > | master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.25
-| > | 
-| > Need to do this separately. As said, the code has been developed and tested over a long time,
-| > it took a long while until it acted predictably, so being careful is very important.
-| 
-| Gerrit, I do these kinds of code reorganizations on the core Linux
-| networking for ages, I'm not perfect (huh! :-P) but I also didn't
-| performed extensive testing doing coverage analisys of all the
-| imaginable possibilities, just did my best to improve the abstractions
-| and the code, ocasionally fixing bugs as I went thru the existing code.
-| 
-As above - more than likely you will have done a really good job. In the
-past experience of collaborating with you I can not recall a single bad
-thing introduced, and learned lots from that. It is just, I am not as
-fast as you and need longer to understand what is going on. 
-As a comparison - the entire patch set took about a full month to do.
-But that meant I am reasonably sure the algorithm is sound and can cope
-with problematic conditions.
-
-| But I can't just take your patches as-is all the time, I have my
-| personal preferences and will try to use them when taking the time to
-| merge code from anyone.
-|
-... which is perfectly allright and actually I am grateful for that. It was just
-last week where your feedback on the passive-close states lead to a reconsideration
-which brought to light three previously unresolved problems:
-
- (a) an skb leakage which you pointed out
- (b) not checking for state transitions from other states
- (c) how to handle simultaneous-close
-
-So it all started when you said you had concerns about (a), but you may
-have had an inkling or so, and see there were two more problems. Had you
-silently merged these patches, these three problems would probably still
-exist.
-
-In other words I am not interested in accepting-patches-for-instant-gratification,
-let's discuss where the code may be weak and iron that out.
-
-Thanks a lot for your clarifying email I now understand better.
-Hopefully there will be feedback. If you can bear with me until tomorrow
-(Tuesday) or better Wednesday, I will have a look and send feedback
-about your patch set. I already have some ideas, but need to sit down
-and look at it.
-
-Thanks indeed
-Gerrit
