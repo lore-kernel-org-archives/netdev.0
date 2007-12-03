@@ -1,518 +1,546 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 3/6] [CCID3]: Hook up with new RX history interface
-Date: Mon,  3 Dec 2007 11:28:37 +0000
-Message-ID: <11966813202066-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 5/6] [TFRC]: Ringbuffer to track loss interval history
+Date: Mon,  3 Dec 2007 11:28:39 +0000
+Message-ID: <11966813202759-git-send-email-gerrit@erg.abdn.ac.uk>
 References: ccid3_tfrc_rx_history_and_loss_intervals_database
  <11966813201725-git-send-email-gerrit@erg.abdn.ac.uk>
  <1196681320315-git-send-email-gerrit@erg.abdn.ac.uk>
  <11966813201749-git-send-email-gerrit@erg.abdn.ac.uk>
+ <11966813202066-git-send-email-gerrit@erg.abdn.ac.uk>
+ <11966813202482-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:62783 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752435AbXLCL3C (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Dec 2007 06:29:02 -0500
-In-Reply-To: <11966813201749-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1752713AbXLCL3E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Dec 2007 06:29:04 -0500
+In-Reply-To: <11966813202482-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In addition, it makes two corrections too the code:
+A ringbuffer-based implementation of loss interval history is easier to
+maintain, allocate, and update.
 
- 1. The receiver of a half-connection does not set window counter values;
-    only the sender sets window counters [RFC 4342, sections 5 and 8.1].
- 2. The computation of X_recv does currently not conform to TFRC/RFC 3448,
-    since this specification requires that X_recv be computed over the last
-    R_m seconds (sec. 6.2). The patch tackles this problem as it
-      - explicitly distinguishes the types of feedback (using an enum);
-      - uses previous value of X_recv when sending feedback due to a parameter change;
-      - makes all state changes local to ccid3_hc_tx_packet_recv;
-      - assigns feedback type according to incident (previously only used flag `do_feedback').
-   Further and detailed information is at
-   http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/ccid3_packet_reception/#8._Computing_X_recv_
+Details:
+ * access to the Loss Interval Records via macro wrappers (with safety checks);
+ * simplified, on-demand allocation of entries (no extra memory consumption on
+   lossless links); cache allocation is local to the module / exported as service;
+ * provision of RFC-compliant algorithm to re-compute average loss interval;
+ * provision of comprehensive, new loss detection algorithm
+ 	- support for all cases of loss, including re-ordered/duplicate packets;
+ 	- waiting for NDUPACK=3 packets to fill the hole;
+	- updating loss records when a late-arriving packet fills a hole.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/ccids/ccid3.c |  292 ++++++++++++++----------------------------------
- net/dccp/ccids/ccid3.h |   38 ++++---
- 2 files changed, 102 insertions(+), 228 deletions(-)
+ net/dccp/ccids/lib/loss_interval.c  |  158 +++++++++++++++++++++++++++++-
+ net/dccp/ccids/lib/loss_interval.h  |   58 +++++++++++-
+ net/dccp/ccids/lib/packet_history.c |  183 +++++++++++++++++++++++++++++++++++
+ net/dccp/ccids/lib/packet_history.h |    4 +
+ net/dccp/ccids/lib/tfrc.h           |    3 +
+ 5 files changed, 400 insertions(+), 6 deletions(-)
 
-diff --git a/net/dccp/ccids/ccid3.c b/net/dccp/ccids/ccid3.c
-index 5dea690..ef243dc 100644
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
+diff --git a/net/dccp/ccids/lib/loss_interval.c b/net/dccp/ccids/lib/loss_interval.c
+index 0ebdc67..cde5c7f 100644
+--- a/net/dccp/ccids/lib/loss_interval.c
++++ b/net/dccp/ccids/lib/loss_interval.c
 @@ -1,6 +1,7 @@
  /*
-  *  net/dccp/ccids/ccid3.c
+  *  net/dccp/ccids/lib/loss_interval.c
   *
 + *  Copyright (c) 2007   The University of Aberdeen, Scotland, UK
   *  Copyright (c) 2005-7 The University of Waikato, Hamilton, New Zealand.
   *  Copyright (c) 2005-7 Ian McDonald <ian.mcdonald@jandi.co.nz>
-  *
-@@ -49,8 +50,6 @@ static int ccid3_debug;
- #define ccid3_pr_debug(format, a...)
- #endif
- 
--static struct dccp_rx_hist *ccid3_rx_hist;
--
- /*
-  *	Transmitter Half-Connection Routines
+  *  Copyright (c) 2005 Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+@@ -10,12 +11,7 @@
+  *  the Free Software Foundation; either version 2 of the License, or
+  *  (at your option) any later version.
   */
-@@ -675,52 +674,53 @@ static inline void ccid3_hc_rx_update_s(struct ccid3_hc_rx_sock *hcrx, int len)
- 		hcrx->ccid3hcrx_s = tfrc_ewma(hcrx->ccid3hcrx_s, len, 9);
- }
- 
--static void ccid3_hc_rx_send_feedback(struct sock *sk)
-+static void ccid3_hc_rx_send_feedback(struct sock *sk, struct sk_buff *skb,
-+				      enum ccid3_fback_type fbtype)
- {
- 	struct ccid3_hc_rx_sock *hcrx = ccid3_hc_rx_sk(sk);
- 	struct dccp_sock *dp = dccp_sk(sk);
--	struct dccp_rx_hist_entry *packet;
--	ktime_t now;
--	suseconds_t delta;
 -
--	ccid3_pr_debug("%s(%p) - entry \n", dccp_role(sk), sk);
-+	ktime_t now = ktime_get_real();
-+	s64 delta = 0;
+-#include <linux/module.h>
+ #include <net/sock.h>
+-#include "../../dccp.h"
+-#include "loss_interval.h"
+-#include "packet_history.h"
+ #include "tfrc.h"
  
--	now = ktime_get_real();
-+	if (unlikely(hcrx->ccid3hcrx_state == TFRC_RSTATE_TERM))
-+		return;
+ #define DCCP_LI_HIST_IVAL_F_LENGTH  8
+@@ -27,6 +23,51 @@ struct dccp_li_hist_entry {
+ 	u32		 dccplih_interval;
+ };
  
--	switch (hcrx->ccid3hcrx_state) {
--	case TFRC_RSTATE_NO_DATA:
-+	switch (fbtype) {
-+	case FBACK_INITIAL:
- 		hcrx->ccid3hcrx_x_recv = 0;
-+		hcrx->ccid3hcrx_pinv   = ~0U;	/* see RFC 4342, 8.5 */
- 		break;
--	case TFRC_RSTATE_DATA:
--		delta = ktime_us_delta(now,
--				       hcrx->ccid3hcrx_tstamp_last_feedback);
--		DCCP_BUG_ON(delta < 0);
--		hcrx->ccid3hcrx_x_recv =
--			scaled_div32(hcrx->ccid3hcrx_bytes_recv, delta);
-+	case FBACK_PARAM_CHANGE:
-+		/*
-+		 * When parameters change (new loss or p > p_prev), we do not
-+		 * have a reliable estimate for R_m of [RFC 3448, 6.2] and so
-+		 * need to  reuse the previous value of X_recv. However, when
-+		 * X_recv was 0 (due to early loss), this would kill X down to
-+		 * s/t_mbi (i.e. one packet in 64 seconds).
-+		 * To avoid such drastic reduction, we approximate X_recv as
-+		 * the number of bytes since last feedback.
-+		 * This is a safe fallback, since X is bounded above by X_calc.
-+		 */
-+		if (hcrx->ccid3hcrx_x_recv > 0)
-+			break;
-+		/* fall through */
-+	case FBACK_PERIODIC:
-+		delta = ktime_us_delta(now, hcrx->ccid3hcrx_last_feedback);
-+		if (delta <= 0)
-+			DCCP_BUG("delta (%ld) <= 0", (long)delta);
-+		else
-+			hcrx->ccid3hcrx_x_recv =
-+				scaled_div32(hcrx->ccid3hcrx_bytes_recv, delta);
- 		break;
--	case TFRC_RSTATE_TERM:
--		DCCP_BUG("%s(%p) - Illegal state TERM", dccp_role(sk), sk);
--		return;
--	}
--
--	packet = dccp_rx_hist_find_data_packet(&hcrx->ccid3hcrx_hist);
--	if (unlikely(packet == NULL)) {
--		DCCP_WARN("%s(%p), no data packet in history!\n",
--			  dccp_role(sk), sk);
-+	default:
- 		return;
- 	}
-+	ccid3_pr_debug("Interval %ldusec, X_recv=%u, 1/p=%u\n", (long)delta,
-+		       hcrx->ccid3hcrx_x_recv, hcrx->ccid3hcrx_pinv);
- 
--	hcrx->ccid3hcrx_tstamp_last_feedback = now;
--	hcrx->ccid3hcrx_ccval_last_counter   = packet->dccphrx_ccval;
--	hcrx->ccid3hcrx_bytes_recv	     = 0;
--
--	if (hcrx->ccid3hcrx_p == 0)
--		hcrx->ccid3hcrx_pinv = ~0U;	/* see RFC 4342, 8.5 */
--	else if (hcrx->ccid3hcrx_p > 1000000) {
--		DCCP_WARN("p (%u) > 100%%\n", hcrx->ccid3hcrx_p);
--		hcrx->ccid3hcrx_pinv = 1;	/* use 100% in this case */
--	} else
--		hcrx->ccid3hcrx_pinv = 1000000 / hcrx->ccid3hcrx_p;
-+	hcrx->ccid3hcrx_last_feedback = now;
-+	hcrx->ccid3hcrx_last_counter  = dccp_hdr(skb)->dccph_ccval;
-+	hcrx->ccid3hcrx_bytes_recv    = 0;
- 
- 	dp->dccps_hc_rx_insert_options = 1;
- 	dccp_send_ack(sk);
-@@ -735,7 +735,6 @@ static int ccid3_hc_rx_insert_options(struct sock *sk, struct sk_buff *skb)
- 		return 0;
- 
- 	hcrx = ccid3_hc_rx_sk(sk);
--	DCCP_SKB_CB(skb)->dccpd_ccval = hcrx->ccid3hcrx_ccval_last_counter;
- 
- 	if (dccp_packet_without_ack(skb))
- 		return 0;
-@@ -743,8 +742,7 @@ static int ccid3_hc_rx_insert_options(struct sock *sk, struct sk_buff *skb)
- 	x_recv = htonl(hcrx->ccid3hcrx_x_recv);
- 	pinv   = htonl(hcrx->ccid3hcrx_pinv);
- 
--	if (dccp_insert_option_timestamp(sk, skb) ||
--	    dccp_insert_option(sk, skb, TFRC_OPT_LOSS_EVENT_RATE,
-+	if (dccp_insert_option(sk, skb, TFRC_OPT_LOSS_EVENT_RATE,
- 			       &pinv, sizeof(pinv)) ||
- 	    dccp_insert_option(sk, skb, TFRC_OPT_RECEIVE_RATE,
- 			       &x_recv, sizeof(x_recv)))
-@@ -753,166 +751,62 @@ static int ccid3_hc_rx_insert_options(struct sock *sk, struct sk_buff *skb)
- 	return 0;
- }
- 
--static int ccid3_hc_rx_detect_loss(struct sock *sk,
--				    struct dccp_rx_hist_entry *packet)
-+static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
- {
- 	struct ccid3_hc_rx_sock *hcrx = ccid3_hc_rx_sk(sk);
--	struct dccp_rx_hist_entry *rx_hist =
--				dccp_rx_hist_head(&hcrx->ccid3hcrx_hist);
--	u64 seqno = packet->dccphrx_seqno;
--	u64 tmp_seqno;
--	int loss = 0;
--	u8 ccval;
--
--
--	tmp_seqno = hcrx->ccid3hcrx_seqno_nonloss;
--
--	if (!rx_hist ||
--	   follows48(packet->dccphrx_seqno, hcrx->ccid3hcrx_seqno_nonloss)) {
--		hcrx->ccid3hcrx_seqno_nonloss = seqno;
--		hcrx->ccid3hcrx_ccval_nonloss = packet->dccphrx_ccval;
--		goto detect_out;
--	}
--
--
--	while (dccp_delta_seqno(hcrx->ccid3hcrx_seqno_nonloss, seqno)
--	   > TFRC_RECV_NUM_LATE_LOSS) {
--		loss = 1;
--		dccp_li_update_li(sk,
--				  &hcrx->ccid3hcrx_li_hist,
--				  &hcrx->ccid3hcrx_hist,
--				  hcrx->ccid3hcrx_tstamp_last_feedback,
--				  hcrx->ccid3hcrx_s,
--				  hcrx->ccid3hcrx_bytes_recv,
--				  hcrx->ccid3hcrx_x_recv,
--				  hcrx->ccid3hcrx_seqno_nonloss,
--				  hcrx->ccid3hcrx_ccval_nonloss);
--		tmp_seqno = hcrx->ccid3hcrx_seqno_nonloss;
--		dccp_inc_seqno(&tmp_seqno);
--		hcrx->ccid3hcrx_seqno_nonloss = tmp_seqno;
--		dccp_inc_seqno(&tmp_seqno);
--		while (dccp_rx_hist_find_entry(&hcrx->ccid3hcrx_hist,
--		   tmp_seqno, &ccval)) {
--			hcrx->ccid3hcrx_seqno_nonloss = tmp_seqno;
--			hcrx->ccid3hcrx_ccval_nonloss = ccval;
--			dccp_inc_seqno(&tmp_seqno);
-+	enum   ccid3_fback_type  do_feedback = FBACK_NONE;
-+	u32 sample, ndp = dccp_sk(sk)->dccps_options_received.dccpor_ndp,
-+	    payload_size = skb->len - dccp_hdr(skb)->dccph_doff * 4;
-+	u8  is_data_packet = dccp_data_packet(skb);
++static struct kmem_cache  *tfrc_lh_slab  __read_mostly;
++/* Loss Interval weights from [RFC 3448, 5.4], scaled by 10 */
++static const int tfrc_lh_weights[NINTERVAL] = { 10, 10, 10, 10, 8, 6, 4, 2 };
 +
-+	if (unlikely(hcrx->ccid3hcrx_state == TFRC_RSTATE_NO_DATA)) {
-+		if (is_data_packet) {
-+			do_feedback = FBACK_INITIAL;
-+			ccid3_hc_rx_set_state(sk, TFRC_RSTATE_DATA);
-+			ccid3_hc_rx_update_s(hcrx, payload_size);
- 		}
-+		goto update_records;
- 	}
++/*
++ * Access macros: These require that at least one entry is present in lh,
++ * and implement array semantics (0 is first, n-1 is the last of n entries).
++ */
++#define __lih_index(lh, n)	LIH_INDEX((lh)->counter - (n) - 1)
++#define __lih_entry(lh, n)	(lh)->ring[__lih_index(lh, n)]
++#define __curr_entry(lh)	(lh)->ring[LIH_INDEX((lh)->counter - 1)]
++#define __next_entry(lh)	(lh)->ring[LIH_INDEX((lh)->counter)]
++
++/* given i with 0 <= i <= k, return I_i as per the rfc3448bis notation */
++static inline u32 tfrc_lh_get_interval(struct tfrc_loss_hist *lh, u8 i)
++{
++	BUG_ON(i >= lh->counter);
++	return __lih_entry(lh, i)->li_length;
++}
++
++static inline struct tfrc_loss_interval *tfrc_lh_peek(struct tfrc_loss_hist *lh)
++{
++	return lh->counter ? __curr_entry(lh) : NULL;
++}
++
++/*
++ *	On-demand allocation and de-allocation of entries
++ */
++static struct tfrc_loss_interval *tfrc_lh_demand_next(struct tfrc_loss_hist *lh)
++{
++	if (__next_entry(lh) == NULL)
++		__next_entry(lh) = kmem_cache_alloc(tfrc_lh_slab, GFP_ATOMIC);
++
++	return __next_entry(lh);
++}
++
++void tfrc_lh_cleanup(struct tfrc_loss_hist *lh)
++{
++	if (tfrc_lh_is_initialised(lh))
++		for (lh->counter = 0; lh->counter < LIH_SIZE; lh->counter++)
++			if (__next_entry(lh) != NULL)
++				kmem_cache_free(tfrc_lh_slab, __next_entry(lh));
++}
++EXPORT_SYMBOL_GPL(tfrc_lh_cleanup);
++
+ static struct kmem_cache *dccp_li_cachep __read_mostly;
  
--	/* FIXME - this code could be simplified with above while */
--	/* but works at moment */
--	if (follows48(packet->dccphrx_seqno, hcrx->ccid3hcrx_seqno_nonloss)) {
--		hcrx->ccid3hcrx_seqno_nonloss = seqno;
--		hcrx->ccid3hcrx_ccval_nonloss = packet->dccphrx_ccval;
--	}
--
--detect_out:
--	dccp_rx_hist_add_packet(ccid3_rx_hist, &hcrx->ccid3hcrx_hist,
--		   &hcrx->ccid3hcrx_li_hist, packet,
--		   hcrx->ccid3hcrx_seqno_nonloss);
--	return loss;
--}
--
--static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
--{
--	struct ccid3_hc_rx_sock *hcrx = ccid3_hc_rx_sk(sk);
--	const struct dccp_options_received *opt_recv;
--	struct dccp_rx_hist_entry *packet;
--	u32 p_prev, r_sample, rtt_prev;
--	int loss, payload_size;
--	ktime_t now;
--
--	opt_recv = &dccp_sk(sk)->dccps_options_received;
--
--	switch (DCCP_SKB_CB(skb)->dccpd_type) {
--	case DCCP_PKT_ACK:
--		if (hcrx->ccid3hcrx_state == TFRC_RSTATE_NO_DATA)
--			return;
--	case DCCP_PKT_DATAACK:
--		if (opt_recv->dccpor_timestamp_echo == 0)
--			break;
--		r_sample = dccp_timestamp() - opt_recv->dccpor_timestamp_echo;
--		rtt_prev = hcrx->ccid3hcrx_rtt;
--		r_sample = dccp_sample_rtt(sk, 10 * r_sample);
-+	if (tfrc_rx_duplicate(&hcrx->ccid3hcrx_hist, skb))
-+		goto done_receiving;
+ static inline struct dccp_li_hist_entry *dccp_li_hist_entry_new(const gfp_t prio)
+@@ -98,6 +139,65 @@ u32 dccp_li_hist_calc_i_mean(struct list_head *list)
  
--		if (hcrx->ccid3hcrx_state == TFRC_RSTATE_NO_DATA)
--			hcrx->ccid3hcrx_rtt = r_sample;
--		else
--			hcrx->ccid3hcrx_rtt = (hcrx->ccid3hcrx_rtt * 9) / 10 +
--					      r_sample / 10;
--
--		if (rtt_prev != hcrx->ccid3hcrx_rtt)
--			ccid3_pr_debug("%s(%p), New RTT=%uus, elapsed time=%u\n",
--				       dccp_role(sk), sk, hcrx->ccid3hcrx_rtt,
--				       opt_recv->dccpor_elapsed_time);
--		break;
--	case DCCP_PKT_DATA:
--		break;
--	default: /* We're not interested in other packet types, move along */
--		return;
--	}
--
--	packet = dccp_rx_hist_entry_new(ccid3_rx_hist, opt_recv->dccpor_ndp,
--					skb, GFP_ATOMIC);
--	if (unlikely(packet == NULL)) {
--		DCCP_WARN("%s(%p), Not enough mem to add rx packet "
--			  "to history, consider it lost!\n", dccp_role(sk), sk);
--		return;
-+	if (is_data_packet) {
-+		ccid3_hc_rx_update_s(hcrx, payload_size);
-+		hcrx->ccid3hcrx_bytes_recv += payload_size;
- 	}
+ EXPORT_SYMBOL_GPL(dccp_li_hist_calc_i_mean);
  
--	loss = ccid3_hc_rx_detect_loss(sk, packet);
-+	/*
-+	 *	Handle pending losses and otherwise check for new loss
-+	 */
-+	if (tfrc_rx_new_loss_indicated(&hcrx->ccid3hcrx_hist, skb, ndp))
-+		goto update_records;
- 
--	if (DCCP_SKB_CB(skb)->dccpd_type == DCCP_PKT_ACK)
--		return;
-+	/*
-+	 *	Handle data packets: RTT sampling and monitoring p
-+	 */
-+	if (unlikely(!is_data_packet))
-+		goto update_records;
- 
--	payload_size = skb->len - dccp_hdr(skb)->dccph_doff * 4;
--	ccid3_hc_rx_update_s(hcrx, payload_size);
-+	if (list_empty(&hcrx->ccid3hcrx_li_hist)) {  /* no loss so far: p = 0 */
- 
--	switch (hcrx->ccid3hcrx_state) {
--	case TFRC_RSTATE_NO_DATA:
--		ccid3_pr_debug("%s(%p, state=%s), skb=%p, sending initial "
--			       "feedback\n", dccp_role(sk), sk,
--			       dccp_state_name(sk->sk_state), skb);
--		ccid3_hc_rx_send_feedback(sk);
--		ccid3_hc_rx_set_state(sk, TFRC_RSTATE_DATA);
--		return;
--	case TFRC_RSTATE_DATA:
--		hcrx->ccid3hcrx_bytes_recv += payload_size;
--		if (loss)
--			break;
-+		sample = tfrc_rx_sample_rtt(&hcrx->ccid3hcrx_hist, skb);
-+		if (sample != 0)
-+			hcrx->ccid3hcrx_rtt =
-+				tfrc_ewma(hcrx->ccid3hcrx_rtt, sample, 9);
- 
--		now = ktime_get_real();
--		if ((ktime_us_delta(now, hcrx->ccid3hcrx_tstamp_last_ack) -
--		     (s64)hcrx->ccid3hcrx_rtt) >= 0) {
--			hcrx->ccid3hcrx_tstamp_last_ack = now;
--			ccid3_hc_rx_send_feedback(sk);
--		}
--		return;
--	case TFRC_RSTATE_TERM:
--		DCCP_BUG("%s(%p) - Illegal state TERM", dccp_role(sk), sk);
--		return;
- 	}
- 
--	/* Dealing with packet loss */
--	ccid3_pr_debug("%s(%p, state=%s), data loss! Reacting...\n",
--		       dccp_role(sk), sk, dccp_state_name(sk->sk_state));
-+	/* check if the periodic once-per-RTT feedback is due; RFC 4342, 10.3 */
-+	if (SUB16(dccp_hdr(skb)->dccph_ccval, hcrx->ccid3hcrx_last_counter) > 3)
-+		do_feedback = FBACK_PERIODIC;
- 
--	p_prev = hcrx->ccid3hcrx_p;
-+update_records:
-+	tfrc_rx_hist_update(&hcrx->ccid3hcrx_hist, skb, ndp);
- 
--	/* Calculate loss event rate */
--	if (!list_empty(&hcrx->ccid3hcrx_li_hist)) {
--		u32 i_mean = dccp_li_hist_calc_i_mean(&hcrx->ccid3hcrx_li_hist);
--
--		/* Scaling up by 1000000 as fixed decimal */
--		if (i_mean != 0)
--			hcrx->ccid3hcrx_p = 1000000 / i_mean;
--	} else
--		DCCP_BUG("empty loss history");
--
--	if (hcrx->ccid3hcrx_p > p_prev) {
--		ccid3_hc_rx_send_feedback(sk);
--		return;
--	}
-+done_receiving:
-+	if (do_feedback)
-+		ccid3_hc_rx_send_feedback(sk, skb, do_feedback);
- }
- 
- static int ccid3_hc_rx_init(struct ccid *ccid, struct sock *sk)
-@@ -922,10 +816,9 @@ static int ccid3_hc_rx_init(struct ccid *ccid, struct sock *sk)
- 	ccid3_pr_debug("entry\n");
- 
- 	hcrx->ccid3hcrx_state = TFRC_RSTATE_NO_DATA;
--	INIT_LIST_HEAD(&hcrx->ccid3hcrx_hist);
-+	if (tfrc_rx_hist_init(&hcrx->ccid3hcrx_hist))
-+		return 1;
- 	INIT_LIST_HEAD(&hcrx->ccid3hcrx_li_hist);
--	hcrx->ccid3hcrx_tstamp_last_feedback =
--		hcrx->ccid3hcrx_tstamp_last_ack = ktime_get_real();
- 	return 0;
- }
- 
-@@ -935,8 +828,7 @@ static void ccid3_hc_rx_exit(struct sock *sk)
- 
- 	ccid3_hc_rx_set_state(sk, TFRC_RSTATE_TERM);
- 
--	/* Empty packet history */
--	dccp_rx_hist_purge(ccid3_rx_hist, &hcrx->ccid3hcrx_hist);
-+	tfrc_rx_hist_cleanup(&hcrx->ccid3hcrx_hist);
- 
- 	/* Empty loss interval history */
- 	dccp_li_hist_purge(&hcrx->ccid3hcrx_li_hist);
-@@ -1013,33 +905,13 @@ MODULE_PARM_DESC(ccid3_debug, "Enable debug messages");
- 
- static __init int ccid3_module_init(void)
++static void tfrc_lh_calc_i_mean(struct tfrc_loss_hist *lh)
++{
++	u32 i_i, i_tot0 = 0, i_tot1 = 0, w_tot = 0;
++	int i, k = tfrc_lh_length(lh) - 1; /* k is as in rfc3448bis, 5.4 */
++
++	for (i=0; i <= k; i++) {
++		i_i = tfrc_lh_get_interval(lh, i);
++
++		if (i < k) {
++			i_tot0 += i_i * tfrc_lh_weights[i];
++			w_tot  += tfrc_lh_weights[i];
++		}
++		if (i > 0)
++			i_tot1 += i_i * tfrc_lh_weights[i-1];
++	}
++
++	BUG_ON(w_tot == 0);
++	lh->i_mean = max(i_tot0, i_tot1) / w_tot;
++}
++
++/**
++ * tfrc_lh_update_i_mean  -  Update the `open' loss interval I_0
++ * For recomputing p: returns `true' if p > p_prev  <=>  1/p < 1/p_prev
++ */
++u8 tfrc_lh_update_i_mean(struct tfrc_loss_hist *lh, struct sk_buff *skb)
++{
++	struct tfrc_loss_interval *cur = tfrc_lh_peek(lh);
++	u32 old_i_mean = lh->i_mean;
++	s64 length;
++
++	if (cur == NULL)			/* not initialised */
++		return 0;
++
++	length = dccp_delta_seqno(cur->li_seqno, DCCP_SKB_CB(skb)->dccpd_seq);
++
++	if (length - cur->li_length <= 0)	/* duplicate or reordered */
++		return 0;
++
++	if (SUB16(dccp_hdr(skb)->dccph_ccval, cur->li_ccval) > 4)
++		/*
++		 * Implements RFC 4342, 10.2:
++		 * If a packet S (skb) exists whose seqno comes `after' the one
++		 * starting the current loss interval (cur) and if the modulo-16
++		 * distance from C(cur) to C(S) is greater than 4, consider all
++		 * subsequent packets as belonging to a new loss interval. This
++		 * test is necessary since CCVal may wrap between intervals.
++		 */
++		cur->li_is_closed = 1;
++
++	if (tfrc_lh_length(lh) == 1)		/* due to RFC 3448, 6.3.1 */
++		return 0;
++
++	cur->li_length = length;
++	tfrc_lh_calc_i_mean(lh);
++
++	return (lh->i_mean < old_i_mean);
++}
++EXPORT_SYMBOL_GPL(tfrc_lh_update_i_mean);
++
+ static int dccp_li_hist_interval_new(struct list_head *list,
+ 				     const u64 seq_loss, const u8 win_loss)
  {
--	int rc = -ENOBUFS;
--
--	ccid3_rx_hist = dccp_rx_hist_new("ccid3");
--	if (ccid3_rx_hist == NULL)
--		goto out;
--
--	rc = ccid_register(&ccid3);
--	if (rc != 0)
--		goto out_free_rx;
--out:
--	return rc;
--
--out_free_rx:
--	dccp_rx_hist_delete(ccid3_rx_hist);
--	ccid3_rx_hist = NULL;
--	goto out;
-+	return ccid_register(&ccid3);
- }
- module_init(ccid3_module_init);
+@@ -286,6 +386,54 @@ void dccp_li_update_li(struct sock *sk,
  
- static __exit void ccid3_module_exit(void)
+ EXPORT_SYMBOL_GPL(dccp_li_update_li);
+ 
++/* Determine if `new_loss' does begin a new loss interval [RFC 4342, 10.2] */
++static inline u8 tfrc_lh_is_new_loss(struct tfrc_loss_interval *cur,
++				     struct tfrc_rx_hist_entry *new_loss)
++{
++	return	dccp_delta_seqno(cur->li_seqno, new_loss->seqno) > 0
++	    && (cur->li_is_closed || SUB16(new_loss->ccval, cur->li_ccval) > 4);
++}
++
++/** tfrc_lh_interval_add  -  Insert new record into the Loss Interval database
++ * @lh:		   Loss Interval database
++ * @rh:		   Receive history containing a fresh loss event
++ * @calc_first_li: Caller-dependent routine to compute length of first interval
++ * @sk:		   Used by @calc_first_li in caller-specific way (subtyping)
++ * Updates I_mean and returns 1 if a new interval has in fact been added to @lh.
++ */
++int tfrc_lh_interval_add(struct tfrc_loss_hist *lh, struct tfrc_rx_hist *rh,
++			 u32 (*calc_first_li)(struct sock *), struct sock *sk)
++{
++	struct tfrc_loss_interval *cur = tfrc_lh_peek(lh), *new;
++
++	if (cur != NULL && !tfrc_lh_is_new_loss(cur, loss_prev(rh)))
++		return 0;
++
++	new = tfrc_lh_demand_next(lh);
++	if (unlikely(new == NULL)) {
++		DCCP_CRIT("Cannot allocate/add loss record.");
++		return 0;
++	}
++
++	new->li_seqno	  = loss_prev(rh)->seqno;
++	new->li_ccval	  = loss_prev(rh)->ccval;
++	new->li_is_closed = 0;
++
++	if (++lh->counter == 1)
++		lh->i_mean = new->li_length = (*calc_first_li)(sk);
++	else {
++		cur->li_length = dccp_delta_seqno(cur->li_seqno, new->li_seqno);
++		new->li_length = dccp_delta_seqno(new->li_seqno,
++						  last_rcv(rh)->seqno);
++		if (lh->counter > (2*LIH_SIZE))
++			lh->counter -= LIH_SIZE;
++
++		tfrc_lh_calc_i_mean(lh);
++	}
++	return 1;
++}
++EXPORT_SYMBOL_GPL(tfrc_lh_interval_add);
++
+ int __init dccp_li_init(void)
  {
- 	ccid_unregister(&ccid3);
--
--	if (ccid3_rx_hist != NULL) {
--		dccp_rx_hist_delete(ccid3_rx_hist);
--		ccid3_rx_hist = NULL;
--	}
- }
- module_exit(ccid3_module_exit);
- 
-diff --git a/net/dccp/ccids/ccid3.h b/net/dccp/ccids/ccid3.h
-index b842a7d..8f7308b 100644
---- a/net/dccp/ccids/ccid3.h
-+++ b/net/dccp/ccids/ccid3.h
-@@ -1,7 +1,10 @@
-+#ifndef _DCCP_CCID3_H_
-+#define _DCCP_CCID3_H_
+ 	dccp_li_cachep = kmem_cache_create("dccp_li_hist",
+diff --git a/net/dccp/ccids/lib/loss_interval.h b/net/dccp/ccids/lib/loss_interval.h
+index 27bee92..16d37fb 100644
+--- a/net/dccp/ccids/lib/loss_interval.h
++++ b/net/dccp/ccids/lib/loss_interval.h
+@@ -3,6 +3,7 @@
  /*
-  *  net/dccp/ccids/ccid3.h
+  *  net/dccp/ccids/lib/loss_interval.h
   *
-- *  Copyright (c) 2005-6 The University of Waikato, Hamilton, New Zealand.
 + *  Copyright (c) 2007   The University of Aberdeen, Scotland, UK
-+ *  Copyright (c) 2005-7 The University of Waikato, Hamilton, New Zealand.
-  *
-  *  An implementation of the DCCP protocol
-  *
-@@ -33,9 +36,6 @@
-  *  along with this program; if not, write to the Free Software
-  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+  *  Copyright (c) 2005-7 The University of Waikato, Hamilton, New Zealand.
+  *  Copyright (c) 2005-7 Ian McDonald <ian.mcdonald@jandi.co.nz>
+  *  Copyright (c) 2005 Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+@@ -12,11 +13,66 @@
+  *  Software Foundation; either version 2 of the License, or (at your option)
+  *  any later version.
   */
--#ifndef _DCCP_CCID3_H_
--#define _DCCP_CCID3_H_
 -
  #include <linux/ktime.h>
  #include <linux/list.h>
- #include <linux/types.h>
-@@ -123,26 +123,31 @@ static inline struct ccid3_hc_tx_sock *ccid3_hc_tx_sk(const struct sock *sk)
-     return hctx;
- }
- 
--/* TFRC receiver states */
-+/* CCID3 receiver states */
- enum ccid3_hc_rx_states {
- 	TFRC_RSTATE_NO_DATA = 1,
- 	TFRC_RSTATE_DATA,
- 	TFRC_RSTATE_TERM    = 127,
- };
- 
-+/* CCID3 feedback types */
-+enum ccid3_fback_type {
-+	FBACK_NONE = 0,
-+	FBACK_INITIAL,
-+	FBACK_PERIODIC,
-+	FBACK_PARAM_CHANGE
++#include <linux/slab.h>
++
++/*
++ * Number of loss intervals (RFC 4342, 8.6.1). The history size is one more than
++ * NINTERVAL, since the `open' interval I_0 is always stored as the first entry.
++ * LIH_INDEX is used to implement LIFO semantics on the array.
++ */
++#define NINTERVAL	8
++#define LIH_SIZE	(NINTERVAL + 1)
++#define LIH_INDEX(ctr)	(LIH_SIZE - 1 - ((ctr) % LIH_SIZE))
++
++/**
++ *  tfrc_loss_interval  -  Loss history record for TFRC-based protocols
++ *  @li_seqno:		Highest received seqno before the start of loss
++ *  @li_ccval:		The CCVal belonging to @li_seqno
++ *  @li_is_closed:	Whether @li_seqno is older than 1 RTT
++ *  @li_length:		Loss interval sequence length
++ */
++struct tfrc_loss_interval {
++	u64		 li_seqno:48,
++			 li_ccval:4,
++			 li_is_closed:1;
++	u32		 li_length;
 +};
 +
- /** struct ccid3_hc_rx_sock - CCID3 receiver half-connection socket
-  *
-  *  @ccid3hcrx_x_recv  -  Receiver estimate of send rate (RFC 3448 4.3)
-  *  @ccid3hcrx_rtt  -  Receiver estimate of rtt (non-standard)
-  *  @ccid3hcrx_p  -  current loss event rate (RFC 3448 5.4)
-- *  @ccid3hcrx_seqno_nonloss  -  Last received non-loss sequence number
-- *  @ccid3hcrx_ccval_nonloss  -  Last received non-loss Window CCVal
-- *  @ccid3hcrx_ccval_last_counter  -  Tracks window counter (RFC 4342, 8.1)
-- *  @ccid3hcrx_state  -  receiver state, one of %ccid3_hc_rx_states
-+ *  @ccid3hcrx_last_counter  -  Tracks window counter (RFC 4342, 8.1)
-+ *  @ccid3hcrx_state  -  Receiver state, one of %ccid3_hc_rx_states
-  *  @ccid3hcrx_bytes_recv  -  Total sum of DCCP payload bytes
-- *  @ccid3hcrx_tstamp_last_feedback  -  Time at which last feedback was sent
-- *  @ccid3hcrx_tstamp_last_ack  -  Time at which last feedback was sent
-- *  @ccid3hcrx_hist  -  Packet history
-+ *  @ccid3hcrx_last_feedback  -  Time at which last feedback was sent
-+ *  @ccid3hcrx_hist  -  Packet history, exported by TFRC module
-  *  @ccid3hcrx_li_hist  -  Loss Interval History
-  *  @ccid3hcrx_s  -  Received packet size in bytes
-  *  @ccid3hcrx_pinv  -  Inverse of Loss Event Rate (RFC 4342, sec. 8.5)
-@@ -152,14 +157,11 @@ struct ccid3_hc_rx_sock {
- #define ccid3hcrx_x_recv		ccid3hcrx_tfrc.tfrcrx_x_recv
- #define ccid3hcrx_rtt			ccid3hcrx_tfrc.tfrcrx_rtt
- #define ccid3hcrx_p			ccid3hcrx_tfrc.tfrcrx_p
--	u64				ccid3hcrx_seqno_nonloss:48,
--					ccid3hcrx_ccval_nonloss:4,
--					ccid3hcrx_ccval_last_counter:4;
-+	u8				ccid3hcrx_last_counter:4;
- 	enum ccid3_hc_rx_states		ccid3hcrx_state:8;
- 	u32				ccid3hcrx_bytes_recv;
--	ktime_t				ccid3hcrx_tstamp_last_feedback;
--	ktime_t				ccid3hcrx_tstamp_last_ack;
--	struct list_head		ccid3hcrx_hist;
-+	ktime_t				ccid3hcrx_last_feedback;
-+	struct tfrc_rx_hist		ccid3hcrx_hist;
- 	struct list_head		ccid3hcrx_li_hist;
- 	u16				ccid3hcrx_s;
- 	u32				ccid3hcrx_pinv;
++/**
++ *  tfrc_loss_hist  -  Loss record database
++ *  @ring:	Circular queue managed in LIFO manner
++ *  @counter:	Current count of entries (can be more than %LIH_SIZE)
++ *  @i_mean:	Current Average Loss Interval [RFC 3448, 5.4]
++ */
++struct tfrc_loss_hist {
++	struct tfrc_loss_interval	*ring[LIH_SIZE];
++	u8				counter;
++	u32				i_mean;
++};
++
++static inline void tfrc_lh_init(struct tfrc_loss_hist *lh)
++{
++	memset(lh, 0, sizeof(struct tfrc_loss_hist));
++}
++
++static inline u8 tfrc_lh_is_initialised(struct tfrc_loss_hist *lh)
++{
++	return lh->counter > 0;
++}
++
++static inline u8 tfrc_lh_length(struct tfrc_loss_hist *lh)
++{
++	return min(lh->counter, (u8)LIH_SIZE);
++}
+ 
+ extern void dccp_li_hist_purge(struct list_head *list);
++struct tfrc_rx_hist;
++extern int  tfrc_lh_interval_add(struct tfrc_loss_hist *, struct tfrc_rx_hist *,
++				 u32 (*first_li)(struct sock *), struct sock *);
++extern u8   tfrc_lh_update_i_mean(struct tfrc_loss_hist *lh, struct sk_buff *);
++extern void tfrc_lh_cleanup(struct tfrc_loss_hist *lh);
+ 
+ extern u32 dccp_li_hist_calc_i_mean(struct list_head *list);
+ 
+diff --git a/net/dccp/ccids/lib/packet_history.c b/net/dccp/ccids/lib/packet_history.c
+index e87e445..90b17da 100644
+--- a/net/dccp/ccids/lib/packet_history.c
++++ b/net/dccp/ccids/lib/packet_history.c
+@@ -172,6 +172,189 @@ void tfrc_rx_hist_cleanup(struct tfrc_rx_hist *h)
+ }
+ EXPORT_SYMBOL_GPL(tfrc_rx_hist_cleanup);
+ 
++/*
++ * Private helper functions for loss detection.
++ *
++ * In the descriptions, `Si' refers to the sequence number of entry number i,
++ * whose NDP count is `Ni' (lower case is used for variables).
++ * Note: All __after_loss functions expect that a test against duplicates has
++ *       been performed already: the seqno of the skb must not be less than the
++ *       seqno of loss_prev; and it must not equal that of any valid hist_entry.
++ */
++static void __one_after_loss(struct tfrc_rx_hist *h, struct sk_buff *skb, u32 n2)
++{
++	u64 s0 = loss_prev(h)->seqno,
++	    s1 = hist_entry(h, 1)->seqno,
++	    s2 = DCCP_SKB_CB(skb)->dccpd_seq;
++	int n1 = hist_entry(h, 1)->ndp,
++	   d12 = dccp_delta_seqno(s1, s2), d2;
++
++	if (d12 > 0) {			/* S1  <  S2 */
++		h->loss_count = 2;
++		tfrc_rx_hist_entry_from_skb(hist_entry(h, 2), skb, n2);
++		return;
++	}
++
++	/* S0  <  S2  <  S1 */
++	d2 = dccp_delta_seqno(s0, s2);
++
++	if (d2 == 1 || n2 >= d2) {	/* S2 is direct successor of S0 */
++		int d21 = -d12;
++
++		if (d21 == 1 || n1 >= d21) {
++			/* hole is filled: S0, S2, and S1 are consecutive */
++			h->loss_count = 0;
++			h->loss_start = hist_index(h, 1);
++		} else
++			/* gap between S2 and S1: just update loss_prev */
++			tfrc_rx_hist_entry_from_skb(loss_prev(h), skb, n2);
++
++	} else {			/* hole between S0 and S2 */
++		/*
++		 * Reorder history to insert S2 between S0 and s1
++		 */
++		tfrc_rx_hist_swap(&hist_entry(h, 0), &hist_entry(h, 3));
++		h->loss_start = hist_index(h, 3);
++		tfrc_rx_hist_entry_from_skb(hist_entry(h, 1), skb, n2);
++		h->loss_count = 2;
++	}
++}
++
++/* return 1 if a new loss event has been identified */
++static int __two_after_loss(struct tfrc_rx_hist *h, struct sk_buff *skb, u32 n3)
++{
++	u64 s0 = loss_prev(h)->seqno,
++	    s1 = hist_entry(h, 1)->seqno,
++	    s2 = hist_entry(h, 2)->seqno,
++	    s3 = DCCP_SKB_CB(skb)->dccpd_seq;
++	int n1 = hist_entry(h, 1)->ndp,
++	   d23 = dccp_delta_seqno(s2, s3), d13, d3, d31;
++
++	if (d23 > 0) {			/* S2  <  S3 */
++		h->loss_count = 3;
++		tfrc_rx_hist_entry_from_skb(hist_entry(h, 3), skb, n3);
++		return 1;
++	}
++
++	/* S3  <  S2 */
++	d13 = dccp_delta_seqno(s1, s3);
++
++	if (d13 > 0) {
++		/*
++		 * The sequence number order is S1, S3, S2
++		 * Reorder history to insert entry between S1 and S2
++		 */
++		tfrc_rx_hist_swap(&hist_entry(h, 2), &hist_entry(h, 3));
++		tfrc_rx_hist_entry_from_skb(hist_entry(h, 2), skb, n3);
++		h->loss_count = 3;
++		return 1;
++	}
++
++	/* S0  <  S3  <  S1 */
++	d31 = -d13;
++	d3  = dccp_delta_seqno(s0, s3);
++
++	if (d3 == 1 || n3 >= d3) {	/* S3 is a successor of S0 */
++
++		if (d31 == 1 || n1 >= d31) {
++			/* hole between S0 and S1 filled by S3 */
++			int  d2 = dccp_delta_seqno(s1, s2),
++			     n2 = hist_entry(h, 2)->ndp;
++
++			if (d2 == 1 || n2 >= d2) {
++				/* entire hole filled by S0, S3, S1, S2 */
++				h->loss_start = hist_index(h, 2);
++				h->loss_count = 0;
++			} else {
++				/* gap remains between S1 and S2 */
++				h->loss_start = hist_index(h, 1);
++				h->loss_count = 1;
++			}
++
++		} else /* gap exists between S3 and S1, loss_count stays at 2 */
++			tfrc_rx_hist_entry_from_skb(loss_prev(h), skb, n3);
++
++		return 0;
++	}
++
++	/*
++	 * The remaining case: S3 is not a successor of S0.
++	 * Sequence order is S0, S3, S1, S2; reorder to insert between S0 and S1
++	 */
++	tfrc_rx_hist_swap(&hist_entry(h, 0), &hist_entry(h, 3));
++	h->loss_start = hist_index(h, 3);
++	tfrc_rx_hist_entry_from_skb(hist_entry(h, 1), skb, n3);
++	h->loss_count = 3;
++
++	return 1;
++}
++
++/* recycle RX history records to continue loss detection if necessary */
++static void __three_after_loss(struct tfrc_rx_hist *h)
++{
++	/*
++	 * The distance between S0 and S1 is always greater than 1 and the NDP
++	 * count of S1 is smaller than this distance. Otherwise there would
++	 * have been no loss. Hence it is only necessary to see whether there
++	 * are further missing data packets between S1/S2 and S2/S3.
++	 */
++	int d2 = tfrc_rx_hist_delta_seqno(h, 1, 2),
++	    d3 = tfrc_rx_hist_delta_seqno(h, 2, 3),
++	    n2 = hist_entry(h, 2)->ndp,
++	    n3 = hist_entry(h, 3)->ndp;
++
++	if (d2 == 1 || n2 >= d2) {	/* S2 is successor to S1 */
++
++		if (d3 == 1 || n3 >= d3) {
++			/* S3 is successor of S2: entire hole is filled */
++			h->loss_start = hist_index(h, 3);
++			h->loss_count = 0;
++		} else {
++			/* gap between S2 and S3 */
++			h->loss_start = hist_index(h, 2);
++			h->loss_count = 1;
++		}
++
++	} else {			/* gap between S1 and S2 */
++		h->loss_start = hist_index(h, 1);
++		h->loss_count = 2;
++	}
++}
++
++/**
++ *  tfrc_rx_handle_loss  -  Loss detection and further processing
++ *  @h:		    The non-empty RX history object
++ *  @lh:	    Loss Intervals database to update
++ *  @skb:	    Currently received packet
++ *  @ndp:	    The NDP count belonging to @skb
++ *  @calc_first_li: Caller-dependent computation of first loss interval in @lh
++ *  @sk:	    Used by @calc_first_li (see tfrc_lh_interval_add)
++ *  Chooses action according to pending loss, updates LI database when a new
++ *  loss was detected, and does required post-processing. Returns 1 when caller
++ *  should send feedback, 0 otherwise.
++ */
++int tfrc_rx_handle_loss(struct tfrc_rx_hist *h,
++			struct tfrc_loss_hist *lh,
++			struct sk_buff *skb, u32 ndp,
++			u32 (*calc_first_li)(struct sock *), struct sock *sk)
++{
++	int is_new_loss = 0;
++
++	if (h->loss_count == 1) {
++		__one_after_loss(h, skb, ndp);
++	} else if (h->loss_count != 2) {
++		DCCP_BUG("invalid loss_count %d", h->loss_count);
++	} else if (__two_after_loss(h, skb, ndp)) {
++		/*
++		 * Update Loss Interval database and recycle RX records
++		 */
++		is_new_loss = tfrc_lh_interval_add(lh, h, calc_first_li, sk);
++		__three_after_loss(h);
++	}
++	return is_new_loss;
++}
++EXPORT_SYMBOL_GPL(tfrc_rx_handle_loss);
++
+ /**
+  * tfrc_rx_sample_rtt  -  Sample RTT from timestamp / CCVal
+  * Based on ideas presented in RFC 4342, 8.1. Returns 0 if it was not able
+diff --git a/net/dccp/ccids/lib/packet_history.h b/net/dccp/ccids/lib/packet_history.h
+index 706f871..ae7c9be 100644
+--- a/net/dccp/ccids/lib/packet_history.h
++++ b/net/dccp/ccids/lib/packet_history.h
+@@ -184,6 +184,10 @@ static inline void tfrc_rx_hist_update(struct tfrc_rx_hist *h,
+ 	tfrc_rx_hist_entry_from_skb(last_rcv(h), skb, ndp);
+ }
+ 
++struct tfrc_loss_hist;
++extern int  tfrc_rx_handle_loss(struct tfrc_rx_hist *, struct tfrc_loss_hist *,
++				struct sk_buff *skb, u32 ndp,
++				u32 (*first_li)(struct sock *), struct sock *);
+ extern u32  tfrc_rx_sample_rtt(struct tfrc_rx_hist *, struct sk_buff *);
+ extern int  tfrc_rx_hist_init(struct tfrc_rx_hist *);
+ extern void tfrc_rx_hist_cleanup(struct tfrc_rx_hist *);
+diff --git a/net/dccp/ccids/lib/tfrc.h b/net/dccp/ccids/lib/tfrc.h
+index ab8848c..1fb1187 100644
+--- a/net/dccp/ccids/lib/tfrc.h
++++ b/net/dccp/ccids/lib/tfrc.h
+@@ -17,6 +17,9 @@
+ #include <linux/types.h>
+ #include <asm/div64.h>
+ #include "../../dccp.h"
++/* internal includes that this module exports: */
++#include "loss_interval.h"
++#include "packet_history.h"
+ 
+ #ifdef CONFIG_IP_DCCP_TFRC_DEBUG
+ extern int tfrc_debug;
 -- 
