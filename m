@@ -1,43 +1,54 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: e1000 driver problems
-Date: Mon, 03 Dec 2007 07:20:48 -0800
-Message-ID: <47541ED0.9090808@intel.com>
-References: <20061017205316.25914.qmail@web83109.mail.mud.yahoo.com> <45354850.6050900@intel.com> <20071120143803.GA5638@ics.muni.cz> <474B5610.4030800@intel.com> <20071127150700.GB4365@ics.muni.cz> <474C4A74.90705@intel.com> <20071127173146.GG4365@ics.muni.cz> <474C5678.3060609@intel.com> <20071127174456.GH4365@ics.muni.cz> <474C6084.9000301@intel.com> <20071203095023.GG26573@ics.muni.cz>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: namespace support requires network modules to say "GPL"
+Date: Mon, 3 Dec 2007 07:34:39 -0800
+Message-ID: <20071203073439.7fe05875@laptopd505.fenrus.org>
+References: <m163zi9425.fsf@ebiederm.dsl.xmission.com>
+	<47515D39.9030900@rtr.ca>
+	<20071201111736.297dd99a@freepuppy.rosehill>
+	<20071201163035.321fd554@freepuppy.rosehill>
+	<475227B1.2060802@rtr.ca>
+	<1196670255.4127.21.camel@rukbat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>
-To: Lukas Hejtmanek <xhejtman@ics.muni.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:27949 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750924AbXLCPVY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Dec 2007 10:21:24 -0500
-In-Reply-To: <20071203095023.GG26573@ics.muni.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Mark Lord <lkml@rtr.ca>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	containers@lists.osdl.org
+To: Romano Giannetti <romanol@upcomillas.es>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752674AbXLCPgr@vger.kernel.org>
+In-Reply-To: <1196670255.4127.21.camel@rukbat>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Lukas Hejtmanek wrote:
-> On Tue, Nov 27, 2007 at 10:23:00AM -0800, Kok, Auke wrote:
->> can you see if your problem goes away with this patch?
+On Mon, 03 Dec 2007 09:24:15 +0100
+Romano Giannetti <romanol@upcomillas.es> wrote:
+
 > 
-> I cannot test it right now but friend of mine has the same card with 2.6.23.1
-> kernel. it does not. he also tried module 7.6.12 from source fourge, your patch
-> did not help. Moreover, it just hangs network connections after while. No
-> message in dmesg about hangup.
+> 
+> On Sat, 2007-12-01 at 22:34 -0500, Mark Lord wrote:
+> > Stephen Hemminger wrote:.
+> > >>
+> > > I spoke too soon earlier, ndiswrapper builds and loads against
+> > > current 2.6.24-rc3. Vmware and proprietary VPN software probably
+> > > do not. Once again I don't give a damn, but the enterprise distro
+> > > vendors certainly care.
+> > ...
+> > 
+> > Naw, enterprise (or any other) distro vendors shouldn't have any
+> > issues here, since they can just patch their kernels around any
+> > issues.
+> 
+> Please pardon me for jumping in; 
 
-can you open up a ticket on e1000.sf.net and fill in a full bugreport including
-output of all of these? :
+> 
+> What I think is that every time VMware or (worst) ndiswrapper breaks,
 
-- ethttool -i eth0
-- ethtool -e eth0
-- lspci -vv
-- full dmesg (not just the driver parts)
-- dmidecode
-- cat /proc/interrupts
+if you had read the thread... ndiswrapper doesn't break, and vmware
+driver had some bugs that, once fixed, no no longer break either....
 
-I'd like to see if maybe we can reproduce this in our lab.
 
-Thanks,
-
-Auke
+-- 
+If you want to reach me at my work email, use arjan@linux.intel.com
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
