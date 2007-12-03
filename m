@@ -1,69 +1,83 @@
-From: Samuel Ortiz <samuel@sortiz.org>
-Subject: [PATCH 5/5] [IrDA] irda parameters warning fixes.
-Date: Mon, 03 Dec 2007 10:28:36 +0100
-Message-ID: <20071203093053.944365836@sortiz.org>
+From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 1/5] [IrDA] Race between open and disconnect in
+	irda-usb
+Date: Mon, 03 Dec 2007 10:28:32 +0100
+Message-ID: <20071203093053.168766504@sortiz.org>
 References: <20071203092831.724254969@sortiz.org>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Richard Knutsson <ricknu-0@student.ltu.se>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
-	irda-users@lists.sourceforge.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp20.orange.fr ([193.252.22.31]:54509 "EHLO smtp20.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751840AbXLCB3I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Dec 2007 20:29:08 -0500
-Received: from me-wanadoo.net (localhost [127.0.0.1])
-	by mwinf2022.orange.fr (SMTP Server) with ESMTP id 425ED1C00088
-	for <netdev@vger.kernel.org>; Mon,  3 Dec 2007 02:29:05 +0100 (CET)
-Content-Disposition: inline; filename=irda_parameters.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Disposition: inline; filename=irda-usb.patch
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes:
-  CHECK   /home/kernel/src/net/irda/parameters.c
-/home/kernel/src/net/irda/parameters.c:466:2: warning: Using plain integer as NULL pointer
-/home/kernel/src/net/irda/parameters.c:520:2: warning: Using plain integer as NULL pointer
-/home/kernel/src/net/irda/parameters.c:573:2: warning: Using plain integer as NULL pointer
+It seems to me that irda_usb_net_open() must set self->netopen
+under spinlock or disconnect() may fail to kill all URBs, if it is called
+while an interface is opened.
 
-Signed-off-by: Richard Knutsson <ricknu-0@student.ltu.se>
-Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+
 ---
- net/irda/parameters.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/irda/irda-usb.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-Index: net-2.6/net/irda/parameters.c
+Index: net-2.6/drivers/net/irda/irda-usb.c
 ===================================================================
---- net-2.6.orig/net/irda/parameters.c	2007-11-25 05:54:02.000000000 +0100
-+++ net-2.6/net/irda/parameters.c	2007-11-26 10:20:38.000000000 +0100
-@@ -463,7 +463,7 @@
- 	int n = 0;
+--- net-2.6.orig/drivers/net/irda/irda-usb.c	2007-11-25 05:53:43.000000000 +0100
++++ net-2.6/drivers/net/irda/irda-usb.c	2007-11-25 07:12:09.000000000 +0100
+@@ -1168,6 +1168,7 @@
+ static int irda_usb_net_open(struct net_device *netdev)
+ {
+ 	struct irda_usb_cb *self;
++	unsigned long flags;
+ 	char	hwname[16];
+ 	int i;
+ 	
+@@ -1177,13 +1178,16 @@
+ 	self = (struct irda_usb_cb *) netdev->priv;
+ 	IRDA_ASSERT(self != NULL, return -1;);
  
- 	IRDA_ASSERT(buf != NULL, return ret;);
--	IRDA_ASSERT(info != 0, return ret;);
-+	IRDA_ASSERT(info != NULL, return ret;);
++	spin_lock_irqsave(&self->lock, flags);
+ 	/* Can only open the device if it's there */
+ 	if(!self->present) {
++		spin_unlock_irqrestore(&self->lock, flags);
+ 		IRDA_WARNING("%s(), device not present!\n", __FUNCTION__);
+ 		return -1;
+ 	}
  
- 	pi_minor = pi & info->pi_mask;
- 	pi_major = pi >> info->pi_major_offset;
-@@ -517,7 +517,7 @@
- 	int n = 0;
+ 	if(self->needspatch) {
++		spin_unlock_irqrestore(&self->lock, flags);
+ 		IRDA_WARNING("%s(), device needs patch\n", __FUNCTION__) ;
+ 		return -EIO ;
+ 	}
+@@ -1198,6 +1202,7 @@
+ 	/* To do *before* submitting Rx urbs and starting net Tx queue
+ 	 * Jean II */
+ 	self->netopen = 1;
++	spin_unlock_irqrestore(&self->lock, flags);
  
- 	IRDA_ASSERT(buf != NULL, return ret;);
--	IRDA_ASSERT(info != 0, return ret;);
-+	IRDA_ASSERT(info != NULL, return ret;);
- 
- 	pi_minor = buf[n] & info->pi_mask;
- 	pi_major = buf[n] >> info->pi_major_offset;
-@@ -570,7 +570,7 @@
- 	int n = 0;
- 
- 	IRDA_ASSERT(buf != NULL, return ret;);
--	IRDA_ASSERT(info != 0, return ret;);
-+	IRDA_ASSERT(info != NULL, return ret;);
- 
- 	/*
- 	 * Parse all parameters. Each parameter must be at least two bytes
+ 	/* 
+ 	 * Now that everything should be initialized properly,
 
 -- 
 
+
+-------------------------------------------------------------------------
+SF.Net email is sponsored by: The Future of Linux Business White Paper
+from Novell.  From the desktop to the data center, Linux is going
+mainstream.  Let it simplify your IT future.
+http://altfarm.mediaplex.com/ad/ck/8857-50307-18918-4
