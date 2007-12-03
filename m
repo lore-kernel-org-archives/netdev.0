@@ -1,56 +1,59 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 2.6.25] net: removes unnecessary dependencies for
-	net_namespace.h
-Date: Mon, 3 Dec 2007 12:12:00 +0300
-Message-ID: <20071203091200.GA20442@iris.sw.ru>
+From: Ariane Keller <ariane.keller@tik.ee.ethz.ch>
+Subject: Re: [PATCH 0/2] netem: trace enhancement
+Date: Mon, 03 Dec 2007 10:12:20 +0100
+Message-ID: <4753C874.80703@ee.ethz.ch>
+References: <20071120231131.oqn4s5eda84k4csw@email.ee.ethz.ch>	<474C2246.50205@ee.ethz.ch> <20071129134554.5c25a891@freepuppy.rosehill> <474F3719.30101@trash.net> <47503971.9080509@ee.ethz.ch> <4753B423.7030000@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devel@openvz.org, netdev@vger.kernel.org, davem@davemloft.net,
-	xemul@openvz.org, ebiederm@xmission.com
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ariane Keller <ariane.keller@tik.ee.ethz.ch>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	Rainer Baumann <baumann@tik.ee.ethz.ch>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:61554 "EHLO iris"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751754AbXLCJLE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Dec 2007 04:11:04 -0500
-Content-Disposition: inline
+Received: from smtp.ee.ethz.ch ([129.132.2.219]:45922 "EHLO smtp.ee.ethz.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751681AbXLCJMX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Dec 2007 04:12:23 -0500
+In-Reply-To: <4753B423.7030000@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes some unneeded includes for net_namespace.h to speed up
-compilation.
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index f285de6..28b7f25 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -2,7 +2,6 @@
- #define __NET_PKT_CLS_H
- 
- #include <linux/pkt_cls.h>
--#include <net/net_namespace.h>
- #include <net/sch_generic.h>
- #include <net/act_api.h>
- 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 43e3cd9..a04e361 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -57,7 +57,6 @@
- #include <asm/atomic.h>
- #include <net/dst.h>
- #include <net/checksum.h>
--#include <net/net_namespace.h>
- 
- /*
-  * This structure really needs to be cleaned up.
-@@ -95,6 +94,7 @@ typedef struct {
- 
- struct sock;
- struct proto;
-+struct net;
- 
- /**
-  *	struct sock_common - minimal network layer representation of sockets
+Patrick McHardy wrote:
+> Ariane Keller wrote:
+>> Thanks for your comments!
+>>
+>> I'd like to better understand your dislike of the current 
+>> implementation  of the data transfer from user space to kernel space.
+>> Is it the fact that we use configfs?
+>> I think, we had already a discussion about this (and we changed from 
+>> procfs to configfs).
+>> Or don't you like that we need a user space daemon which is 
+>> responsible for feeding the data to the kernel module?
+>> I think we do not have another option, since the trace file may be of 
+>> arbitrary length.
+>> Or anything else?
+> 
+> 
+> I dislike using anything besides rtnetlink for qdisc configuration.
+> The only way to transfer arbitary amounts of data over netlink would
+> be to spread the data over multiple messages. But then again, you're
+> using kmalloc and only seem to allocate 4k, so how large are these
+> traces in practice?
+
+For each packet to be processed there is 32bit of data, which encodes 
+delay and drop, duplicate etc. The size of the actual trace file can 
+therefore reach any length, depending on for how many packets the 
+information is encoded (up to several GB).
+Therefore we send the trace file in chunks of 4000bytes to the kernel. 
+In order to have always a "packet-delay-value ready", we maintain two 
+"delay queues" in the kernel (each of 4k). In a first step, both queues 
+are filled, and the values are read from the first queue, if this queue 
+is finished, we read values from the second queue and fill the first 
+queue with new values from the trace file etc. Therefore we have a user 
+space process running, which reads the values from the trace file, and 
+sends them to the kernel.
+
