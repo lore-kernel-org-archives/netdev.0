@@ -1,47 +1,67 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/3] [UDP6]: Counter increment on BH mode
-Date: Mon, 3 Dec 2007 22:54:35 +1100
-Message-ID: <20071203115435.GA4202@gondor.apana.org.au>
-References: <474F7EE8.2040009@cn.fujitsu.com> <474F8255.5060501@cn.fujitsu.com> <20071130111949.GB28277@gerrit.erg.abdn.ac.uk> <20071201015438.GC26895@gondor.apana.org.au> <4753AE07.1040906@cn.fujitsu.com> <20071203113935.GA25124@gondor.apana.org.au> <20071203114912.GA4425@ms2.inr.ac.ru>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 2.6.25] net: removes unnecessary dependencies for net_namespace.h
+Date: Mon, 03 Dec 2007 04:56:01 -0700
+Message-ID: <m1odd80z72.fsf@ebiederm.dsl.xmission.com>
+References: <20071203091200.GA20442@iris.sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Wang Chen <wangchen@cn.fujitsu.com>,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>, davem@davemloft.net,
-	andi@firstfloor.org, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Christoph Lameter <clameter@sgi.com>,
-	Ingo Molnar <mingo@elte.hu>
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: herbert@gondor.apana.org.au, devel@openvz.org,
+	netdev@vger.kernel.org, davem@davemloft.net, xemul@openvz.org
+To: "Denis V. Lunev" <den@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4986 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753633AbXLCLy4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 06:54:56 -0500
-Content-Disposition: inline
-In-Reply-To: <20071203114912.GA4425@ms2.inr.ac.ru>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:36815 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751531AbXLCL5g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 06:57:36 -0500
+In-Reply-To: <20071203091200.GA20442@iris.sw.ru> (Denis V. Lunev's message of
+	"Mon, 3 Dec 2007 12:12:00 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 03, 2007 at 02:49:12PM +0300, Alexey Kuznetsov wrote:
-> On Mon, Dec 03, 2007 at 10:39:35PM +1100, Herbert Xu wrote:
-> > So we need to fix this, and whatever the fix is will probably render
-> > the BH/USER distinction obsolete.
-> 
-> Hmm, I would think opposite. USER (or generic) is expensive variant,
-> BH is lite. No?
+"Denis V. Lunev" <den@openvz.org> writes:
 
-Yes that would certainly be the obvious fix.  In other words, just use
-smp_processor_id instead of the raw version.  I suppose the only issue
-would be that disabling/enabling preemption isn't exactly cost-free and
-we're going to be doing that for every single increment.
+> This patch removes some unneeded includes for net_namespace.h to speed up
+> compilation.
+>
+> Signed-off-by: Denis V. Lunev <den@openvz.org>
+>
+> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+> index f285de6..28b7f25 100644
+> --- a/include/net/pkt_cls.h
+> +++ b/include/net/pkt_cls.h
+> @@ -2,7 +2,6 @@
+>  #define __NET_PKT_CLS_H
+>  
+>  #include <linux/pkt_cls.h>
+> -#include <net/net_namespace.h>
+>  #include <net/sch_generic.h>
+>  #include <net/act_api.h>
 
-Hmm, wasn't someone else talking about a non-atomic version of atomic
-ops lately (i.e., atomic with respect to the local CPU only)? Perhaps
-this is the killer app for it :)
+What of tcf_match_indev?  I guess linux/netdevice.h brings
+it in for us but still.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 43e3cd9..a04e361 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -57,7 +57,6 @@
+>  #include <asm/atomic.h>
+>  #include <net/dst.h>
+>  #include <net/checksum.h>
+> -#include <net/net_namespace.h>
+>  
+>  /*
+>   * This structure really needs to be cleaned up.
+> @@ -95,6 +94,7 @@ typedef struct {
+>  
+>  struct sock;
+>  struct proto;
+> +struct net;
+>  
+>  /**
+>   *	struct sock_common - minimal network layer representation of sockets
+
+This hunk definitely looks sane.
+
+Eric
+
