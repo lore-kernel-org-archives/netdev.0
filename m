@@ -1,33 +1,78 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/5] [IrDA] IrDA updates for net-2.6
-Date: Mon, 3 Dec 2007 17:57:05 +1100
-Message-ID: <20071203065705.GA21983@gondor.apana.org.au>
-References: <20071203092831.724254969@sortiz.org>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH 3/3] [UDP6]: Counter increment on BH mode
+Date: Mon, 03 Dec 2007 15:19:35 +0800
+Message-ID: <4753AE07.1040906@cn.fujitsu.com>
+References: <474F7EE8.2040009@cn.fujitsu.com> <474F8255.5060501@cn.fujitsu.com> <20071130111949.GB28277@gerrit.erg.abdn.ac.uk> <20071201015438.GC26895@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net,
-	"David S. Miller" <davem@davemloft.net>
-To: Samuel Ortiz <samuel@sortiz.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>, davem@davemloft.net,
+	andi@firstfloor.org, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2177 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750806AbXLCG5J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 01:57:09 -0500
-Content-Disposition: inline
-In-Reply-To: <20071203092831.724254969@sortiz.org>
+Received: from [222.73.24.84] ([222.73.24.84]:63850 "EHLO song.cn.fujitsu.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751008AbXLCHWe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Dec 2007 02:22:34 -0500
+In-Reply-To: <20071201015438.GC26895@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 03, 2007 at 10:28:31AM +0100, Samuel Ortiz wrote:
-> Hi Herbert,
+Herbert Xu said the following on 2007-12-1 9:54:
+> On Fri, Nov 30, 2007 at 11:19:49AM +0000, Gerrit Renker wrote:
+>> |  csum_copy_err:
+>> | -	UDP6_INC_STATS_USER(UDP_MIB_INERRORS, is_udplite);
+>> | +	UDP6_INC_STATS_BH(UDP_MIB_INERRORS, is_udplite);
+>> |  	skb_kill_datagram(sk, skb, flags);
+>> |  
+>> |  	if (flags & MSG_DONTWAIT)
+>> | 
+>> Is it not the other way round ?? :- 
 > 
-> Here goes a series of 5 IrDA patches against your latest net-2.6 tree.
+> I agree.  Wang Chen, please change this and other appropriate
+> BH calls to USER.  Basically recvmsg should always be USER while
+> rcv is BH.
+> 
 
-I seem to be missing 3/5.  Could you please resend?
+Resubmit the patch.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+System calls should be USER. So change the BH to USER for
+UDP*_INC_STATS_BH().
+
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+---
+ ipv4/udp.c |    4 ++--
+ ipv6/udp.c |    2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+--- linux-2.6.24.rc3.org/net/ipv4/udp.c	2007-12-03 15:10:49.000000000 +0800
++++ linux-2.6.24.rc3/net/ipv4/udp.c	2007-12-03 14:52:54.000000000 +0800
+@@ -874,7 +874,7 @@ try_again:
+ 	if (err)
+ 		goto out_free;
+ 
+-	UDP_INC_STATS_BH(UDP_MIB_INDATAGRAMS, is_udplite);
++	UDP_INC_STATS_USER(UDP_MIB_INDATAGRAMS, is_udplite);
+ 
+ 	sock_recv_timestamp(msg, sk, skb);
+ 
+@@ -899,7 +899,7 @@ out:
+ 	return err;
+ 
+ csum_copy_err:
+-	UDP_INC_STATS_BH(UDP_MIB_INERRORS, is_udplite);
++	UDP_INC_STATS_USER(UDP_MIB_INERRORS, is_udplite);
+ 
+ 	skb_kill_datagram(sk, skb, flags);
+ 
+--- linux-2.6.24.rc3.org/net/ipv6/udp.c	2007-12-03 15:10:49.000000000 +0800
++++ linux-2.6.24.rc3/net/ipv6/udp.c	2007-12-03 15:09:55.000000000 +0800
+@@ -164,7 +164,7 @@ try_again:
+ 	if (err)
+ 		goto out_free;
+ 
+-	UDP6_INC_STATS_BH(UDP_MIB_INDATAGRAMS, is_udplite);
++	UDP6_INC_STATS_USER(UDP_MIB_INDATAGRAMS, is_udplite);
+ 
+ 	sock_recv_timestamp(msg, sk, skb);
+
