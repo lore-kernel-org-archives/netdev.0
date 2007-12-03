@@ -1,42 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [README] away until Dec 3rd
-Date: Tue, 4 Dec 2007 09:05:02 +1100
-Message-ID: <20071203220502.GA8587@gondor.apana.org.au>
-References: <20071120.202921.78239222.davem@davemloft.net> <20071122042747.GA5041@gondor.apana.org.au>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: [PATCH] Fix memory corruption in fec_mpc52xx
+Date: Mon, 03 Dec 2007 22:38:10 +0000
+Message-ID: <1196721490.13978.185.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Domen Puncer <domen.puncer@telargo.com>,
+	Jon Smirl <jonsmirl@gmail.com>,
+	Grant Likely <grant.likely@secretlab.ca>
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4573 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751060AbXLCWFG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 17:05:06 -0500
-Content-Disposition: inline
-In-Reply-To: <20071122042747.GA5041@gondor.apana.org.au>
+Received: from pentafluge.infradead.org ([213.146.154.40]:59812 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751033AbXLCWiP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 17:38:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 22, 2007 at 12:27:47PM +0800, Herbert Xu wrote:
-> On Tue, Nov 20, 2007 at 08:29:21PM -0800, David Miller wrote:
-> > 
-> > During this time Herbert Xu (CC:'d) will take care of both the net-2.6
-> > stable tree and the net-2.6.25 devel tree.
-> 
-> For this duration please use the net-2.6.25 tree at this location
-> for basing your patches:
+From: Jon Smirl <jonsmirl@gmail.com>
 
-OK, David is back now.  If I haven't taken your patches yet, then please
-resend them to davem@davemloft.net because all previous submissions may
-have been deleted.
+The mpc5200 fec driver is corrupting memory. This patch fixes two bugs
+where the wrong skb was being referenced.
 
-Andrew, you can stop pulling my tree and start pulling David's now.
+Signed-off-by: Jon Smirl <jonsmirl@gmail.com>
+Acked-by: Domen Puncer <domen.puncer@telargo.com>
+Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+Signed-off-by: David Woodhouse <dwmw2@infradead.org>
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.25.git/
+--- a/drivers/net/fec_mpc52xx.c
++++ b/drivers/net/fec_mpc52xx.c
+@@ -422,7 +422,7 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int irq, void *dev_id)
 
-Thanks,
+ 		rskb = bcom_retrieve_buffer(priv->rx_dmatsk, &status,
+ 				(struct bcom_bd **)&bd);
+-		dma_unmap_single(&dev->dev, bd->skb_pa, skb->len, DMA_FROM_DEVICE);
++		dma_unmap_single(&dev->dev, bd->skb_pa, rskb->len, DMA_FROM_DEVICE);
+
+ 		/* Test for errors in received frame */
+ 		if (status & BCOM_FEC_RX_BD_ERRORS) {
+@@ -467,7 +467,7 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int irq, void *dev_id)
+ 			bcom_prepare_next_buffer(priv->rx_dmatsk);
+
+ 		bd->status = FEC_RX_BUFFER_SIZE;
+-		bd->skb_pa = dma_map_single(&dev->dev, rskb->data,
++		bd->skb_pa = dma_map_single(&dev->dev, skb->data,
+ 				FEC_RX_BUFFER_SIZE, DMA_FROM_DEVICE);
+
+ 		bcom_submit_next_buffer(priv->rx_dmatsk, skb);
+
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+dwmw2
+
