@@ -1,59 +1,72 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH] SMC911X: Fix using of dereferenced skb after netif_rx
-Date: Mon, 03 Dec 2007 18:18:27 +0800
-Message-ID: <4753D7F3.3050201@cn.fujitsu.com>
-References: <4753B74D.4070505@cn.fujitsu.com> <20071203101141.GA23549@gondor.apana.org.au>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] sungem: fix napi regression with reset work
+Date: Mon, 03 Dec 2007 10:29:22 +0100
+Message-ID: <1196674162.6060.8.camel@johannes.berg>
+References: <1196107328.8459.8.camel@johannes.berg>
+	 <20071129105755.GF22537@gondor.apana.org.au>
+	 (sfid-20071129_110000_566221_80E03D19)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Dustin McIntire <dustin@sensoria.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-W86VBNMdrOcK5rN7LKkt"
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [222.73.24.84] ([222.73.24.84]:58521 "EHLO song.cn.fujitsu.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751637AbXLCKVS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Dec 2007 05:21:18 -0500
-In-Reply-To: <20071203101141.GA23549@gondor.apana.org.au>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:58168 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754384AbXLCKgT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 05:36:19 -0500
+In-Reply-To: <20071129105755.GF22537@gondor.apana.org.au> (sfid-20071129_110000_566221_80E03D19)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu said the following on 2007-12-3 18:11:
-> Please send driver patches to Jeff Garzik <jgarzik@pobox.com>.
-> 
 
-Sorry. Resend the patch.
+--=-W86VBNMdrOcK5rN7LKkt
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-After netif_rx(), skb will be freed. So get the
-skb->len before netif_rx().
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
- smc911x.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+On Thu, 2007-11-29 at 21:57 +1100, Herbert Xu wrote:
+> On Mon, Nov 26, 2007 at 09:02:08PM +0100, Johannes Berg wrote:
+> > sungem's gem_reset_task() will unconditionally try to disable NAPI even
+> > when it's called while the interface is not operating and hence the NAP=
+I
+> > struct isn't enabled. Make napi_disable() depend on gp->running.
+> >=20
+> > Also removes a superfluous test of gp->running in the same function.
+> >=20
+> > Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+>=20
+> Patch applied to net-2.6.  Thanks Johannes!
 
---- linux-2.6.24.rc3.org/drivers/net/smc911x.c	2007-11-19 12:38:05.000000000 +0800
-+++ linux-2.6.24.rc3/drivers/net/smc911x.c	2007-11-30 15:00:53.000000000 +0800
-@@ -1287,7 +1287,7 @@ smc911x_rx_dma_irq(int dma, void *data)
- 	struct smc911x_local *lp = netdev_priv(dev);
- 	struct sk_buff *skb = lp->current_rx_skb;
- 	unsigned long flags;
--	unsigned int pkts;
-+	unsigned int pkts, len;
- 
- 	DBG(SMC_DEBUG_FUNC, "%s: --> %s\n", dev->name, __FUNCTION__);
- 	DBG(SMC_DEBUG_RX | SMC_DEBUG_DMA, "%s: RX DMA irq handler\n", dev->name);
-@@ -1299,9 +1299,10 @@ smc911x_rx_dma_irq(int dma, void *data)
- 	PRINT_PKT(skb->data, skb->len);
- 	dev->last_rx = jiffies;
- 	skb->protocol = eth_type_trans(skb, dev);
-+	len = skb->len;
- 	netif_rx(skb);
- 	dev->stats.rx_packets++;
--	dev->stats.rx_bytes += skb->len;
-+	dev->stats.rx_bytes += len;
- 
- 	spin_lock_irqsave(&lp->lock, flags);
- 	pkts = (SMC_GET_RX_FIFO_INF() & RX_FIFO_INF_RXSUSED_) >> 16;
+Thanks. I just noticed that I made a mistake in the patch description,
+it should read "Make napi_disable() depend on gp->opened". I don't think
+it matters much but wanted to at least mention it.
+
+johannes
+
+--=-W86VBNMdrOcK5rN7LKkt
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIVAwUAR1PMcaVg1VMiehFYAQLl1Q//Q/pOCzA/FPM3c/zSAKQhJknRiv+dSLtl
+uRpZDDq+L5u845YzC4MVQ4OzbO458NDlbPCw/trY2bbds+mYQwTJibqqxPlUsEeA
+XPnxbX0A+BwztV33G1p3DxqLmbCa4B7heZrxzkRAjOEI+OQIqo8R5I0jIWv8hrkT
+dumYP86glMghM4pyjIn5mmSUiNHBRX03gK0ExsuM9XV8BJ5oNub9E4toD/4RU6o0
+Umtdg4WAyOsVH4v13brsTOosWESsHZzgwDONWeLLBhDbQJ8DPMghznE5Tv0Ee5l1
+FvnyAvk1AWdoMbLQ6YkRKpT6256py6vK9HbhdLF7YRz8hXllFq2sJEj3B3Nh6P7n
+QqcOwzYc/+zV7Q2J/y/ZSl4Ch7hOVsM5APlnZwjES2y1j3NOzA5XBKnmxG+wRbe9
+D11TdJFtJR9jgTxHZxfehix+WeLje/wdOw+4Wev/P+bWNFOYpLCVsxzbsYDo7kDr
+bMpYEIqKaeuEckFV44Yc5iKBkuiF9FaPQyh7eng95ivUxtM7CxNtaiEiUSI/bD3Y
+Ub1/r9bQ2Z71Y0MTeC23ntddh3QK6oYqVuQmTqiV++0vHVMMohKjxXu/mk8wr3Lj
+q9wGigUIeMhEOgfM0N8ilef2PDXCu+//hyDVPuo4hgJ93aISCXO+wqTQuzyTfm4r
+KdWmZWRaZLw=
+=Q3qh
+-----END PGP SIGNATURE-----
+
+--=-W86VBNMdrOcK5rN7LKkt--
 
