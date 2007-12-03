@@ -1,71 +1,48 @@
-From: "David Schwartz" <davids@webmaster.com>
-Subject: RE: namespace support requires network modules to say "GPL"
-Date: Sun, 2 Dec 2007 16:02:17 -0800
-Message-ID: <MDEHLPKNGKAHNMBLJOLKGEDMIJAC.davids@webmaster.com>
-References: <20071201192341.6750fbdb@the-village.bc.nu>
-Reply-To: davids@webmaster.com
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: [PATCH]: fix lro_gen_skb() alignment
+Date: Sun, 02 Dec 2007 19:07:26 -0500
+Message-ID: <475348BE.3010203@myri.com>
+References: <E1Iy2ey-0005eY-00@gondolin.me.apana.org.au> <475057E4.3000909@myri.com> <ada3aunlf4s.fsf@cisco.com> <4750660F.7000704@myri.com> <20071130223457.GA25388@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Mark Lord" <lkml@rtr.ca>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"Greg Kroah-Hartman" <gregkh@suse.de>, "Greg KH" <greg@kroah.com>,
-	"Tejun Heo" <htejun@gmail.com>,
-	"Linux Containers" <containers@lists.osdl.org>,
-	<netdev@vger.kernel.org>, <cornelia.huck@de.ibm.com>,
-	<stern@rowland.harvard.edu>, <kay.sievers@vrfy.org>,
-	<linux-kernel@vger.kernel.org>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"Herbert Xu" <herbert@gondor.apana.org.au>,
-	"David Miller" <davem@davemloft.net>,
-	"Linus Torvalds" <torvalds@linux-foundation.org>
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>,
-	"Alan Cox" <alan@lxorguk.ukuu.org.uk>
+Cc: Roland Dreier <rdreier@cisco.com>, davem@davemloft.net,
+	ossthema@de.ibm.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.webmaster.com ([216.152.64.169]:4856 "EHLO
-	mail1.webmaster.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751884AbXLCADS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 19:03:18 -0500
-In-Reply-To: <20071201192341.6750fbdb@the-village.bc.nu>
+Received: from mailbox2.myri.com ([64.172.73.26]:1902 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750718AbXLCAIP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Dec 2007 19:08:15 -0500
+In-Reply-To: <20071130223457.GA25388@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Herbert Xu wrote:
+> On Fri, Nov 30, 2007 at 02:35:43PM -0500, Andrew Gallatin wrote:
+>>> Isn't the value of 2 ethernet-specific (to round the 14-byte header up
+>>> to 16)?  Given that the rest of the lro code is fairly careful to
+>>> calculate mac_hdr_len etc it seems as if it would be cleaner to make
+>>> this independent of the specific L2 being used.
+>>>
+>>> (And I plan on using the LRO module for IP-over-InfiniBand so this is
+>>> not completely theoretical)
+> 
+> Good point!
+> 
+> We really should rename NET_IP_ALIGN so that both Ethernet and DMA
+> occur in it somehow :)
+> 
+>> Good point.  I tend to think all the world is ethernet.
+>> Perhaps the better way would be to simply add an alignment pad
+>> field to lro_mgr?  When the driver initializes it, it specifies
+>> any padding needed.  Ethernet drivers would specify 2.
+> 
+> Just pass in the mac_hdr_len, and calculate the padding as
 
-> > Then init_net needs to be not GPL limited. Sorry, we need to allow
-> > non GPL network drivers.  There is a fine line between keeping the
+That was my first thought as well, but it turns out that
+when lro_gen_skb() is called via the out1 label, mac_hdr_len
+may not be known.  It seemed simplest and cleanest to just
+make it a field in lro_mgr.
 
-> Why - they aren't exactly likely to be permissible by law
-
-Really? What law and/or what clause in the GPL says that derivative works
-have to be licensed under the GPL? Or does the kernel have some new
-technique to determine whether or not code has been distributed?
-
-As I read the GPL, it only requires you to release something under the GPL
-if you distribute it. The kernel has no idea whether or not code has been
-distributed. So if it's enforcing the GPL, it cannot prohibit anything
-non-distributed code can lawfully do. (Ergo, it's *NOT* *ENFORCING* the
-GPL.)
-
-> > binary seething masses from accessing random kernel functions,
-> and allowing
-> > reasonable (but still non GPL) things like ndiswrapper to use network
-> > device interface.
->
-> Its up to the ndiswrapper authors how the licence their code, but they
-> should respect how we licence ours.
-
-You license yours under the GPL, so they should respect the GPL.
-
-It sounds like we're back to where we were years ago. Didn't we already
-agree that EXPORT_SYMBOL_GPL was *NOT* a GPL-enforcement mechanism and had
-nothing to do with respecting the GPL? After all, if it s a GPL-enforcement
-mechanism, why is it not a "further restriction" which is prohibited by the
-GPL? (The GPL contains no restrictions on what code can use what symbols if
-that code is not distributed, but EXPORT_SYMBOL_GPL does.)
-
-Are you now claiming that EXPORT_SYMBOL_GPL is intended to enforce the GPL?
-
-DS
-
-
+Drew
