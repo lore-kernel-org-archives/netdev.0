@@ -1,38 +1,70 @@
-From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-Subject: Re: [RFC][PATCHES 0/7]: Reorganization of RX history patches
-Date: Mon, 3 Dec 2007 21:23:11 +1300
-Message-ID: <5640c7e00712030023k178927devf0f507d8a3c2c9f0@mail.gmail.com>
-References: <1196631416-17778-1-git-send-email-acme@redhat.com>
+From: "Denis V. Lunev" <den@sw.ru>
+Subject: Re: namespace support requires network modules to say "GPL"
+Date: Mon, 03 Dec 2007 11:33:30 +0300
+Message-ID: <4753BF5A.5030507@sw.ru>
+References: <m163zi9425.fsf@ebiederm.dsl.xmission.com> <47515D39.9030900@rtr.ca> <20071201111736.297dd99a@freepuppy.rosehill> <20071201163035.321fd554@freepuppy.rosehill> <475227B1.2060802@rtr.ca> <20071201202354.672aed18@freepuppy.rosehill> <47530778.7030605@candelatech.com> <47530FAC.1070804@trash.net> <20071202204356.GN15974@stusta.de> <47532AD2.8090704@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>, netdev@vger.kernel.org,
-	dccp@vger.kernel.org, "Ingo Molnar" <mingo@elte.hu>
-To: "Arnaldo Carvalho de Melo" <acme@redhat.com>
+Cc: Adrian Bunk <bunk@kernel.org>,
+	Ben Greear <greearb@candelatech.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Mark Lord <lkml@rtr.ca>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, containers@lists.osdl.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.182]:47571 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753180AbXLCIXN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 03:23:13 -0500
-Received: by wa-out-1112.google.com with SMTP id v27so4957901wah
-        for <netdev@vger.kernel.org>; Mon, 03 Dec 2007 00:23:13 -0800 (PST)
-In-Reply-To: <1196631416-17778-1-git-send-email-acme@redhat.com>
-Content-Disposition: inline
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:54744 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752990AbXLCIcw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Dec 2007 03:32:52 -0500
+In-Reply-To: <47532AD2.8090704@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/3/07, Arnaldo Carvalho de Melo <acme@redhat.com> wrote:
-> WARNING: After reading some messages from Ingo Molnar on lkml I think we should really
->          trim the number of lists we use for kernel development. And since I moved
->          back to using mutt for reading e-mails, something I should have never, ever
->          stopped doing, I guess we should move the DCCP discussions to netdev,
->          where we hopefully can get more people interested and reviewing the work we
->          do, so please consider moving DCCP discussion to netdev@vger.kernel.org,
->          where lots of smart networking folks are present and can help our efforts
->          on turning RFCs to code.
->
-I (and others too) don't necessarily have time to read netdev so would
-vote on keeping dccp. I would totally agree to making sure that
-cross-post to netdev as well as dccp.
+Patrick McHardy wrote:
+> Adrian Bunk wrote:
+>> On Sun, Dec 02, 2007 at 09:03:56PM +0100, Patrick McHardy wrote:
+>>
+>>> For all I care binary modules can break, but frankly I don't see
+>>> how encapsulating a couple of structures and pointers in a new
+>>> structure and adding a new argument to existing functions shifts
+>>> the decision about how a function should be usable to the namespace
+>>> guys. IMO all functions should continue to be usable as before,
+>>> as decided by whoever actually wrote them.
+>>> ...
+>>
+>> Even ignoring the fact that it's unclear whether distributing modules
+>> with not GPLv2 compatible licences is legal at all or might bring you
+>> in jail,
+> 
+> Agreed, lets ignore that :)
+> 
+>> your statement has an interesting implication:
+>>
+>> Stuff like e.g. the EXPORT_SYMBOL(sk_alloc) predates the
+>> EXPORT_SYMBOL_GPL stuff.
+>>
+>> Who is considered the author of this code?
+>>
+>> And when should he state whether he prefers to use EXPORT_SYMBOL_GPL
+>> but wasn't able to use it at that when he wrote it since his code
+>> predates it and is glad to be able to decide this now?
+> 
+> 
+> He can state it when he feels like it, I don't see the point.
+> Authors generally get to decide whether they use EXPORT_SYMBOL
+> or EXPORT_SYMBOL_GPL unless in cases where its really clear-cut
+> that EXPORT_SYMBOL is inapproriate. But thats a different matter.
+> 
+> If a symbol was OK to be used previously and something using it
+> would not automatically be considered a derived work, how does
+> passing &init_net to the function just to make the compiler
+> happy, avoid BUG_ONs and generally keep things working as before
+> make it more of a derived work?
 
-Ian
+We, namely, Pavel Emelyanov and me, if we have some rights as a
+committers to this staff :), do not mind against change
+EXPORT_SYMBOL_GPL to EXPORT_SYMBOL.
+
+Regards,
+	Den
