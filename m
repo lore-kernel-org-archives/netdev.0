@@ -1,97 +1,117 @@
-From: Thierry Reding <thierry.reding@avionic-design.de>
-Subject: [PATCH][RESEND] PHY: Add the phy_device_release device method.
-Date: Mon, 3 Dec 2007 09:35:11 +0100
-Message-ID: <20071203083511.GA9396@avionic-tr-basi.adnet.avionic-design.de>
-References: <20071119.214215.207388094.davem@davemloft.net> <4751D9F3.5090502@garzik.org>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [RFC][PATCHES 0/7]: Reorganization of RX history patches
+Date: Mon, 3 Dec 2007 08:35:12 +0000
+Message-ID: <20071203083512.GA5484@gerrit.erg.abdn.ac.uk>
+References: <1196631416-17778-1-git-send-email-acme@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="xHFwDpU9dbj6ez1V"
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
+	Ingo Molnar <mingo@elte.hu>
+To: Arnaldo Carvalho de Melo <acme@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.177]:61870 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752828AbXLCIfg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 03:35:36 -0500
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:56230 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753245AbXLCIgO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Dec 2007 03:36:14 -0500
 Content-Disposition: inline
-In-Reply-To: <4751D9F3.5090502@garzik.org>
+In-Reply-To: <1196631416-17778-1-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Arnaldo,
 
---xHFwDpU9dbj6ez1V
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+hank you for going through this. I have just backported your recent patches of 2.6.25
+to the DCCP/CCID4/Faster Restart test tree at 
+	git://eden-feed.erg.abdn.ac.uk/dccp_exp {dccp,ccid4,dccp_fr}
+as per subsequent message.
+| 	 do, so please consider moving DCCP discussion to netdev@vger.kernel.org,
+| 	 where lots of smart networking folks are present and can help our efforts
+| 	 on turning RFCs to code.
+Are you suggesting using netdev exclusively or in addition to dccp@vger.kernel.org?
+  
 
-In cases where more than a single PHY is found on the MDIO bus, the kernel
-will print a warning that this method is missing for each PHY device that
-is not attached to a networking device.
+| 	Please take a look at this patch series where I reorganized your work on the new
+| TFRC rx history handling code. I'll wait for your considerations and then do as many
+| interactions as reasonable to get your work merged.
+| 
+| 	It should be completely equivalent, plus some fixes and optimizations, such as:
+It will be necessary to address these points one-by-one. Before diving into making
+fixes and `optimisations', have you tested your code? The patches you are referring to
+have been posted and re-posted for a period of over 9 months on dccp@vger, and
+there are regression tests which show that this code improves on the existing Linux
+implementation. These are labelled as `test tree' on 
+	http://www.linux-foundation.org/en/Net:DCCP_Testing#Regression_testing
+So if you are making changes to the code, I would like to ask if you have run similar
+regression tests, to avoid having to step back later.
 
-Signed-off-by: Thierry Reding <thierry.reding@avionic-design.de>
----
- drivers/net/phy/mdio_bus.c |   19 ++++++++++++++++++-
- 1 files changed, 18 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index fc2f0e6..cb7fb47 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -36,6 +36,23 @@
- #include <asm/uaccess.h>
-=20
- /**
-+ * phy_device_release - free a phy_device structure when all users of it a=
-re
-+ * 	finished.
-+ *
-+ * @dev: device that's been disconnected
-+ *
-+ * Will be called only by the device core when all users of this phy_device
-+ * are done.
-+ */
-+static void phy_device_release(struct device *dev)
-+{
-+	struct phy_device *phy;
-+
-+	phy =3D to_phy_device(dev);
-+	kfree(phy);
-+}
-+
-+/**
-  * mdiobus_register - bring up all the PHYs on a given bus and attach them=
- to bus
-  * @bus: target mii_bus
-  *
-@@ -83,6 +100,7 @@ int mdiobus_register(struct mii_bus *bus)
- 		if (phydev) {
- 			phydev->irq =3D bus->irq[i];
-=20
-+			phydev->dev.release =3D phy_device_release;
- 			phydev->dev.parent =3D bus->dev;
- 			phydev->dev.bus =3D &mdio_bus_type;
- 			snprintf(phydev->dev.bus_id, BUS_ID_SIZE, PHY_ID_FMT, bus->id, i);
-@@ -112,7 +130,6 @@ void mdiobus_unregister(struct mii_bus *bus)
- 	for (i =3D 0; i < PHY_MAX_ADDR; i++) {
- 		if (bus->phy_map[i]) {
- 			device_unregister(&bus->phy_map[i]->dev);
--			kfree(bus->phy_map[i]);
- 		}
- 	}
- }
+ 
+| . The code that allocates the RX ring deals with failures when one of the entries in
+|   the ring buffer is not successfully allocated, the original code was leaking the
+|   successfully allocated entries.
+| 
+| . We do just one allocation for the ring buffer, as the number of entries is fixed we
+|   should just do one allocation and not TFRC_NDUPACK times.
+Will look at the first point in the patch; with regard to the second point I agree, this
+will make the code simpler, which is good. 
 
---xHFwDpU9dbj6ez1V
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+| . I haven't checked if all the code was commited, as I tried to introduce just what was
+|   immediatelly used, probably we'll need to do some changes when working on the merge
+|   of your loss intervals code.
+Sorry I don't understand this point.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
+| . I changed the ccid3_hc_rx_packet_recv code to set hcrx->ccid3hcrx_s for the first
+|   non-data packet instead of calling ccid3_hc_rx_set_state, that would use 0 as the
+|   initial value in the EWMA calculation.
+This is a misunderstanding. Non-data packets are not considered in the moving average
+for the data packet size `s'; and it would be an error to do (consider 40byte Acks vs.
+1460byte data packets, also it is in RFC 4342). 
+Where would the zero initial value come from? I think this is also a misunderstanding.
+Please have a look below:
+	static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
+	{
+		// ...
+		u32 sample, payload_size = skb->len - dccp_hdr(skb)->dccph_doff * 4;
 
-iD8DBQFHU7+//94dvhCMILwRAtZWAJ9CB1t7QnprCohUuFFckB6ROFDSlQCdEOoe
-RG/yz8YSAfkmXI46qjC+24w=
-=Kh1/
------END PGP SIGNATURE-----
+		if (unlikely(hcrx->ccid3hcrx_state == TFRC_RSTATE_NO_DATA)) {
+			if (is_data_packet) {
+				do_feedback = FBACK_INITIAL;
+				ccid3_hc_rx_set_state(sk, TFRC_RSTATE_DATA);
+				ccid3_hc_rx_update_s(hcrx, payload_size);
+			}
+			goto update_records;
+		}
 
---xHFwDpU9dbj6ez1V--
+==> Non-data packets are ignored for the purposes of computing s (this is in the RFC),
+    consequently update_s() is only called for data packets; using the two following
+    functions:
+
+
+	static inline u32 tfrc_ewma(const u32 avg, const u32 newval, const u8 weight)
+	{
+		return avg ? (weight * avg + (10 - weight) * newval) / 10 : newval;
+	}
+
+	static inline void ccid3_hc_rx_update_s(struct ccid3_hc_rx_sock *hcrx, int len)
+	{
+		if (likely(len > 0))	/* don't update on empty packets (e.g. ACKs) */
+			hcrx->ccid3hcrx_s = tfrc_ewma(hcrx->ccid3hcrx_s, len, 9);
+	}
+
+==> Hence I can't see where a zero value should come from: ccid3hrx_s is initially 
+    initialised with zero (memset(...,0,...)); when first called, update_s() will
+    feed a non-zero payload size to tfrc_ewma(), which will return  `newval' = payload_size,
+    hence the first data packet will contribute a non-zero payload_size.
+    Zero-sized DCCP-Data packets are pathological and are ignored by the CCID calculations
+    (not by the receiver); a corresponding counterpart for zero-sized
+
+| 
+| 	It is available at:
+| 
+| master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.25
+| 
+Need to do this separately. As said, the code has been developed and tested over a long time,
+it took a long while until it acted predictably, so being careful is very important.
+
+I would rather not have my patches merged and continue to run a test tree if the current
+changes alter the behaviour to the worse.
