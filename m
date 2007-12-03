@@ -1,49 +1,65 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/3] [UDP6]: Counter increment on BH mode
-Date: Mon, 3 Dec 2007 22:39:35 +1100
-Message-ID: <20071203113935.GA25124@gondor.apana.org.au>
-References: <474F7EE8.2040009@cn.fujitsu.com> <474F8255.5060501@cn.fujitsu.com> <20071130111949.GB28277@gerrit.erg.abdn.ac.uk> <20071201015438.GC26895@gondor.apana.org.au> <4753AE07.1040906@cn.fujitsu.com>
+From: Laszlo Attila Toth <panther@balabit.hu>
+Subject: Re: [PATCHv7 2/5] rtnetlink: send a single notification on device
+ state changes
+Date: Mon, 03 Dec 2007 12:40:18 +0100
+Message-ID: <4753EB22.5040603@balabit.hu>
+References: <11963527094077-git-send-email-panther@balabit.hu> <11963527103201-git-send-email-panther@balabit.hu> <1196352710402-git-send-email-panther@balabit.hu> <47509BB9.10108@o2.pl>
+Reply-To: panther@balabit.hu
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>, davem@davemloft.net,
-	andi@firstfloor.org, netdev@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4781 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752090AbXLCLj4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 06:39:56 -0500
-Content-Disposition: inline
-In-Reply-To: <4753AE07.1040906@cn.fujitsu.com>
+Received: from www.balabit.hu ([212.92.18.33]:51968 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751629AbXLCLkV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Dec 2007 06:40:21 -0500
+Received: from balabit.hu (unknown [10.80.0.254])
+	by lists.balabit.hu (Postfix) with ESMTP id 385EEC12F1
+	for <netdev@vger.kernel.org>; Mon,  3 Dec 2007 12:40:20 +0100 (CET)
+In-Reply-To: <47509BB9.10108@o2.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 03, 2007 at 03:19:35PM +0800, Wang Chen wrote:
-> 
-> System calls should be USER. So change the BH to USER for
-> UDP*_INC_STATS_BH().
-> 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+Jarek Poplawski =EDrta:
+> Laszlo Attila Toth wrote, On 11/29/2007 05:11 PM:
+>=20
+>> In do_setlink() a single ntification is sent at the end of the funct=
+ion
+>> if any modification occured. If the address has been changed, anothe=
+r
+>> notification is sent.
+>=20
+>=20
+> ...
+>=20
+>> @@ -858,6 +859,7 @@ static int do_setlink(struct net_device *dev, st=
+ruct ifinfomsg *ifm,
+>>  	if (tb[IFLA_BROADCAST]) {
+>>  		nla_memcpy(dev->broadcast, tb[IFLA_BROADCAST], dev->addr_len);
+>>  		send_addr_notify =3D 1;
+>> +		modified =3D 1;
+>>  	}
+>=20
+> ..
+>=20
+>>  	if (send_addr_notify)
+>>  		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+>> +
+>> +	if (modified)
+>> +		netdev_state_change(dev);
+>> +
+>=20
+> The subject suggests there might be less notifications. The patch act=
+ually
+> adds a little. Any additional comment why they are necessary?
 
-I've rearragned it so that we the new INC_STATS call is USER in the
-first patch.  Otherwise it's all in net-2.6.25 now.
+The actual state of a device contains its address(es), also address=20
+change implies state change, but these are different netlink messages=20
+also the NETDEV_CHANGEADDR cannot be dropped because the other one is u=
+sed.
 
-BTW, thanks to Gerrit's note I took a look at the underlying code
-for the _BH/_USER stuff.  It's in fact totally broken when PREEMPT
-is on.  It relies on the fact that process-context kernel code does
-not get preempted by other process-context kernel code or for that
-matter migrate to other CPUs, neither of which is true with PREEMPT
-on.
-
-So we need to fix this, and whatever the fix is will probably render
-the BH/USER distinction obsolete.
-
-Any takers?
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Attila
