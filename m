@@ -1,137 +1,91 @@
-From: "Lachlan Andrew" <lachlan.andrew@gmail.com>
-Subject: Re: [RFC] TCP illinois max rtt aging
-Date: Mon, 3 Dec 2007 15:06:02 -0800
-Message-ID: <aa7d2c6d0712031506i73df4410p9ab8b1a60bc2ad2d@mail.gmail.com>
-References: <aa7d2c6d0711261023m3d2dd850o76a8f44aef022f39@mail.gmail.com>
-	 <001001c83063$9adbc9d0$d5897e82@csp.uiuc.edu>
-	 <20071128154725.29af2852@freepuppy.rosehill>
-	 <aa7d2c6d0711281625m44bf3ca3me188a7041d3421da@mail.gmail.com>
-	 <474E0B33.2060108@linux-foundation.org>
-	 <001b01c83248$604f4120$20edc360$@edu>
-	 <20071203145207.40e4ac57@freepuppy.rosehill>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Fw: [Bug 9493] New: routing table bug or feature
+ adding/replacing/deleting routes
+Date: Mon, 3 Dec 2007 15:08:03 -0800
+Message-ID: <20071203150803.71dbf0bf@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shaoliu@princeton.edu, "David S. Miller" <davem@davemloft.net>,
-	"Herbert Xu" <herbert@gondor.apana.org.au>,
-	"Douglas Leith" <doug.leith@nuim.ie>,
-	"Robert Shorten" <robert.shorten@nuim.ie>, netdev@vger.kernel.org
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.177]:26395 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750808AbXLCXGE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 18:06:04 -0500
-Received: by py-out-1112.google.com with SMTP id u77so6752934pyb
-        for <netdev@vger.kernel.org>; Mon, 03 Dec 2007 15:06:03 -0800 (PST)
-In-Reply-To: <20071203145207.40e4ac57@freepuppy.rosehill>
-Content-Disposition: inline
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:33411 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751079AbXLCXJW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 18:09:22 -0500
+Received: from freepuppy.rosehill (069-064-229-129.pdx.net [69.64.229.129])
+	(authenticated bits=0)
+	by smtp2.linux-foundation.org (8.13.5.20060308/8.13.5/Debian-3ubuntu1.1) with ESMTP id lB3N8nZK027886
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 3 Dec 2007 15:08:51 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greetings Stephen,
 
-Thanks.  We'll have to play with the rate of ageing.  I used the slower ageing
 
-	if (ca->cnt_rtt > 3) {
-		u64 mean_rtt = ca->sum_rtt;
-		do_div (mean_rtt, ca->cnt_rtt);
+Begin forwarded message:
 
-		if (ca->max_rtt > mean_rtt)
-			ca->max_rtt -= (ca->max_rtt - mean_rtt) >> 9;
-	}
+Date: Mon,  3 Dec 2007 11:23:27 -0800 (PST)
+From: bugme-daemon@bugzilla.kernel.org
+To: shemminger@linux-foundation.org
+Subject: [Bug 9493] New: routing table bug or feature adding/replacing/deleting routes
 
-and still found that the max_rtt drops considerably within a congestion epoch.
 
-What would also really help would be getting rid of RTT outliers
-somehow.  I ignore RTT measurements when SACK is active:
-       if (ca->max_rtt < rtt) {
-	    struct tcp_sock *tp = tcp_sk(sk);
-	    if (! tp->sacked_out )	// SACKs cause hi-CPU/hi-RTT. ignore
-		ca->max_rtt = rtt;
-	}
-which helps a lot, but still gets some outliers.  Would it be possible
-to time-stamp packets in the hardware interrupt handler, instead of
-waiting for the post-processing stage?
+http://bugzilla.kernel.org/show_bug.cgi?id=9493
 
-Cheers,
-Lachlan
+           Summary: routing table bug or feature adding/replacing/deleting
+                    routes
+           Product: Networking
+           Version: 2.5
+     KernelVersion: 2.6.23
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: green@msu.ru
 
-On 03/12/2007, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> On Wed, 28 Nov 2007 21:26:12 -0800
-> "Shao Liu" <shaoliu@Princeton.EDU> wrote:
->
-> > Hi Stephen and Lachlan,
-> >
-> > Thanks for pointing out and fixing this bug.
-> >
-> > For the max RTT problem, I have considered it also and I have some idea on
-> > improve it. I also have some other places to improve. I will summarize all
-> > my new ideas and send you an update. For me to change it, could you please
-> > give me a link to download to latest source codes for the whole congestion
-> > control module in Linux implementation, including the general module for all
-> > algorithms, and the implementation for specific algorithms like TCP-Illinois
-> > and H-TCP?
-> >
-> > Thanks for the help!
-> > -Shao
-> >
-> >
-> >
-> > -----Original Message-----
-> > From: Stephen Hemminger [mailto:shemminger@linux-foundation.org]
-> > Sent: Wednesday, November 28, 2007 4:44 PM
-> > To: Lachlan Andrew
-> > Cc: David S. Miller; Herbert Xu; shaoliu@Princeton.EDU; Douglas Leith;
-> > Robert Shorten; netdev@vger.kernel.org
-> > Subject: Re: [PATCH] tcp-illinois: incorrect beta usage
-> >
-> > Lachlan Andrew wrote:
-> > > Thanks Stephen.
-> > >
-> > > A related problem (largely due to the published algorithm itself) is
-> > > that Illinois is very aggressive when it over-estimates the maximum
-> > > RTT.
-> > >
-> > > At high load (say 200Mbps and 200ms RTT), a backlog of packets builds
-> > > up just after a loss, causing the RTT estimate to become large.  This
-> > > makes Illinois think that *all* losses are due to corruption not
-> > > congestion, and so only back off by 1/8 instead of 1/2.
-> > >
-> > > I can't think how to fix this except by better RTT estimation, or
-> > > changes to Illinois itself.  Currently, I ignore RTT measurements when
-> > >    sacked_out != 0    and have a heuristic "RTT aging" mechanism, but
-> > > that's pretty ugly.
-> > >
-> > > Cheers,
-> > > Lachlan
-> > >
-> > >
-> > Ageing the RTT estimates needs to be done anyway.
-> > Maybe something can be reused from H-TCP. The two are closely related.
-> >
->
-> The following adds gradual aging of max RTT.
->
-> --- a/net/ipv4/tcp_illinois.c   2007-11-29 08:58:35.000000000 -0800
-> +++ b/net/ipv4/tcp_illinois.c   2007-11-29 09:37:33.000000000 -0800
-> @@ -63,7 +63,10 @@ static void rtt_reset(struct sock *sk)
->         ca->cnt_rtt = 0;
->         ca->sum_rtt = 0;
->
-> -       /* TODO: age max_rtt? */
-> +       /* add slowly fading memory for maxRTT to accommodate routing changes */
-> +       if (ca->max_rtt > ca->base_rtt)
-> +               ca->max_rtt = ca->base_rtt
-> +                       + (((ca->max_rtt - ca->base_rtt) * 31) >> 5);
->  }
->
->  static void tcp_illinois_init(struct sock *sk)
->
+
+Most recent kernel where this bug did not occur: unknown
+Distribution: Ubuntu (kernel 2.6.22-14), Gentoo (kernel 2.6.23-gentoo-r3)
+Hardware Environment: x86
+Software Environment:
+Steps to reproduce:
+(eth0 is 172.16.32.0/22):
+$ ip route add 172.17.0.1 via 172.16.32.1
+$ ip route append 172.17.0.1 via 172.16.35.1
+$ ip ro
+...
+172.17.0.1 via 172.16.32.1 dev eth0
+172.17.0.1 via 172.16.35.1 dev eth0
+...
+$ ip ro replace 172.17.0.1 via 172.16.35.1
+$ ip ro
+...
+172.17.0.1 via 172.16.35.1 dev eth0
+172.17.0.1 via 172.16.35.1 dev eth0
+...
+$ ip ro del 172.17.0.1
+$ ip ro
+...
+172.17.0.1 via 172.16.35.1 dev eth0
+...
+
+Problem Description:
+Is it OK:
+- only 1 route is deleted?
+- only 1 route is replaced?
+- replacing route results in dublicate routing table entry?
+Is this a bug or feature?
 
 
 -- 
-Lachlan Andrew  Dept of Computer Science, Caltech
-1200 E California Blvd, Mail Code 256-80, Pasadena CA 91125, USA
-Ph: +1 (626) 395-8820    Fax: +1 (626) 568-3603
-http://netlab.caltech.edu/~lachlan
+Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug, or are watching the assignee.
+
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
