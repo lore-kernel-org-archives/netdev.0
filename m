@@ -1,63 +1,50 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net-2.6.25] Add packet filtering based on process's security
- context.
-Date: Mon, 03 Dec 2007 08:58:59 +0100
-Message-ID: <4753B743.2090501@trash.net>
-References: <200711212130.EJJ43745.LFOFHOSMJOtFVQ@I-love.SAKURA.ne.jp> <200711222235.GCA05378.HtMOJQVFSFOLFO@I-love.SAKURA.ne.jp> <Xine.LNX.4.64.0711231005270.4252@us.intercode.com.au>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: [PATCH] SMC911X: Fix using of dereferenced skb after netif_rx
+Date: Mon, 03 Dec 2007 15:59:09 +0800
+Message-ID: <4753B74D.4070505@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-security-module@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org,
-	Stephen Smalley <sds@tycho.nsa.gov>
-To: James Morris <jmorris@namei.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Dustin McIntire <dustin@sensoria.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:57561 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751194AbXLCH7M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 02:59:12 -0500
-In-Reply-To: <Xine.LNX.4.64.0711231005270.4252@us.intercode.com.au>
+Received: from [222.73.24.84] ([222.73.24.84]:52991 "EHLO song.cn.fujitsu.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751425AbXLCIB5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Dec 2007 03:01:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-James Morris wrote:
-> On Thu, 22 Nov 2007, Tetsuo Handa wrote:
-> 
->> This patch allows LSM modules filter incoming connections/datagrams
->> based on the process's security context who is attempting to pick up.
->>
->> There are already hooks to filter incoming connections/datagrams
->> based on the socket's security context, but these hooks are not
->> applicable when one wants to do TCP Wrapper-like filtering
->> (e.g. App1 is permitted to accept TCP connections from 192.168.0.0/16).
-> 
-> This functionality looks like it could be useful in that we currently have 
-> no direct security mapping from incoming packet to user process, but only 
-> to the receiving socket, as you mention.  For SELinux, it may help us 
-> simplify/clarify policy.
-> 
-> It's also been long-desired for netfilter/iptables, to allow ipt_owner to 
-> work cleanly for incoming packets.
-> 
-> So, this probably needs to be implemented in a way which works for both LSM 
-> and netfilter.  There have been several discussions on the issue from the 
-> netfilter side, although I don't know what the latest status of that is 
-> (I've expanded the cc list to hopefully get some more feedback).
+After netif_rx(), skb will be freed. So get the
+skb->len before netif_rx().
 
-No news on that. I'm also a bit sceptical if adding all this complexity
-and overhead would really be worth it (considering only netfilter) just
-to use the owner match and UID/GID matching. It wouldn't even be
-accurate because there is not 1:1 mapping of sockets and processes.
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+---
+ smc911x.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-I actually like Samir Bellabes' approach, which doesn't suffer from
-these problems IIRC.
+--- linux-2.6.24.rc3.org/drivers/net/smc911x.c	2007-11-19 12:38:05.000000000 +0800
++++ linux-2.6.24.rc3/drivers/net/smc911x.c	2007-11-30 15:00:53.000000000 +0800
+@@ -1287,7 +1287,7 @@ smc911x_rx_dma_irq(int dma, void *data)
+ 	struct smc911x_local *lp = netdev_priv(dev);
+ 	struct sk_buff *skb = lp->current_rx_skb;
+ 	unsigned long flags;
+-	unsigned int pkts;
++	unsigned int pkts, len;
+ 
+ 	DBG(SMC_DEBUG_FUNC, "%s: --> %s\n", dev->name, __FUNCTION__);
+ 	DBG(SMC_DEBUG_RX | SMC_DEBUG_DMA, "%s: RX DMA irq handler\n", dev->name);
+@@ -1299,9 +1299,10 @@ smc911x_rx_dma_irq(int dma, void *data)
+ 	PRINT_PKT(skb->data, skb->len);
+ 	dev->last_rx = jiffies;
+ 	skb->protocol = eth_type_trans(skb, dev);
++	len = skb->len;
+ 	netif_rx(skb);
+ 	dev->stats.rx_packets++;
+-	dev->stats.rx_bytes += skb->len;
++	dev->stats.rx_bytes += len;
+ 
+ 	spin_lock_irqsave(&lp->lock, flags);
+ 	pkts = (SMC_GET_RX_FIFO_INF() & RX_FIFO_INF_RXSUSED_) >> 16;
 
->>From memory, one approach under discussion was to add netfilter hooks to 
-> the transport layer, which could be invoked correctly by each type of 
-> protocol when the target process is selected.
-
-We can only invoke the hooks after the socket lookup, but we don't
-know which process is going to call recvmsg() for that socket.
