@@ -1,79 +1,46 @@
 From: Ben Greear <greearb@candelatech.com>
-Subject: Re: namespace support requires network modules to say "GPL"
-Date: Mon, 03 Dec 2007 10:19:02 -0800
-Message-ID: <47544896.7070101@candelatech.com>
-References: <m163zi9425.fsf@ebiederm.dsl.xmission.com>	<47515D39.9030900@rtr.ca> <20071201111736.297dd99a@freepuppy.rosehill>	<20071201163035.321fd554@freepuppy.rosehill> <475227B1.2060802@rtr.ca>	<20071201202354.672aed18@freepuppy.rosehill>	<47530778.7030605@candelatech.com> <47530FAC.1070804@trash.net> <m1fxyj1y1y.fsf@ebiederm.dsl.xmission.com>
+Subject: Re: [PATCH 0/2] netem: trace enhancement
+Date: Mon, 03 Dec 2007 10:29:51 -0800
+Message-ID: <47544B1F.1010902@candelatech.com>
+References: <20071120231131.oqn4s5eda84k4csw@email.ee.ethz.ch>	<474C2246.50205@ee.ethz.ch> <20071129134554.5c25a891@freepuppy.rosehill> <474F3719.30101@trash.net> <47503971.9080509@ee.ethz.ch> <4753B423.7030000@trash.net> <4753C874.80703@ee.ethz.ch> <47543E65.4060303@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
+Cc: Ariane Keller <ariane.keller@tik.ee.ethz.ch>,
 	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Mark Lord <lkml@rtr.ca>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, containers@lists.osdl.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	Rainer Baumann <baumann@tik.ee.ethz.ch>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:54798 "EHLO ns2.lanforge.com"
+Received: from ns2.lanforge.com ([66.165.47.211]:35122 "EHLO ns2.lanforge.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751248AbXLCSTl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Dec 2007 13:19:41 -0500
-In-Reply-To: <m1fxyj1y1y.fsf@ebiederm.dsl.xmission.com>
+	id S1751160AbXLCSaN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Dec 2007 13:30:13 -0500
+In-Reply-To: <47543E65.4060303@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric W. Biederman wrote:
-> Patrick McHardy <kaber@trash.net> writes:
+Patrick McHardy wrote:
 >
->   
->> Ben Greear wrote:
->>     
->>> I have a binary module that uses dev_get_by_name...it's sort of a bridge-like
->>> thing and
->>> needs user-space to tell it which device to listen for packets on...
->>>
->>> This code doesn't need or care about name-spaces, so I don't see how it could
->>> really
->>> be infringing on the author's code (any worse than loading a binary driver
->>> into the kernel
->>> ever does).
->>>       
->
-> Regardless of infringement it is incompatible with a complete network
-> namespace implementation.  Further it sounds like the module you are
-> describing defines a kernel ABI without being merged and hopes that
-> ABI will still be supportable in the future.  Honestly I think doing so
-> is horrible code maintenance policy.
->   
-I don't mind if the ABI changes, so long as I can still use something 
-similar.
+> That sounds like it would also be possible using rtnetlink. You could
+> send out a notification whenever you switch the active buffer and have
+> userspace listen to these and replace the inactive one.
 
-The namespace logic is interesting to me in general, but at this point I 
-can't think of a way that
-it actually helps this particular module.  All I really need is a way to 
-grab every frame
-from eth0 and then transmit it to eth1.  I'm currently doing this by 
-finding the netdevice
-and registering a raw-packet protocol (ie, like tcpdump would do).  At 
-least up to 2.6.23,
-this does not require any hacks to the kernel and uses only non GPL 
-exported symbols.
-
-Based on my understanding of the namespace logic, if I never add any 
-namespaces,
-the general network layout should look similar to how it does today, so 
-I should have
-no logical problem with my module.
-
-> Once things are largely complete it makes sense to argue with out of
-> tree module authors that because they don't have network namespace
-> support in their modules, their modules are broken.   
->   
-Does this imply that every module that accesses the network code *must* 
-become
-GPL simply because it must interact with namespace logic that is 
-exported as GPL only symbols?
+Also, I think you will need a larger cache than 4-8k if you are running 
+higher speeds (100,000 pps, etc),
+as you probably can't rely on user-space responding reliably every 10ms 
+(or even less time for faster
+speeds.)
 
 Thanks,
 Ben
+
+>
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
 
 -- 
 Ben Greear <greearb@candelatech.com> 
