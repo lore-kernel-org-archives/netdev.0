@@ -1,49 +1,65 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+From: Adrian Bunk <bunk@kernel.org>
 Subject: Re: namespace support requires network modules to say "GPL"
-Date: Mon, 3 Dec 2007 00:14:41 +0000
-Message-ID: <20071203001441.02cd6f2a@the-village.bc.nu>
-References: <20071201192341.6750fbdb@the-village.bc.nu>
-	<MDEHLPKNGKAHNMBLJOLKGEDMIJAC.davids@webmaster.com>
+Date: Mon, 3 Dec 2007 02:14:37 +0100
+Message-ID: <20071203011437.GP15974@stusta.de>
+References: <m163zi9425.fsf@ebiederm.dsl.xmission.com> <47515D39.9030900@rtr.ca> <20071201111736.297dd99a@freepuppy.rosehill> <20071201163035.321fd554@freepuppy.rosehill> <475227B1.2060802@rtr.ca> <20071201202354.672aed18@freepuppy.rosehill> <47530778.7030605@candelatech.com> <47530FAC.1070804@trash.net> <20071202204356.GN15974@stusta.de> <47532AD2.8090704@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Stephen Hemminger" <shemminger@linux-foundation.org>,
-	"Mark Lord" <lkml@rtr.ca>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"Greg Kroah-Hartman" <gregkh@suse.de>, "Greg KH" <greg@kroah.com>,
-	"Tejun Heo" <htejun@gmail.com>,
-	"Linux Containers" <containers@lists.osdl.org>,
-	<netdev@vger.kernel.org>, <cornelia.huck@de.ibm.com>,
-	<stern@rowland.harvard.edu>, <kay.sievers@vrfy.org>,
-	<linux-kernel@vger.kernel.org>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"Herbert Xu" <herbert@gondor.apana.org.au>,
-	"David Miller" <davem@davemloft.net>,
-	"Linus Torvalds" <torvalds@linux-foundation.org>
-To: davids@webmaster.com
+Content-Type: text/plain; charset=utf-8
+Cc: Ben Greear <greearb@candelatech.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Mark Lord <lkml@rtr.ca>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, containers@lists.osdl.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:48992 "EHLO
-	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751130AbXLCAT6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 19:19:58 -0500
-In-Reply-To: <MDEHLPKNGKAHNMBLJOLKGEDMIJAC.davids@webmaster.com>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:36255 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750717AbXLCBOo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 20:14:44 -0500
+Content-Disposition: inline
+In-Reply-To: <47532AD2.8090704@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> You license yours under the GPL, so they should respect the GPL.
-> 
-> It sounds like we're back to where we were years ago. Didn't we already
-> agree that EXPORT_SYMBOL_GPL was *NOT* a GPL-enforcement mechanism and had
-> nothing to do with respecting the GPL? After all, if it s a GPL-enforcement
+On Sun, Dec 02, 2007 at 10:59:46PM +0100, Patrick McHardy wrote:
+> Adrian Bunk wrote:
+>> On Sun, Dec 02, 2007 at 09:03:56PM +0100, Patrick McHardy wrote:
+>...
+>> your statement has an interesting implication:
+>>
+>> Stuff like e.g. the EXPORT_SYMBOL(sk_alloc) predates the EXPORT_SYMBOL_GPL 
+>> stuff.
+>>
+>> Who is considered the author of this code?
+>>
+>> And when should he state whether he prefers to use EXPORT_SYMBOL_GPL but 
+>> wasn't able to use it at that when he wrote it since his code predates it 
+>> and is glad to be able to decide this now?
+>
+> He can state it when he feels like it, I don't see the point.
+> Authors generally get to decide whether they use EXPORT_SYMBOL
+> or EXPORT_SYMBOL_GPL unless in cases where its really clear-cut
+> that EXPORT_SYMBOL is inapproriate. But thats a different matter.
+>...
 
-No we seem to be back recycling the fact that certain people were making
-statements that might be construed, unanswered, as giving permission to
-violate the GPL.
+You miss my point.
 
-I'm merely reminding people that I've not waived my GPL rights, I've not
-said modules are somehow magically OK, and I don't agree with Linus. 
+Stuff like sk_alloc was exported to modules before EXPORT_SYMBOL_GPL 
+existed (it was even exported to modules before EXPORT_SYMBOL existed).
 
-The GPL very clearly says that you can make your own unredistributed
-modifications and keep them that way.
+We are talking about code and exports that are at about 12 years old, 
+which is at about twice as old as EXPORT_SYMBOL_GPL.
 
-Alan
+So what should happen in your opinion if e.g. Alan checks which of the 
+network code he had written when it was exported a dozen years ago, 
+stating that he never wanted it to be available to non-GPL modules?
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
