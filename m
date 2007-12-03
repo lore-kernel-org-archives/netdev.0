@@ -1,72 +1,50 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] sungem: fix napi regression with reset work
-Date: Mon, 03 Dec 2007 10:29:22 +0100
-Message-ID: <1196674162.6060.8.camel@johannes.berg>
-References: <1196107328.8459.8.camel@johannes.berg>
-	 <20071129105755.GF22537@gondor.apana.org.au>
-	 (sfid-20071129_110000_566221_80E03D19)
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-2.6.25 1/6][CORE] Remove unneeded ifdefs from sysctl_net_core.c
+Date: Mon, 03 Dec 2007 04:06:48 -0700
+Message-ID: <m1sl2k11h3.fsf@ebiederm.dsl.xmission.com>
+References: <47515A29.3070806@openvz.org>
+	<m1tzn13l72.fsf@ebiederm.dsl.xmission.com>
+	<4753C511.6090105@openvz.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-W86VBNMdrOcK5rN7LKkt"
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:58168 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754384AbXLCKgT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 05:36:19 -0500
-In-Reply-To: <20071129105755.GF22537@gondor.apana.org.au> (sfid-20071129_110000_566221_80E03D19)
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:40201 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751840AbXLCLIj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 06:08:39 -0500
+In-Reply-To: <4753C511.6090105@openvz.org> (Pavel Emelyanov's message of "Mon,
+	03 Dec 2007 11:57:53 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Pavel Emelyanov <xemul@openvz.org> writes:
 
---=-W86VBNMdrOcK5rN7LKkt
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> Eric W. Biederman wrote:
+>> Pavel Emelyanov <xemul@openvz.org> writes:
+>> 
+>>> They include the whole file, but it is already compiled
+>>> out when SYSCTL=n, since it is obj-$(CONFIG_SYSCTL) target
+>>> in the Makefile.
+>> 
+>> Pavel thanks for sending these patches.  Might I ask
+>> for some level of acknowledgement when you rework one of
+>> my patches and send it off.
+>
+> Sure. I though I've been doing exactly this thing. I've said
+> that unix ctls were from your tree and so on.
 
+Ok.  I guess I must have overlooked that attribution.
 
-On Thu, 2007-11-29 at 21:57 +1100, Herbert Xu wrote:
-> On Mon, Nov 26, 2007 at 09:02:08PM +0100, Johannes Berg wrote:
-> > sungem's gem_reset_task() will unconditionally try to disable NAPI even
-> > when it's called while the interface is not operating and hence the NAP=
-I
-> > struct isn't enabled. Make napi_disable() depend on gp->running.
-> >=20
-> > Also removes a superfluous test of gp->running in the same function.
-> >=20
-> > Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
->=20
-> Patch applied to net-2.6.  Thanks Johannes!
+>> I suppose this could be a case of duplicate thinking but
+>> this patch looks very familiar.
+>
+> Hm... Do you mean that this one is from your tree? Sorry then,
+> I didn't know this. I can resend it with From: <you> if you wish.
 
-Thanks. I just noticed that I made a mistake in the patch description,
-it should read "Make napi_disable() depend on gp->opened". I don't think
-it matters much but wanted to at least mention it.
+It is.  But I don't see any of this as needing a resend.  Please
+just don't forget me in the future is all I ask.
 
-johannes
-
---=-W86VBNMdrOcK5rN7LKkt
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUAR1PMcaVg1VMiehFYAQLl1Q//Q/pOCzA/FPM3c/zSAKQhJknRiv+dSLtl
-uRpZDDq+L5u845YzC4MVQ4OzbO458NDlbPCw/trY2bbds+mYQwTJibqqxPlUsEeA
-XPnxbX0A+BwztV33G1p3DxqLmbCa4B7heZrxzkRAjOEI+OQIqo8R5I0jIWv8hrkT
-dumYP86glMghM4pyjIn5mmSUiNHBRX03gK0ExsuM9XV8BJ5oNub9E4toD/4RU6o0
-Umtdg4WAyOsVH4v13brsTOosWESsHZzgwDONWeLLBhDbQJ8DPMghznE5Tv0Ee5l1
-FvnyAvk1AWdoMbLQ6YkRKpT6256py6vK9HbhdLF7YRz8hXllFq2sJEj3B3Nh6P7n
-QqcOwzYc/+zV7Q2J/y/ZSl4Ch7hOVsM5APlnZwjES2y1j3NOzA5XBKnmxG+wRbe9
-D11TdJFtJR9jgTxHZxfehix+WeLje/wdOw+4Wev/P+bWNFOYpLCVsxzbsYDo7kDr
-bMpYEIqKaeuEckFV44Yc5iKBkuiF9FaPQyh7eng95ivUxtM7CxNtaiEiUSI/bD3Y
-Ub1/r9bQ2Z71Y0MTeC23ntddh3QK6oYqVuQmTqiV++0vHVMMohKjxXu/mk8wr3Lj
-q9wGigUIeMhEOgfM0N8ilef2PDXCu+//hyDVPuo4hgJ93aISCXO+wqTQuzyTfm4r
-KdWmZWRaZLw=
-=Q3qh
------END PGP SIGNATURE-----
-
---=-W86VBNMdrOcK5rN7LKkt--
-
+Eric
