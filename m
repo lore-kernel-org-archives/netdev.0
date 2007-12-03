@@ -1,80 +1,47 @@
-From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 4/5] [IrDA] stir4200 fixes
-Date: Mon, 03 Dec 2007 10:28:35 +0100
-Message-ID: <20071203093053.767931752@sortiz.org>
+From: Samuel Ortiz <samuel@sortiz.org>
+Subject: [PATCH 2/5] [IrDA] mcs7780 needs to free allocated rx buffer
+Date: Mon, 03 Dec 2007 10:28:33 +0100
+Message-ID: <20071203093053.368759253@sortiz.org>
 References: <20071203092831.724254969@sortiz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline; filename=stir4200.patch
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Hinko Kocevar <hinko.kocevar@cetrtapot.si>
+To: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	irda-users@lists.sourceforge.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp19.orange.fr ([80.12.242.17]:34705 "EHLO smtp19.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751755AbXLCB3H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Dec 2007 20:29:07 -0500
+Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf1908.orange.fr (SMTP Server) with ESMTP id 631351C00094
+	for <netdev@vger.kernel.org>; Mon,  3 Dec 2007 02:29:04 +0100 (CET)
+Content-Disposition: inline; filename=mcs7780-free-rx_buff.diff
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The attached patch observes the stir4200 fifo size and will clear the fifo, if
-the size is increasing, while it should be transmitting bytes
+While testing the mcs7780 based IrDA USB dongle I've stumbled upon
+memory leak in mcs_net_close(). Patch below fixes it.
 
-From: Olaf Hartmann <olaf.hartmann-kAcfE3m5wwkaBlGTGt4zH4SGEyLTKazZ@public.gmane.org>
-Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Signed-off-by: Hinko Kocevar <hinko.kocevar@cetrtapot.si>
+Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
 
 ---
- drivers/net/irda/stir4200.c |   10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/irda/mcs7780.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-Index: net-2.6/drivers/net/irda/stir4200.c
+Index: net-2.6/drivers/net/irda/mcs7780.c
 ===================================================================
---- net-2.6.orig/drivers/net/irda/stir4200.c	2007-11-25 05:53:43.000000000 +0100
-+++ net-2.6/drivers/net/irda/stir4200.c	2007-11-26 02:16:12.000000000 +0100
-@@ -142,9 +142,6 @@
- };
+--- net-2.6.orig/drivers/net/irda/mcs7780.c	2007-11-25 05:53:43.000000000 +0100
++++ net-2.6/drivers/net/irda/mcs7780.c	2007-11-25 07:12:11.000000000 +0100
+@@ -677,6 +677,8 @@
+ 	/* Stop transmit processing */
+ 	netif_stop_queue(netdev);
  
- enum StirFifoCtlMask {
--	FIFOCTL_EOF = 0x80,
--	FIFOCTL_UNDER = 0x40,
--	FIFOCTL_OVER = 0x20,
- 	FIFOCTL_DIR = 0x10,
- 	FIFOCTL_CLR = 0x08,
- 	FIFOCTL_EMPTY = 0x04,
-@@ -594,9 +591,10 @@
- {
- 	int err;
- 	unsigned long count, status;
-+	unsigned long prev_count = 0x1fff;
- 
- 	/* Read FIFO status and count */
--	for(;;) {
-+	for (;; prev_count = count) {
- 		err = read_reg(stir, REG_FIFOCTL, stir->fifo_status, 
- 				   FIFO_REGS_SIZE);
- 		if (unlikely(err != FIFO_REGS_SIZE)) {
-@@ -629,6 +627,10 @@
- 		if (space >= 0 && STIR_FIFO_SIZE - 4 > space + count)
- 			return 0;
- 
-+		/* queue confused */
-+		if (prev_count < count)
-+			break;
++	kfree_skb(mcs->rx_buff.skb);
 +
- 		/* estimate transfer time for remaining chars */
- 		msleep((count * 8000) / stir->speed);
- 	}
+ 	/* kill and free the receive and transmit URBs */
+ 	usb_kill_urb(mcs->rx_urb);
+ 	usb_free_urb(mcs->rx_urb);
 
 -- 
 
-
--------------------------------------------------------------------------
-SF.Net email is sponsored by: The Future of Linux Business White Paper
-from Novell.  From the desktop to the data center, Linux is going
-mainstream.  Let it simplify your IT future.
-http://altfarm.mediaplex.com/ad/ck/8857-50307-18918-4
