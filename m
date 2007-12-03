@@ -1,36 +1,71 @@
-From: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
-Subject: kernel 2.6.23.8: KERNEL: assertion in net/ipv4/tcp_input.c
-Date: Mon, 3 Dec 2007 01:00:26 +0100
-Message-ID: <200712030100.26283.wolfgang.walter@studentenwerk.mhn.de>
+From: "David Schwartz" <davids@webmaster.com>
+Subject: RE: namespace support requires network modules to say "GPL"
+Date: Sun, 2 Dec 2007 16:02:17 -0800
+Message-ID: <MDEHLPKNGKAHNMBLJOLKGEDMIJAC.davids@webmaster.com>
+References: <20071201192341.6750fbdb@the-village.bc.nu>
+Reply-To: davids@webmaster.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: "Mark Lord" <lkml@rtr.ca>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"Greg Kroah-Hartman" <gregkh@suse.de>, "Greg KH" <greg@kroah.com>,
+	"Tejun Heo" <htejun@gmail.com>,
+	"Linux Containers" <containers@lists.osdl.org>,
+	<netdev@vger.kernel.org>, <cornelia.huck@de.ibm.com>,
+	<stern@rowland.harvard.edu>, <kay.sievers@vrfy.org>,
+	<linux-kernel@vger.kernel.org>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>,
+	"David Miller" <davem@davemloft.net>,
+	"Linus Torvalds" <torvalds@linux-foundation.org>
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>,
+	"Alan Cox" <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailin.studentenwerk.mhn.de ([141.84.225.229]:39413 "EHLO
-	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753994AbXLCAA2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 19:00:28 -0500
-Received: from eumel.h3.stusta.mhn.de (r081065.stusta.swh.mhn.de [10.150.81.65])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by email.studentenwerk.mhn.de (Postfix) with ESMTP id 1D70458003
-	for <netdev@vger.kernel.org>; Mon,  3 Dec 2007 01:00:27 +0100 (CET)
-Content-Disposition: inline
+Received: from mail1.webmaster.com ([216.152.64.169]:4856 "EHLO
+	mail1.webmaster.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751884AbXLCADS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 19:03:18 -0500
+In-Reply-To: <20071201192341.6750fbdb@the-village.bc.nu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
 
-with kernel 2.6.23.8 we saw a
+> > Then init_net needs to be not GPL limited. Sorry, we need to allow
+> > non GPL network drivers.  There is a fine line between keeping the
 
-KERNEL: assertion ((int)tcp_packets_in_flight(tp) >=3D 0) failed at=20
-net/ipv4/tcp_input.c (1292)
+> Why - they aren't exactly likely to be permissible by law
 
-Regards,
+Really? What law and/or what clause in the GPL says that derivative works
+have to be licensed under the GPL? Or does the kernel have some new
+technique to determine whether or not code has been distributed?
 
-Wolfgang Walter
---=20
-Wolfgang Walter
-Studentenwerk M=FCnchen
-Anstalt des =F6ffentlichen Rechts
+As I read the GPL, it only requires you to release something under the GPL
+if you distribute it. The kernel has no idea whether or not code has been
+distributed. So if it's enforcing the GPL, it cannot prohibit anything
+non-distributed code can lawfully do. (Ergo, it's *NOT* *ENFORCING* the
+GPL.)
+
+> > binary seething masses from accessing random kernel functions,
+> and allowing
+> > reasonable (but still non GPL) things like ndiswrapper to use network
+> > device interface.
+>
+> Its up to the ndiswrapper authors how the licence their code, but they
+> should respect how we licence ours.
+
+You license yours under the GPL, so they should respect the GPL.
+
+It sounds like we're back to where we were years ago. Didn't we already
+agree that EXPORT_SYMBOL_GPL was *NOT* a GPL-enforcement mechanism and had
+nothing to do with respecting the GPL? After all, if it s a GPL-enforcement
+mechanism, why is it not a "further restriction" which is prohibited by the
+GPL? (The GPL contains no restrictions on what code can use what symbols if
+that code is not distributed, but EXPORT_SYMBOL_GPL does.)
+
+Are you now claiming that EXPORT_SYMBOL_GPL is intended to enforce the GPL?
+
+DS
+
+
