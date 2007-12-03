@@ -1,48 +1,49 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: [PATCH]: fix lro_gen_skb() alignment
-Date: Sun, 02 Dec 2007 19:07:26 -0500
-Message-ID: <475348BE.3010203@myri.com>
-References: <E1Iy2ey-0005eY-00@gondolin.me.apana.org.au> <475057E4.3000909@myri.com> <ada3aunlf4s.fsf@cisco.com> <4750660F.7000704@myri.com> <20071130223457.GA25388@gondor.apana.org.au>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: namespace support requires network modules to say "GPL"
+Date: Mon, 3 Dec 2007 00:14:41 +0000
+Message-ID: <20071203001441.02cd6f2a@the-village.bc.nu>
+References: <20071201192341.6750fbdb@the-village.bc.nu>
+	<MDEHLPKNGKAHNMBLJOLKGEDMIJAC.davids@webmaster.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <rdreier@cisco.com>, davem@davemloft.net,
-	ossthema@de.ibm.com, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: "Stephen Hemminger" <shemminger@linux-foundation.org>,
+	"Mark Lord" <lkml@rtr.ca>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"Greg Kroah-Hartman" <gregkh@suse.de>, "Greg KH" <greg@kroah.com>,
+	"Tejun Heo" <htejun@gmail.com>,
+	"Linux Containers" <containers@lists.osdl.org>,
+	<netdev@vger.kernel.org>, <cornelia.huck@de.ibm.com>,
+	<stern@rowland.harvard.edu>, <kay.sievers@vrfy.org>,
+	<linux-kernel@vger.kernel.org>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>,
+	"David Miller" <davem@davemloft.net>,
+	"Linus Torvalds" <torvalds@linux-foundation.org>
+To: davids@webmaster.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1902 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750718AbXLCAIP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Dec 2007 19:08:15 -0500
-In-Reply-To: <20071130223457.GA25388@gondor.apana.org.au>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:48992 "EHLO
+	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751130AbXLCAT6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2007 19:19:58 -0500
+In-Reply-To: <MDEHLPKNGKAHNMBLJOLKGEDMIJAC.davids@webmaster.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Fri, Nov 30, 2007 at 02:35:43PM -0500, Andrew Gallatin wrote:
->>> Isn't the value of 2 ethernet-specific (to round the 14-byte header up
->>> to 16)?  Given that the rest of the lro code is fairly careful to
->>> calculate mac_hdr_len etc it seems as if it would be cleaner to make
->>> this independent of the specific L2 being used.
->>>
->>> (And I plan on using the LRO module for IP-over-InfiniBand so this is
->>> not completely theoretical)
+> You license yours under the GPL, so they should respect the GPL.
 > 
-> Good point!
-> 
-> We really should rename NET_IP_ALIGN so that both Ethernet and DMA
-> occur in it somehow :)
-> 
->> Good point.  I tend to think all the world is ethernet.
->> Perhaps the better way would be to simply add an alignment pad
->> field to lro_mgr?  When the driver initializes it, it specifies
->> any padding needed.  Ethernet drivers would specify 2.
-> 
-> Just pass in the mac_hdr_len, and calculate the padding as
+> It sounds like we're back to where we were years ago. Didn't we already
+> agree that EXPORT_SYMBOL_GPL was *NOT* a GPL-enforcement mechanism and had
+> nothing to do with respecting the GPL? After all, if it s a GPL-enforcement
 
-That was my first thought as well, but it turns out that
-when lro_gen_skb() is called via the out1 label, mac_hdr_len
-may not be known.  It seemed simplest and cleanest to just
-make it a field in lro_mgr.
+No we seem to be back recycling the fact that certain people were making
+statements that might be construed, unanswered, as giving permission to
+violate the GPL.
 
-Drew
+I'm merely reminding people that I've not waived my GPL rights, I've not
+said modules are somehow magically OK, and I don't agree with Linus. 
+
+The GPL very clearly says that you can make your own unredistributed
+modifications and keep them that way.
+
+Alan
