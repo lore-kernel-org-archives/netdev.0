@@ -1,70 +1,125 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [RFC][PATCHES 0/7]: Reorganization of RX history patches
-Date: Mon, 3 Dec 2007 15:44:05 +0000
-Message-ID: <20071203154405.GA2914@gerrit.erg.abdn.ac.uk>
-References: <1196631416-17778-1-git-send-email-acme@redhat.com> <20071203083512.GA5484@gerrit.erg.abdn.ac.uk> <20071203124412.GC15034@ghostprotocols.net> <20071203134947.GD18547@gerrit.erg.abdn.ac.uk> <20071203145443.GE15034@ghostprotocols.net>
+From: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
+Subject: Re: kernel 2.6.23.8: KERNEL: assertion in net/ipv4/tcp_input.c
+Date: Mon, 3 Dec 2007 16:56:53 +0100
+Message-ID: <200712031656.53142.wolfgang.walter@studentenwerk.mhn.de>
+References: <200712030100.26283.wolfgang.walter@studentenwerk.mhn.de> <Pine.LNX.4.64.0712030840540.26423@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Arnaldo Carvalho de Melo <acme@redhat.com>, netdev@vger.kernel.org,
-	dccp@vger.kernel.org, Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>
+To: "Ilpo =?iso-8859-1?q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:41689 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750776AbXLCPpR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Dec 2007 10:45:17 -0500
+Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:35798 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751145AbXLCP4z convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Dec 2007 10:56:55 -0500
+In-Reply-To: <Pine.LNX.4.64.0712030840540.26423@kivilampi-30.cs.helsinki.fi>
 Content-Disposition: inline
-In-Reply-To: <20071203145443.GE15034@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > | > 	static inline void ccid3_hc_rx_update_s(struct ccid3_hc_rx_sock *hcrx, int len)
-| > | > 	{
-| > | > 		if (likely(len > 0))	/* don't update on empty packets (e.g. ACKs) */
-| > | > 			hcrx->ccid3hcrx_s = tfrc_ewma(hcrx->ccid3hcrx_s, len, 9);
-| > | > 	}
-| > | 
-| > | 	And we also just do test for len > 0 in update_s, that looks like
-| > | also excessive, no?
-| > Hm, I think we need to make it robust against API bugs and/or zero-sized
-| > data packets. The check `len > 0' may seem redundant but it catches such
-| > a condition. For a moving average an accidental zero value will have
-| > quite an impact on the overall value. In CCID3 it is
-| > 
-| >   	x_new = 0.9 * x_old + 0.1 * len
-| > 
-| > So if len is accidentally 0 where it should not be, then each time the
-| > moving average is reduced to 90%.
-| 
-| So we must make it a BUG_ON, not something that is to be always present.
-|  
-I think it should be a warning condition since it can be triggered when
-the remote party sends zero-sized packets. It may be good to log this
-into the syslog to warn about possibly misbehaving apps/peers/remote
-stacks.
+Am Montag, 3. Dezember 2007 14:34 schrieb Ilpo J=E4rvinen:
+> On Mon, 3 Dec 2007, Wolfgang Walter wrote:
+> > with kernel 2.6.23.8 we saw a
+> >
+> > KERNEL: assertion ((int)tcp_packets_in_flight(tp) >=3D 0) failed at
+> > net/ipv4/tcp_input.c (1292)
+>
+> Is this the only message? Are there any Leak printouts?
 
+No.
 
-| > As a comparison - the entire patch set took about a full month to do.
-| > But that meant I am reasonably sure the algorithm is sound and can cope
-| > with problematic conditions.
-| 
-| And from what I saw so far that is my impression too, if you look at
-| what I'm doing it is:
-| 
-| 1. go thru the whole patch trying to understand hunk by hunk
-You are doing a great job - in particular as it really is a lot of material.
+4 days earlier there were 3 messages: TCP: Treason uncloaked! Peer=20
+a.b.c.d:80/56532 shrinks window 3535507131:3535513869. Repaired.
 
-| 2. do consistency changes (add namespace prefixes)
-| 3. reorganize the code to look more like what is already there, we
-|    both have different backgrounds and tastes about how code should
-|    be written, so its only normal that if we want to keep the code
-|    consistent, and I want that, I jump into things I think should be
-|    "reworded", while trying to keep the algorithm expressed by you.
-|
-Agree, that is not always easy to get right. I try to stick as close as
-possible to existing conventions but of course that is my
-interpretation, so I am already anticipating such changes/comments here.
+> Any tweaking done to TCP related sysctls?
+> And for completeness, is GSO enabled (ethtool -k)?
 
-| think about further automatization on regression testing.
-| 
-If it is of any use, some scripts and setups are at the bottom of the page at
-http://www.erg.abdn.ac.uk/users/gerrit/dccp/testing_dccp/
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: off
+udp fragmentation offload: off
+generic segmentation offload: off
+
+>
+> Most likely I broke the manual synchronization for left_out in sackta=
+g by
+> skipping over it when packets_out =3D=3D 0 but so far I haven't been =
+able to
+> figure out how such state could develop in the first place... Ie., I
+> couldn't find a case where tcp_fastretrans_alert wouldn't be called i=
+f
+> left_out was non-zero (and it did the sync_left_out after modifying
+> either sacked_out or lost_out, IIRC).
+>
+> ...If you can reproduce it, you could try if this patch below changes
+
+I don't know how to reproduce it - we never saw the message before. I'l=
+l aply=20
+the patch. Let see if the WARN_ON triggers before we update to a newer=20
+kernel :-).
+
+> anything (should silence the assert and trigger earlier a WARN_ON or
+> two :-)). ...If this triggers, then I'm sure we can pollute TCP code
+> by a larger number of more costly checks to catch it in early.
+>
+> This might reveal a long-standing inconsistency of left_out in some
+> case I just couldn't come up with by code review. Left_out will be
+> (is) anyway dropped as unnecessary in 2.6.24. In 2.6.23 sync for
+> left_out occurs quite soon after that BUG_TRAP anyway so the effect
+> won't be too dramatic, prior_in_flight would be once stale, won't
+> lead to big problems (either missed cnwd or cwnd_cnt increment, or
+> failure to do application limited check at that particular ACK).
+>
+> Thanks anyway for the report. ...If I figure something out here, I'll
+> let you know.
+>
+> --
+>
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index c9298a7..0c5194d 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -1012,8 +1012,12 @@ tcp_sacktag_write_queue(struct sock *sk, struc=
+t
+> sk_buff *ack_skb, u32 prior_snd_ if (before(TCP_SKB_CB(ack_skb)->ack_=
+seq,
+> prior_snd_una - tp->max_window)) return 0;
+>
+> -	if (!tp->packets_out)
+> +	if (!tp->packets_out) {
+> +		WARN_ON(tp->sacked_out);
+> +		WARN_ON(tp->lost_out);
+> +		WARN_ON(tp->left_out);
+>  		goto out;
+> +	}
+>
+>  	/* SACK fastpath:
+>  	 * if the only SACK change is the increase of the end_seq of
+> @@ -1277,14 +1281,14 @@ tcp_sacktag_write_queue(struct sock *sk, stru=
+ct
+> sk_buff *ack_skb, u32 prior_snd_ }
+>  	}
+>
+> +out:
+> +
+>  	tp->left_out =3D tp->sacked_out + tp->lost_out;
+>
+>  	if ((reord < tp->fackets_out) && icsk->icsk_ca_state !=3D TCP_CA_Lo=
+ss &&
+>  	    (!tp->frto_highmark || after(tp->snd_una, tp->frto_highmark)))
+>  		tcp_update_reordering(sk, ((tp->fackets_out + 1) - reord), 0);
+>
+> -out:
+> -
+>  #if FASTRETRANS_DEBUG > 0
+>  	BUG_TRAP((int)tp->sacked_out >=3D 0);
+>  	BUG_TRAP((int)tp->lost_out >=3D 0);
+
+Thanks and regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
