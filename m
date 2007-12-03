@@ -1,49 +1,76 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH net-2.6.25] Add packet filtering based on process's securitycontext.
-Date: Mon, 3 Dec 2007 22:17:00 +0900
-Message-ID: <200712032217.IDF40534.FFOJQMHtVOOSFL@I-love.SAKURA.ne.jp>
-References: <200711212130.EJJ43745.LFOFHOSMJOtFVQ@I-love.SAKURA.ne.jp>
-	<200711222235.GCA05378.HtMOJQVFSFOLFO@I-love.SAKURA.ne.jp>
-	<Xine.LNX.4.64.0711231005270.4252@us.intercode.com.au>
-	<4753B743.2090501@trash.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 3/3] [UDP6]: Counter increment on BH mode
+Date: Tue, 4 Dec 2007 00:17:23 +1100
+Message-ID: <20071203131723.GA30312@gondor.apana.org.au>
+References: <474F7EE8.2040009@cn.fujitsu.com> <474F8255.5060501@cn.fujitsu.com> <20071130111949.GB28277@gerrit.erg.abdn.ac.uk> <20071201015438.GC26895@gondor.apana.org.au> <4753AE07.1040906@cn.fujitsu.com> <20071203113935.GA25124@gondor.apana.org.au> <20071203114912.GA4425@ms2.inr.ac.ru> <20071203115435.GA4202@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	davem@davemloft.net, linux-security-module@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, sds@tycho.nsa.gov
-To: kaber@trash.net, jmorris@namei.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <4753B743.2090501@trash.net>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Wang Chen <wangchen@cn.fujitsu.com>,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>, davem@davemloft.net,
+	andi@firstfloor.org, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Christoph Lameter <clameter@sgi.com>,
+	Ingo Molnar <mingo@elte.hu>
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:2099 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752375AbXLCNSM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 08:18:12 -0500
+Content-Disposition: inline
+In-Reply-To: <20071203115435.GA4202@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Mon, Dec 03, 2007 at 10:54:35PM +1100, Herbert Xu wrote:
+>
+> Hmm, wasn't someone else talking about a non-atomic version of atomic
+> ops lately (i.e., atomic with respect to the local CPU only)? Perhaps
+> this is the killer app for it :)
 
-Patrick McHardy wrote:
-> No news on that. I'm also a bit sceptical if adding all this complexity
-> and overhead would really be worth it (considering only netfilter) just
-> to use the owner match and UID/GID matching. It wouldn't even be
-> accurate because there is not 1:1 mapping of sockets and processes.
-Considering only LSM, socket_post_accept()/socket_post_recv_datagram() hooks are
-not complicated at all.
-A socket may be mapped to multiple processes, but at the moment of picking up
-(i.e. accept()/recvmsg()), I think it is accurate 1:1 mapping.
-I'm more interested in "Who picks this connection/datagram up?" than
-"Which socket enqueues this connection/datagram?"
-It may be indifferent for netfilter, but it is region of interest for me.
+Never mind, we already have that in local_t and as Alexey correctly
+points out, USER is still going to be the expensive variant with the
+preempt_disable (well until BH gets threaded).  So how about this patch?
 
-> I actually like Samir Bellabes' approach, which doesn't suffer from
-> these problems IIRC.
-Oh, I found him at http://nfws.inl.fr/en/?p=50 . (Sorry, I didn't know.)
-He is the person who was discussing with me a few days ago.
-
-> >>From memory, one approach under discussion was to add netfilter hooks to 
-> > the transport layer, which could be invoked correctly by each type of 
-> > protocol when the target process is selected.
-> 
-> We can only invoke the hooks after the socket lookup, but we don't
-> know which process is going to call recvmsg() for that socket.
-
-Right. Thus, I'm proposing LSM hooks at accept()/recvmsg() time.
-
-Regards.
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/include/net/snmp.h b/include/net/snmp.h
+index ea206bf..9444b54 100644
+--- a/include/net/snmp.h
++++ b/include/net/snmp.h
+@@ -23,6 +23,7 @@
+ 
+ #include <linux/cache.h>
+ #include <linux/snmp.h>
++#include <linux/smp.h>
+ 
+ /*
+  * Mibs are stored in array of unsigned long.
+@@ -137,7 +138,10 @@ struct linux_mib {
+ #define SNMP_INC_STATS_OFFSET_BH(mib, field, offset)	\
+ 	(per_cpu_ptr(mib[0], raw_smp_processor_id())->mibs[field + (offset)]++)
+ #define SNMP_INC_STATS_USER(mib, field) \
+-	(per_cpu_ptr(mib[1], raw_smp_processor_id())->mibs[field]++)
++	do { \
++		per_cpu_ptr(mib[1], get_cpu())->mibs[field]++; \
++		put_cpu(); \
++	} while (0)
+ #define SNMP_INC_STATS(mib, field) 	\
+ 	(per_cpu_ptr(mib[!in_softirq()], raw_smp_processor_id())->mibs[field]++)
+ #define SNMP_DEC_STATS(mib, field) 	\
+@@ -145,6 +149,9 @@ struct linux_mib {
+ #define SNMP_ADD_STATS_BH(mib, field, addend) 	\
+ 	(per_cpu_ptr(mib[0], raw_smp_processor_id())->mibs[field] += addend)
+ #define SNMP_ADD_STATS_USER(mib, field, addend) 	\
+-	(per_cpu_ptr(mib[1], raw_smp_processor_id())->mibs[field] += addend)
++	do { \
++		per_cpu_ptr(mib[1], get_cpu())->mibs[field] += addend; \
++		put_cpu(); \
++	} while (0)
+ 
+ #endif
