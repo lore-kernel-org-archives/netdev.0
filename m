@@ -1,78 +1,42 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH 3/3] [UDP6]: Counter increment on BH mode
-Date: Mon, 03 Dec 2007 15:19:35 +0800
-Message-ID: <4753AE07.1040906@cn.fujitsu.com>
-References: <474F7EE8.2040009@cn.fujitsu.com> <474F8255.5060501@cn.fujitsu.com> <20071130111949.GB28277@gerrit.erg.abdn.ac.uk> <20071201015438.GC26895@gondor.apana.org.au>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 0/2] netem: trace enhancement
+Date: Mon, 03 Dec 2007 08:45:39 +0100
+Message-ID: <4753B423.7030000@trash.net>
+References: <20071120231131.oqn4s5eda84k4csw@email.ee.ethz.ch>	<474C2246.50205@ee.ethz.ch> <20071129134554.5c25a891@freepuppy.rosehill> <474F3719.30101@trash.net> <47503971.9080509@ee.ethz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>, davem@davemloft.net,
-	andi@firstfloor.org, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	Rainer Baumann <baumann@tik.ee.ethz.ch>
+To: Ariane Keller <ariane.keller@tik.ee.ethz.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [222.73.24.84] ([222.73.24.84]:63850 "EHLO song.cn.fujitsu.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751008AbXLCHWe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Dec 2007 02:22:34 -0500
-In-Reply-To: <20071201015438.GC26895@gondor.apana.org.au>
+Received: from stinky.trash.net ([213.144.137.162]:57286 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752829AbXLCHpx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 02:45:53 -0500
+In-Reply-To: <47503971.9080509@ee.ethz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu said the following on 2007-12-1 9:54:
-> On Fri, Nov 30, 2007 at 11:19:49AM +0000, Gerrit Renker wrote:
->> |  csum_copy_err:
->> | -	UDP6_INC_STATS_USER(UDP_MIB_INERRORS, is_udplite);
->> | +	UDP6_INC_STATS_BH(UDP_MIB_INERRORS, is_udplite);
->> |  	skb_kill_datagram(sk, skb, flags);
->> |  
->> |  	if (flags & MSG_DONTWAIT)
->> | 
->> Is it not the other way round ?? :- 
+Ariane Keller wrote:
+> Thanks for your comments!
 > 
-> I agree.  Wang Chen, please change this and other appropriate
-> BH calls to USER.  Basically recvmsg should always be USER while
-> rcv is BH.
-> 
+> I'd like to better understand your dislike of the current implementation 
+>  of the data transfer from user space to kernel space.
+> Is it the fact that we use configfs?
+> I think, we had already a discussion about this (and we changed from 
+> procfs to configfs).
+> Or don't you like that we need a user space daemon which is responsible 
+> for feeding the data to the kernel module?
+> I think we do not have another option, since the trace file may be of 
+> arbitrary length.
+> Or anything else?
 
-Resubmit the patch.
 
-System calls should be USER. So change the BH to USER for
-UDP*_INC_STATS_BH().
-
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
- ipv4/udp.c |    4 ++--
- ipv6/udp.c |    2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
---- linux-2.6.24.rc3.org/net/ipv4/udp.c	2007-12-03 15:10:49.000000000 +0800
-+++ linux-2.6.24.rc3/net/ipv4/udp.c	2007-12-03 14:52:54.000000000 +0800
-@@ -874,7 +874,7 @@ try_again:
- 	if (err)
- 		goto out_free;
- 
--	UDP_INC_STATS_BH(UDP_MIB_INDATAGRAMS, is_udplite);
-+	UDP_INC_STATS_USER(UDP_MIB_INDATAGRAMS, is_udplite);
- 
- 	sock_recv_timestamp(msg, sk, skb);
- 
-@@ -899,7 +899,7 @@ out:
- 	return err;
- 
- csum_copy_err:
--	UDP_INC_STATS_BH(UDP_MIB_INERRORS, is_udplite);
-+	UDP_INC_STATS_USER(UDP_MIB_INERRORS, is_udplite);
- 
- 	skb_kill_datagram(sk, skb, flags);
- 
---- linux-2.6.24.rc3.org/net/ipv6/udp.c	2007-12-03 15:10:49.000000000 +0800
-+++ linux-2.6.24.rc3/net/ipv6/udp.c	2007-12-03 15:09:55.000000000 +0800
-@@ -164,7 +164,7 @@ try_again:
- 	if (err)
- 		goto out_free;
- 
--	UDP6_INC_STATS_BH(UDP_MIB_INDATAGRAMS, is_udplite);
-+	UDP6_INC_STATS_USER(UDP_MIB_INDATAGRAMS, is_udplite);
- 
- 	sock_recv_timestamp(msg, sk, skb);
+I dislike using anything besides rtnetlink for qdisc configuration.
+The only way to transfer arbitary amounts of data over netlink would
+be to spread the data over multiple messages. But then again, you're
+using kmalloc and only seem to allocate 4k, so how large are these
+traces in practice?
 
