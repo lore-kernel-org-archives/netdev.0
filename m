@@ -1,32 +1,29 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: [PASEMI_MAC] Don't claim to do IPv6 checksum offload
-Date: Sun, 2 Dec 2007 22:54:36 -0600
-Message-ID: <20071203045436.GA24492@lixom.net>
-References: <1196656472.13978.130.camel@pmac.infradead.org>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [1/4] dst: Distributed storage documentation.
+Date: Sun, 2 Dec 2007 22:50:59 -0600
+Message-ID: <20071203045059.GM17536@waste.org>
+References: <11963408033624@2ka.mipt.ru> <11963408034050@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:49230 "EHLO mail.lixom.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751204AbXLCEus (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Dec 2007 23:50:48 -0500
+Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1196656472.13978.130.camel@pmac.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <11963408034050@2ka.mipt.ru>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 03, 2007 at 04:34:32AM +0000, David Woodhouse wrote:
-> Signed-off-by: David Woodhouse <dwmw2@infradead.org>
-Acked-by: Olof Johansson <olof@lixom.net>
+On Thu, Nov 29, 2007 at 03:53:23PM +0300, Evgeniy Polyakov wrote:
+> 
+> Distributed storage documentation.
+> 
+> Algorithms used in the system, userspace interfaces
+> (sysfs dirs and files), design and implementation details
+> are described here.
 
-Jeff,
+Can you give us a summary of how this differs from using device mapper
+with NBD?
 
-I'd like to see this in 2.6.24, please.
-
-
-Thanks,
-
--Olof
-
+-- 
+Mathematics is the supreme nostalgia of our time.
