@@ -1,56 +1,129 @@
-From: Laszlo Attila Toth <panther@balabit.hu>
-Subject: Re: [PATCHv7 1/5] Remove unnecessary locks from rtnetlink (in do_setlink)
-Date: Mon, 03 Dec 2007 12:59:31 +0100
-Message-ID: <4753EFA3.9020309@balabit.hu>
-References: <11963527094077-git-send-email-panther@balabit.hu> <11963527103201-git-send-email-panther@balabit.hu> <47508AF0.7070204@o2.pl>
-Reply-To: panther@balabit.hu
+From: "Denis V. Lunev" <den@sw.ru>
+Subject: Re: [PATCH 2.6.25] net: removes unnecessary dependencies for net_namespace.h
+Date: Mon, 03 Dec 2007 15:09:40 +0300
+Message-ID: <4753F204.2010900@sw.ru>
+References: <20071203091200.GA20442@iris.sw.ru> <m1odd80z72.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: multipart/mixed;
+ boundary="------------010409060009020000090507"
+Cc: "Denis V. Lunev" <den@openvz.org>, herbert@gondor.apana.org.au,
+	devel@openvz.org, netdev@vger.kernel.org, davem@davemloft.net,
+	xemul@openvz.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.balabit.hu ([212.92.18.33]:44021 "EHLO lists.balabit.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754496AbXLCL7f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Dec 2007 06:59:35 -0500
-Received: from balabit.hu (unknown [10.80.0.254])
-	by lists.balabit.hu (Postfix) with ESMTP id AF4F3C137F
-	for <netdev@vger.kernel.org>; Mon,  3 Dec 2007 12:59:33 +0100 (CET)
-In-Reply-To: <47508AF0.7070204@o2.pl>
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:58307 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751384AbXLCMIu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Dec 2007 07:08:50 -0500
+In-Reply-To: <m1odd80z72.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski =EDrta:
-> Laszlo Attila Toth wrote, On 11/29/2007 05:11 PM:
->=20
->> The do_setlink function is protected by rtnl, additional locks are u=
-nnecessary,
->> and the set_operstate() function is called from protected parts. Loc=
-ks removed
->> from both functions.
->=20
-> It doesn't look like in accordance with a comment to dev_base_lock in=
- dev.c.
-> And it makes eg. rfc2863_policy() locking from link_watch.c looking s=
-trange.
-> Isn't there needed some additional comment to this?
+This is a multi-part message in MIME format.
+--------------010409060009020000090507
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-I modified do_setlink(), but set_operstate() is also called from
-rtnl_create_link() and from no other places.  In rtnl_create_link() non=
-e=20
-of the changes is protected by set_lock_bh() except inside=20
-set_operstate(), different locking scheme is not necessary for the=20
-operstate.
+you right, how about this?
 
-Also two solution can be made, one is locking everything and one is=20
-locking nothing (to unify the changes made by these parts). The second=20
-one is better if it is protected.
+Eric W. Biederman wrote:
+> "Denis V. Lunev" <den@openvz.org> writes:
+> 
+>> This patch removes some unneeded includes for net_namespace.h to speed up
+>> compilation.
+>>
+>> Signed-off-by: Denis V. Lunev <den@openvz.org>
+>>
+>> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+>> index f285de6..28b7f25 100644
+>> --- a/include/net/pkt_cls.h
+>> +++ b/include/net/pkt_cls.h
+>> @@ -2,7 +2,6 @@
+>>  #define __NET_PKT_CLS_H
+>>  
+>>  #include <linux/pkt_cls.h>
+>> -#include <net/net_namespace.h>
+>>  #include <net/sch_generic.h>
+>>  #include <net/act_api.h>
+> 
+> What of tcf_match_indev?  I guess linux/netdevice.h brings
+> it in for us but still.
+> 
+>> diff --git a/include/net/sock.h b/include/net/sock.h
+>> index 43e3cd9..a04e361 100644
+>> --- a/include/net/sock.h
+>> +++ b/include/net/sock.h
+>> @@ -57,7 +57,6 @@
+>>  #include <asm/atomic.h>
+>>  #include <net/dst.h>
+>>  #include <net/checksum.h>
+>> -#include <net/net_namespace.h>
+>>  
+>>  /*
+>>   * This structure really needs to be cleaned up.
+>> @@ -95,6 +94,7 @@ typedef struct {
+>>  
+>>  struct sock;
+>>  struct proto;
+>> +struct net;
+>>  
+>>  /**
+>>   *	struct sock_common - minimal network layer representation of sockets
+> 
+> This hunk definitely looks sane.
+> 
+> Eric
+> 
+> 
 
-I tried to figure out how it is protected but I couldn't. But Patrick=20
-said it is protected by rtnl. And he suggested this patch.
 
+--------------010409060009020000090507
+Content-Type: text/plain;
+ name="1.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="1.diff"
 
-Attila
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index f285de6..2eaf204 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -2,7 +2,6 @@
+ #define __NET_PKT_CLS_H
+ 
+ #include <linux/pkt_cls.h>
+-#include <net/net_namespace.h>
+ #include <net/sch_generic.h>
+ #include <net/act_api.h>
+ 
+@@ -336,6 +335,8 @@ static inline int tcf_valid_offset(const struct sk_buff *skb,
+ }
+ 
+ #ifdef CONFIG_NET_CLS_IND
++#include <net/net_namespace.h>
++
+ static inline int
+ tcf_change_indev(struct tcf_proto *tp, char *indev, struct rtattr *indev_tlv)
+ {
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 43e3cd9..a04e361 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -57,7 +57,6 @@
+ #include <asm/atomic.h>
+ #include <net/dst.h>
+ #include <net/checksum.h>
+-#include <net/net_namespace.h>
+ 
+ /*
+  * This structure really needs to be cleaned up.
+@@ -95,6 +94,7 @@ typedef struct {
+ 
+ struct sock;
+ struct proto;
++struct net;
+ 
+ /**
+  *	struct sock_common - minimal network layer representation of sockets
+
+--------------010409060009020000090507--
