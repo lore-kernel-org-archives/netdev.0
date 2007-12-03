@@ -1,59 +1,38 @@
-From: Ariane Keller <ariane.keller@tik.ee.ethz.ch>
-Subject: Re: [PATCH 0/2] netem: trace enhancement
-Date: Mon, 03 Dec 2007 10:12:20 +0100
-Message-ID: <4753C874.80703@ee.ethz.ch>
-References: <20071120231131.oqn4s5eda84k4csw@email.ee.ethz.ch>	<474C2246.50205@ee.ethz.ch> <20071129134554.5c25a891@freepuppy.rosehill> <474F3719.30101@trash.net> <47503971.9080509@ee.ethz.ch> <4753B423.7030000@trash.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 0/2] [IPSEC]: Reinject packet instead of calling netfilter directly on input
+Date: Mon, 3 Dec 2007 20:21:44 +1100
+Message-ID: <20071203092144.GB22869@gondor.apana.org.au>
+References: <1196369374.4437.18.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ariane Keller <ariane.keller@tik.ee.ethz.ch>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	Rainer Baumann <baumann@tik.ee.ethz.ch>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ee.ethz.ch ([129.132.2.219]:45922 "EHLO smtp.ee.ethz.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751681AbXLCJMX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Dec 2007 04:12:23 -0500
-In-Reply-To: <4753B423.7030000@trash.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:3528 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751464AbXLCJV5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 04:21:57 -0500
+Content-Disposition: inline
+In-Reply-To: <1196369374.4437.18.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-Patrick McHardy wrote:
-> Ariane Keller wrote:
->> Thanks for your comments!
->>
->> I'd like to better understand your dislike of the current 
->> implementation  of the data transfer from user space to kernel space.
->> Is it the fact that we use configfs?
->> I think, we had already a discussion about this (and we changed from 
->> procfs to configfs).
->> Or don't you like that we need a user space daemon which is 
->> responsible for feeding the data to the kernel module?
->> I think we do not have another option, since the trace file may be of 
->> arbitrary length.
->> Or anything else?
+On Thu, Nov 29, 2007 at 03:49:34PM -0500, jamal wrote:
+> Herbert,
 > 
-> 
-> I dislike using anything besides rtnetlink for qdisc configuration.
-> The only way to transfer arbitary amounts of data over netlink would
-> be to spread the data over multiple messages. But then again, you're
-> using kmalloc and only seem to allocate 4k, so how large are these
-> traces in practice?
+> This is a simplified version of one of your earlier patches that never
+> made it in. I liked it so much that i reduced it to this and infact
+> given the cycles today, tested it (with transport and tunnel mode
+> only;->).
 
-For each packet to be processed there is 32bit of data, which encodes 
-delay and drop, duplicate etc. The size of the actual trace file can 
-therefore reach any length, depending on for how many packets the 
-information is encoded (up to several GB).
-Therefore we send the trace file in chunks of 4000bytes to the kernel. 
-In order to have always a "packet-delay-value ready", we maintain two 
-"delay queues" in the kernel (each of 4k). In a first step, both queues 
-are filled, and the values are read from the first queue, if this queue 
-is finished, we read values from the second queue and fill the first 
-queue with new values from the trace file etc. Therefore we have a user 
-space process running, which reads the values from the trace file, and 
-sends them to the kernel.
+Sorry for the late response Jamal.  I've been too busy to give
+this issue proper thought.  It's still in my mailbox so I will
+respond to it once things quiten down a little.
 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
