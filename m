@@ -1,32 +1,67 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-2.6.25] TCP: Fix copy-paste (or code move) error
-Date: Mon, 3 Dec 2007 22:17:14 +1100
-Message-ID: <20071203111714.GA30111@gondor.apana.org.au>
-References: <Pine.LNX.4.64.0712021841050.11818@kivilampi-30.cs.helsinki.fi>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-2.6.25 1/2][IPV6] Make the ipv6/sysctl_net_ipv6.c compilation
+ cleaner
+Date: Mon, 03 Dec 2007 14:24:24 +0300
+Message-ID: <4753E768.9030301@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4560 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753802AbXLCLRV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 06:17:21 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0712021841050.11818@kivilampi-30.cs.helsinki.fi>
+Received: from sacred.ru ([62.205.161.221]:36284 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751902AbXLCLYi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Dec 2007 06:24:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 02, 2007 at 06:45:44PM +0200, Ilpo J=E4rvinen wrote:
-> Should get the skb from the same queue. I had it first elsewhere
-> and missed this change while moving.
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+Since this file is enclosed with the #ifdef CONFIG_SYSCTL/#endif
+pair, it's OK to move this CONFIG_ into a Makefile.
 
-Applied to net-2.6.25.  Thanks Ilpo!
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+
+diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
+index 5ffa980..24f3aa0 100644
+--- a/net/ipv6/Makefile
++++ b/net/ipv6/Makefile
+@@ -8,9 +8,9 @@ ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o \
+ 		addrlabel.o \
+ 		route.o ip6_fib.o ipv6_sockglue.o ndisc.o udp.o udplite.o \
+ 		raw.o protocol.o icmp.o mcast.o reassembly.o tcp_ipv6.o \
+-		exthdrs.o sysctl_net_ipv6.o datagram.o \
+-		ip6_flowlabel.o inet6_connection_sock.o
++		exthdrs.o datagram.o ip6_flowlabel.o inet6_connection_sock.o
+ 
++ipv6-$(CONFIG_SYSCTL) = sysctl_net_ipv6.o
+ ipv6-$(CONFIG_XFRM) += xfrm6_policy.o xfrm6_state.o xfrm6_input.o \
+ 	xfrm6_output.o
+ ipv6-$(CONFIG_NETFILTER) += netfilter.o
+diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
+index 68bb254..227efa7 100644
+--- a/net/ipv6/sysctl_net_ipv6.c
++++ b/net/ipv6/sysctl_net_ipv6.c
+@@ -14,8 +14,6 @@
+ #include <net/addrconf.h>
+ #include <net/inet_frag.h>
+ 
+-#ifdef CONFIG_SYSCTL
+-
+ static ctl_table ipv6_table[] = {
+ 	{
+ 		.ctl_name	= NET_IPV6_ROUTE,
+@@ -115,8 +113,3 @@ void ipv6_sysctl_unregister(void)
+ {
+ 	unregister_sysctl_table(ipv6_sysctl_header);
+ }
+-
+-#endif /* CONFIG_SYSCTL */
+-
+-
+-
+-- 
+1.5.3.4
+
