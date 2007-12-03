@@ -1,70 +1,97 @@
-From: "Denis V. Lunev" <den@sw.ru>
-Subject: Re: namespace support requires network modules to say "GPL"
-Date: Mon, 03 Dec 2007 11:33:30 +0300
-Message-ID: <4753BF5A.5030507@sw.ru>
-References: <m163zi9425.fsf@ebiederm.dsl.xmission.com> <47515D39.9030900@rtr.ca> <20071201111736.297dd99a@freepuppy.rosehill> <20071201163035.321fd554@freepuppy.rosehill> <475227B1.2060802@rtr.ca> <20071201202354.672aed18@freepuppy.rosehill> <47530778.7030605@candelatech.com> <47530FAC.1070804@trash.net> <20071202204356.GN15974@stusta.de> <47532AD2.8090704@trash.net>
+From: Thierry Reding <thierry.reding@avionic-design.de>
+Subject: [PATCH][RESEND] PHY: Add the phy_device_release device method.
+Date: Mon, 3 Dec 2007 09:35:11 +0100
+Message-ID: <20071203083511.GA9396@avionic-tr-basi.adnet.avionic-design.de>
+References: <20071119.214215.207388094.davem@davemloft.net> <4751D9F3.5090502@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@kernel.org>,
-	Ben Greear <greearb@candelatech.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Mark Lord <lkml@rtr.ca>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, containers@lists.osdl.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="xHFwDpU9dbj6ez1V"
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:54744 "EHLO iris"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752990AbXLCIcw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Dec 2007 03:32:52 -0500
-In-Reply-To: <47532AD2.8090704@trash.net>
+Received: from moutng.kundenserver.de ([212.227.126.177]:61870 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752828AbXLCIfg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 03:35:36 -0500
+Content-Disposition: inline
+In-Reply-To: <4751D9F3.5090502@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Adrian Bunk wrote:
->> On Sun, Dec 02, 2007 at 09:03:56PM +0100, Patrick McHardy wrote:
->>
->>> For all I care binary modules can break, but frankly I don't see
->>> how encapsulating a couple of structures and pointers in a new
->>> structure and adding a new argument to existing functions shifts
->>> the decision about how a function should be usable to the namespace
->>> guys. IMO all functions should continue to be usable as before,
->>> as decided by whoever actually wrote them.
->>> ...
->>
->> Even ignoring the fact that it's unclear whether distributing modules
->> with not GPLv2 compatible licences is legal at all or might bring you
->> in jail,
-> 
-> Agreed, lets ignore that :)
-> 
->> your statement has an interesting implication:
->>
->> Stuff like e.g. the EXPORT_SYMBOL(sk_alloc) predates the
->> EXPORT_SYMBOL_GPL stuff.
->>
->> Who is considered the author of this code?
->>
->> And when should he state whether he prefers to use EXPORT_SYMBOL_GPL
->> but wasn't able to use it at that when he wrote it since his code
->> predates it and is glad to be able to decide this now?
-> 
-> 
-> He can state it when he feels like it, I don't see the point.
-> Authors generally get to decide whether they use EXPORT_SYMBOL
-> or EXPORT_SYMBOL_GPL unless in cases where its really clear-cut
-> that EXPORT_SYMBOL is inapproriate. But thats a different matter.
-> 
-> If a symbol was OK to be used previously and something using it
-> would not automatically be considered a derived work, how does
-> passing &init_net to the function just to make the compiler
-> happy, avoid BUG_ONs and generally keep things working as before
-> make it more of a derived work?
 
-We, namely, Pavel Emelyanov and me, if we have some rights as a
-committers to this staff :), do not mind against change
-EXPORT_SYMBOL_GPL to EXPORT_SYMBOL.
+--xHFwDpU9dbj6ez1V
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Regards,
-	Den
+In cases where more than a single PHY is found on the MDIO bus, the kernel
+will print a warning that this method is missing for each PHY device that
+is not attached to a networking device.
+
+Signed-off-by: Thierry Reding <thierry.reding@avionic-design.de>
+---
+ drivers/net/phy/mdio_bus.c |   19 ++++++++++++++++++-
+ 1 files changed, 18 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index fc2f0e6..cb7fb47 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -36,6 +36,23 @@
+ #include <asm/uaccess.h>
+=20
+ /**
++ * phy_device_release - free a phy_device structure when all users of it a=
+re
++ * 	finished.
++ *
++ * @dev: device that's been disconnected
++ *
++ * Will be called only by the device core when all users of this phy_device
++ * are done.
++ */
++static void phy_device_release(struct device *dev)
++{
++	struct phy_device *phy;
++
++	phy =3D to_phy_device(dev);
++	kfree(phy);
++}
++
++/**
+  * mdiobus_register - bring up all the PHYs on a given bus and attach them=
+ to bus
+  * @bus: target mii_bus
+  *
+@@ -83,6 +100,7 @@ int mdiobus_register(struct mii_bus *bus)
+ 		if (phydev) {
+ 			phydev->irq =3D bus->irq[i];
+=20
++			phydev->dev.release =3D phy_device_release;
+ 			phydev->dev.parent =3D bus->dev;
+ 			phydev->dev.bus =3D &mdio_bus_type;
+ 			snprintf(phydev->dev.bus_id, BUS_ID_SIZE, PHY_ID_FMT, bus->id, i);
+@@ -112,7 +130,6 @@ void mdiobus_unregister(struct mii_bus *bus)
+ 	for (i =3D 0; i < PHY_MAX_ADDR; i++) {
+ 		if (bus->phy_map[i]) {
+ 			device_unregister(&bus->phy_map[i]->dev);
+-			kfree(bus->phy_map[i]);
+ 		}
+ 	}
+ }
+
+--xHFwDpU9dbj6ez1V
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFHU7+//94dvhCMILwRAtZWAJ9CB1t7QnprCohUuFFckB6ROFDSlQCdEOoe
+RG/yz8YSAfkmXI46qjC+24w=
+=Kh1/
+-----END PGP SIGNATURE-----
+
+--xHFwDpU9dbj6ez1V--
