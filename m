@@ -1,129 +1,49 @@
-From: "Denis V. Lunev" <den@sw.ru>
-Subject: Re: [PATCH 2.6.25] net: removes unnecessary dependencies for net_namespace.h
-Date: Mon, 03 Dec 2007 15:09:40 +0300
-Message-ID: <4753F204.2010900@sw.ru>
-References: <20071203091200.GA20442@iris.sw.ru> <m1odd80z72.fsf@ebiederm.dsl.xmission.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 0/2] [IPSEC]: Reinject packet instead of calling
+	netfilter directly on input
+Date: Mon, 03 Dec 2007 07:34:15 -0500
+Message-ID: <1196685255.4515.11.camel@localhost>
+References: <1196369374.4437.18.camel@localhost>
+	 <20071203092144.GB22869@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010409060009020000090507"
-Cc: "Denis V. Lunev" <den@openvz.org>, herbert@gondor.apana.org.au,
-	devel@openvz.org, netdev@vger.kernel.org, davem@davemloft.net,
-	xemul@openvz.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>,
+	YOSHIFUJI Hideaki /
+	 =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<yoshfuji@linux-ipv6.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:58307 "EHLO iris"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751384AbXLCMIu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Dec 2007 07:08:50 -0500
-In-Reply-To: <m1odd80z72.fsf@ebiederm.dsl.xmission.com>
+Received: from rv-out-0910.google.com ([209.85.198.184]:65206 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752366AbXLCMeg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 07:34:36 -0500
+Received: by rv-out-0910.google.com with SMTP id k20so2653590rvb
+        for <netdev@vger.kernel.org>; Mon, 03 Dec 2007 04:34:34 -0800 (PST)
+In-Reply-To: <20071203092144.GB22869@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010409060009020000090507
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+On Mon, 2007-03-12 at 20:21 +1100, Herbert Xu wrote:
 
-you right, how about this?
+> Sorry for the late response Jamal.  I've been too busy to give
+> this issue proper thought.  It's still in my mailbox so I will
+> respond to it once things quiten down a little.
 
-Eric W. Biederman wrote:
-> "Denis V. Lunev" <den@openvz.org> writes:
-> 
->> This patch removes some unneeded includes for net_namespace.h to speed up
->> compilation.
->>
->> Signed-off-by: Denis V. Lunev <den@openvz.org>
->>
->> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
->> index f285de6..28b7f25 100644
->> --- a/include/net/pkt_cls.h
->> +++ b/include/net/pkt_cls.h
->> @@ -2,7 +2,6 @@
->>  #define __NET_PKT_CLS_H
->>  
->>  #include <linux/pkt_cls.h>
->> -#include <net/net_namespace.h>
->>  #include <net/sch_generic.h>
->>  #include <net/act_api.h>
-> 
-> What of tcf_match_indev?  I guess linux/netdevice.h brings
-> it in for us but still.
-> 
->> diff --git a/include/net/sock.h b/include/net/sock.h
->> index 43e3cd9..a04e361 100644
->> --- a/include/net/sock.h
->> +++ b/include/net/sock.h
->> @@ -57,7 +57,6 @@
->>  #include <asm/atomic.h>
->>  #include <net/dst.h>
->>  #include <net/checksum.h>
->> -#include <net/net_namespace.h>
->>  
->>  /*
->>   * This structure really needs to be cleaned up.
->> @@ -95,6 +94,7 @@ typedef struct {
->>  
->>  struct sock;
->>  struct proto;
->> +struct net;
->>  
->>  /**
->>   *	struct sock_common - minimal network layer representation of sockets
-> 
-> This hunk definitely looks sane.
-> 
-> Eric
-> 
-> 
+I totaly empathize - take your time.
 
+The point brought up on v6 extensions needs to be addressed. I thought
+about it a little - and it is valid as well for ipv4 options; they will
+be processed twice.
+To build up on what Patrick said, I noticed a bit still available in the
+bag right after skb->nf_trace that i could use to signal
+"options/extensions already processed". 
+If people think think this is a sane use of that very lonely bit, I will
+post patches.
+CCing Yoshfuji.
 
---------------010409060009020000090507
-Content-Type: text/plain;
- name="1.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="1.diff"
+cheers,
+jamal
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index f285de6..2eaf204 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -2,7 +2,6 @@
- #define __NET_PKT_CLS_H
- 
- #include <linux/pkt_cls.h>
--#include <net/net_namespace.h>
- #include <net/sch_generic.h>
- #include <net/act_api.h>
- 
-@@ -336,6 +335,8 @@ static inline int tcf_valid_offset(const struct sk_buff *skb,
- }
- 
- #ifdef CONFIG_NET_CLS_IND
-+#include <net/net_namespace.h>
-+
- static inline int
- tcf_change_indev(struct tcf_proto *tp, char *indev, struct rtattr *indev_tlv)
- {
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 43e3cd9..a04e361 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -57,7 +57,6 @@
- #include <asm/atomic.h>
- #include <net/dst.h>
- #include <net/checksum.h>
--#include <net/net_namespace.h>
- 
- /*
-  * This structure really needs to be cleaned up.
-@@ -95,6 +94,7 @@ typedef struct {
- 
- struct sock;
- struct proto;
-+struct net;
- 
- /**
-  *	struct sock_common - minimal network layer representation of sockets
-
---------------010409060009020000090507--
