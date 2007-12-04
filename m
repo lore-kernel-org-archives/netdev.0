@@ -1,8 +1,8 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.25 4/11][IPV4] Use ctl paths to register net/ipv4/
+Subject: [PATCH net-2.6.25 5/11][TR] Use ctl paths to register net/token-ring/
  table
-Date: Tue, 04 Dec 2007 13:07:41 +0300
-Message-ID: <475526ED.7070802@openvz.org>
+Date: Tue, 04 Dec 2007 13:09:08 +0300
+Message-ID: <47552744.50609@openvz.org>
 References: <4755256F.9000505@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -10,93 +10,166 @@ Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:51519 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:38727 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752140AbXLDKHy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 05:07:54 -0500
+	id S1752127AbXLDKJ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2007 05:09:26 -0500
 In-Reply-To: <4755256F.9000505@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the same as I did for the net/core/ table in the
-second patch in his series: use the paths and isolate the 
-whole table in the .c file.
+The same thing for token-ring - use ctl paths and get
+rid of external references on the tr_table.
+
+Unfortunately, I couldn't split this patch into cleanup and 
+use-the-paths parts.
+
+As a lame excuse I can say, that the cleanup is just moving
+the tr_table from one file to another - closet to a single
+variable, that this ctl table tunes. Since the source  file 
+becomes empty after the move, I remove it.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 83fb9f1..7e1dd67 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -393,6 +393,4 @@ int ipv4_doint_and_flush_strategy(ctl_table *table, int __user *name, int nlen,
- extern int ip_misc_proc_init(void);
+diff --git a/include/linux/if_tr.h b/include/linux/if_tr.h
+index 046e9d9..5bcec8b 100644
+--- a/include/linux/if_tr.h
++++ b/include/linux/if_tr.h
+@@ -49,9 +49,6 @@ static inline struct trh_hdr *tr_hdr(const struct sk_buff *skb)
+ {
+ 	return (struct trh_hdr *)skb_mac_header(skb);
+ }
+-#ifdef CONFIG_SYSCTL
+-extern struct ctl_table tr_table[];
+-#endif
  #endif
  
--extern struct ctl_table ipv4_table[];
--
- #endif	/* _IP_H */
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 3546424..bfd0dec 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -13,6 +13,7 @@
- #include <linux/igmp.h>
- #include <linux/inetdevice.h>
- #include <linux/seqlock.h>
-+#include <linux/init.h>
- #include <net/snmp.h>
- #include <net/icmp.h>
- #include <net/ip.h>
-@@ -247,7 +248,7 @@ static int strategy_allowed_congestion_control(ctl_table *table, int __user *nam
+ /* This is an Token-Ring LLC structure */
+diff --git a/net/802/Makefile b/net/802/Makefile
+index 977704a..68569ff 100644
+--- a/net/802/Makefile
++++ b/net/802/Makefile
+@@ -3,9 +3,8 @@
+ #
  
+ # Check the p8022 selections against net/core/Makefile.
+-obj-$(CONFIG_SYSCTL)	+= sysctl_net_802.o
+ obj-$(CONFIG_LLC)	+= p8022.o psnap.o
+-obj-$(CONFIG_TR)	+= p8022.o psnap.o tr.o sysctl_net_802.o
++obj-$(CONFIG_TR)	+= p8022.o psnap.o tr.o
+ obj-$(CONFIG_NET_FC)	+=                 fc.o
+ obj-$(CONFIG_FDDI)	+=                 fddi.o
+ obj-$(CONFIG_HIPPI)	+=                 hippi.o
+diff --git a/net/802/sysctl_net_802.c b/net/802/sysctl_net_802.c
+deleted file mode 100644
+index ead5603..0000000
+--- a/net/802/sysctl_net_802.c
++++ /dev/null
+@@ -1,33 +0,0 @@
+-/* -*- linux-c -*-
+- *		sysctl_net_802.c: sysctl interface to net 802 subsystem.
+- *
+- *		Begun April 1, 1996, Mike Shaver.
+- *		Added /proc/sys/net/802 directory entry (empty =) ). [MS]
+- *
+- *		This program is free software; you can redistribute it and/or
+- *		modify it under the terms of the GNU General Public License
+- *		as published by the Free Software Foundation; either version
+- *		2 of the License, or (at your option) any later version.
+- */
+-
+-#include <linux/mm.h>
+-#include <linux/if_tr.h>
+-#include <linux/sysctl.h>
+-
+-#ifdef CONFIG_TR
+-extern int sysctl_tr_rif_timeout;
+-#endif
+-
+-struct ctl_table tr_table[] = {
+-#ifdef CONFIG_TR
+-	{
+-		.ctl_name	= NET_TR_RIF_TIMEOUT,
+-		.procname	= "rif_timeout",
+-		.data		= &sysctl_tr_rif_timeout,
+-		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
+-	},
+-#endif /* CONFIG_TR */
+-	{ 0 },
+-};
+diff --git a/net/802/tr.c b/net/802/tr.c
+index d8a5386..23fa151 100644
+--- a/net/802/tr.c
++++ b/net/802/tr.c
+@@ -35,6 +35,7 @@
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+ #include <linux/init.h>
++#include <linux/sysctl.h>
+ #include <net/arp.h>
+ #include <net/net_namespace.h>
+ 
+@@ -634,6 +635,26 @@ struct net_device *alloc_trdev(int sizeof_priv)
+ 	return alloc_netdev(sizeof_priv, "tr%d", tr_setup);
  }
  
--ctl_table ipv4_table[] = {
-+static struct ctl_table ipv4_table[] = {
- 	{
- 		.ctl_name	= NET_IPV4_TCP_TIMESTAMPS,
- 		.procname	= "tcp_timestamps",
-@@ -878,3 +879,19 @@ ctl_table ipv4_table[] = {
- 	},
- 	{ .ctl_name = 0 }
- };
-+
-+static __initdata struct ctl_path net_ipv4_path[] = {
-+	{ .procname = "net", .ctl_name = CTL_NET, },
-+	{ .procname = "ipv4", .ctl_name = NET_IPV4, },
-+	{ },
++#ifdef CONFIG_SYSCTL
++static struct ctl_table tr_table[] = {
++	{
++		.ctl_name	= NET_TR_RIF_TIMEOUT,
++		.procname	= "rif_timeout",
++		.data		= &sysctl_tr_rif_timeout,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec
++	},
++	{ 0 },
 +};
 +
-+static __init int sysctl_ipv4_init(void)
-+{
-+	struct ctl_table_header *hdr;
++static __initdata struct ctl_path tr_path[] = {
++	{ .procname = "net", .ctl_name = CTL_NET, },
++	{ .procname = "token-ring", .ctl_name = NET_TR, },
++	{ }
++};
++#endif
 +
-+	hdr = register_sysctl_paths(net_ipv4_path, ipv4_table);
-+	return hdr == NULL ? -ENOMEM : 0;
-+}
-+
-+__initcall(sysctl_ipv4_init);
+ /*
+  *	Called during bootup.  We don't actually have to initialise
+  *	too much for this.
+@@ -644,7 +665,9 @@ static int __init rif_init(void)
+ 	rif_timer.expires  = sysctl_tr_rif_timeout;
+ 	setup_timer(&rif_timer, rif_check_expire, 0);
+ 	add_timer(&rif_timer);
+-
++#ifdef CONFIG_SYSCTL
++	register_sysctl_paths(tr_path, tr_table);
++#endif
+ 	proc_net_fops_create(&init_net, "tr_rif", S_IRUGO, &rif_seq_fops);
+ 	return 0;
+ }
 diff --git a/net/sysctl_net.c b/net/sysctl_net.c
-index 747fc55..a4f0ed8 100644
+index a4f0ed8..16ad14b 100644
 --- a/net/sysctl_net.c
 +++ b/net/sysctl_net.c
 @@ -31,14 +31,6 @@
  #endif
  
  struct ctl_table net_table[] = {
--#ifdef CONFIG_INET
+-#ifdef CONFIG_TR
 -	{
--		.ctl_name	= NET_IPV4,
--		.procname	= "ipv4",
+-		.ctl_name	= NET_TR,
+-		.procname	= "token-ring",
 -		.mode		= 0555,
--		.child		= ipv4_table
+-		.child		= tr_table,
 -	},
 -#endif
- #ifdef CONFIG_TR
- 	{
- 		.ctl_name	= NET_TR,
+ 	{ 0 },
+ };
+ 
 -- 
 1.5.3.4
 
