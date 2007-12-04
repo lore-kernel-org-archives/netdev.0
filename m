@@ -1,56 +1,44 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: [PATCH] don't allow netfilter --setmss to increase mss
-Date: Tue, 4 Dec 2007 17:45:35 -0500
-Message-ID: <20071204224535.GY27007@kvack.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [RFC] introducing the Atheros L2 Fast Ethernet driver
+Date: Tue, 04 Dec 2007 17:47:06 -0500
+Message-ID: <4755D8EA.9060201@garzik.org>
+References: <4755D39D.30005@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, synrg@debian.org
+To: Chris Snook <csnook@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:37165 "EHLO kanga.kvack.org"
+Received: from srv5.dvmed.net ([207.36.208.214]:53030 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750898AbXLDWqG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 17:46:06 -0500
-Content-Disposition: inline
+	id S1751793AbXLDWrJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2007 17:47:09 -0500
+In-Reply-To: <4755D39D.30005@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi folks,
+Chris Snook wrote:
+> Hey folks --
+> 
+>     I've begun cleaning up the atl2 vendor driver for merging.  It's 
+> very similar to the atl1 driver, and needs a lot of the same work, 
+> though I have already fixed the 64-bit DMA data corrupter that atl1 
+> users remember so fondly.  Right now this is very raw, and there is a 
+> large amount of cosmetic work to do to make it more maintainable, but it 
+> should generally work, at least as well as the vendor driver does.
+> 
+>     While this is in pre-submission cleanup mode, the latest standalone 
+> source tarball and patch (currently against 2.6.23) will be available here:
+> 
+> http://people.redhat.com/csnook/atl2/
+> 
+>     If you have atl2 hardware, please give this a spin.  I plan to 
+> submit the driver for merging some time in the next month or so.  
+> Questions, comments, patches welcome.
 
-When terminating DSL connections for an assortment of random customers, I've 
-found it necessary to use iptables to clamp the MSS used for connections to 
-work around the various ICMP blackholes in the greater net.  Unfortunately, 
-the current behaviour in Linux is imperfect and actually make things worse, 
-so I'm proposing the following: increasing the MSS in a packet can never be 
-a good thing, so make --set-mss only lower the MSS in a packet.
+Why not update atl1 for this new hardware?  Why is a new driver needed?
 
-Yes, I am aware of --clamp-mss-to-pmtu, but it doesn't work for outgoing 
-connections from clients (ie web traffic), as it only looks at the PMTU on 
-the destination route, not the source of the packet (the DSL interfaces in 
-question have a 1442 byte MTU while the destination ethernet interface is 
-1500 -- there are problematic hosts which use a 1300 byte MTU).  Reworking 
-that is probably a good idea at some point, but it's more work than this is.
+	Jeff
 
-Thoughts?  Would it be better to add a new flag?
 
-		-ben
 
-Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
-diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
-index d40f7e4..411c482 100644
---- a/net/netfilter/xt_TCPMSS.c
-+++ b/net/netfilter/xt_TCPMSS.c
-@@ -88,8 +88,11 @@ tcpmss_mangle_packet(struct sk_buff **pskb,
- 
- 			oldmss = (opt[i+2] << 8) | opt[i+3];
- 
--			if (info->mss == XT_TCPMSS_CLAMP_PMTU &&
--			    oldmss <= newmss)
-+			/* Never increase MSS, even when setting it, as
-+			 * doing so results in problems for hosts that rely
-+			 * on MSS being set correctly.
-+			 */
-+			if (oldmss <= newmss)
- 				return 0;
- 
- 			opt[i+2] = (newmss & 0xff00) >> 8;
