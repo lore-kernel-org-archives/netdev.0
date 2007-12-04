@@ -1,39 +1,49 @@
-From: Lukas Hejtmanek <xhejtman@ics.muni.cz>
-Subject: Re: e1000 driver problems
-Date: Tue, 4 Dec 2007 16:03:12 +0100
-Message-ID: <20071204150312.GE8704@ics.muni.cz>
-References: <20071120143803.GA5638@ics.muni.cz> <474B5610.4030800@intel.com> <20071127150700.GB4365@ics.muni.cz> <474C4A74.90705@intel.com> <20071127173146.GG4365@ics.muni.cz> <474C5678.3060609@intel.com> <20071127174456.GH4365@ics.muni.cz> <474C6084.9000301@intel.com> <20071203095023.GG26573@ics.muni.cz> <47541ED0.9090808@intel.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][ROSE] Trivial compilation CONFIG_INET=n case
+Date: Tue, 04 Dec 2007 18:11:05 +0300
+Message-ID: <47556E09.1050007@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: NetDev <netdev@vger.kernel.org>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Ralf Baechle <ralf@linux-mips.org>, linux-hams@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minas.ics.muni.cz ([147.251.4.40]:35258 "EHLO minas.ics.muni.cz"
+Received: from sacred.ru ([62.205.161.221]:49437 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753199AbXLDPDT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 10:03:19 -0500
-Content-Disposition: inline
-In-Reply-To: <47541ED0.9090808@intel.com>
+	id S1753752AbXLDPNQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2007 10:13:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 03, 2007 at 07:20:48AM -0800, Kok, Auke wrote:
-> can you open up a ticket on e1000.sf.net and fill in a full bugreport
-> including
-> output of all of these? :
->=20
-> - ethttool -i eth0
-> - ethtool -e eth0
-> - lspci -vv
-> - full dmesg (not just the driver parts)
-> - dmidecode
-> - cat /proc/interrupts
->=20
-> I'd like to see if maybe we can reproduce this in our lab.
+The rose_rebuild_header() consists only of some variables in
+case INET=n, and gcc will warn us about it.
 
-I'll try but it may take some time. Meanwhile, I found that "hung" card
-transmits but does not receive anything including ARP.
+Fits both net-2.6 and net-2.6.25.
 
---=20
-Luk=E1=B9 Hejtm=E1nek
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+
+diff --git a/net/rose/rose_dev.c b/net/rose/rose_dev.c
+index 1b6741f..12cfcf0 100644
+--- a/net/rose/rose_dev.c
++++ b/net/rose/rose_dev.c
+@@ -55,13 +55,13 @@ static int rose_header(struct sk_buff *skb, struct net_device *dev,
+ 
+ static int rose_rebuild_header(struct sk_buff *skb)
+ {
++#ifdef CONFIG_INET
+ 	struct net_device *dev = skb->dev;
+ 	struct net_device_stats *stats = netdev_priv(dev);
+ 	unsigned char *bp = (unsigned char *)skb->data;
+ 	struct sk_buff *skbn;
+ 	unsigned int len;
+ 
+-#ifdef CONFIG_INET
+ 	if (arp_find(bp + 7, skb)) {
+ 		return 1;
+ 	}
+-- 
+1.5.3.4
+
