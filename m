@@ -1,92 +1,80 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: namespace support requires network modules to say "GPL"
-Date: Tue, 04 Dec 2007 16:19:38 +0100
-Message-ID: <4755700A.5020105@fr.ibm.com>
-References: <m163zi9425.fsf@ebiederm.dsl.xmission.com>	<47515D39.9030900@rtr.ca>	<20071201111736.297dd99a@freepuppy.rosehill>	<20071201163035.321fd554@freepuppy.rosehill>	<475227B1.2060802@rtr.ca>	<20071201202354.672aed18@freepuppy.rosehill>	<47530778.7030605@candelatech.com>	<47530FAC.1070804@trash.net>	<m1fxyj1y1y.fsf@ebiederm.dsl.xmission.com> <47544896.7070101@candelatech.com> <475451B1.1030006@free.fr>
+From: "Mike Snitzer" <snitzer@gmail.com>
+Subject: Re: [0/4] DST: Distributed storage.
+Date: Tue, 4 Dec 2007 10:25:29 -0500
+Message-ID: <170fa0d20712040725o506a47cayb137993041ec3a63@mail.gmail.com>
+References: <aqqqqasdzxczc036@2ka.mipt.ru> <11967790263179@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	containers@lists.osdl.org, Mark Lord <lkml@rtr.ca>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: Daniel Lezcano <daniel.lezcano@free.fr>
+Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.de.ibm.com ([195.212.29.152]:28444 "EHLO
-	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752177AbXLDPVX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 10:21:23 -0500
-In-Reply-To: <475451B1.1030006@free.fr>
+Received: from nz-out-0506.google.com ([64.233.162.228]:57414 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752990AbXLDPZb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 10:25:31 -0500
+Received: by nz-out-0506.google.com with SMTP id s18so2348162nze
+        for <netdev@vger.kernel.org>; Tue, 04 Dec 2007 07:25:29 -0800 (PST)
+In-Reply-To: <11967790263179@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Lezcano wrote:
-> Ben Greear wrote:
->> Eric W. Biederman wrote:
->>> Patrick McHardy <kaber@trash.net> writes:
->>>
->>>  
->>>> Ben Greear wrote:
->>>>   
->>>>> I have a binary module that uses dev_get_by_name...it's sort of a 
->>>>> bridge-like
->>>>> thing and
->>>>> needs user-space to tell it which device to listen for packets on...
->>>>>
->>>>> This code doesn't need or care about name-spaces, so I don't see 
->>>>> how it could
->>>>> really
->>>>> be infringing on the author's code (any worse than loading a binary 
->>>>> driver
->>>>> into the kernel
->>>>> ever does).
->>>>>       
->>>
->>> Regardless of infringement it is incompatible with a complete network
->>> namespace implementation.  Further it sounds like the module you are
->>> describing defines a kernel ABI without being merged and hopes that
->>> ABI will still be supportable in the future.  Honestly I think doing so
->>> is horrible code maintenance policy.
->>>   
->> I don't mind if the ABI changes, so long as I can still use something 
->> similar.
->>
->> The namespace logic is interesting to me in general, but at this point 
->> I can't think of a way that
->> it actually helps this particular module.  All I really need is a way 
->> to grab every frame
->> from eth0 and then transmit it to eth1.  I'm currently doing this by 
->> finding the netdevice
->> and registering a raw-packet protocol (ie, like tcpdump would do).  At 
->> least up to 2.6.23,
->> this does not require any hacks to the kernel and uses only non GPL 
->> exported symbols.
->>
->> Based on my understanding of the namespace logic, if I never add any 
->> namespaces,
->> the general network layout should look similar to how it does today, 
->> so I should have
->> no logical problem with my module.
->>
->>> Once things are largely complete it makes sense to argue with out of
->>> tree module authors that because they don't have network namespace
->>> support in their modules, their modules are broken.     
->> Does this imply that every module that accesses the network code 
->> *must* become
->> GPL simply because it must interact with namespace logic that is 
->> exported as GPL only symbols?
-> 
-> That's right, with init_net's EXPORT_SYMBOL_GPL and dev_get_xx, we 
-> enforce people to be GPL whatever they didn't asked to have the 
-> namespaces in their code.
-> 
-> Eric, why can we simply change EXPORT_SYMBOL_GPL to EXPORT_SYMBOL for 
-> init_net ?
+On Dec 4, 2007 9:37 AM, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+>
+> Distributed storage.
+>
+> I'm pleased to announce the 10'th release of the distributed
+> storage subsystem (DST). This is a maintenance release and includes
+> bug fixes and simple feature extensions only.
+>
+> DST allows to form a storage on top of local and remote nodes
+> and combine them into linear or mirroring setup, which in
+> turn can be exported to remote nodes.
+>
+> Short changelog:
+>  * fixed bug with XFS metadata update (it can provide slab pages to the
+>         DST, so it is not allowed to transfer them using ->sendpage())
+>  * fixed async error completion path
+>  * extended netlink communication channel to report errors back to userspace
+>  * DST name is now "The 10'th dynasty of smuggled slothes"
+>  * number of fixes for userspace DST target
+>
+> Great thanks to Matthew Hodgson <matthew@mxtelecom.com> for debugging and
+> fixes for userspace DST target and preliminary netlink extension patches.
+>
+> Overall list of features of the DST can be found on project's homepage:
+>
+> http://tservice.net.ru/~s0mbre/old/?section=projects&item=dst
+>
+> Thank you.
+>
+> Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 
-Another suggestion/question, is it acceptable to say non-gpl driver 
-should use init_task.nsproxy->net_ns instead of &init_net ?
+Evgeniy,
 
-Or does it make sense to have init_net gpl-exported, since we can access 
-it through init_task which is exported without gpl mention ?
+Thanks for your continued work on DST.  I'd like to know if you've
+thought further about how synchronous mirroring would be best
+implemented with DST.
 
+You shared you views some time ago via comments on your blog:
+http://tservice.net.ru/~s0mbre/blog/devel/dst/2007_11_05.html
+
+At that time you were saying you'd add a sync bit to the request
+structure that is sent to remote nodes.  I'd imagine this would also
+require ordering of the block io, no?  Is order guaranteed when the
+requests are submitted over the DST protocol?  Otherwise how can you
+ensure a valid remote mirror (in the case of network disconnects,
+etc)?
+
+Guaranteeing consistent data on all members of a mirror is important.
+The main question is: what mechanisms _should_ be used in DST to
+provide this consistency?  And do you have a timeframe for when DST
+might support such mechanisms for consistent data?
+
+For the purpose of this discussion please assume that the disk cache
+is either write-through or battery-backed.
+
+regards,
+Mike
