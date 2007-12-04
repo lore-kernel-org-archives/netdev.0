@@ -1,44 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][IPVS] Fix sched registration race when checking for
- name collision
-Date: Tue, 04 Dec 2007 00:45:25 -0800 (PST)
-Message-ID: <20071204.004525.246971804.davem@davemloft.net>
-References: <4753D631.8040005@openvz.org>
-	<20071204014142.GC28582@verge.net.au>
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: Re: [PATCH] SMC911X: Fix using of dereferenced skb after netif_rx
+Date: Tue, 04 Dec 2007 09:49:50 +0100
+Message-ID: <87r6i2yhch.fsf@macbook.be.48ers.dk>
+References: <4753B74D.4070505@cn.fujitsu.com>
+	<20071203101141.GA23549@gondor.apana.org.au>
+	<4753D7F3.3050201@cn.fujitsu.com> <87wsrvyjob.fsf@macbook.be.48ers.dk>
+	<4754B501.7070108@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, devel@openvz.org, wensong@linux-vs.org,
-	ja@ssi.bg
-To: horms@verge.net.au
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Dustin McIntire <dustin@sensoria.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52920
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752012AbXLDIpa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 03:45:30 -0500
-In-Reply-To: <20071204014142.GC28582@verge.net.au>
+Received: from mu-out-0910.google.com ([209.85.134.186]:27507 "EHLO
+	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751245AbXLDIuN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 03:50:13 -0500
+Received: by mu-out-0910.google.com with SMTP id i10so680808mue
+        for <netdev@vger.kernel.org>; Tue, 04 Dec 2007 00:50:09 -0800 (PST)
+In-Reply-To: <4754B501.7070108@cn.fujitsu.com> (Wang Chen's message of "Tue\, 04 Dec 2007 10\:01\:37 +0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
-Date: Tue, 4 Dec 2007 10:41:43 +0900
+>>>>> "Wang" == Wang Chen <wangchen@cn.fujitsu.com> writes:
 
-> On Mon, Dec 03, 2007 at 01:10:57PM +0300, Pavel Emelyanov wrote:
-> > The register_ip_vs_scheduler() checks for the scheduler with the
-> > same name under the read-locked __ip_vs_sched_lock, then drops,
-> > takes it for writing and puts the scheduler in list.
-> > 
-> > This is racy, since we can have a race window between the lock
-> > being re-locked for writing.
-> > 
-> > The fix is to search the scheduler with the given name right under
-> > the write-locked __ip_vs_sched_lock.
-> 
-> This looks correct to me.
-> 
-> > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> 
-> Acked-by: Simon Horman <horms@verge.net.au>
+Hi,
 
-Also applied, thanks a lot.
+ >> Why not simply update the stats before calling netif_rx as the return
+ >> value isn't checked anyway?
+
+ Wang> Even the return value of netif_rx isn't checked, dev->stats maybe
+ Wang> changed in netif_rx. But fortunately dev->stats isn't changed in
+ Wang> netif_rx.
+ Wang> So, I agree. 
+ Wang> Here is the new patch.
+
+Thanks.
+
+ Wang> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+
+Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
+
+-- 
+Bye, Peter Korsgaard
