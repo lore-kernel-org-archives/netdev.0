@@ -1,55 +1,35 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH 2.6.24] pasemi_mac: Fix reuse of free'd skb
-Date: Mon, 3 Dec 2007 21:34:14 -0600
-Message-ID: <20071204033414.GA13616@lixom.net>
+From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Subject: IPv6 IPsec input
+Date: Tue, 04 Dec 2007 12:39:43 +0900
+Message-ID: <4754CBFF.3000308@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: ranger@gentoo.org, netdev@vger.kernel.org, dwmw2@infradead.org,
-	linuxppc-dev@ozlabs.org
-To: jgarzik@pobox.com
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: usagi-core@linux-ipv6.org, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from usagi004.linux-ipv6.org ([203.178.140.4]:40386 "EHLO
+	miyazawa.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751326AbXLDDpF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Dec 2007 22:45:05 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Turns out we're freeing the skb when we detect CRC error, but we're
-not clearing out info->skb. We could either clear it and have the stack
-reallocate it, or just leave it and the rx ring refill code will reuse
-the one that was allocated.
+Hello Herbert,
 
-Reusing a freed skb obviously caused some nasty crashes of various kind,
-as reported by Brent Baude and David Woodhouse.
+We have a trouble of IPv6 IPsec input process with your net-2.6.25 tree.
+We can not receive IPsec packets.
+
+I found that you directly pass the address family (AF_INET) to xfrm_state_lookup
+in xfrm_input.
+
+I guess it may result the bug.
+
+Is it correct?
+
+Best regards,
+
+--
+Kazunori Miyazawa
 
 
-Signed-off-by: Olof Johansson <olof@lixom.net>
-
----
-
-Jeff, I'd like to see this in 2.6.24, it's causing some real problems
-out there. It's not needed in the 2.6.25 queue since the other changes
-there have already covered these cases.
-
-My test network at home is quiet enough to not cause CRC errors, we
-mainly get those during interface bringup before speed is configured.
-
-diff --git a/drivers/net/pasemi_mac.c b/drivers/net/pasemi_mac.c
-index 09b4fde..6617e24 100644
---- a/drivers/net/pasemi_mac.c
-+++ b/drivers/net/pasemi_mac.c
-@@ -586,7 +586,7 @@ static int pasemi_mac_clean_rx(struct pasemi_mac *mac, int limit)
- 			/* CRC error flagged */
- 			mac->netdev->stats.rx_errors++;
- 			mac->netdev->stats.rx_crc_errors++;
--			dev_kfree_skb_irq(skb);
-+			/* No need to free skb, it'll be reused */
- 			goto next;
- 		}
