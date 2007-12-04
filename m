@@ -1,73 +1,65 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: [PATCH] Stop phy code from returning success to unknown ioctls.
-Date: Tue, 4 Dec 2007 14:00:42 -0600
-Message-ID: <8D34458A-2CE9-4FA7-AE28-4D148E08CCDF@freescale.com>
-References: <1196273071.30806.46.camel@pmac.infradead.org> <1196279794.30806.54.camel@pmac.infradead.org>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, linuxppc-dev@ozlabs.org,
-	Domen Puncer <domen.puncer@telargo.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: namespace support requires network modules to say "GPL"
+Date: Tue, 04 Dec 2007 13:01:09 -0700
+Message-ID: <m1k5nuw7p6.fsf@ebiederm.dsl.xmission.com>
+References: <m163zi9425.fsf@ebiederm.dsl.xmission.com>
+	<47515D39.9030900@rtr.ca> <20071201111736.297dd99a@freepuppy.rosehill>
+	<20071201163035.321fd554@freepuppy.rosehill> <475227B1.2060802@rtr.ca>
+	<20071201202354.672aed18@freepuppy.rosehill>
+	<47530778.7030605@candelatech.com> <47530FAC.1070804@trash.net>
+	<m1fxyj1y1y.fsf@ebiederm.dsl.xmission.com>
+	<47544896.7070101@candelatech.com>
+	<m18x4axrx2.fsf@ebiederm.dsl.xmission.com>
+	<4755A2FD.9020608@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Mark Lord <lkml@rtr.ca>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, containers@lists.osdl.org,
+	David Miller <davem@davemloft.net>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:60929 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751519AbXLDUCk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 15:02:40 -0500
-In-Reply-To: <1196279794.30806.54.camel@pmac.infradead.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:58711 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751196AbXLDUDA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 15:03:00 -0500
+In-Reply-To: <4755A2FD.9020608@candelatech.com> (Ben Greear's message of "Tue,
+	04 Dec 2007 10:57:01 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Ben Greear <greearb@candelatech.com> writes:
 
-On Nov 28, 2007, at 13:56, David Woodhouse wrote:
+> I have a module that has a collection of 2-port bridges.  These bridges are used
+> for emulation
+> purposes (somewhat similar to netem's feature set).  Each bridge is logically
+> independent
+> of the others.   To set up a bridge, I do something like:
+>
+> echo add_my_bridge my_br1 eth0 eth1 > /proc/net/foo/config
 
-> This kind of sucks, and prevents the Fedora installer from using the
-> device for network installs...
->
-> [root@efika phy]# iwconfig eth0
-> Warning: Driver for device eth0 has been compiled with an ancient  
-> version
-> of Wireless Extension, while this program support version 11 and  
-> later.
-> Some things may be broken...
->
-> eth0        ESSID:off/any  Nickname:""
->           NWID:0  Channel:0  Access Point: 00:00:BF:81:14:E0
->           Bit Rate:-1.08206e+06 kb/s   Sensitivity=0/0
->           RTS thr:off   Fragment thr:off
->           Encryption key:<too big>
->           Power Management:off
->
-> Signed-off-by: David Woodhouse <dwmw2@infradead.org>
+Interesting.  Currently /proc/net is also per network namespace.
+So normally I would say just call get_proc_net from inside your
+proc handler and all would be well.
 
-d'oh!
+At another location in /proc (not under /proc/net) I would just do:
+dev_get_by_name(current->nsproxy->net_ns, "ethX");
 
-Acked-by: Andy Fleming <afleming@freescale.com>
+I would probably be paranoid and grab current->nsproxy->net_ns
+when the file was opened and put it when the file was closed
+just to ensure that if someone opened it and then passed
+the file descriptor to someone else there were not any
+weird little races.  But I don't expect that is a problem
+in your case.
 
+> Personally, it seems useful for my module to be able to have eth0 in one
+> namespace
+> and eth1 in another, but I won't complain if they both have to be in the same
+> namespace
+> or even just in the default namespace due to GPL symbol issues.
 
->
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> index 9bc1177..7c9e6e3 100644
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@ -406,6 +406,9 @@ int phy_mii_ioctl(struct phy_device *phydev,
->  				&& phydev->drv->config_init)
->  			phydev->drv->config_init(phydev);
->  		break;
-> +
-> +	default:
-> +		return -ENOTTY;
->  	}
->
->  	return 0;
->
-> -- 
-> dwmw2
->
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It probably is easiest to move the devices after your module has
+bridged them.
 
+Eric
