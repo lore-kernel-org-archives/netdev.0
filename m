@@ -1,49 +1,50 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][ROSE] Trivial compilation CONFIG_INET=n case
-Date: Tue, 04 Dec 2007 18:11:05 +0300
-Message-ID: <47556E09.1050007@openvz.org>
+Subject: [PATCH][IRDA] Move ircomm_tty_line_info() under #ifdef CONFIG_PROC_FS
+Date: Tue, 04 Dec 2007 18:14:48 +0300
+Message-ID: <47556EE8.1000605@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Ralf Baechle <ralf@linux-mips.org>, linux-hams@vger.kernel.org,
+Cc: Samuel Ortiz <samuel@sortiz.org>, irda-users@lists.sourceforge.net,
 	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:49437 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:55797 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753752AbXLDPNQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 10:13:16 -0500
+	id S1753801AbXLDPRg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2007 10:17:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The rose_rebuild_header() consists only of some variables in
-case INET=n, and gcc will warn us about it.
+The function in question is called only from ircomm_tty_read_proc,
+which is under this option. Move this helper to the same place.
 
-Fits both net-2.6 and net-2.6.25.
+Fits both net-2.6 and net-2.6.25
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
 
-diff --git a/net/rose/rose_dev.c b/net/rose/rose_dev.c
-index 1b6741f..12cfcf0 100644
---- a/net/rose/rose_dev.c
-+++ b/net/rose/rose_dev.c
-@@ -55,13 +55,13 @@ static int rose_header(struct sk_buff *skb, struct net_device *dev,
+diff --git a/net/irda/ircomm/ircomm_tty.c b/net/irda/ircomm/ircomm_tty.c
+index 1120b15..be627e1 100644
+--- a/net/irda/ircomm/ircomm_tty.c
++++ b/net/irda/ircomm/ircomm_tty.c
+@@ -1245,6 +1245,7 @@ static void ircomm_tty_flow_indication(void *instance, void *sap,
+ 	self->flow = cmd;
+ }
  
- static int rose_rebuild_header(struct sk_buff *skb)
++#ifdef CONFIG_PROC_FS
+ static int ircomm_tty_line_info(struct ircomm_tty_cb *self, char *buf)
  {
-+#ifdef CONFIG_INET
- 	struct net_device *dev = skb->dev;
- 	struct net_device_stats *stats = netdev_priv(dev);
- 	unsigned char *bp = (unsigned char *)skb->data;
- 	struct sk_buff *skbn;
- 	unsigned int len;
- 
--#ifdef CONFIG_INET
- 	if (arp_find(bp + 7, skb)) {
- 		return 1;
- 	}
+ 	int  ret=0;
+@@ -1354,7 +1355,6 @@ static int ircomm_tty_line_info(struct ircomm_tty_cb *self, char *buf)
+  *
+  *
+  */
+-#ifdef CONFIG_PROC_FS
+ static int ircomm_tty_read_proc(char *buf, char **start, off_t offset, int len,
+ 				int *eof, void *unused)
+ {
 -- 
 1.5.3.4
 
