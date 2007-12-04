@@ -1,48 +1,61 @@
-From: Matt Mathis <mathis@psc.edu>
-Subject: Re: e1000 driver problems
-Date: Tue, 4 Dec 2007 11:02:23 -0500 (EST)
-Message-ID: <Pine.LNX.4.64.0712041043520.15251@tesla.psc.edu>
-References: <20071120143803.GA5638@ics.muni.cz> <474B5610.4030800@intel.com>
- <20071127150700.GB4365@ics.muni.cz> <474C4A74.90705@intel.com>
- <20071127173146.GG4365@ics.muni.cz> <474C5678.3060609@intel.com>
- <20071127174456.GH4365@ics.muni.cz> <474C6084.9000301@intel.com>
- <20071203095023.GG26573@ics.muni.cz> <47541ED0.9090808@intel.com>
- <20071204153405.GG8704@ics.muni.cz>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH 2/3] [TCP]: Move prior_in_flight collect to more robust place
+Date: Tue,  4 Dec 2007 18:48:49 +0200
+Message-ID: <11967869303709-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <11967869303114-git-send-email-ilpo.jarvinen@helsinki.fi> <11967869303567-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: NetDev <netdev@vger.kernel.org>
-To: Lukas Hejtmanek <xhejtman@ics.muni.cz>
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	"=?ISO-8859-1?q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:63087 "EHLO mailer1.psc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753559AbXLDQWf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 11:22:35 -0500
-In-Reply-To: <20071204153405.GG8704@ics.muni.cz>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:37339 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751520AbXLDQsw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 11:48:52 -0500
+In-Reply-To: <11967869303567-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is probably not an e1000 problem, but a general Ethernet "feature".  If 
-you defeat auto-negotiation to force the data rate, you implicitly defeat 
-duplex negotiation as well.  You need to explicitly set the duplex mode.
+=46rom: =3D?ISO-8859-1?q?Ilpo_J=3DE4rvinen?=3D <ilpo.jarvinen@helsinki.=
+fi>
 
-In full duplex mode, send and receive are are fully independent, and packets
-can flow concurrently in both directions.
+The previous location is after sacktag processing, which affects
+counters tcp_packets_in_flight depends on. This may manifest as
+wrong behavior if new SACK blocks are present and all is clear
+for call to tcp_cong_avoid, which in the case of
+tcp_reno_cong_avoid bails out early because it thinks that
+TCP is not limited by cwnd.
 
-In half duplex mode the receiver assumes it is hearing its own transmission, 
-and ignores (or errors) frames that are partially overlapped by it's 
-own transmission.
+Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_input.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-See for example: S. Shalunov and R. Carlson. "Detecting Duplex Mismatch on 
-Ethernet"
-http://www.springerlink.com/content/vapet12x584e6wyn/
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 5f93d88..fef1191 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3180,6 +3180,7 @@ static int tcp_ack(struct sock *sk, struct sk_buf=
+f *skb, int flag)
+ 	}
+=20
+ 	prior_fackets =3D tp->fackets_out;
++	prior_in_flight =3D tcp_packets_in_flight(tp);
+=20
+ 	if (!(flag&FLAG_SLOWPATH) && after(ack, prior_snd_una)) {
+ 		/* Window is constant, pure forward advance.
+@@ -3219,8 +3220,6 @@ static int tcp_ack(struct sock *sk, struct sk_buf=
+f *skb, int flag)
+ 	if (!prior_packets)
+ 		goto no_queue;
+=20
+-	prior_in_flight =3D tcp_packets_in_flight(tp);
+-
+ 	/* See if we can take anything off of the retransmit queue. */
+ 	flag |=3D tcp_clean_rtx_queue(sk, &seq_rtt, prior_fackets);
+=20
+--=20
+1.5.0.6
 
-Best regards,
---MM--
-
-On Tue, 4 Dec 2007, Lukas Hejtmanek wrote:
-
-> Another problem at my own machine. If I force speed to 100Mb on 1GE network,
-> I can reach 95Mbps bidirectional using UDP (0.34% loses) but only 1.2Mbps
-> using TCP. A bug? If I enable autonegotiation and run at 1GE, I can got 95Mb
-> on TCP to the target machine (the target machine has only 100Mb connection).
->
