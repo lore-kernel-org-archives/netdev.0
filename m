@@ -1,49 +1,34 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 0/2] netem: trace enhancement
-Date: Tue, 04 Dec 2007 14:21:31 -0800
-Message-ID: <4755D2EB.4000807@candelatech.com>
-References: <20071120231131.oqn4s5eda84k4csw@email.ee.ethz.ch>	<474C2246.50205@ee.ethz.ch> <20071129134554.5c25a891@freepuppy.rosehill>	<474F3719.30101@trash.net> <47503971.9080509@ee.ethz.ch>	<4753B423.7030000@trash.net> <4753C874.80703@ee.ethz.ch>	<47543E65.4060303@trash.net> <47544B1F.1010902@candelatech.com> <20071204154535.4eu35nfe9wks8kgg@email.ee.ethz.ch> <47559119.6070803@candelatech.com> <47559455.1080009@ee.ethz.ch> <47559763.9050408@candelatech.com> <4755C984.70906@ee.ethz.ch>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: NET: ASSERT_RTNL in __dev_set_promiscuity makes debug warning
+Date: Tue, 04 Dec 2007 23:26:54 +0100
+Message-ID: <4755D42E.7050602@gmail.com>
+References: <000001c8365a$e0e500c0$9c94fea9@jason>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	Rainer Baumann <baumann@tik.ee.ethz.ch>
-To: Ariane Keller <ariane.keller@tik.ee.ethz.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:39413 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755115AbXLDWVq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 17:21:46 -0500
-In-Reply-To: <4755C984.70906@ee.ethz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org,
+	'Linux Kernel Mailing List' <linux-kernel@vger.kernel.org>
+To: Joonwoo Park <joonwpark81@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755210AbXLDWXp@vger.kernel.org>
+In-Reply-To: <000001c8365a$e0e500c0$9c94fea9@jason>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ariane Keller wrote:
+Joonwoo Park wrote, On 12/04/2007 10:48 AM:
 
-> Yes, for short-term starvation it helps certainly.
-> But I'm still not convinced that it is really necessary to add more 
-> buffers, because I'm not sure whether the bottleneck is really the 
-> loading of data from user space to kernel space.
-> Some basic tests have shown that the kernel starts loosing packets at 
-> approximately the same packet rate regardless whether we use netem, or 
-> netem with the trace extension.
-> But if you have contrary experience I'm happy to add a parameter which 
-> defines the number of buffers.
+> Hi,
+> dev_set_rx_mode calls __dev_set_rx_mode with softirq disabled (by netif_tx_lock_bh)
+> therefore __dev_set_promiscuity can be called with softirq disabled.
+> It will cause in_interrupt() to return true and ASSERT_RTNL warning.
+> Is there a good solution to fix it besides blowing ASSERT_RTNL up?
 
-I have no numbers, so if you think it works, then that is fine with me.
 
-If you actually run out of the trace buffers, do you just continue to
-run with the last settings?  If so, that would keep up throughput
-even if you are out of trace buffers...
+Fixing ASSERT_RTNL up?!
 
-What rates do you see, btw?  (pps, bps).
+But, IMHO, blowing ASSERT_RTNL up in a few places shouldn't be much
+worse. After all, how long such a debugging code should be kept. It
+seems, at least sometimes we should be a bit more confident of how
+it's called.
 
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Regards,
+Jarek P.
