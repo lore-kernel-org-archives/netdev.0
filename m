@@ -1,41 +1,31 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 0/2] netem: trace enhancement
-Date: Tue, 04 Dec 2007 10:07:31 -0800
-Message-ID: <47559763.9050408@candelatech.com>
-References: <20071120231131.oqn4s5eda84k4csw@email.ee.ethz.ch>	<474C2246.50205@ee.ethz.ch> <20071129134554.5c25a891@freepuppy.rosehill>	<474F3719.30101@trash.net> <47503971.9080509@ee.ethz.ch>	<4753B423.7030000@trash.net> <4753C874.80703@ee.ethz.ch>	<47543E65.4060303@trash.net> <47544B1F.1010902@candelatech.com> <20071204154535.4eu35nfe9wks8kgg@email.ee.ethz.ch> <47559119.6070803@candelatech.com> <47559455.1080009@ee.ethz.ch>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH 2.6.24] pasemi_mac: Fix reuse of free'd skb
+Date: Tue, 04 Dec 2007 18:12:17 +0000
+Message-ID: <1196791937.13978.362.camel@pmac.infradead.org>
+References: <20071204033414.GA13616@lixom.net>
+	 <1196791478.13978.359.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	Rainer Baumann <baumann@tik.ee.ethz.ch>
-To: Ariane Keller <ariane.keller@tik.ee.ethz.ch>
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	ranger@gentoo.org
+To: Olof Johansson <olof@lixom.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:36723 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752264AbXLDSHl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 13:07:41 -0500
-In-Reply-To: <47559455.1080009@ee.ethz.ch>
+Received: from pentafluge.infradead.org ([213.146.154.40]:36409 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751425AbXLDSMW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 13:12:22 -0500
+In-Reply-To: <1196791478.13978.359.camel@pmac.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ariane Keller wrote:
-> I thought about that as well, but in my opinion this does not help much.
-> It's the same as before: in average every 10ms a new buffer needs to 
-> be filled.
-But, you can fill 50 or 100 at a time, so if user-space is delayed for a 
-few ms, the
-kernel still has plenty of buffers to work with until user-space gets 
-another chance.
-I'm not worried about average thoughput of user-space to kernel, just random
-short-term starvation.
+On Tue, 2007-12-04 at 18:04 +0000, David Woodhouse wrote:
+> Oops: Exception in kernel mode, sig: 5 [#1]                                     
+> nfs: server pmac not responding, still trying         
 
-Thanks,
-Ben
+Oops, sorry. That was meant to be just to Olof. And it helps if I'm
+actually running the kernel in which his patch is applied, too...
 
 -- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
+dwmw2
 
