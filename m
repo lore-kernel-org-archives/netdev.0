@@ -1,34 +1,73 @@
-From: Lukas Hejtmanek <xhejtman@ics.muni.cz>
-Subject: Re: e1000 driver problems
-Date: Tue, 4 Dec 2007 20:59:41 +0100
-Message-ID: <20071204195941.GJ8704@ics.muni.cz>
-References: <20071127173146.GG4365@ics.muni.cz> <474C5678.3060609@intel.com> <20071127174456.GH4365@ics.muni.cz> <474C6084.9000301@intel.com> <20071203095023.GG26573@ics.muni.cz> <47541ED0.9090808@intel.com> <20071204153405.GG8704@ics.muni.cz> <Pine.LNX.4.64.0712041043520.15251@tesla.psc.edu> <20071204170827.GH8704@ics.muni.cz> <47558C0F.9000708@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Matt Mathis <mathis@psc.edu>, NetDev <netdev@vger.kernel.org>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH] Stop phy code from returning success to unknown ioctls.
+Date: Tue, 4 Dec 2007 14:00:42 -0600
+Message-ID: <8D34458A-2CE9-4FA7-AE28-4D148E08CCDF@freescale.com>
+References: <1196273071.30806.46.camel@pmac.infradead.org> <1196279794.30806.54.camel@pmac.infradead.org>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, linuxppc-dev@ozlabs.org,
+	Domen Puncer <domen.puncer@telargo.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minas.ics.muni.cz ([147.251.4.40]:34613 "EHLO minas.ics.muni.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752269AbXLDUAH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 15:00:07 -0500
-Content-Disposition: inline
-In-Reply-To: <47558C0F.9000708@intel.com>
+Received: from az33egw02.freescale.net ([192.88.158.103]:60929 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751519AbXLDUCk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 15:02:40 -0500
+In-Reply-To: <1196279794.30806.54.camel@pmac.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 04, 2007 at 09:19:11AM -0800, Kok, Auke wrote:
-> if you "just" want to disable gigabit speed, get the latest ethtool a=
-nd run:
->=20
->    ethtool -s eth0 advertise 0x0f
->=20
 
-thanks. You may then let know people behind http://www.lesswatts.org/ t=
-o
-change tips&tricks related to the network. I turned off autonegotiation
-according to that web.
+On Nov 28, 2007, at 13:56, David Woodhouse wrote:
 
---=20
-Luk=E1=B9 Hejtm=E1nek
+> This kind of sucks, and prevents the Fedora installer from using the
+> device for network installs...
+>
+> [root@efika phy]# iwconfig eth0
+> Warning: Driver for device eth0 has been compiled with an ancient  
+> version
+> of Wireless Extension, while this program support version 11 and  
+> later.
+> Some things may be broken...
+>
+> eth0        ESSID:off/any  Nickname:""
+>           NWID:0  Channel:0  Access Point: 00:00:BF:81:14:E0
+>           Bit Rate:-1.08206e+06 kb/s   Sensitivity=0/0
+>           RTS thr:off   Fragment thr:off
+>           Encryption key:<too big>
+>           Power Management:off
+>
+> Signed-off-by: David Woodhouse <dwmw2@infradead.org>
+
+d'oh!
+
+Acked-by: Andy Fleming <afleming@freescale.com>
+
+
+>
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index 9bc1177..7c9e6e3 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+> @@ -406,6 +406,9 @@ int phy_mii_ioctl(struct phy_device *phydev,
+>  				&& phydev->drv->config_init)
+>  			phydev->drv->config_init(phydev);
+>  		break;
+> +
+> +	default:
+> +		return -ENOTTY;
+>  	}
+>
+>  	return 0;
+>
+> -- 
+> dwmw2
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
