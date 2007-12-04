@@ -1,8 +1,8 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.25 7/11][IPV6] Make the ipv6/sysctl_net_ipv6.c compilation
- cleaner
-Date: Tue, 04 Dec 2007 13:11:23 +0300
-Message-ID: <475527CB.9000003@openvz.org>
+Subject: [PATCH net-2.6.25 8/11][IPV6] Use sysctl paths to register ipv6 sysctl
+ tables
+Date: Tue, 04 Dec 2007 13:13:11 +0300
+Message-ID: <47552837.8080205@openvz.org>
 References: <4755256F.9000505@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -10,60 +10,66 @@ Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:39070 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:39221 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751876AbXLDKLi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 05:11:38 -0500
+	id S1751248AbXLDKN2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2007 05:13:28 -0500
 In-Reply-To: <4755256F.9000505@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since this file is entirely enclosed with the 
-#ifdef CONFIG_SYSCTL/#endif pair, it's OK to move this
-CONFIG_ into a Makefile.
+I have already done this for core, ipv4 and tr tables, so
+repeat this for the ipv6 ones.
+
+This makes the ipv6.ko smaller and creates the ground needed
+for net namespaces support in ipv6.ko ssctls.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
 
-diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-index 5ffa980..24f3aa0 100644
---- a/net/ipv6/Makefile
-+++ b/net/ipv6/Makefile
-@@ -8,9 +8,9 @@ ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o \
- 		addrlabel.o \
- 		route.o ip6_fib.o ipv6_sockglue.o ndisc.o udp.o udplite.o \
- 		raw.o protocol.o icmp.o mcast.o reassembly.o tcp_ipv6.o \
--		exthdrs.o sysctl_net_ipv6.o datagram.o \
--		ip6_flowlabel.o inet6_connection_sock.o
-+		exthdrs.o datagram.o ip6_flowlabel.o inet6_connection_sock.o
- 
-+ipv6-$(CONFIG_SYSCTL) = sysctl_net_ipv6.o
- ipv6-$(CONFIG_XFRM) += xfrm6_policy.o xfrm6_state.o xfrm6_input.o \
- 	xfrm6_output.o
- ipv6-$(CONFIG_NETFILTER) += netfilter.o
 diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
-index 68bb254..227efa7 100644
+index 227efa7..0b5bec3 100644
 --- a/net/ipv6/sysctl_net_ipv6.c
 +++ b/net/ipv6/sysctl_net_ipv6.c
-@@ -14,8 +14,6 @@
- #include <net/addrconf.h>
- #include <net/inet_frag.h>
+@@ -82,31 +82,17 @@ static ctl_table ipv6_table[] = {
+ 	{ .ctl_name = 0 }
+ };
  
--#ifdef CONFIG_SYSCTL
+-static struct ctl_table_header *ipv6_sysctl_header;
 -
- static ctl_table ipv6_table[] = {
- 	{
- 		.ctl_name	= NET_IPV6_ROUTE,
-@@ -115,8 +113,3 @@ void ipv6_sysctl_unregister(void)
+-static ctl_table ipv6_net_table[] = {
+-	{
+-		.ctl_name	= NET_IPV6,
+-		.procname	= "ipv6",
+-		.mode		= 0555,
+-		.child		= ipv6_table
+-	},
+-	{ .ctl_name = 0 }
++static struct ctl_path ipv6_ctl_path[] = {
++	{ .procname = "net", .ctl_name = CTL_NET, },
++	{ .procname = "ipv6", .ctl_name = NET_IPV6, },
++	{ },
+ };
+ 
+-static ctl_table ipv6_root_table[] = {
+-	{
+-		.ctl_name	= CTL_NET,
+-		.procname	= "net",
+-		.mode		= 0555,
+-		.child		= ipv6_net_table
+-	},
+-	{ .ctl_name = 0 }
+-};
++static struct ctl_table_header *ipv6_sysctl_header;
+ 
+ void ipv6_sysctl_register(void)
  {
- 	unregister_sysctl_table(ipv6_sysctl_header);
+-	ipv6_sysctl_header = register_sysctl_table(ipv6_root_table);
++	ipv6_sysctl_header = register_sysctl_paths(ipv6_ctl_path, ipv6_table);
  }
--
--#endif /* CONFIG_SYSCTL */
--
--
--
+ 
+ void ipv6_sysctl_unregister(void)
 -- 
 1.5.3.4
 
