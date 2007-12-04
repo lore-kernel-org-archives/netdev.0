@@ -1,62 +1,49 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: Pull request for 'ipg' branch
-Date: Tue, 04 Dec 2007 14:14:55 -0800
-Message-ID: <1196806495.10819.16.camel@localhost>
-References: <20071204214551.GA6345@electric-eye.fr.zoreil.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH 0/2] netem: trace enhancement
+Date: Tue, 04 Dec 2007 14:21:31 -0800
+Message-ID: <4755D2EB.4000807@candelatech.com>
+References: <20071120231131.oqn4s5eda84k4csw@email.ee.ethz.ch>	<474C2246.50205@ee.ethz.ch> <20071129134554.5c25a891@freepuppy.rosehill>	<474F3719.30101@trash.net> <47503971.9080509@ee.ethz.ch>	<4753B423.7030000@trash.net> <4753C874.80703@ee.ethz.ch>	<47543E65.4060303@trash.net> <47544B1F.1010902@candelatech.com> <20071204154535.4eu35nfe9wks8kgg@email.ee.ethz.ch> <47559119.6070803@candelatech.com> <47559455.1080009@ee.ethz.ch> <47559763.9050408@candelatech.com> <4755C984.70906@ee.ethz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, Pekka Enberg <penberg@cs.helsinki.fi>,
-	Sorbica Shieh <sorbica@icplus.com.tw>,
-	Jesse Huang <jesse@icplus.com.tw>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	Rainer Baumann <baumann@tik.ee.ethz.ch>
+To: Ariane Keller <ariane.keller@tik.ee.ethz.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:4869 "EHLO perches.com"
+Received: from ns2.lanforge.com ([66.165.47.211]:39413 "EHLO ns2.lanforge.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751004AbXLDWSE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 17:18:04 -0500
-In-Reply-To: <20071204214551.GA6345@electric-eye.fr.zoreil.com>
+	id S1755115AbXLDWVq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2007 17:21:46 -0500
+In-Reply-To: <4755C984.70906@ee.ethz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2007-12-04 at 22:45 +0100, Francois Romieu wrote:
-> diff --git a/drivers/net/ipg.c b/drivers/net/ipg.c
-> index dbd23bb..f736c35 100644
-> --- a/drivers/net/ipg.c
-> +++ b/drivers/net/ipg.c
-> -MODULE_DESCRIPTION("IC Plus IP1000 Gigabit Ethernet Adapter Linux Driver "
-> -		   DrvVer);
-> +MODULE_DESCRIPTION("IC Plus IP1000 Gigabit Ethernet Adapter Linux Driver");
->  MODULE_LICENSE("GPL");
+Ariane Keller wrote:
 
-> -	if ((sp->LED_Mode & 0x01) == 1)
-> +	if ((sp->led_mode & 0x01) == 1)
+> Yes, for short-term starvation it helps certainly.
+> But I'm still not convinced that it is really necessary to add more 
+> buffers, because I'm not sure whether the bottleneck is really the 
+> loading of data from user space to kernel space.
+> Some basic tests have shown that the kernel starts loosing packets at 
+> approximately the same packet rate regardless whether we use netem, or 
+> netem with the trace extension.
+> But if you have contrary experience I'm happy to add a parameter which 
+> defines the number of buffers.
 
-I think the use of hex and decimal constants is odd.
-I think "if (sp->led_mode & 0x01)" is better.
- 
-> diff --git a/drivers/net/ipg.h b/drivers/net/ipg.h
-> index d5d092c..cda5388 100644
-> --- a/drivers/net/ipg.h
-> +++ b/drivers/net/ipg.h
+I have no numbers, so if you think it works, then that is fine with me.
 
->  /* Assign IPG_APPEND_FCS_ON_TX > 0 for auto FCS append on TX. */
-> -#define         IPG_APPEND_FCS_ON_TX         TRUE
-> +#define         IPG_APPEND_FCS_ON_TX         1
+If you actually run out of the trace buffers, do you just continue to
+run with the last settings?  If so, that would keep up throughput
+even if you are out of trace buffers...
 
-Why not true and false?
+What rates do you see, btw?  (pps, bps).
 
-> @@ -753,8 +732,7 @@ enum ipg_regs {
->   * Miscellaneous macros.
->   */
->  
-> -/* Marco for printing debug statements.
-> -#  define IPG_DDEBUG_MSG(args...) printk(KERN_DEBUG "IPG: " ## args) */
-> +/* Marco for printing debug statements. */
+Thanks,
+Ben
 
-Macros
-
-cheers, Joe
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
