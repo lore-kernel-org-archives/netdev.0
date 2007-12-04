@@ -1,31 +1,35 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH 2.6.24] pasemi_mac: Fix reuse of free'd skb
-Date: Tue, 04 Dec 2007 18:12:17 +0000
-Message-ID: <1196791937.13978.362.camel@pmac.infradead.org>
-References: <20071204033414.GA13616@lixom.net>
-	 <1196791478.13978.359.camel@pmac.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	ranger@gentoo.org
-To: Olof Johansson <olof@lixom.net>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: when using arp monitoring with bonding, why use broadcast arps?
+Date: Tue, 04 Dec 2007 10:20:56 -0800
+Message-ID: <17022.1196792456@death>
+References: <47558DFC.5050601@nortel.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net
+To: "Chris Friesen" <cfriesen@nortel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:36409 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751425AbXLDSMW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 13:12:22 -0500
-In-Reply-To: <1196791478.13978.359.camel@pmac.infradead.org>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:33694 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750896AbXLDSVO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 13:21:14 -0500
+In-reply-to: <47558DFC.5050601@nortel.com> 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2007-12-04 at 18:04 +0000, David Woodhouse wrote:
-> Oops: Exception in kernel mode, sig: 5 [#1]                                     
-> nfs: server pmac not responding, still trying         
+Chris Friesen <cfriesen@nortel.com> wrote:
+[...]
+>Is there any particular reason why the bonding code couldn't use unicast
+>arp packets if the "arp_ip_target" has a valid entry in the sender's arp
+>table?
 
-Oops, sorry. That was meant to be just to Olof. And it helps if I'm
-actually running the kernel in which his patch is applied, too...
+	It ought to be a pretty straightforward change to have the
+bond_arp_send() function perform a neigh_lookup() prior to calling
+arp_create(), and use the result of the lookup (if any) in the
+arp_create() call.
 
--- 
-dwmw2
+	So, no, with the caveat that I haven't tried it, I don't see a
+reason that bonding couldn't do what you're looking for.
 
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
