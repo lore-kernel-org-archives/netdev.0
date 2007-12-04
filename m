@@ -1,216 +1,159 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 3/3] [UDP]: Only increment counter on first peek/recv
-Date: Wed, 5 Dec 2007 00:03:10 +1100
-Message-ID: <20071204130310.GB3098@gondor.apana.org.au>
-References: <20071204125844.GA2750@gondor.apana.org.au> <20071204130109.GA3098@gondor.apana.org.au>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: [PATCH][RESEND] PHY: Add the phy_device_release device method.
+Date: Tue, 4 Dec 2007 16:17:33 +0300
+Message-ID: <20071204131733.GA27457@localhost.localdomain>
+References: <20071119.214215.207388094.davem@davemloft.net> <4751D9F3.5090502@garzik.org> <20071203083511.GA9396@avionic-tr-basi.adnet.avionic-design.de> <20071203214440.78709615.akpm@linux-foundation.org> <20071204073847.GA881@avionic-tr-basi.adnet.avionic-design.de>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf8
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Andy Fleming <afleming@freescale.com>
+To: Thierry Reding <thierry.reding@avionic-design.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1415 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754403AbXLDNDO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 08:03:14 -0500
+Received: from rtsoft3.corbina.net ([85.21.88.6]:4133 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750993AbXLDNNb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 08:13:31 -0500
 Content-Disposition: inline
-In-Reply-To: <20071204130109.GA3098@gondor.apana.org.au>
+In-Reply-To: <20071204073847.GA881@avionic-tr-basi.adnet.avionic-design.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[UDP]: Only increment counter on first peek/recv
+On Tue, Dec 04, 2007 at 08:38:47AM +0100, Thierry Reding wrote:
+> * Andrew Morton wrote:
+> > On Mon, 3 Dec 2007 09:35:11 +0100 Thierry Reding <thierry.reding@avionic-design.de> wrote:
+> > 
+[...]
+> > I've been sitting on
+> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.24-rc3/2.6.24-rc3-mm2/broken-out/phy-implement-release-function.patch
+> > for a few weeks.  For some reason I have it in my "nacked netdev patches"
+> > section but I think that was a mistake and it has not (yet ;)) been nacked.
 
-The previous move of the the UDP inDatagrams counter caused each
-peek of the same packet to be counted separately.  This may be
-undesirable.
+Heh, it has been otherwise Acked-by: Andy Fleming, informal(?) phylib
+maintainer.
 
-This patch fixes this by adding a bit to sk_buff to record whether
-this packet has already been seen through skb_recv_datagram.  We
-then only increment the counter when the packet is seen for the
-first time.
+> > Anyway, Anton's patch looks somewhat different from yours.  Please compare
+> > notes.
+> 
+> FWIW, I like Anton's patch better, especially since it plugs a possible
+> memory leak. I'm not sure it's useful or necessary to export the
+> phy_device_free symbol, though.
 
-The only dodgy part is the fact that skb_recv_datagram doesn't have
-a good way of returning this new bit of information.  So I've added
-a new function __skb_recv_datagram that does return this and made
-skb_recv_datagram a wrapper around it.
+Makes sense, I think. Here is the newer patch, the only difference is
+removed EXPORT_SYMBOL(). Because of trivial change, I dared to keep
+Andy's Acked-by intact.
 
-The plan is to eventually replace all uses of skb_recv_datagram with
-this new function at which time it can be renamed its proper name.
+- - - -
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: [PATCH] phy: implement release function
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Lately I've got this nice badness on mdio bus removal:
+
+Device 'e0103120:06' does not have a release() function, it is broken and must be fixed.
+------------[ cut here ]------------
+Badness at drivers/base/core.c:107
+NIP: c015c1a8 LR: c015c1a8 CTR: c0157488
+REGS: c34bdcf0 TRAP: 0700   Not tainted  (2.6.23-rc5-g9ebadfbb-dirty)
+MSR: 00029032 <EE,ME,IR,DR>  CR: 24088422  XER: 00000000
+...
+[c34bdda0] [c015c1a8] device_release+0x78/0x80 (unreliable)
+[c34bddb0] [c01354cc] kobject_cleanup+0x80/0xbc
+[c34bddd0] [c01365f0] kref_put+0x54/0x6c
+[c34bdde0] [c013543c] kobject_put+0x24/0x34
+[c34bddf0] [c015c384] put_device+0x1c/0x2c
+[c34bde00] [c0180e84] mdiobus_unregister+0x2c/0x58
+...
+
+Though actually there is nothing broken, it just device
+subsystem core expects another "pattern" of resource managment.
+
+This patch implement phy device's release function, thus
+we're getting rid of this badness.
+
+Also small hidden bug fixed, hope none other introduced. ;-)
+
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+Acked-by: Andy Fleming <afleming@freescale.com>
 ---
+ drivers/net/phy/mdio_bus.c   |    9 +++++----
+ drivers/net/phy/phy_device.c |   12 ++++++++++++
+ include/linux/phy.h          |    1 +
+ 3 files changed, 18 insertions(+), 4 deletions(-)
 
- include/linux/skbuff.h |    3 +++
- net/core/datagram.c    |   41 ++++++++++++++++++++++++++---------------
- net/ipv4/udp.c         |    7 +++++--
- net/ipv6/udp.c         |    7 +++++--
- 4 files changed, 39 insertions(+), 19 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -291,6 +291,7 @@ struct sk_buff {
- 	__u8			pkt_type:3,
- 				fclone:2,
- 				ipvs_property:1,
-+				peeked:1,
- 				nf_trace:1;
- 	__be16			protocol;
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index fc2f0e6..c30196d 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -91,9 +91,12 @@ int mdiobus_register(struct mii_bus *bus)
  
-@@ -1541,6 +1542,8 @@ static inline int pskb_trim_rcsum(struct
- 		     skb = skb->prev)
+ 			err = device_register(&phydev->dev);
  
+-			if (err)
++			if (err) {
+ 				printk(KERN_ERR "phy %d failed to register\n",
+ 						i);
++				phy_device_free(phydev);
++				phydev = NULL;
++			}
+ 		}
  
-+extern struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned flags,
-+					   int *peeked, int *err);
- extern struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags,
- 					 int noblock, int *err);
- extern unsigned int    datagram_poll(struct file *file, struct socket *sock,
-diff --git a/net/core/datagram.c b/net/core/datagram.c
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -115,10 +115,10 @@ out_noerr:
+ 		bus->phy_map[i] = phydev;
+@@ -110,10 +113,8 @@ void mdiobus_unregister(struct mii_bus *bus)
+ 	int i;
+ 
+ 	for (i = 0; i < PHY_MAX_ADDR; i++) {
+-		if (bus->phy_map[i]) {
++		if (bus->phy_map[i])
+ 			device_unregister(&bus->phy_map[i]->dev);
+-			kfree(bus->phy_map[i]);
+-		}
+ 	}
  }
+ EXPORT_SYMBOL(mdiobus_unregister);
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index f6e4848..5b9e175 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -44,6 +44,16 @@ static struct phy_driver genphy_driver;
+ extern int mdio_bus_init(void);
+ extern void mdio_bus_exit(void);
  
- /**
-- *	skb_recv_datagram - Receive a datagram skbuff
-+ *	__skb_recv_datagram - Receive a datagram skbuff
-  *	@sk: socket
-  *	@flags: MSG_ flags
-- *	@noblock: blocking operation?
-+ *	@peeked: returns non-zero if this packet has been seen before
-  *	@err: error code returned
-  *
-  *	Get a datagram skbuff, understands the peeking, nonblocking wakeups
-@@ -143,8 +143,8 @@ out_noerr:
-  *	quite explicitly by POSIX 1003.1g, don't change them without having
-  *	the standard around please.
-  */
--struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags,
--				  int noblock, int *err)
-+struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned flags,
-+				    int *peeked, int *err)
- {
- 	struct sk_buff *skb;
- 	long timeo;
-@@ -156,7 +156,7 @@ struct sk_buff *skb_recv_datagram(struct
- 	if (error)
- 		goto no_packet;
- 
--	timeo = sock_rcvtimeo(sk, noblock);
-+	timeo = sock_rcvtimeo(sk, flags & MSG_DONTWAIT);
- 
- 	do {
- 		/* Again only user level code calls this function, so nothing
-@@ -165,18 +165,19 @@ struct sk_buff *skb_recv_datagram(struct
- 		 * Look at current nfs client by the way...
- 		 * However, this function was corrent in any case. 8)
- 		 */
--		if (flags & MSG_PEEK) {
--			unsigned long cpu_flags;
-+		unsigned long cpu_flags;
- 
--			spin_lock_irqsave(&sk->sk_receive_queue.lock,
--					  cpu_flags);
--			skb = skb_peek(&sk->sk_receive_queue);
--			if (skb)
-+		spin_lock_irqsave(&sk->sk_receive_queue.lock, cpu_flags);
-+		skb = skb_peek(&sk->sk_receive_queue);
-+		if (skb) {
-+			*peeked = skb->peeked;
-+			if (flags & MSG_PEEK) {
-+				skb->peeked = 1;
- 				atomic_inc(&skb->users);
--			spin_unlock_irqrestore(&sk->sk_receive_queue.lock,
--					       cpu_flags);
--		} else
--			skb = skb_dequeue(&sk->sk_receive_queue);
-+			} else
-+				__skb_unlink(skb, &sk->sk_receive_queue);
-+		}
-+		spin_unlock_irqrestore(&sk->sk_receive_queue.lock, cpu_flags);
- 
- 		if (skb)
- 			return skb;
-@@ -194,6 +195,16 @@ no_packet:
- 	*err = error;
- 	return NULL;
- }
-+EXPORT_SYMBOL(__skb_recv_datagram);
-+
-+struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags,
-+				  int noblock, int *err)
++void phy_device_free(struct phy_device *phydev)
 +{
-+	int peeked;
-+
-+	return __skb_recv_datagram(sk, flags | (noblock ? MSG_DONTWAIT : 0),
-+				   &peeked, err);
++	kfree(phydev);
 +}
- 
- void skb_free_datagram(struct sock *sk, struct sk_buff *skb)
++
++static void phy_device_release(struct device *dev)
++{
++	phy_device_free(to_phy_device(dev));
++}
++
+ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
  {
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -827,6 +827,7 @@ int udp_recvmsg(struct kiocb *iocb, stru
- 	struct sockaddr_in *sin = (struct sockaddr_in *)msg->msg_name;
- 	struct sk_buff *skb;
- 	unsigned int ulen, copied;
-+	int peeked;
- 	int err;
- 	int is_udplite = IS_UDPLITE(sk);
+ 	struct phy_device *dev;
+@@ -54,6 +64,8 @@ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
+ 	if (NULL == dev)
+ 		return (struct phy_device*) PTR_ERR((void*)-ENOMEM);
  
-@@ -840,7 +841,8 @@ int udp_recvmsg(struct kiocb *iocb, stru
- 		return ip_recv_error(sk, msg, len);
++	dev->dev.release = phy_device_release;
++
+ 	dev->speed = 0;
+ 	dev->duplex = -1;
+ 	dev->pause = dev->asym_pause = 0;
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index e10763d..554836e 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -403,6 +403,7 @@ int phy_mii_ioctl(struct phy_device *phydev,
+ int phy_start_interrupts(struct phy_device *phydev);
+ void phy_print_status(struct phy_device *phydev);
+ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id);
++void phy_device_free(struct phy_device *phydev);
  
- try_again:
--	skb = skb_recv_datagram(sk, flags, noblock, &err);
-+	skb = __skb_recv_datagram(sk, flags | (noblock ? MSG_DONTWAIT : 0),
-+				  &peeked, &err);
- 	if (!skb)
- 		goto out;
- 
-@@ -875,7 +877,8 @@ try_again:
- 	if (err)
- 		goto out_free;
- 
--	UDP_INC_STATS_USER(UDP_MIB_INDATAGRAMS, is_udplite);
-+	if (!peeked)
-+		UDP_INC_STATS_USER(UDP_MIB_INDATAGRAMS, is_udplite);
- 
- 	sock_recv_timestamp(msg, sk, skb);
- 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -121,6 +121,7 @@ int udpv6_recvmsg(struct kiocb *iocb, st
- 	struct inet_sock *inet = inet_sk(sk);
- 	struct sk_buff *skb;
- 	unsigned int ulen, copied;
-+	int peeked;
- 	int err;
- 	int is_udplite = IS_UDPLITE(sk);
- 
-@@ -131,7 +132,8 @@ int udpv6_recvmsg(struct kiocb *iocb, st
- 		return ipv6_recv_error(sk, msg, len);
- 
- try_again:
--	skb = skb_recv_datagram(sk, flags, noblock, &err);
-+	skb = __skb_recv_datagram(sk, flags | (noblock ? MSG_DONTWAIT : 0),
-+				  &peeked, &err);
- 	if (!skb)
- 		goto out;
- 
-@@ -164,7 +166,8 @@ try_again:
- 	if (err)
- 		goto out_free;
- 
--	UDP6_INC_STATS_USER(UDP_MIB_INDATAGRAMS, is_udplite);
-+	if (!peeked)
-+		UDP6_INC_STATS_USER(UDP_MIB_INDATAGRAMS, is_udplite);
- 
- 	sock_recv_timestamp(msg, sk, skb);
- 
+ extern struct bus_type mdio_bus_type;
+ #endif /* __PHY_H */
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.5.2.2
+
