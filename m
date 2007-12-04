@@ -1,85 +1,55 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: namespace support requires network modules to say "GPL"
-Date: Tue, 04 Dec 2007 11:35:47 -0800
-Message-ID: <4755AC13.1060904@candelatech.com>
-References: <m163zi9425.fsf@ebiederm.dsl.xmission.com>	<47515D39.9030900@rtr.ca> <20071201111736.297dd99a@freepuppy.rosehill>	<20071201163035.321fd554@freepuppy.rosehill> <475227B1.2060802@rtr.ca>	<20071201202354.672aed18@freepuppy.rosehill>	<47530778.7030605@candelatech.com> <47530FAC.1070804@trash.net>	<m1fxyj1y1y.fsf@ebiederm.dsl.xmission.com>	<47544896.7070101@candelatech.com> <475451B1.1030006@free.fr>	<m163zexrqi.fsf@ebiederm.dsl.xmission.com>	<4755A025.8090903@candelatech.com> <m1odd6w9p6.fsf@ebiederm.dsl.xmission.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] Fix memory corruption in fec_mpc52xx
+Date: Tue, 04 Dec 2007 14:54:17 -0500
+Message-ID: <4755B069.3050901@pobox.com>
+References: <1196721490.13978.185.camel@pmac.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <daniel.lezcano@free.fr>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, containers@lists.osdl.org,
-	Mark Lord <lkml@rtr.ca>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: netdev@vger.kernel.org, Domen Puncer <domen.puncer@telargo.com>,
+	Jon Smirl <jonsmirl@gmail.com>,
+	Grant Likely <grant.likely@secretlab.ca>
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:45486 "EHLO ns2.lanforge.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:47972 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751865AbXLDTgd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 14:36:33 -0500
-In-Reply-To: <m1odd6w9p6.fsf@ebiederm.dsl.xmission.com>
+	id S1753890AbXLDTyT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2007 14:54:19 -0500
+In-Reply-To: <1196721490.13978.185.camel@pmac.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric W. Biederman wrote:
-> Ben Greear <greearb@candelatech.com> writes:
+David Woodhouse wrote:
+> From: Jon Smirl <jonsmirl@gmail.com>
 > 
->> Eric W. Biederman wrote:
->>> However there also seem to be simpler cases like Ben's bridge module,
->>> that don't appear to have any global state.
->>>
->> Well, my module has some global state, but I don't think it needs to care about
->> namespaces.  My first impression is that my module should be able to bridge
->> namespaces...not be contained within one.  I can have user-space make sure that
->> I don't bridge between
->> devices in different name-spaces, or perhaps bridging between namespaces
->> wouldn't be a problem anyway. 
+> The mpc5200 fec driver is corrupting memory. This patch fixes two bugs
+> where the wrong skb was being referenced.
 > 
-> Bridging between namespaces should not be a problem, but it could be
-> a bit of a challenge to setup (in finding the network devices).
-> Probably the easy way is to setup the bridging and then move one of the
-> network devices to the other network namespace.
+> Signed-off-by: Jon Smirl <jonsmirl@gmail.com>
+> Acked-by: Domen Puncer <domen.puncer@telargo.com>
+> Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+> Signed-off-by: David Woodhouse <dwmw2@infradead.org>
 > 
-> Essentially bridging between two network devices in two network
-> namespaces looks like bridging between two network devices on two
-> separate network stacks.   Although internally things look a little
-> better.
-
-Ok, that sounds fine.
-
->> Currently I use procfs and ioctls bound to a procfs file descriptor.
+> --- a/drivers/net/fec_mpc52xx.c
+> +++ b/drivers/net/fec_mpc52xx.c
+> @@ -422,7 +422,7 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int irq, void *dev_id)
 > 
-> Which is where it gets tricky   You are defining new userspace ABIs.
-> I can see where they occasionally make sense during development
-> and prototyping but long term out of tree userspace interfaces appear
-> to me to be a real maintenance problem.
-
-They are completely contained within my module, and no one is going
-to change my module w/out me knowing, so actually I have very little
-problem here :)
-
->> For namespaces in general, will there be a way to just do a dev_get_by_* and
->> find the
->> device in *any* namespace and query the device to see what namespace it is in?
->> Then my module or some other more clever piece of code can determine the
->> namespaces
->> (by comparing pointers if nothing else) and make proper decision.  For instance,
->> maybe
->> we want to bridge two namespaces, or maybe we want to forbid that ever
->> happening...
+>  		rskb = bcom_retrieve_buffer(priv->rx_dmatsk, &status,
+>  				(struct bcom_bd **)&bd);
+> -		dma_unmap_single(&dev->dev, bd->skb_pa, skb->len, DMA_FROM_DEVICE);
+> +		dma_unmap_single(&dev->dev, bd->skb_pa, rskb->len, DMA_FROM_DEVICE);
 > 
-> The issue is that fundamentally all userspace device identifiers can
-> be duped between namespaces.  So since there is no unique identifier
-> we can not implement a function to do that.
+>  		/* Test for errors in received frame */
+>  		if (status & BCOM_FEC_RX_BD_ERRORS) {
+> @@ -467,7 +467,7 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int irq, void *dev_id)
+>  			bcom_prepare_next_buffer(priv->rx_dmatsk);
+> 
+>  		bd->status = FEC_RX_BUFFER_SIZE;
+> -		bd->skb_pa = dma_map_single(&dev->dev, rskb->data,
+> +		bd->skb_pa = dma_map_single(&dev->dev, skb->data,
+>  				FEC_RX_BUFFER_SIZE, DMA_FROM_DEVICE);
+> 
 
-Ok, but can a netdev at least know what namespace it is in?  I don't
-need this for my module, but it seems very useful knowledge...
+applied #upstream-fixes
 
-Thanks,
-Ben
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
 
