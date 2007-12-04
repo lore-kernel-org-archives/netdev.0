@@ -1,8 +1,8 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH][IPVS] Don't leak sysctl tables if the scheduler registration fails
-Date: Tue, 4 Dec 2007 10:36:48 +0900
-Message-ID: <20071204013647.GB28582@verge.net.au>
-References: <4753D4C5.4040301@openvz.org>
+Subject: Re: [PATCH][IPVS] Fix sched registration race when checking for name collision
+Date: Tue, 4 Dec 2007 10:41:43 +0900
+Message-ID: <20071204014142.GC28582@verge.net.au>
+References: <4753D631.8040005@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
@@ -12,27 +12,27 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Julian Anastasov <ja@ssi.bg>
 To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:41687 "EHLO koto.vergenet.net"
+Received: from koto.vergenet.net ([210.128.90.7]:41702 "EHLO koto.vergenet.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750709AbXLDBgv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Dec 2007 20:36:51 -0500
+	id S1750709AbXLDBlp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Dec 2007 20:41:45 -0500
 Content-Disposition: inline
-In-Reply-To: <4753D4C5.4040301@openvz.org>
+In-Reply-To: <4753D631.8040005@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 03, 2007 at 01:04:53PM +0300, Pavel Emelyanov wrote:
-> In case we load lblc or lblcr module we can leak some sysctl
-> tables if the call to register_ip_vs_scheduler() fails.
+On Mon, Dec 03, 2007 at 01:10:57PM +0300, Pavel Emelyanov wrote:
+> The register_ip_vs_scheduler() checks for the scheduler with the
+> same name under the read-locked __ip_vs_sched_lock, then drops,
+> takes it for writing and puts the scheduler in list.
+> 
+> This is racy, since we can have a race window between the lock
+> being re-locked for writing.
+> 
+> The fix is to search the scheduler with the given name right under
+> the write-locked __ip_vs_sched_lock.
 
 This looks correct to me.
-
-> I've looked at the register_ip_vs_scheduler() code and saw, that
-> the only reason to fail is the name collision, so I think that
-> with some 3rd party schedulers this becomes a relevant issue. No?
-
-I guess so. Though presumably register_ip_vs_scheduler() could
-have other modes of failure in the future.
 
 > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
@@ -40,46 +40,51 @@ Acked-by: Simon Horman <horms@verge.net.au>
 
 > ---
 > 
-> diff --git a/net/ipv4/ipvs/ip_vs_lblc.c b/net/ipv4/ipvs/ip_vs_lblc.c
-> index b843a11..ad89644 100644
-> --- a/net/ipv4/ipvs/ip_vs_lblc.c
-> +++ b/net/ipv4/ipvs/ip_vs_lblc.c
-> @@ -580,9 +580,14 @@ static struct ip_vs_scheduler ip_vs_lblc_scheduler =
+> diff --git a/net/ipv4/ipvs/ip_vs_sched.c b/net/ipv4/ipvs/ip_vs_sched.c
+> index 1602304..4322358 100644
+> --- a/net/ipv4/ipvs/ip_vs_sched.c
+> +++ b/net/ipv4/ipvs/ip_vs_sched.c
+> @@ -183,19 +183,6 @@ int register_ip_vs_scheduler(struct ip_vs_scheduler *scheduler)
+>  	/* increase the module use count */
+>  	ip_vs_use_count_inc();
 >  
->  static int __init ip_vs_lblc_init(void)
->  {
-> +	int ret;
-> +
->  	INIT_LIST_HEAD(&ip_vs_lblc_scheduler.n_list);
->  	sysctl_header = register_sysctl_table(lblc_root_table);
-> -	return register_ip_vs_scheduler(&ip_vs_lblc_scheduler);
-> +	ret = register_ip_vs_scheduler(&ip_vs_lblc_scheduler);
-> +	if (ret)
-> +		unregister_sysctl_table(sysctl_header);
-> +	return ret;
->  }
+> -	/*
+> -	 *  Make sure that the scheduler with this name doesn't exist
+> -	 *  in the scheduler list.
+> -	 */
+> -	sched = ip_vs_sched_getbyname(scheduler->name);
+> -	if (sched) {
+> -		ip_vs_scheduler_put(sched);
+> -		ip_vs_use_count_dec();
+> -		IP_VS_ERR("register_ip_vs_scheduler(): [%s] scheduler "
+> -			  "already existed in the system\n", scheduler->name);
+> -		return -EINVAL;
+> -	}
+> -
+>  	write_lock_bh(&__ip_vs_sched_lock);
 >  
+>  	if (scheduler->n_list.next != &scheduler->n_list) {
+> @@ -207,6 +194,20 @@ int register_ip_vs_scheduler(struct ip_vs_scheduler *scheduler)
+>  	}
 >  
-> diff --git a/net/ipv4/ipvs/ip_vs_lblcr.c b/net/ipv4/ipvs/ip_vs_lblcr.c
-> index e5b323a..2a5ed85 100644
-> --- a/net/ipv4/ipvs/ip_vs_lblcr.c
-> +++ b/net/ipv4/ipvs/ip_vs_lblcr.c
-> @@ -769,9 +769,14 @@ static struct ip_vs_scheduler ip_vs_lblcr_scheduler =
->  
->  static int __init ip_vs_lblcr_init(void)
->  {
-> +	int ret;
-> +
->  	INIT_LIST_HEAD(&ip_vs_lblcr_scheduler.n_list);
->  	sysctl_header = register_sysctl_table(lblcr_root_table);
-> -	return register_ip_vs_scheduler(&ip_vs_lblcr_scheduler);
-> +	ret = register_ip_vs_scheduler(&ip_vs_lblcr_scheduler);
-> +	if (ret)
-> +		unregister_sysctl_table(sysctl_header);
-> +	return ret;
->  }
->  
->  
+>  	/*
+> +	 *  Make sure that the scheduler with this name doesn't exist
+> +	 *  in the scheduler list.
+> +	 */
+> +	list_for_each_entry(sched, &ip_vs_schedulers, n_list) {
+> +		if (strcmp(scheduler->name, sched->name) == 0) {
+> +			write_unlock_bh(&__ip_vs_sched_lock);
+> +			ip_vs_use_count_dec();
+> +			IP_VS_ERR("register_ip_vs_scheduler(): [%s] scheduler "
+> +					"already existed in the system\n",
+> +					scheduler->name);
+> +			return -EINVAL;
+> +		}
+> +	}
+> +	/*
+>  	 *	Add it into the d-linked scheduler list
+>  	 */
+>  	list_add(&scheduler->n_list, &ip_vs_schedulers);
 
 -- 
 Horms
