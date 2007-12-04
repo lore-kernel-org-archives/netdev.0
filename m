@@ -1,36 +1,38 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: [RFC] introducing the Atheros L2 Fast Ethernet driver
-Date: Tue, 04 Dec 2007 17:24:29 -0500
-Message-ID: <4755D39D.30005@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: synrg@debian.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:41247 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752000AbXLDWYf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 17:24:35 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: [PATCH] rt2x00: correct "skb_buff" typo
+Date: Tue,  4 Dec 2007 17:24:35 -0500
+Message-ID: <1196807075-28518-1-git-send-email-linville@tuxdriver.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hey folks --
+Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+---
+Jeff,
 
-	I've begun cleaning up the atl2 vendor driver for merging.  It's very similar 
-to the atl1 driver, and needs a lot of the same work, though I have already 
-fixed the 64-bit DMA data corrupter that atl1 users remember so fondly.  Right 
-now this is very raw, and there is a large amount of cosmetic work to do to make 
-it more maintainable, but it should generally work, at least as well as the 
-vendor driver does.
+I found this one when pushing the latest round of wireless bits
+into rawhide.  Wanna just go ahead and apply it to netdev-2.6#upstream?
 
-	While this is in pre-submission cleanup mode, the latest standalone source 
-tarball and patch (currently against 2.6.23) will be available here:
+John
 
-http://people.redhat.com/csnook/atl2/
+ drivers/net/wireless/rt2x00/rt2x00lib.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-	If you have atl2 hardware, please give this a spin.  I plan to submit the 
-driver for merging some time in the next month or so.  Questions, comments, 
-patches welcome.
-
-	-- Chris
+diff --git a/drivers/net/wireless/rt2x00/rt2x00lib.h b/drivers/net/wireless/rt2x00/rt2x00lib.h
+index 0bf10ff..108488d 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00lib.h
++++ b/drivers/net/wireless/rt2x00/rt2x00lib.h
+@@ -91,7 +91,7 @@ static inline void rt2x00debug_deregister(struct rt2x00_dev *rt2x00dev)
+ }
+ 
+ static inline void rt2x00debug_dump_frame(struct rt2x00_dev *rt2x00dev,
+-					  struct skb_buff *skb)
++					  struct sk_buff *skb)
+ {
+ }
+ #endif /* CONFIG_RT2X00_LIB_DEBUGFS */
+-- 
+1.5.3.3
