@@ -1,41 +1,51 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: e1000 driver problems
-Date: Tue, 04 Dec 2007 09:19:11 -0800
-Message-ID: <47558C0F.9000708@intel.com>
-References: <20071127150700.GB4365@ics.muni.cz> <474C4A74.90705@intel.com> <20071127173146.GG4365@ics.muni.cz> <474C5678.3060609@intel.com> <20071127174456.GH4365@ics.muni.cz> <474C6084.9000301@intel.com> <20071203095023.GG26573@ics.muni.cz> <47541ED0.9090808@intel.com> <20071204153405.GG8704@ics.muni.cz> <Pine.LNX.4.64.0712041043520.15251@tesla.psc.edu> <20071204170827.GH8704@ics.muni.cz>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [NETLINK]: af_netlink.c checkpatch cleanups
+Date: Tue, 04 Dec 2007 09:21:03 -0800
+Message-ID: <1196788863.4898.13.camel@localhost>
+References: <47550AA8.3030608@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Matt Mathis <mathis@psc.edu>, NetDev <netdev@vger.kernel.org>
-To: Lukas Hejtmanek <xhejtman@ics.muni.cz>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:59888 "EHLO mga09.intel.com"
+Received: from DSL022.labridge.com ([206.117.136.22]:4674 "EHLO perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751075AbXLDRTw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 12:19:52 -0500
-In-Reply-To: <20071204170827.GH8704@ics.muni.cz>
+	id S1751004AbXLDRYT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2007 12:24:19 -0500
+In-Reply-To: <47550AA8.3030608@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lukas Hejtmanek wrote:
-> On Tue, Dec 04, 2007 at 11:02:23AM -0500, Matt Mathis wrote:
->> This is probably not an e1000 problem, but a general Ethernet "feature".  
->> If you defeat auto-negotiation to force the data rate, you implicitly 
->> defeat duplex negotiation as well.  You need to explicitly set the duplex 
->> mode.
-> 
-> ethtool reports, that I have full duplex line:
+On Tue, 2007-12-04 at 09:07 +0100, Patrick McHardy wrote:
+> [NETLINK]: af_netlink.c checkpatch cleanups
+> -static __inline__ void
+> +static inline void
+>  netlink_lock_table(void)
+>  {
+>  	/* read_lock() synchronizes us to netlink_table_grab */
+> @@ -208,14 +208,15 @@ netlink_lock_table(void)
+>  	read_unlock(&nl_table_lock);
+>  }
+>  
+> -static __inline__ void
+> +static inline void
+>  netlink_unlock_table(void)
+>  {
+>  	if (atomic_dec_and_test(&nl_table_users))
+>  		wake_up(&nl_table_wait);
+>  }
+>  
+> -static __inline__ struct sock *netlink_lookup(struct net *net, int protocol, u32 pid)
+> +static inline struct sock *netlink_lookup(struct net *net, int protocol,
+> +					  u32 pid)
 
-Matt was almost right - the link partner however might be working in half duplex
-mode. in case you force speed/duplex, you are *required* to force the exact same
-setting on the link partner, otherwise things like this can happen.
+netlink_lock_table and netlink_unlock_table are the only
+function definitions in this patch that have newlines between
+function type and function name.
 
-if you "just" want to disable gigabit speed, get the latest ethtool and run:
+Perhaps checkpatch should warn on newlines between function type
+and function names.
 
-   ethtool -s eth0 advertise 0x0f
 
-which keeps autonegotiation enabled but tells the e1000 card to _not_ advertise
-gigabit speed capability to the link partner. The link partner and the e1000 can
-then decide with autonegotiation whether to use 10half 10duplex 100half or 100full.
-
-Auke
