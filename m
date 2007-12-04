@@ -1,51 +1,39 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 0/2] netem: trace enhancement
-Date: Tue, 04 Dec 2007 15:58:40 +0100
-Message-ID: <47556B20.2030700@trash.net>
-References: <20071120231131.oqn4s5eda84k4csw@email.ee.ethz.ch>	<474C2246.50205@ee.ethz.ch> <20071129134554.5c25a891@freepuppy.rosehill>	<474F3719.30101@trash.net> <47503971.9080509@ee.ethz.ch>	<4753B423.7030000@trash.net> <4753C874.80703@ee.ethz.ch>	<47543E65.4060303@trash.net> <47544B1F.1010902@candelatech.com> <20071204154535.4eu35nfe9wks8kgg@email.ee.ethz.ch>
+From: Lukas Hejtmanek <xhejtman@ics.muni.cz>
+Subject: Re: e1000 driver problems
+Date: Tue, 4 Dec 2007 16:03:12 +0100
+Message-ID: <20071204150312.GE8704@ics.muni.cz>
+References: <20071120143803.GA5638@ics.muni.cz> <474B5610.4030800@intel.com> <20071127150700.GB4365@ics.muni.cz> <474C4A74.90705@intel.com> <20071127173146.GG4365@ics.muni.cz> <474C5678.3060609@intel.com> <20071127174456.GH4365@ics.muni.cz> <474C6084.9000301@intel.com> <20071203095023.GG26573@ics.muni.cz> <47541ED0.9090808@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	Rainer Baumann <baumann@tik.ee.ethz.ch>
-To: Ariane Keller <ariane.keller@tik.ee.ethz.ch>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: NetDev <netdev@vger.kernel.org>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33750 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753435AbXLDO6o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 09:58:44 -0500
-In-Reply-To: <20071204154535.4eu35nfe9wks8kgg@email.ee.ethz.ch>
+Received: from minas.ics.muni.cz ([147.251.4.40]:35258 "EHLO minas.ics.muni.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753199AbXLDPDT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2007 10:03:19 -0500
+Content-Disposition: inline
+In-Reply-To: <47541ED0.9090808@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ariane Keller wrote:
-> 
->>> That sounds like it would also be possible using rtnetlink. You could
->>> send out a notification whenever you switch the active buffer and have
->>> userspace listen to these and replace the inactive one.
-> 
-> I guess using rtnetlink is possible. However I'm not sure about how to 
-> implement it:
-> The first thought was to use RTM_NEWQDISC to send the data to the 
-> netem_change() function (similar to tc_qdisc_modify() ).
+On Mon, Dec 03, 2007 at 07:20:48AM -0800, Kok, Auke wrote:
+> can you open up a ticket on e1000.sf.net and fill in a full bugreport
+> including
+> output of all of these? :
+>=20
+> - ethttool -i eth0
+> - ethtool -e eth0
+> - lspci -vv
+> - full dmesg (not just the driver parts)
+> - dmidecode
+> - cat /proc/interrupts
+>=20
+> I'd like to see if maybe we can reproduce this in our lab.
 
-That sounds reasonable.
+I'll try but it may take some time. Meanwhile, I found that "hung" card
+transmits but does not receive anything including ARP.
 
-> But with this 
-> we would need the tcm_handle, tcm_parent arguments etc. which are not 
-> known in q_netem.c
-> Therefore we would have to change the parse_qopt() function prototype in 
-> order to pass the whole "req" and not only the nlmsghdr.
-
-I assume you mean netem_init, parse_qopt is userspace. But I don't
-see how that is related, emptying the buffer happens during packet
-processing, right?
-
-I guess I would simply change the qdisc_notify function to not
-require a struct nlmsghdr * (simply pass nlmsg_seq directly) and
-use that to send notifications. The netem dump function would
-add the buffer state. BTW, the parent class id is available in
-sch->parent, the handle in sch->handle, but qdisc_notify should
-take care of everything you need.
+--=20
+Luk=E1=B9 Hejtm=E1nek
