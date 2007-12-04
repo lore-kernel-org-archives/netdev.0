@@ -1,34 +1,30 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: NET: ASSERT_RTNL in __dev_set_promiscuity makes debug warning
-Date: Wed, 05 Dec 2007 09:38:27 +1100
-Message-ID: <E1IzgPL-0006HB-00@gondolin.me.apana.org.au>
-References: <000001c8365a$e0e500c0$9c94fea9@jason>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joonwpark81@gmail.com (Joonwoo Park)
+Subject: Re: [PATCH 1/4] netns: Tag the network flow with the network namespace it is in (v2)
+Date: Wed, 05 Dec 2007 09:40:33 +1100
+Message-ID: <E1IzgRN-0006Hq-00@gondolin.me.apana.org.au>
+References: <47559FA9.2080109@sw.ru>
+Cc: shemminger@linux-foundation.org, den@openvz.org,
+	davem@davemloft.net, devel@openvz.org, netdev@vger.kernel.org,
+	containers@lists.osdl.org
+To: den@sw.ru (Denis V. Lunev)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4340 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:4366 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751380AbXLDWif (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 17:38:35 -0500
-In-Reply-To: <000001c8365a$e0e500c0$9c94fea9@jason>
+	with ESMTP id S1751789AbXLDWkt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 17:40:49 -0500
+In-Reply-To: <47559FA9.2080109@sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joonwoo Park <joonwpark81@gmail.com> wrote:
-> Hi,
-> dev_set_rx_mode calls __dev_set_rx_mode with softirq disabled (by netif_tx_lock_bh)
-> therefore __dev_set_promiscuity can be called with softirq disabled.
-> It will cause in_interrupt() to return true and ASSERT_RTNL warning.
-> Is there a good solution to fix it besides blowing ASSERT_RTNL up?
+Denis V. Lunev <den@sw.ru> wrote:
+>
+> could you exactly point me out the flow cache your are talking about.
+> Is this dst entry cache or struct flow_cache described in the
+> net/core/flow.c
 
-We've talked this one before on netdev.  It's on my todo list to fix.
-The correct solution is to untangle this so that __dev_set_promiscuity
-does not get called in the first place on BH paths.
+The flow object is embedded in struct rtable so does its size change?
 
-Unfortunately I've been busy so I haven't completed the patches yet.
-But as this problem is not urgent let's not just put on a bandaid.
-
-Thanks,
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
