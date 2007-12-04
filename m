@@ -1,7 +1,8 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.25 9/11][INET] Merge sys.net.ipv4.ip_forward and sys.net.ipv4.conf.all.forwarding
-Date: Tue, 04 Dec 2007 13:15:24 +0300
-Message-ID: <475528BC.1010505@openvz.org>
+Subject: [PATCH net-2.6.25 10/11][INET] Eliminate difference in actions of
+ sysctl and proc handler for conf.all.forwarding
+Date: Tue, 04 Dec 2007 13:16:45 +0300
+Message-ID: <4755290D.2090709@openvz.org>
 References: <4755256F.9000505@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -9,221 +10,166 @@ Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:55458 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:55585 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751876AbXLDKPr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 05:15:47 -0500
+	id S1751804AbXLDKRB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2007 05:17:01 -0500
 In-Reply-To: <4755256F.9000505@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-AFAIS these two entries should do the same thing - change the
-forwarding state on ipv4_devconf and on all the devices.
+AFAIS the net.ipv4.conf. <dev>, all and default sysctls should 
+work like this when changed (besides changing the value itself):
 
-I propose to merge the handlers together using ctl paths.
+<dev>   : optionally do smth else
+all     : walk devices
+default : walk devices
 
-The inet_forward_change() is static after this and I move
-it higher to be closer to other "propagation" helpers and
-to avoid diff making patches based on { and } matching :)
-i.e. - make them easier to read.
+The proc handler for net.ipv4.conf.all works like this:
+
+<dev>   : flush rt cache
+all     : walk devices and flush rt cache
+default : nothing
+
+while the sysctl handler works like this:
+
+<dev>   : nothing
+all     : nothing
+default : walk devices but don't flush the cache
+
+All this looks strange. Am I right that regardless of whatever
+handler (proc or syscall) is called the behavior should be:
+
+<dev>   : flush rt cache
+all     : walk the devices and flush the cache
+default : walk the devices and flush the cache
+
+?
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
 
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index d83fee2..dd093ea 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -135,7 +135,6 @@ extern struct in_device	*inetdev_by_index(int);
- extern __be32		inet_select_addr(const struct net_device *dev, __be32 dst, int scope);
- extern __be32		inet_confirm_addr(const struct net_device *dev, __be32 dst, __be32 local, int scope);
- extern struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix, __be32 mask);
--extern void		inet_forward_change(void);
- 
- static __inline__ int inet_ifa_match(__be32 addr, struct in_ifaddr *ifa)
- {
 diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index c19c8db..0b5f042 100644
+index 0b5f042..1934a06 100644
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
-@@ -1264,6 +1264,28 @@ static void devinet_copy_dflt_conf(int i)
+@@ -1282,6 +1282,17 @@ static void inet_forward_change(void)
+ 		rcu_read_unlock();
+ 	}
  	read_unlock(&dev_base_lock);
- }
- 
-+static void inet_forward_change(void)
-+{
-+	struct net_device *dev;
-+	int on = IPV4_DEVCONF_ALL(FORWARDING);
-+
-+	IPV4_DEVCONF_ALL(ACCEPT_REDIRECTS) = !on;
-+	IPV4_DEVCONF_DFLT(FORWARDING) = on;
-+
-+	read_lock(&dev_base_lock);
-+	for_each_netdev(&init_net, dev) {
-+		struct in_device *in_dev;
-+		rcu_read_lock();
-+		in_dev = __in_dev_get_rcu(dev);
-+		if (in_dev)
-+			IN_DEV_CONF_SET(in_dev, FORWARDING, on);
-+		rcu_read_unlock();
-+	}
-+	read_unlock(&dev_base_lock);
-+
-+	rt_cache_flush(0);
 +}
 +
- static int devinet_conf_proc(ctl_table *ctl, int write,
- 			     struct file* filp, void __user *buffer,
- 			     size_t *lenp, loff_t *ppos)
-@@ -1333,28 +1355,6 @@ static int devinet_conf_sysctl(ctl_table *table, int __user *name, int nlen,
- 	return 1;
++static void fixup_forward_change(struct ctl_table *table)
++{
++	struct ipv4_devconf *conf;
++
++	conf = table->extra1;
++	if (conf == &ipv4_devconf)
++		inet_forward_change();
++	else if (conf == &ipv4_devconf_dflt)
++		devinet_copy_dflt_conf(NET_IPV4_CONF_FORWARDING - 1);
+ 
+ 	rt_cache_flush(0);
+ }
+@@ -1305,9 +1316,9 @@ static int devinet_conf_proc(ctl_table *ctl, int write,
+ 	return ret;
  }
  
--void inet_forward_change(void)
--{
--	struct net_device *dev;
--	int on = IPV4_DEVCONF_ALL(FORWARDING);
+-static int devinet_conf_sysctl(ctl_table *table, int __user *name, int nlen,
++static int __devinet_conf_sysctl(ctl_table *table, int __user *name, int nlen,
+ 			       void __user *oldval, size_t __user *oldlenp,
+-			       void __user *newval, size_t newlen)
++			       void __user *newval, size_t newlen, int *idx)
+ {
+ 	struct ipv4_devconf *cnf;
+ 	int *valp = table->data;
+@@ -1346,16 +1357,27 @@ static int devinet_conf_sysctl(ctl_table *table, int __user *name, int nlen,
+ 
+ 	cnf = table->extra1;
+ 	i = (int *)table->data - cnf->data;
 -
--	IPV4_DEVCONF_ALL(ACCEPT_REDIRECTS) = !on;
--	IPV4_DEVCONF_DFLT(FORWARDING) = on;
--
--	read_lock(&dev_base_lock);
--	for_each_netdev(&init_net, dev) {
--		struct in_device *in_dev;
--		rcu_read_lock();
--		in_dev = __in_dev_get_rcu(dev);
--		if (in_dev)
--			IN_DEV_CONF_SET(in_dev, FORWARDING, on);
--		rcu_read_unlock();
--	}
--	read_unlock(&dev_base_lock);
--
--	rt_cache_flush(0);
--}
--
- static int devinet_sysctl_forward(ctl_table *ctl, int write,
+ 	set_bit(i, cnf->state);
++	*idx = i;
++	return 1;
++}
++
++static int devinet_conf_sysctl(ctl_table *table, int __user *name, int nlen,
++			       void __user *oldval, size_t __user *oldlenp,
++			       void __user *newval, size_t newlen)
++{
++	int ret, i;
+ 
+-	if (cnf == &ipv4_devconf_dflt)
++	ret = __devinet_conf_sysctl(table, name, nlen, oldval, oldlenp,
++			newval, newlen, &i);
++
++	if (ret == 1 && table->extra1 == &ipv4_devconf_dflt)
+ 		devinet_copy_dflt_conf(i);
+ 
+-	return 1;
++	return ret;
+ }
+ 
+-static int devinet_sysctl_forward(ctl_table *ctl, int write,
++static int devinet_forward_proc(ctl_table *ctl, int write,
  				  struct file* filp, void __user *buffer,
  				  size_t *lenp, loff_t *ppos)
-@@ -1537,6 +1537,27 @@ static void devinet_sysctl_unregister(struct ipv4_devconf *p)
- }
- #endif
- 
-+static struct ctl_table ctl_forward_entry[] = {
-+	{
-+		.ctl_name	= NET_IPV4_FORWARD,
-+		.procname	= "ip_forward",
-+		.data		= &ipv4_devconf.data[
-+					NET_IPV4_CONF_FORWARDING - 1],
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= devinet_sysctl_forward,
-+		.strategy	= devinet_conf_sysctl,
-+		.extra1		= &ipv4_devconf,
-+	},
-+	{ },
-+};
-+
-+static __initdata struct ctl_path net_ipv4_path[] = {
-+	{ .procname = "net", .ctl_name = CTL_NET, },
-+	{ .procname = "ipv4", .ctl_name = NET_IPV4, },
-+	{ },
-+};
-+
- void __init devinet_init(void)
  {
- 	register_gifconf(PF_INET, inet_gifconf);
-@@ -1550,6 +1571,7 @@ void __init devinet_init(void)
- 			&ipv4_devconf);
- 	__devinet_sysctl_register("default", NET_PROTO_CONF_DEFAULT,
- 			&ipv4_devconf_dflt);
-+	register_sysctl_paths(net_ipv4_path, ctl_forward_entry);
- #endif
+@@ -1363,16 +1385,25 @@ static int devinet_sysctl_forward(ctl_table *ctl, int write,
+ 	int val = *valp;
+ 	int ret = proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
+ 
+-	if (write && *valp != val) {
+-		if (valp == &IPV4_DEVCONF_ALL(FORWARDING))
+-			inet_forward_change();
+-		else if (valp != &IPV4_DEVCONF_DFLT(FORWARDING))
+-			rt_cache_flush(0);
+-	}
++	if (write && *valp != val)
++		fixup_forward_change(ctl);
+ 
+ 	return ret;
  }
  
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index bfd0dec..844f26f 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -27,62 +27,6 @@ static int tcp_retr1_max = 255;
- static int ip_local_port_range_min[] = { 1, 1 };
- static int ip_local_port_range_max[] = { 65535, 65535 };
++static int devinet_forward_sysctl(ctl_table *table, int __user *name, int nlen,
++			       void __user *oldval, size_t __user *oldlenp,
++			       void __user *newval, size_t newlen)
++{
++	int ret, i;
++
++	ret = __devinet_conf_sysctl(table, name, nlen, oldval, oldlenp,
++			newval, newlen, &i);
++	if (ret == 1)
++		fixup_forward_change(table);
++	return ret;
++}
++
+ int ipv4_doint_and_flush(ctl_table *ctl, int write,
+ 			 struct file* filp, void __user *buffer,
+ 			 size_t *lenp, loff_t *ppos)
+@@ -1436,8 +1467,8 @@ static struct devinet_sysctl_table {
+ } devinet_sysctl = {
+ 	.devinet_vars = {
+ 		DEVINET_SYSCTL_COMPLEX_ENTRY(FORWARDING, "forwarding",
+-					     devinet_sysctl_forward,
+-					     devinet_conf_sysctl),
++					     devinet_forward_proc,
++					     devinet_forward_sysctl),
+ 		DEVINET_SYSCTL_RO_ENTRY(MC_FORWARDING, "mc_forwarding"),
  
--static
--int ipv4_sysctl_forward(ctl_table *ctl, int write, struct file * filp,
--			void __user *buffer, size_t *lenp, loff_t *ppos)
--{
--	int val = IPV4_DEVCONF_ALL(FORWARDING);
--	int ret;
--
--	ret = proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
--
--	if (write && IPV4_DEVCONF_ALL(FORWARDING) != val)
--		inet_forward_change();
--
--	return ret;
--}
--
--static int ipv4_sysctl_forward_strategy(ctl_table *table,
--			 int __user *name, int nlen,
--			 void __user *oldval, size_t __user *oldlenp,
--			 void __user *newval, size_t newlen)
--{
--	int *valp = table->data;
--	int new;
--
--	if (!newval || !newlen)
--		return 0;
--
--	if (newlen != sizeof(int))
--		return -EINVAL;
--
--	if (get_user(new, (int __user *)newval))
--		return -EFAULT;
--
--	if (new == *valp)
--		return 0;
--
--	if (oldval && oldlenp) {
--		size_t len;
--
--		if (get_user(len, oldlenp))
--			return -EFAULT;
--
--		if (len) {
--			if (len > table->maxlen)
--				len = table->maxlen;
--			if (copy_to_user(oldval, valp, len))
--				return -EFAULT;
--			if (put_user(len, oldlenp))
--				return -EFAULT;
--		}
--	}
--
--	*valp = new;
--	inet_forward_change();
--	return 1;
--}
--
- extern seqlock_t sysctl_port_range_lock;
- extern int sysctl_local_port_range[2];
- 
-@@ -282,15 +226,6 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= &proc_dointvec
+ 		DEVINET_SYSCTL_RW_ENTRY(ACCEPT_REDIRECTS, "accept_redirects"),
+@@ -1545,8 +1576,8 @@ static struct ctl_table ctl_forward_entry[] = {
+ 					NET_IPV4_CONF_FORWARDING - 1],
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= devinet_sysctl_forward,
+-		.strategy	= devinet_conf_sysctl,
++		.proc_handler	= devinet_forward_proc,
++		.strategy	= devinet_forward_sysctl,
+ 		.extra1		= &ipv4_devconf,
  	},
- 	{
--		.ctl_name	= NET_IPV4_FORWARD,
--		.procname	= "ip_forward",
--		.data		= &IPV4_DEVCONF_ALL(FORWARDING),
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &ipv4_sysctl_forward,
--		.strategy	= &ipv4_sysctl_forward_strategy
--	},
--	{
- 		.ctl_name	= NET_IPV4_DEFAULT_TTL,
- 		.procname	= "ip_default_ttl",
- 		.data		= &sysctl_ip_default_ttl,
+ 	{ },
 -- 
 1.5.3.4
 
