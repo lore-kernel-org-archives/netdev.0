@@ -1,43 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/3] [UDP6]: Counter increment on BH mode
-Date: Tue, 4 Dec 2007 14:57:55 +1100
-Message-ID: <20071204035755.GA32263@gondor.apana.org.au>
-References: <474F7EE8.2040009@cn.fujitsu.com> <474F8255.5060501@cn.fujitsu.com> <20071130111949.GB28277@gerrit.erg.abdn.ac.uk> <20071201015438.GC26895@gondor.apana.org.au> <4753AE07.1040906@cn.fujitsu.com> <20071203113935.GA25124@gondor.apana.org.au> <20071203114912.GA4425@ms2.inr.ac.ru> <20071203115435.GA4202@gondor.apana.org.au> <20071203131723.GA30312@gondor.apana.org.au> <4754CE9F.3060506@cn.fujitsu.com>
+From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Subject: [PATCH][IPv6][IPsec] fix the address family for xfrm_state_lookup
+ in xfrm_input
+Date: Tue, 4 Dec 2007 14:28:36 +0900
+Message-ID: <20071204142836.a864e30e.kazunori@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>, davem@davemloft.net,
-	andi@firstfloor.org, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Christoph Lameter <clameter@sgi.com>,
-	Ingo Molnar <mingo@elte.hu>
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4093 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751326AbXLDD61 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2007 22:58:27 -0500
-Content-Disposition: inline
-In-Reply-To: <4754CE9F.3060506@cn.fujitsu.com>
+Received: from usagi004.linux-ipv6.org ([203.178.140.4]:42704 "EHLO
+	miyazawa.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750796AbXLDF2n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2007 00:28:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 04, 2007 at 11:50:55AM +0800, Wang Chen wrote:
->
-> >  #include <linux/cache.h>
-> >  #include <linux/snmp.h>
-> > +#include <linux/smp.h>
-> 
-> It's no need to include smp.h?
+Hi Herbert, 
 
-We need it for smp_processor_id.  Well we needed it before too but
-there's probably some implicit inclusion which has made it work.
-It's better to declare these inclusions explicitly as otherwise
-they may break on less common architectures later.
+This is the patch to fix IPv6 IPsec input.
 
-Cheers,
+Signed-off-by: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+---
+ net/xfrm/xfrm_input.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 96f42c1..da3c963 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -136,7 +136,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 		if (skb->sp->len == XFRM_MAX_DEPTH)
+ 			goto drop;
+ 
+-		x = xfrm_state_lookup(daddr, spi, nexthdr, AF_INET);
++		x = xfrm_state_lookup(daddr, spi, nexthdr, skb->dst->ops->family);
+ 		if (x == NULL)
+ 			goto drop;
+ 
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.4.4.2
+
