@@ -1,62 +1,56 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] SMC911X: Fix using of dereferenced skb after netif_rx
-Date: Tue, 04 Dec 2007 14:54:34 -0500
-Message-ID: <4755B07A.7060508@pobox.com>
-References: <4753B74D.4070505@cn.fujitsu.com> <20071203101141.GA23549@gondor.apana.org.au> <4753D7F3.3050201@cn.fujitsu.com> <87wsrvyjob.fsf@macbook.be.48ers.dk> <4754B501.7070108@cn.fujitsu.com>
+Subject: Re: [PATCH] sky2: recovery deadlock fix
+Date: Tue, 04 Dec 2007 14:54:25 -0500
+Message-ID: <4755B071.3050200@pobox.com>
+References: <20071203170217.492d9eb9@freepuppy.rosehill>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Peter Korsgaard <jacmet@sunsite.dk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Dustin McIntire <dustin@sensoria.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48003 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:47987 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752823AbXLDTyx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 14:54:53 -0500
-In-Reply-To: <4754B501.7070108@cn.fujitsu.com>
+	id S1753195AbXLDTy2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2007 14:54:28 -0500
+In-Reply-To: <20071203170217.492d9eb9@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wang Chen wrote:
-> Peter Korsgaard said the following on 2007-12-3 21:47:
->>>>>>> "Wang" == Wang Chen <wangchen@cn.fujitsu.com> writes:
->> Hi,
->>
->>  Wang> +	len = skb->len;
->>  Wang>  	netif_rx(skb);
->>  dev-> stats.rx_packets++;
->>  Wang> -	dev->stats.rx_bytes += skb->len;
->>  Wang> +	dev->stats.rx_bytes += len;
->>
->> Why not simply update the stats before calling netif_rx as the return
->> value isn't checked anyway?
->>
+Stephen Hemminger wrote:
+> Prevent deadlock in sky2 recovery logic. sky2_down calls napi_synchronize
+> which gets stuck if napi was already disabled. 
 > 
-> Even the return value of netif_rx isn't checked, dev->stats maybe
-> changed in netif_rx. But fortunately dev->stats isn't changed in
-> netif_rx.
-> So, I agree. 
-> Here is the new patch.
+> Fix by rearranging slightly and not calling napi_disable until after
+> both ports are stopped. The napi_disable probably is being overly
+> paranoid, but it is safe now.
 > 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> 
 > ---
->  smc911x.c |    2 +-
->  1 files changed, 1 insertion(+), 1 deletion(-)
+> Please apply for 2.6.24 (upstream-fixes)
 > 
-> --- linux-2.6.24.rc3.org/drivers/net/smc911x.c	2007-11-19 12:38:05.000000000 +0800
-> +++ linux-2.6.24.rc3/drivers/net/smc911x.c	2007-12-04 09:59:06.000000000 +0800
-> @@ -1299,9 +1299,9 @@ smc911x_rx_dma_irq(int dma, void *data)
->  	PRINT_PKT(skb->data, skb->len);
->  	dev->last_rx = jiffies;
->  	skb->protocol = eth_type_trans(skb, dev);
-> -	netif_rx(skb);
->  	dev->stats.rx_packets++;
->  	dev->stats.rx_bytes += skb->len;
-> +	netif_rx(skb);
+> --- a/drivers/net/sky2.c	2007-11-30 16:51:50.000000000 -0800
+> +++ b/drivers/net/sky2.c	2007-11-30 16:54:52.000000000 -0800
+> @@ -2906,16 +2906,14 @@ static void sky2_restart(struct work_str
+>  	int i, err;
 >  
+>  	rtnl_lock();
+> -	sky2_write32(hw, B0_IMSK, 0);
+> -	sky2_read32(hw, B0_IMSK);
+> -	napi_disable(&hw->napi);
+> -
+>  	for (i = 0; i < hw->ports; i++) {
+>  		dev = hw->dev[i];
+>  		if (netif_running(dev))
+>  			sky2_down(dev);
+>  	}
+>  
+> +	napi_disable(&hw->napi);
+> +	sky2_write32(hw, B0_IMSK, 0);
+>  	sky2_reset(hw);
+>  	sky2_write32(hw, B0_IMSK, Y2_IS_BASE);
+>  	napi_enable(&hw->napi);
 
 applied #upstream-fixes
 
