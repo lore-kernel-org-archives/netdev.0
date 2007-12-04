@@ -1,54 +1,44 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] Fix memory corruption in fec_mpc52xx
-Date: Tue, 04 Dec 2007 14:54:17 -0500
-Message-ID: <4755B069.3050901@pobox.com>
-References: <1196721490.13978.185.camel@pmac.infradead.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] cxgb - revert file mode changes.
+Date: Tue, 04 Dec 2007 14:54:00 -0500
+Message-ID: <4755B058.7070402@garzik.org>
+References: <20071201235717.22418.24800.stgit@speedy5>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Domen Puncer <domen.puncer@telargo.com>,
-	Jon Smirl <jonsmirl@gmail.com>,
-	Grant Likely <grant.likely@secretlab.ca>
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47972 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753890AbXLDTyT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 14:54:19 -0500
-In-Reply-To: <1196721490.13978.185.camel@pmac.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Divy Le Ray <divy@chelsio.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754026AbXLDTyY@vger.kernel.org>
+In-Reply-To: <20071201235717.22418.24800.stgit@speedy5>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Woodhouse wrote:
-> From: Jon Smirl <jonsmirl@gmail.com>
+Divy Le Ray wrote:
+> From: Divy Le Ray <divy@chelsio.com>
 > 
-> The mpc5200 fec driver is corrupting memory. This patch fixes two bugs
-> where the wrong skb was being referenced.
+> revert inavertant file mode changes
 > 
-> Signed-off-by: Jon Smirl <jonsmirl@gmail.com>
-> Acked-by: Domen Puncer <domen.puncer@telargo.com>
-> Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
-> Signed-off-by: David Woodhouse <dwmw2@infradead.org>
+> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+> ---
 > 
-> --- a/drivers/net/fec_mpc52xx.c
-> +++ b/drivers/net/fec_mpc52xx.c
-> @@ -422,7 +422,7 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int irq, void *dev_id)
+>  drivers/net/chelsio/cxgb2.c  |    0 
+>  drivers/net/chelsio/pm3393.c |    0 
+>  drivers/net/chelsio/sge.c    |    0 
+>  drivers/net/chelsio/sge.h    |    0 
+>  4 files changed, 0 insertions(+), 0 deletions(-)
 > 
->  		rskb = bcom_retrieve_buffer(priv->rx_dmatsk, &status,
->  				(struct bcom_bd **)&bd);
-> -		dma_unmap_single(&dev->dev, bd->skb_pa, skb->len, DMA_FROM_DEVICE);
-> +		dma_unmap_single(&dev->dev, bd->skb_pa, rskb->len, DMA_FROM_DEVICE);
-> 
->  		/* Test for errors in received frame */
->  		if (status & BCOM_FEC_RX_BD_ERRORS) {
-> @@ -467,7 +467,7 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int irq, void *dev_id)
->  			bcom_prepare_next_buffer(priv->rx_dmatsk);
-> 
->  		bd->status = FEC_RX_BUFFER_SIZE;
-> -		bd->skb_pa = dma_map_single(&dev->dev, rskb->data,
-> +		bd->skb_pa = dma_map_single(&dev->dev, skb->data,
->  				FEC_RX_BUFFER_SIZE, DMA_FROM_DEVICE);
-> 
+> diff --git a/drivers/net/chelsio/cxgb2.c b/drivers/net/chelsio/cxgb2.c
+> old mode 100755
+> new mode 100644
+> diff --git a/drivers/net/chelsio/pm3393.c b/drivers/net/chelsio/pm3393.c
+> old mode 100755
+> new mode 100644
+> diff --git a/drivers/net/chelsio/sge.c b/drivers/net/chelsio/sge.c
+> old mode 100755
+> new mode 100644
+> diff --git a/drivers/net/chelsio/sge.h b/drivers/net/chelsio/sge.h
+> old mode 100755
+> new mode 100644
 
 applied #upstream-fixes
 
