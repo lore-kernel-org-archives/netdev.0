@@ -1,71 +1,49 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [0/4] DST: Distributed storage.
-Date: Tue, 4 Dec 2007 19:00:40 +0300
-Message-ID: <20071204160040.GA8055@2ka.mipt.ru>
-References: <aqqqqasdzxczc036@2ka.mipt.ru> <11967790263179@2ka.mipt.ru> <170fa0d20712040725o506a47cayb137993041ec3a63@mail.gmail.com>
+From: "Hugo Santos" <hugosantos@gmail.com>
+Subject: Re: XFRM and IPv6 raw sockets and multicast
+Date: Tue, 4 Dec 2007 17:01:43 +0100
+Message-ID: <9c46321e0712040801w72e31178t940ca70ccfd8a14a@mail.gmail.com>
+References: <9c46321e0712040727tee578cm97a83936fefb34ed@mail.gmail.com>
+	 <20071204.075201.108501440.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Mike Snitzer <snitzer@gmail.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "=?BIG5?B?WU9TSElGVUpJIEhpZGVha2kgLyCmTsPDrV6p+g==?="
+	<yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ug-out-1314.google.com ([66.249.92.175]:33594 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750831AbXLDQBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 11:01:46 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so96230ugc
+        for <netdev@vger.kernel.org>; Tue, 04 Dec 2007 08:01:44 -0800 (PST)
+In-Reply-To: <20071204.075201.108501440.yoshfuji@linux-ipv6.org>
 Content-Disposition: inline
-In-Reply-To: <170fa0d20712040725o506a47cayb137993041ec3a63@mail.gmail.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Mike.
+Hi,
 
-On Tue, Dec 04, 2007 at 10:25:29AM -0500, Mike Snitzer (snitzer@gmail.com) wrote:
-> Thanks for your continued work on DST.  I'd like to know if you've
-> thought further about how synchronous mirroring would be best
-> implemented with DST.
-> 
-> You shared you views some time ago via comments on your blog:
-> http://tservice.net.ru/~s0mbre/blog/devel/dst/2007_11_05.html
-> 
-> At that time you were saying you'd add a sync bit to the request
-> structure that is sent to remote nodes.  I'd imagine this would also
-> require ordering of the block io, no?  Is order guaranteed when the
-> requests are submitted over the DST protocol?  Otherwise how can you
-> ensure a valid remote mirror (in the case of network disconnects,
-> etc)?
-> 
-> Guaranteeing consistent data on all members of a mirror is important.
-> The main question is: what mechanisms _should_ be used in DST to
-> provide this consistency?  And do you have a timeframe for when DST
-> might support such mechanisms for consistent data?
-> 
-> For the purpose of this discussion please assume that the disk cache
-> is either write-through or battery-backed.
+On Dec 4, 2007 4:52 PM, YOSHIFUJI Hideaki / 吉藤英明
+<yoshfuji@linux-ipv6.org> wrote:
+> What do you mean by "ipv6 header"?
 
-In this case sync bit would only imply waiting until all pending
-requests reached remote nodes. This is not implemented yet.
-Order of the requests for given node is guaranteed by DST core,
-it is possible to perform multiple requests in parallel for/from
-different nodes.
+  If IPPROTO_RAW is set, we supply the ipv6 header, extensions and payload.
 
-In the more generic case it should wait until data has reached media,
-i.e. perform flushing.
-I did not implement that since actually no multiple-device system in
-Linux supports barriers (please note, that in this discussion sync bit
-actually means a barrier in the block layer).
+> I think hdrincl is broken (and even, say, deprecated) on IPv6.
 
-Protocol changes are pretty trivial and are absolutely transparent for
-the DST core - only remote targets (both userspace and kernelspace)
-should be changed to invoke ->issue_flush_fn() callback when needed for
-underlying device and do not process new requests until flush completed.
-Thus barrier bit can be attached to data packets and can also be single
-requests without data.
+  By IPv6 you mean the protocol, or Linux's implementation of it?
+Although there are APIs that allow applications to build and supply
+the extension headers to the network stack, i think the ability to
+provide the full ipv6 packet is also useful for some use cases.
 
-DST will continue to collect data, but will not send it to remote nodes
-(actually it can send it, but data will not be processed and will stay
-in the remote's receiving queue). This is a main concern about barrier -
-should or not main node continue to process requests if previous ones
-have not reached media yet, thus I have not yet implemented barriers.
+> If we do really support it, if hdcincl is set, XFRM and other
+> all extension header processes should be skipped, but they are
+> not very clear at all so far.
 
-> regards,
-> Mike
+  I understand how some users of IPPROTO_RAW would want xfrm to be
+skipped, but on the other hand i also see the interoperation between
+the two as useful, to for instance allowing a ESP tunnel to be used by
+such packets.
 
--- 
-	Evgeniy Polyakov
+  Hugo
