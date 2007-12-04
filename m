@@ -1,34 +1,36 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: NET: ASSERT_RTNL in __dev_set_promiscuity makes debug warning
-Date: Tue, 04 Dec 2007 23:26:54 +0100
-Message-ID: <4755D42E.7050602@gmail.com>
-References: <000001c8365a$e0e500c0$9c94fea9@jason>
+From: Chris Snook <csnook@redhat.com>
+Subject: [RFC] introducing the Atheros L2 Fast Ethernet driver
+Date: Tue, 04 Dec 2007 17:24:29 -0500
+Message-ID: <4755D39D.30005@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	'Linux Kernel Mailing List' <linux-kernel@vger.kernel.org>
-To: Joonwoo Park <joonwpark81@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755210AbXLDWXp@vger.kernel.org>
-In-Reply-To: <000001c8365a$e0e500c0$9c94fea9@jason>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: synrg@debian.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:41247 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752000AbXLDWYf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2007 17:24:35 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joonwoo Park wrote, On 12/04/2007 10:48 AM:
+Hey folks --
 
-> Hi,
-> dev_set_rx_mode calls __dev_set_rx_mode with softirq disabled (by netif_tx_lock_bh)
-> therefore __dev_set_promiscuity can be called with softirq disabled.
-> It will cause in_interrupt() to return true and ASSERT_RTNL warning.
-> Is there a good solution to fix it besides blowing ASSERT_RTNL up?
+	I've begun cleaning up the atl2 vendor driver for merging.  It's very similar 
+to the atl1 driver, and needs a lot of the same work, though I have already 
+fixed the 64-bit DMA data corrupter that atl1 users remember so fondly.  Right 
+now this is very raw, and there is a large amount of cosmetic work to do to make 
+it more maintainable, but it should generally work, at least as well as the 
+vendor driver does.
 
+	While this is in pre-submission cleanup mode, the latest standalone source 
+tarball and patch (currently against 2.6.23) will be available here:
 
-Fixing ASSERT_RTNL up?!
+http://people.redhat.com/csnook/atl2/
 
-But, IMHO, blowing ASSERT_RTNL up in a few places shouldn't be much
-worse. After all, how long such a debugging code should be kept. It
-seems, at least sometimes we should be a bit more confident of how
-it's called.
+	If you have atl2 hardware, please give this a spin.  I plan to submit the 
+driver for merging some time in the next month or so.  Questions, comments, 
+patches welcome.
 
-Regards,
-Jarek P.
+	-- Chris
