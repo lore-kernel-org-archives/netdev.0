@@ -1,41 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] BRIDGE : br_fdb_fini() should be __exit_refok instead
- of __exit
-Date: Wed, 05 Dec 2007 05:07:48 -0800 (PST)
-Message-ID: <20071205.050748.187864113.davem@davemloft.net>
-References: <47569C74.9020008@cosmosbay.com>
+Subject: Re: [PATCH] correct typo in __xfrm4_bundle_create()
+Date: Wed, 05 Dec 2007 05:20:34 -0800 (PST)
+Message-ID: <20071205.052034.251196808.davem@davemloft.net>
+References: <d0383f90712050249q3bc0e249h4cb66dc0ea97f172@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+To: ianbrn@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48424
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60616
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751743AbXLENHt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 08:07:49 -0500
-In-Reply-To: <47569C74.9020008@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1750896AbXLENUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 08:20:35 -0500
+In-Reply-To: <d0383f90712050249q3bc0e249h4cb66dc0ea97f172@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Wed, 05 Dec 2007 13:41:24 +0100
+From: "Ian Brown" <ianbrn@gmail.com>
+Date: Wed, 5 Dec 2007 12:49:52 +0200
 
-> Building last net-2.6.25 git tree gave me this warning :
-> 
-> WARNING: vmlinux.o(.init.text+0x2a957): Section mismatch: reference to 
-> .exit.text:br_fdb_fini (between 'br_init' and 'br_fdb_init')
-> 
-> This is because br_init() (marked __init) can call br_fdb_fini() (marked __exit).
-> 
-> I am not sure the following is the right fix, since __exit_refok is quite new, 
-> and seldom used.
-> 
-> [PATCH] BRIDGE : br_fdb_fini() should be __exit_refok instead of __exit
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+>  This is a typo correction in net/ipv4/xfrm4_policy.c; it should be
+> "Copy neighbour" instead "Copy neighbout",
 
-I have another patch like this from Andrew's -mm queue sitting
-in my inbox, which I'll review and apply.
+Your email client has corrupted the patch by adding
+newlines among other things.
 
-Thanks!
+This happens often for gmail users, because by default
+gmail does text formatting which you don't want it
+to do for patches because it corrupts them.
+
+Please use an attachment or some other method to prevent
+this form happening so that you patch is not corrupted.
