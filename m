@@ -1,43 +1,56 @@
-From: "Ian Brown" <ianbrn@gmail.com>
-Subject: [PATCH] correct typo in __xfrm4_bundle_create()
-Date: Wed, 5 Dec 2007 12:49:52 +0200
-Message-ID: <d0383f90712050249q3bc0e249h4cb66dc0ea97f172@mail.gmail.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH net-2.6 0/3]: Three TCP fixes
+Date: Wed, 5 Dec 2007 14:17:40 +0300
+Message-ID: <20071205111740.GA4024@ms2.inr.ac.ru>
+References: <11967869303114-git-send-email-ilpo.jarvinen@helsinki.fi> <47559FA1.2090104@psc.edu> <Pine.LNX.4.64.0712042252450.12072@kivilampi-30.cs.helsinki.fi> <4755C3E9.4090609@psc.edu> <Pine.LNX.4.64.0712042319160.12072@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: John Heffner <jheffner@psc.edu>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, Matt Mathis <mathis@psc.edu>
+To: Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.181]:6095 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751897AbXLEKuF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 05:50:05 -0500
-Received: by py-out-1112.google.com with SMTP id u77so956850pyb
-        for <netdev@vger.kernel.org>; Wed, 05 Dec 2007 02:50:03 -0800 (PST)
+Received: from minus.inr.ac.ru ([194.67.69.97]:49773 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1750993AbXLELSK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2007 06:18:10 -0500
 Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0712042319160.12072@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
- This is a typo correction in net/ipv4/xfrm4_policy.c; it should be
-"Copy neighbour" instead "Copy neighbout",
+Hello!
 
+> My theory is that it could relate to tcp_cwnd_restart and 
+> tcp_cwnd_application_limited using it and the others are just then 
+> accidently changed as well. Perhaps I'll have to dig once again to 
+> changelog history to see if there's some clue (unless Alexey shed 
+> some light to this)...
 
-Regards,
-Ian Brown
+Yes, it is RFC2861. There is some rationale in preamble to section 3.
+But even for this case it can be set to full cwnd instead.
 
-Signed-off-by: ianbrn@gmail.com
+Also, I used it to calculate prior_ssthresh to restore ssthresh
+in the case when we detect false retransmission. It is not an accident.
+I really mean that tcp_current_sshresh() is correct estimate
+for "current ssthresh" and this should be the same as in restart
+situation. Of course, rationale of RFC2861 does not apply
+to this case _directly_. But it was at the end of chain of syllogisms.
 
-diff --git a/a/net/ipv4/xfrm4_policy.c b/b/net/ipv4/xfrm4_policy.c
-index cc86fb1..390dc7c 100644
---- a/a/net/ipv4/xfrm4_policy.c
-+++ b/b/net/ipv4/xfrm4_policy.c
-@@ -165,7 +165,7 @@ __xfrm4_bundle_create(struct xfrm_policy *policy,
-struct xfrm_state **xfrm, int
- 		dst_prev->trailer_len	= trailer_len;
- 		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
+Look:
 
--		/* Copy neighbout for reachability confirmation */
-+		/* Copy neighbour for reachability confirmation */
- 		dst_prev->neighbour	= neigh_clone(rt->u.dst.neighbour);
- 		dst_prev->input		= rt->u.dst.input;
- 		dst_prev->output = dst_prev->xfrm->outer_mode->afinfo->output;
+If we have not infinite ssthresh and cwnd > ssthresh, we are already
+in congestion avoidance mode and we can set prior_ssthresh to any value
+in the range ssthresh...cwnd without significant changes in behaviour
+wrt congestion avoidance.
+
+ssthresh would be an obvious underestimate.
+
+cwnd can be an overestimate, because the path is surely congested
+(cwnd > ssthresh) and cwnd is not a measure of current capacity.
+
+Behavioral changes happen, when final cwnd is too low, because pipe
+was drained during recovery. We allow to slow start to sshresh,
+but value of ssthresh should be the same as we use for restart case.
+
+Alexey
