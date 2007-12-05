@@ -1,42 +1,91 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH][IRDA] Move ircomm_tty_line_info() under
- #ifdef CONFIG_PROC_FS
-Date: Wed, 05 Dec 2007 02:19:06 -0800 (PST)
-Message-ID: <20071205.021906.124177954.davem@davemloft.net>
-References: <47556EE8.1000605@openvz.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH net-2.6.25] [TCP]: Create tcp_mark_head_lost_single for
+ NewReno
+Date: Wed, 5 Dec 2007 12:19:04 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0712051217380.18529@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org,
-	devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <47556EE8.1000605-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-216939987-1196849944=:18529"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:33021 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751963AbXLEKTH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 05:19:07 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Date: Tue, 04 Dec 2007 18:14:48 +0300
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> The function in question is called only from ircomm_tty_read_proc,
-> which is under this option. Move this helper to the same place.
-> 
-> Fits both net-2.6 and net-2.6.25
-> 
-> Signed-off-by: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+---696243703-216939987-1196849944=:18529
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Also applied to net-2.6, thanks!
 
--------------------------------------------------------------------------
-SF.Net email is sponsored by: The Future of Linux Business White Paper
-from Novell.  From the desktop to the data center, Linux is going
-mainstream.  Let it simplify your IT future.
-http://altfarm.mediaplex.com/ad/ck/8857-50307-18918-4
+Fixes NewReno breakage that got introduced because reno ended up
+into RFC3517 counting branch in tcp_mark_head_lost after the
+split space tweaks. The fack branch would have worked, however,
+coming lost marker updates would eventually add this anyway.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_input.c |   20 ++++++++++++++++++--
+ 1 files changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index f1eee2d..e410c21 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2120,6 +2120,21 @@ static void tcp_verify_retransmit_hint(struct tcp_sock *tp,
+ 		tp->retransmit_skb_hint = NULL;
+ }
+ 
++/* Simple NewReno thing: Mark head LOST if it wasn't yet and it's below
++ * high_seq, stop. That's all.
++ */
++static void tcp_mark_head_lost_single(struct sock *sk)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct sk_buff *skb = tcp_write_queue_head(sk);
++
++	if (!(TCP_SKB_CB(skb)->sacked & TCPCB_LOST) &&
++	    before(tp->snd_una, tp->high_seq)) {
++		TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
++		tp->lost_out += tcp_skb_pcount(skb);
++	}
++}
++
+ /* Mark head of queue up as lost. With RFC3517 SACK, the packets is
+  * is against sacked "cnt", otherwise it's against facked "cnt"
+  */
+@@ -2172,7 +2187,6 @@ static void tcp_mark_head_lost(struct sock *sk, int packets, int fast_rexmit)
+ 			tcp_verify_retransmit_hint(tp, skb);
+ 		}
+ 	}
+-	tcp_verify_left_out(tp);
+ }
+ 
+ /* Account newly detected lost packet(s) */
+@@ -2182,7 +2196,7 @@ static void tcp_update_scoreboard(struct sock *sk, int fast_rexmit)
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
+ 	if (tcp_is_reno(tp)) {
+-		tcp_mark_head_lost(sk, 1, fast_rexmit);
++		tcp_mark_head_lost_single(sk);
+ 	} else if (tcp_is_fack(tp)) {
+ 		int lost = tp->fackets_out - tp->reordering;
+ 		if (lost <= 0)
+@@ -2195,6 +2209,8 @@ static void tcp_update_scoreboard(struct sock *sk, int fast_rexmit)
+ 		tcp_mark_head_lost(sk, sacked_upto, fast_rexmit);
+ 	}
+ 
++	tcp_verify_left_out(tp);
++
+ 	/* New heuristics: it is possible only after we switched
+ 	 * to restart timer each time when something is ACKed.
+ 	 * Hence, we can detect timed out packets during fast
+-- 
+1.5.0.6
+
+---696243703-216939987-1196849944=:18529--
