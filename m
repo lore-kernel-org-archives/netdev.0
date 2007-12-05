@@ -1,44 +1,41 @@
-From: "Eliezer Tamir" <eliezert@broadcom.com>
-Subject: Re: [Fwd: PATCH 2.6.24-rc3-mm2 - build breakage - bnx2x depends
- on ZLIB_INFLATE]
-Date: Wed, 05 Dec 2007 15:48:20 +0200
-Message-ID: <1196862500.5204.17.camel@lb-tlvb-eliezer.il.broadcom.com>
-References: <1196862015.5204.16.camel@lb-tlvb-eliezer.il.broadcom.com>
- <20071205.054442.110477658.davem@davemloft.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH v2 0/3][BUG-FIX]: Test tree updates and bug fixes
+Date: Wed, 5 Dec 2007 13:55:11 +0000
+Message-ID: <20071205135511.GD893@gerrit.erg.abdn.ac.uk>
+References: <11968535863312-git-send-email-gerrit@erg.abdn.ac.uk> <11968535864083-git-send-email-gerrit@erg.abdn.ac.uk> <11968535861091-git-send-email-gerrit@erg.abdn.ac.uk> <11968535861367-git-send-email-gerrit@erg.abdn.ac.uk> <20071205132345.GC4653@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Lee.Schermerhorn@hp.com, jeff@garzik.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3548 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751922AbXLENsf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Dec 2007 08:48:35 -0500
-In-Reply-To: <20071205.054442.110477658.davem@davemloft.net>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:37305 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750862AbXLEN4D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2007 08:56:03 -0500
+Content-Disposition: inline
+In-Reply-To: <20071205132345.GC4653@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+| > @@ -788,8 +782,8 @@ static void ccid3_hc_rx_packet_recv(stru
+| >  	if (unlikely(hcrx->ccid3hcrx_state == TFRC_RSTATE_NO_DATA)) {
+| >  		if (is_data_packet) {
+| >  			do_feedback = FBACK_INITIAL;
+| > +			hcrx->ccid3hcrx_s = payload_size;
+| >  			ccid3_hc_rx_set_state(sk, TFRC_RSTATE_DATA);
+| > -			ccid3_hc_rx_update_s(hcrx, payload_size);
+| 
+| We have to set ccid3hcrx_bytes_recv to the payload_size here too, I'm
+| fixing this on the reworked patch that introduces the RX history.
+| 
+I almost did the same error again by wanting to agree too prematurely.
 
-I will resend it in a moment.
+But updating ccid3hcrx_bytes_recv is in fact not needed here and if it
+would be done it would not have a useable effect. The reason is that the
+first data packet will trigger the initial feedback; and in the initial
+feedback packet X_recv (which is ccid3hcrx_bytes_recv / the_time_spent)
+is set to 0 (RFC 3448, 6.3).
 
-Thanks,
-Eliezer
-
-On Wed, 2007-12-05 at 05:44 -0800, David Miller wrote:
-> From: "Eliezer Tamir" <eliezert@broadcom.com>
-> Date: Wed, 05 Dec 2007 15:40:15 +0200
-> 
-> > Dave,
-> >
-> > Lee Schermerhorn sent this patch while you were away,
-> > please apply.
-> 
-> I can't because the patch is corrupted by line breaks
-> and tabs --> space corruption caused by his mail
-> client.
-> 
-> 
-> 
-
-
+For this reason, updating bytes_recv for the first data packet is also not
+in the flowchart on 
+http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/ccid3_packet_reception/
