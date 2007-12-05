@@ -1,33 +1,174 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] correct typo in __xfrm4_bundle_create()
-Date: Wed, 05 Dec 2007 06:03:16 -0800 (PST)
-Message-ID: <20071205.060316.74563693.davem@davemloft.net>
-References: <d0383f90712050541p5d8ffce6q8748d7c6b66ea9c6@mail.gmail.com>
-	<20071205.054711.186439758.davem@davemloft.net>
-	<d0383f90712050559o7ad78dbbm51f74984b591e66d@mail.gmail.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH v2 0/3][BUG-FIX]: Test tree updates and bug fixes
+Date: Wed, 5 Dec 2007 12:10:27 -0200
+Message-ID: <20071205141027.GD4653@ghostprotocols.net>
+References: <11968535863312-git-send-email-gerrit@erg.abdn.ac.uk> <11968535864083-git-send-email-gerrit@erg.abdn.ac.uk> <11968535861091-git-send-email-gerrit@erg.abdn.ac.uk> <11968535861367-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ianbrn@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37695
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751750AbXLEODR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 09:03:17 -0500
-In-Reply-To: <d0383f90712050559o7ad78dbbm51f74984b591e66d@mail.gmail.com>
+Received: from mx1.redhat.com ([66.187.233.31]:48653 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752605AbXLEOKc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2007 09:10:32 -0500
+Content-Disposition: inline
+In-Reply-To: <11968535861367-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ian Brown" <ianbrn@gmail.com>
-Date: Wed, 5 Dec 2007 15:59:52 +0200
-
-> Hello,
-> Sorry ; but is this tree can be fetched ? it requires a password.
+Em Wed, Dec 05, 2007 at 11:19:46AM +0000, Gerrit Renker escreveu:
+> This patch removes the following redundancies:
+>   * ccid3_hc_rx_update_s() is only called for data packets (that is what it should be called for);
+>   * each call to ccid3_hc_rx_update_s() is wrapped inside a "if (is_data_packet)" test';
+>   * therefore testing each time if "len > 0" is redundant (pointed out by Arnaldo);
+>   * no other code calls this function, hence the inline function can go.
 > 
-> I try:
-> git-clone kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.25.git net-2.6.25
-> and get:
-> root@kernel.org's password:
+> Also replaced the first call to updating s with direct assignment of `payload_size'; this has also
+> been pointed out by Arnaldo.
 
-Use the git:// URL prefix.
+Thanks, I folded this into the reorganized RX history handling patch,
+together with reverting ccid3_hc_rx_packet_recv to very close to your
+original patch, with this changes:
+
+1. no need to calculate the payload size for non data packets as this
+   value won't be used.
+2. Initialize hcrx->ccid3hcrx_bytes_recv with the payload size when
+   hcrx->ccid3hcrx_state == TFRC_RSTATE_NO_DATA.
+3. tfrc_rx_hist_duplicate() is only called when ccid3hcrx_state !=
+   TFRC_RSTATE_NO_DATA, so it doesn't need to goto the done_receiving
+   label (that was removed as this was its only use) as do_feedback
+   would always be CCID3_FBACK_NONE and so the test would always fail
+   and no feedback would be sent, so just return right there.
+
+Now it reads:
+
+static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
+{
+	struct ccid3_hc_rx_sock *hcrx = ccid3_hc_rx_sk(sk);
+	enum ccid3_fback_type do_feedback = CCID3_FBACK_NONE;
+	const u32 ndp = dccp_sk(sk)->dccps_options_received.dccpor_ndp;
+	const bool is_data_packet = dccp_data_packet(skb);
+
+	if (unlikely(hcrx->ccid3hcrx_state == TFRC_RSTATE_NO_DATA)) {
+		if (is_data_packet) {
+			const u32 payload = skb->len - dccp_hdr(skb)->dccph_doff * 4;
+			do_feedback = FBACK_INITIAL;
+			ccid3_hc_rx_set_state(sk, TFRC_RSTATE_DATA);
+			hcrx->ccid3hcrx_s =
+				hcrx->ccid3hcrx_bytes_recv = payload_size;
+		}
+		goto update_records;
+ 	}
+
+	if (tfrc_rx_hist_duplicate(&hcrx->ccid3hcrx_hist, skb))
+		return; /* done receiving */
+
+	if (is_data_packet) {
+		const u32 payload = skb->len - dccp_hdr(skb)->dccph_doff * 4;
+		/*
+		 * Update moving-average of s and the sum of received payload bytes
+		 */
+		hcrx->ccid3hcrx_s = tfrc_ewma(hcrx->ccid3hcrx_s, payload_size, 9);
+		hcrx->ccid3hcrx_bytes_recv += payload_size;
+ 	}
+
+	/*
+	 * Handle pending losses and otherwise check for new loss
+	 */
+	if (tfrc_rx_hist_new_loss_indicated(&hcrx->ccid3hcrx_hist, skb, ndp))
+		goto update_records;
+
+	/*
+	 * Handle data packets: RTT sampling and monitoring p
+	 */
+	if (unlikely(!is_data_packet))
+		goto update_records;
+
+	if (list_empty(&hcrx->ccid3hcrx_li_hist)) {  /* no loss so far: p = 0 */
+		const u32 sample = tfrc_rx_hist_sample_rtt(&hcrx->ccid3hcrx_hist, skb);
+		if (sample != 0)
+			hcrx->ccid3hcrx_rtt = tfrc_ewma(hcrx->ccid3hcrx_rtt, sample, 9);
+	}
+
+	/*
+	 * Check if the periodic once-per-RTT feedback is due; RFC 4342, 10.3
+	 */
+	if (SUB16(dccp_hdr(skb)->dccph_ccval, hcrx->ccid3hcrx_last_counter) > 3)
+		do_feedback = CCID3_FBACK_PERIODIC;
+
+update_records:	
+	tfrc_rx_hist_add_packet(&hcrx->ccid3hcrx_hist, skb, ndp);
+
+	if (do_feedback)
+		ccid3_hc_rx_send_feedback(sk, skb, do_feedback);
+}
+
+Now to some questions and please bear with me as I haven't got to the
+patches after this:
+
+tfrc_rx_hist->loss_count as of now is a boolean, my understanding is
+that you are counting loss events, i.e. it doesn't matter in:
+
+/* any data packets missing between last reception and skb ? */
+int tfrc_rx_hist_new_loss_indicated(struct tfrc_rx_hist *h,
+				    const struct sk_buff *skb, u32 ndp)
+{
+	int delta = dccp_delta_seqno(tfrc_rx_hist_last_rcv(h)->tfrchrx_seqno,
+				     DCCP_SKB_CB(skb)->dccpd_seq);
+
+	if (delta > 1 && ndp < delta)
+		tfrc_rx_hist_loss_indicated(h);
+
+	return tfrc_rx_hist_loss_pending(h);
+}
+
+if (delta - ndp) is > 1, i.e. tfrc_rx_hist->loss_count only indicates
+that there was loss. But then in other parts of the code it assumes it
+can be more than 1:
+
+/**
+ * tfrc_rx_hist  -  RX history structure for TFRC-based protocols
+ *
+ * @ring:		Packet history for RTT sampling and loss detection
+ * @loss_count:		Number of entries in circular history
+ * @loss_start:		Movable index (for loss detection)
+ * @rtt_sample_prev:	Used during RTT sampling, points to candidate entry
+ */
+struct tfrc_rx_hist {
+	struct tfrc_rx_hist_entry *ring[TFRC_NDUPACK + 1];
+	u8			  loss_count:2,
+				  loss_start:2;
+#define rtt_sample_prev		  loss_start
+};
+
+There is space for TFRC_NDUPACK + 1 possible values in loss_count (:2)
+and the comment says it is the number of entries in the circular
+history, and also:
+
+/* has the packet contained in skb been seen before? */
+int tfrc_rx_hist_duplicate(struct tfrc_rx_hist *h, struct sk_buff *skb)
+{
+	const u64 seq = DCCP_SKB_CB(skb)->dccpd_seq;
+	int i;
+
+	if (dccp_delta_seqno(tfrc_rx_hist_loss_prev(h)->tfrchrx_seqno, seq) <= 0)
+		return 1;
+
+	for (i = 1; i <= h->loss_count; i++)
+		if (tfrc_rx_hist_entry(h, i)->tfrchrx_seqno == seq)
+			return 1;
+
+	return 0;
+}
+
+With the current code this will always check just one entry, as
+loss_count only gets to 1 in tfrc_rx_hist_loss_indicated.
+
+I'm not implying there is an error, I need to read the patches that
+follow, I'm just trying to get over coding conventions and basic
+algorithm sanity tests.
+
+I'll look at your page looking for extra explanations about this.
+
+- Arnaldo
