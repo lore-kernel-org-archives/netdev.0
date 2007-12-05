@@ -1,65 +1,45 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: TCP event tracking via netlink...
-Date: Wed, 05 Dec 2007 09:11:01 -0500
-Message-ID: <4756B175.5010108@psc.edu>
-References: <20071205.053031.87154402.davem@davemloft.net>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH v2 0/3][BUG-FIX]: Test tree updates and bug fixes
+Date: Wed, 5 Dec 2007 12:11:22 -0200
+Message-ID: <20071205141122.GE4653@ghostprotocols.net>
+References: <11968535863312-git-send-email-gerrit@erg.abdn.ac.uk> <11968535864083-git-send-email-gerrit@erg.abdn.ac.uk> <11968535861091-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:60033 "EHLO mailer1.psc.edu"
+Received: from mx1.redhat.com ([66.187.233.31]:56918 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751857AbXLEOLS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Dec 2007 09:11:18 -0500
-In-Reply-To: <20071205.053031.87154402.davem@davemloft.net>
+	id S1752034AbXLEOLZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2007 09:11:25 -0500
+Content-Disposition: inline
+In-Reply-To: <11968535861091-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> Ilpo, I was pondering the kind of debugging one does to find
-> congestion control issues and even SACK bugs and it's currently too
-> painful because there is no standard way to track state changes.
+Em Wed, Dec 05, 2007 at 11:19:45AM +0000, Gerrit Renker escreveu:
+> This fixes a problem in the initial revision of the patch: The loss interval
+> history was not de-allocated when the initialisation of the packet history
+> failed.  The identification of this problem is also thanks due to Arnaldo.
 > 
-> I assume you're using something like carefully crafted printk's,
-> kprobes, or even ad-hoc statistic counters.  That's what I used to do
-> :-)
+> The interdiff to the previous revision is:
 > 
-> With that in mind it occurred to me that we might want to do something
-> like a state change event generator.
+> 	--- b/net/dccp/ccids/lib/tfrc_module.c
+> 	+++ b/net/dccp/ccids/lib/tfrc_module.c
+> 	@@ -26,7 +26,12 @@
+> 	 
+> 		if (rc == 0)
+> 			rc = packet_history_init();
+> 	+	if (rc == 0)
+> 	+		goto out;
+> 	 
+> 	+out_free_loss_intervals:
+> 	+	dccp_li_exit();
+> 	+out:
+> 		return rc;
+> 	 }
 > 
-> Basically some application or even a daemon listens on this generic
-> netlink socket family we create.  The header of each event packet
-> indicates what socket the event is for and then there is some state
-> information.
-> 
-> Then you can look at a tcpdump and this state dump side by side and
-> see what the kernel decided to do.
-> 
-> Now there is the question of granularity.
-> 
-> A very important consideration in this is that we want this thing to
-> be enabled in the distributions, therefore it must be cheap.  Perhaps
-> one test at the end of the packet input processing.
-> 
-> So I say we pick some state to track (perhaps start with tcp_info)
-> and just push that at the end of every packet input run.  Also,
-> we add some minimal filtering capability (match on specific IP
-> address and/or port, for example).
-> 
-> Maybe if we want to get really fancy we can have some more-expensive
-> debug mode where detailed specific events get generated via some
-> macros we can scatter all over the place.  This won't be useful
-> for general user problem analysis, but it will be excellent for
-> developers.
-> 
-> Let me know if you think this is useful enough and I'll work on
-> an implementation we can start playing with.
 
+Ok, this one is kept on the series I have pending submission.
 
-FWIW, sounds similar to what these guys are doing with SIFTR for FreeBSD:
-http://caia.swin.edu.au/urp/newtcp/tools.html
-http://caia.swin.edu.au/reports/070824A/CAIA-TR-070824A.pdf
-
-   -John
+- Arnaldo
