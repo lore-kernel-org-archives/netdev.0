@@ -1,44 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: sockets affected by IPsec always block (2.6.23)
-Date: Tue, 04 Dec 2007 22:30:23 -0800 (PST)
-Message-ID: <20071204.223023.262159049.davem@davemloft.net>
-References: <4755A21F.2020407@simon.arlott.org.uk>
-	<20071205001230.GA11391@gondor.apana.org.au>
+From: "Denis V. Lunev" <den@sw.ru>
+Subject: Re: [PATCH 1/4] netns: Tag the network flow with the network namespace
+ it is in (v2)
+Date: Wed, 05 Dec 2007 09:49:54 +0300
+Message-ID: <47564A12.3040502@sw.ru>
+References: <E1IzgRN-0006Hq-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=KOI8-R
 Content-Transfer-Encoding: 7bit
-Cc: simon@fire.lp0.eu, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: shemminger@linux-foundation.org, den@openvz.org,
+	davem@davemloft.net, devel@openvz.org, netdev@vger.kernel.org,
+	containers@lists.osdl.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49782
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751081AbXLEGaX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 01:30:23 -0500
-In-Reply-To: <20071205001230.GA11391@gondor.apana.org.au>
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:54923 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751081AbXLEGs6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2007 01:48:58 -0500
+In-Reply-To: <E1IzgRN-0006Hq-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 5 Dec 2007 11:12:32 +1100
-
-> [INET]: Export non-blocking flags to proto connect call
+Herbert Xu wrote:
+> Denis V. Lunev <den@sw.ru> wrote:
+>> could you exactly point me out the flow cache your are talking about.
+>> Is this dst entry cache or struct flow_cache described in the
+>> net/core/flow.c
 > 
-> Previously we made connect(2) block on IPsec SA resolution.  This is
-> good in general but not desirable for non-blocking sockets.
+> The flow object is embedded in struct rtable so does its size change?
 > 
-> To fix this properly we'd need to implement the larval IPsec dst stuff
-> that we talked about.  For now let's just revert to the old behaviour
-> on non-blocking sockets.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Cheers,
 
-We made an explicit decision not to do things this way.
+SLAB allocator, x86_64 host
 
-Non-blocking has a meaning dependant upon the xfrm_larval_drop sysctl
-setting, and this is across the board.  If xfrm_larval_drop is zero,
-non-blocking semantics do not extend to IPSEC route resolution,
-otherwise it does.
+Before the patch:
+ip6_dst_cache        384   10
+xfrm_dst_cache       384   10
+ip_dst_cache         384   10
 
-If he sets this sysctl to "1" as I detailed in my reply, he'll
-get the behavior he wants.
+After the patch:
+ip6_dst_cache        384   10
+xfrm_dst_cache       384   10
+ip_dst_cache         384   10
+
+Regards,
+	Den
