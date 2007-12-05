@@ -1,41 +1,70 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] [TCP]: Make invariant check complain about invalid
- sacked_out
-Date: Wed, 5 Dec 2007 21:36:37 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0712052135530.9572@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0712052133490.9572@kivilampi-30.cs.helsinki.fi>
+From: Peter Tyser <ptyser@xes-inc.com>
+Subject: [PATCH] sky2: RX lockup fix
+Date: Wed, 05 Dec 2007 12:51:03 -0600
+Message-ID: <1196880663.2816.149.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: MULTIPART/Mixed; boundary="-696243703-1284969860-1196883329=:9572"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:38291 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752028AbXLETgj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 14:36:39 -0500
-In-Reply-To: <Pine.LNX.4.64.0712052133490.9572@kivilampi-30.cs.helsinki.fi>
-Content-ID: <Pine.LNX.4.64.0712052135531.9572@kivilampi-30.cs.helsinki.fi>
+Received: from xes-mad.com ([216.165.139.214]:59234 "EHLO xes-mad.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755459AbXLETo3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2007 14:44:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hello,
+I'm using a Marvell 88E8062 on a custom PPC64 blade and ran into RX
+lockups while validating the sky2 driver.  The receive MAC FIFO would
+become stuck during testing with high traffic.  One port of the 88E8062
+would lockup, while the other port remained functional.  Re-inserting
+the sky2 module would not fix the problem - only a power cycle would.
 
----696243703-1284969860-1196883329=:9572
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0712052135532.9572@kivilampi-30.cs.helsinki.fi>
+I looked over Marvell's most recent sk98lin driver and it looks like
+they had a "workaround" for the Yukon XL that the sky2 doesn't have yet.
+The sk98lin driver disables the RX MAC FIFO flush feature for all
+revisions of the Yukon XL.
 
-On Wed, 5 Dec 2007, Ilpo Järvinen wrote:
+According to skgeinit.c of the sk98lin driver, "Flushing must be enabled
+(needed for ASF see dev. #4.29), but the flushing mask should be
+disabled (see dev. #4.115)".  Nice.   I implemented this same change in
+the sky2 driver and verified that the RX lockup I was seeing was
+resolved.
 
-> 
-> Earlier resolution for NewReno's sacked_out should now keep
-> it small enough for this to become invariant-like check.
-> 
-> Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
 
-Forgot to modify it to the subject, this one to net-2.6.25 please.
+I didn't see the problem mentioned in the netdev list, so I've included
+a patch against the
+git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6 tree
+which disables RX flushing for the Yukon XL chips.
 
--- 
- i.
----696243703-1284969860-1196883329=:9572--
+Please CC replies to me as I am not subscribed to the list.
+
+Thanks,
+Peter Tyser
+
+
+Signed-off-by: Peter Tyser <ptyser@xes-inc.com>
+
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -822,8 +822,13 @@ static void sky2_mac_init(struct sky2_hw *hw,
+unsigned port)
+ 
+ 	sky2_write32(hw, SK_REG(port, RX_GMF_CTRL_T), rx_reg);
+ 
+-	/* Flush Rx MAC FIFO on any flow control or error */
+-	sky2_write16(hw, SK_REG(port, RX_GMF_FL_MSK), GMR_FS_ANY_ERR);
++	if (hw->chip_id == CHIP_ID_YUKON_XL) {
++		/* Hardware errata - clear flush mask */
++		sky2_write16(hw, SK_REG(port, RX_GMF_FL_MSK), 0);
++	} else {
++		/* Flush Rx MAC FIFO on any flow control or error */
++		sky2_write16(hw, SK_REG(port, RX_GMF_FL_MSK), GMR_FS_ANY_ERR);
++	}
+ 
+ 	/* Set threshold to 0xa (64 bytes) + 1 to workaround pause bug  */
+ 	reg = RX_GMF_FL_THR_DEF + 1;
+
+
