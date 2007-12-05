@@ -1,47 +1,33 @@
-From: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: sockets affected by IPsec always block (2.6.23)
-Date: Wed, 05 Dec 2007 01:55:58 -0800 (PST)
-Message-ID: <20071205.015558.224988608.davem@davemloft.net>
-References: <20071205071607.GA11852@gondor.apana.org.au>
-	<20071204.233432.136250076.davem@davemloft.net>
-	<20071205073927.GA12413@gondor.apana.org.au>
+Date: Wed, 5 Dec 2007 20:57:58 +1100
+Message-ID: <20071205095758.GA17471@gondor.apana.org.au>
+References: <20071205071607.GA11852@gondor.apana.org.au> <20071204.233432.136250076.davem@davemloft.net> <20071205073927.GA12413@gondor.apana.org.au> <20071205.015558.224988608.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: simon@fire.lp0.eu, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55561
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751602AbXLEJz6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 04:55:58 -0500
-In-Reply-To: <20071205073927.GA12413@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:1356 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751613AbXLEJ6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 04:58:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20071205.015558.224988608.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 5 Dec 2007 18:39:27 +1100
+On Wed, Dec 05, 2007 at 01:55:58AM -0800, David Miller wrote:
+>
+> If it hits sysctl_tcp_syn_retries SYN attempts, the connect will hard
+> fail.
 
-> On Tue, Dec 04, 2007 at 11:34:32PM -0800, David Miller wrote:
-> > 
-> > TCP has some built-in assumptions about characteristics of
-> > interent links and what constitutes a timeout which is "too long"
-> > and should thus result in a full connection failure.
-> > 
-> > IPSEC changes this because of IPSEC route resolution via
-> > ISAKMP.
-> > 
-> > With this in mind I can definitely see people preferring
-> > the "block until IPSEC resolves" behavior, especially for
-> > something like, say, periodic remote backups and stuff like
-> > that where you really want the thing to just sit and wait
-> > for the connect() to succeed instead of failing.
-> 
-> Hmm, but connect(2) should succeed in that case thanks to the
-> blackhole route, no? The subsequent SYNs will then be dropped
-> until the IPsec SAs are in place.
+Right.  Let's just forget about this until we have a queueing system :)
 
-If it hits sysctl_tcp_syn_retries SYN attempts, the connect will hard
-fail.
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
