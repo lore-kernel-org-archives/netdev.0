@@ -1,129 +1,103 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.25 1/3][ROUTE] Collect proc-related functions together
-Date: Wed, 05 Dec 2007 20:04:16 +0300
-Message-ID: <4756DA10.6000409@openvz.org>
+Subject: [PATCH net-2.6.25 2/3][ROUTE] Clean up proc files creation
+Date: Wed, 05 Dec 2007 20:06:39 +0300
+Message-ID: <4756DA9F.4000200@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:33499 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:33718 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751539AbXLERE2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Dec 2007 12:04:28 -0500
+	id S1751737AbXLERGs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2007 12:06:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The net/ipv4/route.c file declares some entries for proc
-to dump some routing info. The reading functions are 
-scattered over this file - collect them together.
+The rt_cache, stats/rt_cache and rt_acct(optional) files
+creation looks a bit messy. Clean this out and join them
+to other proc-related functions under the proper ifdef.
 
-Besides, remove a useless IP_RT_ACCT_CPU macro.
+The struct net * argument in a new function will help net 
+namespaces patches look nicer.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
 
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 134cab5..cc5b730 100644
+index cc5b730..3b9c430 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -481,6 +481,45 @@ static const struct file_operations rt_cpu_seq_fops = {
- 	.release = seq_release,
- };
- 
-+#ifdef CONFIG_NET_CLS_ROUTE
-+static int ip_rt_acct_read(char *buffer, char **start, off_t offset,
-+			   int length, int *eof, void *data)
+@@ -520,6 +520,44 @@ static int ip_rt_acct_read(char *buffer, char **start, off_t offset,
+ 	return length;
+ }
+ #endif
++
++static __init int ip_rt_proc_init(struct net *net)
 +{
-+	unsigned int i;
++	struct proc_dir_entry *pde;
 +
-+	if ((offset & 3) || (length & 3))
-+		return -EIO;
++	pde = proc_net_fops_create(net, "rt_cache", S_IRUGO,
++			&rt_cache_seq_fops);
++	if (!pde)
++		goto err1;
 +
-+	if (offset >= sizeof(struct ip_rt_acct) * 256) {
-+		*eof = 1;
-+		return 0;
-+	}
++	pde = create_proc_entry("rt_cache", S_IRUGO, net->proc_net_stat);
++	if (!pde)
++		goto err2;
 +
-+	if (offset + length >= sizeof(struct ip_rt_acct) * 256) {
-+		length = sizeof(struct ip_rt_acct) * 256 - offset;
-+		*eof = 1;
-+	}
++	pde->proc_fops = &rt_cpu_seq_fops;
 +
-+	offset /= sizeof(u32);
-+
-+	if (length > 0) {
-+		u32 *dst = (u32 *) buffer;
-+
-+		*start = buffer;
-+		memset(dst, 0, length);
-+
-+		for_each_possible_cpu(i) {
-+			unsigned int j;
-+			u32 *src;
-+
-+			src = ((u32 *) per_cpu_ptr(ip_rt_acct, i)) + offset;
-+			for (j = 0; j < length/4; j++)
-+				dst[j] += src[j];
-+		}
-+	}
-+	return length;
-+}
++#ifdef CONFIG_NET_CLS_ROUTE
++	pde = create_proc_read_entry("rt_acct", 0, net->proc_net,
++			ip_rt_acct_read, NULL);
++	if (!pde)
++		goto err3;
 +#endif
++	return 0;
++
++#ifdef CONFIG_NET_CLS_ROUTE
++err3:
++	remove_proc_entry("rt_cache", net->proc_net_stat);
++#endif
++err2:
++	remove_proc_entry("rt_cache", net->proc_net);
++err1:
++	return -ENOMEM;
++}
++#else
++static inline int ip_rt_proc_init(struct net *net)
++{
++	return 0;
++}
  #endif /* CONFIG_PROC_FS */
  
  static __inline__ void rt_free(struct rtable *rt)
-@@ -2895,48 +2934,6 @@ ctl_table ipv4_route_table[] = {
+@@ -2997,20 +3035,8 @@ int __init ip_rt_init(void)
+ 		ip_rt_secret_interval;
+ 	add_timer(&rt_secret_timer);
  
- #ifdef CONFIG_NET_CLS_ROUTE
- struct ip_rt_acct *ip_rt_acct __read_mostly;
--
--/* IP route accounting ptr for this logical cpu number. */
--#define IP_RT_ACCT_CPU(cpu) (per_cpu_ptr(ip_rt_acct, cpu))
--
 -#ifdef CONFIG_PROC_FS
--static int ip_rt_acct_read(char *buffer, char **start, off_t offset,
--			   int length, int *eof, void *data)
--{
--	unsigned int i;
--
--	if ((offset & 3) || (length & 3))
--		return -EIO;
--
--	if (offset >= sizeof(struct ip_rt_acct) * 256) {
--		*eof = 1;
--		return 0;
+-	{
+-	struct proc_dir_entry *rtstat_pde = NULL; /* keep gcc happy */
+-	if (!proc_net_fops_create(&init_net, "rt_cache", S_IRUGO, &rt_cache_seq_fops) ||
+-	    !(rtstat_pde = create_proc_entry("rt_cache", S_IRUGO,
+-					     init_net.proc_net_stat))) {
+-		return -ENOMEM;
 -	}
--
--	if (offset + length >= sizeof(struct ip_rt_acct) * 256) {
--		length = sizeof(struct ip_rt_acct) * 256 - offset;
--		*eof = 1;
+-	rtstat_pde->proc_fops = &rt_cpu_seq_fops;
 -	}
--
--	offset /= sizeof(u32);
--
--	if (length > 0) {
--		u32 *dst = (u32 *) buffer;
--
--		*start = buffer;
--		memset(dst, 0, length);
--
--		for_each_possible_cpu(i) {
--			unsigned int j;
--			u32 *src = ((u32 *) IP_RT_ACCT_CPU(i)) + offset;
--
--			for (j = 0; j < length/4; j++)
--				dst[j] += src[j];
--		}
--	}
--	return length;
--}
--#endif /* CONFIG_PROC_FS */
- #endif /* CONFIG_NET_CLS_ROUTE */
- 
- static __initdata unsigned long rhash_entries;
+-#ifdef CONFIG_NET_CLS_ROUTE
+-	create_proc_read_entry("rt_acct", 0, init_net.proc_net, ip_rt_acct_read, NULL);
+-#endif
+-#endif
++	if (ip_rt_proc_init(&init_net))
++		printk(KERN_ERR "Unable to create route proc files\n");
+ #ifdef CONFIG_XFRM
+ 	xfrm_init();
+ 	xfrm4_init();
 -- 
 1.5.3.4
 
