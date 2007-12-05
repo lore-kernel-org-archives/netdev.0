@@ -1,42 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/3] [UDP]: Restore missing inDatagrams increments
-Date: Wed, 5 Dec 2007 20:54:53 +1100
-Message-ID: <20071205095453.GA17410@gondor.apana.org.au>
-References: <20071204130109.GA3098@gondor.apana.org.au> <47560215.6050104@cn.fujitsu.com> <20071205021559.GA27707@gondor.apana.org.au> <20071205.015301.87202109.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: sockets affected by IPsec always block (2.6.23)
+Date: Wed, 05 Dec 2007 01:55:58 -0800 (PST)
+Message-ID: <20071205.015558.224988608.davem@davemloft.net>
+References: <20071205071607.GA11852@gondor.apana.org.au>
+	<20071204.233432.136250076.davem@davemloft.net>
+	<20071205073927.GA12413@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: wangchen@cn.fujitsu.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: simon@fire.lp0.eu, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1319 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751464AbXLEJy5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 04:54:57 -0500
-Content-Disposition: inline
-In-Reply-To: <20071205.015301.87202109.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55561
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751602AbXLEJz6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 04:55:58 -0500
+In-Reply-To: <20071205073927.GA12413@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 05, 2007 at 01:53:01AM -0800, David Miller wrote:
->
-> > [UDP]: Restore missing inDatagrams increments
-> >     
-> > The previous move of the the UDP inDatagrams counter caused the
-> > counting of encapsulated packets, SUNRPC data (as opposed to call)
-> > packets and RXRPC packets to go missing.
-> >     
-> > This patch restores all of these.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 5 Dec 2007 18:39:27 +1100
+
+> On Tue, Dec 04, 2007 at 11:34:32PM -0800, David Miller wrote:
 > > 
-> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> > TCP has some built-in assumptions about characteristics of
+> > interent links and what constitutes a timeout which is "too long"
+> > and should thus result in a full connection failure.
+> > 
+> > IPSEC changes this because of IPSEC route resolution via
+> > ISAKMP.
+> > 
+> > With this in mind I can definitely see people preferring
+> > the "block until IPSEC resolves" behavior, especially for
+> > something like, say, periodic remote backups and stuff like
+> > that where you really want the thing to just sit and wait
+> > for the connect() to succeed instead of failing.
 > 
-> Applied.
+> Hmm, but connect(2) should succeed in that case thanks to the
+> blackhole route, no? The subsequent SYNs will then be dropped
+> until the IPsec SAs are in place.
 
-Sorry, Eric spotted a build problem in my patch.  So you'll need to
-replace this with the fixed version that I sent literally minutes ago :)
+If it hits sysctl_tcp_syn_retries SYN attempts, the connect will hard
+fail.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
