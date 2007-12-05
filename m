@@ -1,50 +1,45 @@
-From: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: sockets affected by IPsec always block (2.6.23)
-Date: Tue, 04 Dec 2007 23:12:00 -0800 (PST)
-Message-ID: <20071204.231200.117152338.davem@davemloft.net>
-References: <20071205001230.GA11391@gondor.apana.org.au>
-	<20071204.223023.262159049.davem@davemloft.net>
-	<20071205065132.GA11476@gondor.apana.org.au>
+Date: Wed, 5 Dec 2007 18:16:07 +1100
+Message-ID: <20071205071607.GA11852@gondor.apana.org.au>
+References: <20071205001230.GA11391@gondor.apana.org.au> <20071204.223023.262159049.davem@davemloft.net> <20071205065132.GA11476@gondor.apana.org.au> <20071204.231200.117152338.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: simon@fire.lp0.eu, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44771
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751745AbXLEHMB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 02:12:01 -0500
-In-Reply-To: <20071205065132.GA11476@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:3971 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751455AbXLEHQN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 02:16:13 -0500
+Content-Disposition: inline
+In-Reply-To: <20071204.231200.117152338.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 5 Dec 2007 17:51:32 +1100
+On Tue, Dec 04, 2007 at 11:12:00PM -0800, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Wed, 5 Dec 2007 17:51:32 +1100
+> 
+> > Does anybody actually need the 0 setting? What would we break if
+> > the default became 1?
+> 
+> I bet there are UDP apps out there that would break if we
+> didn't do this.
 
-> Does anybody actually need the 0 setting? What would we break if
-> the default became 1?
+Right.  This is definitely bad for protocols without a retransmission
+mechanism.
 
-I bet there are UDP apps out there that would break if we
-didn't do this.
+However, is the 0 setting ever useful for TCP and in particular, TCP's
+connect(2) call? Perhaps we can just make that one always drop.
 
-Actually, consider even a case like DNS.  Let's say the timeout
-is set to 2 seconds or something and you have 3 DNS servers
-listed, on different IPSEC destinations, in your resolv.conf
+Well, until someone implements queueing to fix all of this properly
+that is :)
 
-Each IPSEC route that isn't currently resolved will cause packet loss
-of the DNS lookup request with xfrm_larval_drop set to '1'.
-
-If all 3 need to be resolved, the DNS lookup will fully fail
-which defeats the purpose of listing 3 servers for redundancy
-don't you think? :-)
-
-As much as I even personally prefer the xfrm_larval_drop=1
-behavior, it cases like above that keep me from jumping at
-making it the default.
-
-Arguably, potentially blocking forever (which is what can easily
-happen with xfrm_larval_drop=0 if your IPSEC daemon cannot resolve the
-IPSEC path for whatever reason) is worse than the above, but the
-other cases are still something to consider as well.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
