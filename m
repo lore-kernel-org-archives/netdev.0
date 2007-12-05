@@ -1,44 +1,44 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH 7/11] ibm_newemac: Skip EMACs that are marked unused by the firmware
-Date: Wed, 05 Dec 2007 11:14:30 +1100
-Message-ID: <20071205001539.97730DE091@ozlabs.org>
+Subject: [PATCH 10/11] ibm_newemac: Call dev_set_drvdata() before tah_reset()
+Date: Wed, 05 Dec 2007 11:14:32 +1100
+Message-ID: <20071205001541.F2D69DE109@ozlabs.org>
 Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
 	Josh Boyer <jwboyer@linux.vnet.ibm.com>
 To: <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:51492 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:51597 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751662AbXLEAP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 19:15:59 -0500
+	id S1751745AbXLEAQP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2007 19:16:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hugh Blemings <hugh@blemings.org>
+From: Valentine Barshak <vbarshak@ru.mvista.com>
 
-Depending on how the 44x processors are wired, some EMAC cells
-might not be useable (and not connected to a PHY). However, some
-device-trees may choose to still expose them (since their registers
-are present in the MMIO space) but with an "unused" property in them.
+The patch moves dev_set_drvdata(&ofdev->dev, dev) up before tah_reset(ofdev)
+is called to avoid a NULL pointer dereference, since tah_reset uses drvdata.
 
-Signed-off-by: Hugh Blemings <hugh@blemings.org>
+Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
 Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 ---
 
- drivers/net/ibm_newemac/core.c |    4 ++++
- 1 file changed, 4 insertions(+)
-
-Index: linux-work/drivers/net/ibm_newemac/core.c
-===================================================================
---- linux-work.orig/drivers/net/ibm_newemac/core.c	2007-11-20 14:47:02.000000000 +1100
-+++ linux-work/drivers/net/ibm_newemac/core.c	2007-11-20 14:47:05.000000000 +1100
-@@ -2550,6 +2550,10 @@ static int __devinit emac_probe(struct o
- 	struct device_node **blist = NULL;
- 	int err, i;
+diff -pruN linux-2.6.orig/drivers/net/ibm_newemac/tah.c linux-2.6/drivers/net/ibm_newemac/tah.c
+--- linux-2.6.orig/drivers/net/ibm_newemac/tah.c	2007-11-23 21:27:57.000000000 +0300
++++ linux-2.6/drivers/net/ibm_newemac/tah.c	2007-11-23 21:35:12.000000000 +0300
+@@ -116,13 +116,14 @@ static int __devinit tah_probe(struct of
+ 		goto err_free;
+ 	}
  
-+	/* Skip unused/unwired EMACS */
-+	if (of_get_property(np, "unused", NULL))
-+		return -ENODEV;
++	dev_set_drvdata(&ofdev->dev, dev);
 +
- 	/* Find ourselves in the bootlist if we are there */
- 	for (i = 0; i < EMAC_BOOT_LIST_SIZE; i++)
- 		if (emac_boot_list[i] == np)
+ 	/* Initialize TAH and enable IPv4 checksum verification, no TSO yet */
+ 	tah_reset(ofdev);
+ 
+ 	printk(KERN_INFO
+ 	       "TAH %s initialized\n", ofdev->node->full_name);
+ 	wmb();
+-	dev_set_drvdata(&ofdev->dev, dev);
+ 
+ 	return 0;
+ 
+
