@@ -1,43 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
 Subject: Re: sockets affected by IPsec always block (2.6.23)
-Date: Wed, 5 Dec 2007 17:51:32 +1100
-Message-ID: <20071205065132.GA11476@gondor.apana.org.au>
-References: <4755A21F.2020407@simon.arlott.org.uk> <20071205001230.GA11391@gondor.apana.org.au> <20071204.223023.262159049.davem@davemloft.net>
+Date: Tue, 04 Dec 2007 23:12:00 -0800 (PST)
+Message-ID: <20071204.231200.117152338.davem@davemloft.net>
+References: <20071205001230.GA11391@gondor.apana.org.au>
+	<20071204.223023.262159049.davem@davemloft.net>
+	<20071205065132.GA11476@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: simon@fire.lp0.eu, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3839 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750954AbXLEGvj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 01:51:39 -0500
-Content-Disposition: inline
-In-Reply-To: <20071204.223023.262159049.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44771
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751745AbXLEHMB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 02:12:01 -0500
+In-Reply-To: <20071205065132.GA11476@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 04, 2007 at 10:30:23PM -0800, David Miller wrote:
-> 
-> We made an explicit decision not to do things this way.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 5 Dec 2007 17:51:32 +1100
 
-Thanks for pointing this out.
+> Does anybody actually need the 0 setting? What would we break if
+> the default became 1?
 
-> Non-blocking has a meaning dependant upon the xfrm_larval_drop sysctl
-> setting, and this is across the board.  If xfrm_larval_drop is zero,
-> non-blocking semantics do not extend to IPSEC route resolution,
-> otherwise it does.
-> 
-> If he sets this sysctl to "1" as I detailed in my reply, he'll
-> get the behavior he wants.
+I bet there are UDP apps out there that would break if we
+didn't do this.
 
-Does anybody actually need the 0 setting? What would we break if
-the default became 1?
+Actually, consider even a case like DNS.  Let's say the timeout
+is set to 2 seconds or something and you have 3 DNS servers
+listed, on different IPSEC destinations, in your resolv.conf
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Each IPSEC route that isn't currently resolved will cause packet loss
+of the DNS lookup request with xfrm_larval_drop set to '1'.
+
+If all 3 need to be resolved, the DNS lookup will fully fail
+which defeats the purpose of listing 3 servers for redundancy
+don't you think? :-)
+
+As much as I even personally prefer the xfrm_larval_drop=1
+behavior, it cases like above that keep me from jumping at
+making it the default.
+
+Arguably, potentially blocking forever (which is what can easily
+happen with xfrm_larval_drop=0 if your IPSEC daemon cannot resolve the
+IPSEC path for whatever reason) is worse than the above, but the
+other cases are still something to consider as well.
