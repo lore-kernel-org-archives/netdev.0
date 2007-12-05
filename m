@@ -1,174 +1,65 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH v2 0/3][BUG-FIX]: Test tree updates and bug fixes
-Date: Wed, 5 Dec 2007 12:10:27 -0200
-Message-ID: <20071205141027.GD4653@ghostprotocols.net>
-References: <11968535863312-git-send-email-gerrit@erg.abdn.ac.uk> <11968535864083-git-send-email-gerrit@erg.abdn.ac.uk> <11968535861091-git-send-email-gerrit@erg.abdn.ac.uk> <11968535861367-git-send-email-gerrit@erg.abdn.ac.uk>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: TCP event tracking via netlink...
+Date: Wed, 05 Dec 2007 09:11:01 -0500
+Message-ID: <4756B175.5010108@psc.edu>
+References: <20071205.053031.87154402.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:48653 "EHLO mx1.redhat.com"
+Received: from mailer1.psc.edu ([128.182.58.100]:60033 "EHLO mailer1.psc.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752605AbXLEOKc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Dec 2007 09:10:32 -0500
-Content-Disposition: inline
-In-Reply-To: <11968535861367-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1751857AbXLEOLS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2007 09:11:18 -0500
+In-Reply-To: <20071205.053031.87154402.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Wed, Dec 05, 2007 at 11:19:46AM +0000, Gerrit Renker escreveu:
-> This patch removes the following redundancies:
->   * ccid3_hc_rx_update_s() is only called for data packets (that is what it should be called for);
->   * each call to ccid3_hc_rx_update_s() is wrapped inside a "if (is_data_packet)" test';
->   * therefore testing each time if "len > 0" is redundant (pointed out by Arnaldo);
->   * no other code calls this function, hence the inline function can go.
+David Miller wrote:
+> Ilpo, I was pondering the kind of debugging one does to find
+> congestion control issues and even SACK bugs and it's currently too
+> painful because there is no standard way to track state changes.
 > 
-> Also replaced the first call to updating s with direct assignment of `payload_size'; this has also
-> been pointed out by Arnaldo.
+> I assume you're using something like carefully crafted printk's,
+> kprobes, or even ad-hoc statistic counters.  That's what I used to do
+> :-)
+> 
+> With that in mind it occurred to me that we might want to do something
+> like a state change event generator.
+> 
+> Basically some application or even a daemon listens on this generic
+> netlink socket family we create.  The header of each event packet
+> indicates what socket the event is for and then there is some state
+> information.
+> 
+> Then you can look at a tcpdump and this state dump side by side and
+> see what the kernel decided to do.
+> 
+> Now there is the question of granularity.
+> 
+> A very important consideration in this is that we want this thing to
+> be enabled in the distributions, therefore it must be cheap.  Perhaps
+> one test at the end of the packet input processing.
+> 
+> So I say we pick some state to track (perhaps start with tcp_info)
+> and just push that at the end of every packet input run.  Also,
+> we add some minimal filtering capability (match on specific IP
+> address and/or port, for example).
+> 
+> Maybe if we want to get really fancy we can have some more-expensive
+> debug mode where detailed specific events get generated via some
+> macros we can scatter all over the place.  This won't be useful
+> for general user problem analysis, but it will be excellent for
+> developers.
+> 
+> Let me know if you think this is useful enough and I'll work on
+> an implementation we can start playing with.
 
-Thanks, I folded this into the reorganized RX history handling patch,
-together with reverting ccid3_hc_rx_packet_recv to very close to your
-original patch, with this changes:
 
-1. no need to calculate the payload size for non data packets as this
-   value won't be used.
-2. Initialize hcrx->ccid3hcrx_bytes_recv with the payload size when
-   hcrx->ccid3hcrx_state == TFRC_RSTATE_NO_DATA.
-3. tfrc_rx_hist_duplicate() is only called when ccid3hcrx_state !=
-   TFRC_RSTATE_NO_DATA, so it doesn't need to goto the done_receiving
-   label (that was removed as this was its only use) as do_feedback
-   would always be CCID3_FBACK_NONE and so the test would always fail
-   and no feedback would be sent, so just return right there.
+FWIW, sounds similar to what these guys are doing with SIFTR for FreeBSD:
+http://caia.swin.edu.au/urp/newtcp/tools.html
+http://caia.swin.edu.au/reports/070824A/CAIA-TR-070824A.pdf
 
-Now it reads:
-
-static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
-{
-	struct ccid3_hc_rx_sock *hcrx = ccid3_hc_rx_sk(sk);
-	enum ccid3_fback_type do_feedback = CCID3_FBACK_NONE;
-	const u32 ndp = dccp_sk(sk)->dccps_options_received.dccpor_ndp;
-	const bool is_data_packet = dccp_data_packet(skb);
-
-	if (unlikely(hcrx->ccid3hcrx_state == TFRC_RSTATE_NO_DATA)) {
-		if (is_data_packet) {
-			const u32 payload = skb->len - dccp_hdr(skb)->dccph_doff * 4;
-			do_feedback = FBACK_INITIAL;
-			ccid3_hc_rx_set_state(sk, TFRC_RSTATE_DATA);
-			hcrx->ccid3hcrx_s =
-				hcrx->ccid3hcrx_bytes_recv = payload_size;
-		}
-		goto update_records;
- 	}
-
-	if (tfrc_rx_hist_duplicate(&hcrx->ccid3hcrx_hist, skb))
-		return; /* done receiving */
-
-	if (is_data_packet) {
-		const u32 payload = skb->len - dccp_hdr(skb)->dccph_doff * 4;
-		/*
-		 * Update moving-average of s and the sum of received payload bytes
-		 */
-		hcrx->ccid3hcrx_s = tfrc_ewma(hcrx->ccid3hcrx_s, payload_size, 9);
-		hcrx->ccid3hcrx_bytes_recv += payload_size;
- 	}
-
-	/*
-	 * Handle pending losses and otherwise check for new loss
-	 */
-	if (tfrc_rx_hist_new_loss_indicated(&hcrx->ccid3hcrx_hist, skb, ndp))
-		goto update_records;
-
-	/*
-	 * Handle data packets: RTT sampling and monitoring p
-	 */
-	if (unlikely(!is_data_packet))
-		goto update_records;
-
-	if (list_empty(&hcrx->ccid3hcrx_li_hist)) {  /* no loss so far: p = 0 */
-		const u32 sample = tfrc_rx_hist_sample_rtt(&hcrx->ccid3hcrx_hist, skb);
-		if (sample != 0)
-			hcrx->ccid3hcrx_rtt = tfrc_ewma(hcrx->ccid3hcrx_rtt, sample, 9);
-	}
-
-	/*
-	 * Check if the periodic once-per-RTT feedback is due; RFC 4342, 10.3
-	 */
-	if (SUB16(dccp_hdr(skb)->dccph_ccval, hcrx->ccid3hcrx_last_counter) > 3)
-		do_feedback = CCID3_FBACK_PERIODIC;
-
-update_records:	
-	tfrc_rx_hist_add_packet(&hcrx->ccid3hcrx_hist, skb, ndp);
-
-	if (do_feedback)
-		ccid3_hc_rx_send_feedback(sk, skb, do_feedback);
-}
-
-Now to some questions and please bear with me as I haven't got to the
-patches after this:
-
-tfrc_rx_hist->loss_count as of now is a boolean, my understanding is
-that you are counting loss events, i.e. it doesn't matter in:
-
-/* any data packets missing between last reception and skb ? */
-int tfrc_rx_hist_new_loss_indicated(struct tfrc_rx_hist *h,
-				    const struct sk_buff *skb, u32 ndp)
-{
-	int delta = dccp_delta_seqno(tfrc_rx_hist_last_rcv(h)->tfrchrx_seqno,
-				     DCCP_SKB_CB(skb)->dccpd_seq);
-
-	if (delta > 1 && ndp < delta)
-		tfrc_rx_hist_loss_indicated(h);
-
-	return tfrc_rx_hist_loss_pending(h);
-}
-
-if (delta - ndp) is > 1, i.e. tfrc_rx_hist->loss_count only indicates
-that there was loss. But then in other parts of the code it assumes it
-can be more than 1:
-
-/**
- * tfrc_rx_hist  -  RX history structure for TFRC-based protocols
- *
- * @ring:		Packet history for RTT sampling and loss detection
- * @loss_count:		Number of entries in circular history
- * @loss_start:		Movable index (for loss detection)
- * @rtt_sample_prev:	Used during RTT sampling, points to candidate entry
- */
-struct tfrc_rx_hist {
-	struct tfrc_rx_hist_entry *ring[TFRC_NDUPACK + 1];
-	u8			  loss_count:2,
-				  loss_start:2;
-#define rtt_sample_prev		  loss_start
-};
-
-There is space for TFRC_NDUPACK + 1 possible values in loss_count (:2)
-and the comment says it is the number of entries in the circular
-history, and also:
-
-/* has the packet contained in skb been seen before? */
-int tfrc_rx_hist_duplicate(struct tfrc_rx_hist *h, struct sk_buff *skb)
-{
-	const u64 seq = DCCP_SKB_CB(skb)->dccpd_seq;
-	int i;
-
-	if (dccp_delta_seqno(tfrc_rx_hist_loss_prev(h)->tfrchrx_seqno, seq) <= 0)
-		return 1;
-
-	for (i = 1; i <= h->loss_count; i++)
-		if (tfrc_rx_hist_entry(h, i)->tfrchrx_seqno == seq)
-			return 1;
-
-	return 0;
-}
-
-With the current code this will always check just one entry, as
-loss_count only gets to 1 in tfrc_rx_hist_loss_indicated.
-
-I'm not implying there is an error, I need to read the patches that
-follow, I'm just trying to get over coding conventions and basic
-algorithm sanity tests.
-
-I'll look at your page looking for extra explanations about this.
-
-- Arnaldo
+   -John
