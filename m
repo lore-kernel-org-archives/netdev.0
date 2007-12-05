@@ -1,32 +1,44 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: NET: ASSERT_RTNL in __dev_set_promiscuity makes debug warning
-Date: Wed, 5 Dec 2007 07:25:41 +0100
-Message-ID: <20071205062540.GA987@ff.dom.local>
-References: <4755D42E.7050602@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: sockets affected by IPsec always block (2.6.23)
+Date: Tue, 04 Dec 2007 22:30:23 -0800 (PST)
+Message-ID: <20071204.223023.262159049.davem@davemloft.net>
+References: <4755A21F.2020407@simon.arlott.org.uk>
+	<20071205001230.GA11391@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joonwoo Park <joonwpark81@gmail.com>, netdev@vger.kernel.org,
-	'Linux Kernel Mailing List' <linux-kernel@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: simon@fire.lp0.eu, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:53314 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750892AbXLEGUv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Dec 2007 01:20:51 -0500
-Content-Disposition: inline
-In-Reply-To: <4755D42E.7050602@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49782
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751081AbXLEGaX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 01:30:23 -0500
+In-Reply-To: <20071205001230.GA11391@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04-12-2007 23:26, Jarek Poplawski wrote:
-...
-> But, IMHO, blowing ASSERT_RTNL up in a few places shouldn't be much
-> worse. After all, how long such a debugging code should be kept. It
-> seems, at least sometimes we should be a bit more confident of how
-> it's called.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 5 Dec 2007 11:12:32 +1100
 
-I see this won't be done this way, but, if it were, then there is no
-reason to remove the second: documenting feature of ASSERT_RTNL, so
-some comment about locking should be added.
+> [INET]: Export non-blocking flags to proto connect call
+> 
+> Previously we made connect(2) block on IPsec SA resolution.  This is
+> good in general but not desirable for non-blocking sockets.
+> 
+> To fix this properly we'd need to implement the larval IPsec dst stuff
+> that we talked about.  For now let's just revert to the old behaviour
+> on non-blocking sockets.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Jarek P.
+We made an explicit decision not to do things this way.
+
+Non-blocking has a meaning dependant upon the xfrm_larval_drop sysctl
+setting, and this is across the board.  If xfrm_larval_drop is zero,
+non-blocking semantics do not extend to IPSEC route resolution,
+otherwise it does.
+
+If he sets this sysctl to "1" as I detailed in my reply, he'll
+get the behavior he wants.
