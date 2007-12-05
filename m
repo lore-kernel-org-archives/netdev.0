@@ -1,102 +1,74 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] Updates to nfsroot documentation (take 2)
-Date: Wed, 5 Dec 2007 15:13:04 +0900
-Message-ID: <20071205061302.GA2292@verge.net.au>
-References: <20071205045932.GA7160@us.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: namespace support requires network modules to say "GPL"
+Date: Tue, 04 Dec 2007 22:14:47 -0800 (PST)
+Message-ID: <20071204.221447.158735674.davem@davemloft.net>
+References: <m163zexrqi.fsf@ebiederm.dsl.xmission.com>
+	<4755A025.8090903@candelatech.com>
+	<m1odd6w9p6.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org,
-	Netdev <netdev@vger.kernel.org>
-To: Amos Waterland <apw@us.ibm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: greearb@candelatech.com, daniel.lezcano@free.fr,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	containers@lists.osdl.org, lkml@rtr.ca,
+	shemminger@linux-foundation.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:43871 "EHLO koto.vergenet.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751081AbXLEGNI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Dec 2007 01:13:08 -0500
-Content-Disposition: inline
-In-Reply-To: <20071205045932.GA7160@us.ibm.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57973
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751791AbXLEGOs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 01:14:48 -0500
+In-Reply-To: <m1odd6w9p6.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[ CCed netdev ]
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 04 Dec 2007 12:17:57 -0700
 
-On Tue, Dec 04, 2007 at 11:59:32PM -0500, Amos Waterland wrote:
-> The difference between ip=off and ip=::::::off has been a cause of much
-> confusion.  Document how each behaves, and do not contradict ourselves
-> by saying that "off" is the default when in fact "any" is the default
-> and is descibed as being so lower in the file.
-
-This seems fine to me in so far as it is correct.  And I do like the
-removal of the duplicat documentation from ipconfig.c.  However, as I
-mentioned yesterday, it really seems to me that the code in ipconfig.c
-should be updated so that ip=off and ip=::::::off do the same thing.
-
+> Ben Greear <greearb@candelatech.com> writes:
 > 
-> Signed-off-by: Amos Waterland <apw@us.ibm.com>
+> > If I *do* need to add some sort of namespace
+> > awareness to just achieve today's functionality, I don't mind making the
+> > changes,
+> > so long as I don't need to change to GPL licensing.  Perhaps at the least you
+> > can export enough symbols w/out GPL tag to achieve backwards compat with .23
+> > and previous kernels, or rework dev_get_by_* etc to not need GPL'd namespace
+> > symbols and just return the device in the default namespace?
 > 
->  Documentation/nfsroot.txt |    9 ++++++---
->  net/ipv4/ipconfig.c       |   20 +-------------------
->  2 files changed, 7 insertions(+), 22 deletions(-)
-> 
-> diff --git a/Documentation/nfsroot.txt b/Documentation/nfsroot.txt
-> index 16a7cae..ac04a1d 100644
-> --- a/Documentation/nfsroot.txt
-> +++ b/Documentation/nfsroot.txt
-> @@ -92,8 +92,11 @@ ip=<client-ip>:<server-ip>:<gw-ip>:<netmask>:<hostname>:<device>:<autoconf>
->    autoconfiguration.
->  
->    The <autoconf> parameter can appear alone as the value to the `ip'
-> -  parameter (without all the ':' characters before) in which case auto-
-> -  configuration is used.
-> +  parameter (without all the ':' characters before).  If the value is
-> +  "ip=off" or "ip=none", no autoconfiguration will take place, otherwise
-> +  autoconfiguration will take place.  Note that "ip=off" is not the same
-> +  thing as "ip=::::::off", because in the latter autoconfiguration will take
-> +  place if any of DHCP, BOOTP or RARP are compiled in the kernel.
->  
->    <client-ip>	IP address of the client.
->  
-> @@ -142,7 +145,7 @@ ip=<client-ip>:<server-ip>:<gw-ip>:<netmask>:<hostname>:<device>:<autoconf>
->  		into the kernel will be used, regardless of the value of
->  		this option.
->  
-> -                  off or none: don't use autoconfiguration (default)
-> +                  off or none: don't use autoconfiguration
->  		  on or any:   use any protocol available in the kernel
->  		  dhcp:        use DHCP
->  		  bootp:       use BOOTP
-> diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-> index c5c107a..96400b0 100644
-> --- a/net/ipv4/ipconfig.c
-> +++ b/net/ipv4/ipconfig.c
-> @@ -1396,25 +1396,7 @@ late_initcall(ip_auto_config);
->  
->  /*
->   *  Decode any IP configuration options in the "ip=" or "nfsaddrs=" kernel
-> - *  command line parameter. It consists of option fields separated by colons in
-> - *  the following order:
-> - *
-> - *  <client-ip>:<server-ip>:<gw-ip>:<netmask>:<host name>:<device>:<PROTO>
-> - *
-> - *  Any of the fields can be empty which means to use a default value:
-> - *	<client-ip>	- address given by BOOTP or RARP
-> - *	<server-ip>	- address of host returning BOOTP or RARP packet
-> - *	<gw-ip>		- none, or the address returned by BOOTP
-> - *	<netmask>	- automatically determined from <client-ip>, or the
-> - *			  one returned by BOOTP
-> - *	<host name>	- <client-ip> in ASCII notation, or the name returned
-> - *			  by BOOTP
-> - *	<device>	- use all available devices
-> - *	<PROTO>:
-> - *	   off|none	    - don't do autoconfig at all (DEFAULT)
-> - *	   on|any           - use any configured protocol
-> - *	   dhcp|bootp|rarp  - use only the specified protocol
-> - *	   both             - use both BOOTP and RARP (not DHCP)
-> + *  command line parameter.  See Documentation/nfsroot.txt.
->   */
->  static int __init ic_proto_name(char *name)
->  {
+> IANAL but to me your code sounds like a derivative work of the linux
+> kernel.  Which implies that if you are distributing your module you
+> need to change to GPL licensing.  The _GPL tag on EXPORT_SYMBOL does
+> not change those rules.
 
--- 
-Horms
+Eric, YANAL and you are also full of hot air.  You are really
+testing my patience on this issue.
 
+You fail to ever describe on what factual basis you are making
+these claims.  And the reason is that you have ZERO factual basis
+for your claims.
+
+Here are the facts:
+
+1) Never, ever, have the function for looking up network devices been
+   classified as GPL-only symbols.
+
+   They provide a device based upon a lookup key.
+
+2) You in no way have changed what those functions do in any way
+   whatsoever.  They still provide a reference to a network device
+   based upon a given lookup key.
+
+   The functions are still doing the same thing they always have.
+
+Therefore, you have decided to uniliaterally change the licensing of
+these functions based solely upon your opinion, and not because of
+some real change you've made to the code in question.
+
+You have no right to do this.
+
+This is unreasonable, and you must fix this immediately.
+
+And I do mean now, not after you've written several more excessively
+long diatribes about how you feel in this matter.
+
+Thank you.
