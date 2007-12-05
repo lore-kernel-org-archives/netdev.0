@@ -1,40 +1,32 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH 2/3] [UDP]: Restore missing inDatagrams increments
-Date: Wed, 05 Dec 2007 17:04:48 +0800
-Message-ID: <475669B0.4030501@cn.fujitsu.com>
-References: <20071204125844.GA2750@gondor.apana.org.au> <20071204130109.GA3098@gondor.apana.org.au> <47560215.6050104@cn.fujitsu.com> <20071205021559.GA27707@gondor.apana.org.au> <475663D4.9040806@cn.fujitsu.com> <20071205090228.GA14659@gondor.apana.org.au>
+Date: Wed, 5 Dec 2007 20:10:28 +1100
+Message-ID: <20071205091028.GA15006@gondor.apana.org.au>
+References: <20071204125844.GA2750@gondor.apana.org.au> <20071204130109.GA3098@gondor.apana.org.au> <47560215.6050104@cn.fujitsu.com> <20071205021559.GA27707@gondor.apana.org.au> <475663D4.9040806@cn.fujitsu.com> <20071205090228.GA14659@gondor.apana.org.au> <475669B0.4030501@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [222.73.24.84] ([222.73.24.84]:53002 "EHLO song.cn.fujitsu.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751743AbXLEJIA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Dec 2007 04:08:00 -0500
-In-Reply-To: <20071205090228.GA14659@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:4872 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750892AbXLEJKe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 04:10:34 -0500
+Content-Disposition: inline
+In-Reply-To: <475669B0.4030501@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu said the following on 2007-12-5 17:02:
-> On Wed, Dec 05, 2007 at 04:39:48PM +0800, Wang Chen wrote:
->> Herbert Xu said the following on 2007-12-5 10:15:
->>> +#define UDPX_INC_STATS_BH(sk, field) \
->>> +	do { \
->>> +		if ((sk)->sk_family == AF_INET) \
->>> +			UDP_INC_STATS_BH(field, 0); \
->>> +		else \
->>> +			UDP6_INC_STATS_BH(field, 0); \
->>> +	} while (0);
->>> +
->> Because there are lot of address families, not only AF_INET
->> and AF_INET6.
-> 
-> There may be a lot of families but only two run UDP, or rather, only
-> two are supported by sunrpc :)
-> 
+On Wed, Dec 05, 2007 at 05:04:48PM +0800, Wang Chen wrote:
+>
+> Yes, now, sunrpc only supports INET and INET6.
+> But UDPX_INC_STATS_BH is defined in udp.h, in case others use it :)
 
-Yes, now, sunrpc only supports INET and INET6.
-But UDPX_INC_STATS_BH is defined in udp.h, in case others use it :)
+Which other family would that be :)
 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
