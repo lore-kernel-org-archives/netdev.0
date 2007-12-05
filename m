@@ -1,276 +1,386 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Inconsistent lock  state and possible irq lock inversion dependency
- detected in ax25.ko
-Date: Wed, 05 Dec 2007 00:17:47 +0100
-Message-ID: <4755E01B.9010307@gmail.com>
-References: <20071003185413.GA16242@martell.zuzino.mipt.ru> <4744AD8B.2000908@ccr.jussieu.fr> <4752ED3D.2060204@ccr.jussieu.fr> <47532B60.8030205@o2.pl> <4755D42C.9000107@ccr.jussieu.fr>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: sockets affected by IPsec always block (2.6.23)
+Date: Wed, 5 Dec 2007 11:12:32 +1100
+Message-ID: <20071205001230.GA11391@gondor.apana.org.au>
+References: <4755A21F.2020407@simon.arlott.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jarek Poplawski <jarkao2@o2.pl>, ralf@linux-mips.org,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: Bernard Pidoux <pidoux@ccr.jussieu.fr>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Simon Arlott <simon@fire.lp0.eu>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:60138 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750896AbXLDXOB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 18:14:01 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so206196ugc
-        for <netdev@vger.kernel.org>; Tue, 04 Dec 2007 15:13:58 -0800 (PST)
-In-Reply-To: <4755D42C.9000107@ccr.jussieu.fr>
+Received: from rhun.apana.org.au ([64.62.148.172]:1346 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750813AbXLEAMn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 19:12:43 -0500
+Content-Disposition: inline
+In-Reply-To: <4755A21F.2020407@simon.arlott.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bernard Pidoux wrote, On 12/04/2007 11:26 PM:
+On Tue, Dec 04, 2007 at 06:53:19PM +0000, Simon Arlott wrote:
+> If I have a IPsec rule like:
+> 	spdadd 192.168.7.8 1.2.3.4 any -P out ipsec esp/transport//require;
+> (i.e. a remote host 1.2.3.4 which will not respond)
+> 
+> Then any attempt to communicate with 1.2.3.4 will block, even when using non-blocking sockets:
 
-> Jarek Poplawski wrote:
->> Bernard Pidoux wrote, On 12/02/2007 06:37 PM:
->>
->>> Hi,
->>>
->>> Many thanks for your patch for ~/net/ax25/ax25_subr.c
->>>
->>> Introduction of local_bh_disable() ... local_bh_enable()
->>>
->>> cured the inconsistent lock state related to AX25 connect timeout.
->>>
->>> I have now a stable monoprocessor system running AX25 and ROSE netw=
-ork=20
->>> packet switching application FPAC, whether kernel is compiled with =
-or=20
->>> without hack option.
->>>
->>> There is no more problem during normal operations.
->>>
->>> This was achieved, thanks to your AX25 patch and the patch from Ale=
-xey=20
->>> Dobriyan for rose module.
->>>
->>> I also patched rose module in order to get packet routing more=20
->>> efficient, taking into account the "restarted" flag that is raised =
-when=20
->>> a neighbour node is already connected.
->>>
->>> To summarize the present situation on my Linux machine, I built a p=
-atch=20
->>> against kernel 2.6.23.9.
->>>
->>> I would appreciate if you could make it included into a next kernel=
- release.
->> ...=20
->>
->> Bernard, I'm very glad I could be a little helpful, but I'm not sure=
- of
->> your intentions: my patch proposal is rather trivial interpretation =
-of
->> lockdep's report; I haven't studied AX25 enough even to be sure ther=
-e is
->> a real lockup possible in this place. Since this change looks not ve=
-ry
->> costly and quite safe, I can 'take a risk' to sign this off after yo=
-ur
->> testing. But anything more is beyond my 'range'.
->>
->> So, since you've spent quite a lot of time on this all, maybe it wou=
-ld
->> be simpler if you've tried the same with the current kernel, and res=
-ent
->> "proper" (not gzipped and with changelog) patch or patches. Then, I =
-hope,
->> Ralf, as the maintainer, will make the rest.
->>
->> Regards,
->> Jarek P.
->>
->>
->=20
-> As required I send again in clear text the summary of ax25 and rose=20
-> patch against 2.6.23.9.
-> As I said, the kernel stability, after applying these patch, is behin=
-d us.
-> I did not observe any warning nor lockup after a few days of AX25=20
-> intensive use.
-> Also rose module is handling routing of frames much more efficiently.
->=20
-> This will considerably help us to focus on application programs now.
-> I am now concentrating my efforts on ROSE/FPAC and Linux FBB code=20
-> adjustement.
->=20
-> Thanks to you all for your help.
->=20
-> 73 de Bernard, f6bvp
->=20
->=20
->=20
+This patch should help.
 
+[INET]: Export non-blocking flags to proto connect call
 
-Bernard, I think you've forgotten at least about some distinct
-changelog and signed-off-by?
+Previously we made connect(2) block on IPsec SA resolution.  This is
+good in general but not desirable for non-blocking sockets.
 
-Jarek P.
----
+To fix this properly we'd need to implement the larval IPsec dst stuff
+that we talked about.  For now let's just revert to the old behaviour
+on non-blocking sockets.
 
-ax25_subr.c part:
-Acked-by: Jarek Poplawski <jarkao2@gmail.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-> ---------------------------------------------------------------------=
----
->=20
-> diff -pruN a/include/net/rose.h b/include/net/rose.h
-> --- a/include/net/rose.h	2007-10-12 18:43:44.000000000 +0200
-> +++ b/include/net/rose.h	2007-12-01 23:56:57.000000000 +0100
-> @@ -202,6 +202,7 @@ extern struct net_device *rose_dev_first
->  extern struct net_device *rose_dev_get(rose_address *);
->  extern struct rose_route *rose_route_free_lci(unsigned int, struct r=
-ose_neigh *);
->  extern struct rose_neigh *rose_get_neigh(rose_address *, unsigned ch=
-ar *, unsigned char *);
-> +extern struct rose_neigh *__rose_get_neigh(rose_address *, unsigned =
-char *, unsigned char *);
->  extern int  rose_rt_ioctl(unsigned int, void __user *);
->  extern void rose_link_failed(ax25_cb *, int);
->  extern int  rose_route_frame(struct sk_buff *, ax25_cb *);
-> diff -pruN a/net/ax25/ax25_subr.c b/net/ax25/ax25_subr.c
-> --- a/net/ax25/ax25_subr.c	2007-10-12 18:43:44.000000000 +0200
-> +++ b/net/ax25/ax25_subr.c	2007-12-01 23:32:01.000000000 +0100
-> @@ -279,6 +279,7 @@ void ax25_disconnect(ax25_cb *ax25, int=20
->  	ax25_link_failed(ax25, reason);
-> =20
->  	if (ax25->sk !=3D NULL) {
-> +		local_bh_disable();
->  		bh_lock_sock(ax25->sk);
->  		ax25->sk->sk_state     =3D TCP_CLOSE;
->  		ax25->sk->sk_err       =3D reason;
-> @@ -288,5 +289,6 @@ void ax25_disconnect(ax25_cb *ax25, int=20
->  			sock_set_flag(ax25->sk, SOCK_DEAD);
->  		}
->  		bh_unlock_sock(ax25->sk);
-> +		local_bh_enable();=20
->  	}
->  }
-> diff -pruN a/net/rose/af_rose.c b/net/rose/af_rose.c
-> --- a/net/rose/af_rose.c	2007-10-12 18:43:44.000000000 +0200
-> +++ b/net/rose/af_rose.c	2007-12-02 10:06:31.000000000 +0100
-> @@ -62,7 +62,7 @@ int sysctl_rose_window_size            =20
->  static HLIST_HEAD(rose_list);
->  static DEFINE_SPINLOCK(rose_list_lock);
-> =20
-> -static struct proto_ops rose_proto_ops;
-> +static const struct proto_ops rose_proto_ops;
-> =20
->  ax25_address rose_callsign;
-> =20
-> @@ -741,7 +741,7 @@ static int rose_connect(struct socket *s
->  	sk->sk_state   =3D TCP_CLOSE;
->  	sock->state =3D SS_UNCONNECTED;
-> =20
-> -	rose->neighbour =3D rose_get_neigh(&addr->srose_addr, &cause,
-> +	rose->neighbour =3D __rose_get_neigh(&addr->srose_addr, &cause,
->  					 &diagnostic);
->  	if (!rose->neighbour)
->  		return -ENETUNREACH;
-> @@ -773,7 +773,6 @@ static int rose_connect(struct socket *s
-> =20
->  		rose_insert_socket(sk);		/* Finish the bind */
->  	}
-> -rose_try_next_neigh:
->  	rose->dest_addr   =3D addr->srose_addr;
->  	rose->dest_call   =3D addr->srose_call;
->  	rose->rand        =3D ((long)rose & 0xFFFF) + rose->lci;
-> @@ -835,12 +834,6 @@ rose_try_next_neigh:
->  	}
-> =20
->  	if (sk->sk_state !=3D TCP_ESTABLISHED) {
-> -	/* Try next neighbour */
-> -		rose->neighbour =3D rose_get_neigh(&addr->srose_addr, &cause, &dia=
-gnostic);
-> -		if (rose->neighbour)
-> -			goto rose_try_next_neigh;
-> -
-> -		/* No more neighbours */
->  		sock->state =3D SS_UNCONNECTED;
->  		err =3D sock_error(sk);	/* Always set at this point */
->  		goto out_release;
-> @@ -1481,7 +1474,7 @@ static struct net_proto_family rose_fami
->  	.owner		=3D	THIS_MODULE,
->  };
-> =20
-> -static struct proto_ops rose_proto_ops =3D {
-> +static const struct proto_ops rose_proto_ops =3D {
->  	.family		=3D	PF_ROSE,
->  	.owner		=3D	THIS_MODULE,
->  	.release	=3D	rose_release,
-> Les fichiers linux-2.6.23.9-orig/net/rose/rose.ko et linux-2.6.23.9/n=
-et/rose/rose.ko sont diff=C3=A9rents.
-> diff -pruN a/net/rose/rose_route.c b/net/rose/rose_route.c
-> --- a/net/rose/rose_route.c	2007-10-12 18:43:44.000000000 +0200
-> +++ b/net/rose/rose_route.c	2007-12-02 00:15:24.000000000 +0100
-> @@ -664,25 +664,22 @@ struct rose_route *rose_route_free_lci(u
->  /*
->   *	Find a neighbour given a ROSE address.
->   */
-> -struct rose_neigh *rose_get_neigh(rose_address *addr, unsigned char =
-*cause,
-> +struct rose_neigh *__rose_get_neigh(rose_address *addr, unsigned cha=
-r *cause,
->  	unsigned char *diagnostic)
->  {
-> -	struct rose_neigh *res =3D NULL;
->  	struct rose_node *node;
->  	int failed =3D 0;
->  	int i;
-> =20
-> -	spin_lock_bh(&rose_node_list_lock);
->  	for (node =3D rose_node_list; node !=3D NULL; node =3D node->next) =
-{
->  		if (rosecmpm(addr, &node->address, node->mask) =3D=3D 0) {
->  			for (i =3D 0; i < node->count; i++) {
-> -				if (!rose_ftimer_running(node->neighbour[i])) {
-> -					res =3D node->neighbour[i];
-> -					goto out;
-> -				} else
-> -					failed =3D 1;
-> +				if (node->neighbour[i]->restarted)
-> +					return node->neighbour[i];
-> +				if (!rose_ftimer_running(node->neighbour[i]))		=09
-> +					return node->neighbour[i];
-> +				failed =3D 1;
->  			}
-> -			break;
->  		}
->  	}
-> =20
-> @@ -694,7 +691,16 @@ struct rose_neigh *rose_get_neigh(rose_a
->  		*diagnostic =3D 0;
->  	}
-> =20
-> -out:
-> +	return NULL;
-> +}
-> +
-> +struct rose_neigh *rose_get_neigh(rose_address *addr, unsigned char =
-*cause,
-> +	unsigned char *diagnostic)
-> +{
-> +	struct rose_neigh *res;
-> +
-> +	spin_lock_bh(&rose_node_list_lock);
-> +	res =3D __rose_get_neigh(addr, cause, diagnostic);
->  	spin_unlock_bh(&rose_node_list_lock);
-> =20
->  	return res;
-> @@ -1019,7 +1025,7 @@ int rose_route_frame(struct sk_buff *skb
->  		rose_route =3D rose_route->next;
->  	}
-> =20
-> -	if ((new_neigh =3D rose_get_neigh(dest_addr, &cause, &diagnostic)) =
-=3D=3D NULL) {
-> +	if ((new_neigh =3D __rose_get_neigh(dest_addr, &cause, &diagnostic)=
-) =3D=3D NULL) {
->  		rose_transmit_clear_request(rose_neigh, lci, cause, diagnostic);
->  		goto out;
->  	}
->=20
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 83fb9f1..9b4ed7e 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -121,7 +121,8 @@ extern void		ip_flush_pending_frames(struct sock *sk);
+ 
+ /* datagram.c */
+ extern int		ip4_datagram_connect(struct sock *sk, 
+-					     struct sockaddr *uaddr, int addr_len);
++					     struct sockaddr *uaddr,
++					     int addr_len, int flags);
+ 
+ /*
+  *	Map a multicast IP onto multicast MAC for type Token Ring.
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index e90f962..2686850 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -567,7 +567,8 @@ extern void			ipv6_packet_init(void);
+ extern void			ipv6_packet_cleanup(void);
+ 
+ extern int			ip6_datagram_connect(struct sock *sk, 
+-						     struct sockaddr *addr, int addr_len);
++						     struct sockaddr *addr,
++						     int addr_len, int flags);
+ 
+ extern int 			ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len);
+ extern void			ipv6_icmp_error(struct sock *sk, struct sk_buff *skb, int err, __be16 port,
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 43e3cd9..d70b110 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -522,8 +522,8 @@ struct proto {
+ 	void			(*close)(struct sock *sk, 
+ 					long timeout);
+ 	int			(*connect)(struct sock *sk,
+-				        struct sockaddr *uaddr, 
+-					int addr_len);
++					   struct sockaddr *uaddr,
++					   int addr_len, int flags);
+ 	int			(*disconnect)(struct sock *sk, int flags);
+ 
+ 	struct sock *		(*accept) (struct sock *sk, int flags, int *err);
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 9dbed0b..d93eef6 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -421,7 +421,7 @@ extern int			tcp_v4_do_rcv(struct sock *sk,
+ 
+ extern int			tcp_v4_connect(struct sock *sk,
+ 					       struct sockaddr *uaddr,
+-					       int addr_len);
++					       int addr_len, int flags);
+ 
+ extern int			tcp_connect(struct sock *sk);
+ 
+diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
+index ee97950..4062068 100644
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -292,7 +292,7 @@ extern int	   inet_dccp_listen(struct socket *sock, int backlog);
+ extern unsigned int dccp_poll(struct file *file, struct socket *sock,
+ 			     poll_table *wait);
+ extern int	   dccp_v4_connect(struct sock *sk, struct sockaddr *uaddr,
+-				   int addr_len);
++				   int addr_len, int flags);
+ 
+ extern struct sk_buff *dccp_ctl_make_reset(struct socket *ctl,
+ 					   struct sk_buff *skb);
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index db17b83..e2aba0f 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -44,7 +44,8 @@ static int dccp_v4_get_port(struct sock *sk, const unsigned short snum)
+ 				 inet_csk_bind_conflict);
+ }
+ 
+-int dccp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
++int dccp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len,
++		    int flags)
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	struct dccp_sock *dp = dccp_sk(sk);
+@@ -72,7 +73,8 @@ int dccp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 	tmp = ip_route_connect(&rt, nexthop, inet->saddr,
+ 			       RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
+ 			       IPPROTO_DCCP,
+-			       inet->sport, usin->sin_port, sk, 1);
++			       inet->sport, usin->sin_port, sk,
++			       !(flags & O_NONBLOCK));
+ 	if (tmp < 0)
+ 		return tmp;
+ 
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 87c98fb..7da5269 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -866,7 +866,7 @@ discard_and_relse:
+ }
+ 
+ static int dccp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
+-			   int addr_len)
++			   int addr_len, int flags)
+ {
+ 	struct sockaddr_in6 *usin = (struct sockaddr_in6 *)uaddr;
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+@@ -952,7 +952,8 @@ static int dccp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
+ 		icsk->icsk_af_ops = &dccp_ipv6_mapped;
+ 		sk->sk_backlog_rcv = dccp_v4_do_rcv;
+ 
+-		err = dccp_v4_connect(sk, (struct sockaddr *)&sin, sizeof(sin));
++		err = dccp_v4_connect(sk, (struct sockaddr *)&sin, sizeof(sin),
++				      flags);
+ 		if (err) {
+ 			icsk->icsk_ext_hdr_len = exthdrlen;
+ 			icsk->icsk_af_ops = &dccp_ipv6_af_ops;
+@@ -994,7 +995,7 @@ static int dccp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
+ 	if (final_p)
+ 		ipv6_addr_copy(&fl.fl6_dst, final_p);
+ 
+-	err = __xfrm_lookup(&dst, &fl, sk, 1);
++	err = __xfrm_lookup(&dst, &fl, sk, !(flags & O_NONBLOCK));
+ 	if (err < 0) {
+ 		if (err == -EREMOTE)
+ 			err = ip6_dst_blackhole(sk, &dst, &fl);
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index c75f20b..5fc5de0 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -513,7 +513,8 @@ int inet_dgram_connect(struct socket *sock, struct sockaddr * uaddr,
+ 
+ 	if (!inet_sk(sk)->num && inet_autobind(sk))
+ 		return -EAGAIN;
+-	return sk->sk_prot->connect(sk, (struct sockaddr *)uaddr, addr_len);
++	return sk->sk_prot->connect(sk, (struct sockaddr *)uaddr, addr_len,
++				    flags);
+ }
+ 
+ static long inet_wait_for_connect(struct sock *sk, long timeo)
+@@ -574,7 +575,7 @@ int inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+ 		if (sk->sk_state != TCP_CLOSE)
+ 			goto out;
+ 
+-		err = sk->sk_prot->connect(sk, uaddr, addr_len);
++		err = sk->sk_prot->connect(sk, uaddr, addr_len, flags);
+ 		if (err < 0)
+ 			goto out;
+ 
+diff --git a/net/ipv4/datagram.c b/net/ipv4/datagram.c
+index 0301dd4..19ab5b1 100644
+--- a/net/ipv4/datagram.c
++++ b/net/ipv4/datagram.c
+@@ -20,7 +20,8 @@
+ #include <net/route.h>
+ #include <net/tcp_states.h>
+ 
+-int ip4_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
++int ip4_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len,
++			 int flags)
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	struct sockaddr_in *usin = (struct sockaddr_in *) uaddr;
+@@ -49,7 +50,8 @@ int ip4_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 	err = ip_route_connect(&rt, usin->sin_addr.s_addr, saddr,
+ 			       RT_CONN_FLAGS(sk), oif,
+ 			       sk->sk_protocol,
+-			       inet->sport, usin->sin_port, sk, 1);
++			       inet->sport, usin->sin_port, sk,
++			       !(flags & O_NONBLOCK));
+ 	if (err) {
+ 		if (err == -ENETUNREACH)
+ 			IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 5a27e42..0a2ee0b 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -166,7 +166,8 @@ int tcp_twsk_unique(struct sock *sk, struct sock *sktw, void *twp)
+ EXPORT_SYMBOL_GPL(tcp_twsk_unique);
+ 
+ /* This will initiate an outgoing connection. */
+-int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
++int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len,
++		   int flags)
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+@@ -192,7 +193,8 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 	tmp = ip_route_connect(&rt, nexthop, inet->saddr,
+ 			       RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
+ 			       IPPROTO_TCP,
+-			       inet->sport, usin->sin_port, sk, 1);
++			       inet->sport, usin->sin_port, sk,
++			       !(flags & O_NONBLOCK));
+ 	if (tmp < 0) {
+ 		if (tmp == -ENETUNREACH)
+ 			IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 2ed689a..591634a 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -34,7 +34,8 @@
+ #include <linux/errqueue.h>
+ #include <asm/uaccess.h>
+ 
+-int ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
++int ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len,
++			 int flags)
+ {
+ 	struct sockaddr_in6	*usin = (struct sockaddr_in6 *) uaddr;
+ 	struct inet_sock      	*inet = inet_sk(sk);
+@@ -49,7 +50,7 @@ int ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 	if (usin->sin6_family == AF_INET) {
+ 		if (__ipv6_only_sock(sk))
+ 			return -EAFNOSUPPORT;
+-		err = ip4_datagram_connect(sk, uaddr, addr_len);
++		err = ip4_datagram_connect(sk, uaddr, addr_len, flags);
+ 		goto ipv4_connected;
+ 	}
+ 
+@@ -94,7 +95,7 @@ int ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 
+ 		err = ip4_datagram_connect(sk,
+ 					   (struct sockaddr*) &sin,
+-					   sizeof(sin));
++					   sizeof(sin), flags);
+ 
+ ipv4_connected:
+ 		if (err)
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index f1294dc..9cb9068 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -122,7 +122,7 @@ static __u32 tcp_v6_init_sequence(struct sk_buff *skb)
+ }
+ 
+ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
+-			  int addr_len)
++			  int addr_len, int flags)
+ {
+ 	struct sockaddr_in6 *usin = (struct sockaddr_in6 *) uaddr;
+ 	struct inet_sock *inet = inet_sk(sk);
+@@ -219,7 +219,8 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
+ 		tp->af_specific = &tcp_sock_ipv6_mapped_specific;
+ #endif
+ 
+-		err = tcp_v4_connect(sk, (struct sockaddr *)&sin, sizeof(sin));
++		err = tcp_v4_connect(sk, (struct sockaddr *)&sin, sizeof(sin),
++				     flags);
+ 
+ 		if (err) {
+ 			icsk->icsk_ext_hdr_len = exthdrlen;
+@@ -265,7 +266,7 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
+ 	if (final_p)
+ 		ipv6_addr_copy(&fl.fl6_dst, final_p);
+ 
+-	if ((err = __xfrm_lookup(&dst, &fl, sk, 1)) < 0) {
++	if ((err = __xfrm_lookup(&dst, &fl, sk, !(flags & O_NONBLOCK))) < 0) {
+ 		if (err == -EREMOTE)
+ 			err = ip6_dst_blackhole(sk, &dst, &fl);
+ 		if (err < 0)
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 248b9a5..1ca8913 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -960,7 +960,8 @@ out:
+  */
+ static int __sctp_connect(struct sock* sk,
+ 			  struct sockaddr *kaddrs,
+-			  int addrs_size)
++			  int addrs_size,
++			  int f_flags)
+ {
+ 	struct sctp_sock *sp;
+ 	struct sctp_endpoint *ep;
+@@ -977,7 +978,6 @@ static int __sctp_connect(struct sock* sk,
+ 	union sctp_addr *sa_addr = NULL;
+ 	void *addr_buf;
+ 	unsigned short port;
+-	unsigned int f_flags = 0;
+ 
+ 	sp = sctp_sk(sk);
+ 	ep = sp->ep;
+@@ -1106,12 +1106,6 @@ static int __sctp_connect(struct sock* sk,
+ 	af->to_sk_daddr(sa_addr, sk);
+ 	sk->sk_err = 0;
+ 
+-	/* in-kernel sockets don't generally have a file allocated to them
+-	 * if all they do is call sock_create_kern().
+-	 */
+-	if (sk->sk_socket->file)
+-		f_flags = sk->sk_socket->file->f_flags;
+-
+ 	timeo = sock_sndtimeo(sk, f_flags & O_NONBLOCK);
+ 
+ 	err = sctp_wait_for_connect(asoc, &timeo);
+@@ -1194,6 +1188,7 @@ SCTP_STATIC int sctp_setsockopt_connectx(struct sock* sk,
+ {
+ 	int err = 0;
+ 	struct sockaddr *kaddrs;
++	int f_flags;
+ 
+ 	SCTP_DEBUG_PRINTK("%s - sk %p addrs %p addrs_size %d\n",
+ 			  __FUNCTION__, sk, addrs, addrs_size);
+@@ -1210,10 +1205,15 @@ SCTP_STATIC int sctp_setsockopt_connectx(struct sock* sk,
+ 	if (unlikely(!kaddrs))
+ 		return -ENOMEM;
+ 
++	/* in-kernel sockets don't generally have a file allocated to them
++	 * if all they do is call sock_create_kern().
++	 */
++	f_flags = sk->sk_socket->file ? sk->sk_socket->file->f_flags : 0;
++
+ 	if (__copy_from_user(kaddrs, addrs, addrs_size)) {
+ 		err = -EFAULT;
+ 	} else {
+-		err = __sctp_connect(sk, kaddrs, addrs_size);
++		err = __sctp_connect(sk, kaddrs, addrs_size, f_flags);
+ 	}
+ 
+ 	kfree(kaddrs);
+@@ -3270,7 +3270,7 @@ out_nounlock:
+  * len: the size of the address.
+  */
+ SCTP_STATIC int sctp_connect(struct sock *sk, struct sockaddr *addr,
+-			     int addr_len)
++			     int addr_len, int flags)
+ {
+ 	int err = 0;
+ 	struct sctp_af *af;
+@@ -3288,7 +3288,7 @@ SCTP_STATIC int sctp_connect(struct sock *sk, struct sockaddr *addr,
+ 		/* Pass correct addr len to common routine (so it knows there
+ 		 * is only one address being passed.
+ 		 */
+-		err = __sctp_connect(sk, addr, af->sockaddr_len);
++		err = __sctp_connect(sk, addr, af->sockaddr_len, flags);
+ 	}
+ 
+ 	sctp_release_sock(sk);
