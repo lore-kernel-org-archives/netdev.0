@@ -1,50 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: namespace support requires network modules to say "GPL"
-Date: Tue, 04 Dec 2007 22:01:50 -0800 (PST)
-Message-ID: <20071204.220150.141230758.davem@davemloft.net>
-References: <47544896.7070101@candelatech.com>
-	<475451B1.1030006@free.fr>
-	<m163zexrqi.fsf@ebiederm.dsl.xmission.com>
+Subject: Re: sockets affected by IPsec always block (2.6.23)
+Date: Tue, 04 Dec 2007 22:06:34 -0800 (PST)
+Message-ID: <20071204.220634.112782343.davem@davemloft.net>
+References: <4755A21F.2020407@simon.arlott.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daniel.lezcano@free.fr, greearb@candelatech.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	containers@lists.osdl.org, lkml@rtr.ca,
-	shemminger@linux-foundation.org
-To: ebiederm@xmission.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: simon@fire.lp0.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49545
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49254
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751461AbXLEGBw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 01:01:52 -0500
-In-Reply-To: <m163zexrqi.fsf@ebiederm.dsl.xmission.com>
+	by vger.kernel.org with ESMTP id S1750969AbXLEGGf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 01:06:35 -0500
+In-Reply-To: <4755A21F.2020407@simon.arlott.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Tue, 04 Dec 2007 11:03:01 -0700
+From: Simon Arlott <simon@fire.lp0.eu>
+Date: Tue, 04 Dec 2007 18:53:19 +0000
 
-> I am confused.  I don't see a path forward that feels right.
+> If I have a IPsec rule like:
+> 	spdadd 192.168.7.8 1.2.3.4 any -P out ipsec esp/transport//require;
+> (i.e. a remote host 1.2.3.4 which will not respond)
+> 
+> Then any attempt to communicate with 1.2.3.4 will block, even when using non-blocking sockets:
 
-Eric, instead of writing a book about how you feel, look
-at the simple facts and resolve this quickly.
+If you don't like this behavior:
 
-You added a new key, the namespace, to the looking up of
-network objects.
+	echo "1" >/proc/sys/net/core/xfrm_larval_drop
 
-Big deal.
+but those initial connection setup packets will be dropped while
+waiting for the IPSEC route to be resolved, and in your 8 hour case
+the TCP connect will fail.
 
-That does not imply a change in licensing for the interfaces
-where you added that new aspect of the key to the argument
-list.
-
-This symbol licensing decision was not your's to make, so you must
-revert the new licensing change you are enforcing upon everyone.
-
-I want a de-GPL patch in my mailbox from you within the next 24 hours
-or I will code one up myself.  This is getting beyond rediculious.
-
-My patience is completely gone on this matter, resolve this now.
-
-Thanks.
+Anyways, the choice for different behavior is there, select it
+to suit your tastes.
