@@ -1,58 +1,66 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/3] [UDP]: Restore missing inDatagrams increments
-Date: Wed, 5 Dec 2007 21:04:52 +1100
-Message-ID: <20071205100452.GA18026@gondor.apana.org.au>
-References: <20071205021559.GA27707@gondor.apana.org.au> <47567128.2060008@cosmosbay.com> <20071205095159.GA16860@gondor.apana.org.au> <20071205.020248.50886654.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.25 10/11][INET] Eliminate difference in actions
+ of sysctl and proc handler for conf.all.forwarding
+Date: Wed, 05 Dec 2007 02:06:45 -0800 (PST)
+Message-ID: <20071205.020645.171664472.davem@davemloft.net>
+References: <4755290D.2090709@openvz.org>
+	<20071205.014835.45293431.davem@davemloft.net>
+	<47567638.9080208@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dada1@cosmosbay.com, wangchen@cn.fujitsu.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devel@openvz.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1396 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751116AbXLEKFF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 05:05:05 -0500
-Content-Disposition: inline
-In-Reply-To: <20071205.020248.50886654.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34321
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751165AbXLEKGp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 05:06:45 -0500
+In-Reply-To: <47567638.9080208@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 05, 2007 at 02:02:48AM -0800, David Miller wrote:
->
-> Herbert, I applied the buggered patch and pushed it out
-> already, can you send me this fix relative?
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Wed, 05 Dec 2007 12:58:16 +0300
+
+> David Miller wrote:
+> > The 'default' influences future settings, it should not modify
+> > existing devices.  That's the job of 'all'.
 > 
-> I'll combine them on my next rebase, thanks.
+> I thought the same, and I saw that this is true for ipv6, but
+> ipv4 works differently :( -- changing default for some sysctls
+> will cause some devices to be changed as well.
+> 
+> I mean - devinet_copy_dflt_conf() copies the changed bit on 
+> those devices, that have not this but marked in the "state" field.
+> It is called for such entries as "accept_redirects", "shared_media" 
+> and many others. But not for "forwarding" one. That's what seemed
+> strange to me. Sorry, that I didn't express the idea more cleanly.
+> 
+> So what's the right behavior -- to propagate the default for all the 
+> ctls on all the devices (according to their "state"), not to propagate 
+> for all the ctls, or to keep things as they are now?
 
-Sure, here it is.
+Grrr, good question.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/include/net/udp.h b/include/net/udp.h
-index 87170bb..98cb09c 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -162,6 +162,7 @@ DECLARE_SNMP_STAT(struct udp_mib, udplite_stats_in6);
- 	if (is_udplite) SNMP_INC_STATS_USER(udplite_stats_in6, field);         \
- 	else		SNMP_INC_STATS_USER(udp_stats_in6, field);    } while(0)
- 
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- #define UDPX_INC_STATS_BH(sk, field) \
- 	do { \
- 		if ((sk)->sk_family == AF_INET) \
-@@ -169,6 +170,9 @@ DECLARE_SNMP_STAT(struct udp_mib, udplite_stats_in6);
- 		else \
- 			UDP6_INC_STATS_BH(field, 0); \
- 	} while (0);
-+#else
-+#define UDPX_INC_STATS_BH(sk, field) UDP_INC_STATS_BH(field, 0)
-+#endif
- 
- /* /proc */
- struct udp_seq_afinfo {
+I remember we had all kinds of issues wrt. this which we
+had to cleanup in IPV6 in particular.
+
+People complained that once a device was loaded and present,
+you couldn't set the 'default' and expect it to influence
+the settings.
+
+The user is pretty much screwed in one way or the other.
+For example:
+
+1) If 'default' propagates to all devices, any specific
+   setting for a device is lost.
+
+2) If 'default' does not propagate, there is no way to
+   have 'default' influence devices which have already
+   been loaded.
+
+I think both behaviors are bad, and the whole problem is that sysctls
+acting as defaults cannot have sane semantics because devices get
+loaded before userspace can sanely start making changes to such sysctl
+'defaults'.
