@@ -1,41 +1,52 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH v2 0/3][BUG-FIX]: Test tree updates and bug fixes
-Date: Wed, 5 Dec 2007 13:55:11 +0000
-Message-ID: <20071205135511.GD893@gerrit.erg.abdn.ac.uk>
-References: <11968535863312-git-send-email-gerrit@erg.abdn.ac.uk> <11968535864083-git-send-email-gerrit@erg.abdn.ac.uk> <11968535861091-git-send-email-gerrit@erg.abdn.ac.uk> <11968535861367-git-send-email-gerrit@erg.abdn.ac.uk> <20071205132345.GC4653@ghostprotocols.net>
+From: "Ian Brown" <ianbrn@gmail.com>
+Subject: Re: [PATCH] correct typo in __xfrm4_bundle_create()
+Date: Wed, 5 Dec 2007 15:59:52 +0200
+Message-ID: <d0383f90712050559o7ad78dbbm51f74984b591e66d@mail.gmail.com>
+References: <d0383f90712050249q3bc0e249h4cb66dc0ea97f172@mail.gmail.com>
+	 <20071205.052034.251196808.davem@davemloft.net>
+	 <d0383f90712050541p5d8ffce6q8748d7c6b66ea9c6@mail.gmail.com>
+	 <20071205.054711.186439758.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:37305 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750862AbXLEN4D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Dec 2007 08:56:03 -0500
+Received: from py-out-1112.google.com ([64.233.166.178]:14897 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751239AbXLEOAA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 09:00:00 -0500
+Received: by py-out-1112.google.com with SMTP id u77so76929pyb
+        for <netdev@vger.kernel.org>; Wed, 05 Dec 2007 05:59:58 -0800 (PST)
+In-Reply-To: <20071205.054711.186439758.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20071205132345.GC4653@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > @@ -788,8 +782,8 @@ static void ccid3_hc_rx_packet_recv(stru
-| >  	if (unlikely(hcrx->ccid3hcrx_state == TFRC_RSTATE_NO_DATA)) {
-| >  		if (is_data_packet) {
-| >  			do_feedback = FBACK_INITIAL;
-| > +			hcrx->ccid3hcrx_s = payload_size;
-| >  			ccid3_hc_rx_set_state(sk, TFRC_RSTATE_DATA);
-| > -			ccid3_hc_rx_update_s(hcrx, payload_size);
-| 
-| We have to set ccid3hcrx_bytes_recv to the payload_size here too, I'm
-| fixing this on the reworked patch that introduces the RX history.
-| 
-I almost did the same error again by wanting to agree too prematurely.
+Hello,
+Sorry ; but is this tree can be fetched ? it requires a password.
 
-But updating ccid3hcrx_bytes_recv is in fact not needed here and if it
-would be done it would not have a useable effect. The reason is that the
-first data packet will trigger the initial feedback; and in the initial
-feedback packet X_recv (which is ccid3hcrx_bytes_recv / the_time_spent)
-is set to 0 (RFC 3448, 6.3).
+I try:
+git-clone kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.25.git net-2.6.25
+and get:
+root@kernel.org's password:
 
-For this reason, updating bytes_recv for the first data packet is also not
-in the flowchart on 
-http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/ccid3_packet_reception/
+Ian
+
+On Dec 5, 2007 3:47 PM, David Miller <davem@davemloft.net> wrote:
+> From: "Ian Brown" <ianbrn@gmail.com>
+> Date: Wed, 5 Dec 2007 15:41:37 +0200
+>
+> > Hello,
+> > Sorry; I was not aware of it; I am sending here  the patch as an attachment.
+> > It is a typo correction in __xfrm4_bundle_create() in net/ipv4/xfrm4_policy.c;
+> >  it should be "Copy neighbour" instead "Copy neighbout"
+>
+> __xfrm4_bundle_create() no longer exists in the networking
+> development tree:
+>
+>         kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.25.git
+>
+> Because Herbert Xu unified much of the IPSEC handling
+> paths over the past few weeks.
+>
