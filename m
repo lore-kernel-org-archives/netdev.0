@@ -1,34 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] correct typo in __xfrm4_bundle_create()
-Date: Wed, 05 Dec 2007 05:20:34 -0800 (PST)
-Message-ID: <20071205.052034.251196808.davem@davemloft.net>
-References: <d0383f90712050249q3bc0e249h4cb66dc0ea97f172@mail.gmail.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH v2 0/3][BUG-FIX]: Test tree updates and bug fixes
+Date: Wed, 5 Dec 2007 11:23:45 -0200
+Message-ID: <20071205132345.GC4653@ghostprotocols.net>
+References: <11968535863312-git-send-email-gerrit@erg.abdn.ac.uk> <11968535864083-git-send-email-gerrit@erg.abdn.ac.uk> <11968535861091-git-send-email-gerrit@erg.abdn.ac.uk> <11968535861367-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ianbrn@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60616
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750896AbXLENUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 08:20:35 -0500
-In-Reply-To: <d0383f90712050249q3bc0e249h4cb66dc0ea97f172@mail.gmail.com>
+Received: from mx1.redhat.com ([66.187.233.31]:46305 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751478AbXLENXu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2007 08:23:50 -0500
+Content-Disposition: inline
+In-Reply-To: <11968535861367-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ian Brown" <ianbrn@gmail.com>
-Date: Wed, 5 Dec 2007 12:49:52 +0200
+Em Wed, Dec 05, 2007 at 11:19:46AM +0000, Gerrit Renker escreveu:
+> This patch removes the following redundancies:
+>   * ccid3_hc_rx_update_s() is only called for data packets (that is what it should be called for);
+>   * each call to ccid3_hc_rx_update_s() is wrapped inside a "if (is_data_packet)" test';
+>   * therefore testing each time if "len > 0" is redundant (pointed out by Arnaldo);
+>   * no other code calls this function, hence the inline function can go.
+> 
+> Also replaced the first call to updating s with direct assignment of `payload_size'; this has also
+> been pointed out by Arnaldo.
+> 
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> ---
+>  net/dccp/ccids/ccid3.c |   13 +++++--------
+>  1 file changed, 5 insertions(+), 8 deletions(-)
+> 
+> --- a/net/dccp/ccids/ccid3.c
+> +++ b/net/dccp/ccids/ccid3.c
+> @@ -654,12 +654,6 @@ static void ccid3_hc_rx_set_state(struct
+>  	hcrx->ccid3hcrx_state = state;
+>  }
+>  
+> -static inline void ccid3_hc_rx_update_s(struct ccid3_hc_rx_sock *hcrx, int len)
+> -{
+> -	if (likely(len > 0))	/* don't update on empty packets (e.g. ACKs) */
+> -		hcrx->ccid3hcrx_s = tfrc_ewma(hcrx->ccid3hcrx_s, len, 9);
+> -}
+> -
+>  static void ccid3_hc_rx_send_feedback(struct sock *sk, struct sk_buff *skb,
+>  				      enum ccid3_fback_type fbtype)
+>  {
+> @@ -788,8 +782,8 @@ static void ccid3_hc_rx_packet_recv(stru
+>  	if (unlikely(hcrx->ccid3hcrx_state == TFRC_RSTATE_NO_DATA)) {
+>  		if (is_data_packet) {
+>  			do_feedback = FBACK_INITIAL;
+> +			hcrx->ccid3hcrx_s = payload_size;
+>  			ccid3_hc_rx_set_state(sk, TFRC_RSTATE_DATA);
+> -			ccid3_hc_rx_update_s(hcrx, payload_size);
 
->  This is a typo correction in net/ipv4/xfrm4_policy.c; it should be
-> "Copy neighbour" instead "Copy neighbout",
+We have to set ccid3hcrx_bytes_recv to the payload_size here too, I'm
+fixing this on the reworked patch that introduces the RX history.
 
-Your email client has corrupted the patch by adding
-newlines among other things.
+>  		}
+>  		goto update_records;
+>  	}
+> @@ -798,7 +792,10 @@ static void ccid3_hc_rx_packet_recv(stru
+>  		goto done_receiving;
+>  
+>  	if (is_data_packet) {
+> -		ccid3_hc_rx_update_s(hcrx, payload_size);
+> +		/*
+> +		 * Update moving-average of s and the sum of received payload bytes
+> +		 */
+> +		hcrx->ccid3hcrx_s = tfrc_ewma(hcrx->ccid3hcrx_s, payload_size, 9);
+>  		hcrx->ccid3hcrx_bytes_recv += payload_size;
 
-This happens often for gmail users, because by default
-gmail does text formatting which you don't want it
-to do for patches because it corrupts them.
-
-Please use an attachment or some other method to prevent
-this form happening so that you patch is not corrupted.
