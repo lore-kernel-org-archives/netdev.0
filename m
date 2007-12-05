@@ -1,146 +1,219 @@
-From: Matt Mathis <mathis@psc.edu>
-Subject: Re: [PATCH net-2.6 0/3]: Three TCP fixes
-Date: Tue, 4 Dec 2007 21:13:34 -0500 (EST)
-Message-ID: <Pine.LNX.4.64.0712041636020.15251@tesla.psc.edu>
-References: <11967869303114-git-send-email-ilpo.jarvinen@helsinki.fi>
- <47559FA1.2090104@psc.edu> <Pine.LNX.4.64.0712042252450.12072@kivilampi-30.cs.helsinki.fi>
- <4755C3E9.4090609@psc.edu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2/3] [UDP]: Restore missing inDatagrams increments
+Date: Wed, 5 Dec 2007 13:15:59 +1100
+Message-ID: <20071205021559.GA27707@gondor.apana.org.au>
+References: <20071204125844.GA2750@gondor.apana.org.au> <20071204130109.GA3098@gondor.apana.org.au> <47560215.6050104@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1233065670-499382716-1196809029=:15251"
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: =?X-UNKNOWN?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:56236 "EHLO mailer1.psc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751267AbXLECOE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 21:14:04 -0500
-In-Reply-To: <4755C3E9.4090609@psc.edu>
-Content-ID: <Pine.LNX.4.64.0712042036250.15251@tesla.psc.edu>
+Received: from rhun.apana.org.au ([64.62.148.172]:2407 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751372AbXLECQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2007 21:16:15 -0500
+Content-Disposition: inline
+In-Reply-To: <47560215.6050104@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Wed, Dec 05, 2007 at 09:42:45AM +0800, Wang Chen wrote:
+> 
+> I apologize for my miss in previous patch.
+> 
+> Herbert, don't you think the udp6inDatagrams should be counted too
+> in xprtsock?
 
----1233065670-499382716-1196809029=:15251
-Content-Type: TEXT/PLAIN; CHARSET=X-UNKNOWN; FORMAT=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Content-ID: <Pine.LNX.4.64.0712042036251.15251@tesla.psc.edu>
+Good point.  Here's a better version.
 
-I can shed light one one detail:  ratehalving w/bounding parameters uses=20
-snd_cwnd/4 to be appropriately conservative during slowstart.  Ideally cwnd=
-=20
-would be saved for every transmitted segment, and during recovery, ssthresh=
-=20
-and min_cwnd would be set to saved_cwnd/2.  However since cwnd is not saved=
-=20
-and during slowstart it might be doubled each RTT (depending on what other=
-=20
-algorithms are in effect), at the time the loss is detected cwnd/2 might=20
-already be at the maximum window size for the path (pipe+queue size).  This=
-=20
-was observed to do some bad things on real networks, so we included another=
-=20
-factor of two reduction, which is really only correct for slowstart.=20
-However, this does not usually hurt the normal loss in congestion avoidence=
-=20
-case, unless something else unexpected goes wrong.
+[UDP]: Restore missing inDatagrams increments
+    
+The previous move of the the UDP inDatagrams counter caused the
+counting of encapsulated packets, SUNRPC data (as opposed to call)
+packets and RXRPC packets to go missing.
+    
+This patch restores all of these.
 
-We considered some logic to attempt to estimate cwnd at the time a lost=20
-segment was sent, using the current cwnd and ssthresh (i.e. when the loss i=
-s=20
-detected), but it was cumbersome, not well behaved, impossible to model, an=
-d=20
-didn't make enough difference.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Actually the reason we abandoned RH is that is it sets cwnd from flight siz=
-e=20
-in a really bad way.  When you have large windows and burst losses, includi=
-ng=20
-possibly a few segments with lost retransmissions, you are likely to depres=
-s=20
-the flight size because either you run out of receiver window or the sendin=
-g=20
-app can't refill the socket quickly enough when snd_una advances.  The
-consequence is that cwnd is pulled down not by losses, but other non-path=
-=20
-"congestion", which takes potentially thousands of RTTs for AIMD to recover=
-=2E
-
-Unfortunately idea of setting cwnd from flightsize has been standardized in=
-=20
-RFC 2851....
-
-This is one of the problems that I would really like to revisit, if I had t=
-he
-time.
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index e90f962..a84f3f6 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -164,15 +164,6 @@ DECLARE_SNMP_STAT(struct icmpv6msg_mib, icmpv6msg_statistics);
+ #define ICMP6MSGIN_INC_STATS_USER(idev, field) \
+ 	_DEVINC(icmpv6msg, _USER, idev, field)
+ 
+-DECLARE_SNMP_STAT(struct udp_mib, udp_stats_in6);
+-DECLARE_SNMP_STAT(struct udp_mib, udplite_stats_in6);
+-#define UDP6_INC_STATS_BH(field, is_udplite) 			      do  {  \
+-	if (is_udplite) SNMP_INC_STATS_BH(udplite_stats_in6, field);         \
+-	else		SNMP_INC_STATS_BH(udp_stats_in6, field);    } while(0)
+-#define UDP6_INC_STATS_USER(field, is_udplite)			       do {    \
+-	if (is_udplite) SNMP_INC_STATS_USER(udplite_stats_in6, field);         \
+-	else		SNMP_INC_STATS_USER(udp_stats_in6, field);    } while(0)
+-
+ struct ip6_ra_chain
+ {
+ 	struct ip6_ra_chain	*next;
+diff --git a/include/net/udp.h b/include/net/udp.h
+index 98755eb..87170bb 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -139,6 +139,12 @@ extern int 	udp_lib_setsockopt(struct sock *sk, int level, int optname,
+ 				   int (*push_pending_frames)(struct sock *));
+ 
+ DECLARE_SNMP_STAT(struct udp_mib, udp_statistics);
++DECLARE_SNMP_STAT(struct udp_mib, udp_stats_in6);
++
++/* UDP-Lite does not have a standardized MIB yet, so we inherit from UDP */
++DECLARE_SNMP_STAT(struct udp_mib, udplite_statistics);
++DECLARE_SNMP_STAT(struct udp_mib, udplite_stats_in6);
++
+ /*
+  * 	SNMP statistics for UDP and UDP-Lite
+  */
+@@ -149,6 +155,21 @@ DECLARE_SNMP_STAT(struct udp_mib, udp_statistics);
+ 	if (is_udplite) SNMP_INC_STATS_BH(udplite_statistics, field);         \
+ 	else		SNMP_INC_STATS_BH(udp_statistics, field);    }  while(0)
+ 
++#define UDP6_INC_STATS_BH(field, is_udplite) 			      do  {  \
++	if (is_udplite) SNMP_INC_STATS_BH(udplite_stats_in6, field);         \
++	else		SNMP_INC_STATS_BH(udp_stats_in6, field);    } while(0)
++#define UDP6_INC_STATS_USER(field, is_udplite)			       do {    \
++	if (is_udplite) SNMP_INC_STATS_USER(udplite_stats_in6, field);         \
++	else		SNMP_INC_STATS_USER(udp_stats_in6, field);    } while(0)
++
++#define UDPX_INC_STATS_BH(sk, field) \
++	do { \
++		if ((sk)->sk_family == AF_INET) \
++			UDP_INC_STATS_BH(field, 0); \
++		else \
++			UDP6_INC_STATS_BH(field, 0); \
++	} while (0);
++
+ /* /proc */
+ struct udp_seq_afinfo {
+ 	struct module		*owner;
+diff --git a/include/net/udplite.h b/include/net/udplite.h
+index 635b0ea..b76b2e3 100644
+--- a/include/net/udplite.h
++++ b/include/net/udplite.h
+@@ -13,9 +13,6 @@
+ extern struct proto 		udplite_prot;
+ extern struct hlist_head 	udplite_hash[UDP_HTABLE_SIZE];
+ 
+-/* UDP-Lite does not have a standardized MIB yet, so we inherit from UDP */
+-DECLARE_SNMP_STAT(struct udp_mib, udplite_statistics);
+-
+ /*
+  *	Checksum computation is all in software, hence simpler getfrag.
+  */
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index f50de5d..78cfcb4 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -110,6 +110,7 @@
+  */
+ 
+ DEFINE_SNMP_STAT(struct udp_mib, udp_statistics) __read_mostly;
++EXPORT_SYMBOL(udp_statistics);
+ 
+ struct hlist_head udp_hash[UDP_HTABLE_SIZE];
+ DEFINE_RWLOCK(udp_hash_lock);
+@@ -969,8 +970,11 @@ int udp_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
+ 			int ret;
+ 
+ 			ret = (*up->encap_rcv)(sk, skb);
+-			if (ret <= 0)
++			if (ret <= 0) {
++				UDP_INC_STATS_BH(UDP_MIB_INDATAGRAMS,
++						 is_udplite);
+ 				return -ret;
++			}
+ 		}
+ 
+ 		/* FALLTHROUGH -- it's a UDP Packet */
+diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
+index 8631ed7..9fc2428 100644
+--- a/net/ipv6/proc.c
++++ b/net/ipv6/proc.c
+@@ -27,6 +27,7 @@
+ #include <net/ip.h>
+ #include <net/sock.h>
+ #include <net/tcp.h>
++#include <net/udp.h>
+ #include <net/transp_v6.h>
+ #include <net/ipv6.h>
+ 
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 87bccec..36bdcd2 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -34,6 +34,7 @@
+ #include <linux/ipv6.h>
+ #include <linux/icmpv6.h>
+ #include <linux/init.h>
++#include <linux/module.h>
+ #include <linux/skbuff.h>
+ #include <asm/uaccess.h>
+ 
+@@ -51,6 +52,7 @@
+ #include "udp_impl.h"
+ 
+ DEFINE_SNMP_STAT(struct udp_mib, udp_stats_in6) __read_mostly;
++EXPORT_SYMBOL(udp_stats_in6);
+ 
+ static inline int udp_v6_get_port(struct sock *sk, unsigned short snum)
+ {
+diff --git a/net/rxrpc/ar-input.c b/net/rxrpc/ar-input.c
+index 91b5bbb..bc31ba5 100644
+--- a/net/rxrpc/ar-input.c
++++ b/net/rxrpc/ar-input.c
+@@ -20,6 +20,7 @@
+ #include <net/sock.h>
+ #include <net/af_rxrpc.h>
+ #include <net/ip.h>
++#include <net/udp.h>
+ #include "ar-internal.h"
+ 
+ unsigned long rxrpc_ack_timeout = 1;
+@@ -707,10 +708,13 @@ void rxrpc_data_ready(struct sock *sk, int count)
+ 	if (skb_checksum_complete(skb)) {
+ 		rxrpc_free_skb(skb);
+ 		rxrpc_put_local(local);
++		UDP_INC_STATS_BH(UDP_MIB_INERRORS, 0);
+ 		_leave(" [CSUM failed]");
+ 		return;
+ 	}
+ 
++	UDP_INC_STATS_BH(UDP_MIB_INDATAGRAMS, 0);
++
+ 	/* the socket buffer we have is owned by UDP, with UDP's data all over
+ 	 * it, but we really want our own */
+ 	skb_orphan(skb);
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index 2f630a5..6fa52f4 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -838,8 +838,12 @@ static void xs_udp_data_ready(struct sock *sk, int len)
+ 		copied = repsize;
+ 
+ 	/* Suck it into the iovec, verify checksum if not done by hw. */
+-	if (csum_partial_copy_to_xdr(&rovr->rq_private_buf, skb))
++	if (csum_partial_copy_to_xdr(&rovr->rq_private_buf, skb)) {
++		UDPX_INC_STATS_BH(sk, UDP_MIB_INERRORS);
+ 		goto out_unlock;
++	}
++
++	UDPX_INC_STATS_BH(sk, UDP_MIB_INDATAGRAMS);
+ 
+ 	/* Something worked... */
+ 	dst_confirm(skb->dst);
 
 Thanks,
---MM--
--------------------------------------------
-Matt Mathis      http://www.psc.edu/~mathis
-Work:412.268.3319    Home/Cell:412.654.7529
--------------------------------------------
-
-On Tue, 4 Dec 2007, John Heffner wrote:
-
-> Ilpo J=E4rvinen wrote:
->> On Tue, 4 Dec 2007, John Heffner wrote:
->>=20
->>> Ilpo J=E4rvinen wrote:
->>>> ...I'm still to figure out why tcp_cwnd_down uses snd_ssthresh/2
->>>> as lower bound even though the ssthresh was already halved, so=20
->>>> snd_ssthresh
->>>> should suffice.
->>> I remember this coming up at least once before, so it's probably worth =
-a
->>> comment in the code.  Rate-halving attempts to actually reduce cwnd to=
-=20
->>> half
->>> the delivered window.  Here, cwnd/4 (ssthresh/2) is a lower bound on ho=
-w=20
->>> far
->>> rate-halving can reduce cwnd.  See the "Bounding Parameters" section of
->>> <http://www.psc.edu/networking/papers/FACKnotes/current/>.
->>=20
->> Thanks for the info! Sadly enough it makes NewReno recovery quite=20
->> inefficient when there are enough losses and high BDP link (in my case=
-=20
->> 384k/200ms, BDP sized buffer). There might be yet another bug in it as w=
-ell=20
->> (it is still a bit unclear how tcp variables behaved during my scenario =
-and=20
->> I'll investigate further) but reduction in the transfer rate is going to=
-=20
->> last longer than a short moment (which is used as motivation in those FA=
-CK=20
->> notes). In fact, if I just use RFC2581 like setting w/o rate-halving (an=
-d=20
->> experience the initial "pause" in sending), the ACK clock to send out ne=
-w=20
->> data works very nicely beating rate halving fair and square. For SACK/FA=
-CK=20
->> it works much nicer because recovery is finished much earlier and slow=
-=20
->> start recovers cwnd quickly.
->
-> I believe this is exactly the reason why Matt (CC'd) and Jamshid abandone=
-d=20
-> this line of work in the late 90's.  In my opinion, it's probably not suc=
-h a=20
-> bad idea to use cwnd/2 as the bound.  In some situations, the current=20
-> rate-halving code will work better, but as you point out, in others the c=
-wnd=20
-> is lowered too much.
->
->
->> ...Mind if I ask another similar one, any idea why prior_ssthresh is=20
->> smaller (3/4 of it) than cwnd used to be (see tcp_current_ssthresh)?
->
-> Not sure on that one.  I'm not aware of any publications this is based on=
-=2E=20
-> Maybe Alexey knows?
->
->  -John
->
----1233065670-499382716-1196809029=:15251--
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
