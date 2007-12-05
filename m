@@ -1,44 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] [UDP]: Restore missing inDatagrams increments
-Date: Wed, 05 Dec 2007 01:53:01 -0800 (PST)
-Message-ID: <20071205.015301.87202109.davem@davemloft.net>
-References: <20071204130109.GA3098@gondor.apana.org.au>
-	<47560215.6050104@cn.fujitsu.com>
-	<20071205021559.GA27707@gondor.apana.org.au>
+Subject: Re: [PATCH 3/3] [UDP]: Only increment counter on first peek/recv
+Date: Wed, 05 Dec 2007 01:54:09 -0800 (PST)
+Message-ID: <20071205.015409.116581624.davem@davemloft.net>
+References: <20071204125844.GA2750@gondor.apana.org.au>
+	<20071204130109.GA3098@gondor.apana.org.au>
+	<20071204130310.GB3098@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wangchen@cn.fujitsu.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55552
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55558
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753403AbXLEJxD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 04:53:03 -0500
-In-Reply-To: <20071205021559.GA27707@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1751071AbXLEJyK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 04:54:10 -0500
+In-Reply-To: <20071204130310.GB3098@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 5 Dec 2007 13:15:59 +1100
+Date: Wed, 5 Dec 2007 00:03:10 +1100
 
-> On Wed, Dec 05, 2007 at 09:42:45AM +0800, Wang Chen wrote:
-> > 
-> > I apologize for my miss in previous patch.
-> > 
-> > Herbert, don't you think the udp6inDatagrams should be counted too
-> > in xprtsock?
+> [UDP]: Only increment counter on first peek/recv
 > 
-> Good point.  Here's a better version.
+> The previous move of the the UDP inDatagrams counter caused each
+> peek of the same packet to be counted separately.  This may be
+> undesirable.
 > 
-> [UDP]: Restore missing inDatagrams increments
->     
-> The previous move of the the UDP inDatagrams counter caused the
-> counting of encapsulated packets, SUNRPC data (as opposed to call)
-> packets and RXRPC packets to go missing.
->     
-> This patch restores all of these.
+> This patch fixes this by adding a bit to sk_buff to record whether
+> this packet has already been seen through skb_recv_datagram.  We
+> then only increment the counter when the packet is seen for the
+> first time.
+> 
+> The only dodgy part is the fact that skb_recv_datagram doesn't have
+> a good way of returning this new bit of information.  So I've added
+> a new function __skb_recv_datagram that does return this and made
+> skb_recv_datagram a wrapper around it.
+> 
+> The plan is to eventually replace all uses of skb_recv_datagram with
+> this new function at which time it can be renamed its proper name.
 > 
 > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied.
+Applied, thanks for fixing all of this Herbert.
