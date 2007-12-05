@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25 11/11][IPV6] Eliminate difference in actions
- of sysctl and proc handler for conf.all.forwarding
-Date: Wed, 05 Dec 2007 01:51:05 -0800 (PST)
-Message-ID: <20071205.015105.110790116.davem@davemloft.net>
-References: <4755256F.9000505@openvz.org>
-	<475529A0.4010300@openvz.org>
+Subject: Re: [PATCH 1/3] [UDP]: Avoid repeated counting of checksum errors
+ due to peeking
+Date: Wed, 05 Dec 2007 01:52:12 -0800 (PST)
+Message-ID: <20071205.015212.243064142.davem@davemloft.net>
+References: <20071204125844.GA2750@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org
-To: xemul@openvz.org
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58619
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58621
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751296AbXLEJvK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 04:51:10 -0500
-In-Reply-To: <475529A0.4010300@openvz.org>
+	by vger.kernel.org with ESMTP id S1751288AbXLEJwM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 04:52:12 -0500
+In-Reply-To: <20071204125844.GA2750@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Tue, 04 Dec 2007 13:19:12 +0300
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 4 Dec 2007 23:58:44 +1100
 
-> The only difference in this case is that updating all.forwarding
-> causes the update in default.forwarding when done via proc, but
-> not via the system call.
+> [UDP]: Avoid repeated counting of checksum errors due to peeking
 > 
-> Besides, this consolidates a good portion of code.
+> Currently it is possible for two processes to peek on the same socket
+> and end up incrementing the error counter twice for the same packet.
 > 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> This patch fixes it by making skb_kill_datagram return whether it
+> succeeded in unlinking the packet and only incrementing the counter
+> if it did.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-This is another case where I think we should do what
-the procfs case was doing, because that's what people
-expect at this point.
-
-That seems to be what your patch is doing, so I'll
-apply this, thanks.
+Applied, thanks Herbert.
