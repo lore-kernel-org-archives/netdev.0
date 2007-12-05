@@ -1,56 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: TCP event tracking via netlink...
-Date: Wed, 05 Dec 2007 05:30:31 -0800 (PST)
-Message-ID: <20071205.053031.87154402.davem@davemloft.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 7/7] [TFRC] New rx history code
+Date: Wed, 5 Dec 2007 13:34:49 +0000
+Message-ID: <20071205133449.GB893@gerrit.erg.abdn.ac.uk>
+References: <1196631416-17778-3-git-send-email-acme@redhat.com> <1196631416-17778-4-git-send-email-acme@redhat.com> <1196631416-17778-5-git-send-email-acme@redhat.com> <1196631416-17778-6-git-send-email-acme@redhat.com> <1196631416-17778-7-git-send-email-acme@redhat.com> <1196631416-17778-8-git-send-email-acme@redhat.com> <20071204065517.GA4404@gerrit.erg.abdn.ac.uk> <20071204115939.GA18084@ghostprotocols.net> <20071205093530.GA5177@gerrit.erg.abdn.ac.uk> <20071205120801.GN29972@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: text/plain; charset=us-ascii
+To: Arnaldo Carvalho de Melo <acme@redhat.com>, netdev@vger.kernel.org,
+	dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60668
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751160AbXLENac (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 08:30:32 -0500
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36432 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751439AbXLENfs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2007 08:35:48 -0500
+Content-Disposition: inline
+In-Reply-To: <20071205120801.GN29972@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+| > In the end this went back to the same questions and issues that were tackled between
+| > February and March this year. I wish we could have had this dicussion then; it would
+| > have made this email unnecessary.
+| 
+| That is why it is important that the changeset comment collects these
+| scattered notes and discussions. Think about in some years from now we
+| will be left with a situation where we would have to look at many places
+| to understando some aspects of what is in the code. While this happens
+| and we have google for that I think that since you keep such detailed
+| notes it is not a problem to get them in the changesets.
+|  
+I agree, the changelogs are all a bit short. When condensing from 40 to 16 patches the changelogs
+were also cut down, for fear of being too verbose. Will go through the patches in the next days and
+see if/where this can be improved, that would probably have saved some trouble.
 
-Ilpo, I was pondering the kind of debugging one does to find
-congestion control issues and even SACK bugs and it's currently too
-painful because there is no standard way to track state changes.
-
-I assume you're using something like carefully crafted printk's,
-kprobes, or even ad-hoc statistic counters.  That's what I used to do
-:-)
-
-With that in mind it occurred to me that we might want to do something
-like a state change event generator.
-
-Basically some application or even a daemon listens on this generic
-netlink socket family we create.  The header of each event packet
-indicates what socket the event is for and then there is some state
-information.
-
-Then you can look at a tcpdump and this state dump side by side and
-see what the kernel decided to do.
-
-Now there is the question of granularity.
-
-A very important consideration in this is that we want this thing to
-be enabled in the distributions, therefore it must be cheap.  Perhaps
-one test at the end of the packet input processing.
-
-So I say we pick some state to track (perhaps start with tcp_info)
-and just push that at the end of every packet input run.  Also,
-we add some minimal filtering capability (match on specific IP
-address and/or port, for example).
-
-Maybe if we want to get really fancy we can have some more-expensive
-debug mode where detailed specific events get generated via some
-macros we can scatter all over the place.  This won't be useful
-for general user problem analysis, but it will be excellent for
-developers.
-
-Let me know if you think this is useful enough and I'll work on
-an implementation we can start playing with.
+| >  * But where I need to interact is when changes are made to the algorithm, even if these may 
+| >    seem small. The underlying reasons that lead to the code may not be immediately clear,
+| >    but since this is a solution for a specific problem, there are also specific reasons; which
+| >    is why for algorithm changes (and underlying data structure) I'd ask you to discuss this first
+| >    before committing the patch. 
+| 
+| I did this for the RX handling, where changes were made. Did that for
+| the TX but ended up commiting before comments from you, but I think its
+| fair to say that the changes for the TX history were more organizational
+| than in the essence of the algorithm.
+|  
+It was a similar situation: the RFC patch came out on Thursday afternoon; I replied a bit hurriedly
+on Friday that it seemed ok, but found the full confirmation only on Sunday after putting all
+recent changes into the test tree. And yes, you made a good job of it.
