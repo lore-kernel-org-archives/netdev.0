@@ -1,33 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25 8/11][IPV6] Use sysctl paths to register
- ipv6 sysctl tables
-Date: Wed, 05 Dec 2007 01:44:18 -0800 (PST)
-Message-ID: <20071205.014418.221313017.davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.25 9/11][INET] Merge sys.net.ipv4.ip_forward
+ and sys.net.ipv4.conf.all.forwarding
+Date: Wed, 05 Dec 2007 01:45:11 -0800 (PST)
+Message-ID: <20071205.014511.58357775.davem@davemloft.net>
 References: <4755256F.9000505@openvz.org>
-	<47552837.8080205@openvz.org>
+	<475528BC.1010505@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, devel@openvz.org
 To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38345
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38349
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750954AbXLEJoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 04:44:19 -0500
-In-Reply-To: <47552837.8080205@openvz.org>
+	by vger.kernel.org with ESMTP id S1751982AbXLEJpM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 04:45:12 -0500
+In-Reply-To: <475528BC.1010505@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Emelyanov <xemul@openvz.org>
-Date: Tue, 04 Dec 2007 13:13:11 +0300
+Date: Tue, 04 Dec 2007 13:15:24 +0300
 
-> I have already done this for core, ipv4 and tr tables, so
-> repeat this for the ipv6 ones.
+> AFAIS these two entries should do the same thing - change the
+> forwarding state on ipv4_devconf and on all the devices.
 > 
-> This makes the ipv6.ko smaller and creates the ground needed
-> for net namespaces support in ipv6.ko ssctls.
+> I propose to merge the handlers together using ctl paths.
+> 
+> The inet_forward_change() is static after this and I move
+> it higher to be closer to other "propagation" helpers and
+> to avoid diff making patches based on { and } matching :)
+> i.e. - make them easier to read.
 > 
 > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Applied.
+I agree with your analysis and patch, applied.
+
+Thanks.
