@@ -1,39 +1,55 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH 2/3] [UDP]: Restore missing inDatagrams increments
-Date: Wed, 05 Dec 2007 09:42:45 +0800
-Message-ID: <47560215.6050104@cn.fujitsu.com>
-References: <20071204125844.GA2750@gondor.apana.org.au> <20071204130109.GA3098@gondor.apana.org.au>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: [RFC] introducing the Atheros L2 Fast Ethernet driver
+Date: Tue, 04 Dec 2007 21:06:33 -0500
+Message-ID: <475607A9.90000@redhat.com>
+References: <4755D39D.30005@redhat.com> <4755D8EA.9060201@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev@vger.kernel.org, synrg@debian.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [222.73.24.84] ([222.73.24.84]:58151 "EHLO song.cn.fujitsu.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752541AbXLEBpg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2007 20:45:36 -0500
-In-Reply-To: <20071204130109.GA3098@gondor.apana.org.au>
+Received: from mx1.redhat.com ([66.187.233.31]:42847 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751116AbXLECKc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2007 21:10:32 -0500
+In-Reply-To: <4755D8EA.9060201@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu said the following on 2007-12-4 21:01:
-> Hi Dave:
+Jeff Garzik wrote:
+> Chris Snook wrote:
+>> Hey folks --
+>>
+>>     I've begun cleaning up the atl2 vendor driver for merging.  It's 
+>> very similar to the atl1 driver, and needs a lot of the same work, 
+>> though I have already fixed the 64-bit DMA data corrupter that atl1 
+>> users remember so fondly.  Right now this is very raw, and there is a 
+>> large amount of cosmetic work to do to make it more maintainable, but 
+>> it should generally work, at least as well as the vendor driver does.
+>>
+>>     While this is in pre-submission cleanup mode, the latest 
+>> standalone source tarball and patch (currently against 2.6.23) will be 
+>> available here:
+>>
+>> http://people.redhat.com/csnook/atl2/
+>>
+>>     If you have atl2 hardware, please give this a spin.  I plan to 
+>> submit the driver for merging some time in the next month or so.  
+>> Questions, comments, patches welcome.
 > 
-> You were right about the SUNRPC stuff being missing after all.  I'd
-> only looked in svcsock.c and missed the call in xprtsock.c.
+> Why not update atl1 for this new hardware?  Why is a new driver needed?
 > 
-> [UDP]: Restore missing inDatagrams increments
-> 
-> The previous move of the the UDP inDatagrams counter caused the
-> counting of encapsulated packets, SUNRPC data (as opposed to call)
-> packets and RXRPC packets to go missing.
-> 
-> This patch restores all of these.
-> 
+>     Jeff
 
-I apologize for my miss in previous patch.
+They have some common hardware at the PCIe level, but at the ethernet level it's 
+totally different (simple, low-power 100 Mb vs. Gb with all the bells and 
+whistles).  We'd end up special-casing all over the place, because they have 
+rather different capabilities, like, say, if we tried to merge ixgb and e1000 
+(which have a lot of code in common).  It could be done, but I don't think it 
+would be beneficial.  If Atheros decides to maintain the in-tree drivers 
+directly, and wants to take it in that direction, I won't object, but from where 
+I sit, on the other side of the planet from the guys with the chips hooked up to 
+the hardware analyzers, separate drivers seems less painful.
 
-Herbert, don't you think the udp6inDatagrams should be counted too
-in xprtsock?
-
+	-- Chris
