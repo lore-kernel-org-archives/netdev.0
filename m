@@ -1,43 +1,73 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] BRIDGE : br_fdb_fini() should be __exit_refok instead
- of __exit
-Date: Wed, 5 Dec 2007 07:49:59 -0500
-Message-ID: <20071205074959.6f9ca8e4@shemminger-laptop>
-References: <47569C74.9020008@cosmosbay.com>
+From: Ariane Keller <ariane.keller@tik.ee.ethz.ch>
+Subject: Re: [PATCH 0/2] netem: trace enhancement
+Date: Wed, 05 Dec 2007 13:57:42 +0100
+Message-ID: <4756A046.1070608@ee.ethz.ch>
+References: <20071120231131.oqn4s5eda84k4csw@email.ee.ethz.ch>	<474C2246.50205@ee.ethz.ch> <20071129134554.5c25a891@freepuppy.rosehill>	<474F3719.30101@trash.net> <47503971.9080509@ee.ethz.ch>	<4753B423.7030000@trash.net> <4753C874.80703@ee.ethz.ch>	<47543E65.4060303@trash.net> <47544B1F.1010902@candelatech.com> <20071204154535.4eu35nfe9wks8kgg@email.ee.ethz.ch> <47556B20.2030700@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: Ariane Keller <ariane.keller@tik.ee.ethz.ch>,
+	Ben Greear <greearb@candelatech.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	Rainer Baumann <baumann@tik.ee.ethz.ch>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:42332 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751442AbXLEMvX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 07:51:23 -0500
-In-Reply-To: <47569C74.9020008@cosmosbay.com>
+Received: from smtp.ee.ethz.ch ([129.132.2.219]:47376 "EHLO smtp.ee.ethz.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750892AbXLEM5o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2007 07:57:44 -0500
+In-Reply-To: <47556B20.2030700@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 05 Dec 2007 13:41:24 +0100
-Eric Dumazet <dada1@cosmosbay.com> wrote:
+Thanks for your comments!
 
-> Hi David
+Patrick McHardy wrote:
+> Ariane Keller wrote:
+>>
+>>>> That sounds like it would also be possible using rtnetlink. You could
+>>>> send out a notification whenever you switch the active buffer and have
+>>>> userspace listen to these and replace the inactive one.
+>>
+>> I guess using rtnetlink is possible. However I'm not sure about how to 
+>> implement it:
+>> The first thought was to use RTM_NEWQDISC to send the data to the 
+>> netem_change() function (similar to tc_qdisc_modify() ).
 > 
-> Building last net-2.6.25 git tree gave me this warning :
+> That sounds reasonable.
 > 
-> WARNING: vmlinux.o(.init.text+0x2a957): Section mismatch: reference to 
-> .exit.text:br_fdb_fini (between 'br_init' and 'br_fdb_init')
+>> But with this we would need the tcm_handle, tcm_parent arguments etc. 
+>> which are not known in q_netem.c
+>> Therefore we would have to change the parse_qopt() function prototype 
+>> in order to pass the whole "req" and not only the nlmsghdr.
 > 
-> This is because br_init() (marked __init) can call br_fdb_fini() (marked __exit).
-> 
-> I am not sure the following is the right fix, since __exit_refok is quite new, 
-> and seldom used.
-> 
-> [PATCH] BRIDGE : br_fdb_fini() should be __exit_refok instead of __exit
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> 
+> I assume you mean netem_init, parse_qopt is userspace. But I don't
+> see how that is related, emptying the buffer happens during packet
+> processing, right?
+Actually I meant parse_qopt from user space.
+If we would change that function prototype we would have the whole 
+message header available in netem_parse_opt() and could pass this to the 
+process which is responsible for sending the data to the kernel. This 
+process would use this header every time it has to send new values to 
+the netem_change() function in the kernel module.
 
-Andrew put a patch in his tree to just take off the __exit.
-That seems like the easiest fix for a one line function.
+I thought about this because I was not aware of the qdisc_notify function.
+Anyway I've got some troubles with calling qdisc_notify.
+1. I have to do a EXPORT_SYMBOL(qdisc_notify) (currently it is declared 
+static in sch_api.c)
+2. I'd like to call it from netem_enqueue(), which leads to a "sleeping 
+function called from invalid context", since we are still in interrupt 
+context. Therefore I think I have to put it in a workqueue.
+
+I hope, this is ok.
+
+
+> 
+> I guess I would simply change the qdisc_notify function to not
+> require a struct nlmsghdr * (simply pass nlmsg_seq directly) and
+> use that to send notifications. The netem dump function would
+> add the buffer state. BTW, the parent class id is available in
+> sch->parent, the handle in sch->handle, but qdisc_notify should
+> take care of everything you need.
+
