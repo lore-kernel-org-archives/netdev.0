@@ -1,104 +1,48 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [LARTC] Adding qdiscs crashes kernel??
-Date: Wed, 05 Dec 2007 09:07:55 +0100
-Message-ID: <47565C5B.2030302@trash.net>
-References: <96CF49BD8B56384395D698BA99007FA32DB9@exchange.pacwire.local>
+Subject: Re: [PATCH] don't allow netfilter --setmss to increase mss
+Date: Wed, 05 Dec 2007 09:20:52 +0100
+Message-ID: <47565F64.2000907@trash.net>
+References: <20071204224535.GY27007@kvack.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: lartc@mailman.ds9a.nl, Linux Netdev List <netdev@vger.kernel.org>
-To: Leigh Sharpe <lsharpe@pacificwireless.com.au>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Benjamin LaHaise <bcrl@kvack.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55012 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:55267 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751296AbXLEIII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 03:08:08 -0500
-In-Reply-To: <96CF49BD8B56384395D698BA99007FA32DB9@exchange.pacwire.local>
+	with ESMTP id S1751071AbXLEIVG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 03:21:06 -0500
+In-Reply-To: <20071204224535.GY27007@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please always report bugs to netdev@vger.kernel.org.
+Please send netfilter-related patches to netfilter-devel.
 
-Leigh Sharpe wrote:
-> Oh, 
-> kernel version 2.6.23, since I forgot to mention it.
->  
-> Leigh.
+Benjamin LaHaise wrote:
+> When terminating DSL connections for an assortment of random customers, I've 
+> found it necessary to use iptables to clamp the MSS used for connections to 
+> work around the various ICMP blackholes in the greater net.  Unfortunately, 
+> the current behaviour in Linux is imperfect and actually make things worse, 
+> so I'm proposing the following: increasing the MSS in a packet can never be 
+> a good thing, so make --set-mss only lower the MSS in a packet.
 > 
-> ________________________________
-> 
-> From: lartc-bounces@mailman.ds9a.nl
-> [mailto:lartc-bounces@mailman.ds9a.nl] On Behalf Of Leigh Sharpe
-> Sent: Wednesday, 5 December 2007 3:37 PM
-> To: lartc@mailman.ds9a.nl
-> Subject: [LARTC] Adding qdiscs crashes kernel??
-> 
-> 
-> Hi all,
->  I'm having some problems setting up qdiscs on a bridge.The config looks
-> a little like this:
->  
->  
-> ifconfig ifb0 up        # Bring up the IFB for this bridge.
-> tc qdisc add dev eth2 ingress
-> tc qdisc add dev eth3 ingress
-> tc qdisc add dev ifb0 root handle 1:0 cbq bandwidth 100Mbit avpkt 1000
-> cell 8
-> # Raw qdiscs on each bridge port
-> tc qdisc add dev eth2 root handle 1:0 cbq bandwidth 100Mbit avpkt 1000
-> cell 8
-> tc qdisc add dev eth3 root handle 1:0 cbq bandwidth 100Mbit avpkt 1000
-> cell 8
-> 
-> tc filter add dev eth2 parent 1: protocol 0x8100 prio 5 u32 match u16
-> 3000 0x0fff at 0 flowid 1:1 action ipt -j MARK --or-mark 0x01000000 #
-> mark packets for VLAN 3000.
-> tc filter add dev eth3 parent 1: protocol 0x8100 prio 5 u32 match u16
-> 3000 0x0fff at 0 flowid 1:1 action ipt -j MARK --or-mark 0x01000000 #
-> mark packets for VLAN 3000.
->  
-> tc class add dev eth2 parent 1:0 classid 1:1 cbq bandwidth 100Mbit rate
-> 2000Kbit weight 200Kbit prio 1 allot 1514 cell 8 maxburst 20 avpkt 1000
-> bounded isolated       # 2000 Kbit rate limit on entry point.
-> tc class add dev eth3 parent 1:0 classid 1:1 cbq bandwidth 100Mbit rate
-> 2000Kbit weight 200Kbit prio 1 allot 1514 cell 8 maxburst 20 avpkt 1000
-> bounded isolated       # 2000 Kbit rate limit on entry point.
-> 
-> tc qdisc add dev eth2 parent 1:1 handle 2: cbq bandwidth 100Mbit  avpkt
-> 1000 cell 8
-> tc qdisc add dev eth3 parent 1:1 handle 2: cbq bandwidth 100Mbit  avpkt
-> 1000 cell 8
-> tc class add dev eth2 parent 2:0 classid 2:1 cbq bandwidth 100Mbit rate
-> 2000Kbit weight 200Kbit prio 2 allot 1514 cell 8 maxburst 20 avpkt 1000
-> sharing
-> tc filter add dev eth2 parent 2:0 protocol 0x8100 prio 2 u32 match u16
-> 3000 0x0fff at 0 flowid 2:1 action ipt -j MARK --or-mark 0x00100000 
-> tc qdisc add dev eth2 parent 2:1 handle 3: cbq bandwidth 100Mbit avpkt
-> 1000 cell 8    
-> tc filter add dev eth2 parent 3:0 protocol 0x8100 prio 4 u32 match u32 0
-> 0 flowid 3:3                                                   # Traffic
-> class 3 - catchall. Don't MARK further.
->  
-> (There's lot's more, mostly a repeat of the above with different
-> criteria.)
-> When I first boot the box, and apply the traffic shaping before any
-> traffic flows, all is fine. However, if I apply this same config whilst
-> the bridge is passing lots of traffic, it completely crashes the box.
-> Everything freezes, I don't even get a kernel panic message on the
-> console. Nothing responds and the only way to recover is by a
-> power-cycle.
->  
-> If I take the link down on the ethernet port (with ip link set ethx
-> down), apply the configs, and then bring it back up again, all is OK.
-> Obviously, though, this isn't really acceptable.
->  
-> It always crashes immediately after a 'tc qdisc add...' line, but not
-> always in the same place. Are there any known issues with adding qdiscs
-> whilst traffic is being queued on it?
-> I've also tried it using HTB instead of CBQ, and I get the same results.
->  
-> Anybody got any other ideas as to what might be going on?
+> Yes, I am aware of --clamp-mss-to-pmtu, but it doesn't work for outgoing 
+> connections from clients (ie web traffic), as it only looks at the PMTU on 
+> the destination route, not the source of the packet (the DSL interfaces in 
+> question have a 1442 byte MTU while the destination ethernet interface is 
+> 1500 -- there are problematic hosts which use a 1300 byte MTU).  Reworking 
+> that is probably a good idea at some point, but it's more work than this is.
 
+Yes, this has always annoyed me too as it doesn't really work for me
+in a similar setup where traffic first goes through an IPsec tunnel,
+then through a MSS mangling gateway and then over a DSL line. I'll
+add a patch on top of yours to take the MSS in reverse direction
+into account.
 
-Which qdisc add crashes it? Please post the full oops.
+> Thoughts?  Would it be better to add a new flag?
 
+No, this is obviously a good idea, I actually thought we'd already
+prevent increasing it in all cases. I've applied your patch, thanks.
