@@ -1,41 +1,70 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Subject: [PATCH v2 0/3][BUG-FIX]: Test tree updates and bug fixes
-Date: Wed,  5 Dec 2007 11:19:43 +0000
-Message-ID: <11968535863312-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: netdev@vger.kernel.org
+Date: Wed,  5 Dec 2007 11:19:46 +0000
+Message-ID: <11968535861367-git-send-email-gerrit@erg.abdn.ac.uk>
+References: ccid3_updates_and_bug_fixes
+ <11968535863312-git-send-email-gerrit@erg.abdn.ac.uk>
+ <11968535864083-git-send-email-gerrit@erg.abdn.ac.uk>
+ <11968535861091-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:61783 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:61786 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751656AbXLELUB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751695AbXLELUB (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 5 Dec 2007 06:20:01 -0500
-In-Reply-To: ccid3_updates_and_bug_fixes
-References: ccid3_updates_and_bug_fixes
+In-Reply-To: <11968535861091-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Orthogonal to the ongoing discussion of patches, here are updates
-of existing ones. This is mainly to keep the test tree in synch;
-I'd like to upload the new test tree since -rc4 is out.
+This patch removes the following redundancies:
+  * ccid3_hc_rx_update_s() is only called for data packets (that is what it should be called for);
+  * each call to ccid3_hc_rx_update_s() is wrapped inside a "if (is_data_packet)" test';
+  * therefore testing each time if "len > 0" is redundant (pointed out by Arnaldo);
+  * no other code calls this function, hence the inline function can go.
 
-Arnaldo has actually pointed out more bugs than I have given him credit for,
-these are contained in this patch set.
+Also replaced the first call to updating s with direct assignment of `payload_size'; this has also
+been pointed out by Arnaldo.
 
-Patch #1: Fixes the allocation of per-socket RX history array elements
-          (implements the solution contributed by Arnaldo).
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/ccids/ccid3.c |   13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
 
-Patch #2: Fixes a similar problem in the tfrc_module.c -- this solution
-          is also present in Arnaldo's patch set, but he did not explicitly
-	  point it out. The update fixes this problem (it used to disappear
-	  later in the patch set, when the full initialisation was made for
-	  TX/RX histories and Loss Intervals; so it is only temporary).
-
-Patch #3: Removes the redundant test "len > 0", as a result one inline function
-          becomes obsolete. Thanks is again due to Arnaldo.
-
-I have not yet updated the CCID4 subtree with regard to patch#3 but will do
-as soon as work here permits.
-
-The updates to the tree are now available at
- 	git://eden-feed.erg.abdn.ac.uk/dccp_exp		{dccp,ccid4} 
-
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -654,12 +654,6 @@ static void ccid3_hc_rx_set_state(struct
+ 	hcrx->ccid3hcrx_state = state;
+ }
+ 
+-static inline void ccid3_hc_rx_update_s(struct ccid3_hc_rx_sock *hcrx, int len)
+-{
+-	if (likely(len > 0))	/* don't update on empty packets (e.g. ACKs) */
+-		hcrx->ccid3hcrx_s = tfrc_ewma(hcrx->ccid3hcrx_s, len, 9);
+-}
+-
+ static void ccid3_hc_rx_send_feedback(struct sock *sk, struct sk_buff *skb,
+ 				      enum ccid3_fback_type fbtype)
+ {
+@@ -788,8 +782,8 @@ static void ccid3_hc_rx_packet_recv(stru
+ 	if (unlikely(hcrx->ccid3hcrx_state == TFRC_RSTATE_NO_DATA)) {
+ 		if (is_data_packet) {
+ 			do_feedback = FBACK_INITIAL;
++			hcrx->ccid3hcrx_s = payload_size;
+ 			ccid3_hc_rx_set_state(sk, TFRC_RSTATE_DATA);
+-			ccid3_hc_rx_update_s(hcrx, payload_size);
+ 		}
+ 		goto update_records;
+ 	}
+@@ -798,7 +792,10 @@ static void ccid3_hc_rx_packet_recv(stru
+ 		goto done_receiving;
+ 
+ 	if (is_data_packet) {
+-		ccid3_hc_rx_update_s(hcrx, payload_size);
++		/*
++		 * Update moving-average of s and the sum of received payload bytes
++		 */
++		hcrx->ccid3hcrx_s = tfrc_ewma(hcrx->ccid3hcrx_s, payload_size, 9);
+ 		hcrx->ccid3hcrx_bytes_recv += payload_size;
+ 	}
+ 
