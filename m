@@ -1,32 +1,45 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: TCP event tracking via netlink...
-Date: Wed, 5 Dec 2007 16:33:38 -0500
-Message-ID: <20071205163338.50aff45d@shemminger-laptop>
-References: <20071205.053031.87154402.davem@davemloft.net>
-	<1196873587.10819.30.camel@localhost>
+Subject: Re: [PATCH] sky2: RX lockup fix
+Date: Wed, 5 Dec 2007 16:40:58 -0500
+Message-ID: <20071205164058.157275a9@shemminger-laptop>
+References: <1196880663.2816.149.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, ilpo.jarvinen@helsinki.fi,
-	netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Cc: netdev@vger.kernel.org
+To: Peter Tyser <ptyser@xes-inc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:59555 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:35051 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751913AbXLEVer (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 16:34:47 -0500
-In-Reply-To: <1196873587.10819.30.camel@localhost>
+	by vger.kernel.org with ESMTP id S1752421AbXLEVlu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 16:41:50 -0500
+In-Reply-To: <1196880663.2816.149.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 05 Dec 2007 08:53:07 -0800
-Joe Perches <joe@perches.com> wrote:
+On Wed, 05 Dec 2007 12:51:03 -0600
+Peter Tyser <ptyser@xes-inc.com> wrote:
 
-> > it occurred to me that we might want to do something
-> > like a state change event generator.
+> Hello,
+> I'm using a Marvell 88E8062 on a custom PPC64 blade and ran into RX
+> lockups while validating the sky2 driver.  The receive MAC FIFO would
+> become stuck during testing with high traffic.  One port of the 88E8062
+> would lockup, while the other port remained functional.  Re-inserting
+> the sky2 module would not fix the problem - only a power cycle would.
 > 
-> This could be a basis for an interesting TCP
-> performance tester.
+> I looked over Marvell's most recent sk98lin driver and it looks like
+> they had a "workaround" for the Yukon XL that the sky2 doesn't have yet.
+> The sk98lin driver disables the RX MAC FIFO flush feature for all
+> revisions of the Yukon XL.
+> 
+> According to skgeinit.c of the sk98lin driver, "Flushing must be enabled
+> (needed for ASF see dev. #4.29), but the flushing mask should be
+> disabled (see dev. #4.115)".  Nice.   I implemented this same change in
+> the sky2 driver and verified that the RX lockup I was seeing was
+> resolved.
+> 
 
-That is what tcpprobe does but it isn't detailed enough to address SACK
-issues.
+
+Without the flush, does flow control still work? My concern is that
+integrating this would cause pause packets (and over/under length packets)
+to not be handled correctly.
