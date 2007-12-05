@@ -1,49 +1,32 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 2/2] e100: cleanup unneeded math
-Date: Wed, 05 Dec 2007 11:57:37 -0800
-Message-ID: <20071205195737.6859.11168.stgit@localhost.localdomain>
-References: <20071205195729.6859.97796.stgit@localhost.localdomain>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: TCP event tracking via netlink...
+Date: Wed, 5 Dec 2007 16:33:38 -0500
+Message-ID: <20071205163338.50aff45d@shemminger-laptop>
+References: <20071205.053031.87154402.davem@davemloft.net>
+	<1196873587.10819.30.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 12o3l@tiscali.nl
-To: jeff@garzik.org
+Cc: David Miller <davem@davemloft.net>, ilpo.jarvinen@helsinki.fi,
+	netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:50415 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751589AbXLET7b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Dec 2007 14:59:31 -0500
-In-Reply-To: <20071205195729.6859.97796.stgit@localhost.localdomain>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:59555 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751913AbXLEVer (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 16:34:47 -0500
+In-Reply-To: <1196873587.10819.30.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No need to convert to bytes and back - cleanup unneeded code.
+On Wed, 05 Dec 2007 08:53:07 -0800
+Joe Perches <joe@perches.com> wrote:
 
-Adapted from fix from 'Roel Kluin <12o3l@tiscali.nl>'
+> > it occurred to me that we might want to do something
+> > like a state change event generator.
+> 
+> This could be a basis for an interesting TCP
+> performance tester.
 
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
-
- drivers/net/e100.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-index 9189aff..27f4d4a 100644
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -2284,13 +2284,11 @@ static void e100_get_drvinfo(struct net_device *netdev,
- 	strcpy(info->bus_info, pci_name(nic->pdev));
- }
- 
-+#define E100_PHY_REGS 0x1C
- static int e100_get_regs_len(struct net_device *netdev)
- {
- 	struct nic *nic = netdev_priv(netdev);
--#define E100_PHY_REGS		0x1C
--#define E100_REGS_LEN		1 + E100_PHY_REGS + \
--	sizeof(nic->mem->dump_buf) / sizeof(u32)
--	return E100_REGS_LEN * sizeof(u32);
-+	return 1 + E100_PHY_REGS + sizeof(nic->mem->dump_buf);
- }
- 
- static void e100_get_regs(struct net_device *netdev,
+That is what tcpprobe does but it isn't detailed enough to address SACK
+issues.
