@@ -1,69 +1,47 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [BRIDGE] warning message when add an interface to bridge
-Date: Wed, 05 Dec 2007 23:00:05 -0700
-Message-ID: <m1odd4tlay.fsf@ebiederm.dsl.xmission.com>
-References: <3f696b20712041844h7c049b71reda92edd7b8cb16e@mail.gmail.com>
-	<20071205225600.1feacfca@shemminger-laptop>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: [PATCH] fix br_fdb_fini() section mismatch
+Date: Thu, 6 Dec 2007 10:56:58 +0530
+Message-ID: <20071206052658.GD30235@prithivi.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Chung-Chi Lo" <linolo@gmail.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Transfer-Encoding: 8BIT
+Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:57334 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751684AbXLFGBT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 01:01:19 -0500
-In-Reply-To: <20071205225600.1feacfca@shemminger-laptop> (Stephen Hemminger's
-	message of "Wed, 5 Dec 2007 22:56:00 -0500")
+Received: from ganesha.gnumonks.org ([213.95.27.120]:36690 "EHLO
+	ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752446AbXLFGDA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 01:03:00 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@linux-foundation.org> writes:
+When compiling a kernel (current linus git or 2.6.24-rc4) with built-in
+CONFIG_BRIDGE, I get the following error:
 
-> On Wed, 5 Dec 2007 10:44:17 +0800
-> "Chung-Chi Lo" <linolo@gmail.com> wrote:
->
->> My kernel is Linxu 2.6.22.1. SYSFS is off.
->> When adding an interface to bridge, console will show WARNING message.
->> If turn SYSFS to on, then the WARNING message is gone.
->> Any suggestion how to debug this problem? Thanks.
->> 
->> # ifconfig eth0 0.0.0.0
->> eth0: starting interface.
->> # brctl addbr br0
->> # brctl addif br0 eth0
->> WARNING: at lib/kref.c:33 kref_get()
->> Call Trace:
->> [<80027844>] dump_stack+0x8/0x38
->> [<8011f348>] kref_get+0xdc/0xe4
->> [<8011ee20>] kobject_get+0x20/0x34
->> [<8011e910>] kobject_shadow_add+0x5c/0x170
->> [<8011ea34>] kobject_add+0x10/0x20
->> [<8020aac0>] br_add_if+0xb4/0x1b4
->> [<8020b354>] add_del_if+0x5c/0x118
->> [<8020bcc4>] br_dev_ioctl+0x6c/0x88
->> [<80182edc>] dev_ifsioc+0x334/0x3c0
->> [<80183184>] dev_ioctl+0x21c/0x2ec
->> [<8016f76c>] sock_ioctl+0x130/0x2e4
->> [<800b3b2c>] do_ioctl+0x6c/0x84
->> [<800b3d40>] vfs_ioctl+0x80/0x248
->> [<800b3f58>] sys_ioctl+0x50/0x98
->> [<8002a8a8>] stack_done+0x20/0x3c
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-> This is an an artifact of the kobject_shadow code which was reverted in later
-> kernels.
-> It is gone in 2.6.23
+  LD      .tmp_vmlinux1
+`br_fdb_fini' referenced in section `.init.text' of net/built-in.o: defined in discarded section `.exit.text' of net/built-in.o
+make: *** [.tmp_vmlinux1] Error 1
 
-I don't think it was the kobject_shadow, but rather we didn't initialize the kref
-or something like that in net/core/dev.c
+This patch fixes it.
 
-I believe commit 8b41d1887db718be9a2cd9e18c58ce25a4c7fd93 was the fix.
+Signed-off-by: Harald Welte <laforge@gnumonks.org>
 
-Disabling sysfs can be a fun exercise in finding corner case bugs right now.
-
-Eric
-
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index eb57502..bc40377 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -44,7 +44,7 @@ int __init br_fdb_init(void)
+ 	return 0;
+ }
+ 
+-void __exit br_fdb_fini(void)
++void br_fdb_fini(void)
+ {
+ 	kmem_cache_destroy(br_fdb_cache);
+ }
+-- 
+- Harald Welte <laforge@gnumonks.org>          	        http://gnumonks.org/
+============================================================================
+"Privacy in residential applications is a desirable marketing option."
+                                                  (ETSI EN 300 175-7 Ch. A6)
