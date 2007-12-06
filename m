@@ -1,41 +1,45 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH][VLAN] Lost rtnl_unlock() in vlan_ioctl()
-Date: Thu, 06 Dec 2007 15:10:35 +0100
-Message-ID: <475802DB.1070807@trash.net>
-References: <4757FE80.2080000@openvz.org>	<4758003C.9080105@trash.net> <20071206.060151.154858451.davem@davemloft.net>
+From: Stefan Rompf <stefan@loplof.de>
+Subject: Re: sockets affected by IPsec always block (2.6.23)
+Date: Thu, 6 Dec 2007 15:31:53 +0100
+Message-ID: <200712061531.54107.stefan@loplof.de>
+References: <200712061235.06025.stefan@loplof.de> <200712061330.20586.stefan@loplof.de> <20071206.055515.180308628.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org
+Cc: herbert@gondor.apana.org.au, simon@fire.lp0.eu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64834 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752658AbXLFOLK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 09:11:10 -0500
-In-Reply-To: <20071206.060151.154858451.davem@davemloft.net>
+Received: from mo-p07-ob.rzone.de ([81.169.146.189]:49933 "EHLO
+	mo-p07-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750748AbXLFOaS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 09:30:18 -0500
+In-Reply-To: <20071206.055515.180308628.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Thu, 06 Dec 2007 14:59:24 +0100
-> 
->> Pavel Emelyanov wrote:
->>> The SET_VLAN_NAME_TYPE_CMD command w/o CAP_NET_ADMIN capability
->>> doesn't release the rtnl lock.
->>
->> Thanks Pavel. I somehow recall that we already fixed this
->> one, but can't find the patch :) Dave, please apply.
-> 
-> I think we even added this bug to -stable, or something like
-> that, didn't we?  Yikes...
+Am Donnerstag, 6. Dezember 2007 14:55 schrieb David Miller:
 
+> You keep ignoring the fact that, as Herbert and I discussed, not
+> blocking for IPSEC resolution will make some connect() cases fail that
+> would otherwise not fail.
+>
+> There are two sides to this issue, and we need to consider them
+> both.
 
-No, I mixed those two patches up as well. The bug was introduced
-with the vlan_netlink stuff, the -stable patch fixed an invalid
-return value, but still properly dropped the lock.
+as far as I've understood Herbert's patch, at least TCP connect can be fixed 
+so that non blocking connect() will neither fail nor block, but just use the 
+first or second retransmission of the SYN packet to complete the handshake 
+after IPSEC is up. As this will fix the common breakage case, just do so and 
+keep UDP sendmsg() etc for later.
 
-This patch should of course go in -stable anyway.
+You are looking at this issue too much from the kernel side. Admitted, this is 
+a corner case, but therefore nobody cares if connection completion takes two 
+SYNs and three seconds instead of one SYN and may be two seconds. But 
+application developers and users will validly complain if their applications 
+block unexpectedly for hours just because some random provider has a network 
+outage and IPSEC cannot come up.
 
-
+Stefan
