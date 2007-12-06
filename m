@@ -1,633 +1,688 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] Reduce stack used by lib/hexdump.c
-Date: Thu, 06 Dec 2007 13:52:27 -0800
-Message-ID: <1196977948.10819.135.camel@localhost>
-References: <1196359724.22120.22.camel@localhost>
-	 <20071129102400.dac158d8.randy.dunlap@oracle.com>
-	 <1196361860.22120.27.camel@localhost> <474F0A68.1080809@oracle.com>
-	 <1196369873.22120.69.camel@localhost> <474F28EB.20608@oracle.com>
-	 <Pine.LNX.4.64.0711292206450.3089@fbirervta.pbzchgretzou.qr>
-	 <1196378922.22120.72.camel@localhost>
-	 <20071205160133.0766c4f5.akpm@linux-foundation.org>
+From: Vitaly Bordug <vitb@kernel.crashing.org>
+Subject: [PATCH 1/3] [NET] phy/fixed.c: rework to not duplicate PHY layer
+	functionality
+Date: Fri, 07 Dec 2007 01:51:22 +0300
+Message-ID: <20071206225121.31080.86606.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: jengelh@computergmbh.de, Kyle Moffett <mrmacman_g4@mac.com>,
-	randy.dunlap@oracle.com, linux-kernel@vger.kernel.org,
-	"Ted Ts'o" <tytso@mit.edu>, Andreas Dilger <adilger@clusterfs.com>,
-	Dave Kleikamp <shaggy@austin.ibm.com>,
-	David Brownell <dbrownell@users.sourceforge.net>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Eric Sandeen <sandeen@redhat.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	"James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>,
-	Jeff Garzik <jgarzik@pobox.com>, Mingming Cao <cmm@us.ibm.com>,
-	Stephen Tweedie <sct@redhat.com>, Zhu Yi <yi.zhu@intel.com>,
-	ipw3945-devel@lists.sourceforge.net,
-	jfs-discussion@lists.sourceforge.net, linux-ext4@vger.kernel.org,
-	linux-mtd@lists.infradead.org, linux-scsi@vger.kernel.org,
-	linux-usb-devel@lists.sourceforge.net,
-	linux-usb-users@lists.sourceforge.net,
-	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20071205160133.0766c4f5.akpm@linux-foundation.org>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Paul Mackerras <paulus@samba.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:59494 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751392AbXLFWve (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Dec 2007 17:51:34 -0500
+Cc: "linuxppc-dev" <linuxppc-dev@ozlabs.org>
+Cc: netdev@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2007-12-05 at 16:01 -0800, Andrew Morton wrote:
-> No, I think print_hex_dump() is too low-level to be doing allocations. 
-> For example, one could easily choose to call print_hex_dump() at oops time,
-> and then what happens if we oops in kmalloc() (as we often do...)?
-> 
-> You could trim linebuf[] to 80 chars or so.  Extra points for making it
-> very clear when someone tries to exceed that - strcpy(linebuf, "stop being
-> stupid").
 
-No extra points, but here's a revised patch to hexdump against
-Linus' current:
+With that patch fixed.c now fully emulates MDIO bus, thus no need
+to duplicate PHY layer functionality. That, in turn, drastically
+simplifies the code, and drops down line count.
 
-hex_dump_to_buffer:
-	Removes casts to type for non-1 group sizes
-		Used by: fs/ext(3|4)super.c, fs/jfs
-		If someone really dislikes this change, please say so.
-		I think casting to type in a hex dump odd, especially
-		for mixed type structures.
-		If you want an array of type dumper, it probably
-		shouldn't be called hex_dump_to_buffer.
-	Groups by arbitrary size
+As an additional bonus, now there is no need to register MDIO bus
+for each PHY, all emulated PHYs placed on the platform fixed MDIO bus.
+There is also no more need to pre-allocate PHYs via .config option,
+this is all now handled dynamically.
 
-print_hex_dump:
-	Removes rowsize argument
-	Reduces linebuf stack use to ~120 bytes
-		prefix:25 + address:20 + data:48 + ascii:20)
-	Aligns multiline ascii output
-	Changes return to size_t, number of bytes actually output
 
-include/linux/kernel.h
-	Removes hex_asc define
-	Updates hex_dump prototypes
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+Signed-off-by: Vitaly Bordug <vitb@kernel.crashing.org>
+Acked-by: Jeff Garzik <jeff@garzik.org>
 
-The rest are trivial conversions to new argument list.
-	
-size before:
-   text    data     bss     dec     hex filename
-   1142       0       0    1142     476 lib/hexdump.o
-
-size after:
-   text    data     bss     dec     hex filename
-    823       0       0     823     337 lib/hexdump.o
-
-Signed-off-by: Joe Perches <joe@perches.com>
 ---
- include/linux/kernel.h                      |   13 +-
- lib/hexdump.c                               |  164 ++++++++++++---------------
- drivers/mtd/ubi/debug.c                     |    2 +-
- drivers/mtd/ubi/io.c                        |    2 +-
- drivers/net/wireless/iwlwifi/iwl3945-base.c |    4 +-
- drivers/net/wireless/iwlwifi/iwl4965-base.c |    4 +-
- drivers/scsi/ide-scsi.c                     |    8 +-
- drivers/usb/gadget/file_storage.c           |    4 +-
- fs/ext3/super.c                             |    6 +-
- fs/ext4/super.c                             |    6 +-
- fs/jffs2/wbuf.c                             |    4 +-
- fs/jfs/jfs_imap.c                           |    2 +-
- fs/jfs/jfs_logmgr.c                         |    6 +-
- fs/jfs/jfs_metapage.c                       |    2 +-
- fs/jfs/jfs_txnmgr.c                         |    8 +-
- fs/jfs/xattr.c                              |    4 +-
- 16 files changed, 110 insertions(+), 129 deletions(-)
 
-diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index 94bc996..ab45524 100644
---- a/include/linux/kernel.h
-+++ b/include/linux/kernel.h
-@@ -248,15 +248,14 @@ enum {
- 	DUMP_PREFIX_ADDRESS,
- 	DUMP_PREFIX_OFFSET
- };
--extern void hex_dump_to_buffer(const void *buf, size_t len,
--				int rowsize, int groupsize,
--				char *linebuf, size_t linebuflen, bool ascii);
-+extern size_t hex_dump_to_buffer(const void *buf, size_t len,
-+				 size_t rowsize, size_t groupsize,
-+				 char *linebuf, size_t linebuflen, bool ascii);
- extern void print_hex_dump(const char *level, const char *prefix_str,
--				int prefix_type, int rowsize, int groupsize,
--				const void *buf, size_t len, bool ascii);
-+			   int prefix_type, size_t groupsize,
-+			   const void *buf, size_t len, bool ascii);
- extern void print_hex_dump_bytes(const char *prefix_str, int prefix_type,
--			const void *buf, size_t len);
--#define hex_asc(x)	"0123456789abcdef"[x]
-+				 const void *buf, size_t len);
+ drivers/net/phy/Kconfig   |   32 +--
+ drivers/net/phy/fixed.c   |  445 +++++++++++++++++----------------------------
+ include/linux/phy_fixed.h |   51 ++---
+ 3 files changed, 195 insertions(+), 333 deletions(-)
+
+
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 54b2ba9..7fe03ce 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -61,34 +61,12 @@ config ICPLUS_PHY
+ 	  Currently supports the IP175C PHY.
  
- #define pr_emerg(fmt, arg...) \
- 	printk(KERN_EMERG fmt, ##arg)
-diff --git a/lib/hexdump.c b/lib/hexdump.c
-index 3435465..df82012 100644
---- a/lib/hexdump.c
-+++ b/lib/hexdump.c
-@@ -12,18 +12,21 @@
+ config FIXED_PHY
+-	tristate "Drivers for PHY emulation on fixed speed/link"
++	bool "Driver for MDIO Bus/PHY emulation with fixed speed/link PHYs"
+ 	---help---
+-	  Adds the driver to PHY layer to cover the boards that do not have any PHY bound,
+-	  but with the ability to manipulate the speed/link in software. The relevant MII
+-	  speed/duplex parameters could be effectively handled in a user-specified function.
+-	  Currently tested with mpc866ads.
+-
+-config FIXED_MII_10_FDX
+-	bool "Emulation for 10M Fdx fixed PHY behavior"
+-	depends on FIXED_PHY
+-
+-config FIXED_MII_100_FDX
+-	bool "Emulation for 100M Fdx fixed PHY behavior"
+-	depends on FIXED_PHY
+-
+-config FIXED_MII_1000_FDX
+-	bool "Emulation for 1000M Fdx fixed PHY behavior"
+-	depends on FIXED_PHY
+-
+-config FIXED_MII_AMNT
+-        int "Number of emulated PHYs to allocate "
+-        depends on FIXED_PHY
+-        default "1"
+-        ---help---
+-        Sometimes it is required to have several independent emulated
+-        PHYs on the bus (in case of multi-eth but phy-less HW for instance).
+-        This control will have specified number allocated for each fixed
+-        PHY type enabled.
++	  Adds the platform "fixed" MDIO Bus to cover the boards that use
++	  PHYs that are not connected to the real MDIO bus.
++
++	  Currently tested with mpc866ads and mpc8349e-mitx.
+ 
+ config MDIO_BITBANG
+ 	tristate "Support for bitbanged MDIO buses"
+diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
+index 5619182..73b6d39 100644
+--- a/drivers/net/phy/fixed.c
++++ b/drivers/net/phy/fixed.c
+@@ -1,362 +1,253 @@
+ /*
+- * drivers/net/phy/fixed.c
++ * Fixed MDIO bus (MDIO bus emulation with fixed PHYs)
+  *
+- * Driver for fixed PHYs, when transceiver is able to operate in one fixed mode.
++ * Author: Vitaly Bordug <vbordug@ru.mvista.com>
++ *         Anton Vorontsov <avorontsov@ru.mvista.com>
+  *
+- * Author: Vitaly Bordug
+- *
+- * Copyright (c) 2006 MontaVista Software, Inc.
++ * Copyright (c) 2006-2007 MontaVista Software, Inc.
+  *
+  * This program is free software; you can redistribute  it and/or modify it
+  * under  the terms of  the GNU General  Public License as published by the
+  * Free Software Foundation;  either version 2 of the  License, or (at your
+  * option) any later version.
+- *
+  */
++
  #include <linux/kernel.h>
+-#include <linux/string.h>
+-#include <linux/errno.h>
+-#include <linux/unistd.h>
+-#include <linux/slab.h>
+-#include <linux/interrupt.h>
+-#include <linux/init.h>
+-#include <linux/delay.h>
+-#include <linux/netdevice.h>
+-#include <linux/etherdevice.h>
+-#include <linux/skbuff.h>
+-#include <linux/spinlock.h>
+-#include <linux/mm.h>
  #include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/list.h>
+ #include <linux/mii.h>
+-#include <linux/ethtool.h>
+ #include <linux/phy.h>
+ #include <linux/phy_fixed.h>
  
-+#define ROWSIZE ((size_t)16)
-+#define MAX_PREFIX_LEN ((size_t)20)
-+
- /**
-  * hex_dump_to_buffer - convert a blob of data to "hex ASCII" in memory
-  * @buf: data blob to dump
-  * @len: number of bytes in the @buf
-- * @rowsize: number of bytes to print per line; must be 16 or 32
-+ * @rowsize: maximum number of bytes to output (aligns ascii)
-  * @groupsize: number of bytes to print at a time (1, 2, 4, 8; default = 1)
-  * @linebuf: where to put the converted data
-  * @linebuflen: total size of @linebuf, including space for terminating NUL
-  * @ascii: include ASCII after the hex output
-  *
-  * hex_dump_to_buffer() works on one "line" of output at a time, i.e.,
-- * 16 or 32 bytes of input data converted to hex + ASCII output.
-+ * input data converted to hex + ASCII output.
-  *
-  * Given a buffer of u8 data, hex_dump_to_buffer() converts the input data
-  * to a hex + ASCII dump at the supplied memory location.
-@@ -31,85 +34,54 @@
-  *
-  * E.g.:
-  *   hex_dump_to_buffer(frame->data, frame->len, 16, 1,
-- *			linebuf, sizeof(linebuf), 1);
-+ *			linebuf, sizeof(linebuf), true);
-  *
-  * example output buffer:
-  * 40 41 42 43 44 45 46 47 48 49 4a 4b 4c 4d 4e 4f  @ABCDEFGHIJKLMNO
-  */
--void hex_dump_to_buffer(const void *buf, size_t len, int rowsize,
--			int groupsize, char *linebuf, size_t linebuflen,
--			bool ascii)
-+size_t hex_dump_to_buffer(const void *buf, size_t len,
-+			  size_t rowsize, size_t groupsize,
-+			  char *linebuf, size_t linebuflen, bool ascii)
- {
- 	const u8 *ptr = buf;
--	u8 ch;
--	int j, lx = 0;
--	int ascii_column;
--
--	if (rowsize != 16 && rowsize != 32)
--		rowsize = 16;
--
-+	int i, lx = 0;
-+	size_t ascii_column;
-+	size_t ngroups;
- 	if (!len)
- 		goto nil;
--	if (len > rowsize)		/* limit to one line at a time */
--		len = rowsize;
--	if ((len % groupsize) != 0)	/* no mixed size output */
--		groupsize = 1;
--
--	switch (groupsize) {
--	case 8: {
--		const u64 *ptr8 = buf;
--		int ngroups = len / groupsize;
--
--		for (j = 0; j < ngroups; j++)
--			lx += scnprintf(linebuf + lx, linebuflen - lx,
--				"%16.16llx ", (unsigned long long)*(ptr8 + j));
--		ascii_column = 17 * ngroups + 2;
--		break;
--	}
--
--	case 4: {
--		const u32 *ptr4 = buf;
--		int ngroups = len / groupsize;
--
--		for (j = 0; j < ngroups; j++)
--			lx += scnprintf(linebuf + lx, linebuflen - lx,
--				"%8.8x ", *(ptr4 + j));
--		ascii_column = 9 * ngroups + 2;
--		break;
--	}
+-#include <asm/io.h>
+-#include <asm/irq.h>
+-#include <asm/uaccess.h>
++#define MII_REGS_NUM 29
  
--	case 2: {
--		const u16 *ptr2 = buf;
--		int ngroups = len / groupsize;
-+	if (groupsize == 0)
-+		groupsize = 1;
-+	else if (groupsize > rowsize)
-+		groupsize = rowsize;
- 
--		for (j = 0; j < ngroups; j++)
--			lx += scnprintf(linebuf + lx, linebuflen - lx,
--				"%4.4x ", *(ptr2 + j));
--		ascii_column = 5 * ngroups + 2;
--		break;
--	}
-+	ngroups = rowsize / groupsize;
-+	ascii_column = (2 * groupsize + 1) * ngroups + 2;
-+	if (len > (ngroups * groupsize))
-+		len = ngroups * groupsize;
- 
--	default:
--		for (j = 0; (j < rowsize) && (j < len) && (lx + 4) < linebuflen;
--		     j++) {
--			ch = ptr[j];
--			linebuf[lx++] = hex_asc(ch >> 4);
--			linebuf[lx++] = hex_asc(ch & 0x0f);
-+	for (i = 0; i < len; i++) {
-+		if (i && (i % groupsize) == 0)
- 			linebuf[lx++] = ' ';
+-/* we need to track the allocated pointers in order to free them on exit */
+-static struct fixed_info *fixed_phy_ptrs[CONFIG_FIXED_MII_AMNT*MAX_PHY_AMNT];
+-
+-/*-----------------------------------------------------------------------------
+- *  If something weird is required to be done with link/speed,
+- * network driver is able to assign a function to implement this.
+- * May be useful for PHY's that need to be software-driven.
+- *-----------------------------------------------------------------------------*/
+-int fixed_mdio_set_link_update(struct phy_device *phydev,
+-			       int (*link_update) (struct net_device *,
+-						   struct fixed_phy_status *))
+-{
+-	struct fixed_info *fixed;
+-
+-	if (link_update == NULL)
+-		return -EINVAL;
+-
+-	if (phydev) {
+-		if (phydev->bus) {
+-			fixed = phydev->bus->priv;
+-			fixed->link_update = link_update;
+-			return 0;
 -		}
--		ascii_column = 3 * rowsize + 2;
--		break;
-+		lx += scnprintf(linebuf + lx, linebuflen - lx,
-+				"%02x", ptr[i] & 0xff);
- 	}
-+
- 	if (!ascii)
- 		goto nil;
+-	}
+-	return -EINVAL;
+-}
+-
+-EXPORT_SYMBOL(fixed_mdio_set_link_update);
++struct fixed_mdio_bus {
++	int irqs[PHY_MAX_ADDR];
++	struct mii_bus mii_bus;
++	struct list_head phys;
++};
  
- 	while (lx < (linebuflen - 1) && lx < (ascii_column - 1))
- 		linebuf[lx++] = ' ';
--	for (j = 0; (j < rowsize) && (j < len) && (lx + 2) < linebuflen; j++)
--		linebuf[lx++] = (isascii(ptr[j]) && isprint(ptr[j])) ? ptr[j]
--				: '.';
+-struct fixed_info *fixed_mdio_get_phydev (int phydev_ind)
+-{
+-	if (phydev_ind >= MAX_PHY_AMNT)
+-		return NULL;
+-	return fixed_phy_ptrs[phydev_ind];
+-}
++struct fixed_phy {
++	int id;
++	u16 regs[MII_REGS_NUM];
++	struct phy_device *phydev;
++	struct fixed_phy_status status;
++	int (*link_update)(struct net_device *, struct fixed_phy_status *);
++	struct list_head node;
++};
+ 
+-EXPORT_SYMBOL(fixed_mdio_get_phydev);
++static struct platform_device *pdev;
++static struct fixed_mdio_bus platform_fmb = {
++	.phys = LIST_HEAD_INIT(platform_fmb.phys),
++};
+ 
+-/*-----------------------------------------------------------------------------
+- *  This is used for updating internal mii regs from the status
+- *-----------------------------------------------------------------------------*/
+-#if defined(CONFIG_FIXED_MII_100_FDX) || defined(CONFIG_FIXED_MII_10_FDX) || defined(CONFIG_FIXED_MII_1000_FDX)
+-static int fixed_mdio_update_regs(struct fixed_info *fixed)
++static int fixed_phy_update_regs(struct fixed_phy *fp)
+ {
+-	u16 *regs = fixed->regs;
+-	u16 bmsr = 0;
++	u16 bmsr = BMSR_ANEGCAPABLE;
+ 	u16 bmcr = 0;
++	u16 lpagb = 0;
++	u16 lpa = 0;
+ 
+-	if (!regs) {
+-		printk(KERN_ERR "%s: regs not set up", __FUNCTION__);
+-		return -EINVAL;
+-	}
+-
+-	if (fixed->phy_status.link)
+-		bmsr |= BMSR_LSTATUS;
+-
+-	if (fixed->phy_status.duplex) {
++	if (fp->status.duplex) {
+ 		bmcr |= BMCR_FULLDPLX;
+ 
+-		switch (fixed->phy_status.speed) {
++		switch (fp->status.speed) {
++		case 1000:
++			bmsr |= BMSR_ESTATEN;
++			bmcr |= BMCR_SPEED1000;
++			lpagb |= LPA_1000FULL;
++			break;
+ 		case 100:
+ 			bmsr |= BMSR_100FULL;
+ 			bmcr |= BMCR_SPEED100;
++			lpa |= LPA_100FULL;
+ 			break;
+-
+ 		case 10:
+ 			bmsr |= BMSR_10FULL;
++			lpa |= LPA_10FULL;
+ 			break;
++		default:
++			printk(KERN_WARNING "fixed phy: unknown speed\n");
++			return -EINVAL;
+ 		}
+ 	} else {
+-		switch (fixed->phy_status.speed) {
++		switch (fp->status.speed) {
++		case 1000:
++			bmsr |= BMSR_ESTATEN;
++			bmcr |= BMCR_SPEED1000;
++			lpagb |= LPA_1000HALF;
++			break;
+ 		case 100:
+ 			bmsr |= BMSR_100HALF;
+ 			bmcr |= BMCR_SPEED100;
++			lpa |= LPA_100HALF;
+ 			break;
+-
+ 		case 10:
+-			bmsr |= BMSR_100HALF;
++			bmsr |= BMSR_10HALF;
++			lpa |= LPA_10HALF;
+ 			break;
++		default:
++			printk(KERN_WARNING "fixed phy: unknown speed\n");
++			return -EINVAL;
+ 		}
+ 	}
+ 
+-	regs[MII_BMCR] = bmcr;
+-	regs[MII_BMSR] = bmsr | 0x800;	/*we are always capable of 10 hdx */
++	if (fp->status.link)
++		bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
 +
-+	for (i = 0; i < len && (lx + 2) < linebuflen; i++) {
-+		if (i > 0 && groupsize > 1 && (i % groupsize) == 0)
-+			linebuf[lx++] = ' ';
-+		linebuf[lx++] = (isascii(ptr[i]) && isprint(ptr[i]))
-+			? ptr[i] : '.';
++	if (fp->status.pause)
++		lpa |= LPA_PAUSE_CAP;
++
++	if (fp->status.asym_pause)
++		lpa |= LPA_PAUSE_ASYM;
++
++	fp->regs[MII_PHYSID1] = fp->id >> 16;
++	fp->regs[MII_PHYSID2] = fp->id;
++
++	fp->regs[MII_BMSR] = bmsr;
++	fp->regs[MII_BMCR] = bmcr;
++	fp->regs[MII_LPA] = lpa;
++	fp->regs[MII_STAT1000] = lpagb;
+ 
+ 	return 0;
+ }
+ 
+-static int fixed_mii_read(struct mii_bus *bus, int phy_id, int location)
++static int fixed_mdio_read(struct mii_bus *bus, int phy_id, int reg_num)
+ {
+-	struct fixed_info *fixed = bus->priv;
+-
+-	/* if user has registered link update callback, use it */
+-	if (fixed->phydev)
+-		if (fixed->phydev->attached_dev) {
+-			if (fixed->link_update) {
+-				fixed->link_update(fixed->phydev->attached_dev,
+-						   &fixed->phy_status);
+-				fixed_mdio_update_regs(fixed);
++	struct fixed_mdio_bus *fmb = container_of(bus, struct fixed_mdio_bus,
++						  mii_bus);
++	struct fixed_phy *fp;
++
++	if (reg_num >= MII_REGS_NUM)
++		return -1;
++
++	list_for_each_entry(fp, &fmb->phys, node) {
++		if (fp->id == phy_id) {
++			/* Issue callback if user registered it. */
++			if (fp->link_update) {
++				fp->link_update(fp->phydev->attached_dev,
++						&fp->status);
++				fixed_phy_update_regs(fp);
+ 			}
++			return fp->regs[reg_num];
+ 		}
 +	}
- nil:
--	linebuf[lx++] = '\0';
-+	linebuf[lx] = '\0';
-+	return len;
- }
- EXPORT_SYMBOL(hex_dump_to_buffer);
  
-@@ -120,7 +92,6 @@ EXPORT_SYMBOL(hex_dump_to_buffer);
-  *  caller supplies trailing spaces for alignment if desired
-  * @prefix_type: controls whether prefix of an offset, address, or none
-  *  is printed (%DUMP_PREFIX_OFFSET, %DUMP_PREFIX_ADDRESS, %DUMP_PREFIX_NONE)
-- * @rowsize: number of bytes to print per line; must be 16 or 32
-  * @groupsize: number of bytes to print at a time (1, 2, 4, 8; default = 1)
-  * @buf: data blob to dump
-  * @len: number of bytes in the @buf
-@@ -131,48 +102,60 @@ EXPORT_SYMBOL(hex_dump_to_buffer);
-  * leading prefix.
-  *
-  * print_hex_dump() works on one "line" of output at a time, i.e.,
-- * 16 or 32 bytes of input data converted to hex + ASCII output.
-+ * 16 bytes of input data converted to hex + ASCII output.
-  * print_hex_dump() iterates over the entire input @buf, breaking it into
-- * "line size" chunks to format and print.
-+ * groups of up to 16 byte chunks to format and print.
-  *
-  * E.g.:
-- *   print_hex_dump(KERN_DEBUG, "raw data: ", DUMP_PREFIX_ADDRESS,
-- *		16, 1, frame->data, frame->len, 1);
-+ *   print_hex_dump(KERN_DEBUG, "raw data: ", DUMP_PREFIX_ADDRESS, 1,
-+ *		    frame->data, frame->len, 1);
-  *
-  * Example output using %DUMP_PREFIX_OFFSET and 1-byte mode:
-- * 0009ab42: 40 41 42 43 44 45 46 47 48 49 4a 4b 4c 4d 4e 4f  @ABCDEFGHIJKLMNO
-- * Example output using %DUMP_PREFIX_ADDRESS and 4-byte mode:
-- * ffffffff88089af0: 73727170 77767574 7b7a7978 7f7e7d7c  pqrstuvwxyz{|}~.
-+ * 00000000: 40 41 42 43 44 45 46 47 48 49 4a 4b 4c 4d 4e 4f  @ABCDEFGHIJKLMNO
-+ * Example output using %DUMP_PREFIX_ADDRESS and 4-byte mode on BE 64 bit:
-+ * ffffffff88089af0: 70717273 74757677 78797a7b 7c7d7e7f  pqrs tuvw xyz{ |}~.
-+ * Example output using %DUMP_PREFIX_ADDRESS and 5-byte mode on LE 32 bit:
-+ * 88089af0: 7071727374 7576777879 7a7b7d7d7e  pqrst uvwxy z{|}~
-  */
-+
- void print_hex_dump(const char *level, const char *prefix_str, int prefix_type,
--			int rowsize, int groupsize,
--			const void *buf, size_t len, bool ascii)
-+		    size_t groupsize, const void *buf, size_t len, bool ascii)
+-	if ((unsigned int)location >= fixed->regs_num)
+-		return -1;
+-	return fixed->regs[location];
++	return 0xFFFF;
+ }
+ 
+-static int fixed_mii_write(struct mii_bus *bus, int phy_id, int location,
+-			   u16 val)
++static int fixed_mdio_write(struct mii_bus *bus, int phy_id, int reg_num,
++			    u16 val)
  {
- 	const u8 *ptr = buf;
--	int i, linelen, remaining = len;
--	unsigned char linebuf[200];
+-	/* do nothing for now */
+ 	return 0;
+ }
+ 
+-static int fixed_mii_reset(struct mii_bus *bus)
++/*
++ * If something weird is required to be done with link/speed,
++ * network driver is able to assign a function to implement this.
++ * May be useful for PHY's that need to be software-driven.
++ */
++int fixed_phy_set_link_update(struct phy_device *phydev,
++			      int (*link_update)(struct net_device *,
++						 struct fixed_phy_status *))
+ {
+-	/*nothing here - no way/need to reset it */
+-	return 0;
+-}
+-#endif
++	struct fixed_mdio_bus *fmb = &platform_fmb;
++	struct fixed_phy *fp;
+ 
+-static int fixed_config_aneg(struct phy_device *phydev)
+-{
+-	/* :TODO:03/13/2006 09:45:37 PM::
+-	   The full autoneg funcionality can be emulated,
+-	   but no need to have anything here for now
+-	 */
+-	return 0;
+-}
++	if (!link_update || !phydev || !phydev->bus)
++		return -EINVAL;
+ 
+-/*-----------------------------------------------------------------------------
+- * the manual bind will do the magic - with phy_id_mask == 0
+- * match will never return true...
+- *-----------------------------------------------------------------------------*/
+-static struct phy_driver fixed_mdio_driver = {
+-	.name = "Fixed PHY",
+-#ifdef CONFIG_FIXED_MII_1000_FDX
+-	.features = PHY_GBIT_FEATURES,
+-#else
+-	.features = PHY_BASIC_FEATURES,
+-#endif
+-	.config_aneg = fixed_config_aneg,
+-	.read_status = genphy_read_status,
+-	.driver = { .owner = THIS_MODULE, },
+-};
++	list_for_each_entry(fp, &fmb->phys, node) {
++		if (fp->id == phydev->phy_id) {
++			fp->link_update = link_update;
++			fp->phydev = phydev;
++			return 0;
++		}
++	}
+ 
+-static void fixed_mdio_release(struct device *dev)
+-{
+-	struct phy_device *phydev = container_of(dev, struct phy_device, dev);
+-	struct mii_bus *bus = phydev->bus;
+-	struct fixed_info *fixed = bus->priv;
 -
--	if (rowsize != 16 && rowsize != 32)
--		rowsize = 16;
+-	kfree(phydev);
+-	kfree(bus->dev);
+-	kfree(bus);
+-	kfree(fixed->regs);
+-	kfree(fixed);
++	return -ENOENT;
+ }
++EXPORT_SYMBOL_GPL(fixed_phy_set_link_update);
+ 
+-/*-----------------------------------------------------------------------------
+- *  This func is used to create all the necessary stuff, bind
+- * the fixed phy driver and register all it on the mdio_bus_type.
+- * speed is either 10 or 100 or 1000, duplex is boolean.
+- * number is used to create multiple fixed PHYs, so that several devices can
+- * utilize them simultaneously.
+- *
+- * The device on mdio bus will look like [bus_id]:[phy_id],
+- * bus_id = number
+- * phy_id = speed+duplex.
+- *-----------------------------------------------------------------------------*/
+-#if defined(CONFIG_FIXED_MII_100_FDX) || defined(CONFIG_FIXED_MII_10_FDX) || defined(CONFIG_FIXED_MII_1000_FDX)
+-struct fixed_info *fixed_mdio_register_device(
+-	int bus_id, int speed, int duplex, u8 phy_id)
++int fixed_phy_add(unsigned int irq, int phy_id,
++		  struct fixed_phy_status *status)
+ {
+-	struct mii_bus *new_bus;
+-	struct fixed_info *fixed;
+-	struct phy_device *phydev;
+-	int err;
++	int ret;
++	struct fixed_mdio_bus *fmb = &platform_fmb;
++	struct fixed_phy *fp;
+ 
+-	struct device *dev = kzalloc(sizeof(struct device), GFP_KERNEL);
++	fp = kzalloc(sizeof(*fp), GFP_KERNEL);
++	if (!fp)
++		return -ENOMEM;
+ 
+-	if (dev == NULL)
+-		goto err_dev_alloc;
++	memset(fp->regs, 0xFF,  sizeof(fp->regs[0]) * MII_REGS_NUM);
+ 
+-	new_bus = kzalloc(sizeof(struct mii_bus), GFP_KERNEL);
++	fmb->irqs[phy_id] = irq;
+ 
+-	if (new_bus == NULL)
+-		goto err_bus_alloc;
++	fp->id = phy_id;
++	fp->status = *status;
+ 
+-	fixed = kzalloc(sizeof(struct fixed_info), GFP_KERNEL);
++	ret = fixed_phy_update_regs(fp);
++	if (ret)
++		goto err_regs;
+ 
+-	if (fixed == NULL)
+-		goto err_fixed_alloc;
++	list_add_tail(&fp->node, &fmb->phys);
+ 
+-	fixed->regs = kzalloc(MII_REGS_NUM * sizeof(int), GFP_KERNEL);
+-	if (NULL == fixed->regs)
+-		goto err_fixed_regs_alloc;
++	return 0;
+ 
+-	fixed->regs_num = MII_REGS_NUM;
+-	fixed->phy_status.speed = speed;
+-	fixed->phy_status.duplex = duplex;
+-	fixed->phy_status.link = 1;
++err_regs:
++	kfree(fp);
++	return ret;
++}
++EXPORT_SYMBOL_GPL(fixed_phy_add);
+ 
+-	new_bus->name = "Fixed MII Bus";
+-	new_bus->read = &fixed_mii_read;
+-	new_bus->write = &fixed_mii_write;
+-	new_bus->reset = &fixed_mii_reset;
+-	/*set up workspace */
+-	fixed_mdio_update_regs(fixed);
+-	new_bus->priv = fixed;
++static int __init fixed_mdio_bus_init(void)
++{
++	struct fixed_mdio_bus *fmb = &platform_fmb;
++	int ret;
+ 
+-	new_bus->dev = dev;
+-	dev_set_drvdata(dev, new_bus);
++	pdev = platform_device_register_simple("Fixed MDIO bus", 0, NULL, 0);
++	if (!pdev) {
++		ret = -ENOMEM;
++		goto err_pdev;
++	}
+ 
+-	/* create phy_device and register it on the mdio bus */
+-	phydev = phy_device_create(new_bus, 0, 0);
+-	if (phydev == NULL)
+-		goto err_phy_dev_create;
++	fmb->mii_bus.id = 0;
++	fmb->mii_bus.name = "Fixed MDIO Bus";
++	fmb->mii_bus.dev = &pdev->dev;
++	fmb->mii_bus.read = &fixed_mdio_read;
++	fmb->mii_bus.write = &fixed_mdio_write;
++	fmb->mii_bus.irq = fmb->irqs;
+ 
+-	/*
+-	 * Put the phydev pointer into the fixed pack so that bus read/write
+-	 * code could be able to access for instance attached netdev. Well it
+-	 * doesn't have to do so, only in case of utilizing user-specified
+-	 * link-update...
+-	 */
++	ret = mdiobus_register(&fmb->mii_bus);
++	if (ret)
++		goto err_mdiobus_reg;
+ 
+-	fixed->phydev = phydev;
+-	phydev->speed = speed;
+-	phydev->duplex = duplex;
++	return 0;
+ 
+-	phydev->irq = PHY_IGNORE_INTERRUPT;
+-	phydev->dev.bus = &mdio_bus_type;
++err_mdiobus_reg:
++	platform_device_unregister(pdev);
++err_pdev:
++	return ret;
++}
++module_init(fixed_mdio_bus_init);
+ 
+-	snprintf(phydev->dev.bus_id, BUS_ID_SIZE,
+-		 PHY_ID_FMT, bus_id, phy_id);
++static void __exit fixed_mdio_bus_exit(void)
++{
++	struct fixed_mdio_bus *fmb = &platform_fmb;
++	struct fixed_phy *fp;
+ 
+-	phydev->bus = new_bus;
++	mdiobus_unregister(&fmb->mii_bus);
++	platform_device_unregister(pdev);
+ 
+-	phydev->dev.driver = &fixed_mdio_driver.driver;
+-	phydev->dev.release = fixed_mdio_release;
+-	err = phydev->dev.driver->probe(&phydev->dev);
+-	if (err < 0) {
+-		printk(KERN_ERR "Phy %s: problems with fixed driver\n",
+-		       phydev->dev.bus_id);
+-		goto err_out;
+-	}
+-	err = device_register(&phydev->dev);
+-	if (err) {
+-		printk(KERN_ERR "Phy %s failed to register\n",
+-		       phydev->dev.bus_id);
+-		goto err_out;
++	list_for_each_entry(fp, &fmb->phys, node) {
++		list_del(&fp->node);
++		kfree(fp);
+ 	}
+-	//phydev->state = PHY_RUNNING; /* make phy go up quick, but in 10Mbit/HDX
+-	return fixed;
 -
--	for (i = 0; i < len; i += rowsize) {
--		linelen = min(remaining, rowsize);
--		remaining -= rowsize;
--		hex_dump_to_buffer(ptr + i, linelen, rowsize, groupsize,
--				linebuf, sizeof(linebuf), ascii);
-+	size_t i;
-+	size_t linelen;
-+	size_t prefix_len = strlen(prefix_str);
-+	unsigned char linebuf[sizeof(KERN_INFO) +
-+			      MAX_PREFIX_LEN +
-+			      (2 * sizeof(void *) + 4) +
-+			      (3 * ROWSIZE) +
-+			      (3 * ROWSIZE / 2) + 1];
-+	if (prefix_len > MAX_PREFIX_LEN)
-+		prefix_len = MAX_PREFIX_LEN;
-+
-+	i = 0;
-+	while (i < len) {
-+		size_t bytes;
-+		linelen = min(len - i, ROWSIZE);
-+		bytes = hex_dump_to_buffer(ptr + i, linelen, ROWSIZE, groupsize,
-+					   linebuf, sizeof(linebuf), ascii);
- 
- 		switch (prefix_type) {
- 		case DUMP_PREFIX_ADDRESS:
--			printk("%s%s%*p: %s\n", level, prefix_str,
--				(int)(2 * sizeof(void *)), ptr + i, linebuf);
-+			printk("%s%-.*s%*p: %s\n", level,
-+			       prefix_len, prefix_str,
-+			       (int)(2 * sizeof(void *)), ptr + i, linebuf);
- 			break;
- 		case DUMP_PREFIX_OFFSET:
--			printk("%s%s%.8x: %s\n", level, prefix_str, i, linebuf);
-+			printk("%s%-.*s%.8x: %s\n", level,
-+			       prefix_len, prefix_str, i, linebuf);
- 			break;
- 		default:
--			printk("%s%s%s\n", level, prefix_str, linebuf);
-+			printk("%s%-.*s%s\n", level,
-+			       prefix_len, prefix_str, linebuf);
- 			break;
- 		}
-+		i += bytes;
- 	}
+-err_out:
+-	kfree(phydev);
+-err_phy_dev_create:
+-	kfree(fixed->regs);
+-err_fixed_regs_alloc:
+-	kfree(fixed);
+-err_fixed_alloc:
+-	kfree(new_bus);
+-err_bus_alloc:
+-	kfree(dev);
+-err_dev_alloc:
+-
+-	return NULL;
+-
  }
- EXPORT_SYMBOL(print_hex_dump);
-@@ -187,12 +170,11 @@ EXPORT_SYMBOL(print_hex_dump);
-  * @len: number of bytes in the @buf
-  *
-  * Calls print_hex_dump(), with log level of KERN_DEBUG,
-- * rowsize of 16, groupsize of 1, and ASCII output included.
-+ * groupsize of 1, and ASCII output included.
-  */
- void print_hex_dump_bytes(const char *prefix_str, int prefix_type,
--			const void *buf, size_t len)
-+			  const void *buf, size_t len)
- {
--	print_hex_dump(KERN_DEBUG, prefix_str, prefix_type, 16, 1,
--			buf, len, 1);
-+	print_hex_dump(KERN_DEBUG, prefix_str, prefix_type, 1, buf, len, true);
- }
- EXPORT_SYMBOL(print_hex_dump_bytes);
-diff --git a/drivers/mtd/ubi/debug.c b/drivers/mtd/ubi/debug.c
-index 56956ec..d99c4d5 100644
---- a/drivers/mtd/ubi/debug.c
-+++ b/drivers/mtd/ubi/debug.c
-@@ -42,7 +42,7 @@ void ubi_dbg_dump_ec_hdr(const struct ubi_ec_hdr *ec_hdr)
- 	dbg_msg("data_offset    %d",    be32_to_cpu(ec_hdr->data_offset));
- 	dbg_msg("hdr_crc        %#08x", be32_to_cpu(ec_hdr->hdr_crc));
- 	dbg_msg("erase counter header hexdump:");
--	print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET, 32, 1,
-+	print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET, 1,
- 		       ec_hdr, UBI_EC_HDR_SIZE, 1);
- }
+-#endif
++module_exit(fixed_mdio_bus_exit);
  
-diff --git a/drivers/mtd/ubi/io.c b/drivers/mtd/ubi/io.c
-index 7c304ee..20cf7b2 100644
---- a/drivers/mtd/ubi/io.c
-+++ b/drivers/mtd/ubi/io.c
-@@ -1243,7 +1243,7 @@ static int paranoid_check_all_ff(struct ubi_device *ubi, int pnum, int offset,
- fail:
- 	ubi_err("paranoid check failed for PEB %d", pnum);
- 	dbg_msg("hex dump of the %d-%d region", offset, offset + len);
--	print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET, 32, 1,
-+	print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET, 1,
- 		       ubi->dbg_peb_buf, len, 1);
- 	err = 1;
- error:
-diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-index 4bdf237..563c30f 100644
---- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
-+++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-@@ -184,8 +184,8 @@ static void iwl_print_hex_dump(int level, void *p, u32 len)
- 	if (!(iwl_debug_level & level))
- 		return;
+-MODULE_DESCRIPTION("Fixed PHY device & driver for PAL");
++MODULE_DESCRIPTION("Fixed MDIO bus (MDIO bus emulation with fixed PHYs)");
+ MODULE_AUTHOR("Vitaly Bordug");
+ MODULE_LICENSE("GPL");
+-
+-static int __init fixed_init(void)
+-{
+-	int cnt = 0;
+-	int i;
+-/* register on the bus... Not expected to be matched
+- * with anything there...
+- *
+- */
+-	phy_driver_register(&fixed_mdio_driver);
+-
+-/* We will create several mdio devices here, and will bound the upper
+- * driver to them.
+- *
+- * Then the external software can lookup the phy bus by searching
+- * for 0:101, to be connected to the virtual 100M Fdx phy.
+- *
+- * In case several virtual PHYs required, the bus_id will be in form
+- * [num]:[duplex]+[speed], which make it able even to define
+- * driver-specific link control callback, if for instance PHY is
+- * completely SW-driven.
+- */
+-	for (i=1; i <= CONFIG_FIXED_MII_AMNT; i++) {
+-#ifdef CONFIG_FIXED_MII_1000_FDX
+-		fixed_phy_ptrs[cnt++] = fixed_mdio_register_device(0, 1000, 1, i);
+-#endif
+-#ifdef CONFIG_FIXED_MII_100_FDX
+-		fixed_phy_ptrs[cnt++] = fixed_mdio_register_device(1, 100, 1, i);
+-#endif
+-#ifdef CONFIG_FIXED_MII_10_FDX
+-		fixed_phy_ptrs[cnt++] = fixed_mdio_register_device(2, 10, 1, i);
+-#endif
+-	}
+-
+-	return 0;
+-}
+-
+-static void __exit fixed_exit(void)
+-{
+-	int i;
+-
+-	phy_driver_unregister(&fixed_mdio_driver);
+-	for (i=0; i < MAX_PHY_AMNT; i++)
+-		if ( fixed_phy_ptrs[i] )
+-			device_unregister(&fixed_phy_ptrs[i]->phydev->dev);
+-}
+-
+-module_init(fixed_init);
+-module_exit(fixed_exit);
+diff --git a/include/linux/phy_fixed.h b/include/linux/phy_fixed.h
+index 04ba70d..509d8f5 100644
+--- a/include/linux/phy_fixed.h
++++ b/include/linux/phy_fixed.h
+@@ -1,38 +1,31 @@
+ #ifndef __PHY_FIXED_H
+ #define __PHY_FIXED_H
  
--	print_hex_dump(KERN_DEBUG, "iwl data: ", DUMP_PREFIX_OFFSET, 16, 1,
--			p, len, 1);
-+	print_hex_dump(KERN_DEBUG, "iwl data: ", DUMP_PREFIX_OFFSET, 1,
-+		       p, len, 1);
- #endif
- }
+-#define MII_REGS_NUM	29
+-
+-/* max number of virtual phy stuff */
+-#define MAX_PHY_AMNT	10
+-/*
+-    The idea is to emulate normal phy behavior by responding with
+-    pre-defined values to mii BMCR read, so that read_status hook could
+-    take all the needed info.
+-*/
+-
+ struct fixed_phy_status {
+-	u8 link;
+-	u16 speed;
+-	u8 duplex;
++	int link;
++	int speed;
++	int duplex;
++	int pause;
++	int asym_pause;
+ };
  
-diff --git a/drivers/net/wireless/iwlwifi/iwl4965-base.c b/drivers/net/wireless/iwlwifi/iwl4965-base.c
-index 8f85564..150f6e4 100644
---- a/drivers/net/wireless/iwlwifi/iwl4965-base.c
-+++ b/drivers/net/wireless/iwlwifi/iwl4965-base.c
-@@ -183,8 +183,8 @@ static void iwl_print_hex_dump(int level, void *p, u32 len)
- 	if (!(iwl_debug_level & level))
- 		return;
+-/*-----------------------------------------------------------------------------
+- *  Private information hoder for mii_bus
+- *-----------------------------------------------------------------------------*/
+-struct fixed_info {
+-	u16 *regs;
+-	u8 regs_num;
+-	struct fixed_phy_status phy_status;
+-	struct phy_device *phydev;	/* pointer to the container */
+-	/* link & speed cb */
+-	int (*link_update) (struct net_device *, struct fixed_phy_status *);
++#ifdef CONFIG_FIXED_PHY
++extern int fixed_phy_add(unsigned int irq, int phy_id,
++			 struct fixed_phy_status *status);
++#else
++static inline int fixed_phy_add(unsigned int irq, int phy_id,
++				struct fixed_phy_status *status)
++{
++	return -ENODEV;
++}
++#endif /* CONFIG_FIXED_PHY */
  
--	print_hex_dump(KERN_DEBUG, "iwl data: ", DUMP_PREFIX_OFFSET, 16, 1,
--			p, len, 1);
-+	print_hex_dump(KERN_DEBUG, "iwl data: ", DUMP_PREFIX_OFFSET, 1,
-+		       p, len, 1);
- #endif
- }
+-};
+-
+-
+-int fixed_mdio_set_link_update(struct phy_device *,
+-       int (*link_update) (struct net_device *, struct fixed_phy_status *));
+-struct fixed_info *fixed_mdio_get_phydev (int phydev_ind);
++/*
++ * This function issued only by fixed_phy-aware drivers, no need
++ * protect it with #ifdef
++ */
++extern int fixed_phy_set_link_update(struct phy_device *phydev,
++			int (*link_update)(struct net_device *,
++					   struct fixed_phy_status *));
  
-diff --git a/drivers/scsi/ide-scsi.c b/drivers/scsi/ide-scsi.c
-index 7a835a3..cc2da8a 100644
---- a/drivers/scsi/ide-scsi.c
-+++ b/drivers/scsi/ide-scsi.c
-@@ -272,7 +272,7 @@ static int idescsi_check_condition(ide_drive_t *drive, struct request *failed_co
- 	pc->scsi_cmd = ((idescsi_pc_t *) failed_command->special)->scsi_cmd;
- 	if (test_bit(IDESCSI_LOG_CMD, &scsi->log)) {
- 		printk ("ide-scsi: %s: queue cmd = ", drive->name);
--		print_hex_dump(KERN_CONT, "", DUMP_PREFIX_NONE, 16, 1, pc->c,
-+		print_hex_dump(KERN_CONT, "", DUMP_PREFIX_NONE, 1, pc->c,
- 			       6, 0);
- 	}
- 	rq->rq_disk = scsi->disk;
-@@ -328,7 +328,7 @@ static int idescsi_end_request (ide_drive_t *drive, int uptodate, int nrsecs)
- 		idescsi_pc_t *opc = (idescsi_pc_t *) rq->buffer;
- 		if (log) {
- 			printk ("ide-scsi: %s: wrap up check %lu, rst = ", drive->name, opc->scsi_cmd->serial_number);
--			print_hex_dump(KERN_CONT, "", DUMP_PREFIX_NONE, 16, 1,
-+			print_hex_dump(KERN_CONT, "", DUMP_PREFIX_NONE, 1,
- 				       pc->buffer, 16, 0);
- 		}
- 		memcpy((void *) opc->scsi_cmd->sense_buffer, pc->buffer, SCSI_SENSE_BUFFERSIZE);
-@@ -808,11 +808,11 @@ static int idescsi_queue (struct scsi_cmnd *cmd,
- 
- 	if (test_bit(IDESCSI_LOG_CMD, &scsi->log)) {
- 		printk ("ide-scsi: %s: que %lu, cmd = ", drive->name, cmd->serial_number);
--		print_hex_dump(KERN_CONT, "", DUMP_PREFIX_NONE, 16, 1,
-+		print_hex_dump(KERN_CONT, "", DUMP_PREFIX_NONE, 1,
- 			       cmd->cmnd, cmd->cmd_len, 0);
- 		if (memcmp(pc->c, cmd->cmnd, cmd->cmd_len)) {
- 			printk ("ide-scsi: %s: que %lu, tsl = ", drive->name, cmd->serial_number);
--			print_hex_dump(KERN_CONT, "", DUMP_PREFIX_NONE, 16, 1,
-+			print_hex_dump(KERN_CONT, "", DUMP_PREFIX_NONE, 1,
- 				       pc->c, 12, 0);
- 		}
- 	}
-diff --git a/drivers/usb/gadget/file_storage.c b/drivers/usb/gadget/file_storage.c
-index 1d174dc..e690949 100644
---- a/drivers/usb/gadget/file_storage.c
-+++ b/drivers/usb/gadget/file_storage.c
-@@ -723,7 +723,7 @@ static void dump_msg(struct fsg_dev *fsg, const char *label,
- 	if (length < 512) {
- 		DBG(fsg, "%s, length %u:\n", label, length);
- 		print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET,
--				16, 1, buf, length, 0);
-+			       1, buf, length, 0);
- 	}
- }
- 
-@@ -741,7 +741,7 @@ static void dump_msg(struct fsg_dev *fsg, const char *label,
- static void dump_cdb(struct fsg_dev *fsg)
- {
- 	print_hex_dump(KERN_DEBUG, "SCSI CDB: ", DUMP_PREFIX_NONE,
--			16, 1, fsg->cmnd, fsg->cmnd_size, 0);
-+		       1, fsg->cmnd, fsg->cmnd_size, 0);
- }
- 
- #else
-diff --git a/fs/ext3/super.c b/fs/ext3/super.c
-index de55da9..f5022a3 100644
---- a/fs/ext3/super.c
-+++ b/fs/ext3/super.c
-@@ -464,9 +464,9 @@ static void ext3_destroy_inode(struct inode *inode)
- 	if (!list_empty(&(EXT3_I(inode)->i_orphan))) {
- 		printk("EXT3 Inode %p: orphan list check failed!\n",
- 			EXT3_I(inode));
--		print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS, 16, 4,
--				EXT3_I(inode), sizeof(struct ext3_inode_info),
--				false);
-+		print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS, 4,
-+			       EXT3_I(inode), sizeof(struct ext3_inode_info),
-+			       false);
- 		dump_stack();
- 	}
- 	kmem_cache_free(ext3_inode_cachep, EXT3_I(inode));
-diff --git a/fs/ext4/super.c b/fs/ext4/super.c
-index 8031dc0..edd6a80 100644
---- a/fs/ext4/super.c
-+++ b/fs/ext4/super.c
-@@ -517,9 +517,9 @@ static void ext4_destroy_inode(struct inode *inode)
- 	if (!list_empty(&(EXT4_I(inode)->i_orphan))) {
- 		printk("EXT4 Inode %p: orphan list check failed!\n",
- 			EXT4_I(inode));
--		print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS, 16, 4,
--				EXT4_I(inode), sizeof(struct ext4_inode_info),
--				true);
-+		print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS, 4,
-+			       EXT4_I(inode), sizeof(struct ext4_inode_info),
-+			       true);
- 		dump_stack();
- 	}
- 	kmem_cache_free(ext4_inode_cachep, EXT4_I(inode));
-diff --git a/fs/jffs2/wbuf.c b/fs/jffs2/wbuf.c
-index d1d4f27..c03977e 100644
---- a/fs/jffs2/wbuf.c
-+++ b/fs/jffs2/wbuf.c
-@@ -248,11 +248,11 @@ static int jffs2_verify_write(struct jffs2_sb_info *c, unsigned char *buf,
- 
- 	printk(KERN_WARNING "Write verify error (ECC %s) at %08x. Wrote:\n",
- 	       eccstr, c->wbuf_ofs);
--	print_hex_dump(KERN_WARNING, "", DUMP_PREFIX_OFFSET, 16, 1,
-+	print_hex_dump(KERN_WARNING, "", DUMP_PREFIX_OFFSET, 1,
- 		       c->wbuf, c->wbuf_pagesize, 0);
- 
- 	printk(KERN_WARNING "Read back:\n");
--	print_hex_dump(KERN_WARNING, "", DUMP_PREFIX_OFFSET, 16, 1,
-+	print_hex_dump(KERN_WARNING, "", DUMP_PREFIX_OFFSET, 1,
- 		       c->wbuf_verify, c->wbuf_pagesize, 0);
- 
- 	return -EIO;
-diff --git a/fs/jfs/jfs_imap.c b/fs/jfs/jfs_imap.c
-index 3870ba8..c22907d 100644
---- a/fs/jfs/jfs_imap.c
-+++ b/fs/jfs/jfs_imap.c
-@@ -890,7 +890,7 @@ int diFree(struct inode *ip)
- 	 * the map.
- 	 */
- 	if (iagno >= imap->im_nextiag) {
--		print_hex_dump(KERN_ERR, "imap: ", DUMP_PREFIX_ADDRESS, 16, 4,
-+		print_hex_dump(KERN_ERR, "imap: ", DUMP_PREFIX_ADDRESS, 4,
- 			       imap, 32, 0);
- 		jfs_error(ip->i_sb,
- 			  "diFree: inum = %d, iagno = %d, nextiag = %d",
-diff --git a/fs/jfs/jfs_logmgr.c b/fs/jfs/jfs_logmgr.c
-index 15a3974..a54e19f 100644
---- a/fs/jfs/jfs_logmgr.c
-+++ b/fs/jfs/jfs_logmgr.c
-@@ -1627,15 +1627,15 @@ void jfs_flush_journal(struct jfs_log *log, int wait)
- 			if (lp->xflag & COMMIT_PAGE) {
- 				struct metapage *mp = (struct metapage *)lp;
- 				print_hex_dump(KERN_ERR, "metapage: ",
--					       DUMP_PREFIX_ADDRESS, 16, 4,
-+					       DUMP_PREFIX_ADDRESS, 4,
- 					       mp, sizeof(struct metapage), 0);
- 				print_hex_dump(KERN_ERR, "page: ",
--					       DUMP_PREFIX_ADDRESS, 16,
-+					       DUMP_PREFIX_ADDRESS,
- 					       sizeof(long), mp->page,
- 					       sizeof(struct page), 0);
- 			} else
- 				print_hex_dump(KERN_ERR, "tblock:",
--					       DUMP_PREFIX_ADDRESS, 16, 4,
-+					       DUMP_PREFIX_ADDRESS, 4,
- 					       lp, sizeof(struct tblock), 0);
- 		}
- 	}
-diff --git a/fs/jfs/jfs_metapage.c b/fs/jfs/jfs_metapage.c
-index f5cd8d3..9e5fb41 100644
---- a/fs/jfs/jfs_metapage.c
-+++ b/fs/jfs/jfs_metapage.c
-@@ -461,7 +461,7 @@ add_failed:
- 	printk(KERN_ERR "JFS: bio_add_page failed unexpectedly\n");
- 	goto skip;
- dump_bio:
--	print_hex_dump(KERN_ERR, "JFS: dump of bio: ", DUMP_PREFIX_ADDRESS, 16,
-+	print_hex_dump(KERN_ERR, "JFS: dump of bio: ", DUMP_PREFIX_ADDRESS,
- 		       4, bio, sizeof(*bio), 0);
- skip:
- 	bio_put(bio);
-diff --git a/fs/jfs/jfs_txnmgr.c b/fs/jfs/jfs_txnmgr.c
-index e7c60ae..a105198 100644
---- a/fs/jfs/jfs_txnmgr.c
-+++ b/fs/jfs/jfs_txnmgr.c
-@@ -830,14 +830,14 @@ struct tlock *txLock(tid_t tid, struct inode *ip, struct metapage * mp,
- 	/* assert(jfs_ip->fileset == AGGREGATE_I); */
- 	if (jfs_ip->fileset != AGGREGATE_I) {
- 		printk(KERN_ERR "txLock: trying to lock locked page!");
--		print_hex_dump(KERN_ERR, "ip: ", DUMP_PREFIX_ADDRESS, 16, 4,
-+		print_hex_dump(KERN_ERR, "ip: ", DUMP_PREFIX_ADDRESS, 4,
- 			       ip, sizeof(*ip), 0);
--		print_hex_dump(KERN_ERR, "mp: ", DUMP_PREFIX_ADDRESS, 16, 4,
-+		print_hex_dump(KERN_ERR, "mp: ", DUMP_PREFIX_ADDRESS, 4,
- 			       mp, sizeof(*mp), 0);
- 		print_hex_dump(KERN_ERR, "Locker's tblock: ",
--			       DUMP_PREFIX_ADDRESS, 16, 4, tid_to_tblock(tid),
-+			       DUMP_PREFIX_ADDRESS, 4, tid_to_tblock(tid),
- 			       sizeof(struct tblock), 0);
--		print_hex_dump(KERN_ERR, "Tlock: ", DUMP_PREFIX_ADDRESS, 16, 4,
-+		print_hex_dump(KERN_ERR, "Tlock: ", DUMP_PREFIX_ADDRESS, 4,
- 			       tlck, sizeof(*tlck), 0);
- 		BUG();
- 	}
-diff --git a/fs/jfs/xattr.c b/fs/jfs/xattr.c
-index 9b7f2cd..43c0d70 100644
---- a/fs/jfs/xattr.c
-+++ b/fs/jfs/xattr.c
-@@ -590,8 +590,8 @@ static int ea_get(struct inode *inode, struct ea_buffer *ea_buf, int min_size)
-       size_check:
- 	if (EALIST_SIZE(ea_buf->xattr) != ea_size) {
- 		printk(KERN_ERR "ea_get: invalid extended attribute\n");
--		print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 16, 1,
--				     ea_buf->xattr, ea_size, 1);
-+		print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 1,
-+			       ea_buf->xattr, ea_size, 1);
- 		ea_release(inode, ea_buf);
- 		rc = -EIO;
- 		goto clean_up;
-
+ #endif /* __PHY_FIXED_H */
 
