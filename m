@@ -1,61 +1,66 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH] s2io: fix inconsistent hardware VLAN tagging during driver init
-Date: Thu, 6 Dec 2007 14:57:13 -0500
-Message-ID: <20071206195713.GA25879@gospo.usersys.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ram.vepa@neterion.com, santosh.rastapur@neterion.com,
-	sivakumar.subramani@neterion.com, sreenivasa.honnur@neterion.com
-To: netdev@vger.kernel.org
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: [PATCH 2/7] [DCCP]: Introduce generic function to test for `data packets'
+Date: Thu,  6 Dec 2007 19:02:49 -0200
+Message-ID: <1196974974-31531-3-git-send-email-acme@redhat.com>
+References: <1196974974-31531-1-git-send-email-acme@redhat.com>
+ <1196974974-31531-2-git-send-email-acme@redhat.com>
+Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Ian McDonald <ian.mcdonald@jandi.co.nz>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:41862 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751754AbXLFT52 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Dec 2007 14:57:28 -0500
-Content-Disposition: inline
+Received: from an-out-0708.google.com ([209.85.132.248]:54299 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752054AbXLFVDJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 16:03:09 -0500
+Received: by an-out-0708.google.com with SMTP id d31so97881and
+        for <netdev@vger.kernel.org>; Thu, 06 Dec 2007 13:03:07 -0800 (PST)
+In-Reply-To: <1196974974-31531-2-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-The s2io driver keeps a local variable around (vlan_strip_flag) to keep
-track of the current state of the hardware and whether or not it will
-strip VLAN tags on incoming packets.  It seems as though the hardware
-default is to strip them, but that variable is not set correctly during
-initialization if the default setup is used.  This check ensures
-vlan_strip_flag and the hardware setting are in sync.
+as per  RFC 4340, sec. 7.7.
 
-These variables were introduced by this patch:
-
-commit 926930b202d56c3dfb6aea0a0c6bfba2b87a8c03
-Author: Sivakumar Subramani <Sivakumar.Subramani@neterion.com>
-Date:   Sat Feb 24 01:59:39 2007 -0500
-
-so this problem hasn't been around forever.
-
-Recent patches from Ramkrishna Vepa <ram.vepa@neterion.com> removed this
-variable and would have worked around the problem, but they were not
-accepted.
-
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
+ net/dccp/dccp.h |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
- s2io.c |    5 +++++
- 1 files changed, 5 insertions(+)
-
-diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-index 8b9f0ea..08c08de 100644
---- a/drivers/net/s2io.c
-+++ b/drivers/net/s2io.c
-@@ -2151,6 +2151,11 @@ static int start_nic(struct s2io_nic *nic)
- 		val64 &= ~RX_PA_CFG_STRIP_VLAN_TAG;
- 		writeq(val64, &bar0->rx_pa_cfg);
- 		vlan_strip_flag = 0;
-+	} else {
-+		val64 = readq(&bar0->rx_pa_cfg);
-+		val64 |= RX_PA_CFG_STRIP_VLAN_TAG;
-+		writeq(val64, &bar0->rx_pa_cfg);
-+		vlan_strip_flag = 1;
- 	}
+diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
+index ee97950..f4a5ea1 100644
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -334,6 +334,7 @@ struct dccp_skb_cb {
  
- 	/*
+ #define DCCP_SKB_CB(__skb) ((struct dccp_skb_cb *)&((__skb)->cb[0]))
+ 
++/* RFC 4340, sec. 7.7 */
+ static inline int dccp_non_data_packet(const struct sk_buff *skb)
+ {
+ 	const __u8 type = DCCP_SKB_CB(skb)->dccpd_type;
+@@ -346,6 +347,17 @@ static inline int dccp_non_data_packet(const struct sk_buff *skb)
+ 	       type == DCCP_PKT_SYNCACK;
+ }
+ 
++/* RFC 4340, sec. 7.7 */
++static inline int dccp_data_packet(const struct sk_buff *skb)
++{
++	const __u8 type = DCCP_SKB_CB(skb)->dccpd_type;
++
++	return type == DCCP_PKT_DATA	 ||
++	       type == DCCP_PKT_DATAACK  ||
++	       type == DCCP_PKT_REQUEST  ||
++	       type == DCCP_PKT_RESPONSE;
++}
++
+ static inline int dccp_packet_without_ack(const struct sk_buff *skb)
+ {
+ 	const __u8 type = DCCP_SKB_CB(skb)->dccpd_type;
+-- 
+1.5.3.4
+
