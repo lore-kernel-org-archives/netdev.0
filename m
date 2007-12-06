@@ -1,29 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25 3/3][ARP] Consolidate some code in
- arp_req_set/delete_publc
-Date: Wed, 05 Dec 2007 21:21:10 -0800 (PST)
-Message-ID: <20071205.212110.199760435.davem@davemloft.net>
-References: <4756DD74.4090304@openvz.org>
+Subject: Re: [PATCH] [TCP]: Make invariant check complain about invalid
+ sacked_out
+Date: Wed, 05 Dec 2007 21:22:17 -0800 (PST)
+Message-ID: <20071205.212217.221493551.davem@davemloft.net>
+References: <Pine.LNX.4.64.0712052133490.9572@kivilampi-30.cs.helsinki.fi>
+	<Pine.LNX.4.64.0712052135530.9572@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org
-To: xemul@openvz.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49729
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49733
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751262AbXLFFVK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 00:21:10 -0500
-In-Reply-To: <4756DD74.4090304@openvz.org>
+	by vger.kernel.org with ESMTP id S1751568AbXLFFWR convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Dec 2007 00:22:17 -0500
+In-Reply-To: <Pine.LNX.4.64.0712052135530.9572@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Wed, 05 Dec 2007 20:18:44 +0300
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Wed, 5 Dec 2007 21:36:37 +0200 (EET)
 
-> The PROXY_ARP is set on devconfigs in a similar way in
-> both calls.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> On Wed, 5 Dec 2007, Ilpo J=E4rvinen wrote:
+>=20
+> >=20
+> > Earlier resolution for NewReno's sacked_out should now keep
+> > it small enough for this to become invariant-like check.
+> >=20
+> > Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+>=20
+> Forgot to modify it to the subject, this one to net-2.6.25 please.
 
-Also applied, thanks a lot.
+Applied to net-2.6.25, thanks!
