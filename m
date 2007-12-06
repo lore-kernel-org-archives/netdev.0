@@ -1,64 +1,55 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] sky2: RX lockup fix
-Date: Wed, 5 Dec 2007 22:52:49 -0500
-Message-ID: <20071205225249.0f46672c@shemminger-laptop>
-References: <1196880663.2816.149.camel@localhost.localdomain>
-	<20071205164058.157275a9@shemminger-laptop>
-	<1196900326.21996.1.camel@localhost.localdomain>
+Subject: Re: [BRIDGE] warning message when add an interface to bridge
+Date: Wed, 5 Dec 2007 22:56:00 -0500
+Message-ID: <20071205225600.1feacfca@shemminger-laptop>
+References: <3f696b20712041844h7c049b71reda92edd7b8cb16e@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Peter Tyser <ptyser@xes-inc.com>
+Cc: netdev@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+To: "Chung-Chi Lo" <linolo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:36054 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:39938 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751973AbXLFDxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 22:53:15 -0500
-In-Reply-To: <1196900326.21996.1.camel@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1752041AbXLFD42 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 22:56:28 -0500
+In-Reply-To: <3f696b20712041844h7c049b71reda92edd7b8cb16e@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 05 Dec 2007 18:18:46 -0600
-Peter Tyser <ptyser@xes-inc.com> wrote:
+On Wed, 5 Dec 2007 10:44:17 +0800
+"Chung-Chi Lo" <linolo@gmail.com> wrote:
 
-> On Wed, 2007-12-05 at 16:40 -0500, Stephen Hemminger wrote:
-> > > I looked over Marvell's most recent sk98lin driver and it looks like
-> > > they had a "workaround" for the Yukon XL that the sky2 doesn't have yet.
-> > > The sk98lin driver disables the RX MAC FIFO flush feature for all
-> > > revisions of the Yukon XL.
-> > > 
-> > > According to skgeinit.c of the sk98lin driver, "Flushing must be enabled
-> > > (needed for ASF see dev. #4.29), but the flushing mask should be
-> > > disabled (see dev. #4.115)".  Nice.   I implemented this same change in
-> > > the sky2 driver and verified that the RX lockup I was seeing was
-> > > resolved.
-> > > 
-> > 
-> > 
-> > Without the flush, does flow control still work? My concern is that
-> > integrating this would cause pause packets (and over/under length packets)
-> > to not be handled correctly.
+> My kernel is Linxu 2.6.22.1. SYSFS is off.
+> When adding an interface to bridge, console will show WARNING message.
+> If turn SYSFS to on, then the WARNING message is gone.
+> Any suggestion how to debug this problem? Thanks.
 > 
-> My understanding is that "bad" packets should still be filtered in
-> sky2_receive() when a packet's status is compared against
-> GMR_FS_ANY_ERR.  This comparison should prevent over/under length
-> packets from making their way up the stack.  This comparison also uses
-> the same value that was previous programmed to the RX MAC FIFO Flush
-> Mask, so there shouldn't be any change in the types of bad packets that
-> are discarded.
-> 
-> I don't believe that disabling RX filtering should affect the handling
-> of flow control packets specifically either.  The comparison in
-> sky2_receive() to GMR_FS_ANY_ERR does allow valid flow control packets
-> to be received. (I'm not intimately familiar with sky2/Linux's handling
-> of flow control packets, so take the above with a grain of salt)
-> 
-> As I understand it, the only real downside of disabling RX filtering at
-> the hardware level is that the CPU has to investigate every incoming
-> packet's status, even the ones that it is going to drop due to length,
-> crc, etc.  This adds some overhead, but I don't believe it should affect
-> the driver's operation.
-> 
+> # ifconfig eth0 0.0.0.0
+> eth0: starting interface.
+> # brctl addbr br0
+> # brctl addif br0 eth0
+> WARNING: at lib/kref.c:33 kref_get()
+> Call Trace:
+> [<80027844>] dump_stack+0x8/0x38
+> [<8011f348>] kref_get+0xdc/0xe4
+> [<8011ee20>] kobject_get+0x20/0x34
+> [<8011e910>] kobject_shadow_add+0x5c/0x170
+> [<8011ea34>] kobject_add+0x10/0x20
+> [<8020aac0>] br_add_if+0xb4/0x1b4
+> [<8020b354>] add_del_if+0x5c/0x118
+> [<8020bcc4>] br_dev_ioctl+0x6c/0x88
+> [<80182edc>] dev_ifsioc+0x334/0x3c0
+> [<80183184>] dev_ioctl+0x21c/0x2ec
+> [<8016f76c>] sock_ioctl+0x130/0x2e4
+> [<800b3b2c>] do_ioctl+0x6c/0x84
+> [<800b3d40>] vfs_ioctl+0x80/0x248
+> [<800b3f58>] sys_ioctl+0x50/0x98
+> [<8002a8a8>] stack_done+0x20/0x3c
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-I have ways to generate errors, so I'll check
+This is an an artifact of the kobject_shadow code which was reverted in later kernels.
+It is gone in 2.6.23
