@@ -1,49 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: sockets affected by IPsec always block (2.6.23)
-Date: Thu, 06 Dec 2007 00:53:44 -0800 (PST)
-Message-ID: <20071206.005344.74817074.davem@davemloft.net>
-References: <200712051939.08384.stefan@loplof.de>
-	<20071205.182500.166603251.davem@davemloft.net>
-	<200712060949.02524.stefan@loplof.de>
+From: "Holger Hoffstaette" <holger@wizards.de>
+Subject: Re: Reproducible data corruption with sendfile+vsftp - splice regression?
+Date: Thu, 06 Dec 2007 10:28:09 +0100
+Message-ID: <pan.2007.12.06.09.28.08.913625@wizards.de>
+References: <pan.2007.11.29.23.42.52.661624@wizards.de> <474FC4D9.3020506@cosmosbay.com> <pan.2007.11.30.09.20.24.737500@wizards.de> <475055EE.9060105@hp.com> <pan.2007.12.02.16.00.03.568000@wizards.de> <pan.2007.12.02.20.49.42.675000@wizards.de> <20071205225429.GA10186@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, simon@fire.lp0.eu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: stefan@loplof.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44949
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751226AbXLFIxp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 03:53:45 -0500
-In-Reply-To: <200712060949.02524.stefan@loplof.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755245AbXLFJ2r@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stefan Rompf <stefan@loplof.de>
-Date: Thu, 6 Dec 2007 09:49:01 +0100
 
-> "If the connection cannot be established immediately and O_NONBLOCK is set for 
-> the file descriptor for the socket, connect() shall fail and set errno to 
-> [EINPROGRESS], but the connection request shall not be aborted, and the 
-> connection shall be established asynchronously."
+On Wed, 05 Dec 2007 23:54:29 +0100, Francois Romieu wrote:
+
+> Holger Hoffstaette <holger@wizards.de> : [...]
+>> Should I file this in bugzilla?
 > 
-> I think the words "shall fail" and "immediately" are quite clear.
+> Yes.
 
-They are, but the context in which they apply is vague.
+Thanks for responding - will do. I verified with 2.6.24-rc4 (same bug) and
+have some new information about this.
+Despite my previous posting the corruption is NOT triggered by NAPI. It
+may be related, but even without NAPI but tso on again I got corruption,
+now also on the gbit client (Thinkpad T60). When ftp'ing to ramdisk with
+full speed (at a reasonable ~77 MB/sec) it "often" works, but intermediate
+writes that cause the ftp to temporarily slow down reliably cause
+corrupted files, so I guess tso gets confused when some kind of throttling
+sets in during transfer. That is probably why I first noticed it on the
+slow 100mbit client.
+Maybe turning off sendfile or NAPI just lead to random success - so far it
+really looks like tso on the r8169 is the common cause.
 
-I can equally generate examples where the non-blocking behavior you
-are a proponent of would break non-blocking UDP apps during a
-sendmsg() call when we hit IPSEC resolution.  Yet similar language on
-blocking semantics exists for sendmsg() in the standards.
+thank you
+Holger
 
-The world is shades of gray, implying anything else is foolhardy and
-that's how I'm handling this.
 
-> Well, the only reason this doesn't break on a daily basis is because the code 
-> isn't in the kernel that long and not many people run applications on an 
-> IPSEC gateway. This will change if kernel based IPSEC is used for roadwarrior 
-> connections or dnssec based anonymous IPSEC someday. Trust me, you will 
-> revert this misbehaviour in -stable then.
-
-I use IPSEC every single day in this fashion, and I haven't.
