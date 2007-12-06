@@ -1,55 +1,64 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [BRIDGE] warning message when add an interface to bridge
-Date: Wed, 5 Dec 2007 22:56:00 -0500
-Message-ID: <20071205225600.1feacfca@shemminger-laptop>
-References: <3f696b20712041844h7c049b71reda92edd7b8cb16e@mail.gmail.com>
+Subject: Re: TCP event tracking via netlink...
+Date: Wed, 5 Dec 2007 21:06:49 -0700
+Message-ID: <20071205210649.5a3d1a52@shemminger-laptop>
+References: <20071205.053031.87154402.davem@davemloft.net>
+	<1196873587.10819.30.camel@localhost>
+	<20071205163338.50aff45d@shemminger-laptop>
+	<Pine.LNX.4.64.0712052336240.9572@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
-To: "Chung-Chi Lo" <linolo@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: "Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:39938 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:59138 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752041AbXLFD42 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 22:56:28 -0500
-In-Reply-To: <3f696b20712041844h7c049b71reda92edd7b8cb16e@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1751963AbXLFEIA convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2007 23:08:00 -0500
+In-Reply-To: <Pine.LNX.4.64.0712052336240.9572@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 5 Dec 2007 10:44:17 +0800
-"Chung-Chi Lo" <linolo@gmail.com> wrote:
+On Thu, 6 Dec 2007 00:15:49 +0200 (EET)
+"Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
 
-> My kernel is Linxu 2.6.22.1. SYSFS is off.
-> When adding an interface to bridge, console will show WARNING message.
-> If turn SYSFS to on, then the WARNING message is gone.
-> Any suggestion how to debug this problem? Thanks.
-> 
-> # ifconfig eth0 0.0.0.0
-> eth0: starting interface.
-> # brctl addbr br0
-> # brctl addif br0 eth0
-> WARNING: at lib/kref.c:33 kref_get()
-> Call Trace:
-> [<80027844>] dump_stack+0x8/0x38
-> [<8011f348>] kref_get+0xdc/0xe4
-> [<8011ee20>] kobject_get+0x20/0x34
-> [<8011e910>] kobject_shadow_add+0x5c/0x170
-> [<8011ea34>] kobject_add+0x10/0x20
-> [<8020aac0>] br_add_if+0xb4/0x1b4
-> [<8020b354>] add_del_if+0x5c/0x118
-> [<8020bcc4>] br_dev_ioctl+0x6c/0x88
-> [<80182edc>] dev_ifsioc+0x334/0x3c0
-> [<80183184>] dev_ioctl+0x21c/0x2ec
-> [<8016f76c>] sock_ioctl+0x130/0x2e4
-> [<800b3b2c>] do_ioctl+0x6c/0x84
-> [<800b3d40>] vfs_ioctl+0x80/0x248
-> [<800b3f58>] sys_ioctl+0x50/0x98
-> [<8002a8a8>] stack_done+0x20/0x3c
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> On Wed, 5 Dec 2007, Stephen Hemminger wrote:
+>=20
+> > On Wed, 05 Dec 2007 08:53:07 -0800
+> > Joe Perches <joe@perches.com> wrote:
+> >=20
+> > > > it occurred to me that we might want to do something
+> > > > like a state change event generator.
+> > >=20
+> > > This could be a basis for an interesting TCP
+> > > performance tester.
+> >=20
+> > That is what tcpprobe does but it isn't detailed enough to address =
+SACK
+> > issues.
+>=20
+> ...It would be nice if that could be generalized so that the probe co=
+uld=20
+> be attached to some other functions than tcp_rcv_established instead.
+>=20
+> If we convert remaining functions that don't have sk or tp as first=20
+> argument so that sk is listed first (should be many with wrong orderi=
+ng=20
+> if any), then maybe a generic handler could be of type:
+>=20
+> jtcp_entry(struct sock *sk, ...)
+>=20
+> or when available:
+>=20
+> jtcp_entry(struct sock *sk, struct sk_buff *ack, ...)
+>=20
+>=20
+> --=20
+>  i.
 
-This is an an artifact of the kobject_shadow code which was reverted in later kernels.
-It is gone in 2.6.23
+An earlier version had hooks in send as well, it is trivial to extend. =
+as long as
+the prototypes match, any function arg ordering is okay.
