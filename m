@@ -1,57 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25 10/11][INET] Eliminate difference in actions
- of sysctl and proc handler for conf.all.forwarding
-Date: Wed, 05 Dec 2007 21:39:33 -0800 (PST)
-Message-ID: <20071205.213933.40987728.davem@davemloft.net>
-References: <20071205.020645.171664472.davem@davemloft.net>
-	<E1J04N1-0006uU-00@gondolin.me.apana.org.au>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [BRIDGE] warning message when add an interface to bridge
+Date: Wed, 05 Dec 2007 23:00:05 -0700
+Message-ID: <m1odd4tlay.fsf@ebiederm.dsl.xmission.com>
+References: <3f696b20712041844h7c049b71reda92edd7b8cb16e@mail.gmail.com>
+	<20071205225600.1feacfca@shemminger-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: "Chung-Chi Lo" <linolo@gmail.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49224
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752073AbXLFFje (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 00:39:34 -0500
-In-Reply-To: <E1J04N1-0006uU-00@gondolin.me.apana.org.au>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:57334 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751684AbXLFGBT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 01:01:19 -0500
+In-Reply-To: <20071205225600.1feacfca@shemminger-laptop> (Stephen Hemminger's
+	message of "Wed, 5 Dec 2007 22:56:00 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 06 Dec 2007 11:13:39 +1100
+Stephen Hemminger <shemminger@linux-foundation.org> writes:
 
-> David Miller <davem@davemloft.net> wrote:
-> >
-> > The user is pretty much screwed in one way or the other.
-> > For example:
-> > 
-> > 1) If 'default' propagates to all devices, any specific
-> >   setting for a device is lost.
-> > 
-> > 2) If 'default' does not propagate, there is no way to
-> >   have 'default' influence devices which have already
-> >   been loaded.
-> 
-> Well the way it works on IPv4 currently (for most options) is
-> that we'll propagate default settings to a device until either:
-> 
-> 1) the user modifies the setting for that device;
-> 2) or that an IPv4 address has been added to the device.
-> 
-> 2) was done to preserve backwards compatibility as the controls
-> were previously only available after address addition and we did
-> not propagate default settings in that case..
-> 
-> We could easily extend this so that the default propagation
-> worked until the user modified the setting, with an ioctl to
-> revert to the current behaviour for compatibility.
+> On Wed, 5 Dec 2007 10:44:17 +0800
+> "Chung-Chi Lo" <linolo@gmail.com> wrote:
+>
+>> My kernel is Linxu 2.6.22.1. SYSFS is off.
+>> When adding an interface to bridge, console will show WARNING message.
+>> If turn SYSFS to on, then the WARNING message is gone.
+>> Any suggestion how to debug this problem? Thanks.
+>> 
+>> # ifconfig eth0 0.0.0.0
+>> eth0: starting interface.
+>> # brctl addbr br0
+>> # brctl addif br0 eth0
+>> WARNING: at lib/kref.c:33 kref_get()
+>> Call Trace:
+>> [<80027844>] dump_stack+0x8/0x38
+>> [<8011f348>] kref_get+0xdc/0xe4
+>> [<8011ee20>] kobject_get+0x20/0x34
+>> [<8011e910>] kobject_shadow_add+0x5c/0x170
+>> [<8011ea34>] kobject_add+0x10/0x20
+>> [<8020aac0>] br_add_if+0xb4/0x1b4
+>> [<8020b354>] add_del_if+0x5c/0x118
+>> [<8020bcc4>] br_dev_ioctl+0x6c/0x88
+>> [<80182edc>] dev_ifsioc+0x334/0x3c0
+>> [<80183184>] dev_ioctl+0x21c/0x2ec
+>> [<8016f76c>] sock_ioctl+0x130/0x2e4
+>> [<800b3b2c>] do_ioctl+0x6c/0x84
+>> [<800b3d40>] vfs_ioctl+0x80/0x248
+>> [<800b3f58>] sys_ioctl+0x50/0x98
+>> [<8002a8a8>] stack_done+0x20/0x3c
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> This is an an artifact of the kobject_shadow code which was reverted in later
+> kernels.
+> It is gone in 2.6.23
 
-Ok, this sounds like a good idea.
+I don't think it was the kobject_shadow, but rather we didn't initialize the kref
+or something like that in net/core/dev.c
 
-But we go back again to the question of how to get this "current
-behavior" setting instantiated early enough.  So much stuff happens
-via initrd's etc. before the real userland has a change to run things,
-read setting from the real filesystem config giles, in order to change
-this.
+I believe commit 8b41d1887db718be9a2cd9e18c58ce25a4c7fd93 was the fix.
+
+Disabling sysfs can be a fun exercise in finding corner case bugs right now.
+
+Eric
+
