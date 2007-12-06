@@ -1,36 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25 10/11][INET] Eliminate difference in actions
- of sysctl and proc handler for conf.all.forwarding
-Date: Thu, 06 Dec 2007 03:14:55 -0800 (PST)
-Message-ID: <20071206.031455.86121437.davem@davemloft.net>
-References: <E1J04N1-0006uU-00@gondolin.me.apana.org.au>
-	<20071205.213933.40987728.davem@davemloft.net>
-	<20071206110601.GA30402@gondor.apana.org.au>
+From: Stefan Rompf <stefan@loplof.de>
+Subject: Re: sockets affected by IPsec always block (2.6.23)
+Date: Thu, 6 Dec 2007 12:35:05 +0100
+Message-ID: <200712061235.06025.stefan@loplof.de>
+References: <200712060949.02524.stefan@loplof.de> <200712061156.48810.stefan@loplof.de> <20071206.031302.201608796.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37377
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751739AbXLFLOz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 06:14:55 -0500
-In-Reply-To: <20071206110601.GA30402@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: herbert@gondor.apana.org.au, simon@fire.lp0.eu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753015AbXLFLeR@vger.kernel.org>
+In-Reply-To: <20071206.031302.201608796.davem@davemloft.net>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 6 Dec 2007 22:06:01 +1100
+Am Donnerstag, 6. Dezember 2007 12:13 schrieb David Miller:
 
-> On Wed, Dec 05, 2007 at 09:39:33PM -0800, David Miller wrote:
-> >
-> > But we go back again to the question of how to get this "current
-> > behavior" setting instantiated early enough.  So much stuff happens
-> > via initrd's etc. before the real userland has a change to run things,
-> > read setting from the real filesystem config giles, in order to change
-> > this.
-> 
-> Perhaps a boot time command line option?
+> And that's why this is a grey area.  Why is waiting for memory
+> allocation on a O_NONBLOCK socket OK but waiting for IPSEC route
+> resolution is not?
 
-It's not pleasant but it would indeed work.
+Because you just will put enough RAM modules into you server when setting up a 
+scalable system. Local resource, managable by the admin. What you cannot 
+control in many cases is the network connection to the remote node. Simon 
+Arlott has been talking about an 8 hour network outage.
+
+Stefan
