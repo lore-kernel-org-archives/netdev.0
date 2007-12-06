@@ -1,36 +1,36 @@
-From: Denis Cheng <crquan@gmail.com>
-Subject: [PATCH 14/20] net/ipv4/cipso_ipv4.c: use LIST_HEAD instead of LIST_HEAD_INIT
-Date: Fri,  7 Dec 2007 00:04:36 +0800
-Message-ID: <1196957076-5706-1-git-send-email-crquan@gmail.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753044AbXLFQFW@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Peter Tyser <ptyser@xes-inc.com>
+Subject: Re: [PATCH] sky2: RX lockup fix
+Date: Thu, 06 Dec 2007 10:14:57 -0600
+Message-ID: <1196957697.24978.24.camel@localhost.localdomain>
+References: <1196880663.2816.149.camel@localhost.localdomain>
+	 <20071205164058.157275a9@shemminger-laptop>
+	 <1196900326.21996.1.camel@localhost.localdomain>
+	 <20071205225249.0f46672c@shemminger-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xes-mad.com ([216.165.139.214]:39794 "EHLO xes-mad.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752011AbXLFQRq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Dec 2007 11:17:46 -0500
+In-Reply-To: <20071205225249.0f46672c@shemminger-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-single list_head variable initialized with LIST_HEAD_INIT could almost
-always can be replaced with LIST_HEAD declaration, this shrinks the code
-and looks better.
+> I have ways to generate errors, so I'll check
 
-Signed-off-by: Denis Cheng <crquan@gmail.com>
----
- net/ipv4/cipso_ipv4.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Thanks Stephen.  We didn't spend a lot of time characterizing the issue,
+but our test setup had two blades, each with an 88E8062.  Our test
+software pumped UDP and TCP traffic of varying packet sizes between the
+blades in both directions (including  jumbo frames - we increased the
+MTU of the interfaces to 9000).  The issue could generally be brought
+out in about 15 minutes and almost always within an hour.
 
-diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-index f18e88b..d4dc4eb 100644
---- a/net/ipv4/cipso_ipv4.c
-+++ b/net/ipv4/cipso_ipv4.c
-@@ -63,7 +63,7 @@ struct cipso_v4_domhsh_entry {
-  * probably be turned into a hash table or something similar so we
-  * can do quick lookups. */
- static DEFINE_SPINLOCK(cipso_v4_doi_list_lock);
--static struct list_head cipso_v4_doi_list = LIST_HEAD_INIT(cipso_v4_doi_list);
-+static LIST_HEAD(cipso_v4_doi_list);
- 
- /* Label mapping cache */
- int cipso_v4_cache_enabled = 1;
--- 
-1.5.3.4
+If you'd like any additional details on the test setup or would like me
+to try something on my end, let me know.
+
+
 
