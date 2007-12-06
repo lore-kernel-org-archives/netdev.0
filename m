@@ -1,25 +1,53 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [SCTP] Bug fixes to the migrate/accept code path.
-Date: Thu,  6 Dec 2007 12:48:22 -0500
-Message-ID: <1196963304-32494-1-git-send-email-vladislav.yasevich@hp.com>
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: davem@davemloft.net
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-2.6.25 10/11][INET] Eliminate difference in actions of sysctl and proc handler for conf.all.forwarding
+Date: Fri, 7 Dec 2007 04:42:56 +1100
+Message-ID: <20071206174256.GB530@gondor.apana.org.au>
+References: <E1J04N1-0006uU-00@gondolin.me.apana.org.au> <4757EB92.4010400@openvz.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:6614 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750829AbXLFRs0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 12:48:26 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:1850 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751462AbXLFRxP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 12:53:15 -0500
+Content-Disposition: inline
+In-Reply-To: <4757EB92.4010400@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave
+On Thu, Dec 06, 2007 at 03:31:14PM +0300, Pavel Emelyanov wrote:
+>
+> BTW, this is not 100% true. Look, in rtm_to_ifaddr()
+> I see the following code flow:
+> 
+>         ipv4_devconf_setall(in_dev);
+> 
+>         ifa = inet_alloc_ifa();
+>         if (ifa == NULL) {
+>                 /*
+>                  * A potential indev allocation can be left alive, it stays
+>                  * assigned to its device and is destroy with it.
+>                  */
+>                 err = -ENOBUFS;
+>                 goto errout;
+>         }
+> 
+> if we fail to allocate the ifa (hard to happen, but), we will
+> make this device not to accept the default propagation.
 
-The following two patches fix some bugs in the SCTP accept code path.
-The first one fixes a slab corruption bug that we found during stress
-testing.  The second one is just a clean-up and the right way to do things.
+Yes that's unintentional.
 
-You can also pull both from:
-  master.kernel.org:/pub/scm/linux/kernel/git/lksctp-dev.git pending
+> If this is a relevant note, I can prepare the patch.
 
-Thanks
--vlad
+It certainly seems easy enough to fix by just swapping the order.
+Please do.
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
