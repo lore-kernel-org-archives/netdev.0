@@ -1,21 +1,33 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 5/7] [TFRC]: Rename dccp_rx_ to tfrc_rx_
-Date: Thu, 6 Dec 2007 13:59:42 +0000
-Message-ID: <20071206135942.GC7484@gerrit.erg.abdn.ac.uk>
-References: <1196631416-17778-1-git-send-email-acme@redhat.com> <1196631416-17778-2-git-send-email-acme@redhat.com> <1196631416-17778-3-git-send-email-acme@redhat.com> <1196631416-17778-4-git-send-email-acme@redhat.com> <1196631416-17778-5-git-send-email-acme@redhat.com> <1196631416-17778-6-git-send-email-acme@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][VLAN] Lost rtnl_unlock() in vlan_ioctl()
+Date: Thu, 06 Dec 2007 06:01:51 -0800 (PST)
+Message-ID: <20071206.060151.154858451.davem@davemloft.net>
+References: <4757FE80.2080000@openvz.org>
+	<4758003C.9080105@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dccp@vger.kernel.org
-To: Arnaldo Carvalho de Melo <acme@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:50311 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752735AbXLFOA3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Dec 2007 09:00:29 -0500
-Content-Disposition: inline
-In-Reply-To: <1196631416-17778-6-git-send-email-acme@redhat.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60264
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752564AbXLFOBw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 09:01:52 -0500
+In-Reply-To: <4758003C.9080105@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 06 Dec 2007 14:59:24 +0100
+
+> Pavel Emelyanov wrote:
+> > The SET_VLAN_NAME_TYPE_CMD command w/o CAP_NET_ADMIN capability
+> > doesn't release the rtnl lock.
+> 
+> 
+> Thanks Pavel. I somehow recall that we already fixed this
+> one, but can't find the patch :) Dave, please apply.
+
+I think we even added this bug to -stable, or something like
+that, didn't we?  Yikes...
