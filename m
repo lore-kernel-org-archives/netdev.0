@@ -1,53 +1,72 @@
-From: Richard Knutsson <ricknu-0@student.ltu.se>
-Subject: Re: [Patch] net/xfrm/xfrm_policy.c: Some small improvements
-Date: Thu, 06 Dec 2007 15:37:46 +0100
-Message-ID: <4758093A.7010608@student.ltu.se>
-References: <20071206110123.GB2469@hacking> <20071206.031434.179419183.davem@davemloft.net>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH 2.6.25] Remove ip_fib_local_table and ip_fib_main_table
+	defines
+Date: Thu, 6 Dec 2007 17:58:25 +0300
+Message-ID: <20071206145825.GA22435@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, linux-kernel@vger.kernel.org,
-	herbert@gondor.apana.org.au, akpm@osdl.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: containers@lists.osdl.org, devel@openvz.org,
+	netdev@vger.kernel.org, ebiederm@xmission.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gepetto.dc.ltu.se ([130.240.42.40]:43239 "EHLO
-	gepetto.dc.ltu.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750892AbXLFOfe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 09:35:34 -0500
-In-Reply-To: <20071206.031434.179419183.davem@davemloft.net>
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:52630 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751351AbXLFO5V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Dec 2007 09:57:21 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: WANG Cong <xiyou.wangcong@gmail.com>
-> Date: Thu, 6 Dec 2007 19:01:23 +0800
->
->   
->> This patch contains the following changes.
->>
->> 	- Use 'bool' instead of 'int' for booleans.
->> 	- Use 'size_t' instead of 'int' for 'sizeof' return value.
->> 	- Some style fixes.
->>
->> Cc: Herbert Xu <herbert@gondor.apana.org.au>
->> Cc: David Miller <davem@davemloft.net>
->> Signed-off-by: WANG Cong <xiyou.wangcong@gmail.com>
->>     
->
-> Normally I would let a patch like this sit in my mailbox
-> for a week and then delete it.
->   
-That is evil! ;)
-> But this time I'll just let you know up front that I
-> don't see much value in this patch.  It is not a clear
-> improvement to replace int's with bool's in my mind and
-> the other changes are just whitespace changes.
->   
-Is it not an improvement to distinct booleans from actual values? Do you 
-use integers for ASCII characters too? It can also avoid some potential 
-bugs like the 'if (i == TRUE)'...
-What is wrong with 'size_t' (since it is unsigned, compared to (some) 
-'int')?
+From: Eric W. Biederman <ebiederm@xmission.com>
 
-/Richard Knutsson
+There are only 2 users and it doesn't hurt to call fib_get_table
+instead, and it makes it easier to make the fib network namespace
+aware.
+
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ include/net/ip_fib.h |    3 ---
+ net/ipv4/fib_hash.c  |    5 +++--
+ 2 files changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index ed514bf..690fb4d 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -191,9 +191,6 @@ extern void __init fib4_rules_init(void);
+ extern u32 fib_rules_tclass(struct fib_result *res);
+ #endif
+ 
+-#define ip_fib_local_table fib_get_table(RT_TABLE_LOCAL)
+-#define ip_fib_main_table fib_get_table(RT_TABLE_MAIN)
+-
+ extern int fib_lookup(struct flowi *flp, struct fib_result *res);
+ 
+ extern struct fib_table *fib_new_table(u32 id);
+diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
+index 9d0cee2..30ff657 100644
+--- a/net/ipv4/fib_hash.c
++++ b/net/ipv4/fib_hash.c
+@@ -810,7 +810,8 @@ struct fib_iter_state {
+ static struct fib_alias *fib_get_first(struct seq_file *seq)
+ {
+ 	struct fib_iter_state *iter = seq->private;
+-	struct fn_hash *table = (struct fn_hash *) ip_fib_main_table->tb_data;
++	struct fib_table *main_table = fib_get_table(RT_TABLE_MAIN);
++	struct fn_hash *table = (struct fn_hash *)main_table->tb_data;
+ 
+ 	iter->bucket    = 0;
+ 	iter->hash_head = NULL;
+@@ -949,7 +950,7 @@ static void *fib_seq_start(struct seq_file *seq, loff_t *pos)
+ 	void *v = NULL;
+ 
+ 	read_lock(&fib_hash_lock);
+-	if (ip_fib_main_table)
++	if (fib_get_table(RT_TABLE_MAIN))
+ 		v = *pos ? fib_get_idx(seq, *pos - 1) : SEQ_START_TOKEN;
+ 	return v;
+ }
+-- 
+1.5.3.rc5
 
