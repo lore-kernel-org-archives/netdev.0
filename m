@@ -1,130 +1,64 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Subject: [patch-RFC 6/7] LTTng instrumentation net
-Date: Wed, 05 Dec 2007 21:26:01 -0500
-Message-ID: <20071206022742.869671164@polymtl.ca>
-References: <20071206022555.150400591@polymtl.ca>
-Cc: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	netdev@vger.kernel.org
-To: akpm@linux-foundation.org, Ingo Molnar <mingo@elte.hu>,
-	linux-kernel@vger.kernel.org
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] sky2: RX lockup fix
+Date: Wed, 5 Dec 2007 22:52:49 -0500
+Message-ID: <20071205225249.0f46672c@shemminger-laptop>
+References: <1196880663.2816.149.camel@localhost.localdomain>
+	<20071205164058.157275a9@shemminger-laptop>
+	<1196900326.21996.1.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Peter Tyser <ptyser@xes-inc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.polymtl.ca ([132.207.4.11]:50020 "EHLO smtp.polymtl.ca"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753962AbXLFC17 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Dec 2007 21:27:59 -0500
-Content-Disposition: inline; filename=lttng-instrumentation-net.patch
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:36054 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751973AbXLFDxP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2007 22:53:15 -0500
+In-Reply-To: <1196900326.21996.1.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Network core events.
+On Wed, 05 Dec 2007 18:18:46 -0600
+Peter Tyser <ptyser@xes-inc.com> wrote:
 
-Signed-off-by: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-CC: netdev@vger.kernel.org
----
- net/core/dev.c     |    5 +++++
- net/ipv4/devinet.c |    5 +++++
- net/socket.c       |   18 ++++++++++++++++++
- 3 files changed, 28 insertions(+)
+> On Wed, 2007-12-05 at 16:40 -0500, Stephen Hemminger wrote:
+> > > I looked over Marvell's most recent sk98lin driver and it looks like
+> > > they had a "workaround" for the Yukon XL that the sky2 doesn't have yet.
+> > > The sk98lin driver disables the RX MAC FIFO flush feature for all
+> > > revisions of the Yukon XL.
+> > > 
+> > > According to skgeinit.c of the sk98lin driver, "Flushing must be enabled
+> > > (needed for ASF see dev. #4.29), but the flushing mask should be
+> > > disabled (see dev. #4.115)".  Nice.   I implemented this same change in
+> > > the sky2 driver and verified that the RX lockup I was seeing was
+> > > resolved.
+> > > 
+> > 
+> > 
+> > Without the flush, does flow control still work? My concern is that
+> > integrating this would cause pause packets (and over/under length packets)
+> > to not be handled correctly.
+> 
+> My understanding is that "bad" packets should still be filtered in
+> sky2_receive() when a packet's status is compared against
+> GMR_FS_ANY_ERR.  This comparison should prevent over/under length
+> packets from making their way up the stack.  This comparison also uses
+> the same value that was previous programmed to the RX MAC FIFO Flush
+> Mask, so there shouldn't be any change in the types of bad packets that
+> are discarded.
+> 
+> I don't believe that disabling RX filtering should affect the handling
+> of flow control packets specifically either.  The comparison in
+> sky2_receive() to GMR_FS_ANY_ERR does allow valid flow control packets
+> to be received. (I'm not intimately familiar with sky2/Linux's handling
+> of flow control packets, so take the above with a grain of salt)
+> 
+> As I understand it, the only real downside of disabling RX filtering at
+> the hardware level is that the CPU has to investigate every incoming
+> packet's status, even the ones that it is going to drop due to length,
+> crc, etc.  This adds some overhead, but I don't believe it should affect
+> the driver's operation.
+> 
 
-Index: linux-2.6-lttng/net/core/dev.c
-===================================================================
---- linux-2.6-lttng.orig/net/core/dev.c	2007-11-19 08:07:04.000000000 -0500
-+++ linux-2.6-lttng/net/core/dev.c	2007-11-19 08:07:11.000000000 -0500
-@@ -1639,6 +1639,8 @@ int dev_queue_xmit(struct sk_buff *skb)
- 	}
- 
- gso:
-+	trace_mark(net_dev_xmit, "skb %p protocol #2u%hu", skb, skb->protocol);
-+
- 	spin_lock_prefetch(&dev->queue_lock);
- 
- 	/* Disable soft irqs for various locks below. Also
-@@ -2039,6 +2041,9 @@ int netif_receive_skb(struct sk_buff *sk
- 
- 	__get_cpu_var(netdev_rx_stat).total++;
- 
-+	trace_mark(net_dev_receive, "skb %p protocol #2u%hu",
-+		skb, skb->protocol);
-+
- 	skb_reset_network_header(skb);
- 	skb_reset_transport_header(skb);
- 	skb->mac_len = skb->network_header - skb->mac_header;
-Index: linux-2.6-lttng/net/ipv4/devinet.c
-===================================================================
---- linux-2.6-lttng.orig/net/ipv4/devinet.c	2007-11-19 08:07:04.000000000 -0500
-+++ linux-2.6-lttng/net/ipv4/devinet.c	2007-11-19 08:07:11.000000000 -0500
-@@ -262,6 +262,8 @@ static void __inet_del_ifa(struct in_dev
- 		struct in_ifaddr **ifap1 = &ifa1->ifa_next;
- 
- 		while ((ifa = *ifap1) != NULL) {
-+			trace_mark(net_del_ifa_ipv4, "label %s",
-+				ifa->ifa_label);
- 			if (!(ifa->ifa_flags & IFA_F_SECONDARY) &&
- 			    ifa1->ifa_scope <= ifa->ifa_scope)
- 				last_prim = ifa;
-@@ -368,6 +370,9 @@ static int __inet_insert_ifa(struct in_i
- 			}
- 			ifa->ifa_flags |= IFA_F_SECONDARY;
- 		}
-+		trace_mark(net_insert_ifa_ipv4, "label %s address #4u%lu",
-+			ifa->ifa_label,
-+			(unsigned long)ifa->ifa_address);
- 	}
- 
- 	if (!(ifa->ifa_flags & IFA_F_SECONDARY)) {
-Index: linux-2.6-lttng/net/socket.c
-===================================================================
---- linux-2.6-lttng.orig/net/socket.c	2007-11-19 08:07:04.000000000 -0500
-+++ linux-2.6-lttng/net/socket.c	2007-11-19 08:07:11.000000000 -0500
-@@ -563,6 +563,11 @@ int sock_sendmsg(struct socket *sock, st
- 	struct sock_iocb siocb;
- 	int ret;
- 
-+	trace_mark(net_socket_sendmsg,
-+		"sock %p family %d type %d protocol %d size %zu",
-+		sock, sock->sk->sk_family, sock->sk->sk_type,
-+		sock->sk->sk_protocol, size);
-+
- 	init_sync_kiocb(&iocb, NULL);
- 	iocb.private = &siocb;
- 	ret = __sock_sendmsg(&iocb, sock, msg, size);
-@@ -646,7 +651,13 @@ int sock_recvmsg(struct socket *sock, st
- 	struct sock_iocb siocb;
- 	int ret;
- 
-+	trace_mark(net_socket_recvmsg,
-+		"sock %p family %d type %d protocol %d size %zu",
-+		sock, sock->sk->sk_family, sock->sk->sk_type,
-+		sock->sk->sk_protocol, size);
-+
- 	init_sync_kiocb(&iocb, NULL);
-+
- 	iocb.private = &siocb;
- 	ret = __sock_recvmsg(&iocb, sock, msg, size, flags);
- 	if (-EIOCBQUEUED == ret)
-@@ -1212,6 +1223,11 @@ asmlinkage long sys_socket(int family, i
- 	if (retval < 0)
- 		goto out_release;
- 
-+	trace_mark(net_socket_create,
-+		"sock %p family %d type %d protocol %d fd %d",
-+		sock, sock->sk->sk_family, sock->sk->sk_type,
-+		sock->sk->sk_protocol, retval);
-+
- out:
- 	/* It may be already another descriptor 8) Not kernel problem. */
- 	return retval;
-@@ -2021,6 +2037,8 @@ asmlinkage long sys_socketcall(int call,
- 	a0 = a[0];
- 	a1 = a[1];
- 
-+	trace_mark(net_socket_call, "call %d a0 %lu", call, a0);
-+
- 	switch (call) {
- 	case SYS_SOCKET:
- 		err = sys_socket(a0, a1, a[2]);
-
--- 
-Mathieu Desnoyers
-Computer Engineering Ph.D. Student, Ecole Polytechnique de Montreal
-OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
+I have ways to generate errors, so I'll check
