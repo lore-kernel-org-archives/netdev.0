@@ -1,38 +1,46 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Reproducible data corruption with sendfile+vsftp - splice
-	regression?
-Date: Thu, 6 Dec 2007 19:44:26 +0100
-Message-ID: <20071206184426.GA32599@electric-eye.fr.zoreil.com>
-References: <pan.2007.11.29.23.42.52.661624@wizards.de> <474FC4D9.3020506@cosmosbay.com> <pan.2007.11.30.09.20.24.737500@wizards.de> <475055EE.9060105@hp.com> <pan.2007.12.02.16.00.03.568000@wizards.de> <pan.2007.12.02.20.49.42.675000@wizards.de> <20071205225429.GA10186@electric-eye.fr.zoreil.com> <pan.2007.12.06.09.28.08.913625@wizards.de>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] iproute2: support dotted-quad netmask notation.
+Date: Thu, 6 Dec 2007 11:53:50 -0800
+Message-ID: <20071206115350.18e9204f@freepuppy.rosehill>
+References: <20071204135818.GA24419@scream.fatal.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	torvalds@linux-foundation.org
-To: Holger Hoffstaette <holger@wizards.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753975AbXLFSuN@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <pan.2007.12.06.09.28.08.913625@wizards.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Andreas Henriksson <andreas@fatal.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:51532 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751487AbXLFTy6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 14:54:58 -0500
+In-Reply-To: <20071204135818.GA24419@scream.fatal.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Holger Hoffstaette <holger@wizards.de> :
-[...]
-> Maybe turning off sendfile or NAPI just lead to random success - so far it
-> really looks like tso on the r8169 is the common cause.
+On Tue, 4 Dec 2007 14:58:18 +0100
+Andreas Henriksson <andreas@fatal.se> wrote:
 
-TSO on the r8169 is the magic switch but the regression makes imvho more
-sense from a VM pov:
+> Suggested patch for allowing netmask to be specified in dotted quad format.
+> See http://bugs.debian.org/357172
+> 
+> (Known problem: this will not prevent some invalid syntaxes,
+> ie. "255.0.255.0" will be treated as "255.255.255.0")
+> 
+> Comments? Suggestions? Improvements?
 
-- the corrupted file has the same size as the expected file
-- the corrupted file exhibits holes which come as a multiple of 4096 bytes
-  (8*4k, 2 places, there may be more)
-- the r8169 driver does not know what a page is
-- the 8169 hardware has a small 8192 bytes Tx buffer
+Fix the bug you mentioned?
 
-It would be nice if someone could do a sendfile + vsftp test with TSO on a
-different hardware. While I could not reproduce the corruption when simply
-downloading a file that I had copied on the server with scp, it triggered
-almost immediately after I copied it locally and tried to download the copy.
+/* a valid netmask must be 2^n - 1 (n = 1..31) */
+static int is_valid_netmask(const inet_prefix *addr)
+{
+	uint32_t host;
 
--- 
-Ueimor
+	if (addr->family != AF_INET)
+		return 0;
+
+	host = ~ntohl(addr->data[0]);
+	if (host == 0 || ~host == 0)
+		return 0;
+
+	return (host & (host + 1)) == 0;
+}
