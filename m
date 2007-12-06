@@ -1,38 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Patch] net/xfrm/xfrm_policy.c: Some small improvements
-Date: Fri, 7 Dec 2007 04:40:52 +1100
-Message-ID: <20071206174052.GA530@gondor.apana.org.au>
-References: <20071206110123.GB2469@hacking> <20071206.031434.179419183.davem@davemloft.net> <4758093A.7010608@student.ltu.se>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Reproducible data corruption with sendfile+vsftp - splice
+	regression?
+Date: Thu, 6 Dec 2007 19:44:26 +0100
+Message-ID: <20071206184426.GA32599@electric-eye.fr.zoreil.com>
+References: <pan.2007.11.29.23.42.52.661624@wizards.de> <474FC4D9.3020506@cosmosbay.com> <pan.2007.11.30.09.20.24.737500@wizards.de> <475055EE.9060105@hp.com> <pan.2007.12.02.16.00.03.568000@wizards.de> <pan.2007.12.02.20.49.42.675000@wizards.de> <20071205225429.GA10186@electric-eye.fr.zoreil.com> <pan.2007.12.06.09.28.08.913625@wizards.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, xiyou.wangcong@gmail.com,
-	linux-kernel@vger.kernel.org, akpm@osdl.org, netdev@vger.kernel.org
-To: Richard Knutsson <ricknu-0@student.ltu.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1862 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751658AbXLFRxa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 12:53:30 -0500
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	torvalds@linux-foundation.org
+To: Holger Hoffstaette <holger@wizards.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753975AbXLFSuN@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4758093A.7010608@student.ltu.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <pan.2007.12.06.09.28.08.913625@wizards.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 06, 2007 at 03:37:46PM +0100, Richard Knutsson wrote:
->
-> Is it not an improvement to distinct booleans from actual values? Do you 
-> use integers for ASCII characters too? It can also avoid some potential 
-> bugs like the 'if (i == TRUE)'...
-> What is wrong with 'size_t' (since it is unsigned, compared to (some) 
-> 'int')?
+Holger Hoffstaette <holger@wizards.de> :
+[...]
+> Maybe turning off sendfile or NAPI just lead to random success - so far it
+> really looks like tso on the r8169 is the common cause.
 
-I agree with Dave.  There are so many useful things that we can do
-(and need to do) in IPsec that bool/size_t conversions just add
-churn without adding much value.
+TSO on the r8169 is the magic switch but the regression makes imvho more
+sense from a VM pov:
 
-Thanks,
+- the corrupted file has the same size as the expected file
+- the corrupted file exhibits holes which come as a multiple of 4096 bytes
+  (8*4k, 2 places, there may be more)
+- the r8169 driver does not know what a page is
+- the 8169 hardware has a small 8192 bytes Tx buffer
+
+It would be nice if someone could do a sendfile + vsftp test with TSO on a
+different hardware. While I could not reproduce the corruption when simply
+downloading a file that I had copied on the server with scp, it triggered
+almost immediately after I copied it locally and tried to download the copy.
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ueimor
