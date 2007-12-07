@@ -1,128 +1,124 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 8/8] bonding: Fix race at module unload
-Date: Thu,  6 Dec 2007 23:40:35 -0800
-Message-ID: <11970132404031-git-send-email-fubar@us.ibm.com>
+Subject: [PATCH 6/8] bonding: Fix time comparison
+Date: Thu,  6 Dec 2007 23:40:33 -0800
+Message-ID: <11970132394126-git-send-email-fubar@us.ibm.com>
 References: <11970132353950-git-send-email-fubar@us.ibm.com>
  <11970132363756-git-send-email-fubar@us.ibm.com>
  <11970132372293-git-send-email-fubar@us.ibm.com>
  <1197013237259-git-send-email-fubar@us.ibm.com>
  <11970132382296-git-send-email-fubar@us.ibm.com>
  <11970132381345-git-send-email-fubar@us.ibm.com>
- <11970132394126-git-send-email-fubar@us.ibm.com>
- <1197013239283-git-send-email-fubar@us.ibm.com>
-Cc: jgarzik@pobox.com, Jay Vosburgh <fubar@us.ibm.com>
+Cc: jgarzik@pobox.com, David Sterba <dsterba@suse.cz>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:41556 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751803AbXLGHkm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 02:40:42 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id lB77efbl012753
-	for <netdev@vger.kernel.org>; Fri, 7 Dec 2007 02:40:41 -0500
+Received: from e32.co.us.ibm.com ([32.97.110.150]:52979 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751796AbXLGHkl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 02:40:41 -0500
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e32.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id lB76d5V2031375
+	for <netdev@vger.kernel.org>; Fri, 7 Dec 2007 01:39:05 -0500
 Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lB77efBo037478
-	for <netdev@vger.kernel.org>; Fri, 7 Dec 2007 00:40:41 -0700
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lB77eeYL120796
+	for <netdev@vger.kernel.org>; Fri, 7 Dec 2007 00:40:40 -0700
 Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lB77ef3L018181
-	for <netdev@vger.kernel.org>; Fri, 7 Dec 2007 00:40:41 -0700
-In-Reply-To: <1197013239283-git-send-email-fubar@us.ibm.com>
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lB77edTu018134
+	for <netdev@vger.kernel.org>; Fri, 7 Dec 2007 00:40:40 -0700
+In-Reply-To: <11970132381345-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Fixes a race condition in module unload.  Without this change,
-workqueue events may fire while bonding data structures are partially
-freed but before bond_close() is invoked by unregister_netdevice().
+From: David Sterba <dsterba@suse.cz>
 
-	Update version to 3.2.3.
+From: David Sterba <dsterba@suse.cz>
 
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+Use macros for comparing jiffies. Jiffies' wrap caused missed events and hangs.
+Module reinsert was needed to make bonding work again.
+
+Signed-off-by: David Sterba <dsterba@suse.cz>
+Acked-by: Jay Vosburgh <fubar@us.ibm.com>
 ---
- drivers/net/bonding/bond_main.c |   43 ++++++++++++++++++++-------------------
- drivers/net/bonding/bonding.h   |    2 +-
- 2 files changed, 23 insertions(+), 22 deletions(-)
+ drivers/net/bonding/bond_main.c |   25 +++++++++++++------------
+ 1 files changed, 13 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 08879d5..b0b2603 100644
+index 423298c..e4a4714 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -4492,6 +4492,27 @@ static void bond_deinit(struct net_device *bond_dev)
- #endif
- }
+@@ -74,6 +74,7 @@
+ #include <linux/ethtool.h>
+ #include <linux/if_vlan.h>
+ #include <linux/if_bonding.h>
++#include <linux/jiffies.h>
+ #include <net/route.h>
+ #include <net/net_namespace.h>
+ #include "bonding.h"
+@@ -2722,8 +2723,8 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ 	 */
+ 	bond_for_each_slave(bond, slave, i) {
+ 		if (slave->link != BOND_LINK_UP) {
+-			if (((jiffies - slave->dev->trans_start) <= delta_in_ticks) &&
+-			    ((jiffies - slave->dev->last_rx) <= delta_in_ticks)) {
++			if (time_before_eq(jiffies, slave->dev->trans_start + delta_in_ticks) &&
++			    time_before_eq(jiffies, slave->dev->last_rx + delta_in_ticks)) {
  
-+static void bond_work_cancel_all(struct bonding *bond)
-+{
-+	write_lock_bh(&bond->lock);
-+	bond->kill_timers = 1;
-+	write_unlock_bh(&bond->lock);
-+
-+	if (bond->params.miimon && delayed_work_pending(&bond->mii_work))
-+		cancel_delayed_work(&bond->mii_work);
-+
-+	if (bond->params.arp_interval && delayed_work_pending(&bond->arp_work))
-+		cancel_delayed_work(&bond->arp_work);
-+
-+	if (bond->params.mode == BOND_MODE_ALB &&
-+	    delayed_work_pending(&bond->alb_work))
-+		cancel_delayed_work(&bond->alb_work);
-+
-+	if (bond->params.mode == BOND_MODE_8023AD &&
-+	    delayed_work_pending(&bond->ad_work))
-+		cancel_delayed_work(&bond->ad_work);
-+}
-+
- /* Unregister and free all bond devices.
-  * Caller must hold rtnl_lock.
-  */
-@@ -4502,6 +4523,7 @@ static void bond_free_all(void)
- 	list_for_each_entry_safe(bond, nxt, &bond_dev_list, bond_list) {
- 		struct net_device *bond_dev = bond->dev;
+ 				slave->link  = BOND_LINK_UP;
+ 				slave->state = BOND_STATE_ACTIVE;
+@@ -2754,8 +2755,8 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ 			 * when the source ip is 0, so don't take the link down
+ 			 * if we don't know our ip yet
+ 			 */
+-			if (((jiffies - slave->dev->trans_start) >= (2*delta_in_ticks)) ||
+-			    (((jiffies - slave->dev->last_rx) >= (2*delta_in_ticks)) &&
++			if (time_after_eq(jiffies, slave->dev->trans_start + 2*delta_in_ticks) ||
++			    (time_after_eq(jiffies, slave->dev->last_rx + 2*delta_in_ticks) &&
+ 			     bond_has_ip(bond))) {
  
-+		bond_work_cancel_all(bond);
- 		bond_mc_list_destroy(bond);
- 		/* Release the bonded slaves */
- 		bond_release_all(bond_dev);
-@@ -4902,27 +4924,6 @@ out_rtnl:
- 	return res;
- }
+ 				slave->link  = BOND_LINK_DOWN;
+@@ -2848,8 +2849,8 @@ void bond_activebackup_arp_mon(struct work_struct *work)
+ 	 */
+ 	bond_for_each_slave(bond, slave, i) {
+ 		if (slave->link != BOND_LINK_UP) {
+-			if ((jiffies - slave_last_rx(bond, slave)) <=
+-			     delta_in_ticks) {
++			if (time_before_eq(jiffies,
++			    slave_last_rx(bond, slave) + delta_in_ticks)) {
  
--static void bond_work_cancel_all(struct bonding *bond)
--{
--	write_lock_bh(&bond->lock);
--	bond->kill_timers = 1;
--	write_unlock_bh(&bond->lock);
--
--	if (bond->params.miimon && delayed_work_pending(&bond->mii_work))
--		cancel_delayed_work(&bond->mii_work);
--
--	if (bond->params.arp_interval && delayed_work_pending(&bond->arp_work))
--		cancel_delayed_work(&bond->arp_work);
--
--	if (bond->params.mode == BOND_MODE_ALB &&
--	    delayed_work_pending(&bond->alb_work))
--		cancel_delayed_work(&bond->alb_work);
--
--	if (bond->params.mode == BOND_MODE_8023AD &&
--	    delayed_work_pending(&bond->ad_work))
--		cancel_delayed_work(&bond->ad_work);
--}
--
- static int __init bonding_init(void)
- {
- 	int i;
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index ccafc74..e1e4734 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -22,7 +22,7 @@
- #include "bond_3ad.h"
- #include "bond_alb.h"
+ 				slave->link = BOND_LINK_UP;
  
--#define DRV_VERSION	"3.2.2"
-+#define DRV_VERSION	"3.2.3"
- #define DRV_RELDATE	"December 6, 2007"
- #define DRV_NAME	"bonding"
- #define DRV_DESCRIPTION	"Ethernet Channel Bonding Driver"
+@@ -2858,7 +2859,7 @@ void bond_activebackup_arp_mon(struct work_struct *work)
+ 				write_lock_bh(&bond->curr_slave_lock);
+ 
+ 				if ((!bond->curr_active_slave) &&
+-				    ((jiffies - slave->dev->trans_start) <= delta_in_ticks)) {
++				    time_before_eq(jiffies, slave->dev->trans_start + delta_in_ticks)) {
+ 					bond_change_active_slave(bond, slave);
+ 					bond->current_arp_slave = NULL;
+ 				} else if (bond->curr_active_slave != slave) {
+@@ -2897,7 +2898,7 @@ void bond_activebackup_arp_mon(struct work_struct *work)
+ 
+ 			if ((slave != bond->curr_active_slave) &&
+ 			    (!bond->current_arp_slave) &&
+-			    (((jiffies - slave_last_rx(bond, slave)) >= 3*delta_in_ticks) &&
++			    (time_after_eq(jiffies, slave_last_rx(bond, slave) + 3*delta_in_ticks) &&
+ 			     bond_has_ip(bond))) {
+ 				/* a backup slave has gone down; three times
+ 				 * the delta allows the current slave to be
+@@ -2943,10 +2944,10 @@ void bond_activebackup_arp_mon(struct work_struct *work)
+ 		 * before being taken out. if a primary is being used, check
+ 		 * if it is up and needs to take over as the curr_active_slave
+ 		 */
+-		if ((((jiffies - slave->dev->trans_start) >= (2*delta_in_ticks)) ||
+-	    (((jiffies - slave_last_rx(bond, slave)) >= (2*delta_in_ticks)) &&
+-	     bond_has_ip(bond))) &&
+-		    ((jiffies - slave->jiffies) >= 2*delta_in_ticks)) {
++		if ((time_after_eq(jiffies, slave->dev->trans_start + 2*delta_in_ticks) ||
++			(time_after_eq(jiffies, slave_last_rx(bond, slave) + 2*delta_in_ticks) &&
++			 bond_has_ip(bond))) &&
++			time_after_eq(jiffies, slave->jiffies + 2*delta_in_ticks)) {
+ 
+ 			slave->link  = BOND_LINK_DOWN;
+ 
 -- 
 1.5.3.4.206.g58ba4-dirty
 
