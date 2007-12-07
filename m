@@ -1,72 +1,120 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [RFC] TCP illinois max rtt aging
-Date: Fri, 7 Dec 2007 15:05:59 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0712071442530.18529@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0712041031110.18529@kivilampi-30.cs.helsinki.fi>
- <aa7d2c6d0712061927g2e6f1679o8b05f76d723c0c76@mail.gmail.com>
- <Pine.LNX.4.64.0712071254070.18529@kivilampi-30.cs.helsinki.fi>
- <20071207.044150.02925935.davem@davemloft.net>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-2.6.25 1/3]sysctl: make the sys.net.core sysctls per-namespace
+Date: Fri, 07 Dec 2007 16:07:19 +0300
+Message-ID: <47594587.6060308@openvz.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1703991477-1197032759=:18529"
-Cc: lachlan.andrew@gmail.com, Netdev <netdev@vger.kernel.org>,
-	quetchen@caltech.edu
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:34441 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751720AbXLGNGE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 08:06:04 -0500
-In-Reply-To: <20071207.044150.02925935.davem@davemloft.net>
+Received: from sacred.ru ([62.205.161.221]:42917 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751816AbXLGNHh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Dec 2007 08:07:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Making them per-namespace is required for the following 
+two reasons:
 
----696243703-1703991477-1197032759=:18529
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+ First, some ctl values have a per-namespace meaning.
+ Second, making them writable from the sub-namespace
+ is an isolation hole.
 
-On Fri, 7 Dec 2007, David Miller wrote:
+So I introduce the pernet operations to create these
+tables. For init_net I use the existing statically
+declared tables, for sub-namespace they are duplicated
+and the write bits are removed from the mode.
 
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Fri, 7 Dec 2007 13:05:46 +0200 (EET)
-> 
-> > I guess if you get a large cumulative ACK, the amount of processing is 
-> > still overwhelming (added DaveM if he has some idea how to combat it).
-> > 
-> > Even a simple scenario (this isn't anything fancy at all, will occur all 
-> > the time): Just one loss => rest skbs grow one by one into a single 
-> > very large SACK block (and we do that efficiently for sure) => then the 
-> > fast retransmit gets delivered and a cumulative ACK for whole orig_window 
-> > arrives => clean_rtx_queue has to do a lot of processing. In this case we 
-> > could optimize RB-tree cleanup away (by just blanking it all) but still 
-> > getting rid of all those skbs is going to take a larger moment than I'd 
-> > like to see.
-> > 
-> > That tree blanking could be extended to cover anything which ACK more than 
-> > half of the tree by just replacing the root (and dealing with potential 
-> > recolorization of the root).
-> 
-> Yes, it's the classic problem.  But it ought to be at least
-> partially masked when TSO is in use, because we'll only process
-> a handful of SKBs.  The more effectively TSO batches, the
-> less work clean_rtx_queue() will do.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-No, that's not what is going to happen, TSO won't help at all
-because one-by-one SACKs will fragment every single one of them
-(see tcp_match_skb_to_sack) :-(. ...So we're back in non-TSO
-case, or am I missing something?
+---
 
-> Web100 just provides statistics and other kinds of connection data
-> to userspace, all the actual algorithm etc. modifications have been
-> merged upstream and yanked out of the web100 patch.  I was looking
-> at it the other night and it's frankly totally uninteresting these
-> days :-)
-
-...Thanks, I'll keep that in my mind when looking... :-)
-
-
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index f97b2a4..d593611 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -37,6 +37,9 @@ struct net {
+ 
+ 	struct sock 		*rtnl;			/* rtnetlink socket */
+ 
++	/* core sysctls */
++	struct ctl_table_header	*sysctl_core_hdr;
++
+ 	/* List of all packet sockets. */
+ 	rwlock_t		packet_sklist_lock;
+ 	struct hlist_head	packet_sklist;
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index e322713..57a7ead 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -151,18 +151,58 @@ static struct ctl_table net_core_table[] = {
+ 	{ .ctl_name = 0 }
+ };
+ 
+-static __initdata struct ctl_path net_core_path[] = {
++static __net_initdata struct ctl_path net_core_path[] = {
+ 	{ .procname = "net", .ctl_name = CTL_NET, },
+ 	{ .procname = "core", .ctl_name = NET_CORE, },
+ 	{ },
+ };
+ 
+-static __init int sysctl_core_init(void)
++static __net_init int sysctl_core_net_init(struct net *net)
+ {
+-	struct ctl_table_header *hdr;
++	struct ctl_table *tbl, *tmp;
++
++	tbl = net_core_table;
++	if (net != &init_net) {
++		tbl = kmemdup(tbl, sizeof(net_core_table), GFP_KERNEL);
++		if (tbl == NULL)
++			goto err_dup;
++
++		for (tmp = tbl; tmp->procname; tmp++)
++			tmp->mode &= ~0222;
++	}
++
++	net->sysctl_core_hdr = register_net_sysctl_table(net,
++			net_core_path, tbl);
++	if (net->sysctl_core_hdr == NULL)
++		goto err_reg;
+ 
+-	hdr = register_sysctl_paths(net_core_path, net_core_table);
+-	return hdr == NULL ? -ENOMEM : 0;
++	return 0;
++
++err_reg:
++	if (tbl != net_core_table)
++		kfree(tbl);
++err_dup:
++	return -ENOMEM;
++}
++
++static __net_exit void sysctl_core_net_exit(struct net *net)
++{
++	struct ctl_table *tbl;
++
++	tbl = net->sysctl_core_hdr->ctl_table_arg;
++	unregister_net_sysctl_table(net->sysctl_core_hdr);
++	BUG_ON(tbl == net_core_table);
++	kfree(tbl);
++}
++
++static __net_initdata struct pernet_operations sysctl_core_ops = {
++	.init = sysctl_core_net_init,
++	.exit = sysctl_core_net_exit,
++};
++
++static __init int sysctl_core_init(void)
++{
++	return register_pernet_subsys(&sysctl_core_ops);
+ }
+ 
+ __initcall(sysctl_core_init);
 -- 
- i.
----696243703-1703991477-1197032759=:18529--
+1.5.3.4
+
+
