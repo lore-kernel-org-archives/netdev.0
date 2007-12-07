@@ -1,56 +1,61 @@
-From: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
-Subject: [PATCH] [IPv4] Add strict check for replying net unreachable
- message
-Date: Fri, 7 Dec 2007 13:24:18 +0900
-Message-ID: <20071207132418.d19d2f0e.mitch@linux.vnet.ibm.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH 2.6.24-rc3] Fix /proc/net breakage
+Date: Fri, 07 Dec 2007 04:51:37 +0000
+Message-ID: <1197003097.13978.557.camel@pmac.infradead.org>
+References: <20071119191000.GA1560@elf.ucw.cz>
+	 <200711192304.25087.rjw@sisk.pl> <4743026B.2020907@openvz.org>
+	 <m1hcj8mz1p.fsf_-_@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Rami Rosen <roszenrami@gmail.com>,
-	Jarek Poplawski <jarkao2@gmail.com>
-To: netdev@vger.kernel.org
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
+	kernel list <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Pavel Emelyanov <xemul@openvz.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:59874 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752309AbXLGEYd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Dec 2007 23:24:33 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id lB74OUvu014516
-	for <netdev@vger.kernel.org>; Thu, 6 Dec 2007 23:24:30 -0500
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lB74OUtT129946
-	for <netdev@vger.kernel.org>; Thu, 6 Dec 2007 23:24:30 -0500
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lB74OUPU002770
-	for <netdev@vger.kernel.org>; Thu, 6 Dec 2007 23:24:30 -0500
+Received: from pentafluge.infradead.org ([213.146.154.40]:51003 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752545AbXLGEwE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 23:52:04 -0500
+In-Reply-To: <m1hcj8mz1p.fsf_-_@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch `Reply net unreachable ICMP message' had a bug.
-A route whose type is blockhole or prohibit type is treated as
-unreachable type. The case where err is set to ENETUNREACH should
-be that no route is found in the routing table only.
+On Mon, 2007-11-26 at 15:17 -0700, Eric W. Biederman wrote:
+> Well I clearly goofed when I added the initial network namespace support
+> for /proc/net.  Currently things work but there are odd details visible
+> to user space, even when we have a single network namespace.
+> 
+> Since we do not cache proc_dir_entry dentries at the moment we can
+> just modify ->lookup to return a different directory inode depending
+> on the network namespace of the process looking at /proc/net, replacing
+> the current technique of using a magic and fragile follow_link method.
+> 
+> To accomplish that this patch:
+> - introduces a shadow_proc method to allow different dentries to
+>   be returned from proc_lookup.
+> - Removes the old /proc/net follow_link magic
+> - Fixes a weakness in our not caching of proc generic dentries.
+> 
+> As shadow_proc uses a task struct to decided which dentry to return we
+> can go back later and fix the proc generic caching without modifying any code that
+> uses the shadow_proc method.
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> ---
+>  fs/proc/generic.c       |   12 ++++++-
+>  fs/proc/proc_net.c      |   86 +++--------------------------------------------
+>  include/linux/proc_fs.h |    3 ++
+>  3 files changed, 19 insertions(+), 82 deletions(-)
 
-Signed-off-by: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
----
- net/ipv4/route.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+(commit 2b1e300a9dfc3196ccddf6f1d74b91b7af55e416)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 8a79f74..d2bc614 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1882,7 +1882,8 @@ no_route:
- 	RT_CACHE_STAT_INC(in_no_route);
- 	spec_dst = inet_select_addr(dev, 0, RT_SCOPE_UNIVERSE);
- 	res.type = RTN_UNREACHABLE;
--	err = -ENETUNREACH;
-+	if (err == -ESRCH)
-+		err = -ENETUNREACH;
- 	goto local_input;
- 
- 	/*
+This seems to have broken the use of /proc/bus/usb as a mountpoint. It
+always appears empty now, whatever's supposed to be mounted there.
+
 -- 
-1.5.3.4
+dwmw2
 
