@@ -1,45 +1,50 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] e1000: fix memcpy  in e1000_get_strings
-Date: Fri, 07 Dec 2007 15:03:17 -0500
-Message-ID: <4759A705.5070309@garzik.org>
-References: <20071205195729.6859.97796.stgit@localhost.localdomain>
+Subject: Re: [patch resend build-breakage] make bnx2x select ZLIB_INFLATE
+Date: Fri, 07 Dec 2007 15:03:07 -0500
+Message-ID: <4759A6FB.2090607@garzik.org>
+References: <1196863959.5204.25.camel@lb-tlvb-eliezer.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 12o3l@tiscali.nl
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Lee Schermerhorn <Lee.Schermerhorn@hp.com>
+To: Eliezer Tamir <eliezert@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40148 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:40142 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751883AbXLGUDU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Dec 2007 15:03:20 -0500
-In-Reply-To: <20071205195729.6859.97796.stgit@localhost.localdomain>
+	id S1757715AbXLGUDO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Dec 2007 15:03:14 -0500
+In-Reply-To: <1196863959.5204.25.camel@lb-tlvb-eliezer.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Auke Kok wrote:
-> From: Roel Kluin <12o3l@tiscali.nl>
+Eliezer Tamir wrote:
+> The bnx2x module depends on the zlib_inflate functions.  The
+> build will fail if ZLIB_INFLATE has not been selected manually
+> or by building another module that automatically selects it.
 > 
-> drivers/net/e1000/e1000_ethtool.c:113:
-> #define E1000_TEST_LEN sizeof(e1000_gstrings_test) / ETH_GSTRING_LEN
+> Modify BNX2X config option to 'select ZLIB_INFLATE' like BNX2
+> and others.  This seems to fix it.
 > 
-> drivers/net/e1000e/ethtool.c:106:
-> #define E1000_TEST_LEN sizeof(e1000_gstrings_test) / ETH_GSTRING_LEN
 > 
-> E1000_TEST_LEN*ETH_GSTRING_LEN will expand to
-> sizeof(e1000_gstrings_test) / (ETH_GSTRING_LEN * ETH_GSTRING_LEN)
-> 
-> A lack of parentheses around defines causes unexpected results due to
-> operator precedences.
-> 
-> Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> Signed-off-by:  Lee Schermerhorn <lee.schermerhorn@hp.com>
+> Acked-by: Eliezer Tamir <eliezert@broadcom.com>
 > ---
+>  drivers/net/Kconfig |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
 > 
->  drivers/net/e1000/e1000_ethtool.c |    2 +-
->  drivers/net/e1000e/ethtool.c      |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index 5bafb30..b9d7f5b 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -2594,6 +2594,7 @@ config TEHUTI
+>  config BNX2X
+>  	tristate "Broadcom NetXtremeII 10Gb support"
+>  	depends on PCI
+> +	select ZLIB_INFLATE
+>  	help
 
-applied 1-2 to #upstream-fixes
+applied #upstream-fixes
 
 
