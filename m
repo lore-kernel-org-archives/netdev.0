@@ -1,87 +1,64 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH 2/2] cxgb3 - Parity initialization for T3C adapters
-Date: Fri, 07 Dec 2007 14:47:46 -0800
-Message-ID: <4759CD92.2070604@chelsio.com>
-References: <20071205181527.22106.73134.stgit@speedy5> <4759A6EA.1050106@garzik.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] sky2: RX lockup fix
+Date: Fri, 7 Dec 2007 15:22:15 -0800
+Message-ID: <20071207152215.0267c407@freepuppy.rosehill>
+References: <1196880663.2816.149.camel@localhost.localdomain>
+	<20071205164058.157275a9@shemminger-laptop>
+	<1196900326.21996.1.camel@localhost.localdomain>
+	<20071205225249.0f46672c@shemminger-laptop>
+	<1196957697.24978.24.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com, wenxiong@us.ibm.com
-To: Jeff Garzik <jeff@garzik.org>
+Cc: Peter Tyser <ptyser@xes-inc.com>, netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:12005 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754466AbXLGWw4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 17:52:56 -0500
-In-Reply-To: <4759A6EA.1050106@garzik.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:49594 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751085AbXLGXZ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 18:25:26 -0500
+In-Reply-To: <1196957697.24978.24.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Garzik wrote:
-> Divy Le Ray wrote:
->> From: Divy Le Ray <divy@chelsio.com>
->>
->> Add parity initialization for T3C adapters.
->>
->> Signed-off-by: Divy Le Ray <divy@chelsio.com>
->> ---
->>
->>  drivers/net/cxgb3/adapter.h       |    1 
->>  drivers/net/cxgb3/cxgb3_main.c    |   82 ++++++++++++
->>  drivers/net/cxgb3/cxgb3_offload.c |   15 ++
->>  drivers/net/cxgb3/regs.h          |  248 
->> +++++++++++++++++++++++++++++++++++++
->>  drivers/net/cxgb3/sge.c           |   24 +++-
->>  drivers/net/cxgb3/t3_hw.c         |  131 +++++++++++++++++---
->>  6 files changed, 472 insertions(+), 29 deletions(-)
->
-> dropped patches 2-3, did not apply
->
->
+I'm using a Marvell 88E8062 on a custom PPC64 blade and ran into RX
+lockups while validating the sky2 driver.  The receive MAC FIFO would
+become stuck during testing with high traffic.  One port of the 88E8062
+would lockup, while the other port remained functional.  Re-inserting
+the sky2 module would not fix the problem - only a power cycle would.
 
-Hi Jeff,
+I looked over Marvell's most recent sk98lin driver and it looks like
+they had a "workaround" for the Yukon XL that the sky2 doesn't have yet.
+The sk98lin driver disables the RX MAC FIFO flush feature for all
+revisions of the Yukon XL.
 
-I noticed that you applied the first one of this 3 patches series to the 
-#upstream-fixes branch.
-These patches are intended to the #upstream (2.6.25) branch, as they are 
-built on top of the
-last 10 patches committed - 9 from me, and the white space clean up 
-(thanks!).
-May be this is the reason why they did not apply.
+According to skgeinit.c of the sk98lin driver, "Flushing must be enabled
+(needed for ASF see dev. #4.29), but the flushing mask should be
+disabled (see dev. #4.115)".  Nice. I implemented this same change in
+the sky2 driver and verified that the RX lockup I was seeing was
+resolved.
 
-On this topic, I have a question: how do I get to see all the netdev-2.6 
-branches ?
-After cloning a free  netdev-2.6 tree, 'git branch' shows only the 
-master branch:
+Signed-off-by: Peter Tyser <ptyser@xes-inc.com>
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-bash-3.1$ git --version
-git version 1.5.3.rc4.29.g74276-dirty
--bash-3.1$ stg clone 
-git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git 
-netdev-2.6-fresh
-Cloning 
-"git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git" 
-into "netdev-2.6-fresh"...
-Initialized empty Git repository in /opt/sources/netdev-2.6-fresh/.git/
-remote: Generating pack...
-remote: Counting objects: 620879
-Done counting 633562 objects.
-remote: Deltifying 633562 objects...
-remote:  100% (633562/633562) done
-Indexing 633562 objects...
-remote: Total 633562 (delta 517968), reused 594305 (delta 478716)
- 100% (633562/633562) done
-Resolving 517968 deltas...
- 100% (517968/517968) done
-Checking 23058 files out...
- 100% (23058/23058) done
-done
--bash-3.1$ cd netdev-2.6-fresh/
--bash-3.1$ git branch
-* master
+---
+Original patch reformatted to remove line wrap.
 
-Cheers,
-Divy
-
-
+--- a/drivers/net/sky2.c	2007-12-06 09:39:12.000000000 -0800
++++ b/drivers/net/sky2.c	2007-12-06 09:54:14.000000000 -0800
+@@ -821,8 +821,13 @@ static void sky2_mac_init(struct sky2_hw
+ 
+ 	sky2_write32(hw, SK_REG(port, RX_GMF_CTRL_T), rx_reg);
+ 
+-	/* Flush Rx MAC FIFO on any flow control or error */
+-	sky2_write16(hw, SK_REG(port, RX_GMF_FL_MSK), GMR_FS_ANY_ERR);
++	if (hw->chip_id == CHIP_ID_YUKON_XL) {
++		/* Hardware errata - clear flush mask */
++		sky2_write16(hw, SK_REG(port, RX_GMF_FL_MSK), 0);
++	} else {
++		/* Flush Rx MAC FIFO on any flow control or error */
++		sky2_write16(hw, SK_REG(port, RX_GMF_FL_MSK), GMR_FS_ANY_ERR);
++	}
+ 
+ 	/* Set threshold to 0xa (64 bytes) + 1 to workaround pause bug  */
+ 	reg = RX_GMF_FL_THR_DEF + 1;
