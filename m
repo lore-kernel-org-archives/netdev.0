@@ -1,169 +1,66 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][VLAN] Merge tree equal tails in vlan_skb_recv
-Date: Fri, 07 Dec 2007 13:22:07 +0300
-Message-ID: <47591ECF.2020707@openvz.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 2.6.24-rc3] Fix /proc/net breakage
+Date: Fri, 7 Dec 2007 02:23:42 -0800
+Message-ID: <20071207022342.806ee4ee.akpm@linux-foundation.org>
+References: <20071119191000.GA1560@elf.ucw.cz>
+	<200711192304.25087.rjw@sisk.pl>
+	<4743026B.2020907@openvz.org>
+	<m1hcj8mz1p.fsf_-_@ebiederm.dsl.xmission.com>
+	<1197003097.13978.557.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
+	kernel list <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	"Denis V. Lunev" <den@openvz.org>
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:47307 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751144AbXLGKWQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Dec 2007 05:22:16 -0500
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:53132 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751659AbXLGKYS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 05:24:18 -0500
+In-Reply-To: <1197003097.13978.557.camel@pmac.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are tree paths in it, that set the skb->proto and then
-perform common receive manipulations (basically call netif_rx()).
+On Fri, 07 Dec 2007 04:51:37 +0000 David Woodhouse <dwmw2@infradead.org> wrote:
 
-I think, that we can make this code flow easier to understand
-by introducing the vlan_set_encap_proto() function (I hope the 
-name is good) to setup the skb proto and merge the paths calling 
-netif_rx() together.
+> On Mon, 2007-11-26 at 15:17 -0700, Eric W. Biederman wrote:
+> > Well I clearly goofed when I added the initial network namespace support
+> > for /proc/net.  Currently things work but there are odd details visible
+> > to user space, even when we have a single network namespace.
+> > 
+> > Since we do not cache proc_dir_entry dentries at the moment we can
+> > just modify ->lookup to return a different directory inode depending
+> > on the network namespace of the process looking at /proc/net, replacing
+> > the current technique of using a magic and fragile follow_link method.
+> > 
+> > To accomplish that this patch:
+> > - introduces a shadow_proc method to allow different dentries to
+> >   be returned from proc_lookup.
+> > - Removes the old /proc/net follow_link magic
+> > - Fixes a weakness in our not caching of proc generic dentries.
+> > 
+> > As shadow_proc uses a task struct to decided which dentry to return we
+> > can go back later and fix the proc generic caching without modifying any code that
+> > uses the shadow_proc method.
+> > 
+> > Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> > ---
+> >  fs/proc/generic.c       |   12 ++++++-
+> >  fs/proc/proc_net.c      |   86 +++--------------------------------------------
+> >  include/linux/proc_fs.h |    3 ++
+> >  3 files changed, 19 insertions(+), 82 deletions(-)
+> 
+> (commit 2b1e300a9dfc3196ccddf6f1d74b91b7af55e416)
+> 
+> This seems to have broken the use of /proc/bus/usb as a mountpoint. It
+> always appears empty now, whatever's supposed to be mounted there.
+> 
 
-Surprisingly, but gcc detects this thing and merges these paths
-by itself, so this patch doesn't make the vlan module smaller.
-
-Fits both net-2.6 and net-2.6.25.
-
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
----
-
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 4f99bb8..11198c1 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -90,6 +90,40 @@ static inline struct sk_buff *vlan_check_reorder_header(struct sk_buff *skb)
- 	return skb;
- }
- 
-+static inline void vlan_set_encap_proto(struct sk_buff *skb,
-+		struct vlan_hdr *vhdr)
-+{
-+	__be16 proto;
-+	unsigned char *rawp;
-+
-+	/*
-+	 * Was a VLAN packet, grab the encapsulated protocol, which the layer
-+	 * three protocols care about.
-+	 */
-+
-+	proto = vhdr->h_vlan_encapsulated_proto;
-+	if (ntohs(proto) >= 1536) {
-+		skb->protocol = proto;
-+		return;
-+	}
-+
-+	rawp = skb->data;
-+	if (*(unsigned short *)rawp == 0xFFFF)
-+		/*
-+		 * This is a magic hack to spot IPX packets. Older Novell
-+		 * breaks the protocol design and runs IPX over 802.3 without
-+		 * an 802.2 LLC layer. We look for FFFF which isn't a used
-+		 * 802.2 SSAP/DSAP. This won't work for fault tolerant netware
-+		 * but does for the rest.
-+		 */
-+		skb->protocol = htons(ETH_P_802_3);
-+	else
-+		/*
-+		 * Real 802.2 LLC
-+		 */
-+		skb->protocol = htons(ETH_P_802_2);
-+}
-+
- /*
-  *	Determine the packet's protocol ID. The rule here is that we
-  *	assume 802.3 if the type field is short enough to be a length.
-@@ -115,12 +149,10 @@ static inline struct sk_buff *vlan_check_reorder_header(struct sk_buff *skb)
- int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
- 		  struct packet_type* ptype, struct net_device *orig_dev)
- {
--	unsigned char *rawp = NULL;
- 	struct vlan_hdr *vhdr;
- 	unsigned short vid;
- 	struct net_device_stats *stats;
- 	unsigned short vlan_TCI;
--	__be16 proto;
- 
- 	if (dev->nd_net != &init_net) {
- 		kfree_skb(skb);
-@@ -236,70 +268,11 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
- 		break;
- 	}
- 
--	/*  Was a VLAN packet, grab the encapsulated protocol, which the layer
--	 * three protocols care about.
--	 */
--	/* proto = get_unaligned(&vhdr->h_vlan_encapsulated_proto); */
--	proto = vhdr->h_vlan_encapsulated_proto;
--
--	skb->protocol = proto;
--	if (ntohs(proto) >= 1536) {
--		/* place it back on the queue to be handled by
--		 * true layer 3 protocols.
--		 */
--
--		/* See if we are configured to re-write the VLAN header
--		 * to make it look like ethernet...
--		 */
--		skb = vlan_check_reorder_header(skb);
--
--		/* Can be null if skb-clone fails when re-ordering */
--		if (skb) {
--			netif_rx(skb);
--		} else {
--			/* TODO:  Add a more specific counter here. */
--			stats->rx_errors++;
--		}
--		rcu_read_unlock();
--		return 0;
--	}
--
--	rawp = skb->data;
--
--	/*
--	 * This is a magic hack to spot IPX packets. Older Novell breaks
--	 * the protocol design and runs IPX over 802.3 without an 802.2 LLC
--	 * layer. We look for FFFF which isn't a used 802.2 SSAP/DSAP. This
--	 * won't work for fault tolerant netware but does for the rest.
--	 */
--	if (*(unsigned short *)rawp == 0xFFFF) {
--		skb->protocol = htons(ETH_P_802_3);
--		/* place it back on the queue to be handled by true layer 3 protocols.
--		 */
--
--		/* See if we are configured to re-write the VLAN header
--		 * to make it look like ethernet...
--		 */
--		skb = vlan_check_reorder_header(skb);
--
--		/* Can be null if skb-clone fails when re-ordering */
--		if (skb) {
--			netif_rx(skb);
--		} else {
--			/* TODO:  Add a more specific counter here. */
--			stats->rx_errors++;
--		}
--		rcu_read_unlock();
--		return 0;
--	}
--
--	/*
--	 *	Real 802.2 LLC
--	 */
--	skb->protocol = htons(ETH_P_802_2);
- 	/* place it back on the queue to be handled by upper layer protocols.
- 	 */
- 
-+	vlan_set_encap_proto(skb, vhdr);
-+
- 	/* See if we are configured to re-write the VLAN header
- 	 * to make it look like ethernet...
- 	 */
--- 
-1.5.3.4
-
+Yes.  Denis and Eric are tossing around competing patches but afaik nobody
+is happy with any of them.  Guys, could we get this sorted soonish please?
