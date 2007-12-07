@@ -1,42 +1,258 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] s2io: fix inconsistent hardware VLAN tagging during driver
- init
-Date: Fri, 07 Dec 2007 16:17:26 -0500
-Message-ID: <4759B866.1050609@garzik.org>
-References: <78C9135A3D2ECE4B8162EBDCE82CAD7702A82C8C@nekter>
+From: Brian S Julin <BJulin@clarku.edu>
+Subject: [RFC] [PATCH] easier PBR for dynamic source tables (via multipath)
+Date: Fri, 7 Dec 2007 17:21:02 -0500
+Message-ID: <5A630F46702DD1498FFD48394B4A664C3472BAC2@john.ad.clarku.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	Rastapur Santosh <santosh.rastapur@neterion.com>,
-	Sivakumar Subramani <Sivakumar.Subramani@neterion.com>,
-	Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
-To: Ramkrishna Vepa <Ramkrishna.Vepa@neterion.com>
+Content-Type: multipart/mixed;
+	boundary="_003_5A630F46702DD1498FFD48394B4A664C3472BAC2johnadclarkuedu_"
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:57407 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753404AbXLGVRk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Dec 2007 16:17:40 -0500
-In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD7702A82C8C@nekter>
+Received: from george.clarku.edu ([140.232.1.173]:29109 "EHLO
+	george.george.clarku.edu" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753981AbXLGW26 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 17:28:58 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ramkrishna Vepa wrote:
-> Jeff,
-> This patch looks good. Please accept.
-> 
-> Ram
->> -----Original Message-----
->> From: Andy Gospodarek [mailto:andy@greyhouse.net]
->> Sent: Thursday, December 06, 2007 11:57 AM
->> To: netdev@vger.kernel.org
->> Cc: ram.vepa@neterion.com; Rastapur Santosh; Sivakumar Subramani;
->> Sreenivasa Honnur
->> Subject: [PATCH] s2io: fix inconsistent hardware VLAN tagging during
->> driver init
+--_003_5A630F46702DD1498FFD48394B4A664C3472BAC2johnadclarkuedu_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
 
-queued for my next patch run...
+This is a first swat and not in final form.  I hope folks here will help ve=
+t
+my thinking on it.
 
+This fills in a missed niche in policy routing support.  It allows multipat=
+h
+routes to select nexthop based on the source realm, inside the routing
+decision step, immediately after RPF is performed.  It moves RPF before
+multipath selection.
 
+This would be for people wanting to do policy routing based on a table
+injected by a dynamic routing protocol, e.g. quagga, rather than static rul=
+es.
 
+The existing methods for achieving this effect are all a bit tacky for
+various reasons:
+
+1) "iptables -m realm --realm X -j ROUTE" in FORWARD,mangle
+because ipt_ROUTE is not a well supported iptables target
+and has started to get dropped from mainstream distros.  Maybe
+for lack of maintenence, but perhaps it is intentionally
+deprecated. (?)
+
+2) "tc route from" ... "action mirred egress redirect" happens
+too late in the packet processing to do much else to the
+packet, like say edit the MAC addresses which remain what they
+were on the original output dev.  Doing this is really an
+abuse of the queueing system and involves setting up qdiscs in
+weird ways when one may only want to route.
+
+3) Userspace scripts to glue loading from a kernel routing table
+to a pre-routing ipset, iptables -j MARK, then "ip rule add fwmark"
+because the kernel then has to check the source address against two
+tables rather than one, and they could get quite large.  Plus it's
+hackery.
+
+This patch is a raw proof-of-concept I put together to get
+things working just enough to ensure that nothing blows up when
+packets are routed this way.  As such it does a couple of distasteful
+things and has a couple rough edges:
+
+  Reuses the nh_weight field as the realm
+  Does not allow normal load balancing to fully mix in
+  ipv4 only
+  forward only, no code for local/output route.
+  probably will break ifndef CONFIG_NET_CLS_ROUTE
+
+Were this general idea to be deemed worthy, and as long as limiting
+sizeof(struct fib_nh) is not a major concern to any linux routing
+application.  I could work up a more thorough/cleaner patch allowing
+statistical multipath and SAD policy-routing multipath to play nicely
+together.
+
+Especially needing comments on proper multipath RPF: The mainline code
+only checks the selected path and if RPF fails it does not choose a
+different one.  From this I assumed it is OK to do RPF on any old nexthop,
+and we just assume the user won't or can't put any PR rule in that would gu=
+m
+that up.  Otherwise both the mainline code and this code would have to
+RPF multiple times, defeating the goal of good performance.  (Not to
+mention that could get extra confusing when you are using the source
+realm to choose.)  Special attention to the spec_dest handling, what
+should be (?) OK since this is forward-only.
+
+Also to consider is what this means to multipath caching should that
+make a comeback.
+
+I've only tested this code lightly so far, just bouncing things around
+to static arp maps on the same if.
+
+After patching iproute2, just substitute "weight X" with "byrealm X" to
+activate it.  Probably you want to avoid realm 0.  You should be able to
+put catch-all nexthops in with "weight X" alongside the "byrealm" ones
+but they do not interact statistically.  Comments on that syntax
+also welcome.
+
+Sorry about the attachments, no real MUAs available here that won't
+corrupt tabs.
+
+--_003_5A630F46702DD1498FFD48394B4A664C3472BAC2johnadclarkuedu_
+Content-Type: text/plain; name="linux-2.6.23.dsad.diff"
+Content-Description: linux-2.6.23.dsad.diff
+Content-Disposition: attachment; filename="linux-2.6.23.dsad.diff"; size=5737;
+	creation-date="Fri, 07 Dec 2007 17:21:21 GMT";
+	modification-date="Fri, 07 Dec 2007 17:21:21 GMT"
+Content-Transfer-Encoding: base64
+
+ZGlmZiAtciAtVTIgbGludXgtc291cmNlLTIuNi4yMy1kc2MvaW5jbHVkZS9saW51eC9ydG5ldGxp
+bmsuaCBsaW51eC1zb3VyY2UtMi42LjIzLWRzYy1kc2FkL2luY2x1ZGUvbGludXgvcnRuZXRsaW5r
+LmgKLS0tIGxpbnV4LXNvdXJjZS0yLjYuMjMtZHNjL2luY2x1ZGUvbGludXgvcnRuZXRsaW5rLmgJ
+MjAwNy0xMC0wOSAxNjozMTozOC4wMDAwMDAwMDAgLTA0MDAKKysrIGxpbnV4LXNvdXJjZS0yLjYu
+MjMtZHNjLWRzYWQvaW5jbHVkZS9saW51eC9ydG5ldGxpbmsuaAkyMDA3LTEyLTA2IDIwOjIzOjI1
+LjAwMDAwMDAwMCAtMDUwMApAQCAtMjk0LDQgKzI5NCw1IEBACiAjZGVmaW5lIFJUTkhfRl9QRVJW
+QVNJVkUJMgkvKiBEbyByZWN1cnNpdmUgZ2F0ZXdheSBsb29rdXAJKi8KICNkZWZpbmUgUlROSF9G
+X09OTElOSwkJNAkvKiBHYXRld2F5IGlzIGZvcmNlZCBvbiBsaW5rCSovCisjZGVmaW5lIFJUTkhf
+Rl9EU0FECQk4CS8qIER5bmFtaWMgUEJSICh3ZWlnaHQgPSBzb3VyY2UgcmVhbG0pCSovCiAKIC8q
+IE1hY3JvcyB0byBoYW5kbGUgaGV4dGhvcHMgKi8KZGlmZiAtciAtVTIgbGludXgtc291cmNlLTIu
+Ni4yMy1kc2MvaW5jbHVkZS9uZXQvaXBfZmliLmggbGludXgtc291cmNlLTIuNi4yMy1kc2MtZHNh
+ZC9pbmNsdWRlL25ldC9pcF9maWIuaAotLS0gbGludXgtc291cmNlLTIuNi4yMy1kc2MvaW5jbHVk
+ZS9uZXQvaXBfZmliLmgJMjAwNy0xMC0wOSAxNjozMTozOC4wMDAwMDAwMDAgLTA0MDAKKysrIGxp
+bnV4LXNvdXJjZS0yLjYuMjMtZHNjLWRzYWQvaW5jbHVkZS9uZXQvaXBfZmliLmgJMjAwNy0xMi0w
+NiAyMDoyMzoyNS4wMDAwMDAwMDAgLTA1MDAKQEAgLTIwMiw1ICsyMDIsNiBAQAogZXh0ZXJuIGlu
+dCBmaWJfdmFsaWRhdGVfc291cmNlKF9fYmUzMiBzcmMsIF9fYmUzMiBkc3QsIHU4IHRvcywgaW50
+IG9pZiwKIAkJCSAgICAgICBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBfX2JlMzIgKnNwZWNfZHN0
+LCB1MzIgKml0YWcpOwotZXh0ZXJuIHZvaWQgZmliX3NlbGVjdF9tdWx0aXBhdGgoY29uc3Qgc3Ry
+dWN0IGZsb3dpICpmbHAsIHN0cnVjdCBmaWJfcmVzdWx0ICpyZXMpOworZXh0ZXJuIHZvaWQgZmli
+X3NlbGVjdF9tdWx0aXBhdGgoY29uc3Qgc3RydWN0IGZsb3dpICpmbHAsIAorCQkJICAgICAgIHN0
+cnVjdCBmaWJfcmVzdWx0ICpyZXMsIHUzMiBpdGFnKTsKIAogc3RydWN0IHJ0ZW50cnk7CmRpZmYg
+LXIgLVUyIGxpbnV4LXNvdXJjZS0yLjYuMjMtZHNjL25ldC9pcHY0L2ZpYl9zZW1hbnRpY3MuYyBs
+aW51eC1zb3VyY2UtMi42LjIzLWRzYy1kc2FkL25ldC9pcHY0L2ZpYl9zZW1hbnRpY3MuYwotLS0g
+bGludXgtc291cmNlLTIuNi4yMy1kc2MvbmV0L2lwdjQvZmliX3NlbWFudGljcy5jCTIwMDctMTAt
+MDkgMTY6MzE6MzguMDAwMDAwMDAwIC0wNDAwCisrKyBsaW51eC1zb3VyY2UtMi42LjIzLWRzYy1k
+c2FkL25ldC9pcHY0L2ZpYl9zZW1hbnRpY3MuYwkyMDA3LTEyLTA3IDE0OjM2OjEwLjAwMDAwMDAw
+MCAtMDUwMApAQCAtMTE2NCw1ICsxMTY0LDYgQEAKICAqLwogCi12b2lkIGZpYl9zZWxlY3RfbXVs
+dGlwYXRoKGNvbnN0IHN0cnVjdCBmbG93aSAqZmxwLCBzdHJ1Y3QgZmliX3Jlc3VsdCAqcmVzKQor
+dm9pZCBmaWJfc2VsZWN0X211bHRpcGF0aChjb25zdCBzdHJ1Y3QgZmxvd2kgKmZscCwgc3RydWN0
+IGZpYl9yZXN1bHQgKnJlcywKKwkJCSAgdTMyIGl0YWcpCiB7CiAJc3RydWN0IGZpYl9pbmZvICpm
+aSA9IHJlcy0+Zmk7CkBAIC0xMTcwLDggKzExNzEsMjAgQEAKIAogCXNwaW5fbG9ja19iaCgmZmli
+X211bHRpcGF0aF9sb2NrKTsKKwljaGFuZ2VfbmV4dGhvcHMoZmkpIHsKKwkgIGlmIChuZXRfcmF0
+ZWxpbWl0KCkpCisJICAgIHByaW50ayhLRVJOX0NSSVQgIkRTQUQgQ29uc2lkZXJpbmcgJXggJXhc
+biIsbmgtPm5oX3dlaWdodCxpdGFnKTsKKwkJaWYgKChuaC0+bmhfZmxhZ3MgJiBSVE5IX0ZfRFNB
+RCkgJiYgCisJCSAgICAoKCh1MzIpbmgtPm5oX3dlaWdodCAtIDEpID09IChpdGFnID4+IDE2KSkp
+IHsKKwkJCXJlcy0+bmhfc2VsID0gbmhzZWw7CisJCQlzcGluX3VubG9ja19iaCgmZmliX211bHRp
+cGF0aF9sb2NrKTsKKwkJCWlmIChuZXRfcmF0ZWxpbWl0KCkpCisJCQkgIHByaW50ayhLRVJOX0NS
+SVQgIkNob3NlIGEgRFNBRCBtdWx0aXJvdXRlXG4iKTsKKwkJCXJldHVybjsKKwkJfQorCX0gZW5k
+Zm9yX25leHRob3BzKGZpKTsKIAlpZiAoZmktPmZpYl9wb3dlciA8PSAwKSB7CiAJCWludCBwb3dl
+ciA9IDA7CiAJCWNoYW5nZV9uZXh0aG9wcyhmaSkgewotCQkJaWYgKCEobmgtPm5oX2ZsYWdzJlJU
+TkhfRl9ERUFEKSkgeworCQkJaWYgKCEobmgtPm5oX2ZsYWdzJihSVE5IX0ZfREVBRHxSVE5IX0Zf
+RFNBRCkpKSB7CiAJCQkJcG93ZXIgKz0gbmgtPm5oX3dlaWdodDsKIAkJCQluaC0+bmhfcG93ZXIg
+PSBuaC0+bmhfd2VpZ2h0OwpAQCAtMTE5NSw1ICsxMjA4LDUgQEAKIAogCWNoYW5nZV9uZXh0aG9w
+cyhmaSkgewotCQlpZiAoIShuaC0+bmhfZmxhZ3MmUlROSF9GX0RFQUQpICYmIG5oLT5uaF9wb3dl
+cikgeworCQlpZiAoIShuaC0+bmhfZmxhZ3MmKFJUTkhfRl9ERUFEfFJUTkhfRl9EU0FEKSkgJiYg
+bmgtPm5oX3Bvd2VyKSB7CiAJCQlpZiAoKHcgLT0gbmgtPm5oX3Bvd2VyKSA8PSAwKSB7CiAJCQkJ
+bmgtPm5oX3Bvd2VyLS07CmRpZmYgLXIgLVUyIGxpbnV4LXNvdXJjZS0yLjYuMjMtZHNjL25ldC9p
+cHY0L3JvdXRlLmMgbGludXgtc291cmNlLTIuNi4yMy1kc2MtZHNhZC9uZXQvaXB2NC9yb3V0ZS5j
+Ci0tLSBsaW51eC1zb3VyY2UtMi42LjIzLWRzYy9uZXQvaXB2NC9yb3V0ZS5jCTIwMDctMTAtMDkg
+MTY6MzE6MzguMDAwMDAwMDAwIC0wNDAwCisrKyBsaW51eC1zb3VyY2UtMi42LjIzLWRzYy1kc2Fk
+L25ldC9pcHY0L3JvdXRlLmMJMjAwNy0xMi0wNiAyMDoyNDo0NS4wMDAwMDAwMDAgLTA1MDAKQEAg
+LTE2MjIsMTkgKzE2MjIsMjAgQEAKIH0KIAotc3RhdGljIGlubGluZSBpbnQgX19ta3JvdXRlX2lu
+cHV0KHN0cnVjdCBza19idWZmICpza2IsCi0JCQkJICBzdHJ1Y3QgZmliX3Jlc3VsdCogcmVzLAot
+CQkJCSAgc3RydWN0IGluX2RldmljZSAqaW5fZGV2LAotCQkJCSAgX19iZTMyIGRhZGRyLCBfX2Jl
+MzIgc2FkZHIsIHUzMiB0b3MsCi0JCQkJICBzdHJ1Y3QgcnRhYmxlICoqcmVzdWx0KQorc3RhdGlj
+IGlubGluZSBpbnQgaXBfbWtyb3V0ZV9pbnB1dChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAorCQkJCSAg
+IHN0cnVjdCBmaWJfcmVzdWx0KiByZXMsCisJCQkJICAgY29uc3Qgc3RydWN0IGZsb3dpICpmbCwK
+KwkJCQkgICBzdHJ1Y3QgaW5fZGV2aWNlICppbl9kZXYsCisJCQkJICAgX19iZTMyIGRhZGRyLCBf
+X2JlMzIgc2FkZHIsIHUzMiB0b3MpCiB7Ci0KLQlzdHJ1Y3QgcnRhYmxlICpydGg7Ci0JaW50IGVy
+cjsKKwlzdHJ1Y3QgcnRhYmxlKiBydGggPSBOVUxMOwogCXN0cnVjdCBpbl9kZXZpY2UgKm91dF9k
+ZXY7CiAJdW5zaWduZWQgZmxhZ3MgPSAwOwogCV9fYmUzMiBzcGVjX2RzdDsKIAl1MzIgaXRhZzsK
+KwlpbnQgZXJyOworCXVuc2lnbmVkIGhhc2g7CiAKLQkvKiBnZXQgYSB3b3JraW5nIHJlZmVyZW5j
+ZSB0byB0aGUgb3V0cHV0IGRldmljZSAqLworCS8qIGdldCBhIHdvcmtpbmcgcmVmZXJlbmNlIHRv
+IGEgcG90ZW50aWFsIG91dHB1dCBkZXZpY2UgKi8KKwlyZXMtPm5oX3NlbCA9IDA7IC8qIG5lZWRl
+ZD8gKi8KIAlvdXRfZGV2ID0gaW5fZGV2X2dldChGSUJfUkVTX0RFVigqcmVzKSk7CiAJaWYgKG91
+dF9kZXYgPT0gTlVMTCkgewpAQCAtMTY0NSw3ICsxNjQ2LDggQEAKIAl9CiAKLQorCS8qIERvIG5v
+dCBjaGVjayBlYWNoLiAgc3BlY19kZXN0IGVudGlyZWx5IHNvdXJjZSBkZXAgKEkgaG9wZS4pICov
+CiAJZXJyID0gZmliX3ZhbGlkYXRlX3NvdXJjZShzYWRkciwgZGFkZHIsIHRvcywgRklCX1JFU19P
+SUYoKnJlcyksCiAJCQkJICBpbl9kZXYtPmRldiwgJnNwZWNfZHN0LCAmaXRhZyk7CisKIAlpZiAo
+ZXJyIDwgMCkgewogCQlpcF9oYW5kbGVfbWFydGlhbl9zb3VyY2UoaW5fZGV2LT5kZXYsIGluX2Rl
+diwgc2tiLCBkYWRkciwKQEAgLTE2NTksNCArMTY2MSwxOSBAQAogCQlmbGFncyB8PSBSVENGX0RJ
+UkVDVFNSQzsKIAorI2lmZGVmIENPTkZJR19JUF9ST1VURV9NVUxUSVBBVEgKKwlpZiAocmVzLT5m
+aSAmJiByZXMtPmZpLT5maWJfbmhzID4gMSAmJiBmbC0+b2lmID09IDApCisJCWZpYl9zZWxlY3Rf
+bXVsdGlwYXRoKGZsLCByZXMsIGl0YWcpOworI2VuZGlmCisKKwkvKiBHZXQgcmVmZXJlbmNlIHRv
+IGFjdHVhbCBvdXRwdXQgZGV2aWNlICovCisJaW5fZGV2X3B1dChvdXRfZGV2KTsKKwlvdXRfZGV2
+ID0gaW5fZGV2X2dldChGSUJfUkVTX0RFVigqcmVzKSk7CisJaWYgKG91dF9kZXYgPT0gTlVMTCkg
+eworCQlpZiAobmV0X3JhdGVsaW1pdCgpKQorCQkJcHJpbnRrKEtFUk5fQ1JJVCAiQnVnIGluIGlw
+X3JvdXRlX2lucHV0IiBcCisJCQkgICAgICAgIl9zbG93KCkuIFBsZWFzZSwgcmVwb3J0XG4iKTsK
+KwkJcmV0dXJuIC1FSU5WQUw7CisJfQorCiAJaWYgKG91dF9kZXYgPT0gaW5fZGV2ICYmIGVyciAm
+JiAhKGZsYWdzICYgKFJUQ0ZfTkFUIHwgUlRDRl9NQVNRKSkgJiYKIAkgICAgKElOX0RFVl9TSEFS
+RURfTUVESUEob3V0X2RldikgfHwKQEAgLTE3MDgsMzYgKzE3MjUsMTMgQEAKIAogCXJ0aC0+cnRf
+ZmxhZ3MgPSBmbGFnczsKLQotCSpyZXN1bHQgPSBydGg7CiAJZXJyID0gMDsKLSBjbGVhbnVwOgot
+CS8qIHJlbGVhc2UgdGhlIHdvcmtpbmcgcmVmZXJlbmNlIHRvIHRoZSBvdXRwdXQgZGV2aWNlICov
+Ci0JaW5fZGV2X3B1dChvdXRfZGV2KTsKLQlyZXR1cm4gZXJyOwotfQotCi1zdGF0aWMgaW5saW5l
+IGludCBpcF9ta3JvdXRlX2lucHV0KHN0cnVjdCBza19idWZmICpza2IsCi0JCQkJICAgc3RydWN0
+IGZpYl9yZXN1bHQqIHJlcywKLQkJCQkgICBjb25zdCBzdHJ1Y3QgZmxvd2kgKmZsLAotCQkJCSAg
+IHN0cnVjdCBpbl9kZXZpY2UgKmluX2RldiwKLQkJCQkgICBfX2JlMzIgZGFkZHIsIF9fYmUzMiBz
+YWRkciwgdTMyIHRvcykKLXsKLQlzdHJ1Y3QgcnRhYmxlKiBydGggPSBOVUxMOwotCWludCBlcnI7
+Ci0JdW5zaWduZWQgaGFzaDsKLQotI2lmZGVmIENPTkZJR19JUF9ST1VURV9NVUxUSVBBVEgKLQlp
+ZiAocmVzLT5maSAmJiByZXMtPmZpLT5maWJfbmhzID4gMSAmJiBmbC0+b2lmID09IDApCi0JCWZp
+Yl9zZWxlY3RfbXVsdGlwYXRoKGZsLCByZXMpOwotI2VuZGlmCi0KLQkvKiBjcmVhdGUgYSByb3V0
+aW5nIGNhY2hlIGVudHJ5ICovCi0JZXJyID0gX19ta3JvdXRlX2lucHV0KHNrYiwgcmVzLCBpbl9k
+ZXYsIGRhZGRyLCBzYWRkciwgdG9zLCAmcnRoKTsKLQlpZiAoZXJyKQotCQlyZXR1cm4gZXJyOwog
+CiAJLyogcHV0IGl0IGludG8gdGhlIGNhY2hlICovCiAJaGFzaCA9IHJ0X2hhc2goZGFkZHIsIHNh
+ZGRyLCBmbC0+aWlmKTsKIAlyZXR1cm4gcnRfaW50ZXJuX2hhc2goaGFzaCwgcnRoLCAoc3RydWN0
+IHJ0YWJsZSoqKSZza2ItPmRzdCk7CisgY2xlYW51cDoKKwkvKiByZWxlYXNlIHRoZSB3b3JraW5n
+IHJlZmVyZW5jZSB0byB0aGUgb3V0cHV0IGRldmljZSAqLworCWluX2Rldl9wdXQob3V0X2Rldik7
+CisJcmV0dXJuIGVycjsKIH0KIApAQCAtMjMwNSw1ICsyMjk5LDUgQEAKICNpZmRlZiBDT05GSUdf
+SVBfUk9VVEVfTVVMVElQQVRICiAJaWYgKHJlcy5maS0+ZmliX25ocyA+IDEgJiYgZmwub2lmID09
+IDApCi0JCWZpYl9zZWxlY3RfbXVsdGlwYXRoKCZmbCwgJnJlcyk7CisJCWZpYl9zZWxlY3RfbXVs
+dGlwYXRoKCZmbCwgJnJlcywgMCk7CiAJZWxzZQogI2VuZGlmCg==
+
+--_003_5A630F46702DD1498FFD48394B4A664C3472BAC2johnadclarkuedu_
+Content-Type: text/plain; name="iproute.dsad.diff"
+Content-Description: iproute.dsad.diff
+Content-Disposition: attachment; filename="iproute.dsad.diff"; size=2107;
+	creation-date="Fri, 07 Dec 2007 17:21:41 GMT";
+	modification-date="Fri, 07 Dec 2007 17:21:41 GMT"
+Content-Transfer-Encoding: base64
+
+ZGlmZiAtciAtVTIgaXByb3V0ZS0yMDA3MDMxMy1kc2MvaW5jbHVkZS9saW51eC9ydG5ldGxpbmsu
+aCBpcHJvdXRlLTIwMDcwMzEzLWRzYy1kc2FkL2luY2x1ZGUvbGludXgvcnRuZXRsaW5rLmgKLS0t
+IGlwcm91dGUtMjAwNzAzMTMtZHNjL2luY2x1ZGUvbGludXgvcnRuZXRsaW5rLmgJMjAwNy0wMy0x
+MyAxNzo1MDo1Ni4wMDAwMDAwMDAgLTA0MDAKKysrIGlwcm91dGUtMjAwNzAzMTMtZHNjLWRzYWQv
+aW5jbHVkZS9saW51eC9ydG5ldGxpbmsuaAkyMDA3LTEyLTA2IDE5OjU2OjUwLjAwMDAwMDAwMCAt
+MDUwMApAQCAtMjk1LDQgKzI5NSw1IEBACiAjZGVmaW5lIFJUTkhfRl9QRVJWQVNJVkUJMgkvKiBE
+byByZWN1cnNpdmUgZ2F0ZXdheSBsb29rdXAJKi8KICNkZWZpbmUgUlROSF9GX09OTElOSwkJNAkv
+KiBHYXRld2F5IGlzIGZvcmNlZCBvbiBsaW5rCSovCisjZGVmaW5lIFJUTkhfRl9EU0FECQk4CS8q
+IER5bmFtaWMgUEJSIChjaG9vc2UgbmggYnkgc3JjKSAqLwogCiAvKiBNYWNyb3MgdG8gaGFuZGxl
+IGhleHRob3BzICovCkJpbmFyeSBmaWxlcyBpcHJvdXRlLTIwMDcwMzEzLWRzYy9pcC9pcCBhbmQg
+aXByb3V0ZS0yMDA3MDMxMy1kc2MtZHNhZC9pcC9pcCBkaWZmZXIKZGlmZiAtciAtVTIgaXByb3V0
+ZS0yMDA3MDMxMy1kc2MvaXAvaXByb3V0ZS5jIGlwcm91dGUtMjAwNzAzMTMtZHNjLWRzYWQvaXAv
+aXByb3V0ZS5jCi0tLSBpcHJvdXRlLTIwMDcwMzEzLWRzYy9pcC9pcHJvdXRlLmMJMjAwNy0xMi0w
+NyAxNjozOTo0OC4wMDAwMDAwMDAgLTA1MDAKKysrIGlwcm91dGUtMjAwNzAzMTMtZHNjLWRzYWQv
+aXAvaXByb3V0ZS5jCTIwMDctMTItMDYgMTk6NTc6MDEuMDAwMDAwMDAwIC0wNTAwCkBAIC03MCw1
+ICs3MCw1IEBACiAJZnByaW50ZihzdGRlcnIsICIgICAgICAgICAgICAgWyBtcGF0aCBNUF9BTEdP
+IF1cbiIpOwogCWZwcmludGYoc3RkZXJyLCAiSU5GT19TUEVDIDo9IE5IIE9QVElPTlMgRkxBR1Mg
+WyBuZXh0aG9wIE5IIF0uLi5cbiIpOwotCWZwcmludGYoc3RkZXJyLCAiTkggOj0gWyB2aWEgQURE
+UkVTUyBdIFsgZGV2IFNUUklORyBdIFsgd2VpZ2h0IE5VTUJFUiBdIE5IRkxBR1NcbiIpOworCWZw
+cmludGYoc3RkZXJyLCAiTkggOj0gWyB2aWEgQUREUkVTUyBdIFsgZGV2IFNUUklORyBdIFsgd2Vp
+Z2h0IE5VTUJFUiB8IGJ5cmVhbG0gUkVBTE0gXSBOSEZMQUdTXG4iKTsKIAlmcHJpbnRmKHN0ZGVy
+ciwgIk9QVElPTlMgOj0gRkxBR1MgWyBtdHUgTlVNQkVSIF0gWyBhZHZtc3MgTlVNQkVSIF1cbiIp
+OwogCWZwcmludGYoc3RkZXJyLCAiICAgICAgICAgICBbIHJ0dCBOVU1CRVIgXSBbIHJ0dHZhciBO
+VU1CRVIgXVxuIik7CkBAIC01ODMsNSArNTgzLDkgQEAKIAkJCX0gZWxzZSB7CiAJCQkJZnByaW50
+ZihmcCwgIiBkZXYgJXMiLCBsbF9pbmRleF90b19uYW1lKG5oLT5ydG5oX2lmaW5kZXgpKTsKLQkJ
+CQlmcHJpbnRmKGZwLCAiIHdlaWdodCAlZCIsIG5oLT5ydG5oX2hvcHMrMSk7CisJCQkJaWYgKG5o
+LT5ydG5oX2ZsYWdzICYgUlROSF9GX0RTQUQpIHsKKwkJCQkJZnByaW50ZihmcCwgIiBieXJlYWxt
+ICV4IiwgbmgtPnJ0bmhfaG9wcyk7CisJCQkJfSBlbHNlIHsKKwkJCQkJZnByaW50ZihmcCwgIiB3
+ZWlnaHQgJWQiLCBuaC0+cnRuaF9ob3BzKzEpOworCQkJCX0KIAkJCX0KIAkJCWlmIChuaC0+cnRu
+aF9mbGFncyAmIFJUTkhfRl9ERUFEKQpAQCAtNjIzLDQgKzYyNywxMSBAQAogCQkJCWludmFyZygi
+XCJ3ZWlnaHRcIiBpcyBpbnZhbGlkXG4iLCAqYXJndik7CiAJCQlydG5oLT5ydG5oX2hvcHMgPSB3
+IC0gMTsKKwkJfSBlbHNlIGlmIChzdHJjbXAoKmFyZ3YsICJieXJlYWxtIikgPT0gMCkgeworCQkJ
+dW5zaWduZWQgcjsKKwkJCU5FWFRfQVJHKCk7CisJCQlpZiAoZ2V0X3Vuc2lnbmVkKCZyLCAqYXJn
+diwgMCkgfHwgciA9PSAwIHx8IHIgPiAweDdmZmYpCisJCQkJaW52YXJnKCJcImJ5cmVhbG1cIiBp
+cyBpbnZhbGlkXG4iLCAqYXJndik7CisJCQlydG5oLT5ydG5oX2hvcHMgPSByOworCQkJcnRuaC0+
+cnRuaF9mbGFncyB8PSBSVE5IX0ZfRFNBRDsKIAkJfSBlbHNlIGlmIChzdHJjbXAoKmFyZ3YsICJv
+bmxpbmsiKSA9PSAwKSB7CiAJCQlydG5oLT5ydG5oX2ZsYWdzIHw9IFJUTkhfRl9PTkxJTks7Cg==
+
+--_003_5A630F46702DD1498FFD48394B4A664C3472BAC2johnadclarkuedu_--
