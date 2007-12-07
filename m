@@ -1,88 +1,87 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: Re: [PATCH] XFRM: RFC4303 compliant auditing
-Date: Fri, 07 Dec 2007 16:50:20 -0600
-Message-ID: <1197067820.2488.123.camel@faith.austin.ibm.com>
-References: <20071207195752.31819.44606.stgit@flek.americas.hpqcorp.net>
-	 <1197060751.3183.22.camel@dhcp231-215.rdu.redhat.com>
-	 <200712071606.38108.paul.moore@hp.com>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH 2/2] cxgb3 - Parity initialization for T3C adapters
+Date: Fri, 07 Dec 2007 14:47:46 -0800
+Message-ID: <4759CD92.2070604@chelsio.com>
+References: <20071205181527.22106.73134.stgit@speedy5> <4759A6EA.1050106@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Paris <eparis@redhat.com>, netdev@vger.kernel.org,
-	linux-audit@redhat.com
-To: Paul Moore <paul.moore@hp.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com, wenxiong@us.ibm.com
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:51277 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753628AbXLGWvY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Dec 2007 17:51:24 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id lB7MpIgS005383
-	for <netdev@vger.kernel.org>; Fri, 7 Dec 2007 17:51:18 -0500
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lB7MpIRY128752
-	for <netdev@vger.kernel.org>; Fri, 7 Dec 2007 17:51:18 -0500
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lB7MpHxg024269
-	for <netdev@vger.kernel.org>; Fri, 7 Dec 2007 17:51:18 -0500
-In-Reply-To: <200712071606.38108.paul.moore@hp.com>
+Received: from stargate.chelsio.com ([12.22.49.110]:12005 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754466AbXLGWw4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 17:52:56 -0500
+In-Reply-To: <4759A6EA.1050106@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2007-12-07 at 16:06 -0500, Paul Moore wrote:
-> On Friday 07 December 2007 3:52:31 pm Eric Paris wrote:
-> > On Fri, 2007-12-07 at 14:57 -0500, Paul Moore wrote:
-> > > NOTE: This really is an RFC patch, it compiles and boots but that is
-> > > pretty much all I can promise at this point.  I'm posting this patch to
-> > > gather feedback from the audit crowd about the continued overloading of
-> > > the AUDIT_MAC_IPSEC_EVENT message type - continue to use it or create a
-> > > new audit message type?  Of course any other comments people may have are
-> > > always welcome.
-> >
-> > I'm all for continuing to use it, but I feel like the op= strings should
-> > probably all get collected up in one place to ease maintenance in the
-> > future, might not matter but it's nice to be able to look only on place
-> > in the code to find all of the possible op=
-> 
-> Agreed.  I punted on doing anything here for two main reasons:
-> 
-> 1. It makes sense to do this in the xfrm_audit_start() function which I 
-> couldn't use here without some overhaul ...
-> 2. ... I didn't want to overhaul anything if I was going to end up using 
-> separate message types.
-> 
-> If we decide to go with a single audit message type (kinda sounds like it) 
-> I'll fix this up in the next version.
-> 
-> > The one advantage to multiple messages is the ability to exclude and not
-> > audit certain things.  How often will these extra messages actually pop
-> > out of a system?  Enough that people would likely still care about some
-> > of them but decide they don't want others?  I don't know this stuff, so
-> > tell me how often would any of these show up?
-> 
-> Bingo, this is the whole reason why I was wondering about a different message 
-> type.  Currently only SAD and SPD changes are audited and only because they 
-> effect the security labels that are assigned to packets as they are 
-> imported/exported out of the system (look at the LSPP requirements for 
-> auditing the import and export of data).  These new audit messages apply to 
-> individual packets and/or a particular SA and have nothing to do with 
-> security labels, rather they indicate error conditions found during normal 
-> IPsec processing.  It would be difficult to think of all of the particular 
-> cases where these error conditions but in general I would say that these 
-> audit messages should not be common.
-> 
+Jeff Garzik wrote:
+> Divy Le Ray wrote:
+>> From: Divy Le Ray <divy@chelsio.com>
+>>
+>> Add parity initialization for T3C adapters.
+>>
+>> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+>> ---
+>>
+>>  drivers/net/cxgb3/adapter.h       |    1 
+>>  drivers/net/cxgb3/cxgb3_main.c    |   82 ++++++++++++
+>>  drivers/net/cxgb3/cxgb3_offload.c |   15 ++
+>>  drivers/net/cxgb3/regs.h          |  248 
+>> +++++++++++++++++++++++++++++++++++++
+>>  drivers/net/cxgb3/sge.c           |   24 +++-
+>>  drivers/net/cxgb3/t3_hw.c         |  131 +++++++++++++++++---
+>>  6 files changed, 472 insertions(+), 29 deletions(-)
+>
+> dropped patches 2-3, did not apply
+>
+>
 
-Yes, I agree. They should not happen often. Especially compared to LSPP
-requirements of auditing whenever SA or SPD entries were added or
-deleted, which are common events.
+Hi Jeff,
 
-> The only reason for creating a separate audit message type for these packet/SA 
-> messages would be to meet a RFC requirement that states that the 
-> implementation MUST allow the administrator to enable and disable ESP 
-> auditing.  Now, we can probably say we fulfill that requirement regardless, 
-> but more message types allow us greater granularity and flexibility ...
-> 
-Also, there is great possibility of additional messages.
-This is for RFC 4303, which is ESP. There are also audit messages
-listed for rfc 4301-IPsec architecture and rfc 4302-AH that may 
-happen later.
+I noticed that you applied the first one of this 3 patches series to the 
+#upstream-fixes branch.
+These patches are intended to the #upstream (2.6.25) branch, as they are 
+built on top of the
+last 10 patches committed - 9 from me, and the white space clean up 
+(thanks!).
+May be this is the reason why they did not apply.
+
+On this topic, I have a question: how do I get to see all the netdev-2.6 
+branches ?
+After cloning a free  netdev-2.6 tree, 'git branch' shows only the 
+master branch:
+
+bash-3.1$ git --version
+git version 1.5.3.rc4.29.g74276-dirty
+-bash-3.1$ stg clone 
+git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git 
+netdev-2.6-fresh
+Cloning 
+"git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git" 
+into "netdev-2.6-fresh"...
+Initialized empty Git repository in /opt/sources/netdev-2.6-fresh/.git/
+remote: Generating pack...
+remote: Counting objects: 620879
+Done counting 633562 objects.
+remote: Deltifying 633562 objects...
+remote:  100% (633562/633562) done
+Indexing 633562 objects...
+remote: Total 633562 (delta 517968), reused 594305 (delta 478716)
+ 100% (633562/633562) done
+Resolving 517968 deltas...
+ 100% (517968/517968) done
+Checking 23058 files out...
+ 100% (23058/23058) done
+done
+-bash-3.1$ cd netdev-2.6-fresh/
+-bash-3.1$ git branch
+* master
+
+Cheers,
+Divy
+
+
