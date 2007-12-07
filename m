@@ -1,81 +1,80 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [RFC] TCP illinois max rtt aging
-Date: Fri, 7 Dec 2007 13:05:46 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0712071254070.18529@kivilampi-30.cs.helsinki.fi>
-References: <aa7d2c6d0711261023m3d2dd850o76a8f44aef022f39@mail.gmail.com>
- <aa7d2c6d0711281625m44bf3ca3me188a7041d3421da@mail.gmail.com>
- <474E0B33.2060108@linux-foundation.org>  <001b01c83248$604f4120$20edc360$@edu>
-  <20071203145207.40e4ac57@freepuppy.rosehill>
- <aa7d2c6d0712031506i73df4410p9ab8b1a60bc2ad2d@mail.gmail.com>
- <002f01c83608$8a2fb600$9e8f2200$@edu>  <20071203163217.27e4df3f@freepuppy.rosehill>
-  <aa7d2c6d0712031723t314da471n8f033e8d1b523e1a@mail.gmail.com>
- <Pine.LNX.4.64.0712041031110.18529@kivilampi-30.cs.helsinki.fi>
- <aa7d2c6d0712061927g2e6f1679o8b05f76d723c0c76@mail.gmail.com>
+From: "Denis V. Lunev" <den@sw.ru>
+Subject: Re: [PATCH 2.6.24-rc3] Fix /proc/net breakage
+Date: Fri, 07 Dec 2007 14:11:05 +0300
+Message-ID: <47592A49.8010107@sw.ru>
+References: <20071119191000.GA1560@elf.ucw.cz>	<200711192304.25087.rjw@sisk.pl>	<4743026B.2020907@openvz.org>	<m1hcj8mz1p.fsf_-_@ebiederm.dsl.xmission.com>	<1197003097.13978.557.camel@pmac.infradead.org> <20071207022342.806ee4ee.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-438326548-1197025546=:18529"
-Cc: Netdev <netdev@vger.kernel.org>,
-	Tom Quetchenbach <quetchen@caltech.edu>
-To: Lachlan Andrew <lachlan.andrew@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Woodhouse <dwmw2@infradead.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
+	kernel list <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	"Denis V. Lunev" <den@openvz.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:37740 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751216AbXLGLFt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 06:05:49 -0500
-In-Reply-To: <aa7d2c6d0712061927g2e6f1679o8b05f76d723c0c76@mail.gmail.com>
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:50299 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751109AbXLGLKx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Dec 2007 06:10:53 -0500
+In-Reply-To: <20071207022342.806ee4ee.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696243703-438326548-1197025546=:18529
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Thu, 6 Dec 2007, Lachlan Andrew wrote:
-> On 04/12/2007, Ilpo Järvinen <ilpo.jarvinen@helsinki.fi> wrote:
-> > On Mon, 3 Dec 2007, Lachlan Andrew wrote:
-> > >
-> > > When SACK is active, the per-packet processing becomes more involved,
-> > > tracking the list of lost/SACKed packets.  This causes a CPU spike
-> > > just after a loss, which increases the RTTs, at least in my
-> > > experience.
-> >
-> > I suspect that as long as old code was able to use hint, it wasn't doing
-> > that bad. But it was seriously lacking ability to take advantage of sack
-> > processing hint when e.g., a new hole appeared, or cumulative ACK arrived.
-> >
-> > ...Code available in net-2.6.25 might cure those.
+Andrew Morton wrote:
+> On Fri, 07 Dec 2007 04:51:37 +0000 David Woodhouse <dwmw2@infradead.org> wrote:
 > 
-> We had been using one of your earlier patches, and still had the
-> problem.  I think you've cured the problem with SACK itself, but there
-> still seems to be something taking a lot of CPU while recovering from
-> the loss. 
+>> On Mon, 2007-11-26 at 15:17 -0700, Eric W. Biederman wrote:
+>>> Well I clearly goofed when I added the initial network namespace support
+>>> for /proc/net.  Currently things work but there are odd details visible
+>>> to user space, even when we have a single network namespace.
+>>>
+>>> Since we do not cache proc_dir_entry dentries at the moment we can
+>>> just modify ->lookup to return a different directory inode depending
+>>> on the network namespace of the process looking at /proc/net, replacing
+>>> the current technique of using a magic and fragile follow_link method.
+>>>
+>>> To accomplish that this patch:
+>>> - introduces a shadow_proc method to allow different dentries to
+>>>   be returned from proc_lookup.
+>>> - Removes the old /proc/net follow_link magic
+>>> - Fixes a weakness in our not caching of proc generic dentries.
+>>>
+>>> As shadow_proc uses a task struct to decided which dentry to return we
+>>> can go back later and fix the proc generic caching without modifying any code that
+>>> uses the shadow_proc method.
+>>>
+>>> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+>>> ---
+>>>  fs/proc/generic.c       |   12 ++++++-
+>>>  fs/proc/proc_net.c      |   86 +++--------------------------------------------
+>>>  include/linux/proc_fs.h |    3 ++
+>>>  3 files changed, 19 insertions(+), 82 deletions(-)
+>> (commit 2b1e300a9dfc3196ccddf6f1d74b91b7af55e416)
+>>
+>> This seems to have broken the use of /proc/bus/usb as a mountpoint. It
+>> always appears empty now, whatever's supposed to be mounted there.
+>>
+> 
+> Yes.  Denis and Eric are tossing around competing patches but afaik nobody
+> is happy with any of them.  Guys, could we get this sorted soonish please?
+> 
 
-I guess if you get a large cumulative ACK, the amount of processing is 
-still overwhelming (added DaveM if he has some idea how to combat it).
+Andrew, I become too relaxed after receiving
+"Tested-by: Giacomo Catenazzi <cate@debian.org>"
 
-Even a simple scenario (this isn't anything fancy at all, will occur all 
-the time): Just one loss => rest skbs grow one by one into a single 
-very large SACK block (and we do that efficiently for sure) => then the 
-fast retransmit gets delivered and a cumulative ACK for whole orig_window 
-arrives => clean_rtx_queue has to do a lot of processing. In this case we 
-could optimize RB-tree cleanup away (by just blanking it all) but still 
-getting rid of all those skbs is going to take a larger moment than I'd 
-like to see.
+Eric, I believe that reverting an original behavior is better than your
+new one as
+- you introduce search into the depth by calling have_submounts(dentry)
+during revalidation for all(!) /proc dentries
+- your shadowing behavior will be broken if you'll mount something in
+the depth of shadowed tree (this can be done as a DoS attempt)
 
-That tree blanking could be extended to cover anything which ACK more than 
-half of the tree by just replacing the root (and dealing with potential 
-recolorization of the root).
+As a last minute call, may be it will be better to pin network namespace
+like a pid namespace during mount to avoid this crap at all?
 
-> It is possible that it was to do with  web100  which we
-> have also been running, but I cut out most of the statistics from that
-> and still had problems.
-
-No idea about what it could do, haven't yet looked web100, I was planning 
-at some point of time...
-
--- 
- i.
----696243703-438326548-1197025546=:18529--
+Regards,
+	Den
