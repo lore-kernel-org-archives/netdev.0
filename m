@@ -1,34 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [IPv4] Add strict check for replying net unreachable
- message
-Date: Thu, 06 Dec 2007 22:41:24 -0800 (PST)
-Message-ID: <20071206.224124.215803565.davem@davemloft.net>
-References: <20071207132418.d19d2f0e.mitch@linux.vnet.ibm.com>
+Subject: Re: [PATCHES 0/7]: DCCP patches for 2.6.25
+Date: Thu, 06 Dec 2007 22:49:49 -0800 (PST)
+Message-ID: <20071206.224949.256826968.davem@davemloft.net>
+References: <1196974974-31531-1-git-send-email-acme@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roszenrami@gmail.com, jarkao2@gmail.com
-To: mitch@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, dccp@vger.kernel.org
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45630
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40777
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750868AbXLGGlY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 01:41:24 -0500
-In-Reply-To: <20071207132418.d19d2f0e.mitch@linux.vnet.ibm.com>
+	by vger.kernel.org with ESMTP id S1750843AbXLGGtu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 01:49:50 -0500
+In-Reply-To: <1196974974-31531-1-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
-Date: Fri, 7 Dec 2007 13:24:18 +0900
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Thu,  6 Dec 2007 19:02:47 -0200
 
-> The patch `Reply net unreachable ICMP message' had a bug.
-> A route whose type is blockhole or prohibit type is treated as
-> unreachable type. The case where err is set to ENETUNREACH should
-> be that no route is found in the routing table only.
+> 	Please consider pulling from:
 > 
-> Signed-off-by: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
+> master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.25
 
-Applied, thanks.
-
-I'll probably combine this with your original change before I
-push these changes upstream.
+Pulled and pushed out to net-2.6.25, thanks!
