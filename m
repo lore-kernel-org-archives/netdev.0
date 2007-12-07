@@ -1,175 +1,375 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: TCP event tracking via netlink...
-Date: Fri, 7 Dec 2007 18:43:47 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0712071307290.18529@kivilampi-30.cs.helsinki.fi>
-References: <20071205.053031.87154402.davem@davemloft.net>
- <Pine.LNX.4.64.0712051533050.3119@kivilampi-30.cs.helsinki.fi>
- <20071206.023346.256200942.davem@davemloft.net>
+From: Paul Moore <paul.moore@hp.com>
+Subject: [PATCH] XFRM: assorted IPsec fixups
+Date: Fri, 07 Dec 2007 12:11:16 -0500
+Message-ID: <20071207171116.18151.42328.stgit@flek.americas.hpqcorp.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243703-1595765661-1197030059=:18529"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, linux-audit@redhat.com,
+	selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:43052 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752924AbXLGQnu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 11:43:50 -0500
-In-Reply-To: <20071206.023346.256200942.davem@davemloft.net>
-Content-ID: <Pine.LNX.4.64.0712071825060.18529@kivilampi-30.cs.helsinki.fi>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:3658 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753166AbXLGRLZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 12:11:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+This patch fixes a number of small but potentially troublesome things in the
+XFRM/IPsec code:
 
----696243703-1595765661-1197030059=:18529
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0712071434381.18529@kivilampi-30.cs.helsinki.fi>
+ * Use the 'audit_enabled' variable already in include/linux/audit.h
+   Removed the need for extern declarations local to each XFRM audit fuction
 
-On Thu, 6 Dec 2007, David Miller wrote:
+ * Convert 'sid' to 'secid'
+   The 'sid' name is specific to SELinux, 'secid' is the common naming
+   convention used by the kernel when refering to tokenized LSM labels
 
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Thu, 6 Dec 2007 01:18:28 +0200 (EET)
-> 
-> > On Wed, 5 Dec 2007, David Miller wrote:
-> > 
-> > > I assume you're using something like carefully crafted printk's,
-> > > kprobes, or even ad-hoc statistic counters.  That's what I used to do
-> > > :-)
-> > 
-> > No, that's not at all what I do :-). I usually look time-seq graphs 
-> > expect for the cases when I just find things out by reading code (or
-> > by just thinking of it).
-> 
-> Can you briefly detail what graph tools and command lines
-> you are using?
+ * Convert address display to use standard NIP* macros
+   Similar to what was recently done with the SPD audit code, this also
+   includes the removal of some unnecessary memcpy() calls
 
-I have a tool called Sealion but it's behind NDA (making it open source 
-has been talked for long but I don't have idea why it hasn't realized 
-yet). It's mostly tcl/tk code is, by no means nice or clean desing nor 
-quality (I'll leave details why I think it's that way out of this 
-discussion :-)). Produces svgs. Usually I'm have the things I need in 
-the standard sent+ACK+SACKs(+win) graph it produces. The result is quite 
-similar to what tcptrace+xplot produces but xplot UI is really horrible, 
-IMHO.
+ * Move common code to xfrm_audit_common_stateinfo()
+   Code consolidation from the "less is more" book on software development
 
-If I have to deal with tcpdump output only, it takes considerable amount 
-of time to do computations with bc to come up with the same understanding 
-by just reading tcpdumps.
+ * Convert the SPI in audit records to host byte order
+   The current SPI values in the audit record are being displayed in
+   network byte order, probably not what was intended
 
-> The last time I did graphing to analyze things, the tools
-> were hit-or-miss.
+ * Proper spacing around commas in function arguments
+   Minor style tweak since I was already touching the code
 
-Yeah, this is definately true. Open source graphing tools I know are 
-really not that astonishing :-(. I've tried to look for better tools
-as well but with little success.
+Signed-off-by: Paul Moore <paul.moore@hp.com>
+---
 
-> > Much of the info is available in tcpdump already, it's just hard to read 
-> > without graphing it first because there are some many overlapping things 
-> > to track in two-dimensional space.
-> > 
-> > ...But yes, I have to admit that couple of problems come to my mind
-> > where having some variable from tcp_sock would have made the problem
-> > more obvious.
-> 
-> The most important are the cwnd and ssthresh, which you could guess
-> using graphs but it is important to know on a packet to packet
-> basis why we might have sent a packet or not because this has
-> rippling effects down the rest of the RTT.
+ include/linux/xfrm.h    |    2 +
+ include/net/xfrm.h      |   18 ++++++------
+ net/xfrm/xfrm_policy.c  |   15 +++++-----
+ net/xfrm/xfrm_state.c   |   69 +++++++++++++++++++++--------------------------
+ security/selinux/xfrm.c |   20 +++++++-------
+ 5 files changed, 58 insertions(+), 66 deletions(-)
 
-Couple of points:
+diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
+index b58adc5..f75a337 100644
+--- a/include/linux/xfrm.h
++++ b/include/linux/xfrm.h
+@@ -31,7 +31,7 @@ struct xfrm_sec_ctx {
+ 	__u8	ctx_doi;
+ 	__u8	ctx_alg;
+ 	__u16	ctx_len;
+-	__u32	ctx_sid;
++	__u32	ctx_secid;
+ 	char	ctx_str[0];
+ };
+ 
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 58dfa82..c02e230 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -462,7 +462,7 @@ struct xfrm_audit
+ };
+ 
+ #ifdef CONFIG_AUDITSYSCALL
+-static inline struct audit_buffer *xfrm_audit_start(u32 auid, u32 sid)
++static inline struct audit_buffer *xfrm_audit_start(u32 auid, u32 secid)
+ {
+ 	struct audit_buffer *audit_buf = NULL;
+ 	char *secctx;
+@@ -475,8 +475,8 @@ static inline struct audit_buffer *xfrm_audit_start(u32 auid, u32 sid)
+ 
+ 	audit_log_format(audit_buf, "auid=%u", auid);
+ 
+-	if (sid != 0 &&
+-	    security_secid_to_secctx(sid, &secctx, &secctx_len) == 0) {
++	if (secid != 0 &&
++	    security_secid_to_secctx(secid, &secctx, &secctx_len) == 0) {
+ 		audit_log_format(audit_buf, " subj=%s", secctx);
+ 		security_release_secctx(secctx, secctx_len);
+ 	} else
+@@ -485,13 +485,13 @@ static inline struct audit_buffer *xfrm_audit_start(u32 auid, u32 sid)
+ }
+ 
+ extern void xfrm_audit_policy_add(struct xfrm_policy *xp, int result,
+-				  u32 auid, u32 sid);
++				  u32 auid, u32 secid);
+ extern void xfrm_audit_policy_delete(struct xfrm_policy *xp, int result,
+-				  u32 auid, u32 sid);
++				  u32 auid, u32 secid);
+ extern void xfrm_audit_state_add(struct xfrm_state *x, int result,
+-				 u32 auid, u32 sid);
++				 u32 auid, u32 secid);
+ extern void xfrm_audit_state_delete(struct xfrm_state *x, int result,
+-				    u32 auid, u32 sid);
++				    u32 auid, u32 secid);
+ #else
+ #define xfrm_audit_policy_add(x, r, a, s)	do { ; } while (0)
+ #define xfrm_audit_policy_delete(x, r, a, s)	do { ; } while (0)
+@@ -621,13 +621,13 @@ extern int xfrm_selector_match(struct xfrm_selector *sel, struct flowi *fl,
+ 
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+ /*	If neither has a context --> match
+- * 	Otherwise, both must have a context and the sids, doi, alg must match
++ * 	Otherwise, both must have a context and the secids, doi, alg must match
+  */
+ static inline int xfrm_sec_ctx_match(struct xfrm_sec_ctx *s1, struct xfrm_sec_ctx *s2)
+ {
+ 	return ((!s1 && !s2) ||
+ 		(s1 && s2 &&
+-		 (s1->ctx_sid == s2->ctx_sid) &&
++		 (s1->ctx_secid == s2->ctx_secid) &&
+ 		 (s1->ctx_doi == s2->ctx_doi) &&
+ 		 (s1->ctx_alg == s2->ctx_alg)));
+ }
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index b702bd8..75f25c4 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -23,6 +23,7 @@
+ #include <linux/netfilter.h>
+ #include <linux/module.h>
+ #include <linux/cache.h>
++#include <linux/audit.h>
+ #include <net/xfrm.h>
+ #include <net/ip.h>
+ 
+@@ -2150,15 +2151,14 @@ static inline void xfrm_audit_common_policyinfo(struct xfrm_policy *xp,
+ 	}
+ }
+ 
+-void
+-xfrm_audit_policy_add(struct xfrm_policy *xp, int result, u32 auid, u32 sid)
++void xfrm_audit_policy_add(struct xfrm_policy *xp, int result,
++			   u32 auid, u32 secid)
+ {
+ 	struct audit_buffer *audit_buf;
+-	extern int audit_enabled;
+ 
+ 	if (audit_enabled == 0)
+ 		return;
+-	audit_buf = xfrm_audit_start(sid, auid);
++	audit_buf = xfrm_audit_start(secid, auid);
+ 	if (audit_buf == NULL)
+ 		return;
+ 	audit_log_format(audit_buf, " op=SPD-add res=%u", result);
+@@ -2167,15 +2167,14 @@ xfrm_audit_policy_add(struct xfrm_policy *xp, int result, u32 auid, u32 sid)
+ }
+ EXPORT_SYMBOL_GPL(xfrm_audit_policy_add);
+ 
+-void
+-xfrm_audit_policy_delete(struct xfrm_policy *xp, int result, u32 auid, u32 sid)
++void xfrm_audit_policy_delete(struct xfrm_policy *xp, int result,
++			      u32 auid, u32 secid)
+ {
+ 	struct audit_buffer *audit_buf;
+-	extern int audit_enabled;
+ 
+ 	if (audit_enabled == 0)
+ 		return;
+-	audit_buf = xfrm_audit_start(sid, auid);
++	audit_buf = xfrm_audit_start(secid, auid);
+ 	if (audit_buf == NULL)
+ 		return;
+ 	audit_log_format(audit_buf, " op=SPD-delete res=%u", result);
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index cf43c49..b291a82 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -19,6 +19,7 @@
+ #include <linux/ipsec.h>
+ #include <linux/module.h>
+ #include <linux/cache.h>
++#include <linux/audit.h>
+ #include <asm/uaccess.h>
+ 
+ #include "xfrm_hash.h"
+@@ -1997,67 +1998,59 @@ void __init xfrm_state_init(void)
+ static inline void xfrm_audit_common_stateinfo(struct xfrm_state *x,
+ 					       struct audit_buffer *audit_buf)
+ {
+-	if (x->security)
+-		audit_log_format(audit_buf, " sec_alg=%u sec_doi=%u sec_obj=%s",
+-				 x->security->ctx_alg, x->security->ctx_doi,
+-				 x->security->ctx_str);
++	struct xfrm_sec_ctx *ctx = x->security;
++	u32 spi = ntohl(x->id.spi);
+ 
+-	switch(x->props.family) {
+-	case AF_INET:
+-		audit_log_format(audit_buf, " src=%u.%u.%u.%u dst=%u.%u.%u.%u",
+-				 NIPQUAD(x->props.saddr.a4),
+-				 NIPQUAD(x->id.daddr.a4));
+-		break;
+-	case AF_INET6:
+-		{
+-			struct in6_addr saddr6, daddr6;
+-
+-			memcpy(&saddr6, x->props.saddr.a6,
+-				sizeof(struct in6_addr));
+-			memcpy(&daddr6, x->id.daddr.a6,
+-				sizeof(struct in6_addr));
+-			audit_log_format(audit_buf,
+-					 " src=" NIP6_FMT " dst=" NIP6_FMT,
+-					 NIP6(saddr6), NIP6(daddr6));
+-		}
+-		break;
+-	}
++        if (ctx)
++                audit_log_format(audit_buf, " sec_alg=%u sec_doi=%u sec_obj=%s",
++                                 ctx->ctx_alg, ctx->ctx_doi, ctx->ctx_str);
++
++        switch(x->props.family) {
++        case AF_INET:
++                audit_log_format(audit_buf,
++				 " src=" NIPQUAD_FMT " dst=" NIPQUAD_FMT,
++                                 NIPQUAD(x->props.saddr.a4),
++                                 NIPQUAD(x->id.daddr.a4));
++                break;
++        case AF_INET6:
++		audit_log_format(audit_buf,
++				 " src=" NIP6_FMT " dst=" NIP6_FMT,
++				 NIP6(*(struct in6_addr *)x->props.saddr.a6),
++				 NIP6(*(struct in6_addr *)x->id.daddr.a6));
++                break;
++        }
++
++	audit_log_format(audit_buf, " spi=%u(0x%x)", spi, spi);
+ }
+ 
+-void
+-xfrm_audit_state_add(struct xfrm_state *x, int result, u32 auid, u32 sid)
++void xfrm_audit_state_add(struct xfrm_state *x, int result,
++			  u32 auid, u32 secid)
+ {
+ 	struct audit_buffer *audit_buf;
+-	extern int audit_enabled;
+ 
+ 	if (audit_enabled == 0)
+ 		return;
+-	audit_buf = xfrm_audit_start(sid, auid);
++	audit_buf = xfrm_audit_start(secid, auid);
+ 	if (audit_buf == NULL)
+ 		return;
+-	audit_log_format(audit_buf, " op=SAD-add res=%u",result);
++	audit_log_format(audit_buf, " op=SAD-add res=%u", result);
+ 	xfrm_audit_common_stateinfo(x, audit_buf);
+-	audit_log_format(audit_buf, " spi=%lu(0x%lx)",
+-			 (unsigned long)x->id.spi, (unsigned long)x->id.spi);
+ 	audit_log_end(audit_buf);
+ }
+ EXPORT_SYMBOL_GPL(xfrm_audit_state_add);
+ 
+-void
+-xfrm_audit_state_delete(struct xfrm_state *x, int result, u32 auid, u32 sid)
++void xfrm_audit_state_delete(struct xfrm_state *x, int result,
++			     u32 auid, u32 secid)
+ {
+ 	struct audit_buffer *audit_buf;
+-	extern int audit_enabled;
+ 
+ 	if (audit_enabled == 0)
+ 		return;
+-	audit_buf = xfrm_audit_start(sid, auid);
++	audit_buf = xfrm_audit_start(secid, auid);
+ 	if (audit_buf == NULL)
+ 		return;
+-	audit_log_format(audit_buf, " op=SAD-delete res=%u",result);
++	audit_log_format(audit_buf, " op=SAD-delete res=%u", result);
+ 	xfrm_audit_common_stateinfo(x, audit_buf);
+-	audit_log_format(audit_buf, " spi=%lu(0x%lx)",
+-			 (unsigned long)x->id.spi, (unsigned long)x->id.spi);
+ 	audit_log_end(audit_buf);
+ }
+ EXPORT_SYMBOL_GPL(xfrm_audit_state_delete);
+diff --git a/security/selinux/xfrm.c b/security/selinux/xfrm.c
+index e076039..c925880 100644
+--- a/security/selinux/xfrm.c
++++ b/security/selinux/xfrm.c
+@@ -85,7 +85,7 @@ int selinux_xfrm_policy_lookup(struct xfrm_policy *xp, u32 fl_secid, u8 dir)
+ 		if (!selinux_authorizable_ctx(ctx))
+ 			return -EINVAL;
+ 
+-		sel_sid = ctx->ctx_sid;
++		sel_sid = ctx->ctx_secid;
+ 	}
+ 	else
+ 		/*
+@@ -132,7 +132,7 @@ int selinux_xfrm_state_pol_flow_match(struct xfrm_state *x, struct xfrm_policy *
+ 				/* Not a SELinux-labeled SA */
+ 				return 0;
+ 
+-	state_sid = x->security->ctx_sid;
++	state_sid = x->security->ctx_secid;
+ 
+ 	if (fl->secid != state_sid)
+ 		return 0;
+@@ -175,13 +175,13 @@ int selinux_xfrm_decode_session(struct sk_buff *skb, u32 *sid, int ckall)
+ 				struct xfrm_sec_ctx *ctx = x->security;
+ 
+ 				if (!sid_set) {
+-					*sid = ctx->ctx_sid;
++					*sid = ctx->ctx_secid;
+ 					sid_set = 1;
+ 
+ 					if (!ckall)
+ 						break;
+ 				}
+-				else if (*sid != ctx->ctx_sid)
++				else if (*sid != ctx->ctx_secid)
+ 					return -EINVAL;
+ 			}
+ 		}
+@@ -232,7 +232,7 @@ static int selinux_xfrm_sec_ctx_alloc(struct xfrm_sec_ctx **ctxp,
+ 	ctx->ctx_str[str_len] = 0;
+ 	rc = security_context_to_sid(ctx->ctx_str,
+ 				     str_len,
+-				     &ctx->ctx_sid);
++				     &ctx->ctx_secid);
+ 
+ 	if (rc)
+ 		goto out;
+@@ -240,7 +240,7 @@ static int selinux_xfrm_sec_ctx_alloc(struct xfrm_sec_ctx **ctxp,
+ 	/*
+ 	 * Does the subject have permission to set security context?
+ 	 */
+-	rc = avc_has_perm(tsec->sid, ctx->ctx_sid,
++	rc = avc_has_perm(tsec->sid, ctx->ctx_secid,
+ 			  SECCLASS_ASSOCIATION,
+ 			  ASSOCIATION__SETCONTEXT, NULL);
+ 	if (rc)
+@@ -264,7 +264,7 @@ not_from_user:
+ 
+ 	ctx->ctx_doi = XFRM_SC_DOI_LSM;
+ 	ctx->ctx_alg = XFRM_SC_ALG_SELINUX;
+-	ctx->ctx_sid = sid;
++	ctx->ctx_secid = sid;
+ 	ctx->ctx_len = str_len;
+ 	memcpy(ctx->ctx_str,
+ 	       ctx_str,
+@@ -341,7 +341,7 @@ int selinux_xfrm_policy_delete(struct xfrm_policy *xp)
+ 	int rc = 0;
+ 
+ 	if (ctx)
+-		rc = avc_has_perm(tsec->sid, ctx->ctx_sid,
++		rc = avc_has_perm(tsec->sid, ctx->ctx_secid,
+ 				  SECCLASS_ASSOCIATION,
+ 				  ASSOCIATION__SETCONTEXT, NULL);
+ 
+@@ -383,7 +383,7 @@ int selinux_xfrm_state_delete(struct xfrm_state *x)
+ 	int rc = 0;
+ 
+ 	if (ctx)
+-		rc = avc_has_perm(tsec->sid, ctx->ctx_sid,
++		rc = avc_has_perm(tsec->sid, ctx->ctx_secid,
+ 				  SECCLASS_ASSOCIATION,
+ 				  ASSOCIATION__SETCONTEXT, NULL);
+ 
+@@ -412,7 +412,7 @@ int selinux_xfrm_sock_rcv_skb(u32 isec_sid, struct sk_buff *skb,
+ 
+ 			if (x && selinux_authorizable_xfrm(x)) {
+ 				struct xfrm_sec_ctx *ctx = x->security;
+-				sel_sid = ctx->ctx_sid;
++				sel_sid = ctx->ctx_secid;
+ 				break;
+ 			}
+ 		}
 
-In order to evaluate validity of some action, one might need more than
-one packet from the history.
-
-Answer to the why we have sent a packet is rather simple (excluding RTOs): 
-cwnd > packets_in_flight and data was available. No, it's not at all 
-complicated. Though I might be too biased toward non-application limited 
-cases which make the formula even simpler because everything is basically 
-ACK clocked.
-
-To really tell what caused changes between cwnd and/or packets_in_flight 
-one usually needs some history or more fine-grained approach, once per 
-packet is way too wide gap. It tells just what happened, not why, unless 
-you're really familiar with the state machine and can make the right 
-guess.
-
-> > Not sure what is the benefit of having distributions with it because 
-> > those people hardly report problems anyway to here, they're just too 
-> > happy with TCP performance unless we print something to their logs,
-> > which implies that we must setup a *_ON() condition :-(.
-> 
-> That may be true, but if we could integrate the information with
-> tcpdumps, we could gather internal state using tools the user
-> already has available.
-
-It would definately help if we could, but that of course depends on 
-getting the reports in the first place.
-
-> Imagine if tcpdump printed out:
-> 
-> 02:26:14.865805 IP $SRC > $DEST: . 11226:12686(1460) ack 0 win 108
-> 	ss_thresh: 129 cwnd: 133 packets_out: 132
-> 
-> or something like that.
-
-How about this:
-
-02:26:14.865805 IP $SRC > $DEST: . ack 11226 win 108 <...sack 1 {15606:18526}
-17066:18526 0->S sacktag_one l0 s1 r0 f4 pc1 ...
-11226:12686 ---- clean_rtx_queue ...
-11226:12686 0->L mark_head_lost l1 s1 r0 f4 pc1 ...
-12686:14146 0->L mark_head_lost l2 s1 r0 f4 pc1 ...
-11226:12686 L->LRe retransmit_skb l2 s1 r1 f4 pc1 ...
-
-...would make the bug in sack processing relatively obvious (yes, it 
-has an intentional flaw in it, points from find it :-))... That would
-be something I'd like to have right now.
-
-> But sometimes the algorithms are working as designed, it's just that
-> they provide poor pipe utilization and CWND analysis embedded inside
-> of a tcpdump would be one way to see that as well as determine the
-> flaw in the algorithm.
-
-Fair enough.
-
-
-> It is untested since I didn't write the userland app yet to see that
-> proper things get logged.  Basically you could run a daemon that
-> writes per-connection traces into files based upon the incoming
-> netlink events.  Later, using the binary pcap file and these traces,
-> you can piece together traces like the above using the timestamps
-> etc. to match up pcap packets to ones from the TCP logger.
->
-> The userland tools could do analysis and print pre-cooked state diff
-> logs, like "this ACK raised CWND by one" or whatever else you wanted
-> to know.
-
-Obviously a collection of useful userland tools seems here at least as 
-important as the existance of the interface.
-
-> It's nice that an expert like you can look at graphs and understand,
-> but we'd like to create more experts and besides reading code one
-> way to become an expert is to be able to extrace live real data
-> from the kernel's working state and try to understand how things
-> got that way.  This information is permanently lost currently.
-
-IMHO this problem is in such caliber that no human can track efficiently 
-more than a couple of packets of a TCP flow from text only view, without 
-headaches I mean, or are you able to do that at ease? And we're talking 
-here about the people who have just begun to deal with TCP. ...For me 
-especially those nearly identical seqnos all around are too overwhelming 
-to track in any sane way and I'd expect that most feel the same way.
-
-I'd state my point different way around (with the terms you chose): it is 
-very difficult to become an expert without looking some graphs, we may 
-disagree and that's fine :-). I think it's because one would then have no 
-idea about larger picture (and about the very _relevant_ past/future) when 
-looking just a single line at a time from the tcpdump (or equivalent). Sad 
-thing is that a good tool to do the visulization might not exist.
-
-
--- 
- i.
----696243703-1595765661-1197030059=:18529--
