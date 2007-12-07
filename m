@@ -1,124 +1,289 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 6/8] bonding: Fix time comparison
-Date: Thu,  6 Dec 2007 23:40:33 -0800
-Message-ID: <11970132394126-git-send-email-fubar@us.ibm.com>
+Subject: [PATCH 1/8] bonding: Remove trailing NULs from sysfs interface.
+Date: Thu,  6 Dec 2007 23:40:28 -0800
+Message-ID: <11970132363756-git-send-email-fubar@us.ibm.com>
 References: <11970132353950-git-send-email-fubar@us.ibm.com>
- <11970132363756-git-send-email-fubar@us.ibm.com>
- <11970132372293-git-send-email-fubar@us.ibm.com>
- <1197013237259-git-send-email-fubar@us.ibm.com>
- <11970132382296-git-send-email-fubar@us.ibm.com>
- <11970132381345-git-send-email-fubar@us.ibm.com>
-Cc: jgarzik@pobox.com, David Sterba <dsterba@suse.cz>
+Cc: jgarzik@pobox.com, Wagner Ferenc <wferi@niif.hu>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:52979 "EHLO
+Received: from e32.co.us.ibm.com ([32.97.110.150]:53006 "EHLO
 	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751796AbXLGHkl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 02:40:41 -0500
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e32.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id lB76d5V2031375
-	for <netdev@vger.kernel.org>; Fri, 7 Dec 2007 01:39:05 -0500
+	with ESMTP id S1751854AbXLGHks (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 02:40:48 -0500
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e32.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id lB76d2F8031355
+	for <netdev@vger.kernel.org>; Fri, 7 Dec 2007 01:39:02 -0500
 Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lB77eeYL120796
-	for <netdev@vger.kernel.org>; Fri, 7 Dec 2007 00:40:40 -0700
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lB77ebf0117284
+	for <netdev@vger.kernel.org>; Fri, 7 Dec 2007 00:40:37 -0700
 Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lB77edTu018134
-	for <netdev@vger.kernel.org>; Fri, 7 Dec 2007 00:40:40 -0700
-In-Reply-To: <11970132381345-git-send-email-fubar@us.ibm.com>
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lB77ebT2017987
+	for <netdev@vger.kernel.org>; Fri, 7 Dec 2007 00:40:37 -0700
+In-Reply-To: <11970132353950-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Sterba <dsterba@suse.cz>
+From: Wagner Ferenc <wferi@niif.hu>
 
-From: David Sterba <dsterba@suse.cz>
+From: Wagner Ferenc <wferi@niif.hu>
 
-Use macros for comparing jiffies. Jiffies' wrap caused missed events and hangs.
-Module reinsert was needed to make bonding work again.
+Also remove trailing spaces from multivalued files.
 
-Signed-off-by: David Sterba <dsterba@suse.cz>
+This fixes output like for example:
+
+$ od -c /sys/class/net/bond0/bonding/slaves
+0000000   e   t   h   -   l   e   f   t       e   t   h   -   r   i   g
+0000020   h   t      \n  \0
+0000025
+
+It mostly entails deleting '+1'-s after sprintf() calls: the return value
+of sprintf is the number of characters printed, without the closing NUL,
+ie. exactly what the sysfs interface requires.  The three multivalue
+cases are different, because they also have to swallow back a trailing
+space.
+
+Signed-off-by: Ferenc Wagner <wferi@niif.hu>
 Acked-by: Jay Vosburgh <fubar@us.ibm.com>
 ---
- drivers/net/bonding/bond_main.c |   25 +++++++++++++------------
- 1 files changed, 13 insertions(+), 12 deletions(-)
+ drivers/net/bonding/bond_sysfs.c |   66 +++++++++++++++++--------------------
+ 1 files changed, 30 insertions(+), 36 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 423298c..e4a4714 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -74,6 +74,7 @@
- #include <linux/ethtool.h>
- #include <linux/if_vlan.h>
- #include <linux/if_bonding.h>
-+#include <linux/jiffies.h>
- #include <net/route.h>
- #include <net/net_namespace.h>
- #include "bonding.h"
-@@ -2722,8 +2723,8 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
- 	 */
- 	bond_for_each_slave(bond, slave, i) {
- 		if (slave->link != BOND_LINK_UP) {
--			if (((jiffies - slave->dev->trans_start) <= delta_in_ticks) &&
--			    ((jiffies - slave->dev->last_rx) <= delta_in_ticks)) {
-+			if (time_before_eq(jiffies, slave->dev->trans_start + delta_in_ticks) &&
-+			    time_before_eq(jiffies, slave->dev->last_rx + delta_in_ticks)) {
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index b29330d..a3f1b4a 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -86,14 +86,13 @@ static ssize_t bonding_show_bonds(struct class *cls, char *buffer)
+ 			/* not enough space for another interface name */
+ 			if ((PAGE_SIZE - res) > 10)
+ 				res = PAGE_SIZE - 10;
+-			res += sprintf(buffer + res, "++more++");
++			res += sprintf(buffer + res, "++more++ ");
+ 			break;
+ 		}
+ 		res += sprintf(buffer + res, "%s ",
+ 			       bond->dev->name);
+ 	}
+-	res += sprintf(buffer + res, "\n");
+-	res++;
++	if (res) buffer[res-1] = '\n'; /* eat the leftover space */
+ 	up_read(&(bonding_rwsem));
+ 	return res;
+ }
+@@ -235,14 +234,13 @@ static ssize_t bonding_show_slaves(struct device *d,
+ 			/* not enough space for another interface name */
+ 			if ((PAGE_SIZE - res) > 10)
+ 				res = PAGE_SIZE - 10;
+-			res += sprintf(buf + res, "++more++");
++			res += sprintf(buf + res, "++more++ ");
+ 			break;
+ 		}
+ 		res += sprintf(buf + res, "%s ", slave->dev->name);
+ 	}
+ 	read_unlock(&bond->lock);
+-	res += sprintf(buf + res, "\n");
+-	res++;
++	if (res) buf[res-1] = '\n'; /* eat the leftover space */
+ 	return res;
+ }
  
- 				slave->link  = BOND_LINK_UP;
- 				slave->state = BOND_STATE_ACTIVE;
-@@ -2754,8 +2755,8 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
- 			 * when the source ip is 0, so don't take the link down
- 			 * if we don't know our ip yet
- 			 */
--			if (((jiffies - slave->dev->trans_start) >= (2*delta_in_ticks)) ||
--			    (((jiffies - slave->dev->last_rx) >= (2*delta_in_ticks)) &&
-+			if (time_after_eq(jiffies, slave->dev->trans_start + 2*delta_in_ticks) ||
-+			    (time_after_eq(jiffies, slave->dev->last_rx + 2*delta_in_ticks) &&
- 			     bond_has_ip(bond))) {
+@@ -406,7 +404,7 @@ static ssize_t bonding_show_mode(struct device *d,
  
- 				slave->link  = BOND_LINK_DOWN;
-@@ -2848,8 +2849,8 @@ void bond_activebackup_arp_mon(struct work_struct *work)
- 	 */
- 	bond_for_each_slave(bond, slave, i) {
- 		if (slave->link != BOND_LINK_UP) {
--			if ((jiffies - slave_last_rx(bond, slave)) <=
--			     delta_in_ticks) {
-+			if (time_before_eq(jiffies,
-+			    slave_last_rx(bond, slave) + delta_in_ticks)) {
+ 	return sprintf(buf, "%s %d\n",
+ 			bond_mode_tbl[bond->params.mode].modename,
+-			bond->params.mode) + 1;
++			bond->params.mode);
+ }
  
- 				slave->link = BOND_LINK_UP;
+ static ssize_t bonding_store_mode(struct device *d,
+@@ -463,11 +461,11 @@ static ssize_t bonding_show_xmit_hash(struct device *d,
+ 	if ((bond->params.mode != BOND_MODE_XOR) &&
+ 	    (bond->params.mode != BOND_MODE_8023AD)) {
+ 		// Not Applicable
+-		count = sprintf(buf, "NA\n") + 1;
++		count = sprintf(buf, "NA\n");
+ 	} else {
+ 		count = sprintf(buf, "%s %d\n",
+ 			xmit_hashtype_tbl[bond->params.xmit_policy].modename,
+-			bond->params.xmit_policy) + 1;
++			bond->params.xmit_policy);
+ 	}
  
-@@ -2858,7 +2859,7 @@ void bond_activebackup_arp_mon(struct work_struct *work)
- 				write_lock_bh(&bond->curr_slave_lock);
+ 	return count;
+@@ -527,7 +525,7 @@ static ssize_t bonding_show_arp_validate(struct device *d,
  
- 				if ((!bond->curr_active_slave) &&
--				    ((jiffies - slave->dev->trans_start) <= delta_in_ticks)) {
-+				    time_before_eq(jiffies, slave->dev->trans_start + delta_in_ticks)) {
- 					bond_change_active_slave(bond, slave);
- 					bond->current_arp_slave = NULL;
- 				} else if (bond->curr_active_slave != slave) {
-@@ -2897,7 +2898,7 @@ void bond_activebackup_arp_mon(struct work_struct *work)
+ 	return sprintf(buf, "%s %d\n",
+ 		       arp_validate_tbl[bond->params.arp_validate].modename,
+-		       bond->params.arp_validate) + 1;
++		       bond->params.arp_validate);
+ }
  
- 			if ((slave != bond->curr_active_slave) &&
- 			    (!bond->current_arp_slave) &&
--			    (((jiffies - slave_last_rx(bond, slave)) >= 3*delta_in_ticks) &&
-+			    (time_after_eq(jiffies, slave_last_rx(bond, slave) + 3*delta_in_ticks) &&
- 			     bond_has_ip(bond))) {
- 				/* a backup slave has gone down; three times
- 				 * the delta allows the current slave to be
-@@ -2943,10 +2944,10 @@ void bond_activebackup_arp_mon(struct work_struct *work)
- 		 * before being taken out. if a primary is being used, check
- 		 * if it is up and needs to take over as the curr_active_slave
- 		 */
--		if ((((jiffies - slave->dev->trans_start) >= (2*delta_in_ticks)) ||
--	    (((jiffies - slave_last_rx(bond, slave)) >= (2*delta_in_ticks)) &&
--	     bond_has_ip(bond))) &&
--		    ((jiffies - slave->jiffies) >= 2*delta_in_ticks)) {
-+		if ((time_after_eq(jiffies, slave->dev->trans_start + 2*delta_in_ticks) ||
-+			(time_after_eq(jiffies, slave_last_rx(bond, slave) + 2*delta_in_ticks) &&
-+			 bond_has_ip(bond))) &&
-+			time_after_eq(jiffies, slave->jiffies + 2*delta_in_ticks)) {
+ static ssize_t bonding_store_arp_validate(struct device *d,
+@@ -627,7 +625,7 @@ static ssize_t bonding_show_arp_interval(struct device *d,
+ {
+ 	struct bonding *bond = to_bond(d);
  
- 			slave->link  = BOND_LINK_DOWN;
+-	return sprintf(buf, "%d\n", bond->params.arp_interval) + 1;
++	return sprintf(buf, "%d\n", bond->params.arp_interval);
+ }
  
+ static ssize_t bonding_store_arp_interval(struct device *d,
+@@ -711,10 +709,7 @@ static ssize_t bonding_show_arp_targets(struct device *d,
+ 			res += sprintf(buf + res, "%u.%u.%u.%u ",
+ 			       NIPQUAD(bond->params.arp_targets[i]));
+ 	}
+-	if (res)
+-		res--;  /* eat the leftover space */
+-	res += sprintf(buf + res, "\n");
+-	res++;
++	if (res) buf[res-1] = '\n'; /* eat the leftover space */
+ 	return res;
+ }
+ 
+@@ -815,7 +810,7 @@ static ssize_t bonding_show_downdelay(struct device *d,
+ {
+ 	struct bonding *bond = to_bond(d);
+ 
+-	return sprintf(buf, "%d\n", bond->params.downdelay * bond->params.miimon) + 1;
++	return sprintf(buf, "%d\n", bond->params.downdelay * bond->params.miimon);
+ }
+ 
+ static ssize_t bonding_store_downdelay(struct device *d,
+@@ -872,7 +867,7 @@ static ssize_t bonding_show_updelay(struct device *d,
+ {
+ 	struct bonding *bond = to_bond(d);
+ 
+-	return sprintf(buf, "%d\n", bond->params.updelay * bond->params.miimon) + 1;
++	return sprintf(buf, "%d\n", bond->params.updelay * bond->params.miimon);
+ 
+ }
+ 
+@@ -936,7 +931,7 @@ static ssize_t bonding_show_lacp(struct device *d,
+ 
+ 	return sprintf(buf, "%s %d\n",
+ 		bond_lacp_tbl[bond->params.lacp_fast].modename,
+-		bond->params.lacp_fast) + 1;
++		bond->params.lacp_fast);
+ }
+ 
+ static ssize_t bonding_store_lacp(struct device *d,
+@@ -992,7 +987,7 @@ static ssize_t bonding_show_miimon(struct device *d,
+ {
+ 	struct bonding *bond = to_bond(d);
+ 
+-	return sprintf(buf, "%d\n", bond->params.miimon) + 1;
++	return sprintf(buf, "%d\n", bond->params.miimon);
+ }
+ 
+ static ssize_t bonding_store_miimon(struct device *d,
+@@ -1083,9 +1078,9 @@ static ssize_t bonding_show_primary(struct device *d,
+ 	struct bonding *bond = to_bond(d);
+ 
+ 	if (bond->primary_slave)
+-		count = sprintf(buf, "%s\n", bond->primary_slave->dev->name) + 1;
++		count = sprintf(buf, "%s\n", bond->primary_slave->dev->name);
+ 	else
+-		count = sprintf(buf, "\n") + 1;
++		count = sprintf(buf, "\n");
+ 
+ 	return count;
+ }
+@@ -1149,7 +1144,7 @@ static ssize_t bonding_show_carrier(struct device *d,
+ {
+ 	struct bonding *bond = to_bond(d);
+ 
+-	return sprintf(buf, "%d\n", bond->params.use_carrier) + 1;
++	return sprintf(buf, "%d\n", bond->params.use_carrier);
+ }
+ 
+ static ssize_t bonding_store_carrier(struct device *d,
+@@ -1198,9 +1193,9 @@ static ssize_t bonding_show_active_slave(struct device *d,
+ 	read_unlock(&bond->curr_slave_lock);
+ 
+ 	if (USES_PRIMARY(bond->params.mode) && curr)
+-		count = sprintf(buf, "%s\n", curr->dev->name) + 1;
++		count = sprintf(buf, "%s\n", curr->dev->name);
+ 	else
+-		count = sprintf(buf, "\n") + 1;
++		count = sprintf(buf, "\n");
+ 	return count;
+ }
+ 
+@@ -1295,7 +1290,7 @@ static ssize_t bonding_show_mii_status(struct device *d,
+ 	curr = bond->curr_active_slave;
+ 	read_unlock(&bond->curr_slave_lock);
+ 
+-	return sprintf(buf, "%s\n", (curr) ? "up" : "down") + 1;
++	return sprintf(buf, "%s\n", (curr) ? "up" : "down");
+ }
+ static DEVICE_ATTR(mii_status, S_IRUGO, bonding_show_mii_status, NULL);
+ 
+@@ -1312,10 +1307,10 @@ static ssize_t bonding_show_ad_aggregator(struct device *d,
+ 
+ 	if (bond->params.mode == BOND_MODE_8023AD) {
+ 		struct ad_info ad_info;
+-		count = sprintf(buf, "%d\n", (bond_3ad_get_active_agg_info(bond, &ad_info)) ?  0 : ad_info.aggregator_id) + 1;
++		count = sprintf(buf, "%d\n", (bond_3ad_get_active_agg_info(bond, &ad_info)) ?  0 : ad_info.aggregator_id);
+ 	}
+ 	else
+-		count = sprintf(buf, "\n") + 1;
++		count = sprintf(buf, "\n");
+ 
+ 	return count;
+ }
+@@ -1334,10 +1329,10 @@ static ssize_t bonding_show_ad_num_ports(struct device *d,
+ 
+ 	if (bond->params.mode == BOND_MODE_8023AD) {
+ 		struct ad_info ad_info;
+-		count = sprintf(buf, "%d\n", (bond_3ad_get_active_agg_info(bond, &ad_info)) ?  0: ad_info.ports) + 1;
++		count = sprintf(buf, "%d\n", (bond_3ad_get_active_agg_info(bond, &ad_info)) ?  0: ad_info.ports);
+ 	}
+ 	else
+-		count = sprintf(buf, "\n") + 1;
++		count = sprintf(buf, "\n");
+ 
+ 	return count;
+ }
+@@ -1356,10 +1351,10 @@ static ssize_t bonding_show_ad_actor_key(struct device *d,
+ 
+ 	if (bond->params.mode == BOND_MODE_8023AD) {
+ 		struct ad_info ad_info;
+-		count = sprintf(buf, "%d\n", (bond_3ad_get_active_agg_info(bond, &ad_info)) ?  0 : ad_info.actor_key) + 1;
++		count = sprintf(buf, "%d\n", (bond_3ad_get_active_agg_info(bond, &ad_info)) ?  0 : ad_info.actor_key);
+ 	}
+ 	else
+-		count = sprintf(buf, "\n") + 1;
++		count = sprintf(buf, "\n");
+ 
+ 	return count;
+ }
+@@ -1378,10 +1373,10 @@ static ssize_t bonding_show_ad_partner_key(struct device *d,
+ 
+ 	if (bond->params.mode == BOND_MODE_8023AD) {
+ 		struct ad_info ad_info;
+-		count = sprintf(buf, "%d\n", (bond_3ad_get_active_agg_info(bond, &ad_info)) ?  0 : ad_info.partner_key) + 1;
++		count = sprintf(buf, "%d\n", (bond_3ad_get_active_agg_info(bond, &ad_info)) ?  0 : ad_info.partner_key);
+ 	}
+ 	else
+-		count = sprintf(buf, "\n") + 1;
++		count = sprintf(buf, "\n");
+ 
+ 	return count;
+ }
+@@ -1403,12 +1398,11 @@ static ssize_t bonding_show_ad_partner_mac(struct device *d,
+ 		struct ad_info ad_info;
+ 		if (!bond_3ad_get_active_agg_info(bond, &ad_info)) {
+ 			count = sprintf(buf,"%s\n",
+-					print_mac(mac, ad_info.partner_system))
+-				+ 1;
++					print_mac(mac, ad_info.partner_system));
+ 		}
+ 	}
+ 	else
+-		count = sprintf(buf, "\n") + 1;
++		count = sprintf(buf, "\n");
+ 
+ 	return count;
+ }
 -- 
 1.5.3.4.206.g58ba4-dirty
 
