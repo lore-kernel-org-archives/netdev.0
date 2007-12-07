@@ -1,74 +1,31 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [RFC] TCP illinois max rtt aging
-Date: Fri, 7 Dec 2007 20:27:13 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0712072024070.31283@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0712041031110.18529@kivilampi-30.cs.helsinki.fi>
- <aa7d2c6d0712061927g2e6f1679o8b05f76d723c0c76@mail.gmail.com>
- <Pine.LNX.4.64.0712071254070.18529@kivilampi-30.cs.helsinki.fi>
- <20071207.044150.02925935.davem@davemloft.net>
- <Pine.LNX.4.64.0712071442530.18529@kivilampi-30.cs.helsinki.fi>
+From: Ben Dooks <ben@fluff.org>
+Subject: Re: [patch 22/22] NET: DM9000: Show the MAC address source after
+	printing MAC
+Date: Fri, 7 Dec 2007 18:30:45 +0000
+Message-ID: <20071207183045.GH3244@fluff.org.uk>
+References: <20071119203910.687238131@fluff.org> <20071119204016.482292667@fluff.org> <474781A8.2030704@garzik.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/Mixed; boundary="-696243703-1703991477-1197032759=:18529"
-Cc: lachlan.andrew@gmail.com, Netdev <netdev@vger.kernel.org>,
-	quetchen@caltech.edu
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Dooks <ben-linux@fluff.org>, netdev@vger.kernel.org,
+	vince@simtec.co.uk
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:58806 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754082AbXLGS1S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 13:27:18 -0500
-In-Reply-To: <Pine.LNX.4.64.0712071442530.18529@kivilampi-30.cs.helsinki.fi>
-Content-ID: <Pine.LNX.4.64.0712072024071.31283@kivilampi-30.cs.helsinki.fi>
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:60140 "EHLO
+	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753409AbXLGSbE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 13:31:04 -0500
+Content-Disposition: inline
+In-Reply-To: <474781A8.2030704@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Fri, Nov 23, 2007 at 08:43:04PM -0500, Jeff Garzik wrote:
+> ACK patches 16-22
 
----696243703-1703991477-1197032759=:18529
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0712072024072.31283@kivilampi-30.cs.helsinki.fi>
-
-On Fri, 7 Dec 2007, Ilpo Järvinen wrote:
-
-> On Fri, 7 Dec 2007, David Miller wrote:
-> 
-> > From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> > Date: Fri, 7 Dec 2007 13:05:46 +0200 (EET)
-> > 
-> > > I guess if you get a large cumulative ACK, the amount of processing is 
-> > > still overwhelming (added DaveM if he has some idea how to combat it).
-> > > 
-> > > Even a simple scenario (this isn't anything fancy at all, will occur all 
-> > > the time): Just one loss => rest skbs grow one by one into a single 
-> > > very large SACK block (and we do that efficiently for sure) => then the 
-> > > fast retransmit gets delivered and a cumulative ACK for whole orig_window 
-> > > arrives => clean_rtx_queue has to do a lot of processing. In this case we 
-> > > could optimize RB-tree cleanup away (by just blanking it all) but still 
-> > > getting rid of all those skbs is going to take a larger moment than I'd 
-> > > like to see.
-> > > 
-> > > That tree blanking could be extended to cover anything which ACK more than 
-> > > half of the tree by just replacing the root (and dealing with potential 
-> > > recolorization of the root).
-> > 
-> > Yes, it's the classic problem.  But it ought to be at least
-> > partially masked when TSO is in use, because we'll only process
-> > a handful of SKBs.  The more effectively TSO batches, the
-> > less work clean_rtx_queue() will do.
-> 
-> No, that's not what is going to happen, TSO won't help at all
-> because one-by-one SACKs will fragment every single one of them
-> (see tcp_match_skb_to_sack) :-(. ...So we're back in non-TSO
-> case, or am I missing something?
-
-Hmm... this could be solved though by postponing the fragmentation of a 
-partially sacked skb when the first sack block can (is likely) to still 
-grow and remove the need for fragmentation. Has some implications to 
-packet processing, increases burstiness a bit & tcp_max_burst kicks in too 
-easily.
+Is reposting here ok to get these queued for the next kernel
+release, or are there people to CC: for this?
 
 -- 
- i.
----696243703-1703991477-1197032759=:18529--
+Ben (ben@fluff.org, http://www.fluff.org/)
+
+  'a smiley only costs 4 bytes'
