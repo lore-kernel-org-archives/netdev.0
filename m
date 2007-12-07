@@ -1,66 +1,36 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 2.6.24-rc3] Fix /proc/net breakage
-Date: Fri, 7 Dec 2007 02:23:42 -0800
-Message-ID: <20071207022342.806ee4ee.akpm@linux-foundation.org>
-References: <20071119191000.GA1560@elf.ucw.cz>
-	<200711192304.25087.rjw@sisk.pl>
-	<4743026B.2020907@openvz.org>
-	<m1hcj8mz1p.fsf_-_@ebiederm.dsl.xmission.com>
-	<1197003097.13978.557.camel@pmac.infradead.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH][VLAN] Merge tree equal tails in vlan_skb_recv
+Date: Fri, 07 Dec 2007 11:25:35 +0100
+Message-ID: <47591F9F.1020607@trash.net>
+References: <47591ECF.2020707@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
-	kernel list <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	"Denis V. Lunev" <den@openvz.org>
-To: David Woodhouse <dwmw2@infradead.org>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:53132 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751659AbXLGKYS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 05:24:18 -0500
-In-Reply-To: <1197003097.13978.557.camel@pmac.infradead.org>
+Received: from stinky.trash.net ([213.144.137.162]:59194 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751223AbXLGK0R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 05:26:17 -0500
+In-Reply-To: <47591ECF.2020707@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 07 Dec 2007 04:51:37 +0000 David Woodhouse <dwmw2@infradead.org> wrote:
+Pavel Emelyanov wrote:
+> There are tree paths in it, that set the skb->proto and then
+> perform common receive manipulations (basically call netif_rx()).
+> 
+> I think, that we can make this code flow easier to understand
+> by introducing the vlan_set_encap_proto() function (I hope the 
+> name is good) to setup the skb proto and merge the paths calling 
+> netif_rx() together.
+> 
+> Surprisingly, but gcc detects this thing and merges these paths
+> by itself, so this patch doesn't make the vlan module smaller.
 
-> On Mon, 2007-11-26 at 15:17 -0700, Eric W. Biederman wrote:
-> > Well I clearly goofed when I added the initial network namespace support
-> > for /proc/net.  Currently things work but there are odd details visible
-> > to user space, even when we have a single network namespace.
-> > 
-> > Since we do not cache proc_dir_entry dentries at the moment we can
-> > just modify ->lookup to return a different directory inode depending
-> > on the network namespace of the process looking at /proc/net, replacing
-> > the current technique of using a magic and fragile follow_link method.
-> > 
-> > To accomplish that this patch:
-> > - introduces a shadow_proc method to allow different dentries to
-> >   be returned from proc_lookup.
-> > - Removes the old /proc/net follow_link magic
-> > - Fixes a weakness in our not caching of proc generic dentries.
-> > 
-> > As shadow_proc uses a task struct to decided which dentry to return we
-> > can go back later and fix the proc generic caching without modifying any code that
-> > uses the shadow_proc method.
-> > 
-> > Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-> > ---
-> >  fs/proc/generic.c       |   12 ++++++-
-> >  fs/proc/proc_net.c      |   86 +++--------------------------------------------
-> >  include/linux/proc_fs.h |    3 ++
-> >  3 files changed, 19 insertions(+), 82 deletions(-)
-> 
-> (commit 2b1e300a9dfc3196ccddf6f1d74b91b7af55e416)
-> 
-> This seems to have broken the use of /proc/bus/usb as a mountpoint. It
-> always appears empty now, whatever's supposed to be mounted there.
-> 
 
-Yes.  Denis and Eric are tossing around competing patches but afaik nobody
-is happy with any of them.  Guys, could we get this sorted soonish please?
+I already have something similar queued, but your patch is a nice
+cleanup on top. I'll merge it into my tree and send it out after
+some testing, hopefully today.
