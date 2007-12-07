@@ -1,48 +1,74 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] Use BUILD_BUG_ON in inet_timewait_sock.c checks
-Date: Fri, 07 Dec 2007 20:46:10 +0300
-Message-ID: <475986E2.6050409@openvz.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [RFC] TCP illinois max rtt aging
+Date: Fri, 7 Dec 2007 20:27:13 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0712072024070.31283@kivilampi-30.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0712041031110.18529@kivilampi-30.cs.helsinki.fi>
+ <aa7d2c6d0712061927g2e6f1679o8b05f76d723c0c76@mail.gmail.com>
+ <Pine.LNX.4.64.0712071254070.18529@kivilampi-30.cs.helsinki.fi>
+ <20071207.044150.02925935.davem@davemloft.net>
+ <Pine.LNX.4.64.0712071442530.18529@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+Content-Type: MULTIPART/Mixed; boundary="-696243703-1703991477-1197032759=:18529"
+Cc: lachlan.andrew@gmail.com, Netdev <netdev@vger.kernel.org>,
+	quetchen@caltech.edu
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:55829 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753625AbXLGRqR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Dec 2007 12:46:17 -0500
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:58806 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754082AbXLGS1S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 13:27:18 -0500
+In-Reply-To: <Pine.LNX.4.64.0712071442530.18529@kivilampi-30.cs.helsinki.fi>
+Content-ID: <Pine.LNX.4.64.0712072024071.31283@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make the INET_TWDR_TWKILL_SLOTS vs sizeof(twdr->thread_slots)
-check nicer.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+---696243703-1703991477-1197032759=:18529
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0712072024072.31283@kivilampi-30.cs.helsinki.fi>
 
----
+On Fri, 7 Dec 2007, Ilpo Järvinen wrote:
 
-diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
-index a60b99e..d43e787 100644
---- a/net/ipv4/inet_timewait_sock.c
-+++ b/net/ipv4/inet_timewait_sock.c
-@@ -194,16 +194,14 @@ out:
- 
- EXPORT_SYMBOL_GPL(inet_twdr_hangman);
- 
--extern void twkill_slots_invalid(void);
--
- void inet_twdr_twkill_work(struct work_struct *work)
- {
- 	struct inet_timewait_death_row *twdr =
- 		container_of(work, struct inet_timewait_death_row, twkill_work);
- 	int i;
- 
--	if ((INET_TWDR_TWKILL_SLOTS - 1) > (sizeof(twdr->thread_slots) * 8))
--		twkill_slots_invalid();
-+	BUILD_BUG_ON((INET_TWDR_TWKILL_SLOTS - 1) >
-+			(sizeof(twdr->thread_slots) * 8));
- 
- 	while (twdr->thread_slots) {
- 		spin_lock_bh(&twdr->death_lock);
+> On Fri, 7 Dec 2007, David Miller wrote:
+> 
+> > From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
+> > Date: Fri, 7 Dec 2007 13:05:46 +0200 (EET)
+> > 
+> > > I guess if you get a large cumulative ACK, the amount of processing is 
+> > > still overwhelming (added DaveM if he has some idea how to combat it).
+> > > 
+> > > Even a simple scenario (this isn't anything fancy at all, will occur all 
+> > > the time): Just one loss => rest skbs grow one by one into a single 
+> > > very large SACK block (and we do that efficiently for sure) => then the 
+> > > fast retransmit gets delivered and a cumulative ACK for whole orig_window 
+> > > arrives => clean_rtx_queue has to do a lot of processing. In this case we 
+> > > could optimize RB-tree cleanup away (by just blanking it all) but still 
+> > > getting rid of all those skbs is going to take a larger moment than I'd 
+> > > like to see.
+> > > 
+> > > That tree blanking could be extended to cover anything which ACK more than 
+> > > half of the tree by just replacing the root (and dealing with potential 
+> > > recolorization of the root).
+> > 
+> > Yes, it's the classic problem.  But it ought to be at least
+> > partially masked when TSO is in use, because we'll only process
+> > a handful of SKBs.  The more effectively TSO batches, the
+> > less work clean_rtx_queue() will do.
+> 
+> No, that's not what is going to happen, TSO won't help at all
+> because one-by-one SACKs will fragment every single one of them
+> (see tcp_match_skb_to_sack) :-(. ...So we're back in non-TSO
+> case, or am I missing something?
 
+Hmm... this could be solved though by postponing the fragmentation of a 
+partially sacked skb when the first sack block can (is likely) to still 
+grow and remove the need for fragmentation. Has some implications to 
+packet processing, increases burstiness a bit & tcp_max_burst kicks in too 
+easily.
+
+-- 
+ i.
+---696243703-1703991477-1197032759=:18529--
