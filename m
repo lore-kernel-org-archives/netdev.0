@@ -1,64 +1,95 @@
-From: Vitaly Bordug <vitb@kernel.crashing.org>
-Subject: [PATCH 3/3] [POWERPC] MPC8349E-mITX: Vitesse 7385 PHY is not
-	connected to the MDIO bus
-Date: Fri, 07 Dec 2007 01:51:39 +0300
-Message-ID: <20071206225139.31080.18384.stgit@localhost.localdomain>
-References: <20071206225121.31080.86606.stgit@localhost.localdomain>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: [PATCH 3/2] cxgb3 - Fix EEH, missing softirq blocking
+Date: Thu, 06 Dec 2007 18:47:53 -0800
+Message-ID: <20071207024753.15931.12103.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Paul Mackerras <paulus@samba.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:59510 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752639AbXLFWvu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Dec 2007 17:51:50 -0500
-Cc: "linuxppc-dev" <linuxppc-dev@ozlabs.org>
-Cc: netdev@vger.kernel.org
-In-Reply-To: <20071206225121.31080.86606.stgit@localhost.localdomain>
+Received: from stargate.chelsio.com ([12.22.49.110]:21156 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752576AbXLGCr6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2007 21:47:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Divy Le Ray <divy@chelsio.com>
 
-...thus use fixed-link to register proper "Fixed PHY"
+set_pci_drvdata() stores a pointer to the adapter,
+not the net device.
+Add missing softirq blocking in t3_mgmt_tx.
 
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-Signed-off-by: Vitaly Bordug <vitb@kernel.crashing.org>
-
+Signed-off-by: Divy Le Ray <divy@chlelsio.com>
 ---
 
- arch/powerpc/boot/dts/mpc8349emitx.dts |   11 ++---------
- 1 files changed, 2 insertions(+), 9 deletions(-)
+ drivers/net/cxgb3/cxgb3_main.c |   14 ++++----------
+ drivers/net/cxgb3/sge.c        |    7 ++++++-
+ 2 files changed, 10 insertions(+), 11 deletions(-)
 
-
-diff --git a/arch/powerpc/boot/dts/mpc8349emitx.dts b/arch/powerpc/boot/dts/mpc8349emitx.dts
-index 5072f6d..877ee6d 100644
---- a/arch/powerpc/boot/dts/mpc8349emitx.dts
-+++ b/arch/powerpc/boot/dts/mpc8349emitx.dts
-@@ -115,14 +115,6 @@
- 				reg = <1c>;
- 				device_type = "ethernet-phy";
- 			};
--
--			/* Vitesse 7385 */
--			phy1f: ethernet-phy@1f {
--				interrupt-parent = < &ipic >;
--				interrupts = <12 8>;
--				reg = <1f>;
--				device_type = "ethernet-phy";
--			};
- 		};
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+index d1aa777..0e3dcbf 100644
+--- a/drivers/net/cxgb3/cxgb3_main.c
++++ b/drivers/net/cxgb3/cxgb3_main.c
+@@ -2408,9 +2408,7 @@ void t3_fatal_err(struct adapter *adapter)
+ static pci_ers_result_t t3_io_error_detected(struct pci_dev *pdev,
+ 					     pci_channel_state_t state)
+ {
+-	struct net_device *dev = pci_get_drvdata(pdev);
+-	struct port_info *pi = netdev_priv(dev);
+-	struct adapter *adapter = pi->adapter;
++	struct adapter *adapter = pci_get_drvdata(pdev);
+ 	int i;
  
- 		ethernet@24000 {
-@@ -159,7 +151,8 @@
- 			local-mac-address = [ 00 00 00 00 00 00 ];
- 			interrupts = <23 8 24 8 25 8>;
- 			interrupt-parent = < &ipic >;
--			phy-handle = < &phy1f >;
-+			/* Vitesse 7385 isn't on the MDIO bus */
-+			fixed-link = <1 1 d#1000 0 0>;
- 			linux,network-index = <1>;
- 		};
+ 	/* Stop all ports */
+@@ -2444,9 +2442,7 @@ static pci_ers_result_t t3_io_error_detected(struct pci_dev *pdev,
+  */
+ static pci_ers_result_t t3_io_slot_reset(struct pci_dev *pdev)
+ {
+-	struct net_device *dev = pci_get_drvdata(pdev);
+-	struct port_info *pi = netdev_priv(dev);
+-	struct adapter *adapter = pi->adapter;
++	struct adapter *adapter = pci_get_drvdata(pdev);
  
-
+ 	if (pci_enable_device(pdev)) {
+ 		dev_err(&pdev->dev,
+@@ -2469,9 +2465,7 @@ static pci_ers_result_t t3_io_slot_reset(struct pci_dev *pdev)
+  */
+ static void t3_io_resume(struct pci_dev *pdev)
+ {
+-	struct net_device *dev = pci_get_drvdata(pdev);
+-	struct port_info *pi = netdev_priv(dev);
+-	struct adapter *adapter = pi->adapter;
++	struct adapter *adapter = pci_get_drvdata(pdev);
+ 	int i;
+ 
+ 	/* Restart the ports */
+@@ -2491,7 +2485,7 @@ static void t3_io_resume(struct pci_dev *pdev)
+ 
+ 	if (is_offload(adapter)) {
+ 		__set_bit(OFFLOAD_DEVMAP_BIT, &adapter->registered_device_map);
+-		if (offload_open(dev))
++		if (offload_open(adapter->port[0]))
+ 			printk(KERN_WARNING
+ 			       "Could not bring back offload capabilities\n");
+ 	}
+diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
+index cef153d..6367cee 100644
+--- a/drivers/net/cxgb3/sge.c
++++ b/drivers/net/cxgb3/sge.c
+@@ -1364,7 +1364,12 @@ static void restart_ctrlq(unsigned long data)
+  */
+ int t3_mgmt_tx(struct adapter *adap, struct sk_buff *skb)
+ {
+-	return ctrl_xmit(adap, &adap->sge.qs[0].txq[TXQ_CTRL], skb);
++	int ret; 
++	local_bh_disable();
++	ret = ctrl_xmit(adap, &adap->sge.qs[0].txq[TXQ_CTRL], skb);
++	local_bh_enable();
++
++	return ret;
+ }
+ 
+ /**
