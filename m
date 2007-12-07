@@ -1,52 +1,61 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][IPV4] Swap the ifa allocation with the"ipv4_devconf_setall"
- call
-Date: Fri, 07 Dec 2007 12:22:57 +0300
-Message-ID: <475910F1.1010007@openvz.org>
+From: Stefan Rompf <stefan@loplof.de>
+Subject: Re: sockets affected by IPsec always block (2.6.23)
+Date: Fri, 7 Dec 2007 10:29:04 +0100
+Message-ID: <200712071029.05092.stefan@loplof.de>
+References: <200712061330.20586.stefan@loplof.de> <200712061531.54107.stefan@loplof.de> <20071206.192030.170597084.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+Cc: herbert@gondor.apana.org.au, simon@fire.lp0.eu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:58786 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751230AbXLGJXO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Dec 2007 04:23:14 -0500
+Received: from mo-p07-ob.rzone.de ([81.169.146.190]:48558 "EHLO
+	mo-p07-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751703AbXLGJ3S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 04:29:18 -0500
+In-Reply-To: <20071206.192030.170597084.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-According to Herbert, the ipv4_devconf_setall should be called
-only when the ifa is added to the device. However, failed 
-ifa allocation may bring things into inconsistent state.
+Am Freitag, 7. Dezember 2007 04:20 schrieb David Miller:
 
-Move the call to ipv4_devconf_setall after the ifa allocation.
+> If IPSEC takes a long time to resolve, and we don't block, the
+> connect() can hard fail (we will just keep dropping the outgoing SYN
+> packet send attempts, eventually hitting the retry limit) in cases
+> where if we did block it would not fail (because we wouldn't send
+> the first SYN until IPSEC resolved).
 
-Fits both net-2.6 (with offsets) and net-2.6.25 (cleanly).
+David - I'm aware of this, the discussion is which behaviour is ok. Let's go 
+back to a real life example. I've already researched that the squid web proxy 
+has a poll() based main loop doing nonblocking connects, may be with multiple 
+threads.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Situation: One user wants to access a web page that needs IPSEC. The SA takes 
+30 seconds to come up.
 
----
+a) Non-blocking connect is respected: SYN packets during the first 30 seconds 
+will be dropped as you said. Connection can be completed on the next SYN 
+retry (timeout in linux: 3 minutes). During this time, the 500 other users 
+can continue to browse using the proxy.
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 0b5f042..1c3e20c 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -519,8 +519,6 @@ static struct in_ifaddr *rtm_to_ifaddr(struct nlmsghdr *nlh)
- 		goto errout;
- 	}
- 
--	ipv4_devconf_setall(in_dev);
--
- 	ifa = inet_alloc_ifa();
- 	if (ifa == NULL) {
- 		/*
-@@ -531,6 +529,7 @@ static struct in_ifaddr *rtm_to_ifaddr(struct nlmsghdr *nlh)
- 		goto errout;
- 	}
- 
-+	ipv4_devconf_setall(in_dev);
- 	in_dev_hold(in_dev);
- 
- 	if (tb[IFA_ADDRESS] == NULL)
+b) Non-blocking connect is ignored during IPSEC resolving as you advocate it: 
+Connection for the one user can be completed immediatly after IPSEC comes up. 
+That's the pro. However, until then, the other 500 proxy user CANNOT ACCESS 
+THE WEB because squid's threads are stuck in connect()s on sockets they 
+configured not to block. If the IPSEC SA never resolves due to some network 
+outage, squid will sleep forever or until an admin configures it that it 
+doesn't try to connect the adress in question and restarts it.
+
+Don't you realize how broken this behaviour is? Can you give me ONE example of 
+an application that works better with b) and why this outweights the problems 
+it creates for everybody else?
+
+Even the DNS example you posted in  
+<20071204.231200.117152338.davem@davemloft.net> is wrong because the second 
+server will never queried if the kernel puts the process into coma while the 
+IPSEC SA to the first server cannot be resolved.
+
+Stefan
