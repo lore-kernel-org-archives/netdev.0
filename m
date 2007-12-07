@@ -1,39 +1,31 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/11] ibm_newemac: Add BCM5248 and Marvell 88E1111 PHY
- support
-Date: Fri, 07 Dec 2007 15:09:20 -0500
-Message-ID: <4759A870.8030900@pobox.com>
-References: <20071205001534.D681ADDF2D@ozlabs.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2.6.24 1/1]S2io: Check for register initialization completion
+ before accesing device registers
+Date: Fri, 07 Dec 2007 15:09:32 -0500
+Message-ID: <4759A87C.6030101@garzik.org>
+References: <Pine.GSO.4.10.10712052356570.27705-100000@guinness>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	Josh Boyer <jwboyer@linux.vnet.ibm.com>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: netdev@vger.kernel.org, support@neterion.com
+To: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:57746 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:57757 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756078AbXLGUJX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Dec 2007 15:09:23 -0500
-In-Reply-To: <20071205001534.D681ADDF2D@ozlabs.org>
+	id S1756405AbXLGUJg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Dec 2007 15:09:36 -0500
+In-Reply-To: <Pine.GSO.4.10.10712052356570.27705-100000@guinness>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Benjamin Herrenschmidt wrote:
-> From: Stefan Roese <sr@denx.de>
+Sreenivasa Honnur wrote:
+> - Making sure register initialisation is complete before proceeding further.
+>   The driver must wait until initialization is complete before attempting to 
+>   access any other device registers.
 > 
-> This patch adds BCM5248 and Marvell 88E1111 PHY support to NEW EMAC driver.
-> These PHY chips are used on PowerPC 440EPx boards.
-> The PHY code is based on the previous work by Stefan Roese <sr@denx.de>
-> 
-> Signed-off-by: Stefan Roese <sr@denx.de>
-> Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
-> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> ---
-> 
->  drivers/net/ibm_newemac/phy.c |   39 +++++++++++++++++++++++++++++++++++++++
->  1 file changed, 39 insertions(+)
+> Signed-off-by: Surjit Reang <surjit.reang@neterion.com>
+> Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
 
-applied 1-11 #upstream-fixes
+applied #upstream-fixes
 
 
