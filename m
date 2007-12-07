@@ -1,48 +1,48 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] Use BUILD_BUG_ON for tcp_skb_cb size checking
-Date: Fri, 07 Dec 2007 20:42:04 +0300
-Message-ID: <475985EC.6050608@openvz.org>
+Subject: [PATCH] Use BUILD_BUG_ON in inet_timewait_sock.c checks
+Date: Fri, 07 Dec 2007 20:46:10 +0300
+Message-ID: <475986E2.6050409@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:53595 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:55829 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753244AbXLGRmO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Dec 2007 12:42:14 -0500
+	id S1753625AbXLGRqR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Dec 2007 12:46:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The sizeof(struct tcp_skb_cb) should not be less than the
-sizeof(skb->cb). This is checked in net/ipv4/tcp.c, but
-this check can be made more gracefully.
+Make the INET_TWDR_TWKILL_SLOTS vs sizeof(twdr->thread_slots)
+check nicer.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 8e65182..c8bebd3 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2411,7 +2411,6 @@ void tcp_done(struct sock *sk)
- }
- EXPORT_SYMBOL_GPL(tcp_done);
+diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
+index a60b99e..d43e787 100644
+--- a/net/ipv4/inet_timewait_sock.c
++++ b/net/ipv4/inet_timewait_sock.c
+@@ -194,16 +194,14 @@ out:
  
--extern void __skb_cb_too_small_for_tcp(int, int);
- extern struct tcp_congestion_ops tcp_reno;
+ EXPORT_SYMBOL_GPL(inet_twdr_hangman);
  
- static __initdata unsigned long thash_entries;
-@@ -2430,9 +2429,7 @@ void __init tcp_init(void)
- 	unsigned long limit;
- 	int order, i, max_share;
+-extern void twkill_slots_invalid(void);
+-
+ void inet_twdr_twkill_work(struct work_struct *work)
+ {
+ 	struct inet_timewait_death_row *twdr =
+ 		container_of(work, struct inet_timewait_death_row, twkill_work);
+ 	int i;
  
--	if (sizeof(struct tcp_skb_cb) > sizeof(skb->cb))
--		__skb_cb_too_small_for_tcp(sizeof(struct tcp_skb_cb),
--					   sizeof(skb->cb));
-+	BUILD_BUG_ON(sizeof(struct tcp_skb_cb) > sizeof(skb->cb));
+-	if ((INET_TWDR_TWKILL_SLOTS - 1) > (sizeof(twdr->thread_slots) * 8))
+-		twkill_slots_invalid();
++	BUILD_BUG_ON((INET_TWDR_TWKILL_SLOTS - 1) >
++			(sizeof(twdr->thread_slots) * 8));
  
- 	tcp_hashinfo.bind_bucket_cachep =
- 		kmem_cache_create("tcp_bind_bucket",
+ 	while (twdr->thread_slots) {
+ 		spin_lock_bh(&twdr->death_lock);
+
