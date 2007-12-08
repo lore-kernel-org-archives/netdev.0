@@ -1,88 +1,113 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 4/8] [TFRC]: Need separate entry_from_skb routine
-Date: Sat,  8 Dec 2007 10:06:24 +0000
-Message-ID: <1197108388630-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 7/8] [TFRC]: CCID3 (and CCID4) needs to access these inlines
+Date: Sat,  8 Dec 2007 10:06:27 +0000
+Message-ID: <11971083881748-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <11971083882331-git-send-email-gerrit@erg.abdn.ac.uk>
  <11971083881862-git-send-email-gerrit@erg.abdn.ac.uk>
  <11971083881667-git-send-email-gerrit@erg.abdn.ac.uk>
  <11971083883685-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1197108388630-git-send-email-gerrit@erg.abdn.ac.uk>
+ <11971083883727-git-send-email-gerrit@erg.abdn.ac.uk>
+ <11971083882049-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:61604 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:61579 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753098AbXLHKIF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Dec 2007 05:08:05 -0500
-In-Reply-To: <11971083883685-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1755069AbXLHKIW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Dec 2007 05:08:22 -0500
+In-Reply-To: <11971083882049-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This again separates tfrc_rx_hist_packet() from tfrc_rx_hist_entry_from_skb(), which
-was the format used in the original patch submission. The reason for this is the
-requirement -- used by the subsequent patches -- to be able to insert a newly arrived
-skb in arbitrary places within the ringbuffer history.
-
-The add_packet() function is only a special case of this usage: it inserts always
-at the front, and thus updates the highest-received sequence number. That has been
-the main reason why it was originally called tfrc_rx_hist_update() --  the old name
-reflected better what the function did.
+This moves two inlines back to packet_history.h: these are not private
+to packet_history.c, but are needed by CCID3/4 to detect whether a new
+loss is indicated, or whether a loss is already pending.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/lib/packet_history.c |   35 ++++++++++++++++++++---------------
- 1 files changed, 20 insertions(+), 15 deletions(-)
+ net/dccp/ccids/lib/packet_history.c |   26 --------------------------
+ net/dccp/ccids/lib/packet_history.h |   28 ++++++++++++++++++++++++++--
+ 2 files changed, 26 insertions(+), 28 deletions(-)
 
 diff --git a/net/dccp/ccids/lib/packet_history.c b/net/dccp/ccids/lib/packet_history.c
-index 4d37396..6256bec 100644
+index a421032..760631e 100644
 --- a/net/dccp/ccids/lib/packet_history.c
 +++ b/net/dccp/ccids/lib/packet_history.c
-@@ -168,21 +168,6 @@ static inline struct tfrc_rx_hist_entry *
- 	return h->ring[tfrc_rx_hist_index(h, h->loss_count)];
+@@ -188,32 +188,6 @@ void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
  }
+ EXPORT_SYMBOL_GPL(tfrc_rx_hist_add_packet);
  
--void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
--			     const struct sk_buff *skb,
--			     const u32 ndp)
+-/* initialise loss detection and disable RTT sampling */
+-static inline void tfrc_rx_hist_loss_indicated(struct tfrc_rx_hist *h)
 -{
--	struct tfrc_rx_hist_entry *entry = tfrc_rx_hist_last_rcv(h);
--	const struct dccp_hdr *dh = dccp_hdr(skb);
--
--	entry->tfrchrx_seqno = DCCP_SKB_CB(skb)->dccpd_seq;
--	entry->tfrchrx_ccval = dh->dccph_ccval;
--	entry->tfrchrx_type  = dh->dccph_type;
--	entry->tfrchrx_ndp   = ndp;
--	entry->tfrchrx_tstamp = ktime_get_real();
+-	h->loss_count = 1;
 -}
--EXPORT_SYMBOL_GPL(tfrc_rx_hist_add_packet);
 -
- /**
-  * tfrc_rx_hist_entry - return the n-th history entry after loss_start
-  */
-@@ -218,6 +203,26 @@ int tfrc_rx_hist_duplicate(struct tfrc_rx_hist *h, struct sk_buff *skb)
- }
- EXPORT_SYMBOL_GPL(tfrc_rx_hist_duplicate);
- 
-+static void tfrc_rx_hist_entry_from_skb(struct tfrc_rx_hist_entry *entry,
-+					const struct sk_buff *skb, u32 ndp)
-+{
-+	const struct dccp_hdr *dh = dccp_hdr(skb);
-+
-+	entry->tfrchrx_seqno  = DCCP_SKB_CB(skb)->dccpd_seq;
-+	entry->tfrchrx_ccval  = dh->dccph_ccval;
-+	entry->tfrchrx_type   = dh->dccph_type;
-+	entry->tfrchrx_ndp    = ndp;
-+	entry->tfrchrx_tstamp = ktime_get_real();
-+}
-+
-+/* commit packet details of skb to history (record highest received seqno) */
-+void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
-+			     const struct sk_buff *skb, u32 ndp)
-+{
-+	tfrc_rx_hist_entry_from_skb(tfrc_rx_hist_last_rcv(h), skb, ndp);
-+}
-+EXPORT_SYMBOL_GPL(tfrc_rx_hist_add_packet);
-+
- /* initialise loss detection and disable RTT sampling */
- static inline void tfrc_rx_hist_loss_indicated(struct tfrc_rx_hist *h)
+-/* indicate whether previously a packet was detected missing */
+-static inline int tfrc_rx_hist_loss_pending(const struct tfrc_rx_hist *h)
+-{
+-	return h->loss_count;
+-}
+-
+-/* any data packets missing between last reception and skb ? */
+-int tfrc_rx_hist_new_loss_indicated(struct tfrc_rx_hist *h,
+-				    const struct sk_buff *skb, u32 ndp)
+-{
+-	int delta = dccp_delta_seqno(tfrc_rx_hist_last_rcv(h)->tfrchrx_seqno,
+-				     DCCP_SKB_CB(skb)->dccpd_seq);
+-
+-	if (delta > 1 && ndp < delta)
+-		tfrc_rx_hist_loss_indicated(h);
+-
+-	return tfrc_rx_hist_loss_pending(h);
+-}
+-EXPORT_SYMBOL_GPL(tfrc_rx_hist_new_loss_indicated);
+-
+ static void tfrc_rx_hist_swap(struct tfrc_rx_hist_entry **a,
+ 			      struct tfrc_rx_hist_entry **b)
  {
+diff --git a/net/dccp/ccids/lib/packet_history.h b/net/dccp/ccids/lib/packet_history.h
+index 6df9582..cb3220f 100644
+--- a/net/dccp/ccids/lib/packet_history.h
++++ b/net/dccp/ccids/lib/packet_history.h
+@@ -115,12 +115,36 @@ static inline struct tfrc_rx_hist_entry *
+ 	return h->ring[h->loss_start];
+ }
+ 
++/* initialise loss detection and disable RTT sampling */
++static inline void tfrc_rx_hist_loss_indicated(struct tfrc_rx_hist *h)
++{
++	h->loss_count = 1;
++}
++
++/* indicate whether previously a packet was detected missing */
++static inline int tfrc_rx_hist_loss_pending(const struct tfrc_rx_hist *h)
++{
++	return h->loss_count;
++}
++
++/* any data packets missing between last reception and skb ? */
++static inline int tfrc_rx_hist_new_loss_indicated(struct tfrc_rx_hist *h,
++						  const struct sk_buff *skb, u32 ndp)
++{
++	int delta = dccp_delta_seqno(tfrc_rx_hist_last_rcv(h)->tfrchrx_seqno,
++				     DCCP_SKB_CB(skb)->dccpd_seq);
++
++	if (delta > 1 && ndp < delta)
++		tfrc_rx_hist_loss_indicated(h);
++
++	return tfrc_rx_hist_loss_pending(h);
++}
++
+ extern void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
+ 				    const struct sk_buff *skb, const u32 ndp);
+ 
+ extern int tfrc_rx_hist_duplicate(struct tfrc_rx_hist *h, struct sk_buff *skb);
+-extern int tfrc_rx_hist_new_loss_indicated(struct tfrc_rx_hist *h,
+-					   const struct sk_buff *skb, u32 ndp);
++
+ struct tfrc_loss_hist;
+ extern int  tfrc_rx_handle_loss(struct tfrc_rx_hist *, struct tfrc_loss_hist *,
+ 				struct sk_buff *skb, u32 ndp,
