@@ -1,44 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25 1/3]sysctl: make the sys.net.core sysctls
- per-namespace
-Date: Sat, 08 Dec 2007 00:10:38 -0800 (PST)
-Message-ID: <20071208.001038.256039822.davem@davemloft.net>
-References: <47594587.6060308@openvz.org>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH net-2.6.25] qdisc: new rate limiter
+Date: Sat, 8 Dec 2007 03:11:39 -0500
+Message-ID: <20071208031139.0b6a58bb.billfink@mindspring.com>
+References: <20071207162618.35715892@freepuppy.rosehill>
+	<475A0804.1060006@trash.net>
+	<475A0959.20701@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, containers@lists.osdl.org, devel@openvz.org
-To: xemul@openvz.org
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45055
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757043AbXLHIKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Dec 2007 03:10:39 -0500
-In-Reply-To: <47594587.6060308@openvz.org>
+Received: from elasmtp-banded.atl.sa.earthlink.net ([209.86.89.70]:34469 "EHLO
+	elasmtp-banded.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755373AbXLHILu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Dec 2007 03:11:50 -0500
+In-Reply-To: <475A0959.20701@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Fri, 07 Dec 2007 16:07:19 +0300
+On Sat, 08 Dec 2007, Patrick McHardy wrote:
 
-> Making them per-namespace is required for the following 
-> two reasons:
+> Patrick McHardy wrote:
+> > Stephen Hemminger wrote:
+> >>
+> >> +struct tc_rlim_qopt
+> >> +{
+> >> +    __u32   limit;        /* fifo limit (packets) */
+> >> +    __u32    rate;        /* bits per sec */
+> >>   
+> >
+> > This seems a bit small, 512mbit is the maximum rate.
 > 
->  First, some ctl values have a per-namespace meaning.
->  Second, making them writable from the sub-namespace
->  is an isolation hole.
-> 
-> So I introduce the pernet operations to create these
-> tables. For init_net I use the existing statically
-> declared tables, for sub-namespace they are duplicated
-> and the write bits are removed from the mode.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> Its 4gbit of course, so I guess its enough :)
 
-Applied to net-2.6.25, but I fear you're going to need to do something
-similar for ipv4, ipv6, and who knows what other protocols.  And as a
-result we'll end up with all kinds of protocol specific things in the
-net namespace structure which totally stinks.
+Actually, since we already have 10-Gbps nets, with 40-Gbps and
+100-Gbps nets upcoming, it maybe should be __u64.
 
-Such things will need to be registered dynamically just like the
-protocols themselves are into the kernel.
+						-Bill
