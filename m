@@ -1,41 +1,38 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH net-2.6.25] qdisc: new rate limiter
-Date: Sat, 8 Dec 2007 03:11:39 -0500
-Message-ID: <20071208031139.0b6a58bb.billfink@mindspring.com>
-References: <20071207162618.35715892@freepuppy.rosehill>
-	<475A0804.1060006@trash.net>
-	<475A0959.20701@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.25 2/3]sysctl: prepare core tables to point to
+ netns variables
+Date: Sat, 08 Dec 2007 00:12:05 -0800 (PST)
+Message-ID: <20071208.001205.166185340.davem@davemloft.net>
+References: <47594659.2050505@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org, containers@lists.osdl.org, devel@openvz.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-banded.atl.sa.earthlink.net ([209.86.89.70]:34469 "EHLO
-	elasmtp-banded.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755373AbXLHILu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Dec 2007 03:11:50 -0500
-In-Reply-To: <475A0959.20701@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45060
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755499AbXLHIMH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Dec 2007 03:12:07 -0500
+In-Reply-To: <47594659.2050505@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 08 Dec 2007, Patrick McHardy wrote:
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Fri, 07 Dec 2007 16:10:49 +0300
 
-> Patrick McHardy wrote:
-> > Stephen Hemminger wrote:
-> >>
-> >> +struct tc_rlim_qopt
-> >> +{
-> >> +    __u32   limit;        /* fifo limit (packets) */
-> >> +    __u32    rate;        /* bits per sec */
-> >>   
-> >
-> > This seems a bit small, 512mbit is the maximum rate.
+> Some of ctl variables are going to be on the struct 
+> net. Here's the way to adjust the ->data pointer on the
+> ctl_table-s to point on the right variable.
 > 
-> Its 4gbit of course, so I guess its enough :)
+> Since some pointers still point on the global variables,
+> I keep turning the write bits off on such tables.
+> 
+> This looks to become a common procedure for net sysctls,
+> so later parts of this code may migrate to some more
+> generic place.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Actually, since we already have 10-Gbps nets, with 40-Gbps and
-100-Gbps nets upcoming, it maybe should be __u64.
-
-						-Bill
+Applied, but please see if you can find a more pretty way to
+do this, thanks.
