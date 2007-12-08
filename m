@@ -1,126 +1,149 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/8] [TFRC]: Whitespace cleanups
-Date: Sat,  8 Dec 2007 10:06:21 +0000
-Message-ID: <11971083881862-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 5/8] [TFRC]: Loss interval code needs the macros/inlines that were moved
+Date: Sat,  8 Dec 2007 10:06:25 +0000
+Message-ID: <11971083883727-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <11971083882331-git-send-email-gerrit@erg.abdn.ac.uk>
+ <11971083881862-git-send-email-gerrit@erg.abdn.ac.uk>
+ <11971083881667-git-send-email-gerrit@erg.abdn.ac.uk>
+ <11971083883685-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1197108388630-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:61604 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:61642 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757221AbXLHKIj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Dec 2007 05:08:39 -0500
-In-Reply-To: <11971083882331-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753799AbXLHKJJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Dec 2007 05:09:09 -0500
+In-Reply-To: <1197108388630-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just some tidy-ups to keep git/quilt happy. Also moved up the
-comment "Receiver routines" above the first occurrence of RX
-history routines.
+This moves the inlines (which were previously declared as macros) back into packet_history.h since
+the loss detection code needs to be able to read entries from the RX history in order to create the
+relevant loss entries: it needs at least tfrc_rx_hist_loss_prev() and tfrc_rx_hist_last_rcv(), which
+in turn require the definition of the other inlines (macros).
+
+Additionally, inn one case the use of inlines instead of a macro broke the algorithm: rx_hist_swap()
+(introduced in next patch) needs to be able to swap the history entries; when using an inline returning
+a pointer instead, one gets compilation errors such as:
+
+  distcc[24516] ERROR: compile /root/.ccache/packet_his.tmp.aspire.home.net.24512.i on _tiptop failed
+  /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c: In function '__one_after_loss':
+  /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:266: error: lvalue required as unary '&' operand
+  /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:267: error: lvalue required as unary '&' operand
+  /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c: In function '__two_after_loss':
+  /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:298: error: lvalue required as unary '&' operand
+  /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:299: error: lvalue required as unary '&' operand
+  /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:336: error: lvalue required as unary '&' operand
+  /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:337: error: lvalue required as unary '&' operand
+  make[4]: *** [net/dccp/ccids/lib/packet_history.o] Error 1
+  make[3]: *** [net/dccp/ccids/lib] Error 2
+  make[2]: *** [net/dccp/ccids] Error 2
+  make[1]: *** [net/dccp/] Error 2
+  make: *** [sub-make] Error 2
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid3.c              |   16 ++++++++--------
- net/dccp/ccids/lib/loss_interval.c  |    2 +-
- net/dccp/ccids/lib/packet_history.c |   12 ++++++------
- 3 files changed, 15 insertions(+), 15 deletions(-)
+ net/dccp/ccids/lib/packet_history.c |   37 +----------------------------------
+ net/dccp/ccids/lib/packet_history.h |   32 ++++++++++++++++++++++++++++++
+ 2 files changed, 33 insertions(+), 36 deletions(-)
 
-diff --git a/net/dccp/ccids/ccid3.c b/net/dccp/ccids/ccid3.c
-index faacffa..a5246f7 100644
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -780,7 +780,7 @@ static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 			 */
- 		}
- 		goto update_records;
-- 	}
-+	}
- 
- 	if (tfrc_rx_hist_duplicate(&hcrx->ccid3hcrx_hist, skb))
- 		return; /* done receiving */
-@@ -792,7 +792,7 @@ static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 		 */
- 		hcrx->ccid3hcrx_s = tfrc_ewma(hcrx->ccid3hcrx_s, payload, 9);
- 		hcrx->ccid3hcrx_bytes_recv += payload;
-- 	}
-+	}
- 
- 	/*
- 	 * Handle pending losses and otherwise check for new loss
-@@ -808,11 +808,11 @@ static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 
- 	if (list_empty(&hcrx->ccid3hcrx_li_hist)) {  /* no loss so far: p = 0 */
- 		const u32 sample = tfrc_rx_hist_sample_rtt(&hcrx->ccid3hcrx_hist, skb);
-- 		/*
-- 		 * Empty loss history: no loss so far, hence p stays 0.
-- 		 * Sample RTT values, since an RTT estimate is required for the
-- 		 * computation of p when the first loss occurs; RFC 3448, 6.3.1.
-- 		 */
-+		/*
-+		 * Empty loss history: no loss so far, hence p stays 0.
-+		 * Sample RTT values, since an RTT estimate is required for the
-+		 * computation of p when the first loss occurs; RFC 3448, 6.3.1.
-+		 */
- 		if (sample != 0)
- 			hcrx->ccid3hcrx_rtt = tfrc_ewma(hcrx->ccid3hcrx_rtt, sample, 9);
- 	}
-@@ -823,7 +823,7 @@ static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 	if (SUB16(dccp_hdr(skb)->dccph_ccval, hcrx->ccid3hcrx_last_counter) > 3)
- 		do_feedback = CCID3_FBACK_PERIODIC;
- 
--update_records:	
-+update_records:
- 	tfrc_rx_hist_add_packet(&hcrx->ccid3hcrx_hist, skb, ndp);
- 
- 	if (do_feedback)
-diff --git a/net/dccp/ccids/lib/loss_interval.c b/net/dccp/ccids/lib/loss_interval.c
-index 7e0714a..c0a933a 100644
---- a/net/dccp/ccids/lib/loss_interval.c
-+++ b/net/dccp/ccids/lib/loss_interval.c
-@@ -131,7 +131,7 @@ static u32 dccp_li_calc_first_li(struct sock *sk,
- {
- /*
-  * FIXME:
-- * Will be rewritten in the upcoming new loss intervals code. 
-+ * Will be rewritten in the upcoming new loss intervals code.
-  * Has to be commented ou because it relies on the old rx history
-  * data structures
-  */
 diff --git a/net/dccp/ccids/lib/packet_history.c b/net/dccp/ccids/lib/packet_history.c
-index e197389..54cd23e 100644
+index 6256bec..428636e 100644
 --- a/net/dccp/ccids/lib/packet_history.c
 +++ b/net/dccp/ccids/lib/packet_history.c
-@@ -114,6 +114,11 @@ u32 tfrc_tx_hist_rtt(struct tfrc_tx_hist_entry *head, const u64 seqno,
- EXPORT_SYMBOL_GPL(tfrc_tx_hist_rtt);
- 
- 
-+/*
-+ * 	Receiver History Routines
-+ */
-+static struct kmem_cache *tfrc_rx_hist_slab;
-+
- /**
-  * tfrc_rx_hist_index - index to reach n-th entry after loss_start
-  */
-@@ -131,11 +136,6 @@ static inline struct tfrc_rx_hist_entry *
- 	return h->ring[tfrc_rx_hist_index(h, h->loss_count)];
+@@ -151,41 +151,6 @@ void __exit tfrc_rx_packet_history_exit(void)
+ 	}
  }
  
--/*
-- * 	Receiver History Routines
+-/**
+- * tfrc_rx_hist_index - index to reach n-th entry after loss_start
 - */
--static struct kmem_cache *tfrc_rx_hist_slab;
+-static inline u8 tfrc_rx_hist_index(const struct tfrc_rx_hist *h, const u8 n)
+-{
+-	return (h->loss_start + n) & TFRC_NDUPACK;
+-}
 -
- void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
- 			     const struct sk_buff *skb,
- 			     const u32 ndp)
-@@ -278,7 +278,7 @@ u32 tfrc_rx_hist_sample_rtt(struct tfrc_rx_hist *h, const struct sk_buff *skb)
+-/**
+- * tfrc_rx_hist_last_rcv - entry with highest-received-seqno so far
+- */
+-static inline struct tfrc_rx_hist_entry *
+-			tfrc_rx_hist_last_rcv(const struct tfrc_rx_hist *h)
+-{
+-	return h->ring[tfrc_rx_hist_index(h, h->loss_count)];
+-}
+-
+-/**
+- * tfrc_rx_hist_entry - return the n-th history entry after loss_start
+- */
+-static inline struct tfrc_rx_hist_entry *
+-		tfrc_rx_hist_entry(const struct tfrc_rx_hist *h, const u8 n)
+-{
+-	return h->ring[tfrc_rx_hist_index(h, n)];
+-}
+-
+-/**
+- * tfrc_rx_hist_loss_prev - entry with highest-received-seqno before loss was detected
+- */
+-static inline struct tfrc_rx_hist_entry *
+-			tfrc_rx_hist_loss_prev(const struct tfrc_rx_hist *h)
+-{
+-	return h->ring[h->loss_start];
+-}
+-
+ /* has the packet contained in skb been seen before? */
+ int tfrc_rx_hist_duplicate(struct tfrc_rx_hist *h, struct sk_buff *skb)
  {
- 	u32 sample = 0,
- 	    delta_v = SUB16(dccp_hdr(skb)->dccph_ccval,
--	    		    tfrc_rx_hist_rtt_last_s(h)->tfrchrx_ccval);
-+			    tfrc_rx_hist_rtt_last_s(h)->tfrchrx_ccval);
+@@ -196,7 +161,7 @@ int tfrc_rx_hist_duplicate(struct tfrc_rx_hist *h, struct sk_buff *skb)
+ 		return 1;
  
- 	if (delta_v < 1 || delta_v > 4) {	/* unsuitable CCVal delta */
- 		if (h->rtt_sample_prev == 2) {	/* previous candidate stored */
+ 	for (i = 1; i <= h->loss_count; i++)
+-		if (tfrc_rx_hist_entry(h, i)->tfrchrx_seqno == seq)
++		if (TFRC_RX_HIST_ENTRY(h, i)->tfrchrx_seqno == seq)
+ 			return 1;
+ 
+ 	return 0;
+diff --git a/net/dccp/ccids/lib/packet_history.h b/net/dccp/ccids/lib/packet_history.h
+index 3dfd182..6ea25cd 100644
+--- a/net/dccp/ccids/lib/packet_history.h
++++ b/net/dccp/ccids/lib/packet_history.h
+@@ -84,6 +84,38 @@ struct tfrc_rx_hist {
+ #define rtt_sample_prev		  loss_start
+ };
+ 
++/**
++ * tfrc_rx_hist_index - index to reach n-th entry after loss_start
++ */
++static inline u8 tfrc_rx_hist_index(const struct tfrc_rx_hist *h, const u8 n)
++{
++	return (h->loss_start + n) & TFRC_NDUPACK;
++}
++
++/**
++ * tfrc_rx_hist_last_rcv - entry with highest-received-seqno so far
++ */
++static inline struct tfrc_rx_hist_entry *
++			tfrc_rx_hist_last_rcv(const struct tfrc_rx_hist *h)
++{
++	return h->ring[tfrc_rx_hist_index(h, h->loss_count)];
++}
++
++/**
++ * tfrc_rx_hist_entry - return the n-th history entry after loss_start
++ * This has to be a macro since rx_hist_swap needs to be able to swap entries.
++ */
++#define TFRC_RX_HIST_ENTRY(h, n)	((h)->ring[tfrc_rx_hist_index(h, n)])
++
++/**
++ * tfrc_rx_hist_loss_prev - entry with highest-received-seqno before loss was detected
++ */
++static inline struct tfrc_rx_hist_entry *
++			tfrc_rx_hist_loss_prev(const struct tfrc_rx_hist *h)
++{
++	return h->ring[h->loss_start];
++}
++
+ extern void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
+ 				    const struct sk_buff *skb, const u32 ndp);
+ 
