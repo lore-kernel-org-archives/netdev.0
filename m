@@ -1,47 +1,67 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH][NET]: Finish removing unused "mibalign" argument for
- snmp_mib_init().
-Date: Sat, 08 Dec 2007 10:13:54 -0800 (PST)
-Message-ID: <20071208.101354.18036989.yoshfuji@linux-ipv6.org>
-References: <20071208.004128.44758266.yoshfuji@linux-ipv6.org>
-	<20071208.004147.99843986.davem@davemloft.net>
-	<20071208175532.GE3180@ghostprotocols.net>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH 5/8] [TFRC]: Loss interval code needs the
+	macros/inlines that were moved
+Date: Sat, 8 Dec 2007 16:47:11 -0200
+Message-ID: <20071208184711.GF3180@ghostprotocols.net>
+References: <11971083882331-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881862-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881667-git-send-email-gerrit@erg.abdn.ac.uk> <11971083883685-git-send-email-gerrit@erg.abdn.ac.uk> <1197108388630-git-send-email-gerrit@erg.abdn.ac.uk> <11971083883727-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: acme@redhat.com, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:43068 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751054AbXLHSNc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Dec 2007 13:13:32 -0500
-In-Reply-To: <20071208175532.GE3180@ghostprotocols.net>
+Received: from mx1.redhat.com ([66.187.233.31]:34971 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750863AbXLHSrQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Dec 2007 13:47:16 -0500
+Content-Disposition: inline
+In-Reply-To: <11971083883727-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-In article <20071208175532.GE3180@ghostprotocols.net> (at Sat, 8 Dec 2007 15:55:34 -0200), Arnaldo Carvalho de Melo <acme@redhat.com> says:
-
-> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Em Sat, Dec 08, 2007 at 10:06:25AM +0000, Gerrit Renker escreveu:
+> This moves the inlines (which were previously declared as macros) back into packet_history.h since
+> the loss detection code needs to be able to read entries from the RX history in order to create the
+> relevant loss entries: it needs at least tfrc_rx_hist_loss_prev() and tfrc_rx_hist_last_rcv(), which
+> in turn require the definition of the other inlines (macros).
 > 
-> diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-> index 5ab8ba7..90d2f72 100644
-> --- a/net/ipv6/af_inet6.c
-> +++ b/net/ipv6/af_inet6.c
-> @@ -714,20 +714,19 @@ EXPORT_SYMBOL_GPL(ipv6_opt_accepted);
->  
->  static int __init init_ipv6_mibs(void)
->  {
-> -	if (snmp_mib_init((void **)ipv6_statistics, sizeof (struct ipstats_mib),
-> -			  __alignof__(struct ipstats_mib)) < 0)
-> +	if (snmp_mib_init((void **)ipv6_statistics,
-> +			  sizeof(struct ipstats_mib)) < 0)
->  		goto err_ip_mib;
+> Additionally, inn one case the use of inlines instead of a macro broke the algorithm: rx_hist_swap()
+> (introduced in next patch) needs to be able to swap the history entries; when using an inline returning
+> a pointer instead, one gets compilation errors such as:
+> 
+>   distcc[24516] ERROR: compile /root/.ccache/packet_his.tmp.aspire.home.net.24512.i on _tiptop failed
+>   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c: In function '__one_after_loss':
+>   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:266: error: lvalue required as unary '&' operand
+>   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:267: error: lvalue required as unary '&' operand
+>   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c: In function '__two_after_loss':
+>   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:298: error: lvalue required as unary '&' operand
+>   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:299: error: lvalue required as unary '&' operand
+>   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:336: error: lvalue required as unary '&' operand
+>   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:337: error: lvalue required as unary '&' operand
+>   make[4]: *** [net/dccp/ccids/lib/packet_history.o] Error 1
+>   make[3]: *** [net/dccp/ccids/lib] Error 2
+>   make[2]: *** [net/dccp/ccids] Error 2
+>   make[1]: *** [net/dccp/] Error 2
+>   make: *** [sub-make] Error 2
 
-Oops... thanks.
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Because you do it this way:
 
---yoshfuji
+tfrc_rx_hist_swap(&TFRC_RX_HIST_ENTRY(h, 0), &TFRC_RX_HIST_ENTRY(h, 3));
+
+I checked and at least in this patch series all uses are of this type,
+so why not do it using just the indexes, which would be simpler:
+
+tfrc_rx_hist_swap(h, 0, 3);
+
+With this implementation:
+
+static void tfrc_rx_hist_swap(struct tfrc_rx_hist *h, const int a, const int b)
+{
+	const int idx_a = tfrc_rx_hist_index(h, a),
+	      int idx_b = tfrc_rx_hist_index(h, b);
+	struct tfrc_rx_hist_entry *tmp = h->ring[idx_a];
+
+	h->ring[idx_a] = h->ring[idx_b];
+	h->ring[idx_b] = tmp;
+}
+
+- Arnaldo
