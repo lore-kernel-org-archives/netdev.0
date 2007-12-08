@@ -1,39 +1,60 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 0/8] [DCCP]: Updates and fixes to ensure code works with recent changes
-Date: Sat,  8 Dec 2007 10:06:20 +0000
-Message-ID: <11971083882331-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+Subject: [PATCH 3/8] [TFRC/CCID3]: Remove now unused functions / function calls
+Date: Sat,  8 Dec 2007 10:06:23 +0000
+Message-ID: <11971083883685-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <11971083882331-git-send-email-gerrit@erg.abdn.ac.uk>
+ <11971083881862-git-send-email-gerrit@erg.abdn.ac.uk>
+ <11971083881667-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:61579 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752037AbXLHKHS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Dec 2007 05:07:18 -0500
+	id S1752203AbXLHKHu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Dec 2007 05:07:50 -0500
+In-Reply-To: <11971083881667-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some of the recent changes in 2.6.25 cause problems with the existing implementation (i.e. break
-the code). This patch set therefore provides fixes and resubmits one subsequent patch which
-has not been considered so far, but which is part of the tfrc_lib package.
+This removes two things which now have become redundant:
+ 1. The function tfrc_rx_hist_entry_delete() is no longer referenced anywhere.
+ 2. The CCID3 HC-receiver still inserted timestamps, but received timestamps
+    are not parsed/referenced/used by the HC-sender, it serves no function.
 
-  Patch #1: Performs whitespace cleanups.
-  Patch #2: Migrates all loss interval / packet history initialisation code into tfrc.c.
-  Patch #3: Removes two unused functions/function calls that have become obsolete now.
-  Patch #4: Splits rx_hist_add_packet() into its original constituents -- they are needed.
-  Patch #5: Restores the parts of the macro/inline conversion that broke the algorithm.
-  Patch #6: Is a v2 patch - the Loss Intervals code, now updated to work with the recent changes.
-  Patch #7: Reverts hiding inlines which are needed by the calling CCID module.
-  Patch #8: Also a patch v2 - shows how all the new stuff is integrated to work with CCID3.
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/ccids/ccid3.c              |    3 +--
+ net/dccp/ccids/lib/packet_history.c |    5 -----
+ 2 files changed, 1 insertions(+), 7 deletions(-)
 
-The code compiles cleanly, all patches have been uploaded to the test tree (backported from 2.6.25),
-  git://eden-feed.erg.abdn.ac.uk/dccp_exp 	[dccp]
-
-So far only a few quick bandwidth tests have been performed. These merely confirm that the stack
-does not crash. Since most of this patch set deals with loss detection and re-ordering, some more
-detailed tests are needed to ensure that the code, as before, deals well with loss, reordering,
-and duplication (this requires at least one NetEm box).
-
-Updates to the CCID4 subtree need to be suspended for a few days. There are too many fiddly changes
-all over the place; until we understand exactly what is going on and if there has been a
-regression, it is not a good idea to track everything.
-
+diff --git a/net/dccp/ccids/ccid3.c b/net/dccp/ccids/ccid3.c
+index a5246f7..60fcb31 100644
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -750,8 +750,7 @@ static int ccid3_hc_rx_insert_options(struct sock *sk, struct sk_buff *skb)
+ 	x_recv = htonl(hcrx->ccid3hcrx_x_recv);
+ 	pinv   = htonl(hcrx->ccid3hcrx_pinv);
+ 
+-	if (dccp_insert_option_timestamp(sk, skb) ||
+-	    dccp_insert_option(sk, skb, TFRC_OPT_LOSS_EVENT_RATE,
++	if (dccp_insert_option(sk, skb, TFRC_OPT_LOSS_EVENT_RATE,
+ 			       &pinv, sizeof(pinv)) ||
+ 	    dccp_insert_option(sk, skb, TFRC_OPT_RECEIVE_RATE,
+ 			       &x_recv, sizeof(x_recv)))
+diff --git a/net/dccp/ccids/lib/packet_history.c b/net/dccp/ccids/lib/packet_history.c
+index af0db71..4d37396 100644
+--- a/net/dccp/ccids/lib/packet_history.c
++++ b/net/dccp/ccids/lib/packet_history.c
+@@ -183,11 +183,6 @@ void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
+ }
+ EXPORT_SYMBOL_GPL(tfrc_rx_hist_add_packet);
+ 
+-static inline void tfrc_rx_hist_entry_delete(struct tfrc_rx_hist_entry *entry)
+-{
+-	kmem_cache_free(tfrc_rx_hist_slab, entry);
+-}
+-
+ /**
+  * tfrc_rx_hist_entry - return the n-th history entry after loss_start
+  */
