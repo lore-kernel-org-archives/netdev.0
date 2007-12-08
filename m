@@ -1,67 +1,135 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 5/8] [TFRC]: Loss interval code needs the
-	macros/inlines that were moved
-Date: Sat, 8 Dec 2007 16:47:11 -0200
-Message-ID: <20071208184711.GF3180@ghostprotocols.net>
-References: <11971083882331-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881862-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881667-git-send-email-gerrit@erg.abdn.ac.uk> <11971083883685-git-send-email-gerrit@erg.abdn.ac.uk> <1197108388630-git-send-email-gerrit@erg.abdn.ac.uk> <11971083883727-git-send-email-gerrit@erg.abdn.ac.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 1/3] [TFRC]: Whitespace cleanups
+Date: Sat,  8 Dec 2007 16:52:11 -0200
+Message-ID: <1197139933-11609-2-git-send-email-acme@redhat.com>
+References: <1197139933-11609-1-git-send-email-acme@redhat.com>
+Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:34971 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750863AbXLHSrQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Dec 2007 13:47:16 -0500
-Content-Disposition: inline
-In-Reply-To: <11971083883727-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from hs-out-0708.google.com ([64.233.178.242]:43897 "EHLO
+	hs-out-2122.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750965AbXLHSwa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Dec 2007 13:52:30 -0500
+Received: by hs-out-2122.google.com with SMTP id 54so420367hsz
+        for <netdev@vger.kernel.org>; Sat, 08 Dec 2007 10:52:29 -0800 (PST)
+In-Reply-To: <1197139933-11609-1-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Sat, Dec 08, 2007 at 10:06:25AM +0000, Gerrit Renker escreveu:
-> This moves the inlines (which were previously declared as macros) back into packet_history.h since
-> the loss detection code needs to be able to read entries from the RX history in order to create the
-> relevant loss entries: it needs at least tfrc_rx_hist_loss_prev() and tfrc_rx_hist_last_rcv(), which
-> in turn require the definition of the other inlines (macros).
-> 
-> Additionally, inn one case the use of inlines instead of a macro broke the algorithm: rx_hist_swap()
-> (introduced in next patch) needs to be able to swap the history entries; when using an inline returning
-> a pointer instead, one gets compilation errors such as:
-> 
->   distcc[24516] ERROR: compile /root/.ccache/packet_his.tmp.aspire.home.net.24512.i on _tiptop failed
->   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c: In function '__one_after_loss':
->   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:266: error: lvalue required as unary '&' operand
->   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:267: error: lvalue required as unary '&' operand
->   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c: In function '__two_after_loss':
->   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:298: error: lvalue required as unary '&' operand
->   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:299: error: lvalue required as unary '&' operand
->   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:336: error: lvalue required as unary '&' operand
->   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:337: error: lvalue required as unary '&' operand
->   make[4]: *** [net/dccp/ccids/lib/packet_history.o] Error 1
->   make[3]: *** [net/dccp/ccids/lib] Error 2
->   make[2]: *** [net/dccp/ccids] Error 2
->   make[1]: *** [net/dccp/] Error 2
->   make: *** [sub-make] Error 2
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-Because you do it this way:
+Just some tidy-ups to keep git/quilt happy. Also moved up the
+comment "Receiver routines" above the first occurrence of RX
+history routines.
 
-tfrc_rx_hist_swap(&TFRC_RX_HIST_ENTRY(h, 0), &TFRC_RX_HIST_ENTRY(h, 3));
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+ net/dccp/ccids/ccid3.c              |   16 ++++++++--------
+ net/dccp/ccids/lib/loss_interval.c  |    2 +-
+ net/dccp/ccids/lib/packet_history.c |   12 ++++++------
+ 3 files changed, 15 insertions(+), 15 deletions(-)
 
-I checked and at least in this patch series all uses are of this type,
-so why not do it using just the indexes, which would be simpler:
+diff --git a/net/dccp/ccids/ccid3.c b/net/dccp/ccids/ccid3.c
+index faacffa..a5246f7 100644
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -780,7 +780,7 @@ static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 			 */
+ 		}
+ 		goto update_records;
+- 	}
++	}
+ 
+ 	if (tfrc_rx_hist_duplicate(&hcrx->ccid3hcrx_hist, skb))
+ 		return; /* done receiving */
+@@ -792,7 +792,7 @@ static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 		 */
+ 		hcrx->ccid3hcrx_s = tfrc_ewma(hcrx->ccid3hcrx_s, payload, 9);
+ 		hcrx->ccid3hcrx_bytes_recv += payload;
+- 	}
++	}
+ 
+ 	/*
+ 	 * Handle pending losses and otherwise check for new loss
+@@ -808,11 +808,11 @@ static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 
+ 	if (list_empty(&hcrx->ccid3hcrx_li_hist)) {  /* no loss so far: p = 0 */
+ 		const u32 sample = tfrc_rx_hist_sample_rtt(&hcrx->ccid3hcrx_hist, skb);
+- 		/*
+- 		 * Empty loss history: no loss so far, hence p stays 0.
+- 		 * Sample RTT values, since an RTT estimate is required for the
+- 		 * computation of p when the first loss occurs; RFC 3448, 6.3.1.
+- 		 */
++		/*
++		 * Empty loss history: no loss so far, hence p stays 0.
++		 * Sample RTT values, since an RTT estimate is required for the
++		 * computation of p when the first loss occurs; RFC 3448, 6.3.1.
++		 */
+ 		if (sample != 0)
+ 			hcrx->ccid3hcrx_rtt = tfrc_ewma(hcrx->ccid3hcrx_rtt, sample, 9);
+ 	}
+@@ -823,7 +823,7 @@ static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 	if (SUB16(dccp_hdr(skb)->dccph_ccval, hcrx->ccid3hcrx_last_counter) > 3)
+ 		do_feedback = CCID3_FBACK_PERIODIC;
+ 
+-update_records:	
++update_records:
+ 	tfrc_rx_hist_add_packet(&hcrx->ccid3hcrx_hist, skb, ndp);
+ 
+ 	if (do_feedback)
+diff --git a/net/dccp/ccids/lib/loss_interval.c b/net/dccp/ccids/lib/loss_interval.c
+index 7e0714a..c0a933a 100644
+--- a/net/dccp/ccids/lib/loss_interval.c
++++ b/net/dccp/ccids/lib/loss_interval.c
+@@ -131,7 +131,7 @@ static u32 dccp_li_calc_first_li(struct sock *sk,
+ {
+ /*
+  * FIXME:
+- * Will be rewritten in the upcoming new loss intervals code. 
++ * Will be rewritten in the upcoming new loss intervals code.
+  * Has to be commented ou because it relies on the old rx history
+  * data structures
+  */
+diff --git a/net/dccp/ccids/lib/packet_history.c b/net/dccp/ccids/lib/packet_history.c
+index e197389..54cd23e 100644
+--- a/net/dccp/ccids/lib/packet_history.c
++++ b/net/dccp/ccids/lib/packet_history.c
+@@ -114,6 +114,11 @@ u32 tfrc_tx_hist_rtt(struct tfrc_tx_hist_entry *head, const u64 seqno,
+ EXPORT_SYMBOL_GPL(tfrc_tx_hist_rtt);
+ 
+ 
++/*
++ * 	Receiver History Routines
++ */
++static struct kmem_cache *tfrc_rx_hist_slab;
++
+ /**
+  * tfrc_rx_hist_index - index to reach n-th entry after loss_start
+  */
+@@ -131,11 +136,6 @@ static inline struct tfrc_rx_hist_entry *
+ 	return h->ring[tfrc_rx_hist_index(h, h->loss_count)];
+ }
+ 
+-/*
+- * 	Receiver History Routines
+- */
+-static struct kmem_cache *tfrc_rx_hist_slab;
+-
+ void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
+ 			     const struct sk_buff *skb,
+ 			     const u32 ndp)
+@@ -278,7 +278,7 @@ u32 tfrc_rx_hist_sample_rtt(struct tfrc_rx_hist *h, const struct sk_buff *skb)
+ {
+ 	u32 sample = 0,
+ 	    delta_v = SUB16(dccp_hdr(skb)->dccph_ccval,
+-	    		    tfrc_rx_hist_rtt_last_s(h)->tfrchrx_ccval);
++			    tfrc_rx_hist_rtt_last_s(h)->tfrchrx_ccval);
+ 
+ 	if (delta_v < 1 || delta_v > 4) {	/* unsuitable CCVal delta */
+ 		if (h->rtt_sample_prev == 2) {	/* previous candidate stored */
+-- 
+1.5.3.4
 
-tfrc_rx_hist_swap(h, 0, 3);
-
-With this implementation:
-
-static void tfrc_rx_hist_swap(struct tfrc_rx_hist *h, const int a, const int b)
-{
-	const int idx_a = tfrc_rx_hist_index(h, a),
-	      int idx_b = tfrc_rx_hist_index(h, b);
-	struct tfrc_rx_hist_entry *tmp = h->ring[idx_a];
-
-	h->ring[idx_a] = h->ring[idx_b];
-	h->ring[idx_b] = tmp;
-}
-
-- Arnaldo
