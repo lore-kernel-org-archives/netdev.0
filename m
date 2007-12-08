@@ -1,105 +1,153 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: Re: [PATCH] iproute2: support dotted-quad netmask notation.
-Date: Sat, 08 Dec 2007 00:41:34 +0100
-Message-ID: <1197070894.5385.14.camel@localhost.localdomain>
-References: <20071204135818.GA24419@scream.fatal.se>
-	 <20071206115350.18e9204f@freepuppy.rosehill>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH net-2.6.25] qdisc: new rate limiter
+Date: Sat, 08 Dec 2007 03:57:08 +0100
+Message-ID: <475A0804.1060006@trash.net>
+References: <20071207162618.35715892@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1-1-1-9a.ghn.gbg.bostream.se ([82.182.69.4]:50587 "EHLO
-	scream.fatal.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754667AbXLHBrN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 20:47:13 -0500
-In-Reply-To: <20071206115350.18e9204f@freepuppy.rosehill>
+Received: from stinky.trash.net ([213.144.137.162]:47077 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751006AbXLHC5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2007 21:57:44 -0500
+In-Reply-To: <20071207162618.35715892@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Stephen Hemminger wrote:
+> This is a time based rate limiter for use in network testing. When doing
+> network tests it is often useful to test at reduced bandwidths. The existing
+> Token Bucket Filter provides rate control, but causes bursty traffic that
+> can cause different performance than real world. Another alternative is
+> the PSPacer, but it depends on pause frames which may also cause issues.
+>
+> The qdisc depends on high resolution timers and clocks, so it will probably
+> use more CPU than others making it a poor choice for use when doing traffic
+> shaping for QOS. 
+>
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+>
+> --- a/include/linux/pkt_sched.h	2007-10-30 09:18:29.000000000 -0700
+> +++ b/include/linux/pkt_sched.h	2007-12-07 13:37:50.000000000 -0800
+> @@ -475,4 +475,10 @@ struct tc_netem_corrupt
+>  
+>  #define NETEM_DIST_SCALE	8192
+>  
+> +struct tc_rlim_qopt
+> +{
+> +	__u32   limit;		/* fifo limit (packets) */
+> +	__u32	rate;		/* bits per sec */
+>   
 
-On tor, 2007-12-06 at 11:53 -0800, Stephen Hemminger wrote:
-> On Tue, 4 Dec 2007 14:58:18 +0100
-> Andreas Henriksson <andreas@fatal.se> wrote:
-> 
-> > Suggested patch for allowing netmask to be specified in dotted quad format.
-> > See http://bugs.debian.org/357172
-> > 
-> > (Known problem: this will not prevent some invalid syntaxes,
-> > ie. "255.0.255.0" will be treated as "255.255.255.0")
-> > 
-> > Comments? Suggestions? Improvements?
-> 
-> Fix the bug you mentioned?
-> 
-> [... snip example code ...]
+This seems a bit small, 512mbit is the maximum rate.
 
-Updated patch, added your netmask validation code but without the check
-that made 0.0.0.0 (default) and 255.255.255.255 (one address) invalid
-netmasks as they are permitted in CIDR format. 
+> --- /dev/null	1970-01-01 00:00:00.000000000 +0000
+> +++ b/net/sched/sch_rlim.c	2007-12-07 16:22:10.000000000 -0800
+> @@ -0,0 +1,350 @@
+> +static struct sk_buff *rlim_dequeue(struct Qdisc *sch)
+> +{
+> +	struct rlim_sched_data *q = qdisc_priv(sch);
+> +	struct sk_buff *skb;
+> +	ktime_t now = ktime_get();
+> +
+> +	/* if haven't reached the correct time slot, start timer */
+> +	if (now.tv64 < q->next_send.tv64) {
+> +		sch->flags |= TCQ_F_THROTTLED;
+> +		hrtimer_start(&q->watchdog.timer, q->next_send,
+> +			      HRTIMER_MODE_ABS);
+> +		return NULL;
+> +	}
+> +
+> +	skb = q->qdisc->dequeue(q->qdisc);
+> +	if (skb) {
+> +		q->next_send = ktime_add_ns(now, pkt_time(q, skb));
+> +		sch->flags &= ~TCQ_F_THROTTLED;
+>   
 
-Signed-off-by: Andreas Henriksson <andreas@fatal.se>
+qlen is not decremented here.
+> +	}
+> +	return skb;
+> +}
+> +
+> +static int rlim_requeue(struct sk_buff *skb, struct Qdisc *sch)
+> +{
+> +	struct rlim_sched_data *q = qdisc_priv(sch);
+> +	int ret;
+> +
+> +	ret = q->qdisc->ops->requeue(skb, q->qdisc);
+> +	if (!ret) {
+> +		q->next_send = ktime_sub_ns(q->next_send, pkt_time(q, skb));
+> +		sch->q.qlen++;
+> +		sch->qstats.requeues++;
+> +	}
+> +
+> +	return ret;
+> +}
+> +
+> +static void rlim_reset(struct Qdisc *sch)
+> +{
+> +	struct rlim_sched_data *q = qdisc_priv(sch);
+> +
+> +	qdisc_reset_queue(sch);
+This should reset the child.
 
-diff --git a/lib/utils.c b/lib/utils.c
-index 4c42dfd..b4a6125 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -47,6 +47,41 @@ int get_integer(int *val, const char *arg, int base)
- 	return 0;
- }
- 
-+/* a valid netmask must be 2^n - 1 (n = 1..31) */
-+static int is_valid_netmask(const inet_prefix *addr)
-+{
-+        uint32_t host;
-+
-+        if (addr->family != AF_INET)
-+                return 0;
-+
-+        host = ~ntohl(addr->data[0]);
-+
-+        return (host & (host + 1)) == 0;
-+}
-+
-+static int get_netmask(unsigned *val, const char *arg, int base)
-+{
-+	inet_prefix addr;
-+
-+	if (!get_unsigned(val, arg, base))
-+		return 0;
-+
-+	/* try coverting dotted quad to CIDR */
-+	if (!get_addr_1(&addr, arg, AF_INET)) {
-+		u_int32_t mask;
-+
-+		*val=0;
-+		for (mask = addr.data[0]; mask; mask >>= 1)
-+			(*val)++;
-+
-+		if (is_valid_netmask(&addr))
-+			return 0;
-+	}
-+
-+	return -1;
-+}
-+
- int get_unsigned(unsigned *val, const char *arg, int base)
- {
- 	unsigned long res;
-@@ -304,7 +339,8 @@ int get_prefix_1(inet_prefix *dst, char *arg, int family)
- 				dst->bitlen = 32;
- 		}
- 		if (slash) {
--			if (get_unsigned(&plen, slash+1, 0) || plen > dst->bitlen) {
-+			if (get_netmask(&plen, slash+1, 0)
-+					|| plen > dst->bitlen) {
- 				err = -1;
- 				goto done;
- 			}
+> +
+> +	q->next_send = ktime_get();
+> +	qdisc_watchdog_cancel(&q->watchdog);
+> +}
+> +
+> +static int rlim_change(struct Qdisc *sch, struct rtattr *opt)
+> +{
+> +	struct rlim_sched_data *q = qdisc_priv(sch);
+> +	const struct tc_rlim_qopt *qopt;
+> +	int err;
+> +
+> +	if (opt == NULL || RTA_PAYLOAD(opt) < sizeof(struct tc_rlim_qopt))
+> +		return -EINVAL;
+> +
+> +	qopt = RTA_DATA(opt);
+>   
 
+Using nested attributes would make sure we don't run into
+problems with extensibility.
 
--- 
-Regards,
-Andreas Henriksson
+> +	err = set_fifo_limit(q->qdisc, qopt->limit);
+> +	if (err)
+> +		return err;
+> +
+> +	q->limit = qopt->limit;
+> +	if (qopt->rate == 0)
+> +		q->cost = 0;	/* unlimited */
+> +	else {
+> +		q->cost = (u64)NSEC_PER_SEC << NSEC_SCALE;
+> +		do_div(q->cost, qopt->rate);
+> +	}
+> +
+> +	pr_debug("rlim_change: rate=%u cost=%llu\n",
+> +		 qopt->rate, q->cost);
+> +
+> +	return 0;
+> +}
+> +
+> +static struct Qdisc_class_ops rlim_class_ops = {
+>   
+
+This can be const.
+
+> +	.graft	   = rlim_graft,
+> +	.leaf	   = rlim_leaf,
+> +	.get	   = rlim_get,
+> +	.put	   = rlim_put,
+> +	.change	   = rlim_change_class,
+> +	.delete	   = rlim_delete,
+> +	.walk	   = rlim_walk,
+> +	.tcf_chain = rlim_find_tcf,
+> +	.dump	   = rlim_dump_class,
+> +};
+>
+>
+>   
 
