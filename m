@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [IPV6] XFRM: Fix auditing rt6i_flags; use RTF_xxx
- flags instead of RTCF_xxx.
-Date: Fri, 07 Dec 2007 23:51:35 -0800 (PST)
-Message-ID: <20071207.235135.81440123.davem@davemloft.net>
-References: <20071207.104148.112502523.yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH][IPV4] Swap the ifa allocation with
+ the"ipv4_devconf_setall" call
+Date: Fri, 07 Dec 2007 23:55:57 -0800 (PST)
+Message-ID: <20071207.235557.163989906.davem@davemloft.net>
+References: <475910F1.1010007@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	devel@openvz.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38244
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33629
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750790AbXLHHvg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Dec 2007 02:51:36 -0500
-In-Reply-To: <20071207.104148.112502523.yoshfuji@linux-ipv6.org>
+	by vger.kernel.org with ESMTP id S1752459AbXLHHz6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Dec 2007 02:55:58 -0500
+In-Reply-To: <475910F1.1010007@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Fri, 07 Dec 2007 10:41:48 -0800 (PST)
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Fri, 07 Dec 2007 12:22:57 +0300
 
-> RTCF_xxx flags, defined in include/linux/in_route.h) are available for
-> IPv4 route (rtable) entries only.  Use RTF_xxx flags instead,
-> defined in include/linux/ipv6_route.h, for IPv6 route entries (rt6_info).
+> According to Herbert, the ipv4_devconf_setall should be called
+> only when the ifa is added to the device. However, failed 
+> ifa allocation may bring things into inconsistent state.
 > 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Move the call to ipv4_devconf_setall after the ifa allocation.
+> 
+> Fits both net-2.6 (with offsets) and net-2.6.25 (cleanly).
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Applied, thank you.
+Applied to net-2.6, thanks Pavel.
