@@ -1,26 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [NET]: Remove unused "mibalign" argument for
- snmp_mib_init().
-Date: Sat, 08 Dec 2007 00:41:47 -0800 (PST)
-Message-ID: <20071208.004147.99843986.davem@davemloft.net>
-References: <20071208.004128.44758266.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 0/8] [DCCP]: Updates and fixes to ensure code works with recent changes
+Date: Sat,  8 Dec 2007 10:06:20 +0000
+Message-ID: <11971083882331-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49108
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755980AbXLHIls (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Dec 2007 03:41:48 -0500
-In-Reply-To: <20071208.004128.44758266.yoshfuji@linux-ipv6.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:61579 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752037AbXLHKHS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Dec 2007 05:07:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Sat, 08 Dec 2007 00:41:28 -0800 (PST)
+Some of the recent changes in 2.6.25 cause problems with the existing implementation (i.e. break
+the code). This patch set therefore provides fixes and resubmits one subsequent patch which
+has not been considered so far, but which is part of the tfrc_lib package.
 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+  Patch #1: Performs whitespace cleanups.
+  Patch #2: Migrates all loss interval / packet history initialisation code into tfrc.c.
+  Patch #3: Removes two unused functions/function calls that have become obsolete now.
+  Patch #4: Splits rx_hist_add_packet() into its original constituents -- they are needed.
+  Patch #5: Restores the parts of the macro/inline conversion that broke the algorithm.
+  Patch #6: Is a v2 patch - the Loss Intervals code, now updated to work with the recent changes.
+  Patch #7: Reverts hiding inlines which are needed by the calling CCID module.
+  Patch #8: Also a patch v2 - shows how all the new stuff is integrated to work with CCID3.
 
-Applied, thanks.
+The code compiles cleanly, all patches have been uploaded to the test tree (backported from 2.6.25),
+  git://eden-feed.erg.abdn.ac.uk/dccp_exp 	[dccp]
+
+So far only a few quick bandwidth tests have been performed. These merely confirm that the stack
+does not crash. Since most of this patch set deals with loss detection and re-ordering, some more
+detailed tests are needed to ensure that the code, as before, deals well with loss, reordering,
+and duplication (this requires at least one NetEm box).
+
+Updates to the CCID4 subtree need to be suspended for a few days. There are too many fiddly changes
+all over the place; until we understand exactly what is going on and if there has been a
+regression, it is not a good idea to track everything.
+
