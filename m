@@ -1,45 +1,33 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: IPsec replay sequence number overflow behavior? (RFC4303 section 3.3.3)
-Date: Sun, 9 Dec 2007 09:37:56 -0500
-Message-ID: <200712090937.56599.paul.moore@hp.com>
-References: <E1J1Bfw-0006Kw-00@gondolin.me.apana.org.au>
+From: Samir Bellabes <sam@synack.fr>
+Subject: Re: [PATCH net-2.6.25] Add packet filtering based on process'ssecurity context.
+Date: Sun, 09 Dec 2007 17:05:24 +0100
+Message-ID: <m2lk83zwe3.fsf@synack.fr>
+References: <m2hcj22883.fsf@synack.fr>
+	<200712011715.JFJ39500.QOJFStHFMOOLVF@I-love.SAKURA.ne.jp>
+	<200712021224.CBH90604.HMtJFFOOFLQVSO@I-love.SAKURA.ne.jp>
+	<m28x4a1vy8.fsf@synack.fr>
+	<200712042200.CDH65164.OOFSMFFLHJOtVQ@I-love.SAKURA.ne.jp>
+	<200712091706.IDE39560.LJtFOFHOOMVFSQ@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, latten@us.ibm.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.hp.com ([192.151.27.10]:50402 "EHLO mailhub.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750789AbXLIOiw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Dec 2007 09:38:52 -0500
-In-Reply-To: <E1J1Bfw-0006Kw-00@gondolin.me.apana.org.au>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: jmorris@namei.org, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	linux-security-module@vger.kernel.org, kaber@trash.net,
+	netfilter-devel@vger.kernel.org, sds@tycho.nsa.gov
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <200712091706.IDE39560.LJtFOFHOOMVFSQ@I-love.SAKURA.ne.jp>
+	(Tetsuo Handa's message of "Sun, 9 Dec 2007 17:06:37 +0900")
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Saturday 08 December 2007 9:13:48 pm Herbert Xu wrote:
-> Paul Moore <paul.moore@hp.com> wrote:
-> > If it is a bug, I think the basic fix should be pretty simple, changing
-> > the above xfrm_output() code to the following:
-> >
-> >   if (x->type->flags & XFRM_TYPE_REPLAY_PROT) {
-> >           XFRM_SKB_CB(skb)->seq = ++x->replay.oseq;
-> > +          if (x->replay.oseq == 0)
-> > +                  goto error;
+Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> writes:
+
+> Hello, Samir.
 >
-> Yes we need this check.
->
-> However please add an unlikely around it since it's a 1-in-4
-> billion event :)
+> Did you receive the following messages?
+> Since these messages were dropped at vger.kernel.org ,
+> I'm worrying that you couldn't receive the following messages.
 
- :)
-
-Thanks for clearing that up, I'll send a patch this week; complete with an 
-unlikely (similar to the RFC quality IPsec audit patch I sent on Friday) and 
-a decrement to the sequence counter in case of rollover.
-
--- 
-paul moore
-linux security @ hp
+Yes, I got it.
+I will take time to investigate your example.
