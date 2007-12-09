@@ -1,71 +1,95 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: tcp assertion failures in 2.6.24-rc4-mm1
-Date: Sun, 9 Dec 2007 23:11:34 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0712092309270.30529@kivilampi-30.cs.helsinki.fi>
-References: <20071209002357.e6d081e8.akpm@linux-foundation.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: SIS190 Ethernet Driver check for ISA bridge on "SiS968"
+	MotherBoards...
+Date: Sun, 9 Dec 2007 23:20:12 +0100
+Message-ID: <20071209222012.GA14174@electric-eye.fr.zoreil.com>
+References: <acbb94d60712090816k72f72ab9m4d46665e7a6823c@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org, "J. Gleacher" <jgleacher@yahoo.com>,
+	Alexandre Penasso Teixeira <alexandre@keepsoftware.com>
+To: Arliton Rocha <arliton@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:43309 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751068AbXLIVLh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2007 16:11:37 -0500
-In-Reply-To: <20071209002357.e6d081e8.akpm@linux-foundation.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:40488 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751454AbXLIW0V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2007 17:26:21 -0500
+Content-Disposition: inline
+In-Reply-To: <acbb94d60712090816k72f72ab9m4d46665e7a6823c@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 9 Dec 2007, Andrew Morton wrote:
-
+Arliton Rocha <arliton@gmail.com> :
+[...]
+> Please, can you made sis190 ethernet driver check for isa bridge on
+> "sis968" motherboards?
+> SiS(R) 191 Gigabit Ethernet
 > 
-> This is a mac g5.  It is being used as a distcc server across the LAN
-> when...
-> 
-> windfarm: CPUs control loops started.
-> EXT3-fs: INFO: recovery required on readonly filesystem.
-> EXT3-fs: write access will be enabled during recovery.
-> kjournald starting.  Commit interval 5 seconds
-> EXT3-fs: recovery complete.
-> EXT3-fs: mounted filesystem with ordered data mode.
-> audit(1197190525.100:2): audit_pid=1989 old=0 by auid=4294967295
-> KERNEL: assertion (packets <= tp->packets_out) failed at net/ipv4/tcp_input.c (2136)
-> KERNEL: assertion (packets <= tp->packets_out) failed at net/ipv4/tcp_input.c (2136)
-> ------------[ cut here ]------------
-> Badness at net/ipv4/tcp_input.c:2518
-> NIP: c0000000003d46a4 LR: c0000000003d4d84 CTR: c000000000408914
-> REGS: c000000177b770e0 TRAP: 0700   Not tainted  (2.6.24-rc4-mm1)
-> MSR: 9000000000029032 <EE,ME,IR,DR>  CR: 24002488  XER: 00000000
-> TASK = c000000178868540[8316] 'cc1' THREAD: c000000177b74000 CPU: 1
-> NIP [c0000000003d46a4] .tcp_ack+0xd5c/0x1ce8
-> LR [c0000000003d4d84] .tcp_ack+0x143c/0x1ce8
-> Call Trace:
-> [c000000177b77360] [c0000000003d4d84] .tcp_ack+0x143c/0x1ce8 (unreliable)
-> [c000000177b77530] [c0000000003d81ac] .tcp_rcv_established+0x2fc/0x8d4
-> [c000000177b775e0] [c0000000003e2818] .tcp_v4_do_rcv+0x1fc/0x580
-> [c000000177b776d0] [c0000000003e37e0] .tcp_v4_rcv+0xc44/0xd28
-> [c000000177b777e0] [c0000000003bd398] .ip_local_deliver+0xb4/0x2cc
-> [c000000177b77870] [c0000000003bd87c] .ip_rcv+0x2cc/0x6f0
-> [c000000177b77930] [c000000000396444] .netif_receive_skb+0x440/0x4bc
-> [c000000177b779f0] [c00000000028255c] .tg3_poll+0x71c/0xb78
-> [c000000177b77b30] [c000000000396888] .net_rx_action+0x1e4/0x26c
-> [c000000177b77be0] [c000000000069584] .__do_softirq+0xd8/0x190
-> [c000000177b77ca0] [c00000000000b95c] .do_softirq+0x94/0x9c
-> [c000000177b77d30] [c0000000000696f0] .irq_exit+0x70/0x88
-> [c000000177b77db0] [c00000000000b83c] .do_IRQ+0xa0/0x12c
-> [c000000177b77e30] [c000000000004790] hardware_interrupt_entry+0x18/0x1c
-> Instruction dump:
-> 7d7a5b78 3b200000 409e0008 933b0584 811b0584 39200000 2fa80000 409e0018 
-> 801b0588 2f800000 419e000c 39200001 <0fe00000> 2fa90000 409e0d60 72b40040 
-> KERNEL: assertion (packets <= tp->packets_out) failed at net/ipv4/tcp_input.c (2136)
-> ------------[ cut here ]------------
-> 
-> It's done that three times so far.
+> Similar
+> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=8eb7ad68bd10d858066ca51713ca5645996e77a5
+[...]
+> It's Work!
 
-This as well is due to fack_count miscount. I found one corrupter already 
-and will send a patch tomorrow (not sure if fixing that resolves also this 
-issue).
+I'd rather avoid the code duplication. Does the patch below do the
+work ?
 
+Can you send the output of a 'lspci -vvvxxxx' + 'mii-diag -v' and the brand
+name of the motherboard ? Apparently all 968 based devices do not behave the
+same (see http://bugzilla.kernel.org/show_bug.cgi?id=9386 for instance).
+
+>From 38c4947eb946db4b5daea0fb37c1ca515ab803d6 Mon Sep 17 00:00:00 2001
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Tue, 4 Dec 2007 22:58:41 +0100
+Subject: [PATCH] sis190: add cmos ram access code for the SiS19x/968 chipset pair
+
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: J. Gleacher <jgleacher@yahoo.com>
+Cc: Alexandre Penasso Teixeira <alexandre@keepsoftware.com>
+---
+ drivers/net/sis190.c |   15 +++++++++------
+ 1 files changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
+index b644bc4..ad392c2 100644
+--- a/drivers/net/sis190.c
++++ b/drivers/net/sis190.c
+@@ -1582,28 +1582,31 @@ static int __devinit sis190_get_mac_addr_from_eeprom(struct pci_dev *pdev,
+ }
+ 
+ /**
+- *	sis190_get_mac_addr_from_apc - Get MAC address for SiS965 model
++ *	sis190_get_mac_addr_from_apc - Get MAC address for SiS96x model
+  *	@pdev: PCI device
+  *	@dev:  network device to get address for
+  *
+- *	SiS965 model, use APC CMOS RAM to store MAC address.
++ *	SiS96x model, use APC CMOS RAM to store MAC address.
+  *	APC CMOS RAM is accessed through ISA bridge.
+  *	MAC address is read into @net_dev->dev_addr.
+  */
+ static int __devinit sis190_get_mac_addr_from_apc(struct pci_dev *pdev,
+ 						  struct net_device *dev)
+ {
++	static const u16 __devinitdata ids[] = { 0x0965, 0x0966, 0x0968 };
+ 	struct sis190_private *tp = netdev_priv(dev);
+ 	struct pci_dev *isa_bridge;
+ 	u8 reg, tmp8;
+-	int i;
++	unsigned int i;
+ 
+ 	net_probe(tp, KERN_INFO "%s: Read MAC address from APC.\n",
+ 		  pci_name(pdev));
+ 
+-	isa_bridge = pci_get_device(PCI_VENDOR_ID_SI, 0x0965, NULL);
+-	if (!isa_bridge)
+-		isa_bridge = pci_get_device(PCI_VENDOR_ID_SI, 0x0966, NULL);
++	for (i = 0; i < ARRAY_SIZE(ids); i++) {
++		isa_bridge = pci_get_device(PCI_VENDOR_ID_SI, ids[i], NULL);
++		if (isa_bridge)
++			break;
++	}
+ 
+ 	if (!isa_bridge) {
+ 		net_probe(tp, KERN_INFO "%s: Can not find ISA bridge.\n",
 -- 
- i.
+1.5.3.3
