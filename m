@@ -1,43 +1,45 @@
-From: Michael Blizek <michi1@michaelblizek.homelinux.net>
-Subject: [RFC] Connection Oriented Routing Protocol
-Date: Sun, 9 Dec 2007 11:20:46 +0100
-Message-ID: <20071209102046.GA1228@grml.local>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: IPsec replay sequence number overflow behavior? (RFC4303 section 3.3.3)
+Date: Sun, 9 Dec 2007 09:37:56 -0500
+Message-ID: <200712090937.56599.paul.moore@hp.com>
+References: <E1J1Bfw-0006Kw-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, latten@us.ibm.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from michaelblizek.homelinux.net ([193.238.157.55]:56245 "EHLO
-	michaelblizek.homelinux.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751976AbXLIKY7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2007 05:24:59 -0500
-Received: from [127.0.0.1] (helo=127.0.0.1)
-	by michaelblizek.homelinux.net with smtp (Exim 4.63)
-	(envelope-from <michi1@michaelblizek.homelinux.net>)
-	id 1J1JLH-0000kX-By
-	for netdev@vger.kernel.org; Sun, 09 Dec 2007 11:24:59 +0100
+Received: from mailhub.hp.com ([192.151.27.10]:50402 "EHLO mailhub.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750789AbXLIOiw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Dec 2007 09:38:52 -0500
+In-Reply-To: <E1J1Bfw-0006Kw-00@gondolin.me.apana.org.au>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On Saturday 08 December 2007 9:13:48 pm Herbert Xu wrote:
+> Paul Moore <paul.moore@hp.com> wrote:
+> > If it is a bug, I think the basic fix should be pretty simple, changing
+> > the above xfrm_output() code to the following:
+> >
+> >   if (x->type->flags & XFRM_TYPE_REPLAY_PROT) {
+> >           XFRM_SKB_CB(skb)->seq = ++x->replay.oseq;
+> > +          if (x->replay.oseq == 0)
+> > +                  goto error;
+>
+> Yes we need this check.
+>
+> However please add an unlikely around it since it's a 1-in-4
+> billion event :)
 
-I'm programming a new layer 3+4 protocol. It does not
-have a routing table for every destination. Instead the
-end node established a connection through every router
-to the destination. This allows some pretty interesting
-optimisations. See
+ :)
 
-http://michaelblizek.homelinux.net/projects/cor/index.html
+Thanks for clearing that up, I'll send a patch this week; complete with an 
+unlikely (similar to the RFC quality IPsec audit patch I sent on Friday) and 
+a decrement to the sequence counter in case of rollover.
 
-for more details. You can download it with this link:
-
-http://michaelblizek.homelinux.net/projects/cor/downloads/cor_2007_12_09.diff
-
-This is a pretty early version. It does compile, but it
-will not run. I can post is on this list, if you want to.
-It applies to 2.6.22.2 (sorry), but the only files which
-are touched outside the new net/cor directory are
-net/Kconfig and net/Makefile
-
-	-Michi
-
+-- 
+paul moore
+linux security @ hp
