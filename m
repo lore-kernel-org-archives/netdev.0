@@ -1,49 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][NET]: Finish removing unused "mibalign" argument for
- snmp_mib_init().
-Date: Sun, 09 Dec 2007 00:27:33 -0800 (PST)
-Message-ID: <20071209.002733.62175650.davem@davemloft.net>
-References: <20071208.004147.99843986.davem@davemloft.net>
-	<20071208175532.GE3180@ghostprotocols.net>
-	<20071208.101354.18036989.yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCHES 0/3]: DCCP patches for 2.6.25
+Date: Sun, 09 Dec 2007 00:32:52 -0800 (PST)
+Message-ID: <20071209.003252.18641100.davem@davemloft.net>
+References: <1197139933-11609-1-git-send-email-acme@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: acme@redhat.com, netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Cc: netdev@vger.kernel.org, dccp@vger.kernel.org
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46797
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58861
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751500AbXLII1e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2007 03:27:34 -0500
-In-Reply-To: <20071208.101354.18036989.yoshfuji@linux-ipv6.org>
+	by vger.kernel.org with ESMTP id S1750884AbXLIIcx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2007 03:32:53 -0500
+In-Reply-To: <1197139933-11609-1-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Sat, 08 Dec 2007 10:13:54 -0800 (PST)
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Sat,  8 Dec 2007 16:52:10 -0200
 
-> Hello.
+> Hi David,
 > 
-> In article <20071208175532.GE3180@ghostprotocols.net> (at Sat, 8 Dec 2007 15:55:34 -0200), Arnaldo Carvalho de Melo <acme@redhat.com> says:
+> 	Please consider pulling from:
 > 
-> > Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-> > 
-> > diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-> > index 5ab8ba7..90d2f72 100644
-> > --- a/net/ipv6/af_inet6.c
-> > +++ b/net/ipv6/af_inet6.c
-> > @@ -714,20 +714,19 @@ EXPORT_SYMBOL_GPL(ipv6_opt_accepted);
-> >  
-> >  static int __init init_ipv6_mibs(void)
-> >  {
-> > -	if (snmp_mib_init((void **)ipv6_statistics, sizeof (struct ipstats_mib),
-> > -			  __alignof__(struct ipstats_mib)) < 0)
-> > +	if (snmp_mib_init((void **)ipv6_statistics,
-> > +			  sizeof(struct ipstats_mib)) < 0)
-> >  		goto err_ip_mib;
-> 
-> Oops... thanks.
-> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.25
 
-Applied, thanks.
+Pulled, thanks a lot.
