@@ -1,37 +1,28 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPsec replay sequence number overflow behavior? (RFC4303 section 3.3.3)
-Date: Sun, 09 Dec 2007 10:13:48 +0800
-Message-ID: <E1J1Bfw-0006Kw-00@gondolin.me.apana.org.au>
-References: <200712071104.22560.paul.moore@hp.com>
-Cc: netdev@vger.kernel.org, latten@us.ibm.com
-To: paul.moore@hp.com (Paul Moore)
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Bogus commit 70eba18b ("make bnx2x select ZLIB_INFLATE")?
+Date: Sat, 08 Dec 2007 19:07:22 -0800
+Message-ID: <adasl2ca7md.fsf@cisco.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eliezer Tamir <eliezert@broadcom.com>,
+	Lee Schermerhorn <lee.schermerhorn@hp.com>
+To: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2384 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751659AbXLICNy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Dec 2007 21:13:54 -0500
-In-Reply-To: <200712071104.22560.paul.moore@hp.com>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:15496 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750713AbXLIDH1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Dec 2007 22:07:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Paul Moore <paul.moore@hp.com> wrote:
->
-> If it is a bug, I think the basic fix should be pretty simple, changing the 
-> above xfrm_output() code to the following:
-> 
->   if (x->type->flags & XFRM_TYPE_REPLAY_PROT) {
->           XFRM_SKB_CB(skb)->seq = ++x->replay.oseq;
-> +          if (x->replay.oseq == 0)
-> +                  goto error;
+Commit 70eba18b ("make bnx2x select ZLIB_INFLATE") in Linus's tree
+seems bogus.  As far as I can tell, bnx2x is not upstream yet, and the
+commit in question actually adds "select ZLIB_INFLATE" to the TEHUTI
+config, since there is no BNX2X config option (and also I don't see
+any reference to zlib in any tehuti files).
 
-Yes we need this check.
+I assume this is some sort of merge problem that got added to the
+wrong tree and should be reverted upstream.
 
-However please add an unlikely around it since it's a 1-in-4
-billion event :)
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+ - R.
