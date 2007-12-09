@@ -1,107 +1,41 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: Re: [PATCH] iproute2: support dotted-quad netmask notation.
-Date: Sun, 09 Dec 2007 18:10:22 +0100
-Message-ID: <1197220222.4392.9.camel@localhost.localdomain>
-References: <20071204135818.GA24419@scream.fatal.se>
-	 <20071206115350.18e9204f@freepuppy.rosehill>
-	 <1197070894.5385.14.camel@localhost.localdomain>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 1/3][BNX2]: Add PHY_DIS_EARLY_DAC workaround.
+Date: Sun, 09 Dec 2007 13:16:48 -0800
+Message-ID: <1197235008.20251.9.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1-1-1-9a.ghn.gbg.bostream.se ([82.182.69.4]:42905 "EHLO
-	scream.fatal.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750879AbXLIRHj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2007 12:07:39 -0500
-In-Reply-To: <1197070894.5385.14.camel@localhost.localdomain>
+Received: from mms1.broadcom.com ([216.31.210.17]:3703 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750861AbXLIUcb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Dec 2007 15:32:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+[BNX2]: Add PHY_DIS_EARLY_DAC workaround.
 
-On l=C3=B6r, 2007-12-08 at 00:41 +0100, Andreas Henriksson wrote:
-> On tor, 2007-12-06 at 11:53 -0800, Stephen Hemminger wrote:
-> > On Tue, 4 Dec 2007 14:58:18 +0100
-> > Andreas Henriksson <andreas@fatal.se> wrote:
-> >=20
-> > > Suggested patch for allowing netmask to be specified in dotted qu=
-ad format.
-> > > See http://bugs.debian.org/357172
-> > >=20
-> Updated patch, added your netmask validation code but without the che=
-ck
-> that made 0.0.0.0 (default) and 255.255.255.255 (one address) invalid
-> netmasks as they are permitted in CIDR format.=20
+5709 Ax and Bx chips all need this workaround.
 
-I think both previous patches where broken on big-endian platforms.
-Here's an updated patch again. I'm very sorry for the inconvenience!
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Signed-off-by: Andreas Henriksson <andreas@fatal.se>
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index da767d3..a4f3832 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -6685,8 +6685,9 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 	} else if (CHIP_NUM(bp) == CHIP_NUM_5706 ||
+ 		   CHIP_NUM(bp) == CHIP_NUM_5708)
+ 		bp->phy_flags |= PHY_CRC_FIX_FLAG;
+-	else if (CHIP_ID(bp) == CHIP_ID_5709_A0 ||
+-		 CHIP_ID(bp) == CHIP_ID_5709_A1)
++	else if (CHIP_NUM(bp) == CHIP_NUM_5709 &&
++		 (CHIP_REV(bp) == CHIP_REV_Ax ||
++		  CHIP_REV(bp) == CHIP_REV_Bx))
+ 		bp->phy_flags |= PHY_DIS_EARLY_DAC_FLAG;
+ 
+ 	if ((CHIP_ID(bp) == CHIP_ID_5708_A0) ||
 
-
-diff --git a/lib/utils.c b/lib/utils.c
-index 4c42dfd..bb88cf7 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -47,6 +47,41 @@ int get_integer(int *val, const char *arg, int base)
- 	return 0;
- }
-=20
-+/* a valid netmask must be 2^n - 1 (n =3D 1..31) */
-+static int is_valid_netmask(const inet_prefix *addr)
-+{
-+        uint32_t host;
-+
-+        if (addr->family !=3D AF_INET)
-+                return 0;
-+
-+        host =3D ~ntohl(addr->data[0]);
-+
-+        return (host & (host + 1)) =3D=3D 0;
-+}
-+
-+static int get_netmask(unsigned *val, const char *arg, int base)
-+{
-+	inet_prefix addr;
-+
-+	if (!get_unsigned(val, arg, base))
-+		return 0;
-+
-+	/* try coverting dotted quad to CIDR */
-+	if (!get_addr_1(&addr, arg, AF_INET)) {
-+		u_int32_t mask;
-+
-+		*val=3D0;
-+		for (mask =3D ntohl(addr.data[0]); mask; mask <<=3D 1)
-+			(*val)++;
-+
-+		if (is_valid_netmask(&addr))
-+			return 0;
-+	}
-+
-+	return -1;
-+}
-+
- int get_unsigned(unsigned *val, const char *arg, int base)
- {
- 	unsigned long res;
-@@ -304,7 +339,8 @@ int get_prefix_1(inet_prefix *dst, char *arg, int f=
-amily)
- 				dst->bitlen =3D 32;
- 		}
- 		if (slash) {
--			if (get_unsigned(&plen, slash+1, 0) || plen > dst->bitlen) {
-+			if (get_netmask(&plen, slash+1, 0)
-+					|| plen > dst->bitlen) {
- 				err =3D -1;
- 				goto done;
- 			}
-
-
-
-
---=20
-Regards,
-Andreas Henriksson
 
