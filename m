@@ -1,38 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Bogus commit 70eba18b ("make bnx2x select ZLIB_INFLATE")?
-Date: Sun, 09 Dec 2007 00:52:45 -0800 (PST)
-Message-ID: <20071209.005245.241039796.davem@davemloft.net>
-References: <adasl2ca7md.fsf@cisco.com>
+From: Michael Blizek <michi1@michaelblizek.homelinux.net>
+Subject: [RFC] Connection Oriented Routing Protocol
+Date: Sun, 9 Dec 2007 11:20:46 +0100
+Message-ID: <20071209102046.GA1228@grml.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org,
-	torvalds@linux-foundation.org, eliezert@broadcom.com,
-	lee.schermerhorn@hp.com
-To: rdreier@cisco.com
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47349
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751772AbXLIIwq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2007 03:52:46 -0500
-In-Reply-To: <adasl2ca7md.fsf@cisco.com>
+Received: from michaelblizek.homelinux.net ([193.238.157.55]:56245 "EHLO
+	michaelblizek.homelinux.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751976AbXLIKY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2007 05:24:59 -0500
+Received: from [127.0.0.1] (helo=127.0.0.1)
+	by michaelblizek.homelinux.net with smtp (Exim 4.63)
+	(envelope-from <michi1@michaelblizek.homelinux.net>)
+	id 1J1JLH-0000kX-By
+	for netdev@vger.kernel.org; Sun, 09 Dec 2007 11:24:59 +0100
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Sat, 08 Dec 2007 19:07:22 -0800
+Hi!
 
-> Commit 70eba18b ("make bnx2x select ZLIB_INFLATE") in Linus's tree
-> seems bogus.  As far as I can tell, bnx2x is not upstream yet, and the
-> commit in question actually adds "select ZLIB_INFLATE" to the TEHUTI
-> config, since there is no BNX2X config option (and also I don't see
-> any reference to zlib in any tehuti files).
-> 
-> I assume this is some sort of merge problem that got added to the
-> wrong tree and should be reverted upstream.
+I'm programming a new layer 3+4 protocol. It does not
+have a routing table for every destination. Instead the
+end node established a connection through every router
+to the destination. This allows some pretty interesting
+optimisations. See
 
-I already pointed this out to Jeff, here:
+http://michaelblizek.homelinux.net/projects/cor/index.html
 
-http://marc.info/?l=linux-netdev&m=119709982603567&w=2
+for more details. You can download it with this link:
 
-Indeed, it needs to be fixed up.
+http://michaelblizek.homelinux.net/projects/cor/downloads/cor_2007_12_09.diff
+
+This is a pretty early version. It does compile, but it
+will not run. I can post is on this list, if you want to.
+It applies to 2.6.22.2 (sorry), but the only files which
+are touched outside the new net/cor directory are
+net/Kconfig and net/Makefile
+
+	-Michi
+
