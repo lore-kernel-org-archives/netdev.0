@@ -1,450 +1,123 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH net-2.6.25] qdisc: new rate limiter (v2)
-Date: Mon, 10 Dec 2007 13:28:36 -0800
-Message-ID: <20071210132836.771ea706@freepuppy.rosehill>
-References: <20071207162618.35715892@freepuppy.rosehill>
-	<475A0804.1060006@trash.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 0/4] Pull request for 'sis190' branch
+Date: Mon, 10 Dec 2007 23:27:32 +0100
+Message-ID: <20071210222732.GA8675@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	"K.M. Liu" <kmliu@sis.com.tw>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:43050 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753232AbXLJV3r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 16:29:47 -0500
-In-Reply-To: <475A0804.1060006@trash.net>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:39503 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751600AbXLJWeK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 17:34:10 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a time based rate limiter for use in network testing. When doing
-network tests it is often useful to test at reduced bandwidths. The existing
-Token Bucket Filter provides rate control, but causes bursty traffic that
-can cause different performance than real world. Another alternative is
-the PSPacer, but it depends on pause frames which may also cause issues.
+Please pull from branch 'sis190' in repository
 
-The qdisc depends on high resolution timers and clocks, so it will probably
-use more CPU than others making it a poor choice for use when doing traffic
-shaping for QOS. 
+git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git sis190
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+to get the changes below.
 
----
- include/linux/pkt_sched.h |   15 +
- net/sched/Kconfig         |   13 +
- net/sched/Makefile        |    1 
- net/sched/sch_rlim.c      |  354 ++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 383 insertions(+)
+Distance from 'upstream-linus' (7962024e9d16e9349d76b553326f3fa7be64305e)
+-------------------------------------------------------------------------
 
---- a/include/linux/pkt_sched.h	2007-12-10 13:08:36.000000000 -0800
-+++ b/include/linux/pkt_sched.h	2007-12-10 13:08:39.000000000 -0800
-@@ -475,4 +475,19 @@ struct tc_netem_corrupt
+c27e14e508664471b8e44ef1f81ec080213ea314
+348de67fe200e25d8cb80cff35642192436cfeda
+004a22d03d62cd08e5287273a5143447db009cd0
+14deb44ffe7220be2de697d616f28cce17e72297
+
+Diffstat
+--------
+
+ drivers/net/sis190.c |   21 ++++++++++-----------
+ 1 files changed, 10 insertions(+), 11 deletions(-)
+
+Shortlog
+--------
+
+Francois Romieu (4):
+      sis190: add cmos ram access code for the SiS19x/968 chipset pair
+      sis190: remove duplicate INIT_WORK
+      sis190: mdio operation failure is not correctly detected
+      sis190: scheduling while atomic error
+
+Patch
+-----
+
+diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
+index 7200883..c0db182 100644
+--- a/drivers/net/sis190.c
++++ b/drivers/net/sis190.c
+@@ -372,7 +372,7 @@ static void __mdio_cmd(void __iomem *ioaddr, u32 ctl)
+ 		msleep(1);
+ 	}
  
- #define NETEM_DIST_SCALE	8192
+-	if (i > 999)
++	if (i > 99)
+ 		printk(KERN_ERR PFX "PHY command failed !\n");
+ }
  
-+enum
-+{
-+	TCA_RLIM_UNSPEC,
-+	TCA_RLIM_PARMS,
-+	__TCA_RLIM_MAX,
-+};
-+#define TCA_RLIM_MAX (__TCA_RLIM_MAX - 1)
-+
-+struct tc_rlim_qopt
-+{
-+	__u64	rate;		/* bits per sec */
-+	__u32	overhead;	/* crc overhad */
-+	__u32   limit;		/* fifo limit (packets) */
-+};
-+
- #endif
---- a/net/sched/Kconfig	2007-12-10 13:08:36.000000000 -0800
-+++ b/net/sched/Kconfig	2007-12-10 13:08:39.000000000 -0800
-@@ -196,6 +196,19 @@ config NET_SCH_NETEM
+@@ -847,10 +847,8 @@ static void sis190_soft_reset(void __iomem *ioaddr)
+ {
+ 	SIS_W32(IntrControl, 0x8000);
+ 	SIS_PCI_COMMIT();
+-	msleep(1);
+ 	SIS_W32(IntrControl, 0x0);
+ 	sis190_asic_down(ioaddr);
+-	msleep(1);
+ }
  
- 	  If unsure, say N.
+ static void sis190_hw_start(struct net_device *dev)
+@@ -1041,8 +1039,6 @@ static int sis190_open(struct net_device *dev)
+ 	if (rc < 0)
+ 		goto err_free_rx_1;
  
-+config NET_SCH_RLIM
-+       tristate "Network Rate Limiter"
-+	---help---
-+	  Say Y here if you want to use timer based network rate limiter
-+	  algorithm.
-+
-+	  See the top of <file:net/sched/sch_rlim.c> for more details.
-+
-+	  To compile this code as a module, choose M here: the
-+	  module will be called sch_rlim.
-+
-+	  If unsure, say N.
-+
- config NET_SCH_INGRESS
- 	tristate "Ingress Qdisc"
- 	---help---
---- a/net/sched/Makefile	2007-12-10 13:08:36.000000000 -0800
-+++ b/net/sched/Makefile	2007-12-10 13:08:39.000000000 -0800
-@@ -28,6 +28,7 @@ obj-$(CONFIG_NET_SCH_TEQL)	+= sch_teql.o
- obj-$(CONFIG_NET_SCH_PRIO)	+= sch_prio.o
- obj-$(CONFIG_NET_SCH_ATM)	+= sch_atm.o
- obj-$(CONFIG_NET_SCH_NETEM)	+= sch_netem.o
-+obj-$(CONFIG_NET_SCH_RLIM)	+= sch_rlim.o
- obj-$(CONFIG_NET_CLS_U32)	+= cls_u32.o
- obj-$(CONFIG_NET_CLS_ROUTE4)	+= cls_route.o
- obj-$(CONFIG_NET_CLS_FW)	+= cls_fw.o
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/net/sched/sch_rlim.c	2007-12-10 13:26:39.000000000 -0800
-@@ -0,0 +1,353 @@
-+/*
-+ * net/sched/sch_rate.c	Timer based rate control
-+ *
-+ * Copyright (c) 2007 Stephen Hemminger <shemminger@linux-foundation.org>
-+ *
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+#include <linux/skbuff.h>
-+#include <net/netlink.h>
-+#include <net/pkt_sched.h>
-+#include <asm/div64.h>
-+
-+/*	Simple Rate control
-+
-+	Algorthim used in NISTnet and others.
-+	Logically similar to Token Bucket, but more real time and less lumpy.
-+
-+	A packet is not allowed to be dequeued until a after the deadline.
-+	Each packet dequeued increases the deadline by rate * size.
-+
-+	If qdisc throttles, it starts a timer, which will wake it up
-+	when it is ready to transmit. This scheduler works much better
-+	if high resolution timers are available.
-+
-+	Like classful TBF, limit is just kept for backwards compatibility.
-+	It is passed to the default pfifo qdisc - if the inner qdisc is
-+	changed the limit is not effective anymore.
-+
-+*/
-+
-+/* Use scaled math to get 1/64 ns resolution */
-+#define NSEC_SCALE	6
-+
-+struct rlim_sched_data {
-+	ktime_t next_send;	/* next scheduled departure */
-+	u64	cost;		/* nsec/byte * 64 */
-+	u32	overhead;	/* crc/preamble bytes */
-+	u32	limit;		/* upper bound on fifo (packets) */
-+
-+	struct Qdisc *qdisc;	/* Inner qdisc, default - bfifo queue */
-+	struct qdisc_watchdog watchdog;
-+};
-+
-+static int rlim_enqueue(struct sk_buff *skb, struct Qdisc *sch)
-+{
-+	struct rlim_sched_data *q = qdisc_priv(sch);
-+	int ret;
-+
-+	ret = q->qdisc->enqueue(skb, q->qdisc);
-+	if (ret)
-+		sch->qstats.drops++;
-+	else {
-+		sch->q.qlen++;
-+		sch->bstats.bytes += skb->len;
-+		sch->bstats.packets++;
+-	INIT_WORK(&tp->phy_task, sis190_phy_task);
+-
+ 	sis190_request_timer(dev);
+ 
+ 	rc = request_irq(dev->irq, sis190_interrupt, IRQF_SHARED, dev->name, dev);
+@@ -1549,28 +1545,31 @@ static int __devinit sis190_get_mac_addr_from_eeprom(struct pci_dev *pdev,
+ }
+ 
+ /**
+- *	sis190_get_mac_addr_from_apc - Get MAC address for SiS965 model
++ *	sis190_get_mac_addr_from_apc - Get MAC address for SiS96x model
+  *	@pdev: PCI device
+  *	@dev:  network device to get address for
+  *
+- *	SiS965 model, use APC CMOS RAM to store MAC address.
++ *	SiS96x model, use APC CMOS RAM to store MAC address.
+  *	APC CMOS RAM is accessed through ISA bridge.
+  *	MAC address is read into @net_dev->dev_addr.
+  */
+ static int __devinit sis190_get_mac_addr_from_apc(struct pci_dev *pdev,
+ 						  struct net_device *dev)
+ {
++	static const u16 __devinitdata ids[] = { 0x0965, 0x0966, 0x0968 };
+ 	struct sis190_private *tp = netdev_priv(dev);
+ 	struct pci_dev *isa_bridge;
+ 	u8 reg, tmp8;
+-	int i;
++	unsigned int i;
+ 
+ 	net_probe(tp, KERN_INFO "%s: Read MAC address from APC.\n",
+ 		  pci_name(pdev));
+ 
+-	isa_bridge = pci_get_device(PCI_VENDOR_ID_SI, 0x0965, NULL);
+-	if (!isa_bridge)
+-		isa_bridge = pci_get_device(PCI_VENDOR_ID_SI, 0x0966, NULL);
++	for (i = 0; i < ARRAY_SIZE(ids); i++) {
++		isa_bridge = pci_get_device(PCI_VENDOR_ID_SI, ids[i], NULL);
++		if (isa_bridge)
++			break;
 +	}
-+
-+	return ret;
-+}
-+
-+
-+static u64 pkt_time(const struct rlim_sched_data *q,
-+		    const struct sk_buff *skb)
-+{
-+	return (q->cost * (skb->len + q->overhead)) >> NSEC_SCALE;
-+}
-+
-+static unsigned int rlim_drop(struct Qdisc *sch)
-+{
-+	struct rlim_sched_data *q = qdisc_priv(sch);
-+	unsigned int len = 0;
-+
-+	if (q->qdisc->ops->drop && (len = q->qdisc->ops->drop(q->qdisc)) != 0) {
-+		sch->q.qlen--;
-+		sch->qstats.drops++;
-+	}
-+
-+	return len;
-+}
-+
-+static struct sk_buff *rlim_dequeue(struct Qdisc *sch)
-+{
-+	struct rlim_sched_data *q = qdisc_priv(sch);
-+	struct sk_buff *skb;
-+	ktime_t now = ktime_get();
-+
-+	/* if haven't reached the correct time slot, start timer */
-+	if (now.tv64 < q->next_send.tv64) {
-+		sch->flags |= TCQ_F_THROTTLED;
-+		hrtimer_start(&q->watchdog.timer, q->next_send,
-+			      HRTIMER_MODE_ABS);
-+		return NULL;
-+	}
-+
-+	skb = q->qdisc->dequeue(q->qdisc);
-+	if (skb) {
-+		q->next_send = ktime_add_ns(now, pkt_time(q, skb));
-+		sch->q.qlen--;
-+		sch->flags &= ~TCQ_F_THROTTLED;
-+	}
-+	return skb;
-+}
-+
-+static int rlim_requeue(struct sk_buff *skb, struct Qdisc *sch)
-+{
-+	struct rlim_sched_data *q = qdisc_priv(sch);
-+	int ret;
-+
-+	ret = q->qdisc->ops->requeue(skb, q->qdisc);
-+	if (!ret) {
-+		q->next_send = ktime_sub_ns(q->next_send, pkt_time(q, skb));
-+		sch->q.qlen++;
-+		sch->qstats.requeues++;
-+	}
-+
-+	return ret;
-+}
-+
-+static void rlim_reset(struct Qdisc *sch)
-+{
-+	struct rlim_sched_data *q = qdisc_priv(sch);
-+
-+	qdisc_reset(q->qdisc);
-+	sch->q.qlen = 0;
-+
-+	q->next_send = ktime_get();
-+	qdisc_watchdog_cancel(&q->watchdog);
-+}
-+
-+
-+/* Pass size change message down to embedded FIFO */
-+static int set_fifo_limit(struct Qdisc *q, int limit)
-+{
-+	struct rtattr *rta;
-+	int ret = -ENOMEM;
-+
-+	/* Hack to avoid sending change message to non-FIFO */
-+	if (strncmp(q->ops->id + 1, "fifo", 4) != 0)
-+		return 0;
-+
-+	rta = kmalloc(RTA_LENGTH(sizeof(struct tc_fifo_qopt)), GFP_KERNEL);
-+	if (rta) {
-+		rta->rta_type = RTM_NEWQDISC;
-+		rta->rta_len = RTA_LENGTH(sizeof(struct tc_fifo_qopt));
-+		((struct tc_fifo_qopt *)RTA_DATA(rta))->limit = limit;
-+
-+		ret = q->ops->change(q, rta);
-+		kfree(rta);
-+	}
-+	return ret;
-+}
-+
-+static int rlim_change(struct Qdisc *sch, struct rtattr *opt)
-+{
-+	struct rlim_sched_data *q = qdisc_priv(sch);
-+	struct rtattr *tb[TCA_RLIM_PARMS];
-+	const struct tc_rlim_qopt *qopt;
-+	int err;
-+
-+	if (rtattr_parse_nested(tb, TCA_RLIM_PARMS, opt) ||
-+	    tb[TCA_RLIM_PARMS-1] == NULL ||
-+	    RTA_PAYLOAD(tb[TCA_RLIM_PARMS-1]) < sizeof(struct tc_rlim_qopt))
-+		return -EINVAL;
-+
-+	qopt = RTA_DATA(tb[TCA_RLIM_PARMS-1]);
-+	err = set_fifo_limit(q->qdisc, qopt->limit);
-+	if (err)
-+		return err;
-+
-+	q->limit = qopt->limit;
-+	q->overhead = qopt->overhead;
-+	if (qopt->rate == 0)
-+		q->cost = 0;	/* unlimited */
-+	else
-+		q->cost = div64_64((u64)NSEC_PER_SEC << NSEC_SCALE,
-+				   qopt->rate);
-+	return 0;
-+}
-+
-+static int rlim_init(struct Qdisc *sch, struct rtattr *opt)
-+{
-+	struct rlim_sched_data *q = qdisc_priv(sch);
-+
-+	if (opt == NULL || RTA_PAYLOAD(opt) < sizeof(struct tc_rlim_qopt))
-+		return -EINVAL;
-+
-+	qdisc_watchdog_init(&q->watchdog, sch);
-+
-+	q->qdisc = qdisc_create_dflt(sch->dev, &pfifo_qdisc_ops,
-+				     TC_H_MAKE(sch->handle, 1));
-+	if (!q->qdisc)
-+		return -ENOMEM;
-+
-+	q->next_send = ktime_get();
-+
-+	return rlim_change(sch, opt);
-+}
-+
-+static void rlim_destroy(struct Qdisc *sch)
-+{
-+	struct rlim_sched_data *q = qdisc_priv(sch);
-+
-+	qdisc_watchdog_cancel(&q->watchdog);
-+	qdisc_destroy(q->qdisc);
-+}
-+
-+static int rlim_dump(struct Qdisc *sch, struct sk_buff *skb)
-+{
-+	const struct rlim_sched_data *q = qdisc_priv(sch);
-+	unsigned char *b = skb_tail_pointer(skb);
-+	struct rtattr *rta;
-+	struct tc_rlim_qopt opt;
-+
-+	rta = (struct rtattr *)b;
-+	RTA_PUT(skb, TCA_OPTIONS, 0, NULL);
-+
-+	opt.limit = q->limit;
-+	opt.overhead = q->overhead;
-+	if (q->cost == 0)
-+		opt.rate = 0;
-+	else
-+		opt.rate = div64_64(NSEC_PER_SEC << NSEC_SCALE, q->cost);
-+
-+	RTA_PUT(skb, TCA_RLIM_PARMS, sizeof(opt), &opt);
-+	rta->rta_len = skb_tail_pointer(skb) - b;
-+
-+	return skb->len;
-+
-+rtattr_failure:
-+	nlmsg_trim(skb, b);
-+	return -1;
-+}
-+
-+static int rlim_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
-+		       struct Qdisc **old)
-+{
-+	struct rlim_sched_data *q = qdisc_priv(sch);
-+
-+	if (new == NULL)
-+		new = &noop_qdisc;
-+
-+	sch_tree_lock(sch);
-+	*old = xchg(&q->qdisc, new);
-+	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
-+	qdisc_reset(*old);
-+	sch_tree_unlock(sch);
-+
-+	return 0;
-+}
-+
-+static struct Qdisc *rlim_leaf(struct Qdisc *sch, unsigned long arg)
-+{
-+	struct rlim_sched_data *q = qdisc_priv(sch);
-+	return q->qdisc;
-+}
-+
-+static unsigned long rlim_get(struct Qdisc *sch, u32 classid)
-+{
-+	return 1;
-+}
-+
-+static void rlim_put(struct Qdisc *sch, unsigned long arg)
-+{
-+}
-+
-+static int rlim_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
-+			      struct rtattr **tca, unsigned long *arg)
-+{
-+	return -ENOSYS;
-+}
-+
-+static int rlim_delete(struct Qdisc *sch, unsigned long arg)
-+{
-+	return -ENOSYS;
-+}
-+
-+static void rlim_walk(struct Qdisc *sch, struct qdisc_walker *walker)
-+{
-+	if (!walker->stop) {
-+		if (walker->count >= walker->skip)
-+			if (walker->fn(sch, 1, walker) < 0) {
-+				walker->stop = 1;
-+				return;
-+			}
-+		walker->count++;
-+	}
-+}
-+
-+static struct tcf_proto **rlim_find_tcf(struct Qdisc *sch, unsigned long cl)
-+{
-+	return NULL;
-+}
-+
-+static int rlim_dump_class(struct Qdisc *sch, unsigned long cl,
-+			    struct sk_buff *skb, struct tcmsg *tcm)
-+{
-+	struct rlim_sched_data *q = qdisc_priv(sch);
-+
-+	if (cl != 1)		/* only one class */
-+		return -ENOENT;
-+
-+	tcm->tcm_handle |= TC_H_MIN(1);
-+	tcm->tcm_info = q->qdisc->handle;
-+
-+	return 0;
-+}
-+
-+static const struct Qdisc_class_ops rlim_class_ops = {
-+	.graft	   = rlim_graft,
-+	.leaf	   = rlim_leaf,
-+	.get	   = rlim_get,
-+	.put	   = rlim_put,
-+	.change	   = rlim_change_class,
-+	.delete	   = rlim_delete,
-+	.walk	   = rlim_walk,
-+	.tcf_chain = rlim_find_tcf,
-+	.dump	   = rlim_dump_class,
-+};
-+
-+static struct Qdisc_ops rlim_qdisc_ops = {
-+	.id		= "rlim",
-+	.cl_ops		= &rlim_class_ops,
-+	.priv_size	= sizeof(struct rlim_sched_data),
-+	.enqueue	= rlim_enqueue,
-+	.dequeue	= rlim_dequeue,
-+	.requeue	= rlim_requeue,
-+	.drop		= rlim_drop,
-+	.init		= rlim_init,
-+	.reset		= rlim_reset,
-+	.destroy	= rlim_destroy,
-+	.change		= rlim_change,
-+	.dump		= rlim_dump,
-+	.owner		= THIS_MODULE,
-+};
-+
-+static int __init rlim_module_init(void)
-+{
-+	return register_qdisc(&rlim_qdisc_ops);
-+}
-+
-+static void __exit rlim_module_exit(void)
-+{
-+	unregister_qdisc(&rlim_qdisc_ops);
-+}
-+
-+module_init(rlim_module_init)
-+module_exit(rlim_module_exit)
-+MODULE_LICENSE("GPL");
+ 
+ 	if (!isa_bridge) {
+ 		net_probe(tp, KERN_INFO "%s: Can not find ISA bridge.\n",
+-- 
+Ueimor
