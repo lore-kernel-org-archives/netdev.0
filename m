@@ -1,17 +1,17 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 2.6.25] netns: struct net content re-work
-Date: Mon, 10 Dec 2007 19:36:45 +0300
-Message-ID: <20071210163645.GA24030@iris.sw.ru>
+Subject: [PATCH 2.6.25] UNIX: remove unused declaration of
+	sysctl_unix_max_dgram_qlen
+Date: Mon, 10 Dec 2007 19:37:25 +0300
+Message-ID: <20071210163725.GA24044@iris.sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: containers@lists.osdl.org, devel@openvz.org,
-	netdev@vger.kernel.org, herbert@gondor.apana.org.au
+Cc: containers@lists.osdl.org, devel@openvz.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:56988 "EHLO iris"
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:58558 "EHLO iris"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752209AbXLJQf0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2007 11:35:26 -0500
+	id S1752960AbXLJQgG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2007 11:36:06 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
