@@ -1,50 +1,36 @@
-From: Kay Sievers <kay.sievers@vrfy.org>
-Subject: Re: [1/4] DST: Distributed storage documentation.
-Date: Mon, 10 Dec 2007 20:56:49 +0100
-Message-ID: <1197316609.6399.124.camel@lov.site>
-References: <11972872493977@2ka.mipt.ru> <11972872501664@2ka.mipt.ru>
-	 <3ae72650712100451h6a84d6cfs9b3a2954c13c4612@mail.gmail.com>
-	 <20071210125839.GA16789@2ka.mipt.ru> <1197297108.6399.91.camel@lov.site>
-	 <20071210145055.GB7184@2ka.mipt.ru> <1197313348.6399.106.camel@lov.site>
-	 <20071210193304.GA24737@2ka.mipt.ru> <1197315895.6399.121.camel@lov.site>
-	 <20071210195145.GA29132@2ka.mipt.ru>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH RFC] [5/9] modpost: Fix a buffer overflow in modpost
+Date: Mon, 10 Dec 2007 20:57:28 +0100
+Message-ID: <200712102057.29016.ak@suse.de>
+References: <20071122343.446909000@suse.de> <20071122024310.BB7E414D68@wotan.suse.de> <20071210193202.GC17315@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, Greg KH <greg@kroah.com>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	rusty@rustcorp.com.au
+To: Sam Ravnborg <sam@ravnborg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.179]:64635 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752374AbXLJT4l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 14:56:41 -0500
-In-Reply-To: <20071210195145.GA29132@2ka.mipt.ru>
+Received: from ns.suse.de ([195.135.220.2]:45743 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754703AbXLJT5u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2007 14:57:50 -0500
+In-Reply-To: <20071210193202.GC17315@uranus.ravnborg.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2007-12-10 at 22:51 +0300, Evgeniy Polyakov wrote:
-> On Mon, Dec 10, 2007 at 08:44:55PM +0100, Kay Sievers (kay.sievers@vrfy.org) wrote:
-> > > > > Actually not - I have to set reference counter to something other than 1
-> > > > > or +/- 1, and thus will have to call kref_get() in a loop, which is a
-> > > > > very ugly step. Is there kref_set() or somethinglike that? At least not
-> > > > > in 2.6.22 what I'm using for now.
-> > > > 
-> > > > Yeah, a loop would look pretty ugly. How about just adding kref_set(),
-> > > > if you need it.
-> > > 
-> > > Well, then it distributed storage will not be able to build as
-> > > standalone module, and kref_set() itself will not be accepted as a single 
-> > > patch, since there are no in-kernel users :)
-> > > It is easily doable though.
-> > 
-> > Most rules have exceptions. :) Send a patch, so we can see how it looks
-> > like.
-> 
-> It looks really non-trivial :)
+On Monday 10 December 2007 20:32, Sam Ravnborg wrote:
+> On Thu, Nov 22, 2007 at 03:43:10AM +0100, Andi Kleen wrote:
+> > When passing an file name > 1k the stack could be overflowed.
+> > Not really a security issue, but still better plugged.
+>
+> Looks good. A s-o-b line again please.
 
-Yeah, it does. :)
-We miss an EXPORT_SYMBOL(), right?
+Signed-off-by: Andi Kleen <ak@suse.de>
 
-Kay
+> Although I am not so happy with the ue of gcc extensions.
 
+That's not a gcc extension. It's C99.
+
+-Andi
