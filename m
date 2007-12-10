@@ -1,27 +1,57 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 2/8] [TFRC]: Put RX/TX initialisation into tfrc.c
-Date: Mon, 10 Dec 2007 10:56:17 +0000
-Message-ID: <20071210105617.GA4688@gerrit.erg.abdn.ac.uk>
-References: <11971083882331-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881862-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881667-git-send-email-gerrit@erg.abdn.ac.uk> <20071208171317.GC3180@ghostprotocols.net>
+Subject: Re: [PATCH 5/8] [TFRC]: Loss interval code needs the macros/inlines that were moved
+Date: Mon, 10 Dec 2007 11:31:53 +0000
+Message-ID: <20071210113153.GB4688@gerrit.erg.abdn.ac.uk>
+References: <11971083882331-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881862-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881667-git-send-email-gerrit@erg.abdn.ac.uk> <11971083883685-git-send-email-gerrit@erg.abdn.ac.uk> <1197108388630-git-send-email-gerrit@erg.abdn.ac.uk> <11971083883727-git-send-email-gerrit@erg.abdn.ac.uk> <20071208184711.GF3180@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:33031 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:34340 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751036AbXLJK5F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2007 05:57:05 -0500
+	id S1751941AbXLJLch (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2007 06:32:37 -0500
 Content-Disposition: inline
-In-Reply-To: <20071208171317.GC3180@ghostprotocols.net>
+In-Reply-To: <20071208184711.GF3180@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > This separates RX/TX initialisation and puts all packet history / loss intervals
-| > initialisation into tfrc.c.
-| > The organisation is uniform: slab declaration -> {rx,tx}_init() -> {rx,tx}_exit()
+| > 
+| >   distcc[24516] ERROR: compile /root/.ccache/packet_his.tmp.aspire.home.net.24512.i on _tiptop failed
+| >   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c: In function '__one_after_loss':
+| >   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:266: error: lvalue required as unary '&' operand
+<snip>
 | 
-| NAK, you can't call a __exit marked routine from a __init marked
-| routine.
+| Because you do it this way:
 | 
-Ok thanks, will fix that in revision 2.
+| tfrc_rx_hist_swap(&TFRC_RX_HIST_ENTRY(h, 0), &TFRC_RX_HIST_ENTRY(h, 3));
+| 
+| I checked and at least in this patch series all uses are of this type,
+| so why not do it using just the indexes, which would be simpler:
+| 
+| tfrc_rx_hist_swap(h, 0, 3);
+| 
+| With this implementation:
+| 
+| static void tfrc_rx_hist_swap(struct tfrc_rx_hist *h, const int a, const int b)
+| {
+| 	const int idx_a = tfrc_rx_hist_index(h, a),
+| 	      int idx_b = tfrc_rx_hist_index(h, b);
+| 	struct tfrc_rx_hist_entry *tmp = h->ring[idx_a];
+| 
+| 	h->ring[idx_a] = h->ring[idx_b];
+| 	h->ring[idx_b] = tmp;
+| }
+| 
+Agreed, that is useful in the present case, since then everything uses
+inlines. The only suggestion I'd like to make is to use `u8' instead of 
+`int' since the indices will have very low values.
+
+There is a related point: you will probably have noticed that loss_interval.c 
+also uses macros. I don't know if you are planning to convert these also into 
+inlines. I think that there would be less benefit in converting these, since
+they are locl to loss_interval.c and mostly serve to improve readability.
+
+As I have at least one other patch to revise (plus another minor one),
+I'll rework this according to the above. 
