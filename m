@@ -1,38 +1,36 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/4] DST: Distributed storage documentation.
-Date: Mon, 10 Dec 2007 18:12:25 +0300
-Message-ID: <20071210151225.GA17858@2ka.mipt.ru>
-References: <11972872493977@2ka.mipt.ru> <11972872501664@2ka.mipt.ru> <3ae72650712100451h6a84d6cfs9b3a2954c13c4612@mail.gmail.com> <20071210125839.GA16789@2ka.mipt.ru> <1197297108.6399.91.camel@lov.site> <20071210145055.GB7184@2ka.mipt.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, Greg KH <greg@kroah.com>
-To: Kay Sievers <kay.sievers@vrfy.org>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: [patch 0/5] ipv6:  make af_inet6 subsystems to return an error at init
+Date: Mon, 10 Dec 2007 16:09:10 +0100
+Message-ID: <20071210150910.440970057@ICON-9-164-138-215.megacenter.de.ibm.com>
+Cc: yoshfuji@linux-ipv6.org, pekkas@netcore.fi, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:59600 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751601AbXLJPM2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2007 10:12:28 -0500
-Content-Disposition: inline
-In-Reply-To: <20071210145055.GB7184@2ka.mipt.ru>
+Received: from mtagate7.de.ibm.com ([195.212.29.156]:46501 "EHLO
+	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751177AbXLJPRa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 10:17:30 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate7.de.ibm.com (8.13.8/8.13.8) with ESMTP id lBAFHSmv411864
+	for <netdev@vger.kernel.org>; Mon, 10 Dec 2007 15:17:28 GMT
+Received: from d12av03.megacenter.de.ibm.com (d12av03.megacenter.de.ibm.com [9.149.165.213])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lBAFHTTB2838570
+	for <netdev@vger.kernel.org>; Mon, 10 Dec 2007 16:17:29 +0100
+Received: from d12av03.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lBAFHSg3021016
+	for <netdev@vger.kernel.org>; Mon, 10 Dec 2007 16:17:29 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 10, 2007 at 05:50:55PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> > Further questions:
-> > Why do you do your own refcounting instead of using kref?
-> 
-> That's because I always used atomic operations as a reference counters
-> and did not tried krefs :)
-> They are the same actually (module tricky arches where smp_mb_* are
-> required), so I can replace them in the next release.
+This patchset continue the work to make the different af_inet6 
+subsystems initialization functions to return an error code and
+to handle the error to fails safely.
 
-Actually not - I have to set reference counter to something other than 1
-or +/- 1, and thus will have to call kref_get() in a loop, which is a
-very ugly step. Is there kref_set() or somethinglike that? At least not
-in 2.6.22 what I'm using for now.
-
-Sigh, I've converted most of the DST already...
-
+It takes into account:
+	* flowlabel
+	* exthdrs
+	* frag
+	* udp
+	* udplite
+	* tcp
+	* raw
 -- 
-	Evgeniy Polyakov
