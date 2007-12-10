@@ -1,57 +1,73 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 5/8] [TFRC]: Loss interval code needs the macros/inlines that were moved
-Date: Mon, 10 Dec 2007 11:31:53 +0000
-Message-ID: <20071210113153.GB4688@gerrit.erg.abdn.ac.uk>
-References: <11971083882331-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881862-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881667-git-send-email-gerrit@erg.abdn.ac.uk> <11971083883685-git-send-email-gerrit@erg.abdn.ac.uk> <1197108388630-git-send-email-gerrit@erg.abdn.ac.uk> <11971083883727-git-send-email-gerrit@erg.abdn.ac.uk> <20071208184711.GF3180@ghostprotocols.net>
+From: "Aggrwal Poonam" <Poonam.Aggrwal@freescale.com>
+Subject: [PATCH 0/3] UCC TDM driver for MPC83xx platforms
+Date: Mon, 10 Dec 2007 17:10:08 +0530
+Message-ID: <FBA61160C48B8D438F3323FEFB4EF2C259F2EE@zin33exm24.fsl.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: "Barkowski Michael" <Michael.Barkowski@freescale.com>,
+	"Phillips Kim" <Kim.Phillips@freescale.com>,
+	"Kalra Ashish" <ashish.kalra@freescale.com>,
+	"Cutler Richard" <Rich.Cutler@freescale.com>
+To: <rubini@vision.unipv.it>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, "Gala Kumar" <kumar.gala@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:34340 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751941AbXLJLch (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2007 06:32:37 -0500
-Content-Disposition: inline
-In-Reply-To: <20071208184711.GF3180@ghostprotocols.net>
+Received: from az33egw01.freescale.net ([192.88.158.102]:47856 "EHLO
+	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751805AbXLJLkQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 06:40:16 -0500
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > 
-| >   distcc[24516] ERROR: compile /root/.ccache/packet_his.tmp.aspire.home.net.24512.i on _tiptop failed
-| >   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c: In function '__one_after_loss':
-| >   /usr/src/davem-2.6/net/dccp/ccids/lib/packet_history.c:266: error: lvalue required as unary '&' operand
-<snip>
-| 
-| Because you do it this way:
-| 
-| tfrc_rx_hist_swap(&TFRC_RX_HIST_ENTRY(h, 0), &TFRC_RX_HIST_ENTRY(h, 3));
-| 
-| I checked and at least in this patch series all uses are of this type,
-| so why not do it using just the indexes, which would be simpler:
-| 
-| tfrc_rx_hist_swap(h, 0, 3);
-| 
-| With this implementation:
-| 
-| static void tfrc_rx_hist_swap(struct tfrc_rx_hist *h, const int a, const int b)
-| {
-| 	const int idx_a = tfrc_rx_hist_index(h, a),
-| 	      int idx_b = tfrc_rx_hist_index(h, b);
-| 	struct tfrc_rx_hist_entry *tmp = h->ring[idx_a];
-| 
-| 	h->ring[idx_a] = h->ring[idx_b];
-| 	h->ring[idx_b] = tmp;
-| }
-| 
-Agreed, that is useful in the present case, since then everything uses
-inlines. The only suggestion I'd like to make is to use `u8' instead of 
-`int' since the indices will have very low values.
 
-There is a related point: you will probably have noticed that loss_interval.c 
-also uses macros. I don't know if you are planning to convert these also into 
-inlines. I think that there would be less benefit in converting these, since
-they are locl to loss_interval.c and mostly serve to improve readability.
+There are three patches
+[PATCH 1/3] drivers/misc : UCC TDM driver for mpc83xx platforms. This
+driver is usable in VoIP iind of applications to interface with SLIC
+kind of devices to exchange TDM voice samples.
 
-As I have at least one other patch to revise (plus another minor one),
-I'll rework this according to the above. 
+[PATCH 2/3] arch/ : Platform changes
+- device tree entries for UCC TDM driver for MPC8323ERDB platform.
+- QE changes related to TDM , like,
+	 1) Modified ucc_fast_init so that it can be used by fast UCC
+based TDM driver. Mainly changes have been made to configure TDM clocks
+and Fsyncs.
+
+	2) Modified get_brg_clk so that it can return the input frequncy
+and input source of any BRG by reading the corresponding entries from
+device tree.
+
+	3) Added new nodes brg and clocks in the device tree which
+represent input clocks for different BRGs.
+
+	4) Modified qe_setbrg accordingly.
+- new device tree entries added for "clocks" and "brg"
+
+[PATCH 3/3] Documentation
+- Modified Documentation to explain the device tree entries related to
+UCC TDM driver and the new nodes added("clocks" and "brg")
+
+The patch applies over a merge of galak's for-2.6.25 plus for-2.6.24
+plus of_doc_update branches.
+In brief the steps were
+git clone
+git://git.kernel.org/pub/scm/linux/kernel/git/galak/powerpc.git
+powerpc-galak
+git checkout -b for-2.6.25 origin/for-2.6.25
+git checkout -b for-2.6.24 origin/for-2.6.24
+git checkout -b of_doc_update origin/of_doc_update
+git pull . for-2.6.24    # merge the other two
+git pull . for-2.6.25 
+git checkout -b tdm      # clean slate for tdm rebase work
+
+Also after applying the patches changes have to be made corresponding to
+Tabi's patch "qe: add function qe_clock_source".
+
+The driver has been tested with a VoIP stack and application on
+MPC8323ERDB.
+
+With Regards
+Poonam 
+ 
+ 
