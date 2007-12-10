@@ -1,33 +1,50 @@
-From: "Pekka Enberg" <penberg@cs.helsinki.fi>
-Subject: Re: [PATCH] drivers/net/ipg: Remove local definition of TRUE/FALSE
-Date: Mon, 10 Dec 2007 21:54:17 +0200
-Message-ID: <84144f020712101154u26b2d594jab199ea8804ed3bc@mail.gmail.com>
-References: <20071210193139.16433.95480.sendpatchset@thinktank.campus.ltu.se>
+From: Kay Sievers <kay.sievers@vrfy.org>
+Subject: Re: [1/4] DST: Distributed storage documentation.
+Date: Mon, 10 Dec 2007 20:56:49 +0100
+Message-ID: <1197316609.6399.124.camel@lov.site>
+References: <11972872493977@2ka.mipt.ru> <11972872501664@2ka.mipt.ru>
+	 <3ae72650712100451h6a84d6cfs9b3a2954c13c4612@mail.gmail.com>
+	 <20071210125839.GA16789@2ka.mipt.ru> <1197297108.6399.91.camel@lov.site>
+	 <20071210145055.GB7184@2ka.mipt.ru> <1197313348.6399.106.camel@lov.site>
+	 <20071210193304.GA24737@2ka.mipt.ru> <1197315895.6399.121.camel@lov.site>
+	 <20071210195145.GA29132@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, romieu@fr.zoreil.com
-To: "Richard Knutsson" <ricknu-0@student.ltu.se>
+Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, Greg KH <greg@kroah.com>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.189]:15403 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751304AbXLJTyS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 14:54:18 -0500
-Received: by rv-out-0910.google.com with SMTP id k20so1739950rvb
-        for <netdev@vger.kernel.org>; Mon, 10 Dec 2007 11:54:17 -0800 (PST)
-In-Reply-To: <20071210193139.16433.95480.sendpatchset@thinktank.campus.ltu.se>
-Content-Disposition: inline
+Received: from moutng.kundenserver.de ([212.227.126.179]:64635 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752374AbXLJT4l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 14:56:41 -0500
+In-Reply-To: <20071210195145.GA29132@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Richard,
+On Mon, 2007-12-10 at 22:51 +0300, Evgeniy Polyakov wrote:
+> On Mon, Dec 10, 2007 at 08:44:55PM +0100, Kay Sievers (kay.sievers@vrfy.org) wrote:
+> > > > > Actually not - I have to set reference counter to something other than 1
+> > > > > or +/- 1, and thus will have to call kref_get() in a loop, which is a
+> > > > > very ugly step. Is there kref_set() or somethinglike that? At least not
+> > > > > in 2.6.22 what I'm using for now.
+> > > > 
+> > > > Yeah, a loop would look pretty ugly. How about just adding kref_set(),
+> > > > if you need it.
+> > > 
+> > > Well, then it distributed storage will not be able to build as
+> > > standalone module, and kref_set() itself will not be accepted as a single 
+> > > patch, since there are no in-kernel users :)
+> > > It is easily doable though.
+> > 
+> > Most rules have exceptions. :) Send a patch, so we can see how it looks
+> > like.
+> 
+> It looks really non-trivial :)
 
-On Dec 10, 2007 9:29 PM, Richard Knutsson <ricknu-0@student.ltu.se> wrote:
-> Remove local definition of TRUE/FALSE.
+Yeah, it does. :)
+We miss an EXPORT_SYMBOL(), right?
 
-This is already fixed in Francois' tree:
+Kay
 
-http://git.kernel.org/?p=linux/kernel/git/romieu/netdev-2.6.git;a=commitdiff;h=2af61e99e3d1c959840ea007ff56b15db794fb99
-
-                               Pekka
