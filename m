@@ -1,36 +1,42 @@
-From: Richard Knutsson <ricknu-0@student.ltu.se>
-Subject: Re: [PATCH] drivers/net/ipg: Remove local definition of TRUE/FALSE
-Date: Mon, 10 Dec 2007 21:04:10 +0100
-Message-ID: <475D9BBA.30101@student.ltu.se>
-References: <20071210193139.16433.95480.sendpatchset@thinktank.campus.ltu.se> <84144f020712101154u26b2d594jab199ea8804ed3bc@mail.gmail.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH 8/8] [PATCH v2] [CCID3]: Interface CCID3 code with
+	newer Loss Intervals Database
+Date: Mon, 10 Dec 2007 19:04:16 -0200
+Message-ID: <20071210210416.GB24046@ghostprotocols.net>
+References: <11971083882331-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881862-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881667-git-send-email-gerrit@erg.abdn.ac.uk> <11971083883685-git-send-email-gerrit@erg.abdn.ac.uk> <1197108388630-git-send-email-gerrit@erg.abdn.ac.uk> <11971083883727-git-send-email-gerrit@erg.abdn.ac.uk> <11971083882049-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881748-git-send-email-gerrit@erg.abdn.ac.uk> <11971083882534-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, romieu@fr.zoreil.com
-To: Pekka Enberg <penberg@cs.helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gepetto.dc.ltu.se ([130.240.42.40]:60484 "EHLO
-	gepetto.dc.ltu.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751081AbXLJUIg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 15:08:36 -0500
-In-Reply-To: <84144f020712101154u26b2d594jab199ea8804ed3bc@mail.gmail.com>
+Received: from mx1.redhat.com ([66.187.233.31]:43078 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751746AbXLJVEW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2007 16:04:22 -0500
+Content-Disposition: inline
+In-Reply-To: <11971083882534-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pekka Enberg wrote:
-> Hi Richard,
->
-> On Dec 10, 2007 9:29 PM, Richard Knutsson <ricknu-0@student.ltu.se> wrote:
->   
->> Remove local definition of TRUE/FALSE.
->>     
->
-> This is already fixed in Francois' tree:
->
-> http://git.kernel.org/?p=linux/kernel/git/romieu/netdev-2.6.git;a=commitdiff;h=2af61e99e3d1c959840ea007ff56b15db794fb99
->   
-I see, thanks.
+Em Sat, Dec 08, 2007 at 10:06:28AM +0000, Gerrit Renker escreveu:
+> This hooks up the TFRC Loss Interval database with CCID 3 packet reception.
+> In addition, it makes the CCID-specific computation of the first loss
+> interval (which requires access to all the guts of CCID3) local to ccid3.c.
+> 
+> The patch also fixes an omission in the DCCP code, that of a default /
+> fallback RTT value (defined in section 3.4 of RFC 4340 as 0.2 sec); while
+> at it, the  upper bound of 4 seconds for an RTT sample has  been reduced to
+> match the initial TCP RTO value of 3 seconds from[RFC 1122, 4.2.3.1].
+> 
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 
-Richard Knutsson
+When interfacing we must make sure that ccid3 tfrc_lh_slab is created
+and then tfrc_li_cachep is not needed. I'm doing this while keeping
+the structure of the patches, i.e. one introducing, the other removing.
+But we need to create tfrc_lh_slab if we want the tree to be bisectable.
 
+I'm doing this and keeping your Signed-off-line, please holler if you
+disagree for some reason.
+
+- Arnaldo
