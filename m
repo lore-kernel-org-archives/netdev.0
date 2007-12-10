@@ -1,50 +1,50 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] [TCP]: Bind fackets_out state to highest_sack more
- tightly
-Date: Mon, 10 Dec 2007 14:39:46 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0712101437080.3437@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0712101426010.18529@kivilampi-30.cs.helsinki.fi>
- <20071210.043127.60066660.davem@davemloft.net>
+From: "Kay Sievers" <kay.sievers@vrfy.org>
+Subject: Re: [1/4] DST: Distributed storage documentation.
+Date: Mon, 10 Dec 2007 13:51:43 +0100
+Message-ID: <3ae72650712100451h6a84d6cfs9b3a2954c13c4612@mail.gmail.com>
+References: <11972872493977@2ka.mipt.ru> <11972872501664@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-769200794-1197290386=:3437"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:55827 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750806AbXLJMjs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 07:39:48 -0500
-In-Reply-To: <20071210.043127.60066660.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, "Greg KH" <greg@kroah.com>
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <11972872501664@2ka.mipt.ru>
+Content-Disposition: inline
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Dec 10, 2007 12:47 PM, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> diff --git a/Documentation/dst/sysfs.txt b/Documentation/dst/sysfs.txt
+> new file mode 100644
+> index 0000000..79d79dc
+> --- /dev/null
+> +++ b/Documentation/dst/sysfs.txt
+> @@ -0,0 +1,30 @@
+> +This file describes sysfs files created for each storage.
+> +
+> +1. Per-storage files.
+> +Each storage has its own dir /sysfs/devices/$storage_name,
 
----696243703-769200794-1197290386=:3437
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+It's always /sys/devices/.
 
-On Mon, 10 Dec 2007, David Miller wrote:
+> +which contains following files:
+> +
+> +alg - contains name of the algorithm used to created given storage
+> +name - name of the storage
+> +nodes - map of the storage (list of nodes and their sizes and starts)
+> +remove_all_nodes - writable file which allows to remove all nodes from given
+> +       storage
+> +n-$start-$cookie - per node directory, where
+> +       $start - start of the given node in sectors,
+> +       $cookie - unique node's id used by DST
+> +
+> +2. Per-node files.
+> +Node's files are located in /sysfs/devices/$storage_name/n-$start-$cookie
+> +directory, described above.
 
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Mon, 10 Dec 2007 14:27:24 +0200 (EET)
-> 
-> > Added checks will catch most of the errors if the current
-> > complex fack_count counting logic is flawed somewhere.
-> > 
-> > Fackets_out should always be advancable if highest_sack is too
-> > because the fackets_out is nowadays accurate (and obviously it
-> > must be smaller than packets_out).
-> > 
-> > Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-> 
-> Applied to net-2.6.25, thanks!
+To which class or bus do the devices you create belong? Care to show a
+"tree" or "ls -la" of the device?
 
-Please get the fack_count fix as well from the mm1 thread before my 
-mailbox gets filled with stacktraces :-) :
-  http://marc.info/?l=linux-netdev&m=119728952018975&w=2
-
--- 
- i.
----696243703-769200794-1197290386=:3437--
+Kay
