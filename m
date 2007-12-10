@@ -1,16 +1,16 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [IPv4] ESP: Discard dummy packets introduced in rfc4303
-Date: Mon, 10 Dec 2007 23:17:03 +0100
-Message-ID: <20071210221703.GG11220@postel.suug.ch>
+Subject: [IPv6] ESP: Discard dummy packets introduced in rfc4303
+Date: Mon, 10 Dec 2007 23:18:07 +0100
+Message-ID: <20071210221807.GH11220@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: davem@damveloft.net, herbert@gondor.apana.org.au
+To: davem@davemloft.net, herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:46629 "EHLO postel.suug.ch"
+Received: from postel.suug.ch ([194.88.212.233]:46704 "EHLO postel.suug.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750912AbXLJWlH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2007 17:41:07 -0500
+	id S1751935AbXLJWlK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2007 17:41:10 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -22,26 +22,20 @@ be parsed as it consists of random chunk.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Index: net-2.6.25/net/ipv4/esp4.c
+Index: net-2.6.25/net/ipv6/esp6.c
 ===================================================================
---- net-2.6.25.orig/net/ipv4/esp4.c	2007-12-10 15:57:23.000000000 +0100
-+++ net-2.6.25/net/ipv4/esp4.c	2007-12-10 16:06:10.000000000 +0100
-@@ -9,6 +9,7 @@
- #include <linux/pfkeyv2.h>
- #include <linux/random.h>
- #include <linux/spinlock.h>
-+#include <linux/in6.h>
- #include <net/icmp.h>
- #include <net/protocol.h>
- #include <net/udp.h>
-@@ -233,6 +234,10 @@
+--- net-2.6.25.orig/net/ipv6/esp6.c	2007-12-10 16:06:02.000000000 +0100
++++ net-2.6.25/net/ipv6/esp6.c	2007-12-10 16:08:02.000000000 +0100
+@@ -238,6 +238,12 @@
+ 		}
+ 		/* ... check padding bits here. Silly. :-) */
  
- 	/* ... check padding bits here. Silly. :-) */
- 
-+	/* RFC4303: Drop dummy packets without any error */
-+	if (nexthdr[1] == IPPROTO_NONE)
-+		goto out;
++		/* RFC4303: Drop dummy packets without any error */
++		if (nexthdr[1] == IPPROTO_NONE) {
++			ret = -EINVAL;
++			goto out;
++		}
 +
- 	iph = ip_hdr(skb);
- 	ihl = iph->ihl * 4;
- 
+ 		pskb_trim(skb, skb->len - alen - padlen - 2);
+ 		ret = nexthdr[1];
+ 	}
