@@ -1,118 +1,58 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [patch 3/5] ipv6:  make frag to return an error at initialization
-Date: Mon, 10 Dec 2007 16:09:13 +0100
-Message-ID: <20071210151434.595423844@ICON-9-164-138-215.megacenter.de.ibm.com>
-References: <20071210150910.440970057@ICON-9-164-138-215.megacenter.de.ibm.com>
-Cc: yoshfuji@linux-ipv6.org, pekkas@netcore.fi, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: "Marco Berizzi" <pupilla@hotmail.com>
+Subject: Re: routing policy based on u32 classifier
+Date: Mon, 10 Dec 2007 16:20:49 +0100
+Message-ID: <BAY103-DAV999F982646869B2E4AABAB26B0@phx.gbl>
+References: <BAY103-DAV51710C05B584C53DED66DB26B0@phx.gbl> <5A630F46702DD1498FFD48394B4A664C347275DD@john.ad.clarku.edu>
+To: "Brian S Julin" <BJulin@clarku.edu>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.uk.ibm.com ([195.212.29.136]:24775 "EHLO
-	mtagate3.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751750AbXLJPSQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 10:18:16 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate3.uk.ibm.com (8.13.8/8.13.8) with ESMTP id lBAFIFIQ105716
-	for <netdev@vger.kernel.org>; Mon, 10 Dec 2007 15:18:15 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lBAFIEOp4440246
-	for <netdev@vger.kernel.org>; Mon, 10 Dec 2007 15:18:14 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lBAFHsMm011484
-	for <netdev@vger.kernel.org>; Mon, 10 Dec 2007 15:17:58 GMT
-Content-Disposition: inline; filename=make-ip6-frag-init-return-an-error.patch
+Received: from bay0-omc2-s11.bay0.hotmail.com ([65.54.246.147]:61984 "EHLO
+	bay0-omc2-s11.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751304AbXLJPWR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 10:22:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes the frag_init to return an error code, so the af_inet6
-module can handle the error.
+Brian S Julin wrote:
 
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
----
- include/net/transp_v6.h |    3 ++-
- net/ipv6/af_inet6.c     |    8 ++++++--
- net/ipv6/reassembly.c   |   16 +++++++++++++---
- 3 files changed, 21 insertions(+), 6 deletions(-)
+Marco wrote:
 
-Index: net-2.6.25/include/net/transp_v6.h
-===================================================================
---- net-2.6.25.orig/include/net/transp_v6.h
-+++ net-2.6.25/include/net/transp_v6.h
-@@ -19,7 +19,8 @@ struct flowi;
- /* extention headers */
- extern int				ipv6_exthdrs_init(void);
- extern void				ipv6_exthdrs_exit(void);
--extern void				ipv6_frag_init(void);
-+extern int				ipv6_frag_init(void);
-+extern void				ipv6_frag_exit(void);
- 
- /* transport protocols */
- extern void				rawv6_init(void);
-Index: net-2.6.25/net/ipv6/af_inet6.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/af_inet6.c
-+++ net-2.6.25/net/ipv6/af_inet6.c
-@@ -863,7 +863,9 @@ static int __init inet6_init(void)
- 	if (err)
- 		goto ipv6_exthdrs_fail;
- 
--	ipv6_frag_init();
-+	err = ipv6_frag_init();
-+	if (err)
-+		goto ipv6_frag_fail;
- 
- 	/* Init v6 transport protocols. */
- 	udpv6_init();
-@@ -875,6 +877,8 @@ static int __init inet6_init(void)
- out:
- 	return err;
- 
-+ipv6_frag_fail:
-+	ipv6_exthdrs_exit();
- ipv6_exthdrs_fail:
- 	addrconf_cleanup();
- addrconf_fail:
-@@ -934,7 +938,7 @@ static void __exit inet6_exit(void)
- 
- 	/* Cleanup code parts. */
- 	ipv6_packet_cleanup();
--
-+	ipv6_frag_exit();
- 	ipv6_exthdrs_exit();
- 	addrconf_cleanup();
- 	ip6_flowlabel_cleanup();
-Index: net-2.6.25/net/ipv6/reassembly.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/reassembly.c
-+++ net-2.6.25/net/ipv6/reassembly.c
-@@ -632,11 +632,13 @@ static struct inet6_protocol frag_protoc
- 	.flags		=	INET6_PROTO_NOPOLICY,
- };
- 
--void __init ipv6_frag_init(void)
-+int __init ipv6_frag_init(void)
- {
--	if (inet6_add_protocol(&frag_protocol, IPPROTO_FRAGMENT) < 0)
--		printk(KERN_ERR "ipv6_frag_init: Could not register protocol\n");
-+	int ret;
- 
-+	ret = inet6_add_protocol(&frag_protocol, IPPROTO_FRAGMENT);
-+	if (ret)
-+		goto out;
- 	ip6_frags.ctl = &ip6_frags_ctl;
- 	ip6_frags.hashfn = ip6_hashfn;
- 	ip6_frags.constructor = ip6_frag_init;
-@@ -646,4 +648,12 @@ void __init ipv6_frag_init(void)
- 	ip6_frags.match = ip6_frag_match;
- 	ip6_frags.frag_expire = ip6_frag_expire;
- 	inet_frags_init(&ip6_frags);
-+out:
-+	return ret;
-+}
-+
-+void ipv6_frag_exit(void)
-+{
-+	inet_frags_fini(&ip6_frags);
-+	inet6_del_protocol(&frag_protocol, IPPROTO_FRAGMENT);
- }
+> > Hello everybody.
+> > Kindly, I would like to know if the is any plan to add this feature
+to a > > future kernel release.
+> > I know that fwmark is able to do this, but there is the limitation
+in
+> > source ip address selection.
 
--- 
+> Could you explain the limitation?
+
+Indeed.
+Here is an example:
+
+    hdsl|  |adsl
+    line|  |line
+        |  |
+      +------+
+      |      |
+      |SQUID |
+      |      |
+      +------+
+          |
+  internal|
+    lan   |
+
+
+The linux default gateway point to the hdsl
+router. I want to redirect the squid http
+traffic (running on the same host) to the adsl
+line. So I create a routing table (adsl table)
+and I put a default route to the adsl router.
+I mark the http traffic. I insert a rule
+based on fwmark which select the 'adsl table'.
+So far, so good. But, squid will select the
+source ip address from the hdsl network class,
+because it is the default gateway.
+Then, the local generated packets must be SNATed
+with the adsl ip.
+Is it clear?
+
+
