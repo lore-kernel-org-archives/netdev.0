@@ -1,170 +1,88 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [PATCH 2.6.25] netns: struct net content re-work
-Date: Mon, 10 Dec 2007 18:32:57 +0100
-Message-ID: <475D7849.3030206@fr.ibm.com>
-References: <20071210163645.GA24030@iris.sw.ru>
+From: Arkadiusz Miskiewicz <arekm@maven.pl>
+Subject: htb and UDP packages bigger than 1500
+Date: Mon, 10 Dec 2007 18:10:50 +0100
+Message-ID: <200712101810.50730.arekm@maven.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, containers@lists.osdl.org, devel@openvz.org,
-	netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: "Denis V. Lunev" <den@openvz.org>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([195.212.29.140]:54129 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752787AbXLJRgm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 12:36:42 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate7.uk.ibm.com (8.13.8/8.13.8) with ESMTP id lBAHafv1537480
-	for <netdev@vger.kernel.org>; Mon, 10 Dec 2007 17:36:41 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lBAHafbO4870282
-	for <netdev@vger.kernel.org>; Mon, 10 Dec 2007 17:36:41 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lBAHaOr4012952
-	for <netdev@vger.kernel.org>; Mon, 10 Dec 2007 17:36:25 GMT
-In-Reply-To: <20071210163645.GA24030@iris.sw.ru>
+Received: from main.carme.maven.pl ([193.239.45.138]:34268 "EHLO
+	main.carme.maven.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753237AbXLJRiL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 12:38:11 -0500
+Received: from chello089076027229.chello.pl ([89.76.27.229] helo=[192.168.0.124])
+	by main.carme.maven.pl with esmtpa (Exim 4.67)
+	(envelope-from <arekm@maven.pl>)
+	id 1J1m9i-0005eb-0M
+	for netdev@vger.kernel.org; Mon, 10 Dec 2007 18:10:58 +0100
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denis V. Lunev wrote:
-> Recently David Miller and Herbert Xu pointed out that struct net becomes
-> overbloated and un-maintainable. There are two solutions:
-> - provide a pointer to a network subsystem definition from struct net.
->   This costs an additional dereferrence
-> - place sub-system definition into the structure itself. This will speedup
->   run-time access at the cost of recompilation time
-> 
-> The second approach looks better for us. 
+Hello,
 
-Yes, we do not need/want a pointer in this structure and add more 
-dereference in the network code.
+I noticed that HTB doesn't properly limit traffic if someone sends UDP=20
+packages bigger than 1500.=20
 
-> Other sub-systems will be converted
-> to this approach if this will be accepted :)
-> 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
-> ---
-> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-> index b62e31f..f60e1ce 100644
-> --- a/include/net/net_namespace.h
-> +++ b/include/net/net_namespace.h
-> @@ -8,6 +8,8 @@
->  #include <linux/workqueue.h>
->  #include <linux/list.h>
-> 
-> +#include <net/netns/unix.h>
-> +
->  struct proc_dir_entry;
->  struct net_device;
->  struct sock;
-> @@ -46,8 +48,7 @@ struct net {
->  	struct hlist_head	packet_sklist;
-> 
->  	/* unix sockets */
-> -	int			sysctl_unix_max_dgram_qlen;
-> -	struct ctl_table_header	*unix_ctl;
-> +	struct netns_unix	unx;
+Does HTB have some problems/known limits in this area?
 
-Can you change this from unx to unix ?
+There is other traffic in that class and when I drop udp packets bigger=
+ than=20
+1500 then remaining traffic is limited properly to correct value.
 
-If you encapsulate the structure definitions per subsystem, you can drop 
-the unix prefix in the variable declaration.
+udp part of tcpdump log:
+17:35:24.041364 IP 172.16.4.23.3185 > 80.51.230.58.9267: UDP, length 35
+17:35:24.048834 IP 172.16.4.23.46073 > 83.53.197.205.50882: UDP, length=
+ 35
+17:35:24.071234 IP 172.16.4.23.2904 > 81.38.28.69.26349: UDP, length 35
+17:35:24.076924 IP 201.232.209.115.50750 > 172.16.4.23.57590: UDP, leng=
+th 8251
+17:35:24.140895 IP 90.242.120.252.11982 > 172.16.4.23.19111: UDP, lengt=
+h 35
+17:35:24.140976 IP 79.186.64.121.47130 > 172.16.4.23.19111: UDP, length=
+ 35
+17:35:24.141039 IP 24.150.182.77.55984 > 172.16.4.23.41279: UDP, length=
+ 29
+17:35:24.141120 IP 83.37.212.153.25153 > 172.16.4.23.32824: UDP, length=
+ 8251
+17:35:24.154874 IP 172.16.4.23.19111 > 90.242.120.252.11982: UDP, lengt=
+h 8251
+17:35:24.210940 IP 83.8.18.150.28955 > 172.16.4.23.24825: UDP, length 8=
+251
+17:35:24.240382 IP 172.16.4.23.19111 > 79.186.64.121.47130: UDP, length=
+ 8251
+17:35:24.272529 IP 83.19.224.219.32977 > 172.16.4.23.19111: UDP, length=
+ 35
+17:35:24.307164 IP 85.219.10.150.18601 > 172.16.4.23.51986: UDP, length=
+ 8251
+17:35:24.312335 IP 83.26.249.97.10137 > 172.16.4.23.9383: UDP, length 8=
+251
+17:35:24.404250 IP 83.19.224.11.1833 > 172.16.4.23.21258: UDP, length 8=
+251
+17:35:24.467562 IP 196.206.89.182.58764 > 172.16.4.23.19111: UDP, lengt=
+h 35
+17:35:24.560058 IP 172.16.4.23.50417 > 82.5.204.164.1024: UDP, length 2=
+5
+17:35:24.563842 IP 172.16.4.23.24825 > 83.8.18.150.28955: UDP, length 3=
+5
+17:35:24.567316 IP 172.16.4.23.59727 > 195.60.65.36.61323: UDP, length =
+35
+17:35:24.569976 IP 83.11.67.228.31949 > 172.16.4.23.56823: UDP, length =
+8251
+17:35:24.617104 IP 172.16.4.23.28945 > 76.11.24.115.13887: UDP, length =
+29
+17:35:24.619235 IP 172.16.4.23.21258 > 83.19.224.11.1833: UDP, length 3=
+5
+17:35:24.626488 IP 172.16.4.23.9383 > 83.26.249.97.10137: UDP, length 3=
+5
+17:35:24.640367 IP 172.16.4.23.47366 > 91.146.230.1.38928: UDP, length =
+25
+17:35:24.644314 IP 90.242.120.252.1955 > 172.16.4.23.19111: UDP, length=
+ 35
+17:35:24.652024 IP 81.184.124.145.22454 > 172.16.4.23.57089: UDP, lengt=
+h 8251
 
-Instead of having:
-	netns->unix->unix_ctl
-you will have:
-	netns->unix->ctl
-
->  };
-> 
->  #ifdef CONFIG_NET
-> diff --git a/include/net/netns/unix.h b/include/net/netns/unix.h
-> new file mode 100644
-> index 0000000..27b4e7f
-> --- /dev/null
-> +++ b/include/net/netns/unix.h
-> @@ -0,0 +1,13 @@
-> +/*
-> + * Unix network namespace
-> + */
-> +#ifndef __NETNS_UNIX_H__
-> +#define __NETNS_UNIX_H__
-> +
-> +struct ctl_table_header;
-> +struct netns_unix {
-> +	int			sysctl_unix_max_dgram_qlen;
-> +	struct ctl_table_header	*unix_ctl;
-> +};
-> +
-> +#endif /* __NETNS_UNIX_H__ */
-
-If I follow the logic, we will have a file per subsystem. These files 
-will be very small, no ?
-IMHO, having the structure defined in net_namespace.h is enough.
-
-> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-> index b8a2189..06f7ec8 100644
-> --- a/net/unix/af_unix.c
-> +++ b/net/unix/af_unix.c
-> @@ -592,7 +592,7 @@ static struct sock * unix_create1(struct net *net, struct socket *sock)
->  				&af_unix_sk_receive_queue_lock_key);
-> 
->  	sk->sk_write_space	= unix_write_space;
-> -	sk->sk_max_ack_backlog	= net->sysctl_unix_max_dgram_qlen;
-> +	sk->sk_max_ack_backlog	= net->unx.sysctl_unix_max_dgram_qlen;
->  	sk->sk_destruct		= unix_sock_destructor;
->  	u	  = unix_sk(sk);
->  	u->dentry = NULL;
-> @@ -2138,7 +2138,7 @@ static int unix_net_init(struct net *net)
->  {
->  	int error = -ENOMEM;
-> 
-> -	net->sysctl_unix_max_dgram_qlen = 10;
-> +	net->unx.sysctl_unix_max_dgram_qlen = 10;
->  	if (unix_sysctl_register(net))
->  		goto out;
-> 
-> diff --git a/net/unix/sysctl_net_unix.c b/net/unix/sysctl_net_unix.c
-> index 553ef6a..fbddfb5 100644
-> --- a/net/unix/sysctl_net_unix.c
-> +++ b/net/unix/sysctl_net_unix.c
-> @@ -18,7 +18,7 @@ static ctl_table unix_table[] = {
->  	{
->  		.ctl_name	= NET_UNIX_MAX_DGRAM_QLEN,
->  		.procname	= "max_dgram_qlen",
-> -		.data		= &init_net.sysctl_unix_max_dgram_qlen,
-> +		.data		= &init_net.unx.sysctl_unix_max_dgram_qlen,
->  		.maxlen		= sizeof(int),
->  		.mode		= 0644,
->  		.proc_handler	= &proc_dointvec
-> @@ -40,9 +40,9 @@ int unix_sysctl_register(struct net *net)
->  	if (table == NULL)
->  		goto err_alloc;
-> 
-> -	table[0].data = &net->sysctl_unix_max_dgram_qlen;
-> -	net->unix_ctl = register_net_sysctl_table(net, unix_path, table);
-> -	if (net->unix_ctl == NULL)
-> +	table[0].data = &net->unx.sysctl_unix_max_dgram_qlen;
-> +	net->unx.unix_ctl = register_net_sysctl_table(net, unix_path, table);
-> +	if (net->unx.unix_ctl == NULL)
->  		goto err_reg;
-> 
->  	return 0;
-> @@ -57,8 +57,8 @@ void unix_sysctl_unregister(struct net *net)
->  {
->  	struct ctl_table *table;
-> 
-> -	table = net->unix_ctl->ctl_table_arg;
-> -	unregister_sysctl_table(net->unix_ctl);
-> +	table = net->unx.unix_ctl->ctl_table_arg;
-> +	unregister_sysctl_table(net->unx.unix_ctl);
->  	kfree(table);
->  }
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
+--=20
+Arkadiusz Mi=B6kiewicz        PLD/Linux Team
+arekm / maven.pl            http://ftp.pld-linux.org/
