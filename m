@@ -1,13 +1,17 @@
-From: =?ISO-8859-1?Q?Aur=E9lien_Charbon?= <aurelien.charbon@ext.bull.net>
-Subject: [PATCH] IPv6 support for NFS server
-Date: Mon, 10 Dec 2007 19:34:41 +0100
-Message-ID: <475D86C1.6070400@ext.bull.net>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH] IPv6 support for NFS server
+Date: Mon, 10 Dec 2007 13:34:14 -0500
+Message-ID: <20071210183414.GB28557@fieldses.org>
+References: <475D86C1.6070400@ext.bull.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------060107010407040905080600"
-To: Neil Brown <neilb@suse.de>, "J. Bruce Fields" <bfields@fieldses.org>,
-	netdev ML <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev ML <netdev@vger.kernel.org>,
 	Mailing list NFSv4 <nfsv4@linux-nfs.org>
+To: =?utf-8?B?QXVyw6lsaWVu?= Charbon <aurelien.charbon@ext.bull.net>
 Return-path: <nfsv4-bounces@linux-nfs.org>
+Content-Disposition: inline
+In-Reply-To: <475D86C1.6070400@ext.bull.net>
 List-Unsubscribe: <http://linux-nfs.org/cgi-bin/mailman/listinfo/nfsv4>,
 	<mailto:nfsv4-request@linux-nfs.org?subject=unsubscribe>
 List-Archive: <http://linux-nfs.org/pipermail/nfsv4>
@@ -19,807 +23,473 @@ Sender: nfsv4-bounces@linux-nfs.org
 Errors-To: nfsv4-bounces@linux-nfs.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060107010407040905080600
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-
-
-Here is a cleanup for the ip_map caching patch in nfs server.
-
-It prepares for IPv6 text-based mounts and exports.
-
-Tests: tested with only IPv4 network and basic nfs ops (mount, file 
-creation and modification)
-
------
-
-Signed-off-by: Aurelien Charbon <aurelien.charbon@bull.net>
-
-diff -p -u -r -N linux-2.6.24-rc4/fs/nfsd/export.c 
-linux-2.6.24-rc4-IPv6-cache-based/fs/nfsd/export.c
---- linux-2.6.24-rc4/fs/nfsd/export.c    2007-12-10 16:11:37.000000000 +0100
-+++ linux-2.6.24-rc4-IPv6-cache-based/fs/nfsd/export.c    2007-12-10 
-17:50:37.000000000 +0100
-@@ -35,6 +35,7 @@
- #include <linux/lockd/bind.h>
- #include <linux/sunrpc/msg_prot.h>
- #include <linux/sunrpc/gss_api.h>
-+#include <net/ipv6.h>
- 
- #define NFSDDBG_FACILITY    NFSDDBG_EXPORT
- 
-@@ -1556,6 +1557,7 @@ exp_addclient(struct nfsctl_client *ncp)
- {
-     struct auth_domain    *dom;
-     int            i, err;
-+    struct in6_addr addr6;
- 
-     /* First, consistency check. */
-     err = -EINVAL;
-@@ -1574,9 +1576,12 @@ exp_addclient(struct nfsctl_client *ncp)
-         goto out_unlock;
- 
-     /* Insert client into hashtable. */
--    for (i = 0; i < ncp->cl_naddr; i++)
--        auth_unix_add_addr(ncp->cl_addrlist[i], dom);
--
-+    for (i = 0; i < ncp->cl_naddr; i++) {
-+        /* Mapping address */
-+        ipv6_addr_set(&addr6, 0, 0,
-+                htonl(0x0000FFFF), ncp->cl_addrlist[i].s_addr);
-+        auth_unix_add_addr(&addr6, dom);
-+    }
-     auth_unix_forget_old(dom);
-     auth_domain_put(dom);
- 
-diff -p -u -r -N linux-2.6.24-rc4/fs/nfsd/nfsctl.c 
-linux-2.6.24-rc4-IPv6-cache-based/fs/nfsd/nfsctl.c
---- linux-2.6.24-rc4/fs/nfsd/nfsctl.c    2007-12-10 16:11:37.000000000 +0100
-+++ linux-2.6.24-rc4-IPv6-cache-based/fs/nfsd/nfsctl.c    2007-12-10 
-18:15:22.000000000 +0100
-@@ -37,6 +37,7 @@
- #include <linux/nfsd/syscall.h>
- 
- #include <asm/uaccess.h>
-+#include <net/ipv6.h>
- 
- /*
-  *    We have a single directory with 9 nodes in it.
-@@ -222,6 +223,7 @@ static ssize_t write_getfs(struct file *
-     struct auth_domain *clp;
-     int err = 0;
-     struct knfsd_fh *res;
-+    struct in6_addr in6;
- 
-     if (size < sizeof(*data))
-         return -EINVAL;
-@@ -236,7 +238,13 @@ static ssize_t write_getfs(struct file *
-     res = (struct knfsd_fh*)buf;
- 
-     exp_readlock();
--    if (!(clp = auth_unix_lookup(sin->sin_addr)))
-+
-+    /* IPv6 address mapping */
-+    ipv6_addr_set(&in6, 0, 0,
-+            htonl(0x0000FFFF),
-+            (((struct sockaddr_in *)&data->gd_addr)->sin_addr.s_addr));
-+
-+    if (!(clp = auth_unix_lookup(in6)))
-         err = -EPERM;
-     else {
-         err = exp_rootfh(clp, data->gd_path, res, data->gd_maxlen);
-@@ -257,6 +265,7 @@ static ssize_t write_getfd(struct file *
-     int err = 0;
-     struct knfsd_fh fh;
-     char *res;
-+    struct in6_addr in6;
- 
-     if (size < sizeof(*data))
-         return -EINVAL;
-@@ -271,7 +280,12 @@ static ssize_t write_getfd(struct file *
-     res = buf;
-     sin = (struct sockaddr_in *)&data->gd_addr;
-     exp_readlock();
--    if (!(clp = auth_unix_lookup(sin->sin_addr)))
-+    /* IPv6 address mapping */
-+    ipv6_addr_set(&in6, 0, 0,
-+            htonl(0x0000FFFF),
-+            (((struct sockaddr_in *)&data->gd_addr)->sin_addr.s_addr));
-+
-+    if (!(clp = auth_unix_lookup(in6)))
-         err = -EPERM;
-     else {
-         err = exp_rootfh(clp, data->gd_path, &fh, NFS_FHSIZE);
-diff -p -u -r -N linux-2.6.24-rc4/include/linux/sunrpc/svcauth.h 
-linux-2.6.24-rc4-IPv6-cache-based/include/linux/sunrpc/svcauth.h
---- linux-2.6.24-rc4/include/linux/sunrpc/svcauth.h    2007-12-10 
-16:01:43.000000000 +0100
-+++ linux-2.6.24-rc4-IPv6-cache-based/include/linux/sunrpc/svcauth.h    
-2007-12-10 17:09:34.000000000 +0100
-@@ -120,10 +120,10 @@ extern void    svc_auth_unregister(rpc_auth
- 
- extern struct auth_domain *unix_domain_find(char *name);
- extern void auth_domain_put(struct auth_domain *item);
--extern int auth_unix_add_addr(struct in_addr addr, struct auth_domain 
-*dom);
-+extern int auth_unix_add_addr(struct in6_addr *addr, struct auth_domain 
-*dom);
- extern struct auth_domain *auth_domain_lookup(char *name, struct 
-auth_domain *new);
- extern struct auth_domain *auth_domain_find(char *name);
--extern struct auth_domain *auth_unix_lookup(struct in_addr addr);
-+extern struct auth_domain *auth_unix_lookup(struct in6_addr *addr);
- extern int auth_unix_forget_old(struct auth_domain *dom);
- extern void svcauth_unix_purge(void);
- extern void svcauth_unix_info_release(void *);
-diff -p -u -r -N linux-2.6.24-rc4/net/sunrpc/svcauth_unix.c 
-linux-2.6.24-rc4-IPv6-cache-based/net/sunrpc/svcauth_unix.c
---- linux-2.6.24-rc4/net/sunrpc/svcauth_unix.c    2007-12-10 
-16:01:46.000000000 +0100
-+++ linux-2.6.24-rc4-IPv6-cache-based/net/sunrpc/svcauth_unix.c    
-2007-12-10 17:38:50.000000000 +0100
-@@ -11,7 +11,8 @@
- #include <linux/hash.h>
- #include <linux/string.h>
- #include <net/sock.h>
--
-+#include <net/ipv6.h>
-+#include <linux/kernel.h>
- #define RPCDBG_FACILITY    RPCDBG_AUTH
- 
- 
-@@ -84,7 +85,7 @@ static void svcauth_unix_domain_release(
- struct ip_map {
-     struct cache_head    h;
-     char            m_class[8]; /* e.g. "nfsd" */
--    struct in_addr        m_addr;
-+    struct in6_addr        m_addr;
-     struct unix_domain    *m_client;
-     int            m_add_change;
- };
-@@ -112,12 +113,19 @@ static inline int hash_ip(__be32 ip)
-     return (hash ^ (hash>>8)) & 0xff;
- }
- #endif
-+static inline int hash_ip6(struct in6_addr ip)
-+{
-+    return (hash_ip(ip.s6_addr32[0]) ^
-+        hash_ip(ip.s6_addr32[1]) ^
-+        hash_ip(ip.s6_addr32[2]) ^
-+        hash_ip(ip.s6_addr32[3]));
-+}
- static int ip_map_match(struct cache_head *corig, struct cache_head *cnew)
- {
-     struct ip_map *orig = container_of(corig, struct ip_map, h);
-     struct ip_map *new = container_of(cnew, struct ip_map, h);
-     return strcmp(orig->m_class, new->m_class) == 0
--        && orig->m_addr.s_addr == new->m_addr.s_addr;
-+        && ipv6_addr_equal(&orig->m_addr, &new->m_addr);
- }
- static void ip_map_init(struct cache_head *cnew, struct cache_head *citem)
- {
-@@ -125,7 +133,7 @@ static void ip_map_init(struct cache_hea
-     struct ip_map *item = container_of(citem, struct ip_map, h);
- 
-     strcpy(new->m_class, item->m_class);
--    new->m_addr.s_addr = item->m_addr.s_addr;
-+    ipv6_addr_copy(&new->m_addr, &item->m_addr);
- }
- static void update(struct cache_head *cnew, struct cache_head *citem)
- {
-@@ -149,22 +157,24 @@ static void ip_map_request(struct cache_
-                   struct cache_head *h,
-                   char **bpp, int *blen)
- {
--    char text_addr[20];
-+    char text_addr[40];
-     struct ip_map *im = container_of(h, struct ip_map, h);
--    __be32 addr = im->m_addr.s_addr;
--
--    snprintf(text_addr, 20, "%u.%u.%u.%u",
--         ntohl(addr) >> 24 & 0xff,
--         ntohl(addr) >> 16 & 0xff,
--         ntohl(addr) >>  8 & 0xff,
--         ntohl(addr) >>  0 & 0xff);
- 
-+    if (ipv6_addr_v4mapped(&(im->m_addr))) {
-+        snprintf(text_addr, 20, NIPQUAD_FMT,
-+                ntohl(im->m_addr.s6_addr32[3]) >> 24 & 0xff,
-+                ntohl(im->m_addr.s6_addr32[3]) >> 16 & 0xff,
-+                ntohl(im->m_addr.s6_addr32[3]) >>  8 & 0xff,
-+                ntohl(im->m_addr.s6_addr32[3]) >>  0 & 0xff);
-+    } else {
-+        snprintf(text_addr, 40, NIP6_FMT, NIP6(im->m_addr));
-+    }
-     qword_add(bpp, blen, im->m_class);
-     qword_add(bpp, blen, text_addr);
-     (*bpp)[-1] = '\n';
- }
- 
--static struct ip_map *ip_map_lookup(char *class, struct in_addr addr);
-+static struct ip_map *ip_map_lookup(char *class, struct in6_addr *addr);
- static int ip_map_update(struct ip_map *ipm, struct unix_domain *udom, 
-time_t expiry);
- 
- static int ip_map_parse(struct cache_detail *cd,
-@@ -175,10 +185,10 @@ static int ip_map_parse(struct cache_det
-      * for scratch: */
-     char *buf = mesg;
-     int len;
--    int b1,b2,b3,b4;
-+    int b1, b2, b3, b4, b5, b6, b7, b8;
-     char c;
-     char class[8];
--    struct in_addr addr;
-+    struct in6_addr addr;
-     int err;
- 
-     struct ip_map *ipmp;
-@@ -197,9 +207,26 @@ static int ip_map_parse(struct cache_det
-     len = qword_get(&mesg, buf, mlen);
-     if (len <= 0) return -EINVAL;
- 
--    if (sscanf(buf, "%u.%u.%u.%u%c", &b1, &b2, &b3, &b4, &c) != 4)
-+    if (sscanf(buf, NIPQUAD_FMT "%c", &b1, &b2, &b3, &b4, &c) == 4) {
-+        addr.s6_addr32[0] = 0;
-+        addr.s6_addr32[1] = 0;
-+        addr.s6_addr32[2] = htonl(0xffff);
-+        addr.s6_addr32[3] =
-+            htonl((((((b1<<8)|b2)<<8)|b3)<<8)|b4);
-+       } else if (sscanf(buf, NIP6_FMT "%c",
-+            &b1, &b2, &b3, &b4, &b5, &b6, &b7, &b8, &c) == 8) {
-+        addr.s6_addr16[0] = htons(b1);
-+        addr.s6_addr16[1] = htons(b2);
-+        addr.s6_addr16[2] = htons(b3);
-+        addr.s6_addr16[3] = htons(b4);
-+        addr.s6_addr16[4] = htons(b5);
-+        addr.s6_addr16[5] = htons(b6);
-+        addr.s6_addr16[6] = htons(b7);
-+        addr.s6_addr16[7] = htons(b8);
-+       } else
-         return -EINVAL;
- 
-+
-     expiry = get_expiry(&mesg);
-     if (expiry ==0)
-         return -EINVAL;
-@@ -215,10 +242,7 @@ static int ip_map_parse(struct cache_det
-     } else
-         dom = NULL;
- 
--    addr.s_addr =
--        htonl((((((b1<<8)|b2)<<8)|b3)<<8)|b4);
--
--    ipmp = ip_map_lookup(class,addr);
-+    ipmp = ip_map_lookup(class, &addr);
-     if (ipmp) {
-         err = ip_map_update(ipmp,
-                  container_of(dom, struct unix_domain, h),
-@@ -238,7 +262,7 @@ static int ip_map_show(struct seq_file *
-                struct cache_head *h)
- {
-     struct ip_map *im;
--    struct in_addr addr;
-+    struct in6_addr addr;
-     char *dom = "-no-domain-";
- 
-     if (h == NULL) {
-@@ -247,20 +271,24 @@ static int ip_map_show(struct seq_file *
-     }
-     im = container_of(h, struct ip_map, h);
-     /* class addr domain */
--    addr = im->m_addr;
-+    ipv6_addr_copy(&addr, &im->m_addr);
- 
-     if (test_bit(CACHE_VALID, &h->flags) &&
-         !test_bit(CACHE_NEGATIVE, &h->flags))
-         dom = im->m_client->h.name;
- 
--    seq_printf(m, "%s %d.%d.%d.%d %s\n",
--           im->m_class,
--           ntohl(addr.s_addr) >> 24 & 0xff,
--           ntohl(addr.s_addr) >> 16 & 0xff,
--           ntohl(addr.s_addr) >>  8 & 0xff,
--           ntohl(addr.s_addr) >>  0 & 0xff,
--           dom
--           );
-+    if (ipv6_addr_v4mapped(&addr)) {
-+        seq_printf(m, "%s" NIPQUAD_FMT "%s\n",
-+            im->m_class,
-+            ntohl(addr.s6_addr32[3]) >> 24 & 0xff,
-+            ntohl(addr.s6_addr32[3]) >> 16 & 0xff,
-+            ntohl(addr.s6_addr32[3]) >>  8 & 0xff,
-+            ntohl(addr.s6_addr32[3]) >>  0 & 0xff,
-+            dom);
-+    } else {
-+        seq_printf(m, "%s" NIP6_FMT "%s\n",
-+            im->m_class, NIP6(addr), dom);
-+    }
-     return 0;
- }
- 
-@@ -280,16 +308,16 @@ struct cache_detail ip_map_cache = {
-     .alloc        = ip_map_alloc,
- };
- 
--static struct ip_map *ip_map_lookup(char *class, struct in_addr addr)
-+static struct ip_map *ip_map_lookup(char *class, struct in6_addr *addr)
- {
-     struct ip_map ip;
-     struct cache_head *ch;
- 
-     strcpy(ip.m_class, class);
--    ip.m_addr = addr;
-+    ipv6_addr_copy(&ip.m_addr, addr);
-     ch = sunrpc_cache_lookup(&ip_map_cache, &ip.h,
-                  hash_str(class, IP_HASHBITS) ^
--                 hash_ip(addr.s_addr));
-+                 hash_ip6(*addr));
- 
-     if (ch)
-         return container_of(ch, struct ip_map, h);
-@@ -318,14 +346,14 @@ static int ip_map_update(struct ip_map *
-     ch = sunrpc_cache_update(&ip_map_cache,
-                  &ip.h, &ipm->h,
-                  hash_str(ipm->m_class, IP_HASHBITS) ^
--                 hash_ip(ipm->m_addr.s_addr));
-+                 hash_ip6(ipm->m_addr));
-     if (!ch)
-         return -ENOMEM;
-     cache_put(ch, &ip_map_cache);
-     return 0;
- }
- 
--int auth_unix_add_addr(struct in_addr addr, struct auth_domain *dom)
-+int auth_unix_add_addr(struct in6_addr *addr, struct auth_domain *dom)
- {
-     struct unix_domain *udom;
-     struct ip_map *ipmp;
-@@ -352,7 +380,7 @@ int auth_unix_forget_old(struct auth_dom
-     return 0;
- }
- 
--struct auth_domain *auth_unix_lookup(struct in_addr addr)
-+struct auth_domain *auth_unix_lookup(struct in6_addr *addr)
- {
-     struct ip_map *ipm;
-     struct auth_domain *rv;
-@@ -641,9 +669,24 @@ static int unix_gid_find(uid_t uid, stru
- int
- svcauth_unix_set_client(struct svc_rqst *rqstp)
- {
--    struct sockaddr_in *sin = svc_addr_in(rqstp);
-+    struct sockaddr_in *sin;
-+    struct sockaddr_in6 *sin6, sin6_storage;
-     struct ip_map *ipm;
- 
-+    switch (rqstp->rq_addr.ss_family) {
-+    case AF_INET:
-+        sin = svc_addr_in(rqstp);
-+        sin6 = &sin6_storage;
-+        ipv6_addr_set(&sin6->sin6_addr, 0, 0,
-+                htonl(0x0000FFFF), sin->sin_addr.s_addr);
-+        break;
-+    case AF_INET6:
-+        sin6 = svc_addr_in6(rqstp);
-+        break;
-+    default:
-+        BUG();
-+    }
-+
-     rqstp->rq_client = NULL;
-     if (rqstp->rq_proc == 0)
-         return SVC_OK;
-@@ -651,7 +694,7 @@ svcauth_unix_set_client(struct svc_rqst
-     ipm = ip_map_cached_get(rqstp);
-     if (ipm == NULL)
-         ipm = ip_map_lookup(rqstp->rq_server->sv_program->pg_class,
--                    sin->sin_addr);
-+                    &sin6->sin6_addr);
- 
-     if (ipm == NULL)
-         return SVC_DENIED;
-
--- 
-
-********************************
-       Aurelien Charbon
-       Linux NFSv4 team
-           Bull SAS
-     Echirolles - France
-http://nfsv4.bullopensource.org/
-********************************
-
-
---------------060107010407040905080600
-Content-Transfer-Encoding: 7bit
-Content-Type: text/x-patch;
- name="linux-2.6.24-rc4-IPv6-cache.diff"
-Content-Disposition: inline;
- filename="linux-2.6.24-rc4-IPv6-cache.diff"
-
-Signed-off-by: Aurelien Charbon <aurelien.charbon@bull.net>
-
-diff -p -u -r -N linux-2.6.24-rc4/fs/nfsd/export.c linux-2.6.24-rc4-IPv6-cache-based/fs/nfsd/export.c
---- linux-2.6.24-rc4/fs/nfsd/export.c	2007-12-10 16:11:37.000000000 +0100
-+++ linux-2.6.24-rc4-IPv6-cache-based/fs/nfsd/export.c	2007-12-10 17:50:37.000000000 +0100
-@@ -35,6 +35,7 @@
- #include <linux/lockd/bind.h>
- #include <linux/sunrpc/msg_prot.h>
- #include <linux/sunrpc/gss_api.h>
-+#include <net/ipv6.h>
- 
- #define NFSDDBG_FACILITY	NFSDDBG_EXPORT
- 
-@@ -1556,6 +1557,7 @@ exp_addclient(struct nfsctl_client *ncp)
- {
- 	struct auth_domain	*dom;
- 	int			i, err;
-+	struct in6_addr addr6;
- 
- 	/* First, consistency check. */
- 	err = -EINVAL;
-@@ -1574,9 +1576,12 @@ exp_addclient(struct nfsctl_client *ncp)
- 		goto out_unlock;
- 
- 	/* Insert client into hashtable. */
--	for (i = 0; i < ncp->cl_naddr; i++)
--		auth_unix_add_addr(ncp->cl_addrlist[i], dom);
--
-+	for (i = 0; i < ncp->cl_naddr; i++) {
-+		/* Mapping address */
-+		ipv6_addr_set(&addr6, 0, 0,
-+				htonl(0x0000FFFF), ncp->cl_addrlist[i].s_addr);
-+		auth_unix_add_addr(&addr6, dom);
-+	}
- 	auth_unix_forget_old(dom);
- 	auth_domain_put(dom);
- 
-diff -p -u -r -N linux-2.6.24-rc4/fs/nfsd/nfsctl.c linux-2.6.24-rc4-IPv6-cache-based/fs/nfsd/nfsctl.c
---- linux-2.6.24-rc4/fs/nfsd/nfsctl.c	2007-12-10 16:11:37.000000000 +0100
-+++ linux-2.6.24-rc4-IPv6-cache-based/fs/nfsd/nfsctl.c	2007-12-10 18:15:22.000000000 +0100
-@@ -37,6 +37,7 @@
- #include <linux/nfsd/syscall.h>
- 
- #include <asm/uaccess.h>
-+#include <net/ipv6.h>
- 
- /*
-  *	We have a single directory with 9 nodes in it.
-@@ -222,6 +223,7 @@ static ssize_t write_getfs(struct file *
- 	struct auth_domain *clp;
- 	int err = 0;
- 	struct knfsd_fh *res;
-+	struct in6_addr in6;
- 
- 	if (size < sizeof(*data))
- 		return -EINVAL;
-@@ -236,7 +238,13 @@ static ssize_t write_getfs(struct file *
- 	res = (struct knfsd_fh*)buf;
- 
- 	exp_readlock();
--	if (!(clp = auth_unix_lookup(sin->sin_addr)))
-+
-+	/* IPv6 address mapping */
-+	ipv6_addr_set(&in6, 0, 0,
-+			htonl(0x0000FFFF),
-+			(((struct sockaddr_in *)&data->gd_addr)->sin_addr.s_addr));
-+
-+	if (!(clp = auth_unix_lookup(in6)))
- 		err = -EPERM;
- 	else {
- 		err = exp_rootfh(clp, data->gd_path, res, data->gd_maxlen);
-@@ -257,6 +265,7 @@ static ssize_t write_getfd(struct file *
- 	int err = 0;
- 	struct knfsd_fh fh;
- 	char *res;
-+	struct in6_addr in6;
- 
- 	if (size < sizeof(*data))
- 		return -EINVAL;
-@@ -271,7 +280,12 @@ static ssize_t write_getfd(struct file *
- 	res = buf;
- 	sin = (struct sockaddr_in *)&data->gd_addr;
- 	exp_readlock();
--	if (!(clp = auth_unix_lookup(sin->sin_addr)))
-+	/* IPv6 address mapping */
-+	ipv6_addr_set(&in6, 0, 0,
-+			htonl(0x0000FFFF),
-+			(((struct sockaddr_in *)&data->gd_addr)->sin_addr.s_addr));
-+
-+	if (!(clp = auth_unix_lookup(in6)))
- 		err = -EPERM;
- 	else {
- 		err = exp_rootfh(clp, data->gd_path, &fh, NFS_FHSIZE);
-diff -p -u -r -N linux-2.6.24-rc4/include/linux/sunrpc/svcauth.h linux-2.6.24-rc4-IPv6-cache-based/include/linux/sunrpc/svcauth.h
---- linux-2.6.24-rc4/include/linux/sunrpc/svcauth.h	2007-12-10 16:01:43.000000000 +0100
-+++ linux-2.6.24-rc4-IPv6-cache-based/include/linux/sunrpc/svcauth.h	2007-12-10 17:09:34.000000000 +0100
-@@ -120,10 +120,10 @@ extern void	svc_auth_unregister(rpc_auth
- 
- extern struct auth_domain *unix_domain_find(char *name);
- extern void auth_domain_put(struct auth_domain *item);
--extern int auth_unix_add_addr(struct in_addr addr, struct auth_domain *dom);
-+extern int auth_unix_add_addr(struct in6_addr *addr, struct auth_domain *dom);
- extern struct auth_domain *auth_domain_lookup(char *name, struct auth_domain *new);
- extern struct auth_domain *auth_domain_find(char *name);
--extern struct auth_domain *auth_unix_lookup(struct in_addr addr);
-+extern struct auth_domain *auth_unix_lookup(struct in6_addr *addr);
- extern int auth_unix_forget_old(struct auth_domain *dom);
- extern void svcauth_unix_purge(void);
- extern void svcauth_unix_info_release(void *);
-diff -p -u -r -N linux-2.6.24-rc4/net/sunrpc/svcauth_unix.c linux-2.6.24-rc4-IPv6-cache-based/net/sunrpc/svcauth_unix.c
---- linux-2.6.24-rc4/net/sunrpc/svcauth_unix.c	2007-12-10 16:01:46.000000000 +0100
-+++ linux-2.6.24-rc4-IPv6-cache-based/net/sunrpc/svcauth_unix.c	2007-12-10 17:38:50.000000000 +0100
-@@ -11,7 +11,8 @@
- #include <linux/hash.h>
- #include <linux/string.h>
- #include <net/sock.h>
--
-+#include <net/ipv6.h>
-+#include <linux/kernel.h>
- #define RPCDBG_FACILITY	RPCDBG_AUTH
- 
- 
-@@ -84,7 +85,7 @@ static void svcauth_unix_domain_release(
- struct ip_map {
- 	struct cache_head	h;
- 	char			m_class[8]; /* e.g. "nfsd" */
--	struct in_addr		m_addr;
-+	struct in6_addr		m_addr;
- 	struct unix_domain	*m_client;
- 	int			m_add_change;
- };
-@@ -112,12 +113,19 @@ static inline int hash_ip(__be32 ip)
- 	return (hash ^ (hash>>8)) & 0xff;
- }
- #endif
-+static inline int hash_ip6(struct in6_addr ip)
-+{
-+	return (hash_ip(ip.s6_addr32[0]) ^
-+		hash_ip(ip.s6_addr32[1]) ^
-+		hash_ip(ip.s6_addr32[2]) ^
-+		hash_ip(ip.s6_addr32[3]));
-+}
- static int ip_map_match(struct cache_head *corig, struct cache_head *cnew)
- {
- 	struct ip_map *orig = container_of(corig, struct ip_map, h);
- 	struct ip_map *new = container_of(cnew, struct ip_map, h);
- 	return strcmp(orig->m_class, new->m_class) == 0
--		&& orig->m_addr.s_addr == new->m_addr.s_addr;
-+		&& ipv6_addr_equal(&orig->m_addr, &new->m_addr);
- }
- static void ip_map_init(struct cache_head *cnew, struct cache_head *citem)
- {
-@@ -125,7 +133,7 @@ static void ip_map_init(struct cache_hea
- 	struct ip_map *item = container_of(citem, struct ip_map, h);
- 
- 	strcpy(new->m_class, item->m_class);
--	new->m_addr.s_addr = item->m_addr.s_addr;
-+	ipv6_addr_copy(&new->m_addr, &item->m_addr);
- }
- static void update(struct cache_head *cnew, struct cache_head *citem)
- {
-@@ -149,22 +157,24 @@ static void ip_map_request(struct cache_
- 				  struct cache_head *h,
- 				  char **bpp, int *blen)
- {
--	char text_addr[20];
-+	char text_addr[40];
- 	struct ip_map *im = container_of(h, struct ip_map, h);
--	__be32 addr = im->m_addr.s_addr;
--
--	snprintf(text_addr, 20, "%u.%u.%u.%u",
--		 ntohl(addr) >> 24 & 0xff,
--		 ntohl(addr) >> 16 & 0xff,
--		 ntohl(addr) >>  8 & 0xff,
--		 ntohl(addr) >>  0 & 0xff);
- 
-+	if (ipv6_addr_v4mapped(&(im->m_addr))) {
-+		snprintf(text_addr, 20, NIPQUAD_FMT,
-+				ntohl(im->m_addr.s6_addr32[3]) >> 24 & 0xff,
-+				ntohl(im->m_addr.s6_addr32[3]) >> 16 & 0xff,
-+				ntohl(im->m_addr.s6_addr32[3]) >>  8 & 0xff,
-+				ntohl(im->m_addr.s6_addr32[3]) >>  0 & 0xff);
-+	} else {
-+		snprintf(text_addr, 40, NIP6_FMT, NIP6(im->m_addr));
-+	}
- 	qword_add(bpp, blen, im->m_class);
- 	qword_add(bpp, blen, text_addr);
- 	(*bpp)[-1] = '\n';
- }
- 
--static struct ip_map *ip_map_lookup(char *class, struct in_addr addr);
-+static struct ip_map *ip_map_lookup(char *class, struct in6_addr *addr);
- static int ip_map_update(struct ip_map *ipm, struct unix_domain *udom, time_t expiry);
- 
- static int ip_map_parse(struct cache_detail *cd,
-@@ -175,10 +185,10 @@ static int ip_map_parse(struct cache_det
- 	 * for scratch: */
- 	char *buf = mesg;
- 	int len;
--	int b1,b2,b3,b4;
-+	int b1, b2, b3, b4, b5, b6, b7, b8;
- 	char c;
- 	char class[8];
--	struct in_addr addr;
-+	struct in6_addr addr;
- 	int err;
- 
- 	struct ip_map *ipmp;
-@@ -197,9 +207,26 @@ static int ip_map_parse(struct cache_det
- 	len = qword_get(&mesg, buf, mlen);
- 	if (len <= 0) return -EINVAL;
- 
--	if (sscanf(buf, "%u.%u.%u.%u%c", &b1, &b2, &b3, &b4, &c) != 4)
-+	if (sscanf(buf, NIPQUAD_FMT "%c", &b1, &b2, &b3, &b4, &c) == 4) {
-+		addr.s6_addr32[0] = 0;
-+		addr.s6_addr32[1] = 0;
-+		addr.s6_addr32[2] = htonl(0xffff);
-+		addr.s6_addr32[3] =
-+			htonl((((((b1<<8)|b2)<<8)|b3)<<8)|b4);
-+       } else if (sscanf(buf, NIP6_FMT "%c",
-+			&b1, &b2, &b3, &b4, &b5, &b6, &b7, &b8, &c) == 8) {
-+		addr.s6_addr16[0] = htons(b1);
-+		addr.s6_addr16[1] = htons(b2);
-+		addr.s6_addr16[2] = htons(b3);
-+		addr.s6_addr16[3] = htons(b4);
-+		addr.s6_addr16[4] = htons(b5);
-+		addr.s6_addr16[5] = htons(b6);
-+		addr.s6_addr16[6] = htons(b7);
-+		addr.s6_addr16[7] = htons(b8);
-+       } else
- 		return -EINVAL;
- 
-+
- 	expiry = get_expiry(&mesg);
- 	if (expiry ==0)
- 		return -EINVAL;
-@@ -215,10 +242,7 @@ static int ip_map_parse(struct cache_det
- 	} else
- 		dom = NULL;
- 
--	addr.s_addr =
--		htonl((((((b1<<8)|b2)<<8)|b3)<<8)|b4);
--
--	ipmp = ip_map_lookup(class,addr);
-+	ipmp = ip_map_lookup(class, &addr);
- 	if (ipmp) {
- 		err = ip_map_update(ipmp,
- 			     container_of(dom, struct unix_domain, h),
-@@ -238,7 +262,7 @@ static int ip_map_show(struct seq_file *
- 		       struct cache_head *h)
- {
- 	struct ip_map *im;
--	struct in_addr addr;
-+	struct in6_addr addr;
- 	char *dom = "-no-domain-";
- 
- 	if (h == NULL) {
-@@ -247,20 +271,24 @@ static int ip_map_show(struct seq_file *
- 	}
- 	im = container_of(h, struct ip_map, h);
- 	/* class addr domain */
--	addr = im->m_addr;
-+	ipv6_addr_copy(&addr, &im->m_addr);
- 
- 	if (test_bit(CACHE_VALID, &h->flags) &&
- 	    !test_bit(CACHE_NEGATIVE, &h->flags))
- 		dom = im->m_client->h.name;
- 
--	seq_printf(m, "%s %d.%d.%d.%d %s\n",
--		   im->m_class,
--		   ntohl(addr.s_addr) >> 24 & 0xff,
--		   ntohl(addr.s_addr) >> 16 & 0xff,
--		   ntohl(addr.s_addr) >>  8 & 0xff,
--		   ntohl(addr.s_addr) >>  0 & 0xff,
--		   dom
--		   );
-+	if (ipv6_addr_v4mapped(&addr)) {
-+		seq_printf(m, "%s" NIPQUAD_FMT "%s\n",
-+			im->m_class,
-+			ntohl(addr.s6_addr32[3]) >> 24 & 0xff,
-+			ntohl(addr.s6_addr32[3]) >> 16 & 0xff,
-+			ntohl(addr.s6_addr32[3]) >>  8 & 0xff,
-+			ntohl(addr.s6_addr32[3]) >>  0 & 0xff,
-+			dom);
-+	} else {
-+		seq_printf(m, "%s" NIP6_FMT "%s\n",
-+			im->m_class, NIP6(addr), dom);
-+	}
- 	return 0;
- }
- 
-@@ -280,16 +308,16 @@ struct cache_detail ip_map_cache = {
- 	.alloc		= ip_map_alloc,
- };
- 
--static struct ip_map *ip_map_lookup(char *class, struct in_addr addr)
-+static struct ip_map *ip_map_lookup(char *class, struct in6_addr *addr)
- {
- 	struct ip_map ip;
- 	struct cache_head *ch;
- 
- 	strcpy(ip.m_class, class);
--	ip.m_addr = addr;
-+	ipv6_addr_copy(&ip.m_addr, addr);
- 	ch = sunrpc_cache_lookup(&ip_map_cache, &ip.h,
- 				 hash_str(class, IP_HASHBITS) ^
--				 hash_ip(addr.s_addr));
-+				 hash_ip6(*addr));
- 
- 	if (ch)
- 		return container_of(ch, struct ip_map, h);
-@@ -318,14 +346,14 @@ static int ip_map_update(struct ip_map *
- 	ch = sunrpc_cache_update(&ip_map_cache,
- 				 &ip.h, &ipm->h,
- 				 hash_str(ipm->m_class, IP_HASHBITS) ^
--				 hash_ip(ipm->m_addr.s_addr));
-+				 hash_ip6(ipm->m_addr));
- 	if (!ch)
- 		return -ENOMEM;
- 	cache_put(ch, &ip_map_cache);
- 	return 0;
- }
- 
--int auth_unix_add_addr(struct in_addr addr, struct auth_domain *dom)
-+int auth_unix_add_addr(struct in6_addr *addr, struct auth_domain *dom)
- {
- 	struct unix_domain *udom;
- 	struct ip_map *ipmp;
-@@ -352,7 +380,7 @@ int auth_unix_forget_old(struct auth_dom
- 	return 0;
- }
- 
--struct auth_domain *auth_unix_lookup(struct in_addr addr)
-+struct auth_domain *auth_unix_lookup(struct in6_addr *addr)
- {
- 	struct ip_map *ipm;
- 	struct auth_domain *rv;
-@@ -641,9 +669,24 @@ static int unix_gid_find(uid_t uid, stru
- int
- svcauth_unix_set_client(struct svc_rqst *rqstp)
- {
--	struct sockaddr_in *sin = svc_addr_in(rqstp);
-+	struct sockaddr_in *sin;
-+	struct sockaddr_in6 *sin6, sin6_storage;
- 	struct ip_map *ipm;
- 
-+	switch (rqstp->rq_addr.ss_family) {
-+	case AF_INET:
-+		sin = svc_addr_in(rqstp);
-+		sin6 = &sin6_storage;
-+		ipv6_addr_set(&sin6->sin6_addr, 0, 0,
-+				htonl(0x0000FFFF), sin->sin_addr.s_addr);
-+		break;
-+	case AF_INET6:
-+		sin6 = svc_addr_in6(rqstp);
-+		break;
-+	default:
-+		BUG();
-+	}
-+
- 	rqstp->rq_client = NULL;
- 	if (rqstp->rq_proc == 0)
- 		return SVC_OK;
-@@ -651,7 +694,7 @@ svcauth_unix_set_client(struct svc_rqst 
- 	ipm = ip_map_cached_get(rqstp);
- 	if (ipm == NULL)
- 		ipm = ip_map_lookup(rqstp->rq_server->sv_program->pg_class,
--				    sin->sin_addr);
-+				    &sin6->sin6_addr);
- 
- 	if (ipm == NULL)
- 		return SVC_DENIED;
-
---------------060107010407040905080600
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-NFSv4 mailing list
-NFSv4@linux-nfs.org
-http://linux-nfs.org/cgi-bin/mailman/listinfo/nfsv4
---------------060107010407040905080600--
+T24gTW9uLCBEZWMgMTAsIDIwMDcgYXQgMDc6MzQ6NDFQTSArMDEwMCwgQXVyw6lsaWVuIENoYXJi
+b24gd3JvdGU6Cj4KPiBIZXJlIGlzIGEgY2xlYW51cCBmb3IgdGhlIGlwX21hcCBjYWNoaW5nIHBh
+dGNoIGluIG5mcyBzZXJ2ZXIuCj4KPiBJdCBwcmVwYXJlcyBmb3IgSVB2NiB0ZXh0LWJhc2VkIG1v
+dW50cyBhbmQgZXhwb3J0cy4KPgo+IFRlc3RzOiB0ZXN0ZWQgd2l0aCBvbmx5IElQdjQgbmV0d29y
+ayBhbmQgYmFzaWMgbmZzIG9wcyAobW91bnQsIGZpbGUgCj4gY3JlYXRpb24gYW5kIG1vZGlmaWNh
+dGlvbikKClRoYW5rcyEgIEFuZCBhbHNvIHRlc3RlZCB3aXRoIGFuIHVubW9kaWZpZWQgcnBjLm1v
+dW50ZD8KCi0tYi4KCj4KPiAtLS0tLQo+Cj4gU2lnbmVkLW9mZi1ieTogQXVyZWxpZW4gQ2hhcmJv
+biA8YXVyZWxpZW4uY2hhcmJvbkBidWxsLm5ldD4KPgo+IGRpZmYgLXAgLXUgLXIgLU4gbGludXgt
+Mi42LjI0LXJjNC9mcy9uZnNkL2V4cG9ydC5jIAo+IGxpbnV4LTIuNi4yNC1yYzQtSVB2Ni1jYWNo
+ZS1iYXNlZC9mcy9uZnNkL2V4cG9ydC5jCj4gLS0tIGxpbnV4LTIuNi4yNC1yYzQvZnMvbmZzZC9l
+eHBvcnQuYyAgICAyMDA3LTEyLTEwIDE2OjExOjM3LjAwMDAwMDAwMCArMDEwMAo+ICsrKyBsaW51
+eC0yLjYuMjQtcmM0LUlQdjYtY2FjaGUtYmFzZWQvZnMvbmZzZC9leHBvcnQuYyAgICAyMDA3LTEy
+LTEwIAo+IDE3OjUwOjM3LjAwMDAwMDAwMCArMDEwMAo+IEBAIC0zNSw2ICszNSw3IEBACj4gI2lu
+Y2x1ZGUgPGxpbnV4L2xvY2tkL2JpbmQuaD4KPiAjaW5jbHVkZSA8bGludXgvc3VucnBjL21zZ19w
+cm90Lmg+Cj4gI2luY2x1ZGUgPGxpbnV4L3N1bnJwYy9nc3NfYXBpLmg+Cj4gKyNpbmNsdWRlIDxu
+ZXQvaXB2Ni5oPgo+Cj4gI2RlZmluZSBORlNEREJHX0ZBQ0lMSVRZICAgIE5GU0REQkdfRVhQT1JU
+Cj4KPiBAQCAtMTU1Niw2ICsxNTU3LDcgQEAgZXhwX2FkZGNsaWVudChzdHJ1Y3QgbmZzY3RsX2Ns
+aWVudCAqbmNwKQo+IHsKPiAgICAgc3RydWN0IGF1dGhfZG9tYWluICAgICpkb207Cj4gICAgIGlu
+dCAgICAgICAgICAgIGksIGVycjsKPiArICAgIHN0cnVjdCBpbjZfYWRkciBhZGRyNjsKPgo+ICAg
+ICAvKiBGaXJzdCwgY29uc2lzdGVuY3kgY2hlY2suICovCj4gICAgIGVyciA9IC1FSU5WQUw7Cj4g
+QEAgLTE1NzQsOSArMTU3NiwxMiBAQCBleHBfYWRkY2xpZW50KHN0cnVjdCBuZnNjdGxfY2xpZW50
+ICpuY3ApCj4gICAgICAgICBnb3RvIG91dF91bmxvY2s7Cj4KPiAgICAgLyogSW5zZXJ0IGNsaWVu
+dCBpbnRvIGhhc2h0YWJsZS4gKi8KPiAtICAgIGZvciAoaSA9IDA7IGkgPCBuY3AtPmNsX25hZGRy
+OyBpKyspCj4gLSAgICAgICAgYXV0aF91bml4X2FkZF9hZGRyKG5jcC0+Y2xfYWRkcmxpc3RbaV0s
+IGRvbSk7Cj4gLQo+ICsgICAgZm9yIChpID0gMDsgaSA8IG5jcC0+Y2xfbmFkZHI7IGkrKykgewo+
+ICsgICAgICAgIC8qIE1hcHBpbmcgYWRkcmVzcyAqLwo+ICsgICAgICAgIGlwdjZfYWRkcl9zZXQo
+JmFkZHI2LCAwLCAwLAo+ICsgICAgICAgICAgICAgICAgaHRvbmwoMHgwMDAwRkZGRiksIG5jcC0+
+Y2xfYWRkcmxpc3RbaV0uc19hZGRyKTsKPiArICAgICAgICBhdXRoX3VuaXhfYWRkX2FkZHIoJmFk
+ZHI2LCBkb20pOwo+ICsgICAgfQo+ICAgICBhdXRoX3VuaXhfZm9yZ2V0X29sZChkb20pOwo+ICAg
+ICBhdXRoX2RvbWFpbl9wdXQoZG9tKTsKPgo+IGRpZmYgLXAgLXUgLXIgLU4gbGludXgtMi42LjI0
+LXJjNC9mcy9uZnNkL25mc2N0bC5jIAo+IGxpbnV4LTIuNi4yNC1yYzQtSVB2Ni1jYWNoZS1iYXNl
+ZC9mcy9uZnNkL25mc2N0bC5jCj4gLS0tIGxpbnV4LTIuNi4yNC1yYzQvZnMvbmZzZC9uZnNjdGwu
+YyAgICAyMDA3LTEyLTEwIDE2OjExOjM3LjAwMDAwMDAwMCArMDEwMAo+ICsrKyBsaW51eC0yLjYu
+MjQtcmM0LUlQdjYtY2FjaGUtYmFzZWQvZnMvbmZzZC9uZnNjdGwuYyAgICAyMDA3LTEyLTEwIAo+
+IDE4OjE1OjIyLjAwMDAwMDAwMCArMDEwMAo+IEBAIC0zNyw2ICszNyw3IEBACj4gI2luY2x1ZGUg
+PGxpbnV4L25mc2Qvc3lzY2FsbC5oPgo+Cj4gI2luY2x1ZGUgPGFzbS91YWNjZXNzLmg+Cj4gKyNp
+bmNsdWRlIDxuZXQvaXB2Ni5oPgo+Cj4gLyoKPiAgKiAgICBXZSBoYXZlIGEgc2luZ2xlIGRpcmVj
+dG9yeSB3aXRoIDkgbm9kZXMgaW4gaXQuCj4gQEAgLTIyMiw2ICsyMjMsNyBAQCBzdGF0aWMgc3Np
+emVfdCB3cml0ZV9nZXRmcyhzdHJ1Y3QgZmlsZSAqCj4gICAgIHN0cnVjdCBhdXRoX2RvbWFpbiAq
+Y2xwOwo+ICAgICBpbnQgZXJyID0gMDsKPiAgICAgc3RydWN0IGtuZnNkX2ZoICpyZXM7Cj4gKyAg
+ICBzdHJ1Y3QgaW42X2FkZHIgaW42Owo+Cj4gICAgIGlmIChzaXplIDwgc2l6ZW9mKCpkYXRhKSkK
+PiAgICAgICAgIHJldHVybiAtRUlOVkFMOwo+IEBAIC0yMzYsNyArMjM4LDEzIEBAIHN0YXRpYyBz
+c2l6ZV90IHdyaXRlX2dldGZzKHN0cnVjdCBmaWxlICoKPiAgICAgcmVzID0gKHN0cnVjdCBrbmZz
+ZF9maCopYnVmOwo+Cj4gICAgIGV4cF9yZWFkbG9jaygpOwo+IC0gICAgaWYgKCEoY2xwID0gYXV0
+aF91bml4X2xvb2t1cChzaW4tPnNpbl9hZGRyKSkpCj4gKwo+ICsgICAgLyogSVB2NiBhZGRyZXNz
+IG1hcHBpbmcgKi8KPiArICAgIGlwdjZfYWRkcl9zZXQoJmluNiwgMCwgMCwKPiArICAgICAgICAg
+ICAgaHRvbmwoMHgwMDAwRkZGRiksCj4gKyAgICAgICAgICAgICgoKHN0cnVjdCBzb2NrYWRkcl9p
+biAqKSZkYXRhLT5nZF9hZGRyKS0+c2luX2FkZHIuc19hZGRyKSk7Cj4gKwo+ICsgICAgaWYgKCEo
+Y2xwID0gYXV0aF91bml4X2xvb2t1cChpbjYpKSkKPiAgICAgICAgIGVyciA9IC1FUEVSTTsKPiAg
+ICAgZWxzZSB7Cj4gICAgICAgICBlcnIgPSBleHBfcm9vdGZoKGNscCwgZGF0YS0+Z2RfcGF0aCwg
+cmVzLCBkYXRhLT5nZF9tYXhsZW4pOwo+IEBAIC0yNTcsNiArMjY1LDcgQEAgc3RhdGljIHNzaXpl
+X3Qgd3JpdGVfZ2V0ZmQoc3RydWN0IGZpbGUgKgo+ICAgICBpbnQgZXJyID0gMDsKPiAgICAgc3Ry
+dWN0IGtuZnNkX2ZoIGZoOwo+ICAgICBjaGFyICpyZXM7Cj4gKyAgICBzdHJ1Y3QgaW42X2FkZHIg
+aW42Owo+Cj4gICAgIGlmIChzaXplIDwgc2l6ZW9mKCpkYXRhKSkKPiAgICAgICAgIHJldHVybiAt
+RUlOVkFMOwo+IEBAIC0yNzEsNyArMjgwLDEyIEBAIHN0YXRpYyBzc2l6ZV90IHdyaXRlX2dldGZk
+KHN0cnVjdCBmaWxlICoKPiAgICAgcmVzID0gYnVmOwo+ICAgICBzaW4gPSAoc3RydWN0IHNvY2th
+ZGRyX2luICopJmRhdGEtPmdkX2FkZHI7Cj4gICAgIGV4cF9yZWFkbG9jaygpOwo+IC0gICAgaWYg
+KCEoY2xwID0gYXV0aF91bml4X2xvb2t1cChzaW4tPnNpbl9hZGRyKSkpCj4gKyAgICAvKiBJUHY2
+IGFkZHJlc3MgbWFwcGluZyAqLwo+ICsgICAgaXB2Nl9hZGRyX3NldCgmaW42LCAwLCAwLAo+ICsg
+ICAgICAgICAgICBodG9ubCgweDAwMDBGRkZGKSwKPiArICAgICAgICAgICAgKCgoc3RydWN0IHNv
+Y2thZGRyX2luICopJmRhdGEtPmdkX2FkZHIpLT5zaW5fYWRkci5zX2FkZHIpKTsKPiArCj4gKyAg
+ICBpZiAoIShjbHAgPSBhdXRoX3VuaXhfbG9va3VwKGluNikpKQo+ICAgICAgICAgZXJyID0gLUVQ
+RVJNOwo+ICAgICBlbHNlIHsKPiAgICAgICAgIGVyciA9IGV4cF9yb290ZmgoY2xwLCBkYXRhLT5n
+ZF9wYXRoLCAmZmgsIE5GU19GSFNJWkUpOwo+IGRpZmYgLXAgLXUgLXIgLU4gbGludXgtMi42LjI0
+LXJjNC9pbmNsdWRlL2xpbnV4L3N1bnJwYy9zdmNhdXRoLmggCj4gbGludXgtMi42LjI0LXJjNC1J
+UHY2LWNhY2hlLWJhc2VkL2luY2x1ZGUvbGludXgvc3VucnBjL3N2Y2F1dGguaAo+IC0tLSBsaW51
+eC0yLjYuMjQtcmM0L2luY2x1ZGUvbGludXgvc3VucnBjL3N2Y2F1dGguaCAgICAyMDA3LTEyLTEw
+IAo+IDE2OjAxOjQzLjAwMDAwMDAwMCArMDEwMAo+ICsrKyBsaW51eC0yLjYuMjQtcmM0LUlQdjYt
+Y2FjaGUtYmFzZWQvaW5jbHVkZS9saW51eC9zdW5ycGMvc3ZjYXV0aC5oICAgIAo+IDIwMDctMTIt
+MTAgMTc6MDk6MzQuMDAwMDAwMDAwICswMTAwCj4gQEAgLTEyMCwxMCArMTIwLDEwIEBAIGV4dGVy
+biB2b2lkICAgIHN2Y19hdXRoX3VucmVnaXN0ZXIocnBjX2F1dGgKPgo+IGV4dGVybiBzdHJ1Y3Qg
+YXV0aF9kb21haW4gKnVuaXhfZG9tYWluX2ZpbmQoY2hhciAqbmFtZSk7Cj4gZXh0ZXJuIHZvaWQg
+YXV0aF9kb21haW5fcHV0KHN0cnVjdCBhdXRoX2RvbWFpbiAqaXRlbSk7Cj4gLWV4dGVybiBpbnQg
+YXV0aF91bml4X2FkZF9hZGRyKHN0cnVjdCBpbl9hZGRyIGFkZHIsIHN0cnVjdCBhdXRoX2RvbWFp
+biAKPiAqZG9tKTsKPiArZXh0ZXJuIGludCBhdXRoX3VuaXhfYWRkX2FkZHIoc3RydWN0IGluNl9h
+ZGRyICphZGRyLCBzdHJ1Y3QgYXV0aF9kb21haW4gCj4gKmRvbSk7Cj4gZXh0ZXJuIHN0cnVjdCBh
+dXRoX2RvbWFpbiAqYXV0aF9kb21haW5fbG9va3VwKGNoYXIgKm5hbWUsIHN0cnVjdCAKPiBhdXRo
+X2RvbWFpbiAqbmV3KTsKPiBleHRlcm4gc3RydWN0IGF1dGhfZG9tYWluICphdXRoX2RvbWFpbl9m
+aW5kKGNoYXIgKm5hbWUpOwo+IC1leHRlcm4gc3RydWN0IGF1dGhfZG9tYWluICphdXRoX3VuaXhf
+bG9va3VwKHN0cnVjdCBpbl9hZGRyIGFkZHIpOwo+ICtleHRlcm4gc3RydWN0IGF1dGhfZG9tYWlu
+ICphdXRoX3VuaXhfbG9va3VwKHN0cnVjdCBpbjZfYWRkciAqYWRkcik7Cj4gZXh0ZXJuIGludCBh
+dXRoX3VuaXhfZm9yZ2V0X29sZChzdHJ1Y3QgYXV0aF9kb21haW4gKmRvbSk7Cj4gZXh0ZXJuIHZv
+aWQgc3ZjYXV0aF91bml4X3B1cmdlKHZvaWQpOwo+IGV4dGVybiB2b2lkIHN2Y2F1dGhfdW5peF9p
+bmZvX3JlbGVhc2Uodm9pZCAqKTsKPiBkaWZmIC1wIC11IC1yIC1OIGxpbnV4LTIuNi4yNC1yYzQv
+bmV0L3N1bnJwYy9zdmNhdXRoX3VuaXguYyAKPiBsaW51eC0yLjYuMjQtcmM0LUlQdjYtY2FjaGUt
+YmFzZWQvbmV0L3N1bnJwYy9zdmNhdXRoX3VuaXguYwo+IC0tLSBsaW51eC0yLjYuMjQtcmM0L25l
+dC9zdW5ycGMvc3ZjYXV0aF91bml4LmMgICAgMjAwNy0xMi0xMCAKPiAxNjowMTo0Ni4wMDAwMDAw
+MDAgKzAxMDAKPiArKysgbGludXgtMi42LjI0LXJjNC1JUHY2LWNhY2hlLWJhc2VkL25ldC9zdW5y
+cGMvc3ZjYXV0aF91bml4LmMgICAgCj4gMjAwNy0xMi0xMCAxNzozODo1MC4wMDAwMDAwMDAgKzAx
+MDAKPiBAQCAtMTEsNyArMTEsOCBAQAo+ICNpbmNsdWRlIDxsaW51eC9oYXNoLmg+Cj4gI2luY2x1
+ZGUgPGxpbnV4L3N0cmluZy5oPgo+ICNpbmNsdWRlIDxuZXQvc29jay5oPgo+IC0KPiArI2luY2x1
+ZGUgPG5ldC9pcHY2Lmg+Cj4gKyNpbmNsdWRlIDxsaW51eC9rZXJuZWwuaD4KPiAjZGVmaW5lIFJQ
+Q0RCR19GQUNJTElUWSAgICBSUENEQkdfQVVUSAo+Cj4KPiBAQCAtODQsNyArODUsNyBAQCBzdGF0
+aWMgdm9pZCBzdmNhdXRoX3VuaXhfZG9tYWluX3JlbGVhc2UoCj4gc3RydWN0IGlwX21hcCB7Cj4g
+ICAgIHN0cnVjdCBjYWNoZV9oZWFkICAgIGg7Cj4gICAgIGNoYXIgICAgICAgICAgICBtX2NsYXNz
+WzhdOyAvKiBlLmcuICJuZnNkIiAqLwo+IC0gICAgc3RydWN0IGluX2FkZHIgICAgICAgIG1fYWRk
+cjsKPiArICAgIHN0cnVjdCBpbjZfYWRkciAgICAgICAgbV9hZGRyOwo+ICAgICBzdHJ1Y3QgdW5p
+eF9kb21haW4gICAgKm1fY2xpZW50Owo+ICAgICBpbnQgICAgICAgICAgICBtX2FkZF9jaGFuZ2U7
+Cj4gfTsKPiBAQCAtMTEyLDEyICsxMTMsMTkgQEAgc3RhdGljIGlubGluZSBpbnQgaGFzaF9pcChf
+X2JlMzIgaXApCj4gICAgIHJldHVybiAoaGFzaCBeIChoYXNoPj44KSkgJiAweGZmOwo+IH0KPiAj
+ZW5kaWYKPiArc3RhdGljIGlubGluZSBpbnQgaGFzaF9pcDYoc3RydWN0IGluNl9hZGRyIGlwKQo+
+ICt7Cj4gKyAgICByZXR1cm4gKGhhc2hfaXAoaXAuczZfYWRkcjMyWzBdKSBeCj4gKyAgICAgICAg
+aGFzaF9pcChpcC5zNl9hZGRyMzJbMV0pIF4KPiArICAgICAgICBoYXNoX2lwKGlwLnM2X2FkZHIz
+MlsyXSkgXgo+ICsgICAgICAgIGhhc2hfaXAoaXAuczZfYWRkcjMyWzNdKSk7Cj4gK30KPiBzdGF0
+aWMgaW50IGlwX21hcF9tYXRjaChzdHJ1Y3QgY2FjaGVfaGVhZCAqY29yaWcsIHN0cnVjdCBjYWNo
+ZV9oZWFkICpjbmV3KQo+IHsKPiAgICAgc3RydWN0IGlwX21hcCAqb3JpZyA9IGNvbnRhaW5lcl9v
+Zihjb3JpZywgc3RydWN0IGlwX21hcCwgaCk7Cj4gICAgIHN0cnVjdCBpcF9tYXAgKm5ldyA9IGNv
+bnRhaW5lcl9vZihjbmV3LCBzdHJ1Y3QgaXBfbWFwLCBoKTsKPiAgICAgcmV0dXJuIHN0cmNtcChv
+cmlnLT5tX2NsYXNzLCBuZXctPm1fY2xhc3MpID09IDAKPiAtICAgICAgICAmJiBvcmlnLT5tX2Fk
+ZHIuc19hZGRyID09IG5ldy0+bV9hZGRyLnNfYWRkcjsKPiArICAgICAgICAmJiBpcHY2X2FkZHJf
+ZXF1YWwoJm9yaWctPm1fYWRkciwgJm5ldy0+bV9hZGRyKTsKPiB9Cj4gc3RhdGljIHZvaWQgaXBf
+bWFwX2luaXQoc3RydWN0IGNhY2hlX2hlYWQgKmNuZXcsIHN0cnVjdCBjYWNoZV9oZWFkICpjaXRl
+bSkKPiB7Cj4gQEAgLTEyNSw3ICsxMzMsNyBAQCBzdGF0aWMgdm9pZCBpcF9tYXBfaW5pdChzdHJ1
+Y3QgY2FjaGVfaGVhCj4gICAgIHN0cnVjdCBpcF9tYXAgKml0ZW0gPSBjb250YWluZXJfb2YoY2l0
+ZW0sIHN0cnVjdCBpcF9tYXAsIGgpOwo+Cj4gICAgIHN0cmNweShuZXctPm1fY2xhc3MsIGl0ZW0t
+Pm1fY2xhc3MpOwo+IC0gICAgbmV3LT5tX2FkZHIuc19hZGRyID0gaXRlbS0+bV9hZGRyLnNfYWRk
+cjsKPiArICAgIGlwdjZfYWRkcl9jb3B5KCZuZXctPm1fYWRkciwgJml0ZW0tPm1fYWRkcik7Cj4g
+fQo+IHN0YXRpYyB2b2lkIHVwZGF0ZShzdHJ1Y3QgY2FjaGVfaGVhZCAqY25ldywgc3RydWN0IGNh
+Y2hlX2hlYWQgKmNpdGVtKQo+IHsKPiBAQCAtMTQ5LDIyICsxNTcsMjQgQEAgc3RhdGljIHZvaWQg
+aXBfbWFwX3JlcXVlc3Qoc3RydWN0IGNhY2hlXwo+ICAgICAgICAgICAgICAgICAgIHN0cnVjdCBj
+YWNoZV9oZWFkICpoLAo+ICAgICAgICAgICAgICAgICAgIGNoYXIgKipicHAsIGludCAqYmxlbikK
+PiB7Cj4gLSAgICBjaGFyIHRleHRfYWRkclsyMF07Cj4gKyAgICBjaGFyIHRleHRfYWRkcls0MF07
+Cj4gICAgIHN0cnVjdCBpcF9tYXAgKmltID0gY29udGFpbmVyX29mKGgsIHN0cnVjdCBpcF9tYXAs
+IGgpOwo+IC0gICAgX19iZTMyIGFkZHIgPSBpbS0+bV9hZGRyLnNfYWRkcjsKPiAtCj4gLSAgICBz
+bnByaW50Zih0ZXh0X2FkZHIsIDIwLCAiJXUuJXUuJXUuJXUiLAo+IC0gICAgICAgICBudG9obChh
+ZGRyKSA+PiAyNCAmIDB4ZmYsCj4gLSAgICAgICAgIG50b2hsKGFkZHIpID4+IDE2ICYgMHhmZiwK
+PiAtICAgICAgICAgbnRvaGwoYWRkcikgPj4gIDggJiAweGZmLAo+IC0gICAgICAgICBudG9obChh
+ZGRyKSA+PiAgMCAmIDB4ZmYpOwo+Cj4gKyAgICBpZiAoaXB2Nl9hZGRyX3Y0bWFwcGVkKCYoaW0t
+Pm1fYWRkcikpKSB7Cj4gKyAgICAgICAgc25wcmludGYodGV4dF9hZGRyLCAyMCwgTklQUVVBRF9G
+TVQsCj4gKyAgICAgICAgICAgICAgICBudG9obChpbS0+bV9hZGRyLnM2X2FkZHIzMlszXSkgPj4g
+MjQgJiAweGZmLAo+ICsgICAgICAgICAgICAgICAgbnRvaGwoaW0tPm1fYWRkci5zNl9hZGRyMzJb
+M10pID4+IDE2ICYgMHhmZiwKPiArICAgICAgICAgICAgICAgIG50b2hsKGltLT5tX2FkZHIuczZf
+YWRkcjMyWzNdKSA+PiAgOCAmIDB4ZmYsCj4gKyAgICAgICAgICAgICAgICBudG9obChpbS0+bV9h
+ZGRyLnM2X2FkZHIzMlszXSkgPj4gIDAgJiAweGZmKTsKPiArICAgIH0gZWxzZSB7Cj4gKyAgICAg
+ICAgc25wcmludGYodGV4dF9hZGRyLCA0MCwgTklQNl9GTVQsIE5JUDYoaW0tPm1fYWRkcikpOwo+
+ICsgICAgfQo+ICAgICBxd29yZF9hZGQoYnBwLCBibGVuLCBpbS0+bV9jbGFzcyk7Cj4gICAgIHF3
+b3JkX2FkZChicHAsIGJsZW4sIHRleHRfYWRkcik7Cj4gICAgICgqYnBwKVstMV0gPSAnXG4nOwo+
+IH0KPgo+IC1zdGF0aWMgc3RydWN0IGlwX21hcCAqaXBfbWFwX2xvb2t1cChjaGFyICpjbGFzcywg
+c3RydWN0IGluX2FkZHIgYWRkcik7Cj4gK3N0YXRpYyBzdHJ1Y3QgaXBfbWFwICppcF9tYXBfbG9v
+a3VwKGNoYXIgKmNsYXNzLCBzdHJ1Y3QgaW42X2FkZHIgKmFkZHIpOwo+IHN0YXRpYyBpbnQgaXBf
+bWFwX3VwZGF0ZShzdHJ1Y3QgaXBfbWFwICppcG0sIHN0cnVjdCB1bml4X2RvbWFpbiAqdWRvbSwg
+Cj4gdGltZV90IGV4cGlyeSk7Cj4KPiBzdGF0aWMgaW50IGlwX21hcF9wYXJzZShzdHJ1Y3QgY2Fj
+aGVfZGV0YWlsICpjZCwKPiBAQCAtMTc1LDEwICsxODUsMTAgQEAgc3RhdGljIGludCBpcF9tYXBf
+cGFyc2Uoc3RydWN0IGNhY2hlX2RldAo+ICAgICAgKiBmb3Igc2NyYXRjaDogKi8KPiAgICAgY2hh
+ciAqYnVmID0gbWVzZzsKPiAgICAgaW50IGxlbjsKPiAtICAgIGludCBiMSxiMixiMyxiNDsKPiAr
+ICAgIGludCBiMSwgYjIsIGIzLCBiNCwgYjUsIGI2LCBiNywgYjg7Cj4gICAgIGNoYXIgYzsKPiAg
+ICAgY2hhciBjbGFzc1s4XTsKPiAtICAgIHN0cnVjdCBpbl9hZGRyIGFkZHI7Cj4gKyAgICBzdHJ1
+Y3QgaW42X2FkZHIgYWRkcjsKPiAgICAgaW50IGVycjsKPgo+ICAgICBzdHJ1Y3QgaXBfbWFwICpp
+cG1wOwo+IEBAIC0xOTcsOSArMjA3LDI2IEBAIHN0YXRpYyBpbnQgaXBfbWFwX3BhcnNlKHN0cnVj
+dCBjYWNoZV9kZXQKPiAgICAgbGVuID0gcXdvcmRfZ2V0KCZtZXNnLCBidWYsIG1sZW4pOwo+ICAg
+ICBpZiAobGVuIDw9IDApIHJldHVybiAtRUlOVkFMOwo+Cj4gLSAgICBpZiAoc3NjYW5mKGJ1Ziwg
+IiV1LiV1LiV1LiV1JWMiLCAmYjEsICZiMiwgJmIzLCAmYjQsICZjKSAhPSA0KQo+ICsgICAgaWYg
+KHNzY2FuZihidWYsIE5JUFFVQURfRk1UICIlYyIsICZiMSwgJmIyLCAmYjMsICZiNCwgJmMpID09
+IDQpIHsKPiArICAgICAgICBhZGRyLnM2X2FkZHIzMlswXSA9IDA7Cj4gKyAgICAgICAgYWRkci5z
+Nl9hZGRyMzJbMV0gPSAwOwo+ICsgICAgICAgIGFkZHIuczZfYWRkcjMyWzJdID0gaHRvbmwoMHhm
+ZmZmKTsKPiArICAgICAgICBhZGRyLnM2X2FkZHIzMlszXSA9Cj4gKyAgICAgICAgICAgIGh0b25s
+KCgoKCgoYjE8PDgpfGIyKTw8OCl8YjMpPDw4KXxiNCk7Cj4gKyAgICAgICB9IGVsc2UgaWYgKHNz
+Y2FuZihidWYsIE5JUDZfRk1UICIlYyIsCj4gKyAgICAgICAgICAgICZiMSwgJmIyLCAmYjMsICZi
+NCwgJmI1LCAmYjYsICZiNywgJmI4LCAmYykgPT0gOCkgewo+ICsgICAgICAgIGFkZHIuczZfYWRk
+cjE2WzBdID0gaHRvbnMoYjEpOwo+ICsgICAgICAgIGFkZHIuczZfYWRkcjE2WzFdID0gaHRvbnMo
+YjIpOwo+ICsgICAgICAgIGFkZHIuczZfYWRkcjE2WzJdID0gaHRvbnMoYjMpOwo+ICsgICAgICAg
+IGFkZHIuczZfYWRkcjE2WzNdID0gaHRvbnMoYjQpOwo+ICsgICAgICAgIGFkZHIuczZfYWRkcjE2
+WzRdID0gaHRvbnMoYjUpOwo+ICsgICAgICAgIGFkZHIuczZfYWRkcjE2WzVdID0gaHRvbnMoYjYp
+Owo+ICsgICAgICAgIGFkZHIuczZfYWRkcjE2WzZdID0gaHRvbnMoYjcpOwo+ICsgICAgICAgIGFk
+ZHIuczZfYWRkcjE2WzddID0gaHRvbnMoYjgpOwo+ICsgICAgICAgfSBlbHNlCj4gICAgICAgICBy
+ZXR1cm4gLUVJTlZBTDsKPgo+ICsKPiAgICAgZXhwaXJ5ID0gZ2V0X2V4cGlyeSgmbWVzZyk7Cj4g
+ICAgIGlmIChleHBpcnkgPT0wKQo+ICAgICAgICAgcmV0dXJuIC1FSU5WQUw7Cj4gQEAgLTIxNSwx
+MCArMjQyLDcgQEAgc3RhdGljIGludCBpcF9tYXBfcGFyc2Uoc3RydWN0IGNhY2hlX2RldAo+ICAg
+ICB9IGVsc2UKPiAgICAgICAgIGRvbSA9IE5VTEw7Cj4KPiAtICAgIGFkZHIuc19hZGRyID0KPiAt
+ICAgICAgICBodG9ubCgoKCgoKGIxPDw4KXxiMik8PDgpfGIzKTw8OCl8YjQpOwo+IC0KPiAtICAg
+IGlwbXAgPSBpcF9tYXBfbG9va3VwKGNsYXNzLGFkZHIpOwo+ICsgICAgaXBtcCA9IGlwX21hcF9s
+b29rdXAoY2xhc3MsICZhZGRyKTsKPiAgICAgaWYgKGlwbXApIHsKPiAgICAgICAgIGVyciA9IGlw
+X21hcF91cGRhdGUoaXBtcCwKPiAgICAgICAgICAgICAgICAgIGNvbnRhaW5lcl9vZihkb20sIHN0
+cnVjdCB1bml4X2RvbWFpbiwgaCksCj4gQEAgLTIzOCw3ICsyNjIsNyBAQCBzdGF0aWMgaW50IGlw
+X21hcF9zaG93KHN0cnVjdCBzZXFfZmlsZSAqCj4gICAgICAgICAgICAgICAgc3RydWN0IGNhY2hl
+X2hlYWQgKmgpCj4gewo+ICAgICBzdHJ1Y3QgaXBfbWFwICppbTsKPiAtICAgIHN0cnVjdCBpbl9h
+ZGRyIGFkZHI7Cj4gKyAgICBzdHJ1Y3QgaW42X2FkZHIgYWRkcjsKPiAgICAgY2hhciAqZG9tID0g
+Ii1uby1kb21haW4tIjsKPgo+ICAgICBpZiAoaCA9PSBOVUxMKSB7Cj4gQEAgLTI0NywyMCArMjcx
+LDI0IEBAIHN0YXRpYyBpbnQgaXBfbWFwX3Nob3coc3RydWN0IHNlcV9maWxlICoKPiAgICAgfQo+
+ICAgICBpbSA9IGNvbnRhaW5lcl9vZihoLCBzdHJ1Y3QgaXBfbWFwLCBoKTsKPiAgICAgLyogY2xh
+c3MgYWRkciBkb21haW4gKi8KPiAtICAgIGFkZHIgPSBpbS0+bV9hZGRyOwo+ICsgICAgaXB2Nl9h
+ZGRyX2NvcHkoJmFkZHIsICZpbS0+bV9hZGRyKTsKPgo+ICAgICBpZiAodGVzdF9iaXQoQ0FDSEVf
+VkFMSUQsICZoLT5mbGFncykgJiYKPiAgICAgICAgICF0ZXN0X2JpdChDQUNIRV9ORUdBVElWRSwg
+JmgtPmZsYWdzKSkKPiAgICAgICAgIGRvbSA9IGltLT5tX2NsaWVudC0+aC5uYW1lOwo+Cj4gLSAg
+ICBzZXFfcHJpbnRmKG0sICIlcyAlZC4lZC4lZC4lZCAlc1xuIiwKPiAtICAgICAgICAgICBpbS0+
+bV9jbGFzcywKPiAtICAgICAgICAgICBudG9obChhZGRyLnNfYWRkcikgPj4gMjQgJiAweGZmLAo+
+IC0gICAgICAgICAgIG50b2hsKGFkZHIuc19hZGRyKSA+PiAxNiAmIDB4ZmYsCj4gLSAgICAgICAg
+ICAgbnRvaGwoYWRkci5zX2FkZHIpID4+ICA4ICYgMHhmZiwKPiAtICAgICAgICAgICBudG9obChh
+ZGRyLnNfYWRkcikgPj4gIDAgJiAweGZmLAo+IC0gICAgICAgICAgIGRvbQo+IC0gICAgICAgICAg
+ICk7Cj4gKyAgICBpZiAoaXB2Nl9hZGRyX3Y0bWFwcGVkKCZhZGRyKSkgewo+ICsgICAgICAgIHNl
+cV9wcmludGYobSwgIiVzIiBOSVBRVUFEX0ZNVCAiJXNcbiIsCj4gKyAgICAgICAgICAgIGltLT5t
+X2NsYXNzLAo+ICsgICAgICAgICAgICBudG9obChhZGRyLnM2X2FkZHIzMlszXSkgPj4gMjQgJiAw
+eGZmLAo+ICsgICAgICAgICAgICBudG9obChhZGRyLnM2X2FkZHIzMlszXSkgPj4gMTYgJiAweGZm
+LAo+ICsgICAgICAgICAgICBudG9obChhZGRyLnM2X2FkZHIzMlszXSkgPj4gIDggJiAweGZmLAo+
+ICsgICAgICAgICAgICBudG9obChhZGRyLnM2X2FkZHIzMlszXSkgPj4gIDAgJiAweGZmLAo+ICsg
+ICAgICAgICAgICBkb20pOwo+ICsgICAgfSBlbHNlIHsKPiArICAgICAgICBzZXFfcHJpbnRmKG0s
+ICIlcyIgTklQNl9GTVQgIiVzXG4iLAo+ICsgICAgICAgICAgICBpbS0+bV9jbGFzcywgTklQNihh
+ZGRyKSwgZG9tKTsKPiArICAgIH0KPiAgICAgcmV0dXJuIDA7Cj4gfQo+Cj4gQEAgLTI4MCwxNiAr
+MzA4LDE2IEBAIHN0cnVjdCBjYWNoZV9kZXRhaWwgaXBfbWFwX2NhY2hlID0gewo+ICAgICAuYWxs
+b2MgICAgICAgID0gaXBfbWFwX2FsbG9jLAo+IH07Cj4KPiAtc3RhdGljIHN0cnVjdCBpcF9tYXAg
+KmlwX21hcF9sb29rdXAoY2hhciAqY2xhc3MsIHN0cnVjdCBpbl9hZGRyIGFkZHIpCj4gK3N0YXRp
+YyBzdHJ1Y3QgaXBfbWFwICppcF9tYXBfbG9va3VwKGNoYXIgKmNsYXNzLCBzdHJ1Y3QgaW42X2Fk
+ZHIgKmFkZHIpCj4gewo+ICAgICBzdHJ1Y3QgaXBfbWFwIGlwOwo+ICAgICBzdHJ1Y3QgY2FjaGVf
+aGVhZCAqY2g7Cj4KPiAgICAgc3RyY3B5KGlwLm1fY2xhc3MsIGNsYXNzKTsKPiAtICAgIGlwLm1f
+YWRkciA9IGFkZHI7Cj4gKyAgICBpcHY2X2FkZHJfY29weSgmaXAubV9hZGRyLCBhZGRyKTsKPiAg
+ICAgY2ggPSBzdW5ycGNfY2FjaGVfbG9va3VwKCZpcF9tYXBfY2FjaGUsICZpcC5oLAo+ICAgICAg
+ICAgICAgICAgICAgaGFzaF9zdHIoY2xhc3MsIElQX0hBU0hCSVRTKSBeCj4gLSAgICAgICAgICAg
+ICAgICAgaGFzaF9pcChhZGRyLnNfYWRkcikpOwo+ICsgICAgICAgICAgICAgICAgIGhhc2hfaXA2
+KCphZGRyKSk7Cj4KPiAgICAgaWYgKGNoKQo+ICAgICAgICAgcmV0dXJuIGNvbnRhaW5lcl9vZihj
+aCwgc3RydWN0IGlwX21hcCwgaCk7Cj4gQEAgLTMxOCwxNCArMzQ2LDE0IEBAIHN0YXRpYyBpbnQg
+aXBfbWFwX3VwZGF0ZShzdHJ1Y3QgaXBfbWFwICoKPiAgICAgY2ggPSBzdW5ycGNfY2FjaGVfdXBk
+YXRlKCZpcF9tYXBfY2FjaGUsCj4gICAgICAgICAgICAgICAgICAmaXAuaCwgJmlwbS0+aCwKPiAg
+ICAgICAgICAgICAgICAgIGhhc2hfc3RyKGlwbS0+bV9jbGFzcywgSVBfSEFTSEJJVFMpIF4KPiAt
+ICAgICAgICAgICAgICAgICBoYXNoX2lwKGlwbS0+bV9hZGRyLnNfYWRkcikpOwo+ICsgICAgICAg
+ICAgICAgICAgIGhhc2hfaXA2KGlwbS0+bV9hZGRyKSk7Cj4gICAgIGlmICghY2gpCj4gICAgICAg
+ICByZXR1cm4gLUVOT01FTTsKPiAgICAgY2FjaGVfcHV0KGNoLCAmaXBfbWFwX2NhY2hlKTsKPiAg
+ICAgcmV0dXJuIDA7Cj4gfQo+Cj4gLWludCBhdXRoX3VuaXhfYWRkX2FkZHIoc3RydWN0IGluX2Fk
+ZHIgYWRkciwgc3RydWN0IGF1dGhfZG9tYWluICpkb20pCj4gK2ludCBhdXRoX3VuaXhfYWRkX2Fk
+ZHIoc3RydWN0IGluNl9hZGRyICphZGRyLCBzdHJ1Y3QgYXV0aF9kb21haW4gKmRvbSkKPiB7Cj4g
+ICAgIHN0cnVjdCB1bml4X2RvbWFpbiAqdWRvbTsKPiAgICAgc3RydWN0IGlwX21hcCAqaXBtcDsK
+PiBAQCAtMzUyLDcgKzM4MCw3IEBAIGludCBhdXRoX3VuaXhfZm9yZ2V0X29sZChzdHJ1Y3QgYXV0
+aF9kb20KPiAgICAgcmV0dXJuIDA7Cj4gfQo+Cj4gLXN0cnVjdCBhdXRoX2RvbWFpbiAqYXV0aF91
+bml4X2xvb2t1cChzdHJ1Y3QgaW5fYWRkciBhZGRyKQo+ICtzdHJ1Y3QgYXV0aF9kb21haW4gKmF1
+dGhfdW5peF9sb29rdXAoc3RydWN0IGluNl9hZGRyICphZGRyKQo+IHsKPiAgICAgc3RydWN0IGlw
+X21hcCAqaXBtOwo+ICAgICBzdHJ1Y3QgYXV0aF9kb21haW4gKnJ2Owo+IEBAIC02NDEsOSArNjY5
+LDI0IEBAIHN0YXRpYyBpbnQgdW5peF9naWRfZmluZCh1aWRfdCB1aWQsIHN0cnUKPiBpbnQKPiBz
+dmNhdXRoX3VuaXhfc2V0X2NsaWVudChzdHJ1Y3Qgc3ZjX3Jxc3QgKnJxc3RwKQo+IHsKPiAtICAg
+IHN0cnVjdCBzb2NrYWRkcl9pbiAqc2luID0gc3ZjX2FkZHJfaW4ocnFzdHApOwo+ICsgICAgc3Ry
+dWN0IHNvY2thZGRyX2luICpzaW47Cj4gKyAgICBzdHJ1Y3Qgc29ja2FkZHJfaW42ICpzaW42LCBz
+aW42X3N0b3JhZ2U7Cj4gICAgIHN0cnVjdCBpcF9tYXAgKmlwbTsKPgo+ICsgICAgc3dpdGNoIChy
+cXN0cC0+cnFfYWRkci5zc19mYW1pbHkpIHsKPiArICAgIGNhc2UgQUZfSU5FVDoKPiArICAgICAg
+ICBzaW4gPSBzdmNfYWRkcl9pbihycXN0cCk7Cj4gKyAgICAgICAgc2luNiA9ICZzaW42X3N0b3Jh
+Z2U7Cj4gKyAgICAgICAgaXB2Nl9hZGRyX3NldCgmc2luNi0+c2luNl9hZGRyLCAwLCAwLAo+ICsg
+ICAgICAgICAgICAgICAgaHRvbmwoMHgwMDAwRkZGRiksIHNpbi0+c2luX2FkZHIuc19hZGRyKTsK
+PiArICAgICAgICBicmVhazsKPiArICAgIGNhc2UgQUZfSU5FVDY6Cj4gKyAgICAgICAgc2luNiA9
+IHN2Y19hZGRyX2luNihycXN0cCk7Cj4gKyAgICAgICAgYnJlYWs7Cj4gKyAgICBkZWZhdWx0Ogo+
+ICsgICAgICAgIEJVRygpOwo+ICsgICAgfQo+ICsKPiAgICAgcnFzdHAtPnJxX2NsaWVudCA9IE5V
+TEw7Cj4gICAgIGlmIChycXN0cC0+cnFfcHJvYyA9PSAwKQo+ICAgICAgICAgcmV0dXJuIFNWQ19P
+SzsKPiBAQCAtNjUxLDcgKzY5NCw3IEBAIHN2Y2F1dGhfdW5peF9zZXRfY2xpZW50KHN0cnVjdCBz
+dmNfcnFzdAo+ICAgICBpcG0gPSBpcF9tYXBfY2FjaGVkX2dldChycXN0cCk7Cj4gICAgIGlmIChp
+cG0gPT0gTlVMTCkKPiAgICAgICAgIGlwbSA9IGlwX21hcF9sb29rdXAocnFzdHAtPnJxX3NlcnZl
+ci0+c3ZfcHJvZ3JhbS0+cGdfY2xhc3MsCj4gLSAgICAgICAgICAgICAgICAgICAgc2luLT5zaW5f
+YWRkcik7Cj4gKyAgICAgICAgICAgICAgICAgICAgJnNpbjYtPnNpbjZfYWRkcik7Cj4KPiAgICAg
+aWYgKGlwbSA9PSBOVUxMKQo+ICAgICAgICAgcmV0dXJuIFNWQ19ERU5JRUQ7Cj4KPiAtLSAKPgo+
+ICoqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqCj4gICAgICAgQXVyZWxpZW4gQ2hhcmJv
+bgo+ICAgICAgIExpbnV4IE5GU3Y0IHRlYW0KPiAgICAgICAgICAgQnVsbCBTQVMKPiAgICAgRWNo
+aXJvbGxlcyAtIEZyYW5jZQo+IGh0dHA6Ly9uZnN2NC5idWxsb3BlbnNvdXJjZS5vcmcvCj4gKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioKPgoKPiBTaWduZWQtb2ZmLWJ5OiBBdXJlbGll
+biBDaGFyYm9uIDxhdXJlbGllbi5jaGFyYm9uQGJ1bGwubmV0Pgo+IAo+IGRpZmYgLXAgLXUgLXIg
+LU4gbGludXgtMi42LjI0LXJjNC9mcy9uZnNkL2V4cG9ydC5jIGxpbnV4LTIuNi4yNC1yYzQtSVB2
+Ni1jYWNoZS1iYXNlZC9mcy9uZnNkL2V4cG9ydC5jCj4gLS0tIGxpbnV4LTIuNi4yNC1yYzQvZnMv
+bmZzZC9leHBvcnQuYwkyMDA3LTEyLTEwIDE2OjExOjM3LjAwMDAwMDAwMCArMDEwMAo+ICsrKyBs
+aW51eC0yLjYuMjQtcmM0LUlQdjYtY2FjaGUtYmFzZWQvZnMvbmZzZC9leHBvcnQuYwkyMDA3LTEy
+LTEwIDE3OjUwOjM3LjAwMDAwMDAwMCArMDEwMAo+IEBAIC0zNSw2ICszNSw3IEBACj4gICNpbmNs
+dWRlIDxsaW51eC9sb2NrZC9iaW5kLmg+Cj4gICNpbmNsdWRlIDxsaW51eC9zdW5ycGMvbXNnX3By
+b3QuaD4KPiAgI2luY2x1ZGUgPGxpbnV4L3N1bnJwYy9nc3NfYXBpLmg+Cj4gKyNpbmNsdWRlIDxu
+ZXQvaXB2Ni5oPgo+ICAKPiAgI2RlZmluZSBORlNEREJHX0ZBQ0lMSVRZCU5GU0REQkdfRVhQT1JU
+Cj4gIAo+IEBAIC0xNTU2LDYgKzE1NTcsNyBAQCBleHBfYWRkY2xpZW50KHN0cnVjdCBuZnNjdGxf
+Y2xpZW50ICpuY3ApCj4gIHsKPiAgCXN0cnVjdCBhdXRoX2RvbWFpbgkqZG9tOwo+ICAJaW50CQkJ
+aSwgZXJyOwo+ICsJc3RydWN0IGluNl9hZGRyIGFkZHI2Owo+ICAKPiAgCS8qIEZpcnN0LCBjb25z
+aXN0ZW5jeSBjaGVjay4gKi8KPiAgCWVyciA9IC1FSU5WQUw7Cj4gQEAgLTE1NzQsOSArMTU3Niwx
+MiBAQCBleHBfYWRkY2xpZW50KHN0cnVjdCBuZnNjdGxfY2xpZW50ICpuY3ApCj4gIAkJZ290byBv
+dXRfdW5sb2NrOwo+ICAKPiAgCS8qIEluc2VydCBjbGllbnQgaW50byBoYXNodGFibGUuICovCj4g
+LQlmb3IgKGkgPSAwOyBpIDwgbmNwLT5jbF9uYWRkcjsgaSsrKQo+IC0JCWF1dGhfdW5peF9hZGRf
+YWRkcihuY3AtPmNsX2FkZHJsaXN0W2ldLCBkb20pOwo+IC0KPiArCWZvciAoaSA9IDA7IGkgPCBu
+Y3AtPmNsX25hZGRyOyBpKyspIHsKPiArCQkvKiBNYXBwaW5nIGFkZHJlc3MgKi8KPiArCQlpcHY2
+X2FkZHJfc2V0KCZhZGRyNiwgMCwgMCwKPiArCQkJCWh0b25sKDB4MDAwMEZGRkYpLCBuY3AtPmNs
+X2FkZHJsaXN0W2ldLnNfYWRkcik7Cj4gKwkJYXV0aF91bml4X2FkZF9hZGRyKCZhZGRyNiwgZG9t
+KTsKPiArCX0KPiAgCWF1dGhfdW5peF9mb3JnZXRfb2xkKGRvbSk7Cj4gIAlhdXRoX2RvbWFpbl9w
+dXQoZG9tKTsKPiAgCj4gZGlmZiAtcCAtdSAtciAtTiBsaW51eC0yLjYuMjQtcmM0L2ZzL25mc2Qv
+bmZzY3RsLmMgbGludXgtMi42LjI0LXJjNC1JUHY2LWNhY2hlLWJhc2VkL2ZzL25mc2QvbmZzY3Rs
+LmMKPiAtLS0gbGludXgtMi42LjI0LXJjNC9mcy9uZnNkL25mc2N0bC5jCTIwMDctMTItMTAgMTY6
+MTE6MzcuMDAwMDAwMDAwICswMTAwCj4gKysrIGxpbnV4LTIuNi4yNC1yYzQtSVB2Ni1jYWNoZS1i
+YXNlZC9mcy9uZnNkL25mc2N0bC5jCTIwMDctMTItMTAgMTg6MTU6MjIuMDAwMDAwMDAwICswMTAw
+Cj4gQEAgLTM3LDYgKzM3LDcgQEAKPiAgI2luY2x1ZGUgPGxpbnV4L25mc2Qvc3lzY2FsbC5oPgo+
+ICAKPiAgI2luY2x1ZGUgPGFzbS91YWNjZXNzLmg+Cj4gKyNpbmNsdWRlIDxuZXQvaXB2Ni5oPgo+
+ICAKPiAgLyoKPiAgICoJV2UgaGF2ZSBhIHNpbmdsZSBkaXJlY3Rvcnkgd2l0aCA5IG5vZGVzIGlu
+IGl0Lgo+IEBAIC0yMjIsNiArMjIzLDcgQEAgc3RhdGljIHNzaXplX3Qgd3JpdGVfZ2V0ZnMoc3Ry
+dWN0IGZpbGUgKgo+ICAJc3RydWN0IGF1dGhfZG9tYWluICpjbHA7Cj4gIAlpbnQgZXJyID0gMDsK
+PiAgCXN0cnVjdCBrbmZzZF9maCAqcmVzOwo+ICsJc3RydWN0IGluNl9hZGRyIGluNjsKPiAgCj4g
+IAlpZiAoc2l6ZSA8IHNpemVvZigqZGF0YSkpCj4gIAkJcmV0dXJuIC1FSU5WQUw7Cj4gQEAgLTIz
+Niw3ICsyMzgsMTMgQEAgc3RhdGljIHNzaXplX3Qgd3JpdGVfZ2V0ZnMoc3RydWN0IGZpbGUgKgo+
+ICAJcmVzID0gKHN0cnVjdCBrbmZzZF9maCopYnVmOwo+ICAKPiAgCWV4cF9yZWFkbG9jaygpOwo+
+IC0JaWYgKCEoY2xwID0gYXV0aF91bml4X2xvb2t1cChzaW4tPnNpbl9hZGRyKSkpCj4gKwo+ICsJ
+LyogSVB2NiBhZGRyZXNzIG1hcHBpbmcgKi8KPiArCWlwdjZfYWRkcl9zZXQoJmluNiwgMCwgMCwK
+PiArCQkJaHRvbmwoMHgwMDAwRkZGRiksCj4gKwkJCSgoKHN0cnVjdCBzb2NrYWRkcl9pbiAqKSZk
+YXRhLT5nZF9hZGRyKS0+c2luX2FkZHIuc19hZGRyKSk7Cj4gKwo+ICsJaWYgKCEoY2xwID0gYXV0
+aF91bml4X2xvb2t1cChpbjYpKSkKPiAgCQllcnIgPSAtRVBFUk07Cj4gIAllbHNlIHsKPiAgCQll
+cnIgPSBleHBfcm9vdGZoKGNscCwgZGF0YS0+Z2RfcGF0aCwgcmVzLCBkYXRhLT5nZF9tYXhsZW4p
+Owo+IEBAIC0yNTcsNiArMjY1LDcgQEAgc3RhdGljIHNzaXplX3Qgd3JpdGVfZ2V0ZmQoc3RydWN0
+IGZpbGUgKgo+ICAJaW50IGVyciA9IDA7Cj4gIAlzdHJ1Y3Qga25mc2RfZmggZmg7Cj4gIAljaGFy
+ICpyZXM7Cj4gKwlzdHJ1Y3QgaW42X2FkZHIgaW42Owo+ICAKPiAgCWlmIChzaXplIDwgc2l6ZW9m
+KCpkYXRhKSkKPiAgCQlyZXR1cm4gLUVJTlZBTDsKPiBAQCAtMjcxLDcgKzI4MCwxMiBAQCBzdGF0
+aWMgc3NpemVfdCB3cml0ZV9nZXRmZChzdHJ1Y3QgZmlsZSAqCj4gIAlyZXMgPSBidWY7Cj4gIAlz
+aW4gPSAoc3RydWN0IHNvY2thZGRyX2luICopJmRhdGEtPmdkX2FkZHI7Cj4gIAlleHBfcmVhZGxv
+Y2soKTsKPiAtCWlmICghKGNscCA9IGF1dGhfdW5peF9sb29rdXAoc2luLT5zaW5fYWRkcikpKQo+
+ICsJLyogSVB2NiBhZGRyZXNzIG1hcHBpbmcgKi8KPiArCWlwdjZfYWRkcl9zZXQoJmluNiwgMCwg
+MCwKPiArCQkJaHRvbmwoMHgwMDAwRkZGRiksCj4gKwkJCSgoKHN0cnVjdCBzb2NrYWRkcl9pbiAq
+KSZkYXRhLT5nZF9hZGRyKS0+c2luX2FkZHIuc19hZGRyKSk7Cj4gKwo+ICsJaWYgKCEoY2xwID0g
+YXV0aF91bml4X2xvb2t1cChpbjYpKSkKPiAgCQllcnIgPSAtRVBFUk07Cj4gIAllbHNlIHsKPiAg
+CQllcnIgPSBleHBfcm9vdGZoKGNscCwgZGF0YS0+Z2RfcGF0aCwgJmZoLCBORlNfRkhTSVpFKTsK
+PiBkaWZmIC1wIC11IC1yIC1OIGxpbnV4LTIuNi4yNC1yYzQvaW5jbHVkZS9saW51eC9zdW5ycGMv
+c3ZjYXV0aC5oIGxpbnV4LTIuNi4yNC1yYzQtSVB2Ni1jYWNoZS1iYXNlZC9pbmNsdWRlL2xpbnV4
+L3N1bnJwYy9zdmNhdXRoLmgKPiAtLS0gbGludXgtMi42LjI0LXJjNC9pbmNsdWRlL2xpbnV4L3N1
+bnJwYy9zdmNhdXRoLmgJMjAwNy0xMi0xMCAxNjowMTo0My4wMDAwMDAwMDAgKzAxMDAKPiArKysg
+bGludXgtMi42LjI0LXJjNC1JUHY2LWNhY2hlLWJhc2VkL2luY2x1ZGUvbGludXgvc3VucnBjL3N2
+Y2F1dGguaAkyMDA3LTEyLTEwIDE3OjA5OjM0LjAwMDAwMDAwMCArMDEwMAo+IEBAIC0xMjAsMTAg
+KzEyMCwxMCBAQCBleHRlcm4gdm9pZAlzdmNfYXV0aF91bnJlZ2lzdGVyKHJwY19hdXRoCj4gIAo+
+ICBleHRlcm4gc3RydWN0IGF1dGhfZG9tYWluICp1bml4X2RvbWFpbl9maW5kKGNoYXIgKm5hbWUp
+Owo+ICBleHRlcm4gdm9pZCBhdXRoX2RvbWFpbl9wdXQoc3RydWN0IGF1dGhfZG9tYWluICppdGVt
+KTsKPiAtZXh0ZXJuIGludCBhdXRoX3VuaXhfYWRkX2FkZHIoc3RydWN0IGluX2FkZHIgYWRkciwg
+c3RydWN0IGF1dGhfZG9tYWluICpkb20pOwo+ICtleHRlcm4gaW50IGF1dGhfdW5peF9hZGRfYWRk
+cihzdHJ1Y3QgaW42X2FkZHIgKmFkZHIsIHN0cnVjdCBhdXRoX2RvbWFpbiAqZG9tKTsKPiAgZXh0
+ZXJuIHN0cnVjdCBhdXRoX2RvbWFpbiAqYXV0aF9kb21haW5fbG9va3VwKGNoYXIgKm5hbWUsIHN0
+cnVjdCBhdXRoX2RvbWFpbiAqbmV3KTsKPiAgZXh0ZXJuIHN0cnVjdCBhdXRoX2RvbWFpbiAqYXV0
+aF9kb21haW5fZmluZChjaGFyICpuYW1lKTsKPiAtZXh0ZXJuIHN0cnVjdCBhdXRoX2RvbWFpbiAq
+YXV0aF91bml4X2xvb2t1cChzdHJ1Y3QgaW5fYWRkciBhZGRyKTsKPiArZXh0ZXJuIHN0cnVjdCBh
+dXRoX2RvbWFpbiAqYXV0aF91bml4X2xvb2t1cChzdHJ1Y3QgaW42X2FkZHIgKmFkZHIpOwo+ICBl
+eHRlcm4gaW50IGF1dGhfdW5peF9mb3JnZXRfb2xkKHN0cnVjdCBhdXRoX2RvbWFpbiAqZG9tKTsK
+PiAgZXh0ZXJuIHZvaWQgc3ZjYXV0aF91bml4X3B1cmdlKHZvaWQpOwo+ICBleHRlcm4gdm9pZCBz
+dmNhdXRoX3VuaXhfaW5mb19yZWxlYXNlKHZvaWQgKik7Cj4gZGlmZiAtcCAtdSAtciAtTiBsaW51
+eC0yLjYuMjQtcmM0L25ldC9zdW5ycGMvc3ZjYXV0aF91bml4LmMgbGludXgtMi42LjI0LXJjNC1J
+UHY2LWNhY2hlLWJhc2VkL25ldC9zdW5ycGMvc3ZjYXV0aF91bml4LmMKPiAtLS0gbGludXgtMi42
+LjI0LXJjNC9uZXQvc3VucnBjL3N2Y2F1dGhfdW5peC5jCTIwMDctMTItMTAgMTY6MDE6NDYuMDAw
+MDAwMDAwICswMTAwCj4gKysrIGxpbnV4LTIuNi4yNC1yYzQtSVB2Ni1jYWNoZS1iYXNlZC9uZXQv
+c3VucnBjL3N2Y2F1dGhfdW5peC5jCTIwMDctMTItMTAgMTc6Mzg6NTAuMDAwMDAwMDAwICswMTAw
+Cj4gQEAgLTExLDcgKzExLDggQEAKPiAgI2luY2x1ZGUgPGxpbnV4L2hhc2guaD4KPiAgI2luY2x1
+ZGUgPGxpbnV4L3N0cmluZy5oPgo+ICAjaW5jbHVkZSA8bmV0L3NvY2suaD4KPiAtCj4gKyNpbmNs
+dWRlIDxuZXQvaXB2Ni5oPgo+ICsjaW5jbHVkZSA8bGludXgva2VybmVsLmg+Cj4gICNkZWZpbmUg
+UlBDREJHX0ZBQ0lMSVRZCVJQQ0RCR19BVVRICj4gIAo+ICAKPiBAQCAtODQsNyArODUsNyBAQCBz
+dGF0aWMgdm9pZCBzdmNhdXRoX3VuaXhfZG9tYWluX3JlbGVhc2UoCj4gIHN0cnVjdCBpcF9tYXAg
+ewo+ICAJc3RydWN0IGNhY2hlX2hlYWQJaDsKPiAgCWNoYXIJCQltX2NsYXNzWzhdOyAvKiBlLmcu
+ICJuZnNkIiAqLwo+IC0Jc3RydWN0IGluX2FkZHIJCW1fYWRkcjsKPiArCXN0cnVjdCBpbjZfYWRk
+cgkJbV9hZGRyOwo+ICAJc3RydWN0IHVuaXhfZG9tYWluCSptX2NsaWVudDsKPiAgCWludAkJCW1f
+YWRkX2NoYW5nZTsKPiAgfTsKPiBAQCAtMTEyLDEyICsxMTMsMTkgQEAgc3RhdGljIGlubGluZSBp
+bnQgaGFzaF9pcChfX2JlMzIgaXApCj4gIAlyZXR1cm4gKGhhc2ggXiAoaGFzaD4+OCkpICYgMHhm
+ZjsKPiAgfQo+ICAjZW5kaWYKPiArc3RhdGljIGlubGluZSBpbnQgaGFzaF9pcDYoc3RydWN0IGlu
+Nl9hZGRyIGlwKQo+ICt7Cj4gKwlyZXR1cm4gKGhhc2hfaXAoaXAuczZfYWRkcjMyWzBdKSBeCj4g
+KwkJaGFzaF9pcChpcC5zNl9hZGRyMzJbMV0pIF4KPiArCQloYXNoX2lwKGlwLnM2X2FkZHIzMlsy
+XSkgXgo+ICsJCWhhc2hfaXAoaXAuczZfYWRkcjMyWzNdKSk7Cj4gK30KPiAgc3RhdGljIGludCBp
+cF9tYXBfbWF0Y2goc3RydWN0IGNhY2hlX2hlYWQgKmNvcmlnLCBzdHJ1Y3QgY2FjaGVfaGVhZCAq
+Y25ldykKPiAgewo+ICAJc3RydWN0IGlwX21hcCAqb3JpZyA9IGNvbnRhaW5lcl9vZihjb3JpZywg
+c3RydWN0IGlwX21hcCwgaCk7Cj4gIAlzdHJ1Y3QgaXBfbWFwICpuZXcgPSBjb250YWluZXJfb2Yo
+Y25ldywgc3RydWN0IGlwX21hcCwgaCk7Cj4gIAlyZXR1cm4gc3RyY21wKG9yaWctPm1fY2xhc3Ms
+IG5ldy0+bV9jbGFzcykgPT0gMAo+IC0JCSYmIG9yaWctPm1fYWRkci5zX2FkZHIgPT0gbmV3LT5t
+X2FkZHIuc19hZGRyOwo+ICsJCSYmIGlwdjZfYWRkcl9lcXVhbCgmb3JpZy0+bV9hZGRyLCAmbmV3
+LT5tX2FkZHIpOwo+ICB9Cj4gIHN0YXRpYyB2b2lkIGlwX21hcF9pbml0KHN0cnVjdCBjYWNoZV9o
+ZWFkICpjbmV3LCBzdHJ1Y3QgY2FjaGVfaGVhZCAqY2l0ZW0pCj4gIHsKPiBAQCAtMTI1LDcgKzEz
+Myw3IEBAIHN0YXRpYyB2b2lkIGlwX21hcF9pbml0KHN0cnVjdCBjYWNoZV9oZWEKPiAgCXN0cnVj
+dCBpcF9tYXAgKml0ZW0gPSBjb250YWluZXJfb2YoY2l0ZW0sIHN0cnVjdCBpcF9tYXAsIGgpOwo+
+ICAKPiAgCXN0cmNweShuZXctPm1fY2xhc3MsIGl0ZW0tPm1fY2xhc3MpOwo+IC0JbmV3LT5tX2Fk
+ZHIuc19hZGRyID0gaXRlbS0+bV9hZGRyLnNfYWRkcjsKPiArCWlwdjZfYWRkcl9jb3B5KCZuZXct
+Pm1fYWRkciwgJml0ZW0tPm1fYWRkcik7Cj4gIH0KPiAgc3RhdGljIHZvaWQgdXBkYXRlKHN0cnVj
+dCBjYWNoZV9oZWFkICpjbmV3LCBzdHJ1Y3QgY2FjaGVfaGVhZCAqY2l0ZW0pCj4gIHsKPiBAQCAt
+MTQ5LDIyICsxNTcsMjQgQEAgc3RhdGljIHZvaWQgaXBfbWFwX3JlcXVlc3Qoc3RydWN0IGNhY2hl
+Xwo+ICAJCQkJICBzdHJ1Y3QgY2FjaGVfaGVhZCAqaCwKPiAgCQkJCSAgY2hhciAqKmJwcCwgaW50
+ICpibGVuKQo+ICB7Cj4gLQljaGFyIHRleHRfYWRkclsyMF07Cj4gKwljaGFyIHRleHRfYWRkcls0
+MF07Cj4gIAlzdHJ1Y3QgaXBfbWFwICppbSA9IGNvbnRhaW5lcl9vZihoLCBzdHJ1Y3QgaXBfbWFw
+LCBoKTsKPiAtCV9fYmUzMiBhZGRyID0gaW0tPm1fYWRkci5zX2FkZHI7Cj4gLQo+IC0Jc25wcmlu
+dGYodGV4dF9hZGRyLCAyMCwgIiV1LiV1LiV1LiV1IiwKPiAtCQkgbnRvaGwoYWRkcikgPj4gMjQg
+JiAweGZmLAo+IC0JCSBudG9obChhZGRyKSA+PiAxNiAmIDB4ZmYsCj4gLQkJIG50b2hsKGFkZHIp
+ID4+ICA4ICYgMHhmZiwKPiAtCQkgbnRvaGwoYWRkcikgPj4gIDAgJiAweGZmKTsKPiAgCj4gKwlp
+ZiAoaXB2Nl9hZGRyX3Y0bWFwcGVkKCYoaW0tPm1fYWRkcikpKSB7Cj4gKwkJc25wcmludGYodGV4
+dF9hZGRyLCAyMCwgTklQUVVBRF9GTVQsCj4gKwkJCQludG9obChpbS0+bV9hZGRyLnM2X2FkZHIz
+MlszXSkgPj4gMjQgJiAweGZmLAo+ICsJCQkJbnRvaGwoaW0tPm1fYWRkci5zNl9hZGRyMzJbM10p
+ID4+IDE2ICYgMHhmZiwKPiArCQkJCW50b2hsKGltLT5tX2FkZHIuczZfYWRkcjMyWzNdKSA+PiAg
+OCAmIDB4ZmYsCj4gKwkJCQludG9obChpbS0+bV9hZGRyLnM2X2FkZHIzMlszXSkgPj4gIDAgJiAw
+eGZmKTsKPiArCX0gZWxzZSB7Cj4gKwkJc25wcmludGYodGV4dF9hZGRyLCA0MCwgTklQNl9GTVQs
+IE5JUDYoaW0tPm1fYWRkcikpOwo+ICsJfQo+ICAJcXdvcmRfYWRkKGJwcCwgYmxlbiwgaW0tPm1f
+Y2xhc3MpOwo+ICAJcXdvcmRfYWRkKGJwcCwgYmxlbiwgdGV4dF9hZGRyKTsKPiAgCSgqYnBwKVst
+MV0gPSAnXG4nOwo+ICB9Cj4gIAo+IC1zdGF0aWMgc3RydWN0IGlwX21hcCAqaXBfbWFwX2xvb2t1
+cChjaGFyICpjbGFzcywgc3RydWN0IGluX2FkZHIgYWRkcik7Cj4gK3N0YXRpYyBzdHJ1Y3QgaXBf
+bWFwICppcF9tYXBfbG9va3VwKGNoYXIgKmNsYXNzLCBzdHJ1Y3QgaW42X2FkZHIgKmFkZHIpOwo+
+ICBzdGF0aWMgaW50IGlwX21hcF91cGRhdGUoc3RydWN0IGlwX21hcCAqaXBtLCBzdHJ1Y3QgdW5p
+eF9kb21haW4gKnVkb20sIHRpbWVfdCBleHBpcnkpOwo+ICAKPiAgc3RhdGljIGludCBpcF9tYXBf
+cGFyc2Uoc3RydWN0IGNhY2hlX2RldGFpbCAqY2QsCj4gQEAgLTE3NSwxMCArMTg1LDEwIEBAIHN0
+YXRpYyBpbnQgaXBfbWFwX3BhcnNlKHN0cnVjdCBjYWNoZV9kZXQKPiAgCSAqIGZvciBzY3JhdGNo
+OiAqLwo+ICAJY2hhciAqYnVmID0gbWVzZzsKPiAgCWludCBsZW47Cj4gLQlpbnQgYjEsYjIsYjMs
+YjQ7Cj4gKwlpbnQgYjEsIGIyLCBiMywgYjQsIGI1LCBiNiwgYjcsIGI4Owo+ICAJY2hhciBjOwo+
+ICAJY2hhciBjbGFzc1s4XTsKPiAtCXN0cnVjdCBpbl9hZGRyIGFkZHI7Cj4gKwlzdHJ1Y3QgaW42
+X2FkZHIgYWRkcjsKPiAgCWludCBlcnI7Cj4gIAo+ICAJc3RydWN0IGlwX21hcCAqaXBtcDsKPiBA
+QCAtMTk3LDkgKzIwNywyNiBAQCBzdGF0aWMgaW50IGlwX21hcF9wYXJzZShzdHJ1Y3QgY2FjaGVf
+ZGV0Cj4gIAlsZW4gPSBxd29yZF9nZXQoJm1lc2csIGJ1ZiwgbWxlbik7Cj4gIAlpZiAobGVuIDw9
+IDApIHJldHVybiAtRUlOVkFMOwo+ICAKPiAtCWlmIChzc2NhbmYoYnVmLCAiJXUuJXUuJXUuJXUl
+YyIsICZiMSwgJmIyLCAmYjMsICZiNCwgJmMpICE9IDQpCj4gKwlpZiAoc3NjYW5mKGJ1ZiwgTklQ
+UVVBRF9GTVQgIiVjIiwgJmIxLCAmYjIsICZiMywgJmI0LCAmYykgPT0gNCkgewo+ICsJCWFkZHIu
+czZfYWRkcjMyWzBdID0gMDsKPiArCQlhZGRyLnM2X2FkZHIzMlsxXSA9IDA7Cj4gKwkJYWRkci5z
+Nl9hZGRyMzJbMl0gPSBodG9ubCgweGZmZmYpOwo+ICsJCWFkZHIuczZfYWRkcjMyWzNdID0KPiAr
+CQkJaHRvbmwoKCgoKChiMTw8OCl8YjIpPDw4KXxiMyk8PDgpfGI0KTsKPiArICAgICAgIH0gZWxz
+ZSBpZiAoc3NjYW5mKGJ1ZiwgTklQNl9GTVQgIiVjIiwKPiArCQkJJmIxLCAmYjIsICZiMywgJmI0
+LCAmYjUsICZiNiwgJmI3LCAmYjgsICZjKSA9PSA4KSB7Cj4gKwkJYWRkci5zNl9hZGRyMTZbMF0g
+PSBodG9ucyhiMSk7Cj4gKwkJYWRkci5zNl9hZGRyMTZbMV0gPSBodG9ucyhiMik7Cj4gKwkJYWRk
+ci5zNl9hZGRyMTZbMl0gPSBodG9ucyhiMyk7Cj4gKwkJYWRkci5zNl9hZGRyMTZbM10gPSBodG9u
+cyhiNCk7Cj4gKwkJYWRkci5zNl9hZGRyMTZbNF0gPSBodG9ucyhiNSk7Cj4gKwkJYWRkci5zNl9h
+ZGRyMTZbNV0gPSBodG9ucyhiNik7Cj4gKwkJYWRkci5zNl9hZGRyMTZbNl0gPSBodG9ucyhiNyk7
+Cj4gKwkJYWRkci5zNl9hZGRyMTZbN10gPSBodG9ucyhiOCk7Cj4gKyAgICAgICB9IGVsc2UKPiAg
+CQlyZXR1cm4gLUVJTlZBTDsKPiAgCj4gKwo+ICAJZXhwaXJ5ID0gZ2V0X2V4cGlyeSgmbWVzZyk7
+Cj4gIAlpZiAoZXhwaXJ5ID09MCkKPiAgCQlyZXR1cm4gLUVJTlZBTDsKPiBAQCAtMjE1LDEwICsy
+NDIsNyBAQCBzdGF0aWMgaW50IGlwX21hcF9wYXJzZShzdHJ1Y3QgY2FjaGVfZGV0Cj4gIAl9IGVs
+c2UKPiAgCQlkb20gPSBOVUxMOwo+ICAKPiAtCWFkZHIuc19hZGRyID0KPiAtCQlodG9ubCgoKCgo
+KGIxPDw4KXxiMik8PDgpfGIzKTw8OCl8YjQpOwo+IC0KPiAtCWlwbXAgPSBpcF9tYXBfbG9va3Vw
+KGNsYXNzLGFkZHIpOwo+ICsJaXBtcCA9IGlwX21hcF9sb29rdXAoY2xhc3MsICZhZGRyKTsKPiAg
+CWlmIChpcG1wKSB7Cj4gIAkJZXJyID0gaXBfbWFwX3VwZGF0ZShpcG1wLAo+ICAJCQkgICAgIGNv
+bnRhaW5lcl9vZihkb20sIHN0cnVjdCB1bml4X2RvbWFpbiwgaCksCj4gQEAgLTIzOCw3ICsyNjIs
+NyBAQCBzdGF0aWMgaW50IGlwX21hcF9zaG93KHN0cnVjdCBzZXFfZmlsZSAqCj4gIAkJICAgICAg
+IHN0cnVjdCBjYWNoZV9oZWFkICpoKQo+ICB7Cj4gIAlzdHJ1Y3QgaXBfbWFwICppbTsKPiAtCXN0
+cnVjdCBpbl9hZGRyIGFkZHI7Cj4gKwlzdHJ1Y3QgaW42X2FkZHIgYWRkcjsKPiAgCWNoYXIgKmRv
+bSA9ICItbm8tZG9tYWluLSI7Cj4gIAo+ICAJaWYgKGggPT0gTlVMTCkgewo+IEBAIC0yNDcsMjAg
+KzI3MSwyNCBAQCBzdGF0aWMgaW50IGlwX21hcF9zaG93KHN0cnVjdCBzZXFfZmlsZSAqCj4gIAl9
+Cj4gIAlpbSA9IGNvbnRhaW5lcl9vZihoLCBzdHJ1Y3QgaXBfbWFwLCBoKTsKPiAgCS8qIGNsYXNz
+IGFkZHIgZG9tYWluICovCj4gLQlhZGRyID0gaW0tPm1fYWRkcjsKPiArCWlwdjZfYWRkcl9jb3B5
+KCZhZGRyLCAmaW0tPm1fYWRkcik7Cj4gIAo+ICAJaWYgKHRlc3RfYml0KENBQ0hFX1ZBTElELCAm
+aC0+ZmxhZ3MpICYmCj4gIAkgICAgIXRlc3RfYml0KENBQ0hFX05FR0FUSVZFLCAmaC0+ZmxhZ3Mp
+KQo+ICAJCWRvbSA9IGltLT5tX2NsaWVudC0+aC5uYW1lOwo+ICAKPiAtCXNlcV9wcmludGYobSwg
+IiVzICVkLiVkLiVkLiVkICVzXG4iLAo+IC0JCSAgIGltLT5tX2NsYXNzLAo+IC0JCSAgIG50b2hs
+KGFkZHIuc19hZGRyKSA+PiAyNCAmIDB4ZmYsCj4gLQkJICAgbnRvaGwoYWRkci5zX2FkZHIpID4+
+IDE2ICYgMHhmZiwKPiAtCQkgICBudG9obChhZGRyLnNfYWRkcikgPj4gIDggJiAweGZmLAo+IC0J
+CSAgIG50b2hsKGFkZHIuc19hZGRyKSA+PiAgMCAmIDB4ZmYsCj4gLQkJICAgZG9tCj4gLQkJICAg
+KTsKPiArCWlmIChpcHY2X2FkZHJfdjRtYXBwZWQoJmFkZHIpKSB7Cj4gKwkJc2VxX3ByaW50Ziht
+LCAiJXMiIE5JUFFVQURfRk1UICIlc1xuIiwKPiArCQkJaW0tPm1fY2xhc3MsCj4gKwkJCW50b2hs
+KGFkZHIuczZfYWRkcjMyWzNdKSA+PiAyNCAmIDB4ZmYsCj4gKwkJCW50b2hsKGFkZHIuczZfYWRk
+cjMyWzNdKSA+PiAxNiAmIDB4ZmYsCj4gKwkJCW50b2hsKGFkZHIuczZfYWRkcjMyWzNdKSA+PiAg
+OCAmIDB4ZmYsCj4gKwkJCW50b2hsKGFkZHIuczZfYWRkcjMyWzNdKSA+PiAgMCAmIDB4ZmYsCj4g
+KwkJCWRvbSk7Cj4gKwl9IGVsc2Ugewo+ICsJCXNlcV9wcmludGYobSwgIiVzIiBOSVA2X0ZNVCAi
+JXNcbiIsCj4gKwkJCWltLT5tX2NsYXNzLCBOSVA2KGFkZHIpLCBkb20pOwo+ICsJfQo+ICAJcmV0
+dXJuIDA7Cj4gIH0KPiAgCj4gQEAgLTI4MCwxNiArMzA4LDE2IEBAIHN0cnVjdCBjYWNoZV9kZXRh
+aWwgaXBfbWFwX2NhY2hlID0gewo+ICAJLmFsbG9jCQk9IGlwX21hcF9hbGxvYywKPiAgfTsKPiAg
+Cj4gLXN0YXRpYyBzdHJ1Y3QgaXBfbWFwICppcF9tYXBfbG9va3VwKGNoYXIgKmNsYXNzLCBzdHJ1
+Y3QgaW5fYWRkciBhZGRyKQo+ICtzdGF0aWMgc3RydWN0IGlwX21hcCAqaXBfbWFwX2xvb2t1cChj
+aGFyICpjbGFzcywgc3RydWN0IGluNl9hZGRyICphZGRyKQo+ICB7Cj4gIAlzdHJ1Y3QgaXBfbWFw
+IGlwOwo+ICAJc3RydWN0IGNhY2hlX2hlYWQgKmNoOwo+ICAKPiAgCXN0cmNweShpcC5tX2NsYXNz
+LCBjbGFzcyk7Cj4gLQlpcC5tX2FkZHIgPSBhZGRyOwo+ICsJaXB2Nl9hZGRyX2NvcHkoJmlwLm1f
+YWRkciwgYWRkcik7Cj4gIAljaCA9IHN1bnJwY19jYWNoZV9sb29rdXAoJmlwX21hcF9jYWNoZSwg
+JmlwLmgsCj4gIAkJCQkgaGFzaF9zdHIoY2xhc3MsIElQX0hBU0hCSVRTKSBeCj4gLQkJCQkgaGFz
+aF9pcChhZGRyLnNfYWRkcikpOwo+ICsJCQkJIGhhc2hfaXA2KCphZGRyKSk7Cj4gIAo+ICAJaWYg
+KGNoKQo+ICAJCXJldHVybiBjb250YWluZXJfb2YoY2gsIHN0cnVjdCBpcF9tYXAsIGgpOwo+IEBA
+IC0zMTgsMTQgKzM0NiwxNCBAQCBzdGF0aWMgaW50IGlwX21hcF91cGRhdGUoc3RydWN0IGlwX21h
+cCAqCj4gIAljaCA9IHN1bnJwY19jYWNoZV91cGRhdGUoJmlwX21hcF9jYWNoZSwKPiAgCQkJCSAm
+aXAuaCwgJmlwbS0+aCwKPiAgCQkJCSBoYXNoX3N0cihpcG0tPm1fY2xhc3MsIElQX0hBU0hCSVRT
+KSBeCj4gLQkJCQkgaGFzaF9pcChpcG0tPm1fYWRkci5zX2FkZHIpKTsKPiArCQkJCSBoYXNoX2lw
+NihpcG0tPm1fYWRkcikpOwo+ICAJaWYgKCFjaCkKPiAgCQlyZXR1cm4gLUVOT01FTTsKPiAgCWNh
+Y2hlX3B1dChjaCwgJmlwX21hcF9jYWNoZSk7Cj4gIAlyZXR1cm4gMDsKPiAgfQo+ICAKPiAtaW50
+IGF1dGhfdW5peF9hZGRfYWRkcihzdHJ1Y3QgaW5fYWRkciBhZGRyLCBzdHJ1Y3QgYXV0aF9kb21h
+aW4gKmRvbSkKPiAraW50IGF1dGhfdW5peF9hZGRfYWRkcihzdHJ1Y3QgaW42X2FkZHIgKmFkZHIs
+IHN0cnVjdCBhdXRoX2RvbWFpbiAqZG9tKQo+ICB7Cj4gIAlzdHJ1Y3QgdW5peF9kb21haW4gKnVk
+b207Cj4gIAlzdHJ1Y3QgaXBfbWFwICppcG1wOwo+IEBAIC0zNTIsNyArMzgwLDcgQEAgaW50IGF1
+dGhfdW5peF9mb3JnZXRfb2xkKHN0cnVjdCBhdXRoX2RvbQo+ICAJcmV0dXJuIDA7Cj4gIH0KPiAg
+Cj4gLXN0cnVjdCBhdXRoX2RvbWFpbiAqYXV0aF91bml4X2xvb2t1cChzdHJ1Y3QgaW5fYWRkciBh
+ZGRyKQo+ICtzdHJ1Y3QgYXV0aF9kb21haW4gKmF1dGhfdW5peF9sb29rdXAoc3RydWN0IGluNl9h
+ZGRyICphZGRyKQo+ICB7Cj4gIAlzdHJ1Y3QgaXBfbWFwICppcG07Cj4gIAlzdHJ1Y3QgYXV0aF9k
+b21haW4gKnJ2Owo+IEBAIC02NDEsOSArNjY5LDI0IEBAIHN0YXRpYyBpbnQgdW5peF9naWRfZmlu
+ZCh1aWRfdCB1aWQsIHN0cnUKPiAgaW50Cj4gIHN2Y2F1dGhfdW5peF9zZXRfY2xpZW50KHN0cnVj
+dCBzdmNfcnFzdCAqcnFzdHApCj4gIHsKPiAtCXN0cnVjdCBzb2NrYWRkcl9pbiAqc2luID0gc3Zj
+X2FkZHJfaW4ocnFzdHApOwo+ICsJc3RydWN0IHNvY2thZGRyX2luICpzaW47Cj4gKwlzdHJ1Y3Qg
+c29ja2FkZHJfaW42ICpzaW42LCBzaW42X3N0b3JhZ2U7Cj4gIAlzdHJ1Y3QgaXBfbWFwICppcG07
+Cj4gIAo+ICsJc3dpdGNoIChycXN0cC0+cnFfYWRkci5zc19mYW1pbHkpIHsKPiArCWNhc2UgQUZf
+SU5FVDoKPiArCQlzaW4gPSBzdmNfYWRkcl9pbihycXN0cCk7Cj4gKwkJc2luNiA9ICZzaW42X3N0
+b3JhZ2U7Cj4gKwkJaXB2Nl9hZGRyX3NldCgmc2luNi0+c2luNl9hZGRyLCAwLCAwLAo+ICsJCQkJ
+aHRvbmwoMHgwMDAwRkZGRiksIHNpbi0+c2luX2FkZHIuc19hZGRyKTsKPiArCQlicmVhazsKPiAr
+CWNhc2UgQUZfSU5FVDY6Cj4gKwkJc2luNiA9IHN2Y19hZGRyX2luNihycXN0cCk7Cj4gKwkJYnJl
+YWs7Cj4gKwlkZWZhdWx0Ogo+ICsJCUJVRygpOwo+ICsJfQo+ICsKPiAgCXJxc3RwLT5ycV9jbGll
+bnQgPSBOVUxMOwo+ICAJaWYgKHJxc3RwLT5ycV9wcm9jID09IDApCj4gIAkJcmV0dXJuIFNWQ19P
+SzsKPiBAQCAtNjUxLDcgKzY5NCw3IEBAIHN2Y2F1dGhfdW5peF9zZXRfY2xpZW50KHN0cnVjdCBz
+dmNfcnFzdCAKPiAgCWlwbSA9IGlwX21hcF9jYWNoZWRfZ2V0KHJxc3RwKTsKPiAgCWlmIChpcG0g
+PT0gTlVMTCkKPiAgCQlpcG0gPSBpcF9tYXBfbG9va3VwKHJxc3RwLT5ycV9zZXJ2ZXItPnN2X3By
+b2dyYW0tPnBnX2NsYXNzLAo+IC0JCQkJICAgIHNpbi0+c2luX2FkZHIpOwo+ICsJCQkJICAgICZz
+aW42LT5zaW42X2FkZHIpOwo+ICAKPiAgCWlmIChpcG0gPT0gTlVMTCkKPiAgCQlyZXR1cm4gU1ZD
+X0RFTklFRDsKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+Ck5GU3Y0IG1haWxpbmcgbGlzdApORlN2NEBsaW51eC1uZnMub3JnCmh0dHA6Ly9saW51eC1uZnMu
+b3JnL2NnaS1iaW4vbWFpbG1hbi9saXN0aW5mby9uZnN2NA==
