@@ -1,22 +1,27 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: routing policy based on u32 classifier
-Date: Mon, 10 Dec 2007 10:22:54 +0100
-Message-ID: <BAY103-DAV51710C05B584C53DED66DB26B0@phx.gbl>
-To: <netdev@vger.kernel.org>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 2/8] [TFRC]: Put RX/TX initialisation into tfrc.c
+Date: Mon, 10 Dec 2007 10:56:17 +0000
+Message-ID: <20071210105617.GA4688@gerrit.erg.abdn.ac.uk>
+References: <11971083882331-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881862-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881667-git-send-email-gerrit@erg.abdn.ac.uk> <20071208171317.GC3180@ghostprotocols.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc1-s31.bay0.hotmail.com ([65.54.246.103]:47857 "EHLO
-	bay0-omc1-s31.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751577AbXLJJY0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 04:24:26 -0500
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:33031 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751036AbXLJK5F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2007 05:57:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20071208171317.GC3180@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello everybody.
-Kindly, I would like to know if the is any plan
-to add this feature to a future kernel release.
-I know that fwmark is able to do this, but there
-is the limitation in source ip address selection.
-
-TIA
-
-
+| > This separates RX/TX initialisation and puts all packet history / loss intervals
+| > initialisation into tfrc.c.
+| > The organisation is uniform: slab declaration -> {rx,tx}_init() -> {rx,tx}_exit()
+| 
+| NAK, you can't call a __exit marked routine from a __init marked
+| routine.
+| 
+Ok thanks, will fix that in revision 2.
