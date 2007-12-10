@@ -1,68 +1,125 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 4/4] [CCID3]: Redundant debugging output / documentation
-Date: Mon, 10 Dec 2007 13:11:58 +0000
-Message-ID: <1197292318-29659-5-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 2/4] [PATCH v2] [TFRC]: Loss interval code needs the macros/inlines that were moved
+Date: Mon, 10 Dec 2007 13:11:56 +0000
+Message-ID: <1197292318-29659-3-git-send-email-gerrit@erg.abdn.ac.uk>
 References: dccp_tfrc_loss_intervals_revised_patch_set
  <1197292318-29659-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1197292318-29659-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1197292318-29659-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1197292318-29659-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38210 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38184 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754335AbXLJNNf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2007 08:13:35 -0500
-In-Reply-To: <1197292318-29659-4-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1752598AbXLJNNc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2007 08:13:32 -0500
+In-Reply-To: <1197292318-29659-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Each time feedback is sent two lines are printed:
-
-	ccid3_hc_rx_send_feedback: client ... - entry
-	ccid3_hc_rx_send_feedback: Interval ...usec, X_recv=..., 1/p=...
-
-The first line is redundant and thus removed.
-
-Further, documentation of ccid3_hc_rx_sock (capitalisation) is made consistent.
+This moves the inlines (which were previously declared as macros) back into packet_history.h since
+the loss detection code needs to be able to read entries from the RX history in order to create the
+relevant loss entries: it needs at least tfrc_rx_hist_loss_prev() and tfrc_rx_hist_last_rcv(), which
+in turn require the definition of the other inlines (macros).
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid3.c |    2 --
- net/dccp/ccids/ccid3.h |    4 ++--
- 2 files changed, 2 insertions(+), 4 deletions(-)
+ net/dccp/ccids/lib/packet_history.c |   35 -----------------------------------
+ net/dccp/ccids/lib/packet_history.h |   35 +++++++++++++++++++++++++++++++++++
+ 2 files changed, 35 insertions(+), 35 deletions(-)
 
-diff --git a/net/dccp/ccids/ccid3.c b/net/dccp/ccids/ccid3.c
-index 60fcb31..b92069b 100644
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -685,8 +685,6 @@ static void ccid3_hc_rx_send_feedback(struct sock *sk,
- 	ktime_t now;
- 	s64 delta = 0;
+diff --git a/net/dccp/ccids/lib/packet_history.c b/net/dccp/ccids/lib/packet_history.c
+index 1346045..22114c6 100644
+--- a/net/dccp/ccids/lib/packet_history.c
++++ b/net/dccp/ccids/lib/packet_history.c
+@@ -151,41 +151,6 @@ void tfrc_rx_packet_history_exit(void)
+ 	}
+ }
  
--	ccid3_pr_debug("%s(%p) - entry \n", dccp_role(sk), sk);
+-/**
+- * tfrc_rx_hist_index - index to reach n-th entry after loss_start
+- */
+-static inline u8 tfrc_rx_hist_index(const struct tfrc_rx_hist *h, const u8 n)
+-{
+-	return (h->loss_start + n) & TFRC_NDUPACK;
+-}
 -
- 	if (unlikely(hcrx->ccid3hcrx_state == TFRC_RSTATE_TERM))
- 		return;
+-/**
+- * tfrc_rx_hist_last_rcv - entry with highest-received-seqno so far
+- */
+-static inline struct tfrc_rx_hist_entry *
+-			tfrc_rx_hist_last_rcv(const struct tfrc_rx_hist *h)
+-{
+-	return h->ring[tfrc_rx_hist_index(h, h->loss_count)];
+-}
+-
+-/**
+- * tfrc_rx_hist_entry - return the n-th history entry after loss_start
+- */
+-static inline struct tfrc_rx_hist_entry *
+-		tfrc_rx_hist_entry(const struct tfrc_rx_hist *h, const u8 n)
+-{
+-	return h->ring[tfrc_rx_hist_index(h, n)];
+-}
+-
+-/**
+- * tfrc_rx_hist_loss_prev - entry with highest-received-seqno before loss was detected
+- */
+-static inline struct tfrc_rx_hist_entry *
+-			tfrc_rx_hist_loss_prev(const struct tfrc_rx_hist *h)
+-{
+-	return h->ring[h->loss_start];
+-}
+-
+ /* has the packet contained in skb been seen before? */
+ int tfrc_rx_hist_duplicate(struct tfrc_rx_hist *h, struct sk_buff *skb)
+ {
+diff --git a/net/dccp/ccids/lib/packet_history.h b/net/dccp/ccids/lib/packet_history.h
+index 3dfd182..e58b0fc 100644
+--- a/net/dccp/ccids/lib/packet_history.h
++++ b/net/dccp/ccids/lib/packet_history.h
+@@ -84,6 +84,41 @@ struct tfrc_rx_hist {
+ #define rtt_sample_prev		  loss_start
+ };
  
-diff --git a/net/dccp/ccids/ccid3.h b/net/dccp/ccids/ccid3.h
-index 3c33dc6..6ceeb80 100644
---- a/net/dccp/ccids/ccid3.h
-+++ b/net/dccp/ccids/ccid3.h
-@@ -135,9 +135,9 @@ enum ccid3_hc_rx_states {
-  *
-  *  @ccid3hcrx_x_recv  -  Receiver estimate of send rate (RFC 3448 4.3)
-  *  @ccid3hcrx_rtt  -  Receiver estimate of rtt (non-standard)
-- *  @ccid3hcrx_p  -  current loss event rate (RFC 3448 5.4)
-+ *  @ccid3hcrx_p  -  Current loss event rate (RFC 3448 5.4)
-  *  @ccid3hcrx_last_counter  -  Tracks window counter (RFC 4342, 8.1)
-- *  @ccid3hcrx_state  -  receiver state, one of %ccid3_hc_rx_states
-+ *  @ccid3hcrx_state  -  Receiver state, one of %ccid3_hc_rx_states
-  *  @ccid3hcrx_bytes_recv  -  Total sum of DCCP payload bytes
-  *  @ccid3hcrx_tstamp_last_feedback  -  Time at which last feedback was sent
-  *  @ccid3hcrx_tstamp_last_ack  -  Time at which last feedback was sent
++/**
++ * tfrc_rx_hist_index - index to reach n-th entry after loss_start
++ */
++static inline u8 tfrc_rx_hist_index(const struct tfrc_rx_hist *h, const u8 n)
++{
++	return (h->loss_start + n) & TFRC_NDUPACK;
++}
++
++/**
++ * tfrc_rx_hist_last_rcv - entry with highest-received-seqno so far
++ */
++static inline struct tfrc_rx_hist_entry *
++			tfrc_rx_hist_last_rcv(const struct tfrc_rx_hist *h)
++{
++	return h->ring[tfrc_rx_hist_index(h, h->loss_count)];
++}
++
++/**
++ * tfrc_rx_hist_entry - return the n-th history entry after loss_start
++ */
++static inline struct tfrc_rx_hist_entry *
++			tfrc_rx_hist_entry(const struct tfrc_rx_hist *h, const u8 n)
++{
++	return h->ring[tfrc_rx_hist_index(h, n)];
++}
++
++/**
++ * tfrc_rx_hist_loss_prev - entry with highest-received-seqno before loss was detected
++ */
++static inline struct tfrc_rx_hist_entry *
++			tfrc_rx_hist_loss_prev(const struct tfrc_rx_hist *h)
++{
++	return h->ring[h->loss_start];
++}
++
+ extern void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
+ 				    const struct sk_buff *skb, const u32 ndp);
+ 
 -- 
 1.5.3.GIT
 
