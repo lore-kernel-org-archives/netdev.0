@@ -1,41 +1,47 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [IPv6] ESP: Discard dummy packets introduced in rfc4303
-Date: Mon, 10 Dec 2007 23:18:07 +0100
-Message-ID: <20071210221807.GH11220@postel.suug.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [TCP]: Bind fackets_out state to highest_sack more
+ tightly
+Date: Mon, 10 Dec 2007 15:55:06 -0800 (PST)
+Message-ID: <20071210.155506.26256910.davem@davemloft.net>
+References: <Pine.LNX.4.64.0712101426010.18529@kivilampi-30.cs.helsinki.fi>
+	<20071210.043127.60066660.davem@davemloft.net>
+	<Pine.LNX.4.64.0712101437080.3437@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, herbert@gondor.apana.org.au
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:46704 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751935AbXLJWlK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2007 17:41:10 -0500
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38893
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751012AbXLJXzI convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2007 18:55:08 -0500
+In-Reply-To: <Pine.LNX.4.64.0712101437080.3437@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RFC4303 introduces dummy packets with a nexthdr value of 59
-to implement traffic confidentiality. Such packets need to
-be dropped silently and the payload may not be attempted to
-be parsed as it consists of random chunk.
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Mon, 10 Dec 2007 14:39:46 +0200 (EET)
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> On Mon, 10 Dec 2007, David Miller wrote:
+>=20
+> > From: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+> > Date: Mon, 10 Dec 2007 14:27:24 +0200 (EET)
+> >=20
+> > > Added checks will catch most of the errors if the current
+> > > complex fack_count counting logic is flawed somewhere.
+> > >=20
+> > > Fackets_out should always be advancable if highest_sack is too
+> > > because the fackets_out is nowadays accurate (and obviously it
+> > > must be smaller than packets_out).
+> > >=20
+> > > Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> >=20
+> > Applied to net-2.6.25, thanks!
+>=20
+> Please get the fack_count fix as well from the mm1 thread before my=20
+> mailbox gets filled with stacktraces :-) :
+>   http://marc.info/?l=3Dlinux-netdev&m=3D119728952018975&w=3D2
 
-Index: net-2.6.25/net/ipv6/esp6.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/esp6.c	2007-12-10 16:06:02.000000000 +0100
-+++ net-2.6.25/net/ipv6/esp6.c	2007-12-10 16:08:02.000000000 +0100
-@@ -238,6 +238,12 @@
- 		}
- 		/* ... check padding bits here. Silly. :-) */
- 
-+		/* RFC4303: Drop dummy packets without any error */
-+		if (nexthdr[1] == IPPROTO_NONE) {
-+			ret = -EINVAL;
-+			goto out;
-+		}
-+
- 		pskb_trim(skb, skb->len - alen - padlen - 2);
- 		ret = nexthdr[1];
- 	}
+Done, thanks!
