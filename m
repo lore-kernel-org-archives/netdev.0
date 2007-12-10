@@ -1,56 +1,67 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [PATCH RFC] [5/9] modpost: Fix a buffer overflow in modpost
-Date: Mon, 10 Dec 2007 20:32:02 +0100
-Message-ID: <20071210193202.GC17315@uranus.ravnborg.org>
-References: <20071122343.446909000@suse.de> <20071122024310.BB7E414D68@wotan.suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: Richard Knutsson <ricknu-0@student.ltu.se>
+Subject: [PATCH] drivers/net/ipg: Remove local definition of TRUE/FALSE
+Date: Mon, 10 Dec 2007 20:29:59 +0100 (MET)
+Message-ID: <20071210193139.16433.95480.sendpatchset@thinktank.campus.ltu.se>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	rusty@rustcorp.com.au
-To: Andi Kleen <ak@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpa.tele.dk ([80.160.77.114]:55309 "EHLO pasmtpA.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752975AbXLJTaN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2007 14:30:13 -0500
-Content-Disposition: inline
-In-Reply-To: <20071122024310.BB7E414D68@wotan.suse.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Richard Knutsson <ricknu-0@student.ltu.se>
+To: jgarzik@pobox.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756797AbXLJTbK@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 22, 2007 at 03:43:10AM +0100, Andi Kleen wrote:
-> 
-> When passing an file name > 1k the stack could be overflowed.
-> Not really a security issue, but still better plugged.
+Remove local definition of TRUE/FALSE.
 
-Looks good. A s-o-b line again please.
-Although I am not so happy with the ue of gcc extensions.
+Signed-off-by: Richard Knutsson <ricknu-0@student.ltu.se>
+---
 
-	Sam
-> 
-> 
-> ---
->  scripts/mod/modpost.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> Index: linux/scripts/mod/modpost.c
-> ===================================================================
-> --- linux.orig/scripts/mod/modpost.c
-> +++ linux/scripts/mod/modpost.c
-> @@ -1656,7 +1656,6 @@ int main(int argc, char **argv)
->  {
->  	struct module *mod;
->  	struct buffer buf = { };
-> -	char fname[SZ];
->  	char *kernel_read = NULL, *module_read = NULL;
->  	char *dump_write = NULL;
->  	int opt;
-> @@ -1709,6 +1708,8 @@ int main(int argc, char **argv)
->  	err = 0;
->  
->  	for (mod = modules; mod; mod = mod->next) {
-> +		char fname[strlen(mod->name) + 10];
-> +
->  		if (mod->skip)
->  			continue;
->  
+
+diff --git a/drivers/net/ipg.h b/drivers/net/ipg.h
+index d5d092c..4484778 100644
+--- a/drivers/net/ipg.h
++++ b/drivers/net/ipg.h
+@@ -490,38 +490,34 @@ enum ipg_regs {
+  *	Tune
+  */
+ 
+-/* Miscellaneous Constants. */
+-#define   TRUE  1
+-#define   FALSE 0
+-
+ /* Assign IPG_APPEND_FCS_ON_TX > 0 for auto FCS append on TX. */
+-#define         IPG_APPEND_FCS_ON_TX         TRUE
++#define         IPG_APPEND_FCS_ON_TX         true
+ 
+ /* Assign IPG_APPEND_FCS_ON_TX > 0 for auto FCS strip on RX. */
+-#define         IPG_STRIP_FCS_ON_RX          TRUE
++#define         IPG_STRIP_FCS_ON_RX          true
+ 
+ /* Assign IPG_DROP_ON_RX_ETH_ERRORS > 0 to drop RX frames with
+  * Ethernet errors.
+  */
+-#define         IPG_DROP_ON_RX_ETH_ERRORS    TRUE
++#define         IPG_DROP_ON_RX_ETH_ERRORS    true
+ 
+ /* Assign IPG_INSERT_MANUAL_VLAN_TAG > 0 to insert VLAN tags manually
+  * (via TFC).
+  */
+-#define		IPG_INSERT_MANUAL_VLAN_TAG   FALSE
++#define		IPG_INSERT_MANUAL_VLAN_TAG   false
+ 
+ /* Assign IPG_ADD_IPCHECKSUM_ON_TX > 0 for auto IP checksum on TX. */
+-#define         IPG_ADD_IPCHECKSUM_ON_TX     FALSE
++#define         IPG_ADD_IPCHECKSUM_ON_TX     false
+ 
+ /* Assign IPG_ADD_TCPCHECKSUM_ON_TX > 0 for auto TCP checksum on TX.
+  * DO NOT USE FOR SILICON REVISIONS B3 AND EARLIER.
+  */
+-#define         IPG_ADD_TCPCHECKSUM_ON_TX    FALSE
++#define         IPG_ADD_TCPCHECKSUM_ON_TX    false
+ 
+ /* Assign IPG_ADD_UDPCHECKSUM_ON_TX > 0 for auto UDP checksum on TX.
+  * DO NOT USE FOR SILICON REVISIONS B3 AND EARLIER.
+  */
+-#define         IPG_ADD_UDPCHECKSUM_ON_TX    FALSE
++#define         IPG_ADD_UDPCHECKSUM_ON_TX    false
+ 
+ /* If inserting VLAN tags manually, assign the IPG_MANUAL_VLAN_xx
+  * constants as desired.
