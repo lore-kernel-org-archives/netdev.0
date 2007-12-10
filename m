@@ -1,80 +1,47 @@
-From: Kirill Korotaev <dev@sw.ru>
-Subject: Re: [PATCH 2.6.25] netns: struct net content re-work
-Date: Mon, 10 Dec 2007 20:50:14 +0300
-Message-ID: <475D7C56.9020402@sw.ru>
-References: <20071210163645.GA24030@iris.sw.ru> <475D7849.3030206@fr.ibm.com>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: "ip neigh show" not showing arp cache entries?
+Date: Mon, 10 Dec 2007 11:54:56 -0600
+Message-ID: <475D7D70.5030502@nortel.com>
+References: <475D7901.1040900@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Denis V. Lunev" <den@openvz.org>, containers@lists.osdl.org,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	herbert@gondor.apana.org.au
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:14680 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753172AbXLJRou (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2007 12:44:50 -0500
-In-Reply-To: <475D7849.3030206@fr.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Chris Friesen" <cfriesen@nortel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755281AbXLJRzY@vger.kernel.org>
+In-Reply-To: <475D7901.1040900@nortel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Daniel Lezcano wrote:
-> Denis V. Lunev wrote:
+Chris Friesen wrote:
 > 
->>Recently David Miller and Herbert Xu pointed out that struct net becomes
->>overbloated and un-maintainable. There are two solutions:
->>- provide a pointer to a network subsystem definition from struct net.
->>  This costs an additional dereferrence
->>- place sub-system definition into the structure itself. This will speedup
->>  run-time access at the cost of recompilation time
->>
->>The second approach looks better for us. 
+> I'm seeing some strange behaviour on a 2.6.14 ppc64 system.  If I run 
+> "ip neigh show" it prints out nothing, but if I run "arp" then I see the 
+> other nodes on the local network.
 > 
 > 
-> Yes, we do not need/want a pointer in this structure and add more 
-> dereference in the network code.
+> root@base0-0-0-5-0-11-1:/root> ip neigh show
+> root@base0-0-0-5-0-11-1:/root> arp -n
+> Address                  HWtype  HWaddress           Flags Mask    Iface
+> 172.24.132.0             ether   00:01:AF:14:E8:DA   C    bond0
+> 172.24.132.1                     (incomplete)    bond0
+> 172.24.136.0             ether   00:C0:8B:07:B3:7E   C    bond0
+> 172.24.132.4             ether   00:01:AF:14:E8:DA   C    bond0
+> 172.24.132.2             ether   00:01:AF:14:E8:DA   C    bond0
 > 
 > 
->>Other sub-systems will be converted
->>to this approach if this will be accepted :)
->>
->>Signed-off-by: Denis V. Lunev <den@openvz.org>
->>---
->>diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
->>index b62e31f..f60e1ce 100644
->>--- a/include/net/net_namespace.h
->>+++ b/include/net/net_namespace.h
->>@@ -8,6 +8,8 @@
->> #include <linux/workqueue.h>
->> #include <linux/list.h>
->>
->>+#include <net/netns/unix.h>
->>+
->> struct proc_dir_entry;
->> struct net_device;
->> struct sock;
->>@@ -46,8 +48,7 @@ struct net {
->> 	struct hlist_head	packet_sklist;
->>
->> 	/* unix sockets */
->>-	int			sysctl_unix_max_dgram_qlen;
->>-	struct ctl_table_header	*unix_ctl;
->>+	struct netns_unix	unx;
-> 
-> 
-> Can you change this from unx to unix ?
+> Any ideas what's going on here?
 
-no, it won't compile. Guess why :)
+I've got some further information.  If I look for a specific address, it 
+seems to work:
 
-> If you encapsulate the structure definitions per subsystem, you can drop 
-> the unix prefix in the variable declaration.
-> 
-> Instead of having:
-> 	netns->unix->unix_ctl
-> you will have:
-> 	netns->unix->ctl
+root@base0-0-0-5-0-11-1:/root> ip neigh show 172.24.136.0
+172.24.136.0 dev bond0 lladdr 00:c0:8b:07:b3:7e REACHABLE
 
-agree.
 
-Kirill
+In the above scenario, the arp cache lists the device as reachable via 
+bond0.  If I search the arp cache to see whether the address is 
+reachable from one of bond0's slave devices, should it come back 
+positive or negative?
+
+Chris
