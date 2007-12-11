@@ -1,63 +1,31 @@
-From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
-Subject: [PATCH 2.6.24 1/1]S2io: Fixed the case where stats_info was accessed
- after free in free_shared_mem()
-Date: Tue, 11 Dec 2007 04:33:21 -0500 (EST)
-Message-ID: <Pine.GSO.4.10.10712110430490.29083-100000@guinness>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 8/8] [PATCH v2] [CCID3]: Interface CCID3 code with newer Loss Intervals Database
+Date: Tue, 11 Dec 2007 09:42:38 +0000
+Message-ID: <20071211094238.GA9926@gerrit.erg.abdn.ac.uk>
+References: <11971083882331-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881862-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881667-git-send-email-gerrit@erg.abdn.ac.uk> <11971083883685-git-send-email-gerrit@erg.abdn.ac.uk> <1197108388630-git-send-email-gerrit@erg.abdn.ac.uk> <11971083883727-git-send-email-gerrit@erg.abdn.ac.uk> <11971083882049-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881748-git-send-email-gerrit@erg.abdn.ac.uk> <11971083882534-git-send-email-gerrit@erg.abdn.ac.uk> <20071210210416.GB24046@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: support@neterion.com
-To: netdev@vger.kernel.org, jeff@garzik.org
+Content-Type: text/plain; charset=us-ascii
+To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:50514 "EHLO
-	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751088AbXLKJda (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 04:33:30 -0500
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:37144 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750735AbXLKJnX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Dec 2007 04:43:23 -0500
+Content-Disposition: inline
+In-Reply-To: <20071210210416.GB24046@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Fixed the case where stats_info was accessed after free in free_shared_mem().
-
-Signed-off-by: Surjit Reang <surjit.reang@neterion.com>
-Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
-Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
----
-diff -Nurp patch_10/drivers/net/s2io.c patch_11/drivers/net/s2io.c
---- patch_10/drivers/net/s2io.c	2007-12-04 23:36:48.000000000 +0530
-+++ patch_11/drivers/net/s2io.c	2007-12-08 01:05:56.000000000 +0530
-@@ -84,7 +84,7 @@
- #include "s2io.h"
- #include "s2io-regs.h"
- 
--#define DRV_VERSION "2.0.26.10"
-+#define DRV_VERSION "2.0.26.11"
- 
- /* S2io Driver name & version. */
- static char s2io_driver_name[] = "Neterion";
-@@ -941,18 +941,19 @@ static void free_shared_mem(struct s2io_
- 		}
- 	}
- 
-+	if (nic->ufo_in_band_v) {
-+		nic->mac_control.stats_info->sw_stat.mem_freed
-+			+= (ufo_size * sizeof(u64));
-+		kfree(nic->ufo_in_band_v);
-+	}
-+
- 	if (mac_control->stats_mem) {
-+		nic->mac_control.stats_info->sw_stat.mem_freed +=
-+			mac_control->stats_mem_sz;
- 		pci_free_consistent(nic->pdev,
- 				    mac_control->stats_mem_sz,
- 				    mac_control->stats_mem,
- 				    mac_control->stats_mem_phy);
--		nic->mac_control.stats_info->sw_stat.mem_freed +=
--			mac_control->stats_mem_sz;
--	}
--	if (nic->ufo_in_band_v) {
--		kfree(nic->ufo_in_band_v);
--		nic->mac_control.stats_info->sw_stat.mem_freed
--			+= (ufo_size * sizeof(u64));
- 	}
- }
- 
-
+| When interfacing we must make sure that ccid3 tfrc_lh_slab is created
+| and then tfrc_li_cachep is not needed. I'm doing this while keeping
+| the structure of the patches, i.e. one introducing, the other removing.
+| But we need to create tfrc_lh_slab if we want the tree to be bisectable.
+| 
+| I'm doing this and keeping your Signed-off-line, please holler if you
+| disagree for some reason.
+If you are just shifting and reordering then that is fine with me. But
+it seems you mean a different patch since in this one there is no slab
+initialisation. 
+The loss history and the RX/TX packet history slabs are all created in
+tfrc.c using the three different __init routines of the dccp_tfrc_lib.
