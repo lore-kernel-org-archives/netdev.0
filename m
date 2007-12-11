@@ -1,74 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPSEC]: Fix potential dst leak in xfrm_lookup
-Date: Tue, 11 Dec 2007 20:07:29 +0800
-Message-ID: <20071211120729.GA14088@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [TCP]: fack_counts more fixes (the previous ones were
+ incomplete)
+Date: Tue, 11 Dec 2007 04:15:07 -0800 (PST)
+Message-ID: <20071211.041507.261395652.davem@davemloft.net>
+References: <Pine.LNX.4.64.0712111339340.22872@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, reuben-linuxkernel@reub.net,
+	akpm@linux-foundation.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2745 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751638AbXLKMHb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 07:07:31 -0500
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52283
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752119AbXLKMPI convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Dec 2007 07:15:08 -0500
+In-Reply-To: <Pine.LNX.4.64.0712111339340.22872@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave:
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Tue, 11 Dec 2007 13:43:24 +0200 (EET)
 
-This patch fixes a possible dst leak that has existed for years.
+> [PATCH] [TCP]: fack_counts more fixes (the previous ones were incompl=
+ete)
+>=20
+> 1) Prev NULL check should also dereference
+>=20
+> 2) The loop reorganization did make things only slightly better,
+>    just changing the same not-updated problem to occur in
+>    another scenario. And I also noticed that in worst case it
+>    would be an infinite loop (could do that also before the
+>    change), but it required losses in the same window when TCP
+>    runs out new data. Now check really against the list heads
+>    rather than a valid skb which should still be processed.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-[IPSEC]: Fix potential dst leak in xfrm_lookup
-
-If we get an error during the actual policy lookup we don't free the
-original dst while the caller expects us to always free the original
-dst in case of error.
-
-This patch fixes that.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 0cb3e8c..265c679 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1464,8 +1464,9 @@ restart:
- 
- 	if (sk && sk->sk_policy[XFRM_POLICY_OUT]) {
- 		policy = xfrm_sk_policy_lookup(sk, XFRM_POLICY_OUT, fl);
-+		err = PTR_ERR(policy);
- 		if (IS_ERR(policy))
--			return PTR_ERR(policy);
-+			goto dropdst;
- 	}
- 
- 	if (!policy) {
-@@ -1476,8 +1477,9 @@ restart:
- 
- 		policy = flow_cache_lookup(fl, dst_orig->ops->family,
- 					   dir, xfrm_policy_lookup);
-+		err = PTR_ERR(policy);
- 		if (IS_ERR(policy))
--			return PTR_ERR(policy);
-+			goto dropdst;
- 	}
- 
- 	if (!policy)
-@@ -1642,8 +1644,9 @@ restart:
- 	return 0;
- 
- error:
--	dst_release(dst_orig);
- 	xfrm_pols_put(pols, npols);
-+dropdst:
-+	dst_release(dst_orig);
- 	*dst_p = NULL;
- 	return err;
- }
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Applied, thanks Ilpo.
