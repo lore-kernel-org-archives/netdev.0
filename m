@@ -1,27 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3][BNX2]: Update version to 1.6.9.
-Date: Mon, 10 Dec 2007 17:19:19 -0800 (PST)
-Message-ID: <20071210.171919.164390545.davem@davemloft.net>
-References: <1197235082.20251.11.camel@dell>
+From: Hideo AOKI <haoki@redhat.com>
+Subject: Re: [PATCH 4/4] udp: memory accounting in IPv4
+Date: Mon, 10 Dec 2007 20:28:37 -0500
+Message-ID: <475DE7C5.30201@redhat.com>
+References: <474DB80E.5070403@redhat.com> <474DB930.5080409@redhat.com> <20071201122120.GB14368@gondor.apana.org.au> <47515CCF.3030009@cosmosbay.com> <47549BE2.9080605@redhat.com> <20071204002644.GA28982@gondor.apana.org.au> <47577A72.10205@redhat.com> <20071210092252.GA1598@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
+	Bill Fink <billfink@mindspring.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	yoshfuji@linux-ipv6.org,
+	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>, haoki@redhat.com
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52117
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752358AbXLKBTT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 20:19:19 -0500
-In-Reply-To: <1197235082.20251.11.camel@dell>
+Received: from mx1.redhat.com ([66.187.233.31]:37871 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751740AbXLKBeT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2007 20:34:19 -0500
+In-Reply-To: <20071210092252.GA1598@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Sun, 09 Dec 2007 13:18:02 -0800
-
-> [BNX2]: Update version to 1.6.9.
+Herbert Xu wrote:
+> On Wed, Dec 05, 2007 at 11:28:34PM -0500, Hideo AOKI wrote:
+>> 1. Using sk_forward_alloc and adding socket lock
+>>
+>>    UDP already uses a socket lock to send message. However, it doesn't
+>>    use the lock to receive message. I wonder if we can also use the
+>>    lock when sk_forward_alloc is updated in receive processing.
+>>    I understand performance issue might occur, but ...
 > 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Having discussed this with Dave we've agreed that this is the
+> best way to go.
+> 
+> Thanks,
 
-Applied.
+Hello,
+
+Thank you so much for reviewing.
+
+I chose this solution and developed new patch set.
+I'm testing the patch set right now.
+I'll submit it to netdev as soon as I finish the test.
+
+Best regards,
+Hideo
+
+-- 
+Hitachi Computer Products (America) Inc.
