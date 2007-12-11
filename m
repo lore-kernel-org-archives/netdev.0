@@ -1,110 +1,124 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9543] New: RTNL: assertion failed at
- net/ipv6/addrconf.c (2164)/RTNL: assertion failed at net/ipv4/devinet.c
- (1055)
-Date: Tue, 11 Dec 2007 03:46:03 -0800
-Message-ID: <20071211034603.cbcc4762.akpm@linux-foundation.org>
-References: <bug-9543-10286@http.bugzilla.kernel.org/>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH 2/2] [TCP]: Include __tcp_reset_fack_counts to non-__ version
+Date: Tue, 11 Dec 2007 13:50:39 +0200
+Message-ID: <11973738392955-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <11973738391620-git-send-email-ilpo.jarvinen@helsinki.fi> <11973738393633-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: olel@ans.pl
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:39399 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751803AbXLKLqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 06:46:49 -0500
-In-Reply-To: <bug-9543-10286@http.bugzilla.kernel.org/>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:48949 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751757AbXLKLul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 06:50:41 -0500
+In-Reply-To: <11973738393633-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 11 Dec 2007 03:20:48 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+This makes flow more obvious in case of short-circuit and
+removes need for prev double pointer & fc recount per queue
+switch.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=9543
-> 
->            Summary: RTNL: assertion failed at net/ipv6/addrconf.c
->                     (2164)/RTNL: assertion failed at net/ipv4/devinet.c
->                     (1055)
->            Product: Drivers
->            Version: 2.5
->      KernelVersion: 2.6.24-rc4-git7
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: jgarzik@pobox.com
->         ReportedBy: olel@ans.pl
-> 
-> 
-> Most recent kernel where this bug did not occur: 2.6.23
-> Distribution: Gentoo
-> 
-> Problem Description:
-> ADDRCONF(NETDEV_CHANGE): bond0: link becomes ready
-> RTNL: assertion failed at net/ipv6/addrconf.c (2164)
-> Pid: 9, comm: events/0 Not tainted 2.6.24-rc4-git7 #1
->  [<78402cfb>] addrconf_notify+0x5b4/0x7b7
->  [<7812203a>] finish_task_switch+0x0/0x8c
->  [<781346ff>] worker_thread+0x0/0x85
->  [<78438e23>] schedule+0x545/0x55f
->  [<781408d1>] print_lock_contention_bug+0x11/0xd2
->  [<783bfa72>] rt_run_flush+0x43/0x8b
->  [<783bfa93>] rt_run_flush+0x64/0x8b
->  [<7813ac54>] notifier_call_chain+0x2a/0x52
->  [<7813ac9e>] raw_notifier_call_chain+0x17/0x1a
->  [<783a3471>] netdev_state_change+0x18/0x29
->  [<783ac6a9>] __linkwatch_run_queue+0x150/0x17e
->  [<783ac6f4>] linkwatch_event+0x1d/0x22
->  [<78133cdf>] run_workqueue+0xdb/0x1b6
->  [<78133c8b>] run_workqueue+0x87/0x1b6
->  [<783ac6d7>] linkwatch_event+0x0/0x22
->  [<781346ff>] worker_thread+0x0/0x85
->  [<78134778>] worker_thread+0x79/0x85
->  [<781371ad>] autoremove_wake_function+0x0/0x35
->  [<781370f6>] kthread+0x38/0x5e
->  [<781370be>] kthread+0x0/0x5e
->  [<78104baf>] kernel_thread_helper+0x7/0x10
->  =======================
-> RTNL: assertion failed at net/ipv6/addrconf.c (1610)
-
-
-Hopefully this is due to the bug you reported in bug #9542.
-
-Does this patch fix both issues?
-
-
-From: Andrew Morton <akpm@linux-foundation.org>
-
-Remove stray rtnl_unlock().
-
-Addresses http://bugzilla.kernel.org/show_bug.cgi?id=9542
-
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>
-Cc: Krzysztof Oledzki <olel@ans.pl>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 ---
+ include/net/tcp.h |   54 ++++++++++++++++++---------------------------=
+-------
+ 1 files changed, 19 insertions(+), 35 deletions(-)
 
- drivers/net/bonding/bond_sysfs.c |    2 --
- 1 file changed, 2 deletions(-)
-
-diff -puN drivers/net/bonding/bond_sysfs.c~bonding-locking-fix drivers/net/bonding/bond_sysfs.c
---- a/drivers/net/bonding/bond_sysfs.c~bonding-locking-fix
-+++ a/drivers/net/bonding/bond_sysfs.c
-@@ -1111,8 +1111,6 @@ static ssize_t bonding_store_primary(str
- out:
- 	write_unlock_bh(&bond->lock);
- 
--	rtnl_unlock();
--
- 	return count;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 2d9949e..5e6c433 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1467,38 +1467,6 @@ static inline void __tcp_add_write_queue_head(st=
+ruct sock *sk, struct sk_buff *s
+ 	tcp_rb_insert(skb, &tcp_sk(sk)->write_queue_rb);
  }
- static DEVICE_ATTR(primary, S_IRUGO | S_IWUSR, bonding_show_primary, bonding_store_primary);
-_
+=20
+-static inline struct sk_buff *__tcp_reset_fack_counts(struct sock *sk,
+-						      struct sk_buff *skb,
+-						      struct sk_buff **prev,
+-						      int queue)
+-{
+-	unsigned int fc =3D 0;
+-
+-	if (*prev !=3D NULL)
+-		fc =3D TCP_SKB_CB(*prev)->fack_count + tcp_skb_pcount(*prev);
+-
+-	BUG_ON((*prev !=3D NULL) && !tcp_skb_adjacent(sk, *prev, skb));
+-
+-	tcp_for_write_queue_from(skb, sk, queue) {
+-		if ((*prev !=3D NULL) && !tcp_skb_adjacent(sk, *prev, skb))
+-			break;
+-
+-		/* Terminate whole search? */
+-		if (!before(TCP_SKB_CB(skb)->seq, tcp_sk(sk)->snd_nxt) ||
+-		    TCP_SKB_CB(skb)->fack_count =3D=3D fc) {
+-			*prev =3D NULL;
+-			return NULL;
+-		}
+-
+-		TCP_SKB_CB(skb)->fack_count =3D fc;
+-		fc +=3D tcp_skb_pcount(skb);
+-
+-		*prev =3D skb;
+-	}
+-
+-	return skb;
+-}
+-
+ /* An insert into the middle of the write queue causes the fack
+  * counts in subsequent packets to become invalid, fix them up.
+  *
+@@ -1509,6 +1477,7 @@ static inline void tcp_reset_fack_counts(struct s=
+ock *sk, struct sk_buff *inskb)
+ 	struct sk_buff *prev;
+ 	struct sk_buff *skb[2] =3D {NULL, NULL};
+ 	int queue;
++	unsigned int fc =3D 0;
+=20
+ 	if (!before(TCP_SKB_CB(inskb)->seq, tcp_sk(sk)->snd_nxt))
+ 		return;
+@@ -1531,6 +1500,9 @@ static inline void tcp_reset_fack_counts(struct s=
+ock *sk, struct sk_buff *inskb)
+ 		skb[otherq] =3D prev->next;
+ 	}
+=20
++	if (prev !=3D NULL)
++		fc =3D TCP_SKB_CB(prev)->fack_count + tcp_skb_pcount(prev);
++
+ 	while (skb[queue] !=3D (struct sk_buff *)__tcp_list_select(sk, queue)=
+) {
+ 		/* Lazy find for the other queue */
+ 		if (skb[queue] =3D=3D NULL) {
+@@ -1540,9 +1512,21 @@ static inline void tcp_reset_fack_counts(struct =
+sock *sk, struct sk_buff *inskb)
+ 				break;
+ 		}
+=20
+-		skb[queue] =3D __tcp_reset_fack_counts(sk, skb[queue], &prev, queue)=
+;
+-		if (skb[queue] =3D=3D NULL)
+-			break;
++		BUG_ON((prev !=3D NULL) && !tcp_skb_adjacent(sk, prev, skb[queue]));
++
++		tcp_for_write_queue_from(skb[queue], sk, queue) {
++			if ((prev !=3D NULL) && !tcp_skb_adjacent(sk, prev, skb[queue]))
++				break;
++
++			if (!before(TCP_SKB_CB(skb[queue])->seq, tcp_sk(sk)->snd_nxt) ||
++			    TCP_SKB_CB(skb[queue])->fack_count =3D=3D fc)
++				return;
++
++			TCP_SKB_CB(skb[queue])->fack_count =3D fc;
++			fc +=3D tcp_skb_pcount(skb[queue]);
++
++			prev =3D skb[queue];
++		}
+=20
+ 		queue ^=3D TCP_WQ_SACKED;
+ 	}
+--=20
+1.5.0.6
 
