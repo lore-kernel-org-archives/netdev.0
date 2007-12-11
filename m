@@ -1,453 +1,198 @@
-From: =?ISO-8859-1?Q?Aur=E9lien_Charbon?= <aurelien.charbon@ext.bull.net>
-Subject: Re: [PATCH] IPv6 support for NFS server
-Date: Tue, 11 Dec 2007 19:00:08 +0100
-Message-ID: <475ED028.2010109@ext.bull.net>
-References: <475D86C1.6070400@ext.bull.net> <475EBDB4.5020108@hp.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-2.6.25 5/7] Move the devinet pointers on the struct net
+Date: Tue, 11 Dec 2007 20:57:18 +0300
+Message-ID: <475ECF7E.2060103@openvz.org>
+References: <475ECC69.1040809@openvz.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050006040404020208000609"
-Cc: Neil Brown <neilb@suse.de>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	netdev ML <netdev@vger.kernel.org>,
-	Mailing list NFSv4 <nfsv4@linux-nfs.org>
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:57522 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751248AbXLKR6A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 12:58:00 -0500
-In-Reply-To: <475EBDB4.5020108@hp.com>
+Received: from sacred.ru ([62.205.161.221]:50974 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754120AbXLKR6S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Dec 2007 12:58:18 -0500
+In-Reply-To: <475ECC69.1040809@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------050006040404020208000609
-Content-Transfer-Encoding: 8bit
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+This is the core.
 
-Brian Haley wrote:
+Add all and default pointers on the netns_ipv4 and register
+a new pernet subsys to initialize them.
 
-> In an email back on October 29th I sent-out a similar patch with a new 
-> ipv6_addr_set_v4mapped() inline - it might be useful to pull that 
-> piece into your patch since it cleans it up a bit to get rid of the 
-> ipv6_addr_set() calls.  I can re-send you that patch off-line if you 
-> can't find it.
->
-> -Brian
->
->
-Thanks Brian. I forgot to include your changes in my tree.
-OK Bruce you can take this one.
+Also add the ctl_table_header to register the 
+net.ipv4.ip_forward ctl.
 
-Aurélien
+I don't allocate additional memory for init_net, but use
+global devinets.
 
--- 
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-********************************
-       Aurelien Charbon
-       Linux NFSv4 team
-           Bull SAS
-     Echirolles - France
-http://nfsv4.bullopensource.org/
-********************************
+---
 
-
---------------050006040404020208000609
-Content-Transfer-Encoding: 7bit
-Content-Type: text/x-patch;
- name="linux-2.6.24-rc4-IPv6-cache-based.diff"
-Content-Disposition: inline;
- filename="linux-2.6.24-rc4-IPv6-cache-based.diff"
-
-diff -p -u -r -N linux-2.6.24-rc4/fs/nfsd/export.c linux-2.6.24-rc4-IPv6-cache-based/fs/nfsd/export.c
---- linux-2.6.24-rc4/fs/nfsd/export.c	2007-12-10 16:11:37.000000000 +0100
-+++ linux-2.6.24-rc4-IPv6-cache-based/fs/nfsd/export.c	2007-12-11 17:49:51.000000000 +0100
-@@ -35,6 +35,7 @@
- #include <linux/lockd/bind.h>
- #include <linux/sunrpc/msg_prot.h>
- #include <linux/sunrpc/gss_api.h>
-+#include <net/ipv6.h>
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index ce830d5..e06d7cf 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -4,6 +4,12 @@
  
- #define NFSDDBG_FACILITY	NFSDDBG_EXPORT
- 
-@@ -1556,6 +1557,7 @@ exp_addclient(struct nfsctl_client *ncp)
- {
- 	struct auth_domain	*dom;
- 	int			i, err;
-+	struct in6_addr addr6;
- 
- 	/* First, consistency check. */
- 	err = -EINVAL;
-@@ -1574,9 +1576,11 @@ exp_addclient(struct nfsctl_client *ncp)
- 		goto out_unlock;
- 
- 	/* Insert client into hashtable. */
--	for (i = 0; i < ncp->cl_naddr; i++)
--		auth_unix_add_addr(ncp->cl_addrlist[i], dom);
--
-+	for (i = 0; i < ncp->cl_naddr; i++) {
-+		/* Mapping address */
-+		ipv6_addr_set_v4mapped(ncp->cl_addrlist[i].s_addr, &addr6);
-+		auth_unix_add_addr(&addr6, dom);
-+	}
- 	auth_unix_forget_old(dom);
- 	auth_domain_put(dom);
- 
-diff -p -u -r -N linux-2.6.24-rc4/fs/nfsd/nfsctl.c linux-2.6.24-rc4-IPv6-cache-based/fs/nfsd/nfsctl.c
---- linux-2.6.24-rc4/fs/nfsd/nfsctl.c	2007-12-10 16:11:37.000000000 +0100
-+++ linux-2.6.24-rc4-IPv6-cache-based/fs/nfsd/nfsctl.c	2007-12-11 18:27:24.000000000 +0100
-@@ -37,6 +37,7 @@
- #include <linux/nfsd/syscall.h>
- 
- #include <asm/uaccess.h>
-+#include <net/ipv6.h>
- 
- /*
-  *	We have a single directory with 9 nodes in it.
-@@ -222,6 +223,7 @@ static ssize_t write_getfs(struct file *
- 	struct auth_domain *clp;
- 	int err = 0;
- 	struct knfsd_fh *res;
-+	struct in6_addr in6;
- 
- 	if (size < sizeof(*data))
- 		return -EINVAL;
-@@ -236,7 +238,14 @@ static ssize_t write_getfs(struct file *
- 	res = (struct knfsd_fh*)buf;
- 
- 	exp_readlock();
--	if (!(clp = auth_unix_lookup(sin->sin_addr)))
+ #ifndef __NETNS_IPV4_H__
+ #define __NETNS_IPV4_H__
++struct ctl_table_header;
++struct ipv4_devconf;
 +
-+	/* IPv6 address mapping */
-+	ipv6_addr_set_v4mapped(
-+		(((struct sockaddr_in *)&data->gd_addr)->sin_addr.s_addr), 
-+		&in6
-+		);
-+
-+	if (!(clp = auth_unix_lookup(&in6)))
- 		err = -EPERM;
- 	else {
- 		err = exp_rootfh(clp, data->gd_path, res, data->gd_maxlen);
-@@ -257,6 +266,7 @@ static ssize_t write_getfd(struct file *
- 	int err = 0;
- 	struct knfsd_fh fh;
- 	char *res;
-+	struct in6_addr in6;
- 
- 	if (size < sizeof(*data))
- 		return -EINVAL;
-@@ -271,7 +281,13 @@ static ssize_t write_getfd(struct file *
- 	res = buf;
- 	sin = (struct sockaddr_in *)&data->gd_addr;
- 	exp_readlock();
--	if (!(clp = auth_unix_lookup(sin->sin_addr)))
-+	/* IPv6 address mapping */
-+	ipv6_addr_set_v4mapped(
-+		(((struct sockaddr_in *)&data->gd_addr)->sin_addr.s_addr),
-+		&in6
-+		);
-+
-+	if (!(clp = auth_unix_lookup(&in6)))
- 		err = -EPERM;
- 	else {
- 		err = exp_rootfh(clp, data->gd_path, &fh, NFS_FHSIZE);
-diff -p -u -r -N linux-2.6.24-rc4/include/linux/sunrpc/svcauth.h linux-2.6.24-rc4-IPv6-cache-based/include/linux/sunrpc/svcauth.h
---- linux-2.6.24-rc4/include/linux/sunrpc/svcauth.h	2007-12-10 16:01:43.000000000 +0100
-+++ linux-2.6.24-rc4-IPv6-cache-based/include/linux/sunrpc/svcauth.h	2007-12-10 17:09:34.000000000 +0100
-@@ -120,10 +120,10 @@ extern void	svc_auth_unregister(rpc_auth
- 
- extern struct auth_domain *unix_domain_find(char *name);
- extern void auth_domain_put(struct auth_domain *item);
--extern int auth_unix_add_addr(struct in_addr addr, struct auth_domain *dom);
-+extern int auth_unix_add_addr(struct in6_addr *addr, struct auth_domain *dom);
- extern struct auth_domain *auth_domain_lookup(char *name, struct auth_domain *new);
- extern struct auth_domain *auth_domain_find(char *name);
--extern struct auth_domain *auth_unix_lookup(struct in_addr addr);
-+extern struct auth_domain *auth_unix_lookup(struct in6_addr *addr);
- extern int auth_unix_forget_old(struct auth_domain *dom);
- extern void svcauth_unix_purge(void);
- extern void svcauth_unix_info_release(void *);
-diff -p -u -r -N linux-2.6.24-rc4/include/net/ipv6.h linux-2.6.24-rc4-IPv6-cache-based/include/net/ipv6.h
---- linux-2.6.24-rc4/include/net/ipv6.h	2007-12-10 16:11:38.000000000 +0100
-+++ linux-2.6.24-rc4-IPv6-cache-based/include/net/ipv6.h	2007-12-11 17:52:39.000000000 +0100
-@@ -400,6 +400,15 @@ static inline int ipv6_addr_v4mapped(con
- 		 a->s6_addr32[2] == htonl(0x0000ffff));
- }
- 
-+static inline void ipv6_addr_set_v4mapped(const __be32 addr,
-+					  struct in6_addr *v4mapped)
-+{
-+	ipv6_addr_set(v4mapped,
-+			0, 0,
-+			__constant_htonl(0x0000FFFF),
-+			addr);
-+}
-+
- /*
-  * find the first different bit between two addresses
-  * length of address must be a multiple of 32bits
-diff -p -u -r -N linux-2.6.24-rc4/net/sunrpc/svcauth_unix.c linux-2.6.24-rc4-IPv6-cache-based/net/sunrpc/svcauth_unix.c
---- linux-2.6.24-rc4/net/sunrpc/svcauth_unix.c	2007-12-10 16:01:46.000000000 +0100
-+++ linux-2.6.24-rc4-IPv6-cache-based/net/sunrpc/svcauth_unix.c	2007-12-10 17:38:50.000000000 +0100
-@@ -11,7 +11,8 @@
- #include <linux/hash.h>
- #include <linux/string.h>
- #include <net/sock.h>
--
-+#include <net/ipv6.h>
-+#include <linux/kernel.h>
- #define RPCDBG_FACILITY	RPCDBG_AUTH
- 
- 
-@@ -84,7 +85,7 @@ static void svcauth_unix_domain_release(
- struct ip_map {
- 	struct cache_head	h;
- 	char			m_class[8]; /* e.g. "nfsd" */
--	struct in_addr		m_addr;
-+	struct in6_addr		m_addr;
- 	struct unix_domain	*m_client;
- 	int			m_add_change;
+ struct netns_ipv4 {
++	struct ctl_table_header	*forw_hdr;
++	struct ipv4_devconf	*devconf_all;
++	struct ipv4_devconf	*devconf_dflt;
  };
-@@ -112,12 +113,19 @@ static inline int hash_ip(__be32 ip)
- 	return (hash ^ (hash>>8)) & 0xff;
- }
  #endif
-+static inline int hash_ip6(struct in6_addr ip)
-+{
-+	return (hash_ip(ip.s6_addr32[0]) ^
-+		hash_ip(ip.s6_addr32[1]) ^
-+		hash_ip(ip.s6_addr32[2]) ^
-+		hash_ip(ip.s6_addr32[3]));
-+}
- static int ip_map_match(struct cache_head *corig, struct cache_head *cnew)
- {
- 	struct ip_map *orig = container_of(corig, struct ip_map, h);
- 	struct ip_map *new = container_of(cnew, struct ip_map, h);
- 	return strcmp(orig->m_class, new->m_class) == 0
--		&& orig->m_addr.s_addr == new->m_addr.s_addr;
-+		&& ipv6_addr_equal(&orig->m_addr, &new->m_addr);
- }
- static void ip_map_init(struct cache_head *cnew, struct cache_head *citem)
- {
-@@ -125,7 +133,7 @@ static void ip_map_init(struct cache_hea
- 	struct ip_map *item = container_of(citem, struct ip_map, h);
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index bfb0fb0..996f07e 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -62,6 +62,7 @@
+ #include <net/route.h>
+ #include <net/ip_fib.h>
+ #include <net/rtnetlink.h>
++#include <net/net_namespace.h>
  
- 	strcpy(new->m_class, item->m_class);
--	new->m_addr.s_addr = item->m_addr.s_addr;
-+	ipv6_addr_copy(&new->m_addr, &item->m_addr);
- }
- static void update(struct cache_head *cnew, struct cache_head *citem)
- {
-@@ -149,22 +157,24 @@ static void ip_map_request(struct cache_
- 				  struct cache_head *h,
- 				  char **bpp, int *blen)
- {
--	char text_addr[20];
-+	char text_addr[40];
- 	struct ip_map *im = container_of(h, struct ip_map, h);
--	__be32 addr = im->m_addr.s_addr;
--
--	snprintf(text_addr, 20, "%u.%u.%u.%u",
--		 ntohl(addr) >> 24 & 0xff,
--		 ntohl(addr) >> 16 & 0xff,
--		 ntohl(addr) >>  8 & 0xff,
--		 ntohl(addr) >>  0 & 0xff);
+ struct ipv4_devconf ipv4_devconf = {
+ 	.data = {
+@@ -1498,7 +1499,7 @@ static int __devinet_sysctl_register(struct net *net, char *dev_name,
+ 	devinet_ctl_path[DEVINET_CTL_PATH_DEV].procname = t->dev_name;
+ 	devinet_ctl_path[DEVINET_CTL_PATH_DEV].ctl_name = ctl_name;
  
-+	if (ipv6_addr_v4mapped(&(im->m_addr))) {
-+		snprintf(text_addr, 20, NIPQUAD_FMT,
-+				ntohl(im->m_addr.s6_addr32[3]) >> 24 & 0xff,
-+				ntohl(im->m_addr.s6_addr32[3]) >> 16 & 0xff,
-+				ntohl(im->m_addr.s6_addr32[3]) >>  8 & 0xff,
-+				ntohl(im->m_addr.s6_addr32[3]) >>  0 & 0xff);
-+	} else {
-+		snprintf(text_addr, 40, NIP6_FMT, NIP6(im->m_addr));
-+	}
- 	qword_add(bpp, blen, im->m_class);
- 	qword_add(bpp, blen, text_addr);
- 	(*bpp)[-1] = '\n';
- }
- 
--static struct ip_map *ip_map_lookup(char *class, struct in_addr addr);
-+static struct ip_map *ip_map_lookup(char *class, struct in6_addr *addr);
- static int ip_map_update(struct ip_map *ipm, struct unix_domain *udom, time_t expiry);
- 
- static int ip_map_parse(struct cache_detail *cd,
-@@ -175,10 +185,10 @@ static int ip_map_parse(struct cache_det
- 	 * for scratch: */
- 	char *buf = mesg;
- 	int len;
--	int b1,b2,b3,b4;
-+	int b1, b2, b3, b4, b5, b6, b7, b8;
- 	char c;
- 	char class[8];
--	struct in_addr addr;
-+	struct in6_addr addr;
- 	int err;
- 
- 	struct ip_map *ipmp;
-@@ -197,9 +207,26 @@ static int ip_map_parse(struct cache_det
- 	len = qword_get(&mesg, buf, mlen);
- 	if (len <= 0) return -EINVAL;
- 
--	if (sscanf(buf, "%u.%u.%u.%u%c", &b1, &b2, &b3, &b4, &c) != 4)
-+	if (sscanf(buf, NIPQUAD_FMT "%c", &b1, &b2, &b3, &b4, &c) == 4) {
-+		addr.s6_addr32[0] = 0;
-+		addr.s6_addr32[1] = 0;
-+		addr.s6_addr32[2] = htonl(0xffff);
-+		addr.s6_addr32[3] =
-+			htonl((((((b1<<8)|b2)<<8)|b3)<<8)|b4);
-+       } else if (sscanf(buf, NIP6_FMT "%c",
-+			&b1, &b2, &b3, &b4, &b5, &b6, &b7, &b8, &c) == 8) {
-+		addr.s6_addr16[0] = htons(b1);
-+		addr.s6_addr16[1] = htons(b2);
-+		addr.s6_addr16[2] = htons(b3);
-+		addr.s6_addr16[3] = htons(b4);
-+		addr.s6_addr16[4] = htons(b5);
-+		addr.s6_addr16[5] = htons(b6);
-+		addr.s6_addr16[6] = htons(b7);
-+		addr.s6_addr16[7] = htons(b8);
-+       } else
- 		return -EINVAL;
- 
-+
- 	expiry = get_expiry(&mesg);
- 	if (expiry ==0)
- 		return -EINVAL;
-@@ -215,10 +242,7 @@ static int ip_map_parse(struct cache_det
- 	} else
- 		dom = NULL;
- 
--	addr.s_addr =
--		htonl((((((b1<<8)|b2)<<8)|b3)<<8)|b4);
--
--	ipmp = ip_map_lookup(class,addr);
-+	ipmp = ip_map_lookup(class, &addr);
- 	if (ipmp) {
- 		err = ip_map_update(ipmp,
- 			     container_of(dom, struct unix_domain, h),
-@@ -238,7 +262,7 @@ static int ip_map_show(struct seq_file *
- 		       struct cache_head *h)
- {
- 	struct ip_map *im;
--	struct in_addr addr;
-+	struct in6_addr addr;
- 	char *dom = "-no-domain-";
- 
- 	if (h == NULL) {
-@@ -247,20 +271,24 @@ static int ip_map_show(struct seq_file *
- 	}
- 	im = container_of(h, struct ip_map, h);
- 	/* class addr domain */
--	addr = im->m_addr;
-+	ipv6_addr_copy(&addr, &im->m_addr);
- 
- 	if (test_bit(CACHE_VALID, &h->flags) &&
- 	    !test_bit(CACHE_NEGATIVE, &h->flags))
- 		dom = im->m_client->h.name;
- 
--	seq_printf(m, "%s %d.%d.%d.%d %s\n",
--		   im->m_class,
--		   ntohl(addr.s_addr) >> 24 & 0xff,
--		   ntohl(addr.s_addr) >> 16 & 0xff,
--		   ntohl(addr.s_addr) >>  8 & 0xff,
--		   ntohl(addr.s_addr) >>  0 & 0xff,
--		   dom
--		   );
-+	if (ipv6_addr_v4mapped(&addr)) {
-+		seq_printf(m, "%s" NIPQUAD_FMT "%s\n",
-+			im->m_class,
-+			ntohl(addr.s6_addr32[3]) >> 24 & 0xff,
-+			ntohl(addr.s6_addr32[3]) >> 16 & 0xff,
-+			ntohl(addr.s6_addr32[3]) >>  8 & 0xff,
-+			ntohl(addr.s6_addr32[3]) >>  0 & 0xff,
-+			dom);
-+	} else {
-+		seq_printf(m, "%s" NIP6_FMT "%s\n",
-+			im->m_class, NIP6(addr), dom);
-+	}
- 	return 0;
- }
- 
-@@ -280,16 +308,16 @@ struct cache_detail ip_map_cache = {
- 	.alloc		= ip_map_alloc,
+-	t->sysctl_header = register_sysctl_paths(devinet_ctl_path,
++	t->sysctl_header = register_net_sysctl_table(net, devinet_ctl_path,
+ 			t->devinet_vars);
+ 	if (!t->sysctl_header)
+ 		goto free_procname;
+@@ -1558,27 +1559,113 @@ static struct ctl_table ctl_forward_entry[] = {
+ 	{ },
  };
  
--static struct ip_map *ip_map_lookup(char *class, struct in_addr addr)
-+static struct ip_map *ip_map_lookup(char *class, struct in6_addr *addr)
- {
- 	struct ip_map ip;
- 	struct cache_head *ch;
+-static __initdata struct ctl_path net_ipv4_path[] = {
++static __net_initdata struct ctl_path net_ipv4_path[] = {
+ 	{ .procname = "net", .ctl_name = CTL_NET, },
+ 	{ .procname = "ipv4", .ctl_name = NET_IPV4, },
+ 	{ },
+ };
  
- 	strcpy(ip.m_class, class);
--	ip.m_addr = addr;
-+	ipv6_addr_copy(&ip.m_addr, addr);
- 	ch = sunrpc_cache_lookup(&ip_map_cache, &ip.h,
- 				 hash_str(class, IP_HASHBITS) ^
--				 hash_ip(addr.s_addr));
-+				 hash_ip6(*addr));
- 
- 	if (ch)
- 		return container_of(ch, struct ip_map, h);
-@@ -318,14 +346,14 @@ static int ip_map_update(struct ip_map *
- 	ch = sunrpc_cache_update(&ip_map_cache,
- 				 &ip.h, &ipm->h,
- 				 hash_str(ipm->m_class, IP_HASHBITS) ^
--				 hash_ip(ipm->m_addr.s_addr));
-+				 hash_ip6(ipm->m_addr));
- 	if (!ch)
- 		return -ENOMEM;
- 	cache_put(ch, &ip_map_cache);
- 	return 0;
- }
- 
--int auth_unix_add_addr(struct in_addr addr, struct auth_domain *dom)
-+int auth_unix_add_addr(struct in6_addr *addr, struct auth_domain *dom)
- {
- 	struct unix_domain *udom;
- 	struct ip_map *ipmp;
-@@ -352,7 +380,7 @@ int auth_unix_forget_old(struct auth_dom
- 	return 0;
- }
- 
--struct auth_domain *auth_unix_lookup(struct in_addr addr)
-+struct auth_domain *auth_unix_lookup(struct in6_addr *addr)
- {
- 	struct ip_map *ipm;
- 	struct auth_domain *rv;
-@@ -641,9 +669,24 @@ static int unix_gid_find(uid_t uid, stru
- int
- svcauth_unix_set_client(struct svc_rqst *rqstp)
- {
--	struct sockaddr_in *sin = svc_addr_in(rqstp);
-+	struct sockaddr_in *sin;
-+	struct sockaddr_in6 *sin6, sin6_storage;
- 	struct ip_map *ipm;
- 
-+	switch (rqstp->rq_addr.ss_family) {
-+	case AF_INET:
-+		sin = svc_addr_in(rqstp);
-+		sin6 = &sin6_storage;
-+		ipv6_addr_set(&sin6->sin6_addr, 0, 0,
-+				htonl(0x0000FFFF), sin->sin_addr.s_addr);
-+		break;
-+	case AF_INET6:
-+		sin6 = svc_addr_in6(rqstp);
-+		break;
-+	default:
-+		BUG();
++static __net_init int devinet_init_net(struct net *net)
++{
++	int err;
++	struct ctl_table *tbl;
++	struct ipv4_devconf *all, *dflt;
++	struct ctl_table_header *forw_hdr;
++
++	err = -ENOMEM;
++	all = &ipv4_devconf;
++	dflt = &ipv4_devconf_dflt;
++	tbl = ctl_forward_entry;
++
++	if (net != &init_net) {
++		all = kmemdup(all, sizeof(ipv4_devconf), GFP_KERNEL);
++		if (all == NULL)
++			goto err_alloc_all;
++
++		dflt = kmemdup(dflt, sizeof(ipv4_devconf_dflt), GFP_KERNEL);
++		if (dflt == NULL)
++			goto err_alloc_dflt;
++
++		tbl = kmemdup(tbl, sizeof(ctl_forward_entry), GFP_KERNEL);
++		if (tbl == NULL)
++			goto err_alloc_ctl;
++
++		tbl[0].data = &all->data[NET_IPV4_CONF_FORWARDING - 1];
++		tbl[0].extra1 = all;
++		tbl[0].extra2 = net;
 +	}
 +
- 	rqstp->rq_client = NULL;
- 	if (rqstp->rq_proc == 0)
- 		return SVC_OK;
-@@ -651,7 +694,7 @@ svcauth_unix_set_client(struct svc_rqst 
- 	ipm = ip_map_cached_get(rqstp);
- 	if (ipm == NULL)
- 		ipm = ip_map_lookup(rqstp->rq_server->sv_program->pg_class,
--				    sin->sin_addr);
-+				    &sin6->sin6_addr);
++#ifdef CONFIG_SYSCTL
++	err = __devinet_sysctl_register(net, "all",
++			NET_PROTO_CONF_ALL, all);
++	if (err < 0)
++		goto err_reg_all;
++
++	err = __devinet_sysctl_register(net, "default",
++			NET_PROTO_CONF_DEFAULT, dflt);
++	if (err < 0)
++		goto err_reg_dflt;
++
++	err = -ENOMEM;
++	forw_hdr = register_net_sysctl_table(net, net_ipv4_path, tbl);
++	if (forw_hdr == NULL)
++		goto err_reg_ctl;
++#endif
++
++	net->ipv4.forw_hdr = forw_hdr;
++	net->ipv4.devconf_all = all;
++	net->ipv4.devconf_dflt = dflt;
++	return 0;
++
++#ifdef CONFIG_SYSCTL
++err_reg_ctl:
++	__devinet_sysctl_unregister(dflt);
++err_reg_dflt:
++	__devinet_sysctl_unregister(all);
++err_reg_all:
++	if (tbl != ctl_forward_entry)
++		kfree(tbl);
++#endif
++err_alloc_ctl:
++	if (dflt != &ipv4_devconf_dflt)
++		kfree(dflt);
++err_alloc_dflt:
++	if (all != &ipv4_devconf)
++		kfree(all);
++err_alloc_all:
++	return err;
++}
++
++static __net_exit void devinet_exit_net(struct net *net)
++{
++	struct ctl_table *tbl;
++
++	tbl = net->ipv4.forw_hdr->ctl_table_arg;
++#ifdef CONFIG_SYSCTL
++	unregister_net_sysctl_table(net->ipv4.forw_hdr);
++	__devinet_sysctl_unregister(net->ipv4.devconf_dflt);
++	__devinet_sysctl_unregister(net->ipv4.devconf_all);
++#endif
++	kfree(tbl);
++	kfree(net->ipv4.devconf_dflt);
++	kfree(net->ipv4.devconf_all);
++}
++
++static __net_initdata struct pernet_operations devinet_ops = {
++	.init = devinet_init_net,
++	.exit = devinet_exit_net,
++};
++
+ void __init devinet_init(void)
+ {
++	register_pernet_subsys(&devinet_ops);
++
+ 	register_gifconf(PF_INET, inet_gifconf);
+ 	register_netdevice_notifier(&ip_netdev_notifier);
  
- 	if (ipm == NULL)
- 		return SVC_DENIED;
+ 	rtnl_register(PF_INET, RTM_NEWADDR, inet_rtm_newaddr, NULL);
+ 	rtnl_register(PF_INET, RTM_DELADDR, inet_rtm_deladdr, NULL);
+ 	rtnl_register(PF_INET, RTM_GETADDR, NULL, inet_dump_ifaddr);
+-#ifdef CONFIG_SYSCTL
+-	__devinet_sysctl_register(&init_net, "all", NET_PROTO_CONF_ALL,
+-			&ipv4_devconf);
+-	__devinet_sysctl_register(&init_net, "default", NET_PROTO_CONF_DEFAULT,
+-			&ipv4_devconf_dflt);
+-	register_sysctl_paths(net_ipv4_path, ctl_forward_entry);
+-#endif
+ }
+ 
+ EXPORT_SYMBOL(in_dev_finish_destroy);
+-- 
+1.5.3.4
 
---------------050006040404020208000609--
