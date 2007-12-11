@@ -1,50 +1,95 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH] XFRM: assorted IPsec fixups
-Date: Tue, 11 Dec 2007 09:05:05 -0500
-Message-ID: <200712110905.06312.paul.moore@hp.com>
-References: <20071207171116.18151.42328.stgit@flek.americas.hpqcorp.net> <1197059769.3183.16.camel@dhcp231-215.rdu.redhat.com> <20071211.022202.208850272.davem@davemloft.net>
+From: Reuben Farrelly <reuben-linuxkernel@reub.net>
+Subject: Re: 2.6.24-rc4-mm1
+Date: Wed, 12 Dec 2007 01:12:49 +1100
+Message-ID: <475E9AE1.1010005@reub.net>
+References: <20071204211701.994dfce6.akpm@linux-foundation.org>	<475D51C7.6010809@reub.net> <20071210131135.855118f5.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eparis@redhat.com, netdev@vger.kernel.org, linux-audit@redhat.com,
-	selinux@tycho.nsa.gov
-To: David Miller <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:48623 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752111AbXLKOFP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 09:05:15 -0500
-In-Reply-To: <20071211.022202.208850272.davem@davemloft.net>
-Content-Disposition: inline
+Received: from tornado.reub.net ([59.167.253.246]:57955 "EHLO tornado.reub.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752124AbXLKOM5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Dec 2007 09:12:57 -0500
+In-Reply-To: <20071210131135.855118f5.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 11 December 2007 5:22:02 am David Miller wrote:
-> From: Eric Paris <eparis@redhat.com>
-> Date: Fri, 07 Dec 2007 15:36:08 -0500
->
-> > On Fri, 2007-12-07 at 12:11 -0500, Paul Moore wrote:
-> > > This patch fixes a number of small but potentially troublesome things
-> > > in the XFRM/IPsec code:
->
-> ...
->
-> > > Signed-off-by: Paul Moore <paul.moore@hp.com>
-> >
-> > Acked-by: Eric Paris <eparis@redhat.com>
-> >
-> > although it does make me wonder why audit_log_start doesn't just check
-> > audit_enabled itself....   Anyway, this patch looks good.
->
-> I want to apply this but it doesn't apply cleanly to
-> net-2.6.25 right now, could you respin this Paul?
 
-Sure, sorry about that.  I wasn't certain who was going to pick this up so I 
-just backed again Linus' tree.  I'll get a respun version out later today.
 
-Thanks.
+On 11/12/2007 8:11 AM, Andrew Morton wrote:
+> On Tue, 11 Dec 2007 01:48:39 +1100
+> Reuben Farrelly <reuben-linuxkernel@reub.net> wrote:
+> 
+>>
+>> On 5/12/2007 4:17 PM, Andrew Morton wrote:
+>>> Temporarily at
+>>>
+>>>   http://userweb.kernel.org/~akpm/2.6.24-rc4-mm1/
+>>>
+>>> Will appear later at
+>>>
+>>>   ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.24-rc4/2.6.24-rc4-mm1/
+>>>
+>>>
+>>> - Lots of device IDs have been removed from the e1000 driver and moved over
+>>>   to e1000e.  So if your e1000 stops working, you forgot to set CONFIG_E1000E.
+>>>
+>>> - The s390 build is still broken.
+>> I'm seeing this most incredibly unhelpful (to debug) but fortunately
+>> reproduceable problem (so far 4/4 times) on this -mm kernel.  I thought this 
+>> problem may have been related to another bug which I have reported (A TCP oops) 
+>> but even after applying a likely fix for that I am still seeing this problem.
+>>
+>> The machine boots up perfectly fine and runs good until I load it up.
+>> In this case I can reliably cause this to occur by pulling a 3G ISO across the
+>> GigE network from my Linux box to my PC.  After maybe 50M or so, the console 
+>> just displays this (ignore initial boot banner):
+>>
+>> ----------
+>>
+>>   * Starting local ...                                                     [ ok ]
+>>
+>>
+>> This is tornado.reub.net (Linux x86_64 2.6.24-rc4-mm1) 00:24:01
+>>
+>> tornado login: *** buffer overf
+>>
+>> -------
+>>
+>> Yes - after displaying the 'f' in what I can only guess is the word 'overflow',
+>> the box spontaneously reboots.  There is no further console output until it 
+>> starts to come back up again.
+>>
+>> The problem does not exist in 2.6.23-gentoo kernels nor in a vanilla 
+>> 2.6.24-rc4-git6 (phew!), so this looks to be an -mm only problem at this stage.
+>>
+>> I enabled a number of kernel debugging options but then I got no output at all 
+>> when the machine crashed.
+>>
+>> I'm at a bit of a loss as to which subsystem this might be coming from, so I'm 
+>> not sure who to CC.
+>>
+>> Box information is (still) up at http://www.reub.net/files/kernel/2.6.24-rc4-mm1/
+>>
+> 
+> hm.  grepping around for "buffer overflow" doesn't turn up anything except in
+> drivers which you won't be using on that machine.
+> 
+> I'd be suspecting networking, obviously.  If you're feeling keen could you please
+> grep a 2.6.24-rc4 tree and apply 2.6.24-rc4-mm1's origin.patch and git-net.patch
+> and see if the bug is still present?
 
--- 
-paul moore
-linux security @ hp
+No - seems to be fine with just origin.patch and git-net.patch.
+
+Just for good measure I then reverted git-net.patch and applied 
+git-netdev-all.patch instead, and still wasn't able to trigger the reboot or 
+console message, no matter how hard I tried.
+
+I guess for now I'll sit on it, and if it appears in the next -mm it'll probably 
+annoy me enough and inspire me to dig deeper (or, "guess" deeper, given the lack 
+of direction as to where to even begin).
+
+Reuben
