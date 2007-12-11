@@ -1,249 +1,136 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH][Take3] PCI legacy I/O port free driver - Making Intel
- e1000 driver legacy I/O port free
-Date: Mon, 10 Dec 2007 16:03:32 -0800
-Message-ID: <475DD3D4.9050203@intel.com>
-References: <474CCEAD.1060702@jp.fujitsu.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH 2/3] arch/ : Platform changes for UCC TDM driver for
+ MPC8323ERDB.Also includes related QE changes.
+Date: Tue, 11 Dec 2007 11:18:55 +1100
+Message-ID: <20071211111855.dc5276a2.sfr@canb.auug.org.au>
+References: <Pine.LNX.4.64.0712101734490.29623@linux121>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Ronciak, John" <john.ronciak@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Tomohiro Kusumi <kusumi.tomohiro@jp.fujitsu.com>,
-	NetDev <netdev@vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__11_Dec_2007_11_18_55_+1100_aYXMMFeJtgjYB5/J"
+Cc: rubini@vision.unipv.it, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, kumar.gala@freescale.com,
+	linuxppc-dev@ozlabs.org, michael.barkowski@freescale.com,
+	rich.cutler@freescale.com, ashish.kalra@freescale.com
+To: Poonam_Aggrwal-b10812 <b10812@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:28716 "EHLO mga09.intel.com"
+Received: from chilli.pcug.org.au ([203.10.76.44]:38169 "EHLO smtps.tip.net.au"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752415AbXLKAEP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2007 19:04:15 -0500
-In-Reply-To: <474CCEAD.1060702@jp.fujitsu.com>
+	id S1751806AbXLKATx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2007 19:19:53 -0500
+In-Reply-To: <Pine.LNX.4.64.0712101734490.29623@linux121>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tomohiro Kusumi wrote:
-> Dear Auke and e1000 maintainers
-> 
-> Hi, this is the patch which makes the e1000 driver legacy I/O port free.
-> 
-> I've received some advice from Auke quite long time ago, and submitted
-> a patch (http://lkml.org/lkml/2007/8/10/11) which I think meets what Auke
-> had told me. Since the patch has not received any reaction from the e1000
-> community, let me submit it once again (plus, the previous one had a bug
-> regarding module parameter).
+--Signature=_Tue__11_Dec_2007_11_18_55_+1100_aYXMMFeJtgjYB5/J
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-
-this opens up an interesting discussion -
-
-e1000 is going to be the driver for 8254x hardware only from 2.6.25 and on. e1000e
-will be the driver that powers 8257x hardware (and ich8/9 and es2lan NICs) and
-those are all the pci-e hardware devices.
-
-This means that the current e1000 driver will not power the pci-e hardware anymore
-and thus those io-port free devices are removed from e1000.
-
-considering the fact that only 82542, 82543 and 82547 devices are (from 2.6.25) on
-the only devices that can be ioport free in this new e1000 driver, I think that it
-almost makes no sense to code this functionality up for that.
-
-so, I'm wondering if we should not drop this effort alltogether, since it's just a
-lot of code and none of the pci-e hardware should use ioport anymore.
-
-Can you screen e1000e in jeff garzik's netdev-2.6#upstream tree and see if that is
-correctly not using ioport? I think that would be worth the time.
-
-Cheers,
-
-Auke
-
-
-
-> 
-> If the module parameter enable_legacy_ioport_free is set to 0, it does
-> not differ from the existing e1000 driver, otherwise legacy I/O port free
-> function is enabled. I may have done something wrong, so any comments
-> would be helpful.
-> 
-> Tomohiro Kusumi
-> Signed-off-by: Tomohiro Kusumi <kusumi.tomohiro@jp.fujitsu.com>
-> 
-> ---
-> diff -Nur linux-2.6.23.org/drivers/net/e1000/e1000.h linux-2.6.23/drivers/net/e1000/e1000.h
-> --- linux-2.6.23.org/drivers/net/e1000/e1000.h	2007-10-16 11:30:37.000000000 +0900
-> +++ linux-2.6.23/drivers/net/e1000/e1000.h	2007-10-16 11:32:55.000000000 +0900
-> @@ -342,6 +342,9 @@
->  	boolean_t quad_port_a;
->  	unsigned long flags;
->  	uint32_t eeprom_wol;
+On Mon, 10 Dec 2007 17:39:22 +0530 (IST) Poonam_Aggrwal-b10812 <b10812@free=
+scale.com> wrote:
+>
+> +++ b/arch/powerpc/sysdev/qe_lib/qe.c
+> @@ -149,22 +149,116 @@ EXPORT_SYMBOL(qe_issue_cmd);
+>   */
+>  static unsigned int brg_clk =3D 0;
+> =20
+> -unsigned int get_brg_clk(void)
+> +u32 get_brg_clk(enum qe_clock brgclk, enum qe_clock *brg_source)
+>  {
+> -	struct device_node *qe;
+> -	if (brg_clk)
+> -		return brg_clk;
+> +	struct device_node *qe, *brg, *clocks;
+> +	enum qe_clock brg_src;
+> +	u32 brg_input_freq =3D 0;
+> +	u32 brg_num;
+> +	const unsigned int *prop;
+> =20
+> -	qe =3D of_find_node_by_type(NULL, "qe");
+> -	if (qe) {
+> +	*brg_source =3D 0;
 > +
-> +	int use_ioport;
-> +	int bars;
->  };
-> 
->  enum e1000_state_t {
-> diff -Nur linux-2.6.23.org/drivers/net/e1000/e1000_main.c linux-2.6.23/drivers/net/e1000/e1000_main.c
-> --- linux-2.6.23.org/drivers/net/e1000/e1000_main.c	2007-10-16 11:30:38.000000000 +0900
-> +++ linux-2.6.23/drivers/net/e1000/e1000_main.c	2007-10-16 14:48:16.390575464 +0900
-> @@ -226,6 +226,11 @@
->  static pci_ers_result_t e1000_io_slot_reset(struct pci_dev *pdev);
->  static void e1000_io_resume(struct pci_dev *pdev);
-> 
-> +static unsigned int enable_legacy_ioport_free = 0;
-> +module_param(enable_legacy_ioport_free, uint, 0644);
-> +MODULE_PARM_DESC(enable_legacy_ioport_free, "Enable legacy I/O port free (default:0)");
-> +static int e1000_test_legacy_ioport(struct pci_dev *pdev);
+> +	brg_num =3D brgclk - QE_BRG1;
+> +	brg =3D of_find_compatible_node(NULL, NULL, "fsl,cpm-brg");
+> +	if (brg) {
+>  		unsigned int size;
+> -		const u32 *prop =3D of_get_property(qe, "brg-frequency", &size);
+> -		brg_clk =3D *prop;
+> -		of_node_put(qe);
+> -	};
+> +		prop =3D of_get_property(brg,
+> +					"fsl,brg-sources", &size);
 > +
->  static struct pci_error_handlers e1000_err_handler = {
->  	.error_detected = e1000_io_error_detected,
->  	.slot_reset = e1000_io_slot_reset,
-> @@ -872,8 +877,24 @@
->  	int i, err, pci_using_dac;
->  	uint16_t eeprom_data = 0;
->  	uint16_t eeprom_apme_mask = E1000_EEPROM_APME;
-> -	if ((err = pci_enable_device(pdev)))
-> +	int bars = 0;
-> +	int use_ioport = 0;
-> +
-> +	if (enable_legacy_ioport_free) {
-> +		if ((use_ioport = e1000_test_legacy_ioport(pdev)) < 0) {
-> +			E1000_ERR("e1000_test_legacy_ioport failed, aborting\n");
-> +			return -1;
-> +		}
-> +		if (use_ioport)
-> +			bars = pci_select_bars(pdev, IORESOURCE_MEM | IORESOURCE_IO);
-> +		else
-> +			bars = pci_select_bars(pdev, IORESOURCE_MEM);
-> +		if ((err = pci_enable_device_bars(pdev, bars)) != 0)
-> +			return err;
-> +	}
-> +	else if ((err = pci_enable_device(pdev)) != 0) {
->  		return err;
-> +	}
-> 
->  	if (!(err = pci_set_dma_mask(pdev, DMA_64BIT_MASK)) &&
->  	    !(err = pci_set_consistent_dma_mask(pdev, DMA_64BIT_MASK))) {
-> @@ -887,7 +908,11 @@
->  		pci_using_dac = 0;
->  	}
-> 
-> -	if ((err = pci_request_regions(pdev, e1000_driver_name)))
-> +	if (enable_legacy_ioport_free)
-> +		err = pci_request_selected_regions(pdev, bars, e1000_driver_name);
-> +	else
-> +		err = pci_request_regions(pdev, e1000_driver_name);
-> +	if (err)
->  		goto err_pci_reg;
-> 
->  	pci_set_master(pdev);
-> @@ -906,6 +931,10 @@
->  	adapter->pdev = pdev;
->  	adapter->hw.back = adapter;
->  	adapter->msg_enable = (1 << debug) - 1;
-> +	if (enable_legacy_ioport_free) {
-> +		adapter->use_ioport = use_ioport;
-> +		adapter->bars = bars;
-> +	}
-> 
->  	mmio_start = pci_resource_start(pdev, BAR_0);
->  	mmio_len = pci_resource_len(pdev, BAR_0);
-> @@ -915,12 +944,14 @@
->  	if (!adapter->hw.hw_addr)
->  		goto err_ioremap;
-> 
-> -	for (i = BAR_1; i <= BAR_5; i++) {
-> -		if (pci_resource_len(pdev, i) == 0)
-> -			continue;
-> -		if (pci_resource_flags(pdev, i) & IORESOURCE_IO) {
-> -			adapter->hw.io_base = pci_resource_start(pdev, i);
-> -			break;
-> +	if (!enable_legacy_ioport_free || adapter->use_ioport) {
-> +		for (i = BAR_1; i <= BAR_5; i++) {
-> +			if (pci_resource_len(pdev, i) == 0)
-> +				continue;
-> +			if (pci_resource_flags(pdev, i) & IORESOURCE_IO) {
-> +				adapter->hw.io_base = pci_resource_start(pdev, i);
-> +				break;
+> +		brg_src =3D *(prop + brg_num);
+
+You should probably sanity check that prop is not NULL and points to
+something large enough.
+
+You don't use brg after here, so the "of_node_put(brg)" could go here to
+save putting it in multiple places later.  Also, currently there are
+paths through the following code that do not do the of_node_put(brg).
+
+> +		if (brg_src =3D=3D 0) {
+> +			*brg_source =3D 0;
+> +			if (brg_clk > 0) {
+> +				of_node_put(brg);
+> +				return brg_clk;
 > +			}
->  		}
->  	}
-> 
-> @@ -1188,7 +1219,10 @@
->  err_ioremap:
->  	free_netdev(netdev);
->  err_alloc_etherdev:
-> -	pci_release_regions(pdev);
-> +	if (enable_legacy_ioport_free)
-> +		pci_release_selected_regions(pdev, bars);
-> +	else
-> +		pci_release_regions(pdev);
->  err_pci_reg:
->  err_dma:
->  	pci_disable_device(pdev);
-> @@ -1240,7 +1274,10 @@
->  	iounmap(adapter->hw.hw_addr);
->  	if (adapter->hw.flash_address)
->  		iounmap(adapter->hw.flash_address);
-> -	pci_release_regions(pdev);
-> +	if (enable_legacy_ioport_free)
-> +		pci_release_selected_regions(pdev, adapter->bars);
-> +	else
-> +		pci_release_regions(pdev);
-> 
->  	free_netdev(netdev);
-> 
-> @@ -5180,7 +5217,11 @@
-> 
->  	pci_set_power_state(pdev, PCI_D0);
->  	pci_restore_state(pdev);
-> -	if ((err = pci_enable_device(pdev))) {
-> +	if (enable_legacy_ioport_free)
-> +		err = pci_enable_device_bars(pdev, adapter->bars);
-> +	else
-> +		err = pci_enable_device(pdev);
-> +	if (err) {
->  		printk(KERN_ERR "e1000: Cannot enable PCI device from suspend\n");
->  		return err;
->  	}
-> @@ -5325,4 +5366,42 @@
-> 
->  }
-> 
-> +/*
-> + * e1000_test_legacy_ioport - see if the device uses legacy I/O port
-> + * @pdev: Pointer to PCI device
-> + *
-> + * This function tests if the PCI device uses I/O port.
-> + * If yes the function returns 1, if no the function returns 0.
-> + * The function returns -1 if there is an error.
-> + */
-> +static int e1000_test_legacy_ioport(struct pci_dev *pdev)
-> +{
-> +	int ret;
-> +	struct e1000_hw hw;
-> +	memset(&hw, 0, sizeof(hw));
-> +	
-> +	hw.mac_type = e1000_undefined;
-> +	hw.device_id = pdev->device;
-> +	pci_read_config_byte(pdev, PCI_REVISION_ID, &hw.revision_id);
+> +			qe =3D of_find_node_by_type(NULL, "qe");
+> +			if (qe) {
+> +				unsigned int size;
+> +				prop =3D of_get_property
+> +						(qe, "brg-frequency", &size);
+> +				of_node_put(qe);
+> +				of_node_put(brg);
+> +				return *prop;
+
+NULL check here (yes, I know that the old code didn't check).
+
+> +			}
+> +		} else {
+> +			*brg_source =3D brg_src + QE_CLK1 - 1;
+> +			clocks =3D of_find_compatible_node(NULL, NULL,
+> +							"fsl,cpm-clocks");
+> +			prop =3D of_get_property(clocks,
+> +						"#clock-cells", &size);
+> +			/*
+> +			 * clock-cells =3D 1 only supported right now.
+> +			 */
+> +			if (*prop !=3D 1)
+
+Again check for NULL (and possibly size).
+
+> +				return 0;
+> +			prop =3D of_get_property(clocks,
+> +						"clock-frequency", &size);
 > +
-> +	if (e1000_set_mac_type(&hw) < 0)
-> +		return -1;
-> +
-> +	switch (hw.mac_type) {
-> +	case e1000_82540:
-> +	case e1000_82541:
-> +	case e1000_82541_rev_2:
-> +	case e1000_82544:
-> +	case e1000_82545:
-> +	case e1000_82546:
-> +		ret = 1;
-> +		break;
-> +	default:
-> +		ret = 0;
-> +		break;
+> +			brg_input_freq =3D *(prop+(brg_src - 1));
+
+And again.
+
+> +			of_node_put(clocks);
+> +			of_node_put(brg);
+> +			return brg_input_freq;
+> +		}
 > +	}
-> +	
-> +	return ret;
-> +}
-> +
->  /* e1000_main.c */
+>  	return brg_clk;
+>  }
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Tue__11_Dec_2007_11_18_55_+1100_aYXMMFeJtgjYB5/J
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFHXdd1TgG2atn1QN8RArh5AJ4z8kANPQGUw2pYDIfRI2CdvnttngCfT+pA
+BH33qJqo4Ko6RxABhcfvFlo=
+=PF5i
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__11_Dec_2007_11_18_55_+1100_aYXMMFeJtgjYB5/J--
