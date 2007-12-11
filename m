@@ -1,43 +1,52 @@
-From: Tyler Hicks <tyhicks@ou.edu>
-Subject: [IPSEC] RFC 4301 PFP Support
-Date: Tue, 11 Dec 2007 13:34:45 -0800
-Message-ID: <20071211213445.GA11887@hestia>
-Reply-To: tyhicks@ou.edu
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: net-2.6.25 being rebased...
+Date: Tue, 11 Dec 2007 22:35:40 +0100
+Message-ID: <20071211213540.GA30706@electric-eye.fr.zoreil.com>
+References: <20071211.092638.148402625.davem@davemloft.net> <20071211.115619.199600421.davem@davemloft.net> <1197407100.4911.150.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <latten@us.ibm.com>, <herbert@gondor.apana.org.au>,
-	<davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2007asmtp.zero.ou.edu ([129.15.0.236]:55055 "EHLO
-	it-wildcat.sooner.net.ou.edu" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750847AbXLKVjx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 16:39:53 -0500
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:44960 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751906AbXLKVmO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 16:42:14 -0500
 Content-Disposition: inline
+In-Reply-To: <1197407100.4911.150.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm working on adding populate from packet (PFP) support to the kernel,
-as specified in RFC 4301.  While testing with openswan (2.4.9), I
-noticed that the state selector values in the SAD were empty.  It seems
-that when openswan sends a ALLOCSPI message, the kernel finds the larval
-xfrm_state with selector fields filled in and passes it to openswan.
-Openswan will then respond with an UPDSA message that includes an
-xfrm_usersa_info that has empty selector values.  The kernel assumes
-that these selector values are valid and deletes the larval SA and
-inserts the new SA containing empty selectors.  We need SAs with valid
-selectors in the SAD in order to implement PFP support.
+Joe Perches <joe@perches.com> :
+[...]
+> I have an earlier unmodified git repository of net-2.6.25.
+> Does anyone know the appropriate git commands to resync
+> to the rebased content?
+> 
+> $ git branch
+> * master
+> $ git-pull
+> [...]
+> Automatic merge failed; fix conflicts and then commit the result.
 
-Should we just use the larval selectors or should we assume that
-openswan will begin to send valid selectors?  I asked for the openswan
-dev's opinions and they referred me to Herbert Xu.  It seems as though
-the correct solution would be for openswan to pass valid selectors in
-UPDSA messages, even if it is the larval selectors we gave them.
+Assuming taht you initially cloned from davem's repo, your .git/config
+could contain something along the lines of:
 
-On a side note, Joy Latten has reported to see the same behavior while
-using ipsec-tools.
+ [remote "origin"]
+         url = git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
+         fetch = +refs/heads/*:refs/remotes/origin/*
 
-Thanks!
+(the "+" will update even non fast-forwarding branches)
 
-Tyler Hicks
+Then:
 
+$ git fetch origin
+$ git fetch -u remotes/origin/master:master
+
+You may then reset --hard to wipe out any leftover file.
+
+If you cloned from somewhere else, replace "origin" with the label of
+your choice to automate the process.
+
+-- 
+Ueimor
