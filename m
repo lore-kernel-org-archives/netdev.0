@@ -1,45 +1,53 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] drivers/net/sis190.c section fix
-Date: Tue, 11 Dec 2007 23:23:56 +0100
-Message-ID: <20071211222356.GA14204@stusta.de>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: 2.6.24-rc4-mm1
+Date: Tue, 11 Dec 2007 14:17:16 -0800
+Message-ID: <475F0C6C.20900@intel.com>
+References: <20071204211701.994dfce6.akpm@linux-foundation.org>	<33307c790712110813h23def95dvd068b7226e9fcd36@mail.gmail.com>	<20071211123705.844aac24.akpm@linux-foundation.org>	<475F00A2.6020406@intel.com> <20071211141040.a1c6f316.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: romieu@fr.zoreil.com, jgarzik@pobox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:38553 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754869AbXLKWX4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 17:23:56 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: mbligh@google.com, linux-kernel@vger.kernel.org, apw@shadowen.org,
+	netdev@vger.kernel.org, tglx@linutronix.de, mingo@elte.hu
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758677AbXLKW2x@vger.kernel.org>
+In-Reply-To: <20071211141040.a1c6f316.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes the following section mismatch with CONFIG_HOTPLUG=n:
+Andrew Morton wrote:
+> On Tue, 11 Dec 2007 13:26:58 -0800
+> "Kok, Auke" <auke-jan.h.kok@intel.com> wrote:
+> 
+>> Andrew Morton wrote:
+>>> On Tue, 11 Dec 2007 08:13:52 -0800 "Martin Bligh" <mbligh@google.com> wrote:
+>>>
+>>>>> - Lots of device IDs have been removed from the e1000 driver and moved
+>>>>> over
+>>>>>  to e1000e.  So if your e1000 stops working, you forgot to set
+>>>>> CONFIG_E1000E.
+>>>>>
+>>>>>
+>>>> Wouldn't it make sense to just default this to on if E1000 was on, rather
+>>>> than screwing
+>>>> everybody for no good reason (plus breaking all the automated testing, etc
+>>>> etc)?
+>>>> Much though I love random refactoring, it is fairly painful to just keep
+>>>> changing the
+>>>> names of things.
+>>> (cc netdev and Auke)
+>>>
+>>> Yes, that would be very sensible.  CONFIG_E1000E should default to whatever
+>>> CONFIG_E1000 was set to.
+>> which is "y" for x86 and friends, ppc, arm and ia64 through 'defconfig'. the
+>> Kconfig files do not have defaults in them.
+> 
+> I wouldn't be looking at defconfig files - I don't think many people use
+> them.  Most people use their previous config, via oldconfig.
+> 
+> So what we want here is to give them E1000E if they had previously been
+> using E1000.  I don't know how one would do this in Kconfig.
 
-<--  snip  -->
+ditto. I doubt that "SELECT E1000E" would be a good idea here (maybe not even
+work), and I can't think of anything else.
 
-...
-WARNING: vmlinux.o(.init.text.20+0x4cb25): Section mismatch: reference to .exit.text:sis190_mii_remove (between 'sis190_init_one' and 'read_eeprom')
-...
-
-<--  snip  -->
-
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
-
----
-29fae057ba15a552a7cad1e731d3238d567032ba 
-diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-index 7200883..49f767b 100644
---- a/drivers/net/sis190.c
-+++ b/drivers/net/sis190.c
-@@ -1381,7 +1381,7 @@ out:
- 	return rc;
- }
- 
--static void __devexit sis190_mii_remove(struct net_device *dev)
-+static void sis190_mii_remove(struct net_device *dev)
- {
- 	struct sis190_private *tp = netdev_priv(dev);
- 
-
+Auke
