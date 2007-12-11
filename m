@@ -1,142 +1,171 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 1/2 2.6.25] netns: struct net content re-work (v3)
-Date: Tue, 11 Dec 2007 14:55:07 +0300
-Message-ID: <20071211115507.GA9947@iris.sw.ru>
+Subject: [PATCH 2/2 2.6.25] netns: separate af_packet netns data
+Date: Tue, 11 Dec 2007 14:55:52 +0300
+Message-ID: <20071211115552.GA9961@iris.sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: containers@lists.osdl.org, devel@openvz.org,
 	netdev@vger.kernel.org, herbert@gondor.apana.org.au
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:63910 "EHLO iris"
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:53537 "EHLO iris"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751841AbXLKLxo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Dec 2007 06:53:44 -0500
+	id S1751387AbXLKLy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Dec 2007 06:54:29 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recently David Miller and Herbert Xu pointed out that struct net becomes
-overbloated and un-maintainable. There are two solutions:
-- provide a pointer to a network subsystem definition from struct net.
-  This costs an additional dereferrence
-- place sub-system definition into the structure itself. This will speedup
-  run-time access at the cost of recompilation time
-
-The second approach looks better for us. Other sub-systems will follow.
+netns: move af_packet data to the separate header
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
-Acked-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 ---
- include/net/net_namespace.h |    6 +++---
- include/net/netns/unix.h    |   13 +++++++++++++
- net/unix/af_unix.c          |    4 ++--
- net/unix/sysctl_net_unix.c  |   12 ++++++------
- 4 files changed, 24 insertions(+), 11 deletions(-)
- create mode 100644 include/net/netns/unix.h
+ include/net/net_namespace.h |    6 ++----
+ include/net/netns/packet.h  |   15 +++++++++++++++
+ net/packet/af_packet.c      |   28 ++++++++++++++--------------
+ 3 files changed, 31 insertions(+), 18 deletions(-)
+ create mode 100644 include/net/netns/packet.h
 
 diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index b62e31f..d943fd4 100644
+index d943fd4..18da0af 100644
 --- a/include/net/net_namespace.h
 +++ b/include/net/net_namespace.h
-@@ -8,6 +8,8 @@
- #include <linux/workqueue.h>
+@@ -9,6 +9,7 @@
  #include <linux/list.h>
  
-+#include <net/netns/unix.h>
-+
+ #include <net/netns/unix.h>
++#include <net/netns/packet.h>
+ 
  struct proc_dir_entry;
  struct net_device;
- struct sock;
-@@ -45,9 +47,7 @@ struct net {
- 	rwlock_t		packet_sklist_lock;
- 	struct hlist_head	packet_sklist;
+@@ -43,10 +44,7 @@ struct net {
+ 	struct ctl_table_header	*sysctl_core_hdr;
+ 	int			sysctl_somaxconn;
  
--	/* unix sockets */
--	int			sysctl_unix_max_dgram_qlen;
--	struct ctl_table_header	*unix_ctl;
-+	struct netns_unix	unx;
+-	/* List of all packet sockets. */
+-	rwlock_t		packet_sklist_lock;
+-	struct hlist_head	packet_sklist;
+-
++	struct netns_packet	packet;
+ 	struct netns_unix	unx;
  };
  
- #ifdef CONFIG_NET
-diff --git a/include/net/netns/unix.h b/include/net/netns/unix.h
+diff --git a/include/net/netns/packet.h b/include/net/netns/packet.h
 new file mode 100644
-index 0000000..284649d
+index 0000000..637daf6
 --- /dev/null
-+++ b/include/net/netns/unix.h
-@@ -0,0 +1,13 @@
++++ b/include/net/netns/packet.h
+@@ -0,0 +1,15 @@
 +/*
-+ * Unix network namespace
++ * Packet network namespace
 + */
-+#ifndef __NETNS_UNIX_H__
-+#define __NETNS_UNIX_H__
++#ifndef __NETNS_PACKET_H__
++#define __NETNS_PACKET_H__
 +
-+struct ctl_table_header;
-+struct netns_unix {
-+	int			sysctl_max_dgram_qlen;
-+	struct ctl_table_header	*ctl;
++#include <linux/list.h>
++#include <linux/spinlock.h>
++
++struct netns_packet {
++	rwlock_t		sklist_lock;
++	struct hlist_head	sklist;
 +};
 +
-+#endif /* __NETNS_UNIX_H__ */
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index b8a2189..63a9239 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -592,7 +592,7 @@ static struct sock * unix_create1(struct net *net, struct socket *sock)
- 				&af_unix_sk_receive_queue_lock_key);
++#endif /* __NETNS_PACKET_H__ */
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index ace29f1..485af56 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -803,9 +803,9 @@ static int packet_release(struct socket *sock)
+ 	net = sk->sk_net;
+ 	po = pkt_sk(sk);
  
- 	sk->sk_write_space	= unix_write_space;
--	sk->sk_max_ack_backlog	= net->sysctl_unix_max_dgram_qlen;
-+	sk->sk_max_ack_backlog	= net->unx.sysctl_max_dgram_qlen;
- 	sk->sk_destruct		= unix_sock_destructor;
- 	u	  = unix_sk(sk);
- 	u->dentry = NULL;
-@@ -2138,7 +2138,7 @@ static int unix_net_init(struct net *net)
- {
- 	int error = -ENOMEM;
+-	write_lock_bh(&net->packet_sklist_lock);
++	write_lock_bh(&net->packet.sklist_lock);
+ 	sk_del_node_init(sk);
+-	write_unlock_bh(&net->packet_sklist_lock);
++	write_unlock_bh(&net->packet.sklist_lock);
  
--	net->sysctl_unix_max_dgram_qlen = 10;
-+	net->unx.sysctl_max_dgram_qlen = 10;
- 	if (unix_sysctl_register(net))
- 		goto out;
+ 	/*
+ 	 *	Unhook packet receive handler.
+@@ -1015,9 +1015,9 @@ static int packet_create(struct net *net, struct socket *sock, int protocol)
+ 		po->running = 1;
+ 	}
  
-diff --git a/net/unix/sysctl_net_unix.c b/net/unix/sysctl_net_unix.c
-index 553ef6a..77513d7 100644
---- a/net/unix/sysctl_net_unix.c
-+++ b/net/unix/sysctl_net_unix.c
-@@ -18,7 +18,7 @@ static ctl_table unix_table[] = {
- 	{
- 		.ctl_name	= NET_UNIX_MAX_DGRAM_QLEN,
- 		.procname	= "max_dgram_qlen",
--		.data		= &init_net.sysctl_unix_max_dgram_qlen,
-+		.data		= &init_net.unx.sysctl_max_dgram_qlen,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= &proc_dointvec
-@@ -40,9 +40,9 @@ int unix_sysctl_register(struct net *net)
- 	if (table == NULL)
- 		goto err_alloc;
+-	write_lock_bh(&net->packet_sklist_lock);
+-	sk_add_node(sk, &net->packet_sklist);
+-	write_unlock_bh(&net->packet_sklist_lock);
++	write_lock_bh(&net->packet.sklist_lock);
++	sk_add_node(sk, &net->packet.sklist);
++	write_unlock_bh(&net->packet.sklist_lock);
+ 	return(0);
+ out:
+ 	return err;
+@@ -1452,8 +1452,8 @@ static int packet_notifier(struct notifier_block *this, unsigned long msg, void
+ 	struct net_device *dev = data;
+ 	struct net *net = dev->nd_net;
  
--	table[0].data = &net->sysctl_unix_max_dgram_qlen;
--	net->unix_ctl = register_net_sysctl_table(net, unix_path, table);
--	if (net->unix_ctl == NULL)
-+	table[0].data = &net->unx.sysctl_max_dgram_qlen;
-+	net->unx.ctl = register_net_sysctl_table(net, unix_path, table);
-+	if (net->unx.ctl == NULL)
- 		goto err_reg;
+-	read_lock(&net->packet_sklist_lock);
+-	sk_for_each(sk, node, &net->packet_sklist) {
++	read_lock(&net->packet.sklist_lock);
++	sk_for_each(sk, node, &net->packet.sklist) {
+ 		struct packet_sock *po = pkt_sk(sk);
  
- 	return 0;
-@@ -57,8 +57,8 @@ void unix_sysctl_unregister(struct net *net)
- {
- 	struct ctl_table *table;
- 
--	table = net->unix_ctl->ctl_table_arg;
--	unregister_sysctl_table(net->unix_ctl);
-+	table = net->unx.ctl->ctl_table_arg;
-+	unregister_sysctl_table(net->unx.ctl);
- 	kfree(table);
+ 		switch (msg) {
+@@ -1492,7 +1492,7 @@ static int packet_notifier(struct notifier_block *this, unsigned long msg, void
+ 			break;
+ 		}
+ 	}
+-	read_unlock(&net->packet_sklist_lock);
++	read_unlock(&net->packet.sklist_lock);
+ 	return NOTIFY_DONE;
  }
  
+@@ -1862,7 +1862,7 @@ static inline struct sock *packet_seq_idx(struct net *net, loff_t off)
+ 	struct sock *s;
+ 	struct hlist_node *node;
+ 
+-	sk_for_each(s, node, &net->packet_sklist) {
++	sk_for_each(s, node, &net->packet.sklist) {
+ 		if (!off--)
+ 			return s;
+ 	}
+@@ -1872,7 +1872,7 @@ static inline struct sock *packet_seq_idx(struct net *net, loff_t off)
+ static void *packet_seq_start(struct seq_file *seq, loff_t *pos)
+ {
+ 	struct net *net = seq_file_net(seq);
+-	read_lock(&net->packet_sklist_lock);
++	read_lock(&net->packet.sklist_lock);
+ 	return *pos ? packet_seq_idx(net, *pos - 1) : SEQ_START_TOKEN;
+ }
+ 
+@@ -1881,14 +1881,14 @@ static void *packet_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ 	struct net *net = seq->private;
+ 	++*pos;
+ 	return  (v == SEQ_START_TOKEN)
+-		? sk_head(&net->packet_sklist)
++		? sk_head(&net->packet.sklist)
+ 		: sk_next((struct sock*)v) ;
+ }
+ 
+ static void packet_seq_stop(struct seq_file *seq, void *v)
+ {
+ 	struct net *net = seq->private;
+-	read_unlock(&net->packet_sklist_lock);
++	read_unlock(&net->packet.sklist_lock);
+ }
+ 
+ static int packet_seq_show(struct seq_file *seq, void *v)
+@@ -1940,8 +1940,8 @@ static const struct file_operations packet_seq_fops = {
+ 
+ static int packet_net_init(struct net *net)
+ {
+-	rwlock_init(&net->packet_sklist_lock);
+-	INIT_HLIST_HEAD(&net->packet_sklist);
++	rwlock_init(&net->packet.sklist_lock);
++	INIT_HLIST_HEAD(&net->packet.sklist);
+ 
+ 	if (!proc_net_fops_create(net, "packet", 0, &packet_seq_fops))
+ 		return -ENOMEM;
 -- 
 1.5.3.rc5
 
