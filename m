@@ -1,154 +1,378 @@
-From: Christian Borntraeger <borntraeger@de.ibm.com>
-Subject: Re: [kvm-devel] [PATCH resent] virtio_net: Fix stalled inbound trafficon early packets
-Date: Tue, 11 Dec 2007 16:27:21 +0100
-Message-ID: <200712111627.21364.borntraeger@de.ibm.com>
-References: <200712111242.28843.borntraeger@de.ibm.com> <475E892D.9060400@qumranet.com> <200712111419.52880.borntraeger@de.ibm.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: [PATCH v2] XFRM: assorted IPsec fixups
+Date: Tue, 11 Dec 2007 11:30:19 -0500
+Message-ID: <20071211163019.15059.73746.stgit@flek.lan>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	kvm-devel <kvm-devel@lists.sourceforge.net>,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: dor.laor@qumranet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.de.ibm.com ([195.212.29.155]:62553 "EHLO
-	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750952AbXLKP1Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 10:27:25 -0500
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate6.de.ibm.com (8.13.8/8.13.8) with ESMTP id lBBFRNL7362264
-	for <netdev@vger.kernel.org>; Tue, 11 Dec 2007 15:27:23 GMT
-Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lBBFRN5l2269320
-	for <netdev@vger.kernel.org>; Tue, 11 Dec 2007 16:27:23 +0100
-Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lBBFRMK3020563
-	for <netdev@vger.kernel.org>; Tue, 11 Dec 2007 16:27:23 +0100
-In-Reply-To: <200712111419.52880.borntraeger@de.ibm.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-audit@redhat.com, selinux@tycho.nsa.gov
+To: netdev@vger.kernel.org
+Return-path: <linux-audit-bounces@redhat.com>
+List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/linux-audit>
+List-Post: <mailto:linux-audit@redhat.com>
+List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=subscribe>
+Sender: linux-audit-bounces@redhat.com
+Errors-To: linux-audit-bounces@redhat.com
+List-Id: netdev.vger.kernel.org
 
-Am Dienstag, 11. Dezember 2007 schrieb Christian Borntraeger:
-> > The way other physical NICs doing it is by dis/en/abling interrupt 
-> > using registers (look at e1000).
-> > I suggest we can export add_status and use the original code but
-> > before enabling napi add a call to add_status(dev, 
-> > VIRTIO_CONFIG_DEV_OPEN).
-> > The host won't trigger an irq until it sees the above.
-> 
-> That would also work. We already have VRING_AVAIL_F_NO_INTERRUPT in
-> virtio_ring.c - maybe we can use that. Its hidden in callback and
-> restart handling, what about adding an explicit startup?
+This patch fixes a number of small but potentially troublesome things in the
+XFRM/IPsec code:
 
-Ok, just to give an example what I thought about:
+ * Use the 'audit_enabled' variable already in include/linux/audit.h
+   Removed the need for extern declarations local to each XFRM audit fuction
+
+ * Convert 'sid' to 'secid'
+   The 'sid' name is specific to SELinux, 'secid' is the common naming
+   convention used by the kernel when refering to tokenized LSM labels
+
+ * Convert address display to use standard NIP* macros
+   Similar to what was recently done with the SPD audit code, this also also
+   includes the removal of some unnecessary memcpy() calls
+
+ * Move common code to xfrm_audit_common_stateinfo()
+   Code consolidation from the "less is more" book on software development
+
+ * Convert the SPI in audit records to host byte order
+   The current SPI values in the audit record are being displayed in network
+   byte order, probably not what was intended
+
+ * Proper spacing around commas in function arguments
+   Minor style tweak since I was already touching the code
+
+Signed-off-by: Paul Moore <paul.moore@hp.com>
 ---
- drivers/block/virtio_blk.c   |    3 ++-
- drivers/net/virtio_net.c     |    2 ++
- drivers/virtio/virtio_ring.c |   16 +++++++++++++---
- include/linux/virtio.h       |    5 +++++
- 4 files changed, 22 insertions(+), 4 deletions(-)
 
-Index: kvm/drivers/virtio/virtio_ring.c
-===================================================================
---- kvm.orig/drivers/virtio/virtio_ring.c
-+++ kvm/drivers/virtio/virtio_ring.c
-@@ -241,6 +241,16 @@ static bool vring_restart(struct virtque
- 	return true;
- }
+ include/linux/xfrm.h    |    2 +
+ include/net/xfrm.h      |   18 ++++++------
+ net/xfrm/xfrm_policy.c  |   15 +++++-----
+ net/xfrm/xfrm_state.c   |   69 +++++++++++++++++++++--------------------------
+ security/selinux/xfrm.c |   20 +++++++-------
+ 5 files changed, 58 insertions(+), 66 deletions(-)
+
+diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
+index b58adc5..f75a337 100644
+--- a/include/linux/xfrm.h
++++ b/include/linux/xfrm.h
+@@ -31,7 +31,7 @@ struct xfrm_sec_ctx {
+ 	__u8	ctx_doi;
+ 	__u8	ctx_alg;
+ 	__u16	ctx_len;
+-	__u32	ctx_sid;
++	__u32	ctx_secid;
+ 	char	ctx_str[0];
+ };
  
-+static void vring_startup(struct virtqueue *_vq)
-+{
-+	struct vring_virtqueue *vq = to_vvq(_vq);
-+	START_USE(vq);
-+	if (vq->vq.callback)
-+		vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
-+	END_USE(vq);
-+}
-+
-+
- irqreturn_t vring_interrupt(int irq, void *_vq)
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 0c380d9..3134ba6 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -547,7 +547,7 @@ struct xfrm_audit
+ };
+ 
+ #ifdef CONFIG_AUDITSYSCALL
+-static inline struct audit_buffer *xfrm_audit_start(u32 auid, u32 sid)
++static inline struct audit_buffer *xfrm_audit_start(u32 auid, u32 secid)
  {
- 	struct vring_virtqueue *vq = to_vvq(_vq);
-@@ -265,6 +275,7 @@ static struct virtqueue_ops vring_vq_ops
- 	.get_buf = vring_get_buf,
- 	.kick = vring_kick,
- 	.restart = vring_restart,
-+	.startup = vring_startup,
- 	.shutdown = vring_shutdown,
- };
+ 	struct audit_buffer *audit_buf = NULL;
+ 	char *secctx;
+@@ -560,8 +560,8 @@ static inline struct audit_buffer *xfrm_audit_start(u32 auid, u32 sid)
  
-@@ -299,9 +310,8 @@ struct virtqueue *vring_new_virtqueue(un
- 	vq->in_use = false;
- #endif
+ 	audit_log_format(audit_buf, "auid=%u", auid);
  
--	/* No callback?  Tell other side not to bother us. */
--	if (!callback)
--		vq->vring.avail->flags |= VRING_AVAIL_F_NO_INTERRUPT;
-+	/* disable interrupts until we enable them */
-+	vq->vring.avail->flags |= VRING_AVAIL_F_NO_INTERRUPT;
- 
- 	/* Put everything in free lists. */
- 	vq->num_free = num;
-Index: kvm/include/linux/virtio.h
-===================================================================
---- kvm.orig/include/linux/virtio.h
-+++ kvm/include/linux/virtio.h
-@@ -45,6 +45,9 @@ struct virtqueue
-  *	vq: the struct virtqueue we're talking about.
-  *	This returns "false" (and doesn't re-enable) if there are pending
-  *	buffers in the queue, to avoid a race.
-+ * @startup: enable callbacks
-+ *	vq: the struct virtqueue we're talking abount
-+ *	Returns 0 or an error
-  * @shutdown: "unadd" all buffers.
-  *	vq: the struct virtqueue we're talking about.
-  *	Remove everything from the queue.
-@@ -67,6 +70,8 @@ struct virtqueue_ops {
- 
- 	bool (*restart)(struct virtqueue *vq);
- 
-+	void (*startup) (struct virtqueue *vq);
-+
- 	void (*shutdown)(struct virtqueue *vq);
- };
- 
-Index: kvm/drivers/net/virtio_net.c
-===================================================================
---- kvm.orig/drivers/net/virtio_net.c
-+++ kvm/drivers/net/virtio_net.c
-@@ -292,6 +292,8 @@ static int virtnet_open(struct net_devic
- 		return -ENOMEM;
- 
- 	napi_enable(&vi->napi);
-+
-+	vi->rvq->vq_ops->startup(vi->rvq);
- 	return 0;
+-	if (sid != 0 &&
+-	    security_secid_to_secctx(sid, &secctx, &secctx_len) == 0) {
++	if (secid != 0 &&
++	    security_secid_to_secctx(secid, &secctx, &secctx_len) == 0) {
+ 		audit_log_format(audit_buf, " subj=%s", secctx);
+ 		security_release_secctx(secctx, secctx_len);
+ 	} else
+@@ -570,13 +570,13 @@ static inline struct audit_buffer *xfrm_audit_start(u32 auid, u32 sid)
  }
  
-Index: kvm/drivers/block/virtio_blk.c
-===================================================================
---- kvm.orig/drivers/block/virtio_blk.c
-+++ kvm/drivers/block/virtio_blk.c
-@@ -183,7 +183,8 @@ static int virtblk_probe(struct virtio_d
- 		err = PTR_ERR(vblk->vq);
- 		goto out_free_vblk;
+ extern void xfrm_audit_policy_add(struct xfrm_policy *xp, int result,
+-				  u32 auid, u32 sid);
++				  u32 auid, u32 secid);
+ extern void xfrm_audit_policy_delete(struct xfrm_policy *xp, int result,
+-				  u32 auid, u32 sid);
++				  u32 auid, u32 secid);
+ extern void xfrm_audit_state_add(struct xfrm_state *x, int result,
+-				 u32 auid, u32 sid);
++				 u32 auid, u32 secid);
+ extern void xfrm_audit_state_delete(struct xfrm_state *x, int result,
+-				    u32 auid, u32 sid);
++				    u32 auid, u32 secid);
+ #else
+ #define xfrm_audit_policy_add(x, r, a, s)	do { ; } while (0)
+ #define xfrm_audit_policy_delete(x, r, a, s)	do { ; } while (0)
+@@ -706,13 +706,13 @@ extern int xfrm_selector_match(struct xfrm_selector *sel, struct flowi *fl,
+ 
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+ /*	If neither has a context --> match
+- * 	Otherwise, both must have a context and the sids, doi, alg must match
++ * 	Otherwise, both must have a context and the secids, doi, alg must match
+  */
+ static inline int xfrm_sec_ctx_match(struct xfrm_sec_ctx *s1, struct xfrm_sec_ctx *s2)
+ {
+ 	return ((!s1 && !s2) ||
+ 		(s1 && s2 &&
+-		 (s1->ctx_sid == s2->ctx_sid) &&
++		 (s1->ctx_secid == s2->ctx_secid) &&
+ 		 (s1->ctx_doi == s2->ctx_doi) &&
+ 		 (s1->ctx_alg == s2->ctx_alg)));
+ }
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index d9bde91..8a89e2c 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -24,6 +24,7 @@
+ #include <linux/netfilter.h>
+ #include <linux/module.h>
+ #include <linux/cache.h>
++#include <linux/audit.h>
+ #include <net/dst.h>
+ #include <net/xfrm.h>
+ #include <net/ip.h>
+@@ -2298,15 +2299,14 @@ static inline void xfrm_audit_common_policyinfo(struct xfrm_policy *xp,
  	}
+ }
+ 
+-void
+-xfrm_audit_policy_add(struct xfrm_policy *xp, int result, u32 auid, u32 sid)
++void xfrm_audit_policy_add(struct xfrm_policy *xp, int result,
++			   u32 auid, u32 secid)
+ {
+ 	struct audit_buffer *audit_buf;
+-	extern int audit_enabled;
+ 
+ 	if (audit_enabled == 0)
+ 		return;
+-	audit_buf = xfrm_audit_start(sid, auid);
++	audit_buf = xfrm_audit_start(secid, auid);
+ 	if (audit_buf == NULL)
+ 		return;
+ 	audit_log_format(audit_buf, " op=SPD-add res=%u", result);
+@@ -2315,15 +2315,14 @@ xfrm_audit_policy_add(struct xfrm_policy *xp, int result, u32 auid, u32 sid)
+ }
+ EXPORT_SYMBOL_GPL(xfrm_audit_policy_add);
+ 
+-void
+-xfrm_audit_policy_delete(struct xfrm_policy *xp, int result, u32 auid, u32 sid)
++void xfrm_audit_policy_delete(struct xfrm_policy *xp, int result,
++			      u32 auid, u32 secid)
+ {
+ 	struct audit_buffer *audit_buf;
+-	extern int audit_enabled;
+ 
+ 	if (audit_enabled == 0)
+ 		return;
+-	audit_buf = xfrm_audit_start(sid, auid);
++	audit_buf = xfrm_audit_start(secid, auid);
+ 	if (audit_buf == NULL)
+ 		return;
+ 	audit_log_format(audit_buf, " op=SPD-delete res=%u", result);
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 5b860b6..e2a3dd1 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -19,6 +19,7 @@
+ #include <linux/ipsec.h>
+ #include <linux/module.h>
+ #include <linux/cache.h>
++#include <linux/audit.h>
+ #include <asm/uaccess.h>
+ 
+ #include "xfrm_hash.h"
+@@ -1994,67 +1995,59 @@ void __init xfrm_state_init(void)
+ static inline void xfrm_audit_common_stateinfo(struct xfrm_state *x,
+ 					       struct audit_buffer *audit_buf)
+ {
+-	if (x->security)
+-		audit_log_format(audit_buf, " sec_alg=%u sec_doi=%u sec_obj=%s",
+-				 x->security->ctx_alg, x->security->ctx_doi,
+-				 x->security->ctx_str);
++	struct xfrm_sec_ctx *ctx = x->security;
++	u32 spi = ntohl(x->id.spi);
+ 
+-	switch(x->props.family) {
+-	case AF_INET:
+-		audit_log_format(audit_buf, " src=%u.%u.%u.%u dst=%u.%u.%u.%u",
+-				 NIPQUAD(x->props.saddr.a4),
+-				 NIPQUAD(x->id.daddr.a4));
+-		break;
+-	case AF_INET6:
+-		{
+-			struct in6_addr saddr6, daddr6;
 -
-+	/* enable interrupts */
-+	vblk->vq->vq_ops->startup(vblk->vq);
- 	vblk->pool = mempool_create_kmalloc_pool(1,sizeof(struct virtblk_req));
- 	if (!vblk->pool) {
- 		err = -ENOMEM;
-
-
-
-There is still one small problem: what if the host fills up all 
-host-to-guest buffers before we call startup? So I start to think that your 
-solution is better, given that the host is not only not sending interrupts 
-but also not filling any buffers as long as VIRTIO_CONFIG_DEV_OPEN is not 
-set. I will have a look but I think that add_status needs to be called 
-after napi_enable, otherwise we have the same race.
-
-Christian
+-			memcpy(&saddr6, x->props.saddr.a6,
+-				sizeof(struct in6_addr));
+-			memcpy(&daddr6, x->id.daddr.a6,
+-				sizeof(struct in6_addr));
+-			audit_log_format(audit_buf,
+-					 " src=" NIP6_FMT " dst=" NIP6_FMT,
+-					 NIP6(saddr6), NIP6(daddr6));
+-		}
+-		break;
+-	}
++        if (ctx)
++                audit_log_format(audit_buf, " sec_alg=%u sec_doi=%u sec_obj=%s",
++                                 ctx->ctx_alg, ctx->ctx_doi, ctx->ctx_str);
++
++        switch(x->props.family) {
++        case AF_INET:
++                audit_log_format(audit_buf,
++				 " src=" NIPQUAD_FMT " dst=" NIPQUAD_FMT,
++                                 NIPQUAD(x->props.saddr.a4),
++                                 NIPQUAD(x->id.daddr.a4));
++                break;
++        case AF_INET6:
++		audit_log_format(audit_buf,
++				 " src=" NIP6_FMT " dst=" NIP6_FMT,
++				 NIP6(*(struct in6_addr *)x->props.saddr.a6),
++				 NIP6(*(struct in6_addr *)x->id.daddr.a6));
++                break;
++        }
++
++	audit_log_format(audit_buf, " spi=%u(0x%x)", spi, spi);
+ }
+ 
+-void
+-xfrm_audit_state_add(struct xfrm_state *x, int result, u32 auid, u32 sid)
++void xfrm_audit_state_add(struct xfrm_state *x, int result,
++			  u32 auid, u32 secid)
+ {
+ 	struct audit_buffer *audit_buf;
+-	extern int audit_enabled;
+ 
+ 	if (audit_enabled == 0)
+ 		return;
+-	audit_buf = xfrm_audit_start(sid, auid);
++	audit_buf = xfrm_audit_start(secid, auid);
+ 	if (audit_buf == NULL)
+ 		return;
+-	audit_log_format(audit_buf, " op=SAD-add res=%u",result);
++	audit_log_format(audit_buf, " op=SAD-add res=%u", result);
+ 	xfrm_audit_common_stateinfo(x, audit_buf);
+-	audit_log_format(audit_buf, " spi=%lu(0x%lx)",
+-			 (unsigned long)x->id.spi, (unsigned long)x->id.spi);
+ 	audit_log_end(audit_buf);
+ }
+ EXPORT_SYMBOL_GPL(xfrm_audit_state_add);
+ 
+-void
+-xfrm_audit_state_delete(struct xfrm_state *x, int result, u32 auid, u32 sid)
++void xfrm_audit_state_delete(struct xfrm_state *x, int result,
++			     u32 auid, u32 secid)
+ {
+ 	struct audit_buffer *audit_buf;
+-	extern int audit_enabled;
+ 
+ 	if (audit_enabled == 0)
+ 		return;
+-	audit_buf = xfrm_audit_start(sid, auid);
++	audit_buf = xfrm_audit_start(secid, auid);
+ 	if (audit_buf == NULL)
+ 		return;
+-	audit_log_format(audit_buf, " op=SAD-delete res=%u",result);
++	audit_log_format(audit_buf, " op=SAD-delete res=%u", result);
+ 	xfrm_audit_common_stateinfo(x, audit_buf);
+-	audit_log_format(audit_buf, " spi=%lu(0x%lx)",
+-			 (unsigned long)x->id.spi, (unsigned long)x->id.spi);
+ 	audit_log_end(audit_buf);
+ }
+ EXPORT_SYMBOL_GPL(xfrm_audit_state_delete);
+diff --git a/security/selinux/xfrm.c b/security/selinux/xfrm.c
+index e076039..c925880 100644
+--- a/security/selinux/xfrm.c
++++ b/security/selinux/xfrm.c
+@@ -85,7 +85,7 @@ int selinux_xfrm_policy_lookup(struct xfrm_policy *xp, u32 fl_secid, u8 dir)
+ 		if (!selinux_authorizable_ctx(ctx))
+ 			return -EINVAL;
+ 
+-		sel_sid = ctx->ctx_sid;
++		sel_sid = ctx->ctx_secid;
+ 	}
+ 	else
+ 		/*
+@@ -132,7 +132,7 @@ int selinux_xfrm_state_pol_flow_match(struct xfrm_state *x, struct xfrm_policy *
+ 				/* Not a SELinux-labeled SA */
+ 				return 0;
+ 
+-	state_sid = x->security->ctx_sid;
++	state_sid = x->security->ctx_secid;
+ 
+ 	if (fl->secid != state_sid)
+ 		return 0;
+@@ -175,13 +175,13 @@ int selinux_xfrm_decode_session(struct sk_buff *skb, u32 *sid, int ckall)
+ 				struct xfrm_sec_ctx *ctx = x->security;
+ 
+ 				if (!sid_set) {
+-					*sid = ctx->ctx_sid;
++					*sid = ctx->ctx_secid;
+ 					sid_set = 1;
+ 
+ 					if (!ckall)
+ 						break;
+ 				}
+-				else if (*sid != ctx->ctx_sid)
++				else if (*sid != ctx->ctx_secid)
+ 					return -EINVAL;
+ 			}
+ 		}
+@@ -232,7 +232,7 @@ static int selinux_xfrm_sec_ctx_alloc(struct xfrm_sec_ctx **ctxp,
+ 	ctx->ctx_str[str_len] = 0;
+ 	rc = security_context_to_sid(ctx->ctx_str,
+ 				     str_len,
+-				     &ctx->ctx_sid);
++				     &ctx->ctx_secid);
+ 
+ 	if (rc)
+ 		goto out;
+@@ -240,7 +240,7 @@ static int selinux_xfrm_sec_ctx_alloc(struct xfrm_sec_ctx **ctxp,
+ 	/*
+ 	 * Does the subject have permission to set security context?
+ 	 */
+-	rc = avc_has_perm(tsec->sid, ctx->ctx_sid,
++	rc = avc_has_perm(tsec->sid, ctx->ctx_secid,
+ 			  SECCLASS_ASSOCIATION,
+ 			  ASSOCIATION__SETCONTEXT, NULL);
+ 	if (rc)
+@@ -264,7 +264,7 @@ not_from_user:
+ 
+ 	ctx->ctx_doi = XFRM_SC_DOI_LSM;
+ 	ctx->ctx_alg = XFRM_SC_ALG_SELINUX;
+-	ctx->ctx_sid = sid;
++	ctx->ctx_secid = sid;
+ 	ctx->ctx_len = str_len;
+ 	memcpy(ctx->ctx_str,
+ 	       ctx_str,
+@@ -341,7 +341,7 @@ int selinux_xfrm_policy_delete(struct xfrm_policy *xp)
+ 	int rc = 0;
+ 
+ 	if (ctx)
+-		rc = avc_has_perm(tsec->sid, ctx->ctx_sid,
++		rc = avc_has_perm(tsec->sid, ctx->ctx_secid,
+ 				  SECCLASS_ASSOCIATION,
+ 				  ASSOCIATION__SETCONTEXT, NULL);
+ 
+@@ -383,7 +383,7 @@ int selinux_xfrm_state_delete(struct xfrm_state *x)
+ 	int rc = 0;
+ 
+ 	if (ctx)
+-		rc = avc_has_perm(tsec->sid, ctx->ctx_sid,
++		rc = avc_has_perm(tsec->sid, ctx->ctx_secid,
+ 				  SECCLASS_ASSOCIATION,
+ 				  ASSOCIATION__SETCONTEXT, NULL);
+ 
+@@ -412,7 +412,7 @@ int selinux_xfrm_sock_rcv_skb(u32 isec_sid, struct sk_buff *skb,
+ 
+ 			if (x && selinux_authorizable_xfrm(x)) {
+ 				struct xfrm_sec_ctx *ctx = x->security;
+-				sel_sid = ctx->ctx_sid;
++				sel_sid = ctx->ctx_secid;
+ 				break;
+ 			}
+ 		}
