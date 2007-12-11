@@ -1,55 +1,64 @@
-From: Hideo AOKI <haoki@redhat.com>
-Subject: Re: [PATCH 4/4] udp: memory accounting in IPv4
-Date: Mon, 10 Dec 2007 20:28:37 -0500
-Message-ID: <475DE7C5.30201@redhat.com>
-References: <474DB80E.5070403@redhat.com> <474DB930.5080409@redhat.com> <20071201122120.GB14368@gondor.apana.org.au> <47515CCF.3030009@cosmosbay.com> <47549BE2.9080605@redhat.com> <20071204002644.GA28982@gondor.apana.org.au> <47577A72.10205@redhat.com> <20071210092252.GA1598@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPSEC]: Add xfrm_input_state helper
+Date: Tue, 11 Dec 2007 11:45:31 +0800
+Message-ID: <20071211034531.GA10033@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
-	Bill Fink <billfink@mindspring.com>,
-	Andi Kleen <andi@firstfloor.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	yoshfuji@linux-ipv6.org,
-	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>, haoki@redhat.com
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:37871 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751740AbXLKBeT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2007 20:34:19 -0500
-In-Reply-To: <20071210092252.GA1598@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:1704 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751941AbXLKDpf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 22:45:35 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Wed, Dec 05, 2007 at 11:28:34PM -0500, Hideo AOKI wrote:
->> 1. Using sk_forward_alloc and adding socket lock
->>
->>    UDP already uses a socket lock to send message. However, it doesn't
->>    use the lock to receive message. I wonder if we can also use the
->>    lock when sk_forward_alloc is updated in receive processing.
->>    I understand performance issue might occur, but ...
-> 
-> Having discussed this with Dave we've agreed that this is the
-> best way to go.
-> 
-> Thanks,
+Hi Dave:
 
-Hello,
+This is the last patch we need before converting ESP over to
+crypto_aead.
 
-Thank you so much for reviewing.
-
-I chose this solution and developed new patch set.
-I'm testing the patch set right now.
-I'll submit it to netdev as soon as I finish the test.
-
-Best regards,
-Hideo
-
+Thanks,
 -- 
-Hitachi Computer Products (America) Inc.
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+[IPSEC]: Add xfrm_input_state helper
+
+This patch adds the xfrm_input_state helper function which returns the
+current xfrm state being processed on the input path given an sk_buff.
+This is currently only used by xfrm_input but will be used by ESP upon
+asynchronous resumption.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index fb154a6..c49fe0f 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1302,4 +1302,9 @@ static inline void xfrm_states_delete(struct xfrm_state **states, int n)
+ }
+ #endif
+ 
++static inline struct xfrm_state *xfrm_input_state(struct sk_buff *skb)
++{
++	return skb->sp->xvec[skb->sp->len - 1];
++}
++
+ #endif	/* _NET_XFRM_H */
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 8b2b1b5..8624cbd 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -109,7 +109,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 	/* A negative encap_type indicates async resumption. */
+ 	if (encap_type < 0) {
+ 		async = 1;
+-		x = skb->sp->xvec[skb->sp->len - 1];
++		x = xfrm_input_state(skb);
+ 		seq = XFRM_SKB_CB(skb)->seq;
+ 		goto resume;
+ 	}
