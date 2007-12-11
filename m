@@ -1,53 +1,56 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Problem with cxgb, mac-vlans, and UDP checksum offloading.
-Date: Tue, 11 Dec 2007 10:25:26 -0800
-Message-ID: <475ED616.6070903@candelatech.com>
+From: Daniel Mack <daniel@caiaq.de>
+Subject: DM9000_IRQ_FLAGS
+Date: Tue, 11 Dec 2007 20:18:23 +0100
+Message-ID: <20071211191823.GD15295@buzzloop.caiaq.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Divy Le Ray <divy@chelsio.com>, NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:40609 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752382AbXLKSZg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Dec 2007 13:25:36 -0500
+Received: from buzzloop.caiaq.de ([212.112.241.133]:47755 "EHLO
+	buzzloop.caiaq.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752155AbXLKTS2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 14:18:28 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by buzzloop.caiaq.de (Postfix) with ESMTP id 322307F4021
+	for <netdev@vger.kernel.org>; Tue, 11 Dec 2007 20:18:27 +0100 (CET)
+Received: from buzzloop.caiaq.de ([127.0.0.1])
+	by localhost (buzzloop.caiaq.de [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id DOQ98YiV5Xye for <netdev@vger.kernel.org>;
+	Tue, 11 Dec 2007 20:18:24 +0100 (CET)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+Hi,
 
-This is with kernel 2.6.23, plus our hacks, but the mac-vlan logic
-is part of the official kernel now.  OS is Fedora 8.  I have applied
-patch 1 and 3 of those sent a few weeks ago for the cxgb as well.
+on Toradex' Colibri, a PXA270 based board with a DM9000 ethernet
+controller, this driver won't work due to unsuitable DM9000_IRQ_FLAGS.
+If I understood the code behind request_irq() correctly, it's not
+recommended to register an IRQ without any of the IRQT_* flags set.
 
-While testing NFS on mac-vlans on cxgb, we noticed that
-UDP packets have incorrect checksums when sent from
-the mac-vlan device on a cxgb interface to another system.  When sending
-from a regular ethernet device (cxgb), it works fine.
-When we disable rx and tx UDP checksums on the mac-vlan
-device, it works fine.  When we use e1000 interfaces (which
-also do rx/tx UDP checksumming), mac-vlans & NFS works fine
-with mac-vlan rx/tx checksumming on (the default value).
+Is there any concerns about applying the patch below?
 
-So, there seems something weird about the cxgb NIC when
-used with mac-vlans.  Perhaps it is somehow paying attention
-to MAC addresses when it determines if it should csum a packet
-or not?
+Best regards,
+Daniel
 
-If you want to test it yourself, grab the latest iputils package
-and create MAC-VLANs like this:
-
-ip link add link eth0 name eth0#0 address 00:11:22:33:44:55 type macvlan
-
-
-If you would like a packet trace or any other debugging, please
-let me know.
-
-Thanks,
-Ben
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+index 3286d2a..6a20a54 100644
+--- a/drivers/net/dm9000.c
++++ b/drivers/net/dm9000.c
+@@ -66,6 +66,7 @@
+ #include <linux/dm9000.h>
+ #include <linux/delay.h>
+ #include <linux/platform_device.h>
++#include <linux/irq.h>
+ 
+ #include <asm/delay.h>
+ #include <asm/irq.h>
+@@ -113,7 +114,7 @@
+ #define writesl	outsl
+ #define DM9000_IRQ_FLAGS	(IRQF_SHARED | IRQF_TRIGGER_HIGH)
+ #else
+-#define DM9000_IRQ_FLAGS	IRQF_SHARED
++#define DM9000_IRQ_FLAGS	(IRQF_SHARED | IRQT_RISING)
+ #endif
+ 
+ /*
