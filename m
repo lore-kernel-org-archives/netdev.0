@@ -1,90 +1,47 @@
-From: Dave Jones <davej@redhat.com>
-Subject: delay via-rhine irq initialisation.
-Date: Tue, 11 Dec 2007 18:39:09 -0500
-Message-ID: <20071211233909.GA22470@redhat.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] [NET]: Fix Ooops of napi net_rx_action.
+Date: Tue, 11 Dec 2007 15:42:22 -0800
+Message-ID: <20071211154222.0aec68fc@freepuppy.rosehill>
+References: <001801c83bd6$2001d410$9c94fea9@jason>
+	<20071211.023218.31965443.davem@davemloft.net>
+	<b25c3fa70712110457g2bf04c6flc387f2b9cb51cf3b@mail.gmail.com>
+	<36D9DB17C6DE9E40B059440DB8D95F5203F82FC3@orsmsx418.amr.corp.intel.com>
+	<b25c3fa70712111527p561b3e2i24ee0fdf3d61a98c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+To: "Joonwoo Park" <joonwpark81@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:42706 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750865AbXLKXjM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Dec 2007 18:39:12 -0500
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.8/8.13.1) with ESMTP id lBBNdBPe000893
-	for <netdev@vger.kernel.org>; Tue, 11 Dec 2007 18:39:11 -0500
-Received: from gelk.kernelslacker.org (vpn-14-2.rdu.redhat.com [10.11.14.2])
-	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id lBBNdAIF016324
-	for <netdev@vger.kernel.org>; Tue, 11 Dec 2007 18:39:11 -0500
-Received: from gelk.kernelslacker.org (localhost.localdomain [127.0.0.1])
-	by gelk.kernelslacker.org (8.14.2/8.13.8) with ESMTP id lBBNdASP022480
-	for <netdev@vger.kernel.org>; Tue, 11 Dec 2007 18:39:10 -0500
-Received: (from davej@localhost)
-	by gelk.kernelslacker.org (8.14.2/8.14.2/Submit) id lBBNd9ia022479
-	for netdev@vger.kernel.org; Tue, 11 Dec 2007 18:39:09 -0500
-Content-Disposition: inline
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:34943 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751695AbXLKXou (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 18:44:50 -0500
+In-Reply-To: <b25c3fa70712111527p561b3e2i24ee0fdf3d61a98c@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With CONFIG_DEBUG_SHIRQ set, via-rhine complains during init.
-(See https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=377721 for a report).
+Perhaps we should change the warning to identify the guilty device.
 
-Does this diff look right?
-(I don't have a via-rhine handy to test with)
 
-We may be able to get away with moving the request_irq to just after the
-alloc_tbufs(), but I feel if a real interrupt occured, this diff would
-stand more chance of doing the right thing.
-
-Comments?
-
-	Dave
-
-Delay irq registration until after we've allocated ring buffers,
-otherwise DEBUG_SHIRQ will complain.
-
-Signed-off-by: Dave Jones <davej@redhat.com>
-
-diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
-index 07263cd..37b3efb 100644
---- a/drivers/net/via-rhine.c
-+++ b/drivers/net/via-rhine.c
-@@ -1151,24 +1151,28 @@ static int rhine_open(struct net_device *dev)
- 	void __iomem *ioaddr = rp->base;
- 	int rc;
+--- a/net/core/dev.c	2007-11-19 09:09:57.000000000 -0800
++++ b/net/core/dev.c	2007-12-07 15:54:03.000000000 -0800
+@@ -2196,7 +2196,13 @@ static void net_rx_action(struct softirq
+ 		if (test_bit(NAPI_STATE_SCHED, &n->state))
+ 			work = n->poll(n, weight);
  
--	rc = request_irq(rp->pdev->irq, &rhine_interrupt, IRQF_SHARED, dev->name,
--			dev);
--	if (rc)
--		return rc;
--
- 	if (debug > 1)
- 		printk(KERN_DEBUG "%s: rhine_open() irq %d.\n",
- 		       dev->name, rp->pdev->irq);
+-		WARN_ON_ONCE(work > weight);
++		if (unlikely(work > weight)) {
++			if (net_ratelimit())
++				printk(KERN_WARNING
++				       "%s: driver poll bug (work=%d weight=%d)\n",
++				       work, weight);
++			work = weight;
++		}
  
- 	rc = alloc_ring(dev);
--	if (rc) {
--		free_irq(rp->pdev->irq, dev);
-+	if (rc)
- 		return rc;
--	}
-+
- 	alloc_rbufs(dev);
- 	alloc_tbufs(dev);
- 	rhine_chip_reset(dev);
- 	init_registers(dev);
-+
-+	rc = request_irq(rp->pdev->irq, &rhine_interrupt, IRQF_SHARED, dev->name,
-+			dev);
-+	if (rc) {
-+		free_rbufs(dev);
-+		free_tbufs(dev);
-+		free_ring(dev);
-+		return rc;
-+	}
-+
- 	if (debug > 2)
- 		printk(KERN_DEBUG "%s: Done rhine_open(), status %4.4x "
- 		       "MII status: %4.4x.\n",
--- 
-http://www.codemonkey.org.uk
+ 		budget -= work;
+ 
+
