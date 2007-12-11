@@ -1,83 +1,43 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [2.6 patch] drivers/net/s2io.c section fixes
-Date: Tue, 11 Dec 2007 18:16:51 -0500
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7702B13B2D@nekter>
-References: <20071211222306.GV14204@stusta.de>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [PATCH] [NET]: Fix Ooops of napi net_rx_action.
+Date: Tue, 11 Dec 2007 15:12:10 -0800
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5203F82FC3@orsmsx418.amr.corp.intel.com>
+References: <001801c83bd6$2001d410$9c94fea9@jason> <20071211.023218.31965443.davem@davemloft.net> <b25c3fa70712110457g2bf04c6flc387f2b9cb51cf3b@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="US-ASCII"
+	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	"Rastapur Santosh" <santosh.rastapur@neterion.com>,
-	"Sivakumar Subramani" <Sivakumar.Subramani@neterion.com>,
-	"Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>
-To: "Adrian Bunk" <bunk@kernel.org>, <jgarzik@pobox.com>
+	<herbert@gondor.apana.org.au>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+To: "Joonwoo Park" <joonwpark81@gmail.com>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:59528 "EHLO owa.neterion.com"
+Received: from mga11.intel.com ([192.55.52.93]:46058 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755827AbXLKXR1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 18:17:27 -0500
+	id S1750772AbXLKXWA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 18:22:00 -0500
 Content-class: urn:content-classes:message
-In-Reply-To: <20071211222306.GV14204@stusta.de>
+In-Reply-To: <b25c3fa70712110457g2bf04c6flc387f2b9cb51cf3b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks. Patch looks good. Please accept.
+Joonwoo Park wrote:
+>     /* If no Tx and not enough Rx work done, exit the polling mode */
+>     if ((!tx_cleaned && (work_done == 0)) ||
+>        !netif_running(poll_dev)) {
+> quit_polling:
+>         if (likely(adapter->itr_setting & 3))
+>             e1000_set_itr(adapter);
+>         netif_rx_complete(poll_dev, napi);
+>         e1000_irq_enable(adapter);
 
-Ram
+all drivers using NAPI in 2.6.24+ (NNAPI??) must return zero here, after
+calling netif_rx_complete.  netif_rx_complete plus work_done != 0 causes
+a bug.
 
-> -----Original Message-----
-> From: Adrian Bunk [mailto:bunk@kernel.org]
-> Sent: Tuesday, December 11, 2007 2:23 PM
-> To: ram.vepa@neterion.com; Rastapur Santosh; Sivakumar Subramani;
-> Sreenivasa Honnur; jgarzik@pobox.com
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-> Subject: [2.6 patch] drivers/net/s2io.c section fixes
+>     }
 > 
-> Code used by the non-__devinit s2io_open() mustn't be __devinit.
+>     return work_done;
+> }
 > 
-> This patch fixes the following section mismatch with CONFIG_HOTPLUG=n:
-> 
-> <--  snip  -->
-> 
-> ...
-> WARNING: vmlinux.o(.text+0x6f6e3e): Section mismatch: reference to
-> .init.text.20:s2io_test_intr (between 's2io_open' and
-'s2io_ethtool_sset')
-> ...
-> 
-> <--  snip  -->
-> 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
-> 
-> ---
-> 
->  drivers/net/s2io.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> 50fb761b99d7ee0b234359d02144f84a87e2faff
-> diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-> index 121cb10..9d80f1c 100644
-> --- a/drivers/net/s2io.c
-> +++ b/drivers/net/s2io.c
-> @@ -3737,7 +3737,7 @@ static int s2io_enable_msi_x(struct s2io_nic
-*nic)
->  }
-> 
->  /* Handle software interrupt used during MSI(X) test */
-> -static irqreturn_t __devinit s2io_test_intr(int irq, void *dev_id)
-> +static irqreturn_t s2io_test_intr(int irq, void *dev_id)
->  {
->  	struct s2io_nic *sp = dev_id;
-> 
-> @@ -3748,7 +3748,7 @@ static irqreturn_t __devinit s2io_test_intr(int
-irq,
-> void *dev_id)
->  }
-> 
->  /* Test interrupt path by forcing a a software IRQ */
-> -static int __devinit s2io_test_msi(struct s2io_nic *sp)
-> +static int s2io_test_msi(struct s2io_nic *sp)
->  {
->  	struct pci_dev *pdev = sp->pdev;
->  	struct XENA_dev_config __iomem *bar0 = sp->bar0;
