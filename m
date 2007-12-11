@@ -1,84 +1,59 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9545] New: Cannot bring up a bridge interface
- without a MAC address set
-Date: Tue, 11 Dec 2007 14:59:21 -0800
-Message-ID: <20071211145921.11094ab8.akpm@linux-foundation.org>
-References: <bug-9545-10286@http.bugzilla.kernel.org/>
-	<20071211132614.5854b0f1.akpm@linux-foundation.org>
-	<20071211145243.66e1f66a@freepuppy.rosehill>
+From: Kevin Wilson <kevin.wilson@comtrol.com>
+Subject: sk_prot->sendmsg(...) giving me a kernel oops on kernels past 2.6.20
+Date: Tue, 11 Dec 2007 16:51:03 -0600
+Message-ID: <475F1457.6080405@comtrol.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	berrange@redhat.com, jeff@garzik.org, herbert@gondor.apana.org.au,
-	rjw@sisk.pl
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:49531 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752936AbXLKXAm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 18:00:42 -0500
-In-Reply-To: <20071211145243.66e1f66a@freepuppy.rosehill>
+Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:57273
+	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751993AbXLKXCI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 18:02:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 11 Dec 2007 14:52:43 -0800
-Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+I've searched everywhere (including this list) for a report but couldn't
+find anything that can tell me what implementation step(s) I am missing.
+Essentially all the kernels past 2.6.20 gives me a kernel oops on the
+sendmsg code.
 
-> On Tue, 11 Dec 2007 13:26:14 -0800
-> Andrew Morton <akpm@linux-foundation.org> wrote:
-> 
-> > 
-> > (please respond via emailed reply-to-all, not via the bugzilla web
-> > interface).
-> > 
-> > On Tue, 11 Dec 2007 11:04:55 -0800 (PST)
-> > bugme-daemon@bugzilla.kernel.org wrote:
-> > 
-> > > http://bugzilla.kernel.org/show_bug.cgi?id=9545
-> > > 
-> > >            Summary: Cannot bring up a bridge interface without a MAC address
-> > >                     set
-> > >            Product: Networking
-> > >            Version: 2.5
-> > >      KernelVersion: 2.6.24-0.81.rc4.git7.fc9
-> > >           Platform: All
-> > >         OS/Version: Linux
-> > >               Tree: Fedora
-> > >             Status: NEW
-> > >           Severity: normal
-> > >           Priority: P1
-> > >          Component: Other
-> > >         AssignedTo: acme@ghostprotocols.net
-> > >         ReportedBy: berrange@redhat.com
-> > > 
-> > > 
-> > > Most recent kernel where this bug did not occur: Any 2.6.23 or earlier
-> > > Distribution: Fedora 9 rawhide
-> > > Hardware Environment: Intel(R) Core(TM)2 Duo CPU     E6850, x86_64
-> > > Software Environment:  2.6.24-0.81.rc4.git7.fc9 #1 SMP  x86_64 GNU/Linux
-> > > Problem Description:
-> > > It is not possible to bring up a bridge interface unless one first assigns a
-> > > MAC address to it. This is a regression from earlier kernels where one could
-> > > always bring up a bridge device immediately after creating it. The bridge
-> > > should not require a MAC address because it is not going to be configured with
-> > > any IP addr - in my scenario I merely wish to use it to connect a number of
-> > > 'tap' devices associated with KVM guests.
-> > > 
-> > > Steps to reproduce:
-> > > # brctl addbr demobr
-> > > # ifconfig demobr up
-> > > SIOCSIFFLAGS: Invalid argument
-> 
-> The tap devices have to have addresses don't they. So bringing up an empty
-> bridge is meaningless. If you just add the device first then it will work.
-> 
-> Could be fixed to prevent errors from existing scripts but it is not a complete showstopper.
-> The problem is that when device is brought up it propogates events up to
-> other layers and applications, these layers will then query and see a bogus
-> address.
-> 
+I know the sk_buff changes worked things over quite a bit but I have (or
+thought I did) those changes accounted for in our driver. Are there any
+specific implementation changes we need to add that we didn't need prior
+before we now use sendmsg()? Below is the general gist of the code I am
+executing, any pointers to what I am missing would be very welcome.
 
-If the fix to make bridge compatible with 2.6.23 behaviour isn't too
-gruesome then I'd have thought it'd be worth doing it?
+Thanks a bunch.
+
+Kevin
+
+***************************************
+done in userland and passed via ioctl:
+***************************************
+
+sk = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+tcp_params.boxid = boxIndex;
+tcp_params.sk = sk;
+tcp_params.rbuf = malloc(4096);
+tcp_params.rbuf_size = 4096;
+tcp_params.wbuf = malloc(1460);
+tcp_params.wbuf_size = 1460;
+
+rc = ioctl(fd, SI_SET_TCP, &tcp_params);
+
+***************************************
+done in kernel space:
+***************************************
+
+struct tcp_sock *tp;
+struct sock *mysock;
+
+tp = sockfd_lookup(tcp_params.sk, &i);
+
+mysock = tp->sk;
+
+mysock->sk_prot->sendmsg(...);	<-- OOPS HERE
 
