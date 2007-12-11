@@ -1,84 +1,83 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: RE: [PATCH] Increase virtual FIFOs in ucc_geth.
-Date: Tue, 11 Dec 2007 13:24:27 +0100
-Message-ID: <1197375867.6790.20.camel@gentoo-jocke.transmode.se>
-References: <1197312366-7484-1-git-send-email-Joakim.Tjernlund@transmode.se>
-	 <989B956029373F45A0B8AF029708189001B4D901@zch01exm26.fsl.freescale.net>
-	 <1197367919.6790.3.camel@gentoo-jocke.transmode.se>
-	 <1197370676.6790.17.camel@gentoo-jocke.transmode.se>
-	 <989B956029373F45A0B8AF029708189001B4D908@zch01exm26.fsl.freescale.net>
-Reply-To: joakim.tjernlund@transmode.se
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH net-2.6.25 uncompilable] [TCP]: Avoid breaking
+ GSOed skbs when SACKed one-by-one
+Date: Tue, 11 Dec 2007 04:32:39 -0800 (PST)
+Message-ID: <20071211.043239.224938181.davem@davemloft.net>
+References: <Pine.LNX.4.64.0712071442530.18529@kivilampi-30.cs.helsinki.fi>
+	<20071207.173201.95379610.davem@davemloft.net>
+	<Pine.LNX.4.64.0712081523470.17809@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Li Yang <LeoLi@freescale.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: lachlan.andrew@gmail.com, netdev@vger.kernel.org,
+	quetchen@caltech.edu
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.transmode.se ([83.241.175.147]:23150 "EHLO
-	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751960AbXLKMY3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 07:24:29 -0500
-In-Reply-To: <989B956029373F45A0B8AF029708189001B4D908@zch01exm26.fsl.freescale.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48715
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751518AbXLKMck convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Dec 2007 07:32:40 -0500
+In-Reply-To: <Pine.LNX.4.64.0712081523470.17809@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Tue, 11 Dec 2007 13:59:16 +0200 (EET)
 
-On Tue, 2007-12-11 at 19:51 +0800, Li Yang wrote:
-> > -----Original Message-----
-> > From: Joakim Tjernlund [mailto:joakim.tjernlund@transmode.se] 
-> > Sent: Tuesday, December 11, 2007 6:58 PM
-> > To: Li Yang
-> > Cc: netdev@vger.kernel.org
-> > Subject: RE: [PATCH] Increase virtual FIFOs in ucc_geth.
-> > 
-> > 
-> > On Tue, 2007-12-11 at 11:11 +0100, Joakim Tjernlund wrote:
-> > > On Tue, 2007-12-11 at 17:49 +0800, Li Yang wrote:
-> > > > > -----Original Message-----
-> > > > > From: Joakim Tjernlund [mailto:Joakim.Tjernlund@transmode.se] 
-> > > > > Sent: Tuesday, December 11, 2007 2:46 AM
-> > > > > To: Li Yang-r58472 <LeoLi@freescale.com> Netdev
-> > > > > Cc: Joakim Tjernlund
-> > > > > Subject: [PATCH] Increase virtual FIFOs in ucc_geth.
-> > > > > 
-> > > > > Increase UCC_GETH_URFS_INIT to 1152 and
-> > > > > UCC_GETH_UTFS_INIT to 896 to avoid HW Overrun/Underrun.
-> > > > 
-> > > > Please be noted that these values are only used for 
-> > 10/100Mbps speed.
-> > > > Did you get Overrun in 10/100M mode?
-> > > 
-> > > I get both TX Underrun and RX overrun in 100Mbps, FD, just
-> > > by running a tftp transfer. It feels like the URFET and/or URSFET
-> > > isn't working. Why I don't know. CPU is MPC832x
-> > > 
-> > >   Jocke
-> > 
-> > I am a bit confused how the RBMR and TBMR is supposed to work. In
-> > ucc_get there is:
-> >  out_be32(&ugeth->p_tx_glbl_pram->tstate, ((u32) 
-> > function_code) << 24);
-> >  ugeth->p_rx_glbl_pram->rstate = function_code;
-> > First, should not the rx part look the same as tx?
-> 
-> To be consist with the chip RM, type for tstate is u32 and type for
-> rstate is u8.  Personally I don't think that it will be different to
-> access tstate as u8, but it will be more readable to be the same as
-> manual.  Well, rstate probably should be changed to use IO accessor too.
+> How about this...
+>=20
+> ...I've left couple of FIXMEs there still, should be quite simple &=20
+> straightforward to handle them if this seems viable solution at all.
+>=20
+> Beware, this doesn't even compile yet because not all parameters are=20
+> transferred currently (first_sack_index was killed earlier, I need to=
+=20
+> summon it back for this). Also, I'd need to do the dirty work of kill=
+=20
+> recv_sack_cache first to make this to not produce, well, interesting=20
+> effects due to missed SACK blocks... :-)
 
-Ah, missed that rstate is u8.
+Interesting approach, but I think there is limited value to this
+(arguably) complex form.
 
-> 
-> > Does programing rstate/tstate replace RBMR and TBMR?
-> 
-> RBMR and TBMR?  These are for other protocols.
+The core issue is that the data and the SACK state are maintained in
+the same datastructure.  The complexity in all the state management
+and fixups in your patch is purely because of this.
 
-So it seems, but they are listed under UCC fast protocols so I figured 
-they were valid for all such protocols.
+If we maintain SACK scoreboard information seperately, outside of
+the SKB, then there are only two changes to make:
 
- Jocke
+1) Every access to TCP_SKB_CB() SACK scoreboard is adjusted to
+   new data structure.
 
-> 
-> - Leo
-> 
-> 
+2) Retransmit is adjusted so that it can retransmit an SKB
+   constructed as a portion of an existing SKB.  Since TSO
+   implies SG, this can be handled with simple offset and
+   length arguments and suitable creation of a clone referencing
+   the pages in the SG vector that contain the desired data.
+
+I would envision this SACK state thing to reference into the
+retransmit queue SKB's somehow.  Each SACK block could perhaps
+look something like:
+
+	struct sack_ref {
+		struct sk_buff *start_skb;
+		struct sk_buff *end_skb;
+		unsigned int start_off;
+		unsigned int len;
+	};
+
+Traditionally we've prioritized the design of the SKB and other
+infrastructure to suit TCP optimally and I still think we should
+operate that way.
+
+Therefore, long term, it is time to make a formal data blob to assist
+with all of the repetitive work we do in cases like this and horribly
+inefficient places like clean_rtx_queue().
+
+So I'm basically advocating a two-pronged approach to this, the
+seperate SACK scoreboard datastructure and the data blob.  I
+think we can work on the former right now, and take our time with
+the data blob because it requires lots of thinking and we should
+get it right as it might have network driver interface implications.
