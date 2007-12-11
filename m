@@ -1,31 +1,74 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 8/8] [PATCH v2] [CCID3]: Interface CCID3 code with newer Loss Intervals Database
-Date: Tue, 11 Dec 2007 09:42:38 +0000
-Message-ID: <20071211094238.GA9926@gerrit.erg.abdn.ac.uk>
-References: <11971083882331-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881862-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881667-git-send-email-gerrit@erg.abdn.ac.uk> <11971083883685-git-send-email-gerrit@erg.abdn.ac.uk> <1197108388630-git-send-email-gerrit@erg.abdn.ac.uk> <11971083883727-git-send-email-gerrit@erg.abdn.ac.uk> <11971083882049-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881748-git-send-email-gerrit@erg.abdn.ac.uk> <11971083882534-git-send-email-gerrit@erg.abdn.ac.uk> <20071210210416.GB24046@ghostprotocols.net>
+From: "Li Yang" <LeoLi@freescale.com>
+Subject: RE: [PATCH] Increase virtual FIFOs in ucc_geth.
+Date: Tue, 11 Dec 2007 17:49:46 +0800
+Message-ID: <989B956029373F45A0B8AF029708189001B4D901@zch01exm26.fsl.freescale.net>
+References: <1197312366-7484-1-git-send-email-Joakim.Tjernlund@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "Joakim Tjernlund" <Joakim.Tjernlund@transmode.se>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:37144 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750735AbXLKJnX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Dec 2007 04:43:23 -0500
-Content-Disposition: inline
-In-Reply-To: <20071210210416.GB24046@ghostprotocols.net>
+Received: from az33egw01.freescale.net ([192.88.158.102]:36693 "EHLO
+	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750735AbXLKJuD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 04:50:03 -0500
+Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
+	by az33egw01.freescale.net (8.12.11/az33egw01) with ESMTP id lBB9np9c018320
+	for <netdev@vger.kernel.org>; Tue, 11 Dec 2007 02:49:52 -0700 (MST)
+Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
+	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id lBB9nomT012661
+	for <netdev@vger.kernel.org>; Tue, 11 Dec 2007 03:49:51 -0600 (CST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1197312366-7484-1-git-send-email-Joakim.Tjernlund@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| When interfacing we must make sure that ccid3 tfrc_lh_slab is created
-| and then tfrc_li_cachep is not needed. I'm doing this while keeping
-| the structure of the patches, i.e. one introducing, the other removing.
-| But we need to create tfrc_lh_slab if we want the tree to be bisectable.
-| 
-| I'm doing this and keeping your Signed-off-line, please holler if you
-| disagree for some reason.
-If you are just shifting and reordering then that is fine with me. But
-it seems you mean a different patch since in this one there is no slab
-initialisation. 
-The loss history and the RX/TX packet history slabs are all created in
-tfrc.c using the three different __init routines of the dccp_tfrc_lib.
+> -----Original Message-----
+> From: Joakim Tjernlund [mailto:Joakim.Tjernlund@transmode.se] 
+> Sent: Tuesday, December 11, 2007 2:46 AM
+> To: Li Yang-r58472 <LeoLi@freescale.com> Netdev
+> Cc: Joakim Tjernlund
+> Subject: [PATCH] Increase virtual FIFOs in ucc_geth.
+> 
+> Increase UCC_GETH_URFS_INIT to 1152 and
+> UCC_GETH_UTFS_INIT to 896 to avoid HW Overrun/Underrun.
+
+Please be noted that these values are only used for 10/100Mbps speed.
+Did you get Overrun in 10/100M mode?
+
+- Leo
+
+> 
+> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> ---
+>  drivers/net/ucc_geth.h |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h 
+> index bb4dac8..d3f030b 100644
+> --- a/drivers/net/ucc_geth.h
+> +++ b/drivers/net/ucc_geth.h
+> @@ -923,11 +923,11 @@ struct ucc_geth_hardware_statistics {
+>  #define PHY_CHANGE_TIME                         2
+>  
+>  /* Fast Ethernet (10/100 Mbps) */
+> -#define UCC_GETH_URFS_INIT                      512	/* Rx 
+> virtual FIFO size
+> +#define UCC_GETH_URFS_INIT                      1152	/* Rx 
+> virtual FIFO size
+>  							 */
+>  #define UCC_GETH_URFET_INIT                     256	/* 1/2 urfs */
+>  #define UCC_GETH_URFSET_INIT                    384	/* 3/4 urfs */
+> -#define UCC_GETH_UTFS_INIT                      512	/* Tx 
+> virtual FIFO size
+> +#define UCC_GETH_UTFS_INIT                      896	/* Tx 
+> virtual FIFO size
+>  							 */
+>  #define UCC_GETH_UTFET_INIT                     256	/* 1/2 utfs */
+>  #define UCC_GETH_UTFTT_INIT                     128
+> --
+> 1.5.3.6
+> 
+> 
