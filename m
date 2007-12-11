@@ -1,41 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [TCP]: fack_counts more fixes (the previous ones were
- incomplete)
-Date: Tue, 11 Dec 2007 04:15:07 -0800 (PST)
-Message-ID: <20071211.041507.261395652.davem@davemloft.net>
-References: <Pine.LNX.4.64.0712111339340.22872@kivilampi-30.cs.helsinki.fi>
+Subject: Re: [PATCH 1/2] [TCP]: Push fack_count calculation deeper into
+ functions
+Date: Tue, 11 Dec 2007 04:16:57 -0800 (PST)
+Message-ID: <20071211.041657.144576130.davem@davemloft.net>
+References: <11973738391620-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<11973738393633-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, reuben-linuxkernel@reub.net,
-	akpm@linux-foundation.org
+Cc: netdev@vger.kernel.org
 To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52283
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52289
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752119AbXLKMPI convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1752076AbXLKMQ6 convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Dec 2007 07:15:08 -0500
-In-Reply-To: <Pine.LNX.4.64.0712111339340.22872@kivilampi-30.cs.helsinki.fi>
+	Tue, 11 Dec 2007 07:16:58 -0500
+In-Reply-To: <11973738393633-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 =46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Tue, 11 Dec 2007 13:43:24 +0200 (EET)
+Date: Tue, 11 Dec 2007 13:50:38 +0200
 
-> [PATCH] [TCP]: fack_counts more fixes (the previous ones were incompl=
-ete)
->=20
-> 1) Prev NULL check should also dereference
->=20
-> 2) The loop reorganization did make things only slightly better,
->    just changing the same not-updated problem to occur in
->    another scenario. And I also noticed that in worst case it
->    would be an infinite loop (could do that also before the
->    change), but it required losses in the same window when TCP
->    runs out new data. Now check really against the list heads
->    rather than a valid skb which should still be processed.
+> This shouldn't have a significant impact because the call to
+> tcp_sacktag_one is typically made just once per ACK (this
+> doesn't hold if there were some ACK losses in between or the
+> receiver didn't generate all ACKs that it should have, but
+> those are not very likely events to occur).
 >=20
 > Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-Applied, thanks Ilpo.
+Applied.
+
+Note that the LRO code will generate stretch ACKs for
+in-order normal ACKs, it is something to keep in mind
+about this but seems irrelevant for the code you are
+touching.
