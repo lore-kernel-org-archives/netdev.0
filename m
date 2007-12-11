@@ -1,70 +1,85 @@
-From: Paul Moore <paul.moore@hp.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
 Subject: Re: [PATCH v2] XFRM: assorted IPsec fixups
-Date: Tue, 11 Dec 2007 12:15:00 -0500
-Message-ID: <200712111215.00720.paul.moore@hp.com>
-References: <20071211163019.15059.73746.stgit@flek.lan> <20071211.090611.59888503.davem@davemloft.net>
+Date: Tue, 11 Dec 2007 09:19:57 -0800 (PST)
+Message-ID: <20071211.091957.98044450.yoshfuji@linux-ipv6.org>
+References: <20071211163019.15059.73746.stgit@flek.lan>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-audit@redhat.com,
-	selinux@tycho.nsa.gov
-To: David Miller <davem@davemloft.net>
+	selinux@tycho.nsa.gov, yoshfuji@linux-ipv6.org
+To: paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.hp.com ([192.151.27.10]:35319 "EHLO mailhub.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751410AbXLKRPt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Dec 2007 12:15:49 -0500
-In-Reply-To: <20071211.090611.59888503.davem@davemloft.net>
-Content-Disposition: inline
+Received: from yue.linux-ipv6.org ([203.178.140.15]:43508 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751661AbXLKRTb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 12:19:31 -0500
+In-Reply-To: <20071211163019.15059.73746.stgit@flek.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 11 December 2007 12:06:11 pm David Miller wrote:
-> From: Paul Moore <paul.moore@hp.com>
-> Date: Tue, 11 Dec 2007 11:30:19 -0500
->
-> Sorry for not pointing this out sooner:
+In article <20071211163019.15059.73746.stgit@flek.lan> (at Tue, 11 Dec 2007 11:30:19 -0500), Paul Moore <paul.moore@hp.com> says:
 
-No problem, better late than never ... despite reports to the contrary, 
-breaking userspace doesn't excite me as much as it used to ;)
+> diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+> index 5b860b6..e2a3dd1 100644
+> --- a/net/xfrm/xfrm_state.c
+> +++ b/net/xfrm/xfrm_state.c
+:
+> @@ -1994,67 +1995,59 @@ void __init xfrm_state_init(void)
+>  static inline void xfrm_audit_common_stateinfo(struct xfrm_state *x,
+>  					       struct audit_buffer *audit_buf)
+>  {
+> -	if (x->security)
+> -		audit_log_format(audit_buf, " sec_alg=%u sec_doi=%u sec_obj=%s",
+> -				 x->security->ctx_alg, x->security->ctx_doi,
+> -				 x->security->ctx_str);
+> +	struct xfrm_sec_ctx *ctx = x->security;
+> +	u32 spi = ntohl(x->id.spi);
+>  
+> -	switch(x->props.family) {
+> -	case AF_INET:
+> -		audit_log_format(audit_buf, " src=%u.%u.%u.%u dst=%u.%u.%u.%u",
+> -				 NIPQUAD(x->props.saddr.a4),
+> -				 NIPQUAD(x->id.daddr.a4));
+> -		break;
+> -	case AF_INET6:
+> -		{
+> -			struct in6_addr saddr6, daddr6;
+> -
+> -			memcpy(&saddr6, x->props.saddr.a6,
+> -				sizeof(struct in6_addr));
+> -			memcpy(&daddr6, x->id.daddr.a6,
+> -				sizeof(struct in6_addr));
+> -			audit_log_format(audit_buf,
+> -					 " src=" NIP6_FMT " dst=" NIP6_FMT,
+> -					 NIP6(saddr6), NIP6(daddr6));
+> -		}
+> -		break;
+> -	}
+> +        if (ctx)
+> +                audit_log_format(audit_buf, " sec_alg=%u sec_doi=%u sec_obj=%s",
+> +                                 ctx->ctx_alg, ctx->ctx_doi, ctx->ctx_str);
+> +
+> +        switch(x->props.family) {
+> +        case AF_INET:
+> +                audit_log_format(audit_buf,
+> +				 " src=" NIPQUAD_FMT " dst=" NIPQUAD_FMT,
+> +                                 NIPQUAD(x->props.saddr.a4),
+> +                                 NIPQUAD(x->id.daddr.a4));
+> +                break;
+> +        case AF_INET6:
+> +		audit_log_format(audit_buf,
+> +				 " src=" NIP6_FMT " dst=" NIP6_FMT,
+> +				 NIP6(*(struct in6_addr *)x->props.saddr.a6),
+> +				 NIP6(*(struct in6_addr *)x->id.daddr.a6));
+> +                break;
+> +        }
+> +
+> +	audit_log_format(audit_buf, " spi=%u(0x%x)", spi, spi);
+>  }
+>  
 
-> >  * Convert 'sid' to 'secid'
-> >    The 'sid' name is specific to SELinux, 'secid' is the common naming
-> >    convention used by the kernel when refering to tokenized LSM labels
->
->  ...
->
-> > diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-> > index b58adc5..f75a337 100644
-> > --- a/include/linux/xfrm.h
-> > +++ b/include/linux/xfrm.h
-> > @@ -31,7 +31,7 @@ struct xfrm_sec_ctx {
-> >  	__u8	ctx_doi;
-> >  	__u8	ctx_alg;
-> >  	__u16	ctx_len;
-> > -	__u32	ctx_sid;
-> > +	__u32	ctx_secid;
-> >  	char	ctx_str[0];
-> >  };
->
-> This datastructure has been exported to userspace, so we really can't
-> member names unless it was added only in 2.6.24 and I don't think it
-> was.
->
-> Correct me if I'm wrong.
+Please do not mangle tabs into spaces.
 
-Ungh, I didn't think the whole structure was exported to userspace as a single 
-binary blob; I'd assumed it was passed back and forth as individual 
-fields/attributes.  I guess the old adage about assuming applies here ...
-
-Grrr, that "sid" really bothers me but I guess it's a wart we're going to have 
-to live with.  Stoopid userspace :)
-
-I still would like to see the rest of the changes make it into 2.6.25 (the SPI 
-byte order thing is particularly troublesome) so if you don't mind a "v3" 
-I'll respin this patch right now to remove the "sid -> secid" bits.
-
--- 
-paul moore
-linux security @ hp
+--yoshfuji
