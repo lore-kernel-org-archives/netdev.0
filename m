@@ -1,55 +1,35 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] vlan: fix potential race in vlan_cleanup_module vs vlan_ioctl_handler
-Date: Tue, 11 Dec 2007 13:25:11 +0300
-Message-ID: <475E6587.1090306@openvz.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 5/5] ipv6: make the protocol initialization to return
+ an error code
+Date: Tue, 11 Dec 2007 02:25:52 -0800 (PST)
+Message-ID: <20071211.022552.157588535.davem@davemloft.net>
+References: <20071210150910.440970057@ICON-9-164-138-215.megacenter.de.ibm.com>
+	<20071210151440.241406358@ICON-9-164-138-215.megacenter.de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
+Cc: yoshfuji@linux-ipv6.org, pekkas@netcore.fi, netdev@vger.kernel.org
+To: dlezcano@fr.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:37682 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751837AbXLKKZ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Dec 2007 05:25:28 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48382
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751866AbXLKKZx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 05:25:53 -0500
+In-Reply-To: <20071210151440.241406358@ICON-9-164-138-215.megacenter.de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The vlan module cleanup function starts with
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Date: Mon, 10 Dec 2007 16:09:15 +0100
 
-	vlan_netlink_fini();
-	vlan_ioctl_set(NULL);
+> This patchset makes the different protocols to return an error code, so
+> the af_inet6 module can check the initialization was correct or not.
+> 
+> The raw6 was taken into account to be consistent with the rest of the
+> protocols, but the registration is at the same place.
+> Because the raw6 has its own init function, the proto and the ops structure
+> can be moved inside the raw6.c file.
+> 
+> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 
-The first call removes all the vlan devices and
-the second one closes the vlan ioctl.
-
-AFAIS there's a tiny race window between these two
-calls - after rtnl unregistered all the vlans, but 
-the ioctl handler isn't set to NULL yet, user can 
-manage to call this ioctl and create one vlan device, 
-and that this function will later BUG_ON seeing 
-non-emply hashes.
-
-I think, that we must first close the vlan ioctl
-and only after this remove all the vlans with the
-vlan_netlink_fini() call.
-
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
----
-
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 5b18315..4add9bd 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -124,8 +124,8 @@ static void __exit vlan_cleanup_module(void)
- {
- 	int i;
- 
--	vlan_netlink_fini();
- 	vlan_ioctl_set(NULL);
-+	vlan_netlink_fini();
- 
- 	/* Un-register us from receiving netdevice events */
- 	unregister_netdevice_notifier(&vlan_notifier_block);
+Also applied, thanks Daniel.
