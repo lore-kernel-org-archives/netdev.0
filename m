@@ -1,7 +1,8 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.25 5/7] Move the devinet pointers on the struct net
-Date: Tue, 11 Dec 2007 20:57:18 +0300
-Message-ID: <475ECF7E.2060103@openvz.org>
+Subject: [PATCH net-2.6.25 6/7] Switch users of ipv4_devconf_dflt to use the
+ pernet one
+Date: Tue, 11 Dec 2007 20:59:58 +0300
+Message-ID: <475ED01E.5020505@openvz.org>
 References: <475ECC69.1040809@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -10,189 +11,92 @@ Cc: Linux Netdev List <netdev@vger.kernel.org>,
 	Linux Containers <containers@lists.osdl.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:50974 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:51194 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754120AbXLKR6S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Dec 2007 12:58:18 -0500
+	id S1755104AbXLKSAN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Dec 2007 13:00:13 -0500
 In-Reply-To: <475ECC69.1040809@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the core.
+They are all collected in the net/ipv4/devinet.c file and
+mostly use the IPV4_DEVCONF_DFLT macro.
 
-Add all and default pointers on the netns_ipv4 and register
-a new pernet subsys to initialize them.
-
-Also add the ctl_table_header to register the 
-net.ipv4.ip_forward ctl.
-
-I don't allocate additional memory for init_net, but use
-global devinets.
+So I add the net parameter to it and patch users accordingly.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index ce830d5..e06d7cf 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -4,6 +4,12 @@
- 
- #ifndef __NETNS_IPV4_H__
- #define __NETNS_IPV4_H__
-+struct ctl_table_header;
-+struct ipv4_devconf;
-+
- struct netns_ipv4 {
-+	struct ctl_table_header	*forw_hdr;
-+	struct ipv4_devconf	*devconf_all;
-+	struct ipv4_devconf	*devconf_dflt;
- };
- #endif
 diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index bfb0fb0..996f07e 100644
+index 996f07e..cd957f4 100644
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
-@@ -62,6 +62,7 @@
- #include <net/route.h>
- #include <net/ip_fib.h>
- #include <net/rtnetlink.h>
-+#include <net/net_namespace.h>
- 
- struct ipv4_devconf ipv4_devconf = {
- 	.data = {
-@@ -1498,7 +1499,7 @@ static int __devinet_sysctl_register(struct net *net, char *dev_name,
- 	devinet_ctl_path[DEVINET_CTL_PATH_DEV].procname = t->dev_name;
- 	devinet_ctl_path[DEVINET_CTL_PATH_DEV].ctl_name = ctl_name;
- 
--	t->sysctl_header = register_sysctl_paths(devinet_ctl_path,
-+	t->sysctl_header = register_net_sysctl_table(net, devinet_ctl_path,
- 			t->devinet_vars);
- 	if (!t->sysctl_header)
- 		goto free_procname;
-@@ -1558,27 +1559,113 @@ static struct ctl_table ctl_forward_entry[] = {
- 	{ },
+@@ -83,7 +83,8 @@ static struct ipv4_devconf ipv4_devconf_dflt = {
+ 	},
  };
  
--static __initdata struct ctl_path net_ipv4_path[] = {
-+static __net_initdata struct ctl_path net_ipv4_path[] = {
- 	{ .procname = "net", .ctl_name = CTL_NET, },
- 	{ .procname = "ipv4", .ctl_name = NET_IPV4, },
- 	{ },
- };
+-#define IPV4_DEVCONF_DFLT(attr) IPV4_DEVCONF(ipv4_devconf_dflt, attr)
++#define IPV4_DEVCONF_DFLT(net, attr) \
++	IPV4_DEVCONF((*net->ipv4.devconf_dflt), attr)
  
-+static __net_init int devinet_init_net(struct net *net)
-+{
-+	int err;
-+	struct ctl_table *tbl;
-+	struct ipv4_devconf *all, *dflt;
-+	struct ctl_table_header *forw_hdr;
-+
-+	err = -ENOMEM;
-+	all = &ipv4_devconf;
-+	dflt = &ipv4_devconf_dflt;
-+	tbl = ctl_forward_entry;
-+
-+	if (net != &init_net) {
-+		all = kmemdup(all, sizeof(ipv4_devconf), GFP_KERNEL);
-+		if (all == NULL)
-+			goto err_alloc_all;
-+
-+		dflt = kmemdup(dflt, sizeof(ipv4_devconf_dflt), GFP_KERNEL);
-+		if (dflt == NULL)
-+			goto err_alloc_dflt;
-+
-+		tbl = kmemdup(tbl, sizeof(ctl_forward_entry), GFP_KERNEL);
-+		if (tbl == NULL)
-+			goto err_alloc_ctl;
-+
-+		tbl[0].data = &all->data[NET_IPV4_CONF_FORWARDING - 1];
-+		tbl[0].extra1 = all;
-+		tbl[0].extra2 = net;
-+	}
-+
-+#ifdef CONFIG_SYSCTL
-+	err = __devinet_sysctl_register(net, "all",
-+			NET_PROTO_CONF_ALL, all);
-+	if (err < 0)
-+		goto err_reg_all;
-+
-+	err = __devinet_sysctl_register(net, "default",
-+			NET_PROTO_CONF_DEFAULT, dflt);
-+	if (err < 0)
-+		goto err_reg_dflt;
-+
-+	err = -ENOMEM;
-+	forw_hdr = register_net_sysctl_table(net, net_ipv4_path, tbl);
-+	if (forw_hdr == NULL)
-+		goto err_reg_ctl;
-+#endif
-+
-+	net->ipv4.forw_hdr = forw_hdr;
-+	net->ipv4.devconf_all = all;
-+	net->ipv4.devconf_dflt = dflt;
-+	return 0;
-+
-+#ifdef CONFIG_SYSCTL
-+err_reg_ctl:
-+	__devinet_sysctl_unregister(dflt);
-+err_reg_dflt:
-+	__devinet_sysctl_unregister(all);
-+err_reg_all:
-+	if (tbl != ctl_forward_entry)
-+		kfree(tbl);
-+#endif
-+err_alloc_ctl:
-+	if (dflt != &ipv4_devconf_dflt)
-+		kfree(dflt);
-+err_alloc_dflt:
-+	if (all != &ipv4_devconf)
-+		kfree(all);
-+err_alloc_all:
-+	return err;
-+}
-+
-+static __net_exit void devinet_exit_net(struct net *net)
-+{
-+	struct ctl_table *tbl;
-+
-+	tbl = net->ipv4.forw_hdr->ctl_table_arg;
-+#ifdef CONFIG_SYSCTL
-+	unregister_net_sysctl_table(net->ipv4.forw_hdr);
-+	__devinet_sysctl_unregister(net->ipv4.devconf_dflt);
-+	__devinet_sysctl_unregister(net->ipv4.devconf_all);
-+#endif
-+	kfree(tbl);
-+	kfree(net->ipv4.devconf_dflt);
-+	kfree(net->ipv4.devconf_all);
-+}
-+
-+static __net_initdata struct pernet_operations devinet_ops = {
-+	.init = devinet_init_net,
-+	.exit = devinet_exit_net,
-+};
-+
- void __init devinet_init(void)
- {
-+	register_pernet_subsys(&devinet_ops);
-+
- 	register_gifconf(PF_INET, inet_gifconf);
- 	register_netdevice_notifier(&ip_netdev_notifier);
+ static const struct nla_policy ifa_ipv4_policy[IFA_MAX+1] = {
+ 	[IFA_LOCAL]     	= { .type = NLA_U32 },
+@@ -164,7 +165,8 @@ static struct in_device *inetdev_init(struct net_device *dev)
+ 	if (!in_dev)
+ 		goto out;
+ 	INIT_RCU_HEAD(&in_dev->rcu_head);
+-	memcpy(&in_dev->cnf, &ipv4_devconf_dflt, sizeof(in_dev->cnf));
++	memcpy(&in_dev->cnf, dev->nd_net->ipv4.devconf_dflt,
++			sizeof(in_dev->cnf));
+ 	in_dev->cnf.sysctl = NULL;
+ 	in_dev->dev = dev;
+ 	if ((in_dev->arp_parms = neigh_parms_alloc(dev, &arp_tbl)) == NULL)
+@@ -1248,7 +1250,7 @@ static void devinet_copy_dflt_conf(struct net *net, int i)
+ 		rcu_read_lock();
+ 		in_dev = __in_dev_get_rcu(dev);
+ 		if (in_dev && !test_bit(i, in_dev->cnf.state))
+-			in_dev->cnf.data[i] = ipv4_devconf_dflt.data[i];
++			in_dev->cnf.data[i] = net->ipv4.devconf_dflt->data[i];
+ 		rcu_read_unlock();
+ 	}
+ 	read_unlock(&dev_base_lock);
+@@ -1260,7 +1262,7 @@ static void inet_forward_change(struct net *net)
+ 	int on = IPV4_DEVCONF_ALL(FORWARDING);
  
- 	rtnl_register(PF_INET, RTM_NEWADDR, inet_rtm_newaddr, NULL);
- 	rtnl_register(PF_INET, RTM_DELADDR, inet_rtm_deladdr, NULL);
- 	rtnl_register(PF_INET, RTM_GETADDR, NULL, inet_dump_ifaddr);
--#ifdef CONFIG_SYSCTL
--	__devinet_sysctl_register(&init_net, "all", NET_PROTO_CONF_ALL,
--			&ipv4_devconf);
--	__devinet_sysctl_register(&init_net, "default", NET_PROTO_CONF_DEFAULT,
--			&ipv4_devconf_dflt);
--	register_sysctl_paths(net_ipv4_path, ctl_forward_entry);
--#endif
- }
+ 	IPV4_DEVCONF_ALL(ACCEPT_REDIRECTS) = !on;
+-	IPV4_DEVCONF_DFLT(FORWARDING) = on;
++	IPV4_DEVCONF_DFLT(net, FORWARDING) = on;
  
- EXPORT_SYMBOL(in_dev_finish_destroy);
+ 	read_lock(&dev_base_lock);
+ 	for_each_netdev(net, dev) {
+@@ -1289,7 +1291,7 @@ static int devinet_conf_proc(ctl_table *ctl, int write,
+ 
+ 		set_bit(i, cnf->state);
+ 
+-		if (cnf == &ipv4_devconf_dflt)
++		if (cnf == net->ipv4.devconf_dflt)
+ 			devinet_copy_dflt_conf(net, i);
+ 	}
+ 
+@@ -1342,7 +1344,7 @@ static int devinet_conf_sysctl(ctl_table *table, int __user *name, int nlen,
+ 
+ 	set_bit(i, cnf->state);
+ 
+-	if (cnf == &ipv4_devconf_dflt)
++	if (cnf == net->ipv4.devconf_dflt)
+ 		devinet_copy_dflt_conf(net, i);
+ 
+ 	return 1;
+@@ -1361,7 +1363,7 @@ static int devinet_sysctl_forward(ctl_table *ctl, int write,
+ 
+ 		if (valp == &IPV4_DEVCONF_ALL(FORWARDING))
+ 			inet_forward_change(net);
+-		else if (valp != &IPV4_DEVCONF_DFLT(FORWARDING))
++		else if (valp != &IPV4_DEVCONF_DFLT(net, FORWARDING))
+ 			rt_cache_flush(0);
+ 	}
+ 
 -- 
 1.5.3.4
 
