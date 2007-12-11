@@ -1,64 +1,55 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPSEC]: Add xfrm_input_state helper
-Date: Tue, 11 Dec 2007 11:45:31 +0800
-Message-ID: <20071211034531.GA10033@gondor.apana.org.au>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 2.6.25] netns: struct net content re-work
+Date: Mon, 10 Dec 2007 20:52:56 -0700
+Message-ID: <m1prxd28h3.fsf@ebiederm.dsl.xmission.com>
+References: <20071210163645.GA24030@iris.sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: davem@davemloft.net, containers@lists.osdl.org,
+	netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: "Denis V. Lunev" <den@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1704 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751941AbXLKDpf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 22:45:35 -0500
-Content-Disposition: inline
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:45161 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751840AbXLKDz2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 22:55:28 -0500
+In-Reply-To: <20071210163645.GA24030@iris.sw.ru> (Denis V. Lunev's message of
+	"Mon, 10 Dec 2007 19:36:45 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave:
 
-This is the last patch we need before converting ESP over to
-crypto_aead.
+The idea of separate structures make sense, and seems needed and useful.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-[IPSEC]: Add xfrm_input_state helper
+"Denis V. Lunev" <den@openvz.org> writes:
 
-This patch adds the xfrm_input_state helper function which returns the
-current xfrm state being processed on the input path given an sk_buff.
-This is currently only used by xfrm_input but will be used by ESP upon
-asynchronous resumption.
+> diff --git a/include/net/netns/unix.h b/include/net/netns/unix.h
+> new file mode 100644
+> index 0000000..27b4e7f
+> --- /dev/null
+> +++ b/include/net/netns/unix.h
+                   ^^^^^^
+Given that we are making this per protocol adding a separate directory
+to hold them seems to be the wrong grouping.  Ideally we want everything
+for the protocol all together in the same location so it is easy
+to find.  Possibly with a user/kernel split.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+So perhaps unix_net.h
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index fb154a6..c49fe0f 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1302,4 +1302,9 @@ static inline void xfrm_states_delete(struct xfrm_state **states, int n)
- }
- #endif
- 
-+static inline struct xfrm_state *xfrm_input_state(struct sk_buff *skb)
-+{
-+	return skb->sp->xvec[skb->sp->len - 1];
-+}
-+
- #endif	/* _NET_XFRM_H */
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 8b2b1b5..8624cbd 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -109,7 +109,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 	/* A negative encap_type indicates async resumption. */
- 	if (encap_type < 0) {
- 		async = 1;
--		x = skb->sp->xvec[skb->sp->len - 1];
-+		x = xfrm_input_state(skb);
- 		seq = XFRM_SKB_CB(skb)->seq;
- 		goto resume;
- 	}
+> @@ -0,0 +1,13 @@
+> +/*
+> + * Unix network namespace
+> + */
+> +#ifndef __NETNS_UNIX_H__
+> +#define __NETNS_UNIX_H__
+> +
+> +struct ctl_table_header;
+> +struct netns_unix {
+> +	int			sysctl_unix_max_dgram_qlen;
+> +	struct ctl_table_header	*unix_ctl;
+> +};
+
+How about struct unix_net?  I think that tracks a little better
+with how we have done struct in_device, ip6_dev and their friends.
+
+Eric
