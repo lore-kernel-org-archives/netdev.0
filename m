@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 0/5] ipv6: make af_inet6 subsystems to return an error
- at init
-Date: Mon, 10 Dec 2007 16:45:20 -0800 (PST)
-Message-ID: <20071210.164520.262528667.davem@davemloft.net>
-References: <20071210150910.440970057@ICON-9-164-138-215.megacenter.de.ibm.com>
-	<475D5C22.1090103@fr.ibm.com>
+Subject: Re: [IPv4] ESP: Discard dummy packets introduced in rfc4303
+Date: Mon, 10 Dec 2007 16:53:57 -0800 (PST)
+Message-ID: <20071210.165357.115406037.davem@davemloft.net>
+References: <20071210221703.GG11220@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, pekkas@netcore.fi, netdev@vger.kernel.org
-To: dlezcano@fr.ibm.com
+Cc: davem@damveloft.net, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48308
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56749
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751176AbXLKApW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 19:45:22 -0500
-In-Reply-To: <475D5C22.1090103@fr.ibm.com>
+	by vger.kernel.org with ESMTP id S1751496AbXLKAx6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 19:53:58 -0500
+In-Reply-To: <20071210221703.GG11220@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Date: Mon, 10 Dec 2007 16:32:50 +0100
+From: Thomas Graf <tgraf@suug.ch>
+Date: Mon, 10 Dec 2007 23:17:03 +0100
 
-> I just noticed that I forgot to put ipv6 under bracket.
-> Sorry for that :(
+> RFC4303 introduces dummy packets with a nexthdr value of 59
+> to implement traffic confidentiality. Such packets need to
+> be dropped silently and the payload may not be attempted to
+> be parsed as it consists of random chunk.
 > 
-> Should I resend the patchset ?
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-This is not necessary.
+Applied to net-2.6, since this is more of a bug fix than
+anything else.
