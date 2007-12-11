@@ -1,52 +1,75 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: RE: [PATCH] Increase virtual FIFOs in ucc_geth.
-Date: Tue, 11 Dec 2007 11:57:56 +0100
-Message-ID: <1197370676.6790.17.camel@gentoo-jocke.transmode.se>
-References: <1197312366-7484-1-git-send-email-Joakim.Tjernlund@transmode.se>
-	 <989B956029373F45A0B8AF029708189001B4D901@zch01exm26.fsl.freescale.net>
-	 <1197367919.6790.3.camel@gentoo-jocke.transmode.se>
-Reply-To: joakim.tjernlund@transmode.se
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Li Yang <LeoLi@freescale.com>
+From: "Marco Berizzi" <pupilla@hotmail.com>
+Subject: Re: routing policy based on u32 classifier
+Date: Tue, 11 Dec 2007 12:11:37 +0100
+Message-ID: <BAY103-DAV209F85975B7DFE5528959FB2640@phx.gbl>
+References: <BAY103-DAV51710C05B584C53DED66DB26B0@phx.gbl> <5A630F46702DD1498FFD48394B4A664C347275DD@john.ad.clarku.edu> <BAY103-DAV999F982646869B2E4AABAB26B0@phx.gbl> <5A630F46702DD1498FFD48394B4A664C347275DE@john.ad.clarku.edu> <BAY103-DAV58E11F167187474762928B26B0@phx.gbl> <5A630F46702DD1498FFD48394B4A664C347275E0@john.ad.clarku.edu>
+Cc: <netdev@vger.kernel.org>
+To: "Brian S Julin" <BJulin@clarku.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.transmode.se ([83.241.175.147]:17791 "EHLO
-	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750848AbXLKK56 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 05:57:58 -0500
-In-Reply-To: <1197367919.6790.3.camel@gentoo-jocke.transmode.se>
+Received: from bay0-omc2-s4.bay0.hotmail.com ([65.54.246.140]:31547 "EHLO
+	bay0-omc2-s4.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751136AbXLKLNG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 06:13:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Brian S Julin wrote:
 
-On Tue, 2007-12-11 at 11:11 +0100, Joakim Tjernlund wrote:
-> On Tue, 2007-12-11 at 17:49 +0800, Li Yang wrote:
-> > > -----Original Message-----
-> > > From: Joakim Tjernlund [mailto:Joakim.Tjernlund@transmode.se] 
-> > > Sent: Tuesday, December 11, 2007 2:46 AM
-> > > To: Li Yang-r58472 <LeoLi@freescale.com> Netdev
-> > > Cc: Joakim Tjernlund
-> > > Subject: [PATCH] Increase virtual FIFOs in ucc_geth.
-> > > 
-> > > Increase UCC_GETH_URFS_INIT to 1152 and
-> > > UCC_GETH_UTFS_INIT to 896 to avoid HW Overrun/Underrun.
-> > 
-> > Please be noted that these values are only used for 10/100Mbps speed.
-> > Did you get Overrun in 10/100M mode?
-> 
-> I get both TX Underrun and RX overrun in 100Mbps, FD, just
-> by running a tftp transfer. It feels like the URFET and/or URSFET
-> isn't working. Why I don't know. CPU is MPC832x
-> 
->   Jocke
+> Marco wrote:
+>
+>> Brian S Julin wrote:
+>>> Almost clear... why can you not just add "src <ADSL
+>>> IP>" to the fwmark
+>>> route to set the default source address for locally
+>>> originating
+>>> packets?
+>>
+>> IIRC, it doesn't work because netfilter isn't called in
+>> ip source address selection.
+>
+> Ah I see. Referring to this diagram...
+>
+> http://www.shorewall.net/images/Netfilter.png
+>
+> ...and to many people I see posting about similar issues,
+> you are correct in that. A process socket cannot default to
+> the correct (final) source address to use if there is a
+> fwmark
+> rule as it stands.
+>
+> I'll take a wild guess and conjecture that the reason fwmark
+> rules work at all for output routing is that applying a
+> fwmark on OUTPUT/mangle constitutes "changing the packet"
+> and qualifies it for the NAT reroute. But by the time a
+> packet gets sent the source address has already been chosen.
+>
+> About the only suggestion I can make is that "dumb nat"
+> might be more elegant if you are not already using it,
+> and looking into getting squid to explicitly set its
+> source address.
 
-I am a bit confused how the RBMR and TBMR is supposed to work. In
-ucc_get there is:
- out_be32(&ugeth->p_tx_glbl_pram->tstate, ((u32) function_code) << 24);
- ugeth->p_rx_glbl_pram->rstate = function_code;
-First, should not the rx part look the same as tx?
-Does programing rstate/tstate replace RBMR and TBMR?
+my solution is cleaner :-) the kernel select the ip for
+squid and then it get SNATed.
+Thanks for the feedback.
 
- Jocke
+> In fact it may be the case with some daemons
+> that even if this were fixed inside the kernel, they will
+> ignore the source address configured kernel side because they
+> explicitly set it (usually by a reverse of their "Listen"
+> configuration.) It's likely that this could be fixed and
+> squid require NAT still. Perhaps the best solution is
+> for individual daemons to be given configuration options
+> telling them what source addresses to use.
+>
+> Has anyone worked up a patch already to do this kernel
+> side? I could see it being fairly complicated. You
+> would have to hand the packet directly to netfilter, then
+> have netfilter perform a first-run RPDB lookup only for
+> packets where it needs to (or packets which it decides
+> not to touch) and then a second RPDB lookup if the
+> packet is modified. Might speed things up a bit for
+> some cases as a side benefit but worth it? I don't
+> know.
+>
+
+
