@@ -1,52 +1,42 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH v2] XFRM: assorted IPsec fixups
-Date: Tue, 11 Dec 2007 12:39:19 -0500
-Message-ID: <200712111239.19709.paul.moore@hp.com>
-References: <20071211163019.15059.73746.stgit@flek.lan> <200712111215.00720.paul.moore@hp.com> <20071211.092126.151519334.davem@davemloft.net>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-2.6.25 0/7] Make ipv4_devconf (all and default) live in
+ net namespaces
+Date: Tue, 11 Dec 2007 20:44:09 +0300
+Message-ID: <475ECC69.1040809@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-audit@redhat.com,
-	selinux@tycho.nsa.gov
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:1377 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752174AbXLKRjW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 12:39:22 -0500
-In-Reply-To: <20071211.092126.151519334.davem@davemloft.net>
-Content-Disposition: inline
+Received: from sacred.ru ([62.205.161.221]:38790 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751794AbXLKRoZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Dec 2007 12:44:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 11 December 2007 12:21:26 pm David Miller wrote:
-> From: Paul Moore <paul.moore@hp.com>
-> Date: Tue, 11 Dec 2007 12:15:00 -0500
->
-> > I still would like to see the rest of the changes make it into
-> > 2.6.25 (the SPI byte order thing is particularly troublesome) so if
-> > you don't mind a "v3" I'll respin this patch right now to remove the
-> > "sid -> secid" bits.
->
-> Technically this could break anything parsing the audit logs, but no
-> matter, I'd rather fix this now while we still can.
+The ipv4_devconf_(all) and ipv4_devconf_dflt are currently
+global, but should be per-namespace.
 
-True, this does change how userspace sees things but I think that any 
-userspace code that currently uses this SPI value successfully is either 
-lucky or has a workaround/hack in place.
+This set moves them on the struct net. Or, more precisely,
+on the struct netns_ipv4, which in turn is on the struct net.
 
-> I would classify the spi endianness bit as a bug fix, could you please
-> just split out that fix for net-2.6, then we can make a second patch
-> after I rebase net-2.6.25 which can do the rest of your patch sans the
-> linux/xfrm.h change?
+There are two minor things that are to be done additionally
+to this set:
 
-Sure.  Although that's enough of a change that I'd want to retest the patch a 
-bit first.  If I can't get it done today expect something in your inbox 
-tomorrow.
+ 1. The snmp_seq_show() needs the IPV4_DEVCONF_ALL(FORWARDING)
+    value, but since this entry is still global no valid struct 
+    net can be get in it, so I use the init_net's one. After 
+    snmp is made per-namespace, this will be fixed easily.
 
-Thanks for your patience.
+ 2. The rt_fill_info() needs the IPV4_DEVCONF_ALL(MC_FORWARDING),
+    but the routing code is not tuned to work inside namespaces
+    yet, so I use the init_net in it as well. Denis is currently
+    working on ipv4 routing, so this will be prepared shortly.
 
--- 
-paul moore
-linux security @ hp
+Happily, all the other places of devconf-s usage can provide a
+struct net pointer.
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
