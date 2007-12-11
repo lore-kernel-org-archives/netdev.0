@@ -1,49 +1,51 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: 2.6.24-rc4-mm1
-Date: Tue, 11 Dec 2007 13:26:58 -0800
-Message-ID: <475F00A2.6020406@intel.com>
-References: <20071204211701.994dfce6.akpm@linux-foundation.org>	<33307c790712110813h23def95dvd068b7226e9fcd36@mail.gmail.com> <20071211123705.844aac24.akpm@linux-foundation.org>
+Subject: Re: net-2.6.25 being rebased...
+Date: Tue, 11 Dec 2007 13:31:29 -0800
+Message-ID: <475F01B1.2080400@intel.com>
+References: <20071211.092638.148402625.davem@davemloft.net>	<20071211.115619.199600421.davem@davemloft.net>	<1197407100.4911.150.camel@localhost> <20071211.130858.134618588.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Martin Bligh <mbligh@google.com>, linux-kernel@vger.kernel.org,
-	Andy Whitcroft <apw@shadowen.org>, netdev@vger.kernel.org,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754990AbXLKVaO@vger.kernel.org>
-In-Reply-To: <20071211123705.844aac24.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: joe@perches.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:42729 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750992AbXLKVdy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Dec 2007 16:33:54 -0500
+In-Reply-To: <20071211.130858.134618588.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
-> On Tue, 11 Dec 2007 08:13:52 -0800 "Martin Bligh" <mbligh@google.com> wrote:
+David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Tue, 11 Dec 2007 13:04:59 -0800
 > 
->>>
->>> - Lots of device IDs have been removed from the e1000 driver and moved
->>> over
->>>  to e1000e.  So if your e1000 stops working, you forgot to set
->>> CONFIG_E1000E.
->>>
->>>
->> Wouldn't it make sense to just default this to on if E1000 was on, rather
->> than screwing
->> everybody for no good reason (plus breaking all the automated testing, etc
->> etc)?
->> Much though I love random refactoring, it is fairly painful to just keep
->> changing the
->> names of things.
+>> On Tue, 2007-12-11 at 11:56 -0800, David Miller wrote:
+>>> The rebase of net-2.6.25 is complete
+>> I have an earlier unmodified git repository of net-2.6.25.
+>> Does anyone know the appropriate git commands to resync
+>> to the rebased content?
+>>
+>> $ git branch
+>> * master
+>> $ git-pull
+>> [...]
+>> Automatic merge failed; fix conflicts and then commit the result.
 > 
-> (cc netdev and Auke)
+> Easiest thing to do is do a quick local clone of Linus's current tree
+> (you do have one of these around right? :-) and then pull in from the
+> rebased tree.
 > 
-> Yes, that would be very sensible.  CONFIG_E1000E should default to whatever
-> CONFIG_E1000 was set to.
+> bash$ git clone linux-2.6/.git net-2.6.25
+> bash$ git pull git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.25.git
 
-which is "y" for x86 and friends, ppc, arm and ia64 through 'defconfig'. the
-Kconfig files do not have defaults in them.
+I often have success without recloning by doing:
 
-I can send a patch to adjust the defconfig files, would that be OK? I certainly
-think that would be reasonable, I dislike setting defaults through defconfig for
-network drivers myself and rather would not do that.
+$ git-reset --hard v2.6.23
+$ git pull git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.25.git
+
+saves you the time to reclone. As long as you reset below the rebase point, this
+should be OK.
 
 Auke
