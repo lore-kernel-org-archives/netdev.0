@@ -1,52 +1,71 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] NET : dst_ifdown() cleanup
-Date: Tue, 11 Dec 2007 04:59:22 +0100
-Message-ID: <475E0B1A.9030406@cosmosbay.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 2.6.25] netns: struct net content re-work
+Date: Mon, 10 Dec 2007 21:04:07 -0700
+Message-ID: <m1lk8127yg.fsf@ebiederm.dsl.xmission.com>
+References: <20071210163645.GA24030@iris.sw.ru> <475D7849.3030206@fr.ibm.com>
+	<475D7C56.9020402@sw.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060604060604060702010703"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>, containers@lists.osdl.org,
+	"Denis V. Lunev" <den@openvz.org>, herbert@gondor.apana.org.au,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Kirill Korotaev <dev@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:39135 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751744AbXLKD7c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 22:59:32 -0500
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:54889 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751976AbXLKEGz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 23:06:55 -0500
+In-Reply-To: <475D7C56.9020402@sw.ru> (Kirill Korotaev's message of "Mon, 10
+	Dec 2007 20:50:14 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060604060604060702010703
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Kirill Korotaev <dev@sw.ru> writes:
 
-This cleanup shrinks size of net/core/dst.o on i386 from 1299 to 1289 bytes.
-(This is because dev_hold()/dev_put() are doing atomic_inc()/atomic_dec() and 
-force compiler to re-evaluate memory contents.)
+> Daniel Lezcano wrote:
+>> Denis V. Lunev wrote:
+>> 
+>>>Recently David Miller and Herbert Xu pointed out that struct net becomes
+>>>overbloated and un-maintainable. There are two solutions:
+>>>- provide a pointer to a network subsystem definition from struct net.
+>>>  This costs an additional dereferrence
+>>>- place sub-system definition into the structure itself. This will speedup
+>>>  run-time access at the cost of recompilation time
+>>>
+>>>The second approach looks better for us. 
+>> 
+>> 
+>> Yes, we do not need/want a pointer in this structure and add more 
+>> dereference in the network code.
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+If it does go that way we just carefully pass around a properly
+typed structure in that subsystem to reduce the cost.  Still 
+it would be nice not to need to add the extra pointer.
 
+>>>index b62e31f..f60e1ce 100644
+>>>--- a/include/net/net_namespace.h
+>>>+++ b/include/net/net_namespace.h
+>>>@@ -8,6 +8,8 @@
+>>> #include <linux/workqueue.h>
+>>> #include <linux/list.h>
+>>>
+>>>+#include <net/netns/unix.h>
+>>>+
+>>> struct proc_dir_entry;
+>>> struct net_device;
+>>> struct sock;
+>>>@@ -46,8 +48,7 @@ struct net {
+>>> 	struct hlist_head	packet_sklist;
+>>>
+>>> 	/* unix sockets */
+>>>-	int			sysctl_unix_max_dgram_qlen;
+>>>-	struct ctl_table_header	*unix_ctl;
+>>>+	struct netns_unix	unx;
+>> 
+>> 
+>> Can you change this from unx to unix ?
+>
+> no, it won't compile. Guess why :)
 
---------------060604060604060702010703
-Content-Type: text/plain;
- name="dst_ifdown.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="dst_ifdown.patch"
-
-diff --git a/net/core/dst.c b/net/core/dst.c
-index 5c6cfc4..7eceeba 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -284,8 +284,8 @@ static inline void dst_ifdown(struct dst_entry *dst, struct net_device *dev,
- 		dev_put(dev);
- 		if (dst->neighbour && dst->neighbour->dev == dev) {
- 			dst->neighbour->dev = dst->dev;
-+			dev_hold(dst->dev);
- 			dev_put(dev);
--			dev_hold(dst->neighbour->dev);
- 		}
- 	}
- }
-
---------------060604060604060702010703--
+Hmm.  It looks like it is a #define somewhere gcc?
+Eric
