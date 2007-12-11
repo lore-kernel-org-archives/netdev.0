@@ -1,40 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] XFRM: assorted IPsec fixups
-Date: Tue, 11 Dec 2007 02:22:02 -0800 (PST)
-Message-ID: <20071211.022202.208850272.davem@davemloft.net>
-References: <20071207171116.18151.42328.stgit@flek.americas.hpqcorp.net>
-	<1197059769.3183.16.camel@dhcp231-215.rdu.redhat.com>
+Subject: Re: [patch 1/5] ipv6: make flowlabel to return an error
+Date: Tue, 11 Dec 2007 02:23:31 -0800 (PST)
+Message-ID: <20071211.022331.267843823.davem@davemloft.net>
+References: <20071210150910.440970057@ICON-9-164-138-215.megacenter.de.ibm.com>
+	<20071210151425.106827965@ICON-9-164-138-215.megacenter.de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paul.moore@hp.com, netdev@vger.kernel.org, linux-audit@redhat.com,
-	selinux@tycho.nsa.gov
-To: eparis@redhat.com
+Cc: yoshfuji@linux-ipv6.org, pekkas@netcore.fi, netdev@vger.kernel.org
+To: dlezcano@fr.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48352
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48357
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751328AbXLKKWC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 05:22:02 -0500
-In-Reply-To: <1197059769.3183.16.camel@dhcp231-215.rdu.redhat.com>
+	by vger.kernel.org with ESMTP id S1751577AbXLKKXc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 05:23:32 -0500
+In-Reply-To: <20071210151425.106827965@ICON-9-164-138-215.megacenter.de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Paris <eparis@redhat.com>
-Date: Fri, 07 Dec 2007 15:36:08 -0500
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Date: Mon, 10 Dec 2007 16:09:11 +0100
 
+> This patch makes the flowlab subsystem to return an error code and makes
+> some cleanup with procfs ifdefs.
+> The af_inet6 will use the flowlabel init return code to check the initialization
+> was correct.
 > 
-> On Fri, 2007-12-07 at 12:11 -0500, Paul Moore wrote:
-> > This patch fixes a number of small but potentially troublesome things in the
-> > XFRM/IPsec code:
-...
-> > Signed-off-by: Paul Moore <paul.moore@hp.com>
-> 
-> Acked-by: Eric Paris <eparis@redhat.com>
-> 
-> although it does make me wonder why audit_log_start doesn't just check
-> audit_enabled itself....   Anyway, this patch looks good.
+> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 
-I want to apply this but it doesn't apply cleanly to
-net-2.6.25 right now, could you respin this Paul?
-
-Thanks.
+Applied.
