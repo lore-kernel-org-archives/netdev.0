@@ -1,64 +1,79 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 0/3] cxgb - driver fixes.
-Date: Tue, 11 Dec 2007 14:47:16 -0800
-Message-ID: <20071211224716.GA17643@kroah.com>
-References: <474C8BF8.9080609@chelsio.com> <474F0422.6090309@candelatech.com> <4751ED97.5090804@chelsio.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 9545] New: Cannot bring up a bridge interface
+ without a MAC address set
+Date: Tue, 11 Dec 2007 14:52:43 -0800
+Message-ID: <20071211145243.66e1f66a@freepuppy.rosehill>
+References: <bug-9545-10286@http.bugzilla.kernel.org/>
+	<20071211132614.5854b0f1.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Greear <greearb@candelatech.com>,
-	Jeff Garzik <jeff@garzik.org>, NetDev <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org
-To: Divy Le Ray <divy@chelsio.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	berrange@redhat.com, Jeff Garzik <jeff@garzik.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:34050 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758937AbXLKWvE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 17:51:04 -0500
-Content-Disposition: inline
-In-Reply-To: <4751ED97.5090804@chelsio.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:33487 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759701AbXLKWzi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 17:55:38 -0500
+In-Reply-To: <20071211132614.5854b0f1.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 01, 2007 at 03:26:15PM -0800, Divy Le Ray wrote:
-> Ben Greear wrote:
->> Divy Le Ray wrote:
->>> Jeff,
->>>
->>> I'm submitting a patch series for inclusion in 2.6.24 for the cxgb 
->>> driver.
->>> The patches are built against Linus'git tree.
->>>
->>> Here is a brief description:
->>> - Ensure that GSO skbs have enough headroom before encapsulating them,
->>> - Fix a crash in NAPI mode,
->>> - Fix statistics accounting and report.
->>
->> We ran pktgen overnight on 2.6.23 with patch 1 and 3 applied (patch 2
->> not needed on .23 it seems) and it was stable at about 1.5Gbps 
->> bi-directional
->> using 1500 MTU sized frames.
->>
->> We'll run some more tests with user-space TCP & UDP today, but it looks 
->> good
->> so far.
->>
->> Perhaps these patches should be considered for .23 stable as well?
->>
->> Thanks,
->> Ben
->>
->
-> Yes, patches 1 and 3 could be considered for .22 and .23-stable, along with 
-> the previous fix:
-> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=7de6af0f23b25df8da9719ecae1916b669d0b03d
+On Tue, 11 Dec 2007 13:26:14 -0800
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
-Can you send all of the individual patches you wish to have applied to
-the -stable tree to stable@kernel.org so that we can properly determine
-exactly which patches you are referring to?
+> 
+> (please respond via emailed reply-to-all, not via the bugzilla web
+> interface).
+> 
+> On Tue, 11 Dec 2007 11:04:55 -0800 (PST)
+> bugme-daemon@bugzilla.kernel.org wrote:
+> 
+> > http://bugzilla.kernel.org/show_bug.cgi?id=9545
+> > 
+> >            Summary: Cannot bring up a bridge interface without a MAC address
+> >                     set
+> >            Product: Networking
+> >            Version: 2.5
+> >      KernelVersion: 2.6.24-0.81.rc4.git7.fc9
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Fedora
+> >             Status: NEW
+> >           Severity: normal
+> >           Priority: P1
+> >          Component: Other
+> >         AssignedTo: acme@ghostprotocols.net
+> >         ReportedBy: berrange@redhat.com
+> > 
+> > 
+> > Most recent kernel where this bug did not occur: Any 2.6.23 or earlier
+> > Distribution: Fedora 9 rawhide
+> > Hardware Environment: Intel(R) Core(TM)2 Duo CPU     E6850, x86_64
+> > Software Environment:  2.6.24-0.81.rc4.git7.fc9 #1 SMP  x86_64 GNU/Linux
+> > Problem Description:
+> > It is not possible to bring up a bridge interface unless one first assigns a
+> > MAC address to it. This is a regression from earlier kernels where one could
+> > always bring up a bridge device immediately after creating it. The bridge
+> > should not require a MAC address because it is not going to be configured with
+> > any IP addr - in my scenario I merely wish to use it to connect a number of
+> > 'tap' devices associated with KVM guests.
+> > 
+> > Steps to reproduce:
+> > # brctl addbr demobr
+> > # ifconfig demobr up
+> > SIOCSIFFLAGS: Invalid argument
 
-Also, make sure they are already in Linus's tree before telling us about
-them.
+The tap devices have to have addresses don't they. So bringing up an empty
+bridge is meaningless. If you just add the device first then it will work.
 
-thanks,
+Could be fixed to prevent errors from existing scripts but it is not a complete showstopper.
+The problem is that when device is brought up it propogates events up to
+other layers and applications, these layers will then query and see a bogus
+address.
 
-greg k-h
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
