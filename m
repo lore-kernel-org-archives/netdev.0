@@ -1,73 +1,50 @@
-From: Arkadiusz Miskiewicz <arekm@maven.pl>
-Subject: Re: htb and UDP packages bigger than 1500
-Date: Tue, 11 Dec 2007 09:48:19 +0100
-Message-ID: <200712110948.19504.arekm@maven.pl>
-References: <20071211081929.GA2261@ff.dom.local> <200712110917.30945.arekm@maven.pl> <20071211083559.GB2261@ff.dom.local>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: [PATCH] NET: Fix wrong comments for unregister_net*
+Date: Tue, 11 Dec 2007 16:50:10 +0800
+Message-ID: <475E4F42.8060102@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.carme.maven.pl ([193.239.45.138]:18179 "EHLO
-	main.carme.maven.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750735AbXLKIsZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 03:48:25 -0500
-In-Reply-To: <20071211083559.GB2261@ff.dom.local>
-Content-Disposition: inline
+Received: from [222.73.24.84] ([222.73.24.84]:56618 "EHLO song.cn.fujitsu.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751907AbXLKIxQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Dec 2007 03:53:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 11 of December 2007, Jarek Poplawski wrote:
-> On Tue, Dec 11, 2007 at 09:17:30AM +0100, Arkadiusz Miskiewicz wrote:
-> > On Tuesday 11 of December 2007, Jarek Poplawski wrote:
-> > > On 10-12-2007 18:10, Arkadiusz Miskiewicz wrote:
-> > > > Hello,
-> > > >
-> > > > I noticed that HTB doesn't properly limit traffic if someone se=
-nds
-> > > > UDP packages bigger than 1500.
-> > > >
-> > > > Does HTB have some problems/known limits in this area?
-> > > >
-> > > > There is other traffic in that class and when I drop udp packet=
-s
-> > > > bigger than 1500 then remaining traffic is limited properly to
-> > > > correct value.
-> > >
-> > > Should work with proper "mtu" parameter (tc qdisc add htb help) o=
-r,
-> > > for kernels >=3D 2.6.23, even without this. If this doesn't help,
-> > > probably more information is required.
-> >
-> > 2.6.22 there. mtu wasn't specified at tc... Could you point to a gi=
-t
-> > commit which "fixes" the issue in 2.6.23 so I could backport it to =
-my
-> > 2.6.22?
->
-> http://git.kernel.org/?p=3Dlinux/kernel/git/stable/linux-2.6.23.y.git=
-;a=3Dcommi
->tdiff;h=3Dc9726d6890f7f3a892c879e067c3ed839f61e745
->
-> From: Ranjit Manomohan <ranjitm@google.com>
-> Date: Wed, 11 Jul 2007 05:43:16 +0000 (-0700)
-> Subject: [NET_SCHED]: Make HTB scheduler work with TSO.
-> X-Git-Tag: v2.6.23-rc1~1109^2~22
+[PATCH] NET: Fix wrong comments for unregister_net*
 
-Backported.
+There are some return value comments for void functions.
+Fixed it.
 
-> But this is done with two different ways. And btw., if there is such
-> a big difference in sizes it could be not very accurate after all.
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+---
+ dev.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-Hm, here htb qdisc is attached to imq devices which have mtu 16000 by d=
-efault=20
-(in latest patch; previously that was 1500). I'll just lower it to 1500=
- for=20
-now. Thanks.
+--- linux-2.6.24.rc4.org/net/core/dev.c	2007-12-11 16:40:36.000000000 +0800
++++ linux-2.6.24.rc4/net/core/dev.c	2007-12-11 16:42:40.000000000 +0800
+@@ -3959,8 +3959,7 @@ void synchronize_net(void)
+  *	@dev: device
+  *
+  *	This function shuts down a device interface and removes it
+- *	from the kernel tables. On success 0 is returned, on a failure
+- *	a negative errno code is returned.
++ *	from the kernel tables.
+  *
+  *	Callers must hold the rtnl semaphore.  You may want
+  *	unregister_netdev() instead of this.
+@@ -3978,8 +3977,7 @@ void unregister_netdevice(struct net_dev
+  *	@dev: device
+  *
+  *	This function shuts down a device interface and removes it
+- *	from the kernel tables. On success 0 is returned, on a failure
+- *	a negative errno code is returned.
++ *	from the kernel tables.
+  *
+  *	This is just a wrapper for unregister_netdevice that takes
+  *	the rtnl semaphore.  In general you want to use this and not
 
-> Jarek P.
-
---=20
-Arkadiusz Mi=B6kiewicz        PLD/Linux Team
-arekm / maven.pl            http://ftp.pld-linux.org/
