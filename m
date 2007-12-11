@@ -1,50 +1,28 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] IPv6 support for NFS server
-Date: Tue, 11 Dec 2007 11:41:24 -0500
-Message-ID: <475EBDB4.5020108@hp.com>
-References: <475D86C1.6070400@ext.bull.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [0/2] [IPSEC]: Add host ICMP relookup support
+Date: Wed, 12 Dec 2007 00:53:17 +0800
+Message-ID: <20071211165317.GA16420@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Mailing list NFSv4 <nfsv4@linux-nfs.org>,
-	netdev ML <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Aur=E9lien_Charbon?= <aurelien.charbon@ext.bull.net>
-Return-path: <nfsv4-bounces@linux-nfs.org>
-In-Reply-To: <475D86C1.6070400@ext.bull.net>
-List-Unsubscribe: <http://linux-nfs.org/cgi-bin/mailman/listinfo/nfsv4>,
-	<mailto:nfsv4-request@linux-nfs.org?subject=unsubscribe>
-List-Archive: <http://linux-nfs.org/pipermail/nfsv4>
-List-Post: <mailto:nfsv4@linux-nfs.org>
-List-Help: <mailto:nfsv4-request@linux-nfs.org?subject=help>
-List-Subscribe: <http://linux-nfs.org/cgi-bin/mailman/listinfo/nfsv4>,
-	<mailto:nfsv4-request@linux-nfs.org?subject=subscribe>
-Sender: nfsv4-bounces@linux-nfs.org
-Errors-To: nfsv4-bounces@linux-nfs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:2017 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751561AbXLKQxT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 11:53:19 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Aurelien,
+Hi Dave:
 
-Aur=E9lien Charbon wrote:
-> =
+These two patches implement the ICMP relookup feature for hosts
+that's required by RFC 4301.  I've made it conditional on policy
+and state flags so it should have no impact on existing users.
 
-> Here is a cleanup for the ip_map caching patch in nfs server.
-> =
-
-> It prepares for IPv6 text-based mounts and exports.
-> =
-
-> Tests: tested with only IPv4 network and basic nfs ops (mount, file =
-
-> creation and modification)
-
-In an email back on October 29th I sent-out a similar patch with a new =
-
-ipv6_addr_set_v4mapped() inline - it might be useful to pull that piece =
-
-into your patch since it cleans it up a bit to get rid of the =
-
-ipv6_addr_set() calls.  I can re-send you that patch off-line if you =
-
-can't find it.
-
--Brian
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
