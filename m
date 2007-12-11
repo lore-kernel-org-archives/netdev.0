@@ -1,90 +1,98 @@
-From: Claudio Lanconelli <lanconelli.claudio@eptar.com>
-Subject: [PATCH 2/2] add driver for enc28j60 ethernet chip
-Date: Tue, 11 Dec 2007 15:58:49 +0100
-Message-ID: <475EA5A9.2020509@eptar.com>
+From: Krzysztof Oledzki <olel@ans.pl>
+Subject: Re: [Bugme-new] [Bug 9543] New: RTNL: assertion failed at
+ net/ipv6/addrconf.c (2164)/RTNL: assertion failed at net/ipv4/devinet.c
+ (1055)
+Date: Tue, 11 Dec 2007 16:04:27 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0712111603250.21312@bizon.gios.gov.pl>
+References: <bug-9543-10286@http.bugzilla.kernel.org/>
+ <20071211034603.cbcc4762.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080504070903040905040807"
-Cc: jgarzik@pobox.com
-To: netdev@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-802351681-1197385467=:21312"
+Cc: bugme-daemon@bugzilla.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fe-relay03.albacom.net ([217.220.57.137]:54986 "EHLO
-	fe-relay03.albacom.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752447AbXLKPE5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 10:04:57 -0500
+Received: from bizon.gios.gov.pl ([212.244.124.8]:59586 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752635AbXLKPFA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 10:05:00 -0500
+In-Reply-To: <20071211034603.cbcc4762.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080504070903040905040807
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Second part contains changes on Kconfig and Makefile on dir drivers/net
-
-Signed-off-by: Claudio Lanconelli <lanconelli.claudio@eptar.com>
-
---------------080504070903040905040807
-Content-Type: text/x-patch;
- name="enc28j60_p2.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="enc28j60_p2.diff"
-
- drivers/net/Kconfig  |   26 ++++++++++++++++++++++++++
- drivers/net/Makefile |    1 +
- 2 files changed, 27 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index d9107e5..e643e0f 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -922,6 +922,32 @@ config DM9000
- 	  To compile this driver as a module, choose M here.  The module
- 	  will be called dm9000.
- 
-+config ENC28J60
-+	tristate "ENC28J60 support"
-+	depends on EXPERIMENTAL && SPI && NET_ETHERNET
-+	select CRC32
-+	select MII
-+	---help---
-+	  Support for the Microchip EN28J60 ethernet chip.
-+
-+	  To compile this driver as a module, choose M here and read
-+	  <file:Documentation/networking/net-modules.txt>.  The module will be
-+	  called enc28j60.
-+
-+config ENC28J60_DBGLEVEL
-+	int "Debugging verbosity (0 = quiet, 3 = noisy)"
-+	depends on ENC28J60
-+	default "0"
-+	---help---
-+	  Determines the verbosity level of the enc28j60 driver debugging messages.
-+
-+config ENC28J60_WRITEVERIFY
-+	bool "Enable write verify"
-+	depends on ENC28J60
-+	---help---
-+	  Enable the verify after the buffer write useful for debugging purpose.
-+	  If unsure, say N.
-+
- config SMC911X
- 	tristate "SMSC LAN911[5678] support"
- 	select CRC32
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 0e5fde4..e91e3a3 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -216,6 +216,7 @@ obj-$(CONFIG_DM9000) += dm9000.o
- obj-$(CONFIG_FEC_8XX) += fec_8xx/
- obj-$(CONFIG_PASEMI_MAC) += pasemi_mac.o
- obj-$(CONFIG_MLX4_CORE) += mlx4/
-+obj-$(CONFIG_ENC28J60) += enc28j60.o
- 
- obj-$(CONFIG_MACB) += macb.o
- 
+---187430788-802351681-1197385467=:21312
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
 
 
---------------080504070903040905040807--
+On Tue, 11 Dec 2007, Andrew Morton wrote:
+
+> On Tue, 11 Dec 2007 03:20:48 -0800 (PST) bugme-daemon@bugzilla.kernel.org=
+ wrote:
+>
+>> http://bugzilla.kernel.org/show_bug.cgi?id=3D9543
+>>
+>>            Summary: RTNL: assertion failed at net/ipv6/addrconf.c
+>>                     (2164)/RTNL: assertion failed at net/ipv4/devinet.c
+>>                     (1055)
+>>            Product: Drivers
+>>            Version: 2.5
+>>      KernelVersion: 2.6.24-rc4-git7
+>>           Platform: All
+>>         OS/Version: Linux
+>>               Tree: Mainline
+>>             Status: NEW
+>>           Severity: normal
+>>           Priority: P1
+>>          Component: Network
+>>         AssignedTo: jgarzik@pobox.com
+>>         ReportedBy: olel@ans.pl
+>>
+>>
+>> Most recent kernel where this bug did not occur: 2.6.23
+>> Distribution: Gentoo
+>>
+>> Problem Description:
+>> ADDRCONF(NETDEV_CHANGE): bond0: link becomes ready
+>> RTNL: assertion failed at net/ipv6/addrconf.c (2164)
+>> Pid: 9, comm: events/0 Not tainted 2.6.24-rc4-git7 #1
+>>  [<78402cfb>] addrconf_notify+0x5b4/0x7b7
+>>  [<7812203a>] finish_task_switch+0x0/0x8c
+>>  [<781346ff>] worker_thread+0x0/0x85
+>>  [<78438e23>] schedule+0x545/0x55f
+>>  [<781408d1>] print_lock_contention_bug+0x11/0xd2
+>>  [<783bfa72>] rt_run_flush+0x43/0x8b
+>>  [<783bfa93>] rt_run_flush+0x64/0x8b
+>>  [<7813ac54>] notifier_call_chain+0x2a/0x52
+>>  [<7813ac9e>] raw_notifier_call_chain+0x17/0x1a
+>>  [<783a3471>] netdev_state_change+0x18/0x29
+>>  [<783ac6a9>] __linkwatch_run_queue+0x150/0x17e
+>>  [<783ac6f4>] linkwatch_event+0x1d/0x22
+>>  [<78133cdf>] run_workqueue+0xdb/0x1b6
+>>  [<78133c8b>] run_workqueue+0x87/0x1b6
+>>  [<783ac6d7>] linkwatch_event+0x0/0x22
+>>  [<781346ff>] worker_thread+0x0/0x85
+>>  [<78134778>] worker_thread+0x79/0x85
+>>  [<781371ad>] autoremove_wake_function+0x0/0x35
+>>  [<781370f6>] kthread+0x38/0x5e
+>>  [<781370be>] kthread+0x0/0x5e
+>>  [<78104baf>] kernel_thread_helper+0x7/0x10
+>>  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>> RTNL: assertion failed at net/ipv6/addrconf.c (1610)
+>
+>
+> Hopefully this is due to the bug you reported in bug #9542.
+>
+> Does this patch fix both issues?
+
+Unfortunately not. I just updated bugzilla.
+
+Best regards,
+
+ =09=09=09=09Krzysztof Ol=EAdzki
+---187430788-802351681-1197385467=:21312--
