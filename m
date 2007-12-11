@@ -1,55 +1,52 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 2.6.25] netns: struct net content re-work
-Date: Mon, 10 Dec 2007 20:52:56 -0700
-Message-ID: <m1prxd28h3.fsf@ebiederm.dsl.xmission.com>
-References: <20071210163645.GA24030@iris.sw.ru>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] NET : dst_ifdown() cleanup
+Date: Tue, 11 Dec 2007 04:59:22 +0100
+Message-ID: <475E0B1A.9030406@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, containers@lists.osdl.org,
-	netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: "Denis V. Lunev" <den@openvz.org>
+Content-Type: multipart/mixed;
+ boundary="------------060604060604060702010703"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:45161 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751840AbXLKDz2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 22:55:28 -0500
-In-Reply-To: <20071210163645.GA24030@iris.sw.ru> (Denis V. Lunev's message of
-	"Mon, 10 Dec 2007 19:36:45 +0300")
+Received: from gw1.cosmosbay.com ([86.65.150.130]:39135 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751744AbXLKD7c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2007 22:59:32 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is a multi-part message in MIME format.
+--------------060604060604060702010703
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-The idea of separate structures make sense, and seems needed and useful.
+This cleanup shrinks size of net/core/dst.o on i386 from 1299 to 1289 bytes.
+(This is because dev_hold()/dev_put() are doing atomic_inc()/atomic_dec() and 
+force compiler to re-evaluate memory contents.)
 
-"Denis V. Lunev" <den@openvz.org> writes:
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-> diff --git a/include/net/netns/unix.h b/include/net/netns/unix.h
-> new file mode 100644
-> index 0000000..27b4e7f
-> --- /dev/null
-> +++ b/include/net/netns/unix.h
-                   ^^^^^^
-Given that we are making this per protocol adding a separate directory
-to hold them seems to be the wrong grouping.  Ideally we want everything
-for the protocol all together in the same location so it is easy
-to find.  Possibly with a user/kernel split.
 
-So perhaps unix_net.h
+--------------060604060604060702010703
+Content-Type: text/plain;
+ name="dst_ifdown.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="dst_ifdown.patch"
 
-> @@ -0,0 +1,13 @@
-> +/*
-> + * Unix network namespace
-> + */
-> +#ifndef __NETNS_UNIX_H__
-> +#define __NETNS_UNIX_H__
-> +
-> +struct ctl_table_header;
-> +struct netns_unix {
-> +	int			sysctl_unix_max_dgram_qlen;
-> +	struct ctl_table_header	*unix_ctl;
-> +};
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 5c6cfc4..7eceeba 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -284,8 +284,8 @@ static inline void dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+ 		dev_put(dev);
+ 		if (dst->neighbour && dst->neighbour->dev == dev) {
+ 			dst->neighbour->dev = dst->dev;
++			dev_hold(dst->dev);
+ 			dev_put(dev);
+-			dev_hold(dst->neighbour->dev);
+ 		}
+ 	}
+ }
 
-How about struct unix_net?  I think that tracks a little better
-with how we have done struct in_device, ip6_dev and their friends.
-
-Eric
+--------------060604060604060702010703--
