@@ -1,40 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netfilter : xt_hashlimit should use time_after_eq()
-Date: Wed, 12 Dec 2007 11:11:43 -0800 (PST)
-Message-ID: <20071212.111143.259694887.davem@davemloft.net>
-References: <47602AE6.6060908@cosmosbay.com>
-	<47603147.90008@trash.net>
+Subject: Re: [PATCH 2/8][BNX2]: Restructure RX fast path handling.
+Date: Wed, 12 Dec 2007 11:17:14 -0800 (PST)
+Message-ID: <20071212.111714.69138276.davem@davemloft.net>
+References: <1197485923.16386.27.camel@dell>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41620
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55922
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750773AbXLLTLn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 14:11:43 -0500
-In-Reply-To: <47603147.90008@trash.net>
+	by vger.kernel.org with ESMTP id S1753555AbXLLTRP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 14:17:15 -0500
+In-Reply-To: <1197485923.16386.27.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed, 12 Dec 2007 20:06:47 +0100
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 12 Dec 2007 10:58:43 -0800
 
-> Eric Dumazet wrote:
-> > Hi David & Patrick
-> > 
-> > I believe this patch is needed for linux-2.6.24
-> > 
-> > Thank you
-> > 
-> > [PATCH] netfilter : xt_hashlimit should use time_after_eq()
-> > 
-> > In order to avoid jiffies wraparound and its effect, special care must 
-> > be taken
-> > when doing comparisons ...
+> [BNX2]: Restructure RX fast path handling.
 > 
-> 
-> Looks good, thanks Eric. Dave, please apply.
+> Add a new function to handle new SKB allocation and to prepare the
+> completed SKB.  This makes it easier to add support for non-linear
+> SKB.
+>  
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Applied, thanks.
+Applied.
