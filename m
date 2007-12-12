@@ -1,47 +1,60 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [kvm-devel] [PATCH resent] virtio_net: Fix stalled inbound trafficon early packets
-Date: Wed, 12 Dec 2007 12:54:13 +1100
-Message-ID: <200712121254.13865.rusty@rustcorp.com.au>
-References: <200712111242.28843.borntraeger@de.ibm.com> <475E892D.9060400@qumranet.com> <200712111416.12655.borntraeger@de.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dor.laor@qumranet.com, kvm-devel <kvm-devel@lists.sourceforge.net>,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Christian Borntraeger <borntraeger@de.ibm.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PATCH 1/3] [IPSEC]: Make xfrm_lookup flags argument a bit-field
+Date: Wed, 12 Dec 2007 09:57:59 +0800
+Message-ID: <E1J2GrH-0005SK-00@gondolin.me.apana.org.au>
+References: <20071212012552.GA20618@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:51229 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752671AbXLLByY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Dec 2007 20:54:24 -0500
-In-Reply-To: <200712111416.12655.borntraeger@de.ibm.com>
-Content-Disposition: inline
+Received: from rhun.apana.org.au ([64.62.148.172]:4799 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750772AbXLLB6C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 20:58:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 12 December 2007 00:16:12 Christian Borntraeger wrote:
-> That would also work. We already have VRING_AVAIL_F_NO_INTERRUPT in
-> virtio_ring.c - maybe we can use that. Its hidden in callback and
-> restart handling, what about adding an explicit startup?
+[IPSEC]: Make xfrm_lookup flags argument a bit-field
 
-Yes, I debated whether to make this a separate hook or not; the current method 
-reduces the number of function calls without having two ways of disabling 
-callbacks.
+This patch introduces an enum for bits in the flags argument of xfrm_lookup.
+This is so that we can cram more information into it later.
 
-In this case, simply starting devices with callbacks disabled and 
-renaming 'restart' to 'enable' (or something) and calling it at the beginning 
-is probably sufficient?
+Since all current users use just the values 0 and 1, XFRM_LOOKUP_WAIT has
+been added with the value 1 << 0 to represent the current meaning of flags.
 
-Thanks for all this debugging!  Will apply next week when I'm back...
+The test in __xfrm_lookup has been changed accordingly.
 
-> Ok, didnt know that. At the moment I can live with my private patch
-> while we work on a final solution. Meanwhile I will try to debug virtio
-> on SMP guests - I still see some strange races on our test system. (But
-> block and net is now working on s390 and can cope with medium load. )
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
 
-Obviously SMP is not something I tested under lguest, so can believe there are 
-nasty lurking bugs.  Hope they're not too deep...
+ include/net/dst.h      |    5 +++++
+ net/xfrm/xfrm_policy.c |    2 +-
+ 2 files changed, 6 insertions(+), 1 deletion(-)
 
-Thanks!
-Rusty.
+diff --git a/include/net/dst.h b/include/net/dst.h
+index e86b9a0..aaa2dbb 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -265,6 +265,11 @@ static inline struct dst_entry *dst_check(struct dst_entry *dst, u32 cookie)
+ 
+ extern void		dst_init(void);
+ 
++/* Flags for xfrm_lookup flags argument. */
++enum {
++	XFRM_LOOKUP_WAIT = 1 << 0,
++};
++
+ struct flowi;
+ #ifndef CONFIG_XFRM
+ static inline int xfrm_lookup(struct dst_entry **dst_p, struct flowi *fl,
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 39805b4..265c679 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1565,7 +1565,7 @@ restart:
+ 				xfrm_pol_put(policy);
+ 				return -EREMOTE;
+ 			}
+-			if (err == -EAGAIN && flags) {
++			if (err == -EAGAIN && (flags & XFRM_LOOKUP_WAIT)) {
+ 				DECLARE_WAITQUEUE(wait, current);
+ 
+ 				add_wait_queue(&km_waitq, &wait);
