@@ -1,47 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 6/7] : tehuti Fix possible causing oops of
- net_rx_action
-Date: Wed, 12 Dec 2007 07:18:32 -0800 (PST)
-Message-ID: <20071212.071832.07747779.davem@davemloft.net>
-References: <002901c83c73$b089b6e0$9c94fea9@jason>
+From: Timur Tabi <timur@freescale.com>
+Subject: Re: [PATCH 1/2] qe: add function qe_clock_source()
+Date: Wed, 12 Dec 2007 09:19:07 -0600
+Message-ID: <475FFBEB.60005@freescale.com>
+References: <11967166791607-git-send-email-timur@freescale.com> <1196716680381-git-send-email-timur@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jgarzik@pobox.com, baum@tehutinetworks.net, andy@greyhouse.net
-To: joonwpark81@gmail.com
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: galak@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60561
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752042AbXLLPSf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 10:18:35 -0500
-In-Reply-To: <002901c83c73$b089b6e0$9c94fea9@jason>
+Received: from de01egw02.freescale.net ([192.88.165.103]:34020 "EHLO
+	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751892AbXLLPTQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 10:19:16 -0500
+In-Reply-To: <1196716680381-git-send-email-timur@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Date: Wed, 12 Dec 2007 13:01:27 +0900
+Timur Tabi wrote:
+> Add function qe_clock_source() which takes a string containing the name of a
+> QE clock source (as is typically found in device trees) and returns the
+> matching enum qe_clock value.
+> 
+> Update booting-without-of.txt to indicate that the UCC properties rx-clock
+> and tx-clock are deprecated and replaced with rx-clock-name and tx-clock-name,
+> which use strings instead of numbers to indicate QE clock sources.
+> 
+> Signed-off-by: Timur Tabi <timur@freescale.com>
 
-> @@ -305,6 +305,8 @@ static int bdx_poll(struct napi_struct *napi, int budget)
->  
->  		netif_rx_complete(dev, napi);
->  		bdx_enable_interrupts(priv);
-> +		if (unlikely(work_done == napi->weight))
-> +			return work_done - 1;
->  	}
->  	return work_done;
->  }
+If there are no objections, I'd like this patch to be pulled into 2.6.25.  Thanks.
 
-Any time your trying to make a caller "happy" by adjusting
-a return value forcefully, it's a hack.
-
-And I stated this in another reply about this issue.
-
-Please do not fix the problem this way.
-
-The correct way to fix this is, if we did process a full
-"weight" or work, we should not netif_rx_complete() and
-we should not re-enable chip interrupts.
-
-Instead we should return the true "work_done" value and
-allow the caller to thus poll us one more time.
+-- 
+Timur Tabi
+Linux kernel developer at Freescale
