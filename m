@@ -1,46 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Bug 9542] BUG: bad unlock balance detected!
-Date: Wed, 12 Dec 2007 22:20:52 +0800
-Message-ID: <20071212142052.GA26540@gondor.apana.org.au>
-References: <bug-9542-27@http.bugzilla.kernel.org/> <20071211150313.EF4D210806E@picon.linux-foundation.org> <20071211140614.7c1738a5.akpm@linux-foundation.org>
+From: "Joonwoo Park" <joonwpark81-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/2] [net/wireless/iwlwifi] : iwlwifi 3945 Fix raceconditional panic.
+Date: Wed, 12 Dec 2007 23:41:24 +0900
+Message-ID: <b25c3fa70712120641l1fcf4447u2501cc8539396cf3@mail.gmail.com>
+References: <00e501c831ab$2e78daa0$9c94fea9@jason>
+	 <1196298656.7614.77.camel@debian.sh.intel.com>
+	 <016401c83229$3302d250$9c94fea9@jason>
+	 <20071212034325.4a022320.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	olel@ans.pl, Jay Vosburgh <fubar@us.ibm.com>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1141 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751292AbXLLOU5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 09:20:57 -0500
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Zhu Yi" <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Andrew Morton" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20071212034325.4a022320.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20071211140614.7c1738a5.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 11, 2007 at 10:06:14PM +0000, Andrew Morton wrote:
+2007/12/12, Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>:
 >
-> > events/0/9 just changed the state of lock:
-> >  (&mc->mca_lock){-+..}, at: [<c0412602>] mld_ifc_timer_expire+0x130/0x1fb
-> > but this lock took another, soft-read-irq-unsafe lock in the past:
-> >  (&bond->lock){-.--}
-> > 
-> > and interrupts could create inverse lock ordering between them.
+> Did drivers/net/wireless/iwlwifi/iwl4965-base.c get fixed in a simlar
+> fashion?
+>
 
-Yes this is a bug in the bonding driver.
+Hi Andrew,
+Both of them was applied to mainline.
 
-It's assuming that bond->lock is only ever held for writing in
-process context.  Unfortunately our current set_multicast_list
-interface violates this constraint.
+commit 3ae6a054553ee8b7f74bf7de8904022b26705778
+Author: Joonwoo Park <joonwpark81-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date:   Thu Nov 29 10:43:16 2007 +0900
 
-Now I do have a TODO item to fix set_multicast_list to not do
-that, but until that happens, bond->lock should always turn BH
-off, even on read lock.
+    iwlwifi 4965 Fix race conditional panic.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+    Signed-off-by: Joonwoo Park <joonwpark81-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+    Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+
+commit e47eb6ad41e8fc4c2696665512b70d1fd4cf3f22
+Author: Joonwoo Park <joonwpark81-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date:   Thu Nov 29 10:42:49 2007 +0900
+
+    iwlwifi 3945 Fix race conditional panic.
+
+    Signed-off-by: Joonwoo Park <joonwpark81-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+    Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+
+Thanks,
+Joonwoo
