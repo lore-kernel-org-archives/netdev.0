@@ -1,105 +1,73 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2/8][BNX2]: Restructure RX fast path handling.
-Date: Wed, 12 Dec 2007 10:58:43 -0800
-Message-ID: <1197485923.16386.27.camel@dell>
+From: Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH resent] virtio_net: Fix stalled inbound
+	trafficon early packets
+Date: Wed, 12 Dec 2007 19:14:38 +0100
+Message-ID: <200712121914.38135.borntraeger@de.ibm.com>
+References: <200712111242.28843.borntraeger@de.ibm.com>
+	<200712121239.51435.borntraeger@de.ibm.com>
+	<476002E7.5050301@qumranet.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2299 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751705AbXLLSOK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Dec 2007 13:14:10 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm-devel <kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+To: dor.laor-atKUWr5tajBWk0Htik3J/w@public.gmane.org
+Return-path: <kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <476002E7.5050301-atKUWr5tajBWk0Htik3J/w@public.gmane.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
+	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=kvm-devel>
+List-Post: <mailto:kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
+	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-[BNX2]: Restructure RX fast path handling.
+Am Mittwoch, 12. Dezember 2007 schrieb Dor Laor:
+> I think the change below handles the race. Otherwise please detail the 
+> use case.
+[...]
+> > @@ -292,6 +292,9 @@ static int virtnet_open(struct net_devic
+> >                 return -ENOMEM;
+> >
+> >         napi_enable(&vi->napi);
+> > +
+> > +       vi->rvq->vq_ops->enable(vi->rvq);
+> > +       vi->svq->vq_ops->enable(vi->svq);
+> >
+> If you change it to:
+> if (!vi->rvq->vq_ops->enable(vi->rvq))
+>     vi->rvq->vq_ops->kick(vi->rvq);
+> if (!vi->rvq->vq_ops->enable(vi->svq))
+>     vi->rvq->vq_ops->kick(vi->svq);
+> 
+> You solve the race of packets already waiting in the queue without 
+> triggering the irq.
 
-Add a new function to handle new SKB allocation and to prepare the
-completed SKB.  This makes it easier to add support for non-linear
-SKB.
- 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Hmm, I dont fully understand your point. I think this will work as long as 
+the host has not consumed all inbound buffers. It will also require that 
+the host sends an additional packet, no? If no additional packet comes the 
+host has no reason to send an interrupt just because it got a notify 
+hypercall. kick inside a guest also does not trigger the poll routine. 
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index dfe50c2..14119fb 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -2379,6 +2379,27 @@ bnx2_reuse_rx_skb(struct bnx2 *bp, struct sk_buff *skb,
- 	prod_bd->rx_bd_haddr_lo = cons_bd->rx_bd_haddr_lo;
- }
- 
-+static int
-+bnx2_rx_skb(struct bnx2 *bp, struct sk_buff *skb, unsigned int len,
-+	    dma_addr_t dma_addr, u32 ring_idx)
-+{
-+	int err;
-+	u16 prod = ring_idx & 0xffff;
-+
-+	err = bnx2_alloc_rx_skb(bp, prod);
-+	if (unlikely(err)) {
-+		bnx2_reuse_rx_skb(bp, skb, (u16) (ring_idx >> 16), prod);
-+		return err;
-+	}
-+
-+	skb_reserve(skb, bp->rx_offset);
-+	pci_unmap_single(bp->pdev, dma_addr, bp->rx_buf_use_size,
-+			 PCI_DMA_FROMDEVICE);
-+
-+	skb_put(skb, len);
-+	return 0;
-+}
-+
- static inline u16
- bnx2_get_hw_rx_cons(struct bnx2 *bp)
- {
-@@ -2434,7 +2455,8 @@ bnx2_rx_int(struct bnx2 *bp, int budget)
- 			L2_FHDR_ERRORS_TOO_SHORT |
- 			L2_FHDR_ERRORS_GIANT_FRAME)) {
- 
--			goto reuse_rx;
-+			bnx2_reuse_rx_skb(bp, skb, sw_ring_cons, sw_ring_prod);
-+			goto next_rx;
- 		}
- 
- 		/* Since we don't have a jumbo ring, copy small packets
-@@ -2444,8 +2466,11 @@ bnx2_rx_int(struct bnx2 *bp, int budget)
- 			struct sk_buff *new_skb;
- 
- 			new_skb = netdev_alloc_skb(bp->dev, len + 2);
--			if (new_skb == NULL)
--				goto reuse_rx;
-+			if (new_skb == NULL) {
-+				bnx2_reuse_rx_skb(bp, skb, sw_ring_cons,
-+						  sw_ring_prod);
-+				goto next_rx;
-+			}
- 
- 			/* aligned copy */
- 			skb_copy_from_linear_data_offset(skb, bp->rx_offset - 2,
-@@ -2457,20 +2482,9 @@ bnx2_rx_int(struct bnx2 *bp, int budget)
- 				sw_ring_cons, sw_ring_prod);
- 
- 			skb = new_skb;
--		}
--		else if (bnx2_alloc_rx_skb(bp, sw_ring_prod) == 0) {
--			pci_unmap_single(bp->pdev, dma_addr,
--				bp->rx_buf_use_size, PCI_DMA_FROMDEVICE);
--
--			skb_reserve(skb, bp->rx_offset);
--			skb_put(skb, len);
--		}
--		else {
--reuse_rx:
--			bnx2_reuse_rx_skb(bp, skb,
--				sw_ring_cons, sw_ring_prod);
-+		} else if (unlikely(bnx2_rx_skb(bp, skb, len, dma_addr,
-+				    (sw_ring_cons << 16) | sw_ring_prod)))
- 			goto next_rx;
--		}
- 
- 		skb->protocol = eth_type_trans(skb, bp->dev);
- 
+It also wont work on the following scenario:
+in virtnet open we will allocate buffers and send them to the host using the 
+kick callback. The host can now use _all_ buffers for incoming data while 
+interrupts are still disabled and the guest is not running.( Lets say the 
+host bridge has lots of multicast traffic and the guest gets not scheduled 
+for a while). When the guest now continues and enables the interrupts 
+nothing happens. Doing a kick does not help, as the host code will bail out 
+with "no dma memory for transfer".
+
+Christian
 
 
+-------------------------------------------------------------------------
+SF.Net email is sponsored by:
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services
+for just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
