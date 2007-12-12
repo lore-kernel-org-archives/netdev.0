@@ -1,45 +1,47 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [RFC] net: napi fix
-Date: Wed, 12 Dec 2007 10:41:59 -0800
-Message-ID: <47602B77.2090202@intel.com>
-References: <47601A73.5010804@myri.com> <20071212.093819.205755031.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/3] [IPSEC]: Add ICMP host relookup support
+Date: Wed, 12 Dec 2007 10:45:16 -0800 (PST)
+Message-ID: <20071212.104516.111707350.davem@davemloft.net>
+References: <20071212012552.GA20618@gondor.apana.org.au>
+	<E1J2GrJ-0005Se-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gallatin@myri.com, joonwpark81@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	shemminger@linux-foundation.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:17060 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751563AbXLLSpC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Dec 2007 13:45:02 -0500
-In-Reply-To: <20071212.093819.205755031.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54299
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757462AbXLLSpR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 13:45:17 -0500
+In-Reply-To: <E1J2GrJ-0005Se-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Andrew Gallatin <gallatin@myri.com>
-> Date: Wed, 12 Dec 2007 12:29:23 -0500
-> 
->> Is the netif_running() check even required?
-> 
-> No, it is not.
-> 
-> When a device is brought down, one of the first things
-> that happens is that we wait for all pending NAPI polls
-> to complete, then block any new polls from starting.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 12 Dec 2007 09:58:01 +0800
 
-I think this was previously (pre-2.6.24) not the case, which is why e1000 et al
-has this check as well and that's exactly what is causing most of the
-net_rx_action oopses in the first place. Without the netif_running() check
-previously the drivers were just unusable with NAPI and prone to many races with
-down (i.e. touching some ethtool ioctl which wants to do a reset while routing
-small packets at high numbers). that's why we added the netif_running() check in
-the first place :)
+> [IPSEC]: Add ICMP host relookup support
+> 
+> RFC 4301 requires us to relookup ICMP traffic that does not match any
+> policies using the reverse of its payload.  This patch implements this
+> for ICMP traffic that originates from or terminates on localhost.
+> 
+> This is activated on outbound with the new policy flag XFRM_POLICY_ICMP,
+> and on inbound by the new state flag XFRM_STATE_ICMP.
+> 
+> On inbound the policy check is now performed by the ICMP protocol so
+> that it can repeat the policy check where necessary.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+ ...
+> @@ -268,6 +268,7 @@ extern void		dst_init(void);
+>  /* Flags for xfrm_lookup flags argument. */
+>  enum {
+>  	XFRM_LOOKUP_WAIT = 1 << 0,
+> +	XFRM_LOOKUP_ICMP = 1 << 1,
+>  };
+>  
+>  struct flowi;
 
-There might be more drivers lurking that need this change...
-
-Auke
+Sigh :-(  Applied.
