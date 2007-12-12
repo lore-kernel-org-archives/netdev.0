@@ -1,129 +1,73 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [PATCH 5/7] [TFRC]: CCID3 (and CCID4) needs to access these inlines
-Date: Wed, 12 Dec 2007 14:36:51 -0200
-Message-ID: <1197477413-1456-6-git-send-email-acme@redhat.com>
+Subject: [PATCH 4/7] [CCID3]: Redundant debugging output / documentation
+Date: Wed, 12 Dec 2007 14:36:50 -0200
+Message-ID: <1197477413-1456-5-git-send-email-acme@redhat.com>
 References: <1197477413-1456-1-git-send-email-acme@redhat.com>
  <1197477413-1456-2-git-send-email-acme@redhat.com>
  <1197477413-1456-3-git-send-email-acme@redhat.com>
  <1197477413-1456-4-git-send-email-acme@redhat.com>
- <1197477413-1456-5-git-send-email-acme@redhat.com>
 Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
 	Arnaldo Carvalho de Melo <acme@redhat.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.246]:60575 "EHLO
+Received: from an-out-0708.google.com ([209.85.132.243]:61510 "EHLO
 	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757042AbXLLQhs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 11:37:48 -0500
-Received: by an-out-0708.google.com with SMTP id d31so73103and.103
+	with ESMTP id S1756844AbXLLQht (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 11:37:49 -0500
+Received: by an-out-0708.google.com with SMTP id d31so73135and.103
         for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 08:37:48 -0800 (PST)
-In-Reply-To: <1197477413-1456-5-git-send-email-acme@redhat.com>
+In-Reply-To: <1197477413-1456-4-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-This moves two inlines back to packet_history.h: these are not private
-to packet_history.c, but are needed by CCID3/4 to detect whether a new
-loss is indicated, or whether a loss is already pending.
+Each time feedback is sent two lines are printed:
+
+	ccid3_hc_rx_send_feedback: client ... - entry
+	ccid3_hc_rx_send_feedback: Interval ...usec, X_recv=..., 1/p=...
+
+The first line is redundant and thus removed.
+
+Further, documentation of ccid3_hc_rx_sock (capitalisation) is made consistent.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/dccp/ccids/lib/packet_history.c |   26 --------------------------
- net/dccp/ccids/lib/packet_history.h |   35 +++++++++++++++++++++++++++++++----
- 2 files changed, 31 insertions(+), 30 deletions(-)
+ net/dccp/ccids/ccid3.c |    2 --
+ net/dccp/ccids/ccid3.h |    4 ++--
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/net/dccp/ccids/lib/packet_history.c b/net/dccp/ccids/lib/packet_history.c
-index 5b10a1e..20af1a6 100644
---- a/net/dccp/ccids/lib/packet_history.c
-+++ b/net/dccp/ccids/lib/packet_history.c
-@@ -191,32 +191,6 @@ int tfrc_rx_hist_duplicate(struct tfrc_rx_hist *h, struct sk_buff *skb)
- }
- EXPORT_SYMBOL_GPL(tfrc_rx_hist_duplicate);
+diff --git a/net/dccp/ccids/ccid3.c b/net/dccp/ccids/ccid3.c
+index 60fcb31..b92069b 100644
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -685,8 +685,6 @@ static void ccid3_hc_rx_send_feedback(struct sock *sk,
+ 	ktime_t now;
+ 	s64 delta = 0;
  
--/* initialise loss detection and disable RTT sampling */
--static inline void tfrc_rx_hist_loss_indicated(struct tfrc_rx_hist *h)
--{
--	h->loss_count = 1;
--}
+-	ccid3_pr_debug("%s(%p) - entry \n", dccp_role(sk), sk);
 -
--/* indicate whether previously a packet was detected missing */
--static inline int tfrc_rx_hist_loss_pending(const struct tfrc_rx_hist *h)
--{
--	return h->loss_count;
--}
--
--/* any data packets missing between last reception and skb ? */
--int tfrc_rx_hist_new_loss_indicated(struct tfrc_rx_hist *h,
--				    const struct sk_buff *skb, u32 ndp)
--{
--	int delta = dccp_delta_seqno(tfrc_rx_hist_last_rcv(h)->tfrchrx_seqno,
--				     DCCP_SKB_CB(skb)->dccpd_seq);
--
--	if (delta > 1 && ndp < delta)
--		tfrc_rx_hist_loss_indicated(h);
--
--	return tfrc_rx_hist_loss_pending(h);
--}
--EXPORT_SYMBOL_GPL(tfrc_rx_hist_new_loss_indicated);
--
- static void tfrc_rx_hist_swap(struct tfrc_rx_hist *h, const u8 a, const u8 b)
- {
- 	const u8 idx_a = tfrc_rx_hist_index(h, a),
-diff --git a/net/dccp/ccids/lib/packet_history.h b/net/dccp/ccids/lib/packet_history.h
-index 24edd8d..c7eeda4 100644
---- a/net/dccp/ccids/lib/packet_history.h
-+++ b/net/dccp/ccids/lib/packet_history.h
-@@ -118,16 +118,43 @@ static inline struct tfrc_rx_hist_entry *
- 	return h->ring[h->loss_start];
- }
+ 	if (unlikely(hcrx->ccid3hcrx_state == TFRC_RSTATE_TERM))
+ 		return;
  
-+/* initialise loss detection and disable RTT sampling */
-+static inline void tfrc_rx_hist_loss_indicated(struct tfrc_rx_hist *h)
-+{
-+	h->loss_count = 1;
-+}
-+
-+/* indicate whether previously a packet was detected missing */
-+static inline int tfrc_rx_hist_loss_pending(const struct tfrc_rx_hist *h)
-+{
-+	return h->loss_count;
-+}
-+
-+/* any data packets missing between last reception and skb ? */
-+static inline int tfrc_rx_hist_new_loss_indicated(struct tfrc_rx_hist *h,
-+						  const struct sk_buff *skb,
-+						  u32 ndp)
-+{
-+	int delta = dccp_delta_seqno(tfrc_rx_hist_last_rcv(h)->tfrchrx_seqno,
-+				     DCCP_SKB_CB(skb)->dccpd_seq);
-+
-+	if (delta > 1 && ndp < delta)
-+		tfrc_rx_hist_loss_indicated(h);
-+
-+	return tfrc_rx_hist_loss_pending(h);
-+}
-+
- extern void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
- 				    const struct sk_buff *skb, const u32 ndp);
- 
- extern int tfrc_rx_hist_duplicate(struct tfrc_rx_hist *h, struct sk_buff *skb);
--extern int tfrc_rx_hist_new_loss_indicated(struct tfrc_rx_hist *h,
--					   const struct sk_buff *skb, u32 ndp);
-+
- struct tfrc_loss_hist;
--extern int  tfrc_rx_handle_loss(struct tfrc_rx_hist *, struct tfrc_loss_hist *,
-+extern int  tfrc_rx_handle_loss(struct tfrc_rx_hist *h,
-+				struct tfrc_loss_hist *lh,
- 				struct sk_buff *skb, u32 ndp,
--				u32 (*first_li)(struct sock *), struct sock *);
-+				u32 (*first_li)(struct sock *sk),
-+				struct sock *sk);
- extern u32 tfrc_rx_hist_sample_rtt(struct tfrc_rx_hist *h,
- 				   const struct sk_buff *skb);
- extern int tfrc_rx_hist_alloc(struct tfrc_rx_hist *h);
+diff --git a/net/dccp/ccids/ccid3.h b/net/dccp/ccids/ccid3.h
+index 3c33dc6..6ceeb80 100644
+--- a/net/dccp/ccids/ccid3.h
++++ b/net/dccp/ccids/ccid3.h
+@@ -135,9 +135,9 @@ enum ccid3_hc_rx_states {
+  *
+  *  @ccid3hcrx_x_recv  -  Receiver estimate of send rate (RFC 3448 4.3)
+  *  @ccid3hcrx_rtt  -  Receiver estimate of rtt (non-standard)
+- *  @ccid3hcrx_p  -  current loss event rate (RFC 3448 5.4)
++ *  @ccid3hcrx_p  -  Current loss event rate (RFC 3448 5.4)
+  *  @ccid3hcrx_last_counter  -  Tracks window counter (RFC 4342, 8.1)
+- *  @ccid3hcrx_state  -  receiver state, one of %ccid3_hc_rx_states
++ *  @ccid3hcrx_state  -  Receiver state, one of %ccid3_hc_rx_states
+  *  @ccid3hcrx_bytes_recv  -  Total sum of DCCP payload bytes
+  *  @ccid3hcrx_tstamp_last_feedback  -  Time at which last feedback was sent
+  *  @ccid3hcrx_tstamp_last_ack  -  Time at which last feedback was sent
 -- 
 1.5.3.4
 
