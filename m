@@ -1,51 +1,42 @@
-From: Cedric Le Goater <clg@fr.ibm.com>
-Subject: Re: 2.6.24-rc4-mm1
-Date: Wed, 12 Dec 2007 20:21:25 +0100
-Message-ID: <476034B5.80106@fr.ibm.com>
-References: <20071204211701.994dfce6.akpm@linux-foundation.org> <47579DD9.9030909@reub.net> <20071205233504.67366c5b.akpm@linux-foundation.org> <Pine.LNX.4.64.0712101136190.18529@kivilampi-30.cs.helsinki.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 1/1] Convert the semaphore to a mutex
+ in net/tipc/socket.c
+Date: Wed, 12 Dec 2007 11:24:43 -0800 (PST)
+Message-ID: <20071212.112443.161687571.davem@davemloft.net>
+References: <20071210011741.039692330@gmail.com>
+	<20071210011800.543055487@gmail.com>
+	<20071211164445.752431ec.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Reuben Farrelly <reuben-linuxkernel@reub.net>,
-	David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Auke Kok <auke-jan.h.kok@intel.com>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.29.150]:32220 "EHLO
-	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758091AbXLLTVa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 14:21:30 -0500
-In-Reply-To: <Pine.LNX.4.64.0712101136190.18529@kivilampi-30.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, per.liden@ericsson.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net, allan.stephens@windriver.com,
+	kjwinchester@gmail.com, mingo@elte.hu
+To: akpm@linux-foundation.org
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <20071211164445.752431ec.akpm@linux-foundation.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Sender: tipc-discussion-bounces@lists.sourceforge.net
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Ilpo J=E4rvinen wrote:
-> On Wed, 5 Dec 2007, Andrew Morton wrote:
->=20
->> On Thu, 06 Dec 2007 17:59:37 +1100 Reuben Farrelly <reuben-linuxkern=
-el@reub.net> wrote:
->>
->>> This non fatal oops which I have just noticed may be related to thi=
-s change then=20
->>> - certainly looks networking related.
->> yep, but it isn't e1000.  It's core TCP.
->>
->>> WARNING: at net/ipv4/tcp_input.c:2518 tcp_fastretrans_alert()
->>> Pid: 0, comm: swapper Not tainted 2.6.24-rc4-mm1 #1
->> Ilpo, Reuben's kernel is talking to you ;)
->=20
-> ...Please try the patch below. Andrew, this probably fixes your probl=
-em=20
-> (the packets <=3D tp->packets_out) as well.
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Tue, 11 Dec 2007 16:44:45 -0800
 
-nah. I got the WARNINGs again with this patch.
+> So I'd propose this:
 
-C.
-=20
-> Dave, please include this one to net-2.6.25.
->=20
->=20
+I've applied this to net-2.6, thanks Andrew.
 
+-------------------------------------------------------------------------
+SF.Net email is sponsored by:
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services
+for just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
