@@ -1,60 +1,48 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] iproute2: support dotted-quad netmask notation.
-Date: Wed, 12 Dec 2007 08:40:33 -0800
-Message-ID: <20071212084033.0efb24e7@freepuppy.rosehill>
-References: <20071204135818.GA24419@scream.fatal.se>
-	<20071206115350.18e9204f@freepuppy.rosehill>
-	<1197070894.5385.14.camel@localhost.localdomain>
-	<1197220222.4392.9.camel@localhost.localdomain>
-	<20071211171406.57389dba@freepuppy.rosehill>
-	<20071212115513.GA3394@scream.fatal.se>
+From: Jochen Friedrich <jochen@scram.de>
+Subject: [PATCH/RFC] [POWERPC] Add fixed-phy support for fs_enet
+Date: Wed, 12 Dec 2007 17:45:27 +0100
+Message-ID: <47601027.2080104@scram.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andreas Henriksson <andreas@fatal.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:34821 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757020AbXLLQmC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 11:42:02 -0500
-In-Reply-To: <20071212115513.GA3394@scream.fatal.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jeff Garzik <jeff@garzik.org>, linuxppc-dev@ozlabs.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Scott Wood <scottwood@freescale.com>
+To: Vitaly Bordug <vitb@kernel.crashing.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759207AbXLLQpw@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 12 Dec 2007 12:55:13 +0100
-Andreas Henriksson <andreas@fatal.se> wrote:
+This patch adds support to use the fixed-link property
+of an ethernet node to fs_enet for the
+CONFIG_PPC_CPM_NEW_BINDING case.
 
-> On Tue, Dec 11, 2007 at 05:14:06PM -0800, Stephen Hemminger wrote:
-> > On Sun, 09 Dec 2007 18:10:22 +0100
-> > Andreas Henriksson <andreas@fatal.se> wrote:
-> > > I think both previous patches where broken on big-endian platforms.
-> > > Here's an updated patch again. I'm very sorry for the inconvenience!
-> [...]
-> > > +		*val=0;
-> > > +		for (mask = ntohl(addr.data[0]); mask; mask <<= 1)
-> > > +			(*val)++;
-> [...]
-> > 
-> > applied
-> > 
-> 
-> Just to make sure.... It looks on git.kernel.org like you applied the wrong
-> patch. (Maybe you just haven't pushed out the latest changes there yet.)
-> Please double-check that you actually applied the latest version (which is
-> the one in the mail you replied "applied" to, important part quoted above). 
+Signed-off-by: Jochen Friedrich <jochen@scram.de>
+---
+ drivers/net/fs_enet/fs_enet-main.c |    9 ++++++++-
+ 1 files changed, 8 insertions(+), 1 deletions(-)
 
-Actually, I took your logic and moved it to a new function:
+diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
+index f2a4d39..8220c70 100644
+--- a/drivers/net/fs_enet/fs_enet-main.c
++++ b/drivers/net/fs_enet/fs_enet-main.c
+@@ -1174,8 +1174,15 @@ static int __devinit find_phy(struct device_node *np,
+ 	struct device_node *phynode, *mdionode;
+ 	struct resource res;
+ 	int ret = 0, len;
++	const u32 *data;
++
++	data  = of_get_property(np, "fixed-link", NULL);
++	if (data) {
++		snprintf(fpi->bus_id, 16, PHY_ID_FMT, 0, *data);
++		return 0;
++	}
 
-static unsigned cidr(const inet_prefix *addr)
-{
-	unsigned bits = 0;
-	u_int32_t mask;
+-	const u32 *data = of_get_property(np, "phy-handle", &len);
++	data = of_get_property(np, "phy-handle", &len);
+ 	if (!data || len != 4)
+ 		return -EINVAL;
 
-	for (mask = ntohl(addr->data[0]); mask; mask <<= 1)
-		++bits;
-
-	return bits;
-}
 -- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+1.5.3.7
+
