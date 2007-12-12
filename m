@@ -1,73 +1,181 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [PATCH 4/7] [CCID3]: Redundant debugging output / documentation
-Date: Wed, 12 Dec 2007 14:36:50 -0200
-Message-ID: <1197477413-1456-5-git-send-email-acme@redhat.com>
+Subject: [PATCH 1/7] [TFRC]: Put RX/TX initialisation into tfrc.c
+Date: Wed, 12 Dec 2007 14:36:47 -0200
+Message-ID: <1197477413-1456-2-git-send-email-acme@redhat.com>
 References: <1197477413-1456-1-git-send-email-acme@redhat.com>
- <1197477413-1456-2-git-send-email-acme@redhat.com>
- <1197477413-1456-3-git-send-email-acme@redhat.com>
- <1197477413-1456-4-git-send-email-acme@redhat.com>
 Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
 	Arnaldo Carvalho de Melo <acme@redhat.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.243]:61510 "EHLO
+Received: from an-out-0708.google.com ([209.85.132.245]:61090 "EHLO
 	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756844AbXLLQht (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 11:37:49 -0500
-Received: by an-out-0708.google.com with SMTP id d31so73135and.103
-        for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 08:37:48 -0800 (PST)
-In-Reply-To: <1197477413-1456-4-git-send-email-acme@redhat.com>
+	with ESMTP id S1757452AbXLLQhm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 11:37:42 -0500
+Received: by an-out-0708.google.com with SMTP id d31so73102and.103
+        for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 08:37:41 -0800 (PST)
+In-Reply-To: <1197477413-1456-1-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-Each time feedback is sent two lines are printed:
-
-	ccid3_hc_rx_send_feedback: client ... - entry
-	ccid3_hc_rx_send_feedback: Interval ...usec, X_recv=..., 1/p=...
-
-The first line is redundant and thus removed.
-
-Further, documentation of ccid3_hc_rx_sock (capitalisation) is made consistent.
+This separates RX/TX initialisation and puts all packet history / loss intervals
+initialisation into tfrc.c.
+The organisation is uniform: slab declaration -> {rx,tx}_init() -> {rx,tx}_exit()
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/dccp/ccids/ccid3.c |    2 --
- net/dccp/ccids/ccid3.h |    4 ++--
- 2 files changed, 2 insertions(+), 4 deletions(-)
+ net/dccp/ccids/lib/packet_history.c |   68 ++++++++++++++++------------------
+ net/dccp/ccids/lib/tfrc.c           |   31 ++++++++++++----
+ 2 files changed, 55 insertions(+), 44 deletions(-)
 
-diff --git a/net/dccp/ccids/ccid3.c b/net/dccp/ccids/ccid3.c
-index 60fcb31..b92069b 100644
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -685,8 +685,6 @@ static void ccid3_hc_rx_send_feedback(struct sock *sk,
- 	ktime_t now;
- 	s64 delta = 0;
+diff --git a/net/dccp/ccids/lib/packet_history.c b/net/dccp/ccids/lib/packet_history.c
+index af44082..727b17d 100644
+--- a/net/dccp/ccids/lib/packet_history.c
++++ b/net/dccp/ccids/lib/packet_history.c
+@@ -57,6 +57,22 @@ struct tfrc_tx_hist_entry {
+  */
+ static struct kmem_cache *tfrc_tx_hist_slab;
  
--	ccid3_pr_debug("%s(%p) - entry \n", dccp_role(sk), sk);
++int __init tfrc_tx_packet_history_init(void)
++{
++	tfrc_tx_hist_slab = kmem_cache_create("tfrc_tx_hist",
++					      sizeof(struct tfrc_tx_hist_entry),
++					      0, SLAB_HWCACHE_ALIGN, NULL);
++	return tfrc_tx_hist_slab == NULL ? -ENOBUFS : 0;
++}
++
++void tfrc_tx_packet_history_exit(void)
++{
++	if (tfrc_tx_hist_slab != NULL) {
++		kmem_cache_destroy(tfrc_tx_hist_slab);
++		tfrc_tx_hist_slab = NULL;
++	}
++}
++
+ static struct tfrc_tx_hist_entry *
+ 	tfrc_tx_hist_find_entry(struct tfrc_tx_hist_entry *head, u64 seqno)
+ {
+@@ -119,6 +135,22 @@ EXPORT_SYMBOL_GPL(tfrc_tx_hist_rtt);
+  */
+ static struct kmem_cache *tfrc_rx_hist_slab;
+ 
++int __init tfrc_rx_packet_history_init(void)
++{
++	tfrc_rx_hist_slab = kmem_cache_create("tfrc_rxh_cache",
++					      sizeof(struct tfrc_rx_hist_entry),
++					      0, SLAB_HWCACHE_ALIGN, NULL);
++	return tfrc_rx_hist_slab == NULL ? -ENOBUFS : 0;
++}
++
++void tfrc_rx_packet_history_exit(void)
++{
++	if (tfrc_rx_hist_slab != NULL) {
++		kmem_cache_destroy(tfrc_rx_hist_slab);
++		tfrc_rx_hist_slab = NULL;
++	}
++}
++
+ /**
+  * tfrc_rx_hist_index - index to reach n-th entry after loss_start
+  */
+@@ -316,39 +348,3 @@ keep_ref_for_next_time:
+ 	return sample;
+ }
+ EXPORT_SYMBOL_GPL(tfrc_rx_hist_sample_rtt);
 -
- 	if (unlikely(hcrx->ccid3hcrx_state == TFRC_RSTATE_TERM))
- 		return;
+-__init int packet_history_init(void)
+-{
+-	tfrc_tx_hist_slab = kmem_cache_create("tfrc_tx_hist",
+-					      sizeof(struct tfrc_tx_hist_entry), 0,
+-					      SLAB_HWCACHE_ALIGN, NULL);
+-	if (tfrc_tx_hist_slab == NULL)
+-		goto out_err;
+-
+-	tfrc_rx_hist_slab = kmem_cache_create("tfrc_rx_hist",
+-					      sizeof(struct tfrc_rx_hist_entry), 0,
+-					      SLAB_HWCACHE_ALIGN, NULL);
+-	if (tfrc_rx_hist_slab == NULL)
+-		goto out_free_tx;
+-
+-	return 0;
+-
+-out_free_tx:
+-	kmem_cache_destroy(tfrc_tx_hist_slab);
+-	tfrc_tx_hist_slab = NULL;
+-out_err:
+-	return -ENOBUFS;
+-}
+-
+-void packet_history_exit(void)
+-{
+-	if (tfrc_tx_hist_slab != NULL) {
+-		kmem_cache_destroy(tfrc_tx_hist_slab);
+-		tfrc_tx_hist_slab = NULL;
+-	}
+-
+-	if (tfrc_rx_hist_slab != NULL) {
+-		kmem_cache_destroy(tfrc_rx_hist_slab);
+-		tfrc_rx_hist_slab = NULL;
+-	}
+-}
+diff --git a/net/dccp/ccids/lib/tfrc.c b/net/dccp/ccids/lib/tfrc.c
+index 3a7a183..20763fa 100644
+--- a/net/dccp/ccids/lib/tfrc.c
++++ b/net/dccp/ccids/lib/tfrc.c
+@@ -14,27 +14,42 @@ module_param(tfrc_debug, bool, 0444);
+ MODULE_PARM_DESC(tfrc_debug, "Enable debug messages");
+ #endif
  
-diff --git a/net/dccp/ccids/ccid3.h b/net/dccp/ccids/ccid3.h
-index 3c33dc6..6ceeb80 100644
---- a/net/dccp/ccids/ccid3.h
-+++ b/net/dccp/ccids/ccid3.h
-@@ -135,9 +135,9 @@ enum ccid3_hc_rx_states {
-  *
-  *  @ccid3hcrx_x_recv  -  Receiver estimate of send rate (RFC 3448 4.3)
-  *  @ccid3hcrx_rtt  -  Receiver estimate of rtt (non-standard)
-- *  @ccid3hcrx_p  -  current loss event rate (RFC 3448 5.4)
-+ *  @ccid3hcrx_p  -  Current loss event rate (RFC 3448 5.4)
-  *  @ccid3hcrx_last_counter  -  Tracks window counter (RFC 4342, 8.1)
-- *  @ccid3hcrx_state  -  receiver state, one of %ccid3_hc_rx_states
-+ *  @ccid3hcrx_state  -  Receiver state, one of %ccid3_hc_rx_states
-  *  @ccid3hcrx_bytes_recv  -  Total sum of DCCP payload bytes
-  *  @ccid3hcrx_tstamp_last_feedback  -  Time at which last feedback was sent
-  *  @ccid3hcrx_tstamp_last_ack  -  Time at which last feedback was sent
++extern int  tfrc_tx_packet_history_init(void);
++extern void tfrc_tx_packet_history_exit(void);
++extern int  tfrc_rx_packet_history_init(void);
++extern void tfrc_rx_packet_history_exit(void);
++
+ extern int  dccp_li_init(void);
+ extern void dccp_li_exit(void);
+-extern int packet_history_init(void);
+-extern void packet_history_exit(void);
+ 
+ static int __init tfrc_module_init(void)
+ {
+ 	int rc = dccp_li_init();
+ 
+-	if (rc == 0) {
+-		rc = packet_history_init();
+-		if (rc != 0)
+-			dccp_li_exit();
+-	}
++	if (rc)
++		goto out;
++
++	rc = tfrc_tx_packet_history_init();
++	if (rc)
++		goto out_free_loss_intervals;
+ 
++	rc = tfrc_rx_packet_history_init();
++	if (rc)
++		goto out_free_tx_history;
++	return 0;
++
++out_free_tx_history:
++	tfrc_tx_packet_history_exit();
++out_free_loss_intervals:
++	dccp_li_exit();
++out:
+ 	return rc;
+ }
+ 
+ static void __exit tfrc_module_exit(void)
+ {
+-	packet_history_exit();
++	tfrc_rx_packet_history_exit();
++	tfrc_tx_packet_history_exit();
+ 	dccp_li_exit();
+ }
+ 
 -- 
 1.5.3.4
 
