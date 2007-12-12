@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPIP: Allow rebinding the tunnel to another interface
-Date: Wed, 12 Dec 2007 11:02:06 -0800 (PST)
-Message-ID: <20071212.110206.266391918.davem@davemloft.net>
-References: <20071212163451.498b5726@brian.englab.brq.redhat.com>
-	<4760058E.5080403@trash.net>
-	<20071212172933.178cf78e@brian.englab.brq.redhat.com>
+Subject: Re: [PATCH]: remove netif_running() check from
+ myri10ge_poll()
+Date: Wed, 12 Dec 2007 11:02:43 -0800 (PST)
+Message-ID: <20071212.110243.202840959.davem@davemloft.net>
+References: <47602AAA.8060204@myri.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org, mmaslano@redhat.com
-To: mschmidt@redhat.com
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: gallatin@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55578
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55580
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753245AbXLLTCH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 14:02:07 -0500
-In-Reply-To: <20071212172933.178cf78e@brian.englab.brq.redhat.com>
+	by vger.kernel.org with ESMTP id S1751096AbXLLTCn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 14:02:43 -0500
+In-Reply-To: <47602AAA.8060204@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Schmidt <mschmidt@redhat.com>
-Date: Wed, 12 Dec 2007 17:29:33 +0100
+From: Andrew Gallatin <gallatin@myri.com>
+Date: Wed, 12 Dec 2007 13:38:34 -0500
 
-> On Wed, 12 Dec 2007 17:00:14 +0100
-> Patrick McHardy <kaber@trash.net> wrote:
+> Remove the bogus netif_running() check from myri10ge_poll().
 > 
-> > If you change dev->iflink this should trigger a rtnetlink
-> > notification.
+> This eliminates any chance that myri10ge_poll() can trigger
+> an oops by calling netif_rx_complete() and returning
+> with work_done == budget.
 > 
-> OK, I've added netdev_state_change(dev). Here's the new patch.
+> Signed-off-by: Andrew Gallatin <gallatin@myri.com>
 
-Applied to net-2.6.25, thanks.
+Acked-by: David S. Miller <davem@davemloft.net>
