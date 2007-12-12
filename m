@@ -1,32 +1,48 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH RFC] [3/9] modpost: Declare the modpost error functions as printf like
-Date: Wed, 12 Dec 2007 12:37:58 +1100
-Message-ID: <200712121237.59101.rusty@rustcorp.com.au>
-References: <20071122343.446909000@suse.de> <20071122024308.9B40114D68@wotan.suse.de> <20071210185008.GA17315@uranus.ravnborg.org>
+From: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+Subject: Re: [PATCH resend] virtio_net: remove double ether_setup
+Date: Wed, 12 Dec 2007 12:41:47 +1100
+Message-ID: <200712121241.48226.rusty@rustcorp.com.au>
+References: <200712111238.53960.borntraeger@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@suse.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sam Ravnborg <sam@ravnborg.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:54400 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750897AbXLLBiK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Dec 2007 20:38:10 -0500
-In-Reply-To: <20071210185008.GA17315@uranus.ravnborg.org>
+Cc: kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, virtualization-qjLDD68F18O7TbgM5vRIOg@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>
+Return-path: <kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <200712111238.53960.borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
+	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=kvm-devel>
+List-Post: <mailto:kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
+	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 11 December 2007 05:50:08 Sam Ravnborg wrote:
-> On Thu, Nov 22, 2007 at 03:43:08AM +0100, Andi Kleen wrote:
-> > This way gcc can warn for wrong format strings
+On Tuesday 11 December 2007 22:38:53 Christian Borntraeger wrote:
+> Hello Rusty,
 >
-> This loks good. Can I get i s-o-b then I will apply it.
+> this is a small fix for virtio_net.
+> virtnet_probe already calls alloc_etherdev, which calls ether_setup.
+> There is no need to do that again.
+>
+> Signed-off-by: Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>
 
-Even better, switch the code to the standard warn/warnx/err/errx.
+Acked-by: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
 
-Cheers,
+Can you send straight to akpm or davem?  I'm supposed to be on vacation at the 
+moment (and not doing a very good job :)
+
+Thanks,
 Rusty.
+
+-------------------------------------------------------------------------
+SF.Net email is sponsored by:
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://sourceforge.net/services/buy/index.php
