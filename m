@@ -1,54 +1,46 @@
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Subject: Re: [RFC] net: napi fix
-Date: Wed, 12 Dec 2007 15:05:26 +0900
-Message-ID: <b25c3fa70712112205l2e778bacx66470606272b199@mail.gmail.com>
-References: <002901c83c73$b089b6e0$9c94fea9@jason>
-	 <20071211213939.122de1db@freepuppy.rosehill>
-	 <20071211214634.4dedb274@freepuppy.rosehill>
+From: sreeniva@cse.psu.edu
+Subject: Re: Labeled IPsec with NAT
+Date: Wed, 12 Dec 2007 01:10:23 -0500 (EST)
+Message-ID: <3205.64.178.102.202.1197439823.squirrel@www.cse.psu.edu>
+References: <200712120503.lBC53AYb028820@faith.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	baum@tehutinetworks.net, andy@greyhouse.net
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: sreeniva@cse.psu.edu, netdev@vger.kernel.org
+To: "Joy Latten" <latten@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ro-out-1112.google.com ([72.14.202.181]:3618 "EHLO
-	ro-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753445AbXLLGF2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 01:05:28 -0500
-Received: by ro-out-1112.google.com with SMTP id p4so146865roc.5
-        for <netdev@vger.kernel.org>; Tue, 11 Dec 2007 22:05:27 -0800 (PST)
-In-Reply-To: <20071211214634.4dedb274@freepuppy.rosehill>
-Content-Disposition: inline
+Received: from psuvax1.cse.psu.edu ([130.203.4.6]:48519 "EHLO mail.cse.psu.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753196AbXLLGKd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Dec 2007 01:10:33 -0500
+In-Reply-To: <200712120503.lBC53AYb028820@faith.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2007/12/12, Stephen Hemminger <shemminger@linux-foundation.org>:
-> Isn't this a better fix for all drivers, rather than peppering every
-> driver with the special case. This is how the logic worked up until
-> 2.6.24.
->
->
-> --- a/net/core/dev.c    2007-12-11 12:16:20.000000000 -0800
-> +++ b/net/core/dev.c    2007-12-11 21:43:39.000000000 -0800
-> @@ -2184,7 +2184,7 @@ static void net_rx_action(struct softirq
->
->                have = netpoll_poll_lock(n);
->
-> -               weight = n->weight;
-> +               weight = min(n->weight, budget);
->
->                /* This NAPI_STATE_SCHED test is for avoiding a race
->                 * with netpoll's poll_napi().  Only the entity which
->
+Hi Joy,
 
-Stephen,
-Could you explain how it fix the problem?
-IMHO I think your patch cannot solve the problem.
-The drivers can call netif_rx_complete and net_rx_action can do
-list_move_tail also.
-Am I missing something?
+>>I am working on setting up Labeled IPsec along with iptables nat
+>>rules. Once I insert nat related rules, the ipsec connection breaks
+>>and the system tries to re-negotiate and creates multiple SAs. I am
+>>using 2.6.19 kernel (with Venkat's MLSXFRM patches & bugfixes). I
+>>guess those were incorporated into the 2.6.20 kernel.
+>
+> Are you using racoon in ipsec-tools to create labeled SAs?
+> If so, I recall seeing duplicate SA pairs being created
+> while using racoon for labeled ipsec. We determined userspace
+> should manage this.
+> I posted a patch to ipsec-tools, but I don't think they
+> ever picked it up... I do not know if this is same problem,
+> but you could give it a try.
+
+Thanks for replying. I am using racoon for testing. I searched for your
+patch in the ipsec-tools, but couldn't find it. It would be helpful if you
+could point me to the patch.
+
+The reason I was debugging the kernel is because I was under the
+assumption that the kernel should not invoke racoon if a matching SA is
+available in the SAD (like in my case).
 
 Thanks
-Joonwoo
+Yogesh
+
