@@ -1,47 +1,46 @@
-From: Daniel Mack <daniel@caiaq.de>
-Subject: Re: DM9000_IRQ_FLAGS
-Date: Wed, 12 Dec 2007 16:01:33 +0100
-Message-ID: <3F482A1B-2B23-4582-9714-18E40DAD16A2@caiaq.de>
-References: <20071211191823.GD15295@buzzloop.caiaq.de> <3efb10970712111231r29f9fba1l3528d805d1009c52@mail.gmail.com> <20071212134153.GA21510@buzzloop.caiaq.de> <3efb10970712120646ub8f5047ub333b74658bab44d@mail.gmail.com>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH net-2.6.25 uncompilable] [TCP]: Avoid breaking
+ GSOed skbs when SACKed one-by-one
+Date: Wed, 12 Dec 2007 07:11:36 -0800 (PST)
+Message-ID: <20071212.071136.26499607.davem@davemloft.net>
+References: <Pine.LNX.4.64.0712081523470.17809@kivilampi-30.cs.helsinki.fi>
+	<20071211.043239.224938181.davem@davemloft.net>
+	<aa7d2c6d0712111614k2832f51axa8bc9736ac7ec796@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Remy Bohmer <linux@bohmer.net>
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
+	quetchen@caltech.edu
+To: lachlan.andrew@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from buzzloop.caiaq.de ([212.112.241.133]:60622 "EHLO
-	buzzloop.caiaq.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752183AbXLLPBY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 10:01:24 -0500
-In-Reply-To: <3efb10970712120646ub8f5047ub333b74658bab44d@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59995
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751037AbXLLPLk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 10:11:40 -0500
+In-Reply-To: <aa7d2c6d0712111614k2832f51axa8bc9736ac7ec796@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: "Lachlan Andrew" <lachlan.andrew@gmail.com>
+Date: Tue, 11 Dec 2007 16:14:36 -0800
 
-On Dec 12, 2007, at 3:46 PM, Remy Bohmer wrote:
+> This thread started because TCP processing interferes with RTT
+> estimation.  This problem would be eliminated if time-stamping were
+> done as soon as the packet comes off the NIC.
 
-> The DM9000 adapter is connected to a GPIO line on the at91sam9261-ek
-> board, the board-specific code has a generic handler for every GPIO
-> interrupt. So, the Device driver __does not need to know__ the type of
-> interrupt, It just installs a handler by request_irq().
+We don't do that because such timestamping is too expensive.
 
-Ok.
+It used to be the case that we did this, but we stopped doing
+that a long time ago.
 
->>         resource->flags = IORESOURCE_IRQ | IRQT_RISING;
->>
-> These types of flags are never meant to be compatible, and thus they
-> shall not be stored in the same flags variable. The same is valid for
-> the flags IRQF_* and IRQT* flags, so request_irq() is also not the
-> place to do this.
+On x86 for example, timestamping can involve touching a slow
+I/O device to read the timestamp.  We do not want to do that
+for every packet.
 
-Ah, so I was trapped by faulty code doing that. I thought as the
-type of interrupt is also a detail information about the resource,
-this is the place to put is. However, it also works with
-set_irq_type().
+Also, we timestamp differently for TCP, the global high
+resolution timestamp is overkill for this purpose.
 
-Thanks for sorting that out :)
-
-Best regards,
-Daniel
+Really, this is a silly idea and would only be a bandaid
+for the problem at hand, that TCP input processing is
+too expensive in certain circumstances.
 
