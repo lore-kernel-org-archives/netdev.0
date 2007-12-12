@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [RFC] net: napi fix
-Date: Wed, 12 Dec 2007 07:21:21 -0800 (PST)
-Message-ID: <20071212.072121.93137990.davem@davemloft.net>
-References: <002901c83c73$b089b6e0$9c94fea9@jason>
-	<20071211213939.122de1db@freepuppy.rosehill>
+Date: Wed, 12 Dec 2007 07:22:12 -0800 (PST)
+Message-ID: <20071212.072212.106556355.davem@davemloft.net>
+References: <20071211213939.122de1db@freepuppy.rosehill>
 	<20071211214634.4dedb274@freepuppy.rosehill>
+	<b25c3fa70712112205l2e778bacx66470606272b199@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joonwpark81@gmail.com, netdev@vger.kernel.org,
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
 	baum@tehutinetworks.net, andy@greyhouse.net
-To: shemminger@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45162
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755295AbXLLPVY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 10:21:24 -0500
-In-Reply-To: <20071211214634.4dedb274@freepuppy.rosehill>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: joonwpark81@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758384AbXLLPW2@vger.kernel.org>
+In-Reply-To: <b25c3fa70712112205l2e778bacx66470606272b199@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Tue, 11 Dec 2007 21:46:34 -0800
+From: "Joonwoo Park" <joonwpark81@gmail.com>
+Date: Wed, 12 Dec 2007 15:05:26 +0900
 
-> Isn't this a better fix for all drivers, rather than peppering every
-> driver with the special case. This is how the logic worked up until
-> 2.6.24.
+> Could you explain how it fix the problem?
+> IMHO I think your patch cannot solve the problem.
+> The drivers can call netif_rx_complete and net_rx_action can do
+> list_move_tail also.
 
-Stephen this is not the problem.
-
-The problem is that the driver is doing a NAPI completion and
-re-enabling chip interrupts with work_done == weight, and that is
-illegal.
+Stephen is confused about what the bug is in these drivers,
+that's all.
