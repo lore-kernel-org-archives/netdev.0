@@ -1,80 +1,42 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: RE: [PATCH] Increase virtual FIFOs in ucc_geth.
-Date: Wed, 12 Dec 2007 14:08:58 +0100
-Message-ID: <1197464938.6790.35.camel@gentoo-jocke.transmode.se>
-References: <1197312366-7484-1-git-send-email-Joakim.Tjernlund@transmode.se>
-	 <989B956029373F45A0B8AF029708189001B4D901@zch01exm26.fsl.freescale.net>
-	 <1197367919.6790.3.camel@gentoo-jocke.transmode.se>
-	 <1197370676.6790.17.camel@gentoo-jocke.transmode.se>
-	 <989B956029373F45A0B8AF029708189001B4D908@zch01exm26.fsl.freescale.net>
-Reply-To: joakim.tjernlund@transmode.se
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: Re: [kvm-devel] [virtio-net][PATCH] Don't arm tx hrtimer with a constant 500us each transmit
+Date: Wed, 12 Dec 2007 14:19:50 +0100
+Message-ID: <200712121419.50400.borntraeger@de.ibm.com>
+References: <475FD9E8.1060109@qumranet.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Li Yang <LeoLi@freescale.com>
+Cc: Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org,
+	virtualization <virtualization@lists.linux-foundation.org>
+To: kvm-devel@lists.sourceforge.net, dor.laor@qumranet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.transmode.se ([83.241.175.147]:15678 "EHLO
-	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751973AbXLLNJB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 08:09:01 -0500
-In-Reply-To: <989B956029373F45A0B8AF029708189001B4D908@zch01exm26.fsl.freescale.net>
+Received: from mtagate2.de.ibm.com ([195.212.29.151]:55242 "EHLO
+	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751004AbXLLNTy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 08:19:54 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate2.de.ibm.com (8.13.8/8.13.8) with ESMTP id lBCDJskr166434
+	for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 13:19:54 GMT
+Received: from d12av03.megacenter.de.ibm.com (d12av03.megacenter.de.ibm.com [9.149.165.213])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lBCDJrMO2887888
+	for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 14:19:53 +0100
+Received: from d12av03.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lBCDJqEZ012331
+	for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 14:19:53 +0100
+In-Reply-To: <475FD9E8.1060109@qumranet.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Am Mittwoch, 12. Dezember 2007 schrieb Dor Laor:
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -406,10 +405,10 @@ again:
 
-On Tue, 2007-12-11 at 19:51 +0800, Li Yang wrote:
-> > -----Original Message-----
-> > From: Joakim Tjernlund [mailto:joakim.tjernlund@transmode.se] 
-> > Sent: Tuesday, December 11, 2007 6:58 PM
-> > To: Li Yang
-> > Cc: netdev@vger.kernel.org
-> > Subject: RE: [PATCH] Increase virtual FIFOs in ucc_geth.
-> > 
-> > 
-> > On Tue, 2007-12-11 at 11:11 +0100, Joakim Tjernlund wrote:
-> > > On Tue, 2007-12-11 at 17:49 +0800, Li Yang wrote:
-> > > > > -----Original Message-----
-> > > > > From: Joakim Tjernlund [mailto:Joakim.Tjernlund@transmode.se] 
-> > > > > Sent: Tuesday, December 11, 2007 2:46 AM
-> > > > > To: Li Yang-r58472 <LeoLi@freescale.com> Netdev
-> > > > > Cc: Joakim Tjernlund
-> > > > > Subject: [PATCH] Increase virtual FIFOs in ucc_geth.
-> > > > > 
-> > > > > Increase UCC_GETH_URFS_INIT to 1152 and
-> > > > > UCC_GETH_UTFS_INIT to 896 to avoid HW Overrun/Underrun.
-> > > > 
-> > > > Please be noted that these values are only used for 
-> > 10/100Mbps speed.
-> > > > Did you get Overrun in 10/100M mode?
-> > > 
-> > > I get both TX Underrun and RX overrun in 100Mbps, FD, just
-> > > by running a tftp transfer. It feels like the URFET and/or URSFET
-> > > isn't working. Why I don't know. CPU is MPC832x
-> > > 
-> > >   Jocke
-> > 
-> > I am a bit confused how the RBMR and TBMR is supposed to work. In
-> > ucc_get there is:
-> >  out_be32(&ugeth->p_tx_glbl_pram->tstate, ((u32) 
-> > function_code) << 24);
-> >  ugeth->p_rx_glbl_pram->rstate = function_code;
-> > First, should not the rx part look the same as tx?
-> 
-> To be consist with the chip RM, type for tstate is u32 and type for
-> rstate is u8.  Personally I don't think that it will be different to
-> access tstate as u8, but it will be more readable to be the same as
-> manual.  Well, rstate probably should be changed to use IO accessor too.
-> 
-> > Does programing rstate/tstate replace RBMR and TBMR?
-> 
-> RBMR and TBMR?  These are for other protocols.
-> 
-> - Leo
+Hmm, while I agree in general with the patch, I fail to find the proper 
+version of virtio_net where this patch applies. I tried kvm.git and 
+linux-2.6.git from kernel.org. Can you give me a pointer to the repository 
+where you work on virtio?
 
-Noticed that the number of threads(numThreadsTx and numThreadsRx) is set
-to 4. That is a good value for GBE, but the manual thinks 1 is good for
-10/100 Mbps. How does 4 threads affect the FIFO for 100 Mbps? I can't 
-test ATM as the system is busy with other things.
-
-  Jocke 
+Christian
