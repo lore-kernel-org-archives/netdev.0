@@ -1,48 +1,46 @@
-From: Dor Laor <dor.laor@gmail.com>
-Subject: Re: [kvm-devel] [virtio-net][PATCH] Don't arm tx hrtimer with a constant
- 500us each transmit
-Date: Wed, 12 Dec 2007 16:17:44 +0200
-Message-ID: <475FED88.7020304@qumranet.com>
-References: <475FD9E8.1060109@qumranet.com> <200712121419.50400.borntraeger@de.ibm.com>
-Reply-To: dor.laor@qumranet.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bug 9542] BUG: bad unlock balance detected!
+Date: Wed, 12 Dec 2007 22:20:52 +0800
+Message-ID: <20071212142052.GA26540@gondor.apana.org.au>
+References: <bug-9542-27@http.bugzilla.kernel.org/> <20071211150313.EF4D210806E@picon.linux-foundation.org> <20071211140614.7c1738a5.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kvm-devel@lists.sourceforge.net,
-	Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org,
-	virtualization <virtualization@lists.linux-foundation.org>
-To: Christian Borntraeger <borntraeger@de.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	olel@ans.pl, Jay Vosburgh <fubar@us.ibm.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:8558 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752472AbXLLORz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 09:17:55 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so572412ugc.16
-        for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 06:17:48 -0800 (PST)
-In-Reply-To: <200712121419.50400.borntraeger@de.ibm.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:1141 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751292AbXLLOU5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 09:20:57 -0500
+Content-Disposition: inline
+In-Reply-To: <20071211140614.7c1738a5.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Christian Borntraeger wrote:
+On Tue, Dec 11, 2007 at 10:06:14PM +0000, Andrew Morton wrote:
 >
-> Am Mittwoch, 12. Dezember 2007 schrieb Dor Laor:
-> > --- a/drivers/net/virtio_net.c
-> > +++ b/drivers/net/virtio_net.c
-> > @@ -406,10 +405,10 @@ again:
->
-> Hmm, while I agree in general with the patch, I fail to find the proper
-> version of virtio_net where this patch applies. I tried kvm.git and
-> linux-2.6.git from kernel.org. Can you give me a pointer to the repository
-> where you work on virtio?
->
-Sorry for that, I added some debug prints of my one.
-Here it is: *git clone 
-git*://kvm.*qumranet*.com/home/*dor*/src/linux-2.6-nv use branch 'virtio'.
-BTW: what git repository do you use?
+> > events/0/9 just changed the state of lock:
+> >  (&mc->mca_lock){-+..}, at: [<c0412602>] mld_ifc_timer_expire+0x130/0x1fb
+> > but this lock took another, soft-read-irq-unsafe lock in the past:
+> >  (&bond->lock){-.--}
+> > 
+> > and interrupts could create inverse lock ordering between them.
 
-This patch improves my tx performance from 720Mbps to 900Mbps.
-Dor
->
-> Christian
->
+Yes this is a bug in the bonding driver.
 
+It's assuming that bond->lock is only ever held for writing in
+process context.  Unfortunately our current set_multicast_list
+interface violates this constraint.
+
+Now I do have a TODO item to fix set_multicast_list to not do
+that, but until that happens, bond->lock should always turn BH
+off, even on read lock.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
