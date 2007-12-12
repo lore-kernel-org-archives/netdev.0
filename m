@@ -1,29 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] net: napi fix
-Date: Wed, 12 Dec 2007 07:22:12 -0800 (PST)
-Message-ID: <20071212.072212.106556355.davem@davemloft.net>
-References: <20071211213939.122de1db@freepuppy.rosehill>
-	<20071211214634.4dedb274@freepuppy.rosehill>
-	<b25c3fa70712112205l2e778bacx66470606272b199@mail.gmail.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [GIT PULL] SCTP bug fixes for net-2.6
+Date: Wed, 12 Dec 2007 10:30:47 -0500
+Message-ID: <475FFEA7.90005@hp.com>
+References: <1196351141-24722-1-git-send-email-vladislav.yasevich@hp.com> <b7f21edd0712112229l6219c835w466d8bf43390cf3a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	baum@tehutinetworks.net, andy@greyhouse.net
-To: joonwpark81@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758384AbXLLPW2@vger.kernel.org>
-In-Reply-To: <b25c3fa70712112205l2e778bacx66470606272b199@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	lksctp-developers@lists.sourceforge.net
+To: Jijo Chacko <consultant.bangalore@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:31540 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756203AbXLLPat (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 10:30:49 -0500
+In-Reply-To: <b7f21edd0712112229l6219c835w466d8bf43390cf3a@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Date: Wed, 12 Dec 2007 15:05:26 +0900
+Jijo Chacko wrote:
+> 
+> Hello experts,
+> 
+> [ sorry if  my questions are irrelevent to any one of you ].
+> 
+> I am trying to develop a frame work, where i  transport all HTTP traffic
+> over SCTP. On user space, i can do this easily over SCTP, BSD-style
+> sockets. If i am to write a kernel module(say in-kernel web
+> client/server) using kernel version of SCTP interfaces, what are the
+> available calls now supported ? I see in-kernel implementation like
+> NFS/RPC make kernel version of UDP and TCP _sendmsg, i don't find
+> similar interfaces for SCTP..
 
-> Could you explain how it fix the problem?
-> IMHO I think your patch cannot solve the problem.
-> The drivers can call netif_rx_complete and net_rx_action can do
-> list_move_tail also.
+Look at fs/dlm/lowcomms.c
 
-Stephen is confused about what the bug is in these drivers,
-that's all.
+All you need to do is use IPPROTO_SCTP when creating a socket in
+the kernel and then I believe you can use all the same calls as TCP/UDP.
+
+-vlad
+
