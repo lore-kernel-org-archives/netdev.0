@@ -1,53 +1,66 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: [PATCH]: remove netif_running() check from myri10ge_poll()
-Date: Wed, 12 Dec 2007 13:38:34 -0500
-Message-ID: <47602AAA.8060204@myri.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] netfilter : xt_hashlimit should use time_after_eq()
+Date: Wed, 12 Dec 2007 19:39:34 +0100
+Message-ID: <47602AE6.6060908@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------020002040506070505020508"
-Cc: Jeff Garzik <jeff@garzik.org>, netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+ boundary="------------010508000307000309010003"
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:2027 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755709AbXLLSis (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Dec 2007 13:38:48 -0500
+Received: from smtp25.orange.fr ([193.252.22.22]:44669 "EHLO smtp25.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758456AbXLLSjo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Dec 2007 13:39:44 -0500
+Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf2516.orange.fr (SMTP Server) with ESMTP id 3150D1C000B2
+	for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 19:39:42 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------020002040506070505020508
+--------------010508000307000309010003
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Remove the bogus netif_running() check from myri10ge_poll().
+Hi David & Patrick
 
-This eliminates any chance that myri10ge_poll() can trigger
-an oops by calling netif_rx_complete() and returning
-with work_done == budget.
+I believe this patch is needed for linux-2.6.24
 
-Signed-off-by: Andrew Gallatin <gallatin@myri.com>
+Thank you
 
---------------020002040506070505020508
-Content-Type: text/plain; x-mac-type="0"; x-mac-creator="0";
- name="myri10ge_remove_netif_running.diff"
+[PATCH] netfilter : xt_hashlimit should use time_after_eq()
+
+In order to avoid jiffies wraparound and its effect, special care must 
+be taken
+when doing comparisons ...
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+
+
+--------------010508000307000309010003
+Content-Type: text/plain;
+ name="xt_hashlimit.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="myri10ge_remove_netif_running.diff"
+ filename="xt_hashlimit.patch"
 
-diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
-index 8def865..c90958f 100644
---- a/drivers/net/myri10ge/myri10ge.c
-+++ b/drivers/net/myri10ge/myri10ge.c
-@@ -1239,7 +1239,7 @@ static int myri10ge_poll(struct napi_str
- 	/* process as many rx events as NAPI will allow */
- 	work_done = myri10ge_clean_rx_done(mgp, budget);
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 1910367..2ef44d8 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -240,7 +240,7 @@ static bool select_all(const struct xt_hashlimit_htable *ht,
+ static bool select_gc(const struct xt_hashlimit_htable *ht,
+ 		      const struct dsthash_ent *he)
+ {
+-	return jiffies >= he->expires;
++	return time_after_eq(jiffies, he->expires);
+ }
  
--	if (work_done < budget || !netif_running(netdev)) {
-+	if (work_done < budget) {
- 		netif_rx_complete(netdev, napi);
- 		put_be32(htonl(3), mgp->irq_claim);
- 	}
+ static void htable_selective_cleanup(struct xt_hashlimit_htable *ht,
 
---------------020002040506070505020508--
+--------------010508000307000309010003--
+
+
