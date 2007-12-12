@@ -1,466 +1,150 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: [RFC] mac80211: clean up frame receive handling
-Date: Wed, 12 Dec 2007 19:24:04 +0100
-Message-ID: <1197483844.6558.158.camel@johannes.berg>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: "ip neigh show" not showing arp cache entries?
+Date: Wed, 12 Dec 2007 12:25:34 -0600
+Message-ID: <4760279E.1080203@nortel.com>
+References: <475D7901.1040900@nortel.com> <475D7D70.5030502@nortel.com> <47600A6E.8000202@nortel.com> <47601059.8020203@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/mixed;
+ boundary="------------060504040607060505060303"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zcars04f.nortel.com ([47.129.242.57]:40249 "EHLO
+	zcars04f.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751558AbXLLS0Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 13:26:16 -0500
+In-Reply-To: <47601059.8020203@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------060504040607060505060303
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8bit
+
+Eric Dumazet wrote:
+> Chris Friesen a écrit :
+>> Is this expected behaviour?
+> 
+> Probably not... Still a 2.6.14 kernel ?
+
+Yep.  Embedded hardware, so I'm unable to test with a more recent kernel.
+
+> Could you send the result of :
+> 
+> strace ip neigh show
+
+I've attached two strace runs, one of "ip neigh show" and one of "ip 
+neigh show 10.41.18.101".
+
+Chris
+
+--------------060504040607060505060303
+Content-Type: text/plain;
+ name="trace.txt"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>,
-	Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Jouni Malinen <j@w1.fi>
-To: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Disposition: inline;
+ filename="trace.txt"
 
-[comments welcome. I really need a refresher on what the frame formats
-mean but I think I did the right thing with skb->protocol here, I also
-think we had a bug with rfc2042 header frames bigger than 15xx bytes and
-eth_type_trans()]
+root@typhoon-base-unit0:/tftpboot/cnp/0-0-5-0/0-0-5-0> strace ip neigh show
+execve("/sbin/ip", ["ip", "neigh", "show"], [/* 14 vars */]) = 0
+uname({sys="Linux", node="typhoon-base-unit0", ...}) = 0
+brk(0)                                  = 0x806b000
+access("/etc/ld.so.preload", R_OK)      = -1 ENOENT (No such file or directory)
+open("/etc/ld.so.cache", O_RDONLY)      = 3
+fstat64(3, {st_mode=S_IFREG|0644, st_size=58478, ...}) = 0
+mmap2(NULL, 58478, PROT_READ, MAP_PRIVATE, 3, 0) = 0xb7f56000
+close(3)                                = 0
+open("/lib/libresolv.so.2", O_RDONLY)   = 3
+read(3, "\177ELF\1\1\1\0\0\0\0\0\0\0\0\0\3\0\3\0\1\0\0\0\320\"\0"..., 512) = 512
+fstat64(3, {st_mode=S_IFREG|0755, st_size=75541, ...}) = 0
+mmap2(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0xb7f55000
+mmap2(NULL, 71816, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0xb7f43000
+mmap2(0xb7f51000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xe) = 0xb7f51000
+mmap2(0xb7f53000, 6280, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0xb7f53000
+close(3)                                = 0
+open("/lib/libc.so.6", O_RDONLY)        = 3
+read(3, "\177ELF\1\1\1\0\0\0\0\0\0\0\0\0\3\0\3\0\1\0\0\0\216O\1"..., 512) = 512
+fstat64(3, {st_mode=S_IFREG|0755, st_size=1407983, ...}) = 0
+mmap2(NULL, 1146076, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0xb7e2b000
+mmap2(0xb7f39000, 32768, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x10d) = 0xb7f39000
+mmap2(0xb7f41000, 7388, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0xb7f41000
+close(3)                                = 0
+mmap2(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0xb7e2a000
+mprotect(0xb7f39000, 20480, PROT_READ)  = 0
+set_thread_area({entry_number:-1 -> 6, base_addr:0xb7e2a6b0, limit:1048575, seg_32bit:1, contents:0, read_exec_only:0, limit_in_pages:1, seg_not_present:0, useable:1}) = 0
+munmap(0xb7f56000, 58478)               = 0
+socket(PF_NETLINK, SOCK_RAW, 0)         = 3
+setsockopt(3, SOL_SOCKET, SO_SNDBUF, [32768], 4) = 0
+setsockopt(3, SOL_SOCKET, SO_RCVBUF, [32768], 4) = 0
+bind(3, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 0
+getsockname(3, {sa_family=AF_NETLINK, pid=6150, groups=00000000}, [12]) = 0
+time(NULL)                              = 1197465643
+sendto(3, "\24\0\0\0\22\0\1\3,\340_G\0\0\0\0\0\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
+recvmsg(3, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\364\0\0\0\20\0\2\0,\340_G\6\30\0\0\0\0\1\0\1\0\0\0C\30"..., 16384}], msg_controllen=0, msg_flags=0}, 0) = 3544
+brk(0)                                  = 0x806b000
+brk(0x808c000)                          = 0x808c000
+recvmsg(3, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\24\0\0\0\3\0\2\0,\340_G\6\30\0\0\0\0\0\0\1\0\0\0C\30\0"..., 16384}], msg_controllen=0, msg_flags=0}, 0) = 20
+sendto(3, "\24\0\0\0\36\0\1\3-\340_G\0\0\0\0\0\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
+recvmsg(3, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"X\0\0\0\34\0\2\0-\340_G\6\30\0\0\n\0\0\0\7\0\0\0@\0\0\5"..., 16384}], msg_controllen=0, msg_flags=0}, 0) = 264
+recvmsg(3, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\24\0\0\0\3\0\2\0-\340_G\6\30\0\0\0\0\0\0\7\0\0\0@\0\0"..., 16384}], msg_controllen=0, msg_flags=0}, 0) = 20
+exit_group(0)                           = ?
+Process 6150 detached
 
-This cleans up the frame receive handling. After this patch
- * EAPOL frames addressed to us or the EAPOL group address are
-   always accepted regardless of whether they are encrypted or not
- * other frames from a station are dropped if PAE is enabled and
-   the station is not authorized
- * unencrypted frames (except the EAPOL frames above) are dropped if
-   drop_unencrypted is enabled
- * we no longer invoke eth_type_trans() as we've done most of the work
-   already, this patch implements the rest of the work needed
- * port control is not done for injected packets
 
-Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
----
-I've made a corresponding hostapd patch which is on my website
-http://johannes.sipsolutions.net/patches/hostap/all/2007-12-12-17%3a18/005-eapol-on-regular-iface.patch
 
-It works fine and is IMHO nicer than doing the eapol stuff over the
-management interface.
 
- net/mac80211/debugfs_netdev.c  |   27 +++--------
- net/mac80211/ieee80211_i.h     |   22 +++------
- net/mac80211/ieee80211_iface.c |    1 
- net/mac80211/rx.c              |  100 ++++++++++++++++++++++-------------------
- net/mac80211/tx.c              |   10 ++--
- 5 files changed, 79 insertions(+), 81 deletions(-)
 
---- everything.orig/net/mac80211/ieee80211_i.h	2007-12-12 16:25:05.819131294 +0100
-+++ everything/net/mac80211/ieee80211_i.h	2007-12-12 16:31:58.749134385 +0100
-@@ -306,11 +306,11 @@ struct ieee80211_sub_if_data {
- 	unsigned int flags;
- 
- 	int drop_unencrypted;
--	int eapol; /* 0 = process EAPOL frames as normal data frames,
--		    * 1 = send EAPOL frames through wlan#ap to hostapd
--		    *     (default) */
--	int ieee802_1x; /* IEEE 802.1X PAE - drop packet to/from unauthorized
--			 * port */
-+	/*
-+	 * IEEE 802.1X Port access control in effect,
-+	 * drop packets to/from unauthorized port
-+	 */
-+	int ieee802_1x_pac;
- 
- 	u16 sequence;
- 
-@@ -339,8 +339,7 @@ struct ieee80211_sub_if_data {
- 		struct {
- 			struct dentry *channel_use;
- 			struct dentry *drop_unencrypted;
--			struct dentry *eapol;
--			struct dentry *ieee8021_x;
-+			struct dentry *ieee802_1x_pac;
- 			struct dentry *state;
- 			struct dentry *bssid;
- 			struct dentry *prev_bssid;
-@@ -359,8 +358,7 @@ struct ieee80211_sub_if_data {
- 		struct {
- 			struct dentry *channel_use;
- 			struct dentry *drop_unencrypted;
--			struct dentry *eapol;
--			struct dentry *ieee8021_x;
-+			struct dentry *ieee802_1x_pac;
- 			struct dentry *num_sta_ps;
- 			struct dentry *dtim_period;
- 			struct dentry *dtim_count;
-@@ -374,15 +372,13 @@ struct ieee80211_sub_if_data {
- 		struct {
- 			struct dentry *channel_use;
- 			struct dentry *drop_unencrypted;
--			struct dentry *eapol;
--			struct dentry *ieee8021_x;
-+			struct dentry *ieee802_1x_pac;
- 			struct dentry *peer;
- 		} wds;
- 		struct {
- 			struct dentry *channel_use;
- 			struct dentry *drop_unencrypted;
--			struct dentry *eapol;
--			struct dentry *ieee8021_x;
-+			struct dentry *ieee802_1x_pac;
- 		} vlan;
- 		struct {
- 			struct dentry *mode;
---- everything.orig/net/mac80211/rx.c	2007-12-12 16:25:05.849130805 +0100
-+++ everything/net/mac80211/rx.c	2007-12-12 16:31:58.749134385 +0100
-@@ -190,7 +190,7 @@ ieee80211_rx_monitor(struct ieee80211_lo
- 		rthdr->antsignal = status->ssi;
- 	}
- 
--	skb_set_mac_header(skb, 0);
-+	skb_reset_mac_header(skb);
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	skb->pkt_type = PACKET_OTHERHOST;
- 	skb->protocol = htons(ETH_P_802_2);
-@@ -387,18 +387,6 @@ ieee80211_rx_h_check(struct ieee80211_tx
- 		return TXRX_DROP;
- 	}
- 
--	if (!(rx->flags & IEEE80211_TXRXD_RXRA_MATCH))
--		rx->skb->pkt_type = PACKET_OTHERHOST;
--	else if (compare_ether_addr(rx->dev->dev_addr, hdr->addr1) == 0)
--		rx->skb->pkt_type = PACKET_HOST;
--	else if (is_multicast_ether_addr(hdr->addr1)) {
--		if (is_broadcast_ether_addr(hdr->addr1))
--			rx->skb->pkt_type = PACKET_BROADCAST;
--		else
--			rx->skb->pkt_type = PACKET_MULTICAST;
--	} else
--		rx->skb->pkt_type = PACKET_OTHERHOST;
--
- 	/* Drop disallowed frame classes based on STA auth/assoc state;
- 	 * IEEE 802.11, Chap 5.5.
- 	 *
-@@ -967,18 +955,10 @@ ieee80211_rx_h_remove_qos_control(struct
- }
- 
- static int
--ieee80211_drop_802_1x_pae(struct ieee80211_txrx_data *rx, int hdrlen)
-+ieee80211_802_1x_port_control(struct ieee80211_txrx_data *rx)
- {
--	if (rx->sdata->eapol && ieee80211_is_eapol(rx->skb, hdrlen) &&
--	    rx->sdata->type != IEEE80211_IF_TYPE_STA &&
--	    (rx->flags & IEEE80211_TXRXD_RXRA_MATCH))
--		return 0;
--
--	if (unlikely(rx->sdata->ieee802_1x &&
--		     (rx->fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_DATA &&
--		     (rx->fc & IEEE80211_FCTL_STYPE) != IEEE80211_STYPE_NULLFUNC &&
--		     (!rx->sta || !(rx->sta->flags & WLAN_STA_AUTHORIZED)) &&
--		     !ieee80211_is_eapol(rx->skb, hdrlen))) {
-+	if (unlikely(rx->sdata->ieee802_1x_pac &&
-+		     (!rx->sta || !(rx->sta->flags & WLAN_STA_AUTHORIZED)))) {
- #ifdef CONFIG_MAC80211_DEBUG
- 		printk(KERN_DEBUG "%s: dropped frame "
- 		       "(unauthorized port)\n", rx->dev->name);
-@@ -990,7 +970,7 @@ ieee80211_drop_802_1x_pae(struct ieee802
- }
- 
- static int
--ieee80211_drop_unencrypted(struct ieee80211_txrx_data *rx, int hdrlen)
-+ieee80211_drop_unencrypted(struct ieee80211_txrx_data *rx)
- {
- 	/*
- 	 * Pass through unencrypted frames if the hardware has
-@@ -1003,9 +983,7 @@ ieee80211_drop_unencrypted(struct ieee80
- 	if (unlikely(!(rx->fc & IEEE80211_FCTL_PROTECTED) &&
- 		     (rx->fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_DATA &&
- 		     (rx->fc & IEEE80211_FCTL_STYPE) != IEEE80211_STYPE_NULLFUNC &&
--		     (rx->key || rx->sdata->drop_unencrypted) &&
--		     (rx->sdata->eapol == 0 ||
--		      !ieee80211_is_eapol(rx->skb, hdrlen)))) {
-+		     (rx->key || rx->sdata->drop_unencrypted))) {
- 		if (net_ratelimit())
- 			printk(KERN_DEBUG "%s: RX non-WEP frame, but expected "
- 			       "encryption\n", rx->dev->name);
-@@ -1014,6 +992,24 @@ ieee80211_drop_unencrypted(struct ieee80
- 	return 0;
- }
- 
-+static bool ieee80211_frame_allowed(struct ieee80211_txrx_data *rx)
-+{
-+	static const u8 pae_group_addr[ETH_ALEN]
-+		= { 0x01, 0x80, 0xC2, 0x00, 0x00, 0x03 };
-+	struct ethhdr *ehdr = (struct ethhdr *)rx->skb->data;
-+
-+	if (rx->skb->protocol == htons(ETH_P_PAE) &&
-+	    (compare_ether_addr(ehdr->h_dest, pae_group_addr) == 0 ||
-+	     compare_ether_addr(ehdr->h_dest, rx->dev->dev_addr) == 0))
-+		return true;
-+
-+	if (ieee80211_802_1x_port_control(rx) ||
-+	    ieee80211_drop_unencrypted(rx))
-+		return false;
-+
-+	return true;
-+}
-+
- static int
- ieee80211_data_to_8023(struct ieee80211_txrx_data *rx)
- {
-@@ -1130,6 +1126,7 @@ ieee80211_data_to_8023(struct ieee80211_
- 		skb_pull(skb, hdrlen + 6);
- 		memcpy(skb_push(skb, ETH_ALEN), src, ETH_ALEN);
- 		memcpy(skb_push(skb, ETH_ALEN), dst, ETH_ALEN);
-+		skb->protocol = htons(ethertype);
- 	} else {
- 		struct ethhdr *ehdr;
- 		__be16 len;
-@@ -1139,6 +1136,7 @@ ieee80211_data_to_8023(struct ieee80211_
- 		memcpy(ehdr->h_dest, dst, ETH_ALEN);
- 		memcpy(ehdr->h_source, src, ETH_ALEN);
- 		ehdr->h_proto = len;
-+		skb->protocol = htons(ETH_P_802_2);
- 	}
- 	return 0;
- }
-@@ -1150,14 +1148,27 @@ ieee80211_deliver_skb(struct ieee80211_t
- 	struct ieee80211_local *local = rx->local;
- 	struct sk_buff *skb, *xmit_skb;
- 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
-+	u8 *dst;
- 
- 	skb = rx->skb;
- 	xmit_skb = NULL;
- 
--	if (local->bridge_packets && (sdata->type == IEEE80211_IF_TYPE_AP
--	    || sdata->type == IEEE80211_IF_TYPE_VLAN) &&
-+	dst = skb->data;
-+
-+	if (compare_ether_addr(dev->dev_addr, dst) == 0)
-+		skb->pkt_type = PACKET_HOST;
-+	else if (is_multicast_ether_addr(dst)) {
-+		if (is_broadcast_ether_addr(dst))
-+			skb->pkt_type = PACKET_BROADCAST;
-+		else
-+			skb->pkt_type = PACKET_MULTICAST;
-+	} else
-+		skb->pkt_type = PACKET_OTHERHOST;
-+
-+	if (local->bridge_packets && (sdata->type == IEEE80211_IF_TYPE_AP ||
-+				      sdata->type == IEEE80211_IF_TYPE_VLAN) &&
- 	    (rx->flags & IEEE80211_TXRXD_RXRA_MATCH)) {
--		if (is_multicast_ether_addr(skb->data)) {
-+		if (is_multicast_ether_addr(dst)) {
- 			/* send multicast frames both to higher layers in
- 			 * local net stack and back to the wireless media */
- 			xmit_skb = skb_copy(skb, GFP_ATOMIC);
-@@ -1186,16 +1197,18 @@ ieee80211_deliver_skb(struct ieee80211_t
- 
- 	if (skb) {
- 		/* deliver to local stack */
--		skb->protocol = eth_type_trans(skb, dev);
- 		memset(skb->cb, 0, sizeof(skb->cb));
-+		skb->dev = dev;
-+		skb_reset_mac_header(skb);
-+		skb_pull(skb, ETH_HLEN);
- 		netif_rx(skb);
- 	}
- 
- 	if (xmit_skb) {
- 		/* send to wireless media */
- 		xmit_skb->protocol = __constant_htons(ETH_P_802_3);
--		skb_set_network_header(xmit_skb, 0);
--		skb_set_mac_header(xmit_skb, 0);
-+		skb_reset_network_header(xmit_skb);
-+		skb_reset_mac_header(xmit_skb);
- 		dev_queue_xmit(xmit_skb);
- 	}
- }
-@@ -1280,13 +1293,12 @@ ieee80211_rx_h_amsdu(struct ieee80211_tx
- 			}
- 		}
- 
--		skb_set_network_header(frame, 0);
-+		skb_reset_network_header(frame);
- 		frame->dev = dev;
- 		frame->priority = skb->priority;
- 		rx->skb = frame;
- 
--		if ((ieee80211_drop_802_1x_pae(rx, 0)) ||
--		    (ieee80211_drop_unencrypted(rx, 0))) {
-+		if (!ieee80211_frame_allowed(rx)) {
- 			if (skb == frame) /* last frame */
- 				return TXRX_DROP;
- 			dev_kfree_skb(frame);
-@@ -1305,14 +1317,15 @@ ieee80211_rx_h_amsdu(struct ieee80211_tx
- 			skb_pull(frame, 6);
- 			memcpy(skb_push(frame, ETH_ALEN), src, ETH_ALEN);
- 			memcpy(skb_push(frame, ETH_ALEN), dst, ETH_ALEN);
-+			frame->protocol = htons(ethertype);
- 		} else {
- 			memcpy(skb_push(frame, sizeof(__be16)), &len,
- 				sizeof(__be16));
- 			memcpy(skb_push(frame, ETH_ALEN), src, ETH_ALEN);
- 			memcpy(skb_push(frame, ETH_ALEN), dst, ETH_ALEN);
-+			frame->protocol = htons(ETH_P_802_2);
- 		}
- 
--
- 		ieee80211_deliver_skb(rx);
- 	}
- 
-@@ -1324,7 +1337,7 @@ ieee80211_rx_h_data(struct ieee80211_txr
- {
- 	struct net_device *dev = rx->dev;
- 	u16 fc;
--	int err, hdrlen;
-+	int err;
- 
- 	fc = rx->fc;
- 	if (unlikely((fc & IEEE80211_FCTL_FTYPE) != IEEE80211_FTYPE_DATA))
-@@ -1333,16 +1346,13 @@ ieee80211_rx_h_data(struct ieee80211_txr
- 	if (unlikely(!WLAN_FC_DATA_PRESENT(fc)))
- 		return TXRX_DROP;
- 
--	hdrlen = ieee80211_get_hdrlen(fc);
--
--	if ((ieee80211_drop_802_1x_pae(rx, hdrlen)) ||
--	    (ieee80211_drop_unencrypted(rx, hdrlen)))
--		return TXRX_DROP;
--
- 	err = ieee80211_data_to_8023(rx);
- 	if (unlikely(err))
- 		return TXRX_DROP;
- 
-+	if (!ieee80211_frame_allowed(rx))
-+		return TXRX_DROP;
-+
- 	rx->skb->dev = dev;
- 
- 	dev->stats.rx_packets++;
---- everything.orig/net/mac80211/debugfs_netdev.c	2007-12-12 16:25:05.899132325 +0100
-+++ everything/net/mac80211/debugfs_netdev.c	2007-12-12 16:31:58.759132161 +0100
-@@ -91,8 +91,7 @@ static const struct file_operations name
- /* common attributes */
- IEEE80211_IF_FILE(channel_use, channel_use, DEC);
- IEEE80211_IF_FILE(drop_unencrypted, drop_unencrypted, DEC);
--IEEE80211_IF_FILE(eapol, eapol, DEC);
--IEEE80211_IF_FILE(ieee8021_x, ieee802_1x, DEC);
-+IEEE80211_IF_FILE(ieee802_1x_pac, ieee802_1x_pac, DEC);
- 
- /* STA/IBSS attributes */
- IEEE80211_IF_FILE(state, u.sta.state, DEC);
-@@ -170,8 +169,7 @@ static void add_sta_files(struct ieee802
- {
- 	DEBUGFS_ADD(channel_use, sta);
- 	DEBUGFS_ADD(drop_unencrypted, sta);
--	DEBUGFS_ADD(eapol, sta);
--	DEBUGFS_ADD(ieee8021_x, sta);
-+	DEBUGFS_ADD(ieee802_1x_pac, sta);
- 	DEBUGFS_ADD(state, sta);
- 	DEBUGFS_ADD(bssid, sta);
- 	DEBUGFS_ADD(prev_bssid, sta);
-@@ -192,8 +190,7 @@ static void add_ap_files(struct ieee8021
- {
- 	DEBUGFS_ADD(channel_use, ap);
- 	DEBUGFS_ADD(drop_unencrypted, ap);
--	DEBUGFS_ADD(eapol, ap);
--	DEBUGFS_ADD(ieee8021_x, ap);
-+	DEBUGFS_ADD(ieee802_1x_pac, ap);
- 	DEBUGFS_ADD(num_sta_ps, ap);
- 	DEBUGFS_ADD(dtim_period, ap);
- 	DEBUGFS_ADD(dtim_count, ap);
-@@ -209,8 +206,7 @@ static void add_wds_files(struct ieee802
- {
- 	DEBUGFS_ADD(channel_use, wds);
- 	DEBUGFS_ADD(drop_unencrypted, wds);
--	DEBUGFS_ADD(eapol, wds);
--	DEBUGFS_ADD(ieee8021_x, wds);
-+	DEBUGFS_ADD(ieee802_1x_pac, wds);
- 	DEBUGFS_ADD(peer, wds);
- }
- 
-@@ -218,8 +214,7 @@ static void add_vlan_files(struct ieee80
- {
- 	DEBUGFS_ADD(channel_use, vlan);
- 	DEBUGFS_ADD(drop_unencrypted, vlan);
--	DEBUGFS_ADD(eapol, vlan);
--	DEBUGFS_ADD(ieee8021_x, vlan);
-+	DEBUGFS_ADD(ieee802_1x_pac, vlan);
- }
- 
- static void add_monitor_files(struct ieee80211_sub_if_data *sdata)
-@@ -263,8 +258,7 @@ static void del_sta_files(struct ieee802
- {
- 	DEBUGFS_DEL(channel_use, sta);
- 	DEBUGFS_DEL(drop_unencrypted, sta);
--	DEBUGFS_DEL(eapol, sta);
--	DEBUGFS_DEL(ieee8021_x, sta);
-+	DEBUGFS_DEL(ieee802_1x_pac, sta);
- 	DEBUGFS_DEL(state, sta);
- 	DEBUGFS_DEL(bssid, sta);
- 	DEBUGFS_DEL(prev_bssid, sta);
-@@ -285,8 +279,7 @@ static void del_ap_files(struct ieee8021
- {
- 	DEBUGFS_DEL(channel_use, ap);
- 	DEBUGFS_DEL(drop_unencrypted, ap);
--	DEBUGFS_DEL(eapol, ap);
--	DEBUGFS_DEL(ieee8021_x, ap);
-+	DEBUGFS_DEL(ieee802_1x_pac, ap);
- 	DEBUGFS_DEL(num_sta_ps, ap);
- 	DEBUGFS_DEL(dtim_period, ap);
- 	DEBUGFS_DEL(dtim_count, ap);
-@@ -302,8 +295,7 @@ static void del_wds_files(struct ieee802
- {
- 	DEBUGFS_DEL(channel_use, wds);
- 	DEBUGFS_DEL(drop_unencrypted, wds);
--	DEBUGFS_DEL(eapol, wds);
--	DEBUGFS_DEL(ieee8021_x, wds);
-+	DEBUGFS_DEL(ieee802_1x_pac, wds);
- 	DEBUGFS_DEL(peer, wds);
- }
- 
-@@ -311,8 +303,7 @@ static void del_vlan_files(struct ieee80
- {
- 	DEBUGFS_DEL(channel_use, vlan);
- 	DEBUGFS_DEL(drop_unencrypted, vlan);
--	DEBUGFS_DEL(eapol, vlan);
--	DEBUGFS_DEL(ieee8021_x, vlan);
-+	DEBUGFS_DEL(ieee802_1x_pac, vlan);
- }
- 
- static void del_monitor_files(struct ieee80211_sub_if_data *sdata)
---- everything.orig/net/mac80211/ieee80211_iface.c	2007-12-12 16:25:05.939130533 +0100
-+++ everything/net/mac80211/ieee80211_iface.c	2007-12-12 16:31:58.759132161 +0100
-@@ -22,7 +22,6 @@ void ieee80211_if_sdata_init(struct ieee
- 
- 	/* Default values for sub-interface parameters */
- 	sdata->drop_unencrypted = 0;
--	sdata->eapol = 1;
- 	for (i = 0; i < IEEE80211_FRAGMENT_MAX; i++)
- 		skb_queue_head_init(&sdata->fragments[i].skb_list);
- 
---- everything.orig/net/mac80211/tx.c	2007-12-12 16:25:06.039131944 +0100
-+++ everything/net/mac80211/tx.c	2007-12-12 16:31:58.759132161 +0100
-@@ -221,6 +221,7 @@ ieee80211_tx_h_check_assoc(struct ieee80
- 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
- #endif /* CONFIG_MAC80211_VERBOSE_DEBUG */
- 	u32 sta_flags;
-+	u16 fc = tx->fc;
- 
- 	if (unlikely(tx->flags & IEEE80211_TXRXD_TX_INJECTED))
- 		return TXRX_CONTINUE;
-@@ -261,8 +262,10 @@ ieee80211_tx_h_check_assoc(struct ieee80
- 		return TXRX_CONTINUE;
- 	}
- 
--	if (unlikely(/* !injected && */ tx->sdata->ieee802_1x &&
--		     !(sta_flags & WLAN_STA_AUTHORIZED))) {
-+	if (unlikely(!(tx->flags & IEEE80211_TXRXD_TX_INJECTED) &&
-+		     tx->sdata->ieee802_1x_pac &&
-+		     !(sta_flags & WLAN_STA_AUTHORIZED) &&
-+		     !ieee80211_is_eapol(tx->skb, ieee80211_get_hdrlen(fc)))) {
- #ifdef CONFIG_MAC80211_VERBOSE_DEBUG
- 		DECLARE_MAC_BUF(mac);
- 		printk(KERN_DEBUG "%s: dropped frame to %s"
-@@ -449,8 +452,7 @@ ieee80211_tx_h_select_key(struct ieee802
- 	else if ((key = rcu_dereference(tx->sdata->default_key)))
- 		tx->key = key;
- 	else if (tx->sdata->drop_unencrypted &&
--		 !(tx->sdata->eapol &&
--		   ieee80211_is_eapol(tx->skb, ieee80211_get_hdrlen(fc)))) {
-+		 !ieee80211_is_eapol(tx->skb, ieee80211_get_hdrlen(fc))) {
- 		I802_DEBUG_INC(tx->local->tx_handlers_drop_unencrypted);
- 		return TXRX_DROP;
- 	} else {
+
+root@typhoon-base-unit0:/tftpboot/cnp/0-0-5-0/0-0-5-0> ip neigh show 10.41.18.101
+10.41.18.101 dev eth6 lladdr 00:0e:0c:5e:95:bd REACHABLE
+root@typhoon-base-unit0:/tftpboot/cnp/0-0-5-0/0-0-5-0> strace ip neigh show 10.41.18.101
+execve("/sbin/ip", ["ip", "neigh", "show", "10.41.18.101"], [/* 14 vars */]) = 0
+uname({sys="Linux", node="typhoon-base-unit0", ...}) = 0
+brk(0)                                  = 0x806b000
+access("/etc/ld.so.preload", R_OK)      = -1 ENOENT (No such file or directory)
+open("/etc/ld.so.cache", O_RDONLY)      = 3
+fstat64(3, {st_mode=S_IFREG|0644, st_size=58478, ...}) = 0
+mmap2(NULL, 58478, PROT_READ, MAP_PRIVATE, 3, 0) = 0xb7fd5000
+close(3)                                = 0
+open("/lib/libresolv.so.2", O_RDONLY)   = 3
+read(3, "\177ELF\1\1\1\0\0\0\0\0\0\0\0\0\3\0\3\0\1\0\0\0\320\"\0"..., 512) = 512
+fstat64(3, {st_mode=S_IFREG|0755, st_size=75541, ...}) = 0
+mmap2(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0xb7fd4000
+mmap2(NULL, 71816, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0xb7fc2000
+mmap2(0xb7fd0000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0xe) = 0xb7fd0000
+mmap2(0xb7fd2000, 6280, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0xb7fd2000
+close(3)                                = 0
+open("/lib/libc.so.6", O_RDONLY)        = 3
+read(3, "\177ELF\1\1\1\0\0\0\0\0\0\0\0\0\3\0\3\0\1\0\0\0\216O\1"..., 512) = 512
+fstat64(3, {st_mode=S_IFREG|0755, st_size=1407983, ...}) = 0
+mmap2(NULL, 1146076, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0xb7eaa000
+mmap2(0xb7fb8000, 32768, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x10d) = 0xb7fb8000
+mmap2(0xb7fc0000, 7388, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0xb7fc0000
+close(3)                                = 0
+mmap2(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0xb7ea9000
+mprotect(0xb7fb8000, 20480, PROT_READ)  = 0
+set_thread_area({entry_number:-1 -> 6, base_addr:0xb7ea96b0, limit:1048575, seg_32bit:1, contents:0, read_exec_only:0, limit_in_pages:1, seg_not_present:0, useable:1}) = 0
+munmap(0xb7fd5000, 58478)               = 0
+socket(PF_NETLINK, SOCK_RAW, 0)         = 3
+setsockopt(3, SOL_SOCKET, SO_SNDBUF, [32768], 4) = 0
+setsockopt(3, SOL_SOCKET, SO_RCVBUF, [32768], 4) = 0
+bind(3, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 0
+getsockname(3, {sa_family=AF_NETLINK, pid=7536, groups=00000000}, [12]) = 0
+time(NULL)                              = 1197465790
+sendto(3, "\24\0\0\0\22\0\1\3\277\340_G\0\0\0\0\0\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
+recvmsg(3, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\364\0\0\0\20\0\2\0\277\340_Gp\35\0\0\0\0\1\0\1\0\0\0C"..., 16384}], msg_controllen=0, msg_flags=0}, 0) = 3544
+brk(0)                                  = 0x806b000
+brk(0x808c000)                          = 0x808c000
+recvmsg(3, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\24\0\0\0\3\0\2\0\277\340_Gp\35\0\0\0\0\0\0\1\0\0\0C\30"..., 16384}], msg_controllen=0, msg_flags=0}, 0) = 20
+sendto(3, "\24\0\0\0\36\0\1\3\300\340_G\0\0\0\0\2\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
+recvmsg(3, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"L\0\0\0\34\0\2\0\300\340_Gp\35\0\0\2\0\0\0\r\0\0\0\2\0"..., 16384}], msg_controllen=0, msg_flags=0}, 0) = 912
+fstat64(1, {st_mode=S_IFCHR|0620, st_rdev=makedev(136, 11), ...}) = 0
+mmap2(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0xb7fe3000
+write(1, "10.41.18.101 dev eth6 lladdr 00:"..., 5710.41.18.101 dev eth6 lladdr 00:0e:0c:5e:95:bd REACHABLE) = 57
+recvmsg(3, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\24\0\0\0\3\0\2\0\300\340_Gp\35\0\0\0\0\0\0\r\0\0\0\2\0"..., 16384}], msg_controllen=0, msg_flags=0}, 0) = 20
+munmap(0xb7fe3000, 4096)                = 0
+exit_group(0)                           = ?
+Process 7536 detached
+
+--------------060504040607060505060303--
