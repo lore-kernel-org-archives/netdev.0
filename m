@@ -1,62 +1,60 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: Re: [PATCH] iproute2: support dotted-quad netmask notation.
-Date: Wed, 12 Dec 2007 12:55:13 +0100
-Message-ID: <20071212115513.GA3394@scream.fatal.se>
-References: <20071204135818.GA24419@scream.fatal.se> <20071206115350.18e9204f@freepuppy.rosehill> <1197070894.5385.14.camel@localhost.localdomain> <1197220222.4392.9.camel@localhost.localdomain> <20071211171406.57389dba@freepuppy.rosehill>
+From: Dor Laor <dor.laor@gmail.com>
+Subject: [virtio-net][PATCH] Don't arm tx hrtimer with a constant 500us each
+ transmit
+Date: Wed, 12 Dec 2007 14:54:00 +0200
+Message-ID: <475FD9E8.1060109@qumranet.com>
+Reply-To: dor.laor@qumranet.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Rusty Russell <rusty@rustcorp.com.au>,
+	kvm-devel <kvm-devel@lists.sourceforge.net>,
+	netdev@vger.kernel.org,
+	virtualization <virtualization@lists.linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1-1-1-9a.ghn.gbg.bostream.se ([82.182.69.4]:38948 "EHLO
-	scream.fatal.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751778AbXLLMLk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 07:11:40 -0500
-Content-Disposition: inline
-In-Reply-To: <20071211171406.57389dba@freepuppy.rosehill>
+Received: from nf-out-0910.google.com ([64.233.182.189]:23938 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751428AbXLLMyK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 07:54:10 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so197416nfb.21
+        for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 04:54:08 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 11, 2007 at 05:14:06PM -0800, Stephen Hemminger wrote:
-> On Sun, 09 Dec 2007 18:10:22 +0100
-> Andreas Henriksson <andreas@fatal.se> wrote:
-> > I think both previous patches where broken on big-endian platforms.
-> > Here's an updated patch again. I'm very sorry for the inconvenience!
-[...]
-> > +		*val=0;
-> > +		for (mask = ntohl(addr.data[0]); mask; mask <<= 1)
-> > +			(*val)++;
-[...]
-> 
-> applied
-> 
+commit 763769621d271d92204ed27552d75448587c1ac0
+Author: Dor Laor <dor.laor@qumranet.com>
+Date:   Wed Dec 12 14:52:00 2007 +0200
 
-Just to make sure.... It looks on git.kernel.org like you applied the wrong
-patch. (Maybe you just haven't pushed out the latest changes there yet.)
-Please double-check that you actually applied the latest version (which is
-the one in the mail you replied "applied" to, important part quoted above). 
+    [virtio-net][PATCH] Don't arm tx hrtimer with a constant 50us each 
+transmit
+   
+    The current start_xmit sets 500us hrtimer to kick the host.
+    The problem is that if another xmit happens before the timer was 
+fired then
+    the first xmit will have to wait additional 500us.
+    This patch does not re-arm the timer if there is existing one.
+    This will shorten the latency for tx.
+   
+    Signed-off-by: Dor Laor <dor.laor@qumranet.com>
 
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 7b051d5..8bb17d1
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -406,10 +405,10 @@ again:
+         virtio_debug(vdebug, "%s: before calling kick %d\n", 
+__FUNCTION__, __LINE__);
+         vi->svq->vq_ops->kick(vi->svq);
+         vi->out_num = 0;
+-    } else {
+-        vi->stats.hrtimer_starts++;
+-        hrtimer_start(&vi->tx_timer, ktime_set(0,500000),
+-                  HRTIMER_MODE_REL);
++    } else if (!hrtimer_is_queued(&vi->tx_timer)) {
++            vi->stats.hrtimer_starts++;
++            hrtimer_start(&vi->tx_timer, ktime_set(0,500000),
++                      HRTIMER_MODE_REL);
+     }
+     return 0;
+ }
 
-Additionally, there's still a couple of trivial patches pending in
-the "patches" branch of 
-git://git.debian.org/git/collab-maint/pkg-iproute.git
-
-Please see the original thread[1], where Patrick McHarding had some concerns
-about one of the patches. It's exactly the same changes you made in commit
-660818498d0f5a3f52c05355a3e82c23f670fcc1 [2] though, so I don't really see the
-problem. I have an additional patch[3] available, that makes MAX_ROUNDS
-configurable which Patrick requested.
-
-Please comment on the way forward there....
-
-
-[1]: http://www.spinics.net/lists/netdev/msg44800.html
-[2]: Where the comment seems to be wrong about "Limit ip route flush...",
-     since it's actually "ip neigh flush" that's being modified.
-[3]: I have a slightly updated patch, but it's basically the same as
-     http://www.spinics.net/lists/netdev/msg45080.html
-	 Will send updated version if the patches it's based on goes in.
-
--- 
-Regards,
-Andreas Henriksson
