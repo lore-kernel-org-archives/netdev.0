@@ -1,46 +1,60 @@
-From: Daniel Mack <daniel@caiaq.de>
-Subject: Re: DM9000_IRQ_FLAGS
-Date: Wed, 12 Dec 2007 14:41:53 +0100
-Message-ID: <20071212134153.GA21510@buzzloop.caiaq.de>
-References: <20071211191823.GD15295@buzzloop.caiaq.de> <3efb10970712111231r29f9fba1l3528d805d1009c52@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] [IPSEC]: Add populate from packet (PFP) support
+Date: Wed, 12 Dec 2007 21:52:56 +0800
+Message-ID: <20071212135256.GA26200@gondor.apana.org.au>
+References: <20071212032352.GA12890@hestia>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Remy Bohmer <linux@bohmer.net>
+Cc: linux netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Joy Latten <latten@us.ibm.com>
+To: Tyler Hicks <tyhicks@ou.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from buzzloop.caiaq.de ([212.112.241.133]:45090 "EHLO
-	buzzloop.caiaq.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751485AbXLLNl6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 08:41:58 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:4777 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751428AbXLLNw7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 08:52:59 -0500
 Content-Disposition: inline
-In-Reply-To: <3efb10970712111231r29f9fba1l3528d805d1009c52@mail.gmail.com>
+In-Reply-To: <20071212032352.GA12890@hestia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Remy,
+On Tue, Dec 11, 2007 at 07:23:52PM -0800, Tyler Hicks wrote:
+> RFC 4301 requires us to associate each SPD entry with a set of flags to
+> determine how to assign the selector values when creating a new SAD entry.
+> 
+> Each selector in the new xfrm_state can either be assigned using the
+> corresponding selector in the xfrm_policy or with the corresponding value
+> in the flowi.  Prior to this patch, the fields in the flowi were always
+> used.
+> 
+> Signed-off-by: Tyler Hicks <tyhicks@ou.edu>
 
-On Tue, Dec 11, 2007 at 09:31:03PM +0100, Remy Bohmer wrote:
-> This controller is also used on many other boards, like the e.g. Atmel
-> AT91sam9261-ek board. On that board on both the rising _and_ falling
-> edge an interrupt is generated.
+Thanks for the patch Tyler!
 
-However, request_irq() is called with IRQF_SHARED only, so neither
-IRQT_RISING nor IRQT_FALLING is set and the value defaults to
-IRQT_NOEDGE. How can you get IRQs?
+I think the kernel is fine as it is.  What we're doing is generating
+the most specific selector possible for the larval SA and which lets
+the KM do whatever it wants.
 
-> I can test tomorrow if this patch leaves this board in tact, but
-> should the board-specific code not add this flag if it is required ?
-> By modifying this driver you will interfere the behavior of other
-> boards, and I do not know if there any level triggered types used.
+What RFC 4301 is asking for is for the mature SAs to have their
+selectors either populated from the policy or the packet.
 
-Actually, the best way to go is to let the platform resources flags 
-decide about that with something like
+So for PFP the KM should fill out its SA selector according to its
+PFP flags.  In other words we don't need PFP flags in the kernel
+at all.
 
-	resource->flags = IORESOURCE_IRQ | IRQT_RISING;
+> +	if (pol->flags & XFRM_POLICY_PFP_SPORT) {
+> +		x->sel.sport = xfrm_flowi_sport(fl);
+> +		x->sel.sport_mask = htons(0xffff);
+> +	} else {
+> +		x->sel.sport = pol->selector.sport;
+> +		x->sel.sport = pol->selector.sport_mask;
 
-but the dm9000 does not care about them at all. Changing that would also
-imply modifications to all board support code.
+There's a typo here.
 
-Regards,
-Daniel
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
