@@ -1,88 +1,64 @@
 From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH] net: remove fastcall
-Date: Wed, 12 Dec 2007 12:34:49 -0800
-Message-ID: <1197491689.21291.16.camel@brick>
+Subject: [PATCH] net: remove remaining fastcall occurances in drivers/net
+Date: Wed, 12 Dec 2007 12:48:09 -0800
+Message-ID: <1197492489.21291.21.camel@brick>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>
-To: linux-netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.186]:3402 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752173AbXLLUeu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 15:34:50 -0500
-Received: by rv-out-0910.google.com with SMTP id k20so313819rvb.1
-        for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 12:34:49 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>
+To: linux-netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758751AbXLLUsW@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-fastcall is always empty, remove it from net/
+fastcall is always defined to empty, remove it
 
 Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 ---
- net/bluetooth/rfcomm/core.c |    4 ++--
- net/core/dev.c              |    2 +-
- net/core/sock.c             |    4 ++--
- 3 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ns83820.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/bluetooth/rfcomm/core.c b/net/bluetooth/rfcomm/core.c
-index e7ac6ba..fc98883 100644
---- a/net/bluetooth/rfcomm/core.c
-+++ b/net/bluetooth/rfcomm/core.c
-@@ -467,7 +467,7 @@ int rfcomm_dlc_send(struct rfcomm_dlc *d, struct sk_buff *skb)
- 	return len;
+diff --git a/drivers/net/ns83820.c b/drivers/net/ns83820.c
+index 972acc3..5eed99e 100644
+--- a/drivers/net/ns83820.c
++++ b/drivers/net/ns83820.c
+@@ -612,7 +612,7 @@ static inline int rx_refill(struct net_device *ndev, gfp_t gfp)
  }
  
--void fastcall __rfcomm_dlc_throttle(struct rfcomm_dlc *d)
-+void __rfcomm_dlc_throttle(struct rfcomm_dlc *d)
+ static void rx_refill_atomic(struct net_device *ndev));
+-static void fastcall rx_refill_atomic(struct net_device *ndev)
++static void rx_refill_atomic(struct net_device *ndev)
  {
- 	BT_DBG("dlc %p state %ld", d, d->state);
- 
-@@ -478,7 +478,7 @@ void fastcall __rfcomm_dlc_throttle(struct rfcomm_dlc *d)
- 	rfcomm_schedule(RFCOMM_SCHED_TX);
+ 	rx_refill(ndev, GFP_ATOMIC);
+ }
+@@ -633,7 +633,7 @@ static inline void clear_rx_desc(struct ns83820 *dev, unsigned i)
+ 	build_rx_desc(dev, dev->rx_info.descs + (DESC_SIZE * i), 0, 0, CMDSTS_OWN, 0);
  }
  
--void fastcall __rfcomm_dlc_unthrottle(struct rfcomm_dlc *d)
-+void __rfcomm_dlc_unthrottle(struct rfcomm_dlc *d)
+-static void fastcall phy_intr(struct net_device *ndev)
++static void phy_intr(struct net_device *ndev)
  {
- 	BT_DBG("dlc %p state %ld", d, d->state);
+ 	struct ns83820 *dev = PRIV(ndev);
+ 	static const char *speeds[] = { "10", "100", "1000", "1000(?)", "1000F" };
+@@ -831,7 +831,7 @@ static void ns83820_cleanup_rx(struct ns83820 *dev)
+ 	}
+ }
  
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 86d6261..acf71ba 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2138,7 +2138,7 @@ static int process_backlog(struct napi_struct *napi, int quota)
+-static void fastcall ns83820_rx_kick(struct net_device *ndev)
++static void ns83820_rx_kick(struct net_device *ndev)
+ {
+ 	struct ns83820 *dev = PRIV(ndev);
+ 	/*if (nr_rx_empty(dev) >= NR_RX_DESC/4)*/ {
+@@ -852,7 +852,7 @@ static void fastcall ns83820_rx_kick(struct net_device *ndev)
+ /* rx_irq
   *
-  * The entry's receive function will be scheduled to run
   */
--void fastcall __napi_schedule(struct napi_struct *n)
-+void __napi_schedule(struct napi_struct *n)
+-static void fastcall rx_irq(struct net_device *ndev)
++static void rx_irq(struct net_device *ndev)
  {
- 	unsigned long flags;
- 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index c519b43..c536149 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1613,7 +1613,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
- 	atomic_set(&sk->sk_refcnt, 1);
- }
- 
--void fastcall lock_sock_nested(struct sock *sk, int subclass)
-+void lock_sock_nested(struct sock *sk, int subclass)
- {
- 	might_sleep();
- 	spin_lock_bh(&sk->sk_lock.slock);
-@@ -1630,7 +1630,7 @@ void fastcall lock_sock_nested(struct sock *sk, int subclass)
- 
- EXPORT_SYMBOL(lock_sock_nested);
- 
--void fastcall release_sock(struct sock *sk)
-+void release_sock(struct sock *sk)
- {
- 	/*
- 	 * The sk_lock has mutex_unlock() semantics:
+ 	struct ns83820 *dev = PRIV(ndev);
+ 	struct rx_info *info = &dev->rx_info;
 -- 
 1.5.3.7.2212.gd092
 
