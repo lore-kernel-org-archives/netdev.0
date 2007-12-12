@@ -1,65 +1,81 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: [PATCH] [NET]: Fix Ooops of napi net_rx_action.
-Date: Tue, 11 Dec 2007 16:38:37 -0800
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5203FBAF94@orsmsx418.amr.corp.intel.com>
-References: <001801c83bd6$2001d410$9c94fea9@jason> <20071211.023218.31965443.davem@davemloft.net> <b25c3fa70712110457g2bf04c6flc387f2b9cb51cf3b@mail.gmail.com> <36D9DB17C6DE9E40B059440DB8D95F5203F82FC3@orsmsx418.amr.corp.intel.com> <b25c3fa70712111612o16a62b49g6709aa728f31e27a@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [patch 1/1] Convert the semaphore to a mutex in
+ net/tipc/socket.c
+Date: Tue, 11 Dec 2007 16:44:45 -0800
+Message-ID: <20071211164445.752431ec.akpm@linux-foundation.org>
+References: <20071210011741.039692330@gmail.com>
+	<20071210011800.543055487@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <herbert@gondor.apana.org.au>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
-To: "Joonwoo Park" <joonwpark81@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: mingo@elte.hu, per.liden@ericsson.com, jon.maloy@ericsson.com,
+	allan.stephens@windriver.com,
+	tipc-discussion@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, kjwinchester@gmail.com,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Kevin Winchester <kjwinchester@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:47001 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751232AbXLLAlo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 19:41:44 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <b25c3fa70712111612o16a62b49g6709aa728f31e27a@mail.gmail.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:36972 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751752AbXLLApP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 19:45:15 -0500
+In-Reply-To: <20071210011800.543055487@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joonwoo Park wrote:
-> 2007/12/12, Brandeburg, Jesse <jesse.brandeburg@intel.com>:
->> 
->> all drivers using NAPI in 2.6.24+ (NNAPI??) must return zero here,
->> after calling netif_rx_complete.  netif_rx_complete plus work_done
->> != 0 causes a bug. 
->> 
-> 
-> Brandeburg,
-> Don't we need to return non-zero work_done after netif_rx_complete if
-> work_done != weight?
+On Sun, 09 Dec 2007 21:17:42 -0400
+Kevin Winchester <kjwinchester@gmail.com> wrote:
 
-Actually we just need to make sure we don't return work_done == weight
-as it is checked on line 2210 of dev.c.
-I should also note that I was wrong above, and that the requirement is
-that we MUST not return work_done == weight when indicating
-netif_rx_complete.
+> Note also that in the release method, down_interruptible() was being called
+> without checking the return value.  I converted it to mutex_lock_interruptible()
+> and made the interrupted case return -ERESTARTSYS, as was done for all other
+> calls to down_interruptible() in the file.
 
-So, returning 0 when we actually did some work, but are being removed
-from the poll list because something like !netif_running, is probably
-okay, but I'm sure someone will disagree with me.  Maybe returning like
-this would be better
-diff --git a/drivers/net/e1000/e1000_main.c
-b/drivers/net/e1000/e1000_main.c
-index 724f067..76d5e3b 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -3933,6 +3933,10 @@ quit_polling:
-                        e1000_set_itr(adapter);
-                netif_rx_complete(poll_dev, napi);
-                e1000_irq_enable(adapter);
-+               if (work_done == weight)
-+                       return work_done - 1;
-+               else
-+                       return work_done;
-        }
+That's an outright bug.
 
-        return work_done;
+static int release(struct socket *sock)
+{
+	struct tipc_sock *tsock = tipc_sk(sock->sk);
+	struct sock *sk = sock->sk;
+	int res = TIPC_OK;
+	struct sk_buff *buf;
 
-Jesse
+	dbg("sock_delete: %x\n",tsock);
+	if (!tsock)
+		return 0;
+	down_interruptible(&tsock->sem);
+	if (!sock->sk) {
+		up(&tsock->sem);
+		return 0;
+	}
 
- 
+	...
+
+	up(&tsock->sem);
+
+	...	
+}
+
+So if the calling process has signal_pending(), down_interruptible() will
+return without having downed the semaphore and then we merrily proceed to
+do up() on it, so a subsequent down() won't actually take the lock and
+things will deteriorate from there.
+
+So I'd propose this:
+
+--- a/net/tipc/socket.c~a
++++ a/net/tipc/socket.c
+@@ -253,7 +253,7 @@ static int release(struct socket *sock)
+ 	dbg("sock_delete: %x\n",tsock);
+ 	if (!tsock)
+ 		return 0;
+-	down_interruptible(&tsock->sem);
++	down(&tsock->sem);
+ 	if (!sock->sk) {
+ 		up(&tsock->sem);
+ 		return 0;
+_
+
+as a for-2.6.24 bugfix.  And for 2.6.23.  But someone who knows what
+they're doing should take a look at this...
+
