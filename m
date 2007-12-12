@@ -1,69 +1,155 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: Re: "ip neigh show" not showing arp cache entries?
-Date: Wed, 12 Dec 2007 10:21:02 -0600
-Message-ID: <47600A6E.8000202@nortel.com>
-References: <475D7901.1040900@nortel.com> <475D7D70.5030502@nortel.com>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: Re: [PATCH] IPIP: Allow rebinding the tunnel to another interface
+Date: Wed, 12 Dec 2007 17:29:33 +0100
+Message-ID: <20071212172933.178cf78e@brian.englab.brq.redhat.com>
+References: <20071212163451.498b5726@brian.englab.brq.redhat.com>
+	<4760058E.5080403@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Marcela Maslanova <mmaslano@redhat.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zrtps0kp.nortel.com ([47.140.192.56]:36218 "EHLO
-	zrtps0kp.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751835AbXLLQVp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 11:21:45 -0500
-In-Reply-To: <475D7D70.5030502@nortel.com>
+Received: from mx1.redhat.com ([66.187.233.31]:53486 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757401AbXLLQ3m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Dec 2007 11:29:42 -0500
+In-Reply-To: <4760058E.5080403@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I retested it on an x86 machine and am seeing similar problems.
+On Wed, 12 Dec 2007 17:00:14 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-First, "arp" gives the arp table as expected:
+> If you change dev->iflink this should trigger a rtnetlink
+> notification.
 
-root@typhoon-base-unit0:/tftpboot/cnp/0-0-5-0/0-0-5-0> arp -n
-Address                  HWtype  HWaddress           Flags Mask 
-    Iface
-172.24.0.9               ether   00:03:CC:51:06:5E   C 
-    bond0
-10.41.18.101             ether   00:0E:0C:5E:95:BD   C 
-    eth6
-172.24.137.0             ether   00:C0:8B:08:E4:88   C 
-    bond0
-172.24.136.0             ether   00:C0:8B:07:B3:7E   C 
-    bond0
-10.41.18.1               ether   00:00:5E:00:01:01   C 
-    eth6
-172.24.0.5               ether   00:01:AF:15:E0:6A   C 
-    bond0
-172.24.0.13              ether   00:0E:0C:85:FD:D2   C 
-    bond0
-172.24.0.3               ether   00:01:AF:14:C8:CC   C 
-    bond0
-172.24.132.1             ether   00:01:AF:14:E9:88   C 
-    bond0
-172.24.0.7               ether   00:07:E9:41:4B:B4   C 
-    bond0
-192.168.24.81            ether   00:01:AF:14:E9:8A   C 
-    bond2
-
-"ip neigh show" gives nothing, but if I search for specific addresses 
-from the arp table listing they show up:
-
-root@typhoon-base-unit0:/tftpboot/cnp/0-0-5-0/0-0-5-0> ip neigh show
-root@typhoon-base-unit0:/tftpboot/cnp/0-0-5-0/0-0-5-0> ip neigh show 
-172.24.0.9
-172.24.0.9 dev bond0 lladdr 00:03:cc:51:06:5e DELAY
-root@typhoon-base-unit0:/tftpboot/cnp/0-0-5-0/0-0-5-0> ip neigh show 
-10.41.18.101
-10.41.18.101 dev eth6 lladdr 00:0e:0c:5e:95:bd REACHABLE
-root@typhoon-base-unit0:/tftpboot/cnp/0-0-5-0/0-0-5-0> ip neigh show 
-172.24.137.0
-172.24.137.0 dev bond0 lladdr 00:c0:8b:08:e4:88 REACHABLE
+OK, I've added netdev_state_change(dev). Here's the new patch.
 
 
-Is this expected behaviour?
 
-Thanks,
+Once created, an IP tunnel can't be bound to another device.
+(reported as https://bugzilla.redhat.com/show_bug.cgi?id=419671)
 
-Chris
+To reproduce:
+
+# create a tunnel:
+ip tunnel add tunneltest0 mode ipip remote 10.0.0.1 dev eth0
+# try to change the bounding device from eth0 to eth1:
+ip tunnel change tunneltest0 dev eth1
+# show the result:
+ip tunnel show tunneltest0
+
+tunneltest0: ip/ip  remote 10.0.0.1  local any  dev eth0  ttl inherit
+
+Notice the bound device has not changed from eth0 to eth1.
+
+This patch fixes it. When changing the binding, it also recalculates the
+MTU according to the new bound device's MTU.
+
+If the change is acceptable, I'll do the same for GRE and SIT tunnels.
+
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 8c2b2b0..160535b 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -651,6 +651,40 @@ tx_error:
+ 	return 0;
+ }
+ 
++static void ipip_tunnel_bind_dev(struct net_device *dev)
++{
++	struct net_device *tdev = NULL;
++	struct ip_tunnel *tunnel;
++	struct iphdr *iph;
++
++	tunnel = netdev_priv(dev);
++	iph = &tunnel->parms.iph;
++
++	if (iph->daddr) {
++		struct flowi fl = { .oif = tunnel->parms.link,
++				    .nl_u = { .ip4_u =
++					      { .daddr = iph->daddr,
++						.saddr = iph->saddr,
++						.tos = RT_TOS(iph->tos) } },
++				    .proto = IPPROTO_IPIP };
++		struct rtable *rt;
++		if (!ip_route_output_key(&rt, &fl)) {
++			tdev = rt->u.dst.dev;
++			ip_rt_put(rt);
++		}
++		dev->flags |= IFF_POINTOPOINT;
++	}
++
++	if (!tdev && tunnel->parms.link)
++		tdev = __dev_get_by_index(&init_net, tunnel->parms.link);
++
++	if (tdev) {
++		dev->hard_header_len = tdev->hard_header_len + sizeof(struct iphdr);
++		dev->mtu = tdev->mtu - sizeof(struct iphdr);
++	}
++	dev->iflink = tunnel->parms.link;
++}
++
+ static int
+ ipip_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ {
+@@ -723,6 +757,11 @@ ipip_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 				t->parms.iph.ttl = p.iph.ttl;
+ 				t->parms.iph.tos = p.iph.tos;
+ 				t->parms.iph.frag_off = p.iph.frag_off;
++				if (t->parms.link != p.link) {
++					t->parms.link = p.link;
++					ipip_tunnel_bind_dev(dev);
++					netdev_state_change(dev);
++				}
+ 			}
+ 			if (copy_to_user(ifr->ifr_ifru.ifru_data, &t->parms, sizeof(p)))
+ 				err = -EFAULT;
+@@ -791,12 +830,9 @@ static void ipip_tunnel_setup(struct net_device *dev)
+ 
+ static int ipip_tunnel_init(struct net_device *dev)
+ {
+-	struct net_device *tdev = NULL;
+ 	struct ip_tunnel *tunnel;
+-	struct iphdr *iph;
+ 
+ 	tunnel = netdev_priv(dev);
+-	iph = &tunnel->parms.iph;
+ 
+ 	tunnel->dev = dev;
+ 	strcpy(tunnel->parms.name, dev->name);
+@@ -804,29 +840,7 @@ static int ipip_tunnel_init(struct net_device *dev)
+ 	memcpy(dev->dev_addr, &tunnel->parms.iph.saddr, 4);
+ 	memcpy(dev->broadcast, &tunnel->parms.iph.daddr, 4);
+ 
+-	if (iph->daddr) {
+-		struct flowi fl = { .oif = tunnel->parms.link,
+-				    .nl_u = { .ip4_u =
+-					      { .daddr = iph->daddr,
+-						.saddr = iph->saddr,
+-						.tos = RT_TOS(iph->tos) } },
+-				    .proto = IPPROTO_IPIP };
+-		struct rtable *rt;
+-		if (!ip_route_output_key(&rt, &fl)) {
+-			tdev = rt->u.dst.dev;
+-			ip_rt_put(rt);
+-		}
+-		dev->flags |= IFF_POINTOPOINT;
+-	}
+-
+-	if (!tdev && tunnel->parms.link)
+-		tdev = __dev_get_by_index(&init_net, tunnel->parms.link);
+-
+-	if (tdev) {
+-		dev->hard_header_len = tdev->hard_header_len + sizeof(struct iphdr);
+-		dev->mtu = tdev->mtu - sizeof(struct iphdr);
+-	}
+-	dev->iflink = tunnel->parms.link;
++	ipip_tunnel_bind_dev(dev);
+ 
+ 	return 0;
+ }
