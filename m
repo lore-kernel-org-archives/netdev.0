@@ -1,58 +1,44 @@
-From: "Remy Bohmer" <linux@bohmer.net>
-Subject: Re: DM9000_IRQ_FLAGS
-Date: Wed, 12 Dec 2007 15:46:29 +0100
-Message-ID: <3efb10970712120646ub8f5047ub333b74658bab44d@mail.gmail.com>
-References: <20071211191823.GD15295@buzzloop.caiaq.de>
-	 <3efb10970712111231r29f9fba1l3528d805d1009c52@mail.gmail.com>
-	 <20071212134153.GA21510@buzzloop.caiaq.de>
+From: "Joonwoo Park" <joonwpark81@gmail.com>
+Subject: Re: [PATCH 7/7] : myri10ge Fix possible causing oops of net_rx_action
+Date: Wed, 12 Dec 2007 23:48:52 +0900
+Message-ID: <b25c3fa70712120648l23572f7cm51fb24f881c8f31b@mail.gmail.com>
+References: <002801c83c73$af10f990$9c94fea9@jason>
+	 <1197448257.4710.31.camel@subratamodak.linux.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Daniel Mack" <daniel@caiaq.de>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jgarzik@pobox.com, help@myri.com
+To: subrata@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.187]:48438 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754225AbXLLOqm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 09:46:42 -0500
-Received: by rv-out-0910.google.com with SMTP id k20so226958rvb.1
-        for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 06:46:29 -0800 (PST)
-In-Reply-To: <20071212134153.GA21510@buzzloop.caiaq.de>
+Received: from nz-out-0506.google.com ([64.233.162.229]:20201 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751794AbXLLOsy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 09:48:54 -0500
+Received: by nz-out-0506.google.com with SMTP id s18so139693nze.1
+        for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 06:48:53 -0800 (PST)
+In-Reply-To: <1197448257.4710.31.camel@subratamodak.linux.ibm.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Daniel,
-
-> However, request_irq() is called with IRQF_SHARED only, so neither
-> IRQT_RISING nor IRQT_FALLING is set and the value defaults to
-> IRQT_NOEDGE. How can you get IRQs?
-
-The DM9000 adapter is connected to a GPIO line on the at91sam9261-ek
-board, the board-specific code has a generic handler for every GPIO
-interrupt. So, the Device driver __does not need to know__ the type of
-interrupt, It just installs a handler by request_irq().
-
-So, these flags are dependant on the board where the driver is
-installed, and thus everything you want to define fixed in the driver
-is not generic and thus wrong.
-This is why a NACK your patch.
-
-> Actually, the best way to go is to let the platform resources flags
-> decide about that with something like
+2007/12/12, Subrata Modak <subrata@linux.vnet.ibm.com>:
+> Would you like to submit the Driver Test Cases to LTP ? Or, if you have
+> your Driver test cases written in C, we can port to LTP and have it
+> inside the LTP package.
+> You can also check out the following links for more info, and can always
+> ping me for anything:
+> http://ltp.cvs.sourceforge.net/ltp/ltp/testcases/kernel/device-drivers/,
+> http://ltp.sourceforge.net/documentation/how-to/ltp.php?
 >
->         resource->flags = IORESOURCE_IRQ | IRQT_RISING;
+> Regards--
+> Subrata
+> (LTP Maintainer)
 >
-These types of flags are never meant to be compatible, and thus they
-shall not be stored in the same flags variable. The same is valid for
-the flags IRQF_* and IRQT* flags, so request_irq() is also not the
-place to do this.
 
-You should look at the routine set_irq_type() in kernel/irq/chip.c.
-This routine is supposed to be used for the IRQT_RISING type of flags
-Just do a grep of IRQT_RISING in the arch/arm tree and you will find
-enough examples.
+Subrata,
+I can't sure it's possible since my test was needed some hardware
+stuffs but I'll try it in near future and contact you.
 
-Kind Regards,
-
-Remy
+Thanks.
+Joonwoo
