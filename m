@@ -1,8 +1,9 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [PATCH 1/7] [TFRC]: Put RX/TX initialisation into tfrc.c
-Date: Wed, 12 Dec 2007 14:36:47 -0200
-Message-ID: <1197477413-1456-2-git-send-email-acme@redhat.com>
+Subject: [PATCH 2/7] [TFRC]: Loss interval code needs the macros/inlines that were moved
+Date: Wed, 12 Dec 2007 14:36:48 -0200
+Message-ID: <1197477413-1456-3-git-send-email-acme@redhat.com>
 References: <1197477413-1456-1-git-send-email-acme@redhat.com>
+ <1197477413-1456-2-git-send-email-acme@redhat.com>
 Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
 	Arnaldo Carvalho de Melo <acme@redhat.com>
@@ -10,171 +11,127 @@ To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from an-out-0708.google.com ([209.85.132.245]:61090 "EHLO
 	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757452AbXLLQhm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 11:37:42 -0500
+	with ESMTP id S1756212AbXLLQhf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 11:37:35 -0500
 Received: by an-out-0708.google.com with SMTP id d31so73102and.103
-        for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 08:37:41 -0800 (PST)
-In-Reply-To: <1197477413-1456-1-git-send-email-acme@redhat.com>
+        for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 08:37:34 -0800 (PST)
+In-Reply-To: <1197477413-1456-2-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-This separates RX/TX initialisation and puts all packet history / loss intervals
-initialisation into tfrc.c.
-The organisation is uniform: slab declaration -> {rx,tx}_init() -> {rx,tx}_exit()
+This moves the inlines (which were previously declared as macros) back into
+packet_history.h since the loss detection code needs to be able to read entries
+from the RX history in order to create the relevant loss entries: it needs at
+least tfrc_rx_hist_loss_prev() and tfrc_rx_hist_last_rcv(), which in turn
+require the definition of the other inlines (macros).
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/dccp/ccids/lib/packet_history.c |   68 ++++++++++++++++------------------
- net/dccp/ccids/lib/tfrc.c           |   31 ++++++++++++----
- 2 files changed, 55 insertions(+), 44 deletions(-)
+ net/dccp/ccids/lib/packet_history.c |   35 -----------------------------------
+ net/dccp/ccids/lib/packet_history.h |   35 +++++++++++++++++++++++++++++++++++
+ 2 files changed, 35 insertions(+), 35 deletions(-)
 
 diff --git a/net/dccp/ccids/lib/packet_history.c b/net/dccp/ccids/lib/packet_history.c
-index af44082..727b17d 100644
+index 727b17d..dd2cf2d 100644
 --- a/net/dccp/ccids/lib/packet_history.c
 +++ b/net/dccp/ccids/lib/packet_history.c
-@@ -57,6 +57,22 @@ struct tfrc_tx_hist_entry {
-  */
- static struct kmem_cache *tfrc_tx_hist_slab;
- 
-+int __init tfrc_tx_packet_history_init(void)
-+{
-+	tfrc_tx_hist_slab = kmem_cache_create("tfrc_tx_hist",
-+					      sizeof(struct tfrc_tx_hist_entry),
-+					      0, SLAB_HWCACHE_ALIGN, NULL);
-+	return tfrc_tx_hist_slab == NULL ? -ENOBUFS : 0;
-+}
-+
-+void tfrc_tx_packet_history_exit(void)
-+{
-+	if (tfrc_tx_hist_slab != NULL) {
-+		kmem_cache_destroy(tfrc_tx_hist_slab);
-+		tfrc_tx_hist_slab = NULL;
-+	}
-+}
-+
- static struct tfrc_tx_hist_entry *
- 	tfrc_tx_hist_find_entry(struct tfrc_tx_hist_entry *head, u64 seqno)
- {
-@@ -119,6 +135,22 @@ EXPORT_SYMBOL_GPL(tfrc_tx_hist_rtt);
-  */
- static struct kmem_cache *tfrc_rx_hist_slab;
- 
-+int __init tfrc_rx_packet_history_init(void)
-+{
-+	tfrc_rx_hist_slab = kmem_cache_create("tfrc_rxh_cache",
-+					      sizeof(struct tfrc_rx_hist_entry),
-+					      0, SLAB_HWCACHE_ALIGN, NULL);
-+	return tfrc_rx_hist_slab == NULL ? -ENOBUFS : 0;
-+}
-+
-+void tfrc_rx_packet_history_exit(void)
-+{
-+	if (tfrc_rx_hist_slab != NULL) {
-+		kmem_cache_destroy(tfrc_rx_hist_slab);
-+		tfrc_rx_hist_slab = NULL;
-+	}
-+}
-+
- /**
-  * tfrc_rx_hist_index - index to reach n-th entry after loss_start
-  */
-@@ -316,39 +348,3 @@ keep_ref_for_next_time:
- 	return sample;
+@@ -151,23 +151,6 @@ void tfrc_rx_packet_history_exit(void)
+ 	}
  }
- EXPORT_SYMBOL_GPL(tfrc_rx_hist_sample_rtt);
--
--__init int packet_history_init(void)
+ 
+-/**
+- * tfrc_rx_hist_index - index to reach n-th entry after loss_start
+- */
+-static inline u8 tfrc_rx_hist_index(const struct tfrc_rx_hist *h, const u8 n)
 -{
--	tfrc_tx_hist_slab = kmem_cache_create("tfrc_tx_hist",
--					      sizeof(struct tfrc_tx_hist_entry), 0,
--					      SLAB_HWCACHE_ALIGN, NULL);
--	if (tfrc_tx_hist_slab == NULL)
--		goto out_err;
--
--	tfrc_rx_hist_slab = kmem_cache_create("tfrc_rx_hist",
--					      sizeof(struct tfrc_rx_hist_entry), 0,
--					      SLAB_HWCACHE_ALIGN, NULL);
--	if (tfrc_rx_hist_slab == NULL)
--		goto out_free_tx;
--
--	return 0;
--
--out_free_tx:
--	kmem_cache_destroy(tfrc_tx_hist_slab);
--	tfrc_tx_hist_slab = NULL;
--out_err:
--	return -ENOBUFS;
+-	return (h->loss_start + n) & TFRC_NDUPACK;
 -}
 -
--void packet_history_exit(void)
+-/**
+- * tfrc_rx_hist_last_rcv - entry with highest-received-seqno so far
+- */
+-static inline struct tfrc_rx_hist_entry *
+-			tfrc_rx_hist_last_rcv(const struct tfrc_rx_hist *h)
 -{
--	if (tfrc_tx_hist_slab != NULL) {
--		kmem_cache_destroy(tfrc_tx_hist_slab);
--		tfrc_tx_hist_slab = NULL;
--	}
--
--	if (tfrc_rx_hist_slab != NULL) {
--		kmem_cache_destroy(tfrc_rx_hist_slab);
--		tfrc_rx_hist_slab = NULL;
--	}
+-	return h->ring[tfrc_rx_hist_index(h, h->loss_count)];
 -}
-diff --git a/net/dccp/ccids/lib/tfrc.c b/net/dccp/ccids/lib/tfrc.c
-index 3a7a183..20763fa 100644
---- a/net/dccp/ccids/lib/tfrc.c
-+++ b/net/dccp/ccids/lib/tfrc.c
-@@ -14,27 +14,42 @@ module_param(tfrc_debug, bool, 0444);
- MODULE_PARM_DESC(tfrc_debug, "Enable debug messages");
- #endif
- 
-+extern int  tfrc_tx_packet_history_init(void);
-+extern void tfrc_tx_packet_history_exit(void);
-+extern int  tfrc_rx_packet_history_init(void);
-+extern void tfrc_rx_packet_history_exit(void);
-+
- extern int  dccp_li_init(void);
- extern void dccp_li_exit(void);
--extern int packet_history_init(void);
--extern void packet_history_exit(void);
- 
- static int __init tfrc_module_init(void)
- {
- 	int rc = dccp_li_init();
- 
--	if (rc == 0) {
--		rc = packet_history_init();
--		if (rc != 0)
--			dccp_li_exit();
--	}
-+	if (rc)
-+		goto out;
-+
-+	rc = tfrc_tx_packet_history_init();
-+	if (rc)
-+		goto out_free_loss_intervals;
- 
-+	rc = tfrc_rx_packet_history_init();
-+	if (rc)
-+		goto out_free_tx_history;
-+	return 0;
-+
-+out_free_tx_history:
-+	tfrc_tx_packet_history_exit();
-+out_free_loss_intervals:
-+	dccp_li_exit();
-+out:
- 	return rc;
+-
+ void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
+ 			     const struct sk_buff *skb,
+ 			     const u32 ndp)
+@@ -183,24 +166,6 @@ void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
  }
+ EXPORT_SYMBOL_GPL(tfrc_rx_hist_add_packet);
  
- static void __exit tfrc_module_exit(void)
+-/**
+- * tfrc_rx_hist_entry - return the n-th history entry after loss_start
+- */
+-static inline struct tfrc_rx_hist_entry *
+-		tfrc_rx_hist_entry(const struct tfrc_rx_hist *h, const u8 n)
+-{
+-	return h->ring[tfrc_rx_hist_index(h, n)];
+-}
+-
+-/**
+- * tfrc_rx_hist_loss_prev - entry with highest-received-seqno before loss was detected
+- */
+-static inline struct tfrc_rx_hist_entry *
+-			tfrc_rx_hist_loss_prev(const struct tfrc_rx_hist *h)
+-{
+-	return h->ring[h->loss_start];
+-}
+-
+ /* has the packet contained in skb been seen before? */
+ int tfrc_rx_hist_duplicate(struct tfrc_rx_hist *h, struct sk_buff *skb)
  {
--	packet_history_exit();
-+	tfrc_rx_packet_history_exit();
-+	tfrc_tx_packet_history_exit();
- 	dccp_li_exit();
- }
+diff --git a/net/dccp/ccids/lib/packet_history.h b/net/dccp/ccids/lib/packet_history.h
+index 3dfd182..e58b0fc 100644
+--- a/net/dccp/ccids/lib/packet_history.h
++++ b/net/dccp/ccids/lib/packet_history.h
+@@ -84,6 +84,41 @@ struct tfrc_rx_hist {
+ #define rtt_sample_prev		  loss_start
+ };
+ 
++/**
++ * tfrc_rx_hist_index - index to reach n-th entry after loss_start
++ */
++static inline u8 tfrc_rx_hist_index(const struct tfrc_rx_hist *h, const u8 n)
++{
++	return (h->loss_start + n) & TFRC_NDUPACK;
++}
++
++/**
++ * tfrc_rx_hist_last_rcv - entry with highest-received-seqno so far
++ */
++static inline struct tfrc_rx_hist_entry *
++			tfrc_rx_hist_last_rcv(const struct tfrc_rx_hist *h)
++{
++	return h->ring[tfrc_rx_hist_index(h, h->loss_count)];
++}
++
++/**
++ * tfrc_rx_hist_entry - return the n-th history entry after loss_start
++ */
++static inline struct tfrc_rx_hist_entry *
++			tfrc_rx_hist_entry(const struct tfrc_rx_hist *h, const u8 n)
++{
++	return h->ring[tfrc_rx_hist_index(h, n)];
++}
++
++/**
++ * tfrc_rx_hist_loss_prev - entry with highest-received-seqno before loss was detected
++ */
++static inline struct tfrc_rx_hist_entry *
++			tfrc_rx_hist_loss_prev(const struct tfrc_rx_hist *h)
++{
++	return h->ring[h->loss_start];
++}
++
+ extern void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
+ 				    const struct sk_buff *skb, const u32 ndp);
  
 -- 
 1.5.3.4
