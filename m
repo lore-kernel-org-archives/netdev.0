@@ -1,46 +1,63 @@
-From: sreeniva@cse.psu.edu
-Subject: Re: Labeled IPsec with NAT
-Date: Wed, 12 Dec 2007 01:10:23 -0500 (EST)
-Message-ID: <3205.64.178.102.202.1197439823.squirrel@www.cse.psu.edu>
-References: <200712120503.lBC53AYb028820@faith.austin.ibm.com>
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: [PATCH] virtio_net: remove double ether_setup
+Date: Wed, 12 Dec 2007 08:34:06 +0100
+Message-ID: <200712120834.06281.borntraeger@de.ibm.com>
+References: <200712111238.53960.borntraeger@de.ibm.com> <200712121241.48226.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: sreeniva@cse.psu.edu, netdev@vger.kernel.org
-To: "Joy Latten" <latten@austin.ibm.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.osdl.org, kvm-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from psuvax1.cse.psu.edu ([130.203.4.6]:48519 "EHLO mail.cse.psu.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753196AbXLLGKd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Dec 2007 01:10:33 -0500
-In-Reply-To: <200712120503.lBC53AYb028820@faith.austin.ibm.com>
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:2081 "EHLO
+	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753515AbXLLHeJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 02:34:09 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate4.de.ibm.com (8.13.8/8.13.8) with ESMTP id lBC7Y7Go090974
+	for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 07:34:07 GMT
+Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lBC7Y75d3022910
+	for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 08:34:07 +0100
+Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lBC7Y6Bf007232
+	for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 08:34:07 +0100
+In-Reply-To: <200712121241.48226.rusty@rustcorp.com.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Joy,
+Am Mittwoch, 12. Dezember 2007 schrieb Rusty Russell:
+> Can you send straight to akpm or davem?  I'm supposed to be on vacation at 
 
->>I am working on setting up Labeled IPsec along with iptables nat
->>rules. Once I insert nat related rules, the ipsec connection breaks
->>and the system tries to re-negotiate and creates multiple SAs. I am
->>using 2.6.19 kernel (with Venkat's MLSXFRM patches & bugfixes). I
->>guess those were incorporated into the 2.6.20 kernel.
->
-> Are you using racoon in ipsec-tools to create labeled SAs?
-> If so, I recall seeing duplicate SA pairs being created
-> while using racoon for labeled ipsec. We determined userspace
-> should manage this.
-> I posted a patch to ipsec-tools, but I don't think they
-> ever picked it up... I do not know if this is same problem,
-> but you could give it a try.
+this is a small fix for virtio_net.
+virtnet_probe already calls alloc_etherdev, which calls ether_setup.
+There is no need to do that again.
 
-Thanks for replying. I am using racoon for testing. I searched for your
-patch in the ipsec-tools, but couldn't find it. It would be helpful if you
-could point me to the patch.
+Signed-off-by: Christian Borntraeger <borntraeger@de.ibm.com>
+Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+---
+ drivers/net/virtio_net.c |    1 -
+ 1 file changed, 1 deletion(-)
 
-The reason I was debugging the kernel is because I was under the
-assumption that the kernel should not invoke racoon if a matching SA is
-available in the SAD (like in my case).
+Index: kvm/drivers/net/virtio_net.c
+===================================================================
+--- kvm.orig/drivers/net/virtio_net.c
++++ kvm/drivers/net/virtio_net.c
+@@ -329,11 +329,10 @@ static int virtnet_probe(struct virtio_d
+ 	dev = alloc_etherdev(sizeof(struct virtnet_info));
+ 	if (!dev)
+ 		return -ENOMEM;
+ 
+ 	/* Set up network device as normal. */
+-	ether_setup(dev);
+ 	dev->open = virtnet_open;
+ 	dev->stop = virtnet_close;
+ 	dev->hard_start_xmit = start_xmit;
+ 	dev->features = NETIF_F_HIGHDMA;
+ 	SET_NETDEV_DEV(dev, &vdev->dev);
 
-Thanks
-Yogesh
 
