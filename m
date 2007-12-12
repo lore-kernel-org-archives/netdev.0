@@ -1,58 +1,47 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] [IPSEC]: Add populate from packet (PFP) support
-Date: Wed, 12 Dec 2007 21:52:56 +0800
-Message-ID: <20071212135256.GA26200@gondor.apana.org.au>
-References: <20071212032352.GA12890@hestia>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Joy Latten <latten@us.ibm.com>
-To: Tyler Hicks <tyhicks@ou.edu>
+Subject: Re: [Bugme-new] [Bug 9543] New: RTNL: assertion failed at net/ipv6/addrconf.c (2164)/RTNL: assertion failed at net/ipv4/devinet.c (1055)
+Date: Wed, 12 Dec 2007 21:31:58 +0800
+Message-ID: <E1J2Rgs-0006mz-00@gondolin.me.apana.org.au>
+References: <20071211034603.cbcc4762.akpm@linux-foundation.org>
+Cc: olel@ans.pl, bugme-daemon@bugzilla.kernel.org,
+	shemminger@linux-foundation.org, davem@davemloft.net,
+	netdev@vger.kernel.org, fubar@us.ibm.com
+To: akpm@linux-foundation.org (Andrew Morton)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4777 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:4790 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751428AbXLLNw7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 08:52:59 -0500
-Content-Disposition: inline
-In-Reply-To: <20071212032352.GA12890@hestia>
+	with ESMTP id S1751659AbXLLNxQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 08:53:16 -0500
+In-Reply-To: <20071211034603.cbcc4762.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 11, 2007 at 07:23:52PM -0800, Tyler Hicks wrote:
-> RFC 4301 requires us to associate each SPD entry with a set of flags to
-> determine how to assign the selector values when creating a new SAD entry.
+Andrew Morton <akpm@linux-foundation.org> wrote:
 > 
-> Each selector in the new xfrm_state can either be assigned using the
-> corresponding selector in the xfrm_policy or with the corresponding value
-> in the flowi.  Prior to this patch, the fields in the flowi were always
-> used.
+> From: Andrew Morton <akpm@linux-foundation.org>
 > 
-> Signed-off-by: Tyler Hicks <tyhicks@ou.edu>
+> Remove stray rtnl_unlock().
+> 
+> Addresses http://bugzilla.kernel.org/show_bug.cgi?id=9542
 
-Thanks for the patch Tyler!
+Adnrew, please cc Jay Vosburgh <fubar@us.ibm.com> on bonding
+issues.
 
-I think the kernel is fine as it is.  What we're doing is generating
-the most specific selector possible for the larval SA and which lets
-the KM do whatever it wants.
+> diff -puN drivers/net/bonding/bond_sysfs.c~bonding-locking-fix drivers/net/bonding/bond_sysfs.c
+> --- a/drivers/net/bonding/bond_sysfs.c~bonding-locking-fix
+> +++ a/drivers/net/bonding/bond_sysfs.c
+> @@ -1111,8 +1111,6 @@ static ssize_t bonding_store_primary(str
+> out:
+>        write_unlock_bh(&bond->lock);
+> 
+> -       rtnl_unlock();
+> -
 
-What RFC 4301 is asking for is for the mature SAs to have their
-selectors either populated from the policy or the packet.
+Looking at the changeset that added this perhaps the intention
+is to hold the lock? If so we should add an rtnl_lock to the start
+of the function.
 
-So for PFP the KM should fill out its SA selector according to its
-PFP flags.  In other words we don't need PFP flags in the kernel
-at all.
-
-> +	if (pol->flags & XFRM_POLICY_PFP_SPORT) {
-> +		x->sel.sport = xfrm_flowi_sport(fl);
-> +		x->sel.sport_mask = htons(0xffff);
-> +	} else {
-> +		x->sel.sport = pol->selector.sport;
-> +		x->sel.sport = pol->selector.sport_mask;
-
-There's a typo here.
-
-Cheers,
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
