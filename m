@@ -1,48 +1,52 @@
-From: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-Subject: Re: [PATCH resend] virtio_net: remove double ether_setup
-Date: Wed, 12 Dec 2007 12:41:47 +1100
-Message-ID: <200712121241.48226.rusty@rustcorp.com.au>
-References: <200712111238.53960.borntraeger@de.ibm.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bugme-new] [Bug 9545] New: Cannot bring up a bridge interface without a MAC address set
+Date: Wed, 12 Dec 2007 09:51:05 +0800
+Message-ID: <20071212015105.GB20618@gondor.apana.org.au>
+References: <bug-9545-10286@http.bugzilla.kernel.org/> <20071211132614.5854b0f1.akpm@linux-foundation.org> <20071211145243.66e1f66a@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, virtualization-qjLDD68F18O7TbgM5vRIOg@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>
-Return-path: <kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <200712111238.53960.borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, berrange@redhat.com,
+	Jeff Garzik <jeff@garzik.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:4709 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750865AbXLLBvN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 20:51:13 -0500
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
-	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=kvm-devel>
-List-Post: <mailto:kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
-	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20071211145243.66e1f66a@freepuppy.rosehill>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 11 December 2007 22:38:53 Christian Borntraeger wrote:
-> Hello Rusty,
+On Tue, Dec 11, 2007 at 02:52:43PM -0800, Stephen Hemminger wrote:
 >
-> this is a small fix for virtio_net.
-> virtnet_probe already calls alloc_etherdev, which calls ether_setup.
-> There is no need to do that again.
->
-> Signed-off-by: Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>
+> The tap devices have to have addresses don't they. So bringing up an empty
+> bridge is meaningless. If you just add the device first then it will work.
 
-Acked-by: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+Actually bringing up a bridge with no constituents is useful for
+a bridge that's made up of only virtual interfaces.  Since each
+vritual interface may be created or destroyed at run-time it'd
+be quite awkward to check every time to see if that's the last
+or first and act differently on the bridge.
 
-Can you send straight to akpm or davem?  I'm supposed to be on vacation at the 
-moment (and not doing a very good job :)
+More importantly constiuents can be added to and removed from a
+bridge without taking it down.
 
-Thanks,
-Rusty.
+> Could be fixed to prevent errors from existing scripts but it is not a complete showstopper.
 
--------------------------------------------------------------------------
-SF.Net email is sponsored by:
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://sourceforge.net/services/buy/index.php
+Well this stops FC8 working with Xen so for that it's a showstopper :)
+
+> The problem is that when device is brought up it propogates events up to
+> other layers and applications, these layers will then query and see a bogus
+> address.
+
+What exactly would it break for this scenario though?
+
+Cheersk,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
