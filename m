@@ -1,40 +1,48 @@
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Subject: Re: [PATCH] [NET]: Fix Ooops of napi net_rx_action.
-Date: Wed, 12 Dec 2007 09:12:05 +0900
-Message-ID: <b25c3fa70712111612o16a62b49g6709aa728f31e27a@mail.gmail.com>
-References: <001801c83bd6$2001d410$9c94fea9@jason>
-	 <20071211.023218.31965443.davem@davemloft.net>
-	 <b25c3fa70712110457g2bf04c6flc387f2b9cb51cf3b@mail.gmail.com>
-	 <36D9DB17C6DE9E40B059440DB8D95F5203F82FC3@orsmsx418.amr.corp.intel.com>
+From: "Lachlan Andrew" <lachlan.andrew@gmail.com>
+Subject: Re: [RFC PATCH net-2.6.25 uncompilable] [TCP]: Avoid breaking GSOed skbs when SACKed one-by-one
+Date: Tue, 11 Dec 2007 16:14:36 -0800
+Message-ID: <aa7d2c6d0712111614k2832f51axa8bc9736ac7ec796@mail.gmail.com>
+References: <Pine.LNX.4.64.0712071442530.18529@kivilampi-30.cs.helsinki.fi>
+	 <20071207.173201.95379610.davem@davemloft.net>
+	 <Pine.LNX.4.64.0712081523470.17809@kivilampi-30.cs.helsinki.fi>
+	 <20071211.043239.224938181.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
+	quetchen@caltech.edu
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.188]:44359 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753919AbXLLAMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 19:12:05 -0500
-Received: by rv-out-0910.google.com with SMTP id k20so14150rvb.1
-        for <netdev@vger.kernel.org>; Tue, 11 Dec 2007 16:12:05 -0800 (PST)
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5203F82FC3@orsmsx418.amr.corp.intel.com>
+Received: from py-out-1112.google.com ([64.233.166.179]:1745 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750945AbXLLAOi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 19:14:38 -0500
+Received: by py-out-1112.google.com with SMTP id u77so39602pyb.16
+        for <netdev@vger.kernel.org>; Tue, 11 Dec 2007 16:14:37 -0800 (PST)
+In-Reply-To: <20071211.043239.224938181.davem@davemloft.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2007/12/12, Brandeburg, Jesse <jesse.brandeburg@intel.com>:
->
-> all drivers using NAPI in 2.6.24+ (NNAPI??) must return zero here, after
-> calling netif_rx_complete.  netif_rx_complete plus work_done != 0 causes
-> a bug.
->
+Greetings all,
 
-Brandeburg,
-Don't we need to return non-zero work_done after netif_rx_complete if
-work_done != weight?
+On 11/12/2007, David Miller <davem@davemloft.net> wrote:
+>
+> we should
+> get it right as it might have network driver interface implications.
 
-Thanks,
-Joonwoo
+If you're redoing the driver interface, could I put in a request for
+packet time-stamping at a lower level?
+
+This thread started because TCP processing interferes with RTT
+estimation.  This problem would be eliminated if time-stamping were
+done as soon as the packet comes off the NIC.
+
+$0.02
+Lachlan
+
+-- 
+Lachlan Andrew  Dept of Computer Science, Caltech
+1200 E California Blvd, Mail Code 256-80, Pasadena CA 91125, USA
+Ph: +1 (626) 395-8820    Fax: +1 (626) 568-3603
+http://netlab.caltech.edu/~lachlan
