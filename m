@@ -1,155 +1,56 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: Re: [PATCH] IPIP: Allow rebinding the tunnel to another interface
-Date: Wed, 12 Dec 2007 17:29:33 +0100
-Message-ID: <20071212172933.178cf78e@brian.englab.brq.redhat.com>
-References: <20071212163451.498b5726@brian.englab.brq.redhat.com>
-	<4760058E.5080403@trash.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 4/4] sky2: rtnl_lock out of loop will be faster
+Date: Wed, 12 Dec 2007 08:30:11 -0800
+Message-ID: <20071212083011.731773b9@freepuppy.rosehill>
+References: <475FA0C1.8000701@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Marcela Maslanova <mmaslano@redhat.com>
-To: Patrick McHardy <kaber@trash.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	Wang Chen <wangchen@cn.fujitsu.com>
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:53486 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757401AbXLLQ3m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Dec 2007 11:29:42 -0500
-In-Reply-To: <4760058E.5080403@trash.net>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:58896 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752911AbXLLQbu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 11:31:50 -0500
+In-Reply-To: <475FA0C1.8000701@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 12 Dec 2007 17:00:14 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+On Wed, 12 Dec 2007 16:50:09 +0800
+Wang Chen <wangchen@cn.fujitsu.com> wrote:
 
-> If you change dev->iflink this should trigger a rtnetlink
-> notification.
+> [PATCH 4/4] [NETDEV] sky2: rtnl_lock out of loop will be faster
+> 
+> Before this patch, it gets and releases the lock at each
+> iteration of the loop. Changing unregister_netdev to
+> unregister_netdevice and locking outside of the loop will
+> be faster for this approach.
+> 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> ---
+>  sky2.c |    4 +++-
+>  1 files changed, 3 insertions(+), 1 deletion(-)
+> 
+> --- linux-2.6.24.rc5.org/drivers/net/sky2.c	2007-12-12 10:19:43.000000000 +0800
+> +++ linux-2.6.24.rc5/drivers/net/sky2.c	2007-12-12 15:23:37.000000000 +0800
+> @@ -4270,8 +4270,10 @@ static void __devexit sky2_remove(struct
+>  	del_timer_sync(&hw->watchdog_timer);
+>  	cancel_work_sync(&hw->restart_work);
+>  
+> +	rtnl_lock();
+>  	for (i = hw->ports-1; i >= 0; --i)
+> -		unregister_netdev(hw->dev[i]);
+> +		unregister_netdevice(hw->dev[i]);
+> +	rtnl_unlock();
+>  
+>  	sky2_write32(hw, B0_IMSK, 0);
+> 
 
-OK, I've added netdev_state_change(dev). Here's the new patch.
+Umm, okay but it doesn't matter really, there can only be 2 ports and
+90+% of the boards only have one port.  So why bother??
 
-
-
-Once created, an IP tunnel can't be bound to another device.
-(reported as https://bugzilla.redhat.com/show_bug.cgi?id=419671)
-
-To reproduce:
-
-# create a tunnel:
-ip tunnel add tunneltest0 mode ipip remote 10.0.0.1 dev eth0
-# try to change the bounding device from eth0 to eth1:
-ip tunnel change tunneltest0 dev eth1
-# show the result:
-ip tunnel show tunneltest0
-
-tunneltest0: ip/ip  remote 10.0.0.1  local any  dev eth0  ttl inherit
-
-Notice the bound device has not changed from eth0 to eth1.
-
-This patch fixes it. When changing the binding, it also recalculates the
-MTU according to the new bound device's MTU.
-
-If the change is acceptable, I'll do the same for GRE and SIT tunnels.
-
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index 8c2b2b0..160535b 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -651,6 +651,40 @@ tx_error:
- 	return 0;
- }
- 
-+static void ipip_tunnel_bind_dev(struct net_device *dev)
-+{
-+	struct net_device *tdev = NULL;
-+	struct ip_tunnel *tunnel;
-+	struct iphdr *iph;
-+
-+	tunnel = netdev_priv(dev);
-+	iph = &tunnel->parms.iph;
-+
-+	if (iph->daddr) {
-+		struct flowi fl = { .oif = tunnel->parms.link,
-+				    .nl_u = { .ip4_u =
-+					      { .daddr = iph->daddr,
-+						.saddr = iph->saddr,
-+						.tos = RT_TOS(iph->tos) } },
-+				    .proto = IPPROTO_IPIP };
-+		struct rtable *rt;
-+		if (!ip_route_output_key(&rt, &fl)) {
-+			tdev = rt->u.dst.dev;
-+			ip_rt_put(rt);
-+		}
-+		dev->flags |= IFF_POINTOPOINT;
-+	}
-+
-+	if (!tdev && tunnel->parms.link)
-+		tdev = __dev_get_by_index(&init_net, tunnel->parms.link);
-+
-+	if (tdev) {
-+		dev->hard_header_len = tdev->hard_header_len + sizeof(struct iphdr);
-+		dev->mtu = tdev->mtu - sizeof(struct iphdr);
-+	}
-+	dev->iflink = tunnel->parms.link;
-+}
-+
- static int
- ipip_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
- {
-@@ -723,6 +757,11 @@ ipip_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
- 				t->parms.iph.ttl = p.iph.ttl;
- 				t->parms.iph.tos = p.iph.tos;
- 				t->parms.iph.frag_off = p.iph.frag_off;
-+				if (t->parms.link != p.link) {
-+					t->parms.link = p.link;
-+					ipip_tunnel_bind_dev(dev);
-+					netdev_state_change(dev);
-+				}
- 			}
- 			if (copy_to_user(ifr->ifr_ifru.ifru_data, &t->parms, sizeof(p)))
- 				err = -EFAULT;
-@@ -791,12 +830,9 @@ static void ipip_tunnel_setup(struct net_device *dev)
- 
- static int ipip_tunnel_init(struct net_device *dev)
- {
--	struct net_device *tdev = NULL;
- 	struct ip_tunnel *tunnel;
--	struct iphdr *iph;
- 
- 	tunnel = netdev_priv(dev);
--	iph = &tunnel->parms.iph;
- 
- 	tunnel->dev = dev;
- 	strcpy(tunnel->parms.name, dev->name);
-@@ -804,29 +840,7 @@ static int ipip_tunnel_init(struct net_device *dev)
- 	memcpy(dev->dev_addr, &tunnel->parms.iph.saddr, 4);
- 	memcpy(dev->broadcast, &tunnel->parms.iph.daddr, 4);
- 
--	if (iph->daddr) {
--		struct flowi fl = { .oif = tunnel->parms.link,
--				    .nl_u = { .ip4_u =
--					      { .daddr = iph->daddr,
--						.saddr = iph->saddr,
--						.tos = RT_TOS(iph->tos) } },
--				    .proto = IPPROTO_IPIP };
--		struct rtable *rt;
--		if (!ip_route_output_key(&rt, &fl)) {
--			tdev = rt->u.dst.dev;
--			ip_rt_put(rt);
--		}
--		dev->flags |= IFF_POINTOPOINT;
--	}
--
--	if (!tdev && tunnel->parms.link)
--		tdev = __dev_get_by_index(&init_net, tunnel->parms.link);
--
--	if (tdev) {
--		dev->hard_header_len = tdev->hard_header_len + sizeof(struct iphdr);
--		dev->mtu = tdev->mtu - sizeof(struct iphdr);
--	}
--	dev->iflink = tunnel->parms.link;
-+	ipip_tunnel_bind_dev(dev);
- 
- 	return 0;
- }
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
