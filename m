@@ -1,46 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-2.6.25 uncompilable] [TCP]: Avoid breaking
- GSOed skbs when SACKed one-by-one
-Date: Wed, 12 Dec 2007 07:11:36 -0800 (PST)
-Message-ID: <20071212.071136.26499607.davem@davemloft.net>
-References: <Pine.LNX.4.64.0712081523470.17809@kivilampi-30.cs.helsinki.fi>
-	<20071211.043239.224938181.davem@davemloft.net>
-	<aa7d2c6d0712111614k2832f51axa8bc9736ac7ec796@mail.gmail.com>
+Subject: Re: [PATCH] [NET]: Fix Ooops of napi net_rx_action.
+Date: Wed, 12 Dec 2007 07:12:54 -0800 (PST)
+Message-ID: <20071212.071254.180816076.davem@davemloft.net>
+References: <36D9DB17C6DE9E40B059440DB8D95F5203F82FC3@orsmsx418.amr.corp.intel.com>
+	<b25c3fa70712111612o16a62b49g6709aa728f31e27a@mail.gmail.com>
+	<36D9DB17C6DE9E40B059440DB8D95F5203FBAF94@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
-	quetchen@caltech.edu
-To: lachlan.andrew@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59995
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751037AbXLLPLk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 10:11:40 -0500
-In-Reply-To: <aa7d2c6d0712111614k2832f51axa8bc9736ac7ec796@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: joonwpark81@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au,
+	auke-jan.h.kok@intel.com
+To: jesse.brandeburg@intel.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757422AbXLLPNS@vger.kernel.org>
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5203FBAF94@orsmsx418.amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Lachlan Andrew" <lachlan.andrew@gmail.com>
-Date: Tue, 11 Dec 2007 16:14:36 -0800
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Date: Tue, 11 Dec 2007 16:38:37 -0800
 
-> This thread started because TCP processing interferes with RTT
-> estimation.  This problem would be eliminated if time-stamping were
-> done as soon as the packet comes off the NIC.
+> @@ -3933,6 +3933,10 @@ quit_polling:
+>                         e1000_set_itr(adapter);
+>                 netif_rx_complete(poll_dev, napi);
+>                 e1000_irq_enable(adapter);
+> +               if (work_done == weight)
+> +                       return work_done - 1;
+> +               else
+> +                       return work_done;
 
-We don't do that because such timestamping is too expensive.
+Don't do this.
 
-It used to be the case that we did this, but we stopped doing
-that a long time ago.
+If you processed "weight" worth of packets, return that
+exact value and do not netif_rx_complete() and do not
+re-enable interrupts.
 
-On x86 for example, timestamping can involve touching a slow
-I/O device to read the timestamp.  We do not want to do that
-for every packet.
-
-Also, we timestamp differently for TCP, the global high
-resolution timestamp is overkill for this purpose.
-
-Really, this is a silly idea and would only be a bandaid
-for the problem at hand, that TCP input processing is
-too expensive in certain circumstances.
-
+That is the only correct fix.
