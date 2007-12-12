@@ -1,66 +1,33 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] netfilter : xt_hashlimit should use time_after_eq()
-Date: Wed, 12 Dec 2007 19:39:34 +0100
-Message-ID: <47602AE6.6060908@cosmosbay.com>
+From: drago01 <drago01-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC] mac80211: clean up frame receive handling
+Date: Wed, 12 Dec 2007 19:39:59 +0100
+Message-ID: <f6ca9fed0712121039n1c287f48n7ece3107bd0b50ca@mail.gmail.com>
+References: <1197483844.6558.158.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010508000307000309010003"
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp25.orange.fr ([193.252.22.22]:44669 "EHLO smtp25.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758456AbXLLSjo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Dec 2007 13:39:44 -0500
-Received: from me-wanadoo.net (localhost [127.0.0.1])
-	by mwinf2516.orange.fr (SMTP Server) with ESMTP id 3150D1C000B2
-	for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 19:39:42 +0100 (CET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------010508000307000309010003
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Michael Wu" <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>,
+	"Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, "Jouni Malinen" <j@w1.fi>
+To: "Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1197483844.6558.158.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi David & Patrick
+On Dec 12, 2007 7:24 PM, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+> [comments welcome. I really need a refresher on what the frame formats
+> mean but I think I did the right thing with skb->protocol here, I also
+> think we had a bug with rfc2042 header frames bigger than 15xx bytes and
+> eth_type_trans()]
+>
+> This cleans up the frame receive handling. After this patch
+>  * EAPOL frames addressed to us or the EAPOL group address are
+>    always accepted regardless of whether they are encrypted or not
 
-I believe this patch is needed for linux-2.6.24
-
-Thank you
-
-[PATCH] netfilter : xt_hashlimit should use time_after_eq()
-
-In order to avoid jiffies wraparound and its effect, special care must 
-be taken
-when doing comparisons ...
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
-
-
---------------010508000307000309010003
-Content-Type: text/plain;
- name="xt_hashlimit.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="xt_hashlimit.patch"
-
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-index 1910367..2ef44d8 100644
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -240,7 +240,7 @@ static bool select_all(const struct xt_hashlimit_htable *ht,
- static bool select_gc(const struct xt_hashlimit_htable *ht,
- 		      const struct dsthash_ent *he)
- {
--	return jiffies >= he->expires;
-+	return time_after_eq(jiffies, he->expires);
- }
- 
- static void htable_selective_cleanup(struct xt_hashlimit_htable *ht,
-
---------------010508000307000309010003--
-
-
+why? userspace (wap_supplicant) tryes to control this depending on the
+network settings.
+(I don't really know why thought)
+maybe it should be handled like drop_unencrypted with default to accept all?
