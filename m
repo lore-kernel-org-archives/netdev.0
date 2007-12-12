@@ -1,55 +1,27 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 8/8] [PATCH v2] [CCID3]: Interface CCID3 code with newer Loss Intervals Database
-Date: Wed, 12 Dec 2007 16:56:32 +0000
-Message-ID: <20071212165632.GB2282@gerrit.erg.abdn.ac.uk>
-References: <11971083881667-git-send-email-gerrit@erg.abdn.ac.uk> <11971083883685-git-send-email-gerrit@erg.abdn.ac.uk> <1197108388630-git-send-email-gerrit@erg.abdn.ac.uk> <11971083883727-git-send-email-gerrit@erg.abdn.ac.uk> <11971083882049-git-send-email-gerrit@erg.abdn.ac.uk> <11971083881748-git-send-email-gerrit@erg.abdn.ac.uk> <11971083882534-git-send-email-gerrit@erg.abdn.ac.uk> <20071210210416.GB24046@ghostprotocols.net> <20071211094238.GA9926@gerrit.erg.abdn.ac.uk> <20071211172244.GF24046@ghostprotocols.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHES 0/7]: DCCP patches for 2.6.25
+Date: Wed, 12 Dec 2007 09:00:14 -0800 (PST)
+Message-ID: <20071212.090014.54048343.davem@davemloft.net>
+References: <1197477413-1456-1-git-send-email-acme@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dccp@vger.kernel.org
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:62919 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754551AbXLLQ5Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Dec 2007 11:57:24 -0500
-Content-Disposition: inline
-In-Reply-To: <20071211172244.GF24046@ghostprotocols.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35145
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757580AbXLLRAO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 12:00:14 -0500
+In-Reply-To: <1197477413-1456-1-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| This time around I'm not doing any reordering, just trying to use your
-| patches as is, but adding this patch as-is produces a kernel that will
-| crash, no?
-| 
-| > The loss history and the RX/TX packet history slabs are all created in
-| > tfrc.c using the three different __init routines of the dccp_tfrc_lib.
-| 
-| Yes, the init routines are called and in turn they create the slab
-| caches, but up to the patch "[PATCH 8/8] [PATCH v2] [CCID3]: Interface
-| CCID3 code with newer Loss Intervals Database" the new li slab is not
-| being created, no? See what I'm talking?
-| 
-Sorry, there is some weird kind of mix-up going on. Can you please check
-your patch set: it seems this email exchange refers to an older variant.
-In the most recent patch set, the slab is introduced in the patch
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Wed, 12 Dec 2007 14:36:46 -0200
 
-	[TFRC]: Ringbuffer to track loss interval history
+> 	Please consider pulling from:
+> 
+> master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.25
 
---- a/net/dccp/ccids/lib/loss_interval.c
-+++ b/net/dccp/ccids/lib/loss_interval.c
-@@ -27,6 +23,54 @@ struct dccp_li_hist_entry {
-        u32              dccplih_interval;
- };
-
-+static struct kmem_cache  *tfrc_lh_slab  __read_mostly;	/* <=== */
-+/* Loss Interval weights from [RFC 3448, 5.4], scaled by 10 */
-+static const int tfrc_lh_weights[NINTERVAL] = { 10, 10, 10, 10, 8, 6, 4, 2 };
-// ...
-
-And this is 6/8, i.e. before 8/8, cf.
-	http://www.mail-archive.com/dccp@vger.kernel.org/msg03000.html
-     
-I don't know which tree you are working off, would it be possible to
-check against the test tree
-	git://eden-feed.erg.abdn.ac.uk/dccp_exp		[dccp]
-
+Pulled and pushed out to net-2.6.25, thanks!
