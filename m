@@ -1,70 +1,74 @@
-From: Rik van Riel <riel@redhat.com>
-Subject: Re: 2.6.24-rc4-mm1
-Date: Tue, 11 Dec 2007 23:16:18 -0500
-Message-ID: <20071211231618.4cf0460b@bree.surriel.com>
-References: <20071204211701.994dfce6.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+From: Yogesh Raju Sreenivasan <sreeniva@cse.psu.edu>
+Subject: Labeled IPsec with NAT
+Date: Tue, 11 Dec 2007 22:37:06 -0500
+Message-ID: <54AF31FD-9D60-44A6-B7B8-C71893ADCCED@cse.psu.edu>
+Mime-Version: 1.0 (Apple Message framework v752.3)
+Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha1; boundary="Apple-Mail-7-80094948"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:60000 "EHLO mx1.redhat.com"
+Received: from psuvax1.cse.psu.edu ([130.203.4.6]:64345 "EHLO mail.cse.psu.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751892AbXLLEQY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Dec 2007 23:16:24 -0500
-In-Reply-To: <20071204211701.994dfce6.akpm@linux-foundation.org>
+	id S1754083AbXLLEQ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Dec 2007 23:16:29 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by mail.cse.psu.edu (CSE Mail Server) with ESMTP id 53E751238C
+	for <netdev@vger.kernel.org>; Tue, 11 Dec 2007 22:37:13 -0500 (EST)
+Received: from mail.cse.psu.edu ([127.0.0.1])
+ by localhost (psuvax1 [127.0.0.1]) (amavisd-new, port 10024) with LMTP
+ id 28335-03-61 for <netdev@vger.kernel.org>;
+ Tue, 11 Dec 2007 22:37:11 -0500 (EST)
+Received: from [172.28.37.195] (client-128-118-186-52.mobility-up.psu.edu [128.118.186.52])
+	by mail.cse.psu.edu (CSE Mail Server) with ESMTP id 1735612363
+	for <netdev@vger.kernel.org>; Tue, 11 Dec 2007 22:37:10 -0500 (EST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 4 Dec 2007 21:17:01 -0800
-Andrew Morton <akpm@linux-foundation.org> wrote:
-
-> Changes since 2.6.24-rc3-mm2:
-
-2.6.24-rc4-mm1 brought a nice TCP oops on my x86_64 system, while I
-was stress-testing the VM and watching via ssh:
-
-general protection fault: 0000 [1] SMP 
-last sysfs file: /sys/devices/pci0000:00/0000:00:1c.5/0000:04:00.0/irq
-CPU 1 
-Modules linked in: nfs lockd nfs_acl rfcomm l2cap bluetooth autofs4 sunrpc ipv6 acpi_cpufreq dm_multipath parport_pc e1000e parport firewire_ohci button i2c_i801 i2c_core i82975x_edac pcspkr firewire_core serio_raw edac_core rtc_cmos floppy crc_itu_t sg sr_mod cdrom pata_marvell ata_piix dm_snapshot dm_zero dm_mirror dm_mod ahci libata sd_mod scsi_mod ext3 jbd mbcache uhci_hcd ohci_hcd ehci_hcd
-Pid: 2946, comm: sshd Not tainted 2.6.24-rc4-mm1 #1
-RIP: 0010:[<ffffffff81227add>]  [<ffffffff81227add>] __tcp_rb_insert+0x1a/0x67
-RSP: 0018:ffff810066401c88  EFLAGS: 00010202
-RAX: 6b6b6b6b6b6b6b6b RBX: ffff810076e9f000 RCX: ffff81003ddc9900
-RDX: 6b6b6b6b6b6b6bab RSI: ffff81006ed1b148 RDI: 6b6b6b6b6b6b6b5b
-RBP: ffff81006ed1aa00 R08: ffff810076e9f010 R09: 00000000bef8d64e
-R10: ffffffff81228926 R11: ffffffff8110b2aa R12: ffff810066401de8
-R13: 00000000000000e0 R14: ffff810066401ee8 R15: 0000000000000001
-FS:  00007f1c2c10d780(0000) GS:ffff81007f801578(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 0000000002aabfd3 CR3: 00000000665e3000 CR4: 00000000000006e0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process sshd (pid: 2946, threadinfo ffff810066400000, task ffff8100665ce000)
-Stack:  ffff81003ddc9900 ffffffff81228b26 0000000000000000 0000000100000000
- ffff810066401ee8 00000000810574da 000004e000000040 000000e0000004e0
- 00007f1c2c797620 0000000000000246 0000000066401d60 0000000000000000
-Call Trace:
- [<ffffffff81228b26>] tcp_sendmsg+0x21f/0xb00
- [<ffffffff811f0435>] sock_aio_write+0xf8/0x110
- [<ffffffff810a9451>] do_sync_write+0xc9/0x10c
- [<ffffffff811071d3>] file_has_perm+0x9a/0xa9
- [<ffffffff8104e29a>] autoremove_wake_function+0x0/0x2e
- [<ffffffff81059db6>] __lock_acquire+0x50f/0xc8e
- [<ffffffff810574da>] lock_release_holdtime+0x27/0x48
- [<ffffffff810a9c53>] vfs_write+0xd9/0x16f
- [<ffffffff810aa1fd>] sys_write+0x45/0x6e
- [<ffffffff8100c0ba>] tracesys+0xdc/0xe1
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--Apple-Mail-7-80094948
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 
 
-Code: 44 3b 4a 1c 79 10 44 3b 4a 18 78 04 0f 0b eb fe 48 8d 50 10 
-RIP  [<ffffffff81227add>] __tcp_rb_insert+0x1a/0x67
- RSP <ffff810066401c88>
+I am working on setting up Labeled IPsec along with iptables nat  
+rules. Once I insert nat related rules, the ipsec connection breaks  
+and the system tries to re-negotiate and creates multiple SAs. I am  
+using 2.6.19 kernel (with Venkat's MLSXFRM patches & bugfixes). I  
+guess those were incorporated into the 2.6.20 kernel.
 
+In my case, the function ip_route_me_harder() calls the xfrm_lookup()  
+second time which is causing the re-negotiation. I believe it is  
+because the flowi->secid field is not set during the second  
+xfrm_lookup() call. The ip_route_me_harder() function also calls the  
+xfrm_decode_session() which I guess creates/fills the flowi details  
+and selinux_xfrm_decode_session fills the flowi->secid from the  
+skbuff->sec_path field. But since the skbuff->secpath field is not  
+set, the flowi->secid field is reset to 0 on the decode_session()  
+call. It seems like we have to fill in the secpath while creating the  
+skbuff, before calling the xfrm_decode_session, for the output flow.
 
--- 
-"Debugging is twice as hard as writing the code in the first place.
-Therefore, if you write the code as cleverly as possible, you are,
-by definition, not smart enough to debug it." - Brian W. Kernighan
+Please do let me know if someone has already looked into this issue  
+and would be helpful if you could guide me with this. If someone has  
+already tested labeled ipsec with NAT and if my understanding is not  
+correct do let me know, I am new to linux kernel and finding it  
+difficult to reason out the exact cause.
+
+Thanks
+Yogesh
+
+--Apple-Mail-7-80094948
+content-type: application/pgp-signature; x-mac-type=70674453;
+	name=PGP.sig
+content-description: This is a digitally signed message part
+content-disposition: inline; filename=PGP.sig
+content-transfer-encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (Darwin)
+
+iD8DBQFHX1ditwxrN9RHNvQRAtKWAJ98arBdf6xj0mTQoFutuVZBpRAU9QCfarPX
+wklHmt3y8GSYuQKs3v3vBvc=
+=AZvd
+-----END PGP SIGNATURE-----
+
+--Apple-Mail-7-80094948--
