@@ -1,36 +1,70 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: "ip neigh show" not showing arp cache entries?
-Date: Thu, 13 Dec 2007 07:06:41 +0900 (JST)
-Message-ID: <20071213.070641.20411400.yoshfuji@linux-ipv6.org>
-References: <4760279E.1080203@nortel.com>
-	<47602DD0.8070402@cosmosbay.com>
-	<47605934.2060604@nortel.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r6040 various cleanups
+Date: Wed, 12 Dec 2007 23:35:41 +0100
+Message-ID: <20071212223541.GA32305@electric-eye.fr.zoreil.com>
+References: <200712121044.01820.florian.fainelli@telecomint.eu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: cfriesen@nortel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, Andrew Morton <akpm@linux-foundation.org>,
+	Sten Wang <sten.wang@rdc.com.tw>, netdev@vger.kernel.org
+To: Florian Fainelli <florian.fainelli@telecomint.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:43561 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751653AbXLLWGM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 17:06:12 -0500
-In-Reply-To: <47605934.2060604@nortel.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:36396 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751429AbXLLWmj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 17:42:39 -0500
+Content-Disposition: inline
+In-Reply-To: <200712121044.01820.florian.fainelli@telecomint.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <47605934.2060604@nortel.com> (at Wed, 12 Dec 2007 15:57:08 -0600), "Chris Friesen" <cfriesen@nortel.com> says:
+Florian Fainelli <florian.fainelli@telecomint.eu> :
+[r6040 changes]
+> - remove unused private structure members
+> - functions to allocate/free TX and RX buffers
+> - recover from transmit timeout
+> - use netdev_alloc_skb instead of dev_alloc_skb
+> - do not use a private stats structure to store statistics
+> - break each TX/RX error to a separate line for better reading
+> - better control of the timer
+> - clean the IRQ handler
+> - fix typos and spelling mistakes in the driver
 
-> > You may try other versions of this command
-> > 
-> > http://devresources.linux-foundation.org/dev/iproute2/download/
-> 
-> They appear to be numbered by kernel version, and the above version is 
-> the most recent one for 2.6.14.  Will more recent ones (for newer 
-> kernels) work with my kernel?
+Thanks, I have split it in parts. The serie should be available shortly at:
 
-It should work; if it doesn't, please make a report.  Thanks.
+git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git r6040
 
---yoshfuji
+Please note that:
+1. TIMER_WUT has been removed as it was not used any more
+2. I have kept the difference below. Was the patch really supposed to update
+   the same error counter twice ?
+
+diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
+index 19184e4..ff72c51 100644
+--- a/drivers/net/r6040.c
++++ b/drivers/net/r6040.c
+@@ -518,7 +519,9 @@ static int r6040_rx(struct net_device *dev, int limit)
+ 		if (err & 0x0020)
+ 			dev->stats.rx_over_errors++;
+ 		/* Received packet with too long or short */
+-		if (err & (0x0010 | 0x0008))
++		if (err & 0x0010)
++			dev->stats.rx_length_errors++;
++		if (err & 0x0008)
+ 			dev->stats.rx_length_errors++;
+ 		/* Received packet with CRC errors */
+ 		if (err & 0x0004) {
+@@ -579,7 +582,9 @@ static void r6040_tx(struct net_device *dev)
+ 
+ 		if (err & 0x0200)
+ 			dev->stats.rx_fifo_errors++;
+-		if (err & (0x2000 | 0x4000))
++		if (err & 0x2000)
++			dev->stats.tx_carrier_errors++;
++		if (err & 0x4000)
+ 			dev->stats.tx_carrier_errors++;
+ 
+ 		if (descptr->status & 0x8000)
+
+-- 
+Ueimor
