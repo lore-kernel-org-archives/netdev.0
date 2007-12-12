@@ -1,40 +1,61 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: Re: Labeled IPsec with NAT
-Date: Tue, 11 Dec 2007 23:03:10 -0600
-Message-ID: <200712120503.lBC53AYb028820@faith.austin.ibm.com>
-Cc: netdev@vger.kernel.org
-To: sreeniva@cse.psu.edu
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 9545] New: Cannot bring up a bridge interface
+ without a MAC address set
+Date: Tue, 11 Dec 2007 21:36:59 -0800
+Message-ID: <20071211213659.42591478@freepuppy.rosehill>
+References: <bug-9545-10286@http.bugzilla.kernel.org/>
+	<20071211132614.5854b0f1.akpm@linux-foundation.org>
+	<20071211145243.66e1f66a@freepuppy.rosehill>
+	<20071212015105.GB20618@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, berrange@redhat.com,
+	Jeff Garzik <jeff@garzik.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:40102 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750982AbXLLFER (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Dec 2007 00:04:17 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id lBC54EdS016914
-	for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 00:04:14 -0500
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lBC54EEb126294
-	for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 00:04:14 -0500
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lBC54Dh6002856
-	for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 00:04:13 -0500
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:53758 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757463AbXLLFja (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 00:39:30 -0500
+In-Reply-To: <20071212015105.GB20618@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 12 Dec 2007 09:51:05 +0800
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
->I am working on setting up Labeled IPsec along with iptables nat  
->rules. Once I insert nat related rules, the ipsec connection breaks  
->and the system tries to re-negotiate and creates multiple SAs. I am  
->using 2.6.19 kernel (with Venkat's MLSXFRM patches & bugfixes). I  
->guess those were incorporated into the 2.6.20 kernel.
+> On Tue, Dec 11, 2007 at 02:52:43PM -0800, Stephen Hemminger wrote:
+> >
+> > The tap devices have to have addresses don't they. So bringing up an empty
+> > bridge is meaningless. If you just add the device first then it will work.
+> 
+> Actually bringing up a bridge with no constituents is useful for
+> a bridge that's made up of only virtual interfaces.  Since each
+> vritual interface may be created or destroyed at run-time it'd
+> be quite awkward to check every time to see if that's the last
+> or first and act differently on the bridge.
+> 
+> More importantly constiuents can be added to and removed from a
+> bridge without taking it down.
+> 
+> > Could be fixed to prevent errors from existing scripts but it is not a complete showstopper.
+> 
+> Well this stops FC8 working with Xen so for that it's a showstopper :)
+> 
+> > The problem is that when device is brought up it propogates events up to
+> > other layers and applications, these layers will then query and see a bogus
+> > address.
+> 
+> What exactly would it break for this scenario though?
 
-Are you using racoon in ipsec-tools to create labeled SAs?
-If so, I recall seeing duplicate SA pairs being created
-while using racoon for labeled ipsec. We determined userspace
-should manage this.
-I posted a patch to ipsec-tools, but I don't think they
-ever picked it up... I do not know if this is same problem,
-but you could give it a try.
+Well with earlier kernels, ipv6 and others would see an invalid address (all zeros).
+That could be a problem if some netlink watching program or udev script
+propagated that value into a database or management interface. But now
+using a random value, that won't happen.
 
-regards,
-Joy
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
