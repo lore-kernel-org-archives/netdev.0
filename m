@@ -1,46 +1,55 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: "ip neigh show" not showing arp cache entries?
-Date: Wed, 12 Dec 2007 19:52:00 +0100
-Message-ID: <47602DD0.8070402@cosmosbay.com>
-References: <475D7901.1040900@nortel.com> <475D7D70.5030502@nortel.com> <47600A6E.8000202@nortel.com> <47601059.8020203@cosmosbay.com> <4760279E.1080203@nortel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.25] IPv4: thresholds in fib_trie.c are not
+ modified, make them const
+Date: Wed, 12 Dec 2007 10:58:33 -0800 (PST)
+Message-ID: <20071212.105833.237798467.davem@davemloft.net>
+References: <20071212110555.GA11638@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Chris Friesen <cfriesen@nortel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: containers@lists.osdl.org, devel@openvz.org, netdev@vger.kernel.org
+To: den@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp25.orange.fr ([193.252.22.22]:10710 "EHLO smtp25.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752614AbXLLSwE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 13:52:04 -0500
-Received: from me-wanadoo.net (localhost [127.0.0.1])
-	by mwinf2516.orange.fr (SMTP Server) with ESMTP id A0A7B1C0034A
-	for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 19:52:02 +0100 (CET)
-In-Reply-To: <4760279E.1080203@nortel.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42532
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752048AbXLLS6e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 13:58:34 -0500
+In-Reply-To: <20071212110555.GA11638@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chris Friesen a =E9crit :
-> Eric Dumazet wrote:
->> Chris Friesen a =E9crit :
->>> Is this expected behaviour?
->>
->> Probably not... Still a 2.6.14 kernel ?
->
-> Yep.  Embedded hardware, so I'm unable to test with a more recent ker=
-nel.
->
+From: "Denis V. Lunev" <den@openvz.org>
+Date: Wed, 12 Dec 2007 14:05:55 +0300
 
-And what is the version of "ip" command you have on this machine ?
+> -static int halve_threshold = 25;
+> -static int inflate_threshold = 50;
+> -static int halve_threshold_root = 15;
+> -static int inflate_threshold_root = 25;
 
-ip -V
+halve_threshold_root and inflate_threshold_root have different
+values in the net-2.6.25 tree.
 
-You may try other versions of this command
+What tree are you patching against?  These were changed way
+back in:
 
-http://devresources.linux-foundation.org/dev/iproute2/download/
+commit 965ffea43d4ebe8cd7b9fee78d651268dd7d23c5
+Author: Robert Olsson <robert.olsson@its.uu.se>
+Date:   Mon Mar 19 16:29:58 2007 -0700
 
+    [IPV4]: fib_trie root node settings
+    
+    The threshold for root node can be more aggressive set to get
+    better tree compression. The new setting mekes the root grow
+    from 16 to 19 bits and substansial improvemnt in Aver depth
+    this with the current table of 214393 prefixes
+    
+    But really the dynamic resize should need more investigation
+    both in terms convergence and performance and maybe it should
+    be possible to change...
+    
+    Maybe just for the brave to start with or we may have to back
+    this out.
 
-
-
-
+Please don't waste my time like this.  Always submit patches
+against the current tree, even if you "think" the files
+you are patching haven't changed.
