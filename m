@@ -1,48 +1,65 @@
-From: "Lachlan Andrew" <lachlan.andrew@gmail.com>
-Subject: Re: [RFC PATCH net-2.6.25 uncompilable] [TCP]: Avoid breaking GSOed skbs when SACKed one-by-one
-Date: Tue, 11 Dec 2007 16:14:36 -0800
-Message-ID: <aa7d2c6d0712111614k2832f51axa8bc9736ac7ec796@mail.gmail.com>
-References: <Pine.LNX.4.64.0712071442530.18529@kivilampi-30.cs.helsinki.fi>
-	 <20071207.173201.95379610.davem@davemloft.net>
-	 <Pine.LNX.4.64.0712081523470.17809@kivilampi-30.cs.helsinki.fi>
-	 <20071211.043239.224938181.davem@davemloft.net>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [PATCH] [NET]: Fix Ooops of napi net_rx_action.
+Date: Tue, 11 Dec 2007 16:38:37 -0800
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5203FBAF94@orsmsx418.amr.corp.intel.com>
+References: <001801c83bd6$2001d410$9c94fea9@jason> <20071211.023218.31965443.davem@davemloft.net> <b25c3fa70712110457g2bf04c6flc387f2b9cb51cf3b@mail.gmail.com> <36D9DB17C6DE9E40B059440DB8D95F5203F82FC3@orsmsx418.amr.corp.intel.com> <b25c3fa70712111612o16a62b49g6709aa728f31e27a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
-	quetchen@caltech.edu
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <herbert@gondor.apana.org.au>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+To: "Joonwoo Park" <joonwpark81@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.179]:1745 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750945AbXLLAOi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 19:14:38 -0500
-Received: by py-out-1112.google.com with SMTP id u77so39602pyb.16
-        for <netdev@vger.kernel.org>; Tue, 11 Dec 2007 16:14:37 -0800 (PST)
-In-Reply-To: <20071211.043239.224938181.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mga02.intel.com ([134.134.136.20]:47001 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751232AbXLLAlo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2007 19:41:44 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <b25c3fa70712111612o16a62b49g6709aa728f31e27a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greetings all,
+Joonwoo Park wrote:
+> 2007/12/12, Brandeburg, Jesse <jesse.brandeburg@intel.com>:
+>> 
+>> all drivers using NAPI in 2.6.24+ (NNAPI??) must return zero here,
+>> after calling netif_rx_complete.  netif_rx_complete plus work_done
+>> != 0 causes a bug. 
+>> 
+> 
+> Brandeburg,
+> Don't we need to return non-zero work_done after netif_rx_complete if
+> work_done != weight?
 
-On 11/12/2007, David Miller <davem@davemloft.net> wrote:
->
-> we should
-> get it right as it might have network driver interface implications.
+Actually we just need to make sure we don't return work_done == weight
+as it is checked on line 2210 of dev.c.
+I should also note that I was wrong above, and that the requirement is
+that we MUST not return work_done == weight when indicating
+netif_rx_complete.
 
-If you're redoing the driver interface, could I put in a request for
-packet time-stamping at a lower level?
+So, returning 0 when we actually did some work, but are being removed
+from the poll list because something like !netif_running, is probably
+okay, but I'm sure someone will disagree with me.  Maybe returning like
+this would be better
+diff --git a/drivers/net/e1000/e1000_main.c
+b/drivers/net/e1000/e1000_main.c
+index 724f067..76d5e3b 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -3933,6 +3933,10 @@ quit_polling:
+                        e1000_set_itr(adapter);
+                netif_rx_complete(poll_dev, napi);
+                e1000_irq_enable(adapter);
++               if (work_done == weight)
++                       return work_done - 1;
++               else
++                       return work_done;
+        }
 
-This thread started because TCP processing interferes with RTT
-estimation.  This problem would be eliminated if time-stamping were
-done as soon as the packet comes off the NIC.
+        return work_done;
 
-$0.02
-Lachlan
+Jesse
 
--- 
-Lachlan Andrew  Dept of Computer Science, Caltech
-1200 E California Blvd, Mail Code 256-80, Pasadena CA 91125, USA
-Ph: +1 (626) 395-8820    Fax: +1 (626) 568-3603
-http://netlab.caltech.edu/~lachlan
+ 
