@@ -1,7 +1,7 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [PATCH 09/12] [DCCP]: Support inserting options during the 3-way handshake
-Date: Thu, 13 Dec 2007 13:06:02 -0200
-Message-ID: <1197558365-31134-10-git-send-email-acme@redhat.com>
+Subject: [PATCH 07/12] [DCCP]: Add (missing) option parsing to request_sock processing
+Date: Thu, 13 Dec 2007 13:06:00 -0200
+Message-ID: <1197558365-31134-8-git-send-email-acme@redhat.com>
 References: <1197558365-31134-1-git-send-email-acme@redhat.com>
  <1197558365-31134-2-git-send-email-acme@redhat.com>
  <1197558365-31134-3-git-send-email-acme@redhat.com>
@@ -9,122 +9,94 @@ References: <1197558365-31134-1-git-send-email-acme@redhat.com>
  <1197558365-31134-5-git-send-email-acme@redhat.com>
  <1197558365-31134-6-git-send-email-acme@redhat.com>
  <1197558365-31134-7-git-send-email-acme@redhat.com>
- <1197558365-31134-8-git-send-email-acme@redhat.com>
- <1197558365-31134-9-git-send-email-acme@redhat.com>
 Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
 	Ian McDonald <ian.mcdonald@jandi.co.nz>,
 	Arnaldo Carvalho de Melo <acme@redhat.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.247]:4095 "EHLO
+Received: from an-out-0708.google.com ([209.85.132.245]:3971 "EHLO
 	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762180AbXLMPGY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 10:06:24 -0500
-Received: by an-out-0708.google.com with SMTP id d31so185751and.103
-        for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 07:06:22 -0800 (PST)
-In-Reply-To: <1197558365-31134-9-git-send-email-acme@redhat.com>
+	with ESMTP id S1757541AbXLMPG0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 10:06:26 -0500
+Received: by an-out-0708.google.com with SMTP id d31so185763and.103
+        for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 07:06:25 -0800 (PST)
+In-Reply-To: <1197558365-31134-7-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-This provides a separate routine to insert options during the initial handshake.
-The main purpose is to conduct feature negotiation, for the moment the only user
-is the timestamp echo needed for the (CCID3) handshake RTT sample.
+This adds option-parsing code to processing of Acks in the listening state
+on request_socks on the server, serving two purposes
+ (i)  resolves a FIXME (removed);
+ (ii) paves the way for feature-negotiation during connection-setup.
 
-Padding of options has been put into a small separate routine, to be shared among
-the two functions. This could also be used as a generic routine to finish inserting
-options.
+There is an intended subtlety here with regard to dccp_check_req:
 
-Also removed an `XXX' comment since its content was obvious.
+ Parsing options happens only after testing whether the received packet is
+ a retransmitted Request.  Otherwise, if the Request contained (a possibly
+ large number of) feature-negotiation options, recomputing state would have to
+ happen each time a retransmitted Request arrives, which opens the door to an
+ easy DoS attack.  Since in a genuine retransmission the options should not be
+ different from the original, reusing the already computed state seems better.
+
+ The other point is - if there are timestamp options on the Request, they will
+ not be answered; which means that in the presence of retransmission (likely
+ due to loss and/or other problems), the use of Request/Response RTT sampling
+ is suspended, so that startup problems here do not propagate.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/dccp/dccp.h    |    1 +
- net/dccp/options.c |   32 ++++++++++++++++++++++----------
- net/dccp/output.c  |    2 +-
- 3 files changed, 24 insertions(+), 11 deletions(-)
+ net/dccp/minisocks.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
-index 3af3320..b138e20 100644
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -428,6 +428,7 @@ static inline int dccp_ack_pending(const struct sock *sk)
- }
- 
- extern int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
-+extern int dccp_insert_options_rsk(struct dccp_request_sock*, struct sk_buff*);
- extern int dccp_insert_option_elapsed_time(struct sock *sk,
- 					    struct sk_buff *skb,
- 					    u32 elapsed_time);
-diff --git a/net/dccp/options.c b/net/dccp/options.c
-index 0c996d8..bedb5da 100644
---- a/net/dccp/options.c
-+++ b/net/dccp/options.c
-@@ -537,6 +537,18 @@ static int dccp_insert_options_feat(struct sock *sk, struct sk_buff *skb)
- 	return 0;
- }
- 
-+/* The length of all options needs to be a multiple of 4 (5.8) */
-+static void dccp_insert_option_padding(struct sk_buff *skb)
-+{
-+	int padding = DCCP_SKB_CB(skb)->dccpd_opt_len % 4;
-+
-+	if (padding != 0) {
-+		padding = 4 - padding;
-+		memset(skb_push(skb, padding), 0, padding);
-+		DCCP_SKB_CB(skb)->dccpd_opt_len += padding;
-+	}
-+}
-+
- int dccp_insert_options(struct sock *sk, struct sk_buff *skb)
+diff --git a/net/dccp/minisocks.c b/net/dccp/minisocks.c
+index 831b76e..b1d5da6 100644
+--- a/net/dccp/minisocks.c
++++ b/net/dccp/minisocks.c
+@@ -200,10 +200,10 @@ struct sock *dccp_check_req(struct sock *sk, struct sk_buff *skb,
+ 			    struct request_sock **prev)
  {
- 	struct dccp_sock *dp = dccp_sk(sk);
-@@ -580,18 +592,18 @@ int dccp_insert_options(struct sock *sk, struct sk_buff *skb)
- 	    dccp_insert_option_timestamp_echo(dp, NULL, skb))
- 		return -1;
+ 	struct sock *child = NULL;
++	struct dccp_request_sock *dreq = dccp_rsk(req);
  
--	/* XXX: insert other options when appropriate */
-+	dccp_insert_option_padding(skb);
-+	return 0;
-+}
+ 	/* Check for retransmitted REQUEST */
+ 	if (dccp_hdr(skb)->dccph_type == DCCP_PKT_REQUEST) {
+-		struct dccp_request_sock *dreq = dccp_rsk(req);
  
--	if (DCCP_SKB_CB(skb)->dccpd_opt_len != 0) {
--		/* The length of all options has to be a multiple of 4 */
--		int padding = DCCP_SKB_CB(skb)->dccpd_opt_len % 4;
-+int dccp_insert_options_rsk(struct dccp_request_sock *dreq, struct sk_buff *skb)
-+{
-+	DCCP_SKB_CB(skb)->dccpd_opt_len = 0;
+ 		if (after48(DCCP_SKB_CB(skb)->dccpd_seq, dreq->dreq_isr)) {
+ 			dccp_pr_debug("Retransmitted REQUEST\n");
+@@ -227,22 +227,22 @@ struct sock *dccp_check_req(struct sock *sk, struct sk_buff *skb,
+ 		goto drop;
  
--		if (padding != 0) {
--			padding = 4 - padding;
--			memset(skb_push(skb, padding), 0, padding);
--			DCCP_SKB_CB(skb)->dccpd_opt_len += padding;
--		}
--	}
-+	if (dreq->dreq_timestamp_echo != 0 &&
-+	    dccp_insert_option_timestamp_echo(NULL, dreq, skb))
-+		return -1;
- 
-+	dccp_insert_option_padding(skb);
- 	return 0;
- }
-diff --git a/net/dccp/output.c b/net/dccp/output.c
-index b2e1791..5589a5e 100644
---- a/net/dccp/output.c
-+++ b/net/dccp/output.c
-@@ -303,7 +303,7 @@ struct sk_buff *dccp_make_response(struct sock *sk, struct dst_entry *dst,
- 	DCCP_SKB_CB(skb)->dccpd_type = DCCP_PKT_RESPONSE;
- 	DCCP_SKB_CB(skb)->dccpd_seq  = dreq->dreq_iss;
- 
--	if (dccp_insert_options(sk, skb)) {
-+	if (dccp_insert_options_rsk(dreq, skb)) {
- 		kfree_skb(skb);
- 		return NULL;
+ 	/* Invalid ACK */
+-	if (DCCP_SKB_CB(skb)->dccpd_ack_seq != dccp_rsk(req)->dreq_iss) {
++	if (DCCP_SKB_CB(skb)->dccpd_ack_seq != dreq->dreq_iss) {
+ 		dccp_pr_debug("Invalid ACK number: ack_seq=%llu, "
+ 			      "dreq_iss=%llu\n",
+ 			      (unsigned long long)
+ 			      DCCP_SKB_CB(skb)->dccpd_ack_seq,
+-			      (unsigned long long)
+-			      dccp_rsk(req)->dreq_iss);
++			      (unsigned long long) dreq->dreq_iss);
+ 		goto drop;
  	}
+ 
++	if (dccp_parse_options(sk, dreq, skb))
++		 goto drop;
++
+ 	child = inet_csk(sk)->icsk_af_ops->syn_recv_sock(sk, skb, req, NULL);
+ 	if (child == NULL)
+ 		goto listen_overflow;
+ 
+-	/* FIXME: deal with options */
+-
+ 	inet_csk_reqsk_queue_unlink(sk, req, prev);
+ 	inet_csk_reqsk_queue_removed(sk, req);
+ 	inet_csk_reqsk_queue_add(sk, req, child);
 -- 
 1.5.3.4
 
