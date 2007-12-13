@@ -1,71 +1,100 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [PATCH 05/12] [DCCP]: Collapse repeated `len' statements into one
-Date: Thu, 13 Dec 2007 13:05:58 -0200
-Message-ID: <1197558365-31134-6-git-send-email-acme@redhat.com>
+Subject: [PATCH 02/12] [DCCP]: Shift the retransmit timer for active-close into output.c
+Date: Thu, 13 Dec 2007 13:05:55 -0200
+Message-ID: <1197558365-31134-3-git-send-email-acme@redhat.com>
 References: <1197558365-31134-1-git-send-email-acme@redhat.com>
  <1197558365-31134-2-git-send-email-acme@redhat.com>
- <1197558365-31134-3-git-send-email-acme@redhat.com>
- <1197558365-31134-4-git-send-email-acme@redhat.com>
- <1197558365-31134-5-git-send-email-acme@redhat.com>
 Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
 	Ian McDonald <ian.mcdonald@jandi.co.nz>,
 	Arnaldo Carvalho de Melo <acme@redhat.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.242]:3622 "EHLO
+Received: from an-out-0708.google.com ([209.85.132.243]:3587 "EHLO
 	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761817AbXLMPGV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 10:06:21 -0500
-Received: by an-out-0708.google.com with SMTP id d31so185722and.103
-        for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 07:06:20 -0800 (PST)
-In-Reply-To: <1197558365-31134-5-git-send-email-acme@redhat.com>
+	with ESMTP id S1761919AbXLMPGT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 10:06:19 -0500
+Received: by an-out-0708.google.com with SMTP id d31so185734and.103
+        for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 07:06:17 -0800 (PST)
+In-Reply-To: <1197558365-31134-2-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-This replaces 4 individual assignments for `len' with a single
-one, placed where the control flow of those 4 leads to.
+When performing active close, RFC 4340, 8.3. requires to retransmit the
+Close/CloseReq with a backoff-retransmit timer starting at intially 2 RTTs.
+
+This patch shifts the existing code for active-close retransmit timer
+into output.c, so that the retransmit timer is started when the first
+Close/CloseReq is sent. Previously, the timer was started when, after
+releasing the socket in dccp_close(), the actively-closing side had not yet
+reached the CLOSED/TIMEWAIT state.
+
+The patch further reduces the initial timeout from 3 seconds to the required
+2 RTTs, where - in absence of a known RTT - the fallback value specified in
+RFC 4340, 3.4 is used.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/dccp/proto.c |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
+ net/dccp/output.c |   13 ++++++++++++-
+ net/dccp/proto.c  |   18 ------------------
+ 2 files changed, 12 insertions(+), 19 deletions(-)
 
+diff --git a/net/dccp/output.c b/net/dccp/output.c
+index 7caa7f5..e97584a 100644
+--- a/net/dccp/output.c
++++ b/net/dccp/output.c
+@@ -574,7 +574,18 @@ void dccp_send_close(struct sock *sk, const int active)
+ 		dccp_write_xmit(sk, 1);
+ 		dccp_skb_entail(sk, skb);
+ 		dccp_transmit_skb(sk, skb_clone(skb, prio));
+-		/* FIXME do we need a retransmit timer here? */
++		/*
++		 * Retransmission timer for active-close: RFC 4340, 8.3 requires
++		 * to retransmit the Close/CloseReq until the CLOSING/CLOSEREQ
++		 * state can be left. The initial timeout is 2 RTTs.
++		 * Since RTT measurement is done by the CCIDs, there is no easy
++		 * way to get an RTT sample. The fallback RTT from RFC 4340, 3.4
++		 * is too low (200ms); we use a high value to avoid unnecessary
++		 * retransmissions when the link RTT is > 0.2 seconds.
++		 * FIXME: Let main module sample RTTs and use that instead.
++		 */
++		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
++					  DCCP_TIMEOUT_INIT, DCCP_RTO_MAX);
+ 	} else
+ 		dccp_transmit_skb(sk, skb);
+ }
 diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-index cc87c50..0bed4a6 100644
+index 60f40ec..8a73c8f 100644
 --- a/net/dccp/proto.c
 +++ b/net/dccp/proto.c
-@@ -657,19 +657,15 @@ static int do_dccp_getsockopt(struct sock *sk, int level, int optname,
- 					       (__be32 __user *)optval, optlen);
- 	case DCCP_SOCKOPT_GET_CUR_MPS:
- 		val = dp->dccps_mss_cache;
--		len = sizeof(val);
- 		break;
- 	case DCCP_SOCKOPT_SERVER_TIMEWAIT:
- 		val = dp->dccps_server_timewait;
--		len = sizeof(val);
- 		break;
- 	case DCCP_SOCKOPT_SEND_CSCOV:
- 		val = dp->dccps_pcslen;
--		len = sizeof(val);
- 		break;
- 	case DCCP_SOCKOPT_RECV_CSCOV:
- 		val = dp->dccps_pcrlen;
--		len = sizeof(val);
- 		break;
- 	case 128 ... 191:
- 		return ccid_hc_rx_getsockopt(dp->dccps_hc_rx_ccid, sk, optname,
-@@ -681,6 +677,7 @@ static int do_dccp_getsockopt(struct sock *sk, int level, int optname,
- 		return -ENOPROTOOPT;
- 	}
+@@ -996,24 +996,6 @@ adjudge_to_death:
+ 	if (state != DCCP_CLOSED && sk->sk_state == DCCP_CLOSED)
+ 		goto out;
  
-+	len = sizeof(val);
- 	if (put_user(len, optlen) || copy_to_user(optval, &val, len))
- 		return -EFAULT;
+-	/*
+-	 * The last release_sock may have processed the CLOSE or RESET
+-	 * packet moving sock to CLOSED state, if not we have to fire
+-	 * the CLOSE/CLOSEREQ retransmission timer, see "8.3. Termination"
+-	 * in draft-ietf-dccp-spec-11. -acme
+-	 */
+-	if (sk->sk_state == DCCP_CLOSING) {
+-		/* FIXME: should start at 2 * RTT */
+-		/* Timer for repeating the CLOSE/CLOSEREQ until an answer. */
+-		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
+-					  inet_csk(sk)->icsk_rto,
+-					  DCCP_RTO_MAX);
+-#if 0
+-		/* Yeah, we should use sk->sk_prot->orphan_count, etc */
+-		dccp_set_state(sk, DCCP_CLOSED);
+-#endif
+-	}
+-
+ 	if (sk->sk_state == DCCP_CLOSED)
+ 		inet_csk_destroy_sock(sk);
  
 -- 
 1.5.3.4
