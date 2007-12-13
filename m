@@ -1,125 +1,66 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [PATCH][NET-2.6.25][IPV6] fix section mismatch warnings
-Date: Thu, 13 Dec 2007 11:39:26 +0100
-Message-ID: <47610BDE.9040907@fr.ibm.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][XFRM] Fix potential race vs xfrm_state(only)_find and xfrm_hash_resize.
+Date: Thu, 13 Dec 2007 13:56:14 +0300
+Message-ID: <47610FCE.2000100@openvz.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020903040802030504020804"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.uk.ibm.com ([195.212.29.137]:28984 "EHLO
-	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761980AbXLMKni (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 05:43:38 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate4.uk.ibm.com (8.13.8/8.13.8) with ESMTP id lBDAhYxT095450
-	for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 10:43:34 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lBDAhYmg4944024
-	for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 10:43:34 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lBDAhHkk014820
-	for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 10:43:18 GMT
+Received: from sacred.ru ([62.205.161.221]:33067 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750884AbXLMK4e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Dec 2007 05:56:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------020903040802030504020804
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+The _find calls calculate the hash value using the 
+xfrm_state_hmask, without the xfrm_state_lock. But the 
+value of this mask can change in the _resize call under
+the state_lock, so we risk to fail in finding the desired 
+entry in hash.
 
+I think, that the hash value is better to calculate
+under the state lock.
 
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
---------------020903040802030504020804
-Content-Type: text/x-patch;
- name="fix-ipv6-section-mismatch.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="fix-ipv6-section-mismatch.patch"
-
-Subject: fix section mismatch warnings
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-
-Removed useless and buggy __exit section in the different 
-ipv6 subsystems. Otherwise they will be called inside an
-init section during rollbacking in case of an error in the
-protocol initialization.
-
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 ---
- net/ipv6/addrconf.c |    2 +-
- net/ipv6/raw.c      |    2 +-
- net/ipv6/tcp_ipv6.c |    2 +-
- net/ipv6/udp.c      |    2 +-
- net/ipv6/udplite.c  |    2 +-
- 5 files changed, 5 insertions(+), 5 deletions(-)
 
-Index: net-2.6.25/net/ipv6/addrconf.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/addrconf.c
-+++ net-2.6.25/net/ipv6/addrconf.c
-@@ -4223,7 +4223,7 @@ errout:
- 	return err;
- }
- 
--void __exit addrconf_cleanup(void)
-+void addrconf_cleanup(void)
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 1af522b..1face71 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -759,7 +759,7 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
+ 		struct xfrm_policy *pol, int *err,
+ 		unsigned short family)
  {
- 	struct net_device *dev;
- 	struct inet6_ifaddr *ifa;
-Index: net-2.6.25/net/ipv6/raw.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/raw.c
-+++ net-2.6.25/net/ipv6/raw.c
-@@ -1321,7 +1321,7 @@ out:
- 	return ret;
- }
+-	unsigned int h = xfrm_dst_hash(daddr, saddr, tmpl->reqid, family);
++	unsigned int h;
+ 	struct hlist_node *entry;
+ 	struct xfrm_state *x, *x0;
+ 	int acquire_in_progress = 0;
+@@ -767,6 +767,7 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
+ 	struct xfrm_state *best = NULL;
  
--void __exit rawv6_exit(void)
-+void rawv6_exit(void)
+ 	spin_lock_bh(&xfrm_state_lock);
++	h = xfrm_dst_hash(daddr, saddr, tmpl->reqid, family);
+ 	hlist_for_each_entry(x, entry, xfrm_state_bydst+h, bydst) {
+ 		if (x->props.family == family &&
+ 		    x->props.reqid == tmpl->reqid &&
+@@ -868,11 +869,12 @@ struct xfrm_state *
+ xfrm_stateonly_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
+ 		    unsigned short family, u8 mode, u8 proto, u32 reqid)
  {
- 	inet6_unregister_protosw(&rawv6_protosw);
- }
-Index: net-2.6.25/net/ipv6/tcp_ipv6.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/tcp_ipv6.c
-+++ net-2.6.25/net/ipv6/tcp_ipv6.c
-@@ -2194,7 +2194,7 @@ out_tcpv6_protosw:
- 	goto out;
- }
+-	unsigned int h = xfrm_dst_hash(daddr, saddr, reqid, family);
++	unsigned int h;
+ 	struct xfrm_state *rx = NULL, *x = NULL;
+ 	struct hlist_node *entry;
  
--void __exit tcpv6_exit(void)
-+void tcpv6_exit(void)
- {
- 	sock_release(tcp6_socket);
- 	inet6_unregister_protosw(&tcpv6_protosw);
-Index: net-2.6.25/net/ipv6/udp.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/udp.c
-+++ net-2.6.25/net/ipv6/udp.c
-@@ -1035,7 +1035,7 @@ out_udpv6_protocol:
- 	goto out;
- }
- 
--void __exit udpv6_exit(void)
-+void udpv6_exit(void)
- {
- 	inet6_unregister_protosw(&udpv6_protosw);
- 	inet6_del_protocol(&udpv6_protocol, IPPROTO_UDP);
-Index: net-2.6.25/net/ipv6/udplite.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/udplite.c
-+++ net-2.6.25/net/ipv6/udplite.c
-@@ -96,7 +96,7 @@ out_udplitev6_protocol:
- 	goto out;
- }
- 
--void __exit udplitev6_exit(void)
-+void udplitev6_exit(void)
- {
- 	inet6_unregister_protosw(&udplite6_protosw);
- 	inet6_del_protocol(&udplitev6_protocol, IPPROTO_UDPLITE);
-
---------------020903040802030504020804--
+ 	spin_lock(&xfrm_state_lock);
++	h = xfrm_dst_hash(daddr, saddr, reqid, family);
+ 	hlist_for_each_entry(x, entry, xfrm_state_bydst+h, bydst) {
+ 		if (x->props.family == family &&
+ 		    x->props.reqid == reqid &&
