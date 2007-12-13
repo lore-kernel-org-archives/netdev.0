@@ -1,63 +1,57 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: [RFC] net: napi fix
-Date: Thu, 13 Dec 2007 09:13:54 -0500
-Message-ID: <47613E22.6060705@myri.com>
-References: <47601A73.5010804@myri.com>	 <20071212.093819.205755031.davem@davemloft.net>	 <47602B77.2090202@intel.com> <b25c3fa70712122341q3ba282cdqda3fa56901b14484@mail.gmail.com>
+From: Alexey Dobriyan <adobriyan-3ImXcnM4P+0@public.gmane.org>
+Subject: Re: [Devel] [PATCH 2.6.25] [IPV4] Reduce whitespaces in fib_rules.h.
+Date: Thu, 13 Dec 2007 17:47:07 +0300
+Message-ID: <20071213144707.GB6209@localhost.sw.ru>
+References: <20071213141842.GA9939@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	shemminger@linux-foundation.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Joonwoo Park <joonwpark81@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1955 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754768AbXLMOTp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Dec 2007 09:19:45 -0500
-In-Reply-To: <b25c3fa70712122341q3ba282cdqda3fa56901b14484@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20071213141842.GA9939-aPCOdVxUTlgvJsYlp49lxw@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Joonwoo Park wrote:
- > 2007/12/13, Kok, Auke <auke-jan.h.kok@intel.com>:
- >> David Miller wrote:
- >>> From: Andrew Gallatin <gallatin@myri.com>
- >>> Date: Wed, 12 Dec 2007 12:29:23 -0500
- >>>
- >>>> Is the netif_running() check even required?
- >>> No, it is not.
- >>>
- >>> When a device is brought down, one of the first things
- >>> that happens is that we wait for all pending NAPI polls
- >>> to complete, then block any new polls from starting.
- >> I think this was previously (pre-2.6.24) not the case, which is why 
-e1000 et al
- >> has this check as well and that's exactly what is causing most of the
- >> net_rx_action oopses in the first place. Without the netif_running() 
-check
- >> previously the drivers were just unusable with NAPI and prone to 
-many races with
- >> down (i.e. touching some ethtool ioctl which wants to do a reset 
-while routing
- >> small packets at high numbers). that's why we added the 
-netif_running() check in
- >> the first place :)
- >>
- >> There might be more drivers lurking that need this change...
- >>
- >> Auke
- >>
- >
- > Also in my case, without netif_running() check, I cannot do ifconfig 
-down.
- > It stucked if packet generator was sending packets.
+On Thu, Dec 13, 2007 at 05:18:42PM +0300, Denis V. Lunev wrote:
+> There are to many spaces between type and function name in the declaration
+> of fib rules manipulation routines. Eat them and save a couple of lines.
 
-If the netif_running() check is indeed required to make a device break
-out of napi polling and respond to an ifconfig down, then I think the
-netif_running() check should be moved up into net_rx_action() to avoid
-potential for driver complexity and bugs like the ones you found.
+If this patch is going in, it would be nice to get rid of "extern" as
+well.
 
-Drew
+	Alexey, who once removed all externs from prototypes
+	        and got 4 seconds compilation speedup.
+
+> --- a/include/net/fib_rules.h
+> +++ b/include/net/fib_rules.h
+> @@ -101,14 +101,12 @@ static inline u32 frh_get_table(struct fib_rule_hdr *frh, struct nlattr **nla)
+>  	return frh->table;
+>  }
+>  
+> -extern int			fib_rules_register(struct fib_rules_ops *);
+> -extern int			fib_rules_unregister(struct fib_rules_ops *);
+> -extern void                     fib_rules_cleanup_ops(struct fib_rules_ops *);
+> +extern int fib_rules_register(struct fib_rules_ops *);
+> +extern int fib_rules_unregister(struct fib_rules_ops *);
+> +extern void fib_rules_cleanup_ops(struct fib_rules_ops *);
+>  
+> -extern int			fib_rules_lookup(struct fib_rules_ops *,
+> -						 struct flowi *, int flags,
+> -						 struct fib_lookup_arg *);
+> -extern int			fib_default_rule_add(struct fib_rules_ops *,
+> -						     u32 pref, u32 table,
+> -						     u32 flags);
+> +extern int fib_rules_lookup(struct fib_rules_ops *, struct flowi *, int flags,
+> +			    struct fib_lookup_arg *);
+> +extern int fib_default_rule_add(struct fib_rules_ops *, u32 pref, u32 table,
+> +				u32 flags);
+>  #endif
