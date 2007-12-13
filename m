@@ -1,99 +1,263 @@
-From: Haavard Skinnemoen <hskinnemoen@atmel.com>
-Subject: Re: [PATCH] MACB: clear transmit buffers properly on TX Underrun
-Date: Thu, 13 Dec 2007 12:33:08 +0100
-Message-ID: <20071213123308.156ab7dd@dhcp-252-066.norway.atmel.com>
-References: <4760E49D.5040406@gmail.com>
+From: Subrata Modak <subrata@linux.vnet.ibm.com>
+Subject: Re: [RFC] ehea: kdump support using new shutdown hook
+Date: Thu, 13 Dec 2007 17:06:55 +0530
+Message-ID: <1197545815.4755.31.camel@subratamodak.linux.ibm.com>
+References: <200712121753.43543.osstklei@de.ibm.com>
+Reply-To: subrata@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
-To: Gregory CLEMENT <novexz@gmail.com>
+Cc: Paul Mackerras <paulus@samba.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>,
+	Michael Ellermann <michael@ellerman.id.au>,
+	Michael Neuling <mikey@neuling.org>,
+	ltp-list <ltp-list@lists.sourceforge.net>
+To: Thomas Klein <osstklei@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat-132.atmel.no ([80.232.32.132]:59375 "EHLO relay.atmel.no"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752561AbXLMLda (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Dec 2007 06:33:30 -0500
-In-Reply-To: <4760E49D.5040406@gmail.com>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:36976 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753266AbXLMLhP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 06:37:15 -0500
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e32.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id lBDAZIfM010314
+	for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 05:35:18 -0500
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lBDBb1C8111608
+	for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 04:37:06 -0700
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lBDBaxuh018470
+	for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 04:37:00 -0700
+In-Reply-To: <200712121753.43543.osstklei@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 13 Dec 2007 08:51:57 +0100
-Gregory CLEMENT <novexz@gmail.com> wrote:
+Do you think we can improve upon our own LTP-KDUMP test cases housed
+here:
+http://ltp.cvs.sourceforge.net/ltp/ltp/testcases/kdump/,
 
-> Hi,
-> I generated this patch for linux 2.6.24-rc5 and test it on AT91SAM9263 
-> with iperf.
+because of your changes below:
+
+--Subrata
+
+On Wed, 2007-12-12 at 17:53 +0100, Thomas Klein wrote:
+> This patch adds kdump support using the new PPC crash shutdown hook to the
+> ehea driver. The driver now keeps a list of firmware handles which have to
+> be freed in case of a crash. The crash handler does the minimum required: it
+> frees the firmware resource handles plus broadcast/multicast registrations.
 > 
-> From: Gregory CLEMENT <gclement00@gmail.com>
-> Date: Wed, 12 Dec 2007 18:10:14 +0100
-> Subject: [PATCH] MACB: clear transmit buffers properly on TX Underrun
+> Please comment.
 > 
-> Initially transmit buffer pointers were only reset. But buffer descriptors
-> were possibly still set as ready, and buffer in upper layer was not
-> freed. This caused driver hang under big load.
-> Now reset clean properly the buffer descriptor and freed upper layer.
-
-Nice. I think we want this for 2.6.24.
-
-But the patch is a bit mangled, so I don't think it will apply. Please
-have a look in Documentation/email-clients.txt for information on how
-to set up Thunderbird to avoid this.
-
-> Signed-off-by: Gregory CLEMENT <gclement00@gmail.com>
+> Shutdown hook patches:
+>   http://ozlabs.org/pipermail/linuxppc-dev/2007-December/048058.html
+>   http://ozlabs.org/pipermail/linuxppc-dev/2007-December/048059.html
+> 
+> 
+> Signed-off-by: Thomas Klein <tklein@de.ibm.com>
+> 
 > ---
->  drivers/net/macb.c |   26 +++++++++++++++++++++++++-
->  1 files changed, 25 insertions(+), 1 deletions(-)
+> diff -Nurp -X dontdiff linux-2.6.24-rc5/drivers/net/ehea/ehea.h patched_kernel/drivers/net/ehea/ehea.h
+> --- linux-2.6.24-rc5/drivers/net/ehea/ehea.h	2007-12-11 04:48:43.000000000 +0100
+> +++ patched_kernel/drivers/net/ehea/ehea.h	2007-12-12 17:30:53.000000000 +0100
+> @@ -40,7 +40,7 @@
+>  #include <asm/io.h>
 > 
-> diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-> index 047ea7b..2ee1dab 100644
-> --- a/drivers/net/macb.c
-> +++ b/drivers/net/macb.c
-> @@ -307,9 +307,33 @@ static void macb_tx(struct macb *bp)
->          (unsigned long)status);
->  
->      if (status & MACB_BIT(UND)) {
-> +        int i;
->          printk(KERN_ERR "%s: TX underrun, resetting buffers\n",
-> -               bp->dev->name);
-> +               bp->dev->name);
+>  #define DRV_NAME	"ehea"
+> -#define DRV_VERSION	"EHEA_0083"
+> +#define DRV_VERSION	"EHEA_0084"
+> 
+>  /* eHEA capability flags */
+>  #define DLPAR_PORT_ADD_REM 1
+> @@ -386,6 +386,7 @@ struct ehea_port_res {
+> 
+> 
+>  #define EHEA_MAX_PORTS 16
+> +#define EHEA_MAX_RES_HANDLES (100 * EHEA_MAX_PORTS + 10)
+>  struct ehea_adapter {
+>  	u64 handle;
+>  	struct of_device *ofdev;
+> @@ -397,6 +398,7 @@ struct ehea_adapter {
+>  	u64 max_mc_mac;            /* max number of multicast mac addresses */
+>  	int active_ports;
+>  	struct list_head list;
+> +	u64 res_handles[EHEA_MAX_RES_HANDLES];
+>  };
+> 
+> 
+> diff -Nurp -X dontdiff linux-2.6.24-rc5/drivers/net/ehea/ehea_main.c patched_kernel/drivers/net/ehea/ehea_main.c
+> --- linux-2.6.24-rc5/drivers/net/ehea/ehea_main.c	2007-12-11 04:48:43.000000000 +0100
+> +++ patched_kernel/drivers/net/ehea/ehea_main.c	2007-12-12 17:30:53.000000000 +0100
+> @@ -35,6 +35,7 @@
+>  #include <linux/if_ether.h>
+>  #include <linux/notifier.h>
+>  #include <linux/reboot.h>
+> +#include <asm-powerpc/kexec.h>
+> 
+>  #include <net/ip.h>
+> 
+> @@ -2256,6 +2257,33 @@ static int ehea_clean_all_portres(struct
+>  	return ret;
+>  }
+> 
+> +static void ehea_update_adapter_handles(struct ehea_adapter *adapter)
+> +{
+> +	int i, k;
+> +	int j = 0;
 > +
-> +        head = bp->tx_head;
+> +	memset(adapter->res_handles, sizeof(adapter->res_handles), 0);
 > +
-> +        /* free transmit buffer in upper layer*/
-> +        for (tail = bp->tx_tail; tail != head; tail = NEXT_TX(tail)) {
-> +            struct ring_info *rp = &bp->tx_skb[tail];
-> +            struct sk_buff *skb = rp->skb;
+> +	for (k = 0; k < EHEA_MAX_PORTS; k++) {
+> +		struct ehea_port *port = adapter->port[k];
 > +
-> +            BUG_ON(skb == NULL);
+> +		if (!port || (port->state != EHEA_PORT_UP))
+> +			continue;
 > +
-> +            rmb();
+> +		for(i = 0; i < port->num_def_qps + port->num_add_tx_qps; i++) {
+> +			struct ehea_port_res *pr = &port->port_res[i];
 > +
-> +            dma_unmap_single(&bp->pdev->dev, rp->mapping, skb->len,
-> +                             DMA_TO_DEVICE);
-> +            rp->skb = NULL;
-> +            dev_kfree_skb_irq(skb);
-> +        }
+> +			adapter->res_handles[j++] = pr->qp->fw_handle;
+> +			adapter->res_handles[j++] = pr->send_cq->fw_handle;
+> +			adapter->res_handles[j++] = pr->recv_cq->fw_handle;
+> +			adapter->res_handles[j++] = pr->eq->fw_handle;
+> +			adapter->res_handles[j++] = pr->send_mr.handle;
+> +			adapter->res_handles[j++] = pr->recv_mr.handle;
+> +		}
+> +		adapter->res_handles[j++] = port->qp_eq->fw_handle;
+> +	}
+> +}
 > +
-> +        /*Mark all the buffer as used to avoid sending a lost buffer*/
-> +        for (i = 0; i < RX_RING_SIZE; i++)
-> +            bp->tx_ring[i].ctrl = MACB_BIT(TX_USED);
+>  static void ehea_remove_adapter_mr(struct ehea_adapter *adapter)
+>  {
+>  	if (adapter->active_ports)
+> @@ -2318,6 +2346,7 @@ static int ehea_up(struct net_device *de
+> 
+>  	ret = 0;
+>  	port->state = EHEA_PORT_UP;
+> +	ehea_update_adapter_handles(port->adapter);
+>  	goto out;
+> 
+>  out_free_irqs:
+> @@ -2387,6 +2416,8 @@ static int ehea_down(struct net_device *
+>  		ehea_info("Failed freeing resources for %s. ret=%i",
+>  			  dev->name, ret);
+> 
+> +	ehea_update_adapter_handles(port->adapter);
+> +
+>  	return ret;
+>  }
+> 
+> @@ -3302,6 +3333,71 @@ static int __devexit ehea_remove(struct 
+>  	return 0;
+>  }
+> 
+> +void ehea_crash_deregister(void)
+> +{
+> +	struct ehea_adapter *adapter;
+> +	int i;
+> +	u64 hret;
+> +	u8 reg_type;
+> +
+> +	list_for_each_entry(adapter, &adapter_list, list) {
+> +		for (i = 0; i < EHEA_MAX_PORTS; i++) {
+> +			struct ehea_port *port = adapter->port[i];
+> +			if (port->state == EHEA_PORT_UP) {
+> +				struct ehea_mc_list *mc_entry = port->mc_list;
+> +				struct list_head *pos;
+> +				struct list_head *temp;
+> +
+> +				/* Undo multicast registrations */
+> +				list_for_each_safe(pos, temp,
+> +						   &(port->mc_list->list)) {
+> +					mc_entry = list_entry(pos,
+> +							    struct ehea_mc_list,
+> +							    list);
+> +					ehea_multicast_reg_helper(port,
+> +							      mc_entry->macaddr,
+> +							      H_DEREG_BCMC);
+> +				}
+> +
+> +				/* Undo broad registration */
+> +				reg_type = EHEA_BCMC_BROADCAST |
+> +					   EHEA_BCMC_UNTAGGED;
+> +				ehea_h_reg_dereg_bcmc(port->adapter->handle,
+> +						      port->logical_port_id,
+> +						      reg_type, port->mac_addr,
+> +						      0, H_DEREG_BCMC);
+> +
+> +				reg_type = EHEA_BCMC_BROADCAST |
+> +					   EHEA_BCMC_VLANID_ALL;
+> +				ehea_h_reg_dereg_bcmc(port->adapter->handle,
+> +						      port->logical_port_id,
+> +						      reg_type, port->mac_addr,
+> +						      0, H_DEREG_BCMC);
+> +			}
+> +		}
+> +		for (i = 0; i < EHEA_MAX_RES_HANDLES; i++) {
+> +			u64 handle = adapter->res_handles[i];
+> +			if (handle) {
+> +				hret = ehea_h_free_resource(adapter->handle,
+> +							    handle,
+> +							    FORCE_FREE);
+> +			}
+> +		}
+> +
+> +		if (adapter->neq) {
+> +			hret = ehea_h_free_resource(adapter->handle,
+> +						    adapter->neq->fw_handle,
+> +						    FORCE_FREE);
+> +		}
+> +
+> +		if (adapter->mr.handle) {
+> +			hret = ehea_h_free_resource(adapter->handle,
+> +						    adapter->mr.handle,
+> +						    FORCE_FREE);
+> +		}
+> +	}
+> +}
+> +
+>  static int ehea_reboot_notifier(struct notifier_block *nb,
+>  				unsigned long action, void *unused)
+>  {
+> @@ -3373,6 +3469,9 @@ int __init ehea_module_init(void)
+>  		goto out;
+> 
+>  	register_reboot_notifier(&ehea_reboot_nb);
+> +	ret = crash_shutdown_register(&ehea_crash_deregister);
+> +	if (ret)
+> +		ehea_info("failed registering crash handler");
+> 
+>  	ret = ibmebus_register_driver(&ehea_driver);
+>  	if (ret) {
+> @@ -3386,6 +3485,7 @@ int __init ehea_module_init(void)
+>  		ehea_error("failed to register capabilities attribute, ret=%d",
+>  			   ret);
+>  		unregister_reboot_notifier(&ehea_reboot_nb);
+> +		crash_shutdown_unregister(&ehea_crash_deregister);
+>  		ibmebus_unregister_driver(&ehea_driver);
+>  		goto out;
+>  	}
+> @@ -3396,10 +3496,15 @@ out:
+> 
+>  static void __exit ehea_module_exit(void)
+>  {
+> +	int ret;
+> +
+>  	flush_scheduled_work();
+>  	driver_remove_file(&ehea_driver.driver, &driver_attr_capabilities);
+>  	ibmebus_unregister_driver(&ehea_driver);
+>  	unregister_reboot_notifier(&ehea_reboot_nb);
+> +	ret = crash_shutdown_unregister(&ehea_crash_deregister);
+> +	if (ret)
+> +		ehea_info("failed unregistering crash handler");
+>  	ehea_destroy_busmap();
+>  }
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 
-That should be TX_RING_SIZE, shouldn't it?
-
-I also think this should be done as part of the previous loop, before
-they are freed. Having free buffers in the ring sounds dangerous, even
-if it's only for a short time.
-
-> +
->          bp->tx_head = bp->tx_tail = 0;
-
-Now, I wonder if it would be better to just scan the ring descriptors,
-find the one that failed and just move the DMA pointer to the next
-entry. The hardware resets the DMA pointer when an underrun happens, so
-I think your code will work, but we're losing more packets than
-strictly necessary. In any case, it's better than the existing code.
-
-Perhaps we need a check in macb_start_xmit() as well to avoid starting
-a transmission when the ring has just been reset.
-
-Haavard
