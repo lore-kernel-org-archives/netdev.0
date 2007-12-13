@@ -1,115 +1,130 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-2.6.25 6/8] sctp: Use ipv4_is_<type>
-Date: Thu, 13 Dec 2007 15:38:59 -0800
-Message-ID: <1197589141-7020-6-git-send-email-joe@perches.com>
-References: <1197589141-7020-1-git-send-email-joe@perches.com>
- <1197589141-7020-2-git-send-email-joe@perches.com>
- <1197589141-7020-3-git-send-email-joe@perches.com>
- <1197589141-7020-4-git-send-email-joe@perches.com>
- <1197589141-7020-5-git-send-email-joe@perches.com>
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	lksctp-developers@lists.sourceforge.net
+Subject: [PATCH net-2.6.25 1/8] Create ipv4_is_<type>(__be32 addr) functions
+Date: Thu, 13 Dec 2007 15:38:54 -0800
+Message-ID: <e2ebcbf24539c0a3ef2ac77147dbfa55d8ac9e33.1197432867.git.joe__13128.852324053$1197589229$gmane$org@perches.com>
+Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:4215 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759658AbXLMXjK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Dec 2007 18:39:10 -0500
-In-Reply-To: <1197589141-7020-5-git-send-email-joe@perches.com>
-Message-Id: <1bb329b93a1f75766b7b89afdfa5ae673e9355ec.1197432867.git.joe@perches.com>
-In-Reply-To: <e2ebcbf24539c0a3ef2ac77147dbfa55d8ac9e33.1197432867.git.joe@perches.com>
-References: <e2ebcbf24539c0a3ef2ac77147dbfa55d8ac9e33.1197432867.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1765271AbXLMXjt@vger.kernel.org>
+Message-Id: <e2ebcbf24539c0a3ef2ac77147dbfa55d8ac9e33.1197432867.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Change IPV4 specific macros LOOPBACK MULTICAST LOCAL_MCAST BADCLASS and ZERONET
+macros to inline functions ipv4_is_<type>(__be32 addr)
+
+Adds type safety and arguably some readability.
+
+Changes since last submission:
+
+Removed ipv4_addr_octets function
+Used hex constants
+Converted recently added rfc3330 macros
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- include/net/sctp/constants.h |   36 ++++++------------------------------
- net/sctp/protocol.c          |   12 +++++++-----
- 2 files changed, 13 insertions(+), 35 deletions(-)
+ include/linux/in.h |   87 ++++++++++++++++++++++++++++++++++++++++++++--------
+ 1 files changed, 74 insertions(+), 13 deletions(-)
 
-diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
-index 05f22a6..fefcba6 100644
---- a/include/net/sctp/constants.h
-+++ b/include/net/sctp/constants.h
-@@ -365,36 +365,12 @@ typedef enum {
-  * Also, RFC 8.4, non-unicast addresses are not considered valid SCTP
-  * addresses.
-  */
--#define IS_IPV4_UNUSABLE_ADDRESS(a) \
--	((htonl(INADDR_BROADCAST) == *a) || \
--	(MULTICAST(*a)) || \
--	(((unsigned char *)(a))[0] == 0) || \
--	((((unsigned char *)(a))[0] == 198) && \
--	(((unsigned char *)(a))[1] == 18) && \
--	(((unsigned char *)(a))[2] == 0)) || \
--	((((unsigned char *)(a))[0] == 192) && \
--	(((unsigned char *)(a))[1] == 88) && \
--	(((unsigned char *)(a))[2] == 99)))
--
--/* IPv4 Link-local addresses: 169.254.0.0/16.  */
--#define IS_IPV4_LINK_ADDRESS(a) \
--	((((unsigned char *)(a))[0] == 169) && \
--	(((unsigned char *)(a))[1] == 254))
--
--/* RFC 1918 "Address Allocation for Private Internets" defines the IPv4
-- * private address space as the following:
-- *
-- * 10.0.0.0 - 10.255.255.255 (10/8 prefix)
-- * 172.16.0.0.0 - 172.31.255.255 (172.16/12 prefix)
-- * 192.168.0.0 - 192.168.255.255 (192.168/16 prefix)
-- */
--#define IS_IPV4_PRIVATE_ADDRESS(a) \
--	((((unsigned char *)(a))[0] == 10) || \
--	((((unsigned char *)(a))[0] == 172) && \
--	(((unsigned char *)(a))[1] >= 16) && \
--	(((unsigned char *)(a))[1] < 32)) || \
--	((((unsigned char *)(a))[0] == 192) && \
--	(((unsigned char *)(a))[1] == 168)))
-+#define IS_IPV4_UNUSABLE_ADDRESS(a)	    \
-+	((htonl(INADDR_BROADCAST) == a) ||  \
-+	 ipv4_is_multicast(a) ||	    \
-+	 ipv4_is_zeronet(a) ||		    \
-+	 ipv4_is_test_198(a) ||		    \
-+	 ipv4_is_anycast_6to4(a))
+diff --git a/include/linux/in.h b/include/linux/in.h
+index a8f00ca..f8d6073 100644
+--- a/include/linux/in.h
++++ b/include/linux/in.h
+@@ -246,21 +246,82 @@ struct sockaddr_in {
+ #include <asm/byteorder.h> 
  
- /* Flags used for the bind address copy functions.  */
- #define SCTP_ADDR6_ALLOWED	0x00000001	/* IPv6 address is allowed by
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index d50f610..dc22d71 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -359,7 +359,7 @@ static int sctp_v4_addr_valid(union sctp_addr *addr,
- 			      const struct sk_buff *skb)
- {
- 	/* Is this a non-unicast address or a unusable SCTP address? */
--	if (IS_IPV4_UNUSABLE_ADDRESS(&addr->v4.sin_addr.s_addr))
-+	if (IS_IPV4_UNUSABLE_ADDRESS(addr->v4.sin_addr.s_addr))
- 		return 0;
+ #ifdef __KERNEL__
+-/* Some random defines to make it easier in the kernel.. */
+-#define LOOPBACK(x)	(((x) & htonl(0xff000000)) == htonl(0x7f000000))
+-#define MULTICAST(x)	(((x) & htonl(0xf0000000)) == htonl(0xe0000000))
+-#define BADCLASS(x)	(((x) & htonl(0xf0000000)) == htonl(0xf0000000))
+-#define ZERONET(x)	(((x) & htonl(0xff000000)) == htonl(0x00000000))
+-#define LOCAL_MCAST(x)	(((x) & htonl(0xFFFFFF00)) == htonl(0xE0000000))
++
++static inline bool ipv4_is_loopback(__be32 addr)
++{
++	return (addr & htonl(0xff000000)) == htonl(0x7f000000);
++}
++
++static inline bool ipv4_is_multicast(__be32 addr)
++{
++	return (addr & htonl(0xf0000000)) == htonl(0xe0000000);
++}
++
++static inline bool ipv4_is_local_multicast(__be32 addr)
++{
++	return (addr & htonl(0xffffff00)) == htonl(0xe0000000);
++}
++
++static inline bool ipv4_is_badclass(__be32 addr)
++{
++	return (addr & htonl(0xf0000000)) == htonl(0xf0000000);
++}
++
++static inline bool ipv4_is_zeronet(__be32 addr)
++{
++	return (addr & htonl(0xff000000)) == htonl(0x00000000);
++}
++
++#define LOOPBACK(x)		ipv4_is_loopback(x)
++#define MULTICAST(x)		ipv4_is_multicast(x)
++#define BADCLASS(x)		ipv4_is_badclass(x)
++#define ZERONET(x)		ipv4_is_zeronet(x)
++#define LOCAL_MCAST(x)		ipv4_is_local_multicast(x)
  
- 	/* Is this a broadcast address? */
-@@ -408,13 +408,15 @@ static sctp_scope_t sctp_v4_scope(union sctp_addr *addr)
- 	 */
+ /* Special-Use IPv4 Addresses (RFC3330) */
+-#define PRIVATE_10(x)	(((x) & htonl(0xff000000)) == htonl(0x0A000000))
+-#define LINKLOCAL_169(x) (((x) & htonl(0xffff0000)) == htonl(0xA9FE0000))
+-#define PRIVATE_172(x)	(((x) & htonl(0xfff00000)) == htonl(0xAC100000))
+-#define TEST_192(x)	(((x) & htonl(0xffffff00)) == htonl(0xC0000200))
+-#define ANYCAST_6TO4(x)	(((x) & htonl(0xffffff00)) == htonl(0xC0586300))
+-#define PRIVATE_192(x)	(((x) & htonl(0xffff0000)) == htonl(0xC0A80000))
+-#define TEST_198(x)	(((x) & htonl(0xfffe0000)) == htonl(0xC6120000))
++
++static inline bool ipv4_is_private_10(__be32 addr)
++{
++	return (addr & htonl(0xff000000)) == htonl(0x0a000000);
++}
++
++static inline bool ipv4_is_private_172(__be32 addr)
++{
++	return (addr & htonl(0xfff00000)) == htonl(0xac100000);
++}
++
++static inline bool ipv4_is_private_192(__be32 addr)
++{
++	return (addr & htonl(0xffff0000)) == htonl(0xc0a80000);
++}
++
++static inline bool ipv4_is_linklocal_169(__be32 addr)
++{
++	return (addr & htonl(0xffff0000)) == htonl(0xa9fe0000);
++}
++
++static inline bool ipv4_is_anycast_6to4(__be32 addr)
++{
++	return (addr & htonl(0xffffff00)) == htonl(0xc0586300);
++}
++
++static inline bool ipv4_is_test_192(__be32 addr)
++{
++	return (addr & htonl(0xffffff00)) == htonl(0xc0000200);
++}
++
++static inline bool ipv4_is_test_198(__be32 addr)
++{
++	return (addr & htonl(0xfffe0000)) == htonl(0xc6120000);
++}
+ #endif
  
- 	/* Check for unusable SCTP addresses. */
--	if (IS_IPV4_UNUSABLE_ADDRESS(&addr->v4.sin_addr.s_addr)) {
-+	if (IS_IPV4_UNUSABLE_ADDRESS(addr->v4.sin_addr.s_addr)) {
- 		retval =  SCTP_SCOPE_UNUSABLE;
--	} else if (LOOPBACK(addr->v4.sin_addr.s_addr)) {
-+	} else if (ipv4_is_loopback(addr->v4.sin_addr.s_addr)) {
- 		retval = SCTP_SCOPE_LOOPBACK;
--	} else if (IS_IPV4_LINK_ADDRESS(&addr->v4.sin_addr.s_addr)) {
-+	} else if (ipv4_is_linklocal_169(addr->v4.sin_addr.s_addr)) {
- 		retval = SCTP_SCOPE_LINK;
--	} else if (IS_IPV4_PRIVATE_ADDRESS(&addr->v4.sin_addr.s_addr)) {
-+	} else if (ipv4_is_private_10(addr->v4.sin_addr.s_addr) ||
-+		   ipv4_is_private_172(addr->v4.sin_addr.s_addr) ||
-+		   ipv4_is_private_192(addr->v4.sin_addr.s_addr)) {
- 		retval = SCTP_SCOPE_PRIVATE;
- 	} else {
- 		retval = SCTP_SCOPE_GLOBAL;
++#define PRIVATE_10(x)		ipv4_is_private_10(x)
++#define LINKLOCAL_169(x)	ipv4_is_linklocal_169(x)
++#define PRIVATE_172(x)		ipv4_is_private_172(x)
++#define TEST_192(x)		ipv4_is_test_192(x)
++#define ANYCAST_6TO4(x)		ipv4_is_anycast_6to4(x)
++#define PRIVATE_192(x)		ipv4_is_private_192(x)
++#define TEST_198(x)		ipv4_is_test_198(x)
++
+ #endif	/* _LINUX_IN_H */
 -- 
 1.5.3.7.949.g2221a6
 
