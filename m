@@ -1,34 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] HDLC driver: use unregister_netdev instead of
- unregister_netdevice
-Date: Wed, 12 Dec 2007 19:22:09 -0800 (PST)
-Message-ID: <20071212.192209.95259627.davem@davemloft.net>
-References: <20071212.104614.208083873.davem@davemloft.net>
-	<E1J2eW8-0000GQ-00@gondolin.me.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [DECNET]: Fix inverted wait flag in xfrm_lookup call
+Date: Thu, 13 Dec 2007 13:25:16 +0800
+Message-ID: <20071213052516.GA2134@gondor.apana.org.au>
+References: <E1J2GrH-0005SK-00@gondolin.me.apana.org.au> <20071212.104342.206132994.davem@davemloft.net> <20071213014623.GB32308@gondor.apana.org.au> <20071212.184919.157572948.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: wangchen@cn.fujitsu.com, jgarzik@pobox.com, khc@pm.waw.pl,
-	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45421
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751024AbXLMDWK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 22:22:10 -0500
-In-Reply-To: <E1J2eW8-0000GQ-00@gondolin.me.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:3034 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750743AbXLMFZT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 00:25:19 -0500
+Content-Disposition: inline
+In-Reply-To: <20071212.184919.157572948.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 13 Dec 2007 11:13:44 +0800
+On Wed, Dec 12, 2007 at 06:49:19PM -0800, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Thu, 13 Dec 2007 09:46:23 +0800
+> 
+> > [IPSEC]: Make callers of xfrm_lookup to use XFRM_LOOKUP_WAIT
 
-> Let's see who else is doing this:
-> 
-> [NET]: Check RTNL status in unregister_netdevice
-> 
-> The caller must hold the RTNL so let's check it in unregister_netdevice.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Sorry, I was too quick too :) I managed to invert the DECNet
+xfrm_lookup call.  Here's a fix.
 
-Good idea, applied to net-2.6.25, thanks.
+[DECNET]: Fix inverted wait flag in xfrm_lookup call
+
+My previous patch made the wait flag take the opposite value to what it
+should be.  This patch fixes that.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index 62f3ae7..2d95cf1 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -1197,7 +1197,7 @@ int dn_route_output_sock(struct dst_entry **pprt, struct flowi *fl, struct sock
+ 	err = __dn_route_output_key(pprt, fl, flags & MSG_TRYHARD);
+ 	if (err == 0 && fl->proto) {
+ 		err = xfrm_lookup(pprt, fl, sk, (flags & MSG_DONTWAIT) ?
+-						XFRM_LOOKUP_WAIT : 0);
++						0 : XFRM_LOOKUP_WAIT);
+ 	}
+ 	return err;
+ }
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
