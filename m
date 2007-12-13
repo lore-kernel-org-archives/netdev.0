@@ -1,83 +1,67 @@
-From: Borislav Petkov <bbpetkov@yahoo.de>
-Subject: Re: 2.6.24-rc5-mm1
-Date: Thu, 13 Dec 2007 17:07:44 +0100
-Message-ID: <20071213160744.GA4509@gollum.tnic>
-References: <20071213024050.7d6e5f3e.akpm@linux-foundation.org> <47613F18.6080601@bull.net> <4761494E.1050704@bull.net>
-Reply-To: bbpetkov@yahoo.de
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPSEC]: Fix zero return value in xfrm_lookup on error
+Date: Fri, 14 Dec 2007 00:44:48 +0800
+Message-ID: <20071213164448.GA7310@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pierre Peiffer <pierre.peiffer@bull.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Benjamin Thery <benjamin.thery@bull.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762426AbXLMQJh@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:2809 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758261AbXLMQov (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 11:44:51 -0500
 Content-Disposition: inline
-In-Reply-To: <4761494E.1050704@bull.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 13, 2007 at 04:01:34PM +0100, Benjamin Thery wrote:
-> The problem comes from the new macro UDPX_INC_STATS_BH introduced
-> by Herbert, which was a nice addition to increment the correct=20
-> UDP MIB depending on the socket family, but unfortunately=20
-> the use of this macro from kernel code (I mean code not compiled=20
-> as module) requires that IPv6 is also compiled in kernel=20
-> (CONFIG_IPv6=3Dy) in order to have udp_stats_in6 defined at link=20
-> time.
->=20
-> Benjamin
->=20
-> Pierre Peiffer wrote:
-> > Hi,
-> >=20
-> > 	My config does not link any more:
-> >=20
-> > ...
-> >   CHK     include/linux/compile.h
-> >   UPD     include/linux/compile.h
-> >   CC      init/version.o
-> >   LD      init/built-in.o
-> >   LD      .tmp_vmlinux1
-> > net/built-in.o: In function `xs_udp_data_ready':
-> > /home/peifferp/containers/kernel/linux-2.6.24-rc5-mm1/net/sunrpc/xp=
-rtsock.c:842:
-> > undefined reference to `udp_stats_in6'
-> > /home/peifferp/containers/kernel/linux-2.6.24-rc5-mm1/net/sunrpc/xp=
-rtsock.c:846:
-> > undefined reference to `udp_stats_in6'
-> > make[1]: *** [.tmp_vmlinux1] Error 1
-> > make: *** [sub-make] Error 2
-> >=20
-> > After a first look, udp_stats_in6 seems to be defined in ipv6 (file
-> > net/ipv6/udp.c) but I have
-> >=20
-> > CONFIG_IPV6=3Dm
-> > and
-> > CONFIG_SUNRPC=3Dy
-> >=20
-> > So, SUNRPC uses something defined in a module in my case ?
-> >=20
-> > ... looking more, this dependency seems to have been introduced by =
-the patch
-> > [UDP]: Restore missing inDatagrams increments
-> > ( http://thread.gmane.org/gmane.linux.network/79716/focus=3D79831 )
-> >=20
-> > (I cc netdev)
-> >=20
-> > I don't know what is the right way to fix this ... ?
+Hi Dave:
 
-you might do "select IPV6" in the SUNRPC section of fs/Kconfig, however=
- select is
-evil...
+Found another silly bug in my ICMP relookup patch.
 
---=20
-Regards/Gru=DF,
-    Boris.
---
-To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
- in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
+[IPSEC]: Fix zero return value in xfrm_lookup on error
+
+Further testing shows that my ICMP relookup patch can cause xfrm_lookup
+to return zero on error which isn't very nice since it leads to the caller
+dying on null pointer dereference.  The bug is due to not setting err
+to ENOENT just before we leave xfrm_lookup in case of no policy.
+
+This patch moves the err setting to where it should be.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index b04d88c..d2084b1 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1469,8 +1469,6 @@ restart:
+ 			goto dropdst;
+ 	}
+ 
+-	err = -ENOENT;
+-
+ 	if (!policy) {
+ 		/* To accelerate a bit...  */
+ 		if ((dst_orig->flags & DST_NOXFRM) ||
+@@ -1492,6 +1490,7 @@ restart:
+ 	npols ++;
+ 	xfrm_nr += pols[0]->xfrm_nr;
+ 
++	err = -ENOENT;
+ 	if ((flags & XFRM_LOOKUP_ICMP) && !(policy->flags & XFRM_POLICY_ICMP))
+ 		goto error;
+ 
+@@ -1657,6 +1656,7 @@ dropdst:
+ 	return err;
+ 
+ nopol:
++	err = -ENOENT;
+ 	if (flags & XFRM_LOOKUP_ICMP)
+ 		goto dropdst;
+ 	return 0;
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
