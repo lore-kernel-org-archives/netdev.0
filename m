@@ -1,38 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-2.6.25 splat
-Date: Wed, 12 Dec 2007 16:26:13 -0800 (PST)
-Message-ID: <20071212.162613.186792052.davem@davemloft.net>
-References: <20071212162140.6b81328d.akpm@linux-foundation.org>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] e100: free IRQ to remove warningwhenrebooting
+Date: Wed, 12 Dec 2007 16:30:42 -0800
+Message-ID: <20071213003042.1895.34327.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: akpm@linux-foundation.org
+Cc: netdev@vger.kernel.org, jesse.brandeburg@intel.com,
+	ianw@gelato.unsw.edu.au
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58008
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751835AbXLMA0O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 19:26:14 -0500
-In-Reply-To: <20071212162140.6b81328d.akpm@linux-foundation.org>
+Received: from mga09.intel.com ([134.134.136.24]:55621 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752131AbXLMAbE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Dec 2007 19:31:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Wed, 12 Dec 2007 16:21:40 -0800
+Adapted from Ian Wienand <ianw@gelato.unsw.edu.au>
 
-> I don't know why it was doing ipv6 things at all.
+Explicitly free the IRQ before removing the device to remove a
+warning "Destroying IRQ without calling free_irq"
 
-When you bring up any interface, with explicit IPV6
-addresses or not, the IPV6 stack seeks out local routers
-and whatnot using multicast and assigns the interface
-a link-local IPV6 address.
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: Ian Wienand <ianw@gelato.unsw.edu.au>
+---
 
-So no matter what you're doing IPV6.
+ drivers/net/e100.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
-I suspect the OOPS you hit might be related to
-IPSEC stack work done recently by Herbert Xu who
-has been added to the CC:.
-
-I doubt poor Ilpo should be contacted as I doubt his
-TCP work is involved :-)
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+index 27f4d4a..f630ea9 100644
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -2807,8 +2807,9 @@ static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
+ 		pci_enable_wake(pdev, PCI_D3cold, 0);
+ 	}
+ 
+-	pci_disable_device(pdev);
+ 	free_irq(pdev->irq, netdev);
++
++	pci_disable_device(pdev);
+ 	pci_set_power_state(pdev, PCI_D3hot);
+ 
+ 	return 0;
+@@ -2850,6 +2851,8 @@ static void e100_shutdown(struct pci_dev *pdev)
+ 		pci_enable_wake(pdev, PCI_D3cold, 0);
+ 	}
+ 
++	free_irq(pdev->irq, netdev);
++
+ 	pci_disable_device(pdev);
+ 	pci_set_power_state(pdev, PCI_D3hot);
+ }
