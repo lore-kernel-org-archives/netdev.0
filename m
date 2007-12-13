@@ -1,30 +1,20 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][NET-2.6.25][IPV6] fix section mismatch warnings
-Date: Thu, 13 Dec 2007 05:35:10 -0800 (PST)
-Message-ID: <20071213.053510.237730064.davem@davemloft.net>
-References: <47610BDE.9040907@fr.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
-To: dlezcano@fr.ibm.com
+From: mschmidt@redhat.com
+Subject: [patch 0/2] rebinding tunnels to interfaces
+Date: Thu, 13 Dec 2007 14:37:48 +0100
+Message-ID: <20071213133748.862042979@redhat.com>
+Cc: davem@davemloft.net, kaber@trash.net, mmaslano@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58626
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752577AbXLMNfL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 08:35:11 -0500
-In-Reply-To: <47610BDE.9040907@fr.ibm.com>
+Received: from mx1.redhat.com ([66.187.233.31]:52147 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752419AbXLMNj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Dec 2007 08:39:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Date: Thu, 13 Dec 2007 11:39:26 +0100
+These two patches allow rebinding of GRE and SIT tunnels to interfaces using
+ip tun change <tunnel> dev <iface>
+A similar change was already done for IPIP tunnels.
 
-> Removed useless and buggy __exit section in the different 
-> ipv6 subsystems. Otherwise they will be called inside an
-> init section during rollbacking in case of an error in the
-> protocol initialization.
-> 
-> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
-
-Applied, thanks.
+Michal
+-- 
