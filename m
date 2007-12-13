@@ -1,65 +1,134 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-2.6.25 3/8] net/core: Use ipv4_is_<type>
-Date: Thu, 13 Dec 2007 15:38:56 -0800
-Message-ID: <1197589141-7020-3-git-send-email-joe@perches.com>
-References: <1197589141-7020-1-git-send-email-joe@perches.com>
- <1197589141-7020-2-git-send-email-joe@perches.com>
+Subject: [PATCH net-2.6.25 1/8] Create ipv4_is_<type>(__be32 addr) functions
+Date: Thu, 13 Dec 2007 15:38:54 -0800
+Message-ID: <1197589141-7020-1-git-send-email-joe@perches.com>
+Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:4212 "EHLO perches.com"
+Received: from DSL022.labridge.com ([206.117.136.22]:4210 "EHLO perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755224AbXLMXjF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752426AbXLMXjF (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 13 Dec 2007 18:39:05 -0500
-Received: from localhost.localdomain (192-168-1-128.LABridge.com [192.168.1.128] (may be forged))
-	by perches.com (8.9.3/8.9.3) with ESMTP id OAA17669
-	for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 14:52:22 -0800
-In-Reply-To: <1197589141-7020-2-git-send-email-joe@perches.com>
-Message-Id: <63aaea4664a57e3b9a0b7454da94e72b6d462e22.1197432867.git.joe@perches.com>
-In-Reply-To: <e2ebcbf24539c0a3ef2ac77147dbfa55d8ac9e33.1197432867.git.joe@perches.com>
-References: <e2ebcbf24539c0a3ef2ac77147dbfa55d8ac9e33.1197432867.git.joe@perches.com>
+Message-Id: <e2ebcbf24539c0a3ef2ac77147dbfa55d8ac9e33.1197432867.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Change IPV4 specific macros LOOPBACK MULTICAST LOCAL_MCAST BADCLASS and ZERONET
+macros to inline functions ipv4_is_<type>(__be32 addr)
+
+Adds type safety and arguably some readability.
+
+Changes since last submission:
+
+Removed ipv4_addr_octets function
+Used hex constants
+Converted recently added rfc3330 macros
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/core/netpoll.c |    3 ++-
- net/core/pktgen.c  |    8 +++++---
- 2 files changed, 7 insertions(+), 4 deletions(-)
+ include/linux/in.h |   87 ++++++++++++++++++++++++++++++++++++++++++++--------
+ 1 files changed, 74 insertions(+), 13 deletions(-)
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index b1d5acd..6faa128 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -410,7 +410,8 @@ static void arp_reply(struct sk_buff *skb)
- 	memcpy(&tip, arp_ptr, 4);
+diff --git a/include/linux/in.h b/include/linux/in.h
+index a8f00ca..f8d6073 100644
+--- a/include/linux/in.h
++++ b/include/linux/in.h
+@@ -246,21 +246,82 @@ struct sockaddr_in {
+ #include <asm/byteorder.h> 
  
- 	/* Should we ignore arp? */
--	if (tip != htonl(np->local_ip) || LOOPBACK(tip) || MULTICAST(tip))
-+	if (tip != htonl(np->local_ip) ||
-+	    ipv4_is_loopback(tip) || ipv4_is_multicast(tip))
- 		return;
+ #ifdef __KERNEL__
+-/* Some random defines to make it easier in the kernel.. */
+-#define LOOPBACK(x)	(((x) & htonl(0xff000000)) == htonl(0x7f000000))
+-#define MULTICAST(x)	(((x) & htonl(0xf0000000)) == htonl(0xe0000000))
+-#define BADCLASS(x)	(((x) & htonl(0xf0000000)) == htonl(0xf0000000))
+-#define ZERONET(x)	(((x) & htonl(0xff000000)) == htonl(0x00000000))
+-#define LOCAL_MCAST(x)	(((x) & htonl(0xFFFFFF00)) == htonl(0xE0000000))
++
++static inline bool ipv4_is_loopback(__be32 addr)
++{
++	return (addr & htonl(0xff000000)) == htonl(0x7f000000);
++}
++
++static inline bool ipv4_is_multicast(__be32 addr)
++{
++	return (addr & htonl(0xf0000000)) == htonl(0xe0000000);
++}
++
++static inline bool ipv4_is_local_multicast(__be32 addr)
++{
++	return (addr & htonl(0xffffff00)) == htonl(0xe0000000);
++}
++
++static inline bool ipv4_is_badclass(__be32 addr)
++{
++	return (addr & htonl(0xf0000000)) == htonl(0xf0000000);
++}
++
++static inline bool ipv4_is_zeronet(__be32 addr)
++{
++	return (addr & htonl(0xff000000)) == htonl(0x00000000);
++}
++
++#define LOOPBACK(x)		ipv4_is_loopback(x)
++#define MULTICAST(x)		ipv4_is_multicast(x)
++#define BADCLASS(x)		ipv4_is_badclass(x)
++#define ZERONET(x)		ipv4_is_zeronet(x)
++#define LOCAL_MCAST(x)		ipv4_is_local_multicast(x)
  
- 	size = sizeof(struct arphdr) + 2 * (skb->dev->addr_len + 4);
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 285ec3e..ede1fea 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2358,9 +2358,11 @@ static void mod_cur_headers(struct pktgen_dev *pkt_dev)
- 					t = random32() % (imx - imn) + imn;
- 					s = htonl(t);
+ /* Special-Use IPv4 Addresses (RFC3330) */
+-#define PRIVATE_10(x)	(((x) & htonl(0xff000000)) == htonl(0x0A000000))
+-#define LINKLOCAL_169(x) (((x) & htonl(0xffff0000)) == htonl(0xA9FE0000))
+-#define PRIVATE_172(x)	(((x) & htonl(0xfff00000)) == htonl(0xAC100000))
+-#define TEST_192(x)	(((x) & htonl(0xffffff00)) == htonl(0xC0000200))
+-#define ANYCAST_6TO4(x)	(((x) & htonl(0xffffff00)) == htonl(0xC0586300))
+-#define PRIVATE_192(x)	(((x) & htonl(0xffff0000)) == htonl(0xC0A80000))
+-#define TEST_198(x)	(((x) & htonl(0xfffe0000)) == htonl(0xC6120000))
++
++static inline bool ipv4_is_private_10(__be32 addr)
++{
++	return (addr & htonl(0xff000000)) == htonl(0x0a000000);
++}
++
++static inline bool ipv4_is_private_172(__be32 addr)
++{
++	return (addr & htonl(0xfff00000)) == htonl(0xac100000);
++}
++
++static inline bool ipv4_is_private_192(__be32 addr)
++{
++	return (addr & htonl(0xffff0000)) == htonl(0xc0a80000);
++}
++
++static inline bool ipv4_is_linklocal_169(__be32 addr)
++{
++	return (addr & htonl(0xffff0000)) == htonl(0xa9fe0000);
++}
++
++static inline bool ipv4_is_anycast_6to4(__be32 addr)
++{
++	return (addr & htonl(0xffffff00)) == htonl(0xc0586300);
++}
++
++static inline bool ipv4_is_test_192(__be32 addr)
++{
++	return (addr & htonl(0xffffff00)) == htonl(0xc0000200);
++}
++
++static inline bool ipv4_is_test_198(__be32 addr)
++{
++	return (addr & htonl(0xfffe0000)) == htonl(0xc6120000);
++}
+ #endif
  
--					while (LOOPBACK(s) || MULTICAST(s)
--					       || BADCLASS(s) || ZERONET(s)
--					       || LOCAL_MCAST(s)) {
-+					while (ipv4_is_loopback(s) ||
-+					       ipv4_is_multicast(s) ||
-+					       ipv4_is_badclass(s) ||
-+					       ipv4_is_zeronet(s) ||
-+					       ipv4_is_local_multicast(s)) {
- 						t = random32() % (imx - imn) + imn;
- 						s = htonl(t);
- 					}
++#define PRIVATE_10(x)		ipv4_is_private_10(x)
++#define LINKLOCAL_169(x)	ipv4_is_linklocal_169(x)
++#define PRIVATE_172(x)		ipv4_is_private_172(x)
++#define TEST_192(x)		ipv4_is_test_192(x)
++#define ANYCAST_6TO4(x)		ipv4_is_anycast_6to4(x)
++#define PRIVATE_192(x)		ipv4_is_private_192(x)
++#define TEST_198(x)		ipv4_is_test_198(x)
++
+ #endif	/* _LINUX_IN_H */
 -- 
 1.5.3.7.949.g2221a6
 
