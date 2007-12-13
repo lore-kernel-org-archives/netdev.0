@@ -1,47 +1,38 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: net-2.6.25 splat
-Date: Wed, 12 Dec 2007 16:21:40 -0800
-Message-ID: <20071212162140.6b81328d.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-2.6.25 splat
+Date: Wed, 12 Dec 2007 16:26:13 -0800 (PST)
+Message-ID: <20071212.162613.186792052.davem@davemloft.net>
+References: <20071212162140.6b81328d.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Ilpo =?ISO-8859-1?Q?J=E4rvine?= =?ISO-8859-1?Q?n?=
-	<ilpo.jarvinen@helsinki.fi>
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:55570 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752159AbXLMAVz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 19:21:55 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58008
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751835AbXLMA0O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 19:26:14 -0500
+In-Reply-To: <20071212162140.6b81328d.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Wed, 12 Dec 2007 16:21:40 -0800
 
-Pulled the tree a couple of hours ago.  The machine was running the full
--mm lineup, had been compiling kernels for an hour or so then oopsed in
-icmpv6_rcv+0x5b/0x832.
+> I don't know why it was doing ipv6 things at all.
 
-I have a partial photo of the scrolled-off backtrace but the camera cable
-is at home.
+When you bring up any interface, with explicit IPV6
+addresses or not, the IPV6 stack seeks out local routers
+and whatnot using multicast and assigns the interface
+a link-local IPV6 address.
 
-I don't know why it was doing ipv6 things at all.  Maybe there's ip6 stuff
-running around google's corp network, dunno.
+So no matter what you're doing IPV6.
 
-gdb says:
+I suspect the OOPS you hit might be related to
+IPSEC stack work done recently by Herbert Xu who
+has been added to the CC:.
 
-(gdb) l *0x17387
-0x17387 is in icmpv6_rcv (net/ipv6/icmp.c:649).
-644             struct in6_addr *saddr, *daddr;
-645             struct ipv6hdr *orig_hdr;
-646             struct icmp6hdr *hdr;
-647             int type;
-648     
-649             if (xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb) &&
-650                 skb->sp->xvec[skb->sp->len - 1]->props.flags & XFRM_STATE_ICMP) {
-651                     int nh;
-652     
-653                     if (!pskb_may_pull(skb, sizeof(*hdr) + sizeof(*orig_hdr)))
-
-
-I'll set the display to 80x50 and retry..	
+I doubt poor Ilpo should be contacted as I doubt his
+TCP work is involved :-)
