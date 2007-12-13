@@ -1,34 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [IPSEC]: Fix zero return value in xfrm_lookup on error
-Date: Thu, 13 Dec 2007 09:31:30 -0800 (PST)
-Message-ID: <20071213.093130.98177469.davem@davemloft.net>
-References: <20071213164448.GA7310@gondor.apana.org.au>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] e1000: remove no longer used code for pci read/write cfg
+Date: Thu, 13 Dec 2007 09:36:53 -0800
+Message-ID: <20071213173653.26024.91790.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org, bunk@stusta.de
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36229
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758412AbXLMRbb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 12:31:31 -0500
-In-Reply-To: <20071213164448.GA7310@gondor.apana.org.au>
+Received: from mga11.intel.com ([192.55.52.93]:63146 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757524AbXLMRg4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Dec 2007 12:36:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 14 Dec 2007 00:44:48 +0800
+From: Adrian Bunk <bunk@stusta.de>
 
-> [IPSEC]: Fix zero return value in xfrm_lookup on error
-> 
-> Further testing shows that my ICMP relookup patch can cause xfrm_lookup
-> to return zero on error which isn't very nice since it leads to the caller
-> dying on null pointer dereference.  The bug is due to not setting err
-> to ENOENT just before we leave xfrm_lookup in case of no policy.
-> 
-> This patch moves the err setting to where it should be.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
-Applied, thanks.
+ drivers/net/e1000/e1000_hw.h   |    2 --
+ drivers/net/e1000/e1000_main.c |   16 ----------------
+ 2 files changed, 0 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
+index a2a86c5..930554b 100644
+--- a/drivers/net/e1000/e1000_hw.h
++++ b/drivers/net/e1000/e1000_hw.h
+@@ -421,8 +421,6 @@ void e1000_tbi_adjust_stats(struct e1000_hw *hw, struct e1000_hw_stats *stats, u
+ void e1000_get_bus_info(struct e1000_hw *hw);
+ void e1000_pci_set_mwi(struct e1000_hw *hw);
+ void e1000_pci_clear_mwi(struct e1000_hw *hw);
+-void e1000_read_pci_cfg(struct e1000_hw *hw, uint32_t reg, uint16_t * value);
+-void e1000_write_pci_cfg(struct e1000_hw *hw, uint32_t reg, uint16_t * value);
+ int32_t e1000_read_pcie_cap_reg(struct e1000_hw *hw, uint32_t reg, uint16_t *value);
+ void e1000_pcix_set_mmrbc(struct e1000_hw *hw, int mmrbc);
+ int e1000_pcix_get_mmrbc(struct e1000_hw *hw);
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 724f067..efd8c2d 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -4866,22 +4866,6 @@ e1000_pci_clear_mwi(struct e1000_hw *hw)
+ 	pci_clear_mwi(adapter->pdev);
+ }
+ 
+-void
+-e1000_read_pci_cfg(struct e1000_hw *hw, uint32_t reg, uint16_t *value)
+-{
+-	struct e1000_adapter *adapter = hw->back;
+-
+-	pci_read_config_word(adapter->pdev, reg, value);
+-}
+-
+-void
+-e1000_write_pci_cfg(struct e1000_hw *hw, uint32_t reg, uint16_t *value)
+-{
+-	struct e1000_adapter *adapter = hw->back;
+-
+-	pci_write_config_word(adapter->pdev, reg, *value);
+-}
+-
+ int
+ e1000_pcix_get_mmrbc(struct e1000_hw *hw)
+ {
+
