@@ -1,40 +1,46 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH] ethtool: update license field in specfile to be correctly
-	defined
-Date: Wed, 12 Dec 2007 16:37:14 -0800
-Message-ID: <20071213003714.2743.49355.stgit@localhost.localdomain>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: net-2.6.25 splat
+Date: Wed, 12 Dec 2007 17:39:51 -0800
+Message-ID: <20071212173951.4f1eb99a.akpm@linux-foundation.org>
+References: <20071212162140.6b81328d.akpm@linux-foundation.org>
+	<20071212.162613.186792052.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse.brandeburg@intel.com
-To: jeff@garzik.org
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:44909 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751328AbXLMAih (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Dec 2007 19:38:37 -0500
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:35092 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751089AbXLMBkj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2007 20:40:39 -0500
+In-Reply-To: <20071212.162613.186792052.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RPM uses "License" as field and not "Copyright".
+On Wed, 12 Dec 2007 16:26:13 -0800 (PST) David Miller <davem@davemloft.net> wrote:
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
+> From: Andrew Morton <akpm@linux-foundation.org>
+> Date: Wed, 12 Dec 2007 16:21:40 -0800
+> 
+> > I don't know why it was doing ipv6 things at all.
+> 
+> When you bring up any interface, with explicit IPV6
+> addresses or not, the IPV6 stack seeks out local routers
+> and whatnot using multicast and assigns the interface
+> a link-local IPV6 address.
+> 
+> So no matter what you're doing IPV6.
+> 
+> I suspect the OOPS you hit might be related to
+> IPSEC stack work done recently by Herbert Xu who
+> has been added to the CC:.
+> 
+> I doubt poor Ilpo should be contacted as I doubt his
+> TCP work is involved :-)
 
- ethtool.spec.in |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Here's the screen-shot (actually more like a reen-hot):
+http://userweb.kernel.org/~akpm/pc121694.jpg
 
-diff --git a/ethtool.spec.in b/ethtool.spec.in
-index 1705d7f..4ff736a 100644
---- a/ethtool.spec.in
-+++ b/ethtool.spec.in
-@@ -5,7 +5,7 @@ Group		: Utilities
- 
- Summary		: A tool for setting ethernet parameters
- 
--Copyright	: GPL
-+License		: GPL
- URL		: http://sourceforge.net/projects/gkernel/
- 
- Buildroot	: %{_tmppath}/%{name}-%{version}
+I'm awaiting a reoccurrence with the screen in 50-row mode.
