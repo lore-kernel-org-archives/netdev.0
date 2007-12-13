@@ -1,55 +1,61 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFC] net: napi fix
-Date: Thu, 13 Dec 2007 10:22:33 -0800
-Message-ID: <20071213102233.3727e9a0@freepuppy.rosehill>
-References: <47602B77.2090202@intel.com>
-	<b25c3fa70712122341q3ba282cdqda3fa56901b14484@mail.gmail.com>
-	<47613E22.6060705@myri.com>
-	<20071213.061938.86541759.davem@davemloft.net>
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: Re: [kvm-devel] [PATCH resent] virtio_net: Fix stalled inbound trafficon early packets
+Date: Thu, 13 Dec 2007 19:30:31 +0100
+Message-ID: <200712131930.31602.borntraeger@de.ibm.com>
+References: <200712111242.28843.borntraeger@de.ibm.com> <200712121914.38135.borntraeger@de.ibm.com> <47613277.3060403@qumranet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: gallatin@myri.com, joonwpark81@gmail.com, auke-jan.h.kok@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jgarzik@pobox.com, jesse.brandeburg@intel.com
-To: David Miller <davem@davemloft.net>
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	kvm-devel <kvm-devel@lists.sourceforge.net>,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: dor.laor@qumranet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:35769 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752611AbXLMSaN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 13:30:13 -0500
-In-Reply-To: <20071213.061938.86541759.davem@davemloft.net>
+Received: from mtagate1.de.ibm.com ([195.212.29.150]:10252 "EHLO
+	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763588AbXLMSai (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 13:30:38 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate1.de.ibm.com (8.13.8/8.13.8) with ESMTP id lBDIUa1r016816
+	for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 18:30:36 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lBDIUa1e2801670
+	for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 19:30:36 +0100
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lBDIUZDt021214
+	for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 19:30:36 +0100
+In-Reply-To: <47613277.3060403@qumranet.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 13 Dec 2007 06:19:38 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+Am Donnerstag, 13. Dezember 2007 schrieb Dor Laor:
+> You're right I got confused somehow.
+> So in that case setting the driver status field on open in addition to 
+> your enable will do the trick.
+> On DRIVER_OPEN the host will trigger an interrupt if the queue is not 
+> empty..
+> Thanks,
+> Dor
 
-> From: Andrew Gallatin <gallatin@myri.com>
-> Date: Thu, 13 Dec 2007 09:13:54 -0500
-> 
-> > If the netif_running() check is indeed required to make a device break
-> > out of napi polling and respond to an ifconfig down, then I think the
-> > netif_running() check should be moved up into net_rx_action() to avoid
-> > potential for driver complexity and bugs like the ones you found.
-> 
-> That, or something like it, definitely sounds reasonable and much
-> better than putting the check into every driver :-)
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+After looking into some other drivers, I prefer my first patch (moving 
+napi_enable) ;-)
 
-It is not possible to do netif_running() check in generic code as currently
-written because of the case of devices where a single NAPI object is
-being used to handle two devices. The association between napi and netdevice
-is M to N.  There are cases like niu that have multiple NAPI's and one
-netdevice; and devices like sky2 that can have one NAPI and 2 netdevice's.
+There are some drivers like xen-netfront, b44, which call napi_enable before 
+the buffers are passed to the hardware. So it seems that moving napi is 
+also a valid option.
 
-The existing pointer from napi to netdevice is only used by netconsole
-now. For devices like sky2 it means that netconsole can't work on the the
-second port which is a not a big problem. But adding a netif_running()
-check would be a big issue.
+But maybe I can just wait until Rusty returns from vacation (I will leave 
+next week) so everything might be wonderful when I return ;-)
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Rusty, if you decide to apply my patch, there is one downside: The debugging 
+code in virtio_ring sometimes triggers with a false positive:
+
+try_fill_recv calls vring_kick. Here we do a notify to the host. This might 
+cause an immediate interrupt, triggering the poll routine before vring_kick 
+can run END_USE. This is no real problem, as we dont touch the vq after 
+notify.
+
+Christian, facing 64 guest cpus unconvering all kind of races
+
