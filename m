@@ -1,49 +1,34 @@
-From: Gavin McCullagh <Gavin.McCullagh@nuim.ie>
-Subject: Re: reading the tcp headers within the write queue
-Date: Thu, 13 Dec 2007 19:08:59 +0000
-Message-ID: <20071213190859.GW7409@nuim.ie>
-References: <20071213185626.GV7409@nuim.ie>
- <20071213.110050.104716141.davem@davemloft.net>
-Reply-To: Gavin McCullagh <Gavin.McCullagh@nuim.ie>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] net: napi fix
+Date: Thu, 13 Dec 2007 11:09:28 -0800 (PST)
+Message-ID: <20071213.110928.26060224.davem@davemloft.net>
+References: <20071213.061938.86541759.davem@davemloft.net>
+	<20071213102233.3727e9a0@freepuppy.rosehill>
+	<476181C1.3060204@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linux-foundation.org, joonwpark81@gmail.com,
+	auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+	jesse.brandeburg@intel.com
+To: gallatin@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from banyan.nuim.ie ([149.157.1.4]:60588 "EHLO mango.nuim.ie"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754414AbXLMTIz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Dec 2007 14:08:55 -0500
-Content-disposition: inline
-Received: from boing.hamilton.local ([149.157.192.252])
- by mango.nuim.ie (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3
- 2007; 32bit)) with ESMTP id <0JT0002H056SGY80@mango.nuim.ie> for
- netdev@vger.kernel.org; Thu, 13 Dec 2007 19:08:52 +0000 (GMT)
-In-reply-to: <20071213.110050.104716141.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45856
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1760271AbXLMTJ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 14:09:28 -0500
+In-Reply-To: <476181C1.3060204@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Andrew Gallatin <gallatin@myri.com>
+Date: Thu, 13 Dec 2007 14:02:25 -0500
 
-thanks for the swift reply.
+> Or perhaps we should just leave things as is.
 
-On Thu, 13 Dec 2007, David Miller wrote:
+We should probably add a "disabling" state bit to the
+napi struct flags, this will be set by napi_disable()
+before it loops trying to set the sched bit.
 
-> > I'm trying to hack together something which will run through the
-> > retransmit queue looking at the tcp headers.
-> 
-> The packets in the retransmit queue are headerless, the
-> header only gets added to clones of the retransmit queue
-> frames during the actual transmit.
-
-Thought that might be it. I presume there isn't any other residue of the
-tcp options elsewhere, that one could look at when the packet gets
-acknowledged?  I'm particularly interested in the timestamp.
-
-> And this question belongs on netdev not linux-net.
-
-Oops, sorry.
-
-Gavin
-
+net_rx_action() can then check this.
