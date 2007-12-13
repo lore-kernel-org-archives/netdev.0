@@ -1,58 +1,93 @@
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Subject: Re: [RFC] net: napi fix
-Date: Thu, 13 Dec 2007 16:41:19 +0900
-Message-ID: <b25c3fa70712122341q3ba282cdqda3fa56901b14484@mail.gmail.com>
-References: <47601A73.5010804@myri.com>
-	 <20071212.093819.205755031.davem@davemloft.net>
-	 <47602B77.2090202@intel.com>
+From: Gregory CLEMENT <novexz@gmail.com>
+Subject: [PATCH] MACB: clear transmit buffers properly on TX Underrun
+Date: Thu, 13 Dec 2007 08:51:57 +0100
+Message-ID: <4760E49D.5040406@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, gallatin@myri.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jgarzik@pobox.com, shemminger@linux-foundation.org,
-	"Jesse Brandeburg" <jesse.brandeburg@intel.com>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: hskinnemoen@atmel.com, linux-arm-kernel@lists.arm.linux.org.uk,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.187]:56322 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752740AbXLMHlU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 02:41:20 -0500
-Received: by rv-out-0910.google.com with SMTP id k20so477339rvb.1
-        for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 23:41:19 -0800 (PST)
-In-Reply-To: <47602B77.2090202@intel.com>
-Content-Disposition: inline
+Received: from nf-out-0910.google.com ([64.233.182.189]:7558 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758666AbXLMHvk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 02:51:40 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so466825nfb.21
+        for <netdev@vger.kernel.org>; Wed, 12 Dec 2007 23:51:39 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2007/12/13, Kok, Auke <auke-jan.h.kok@intel.com>:
-> David Miller wrote:
-> > From: Andrew Gallatin <gallatin@myri.com>
-> > Date: Wed, 12 Dec 2007 12:29:23 -0500
-> >
-> >> Is the netif_running() check even required?
-> >
-> > No, it is not.
-> >
-> > When a device is brought down, one of the first things
-> > that happens is that we wait for all pending NAPI polls
-> > to complete, then block any new polls from starting.
->
-> I think this was previously (pre-2.6.24) not the case, which is why e1000 et al
-> has this check as well and that's exactly what is causing most of the
-> net_rx_action oopses in the first place. Without the netif_running() check
-> previously the drivers were just unusable with NAPI and prone to many races with
-> down (i.e. touching some ethtool ioctl which wants to do a reset while routing
-> small packets at high numbers). that's why we added the netif_running() check in
-> the first place :)
->
-> There might be more drivers lurking that need this change...
->
-> Auke
->
+Hi,
+I generated this patch for linux 2.6.24-rc5 and test it on AT91SAM9263=20
+with iperf.
 
-Also in my case, without netif_running() check, I cannot do ifconfig down.
-It stucked if packet generator was sending packets.
+=46rom: Gregory CLEMENT <gclement00@gmail.com>
+Date: Wed, 12 Dec 2007 18:10:14 +0100
+Subject: [PATCH] MACB: clear transmit buffers properly on TX Underrun
 
-Thanks
-Joonwoo
+Initially transmit buffer pointers were only reset. But buffer descript=
+ors
+were possibly still set as ready, and buffer in upper layer was not
+freed. This caused driver hang under big load.
+Now reset clean properly the buffer descriptor and freed upper layer.
+
+Signed-off-by: Gregory CLEMENT <gclement00@gmail.com>
+---
+ drivers/net/macb.c |   26 +++++++++++++++++++++++++-
+ 1 files changed, 25 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+index 047ea7b..2ee1dab 100644
+--- a/drivers/net/macb.c
++++ b/drivers/net/macb.c
+@@ -307,9 +307,33 @@ static void macb_tx(struct macb *bp)
+         (unsigned long)status);
+=20
+     if (status & MACB_BIT(UND)) {
++        int i;
+         printk(KERN_ERR "%s: TX underrun, resetting buffers\n",
+-               bp->dev->name);
++               bp->dev->name);
++
++        head =3D bp->tx_head;
++
++        /* free transmit buffer in upper layer*/
++        for (tail =3D bp->tx_tail; tail !=3D head; tail =3D NEXT_TX(ta=
+il)) {
++            struct ring_info *rp =3D &bp->tx_skb[tail];
++            struct sk_buff *skb =3D rp->skb;
++
++            BUG_ON(skb =3D=3D NULL);
++
++            rmb();
++
++            dma_unmap_single(&bp->pdev->dev, rp->mapping, skb->len,
++                             DMA_TO_DEVICE);
++            rp->skb =3D NULL;
++            dev_kfree_skb_irq(skb);
++        }
++
++        /*Mark all the buffer as used to avoid sending a lost buffer*/
++        for (i =3D 0; i < RX_RING_SIZE; i++)
++            bp->tx_ring[i].ctrl =3D MACB_BIT(TX_USED);
++
+         bp->tx_head =3D bp->tx_tail =3D 0;
++
+     }
+=20
+     if (!(status & MACB_BIT(COMP)))
+--=20
+1.5.3.7
+
+
+--=20
+Gregory CLEMENT
+Adeneo
+Adetel Group
+2, chemin du Ruisseau
+69134 ECULLY - FRANCE
+T=E9l. : +33 (0)4 72 18 08 40 - Fax : +33 (0)4 72 18 08 41
+
+www.adetelgroup.com
+
