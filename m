@@ -1,34 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: reading the tcp headers within the write queue
-Date: Thu, 13 Dec 2007 11:13:27 -0800 (PST)
-Message-ID: <20071213.111327.160083733.davem@davemloft.net>
-References: <20071213185626.GV7409@nuim.ie>
-	<20071213.110050.104716141.davem@davemloft.net>
-	<20071213190859.GW7409@nuim.ie>
+From: Robert Stonehouse <rstonehouse@solarflare.com>
+Subject: [PATCH] [RFC] New driver "sfc" for Solarstorm SFC4000 controller
+ - 2nd try
+Date: Thu, 13 Dec 2007 19:18:38 +0000
+Message-ID: <4761858E.2040709@solarflare.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Gavin.McCullagh@nuim.ie
+Cc: linux-net-drivers@solarflare.com, spope@solarflare.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51276
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750982AbXLMTN2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 14:13:28 -0500
-In-Reply-To: <20071213190859.GW7409@nuim.ie>
+Received: from mail.nextweb.net ([216.237.6.33]:4167 "EHLO mail.nextweb.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754298AbXLMTSm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Dec 2007 14:18:42 -0500
+Received: from unknown (HELO mail.solarflare.com) ([216.237.3.213])
+          (envelope-sender <rstonehouse@solarflare.com>)
+          by mail.nextweb.net (qmail-ldap-1.03) with SMTP
+          for <netdev@vger.kernel.org>; 13 Dec 2007 19:18:40 -0000
+Received: from OCEX01.SolarFlarecom.com (unknown [10.20.40.32])
+	by mail.solarflare.com (Postfix) with ESMTP id 511CA4492E
+	for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 11:18:40 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gavin McCullagh <Gavin.McCullagh@nuim.ie>
-Date: Thu, 13 Dec 2007 19:08:59 +0000
+This is a resubmission of a new driver for Solarflare network controllers.
 
-> Thought that might be it. I presume there isn't any other residue of the
-> tcp options elsewhere, that one could look at when the packet gets
-> acknowledged?  I'm particularly interested in the timestamp.
+The driver supports many types of PHY (10Gbase-T, XFP, CX4) on five
+different 10G reference designs and one 1G NIC ref design.
 
-Every time we transmit, the timestamp will be different.
+The previous thread was:
+  "[PATCH] [RFC] New driver "sfc" for Solarstorm SFC4000 controller"
+  http://marc.info/?l=linux-netdev&m=119583775622559&w=2
 
-We store the jiffies at transmit time in TCP_SKB_CB(skb)->when,
-so you can use that.  This is the value we use to compute the
-timestamp.
 
+Since the 1st patch we have addressed the review comments we received
+ - removed usage of __LINK_STATE_START as unnecessary with latest NAPI
+ - cleaned up many checkpatch violations
+ - used the generic drv_* logging
+   (macros were kept so that the network device name can be printed
+consistently in all messaging but these can be dissolved if necessary)
+ - Reduced over-use of docbook type comments
+ - replaced uintN_t with uN types
+ - merged some small headers to reduce the file count
+
+It is still quite a large driver at ~25k LOC. The main body of the driver
+is within efx.c, falcon.c, tx.c and rx.c if this helps direct review effort.
+
+We welcome more review comments and will try and respond to them more
+quickly than last time.
+
+The patch (against net-2.6.25) is at:
+    https://support.solarflare.com/netdev/2/net-2.6.25-sfc-2.2.0026.patch
+
+The new files may also be downloaded as a tarball:
+    https://support.solarflare.com/netdev/2/net-2.6.25-sfc-2.2.0026.tgz
+
+And for verification there is:
+    https://support.solarflare.com/netdev/2/MD5SUMS
+
+
+Regards
+
+-- 
+Rob Stonehouse
