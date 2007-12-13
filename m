@@ -1,101 +1,148 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [PATCH 02/12] [DCCP]: Shift the retransmit timer for active-close into output.c
-Date: Thu, 13 Dec 2007 13:05:55 -0200
-Message-ID: <1197558365-31134-3-git-send-email-acme@redhat.com>
+Subject: [PATCH 04/12] [DCCP]: Support for server holding timewait state
+Date: Thu, 13 Dec 2007 13:05:57 -0200
+Message-ID: <1197558365-31134-5-git-send-email-acme@redhat.com>
 References: <1197558365-31134-1-git-send-email-acme@redhat.com>
  <1197558365-31134-2-git-send-email-acme@redhat.com>
+ <1197558365-31134-3-git-send-email-acme@redhat.com>
+ <1197558365-31134-4-git-send-email-acme@redhat.com>
 Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
 	Ian McDonald <ian.mcdonald@jandi.co.nz>,
 	Arnaldo Carvalho de Melo <acme@redhat.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.243]:3587 "EHLO
+Received: from an-out-0708.google.com ([209.85.132.242]:3622 "EHLO
 	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761919AbXLMPGT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 10:06:19 -0500
-Received: by an-out-0708.google.com with SMTP id d31so185734and.103
-        for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 07:06:17 -0800 (PST)
-In-Reply-To: <1197558365-31134-2-git-send-email-acme@redhat.com>
+	with ESMTP id S1761881AbXLMPGR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 10:06:17 -0500
+Received: by an-out-0708.google.com with SMTP id d31so185722and.103
+        for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 07:06:16 -0800 (PST)
+In-Reply-To: <1197558365-31134-4-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-When performing active close, RFC 4340, 8.3. requires to retransmit the
-Close/CloseReq with a backoff-retransmit timer starting at intially 2 RTTs.
+This adds a socket option and signalling support for the case where the server
+holds timewait state on closing the connection, as described in RFC 4340, 8.3.
 
-This patch shifts the existing code for active-close retransmit timer
-into output.c, so that the retransmit timer is started when the first
-Close/CloseReq is sent. Previously, the timer was started when, after
-releasing the socket in dccp_close(), the actively-closing side had not yet
-reached the CLOSED/TIMEWAIT state.
+Since holding timewait state at the server is the non-usual case, it is enabled
+via a socket option. Documentation for this socket option has been added.
 
-The patch further reduces the initial timeout from 3 seconds to the required
-2 RTTs, where - in absence of a known RTT - the fallback value specified in
-RFC 4340, 3.4 is used.
+The setsockopt statement has been made resilient against different possible cases
+of expressing boolean `true' values using a suggestion by Ian McDonald.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/dccp/output.c |   13 ++++++++++++-
- net/dccp/proto.c  |   18 ------------------
- 2 files changed, 12 insertions(+), 19 deletions(-)
+ Documentation/networking/dccp.txt |    6 ++++++
+ include/linux/dccp.h              |    3 +++
+ net/dccp/output.c                 |    6 ++++--
+ net/dccp/proto.c                  |   13 ++++++++++++-
+ 4 files changed, 25 insertions(+), 3 deletions(-)
 
+diff --git a/Documentation/networking/dccp.txt b/Documentation/networking/dccp.txt
+index d76905a..39131a3 100644
+--- a/Documentation/networking/dccp.txt
++++ b/Documentation/networking/dccp.txt
+@@ -57,6 +57,12 @@ can be set before calling bind().
+ DCCP_SOCKOPT_GET_CUR_MPS is read-only and retrieves the current maximum packet
+ size (application payload size) in bytes, see RFC 4340, section 14.
+ 
++DCCP_SOCKOPT_SERVER_TIMEWAIT enables the server (listening socket) to hold
++timewait state when closing the connection (RFC 4340, 8.3). The usual case is
++that the closing server sends a CloseReq, whereupon the client holds timewait
++state. When this boolean socket option is on, the server sends a Close instead
++and will enter TIMEWAIT. This option must be set after accept() returns.
++
+ DCCP_SOCKOPT_SEND_CSCOV and DCCP_SOCKOPT_RECV_CSCOV are used for setting the
+ partial checksum coverage (RFC 4340, sec. 9.2). The default is that checksums
+ always cover the entire packet and that only fully covered application data is
+diff --git a/include/linux/dccp.h b/include/linux/dccp.h
+index 312b989..c676021 100644
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -205,6 +205,7 @@ struct dccp_so_feat {
+ #define DCCP_SOCKOPT_CHANGE_L		3
+ #define DCCP_SOCKOPT_CHANGE_R		4
+ #define DCCP_SOCKOPT_GET_CUR_MPS	5
++#define DCCP_SOCKOPT_SERVER_TIMEWAIT	6
+ #define DCCP_SOCKOPT_SEND_CSCOV		10
+ #define DCCP_SOCKOPT_RECV_CSCOV		11
+ #define DCCP_SOCKOPT_CCID_RX_INFO	128
+@@ -492,6 +493,7 @@ struct dccp_ackvec;
+  * @dccps_role - role of this sock, one of %dccp_role
+  * @dccps_hc_rx_insert_options - receiver wants to add options when acking
+  * @dccps_hc_tx_insert_options - sender wants to add options when sending
++ * @dccps_server_timewait - server holds timewait state on close (RFC 4340, 8.3)
+  * @dccps_xmit_timer - timer for when CCID is not ready to send
+  * @dccps_syn_rtt - RTT sample from Request/Response exchange (in usecs)
+  */
+@@ -528,6 +530,7 @@ struct dccp_sock {
+ 	enum dccp_role			dccps_role:2;
+ 	__u8				dccps_hc_rx_insert_options:1;
+ 	__u8				dccps_hc_tx_insert_options:1;
++	__u8				dccps_server_timewait:1;
+ 	struct timer_list		dccps_xmit_timer;
+ };
+ 
 diff --git a/net/dccp/output.c b/net/dccp/output.c
-index 7caa7f5..e97584a 100644
+index e97584a..b2e1791 100644
 --- a/net/dccp/output.c
 +++ b/net/dccp/output.c
-@@ -574,7 +574,18 @@ void dccp_send_close(struct sock *sk, const int active)
+@@ -567,8 +567,10 @@ void dccp_send_close(struct sock *sk, const int active)
+ 
+ 	/* Reserve space for headers and prepare control bits. */
+ 	skb_reserve(skb, sk->sk_prot->max_header);
+-	DCCP_SKB_CB(skb)->dccpd_type = dp->dccps_role == DCCP_ROLE_CLIENT ?
+-					DCCP_PKT_CLOSE : DCCP_PKT_CLOSEREQ;
++	if (dp->dccps_role == DCCP_ROLE_SERVER && !dp->dccps_server_timewait)
++		DCCP_SKB_CB(skb)->dccpd_type = DCCP_PKT_CLOSEREQ;
++	else
++		DCCP_SKB_CB(skb)->dccpd_type = DCCP_PKT_CLOSE;
+ 
+ 	if (active) {
  		dccp_write_xmit(sk, 1);
- 		dccp_skb_entail(sk, skb);
- 		dccp_transmit_skb(sk, skb_clone(skb, prio));
--		/* FIXME do we need a retransmit timer here? */
-+		/*
-+		 * Retransmission timer for active-close: RFC 4340, 8.3 requires
-+		 * to retransmit the Close/CloseReq until the CLOSING/CLOSEREQ
-+		 * state can be left. The initial timeout is 2 RTTs.
-+		 * Since RTT measurement is done by the CCIDs, there is no easy
-+		 * way to get an RTT sample. The fallback RTT from RFC 4340, 3.4
-+		 * is too low (200ms); we use a high value to avoid unnecessary
-+		 * retransmissions when the link RTT is > 0.2 seconds.
-+		 * FIXME: Let main module sample RTTs and use that instead.
-+		 */
-+		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
-+					  DCCP_TIMEOUT_INIT, DCCP_RTO_MAX);
- 	} else
- 		dccp_transmit_skb(sk, skb);
- }
 diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-index 60f40ec..8a73c8f 100644
+index 8a73c8f..cc87c50 100644
 --- a/net/dccp/proto.c
 +++ b/net/dccp/proto.c
-@@ -996,24 +996,6 @@ adjudge_to_death:
- 	if (state != DCCP_CLOSED && sk->sk_state == DCCP_CLOSED)
- 		goto out;
+@@ -551,6 +551,12 @@ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
+ 						     (struct dccp_so_feat __user *)
+ 						     optval);
+ 		break;
++	case DCCP_SOCKOPT_SERVER_TIMEWAIT:
++		if (dp->dccps_role != DCCP_ROLE_SERVER)
++			err = -EOPNOTSUPP;
++		else
++			dp->dccps_server_timewait = (val != 0);
++		break;
+ 	case DCCP_SOCKOPT_SEND_CSCOV:	/* sender side, RFC 4340, sec. 9.2 */
+ 		if (val < 0 || val > 15)
+ 			err = -EINVAL;
+@@ -653,6 +659,10 @@ static int do_dccp_getsockopt(struct sock *sk, int level, int optname,
+ 		val = dp->dccps_mss_cache;
+ 		len = sizeof(val);
+ 		break;
++	case DCCP_SOCKOPT_SERVER_TIMEWAIT:
++		val = dp->dccps_server_timewait;
++		len = sizeof(val);
++		break;
+ 	case DCCP_SOCKOPT_SEND_CSCOV:
+ 		val = dp->dccps_pcslen;
+ 		len = sizeof(val);
+@@ -918,7 +928,8 @@ static void dccp_terminate_connection(struct sock *sk)
+ 	case DCCP_OPEN:
+ 		dccp_send_close(sk, 1);
  
--	/*
--	 * The last release_sock may have processed the CLOSE or RESET
--	 * packet moving sock to CLOSED state, if not we have to fire
--	 * the CLOSE/CLOSEREQ retransmission timer, see "8.3. Termination"
--	 * in draft-ietf-dccp-spec-11. -acme
--	 */
--	if (sk->sk_state == DCCP_CLOSING) {
--		/* FIXME: should start at 2 * RTT */
--		/* Timer for repeating the CLOSE/CLOSEREQ until an answer. */
--		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
--					  inet_csk(sk)->icsk_rto,
--					  DCCP_RTO_MAX);
--#if 0
--		/* Yeah, we should use sk->sk_prot->orphan_count, etc */
--		dccp_set_state(sk, DCCP_CLOSED);
--#endif
--	}
--
- 	if (sk->sk_state == DCCP_CLOSED)
- 		inet_csk_destroy_sock(sk);
- 
+-		if (dccp_sk(sk)->dccps_role == DCCP_ROLE_SERVER)
++		if (dccp_sk(sk)->dccps_role == DCCP_ROLE_SERVER &&
++		    !dccp_sk(sk)->dccps_server_timewait)
+ 			next_state = DCCP_ACTIVE_CLOSEREQ;
+ 		else
+ 			next_state = DCCP_CLOSING;
 -- 
 1.5.3.4
 
