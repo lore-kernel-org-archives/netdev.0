@@ -1,50 +1,65 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: 2.6.24-rc4-mm1 - BUG in tcp_fragment
-Date: Fri, 14 Dec 2007 01:00:08 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0712140024360.12376@kivilampi-30.cs.helsinki.fi>
-References: <20071204211701.994dfce6.akpm@linux-foundation.org>
- <47616FA6.1010607@fr.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Cedric Le Goater <clg@fr.ibm.com>,
-	David Miller <davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-2.6.25 3/8] net/core: Use ipv4_is_<type>
+Date: Thu, 13 Dec 2007 15:38:56 -0800
+Message-ID: <1197589141-7020-3-git-send-email-joe@perches.com>
+References: <1197589141-7020-1-git-send-email-joe@perches.com>
+ <1197589141-7020-2-git-send-email-joe@perches.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:34699 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933966AbXLMXAN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 18:00:13 -0500
-In-Reply-To: <47616FA6.1010607@fr.ibm.com>
+Received: from DSL022.labridge.com ([206.117.136.22]:4212 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755224AbXLMXjF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Dec 2007 18:39:05 -0500
+Received: from localhost.localdomain (192-168-1-128.LABridge.com [192.168.1.128] (may be forged))
+	by perches.com (8.9.3/8.9.3) with ESMTP id OAA17669
+	for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 14:52:22 -0800
+In-Reply-To: <1197589141-7020-2-git-send-email-joe@perches.com>
+Message-Id: <63aaea4664a57e3b9a0b7454da94e72b6d462e22.1197432867.git.joe@perches.com>
+In-Reply-To: <e2ebcbf24539c0a3ef2ac77147dbfa55d8ac9e33.1197432867.git.joe@perches.com>
+References: <e2ebcbf24539c0a3ef2ac77147dbfa55d8ac9e33.1197432867.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 13 Dec 2007, Cedric Le Goater wrote:
 
-> I got this one while compiling on NFS.
-> 
-> C.
-> 
-> kernel BUG at /home/legoater/linux/2.6.24-rc4-mm1/include/net/tcp.h:1480!
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ net/core/netpoll.c |    3 ++-
+ net/core/pktgen.c  |    8 +++++---
+ 2 files changed, 7 insertions(+), 4 deletions(-)
 
-I'm not exactly sure what patches you have applied and which patches are 
-not, with rc4-mm1 there are two patches (first one was incomplete, I 
-assume you had at least that one based on your other mail) to really fix 
-the issues in (__|)tcp_reset_fack_counts(...). However, there seems to be 
-so much breakage that I have a bit trouble to decide where to start...
-The situation seems bit scary :-).
-
-So, I might soon prepare a revert patch for most of the questionable 
-TCP parts and ask Dave to apply it (and drop them fully during next 
-rebase) unless I suddently figure something out soon which explains 
-all/most of the problems, then return to drawing board. ...As it seems 
-that the cumulative ACK processing problem discovered later on (having 
-rather cumbersome solution with skbs only) will make part of the work 
-that's currently in net-2.6.25 quite useless/duplicate effort. But thanks 
-anyway for reporting these.
-
-
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index b1d5acd..6faa128 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -410,7 +410,8 @@ static void arp_reply(struct sk_buff *skb)
+ 	memcpy(&tip, arp_ptr, 4);
+ 
+ 	/* Should we ignore arp? */
+-	if (tip != htonl(np->local_ip) || LOOPBACK(tip) || MULTICAST(tip))
++	if (tip != htonl(np->local_ip) ||
++	    ipv4_is_loopback(tip) || ipv4_is_multicast(tip))
+ 		return;
+ 
+ 	size = sizeof(struct arphdr) + 2 * (skb->dev->addr_len + 4);
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 285ec3e..ede1fea 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -2358,9 +2358,11 @@ static void mod_cur_headers(struct pktgen_dev *pkt_dev)
+ 					t = random32() % (imx - imn) + imn;
+ 					s = htonl(t);
+ 
+-					while (LOOPBACK(s) || MULTICAST(s)
+-					       || BADCLASS(s) || ZERONET(s)
+-					       || LOCAL_MCAST(s)) {
++					while (ipv4_is_loopback(s) ||
++					       ipv4_is_multicast(s) ||
++					       ipv4_is_badclass(s) ||
++					       ipv4_is_zeronet(s) ||
++					       ipv4_is_local_multicast(s)) {
+ 						t = random32() % (imx - imn) + imn;
+ 						s = htonl(t);
+ 					}
 -- 
- i.
+1.5.3.7.949.g2221a6
+
