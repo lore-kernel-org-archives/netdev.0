@@ -1,46 +1,50 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [RFC] net: napi fix
-Date: Thu, 13 Dec 2007 23:58:59 +0100
-Message-ID: <4761B933.4030008@gmail.com>
-References: <4761930C.3030504@gmail.com>	<20071213.123727.224454625.davem@davemloft.net>	<4761B219.1030303@gmail.com> <20071213.143425.142750733.davem@davemloft.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: 2.6.24-rc4-mm1 - BUG in tcp_fragment
+Date: Fri, 14 Dec 2007 01:00:08 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0712140024360.12376@kivilampi-30.cs.helsinki.fi>
+References: <20071204211701.994dfce6.akpm@linux-foundation.org>
+ <47616FA6.1010607@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, gallatin@myri.com, joonwpark81@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jgarzik@pobox.com, shemminger@linux-foundation.org,
-	jesse.brandeburg@intel.com
-To: David Miller <davem@davemloft.net>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Cedric Le Goater <clg@fr.ibm.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:44928 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757904AbXLMWz0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 17:55:26 -0500
-Received: by nf-out-0910.google.com with SMTP id g13so707613nfb.21
-        for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 14:55:24 -0800 (PST)
-In-Reply-To: <20071213.143425.142750733.davem@davemloft.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:34699 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933966AbXLMXAN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 18:00:13 -0500
+In-Reply-To: <47616FA6.1010607@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote, On 12/13/2007 11:34 PM:
+On Thu, 13 Dec 2007, Cedric Le Goater wrote:
 
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Thu, 13 Dec 2007 23:28:41 +0100
+> I got this one while compiling on NFS.
 > 
->> ...I'm afraid I can't understand: I mean doing the same but without
->> passing this info with 'work == weight': if driver sends this info,
->> why it can't instead call something like napi_continue() with
->> this list_move_tail() (and probably additional local_irq_disable()/
->> enble() - but since it's unlikely()?) which looks much more readable,
->> and saves one whole unlikely if ()?
+> C.
 > 
-> Because the poll list is private to net_rx_action() and we don't
-> want to expose implementation details like that to every
-> ->poll() implementation.
+> kernel BUG at /home/legoater/linux/2.6.24-rc4-mm1/include/net/tcp.h:1480!
 
-So, it seems 'we' failed e.g. exposing napi_complete()...
-OK, no offense, I'll only mention at the end that there is
-always a possibility to redefine such a function to {} with any
-change of implementation.
+I'm not exactly sure what patches you have applied and which patches are 
+not, with rc4-mm1 there are two patches (first one was incomplete, I 
+assume you had at least that one based on your other mail) to really fix 
+the issues in (__|)tcp_reset_fack_counts(...). However, there seems to be 
+so much breakage that I have a bit trouble to decide where to start...
+The situation seems bit scary :-).
 
-Jarek P.
+So, I might soon prepare a revert patch for most of the questionable 
+TCP parts and ask Dave to apply it (and drop them fully during next 
+rebase) unless I suddently figure something out soon which explains 
+all/most of the problems, then return to drawing board. ...As it seems 
+that the cumulative ACK processing problem discovered later on (having 
+rather cumbersome solution with skbs only) will make part of the work 
+that's currently in net-2.6.25 quite useless/duplicate effort. But thanks 
+anyway for reporting these.
+
+
+-- 
+ i.
