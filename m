@@ -1,66 +1,41 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][XFRM] Fix potential race vs xfrm_state(only)_find and xfrm_hash_resize.
-Date: Thu, 13 Dec 2007 13:56:14 +0300
-Message-ID: <47610FCE.2000100@openvz.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [IPSEC]: Fix reversed ICMP6 policy check
+Date: Thu, 13 Dec 2007 12:19:26 +0100
+Message-ID: <20071213111926.GA3159@ff.dom.local>
+References: <20071213024918.GA731@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:33067 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750884AbXLMK4e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Dec 2007 05:56:34 -0500
+Received: from nf-out-0910.google.com ([64.233.182.185]:52920 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751488AbXLMLOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 06:14:23 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so520420nfb.21
+        for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 03:14:22 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20071213024918.GA731@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The _find calls calculate the hash value using the 
-xfrm_state_hmask, without the xfrm_state_lock. But the 
-value of this mask can change in the _resize call under
-the state_lock, so we risk to fail in finding the desired 
-entry in hash.
+On 13-12-2007 03:49, Herbert Xu wrote:
+> On Thu, Dec 13, 2007 at 09:58:56AM +0800, Herbert Xu wrote:
+>> [IPSEC]: Fix reversed ICMP6 policy check
+> 
+> While that won't crash anymore, it's still logically wrong.
+> 
+> Here's a more complete fix.
 
-I think, that the hash value is better to calculate
-under the state lock.
+...even more than this!
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Since more than a year each time I read your patches I wonder what
+kind of special attachments you use they are so "unreadble" (blurred)
+in Mozilla Thunderbird (but, I was never so desperate to study all
+these mail RFCs). And now - BINGO! So, they are simply treated as
+signatures! Nice trick! But, I see, you forgot about something this
+time, and now it's all clear! (Actually, I probably need one more
+year to find, how to turn off this sh...)
 
----
-
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 1af522b..1face71 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -759,7 +759,7 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
- 		struct xfrm_policy *pol, int *err,
- 		unsigned short family)
- {
--	unsigned int h = xfrm_dst_hash(daddr, saddr, tmpl->reqid, family);
-+	unsigned int h;
- 	struct hlist_node *entry;
- 	struct xfrm_state *x, *x0;
- 	int acquire_in_progress = 0;
-@@ -767,6 +767,7 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
- 	struct xfrm_state *best = NULL;
- 
- 	spin_lock_bh(&xfrm_state_lock);
-+	h = xfrm_dst_hash(daddr, saddr, tmpl->reqid, family);
- 	hlist_for_each_entry(x, entry, xfrm_state_bydst+h, bydst) {
- 		if (x->props.family == family &&
- 		    x->props.reqid == tmpl->reqid &&
-@@ -868,11 +869,12 @@ struct xfrm_state *
- xfrm_stateonly_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
- 		    unsigned short family, u8 mode, u8 proto, u32 reqid)
- {
--	unsigned int h = xfrm_dst_hash(daddr, saddr, reqid, family);
-+	unsigned int h;
- 	struct xfrm_state *rx = NULL, *x = NULL;
- 	struct hlist_node *entry;
- 
- 	spin_lock(&xfrm_state_lock);
-+	h = xfrm_dst_hash(daddr, saddr, reqid, family);
- 	hlist_for_each_entry(x, entry, xfrm_state_bydst+h, bydst) {
- 		if (x->props.family == family &&
- 		    x->props.reqid == reqid &&
+Thanks,
+Jarek P.
