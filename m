@@ -1,63 +1,41 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [RFC] mac80211: clean up frame receive handling
-Date: Thu, 13 Dec 2007 12:35:40 +0100
-Message-ID: <1197545740.6558.240.camel@johannes.berg>
-References: <1197483844.6558.158.camel@johannes.berg>
-	 <f6ca9fed0712121039n1c287f48n7ece3107bd0b50ca@mail.gmail.com>
-	 (sfid-20071212_184013_928458_78921AE4)
+From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+Subject: [PATCH 1/6] PS3: gelic: Fix the wrong dev_id passed
+Date: Thu, 13 Dec 2007 21:05:10 +0900
+Message-ID: <20071213205714.BF7C.MOKUNO@sm.sony.co.jp>
+References: <20071213181146.BF69.MOKUNO@sm.sony.co.jp>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-ZOk6UhIM3vb06j3bbswg"
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>,
-	Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Jouni Malinen <j@w1.fi>
-To: drago01 <drago01-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <f6ca9fed0712121039n1c287f48n7ece3107bd0b50ca-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org> (sfid-20071212_184013_928458_78921AE4)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: "Linux/PPC Development" <linuxppc-dev@ozlabs.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from MGW2.Sony.CO.JP ([137.153.0.14]:56699 "EHLO mgw2.sony.co.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751842AbXLMMG2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Dec 2007 07:06:28 -0500
+In-Reply-To: <20071213181146.BF69.MOKUNO@sm.sony.co.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+PS3: gelic: Fix the wrong dev_id passed
 
---=-ZOk6UhIM3vb06j3bbswg
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+The device id for lv1_net_set_interrupt_status_indicator() would be wrong.
+This path would be invoked only in the case of the initialization failure.
 
+Signed-off-by: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+---
+ drivers/net/ps3_gelic_net.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> > This cleans up the frame receive handling. After this patch
-> >  * EAPOL frames addressed to us or the EAPOL group address are
-> >    always accepted regardless of whether they are encrypted or not
->=20
-> why? userspace (wap_supplicant) tryes to control this depending on the
-> network settings.
+--- a/drivers/net/ps3_gelic_net.c
++++ b/drivers/net/ps3_gelic_net.c
+@@ -1512,7 +1512,7 @@ static int ps3_gelic_driver_probe (struc
+ 
+ fail_setup_netdev:
+ 	lv1_net_set_interrupt_status_indicator(bus_id(card),
+-					       bus_id(card),
++					       dev_id(card),
+ 					       0 , 0);
+ fail_status_indicator:
+ 	ps3_dma_region_free(dev->d_region);
 
-No, wpa_supplicant actually requires EAPOL frames to go through. hostapd
-currently wants them on the management interface but on the data
-interface makes much more sense and doesn't matter for any sort of
-control since we only let link-local and unicast packets through the
-port control/drop_unencrypted.
-
-johannes
-
---=-ZOk6UhIM3vb06j3bbswg
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUAR2EZC6Vg1VMiehFYAQJKBRAAicoEgLB4Y0oFbuhDMEOUsbBb9x/1Dy3G
-XIMimT4jxhsvFBLLSDVIgLtPGvipopdMcOK2xiiBkuHJpxrsmyucoDbJ2CldgDgR
-1p/e0Ma8KQLJphQt912fTpYtuHKl++8J9rxCf2DgYJokzab6TOMBoxuGnC8J2nVC
-r8Lb2ZtBMmBifOoXnmDLJxE/1WtgO0KGEazaSiR3hcUqQm350xBiK9+pE4nHeCzv
-I6K9PbzWvHP6GJQQEKxxp8XRWozfa3tN/SHu8QJ0JPSy5gS/l0S36w98mbZyv7yF
-BdL2AO1c5Cd0BEqKitA+VKy7WsHT/Pm68kdODNRaxRo8LQ2dG7taq/LT2kP+nw8T
-yCLId9J5yw3YoyDerCVMNaIurqimdOexIP4XixyvBpTlp2uShSougXVkdbSAyU3F
-c11UQxMWfyUQ9siIeUXus4jBMnioqinppfDjVjK4Q7OhOfezKLkKYAGmXbqDcCcK
-HMdNf9qiCabLlg567hSLDSXiNUXwFtkLK9cjW6NWr7whOzsL408pBsxVT0aUzwal
-y7Qc5Wvj9CXcdS18BB52rSWdtn4ATT7I4J9zxCXoC1inEqaRbJ4bgtMIvDfBR+Z2
-aCF/v8FaGfpgY6UXT6AtQ0f0TT316xYB3AqxV5D8CNLr5QPfikb4j7peYZrvFsPP
-waX4V6GzBCE=
-=qva2
------END PGP SIGNATURE-----
-
---=-ZOk6UhIM3vb06j3bbswg--
