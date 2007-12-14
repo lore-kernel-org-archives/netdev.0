@@ -1,47 +1,68 @@
 From: akpm@linux-foundation.org
-Subject: [patch 3/4] tipc: fix semaphore handling
-Date: Thu, 13 Dec 2007 16:02:36 -0800
-Message-ID: <200712140002.lBE02b3G025494@imap1.linux-foundation.org>
+Subject: [patch 02/10] forcedeth: power down phy when interface is down
+Date: Thu, 13 Dec 2007 16:02:52 -0800
+Message-ID: <200712140002.lBE02qo1025508@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	allan.stephens@windriver.com, jon.maloy@ericsson.com,
-	kjwinchester@gmail.com, per.liden@ericsson.com, stable@kernel.org
-To: davem@davemloft.net
+	eswierk@arastra.com, aabdulla@nvidia.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:54450 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:47691 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1764413AbXLNAC6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 19:02:58 -0500
+	by vger.kernel.org with ESMTP id S1765079AbXLNADE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 19:03:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
+From: "Ed Swierk" <eswierk@arastra.com>
 
-As noted by Kevin, tipc's release() does down_interruptible() and ignores the
-return value.  So if signal_pending() we'll end up doing up() on a non-downed
-semaphore.  Fix.
+Bring the physical link down when the interface is down by placing the PHY
+in power-down state, unless WOL is enabled.  This mirrors the behavior of
+other drivers including e1000 and tg3.
 
-Cc: Kevin Winchester <kjwinchester@gmail.com>
-Cc: Per Liden <per.liden@ericsson.com>
-Cc: Jon Maloy <jon.maloy@ericsson.com>
-Cc: Allan Stephens <allan.stephens@windriver.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: <stable@kernel.org>
+Signed-off-by: Ed Swierk <eswierk@arastra.com>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- net/tipc/socket.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/forcedeth.c |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
-diff -puN net/tipc/socket.c~tipc-fix-semaphore-handling net/tipc/socket.c
---- a/net/tipc/socket.c~tipc-fix-semaphore-handling
-+++ a/net/tipc/socket.c
-@@ -253,7 +253,7 @@ static int release(struct socket *sock)
- 	dbg("sock_delete: %x\n",tsock);
- 	if (!tsock)
- 		return 0;
--	down_interruptible(&tsock->sem);
-+	down(&tsock->sem);
- 	if (!sock->sk) {
- 		up(&tsock->sem);
- 		return 0;
+diff -puN drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down
++++ a/drivers/net/forcedeth.c
+@@ -1312,9 +1312,9 @@ static int phy_init(struct net_device *d
+ 	/* some phys clear out pause advertisment on reset, set it back */
+ 	mii_rw(dev, np->phyaddr, MII_ADVERTISE, reg);
+ 
+-	/* restart auto negotiation */
++	/* restart auto negotiation, power down phy */
+ 	mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
+-	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
++	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE | BMCR_PDOWN);
+ 	if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
+ 		return PHY_ERROR;
+ 	}
+@@ -4798,6 +4798,10 @@ static int nv_open(struct net_device *de
+ 
+ 	dprintk(KERN_DEBUG "nv_open: begin\n");
+ 
++	/* power up phy */
++	mii_rw(dev, np->phyaddr, MII_BMCR,
++	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
++
+ 	/* erase previous misconfiguration */
+ 	if (np->driver_data & DEV_HAS_POWER_CNTRL)
+ 		nv_mac_reset(dev);
+@@ -4980,6 +4984,10 @@ static int nv_close(struct net_device *d
+ 	if (np->wolenabled) {
+ 		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
+ 		nv_start_rx(dev);
++	} else {
++		/* power down phy */
++		mii_rw(dev, np->phyaddr, MII_BMCR,
++		       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ)|BMCR_PDOWN);
+ 	}
+ 
+ 	/* FIXME: power down nic */
 _
