@@ -1,44 +1,41 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [NETFILTER] xt_hashlimit : speedups hash_dst()
-Date: Fri, 14 Dec 2007 22:40:49 +0100
-Message-ID: <4762F861.6050804@gmail.com>
-References: <4762646B.30207@cosmosbay.com> <4762EEB2.1080608@gmail.com>
+From: Daniel Phillips <phillips@phunq.net>
+Subject: Re: [PATCH 04/29] mm: kmem_estimate_pages()
+Date: Fri, 14 Dec 2007 14:05:38 -0800
+Message-ID: <200712141405.38577.phillips@phunq.net>
+References: <20071214153907.770251000@chello.nl> <20071214154439.489413000@chello.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4762EEB2.1080608@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from phunq.net ([64.81.85.152]:56547 "EHLO moonbase.phunq.net"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753577AbXLNWFr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Dec 2007 17:05:47 -0500
+In-Reply-To: <20071214154439.489413000@chello.nl>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote, On 12/14/2007 09:59 PM:
+On Friday 14 December 2007 07:39, Peter Zijlstra wrote:
+> Provide a method to get the upper bound on the pages needed to
+> allocate a given number of objects from a given kmem_cache.
+>
+> This lays the foundation for a generic reserve framework as presented
+> in a later patch in this series. This framework needs to convert
+> object demand (kmalloc() bytes, kmem_cache_alloc() objects) to pages.
 
-> Eric Dumazet wrote, On 12/14/2007 12:09 PM:
-> ...
-> 
->> +	/*
->> +	 * Instead of returning hash % ht->cfg.size (implying a divide)
->> +	 * we return the high 32 bits of the (hash * ht->cfg.size) that will
->> +	 * give results between [0 and cfg.size-1] and same hash distribution,
->> +	 * but using a multiply, less expensive than a divide
->> +	 */
->> +	return ((u64)hash * ht->cfg.size) >> 32;
-> 
-> Are we sure of the same hash distribution? Probably I miss something,
-> but: if this 'hash' is well distributed on 32 bits, and ht->cfg.size
-> is smaller than 32 bits, e.g. 256 (8 bits), then this multiplication
-> moves to the higher 32 of u64 only max. 8 bits of the most significant
-> byte, and the other three bytes are never used, while division is
-> always affected by all four bytes...
+And hence the big idea that all reserve accounting can be done in units
+of pages, allowing the use of a single global reserve that already 
+exists.
 
+The other big idea here is that reserve accounting can be independent of 
+the actual resource allocations.  This is a powerful idea which we may 
+not have explained clearly yet.
 
-OOPS! So, I've missed this division here is also affected by only one
-byte, but from the other side - so, almost the same... It seems this
-could have been replaced with masking from the beginning...
-
-Sorry,
-Jarek P.
+Daniel
