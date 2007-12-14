@@ -1,68 +1,41 @@
 From: akpm@linux-foundation.org
-Subject: [patch 02/10] forcedeth: power down phy when interface is down
-Date: Thu, 13 Dec 2007 16:02:52 -0800
-Message-ID: <200712140002.lBE02qo1025508@imap1.linux-foundation.org>
+Subject: [patch 01/10] e1000e: make E1000E default to the same kconfig setting as E1000
+Date: Thu, 13 Dec 2007 16:02:51 -0800
+Message-ID: <200712140002.lBE02pUb025505@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	eswierk@arastra.com, aabdulla@nvidia.com
+	randy.dunlap@oracle.com, auke-jan.h.kok@intel.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:47691 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:33350 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1765079AbXLNADE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 19:03:04 -0500
+	by vger.kernel.org with ESMTP id S1765988AbXLNADJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 19:03:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ed Swierk" <eswierk@arastra.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Bring the physical link down when the interface is down by placing the PHY
-in power-down state, unless WOL is enabled.  This mirrors the behavior of
-other drivers including e1000 and tg3.
+Make E1000E default to the same kconfig setting as E1000.  So people's
+machiens don't stop working when they use oldconfig.
 
-Signed-off-by: Ed Swierk <eswierk@arastra.com>
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+Cc: Auke Kok <auke-jan.h.kok@intel.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/forcedeth.c |   12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/Kconfig |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff -puN drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down drivers/net/forcedeth.c
---- a/drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down
-+++ a/drivers/net/forcedeth.c
-@@ -1312,9 +1312,9 @@ static int phy_init(struct net_device *d
- 	/* some phys clear out pause advertisment on reset, set it back */
- 	mii_rw(dev, np->phyaddr, MII_ADVERTISE, reg);
- 
--	/* restart auto negotiation */
-+	/* restart auto negotiation, power down phy */
- 	mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
--	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
-+	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE | BMCR_PDOWN);
- 	if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
- 		return PHY_ERROR;
- 	}
-@@ -4798,6 +4798,10 @@ static int nv_open(struct net_device *de
- 
- 	dprintk(KERN_DEBUG "nv_open: begin\n");
- 
-+	/* power up phy */
-+	mii_rw(dev, np->phyaddr, MII_BMCR,
-+	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
-+
- 	/* erase previous misconfiguration */
- 	if (np->driver_data & DEV_HAS_POWER_CNTRL)
- 		nv_mac_reset(dev);
-@@ -4980,6 +4984,10 @@ static int nv_close(struct net_device *d
- 	if (np->wolenabled) {
- 		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
- 		nv_start_rx(dev);
-+	} else {
-+		/* power down phy */
-+		mii_rw(dev, np->phyaddr, MII_BMCR,
-+		       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ)|BMCR_PDOWN);
- 	}
- 
- 	/* FIXME: power down nic */
+diff -puN drivers/net/Kconfig~e1000e-make-e1000e-default-to-the-same-kconfig-setting-as-e1000 drivers/net/Kconfig
+--- a/drivers/net/Kconfig~e1000e-make-e1000e-default-to-the-same-kconfig-setting-as-e1000
++++ a/drivers/net/Kconfig
+@@ -1986,6 +1986,7 @@ config E1000_DISABLE_PACKET_SPLIT
+ config E1000E
+ 	tristate "Intel(R) PRO/1000 PCI-Express Gigabit Ethernet support"
+ 	depends on PCI
++	default E1000
+ 	---help---
+ 	  This driver supports the PCI-Express Intel(R) PRO/1000 gigabit
+ 	  ethernet family of adapters. For PCI or PCI-X e1000 adapters,
 _
