@@ -1,49 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] HDLC driver: use unregister_netdev instead of
- unregister_netdevice
-Date: Fri, 14 Dec 2007 13:36:22 -0800 (PST)
-Message-ID: <20071214.133622.51765106.davem@davemloft.net>
-References: <475F490C.2020305@cn.fujitsu.com>
-	<m3ve71t194.fsf@maximus.localdomain>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [NETFILTER] xt_hashlimit : speedups hash_dst()
+Date: Fri, 14 Dec 2007 22:37:15 +0100
+Message-ID: <4762F78B.80302@cosmosbay.com>
+References: <4762646B.30207@cosmosbay.com> <4762EEB2.1080608@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: wangchen@cn.fujitsu.com, jgarzik@pobox.com, netdev@vger.kernel.org
-To: khc@pm.waw.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60283
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752718AbXLNVgY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 16:36:24 -0500
-In-Reply-To: <m3ve71t194.fsf@maximus.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4762EEB2.1080608@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Date: Fri, 14 Dec 2007 22:28:07 +0100
+Jarek Poplawski a =E9crit :
+> Eric Dumazet wrote, On 12/14/2007 12:09 PM:
+> ...
+>=20
+>> +	/*
+>> +	 * Instead of returning hash % ht->cfg.size (implying a divide)
+>> +	 * we return the high 32 bits of the (hash * ht->cfg.size) that wi=
+ll
+>> +	 * give results between [0 and cfg.size-1] and same hash distribut=
+ion,
+>> +	 * but using a multiply, less expensive than a divide
+>> +	 */
+>> +	return ((u64)hash * ht->cfg.size) >> 32;
+>=20
+> Are we sure of the same hash distribution? Probably I miss something,
+> but: if this 'hash' is well distributed on 32 bits, and ht->cfg.size
+> is smaller than 32 bits, e.g. 256 (8 bits), then this multiplication
+> moves to the higher 32 of u64 only max. 8 bits of the most significan=
+t
+> byte, and the other three bytes are never used, while division is
+> always affected by all four bytes...
 
-> Wang Chen <wangchen@cn.fujitsu.com> writes:
-> 
-> > [PATCH] HDLC driver: use unregister_netdev instead of unregister_netdevice
-> >
-> > Since the caller and the upper caller doesn't hod the rtnl semaphore.
-> > We should use unregister_netdev instead of unregister_netdevice.
-> 
-> NAK, not-a-bug. The caller actually holds rtnl, it goes through
-> the netdev core ioctl dispatcher:
-> 
-> (unregister_netdevice+0x0/0x24) from (fr_ioctl+0x688/0x75c)
-> /* fr_del_pvc() and fr_add_pvc() optimized out by gcc */
-> (fr_ioctl+0x0/0x75c) from (hdlc_ioctl+0x4c/0x8c)
-> (hdlc_ioctl+0x0/0x8c) from (hss_ioctl+0x3c/0x324)
-> (hss_ioctl+0x0/0x324) from (dev_ifsioc+0x428/0x4e8)
-> (dev_ifsioc+0x0/0x4e8) from (dev_ioctl+0x5d8/0x664)
-> (dev_ioctl+0x0/0x664) from (sock_ioctl+0x90/0x254)
-> (sock_ioctl+0x0/0x254) from (do_ioctl+0x34/0x78)
-> (do_ioctl+0x0/0x78) from (vfs_ioctl+0x78/0x2a8)
-> (vfs_ioctl+0x0/0x2a8) from (sys_ioctl+0x40/0x64)
-> (sys_ioctl+0x0/0x64) from (ret_fast_syscall+0x0/0x2c)
-> 
-> The patch would make it deadlock.
+Not sure what you are saying... but if size=3D256, then, yes, we want a=
+ final=20
+result between 0 and 255, so three bytes are nul.
 
-Ok, I'll drop this patch, thanks for checking.
+
+'size' is the size of hashtable, its not a random 32bits value :)
+
+-
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
