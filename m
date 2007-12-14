@@ -1,38 +1,41 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH net-2.6.25 6/8] sctp: Use ipv4_is_<type>
-Date: Fri, 14 Dec 2007 14:17:35 -0500
-Message-ID: <4762D6CF.50109@hp.com>
-References: <1197589141-7020-5-git-send-email-joe@perches.com>	<1197589141-7020-6-git-send-email-joe@perches.com>	<4762D570.7060207@hp.com> <20071214.111436.32787690.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL] [NET]: Use {hton{s,l},cpu_to_be{16,32}}() where
+ appropriate.
+Date: Fri, 14 Dec 2007 11:19:54 -0800 (PST)
+Message-ID: <20071214.111954.07470591.davem@davemloft.net>
+References: <20071214.162835.105268271.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org, sri@us.ibm.com,
-	lksctp-developers@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:42944 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752813AbXLNTRh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 14:17:37 -0500
-In-Reply-To: <20071214.111436.32787690.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34903
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752422AbXLNTT7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 14:19:59 -0500
+In-Reply-To: <20071214.162835.105268271.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Date: Fri, 14 Dec 2007 14:11:44 -0500
-> 
->> Joe Perches wrote:
->>> Signed-off-by: Joe Perches <joe@perches.com>
->> Thanks Joe.  I've put this into my tree.
-> 
-> You can't, because your tree won't build without his first patch and I
-> have to approve that and stick it into my tree first.
-> 
-> Just let me review and potentially pick up all of
-> Joe's stuff since we have this dependency.
-> 
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Fri, 14 Dec 2007 16:28:35 +0900 (JST)
 
-Ok.  In that case, you can have my ACK for the SCTP stuff.
+> Please consider pulling the following changes from the branch
+> 	net-2.6-dev-20071214
+> available at
+> 	<git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git>
+> which is on top of your net-2.6-devel tree.
 
--vlad
+Pulled, thank you.
+
+Could you please provide the full pull URL all in one
+line, instead of splitting the base URL and the HEAD
+name onto seperate lines?
+
+I have to cut and paste from multiple places in your mail in order to
+compose the pull command line and I wish I didn't have to do that
+every time.  I should be able to just cut and paste one line, which
+should be the fully specified URL, for maximum efficiency.
+
+Thanks.
