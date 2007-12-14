@@ -1,93 +1,79 @@
 From: akpm@linux-foundation.org
-Subject: [patch 1/4] Updates to nfsroot documentation
-Date: Thu, 13 Dec 2007 16:02:33 -0800
-Message-ID: <200712140002.lBE02XWr025488@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, apw@us.ibm.com,
-	ak@suse.de, horms@verge.net.au
+Subject: [patch 4/4] PPP synchronous tty: convert dead_sem to completion
+Date: Thu, 13 Dec 2007 16:02:37 -0800
+Message-ID: <200712140002.lBE02cF7025497@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	matthias.kaehlcke@gmail.com, paulus@samba.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:52501 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:42186 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755379AbXLNACw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 19:02:52 -0500
+	by vger.kernel.org with ESMTP id S1762736AbXLNACm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 19:02:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amos Waterland <apw@us.ibm.com>
+From: Matthias Kaehlcke <matthias.kaehlcke@gmail.com>
 
-The difference between ip=off and ip=::::::off has been a cause of much
-confusion.  Document how each behaves, and do not contradict ourselves by
-saying that "off" is the default when in fact "any" is the default and is
-descibed as being so lower in the file.
+PPP synchronous tty channel driver: convert the semaphore dead_sem to a
+completion
 
-Signed-off-by: Amos Waterland <apw@us.ibm.com>
-Cc: Simon Horman <horms@verge.net.au>
-Cc: Andi Kleen <ak@suse.de>
-Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Matthias Kaehlcke <matthias.kaehlcke@gmail.com>
+Cc: Paul Mackerras <paulus@samba.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- Documentation/nfsroot.txt |   12 +++++++++---
- net/ipv4/ipconfig.c       |   20 +-------------------
- 2 files changed, 10 insertions(+), 22 deletions(-)
+ drivers/net/ppp_synctty.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff -puN Documentation/nfsroot.txt~updates-to-nfsroot-documentation-take-3 Documentation/nfsroot.txt
---- a/Documentation/nfsroot.txt~updates-to-nfsroot-documentation-take-3
-+++ a/Documentation/nfsroot.txt
-@@ -92,8 +92,14 @@ ip=<client-ip>:<server-ip>:<gw-ip>:<netm
-   autoconfiguration.
+diff -puN drivers/net/ppp_synctty.c~ppp-synchronous-tty-convert-dead_sem-to-completion drivers/net/ppp_synctty.c
+--- a/drivers/net/ppp_synctty.c~ppp-synchronous-tty-convert-dead_sem-to-completion
++++ a/drivers/net/ppp_synctty.c
+@@ -42,9 +42,9 @@
+ #include <linux/if_ppp.h>
+ #include <linux/ppp_channel.h>
+ #include <linux/spinlock.h>
++#include <linux/completion.h>
+ #include <linux/init.h>
+ #include <asm/uaccess.h>
+-#include <asm/semaphore.h>
  
-   The <autoconf> parameter can appear alone as the value to the `ip'
--  parameter (without all the ':' characters before) in which case auto-
--  configuration is used.
-+  parameter (without all the ':' characters before).  If the value is
-+  "ip=off" or "ip=none", no autoconfiguration will take place, otherwise
-+  autoconfiguration will take place.  The most common way to use this
-+  is "ip=dhcp".
-+
-+  Note that "ip=off" is not the same thing as "ip=::::::off", because in
-+  the latter autoconfiguration will take place if any of DHCP, BOOTP or RARP
-+  are compiled in the kernel.
+ #define PPP_VERSION	"2.4.2"
  
-   <client-ip>	IP address of the client.
+@@ -70,7 +70,7 @@ struct syncppp {
+ 	struct tasklet_struct tsk;
  
-@@ -142,7 +148,7 @@ ip=<client-ip>:<server-ip>:<gw-ip>:<netm
- 		into the kernel will be used, regardless of the value of
- 		this option.
+ 	atomic_t	refcnt;
+-	struct semaphore dead_sem;
++	struct completion dead_cmp;
+ 	struct ppp_channel chan;	/* interface to generic ppp layer */
+ };
  
--                  off or none: don't use autoconfiguration (default)
-+                  off or none: don't use autoconfiguration
- 		  on or any:   use any protocol available in the kernel
- 		  dhcp:        use DHCP
- 		  bootp:       use BOOTP
-diff -puN net/ipv4/ipconfig.c~updates-to-nfsroot-documentation-take-3 net/ipv4/ipconfig.c
---- a/net/ipv4/ipconfig.c~updates-to-nfsroot-documentation-take-3
-+++ a/net/ipv4/ipconfig.c
-@@ -1410,25 +1410,7 @@ late_initcall(ip_auto_config);
+@@ -195,7 +195,7 @@ static struct syncppp *sp_get(struct tty
+ static void sp_put(struct syncppp *ap)
+ {
+ 	if (atomic_dec_and_test(&ap->refcnt))
+-		up(&ap->dead_sem);
++		complete(&ap->dead_cmp);
+ }
  
  /*
-  *  Decode any IP configuration options in the "ip=" or "nfsaddrs=" kernel
-- *  command line parameter. It consists of option fields separated by colons in
-- *  the following order:
-- *
-- *  <client-ip>:<server-ip>:<gw-ip>:<netmask>:<host name>:<device>:<PROTO>
-- *
-- *  Any of the fields can be empty which means to use a default value:
-- *	<client-ip>	- address given by BOOTP or RARP
-- *	<server-ip>	- address of host returning BOOTP or RARP packet
-- *	<gw-ip>		- none, or the address returned by BOOTP
-- *	<netmask>	- automatically determined from <client-ip>, or the
-- *			  one returned by BOOTP
-- *	<host name>	- <client-ip> in ASCII notation, or the name returned
-- *			  by BOOTP
-- *	<device>	- use all available devices
-- *	<PROTO>:
-- *	   off|none	    - don't do autoconfig at all (DEFAULT)
-- *	   on|any           - use any configured protocol
-- *	   dhcp|bootp|rarp  - use only the specified protocol
-- *	   both             - use both BOOTP and RARP (not DHCP)
-+ *  command line parameter.  See Documentation/nfsroot.txt.
-  */
- static int __init ic_proto_name(char *name)
- {
+@@ -225,7 +225,7 @@ ppp_sync_open(struct tty_struct *tty)
+ 	tasklet_init(&ap->tsk, ppp_sync_process, (unsigned long) ap);
+ 
+ 	atomic_set(&ap->refcnt, 1);
+-	init_MUTEX_LOCKED(&ap->dead_sem);
++	init_completion(&ap->dead_cmp);
+ 
+ 	ap->chan.private = ap;
+ 	ap->chan.ops = &sync_ops;
+@@ -273,7 +273,7 @@ ppp_sync_close(struct tty_struct *tty)
+ 	 * by the time it returns.
+ 	 */
+ 	if (!atomic_dec_and_test(&ap->refcnt))
+-		down(&ap->dead_sem);
++		wait_for_completion(&ap->dead_cmp);
+ 	tasklet_kill(&ap->tsk);
+ 
+ 	ppp_unregister_channel(&ap->chan);
 _
