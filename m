@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 22/29] mm: prepare swap entry methods for use in page methods
-Date: Fri, 14 Dec 2007 16:39:29 +0100
-Message-ID: <20071214154442.124624000@chello.nl>
+Subject: [PATCH 27/29] nfs: disable data cache revalidation for swapfiles
+Date: Fri, 14 Dec 2007 16:39:34 +0100
+Message-ID: <20071214154442.780649000@chello.nl>
 References: <20071214153907.770251000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
@@ -9,185 +9,189 @@ To: Linus Torvalds <torvalds@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:38883 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755064AbXLNTXh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 14:23:37 -0500
-Content-Disposition: inline; filename=mm-swap_entry_methods.patch
+Received: from bombadil.infradead.org ([18.85.46.34]:47253 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754851AbXLNTXg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 14:23:36 -0500
+Content-Disposition: inline; filename=nfs-swapper.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move around the swap entry methods in preparation for use from
-page methods.
+Do as Trond suggested:
+  http://lkml.org/lkml/2006/8/25/348
 
-Also provide a function to obtain the swap_info_struct backing
-a swap cache page.
+Disable NFS data cache revalidation on swap files since it doesn't really 
+make sense to have other clients change the file while you are using it.
+
+Thereby we can stop setting PG_private on swap pages, since there ought to
+be no further races with invalidate_inode_pages2() to deal with.
+
+And since we cannot set PG_private we cannot use page->private (which is
+already used by PG_swapcache pages anyway) to store the nfs_page. Thus
+augment the new nfs_page_find_request logic.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/linux/mm.h      |    8 +++++++
- include/linux/swap.h    |   49 ++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/swapops.h |   44 -------------------------------------------
- mm/swapfile.c           |    1 
- 4 files changed, 58 insertions(+), 44 deletions(-)
+ fs/nfs/inode.c |    6 ++++
+ fs/nfs/write.c |   73 ++++++++++++++++++++++++++++++++++++++++++++++-----------
+ 2 files changed, 65 insertions(+), 14 deletions(-)
 
-Index: linux-2.6/include/linux/mm.h
+Index: linux-2.6/fs/nfs/inode.c
 ===================================================================
---- linux-2.6.orig/include/linux/mm.h
-+++ linux-2.6/include/linux/mm.h
-@@ -13,6 +13,7 @@
- #include <linux/debug_locks.h>
- #include <linux/mm_types.h>
- #include <linux/security.h>
-+#include <linux/swap.h>
+--- linux-2.6.orig/fs/nfs/inode.c
++++ linux-2.6/fs/nfs/inode.c
+@@ -758,6 +758,12 @@ int nfs_revalidate_mapping_nolock(struct
+ 	struct nfs_inode *nfsi = NFS_I(inode);
+ 	int ret = 0;
  
- struct mempolicy;
- struct anon_vma;
-@@ -600,6 +601,13 @@ static inline struct address_space *page
- 	return mapping;
++	/*
++	 * swapfiles are not supposed to be shared.
++	 */
++	if (IS_SWAPFILE(inode))
++		goto out;
++
+ 	if ((nfsi->cache_validity & NFS_INO_REVAL_PAGECACHE)
+ 			|| nfs_attribute_timeout(inode) || NFS_STALE(inode)) {
+ 		ret = __nfs_revalidate_inode(NFS_SERVER(inode), inode);
+Index: linux-2.6/fs/nfs/write.c
+===================================================================
+--- linux-2.6.orig/fs/nfs/write.c
++++ linux-2.6/fs/nfs/write.c
+@@ -112,25 +112,62 @@ static void nfs_context_set_write_error(
+ 	set_bit(NFS_CONTEXT_ERROR_WRITE, &ctx->flags);
  }
  
-+static inline struct swap_info_struct *page_swap_info(struct page *page)
-+{
-+	swp_entry_t swap = { .val = page_private(page) };
-+	BUG_ON(!PageSwapCache(page));
-+	return get_swap_info_struct(swp_type(swap));
-+}
-+
- static inline int PageAnon(struct page *page)
+-static struct nfs_page *nfs_page_find_request_locked(struct page *page)
++static struct nfs_page *
++__nfs_page_find_request_locked(struct nfs_inode *nfsi, struct page *page, int get)
  {
- 	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
-Index: linux-2.6/include/linux/swap.h
-===================================================================
---- linux-2.6.orig/include/linux/swap.h
-+++ linux-2.6/include/linux/swap.h
-@@ -80,6 +80,50 @@ typedef struct {
- } swp_entry_t;
+ 	struct nfs_page *req = NULL;
  
- /*
-+ * swapcache pages are stored in the swapper_space radix tree.  We want to
-+ * get good packing density in that tree, so the index should be dense in
-+ * the low-order bits.
-+ *
-+ * We arrange the `type' and `offset' fields so that `type' is at the five
-+ * high-order bits of the swp_entry_t and `offset' is right-aligned in the
-+ * remaining bits.
-+ *
-+ * swp_entry_t's are *never* stored anywhere in their arch-dependent format.
-+ */
-+#define SWP_TYPE_SHIFT(e)	(sizeof(e.val) * 8 - MAX_SWAPFILES_SHIFT)
-+#define SWP_OFFSET_MASK(e)	((1UL << SWP_TYPE_SHIFT(e)) - 1)
+-	if (PagePrivate(page)) {
++	if (PagePrivate(page))
+ 		req = (struct nfs_page *)page_private(page);
+-		if (req != NULL)
+-			kref_get(&req->wb_kref);
+-	}
++	else if (unlikely(PageSwapCache(page)))
++		req = radix_tree_lookup(&nfsi->nfs_page_tree, page_file_index(page));
 +
-+/*
-+ * Store a type+offset into a swp_entry_t in an arch-independent format
-+ */
-+static inline swp_entry_t swp_entry(unsigned long type, pgoff_t offset)
-+{
-+	swp_entry_t ret;
++	if (get && req)
++		kref_get(&req->wb_kref);
 +
-+	ret.val = (type << SWP_TYPE_SHIFT(ret)) |
-+			(offset & SWP_OFFSET_MASK(ret));
-+	return ret;
-+}
-+
-+/*
-+ * Extract the `type' field from a swp_entry_t.  The swp_entry_t is in
-+ * arch-independent format
-+ */
-+static inline unsigned swp_type(swp_entry_t entry)
-+{
-+	return (entry.val >> SWP_TYPE_SHIFT(entry));
-+}
-+
-+/*
-+ * Extract the `offset' field from a swp_entry_t.  The swp_entry_t is in
-+ * arch-independent format
-+ */
-+static inline pgoff_t swp_offset(swp_entry_t entry)
-+{
-+	return entry.val & SWP_OFFSET_MASK(entry);
-+}
-+
-+/*
-  * current->reclaim_state points to one of these when a task is running
-  * memory reclaim
-  */
-@@ -321,6 +365,11 @@ static inline struct page *lookup_swap_c
- 	return NULL;
+ 	return req;
  }
  
-+static inline struct swap_info_struct *get_swap_info_struct(unsigned type)
++static inline struct nfs_page *
++nfs_page_find_request_locked(struct nfs_inode *nfsi, struct page *page)
 +{
-+	return NULL;
++	return __nfs_page_find_request_locked(nfsi, page, 1);
 +}
 +
- #define can_share_swap_page(p)			(page_mapcount(p) == 1)
++static int __nfs_page_has_request(struct page *page)
++{
++	struct inode *inode = page_file_mapping(page)->host;
++	struct nfs_page *req = NULL;
++
++	spin_lock(&inode->i_lock);
++	req = __nfs_page_find_request_locked(NFS_I(inode), page, 0);
++	spin_unlock(&inode->i_lock);
++
++	/*
++	 * hole here plugged by the caller holding onto PG_locked
++	 */
++
++	return req != NULL;
++}
++
++static inline int nfs_page_has_request(struct page *page)
++{
++	if (PagePrivate(page))
++		return 1;
++
++	if (unlikely(PageSwapCache(page)))
++		return __nfs_page_has_request(page);
++
++	return 0;
++}
++
+ static struct nfs_page *nfs_page_find_request(struct page *page)
+ {
+ 	struct inode *inode = page_file_mapping(page)->host;
+ 	struct nfs_page *req = NULL;
  
- static inline int move_to_swap_cache(struct page *page, swp_entry_t entry)
-Index: linux-2.6/include/linux/swapops.h
-===================================================================
---- linux-2.6.orig/include/linux/swapops.h
-+++ linux-2.6/include/linux/swapops.h
-@@ -1,47 +1,3 @@
--/*
-- * swapcache pages are stored in the swapper_space radix tree.  We want to
-- * get good packing density in that tree, so the index should be dense in
-- * the low-order bits.
-- *
-- * We arrange the `type' and `offset' fields so that `type' is at the five
-- * high-order bits of the swp_entry_t and `offset' is right-aligned in the
-- * remaining bits.
-- *
-- * swp_entry_t's are *never* stored anywhere in their arch-dependent format.
-- */
--#define SWP_TYPE_SHIFT(e)	(sizeof(e.val) * 8 - MAX_SWAPFILES_SHIFT)
--#define SWP_OFFSET_MASK(e)	((1UL << SWP_TYPE_SHIFT(e)) - 1)
--
--/*
-- * Store a type+offset into a swp_entry_t in an arch-independent format
-- */
--static inline swp_entry_t swp_entry(unsigned long type, pgoff_t offset)
--{
--	swp_entry_t ret;
--
--	ret.val = (type << SWP_TYPE_SHIFT(ret)) |
--			(offset & SWP_OFFSET_MASK(ret));
--	return ret;
--}
--
--/*
-- * Extract the `type' field from a swp_entry_t.  The swp_entry_t is in
-- * arch-independent format
-- */
--static inline unsigned swp_type(swp_entry_t entry)
--{
--	return (entry.val >> SWP_TYPE_SHIFT(entry));
--}
--
--/*
-- * Extract the `offset' field from a swp_entry_t.  The swp_entry_t is in
-- * arch-independent format
-- */
--static inline pgoff_t swp_offset(swp_entry_t entry)
--{
--	return entry.val & SWP_OFFSET_MASK(entry);
--}
--
- /* check whether a pte points to a swap entry */
- static inline int is_swap_pte(pte_t pte)
- {
-Index: linux-2.6/mm/swapfile.c
-===================================================================
---- linux-2.6.orig/mm/swapfile.c
-+++ linux-2.6/mm/swapfile.c
-@@ -1795,6 +1795,7 @@ get_swap_info_struct(unsigned type)
- {
- 	return &swap_info[type];
+ 	spin_lock(&inode->i_lock);
+-	req = nfs_page_find_request_locked(page);
++	req = nfs_page_find_request_locked(NFS_I(inode), page);
+ 	spin_unlock(&inode->i_lock);
+ 	return req;
  }
-+EXPORT_SYMBOL_GPL(get_swap_info_struct);
+@@ -253,7 +290,7 @@ static int nfs_page_async_flush(struct n
  
- /*
-  * swap_lock prevents swap_map being freed. Don't grab an extra
+ 	spin_lock(&inode->i_lock);
+ 	for(;;) {
+-		req = nfs_page_find_request_locked(page);
++		req = nfs_page_find_request_locked(nfsi, page);
+ 		if (req == NULL) {
+ 			spin_unlock(&inode->i_lock);
+ 			return 0;
+@@ -370,8 +407,14 @@ static void nfs_inode_add_request(struct
+ 		if (nfs_have_delegation(inode, FMODE_WRITE))
+ 			nfsi->change_attr++;
+ 	}
+-	SetPagePrivate(req->wb_page);
+-	set_page_private(req->wb_page, (unsigned long)req);
++	/*
++	 * Swap-space should not get truncated. Hence no need to plug the race
++	 * with invalidate/truncate.
++	 */
++	if (likely(!PageSwapCache(req->wb_page))) {
++		SetPagePrivate(req->wb_page);
++		set_page_private(req->wb_page, (unsigned long)req);
++	}
+ 	nfsi->npages++;
+ 	kref_get(&req->wb_kref);
+ }
+@@ -387,8 +430,10 @@ static void nfs_inode_remove_request(str
+ 	BUG_ON (!NFS_WBACK_BUSY(req));
+ 
+ 	spin_lock(&inode->i_lock);
+-	set_page_private(req->wb_page, 0);
+-	ClearPagePrivate(req->wb_page);
++	if (likely(!PageSwapCache(req->wb_page))) {
++		set_page_private(req->wb_page, 0);
++		ClearPagePrivate(req->wb_page);
++	}
+ 	radix_tree_delete(&nfsi->nfs_page_tree, req->wb_index);
+ 	nfsi->npages--;
+ 	if (!nfsi->npages) {
+@@ -594,7 +639,7 @@ static struct nfs_page * nfs_update_requ
+ 		}
+ 
+ 		spin_lock(&inode->i_lock);
+-		req = nfs_page_find_request_locked(page);
++		req = nfs_page_find_request_locked(NFS_I(inode), page);
+ 		if (req) {
+ 			if (!nfs_lock_request_dontget(req)) {
+ 				int error;
+@@ -1426,7 +1471,7 @@ int nfs_wb_page_cancel(struct inode *ino
+ 		if (ret < 0)
+ 			goto out;
+ 	}
+-	if (!PagePrivate(page))
++	if (!nfs_page_has_request(page))
+ 		return 0;
+ 	ret = nfs_sync_mapping_wait(page_file_mapping(page), &wbc, FLUSH_INVALIDATE);
+ out:
+@@ -1453,7 +1498,7 @@ static int nfs_wb_page_priority(struct i
+ 		if (ret < 0)
+ 			goto out;
+ 	}
+-	if (!PagePrivate(page))
++	if (!nfs_page_has_request(page))
+ 		return 0;
+ 	ret = nfs_sync_mapping_wait(page_file_mapping(page), &wbc, how);
+ 	if (ret >= 0)
 
 --
 
