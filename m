@@ -1,77 +1,46 @@
 From: akpm@linux-foundation.org
-Subject: [patch 03/10] forcedeth: fix MAC address detection on network card (regression in 2.6.23)
-Date: Thu, 13 Dec 2007 16:02:54 -0800
-Message-ID: <200712140002.lBE02spv025517@imap1.linux-foundation.org>
+Subject: [patch 09/10] bnx2x depends on ZLIB_INFLATE
+Date: Thu, 13 Dec 2007 16:02:59 -0800
+Message-ID: <200712140003.lBE0306f025535@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	michael.pyne@kdemail.net, AAbdulla@nvidia.com, aabdulla@nvidia.com,
-	stable@kernel.org
+	Lee.Schermerhorn@hp.com, eliezert@broadcom.com,
+	lee.schermerhorn@hp.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:33128 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:44733 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934662AbXLNAD1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 19:03:27 -0500
+	by vger.kernel.org with ESMTP id S934278AbXLNAJe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 19:09:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Pyne <michael.pyne@kdemail.net>
+From: Lee Schermerhorn <Lee.Schermerhorn@hp.com>
 
-Partially revert a change to mac address detection introduced to the forcedeth
-driver.  The change was intended to correct mac address detection for newer
-nVidia chipsets where the mac address was stored in reverse order.  One of
-those chipsets appears to still have the mac address in reverse order (or at
-least, it does on my system).
+The bnx2x module depends on the zlib_inflate functions.  The build will
+fail if ZLIB_INFLATE has not been selected manually or by building another
+module that automatically selects it.
 
-The change that broke mac address detection for my card was commit
-ef756b3e56c68a4d76d9d7b9a73fa8f4f739180f "forcedeth: mac address correct"
+Modify BNX2X config option to 'select ZLIB_INFLATE' like BNX2
+and others.  This seems to fix it.
 
-My network card is an nVidia built-in Ethernet card, output from lspci as
-follows (with text and numeric ids):
-$ lspci | grep Ethernet
-00:07.0 Bridge: nVidia Corporation MCP61 Ethernet (rev a2)
-$ lspci -n | grep 07.0
-00:07.0 0680: 10de:03ef (rev a2)
-
-The vendor id is, of course, nVidia.  The device id corresponds to the
-NVIDIA_NVENET_19 entry.
-
-The included patch fixes the MAC address detection on my system.
-Interestingly, the MAC address appears to be in the range reserved for my
-motherboard manufacturer (Gigabyte) and not nVidia.
-
-Signed-off-by: Michael J. Pyne <michael.pyne@kdemail.net>
+Signed-off-by: Lee Schermerhorn <lee.schermerhorn@hp.com>
+Acked-by: Eliezer Tamir <eliezert@broadcom.com>
 Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-Cc: <stable@kernel.org>
-
-On Wed, 21 Nov 2007 15:34:52 -0800
-"Ayaz Abdulla" <AAbdulla@nvidia.com> wrote:
-
-> The solution is to get the OEM to update their BIOS (instead of
-> integrating this patch) since the MCP61 specs indicate that the MAC
-> Address should be in correct order from BIOS.
-> 
-> By changing the feature DEV_HAS_CORRECT_MACADDR to all MCP61 boards, it
-> could cause it to break on other OEM systems who have implemented it
-> correctly.
-> 
-
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/forcedeth.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/Kconfig |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff -puN drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623 drivers/net/forcedeth.c
---- a/drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623
-+++ a/drivers/net/forcedeth.c
-@@ -5551,7 +5551,7 @@ static struct pci_device_id pci_tbl[] = 
- 	},
- 	{	/* MCP61 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_19),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP65 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_20),
+diff -puN drivers/net/Kconfig~bnx2x-depends-on-zlib_inflate drivers/net/Kconfig
+--- a/drivers/net/Kconfig~bnx2x-depends-on-zlib_inflate
++++ a/drivers/net/Kconfig
+@@ -2607,6 +2607,7 @@ config TEHUTI
+ config BNX2X
+ 	tristate "Broadcom NetXtremeII 10Gb support"
+ 	depends on PCI
++	select ZLIB_INFLATE
+ 	help
+ 	  This driver supports Broadcom NetXtremeII 10 gigabit Ethernet cards.
+ 	  To compile this driver as a module, choose M here: the module
 _
