@@ -1,64 +1,68 @@
-From: "Ayaz Abdulla" <AAbdulla@nvidia.com>
-Subject: RE: [patch 02/10] forcedeth: power down phy when interface is down
-Date: Fri, 14 Dec 2007 12:30:12 -0800
-Message-ID: <F72FA20C31DD4F4C997B91C5B3690A091A990F@hqemmail07.nvidia.com>
-References: <20071213170721.e71ff79f.akpm@linux-foundation.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch 01/10] e1000e: make E1000E default to the same kconfig
+ setting as E1000
+Date: Fri, 14 Dec 2007 15:39:26 -0500
+Message-ID: <4762E9FE.1070707@garzik.org>
+References: <200712140002.lBE02pUb025505@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <jeff@garzik.org>, <netdev@vger.kernel.org>
-To: "Andrew Morton" <akpm@linux-foundation.org>,
-	"Ed Swierk" <eswierk@arastra.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, randy.dunlap@oracle.com,
+	auke-jan.h.kok@intel.com,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate03.nvidia.com ([216.228.112.145]:19643 "EHLO
-	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756522AbXLNUca convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 15:32:30 -0500
-In-Reply-To: <20071213170721.e71ff79f.akpm@linux-foundation.org>
-Content-class: urn:content-classes:message
+Received: from srv5.dvmed.net ([207.36.208.214]:33715 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751567AbXLNUjb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Dec 2007 15:39:31 -0500
+In-Reply-To: <200712140002.lBE02pUb025505@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ed,
-
-You mention that the phy will become 100Mbit half duplex, but during
-nv_close, the phy setting is not modified. This might be a separate
-issue.
-
-Ayaz
-
------Original Message-----
-From: Andrew Morton [mailto:akpm@linux-foundation.org] 
-Sent: Thursday, December 13, 2007 5:07 PM
-To: Ed Swierk
-Cc: Ayaz Abdulla; jeff@garzik.org; netdev@vger.kernel.org
-Subject: Re: [patch 02/10] forcedeth: power down phy when interface is
-down
-
-
-On Thu, 13 Dec 2007 16:53:58 -0800
-"Ed Swierk" <eswierk@arastra.com> wrote:
-
-> On 12/13/07, Andrew Morton <akpm@linux-foundation.org> wrote:
-> > Does this patch actually fix any observeable problem?
+akpm@linux-foundation.org wrote:
+> From: Randy Dunlap <randy.dunlap@oracle.com>
 > 
-> Without the patch, ifconfig down leaves the physical link up, which
-> confuses datacenter users who expect the link lights both on the NIC
-> and the switch to go out when they bring an interface down.
+> Make E1000E default to the same kconfig setting as E1000.  So people's
+> machiens don't stop working when they use oldconfig.
 > 
-> Furthermore, even though the phy is powered on, autonegotiation stops
-> working, so a normally gigabit link might suddenly become 100 Mbit
-> half-duplex when the interface goes down, and become gigabit when it
-> comes up again.
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Cc: Auke Kok <auke-jan.h.kok@intel.com>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
 > 
+>  drivers/net/Kconfig |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff -puN drivers/net/Kconfig~e1000e-make-e1000e-default-to-the-same-kconfig-setting-as-e1000 drivers/net/Kconfig
+> --- a/drivers/net/Kconfig~e1000e-make-e1000e-default-to-the-same-kconfig-setting-as-e1000
+> +++ a/drivers/net/Kconfig
+> @@ -1986,6 +1986,7 @@ config E1000_DISABLE_PACKET_SPLIT
+>  config E1000E
+>  	tristate "Intel(R) PRO/1000 PCI-Express Gigabit Ethernet support"
+>  	depends on PCI
+> +	default E1000
 
-OK, thanks, I added that text to the changelog along with Ayaz's
-objection
-and shall continue to bug people with it until we have a fix merged.  
------------------------------------------------------------------------------------
-This email message is for the sole use of the intended recipient(s) and may contain
-confidential information.  Any unauthorized review, use, disclosure or distribution
-is prohibited.  If you are not the intended recipient, please contact the sender by
-reply email and destroy all copies of the original message.
------------------------------------------------------------------------------------
+I am not inclined to apply this one.  This practice, applied over time, 
+will tend to accumulate weird 'default' and 'select' statements.
+
+So I think the breakage that occurs is mitigated by two factors:
+1) kernel hackers that do their own configs are expected to be able to 
+figure this stuff.
+2) kernel builders (read: distros, mainly) are expected to have put 
+thought into the Kconfig selection and driver migration strategies.
+
+PCI IDs move across drivers from time, and we don't want to apply these 
+sorts changes:  Viewed in the long term, the suggested patch is merely a 
+temporary change to allow kernel experts to more easily deal with the 
+PCI ID migration across drivers.
+
+I would prefer simply to communicate to kernel experts and builders 
+about a Kconfig issue that could potentially their booting/networking... 
+  because this patch is only needed if the kernel experts do not already 
+know about a necessary config update.
+
+	Jeff
+
+
