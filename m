@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 12/29] net: wrap sk->sk_backlog_rcv()
-Date: Fri, 14 Dec 2007 16:39:19 +0100
-Message-ID: <20071214154440.817817000@chello.nl>
+Subject: [PATCH 13/29] net: packet split receive api
+Date: Fri, 14 Dec 2007 16:39:20 +0100
+Message-ID: <20071214154440.942912000@chello.nl>
 References: <20071214153907.770251000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
@@ -9,89 +9,184 @@ To: Linus Torvalds <torvalds@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:47238 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754307AbXLNTXe (ORCPT
+Received: from pentafluge.infradead.org ([213.146.154.40]:38868 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753983AbXLNTXe (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 14:23:34 -0500
-Content-Disposition: inline; filename=net-backlog.patch
+Content-Disposition: inline; filename=net-ps_rx.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wrap calling sk->sk_backlog_rcv() in a function. This will allow extending the
-generic sk_backlog_rcv behaviour.
+Add some packet-split receive hooks.
+
+For one this allows to do NUMA node affine page allocs. Later on these hooks
+will be extended to do emergency reserve allocations for fragments.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/net/sock.h   |    5 +++++
- net/core/sock.c      |    4 ++--
- net/ipv4/tcp.c       |    2 +-
- net/ipv4/tcp_timer.c |    2 +-
- 4 files changed, 9 insertions(+), 4 deletions(-)
+ drivers/net/e1000/e1000_main.c |    8 ++------
+ drivers/net/sky2.c             |   16 ++++++----------
+ include/linux/skbuff.h         |   23 +++++++++++++++++++++++
+ net/core/skbuff.c              |   20 ++++++++++++++++++++
+ 4 files changed, 51 insertions(+), 16 deletions(-)
 
-Index: linux-2.6/include/net/sock.h
+Index: linux-2.6/drivers/net/e1000/e1000_main.c
 ===================================================================
---- linux-2.6.orig/include/net/sock.h
-+++ linux-2.6/include/net/sock.h
-@@ -485,6 +485,11 @@ static inline void sk_add_backlog(struct
- 	skb->next = NULL;
+--- linux-2.6.orig/drivers/net/e1000/e1000_main.c
++++ linux-2.6/drivers/net/e1000/e1000_main.c
+@@ -4392,12 +4392,8 @@ e1000_clean_rx_irq_ps(struct e1000_adapt
+ 			pci_unmap_page(pdev, ps_page_dma->ps_page_dma[j],
+ 					PAGE_SIZE, PCI_DMA_FROMDEVICE);
+ 			ps_page_dma->ps_page_dma[j] = 0;
+-			skb_fill_page_desc(skb, j, ps_page->ps_page[j], 0,
+-			                   length);
++			skb_add_rx_frag(skb, j, ps_page->ps_page[j], 0, length);
+ 			ps_page->ps_page[j] = NULL;
+-			skb->len += length;
+-			skb->data_len += length;
+-			skb->truesize += length;
+ 		}
+ 
+ 		/* strip the ethernet crc, problem is we're using pages now so
+@@ -4605,7 +4601,7 @@ e1000_alloc_rx_buffers_ps(struct e1000_a
+ 			if (j < adapter->rx_ps_pages) {
+ 				if (likely(!ps_page->ps_page[j])) {
+ 					ps_page->ps_page[j] =
+-						alloc_page(GFP_ATOMIC);
++						netdev_alloc_page(netdev);
+ 					if (unlikely(!ps_page->ps_page[j])) {
+ 						adapter->alloc_rx_buff_failed++;
+ 						goto no_buffers;
+Index: linux-2.6/include/linux/skbuff.h
+===================================================================
+--- linux-2.6.orig/include/linux/skbuff.h
++++ linux-2.6/include/linux/skbuff.h
+@@ -851,6 +851,9 @@ static inline void skb_fill_page_desc(st
+ 	skb_shinfo(skb)->nr_frags = i + 1;
  }
  
-+static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
++extern void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page,
++			    int off, int size);
++
+ #define SKB_PAGE_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->nr_frags)
+ #define SKB_FRAG_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->frag_list)
+ #define SKB_LINEAR_ASSERT(skb)  BUG_ON(skb_is_nonlinear(skb))
+@@ -1344,6 +1347,26 @@ static inline struct sk_buff *netdev_all
+ 	return __netdev_alloc_skb(dev, length, GFP_ATOMIC);
+ }
+ 
++extern struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask);
++
++/**
++ *	netdev_alloc_page - allocate a page for ps-rx on a specific device
++ *	@dev: network device to receive on
++ *
++ * 	Allocate a new page node local to the specified device.
++ *
++ * 	%NULL is returned if there is no free memory.
++ */
++static inline struct page *netdev_alloc_page(struct net_device *dev)
 +{
-+	return sk->sk_backlog_rcv(sk, skb);
++	return __netdev_alloc_page(dev, GFP_ATOMIC);
 +}
 +
- #define sk_wait_event(__sk, __timeo, __condition)			\
- 	({	int __rc;						\
- 		release_sock(__sk);					\
-Index: linux-2.6/net/core/sock.c
++static inline void netdev_free_page(struct net_device *dev, struct page *page)
++{
++	__free_page(page);
++}
++
+ /**
+  *	skb_clone_writable - is the header of a clone writable
+  *	@skb: buffer to check
+Index: linux-2.6/net/core/skbuff.c
 ===================================================================
---- linux-2.6.orig/net/core/sock.c
-+++ linux-2.6/net/core/sock.c
-@@ -320,7 +320,7 @@ int sk_receive_skb(struct sock *sk, stru
- 		 */
- 		mutex_acquire(&sk->sk_lock.dep_map, 0, 1, _RET_IP_);
+--- linux-2.6.orig/net/core/skbuff.c
++++ linux-2.6/net/core/skbuff.c
+@@ -263,6 +263,24 @@ struct sk_buff *__netdev_alloc_skb(struc
+ 	return skb;
+ }
  
--		rc = sk->sk_backlog_rcv(sk, skb);
-+		rc = sk_backlog_rcv(sk, skb);
- 
- 		mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
- 	} else
-@@ -1312,7 +1312,7 @@ static void __release_sock(struct sock *
- 			struct sk_buff *next = skb->next;
- 
- 			skb->next = NULL;
--			sk->sk_backlog_rcv(sk, skb);
-+			sk_backlog_rcv(sk, skb);
- 
- 			/*
- 			 * We are in process context here with softirqs
-Index: linux-2.6/net/ipv4/tcp.c
++struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask)
++{
++	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
++	struct page *page;
++
++	page = alloc_pages_node(node, gfp_mask, 0);
++	return page;
++}
++
++void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
++		int size)
++{
++	skb_fill_page_desc(skb, i, page, off, size);
++	skb->len += size;
++	skb->data_len += size;
++	skb->truesize += size;
++}
++
+ static void skb_drop_list(struct sk_buff **listp)
+ {
+ 	struct sk_buff *list = *listp;
+@@ -2466,6 +2484,8 @@ EXPORT_SYMBOL(kfree_skb);
+ EXPORT_SYMBOL(__pskb_pull_tail);
+ EXPORT_SYMBOL(__alloc_skb);
+ EXPORT_SYMBOL(__netdev_alloc_skb);
++EXPORT_SYMBOL(__netdev_alloc_page);
++EXPORT_SYMBOL(skb_add_rx_frag);
+ EXPORT_SYMBOL(pskb_copy);
+ EXPORT_SYMBOL(pskb_expand_head);
+ EXPORT_SYMBOL(skb_checksum);
+Index: linux-2.6/drivers/net/sky2.c
 ===================================================================
---- linux-2.6.orig/net/ipv4/tcp.c
-+++ linux-2.6/net/ipv4/tcp.c
-@@ -1134,7 +1134,7 @@ static void tcp_prequeue_process(struct 
- 	 * necessary */
- 	local_bh_disable();
- 	while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
--		sk->sk_backlog_rcv(sk, skb);
-+		sk_backlog_rcv(sk, skb);
- 	local_bh_enable();
- 
- 	/* Clear memory counter. */
-Index: linux-2.6/net/ipv4/tcp_timer.c
-===================================================================
---- linux-2.6.orig/net/ipv4/tcp_timer.c
-+++ linux-2.6/net/ipv4/tcp_timer.c
-@@ -196,7 +196,7 @@ static void tcp_delack_timer(unsigned lo
- 		NET_INC_STATS_BH(LINUX_MIB_TCPSCHEDULERFAILED);
- 
- 		while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
--			sk->sk_backlog_rcv(sk, skb);
-+			sk_backlog_rcv(sk, skb);
- 
- 		tp->ucopy.memory = 0;
+--- linux-2.6.orig/drivers/net/sky2.c
++++ linux-2.6/drivers/net/sky2.c
+@@ -1198,7 +1198,7 @@ static struct sk_buff *sky2_rx_alloc(str
  	}
+ 
+ 	for (i = 0; i < sky2->rx_nfrags; i++) {
+-		struct page *page = alloc_page(GFP_ATOMIC);
++		struct page *page = netdev_alloc_page(sky2->netdev);
+ 
+ 		if (!page)
+ 			goto free_partial;
+@@ -2072,8 +2072,8 @@ static struct sk_buff *receive_copy(stru
+ }
+ 
+ /* Adjust length of skb with fragments to match received data */
+-static void skb_put_frags(struct sk_buff *skb, unsigned int hdr_space,
+-			  unsigned int length)
++static void skb_put_frags(struct sky2_port *sky2, struct sk_buff *skb,
++			  unsigned int hdr_space, unsigned int length)
+ {
+ 	int i, num_frags;
+ 	unsigned int size;
+@@ -2090,15 +2090,11 @@ static void skb_put_frags(struct sk_buff
+ 
+ 		if (length == 0) {
+ 			/* don't need this page */
+-			__free_page(frag->page);
++			netdev_free_page(sky2->netdev, frag->page);
+ 			--skb_shinfo(skb)->nr_frags;
+ 		} else {
+ 			size = min(length, (unsigned) PAGE_SIZE);
+-
+-			frag->size = size;
+-			skb->data_len += size;
+-			skb->truesize += size;
+-			skb->len += size;
++			skb_add_rx_frag(skb, i, frag->page, 0, size);
+ 			length -= size;
+ 		}
+ 	}
+@@ -2125,7 +2121,7 @@ static struct sk_buff *receive_new(struc
+ 	sky2_rx_map_skb(sky2->hw->pdev, re, hdr_space);
+ 
+ 	if (skb_shinfo(skb)->nr_frags)
+-		skb_put_frags(skb, hdr_space, length);
++		skb_put_frags(sky2, skb, hdr_space, length);
+ 	else
+ 		skb_put(skb, length);
+ 	return skb;
 
 --
 
