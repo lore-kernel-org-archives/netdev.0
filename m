@@ -1,33 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 4/4] PPP synchronous tty: convert dead_sem to completion
-Date: Fri, 14 Dec 2007 11:33:00 -0800 (PST)
-Message-ID: <20071214.113300.267654211.davem@davemloft.net>
-References: <200712140002.lBE02cF7025497@imap1.linux-foundation.org>
+Subject: Re: [PATCH][XFRM] Fix potential race vs xfrm_state(only)_find and
+ xfrm_hash_resize.
+Date: Fri, 14 Dec 2007 11:39:51 -0800 (PST)
+Message-ID: <20071214.113951.114866674.davem@davemloft.net>
+References: <47610FCE.2000100@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, matthias.kaehlcke@gmail.com,
-	paulus@samba.org
-To: akpm@linux-foundation.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	devel@openvz.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49856
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43629
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1765572AbXLNTdJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 14:33:09 -0500
-In-Reply-To: <200712140002.lBE02cF7025497@imap1.linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1756590AbXLNTkJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 14:40:09 -0500
+In-Reply-To: <47610FCE.2000100@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: akpm@linux-foundation.org
-Date: Thu, 13 Dec 2007 16:02:37 -0800
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Thu, 13 Dec 2007 13:56:14 +0300
 
-> From: Matthias Kaehlcke <matthias.kaehlcke@gmail.com>
+> The _find calls calculate the hash value using the 
+> xfrm_state_hmask, without the xfrm_state_lock. But the 
+> value of this mask can change in the _resize call under
+> the state_lock, so we risk to fail in finding the desired 
+> entry in hash.
 > 
-> PPP synchronous tty channel driver: convert the semaphore dead_sem to a
-> completion
+> I think, that the hash value is better to calculate
+> under the state lock.
 > 
-> Signed-off-by: Matthias Kaehlcke <matthias.kaehlcke@gmail.com>
-> Cc: Paul Mackerras <paulus@samba.org>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Applied to net-2.6.25, thanks.
+Thanks for the bug fix.
+
+I know why I coded it this way, I wanted to give GCC more
+room to schedule the loads away from the uses in the hash
+calculation.
+
+Once you cram it after the spin lock acquire, it can't load unrelated
+values earlier to soften the load/use cost on cache misses.
+
+Of course it's invalid because the hash mask can change as you
+noticed.
+
+I wish there was a way to conditionally clobber memory, then we could
+tell GCC exactly what memory objects are protected by the lock and
+thus help in situations like this so much.
