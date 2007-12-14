@@ -1,17 +1,21 @@
 From: Joe Perches <joe@perches.com>
 Subject: [PATCH 02/11] drivers/net/hplance.c: Use print_mac
 Date: Fri, 14 Dec 2007 14:34:03 -0800
-Message-ID: <1197671652-32492-2-git-send-email-joe@perches.com>
+Message-ID: <b58808ccb17be357af117065d60049ce06907096.1197671367.git.joe__23456.8272521303$1197671781$gmane$org@perches.com>
 References: <1197671652-32492-1-git-send-email-joe@perches.com>
 Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932552AbXLNWfR@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from DSL022.labridge.com ([206.117.136.22]:4980 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752558AbXLNWeQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Dec 2007 17:34:16 -0500
 In-Reply-To: <1197671652-32492-1-git-send-email-joe@perches.com>
 Message-Id: <b58808ccb17be357af117065d60049ce06907096.1197671367.git.joe@perches.com>
 In-Reply-To: <9fc484fc034428ab68ecb2711c8456df9e98d56d.1197671367.git.joe@perches.com>
 References: <9fc484fc034428ab68ecb2711c8456df9e98d56d.1197671367.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 Signed-off-by: Joe Perches <joe@perches.com>
@@ -41,3 +45,14 @@ index be6e5bc..2748b47 100644
 -	for (i=1; i<6; i++) {
 -		printk(":%2.2x", dev->dev_addr[i]);
 -	}
+-
+-	printk(", irq %d\n", d->ipl);
++	printk(KERN_INFO "%s: %s; select code %d, addr %s, irq %d\n",
++	       dev->name, d->name, d->scode,
++	       print_mac(mac, dev->dev_addr), d->irq);
+ 
+ 	return 0;
+ 
+-- 
+1.5.3.7.949.g2221a6
+
