@@ -1,76 +1,55 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH 2/2] cxgb3 - Parity initialization for T3C adapters
-Date: Fri, 14 Dec 2007 15:05:31 -0800
-Message-ID: <47630C3B.602@chelsio.com>
-References: <20071205181527.22106.73134.stgit@speedy5> <4759A6EA.1050106@garzik.org> <4759CD92.2070604@chelsio.com> <4759D6AF.5050205@garzik.org> <4759E200.3050607@chelsio.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [patch 2/4] net: use mutex_is_locked() for ASSERT_RTNL()
+Date: Fri, 14 Dec 2007 15:11:36 -0800
+Message-ID: <20071214151136.ae0f969b.akpm@linux-foundation.org>
+References: <E1J35d6-00041l-00@gondolin.me.apana.org.au>
+	<20071214002209.ac748206.akpm@linux-foundation.org>
+	<20071214083037.GA15602@gondor.apana.org.au>
+	<20071214.111514.03773174.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Steve Wise <swise@opengridcomputing.com>, wenxiong@us.ibm.com
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934271AbXLNXGr@vger.kernel.org>
-In-Reply-To: <4759E200.3050607@chelsio.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:42799 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1765845AbXLNXMq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 18:12:46 -0500
+In-Reply-To: <20071214.111514.03773174.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Divy Le Ray wrote:
-> Jeff Garzik wrote:
->>
->> Divy Le Ray wrote:
->> > Jeff Garzik wrote:
->> >> Divy Le Ray wrote:
->> >>> From: Divy Le Ray <divy@chelsio.com>
->> >>>
->> >>> Add parity initialization for T3C adapters.
->> >>>
->> >>> Signed-off-by: Divy Le Ray <divy@chelsio.com>
->> >>> ---
->> >>>
->> >>>  drivers/net/cxgb3/adapter.h       |    1
->> >>>  drivers/net/cxgb3/cxgb3_main.c    |   82 ++++++++++++
->> >>>  drivers/net/cxgb3/cxgb3_offload.c |   15 ++
->> >>>  drivers/net/cxgb3/regs.h          |  248
->> >>> +++++++++++++++++++++++++++++++++++++
->> >>>  drivers/net/cxgb3/sge.c           |   24 +++-
->> >>>  drivers/net/cxgb3/t3_hw.c         |  131 +++++++++++++++++---
->> >>>  6 files changed, 472 insertions(+), 29 deletions(-)
->> >>
->> >> dropped patches 2-3, did not apply
->> >>
->> >>
->> >
->> > Hi Jeff,
->> >
->> > I noticed that you applied the first one of this 3 patches series 
->> to the
->> > #upstream-fixes branch.
->> > These patches are intended to the #upstream (2.6.25) branch, as 
->> they are
->> > built on top of the
->> > last 10 patches committed - 9 from me, and the white space clean up
->> > (thanks!).
->> > May be this is the reason why they did not apply.
->>
->> Ah... you need to tell me these things.  I looked for a kernel version
->> in your messages but did not see one.
->>
-> I had put it in the introduction mail, I should have added the kernel 
-> version in the patch titles.
-> I'll do from now on.
->
->>
->> Does the patch #1 need to be reverted for 2.6.24?
->>
-> No, it can be applied to 2.6.24.
-> The 2 next patches seem to apply cleanly on #upstream when patch #1 is 
-> popped out the patch stack.
->
-Hi Jeff,
+On Fri, 14 Dec 2007 11:15:14 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-Did you get a chance to apply these patches #upstream ?
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Fri, 14 Dec 2007 16:30:37 +0800
+> 
+> > On Fri, Dec 14, 2007 at 12:22:09AM -0800, Andrew Morton wrote:
+> > >
+> > > I don't see how it could warn about that.  Nor should it - one might want
+> > > to check that rtnl_lock is held inside preempt_disable() or spin_lock or
+> > > whatever.
+> > > 
+> > > It might make sense to warn if ASSERT_RTNL is called in in_interrupt()
+> > > contexts though.
+> > 
+> > Well the paths where ASSERT_RTNL is used should never be in an
+> > atomic context.  In the past it has been quite useful in pointing
+> > out bogus locking practices.
+> > 
+> > There is currently one path where it's known to warn because of
+> > this and it (promiscuous mode) is on my todo list.
+> > 
+> > Oh and it only warns when you have mutex debugging enabled.
+> 
+> Right, this change is just totally bogus.
+> 
+> I'm all for using existing facilities to replace hand-crafted copies,
+> but this case is removing useful debugging functionality so it's
+> wrong.
 
-Cheers,
-Divy
-
+I don't believe that ASSERT_RTNL() presently warns when called from atomic
+contexts.  If it does then I missed it.
 
