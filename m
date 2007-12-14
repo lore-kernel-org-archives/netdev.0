@@ -1,46 +1,43 @@
 From: akpm@linux-foundation.org
-Subject: [patch 09/10] bnx2x depends on ZLIB_INFLATE
-Date: Thu, 13 Dec 2007 16:02:59 -0800
-Message-ID: <200712140003.lBE0306f025535@imap1.linux-foundation.org>
+Subject: [patch 04/10] ucc_geth-fix-build-break-introduced-by-commit-09f75cd7bf13720738e6a196cc0107ce9a5bd5a0-checkpatch-fixes
+Date: Thu, 13 Dec 2007 16:02:55 -0800
+Message-ID: <200712140002.lBE02tBW025520@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	Lee.Schermerhorn@hp.com, eliezert@broadcom.com,
-	lee.schermerhorn@hp.com
+	Emilian.Medve@Freescale.com, davem@davemloft.net,
+	galak@gate.crashing.org, leoli@Freescale.com, paulus@samba.org
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:44733 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:42573 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934278AbXLNAJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 19:09:34 -0500
+	by vger.kernel.org with ESMTP id S935085AbXLNAJa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 19:09:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lee Schermerhorn <Lee.Schermerhorn@hp.com>
+From: Andrew Morton <akpm@linux-foundation.org>
 
-The bnx2x module depends on the zlib_inflate functions.  The build will
-fail if ZLIB_INFLATE has not been selected manually or by building another
-module that automatically selects it.
-
-Modify BNX2X config option to 'select ZLIB_INFLATE' like BNX2
-and others.  This seems to fix it.
-
-Signed-off-by: Lee Schermerhorn <lee.schermerhorn@hp.com>
-Acked-by: Eliezer Tamir <eliezert@broadcom.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Emil Medve <Emilian.Medve@Freescale.com>
 Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Kumar Gala <galak@gate.crashing.org>
+Cc: Li Yang <leoli@freescale.com>
+Cc: Paul Mackerras <paulus@samba.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/Kconfig |    1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ucc_geth.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN drivers/net/Kconfig~bnx2x-depends-on-zlib_inflate drivers/net/Kconfig
---- a/drivers/net/Kconfig~bnx2x-depends-on-zlib_inflate
-+++ a/drivers/net/Kconfig
-@@ -2607,6 +2607,7 @@ config TEHUTI
- config BNX2X
- 	tristate "Broadcom NetXtremeII 10Gb support"
- 	depends on PCI
-+	select ZLIB_INFLATE
- 	help
- 	  This driver supports Broadcom NetXtremeII 10 gigabit Ethernet cards.
- 	  To compile this driver as a module, choose M here: the module
+diff -puN drivers/net/ucc_geth.c~ucc_geth-fix-build-break-introduced-by-commit-09f75cd7bf13720738e6a196cc0107ce9a5bd5a0-checkpatch-fixes drivers/net/ucc_geth.c
+--- a/drivers/net/ucc_geth.c~ucc_geth-fix-build-break-introduced-by-commit-09f75cd7bf13720738e6a196cc0107ce9a5bd5a0-checkpatch-fixes
++++ a/drivers/net/ucc_geth.c
+@@ -3447,7 +3447,7 @@ static int ucc_geth_rx(struct ucc_geth_p
+ 	u16 length, howmany = 0;
+ 	u32 bd_status;
+ 	u8 *bdBuffer;
+-	struct net_device * dev;
++	struct net_device *dev;
+ 
+ 	ugeth_vdbg("%s: IN", __FUNCTION__);
+ 
 _
