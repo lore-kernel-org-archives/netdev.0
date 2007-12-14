@@ -1,100 +1,82 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [PATCH 2/3] [CCID]: More informative registration
-Date: Thu, 13 Dec 2007 23:42:01 -0200
-Message-ID: <1197596522-14600-3-git-send-email-acme@redhat.com>
+Subject: [PATCH 1/3] [DCCP]: Documentation for CCID operations
+Date: Thu, 13 Dec 2007 23:42:00 -0200
+Message-ID: <1197596522-14600-2-git-send-email-acme@redhat.com>
 References: <1197596522-14600-1-git-send-email-acme@redhat.com>
- <1197596522-14600-2-git-send-email-acme@redhat.com>
 Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
 	Ian McDonald <ian.mcdonald@jandi.co.nz>,
 	Arnaldo Carvalho de Melo <acme@redhat.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.245]:30773 "EHLO
+Received: from an-out-0708.google.com ([209.85.132.240]:30210 "EHLO
 	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757632AbXLNBmm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 20:42:42 -0500
-Received: by an-out-0708.google.com with SMTP id d31so249022and.103
-        for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 17:42:40 -0800 (PST)
-In-Reply-To: <1197596522-14600-2-git-send-email-acme@redhat.com>
+	with ESMTP id S1758153AbXLNBmz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 20:42:55 -0500
+Received: by an-out-0708.google.com with SMTP id d31so249020and.103
+        for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 17:42:55 -0800 (PST)
+In-Reply-To: <1197596522-14600-1-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-The patch makes the registration messages of CCID 2/3 a bit more
-informative: instead of repeating the CCID number as currently done,
-
-        "CCID: Registered CCID 2 (ccid2)"  or
-        "CCID: Registered CCID 3 (ccid3)",
-
-the descriptive names of the CCID's (from RFCs) are now used:
-
-	"CCID: Registered CCID 2 (TCP-like)" and
-	"CCID: Registered CCID 3 (TCP-Friendly Rate Control)".
-
-To allow spaces in the name, the slab name string has been changed to
-refer to the numeric CCID identifier, using the same format as before.
+This adds documentation for the ccid_operations structure.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/dccp/ccid.c        |    8 ++++----
- net/dccp/ccids/ccid2.c |    2 +-
- net/dccp/ccids/ccid3.c |    2 +-
- 3 files changed, 6 insertions(+), 6 deletions(-)
+ net/dccp/ccid.h |   35 ++++++++++++++++++++++++++++-------
+ 1 files changed, 28 insertions(+), 7 deletions(-)
 
-diff --git a/net/dccp/ccid.c b/net/dccp/ccid.c
-index c45088b..4809753 100644
---- a/net/dccp/ccid.c
-+++ b/net/dccp/ccid.c
-@@ -92,15 +92,15 @@ int ccid_register(struct ccid_operations *ccid_ops)
+diff --git a/net/dccp/ccid.h b/net/dccp/ccid.h
+index c65cb24..e3cdd8a 100644
+--- a/net/dccp/ccid.h
++++ b/net/dccp/ccid.h
+@@ -23,14 +23,35 @@
  
- 	ccid_ops->ccid_hc_rx_slab =
- 			ccid_kmem_cache_create(ccid_ops->ccid_hc_rx_obj_size,
--					       "%s_hc_rx_sock",
--					       ccid_ops->ccid_name);
-+					       "ccid%u_hc_rx_sock",
-+					       ccid_ops->ccid_id);
- 	if (ccid_ops->ccid_hc_rx_slab == NULL)
- 		goto out;
+ struct tcp_info;
  
- 	ccid_ops->ccid_hc_tx_slab =
- 			ccid_kmem_cache_create(ccid_ops->ccid_hc_tx_obj_size,
--					       "%s_hc_tx_sock",
--					       ccid_ops->ccid_name);
-+					       "ccid%u_hc_tx_sock",
-+					       ccid_ops->ccid_id);
- 	if (ccid_ops->ccid_hc_tx_slab == NULL)
- 		goto out_free_rx_slab;
- 
-diff --git a/net/dccp/ccids/ccid2.c b/net/dccp/ccids/ccid2.c
-index 48eeb44..b5b52eb 100644
---- a/net/dccp/ccids/ccid2.c
-+++ b/net/dccp/ccids/ccid2.c
-@@ -770,7 +770,7 @@ static void ccid2_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 
- static struct ccid_operations ccid2 = {
- 	.ccid_id		= DCCPC_CCID2,
--	.ccid_name		= "ccid2",
-+	.ccid_name		= "TCP-like",
- 	.ccid_owner		= THIS_MODULE,
- 	.ccid_hc_tx_obj_size	= sizeof(struct ccid2_hc_tx_sock),
- 	.ccid_hc_tx_init	= ccid2_hc_tx_init,
-diff --git a/net/dccp/ccids/ccid3.c b/net/dccp/ccids/ccid3.c
-index a818a1e..876c747 100644
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -943,7 +943,7 @@ static int ccid3_hc_rx_getsockopt(struct sock *sk, const int optname, int len,
- 
- static struct ccid_operations ccid3 = {
- 	.ccid_id		   = DCCPC_CCID3,
--	.ccid_name		   = "ccid3",
-+	.ccid_name		   = "TCP-Friendly Rate Control",
- 	.ccid_owner		   = THIS_MODULE,
- 	.ccid_hc_tx_obj_size	   = sizeof(struct ccid3_hc_tx_sock),
- 	.ccid_hc_tx_init	   = ccid3_hc_tx_init,
++/**
++ *  struct ccid_operations  -  Interface to Congestion-Control Infrastructure
++ *
++ *  @ccid_id: numerical CCID ID (up to %CCID_MAX, cf. table 5 in RFC 4340, 10.)
++ *  @ccid_name: alphabetical identifier string for @ccid_id
++ *  @ccid_owner: module which implements/owns this CCID
++ *  @ccid_hc_{r,t}x_slab: memory pool for the receiver/sender half-connection
++ *  @ccid_hc_{r,t}x_obj_size: size of the receiver/sender half-connection socket
++ *
++ *  @ccid_hc_{r,t}x_init: CCID-specific initialisation routine (before startup)
++ *  @ccid_hc_{r,t}x_exit: CCID-specific cleanup routine (before destruction)
++ *  @ccid_hc_rx_packet_recv: implements the HC-receiver side
++ *  @ccid_hc_{r,t}x_parse_options: parsing routine for CCID/HC-specific options
++ *  @ccid_hc_{r,t}x_insert_options: insert routine for CCID/HC-specific options
++ *  @ccid_hc_tx_packet_recv: implements feedback processing for the HC-sender
++ *  @ccid_hc_tx_send_packet: implements the sending part of the HC-sender
++ *  @ccid_hc_tx_packet_sent: does accounting for packets in flight by HC-sender
++ *  @ccid_hc_{r,t}x_get_info: INET_DIAG information for HC-receiver/sender
++ *  @ccid_hc_{r,t}x_getsockopt: socket options specific to HC-receiver/sender
++ */
+ struct ccid_operations {
+-	unsigned char	ccid_id;
+-	const char	*ccid_name;
+-	struct module	*ccid_owner;
+-	struct kmem_cache	*ccid_hc_rx_slab;
+-	__u32		ccid_hc_rx_obj_size;
+-	struct kmem_cache	*ccid_hc_tx_slab;
+-	__u32		ccid_hc_tx_obj_size;
++	unsigned char		ccid_id;
++	const char		*ccid_name;
++	struct module		*ccid_owner;
++	struct kmem_cache	*ccid_hc_rx_slab,
++				*ccid_hc_tx_slab;
++	__u32			ccid_hc_rx_obj_size,
++				ccid_hc_tx_obj_size;
++	/* Interface Routines */
+ 	int		(*ccid_hc_rx_init)(struct ccid *ccid, struct sock *sk);
+ 	int		(*ccid_hc_tx_init)(struct ccid *ccid, struct sock *sk);
+ 	void		(*ccid_hc_rx_exit)(struct sock *sk);
 -- 
 1.5.3.4
 
