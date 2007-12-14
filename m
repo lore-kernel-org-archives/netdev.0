@@ -1,94 +1,26 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 1/2] add driver for enc28j60 ethernet chip
-Date: Fri, 14 Dec 2007 10:56:53 -0800
-Message-ID: <20071214105653.787ab4c6@deepthought>
-References: <475EA546.7030202@eptar.com>
-	<20071211090648.24ee1742@freepuppy.rosehill>
-	<47624B2F.9010503@eptar.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH net-2.6.25 6/8] sctp: Use ipv4_is_<type>
+Date: Fri, 14 Dec 2007 14:11:44 -0500
+Message-ID: <4762D570.7060207@hp.com>
+References: <1197589141-7020-1-git-send-email-joe@perches.com> <1197589141-7020-2-git-send-email-joe@perches.com> <1197589141-7020-3-git-send-email-joe@perches.com> <1197589141-7020-4-git-send-email-joe@perches.com> <1197589141-7020-5-git-send-email-joe@perches.com> <1197589141-7020-6-git-send-email-joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Claudio Lanconelli <lanconelli.claudio@eptar.com>
+Cc: netdev@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>,
+	lksctp-developers@lists.sourceforge.net
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:56352 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753728AbXLNS7H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 13:59:07 -0500
-In-Reply-To: <47624B2F.9010503@eptar.com>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:18211 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753734AbXLNTLp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 14:11:45 -0500
+In-Reply-To: <1197589141-7020-6-git-send-email-joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 14 Dec 2007 10:21:51 +0100
-Claudio Lanconelli <lanconelli.claudio@eptar.com> wrote:
+Joe Perches wrote:
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-> Hi Stephen,
-> thank you for your suggestions.
-> I already applied trivial fixes, but I have questions on some points, 
-> see inline.
-> 
-> Stephen Hemminger wrote:
-> > General comments:
-> >   * device driver does no carrier detection. This makes it useless
-> >     for bridging, bonding, or any form of failover.
-> >
-> >   * use msglevel method (via ethtool) to control debug messages
-> >     rather than kernel configuration. This allows enabling debugging
-> >     without recompilation which is important in distributions.
-> >
-> >   * Please add ethtool support
-> >
-> >   * Consider using NAPI
-> >
-> >   
-> Can you point me to a possibly simple driver that uses ethtool and NAPI? 
+Thanks Joe.  I've put this into my tree.
 
-No driver stays simple! but look at tg3, sky2, r8169 for examples.
-
-> Or other example that I can use for reference.
-> May be the skeleton should be updated.
-> 
-> >  * use netdev_priv(netdev) rather than netdev->priv
-> 
-> I can't find where I used netdev->priv, may be do you mean priv->netdev?
-
-yes
-
-(skipping other comments)
-
-> >
-> > +static int __devinit enc28j60_probe(struct spi_device *spi)
-> > +{
-> > +	struct net_device *dev;
-> > +	struct enc28j60_net_local *priv;
-> > +	int ret = 0;
-> > +
-> > +	dev_dbg(&spi->dev, "%s() start\n", __FUNCTION__);
-> > +
-> > +	dev = alloc_etherdev(sizeof(struct enc28j60_net_local));
-> > +	if (!dev) {
-> > +		ret = -ENOMEM;
-> > +		goto error_alloc;
-> > +	}
-> > +	priv = netdev_priv(dev);
-> > +
-> > +	priv->netdev = dev;	/* priv to netdev reference */
-> > +	priv->spi = spi;	/* priv to spi reference */
-> > +	priv->spi_transfer_buf = kmalloc(SPI_TRANSFER_BUF_LEN, GFP_KERNEL);
-> >
-> > Why not declare the transfer buffer as an array in spi?
-> >   
-> I don't understand exactly what do you mean here.
-> spi field point to struct spi_device from SPI subsystem.
-> Other SPI client driver uses an allocated buffer too.
-
-I just noticed that you alloc an ether device then do an additional
-allocation for the buffer.  It makes sense if there is other uses.
-You do need to be careful for cases where transfer_buf might be used
-after free: module unload (your probably safe), and client driver
-using during shutdown.
-
-
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+-vlad
