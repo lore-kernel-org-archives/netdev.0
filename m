@@ -1,54 +1,98 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Packetlost when "tc qdisc del dev eth0 root"
-Date: Tue, 15 Jan 2008 17:05:42 +0100
-Message-ID: <478CD9D6.3000504@trash.net>
-References: <478C94B7.3070503@bigtelecom.ru>
+From: "senthil kumar" <psenthilkumar.accet@gmail.com>
+Subject: SCTP Notification
+Date: Fri, 14 Dec 2007 10:07:19 +0900
+Message-ID: <9b936a040712131707p4aba0d51w6c5f3fdd9f6e9543@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: multipart/mixed; boundary="===============0622162890=="
+Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
+To: bidulock@openss7.org, sigtran@ietf.org
+Return-path: <sigtran-bounces@ietf.org>
+List-Unsubscribe: <https://www1.ietf.org/mailman/listinfo/sigtran>,
+	<mailto:sigtran-request@ietf.org?subject=unsubscribe>
+List-Post: <mailto:sigtran@ietf.org>
+List-Help: <mailto:sigtran-request@ietf.org?subject=help>
+List-Subscribe: <https://www1.ietf.org/mailman/listinfo/sigtran>,
+	<mailto:sigtran-request@ietf.org?subject=subscribe>
+Errors-To: sigtran-bounces@ietf.org
+List-Id: netdev.vger.kernel.org
+
+--===============0622162890==
+Content-Type: multipart/alternative;
+	boundary="----=_Part_32877_8146781.1197594439229"
+
+------=_Part_32877_8146781.1197594439229
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Badalian Vyacheslav <slavon@bigtelecom.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43487 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751363AbYAOQFy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2008 11:05:54 -0500
-In-Reply-To: <478C94B7.3070503@bigtelecom.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
 
-Badalian Vyacheslav wrote:
-> Hello all. Have packetlost when do "tc qdisc del dev eth0 root".
-> 
-> look:
-> 
-> slavon ~ # ping -f 87.255.1.134
-> PING 87.255.1.134 (87.255.1.134) 56(84) bytes of data.
-> .
-> ..................................................................................................................................................................................................................................................................... 
-> 
-> .
-> --- 87.255.1.134 ping statistics ---
-> 60811 packets transmitted, 60544 received, 0% packet loss, time 39528ms
-> rtt min/avg/max/mdev = 0.203/0.579/3227.655/13.124 ms, pipe 219, 
-> ipg/ewma 0.650/2.197 ms
-> 
-> Its normal?
+Hi,
 
-Yes, packets in the old qdisc are lost.
+    I am using SCTP(libsctp) in linux 2.6.9. I have subscribed for
+Notifications. However, i am not getting any notification when sctp
+association is established or peer is shutdown. Is there any correction in
+my method of subscription? setsockopt system call is returning success. i
+used getsockopt to verify the same.
 
-> Maybe if tc do changes - need create second queue (hash of rules or how 
-> you named it?) and do changes at it. Then replace old queue rules by 
-> created new.
-> Logic -
-> 1. Do snapshot
-> 2. Do changes in shapshot
-> 3. All new packets go to snapshot
-> 4. If old queue not have packets - delete it.
-> 5. Snapshot its default.
+      struct sockaddr_in stSrcIPAddress;
+      socklen_t  Addlen=sizeof(sockaddr_in);
+      int  iFlags=-1,iRet=-1;
+
+      struct sctp_sndrcvinfo sndrcvinfo;
+      struct sctp_event_subscribe events;
+
+  memset( (void *)&events, 0, sizeof(events) );
+  events.sctp_data_io_event = 1;
+  events.sctp_association_event = 1;
+  events.sctp_send_failure_event = 1;
+  events.sctp_shutdown_event = 1;
+  events.sctp_peer_error_event = 1;
+
+  ret = setsockopt( iconnSock, IPPROTO_SCTP, SCTP_EVENTS,(const void
+*)&events, sizeof(events) );
+  while(1)
+  {
+    iRet = sctp_recvmsg(iconnSock, (void *)pacbuffer,600, (struct sockaddr
+*)&stSrcIPAddress, &Addlen, &sndrcvinfo, &iFlags );
+    if ( iRet < 0)
+    {
+    }
+    if(iFlags & MSG_NOTIFICATION )//Notification/event is received.
+    {
+    }
+    if (iRet> 0)
+    {
+    }
+}
+
+with regards,
+   senthil
+
+------=_Part_32877_8146781.1197594439229
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+Hi,<br><br>&nbsp;&nbsp;&nbsp; I am using SCTP(libsctp) in linux 2.6.9. I have subscribed for Notifications. However, i am not getting any notification when sctp association is established or peer is shutdown. Is there any correction in my method of subscription? setsockopt system call is returning success. i used getsockopt to verify the same.
+<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct sockaddr_in stSrcIPAddress;<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; socklen_t&nbsp; Addlen=sizeof(sockaddr_in);<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int&nbsp; iFlags=-1,iRet=-1;<br>&nbsp;&nbsp;&nbsp;&nbsp; <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct sctp_sndrcvinfo sndrcvinfo;<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct sctp_event_subscribe events;
+<br><br>&nbsp; memset( (void *)&amp;events, 0, sizeof(events) );<br>&nbsp; events.sctp_data_io_event = 1;<br>&nbsp; events.sctp_association_event = 1;<br>&nbsp; events.sctp_send_failure_event = 1;<br>&nbsp; events.sctp_shutdown_event = 1;<br>&nbsp; events.sctp_peer_error_event
+ = 1;<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <br>&nbsp; ret = setsockopt( iconnSock, IPPROTO_SCTP, SCTP_EVENTS,(const void *)&amp;events, sizeof(events) );<br>&nbsp; while(1)<br>&nbsp; {<br>&nbsp;&nbsp;&nbsp; iRet = sctp_recvmsg(iconnSock, (void *)pacbuffer,600, (struct sockaddr *)&amp;stSrcIPAddress, &amp;Addlen, &amp;sndrcvinfo, &amp;iFlags );
+<br>&nbsp;&nbsp;&nbsp; if ( iRet &lt; 0)<br>&nbsp;&nbsp;&nbsp; {<br>&nbsp;&nbsp;&nbsp; }<br>&nbsp;&nbsp;&nbsp; if(iFlags &amp; MSG_NOTIFICATION )//Notification/event is received.<br>&nbsp;&nbsp;&nbsp; {<br>&nbsp;&nbsp;&nbsp; }<br>&nbsp;&nbsp;&nbsp; if (iRet&gt; 0)<br>&nbsp;&nbsp;&nbsp; {<br>&nbsp;&nbsp;&nbsp; }<br>}<br><br>with regards,<br>&nbsp;&nbsp; senthil<br>
+<br>
+
+------=_Part_32877_8146781.1197594439229--
 
 
-That doesn't really work since qdiscs keep internal state that
-in large parts depends on the packets queued. Take the qlen as
-a simple example, the new qdisc doesn't know about the packets
-in the old one and will exceed the limit.
+
+
+--===============0622162890==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Sigtran mailing list
+Sigtran@ietf.org
+https://www1.ietf.org/mailman/listinfo/sigtran
+
+--===============0622162890==--
