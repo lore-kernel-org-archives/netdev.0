@@ -1,41 +1,38 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: What was the reason for 2.6.22 SMP kernels to change how sendmsg is called?
-Date: Thu, 13 Dec 2007 16:45:36 -0800
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5203FF45B4@orsmsx418.amr.corp.intel.com>
-References: <20071213.131753.156591181.davem@davemloft.net> <B1F576FE19C55C43B8D2E31F061B50C04E60B2@exchange.comtrol.com>
+From: "Ed Swierk" <eswierk@arastra.com>
+Subject: Re: [patch 02/10] forcedeth: power down phy when interface is down
+Date: Thu, 13 Dec 2007 16:53:58 -0800
+Message-ID: <e6c711510712131653p3c871115r6e9cf33e0c984772@mail.gmail.com>
+References: <200712140002.lBE02qo1025508@imap1.linux-foundation.org>
+	 <F72FA20C31DD4F4C997B91C5B3690A091A990D@hqemmail07.nvidia.com>
+	 <20071213163046.c2e9d340.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Kevin Wilson" <Kevin.Wilson@comtrol.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "Ayaz Abdulla" <AAbdulla@nvidia.com>, jeff@garzik.org,
+	netdev@vger.kernel.org
+To: "Andrew Morton" <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:59494 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762826AbXLNAuH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 19:50:07 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <B1F576FE19C55C43B8D2E31F061B50C04E60B2@exchange.comtrol.com>
+Received: from rv-out-0910.google.com ([209.85.198.184]:64016 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755240AbXLNAx7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 19:53:59 -0500
+Received: by rv-out-0910.google.com with SMTP id k20so742270rvb.1
+        for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 16:53:58 -0800 (PST)
+In-Reply-To: <20071213163046.c2e9d340.akpm@linux-foundation.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kevin Wilson wrote:
-> Nonetheless, a somewhat recent change in your tree, that I could not
-> pinpoint on my own, caused the driver to stop functioning properly.
-> So after much searching in git/google/sources with no luck, I decided
-> to ask for a little assistance, maybe just a hint as to where the
-> culprit may be in the tree so I could investigate for myself. For
-> SNGs I tried the method that now works but I am still at a loss as to
-> (can't find) what changes in the tree caused it to fail.      
+On 12/13/07, Andrew Morton <akpm@linux-foundation.org> wrote:
+> Does this patch actually fix any observeable problem?
 
-Kevin, could you give git-bisect a shot?  if you have two kernel
-versions or -rcX tags that work and don't work, then you can use bisect
-to help find the patch that causes it.
+Without the patch, ifconfig down leaves the physical link up, which
+confuses datacenter users who expect the link lights both on the NIC
+and the switch to go out when they bring an interface down.
 
-you can search for from:torvalds and git-bisect to see lots of
-instructions from Linus on how to do it.  If you have a fast machine and
-a few hours and an automatable test it can go really fast, probably less
-than 12 rebuilds.
+Furthermore, even though the phy is powered on, autonegotiation stops
+working, so a normally gigabit link might suddenly become 100 Mbit
+half-duplex when the interface goes down, and become gigabit when it
+comes up again.
 
-Good Luck,
-  Jesse
+--Ed
