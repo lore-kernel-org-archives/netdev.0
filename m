@@ -1,128 +1,100 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [PATCH 3/3] [DCCP]: Introducing CCMPS
-Date: Thu, 13 Dec 2007 23:42:02 -0200
-Message-ID: <1197596522-14600-4-git-send-email-acme@redhat.com>
+Subject: [PATCH 2/3] [CCID]: More informative registration
+Date: Thu, 13 Dec 2007 23:42:01 -0200
+Message-ID: <1197596522-14600-3-git-send-email-acme@redhat.com>
 References: <1197596522-14600-1-git-send-email-acme@redhat.com>
  <1197596522-14600-2-git-send-email-acme@redhat.com>
- <1197596522-14600-3-git-send-email-acme@redhat.com>
 Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
 	Ian McDonald <ian.mcdonald@jandi.co.nz>,
 	Arnaldo Carvalho de Melo <acme@redhat.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.240]:30210 "EHLO
+Received: from an-out-0708.google.com ([209.85.132.245]:30773 "EHLO
 	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754239AbXLNBmk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 20:42:40 -0500
-Received: by an-out-0708.google.com with SMTP id d31so249020and.103
-        for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 17:42:39 -0800 (PST)
-In-Reply-To: <1197596522-14600-3-git-send-email-acme@redhat.com>
+	with ESMTP id S1757632AbXLNBmm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 20:42:42 -0500
+Received: by an-out-0708.google.com with SMTP id d31so249022and.103
+        for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 17:42:40 -0800 (PST)
+In-Reply-To: <1197596522-14600-2-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-This introduces a CCMPS field for setting a CCID-specific upper bound on the application payload
-size, as is defined in RFC 4340, section 14.
+The patch makes the registration messages of CCID 2/3 a bit more
+informative: instead of repeating the CCID number as currently done,
 
-Only the TX CCID is considered in setting this limit, since the RX CCID generates comparatively
-small (DCCP-Ack) feedback packets. The CCMPS field includes network and transport layer header
-lengths. The only current CCMPS customer is CCID4 (via RFC 4828).
+        "CCID: Registered CCID 2 (ccid2)"  or
+        "CCID: Registered CCID 3 (ccid3)",
 
-A wrapper is used to allow querying the CCMPS even at times where the CCID modules may not have
-been fully negotiated yet.
+the descriptive names of the CCID's (from RFCs) are now used:
 
-In dccp_sync_mss() the variable `mss_now' has been renamed into `cur_mps', to reflect that we are
-dealing with an MPS, but not an MSS.
-Since the DCCP code closely follows the TCP code, the identifiers `dccp_sync_mss' and
-`dccps_mss_cache' have been kept, as they have direct TCP counterparts.
+	"CCID: Registered CCID 2 (TCP-like)" and
+	"CCID: Registered CCID 3 (TCP-Friendly Rate Control)".
+
+To allow spaces in the name, the slab name string has been changed to
+refer to the numeric CCID identifier, using the same format as before.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/dccp/ccid.h   |    2 ++
- net/dccp/output.c |   30 +++++++++++++++++++++++-------
- 2 files changed, 25 insertions(+), 7 deletions(-)
+ net/dccp/ccid.c        |    8 ++++----
+ net/dccp/ccids/ccid2.c |    2 +-
+ net/dccp/ccids/ccid3.c |    2 +-
+ 3 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/dccp/ccid.h b/net/dccp/ccid.h
-index e3cdd8a..fdeae7b 100644
---- a/net/dccp/ccid.h
-+++ b/net/dccp/ccid.h
-@@ -27,6 +27,7 @@ struct tcp_info;
-  *  struct ccid_operations  -  Interface to Congestion-Control Infrastructure
-  *
-  *  @ccid_id: numerical CCID ID (up to %CCID_MAX, cf. table 5 in RFC 4340, 10.)
-+ *  @ccid_ccmps: the CCMPS including network/transport headers (0 when disabled)
-  *  @ccid_name: alphabetical identifier string for @ccid_id
-  *  @ccid_owner: module which implements/owns this CCID
-  *  @ccid_hc_{r,t}x_slab: memory pool for the receiver/sender half-connection
-@@ -45,6 +46,7 @@ struct tcp_info;
-  */
- struct ccid_operations {
- 	unsigned char		ccid_id;
-+	__u32			ccid_ccmps;
- 	const char		*ccid_name;
- 	struct module		*ccid_owner;
- 	struct kmem_cache	*ccid_hc_rx_slab,
-diff --git a/net/dccp/output.c b/net/dccp/output.c
-index 5589a5e..3b763db 100644
---- a/net/dccp/output.c
-+++ b/net/dccp/output.c
-@@ -133,15 +133,31 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
- 	return -ENOBUFS;
- }
+diff --git a/net/dccp/ccid.c b/net/dccp/ccid.c
+index c45088b..4809753 100644
+--- a/net/dccp/ccid.c
++++ b/net/dccp/ccid.c
+@@ -92,15 +92,15 @@ int ccid_register(struct ccid_operations *ccid_ops)
  
-+/**
-+ * dccp_determine_ccmps  -  Find out about CCID-specfic packet-size limits
-+ * We only consider the HC-sender CCID for setting the CCMPS (RFC 4340, 14.),
-+ * since the RX CCID is restricted to feedback packets (Acks), which are small
-+ * in comparison with the data traffic. A value of 0 means "no current CCMPS".
-+ */
-+static u32 dccp_determine_ccmps(const struct dccp_sock *dp)
-+{
-+	const struct ccid *tx_ccid = dp->dccps_hc_tx_ccid;
-+
-+	if (tx_ccid == NULL || tx_ccid->ccid_ops == NULL)
-+		return 0;
-+	return tx_ccid->ccid_ops->ccid_ccmps;
-+}
-+
- unsigned int dccp_sync_mss(struct sock *sk, u32 pmtu)
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct dccp_sock *dp = dccp_sk(sk);
--	int mss_now = (pmtu - icsk->icsk_af_ops->net_header_len -
--		       sizeof(struct dccp_hdr) - sizeof(struct dccp_hdr_ext));
-+	u32 ccmps = dccp_determine_ccmps(dp);
-+	int cur_mps = ccmps ? min(pmtu, ccmps) : pmtu;
+ 	ccid_ops->ccid_hc_rx_slab =
+ 			ccid_kmem_cache_create(ccid_ops->ccid_hc_rx_obj_size,
+-					       "%s_hc_rx_sock",
+-					       ccid_ops->ccid_name);
++					       "ccid%u_hc_rx_sock",
++					       ccid_ops->ccid_id);
+ 	if (ccid_ops->ccid_hc_rx_slab == NULL)
+ 		goto out;
  
--	/* Now subtract optional transport overhead */
--	mss_now -= icsk->icsk_ext_hdr_len;
-+	/* Account for header lengths and IPv4/v6 option overhead */
-+	cur_mps -= (icsk->icsk_af_ops->net_header_len + icsk->icsk_ext_hdr_len +
-+		    sizeof(struct dccp_hdr) + sizeof(struct dccp_hdr_ext));
+ 	ccid_ops->ccid_hc_tx_slab =
+ 			ccid_kmem_cache_create(ccid_ops->ccid_hc_tx_obj_size,
+-					       "%s_hc_tx_sock",
+-					       ccid_ops->ccid_name);
++					       "ccid%u_hc_tx_sock",
++					       ccid_ops->ccid_id);
+ 	if (ccid_ops->ccid_hc_tx_slab == NULL)
+ 		goto out_free_rx_slab;
  
- 	/*
- 	 * FIXME: this should come from the CCID infrastructure, where, say,
-@@ -151,13 +167,13 @@ unsigned int dccp_sync_mss(struct sock *sk, u32 pmtu)
- 	 * make it a multiple of 4
- 	 */
+diff --git a/net/dccp/ccids/ccid2.c b/net/dccp/ccids/ccid2.c
+index 48eeb44..b5b52eb 100644
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -770,7 +770,7 @@ static void ccid2_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
  
--	mss_now -= ((5 + 6 + 10 + 6 + 6 + 6 + 3) / 4) * 4;
-+	cur_mps -= ((5 + 6 + 10 + 6 + 6 + 6 + 3) / 4) * 4;
+ static struct ccid_operations ccid2 = {
+ 	.ccid_id		= DCCPC_CCID2,
+-	.ccid_name		= "ccid2",
++	.ccid_name		= "TCP-like",
+ 	.ccid_owner		= THIS_MODULE,
+ 	.ccid_hc_tx_obj_size	= sizeof(struct ccid2_hc_tx_sock),
+ 	.ccid_hc_tx_init	= ccid2_hc_tx_init,
+diff --git a/net/dccp/ccids/ccid3.c b/net/dccp/ccids/ccid3.c
+index a818a1e..876c747 100644
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -943,7 +943,7 @@ static int ccid3_hc_rx_getsockopt(struct sock *sk, const int optname, int len,
  
- 	/* And store cached results */
- 	icsk->icsk_pmtu_cookie = pmtu;
--	dp->dccps_mss_cache = mss_now;
-+	dp->dccps_mss_cache = cur_mps;
- 
--	return mss_now;
-+	return cur_mps;
- }
- 
- EXPORT_SYMBOL_GPL(dccp_sync_mss);
+ static struct ccid_operations ccid3 = {
+ 	.ccid_id		   = DCCPC_CCID3,
+-	.ccid_name		   = "ccid3",
++	.ccid_name		   = "TCP-Friendly Rate Control",
+ 	.ccid_owner		   = THIS_MODULE,
+ 	.ccid_hc_tx_obj_size	   = sizeof(struct ccid3_hc_tx_sock),
+ 	.ccid_hc_tx_init	   = ccid3_hc_tx_init,
 -- 
 1.5.3.4
 
