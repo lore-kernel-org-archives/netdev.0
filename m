@@ -1,45 +1,48 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 06/10] Net: ibm_newemac, remove SPIN_LOCK_UNLOCKED
-Date: Fri, 14 Dec 2007 16:14:12 -0500
-Message-ID: <4762F224.8050203@garzik.org>
-References: <200712140002.lBE02vqD025526@imap1.linux-foundation.org>
+Subject: Re: [patch 08/10] net: smc911x: shut up compiler warnings
+Date: Fri, 14 Dec 2007 16:14:23 -0500
+Message-ID: <4762F22F.4020500@garzik.org>
+References: <200712140002.lBE02xMv025532@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jirislaby@gmail.com, jgarzik@pobox.com
+Cc: netdev@vger.kernel.org, lethal@linux-sh.org
 To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55918 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:55928 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755716AbXLNVOP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Dec 2007 16:14:15 -0500
-In-Reply-To: <200712140002.lBE02vqD025526@imap1.linux-foundation.org>
+	id S1756063AbXLNVOZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Dec 2007 16:14:25 -0500
+In-Reply-To: <200712140002.lBE02xMv025532@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 akpm@linux-foundation.org wrote:
-> From: Jiri Slaby <jirislaby@gmail.com>
+> From: Paul Mundt <lethal@linux-sh.org>
 > 
-> SPIN_LOCK_UNLOCKED is deprecated, use DEFINE_SPINLOCK instead
+> Trivial fix to shut up gcc.
 > 
-> Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
-> Cc: Jeff Garzik <jgarzik@pobox.com>
+> Signed-off-by: Paul Mundt <lethal@linux-sh.org>
+> Cc: Jeff Garzik <jeff@garzik.org>
 > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 > ---
 > 
->  drivers/net/ibm_newemac/debug.c |    2 +-
+>  drivers/net/smc911x.h |    2 +-
 >  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> diff -puN drivers/net/ibm_newemac/debug.c~net-ibm_newemac-remove-spin_lock_unlocked drivers/net/ibm_newemac/debug.c
-> --- a/drivers/net/ibm_newemac/debug.c~net-ibm_newemac-remove-spin_lock_unlocked
-> +++ a/drivers/net/ibm_newemac/debug.c
-> @@ -21,7 +21,7 @@
+> diff -puN drivers/net/smc911x.h~net-smc911x-shut-up-compiler-warnings drivers/net/smc911x.h
+> --- a/drivers/net/smc911x.h~net-smc911x-shut-up-compiler-warnings
+> +++ a/drivers/net/smc911x.h
+> @@ -76,7 +76,7 @@
 >  
->  #include "core.h"
 >  
-> -static spinlock_t emac_dbg_lock = SPIN_LOCK_UNLOCKED;
-> +static DEFINE_SPINLOCK(emac_dbg_lock);
 >  
+> -#if	 SMC_USE_PXA_DMA
+> +#ifdef SMC_USE_PXA_DMA
+>  #define SMC_USE_DMA
+>  
+>  /*
+> _
 
 applied #upstream-fixes
 
