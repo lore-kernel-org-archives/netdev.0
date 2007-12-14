@@ -1,50 +1,62 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 04/11] drivers/net/mac89x0.c: Use print_mac
-Date: Fri, 14 Dec 2007 14:34:05 -0800
-Message-ID: <1197671652-32492-4-git-send-email-joe@perches.com>
+Subject: [PATCH 03/11] drivers/net/mac8390.c: Use print_mac
+Date: Fri, 14 Dec 2007 14:34:04 -0800
+Message-ID: <a737529b0fd2d0a3ea1dcdf684e5b869a347726c.1197671367.git.joe__16545.4741487794$1197671776$gmane$org@perches.com>
 References: <1197671652-32492-1-git-send-email-joe@perches.com>
  <1197671652-32492-2-git-send-email-joe@perches.com>
- <1197671652-32492-3-git-send-email-joe@perches.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Paul Gortmaker <p_gortmaker@yahoo.com>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:4984 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755724AbXLNWeR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Dec 2007 17:34:17 -0500
-In-Reply-To: <1197671652-32492-3-git-send-email-joe@perches.com>
-Message-Id: <956426131a609b9dcdce1711c5727c16d68fdf28.1197671367.git.joe@perches.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934420AbXLNWfn@vger.kernel.org>
+In-Reply-To: <1197671652-32492-2-git-send-email-joe@perches.com>
+Message-Id: <a737529b0fd2d0a3ea1dcdf684e5b869a347726c.1197671367.git.joe@perches.com>
 In-Reply-To: <9fc484fc034428ab68ecb2711c8456df9e98d56d.1197671367.git.joe@perches.com>
 References: <9fc484fc034428ab68ecb2711c8456df9e98d56d.1197671367.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/mac89x0.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/mac8390.c |   18 ++++++------------
+ 1 files changed, 6 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/mac89x0.c b/drivers/net/mac89x0.c
-index a19b595..45b56ca 100644
---- a/drivers/net/mac89x0.c
-+++ b/drivers/net/mac89x0.c
-@@ -584,11 +584,12 @@ static void set_multicast_list(struct net_device *dev)
- 
- static int set_mac_address(struct net_device *dev, void *addr)
+diff --git a/drivers/net/mac8390.c b/drivers/net/mac8390.c
+index 9e70074..4eccebb 100644
+--- a/drivers/net/mac8390.c
++++ b/drivers/net/mac8390.c
+@@ -483,6 +483,7 @@ void cleanup_module(void)
+ static int __init mac8390_initdev(struct net_device * dev, struct nubus_dev * ndev,
+ 			    enum mac8390_type type)
  {
 +	DECLARE_MAC_BUF(mac);
- 	int i;
--	printk("%s: Setting MAC address to ", dev->name);
- 	for (i = 0; i < 6; i++)
--		printk(" %2.2x", dev->dev_addr[i] = ((unsigned char *)addr)[i]);
--	printk(".\n");
-+		dev->dev_addr[i] = ((unsigned char *)addr)[i];
-+	printk(KERN_INFO "%s: Setting MAC address to %s\n",
-+	       dev->name, print_mac(mac, dev->dev_addr));
- 	/* set the Ethernet address */
- 	for (i=0; i < ETH_ALEN/2; i++)
- 		writereg(dev, PP_IA+i*2, dev->dev_addr[i*2] | (dev->dev_addr[i*2+1] << 8));
+ 	static u32 fwrd4_offsets[16]={
+ 		0,      4,      8,      12,
+ 		16,     20,     24,     28,
+@@ -612,18 +613,11 @@ static int __init mac8390_initdev(struct net_device * dev, struct nubus_dev * nd
+ 	/* Good, done, now spit out some messages */
+ 	printk(KERN_INFO "%s: %s in slot %X (type %s)\n",
+ 		   dev->name, ndev->board->name, ndev->board->slot, cardname[type]);
+-	printk(KERN_INFO "MAC ");
+-	{
+-		int i;
+-		for (i = 0; i < 6; i++) {
+-			printk("%2.2x", dev->dev_addr[i]);
+-			if (i < 5)
+-				printk(":");
+-		}
+-	}
+-	printk(" IRQ %d, %d KB shared memory at %#lx,  %d-bit access.\n",
+-		   dev->irq, (int)((dev->mem_end - dev->mem_start)/0x1000) * 4,
+-		   dev->mem_start, access_bitmode?32:16);
++	printk(KERN_INFO "MAC %s IRQ %d, %d KB shared memory at %#lx, "
++	       "%d-bit access.\n",
++	       print_mac(mac, dev->dev_addr), dev->irq,
++	       (int)((dev->mem_end - dev->mem_start)/0x1000) * 4,
++	       dev->mem_start, access_bitmode?32:16);
+ 	return 0;
+ }
+ 
 -- 
 1.5.3.7.949.g2221a6
 
