@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 24/29] mm: methods for teaching filesystems about PG_swapcache pages
-Date: Fri, 14 Dec 2007 16:39:31 +0100
-Message-ID: <20071214154442.394650000@chello.nl>
+Subject: [PATCH 25/29] nfs: remove mempools
+Date: Fri, 14 Dec 2007 16:39:32 +0100
+Message-ID: <20071214154442.543921000@chello.nl>
 References: <20071214153907.770251000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
@@ -9,100 +9,168 @@ To: Linus Torvalds <torvalds@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:38879 "EHLO
+Received: from pentafluge.infradead.org ([213.146.154.40]:38887 "EHLO
 	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753826AbXLNTXg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 14:23:36 -0500
-Content-Disposition: inline; filename=mm-page_file_methods.patch
+	with ESMTP id S1755227AbXLNTXi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 14:23:38 -0500
+Content-Disposition: inline; filename=nfs-no-mempool.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In order to teach filesystems to handle swap cache pages, two new page
-functions are introduced:
-
-  pgoff_t page_file_index(struct page *);
-  struct address_space *page_file_mapping(struct page *);
-
-page_file_index - gives the offset of this page in the file in PAGE_CACHE_SIZE
-blocks. Like page->index is for mapped pages, this function also gives the
-correct index for PG_swapcache pages.
-
-page_file_mapping - gives the mapping backing the actual page; that is for
-swap cache pages it will give swap_file->f_mapping.
-
-page_offset() is modified to use page_file_index(), so that it will give the
-expected result, even for PG_swapcache pages.
+With the introduction of the shared dirty page accounting in .19, NFS should
+not be able to surpise the VM with all dirty pages. Thus it should always be
+able to free some memory. Hence no more need for mempools.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/linux/mm.h      |   26 ++++++++++++++++++++++++++
- include/linux/pagemap.h |    2 +-
- 2 files changed, 27 insertions(+), 1 deletion(-)
+ fs/nfs/read.c  |   15 +++------------
+ fs/nfs/write.c |   27 +++++----------------------
+ 2 files changed, 8 insertions(+), 34 deletions(-)
 
-Index: linux-2.6/include/linux/mm.h
+Index: linux-2.6/fs/nfs/read.c
 ===================================================================
---- linux-2.6.orig/include/linux/mm.h
-+++ linux-2.6/include/linux/mm.h
-@@ -14,6 +14,7 @@
- #include <linux/mm_types.h>
- #include <linux/security.h>
- #include <linux/swap.h>
-+#include <linux/fs.h>
+--- linux-2.6.orig/fs/nfs/read.c
++++ linux-2.6/fs/nfs/read.c
+@@ -33,13 +33,10 @@ static const struct rpc_call_ops nfs_rea
+ static const struct rpc_call_ops nfs_read_full_ops;
  
- struct mempolicy;
- struct anon_vma;
-@@ -608,6 +609,16 @@ static inline struct swap_info_struct *p
- 	return get_swap_info_struct(swp_type(swap));
- }
+ static struct kmem_cache *nfs_rdata_cachep;
+-static mempool_t *nfs_rdata_mempool;
+-
+-#define MIN_POOL_READ	(32)
  
-+static inline
-+struct address_space *page_file_mapping(struct page *page)
-+{
-+#ifdef CONFIG_SWAP_FILE
-+	if (unlikely(PageSwapCache(page)))
-+		return page_swap_info(page)->swap_file->f_mapping;
-+#endif
-+	return page->mapping;
-+}
-+
- static inline int PageAnon(struct page *page)
+ struct nfs_read_data *nfs_readdata_alloc(unsigned int pagecount)
  {
- 	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
-@@ -625,6 +636,21 @@ static inline pgoff_t page_index(struct 
+-	struct nfs_read_data *p = mempool_alloc(nfs_rdata_mempool, GFP_NOFS);
++	struct nfs_read_data *p = kmem_cache_alloc(nfs_rdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -50,7 +47,7 @@ struct nfs_read_data *nfs_readdata_alloc
+ 		else {
+ 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
+ 			if (!p->pagevec) {
+-				mempool_free(p, nfs_rdata_mempool);
++				kmem_cache_free(nfs_rdata_cachep, p);
+ 				p = NULL;
+ 			}
+ 		}
+@@ -63,7 +60,7 @@ static void nfs_readdata_rcu_free(struct
+ 	struct nfs_read_data *p = container_of(head, struct nfs_read_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_rdata_mempool);
++	kmem_cache_free(nfs_rdata_cachep, p);
  }
  
+ static void nfs_readdata_free(struct nfs_read_data *rdata)
+@@ -597,16 +594,10 @@ int __init nfs_init_readpagecache(void)
+ 	if (nfs_rdata_cachep == NULL)
+ 		return -ENOMEM;
+ 
+-	nfs_rdata_mempool = mempool_create_slab_pool(MIN_POOL_READ,
+-						     nfs_rdata_cachep);
+-	if (nfs_rdata_mempool == NULL)
+-		return -ENOMEM;
+-
+ 	return 0;
+ }
+ 
+ void nfs_destroy_readpagecache(void)
+ {
+-	mempool_destroy(nfs_rdata_mempool);
+ 	kmem_cache_destroy(nfs_rdata_cachep);
+ }
+Index: linux-2.6/fs/nfs/write.c
+===================================================================
+--- linux-2.6.orig/fs/nfs/write.c
++++ linux-2.6/fs/nfs/write.c
+@@ -28,9 +28,6 @@
+ 
+ #define NFSDBG_FACILITY		NFSDBG_PAGECACHE
+ 
+-#define MIN_POOL_WRITE		(32)
+-#define MIN_POOL_COMMIT		(4)
+-
  /*
-+ * Return the file index of the page. Regular pagecache pages use ->index
-+ * whereas swapcache pages use swp_offset(->private)
-+ */
-+static inline pgoff_t page_file_index(struct page *page)
-+{
-+#ifdef CONFIG_SWAP_FILE
-+	if (unlikely(PageSwapCache(page))) {
-+		swp_entry_t swap = { .val = page_private(page) };
-+		return swp_offset(swap);
-+	}
-+#endif
-+	return page->index;
-+}
-+
-+/*
-  * The atomic page->_mapcount, like _count, starts from -1:
-  * so that transitions both from it and to it can be tracked,
-  * using atomic_inc_and_test and atomic_add_negative(-1).
-Index: linux-2.6/include/linux/pagemap.h
-===================================================================
---- linux-2.6.orig/include/linux/pagemap.h
-+++ linux-2.6/include/linux/pagemap.h
-@@ -145,7 +145,7 @@ extern void __remove_from_page_cache(str
+  * Local function declarations
   */
- static inline loff_t page_offset(struct page *page)
+@@ -44,12 +41,10 @@ static const struct rpc_call_ops nfs_wri
+ static const struct rpc_call_ops nfs_commit_ops;
+ 
+ static struct kmem_cache *nfs_wdata_cachep;
+-static mempool_t *nfs_wdata_mempool;
+-static mempool_t *nfs_commit_mempool;
+ 
+ struct nfs_write_data *nfs_commit_alloc(void)
  {
--	return ((loff_t)page->index) << PAGE_CACHE_SHIFT;
-+	return ((loff_t)page_file_index(page)) << PAGE_CACHE_SHIFT;
+-	struct nfs_write_data *p = mempool_alloc(nfs_commit_mempool, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -63,7 +58,7 @@ static void nfs_commit_rcu_free(struct r
+ 	struct nfs_write_data *p = container_of(head, struct nfs_write_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_commit_mempool);
++	kmem_cache_free(nfs_wdata_cachep, p);
  }
  
- static inline pgoff_t linear_page_index(struct vm_area_struct *vma,
+ void nfs_commit_free(struct nfs_write_data *wdata)
+@@ -73,7 +68,7 @@ void nfs_commit_free(struct nfs_write_da
+ 
+ struct nfs_write_data *nfs_writedata_alloc(unsigned int pagecount)
+ {
+-	struct nfs_write_data *p = mempool_alloc(nfs_wdata_mempool, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -84,7 +79,7 @@ struct nfs_write_data *nfs_writedata_all
+ 		else {
+ 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
+ 			if (!p->pagevec) {
+-				mempool_free(p, nfs_wdata_mempool);
++				kmem_cache_free(nfs_wdata_cachep, p);
+ 				p = NULL;
+ 			}
+ 		}
+@@ -97,7 +92,7 @@ static void nfs_writedata_rcu_free(struc
+ 	struct nfs_write_data *p = container_of(head, struct nfs_write_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_wdata_mempool);
++	kmem_cache_free(nfs_wdata_cachep, p);
+ }
+ 
+ static void nfs_writedata_free(struct nfs_write_data *wdata)
+@@ -1474,16 +1469,6 @@ int __init nfs_init_writepagecache(void)
+ 	if (nfs_wdata_cachep == NULL)
+ 		return -ENOMEM;
+ 
+-	nfs_wdata_mempool = mempool_create_slab_pool(MIN_POOL_WRITE,
+-						     nfs_wdata_cachep);
+-	if (nfs_wdata_mempool == NULL)
+-		return -ENOMEM;
+-
+-	nfs_commit_mempool = mempool_create_slab_pool(MIN_POOL_COMMIT,
+-						      nfs_wdata_cachep);
+-	if (nfs_commit_mempool == NULL)
+-		return -ENOMEM;
+-
+ 	/*
+ 	 * NFS congestion size, scale with available memory.
+ 	 *
+@@ -1509,8 +1494,6 @@ int __init nfs_init_writepagecache(void)
+ 
+ void nfs_destroy_writepagecache(void)
+ {
+-	mempool_destroy(nfs_commit_mempool);
+-	mempool_destroy(nfs_wdata_mempool);
+ 	kmem_cache_destroy(nfs_wdata_cachep);
+ }
+ 
 
 --
 
