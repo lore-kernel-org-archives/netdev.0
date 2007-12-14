@@ -1,47 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 2/4] net: use mutex_is_locked() for ASSERT_RTNL()
-Date: Fri, 14 Dec 2007 11:15:14 -0800 (PST)
-Message-ID: <20071214.111514.03773174.davem@davemloft.net>
-References: <E1J35d6-00041l-00@gondolin.me.apana.org.au>
-	<20071214002209.ac748206.akpm@linux-foundation.org>
-	<20071214083037.GA15602@gondor.apana.org.au>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH net-2.6.25 6/8] sctp: Use ipv4_is_<type>
+Date: Fri, 14 Dec 2007 14:17:35 -0500
+Message-ID: <4762D6CF.50109@hp.com>
+References: <1197589141-7020-5-git-send-email-joe@perches.com>	<1197589141-7020-6-git-send-email-joe@perches.com>	<4762D570.7060207@hp.com> <20071214.111436.32787690.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: joe@perches.com, netdev@vger.kernel.org, sri@us.ibm.com,
+	lksctp-developers@lists.sourceforge.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46647
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753405AbXLNTPT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 14:15:19 -0500
-In-Reply-To: <20071214083037.GA15602@gondor.apana.org.au>
+Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:42944 "EHLO
+	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752813AbXLNTRh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 14:17:37 -0500
+In-Reply-To: <20071214.111436.32787690.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 14 Dec 2007 16:30:37 +0800
-
-> On Fri, Dec 14, 2007 at 12:22:09AM -0800, Andrew Morton wrote:
-> >
-> > I don't see how it could warn about that.  Nor should it - one might want
-> > to check that rtnl_lock is held inside preempt_disable() or spin_lock or
-> > whatever.
-> > 
-> > It might make sense to warn if ASSERT_RTNL is called in in_interrupt()
-> > contexts though.
+David Miller wrote:
+> From: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Date: Fri, 14 Dec 2007 14:11:44 -0500
 > 
-> Well the paths where ASSERT_RTNL is used should never be in an
-> atomic context.  In the past it has been quite useful in pointing
-> out bogus locking practices.
+>> Joe Perches wrote:
+>>> Signed-off-by: Joe Perches <joe@perches.com>
+>> Thanks Joe.  I've put this into my tree.
 > 
-> There is currently one path where it's known to warn because of
-> this and it (promiscuous mode) is on my todo list.
+> You can't, because your tree won't build without his first patch and I
+> have to approve that and stick it into my tree first.
 > 
-> Oh and it only warns when you have mutex debugging enabled.
+> Just let me review and potentially pick up all of
+> Joe's stuff since we have this dependency.
+> 
 
-Right, this change is just totally bogus.
+Ok.  In that case, you can have my ACK for the SCTP stuff.
 
-I'm all for using existing facilities to replace hand-crafted copies,
-but this case is removing useful debugging functionality so it's
-wrong.
+-vlad
