@@ -1,85 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.24-rc5-mm1
-Date: Fri, 14 Dec 2007 10:08:07 +0800
-Message-ID: <20071214020807.GA12426@gondor.apana.org.au>
-References: <20071213024050.7d6e5f3e.akpm@linux-foundation.org> <47613F18.6080601@bull.net> <4761494E.1050704@bull.net> <20071213.094554.136920553.davem@davemloft.net>
+From: "Joonwoo Park" <joonwpark81@gmail.com>
+Subject: Re: [PATCH 1/7] : e1000 Fix possible causing oops of net_rx_action
+Date: Fri, 14 Dec 2007 11:41:26 +0900
+Message-ID: <b25c3fa70712131841k6c06949evd247c9a2eabd9360@mail.gmail.com>
+References: <000701c83d71$95536b10$9c94fea9@jason>
+	 <20071213.053354.82143565.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: benjamin.thery@bull.net, pierre.peiffer@bull.net,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jesse.brandeburg@intel.com,
+	jgarzik@pobox.com, shemminger@linux-foundation.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3048 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1760427AbXLNCIm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 21:08:42 -0500
+Received: from rv-out-0910.google.com ([209.85.198.190]:57300 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753306AbXLNCl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 21:41:27 -0500
+Received: by rv-out-0910.google.com with SMTP id k20so770707rvb.1
+        for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 18:41:26 -0800 (PST)
+In-Reply-To: <20071213.053354.82143565.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20071213.094554.136920553.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 13, 2007 at 09:45:54AM -0800, David Miller wrote:
-> From: Benjamin Thery <benjamin.thery@bull.net>
-> Date: Thu, 13 Dec 2007 16:01:34 +0100
-> 
-> > The problem comes from the new macro UDPX_INC_STATS_BH introduced
-> > by Herbert, which was a nice addition to increment the correct 
-> > UDP MIB depending on the socket family, but unfortunately 
-> > the use of this macro from kernel code (I mean code not compiled 
-> > as module) requires that IPv6 is also compiled in kernel 
-> > (CONFIG_IPv6=y) in order to have udp_stats_in6 defined at link 
-> > time.
-> 
-> Herbert, please take a look at this, thanks!
+2007/12/13, David Miller <davem@davemloft.net>:
+> From: "Joonwoo Park" <joonwpark81@gmail.com>
+> Date: Thu, 13 Dec 2007 19:18:56 +0900
+>
+> > Just blowing netif_running up is not best solution I think, it makes
+> > ifconfig down hang at least for e1000.
+>
+> It hangs because the packet receive rate is so high that NAPI
+> poll never exits.
 
-OK, let's just move udp_stats_in6 into net/ipv4/udp.c.  It's only
-40 bytes or less.
+Certainly I'm aware it
 
-[UDP]: Move udp_stats_in6 into net/ipv4/udp.c
+>
+> I think we need a cheap solution to something so obscure and
+> almost not worth explicitly even coding for.  Really, if you
+> setup silly situations like that, you get what you asked for.
+>
 
-Now that external users may increment the counters directly, we need to
-ensure that udp_stats_in6 is always available.  Otherwise we'd either
-have to requrie the external users to be built as modules or ipv6 to be
-built-in.
+I can agree that we need good solution for that.
+BUT I don't think I didn't setup *silly* situation. my customers who
+are reporting this problem, running firewall on linux which is
+forwarding packets with high rate.
+I don't want to say 'don't ifconfig down, don't reboot, don't
+shutdown' it would introduce problem on your such *sily* sitution'.
+In addition, my laptop is just connected to another *linux* machine
+which is generating 300mbps 64byte udp packets infinitely.
 
-This isn't too bad because udp_stats_in6 is just a pair of pointers plus
-an EXPORT, e.g., just 40 (16 + 24) bytes on x86-64.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 9ed6393..3d60215 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -112,6 +112,9 @@
- DEFINE_SNMP_STAT(struct udp_mib, udp_statistics) __read_mostly;
- EXPORT_SYMBOL(udp_statistics);
- 
-+DEFINE_SNMP_STAT(struct udp_mib, udp_stats_in6) __read_mostly;
-+EXPORT_SYMBOL(udp_stats_in6);
-+
- struct hlist_head udp_hash[UDP_HTABLE_SIZE];
- DEFINE_RWLOCK(udp_hash_lock);
- 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 8cbdcc9..7db5a9d 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -51,9 +51,6 @@
- #include <linux/seq_file.h>
- #include "udp_impl.h"
- 
--DEFINE_SNMP_STAT(struct udp_mib, udp_stats_in6) __read_mostly;
--EXPORT_SYMBOL(udp_stats_in6);
--
- static inline int udp_v6_get_port(struct sock *sk, unsigned short snum)
- {
- 	return udp_get_port(sk, snum, ipv6_rcv_saddr_equal);
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Joonwoo
