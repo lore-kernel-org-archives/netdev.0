@@ -1,188 +1,134 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 01/29] mm: gfp_to_alloc_flags()
-Date: Fri, 14 Dec 2007 16:39:08 +0100
-Message-ID: <20071214154438.791170000@chello.nl>
-References: <20071214153907.770251000@chello.nl>
+Subject: [PATCH 00/29] Swap over NFS -v15
+Date: Fri, 14 Dec 2007 16:39:07 +0100
+Message-ID: <20071214153907.770251000@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:38856 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753911AbXLNTXc (ORCPT
+Received: from bombadil.infradead.org ([18.85.46.34]:58043 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753826AbXLNTXc (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 14:23:32 -0500
-Content-Disposition: inline; filename=mm-gfp-to-alloc_flags.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Factor out the gfp to alloc_flags mapping so it can be used in other places.
+Hi,
 
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
----
- mm/internal.h   |   11 ++++++
- mm/page_alloc.c |   98 ++++++++++++++++++++++++++++++++------------------------
- 2 files changed, 67 insertions(+), 42 deletions(-)
+Another posting of the full swap over NFS series. 
 
-Index: linux-2.6/mm/internal.h
-===================================================================
---- linux-2.6.orig/mm/internal.h
-+++ linux-2.6/mm/internal.h
-@@ -47,4 +47,15 @@ static inline unsigned long page_order(s
- 	VM_BUG_ON(!PageBuddy(page));
- 	return page_private(page);
- }
-+
-+#define ALLOC_HARDER		0x01 /* try to alloc harder */
-+#define ALLOC_HIGH		0x02 /* __GFP_HIGH set */
-+#define ALLOC_WMARK_MIN		0x04 /* use pages_min watermark */
-+#define ALLOC_WMARK_LOW		0x08 /* use pages_low watermark */
-+#define ALLOC_WMARK_HIGH	0x10 /* use pages_high watermark */
-+#define ALLOC_NO_WATERMARKS	0x20 /* don't check watermarks at all */
-+#define ALLOC_CPUSET		0x40 /* check for correct cpuset */
-+
-+int gfp_to_alloc_flags(gfp_t gfp_mask);
-+
- #endif
-Index: linux-2.6/mm/page_alloc.c
-===================================================================
---- linux-2.6.orig/mm/page_alloc.c
-+++ linux-2.6/mm/page_alloc.c
-@@ -1139,14 +1139,6 @@ failed:
- 	return NULL;
- }
- 
--#define ALLOC_NO_WATERMARKS	0x01 /* don't check watermarks at all */
--#define ALLOC_WMARK_MIN		0x02 /* use pages_min watermark */
--#define ALLOC_WMARK_LOW		0x04 /* use pages_low watermark */
--#define ALLOC_WMARK_HIGH	0x08 /* use pages_high watermark */
--#define ALLOC_HARDER		0x10 /* try to alloc harder */
--#define ALLOC_HIGH		0x20 /* __GFP_HIGH set */
--#define ALLOC_CPUSET		0x40 /* check for correct cpuset */
--
- #ifdef CONFIG_FAIL_PAGE_ALLOC
- 
- static struct fail_page_alloc_attr {
-@@ -1535,6 +1527,44 @@ static void set_page_owner(struct page *
- #endif /* CONFIG_PAGE_OWNER */
- 
- /*
-+ * get the deepest reaching allocation flags for the given gfp_mask
-+ */
-+int gfp_to_alloc_flags(gfp_t gfp_mask)
-+{
-+	struct task_struct *p = current;
-+	int alloc_flags = ALLOC_WMARK_MIN | ALLOC_CPUSET;
-+	const gfp_t wait = gfp_mask & __GFP_WAIT;
-+
-+	/*
-+	 * The caller may dip into page reserves a bit more if the caller
-+	 * cannot run direct reclaim, or if the caller has realtime scheduling
-+	 * policy or is asking for __GFP_HIGH memory.  GFP_ATOMIC requests will
-+	 * set both ALLOC_HARDER (!wait) and ALLOC_HIGH (__GFP_HIGH).
-+	 */
-+	if (gfp_mask & __GFP_HIGH)
-+		alloc_flags |= ALLOC_HIGH;
-+
-+	if (!wait) {
-+		alloc_flags |= ALLOC_HARDER;
-+		/*
-+		 * Ignore cpuset if GFP_ATOMIC (!wait) rather than fail alloc.
-+		 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
-+		 */
-+		alloc_flags &= ~ALLOC_CPUSET;
-+	} else if (unlikely(rt_task(p)) && !in_interrupt())
-+		alloc_flags |= ALLOC_HARDER;
-+
-+	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
-+		if (!in_interrupt() &&
-+		    ((p->flags & PF_MEMALLOC) ||
-+		     unlikely(test_thread_flag(TIF_MEMDIE))))
-+			alloc_flags |= ALLOC_NO_WATERMARKS;
-+	}
-+
-+	return alloc_flags;
-+}
-+
-+/*
-  * This is the 'heart' of the zoned buddy allocator.
-  */
- struct page * fastcall
-@@ -1589,48 +1619,28 @@ restart:
- 	 * OK, we're below the kswapd watermark and have kicked background
- 	 * reclaim. Now things get more complex, so set up alloc_flags according
- 	 * to how we want to proceed.
--	 *
--	 * The caller may dip into page reserves a bit more if the caller
--	 * cannot run direct reclaim, or if the caller has realtime scheduling
--	 * policy or is asking for __GFP_HIGH memory.  GFP_ATOMIC requests will
--	 * set both ALLOC_HARDER (!wait) and ALLOC_HIGH (__GFP_HIGH).
- 	 */
--	alloc_flags = ALLOC_WMARK_MIN;
--	if ((unlikely(rt_task(p)) && !in_interrupt()) || !wait)
--		alloc_flags |= ALLOC_HARDER;
--	if (gfp_mask & __GFP_HIGH)
--		alloc_flags |= ALLOC_HIGH;
--	if (wait)
--		alloc_flags |= ALLOC_CPUSET;
-+	alloc_flags = gfp_to_alloc_flags(gfp_mask);
- 
--	/*
--	 * Go through the zonelist again. Let __GFP_HIGH and allocations
--	 * coming from realtime tasks go deeper into reserves.
--	 *
--	 * This is the last chance, in general, before the goto nopage.
--	 * Ignore cpuset if GFP_ATOMIC (!wait) rather than fail alloc.
--	 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
--	 */
--	page = get_page_from_freelist(gfp_mask, order, zonelist, alloc_flags);
-+	/* This is the last chance, in general, before the goto nopage. */
-+	page = get_page_from_freelist(gfp_mask, order, zonelist,
-+			alloc_flags & ~ALLOC_NO_WATERMARKS);
- 	if (page)
- 		goto got_pg;
- 
- 	/* This allocation should allow future memory freeing. */
--
- rebalance:
--	if (((p->flags & PF_MEMALLOC) || unlikely(test_thread_flag(TIF_MEMDIE)))
--			&& !in_interrupt()) {
--		if (!(gfp_mask & __GFP_NOMEMALLOC)) {
-+	if (alloc_flags & ALLOC_NO_WATERMARKS) {
- nofail_alloc:
--			/* go through the zonelist yet again, ignoring mins */
--			page = get_page_from_freelist(gfp_mask, order,
--				zonelist, ALLOC_NO_WATERMARKS);
--			if (page)
--				goto got_pg;
--			if (gfp_mask & __GFP_NOFAIL) {
--				congestion_wait(WRITE, HZ/50);
--				goto nofail_alloc;
--			}
-+		/* go through the zonelist yet again, ignoring mins */
-+		page = get_page_from_freelist(gfp_mask, order, zonelist,
-+				ALLOC_NO_WATERMARKS);
-+		if (page)
-+			goto got_pg;
-+
-+		if (wait && (gfp_mask & __GFP_NOFAIL)) {
-+			congestion_wait(WRITE, HZ/50);
-+			goto nofail_alloc;
- 		}
- 		goto nopage;
- 	}
-@@ -1639,6 +1649,10 @@ nofail_alloc:
- 	if (!wait)
- 		goto nopage;
- 
-+	/* Avoid recursion of direct reclaim */
-+	if (p->flags & PF_MEMALLOC)
-+		goto nopage;
-+
- 	cond_resched();
- 
- 	/* We now go into synchronous reclaim */
+Andrew/Linus, could we start thinking of sticking this in -mm?
 
---
+[ patches against 2.6.24-rc5-mm1, also to be found online at:
+  http://programming.kicks-ass.net/kernel-patches/vm_deadlock/v2.6.24-rc5-mm1/ ]
+
+The patch-set can be split in roughtly 5 parts, for each of which I shall give
+a description.
+
+
+  Part 1, patches 1-11
+
+The problem with swap over network is the generic swap problem: needing memory
+to free memory. Normally this is solved using mempools, as can be seen in the
+BIO layer.
+
+Swap over network has the problem that the network subsystem does not use fixed
+sized allocations, but heavily relies on kmalloc(). This makes mempools
+unusable.
+
+This first part provides a generic reserve framework.
+
+Care is taken to only affect the slow paths - when we're low on memory.
+
+Caveats: it currently doesn't do SLOB.
+
+ 1 - mm: gfp_to_alloc_flags()
+ 2 - mm: tag reseve pages
+ 3 - mm: sl[au]b: add knowledge of reserve pages
+ 4 - mm: kmem_estimate_pages()
+ 5 - mm: allow PF_MEMALLOC from softirq context
+ 6 - mm: serialize access to min_free_kbytes
+ 7 - mm: emergency pool
+ 8 - mm: system wide ALLOC_NO_WATERMARK
+ 9 - mm: __GFP_MEMALLOC
+10 - mm: memory reserve management
+11 - selinux: tag avc cache alloc as non-critical
+
+
+  Part 2, patches 12-14
+
+Provide some generic network infrastructure needed later on.
+
+12 - net: wrap sk->sk_backlog_rcv()
+13 - net: packet split receive api
+14 - net: sk_allocation() - concentrate socket related allocations
+
+
+  Part 3, patches 15-21
+
+Now that we have a generic memory reserve system, use it on the network stack.
+The thing that makes this interesting is that, contrary to BIO, both the
+transmit and receive path require memory allocations. 
+
+That is, in the BIO layer write back completion is usually just an ISR flipping
+a bit and waking stuff up. A network write back completion involved receiving
+packets, which when there is no memory, is rather hard. And even when there is
+memory there is no guarantee that the required packet comes in in the window
+that that memory buys us.
+
+The solution to this problem is found in the fact that network is to be assumed
+lossy. Even now, when there is no memory to receive packets the network card
+will have to discard packets. What we do is move this into the network stack.
+
+So we reserve a little pool to act as a receive buffer, this allows us to
+inspect packets before tossing them. This way, we can filter out those packets
+that ensure progress (writeback completion) and disregard the others (as would
+have happened anyway). [ NOTE: this is a stable mode of operation with limited
+memory usage, exactly the kind of thing we need ]
+
+Again, care is taken to keep much of the overhead of this to only affect the
+slow path. Only packets allocated from the reserves will suffer the extra
+atomic overhead needed for accounting.
+
+15 - netvm: network reserve infrastructure
+16 - netvm: INET reserves.
+17 - netvm: hook skb allocation to reserves
+18 - netvm: filter emergency skbs.
+19 - netvm: prevent a TCP specific deadlock
+20 - netfilter: NF_QUEUE vs emergency skbs
+21 - netvm: skb processing
+
+
+  Part 4, patches 22-24
+
+Generic vm infrastructure to handle swapping to a filesystem instead of a block
+device.
+
+This provides new a_ops to handle swapcache pages and could be used to obsolete
+the bmap usage for swapfiles.
+
+22 - mm: prepare swap entry methods for use in page methods
+23 - mm: add support for non block device backed swap files
+24 - mm: methods for teaching filesystems about PG_swapcache pages
+
+
+  Part 5, patches 25-29
+
+Finally, convert NFS to make use of the new network and vm infrastructure to
+provide swap over NFS.
+
+25 - nfs: remove mempools
+26 - nfs: teach the NFS client how to treat PG_swapcache pages
+27 - nfs: disable data cache revalidation for swapfiles
+28 - nfs: enable swap on NFS
+29 - nfs: fix various memory recursions possible with swap over NFS.
+
+
+Changes since -v14:
+ - SLAB support
+ - a_ops rework
+ - various bug fixes and cleanups
+
 
