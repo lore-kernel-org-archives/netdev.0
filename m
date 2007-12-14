@@ -1,48 +1,61 @@
-From: Glen Turner <gdt@gdt.id.au>
-Subject: Re: Packet per Second
-Date: Sat, 15 Dec 2007 09:01:53 +1030
-Message-ID: <1197671513.5973.10.camel@andromache>
-References: <nemoFri121407105527@flis.man.torun.pl>
+From: Daniel Phillips <phillips@phunq.net>
+Subject: Re: [PATCH 03/29] mm: slb: add knowledge of reserve pages
+Date: Fri, 14 Dec 2007 14:51:09 -0800
+Message-ID: <200712141451.09500.phillips@phunq.net>
+References: <20071214153907.770251000@chello.nl> <20071214154439.242195000@chello.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bridge@osdl.org
-To: =?ISO-8859-1?Q?Fl=E1vio?= Pires <flavio.defreitas@gmail.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:38025 "EHLO
-	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751951AbXLNWtt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 17:49:49 -0500
-In-Reply-To: <nemoFri121407105527@flis.man.torun.pl>
+Received: from phunq.net ([64.81.85.152]:54788 "EHLO moonbase.phunq.net"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751563AbXLNWvQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Dec 2007 17:51:16 -0500
+In-Reply-To: <20071214154439.242195000@chello.nl>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Friday 14 December 2007 07:39, Peter Zijlstra wrote:
+> Restrict objects from reserve slabs (ALLOC_NO_WATERMARKS) to
+> allocation contexts that are entitled to it. This is done to ensure
+> reserve pages don't leak out and get consumed.
 
-On Fri, 2007-12-14 at 15:34 +0000, Fl=C3=A1vio Pires wrote:
+Tighter definitions of "leak out" and "get consumed" would be helpful 
+here.  As I see it, the chain of reasoning is:
 
-> Well, I work on an ISP and we have a linux box acting as a
-> bridge+firewall. With this bridge+firewall we control the packet rate
-> per second from each client and from our repeaters. But I can`t
-> measure the packet rate per IP. Is there any tool for this?
+  * Any MEMALLOC mode allocation must have come from a properly
+   throttled path and  has a finite lifetime that must eventually
+   produce writeout  progress.
 
-The usual approach is to generate NetFlow records -- there are
-a number of Linux tools for this. Collect them with a collector
-(flow-tools being a common choice). Then have a Perl script
-which reads the flow records, processes them whichever way you
-desire, and drops the result into a rrdtool file (there are modules
-for both reading the flow-tools data and outputing in the rrdtool
-format). The rrdtool utilities have a limited range of graphs,
-but there is a huge selection of graphing packages from other
-authors for rrdtool-stored data (Drraw, etc).  Flow-tools also
-has some third-party analysis tools, some of those have good
-"top talker" statistics.
+  * Since the transaction that made the allocation was throttled and
+    must have a finite lifetime, we  know that it must eventually return
+    the resources it consumed to the appropriate resource pool.
 
-This is a lot of work, since you are really putting a complete
-measurement infrastructure in place to get the one statistic
-you desire.  But I'd encourage you to do that, since knowing
-one statistic usually leads to further questions of the data.
+Now, I think what you mean by "get consumed" and "leak out" is: "become 
+pinned by false sharing with other allocations that do not guarantee 
+that they will be returned to the resource pool".  We can say "pinned" 
+for short.
 
---=20
-Glen Turner, Senior Network Engineer
-Australia's Academic & Research Network    www.aarnet.edu.au
+So you are attempting to prevent slab pages from becoming pinned by 
+users that do not obey the reserve management rules, which I think your 
+approach achieves.  However...
 
+Note that false sharing of slab pages is still possible between two 
+unrelated writeout processes, both of which obey rules for their own 
+writeout path, but the pinned combination does not.  This still leaves 
+a hole through which a deadlock may slip.
+
+My original solution was simply to allocate a full page when drawing 
+from the memaloc reserve, which may use a tad more reserve, but makes 
+it possible to prove the algorithm correct.
+
+Regards,
+
+Daniel
