@@ -1,48 +1,40 @@
 From: akpm@linux-foundation.org
-Subject: [patch 05/10] pcmcia net: use roundup_pow_of_two() macro instead of grotesque loop
-Date: Thu, 13 Dec 2007 16:02:55 -0800
-Message-ID: <200712140002.lBE02u8R025523@imap1.linux-foundation.org>
+Subject: [patch 06/10] Net: ibm_newemac, remove SPIN_LOCK_UNLOCKED
+Date: Thu, 13 Dec 2007 16:02:57 -0800
+Message-ID: <200712140002.lBE02vqD025526@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	rpjday@crashcourse.ca, linux@dominikbrodowski.net
+	jirislaby@gmail.com, jgarzik@pobox.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:47533 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:57320 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933921AbXLNAJb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 19:09:31 -0500
+	by vger.kernel.org with ESMTP id S1755947AbXLNAJh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2007 19:09:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Robert P. J. Day" <rpjday@crashcourse.ca>
+From: Jiri Slaby <jirislaby@gmail.com>
 
-Signed-off-by: Robert P. J. Day <rpjday@crashcourse.ca>
-Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Dominik Brodowski <linux@dominikbrodowski.net>
+SPIN_LOCK_UNLOCKED is deprecated, use DEFINE_SPINLOCK instead
+
+Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+Cc: Jeff Garzik <jgarzik@pobox.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/pcmcia/pcnet_cs.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ibm_newemac/debug.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN drivers/net/pcmcia/pcnet_cs.c~pcmcia-net-use-roundup_pow_of_two-macro-instead-of-grotesque-loop drivers/net/pcmcia/pcnet_cs.c
---- a/drivers/net/pcmcia/pcnet_cs.c~pcmcia-net-use-roundup_pow_of_two-macro-instead-of-grotesque-loop
-+++ a/drivers/net/pcmcia/pcnet_cs.c
-@@ -38,6 +38,7 @@
- #include <linux/delay.h>
- #include <linux/ethtool.h>
- #include <linux/netdevice.h>
-+#include <linux/log2.h>
- #include "../8390.h"
+diff -puN drivers/net/ibm_newemac/debug.c~net-ibm_newemac-remove-spin_lock_unlocked drivers/net/ibm_newemac/debug.c
+--- a/drivers/net/ibm_newemac/debug.c~net-ibm_newemac-remove-spin_lock_unlocked
++++ a/drivers/net/ibm_newemac/debug.c
+@@ -21,7 +21,7 @@
  
- #include <pcmcia/cs_types.h>
-@@ -1484,8 +1485,7 @@ static int setup_shmem_window(struct pcm
- 	window_size = 32 * 1024;
+ #include "core.h"
  
-     /* Make sure it's a power of two.  */
--    while ((window_size & (window_size - 1)) != 0)
--	window_size += window_size & ~(window_size - 1);
-+    window_size = roundup_pow_of_two(window_size);
+-static spinlock_t emac_dbg_lock = SPIN_LOCK_UNLOCKED;
++static DEFINE_SPINLOCK(emac_dbg_lock);
  
-     /* Allocate a memory window */
-     req.Attributes = WIN_DATA_WIDTH_16|WIN_MEMORY_TYPE_CM|WIN_ENABLE;
+ static void emac_desc_dump(struct emac_instance *p)
+ {
 _
