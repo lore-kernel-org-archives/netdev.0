@@ -1,38 +1,40 @@
-From: "Natalie Protasevich" <protasnb@gmail.com>
-Subject: [BUG] Kernel Bugzilla: networking bugs
-Date: Thu, 13 Dec 2007 21:19:40 -0800
-Message-ID: <32209efe0712132119v5020443fw13fed1b0b4bd415b@mail.gmail.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: What was the reason for 2.6.22 SMP kernels to change how sendmsg is called?
+Date: Fri, 14 Dec 2007 09:33:24 +0300
+Message-ID: <20071214063324.GC26171@2ka.mipt.ru>
+References: <20071213.131753.156591181.davem@davemloft.net> <B1F576FE19C55C43B8D2E31F061B50C04E60B2@exchange.comtrol.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Kevin Wilson <Kevin.Wilson@comtrol.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:17783 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751521AbXLNFTm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 00:19:42 -0500
-Received: by nf-out-0910.google.com with SMTP id g13so801381nfb.21
-        for <netdev@vger.kernel.org>; Thu, 13 Dec 2007 21:19:41 -0800 (PST)
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:46580 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750708AbXLNGdn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Dec 2007 01:33:43 -0500
 Content-Disposition: inline
+In-Reply-To: <B1F576FE19C55C43B8D2E31F061B50C04E60B2@exchange.comtrol.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-Here are few networking bugs from bugzilla.kernel.org. Could someone
-take a look please?
-Thanks!
+Hi Kevin.
 
-(net forcedeth) frequent network ups and downs
-http://bugzilla.kernel.org/show_bug.cgi?id=9200
-Kernel: 2.6.23
-00:07.0 Bridge: nVidia Corporation MCP61 Ethernet (rev a2)
+On Thu, Dec 13, 2007 at 04:00:02PM -0600, Kevin Wilson (Kevin.Wilson@comtrol.com) wrote:
+> I see your point but it just so happens it is a GPL'd driver, as is all of our Linux code we produce for our hardware. Granted it is out of tree, and after you saw it you would want it to stay that way. However, I would have sent you the whole thing if that is a pre-req to cordial exchanges on this list.
+> 
+> Nonetheless, a somewhat recent change in your tree, that I could not pinpoint on my own, caused the driver to stop functioning properly. So after much searching in git/google/sources with no luck, I decided to ask for a little assistance, maybe just a hint as to where the culprit may be in the tree so I could investigate for myself. For SNGs I tried the method that now works but I am still at a loss as to (can't find) what changes in the tree caused it to fail.
 
-rtl8187 very unreliable (wireless)
-http://bugzilla.kernel.org/show_bug.cgi?id=9143
-Kernel: 2.6.23
-John Linville started looking in it
+Without having your code it is virtually impossible to say, why you have
+a bug. And do not express your frustration telling 'zero people
+responded to my bug report'. This was not a bug report at all, but empty
+message about 'my code stopped working after some network changes, which
+broke the stuff.
 
-Unable to associate rt25xx USB key with a WPA AP (wireless)
-http://bugzilla.kernel.org/show_bug.cgi?id=9388
-Kernel: 2.6.24-rc2
-D-Link DWL-G122 Wifi 11b/g USB key
+>Now in 2.6.22 and later kernels you must use the higher level SOCKET to
+>make a call to PROTO_OPS then to sendmsg(). e.g., socket->ops->sendmsg().
+
+It was done because of bug found in inet_sendmsg(), which tried to
+autobind socket it should not try.
+
+-- 
+	Evgeniy Polyakov
