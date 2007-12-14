@@ -1,179 +1,45 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [Bugme-new] [Bug 9543] New: RTNL: assertion failed at net/ipv6/addrconf.c (2164)/RTNL: assertion failed at net/ipv4/devinet.c (1055)
-Date: Fri, 14 Dec 2007 13:26:38 -0500
-Message-ID: <20071214182638.GC25879@gospo.usersys.redhat.com>
-References: <E1J2Rgs-0006mz-00@gondolin.me.apana.org.au> <28503.1197481615@death> <Pine.LNX.4.64.0712141707090.30334@bizon.gios.gov.pl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NETFILTER] xt_hashlimit : speedups hash_dst()
+Date: Fri, 14 Dec 2007 10:30:31 -0800 (PST)
+Message-ID: <20071214.103031.39124025.davem@davemloft.net>
+References: <4762646B.30207@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	bugme-daemon@bugzilla.kernel.org, shemminger@linux-foundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org, andy@greyhouse.net
-To: Krzysztof Oledzki <olel@ans.pl>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:33489 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751283AbXLNS11 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Dec 2007 13:27:27 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0712141707090.30334@bizon.gios.gov.pl>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42527
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755534AbXLNSac (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 13:30:32 -0500
+In-Reply-To: <4762646B.30207@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 14, 2007 at 05:14:57PM +0100, Krzysztof Oledzki wrote:
-> 
-> 
-> On Wed, 12 Dec 2007, Jay Vosburgh wrote:
-> 
-> >Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> >
-> >>>diff -puN drivers/net/bonding/bond_sysfs.c~bonding-locking-fix 
-> >>>drivers/net/bonding/bond_sysfs.c
-> >>>--- a/drivers/net/bonding/bond_sysfs.c~bonding-locking-fix
-> >>>+++ a/drivers/net/bonding/bond_sysfs.c
-> >>>@@ -1111,8 +1111,6 @@ static ssize_t bonding_store_primary(str
-> >>>out:
-> >>>       write_unlock_bh(&bond->lock);
-> >>>
-> >>>-       rtnl_unlock();
-> >>>-
-> >>
-> >>Looking at the changeset that added this perhaps the intention
-> >>is to hold the lock? If so we should add an rtnl_lock to the start
-> >>of the function.
-> >
-> >	Yes, this function needs to hold locks, and more than just
-> >what's there now.  I believe the following should be correct; I haven't
-> >tested it, though (I'm supposedly on vacation right now).
-> >
-> >	The following change should be correct for the
-> >bonding_store_primary case discussed in this thread, and also corrects
-> >the bonding_store_active case which performs similar functions.
-> >
-> >	The bond_change_active_slave and bond_select_active_slave
-> >functions both require rtnl, bond->lock for read and curr_slave_lock for
-> >write_bh, and no other locks.  This is so that the lower level
-> >mode-specific functions can release locks down to just rtnl in order to
-> >call, e.g., dev_set_mac_address with the locks it expects (rtnl only).
-> >
-> >Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-> >
-> >diff --git a/drivers/net/bonding/bond_sysfs.c 
-> >b/drivers/net/bonding/bond_sysfs.c
-> >index 11b76b3..28a2d80 100644
-> >--- a/drivers/net/bonding/bond_sysfs.c
-> >+++ b/drivers/net/bonding/bond_sysfs.c
-> >@@ -1075,7 +1075,10 @@ static ssize_t bonding_store_primary(struct device 
-> >*d,
-> >	struct slave *slave;
-> >	struct bonding *bond = to_bond(d);
-> >
-> >-	write_lock_bh(&bond->lock);
-> >+	rtnl_lock();
-> >+	read_lock(&bond->lock);
-> >+	write_lock_bh(&bond->curr_slave_lock);
-> >+
-> >	if (!USES_PRIMARY(bond->params.mode)) {
-> >		printk(KERN_INFO DRV_NAME
-> >		       ": %s: Unable to set primary slave; %s is in mode 
-> >		       %d\n",
-> >@@ -1109,8 +1112,8 @@ static ssize_t bonding_store_primary(struct device 
-> >*d,
-> >		}
-> >	}
-> >out:
-> >-	write_unlock_bh(&bond->lock);
-> >-
-> >+	write_unlock_bh(&bond->curr_slave_lock);
-> >+	read_unlock(&bond->lock);
-> >	rtnl_unlock();
-> >
-> >	return count;
-> >@@ -1190,7 +1193,8 @@ static ssize_t bonding_store_active_slave(struct 
-> >device *d,
-> >	struct bonding *bond = to_bond(d);
-> >
-> >	rtnl_lock();
-> >-	write_lock_bh(&bond->lock);
-> >+	read_lock(&bond->lock);
-> >+	write_lock_bh(&bond->curr_slave_lock);
-> >
-> >	if (!USES_PRIMARY(bond->params.mode)) {
-> >		printk(KERN_INFO DRV_NAME
-> >@@ -1247,7 +1251,8 @@ static ssize_t bonding_store_active_slave(struct 
-> >device *d,
-> >		}
-> >	}
-> >out:
-> >-	write_unlock_bh(&bond->lock);
-> >+	write_unlock_bh(&bond->curr_slave_lock);
-> >+	read_unlock(&bond->lock);
-> >	rtnl_unlock();
-> >
-> >	return count;
-> 
-> Vanilla 2.6.24-rc5 plus this patch:
-> 
-> =========================================================
-> [ INFO: possible irq lock inversion dependency detected ]
-> 2.6.24-rc5 #1
-> ---------------------------------------------------------
-> events/0/9 just changed the state of lock:
->  (&mc->mca_lock){-+..}, at: [<c0411c7a>] mld_ifc_timer_expire+0x130/0x1fb
-> but this lock took another, soft-read-irq-unsafe lock in the past:
->  (&bond->lock){-.--}
-> 
-> and interrupts could create inverse lock ordering between them.
-> 
-> 
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Fri, 14 Dec 2007 12:09:31 +0100
 
-Grrr, I should have seen that -- sorry.  Try your luck with this instead:
+> 1) Using jhash2() instead of jhash() is a litle bit faster if applicable.
+> 
+> 2) Thanks to jhash, hash value uses full 32 bits.
+>     Instead of returning hash % size (implying a divide)
+>     we return the high 32 bits of the (hash * size) that will
+>     give results between [0 and size-1] and same hash distribution.
+> 
+>    On most cpus, a multiply is less expensive than a divide, by an order
+>    of magnitude.
+>   
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 11b76b3..0694254 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -1075,7 +1075,10 @@ static ssize_t bonding_store_primary(struct device *d,
- 	struct slave *slave;
- 	struct bonding *bond = to_bond(d);
- 
--	write_lock_bh(&bond->lock);
-+	rtnl_lock();
-+	read_lock_bh(&bond->lock);
-+	write_lock_bh(&bond->curr_slave_lock);
-+
- 	if (!USES_PRIMARY(bond->params.mode)) {
- 		printk(KERN_INFO DRV_NAME
- 		       ": %s: Unable to set primary slave; %s is in mode %d\n",
-@@ -1109,8 +1112,8 @@ static ssize_t bonding_store_primary(struct device *d,
- 		}
- 	}
- out:
--	write_unlock_bh(&bond->lock);
--
-+	write_unlock_bh(&bond->curr_slave_lock);
-+	read_unlock_bh(&bond->lock);
- 	rtnl_unlock();
- 
- 	return count;
-@@ -1190,7 +1193,8 @@ static ssize_t bonding_store_active_slave(struct device *d,
- 	struct bonding *bond = to_bond(d);
- 
- 	rtnl_lock();
--	write_lock_bh(&bond->lock);
-+	read_lock_bh(&bond->lock);
-+	write_lock_bh(&bond->curr_slave_lock);
- 
- 	if (!USES_PRIMARY(bond->params.mode)) {
- 		printk(KERN_INFO DRV_NAME
-@@ -1247,7 +1251,8 @@ static ssize_t bonding_store_active_slave(struct device *d,
- 		}
- 	}
- out:
--	write_unlock_bh(&bond->lock);
-+	write_unlock_bh(&bond->curr_slave_lock);
-+	read_unlock_bh(&bond->lock);
- 	rtnl_unlock();
- 
- 	return count;
+As a side note, Jenkins performs nearly optimally (unlike
+most traditional hash functions) with power of two hash
+table sizes.
+
+Using a pow2 hash table size would completely obviate the
+issues solved by #2.
+
+I don't know if that is feasible here in xt_hashlimit, but
+if it is that is how we should solve this expensive
+modulo.
