@@ -1,109 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/4] [CORE]: datagram: mem_scheudle functions
-Date: Sat, 15 Dec 2007 23:32:10 +0800
-Message-ID: <20071215153210.GA29415@gondor.apana.org.au>
-References: <47636120.4050701@redhat.com> <476362D8.4070807@redhat.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: 2.6.24-rc5-mm1 -- inconsistent {in-softirq-W} -> {softirq-on-R}
+   usage.
+Date: Sat, 15 Dec 2007 18:06:35 +0100
+Message-ID: <4764099B.2070804@gmail.com>
+References: <a44ae5cd0712141413u4ddbfd06gca259cfc3bc0ab1a@mail.gmail.com>	<20071214153633.5d8f609a.akpm@linux-foundation.org>	<a44ae5cd0712141958o10d9a320h3b8173019ac6b0eb@mail.gmail.com> <20071215031341.66dc0d05.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Takahiro Yasui <tyasui@redhat.com>,
-	Masami Hiramatsu <mhiramat@redhat.com>,
-	Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
-	billfink@mindspring.com, Andi Kleen <andi@firstfloor.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	yoshfuji@linux-ipv6.org,
-	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
-To: Hideo AOKI <haoki@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Miles Lane <miles.lane@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4290 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755521AbXLOPcR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Dec 2007 10:32:17 -0500
-Content-Disposition: inline
-In-Reply-To: <476362D8.4070807@redhat.com>
+Received: from fg-out-1718.google.com ([72.14.220.157]:35046 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757957AbXLORAt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Dec 2007 12:00:49 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so81507fga.17
+        for <netdev@vger.kernel.org>; Sat, 15 Dec 2007 09:00:48 -0800 (PST)
+In-Reply-To: <20071215031341.66dc0d05.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 15, 2007 at 12:15:04AM -0500, Hideo AOKI wrote:
-> This patch includes changes in network core sub system for memory
-> accounting.
+Andrew Morton wrote, On 12/15/2007 12:13 PM:
+
+> On Fri, 14 Dec 2007 22:58:24 -0500 "Miles Lane" <miles.lane@gmail.com> wrote:
 > 
-> Memory scheduling, charging, uncharging and reclaiming functions are
-> added. These functions use sk_forward_alloc to store socket local
-> accounting. They also need to use lock to keep consistency of
-> sk_forward_alloc and memory_allocated. They currently support only
-> datagram protocols.
+>> On Dec 14, 2007 6:36 PM, Andrew Morton <akpm@linux-foundation.org> wrote:
+>>> On Fri, 14 Dec 2007 17:13:21 -0500
+>>> "Miles Lane" <miles.lane@gmail.com> wrote:
+...
+>>>> Pid: 6944, comm: cat Not tainted (2.6.24-rc5-mm1 #26)
 
-Thanks for the patch.  I think it's generally on the right track
-but there's still a few issues with the implementation.
+...
 
-> +	spin_lock_irqsave(&sk->sk_lock.slock, flags);
+>>>> note: cat[6944] exited with preempt_count 4
 
-Please use bh_lock_sock since this must never be used from an
-IRQ handler.
+...
 
-> +static inline void sk_mem_reclaim(struct sock *sk)
-> +{
-> +	if (sk->sk_type == SOCK_DGRAM)
-> +		sk_datagram_mem_reclaim(sk);
-> +}
+>> Dec 14 21:32:55 feargod kernel: cat/6180 is trying to release lock
 
-Please get rid of these wrappers since we should only get here
-for datagram protocols.
+...
 
-> +static inline int sk_account_wmem_charge(struct sock *sk, int size)
-> +{
-> +	unsigned long flags;
-> +
-> +	/* account if protocol supports memory accounting. */
-> +	if (!sk->sk_prot->memory_allocated || sk->sk_type != SOCK_DGRAM)
-> +		return 1;
-> +
-> +	spin_lock_irqsave(&sk->sk_lock.slock, flags);
-> +	if (sk_datagram_wmem_schedule(sk, size)) {
-> +		sk->sk_forward_alloc -= size;
-> +		spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
-> +		return 1;
-> +	}
-> +	spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
-> +	return 0;
-> +}
+> Can you suggest a way in which others can reproduce this?
 
-This is probably too big to inline.
+Buy a cat?
 
-> +static inline int sk_account_rmem_charge(struct sock *sk, int size)
-> +{
-> +	unsigned long flags;
-> +
-> +	/* account if protocol supports memory accounting. */
-> +	if (!sk->sk_prot->memory_allocated || sk->sk_type != SOCK_DGRAM)
-> +		return 1;
-> +
-> +	spin_lock_irqsave(&sk->sk_lock.slock, flags);
-> +	if (sk_datagram_rmem_schedule(sk, size)) {
-> +		sk->sk_forward_alloc -= size;
-> +		spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
-> +		return 1;
-> +	}
-> +	spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
-> +	return 0;
-> +}
-
-Why are we duplicating the rmem/wmem versions when they're identical?
-
-> -int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
-> +int sock_queue_rcv_skb_with_owner(struct sock *sk, struct sk_buff *skb,
-> +				  void set_owner_r(struct sk_buff *nskb,
-> +						   struct sock* nsk))
-
-Just make a new function for this rather than playing with function
-pointers.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Jarek P.
