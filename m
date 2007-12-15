@@ -1,55 +1,36 @@
-From: Jouni Malinen <j@w1.fi>
-Subject: Re: [PATCH] PS3: gelic: Add wireless support for PS3
-Date: Fri, 14 Dec 2007 17:42:44 -0800
-Message-ID: <20071215014244.GI5698@jm.kir.nu>
-References: <20071213211626.BF8E.MOKUNO@sm.sony.co.jp> <1197580418.14270.6.camel@localhost.localdomain> <20071214134918.275E.MOKUNO@sm.sony.co.jp> <1197637127.16724.1.camel@localhost.localdomain>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: Regression: Wireshark sees no packets in 2.6.24-rc3
+Date: Sat, 15 Dec 2007 03:05:02 +0100
+Message-ID: <200712150305.02589.rjw@sisk.pl>
+References: <2c0942db0712131746s7da91f2bkf45b3e1ddf16d1f3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	geoffrey.levand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org,
-	Geert Uytterhoeven <Geert.Uytterhoeven-osDt5Q4Chk1BDgjK7y7TUQ@public.gmane.org>
-To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: "Ray Lee" <ray@madrabbit.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ogre.sisk.pl ([217.79.144.158]:42822 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751658AbXLOBqF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Dec 2007 20:46:05 -0500
+In-Reply-To: <2c0942db0712131746s7da91f2bkf45b3e1ddf16d1f3@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <1197637127.16724.1.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 14, 2007 at 07:58:47AM -0500, Dan Williams wrote:
-> On Fri, 2007-12-14 at 14:03 +0900, Masakazu Mokuno wrote:
-> > The PS3 wireless device does the association and 4way handshake in its
-> > firmware/hypervisor.  No interventions between them are allowed to the guest
-> > OSes.  
+On Friday, 14 of December 2007, Ray Lee wrote:
+> tshark -i eth0, eth1, lo are all empty. Works under 2.6.23.0 just
+> fine. A quick scan of the log between 2.6.24-rc3 and current tip
+> (-rc5) doesn't show any obvious fixes, but then again, what do I know.
+> I'll check current tip on the weekend when I'll have the luxury to
+> have my main system down long enough for a test. Right now I'm kinda
+> up against a deadline, but didn't want to leave it unreported. Should
+> be easy for someone else to confirm or deny whether current tip has
+> the problem.
 
-> That sort of sucks; but I guess there's not too much you can do about
-> it.  That probably means that using wpa_supplicant + WPA is completely
-> out of the picture, which unfortunately makes the PS3 wireless unlike
-> any other card, which would require special-casing the PS3 in userspace
-> tools.
+FYI, I have created a bugzilla entry for this issue at:
+http://bugzilla.kernel.org/show_bug.cgi?id=9568
 
-The current wpa_supplicant development branch (0.6.x) supports drivers
-that want to do 4-way handshake in the driver/firmware (e.g., OSX,
-iPhone, this PS3 driver). In case of WPA-PSK, this doesn't really mean
-more than just passing through the passphrase/PSK to the association
-routine, but still, this allows the driver to be configured through
-wpa_supplicant, if desired.
-
-However, there is a part that you are not going to like.. This is likely
-using a private ioctl for some parts of the association requests, i.e.,
-no -Dwext.. I would assume that this could be cleaned up, though, if
-WEXT would be extended a bit to allow one more enc_capa to notify
-whether the driver wants to take care of 4-way handshake and to allow
-the PSK to be configured with a new key type.
-
-
-PS.
-
-It would be interesting to see whether the driver/firmware/hypervisor
-could be convinced to allow EAPOL frames to go through between
-association and 4-way handshake (which would be completed by
-driver/firmware). This is the way I can support WPA/WPA2-Enterprise with
-OSX..
-
--- 
-Jouni Malinen                                            PGP id EFC895FA
+Thanks,
+Rafael
