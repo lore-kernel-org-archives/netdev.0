@@ -1,77 +1,77 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [patch 2/4] net: use mutex_is_locked() for ASSERT_RTNL()
-Date: Sat, 15 Dec 2007 02:48:10 -0800
-Message-ID: <20071215024810.20b8a5ae.akpm@linux-foundation.org>
-References: <E1J35d6-00041l-00@gondolin.me.apana.org.au>
-	<20071214002209.ac748206.akpm@linux-foundation.org>
-	<20071214083037.GA15602@gondor.apana.org.au>
-	<20071214.111514.03773174.davem@davemloft.net>
-	<20071214151136.ae0f969b.akpm@linux-foundation.org>
-	<20071215041827.GC25324@gondor.apana.org.au>
-	<20071214214418.0ecd5e67.akpm@linux-foundation.org>
-	<20071215061021.GA26247@gondor.apana.org.au>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [NETFILTER] xt_hashlimit : speedups hash_dst()
+Date: Sat, 15 Dec 2007 12:04:47 +0100
+Message-ID: <4763B4CF.7010908@cosmosbay.com>
+References: <4762646B.30207@cosmosbay.com> <4762EEB2.1080608@gmail.com> <4762F78B.80302@cosmosbay.com> <4763AF65.4070200@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:52834 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752355AbXLOKsv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Dec 2007 05:48:51 -0500
-In-Reply-To: <20071215061021.GA26247@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4763AF65.4070200@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 15 Dec 2007 14:10:21 +0800 Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Jarek Poplawski a =E9crit :
+> Eric Dumazet wrote, On 12/14/2007 10:37 PM:
+>=20
+>> Jarek Poplawski a =E9crit :
+>>> Eric Dumazet wrote, On 12/14/2007 12:09 PM:
+>>> ...
+>>>
+>>>> +	/*
+>>>> +	 * Instead of returning hash % ht->cfg.size (implying a divide)
+>>>> +	 * we return the high 32 bits of the (hash * ht->cfg.size) that =
+will
+>>>> +	 * give results between [0 and cfg.size-1] and same hash distrib=
+ution,
+>>>> +	 * but using a multiply, less expensive than a divide
+>>>> +	 */
+>>>> +	return ((u64)hash * ht->cfg.size) >> 32;
+>>> Are we sure of the same hash distribution? Probably I miss somethin=
+g,
+>>> but: if this 'hash' is well distributed on 32 bits, and ht->cfg.siz=
+e
+>>> is smaller than 32 bits, e.g. 256 (8 bits), then this multiplicatio=
+n
+>>> moves to the higher 32 of u64 only max. 8 bits of the most signific=
+ant
+>>> byte, and the other three bytes are never used, while division is
+>>> always affected by all four bytes...
+>> Not sure what you are saying... but if size=3D256, then, yes, we wan=
+t a final=20
+>> result between 0 and 255, so three bytes are nul.
+>=20
+> Eric, it would be nice to acknowledge David's suggestion that this ha=
+sh
+> size is always power of two here, because otherwise at least your wor=
+ds
+> about the same hash distribution according to the "%" variant could b=
+e
+> wrong (but I don't say the final result would be wrong). Maybe I mix
+> up these sizes, but it seems this could be set by a user, and I didn'=
+t
+> find anything about this power of two necessity?
+>=20
 
-> On Fri, Dec 14, 2007 at 09:44:18PM -0800, Andrew Morton wrote:
-> >
-> > That sounds like a bug in mutex_trylock() to me.
-> 
-> I was relying on
-> 
-> 	http://kerneltrap.org/mailarchive/linux-netdev/2007/9/28/325129
-> 
-> which seems to be a bogus claim now that I actually look at the
-> source code.  So in that case I'm OK with your patch as long as
-> it warns about hard IRQ usage.
+size is not a power of two here.
 
-When Eric said
+I prefer to let admins chose their size, since it makes attacker life m=
+ore=20
+difficult :)
 
-> Way way deep in mutex debugging on the slowpath there is a unreadable
-> and incomprehensible WARN_ON in muxtex_trylock that will trigger if
-> you have 10 tons of debugging turned on, and you are in,
-> interrupt context, and you manage to hit the slow path.  I think that
-> is a pretty unlikely scenario.
+=46or example, I can tell you I have a server, were size is between 2.0=
+00.000=20
+and 3.500.000, I dont want to be forced to use 2097152
 
-I think he's still right.  That's if the warning which he managed to find
-even still exists.
+A multiply is cheap, at least on current hardware.
 
-I think the change which Eric proposed is a good one: it converts
-ASSERT_RTNL() from an atomic rmw which dirties a cacheline which will
-sometimes be owned by a different CPU into a plain old read.  It's going to
-make ASSERT_RTNL() heaps cheaper.
 
-<looks at mutex_is_locked(), rofls at "static inline fastcall", fixes it>
-
-Now as a separate issue we (ie: you) need to work out what _other_ things
-you want ASSERT_RTNL to check apart from "rtnl must be held".
-
-If you want to check that no locks are held (which I think is a bit weird,
-but whatever) then add might_sleep().
-
-If you want to check that we're not in interrupt context or whatever, then
-add the checks and be happy.  might_sleep() will of course check for
-in_interrupt(), in_irq(), etc so if you go with a might_sleep() then
-nothing else needs to be added.
-
-While doing this I'd also suggest that the thing should be uninlined -
-it'll probably generate less text and it'll give considerably more
-flexibility for adding new debug fetures.  Ones which might be controlled at
-compile time or runtime. ie:
-
-void __assert_rtnl(const char *file, int line);
-#define ASSERT_RTNL() __assert_rtnl(__FILE__, __LINE__)
-
+-
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
