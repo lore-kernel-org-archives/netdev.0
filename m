@@ -1,43 +1,45 @@
-From: "Satoru SATOH" <satoru.satoh@gmail.com>
-Subject: [PATCH] [IPV4]: Make tcp_input_metrics() get minimum RTO via tcp_rto_min()
-Date: Sat, 15 Dec 2007 11:44:46 +0900
-Message-ID: <d72b7ace0712141844x6392ceb6y5cb39d9a81f950e6@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bugme-new] [Bug 9543] New: RTNL: assertion failed at net/ipv6/addrconf.c (2164)/RTNL: assertion failed at net/ipv4/devinet.c (1055)
+Date: Sat, 15 Dec 2007 12:10:52 +0800
+Message-ID: <20071215041052.GA25324@gondor.apana.org.au>
+References: <E1J2Rgs-0006mz-00@gondolin.me.apana.org.au> <28503.1197481615@death> <Pine.LNX.4.64.0712141707090.30334@bizon.gios.gov.pl> <20071214182638.GC25879@gospo.usersys.redhat.com> <Pine.LNX.4.64.0712141955080.12202@bizon.gios.gov.pl> <20071214224722.GA8728@gospo.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Krzysztof Oledzki <olel@ans.pl>, Jay Vosburgh <fubar@us.ibm.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	bugme-daemon@bugzilla.kernel.org, shemminger@linux-foundation.org,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.178]:63304 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753199AbXLOCor (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 21:44:47 -0500
-Received: by py-out-1112.google.com with SMTP id u77so1687922pyb.16
-        for <netdev@vger.kernel.org>; Fri, 14 Dec 2007 18:44:47 -0800 (PST)
+Received: from rhun.apana.org.au ([64.62.148.172]:1617 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753344AbXLOELt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 23:11:49 -0500
 Content-Disposition: inline
+In-Reply-To: <20071214224722.GA8728@gospo.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tcp_input_metrics() refers to the built-time constant TCP_RTO_MIN
-regardless of configured minimum RTO with iproute2.
+On Fri, Dec 14, 2007 at 05:47:22PM -0500, Andy Gospodarek wrote:
+>
+> I'm guessing if we go back to using a write-lock for bond->lock this
+> will go back to working again, but I'm not totally convinced since there
+> are plenty of places where we used a read-lock with it.
 
-The following fixes that.
+Sorry I forgot to cc you earlier Andy.
 
+But to fix this you need make sure that all read locks on bond->lock
+in process context disable BH.  This is because at least one write
+lock can be taken from BH context.
 
-Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
+You don't need to turn the read locks into write locks however.
 
- net/ipv4/tcp_input.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+This is also something that we can undo once the set_multicast
+interface has been fixed to not take the tx lock.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index b9e429d..889c893 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -923,7 +923,7 @@ static void tcp_init_metrics(struct sock *sk)
- 	}
- 	if (dst_metric(dst, RTAX_RTTVAR) > tp->mdev) {
- 		tp->mdev = dst_metric(dst, RTAX_RTTVAR);
--		tp->mdev_max = tp->rttvar = max(tp->mdev, TCP_RTO_MIN);
-+		tp->mdev_max = tp->rttvar = max(tp->mdev, tcp_rto_min(sk));
- 	}
- 	tcp_set_rto(sk);
- 	tcp_bound_rto(sk);
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
