@@ -1,7 +1,7 @@
 From: Hideo AOKI <haoki@redhat.com>
-Subject: [PATCH 2/4] [CORE]: datagram: mem_scheudle functions
-Date: Sat, 15 Dec 2007 00:15:04 -0500
-Message-ID: <476362D8.4070807@redhat.com>
+Subject: [PATCH 3/4] [UDP]: add udp_mem, udp_rmem_min and udp_wmem_min
+Date: Sat, 15 Dec 2007 00:15:20 -0500
+Message-ID: <476362E8.1020409@redhat.com>
 References: <47636120.4050701@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -18,316 +18,220 @@ To: David Miller <davem@davemloft.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:54458 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:54500 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750716AbXLOFUq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Dec 2007 00:20:46 -0500
+	id S1750904AbXLOFWd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Dec 2007 00:22:33 -0500
 In-Reply-To: <47636120.4050701@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch includes changes in network core sub system for memory
-accounting.
+This patch adds sysctl parameters for customizing UDP memory accounting:
+     /proc/sys/net/ipv4/udp_mem
+     /proc/sys/net/ipv4/udp_rmem_min
+     /proc/sys/net/ipv4/udp_wmem_min
 
-Memory scheduling, charging, uncharging and reclaiming functions are
-added. These functions use sk_forward_alloc to store socket local
-accounting. They also need to use lock to keep consistency of
-sk_forward_alloc and memory_allocated. They currently support only
-datagram protocols.
+Udp_mem indicates number of pages which can be used for all UDP sockets.
+Each UDP packet is dropped, when the number of pages for socket buffer is
+beyond udp_mem and the socket already consumes minimum buffer.
 
-sk_datagram_rfree() is a receive buffer detractor for datagram
-protocols which are capable of protocol specific memory accounting.
-
-To enable memory accounting in releasing receive buffer,
-sock_queue_rcv_skb() is modified although the interface isn't changed.
-The body of the function is implemented in
-sock_queue_rcv_skb_with_owner(). Additionally, skb_set_owner_r() is
-moved to sock.h to core/datagram.c because we want to use it as a
-call back function.
+This patch is also introduced memory_allocated variable for UDP protocol.
 
 Cc: Satoshi Oshima <satoshi.oshima.fk@hitachi.com>
-signed-off-by: Takahiro Yasui <tyasui@redhat.com>
-signed-off-by: Masami Hiramatsu <mhiramat@redhat.com>
 signed-off-by: Hideo Aoki <haoki@redhat.com>
 ---
 
- include/net/sock.h  |  117 +++++++++++++++++++++++++++++++++++++++++++++++++---
- net/core/datagram.c |   72 ++++++++++++++++++++++++++++++++
- net/core/sock.c     |   13 ++++-
- 3 files changed, 193 insertions(+), 9 deletions(-)
+ Documentation/networking/ip-sysctl.txt |   18 ++++++++++++++++++
+ include/net/udp.h                      |    9 +++++++++
+ net/ipv4/af_inet.c                     |    3 +++
+ net/ipv4/proc.c                        |    3 ++-
+ net/ipv4/sysctl_net_ipv4.c             |   31 +++++++++++++++++++++++++++++++
+ net/ipv4/udp.c                         |   27 +++++++++++++++++++++++++++
+ 6 files changed, 90 insertions(+), 1 deletion(-)
 
-diff -pruN net-2.6-udp-take10a4-p1/include/net/sock.h net-2.6-udp-take10a4-p2/include/net/sock.h
---- net-2.6-udp-take10a4-p1/include/net/sock.h	2007-12-11 10:54:53.000000000 -0500
-+++ net-2.6-udp-take10a4-p2/include/net/sock.h	2007-12-14 20:27:40.000000000 -0500
-@@ -750,6 +750,9 @@ static inline struct inode *SOCK_INODE(s
- 	return &container_of(socket, struct socket_alloc, socket)->vfs_inode;
- }
+diff -pruN net-2.6-udp-take10a4-p2/Documentation/networking/ip-sysctl.txt net-2.6-udp-take10a4-p3/Documentation/networking/ip-sysctl.txt
+--- net-2.6-udp-take10a4-p2/Documentation/networking/ip-sysctl.txt	2007-12-11 10:54:41.000000000 -0500
++++ net-2.6-udp-take10a4-p3/Documentation/networking/ip-sysctl.txt	2007-12-14 20:27:54.000000000 -0500
+@@ -446,6 +446,24 @@ tcp_dma_copybreak - INTEGER
+ 	and CONFIG_NET_DMA is enabled.
+ 	Default: 4096
 
-+/*
-+ * Functions for memory accounting
-+ */
- extern void __sk_stream_mem_reclaim(struct sock *sk);
- extern int sk_stream_mem_schedule(struct sock *sk, int size, int kind);
++UDP variables:
++
++udp_mem - INTEGER
++	Number of pages allowed for queueing by all UDP sockets.
++	Default is calculated at boot time from amount of available memory.
++
++udp_rmem_min - INTEGER
++	Minimal size of receive buffer used by UDP sockets. Each UDP socket
++	is able to use the size for receiving data, even if total pages of UDP
++	sockets exceed udp_mem. The unit is byte.
++	Default: 4096
++
++udp_wmem_min - INTEGER
++	Minimal size of send buffer used by UDP sockets. Each UDP socket is
++	able to use the size for sending data, even if total pages of UDP
++	sockets exceed udp_mem. The unit is byte.
++	Default: 4096
++
+ CIPSOv4 Variables:
 
-@@ -778,6 +781,107 @@ static inline int sk_stream_wmem_schedul
- 	       sk_stream_mem_schedule(sk, size, 0);
- }
+ cipso_cache_enable - BOOLEAN
+diff -pruN net-2.6-udp-take10a4-p2/include/net/udp.h net-2.6-udp-take10a4-p3/include/net/udp.h
+--- net-2.6-udp-take10a4-p2/include/net/udp.h	2007-12-11 10:54:53.000000000 -0500
++++ net-2.6-udp-take10a4-p3/include/net/udp.h	2007-12-14 20:27:54.000000000 -0500
+@@ -65,6 +65,13 @@ extern rwlock_t udp_hash_lock;
 
-+extern void __sk_datagram_mem_reclaim(struct sock *sk);
-+extern int sk_stream_mem_schedule(struct sock *sk, int size, int kind);
-+
-+#define SK_DATAGRAM_MEM_QUANTUM ((unsigned int)PAGE_SIZE)
-+
-+static inline int sk_datagram_pages(int amt)
-+{
-+	/* Cast to unsigned as an optimization, since amt is always positive. */
-+	return DIV_ROUND_UP((unsigned int)amt, SK_DATAGRAM_MEM_QUANTUM);
-+}
-+
-+extern void __sk_datagram_mem_reclaim(struct sock *sk);
-+extern int sk_datagram_mem_schedule(struct sock *sk, int size, int kind);
-+
-+static inline void sk_datagram_mem_reclaim(struct sock *sk)
-+{
-+	unsigned long flags;
-+
-+	if (!sk->sk_prot->memory_allocated)
-+		return;
-+
-+	spin_lock_irqsave(&sk->sk_lock.slock, flags);
-+	__sk_datagram_mem_reclaim(sk);
-+	spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
-+}
-+
-+static inline int sk_datagram_rmem_schedule(struct sock *sk, int size)
-+{
-+	return size <= sk->sk_forward_alloc ||
-+		sk_datagram_mem_schedule(sk, size, 1);
-+}
-+
-+static inline int sk_datagram_wmem_schedule(struct sock *sk, int size)
-+{
-+	return size <= sk->sk_forward_alloc ||
-+		sk_datagram_mem_schedule(sk, size, 0);
-+}
-+
-+static inline void sk_mem_reclaim(struct sock *sk)
-+{
-+	if (sk->sk_type == SOCK_DGRAM)
-+		sk_datagram_mem_reclaim(sk);
-+}
-+
-+static inline int sk_wmem_schedule(struct sock *sk, int size)
-+{
-+	if (sk->sk_type == SOCK_DGRAM)
-+		return sk_datagram_wmem_schedule(sk, size);
-+	else
-+		return 1;
-+}
-+
-+static inline int sk_account_wmem_charge(struct sock *sk, int size)
-+{
-+	unsigned long flags;
-+
-+	/* account if protocol supports memory accounting. */
-+	if (!sk->sk_prot->memory_allocated || sk->sk_type != SOCK_DGRAM)
-+		return 1;
-+
-+	spin_lock_irqsave(&sk->sk_lock.slock, flags);
-+	if (sk_datagram_wmem_schedule(sk, size)) {
-+		sk->sk_forward_alloc -= size;
-+		spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
-+		return 1;
-+	}
-+	spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
-+	return 0;
-+}
-+
-+static inline int sk_account_rmem_charge(struct sock *sk, int size)
-+{
-+	unsigned long flags;
-+
-+	/* account if protocol supports memory accounting. */
-+	if (!sk->sk_prot->memory_allocated || sk->sk_type != SOCK_DGRAM)
-+		return 1;
-+
-+	spin_lock_irqsave(&sk->sk_lock.slock, flags);
-+	if (sk_datagram_rmem_schedule(sk, size)) {
-+		sk->sk_forward_alloc -= size;
-+		spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
-+		return 1;
-+	}
-+	spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
-+	return 0;
-+}
-+
-+static inline void sk_account_uncharge(struct sock *sk, int size)
-+{
-+	unsigned long flags;
-+
-+	/* account if protocol supports memory accounting. */
-+	if (!sk->sk_prot->memory_allocated || sk->sk_type != SOCK_DGRAM)
-+		return;
-+
-+	spin_lock_irqsave(&sk->sk_lock.slock, flags);
-+	sk->sk_forward_alloc += size;
-+	spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
-+}
-+
- /* Used by processes to "lock" a socket state, so that
-  * interrupts and bottom half handlers won't change it
-  * from under us. It essentially blocks any incoming
-@@ -1159,18 +1263,19 @@ static inline void skb_set_owner_w(struc
- 	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
- }
+ extern struct proto udp_prot;
 
--static inline void skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
--{
--	skb->sk = sk;
--	skb->destructor = sock_rfree;
--	atomic_add(skb->truesize, &sk->sk_rmem_alloc);
--}
-+extern void skb_set_owner_r(struct sk_buff *skb, struct sock *sk);
++extern atomic_t udp_memory_allocated;
 +
-+void sk_datagram_rfree(struct sk_buff *skb);
++/* sysctl variables for udp */
++extern int sysctl_udp_mem;
++extern int sysctl_udp_rmem_min;
++extern int sysctl_udp_wmem_min;
++
+ struct sk_buff;
 
- extern void sk_reset_timer(struct sock *sk, struct timer_list* timer,
- 			   unsigned long expires);
+ /*
+@@ -173,4 +180,6 @@ extern void udp_proc_unregister(struct u
+ extern int  udp4_proc_init(void);
+ extern void udp4_proc_exit(void);
+ #endif
++
++extern void udp_init(void);
+ #endif	/* _UDP_H */
+diff -pruN net-2.6-udp-take10a4-p2/net/ipv4/af_inet.c net-2.6-udp-take10a4-p3/net/ipv4/af_inet.c
+--- net-2.6-udp-take10a4-p2/net/ipv4/af_inet.c	2007-12-11 10:54:55.000000000 -0500
++++ net-2.6-udp-take10a4-p3/net/ipv4/af_inet.c	2007-12-14 20:27:54.000000000 -0500
+@@ -1418,6 +1418,9 @@ static int __init inet_init(void)
+ 	/* Setup TCP slab cache for open requests. */
+ 	tcp_init();
 
- extern void sk_stop_timer(struct sock *sk, struct timer_list* timer);
++	/* Setup UDP memory threshold */
++	udp_init();
++
+ 	/* Add UDP-Lite (RFC 3828) */
+ 	udplite4_register();
 
-+extern int sock_queue_rcv_skb_with_owner(struct sock *sk, struct sk_buff *skb,
-+					 void set_owner_r(struct sk_buff *nskb,
-+							  struct sock* nsk));
-+
- extern int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
+diff -pruN net-2.6-udp-take10a4-p2/net/ipv4/proc.c net-2.6-udp-take10a4-p3/net/ipv4/proc.c
+--- net-2.6-udp-take10a4-p2/net/ipv4/proc.c	2007-12-11 10:54:55.000000000 -0500
++++ net-2.6-udp-take10a4-p3/net/ipv4/proc.c	2007-12-14 20:27:54.000000000 -0500
+@@ -56,7 +56,8 @@ static int sockstat_seq_show(struct seq_
+ 		   sock_prot_inuse(&tcp_prot), atomic_read(&tcp_orphan_count),
+ 		   tcp_death_row.tw_count, atomic_read(&tcp_sockets_allocated),
+ 		   atomic_read(&tcp_memory_allocated));
+-	seq_printf(seq, "UDP: inuse %d\n", sock_prot_inuse(&udp_prot));
++	seq_printf(seq, "UDP: inuse %d mem %d\n", sock_prot_inuse(&udp_prot),
++		   atomic_read(&udp_memory_allocated));
+ 	seq_printf(seq, "UDPLITE: inuse %d\n", sock_prot_inuse(&udplite_prot));
+ 	seq_printf(seq, "RAW: inuse %d\n", sock_prot_inuse(&raw_prot));
+ 	seq_printf(seq,  "FRAG: inuse %d memory %d\n",
+diff -pruN net-2.6-udp-take10a4-p2/net/ipv4/sysctl_net_ipv4.c net-2.6-udp-take10a4-p3/net/ipv4/sysctl_net_ipv4.c
+--- net-2.6-udp-take10a4-p2/net/ipv4/sysctl_net_ipv4.c	2007-12-11 10:54:55.000000000 -0500
++++ net-2.6-udp-take10a4-p3/net/ipv4/sysctl_net_ipv4.c	2007-12-14 20:27:54.000000000 -0500
+@@ -18,6 +18,7 @@
+ #include <net/ip.h>
+ #include <net/route.h>
+ #include <net/tcp.h>
++#include <net/udp.h>
+ #include <net/cipso_ipv4.h>
+ #include <net/inet_frag.h>
 
- static inline int sock_queue_err_skb(struct sock *sk, struct sk_buff *skb)
-diff -pruN net-2.6-udp-take10a4-p1/net/core/datagram.c net-2.6-udp-take10a4-p2/net/core/datagram.c
---- net-2.6-udp-take10a4-p1/net/core/datagram.c	2007-12-11 10:54:55.000000000 -0500
-+++ net-2.6-udp-take10a4-p2/net/core/datagram.c	2007-12-14 20:26:18.000000000 -0500
-@@ -200,6 +200,14 @@ void skb_free_datagram(struct sock *sk,
- 	kfree_skb(skb);
- }
+@@ -885,6 +886,36 @@ ctl_table ipv4_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec,
+ 	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "udp_mem",
++		.data		= &sysctl_udp_mem,
++		.maxlen		= sizeof(sysctl_udp_mem),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec_minmax,
++		.strategy	= &sysctl_intvec,
++		.extra1		= &zero
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "udp_rmem_min",
++		.data		= &sysctl_udp_rmem_min,
++		.maxlen		= sizeof(sysctl_udp_rmem_min),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec_minmax,
++		.strategy	= &sysctl_intvec,
++		.extra1		= &zero
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "udp_wmem_min",
++		.data		= &sysctl_udp_wmem_min,
++		.maxlen		= sizeof(sysctl_udp_wmem_min),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec_minmax,
++		.strategy	= &sysctl_intvec,
++		.extra1		= &zero
++	},
+ 	{ .ctl_name = 0 }
+ };
 
-+void skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
-+{
-+	skb->sk = sk;
-+	skb->destructor = sock_rfree;
-+	atomic_add(skb->truesize, &sk->sk_rmem_alloc);
-+}
-+EXPORT_SYMBOL(skb_set_owner_r);
-+
- /**
-  *	skb_kill_datagram - Free a datagram skbuff forcibly
-  *	@sk: socket
-@@ -484,6 +492,70 @@ fault:
- }
+diff -pruN net-2.6-udp-take10a4-p2/net/ipv4/udp.c net-2.6-udp-take10a4-p3/net/ipv4/udp.c
+--- net-2.6-udp-take10a4-p2/net/ipv4/udp.c	2007-12-11 10:54:55.000000000 -0500
++++ net-2.6-udp-take10a4-p3/net/ipv4/udp.c	2007-12-14 20:27:54.000000000 -0500
+@@ -82,6 +82,7 @@
+ #include <asm/system.h>
+ #include <asm/uaccess.h>
+ #include <asm/ioctls.h>
++#include <linux/bootmem.h>
+ #include <linux/types.h>
+ #include <linux/fcntl.h>
+ #include <linux/module.h>
+@@ -114,6 +115,11 @@ DEFINE_SNMP_STAT(struct udp_mib, udp_sta
+ struct hlist_head udp_hash[UDP_HTABLE_SIZE];
+ DEFINE_RWLOCK(udp_hash_lock);
 
- /**
-+ *	sk_datagram_rfree - receive buffer detractor for datagram protocls
-+ *	@skb: skbuff
-+ */
-+void sk_datagram_rfree(struct sk_buff *skb)
-+{
-+	struct sock *sk = skb->sk;
++atomic_t udp_memory_allocated;
++int sysctl_udp_mem __read_mostly;
++int sysctl_udp_rmem_min __read_mostly;
++int sysctl_udp_wmem_min __read_mostly;
 +
-+	skb_truesize_check(skb);
-+	atomic_sub(skb->truesize, &sk->sk_rmem_alloc);
-+	sk_account_uncharge(sk, skb->truesize);
-+	sk_datagram_mem_reclaim(sk);
-+}
-+EXPORT_SYMBOL(sk_datagram_rfree);
-+
-+/**
-+ * 	__sk_datagram_mem_reclaim - send buffer for datagram protocls
-+ *	@sk: socket
-+ */
-+void __sk_datagram_mem_reclaim(struct sock *sk)
-+{
-+	if (sk->sk_forward_alloc < SK_DATAGRAM_MEM_QUANTUM)
-+		return;
-+
-+	atomic_sub(sk->sk_forward_alloc / SK_DATAGRAM_MEM_QUANTUM,
-+		   sk->sk_prot->memory_allocated);
-+	sk->sk_forward_alloc &= SK_DATAGRAM_MEM_QUANTUM - 1;
-+}
-+EXPORT_SYMBOL(__sk_datagram_mem_reclaim);
-+
-+/**
-+ * 	sk_datagram_mem_schedule - memory accounting for datagram protocls
-+ *	@sk: socket
-+ *	@size: memory size to allocate
-+ *	@kind: allocation type
-+ *
-+ *	If kind is 0, it means wmem allocation. Otherwise it means rmem
-+ *	allocation.
-+ */
-+int sk_datagram_mem_schedule(struct sock *sk, int size, int kind)
-+{
-+	int amt;
-+	struct proto *prot = sk->sk_prot;
-+
-+	/* Don't account and limit memory if protocol doesn't support. */
-+	if (!prot->memory_allocated)
-+		return 1;
-+
-+	amt = sk_datagram_pages(size);
-+	if (atomic_add_return(amt, prot->memory_allocated) >
-+	    prot->sysctl_mem[0])
-+		if ((kind && atomic_read(&sk->sk_rmem_alloc) + size >=
-+		     prot->sysctl_rmem[0]) ||
-+		    (!kind && atomic_read(&sk->sk_wmem_alloc) + size >=
-+		     prot->sysctl_wmem[0])) {
-+			/* Undo changes. */
-+			atomic_sub(amt, prot->memory_allocated);
-+			return 0;
-+		}
-+	sk->sk_forward_alloc += amt * SK_DATAGRAM_MEM_QUANTUM;
-+	return 1;
-+}
-+EXPORT_SYMBOL(sk_datagram_mem_schedule);
-+
-+/**
-  * 	datagram_poll - generic datagram poll
-  *	@file: file struct
-  *	@sock: socket
-diff -pruN net-2.6-udp-take10a4-p1/net/core/sock.c net-2.6-udp-take10a4-p2/net/core/sock.c
---- net-2.6-udp-take10a4-p1/net/core/sock.c	2007-12-11 10:54:55.000000000 -0500
-+++ net-2.6-udp-take10a4-p2/net/core/sock.c	2007-12-14 16:42:06.000000000 -0500
-@@ -263,8 +263,9 @@ static void sock_disable_timestamp(struc
- 	}
- }
-
--
--int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
-+int sock_queue_rcv_skb_with_owner(struct sock *sk, struct sk_buff *skb,
-+				  void set_owner_r(struct sk_buff *nskb,
-+						   struct sock* nsk))
+ static inline int __udp_lib_lport_inuse(__u16 num,
+ 					const struct hlist_head udptable[])
  {
- 	int err = 0;
- 	int skb_len;
-@@ -283,7 +284,7 @@ int sock_queue_rcv_skb(struct sock *sk,
- 		goto out;
-
- 	skb->dev = NULL;
--	skb_set_owner_r(skb, sk);
-+	set_owner_r(skb, sk);
-
- 	/* Cache the SKB length before we tack it onto the receive
- 	 * queue.  Once it is added it no longer belongs to us and
-@@ -299,6 +300,12 @@ int sock_queue_rcv_skb(struct sock *sk,
- out:
- 	return err;
+@@ -1449,6 +1455,10 @@ struct proto udp_prot = {
+ 	.hash		   = udp_lib_hash,
+ 	.unhash		   = udp_lib_unhash,
+ 	.get_port	   = udp_v4_get_port,
++	.memory_allocated  = &udp_memory_allocated,
++	.sysctl_mem	   = &sysctl_udp_mem,
++	.sysctl_wmem	   = &sysctl_udp_wmem_min,
++	.sysctl_rmem	   = &sysctl_udp_rmem_min,
+ 	.obj_size	   = sizeof(struct udp_sock),
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt = compat_udp_setsockopt,
+@@ -1644,6 +1654,23 @@ void udp4_proc_exit(void)
  }
-+EXPORT_SYMBOL(sock_queue_rcv_skb_with_owner);
-+
-+int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
-+{
-+	return sock_queue_rcv_skb_with_owner(sk, skb, skb_set_owner_r);
-+}
- EXPORT_SYMBOL(sock_queue_rcv_skb);
+ #endif /* CONFIG_PROC_FS */
 
- int sk_receive_skb(struct sock *sk, struct sk_buff *skb, const int nested)
++void __init udp_init(void)
++{
++	unsigned long limit;
++
++	/* Set the pressure threshold up by the same strategy of TCP. It is a
++	 * fraction of global memory that is up to 1/2 at 256 MB, decreasing
++	 * toward zero with the amount of memory, with a floor of 128 pages.
++	 */
++	limit = min(nr_all_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
++	limit = (limit * (nr_all_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
++	limit = max(limit, 128UL);
++	sysctl_udp_mem = limit / 4 * 3;
++
++	sysctl_udp_rmem_min = SK_DATAGRAM_MEM_QUANTUM;
++	sysctl_udp_wmem_min = SK_DATAGRAM_MEM_QUANTUM;
++}
++
+ EXPORT_SYMBOL(udp_disconnect);
+ EXPORT_SYMBOL(udp_hash);
+ EXPORT_SYMBOL(udp_hash_lock);
 -- 
 Hitachi Computer Products (America) Inc.
