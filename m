@@ -1,50 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.24-rc5-mm1 -- inconsistent {in-softirq-W} -> {softirq-on-R} usage.
-Date: Sat, 15 Dec 2007 15:18:43 +0800
-Message-ID: <E1J3RIJ-0006zH-00@gondolin.me.apana.org.au>
-References: <20071214153633.5d8f609a.akpm@linux-foundation.org>
-Cc: miles.lane@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, mingo@elte.hu, a.p.zijlstra@chello.nl
-To: akpm@linux-foundation.org (Andrew Morton)
+From: "Ray Lee" <ray@madrabbit.org>
+Subject: Re: Regression: Wireshark sees no packets in 2.6.24-rc3
+Date: Sat, 15 Dec 2007 00:16:34 -0800
+Message-ID: <2c0942db0712150016r149d285bs8f4e1c444e71afea@mail.gmail.com>
+References: <2c0942db0712131746s7da91f2bkf45b3e1ddf16d1f3@mail.gmail.com>
+	 <200712150305.02589.rjw@sisk.pl> <47633ECC.3020804@googlemail.com>
+	 <2c0942db0712142309v15f79068m8c033180d41b9be@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: "Gabriel C" <nix.or.die@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3154 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753006AbXLOHSw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Dec 2007 02:18:52 -0500
-In-Reply-To: <20071214153633.5d8f609a.akpm@linux-foundation.org>
+Received: from hu-out-0506.google.com ([72.14.214.236]:36964 "EHLO
+	hu-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751961AbXLOIQg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Dec 2007 03:16:36 -0500
+Received: by hu-out-0506.google.com with SMTP id 19so567671hue.21
+        for <netdev@vger.kernel.org>; Sat, 15 Dec 2007 00:16:34 -0800 (PST)
+In-Reply-To: <2c0942db0712142309v15f79068m8c033180d41b9be@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton <akpm@linux-foundation.org> wrote:
->
-> I'd say you hit a networking locking bug and then when trying to report
-> that bug, lockdep crashed.
-> 
-> The networking bug looks to be around sock_i_ino()'s taking of
-> sk_callback_lock with softirq's enabled.  Perhaps this will fix it.
-> 
-> diff -puN net/core/sock.c~a net/core/sock.c
-> --- a/net/core/sock.c~a
-> +++ a/net/core/sock.c
-> @@ -1115,9 +1115,9 @@ int sock_i_uid(struct sock *sk)
-> {
->        int uid;
-> 
-> -       read_lock(&sk->sk_callback_lock);
-> +       read_lock_bh(&sk->sk_callback_lock);
->        uid = sk->sk_socket ? SOCK_INODE(sk->sk_socket)->i_uid : 0;
-> -       read_unlock(&sk->sk_callback_lock);
-> +       read_unlock_bh(&sk->sk_callback_lock);
+On Dec 14, 2007 11:09 PM, Ray Lee <ray@madrabbit.org> wrote:
+> On Dec 14, 2007 6:41 PM, Gabriel C <nix.or.die@googlemail.com> wrote:
+> Correct, absolutely no traffic. So if it works for you, then either
+> it's something that got fixed between -rc3 and -rc5, or something odd
+> when I did a make oldconfig, I suppose. (Or because I'm on an x86-64
+> kernel?) Regardless, -rc5 is currently building, and I'll try it in
+> the morning.
 
-The callback lock is never taken for writing in BH context so
-this shouldn't be needed.
+-rc5 works great. Really don't know what's different between my -rc3
+and -rc5 builds. The diff of .config between the two doesn't show
+anything obvious, so perhaps it was something fixed in the interim.
 
-Let's fix the lockdep checker first and then decide what's broken
-in networking, OK?
+I've gone ahead and closed the bugzilla entry, btw. Thanks, and sorry
+for the false (or tardy) alarm.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ray
