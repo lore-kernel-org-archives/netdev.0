@@ -1,81 +1,64 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: 2.6.24-rc5-mm1 -- inconsistent {in-softirq-W} -> {softirq-on-R}
-   usage.
-Date: Sat, 15 Dec 2007 19:42:11 +0100
-Message-ID: <47642003.7090900@gmail.com>
-References: <a44ae5cd0712141413u4ddbfd06gca259cfc3bc0ab1a@mail.gmail.com>	<20071214153633.5d8f609a.akpm@linux-foundation.org>	<a44ae5cd0712141958o10d9a320h3b8173019ac6b0eb@mail.gmail.com> <20071215031341.66dc0d05.akpm@linux-foundation.org>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH 3/3] [UDP6]: Counter increment on BH mode
+Date: Sat, 15 Dec 2007 19:43:28 +0100
+Message-ID: <20071215184327.GA21434@elte.hu>
+References: <474F7EE8.2040009@cn.fujitsu.com> <474F8255.5060501@cn.fujitsu.com> <20071130111949.GB28277@gerrit.erg.abdn.ac.uk> <20071201015438.GC26895@gondor.apana.org.au> <4753AE07.1040906@cn.fujitsu.com> <20071203113935.GA25124@gondor.apana.org.au> <20071203114912.GA4425@ms2.inr.ac.ru> <20071203115435.GA4202@gondor.apana.org.au> <20071203131723.GA30312@gondor.apana.org.au> <20071215135851.GA29063@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Miles Lane <miles.lane@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762506AbXLOSfz@vger.kernel.org>
-In-Reply-To: <20071215031341.66dc0d05.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Andrew Morton wrote, On 12/15/2007 12:13 PM:
-
-> On Fri, 14 Dec 2007 22:58:24 -0500 "Miles Lane" <miles.lane@gmail.com=
-> wrote:
-
-
-
-=2E..
-
->> I applied the patch and then tried my test again.  This time my syst=
-em
->> locked up.
->> Perhaps I should open a new thread for this, since the problem looks
->> pretty different.
->>
->> Dec 14 21:32:55 feargod kernel: process `cat' is using deprecated
->> sysctl (syscall) net.ipv6.neigh.default.retrans_time; Use
->> net.ipv6.neigh.default.retran
->> s_time_ms instead.
->> Dec 14 21:32:55 feargod kernel:
->> Dec 14 21:32:55 feargod kernel: =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
->> Dec 14 21:32:55 feargod kernel: [ BUG: bad unlock balance detected! =
-]
->> Dec 14 21:32:55 feargod kernel: ------------------------------------=
--
->> Dec 14 21:32:55 feargod kernel: cat/6180 is trying to release lock
->> (kkkkkkk=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BDH3=EF=BF=BD=EF=BF=
-=BD) at:
->> Dec 14 21:32:55 feargod kernel: [packet_seq_stop+0xe/0x10]
->> packet_seq_stop+0xe/0x10
->> Dec 14 21:32:55 feargod kernel: but there are no more locks to relea=
-se!
->> Dec 14 21:32:55 feargod kernel:
->> Dec 14 21:32:55 feargod kernel: other info that might help us debug =
-this:
->> Dec 14 21:32:55 feargod kernel: 2 locks held by cat/6180:
->> Dec 14 21:32:55 feargod kernel:  #0:  (&p->lock){--..}, at:
->> [crypto_algapi:seq_read+0x25/0x191c1] seq_read+0x25/0x26f
->> Dec 14 21:32:55 feargod kernel:  #1:
->> (&net->packet.sklist_lock){-.--}, at: [packet_seq_start+0x14/0x4d]
->> packet_seq_start+0x14/0x4d
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Wang Chen <wangchen@cn.fujitsu.com>,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>, davem@davemloft.net,
+	andi@firstfloor.org, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Christoph Lameter <clameter@sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:41282 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755144AbXLOSoB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Dec 2007 13:44:01 -0500
+Content-Disposition: inline
+In-Reply-To: <20071215135851.GA29063@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+* Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-Miles, I didn't check this yet, but since there were some considerable
-changes, including locking, you could try with reverting some of these
-last 3 patches to net/packet by Denis:
+> Ob Tue, Dec 04, 2007 at 12:17:23AM +1100, Herbert Xu wrote:
+> > 
+> > Never mind, we already have that in local_t and as Alexey correctly
+> > points out, USER is still going to be the expensive variant with the
+> > preempt_disable (well until BH gets threaded).  So how about this patch?
+> 
+> I didn't hear any objections so here is the patch again.
+> 
+> [SNMP]: Fix SNMP counters with PREEMPT
+> 
+> The SNMP macros use raw_smp_processor_id() in process context which is 
+> illegal because the process may be preempted and then migrated to 
+> another CPU.
 
-http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.25.git;a=3Dhi=
-story;f=3Dnet/packet/af_packet.c;h=3D485af5691d64270a02322925a6ccfad9d0=
-2b7f78;hb=3DHEAD
+nit: please use 'invalid' instead of 'illegal'.
 
-Regards,
-Jarek P.
+> This patch makes it use get_cpu/put_cpu to disable preemption.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
- in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
+> -	(per_cpu_ptr(mib[1], raw_smp_processor_id())->mibs[field]++)
+> +	do { \
+> +		per_cpu_ptr(mib[1], get_cpu())->mibs[field]++; \
+> +		put_cpu(); \
+> +	} while (0)
+
+> -	(per_cpu_ptr(mib[1], raw_smp_processor_id())->mibs[field] += addend)
+> +	do { \
+> +		per_cpu_ptr(mib[1], get_cpu())->mibs[field] += addend; \
+> +		put_cpu(); \
+> +	} while (0)
+
+we could perhaps introduce stat_smp_processor_id(), which signals that 
+the CPU id is used for statistical purposes and does not have to be 
+exact? In any case, your patch looks good too.
+
+	Ingo
