@@ -1,64 +1,67 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH 3/3] [UDP6]: Counter increment on BH mode
-Date: Sat, 15 Dec 2007 19:43:28 +0100
-Message-ID: <20071215184327.GA21434@elte.hu>
-References: <474F7EE8.2040009@cn.fujitsu.com> <474F8255.5060501@cn.fujitsu.com> <20071130111949.GB28277@gerrit.erg.abdn.ac.uk> <20071201015438.GC26895@gondor.apana.org.au> <4753AE07.1040906@cn.fujitsu.com> <20071203113935.GA25124@gondor.apana.org.au> <20071203114912.GA4425@ms2.inr.ac.ru> <20071203115435.GA4202@gondor.apana.org.au> <20071203131723.GA30312@gondor.apana.org.au> <20071215135851.GA29063@gondor.apana.org.au>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Regression: Wireshark sees no packets in 2.6.24-rc3
+Date: Sat, 15 Dec 2007 20:57:52 +0100
+Message-ID: <1197748672.16079.59.camel@johannes.berg>
+References: <2c0942db0712131746s7da91f2bkf45b3e1ddf16d1f3@mail.gmail.com>
+	 <200712150305.02589.rjw@sisk.pl> <47633ECC.3020804@googlemail.com>
+	 <2c0942db0712142309v15f79068m8c033180d41b9be@mail.gmail.com>
+	 <2c0942db0712150016r149d285bs8f4e1c444e71afea@mail.gmail.com>
+	 (sfid-20071215_081641_992849_E96123B3)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Wang Chen <wangchen@cn.fujitsu.com>,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>, davem@davemloft.net,
-	andi@firstfloor.org, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Christoph Lameter <clameter@sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:41282 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755144AbXLOSoB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Dec 2007 13:44:01 -0500
-Content-Disposition: inline
-In-Reply-To: <20071215135851.GA29063@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-ZbAMOyRSv68qhcinASOL"
+Cc: Gabriel C <nix.or.die@googlemail.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Ray Lee <ray@madrabbit.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762038AbXLOT6R@vger.kernel.org>
+In-Reply-To: <2c0942db0712150016r149d285bs8f4e1c444e71afea@mail.gmail.com> (sfid-20071215_081641_992849_E96123B3)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-* Herbert Xu <herbert@gondor.apana.org.au> wrote:
+--=-ZbAMOyRSv68qhcinASOL
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-> Ob Tue, Dec 04, 2007 at 12:17:23AM +1100, Herbert Xu wrote:
-> > 
-> > Never mind, we already have that in local_t and as Alexey correctly
-> > points out, USER is still going to be the expensive variant with the
-> > preempt_disable (well until BH gets threaded).  So how about this patch?
-> 
-> I didn't hear any objections so here is the patch again.
-> 
-> [SNMP]: Fix SNMP counters with PREEMPT
-> 
-> The SNMP macros use raw_smp_processor_id() in process context which is 
-> illegal because the process may be preempted and then migrated to 
-> another CPU.
 
-nit: please use 'invalid' instead of 'illegal'.
+On Sat, 2007-12-15 at 00:16 -0800, Ray Lee wrote:
+> On Dec 14, 2007 11:09 PM, Ray Lee <ray@madrabbit.org> wrote:
+> > On Dec 14, 2007 6:41 PM, Gabriel C <nix.or.die@googlemail.com> wrote:
+> > Correct, absolutely no traffic. So if it works for you, then either
+> > it's something that got fixed between -rc3 and -rc5, or something odd
+> > when I did a make oldconfig, I suppose. (Or because I'm on an x86-64
+> > kernel?) Regardless, -rc5 is currently building, and I'll try it in
+> > the morning.
+>=20
+> -rc5 works great. Really don't know what's different between my -rc3
+> and -rc5 builds.
 
-> This patch makes it use get_cpu/put_cpu to disable preemption.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+I have an -rc3+wireless bits which also works great wrt.
+tcpdump/wireshark.
 
-> -	(per_cpu_ptr(mib[1], raw_smp_processor_id())->mibs[field]++)
-> +	do { \
-> +		per_cpu_ptr(mib[1], get_cpu())->mibs[field]++; \
-> +		put_cpu(); \
-> +	} while (0)
+johannes
 
-> -	(per_cpu_ptr(mib[1], raw_smp_processor_id())->mibs[field] += addend)
-> +	do { \
-> +		per_cpu_ptr(mib[1], get_cpu())->mibs[field] += addend; \
-> +		put_cpu(); \
-> +	} while (0)
+--=-ZbAMOyRSv68qhcinASOL
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-we could perhaps introduce stat_smp_processor_id(), which signals that 
-the CPU id is used for statistical purposes and does not have to be 
-exact? In any case, your patch looks good too.
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
-	Ingo
+iQIVAwUAR2Qxv6Vg1VMiehFYAQJWbRAAvMVpeMgB5yCHRif90u4ZbYZVEz0OSD4M
+KL4gWqQi0M3hk+Ng4j7YyztZCm3u60Vt2H53cHds4RoVehBufCmOTYB9YKYuM1ti
+TqlbU/Be9Uo7HWdV2rapYSPyofJ/pBA+bZR6tApcAWCOBdJ1rUcmiiiTmVlBvKHr
+YbEu6tgVUNmDXmCY2u7gkrJvvpreQw0z7Xxq3iIjXVNZTOH2EUZo4/keYaAVNnfh
+4hrroJQ/cIjTgUbsZKkmmlTtnUxwVGacgIuAToBTZvzAFu4gc2TZSQKlc/Z7/mf5
+JLQhIFib/P+pr4sSc4jsFGqu+21i4eWBXDiAGtXaNwwbAVg6VvuFaJ+HNhe6Vtdj
+VQi5bCv2fHQdJHbf1GHHu3O9LKm6XE3CmFwXZ2GqgsvFMt74nfC3bAK2TdHAp59A
+1//UxYh7g91ESXmqnqEjd5rXibAecGrr2xsZ5f1qWjPcizqEYFU5oqgm9ha6knhc
+l4a52hvZfvu9AotKseS8xJCxGEDkk0Jh4yABLucJRmkHAiJHxEOx8GCrLX+gdSmL
+7d6Fptjz/TwduAqtF+4gwDq1064TYWbpA758TCCLl1OLELwKoFImg9BwDGWPkpBs
+wKSvSSlDZHe+9mGJiNyybwE4h4oDA+CDWQfLV7T7BvTuY0y79C5LZgNJmhBuUQXj
+5Zoq560o/Yc=
+=vGeI
+-----END PGP SIGNATURE-----
+
+--=-ZbAMOyRSv68qhcinASOL--
+
