@@ -1,61 +1,109 @@
-From: "Andy Gospodarek" <andy@greyhouse.net>
-Subject: Re: [Bugme-new] [Bug 9543] New: RTNL: assertion failed at net/ipv6/addrconf.c (2164)/RTNL: assertion failed at net/ipv4/devinet.c (1055)
-Date: Sat, 15 Dec 2007 10:09:28 -0500
-Message-ID: <bdfc5d6e0712150709k2dc0a845n84c494c519298f8d@mail.gmail.com>
-References: <E1J2Rgs-0006mz-00@gondolin.me.apana.org.au>
-	 <28503.1197481615@death>
-	 <Pine.LNX.4.64.0712141707090.30334@bizon.gios.gov.pl>
-	 <20071214182638.GC25879@gospo.usersys.redhat.com>
-	 <Pine.LNX.4.64.0712141955080.12202@bizon.gios.gov.pl>
-	 <20071214224722.GA8728@gospo.usersys.redhat.com>
-	 <20071215041052.GA25324@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2/4] [CORE]: datagram: mem_scheudle functions
+Date: Sat, 15 Dec 2007 23:32:10 +0800
+Message-ID: <20071215153210.GA29415@gondor.apana.org.au>
+References: <47636120.4050701@redhat.com> <476362D8.4070807@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Krzysztof Oledzki" <olel@ans.pl>,
-	"Jay Vosburgh" <fubar@us.ibm.com>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	bugme-daemon@bugzilla.kernel.org, shemminger@linux-foundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Takahiro Yasui <tyasui@redhat.com>,
+	Masami Hiramatsu <mhiramat@redhat.com>,
+	Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
+	billfink@mindspring.com, Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	yoshfuji@linux-ipv6.org,
+	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
+To: Hideo AOKI <haoki@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.190]:15554 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757677AbXLOPJb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Dec 2007 10:09:31 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so409721fkz.5
-        for <netdev@vger.kernel.org>; Sat, 15 Dec 2007 07:09:30 -0800 (PST)
-In-Reply-To: <20071215041052.GA25324@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:4290 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755521AbXLOPcR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Dec 2007 10:32:17 -0500
 Content-Disposition: inline
+In-Reply-To: <476362D8.4070807@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Dec 14, 2007 11:10 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> On Fri, Dec 14, 2007 at 05:47:22PM -0500, Andy Gospodarek wrote:
-> >
-> > I'm guessing if we go back to using a write-lock for bond->lock this
-> > will go back to working again, but I'm not totally convinced since there
-> > are plenty of places where we used a read-lock with it.
->
-> Sorry I forgot to cc you earlier Andy.
->
-> But to fix this you need make sure that all read locks on bond->lock
-> in process context disable BH.  This is because at least one write
-> lock can be taken from BH context.
+On Sat, Dec 15, 2007 at 12:15:04AM -0500, Hideo AOKI wrote:
+> This patch includes changes in network core sub system for memory
+> accounting.
+> 
+> Memory scheduling, charging, uncharging and reclaiming functions are
+> added. These functions use sk_forward_alloc to store socket local
+> accounting. They also need to use lock to keep consistency of
+> sk_forward_alloc and memory_allocated. They currently support only
+> datagram protocols.
 
-I agree with you completely, Herbet, which is why I was surprised that
-my first apparently did not resolve the issue.  I felt it should
-have....
+Thanks for the patch.  I think it's generally on the right track
+but there's still a few issues with the implementation.
 
-> You don't need to turn the read locks into write locks however.
->
-> This is also something that we can undo once the set_multicast
-> interface has been fixed to not take the tx lock.
->
-> Cheers,
-> --
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
->
+> +	spin_lock_irqsave(&sk->sk_lock.slock, flags);
+
+Please use bh_lock_sock since this must never be used from an
+IRQ handler.
+
+> +static inline void sk_mem_reclaim(struct sock *sk)
+> +{
+> +	if (sk->sk_type == SOCK_DGRAM)
+> +		sk_datagram_mem_reclaim(sk);
+> +}
+
+Please get rid of these wrappers since we should only get here
+for datagram protocols.
+
+> +static inline int sk_account_wmem_charge(struct sock *sk, int size)
+> +{
+> +	unsigned long flags;
+> +
+> +	/* account if protocol supports memory accounting. */
+> +	if (!sk->sk_prot->memory_allocated || sk->sk_type != SOCK_DGRAM)
+> +		return 1;
+> +
+> +	spin_lock_irqsave(&sk->sk_lock.slock, flags);
+> +	if (sk_datagram_wmem_schedule(sk, size)) {
+> +		sk->sk_forward_alloc -= size;
+> +		spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
+> +		return 1;
+> +	}
+> +	spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
+> +	return 0;
+> +}
+
+This is probably too big to inline.
+
+> +static inline int sk_account_rmem_charge(struct sock *sk, int size)
+> +{
+> +	unsigned long flags;
+> +
+> +	/* account if protocol supports memory accounting. */
+> +	if (!sk->sk_prot->memory_allocated || sk->sk_type != SOCK_DGRAM)
+> +		return 1;
+> +
+> +	spin_lock_irqsave(&sk->sk_lock.slock, flags);
+> +	if (sk_datagram_rmem_schedule(sk, size)) {
+> +		sk->sk_forward_alloc -= size;
+> +		spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
+> +		return 1;
+> +	}
+> +	spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
+> +	return 0;
+> +}
+
+Why are we duplicating the rmem/wmem versions when they're identical?
+
+> -int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+> +int sock_queue_rcv_skb_with_owner(struct sock *sk, struct sk_buff *skb,
+> +				  void set_owner_r(struct sk_buff *nskb,
+> +						   struct sock* nsk))
+
+Just make a new function for this rather than playing with function
+pointers.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
