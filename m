@@ -1,63 +1,55 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] e1000: Dump the eeprom when a user encounters a bad
-	checksum
-Date: Fri, 14 Dec 2007 17:31:46 -0800
-Message-ID: <1197682306.4861.72.camel@localhost>
-References: <20071214233530.27189.89810.stgit@localhost.localdomain>
+From: Jouni Malinen <j@w1.fi>
+Subject: Re: [PATCH] PS3: gelic: Add wireless support for PS3
+Date: Fri, 14 Dec 2007 17:42:44 -0800
+Message-ID: <20071215014244.GI5698@jm.kir.nu>
+References: <20071213211626.BF8E.MOKUNO@sm.sony.co.jp> <1197580418.14270.6.camel@localhost.localdomain> <20071214134918.275E.MOKUNO@sm.sony.co.jp> <1197637127.16724.1.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, davem@davemloft.net,
-	john.ronciak@intel.com, jesse.brandeburg@intel.com
-To: Auke Kok <auke-jan.h.kok@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:1126 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751099AbXLOBbz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Dec 2007 20:31:55 -0500
-In-Reply-To: <20071214233530.27189.89810.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	geoffrey.levand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org,
+	Geert Uytterhoeven <Geert.Uytterhoeven-osDt5Q4Chk1BDgjK7y7TUQ@public.gmane.org>
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1197637127.16724.1.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-12-14 at 15:35 -0800, Auke Kok wrote: 
-> +	printk(KERN_ERR "/*********************/\n");
-> +	printk(KERN_ERR "Current EEPROM: 0x%04x\nCalculated    : 0x%04x\n",
-> +	       csum_old, csum_new);
+On Fri, Dec 14, 2007 at 07:58:47AM -0500, Dan Williams wrote:
+> On Fri, 2007-12-14 at 14:03 +0900, Masakazu Mokuno wrote:
+> > The PS3 wireless device does the association and 4way handshake in its
+> > firmware/hypervisor.  No interventions between them are allowed to the guest
+> > OSes.  
 
-Multiline printks need a KERN_<level> after every newline.  Perhaps:
+> That sort of sucks; but I guess there's not too much you can do about
+> it.  That probably means that using wpa_supplicant + WPA is completely
+> out of the picture, which unfortunately makes the PS3 wireless unlike
+> any other card, which would require special-casing the PS3 in userspace
+> tools.
 
-	printk(KERN_ERR "Current EEPROM: 0x%04x\n"
-	       KERN_ERR "Calculated    : 0x%04x\n", 
-	       csum_old, csum_new);
+The current wpa_supplicant development branch (0.6.x) supports drivers
+that want to do 4-way handshake in the driver/firmware (e.g., OSX,
+iPhone, this PS3 driver). In case of WPA-PSK, this doesn't really mean
+more than just passing through the passphrase/PSK to the association
+routine, but still, this allows the driver to be configured through
+wpa_supplicant, if desired.
 
-> +	printk(KERN_ERR "Offset   Values\n");
-> +	printk(KERN_ERR "======   ======\n");
-> +	for (i = 0; i < eeprom.len; i += 16)
-> +		printk(KERN_ERR "0x%04x   "
-> +		       "%02x %02x %02x %02x %02x %02x %02x %02x "
-> +		       "%02x %02x %02x %02x %02x %02x %02x %02x\n",
-> +		       i, data[i], data[i + 1], data[i + 2], data[i + 3],
-> +		       data[i + 4], data[i + 5], data[i + 6], data[i + 7],
-> +		       data[i + 8], data[i + 9], data[i + 10], data[i + 11],
-> +		       data[i + 12], data[i + 13], data[i + 14], data[i + 15]);
+However, there is a part that you are not going to like.. This is likely
+using a private ioctl for some parts of the association requests, i.e.,
+no -Dwext.. I would assume that this could be cleaned up, though, if
+WEXT would be extended a bit to allow one more enc_capa to notify
+whether the driver wants to take care of 4-way handshake and to allow
+the PSK to be configured with a new key type.
 
-	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_OFFSET, 16, 1, data,
-		       eeprom.len, true); 
 
-> +	printk(KERN_ERR "Include this output when contacting your support "
-> +	       "provider.\n\nThis is not a software error! Something bad "
-> +	       "happened to your hardware or\nEEPROM image. Ignoring this "
-> +	       "problem could result in further problems,\npossibly loss "
-> +	       "of data, corruption or system hangs!\n\n");
-> +	printk(KERN_ERR "The MAC Address will be reset to 00:00:00:00:00:00, "
-> +	       "which is invalid\nand requires you to set the proper MAC "
-> +	       "address manually before continuing\nto enable this network "
-> +	       "device.\n\n");
-> +	printk(KERN_ERR "Please inspect the EEPROM dump and report the issue "
-> +	       "to your hardware vendor\nor Intel Customer Support: "
-> +	       "linux-nics@intel.com\n");
+PS.
 
-multiline printks...
+It would be interesting to see whether the driver/firmware/hypervisor
+could be convinced to allow EAPOL frames to go through between
+association and 4-way handshake (which would be completed by
+driver/firmware). This is the way I can support WPA/WPA2-Enterprise with
+OSX..
 
-cheers,  Joe
-
+-- 
+Jouni Malinen                                            PGP id EFC895FA
