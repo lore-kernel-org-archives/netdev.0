@@ -1,41 +1,28 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Bugme-new] [Bug 9543] New: RTNL: assertion failed at net/ipv6/addrconf.c (2164)/RTNL: assertion failed at net/ipv4/devinet.c (1055)
-Date: Sat, 15 Dec 2007 12:10:52 +0800
-Message-ID: <20071215041052.GA25324@gondor.apana.org.au>
-References: <E1J2Rgs-0006mz-00@gondolin.me.apana.org.au> <28503.1197481615@death> <Pine.LNX.4.64.0712141707090.30334@bizon.gios.gov.pl> <20071214182638.GC25879@gospo.usersys.redhat.com> <Pine.LNX.4.64.0712141955080.12202@bizon.gios.gov.pl> <20071214224722.GA8728@gospo.usersys.redhat.com>
+Subject: Re: [patch 2/4] net: use mutex_is_locked() for ASSERT_RTNL()
+Date: Sat, 15 Dec 2007 12:18:27 +0800
+Message-ID: <20071215041827.GC25324@gondor.apana.org.au>
+References: <E1J35d6-00041l-00@gondolin.me.apana.org.au> <20071214002209.ac748206.akpm@linux-foundation.org> <20071214083037.GA15602@gondor.apana.org.au> <20071214.111514.03773174.davem@davemloft.net> <20071214151136.ae0f969b.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Krzysztof Oledzki <olel@ans.pl>, Jay Vosburgh <fubar@us.ibm.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	bugme-daemon@bugzilla.kernel.org, shemminger@linux-foundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Andy Gospodarek <andy@greyhouse.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1617 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:1708 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753344AbXLOELt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 23:11:49 -0500
+	with ESMTP id S1752192AbXLOESe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 23:18:34 -0500
 Content-Disposition: inline
-In-Reply-To: <20071214224722.GA8728@gospo.usersys.redhat.com>
+In-Reply-To: <20071214151136.ae0f969b.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 14, 2007 at 05:47:22PM -0500, Andy Gospodarek wrote:
+On Fri, Dec 14, 2007 at 03:11:36PM -0800, Andrew Morton wrote:
 >
-> I'm guessing if we go back to using a write-lock for bond->lock this
-> will go back to working again, but I'm not totally convinced since there
-> are plenty of places where we used a read-lock with it.
+> I don't believe that ASSERT_RTNL() presently warns when called from atomic
+> contexts.  If it does then I missed it.
 
-Sorry I forgot to cc you earlier Andy.
-
-But to fix this you need make sure that all read locks on bond->lock
-in process context disable BH.  This is because at least one write
-lock can be taken from BH context.
-
-You don't need to turn the read locks into write locks however.
-
-This is also something that we can undo once the set_multicast
-interface has been fixed to not take the tx lock.
+It does when mutex debugging is enabled.
 
 Cheers,
 -- 
