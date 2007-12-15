@@ -1,67 +1,75 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Regression: Wireshark sees no packets in 2.6.24-rc3
-Date: Sat, 15 Dec 2007 20:57:52 +0100
-Message-ID: <1197748672.16079.59.camel@johannes.berg>
-References: <2c0942db0712131746s7da91f2bkf45b3e1ddf16d1f3@mail.gmail.com>
-	 <200712150305.02589.rjw@sisk.pl> <47633ECC.3020804@googlemail.com>
-	 <2c0942db0712142309v15f79068m8c033180d41b9be@mail.gmail.com>
-	 <2c0942db0712150016r149d285bs8f4e1c444e71afea@mail.gmail.com>
-	 (sfid-20071215_081641_992849_E96123B3)
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] e1000: Dump the eeprom when a user encounters a bad
+	checksum
+Date: Sat, 15 Dec 2007 12:35:35 -0800
+Message-ID: <47643A97.7050309@intel.com>
+References: <20071214233530.27189.89810.stgit@localhost.localdomain>
+ <1197682306.4861.72.camel@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-ZbAMOyRSv68qhcinASOL"
-Cc: Gabriel C <nix.or.die@googlemail.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: Ray Lee <ray@madrabbit.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762038AbXLOT6R@vger.kernel.org>
-In-Reply-To: <2c0942db0712150016r149d285bs8f4e1c444e71afea@mail.gmail.com> (sfid-20071215_081641_992849_E96123B3)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Auke Kok <auke-jan.h.kok@intel.com>, jeff@garzik.org,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	john.ronciak@intel.com, jesse.brandeburg@intel.com,
+	Randy Dunlap <randy.dunlap@oracle.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vms046pub.verizon.net ([206.46.252.46]:49499 "EHLO
+	vms046pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754802AbXLOUfy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Dec 2007 15:35:54 -0500
+Received: from ahkok-mobl.jf.intel.com ([71.117.209.2])
+ by vms046.mailsrvcs.net (Sun Java System Messaging Server 6.2-6.01 (built Apr
+ 3 2006)) with ESMTPA id <0JT300ECCYJRK3W1@vms046.mailsrvcs.net> for
+ netdev@vger.kernel.org; Sat, 15 Dec 2007 14:35:51 -0600 (CST)
+In-reply-to: <1197682306.4861.72.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Joe Perches wrote:
+> On Fri, 2007-12-14 at 15:35 -0800, Auke Kok wrote: 
+>> +	printk(KERN_ERR "/*********************/\n");
+>> +	printk(KERN_ERR "Current EEPROM: 0x%04x\nCalculated    : 0x%04x\n",
+>> +	       csum_old, csum_new);
+> 
+> Multiline printks need a KERN_<level> after every newline.  Perhaps:
+> 
+> 	printk(KERN_ERR "Current EEPROM: 0x%04x\n"
+> 	       KERN_ERR "Calculated    : 0x%04x\n", 
+> 	       csum_old, csum_new);
+> 
+>> +	printk(KERN_ERR "Offset   Values\n");
+>> +	printk(KERN_ERR "======   ======\n");
+>> +	for (i = 0; i < eeprom.len; i += 16)
+>> +		printk(KERN_ERR "0x%04x   "
+>> +		       "%02x %02x %02x %02x %02x %02x %02x %02x "
+>> +		       "%02x %02x %02x %02x %02x %02x %02x %02x\n",
+>> +		       i, data[i], data[i + 1], data[i + 2], data[i + 3],
+>> +		       data[i + 4], data[i + 5], data[i + 6], data[i + 7],
+>> +		       data[i + 8], data[i + 9], data[i + 10], data[i + 11],
+>> +		       data[i + 12], data[i + 13], data[i + 14], data[i + 15]);
+> 
+> 	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_OFFSET, 16, 1, data,
+> 		       eeprom.len, true); 
+> 
+>> +	printk(KERN_ERR "Include this output when contacting your support "
+>> +	       "provider.\n\nThis is not a software error! Something bad "
+>> +	       "happened to your hardware or\nEEPROM image. Ignoring this "
+>> +	       "problem could result in further problems,\npossibly loss "
+>> +	       "of data, corruption or system hangs!\n\n");
+>> +	printk(KERN_ERR "The MAC Address will be reset to 00:00:00:00:00:00, "
+>> +	       "which is invalid\nand requires you to set the proper MAC "
+>> +	       "address manually before continuing\nto enable this network "
+>> +	       "device.\n\n");
+>> +	printk(KERN_ERR "Please inspect the EEPROM dump and report the issue "
+>> +	       "to your hardware vendor\nor Intel Customer Support: "
+>> +	       "linux-nics@intel.com\n");
+> 
+> multiline printks...
+> 
 
---=-ZbAMOyRSv68qhcinASOL
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+given these and Randy's comments I'll respin this and resubmit. thanks for the
+comments!
 
-
-On Sat, 2007-12-15 at 00:16 -0800, Ray Lee wrote:
-> On Dec 14, 2007 11:09 PM, Ray Lee <ray@madrabbit.org> wrote:
-> > On Dec 14, 2007 6:41 PM, Gabriel C <nix.or.die@googlemail.com> wrote:
-> > Correct, absolutely no traffic. So if it works for you, then either
-> > it's something that got fixed between -rc3 and -rc5, or something odd
-> > when I did a make oldconfig, I suppose. (Or because I'm on an x86-64
-> > kernel?) Regardless, -rc5 is currently building, and I'll try it in
-> > the morning.
->=20
-> -rc5 works great. Really don't know what's different between my -rc3
-> and -rc5 builds.
-
-I have an -rc3+wireless bits which also works great wrt.
-tcpdump/wireshark.
-
-johannes
-
---=-ZbAMOyRSv68qhcinASOL
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUAR2Qxv6Vg1VMiehFYAQJWbRAAvMVpeMgB5yCHRif90u4ZbYZVEz0OSD4M
-KL4gWqQi0M3hk+Ng4j7YyztZCm3u60Vt2H53cHds4RoVehBufCmOTYB9YKYuM1ti
-TqlbU/Be9Uo7HWdV2rapYSPyofJ/pBA+bZR6tApcAWCOBdJ1rUcmiiiTmVlBvKHr
-YbEu6tgVUNmDXmCY2u7gkrJvvpreQw0z7Xxq3iIjXVNZTOH2EUZo4/keYaAVNnfh
-4hrroJQ/cIjTgUbsZKkmmlTtnUxwVGacgIuAToBTZvzAFu4gc2TZSQKlc/Z7/mf5
-JLQhIFib/P+pr4sSc4jsFGqu+21i4eWBXDiAGtXaNwwbAVg6VvuFaJ+HNhe6Vtdj
-VQi5bCv2fHQdJHbf1GHHu3O9LKm6XE3CmFwXZ2GqgsvFMt74nfC3bAK2TdHAp59A
-1//UxYh7g91ESXmqnqEjd5rXibAecGrr2xsZ5f1qWjPcizqEYFU5oqgm9ha6knhc
-l4a52hvZfvu9AotKseS8xJCxGEDkk0Jh4yABLucJRmkHAiJHxEOx8GCrLX+gdSmL
-7d6Fptjz/TwduAqtF+4gwDq1064TYWbpA758TCCLl1OLELwKoFImg9BwDGWPkpBs
-wKSvSSlDZHe+9mGJiNyybwE4h4oDA+CDWQfLV7T7BvTuY0y79C5LZgNJmhBuUQXj
-5Zoq560o/Yc=
-=vGeI
------END PGP SIGNATURE-----
-
---=-ZbAMOyRSv68qhcinASOL--
+Auke
 
