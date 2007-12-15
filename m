@@ -1,75 +1,115 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [patch 01/10] e1000e: make E1000E default to the same kconfig
-	setting as E1000
-Date: Sat, 15 Dec 2007 01:02:34 +0100
-Message-ID: <20071215000234.GB5403@stusta.de>
-References: <200712140002.lBE02pUb025505@imap1.linux-foundation.org> <4762E9FE.1070707@garzik.org> <20071214223947.GA5403@stusta.de> <47630F23.5060403@garzik.org>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH] e1000: Dump the eeprom when a user encounters a bad
+ checksum
+Date: Fri, 14 Dec 2007 17:08:25 -0800
+Message-ID: <20071214170825.91fc4861.randy.dunlap@oracle.com>
+References: <20071214233530.27189.89810.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	randy.dunlap@oracle.com, auke-jan.h.kok@intel.com,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org, davem@davemloft.net,
+	john.ronciak@intel.com, jesse.brandeburg@intel.com
+To: Auke Kok <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:59435 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750758AbXLOACb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 19:02:31 -0500
-Content-Disposition: inline
-In-Reply-To: <47630F23.5060403@garzik.org>
+Received: from agminet01.oracle.com ([141.146.126.228]:29313 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752502AbXLOBJ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2007 20:09:27 -0500
+In-Reply-To: <20071214233530.27189.89810.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 14, 2007 at 06:17:55PM -0500, Jeff Garzik wrote:
-> Adrian Bunk wrote:
->> On Fri, Dec 14, 2007 at 03:39:26PM -0500, Jeff Garzik wrote:
->>> akpm@linux-foundation.org wrote:
->>>> From: Randy Dunlap <randy.dunlap@oracle.com>
->>> ...
->>> So I think the breakage that occurs is mitigated by two factors:
->>> 1) kernel hackers that do their own configs are expected to be able to 
->>> figure this stuff.
->>> 2) kernel builders (read: distros, mainly) are expected to have put 
->>> thought into the Kconfig selection and driver migration strategies.
->>> ...
->>> I would prefer simply to communicate to kernel experts and builders about 
->>> a Kconfig issue that could potentially their booting/networking...  
->>> because this patch is only needed if the kernel experts do not already 
->>> know about a necessary config update.
->>
->> You miss the vast majority of kconfig users:
->>
->> 3) system administrators etc. who for different reasons compile their own 
->> kernels but neither are nor want to be kernel developers
->>
->> There's a reason why e.g. LPI requires you to be able to compile your own 
->> kernel even for getting a "Junior Level Linux Professional" certificate.
->
-> Great!
->
->
->> Or that one of the authors of "Linux Device drivers" has written a book 
->> covering only how to build and run your own kernel.
->
-> Nonetheless, it will always be true that configuring your own kernel 
-> requires knowledge of the options you are setting.
+On Fri, 14 Dec 2007 15:35:30 -0800 Auke Kok wrote:
 
-We are not talking about Aunt Tillie, "system administrator" is the use 
-case that might cover this (quite diverse) group of users best.
+> To help supporting users with a bad eeprom checksum, dump the
+> eeprom info when such a situation is encountered by a user.
+> 
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> ---
+> 
+>  drivers/net/e1000/e1000_main.c |   90 +++++++++++++++++++++++++++++++++++-----
+>  1 files changed, 79 insertions(+), 11 deletions(-)
+> 
+> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+> index efd8c2d..2dab1a6 100644
+> --- a/drivers/net/e1000/e1000_main.c
+> +++ b/drivers/net/e1000/e1000_main.c
+> @@ -817,6 +817,69 @@ e1000_reset(struct e1000_adapter *adapter)
+>  }
+>  
+>  /**
+> + *  Dump the eeprom for users having checksum issues
+> + **/
+> +void e1000_dump_eeprom(struct e1000_adapter *adapter)
+> +{
+> +	struct net_device *netdev = adapter->netdev;
+> +	struct ethtool_eeprom eeprom;
+> +	const struct ethtool_ops *ops = netdev->ethtool_ops;
+> +	u8 *data;
+> +	int i;
+> +	u16 csum_old, csum_new = 0;
+> +
+> +	eeprom.len = ops->get_eeprom_len(netdev);
+> +	eeprom.offset = 0;
+> +
+> +	data = kmalloc(eeprom.len, GFP_KERNEL);
+> +	if (!data) {
+> +		printk(KERN_ERR "Unable to allocate memory to dump EEPROM"
+> +		       " data\n");
+> +		return;
+> +	}
+> +
+> +	ops->get_eeprom(netdev, &eeprom, data);
+> +
+> +	csum_old = (data[EEPROM_CHECKSUM_REG * 2]) +
+> +		   (data[EEPROM_CHECKSUM_REG * 2 + 1] << 8);
+> +	for (i = 0; i < EEPROM_CHECKSUM_REG * 2; i += 2)
+> +		csum_new += data[i] + (data[i + 1] << 8);
+> +	csum_new = EEPROM_SUM - csum_new;
+> +
+> +	printk(KERN_ERR "/*********************/\n");
+> +	printk(KERN_ERR "Current EEPROM: 0x%04x\nCalculated    : 0x%04x\n",
+> +	       csum_old, csum_new);
 
-We can expect kconfig users to know what filesystems their data is on 
-and to have some knowledge of their hardware, but every other knowledge 
-we must give through kconfig.
+add the word "checksum" in that line somewhere?
 
-> 	Jeff
+> +	printk(KERN_ERR "Offset   Values\n");
+> +	printk(KERN_ERR "======   ======\n");
+> +	for (i = 0; i < eeprom.len; i += 16)
+> +		printk(KERN_ERR "0x%04x   "
+> +		       "%02x %02x %02x %02x %02x %02x %02x %02x "
+> +		       "%02x %02x %02x %02x %02x %02x %02x %02x\n",
+> +		       i, data[i], data[i + 1], data[i + 2], data[i + 3],
+> +		       data[i + 4], data[i + 5], data[i + 6], data[i + 7],
+> +		       data[i + 8], data[i + 9], data[i + 10], data[i + 11],
+> +		       data[i + 12], data[i + 13], data[i + 14], data[i + 15]);
 
-cu
-Adrian
+how about:
 
--- 
+	for (i = 0; i < eeprom.len; i += 16)
+		print_hex_dump(KERN_ERR, "data:", DUMP_PREFIX_OFFSET,
+			16, 1, data + i, 16, 0);
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
 
+> +	printk(KERN_ERR "Include this output when contacting your support "
+> +	       "provider.\n\nThis is not a software error! Something bad "
+> +	       "happened to your hardware or\nEEPROM image. Ignoring this "
+> +	       "problem could result in further problems,\npossibly loss "
+> +	       "of data, corruption or system hangs!\n\n");
+> +	printk(KERN_ERR "The MAC Address will be reset to 00:00:00:00:00:00, "
+> +	       "which is invalid\nand requires you to set the proper MAC "
+> +	       "address manually before continuing\nto enable this network "
+> +	       "device.\n\n");
+> +	printk(KERN_ERR "Please inspect the EEPROM dump and report the issue "
+> +	       "to your hardware vendor\nor Intel Customer Support: "
+> +	       "linux-nics@intel.com\n");
+> +
+> +	printk(KERN_ERR "/*********************/\n");
+> +
+> +	kfree(data);
+> +}
+
+
+
+---
+~Randy
