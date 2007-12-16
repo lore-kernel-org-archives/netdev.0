@@ -1,129 +1,71 @@
-From: Al Viro <viro@ftp.linux.org.uk>
-Subject: [PATCH] endianness annotations and fixes for olympic
-Date: Sun, 16 Dec 2007 20:53:36 +0000
-Message-ID: <20071216205336.GW8181@ftp.linux.org.uk>
+From: Bernard Pidoux <pidoux@ccr.jussieu.fr>
+Subject: [BUG]  lack of  /proc/net/ax25  with  2.6.24-rc5
+Date: Sun, 16 Dec 2007 22:17:32 +0100
+Message-ID: <476595EC.5050103@ccr.jussieu.fr>
+References: <476303C8.2060507@ccr.jussieu.fr> <20071215101810.GA3143@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	kaaker@brocade.com
-To: mikep@linuxtr.net
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:34031 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753421AbXLPUxo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 15:53:44 -0500
-Content-Disposition: inline
+Received: from smtp5-g19.free.fr ([212.27.42.35]:48840 "EHLO smtp5-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757583AbXLPVRc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Dec 2007 16:17:32 -0500
+In-Reply-To: <20071215101810.GA3143@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	* missing braces in !readl(...) & ...
-	* trivial endianness annotations
-	* in olympic_arb_cmd() the loop collecting fragments of
-packet is b0rken on big-endian - we have
-	(next_ptr && (buf_ptr=olympic_priv->olympic_lap + ntohs(next_ptr)))
-as condition and it should have swab16(), not ntohs() - it's host-endian
-byteswapped, not big-endian.  So if we get more than one fragment on big-endian
-host, we get screwed.
-	This ntohs() got missed back when the rest of those had been switched
-to swab16() in 2.4.0-test2-pre1 - at a guess, nobody had hit fragmented
-packets during the testing of PPC fixes.
+With 2.6.24-rc5 there is no /proc/net/ax25
 
-PS: Ken Aaker cc'd on assumption that he is the same guy who'd done the
-original set of PPC fixes in olympic
+Here is an extract from dmesg after boot :
 
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
----
-diff --git a/drivers/net/tokenring/olympic.c b/drivers/net/tokenring/olympic.c
-index 74c1f0f..e7b4adc 100644
---- a/drivers/net/tokenring/olympic.c
-+++ b/drivers/net/tokenring/olympic.c
-@@ -357,7 +357,7 @@ static int __devinit olympic_init(struct net_device *dev)
- 
- 	if(!(readl(olympic_mmio+BCTL) & BCTL_MODE_INDICATOR)) { 
- 		t=jiffies;
--		while (!readl(olympic_mmio+CLKCTL) & CLKCTL_PAUSE) { 
-+		while (!(readl(olympic_mmio+CLKCTL) & CLKCTL_PAUSE)) {
- 			schedule() ; 
- 			if(time_after(jiffies, t + 2*HZ)) {
- 				printk(KERN_ERR "IBM Cardbus tokenring adapter not responsing.\n") ; 
-@@ -671,7 +671,7 @@ static int olympic_open(struct net_device *dev)
- 
- 	writel(BMCTL_TX1_DIS,olympic_mmio+BMCTL_RWM); /* Yes, this enables TX channel 1 */
- 	for(i=0;i<OLYMPIC_TX_RING_SIZE;i++) 
--		olympic_priv->olympic_tx_ring[i].buffer=0xdeadbeef;
-+		olympic_priv->olympic_tx_ring[i].buffer=cpu_to_le32(0xdeadbeef);
- 
- 	olympic_priv->free_tx_ring_entries=OLYMPIC_TX_RING_SIZE;
- 	olympic_priv->tx_ring_dma_addr = pci_map_single(olympic_priv->pdev,olympic_priv->olympic_tx_ring,
-@@ -897,7 +897,7 @@ static void olympic_freemem(struct net_device *dev)
- 			dev_kfree_skb_irq(olympic_priv->rx_ring_skb[olympic_priv->rx_status_last_received]);
- 			olympic_priv->rx_ring_skb[olympic_priv->rx_status_last_received] = NULL;
- 		}
--		if (olympic_priv->olympic_rx_ring[olympic_priv->rx_status_last_received].buffer != 0xdeadbeef) {
-+		if (olympic_priv->olympic_rx_ring[olympic_priv->rx_status_last_received].buffer != cpu_to_le32(0xdeadbeef)) {
- 			pci_unmap_single(olympic_priv->pdev, 
- 			le32_to_cpu(olympic_priv->olympic_rx_ring[olympic_priv->rx_status_last_received].buffer),
- 			olympic_priv->pkt_buf_sz, PCI_DMA_FROMDEVICE);
-@@ -983,7 +983,7 @@ static irqreturn_t olympic_interrupt(int irq, void *dev_id)
- 					le32_to_cpu(olympic_priv->olympic_tx_ring[olympic_priv->tx_ring_last_status].buffer), 
- 					olympic_priv->tx_ring_skb[olympic_priv->tx_ring_last_status]->len,PCI_DMA_TODEVICE);
- 				dev_kfree_skb_irq(olympic_priv->tx_ring_skb[olympic_priv->tx_ring_last_status]);
--				olympic_priv->olympic_tx_ring[olympic_priv->tx_ring_last_status].buffer=0xdeadbeef;
-+				olympic_priv->olympic_tx_ring[olympic_priv->tx_ring_last_status].buffer=cpu_to_le32(0xdeadbeef);
- 				olympic_priv->olympic_tx_status_ring[olympic_priv->tx_ring_last_status].status=0;
- 			}
- 			netif_wake_queue(dev);
-@@ -1432,7 +1432,7 @@ static void olympic_arb_cmd(struct net_device *dev)
- 			buffer_len = swab16(readw(buf_ptr+offsetof(struct mac_receive_buffer,buffer_length))); 
- 			memcpy_fromio(skb_put(mac_frame, buffer_len), frame_data , buffer_len ) ;
- 			next_ptr=readw(buf_ptr+offsetof(struct mac_receive_buffer,next)); 
--		} while (next_ptr && (buf_ptr=olympic_priv->olympic_lap + ntohs(next_ptr)));
-+		} while (next_ptr && (buf_ptr=olympic_priv->olympic_lap + swab16(next_ptr)));
- 
- 		mac_frame->protocol = tr_type_trans(mac_frame, dev);
- 
-diff --git a/drivers/net/tokenring/olympic.h b/drivers/net/tokenring/olympic.h
-index 2fc59c9..c919563 100644
---- a/drivers/net/tokenring/olympic.h
-+++ b/drivers/net/tokenring/olympic.h
-@@ -216,31 +216,31 @@
- /* xxxx These structures are all little endian in hardware. */
- 
- struct olympic_tx_desc {
--	u32 buffer;
--	u32 status_length;
-+	__le32 buffer;
-+	__le32 status_length;
- };
- 
- struct olympic_tx_status {
--	u32 status;
-+	__le32 status;
- };
- 
- struct olympic_rx_desc {
--	u32 buffer;
--	u32 res_length; 
-+	__le32 buffer;
-+	__le32 res_length; 
- };
- 
- struct olympic_rx_status {
--	u32 fragmentcnt_framelen;
--	u32 status_buffercnt;
-+	__le32 fragmentcnt_framelen;
-+	__le32 status_buffercnt;
- };
- /* xxxx END These structures are all little endian in hardware. */
- /* xxxx There may be more, but I'm pretty sure about these */
- 
- struct mac_receive_buffer {
--	u16 next ; 
-+	__le16 next ; 
- 	u8 padding ; 
- 	u8 frame_status ;
--	u16 buffer_length ; 
-+	__le16 buffer_length ; 
- 	u8 frame_data ; 
- };
- 
+=======================
+sysctl table check failed: /net/ax25/ax0/ax25_default_mode .3.9.1.2 
+Unknown sysctl binary path
+Pid: 2936, comm: kissattach Not tainted 2.6.24-rc5 #1
+  [<c012ca6a>] set_fail+0x3b/0x43
+  [<c012ce7a>] sysctl_check_table+0x408/0x456
+  [<c012ce8e>] sysctl_check_table+0x41c/0x456
+  [<c012ce8e>] sysctl_check_table+0x41c/0x456
+  [<c02ac64a>] _spin_unlock+0x14/0x1c
+  [<c012ce8e>] sysctl_check_table+0x41c/0x456
+  [<c011e681>] sysctl_set_parent+0x19/0x2a
+  [<c011f55c>] register_sysctl_table+0x45/0x85
+  [<d8be9d26>] ax25_register_sysctl+0x112/0x11c [ax25]
+  [<d8be6c76>] ax25_device_event+0x2e/0x90 [ax25]
+  [<c012c560>] notifier_call_chain+0x2a/0x47
+  [<c012c59f>] raw_notifier_call_chain+0x17/0x1a
+  [<c0259290>] dev_open+0x6f/0x75
+  [<c0257ee7>] dev_change_flags+0x9c/0x148
+  [<c0256ab3>] __dev_get_by_name+0x68/0x73
+  [<c0292307>] devinet_ioctl+0x22e/0x53b
+  [<c0259074>] dev_ioctl+0x472/0x5ba
+  [<c024d4ba>] sock_ioctl+0x1aa/0x1cf
+  [<c024d310>] sock_ioctl+0x0/0x1cf
+  [<c016bc19>] do_ioctl+0x19/0x4c
+  [<c016be40>] vfs_ioctl+0x1f4/0x20b
+  [<c0103d01>] sysenter_past_esp+0x9a/0xa9
+  [<c016be9c>] sys_ioctl+0x45/0x5d
+  [<c0103cc6>] sysenter_past_esp+0x5f/0xa9
+  =======================
+sysctl table check failed: /net/ax25/ax0/backoff_type .3.9.1.3 Unknown 
+sysctl binary path
+(...) truncated
+  =======================
+sysctl table check failed: /net/ax25/ax0/connect_mode .3.9.1.4 Unknown 
+sysctl binary path
+(...)
+  =======================
+sysctl table check failed: /net/ax25/ax0/standard_window_size .3.9.1.5 
+Unknown sysctl binary path
+  =======================
+(...)
+
+and so on ...
+
+
+
+Bernard Pidoux
+f6bvp@amsat.org
