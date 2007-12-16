@@ -1,88 +1,415 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH] SCTP: Flush fragment queue when exiting partial delivery
-Date: Sun, 16 Dec 2007 02:08:36 -0500
-Message-ID: <1197788916-2969-1-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH 2.6.25] SCTP: Use crc32c library for checksum calculations.
+Date: Sun, 16 Dec 2007 02:10:45 -0500
+Message-ID: <1197789045-3077-1-git-send-email-vladislav.yasevich@hp.com>
 Cc: lksctp-developers@lists.sourceforge.net,
 	Vlad Yasevich <vladislav.yasevich@hp.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:17553 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751010AbXLPHIi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 02:08:38 -0500
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:9625 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753382AbXLPHKr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 02:10:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-At the end of partial delivery, we may have complete messages
-sitting on the fragment queue.  These messages are stuck there
-until a new fragment arrives.  This can comletely stall a
-given association.  When clearing partial delivery state, flush
-any complete messages from the fragment queue and send them on
-their way up.
+The crc32c library used an identical table and algorithm
+as SCTP.  Switch to using the library instead of carrying
+our own table.  Using crypto layer proved to have too
+much overhead compared to using the library directly.
 
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
- net/sctp/ulpqueue.c |   33 +++++++++++++++++++++++++++++++++
- 1 files changed, 33 insertions(+), 0 deletions(-)
+ include/net/sctp/checksum.h |   78 +++++++++++++++
+ include/net/sctp/sctp.h     |    7 --
+ net/sctp/Kconfig            |    1 +
+ net/sctp/Makefile           |    2 +-
+ net/sctp/crc32c.c           |  222 -------------------------------------------
+ net/sctp/input.c            |    1 +
+ net/sctp/output.c           |    1 +
+ 7 files changed, 82 insertions(+), 230 deletions(-)
+ create mode 100644 include/net/sctp/checksum.h
+ delete mode 100644 net/sctp/crc32c.c
 
-diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
-index 4908041..1733fa2 100644
---- a/net/sctp/ulpqueue.c
-+++ b/net/sctp/ulpqueue.c
-@@ -53,6 +53,7 @@ static struct sctp_ulpevent * sctp_ulpq_reasm(struct sctp_ulpq *ulpq,
- 					      struct sctp_ulpevent *);
- static struct sctp_ulpevent * sctp_ulpq_order(struct sctp_ulpq *,
- 					      struct sctp_ulpevent *);
-+static void sctp_ulpq_reasm_drain(struct sctp_ulpq *ulpq);
- 
- /* 1st Level Abstractions */
- 
-@@ -190,6 +191,7 @@ static void sctp_ulpq_set_pd(struct sctp_ulpq *ulpq)
- static int sctp_ulpq_clear_pd(struct sctp_ulpq *ulpq)
- {
- 	ulpq->pd_mode = 0;
-+	sctp_ulpq_reasm_drain(ulpq);
- 	return sctp_clear_pd(ulpq->asoc->base.sk, ulpq->asoc);
- }
- 
-@@ -699,6 +701,37 @@ void sctp_ulpq_reasm_flushtsn(struct sctp_ulpq *ulpq, __u32 fwd_tsn)
- 	}
- }
- 
-+/*
-+ * Drain the reassembly queue.  If we just cleared parted delivery, it
-+ * is possible that the reassembly queue will contain already reassembled
-+ * messages.  Retrieve any such messages and give them to the user.
+diff --git a/include/net/sctp/checksum.h b/include/net/sctp/checksum.h
+new file mode 100644
+index 0000000..ba75c67
+--- /dev/null
++++ b/include/net/sctp/checksum.h
+@@ -0,0 +1,78 @@
++/* SCTP kernel reference Implementation
++ * Copyright (c) 1999-2001 Motorola, Inc.
++ * Copyright (c) 2001-2003 International Business Machines, Corp.
++ *
++ * This file is part of the SCTP kernel reference Implementation
++ *
++ * SCTP Checksum functions
++ *
++ * The SCTP reference implementation is free software;
++ * you can redistribute it and/or modify it under the terms of
++ * the GNU General Public License as published by
++ * the Free Software Foundation; either version 2, or (at your option)
++ * any later version.
++ *
++ * The SCTP reference implementation is distributed in the hope that it
++ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
++ *                 ************************
++ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with GNU CC; see the file COPYING.  If not, write to
++ * the Free Software Foundation, 59 Temple Place - Suite 330,
++ * Boston, MA 02111-1307, USA.
++ *
++ * Please send any bug reports or fixes you make to the
++ * email address(es):
++ *    lksctp developers <lksctp-developers@lists.sourceforge.net>
++ *
++ * Or submit a bug report through the following website:
++ *    http://www.sf.net/projects/lksctp
++ *
++ * Written or modified by:
++ *    Dinakaran Joseph
++ *    Jon Grimm <jgrimm@us.ibm.com>
++ *    Sridhar Samudrala <sri@us.ibm.com>
++ *
++ * Rewritten to use libcrc32c by:
++ *    Vlad Yasevich <vladislav.yasevich@hp.com>
++ *
++ * Any bugs reported given to us we will try to fix... any fixes shared will
++ * be incorporated into the next SCTP release.
 + */
-+static void sctp_ulpq_reasm_drain(struct sctp_ulpq *ulpq)
++
++#include <linux/types.h>
++#include <net/sctp/sctp.h>
++#include <linux/crc32c.h>
++
++static inline __u32 sctp_start_cksum(__u8 *buffer, __u16 length)
 +{
-+	struct sctp_ulpevent *event = NULL;
-+	struct sk_buff_head temp;
++	__u32 crc = ~(__u32) 0;
++	__u8  zero[sizeof(__u32)] = {0};
 +
-+	if (skb_queue_empty(&ulpq->reasm))
-+		return;
++	/* Optimize this routine to be SCTP specific, knowing how
++	 * to skip the checksum field of the SCTP header.
++	 */
 +
-+	while ((event = sctp_ulpq_retrieve_reassembled(ulpq)) != NULL) {
-+		/* Do ordering if needed.  */
-+		if ((event) && (event->msg_flags & MSG_EOR)){
-+			skb_queue_head_init(&temp);
-+			__skb_queue_tail(&temp, sctp_event2skb(event));
++	/* Calculate CRC up to the checksum. */
++	crc = crc32c(crc, buffer, sizeof(struct sctphdr) - sizeof(__u32));
 +
-+			event = sctp_ulpq_order(ulpq, event);
-+		}
++	/* Skip checksum field of the header. */
++	crc = crc32c(crc, zero, sizeof(__u32));
 +
-+		/* Send event to the ULP.  'event' is the
-+		 * sctp_ulpevent for  very first SKB on the  temp' list.
-+		 */
-+		if (event)
-+			sctp_ulpq_tail_event(ulpq, event);
-+	}
++	/* Calculate the rest of the CRC. */
++	crc = crc32c(crc, &buffer[sizeof(struct sctphdr)],
++			    length - sizeof(struct sctphdr));
++	return crc;
 +}
 +
++static inline __u32 sctp_update_cksum(__u8 *buffer, __u16 length, __u32 crc32)
++{
++	return crc32c(crc32, buffer, length);
++}
 +
- /* Helper function to gather skbs that have possibly become
-  * ordered by an an incoming chunk.
++static inline __u32 sctp_end_cksum(__u32 crc32)
++{
++	return ntohl(~crc32);
++}
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index 34318a3..1b81ede 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -150,13 +150,6 @@ int sctp_primitive_REQUESTHEARTBEAT(struct sctp_association *, void *arg);
+ int sctp_primitive_ASCONF(struct sctp_association *, void *arg);
+ 
+ /*
+- * sctp/crc32c.c
+- */
+-__u32 sctp_start_cksum(__u8 *ptr, __u16 count);
+-__u32 sctp_update_cksum(__u8 *ptr, __u16 count, __u32 cksum);
+-__u32 sctp_end_cksum(__u32 cksum);
+-
+-/*
+  * sctp/input.c
   */
+ int sctp_rcv(struct sk_buff *skb);
+diff --git a/net/sctp/Kconfig b/net/sctp/Kconfig
+index 5390bc7..0b79f86 100644
+--- a/net/sctp/Kconfig
++++ b/net/sctp/Kconfig
+@@ -10,6 +10,7 @@ menuconfig IP_SCTP
+ 	select CRYPTO_HMAC
+ 	select CRYPTO_SHA1
+ 	select CRYPTO_MD5 if SCTP_HMAC_MD5
++	select LIBCRC32C
+ 	---help---
+ 	  Stream Control Transmission Protocol
+ 
+diff --git a/net/sctp/Makefile b/net/sctp/Makefile
+index 1da7204..f5356b9 100644
+--- a/net/sctp/Makefile
++++ b/net/sctp/Makefile
+@@ -9,7 +9,7 @@ sctp-y := sm_statetable.o sm_statefuns.o sm_sideeffect.o \
+ 	  transport.o chunk.o sm_make_chunk.o ulpevent.o \
+ 	  inqueue.o outqueue.o ulpqueue.o command.o \
+ 	  tsnmap.o bind_addr.o socket.o primitive.o \
+-	  output.o input.o debug.o ssnmap.o proc.o crc32c.o \
++	  output.o input.o debug.o ssnmap.o proc.o \
+ 	  auth.o
+ 
+ sctp-$(CONFIG_SCTP_DBG_OBJCNT) += objcnt.o
+diff --git a/net/sctp/crc32c.c b/net/sctp/crc32c.c
+deleted file mode 100644
+index 181edab..0000000
+--- a/net/sctp/crc32c.c
++++ /dev/null
+@@ -1,222 +0,0 @@
+-/* SCTP kernel reference Implementation
+- * Copyright (c) 1999-2001 Motorola, Inc.
+- * Copyright (c) 2001-2003 International Business Machines, Corp.
+- *
+- * This file is part of the SCTP kernel reference Implementation
+- *
+- * SCTP Checksum functions
+- *
+- * The SCTP reference implementation is free software;
+- * you can redistribute it and/or modify it under the terms of
+- * the GNU General Public License as published by
+- * the Free Software Foundation; either version 2, or (at your option)
+- * any later version.
+- *
+- * The SCTP reference implementation is distributed in the hope that it
+- * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+- *                 ************************
+- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+- * See the GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with GNU CC; see the file COPYING.  If not, write to
+- * the Free Software Foundation, 59 Temple Place - Suite 330,
+- * Boston, MA 02111-1307, USA.
+- *
+- * Please send any bug reports or fixes you make to the
+- * email address(es):
+- *    lksctp developers <lksctp-developers@lists.sourceforge.net>
+- *
+- * Or submit a bug report through the following website:
+- *    http://www.sf.net/projects/lksctp
+- *
+- * Written or modified by:
+- *    Dinakaran Joseph
+- *    Jon Grimm <jgrimm@us.ibm.com>
+- *    Sridhar Samudrala <sri@us.ibm.com>
+- *
+- * Any bugs reported given to us we will try to fix... any fixes shared will
+- * be incorporated into the next SCTP release.
+- */
+-
+-/* The following code has been taken directly from
+- * draft-ietf-tsvwg-sctpcsum-03.txt
+- *
+- * The code has now been modified specifically for SCTP knowledge.
+- */
+-
+-#include <linux/types.h>
+-#include <net/sctp/sctp.h>
+-
+-#define CRC32C_POLY 0x1EDC6F41
+-#define CRC32C(c,d) (c=(c>>8)^crc_c[(c^(d))&0xFF])
+-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+-/* Copyright 2001, D. Otis.  Use this program, code or tables    */
+-/* extracted from it, as desired without restriction.            */
+-/*                                                               */
+-/* 32 Bit Reflected CRC table generation for SCTP.               */
+-/* To accommodate serial byte data being shifted out least       */
+-/* significant bit first, the table's 32 bit words are reflected */
+-/* which flips both byte and bit MS and LS positions.  The CRC   */
+-/* is calculated MS bits first from the perspective of the serial*/
+-/* stream.  The x^32 term is implied and the x^0 term may also   */
+-/* be shown as +1.  The polynomial code used is 0x1EDC6F41.      */
+-/* Castagnoli93                                                  */
+-/* x^32+x^28+x^27+x^26+x^25+x^23+x^22+x^20+x^19+x^18+x^14+x^13+  */
+-/* x^11+x^10+x^9+x^8+x^6+x^0                                     */
+-/* Guy Castagnoli Stefan Braeuer and Martin Herrman              */
+-/* "Optimization of Cyclic Redundancy-Check Codes                */
+-/* with 24 and 32 Parity Bits",                                  */
+-/* IEEE Transactions on Communications, Vol.41, No.6, June 1993  */
+-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+-static const __u32 crc_c[256] = {
+-	0x00000000, 0xF26B8303, 0xE13B70F7, 0x1350F3F4,
+-	0xC79A971F, 0x35F1141C, 0x26A1E7E8, 0xD4CA64EB,
+-	0x8AD958CF, 0x78B2DBCC, 0x6BE22838, 0x9989AB3B,
+-	0x4D43CFD0, 0xBF284CD3, 0xAC78BF27, 0x5E133C24,
+-	0x105EC76F, 0xE235446C, 0xF165B798, 0x030E349B,
+-	0xD7C45070, 0x25AFD373, 0x36FF2087, 0xC494A384,
+-	0x9A879FA0, 0x68EC1CA3, 0x7BBCEF57, 0x89D76C54,
+-	0x5D1D08BF, 0xAF768BBC, 0xBC267848, 0x4E4DFB4B,
+-	0x20BD8EDE, 0xD2D60DDD, 0xC186FE29, 0x33ED7D2A,
+-	0xE72719C1, 0x154C9AC2, 0x061C6936, 0xF477EA35,
+-	0xAA64D611, 0x580F5512, 0x4B5FA6E6, 0xB93425E5,
+-	0x6DFE410E, 0x9F95C20D, 0x8CC531F9, 0x7EAEB2FA,
+-	0x30E349B1, 0xC288CAB2, 0xD1D83946, 0x23B3BA45,
+-	0xF779DEAE, 0x05125DAD, 0x1642AE59, 0xE4292D5A,
+-	0xBA3A117E, 0x4851927D, 0x5B016189, 0xA96AE28A,
+-	0x7DA08661, 0x8FCB0562, 0x9C9BF696, 0x6EF07595,
+-	0x417B1DBC, 0xB3109EBF, 0xA0406D4B, 0x522BEE48,
+-	0x86E18AA3, 0x748A09A0, 0x67DAFA54, 0x95B17957,
+-	0xCBA24573, 0x39C9C670, 0x2A993584, 0xD8F2B687,
+-	0x0C38D26C, 0xFE53516F, 0xED03A29B, 0x1F682198,
+-	0x5125DAD3, 0xA34E59D0, 0xB01EAA24, 0x42752927,
+-	0x96BF4DCC, 0x64D4CECF, 0x77843D3B, 0x85EFBE38,
+-	0xDBFC821C, 0x2997011F, 0x3AC7F2EB, 0xC8AC71E8,
+-	0x1C661503, 0xEE0D9600, 0xFD5D65F4, 0x0F36E6F7,
+-	0x61C69362, 0x93AD1061, 0x80FDE395, 0x72966096,
+-	0xA65C047D, 0x5437877E, 0x4767748A, 0xB50CF789,
+-	0xEB1FCBAD, 0x197448AE, 0x0A24BB5A, 0xF84F3859,
+-	0x2C855CB2, 0xDEEEDFB1, 0xCDBE2C45, 0x3FD5AF46,
+-	0x7198540D, 0x83F3D70E, 0x90A324FA, 0x62C8A7F9,
+-	0xB602C312, 0x44694011, 0x5739B3E5, 0xA55230E6,
+-	0xFB410CC2, 0x092A8FC1, 0x1A7A7C35, 0xE811FF36,
+-	0x3CDB9BDD, 0xCEB018DE, 0xDDE0EB2A, 0x2F8B6829,
+-	0x82F63B78, 0x709DB87B, 0x63CD4B8F, 0x91A6C88C,
+-	0x456CAC67, 0xB7072F64, 0xA457DC90, 0x563C5F93,
+-	0x082F63B7, 0xFA44E0B4, 0xE9141340, 0x1B7F9043,
+-	0xCFB5F4A8, 0x3DDE77AB, 0x2E8E845F, 0xDCE5075C,
+-	0x92A8FC17, 0x60C37F14, 0x73938CE0, 0x81F80FE3,
+-	0x55326B08, 0xA759E80B, 0xB4091BFF, 0x466298FC,
+-	0x1871A4D8, 0xEA1A27DB, 0xF94AD42F, 0x0B21572C,
+-	0xDFEB33C7, 0x2D80B0C4, 0x3ED04330, 0xCCBBC033,
+-	0xA24BB5A6, 0x502036A5, 0x4370C551, 0xB11B4652,
+-	0x65D122B9, 0x97BAA1BA, 0x84EA524E, 0x7681D14D,
+-	0x2892ED69, 0xDAF96E6A, 0xC9A99D9E, 0x3BC21E9D,
+-	0xEF087A76, 0x1D63F975, 0x0E330A81, 0xFC588982,
+-	0xB21572C9, 0x407EF1CA, 0x532E023E, 0xA145813D,
+-	0x758FE5D6, 0x87E466D5, 0x94B49521, 0x66DF1622,
+-	0x38CC2A06, 0xCAA7A905, 0xD9F75AF1, 0x2B9CD9F2,
+-	0xFF56BD19, 0x0D3D3E1A, 0x1E6DCDEE, 0xEC064EED,
+-	0xC38D26C4, 0x31E6A5C7, 0x22B65633, 0xD0DDD530,
+-	0x0417B1DB, 0xF67C32D8, 0xE52CC12C, 0x1747422F,
+-	0x49547E0B, 0xBB3FFD08, 0xA86F0EFC, 0x5A048DFF,
+-	0x8ECEE914, 0x7CA56A17, 0x6FF599E3, 0x9D9E1AE0,
+-	0xD3D3E1AB, 0x21B862A8, 0x32E8915C, 0xC083125F,
+-	0x144976B4, 0xE622F5B7, 0xF5720643, 0x07198540,
+-	0x590AB964, 0xAB613A67, 0xB831C993, 0x4A5A4A90,
+-	0x9E902E7B, 0x6CFBAD78, 0x7FAB5E8C, 0x8DC0DD8F,
+-	0xE330A81A, 0x115B2B19, 0x020BD8ED, 0xF0605BEE,
+-	0x24AA3F05, 0xD6C1BC06, 0xC5914FF2, 0x37FACCF1,
+-	0x69E9F0D5, 0x9B8273D6, 0x88D28022, 0x7AB90321,
+-	0xAE7367CA, 0x5C18E4C9, 0x4F48173D, 0xBD23943E,
+-	0xF36E6F75, 0x0105EC76, 0x12551F82, 0xE03E9C81,
+-	0x34F4F86A, 0xC69F7B69, 0xD5CF889D, 0x27A40B9E,
+-	0x79B737BA, 0x8BDCB4B9, 0x988C474D, 0x6AE7C44E,
+-	0xBE2DA0A5, 0x4C4623A6, 0x5F16D052, 0xAD7D5351,
+-};
+-
+-__u32 sctp_start_cksum(__u8 *buffer, __u16 length)
+-{
+-	__u32 crc32 = ~(__u32) 0;
+-	__u32 i;
+-
+-	/* Optimize this routine to be SCTP specific, knowing how
+-	 * to skip the checksum field of the SCTP header.
+-	 */
+-
+-	/* Calculate CRC up to the checksum. */
+-	for (i = 0; i < (sizeof(struct sctphdr) - sizeof(__u32)); i++)
+-		CRC32C(crc32, buffer[i]);
+-
+-	/* Skip checksum field of the header. */
+-	for (i = 0; i < sizeof(__u32); i++)
+-		CRC32C(crc32, 0);
+-
+-	/* Calculate the rest of the CRC. */
+-	for (i = sizeof(struct sctphdr); i < length ; i++)
+-		CRC32C(crc32, buffer[i]);
+-
+-	return crc32;
+-}
+-
+-__u32 sctp_update_cksum(__u8 *buffer, __u16 length, __u32 crc32)
+-{
+-	__u32 i;
+-
+-	for (i = 0; i < length ; i++)
+-		CRC32C(crc32, buffer[i]);
+-
+-	return crc32;
+-}
+-
+-#if 0
+-__u32 sctp_update_copy_cksum(__u8 *to, __u8 *from, __u16 length, __u32 crc32)
+-{
+-	__u32 i;
+-	__u32 *_to = (__u32 *)to;
+-	__u32 *_from = (__u32 *)from;
+-
+-	for (i = 0; i < (length/4); i++) {
+-		_to[i] = _from[i];
+-		CRC32C(crc32, from[i*4]);
+-		CRC32C(crc32, from[i*4+1]);
+-		CRC32C(crc32, from[i*4+2]);
+-		CRC32C(crc32, from[i*4+3]);
+-	}
+-
+-	return crc32;
+-}
+-#endif  /*  0  */
+-
+-__u32 sctp_end_cksum(__u32 crc32)
+-{
+-	__u32 result;
+-	__u8 byte0, byte1, byte2, byte3;
+-
+-	result = ~crc32;
+-
+-	/*  result  now holds the negated polynomial remainder;
+-	 *  since the table and algorithm is "reflected" [williams95].
+-	 *  That is,  result has the same value as if we mapped the message
+-	 *  to a polyomial, computed the host-bit-order polynomial
+-	 *  remainder, performed final negation, then did an end-for-end
+-	 *  bit-reversal.
+-	 *  Note that a 32-bit bit-reversal is identical to four inplace
+-	 *  8-bit reversals followed by an end-for-end byteswap.
+-	 *  In other words, the bytes of each bit are in the right order,
+-	 *  but the bytes have been byteswapped.  So we now do an explicit
+-	 *  byteswap.  On a little-endian machine, this byteswap and
+-	 *  the final ntohl cancel out and could be elided.
+-	 */
+-	byte0 = result & 0xff;
+-	byte1 = (result>>8) & 0xff;
+-	byte2 = (result>>16) & 0xff;
+-	byte3 = (result>>24) & 0xff;
+-
+-	crc32 = ((byte0 << 24) |
+-		 (byte1 << 16) |
+-		 (byte2 << 8)  |
+-		 byte3);
+-	return crc32;
+-}
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index 91ae463..b08c7cb 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -60,6 +60,7 @@
+ #include <net/xfrm.h>
+ #include <net/sctp/sctp.h>
+ #include <net/sctp/sm.h>
++#include <net/sctp/checksum.h>
+ 
+ /* Forward declarations for internal helpers. */
+ static int sctp_rcv_ootb(struct sk_buff *);
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 847639d..5e811b9 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -60,6 +60,7 @@
+ 
+ #include <net/sctp/sctp.h>
+ #include <net/sctp/sm.h>
++#include <net/sctp/checksum.h>
+ 
+ /* Forward declarations for private helpers. */
+ static sctp_xmit_t sctp_packet_append_data(struct sctp_packet *packet,
 -- 
 1.5.3.5
 
