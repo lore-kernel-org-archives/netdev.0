@@ -1,30 +1,65 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Bugme-new] [Bug 9543] New: RTNL: assertion failed at net/ipv6/addrconf.c (2164)/RTNL: assertion failed at net/ipv4/devinet.c (1055)
-Date: Sun, 16 Dec 2007 11:23:21 +0800
-Message-ID: <20071216032321.GA1393@gondor.apana.org.au>
-References: <bdfc5d6e0712150709k2dc0a845n84c494c519298f8d@mail.gmail.com> <E1J3jE4-0000FE-00@gondolin.me.apana.org.au> <bdfc5d6e0712151917k4adeaa34q3f498950883697ab@mail.gmail.com>
+Subject: [PACKET]: Fix /proc/net/packet crash due to bogus private pointer
+Date: Sun, 16 Dec 2007 11:41:20 +0800
+Message-ID: <20071216034119.GA1491@gondor.apana.org.au>
+References: <200712160118.58611.m.kozlowski@tuxland.pl> <E1J3jqN-0000Jq-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: olel@ans.pl, fubar@us.ibm.com, akpm@linux-foundation.org,
-	bugme-daemon@bugzilla.kernel.org, shemminger@linux-foundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Andy Gospodarek <andy@greyhouse.net>
+Cc: akpm@linux-foundation.org, jgarzik@pobox.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, den@openvz.org, xemul@openvz.org
+To: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2528 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:2607 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751140AbXLPDXs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Dec 2007 22:23:48 -0500
+	with ESMTP id S1756002AbXLPDlg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Dec 2007 22:41:36 -0500
 Content-Disposition: inline
-In-Reply-To: <bdfc5d6e0712151917k4adeaa34q3f498950883697ab@mail.gmail.com>
+In-Reply-To: <E1J3jqN-0000Jq-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 15, 2007 at 10:17:35PM -0500, Andy Gospodarek wrote:
+On Sun, Dec 16, 2007 at 11:07:07AM +0800, Herbert Xu wrote:
 >
-> Not all of them in the bonding code, but all two of them in the small patch.
+> I suspect namespace borkage.  But just because you pin-pointed
+> my patch I'll try to track it down :)
 
-OK, we need to change all of the ones that may be called from
-process context with BH on.
+Surprise surprise.  The namespace seq patch missed two spots in
+AF_PACKET.
+
+[PACKET]: Fix /proc/net/packet crash due to bogus private pointer
+
+The seq_open_net patch changed the meaning of seq->private.
+Unfortunately it missed two spots in AF_PACKET, which still
+used the old way of dereferencing seq->private, thus causing
+weird and wonderful crashes when reading /proc/net/packet.
+
+This patch fixes them.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 485af56..43e49f4 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1878,7 +1878,7 @@ static void *packet_seq_start(struct seq_file *seq, loff_t *pos)
+ 
+ static void *packet_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+-	struct net *net = seq->private;
++	struct net *net = seq_file_net(seq);
+ 	++*pos;
+ 	return  (v == SEQ_START_TOKEN)
+ 		? sk_head(&net->packet.sklist)
+@@ -1887,7 +1887,7 @@ static void *packet_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ 
+ static void packet_seq_stop(struct seq_file *seq, void *v)
+ {
+-	struct net *net = seq->private;
++	struct net *net = seq_file_net(seq);
+ 	read_unlock(&net->packet.sklist_lock);
+ }
+ 
 
 Cheers,
 -- 
