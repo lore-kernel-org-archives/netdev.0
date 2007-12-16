@@ -1,121 +1,73 @@
 From: Hideo AOKI <haoki@redhat.com>
-Subject: Re: [PATCH 2/4] [CORE]: datagram: mem_scheudle functions
-Date: Sun, 16 Dec 2007 16:20:02 -0500
-Message-ID: <47659682.4030204@redhat.com>
-References: <47636120.4050701@redhat.com> <476362D8.4070807@redhat.com> <20071215153210.GA29415@gondor.apana.org.au>
+Subject: Re: [PATCH 0/4] [UDP]: memory accounting and limitation (take 10)
+Date: Sun, 16 Dec 2007 16:21:49 -0500
+Message-ID: <476596ED.7040304@redhat.com>
+References: <47636120.4050701@redhat.com> <20071215.213426.257974943.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Takahiro Yasui <tyasui@redhat.com>,
-	Masami Hiramatsu <mhiramat@redhat.com>,
-	Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
-	billfink@mindspring.com, Andi Kleen <andi@firstfloor.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	yoshfuji@linux-ipv6.org,
-	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	tyasui@redhat.com, mhiramat@redhat.com,
+	satoshi.oshima.fk@hitachi.com, billfink@mindspring.com,
+	andi@firstfloor.org, johnpol@2ka.mipt.ru,
+	shemminger@linux-foundation.org, yoshfuji@linux-ipv6.org,
+	yumiko.sugita.yf@hitachi.com, haoki@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:44120 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:45638 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751807AbXLPVXL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Dec 2007 16:23:11 -0500
-In-Reply-To: <20071215153210.GA29415@gondor.apana.org.au>
+	id S1753337AbXLPVYW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Dec 2007 16:24:22 -0500
+In-Reply-To: <20071215.213426.257974943.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David Miller wrote:
+> From: Hideo AOKI <haoki@redhat.com>
+> Date: Sat, 15 Dec 2007 00:07:44 -0500
+> 
+>> Changelog take 9 -> take 10:
+>>  * supported using sk_forward_alloc
+>>  * introduced several memory accounting functions with spin lock
+>>  * changed detagram receive functions to be able to customize
+>>    destructor
+>>  * fixed accounting bugs in previous takes
+> 
+> This is not what Herbert and I meant with our suggestion.
+> 
+> We meant to convert all of UDP and datagram handling to lock
+> sockets precisely like TCP does, by calling lock_sock()
+> on entry to functions like udp_recvmsg() and release_sock()
+> on exit from those functions.
+> 
+> Then in the packet input processing, a sequence, just like
+> TCP, such as:
+> 
+> 	bh_lock_sock_nested(sk);
+> 	if (!sock_owned_by_user(sk)) {
+> 		udp_do_rcv(sk, skb);
+> 	} else
+> 		sk_add_backlog(sk, skb);
+> 
+> Then a suitably defined ->backlog_rcv is hooked up for these
+> protocols as well.
+> 
+> Again, use TCP as a guide.
+> 
+> There is much more work involved to implement this properly,
+> and make the accounting code sharable with TCP, than the
+> simplistic and minimal spin lock code you added here.
+> 
+> Please do this correctly, thank you.
+
 Hello,
 
-Thank you for your quick comments.
+I appreciate your suggestions.
 
-Herbert Xu wrote:
->> +	spin_lock_irqsave(&sk->sk_lock.slock, flags);
-> 
-> Please use bh_lock_sock since this must never be used from an
-> IRQ handler.
-
-I'll try to re-implement this locking mechanism as David suggested.
-
->> +static inline void sk_mem_reclaim(struct sock *sk)
->> +{
->> +	if (sk->sk_type == SOCK_DGRAM)
->> +		sk_datagram_mem_reclaim(sk);
->> +}
-> 
-> Please get rid of these wrappers since we should only get here
-> for datagram protocols.
-
-In my understanding, TCP also uses ip_append_data() and
-ip_ufo_append_data() via ip_send_reply(). Then I thought TCP could
-reach datagram memory accounting functions, and I used the wrappers
-since I didn't want to change TCP's sk_alloc_forward and
-memory_allocated.
-
-I'll try to remove these wrappers in next patch set. But I'd
-appreciate it if you let me know whether we can keep the wrappers
-in case TCP memory accounting doesn't work well due to accounting
-in IP layer.
-
->> +static inline int sk_account_wmem_charge(struct sock *sk, int size)
->> +{
->> +	unsigned long flags;
->> +
->> +	/* account if protocol supports memory accounting. */
->> +	if (!sk->sk_prot->memory_allocated || sk->sk_type != SOCK_DGRAM)
->> +		return 1;
->> +
->> +	spin_lock_irqsave(&sk->sk_lock.slock, flags);
->> +	if (sk_datagram_wmem_schedule(sk, size)) {
->> +		sk->sk_forward_alloc -= size;
->> +		spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
->> +		return 1;
->> +	}
->> +	spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
->> +	return 0;
->> +}
-> 
-> This is probably too big to inline.
-> 
->> +static inline int sk_account_rmem_charge(struct sock *sk, int size)
->> +{
->> +	unsigned long flags;
->> +
->> +	/* account if protocol supports memory accounting. */
->> +	if (!sk->sk_prot->memory_allocated || sk->sk_type != SOCK_DGRAM)
->> +		return 1;
->> +
->> +	spin_lock_irqsave(&sk->sk_lock.slock, flags);
->> +	if (sk_datagram_rmem_schedule(sk, size)) {
->> +		sk->sk_forward_alloc -= size;
->> +		spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
->> +		return 1;
->> +	}
->> +	spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
->> +	return 0;
->> +}
-> 
-> Why are we duplicating the rmem/wmem versions when they're identical?
-
-Good catch. I'll merge the body of these functions into one function.
-Furthermore, I'll stop using inline if the code is large.
-
->> -int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
->> +int sock_queue_rcv_skb_with_owner(struct sock *sk, struct sk_buff *skb,
->> +				  void set_owner_r(struct sk_buff *nskb,
->> +						   struct sock* nsk))
-> 
-> Just make a new function for this rather than playing with function
-> pointers.
-
-I understood. I'll fix it.
-
-Again, many thanks for the review.
+I'll try to re-implement locking mechanism like TCP.
 
 Regards,
 Hideo
 
 -- 
 Hitachi Computer Products (America) Inc.
-
