@@ -1,40 +1,50 @@
-From: Jouni Malinen <j@w1.fi>
-Subject: Re: [PATCH] PS3: gelic: Add wireless support for PS3
-Date: Sun, 16 Dec 2007 15:42:28 -0800
-Message-ID: <20071216234228.GQ5698@jm.kir.nu>
-References: <20071213211626.BF8E.MOKUNO@sm.sony.co.jp> <1197580418.14270.6.camel@localhost.localdomain> <20071214134918.275E.MOKUNO@sm.sony.co.jp> <1197637127.16724.1.camel@localhost.localdomain> <20071215014244.GI5698@jm.kir.nu> <1197827354.6358.2.camel@localhost.localdomain> <20071216181159.GP5698@jm.kir.nu> <1197846610.7302.1.camel@localhost.localdomain>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] bridge: assign random address
+Date: Sun, 16 Dec 2007 15:46:21 -0800
+Message-ID: <20071216154621.c7e2a3e9.akpm@linux-foundation.org>
+References: <20071216142915.c120d25c.akpm@linux-foundation.org>
+	<20071216.152606.35263254.davem@davemloft.net>
+	<20071216153442.a11e2e1f.akpm@linux-foundation.org>
+	<20071216.154018.156758308.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	geoffrey.levand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org,
-	Geert Uytterhoeven <Geert.Uytterhoeven-osDt5Q4Chk1BDgjK7y7TUQ@public.gmane.org>
-To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1197846610.7302.1.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, berrange@redhat.com,
+	jeff@garzik.org, herbert@gondor.apana.org.au, rjw@sisk.pl
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:50438 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758199AbXLPXry (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 18:47:54 -0500
+In-Reply-To: <20071216.154018.156758308.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 16, 2007 at 06:10:10PM -0500, Dan Williams wrote:
-> On Sun, 2007-12-16 at 10:11 -0800, Jouni Malinen wrote:
-> > It is a new key type regardless of whether it is PSK or passphrase. The
-> > current key types (IW_AUTH_CIPHER_*) are WEP40, TKIP, CCMP, and WEP104..
+On Sun, 16 Dec 2007 15:40:18 -0800 (PST) David Miller <davem@davemloft.net> wrote:
 
-> Ah, it's a different key because it's not set _during_ the 4-way
-> handshake, but just sent to the fw directly and the fw handles it,
-> right?
+> From: Andrew Morton <akpm@linux-foundation.org>
+> Date: Sun, 16 Dec 2007 15:34:42 -0800
+> 
+> > Take a look at the git logs, see what most other people are doing.
+> 
+> You're talking bucking a convention that has been used
+> for all networking changes since we starting using real
+> revision control.
+> 
+> I've shown how the subject lines can be done in a way
+> that both satisfies the scripts you're worried about
+> and keeps the networking changes looking the way they
+> have for 5+ years.
+> 
+> What's the reason to change again?
 
-There are two cases here, but in both of them, them PMK (i.e., PSK for
-WPA-Personal) needs to be set just before the 4-way handshake would
-start. When using WPA-Personal, the PSK would be set just before (or as
-part of) association request. When using WPA-Enterprise (WPA-EAP), the
-PMK would be set after having completed IEEE 802.1X/EAP authentication
-(and the driver/firmware would then take care of 4-way handshake). Both
-cases will end up disabling the user space supplicant from taking part
-in 4-way handshake, i.e., it will ignore EAPOL-Key frames should they be
-delivered through the netdev and expects the driver/firmware to process
-them.
+I see no particular reason to change - it's just one of those things.
 
--- 
-Jouni Malinen                                            PGP id EFC895FA
+Two third of commits don't use [subsystem] and 90% don't use trailing
+period.  Reasons to change would be a) consistency and b) the time it takes
+to occasionally fix up patches which use [subsystem] as I earlier
+described.
+
+I don't think these are terribly important, really.
