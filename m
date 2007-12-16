@@ -1,52 +1,47 @@
-From: Bill Davidsen <davidsen@tmr.com>
-Subject: Re: sockets affected by IPsec always block (2.6.23)
-Date: Sun, 16 Dec 2007 17:47:24 -0500
-Message-ID: <4765AAFC.3040406@tmr.com>
-References: <4755A21F.2020407@simon.arlott.org.uk>	<20071205001230.GA11391@gondor.apana.org.au> <20071204.223023.262159049.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] bridge: assign random address
+Date: Sun, 16 Dec 2007 14:29:15 -0800
+Message-ID: <20071216142915.c120d25c.akpm@linux-foundation.org>
+References: <20071211145243.66e1f66a@freepuppy.rosehill>
+	<20071211145921.11094ab8.akpm@linux-foundation.org>
+	<20071211154835.75ace6bc@freepuppy.rosehill>
+	<20071216.133717.202852113.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, simon@fire.lp0.eu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, berrange@redhat.com,
+	jeff@garzik.org, herbert@gondor.apana.org.au, rjw@sisk.pl
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tmr.com ([64.65.253.246]:53381 "EHLO gaimboi.tmr.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760599AbXLPWaV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Dec 2007 17:30:21 -0500
-In-Reply-To: <20071204.223023.262159049.davem@davemloft.net>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:48718 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1765600AbXLPWaw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 17:30:52 -0500
+In-Reply-To: <20071216.133717.202852113.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Wed, 5 Dec 2007 11:12:32 +1100
-> 
->> [INET]: Export non-blocking flags to proto connect call
->>
->> Previously we made connect(2) block on IPsec SA resolution.  This is
->> good in general but not desirable for non-blocking sockets.
->>
->> To fix this properly we'd need to implement the larval IPsec dst stuff
->> that we talked about.  For now let's just revert to the old behaviour
->> on non-blocking sockets.
->>
->> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> We made an explicit decision not to do things this way.
-> 
-> Non-blocking has a meaning dependant upon the xfrm_larval_drop sysctl
-> setting, and this is across the board.  If xfrm_larval_drop is zero,
-> non-blocking semantics do not extend to IPSEC route resolution,
-> otherwise it does.
-> 
-> If he sets this sysctl to "1" as I detailed in my reply, he'll
-> get the behavior he wants.
-> 
-I think you for the hint, but I would hardly call this sentence 
-"detailed" in terms of being a cookbook solution to the problem.
+On Sun, 16 Dec 2007 13:37:17 -0800 (PST) David Miller <davem@davemloft.net> wrote:
 
--- 
-Bill Davidsen <davidsen@tmr.com>
-   "We have more to fear from the bungling of the incompetent than from
-the machinations of the wicked."  - from Slashdot
+> From: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date: Tue, 11 Dec 2007 15:48:35 -0800
+> 
+> > Subject: Re: [PATCH] bridge: assign random address
+> 
+> "bridge" should all-caps and in brackets,
+
+No, "bridge" should not be in [].  Lots of people's patch-receiving scripts
+assume that any text in [] is to be removed as the patch is committed.  It
+contains text which is only relevant to the particular email which carried
+the patch.  Stuff like "patch" and "4/5" and "linux-2.6.23", etc.
+
+> "assign random address"
+> should be capitalized like a proper english sentence with a period at
+> the end.
+
+Actually I usually remove the caps and the waste-of-space period, but
+that's much less important than the brackets abuse.  The bracket convention
+is quite useful and I've often wondered why I need to edit the patch title
+when I merge up patches from net developers ;)
+
