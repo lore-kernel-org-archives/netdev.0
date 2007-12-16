@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH take2] [AX25] circular locking with AX25 connection
- timeout
-Date: Sun, 16 Dec 2007 14:02:20 -0800 (PST)
-Message-ID: <20071216.140220.163393122.davem@davemloft.net>
-References: <476303C8.2060507@ccr.jussieu.fr>
-	<20071215101810.GA3143@ami.dom.local>
+Subject: Re: [PACKET]: Fix /proc/net/packet crash due to bogus private
+ pointer
+Date: Sun, 16 Dec 2007 14:04:25 -0800 (PST)
+Message-ID: <20071216.140425.19234188.davem@davemloft.net>
+References: <200712160118.58611.m.kozlowski@tuxland.pl>
+	<E1J3jqN-0000Jq-00@gondolin.me.apana.org.au>
+	<20071216034119.GA1491@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pidoux@ccr.jussieu.fr, ralf@linux-mips.org, netdev@vger.kernel.org
-To: jarkao2@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42709
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759045AbXLPWCd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 17:02:33 -0500
-In-Reply-To: <20071215101810.GA3143@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: m.kozlowski@tuxland.pl, akpm@linux-foundation.org,
+	jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, den@openvz.org, xemul@openvz.org
+To: herbert@gondor.apana.org.au
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764345AbXLPWEw@vger.kernel.org>
+In-Reply-To: <20071216034119.GA1491@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Sat, 15 Dec 2007 11:18:10 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sun, 16 Dec 2007 11:41:20 +0800
 
-> On Fri, Dec 14, 2007 at 11:29:28PM +0100, Bernard Pidoux wrote:
-> > Hi,
-> >
-> > This patch cancels a circular locking conflict that appeared with a timeout 
-> > of an AX25 connection.
-> >
-> > signed off by Jarek Poplawski
+> [PACKET]: Fix /proc/net/packet crash due to bogus private pointer
 > 
-> One spurious space less here, and maybe a few more words to the changelog.
+> The seq_open_net patch changed the meaning of seq->private.
+> Unfortunately it missed two spots in AF_PACKET, which still
+> used the old way of dereferencing seq->private, thus causing
+> weird and wonderful crashes when reading /proc/net/packet.
+> 
+> This patch fixes them.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Patch applied, thanks Jarek.
+Applied to net-2.6.25, thanks Herbert.
