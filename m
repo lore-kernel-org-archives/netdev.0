@@ -1,55 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: sockets affected by IPsec always block (2.6.23)
-Date: Sun, 16 Dec 2007 15:22:35 -0800 (PST)
-Message-ID: <20071216.152235.213233734.davem@davemloft.net>
-References: <20071205001230.GA11391@gondor.apana.org.au>
-	<20071204.223023.262159049.davem@davemloft.net>
-	<4765AAFC.3040406@tmr.com>
+Subject: Re: [PATCH] bridge: assign random address
+Date: Sun, 16 Dec 2007 15:26:06 -0800 (PST)
+Message-ID: <20071216.152606.35263254.davem@davemloft.net>
+References: <20071211154835.75ace6bc@freepuppy.rosehill>
+	<20071216.133717.202852113.davem@davemloft.net>
+	<20071216142915.c120d25c.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, simon@fire.lp0.eu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: davidsen@tmr.com
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, berrange@redhat.com,
+	jeff@garzik.org, herbert@gondor.apana.org.au, rjw@sisk.pl
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56634
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50088
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756217AbXLPXWr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 18:22:47 -0500
-In-Reply-To: <4765AAFC.3040406@tmr.com>
+	by vger.kernel.org with ESMTP id S1760379AbXLPX0Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 18:26:16 -0500
+In-Reply-To: <20071216142915.c120d25c.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bill Davidsen <davidsen@tmr.com>
-Date: Sun, 16 Dec 2007 17:47:24 -0500
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Sun, 16 Dec 2007 14:29:15 -0800
 
-> David Miller wrote:
-> > From: Herbert Xu <herbert@gondor.apana.org.au>
-> > Date: Wed, 5 Dec 2007 11:12:32 +1100
+> On Sun, 16 Dec 2007 13:37:17 -0800 (PST) David Miller <davem@davemloft.net> wrote:
+> 
+> > From: Stephen Hemminger <shemminger@linux-foundation.org>
+> > Date: Tue, 11 Dec 2007 15:48:35 -0800
 > > 
-> >> [INET]: Export non-blocking flags to proto connect call
-> >>
-> >> Previously we made connect(2) block on IPsec SA resolution.  This is
-> >> good in general but not desirable for non-blocking sockets.
-> >>
-> >> To fix this properly we'd need to implement the larval IPsec dst stuff
-> >> that we talked about.  For now let's just revert to the old behaviour
-> >> on non-blocking sockets.
-> >>
-> >> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> > > Subject: Re: [PATCH] bridge: assign random address
 > > 
-> > We made an explicit decision not to do things this way.
-> > 
-> > Non-blocking has a meaning dependant upon the xfrm_larval_drop sysctl
-> > setting, and this is across the board.  If xfrm_larval_drop is zero,
-> > non-blocking semantics do not extend to IPSEC route resolution,
-> > otherwise it does.
-> > 
-> > If he sets this sysctl to "1" as I detailed in my reply, he'll
-> > get the behavior he wants.
-> > 
-> I think you for the hint, but I would hardly call this sentence 
-> "detailed" in terms of being a cookbook solution to the problem.
+> > "bridge" should all-caps and in brackets,
+> 
+> No, "bridge" should not be in [].  Lots of people's patch-receiving scripts
+> assume that any text in [] is to be removed as the patch is committed.  It
+> contains text which is only relevant to the particular email which carried
+> the patch.  Stuff like "patch" and "4/5" and "linux-2.6.23", etc.
 
-I guess "echo '1' >/proc/sys/net/core/xfrm_larval_drop" is not
-explicit enough?  What more would you like me to say?
+I don't use scripts, I edit it by hand.  And when I do ever use
+scripts I will make sure they accomodate "[$SUBSYSTEM]" format
+subject lines, you can be sure.
+
+And you can even make those scripts happy by doing:
+
+[Patch 1/7] [SUBSYSTEM]: Foo bar baz...
+
+And if you haven't noticed over the past few years, this is
+is the convention we've been using in the networking.
+
+I munge every one of your (and everyone else's) changelog entry
+headers this way.  Without exception, every single one.
+
+So when you don't follow this convention, you make more typing
+and more work for me.  The more patches I get from someone
+the more important it is for this convention to be followed.
+
+I find it very hard to believe that you haven't once looked
+at the hundreds of patches I've applied of your's and not
+noticed how I reformat everything.
