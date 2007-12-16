@@ -1,83 +1,59 @@
-From: "James Nichols" <jamesnichols3@gmail.com>
-Subject: After many hours all outbound connections get stuck in SYN_SENT
-Date: Sun, 16 Dec 2007 11:34:29 -0500
-Message-ID: <83a51e120712160834r29112fb0xa1f61c35f180bf8f@mail.gmail.com>
+From: "Elena" <elenf@mailrus.ru>
+Subject: Hi
+Date: Sun, 16 Dec 2007 19:32:24 +0300
+Message-ID: <20071216163054.2587C1C0009A@mwinf6001.orange.nl>
+References: <auto-000004650864@fe3.cluster1.echolabs.net>
+ <001301c5ee2f$6abd6d80$54c5fea9@local>
+ <231401c5ee63$0e0aa9c0$152ca8c0@local>
+ <000201c5f736$544c2c20$54c5fea9@local>
+ <16be01c5f96b$35260c30$152ca8c0@local>
+ <001601c606df$d5f33f80$54c5fea9@local>
+ <33a301c60787$b84ea8e0$152ca8c0@local>
+ <001901c6093f$be9715c0$0a01a8c0@local>
+ <03d501c60a0e$cc50dff0$19f0fea9@local>
+ <001901c60fc1$b3b92d40$fc99fea9@local>
+ <20db01c61a75$45057840$152ca8c0@local>
+ <002501c61b75$0e1f6560$fc99fea9@local>
+ <370401c78184$dfc58b00$eeeea8c0@local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+To: <elenf@mailrus.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:26085 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933209AbXLPQeb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 11:34:31 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so190867fga.17
-        for <netdev@vger.kernel.org>; Sun, 16 Dec 2007 08:34:30 -0800 (PST)
-Content-Disposition: inline
+Received: from smtp-1.orange.nl ([193.252.22.241]:61479 "EHLO smtp-1.orange.nl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933302AbXLPQqn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Dec 2007 11:46:43 -0500
+Received: from smtp-1.orange.nl (mwinf6001 [172.22.155.23])
+	by mwinf6005.orange.nl (SMTP Server) with ESMTP id B350F5840603
+	for <netdev@vger.kernel.org>; Sun, 16 Dec 2007 17:31:16 +0100 (CET)
+Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf6001.orange.nl (SMTP Server) with ESMTP id CAE351C00073
+	for <netdev@vger.kernel.org>; Sun, 16 Dec 2007 17:30:57 +0100 (CET)
+In-Reply-To: <370401c78184$dfc58b00$eeeea8c0@local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hello,
+ 
+My name is Elena, I am 31 years and I live in Russian province.
+ 
+I have 6 years daughter, her father abandoned us and we live with my mother. Recently my mother lost job due to old age and our situation became very difficult.
+ 
+Prices for gas and electricity became very high in last months and we cannot heat home anymore with it.
+ 
+Winter came to our province and temperature is very cold here already. We do not know what to do and we very afraid.
+ 
+I finded way to heat our home with portable stove which give heat with burning wood. We have a lot wood in our region and this stove will heat our home all winter with minimal charges. But we cannot buy such stove in our local market because we are poor and my salary is very small.
+ 
+I work in library and after my job I allowed to use computer. I finded your address in internet and may be you can help us.
+ 
+If you have any portable stove which you don't use anymore, I will be very grateful to you if you can donate its to us and organize transport of its to our address. 
+ 
+Please let me know if you can help and I will give you our home address.
 
-I have a Java application that makes a large number of outbound
-webservice calls over HTTP/TCP.  The hosts contacted are a fixed set
-of about 2000 hosts and a web service call is made to each of them
-approximately every 5 mintues by a pool of 200 Java threads.  Over
-time, on average a percentage of these hosts are unreachable for one
-reason or another, usually because they are on wireless cell phone
-NICs, so there is a persistent count of sockets in the SYN_SENT state
-in the range of about 60-80.  This is fine, as these failed connection
-attempts eventually time out.
+I wish you Merry Christmas and Happy New Year. 
+ 
+Elena. 
+Russia.
 
-However, after approximately 38 hours of operation, all outbound
-connection attempts get stuck in the SYN_SENT state.  It happens
-instantaneously, where I go from the baseline of about 60-80 sockets
-in SYN_SENT to a count of 200 (corresponding to the # of java threads
-that make these calls).
-
-When I stop and start the Java application, all the new outbound
-connections still get stuck in SYN_SENT state.  During this time, I am
-still able to SSH to the box and run wget to Google, cnn, etc, so the
-problem appears to be specific to the hosts that I'm accessing via the
-webservices.
-
-For a long time, the only thing that would resolve this was rebooting
-the entire machine.  Once I did this, the outbound connections could
-be made succesfully.  However, very recently when I had once of these
-incidents I disabled tcp_sack via:
-
-echo "0" > /proc/sys/net/ipv4/tcp_sack
-
-And the problem almost instanteaously resolved itself and outbound
-connection attempts were succesful.  I hadn't attempted this before
-because I assumed that if any of my network
-equipment or remote hosts had a problem with SACK, that it would never
-work.  In my case, it worked fine for about 38 hours before hitting a
-wall where no outbound connections could be made.
-
-I'm running kernel 2.6.18 on RedHat, but have had this problem occur
-on earlier kernel versions (all 2.4 and 2.6).  I know a lot of people
-will say it must be the firewall, but I've seen had this issue on
-different router vendors, firewall vendors, different co-location
-facilities, NICs, and several other variables.  I've totaly rebuilt
-every piece of the archtiecture at one time or another and still see
-this issue.  I've had this problem to varying degrees of severity for
-the past 4 years or so.  Up until this point, the only thing other
-than a complete machine restart that fixes the problem is disabling
-tcp_sack.  When I disable it, the problem goes away almost
-instantaneously.
-
-Is there a kernel buffer or some data structure that tcp_sack uses
-that gets filled up after an extended period of operation?
-How can I debug this problem in the kernel to find out what the root cause is?
-
-I emailed linux-kernel and they asked for output of netstat -s, I can
-get this the next
-time it occurs- any other usefull data to collect?
-
-I've temporarily signed up on this list, but may cancel signup if I can't
-handle the traffic, so please CC me directly on any replies.
-
-Thanks,
-
-James Nichols
