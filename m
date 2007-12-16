@@ -1,47 +1,45 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 5/5] [IrDA] irda parameters warning fixes.
-Date: Sun, 16 Dec 2007 14:11:06 -0800 (PST)
-Message-ID: <20071216.141106.234192701.davem@davemloft.net>
-References: <20071216234648.774780960@sortiz.org>
-	<20071216234933.666730217@sortiz.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.25] Revert recent TCP work
+Date: Sun, 16 Dec 2007 14:21:52 -0800 (PST)
+Message-ID: <20071216.142152.187297327.davem@davemloft.net>
+References: <47616FA6.1010607@fr.ibm.com>
+	<Pine.LNX.4.64.0712140024360.12376@kivilampi-30.cs.helsinki.fi>
+	<Pine.LNX.4.64.0712141946060.1400@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ricknu-0-oe7qfRrRQfd5oVVtFh8HQg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20071216234933.666730217-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, clg@fr.ibm.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	reuben-linuxkernel@reub.net, kamalesh@linux.vnet.ibm.com,
+	riel@redhat.com, dhaval@linux.vnet.ibm.com
+To: ilpo.jarvinen@helsinki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35425
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757530AbXLPWV6 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Dec 2007 17:21:58 -0500
+In-Reply-To: <Pine.LNX.4.64.0712141946060.1400@kivilampi-30.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Date: Mon, 17 Dec 2007 00:46:53 +0100
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Fri, 14 Dec 2007 22:14:29 +0200 (EET)
 
-> This patch fixes:
->   CHECK   /home/kernel/src/net/irda/parameters.c
-> /home/kernel/src/net/irda/parameters.c:466:2: warning: Using plain integer as NULL pointer
-> /home/kernel/src/net/irda/parameters.c:520:2: warning: Using plain integer as NULL pointer
-> /home/kernel/src/net/irda/parameters.c:573:2: warning: Using plain integer as NULL pointer
-> 
-> From: Richard Knutsson <ricknu-0-oe7qfRrRQfd5oVVtFh8HQg@public.gmane.org>
-> Signed-off-by: Richard Knutsson <ricknu-0-oe7qfRrRQfd5oVVtFh8HQg@public.gmane.org>
-> Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-> Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+> Could you either drop my recent patches (+one fix to them from Herber=
+t
+> Xu =3D=3D "[TCP]: Fix crash in tcp_advance_send_head"), all mine afte=
+r "[TCP]:=20
+> Abstract tp->highest_sack accessing & point to next skb" from net-2.6=
+=2E25=20
+> or just apply the revert from below and do the removal during next re=
+base.=20
+> I think it could even be automated by something like this (untested):
+> for i in $(cat commits | cut -d ' ' -f 1); do git-rebase --onto $i^ $=
+i; done=20
+> (I've attached the commits list).
 
-Applied.
+I'll take care of this when I rebase the net-2.6.25 tree later
+today.
 
--------------------------------------------------------------------------
-SF.Net email is sponsored by:
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services
-for just about anything Open Source.
-http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+Thanks Ilpo.
