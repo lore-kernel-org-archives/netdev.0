@@ -1,57 +1,43 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [patch 2/4] net: use mutex_is_locked() for ASSERT_RTNL()
-Date: Sun, 16 Dec 2007 19:06:41 +0100
-Message-ID: <47656931.1040309@gmail.com>
-References: <E1J35d6-00041l-00@gondolin.me.apana.org.au>	<20071214002209.ac748206.akpm@linux-foundation.org>	<20071214083037.GA15602@gondor.apana.org.au>	<20071214.111514.03773174.davem@davemloft.net>	<20071214151136.ae0f969b.akpm@linux-foundation.org>	<20071215041827.GC25324@gondor.apana.org.au>	<20071214214418.0ecd5e67.akpm@linux-foundation.org>	<20071215061021.GA26247@gondor.apana.org.au> <20071215024810.20b8a5ae.akpm@linux-foundation.org>
+From: Jouni Malinen <j@w1.fi>
+Subject: Re: [PATCH] PS3: gelic: Add wireless support for PS3
+Date: Sun, 16 Dec 2007 10:11:59 -0800
+Message-ID: <20071216181159.GP5698@jm.kir.nu>
+References: <20071213211626.BF8E.MOKUNO@sm.sony.co.jp> <1197580418.14270.6.camel@localhost.localdomain> <20071214134918.275E.MOKUNO@sm.sony.co.jp> <1197637127.16724.1.camel@localhost.localdomain> <20071215014244.GI5698@jm.kir.nu> <1197827354.6358.2.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Masakazu Mokuno <mokuno@sm.sony.co.jp>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	geoffrey.levand@am.sony.com,
+	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:55342 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752826AbXLPSE5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 13:04:57 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so196845fga.17
-        for <netdev@vger.kernel.org>; Sun, 16 Dec 2007 10:04:55 -0800 (PST)
-In-Reply-To: <20071215024810.20b8a5ae.akpm@linux-foundation.org>
+Received: from mail3.sea5.speakeasy.net ([69.17.117.5]:50583 "EHLO
+	mail3.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751740AbXLPSNI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 13:13:08 -0500
+Content-Disposition: inline
+In-Reply-To: <1197827354.6358.2.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote, On 12/15/2007 11:48 AM:
+On Sun, Dec 16, 2007 at 12:49:14PM -0500, Dan Williams wrote:
 
-> On Sat, 15 Dec 2007 14:10:21 +0800 Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> 
->> On Fri, Dec 14, 2007 at 09:44:18PM -0800, Andrew Morton wrote:
->>> That sounds like a bug in mutex_trylock() to me.
->> I was relying on
->>
->> 	http://kerneltrap.org/mailarchive/linux-netdev/2007/9/28/325129
->>
->> which seems to be a bogus claim now that I actually look at the
->> source code.  So in that case I'm OK with your patch as long as
->> it warns about hard IRQ usage.
-> 
-> When Eric said
-> 
->> Way way deep in mutex debugging on the slowpath there is a unreadable
->> and incomprehensible WARN_ON in muxtex_trylock that will trigger if
->> you have 10 tons of debugging turned on, and you are in,
->> interrupt context, and you manage to hit the slow path.  I think that
->> is a pretty unlikely scenario.
-> 
-> I think he's still right.  That's if the warning which he managed to find
-> even still exists.
+> Yeah, I was going to propose that on Friday but got side-tracked.  What
+> would require a new key type?  Are there some firmwares that _only_
+> accept the WPA passphrase?  Because if there aren't (PS3 accepts WPA hex
+> keys too) then the supplicant could just pass the hex key.  Not quite
+> sure what you mean here with "new key type".
 
+It is a new key type regardless of whether it is PSK or passphrase. The
+current key types (IW_AUTH_CIPHER_*) are WEP40, TKIP, CCMP, and WEP104..
 
-It seemed to exist a few days ago:
-http://kerneltrap.org/mailarchive/linux-netdev/2007/12/4/473123
+I don't know whether there are any Linux drivers that would use WPA
+passphrase, but at least the Mac OS X driver interface seems to only use
+passphrase for WPA-Personal, so it is apparently possible to design such
+a architecture ;-). Anyway, I would be fine with just adding
+IW_AUTH_CIPHER_PMK for now (and the new capability to figure out whether
+this is needed). That PMK would be PSK for WPA-Personal, but it could
+also be used as PMK for WPA-Enterprise, so the more generic PMK name.
 
-Btw., I don't know which of the patches: Eric's or yours will be chosen,
-but, IMHO, there is no reason to remove rtnl_trylock(), which can be still
-useful, just like mutex_trylock() is.
-
-Regards,
-Jarek P.
+-- 
+Jouni Malinen                                            PGP id EFC895FA
