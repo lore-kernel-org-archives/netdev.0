@@ -1,301 +1,440 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 2.6.24-rc5-mm1 -- inconsistent {in-softirq-W} -> {softirq-on-R}
- usage.
-Date: Sat, 15 Dec 2007 20:30:43 -0800
-Message-ID: <20071215203043.1cba0cf7.akpm@linux-foundation.org>
-References: <a44ae5cd0712141413u4ddbfd06gca259cfc3bc0ab1a@mail.gmail.com>
-	<20071214153633.5d8f609a.akpm@linux-foundation.org>
-	<a44ae5cd0712141958o10d9a320h3b8173019ac6b0eb@mail.gmail.com>
-	<20071215031341.66dc0d05.akpm@linux-foundation.org>
-	<a44ae5cd0712151213o59c0df76je273948c965e59c3@mail.gmail.com>
-	<a44ae5cd0712151255u25610059u946d975324ae128@mail.gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Please pull 'fixes-jgarzik' branch of wireless-2.6
+Date: Sat, 15 Dec 2007 23:31:48 -0500
+Message-ID: <20071216043148.GE3096@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Ingo Molnar" <mingo@elte.hu>,
-	"Peter Zijlstra" <a.p.zijlstra@chello.nl>
-To: "Miles Lane" <miles.lane@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:51008 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753775AbXLPEbc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Dec 2007 23:31:32 -0500
-In-Reply-To: <a44ae5cd0712151255u25610059u946d975324ae128@mail.gmail.com>
+Received: from ra.tuxdriver.com ([70.61.120.52]:4524 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756367AbXLPE6j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Dec 2007 23:58:39 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 15 Dec 2007 15:55:09 -0500 "Miles Lane" <miles.lane@gmail.com> =
-wrote:
+Jeff,
 
-> On Dec 15, 2007 3:13 PM, Miles Lane <miles.lane@gmail.com> wrote:
-> >
-> > On Dec 15, 2007 6:13 AM, Andrew Morton <akpm@linux-foundation.org> =
-wrote:
-> > >
-> > > On Fri, 14 Dec 2007 22:58:24 -0500 "Miles Lane" <miles.lane@gmail=
-=2Ecom> wrote:
-> > >
-> > > > On Dec 14, 2007 6:36 PM, Andrew Morton <akpm@linux-foundation.o=
-rg> wrote:
-> > > > > On Fri, 14 Dec 2007 17:13:21 -0500
-> > > > > "Miles Lane" <miles.lane@gmail.com> wrote:
-> > > > >
-> > > > >
-> > > > > > Sorry Andrew, I don't know who to forward this problem to.
-> > > > > >
-> > > > > > I tried running:  find /proc | xargs cat
-> > > > > > and got this:
-> > > > > >
-> > > > > > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> > > > > > [ INFO: inconsistent lock state ]
-> > > > > > 2.6.24-rc5-mm1 #26
-> > > > > > ---------------------------------
-> > > > > > inconsistent {in-softirq-W} -> {softirq-on-R} usage.
-> > > > > > cat/6944 [HC0[0]:SC0[0]:HE1:SE1] takes:
-> > > > > > BUG: unable to handle kernel paging request at virtual addr=
-ess 0f1eff0b
-> > > > > > printing ip: c01fe64d *pde =3D 00000000
-> > > > > > Oops: 0000 [#1] PREEMPT SMP
-> > > > > > last sysfs file: /sys/block/sda/sda3/stat
-> > > > > > Modules linked in: aes_generic i915 drm rfcomm l2cap blueto=
-oth
-> > > > > > cpufreq_stats cpufreq_conservative cpufreq_performance sbs =
-sbshc
-> > > > > > dm_crypt sbp2 parport_pc lp parport pcmcia arc4 ecb crypto_=
-blkcipher
-> > > > > > cryptomgr crypto_algapi tifm_7xx1 tifm_core yenta_socket
-> > > > > > rsrc_nonstatic pcmcia_core iwl3945 iTCO_wdt iTCO_vendor_sup=
-port
-> > > > > > watchdog_core watchdog_dev snd_hda_intel mac80211 snd_pcm_o=
-ss
-> > > > > > snd_mixer_oss cfg80211 snd_pcm sky2 snd_seq_dummy snd_seq_o=
-ss
-> > > > > > snd_seq_midi snd_rawmidi snd_seq_midi_event snd_seq snd_tim=
-er
-> > > > > > snd_seq_device snd soundcore snd_page_alloc shpchp pci_hotp=
-lug
-> > > > > > firewire_ohci firewire_core crc_itu_t ata_generic piix ide_=
-core
-> > > > > >
-> > > > > > Pid: 6944, comm: cat Not tainted (2.6.24-rc5-mm1 #26)
-> > > > > > EIP: 0060:[<c01fe64d>] EFLAGS: 00210097 CPU: 0
-> > > > > > EIP is at strnlen+0x9/0x1c
-> > > > > > EAX: 0f1eff0b EBX: 0f1eff0b ECX: 0f1eff0b EDX: fffffffe
-> > > > > > ESI: c05b74f6 EDI: d6267d94 EBP: d6267cc8 ESP: d6267cc8
-> > > > > >  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
-> > > > > > Process cat (pid: 6944, ti=3Dd6267000 task=3Dd5a09000 task.=
-ti=3Dd6267000)
-> > > > > > Stack: d6267cfc c01fdd22 00000400 c05b74f4 00000001 c05b78f=
-4 00000000 ffffffff
-> > > > > >        ffffffff c048f503 00000400 d5a09000 00000002 d6267d0=
-c c01fdf41 d6267d94
-> > > > > >        db68c04a d6267d74 c012ae81 d6267d94 00000028 c05b89f=
-7 00200046 00000000
-> > > > > > Call Trace:
-> > > > > >  [<c0108eb2>] show_trace_log_lvl+0x12/0x25
-> > > > > >  [<c0108f4f>] show_stack_log_lvl+0x8a/0x95
-> > > > > >  [<c0108fe4>] show_registers+0x8a/0x1bd
-> > > > > >  [<c010922f>] die+0x118/0x1dc
-> > > > > >  [<c03cf706>] do_page_fault+0x5a4/0x681
-> > > > > >  [<c03cdd72>] error_code+0x72/0x78
-> > > > > >  [<c01fdd22>] vsnprintf+0x277/0x40e
-> > > > > >  [<c01fdf41>] vscnprintf+0xe/0x1d
-> > > > > >  [<c012ae81>] vprintk+0xcb/0x2f3
-> > > > > >  [<c012b0be>] printk+0x15/0x17
-> > > > > >  [<c0145e55>] print_lock_name+0x4e/0xa2
-> > > > > >  [<c0146099>] print_lock+0xe/0x3a
-> > > > > >  [<c01464cf>] print_usage_bug+0xbc/0x117
-> > > > > >  [<c0146fb6>] mark_lock+0x2e7/0x3fe
-> > > > > >  [<c0147b9a>] __lock_acquire+0x498/0xbf4
-> > > > > >  [<c014836c>] lock_acquire+0x76/0x9d
-> > > > > >  [<c03cd6d2>] _read_lock+0x23/0x32
-> > > > > >  [<c03491ae>] sock_i_ino+0x14/0x30
-> > > > > >  [<c03c88ed>] packet_seq_show+0x22/0x75
-> > > > > >  [<c019b41a>] seq_read+0x19d/0x26f
-> > > > > >  [<c01b0ded>] proc_reg_read+0x60/0x74
-> > > > > >  [<c01854aa>] vfs_read+0x8a/0x106
-> > > > > >  [<c01858a8>] sys_read+0x3b/0x60
-> > > > > >  [<c0107cea>] sysenter_past_esp+0x6b/0xc1
-> > > > > >  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D
-> > > > > > Code: 01 00 00 00 4f 89 fa 5f 89 d0 5d c3 55 85 c9 89 e5 57=
- 89 c7 89
-> > > > > > d0 74 05 f2 ae 75 01 4f 89 f8 5f 5d c3 55 89 c1 89 e5 89 c8=
- eb 06 <80>
-> > > > > > 38 00 74 07 40 4a 83 fa ff 75 f4 29 c8 5d c3 90 90 90 55 83
-> > > > > > EIP: [<c01fe64d>] strnlen+0x9/0x1c SS:ESP 0068:d6267cc8
-> > > > > > note: cat[6944] exited with preempt_count 4
-> > > > >
-> > > > > I'd say you hit a networking locking bug and then when trying=
- to report
-> > > > > that bug, lockdep crashed.
-> > > > >
-> > > > > The networking bug looks to be around sock_i_ino()'s taking o=
-f
-> > > > > sk_callback_lock with softirq's enabled.  Perhaps this will f=
-ix it.
-> > > > >
-> > > > > diff -puN net/core/sock.c~a net/core/sock.c
-> > > > > --- a/net/core/sock.c~a
-> > > > > +++ a/net/core/sock.c
-> > > > > @@ -1115,9 +1115,9 @@ int sock_i_uid(struct sock *sk)
-> > > > >  {
-> > > > >         int uid;
-> > > > >
-> > > > > -       read_lock(&sk->sk_callback_lock);
-> > > > > +       read_lock_bh(&sk->sk_callback_lock);
-> > > > >         uid =3D sk->sk_socket ? SOCK_INODE(sk->sk_socket)->i_=
-uid : 0;
-> > > > > -       read_unlock(&sk->sk_callback_lock);
-> > > > > +       read_unlock_bh(&sk->sk_callback_lock);
-> > > > >         return uid;
-> > > > >  }
-> > > > >
-> > > > > @@ -1125,9 +1125,9 @@ unsigned long sock_i_ino(struct sock *s=
-k
-> > > > >  {
-> > > > >         unsigned long ino;
-> > > > >
-> > > > > -       read_lock(&sk->sk_callback_lock);
-> > > > > +       read_lock_bh(&sk->sk_callback_lock);
-> > > > >         ino =3D sk->sk_socket ? SOCK_INODE(sk->sk_socket)->i_=
-ino : 0;
-> > > > > -       read_unlock(&sk->sk_callback_lock);
-> > > > > +       read_unlock_bh(&sk->sk_callback_lock);
-> > > > >         return ino;
-> > > > >  }
-> > > > >
-> > > > > _
-> > > > >
-> > > > >
-> > > >
-> > > > I applied the patch and then tried my test again.  This time my=
- system
-> > > > locked up.
-> > > > Perhaps I should open a new thread for this, since the problem =
-looks
-> > > > pretty different.
-> > > >
-> > > > Dec 14 21:32:55 feargod kernel: process `cat' is using deprecat=
-ed
-> > > > sysctl (syscall) net.ipv6.neigh.default.retrans_time; Use
-> > > > net.ipv6.neigh.default.retran
-> > > > s_time_ms instead.
-> > > > Dec 14 21:32:55 feargod kernel:
-> > > > Dec 14 21:32:55 feargod kernel: =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D
-> > > > Dec 14 21:32:55 feargod kernel: [ BUG: bad unlock balance detec=
-ted! ]
-> > > > Dec 14 21:32:55 feargod kernel: -------------------------------=
-------
-> > > > Dec 14 21:32:55 feargod kernel: cat/6180 is trying to release l=
-ock
-> > > > (kkkkkkk=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BDH3=EF=BF=BD=
-=EF=BF=BD) at:
-> > > > Dec 14 21:32:55 feargod kernel: [packet_seq_stop+0xe/0x10]
-> > > > packet_seq_stop+0xe/0x10
-> > > > Dec 14 21:32:55 feargod kernel: but there are no more locks to =
-release!
-> > > > Dec 14 21:32:55 feargod kernel:
-> > > > Dec 14 21:32:55 feargod kernel: other info that might help us d=
-ebug this:
-> > > > Dec 14 21:32:55 feargod kernel: 2 locks held by cat/6180:
-> > > > Dec 14 21:32:55 feargod kernel:  #0:  (&p->lock){--..}, at:
-> > > > [crypto_algapi:seq_read+0x25/0x191c1] seq_read+0x25/0x26f
-> > > > Dec 14 21:32:55 feargod kernel:  #1:
-> > > > (&net->packet.sklist_lock){-.--}, at: [packet_seq_start+0x14/0x=
-4d]
-> > > > packet_seq_start+0x14/0x4d
-> > >
-> > > Bit of a mess.  We don't know whether lockdep is broken or if net=
-working is
-> > > just feeding it garbage.  Or both.
-> > >
-> > > My suspicion is that you've hit bad breakage in networking and lo=
-ckdep just
-> > > isn't sufficiently robust to handle what it's being given.
-> > >
-> > > Can you suggest a way in which others can reproduce this?
-> > >
-> > > What happens if you run the same test with CONFIG_LOCKDEP=3Dn?
-> >
-> > He's what I get with a build with CONFIG_LOCKDEP disabled (this is
-> > 100% reproducible):
-> >
-> > process `head' is using deprecated sysctl (syscall)
-> > net.ipv6.neigh.default.retrans_time; Use
-> > net.ipv6.neigh.default.retrans
-> > _time_ms instead.
-> > BUG: unable to handle kernel paging request at virtual address 5a5a=
-5b96
-> > printing ip: c02024d5 *pde =3D 00000000
-> > Oops: 0002 [#3] PREEMPT SMP
-> > last sysfs file:
-> > /sys/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/bloc=
-k/sda/sda3/stat
-> > Modules linked in: aes_generic i915 drm rfcomm l2cap bluetooth
-> > cpufreq_stats cpufreq_conservative cpufreq_performance sbs sbshc
-> > dm_crypt sbp2 parport_pc lp parport pcmcia arc4 ecb crypto_blkciphe=
-r
-> > cryptomgr crypto_algapi snd_hda_intel snd_pcm_oss snd_mixer_oss
-> > snd_pcm tifm_7xx1 yenta_socket rsrc_nonstatic iwl3945 tifm_core
-> > pcmcia_core snd_seq_dummy mac80211 snd_seq_oss snd_seq_midi cfg8021=
-1
-> > sky2 snd_rawmidi snd_seq_midi_event snd_seq snd_timer snd_seq_devic=
-e
-> > snd iTCO_wdt iTCO_vendor_support soundcore watchdog_core watchdog_d=
-ev
-> > snd_page_alloc shpchp pci_hotplug ata_generic piix firewire_ohci
-> > firewire_core crc_itu_t ide_core
-> >
-> > Pid: 6556, comm: head Tainted: G      D (2.6.24-rc5-mm1 #29)
-> > EIP: 0060:[<c02024d5>] EFLAGS: 00010013 CPU: 0
-> > EIP is at _raw_read_trylock+0x3/0x19
+A few more fixes for 2.6.24...let me know if there are any problems!
 
-Right.  As I surmised, networking is passing garbage into lockdep and
-lockdep didn't like it.
+Thanks,
 
-> > EAX: 5a5a5b96 EBX: 00000213 ECX: 00000001 EDX: ee062000
-> > ESI: 5a5a5b96 EDI: ef182870 EBP: ee062ed0 ESP: ee062ed0
-> >  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
-> > Process head (pid: 6556, ti=3Dee062000 task=3Def262ba0 task.ti=3Dee=
-062000)
-> > Stack: ee062ee0 c03c746a 5a5a5a52 5a5a5b96 ee062eec c03c74f4 5a5a5a=
-52 ee062efc
-> >        c0345f1e c03fd61c 5a5a5a52 ee062f10 c03c29e0 c03fd61c ef1828=
-70 5a5a5a52
-> >        ee062f50 c019448b 00002000 bff00b17 eefa4600 ef182890 000000=
-00 00000000
-> > Call Trace:
-> >  [<c0107daa>] show_trace_log_lvl+0x12/0x25
-> >  [<c0107e47>] show_stack_log_lvl+0x8a/0x95
-> >  [<c0107edc>] show_registers+0x8a/0x1bd
-> >  [<c0108127>] die+0x118/0x1dc
-> >  [<c03c92f0>] do_page_fault+0x589/0x666
-> >  [<c03c79ea>] error_code+0x72/0x78
-> >  [<c03c746a>] _read_lock_irqsave+0x2e/0x86
-> >  [<c03c74f4>] _read_lock_bh+0x9/0x1f
-> >  [<c0345f1e>] sock_i_ino+0x14/0x30
-> >  [<c03c29e0>] packet_seq_show+0x22/0x75
-> >  [<c019448b>] seq_read+0x192/0x25f
-> >  [<c01a9a95>] proc_reg_read+0x60/0x74
-> >  [<c017e8f6>] vfs_read+0x8a/0x106
-> >  [<c017ece0>] sys_read+0x3b/0x60
-> >  [<c0106cae>] sysenter_past_esp+0x6b/0xa1
-> >  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-> > Code: c2 89 e5 31 c0 86 02 31 c9 84 c0 0f 9f c1 85 c9 74 12 64 a1 0=
-8
-> > a0 58 c0 89 42 0c 64 a1 00 a0 58 c0 89 42 10 5d 89 c8 c3 55 89 e5 <=
-f0>
-> > ff 08 83 38 00 ba 01 00 00 00 79 05 f0 ff 00 30 d2 5d 89 d0
-> > EIP: [<c02024d5>] _raw_read_trylock+0x3/0x19 SS:ESP 0068:ee062ed0
-> > note: head[6556] exited with preempt_count 2
->=20
-> The command that reliably reproduces this is:
-> cat /proc/net/packet
+John
 
-OK, thanks.
+P.S.  The zd1211rw patch is already in netdev-2.6#upstream, but it
+belongs in 2.6.24 as well.
+
+---
+
+Individual patches available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/fixes-jgarzik
+
+---
+
+The following changes since commit 82d29bf6dc7317aeb0a3a13c2348ca8591965875:
+  Linus Torvalds (1):
+        Linux 2.6.24-rc5
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-jgarzik
+
+Adrian Bunk (1):
+      wireless/ipw2200.c: add __dev{init,exit} annotations
+
+Andrew Morton (1):
+      bcm43xx_debugfs sscanf fix
+
+Cyrill Gorcunov (2):
+      ieee80211_rate: missed unlock
+      iwlwifi3945/4965: fix rate control algo reference leak
+
+Dan Williams (1):
+      libertas: select WIRELESS_EXT
+
+Larry Finger (1):
+      b43: Fix rfkill radio LED
+
+Stefano Brivio (1):
+      libertas: add Dan Williams as maintainer
+
+Ulrich Kunitz (1):
+      zd1211rw: Fix alignment problems
+
+Zhu Yi (1):
+      iwlwifi: fix rf_kill state inconsistent during suspend and resume
+
+ MAINTAINERS                                    |    6 ++++
+ drivers/net/wireless/Kconfig                   |    1 +
+ drivers/net/wireless/b43/leds.c                |    4 ++
+ drivers/net/wireless/b43/main.c                |   22 +++++++-------
+ drivers/net/wireless/b43/rfkill.c              |   37 ++++++++++++++++++++---
+ drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c |    2 +-
+ drivers/net/wireless/ipw2200.c                 |    7 ++--
+ drivers/net/wireless/iwlwifi/iwl3945-base.c    |    5 ++-
+ drivers/net/wireless/iwlwifi/iwl4965-base.c    |    5 ++-
+ drivers/net/wireless/zd1211rw/zd_mac.c         |   10 +++++-
+ net/mac80211/ieee80211_rate.c                  |    1 +
+ 11 files changed, 76 insertions(+), 24 deletions(-)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 9507b42..c331ba3 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2489,6 +2489,12 @@ M:	mtk.manpages@gmail.com
+ W:	ftp://ftp.kernel.org/pub/linux/docs/manpages
+ S:	Maintained
+ 
++MARVELL LIBERTAS WIRELESS DRIVER
++P:	Dan Williams
++M:	dcbw@redhat.com
++L:	libertas-dev@lists.infradead.org
++S:	Maintained
++
+ MARVELL MV643XX ETHERNET DRIVER
+ P:	Dale Farnsworth
+ M:	dale@farnsworth.org
+diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
+index 2b733c5..5583719 100644
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -264,6 +264,7 @@ config IPW2200_DEBUG
+ config LIBERTAS
+ 	tristate "Marvell 8xxx Libertas WLAN driver support"
+ 	depends on WLAN_80211
++	select WIRELESS_EXT
+ 	select IEEE80211
+ 	select FW_LOADER
+ 	---help---
+diff --git a/drivers/net/wireless/b43/leds.c b/drivers/net/wireless/b43/leds.c
+index 19e5885..6c0e2b9 100644
+--- a/drivers/net/wireless/b43/leds.c
++++ b/drivers/net/wireless/b43/leds.c
+@@ -163,6 +163,9 @@ static void b43_map_led(struct b43_wldev *dev,
+ 		b43_register_led(dev, &dev->led_radio, name,
+ 				 b43_rfkill_led_name(dev),
+ 				 led_index, activelow);
++		/* Sync the RF-kill LED state with the switch state. */
++		if (dev->radio_hw_enable)
++			b43_led_turn_on(dev, led_index, activelow);
+ 		break;
+ 	case B43_LED_WEIRD:
+ 	case B43_LED_ASSOC:
+@@ -232,4 +235,5 @@ void b43_leds_exit(struct b43_wldev *dev)
+ 	b43_unregister_led(&dev->led_tx);
+ 	b43_unregister_led(&dev->led_rx);
+ 	b43_unregister_led(&dev->led_assoc);
++	b43_unregister_led(&dev->led_radio);
+ }
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index b45eecc..1c93b4f 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -2163,7 +2163,6 @@ static void b43_mgmtframe_txantenna(struct b43_wldev *dev, int antenna)
+ static void b43_chip_exit(struct b43_wldev *dev)
+ {
+ 	b43_radio_turn_off(dev, 1);
+-	b43_leds_exit(dev);
+ 	b43_gpio_cleanup(dev);
+ 	/* firmware is released later */
+ }
+@@ -2191,11 +2190,10 @@ static int b43_chip_init(struct b43_wldev *dev)
+ 	err = b43_gpio_init(dev);
+ 	if (err)
+ 		goto out;	/* firmware is released later */
+-	b43_leds_init(dev);
+ 
+ 	err = b43_upload_initvals(dev);
+ 	if (err)
+-		goto err_leds_exit;
++		goto err_gpio_clean;
+ 	b43_radio_turn_on(dev);
+ 
+ 	b43_write16(dev, 0x03E6, 0x0000);
+@@ -2271,8 +2269,7 @@ out:
+ 
+ err_radio_off:
+ 	b43_radio_turn_off(dev, 1);
+-err_leds_exit:
+-	b43_leds_exit(dev);
++err_gpio_clean:
+ 	b43_gpio_cleanup(dev);
+ 	return err;
+ }
+@@ -3273,10 +3270,7 @@ static void b43_wireless_core_exit(struct b43_wldev *dev)
+ 		return;
+ 	b43_set_status(dev, B43_STAT_UNINIT);
+ 
+-	mutex_unlock(&dev->wl->mutex);
+-	b43_rfkill_exit(dev);
+-	mutex_lock(&dev->wl->mutex);
+-
++	b43_leds_exit(dev);
+ 	b43_rng_exit(dev->wl);
+ 	b43_pio_free(dev);
+ 	b43_dma_free(dev);
+@@ -3405,12 +3399,12 @@ static int b43_wireless_core_init(struct b43_wldev *dev)
+ 	memset(wl->mac_addr, 0, ETH_ALEN);
+ 	b43_upload_card_macaddress(dev);
+ 	b43_security_init(dev);
+-	b43_rfkill_init(dev);
+ 	b43_rng_init(wl);
+ 
+ 	b43_set_status(dev, B43_STAT_INITIALIZED);
+ 
+-      out:
++	b43_leds_init(dev);
++out:
+ 	return err;
+ 
+       err_chip_exit:
+@@ -3499,6 +3493,10 @@ static int b43_start(struct ieee80211_hw *hw)
+ 	int did_init = 0;
+ 	int err = 0;
+ 
++	/* First register RFkill.
++	 * LEDs that are registered later depend on it. */
++	b43_rfkill_init(dev);
++
+ 	mutex_lock(&wl->mutex);
+ 
+ 	if (b43_status(dev) < B43_STAT_INITIALIZED) {
+@@ -3528,6 +3526,8 @@ static void b43_stop(struct ieee80211_hw *hw)
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 	struct b43_wldev *dev = wl->current_dev;
+ 
++	b43_rfkill_exit(dev);
++
+ 	mutex_lock(&wl->mutex);
+ 	if (b43_status(dev) >= B43_STAT_STARTED)
+ 		b43_wireless_core_stop(dev);
+diff --git a/drivers/net/wireless/b43/rfkill.c b/drivers/net/wireless/b43/rfkill.c
+index 9b1f905..98cf70c 100644
+--- a/drivers/net/wireless/b43/rfkill.c
++++ b/drivers/net/wireless/b43/rfkill.c
+@@ -25,6 +25,8 @@
+ #include "rfkill.h"
+ #include "b43.h"
+ 
++#include <linux/kmod.h>
++
+ 
+ /* Returns TRUE, if the radio is enabled in hardware. */
+ static bool b43_is_hw_radio_enabled(struct b43_wldev *dev)
+@@ -50,7 +52,10 @@ static void b43_rfkill_poll(struct input_polled_dev *poll_dev)
+ 	bool report_change = 0;
+ 
+ 	mutex_lock(&wl->mutex);
+-	B43_WARN_ON(b43_status(dev) < B43_STAT_INITIALIZED);
++	if (unlikely(b43_status(dev) < B43_STAT_INITIALIZED)) {
++		mutex_unlock(&wl->mutex);
++		return;
++	}
+ 	enabled = b43_is_hw_radio_enabled(dev);
+ 	if (unlikely(enabled != dev->radio_hw_enable)) {
+ 		dev->radio_hw_enable = enabled;
+@@ -60,8 +65,12 @@ static void b43_rfkill_poll(struct input_polled_dev *poll_dev)
+ 	}
+ 	mutex_unlock(&wl->mutex);
+ 
+-	if (unlikely(report_change))
+-		input_report_key(poll_dev->input, KEY_WLAN, enabled);
++	/* send the radio switch event to the system - note both a key press
++	 * and a release are required */
++	if (unlikely(report_change)) {
++		input_report_key(poll_dev->input, KEY_WLAN, 1);
++		input_report_key(poll_dev->input, KEY_WLAN, 0);
++	}
+ }
+ 
+ /* Called when the RFKILL toggled in software. */
+@@ -69,13 +78,15 @@ static int b43_rfkill_soft_toggle(void *data, enum rfkill_state state)
+ {
+ 	struct b43_wldev *dev = data;
+ 	struct b43_wl *wl = dev->wl;
+-	int err = 0;
++	int err = -EBUSY;
+ 
+ 	if (!wl->rfkill.registered)
+ 		return 0;
+ 
+ 	mutex_lock(&wl->mutex);
+-	B43_WARN_ON(b43_status(dev) < B43_STAT_INITIALIZED);
++	if (b43_status(dev) < B43_STAT_INITIALIZED)
++		goto out_unlock;
++	err = 0;
+ 	switch (state) {
+ 	case RFKILL_STATE_ON:
+ 		if (!dev->radio_hw_enable) {
+@@ -133,9 +144,25 @@ void b43_rfkill_init(struct b43_wldev *dev)
+ 	rfk->poll_dev->poll = b43_rfkill_poll;
+ 	rfk->poll_dev->poll_interval = 1000; /* msecs */
+ 
++	rfk->poll_dev->input->name = rfk->name;
++	rfk->poll_dev->input->id.bustype = BUS_HOST;
++	rfk->poll_dev->input->id.vendor = dev->dev->bus->boardinfo.vendor;
++	rfk->poll_dev->input->evbit[0] = BIT(EV_KEY);
++	set_bit(KEY_WLAN, rfk->poll_dev->input->keybit);
++
+ 	err = rfkill_register(rfk->rfkill);
+ 	if (err)
+ 		goto err_free_polldev;
++
++#ifdef CONFIG_RFKILL_INPUT_MODULE
++	/* B43 RF-kill isn't useful without the rfkill-input subsystem.
++	 * Try to load the module. */
++	err = request_module("rfkill-input");
++	if (err)
++		b43warn(wl, "Failed to load the rfkill-input module. "
++			"The built-in radio LED will not work.\n");
++#endif /* CONFIG_RFKILL_INPUT */
++
+ 	err = input_register_polled_device(rfk->poll_dev);
+ 	if (err)
+ 		goto err_unreg_rfk;
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c b/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c
+index 35dbe45..76e9dd8 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c
+@@ -219,7 +219,7 @@ static ssize_t tsf_write_file(struct file *file, const char __user *user_buf,
+ 	ssize_t buf_size;
+ 	ssize_t res;
+ 	unsigned long flags;
+-	u64 tsf;
++	unsigned long long tsf;
+ 
+ 	buf_size = min(count, sizeof (really_big_buffer) - 1);
+ 	down(&big_buffer_sem);
+diff --git a/drivers/net/wireless/ipw2200.c b/drivers/net/wireless/ipw2200.c
+index 54f44e5..da51f47 100644
+--- a/drivers/net/wireless/ipw2200.c
++++ b/drivers/net/wireless/ipw2200.c
+@@ -10751,7 +10751,7 @@ static void ipw_bg_link_down(struct work_struct *work)
+ 	mutex_unlock(&priv->mutex);
+ }
+ 
+-static int ipw_setup_deferred_work(struct ipw_priv *priv)
++static int __devinit ipw_setup_deferred_work(struct ipw_priv *priv)
+ {
+ 	int ret = 0;
+ 
+@@ -11600,7 +11600,8 @@ static void ipw_prom_free(struct ipw_priv *priv)
+ #endif
+ 
+ 
+-static int ipw_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
++static int __devinit ipw_pci_probe(struct pci_dev *pdev,
++				   const struct pci_device_id *ent)
+ {
+ 	int err = 0;
+ 	struct net_device *net_dev;
+@@ -11767,7 +11768,7 @@ static int ipw_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	return err;
+ }
+ 
+-static void ipw_pci_remove(struct pci_dev *pdev)
++static void __devexit ipw_pci_remove(struct pci_dev *pdev)
+ {
+ 	struct ipw_priv *priv = pci_get_drvdata(pdev);
+ 	struct list_head *p, *q;
+diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+index 4bdf237..8797233 100644
+--- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
++++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+@@ -4743,8 +4743,10 @@ static void iwl_irq_tasklet(struct iwl_priv *priv)
+ 		 *   when we loaded driver, and is now set to "enable".
+ 		 * After we're Alive, RF_KILL gets handled by
+ 		 *   iwl_rx_card_state_notif() */
+-		if (!hw_rf_kill && !test_bit(STATUS_ALIVE, &priv->status))
++		if (!hw_rf_kill && !test_bit(STATUS_ALIVE, &priv->status)) {
++			clear_bit(STATUS_RF_KILL_HW, &priv->status);
+ 			queue_work(priv->workqueue, &priv->restart);
++		}
+ 
+ 		handled |= CSR_INT_BIT_RF_KILL;
+ 	}
+@@ -6171,6 +6173,7 @@ static void iwl_alive_start(struct iwl_priv *priv)
+ 		mutex_lock(&priv->mutex);
+ 
+ 		if (rc) {
++			iwl3945_rate_control_unregister(priv->hw);
+ 			IWL_ERROR("Failed to register network "
+ 				  "device (error %d)\n", rc);
+ 			return;
+diff --git a/drivers/net/wireless/iwlwifi/iwl4965-base.c b/drivers/net/wireless/iwlwifi/iwl4965-base.c
+index 8f85564..d7cc514 100644
+--- a/drivers/net/wireless/iwlwifi/iwl4965-base.c
++++ b/drivers/net/wireless/iwlwifi/iwl4965-base.c
+@@ -5059,8 +5059,10 @@ static void iwl_irq_tasklet(struct iwl_priv *priv)
+ 		 *   when we loaded driver, and is now set to "enable".
+ 		 * After we're Alive, RF_KILL gets handled by
+ 		 *   iwl_rx_card_state_notif() */
+-		if (!hw_rf_kill && !test_bit(STATUS_ALIVE, &priv->status))
++		if (!hw_rf_kill && !test_bit(STATUS_ALIVE, &priv->status)) {
++			clear_bit(STATUS_RF_KILL_HW, &priv->status);
+ 			queue_work(priv->workqueue, &priv->restart);
++		}
+ 
+ 		handled |= CSR_INT_BIT_RF_KILL;
+ 	}
+@@ -6527,6 +6529,7 @@ static void iwl_alive_start(struct iwl_priv *priv)
+ 		mutex_lock(&priv->mutex);
+ 
+ 		if (rc) {
++			iwl4965_rate_control_unregister(priv->hw);
+ 			IWL_ERROR("Failed to register network "
+ 				  "device (error %d)\n", rc);
+ 			return;
+diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
+index a903645..5298a8b 100644
+--- a/drivers/net/wireless/zd1211rw/zd_mac.c
++++ b/drivers/net/wireless/zd1211rw/zd_mac.c
+@@ -1130,6 +1130,8 @@ static void zd_mac_rx(struct zd_mac *mac, struct sk_buff *skb)
+ 	__skb_trim(skb, skb->len -
+ 		        (IEEE80211_FCS_LEN + sizeof(struct rx_status)));
+ 
++	ZD_ASSERT(IS_ALIGNED((unsigned long)skb->data, 4));
++
+ 	update_qual_rssi(mac, skb->data, skb->len, stats.signal,
+ 		         status->signal_strength);
+ 
+@@ -1166,15 +1168,19 @@ static void do_rx(unsigned long mac_ptr)
+ int zd_mac_rx_irq(struct zd_mac *mac, const u8 *buffer, unsigned int length)
+ {
+ 	struct sk_buff *skb;
++	unsigned int reserved =
++		ALIGN(max_t(unsigned int,
++		            sizeof(struct zd_rt_hdr), ZD_PLCP_HEADER_SIZE), 4) -
++		ZD_PLCP_HEADER_SIZE;
+ 
+-	skb = dev_alloc_skb(sizeof(struct zd_rt_hdr) + length);
++	skb = dev_alloc_skb(reserved + length);
+ 	if (!skb) {
+ 		struct ieee80211_device *ieee = zd_mac_to_ieee80211(mac);
+ 		dev_warn(zd_mac_dev(mac), "Could not allocate skb.\n");
+ 		ieee->stats.rx_dropped++;
+ 		return -ENOMEM;
+ 	}
+-	skb_reserve(skb, sizeof(struct zd_rt_hdr));
++	skb_reserve(skb, reserved);
+ 	memcpy(__skb_put(skb, length), buffer, length);
+ 	skb_queue_tail(&mac->rx_queue, skb);
+ 	tasklet_schedule(&mac->rx_tasklet);
+diff --git a/net/mac80211/ieee80211_rate.c b/net/mac80211/ieee80211_rate.c
+index 7254bd6..3260a4a 100644
+--- a/net/mac80211/ieee80211_rate.c
++++ b/net/mac80211/ieee80211_rate.c
+@@ -33,6 +33,7 @@ int ieee80211_rate_control_register(struct rate_control_ops *ops)
+ 		if (!strcmp(alg->ops->name, ops->name)) {
+ 			/* don't register an algorithm twice */
+ 			WARN_ON(1);
++			mutex_unlock(&rate_ctrl_mutex);
+ 			return -EALREADY;
+ 		}
+ 	}
+-- 
+John W. Linville
+linville@tuxdriver.com
