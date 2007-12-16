@@ -1,59 +1,40 @@
-From: "Ron Rindjunsky" <rindjon@googlemail.com>
-Subject: Re: [RFC] mac80211: clean up frame receive handling
-Date: Sun, 16 Dec 2007 11:28:37 +0200
-Message-ID: <c85cb4470712160128t7ef525f3md56d05f5990eb81@mail.gmail.com>
-References: <1197483844.6558.158.camel@johannes.berg>
+From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+Subject: Re: [PACKET]: Fix /proc/net/packet crash due to bogus private pointer
+Date: Sun, 16 Dec 2007 11:48:27 +0100
+Message-ID: <200712161148.28425.m.kozlowski@tuxland.pl>
+References: <200712160118.58611.m.kozlowski@tuxland.pl> <E1J3jqN-0000Jq-00@gondolin.me.apana.org.au> <20071216034119.GA1491@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"Michael Wu" <flamingice@sourmilk.net>,
-	"Tomas Winkler" <tomasw@gmail.com>, "Jouni Malinen" <j@w1.fi>
-To: "Johannes Berg" <johannes@sipsolutions.net>
+Cc: akpm@linux-foundation.org, jgarzik@pobox.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, den@openvz.org, xemul@openvz.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.187]:18137 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755519AbXLPJ2i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 04:28:38 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so791672fkz.5
-        for <netdev@vger.kernel.org>; Sun, 16 Dec 2007 01:28:37 -0800 (PST)
-In-Reply-To: <1197483844.6558.158.camel@johannes.berg>
+Received: from xdsl-664.zgora.dialog.net.pl ([81.168.226.152]:1484 "EHLO
+	tuxland.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757456AbXLPKqa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Dec 2007 05:46:30 -0500
+In-Reply-To: <20071216034119.GA1491@gondor.apana.org.au>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> @@ -1150,14 +1148,27 @@ ieee80211_deliver_skb(struct ieee80211_t
+Hello,
 
-> -       if (local->bridge_packets && (sdata->type == IEEE80211_IF_TYPE_AP
-> -           || sdata->type == IEEE80211_IF_TYPE_VLAN) &&
-> +       dst = skb->data;
-> +
-> +       if (compare_ether_addr(dev->dev_addr, dst) == 0)
-> +               skb->pkt_type = PACKET_HOST;
-> +       else if (is_multicast_ether_addr(dst)) {
-> +               if (is_broadcast_ether_addr(dst))
-> +                       skb->pkt_type = PACKET_BROADCAST;
-> +               else
-> +                       skb->pkt_type = PACKET_MULTICAST;
-> +       } else
-> +               skb->pkt_type = PACKET_OTHERHOST;
-> +
-> +       if (local->bridge_packets && (sdata->type == IEEE80211_IF_TYPE_AP ||
-> +                                     sdata->type == IEEE80211_IF_TYPE_VLAN) &&
+> Surprise surprise.  The namespace seq patch missed two spots in
+> AF_PACKET.
+> 
+> [PACKET]: Fix /proc/net/packet crash due to bogus private pointer
+> 
+> The seq_open_net patch changed the meaning of seq->private.
+> Unfortunately it missed two spots in AF_PACKET, which still
+> used the old way of dereferencing seq->private, thus causing
+> weird and wonderful crashes when reading /proc/net/packet.
+> 
+> This patch fixes them.
 
-i may miss something, but wouldn't you prefer to use eth_type_trans
-here and just add compare_ether_addr check after it?
+True :) It fixes both my x86 and sprac64. Thanks.
 
-> @@ -1186,16 +1197,18 @@ ieee80211_deliver_skb(struct ieee80211_t
->
->        if (skb) {
->                /* deliver to local stack */
-> -               skb->protocol = eth_type_trans(skb, dev);
->                memset(skb->cb, 0, sizeof(skb->cb));
-> +               skb->dev = dev;
-> +               skb_reset_mac_header(skb);
-> +               skb_pull(skb, ETH_HLEN);
->                netif_rx(skb);
->        }
->
+	Mariusz
