@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25 1/8] Create ipv4_is_<type>(__be32 addr)
- functions
-Date: Sun, 16 Dec 2007 13:42:58 -0800 (PST)
-Message-ID: <20071216.134258.150452499.davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.25 2/8] include/net: Use ipv4_is_<type>
+Date: Sun, 16 Dec 2007 13:43:32 -0800 (PST)
+Message-ID: <20071216.134332.72137868.davem@davemloft.net>
 References: <1197589141-7020-1-git-send-email-joe@perches.com>
+	<e2ebcbf24539c0a3ef2ac77147dbfa55d8ac9e33.1197432867.git.joe@perches.com>
+	<1197589141-7020-2-git-send-email-joe@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: joe@perches.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761629AbXLPVnV@vger.kernel.org>
-In-Reply-To: <1197589141-7020-1-git-send-email-joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39497
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1760164AbXLPVnj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 16:43:39 -0500
+In-Reply-To: <1197589141-7020-2-git-send-email-joe@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Joe Perches <joe@perches.com>
-Date: Thu, 13 Dec 2007 15:38:54 -0800
+Date: Thu, 13 Dec 2007 15:38:55 -0800
 
-> Change IPV4 specific macros LOOPBACK MULTICAST LOCAL_MCAST BADCLASS and ZERONET
-> macros to inline functions ipv4_is_<type>(__be32 addr)
-> 
-> Adds type safety and arguably some readability.
-> 
-> Changes since last submission:
-> 
-> Removed ipv4_addr_octets function
-> Used hex constants
-> Converted recently added rfc3330 macros
 > 
 > Signed-off-by: Joe Perches <joe@perches.com>
 
