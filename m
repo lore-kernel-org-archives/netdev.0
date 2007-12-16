@@ -1,47 +1,51 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] bridge: assign random address
-Date: Sun, 16 Dec 2007 14:29:15 -0800
-Message-ID: <20071216142915.c120d25c.akpm@linux-foundation.org>
-References: <20071211145243.66e1f66a@freepuppy.rosehill>
-	<20071211145921.11094ab8.akpm@linux-foundation.org>
-	<20071211154835.75ace6bc@freepuppy.rosehill>
-	<20071216.133717.202852113.davem@davemloft.net>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] PS3: gelic: Add wireless support for PS3
+Date: Sun, 16 Dec 2007 18:10:10 -0500
+Message-ID: <1197846610.7302.1.camel@localhost.localdomain>
+References: <20071213211626.BF8E.MOKUNO@sm.sony.co.jp>
+	 <1197580418.14270.6.camel@localhost.localdomain>
+	 <20071214134918.275E.MOKUNO@sm.sony.co.jp>
+	 <1197637127.16724.1.camel@localhost.localdomain>
+	 <20071215014244.GI5698@jm.kir.nu>
+	 <1197827354.6358.2.camel@localhost.localdomain>
+	 <20071216181159.GP5698@jm.kir.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, berrange@redhat.com,
-	jeff@garzik.org, herbert@gondor.apana.org.au, rjw@sisk.pl
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:48718 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1765600AbXLPWaw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 17:30:52 -0500
-In-Reply-To: <20071216.133717.202852113.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	geoffrey.levand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org,
+	Geert Uytterhoeven <Geert.Uytterhoeven-osDt5Q4Chk1BDgjK7y7TUQ@public.gmane.org>
+To: Jouni Malinen <j@w1.fi>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20071216181159.GP5698-mgr6C1c9aYeHXe+LvDLADg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 16 Dec 2007 13:37:17 -0800 (PST) David Miller <davem@davemloft.net> wrote:
-
-> From: Stephen Hemminger <shemminger@linux-foundation.org>
-> Date: Tue, 11 Dec 2007 15:48:35 -0800
+On Sun, 2007-12-16 at 10:11 -0800, Jouni Malinen wrote:
+> On Sun, Dec 16, 2007 at 12:49:14PM -0500, Dan Williams wrote:
 > 
-> > Subject: Re: [PATCH] bridge: assign random address
+> > Yeah, I was going to propose that on Friday but got side-tracked.  What
+> > would require a new key type?  Are there some firmwares that _only_
+> > accept the WPA passphrase?  Because if there aren't (PS3 accepts WPA hex
+> > keys too) then the supplicant could just pass the hex key.  Not quite
+> > sure what you mean here with "new key type".
 > 
-> "bridge" should all-caps and in brackets,
+> It is a new key type regardless of whether it is PSK or passphrase. The
+> current key types (IW_AUTH_CIPHER_*) are WEP40, TKIP, CCMP, and WEP104..
 
-No, "bridge" should not be in [].  Lots of people's patch-receiving scripts
-assume that any text in [] is to be removed as the patch is committed.  It
-contains text which is only relevant to the particular email which carried
-the patch.  Stuff like "patch" and "4/5" and "linux-2.6.23", etc.
+Ah, it's a different key because it's not set _during_ the 4-way
+handshake, but just sent to the fw directly and the fw handles it,
+right?
 
-> "assign random address"
-> should be capitalized like a proper english sentence with a period at
-> the end.
+> I don't know whether there are any Linux drivers that would use WPA
+> passphrase, but at least the Mac OS X driver interface seems to only use
+> passphrase for WPA-Personal, so it is apparently possible to design such
+> a architecture ;-). Anyway, I would be fine with just adding
+> IW_AUTH_CIPHER_PMK for now (and the new capability to figure out whether
+> this is needed). That PMK would be PSK for WPA-Personal, but it could
+> also be used as PMK for WPA-Enterprise, so the more generic PMK name.
 
-Actually I usually remove the caps and the waste-of-space period, but
-that's much less important than the brackets abuse.  The bracket convention
-is quite useful and I've often wondered why I need to edit the patch title
-when I merge up patches from net developers ;)
+Sounds good.
 
+Dan
