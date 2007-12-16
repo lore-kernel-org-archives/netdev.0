@@ -1,35 +1,59 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH 3/3] [UDP6]: Counter increment on BH mode
-Date: Sun, 16 Dec 2007 09:58:18 +0100
-Message-ID: <20071216085818.GA27280@elte.hu>
-References: <20071130111949.GB28277@gerrit.erg.abdn.ac.uk> <20071201015438.GC26895@gondor.apana.org.au> <4753AE07.1040906@cn.fujitsu.com> <20071203113935.GA25124@gondor.apana.org.au> <20071203114912.GA4425@ms2.inr.ac.ru> <20071203115435.GA4202@gondor.apana.org.au> <20071203131723.GA30312@gondor.apana.org.au> <20071215135851.GA29063@gondor.apana.org.au> <20071215184327.GA21434@elte.hu> <20071216023621.GB959@gondor.apana.org.au>
+From: "Ron Rindjunsky" <rindjon@googlemail.com>
+Subject: Re: [RFC] mac80211: clean up frame receive handling
+Date: Sun, 16 Dec 2007 11:28:37 +0200
+Message-ID: <c85cb4470712160128t7ef525f3md56d05f5990eb81@mail.gmail.com>
+References: <1197483844.6558.158.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Wang Chen <wangchen@cn.fujitsu.com>,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>, davem@davemloft.net,
-	andi@firstfloor.org, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Christoph Lameter <clameter@sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762557AbXLPI67@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"Michael Wu" <flamingice@sourmilk.net>,
+	"Tomas Winkler" <tomasw@gmail.com>, "Jouni Malinen" <j@w1.fi>
+To: "Johannes Berg" <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fk-out-0910.google.com ([209.85.128.187]:18137 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755519AbXLPJ2i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 04:28:38 -0500
+Received: by fk-out-0910.google.com with SMTP id z23so791672fkz.5
+        for <netdev@vger.kernel.org>; Sun, 16 Dec 2007 01:28:37 -0800 (PST)
+In-Reply-To: <1197483844.6558.158.camel@johannes.berg>
 Content-Disposition: inline
-In-Reply-To: <20071216023621.GB959@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+> @@ -1150,14 +1148,27 @@ ieee80211_deliver_skb(struct ieee80211_t
 
-* Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> -       if (local->bridge_packets && (sdata->type == IEEE80211_IF_TYPE_AP
+> -           || sdata->type == IEEE80211_IF_TYPE_VLAN) &&
+> +       dst = skb->data;
+> +
+> +       if (compare_ether_addr(dev->dev_addr, dst) == 0)
+> +               skb->pkt_type = PACKET_HOST;
+> +       else if (is_multicast_ether_addr(dst)) {
+> +               if (is_broadcast_ether_addr(dst))
+> +                       skb->pkt_type = PACKET_BROADCAST;
+> +               else
+> +                       skb->pkt_type = PACKET_MULTICAST;
+> +       } else
+> +               skb->pkt_type = PACKET_OTHERHOST;
+> +
+> +       if (local->bridge_packets && (sdata->type == IEEE80211_IF_TYPE_AP ||
+> +                                     sdata->type == IEEE80211_IF_TYPE_VLAN) &&
 
-> On Sat, Dec 15, 2007 at 07:43:28PM +0100, Ingo Molnar wrote:
-> >
-> > we could perhaps introduce stat_smp_processor_id(), which signals that 
-> > the CPU id is used for statistical purposes and does not have to be 
-> > exact? In any case, your patch looks good too.
-> 
-> Unfortunately that doesn't work because we can then have two CPUs 
-> trying to update the same counter which may corrupt it.
+i may miss something, but wouldn't you prefer to use eth_type_trans
+here and just add compare_ether_addr check after it?
 
-ah, indeed. I missed that correctness aspect of your patch. Good catch!
-
-	Ingo
+> @@ -1186,16 +1197,18 @@ ieee80211_deliver_skb(struct ieee80211_t
+>
+>        if (skb) {
+>                /* deliver to local stack */
+> -               skb->protocol = eth_type_trans(skb, dev);
+>                memset(skb->cb, 0, sizeof(skb->cb));
+> +               skb->dev = dev;
+> +               skb_reset_mac_header(skb);
+> +               skb_pull(skb, ETH_HLEN);
+>                netif_rx(skb);
+>        }
+>
