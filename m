@@ -1,71 +1,121 @@
-From: Bernard Pidoux <pidoux@ccr.jussieu.fr>
-Subject: [BUG]  lack of  /proc/net/ax25  with  2.6.24-rc5
-Date: Sun, 16 Dec 2007 22:17:32 +0100
-Message-ID: <476595EC.5050103@ccr.jussieu.fr>
-References: <476303C8.2060507@ccr.jussieu.fr> <20071215101810.GA3143@ami.dom.local>
+From: Hideo AOKI <haoki@redhat.com>
+Subject: Re: [PATCH 2/4] [CORE]: datagram: mem_scheudle functions
+Date: Sun, 16 Dec 2007 16:20:02 -0500
+Message-ID: <47659682.4030204@redhat.com>
+References: <47636120.4050701@redhat.com> <476362D8.4070807@redhat.com> <20071215153210.GA29415@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Linux Netdev List <netdev@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Takahiro Yasui <tyasui@redhat.com>,
+	Masami Hiramatsu <mhiramat@redhat.com>,
+	Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
+	billfink@mindspring.com, Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	yoshfuji@linux-ipv6.org,
+	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g19.free.fr ([212.27.42.35]:48840 "EHLO smtp5-g19.free.fr"
+Received: from mx1.redhat.com ([66.187.233.31]:44120 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757583AbXLPVRc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Dec 2007 16:17:32 -0500
-In-Reply-To: <20071215101810.GA3143@ami.dom.local>
+	id S1751807AbXLPVXL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Dec 2007 16:23:11 -0500
+In-Reply-To: <20071215153210.GA29415@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With 2.6.24-rc5 there is no /proc/net/ax25
+Hello,
 
-Here is an extract from dmesg after boot :
+Thank you for your quick comments.
 
-=======================
-sysctl table check failed: /net/ax25/ax0/ax25_default_mode .3.9.1.2 
-Unknown sysctl binary path
-Pid: 2936, comm: kissattach Not tainted 2.6.24-rc5 #1
-  [<c012ca6a>] set_fail+0x3b/0x43
-  [<c012ce7a>] sysctl_check_table+0x408/0x456
-  [<c012ce8e>] sysctl_check_table+0x41c/0x456
-  [<c012ce8e>] sysctl_check_table+0x41c/0x456
-  [<c02ac64a>] _spin_unlock+0x14/0x1c
-  [<c012ce8e>] sysctl_check_table+0x41c/0x456
-  [<c011e681>] sysctl_set_parent+0x19/0x2a
-  [<c011f55c>] register_sysctl_table+0x45/0x85
-  [<d8be9d26>] ax25_register_sysctl+0x112/0x11c [ax25]
-  [<d8be6c76>] ax25_device_event+0x2e/0x90 [ax25]
-  [<c012c560>] notifier_call_chain+0x2a/0x47
-  [<c012c59f>] raw_notifier_call_chain+0x17/0x1a
-  [<c0259290>] dev_open+0x6f/0x75
-  [<c0257ee7>] dev_change_flags+0x9c/0x148
-  [<c0256ab3>] __dev_get_by_name+0x68/0x73
-  [<c0292307>] devinet_ioctl+0x22e/0x53b
-  [<c0259074>] dev_ioctl+0x472/0x5ba
-  [<c024d4ba>] sock_ioctl+0x1aa/0x1cf
-  [<c024d310>] sock_ioctl+0x0/0x1cf
-  [<c016bc19>] do_ioctl+0x19/0x4c
-  [<c016be40>] vfs_ioctl+0x1f4/0x20b
-  [<c0103d01>] sysenter_past_esp+0x9a/0xa9
-  [<c016be9c>] sys_ioctl+0x45/0x5d
-  [<c0103cc6>] sysenter_past_esp+0x5f/0xa9
-  =======================
-sysctl table check failed: /net/ax25/ax0/backoff_type .3.9.1.3 Unknown 
-sysctl binary path
-(...) truncated
-  =======================
-sysctl table check failed: /net/ax25/ax0/connect_mode .3.9.1.4 Unknown 
-sysctl binary path
-(...)
-  =======================
-sysctl table check failed: /net/ax25/ax0/standard_window_size .3.9.1.5 
-Unknown sysctl binary path
-  =======================
-(...)
+Herbert Xu wrote:
+>> +	spin_lock_irqsave(&sk->sk_lock.slock, flags);
+> 
+> Please use bh_lock_sock since this must never be used from an
+> IRQ handler.
 
-and so on ...
+I'll try to re-implement this locking mechanism as David suggested.
 
+>> +static inline void sk_mem_reclaim(struct sock *sk)
+>> +{
+>> +	if (sk->sk_type == SOCK_DGRAM)
+>> +		sk_datagram_mem_reclaim(sk);
+>> +}
+> 
+> Please get rid of these wrappers since we should only get here
+> for datagram protocols.
 
+In my understanding, TCP also uses ip_append_data() and
+ip_ufo_append_data() via ip_send_reply(). Then I thought TCP could
+reach datagram memory accounting functions, and I used the wrappers
+since I didn't want to change TCP's sk_alloc_forward and
+memory_allocated.
 
-Bernard Pidoux
-f6bvp@amsat.org
+I'll try to remove these wrappers in next patch set. But I'd
+appreciate it if you let me know whether we can keep the wrappers
+in case TCP memory accounting doesn't work well due to accounting
+in IP layer.
+
+>> +static inline int sk_account_wmem_charge(struct sock *sk, int size)
+>> +{
+>> +	unsigned long flags;
+>> +
+>> +	/* account if protocol supports memory accounting. */
+>> +	if (!sk->sk_prot->memory_allocated || sk->sk_type != SOCK_DGRAM)
+>> +		return 1;
+>> +
+>> +	spin_lock_irqsave(&sk->sk_lock.slock, flags);
+>> +	if (sk_datagram_wmem_schedule(sk, size)) {
+>> +		sk->sk_forward_alloc -= size;
+>> +		spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
+>> +		return 1;
+>> +	}
+>> +	spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
+>> +	return 0;
+>> +}
+> 
+> This is probably too big to inline.
+> 
+>> +static inline int sk_account_rmem_charge(struct sock *sk, int size)
+>> +{
+>> +	unsigned long flags;
+>> +
+>> +	/* account if protocol supports memory accounting. */
+>> +	if (!sk->sk_prot->memory_allocated || sk->sk_type != SOCK_DGRAM)
+>> +		return 1;
+>> +
+>> +	spin_lock_irqsave(&sk->sk_lock.slock, flags);
+>> +	if (sk_datagram_rmem_schedule(sk, size)) {
+>> +		sk->sk_forward_alloc -= size;
+>> +		spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
+>> +		return 1;
+>> +	}
+>> +	spin_unlock_irqrestore(&sk->sk_lock.slock, flags);
+>> +	return 0;
+>> +}
+> 
+> Why are we duplicating the rmem/wmem versions when they're identical?
+
+Good catch. I'll merge the body of these functions into one function.
+Furthermore, I'll stop using inline if the code is large.
+
+>> -int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+>> +int sock_queue_rcv_skb_with_owner(struct sock *sk, struct sk_buff *skb,
+>> +				  void set_owner_r(struct sk_buff *nskb,
+>> +						   struct sock* nsk))
+> 
+> Just make a new function for this rather than playing with function
+> pointers.
+
+I understood. I'll fix it.
+
+Again, many thanks for the review.
+
+Regards,
+Hideo
+
+-- 
+Hitachi Computer Products (America) Inc.
+
