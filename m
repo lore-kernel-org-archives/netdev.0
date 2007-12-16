@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.25] SCTP: Use crc32c library for checksum
- calculations.
-Date: Sun, 16 Dec 2007 14:06:54 -0800 (PST)
-Message-ID: <20071216.140654.03102027.davem@davemloft.net>
-References: <1197789045-3077-1-git-send-email-vladislav.yasevich@hp.com>
+Subject: Re: [PATCH 1/5] [IrDA] Race between open and disconnect in irda-usb
+Date: Sun, 16 Dec 2007 14:07:48 -0800 (PST)
+Message-ID: <20071216.140748.220124991.davem@davemloft.net>
+References: <20071216234648.774780960@sortiz.org>
+	<20071216234932.929834588@sortiz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: vladislav.yasevich@hp.com
+Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net,
+	oneukum@suse.de
+To: samuel@sortiz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33232
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33236
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759482AbXLPWHB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 17:07:01 -0500
-In-Reply-To: <1197789045-3077-1-git-send-email-vladislav.yasevich@hp.com>
+	by vger.kernel.org with ESMTP id S1760015AbXLPWH5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 17:07:57 -0500
+In-Reply-To: <20071216234932.929834588@sortiz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Sun, 16 Dec 2007 02:10:45 -0500
+From: Samuel Ortiz <samuel@sortiz.org>
+Date: Mon, 17 Dec 2007 00:46:49 +0100
 
-> The crc32c library used an identical table and algorithm
-> as SCTP.  Switch to using the library instead of carrying
-> our own table.  Using crypto layer proved to have too
-> much overhead compared to using the library directly.
+> It seems to me that irda_usb_net_open() must set self->netopen
+> under spinlock or disconnect() may fail to kill all URBs, if it is called
+> while an interface is opened.
 > 
-> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> From: Oliver Neukum <oneukum@suse.de>
+> Signed-off-by: Oliver Neukum <oneukum@suse.de>
+> Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
 
-Applied to net-2.6.25, thanks Vlad.
+Applied, thanks.
