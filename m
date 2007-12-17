@@ -1,15 +1,15 @@
 From: Joe Perches <joe@perches.com>
 Subject: [PATCH] net/netfilter/: Spelling fixes
 Date: Mon, 17 Dec 2007 11:40:34 -0800
-Message-ID: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918894.git.joe__12447.0545714304$1197920684$gmane$org@perches.com>
+Message-ID: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918894.git.joe__33740.8521365889$1197920689$gmane$org@perches.com>
 Cc: Andrew Morton <akpm@linux-foundation.org>,
 	Patrick McHardy <kaber@trash.net>, coreteam@netfilter.org,
 	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	netfilter@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netfilter-owner@vger.kernel.org>
 Message-Id: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918894.git.joe@perches.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Sender: netfilter-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
