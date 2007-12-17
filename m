@@ -1,34 +1,53 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] drivers/ssb/: Spelling fixes
-Date: Mon, 17 Dec 2007 11:40:17 -0800
-Message-ID: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918893.git.joe__8902.70127351887$1197921591$gmane$org@perches.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S936374AbXLQT47@vger.kernel.org>
-Message-Id: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918893.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: Please pull 'fixes-jgarzik' branch of wireless-2.6
+Date: Mon, 17 Dec 2007 14:34:02 -0500
+Message-ID: <20071217193402.GD3121@tuxdriver.com>
+References: <20071216043148.GE3096@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	davem@davemloft.net
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:4992 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S936378AbXLQT6d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Dec 2007 14:58:33 -0500
+Content-Disposition: inline
+In-Reply-To: <20071216043148.GE3096@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sat, Dec 15, 2007 at 11:31:48PM -0500, John W. Linville wrote:
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/ssb/b43_pci_bridge.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> Cyrill Gorcunov (2):
+>       ieee80211_rate: missed unlock
 
-diff --git a/drivers/ssb/b43_pci_bridge.c b/drivers/ssb/b43_pci_bridge.c
-index f145d8a..310b84f 100644
---- a/drivers/ssb/b43_pci_bridge.c
-+++ b/drivers/ssb/b43_pci_bridge.c
-@@ -1,7 +1,7 @@
- /*
-  * Broadcom 43xx PCI-SSB bridge module
-  *
-- * This technically is a seperate PCI driver module, but
-+ * This technically is a separate PCI driver module, but
-  * because of its small size we include it in the SSB core
-  * instead of creating a standalone module.
-  *
+>  net/mac80211/ieee80211_rate.c                  |    1 +
+
+> diff --git a/net/mac80211/ieee80211_rate.c b/net/mac80211/ieee80211_rate.c
+> index 7254bd6..3260a4a 100644
+> --- a/net/mac80211/ieee80211_rate.c
+> +++ b/net/mac80211/ieee80211_rate.c
+> @@ -33,6 +33,7 @@ int ieee80211_rate_control_register(struct rate_control_ops *ops)
+>  		if (!strcmp(alg->ops->name, ops->name)) {
+>  			/* don't register an algorithm twice */
+>  			WARN_ON(1);
+> +			mutex_unlock(&rate_ctrl_mutex);
+>  			return -EALREADY;
+>  		}
+>  	}
+
+Crud...there is a one-line fix in here that should have gone to Dave.
+
+Jeff, (assuming Dave ACKs it) would you mind just taking it your
+way along with the other posted patches?  Since this is intended for
+2.6.24, there should be no great maintenance hardship if it goes to
+Linus through your tree instead of Dave's.
+
+Thanks,
+
+John
 -- 
-1.5.3.7.949.g2221a6
-
+John W. Linville
+linville@tuxdriver.com
