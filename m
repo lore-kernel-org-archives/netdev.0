@@ -1,32 +1,38 @@
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: [PATCH 3/3] [UDP6]: Counter increment on BH mode
-Date: Mon, 17 Dec 2007 11:40:37 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0712171139220.12871@schroedinger.engr.sgi.com>
-References: <474F7EE8.2040009@cn.fujitsu.com> <474F8255.5060501@cn.fujitsu.com>
- <20071130111949.GB28277@gerrit.erg.abdn.ac.uk> <20071201015438.GC26895@gondor.apana.org.au>
- <4753AE07.1040906@cn.fujitsu.com> <20071203113935.GA25124@gondor.apana.org.au>
- <20071203114912.GA4425@ms2.inr.ac.ru> <20071203115435.GA4202@gondor.apana.org.au>
- <20071203131723.GA30312@gondor.apana.org.au> <20071215135851.GA29063@gondor.apana.org.au>
- <20071215184327.GA21434@elte.hu>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Wang Chen <wangchen@cn.fujitsu.com>,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>, davem@davemloft.net,
-	andi@firstfloor.org, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] drivers/ssb/: Spelling fixes
+Date: Mon, 17 Dec 2007 11:40:17 -0800
+Message-ID: <1197920439-5455-11-git-send-email-joe@perches.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.sgi.com ([192.48.171.29]:53381 "EHLO relay.sgi.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1763943AbXLQTkl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Dec 2007 14:40:41 -0500
-In-Reply-To: <20071215184327.GA21434@elte.hu>
+Received: from DSL022.labridge.com ([206.117.136.22]:3186 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933703AbXLQTlE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Dec 2007 14:41:04 -0500
+Message-Id: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918893.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The cpu alloc patches also fix this issue one way (disabling preempt) or 
-the other (atomic instruction that does not need disabling of 
-preeemption).
+
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/ssb/b43_pci_bridge.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/ssb/b43_pci_bridge.c b/drivers/ssb/b43_pci_bridge.c
+index f145d8a..310b84f 100644
+--- a/drivers/ssb/b43_pci_bridge.c
++++ b/drivers/ssb/b43_pci_bridge.c
+@@ -1,7 +1,7 @@
+ /*
+  * Broadcom 43xx PCI-SSB bridge module
+  *
+- * This technically is a seperate PCI driver module, but
++ * This technically is a separate PCI driver module, but
+  * because of its small size we include it in the SSB core
+  * instead of creating a standalone module.
+  *
+-- 
+1.5.3.7.949.g2221a6
 
