@@ -1,76 +1,72 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] net/sctp/: Spelling fixes
-Date: Mon, 17 Dec 2007 16:11:38 -0500
-Message-ID: <4766E60A.9080100@hp.com>
-References: <1197920439-5455-31-git-send-email-joe@perches.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] drivers/net/: Spelling fixes
+Date: Mon, 17 Dec 2007 13:15:45 -0800
+Message-ID: <1197926145.27386.56.camel@localhost>
+References: <1197920439-5455-2-git-send-email-joe@perches.com>
+	 <20071217215635.16fe17af@morte>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:32527 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757037AbXLQVMP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 16:12:15 -0500
-In-Reply-To: <1197920439-5455-31-git-send-email-joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Jeff Garzik <jgarzik@pobox.com>, Li Yang <leoli@freescale.com>,
+	Ramkrishna Vepa <ram.vepa@neterion.com>,
+	Rastapur Santosh <santosh.rastapur@neterion.com>,
+	Sivakumar Subramani <sivakumar.subramani@neterion.com>,
+	Sreenivasa Honnur <sreenivasa.honnur@neterion.com>,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: Stefano Brivio <stefano.brivio@polimi.it>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761123AbXLQVQ0@vger.kernel.org>
+In-Reply-To: <20071217215635.16fe17af@morte>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Joe Perches wrote:
-> Signed-off-by: Joe Perches <joe@perches.com>
+On Mon, 2007-12-17 at 21:56 +0100, Stefano Brivio wrote:
+> On Mon, 17 Dec 2007 11:40:08 -0800
+> Joe Perches <joe@perches.com> wrote:
+> > diff --git a/drivers/net/ucc_geth_ethtool.c
+> b/drivers/net/ucc_geth_ethtool.c
+> > index 9a9622c..f8d319b 100644
+> > --- a/drivers/net/ucc_geth_ethtool.c
+> > +++ b/drivers/net/ucc_geth_ethtool.c
+> > @@ -7,7 +7,7 @@
+> >   *
+> >   * Limitation: 
+> >   * Can only get/set setttings of the first queue.
+>                          ^^^
 
-Thanks...  I am surprised this is all you found :)
+Good eyes...  Unrelated to what I changed too.
+cheers, Joe
 
-ACK.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index 121cb10..cdfb2b0 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -6823,8 +6823,8 @@ static void do_s2io_card_down(struct s2io_nic * sp, int do_io)
+ 	while(do_io) {
+ 		/* As per the HW requirement we need to replenish the
+ 		 * receive buffer to avoid the ring bump. Since there is
+-		 * no intention of processing the Rx frame at this pointwe are
+-		 * just settting the ownership bit of rxd in Each Rx
++		 * no intention of processing the Rx frame at this point we are
++		 * just setting the ownership bit of rxd in each Rx
+ 		 * ring to HW and set the appropriate buffer size
+ 		 * based on the ring mode
+ 		 */
+diff --git a/drivers/net/ucc_geth_ethtool.c b/drivers/net/ucc_geth_ethtool.c
+index f8d319b..3e50df8 100644
+--- a/drivers/net/ucc_geth_ethtool.c
++++ b/drivers/net/ucc_geth_ethtool.c
+@@ -6,7 +6,7 @@
+  * Author: Li Yang <leoli@freescale.com>
+  *
+  * Limitation: 
+- * Can only get/set setttings of the first queue.
++ * Can only get/set settings of the first queue.
+  * Need to re-open the interface manually after changing some parameters.
+  *
+  * This program is free software; you can redistribute  it and/or modify it
 
--vlad
-
-> ---
->  net/sctp/sm_make_chunk.c |    8 ++++----
->  1 files changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-> index f487629..ed7c9e3 100644
-> --- a/net/sctp/sm_make_chunk.c
-> +++ b/net/sctp/sm_make_chunk.c
-> @@ -286,7 +286,7 @@ struct sctp_chunk *sctp_make_init(const struct sctp_association *asoc,
->  
->  	sctp_addto_chunk(retval, sizeof(ecap_param), &ecap_param);
->  
-> -	/* Add the supported extensions paramter.  Be nice and add this
-> +	/* Add the supported extensions parameter.  Be nice and add this
->  	 * fist before addiding the parameters for the extensions themselves
->  	 */
->  	if (num_ext) {
-> @@ -2859,7 +2859,7 @@ struct sctp_chunk *sctp_process_asconf(struct sctp_association *asoc,
->  	chunk_len -= length;
->  
->  	/* Skip the address parameter and store a pointer to the first
-> -	 * asconf paramter.
-> +	 * asconf parameter.
->  	 */
->  	length = ntohs(addr_param->v4.param_hdr.length);
->  	asconf_param = (sctp_addip_param_t *)((void *)addr_param + length);
-> @@ -2868,7 +2868,7 @@ struct sctp_chunk *sctp_process_asconf(struct sctp_association *asoc,
->  	/* create an ASCONF_ACK chunk.
->  	 * Based on the definitions of parameters, we know that the size of
->  	 * ASCONF_ACK parameters are less than or equal to the twice of ASCONF
-> -	 * paramters.
-> +	 * parameters.
->  	 */
->  	asconf_ack = sctp_make_asconf_ack(asoc, serial, chunk_len * 2);
->  	if (!asconf_ack)
-> @@ -3062,7 +3062,7 @@ int sctp_process_asconf_ack(struct sctp_association *asoc,
->  	asconf_len -= length;
->  
->  	/* Skip the address parameter in the last asconf sent and store a
-> -	 * pointer to the first asconf paramter.
-> +	 * pointer to the first asconf parameter.
->  	 */
->  	length = ntohs(addr_param->v4.param_hdr.length);
->  	asconf_param = (sctp_addip_param_t *)((void *)addr_param + length);
 
