@@ -1,32 +1,53 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: Re: "ip neigh show" not showing arp cache entries?
-Date: Mon, 17 Dec 2007 13:47:45 -0600
-Message-ID: <4766D261.1020005@nortel.com>
-References: <4760279E.1080203@nortel.com>	<47602DD0.8070402@cosmosbay.com> <47605934.2060604@nortel.com> <20071213.070641.20411400.yoshfuji@linux-ipv6.org> <476696A5.1010101@nortel.com> <4766B99D.8060408@trash.net>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH] net/netlabel/: Spelling fixes
+Date: Mon, 17 Dec 2007 14:49:23 -0500
+Message-ID: <200712171449.24007.paul.moore@hp.com>
+References: <1197920439-5455-29-git-send-email-joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, dada1@cosmosbay.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zcars04e.nortel.com ([47.129.242.56]:56209 "EHLO
-	zcars04e.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1765692AbXLQTs1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 14:48:27 -0500
-In-Reply-To: <4766B99D.8060408@trash.net>
+Received: from mailhub.hp.com ([192.151.27.10]:45629 "EHLO mailhub.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935069AbXLQTtw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Dec 2007 14:49:52 -0500
+In-Reply-To: <1197920439-5455-29-git-send-email-joe@perches.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
+On Monday 17 December 2007 2:40:35 pm Joe Perches wrote:
+> Signed-off-by: Joe Perches <joe@perches.com>
 
->  From a kernel perspective there are only complete dumps, the
-> filtering is done by iproute. So the fact that it shows them
-> when querying specifically implies there is a bug in the
-> iproute neighbour filter. Does it work if you omit "all"
-> from the ip neigh show command?
+Thanks Joe.
 
-Omitting "all" gives identical results.  It is still missing entries 
-when compared with the output of "arp".
+Acked-by: Paul Moore <paul.moore@hp.com>
 
-Chris
+> ---
+>  net/netlabel/netlabel_mgmt.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>
+> diff --git a/net/netlabel/netlabel_mgmt.c b/net/netlabel/netlabel_mgmt.c
+> index 5648337..9c41464 100644
+> --- a/net/netlabel/netlabel_mgmt.c
+> +++ b/net/netlabel/netlabel_mgmt.c
+> @@ -71,7 +71,7 @@ static const struct nla_policy
+> netlbl_mgmt_genl_policy[NLBL_MGMT_A_MAX + 1] = { };
+>
+>  /*
+> - * NetLabel Misc Managment Functions
+> + * NetLabel Misc Management Functions
+>   */
+>
+>  /**
+
+
+
+-- 
+paul moore
+linux security @ hp
