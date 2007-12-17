@@ -1,57 +1,45 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: init_timer_deferrable conversion
-Date: Mon, 17 Dec 2007 09:55:04 +0100
-Message-ID: <20071217095504.b02241ee.dada1@cosmosbay.com>
-References: <Pine.LNX.4.64.0712162149220.4622@mini.warudkars.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: net-2.6.25 rebased...
+Date: Mon, 17 Dec 2007 12:20:21 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0712171210190.20530@kivilampi-30.cs.helsinki.fi>
+References: <20071216.162101.209866976.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: parag.warudkar@gmail.com
+Cc: Netdev <netdev@vger.kernel.org>, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:52904 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764192AbXLQJ55 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Dec 2007 04:57:57 -0500
-In-Reply-To: <Pine.LNX.4.64.0712162149220.4622@mini.warudkars.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:56405 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762820AbXLQKUY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 05:20:24 -0500
+In-Reply-To: <20071216.162101.209866976.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 16 Dec 2007 22:00:23 -0500 (EST)
-Parag Warudkar <parag.warudkar@gmail.com> wrote:
+On Sun, 16 Dec 2007, David Miller wrote:
 
-> In my quest to get the wake-ups from idle per second down to bare minimum, 
-> I noticed 3 places in the kernel that could benefit from 
-> using init_timer_deferrable() instead of init_timer() -
+> I needed to rebase for two reasons:
 > 
-> a) drivers/net/sky2.c - watchdog_timer. This was showing up high on 
-> Powertop's list of things that cause routine wakeups from idle. After 
-> converting to init_timer_deferrable() the wakeups went down and this one 
-> no longer shows up in powertop's list. 25% reduction.
+> 1) Ilpo asked me to revert a lot of TCP stuff and the
+>    easiest way to do that was during a rebase.
 > 
-> b) kernel/time/clocksource.c - watchdog_timer - same story as sky2.c
+> 2) Patrick McHardy needs some of the pending net-2.6
+>    bug fixes in there in order to send me patches
+>    for some netfilter compat stuff.
 > 
-> c) net/core/neighbour.c - gc_timer - Most benefit from deferrable timer.
+> It's all there in the usual spot:
+> 
+> 	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.25.git
+> 
+> I'm still doing build tests with various configurations on my
+> Niagara-2 box.
+> 
+> Let me know if I screwed up anything, thanks!
 
-neigh_periodic_timer() is actually doing almost nothing per round, since it
-looks only one slot of hash table. We could probably convert it to a
-workqueue and scan whole table at once.
+Thanks, at least the end result for TCP was exactly what I 
+expected to find there...
 
-> 
-> I am running a kernel with above changes and haven't noticed any immediate 
-> problems and the wakeups-from-idle have gone down from 5-7 to mere 1-2 per 
-> second.
-> 
-> Is there any reason not to make the above timers deferrable - corner 
-> cases, other side effects? If not then I will submit a patch.
-> 
-> Thanks
-> 
-> Parag
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-> 
+
+-- 
+ i.
