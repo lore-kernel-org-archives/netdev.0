@@ -1,94 +1,97 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 2.6.25 3/9] SCTP: Add the handling of "Set Primary IP Address" parameter to INIT
-Date: Mon, 17 Dec 2007 16:32:43 -0500
-Message-ID: <1197927169-5106-4-git-send-email-vladislav.yasevich@hp.com>
-References: <1197927169-5106-1-git-send-email-vladislav.yasevich@hp.com>
-Cc: lksctp-developers@lists.sourceforge.net,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: netdev@vger.kernel.org
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [BUG]  lack of  /proc/net/ax25  with  2.6.24-rc5
+Date: Mon, 17 Dec 2007 22:56:26 +0100
+Message-ID: <200712172256.26699.rjw@sisk.pl>
+References: <476303C8.2060507@ccr.jussieu.fr> <20071215101810.GA3143@ami.dom.local> <476595EC.5050103@ccr.jussieu.fr>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Bernard Pidoux <pidoux@ccr.jussieu.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:15306 "EHLO
-	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932586AbXLQVcx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 16:32:53 -0500
-In-Reply-To: <1197927169-5106-1-git-send-email-vladislav.yasevich@hp.com>
+Received: from ogre.sisk.pl ([217.79.144.158]:55070 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933804AbXLQVhn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Dec 2007 16:37:43 -0500
+In-Reply-To: <476595EC.5050103@ccr.jussieu.fr>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ADD-IP "Set Primary IP Address" parameter is allowed in the
-INIT/INIT-ACK exchange.  Allow processing of this parameter during
-the INIT/INIT-ACK.
+On Sunday, 16 of December 2007, Bernard Pidoux wrote:
+> With 2.6.24-rc5 there is no /proc/net/ax25
 
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- include/net/sctp/structs.h |    1 +
- net/sctp/sm_make_chunk.c   |   27 +++++++++++++++++++++++++++
- 2 files changed, 28 insertions(+), 0 deletions(-)
+FYI, I've created a Bugzilla entry for this issue at:
+http://bugzilla.kernel.org/show_bug.cgi?id=9589
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 55acadc..fb9b7e7 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -451,6 +451,7 @@ union sctp_params {
- 	struct sctp_random_param *random;
- 	struct sctp_chunks_param *chunks;
- 	struct sctp_hmac_algo_param *hmac_algo;
-+	struct sctp_addip_param *addip;
- };
- 
- /* RFC 2960.  Section 3.3.5 Heartbeat.
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 00598ee..62af33d 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -1963,6 +1963,11 @@ static sctp_ierror_t sctp_verify_param(const struct sctp_association *asoc,
- 	case SCTP_PARAM_SUPPORTED_EXT:
- 		break;
- 
-+	case SCTP_PARAM_SET_PRIMARY:
-+		if (sctp_addip_enable)
-+			break;
-+		goto fallthrough;
-+
- 	case SCTP_PARAM_HOST_NAME_ADDRESS:
- 		/* Tell the peer, we won't support this param.  */
- 		sctp_process_hn_param(asoc, param, chunk, err_chunk);
-@@ -2280,6 +2285,8 @@ static int sctp_process_param(struct sctp_association *asoc,
- 	sctp_scope_t scope;
- 	time_t stale;
- 	struct sctp_af *af;
-+	union sctp_addr_param *addr_param;
-+	struct sctp_transport *t;
- 
- 	/* We maintain all INIT parameters in network byte order all the
- 	 * time.  This allows us to not worry about whether the parameters
-@@ -2370,6 +2377,26 @@ static int sctp_process_param(struct sctp_association *asoc,
- 		asoc->peer.adaptation_ind = param.aind->adaptation_ind;
- 		break;
- 
-+	case SCTP_PARAM_SET_PRIMARY:
-+		addr_param = param.v + sizeof(sctp_addip_param_t);
-+
-+		af = sctp_get_af_specific(param_type2af(param.p->type));
-+		af->from_addr_param(&addr, addr_param,
-+				    htons(asoc->peer.port), 0);
-+
-+		/* if the address is invalid, we can't process it.
-+		 * XXX: see spec for what to do.
-+		 */
-+		if (!af->addr_valid(&addr, NULL, NULL))
-+			break;
-+
-+		t = sctp_assoc_lookup_paddr(asoc, &addr);
-+		if (!t)
-+			break;
-+
-+		sctp_assoc_set_primary(asoc, t);
-+		break;
-+
- 	case SCTP_PARAM_SUPPORTED_EXT:
- 		sctp_process_ext_param(asoc, param);
- 		break;
+Please add your address to the CC list in there.
+
+Thanks,
+Rafael
+
+
+> Here is an extract from dmesg after boot :
+> 
+> =======================
+> sysctl table check failed: /net/ax25/ax0/ax25_default_mode .3.9.1.2 
+> Unknown sysctl binary path
+> Pid: 2936, comm: kissattach Not tainted 2.6.24-rc5 #1
+>   [<c012ca6a>] set_fail+0x3b/0x43
+>   [<c012ce7a>] sysctl_check_table+0x408/0x456
+>   [<c012ce8e>] sysctl_check_table+0x41c/0x456
+>   [<c012ce8e>] sysctl_check_table+0x41c/0x456
+>   [<c02ac64a>] _spin_unlock+0x14/0x1c
+>   [<c012ce8e>] sysctl_check_table+0x41c/0x456
+>   [<c011e681>] sysctl_set_parent+0x19/0x2a
+>   [<c011f55c>] register_sysctl_table+0x45/0x85
+>   [<d8be9d26>] ax25_register_sysctl+0x112/0x11c [ax25]
+>   [<d8be6c76>] ax25_device_event+0x2e/0x90 [ax25]
+>   [<c012c560>] notifier_call_chain+0x2a/0x47
+>   [<c012c59f>] raw_notifier_call_chain+0x17/0x1a
+>   [<c0259290>] dev_open+0x6f/0x75
+>   [<c0257ee7>] dev_change_flags+0x9c/0x148
+>   [<c0256ab3>] __dev_get_by_name+0x68/0x73
+>   [<c0292307>] devinet_ioctl+0x22e/0x53b
+>   [<c0259074>] dev_ioctl+0x472/0x5ba
+>   [<c024d4ba>] sock_ioctl+0x1aa/0x1cf
+>   [<c024d310>] sock_ioctl+0x0/0x1cf
+>   [<c016bc19>] do_ioctl+0x19/0x4c
+>   [<c016be40>] vfs_ioctl+0x1f4/0x20b
+>   [<c0103d01>] sysenter_past_esp+0x9a/0xa9
+>   [<c016be9c>] sys_ioctl+0x45/0x5d
+>   [<c0103cc6>] sysenter_past_esp+0x5f/0xa9
+>   =======================
+> sysctl table check failed: /net/ax25/ax0/backoff_type .3.9.1.3 Unknown 
+> sysctl binary path
+> (...) truncated
+>   =======================
+> sysctl table check failed: /net/ax25/ax0/connect_mode .3.9.1.4 Unknown 
+> sysctl binary path
+> (...)
+>   =======================
+> sysctl table check failed: /net/ax25/ax0/standard_window_size .3.9.1.5 
+> Unknown sysctl binary path
+>   =======================
+> (...)
+> 
+> and so on ...
+> 
+> 
+> 
+> Bernard Pidoux
+> f6bvp@amsat.org
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+> 
+> 
+
+
+
 -- 
-1.5.3.5
-
+"Premature optimization is the root of all evil." - Donald Knuth
