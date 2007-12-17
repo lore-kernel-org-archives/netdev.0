@@ -1,42 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25 1/8] Create ipv4_is_<type>(__be32 addr)
- functions
-Date: Mon, 17 Dec 2007 14:43:19 -0800 (PST)
-Message-ID: <20071217.144319.93471413.davem@davemloft.net>
-References: <1197589141-7020-1-git-send-email-joe@perches.com>
-	<Pine.LNX.4.64.0712172333550.32270@fbirervta.pbzchgretzou.qr>
+Subject: Re: [PATCH 2.6.25 0/9]: SCTP: Update ADD-IP implementation to
+ conform to spec
+Date: Mon, 17 Dec 2007 14:43:59 -0800 (PST)
+Message-ID: <20071217.144359.245669750.davem@davemloft.net>
+References: <1197927169-5106-1-git-send-email-vladislav.yasevich@hp.com>
+	<20071217.143648.68777576.davem@davemloft.net>
+	<4766FAD9.3060500@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jengelh@computergmbh.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S936953AbXLQWne@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0712172333550.32270@fbirervta.pbzchgretzou.qr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: vladislav.yasevich@hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48255
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S937087AbXLQWoA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 17:44:00 -0500
+In-Reply-To: <4766FAD9.3060500@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jan Engelhardt <jengelh@computergmbh.de>
-Date: Mon, 17 Dec 2007 23:37:24 +0100 (CET)
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Mon, 17 Dec 2007 17:40:25 -0500
 
+> David Miller wrote:
+> > From: Vlad Yasevich <vladislav.yasevich@hp.com>
+> > Date: Mon, 17 Dec 2007 16:32:40 -0500
+> > 
+> >> The following is a set of patches that updates the SCTP ADD-IP
+> >> implementation to conform to the recently published RFC.
+> > 
+> > Patch 7 didn't seem to make it.
+> > 
+> > If you CC: on submissions like this, in the worst case at
+> > least I'll get a copy even if the mailing list blocks it
+> > for whatever reason (size, SPAM filter, etc.)
 > 
-> On Dec 13 2007 15:38, Joe Perches wrote:
-> >+static inline bool ipv4_is_private_10(__be32 addr)
-> >+{
-> >+	return (addr & htonl(0xff000000)) == htonl(0x0a000000);
-> >+}
+> Hm... only missing from netdev.. :)
 > 
-> What are these functions needed for, even? There does not seem to be
-> any code (at least in davem's net-2.6.25:net/ipv4/, where I dared to grep)
-> that uses them.
+> Do you want me to send just patch 7, or resend the whole series?
 
-You really need to grep the whole tree, never ever decrease the scope
-of directories to search if you want to see if an interface is used.
-
-It's used by some ipv6 address translation code as well as some
-bits in SCTP:
-
-include/net/addrconf.h:	eui[0] = (ipv4_is_zeronet(addr) || ipv4_is_private_10(addr) ||
-net/sctp/protocol.c:	} else if (ipv4_is_private_10(addr->v4.sin_addr.s_addr) ||
-
-So lazy...
+I'd like to see patch 7 so please send it.
+Is it particularly big?
