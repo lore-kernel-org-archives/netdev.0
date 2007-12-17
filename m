@@ -1,105 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] include/net/: Spelling fixes
-Date: Mon, 17 Dec 2007 11:40:25 -0800
-Message-ID: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918894.git.joe__4197.58350258252$1197920711$gmane$org@perches.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [PATCH 3/3] [UDP6]: Counter increment on BH mode
+Date: Mon, 17 Dec 2007 11:42:15 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0712171141530.12871@schroedinger.engr.sgi.com>
+References: <474F8255.5060501@cn.fujitsu.com> <20071130111949.GB28277@gerrit.erg.abdn.ac.uk>
+ <20071201015438.GC26895@gondor.apana.org.au> <4753AE07.1040906@cn.fujitsu.com>
+ <20071203113935.GA25124@gondor.apana.org.au> <20071203114912.GA4425@ms2.inr.ac.ru>
+ <20071203115435.GA4202@gondor.apana.org.au> <20071203131723.GA30312@gondor.apana.org.au>
+ <20071215135851.GA29063@gondor.apana.org.au> <20071215184327.GA21434@elte.hu>
+ <20071216023621.GB959@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ingo Molnar <mingo@elte.hu>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Samuel Ortiz <samuel@sortiz.org>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	linux-hams@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-hams-owner@vger.kernel.org>
-Message-Id: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918894.git.joe@perches.com>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Wang Chen <wangchen@cn.fujitsu.com>,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>, davem@davemloft.net,
+	andi@firstfloor.org, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from netops-testserver-3-out.sgi.com ([192.48.171.28]:56225 "EHLO
+	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S934461AbXLQTmQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 14:42:16 -0500
+In-Reply-To: <20071216023621.GB959@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sun, 16 Dec 2007, Herbert Xu wrote:
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- include/net/ax25.h           |    2 +-
- include/net/ip6_tunnel.h     |    2 +-
- include/net/irda/discovery.h |    2 +-
- include/net/sctp/structs.h   |    6 +++---
- 4 files changed, 6 insertions(+), 6 deletions(-)
+> If we can get the address of the per-cpu counter against
+> some sort of a per-cpu base pointer, e.g., %gs on x86, then
+> we can do
+> 
+> 	incq	%gs:(%rax)
+> 
+> where %rax would be the offset with %gs as the base.  This would
+> obviate the need for the CPU ID and therefore avoid disabling
+> preemption.
+> 
+> Hmm, wasn't Christoph working on something like that?
 
-diff --git a/include/net/ax25.h b/include/net/ax25.h
-index 4e3cd93..32a57e1 100644
---- a/include/net/ax25.h
-+++ b/include/net/ax25.h
-@@ -35,7 +35,7 @@
- #define AX25_P_ATALK			0xca	/* Appletalk                  */
- #define AX25_P_ATALK_ARP		0xcb	/* Appletalk ARP              */
- #define AX25_P_IP			0xcc	/* ARPA Internet Protocol     */
--#define AX25_P_ARP			0xcd	/* ARPA Adress Resolution     */
-+#define AX25_P_ARP			0xcd	/* ARPA Address Resolution    */
- #define AX25_P_FLEXNET			0xce	/* FlexNet                    */
- #define AX25_P_NETROM 			0xcf	/* NET/ROM                    */
- #define AX25_P_TEXT 			0xF0	/* No layer 3 protocol impl.  */
-diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
-index 29c9da7..c17fa1f 100644
---- a/include/net/ip6_tunnel.h
-+++ b/include/net/ip6_tunnel.h
-@@ -23,7 +23,7 @@ struct ip6_tnl {
- 	struct net_device *dev;	/* virtual device associated with tunnel */
- 	struct net_device_stats stat;	/* statistics for tunnel device */
- 	int recursion;		/* depth of hard_start_xmit recursion */
--	struct ip6_tnl_parm parms;	/* tunnel configuration paramters */
-+	struct ip6_tnl_parm parms;	/* tunnel configuration parameters */
- 	struct flowi fl;	/* flowi template for xmit */
- 	struct dst_entry *dst_cache;    /* cached dst */
- 	u32 dst_cookie;
-diff --git a/include/net/irda/discovery.h b/include/net/irda/discovery.h
-index eb0f9de..e4efad1 100644
---- a/include/net/irda/discovery.h
-+++ b/include/net/irda/discovery.h
-@@ -80,7 +80,7 @@ typedef struct discovery_t {
- 	irda_queue_t	q;		/* Must be first! */
- 
- 	discinfo_t	data;		/* Basic discovery information */
--	int		name_len;	/* Lenght of nickname */
-+	int		name_len;	/* Length of nickname */
- 
- 	LAP_REASON	condition;	/* More info about the discovery */
- 	int		gen_addr_bit;	/* Need to generate a new device
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 002a00a..bb96574 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -301,7 +301,7 @@ struct sctp_sock {
- 	/* The default SACK delay timeout for new associations. */
- 	__u32 sackdelay;
- 
--	/* Flags controling Heartbeat, SACK delay, and Path MTU Discovery. */
-+	/* Flags controlling Heartbeat, SACK delay, and Path MTU Discovery. */
- 	__u32 param_flags;
- 
- 	struct sctp_initmsg initmsg;
-@@ -955,7 +955,7 @@ struct sctp_transport {
- 	/* PMTU	      : The current known path MTU.  */
- 	__u32 pathmtu;
- 
--	/* Flags controling Heartbeat, SACK delay, and Path MTU Discovery. */
-+	/* Flags controlling Heartbeat, SACK delay, and Path MTU Discovery. */
- 	__u32 param_flags;
- 
- 	/* The number of times INIT has been sent on this transport. */
-@@ -1638,7 +1638,7 @@ struct sctp_association {
- 	 */
- 	__u32 pathmtu;
- 
--	/* Flags controling Heartbeat, SACK delay, and Path MTU Discovery. */
-+	/* Flags controlling Heartbeat, SACK delay, and Path MTU Discovery. */
- 	__u32 param_flags;
- 
- 	/* SACK delay timeout */
--- 
-1.5.3.7.949.g2221a6
+Yes that is what the cpu alloc patchset implements.
 
