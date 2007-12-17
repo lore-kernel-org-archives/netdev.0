@@ -1,103 +1,66 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Please pull 'fixes-davem' branch of wireless-2.6
-Date: Mon, 17 Dec 2007 15:54:54 -0500
-Message-ID: <20071217205454.GG3121@tuxdriver.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH] drivers/net/: Spelling fixes
+Date: Mon, 17 Dec 2007 16:15:52 -0500
+Message-ID: <1197926152.3798.263.camel@shinybook.infradead.org>
+References: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918891.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Pavel Roskin <proski@gnu.org>,
+	Eugene Surovegin <ebs@ebshome.net>,
+	Geoff Levand <geoffrey.levand@am.sony.com>,
+	David Gibson <hermes@gibson.dropbear.id.au>,
+	orinoco-devel@lists.sourceforge.net, Yi Zhu <yi.zhu@intel.com>,
+	Jaroslav Kysela <perex@perex.cz>, linuxppc-dev@ozlabs.org,
+	Paul Mackerras <paulus@samba.org>,
+	Peter De Shrijver <p2@ace.ulyssis.student.kuleuven.ac.be>,
+	Rastapur Santosh <santosh.rastapur@neterion.com>,
+	bonding-devel@lists.sourceforge.net,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"Amit S. Kale" <amitkale@netxen.com>,
+	ipw2100-devel@lists.sourceforge.net,
+	atl1-devel@lists.sourceforge.net, Chris Snook <csnook@redhat.com>,
+	Masakazu Mokuno <mokuno@sm.sony.co.jp>,
+	libertas-dev@lists.infradead.org, Dan Williams <dcbw@redhat.com>,
+	Dale Farnsworth <dale@farnsworth.org>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Manish Lachw
+To: Joe Perches <joe@perches.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918891.git.joe@perches.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Dave,
+On Mon, 2007-12-17 at 11:40 -0800, Joe Perches wrote:
+>  drivers/net/wireless/libertas/cmd.c            |    4 ++--
+>  drivers/net/wireless/libertas/scan.c           |    4 ++--
 
-A few more small fixes for 2.6.24.  Let me know if there are any
-problems!
+I will apply these to the libertas tree; please remove them from any
+resend of this patch.
 
-Thanks,
+If we were using git properly, it wouldn't matter -- I could just let
+the patch go in upstream and when it gets merged, it'll be fine. But for
+some reason we don't use git for network driver development; we pretend
+it's the 1990s and we deal with sets of patches instead. So having this
+simple change applied in an upstream tree would cause lots of pain, as
+far as I can tell.
 
-John
-
----
-
-Individual patches are available here:
-
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/fixes-davem
-
----
-
-The following changes since commit 82d29bf6dc7317aeb0a3a13c2348ca8591965875:
-  Linus Torvalds (1):
-        Linux 2.6.24-rc5
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-davem
-
-Cyrill Gorcunov (1):
-      NET: mac80211: fix inappropriate memory freeing
-
-Johannes Berg (1):
-      mac80211: fix header ops
-
-Michael Wu (1):
-      mac80211: Drop out of associated state if link is lost
-
- net/mac80211/ieee80211.c      |    1 -
- net/mac80211/ieee80211_rate.c |    2 +-
- net/mac80211/ieee80211_sta.c  |    8 ++------
- 3 files changed, 3 insertions(+), 8 deletions(-)
-
-diff --git a/net/mac80211/ieee80211.c b/net/mac80211/ieee80211.c
-index 505af1f..6378850 100644
---- a/net/mac80211/ieee80211.c
-+++ b/net/mac80211/ieee80211.c
-@@ -427,7 +427,6 @@ static const struct header_ops ieee80211_header_ops = {
- void ieee80211_if_setup(struct net_device *dev)
- {
- 	ether_setup(dev);
--	dev->header_ops = &ieee80211_header_ops;
- 	dev->hard_start_xmit = ieee80211_subif_start_xmit;
- 	dev->wireless_handlers = &ieee80211_iw_handler_def;
- 	dev->set_multicast_list = ieee80211_set_multicast_list;
-diff --git a/net/mac80211/ieee80211_rate.c b/net/mac80211/ieee80211_rate.c
-index 7254bd6..9f26a10 100644
---- a/net/mac80211/ieee80211_rate.c
-+++ b/net/mac80211/ieee80211_rate.c
-@@ -59,11 +59,11 @@ void ieee80211_rate_control_unregister(struct rate_control_ops *ops)
- 	list_for_each_entry(alg, &rate_ctrl_algs, list) {
- 		if (alg->ops == ops) {
- 			list_del(&alg->list);
-+			kfree(alg);
- 			break;
- 		}
- 	}
- 	mutex_unlock(&rate_ctrl_mutex);
--	kfree(alg);
- }
- EXPORT_SYMBOL(ieee80211_rate_control_unregister);
- 
-diff --git a/net/mac80211/ieee80211_sta.c b/net/mac80211/ieee80211_sta.c
-index 16afd24..bee8080 100644
---- a/net/mac80211/ieee80211_sta.c
-+++ b/net/mac80211/ieee80211_sta.c
-@@ -808,12 +808,8 @@ static void ieee80211_associated(struct net_device *dev,
- 		sta_info_put(sta);
- 	}
- 	if (disassoc) {
--		union iwreq_data wrqu;
--		memset(wrqu.ap_addr.sa_data, 0, ETH_ALEN);
--		wrqu.ap_addr.sa_family = ARPHRD_ETHER;
--		wireless_send_event(dev, SIOCGIWAP, &wrqu, NULL);
--		mod_timer(&ifsta->timer, jiffies +
--				      IEEE80211_MONITORING_INTERVAL + 30 * HZ);
-+		ifsta->state = IEEE80211_DISABLED;
-+		ieee80211_set_associated(dev, ifsta, 0);
- 	} else {
- 		mod_timer(&ifsta->timer, jiffies +
- 				      IEEE80211_MONITORING_INTERVAL);
 -- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+dwmw2
+
+
+-------------------------------------------------------------------------
+SF.Net email is sponsored by:
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services
+for just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
