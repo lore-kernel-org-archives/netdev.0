@@ -1,135 +1,105 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH] net/irda/: Spelling fixes
-Date: Mon, 17 Dec 2007 11:40:33 -0800
-Message-ID: <1197920439-5455-27-git-send-email-joe@perches.com>
+Subject: [PATCH] include/net/: Spelling fixes
+Date: Mon, 17 Dec 2007 11:40:25 -0800
+Message-ID: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918894.git.joe__4197.58350258252$1197920711$gmane$org@perches.com>
 Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Samuel Ortiz <samuel@sortiz.org>, netdev@vger.kernel.org
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Samuel Ortiz <samuel@sortiz.org>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>,
+	linux-hams@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:3234 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934010AbXLQTld (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Dec 2007 14:41:33 -0500
+Return-path: <linux-hams-owner@vger.kernel.org>
 Message-Id: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918894.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/irda/ircomm/ircomm_param.c |    2 +-
- net/irda/irlan/irlan_eth.c     |    2 +-
- net/irda/irlap_frame.c         |    2 +-
- net/irda/parameters.c          |   12 ++++++------
- net/irda/wrapper.c             |    2 +-
- 5 files changed, 10 insertions(+), 10 deletions(-)
+ include/net/ax25.h           |    2 +-
+ include/net/ip6_tunnel.h     |    2 +-
+ include/net/irda/discovery.h |    2 +-
+ include/net/sctp/structs.h   |    6 +++---
+ 4 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/irda/ircomm/ircomm_param.c b/net/irda/ircomm/ircomm_param.c
-index e5e4792..598dcbe 100644
---- a/net/irda/ircomm/ircomm_param.c
-+++ b/net/irda/ircomm/ircomm_param.c
-@@ -496,7 +496,7 @@ static int ircomm_param_poll(void *instance, irda_param_t *param, int get)
- 	IRDA_ASSERT(self != NULL, return -1;);
- 	IRDA_ASSERT(self->magic == IRCOMM_TTY_MAGIC, return -1;);
+diff --git a/include/net/ax25.h b/include/net/ax25.h
+index 4e3cd93..32a57e1 100644
+--- a/include/net/ax25.h
++++ b/include/net/ax25.h
+@@ -35,7 +35,7 @@
+ #define AX25_P_ATALK			0xca	/* Appletalk                  */
+ #define AX25_P_ATALK_ARP		0xcb	/* Appletalk ARP              */
+ #define AX25_P_IP			0xcc	/* ARPA Internet Protocol     */
+-#define AX25_P_ARP			0xcd	/* ARPA Adress Resolution     */
++#define AX25_P_ARP			0xcd	/* ARPA Address Resolution    */
+ #define AX25_P_FLEXNET			0xce	/* FlexNet                    */
+ #define AX25_P_NETROM 			0xcf	/* NET/ROM                    */
+ #define AX25_P_TEXT 			0xF0	/* No layer 3 protocol impl.  */
+diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
+index 29c9da7..c17fa1f 100644
+--- a/include/net/ip6_tunnel.h
++++ b/include/net/ip6_tunnel.h
+@@ -23,7 +23,7 @@ struct ip6_tnl {
+ 	struct net_device *dev;	/* virtual device associated with tunnel */
+ 	struct net_device_stats stat;	/* statistics for tunnel device */
+ 	int recursion;		/* depth of hard_start_xmit recursion */
+-	struct ip6_tnl_parm parms;	/* tunnel configuration paramters */
++	struct ip6_tnl_parm parms;	/* tunnel configuration parameters */
+ 	struct flowi fl;	/* flowi template for xmit */
+ 	struct dst_entry *dst_cache;    /* cached dst */
+ 	u32 dst_cookie;
+diff --git a/include/net/irda/discovery.h b/include/net/irda/discovery.h
+index eb0f9de..e4efad1 100644
+--- a/include/net/irda/discovery.h
++++ b/include/net/irda/discovery.h
+@@ -80,7 +80,7 @@ typedef struct discovery_t {
+ 	irda_queue_t	q;		/* Must be first! */
  
--	/* Poll parameters are always of lenght 0 (just a signal) */
-+	/* Poll parameters are always of length 0 (just a signal) */
- 	if (!get) {
- 		/* Respond with DTE line settings */
- 		ircomm_param_request(self, IRCOMM_DTE, TRUE);
-diff --git a/net/irda/irlan/irlan_eth.c b/net/irda/irlan/irlan_eth.c
-index c682207..1ab91f7 100644
---- a/net/irda/irlan/irlan_eth.c
-+++ b/net/irda/irlan/irlan_eth.c
-@@ -342,7 +342,7 @@ static void irlan_eth_set_multicast_list(struct net_device *dev)
+ 	discinfo_t	data;		/* Basic discovery information */
+-	int		name_len;	/* Lenght of nickname */
++	int		name_len;	/* Length of nickname */
  
- 	if (dev->flags & IFF_PROMISC) {
- 		/* Enable promiscuous mode */
--		IRDA_WARNING("Promiscous mode not implemented by IrLAN!\n");
-+		IRDA_WARNING("Promiscuous mode not implemented by IrLAN!\n");
- 	}
- 	else if ((dev->flags & IFF_ALLMULTI) || dev->mc_count > HW_MAX_ADDRS) {
- 		/* Disable promiscuous mode, use normal mode. */
-diff --git a/net/irda/irlap_frame.c b/net/irda/irlap_frame.c
-index 4f37645..7c132d6 100644
---- a/net/irda/irlap_frame.c
-+++ b/net/irda/irlap_frame.c
-@@ -144,7 +144,7 @@ void irlap_send_snrm_frame(struct irlap_cb *self, struct qos_info *qos)
- 	frame->control = SNRM_CMD | PF_BIT;
+ 	LAP_REASON	condition;	/* More info about the discovery */
+ 	int		gen_addr_bit;	/* Need to generate a new device
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 002a00a..bb96574 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -301,7 +301,7 @@ struct sctp_sock {
+ 	/* The default SACK delay timeout for new associations. */
+ 	__u32 sackdelay;
  
- 	/*
--	 *  If we are establishing a connection then insert QoS paramerters
-+	 *  If we are establishing a connection then insert QoS parameters
+-	/* Flags controling Heartbeat, SACK delay, and Path MTU Discovery. */
++	/* Flags controlling Heartbeat, SACK delay, and Path MTU Discovery. */
+ 	__u32 param_flags;
+ 
+ 	struct sctp_initmsg initmsg;
+@@ -955,7 +955,7 @@ struct sctp_transport {
+ 	/* PMTU	      : The current known path MTU.  */
+ 	__u32 pathmtu;
+ 
+-	/* Flags controling Heartbeat, SACK delay, and Path MTU Discovery. */
++	/* Flags controlling Heartbeat, SACK delay, and Path MTU Discovery. */
+ 	__u32 param_flags;
+ 
+ 	/* The number of times INIT has been sent on this transport. */
+@@ -1638,7 +1638,7 @@ struct sctp_association {
  	 */
- 	if (qos) {
- 		skb_put(tx_skb, 9); /* 25 left */
-diff --git a/net/irda/parameters.c b/net/irda/parameters.c
-index 2627dad..b23a3c7 100644
---- a/net/irda/parameters.c
-+++ b/net/irda/parameters.c
-@@ -133,7 +133,7 @@ static int irda_insert_integer(void *self, __u8 *buf, int len, __u8 pi,
- 	int err;
+ 	__u32 pathmtu;
  
- 	p.pi = pi;             /* In case handler needs to know */
--	p.pl = type & PV_MASK; /* The integer type codes the lenght as well */
-+	p.pl = type & PV_MASK; /* The integer type codes the length as well */
- 	p.pv.i = 0;            /* Clear value */
+-	/* Flags controling Heartbeat, SACK delay, and Path MTU Discovery. */
++	/* Flags controlling Heartbeat, SACK delay, and Path MTU Discovery. */
+ 	__u32 param_flags;
  
- 	/* Call handler for this parameter */
-@@ -142,7 +142,7 @@ static int irda_insert_integer(void *self, __u8 *buf, int len, __u8 pi,
- 		return err;
- 
- 	/*
--	 * If parameter lenght is still 0, then (1) this is an any length
-+	 * If parameter length is still 0, then (1) this is an any length
- 	 * integer, and (2) the handler function does not care which length
- 	 * we choose to use, so we pick the one the gives the fewest bytes.
- 	 */
-@@ -206,11 +206,11 @@ static int irda_extract_integer(void *self, __u8 *buf, int len, __u8 pi,
- {
- 	irda_param_t p;
- 	int n = 0;
--	int extract_len;	/* Real lenght we extract */
-+	int extract_len;	/* Real length we extract */
- 	int err;
- 
- 	p.pi = pi;     /* In case handler needs to know */
--	p.pl = buf[1]; /* Extract lenght of value */
-+	p.pl = buf[1]; /* Extract length of value */
- 	p.pv.i = 0;    /* Clear value */
- 	extract_len = p.pl;	/* Default : extract all */
- 
-@@ -297,7 +297,7 @@ static int irda_extract_string(void *self, __u8 *buf, int len, __u8 pi,
- 	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
- 
- 	p.pi = pi;     /* In case handler needs to know */
--	p.pl = buf[1]; /* Extract lenght of value */
-+	p.pl = buf[1]; /* Extract length of value */
- 
- 	IRDA_DEBUG(2, "%s(), pi=%#x, pl=%d\n", __FUNCTION__,
- 		   p.pi, p.pl);
-@@ -339,7 +339,7 @@ static int irda_extract_octseq(void *self, __u8 *buf, int len, __u8 pi,
- 	irda_param_t p;
- 
- 	p.pi = pi;     /* In case handler needs to know */
--	p.pl = buf[1]; /* Extract lenght of value */
-+	p.pl = buf[1]; /* Extract length of value */
- 
- 	/* Check if buffer is long enough for parsing */
- 	if (len < (2+p.pl)) {
-diff --git a/net/irda/wrapper.c b/net/irda/wrapper.c
-index e712867..c246983 100644
---- a/net/irda/wrapper.c
-+++ b/net/irda/wrapper.c
-@@ -238,7 +238,7 @@ async_bump(struct net_device *dev,
- 	skb_reserve(newskb, 1);
- 
- 	if(docopy) {
--		/* Copy data without CRC (lenght already checked) */
-+		/* Copy data without CRC (length already checked) */
- 		skb_copy_to_linear_data(newskb, rx_buff->data,
- 					rx_buff->len - 2);
- 		/* Deliver this skb */
+ 	/* SACK delay timeout */
 -- 
 1.5.3.7.949.g2221a6
 
