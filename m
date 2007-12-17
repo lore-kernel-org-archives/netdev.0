@@ -1,34 +1,34 @@
-From: "John W. Linville" <linville@tuxdriver.com>
+From: Stefano Brivio <stefano.brivio@polimi.it>
 Subject: Re: [PATCH] drivers/net/: Spelling fixes
-Date: Mon, 17 Dec 2007 15:43:02 -0500
-Message-ID: <20071217204302.GF3121@tuxdriver.com>
-References: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918891.git.joe@perches.com>
+Date: Mon, 17 Dec 2007 21:56:35 +0100
+Message-ID: <20071217215635.16fe17af@morte>
+References: <1197920439-5455-2-git-send-email-joe@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Pavel Roskin <proski@gnu.org>,
+Cc: Manish@sc8-sf-spam2.sourceforge.net, Surovegin <ebs@ebshome.net>,
+	Levand <geoffrey.levand@am.sony.com>,
+	Jay@sc8-sf-spam2.sourceforge.net,
 	David Gibson <hermes@gibson.dropbear.id.au>,
-	orinoco-devel@lists.sourceforge.net, Yi Zhu <yi.zhu@intel.com>,
-	Jaroslav Kysela <perex@perex.cz>, linuxppc-dev@ozlabs.org,
+	orinoco-devel@lists.sourceforge.net, Roskin <proski@gnu.org>,
+	Corey Thomas <corey@world.std.com>, linuxppc-dev@ozlabs.org,
+	Daniel@sc8-sf-spam2.sourceforge.net,
 	Paul Mackerras <paulus@samba.org>,
 	Peter De Shrijver <p2@ace.ulyssis.student.kuleuven.ac.be>,
+	Pavel@sc8-sf-spam2.sourceforge.net,
 	Rastapur Santosh <santosh.rastapur@neterion.com>,
+	John@sc8-sf-spam2.sourceforge.net,
 	bonding-devel@lists.sourceforge.net,
 	Andy Gospodarek <andy@greyhouse.net>,
+	Eugene@sc8-sf-spam2.sourceforge.net,
 	"Amit S. Kale" <amitkale@netxen.com>,
 	ipw2100-devel@lists.sourceforge.net,
-	atl1-devel@lists.sourceforge.net, Chris Snook <csnook@redhat.com>,
-	Stefano Brivio <stefano.brivio@polimi.it>,
-	libertas-dev@lists.infradead.org, Dan Williams <dcbw@redhat.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Manish Lachwani <mlachwani@mvista.com>,
-	Jean Tourrilhes <jt@hpl.hp.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols
+	ipw3945-devel@lists.sourceforge.net,
+	Masakazu Mokuno <mokuno@sm.sony.co.jp>,
+	libertas-dev@lists.infradead.org, Dan Williams <dcbw@re
 To: Joe Perches <joe@perches.com>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918891.git.joe@perches.com>
+In-Reply-To: <1197920439-5455-2-git-send-email-joe@perches.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -40,30 +40,23 @@ Sender: e1000-devel-bounces@lists.sourceforge.net
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 17, 2007 at 11:40:08AM -0800, Joe Perches wrote:
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  drivers/net/wireless/atmel.c                   |    2 +-
->  drivers/net/wireless/bcm43xx/bcm43xx_debugfs.h |    2 +-
->  drivers/net/wireless/ipw2200.c                 |    2 +-
->  drivers/net/wireless/iwlwifi/iwl-4965.c        |    2 +-
->  drivers/net/wireless/libertas/cmd.c            |    4 ++--
->  drivers/net/wireless/libertas/scan.c           |    4 ++--
->  drivers/net/wireless/netwave_cs.c              |    2 +-
->  drivers/net/wireless/orinoco.h                 |    2 +-
->  drivers/net/wireless/ray_cs.c                  |    2 +-
->  drivers/net/wireless/rt2x00/rt2x00reg.h        |    2 +-
->  drivers/net/wireless/rt2x00/rt2x00usb.h        |    6 +++---
->  drivers/net/wireless/rt2x00/rt73usb.c          |    2 +-
->  drivers/net/wireless/wavelan_cs.c              |    2 +-
->  drivers/net/wireless/zd1211rw/zd_chip.h        |    4 ++--
+On Mon, 17 Dec 2007 11:40:08 -0800
+Joe Perches <joe@perches.com> wrote:
 
-ACK
+> diff --git a/drivers/net/ucc_geth_ethtool.c b/drivers/net/ucc_geth_ethtool.c
+> index 9a9622c..f8d319b 100644
+> --- a/drivers/net/ucc_geth_ethtool.c
+> +++ b/drivers/net/ucc_geth_ethtool.c
+> @@ -7,7 +7,7 @@
+>   *
+>   * Limitation: 
+>   * Can only get/set setttings of the first queue.
+                         ^^^
+
 
 -- 
-John W. Linville
-linville@tuxdriver.com
+Ciao
+Stefano
 
 -------------------------------------------------------------------------
 SF.Net email is sponsored by:
