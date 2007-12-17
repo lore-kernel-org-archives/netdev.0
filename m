@@ -1,47 +1,48 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH] [NET][POWERPC] ucc_geth: really fix section mismatch
-Date: Mon, 17 Dec 2007 14:54:35 +0300
-Message-ID: <20071217115435.GA29857@localhost.localdomain>
+From: Matti Aarnio <matti.aarnio@zmailer.org>
+Subject: Re: Packet per Second
+Date: Mon, 17 Dec 2007 14:22:55 +0200
+Message-ID: <20071217122255.GK6372@mea-ext.zmailer.org>
+References: <nemoFri121407105527@flis.man.torun.pl> <1197671513.5973.10.camel@andromache> <nemoMon121707091528@flis.man.torun.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Cc: Li Yang <leoli@freescale.com>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?iso-8859-1?Q?Fl=E1vio?= Pires <flavio.defreitas@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:18319 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932649AbXLQLwH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 06:52:07 -0500
+Received: from z2.cat.iki.fi ([212.16.98.133]:38177 "EHLO z2.cat.iki.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935390AbXLQMW5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Dec 2007 07:22:57 -0500
+Received: (mea@mea-ext) by mail.zmailer.org id S3540007AbXLQMWz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 14:22:55 +0200
 Content-Disposition: inline
+In-Reply-To: <nemoMon121707091528@flis.man.torun.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit ed7e63a51d46e835422d89c687b8a3e419a4212a has tried to fix
-section mismatch:
+On Mon, Dec 17, 2007 at 11:18:57AM +0000, Fl=E1vio Pires wrote:
+> In article <1197671513.5973.10.camel@andromache> Glen
+> Turner<gdt@gdt.id.au> wrote:
+> >  On Fri, 2007-12-14 at 15:34 +0000, Fl=87vio Pires wrote:
+> >>   Well, I work on an ISP and we have a linux box acting as a
+> >> bridge+firewall. With this bridge+firewall we control the packet
+> >> rate per second from each client and from our repeaters. But I can=
+`t
+> >> measure the packet rate per IP. Is there any tool for this?
+>=20
+> Thx for the answer Glen,
+>=20
+> I alread though about something like this. But, isn`t NetFlow just fo=
+r
+> Cisco IOS ?
 
-WARNING: vmlinux.o(.init.text+0x17278): Section mismatch: reference to
-.exit.text:uec_mdio_exit (between 'ucc_geth_init' and 'uec_mdio_init')
+You probably want this, or at least its sources:
 
-But that mismatch still happens.
+   http://packages.debian.org/stable/net/fprobe-ng
 
-This patch actually fixing section mismatch by removing __exit from
-the header file.
 
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
----
- drivers/net/ucc_geth_mii.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+the "non-ng" version is probably called:   fprobe-ulog
 
-diff --git a/drivers/net/ucc_geth_mii.h b/drivers/net/ucc_geth_mii.h
-index d834370..1e45b20 100644
---- a/drivers/net/ucc_geth_mii.h
-+++ b/drivers/net/ucc_geth_mii.h
-@@ -96,5 +96,5 @@ enum enet_tbi_mii_reg {
- int uec_mdio_read(struct mii_bus *bus, int mii_id, int regnum);
- int uec_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 value);
- int __init uec_mdio_init(void);
--void __exit uec_mdio_exit(void);
-+void uec_mdio_exit(void);
- #endif				/* __UEC_MII_H */
--- 
-1.5.2.2
+Then you want also NetFlow collector/accounter..
+
+/Matti Aarnio
