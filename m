@@ -1,31 +1,54 @@
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Subject: Re: Please pull 'upstream-jgarzik' branch of wireless-2.6
-Date: Mon, 17 Dec 2007 18:40:31 -0500
-Message-ID: <476708EF.10403@garzik.org>
-References: <20071216043419.GF3096@tuxdriver.com> <47670514.4030204@garzik.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/2] add driver for enc28j60 ethernet chip
+Date: Mon, 17 Dec 2007 18:49:14 -0500
+Message-ID: <47670AFA.1000608@pobox.com>
+References: <475EA546.7030202@eptar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <47670514.4030204-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Claudio Lanconelli <lanconelli.claudio@eptar.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:34534 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934430AbXLQXtR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Dec 2007 18:49:17 -0500
+In-Reply-To: <475EA546.7030202@eptar.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hum, this required merging also, and broke the build too :/
+Claudio Lanconelli wrote:
+> These patches add support for Microchip enc28j60 ethernet chip 
+> controlled via SPI.
+> I tested it on my custom board (S162) with ARM9 s3c2442 SoC.
+> Any comments are welcome.
+> 
+> Signed-off-by: Claudio Lanconelli <lanconelli.claudio@eptar.com>
 
-drivers/net/wireless/iwlwifi/iwl3945-base.c: In function=20
-=91iwl3945_alive_start=92:
-drivers/net/wireless/iwlwifi/iwl3945-base.c:6285: error: implicit=20
-declaration of function =91iwl_rate_control_unregister=92
-make[4]: *** [drivers/net/wireless/iwlwifi/iwl3945-base.o] Error 1
-make[3]: *** [drivers/net/wireless/iwlwifi] Error 2
-make[2]: *** [drivers/net/wireless] Error 2
-make[1]: *** [drivers/net] Error 2
-make: *** [drivers] Error 2
 
-I'll leave it there and assume that you will send a fix --on top of--=20
-netdev#upstream ...
+comments:
+
+* overall:  a clean driver that looks mostly acceptable, good work
+
+* use stats in net_device rather than defining your own
+
+* use ethtool rather than 'full_duplex' variable to select duplex
+
+* [suggestion but not requirement] kernel prefers "u8" and "u32" types 
+to the C99 types uint8_t or uint32_t
+
+* remove the 'inline' markers from functions, and let the compiler make 
+the decision
+
+* udelay() in enc28j60_phy_write() -- and any similar code pattern -- 
+may not actually delay for the specified amount of time, when you 
+consider that writes may be posted.  normally a read will flush a write.
+
+* Why do interrupt work in a kernel thread?  Your comment says you 
+cannot, but does not explain.
+
+* should use NAPI
+
+* should be able to program multicast list while everything is active
+
+
