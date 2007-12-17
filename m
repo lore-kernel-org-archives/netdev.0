@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
 Subject: [PATCH] drivers/net/: Spelling fixes
 Date: Mon, 17 Dec 2007 11:40:08 -0800
-Message-ID: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918891.git.joe__32222.5865711973$1197938872$gmane$org@perches.com>
+Message-ID: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918891.git.joe__47213.7030367323$1197939496$gmane$org@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -26,17 +26,17 @@ Cc: Pavel Roskin <proski@gnu.org>,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Manish Lachwani <m
 To: linux-kernel@vger.kernel.org
-Return-path: <ipw2100-devel-bounces@lists.sourceforge.net>
+Return-path: <ipw3945-devel-bounces@lists.sourceforge.net>
 Message-Id: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918891.git.joe@perches.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipw2100-devel>,
-	<mailto:ipw2100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=ipw2100-devel>
-List-Post: <mailto:ipw2100-devel@lists.sourceforge.net>
-List-Help: <mailto:ipw2100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipw2100-devel>,
-	<mailto:ipw2100-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: ipw2100-devel-bounces@lists.sourceforge.net
-Errors-To: ipw2100-devel-bounces@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
+	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=ipw3945-devel>
+List-Post: <mailto:ipw3945-devel@lists.sourceforge.net>
+List-Help: <mailto:ipw3945-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
+	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: ipw3945-devel-bounces@lists.sourceforge.net
+Errors-To: ipw3945-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
 
