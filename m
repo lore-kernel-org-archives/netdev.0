@@ -1,151 +1,215 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 2.6.25 9/9] SCTP: Follow Add-IP security consideratiosn wrt INIT/INIT-ACK
-Date: Mon, 17 Dec 2007 16:32:49 -0500
-Message-ID: <1197927169-5106-10-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH 2.6.25 4/9] SCTP: Update association lookup to look at ASCONF chunks as well
+Date: Mon, 17 Dec 2007 16:32:44 -0500
+Message-ID: <1197927169-5106-5-git-send-email-vladislav.yasevich@hp.com>
 References: <1197927169-5106-1-git-send-email-vladislav.yasevich@hp.com>
 Cc: lksctp-developers@lists.sourceforge.net,
 	Vlad Yasevich <vladislav.yasevich@hp.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:15330 "EHLO
+Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:15310 "EHLO
 	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761680AbXLQVc4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 16:32:56 -0500
+	with ESMTP id S1759931AbXLQVcx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 16:32:53 -0500
 In-Reply-To: <1197927169-5106-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Security Considerations section of RFC 5061 has the following
-text:
-
-   If an SCTP endpoint that supports this extension receives an INIT
-   that indicates that the peer supports the ASCONF extension but does
-   NOT support the [RFC4895] extension, the receiver of such an INIT
-   MUST send an ABORT in response.  Note that an implementation is
-   allowed to silently discard such an INIT as an option as well, but
-   under NO circumstance is an implementation allowed to proceed with
-   the association setup by sending an INIT-ACK in response.
-
-   An implementation that receives an INIT-ACK that indicates that the
-   peer does not support the [RFC4895] extension MUST NOT send the
-   COOKIE-ECHO to establish the association.  Instead, the
-   implementation MUST discard the INIT-ACK and report to the upper-
-   layer user that an association cannot be established destroying the
-   Transmission Control Block (TCB).
-
-Follow the recomendations.
+ADD-IP draft section 5.2 specifies that if an association can not
+be found using the source and destination of the IP packet,
+then, if the packet contains ASCONF chunks, the Address Parameter
+TLV should be used to lookup an association.
 
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
- net/sctp/sm_make_chunk.c |   47 ++++++++++++++++++++++++++++++++++++++++++---
- net/sctp/sm_statefuns.c  |    7 ++---
- 2 files changed, 46 insertions(+), 8 deletions(-)
+ net/sctp/input.c |  124 ++++++++++++++++++++++++++++++++++++++++++++---------
+ 1 files changed, 103 insertions(+), 21 deletions(-)
 
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 68a994c..ae9fc9e 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -1830,6 +1830,39 @@ static int sctp_process_hn_param(const struct sctp_association *asoc,
- 	return 0;
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index b08c7cb..d695f71 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -891,14 +891,6 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct sk_buff *skb,
+ 
+ 	ch = (sctp_chunkhdr_t *) skb->data;
+ 
+-	/* The code below will attempt to walk the chunk and extract
+-	 * parameter information.  Before we do that, we need to verify
+-	 * that the chunk length doesn't cause overflow.  Otherwise, we'll
+-	 * walk off the end.
+-	 */
+-	if (WORD_ROUND(ntohs(ch->length)) > skb->len)
+-		return NULL;
+-
+ 	/*
+ 	 * This code will NOT touch anything inside the chunk--it is
+ 	 * strictly READ-ONLY.
+@@ -935,6 +927,44 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct sk_buff *skb,
+ 	return NULL;
  }
  
-+static int sctp_verify_ext_param(union sctp_params param)
++/* ADD-IP, Section 5.2
++ * When an endpoint receives an ASCONF Chunk from the remote peer
++ * special procedures may be needed to identify the association the
++ * ASCONF Chunk is associated with. To properly find the association
++ * the following procedures SHOULD be followed:
++ *
++ * D2) If the association is not found, use the address found in the
++ * Address Parameter TLV combined with the port number found in the
++ * SCTP common header. If found proceed to rule D4.
++ *
++ * D2-ext) If more than one ASCONF Chunks are packed together, use the
++ * address found in the ASCONF Address Parameter TLV of each of the
++ * subsequent ASCONF Chunks. If found, proceed to rule D4.
++ */
++static struct sctp_association *__sctp_rcv_asconf_lookup(
++					sctp_chunkhdr_t *ch,
++					const union sctp_addr *laddr,
++					__be32 peer_port,
++					struct sctp_transport **transportp)
 +{
-+	__u16 num_ext = ntohs(param.p->length) - sizeof(sctp_paramhdr_t);
-+	int have_auth = 0;
-+	int have_asconf = 0;
-+	int i;
++	sctp_addip_chunk_t *asconf = (struct sctp_addip_chunk *)ch;
++	struct sctp_af *af;
++	union sctp_addr_param *param;
++	union sctp_addr paddr;
 +
-+	for (i = 0; i < num_ext; i++) {
-+		switch (param.ext->chunks[i]) {
-+		    case SCTP_CID_AUTH:
-+			    have_auth = 1;
-+			    break;
-+		    case SCTP_CID_ASCONF:
-+		    case SCTP_CID_ASCONF_ACK:
-+			    have_asconf = 1;
-+			    break;
-+		}
-+	}
++	/* Skip over the ADDIP header and find the Address parameter */
++	param = (union sctp_addr_param *)(asconf + 1);
 +
-+	/* ADD-IP Security: The draft requires us to ABORT or ignore the
-+	 * INIT/INIT-ACK if ADD-IP is listed, but AUTH is not.  Do this
-+	 * only if ADD-IP is turned on and we are not backward-compatible
-+	 * mode.
-+	 */
-+	if (sctp_addip_noauth)
-+		return 1;
++	af = sctp_get_af_specific(param_type2af(param->v4.param_hdr.type));
++	if (unlikely(!af))
++		return NULL;
 +
-+	if (sctp_addip_enable && !have_auth && have_asconf)
-+		return 0;
++	af->from_addr_param(&paddr, param, peer_port, 0);
 +
-+	return 1;
++	return __sctp_lookup_association(laddr, &paddr, transportp);
 +}
 +
- static void sctp_process_ext_param(struct sctp_association *asoc,
- 				    union sctp_params param)
- {
-@@ -1960,7 +1993,11 @@ static sctp_ierror_t sctp_verify_param(const struct sctp_association *asoc,
- 	case SCTP_PARAM_UNRECOGNIZED_PARAMETERS:
- 	case SCTP_PARAM_ECN_CAPABLE:
- 	case SCTP_PARAM_ADAPTATION_LAYER_IND:
-+		break;
 +
- 	case SCTP_PARAM_SUPPORTED_EXT:
-+		if (!sctp_verify_ext_param(param))
-+			return SCTP_IERROR_ABORT;
+ /* SCTP-AUTH, Section 6.3:
+ *    If the receiver does not find a STCB for a packet containing an AUTH
+ *    chunk as the first chunk and not a COOKIE-ECHO chunk as the second
+@@ -943,20 +973,64 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct sk_buff *skb,
+ *
+ * This means that any chunks that can help us identify the association need
+ * to be looked at to find this assocation.
+-*
+-* TODO: The only chunk currently defined that can do that is ASCONF, but we
+-* don't support that functionality yet.
+ */
+-static struct sctp_association *__sctp_rcv_auth_lookup(struct sk_buff *skb,
+-				      const union sctp_addr *paddr,
++static struct sctp_association *__sctp_rcv_walk_lookup(struct sk_buff *skb,
+ 				      const union sctp_addr *laddr,
+ 				      struct sctp_transport **transportp)
+ {
+-	/* XXX - walk through the chunks looking for something that can
+-	 * help us find the association.  INIT, and INIT-ACK are not permitted.
+-	 * That leaves ASCONF, but we don't support that yet.
++	struct sctp_association *asoc = NULL;
++	sctp_chunkhdr_t *ch;
++	int have_auth = 0;
++	unsigned int chunk_num = 1;
++	__u8 *ch_end;
++
++	/* Walk through the chunks looking for AUTH or ASCONF chunks
++	 * to help us find the association.
+ 	 */
+-	return NULL;
++	ch = (sctp_chunkhdr_t *) skb->data;
++	do {
++		/* Break out if chunk length is less then minimal. */
++		if (ntohs(ch->length) < sizeof(sctp_chunkhdr_t))
++			break;
++
++		ch_end = ((__u8 *)ch) + WORD_ROUND(ntohs(ch->length));
++		if (ch_end > skb_tail_pointer(skb))
++			break;
++
++		switch(ch->type) {
++		    case SCTP_CID_AUTH:
++			    have_auth = chunk_num;
++			    break;
++
++		    case SCTP_CID_COOKIE_ECHO:
++			    /* If a packet arrives containing an AUTH chunk as
++			     * a first chunk, a COOKIE-ECHO chunk as the second
++			     * chunk, and possibly more chunks after them, and
++			     * the receiver does not have an STCB for that
++			     * packet, then authentication is based on
++			     * the contents of the COOKIE- ECHO chunk.
++			     */
++			    if (have_auth == 1 && chunk_num == 2)
++				    return NULL;
++			    break;
++
++		    case SCTP_CID_ASCONF:
++			    if (have_auth || sctp_addip_noauth)
++				    asoc = __sctp_rcv_asconf_lookup(ch, laddr,
++							sctp_hdr(skb)->source,
++							transportp);
++		    default:
++			    break;
++		}
++
++		if (asoc)
++			break;
++
++		ch = (sctp_chunkhdr_t *) ch_end;
++		chunk_num++;
++	} while (ch_end < skb_tail_pointer(skb));
++
++	return asoc;
+ }
+ 
+ /*
+@@ -966,7 +1040,6 @@ static struct sctp_association *__sctp_rcv_auth_lookup(struct sk_buff *skb,
+  * chunks.
+  */
+ static struct sctp_association *__sctp_rcv_lookup_harder(struct sk_buff *skb,
+-				      const union sctp_addr *paddr,
+ 				      const union sctp_addr *laddr,
+ 				      struct sctp_transport **transportp)
+ {
+@@ -974,6 +1047,14 @@ static struct sctp_association *__sctp_rcv_lookup_harder(struct sk_buff *skb,
+ 
+ 	ch = (sctp_chunkhdr_t *) skb->data;
+ 
++	/* The code below will attempt to walk the chunk and extract
++	 * parameter information.  Before we do that, we need to verify
++	 * that the chunk length doesn't cause overflow.  Otherwise, we'll
++	 * walk off the end.
++	 */
++	if (WORD_ROUND(ntohs(ch->length)) > skb->len)
++		return NULL;
++
+ 	/* If this is INIT/INIT-ACK look inside the chunk too. */
+ 	switch (ch->type) {
+ 	case SCTP_CID_INIT:
+@@ -981,11 +1062,12 @@ static struct sctp_association *__sctp_rcv_lookup_harder(struct sk_buff *skb,
+ 		return __sctp_rcv_init_lookup(skb, laddr, transportp);
  		break;
  
- 	case SCTP_PARAM_SET_PRIMARY:
-@@ -2133,10 +2170,11 @@ int sctp_process_init(struct sctp_association *asoc, sctp_cid_t cid,
- 					!asoc->peer.peer_hmacs))
- 		asoc->peer.auth_capable = 0;
- 
--
--	/* If the peer claims support for ADD-IP without support
--	 * for AUTH, disable support for ADD-IP.
--	 * Do this only if backward compatible mode is turned off.
-+	/* In a non-backward compatible mode, if the peer claims
-+	 * support for ADD-IP but not AUTH,  the ADD-IP spec states
-+	 * that we MUST ABORT the association. Section 6.  The section
-+	 * also give us an option to silently ignore the packet, which
-+	 * is what we'll do here.
- 	 */
- 	if (!sctp_addip_noauth &&
- 	     (asoc->peer.asconf_capable && !asoc->peer.auth_capable)) {
-@@ -2144,6 +2182,7 @@ int sctp_process_init(struct sctp_association *asoc, sctp_cid_t cid,
- 						  SCTP_PARAM_DEL_IP |
- 						  SCTP_PARAM_SET_PRIMARY);
- 		asoc->peer.asconf_capable = 0;
-+		goto clean_up;
+-	case SCTP_CID_AUTH:
+-		return __sctp_rcv_auth_lookup(skb, paddr, laddr, transportp);
++	default:
++		return __sctp_rcv_walk_lookup(skb, laddr, transportp);
+ 		break;
  	}
  
- 	/* Walk list of transports, removing transports in the UNKNOWN state. */
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index eed47c6..aadbed1 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -507,7 +507,9 @@ sctp_disposition_t sctp_sf_do_5_1C_ack(const struct sctp_endpoint *ep,
- 			      &err_chunk)) {
++
+ 	return NULL;
+ }
  
- 		/* This chunk contains fatal error. It is to be discarded.
--		 * Send an ABORT, with causes if there is any.
-+		 * Send an ABORT, with causes.  If there are no causes,
-+		 * then there wasn't enough memory.  Just terminate
-+		 * the association.
- 		 */
- 		if (err_chunk) {
- 			packet = sctp_abort_pkt_new(ep, asoc, arg,
-@@ -526,9 +528,6 @@ sctp_disposition_t sctp_sf_do_5_1C_ack(const struct sctp_endpoint *ep,
- 			} else {
- 				error = SCTP_ERROR_NO_RESOURCE;
- 			}
--		} else {
--			sctp_sf_tabort_8_4_8(ep, asoc, type, arg, commands);
--			error = SCTP_ERROR_INV_PARAM;
- 		}
+@@ -1004,7 +1086,7 @@ static struct sctp_association *__sctp_rcv_lookup(struct sk_buff *skb,
+ 	 * parameters within the INIT or INIT-ACK.
+ 	 */
+ 	if (!asoc)
+-		asoc = __sctp_rcv_lookup_harder(skb, paddr, laddr, transportp);
++		asoc = __sctp_rcv_lookup_harder(skb, laddr, transportp);
  
- 		/* SCTP-AUTH, Section 6.3:
+ 	return asoc;
+ }
 -- 
 1.5.3.5
 
