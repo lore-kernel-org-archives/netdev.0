@@ -1,45 +1,60 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: net-2.6.25 rebased...
-Date: Mon, 17 Dec 2007 12:20:21 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0712171210190.20530@kivilampi-30.cs.helsinki.fi>
-References: <20071216.162101.209866976.davem@davemloft.net>
+From: david@lang.hm
+Subject: Re: [PATCH 0/1] IPN: Inter Process Networking
+Date: Mon, 17 Dec 2007 03:31:48 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0712170327410.4467@asgard>
+References: <20071217092401.GC4356@cs.unibo.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	garden@cs.unibo.it
+To: Renzo Davoli <renzo@cs.unibo.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:56405 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762820AbXLQKUY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 05:20:24 -0500
-In-Reply-To: <20071216.162101.209866976.davem@davemloft.net>
+Received: from dsl081-033-126.lax1.dsl.speakeasy.net ([64.81.33.126]:41896
+	"EHLO bifrost.lang.hm" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932612AbXLQKVY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 05:21:24 -0500
+In-Reply-To: <20071217092401.GC4356@cs.unibo.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 16 Dec 2007, David Miller wrote:
+On Mon, 17 Dec 2007, Renzo Davoli wrote:
 
-> I needed to rebase for two reasons:
-> 
-> 1) Ilpo asked me to revert a lot of TCP stuff and the
->    easiest way to do that was during a rebase.
-> 
-> 2) Patrick McHardy needs some of the pending net-2.6
->    bug fixes in there in order to send me patches
->    for some netfilter compat stuff.
-> 
-> It's all there in the usual spot:
-> 
-> 	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.25.git
-> 
-> I'm still doing build tests with various configurations on my
-> Niagara-2 box.
-> 
-> Let me know if I screwed up anything, thanks!
+> Inter Process Networking (PATCH):
+>
+> 1. WHAT IS IPN?
+> ---------------
+>
+> IPN is a new address family designed for one-to-many, many-to-many and
+> peer-to-peer communication among processes.
+> Berkeley sockets have been designed for client-server or point-to-point
+> communication; AF_UNIX does not support multicast/broadcast. AF_IPN
+> does, in a simple, efficient but extensible way.
+> IPN is an Inter Process Communication paradigm where all the processes
+> appear as they were connected by a networking bus.
+>
+> On IPN, processes can interoperate using real networking protocols
+> (e.g. ethernet) but also using application defined protocols (maybe
+> just sending ascii strings, video or audio frames, etc).
+> IPN provides networking (in the broaden definition you can imagine) to
+> the processes. Processes can be ethernet nodes, run their own TCP-IP stacks
+> if they like (e.g. virtual machines), mount ATAonEthernet disks, etc.etc.
+>
+> IPN networks can be interconnected with real networks or IPN networks
+> running on different computers can interoperate (can be connected by
+> virtual cables).
+>
+> IPN is part of the Virtual Square Project (vde, lwipv6, view-os,
+> umview/kmview, see wiki.virtualsquare.org).
 
-Thanks, at least the end result for TCP was exactly what I 
-expected to find there...
+other then the fact that this is bi-directional, how is this better then 
+using pipes and splice?
 
+wouldn't it be better to just add the ability for multiple writers to send 
+to the same pipe, and then have all of them splice into the output of that 
+pipe? this would give the same data-agnostic communication that you are 
+looking for, and with the minor detail that software would have to filter 
+out messages that they send, would appear to meet all the goals you are 
+looking at, useing existing kernel features that are designed to be very 
+high performance.
 
--- 
- i.
+David Lang
