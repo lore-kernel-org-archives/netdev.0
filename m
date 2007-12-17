@@ -1,49 +1,45 @@
-From: Jan Engelhardt <jengelh@computergmbh.de>
-Subject: Re: [PATCH net-2.6.25 1/8] Create ipv4_is_<type>(__be32 addr)
- functions
-Date: Mon, 17 Dec 2007 23:37:24 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0712172333550.32270@fbirervta.pbzchgretzou.qr>
-References: <1197589141-7020-1-git-send-email-joe@perches.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH 2.6.25 0/9]: SCTP: Update ADD-IP implementation to conform
+ to spec
+Date: Mon, 17 Dec 2007 17:40:25 -0500
+Message-ID: <4766FAD9.3060500@hp.com>
+References: <1197927169-5106-1-git-send-email-vladislav.yasevich@hp.com> <20071217.143648.68777576.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S936710AbXLQWh7@vger.kernel.org>
-In-Reply-To: <1197589141-7020-1-git-send-email-joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:47406 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756824AbXLQWk1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 17:40:27 -0500
+In-Reply-To: <20071217.143648.68777576.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+David Miller wrote:
+> From: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Date: Mon, 17 Dec 2007 16:32:40 -0500
+> 
+>> The following is a set of patches that updates the SCTP ADD-IP
+>> implementation to conform to the recently published RFC.
+> 
+> Patch 7 didn't seem to make it.
+> 
+> If you CC: on submissions like this, in the worst case at
+> least I'll get a copy even if the mailing list blocks it
+> for whatever reason (size, SPAM filter, etc.)
 
-On Dec 13 2007 15:38, Joe Perches wrote:
->
->Change IPV4 specific macros LOOPBACK MULTICAST LOCAL_MCAST BADCLASS and ZERONET
->macros to inline functions ipv4_is_<type>(__be32 addr)
->
->Adds type safety and arguably some readability.
->
->Changes since last submission:
->
->Removed ipv4_addr_octets function
->Used hex constants
->Converted recently added rfc3330 macros
->
->Signed-off-by: Joe Perches <joe@perches.com>
->---
->+static inline bool ipv4_is_loopback(__be32 addr)
->+{
->+	return (addr & htonl(0xff000000)) == htonl(0x7f000000);
->+}
->+
+Hm... only missing from netdev.. :)
 
-Can we use __constant_htonl()?
+Do you want me to send just patch 7, or resend the whole series?
 
->+static inline bool ipv4_is_private_10(__be32 addr)
->+{
->+	return (addr & htonl(0xff000000)) == htonl(0x0a000000);
->+}
+-vlad
 
-What are these functions needed for, even? There does not seem to be
-any code (at least in davem's net-2.6.25:net/ipv4/, where I dared to grep)
-that uses them.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
