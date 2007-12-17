@@ -1,47 +1,55 @@
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Subject: Re: Please pull 'fixes-jgarzik' branch of wireless-2.6
-Date: Mon, 17 Dec 2007 15:18:37 -0500
-Message-ID: <4766D99D.5090507@garzik.org>
-References: <20071216043148.GE3096@tuxdriver.com> <20071217193402.GD3121@tuxdriver.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [RFT] tehuti: napi fix
+Date: Mon, 17 Dec 2007 12:18:43 -0800
+Message-ID: <20071217121843.6ef76f05@deepthought>
+References: <002901c83c73$b089b6e0$9c94fea9@jason>
+	<20071212.071832.07747779.davem@davemloft.net>
+	<20071212135852.3369c820@freepuppy.rosehill>
+	<20071216.133833.105913775.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20071217193402.GD3121-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: joonwpark81@gmail.com, netdev@vger.kernel.org, jgarzik@pobox.com,
+	baum@tehutinetworks.net, andy@greyhouse.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:59704 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756868AbXLQUUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 15:20:35 -0500
+In-Reply-To: <20071216.133833.105913775.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-John W. Linville wrote:
-> On Sat, Dec 15, 2007 at 11:31:48PM -0500, John W. Linville wrote:
-> 
->> Cyrill Gorcunov (2):
->>       ieee80211_rate: missed unlock
-> 
->>  net/mac80211/ieee80211_rate.c                  |    1 +
-> 
->> diff --git a/net/mac80211/ieee80211_rate.c b/net/mac80211/ieee80211_rate.c
->> index 7254bd6..3260a4a 100644
->> --- a/net/mac80211/ieee80211_rate.c
->> +++ b/net/mac80211/ieee80211_rate.c
->> @@ -33,6 +33,7 @@ int ieee80211_rate_control_register(struct rate_control_ops *ops)
->>  		if (!strcmp(alg->ops->name, ops->name)) {
->>  			/* don't register an algorithm twice */
->>  			WARN_ON(1);
->> +			mutex_unlock(&rate_ctrl_mutex);
->>  			return -EALREADY;
->>  		}
->>  	}
-> 
-> Crud...there is a one-line fix in here that should have gone to Dave.
-> 
-> Jeff, (assuming Dave ACKs it) would you mind just taking it your
-> way along with the other posted patches?  Since this is intended for
-> 2.6.24, there should be no great maintenance hardship if it goes to
-> Linus through your tree instead of Dave's.
+On Sun, 16 Dec 2007 13:38:33 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-Will do...
+> From: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date: Wed, 12 Dec 2007 13:58:52 -0800
+> 
+> > This should fix the tehuti napi fence post problems by getting
+> > rid of priv->napi_stop, and setting weight to 32 (like other 10G).
+> > 
+> > Also, used the wierd entry/exit macro's like rest of driver.
+> 
+> It fixes the fench-post problem, but like the comments you
+> removed explain:
+> 
+> > -		/* from time to time we exit to let NAPI layer release
+> > -		 * device lock and allow waiting tasks (eg rmmod) to advance) */
+> > -		priv->napi_stop = 0;
+> > -
+> 
+> We now hang on rmmod during constant packet load.
+> 
+> This change just trades one bug for another, we have to
+> get the device close issue sorted out before we can go
+> around removing these things.
 
-	Jeff
+Well the napi_stop had the same effect as having a smaller weight
+value, so my patch just shrunk the weight. That causes the device
+to exit NAPI (and should solve the rmmod problem).
+
+
+-- 
+Stephen Hemminger <stephen.hemminger@vyatta.com>
