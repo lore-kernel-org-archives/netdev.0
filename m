@@ -1,37 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25 8/8] Remove unused IPV4TYPE macros
-Date: Sun, 16 Dec 2007 20:28:59 -0800 (PST)
-Message-ID: <20071216.202859.212179086.davem@davemloft.net>
-References: <1197589141-7020-8-git-send-email-joe@perches.com>
-	<20071216.134825.261226998.davem@davemloft.net>
-	<1197864066.4894.20.camel@localhost>
+Subject: Re: [PATCH] [NET]: Remove FASTCALL/fastcall macros
+Date: Sun, 16 Dec 2007 20:30:29 -0800 (PST)
+Message-ID: <20071216.203029.255544808.davem@davemloft.net>
+References: <1197864985.3749.117.camel@brick>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org
+To: harvey.harrison@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53362
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53366
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756159AbXLQE3B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 23:29:01 -0500
-In-Reply-To: <1197864066.4894.20.camel@localhost>
+	by vger.kernel.org with ESMTP id S1751736AbXLQEac (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 23:30:32 -0500
+In-Reply-To: <1197864985.3749.117.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sun, 16 Dec 2007 20:01:06 -0800
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Date: Sun, 16 Dec 2007 20:16:25 -0800
 
-> On Sun, 2007-12-16 at 13:48 -0800, David Miller wrote:
-> > From: Joe Perches <joe@perches.com>
-> > Date: Thu, 13 Dec 2007 15:39:01 -0800
-> > > Signed-off-by: Joe Perches <joe@perches.com>
-> > Applied, thanks for doing this work Joe.
+> X86_32 was the last user of the FASTCALL/fastcall macros, now that it
+> uses regparm(3) by default, these macros expand to nothing.
 > 
-> I broke the parisc build.  Bad Joe...
-> 
-> Here's the patch:
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> ---
+> Dave, this is a wrap-up of my patch in your net-2.6.25.git with
+> the build breakage fix from Andrew Morton included.  This also
+> chops the fastcall macro which is also now empty.
 
-Applied, thanks.
+If only it applied:
+
+davem@sunset:~/src/GIT/net-2.6.25$ pcheck diff
++ git apply --check --whitespace=error-all diff
+error: patch failed: drivers/net/ns83820.c:611
+error: drivers/net/ns83820.c: patch does not apply
+error: patch failed: include/net/bluetooth/rfcomm.h:252
+error: include/net/bluetooth/rfcomm.h: patch does not apply
+error: patch failed: include/net/sock.h:774
+error: include/net/sock.h: patch does not apply
