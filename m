@@ -1,151 +1,187 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 2.6.25 2/9] SCTP: Handle the wildcard ADD-IP Address parameter
-Date: Mon, 17 Dec 2007 16:32:42 -0500
-Message-ID: <1197927169-5106-3-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH 2.6.25 8/9] SCTP: Implement ADD-IP special case processing for ABORT chunk
+Date: Mon, 17 Dec 2007 16:32:48 -0500
+Message-ID: <1197927169-5106-9-git-send-email-vladislav.yasevich@hp.com>
 References: <1197927169-5106-1-git-send-email-vladislav.yasevich@hp.com>
 Cc: lksctp-developers@lists.sourceforge.net,
 	Vlad Yasevich <vladislav.yasevich@hp.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:34181 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759947AbXLQVcw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 16:32:52 -0500
+Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:15317 "EHLO
+	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759947AbXLQVcz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 16:32:55 -0500
 In-Reply-To: <1197927169-5106-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Address Parameter in the parameter list of the ASCONF chunk
-may be a wildcard address.  In this case special processing
-is required.  For the 'add' case, the source IP of the packet is
-added.  In the 'del' case, all addresses except the source IP
-of packet are removed. In the "mark primary" case, the source
-address is marked as primary.
+ADD-IP spec has a special case for processing ABORTs:
+    F4) ... One special consideration is that ABORT
+        Chunks arriving destined to the IP address being deleted MUST be
+        ignored (see Section 5.3.1 for further details).
+
+Check if the address we received on is in the DEL state, and if
+so, ignore the ABORT.
 
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
- include/net/sctp/structs.h |    2 ++
- net/sctp/associola.c       |   17 +++++++++++++++++
- net/sctp/sm_make_chunk.c   |   40 ++++++++++++++++++++++++++++++++++++----
- 3 files changed, 55 insertions(+), 4 deletions(-)
+ include/net/sctp/structs.h |    2 +
+ net/sctp/bind_addr.c       |   26 ++++++++++++++++++++++
+ net/sctp/sm_statefuns.c    |   52 ++++++++++++++++++++++++++++++++++++++++---
+ 3 files changed, 76 insertions(+), 4 deletions(-)
 
 diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 002a00a..55acadc 100644
+index 32e6591..27e9cf5 100644
 --- a/include/net/sctp/structs.h
 +++ b/include/net/sctp/structs.h
-@@ -1938,6 +1938,8 @@ void sctp_assoc_rwnd_increase(struct sctp_association *, unsigned);
- void sctp_assoc_rwnd_decrease(struct sctp_association *, unsigned);
- void sctp_assoc_set_primary(struct sctp_association *,
- 			    struct sctp_transport *);
-+void sctp_assoc_del_nonprimary_peers(struct sctp_association *,
-+				    struct sctp_transport *);
- int sctp_assoc_set_bind_addr_from_ep(struct sctp_association *,
- 				     gfp_t);
- int sctp_assoc_set_bind_addr_from_cookie(struct sctp_association *,
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 33ae9b0..61bebb9 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -730,6 +730,23 @@ struct sctp_transport *sctp_assoc_lookup_paddr(
- 	return NULL;
+@@ -1200,6 +1200,8 @@ int sctp_add_bind_addr(struct sctp_bind_addr *, union sctp_addr *,
+ int sctp_del_bind_addr(struct sctp_bind_addr *, union sctp_addr *);
+ int sctp_bind_addr_match(struct sctp_bind_addr *, const union sctp_addr *,
+ 			 struct sctp_sock *);
++int sctp_bind_addr_state(const struct sctp_bind_addr *bp,
++			 const union sctp_addr *addr);
+ union sctp_addr *sctp_find_unmatch_addr(struct sctp_bind_addr	*bp,
+ 					const union sctp_addr	*addrs,
+ 					int			addrcnt,
+diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
+index 4326611..13fbfb4 100644
+--- a/net/sctp/bind_addr.c
++++ b/net/sctp/bind_addr.c
+@@ -353,6 +353,32 @@ int sctp_bind_addr_match(struct sctp_bind_addr *bp,
+ 	return match;
  }
  
-+/* Remove all transports except a give one */
-+void sctp_assoc_del_nonprimary_peers(struct sctp_association *asoc,
-+				     struct sctp_transport *primary)
++/* Get the state of the entry in the bind_addr_list */
++int sctp_bind_addr_state(const struct sctp_bind_addr *bp,
++			 const union sctp_addr *addr)
 +{
-+	struct sctp_transport	*temp;
-+	struct sctp_transport	*t;
++	struct sctp_sockaddr_entry *laddr;
++	struct sctp_af *af;
++	int state = -1;
 +
-+	list_for_each_entry_safe(t, temp, &asoc->peer.transport_addr_list,
-+				 transports) {
-+		/* if the current transport is not the primary one, delete it */
-+		if (t != primary)
-+			sctp_assoc_rm_peer(asoc, t);
++	af = sctp_get_af_specific(addr->sa.sa_family);
++	if (unlikely(!af))
++		return state;
++
++	rcu_read_lock();
++	list_for_each_entry_rcu(laddr, &bp->address_list, list) {
++		if (!laddr->valid)
++			continue;
++		if (af->cmp_addr(&laddr->a, addr)) {
++			state = laddr->state;
++			break;
++		}
 +	}
++	rcu_read_unlock();
 +
-+	return;
++	return state;
 +}
 +
- /* Engage in transport control operations.
-  * Mark the transport up or down and send a notification to the user.
-  * Select and update the new active and retran paths.
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index f487629..00598ee 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -2721,7 +2721,6 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
- 	struct sctp_transport *peer;
- 	struct sctp_af *af;
- 	union sctp_addr	addr;
--	struct list_head *pos;
- 	union sctp_addr_param *addr_param;
+ /* Find the first address in the bind address list that is not present in
+  * the addrs packed array.
+  */
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 8fe2e61..eed47c6 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -143,6 +143,12 @@ static sctp_ierror_t sctp_sf_authenticate(const struct sctp_endpoint *ep,
+ 				    const sctp_subtype_t type,
+ 				    struct sctp_chunk *chunk);
  
- 	addr_param = (union sctp_addr_param *)
-@@ -2732,8 +2731,24 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
- 		return SCTP_ERROR_INV_PARAM;
- 
- 	af->from_addr_param(&addr, addr_param, htons(asoc->peer.port), 0);
++static sctp_disposition_t __sctp_sf_do_9_1_abort(const struct sctp_endpoint *ep,
++					const struct sctp_association *asoc,
++					const sctp_subtype_t type,
++					void *arg,
++					sctp_cmd_seq_t *commands);
 +
-+	/* ADDIP 4.2.1  This parameter MUST NOT contain a broadcast
-+	 * or multicast address.
-+	 * (note: wildcard is permitted and requires special handling so
-+	 *  make sure we check for that)
+ /* Small helper function that checks if the chunk length
+  * is of the appropriate length.  The 'required_length' argument
+  * is set to be the size of a specific chunk we are testing.
+@@ -2095,11 +2101,20 @@ sctp_disposition_t sctp_sf_shutdown_pending_abort(
+ 	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_abort_chunk_t)))
+ 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
+ 
++	/* ADD-IP: Special case for ABORT chunks
++	 * F4)  One special consideration is that ABORT Chunks arriving
++	 * destined to the IP address being deleted MUST be
++	 * ignored (see Section 5.3.1 for further details).
 +	 */
-+	if (!af->is_any(&addr) && !af->addr_valid(&addr, NULL, asconf->skb))
-+		return SCTP_ERROR_INV_PARAM;
++	if (SCTP_ADDR_DEL ==
++		    sctp_bind_addr_state(&asoc->base.bind_addr, &chunk->dest))
++		return sctp_sf_discard_chunk(ep, asoc, type, arg, commands);
 +
- 	switch (asconf_param->param_hdr.type) {
- 	case SCTP_PARAM_ADD_IP:
-+		/* Section 4.2.1:
-+		 * If the address 0.0.0.0 or ::0 is provided, the source
-+		 * address of the packet MUST be added.
-+		 */
-+		if (af->is_any(&addr))
-+			memcpy(&addr, &asconf->source, sizeof(addr));
-+
- 		/* ADDIP 4.3 D9) If an endpoint receives an ADD IP address
- 		 * request and does not have the local resources to add this
- 		 * new address to the association, it MUST return an Error
-@@ -2755,8 +2770,7 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
- 		 * MUST send an Error Cause TLV with the error cause set to the
- 		 * new error code 'Request to Delete Last Remaining IP Address'.
- 		 */
--		pos = asoc->peer.transport_addr_list.next;
--		if (pos->next == &asoc->peer.transport_addr_list)
-+		if (asoc->peer.transport_count == 1)
- 			return SCTP_ERROR_DEL_LAST_IP;
+ 	/* Stop the T5-shutdown guard timer.  */
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_STOP,
+ 			SCTP_TO(SCTP_EVENT_TIMEOUT_T5_SHUTDOWN_GUARD));
  
- 		/* ADDIP 4.3 D8) If a request is received to delete an IP
-@@ -2769,9 +2783,27 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
- 		if (sctp_cmp_addr_exact(sctp_source(asconf), &addr))
- 			return SCTP_ERROR_DEL_SRC_IP;
+-	return sctp_sf_do_9_1_abort(ep, asoc, type, arg, commands);
++	return __sctp_sf_do_9_1_abort(ep, asoc, type, arg, commands);
+ }
  
--		sctp_assoc_del_peer(asoc, &addr);
-+		/* Section 4.2.2
-+		 * If the address 0.0.0.0 or ::0 is provided, all
-+		 * addresses of the peer except	the source address of the
-+		 * packet MUST be deleted.
-+		 */
-+		if (af->is_any(&addr)) {
-+			sctp_assoc_set_primary(asoc, asconf->transport);
-+			sctp_assoc_del_nonprimary_peers(asoc,
-+							asconf->transport);
-+		} else
-+			sctp_assoc_del_peer(asoc, &addr);
- 		break;
- 	case SCTP_PARAM_SET_PRIMARY:
-+		/* ADDIP Section 4.2.4
-+		 * If the address 0.0.0.0 or ::0 is provided, the receiver
-+		 * MAY mark the source address of the packet as its
-+		 * primary.
-+		 */
-+		if (af->is_any(&addr))
-+			memcpy(&addr.v4, sctp_source(asconf), sizeof(addr));
+ /*
+@@ -2131,6 +2146,15 @@ sctp_disposition_t sctp_sf_shutdown_sent_abort(const struct sctp_endpoint *ep,
+ 	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_abort_chunk_t)))
+ 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
+ 
++	/* ADD-IP: Special case for ABORT chunks
++	 * F4)  One special consideration is that ABORT Chunks arriving
++	 * destined to the IP address being deleted MUST be
++	 * ignored (see Section 5.3.1 for further details).
++	 */
++	if (SCTP_ADDR_DEL ==
++		    sctp_bind_addr_state(&asoc->base.bind_addr, &chunk->dest))
++		return sctp_sf_discard_chunk(ep, asoc, type, arg, commands);
 +
- 		peer = sctp_assoc_lookup_paddr(asoc, &addr);
- 		if (!peer)
- 			return SCTP_ERROR_INV_PARAM;
+ 	/* Stop the T2-shutdown timer. */
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_STOP,
+ 			SCTP_TO(SCTP_EVENT_TIMEOUT_T2_SHUTDOWN));
+@@ -2139,7 +2163,7 @@ sctp_disposition_t sctp_sf_shutdown_sent_abort(const struct sctp_endpoint *ep,
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_STOP,
+ 			SCTP_TO(SCTP_EVENT_TIMEOUT_T5_SHUTDOWN_GUARD));
+ 
+-	return sctp_sf_do_9_1_abort(ep, asoc, type, arg, commands);
++	return __sctp_sf_do_9_1_abort(ep, asoc, type, arg, commands);
+ }
+ 
+ /*
+@@ -2366,8 +2390,6 @@ sctp_disposition_t sctp_sf_do_9_1_abort(const struct sctp_endpoint *ep,
+ 					sctp_cmd_seq_t *commands)
+ {
+ 	struct sctp_chunk *chunk = arg;
+-	unsigned len;
+-	__be16 error = SCTP_ERROR_NO_ERROR;
+ 
+ 	if (!sctp_vtag_verify_either(chunk, asoc))
+ 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
+@@ -2385,6 +2407,28 @@ sctp_disposition_t sctp_sf_do_9_1_abort(const struct sctp_endpoint *ep,
+ 	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_abort_chunk_t)))
+ 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
+ 
++	/* ADD-IP: Special case for ABORT chunks
++	 * F4)  One special consideration is that ABORT Chunks arriving
++	 * destined to the IP address being deleted MUST be
++	 * ignored (see Section 5.3.1 for further details).
++	 */
++	if (SCTP_ADDR_DEL ==
++		    sctp_bind_addr_state(&asoc->base.bind_addr, &chunk->dest))
++		return sctp_sf_discard_chunk(ep, asoc, type, arg, commands);
++
++	return __sctp_sf_do_9_1_abort(ep, asoc, type, arg, commands);
++}
++
++static sctp_disposition_t __sctp_sf_do_9_1_abort(const struct sctp_endpoint *ep,
++					const struct sctp_association *asoc,
++					const sctp_subtype_t type,
++					void *arg,
++					sctp_cmd_seq_t *commands)
++{
++	struct sctp_chunk *chunk = arg;
++	unsigned len;
++	__be16 error = SCTP_ERROR_NO_ERROR;
++
+ 	/* See if we have an error cause code in the chunk.  */
+ 	len = ntohs(chunk->chunk_hdr->length);
+ 	if (len >= sizeof(struct sctp_chunkhdr) + sizeof(struct sctp_errhdr))
 -- 
 1.5.3.5
 
