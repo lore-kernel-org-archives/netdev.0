@@ -1,45 +1,28 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH 2.6.25 0/9]: SCTP: Update ADD-IP implementation to conform
- to spec
-Date: Mon, 17 Dec 2007 17:40:25 -0500
-Message-ID: <4766FAD9.3060500@hp.com>
-References: <1197927169-5106-1-git-send-email-vladislav.yasevich@hp.com> <20071217.143648.68777576.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.25 1/8] Create ipv4_is_<type>(__be32 addr)
+ functions
+Date: Mon, 17 Dec 2007 14:41:15 -0800 (PST)
+Message-ID: <20071217.144115.206059122.davem@davemloft.net>
+References: <1197589141-7020-1-git-send-email-joe@perches.com>
+	<Pine.LNX.4.64.0712172333550.32270@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
+Cc: joe@perches.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jengelh@computergmbh.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:47406 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756824AbXLQWk1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 17:40:27 -0500
-In-Reply-To: <20071217.143648.68777576.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48244
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757335AbXLQWlQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 17:41:16 -0500
+In-Reply-To: <Pine.LNX.4.64.0712172333550.32270@fbirervta.pbzchgretzou.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Date: Mon, 17 Dec 2007 16:32:40 -0500
-> 
->> The following is a set of patches that updates the SCTP ADD-IP
->> implementation to conform to the recently published RFC.
-> 
-> Patch 7 didn't seem to make it.
-> 
-> If you CC: on submissions like this, in the worst case at
-> least I'll get a copy even if the mailing list blocks it
-> for whatever reason (size, SPAM filter, etc.)
+From: Jan Engelhardt <jengelh@computergmbh.de>
+Date: Mon, 17 Dec 2007 23:37:24 +0100 (CET)
 
-Hm... only missing from netdev.. :)
+> Can we use __constant_htonl()?
 
-Do you want me to send just patch 7, or resend the whole series?
-
--vlad
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
+That should only be used in initializers.
