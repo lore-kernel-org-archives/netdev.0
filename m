@@ -1,26 +1,43 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [RFC]: Break up a patch in two (rfc3448bis changes to feedback reception)
-Date: Mon, 17 Dec 2007 13:53:49 +0000
-Message-ID: <20071217135349.GA5205@gerrit.erg.abdn.ac.uk>
-References: <20071217125105.GE5128@ghostprotocols.net>
+From: Sami Farin <safari-netfilter@safari.iki.fi>
+Subject: Re: [NETFILTER] xt_hashlimit : speedups hash_dst()
+Date: Mon, 17 Dec 2007 16:04:42 +0200
+Message-ID: <20071217140442.efbpwsc2uhqvnkfp@m.safari.iki.fi>
+References: <4762F78B.80302@cosmosbay.com> <4763AF65.4070200@gmail.com> <4763B4CF.7010908@cosmosbay.com> <20071215.214219.129511362.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: dada1@cosmosbay.com, jarkao2@gmail.com, kaber@trash.net,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52192 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752480AbXLQNyq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Dec 2007 08:54:46 -0500
+Received: from pne-smtpout4-sn2.hy.skanova.net ([81.228.8.154]:38628 "EHLO
+	pne-smtpout4-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754507AbXLQOEq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 09:04:46 -0500
+Received: from safari.iki.fi (84.249.185.191) by pne-smtpout4-sn2.hy.skanova.net (7.3.129)
+        id 471A7B0C0032720D for netdev@vger.kernel.org; Mon, 17 Dec 2007 15:03:51 +0100
 Content-Disposition: inline
-In-Reply-To: <20071217125105.GE5128@ghostprotocols.net>
+In-Reply-To: <20071215.214219.129511362.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| 	The end result should be equivalent, but please take a look and
-That is a good catch - this patch was a pain to keep updated exactly due
-to the many indentation levels. I had a quick look, the patch looks ok.
+On Sat, Dec 15, 2007 at 21:42:19 -0800, David Miller wrote:
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Sat, 15 Dec 2007 12:04:47 +0100
+> 
+> > I prefer to let admins chose their size, since it makes attacker life more 
+> > difficult :)
+> > 
+> > For example, I can tell you I have a server, were size is between 2.000.000 
+> > and 3.500.000, I dont want to be forced to use 2097152
+> > 
+> > A multiply is cheap, at least on current hardware.
+> 
+> I agree, and I see nothing wrong with Eric's patch and it
+> should be merged ASAP.
 
-Just a small suggestion - since the RTT lookup code in tx_packet_recv()
-is new, would it make sense to group it with the RTT validation, as e.g.
+You could do the same optimization for 
+net/netfilter/nf_conntrack_core.c:__hash_conntrack() , too.
+
+-- 
+Do what you love because life is too short for anything else.
 
