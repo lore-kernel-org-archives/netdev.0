@@ -1,51 +1,45 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: Please pull 'fixes-jgarzik' branch of wireless-2.6
-Date: Mon, 17 Dec 2007 12:07:48 -0800 (PST)
-Message-ID: <20071217.120748.51571249.davem@davemloft.net>
-References: <20071216043148.GE3096@tuxdriver.com>
-	<20071217193402.GD3121@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20071217193402.GD3121-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] net/netfilter/: Spelling fixes
+Date: Mon, 17 Dec 2007 11:40:34 -0800
+Message-ID: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918894.git.joe__37288.5850527838$1197922139$gmane$org@perches.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Patrick McHardy <kaber@trash.net>, coreteam@netfilter.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S936946AbXLQUH7@vger.kernel.org>
+Message-Id: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918894.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Mon, 17 Dec 2007 14:34:02 -0500
 
-> On Sat, Dec 15, 2007 at 11:31:48PM -0500, John W. Linville wrote:
-> 
-> > Cyrill Gorcunov (2):
-> >       ieee80211_rate: missed unlock
-> 
-> >  net/mac80211/ieee80211_rate.c                  |    1 +
-> 
-> > diff --git a/net/mac80211/ieee80211_rate.c b/net/mac80211/ieee80211_rate.c
-> > index 7254bd6..3260a4a 100644
-> > --- a/net/mac80211/ieee80211_rate.c
-> > +++ b/net/mac80211/ieee80211_rate.c
-> > @@ -33,6 +33,7 @@ int ieee80211_rate_control_register(struct rate_control_ops *ops)
-> >  		if (!strcmp(alg->ops->name, ops->name)) {
-> >  			/* don't register an algorithm twice */
-> >  			WARN_ON(1);
-> > +			mutex_unlock(&rate_ctrl_mutex);
-> >  			return -EALREADY;
-> >  		}
-> >  	}
-> 
-> Crud...there is a one-line fix in here that should have gone to Dave.
-> 
-> Jeff, (assuming Dave ACKs it) would you mind just taking it your
-> way along with the other posted patches?  Since this is intended for
-> 2.6.24, there should be no great maintenance hardship if it goes to
-> Linus through your tree instead of Dave's.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ net/netfilter/nf_conntrack_sip.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-It's totally fine if Jeff takes this, don't worry so much about
-it :-)
+diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+index 8f8b5a4..515abff 100644
+--- a/net/netfilter/nf_conntrack_sip.c
++++ b/net/netfilter/nf_conntrack_sip.c
+@@ -187,7 +187,7 @@ static const struct sip_header_nfo ct_sip_hdrs[] = {
+ 	}
+ };
+ 
+-/* get line lenght until first CR or LF seen. */
++/* get line length until first CR or LF seen. */
+ int ct_sip_lnlen(const char *line, const char *limit)
+ {
+ 	const char *k = line;
+@@ -236,7 +236,7 @@ static int digits_len(struct nf_conn *ct, const char *dptr,
+ 	return len;
+ }
+ 
+-/* get digits lenght, skiping blank spaces. */
++/* get digits length, skipping blank spaces. */
+ static int skp_digits_len(struct nf_conn *ct, const char *dptr,
+ 			  const char *limit, int *shift)
+ {
+-- 
+1.5.3.7.949.g2221a6
 
-And yes the change looks fine to me too :)
