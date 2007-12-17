@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
 Subject: [PATCH] net/ipv4/: Spelling fixes
 Date: Mon, 17 Dec 2007 11:40:31 -0800
-Message-ID: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918894.git.joe__28450.8683639162$1197920672$gmane$org@perches.com>
+Message-ID: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918894.git.joe__17744.1478045241$1197920681$gmane$org@perches.com>
 Cc: Andrew Morton <akpm@linux-foundation.org>,
 	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
@@ -12,9 +12,9 @@ Cc: Andrew Morton <akpm@linux-foundation.org>,
 	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	netfilter@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netfilter-owner@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Message-Id: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918894.git.joe@perches.com>
-Sender: netfilter-owner@vger.kernel.org
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
