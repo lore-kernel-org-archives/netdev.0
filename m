@@ -1,38 +1,49 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH] drivers/ssb/: Spelling fixes
-Date: Mon, 17 Dec 2007 11:40:17 -0800
-Message-ID: <1197920439-5455-11-git-send-email-joe@perches.com>
+Subject: [PATCH] net/netfilter/: Spelling fixes
+Date: Mon, 17 Dec 2007 11:40:34 -0800
+Message-ID: <1197920439-5455-28-git-send-email-joe@perches.com>
 Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org
+	Patrick McHardy <kaber@trash.net>, coreteam@netfilter.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:3186 "EHLO perches.com"
+Received: from DSL022.labridge.com ([206.117.136.22]:3237 "EHLO perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933703AbXLQTlE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Dec 2007 14:41:04 -0500
-Message-Id: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918893.git.joe@perches.com>
+	id S934011AbXLQTle (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Dec 2007 14:41:34 -0500
+Message-Id: <5703e57f925f31fc0eb38873bd7f10fc44f99cb4.1197918894.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/ssb/b43_pci_bridge.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/netfilter/nf_conntrack_sip.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/ssb/b43_pci_bridge.c b/drivers/ssb/b43_pci_bridge.c
-index f145d8a..310b84f 100644
---- a/drivers/ssb/b43_pci_bridge.c
-+++ b/drivers/ssb/b43_pci_bridge.c
-@@ -1,7 +1,7 @@
- /*
-  * Broadcom 43xx PCI-SSB bridge module
-  *
-- * This technically is a seperate PCI driver module, but
-+ * This technically is a separate PCI driver module, but
-  * because of its small size we include it in the SSB core
-  * instead of creating a standalone module.
-  *
+diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+index 8f8b5a4..515abff 100644
+--- a/net/netfilter/nf_conntrack_sip.c
++++ b/net/netfilter/nf_conntrack_sip.c
+@@ -187,7 +187,7 @@ static const struct sip_header_nfo ct_sip_hdrs[] = {
+ 	}
+ };
+ 
+-/* get line lenght until first CR or LF seen. */
++/* get line length until first CR or LF seen. */
+ int ct_sip_lnlen(const char *line, const char *limit)
+ {
+ 	const char *k = line;
+@@ -236,7 +236,7 @@ static int digits_len(struct nf_conn *ct, const char *dptr,
+ 	return len;
+ }
+ 
+-/* get digits lenght, skiping blank spaces. */
++/* get digits length, skipping blank spaces. */
+ static int skp_digits_len(struct nf_conn *ct, const char *dptr,
+ 			  const char *limit, int *shift)
+ {
 -- 
 1.5.3.7.949.g2221a6
 
