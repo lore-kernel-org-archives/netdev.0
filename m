@@ -1,98 +1,117 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [PATCH 1/5] [CCID3]: Use a function to update p_inv, and p is never used
-Date: Mon, 17 Dec 2007 13:00:15 -0200
-Message-ID: <1197903619-12301-2-git-send-email-acme@redhat.com>
+Subject: [PATCH 3/5] [CCID3]: Implement rfc3448bis changes to feedback reception
+Date: Mon, 17 Dec 2007 13:00:17 -0200
+Message-ID: <1197903619-12301-4-git-send-email-acme@redhat.com>
 References: <1197903619-12301-1-git-send-email-acme@redhat.com>
+ <1197903619-12301-2-git-send-email-acme@redhat.com>
+ <1197903619-12301-3-git-send-email-acme@redhat.com>
 Cc: netdev@vger.kernel.org, dccp@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
 	Ian McDonald <ian.mcdonald@jandi.co.nz>,
 	Arnaldo Carvalho de Melo <acme@redhat.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.191]:35151 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757346AbXLQPA2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 10:00:28 -0500
-Received: by rv-out-0910.google.com with SMTP id k20so1903486rvb.1
+Received: from wr-out-0506.google.com ([64.233.184.238]:20357 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757326AbXLQPA3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 10:00:29 -0500
+Received: by wr-out-0506.google.com with SMTP id c49so1202987wra.1
         for <netdev@vger.kernel.org>; Mon, 17 Dec 2007 07:00:27 -0800 (PST)
-In-Reply-To: <1197903619-12301-1-git-send-email-acme@redhat.com>
+In-Reply-To: <1197903619-12301-3-git-send-email-acme@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-This patch
- 1) concentrates previously scattered computation of p_inv into one function;
- 2) removes the `p' element of the CCID3 RX sock (it is redundant);
- 3) makes the tfrc_rx_info structure standalone, only used on demand.
+This implements the algorithm to update the allowed sending rate X upon
+receiving feedback packets, as described in draft rfc3448bis, 4.2/4.3.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/dccp/ccids/ccid3.c |   11 ++++++++---
- net/dccp/ccids/ccid3.h |    8 ++++----
- 2 files changed, 12 insertions(+), 7 deletions(-)
+ net/dccp/ccids/ccid3.c |   47 ++++++++++++++++++++++++++---------------------
+ 1 files changed, 26 insertions(+), 21 deletions(-)
 
 diff --git a/net/dccp/ccids/ccid3.c b/net/dccp/ccids/ccid3.c
-index 876c747..90e0454 100644
+index 1b1cb74..7c8e9ad 100644
 --- a/net/dccp/ccids/ccid3.c
 +++ b/net/dccp/ccids/ccid3.c
-@@ -917,6 +917,7 @@ static int ccid3_hc_rx_getsockopt(struct sock *sk, const int optname, int len,
- 				  u32 __user *optval, int __user *optlen)
- {
- 	const struct ccid3_hc_rx_sock *hcrx;
-+	struct tfrc_rx_info rx_info;
- 	const void *val;
+@@ -429,40 +429,46 @@ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 	if (pinv == ~0U || pinv == 0)	       /* see RFC 4342, 8.5   */
+ 		hctx->ccid3hctx_p = 0;
+ 	else				       /* can not exceed 100% */
+-		hctx->ccid3hctx_p = 1000000 / pinv;
++		hctx->ccid3hctx_p = scaled_div(1, pinv);
+ 	/*
+ 	 * Validate new RTT sample and update moving average
+ 	 */
+ 	r_sample = dccp_sample_rtt(sk, r_sample);
+ 	hctx->ccid3hctx_rtt = tfrc_ewma(hctx->ccid3hctx_rtt, r_sample, 9);
+-
++	/*
++	 * Update allowed sending rate X as per draft rfc3448bis-00, 4.2/3
++	 */
+ 	if (hctx->ccid3hctx_state == TFRC_SSTATE_NO_FBACK) {
+-		/*
+-		 * Larger Initial Windows [RFC 4342, sec. 5]
+-		 */
+-		hctx->ccid3hctx_x    = rfc3390_initial_rate(sk);
+-		hctx->ccid3hctx_t_ld = now;
++		ccid3_hc_tx_set_state(sk, TFRC_SSTATE_FBACK);
  
- 	/* Listen socks doesn't have a private CCID block */
-@@ -926,10 +927,14 @@ static int ccid3_hc_rx_getsockopt(struct sock *sk, const int optname, int len,
- 	hcrx = ccid3_hc_rx_sk(sk);
- 	switch (optname) {
- 	case DCCP_SOCKOPT_CCID_RX_INFO:
--		if (len < sizeof(hcrx->ccid3hcrx_tfrc))
-+		if (len < sizeof(rx_info))
- 			return -EINVAL;
--		len = sizeof(hcrx->ccid3hcrx_tfrc);
--		val = &hcrx->ccid3hcrx_tfrc;
-+		rx_info.tfrcrx_x_recv = hcrx->ccid3hcrx_x_recv;
-+		rx_info.tfrcrx_rtt    = hcrx->ccid3hcrx_rtt;
-+		rx_info.tfrcrx_p      = hcrx->ccid3hcrx_pinv == 0 ? ~0U :
-+					   scaled_div(1, hcrx->ccid3hcrx_pinv);
-+		len = sizeof(rx_info);
-+		val = &rx_info;
- 		break;
- 	default:
- 		return -ENOPROTOOPT;
-diff --git a/net/dccp/ccids/ccid3.h b/net/dccp/ccids/ccid3.h
-index e9f6ff4..49ca32b 100644
---- a/net/dccp/ccids/ccid3.h
-+++ b/net/dccp/ccids/ccid3.h
-@@ -139,6 +139,8 @@ enum ccid3_hc_rx_states {
-  *  @ccid3hcrx_last_counter  -  Tracks window counter (RFC 4342, 8.1)
-  *  @ccid3hcrx_state  -  Receiver state, one of %ccid3_hc_rx_states
-  *  @ccid3hcrx_bytes_recv  -  Total sum of DCCP payload bytes
-+ *  @ccid3hcrx_x_recv  -  Receiver estimate of send rate (RFC 3448, sec. 4.3)
-+ *  @ccid3hcrx_rtt  -  Receiver estimate of RTT
-  *  @ccid3hcrx_tstamp_last_feedback  -  Time at which last feedback was sent
-  *  @ccid3hcrx_tstamp_last_ack  -  Time at which last feedback was sent
-  *  @ccid3hcrx_hist  -  Packet history (loss detection + RTT sampling)
-@@ -147,13 +149,11 @@ enum ccid3_hc_rx_states {
-  *  @ccid3hcrx_pinv  -  Inverse of Loss Event Rate (RFC 4342, sec. 8.5)
-  */
- struct ccid3_hc_rx_sock {
--	struct tfrc_rx_info		ccid3hcrx_tfrc;
--#define ccid3hcrx_x_recv		ccid3hcrx_tfrc.tfrcrx_x_recv
--#define ccid3hcrx_rtt			ccid3hcrx_tfrc.tfrcrx_rtt
--#define ccid3hcrx_p			ccid3hcrx_tfrc.tfrcrx_p
- 	u8				ccid3hcrx_last_counter:4;
- 	enum ccid3_hc_rx_states		ccid3hcrx_state:8;
- 	u32				ccid3hcrx_bytes_recv;
-+	u32				ccid3hcrx_x_recv;
-+	u32				ccid3hcrx_rtt;
- 	ktime_t				ccid3hcrx_tstamp_last_feedback;
- 	struct tfrc_rx_hist		ccid3hcrx_hist;
- 	struct tfrc_loss_hist		ccid3hcrx_li_hist;
+-		ccid3_update_send_interval(hctx);
++		if (hctx->ccid3hctx_t_rto == 0) {
++ 			/*
++			 * Initial feedback packet: Larger Initial Windows (4.2)
++ 			 */
++			hctx->ccid3hctx_x    = rfc3390_initial_rate(sk);
++			hctx->ccid3hctx_t_ld = now;
+ 
+-		ccid3_pr_debug("%s(%p), s=%u, MSS=%u, "
+-			       "R_sample=%uus, X=%u\n", dccp_role(sk),
+-			       sk, hctx->ccid3hctx_s,
+-			       dccp_sk(sk)->dccps_mss_cache, r_sample,
+-			       (unsigned)(hctx->ccid3hctx_x >> 6));
++			ccid3_update_send_interval(hctx);
+ 
+-		ccid3_hc_tx_set_state(sk, TFRC_SSTATE_FBACK);
+-	} else {
++			goto done_computing_x;
++		} else if (hctx->ccid3hctx_p == 0) {
++			/*
++			 * First feedback after nofeedback timer expiry (4.3)
++			 */
++			goto done_computing_x;
++ 		}
++	}
+ 
+-		/* Update sending rate (step 4 of [RFC 3448, 4.3]) */
+-		if (hctx->ccid3hctx_p > 0)
+-			hctx->ccid3hctx_x_calc =
++	/* Update sending rate (step 4 of [RFC 3448, 4.3]) */
++	if (hctx->ccid3hctx_p > 0)
++		hctx->ccid3hctx_x_calc =
+ 				tfrc_calc_x(hctx->ccid3hctx_s,
+ 					    hctx->ccid3hctx_rtt,
+ 					    hctx->ccid3hctx_p);
+-		ccid3_hc_tx_update_x(sk, &now);
++	ccid3_hc_tx_update_x(sk, &now);
+ 
+-		ccid3_pr_debug("%s(%p), RTT=%uus (sample=%uus), s=%u, "
++done_computing_x:
++	ccid3_pr_debug("%s(%p), RTT=%uus (sample=%uus), s=%u, "
+ 			       "p=%u, X_calc=%u, X_recv=%u, X=%u\n",
+ 			       dccp_role(sk),
+ 			       sk, hctx->ccid3hctx_rtt, r_sample,
+@@ -470,7 +476,6 @@ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 			       hctx->ccid3hctx_x_calc,
+ 			       (unsigned)(hctx->ccid3hctx_x_recv >> 6),
+ 			       (unsigned)(hctx->ccid3hctx_x >> 6));
+-	}
+ 
+ 	/* unschedule no feedback timer */
+ 	sk_stop_timer(sk, &hctx->ccid3hctx_no_feedback_timer);
 -- 
 1.5.3.6
 
