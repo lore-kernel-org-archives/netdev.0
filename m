@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: assign random address
-Date: Sun, 16 Dec 2007 20:24:43 -0800 (PST)
-Message-ID: <20071216.202443.251372179.davem@davemloft.net>
-References: <20071216142915.c120d25c.akpm@linux-foundation.org>
-	<20071216.152606.35263254.davem@davemloft.net>
-	<4765D4F0.5040202@garzik.org>
+Subject: Re: [PATCH net-2.6.25 8/8] Remove unused IPV4TYPE macros
+Date: Sun, 16 Dec 2007 20:28:59 -0800 (PST)
+Message-ID: <20071216.202859.212179086.davem@davemloft.net>
+References: <1197589141-7020-8-git-send-email-joe@perches.com>
+	<20071216.134825.261226998.davem@davemloft.net>
+	<1197864066.4894.20.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	berrange@redhat.com, herbert@gondor.apana.org.au, rjw@sisk.pl
-To: jeff@garzik.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51563
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53362
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751186AbXLQEYq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 23:24:46 -0500
-In-Reply-To: <4765D4F0.5040202@garzik.org>
+	by vger.kernel.org with ESMTP id S1756159AbXLQE3B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2007 23:29:01 -0500
+In-Reply-To: <1197864066.4894.20.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Sun, 16 Dec 2007 20:46:24 -0500
+From: Joe Perches <joe@perches.com>
+Date: Sun, 16 Dec 2007 20:01:06 -0800
 
-> David Miller wrote:
-> > [Patch 1/7] [SUBSYSTEM]: Foo bar baz...
+> On Sun, 2007-12-16 at 13:48 -0800, David Miller wrote:
+> > From: Joe Perches <joe@perches.com>
+> > Date: Thu, 13 Dec 2007 15:39:01 -0800
+> > > Signed-off-by: Joe Perches <joe@perches.com>
+> > Applied, thanks for doing this work Joe.
 > 
-> The most popular tool is git-am, which I and many others use.
+> I broke the parisc build.  Bad Joe...
 > 
-> git-am will snip "[SUBSYSTEM]" in the example that you give.
+> Here's the patch:
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-It should only snip the first "[Patch X/Y] " part, or the manual is
-buggy :-)
+Applied, thanks.
