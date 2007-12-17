@@ -1,55 +1,50 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFT] tehuti: napi fix
-Date: Mon, 17 Dec 2007 12:18:43 -0800
-Message-ID: <20071217121843.6ef76f05@deepthought>
-References: <002901c83c73$b089b6e0$9c94fea9@jason>
-	<20071212.071832.07747779.davem@davemloft.net>
-	<20071212135852.3369c820@freepuppy.rosehill>
-	<20071216.133833.105913775.davem@davemloft.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] [NET][POWERPC] ucc_geth: really fix section mismatch
+Date: Mon, 17 Dec 2007 16:03:58 -0500
+Message-ID: <4766E43E.4050101@pobox.com>
+References: <20071217115435.GA29857@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: joonwpark81@gmail.com, netdev@vger.kernel.org, jgarzik@pobox.com,
-	baum@tehutinetworks.net, andy@greyhouse.net
-To: David Miller <davem@davemloft.net>
+Cc: Li Yang <leoli@freescale.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: Anton Vorontsov <avorontsov@ru.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:59704 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756868AbXLQUUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 15:20:35 -0500
-In-Reply-To: <20071216.133833.105913775.davem@davemloft.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:51256 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758006AbXLQVEJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Dec 2007 16:04:09 -0500
+In-Reply-To: <20071217115435.GA29857@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 16 Dec 2007 13:38:33 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+Anton Vorontsov wrote:
+> Commit ed7e63a51d46e835422d89c687b8a3e419a4212a has tried to fix
+> section mismatch:
+> 
+> WARNING: vmlinux.o(.init.text+0x17278): Section mismatch: reference to
+> .exit.text:uec_mdio_exit (between 'ucc_geth_init' and 'uec_mdio_init')
+> 
+> But that mismatch still happens.
+> 
+> This patch actually fixing section mismatch by removing __exit from
+> the header file.
+> 
+> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+> ---
+>  drivers/net/ucc_geth_mii.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/ucc_geth_mii.h b/drivers/net/ucc_geth_mii.h
+> index d834370..1e45b20 100644
+> --- a/drivers/net/ucc_geth_mii.h
+> +++ b/drivers/net/ucc_geth_mii.h
+> @@ -96,5 +96,5 @@ enum enet_tbi_mii_reg {
+>  int uec_mdio_read(struct mii_bus *bus, int mii_id, int regnum);
+>  int uec_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 value);
+>  int __init uec_mdio_init(void);
+> -void __exit uec_mdio_exit(void);
 
-> From: Stephen Hemminger <shemminger@linux-foundation.org>
-> Date: Wed, 12 Dec 2007 13:58:52 -0800
-> 
-> > This should fix the tehuti napi fence post problems by getting
-> > rid of priv->napi_stop, and setting weight to 32 (like other 10G).
-> > 
-> > Also, used the wierd entry/exit macro's like rest of driver.
-> 
-> It fixes the fench-post problem, but like the comments you
-> removed explain:
-> 
-> > -		/* from time to time we exit to let NAPI layer release
-> > -		 * device lock and allow waiting tasks (eg rmmod) to advance) */
-> > -		priv->napi_stop = 0;
-> > -
-> 
-> We now hang on rmmod during constant packet load.
-> 
-> This change just trades one bug for another, we have to
-> get the device close issue sorted out before we can go
-> around removing these things.
-
-Well the napi_stop had the same effect as having a smaller weight
-value, so my patch just shrunk the weight. That causes the device
-to exit NAPI (and should solve the rmmod problem).
+applied #upstream-fixes
 
 
--- 
-Stephen Hemminger <stephen.hemminger@vyatta.com>
