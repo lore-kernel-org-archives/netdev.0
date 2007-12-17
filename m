@@ -1,65 +1,51 @@
-From: =?iso-8859-1?q?Fl=E1vio_Pires?= <flavio.defreitas@gmail.com>
-Subject: Re: Packet per Second
-Date: Mon, 17 Dec 2007 11:18:57 +0000 (UTC)
-Message-ID: <nemoMon121707091528@flis.man.torun.pl>
-References: <nemoFri121407105527@flis.man.torun.pl> <1197671513.5973.10.camel@andromache>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 2/2] [TCP]: Include __tcp_reset_fack_counts to non-__
+ version
+Date: Mon, 17 Dec 2007 13:38:30 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0712171234160.20530@kivilampi-30.cs.helsinki.fi>
+References: <11973738391620-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <11973738393633-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <11973738392955-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <20071211151336.GA1248@infradead.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:49787 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935869AbXLQLTN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Dec 2007 06:19:13 -0500
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1J4E05-0001Co-Ni
-	for netdev@vger.kernel.org; Mon, 17 Dec 2007 11:19:09 +0000
-Received: from gate2.ip2.com.br ([208.48.246.8])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 17 Dec 2007 11:19:09 +0000
-Received: from flavio.defreitas by gate2.ip2.com.br with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 17 Dec 2007 11:19:09 +0000
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:58131 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1765179AbXLQLic (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 06:38:32 -0500
+In-Reply-To: <20071211151336.GA1248@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <1197671513.5973.10.camel@andromache> Glen
-Turner<gdt@gdt.id.au> wrote:
->  On Fri, 2007-12-14 at 15:34 +0000, Fl=87vio Pires wrote:
->>   Well, I work on an ISP and we have a linux box acting as a
->> bridge+firewall. With this bridge+firewall we control the packet
->> rate per second from each client and from our repeaters. But I can`t
->> measure the packet rate per IP. Is there any tool for this?
+On Tue, 11 Dec 2007, Christoph Hellwig wrote:
 
->  The usual approach is to generate NetFlow records -- there are
->  a number of Linux tools for this. Collect them with a
-> collector(flow-tools being a common choice). Then have a Perl script
-> which reads the flow records, processes them whichever way you
-> desire, and drops the result into a rrdtool file (there are modules
-> for both reading the flow-tools data and outputing in the
-> rrdtoolformat). The rrdtool utilities have a limited range of graphs,
-> but there is a huge selection of graphing packages from other authors
-> for rrdtool-stored data (Drraw, etc).  Flow-tools also
->  has some third-party analysis tools, some of those have good
->  "top talker" statistics.
+> On Tue, Dec 11, 2007 at 01:50:39PM +0200, Ilpo J?rvinen wrote:
+> > +		BUG_ON((prev != NULL) && !tcp_skb_adjacent(sk, prev, skb[queue]));
+> > +
+> > +		tcp_for_write_queue_from(skb[queue], sk, queue) {
+> > +			if ((prev != NULL) && !tcp_skb_adjacent(sk, prev, skb[queue]))
+> > +				break;
+> > +
+> > +			if (!before(TCP_SKB_CB(skb[queue])->seq, tcp_sk(sk)->snd_nxt) ||
+> > +			    TCP_SKB_CB(skb[queue])->fack_count == fc)
+> > +				return;
+> 
+> There's quite a few overflows of the normal 80 char limit here.  Because
+> you're current style is a little on the verbose side that's trivially
+> fixable, though:
 
->  This is a lot of work, since you are really putting a
-> completemeasurement infrastructure in place to get the one statistic
-> you desire.  But I'd encourage you to do that, since knowing
->  one statistic usually leads to further questions of the data
+This part got removed when part of TCP code got removed during net-2.6.25 
+rebase...
 
-Thx for the answer Glen,
+Thanks anyway for the reminder, I'll try to be more careful during code 
+moves in future but I'll probably continue to allow expections in cases 
+where the offenders only consist of closing parenthesis, block opening 
+brace and termination semicolon (like it was in one of these lines as 
+well).
 
-I alread though about something like this. But, isn`t NetFlow just for
-Cisco IOS ?
-
-
-
---=20
-
-I'm trying a new usenet client for Mac, Nemo OS X.
-You can download it at http://www.malcom-mac.com/nemo
-
-
+-- 
+ i.
