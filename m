@@ -1,63 +1,77 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [git patches] net driver fixes
-Date: Mon, 17 Dec 2007 21:27:38 -0500
-Message-ID: <4767301A.5010108@garzik.org>
-References: <20071218020142.GA1580@havoc.gtf.org> <47672D55.2000503@chelsio.com>
+From: Hideo AOKI <haoki@redhat.com>
+Subject: [PATCH 0/4] [UDP]: memory accounting and limitation (take 11)
+Date: Mon, 17 Dec 2007 21:33:57 -0500
+Message-ID: <47673195.80004@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Divy Le Ray <divy@chelsio.com>
+Cc: haoki@redhat.com, Takahiro Yasui <tyasui@redhat.com>,
+	Masami Hiramatsu <mhiramat@redhat.com>,
+	Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
+	Bill Fink <billfink@mindspring.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	yoshfuji@linux-ipv6.org,
+	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
+To: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:53073 "EHLO mail.dvmed.net"
+Received: from mx1.redhat.com ([66.187.233.31]:41270 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752642AbXLRC1k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Dec 2007 21:27:40 -0500
-In-Reply-To: <47672D55.2000503@chelsio.com>
+	id S1752265AbXLRCgy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Dec 2007 21:36:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Divy Le Ray wrote:
-> Jeff Garzik wrote:
->>
->> A couple serious fixes (wireless, e100, sky2) and a bevy of minor ones.
->>
->> Please pull from 'upstream-linus' branch of
->> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git 
->> upstream-linus
->>
-> 
-> Hi Jeff,
-> 
-> Should I resend the 2 cxgb3 patches posted on 12/05 and 12/06 ?
-> I did not see them getting applied to the #upstream branch today.
-> 
-> Cheers,
-> Divy
-> 
-> 
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Hello,
 
-The last thing I have from you, in netdev#upstream, is
+I updated patch set of  UDP memory accounting and limitation.
 
-commit 75758e8aa4b7d5c651261ce653dd8d0b716e1eda
-Author: Divy Le Ray <divy@chelsio.com>
-Date:   Wed Dec 5 10:15:01 2007 -0800
+The spin lock that I used in previous take was removed from datagram
+memory accounting functions. As David commented, I used socket lock
+and backlog processing to keep consistency of memory accounting like
+TCP. I added socket lock to places where skbuff is freed, since the
+locking is needed to change sk_forward_alloc only.
 
-     cxgb3 - T3C support update
+Moreover, I revised memory accounting functions. As Herbert commented,
+I stopped using large inline function and tried to reduce amount of
+inline functions.
 
-     Update GPIO mapping for T3C.
-     Update xgmac for T3C support.
-     Fix typo in mtu table.
+The patch set was tested on net-2.6 tree.
 
-and there's nothing in my inbox.
 
-So if that is not the change you want, yes, please do resend.
+Changelog take 10 -> take 11:
+ * stopped using spin lock in memory accounting function
+ * socket lock and backlog processing were used to avoid conflict
+   between receive system call processing and BH
+ * revised memory accounting functions
+ * stooped changing sock_queue_rcv_skb() and skb_set_owner_r()
+ * added __udp_queue_rcv_skb to set proper destructor
+ * removed udp_set_owner_r()
+ * removed reclaim in inet_sock_destruct()
 
-	Jeff
+Changelog take 9 -> take 10:
+ * supported using sk_forward_alloc
+ * introduced several memory accounting functions with spin lock
+ * changed detagram receive functions to be able to customize
+   destructor
+ * fixed accounting bugs in previous takes
 
+Changelog take 8 -> take 9:
+ * introduced mem_schdeule functions for datargram protocols
+ * removed protocol check function, from patch set
+ * restructured patch set
+
+Changelog take 7 -> take 8:
+
+ * sk_datagram_pages(): avoided using divide instruction
+ * udp_recvmsg(): fixed referring released truesize in accounting
+
+Best regards,
+Hideo Aoki
+
+--
+Hitachi Computer Products (America) Inc.
 
