@@ -1,7 +1,7 @@
 From: Hideo AOKI <haoki@redhat.com>
-Subject: [PATCH 4/4] [UDP]: memory accounting in IPv4
-Date: Mon, 17 Dec 2007 21:38:47 -0500
-Message-ID: <476732B7.9040502@redhat.com>
+Subject: [PATCH 3/4] [UDP]: add udp_mem, udp_rmem_min and udp_wmem_min
+Date: Mon, 17 Dec 2007 21:38:31 -0500
+Message-ID: <476732A7.6040409@redhat.com>
 References: <47673195.80004@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -19,313 +19,220 @@ To: David Miller <davem@davemloft.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:55433 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:55435 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752135AbXLRCpj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Dec 2007 21:45:39 -0500
+	id S1752125AbXLRCpl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Dec 2007 21:45:41 -0500
 In-Reply-To: <47673195.80004@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds UDP memory usage accounting in IPv4.
+This patch adds sysctl parameters for customizing UDP memory accounting:
+     /proc/sys/net/ipv4/udp_mem
+     /proc/sys/net/ipv4/udp_rmem_min
+     /proc/sys/net/ipv4/udp_wmem_min
 
-Send buffer accounting is performed by IP layer, because skbuff is
-allocated in the layer.
+Udp_mem indicates number of pages which can be used for all UDP sockets.
+Each UDP packet is dropped, when the number of pages for socket buffer is
+beyond udp_mem and the socket already consumes minimum buffer.
 
-Receive buffer is charged, when the buffer successfully received.
-Destructor of the buffer does uncharging and reclaiming, when the
-buffer is freed. To set destructor at proper place, we use
-__udp_queue_rcv_skb() instead of sock_queue_rcv_skb(). To maintain
-consistency of memory accounting, socket lock is used to free receive
-buffer in udp_recvmsg().
-
-New packet will be add to backlog when the socket is used by user.
+This patch is also introduced memory_allocated variable for UDP protocol.
 
 Cc: Satoshi Oshima <satoshi.oshima.fk@hitachi.com>
-signed-off-by: Takahiro Yasui <tyasui@redhat.com>
-signed-off-by: Masami Hiramatsu <mhiramat@redhat.com>
 signed-off-by: Hideo Aoki <haoki@redhat.com>
 ---
 
- ip_output.c |   46 +++++++++++++++++++++++++++++++++--
- udp.c       |   78 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++---
- 2 files changed, 119 insertions(+), 5 deletions(-)
+ Documentation/networking/ip-sysctl.txt |   18 ++++++++++++++++++
+ include/net/udp.h                      |    9 +++++++++
+ net/ipv4/af_inet.c                     |    3 +++
+ net/ipv4/proc.c                        |    3 ++-
+ net/ipv4/sysctl_net_ipv4.c             |   31 +++++++++++++++++++++++++++++++
+ net/ipv4/udp.c                         |   27 +++++++++++++++++++++++++++
+ 6 files changed, 90 insertions(+), 1 deletion(-)
 
-diff -pruN net-2.6-udp-take11a1-p3/net/ipv4/ip_output.c net-2.6-udp-take11a1-p4/net/ipv4/ip_output.c
---- net-2.6-udp-take11a1-p3/net/ipv4/ip_output.c	2007-12-17 14:42:31.000000000 -0500
-+++ net-2.6-udp-take11a1-p4/net/ipv4/ip_output.c	2007-12-17 14:42:49.000000000 -0500
-@@ -707,6 +707,7 @@ static inline int ip_ufo_append_data(str
+diff -pruN net-2.6-udp-take11a1-p2/Documentation/networking/ip-sysctl.txt net-2.6-udp-take11a1-p3/Documentation/networking/ip-sysctl.txt
+--- net-2.6-udp-take11a1-p2/Documentation/networking/ip-sysctl.txt	2007-12-11 10:54:41.000000000 -0500
++++ net-2.6-udp-take11a1-p3/Documentation/networking/ip-sysctl.txt	2007-12-17 14:42:40.000000000 -0500
+@@ -446,6 +446,24 @@ tcp_dma_copybreak - INTEGER
+ 	and CONFIG_NET_DMA is enabled.
+ 	Default: 4096
+
++UDP variables:
++
++udp_mem - INTEGER
++	Number of pages allowed for queueing by all UDP sockets.
++	Default is calculated at boot time from amount of available memory.
++
++udp_rmem_min - INTEGER
++	Minimal size of receive buffer used by UDP sockets. Each UDP socket
++	is able to use the size for receiving data, even if total pages of UDP
++	sockets exceed udp_mem. The unit is byte.
++	Default: 4096
++
++udp_wmem_min - INTEGER
++	Minimal size of send buffer used by UDP sockets. Each UDP socket is
++	able to use the size for sending data, even if total pages of UDP
++	sockets exceed udp_mem. The unit is byte.
++	Default: 4096
++
+ CIPSOv4 Variables:
+
+ cipso_cache_enable - BOOLEAN
+diff -pruN net-2.6-udp-take11a1-p2/include/net/udp.h net-2.6-udp-take11a1-p3/include/net/udp.h
+--- net-2.6-udp-take11a1-p2/include/net/udp.h	2007-12-11 10:54:53.000000000 -0500
++++ net-2.6-udp-take11a1-p3/include/net/udp.h	2007-12-17 14:42:40.000000000 -0500
+@@ -65,6 +65,13 @@ extern rwlock_t udp_hash_lock;
+
+ extern struct proto udp_prot;
+
++extern atomic_t udp_memory_allocated;
++
++/* sysctl variables for udp */
++extern int sysctl_udp_mem;
++extern int sysctl_udp_rmem_min;
++extern int sysctl_udp_wmem_min;
++
+ struct sk_buff;
+
+ /*
+@@ -173,4 +180,6 @@ extern void udp_proc_unregister(struct u
+ extern int  udp4_proc_init(void);
+ extern void udp4_proc_exit(void);
+ #endif
++
++extern void udp_init(void);
+ #endif	/* _UDP_H */
+diff -pruN net-2.6-udp-take11a1-p2/net/ipv4/af_inet.c net-2.6-udp-take11a1-p3/net/ipv4/af_inet.c
+--- net-2.6-udp-take11a1-p2/net/ipv4/af_inet.c	2007-12-11 10:54:55.000000000 -0500
++++ net-2.6-udp-take11a1-p3/net/ipv4/af_inet.c	2007-12-17 14:42:40.000000000 -0500
+@@ -1418,6 +1418,9 @@ static int __init inet_init(void)
+ 	/* Setup TCP slab cache for open requests. */
+ 	tcp_init();
+
++	/* Setup UDP memory threshold */
++	udp_init();
++
+ 	/* Add UDP-Lite (RFC 3828) */
+ 	udplite4_register();
+
+diff -pruN net-2.6-udp-take11a1-p2/net/ipv4/proc.c net-2.6-udp-take11a1-p3/net/ipv4/proc.c
+--- net-2.6-udp-take11a1-p2/net/ipv4/proc.c	2007-12-11 10:54:55.000000000 -0500
++++ net-2.6-udp-take11a1-p3/net/ipv4/proc.c	2007-12-17 14:42:40.000000000 -0500
+@@ -56,7 +56,8 @@ static int sockstat_seq_show(struct seq_
+ 		   sock_prot_inuse(&tcp_prot), atomic_read(&tcp_orphan_count),
+ 		   tcp_death_row.tw_count, atomic_read(&tcp_sockets_allocated),
+ 		   atomic_read(&tcp_memory_allocated));
+-	seq_printf(seq, "UDP: inuse %d\n", sock_prot_inuse(&udp_prot));
++	seq_printf(seq, "UDP: inuse %d mem %d\n", sock_prot_inuse(&udp_prot),
++		   atomic_read(&udp_memory_allocated));
+ 	seq_printf(seq, "UDPLITE: inuse %d\n", sock_prot_inuse(&udplite_prot));
+ 	seq_printf(seq, "RAW: inuse %d\n", sock_prot_inuse(&raw_prot));
+ 	seq_printf(seq,  "FRAG: inuse %d memory %d\n",
+diff -pruN net-2.6-udp-take11a1-p2/net/ipv4/sysctl_net_ipv4.c net-2.6-udp-take11a1-p3/net/ipv4/sysctl_net_ipv4.c
+--- net-2.6-udp-take11a1-p2/net/ipv4/sysctl_net_ipv4.c	2007-12-11 10:54:55.000000000 -0500
++++ net-2.6-udp-take11a1-p3/net/ipv4/sysctl_net_ipv4.c	2007-12-17 14:42:40.000000000 -0500
+@@ -18,6 +18,7 @@
+ #include <net/ip.h>
+ #include <net/route.h>
+ #include <net/tcp.h>
++#include <net/udp.h>
+ #include <net/cipso_ipv4.h>
+ #include <net/inet_frag.h>
+
+@@ -885,6 +886,36 @@ ctl_table ipv4_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec,
+ 	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "udp_mem",
++		.data		= &sysctl_udp_mem,
++		.maxlen		= sizeof(sysctl_udp_mem),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec_minmax,
++		.strategy	= &sysctl_intvec,
++		.extra1		= &zero
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "udp_rmem_min",
++		.data		= &sysctl_udp_rmem_min,
++		.maxlen		= sizeof(sysctl_udp_rmem_min),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec_minmax,
++		.strategy	= &sysctl_intvec,
++		.extra1		= &zero
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "udp_wmem_min",
++		.data		= &sysctl_udp_wmem_min,
++		.maxlen		= sizeof(sysctl_udp_wmem_min),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec_minmax,
++		.strategy	= &sysctl_intvec,
++		.extra1		= &zero
++	},
+ 	{ .ctl_name = 0 }
+ };
+
+diff -pruN net-2.6-udp-take11a1-p2/net/ipv4/udp.c net-2.6-udp-take11a1-p3/net/ipv4/udp.c
+--- net-2.6-udp-take11a1-p2/net/ipv4/udp.c	2007-12-11 10:54:55.000000000 -0500
++++ net-2.6-udp-take11a1-p3/net/ipv4/udp.c	2007-12-17 14:42:40.000000000 -0500
+@@ -82,6 +82,7 @@
+ #include <asm/system.h>
+ #include <asm/uaccess.h>
+ #include <asm/ioctls.h>
++#include <linux/bootmem.h>
+ #include <linux/types.h>
+ #include <linux/fcntl.h>
+ #include <linux/module.h>
+@@ -114,6 +115,11 @@ DEFINE_SNMP_STAT(struct udp_mib, udp_sta
+ struct hlist_head udp_hash[UDP_HTABLE_SIZE];
+ DEFINE_RWLOCK(udp_hash_lock);
+
++atomic_t udp_memory_allocated;
++int sysctl_udp_mem __read_mostly;
++int sysctl_udp_rmem_min __read_mostly;
++int sysctl_udp_wmem_min __read_mostly;
++
+ static inline int __udp_lib_lport_inuse(__u16 num,
+ 					const struct hlist_head udptable[])
  {
- 	struct sk_buff *skb;
- 	int err;
-+	int first_size, second_size;
-
- 	/* There is support for UDP fragmentation offload by network
- 	 * device, so create one single skb packet containing complete
-@@ -720,6 +721,11 @@ static inline int ip_ufo_append_data(str
- 		if (skb == NULL)
- 			return err;
-
-+		if (!sk_account_wmem_charge(sk, skb->truesize)) {
-+			err = -ENOBUFS;
-+			goto fail;
-+		}
-+
- 		/* reserve space for Hardware header */
- 		skb_reserve(skb, hh_len);
-
-@@ -736,6 +742,7 @@ static inline int ip_ufo_append_data(str
- 		skb->csum = 0;
- 		sk->sk_sndmsg_off = 0;
- 	}
-+	first_size = skb->truesize;
-
- 	err = skb_append_datato_frags(sk,skb, getfrag, from,
- 			       (length - transhdrlen));
-@@ -743,6 +750,15 @@ static inline int ip_ufo_append_data(str
- 		/* specify the length of each IP datagram fragment*/
- 		skb_shinfo(skb)->gso_size = mtu - fragheaderlen;
- 		skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
-+
-+		second_size = skb->truesize - first_size;
-+		if (!sk_account_wmem_charge(sk, second_size)) {
-+			sk_account_uncharge(sk, first_size);
-+			sk_mem_reclaim(sk);
-+			err = -ENOBUFS;
-+			goto fail;
-+		}
-+
- 		__skb_queue_tail(&sk->sk_write_queue, skb);
-
- 		return 0;
-@@ -750,6 +766,7 @@ static inline int ip_ufo_append_data(str
- 	/* There is not enough support do UFO ,
- 	 * so follow normal path
- 	 */
-+fail:
- 	kfree_skb(skb);
- 	return err;
+@@ -1449,6 +1455,10 @@ struct proto udp_prot = {
+ 	.hash		   = udp_lib_hash,
+ 	.unhash		   = udp_lib_unhash,
+ 	.get_port	   = udp_v4_get_port,
++	.memory_allocated  = &udp_memory_allocated,
++	.sysctl_mem	   = &sysctl_udp_mem,
++	.sysctl_wmem	   = &sysctl_udp_wmem_min,
++	.sysctl_rmem	   = &sysctl_udp_rmem_min,
+ 	.obj_size	   = sizeof(struct udp_sock),
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt = compat_udp_setsockopt,
+@@ -1644,6 +1654,23 @@ void udp4_proc_exit(void)
  }
-@@ -924,6 +941,11 @@ alloc_new_skb:
- 			}
- 			if (skb == NULL)
- 				goto error;
-+			if (!sk_account_wmem_charge(sk, skb->truesize)) {
-+				err = -ENOBUFS;
-+				kfree_skb(skb);
-+				goto error;
-+			}
+ #endif /* CONFIG_PROC_FS */
 
- 			/*
- 			 *	Fill in the control structures
-@@ -954,6 +976,8 @@ alloc_new_skb:
- 			copy = datalen - transhdrlen - fraggap;
- 			if (copy > 0 && getfrag(from, data + transhdrlen, offset, copy, fraggap, skb) < 0) {
- 				err = -EFAULT;
-+				sk_account_uncharge(sk, skb->truesize);
-+				sk_mem_reclaim(sk);
- 				kfree_skb(skb);
- 				goto error;
- 			}
-@@ -1023,6 +1047,10 @@ alloc_new_skb:
- 				frag = &skb_shinfo(skb)->frags[i];
- 				skb->truesize += PAGE_SIZE;
- 				atomic_add(PAGE_SIZE, &sk->sk_wmem_alloc);
-+				if (!sk_account_wmem_charge(sk, PAGE_SIZE)) {
-+					err = -ENOBUFS;
-+					goto error;
-+				}
- 			} else {
- 				err = -EMSGSIZE;
- 				goto error;
-@@ -1124,6 +1152,11 @@ ssize_t	ip_append_page(struct sock *sk,
- 				err = -ENOBUFS;
- 				goto error;
- 			}
-+			if (!sk_account_wmem_charge(sk, skb->truesize)) {
-+				kfree_skb(skb);
-+				err = -ENOBUFS;
-+				goto error;
-+			}
-
- 			/*
- 			 *	Fill in the control structures
-@@ -1213,13 +1246,14 @@ int ip_push_pending_frames(struct sock *
- 	struct iphdr *iph;
- 	__be16 df = 0;
- 	__u8 ttl;
--	int err = 0;
-+	int err = 0, send_size;
-
- 	if ((skb = __skb_dequeue(&sk->sk_write_queue)) == NULL)
- 		goto out;
- 	tail_skb = &(skb_shinfo(skb)->frag_list);
-
- 	/* move skb->data to ip header from ext header */
-+	send_size = skb->truesize;
- 	if (skb->data < skb_network_header(skb))
- 		__skb_pull(skb, skb_network_offset(skb));
- 	while ((tmp_skb = __skb_dequeue(&sk->sk_write_queue)) != NULL) {
-@@ -1229,6 +1263,7 @@ int ip_push_pending_frames(struct sock *
- 		skb->len += tmp_skb->len;
- 		skb->data_len += tmp_skb->len;
- 		skb->truesize += tmp_skb->truesize;
-+		send_size += tmp_skb->truesize;
- 		__sock_put(tmp_skb->sk);
- 		tmp_skb->destructor = NULL;
- 		tmp_skb->sk = NULL;
-@@ -1284,6 +1319,8 @@ int ip_push_pending_frames(struct sock *
- 	/* Netfilter gets whole the not fragmented skb. */
- 	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL,
- 		      skb->dst->dev, dst_output);
-+	sk_account_uncharge(sk, send_size);
-+	sk_mem_reclaim(sk);
- 	if (err) {
- 		if (err > 0)
- 			err = inet->recverr ? net_xmit_errno(err) : 0;
-@@ -1306,10 +1343,15 @@ error:
- void ip_flush_pending_frames(struct sock *sk)
- {
- 	struct sk_buff *skb;
-+	int truesize = 0;
-
--	while ((skb = __skb_dequeue_tail(&sk->sk_write_queue)) != NULL)
-+	while ((skb = __skb_dequeue_tail(&sk->sk_write_queue)) != NULL) {
-+		truesize += skb->truesize;
- 		kfree_skb(skb);
-+	}
-
-+	sk_account_uncharge(sk, truesize);
-+	sk_mem_reclaim(sk);
- 	ip_cork_release(inet_sk(sk));
- }
-
-diff -pruN net-2.6-udp-take11a1-p3/net/ipv4/udp.c net-2.6-udp-take11a1-p4/net/ipv4/udp.c
---- net-2.6-udp-take11a1-p3/net/ipv4/udp.c	2007-12-17 14:42:40.000000000 -0500
-+++ net-2.6-udp-take11a1-p4/net/ipv4/udp.c	2007-12-17 18:29:06.000000000 -0500
-@@ -897,14 +897,18 @@ try_again:
- 		err = ulen;
-
- out_free:
-+	lock_sock(sk);
- 	skb_free_datagram(sk, skb);
-+	release_sock(sk);
- out:
- 	return err;
-
- csum_copy_err:
- 	UDP_INC_STATS_BH(UDP_MIB_INERRORS, is_udplite);
-
-+	lock_sock(sk);
- 	skb_kill_datagram(sk, skb, flags);
-+	release_sock(sk);
-
- 	if (noblock)
- 		return -EAGAIN;
-@@ -934,6 +938,53 @@ int udp_disconnect(struct sock *sk, int
- 	return 0;
- }
-
-+/**
-+ * 	__udp_queue_rcv_skb - put new skb to receive queue of socket
-+ *	@sk: socket
-+ *	@skb: skbuff
-+ *
-+ *	This function basically does the same thing as sock_queue_rcv_skb().
-+ *	The difference to it is to set another destrucfor which is able to
-+ *	do memory accouting.
-+ */
-+int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
++void __init udp_init(void)
 +{
-+	int err = 0;
-+	int skb_len;
++	unsigned long limit;
 +
-+	/* Cast skb->rcvbuf to unsigned... It's pointless, but reduces
-+	   number of warnings when compiling with -W --ANK
++	/* Set the pressure threshold up by the same strategy of TCP. It is a
++	 * fraction of global memory that is up to 1/2 at 256 MB, decreasing
++	 * toward zero with the amount of memory, with a floor of 128 pages.
 +	 */
-+	if (atomic_read(&sk->sk_rmem_alloc) + skb->truesize >=
-+	    (unsigned)sk->sk_rcvbuf) {
-+		err = -ENOMEM;
-+		goto out;
-+	}
++	limit = min(nr_all_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
++	limit = (limit * (nr_all_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
++	limit = max(limit, 128UL);
++	sysctl_udp_mem = limit / 4 * 3;
 +
-+	err = sk_filter(sk, skb);
-+	if (err)
-+		goto out;
-+
-+	skb->dev = NULL;
-+	skb->sk = sk;
-+	skb->destructor = sk_datagram_rfree;
-+	atomic_add(skb->truesize, &sk->sk_rmem_alloc);
-+
-+	/* Cache the SKB length before we tack it onto the receive
-+	 * queue.  Once it is added it no longer belongs to us and
-+	 * may be freed by other threads of control pulling packets
-+	 * from the queue.
-+	 */
-+	skb_len = skb->len;
-+
-+	skb_queue_tail(&sk->sk_receive_queue, skb);
-+
-+	if (!sock_flag(sk, SOCK_DEAD))
-+		sk->sk_data_ready(sk, skb_len);
-+out:
-+	return err;
++	sysctl_udp_rmem_min = SK_DATAGRAM_MEM_QUANTUM;
++	sysctl_udp_wmem_min = SK_DATAGRAM_MEM_QUANTUM;
 +}
 +
- /* returns:
-  *  -1: error
-  *   0: success
-@@ -1022,10 +1073,17 @@ int udp_queue_rcv_skb(struct sock * sk,
- 			goto drop;
- 	}
-
--	if ((rc = sock_queue_rcv_skb(sk,skb)) < 0) {
-+	if (!sk_account_rmem_charge(sk, skb->truesize)) {
-+		UDP_INC_STATS_BH(UDP_MIB_RCVBUFERRORS, up->pcflag);
-+		goto drop;
-+	}
-+
-+	if ((rc = __udp_queue_rcv_skb(sk, skb)) < 0) {
- 		/* Note that an ENOMEM error is charged twice */
- 		if (rc == -ENOMEM)
- 			UDP_INC_STATS_BH(UDP_MIB_RCVBUFERRORS, up->pcflag);
-+		sk_account_uncharge(sk, skb->truesize);
-+		sk_datagram_mem_reclaim(sk);
- 		goto drop;
- 	}
-
-@@ -1068,7 +1126,15 @@ static int __udp4_lib_mcast_deliver(stru
- 				skb1 = skb_clone(skb, GFP_ATOMIC);
-
- 			if (skb1) {
--				int ret = udp_queue_rcv_skb(sk, skb1);
-+				int ret = 0;
-+
-+				bh_lock_sock_nested(sk);
-+				if (!sock_owned_by_user(sk))
-+					ret = udp_queue_rcv_skb(sk, skb1);
-+				else
-+					sk_add_backlog(sk, skb1);
-+				bh_unlock_sock(sk);
-+
- 				if (ret > 0)
- 					/* we should probably re-process instead
- 					 * of dropping packets here. */
-@@ -1161,7 +1227,13 @@ int __udp4_lib_rcv(struct sk_buff *skb,
- 			       inet_iif(skb), udptable);
-
- 	if (sk != NULL) {
--		int ret = udp_queue_rcv_skb(sk, skb);
-+		int ret = 0;
-+		bh_lock_sock_nested(sk);
-+		if (!sock_owned_by_user(sk))
-+			ret = udp_queue_rcv_skb(sk, skb);
-+		else
-+			sk_add_backlog(sk, skb);
-+		bh_unlock_sock(sk);
- 		sock_put(sk);
-
- 		/* a return value > 0 means to resubmit the input, but
+ EXPORT_SYMBOL(udp_disconnect);
+ EXPORT_SYMBOL(udp_hash);
+ EXPORT_SYMBOL(udp_hash_lock);
 -- 
 Hitachi Computer Products (America) Inc.
