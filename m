@@ -1,57 +1,57 @@
 From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: [PATCH] mac80211: warn when receiving frames with unaligned data
-Date: Tue, 18 Dec 2007 15:11:35 +0100
-Message-ID: <1197987095.4885.159.camel@johannes.berg>
+Subject: Re: [RFC] mac80211: clean up frame receive handling
+Date: Tue, 18 Dec 2007 15:16:12 +0100
+Message-ID: <1197987372.4885.160.camel@johannes.berg>
+References: <1197483844.6558.158.camel@johannes.berg>
+	 (sfid-20071212_182419_921972_853D21C5)
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-SfUyMZAEGa3WRSgR9/mx"
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+	Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Jouni Malinen <j@w1.fi>
+To: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1197483844.6558.158.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org> (sfid-20071212_182419_921972_853D21C5)
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes mac80211 warn (once) when the driver passes up a
-frame in which the payload data is not aligned on a four-byte
-boundary, with a long comment for people who run into the condition
-and need to know what to do.
 
-Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
----
- net/mac80211/rx.c |   13 +++++++++++++
- 1 file changed, 13 insertions(+)
+--=-SfUyMZAEGa3WRSgR9/mx
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
---- everything.orig/net/mac80211/rx.c	2007-12-18 14:47:18.433014323 +0100
-+++ everything/net/mac80211/rx.c	2007-12-18 14:48:47.113014051 +0100
-@@ -1619,6 +1619,7 @@ void __ieee80211_rx(struct ieee80211_hw 
- 	struct ieee80211_sub_if_data *prev = NULL;
- 	struct sk_buff *skb_new;
- 	u8 *bssid;
-+	int hdrlen;
- 
- 	/*
- 	 * key references and virtual interfaces are protected using RCU
-@@ -1648,6 +1649,18 @@ void __ieee80211_rx(struct ieee80211_hw 
- 	rx.fc = le16_to_cpu(hdr->frame_control);
- 	type = rx.fc & IEEE80211_FCTL_FTYPE;
- 
-+	/*
-+	 * Drivers are required to align the payload data to a four-byte
-+	 * boundary, so the last two bits of the address where it starts
-+	 * may not be set. The header is required to be directly before
-+	 * the payload data, padding like atheros hardware adds which is
-+	 * inbetween the 802.11 header and the payload is not supported,
-+	 * the driver is required to move the 802.11 header further back
-+	 * in that case.
-+	 */
-+	hdrlen = ieee80211_get_hdrlen(rx.fc);
-+	WARN_ON_ONCE(((unsigned long)(skb->data + hdrlen)) & 3);
-+
- 	if (type == IEEE80211_FTYPE_DATA || type == IEEE80211_FTYPE_MGMT)
- 		local->dot11ReceivedFragmentCount++;
- 
+
+On Wed, 2007-12-12 at 19:24 +0100, Johannes Berg wrote:
+> [comments welcome. I really need a refresher on what the frame formats
+> mean but I think I did the right thing with skb->protocol here, I also
+> think we had a bug with rfc2042 header frames bigger than 15xx bytes and
+> eth_type_trans()]
+
+I just discovered annex M to the 802.11 standard, will recheck with that
+in mind.
+
+johannes
+
+--=-SfUyMZAEGa3WRSgR9/mx
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIVAwUAR2fWKqVg1VMiehFYAQL35xAAkrjdujbPtTt2VoRG3U0kqFg1CP89jj/t
+5wz8SDFOrJTwx6QW/3VBtOUGkUNlVXJzik935b1bktS3uZeXBQTzhg8vuPbgncn/
+vyS3xcK+c5zdWvsPGBjcMquc31BTu0js+Y/RXkGLvhDOFvfyXoFJY54k0UvlZK8z
+1/FnaLykAs25klTLxuOFqf7fft7BziN8WjQnqX17s40jeZTmNcejftmbY1DCVpY/
+oZfh5pj+d9M2cRIVYHtLEwnueTe/fnkaeT/XtobwTxuJt8J7p+1Qj5qVCxMOOf5s
+jSIy9E66VnyxkfroxxxvqgRSk7iWixvjmLCGx5dUnktXKsXd/Xo/0w0YelcDyttI
+Sq2cBNtZAEkRTd3zsDZCV+kRspl7g0Jwv22KygVQUCaXlY0CliK6rakMtazxBQjZ
+G5SeliXniXbTKCREPfDh8heC374vhEOlvPLRlenCCAbZKvbC8bR5dUbuUMRXRTwF
+3KoUJeOdXqJ84yNPM1sMGr1q4pHH3mmnNiykRPjXd5Wn1ZhyjNmRkULOrRpJAyvr
+UrCgflYS2H9V8DFGa09Xxj0+RVN+WqpgLtBjaYBdNJt4SZErR7aJ0Hx+ZWbd1rIR
+0gIcbc27CglWRrITZwlEZJAP9oZrIUOSBitMhnhBotJ5BGE8PFBWygXqCIrR6YiG
+gZ0I+iaQgCM=
+=u/xz
+-----END PGP SIGNATURE-----
+
+--=-SfUyMZAEGa3WRSgR9/mx--
