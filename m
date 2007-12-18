@@ -1,30 +1,31 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2 2.6.25] cxgb3 - parity initialization for T3C adapters.
-Date: Mon, 17 Dec 2007 22:04:11 -0500
-Message-ID: <476738AB.5050400@garzik.org>
-References: <20071218024731.6572.96192.stgit@speedy5>
+From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+Subject: Re: iwlwifi: fix-up merge fall-out after namespace separation
+Date: Mon, 17 Dec 2007 22:04:23 -0500
+Message-ID: <476738B7.7030104@garzik.org>
+References: <20071216043419.GF3096@tuxdriver.com> <47670514.4030204@garzik.org> <476708EF.10403@garzik.org> <20071218022540.GB3640@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: Divy Le Ray <divy@chelsio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38524 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934029AbXLRDEO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Dec 2007 22:04:14 -0500
-In-Reply-To: <20071218024731.6572.96192.stgit@speedy5>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20071218022540.GB3640-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Divy Le Ray wrote:
-> From: Divy Le Ray <divy@chelsio.com>
-> 
-> Add parity initialization for T3C adapters.
-> 
-> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+John W. Linville wrote:
+>> drivers/net/wireless/iwlwifi/iwl3945-base.c: In function=20
+>> =E2=80=98iwl3945_alive_start=E2=80=99:
+>> drivers/net/wireless/iwlwifi/iwl3945-base.c:6285: error: implicit=20
+>> declaration of function =E2=80=98iwl_rate_control_unregister=E2=80=99
+>> make[4]: *** [drivers/net/wireless/iwlwifi/iwl3945-base.o] Error 1
+>> make[3]: *** [drivers/net/wireless/iwlwifi] Error 2
+>> make[2]: *** [drivers/net/wireless] Error 2
+>> make[1]: *** [drivers/net] Error 2
+>> make: *** [drivers] Error 2
+>=20
+> Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 
-applied 1-2 to #upstream
-
-
+applied, thanks
