@@ -1,38 +1,43 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [0/4] DST: Distributed storage.
-Date: Tue, 18 Dec 2007 14:08:47 +0300
-Message-ID: <20071218110847.GB4193@2ka.mipt.ru>
-References: <20071214133747.GC31971@2ka.mipt.ru> <11979038181687@2ka.mipt.ru> <20071218010003.GE4396912@sgi.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 3/3] [UDP6]: Counter increment on BH mode
+Date: Tue, 18 Dec 2007 11:43:44 +0000
+Message-ID: <20071218114344.GB817@gerrit.erg.abdn.ac.uk>
+References: <474F7EE8.2040009@cn.fujitsu.com> <474F8255.5060501@cn.fujitsu.com> <20071130111949.GB28277@gerrit.erg.abdn.ac.uk> <20071201015438.GC26895@gondor.apana.org.au> <4753AE07.1040906@cn.fujitsu.com> <20071203113935.GA25124@gondor.apana.org.au> <20071203114912.GA4425@ms2.inr.ac.ru> <20071203115435.GA4202@gondor.apana.org.au> <20071203131723.GA30312@gondor.apana.org.au> <20071215135851.GA29063@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: David Chinner <dgc@sgi.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54313 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751776AbXLRLog (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Dec 2007 06:44:36 -0500
 Content-Disposition: inline
-In-Reply-To: <20071218010003.GE4396912@sgi.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20071215135851.GA29063@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David.
+| 
+| I didn't hear any objections so here is the patch again.
+| 
+| [SNMP]: Fix SNMP counters with PREEMPT
+| 
+I don't feel competent to say whether this is correct, but it seems that
+this is going a long way towards resolving older problems with the SNMP
+counters.
 
-On Tue, Dec 18, 2007 at 12:00:04PM +1100, David Chinner (dgc@sgi.com) wrote:
-> On Mon, Dec 17, 2007 at 06:03:38PM +0300, Evgeniy Polyakov wrote:
-> > DST passed all FS tests in LTP with XFS (modulo MAX_LOCK_DEPTH too low bug:
-> > [ 8398.605691] BUG: MAX_LOCK_DEPTH too low!
-> > [ 8398.609641] turning off the locking correctness validator.
-> 
-> Evgeniy, can you please start reporting these XFS problems you are
-> coming across to the XFS list (xfs@oss.sgi.com)? They may be
-> real issues that we need to address and we should not be hearing
-> about them for the first time in the release notes for a block
-> device project....
+What I can say is that a year ago, when doing the UDP/-Lite work, I found
+that the counters were not accurate, which was due to the double-counting
+problem that Wang Chen brought up again.
 
-It is not XFS as is, but lock validator warning. I just found it
-working with XFS - it can be anything else: VFS, block layer, DST itself
-(there is number of locks too), so I did not fill the bug against
-filesystem, but pointed that some problem, probalby harmless,
-exists in tested environment.
+Resolving this issue was stalled at that time due to the fact that a
+counter may be incremented on one CPU and then later decremented on
+another.
 
--- 
-	Evgeniy Polyakov
+It looks as if this work is reaching the cause of the problem, which would
+be good since the problem propagates to all users of such counters (UDP,
+UDP-Lite, and similar MIB counters). So thank you for taking this issue up,
+I hope that this will lead to a patch set resolving the counter issues.
+
+Best regards,
+Gerrit
