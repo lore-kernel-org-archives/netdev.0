@@ -1,39 +1,44 @@
-From: Vitaly Bordug <vitb@kernel.crashing.org>
-Subject: Re: [PATCH/RFC] [POWERPC] Add fixed-phy support for fs_enet
-Date: Tue, 18 Dec 2007 18:10:07 +0300
-Message-ID: <20071218181007.5ac05511@kernel.crashing.org>
-References: <47601027.2080104@scram.de>
-	<4767042E.2070903@garzik.org>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [PATCH] MAINTAINERS: remove Adam Fritzler, update his email
+ address in other sources
+Date: Tue, 18 Dec 2007 07:13:00 -0800
+Message-ID: <20071218071300.7acdb2b0@laptopd505.fenrus.org>
+References: <1197951126.4891.13.camel@localhost>
+	<20071217202800.1c898441.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, linuxppc-dev@ozlabs.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Scott Wood <scottwood@freescale.com>
-To: Jochen Friedrich <jochen@scram.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:59095 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754833AbXLRPLI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Dec 2007 10:11:08 -0500
-In-Reply-To: <4767042E.2070903@garzik.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Joe Perches <joe@perches.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Adam Fritzler <mid@zigamorph.net>,
+	"James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Mike Phillips <mikep@linuxtr.net>,
+	Philip Blundell <philb@gnu.org>, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org, Adrian Bunk <bunk@stusta.de>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20071217202800.1c898441.akpm@linux-foundation.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 17 Dec 2007 18:20:14 -0500
-Jeff Garzik wrote:
+On Mon, 17 Dec 2007 20:28:00 -0800
+Andrew Morton <akpm@linux-foundation.org> wrote:
+> 
+> 
+> btw, I cheerfully skipped all your spelling-fixes patches.  Some will
+> have stuck via subsystem maintainers but I have a secret "no spelling
+> fixes unless they're end-user-visible" policy.  That means I'll take
+> spelling fixes only if they're in printks or in Documentation/*.
+> This is a little defense mechanism to avoid getting buried in
+> micropatches.
+> 
 
-> Jochen Friedrich wrote:
-> > This patch adds support to use the fixed-link property
-> > of an ethernet node to fs_enet for the
-> > CONFIG_PPC_CPM_NEW_BINDING case.
-> > 
-> > Signed-off-by: Jochen Friedrich <jochen@scram.de>
-Acked-by: Vitaly Bordug <vitb@kernel.crashing.org>
+for something more productive.. add an aspell/ispell hook to checkpatch.pl ;-)
 
-Jochen,
-will you resend the patch with all acks to paulus? I'll do that if not.
 
 
 -- 
-Sincerely, Vitaly
+If you want to reach me at my work email, use arjan@linux.intel.com
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
