@@ -1,92 +1,164 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: [RFC][PATCH][IPV4] ip_gre: use skb->{mac,network}_header consistently
-Date: Tue, 18 Dec 2007 15:59:37 +0200
-Message-ID: <4767D249.5050602@iki.fi>
-References: <471E05BD.7040407@iki.fi> <471E0638.9040405@trash.net> <471E19E5.5040509@iki.fi> <20071023202036.GA12066@ms2.inr.ac.ru> <471EDE22.4090408@iki.fi> <20071024100842.GA19369@ms2.inr.ac.ru>
+From: "Miles Lane" <miles.lane@gmail.com>
+Subject: 2.6.24-rc5-mm1 -- INFO: possible circular locking dependency detected -- pm-suspend/5800 is trying to acquire lock
+Date: Tue, 18 Dec 2007 09:03:01 -0500
+Message-ID: <a44ae5cd0712180603v2a37023dj714a8500c14c08de@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.189]:44284 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756192AbXLRN7Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 08:59:25 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so2071157fkz.5
-        for <netdev@vger.kernel.org>; Tue, 18 Dec 2007 05:59:23 -0800 (PST)
-In-Reply-To: <20071024100842.GA19369@ms2.inr.ac.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "Andrew Morton" <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	ipw3945-devel@lists.sourceforge.net,
+	"Len Brown" <len.brown@intel.c
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757937AbXLROD2@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Timo Teras <timo.teras@iki.fi>
+I have only seen this happen once, and cannot reproduce it.  I'll keep
+trying, though.
 
-Make both send and receive paths use consistently skb->*_header:
-  mac_header = outer IPv4 header
-  network_header = encapsulated packet (e.g. inner IPv4 header)
-
-Signed-off-by: Timo Teras <timo.teras@iki.fi>
----
-Currently in send path:
-  network_header = outer IPv4 header
-  transport_header = encapsulated packet
-And receive path:
-  network_header = encapsulated packet
-  mac_header = GRE header
-
-mac_header used to be the outer IPv4 header on receive path, but it was
-broken/changed when skb_reset_mac_header() was introduced.
-
-This also makes ipgre_header_parse() work correctly as it assumes that
-mac_header points to the outer IPv4 header always. Though, it returns
-zeros for outgoing packets that are tcpdumped from gre tunnel without
-explicit local address, since the routing is done in ipgre_tunnel_xmit().
-
- net/ipv4/ip_gre.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 02b02a8..eba1ade 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -613,7 +613,7 @@ static int ipgre_rcv(struct sk_buff *skb)
- 				offset += 4;
- 		}
- 
--		skb_reset_mac_header(skb);
-+		skb->mac_header = skb->network_header;
- 		__pskb_pull(skb, offset);
- 		skb_reset_network_header(skb);
- 		skb_postpull_rcsum(skb, skb_transport_header(skb), offset);
-@@ -826,9 +826,8 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 		old_iph = ip_hdr(skb);
- 	}
- 
--	skb->transport_header = skb->network_header;
- 	skb_push(skb, gre_hlen);
--	skb_reset_network_header(skb);
-+	skb_reset_mac_header(skb);
- 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
- 	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
- 			      IPSKB_REROUTED);
-@@ -839,7 +838,7 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 *	Push down and install the IPIP header.
- 	 */
- 
--	iph 			=	ip_hdr(skb);
-+	iph 			=	(struct iphdr *) skb_mac_header(skb);
- 	iph->version		=	4;
- 	iph->ihl		=	sizeof(struct iphdr) >> 2;
- 	iph->frag_off		=	df;
-@@ -1070,6 +1069,7 @@ static int ipgre_header(struct sk_buff *skb, struct net_device *dev,
- 	struct iphdr *iph = (struct iphdr *)skb_push(skb, t->hlen);
- 	__be16 *p = (__be16*)(iph+1);
- 
-+	skb_reset_mac_header(skb);
- 	memcpy(iph, &t->parms.iph, sizeof(struct iphdr));
- 	p[0]		= t->parms.o_flags;
- 	p[1]		= htons(type);
--- 
-1.5.2.5
-
-
+Dec 16 22:10:48 syntropy kernel: [  231.718023]
+=======================================================
+Dec 16 22:10:48 syntropy kernel: [  231.718025] [ INFO: possible
+circular locking dependency detected ]
+Dec 16 22:10:48 syntropy kernel: [  231.718028] 2.6.24-rc5-mm1 #7
+Dec 16 22:10:48 syntropy kernel: [  231.718029]
+-------------------------------------------------------
+Dec 16 22:10:48 syntropy kernel: [  231.718032] pm-suspend/5800 is
+trying to acquire lock:
+Dec 16 22:10:48 syntropy kernel: [  231.718034]
+(&(&priv->init_alive_start)->work){--..}, at:
+[__cancel_work_timer+0x8a/0x17f] __cancel_work_timer+0x8a/0x17f
+Dec 16 22:10:48 syntropy kernel: [  231.718045]
+Dec 16 22:10:48 syntropy kernel: [  231.718046] but task is already
+holding lock:
+Dec 16 22:10:48 syntropy kernel: [  231.718047]  (&priv->mutex){--..},
+at: [<f8a587e7>] iwl3945_pci_suspend+0x1d/0x65 [iwl3945]
+Dec 16 22:10:48 syntropy kernel: [  231.718065]
+Dec 16 22:10:48 syntropy kernel: [  231.718066] which lock already
+depends on the new lock.
+Dec 16 22:10:48 syntropy kernel: [  231.718067]
+Dec 16 22:10:48 syntropy kernel: [  231.718068]
+Dec 16 22:10:48 syntropy kernel: [  231.718069] the existing
+dependency chain (in reverse order) is:
+Dec 16 22:10:48 syntropy kernel: [  231.718071]
+Dec 16 22:10:48 syntropy kernel: [  231.718072] -> #1 (&priv->mutex){--..}:
+Dec 16 22:10:48 syntropy kernel: [  231.718075]
+[__lock_acquire+0xa17/0xbf4] __lock_acquire+0xa17/0xbf4
+Dec 16 22:10:48 syntropy kernel: [  231.718083]
+[mac80211:lock_acquire+0x76/0x1d8] lock_acquire+0x76/0x9d
+Dec 16 22:10:48 syntropy kernel: [  231.718088]
+[pcmcia:mutex_lock_nested+0xf7/0xd7d] mutex_lock_nested+0xf7/0x294
+Dec 16 22:10:48 syntropy kernel: [  231.718096]        [<f8a56ff7>]
+iwl3945_bg_init_alive_start+0x2d/0x1d7 [iwl3945]
+Dec 16 22:10:48 syntropy kernel: [  231.718109]
+[run_workqueue+0xbb/0x18b] run_workqueue+0xbb/0x18b
+Dec 16 22:10:48 syntropy kernel: [  231.718115]
+[worker_thread+0xbe/0xcd] worker_thread+0xbe/0xcd
+Dec 16 22:10:48 syntropy kernel: [  231.718121]
+[kthread+0x3b/0x61] kthread+0x3b/0x61
+Dec 16 22:10:48 syntropy kernel: [  231.718126]
+[kernel_thread_helper+0x7/0x10] kernel_thread_helper+0x7/0x10
+Dec 16 22:10:48 syntropy kernel: [  231.718133]        [<ffffffff>] 0xffffffff
+Dec 16 22:10:48 syntropy kernel: [  231.718145]
+Dec 16 22:10:48 syntropy kernel: [  231.718146] -> #0
+(&(&priv->init_alive_start)->work){--..}:
+Dec 16 22:10:48 syntropy kernel: [  231.718149]
+[__lock_acquire+0x93e/0xbf4] __lock_acquire+0x93e/0xbf4
+Dec 16 22:10:48 syntropy kernel: [  231.718155]
+[mac80211:lock_acquire+0x76/0x1d8] lock_acquire+0x76/0x9d
+Dec 16 22:10:48 syntropy kernel: [  231.718161]
+[__cancel_work_timer+0xb3/0x17f] __cancel_work_timer+0xb3/0x17f
+Dec 16 22:10:48 syntropy kernel: [  231.718167]
+[iwl3945:cancel_delayed_work_sync+0xb/0x0d]
+cancel_delayed_work_sync+0xb/0xd
+Dec 16 22:10:48 syntropy kernel: [  231.718173]        [<f8a542cb>]
+__iwl3945_down+0x51/0x310 [iwl3945]
+Dec 16 22:10:48 syntropy kernel: [  231.718184]        [<f8a587f7>]
+iwl3945_pci_suspend+0x2d/0x65 [iwl3945]
+Dec 16 22:10:48 syntropy kernel: [  231.718196]
+[pci_device_suspend+0x1b/0x4b] pci_device_suspend+0x1b/0x4b
+Dec 16 22:10:48 syntropy kernel: [  231.718203]
+[device_suspend+0x17e/0x259] device_suspend+0x17e/0x259
+Dec 16 22:10:48 syntropy kernel: [  231.718210]
+[suspend_devices_and_enter+0x3d/0x138]
+suspend_devices_and_enter+0x3d/0x138
+Dec 16 22:10:48 syntropy kernel: [  231.718217]
+[enter_state+0x121/0x17d] enter_state+0x121/0x17d
+Dec 16 22:10:48 syntropy kernel: [  231.718222]
+[state_store+0x96/0xac] state_store+0x96/0xac
+Dec 16 22:10:48 syntropy kernel: [  231.718228]
+[kobj_attr_store+0x1a/0x22] kobj_attr_store+0x1a/0x22
+Dec 16 22:10:48 syntropy kernel: [  231.718234]
+[sysfs_write_file+0xb8/0xe3] sysfs_write_file+0xb8/0xe3
+Dec 16 22:10:48 syntropy kernel: [  231.718242]
+[vfs_write+0xa4/0x120] vfs_write+0xa4/0x120
+Dec 16 22:10:48 syntropy kernel: [  231.718248]
+[sys_write+0x3b/0x60] sys_write+0x3b/0x60
+Dec 16 22:10:48 syntropy kernel: [  231.718254]
+[sysenter_past_esp+0x6b/0xc1] sysenter_past_esp+0x6b/0xc1
+Dec 16 22:10:48 syntropy kernel: [  231.718259]        [<ffffffff>] 0xffffffff
+Dec 16 22:10:48 syntropy kernel: [  231.718269]
+Dec 16 22:10:48 syntropy kernel: [  231.718269] other info that might
+help us debug this:
+Dec 16 22:10:48 syntropy kernel: [  231.718271]
+Dec 16 22:10:48 syntropy kernel: [  231.718272] 4 locks held by pm-suspend/5800:
+Dec 16 22:10:48 syntropy kernel: [  231.718274]  #0:
+(&buffer->mutex){--..}, at: [sysfs_write_file+0x25/0xe3]
+sysfs_write_file+0x25/0xe3
+Dec 16 22:10:48 syntropy kernel: [  231.718280]  #1:
+(pm_mutex){--..}, at: [enter_state+0x166/0x17d]
+enter_state+0x166/0x17d
+Dec 16 22:10:48 syntropy kernel: [  231.718286]  #2:  (dpm_mtx){--..},
+at: [device_suspend+0x2b/0x259] device_suspend+0x2b/0x259
+Dec 16 22:10:48 syntropy kernel: [  231.718291]  #3:
+(&priv->mutex){--..}, at: [<f8a587e7>] iwl3945_pci_suspend+0x1d/0x65
+[iwl3945]
+Dec 16 22:10:48 syntropy kernel: [  231.718304]
+Dec 16 22:10:48 syntropy kernel: [  231.718304] stack backtrace:
+Dec 16 22:10:48 syntropy kernel: [  231.718307] Pid: 5800, comm:
+pm-suspend Not tainted 2.6.24-rc5-mm1 #7
+Dec 16 22:10:48 syntropy kernel: [  231.718310]
+[show_trace_log_lvl+0x12/0x25] show_trace_log_lvl+0x12/0x25
+Dec 16 22:10:48 syntropy kernel: [  231.718314]  [show_trace+0xd/0x10]
+show_trace+0xd/0x10
+Dec 16 22:10:48 syntropy kernel: [  231.718318]
+[sbp2:dump_stack+0x57/0x1734] dump_stack+0x57/0x5f
+Dec 16 22:10:48 syntropy kernel: [  231.718321]
+[print_circular_bug_tail+0x5b/0x66] print_circular_bug_tail+0x5b/0x66
+Dec 16 22:10:48 syntropy kernel: [  231.718325]
+[__lock_acquire+0x93e/0xbf4] __lock_acquire+0x93e/0xbf4
+Dec 16 22:10:48 syntropy kernel: [  231.718329]
+[mac80211:lock_acquire+0x76/0x1d8] lock_acquire+0x76/0x9d
+Dec 16 22:10:48 syntropy kernel: [  231.718332]
+[__cancel_work_timer+0xb3/0x17f] __cancel_work_timer+0xb3/0x17f
+Dec 16 22:10:48 syntropy kernel: [  231.718336]
+[iwl3945:cancel_delayed_work_sync+0xb/0x0d]
+cancel_delayed_work_sync+0xb/0xd
+Dec 16 22:10:48 syntropy kernel: [  231.718340]  [<f8a542cb>]
+__iwl3945_down+0x51/0x310 [iwl3945]
+Dec 16 22:10:48 syntropy kernel: [  231.718350]  [<f8a587f7>]
+iwl3945_pci_suspend+0x2d/0x65 [iwl3945]
+Dec 16 22:10:48 syntropy kernel: [  231.718360]
+[pci_device_suspend+0x1b/0x4b] pci_device_suspend+0x1b/0x4b
+Dec 16 22:10:48 syntropy kernel: [  231.718363]
+[device_suspend+0x17e/0x259] device_suspend+0x17e/0x259
+Dec 16 22:10:48 syntropy kernel: [  231.718367]
+[suspend_devices_and_enter+0x3d/0x138]
+suspend_devices_and_enter+0x3d/0x138
+Dec 16 22:10:48 syntropy kernel: [  231.718371]
+[enter_state+0x121/0x17d] enter_state+0x121/0x17d
+Dec 16 22:10:48 syntropy kernel: [  231.718374]
+[state_store+0x96/0xac] state_store+0x96/0xac
+Dec 16 22:10:48 syntropy kernel: [  231.718378]
+[kobj_attr_store+0x1a/0x22] kobj_attr_store+0x1a/0x22
+Dec 16 22:10:48 syntropy kernel: [  231.718381]
+[sysfs_write_file+0xb8/0xe3] sysfs_write_file+0xb8/0xe3
+Dec 16 22:10:48 syntropy kernel: [  231.718385]
+[vfs_write+0xa4/0x120] vfs_write+0xa4/0x120
+Dec 16 22:10:48 syntropy kernel: [  231.718388]  [sys_write+0x3b/0x60]
+sys_write+0x3b/0x60
+Dec 16 22:10:48 syntropy kernel: [  231.718391]
+[sysenter_past_esp+0x6b/0xc1] sysenter_past_esp+0x6b/0xc1
+Dec 16 22:10:48 syntropy kernel: [  231.718395]  =======================
