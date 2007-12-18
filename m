@@ -1,54 +1,61 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] [IPv6]: IPV6_MULTICAST_IF setting is ignored on link-local
- connect()
-Date: Tue, 18 Dec 2007 13:52:55 -0800
-Message-ID: <OF87295D1E.4B69B8F8-ON882573B5.00755AB2-882573B5.0078619A@us.ibm.com>
-References: <47683452.8080102@hp.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [ROSE] [AX25] possible circular locking
+Date: Tue, 18 Dec 2007 23:04:10 +0100
+Message-ID: <20071218220410.GA15502@ami.dom.local>
+References: <47664A0C.4060903@free.fr> <20071218135202.GA2023@ff.dom.local> <476837BF.3070207@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Dobriyan <adobriyan@gmail.com>,
+	Ralf Baechle DL5RB <ralf@linux-mips.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pidoux <f6bvp@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:50016 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752598AbXLRVxE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 16:53:04 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id lBILqxi0007257
-	for <netdev@vger.kernel.org>; Tue, 18 Dec 2007 16:52:59 -0500
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lBILqxem121524
-	for <netdev@vger.kernel.org>; Tue, 18 Dec 2007 14:52:59 -0700
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lBILqwK2001102
-	for <netdev@vger.kernel.org>; Tue, 18 Dec 2007 14:52:58 -0700
-In-Reply-To: <47683452.8080102@hp.com>
+Received: from nf-out-0910.google.com ([64.233.182.187]:21551 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753513AbXLRWBI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 17:01:08 -0500
+Received: by nf-out-0910.google.com with SMTP id g13so1472333nfb.21
+        for <netdev@vger.kernel.org>; Tue, 18 Dec 2007 14:01:06 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <476837BF.3070207@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brian Haley <brian.haley@hp.com> wrote on 12/18/2007 12:57:54 PM:
+On Tue, Dec 18, 2007 at 10:12:31PM +0100, Pidoux wrote:
+> Hi,
+>
+> Thank you Jarek for the analysis of the circular locking dependency report.
+> I applied the patch you proposed and it works well as soon as I am able to 
+> reboot now without
+> lock warning message and I can also killall kissattach.
+>
+> I tried also the patch without the loop, that is only spin_unlock_bh() 
+> before calling
+> ax25_disconnect() and spin_lock_bh() just after.
+> It worked also well.
+> However I must say that I only have one ax25 device running (ax0).
+>
+> Is the loop really necessary here ? in case there are more than one ax25 
+> device ?
+>
+> Also, I will let my AX25 - ROSE application running in order to test the 
+> system stability with the full patch.
+> I will let you know the results in a while.
 
-> Trying to connect() to an IPv6 link-local multicast address by
-> specifying the outgoing multicast interface doesn't work, you have to
-> bind to a device first with an SO_BINDTODEVICE setsockopt() call.
+Thank you Bernard for the bravery!
 
-        No, you simply have to specify sin6_scope_id for link-scope
-addresses, like you do in unicast cases. Your patch requires them
-to match (if specified), but I don't think IPV6_MULTICAST_IF should
-override or require a match for a valid sin6_scope_id (or be an error).
-        If I read it correctly, the existing code uses IPV6_MULTICAST_IF
-if the sin6_scope_id is not set, otherwise honors the interface specified
-in the connect. That seems like correct behaviour to me, and RFC 3493
-doesn't address the relative precedence of the two that I see. This is
-in the "linklocal" branch, and all unicast linklocal's require specifying
-sin6_scope_id. Multicast doesn't if require a scope_id in the case where
-you've done an IPV6_MULTICAST_IF, but it should still allow a different
-scope_id when you have used IPV6_MULTICAST_IF.
+The loop is only for debugging: I don't know exactly what is done
+during this ax25_disconnect(), and how the list can change in the
+meantime because of some other activities. So, it's e.g. against
+possible list_del of this node - then some sockets would stay not
+disconnected.
 
-        Do you have application code that you believe is correct that
-doesn't work?
+I think, it's up to Ralf or some other ax25 expert to judge if this
+could be done like this. Since it's not used very often, I think
+this should better stay during testing: if there are no warnings
+- the loop isn't repeated; otherwise it could simply take a little
+more time, but all sockets should be serviced, plus we know about
+problems.
 
-                                                                +-DLS
-
+Thanks,
+Jarek P.
