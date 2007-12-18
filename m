@@ -1,53 +1,46 @@
-From: Glen Turner <gdt@gdt.id.au>
-Subject: Re: Packet per Second
-Date: Tue, 18 Dec 2007 10:56:20 +1030
-Message-ID: <1197937580.6111.31.camel@andromache>
-References: <nemoFri121407105527@flis.man.torun.pl>
-	 <1197671513.5973.10.camel@andromache>
-	 <nemoMon121707091528@flis.man.torun.pl>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: "ip neigh show" not showing arp cache entries?
+Date: Tue, 18 Dec 2007 01:33:12 +0100
+Message-ID: <20071218003312.GR11220@postel.suug.ch>
+References: <4760279E.1080203@nortel.com> <47602DD0.8070402@cosmosbay.com> <47605934.2060604@nortel.com> <20071213.070641.20411400.yoshfuji@linux-ipv6.org> <476696A5.1010101@nortel.com> <4766B99D.8060408@trash.net> <4766D261.1020005@nortel.com> <47670B88.4010906@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Fl=E1vio?= Pires <flavio.defreitas@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Chris Friesen <cfriesen@nortel.com>, yoshfuji@linux-ipv6.org,
+	dada1@cosmosbay.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:59048 "EHLO
-	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759578AbXLRA1Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 19:27:25 -0500
-In-Reply-To: <nemoMon121707091528@flis.man.torun.pl>
+Received: from postel.suug.ch ([194.88.212.233]:38670 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761844AbXLRAcx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Dec 2007 19:32:53 -0500
+Content-Disposition: inline
+In-Reply-To: <47670B88.4010906@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Apologies for off-topic]
+* Patrick McHardy <kaber@trash.net> 2007-12-18 00:51
+> Chris Friesen wrote:
+> >Patrick McHardy wrote:
+> >
+> >> From a kernel perspective there are only complete dumps, the
+> >>filtering is done by iproute. So the fact that it shows them
+> >>when querying specifically implies there is a bug in the
+> >>iproute neighbour filter. Does it work if you omit "all"
+> >>from the ip neigh show command?
+> >
+> >Omitting "all" gives identical results.  It is still missing entries 
+> >when compared with the output of "arp".
+> 
+> 
+> In that case the easiest way to debug this is probably if you
+> add some debugging to ip/ipneigh.c:print_neigh() since I'm
+> unable to reproduce this problem. A printf for all the filter
+> conditions (=> return 0) at the top should do.
 
-On Mon, 2007-12-17 at 11:18 +0000, Fl=C3=A1vio Pires wrote:
-> I alread though about something like this. But, isn`t NetFlow just fo=
-r
-> Cisco IOS ?
+Alternatively, you can download libnl and run
 
-NetFlow is a trade mark of Cisco Systems Inc (USA).
+	NLCB=debug src/nl-neigh-dump brief
 
-Packets in the identical format used by NetFlow are produced by
-a wide range of networking equipment, including a number of
-Linux tools.  I've seen the Linux tools used in customer
-networks but I've never evaluated them myself, which is why
-I'm didn't make a recommendation of a particular tool for the
-sampler.
-
-Because of the trade mark you'll often find NetFlow traffic
-samplers under names other than NetFlow (eg, Juniper uses
-"cflowd" as a synonym for NetFlow).  There is one exception:
-sFlow is *not* identical to the NetFlow format.
-
-If you want more information on ISP accounting tools, the NANOG
-list is a more suitable forum.  The Cisco-NSP and Juniper-NSP
-lists often host useful discussions too.  The archives of all
-these lists are online.
-
-Best wishes, Glen
-
---=20
-Glen Turner   <http://www.gdt.id.au/~gdt/>
-Tel: 0416 295 857 or +61 416 295 857
-
+and check if the netlink message is sent by the kenrel for the
+neighbour in question. 
