@@ -1,73 +1,64 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: Nested VLAN causes recursive locking error
-Date: Tue, 18 Dec 2007 18:03:55 -0500
-Message-ID: <476851DB.5080107@redhat.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] [IPv6]: IPV6_MULTICAST_IF setting is ignored on link-local
+ connect()
+Date: Tue, 18 Dec 2007 15:56:22 -0800
+Message-ID: <OF7B1ADDCA.711DCE7B-ON882573B5.00820D67-882573B5.0083AEF8@us.ibm.com>
+References: <47684AE3.7080007@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:52207 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753904AbXLRXD4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Dec 2007 18:03:56 -0500
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.8/8.13.1) with ESMTP id lBIN3tdb026248
-	for <netdev@vger.kernel.org>; Tue, 18 Dec 2007 18:03:55 -0500
-Received: from mail.boston.redhat.com (mail.boston.redhat.com [172.16.76.12])
-	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id lBIN3tX4023790
-	for <netdev@vger.kernel.org>; Tue, 18 Dec 2007 18:03:55 -0500
-Received: from [172.16.83.145] (dhcp83-145.boston.redhat.com [172.16.83.145])
-	by mail.boston.redhat.com (8.13.1/8.13.1) with ESMTP id lBIN3tcJ008212
-	for <netdev@vger.kernel.org>; Tue, 18 Dec 2007 18:03:55 -0500
+Received: from e32.co.us.ibm.com ([32.97.110.150]:36068 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754179AbXLRX4m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 18:56:42 -0500
+In-Reply-To: <47684AE3.7080007@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From:
-https://bugzilla.redhat.com/show_bug.cgi?id=426164
+Brian,
 
+OK, I see what you're trying to fix now.
 
-kernel version is 2.6.24-0.107.rc5.git3.fc9
+I think the scope_id checks are not quite right-- they
+should be something like this:
 
->From boot log on serial console:
-(full log attached)
+if (addr_type&IPV6_ADDR_LINKLOCAL) {
+        if (addr_len >= sizeof(struct sockaddr_in6)) {
+                if (sk->sk_bound_dev_if && usin->sin6_scope_id &&
+                    sk->sk_bound_dev_if != usin->sin6_scope_id) {
+                        err = -EINVAL;
+                        goto out;
+                }
+                if (usin->sin6_scope_id)
+                        sk->sk_bound_dev_if = usin->sin6_scope_id;
+                if (!sk->sk_bound_dev_if &&
+                     (addr_type & IPV6_ADDR_MULTICAST))
+                        fl.oif = np->mcast_oif;
+        }
 
-Added VLAN with VID == 2 to IF -:eth0.1568:-
+        /* connect to the link-local addres requires an interface */
+        if (!sk->sk_bound_dev_if) {
+                err = -EINVAL;
+                goto out;
+        }
+}
 
-=============================================
-[ INFO: possible recursive locking detected ]
-2.6.24-0.107.rc5.git3.fc9 #1
----------------------------------------------
-ifconfig/15011 is trying to acquire lock:
- (&vlan_netdev_xmit_lock_key){-+..}, at: [<c05d9450>] dev_mc_sync+0x1c/0x102
+        That is (in English):
 
-but task is already holding lock:
- (&vlan_netdev_xmit_lock_key){-+..}, at: [<c05d51bd>] dev_set_rx_mode+0x14/0x3c
+        If I did an SO_BINDTODEVICE and specified sin6_scope_id,
+then they better agree.
+        If I specified sin6_scope_id without SO_BINDTODEVICE, set
+the device to that.
+        If I get this far without a device and it's multicast, use 
+mcast_oif
+        If I get all through that and don't have a device, EINVAL.
 
-other info that might help us debug this:
-2 locks held by ifconfig/15011:
- #0:  (rtnl_mutex){--..}, at: [<c05de4f7>] rtnl_lock+0xf/0x11
- #1:  (&vlan_netdev_xmit_lock_key){-+..}, at: [<c05d51bd>] dev_set_rx_mode+0x14/0x3c
+        Does that work for you?
 
-stack backtrace:
-Pid: 15011, comm: ifconfig Not tainted 2.6.24-0.107.rc5.git3.fc9 #1
- [<c040649a>] show_trace_log_lvl+0x1a/0x2f
- [<c0406d41>] show_trace+0x12/0x14
- [<c0407061>] dump_stack+0x6c/0x72
- [<c044cfb3>] __lock_acquire+0x815/0xb5f
- [<c044d6f5>] lock_acquire+0x7b/0x9e
- [<c063dcf5>] _spin_lock_bh+0x33/0x5d
- [<c05d9450>] dev_mc_sync+0x1c/0x102
- [<f8b24c96>] vlan_dev_set_multicast_list+0x15/0x17 [8021q]
- [<c05d5107>] __dev_set_rx_mode+0x7e/0x81
- [<c05d51d0>] dev_set_rx_mode+0x27/0x3c
- [<c05d749e>] dev_open+0x61/0x7b
- [<c05d60b0>] dev_change_flags+0xa4/0x152
- [<c0616b8d>] devinet_ioctl+0x211/0x518
- [<c061723b>] inet_ioctl+0x86/0xa4
- [<c05caf0b>] sock_ioctl+0x1ca/0x1eb
- [<c049cdf2>] do_ioctl+0x22/0x67
- [<c049d080>] vfs_ioctl+0x249/0x25c
- [<c049d0d5>] sys_ioctl+0x42/0x5d
- [<c0405252>] syscall_call+0x7/0xb
- =======================
+                                        +-DLS
+
