@@ -1,43 +1,31 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 3/3] [UDP6]: Counter increment on BH mode
-Date: Tue, 18 Dec 2007 11:43:44 +0000
-Message-ID: <20071218114344.GB817@gerrit.erg.abdn.ac.uk>
-References: <474F7EE8.2040009@cn.fujitsu.com> <474F8255.5060501@cn.fujitsu.com> <20071130111949.GB28277@gerrit.erg.abdn.ac.uk> <20071201015438.GC26895@gondor.apana.org.au> <4753AE07.1040906@cn.fujitsu.com> <20071203113935.GA25124@gondor.apana.org.au> <20071203114912.GA4425@ms2.inr.ac.ru> <20071203115435.GA4202@gondor.apana.org.au> <20071203131723.GA30312@gondor.apana.org.au> <20071215135851.GA29063@gondor.apana.org.au>
+From: Vitaliy Gusev <vgusev@openvz.org>
+Subject: [PATCH] Module for ip utility to support veth device (v.4)
+Date: Tue, 18 Dec 2007 15:14:33 +0300
+Message-ID: <200712181514.34060.vgusev@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Pavel Emelyanov <xemul@openvz.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54313 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751776AbXLRLog (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Dec 2007 06:44:36 -0500
+Received: from mailhub.sw.ru ([195.214.232.25]:4349 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754061AbXLRMMl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Dec 2007 07:12:41 -0500
 Content-Disposition: inline
-In-Reply-To: <20071215135851.GA29063@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| 
-| I didn't hear any objections so here is the patch again.
-| 
-| [SNMP]: Fix SNMP counters with PREEMPT
-| 
-I don't feel competent to say whether this is correct, but it seems that
-this is going a long way towards resolving older problems with the SNMP
-counters.
+The usage is
+# ip link add [name]  [device parameters] type veth [peer [name <name> <other 
+device params>]]
 
-What I can say is that a year ago, when doing the UDP/-Lite work, I found
-that the counters were not accurate, which was due to the double-counting
-problem that Wang Chen brought up again.
+This consists of two parts:
+1/2 makes some copy-paste changes in ip/iplink.c for generic CLI
+attributes parsing,
+2/2 the module itself.
 
-Resolving this issue was stalled at that time due to the fact that a
-counter may be incremented on one CPU and then later decremented on
-another.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-It looks as if this work is reaching the cause of the problem, which would
-be good since the problem propagates to all users of such counters (UDP,
-UDP-Lite, and similar MIB counters). So thank you for taking this issue up,
-I hope that this will lead to a patch set resolving the counter issues.
-
-Best regards,
-Gerrit
