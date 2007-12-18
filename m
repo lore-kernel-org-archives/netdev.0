@@ -1,56 +1,52 @@
-From: Jochen Friedrich <jochen@scram.de>
-Subject: [PATCH] [POWERPC] Add fixed-phy support for fs_enet
-Date: Tue, 18 Dec 2007 16:25:43 +0100
-Message-ID: <4767E677.7010200@scram.de>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: IPsec replay sequence number overflow behavior? (RFC4303 section 3.3.3)
+Date: Tue, 18 Dec 2007 11:14:45 -0500
+Message-ID: <200712181114.46957.paul.moore@hp.com>
+References: <E1J1Bfw-0006Kw-00@gondolin.me.apana.org.au> <475CAF94.7020306@trash.net> <20071210034356.GA31825@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org,
-	"Kernel, Linux" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, "Garzik, Jeff" <jgarzik@pobox.com>,
-	Scott Wood <scottwood@freescale.com>
-To: Paul Mackerras <paulus@samba.org>,
-	Vitaly Bordug <vitb@kernel.crashing.org>
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	latten@us.ibm.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail0.scram.de ([78.47.204.202]:55753 "EHLO mail0.scram.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753626AbXLRPZ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Dec 2007 10:25:59 -0500
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:25909 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755942AbXLRQO4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 11:14:56 -0500
+In-Reply-To: <20071210034356.GA31825@gondor.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support to use the fixed-link property
-of an ethernet node to fs_enet for the
-CONFIG_PPC_CPM_NEW_BINDING case.
+On Sunday 09 December 2007 10:43:56 pm Herbert Xu wrote:
+> On Mon, Dec 10, 2007 at 04:16:36AM +0100, Patrick McHardy wrote:
+> > Won't this break with manually installed SAs (without a keying
+> > daemon)?
+>
+> Well what's being suggested here will already break that anyway :)
+>
+> Alternatively we can take the interpretation that it's the KM's
+> responsibility to set the appropriate hard life time if ESNs are
+> not in use.
+>
+> Either way is fine with me.
+>
+> Cheers,
 
-Signed-off-by: Jochen Friedrich <jochen@scram.de>
-Acked-by: Jeff Garzik <jeff@garzik.org>
-Acked-by: Vitali Bordug <vitb@kernel.crashing.org>
----
- drivers/net/fs_enet/fs_enet-main.c |    9 ++++++++-
- 1 files changed, 8 insertions(+), 1 deletions(-)
+Sorry for the delay, I got distracted ...
 
-diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
-index f2a4d39..8220c70 100644
---- a/drivers/net/fs_enet/fs_enet-main.c
-+++ b/drivers/net/fs_enet/fs_enet-main.c
-@@ -1174,8 +1174,15 @@ static int __devinit find_phy(struct device_node *np,
- 	struct device_node *phynode, *mdionode;
- 	struct resource res;
- 	int ret = 0, len;
-+	const u32 *data;
-+
-+	data  = of_get_property(np, "fixed-link", NULL);
-+	if (data) {
-+		snprintf(fpi->bus_id, 16, PHY_ID_FMT, 0, *data);
-+		return 0;
-+	}
+Rereading the thread it's unclear to me which solution was deemed "correct".  
+I'm not a big fan of fiddling/forcing SA lifetimes unless we have no other 
+option; if someone is foolish enough to use manual keying with replay 
+protection and no mechanism to catch rollover then they most likely have 
+larger problems.  It's the whole "we'll provide you with the gun, but you 
+have to shoot yourself" argument as applied to SA lifetimes.
 
--	const u32 *data = of_get_property(np, "phy-handle", &len);
-+	data = of_get_property(np, "phy-handle", &len);
- 	if (!data || len != 4)
- 		return -EINVAL;
+However, you guys have to deal with this code more often than I do so I'll 
+deffer to your better judgment.
 
 -- 
-1.5.3.7
-
+paul moore
+linux security @ hp
