@@ -1,89 +1,68 @@
-From: Gavin McCullagh <Gavin.McCullagh@nuim.ie>
-Subject: Re: [PATCH/RFC] [v2] TCP: use non-delayed ACK for congestion	control
- RTT
-Date: Tue, 18 Dec 2007 20:40:22 +0000
-Message-ID: <20071218204022.GA8936@nuim.ie>
-References: <20071217134425.GD7409@nuim.ie>
-Reply-To: Gavin McCullagh <Gavin.McCullagh@nuim.ie>
+From: Brian Haley <brian.haley@hp.com>
+Subject: [PATCH] [IPv6]: IPV6_MULTICAST_IF setting is ignored on link-local
+ connect()
+Date: Tue, 18 Dec 2007 15:57:54 -0500
+Message-ID: <47683452.8080102@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------080304000401070209080604"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from banyan.nuim.ie ([149.157.1.4]:50721 "EHLO mango.nuim.ie"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752017AbXLRUkT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Dec 2007 15:40:19 -0500
-Content-disposition: inline
-Received: from boing.hamilton.local ([149.157.192.252])
- by mango.nuim.ie (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3
- 2007; 32bit)) with ESMTP id <0JT9007B7IR36S50@mango.nuim.ie> for
- netdev@vger.kernel.org; Tue, 18 Dec 2007 20:40:15 +0000 (GMT)
-In-reply-to: <20071217134425.GD7409@nuim.ie>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:8811 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752634AbXLRU54 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 15:57:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is a multi-part message in MIME format.
+--------------080304000401070209080604
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-The last attempt didn't take account of the situation where a timestamp
-wasn't available and tcp_clean_rtx_queue() has to feed both the RTO and the
-congestion avoidance.  This updated patch stores both RTTs, making the
-delayed one available for the RTO and the other (ca_seq_rtt) available for
-congestion control.
+Trying to connect() to an IPv6 link-local multicast address by
+specifying the outgoing multicast interface doesn't work, you have to
+bind to a device first with an SO_BINDTODEVICE setsockopt() call.  This
+patch allows the IPV6_MULTICAST_IF setting to also control which
+interface should be used for the connection, as specified in RFC 3493.
+
+Signed-off-by: Brian Haley <brian.haley@hp.com>
+---
 
 
-Signed-off-by: Gavin McCullagh <gavin.mccullagh@nuim.ie> 
+--------------080304000401070209080604
+Content-Type: text/x-patch;
+ name="mcast_oif.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="mcast_oif.patch"
 
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 889c893..6fb7989 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2651,6 +2651,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, s32 *seq_rtt_p,
- 	u32 cnt = 0;
- 	u32 reord = tp->packets_out;
- 	s32 seq_rtt = -1;
-+	s32 ca_seq_rtt = -1;
- 	ktime_t last_ackt = net_invalid_timestamp();
- 
- 	while ((skb = tcp_write_queue_head(sk)) && skb != tcp_send_head(sk)) {
-@@ -2686,13 +2687,15 @@ static int tcp_clean_rtx_queue(struct sock *sk, s32 *seq_rtt_p,
- 				if (sacked & TCPCB_SACKED_RETRANS)
- 					tp->retrans_out -= packets_acked;
- 				flag |= FLAG_RETRANS_DATA_ACKED;
-+				ca_seq_rtt = -1;
- 				seq_rtt = -1;
- 				if ((flag & FLAG_DATA_ACKED) ||
- 				    (packets_acked > 1))
- 					flag |= FLAG_NONHEAD_RETRANS_ACKED;
- 			} else {
-+				ca_seq_rtt = now - scb->when;
- 				if (seq_rtt < 0) {
--					seq_rtt = now - scb->when;
-+					seq_rtt = ca_seq_rtt;
- 					if (fully_acked)
- 						last_ackt = skb->tstamp;
- 				}
-@@ -2709,8 +2712,9 @@ static int tcp_clean_rtx_queue(struct sock *sk, s32 *seq_rtt_p,
- 			    !before(end_seq, tp->snd_up))
- 				tp->urg_mode = 0;
- 		} else {
-+			ca_seq_rtt = now - scb->when;
- 			if (seq_rtt < 0) {
--				seq_rtt = now - scb->when;
-+				seq_rtt = ca_seq_rtt;
- 				if (fully_acked)
- 					last_ackt = skb->tstamp;
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 2ed689a..0b1e7eb 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -123,9 +123,15 @@ ipv4_connected:
+ 				goto out;
  			}
-@@ -2772,8 +2776,8 @@ static int tcp_clean_rtx_queue(struct sock *sk, s32 *seq_rtt_p,
- 						 net_invalid_timestamp()))
- 					rtt_us = ktime_us_delta(ktime_get_real(),
- 								last_ackt);
--				else if (seq_rtt > 0)
--					rtt_us = jiffies_to_usecs(seq_rtt);
-+				else if (ca_seq_rtt > 0)
-+					rtt_us = jiffies_to_usecs(ca_seq_rtt);
- 			}
+ 			sk->sk_bound_dev_if = usin->sin6_scope_id;
+-			if (!sk->sk_bound_dev_if &&
+-			    (addr_type & IPV6_ADDR_MULTICAST))
+-				fl.oif = np->mcast_oif;
++		}
++
++		if ((addr_type & IPV6_ADDR_MULTICAST) && np->mcast_oif) {
++			if (sk->sk_bound_dev_if &&
++			    sk->sk_bound_dev_if != np->mcast_oif) {
++				err = -EINVAL;
++				goto out;
++			}
++			sk->sk_bound_dev_if = np->mcast_oif;
+ 		}
  
- 			ca_ops->pkts_acked(sk, pkts_acked, rtt_us);
+ 		/* Connect to link-local address requires an interface */
 
 
+--------------080304000401070209080604--
