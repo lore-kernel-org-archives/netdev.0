@@ -1,107 +1,92 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [ROSE] [AX25] possible circular locking
-Date: Tue, 18 Dec 2007 14:52:02 +0100
-Message-ID: <20071218135202.GA2023@ff.dom.local>
-References: <47664A0C.4060903@free.fr>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: [RFC][PATCH][IPV4] ip_gre: use skb->{mac,network}_header consistently
+Date: Tue, 18 Dec 2007 15:59:37 +0200
+Message-ID: <4767D249.5050602@iki.fi>
+References: <471E05BD.7040407@iki.fi> <471E0638.9040405@trash.net> <471E19E5.5040509@iki.fi> <20071023202036.GA12066@ms2.inr.ac.ru> <471EDE22.4090408@iki.fi> <20071024100842.GA19369@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	Ralf Baechle DL5RB <ralf@linux-mips.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Bernard Pidoux F6BVP <f6bvp@free.fr>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:56166 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754924AbXLRNqy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 08:46:54 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so96446ugc.16
-        for <netdev@vger.kernel.org>; Tue, 18 Dec 2007 05:46:53 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <47664A0C.4060903@free.fr>
+Received: from fk-out-0910.google.com ([209.85.128.189]:44284 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756192AbXLRN7Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 08:59:25 -0500
+Received: by fk-out-0910.google.com with SMTP id z23so2071157fkz.5
+        for <netdev@vger.kernel.org>; Tue, 18 Dec 2007 05:59:23 -0800 (PST)
+In-Reply-To: <20071024100842.GA19369@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 17, 2007 at 11:06:04AM +0100, Bernard Pidoux F6BVP wrote:
-> Hi,
->
->
-> When I killall kissattach I can see the following message.
->
-> This happens on kernel 2.6.24-rc5 already patched with the 6 previously
-> patches I sent recently.
->
->
-> =======================================================
-> [ INFO: possible circular locking dependency detected ]
-> 2.6.23.9 #1
-> -------------------------------------------------------
-> kissattach/2906 is trying to acquire lock:
->  (linkfail_lock){-+..}, at: [<d8bd4603>] ax25_link_failed+0x11/0x39 [ax25]
->
-> but task is already holding lock:
->  (ax25_list_lock){-+..}, at: [<d8bd7c7c>] ax25_device_event+0x38/0x84
-> [ax25]
->
-> which lock already depends on the new lock.
->
->
-> the existing dependency chain (in reverse order) is:
-...
+From: Timo Teras <timo.teras@iki.fi>
 
-It seems, lockdep is warried about the different order here:
+Make both send and receive paths use consistently skb->*_header:
+  mac_header = outer IPv4 header
+  network_header = encapsulated packet (e.g. inner IPv4 header)
 
-#1 (rose_neigh_list_lock){-+..}:
-#3 (ax25_list_lock){-+..}:
-
-#0 (linkfail_lock){-+..}:
-#1 (rose_neigh_list_lock){-+..}:
-
-#3 (ax25_list_lock){-+..}:
-#0 (linkfail_lock){-+..}:
-
-So, ax25_list_lock could be taken before and after linkfail_lock. 
-I don't know if this three-thread clutch is very probable (or
-possible at all), but it seems this other bug nearby reported by
-Bernard ("[...] system impossible to reboot with linux-2.6.24-rc5")
-could have similar source - namely ax25_list_lock held by
-ax25_kill_by_device() during ax25_disconnect(). It looks like the
-only place which calls ax25_disconnect() this way, so I guess, it
-isn't necessary. But, since I don't know AX25 & ROSE at all, this
-should be necessarily verified by somebody who knows these things.
-
-I attach here my very experimental proposal with breaking the lock
-for ax25_disconnect(), with some failsafe and debugging because of
-this, but, if in this special case the lock is required for some
-other reasons, then this patch should be dumped, of course.
-
-Regards,
-Jarek P.
-
-WARNING:
-not tested, not even compiled, needs some ack before testing!
-
+Signed-off-by: Timo Teras <timo.teras@iki.fi>
 ---
+Currently in send path:
+  network_header = outer IPv4 header
+  transport_header = encapsulated packet
+And receive path:
+  network_header = encapsulated packet
+  mac_header = GRE header
 
-diff -Nurp linux-2.6.24-rc5-/net/ax25/af_ax25.c linux-2.6.24-rc5+/net/ax25/af_ax25.c
---- linux-2.6.24-rc5-/net/ax25/af_ax25.c	2007-12-17 13:29:19.000000000 +0100
-+++ linux-2.6.24-rc5+/net/ax25/af_ax25.c	2007-12-18 13:36:05.000000000 +0100
-@@ -87,10 +87,19 @@ static void ax25_kill_by_device(struct n
- 		return;
- 
- 	spin_lock_bh(&ax25_list_lock);
-+again:
- 	ax25_for_each(s, node, &ax25_list) {
- 		if (s->ax25_dev == ax25_dev) {
-+			struct hlist_node *nn = node->next;
-+
- 			s->ax25_dev = NULL;
-+			spin_unlock_bh(&ax25_list_lock);
- 			ax25_disconnect(s, ENETUNREACH);
-+			spin_lock_bh(&ax25_list_lock);
-+			if (nn != node->next) {
-+				WARN_ON_ONCE(1);
-+				goto again;
-+			}
+mac_header used to be the outer IPv4 header on receive path, but it was
+broken/changed when skb_reset_mac_header() was introduced.
+
+This also makes ipgre_header_parse() work correctly as it assumes that
+mac_header points to the outer IPv4 header always. Though, it returns
+zeros for outgoing packets that are tcpdumped from gre tunnel without
+explicit local address, since the routing is done in ipgre_tunnel_xmit().
+
+ net/ipv4/ip_gre.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 02b02a8..eba1ade 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -613,7 +613,7 @@ static int ipgre_rcv(struct sk_buff *skb)
+ 				offset += 4;
  		}
+ 
+-		skb_reset_mac_header(skb);
++		skb->mac_header = skb->network_header;
+ 		__pskb_pull(skb, offset);
+ 		skb_reset_network_header(skb);
+ 		skb_postpull_rcsum(skb, skb_transport_header(skb), offset);
+@@ -826,9 +826,8 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		old_iph = ip_hdr(skb);
  	}
- 	spin_unlock_bh(&ax25_list_lock);
+ 
+-	skb->transport_header = skb->network_header;
+ 	skb_push(skb, gre_hlen);
+-	skb_reset_network_header(skb);
++	skb_reset_mac_header(skb);
+ 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+ 	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
+ 			      IPSKB_REROUTED);
+@@ -839,7 +838,7 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 *	Push down and install the IPIP header.
+ 	 */
+ 
+-	iph 			=	ip_hdr(skb);
++	iph 			=	(struct iphdr *) skb_mac_header(skb);
+ 	iph->version		=	4;
+ 	iph->ihl		=	sizeof(struct iphdr) >> 2;
+ 	iph->frag_off		=	df;
+@@ -1070,6 +1069,7 @@ static int ipgre_header(struct sk_buff *skb, struct net_device *dev,
+ 	struct iphdr *iph = (struct iphdr *)skb_push(skb, t->hlen);
+ 	__be16 *p = (__be16*)(iph+1);
+ 
++	skb_reset_mac_header(skb);
+ 	memcpy(iph, &t->parms.iph, sizeof(struct iphdr));
+ 	p[0]		= t->parms.o_flags;
+ 	p[1]		= htons(type);
+-- 
+1.5.2.5
+
+
