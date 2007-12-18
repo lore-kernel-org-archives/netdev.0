@@ -1,31 +1,53 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] sysctl:  Fix ax25 checks
-Date: Mon, 17 Dec 2007 17:16:43 -0700
-Message-ID: <m1prx4dfh0.fsf@ebiederm.dsl.xmission.com>
-References: <476303C8.2060507@ccr.jussieu.fr>
-	<20071215101810.GA3143@ami.dom.local>
-	<476595EC.5050103@ccr.jussieu.fr>
-	<m163yxdjrb.fsf_-_@ebiederm.dsl.xmission.com>
-	<47670F90.4020004@ccr.jussieu.fr>
+From: Glen Turner <gdt@gdt.id.au>
+Subject: Re: Packet per Second
+Date: Tue, 18 Dec 2007 10:56:20 +1030
+Message-ID: <1197937580.6111.31.camel@andromache>
+References: <nemoFri121407105527@flis.man.torun.pl>
+	 <1197671513.5973.10.camel@andromache>
+	 <nemoMon121707091528@flis.man.torun.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Bernard Pidoux <pidoux@ccr.jussieu.fr>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1765338AbXLRARn@vger.kernel.org>
-In-Reply-To: <47670F90.4020004@ccr.jussieu.fr> (Bernard Pidoux's message of
-	"Tue, 18 Dec 2007 01:08:48 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Fl=E1vio?= Pires <flavio.defreitas@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:59048 "EHLO
+	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759578AbXLRA1Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2007 19:27:25 -0500
+In-Reply-To: <nemoMon121707091528@flis.man.torun.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bernard Pidoux <pidoux@ccr.jussieu.fr> writes:
+[Apologies for off-topic]
 
-> Eric,
->
-> I applied your patch and now I have all /proc/sys/net/ax25
-> created and initialized as before.
+On Mon, 2007-12-17 at 11:18 +0000, Fl=C3=A1vio Pires wrote:
+> I alread though about something like this. But, isn`t NetFlow just fo=
+r
+> Cisco IOS ?
 
-Thanks for reporting this.
+NetFlow is a trade mark of Cisco Systems Inc (USA).
 
-Eric
+Packets in the identical format used by NetFlow are produced by
+a wide range of networking equipment, including a number of
+Linux tools.  I've seen the Linux tools used in customer
+networks but I've never evaluated them myself, which is why
+I'm didn't make a recommendation of a particular tool for the
+sampler.
+
+Because of the trade mark you'll often find NetFlow traffic
+samplers under names other than NetFlow (eg, Juniper uses
+"cflowd" as a synonym for NetFlow).  There is one exception:
+sFlow is *not* identical to the NetFlow format.
+
+If you want more information on ISP accounting tools, the NANOG
+list is a more suitable forum.  The Cisco-NSP and Juniper-NSP
+lists often host useful discussions too.  The archives of all
+these lists are online.
+
+Best wishes, Glen
+
+--=20
+Glen Turner   <http://www.gdt.id.au/~gdt/>
+Tel: 0416 295 857 or +61 416 295 857
+
