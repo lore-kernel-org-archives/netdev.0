@@ -1,7 +1,7 @@
 From: Vitaliy Gusev <vgusev@openvz.org>
-Subject: [PATCH 1/2] Introduce iplink_parse() routine
-Date: Tue, 18 Dec 2007 15:15:01 +0300
-Message-ID: <200712181515.01837.vgusev@openvz.org>
+Subject: [PATCH 2/2] Module for ip utility to support veth device
+Date: Tue, 18 Dec 2007 15:15:38 +0300
+Message-ID: <200712181515.38565.vgusev@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -10,260 +10,147 @@ Cc: netdev@vger.kernel.org, Pavel Emelyanov <xemul@openvz.org>,
 	Patrick McHardy <kaber@trash.net>
 To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:3060 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:27006 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754508AbXLRMNG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Dec 2007 07:13:06 -0500
+	id S1754189AbXLRMOP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Dec 2007 07:14:15 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Thu, 19 Jul 2007 13:32:31 +0400
 
-This routine parses CLI attributes, describing generic link
-parameters such as name, address, etc.
+module link_veth
 
-This is mostly copy-pasted from iplink_modify().
+Signed-off-by: Vitaliy Gusev <vgusev@openvz.org>
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-Acked-by: Patrick McHardy <kaber@trash.net>
+---
 
- include/utils.h |    3 +
- ip/iplink.c     |  127 
-++++++++++++++++++++++++++++++++------------------------
- 2 files changed, 76 insertions(+), 54 deletions(-)
+ link_veth.c |   76 +++++++++++++++++++-----------------------------------------
+ veth.h      |    2 -
+ 2 files changed, 25 insertions(+), 53 deletions(-)
 
-diff --git a/include/utils.h b/include/utils.h
-index 9ee55fd..7223a10 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -147,4 +147,7 @@ extern int cmdlineno;
- extern ssize_t getcmdline(char **line, size_t *len, FILE *in);
- extern int makeargs(char *line, char *argv[], int maxargs);
+diff --git a/ip/link_veth.c b/ip/link_veth.c
+index a4764f2..226b4ef 100644
+--- a/ip/link_veth.c
++++ b/ip/link_veth.c
+@@ -10,78 +10,52 @@
+  *
+  */
  
-+struct iplink_req;
-+int iplink_parse(int argc, char **argv, struct iplink_req *req,
-+		char **name, char **type, char **link, char **dev);
- #endif /* __UTILS_H__ */
-diff --git a/ip/iplink.c b/ip/iplink.c
-index f28f91c..95801a6 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -143,140 +143,159 @@ static int iplink_have_newlink(void)
- }
- #endif /* ! IPLINK_IOCTL_COMPAT */
+-#include <stdio.h>
+ #include <string.h>
  
--static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
-+struct iplink_req {
-+	struct nlmsghdr		n;
-+	struct ifinfomsg	i;
-+	char			buf[1024];
-+};
-+
-+int iplink_parse(int argc, char **argv, struct iplink_req *req,
-+		char **name, char **type, char **link, char **dev)
+ #include "utils.h"
+ #include "ip_common.h"
+ #include "veth.h"
+ 
+-#define ETH_ALEN	6
++#define	IFNAMSIZ	16
+ 
+ static void usage(void)
  {
-+	int ret, len;
-+	char abuf[32];
- 	int qlen = -1;
- 	int mtu = -1;
--	int len;
--	char abuf[32];
--	char *dev = NULL;
--	char *name = NULL;
--	char *link = NULL;
--	char *type = NULL;
--	struct link_util *lu = NULL;
--	struct {
--		struct nlmsghdr		n;
--		struct ifinfomsg	i;
--		char			buf[1024];
--	} req;
+-	printf("Usage: ip link add ... type veth "
+-			"[peer <peer-name>] [mac <mac>] [peer_mac <mac>]\n");
++	printf("Usage: ip link <options> type veth "
++		"[peer <options>]\nTo get <options> type "
++		"'ip link add help'\n");
+ }
  
--	memset(&req, 0, sizeof(req));
+ static int veth_parse_opt(struct link_util *lu, int argc, char **argv,
+ 		struct nlmsghdr *hdr)
+ {
+-	__u8 mac[ETH_ALEN];
++	char *name, *type, *link, *dev;
++	int err, len;
++	struct rtattr * data;
+ 
+-	for (; argc != 0; argv++, argc--) {
+-		if (strcmp(*argv, "peer") == 0) {
+-			argv++;
+-			argc--;
+-			if (argc == 0) {
+-				usage();
+-				return -1;
+-			}
 -
--	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
--	req.n.nlmsg_flags = NLM_F_REQUEST|flags;
--	req.n.nlmsg_type = cmd;
--	req.i.ifi_family = preferred_family;
-+	ret = argc;
+-			addattr_l(hdr, 1024, VETH_INFO_PEER,
+-					*argv, strlen(*argv));
+-
+-			continue;
+-		}
+-
+-		if (strcmp(*argv, "mac") == 0) {
+-			argv++;
+-			argc--;
+-			if (argc == 0) {
+-				usage();
+-				return -1;
+-			}
+-
+-			if (hexstring_a2n(*argv, mac, sizeof(mac)) == NULL)
+-				return -1;
+-
+-			addattr_l(hdr, 1024, VETH_INFO_MAC,
+-					mac, ETH_ALEN);
+-			continue;
+-		}
++	if (strcmp(argv[0], "peer") != 0) {
++		usage();
++		return -1;
++	}
  
- 	while (argc > 0) {
- 		if (strcmp(*argv, "up") == 0) {
--			req.i.ifi_change |= IFF_UP;
--			req.i.ifi_flags |= IFF_UP;
-+			req->i.ifi_change |= IFF_UP;
-+			req->i.ifi_flags |= IFF_UP;
- 		} else if (strcmp(*argv, "down") == 0) {
--			req.i.ifi_change |= IFF_UP;
--			req.i.ifi_flags &= ~IFF_UP;
-+			req->i.ifi_change |= IFF_UP;
-+			req->i.ifi_flags &= ~IFF_UP;
- 		} else if (strcmp(*argv, "name") == 0) {
- 			NEXT_ARG();
--			name = *argv;
-+			*name = *argv;
- 		} else if (matches(*argv, "link") == 0) {
- 			NEXT_ARG();
--			link = *argv;
-+			*link = *argv;
- 		} else if (matches(*argv, "address") == 0) {
- 			NEXT_ARG();
- 			len = ll_addr_a2n(abuf, sizeof(abuf), *argv);
--			addattr_l(&req.n, sizeof(req), IFLA_ADDRESS, abuf, len);
-+			addattr_l(&req->n, sizeof(*req), IFLA_ADDRESS, abuf, len);
- 		} else if (matches(*argv, "broadcast") == 0 ||
--			   strcmp(*argv, "brd") == 0) {
-+				strcmp(*argv, "brd") == 0) {
- 			NEXT_ARG();
- 			len = ll_addr_a2n(abuf, sizeof(abuf), *argv);
--			addattr_l(&req.n, sizeof(req), IFLA_BROADCAST, abuf, len);
-+			addattr_l(&req->n, sizeof(*req), IFLA_BROADCAST, abuf, len);
- 		} else if (matches(*argv, "txqueuelen") == 0 ||
--			   strcmp(*argv, "qlen") == 0 ||
--			   matches(*argv, "txqlen") == 0) {
-+				strcmp(*argv, "qlen") == 0 ||
-+				matches(*argv, "txqlen") == 0) {
- 			NEXT_ARG();
- 			if (qlen != -1)
- 				duparg("txqueuelen", *argv);
- 			if (get_integer(&qlen,  *argv, 0))
- 				invarg("Invalid \"txqueuelen\" value\n", *argv);
--			addattr_l(&req.n, sizeof(req), IFLA_TXQLEN, &qlen, 4);
-+			addattr_l(&req->n, sizeof(*req), IFLA_TXQLEN, &qlen, 4);
- 		} else if (strcmp(*argv, "mtu") == 0) {
- 			NEXT_ARG();
- 			if (mtu != -1)
- 				duparg("mtu", *argv);
- 			if (get_integer(&mtu, *argv, 0))
- 				invarg("Invalid \"mtu\" value\n", *argv);
--			addattr_l(&req.n, sizeof(req), IFLA_MTU, &mtu, 4);
-+			addattr_l(&req->n, sizeof(*req), IFLA_MTU, &mtu, 4);
- 		} else if (strcmp(*argv, "multicast") == 0) {
- 			NEXT_ARG();
--			req.i.ifi_change |= IFF_MULTICAST;
-+			req->i.ifi_change |= IFF_MULTICAST;
- 			if (strcmp(*argv, "on") == 0) {
--				req.i.ifi_flags |= IFF_MULTICAST;
-+				req->i.ifi_flags |= IFF_MULTICAST;
- 			} else if (strcmp(*argv, "off") == 0) {
--				req.i.ifi_flags &= ~IFF_MULTICAST;
-+				req->i.ifi_flags &= ~IFF_MULTICAST;
- 			} else
- 				return on_off("multicast");
- 		} else if (strcmp(*argv, "allmulticast") == 0) {
- 			NEXT_ARG();
--			req.i.ifi_change |= IFF_ALLMULTI;
-+			req->i.ifi_change |= IFF_ALLMULTI;
- 			if (strcmp(*argv, "on") == 0) {
--				req.i.ifi_flags |= IFF_ALLMULTI;
-+				req->i.ifi_flags |= IFF_ALLMULTI;
- 			} else if (strcmp(*argv, "off") == 0) {
--				req.i.ifi_flags &= ~IFF_ALLMULTI;
-+				req->i.ifi_flags &= ~IFF_ALLMULTI;
- 			} else
- 				return on_off("allmulticast");
- 		} else if (strcmp(*argv, "promisc") == 0) {
- 			NEXT_ARG();
--			req.i.ifi_change |= IFF_PROMISC;
-+			req->i.ifi_change |= IFF_PROMISC;
- 			if (strcmp(*argv, "on") == 0) {
--				req.i.ifi_flags |= IFF_PROMISC;
-+				req->i.ifi_flags |= IFF_PROMISC;
- 			} else if (strcmp(*argv, "off") == 0) {
--				req.i.ifi_flags &= ~IFF_PROMISC;
-+				req->i.ifi_flags &= ~IFF_PROMISC;
- 			} else
- 				return on_off("promisc");
- 		} else if (strcmp(*argv, "trailers") == 0) {
- 			NEXT_ARG();
--			req.i.ifi_change |= IFF_NOTRAILERS;
-+			req->i.ifi_change |= IFF_NOTRAILERS;
- 			if (strcmp(*argv, "off") == 0) {
--				req.i.ifi_flags |= IFF_NOTRAILERS;
-+				req->i.ifi_flags |= IFF_NOTRAILERS;
- 			} else if (strcmp(*argv, "on") == 0) {
--				req.i.ifi_flags &= ~IFF_NOTRAILERS;
-+				req->i.ifi_flags &= ~IFF_NOTRAILERS;
- 			} else
- 				return on_off("trailers");
- 		} else if (strcmp(*argv, "arp") == 0) {
- 			NEXT_ARG();
--			req.i.ifi_change |= IFF_NOARP;
-+			req->i.ifi_change |= IFF_NOARP;
- 			if (strcmp(*argv, "on") == 0) {
--				req.i.ifi_flags &= ~IFF_NOARP;
-+				req->i.ifi_flags &= ~IFF_NOARP;
- 			} else if (strcmp(*argv, "off") == 0) {
--				req.i.ifi_flags |= IFF_NOARP;
-+				req->i.ifi_flags |= IFF_NOARP;
- 			} else
- 				return on_off("noarp");
- #ifdef IFF_DYNAMIC
- 		} else if (matches(*argv, "dynamic") == 0) {
- 			NEXT_ARG();
--			req.i.ifi_change |= IFF_DYNAMIC;
-+			req->i.ifi_change |= IFF_DYNAMIC;
- 			if (strcmp(*argv, "on") == 0) {
--				req.i.ifi_flags |= IFF_DYNAMIC;
-+				req->i.ifi_flags |= IFF_DYNAMIC;
- 			} else if (strcmp(*argv, "off") == 0) {
--				req.i.ifi_flags &= ~IFF_DYNAMIC;
-+				req->i.ifi_flags &= ~IFF_DYNAMIC;
- 			} else
- 				return on_off("dynamic");
- #endif
- 		} else if (matches(*argv, "type") == 0) {
- 			NEXT_ARG();
--			type = *argv;
-+			*type = *argv;
- 			argc--; argv++;
- 			break;
- 		} else {
--                        if (strcmp(*argv, "dev") == 0) {
-+			if (strcmp(*argv, "dev") == 0) {
- 				NEXT_ARG();
- 			}
--			if (dev)
-+			if (*dev)
- 				duparg2("dev", *argv);
--			dev = *argv;
-+			*dev = *argv;
- 		}
- 		argc--; argv++;
+-		if (strcmp(*argv, "peer_mac") == 0) {
+-			argv++;
+-			argc--;
+-			if (argc == 0) {
+-				usage();
+-				return -1;
+-			}
++	data = NLMSG_TAIL(hdr);
++	addattr_l(hdr, 1024, VETH_INFO_PEER, NULL, 0);
+ 
+-			if (hexstring_a2n(*argv, mac, sizeof(mac)) == NULL)
+-				return -1;
++	hdr->nlmsg_len += sizeof(struct ifinfomsg);
+ 
+-			addattr_l(hdr, 1024, VETH_INFO_PEER_MAC,
+-					mac, ETH_ALEN);
+-			continue;
+-		}
++	err = iplink_parse(argc - 1, argv + 1, (struct iplink_req *)hdr,
++			&name, &type, &link, &dev);
++	if (err < 0)
++		return err;
+ 
+-		usage();
+-		return -1;
++	if (name) {
++		len = strlen(name) + 1;
++		if (len > IFNAMSIZ)
++			invarg("\"name\" too long\n", *argv);
++		addattr_l(hdr, 1024, IFLA_IFNAME, name, len);
  	}
  
-+	return ret - argc;
-+}
-+
-+static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
-+{
-+	int len;
-+	char *dev = NULL;
-+	char *name = NULL;
-+	char *link = NULL;
-+	char *type = NULL;
-+	struct link_util *lu = NULL;
-+	struct iplink_req req;
-+	int ret;
-+
-+	memset(&req, 0, sizeof(req));
-+
-+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-+	req.n.nlmsg_flags = NLM_F_REQUEST|flags;
-+	req.n.nlmsg_type = cmd;
-+	req.i.ifi_family = preferred_family;
-+
-+	ret = iplink_parse(argc, argv, &req, &name, &type, &link, &dev);
-+	if (ret < 0)
-+		return ret;
-+
-+	argc -= ret;
-+	argv += ret;
- 	ll_init_map(&rth);
+-	return 0;
++	data->rta_len = (void *)NLMSG_TAIL(hdr) - (void *)data;
++	return argc - 1 - err;
+ }
  
- 	if (type) {
+ struct link_util veth_link_util = {
+diff --git a/ip/veth.h b/ip/veth.h
+index b84a530..aa2e6f9 100644
+--- a/ip/veth.h
++++ b/ip/veth.h
+@@ -3,9 +3,7 @@
+ 
+ enum {
+ 	VETH_INFO_UNSPEC,
+-	VETH_INFO_MAC,
+ 	VETH_INFO_PEER,
+-	VETH_INFO_PEER_MAC,
+ 
+ 	__VETH_INFO_MAX
+ #define VETH_INFO_MAX	(__VETH_INFO_MAX - 1)
 -- 
 Thank,
 Vitaliy Gusev
