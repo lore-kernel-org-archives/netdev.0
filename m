@@ -1,60 +1,65 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] MAINTAINERS: remove Adam Fritzler, update his email
-	address in other sources
-Date: Tue, 18 Dec 2007 08:40:59 -0800
-Message-ID: <1197996060.4891.39.camel@localhost>
-References: <1197951126.4891.13.camel@localhost>
-	 <20071217202800.1c898441.akpm@linux-foundation.org>
-	 <1197953283.4891.24.camel@localhost>
-	 <20071218134128.GB5785@parisc-linux.org>
+From: Hideo AOKI <haoki@redhat.com>
+Subject: Re: [PATCH 2/4] datagram: mem_scheudle functions
+Date: Tue, 18 Dec 2007 12:02:15 -0500
+Message-ID: <4767FD17.5020603@redhat.com>
+References: <474DB80E.5070403@redhat.com> <474DB90B.9090107@redhat.com> <20071201120946.GA14368@gondor.apana.org.au> <47549B05.5090507@redhat.com> <20071215144540.GA29337@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Adam Fritzler <mid@zigamorph.net>,
-	"James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Mike Phillips <mikep@linuxtr.net>,
-	Philip Blundell <philb@gnu.org>, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org, Adrian Bunk <bunk@stusta.de>
-To: Matthew Wilcox <matthew@wil.cx>
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Satoshi Oshima <satoshi.oshima.fk@hitachi.com>,
+	Bill Fink <billfink@mindspring.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	yoshfuji@linux-ipv6.org,
+	Yumiko Sugita <yumiko.sugita.yf@hitachi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:4436 "EHLO perches.com"
+Received: from mx1.redhat.com ([66.187.233.31]:51835 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761424AbXLRQyf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Dec 2007 11:54:35 -0500
-In-Reply-To: <20071218134128.GB5785@parisc-linux.org>
+	id S1756813AbXLRREg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Dec 2007 12:04:36 -0500
+In-Reply-To: <20071215144540.GA29337@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2007-12-18 at 06:43 -0700, Matthew Wilcox wrote:
-> On Mon, Dec 17, 2007 at 08:48:03PM -0800, Joe Perches wrote:
-> > diff --git a/MAINTAINERS b/MAINTAINERS
-> > index 9507b42..690f172 100644
-> > --- a/MAINTAINERS
-> > +++ b/MAINTAINERS
-> > @@ -3758,13 +3758,6 @@ W:	http://www.kernel.org/pub/linux/kernel/people/bunk/trivial/
-> >  T:	git kernel.org:/pub/scm/linux/kernel/git/bunk/trivial.git
-> >  S:	Maintained
-> >  
-> > -TMS380 TOKEN-RING NETWORK DRIVER
-> > -P:	Adam Fritzler
-> > -M:	mid@auk.cx
-> > -L:	linux-tr@linuxtr.net
-> > -W:	http://www.auk.cx/tms380tr/
-> > -S:	Maintained
+Hello,
+
+I really apologize for not replying to this mail sooner.
+
+Herbert Xu wrote:
+> On Mon, Dec 03, 2007 at 07:10:45PM -0500, Hideo AOKI wrote:
+>> Because we have to call wmem_schedule function in ip_append_data()
+>> which is used by several protocols both stream and datagram.
+>> I just thought adding the sk_wmem_schedule() was only way to call
+>> proper function from ip_append_data().
 > 
-> That's pretty unfriendly.  Presumably the linux-tr list is still active
-> and would still help people with that driver.  So how about:
+> ip_append_data can't possibly work for stream protocols.  So
+> which stream protocol is calling it?
 
-The linux-tr list is at least broken, more likely dead.
-Subscribe requests to majordomo@linuxtr.net bounce.
+I think TCP could call ip_append_data(). Here is possible call graph.
 
-from: http://www.linuxtr.net/index.html
+tcp_v4_rcv()
+  -> tcp_v4_timewait_ack()
+       -> tcp_v4_send_ack()
+            -> ip_send_reply()
+                 -> *ip_append_data()*
 
-There is a known problem with the mailing list at the moment. If you
-have a query you can contact me directly at mike_phillips@urscorp.com.
+tcp_v4_reqsk_send_ack()
+  -> tcp_v4_send_ack()
+       -> ip_send_reply()
+            -> *ip_append_data()*
+
+tcp_v4_do_rcv()
+  -> tcp_v4_send_reset()
+       -> ip_send_reply()
+            -> *ip_append_data()*
 
 
+Regards,
+Hideo
 
+-- 
+Hitachi Computer Products (America) Inc.
