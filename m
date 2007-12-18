@@ -1,36 +1,31 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.25 1/2]S2io: Fixes to enable multiple transmit fifo
- support
-Date: Mon, 17 Dec 2007 22:04:34 -0500
-Message-ID: <476738C2.1060905@pobox.com>
-References: <1197920149.7518.40.camel@flash>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, support@neterion.com
-To: ram.vepa@neterion.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38538 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936432AbXLRDEl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Dec 2007 22:04:41 -0500
-In-Reply-To: <1197920149.7518.40.camel@flash>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: "ip neigh show" not showing arp cache entries?
+Date: Tue, 18 Dec 2007 11:33:29 +0800
+Message-ID: <E1J4TCz-0005L8-00@gondolin.me.apana.org.au>
+References: <476696A5.1010101@nortel.com>
+Cc: yoshfuji@linux-ipv6.org, dada1@cosmosbay.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: cfriesen@nortel.com (Chris Friesen)
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760676AbXLRDdu@vger.kernel.org>
+In-Reply-To: <476696A5.1010101@nortel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ramkrishna Vepa wrote:
-> Fixes to enable multiple transmit fifos (upto a maximum of eight).
->   - Moved single tx_lock from struct s2io_nic to struct fifo_info.
->   - Moved single ufo_in_band_v structure from struct s2io_nic to struct 
->     fifo_info.
->   - Assign the respective interrupt number for the transmitting fifo in the 
->     transmit descriptor (TXD).
-> - Added boundary checks for number of FIFOs enabled and FIFO length.
+Chris Friesen <cfriesen@nortel.com> wrote:
+>
+> However, if I specifically try to print out one of the missing entries, 
+> it shows up:
 > 
-> Signed-off-by: Surjit Reang <surjit.reang@neterion.com>
-> Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
-> Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
+> root@typhoon-base-unit0:/root> /tmp/ip neigh show 192.168.24.81
+> 192.168.24.81 dev bond2 lladdr 00:01:af:14:e9:8a REACHABLE
 
-applied 1-2 to #upstream
+What about
 
+	ip -4 neigh show
 
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
