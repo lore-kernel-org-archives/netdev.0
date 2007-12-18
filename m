@@ -1,42 +1,54 @@
-From: Jan Engelhardt <jengelh@computergmbh.de>
-Subject: Re: After many hours all outbound connections get stuck in SYN_SENT
-Date: Tue, 18 Dec 2007 22:20:32 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0712182218000.4422@fbirervta.pbzchgretzou.qr>
-References: <83a51e120712141239u52d2dd68p1b6ee7ed08f2cecf@mail.gmail.com>
- <Pine.LNX.4.64.0712180009390.32270@fbirervta.pbzchgretzou.qr>
- <83a51e120712180734i334399dbl51f44fe32d815f7d@mail.gmail.com>
- <Pine.LNX.4.64.0712181704380.4422@fbirervta.pbzchgretzou.qr>
- <83a51e120712180845k6cadf67bn5dd66fb2d3ac72d4@mail.gmail.com>
- <Pine.LNX.4.64.0712181818360.4422@fbirervta.pbzchgretzou.qr>
- <83a51e120712181009pf954f43mcb63ea4dab638458@mail.gmail.com>
- <Pine.LNX.4.64.0712181910580.4422@fbirervta.pbzchgretzou.qr>
- <83a51e120712181021p4c4c2a13g8820271f1e00361b@mail.gmail.com>
- <4768123A.7040603@cosmosbay.com> <83a51e120712181144l65633b32r72cc369f9d012f47@mail.gmail.com>
- <47682F8C.20205@cosmosbay.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] [IPv6]: IPV6_MULTICAST_IF setting is ignored on link-local
+ connect()
+Date: Tue, 18 Dec 2007 13:52:55 -0800
+Message-ID: <OF87295D1E.4B69B8F8-ON882573B5.00755AB2-882573B5.0078619A@us.ibm.com>
+References: <47683452.8080102@hp.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: James Nichols <jamesnichols3@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sovereign.computergmbh.de ([85.214.69.204]:45447 "EHLO
-	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755050AbXLRVUe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 16:20:34 -0500
-In-Reply-To: <47682F8C.20205@cosmosbay.com>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:50016 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752598AbXLRVxE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 16:53:04 -0500
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id lBILqxi0007257
+	for <netdev@vger.kernel.org>; Tue, 18 Dec 2007 16:52:59 -0500
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lBILqxem121524
+	for <netdev@vger.kernel.org>; Tue, 18 Dec 2007 14:52:59 -0700
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lBILqwK2001102
+	for <netdev@vger.kernel.org>; Tue, 18 Dec 2007 14:52:58 -0700
+In-Reply-To: <47683452.8080102@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Brian Haley <brian.haley@hp.com> wrote on 12/18/2007 12:57:54 PM:
 
-On Dec 18 2007 21:37, Eric Dumazet wrote:
->
-> If turning off tcp_sack makes the problem go away, why dont you
-> turn it off all the time ?
->
-That would just be workaround. I welcome the efforts to track this;
-not all users have the time to do so.
-Disabling tcp_sack also disabled it kernel-wide, which, well... for
-2.6.25 there is a TCPOPTSTRIP netfilter target slated with which
-SACK could be stripped only for a given host list or processes from
-a UID.
+> Trying to connect() to an IPv6 link-local multicast address by
+> specifying the outgoing multicast interface doesn't work, you have to
+> bind to a device first with an SO_BINDTODEVICE setsockopt() call.
+
+        No, you simply have to specify sin6_scope_id for link-scope
+addresses, like you do in unicast cases. Your patch requires them
+to match (if specified), but I don't think IPV6_MULTICAST_IF should
+override or require a match for a valid sin6_scope_id (or be an error).
+        If I read it correctly, the existing code uses IPV6_MULTICAST_IF
+if the sin6_scope_id is not set, otherwise honors the interface specified
+in the connect. That seems like correct behaviour to me, and RFC 3493
+doesn't address the relative precedence of the two that I see. This is
+in the "linklocal" branch, and all unicast linklocal's require specifying
+sin6_scope_id. Multicast doesn't if require a scope_id in the case where
+you've done an IPV6_MULTICAST_IF, but it should still allow a different
+scope_id when you have used IPV6_MULTICAST_IF.
+
+        Do you have application code that you believe is correct that
+doesn't work?
+
+                                                                +-DLS
+
