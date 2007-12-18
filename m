@@ -1,68 +1,42 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: [PATCH] [IPv6]: IPV6_MULTICAST_IF setting is ignored on link-local
- connect()
-Date: Tue, 18 Dec 2007 15:57:54 -0500
-Message-ID: <47683452.8080102@hp.com>
+From: Jan Engelhardt <jengelh@computergmbh.de>
+Subject: Re: After many hours all outbound connections get stuck in SYN_SENT
+Date: Tue, 18 Dec 2007 22:20:32 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0712182218000.4422@fbirervta.pbzchgretzou.qr>
+References: <83a51e120712141239u52d2dd68p1b6ee7ed08f2cecf@mail.gmail.com>
+ <Pine.LNX.4.64.0712180009390.32270@fbirervta.pbzchgretzou.qr>
+ <83a51e120712180734i334399dbl51f44fe32d815f7d@mail.gmail.com>
+ <Pine.LNX.4.64.0712181704380.4422@fbirervta.pbzchgretzou.qr>
+ <83a51e120712180845k6cadf67bn5dd66fb2d3ac72d4@mail.gmail.com>
+ <Pine.LNX.4.64.0712181818360.4422@fbirervta.pbzchgretzou.qr>
+ <83a51e120712181009pf954f43mcb63ea4dab638458@mail.gmail.com>
+ <Pine.LNX.4.64.0712181910580.4422@fbirervta.pbzchgretzou.qr>
+ <83a51e120712181021p4c4c2a13g8820271f1e00361b@mail.gmail.com>
+ <4768123A.7040603@cosmosbay.com> <83a51e120712181144l65633b32r72cc369f9d012f47@mail.gmail.com>
+ <47682F8C.20205@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080304000401070209080604"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	David Stevens <dlstevens@us.ibm.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: James Nichols <jamesnichols3@gmail.com>,
+	linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:8811 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752634AbXLRU54 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 15:57:56 -0500
+Received: from sovereign.computergmbh.de ([85.214.69.204]:45447 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755050AbXLRVUe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 16:20:34 -0500
+In-Reply-To: <47682F8C.20205@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080304000401070209080604
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Trying to connect() to an IPv6 link-local multicast address by
-specifying the outgoing multicast interface doesn't work, you have to
-bind to a device first with an SO_BINDTODEVICE setsockopt() call.  This
-patch allows the IPV6_MULTICAST_IF setting to also control which
-interface should be used for the connection, as specified in RFC 3493.
-
-Signed-off-by: Brian Haley <brian.haley@hp.com>
----
-
-
---------------080304000401070209080604
-Content-Type: text/x-patch;
- name="mcast_oif.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="mcast_oif.patch"
-
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 2ed689a..0b1e7eb 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -123,9 +123,15 @@ ipv4_connected:
- 				goto out;
- 			}
- 			sk->sk_bound_dev_if = usin->sin6_scope_id;
--			if (!sk->sk_bound_dev_if &&
--			    (addr_type & IPV6_ADDR_MULTICAST))
--				fl.oif = np->mcast_oif;
-+		}
-+
-+		if ((addr_type & IPV6_ADDR_MULTICAST) && np->mcast_oif) {
-+			if (sk->sk_bound_dev_if &&
-+			    sk->sk_bound_dev_if != np->mcast_oif) {
-+				err = -EINVAL;
-+				goto out;
-+			}
-+			sk->sk_bound_dev_if = np->mcast_oif;
- 		}
- 
- 		/* Connect to link-local address requires an interface */
-
-
---------------080304000401070209080604--
+On Dec 18 2007 21:37, Eric Dumazet wrote:
+>
+> If turning off tcp_sack makes the problem go away, why dont you
+> turn it off all the time ?
+>
+That would just be workaround. I welcome the efforts to track this;
+not all users have the time to do so.
+Disabling tcp_sack also disabled it kernel-wide, which, well... for
+2.6.25 there is a TCPOPTSTRIP netfilter target slated with which
+SACK could be stripped only for a given host list or processes from
+a UID.
