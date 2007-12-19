@@ -1,42 +1,36 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [UPDATED PATCH] SGISEEQ: use cached memory access to make driver
- work on IP28
-Date: Tue, 18 Dec 2007 19:38:13 -0500
-Message-ID: <476867F5.3070006@pobox.com>
-References: <20071202103312.75E51C2EB5@solo.franken.de> <47671FEE.90103@pobox.com> <20071218103006.GA18598@alpha.franken.de>
+From: Parag Warudkar <parag.warudkar@gmail.com>
+Subject: [PATCH] sch_generic.c: Make dev_watchdog use deferrable timer
+Date: Tue, 18 Dec 2007 20:04:23 -0500 (EST)
+Message-ID: <Pine.LNX.4.64.0712181956180.3616@mini.warudkars.net>
+Reply-To: parag.warudkar@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
-	ralf@linux-mips.org
-To: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36265 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758923AbXLSAiU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Dec 2007 19:38:20 -0500
-In-Reply-To: <20071218103006.GA18598@alpha.franken.de>
+Received: from wr-out-0506.google.com ([64.233.184.236]:10822 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752616AbXLSBE3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 20:04:29 -0500
+Received: by wr-out-0506.google.com with SMTP id c49so1944106wra.1
+        for <netdev@vger.kernel.org>; Tue, 18 Dec 2007 17:04:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thomas Bogendoerfer wrote:
-> On Mon, Dec 17, 2007 at 08:18:38PM -0500, Jeff Garzik wrote:
->>> Changes to last version:
->>> - Use inline functions for dma_sync_* instead of macros (suggested by Ralf)
->>> - added Kconfig change to make selection for similair SGI boxes easier
->> hrm, could you rediff?  it doesn't seem to apply
-> 
-> sure, against which tree ? I tried netdev-2.6 and it applies without fuzz...
 
-It needs to be the 'upstream' branch of netdev-2.6.
+Reduces the number of wakeups from idle per second, makes powertop happy.
 
-The default netdev-2.6.git branch, master, is a 100% vanilla duplicate 
-of Linus's git repository.
+Signed-off-by: Parag Warudkar <parag.warudkar@gmail.com>
 
-(this permits a common practice of presenting logs and diffs using git's 
-branch..branch notation)
+--- linux-2.6/net/sched/sch_generic.c	2007-12-07 10:04:43.000000000 -0500
++++ linux-2.6-work/net/sched/sch_generic.c	2007-12-16 17:57:05.000000000 -0500
+@@ -213,7 +213,7 @@
 
-	Jeff
-
-
-
+  static void dev_watchdog_init(struct net_device *dev)
+  {
+-	init_timer(&dev->watchdog_timer);
++	init_timer_deferrable(&dev->watchdog_timer);
+  	dev->watchdog_timer.data = (unsigned long)dev;
+  	dev->watchdog_timer.function = dev_watchdog;
+  }
