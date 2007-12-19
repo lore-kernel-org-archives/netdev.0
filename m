@@ -1,59 +1,67 @@
-From: David Stevens <dlstevens@us.ibm.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
 Subject: Re: [PATCH] [IPv6]: IPV6_MULTICAST_IF setting is ignored on link-local
  connect()
-Date: Wed, 19 Dec 2007 10:57:45 -0800
-Message-ID: <OF27B7DA9C.52E5380F-ON882573B6.00650422-882573B6.0068581B@us.ibm.com>
-References: <47693A52.5020301@hp.com>
+Date: Wed, 19 Dec 2007 14:02:02 -0500
+Message-ID: <47696AAA.2010107@hp.com>
+References: <OF367F9F64.87ED9167-ON882573B6.0063B893-882573B6.0064BE22@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Brian Haley <brian.haley@hp.com>,
+	David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	netdev-owner@vger.kernel.org,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Brian Haley <brian.haley@hp.com>
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:34704 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752505AbXLSTAA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 14:00:00 -0500
-In-Reply-To: <47693A52.5020301@hp.com>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:13983 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752819AbXLSTCE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 14:02:04 -0500
+In-Reply-To: <OF367F9F64.87ED9167-ON882573B6.0063B893-882573B6.0064BE22@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brian Haley <brian.haley@hp.com> wrote on 12/19/2007 07:35:46 AM:
-...
-> >                 if (usin->sin6_scope_id)
-> >                         sk->sk_bound_dev_if = usin->sin6_scope_id;
-> >                 if (!sk->sk_bound_dev_if &&
-> >                      (addr_type & IPV6_ADDR_MULTICAST))
-> >                         fl.oif = np->mcast_oif;
+David Stevens wrote:
+> Vlad Yasevich <vladislav.yasevich@hp.com> wrote on 12/19/2007 07:20:53 AM:
 > 
-> This assignment will not get us past the next check...
+>> But this still requires either a SO_BINDTODEVICE or sin6_scope_id.  This
+>> means the an application can call BINDTODEVICE(eth0), MULTICAST_IF(eth1)
+>> issue a connect on a UDP socket an succeed?  Seems wrong to me.
+>>
+>> Can you check section 6.7 of RFC 3542.
+> 
+>         No, it requires one of SO_BINDTODEVICE, sin6_scope_id, or 
+> IPV6_MULTICAST_IF.
+> If you do an SO_BINDTODEVICE(eth0) and then an IPV6_MULTICAST_IF(eth1), 
+> the
+> IPV6_MULTICAST_IF will fail in setsockopt (EINVAL), because it requires a 
+> match
+> for bound sockets.
 
-        Yeah, that's what I get for typing in off-the-cuff code. What
-I was thinking was the fl.oif assignment instead was:
-        if (!sk->sk_bound_dev_if &&
-                (addr_type & IPV6_ADDR_MULTICAST))
-                        sk->sk_bound_dev_if = np->mcast_oif;
+I should have checked that...  so the case I thought off is not possible...
 
-Which it is not, but maybe it could be, since this is a connect().
 
-That patch looks better, but I'm wondering if we could just remove the
-requirement that sin6_scope_id be set here if it's multicast, since it
-is doing the following later in the code:
+> I'm not sure if SO_BINDTODEVICE resets mcast_oif if you 
+> do
+> them in the reverse order, but that would be a bug in SO_BINDTODEVICE.
 
-        if (!fl.oif && (addr_type&IPV6_ADDR_MULTICAST))
-                fl.oif = np->mcast_oif;
+I don't think that would be needed since SO_BINDTODEVICE always wins over
+IPV6_MULTICAST_IF, so even if they mismatch, SO_BINDTODEVICE is still used.
 
-So, really, all we need to do is get through the LINKLOCAL section
-without error in the multicast case and we can remove the redundant
-multicast check there. I think that'd be simpler.
+>         The precedence order as implemented already is:
+> 
+>                 SO_BINDTODEVICE is highest and always wins
+>                 sin6_scope_id next
+>                 IPV6_MULTICAST_IF
+> 
+> and the existing code has the rule that all link-local addresses require a
+> sin6_scope_id. The change (intended) is to relax the sin6_scope_id rule 
+> only
+> for link-local multicasts that have done either an SO_BINDTODEVICE or
+> IPV6_MULTICAST_IF already.
+> 
 
-I also note that sin6_scope_id appears not to be honored at all in
-the non-linklocal case, which may be correct, but surprises me.
+Ok, but I don't think your patch accomplishes that, as Brian pointed out.
 
-I want to look a little more at this; I know you have a customer
-issue, so I'll make it quick.
-
-                                                                +-DLS
-
+-vlad
