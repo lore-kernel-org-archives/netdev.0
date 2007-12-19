@@ -1,54 +1,78 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] [IPv6]: IPV6_MULTICAST_IF setting is ignored on link-local
- connect()
-Date: Wed, 19 Dec 2007 10:18:24 -0800
-Message-ID: <OF367F9F64.87ED9167-ON882573B6.0063B893-882573B6.0064BE22@us.ibm.com>
-References: <476936D5.4070606@hp.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: After many hours all outbound connections get stuck in SYN_SENT
+Date: Wed, 19 Dec 2007 20:32:59 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0712192016280.24742@kivilampi-30.cs.helsinki.fi>
+References: <83a51e120712160834r29112fb0xa1f61c35f180bf8f@mail.gmail.com>
+ <Pine.LNX.4.64.0712191424360.31652@kivilampi-30.cs.helsinki.fi>
+ <83a51e120712190938j7c7a2c23xbe5c9da050d9956@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Brian Haley <brian.haley@hp.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>
+To: James Nichols <jamesnichols3@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:50899 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751263AbXLSSUq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 13:20:46 -0500
-In-Reply-To: <476936D5.4070606@hp.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:50783 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750920AbXLSSdB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 13:33:01 -0500
+In-Reply-To: <83a51e120712190938j7c7a2c23xbe5c9da050d9956@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vlad Yasevich <vladislav.yasevich@hp.com> wrote on 12/19/2007 07:20:53 AM:
+On Wed, 19 Dec 2007, James Nichols wrote:
 
-> But this still requires either a SO_BINDTODEVICE or sin6_scope_id.  This
-> means the an application can call BINDTODEVICE(eth0), MULTICAST_IF(eth1)
-> issue a connect on a UDP socket an succeed?  Seems wrong to me.
+> > > And the problem almost instanteaously resolved itself and outbound
+> > > connection attempts were succesful.
+> >
+> > New or the pending ones?
 > 
-> Can you check section 6.7 of RFC 3542.
+> I'm fairly sure that sockets that were already open in SYN_SENT state
+> when I turned tcp_sack off started to work as the count of sockets in
+> SYN_SENT state drops very rapidly.
 
-        No, it requires one of SO_BINDTODEVICE, sin6_scope_id, or 
-IPV6_MULTICAST_IF.
-If you do an SO_BINDTODEVICE(eth0) and then an IPV6_MULTICAST_IF(eth1), 
-the
-IPV6_MULTICAST_IF will fail in setsockopt (EINVAL), because it requires a 
-match
-for bound sockets. I'm not sure if SO_BINDTODEVICE resets mcast_oif if you 
-do
-them in the reverse order, but that would be a bug in SO_BINDTODEVICE.
-        The precedence order as implemented already is:
+Heh, "very rapidly" :-/, considering that you have 200 x SYN_SENT flows 
+and if tcp_syn_retries is set to default, you will see something happening 
+quite quickly for sure and the whole situation is over in ~3 mins if I 
+counted correctly.
 
-                SO_BINDTODEVICE is highest and always wins
-                sin6_scope_id next
-                IPV6_MULTICAST_IF
+> > > Is there a kernel buffer or some data structure that tcp_sack uses
+> > > that gets filled up after an extended period of operation?
+> >
+> > SACK has pretty little meaning in context of SYNs, there's only the
+> > sackperm(itted) TCP option which is sent along with the SYN/SYN-ACK.
+> >
+> > The SACK scoreboard is currently included to the skbs (has been like
+> > this for very long time), so no additional data structures should be
+> > there because of SACK...
+> 
+> I've been seeing this problem for about 4 years, so could it be
+> related to the scoreboard implementation somehow?
 
-and the existing code has the rule that all link-local addresses require a
-sin6_scope_id. The change (intended) is to relax the sin6_scope_id rule 
-only
-for link-local multicasts that have done either an SO_BINDTODEVICE or
-IPV6_MULTICAST_IF already.
+Scoreboard has no meaning in this context, it is used while _input_ 
+packets are processed. If you don't get SYN-ACKs at all, it doesn't
+have any meaning.
 
- +-DLS
+> > /proc/net/tcp couple of times in a row, try something something like
+> > this:
+> >
+> > for i in (seq 1 40); do cat /proc/net/tcp; echo "-----"; sleep 10; done
+> 
+> I can set up to do this the next time the problem occurs.
 
+for i in $(seq 1 40); ... is the right way to do the loop. :-)
+
+> > > I'm running kernel 2.6.18 on RedHat, but have had this problem occur
+> > > on earlier kernel versions (all 2.4 and 2.6).
+> >
+> > I've done some fixes to SACK processing since 2.6.18 (not sure if RedHat
+> > has backported them). Though they're not that critical nor anything in
+> > them should affect in SYN_SENT state.
+> 
+> Ok, unless there is direct evidence that there is a fix to this
+> problem in a later kernel I won't be able to upgrade.  If there is a
+> redhat provided patch I can probably do that.
+
+...They won't affect in SYN_SENT.
+
+-- 
+ i.
