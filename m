@@ -1,107 +1,73 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH 2/4] [POWERPC][NET] ucc_geth_mii and users: get rid of device_type
-Date: Wed, 19 Dec 2007 23:37:57 +0300
-Message-ID: <20071219203757.GB20861@localhost.localdomain>
-References: <20071219203447.GA18285@localhost.localdomain>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH 2.6.25 0/9]: SCTP: Update ADD-IP implementation to conform
+ to spec
+Date: Wed, 19 Dec 2007 15:53:47 -0500
+Message-ID: <476984DB.4020403@hp.com>
+References: <1197927169-5106-1-git-send-email-vladislav.yasevich@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Cc: linuxppc-dev@ozlabs.org, Jeff Garzik <jgarzik@pobox.com>,
-	Li Yang <leoli@freescale.com>, netdev@vger.kernel.org
-To: Kumar Gala <galak@kernel.crashing.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: lksctp-developers@lists.sourceforge.net,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:6601 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751418AbXLSUfq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 15:35:46 -0500
-Content-Disposition: inline
-In-Reply-To: <20071219203447.GA18285@localhost.localdomain>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:8437 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752174AbXLSUyf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 15:54:35 -0500
+In-Reply-To: <1197927169-5106-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-device_type property is bogus, better use proper compatible property.
+Hi David
 
-Also change compatible to "fsl,ucc-mdio".
+Vlad Yasevich wrote:
+> The following is a set of patches that updates the SCTP ADD-IP implementation
+> to conform to the recently published RFC.
+> 
+> ADD-IP is a SCTP Dynamic Address Configuration extensions, whereby
+> the two end systems can dynamically modify the address lists for a given
+> connection.  One of the applications of this is mobility.  The systems
+> exchange Address Configuration (ASCONF) and Address Configuration
+> Acknowlegement (ASCONF-ACK) messages which contain the info.  If you
+> want more info the operation, read RFC 5061.
+> 
+> The implementation in lksctp was a few years old and implemented draft-05
+> of the specification.  So this long overdue.
+> 
+> -vlad
+> 
 
-Per http://ozlabs.org/pipermail/linuxppc-dev/2007-December/048388.html
+Not sure if you got the PATCH 7/9 resend, but it looks like netdev ate that
+too.
 
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
----
- arch/powerpc/boot/dts/mpc832x_mds.dts |    3 +--
- arch/powerpc/boot/dts/mpc832x_rdb.dts |    3 +--
- arch/powerpc/boot/dts/mpc836x_mds.dts |    3 +--
- arch/powerpc/boot/dts/mpc8568mds.dts  |    2 +-
- drivers/net/ucc_geth_mii.c            |    3 +--
- 5 files changed, 5 insertions(+), 9 deletions(-)
+I made this patch set available here:
+ master.kernel.org:/pub/scm/linux/kernel/git/vxy/lksctp-dev.git addip
 
-diff --git a/arch/powerpc/boot/dts/mpc832x_mds.dts b/arch/powerpc/boot/dts/mpc832x_mds.dts
-index ef8cd1e..97757ed 100644
---- a/arch/powerpc/boot/dts/mpc832x_mds.dts
-+++ b/arch/powerpc/boot/dts/mpc832x_mds.dts
-@@ -254,8 +254,7 @@
- 			#address-cells = <1>;
- 			#size-cells = <0>;
- 			reg = <2320 18>;
--			device_type = "mdio";
--			compatible = "ucc_geth_phy";
-+			compatible = "fsl,ucc-mdio";
- 
- 			phy3: ethernet-phy@03 {
- 				interrupt-parent = < &ipic >;
-diff --git a/arch/powerpc/boot/dts/mpc832x_rdb.dts b/arch/powerpc/boot/dts/mpc832x_rdb.dts
-index 7c4f028..b1c73f1 100644
---- a/arch/powerpc/boot/dts/mpc832x_rdb.dts
-+++ b/arch/powerpc/boot/dts/mpc832x_rdb.dts
-@@ -235,8 +235,7 @@
- 			#address-cells = <1>;
- 			#size-cells = <0>;
- 			reg = <3120 18>;
--			device_type = "mdio";
--			compatible = "ucc_geth_phy";
-+			compatible = "fsl,ucc-mdio";
- 
- 			phy00:ethernet-phy@00 {
- 				interrupt-parent = <&pic>;
-diff --git a/arch/powerpc/boot/dts/mpc836x_mds.dts b/arch/powerpc/boot/dts/mpc836x_mds.dts
-index 5c73786..330212d 100644
---- a/arch/powerpc/boot/dts/mpc836x_mds.dts
-+++ b/arch/powerpc/boot/dts/mpc836x_mds.dts
-@@ -287,8 +287,7 @@
- 			#address-cells = <1>;
- 			#size-cells = <0>;
- 			reg = <2120 18>;
--			device_type = "mdio";
--			compatible = "ucc_geth_phy";
-+			compatible = "fsl,ucc-mdio";
- 
- 			phy0: ethernet-phy@00 {
- 				interrupt-parent = < &ipic >;
-diff --git a/arch/powerpc/boot/dts/mpc8568mds.dts b/arch/powerpc/boot/dts/mpc8568mds.dts
-index 7ad4b9f..c00aec9 100644
---- a/arch/powerpc/boot/dts/mpc8568mds.dts
-+++ b/arch/powerpc/boot/dts/mpc8568mds.dts
-@@ -355,7 +355,7 @@
- 			#address-cells = <1>;
- 			#size-cells = <0>;
- 			reg = <2120 18>;
--			compatible = "ucc_geth_phy";
-+			compatible = "fsl,ucc-mdio";
- 
- 			/* These are the same PHYs as on
- 			 * gianfar's MDIO bus */
-diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
-index df884f0..de8ba1f 100644
---- a/drivers/net/ucc_geth_mii.c
-+++ b/drivers/net/ucc_geth_mii.c
-@@ -253,8 +253,7 @@ int uec_mdio_remove(struct of_device *ofdev)
- 
- static struct of_device_id uec_mdio_match[] = {
- 	{
--		.type = "mdio",
--		.compatible = "ucc_geth_phy",
-+		.compatible = "fsl,ucc-mdio",
- 	},
- 	{},
- };
--- 
-1.5.2.2
+Vlad Yasevich (9):
+      SCTP: Discard unauthenticated ASCONF and ASCONF ACK chunks
+      SCTP: Handle the wildcard ADD-IP Address parameter
+      SCTP: Add the handling of "Set Primary IP Address" parameter to INIT
+      SCTP: Update association lookup to look at ASCONF chunks as well
+      SCTP: ADD-IP updates the states where ASCONFs can be sent
+      SCTP: Update ASCONF processing to conform to spec.
+      SCTP: Change use_as_src into a full address state
+      SCTP: Implement ADD-IP special case processing for ABORT chunk
+      SCTP: Follow Add-IP security consideratiosn wrt INIT/INIT-ACK
 
+ include/net/sctp/structs.h |   39 ++++++++----
+ net/sctp/associola.c       |   75 +++++++++++++++++++++++-
+ net/sctp/bind_addr.c       |   35 ++++++++++-
+ net/sctp/input.c           |  124 ++++++++++++++++++++++++++++++++-------
+ net/sctp/ipv6.c            |    2 +-
+ net/sctp/outqueue.c        |   29 ++++++++-
+ net/sctp/protocol.c        |    8 +-
+ net/sctp/sm_make_chunk.c   |  132 +++++++++++++++++++++++++++++++++++------
+ net/sctp/sm_statefuns.c    |  141 ++++++++++++++++++++++++++++++++++---------
+ net/sctp/sm_statetable.c   |   18 +++---
+ net/sctp/socket.c          |    8 +-
+ 11 files changed, 503 insertions(+), 108 deletions(-)
+
+You may pull from there is you wish.
+
+-vlad
