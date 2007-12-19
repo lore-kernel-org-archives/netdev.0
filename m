@@ -1,58 +1,42 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: [PATCH][IPV4] ip_gre: set mac_header correctly in receive path
-Date: Wed, 19 Dec 2007 20:10:41 +0200
-Message-ID: <47695EA1.10103@iki.fi>
-References: <471E05BD.7040407@iki.fi> <471E0638.9040405@trash.net> <471E19E5.5040509@iki.fi> <20071023202036.GA12066@ms2.inr.ac.ru> <471EDE22.4090408@iki.fi> <20071024100842.GA19369@ms2.inr.ac.ru> <4767D249.5050602@iki.fi>
+From: "James Nichols" <jamesnichols3@gmail.com>
+Subject: Re: After many hours all outbound connections get stuck in SYN_SENT
+Date: Wed, 19 Dec 2007 13:12:41 -0500
+Message-ID: <83a51e120712191012r64783b7dk56cc4fbcbdd5685c@mail.gmail.com>
+References: <83a51e120712141239u52d2dd68p1b6ee7ed08f2cecf@mail.gmail.com>
+	 <Pine.LNX.4.64.0712181910580.4422@fbirervta.pbzchgretzou.qr>
+	 <83a51e120712181021p4c4c2a13g8820271f1e00361b@mail.gmail.com>
+	 <4768123A.7040603@cosmosbay.com>
+	 <83a51e120712181144l65633b32r72cc369f9d012f47@mail.gmail.com>
+	 <47682F8C.20205@cosmosbay.com>
+	 <83a51e120712190853q33d9c7c1t4a46380665b7538b@mail.gmail.com>
+	 <47694FCC.1020507@cosmosbay.com>
+	 <83a51e120712190943m3bf0e2e4v2ea6b660142e9a5a@mail.gmail.com>
+	 <Pine.LNX.4.64.0712191857270.12329@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, davem@davemloft.net,
-	netdev@vger.kernel.org
+Cc: "Eric Dumazet" <dada1@cosmosbay.com>, linux-kernel@vger.kernel.org,
+	"Linux Netdev List" <netdev@vger.kernel.org>
+To: "Jan Engelhardt" <jengelh@computergmbh.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:60429 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750743AbXLSSK1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 13:10:27 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so323137ugc.16
-        for <netdev@vger.kernel.org>; Wed, 19 Dec 2007 10:10:25 -0800 (PST)
-In-Reply-To: <4767D249.5050602@iki.fi>
+Received: from fg-out-1718.google.com ([72.14.220.158]:1635 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752518AbXLSSMm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 13:12:42 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so504995fga.17
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2007 10:12:41 -0800 (PST)
+In-Reply-To: <Pine.LNX.4.64.0712191857270.12329@fbirervta.pbzchgretzou.qr>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Timo Teras <timo.teras@iki.fi>
+> The router could be sooo crappy that it drops all packets from
+> TCP streams that have SACK enabled and the client has opened
+> 200+ SACK connections previously... something like that?
 
-mac_header update in ipgre_recv() was incorrectly changed to
-skb_reset_mac_header() when it was introduced.
-
-Signed-off-by: Timo Teras <timo.teras@iki.fi>
----
-This replaces my earlier patch titled "ip_gre: use skb->{mac,
-network}_header consistently". Apparently I hadn't done my homework how
-to use *_header correctly. And I should have done a bit more testing to
-figure out the previous patch does not work.
-
-But the main problem was the receive path in the first place, and this
-patch fixes it.
-
-The bug was introduced in commit 459a98ed881802dee55897441bc7f77af614368e.
-There might be other similar incorrect replaces.
-
-
- net/ipv4/ip_gre.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 02b02a8..4b93f32 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -613,7 +613,7 @@ static int ipgre_rcv(struct sk_buff *skb)
- 				offset += 4;
- 		}
- 
--		skb_reset_mac_header(skb);
-+		skb->mac_header = skb->network_header;
- 		__pskb_pull(skb, offset);
- 		skb_reset_network_header(skb);
- 		skb_postpull_rcsum(skb, skb_transport_header(skb), offset);
--- 
-1.5.2.5
+I don't know, maybe.  My router is a fairly new model Cisco and is
+pretty major (i.e. pretty expensive), so it's not just a total piece
+of crap.  Plus, I never restart it when I see these issues.  I just
+turn tcp_sack off, the problem goes away, and I'm able to renable
+tcp_sack a few hours later and it works fine until many hours later
+when I see the SYN_SENT problem again.
