@@ -1,115 +1,84 @@
 From: "James Nichols" <jamesnichols3@gmail.com>
 Subject: Re: After many hours all outbound connections get stuck in SYN_SENT
-Date: Wed, 19 Dec 2007 12:38:09 -0500
-Message-ID: <83a51e120712190938j7c7a2c23xbe5c9da050d9956@mail.gmail.com>
-References: <83a51e120712160834r29112fb0xa1f61c35f180bf8f@mail.gmail.com>
-	 <Pine.LNX.4.64.0712191424360.31652@kivilampi-30.cs.helsinki.fi>
+Date: Wed, 19 Dec 2007 12:43:13 -0500
+Message-ID: <83a51e120712190943m3bf0e2e4v2ea6b660142e9a5a@mail.gmail.com>
+References: <83a51e120712141239u52d2dd68p1b6ee7ed08f2cecf@mail.gmail.com>
+	 <Pine.LNX.4.64.0712181818360.4422@fbirervta.pbzchgretzou.qr>
+	 <83a51e120712181009pf954f43mcb63ea4dab638458@mail.gmail.com>
+	 <Pine.LNX.4.64.0712181910580.4422@fbirervta.pbzchgretzou.qr>
+	 <83a51e120712181021p4c4c2a13g8820271f1e00361b@mail.gmail.com>
+	 <4768123A.7040603@cosmosbay.com>
+	 <83a51e120712181144l65633b32r72cc369f9d012f47@mail.gmail.com>
+	 <47682F8C.20205@cosmosbay.com>
+	 <83a51e120712190853q33d9c7c1t4a46380665b7538b@mail.gmail.com>
+	 <47694FCC.1020507@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Jan Engelhardt" <jengelh@computergmbh.de>,
+	linux-kernel@vger.kernel.org,
+	"Linux Netdev List" <netdev@vger.kernel.org>
+To: "Eric Dumazet" <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:57186 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752569AbXLSRiK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 12:38:10 -0500
-Received: by nf-out-0910.google.com with SMTP id g13so1603089nfb.21
-        for <netdev@vger.kernel.org>; Wed, 19 Dec 2007 09:38:09 -0800 (PST)
-In-Reply-To: <Pine.LNX.4.64.0712191424360.31652@kivilampi-30.cs.helsinki.fi>
+Received: from fg-out-1718.google.com ([72.14.220.152]:34657 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751547AbXLSRnP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 12:43:15 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so503389fga.17
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2007 09:43:13 -0800 (PST)
+In-Reply-To: <47694FCC.1020507@cosmosbay.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > When I stop and start the Java application, all the new outbound
-> > connections still get stuck in SYN_SENT state.
+On 12/19/07, Eric Dumazet <dada1@cosmosbay.com> wrote:
+> James Nichols a =E9crit :
+> >> So you see outgoing SYN packets, but no SYN replies coming from th=
+e remote
+> >> peer ?  (you mention ACKS, but the first packet received from the =
+remote
+> >>  peer should be a SYN+ACK),
+> >
+> > Right, I meant to say SYN+ACK.  I don't see them coming back.
 >
-> Is it so that they don't timeout at all? You can collect some of their
-> state from /proc/net/tcp (shows at least timers and attempt counters)....
-
-The outbound connections to timeout.  I've watched that they send
-tcp_syn_retries SYN packets before eventually timing out.
-
-
-
-> Are you sure that you just don't get unlucky at some point of time and
-> all 200 available threads are just temporarily stuck and your application
-> is just very slowly progressing then?
-
-Yeah, I'm sure that it isn't an unlucky point of time.  If I restart
-the application when this problem occurs, all the outbound connections
-still fail.
-
-
-> > For a long time, the only thing that would resolve this was rebooting
-> > the entire machine.  Once I did this, the outbound connections could
-> > be made succesfully.
+> So... Really unlikely a linux problem, but ...
 >
-> To the very same hosts? Or to another set of hosts?
-
-Yes, to the same exact set of hosts.
 
 
+I don't know how you can be so sure.  Turning tcp_sack off instantly
+resovles the problem and all connections are succesful.  I can't
+imagine even the most far-fetched scenario where a router or every
+single remote endpoints would suddenly stop causing the problem just
+by removing a single TCP option.
 
-> > And the problem almost instanteaously resolved itself and outbound
-> > connection attempts were succesful.
+
+> > I can take these captures and take a look at the results.
+> > Unfortunately, I don't think I'll be able to make the captures
+> > available to the general public.
 >
-> New or the pending ones?
+> I dont understand, why dont you change IPs to mask them with 192.168.=
+X.Y, or
+> just ME, and peer1, peer2, peer...
 
-I'm fairly sure that sockets that were already open in SYN_SENT state
-when I turned tcp_sack off started to work as the count of sockets in
-SYN_SENT state drops very rapidly.
+I will see if I can do that, but it's major pain with 2000 hosts.
+Plus, there is application data in the packets that I can't allow into
+the public domain.  I really don't think I can pull it off... I
+literally would have to go through our legal department.
 
-
-> >  In my case, it worked fine for about 38 hours before hitting a
-> > wall where no outbound connections could be made.
 >
-> How accurate number? Is the lockup somehow related to daytime cycle?
-
-It is 38 hours +/- a half hour or so.  It isn't related to the time of
-day, as it happens through out day/night depending on when the server
-was restarted.  A new developement in this area is that after the
-first 38 hours of system time the problem would occur, so I disable
-tcp_sack and the problem clears itself up and outbound connections are
-succesful.  After a couple of hours I re-enable tcp_sack and the next
-SYN_SENT issue doesn't occur until more than 50 hours later (so like
-90 hours after system start).  It's as if the first time it occurs and
-I turn tcp_sack off, it doesn't just reset the clock another 38 hours,
-but gives even more time until the problem occurs again.
-
-
-
-
-> > Is there a kernel buffer or some data structure that tcp_sack uses
-> > that gets filled up after an extended period of operation?
+> Random ideas :
 >
-> SACK has pretty little meaning in context of SYNs, there's only the
-> sackperm(itted) TCP option which is sent along with the SYN/SYN-ACK.
->
-> The SACK scoreboard is currently included to the skbs (has been like
-> this for very long time), so no additional data structures should be
-> there because of SACK...
+> 1) Is your server behind a NET router or something ?
 
-I've been seeing this problem for about 4 years, so could it be
-related to the scoreboard implementation somehow?
+What's a NET router?  I am behind a Cisco router and a firewall, but
+these network components have completely been replaced/rebuilt several
+times in the 4+ years that we've had this problem.  I've looked at the
+logs there and neither are doing anything other than passing the
+traffic along.
 
+> 2) Are you sure you are not using connection tracking, and hit a limi=
+t on it ?
 
-
-> /proc/net/tcp couple of times in a row, try something something like
-> this:
->
-> for i in (seq 1 40); do cat /proc/net/tcp; echo "-----"; sleep 10; done
-
-I can set up to do this the next time the problem occurs.
-
-
-> > I'm running kernel 2.6.18 on RedHat, but have had this problem occur
-> > on earlier kernel versions (all 2.4 and 2.6).
->
-> I've done some fixes to SACK processing since 2.6.18 (not sure if RedHat
-> has backported them). Though they're not that critical nor anything in
-> them should affect in SYN_SENT state.
-
-Ok, unless there is direct evidence that there is a fix to this
-problem in a later kernel I won't be able to upgrade.  If there is a
-redhat provided patch I can probably do that.
+I'm using ip_conntrack, but the limit I have for max entries is 65K.
+The most I've seen in there are a couple thousand- that was one of the
+first things I monitored very closely.
