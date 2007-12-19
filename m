@@ -1,131 +1,150 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] [IPv6]: IPV6_MULTICAST_IF setting is ignored on link-local
- connect()
-Date: Wed, 19 Dec 2007 10:35:46 -0500
-Message-ID: <47693A52.5020301@hp.com>
-References: <OF7B1ADDCA.711DCE7B-ON882573B5.00820D67-882573B5.0083AEF8@us.ibm.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH net-2.6.25 1/3] Uninline the __inet_hash function
+Date: Wed, 19 Dec 2007 17:09:21 +0100
+Message-ID: <47694231.2070406@cosmosbay.com>
+References: <4768F77E.5090201@openvz.org> <47690CD1.9060502@cosmosbay.com> <47691B0B.2060508@openvz.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010205040607090904030004"
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: David Stevens <dlstevens@us.ibm.com>
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:22715 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759016AbXLSPoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 10:44:20 -0500
-In-Reply-To: <OF7B1ADDCA.711DCE7B-ON882573B5.00820D67-882573B5.0083AEF8@us.ibm.com>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:34658 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751289AbXLSQJe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 11:09:34 -0500
+In-Reply-To: <47691B0B.2060508@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010205040607090904030004
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
+Pavel Emelyanov a =E9crit :
+> Eric Dumazet wrote:
+>> Pavel Emelyanov a =E9crit :
+>>> This one is used in quite many places in the networking code and
+>>> seems to big to be inline.
+>>>
+>>> After the patch net/ipv4/build-in.o loses 725 bytes:
+>>> add/remove: 1/0 grow/shrink: 0/5 up/down: 374/-1099 (-725)
+>>> function                                     old     new   delta
+>>> __inet_hash                                    -     374    +374
+>>> tcp_sacktag_write_queue                     2255    2254      -1
+>>> __inet_lookup_listener                       284     274     -10
+>>> tcp_v4_syn_recv_sock                         755     495    -260
+>>> tcp_v4_hash                                  389      40    -349
+>>> inet_hash_connect                           1165     686    -479
+>>>
+>>> Exporting this is for dccp module.
+>>>
+>>> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+>>>
+>>> ---
+>>>
+>>>  include/net/inet_hashtables.h |   27 ++-------------------------
+>>>  net/ipv4/inet_hashtables.c    |   27 +++++++++++++++++++++++++++
+>>>  2 files changed, 29 insertions(+), 25 deletions(-)
+>>>
+>>> diff --git a/include/net/inet_hashtables.h b/include/net/inet_hasht=
+ables.h
+>>> index 37f6cb1..1a43125 100644
+>>> --- a/include/net/inet_hashtables.h
+>>> +++ b/include/net/inet_hashtables.h
+>>> @@ -264,31 +264,8 @@ static inline void inet_listen_unlock(struct i=
+net_hashinfo *hashinfo)
+>>>  		wake_up(&hashinfo->lhash_wait);
+>>>  }
+>>> =20
+>>> -static inline void __inet_hash(struct inet_hashinfo *hashinfo,
+>>> -			       struct sock *sk, const int listen_possible)
+>>> -{
+>>> -	struct hlist_head *list;
+>>> -	rwlock_t *lock;
+>>> -
+>>> -	BUG_TRAP(sk_unhashed(sk));
+>>> -	if (listen_possible && sk->sk_state =3D=3D TCP_LISTEN) {
+>>> -		list =3D &hashinfo->listening_hash[inet_sk_listen_hashfn(sk)];
+>>> -		lock =3D &hashinfo->lhash_lock;
+>>> -		inet_listen_wlock(hashinfo);
+>>> -	} else {
+>>> -		struct inet_ehash_bucket *head;
+>>> -		sk->sk_hash =3D inet_sk_ehashfn(sk);
+>>> -		head =3D inet_ehash_bucket(hashinfo, sk->sk_hash);
+>>> -		list =3D &head->chain;
+>>> -		lock =3D inet_ehash_lockp(hashinfo, sk->sk_hash);
+>>> -		write_lock(lock);
+>>> -	}
+>>> -	__sk_add_node(sk, list);
+>>> -	sock_prot_inc_use(sk->sk_prot);
+>>> -	write_unlock(lock);
+>>> -	if (listen_possible && sk->sk_state =3D=3D TCP_LISTEN)
+>>> -		wake_up(&hashinfo->lhash_wait);
+>>> -}
+>>> +extern void __inet_hash(struct inet_hashinfo *hashinfo, struct soc=
+k *sk,
+>>> +		const int listen_possible);
+>>> =20
+>>>  static inline void inet_hash(struct inet_hashinfo *hashinfo, struc=
+t sock *sk)
+>>>  {
+>>> diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.=
+c
+>>> index 67704da..46f899b 100644
+>>> --- a/net/ipv4/inet_hashtables.c
+>>> +++ b/net/ipv4/inet_hashtables.c
+>>> @@ -267,6 +267,33 @@ static inline u32 inet_sk_port_offset(const st=
+ruct sock *sk)
+>>>  					  inet->dport);
+>>>  }
+>>> =20
+>>> +void __inet_hash(struct inet_hashinfo *hashinfo, struct sock *sk,
+>>> +		const int listen_possible)
+>>> +{
+>>> +	struct hlist_head *list;
+>>> +	rwlock_t *lock;
+>>> +
+>>> +	BUG_TRAP(sk_unhashed(sk));
+>>> +	if (listen_possible && sk->sk_state =3D=3D TCP_LISTEN) {
+>>> +		list =3D &hashinfo->listening_hash[inet_sk_listen_hashfn(sk)];
+>>> +		lock =3D &hashinfo->lhash_lock;
+>>> +		inet_listen_wlock(hashinfo);
+>>> +	} else {
+>>> +		struct inet_ehash_bucket *head;
+>>> +		sk->sk_hash =3D inet_sk_ehashfn(sk);
+>>> +		head =3D inet_ehash_bucket(hashinfo, sk->sk_hash);
+>>> +		list =3D &head->chain;
+>>> +		lock =3D inet_ehash_lockp(hashinfo, sk->sk_hash);
+>>> +		write_lock(lock);
+>>> +	}
+>>> +	__sk_add_node(sk, list);
+>>> +	sock_prot_inc_use(sk->sk_prot);
+>>> +	write_unlock(lock);
+>>> +	if (listen_possible && sk->sk_state =3D=3D TCP_LISTEN)
+>>> +		wake_up(&hashinfo->lhash_wait);
+>>> +}
+>>> +EXPORT_SYMBOL_GPL(__inet_hash);
+>>> +
+>>>  /*
+>>>   * Bind a port for a connect operation and hash it.
+>>>   */
+>> If you un-inline this (good idea), I am not sure we still need liste=
+n_possible=20
+>> argument.
+>>
+>> It was usefull only to help compiler to zap dead code (since it was =
+known at=20
+>> compile time), now it only adds some extra test and argument passing=
+=2E
+>=20
+> Hm... I've tried to address this issue and got worse result - minus
+> 600 bytes (vs minus 725). So, what would be more preferable - get a=20
+> smaller code with one extra 'if' or get a bit larger code without it?
+>=20
 
-Hi David,
+Strange... What I meant is always assume listen_possible is true.
 
-David Stevens wrote:
-> OK, I see what you're trying to fix now.
-> 
-> I think the scope_id checks are not quite right-- they
-> should be something like this:
-> 
-> if (addr_type&IPV6_ADDR_LINKLOCAL) {
->         if (addr_len >= sizeof(struct sockaddr_in6)) {
->                 if (sk->sk_bound_dev_if && usin->sin6_scope_id &&
->                     sk->sk_bound_dev_if != usin->sin6_scope_id) {
->                         err = -EINVAL;
->                         goto out;
->                 }
->                 if (usin->sin6_scope_id)
->                         sk->sk_bound_dev_if = usin->sin6_scope_id;
->                 if (!sk->sk_bound_dev_if &&
->                      (addr_type & IPV6_ADDR_MULTICAST))
->                         fl.oif = np->mcast_oif;
+The if (sk->sk_state =3D=3D TCP_LISTEN) will finally see the truth.
 
-This assignment will not get us past the next check...
-
->         /* connect to the link-local addres requires an interface */
->         if (!sk->sk_bound_dev_if) {
->                 err = -EINVAL;
->                 goto out;
->         }
-
-... and even if it did, fl.oif is over-written by sk_bound_dev_if just a 
-few lines down.
-
->         If I did an SO_BINDTODEVICE and specified sin6_scope_id,
-> then they better agree.
->         If I specified sin6_scope_id without SO_BINDTODEVICE, set
-> the device to that.
->         If I get this far without a device and it's multicast, use 
-> mcast_oif
->         If I get all through that and don't have a device, EINVAL.
-
-You also need to check if mcast_oif matches sk_bind_dev_if here - it's 
-actually done in the setsockopt() code already when we set it, 
-duplicating it here isn't that big a deal.
-
-How about the following patch?  It does not set sk_bound_dev_if to 
-mcast_oif, but does allow the connect() to succeed.
-
--Brian
+I did a test here on x86 gcc-4.2.2 and saved 32 bytes.
 
 
-Signed-off-by: Brian Haley <brian.haley@hp.com>
----
-
---------------010205040607090904030004
-Content-Type: text/x-patch;
- name="mcast_oif.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="mcast_oif.patch"
-
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 2ed689a..3226970 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -114,6 +114,8 @@ ipv4_connected:
- 		goto out;
- 	}
- 
-+	fl.oif = sk->sk_bound_dev_if;
-+
- 	if (addr_type&IPV6_ADDR_LINKLOCAL) {
- 		if (addr_len >= sizeof(struct sockaddr_in6) &&
- 		    usin->sin6_scope_id) {
-@@ -122,14 +124,14 @@ ipv4_connected:
- 				err = -EINVAL;
- 				goto out;
- 			}
--			sk->sk_bound_dev_if = usin->sin6_scope_id;
--			if (!sk->sk_bound_dev_if &&
--			    (addr_type & IPV6_ADDR_MULTICAST))
--				fl.oif = np->mcast_oif;
-+			fl.oif = sk->sk_bound_dev_if = usin->sin6_scope_id;
- 		}
- 
-+		if (!fl.oif && (addr_type & IPV6_ADDR_MULTICAST))
-+			fl.oif = np->mcast_oif;
-+
- 		/* Connect to link-local address requires an interface */
--		if (!sk->sk_bound_dev_if) {
-+		if (!fl.oif) {
- 			err = -EINVAL;
- 			goto out;
- 		}
-@@ -148,7 +150,6 @@ ipv4_connected:
- 	fl.proto = sk->sk_protocol;
- 	ipv6_addr_copy(&fl.fl6_dst, &np->daddr);
- 	ipv6_addr_copy(&fl.fl6_src, &np->saddr);
--	fl.oif = sk->sk_bound_dev_if;
- 	fl.fl_ip_dport = inet->dport;
- 	fl.fl_ip_sport = inet->sport;
- 
-
---------------010205040607090904030004--
