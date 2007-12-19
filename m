@@ -1,238 +1,84 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [Bugme-new] [Bug 9543] New: RTNL: assertion failed at net/ipv6/addrconf.c (2164)/RTNL: assertion failed at net/ipv4/devinet.c (1055)
-Date: Wed, 19 Dec 2007 09:42:08 -0500
-Message-ID: <20071219144208.GB8728@gospo.usersys.redhat.com>
-References: <E1J2Rgs-0006mz-00@gondolin.me.apana.org.au> <28503.1197481615@death> <Pine.LNX.4.64.0712141707090.30334@bizon.gios.gov.pl> <20071214182638.GC25879@gospo.usersys.redhat.com> <Pine.LNX.4.64.0712141955080.12202@bizon.gios.gov.pl> <20071214224722.GA8728@gospo.usersys.redhat.com> <Pine.LNX.4.64.0712182052490.24949@bizon.gios.gov.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	bugme-daemon@bugzilla.kernel.org, shemminger@linux-foundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Krzysztof Oledzki <olel@ans.pl>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: [patch 2/2][NETNS] net: Add a helper function neigh_param_default_alloc
+Date: Wed, 19 Dec 2007 15:55:46 +0100
+Message-ID: <20071219145846.105708749@ICON-9-164-138-215.megacenter.de.ibm.com>
+References: <20071219145544.184198087@ICON-9-164-138-215.megacenter.de.ibm.com>
+Cc: netdev@vger.kernel.org, den@openvz.org, benjamin.thery@bull.net,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:48560 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752713AbXLSOmo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2007 09:42:44 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0712182052490.24949@bizon.gios.gov.pl>
+Received: from mtagate1.de.ibm.com ([195.212.29.150]:14707 "EHLO
+	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755192AbXLSPEK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 10:04:10 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate1.de.ibm.com (8.13.8/8.13.8) with ESMTP id lBJF4AjX018466
+	for <netdev@vger.kernel.org>; Wed, 19 Dec 2007 15:04:10 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lBJF49jw2728134
+	for <netdev@vger.kernel.org>; Wed, 19 Dec 2007 16:04:09 +0100
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lBJF484d024567
+	for <netdev@vger.kernel.org>; Wed, 19 Dec 2007 16:04:09 +0100
+Content-Disposition: inline; filename=0002-net-Add-a-helper-function-neigh_param_default_alloc.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 18, 2007 at 08:53:39PM +0100, Krzysztof Oledzki wrote:
->=20
->=20
-> On Fri, 14 Dec 2007, Andy Gospodarek wrote:
->=20
-> >On Fri, Dec 14, 2007 at 07:57:42PM +0100, Krzysztof Oledzki wrote:
-> >>
-> >>
-> >>On Fri, 14 Dec 2007, Andy Gospodarek wrote:
-> >>
-> >>>On Fri, Dec 14, 2007 at 05:14:57PM +0100, Krzysztof Oledzki wrote:
-> >>>>
-> >>>>
-> >>>>On Wed, 12 Dec 2007, Jay Vosburgh wrote:
-> >>>>
-> >>>>>Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> >>>>>
-> >>>>>>>diff -puN drivers/net/bonding/bond_sysfs.c~bonding-locking-fix
-> >>>>>>>drivers/net/bonding/bond_sysfs.c
-> >>>>>>>--- a/drivers/net/bonding/bond_sysfs.c~bonding-locking-fix
-> >>>>>>>+++ a/drivers/net/bonding/bond_sysfs.c
-> >>>>>>>@@ -1111,8 +1111,6 @@ static ssize_t bonding_store_primary(str
-> >>>>>>>out:
-> >>>>>>>     write_unlock_bh(&bond->lock);
-> >>>>>>>
-> >>>>>>>-       rtnl_unlock();
-> >>>>>>>-
-> >>>>>>
-> >>>>>>Looking at the changeset that added this perhaps the intention
-> >>>>>>is to hold the lock? If so we should add an rtnl_lock to the st=
-art
-> >>>>>>of the function.
-> >>>>>
-> >>>>>	Yes, this function needs to hold locks, and more than just
-> >>>>>what's there now.  I believe the following should be correct; I =
-haven't
-> >>>>>tested it, though (I'm supposedly on vacation right now).
-> >>>>>
-> >>>>>	The following change should be correct for the
-> >>>>>bonding_store_primary case discussed in this thread, and also co=
-rrects
-> >>>>>the bonding_store_active case which performs similar functions.
-> >>>>>
-> >>>>>	The bond_change_active_slave and bond_select_active_slave
-> >>>>>functions both require rtnl, bond->lock for read and curr_slave_=
-lock=20
-> >>>>>for
-> >>>>>write_bh, and no other locks.  This is so that the lower level
-> >>>>>mode-specific functions can release locks down to just rtnl in o=
-rder to
-> >>>>>call, e.g., dev_set_mac_address with the locks it expects (rtnl =
-only).
-> >>>>>
-> >>>>>Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-> >>>>>
-> >>>>>diff --git a/drivers/net/bonding/bond_sysfs.c
-> >>>>>b/drivers/net/bonding/bond_sysfs.c
-> >>>>>index 11b76b3..28a2d80 100644
-> >>>>>--- a/drivers/net/bonding/bond_sysfs.c
-> >>>>>+++ b/drivers/net/bonding/bond_sysfs.c
-> >>>>>@@ -1075,7 +1075,10 @@ static ssize_t bonding_store_primary(stru=
-ct=20
-> >>>>>device
-> >>>>>*d,
-> >>>>>	struct slave *slave;
-> >>>>>	struct bonding *bond =3D to_bond(d);
-> >>>>>
-> >>>>>-	write_lock_bh(&bond->lock);
-> >>>>>+	rtnl_lock();
-> >>>>>+	read_lock(&bond->lock);
-> >>>>>+	write_lock_bh(&bond->curr_slave_lock);
-> >>>>>+
-> >>>>>	if (!USES_PRIMARY(bond->params.mode)) {
-> >>>>>		printk(KERN_INFO DRV_NAME
-> >>>>>		       ": %s: Unable to set primary slave; %s is in mode
-> >>>>>		       %d\n",
-> >>>>>@@ -1109,8 +1112,8 @@ static ssize_t bonding_store_primary(struc=
-t=20
-> >>>>>device
-> >>>>>*d,
-> >>>>>		}
-> >>>>>	}
-> >>>>>out:
-> >>>>>-	write_unlock_bh(&bond->lock);
-> >>>>>-
-> >>>>>+	write_unlock_bh(&bond->curr_slave_lock);
-> >>>>>+	read_unlock(&bond->lock);
-> >>>>>	rtnl_unlock();
-> >>>>>
-> >>>>>	return count;
-> >>>>>@@ -1190,7 +1193,8 @@ static ssize_t bonding_store_active_slave(=
-struct
-> >>>>>device *d,
-> >>>>>	struct bonding *bond =3D to_bond(d);
-> >>>>>
-> >>>>>	rtnl_lock();
-> >>>>>-	write_lock_bh(&bond->lock);
-> >>>>>+	read_lock(&bond->lock);
-> >>>>>+	write_lock_bh(&bond->curr_slave_lock);
-> >>>>>
-> >>>>>	if (!USES_PRIMARY(bond->params.mode)) {
-> >>>>>		printk(KERN_INFO DRV_NAME
-> >>>>>@@ -1247,7 +1251,8 @@ static ssize_t bonding_store_active_slave(=
-struct
-> >>>>>device *d,
-> >>>>>		}
-> >>>>>	}
-> >>>>>out:
-> >>>>>-	write_unlock_bh(&bond->lock);
-> >>>>>+	write_unlock_bh(&bond->curr_slave_lock);
-> >>>>>+	read_unlock(&bond->lock);
-> >>>>>	rtnl_unlock();
-> >>>>>
-> >>>>>	return count;
-> >>>>
-> >>>>Vanilla 2.6.24-rc5 plus this patch:
-> >>>>
-> >>>>=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> >>>>[ INFO: possible irq lock inversion dependency detected ]
-> >>>>2.6.24-rc5 #1
-> >>>>---------------------------------------------------------
-> >>>>events/0/9 just changed the state of lock:
-> >>>>(&mc->mca_lock){-+..}, at: [<c0411c7a>] mld_ifc_timer_expire+0x13=
-0/0x1fb
-> >>>>but this lock took another, soft-read-irq-unsafe lock in the past=
-:
-> >>>>(&bond->lock){-.--}
-> >>>>
-> >>>>and interrupts could create inverse lock ordering between them.
-> >>>>
-> >>>>
-> >>>
-> >>>Grrr, I should have seen that -- sorry.  Try your luck with this i=
-nstead:
-> >><CUT>
-> >>
-> >>No luck.
-> >>
-> >
-> >
-> >I'm guessing if we go back to using a write-lock for bond->lock this
-> >will go back to working again, but I'm not totally convinced since t=
-here
-> >are plenty of places where we used a read-lock with it.
->=20
-> Should I check this patch or rather, based on a future discussion, wa=
-it=20
-> for another version?
->=20
-> >
-> >diff --git a/drivers/net/bonding/bond_sysfs.c=20
-> >b/drivers/net/bonding/bond_sysfs.c
-> >index 11b76b3..635b857 100644
-> >--- a/drivers/net/bonding/bond_sysfs.c
-> >+++ b/drivers/net/bonding/bond_sysfs.c
-> >@@ -1075,7 +1075,10 @@ static ssize_t bonding_store_primary(struct d=
-evice=20
-> >*d,
-> >	struct slave *slave;
-> >	struct bonding *bond =3D to_bond(d);
-> >
-> >+	rtnl_lock();
-> >	write_lock_bh(&bond->lock);
-> >+	write_lock_bh(&bond->curr_slave_lock);
-> >+
-> >	if (!USES_PRIMARY(bond->params.mode)) {
-> >		printk(KERN_INFO DRV_NAME
-> >		       ": %s: Unable to set primary slave; %s is in mode=20
-> >		       %d\n",
-> >@@ -1109,8 +1112,8 @@ static ssize_t bonding_store_primary(struct de=
-vice=20
-> >*d,
-> >		}
-> >	}
-> >out:
-> >+	write_unlock_bh(&bond->curr_slave_lock);
-> >	write_unlock_bh(&bond->lock);
-> >-
-> >	rtnl_unlock();
-> >
-> >	return count;
-> >@@ -1191,6 +1194,7 @@ static ssize_t bonding_store_active_slave(stru=
-ct=20
-> >device *d,
-> >
-> >	rtnl_lock();
-> >	write_lock_bh(&bond->lock);
-> >+	write_lock_bh(&bond->curr_slave_lock);
-> >
-> >	if (!USES_PRIMARY(bond->params.mode)) {
-> >		printk(KERN_INFO DRV_NAME
-> >@@ -1247,6 +1251,7 @@ static ssize_t bonding_store_active_slave(stru=
-ct=20
-> >device *d,
-> >		}
-> >	}
-> >out:
-> >+	write_unlock_bh(&bond->curr_slave_lock);
-> >	write_unlock_bh(&bond->lock);
-> >	rtnl_unlock();
-> >
->=20
->=20
-> Best regards,
->=20
-> 					Krzysztof Ol=C4=99dzki
+In the presence of multiple network namespaces the logic needed
+to allocate the a default parameter table is just barely non-trivial.
+So add a function to automate it to make everyone's life easier.
 
-=46or now, I prefer Jay's original patch -- with the read_locks (rather
-than read/write_lock_bh) and the added rtnl_lock.  There is still a
-lockdep issue that we need to sort-out, but this patch is needed first.
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+---
+ include/net/neighbour.h |    1 +
+ net/core/neighbour.c    |   15 +++++++++++++++
+ 2 files changed, 16 insertions(+)
 
+Index: net-2.6.25/include/net/neighbour.h
+===================================================================
+--- net-2.6.25.orig/include/net/neighbour.h
++++ net-2.6.25/include/net/neighbour.h
+@@ -208,6 +208,7 @@ extern struct neighbour 	*neigh_event_ns
+ 						struct net_device *dev);
+ 
+ extern struct neigh_parms	*neigh_parms_alloc(struct net_device *dev, struct neigh_table *tbl);
++extern struct neigh_parms	*neigh_parms_alloc_default(struct neigh_table *tbl, struct net *net);
+ extern void			neigh_parms_release(struct neigh_table *tbl, struct neigh_parms *parms);
+ extern void			neigh_parms_destroy(struct neigh_parms *parms);
+ extern unsigned long		neigh_rand_reach_time(unsigned long base);
+Index: net-2.6.25/net/core/neighbour.c
+===================================================================
+--- net-2.6.25.orig/net/core/neighbour.c
++++ net-2.6.25/net/core/neighbour.c
+@@ -1327,6 +1327,20 @@ struct neigh_parms *neigh_parms_alloc(st
+ 	return p;
+ }
+ 
++struct neigh_parms *neigh_parms_alloc_default(struct neigh_table *tbl,
++						struct net *net)
++{
++	struct neigh_parms *parms;
++	if (net != &init_net) {
++		parms = neigh_parms_alloc(NULL, tbl);
++		release_net(parms->net);
++		parms->net = hold_net(net);
++	}
++	else
++		parms = neigh_parms_clone(&tbl->parms);
++	return parms;
++}
++
+ static void neigh_rcu_free_parms(struct rcu_head *head)
+ {
+ 	struct neigh_parms *parms =
+@@ -2789,6 +2803,7 @@ EXPORT_SYMBOL(neigh_ifdown);
+ EXPORT_SYMBOL(neigh_lookup);
+ EXPORT_SYMBOL(neigh_lookup_nodev);
+ EXPORT_SYMBOL(neigh_parms_alloc);
++EXPORT_SYMBOL(neigh_parms_alloc_default);
+ EXPORT_SYMBOL(neigh_parms_release);
+ EXPORT_SYMBOL(neigh_rand_reach_time);
+ EXPORT_SYMBOL(neigh_resolve_output);
+
+-- 
