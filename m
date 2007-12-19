@@ -1,60 +1,42 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] e1000: Use deferrable timer for watchdog
-Date: Wed, 19 Dec 2007 11:02:33 -0800
-Message-ID: <47696AC9.90204@intel.com>
-References: <Pine.LNX.4.64.0712182040470.3616@mini.warudkars.net>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] [IPv6]: IPV6_MULTICAST_IF setting is ignored on link-local
+ connect()
+Date: Wed, 19 Dec 2007 11:28:48 -0800
+Message-ID: <OF5E6AD5B5.F8D668D5-ON882573B6.006AAA3D-882573B6.006B2FE2@us.ibm.com>
+References: <47696DCF.3000009@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org, Arjan van de Ven <arjan@linux.intel.com>
-To: parag.warudkar@gmail.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:51676 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752190AbXLSTXq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2007 14:23:46 -0500
-In-Reply-To: <Pine.LNX.4.64.0712182040470.3616@mini.warudkars.net>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:44481 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752262AbXLSTbC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 14:31:02 -0500
+In-Reply-To: <47696DCF.3000009@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Parag Warudkar wrote:
 > 
-> Use deferrable timer for watchdog. Reduces wakeups from idle per second.
+> We would still have to check np->mcast_oif is set in the link-local case 
 
+> since we shouldn't be getting here with a zero.
 
-no, we don't want this. We already allow the re-scheduling of the watchdog to be
-round_jiffies() modified so that it coincides with other interrupts.
-
-but at load time we don't want the timer to be postponed at all for up to a whole
-second. Since we're doing all sorts of initialization work anyway this is
-counterproductive anyway, and you really want the link to come up as soon as
-possible, which is exactly what the watchdog handles when it runs first.
-
-I can't possibly see any benefit from this other than that you just add up to a
-whole second to the initialization cycle, which is bad.
-
-Auke
-
+        Actually, that's one of the things I wanted to look into. I'm not
+sure if there's a path through here with (even non-linklocal) multicasts
+that end up without an interface set. And I'd to do some testing of
+different cases to see if they behave as expected; also compare to the
+similar sendmsg() cases.
 
 > 
-> Signed-off-by: Parag Warudkar <parag.warudkar@gmail.com>
-> 
-> --- linux-2.6/drivers/net/e1000/e1000_main.c    2007-12-07
-> 10:04:39.000000000 -0500
-> +++ linux-2.6-work/drivers/net/e1000/e1000_main.c    2007-12-18
-> 20:38:38.000000000 -0500
-> @@ -1030,7 +1030,7 @@
->      adapter->tx_fifo_stall_timer.function = &e1000_82547_tx_fifo_stall;
->      adapter->tx_fifo_stall_timer.data = (unsigned long) adapter;
-> 
-> -    init_timer(&adapter->watchdog_timer);
-> +    init_timer_deferrable(&adapter->watchdog_timer);
->      adapter->watchdog_timer.function = &e1000_watchdog;
->      adapter->watchdog_timer.data = (unsigned long) adapter;
-> 
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Don't worry about that, they can wait, and I'm leaving for 10 days 
+> anyways...
+
+        Good, thanks. It has been this way for years now, and I'm out
+too. :-) Enjoy,
+
+                                                                +-DLS
 
