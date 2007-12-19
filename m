@@ -1,145 +1,57 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 11/14] [ACKVEC]: Implement algorithm to update buffer state
-Date: Wed, 19 Dec 2007 14:25:52 +0000
-Message-ID: <1198074355-18842-12-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 01/14] [CCID2]: Ack Vectors can happen on most packets
+Date: Wed, 19 Dec 2007 14:25:42 +0000
+Message-ID: <1198074355-18842-2-git-send-email-gerrit@erg.abdn.ac.uk>
 References: dccp_ackvector_rfc_patch_set
  <1198074355-18842-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-5-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-6-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-7-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-8-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-9-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-10-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-11-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36885 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36889 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753877AbXLSO1V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2007 09:27:21 -0500
-In-Reply-To: <1198074355-18842-11-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753878AbXLSO1W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2007 09:27:22 -0500
+In-Reply-To: <1198074355-18842-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This implements an algorithm to consistently update the buffer state when
-the peer acknowledges receipt of Ack Vectors; updating state in the list of
-Ack Vectors as well as in the circular buffer.
+CCID2 feedback only considers Ack/DataAck packets, but Ack Vectors can appear
+on other packets, too. In RFC 4340, 11.4 the only restriction is that they must
+not appear on Data or Request packets.
 
-The algorithm
- * deals with HC-sender acknowledging to HC-receiver and vice versa,
- * keeps track of the last unacknowledged but received seqno in tail_ackno,
- * has special cases to reset the overflow condition when appropriate,
- * is protected against receiving older information (would mess up buffer state).
+A possible case is for instance a Sync packet used for feature-negotiation
+(as used e.g in  section 6.6.1 of RFC 4340). In this case the host must answer
+with a SyncAck (7.5.4). Now, if the Sync packet carried an Ack Vector then
+the SyncAck acknowledges the receipt of that Ack Vector (thus changing the
+Acknowledgment Window, cf. 11.4.2); but the current code would not allow to
+parse the received Ack Vector.
+
+The fix is in parsing Ack Vectors on all packet types which are allowed to
+carry an Ack Vector.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ackvec.c |   82 ++++++++++++++++++++++++++++++++++++++++-------------
- 1 files changed, 62 insertions(+), 20 deletions(-)
+ net/dccp/ccids/ccid2.c |    7 +------
+ 1 files changed, 1 insertions(+), 6 deletions(-)
 
---- a/net/dccp/ackvec.c
-+++ b/net/dccp/ackvec.c
-@@ -262,34 +262,76 @@ out_duplicate:
- 	return -EILSEQ;
- }
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -549,13 +549,8 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 	if (hctx->ccid2hctx_seqh == hctx->ccid2hctx_seqt)
+ 		return;
  
--static void dccp_ackvec_throw_record(struct dccp_ackvec *av,
--				     struct dccp_ackvec_record *avr)
--{
--	struct dccp_ackvec_record *next;
-+/**
-+ * dccp_ackvec_clear_state  -  Perform house-keeping / garbage-collection
-+ * This routine is called when the peer acknowledges the receipt of Ack Vectors
-+ * up to and including @ackno. While based on on section A.3 of RFC 4340, here
-+ * are additional precautions to prevent corrupted buffer state. In particular,
-+ * we use tail_ackno to identify outdated records; it always marks the earliest
-+ * packet of group (2) in 11.4.2.
-+ */
-+void dccp_ackvec_clear_state(struct dccp_ackvec *av, const u64 ackno)
-+ {
-+	struct dccp_ackvec_record *avr, *next;
-+	u8 runlen_now, eff_runlen;
-+	s64 delta;
+-	switch (DCCP_SKB_CB(skb)->dccpd_type) {
+-	case DCCP_PKT_ACK:
+-	case DCCP_PKT_DATAACK:
+-		break;
+-	default:
++	if (dccp_packet_without_ack(skb))
+ 		return;
+-	}
  
--	/* sort out vector length */
--	if (av->av_buf_head <= avr->avr_ack_ptr)
--		av->av_vec_len = avr->avr_ack_ptr - av->av_buf_head;
--	else
--		av->av_vec_len = DCCPAV_MAX_ACKVEC_LEN - 1 -
--				 av->av_buf_head + avr->avr_ack_ptr;
-+	avr = dccp_ackvec_lookup(&av->av_records, ackno);
-+	if (avr == NULL)
-+		return;
-+	/*
-+	 * Deal with outdated acknowledgments: this arises when e.g. there are
-+	 * several old records and the acks from the peer come in slowly. In
-+	 * that case we may still have records that pre-date tail_ackno.
-+	 */
-+	delta = dccp_delta_seqno(av->av_tail_ackno, avr->avr_ack_ackno);
-+	if (delta < 0)
-+		goto free_records;
-+	/*
-+	 * Deal with overlapping Ack Vectors: don't subtract more than the
-+	 * number of packets between tail_ackno and ack_ackno.
-+	 */
-+	eff_runlen = delta < avr->avr_ack_runlen ? delta : avr->avr_ack_runlen;
- 
--	/* free records */
-+	runlen_now = dccp_ackvec_runlen(av->av_buf + avr->avr_ack_ptr);
-+	/*
-+	 * The run length of Ack Vector cells does not decrease over time. If
-+	 * the run length is the same as at the time the Ack Vector was sent, we
-+	 * free the ack_ptr cell. That cell can however not be freed if the run
-+	 * length has increased: in this case we need to move the tail pointer
-+	 * backwards (towards higher indices), to its next-oldest neighbour.
-+	 */
-+	if (runlen_now > eff_runlen) {
-+
-+		av->av_buf[avr->avr_ack_ptr] -= eff_runlen + 1;
-+		av->av_buf_tail = dccp_ackvec_idx_add(avr->avr_ack_ptr, 1);
-+
-+		/* This move may not have cleared the overflow flag. */
-+		if (av->av_overflow)
-+			av->av_overflow = (av->av_buf_head == av->av_buf_tail);
-+	} else {
-+		av->av_buf_tail	= avr->avr_ack_ptr;
-+		/*
-+		 * We have made sure that avr points to a valid cell within the
-+		 * buffer. This cell is either older than head, or equals head
-+		 * (empty buffer): in both cases we no longer have any overflow.
-+		 */
-+		av->av_overflow	= 0;
-+	}
-+
-+	/*
-+	 * The peer has acknowledged up to and including ack_ackno. Hence the
-+	 * first packet in group (2) of 11.4.2 is the successor of ack_ackno.
-+	 */
-+	av->av_tail_ackno = ADD48(avr->avr_ack_ackno, 1);
-+
-+free_records:
- 	list_for_each_entry_safe_from(avr, next, &av->av_records, avr_node) {
- 		list_del(&avr->avr_node);
- 		kmem_cache_free(dccp_ackvec_record_slab, avr);
- 	}
- }
- 
--void dccp_ackvec_clear_state(struct dccp_ackvec *av, const u64 ackno)
--{
--	struct dccp_ackvec_record *avr;
--
--	avr = dccp_ackvec_lookup(&av->av_records, ackno);
--	if (avr != NULL)
--		dccp_ackvec_throw_record(av, avr);
--}
--
- int __init dccp_ackvec_init(void)
- {
- 	dccp_ackvec_slab = kmem_cache_create("dccp_ackvec",
+ 	ackno = DCCP_SKB_CB(skb)->dccpd_ack_seq;
+ 	if (after48(ackno, hctx->ccid2hctx_high_ack))
 -- 
 1.5.3.GIT
 
