@@ -1,171 +1,233 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 05/14] [ACKVEC]: Smaller allocation/deallocation routines
-Date: Wed, 19 Dec 2007 14:25:46 +0000
-Message-ID: <1198074355-18842-6-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 04/14] [ACKVEC]: Inlines for run length and state
+Date: Wed, 19 Dec 2007 14:25:45 +0000
+Message-ID: <1198074355-18842-5-git-send-email-gerrit@erg.abdn.ac.uk>
 References: dccp_ackvector_rfc_patch_set
  <1198074355-18842-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1198074355-18842-2-git-send-email-gerrit@erg.abdn.ac.uk>
  <1198074355-18842-3-git-send-email-gerrit@erg.abdn.ac.uk>
  <1198074355-18842-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36889 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36934 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754285AbXLSO20 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2007 09:28:26 -0500
-In-Reply-To: <1198074355-18842-5-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1754616AbXLSO2n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2007 09:28:43 -0500
+In-Reply-To: <1198074355-18842-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes redundant bits, implementing the same functionality with less code.
+This provides inlines for Ack Vector run length and state, which allow to wrap
+several instances of the same code into function calls.
 
-The details are:
-  * The INIT_LIST_HEAD in dccp_ackvec_record_new was redundant, since the list pointers
-    were later overwritten when the node was added via list_add().
-
-  * dccp_ackvec_record_new() was called only in one instance in the entire ackvec code.
-
-  * The calls to list_del_init() before calling dccp_ackvec_record_delete() were redundant,
-    since subsequently the entire element was freed anyway.
-
-  * Similarly, since all calls to dccp_ackvec_record_delete() were preceded to a call to
-    list_del_init(), the WARN_ON test would never evaluate to true.
-
-  * Also, since all calls to dccp_ackvec_record_delete() were made from within list_for
-    each_entry_safe(), the test for avr == NULL was redundant.
-
-  * The list_empty() test in ackvec_free was redundant, since the same condition is
-    embedded in the loop condition of the subsequent list_for_each_entry_safe().
+The unused function dccp_ackvec_print() (which also relied on the older
+constants), has been removed.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ackvec.c |   78 +++++++++++++++++++----------------------------------
- 1 files changed, 28 insertions(+), 50 deletions(-)
+ net/dccp/ackvec.c      |   71 +++++++++++-------------------------------------
+ net/dccp/ackvec.h      |   13 +++++++-
+ net/dccp/ccids/ccid2.c |    7 ++---
+ 3 files changed, 30 insertions(+), 61 deletions(-)
 
---- a/net/dccp/ackvec.c
-+++ b/net/dccp/ackvec.c
-@@ -24,24 +24,34 @@
- static struct kmem_cache *dccp_ackvec_slab;
- static struct kmem_cache *dccp_ackvec_record_slab;
+--- a/net/dccp/ackvec.h
++++ b/net/dccp/ackvec.h
+@@ -30,8 +30,17 @@
+ #define DCCP_ACKVEC_STATE_ECN_MARKED	(1 << 6)
+ #define DCCP_ACKVEC_STATE_NOT_RECEIVED	(3 << 6)
  
--static struct dccp_ackvec_record *dccp_ackvec_record_new(void)
-+struct dccp_ackvec *dccp_ackvec_alloc(const gfp_t priority)
- {
--	struct dccp_ackvec_record *avr =
--			kmem_cache_alloc(dccp_ackvec_record_slab, GFP_ATOMIC);
-+	struct dccp_ackvec *av = kmem_cache_alloc(dccp_ackvec_slab, priority);
+-#define DCCP_ACKVEC_STATE_MASK		0xC0 /* 11000000 */
+-#define DCCP_ACKVEC_LEN_MASK		0x3F /* 00111111 */
++#define DCCPAV_MAX_RUNLEN	0x3F
 +
-+	if (av != NULL) {
-+		av->av_buf_head	 = DCCPAV_MAX_ACKVEC_LEN - 1;
-+		av->av_vec_len	 = 0;
-+		memset(av->av_buf_nonce, 0, sizeof(av->av_buf_nonce));
-+		INIT_LIST_HEAD(&av->av_records);
-+	}
-+	return av;
++static inline u8 dccp_ackvec_runlen(const u8 *cell)
++{
++	return *cell & DCCPAV_MAX_RUNLEN;
++}
++
++static inline u8 dccp_ackvec_state(const u8 *cell)
++{
++	return *cell & ~DCCPAV_MAX_RUNLEN;
 +}
  
--	if (avr != NULL)
--		INIT_LIST_HEAD(&avr->avr_node);
-+static void dccp_ackvec_purge_records(struct dccp_ackvec *av)
-+{
-+	struct dccp_ackvec_record *cur, *next;
+ /** struct dccp_ackvec - Ack Vector main data structure
+  *
+--- a/net/dccp/ackvec.c
++++ b/net/dccp/ackvec.c
+@@ -135,7 +135,7 @@ int dccp_insert_option_ackvec(struct sock *sk, struct sk_buff *skb)
+ 	avr->avr_ack_ptr    = av->av_buf_head;
+ 	avr->avr_ack_ackno  = av->av_buf_ackno;
+ 	avr->avr_ack_nonce  = nonce;
+-	avr->avr_ack_runlen = av->av_buf[av->av_buf_head] & DCCP_ACKVEC_LEN_MASK;
++	avr->avr_ack_runlen = dccp_ackvec_runlen(av->av_buf + av->av_buf_head);
  
--	return avr;
-+	list_for_each_entry_safe(cur, next, &av->av_records, avr_node)
-+		kmem_cache_free(dccp_ackvec_record_slab, cur);
-+	INIT_LIST_HEAD(&av->av_records);
+ 	dccp_ackvec_insert_avr(av, avr);
+ 
+@@ -178,18 +178,6 @@ void dccp_ackvec_free(struct dccp_ackvec *av)
+ 	kmem_cache_free(dccp_ackvec_slab, av);
  }
  
--static void dccp_ackvec_record_delete(struct dccp_ackvec_record *avr)
-+void dccp_ackvec_free(struct dccp_ackvec *av)
- {
--	if (unlikely(avr == NULL))
--		return;
--	/* Check if deleting a linked record */
--	WARN_ON(!list_empty(&avr->avr_node));
--	kmem_cache_free(dccp_ackvec_record_slab, avr);
-+	if (likely(av != NULL)) {
-+		dccp_ackvec_purge_records(av);
-+		kmem_cache_free(dccp_ackvec_slab, av);
-+	}
- }
- 
- static void dccp_ackvec_insert_avr(struct dccp_ackvec *av,
-@@ -85,7 +95,7 @@ int dccp_insert_option_ackvec(struct sock *sk, struct sk_buff *skb)
- 		return -1;
- 	}
- 
--	avr = dccp_ackvec_record_new();
-+	avr = kmem_cache_alloc(dccp_ackvec_record_slab, GFP_ATOMIC);
- 	if (avr == NULL)
- 		return -1;
- 
-@@ -147,37 +157,6 @@ int dccp_insert_option_ackvec(struct sock *sk, struct sk_buff *skb)
- 	return 0;
- }
- 
--struct dccp_ackvec *dccp_ackvec_alloc(const gfp_t priority)
+-static inline u8 dccp_ackvec_state(const struct dccp_ackvec *av,
+-				   const u32 index)
 -{
--	struct dccp_ackvec *av = kmem_cache_alloc(dccp_ackvec_slab, priority);
--
--	if (av != NULL) {
--		av->av_buf_head	 = DCCPAV_MAX_ACKVEC_LEN - 1;
--		av->av_vec_len	 = 0;
--		memset(av->av_buf_nonce, 0, sizeof(av->av_buf_nonce));
--		INIT_LIST_HEAD(&av->av_records);
--	}
--
--	return av;
+-	return av->av_buf[index] & DCCP_ACKVEC_STATE_MASK;
 -}
 -
--void dccp_ackvec_free(struct dccp_ackvec *av)
+-static inline u8 dccp_ackvec_len(const struct dccp_ackvec *av,
+-				 const u32 index)
 -{
--	if (unlikely(av == NULL))
--		return;
--
--	if (!list_empty(&av->av_records)) {
--		struct dccp_ackvec_record *avr, *next;
--
--		list_for_each_entry_safe(avr, next, &av->av_records, avr_node) {
--			list_del_init(&avr->avr_node);
--			dccp_ackvec_record_delete(avr);
--		}
--	}
--
--	kmem_cache_free(dccp_ackvec_slab, av);
+-	return av->av_buf[index] & DCCP_ACKVEC_LEN_MASK;
 -}
 -
  /*
   * If several packets are missing, the HC-Receiver may prefer to enter multiple
   * bytes with run length 0, rather than a single byte with a larger run length;
-@@ -321,8 +300,8 @@ static void dccp_ackvec_throw_record(struct dccp_ackvec *av,
+@@ -234,6 +222,8 @@ static inline int dccp_ackvec_set_buf_head_state(struct dccp_ackvec *av,
+ int dccp_ackvec_add(struct dccp_ackvec *av, const struct sock *sk,
+ 		    const u64 ackno, const u8 state)
+ {
++	u8 *cur_head = av->av_buf + av->av_buf_head,
++	   *buf_end  = av->av_buf + DCCPAV_MAX_ACKVEC_LEN;
+ 	/*
+ 	 * Check at the right places if the buffer is full, if it is, tell the
+ 	 * caller to start dropping packets till the HC-Sender acks our ACK
+@@ -258,7 +248,7 @@ int dccp_ackvec_add(struct dccp_ackvec *av, const struct sock *sk,
  
- 	/* free records */
- 	list_for_each_entry_safe_from(avr, next, &av->av_records, avr_node) {
--		list_del_init(&avr->avr_node);
--		dccp_ackvec_record_delete(avr);
-+		list_del(&avr->avr_node);
-+		kmem_cache_free(dccp_ackvec_record_slab, avr);
+ 	/* See if this is the first ackno being inserted */
+ 	if (av->av_vec_len == 0) {
+-		av->av_buf[av->av_buf_head] = state;
++		*cur_head = state;
+ 		av->av_vec_len = 1;
+ 	} else if (after48(ackno, av->av_buf_ackno)) {
+ 		const u64 delta = dccp_delta_seqno(av->av_buf_ackno, ackno);
+@@ -267,10 +257,9 @@ int dccp_ackvec_add(struct dccp_ackvec *av, const struct sock *sk,
+ 		 * Look if the state of this packet is the same as the
+ 		 * previous ackno and if so if we can bump the head len.
+ 		 */
+-		if (delta == 1 &&
+-		    dccp_ackvec_state(av, av->av_buf_head) == state &&
+-		    dccp_ackvec_len(av, av->av_buf_head) < DCCP_ACKVEC_LEN_MASK)
+-			av->av_buf[av->av_buf_head]++;
++		if (delta == 1 && dccp_ackvec_state(cur_head) == state &&
++		    dccp_ackvec_runlen(cur_head) < DCCPAV_MAX_RUNLEN)
++			*cur_head += 1;
+ 		else if (dccp_ackvec_set_buf_head_state(av, delta, state))
+ 			return -ENOBUFS;
+ 	} else {
+@@ -283,21 +272,18 @@ int dccp_ackvec_add(struct dccp_ackvec *av, const struct sock *sk,
+ 		 *	could reduce the complexity of this scan.)
+ 		 */
+ 		u64 delta = dccp_delta_seqno(ackno, av->av_buf_ackno);
+-		u32 index = av->av_buf_head;
+ 
+ 		while (1) {
+-			const u8 len = dccp_ackvec_len(av, index);
+-			const u8 state = dccp_ackvec_state(av, index);
++			const u8 len = dccp_ackvec_runlen(cur_head);
+ 			/*
+ 			 * valid packets not yet in av_buf have a reserved
+ 			 * entry, with a len equal to 0.
+ 			 */
+-			if (state == DCCP_ACKVEC_STATE_NOT_RECEIVED &&
+-			    len == 0 && delta == 0) { /* Found our
+-							 reserved seat! */
++			if (*cur_head == DCCP_ACKVEC_STATE_NOT_RECEIVED &&
++			    delta == 0) {
+ 				dccp_pr_debug("Found %llu reserved seat!\n",
+ 					      (unsigned long long)ackno);
+-				av->av_buf[index] = state;
++				*cur_head = state;
+ 				goto out;
+ 			}
+ 			/* len == 0 means one packet */
+@@ -305,8 +291,8 @@ int dccp_ackvec_add(struct dccp_ackvec *av, const struct sock *sk,
+ 				goto out_duplicate;
+ 
+ 			delta -= len + 1;
+-			if (++index == DCCPAV_MAX_ACKVEC_LEN)
+-				index = 0;
++			if (++cur_head == buf_end)
++				cur_head = av->av_buf;
+ 		}
  	}
+ 
+@@ -321,31 +307,6 @@ out_duplicate:
+ 	return -EILSEQ;
  }
  
-@@ -431,10 +410,9 @@ int __init dccp_ackvec_init(void)
- 	if (dccp_ackvec_slab == NULL)
- 		goto out_err;
+-#ifdef CONFIG_IP_DCCP_DEBUG
+-void dccp_ackvector_print(const u64 ackno, const unsigned char *vector, int len)
+-{
+-	dccp_pr_debug_cat("ACK vector len=%d, ackno=%llu |", len,
+-			 (unsigned long long)ackno);
+-
+-	while (len--) {
+-		const u8 state = (*vector & DCCP_ACKVEC_STATE_MASK) >> 6;
+-		const u8 rl = *vector & DCCP_ACKVEC_LEN_MASK;
+-
+-		dccp_pr_debug_cat("%d,%d|", state, rl);
+-		++vector;
+-	}
+-
+-	dccp_pr_debug_cat("\n");
+-}
+-
+-void dccp_ackvec_print(const struct dccp_ackvec *av)
+-{
+-	dccp_ackvector_print(av->av_buf_ackno,
+-			     av->av_buf + av->av_buf_head,
+-			     av->av_vec_len);
+-}
+-#endif
+-
+ static void dccp_ackvec_throw_record(struct dccp_ackvec *av,
+ 				     struct dccp_ackvec_record *avr)
+ {
+@@ -409,7 +370,7 @@ static void dccp_ackvec_check_rcv_ackvector(struct dccp_ackvec *av,
+ 	 */
+ 	avr = list_entry(av->av_records.next, struct dccp_ackvec_record, avr_node);
+ 	while (i--) {
+-		const u8 rl = *vector & DCCP_ACKVEC_LEN_MASK;
++		const u8 rl = dccp_ackvec_runlen(vector);
+ 		u64 ackno_end_rl;
  
--	dccp_ackvec_record_slab =
--			kmem_cache_create("dccp_ackvec_record",
--					  sizeof(struct dccp_ackvec_record),
--					  0, SLAB_HWCACHE_ALIGN, NULL);
-+	dccp_ackvec_record_slab = kmem_cache_create("dccp_ackvec_record",
-+					     sizeof(struct dccp_ackvec_record),
-+					     0, SLAB_HWCACHE_ALIGN, NULL);
- 	if (dccp_ackvec_record_slab == NULL)
- 		goto out_destroy_slab;
+ 		dccp_set_seqno(&ackno_end_rl, *ackno - rl);
+@@ -426,8 +387,8 @@ static void dccp_ackvec_check_rcv_ackvector(struct dccp_ackvec *av,
+ 		break;
+ found:
+ 		if (between48(avr->avr_ack_seqno, ackno_end_rl, *ackno)) {
+-			const u8 state = *vector & DCCP_ACKVEC_STATE_MASK;
+-			if (state != DCCP_ACKVEC_STATE_NOT_RECEIVED) {
++			if (dccp_ackvec_state(vector) !=
++					DCCP_ACKVEC_STATE_NOT_RECEIVED) {
+ 				dccp_pr_debug("%s ACK vector 0, len=%d, "
+ 					      "ack_seqno=%llu, ack_ackno=%llu, "
+ 					      "ACKED!\n",
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -578,8 +578,8 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 					 &vector, &veclen)) != -1) {
+ 		/* go through this ack vector */
+ 		while (veclen--) {
+-			const u8 rl = *vector & DCCP_ACKVEC_LEN_MASK;
+-			u64 ackno_end_rl = SUB48(ackno, rl);
++			u64 ackno_end_rl = SUB48(ackno,
++						 dccp_ackvec_runlen(vector));
  
+ 			ccid2_pr_debug("ackvec start:%llu end:%llu\n",
+ 				       (unsigned long long)ackno,
+@@ -602,8 +602,7 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 			 * run length
+ 			 */
+ 			while (between48(seqp->ccid2s_seq,ackno_end_rl,ackno)) {
+-				const u8 state = *vector &
+-						 DCCP_ACKVEC_STATE_MASK;
++				const u8 state = dccp_ackvec_state(vector);
+ 
+ 				/* new packet received or marked */
+ 				if (state != DCCP_ACKVEC_STATE_NOT_RECEIVED &&
 -- 
 1.5.3.GIT
 
