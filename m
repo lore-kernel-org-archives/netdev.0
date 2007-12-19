@@ -1,119 +1,139 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.25 1/3] Uninline the __inet_hash function
-Date: Wed, 19 Dec 2007 13:50:38 +0300
-Message-ID: <4768F77E.5090201@openvz.org>
+Subject: [PATCH net-2.6.25 2/3] Uninline the __inet_lookup_established function
+Date: Wed, 19 Dec 2007 13:53:40 +0300
+Message-ID: <4768F834.3060100@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:54072 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:54401 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752008AbXLSKuw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2007 05:50:52 -0500
+	id S1751668AbXLSKxw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2007 05:53:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This one is used in quite many places in the networking code and
-seems to big to be inline.
+This is -700 bytes from the net/ipv4/built-in.o
 
-After the patch net/ipv4/build-in.o loses 725 bytes:
-add/remove: 1/0 grow/shrink: 0/5 up/down: 374/-1099 (-725)
+add/remove: 1/0 grow/shrink: 1/3 up/down: 340/-1040 (-700)
 function                                     old     new   delta
-__inet_hash                                    -     374    +374
-tcp_sacktag_write_queue                     2255    2254      -1
-__inet_lookup_listener                       284     274     -10
-tcp_v4_syn_recv_sock                         755     495    -260
-tcp_v4_hash                                  389      40    -349
-inet_hash_connect                           1165     686    -479
+__inet_lookup_established                      -     339    +339
+tcp_sacktag_write_queue                     2254    2255      +1
+tcp_v4_err                                  1304     973    -331
+tcp_v4_rcv                                  2089    1744    -345
+tcp_v4_do_rcv                                826     462    -364
 
-Exporting this is for dccp module.
+Exporting is for dccp module (used via e.g. inet_lookup).
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
-
- include/net/inet_hashtables.h |   27 ++-------------------------
- net/ipv4/inet_hashtables.c    |   27 +++++++++++++++++++++++++++
- 2 files changed, 29 insertions(+), 25 deletions(-)
+ include/net/inet_hashtables.h |   40 +++-------------------------------------
+ net/ipv4/inet_hashtables.c    |   38 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 41 insertions(+), 37 deletions(-)
 
 diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 37f6cb1..1a43125 100644
+index 1a43125..a33eab7 100644
 --- a/include/net/inet_hashtables.h
 +++ b/include/net/inet_hashtables.h
-@@ -264,31 +264,8 @@ static inline void inet_listen_unlock(struct inet_hashinfo *hashinfo)
- 		wake_up(&hashinfo->lhash_wait);
- }
- 
--static inline void __inet_hash(struct inet_hashinfo *hashinfo,
--			       struct sock *sk, const int listen_possible)
+@@ -374,43 +374,9 @@ typedef __u64 __bitwise __addrpair;
+  *
+  * Local BH must be disabled here.
+  */
+-static inline struct sock *
+-	__inet_lookup_established(struct inet_hashinfo *hashinfo,
+-				  const __be32 saddr, const __be16 sport,
+-				  const __be32 daddr, const u16 hnum,
+-				  const int dif)
 -{
--	struct hlist_head *list;
--	rwlock_t *lock;
+-	INET_ADDR_COOKIE(acookie, saddr, daddr)
+-	const __portpair ports = INET_COMBINED_PORTS(sport, hnum);
+-	struct sock *sk;
+-	const struct hlist_node *node;
+-	/* Optimize here for direct hit, only listening connections can
+-	 * have wildcards anyways.
+-	 */
+-	unsigned int hash = inet_ehashfn(daddr, hnum, saddr, sport);
+-	struct inet_ehash_bucket *head = inet_ehash_bucket(hashinfo, hash);
+-	rwlock_t *lock = inet_ehash_lockp(hashinfo, hash);
 -
--	BUG_TRAP(sk_unhashed(sk));
--	if (listen_possible && sk->sk_state == TCP_LISTEN) {
--		list = &hashinfo->listening_hash[inet_sk_listen_hashfn(sk)];
--		lock = &hashinfo->lhash_lock;
--		inet_listen_wlock(hashinfo);
--	} else {
--		struct inet_ehash_bucket *head;
--		sk->sk_hash = inet_sk_ehashfn(sk);
--		head = inet_ehash_bucket(hashinfo, sk->sk_hash);
--		list = &head->chain;
--		lock = inet_ehash_lockp(hashinfo, sk->sk_hash);
--		write_lock(lock);
+-	prefetch(head->chain.first);
+-	read_lock(lock);
+-	sk_for_each(sk, node, &head->chain) {
+-		if (INET_MATCH(sk, hash, acookie, saddr, daddr, ports, dif))
+-			goto hit; /* You sunk my battleship! */
 -	}
--	__sk_add_node(sk, list);
--	sock_prot_inc_use(sk->sk_prot);
--	write_unlock(lock);
--	if (listen_possible && sk->sk_state == TCP_LISTEN)
--		wake_up(&hashinfo->lhash_wait);
+-
+-	/* Must check for a TIME_WAIT'er before going to listener hash. */
+-	sk_for_each(sk, node, &head->twchain) {
+-		if (INET_TW_MATCH(sk, hash, acookie, saddr, daddr, ports, dif))
+-			goto hit;
+-	}
+-	sk = NULL;
+-out:
+-	read_unlock(lock);
+-	return sk;
+-hit:
+-	sock_hold(sk);
+-	goto out;
 -}
-+extern void __inet_hash(struct inet_hashinfo *hashinfo, struct sock *sk,
-+		const int listen_possible);
++extern struct sock * __inet_lookup_established(struct inet_hashinfo *hashinfo,
++		const __be32 saddr, const __be16 sport,
++		const __be32 daddr, const u16 hnum, const int dif);
  
- static inline void inet_hash(struct inet_hashinfo *hashinfo, struct sock *sk)
- {
+ static inline struct sock *
+ 	inet_lookup_established(struct inet_hashinfo *hashinfo,
 diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index 67704da..46f899b 100644
+index 46f899b..db43ddd 100644
 --- a/net/ipv4/inet_hashtables.c
 +++ b/net/ipv4/inet_hashtables.c
-@@ -267,6 +267,33 @@ static inline u32 inet_sk_port_offset(const struct sock *sk)
- 					  inet->dport);
+@@ -190,6 +190,44 @@ sherry_cache:
  }
+ EXPORT_SYMBOL_GPL(__inet_lookup_listener);
  
-+void __inet_hash(struct inet_hashinfo *hashinfo, struct sock *sk,
-+		const int listen_possible)
++struct sock * __inet_lookup_established(struct inet_hashinfo *hashinfo,
++				  const __be32 saddr, const __be16 sport,
++				  const __be32 daddr, const u16 hnum,
++				  const int dif)
 +{
-+	struct hlist_head *list;
-+	rwlock_t *lock;
++	INET_ADDR_COOKIE(acookie, saddr, daddr)
++	const __portpair ports = INET_COMBINED_PORTS(sport, hnum);
++	struct sock *sk;
++	const struct hlist_node *node;
++	/* Optimize here for direct hit, only listening connections can
++	 * have wildcards anyways.
++	 */
++	unsigned int hash = inet_ehashfn(daddr, hnum, saddr, sport);
++	struct inet_ehash_bucket *head = inet_ehash_bucket(hashinfo, hash);
++	rwlock_t *lock = inet_ehash_lockp(hashinfo, hash);
 +
-+	BUG_TRAP(sk_unhashed(sk));
-+	if (listen_possible && sk->sk_state == TCP_LISTEN) {
-+		list = &hashinfo->listening_hash[inet_sk_listen_hashfn(sk)];
-+		lock = &hashinfo->lhash_lock;
-+		inet_listen_wlock(hashinfo);
-+	} else {
-+		struct inet_ehash_bucket *head;
-+		sk->sk_hash = inet_sk_ehashfn(sk);
-+		head = inet_ehash_bucket(hashinfo, sk->sk_hash);
-+		list = &head->chain;
-+		lock = inet_ehash_lockp(hashinfo, sk->sk_hash);
-+		write_lock(lock);
++	prefetch(head->chain.first);
++	read_lock(lock);
++	sk_for_each(sk, node, &head->chain) {
++		if (INET_MATCH(sk, hash, acookie, saddr, daddr, ports, dif))
++			goto hit; /* You sunk my battleship! */
 +	}
-+	__sk_add_node(sk, list);
-+	sock_prot_inc_use(sk->sk_prot);
-+	write_unlock(lock);
-+	if (listen_possible && sk->sk_state == TCP_LISTEN)
-+		wake_up(&hashinfo->lhash_wait);
-+}
-+EXPORT_SYMBOL_GPL(__inet_hash);
 +
- /*
-  * Bind a port for a connect operation and hash it.
-  */
++	/* Must check for a TIME_WAIT'er before going to listener hash. */
++	sk_for_each(sk, node, &head->twchain) {
++		if (INET_TW_MATCH(sk, hash, acookie, saddr, daddr, ports, dif))
++			goto hit;
++	}
++	sk = NULL;
++out:
++	read_unlock(lock);
++	return sk;
++hit:
++	sock_hold(sk);
++	goto out;
++}
++EXPORT_SYMBOL_GPL(__inet_lookup_established);
++
+ /* called with local bh disabled */
+ static int __inet_check_established(struct inet_timewait_death_row *death_row,
+ 				    struct sock *sk, __u16 lport,
 -- 
 1.5.3.4
 
