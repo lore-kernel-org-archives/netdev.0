@@ -1,69 +1,60 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] [IPv6]: IPV6_MULTICAST_IF setting is ignored on link-local
- connect()
-Date: Wed, 19 Dec 2007 14:15:27 -0500
-Message-ID: <47696DCF.3000009@hp.com>
-References: <OF27B7DA9C.52E5380F-ON882573B6.00650422-882573B6.0068581B@us.ibm.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] e1000: Use deferrable timer for watchdog
+Date: Wed, 19 Dec 2007 11:02:33 -0800
+Message-ID: <47696AC9.90204@intel.com>
+References: <Pine.LNX.4.64.0712182040470.3616@mini.warudkars.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: David Stevens <dlstevens@us.ibm.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org, Arjan van de Ven <arjan@linux.intel.com>
+To: parag.warudkar@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:44540 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752579AbXLSTPa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 14:15:30 -0500
-In-Reply-To: <OF27B7DA9C.52E5380F-ON882573B6.00650422-882573B6.0068581B@us.ibm.com>
+Received: from mga03.intel.com ([143.182.124.21]:51676 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752190AbXLSTXq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2007 14:23:46 -0500
+In-Reply-To: <Pine.LNX.4.64.0712182040470.3616@mini.warudkars.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Stevens wrote:
-> Brian Haley <brian.haley@hp.com> wrote on 12/19/2007 07:35:46 AM:
-> ...
->>>                 if (usin->sin6_scope_id)
->>>                         sk->sk_bound_dev_if = usin->sin6_scope_id;
->>>                 if (!sk->sk_bound_dev_if &&
->>>                      (addr_type & IPV6_ADDR_MULTICAST))
->>>                         fl.oif = np->mcast_oif;
->> This assignment will not get us past the next check...
+Parag Warudkar wrote:
 > 
->         Yeah, that's what I get for typing in off-the-cuff code. What
-> I was thinking was the fl.oif assignment instead was:
->         if (!sk->sk_bound_dev_if &&
->                 (addr_type & IPV6_ADDR_MULTICAST))
->                         sk->sk_bound_dev_if = np->mcast_oif;
+> Use deferrable timer for watchdog. Reduces wakeups from idle per second.
+
+
+no, we don't want this. We already allow the re-scheduling of the watchdog to be
+round_jiffies() modified so that it coincides with other interrupts.
+
+but at load time we don't want the timer to be postponed at all for up to a whole
+second. Since we're doing all sorts of initialization work anyway this is
+counterproductive anyway, and you really want the link to come up as soon as
+possible, which is exactly what the watchdog handles when it runs first.
+
+I can't possibly see any benefit from this other than that you just add up to a
+whole second to the initialization cycle, which is bad.
+
+Auke
+
+
 > 
-> Which it is not, but maybe it could be, since this is a connect().
-
-My original patch did this, but also checked for a possible mis-match 
-with sk_bound_dev_if - it would actually wind-up setting it to the same 
-value if it was already set correctly.
-
-> That patch looks better, but I'm wondering if we could just remove the
-> requirement that sin6_scope_id be set here if it's multicast, since it
-> is doing the following later in the code:
+> Signed-off-by: Parag Warudkar <parag.warudkar@gmail.com>
 > 
->         if (!fl.oif && (addr_type&IPV6_ADDR_MULTICAST))
->                 fl.oif = np->mcast_oif;
-
-We would still have to check np->mcast_oif is set in the link-local case 
-since we shouldn't be getting here with a zero.
-
-> So, really, all we need to do is get through the LINKLOCAL section
-> without error in the multicast case and we can remove the redundant
-> multicast check there. I think that'd be simpler.
+> --- linux-2.6/drivers/net/e1000/e1000_main.c    2007-12-07
+> 10:04:39.000000000 -0500
+> +++ linux-2.6-work/drivers/net/e1000/e1000_main.c    2007-12-18
+> 20:38:38.000000000 -0500
+> @@ -1030,7 +1030,7 @@
+>      adapter->tx_fifo_stall_timer.function = &e1000_82547_tx_fifo_stall;
+>      adapter->tx_fifo_stall_timer.data = (unsigned long) adapter;
 > 
-> I also note that sin6_scope_id appears not to be honored at all in
-> the non-linklocal case, which may be correct, but surprises me.
+> -    init_timer(&adapter->watchdog_timer);
+> +    init_timer_deferrable(&adapter->watchdog_timer);
+>      adapter->watchdog_timer.function = &e1000_watchdog;
+>      adapter->watchdog_timer.data = (unsigned long) adapter;
 > 
-> I want to look a little more at this; I know you have a customer
-> issue, so I'll make it quick.
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Don't worry about that, they can wait, and I'm leaving for 10 days 
-anyways...
-
--Brian
