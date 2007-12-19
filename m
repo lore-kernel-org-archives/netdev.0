@@ -1,176 +1,90 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH net-2.6.25 13/19] [NETNS] Namespacing IPv4 fib rules.
-Date: Wed, 19 Dec 2007 18:24:43 +0300
-Message-ID: <1198077889-10693-14-git-send-email-den@openvz.org>
+Subject: [PATCH net-2.6.25 11/19] [NETNS] Show routing information from correct namespace (fib_hash.c)
+Date: Wed, 19 Dec 2007 18:24:41 +0300
+Message-ID: <1198077889-10693-12-git-send-email-den@openvz.org>
 References: <4769370F.5020303@openvz.org>
 Cc: benjamin.thery@bull.net, dlezcano@fr.ibm.com, devel@openvz.org,
 	containers@lists.osdl.org, netdev@vger.kernel.org, xemul@openvz.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:59878 "EHLO iris"
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:65234 "EHLO iris"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756137AbXLSPXO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2007 10:23:14 -0500
+	id S1755176AbXLSPXJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2007 10:23:09 -0500
 In-Reply-To: <4769370F.5020303@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The final trick for rules: place fib4_rules_ops into struct net and modify
-initialization path for this.
+This is the second part (for the CONFIG_IP_FIB_HASH case) of the patch #4,
+where we have created proc files in namespaces.
+
+Now we can dump correct info in them.
 
 Acked-by: Benjamin Thery <benjamin.thery@bull.net>
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
- include/net/netns/ipv4.h |    5 +++++
- net/ipv4/fib_rules.c     |   44 ++++++++++++++++++++++++--------------------
- 2 files changed, 29 insertions(+), 20 deletions(-)
+ net/ipv4/fib_hash.c |   17 +++++++++++------
+ 1 files changed, 11 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index e06d7cf..299f8c6 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -4,12 +4,17 @@
+diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
+index 75c1bde..3bb3a0a 100644
+--- a/net/ipv4/fib_hash.c
++++ b/net/ipv4/fib_hash.c
+@@ -782,6 +782,7 @@ struct fib_table *fib_hash_init(u32 id)
+ #ifdef CONFIG_PROC_FS
  
- #ifndef __NETNS_IPV4_H__
- #define __NETNS_IPV4_H__
+ struct fib_iter_state {
++	struct seq_net_private p;
+ 	struct fn_zone	*zone;
+ 	int		bucket;
+ 	struct hlist_head *hash_head;
+@@ -795,8 +796,11 @@ struct fib_iter_state {
+ static struct fib_alias *fib_get_first(struct seq_file *seq)
+ {
+ 	struct fib_iter_state *iter = seq->private;
+-	struct fib_table *main_table = fib_get_table(&init_net, RT_TABLE_MAIN);
+-	struct fn_hash *table = (struct fn_hash *)main_table->tb_data;
++	struct fib_table *main_table;
++	struct fn_hash *table;
 +
- struct ctl_table_header;
- struct ipv4_devconf;
-+struct fib_rules_ops;
++	main_table = fib_get_table(iter->p.net, RT_TABLE_MAIN);
++	table = (struct fn_hash *)main_table->tb_data;
  
- struct netns_ipv4 {
- 	struct ctl_table_header	*forw_hdr;
- 	struct ipv4_devconf	*devconf_all;
- 	struct ipv4_devconf	*devconf_dflt;
-+#ifdef CONFIG_IP_MULTIPLE_TABLES
-+	struct fib_rules_ops	*rules_ops;
-+#endif
- };
- #endif
-diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index 49819fe..72232ab 100644
---- a/net/ipv4/fib_rules.c
-+++ b/net/ipv4/fib_rules.c
-@@ -32,8 +32,6 @@
- #include <net/ip_fib.h>
- #include <net/fib_rules.h>
+ 	iter->bucket    = 0;
+ 	iter->hash_head = NULL;
+@@ -932,10 +936,11 @@ static struct fib_alias *fib_get_idx(struct seq_file *seq, loff_t pos)
  
--static struct fib_rules_ops fib4_rules_ops;
--
- struct fib4_rule
+ static void *fib_seq_start(struct seq_file *seq, loff_t *pos)
  {
- 	struct fib_rule		common;
-@@ -63,7 +61,7 @@ int fib_lookup(struct flowi *flp, struct fib_result *res)
- 	};
- 	int err;
++	struct fib_iter_state *iter = seq->private;
+ 	void *v = NULL;
  
--	err = fib_rules_lookup(&fib4_rules_ops, flp, 0, &arg);
-+	err = fib_rules_lookup(init_net.ipv4.rules_ops, flp, 0, &arg);
- 	res->r = arg.rule;
+ 	read_lock(&fib_hash_lock);
+-	if (fib_get_table(&init_net, RT_TABLE_MAIN))
++	if (fib_get_table(iter->p.net, RT_TABLE_MAIN))
+ 		v = *pos ? fib_get_idx(seq, *pos - 1) : SEQ_START_TOKEN;
+ 	return v;
+ }
+@@ -1022,8 +1027,8 @@ static const struct seq_operations fib_seq_ops = {
  
- 	return err;
-@@ -149,6 +147,7 @@ static int fib4_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
- 			       struct nlmsghdr *nlh, struct fib_rule_hdr *frh,
- 			       struct nlattr **tb)
+ static int fib_seq_open(struct inode *inode, struct file *file)
  {
-+	struct net *net = skb->sk->sk_net;
- 	int err = -EINVAL;
- 	struct fib4_rule *rule4 = (struct fib4_rule *) rule;
- 
-@@ -159,7 +158,7 @@ static int fib4_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
- 		if (rule->action == FR_ACT_TO_TBL) {
- 			struct fib_table *table;
- 
--			table = fib_empty_table(&init_net);
-+			table = fib_empty_table(net);
- 			if (table == NULL) {
- 				err = -ENOBUFS;
- 				goto errout;
-@@ -250,9 +249,9 @@ static u32 fib4_rule_default_pref(struct fib_rules_ops *ops)
- 	struct list_head *pos;
- 	struct fib_rule *rule;
- 
--	if (!list_empty(&fib4_rules_ops.rules_list)) {
--		pos = fib4_rules_ops.rules_list.next;
--		if (pos->next != &fib4_rules_ops.rules_list) {
-+	if (!list_empty(&ops->rules_list)) {
-+		pos = ops->rules_list.next;
-+		if (pos->next != &ops->rules_list) {
- 			rule = list_entry(pos->next, struct fib_rule, list);
- 			if (rule->pref)
- 				return rule->pref - 1;
-@@ -274,7 +273,7 @@ static void fib4_rule_flush_cache(void)
- 	rt_cache_flush(-1);
+-	return seq_open_private(file, &fib_seq_ops,
+-			sizeof(struct fib_iter_state));
++	return seq_open_net(inode, file, &fib_seq_ops,
++			    sizeof(struct fib_iter_state));
  }
  
--static struct fib_rules_ops fib4_rules_ops = {
-+static struct fib_rules_ops fib4_rules_ops_template = {
- 	.family		= AF_INET,
- 	.rule_size	= sizeof(struct fib4_rule),
- 	.addr_size	= sizeof(u32),
-@@ -288,24 +287,20 @@ static struct fib_rules_ops fib4_rules_ops = {
- 	.flush_cache	= fib4_rule_flush_cache,
- 	.nlgroup	= RTNLGRP_IPV4_RULE,
- 	.policy		= fib4_rule_policy,
--	.rules_list	= LIST_HEAD_INIT(fib4_rules_ops.rules_list),
- 	.owner		= THIS_MODULE,
+ static const struct file_operations fib_seq_fops = {
+@@ -1031,7 +1036,7 @@ static const struct file_operations fib_seq_fops = {
+ 	.open           = fib_seq_open,
+ 	.read           = seq_read,
+ 	.llseek         = seq_lseek,
+-	.release	= seq_release_private,
++	.release	= seq_release_net,
  };
  
--static int __init fib_default_rules_init(void)
-+static int fib_default_rules_init(struct fib_rules_ops *ops)
- {
- 	int err;
- 
--	err = fib_default_rule_add(&fib4_rules_ops, 0,
--				   RT_TABLE_LOCAL, FIB_RULE_PERMANENT);
-+	err = fib_default_rule_add(ops, 0, RT_TABLE_LOCAL, FIB_RULE_PERMANENT);
- 	if (err < 0)
- 		return err;
--	err = fib_default_rule_add(&fib4_rules_ops, 0x7FFE,
--				   RT_TABLE_MAIN, 0);
-+	err = fib_default_rule_add(ops, 0x7FFE, RT_TABLE_MAIN, 0);
- 	if (err < 0)
- 		return err;
--	err = fib_default_rule_add(&fib4_rules_ops, 0x7FFF,
--				   RT_TABLE_DEFAULT, 0);
-+	err = fib_default_rule_add(ops, 0x7FFF, RT_TABLE_DEFAULT, 0);
- 	if (err < 0)
- 		return err;
- 	return 0;
-@@ -314,20 +309,29 @@ static int __init fib_default_rules_init(void)
- int __net_init fib4_rules_init(struct net *net)
- {
- 	int err;
-+	struct fib_rules_ops *ops;
-+
-+	ops = kmemdup(&fib4_rules_ops_template, sizeof(*ops), GFP_KERNEL);
-+	if (ops == NULL)
-+		return -ENOMEM;
-+	INIT_LIST_HEAD(&ops->rules_list);
-+	fib_rules_register(net, ops);
- 
--	fib_rules_register(net, &fib4_rules_ops);
--	err = fib_default_rules_init();
-+	err = fib_default_rules_init(ops);
- 	if (err < 0)
- 		goto fail;
-+	net->ipv4.rules_ops = ops;
- 	return 0;
- 
- fail:
- 	/* also cleans all rules already added */
--	fib_rules_unregister(net, &fib4_rules_ops);
-+	fib_rules_unregister(net, ops);
-+	kfree(ops);
- 	return err;
- }
- 
- void __net_exit fib4_rules_exit(struct net *net)
- {
--	fib_rules_unregister(net, &fib4_rules_ops);
-+	fib_rules_unregister(net, net->ipv4.rules_ops);
-+	kfree(net->ipv4.rules_ops);
- }
+ int __net_init fib_proc_init(struct net *net)
 -- 
 1.5.3.rc5
 
