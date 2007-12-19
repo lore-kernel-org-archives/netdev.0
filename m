@@ -1,233 +1,261 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 04/14] [ACKVEC]: Inlines for run length and state
-Date: Wed, 19 Dec 2007 14:25:45 +0000
-Message-ID: <1198074355-18842-5-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 06/14] [ACKVEC]: Simplify adding Ack Vector records, split option-specific code
+Date: Wed, 19 Dec 2007 14:25:47 +0000
+Message-ID: <1198074355-18842-7-git-send-email-gerrit@erg.abdn.ac.uk>
 References: dccp_ackvector_rfc_patch_set
  <1198074355-18842-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1198074355-18842-2-git-send-email-gerrit@erg.abdn.ac.uk>
  <1198074355-18842-3-git-send-email-gerrit@erg.abdn.ac.uk>
  <1198074355-18842-4-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1198074355-18842-5-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1198074355-18842-6-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36934 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36889 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754616AbXLSO2n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2007 09:28:43 -0500
-In-Reply-To: <1198074355-18842-4-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1754642AbXLSO26 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2007 09:28:58 -0500
+In-Reply-To: <1198074355-18842-6-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This provides inlines for Ack Vector run length and state, which allow to wrap
-several instances of the same code into function calls.
-
-The unused function dccp_ackvec_print() (which also relied on the older
-constants), has been removed.
+This patch
+ * simplifies the dccp_ackvec_insert_avr() routine: the BUG_ON was redundant,
+   since the list is automatically arranged in descending order of ack_no;
+ * separates Ack Vector housekeeping code from option-specific code;
+ * shifts option-specific code into options.c.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ackvec.c      |   71 +++++++++++-------------------------------------
- net/dccp/ackvec.h      |   13 +++++++-
- net/dccp/ccids/ccid2.c |    7 ++---
- 3 files changed, 30 insertions(+), 61 deletions(-)
+ net/dccp/ackvec.c  |  107 +++++++++-------------------------------------------
+ net/dccp/ackvec.h  |    5 +-
+ net/dccp/options.c |   65 +++++++++++++++++++++++++++++++
+ 3 files changed, 85 insertions(+), 92 deletions(-)
 
 --- a/net/dccp/ackvec.h
 +++ b/net/dccp/ackvec.h
-@@ -30,8 +30,17 @@
- #define DCCP_ACKVEC_STATE_ECN_MARKED	(1 << 6)
- #define DCCP_ACKVEC_STATE_NOT_RECEIVED	(3 << 6)
+@@ -108,7 +108,7 @@ extern int dccp_ackvec_parse(struct sock *sk, const struct sk_buff *skb,
+ 			     u64 *ackno, const u8 opt,
+ 			     const u8 *value, const u8 len);
  
--#define DCCP_ACKVEC_STATE_MASK		0xC0 /* 11000000 */
--#define DCCP_ACKVEC_LEN_MASK		0x3F /* 00111111 */
-+#define DCCPAV_MAX_RUNLEN	0x3F
-+
-+static inline u8 dccp_ackvec_runlen(const u8 *cell)
-+{
-+	return *cell & DCCPAV_MAX_RUNLEN;
-+}
-+
-+static inline u8 dccp_ackvec_state(const u8 *cell)
-+{
-+	return *cell & ~DCCPAV_MAX_RUNLEN;
-+}
+-extern int dccp_insert_option_ackvec(struct sock *sk, struct sk_buff *skb);
++extern int  dccp_ackvec_update_records(struct dccp_ackvec *av, u64 seq, u8 sum);
  
- /** struct dccp_ackvec - Ack Vector main data structure
-  *
+ static inline int dccp_ackvec_pending(const struct dccp_ackvec *av)
+ {
+@@ -151,8 +151,7 @@ static inline int dccp_ackvec_parse(struct sock *sk, const struct sk_buff *skb,
+ 	return -1;
+ }
+ 
+-static inline int dccp_insert_option_ackvec(const struct sock *sk,
+-					    const struct sk_buff *skb)
++static inline int dccp_ackvec_update_records(struct dccp_ackvec *av, u64 seq, u8 nonce)
+ {
+ 	return -1;
+ }
 --- a/net/dccp/ackvec.c
 +++ b/net/dccp/ackvec.c
-@@ -135,7 +135,7 @@ int dccp_insert_option_ackvec(struct sock *sk, struct sk_buff *skb)
- 	avr->avr_ack_ptr    = av->av_buf_head;
- 	avr->avr_ack_ackno  = av->av_buf_ackno;
- 	avr->avr_ack_nonce  = nonce;
--	avr->avr_ack_runlen = av->av_buf[av->av_buf_head] & DCCP_ACKVEC_LEN_MASK;
-+	avr->avr_ack_runlen = dccp_ackvec_runlen(av->av_buf + av->av_buf_head);
- 
- 	dccp_ackvec_insert_avr(av, avr);
- 
-@@ -178,18 +178,6 @@ void dccp_ackvec_free(struct dccp_ackvec *av)
- 	kmem_cache_free(dccp_ackvec_slab, av);
- }
- 
--static inline u8 dccp_ackvec_state(const struct dccp_ackvec *av,
--				   const u32 index)
--{
--	return av->av_buf[index] & DCCP_ACKVEC_STATE_MASK;
--}
--
--static inline u8 dccp_ackvec_len(const struct dccp_ackvec *av,
--				 const u32 index)
--{
--	return av->av_buf[index] & DCCP_ACKVEC_LEN_MASK;
--}
--
- /*
-  * If several packets are missing, the HC-Receiver may prefer to enter multiple
-  * bytes with run length 0, rather than a single byte with a larger run length;
-@@ -234,6 +222,8 @@ static inline int dccp_ackvec_set_buf_head_state(struct dccp_ackvec *av,
- int dccp_ackvec_add(struct dccp_ackvec *av, const struct sock *sk,
- 		    const u64 ackno, const u8 state)
- {
-+	u8 *cur_head = av->av_buf + av->av_buf_head,
-+	   *buf_end  = av->av_buf + DCCPAV_MAX_ACKVEC_LEN;
- 	/*
- 	 * Check at the right places if the buffer is full, if it is, tell the
- 	 * caller to start dropping packets till the HC-Sender acks our ACK
-@@ -258,7 +248,7 @@ int dccp_ackvec_add(struct dccp_ackvec *av, const struct sock *sk,
- 
- 	/* See if this is the first ackno being inserted */
- 	if (av->av_vec_len == 0) {
--		av->av_buf[av->av_buf_head] = state;
-+		*cur_head = state;
- 		av->av_vec_len = 1;
- 	} else if (after48(ackno, av->av_buf_ackno)) {
- 		const u64 delta = dccp_delta_seqno(av->av_buf_ackno, ackno);
-@@ -267,10 +257,9 @@ int dccp_ackvec_add(struct dccp_ackvec *av, const struct sock *sk,
- 		 * Look if the state of this packet is the same as the
- 		 * previous ackno and if so if we can bump the head len.
- 		 */
--		if (delta == 1 &&
--		    dccp_ackvec_state(av, av->av_buf_head) == state &&
--		    dccp_ackvec_len(av, av->av_buf_head) < DCCP_ACKVEC_LEN_MASK)
--			av->av_buf[av->av_buf_head]++;
-+		if (delta == 1 && dccp_ackvec_state(cur_head) == state &&
-+		    dccp_ackvec_runlen(cur_head) < DCCPAV_MAX_RUNLEN)
-+			*cur_head += 1;
- 		else if (dccp_ackvec_set_buf_head_state(av, delta, state))
- 			return -ENOBUFS;
- 	} else {
-@@ -283,21 +272,18 @@ int dccp_ackvec_add(struct dccp_ackvec *av, const struct sock *sk,
- 		 *	could reduce the complexity of this scan.)
- 		 */
- 		u64 delta = dccp_delta_seqno(ackno, av->av_buf_ackno);
--		u32 index = av->av_buf_head;
- 
- 		while (1) {
--			const u8 len = dccp_ackvec_len(av, index);
--			const u8 state = dccp_ackvec_state(av, index);
-+			const u8 len = dccp_ackvec_runlen(cur_head);
- 			/*
- 			 * valid packets not yet in av_buf have a reserved
- 			 * entry, with a len equal to 0.
- 			 */
--			if (state == DCCP_ACKVEC_STATE_NOT_RECEIVED &&
--			    len == 0 && delta == 0) { /* Found our
--							 reserved seat! */
-+			if (*cur_head == DCCP_ACKVEC_STATE_NOT_RECEIVED &&
-+			    delta == 0) {
- 				dccp_pr_debug("Found %llu reserved seat!\n",
- 					      (unsigned long long)ackno);
--				av->av_buf[index] = state;
-+				*cur_head = state;
- 				goto out;
- 			}
- 			/* len == 0 means one packet */
-@@ -305,8 +291,8 @@ int dccp_ackvec_add(struct dccp_ackvec *av, const struct sock *sk,
- 				goto out_duplicate;
- 
- 			delta -= len + 1;
--			if (++index == DCCPAV_MAX_ACKVEC_LEN)
--				index = 0;
-+			if (++cur_head == buf_end)
-+				cur_head = av->av_buf;
- 		}
+@@ -54,106 +54,35 @@ void dccp_ackvec_free(struct dccp_ackvec *av)
  	}
- 
-@@ -321,31 +307,6 @@ out_duplicate:
- 	return -EILSEQ;
  }
  
--#ifdef CONFIG_IP_DCCP_DEBUG
--void dccp_ackvector_print(const u64 ackno, const unsigned char *vector, int len)
+-static void dccp_ackvec_insert_avr(struct dccp_ackvec *av,
+-				   struct dccp_ackvec_record *avr)
 -{
--	dccp_pr_debug_cat("ACK vector len=%d, ackno=%llu |", len,
--			 (unsigned long long)ackno);
--
--	while (len--) {
--		const u8 state = (*vector & DCCP_ACKVEC_STATE_MASK) >> 6;
--		const u8 rl = *vector & DCCP_ACKVEC_LEN_MASK;
--
--		dccp_pr_debug_cat("%d,%d|", state, rl);
--		++vector;
+-	/*
+-	 * AVRs are sorted by seqno. Since we are sending them in order, we
+-	 * just add the AVR at the head of the list.
+-	 * -sorbo.
+-	 */
+-	if (!list_empty(&av->av_records)) {
+-		const struct dccp_ackvec_record *head =
+-					list_entry(av->av_records.next,
+-						   struct dccp_ackvec_record,
+-						   avr_node);
+-		BUG_ON(before48(avr->avr_ack_seqno, head->avr_ack_seqno));
 -	}
 -
--	dccp_pr_debug_cat("\n");
+-	list_add(&avr->avr_node, &av->av_records);
 -}
 -
--void dccp_ackvec_print(const struct dccp_ackvec *av)
--{
--	dccp_ackvector_print(av->av_buf_ackno,
--			     av->av_buf + av->av_buf_head,
--			     av->av_vec_len);
--}
--#endif
--
- static void dccp_ackvec_throw_record(struct dccp_ackvec *av,
- 				     struct dccp_ackvec_record *avr)
+-int dccp_insert_option_ackvec(struct sock *sk, struct sk_buff *skb)
++/**
++ * dccp_ackvec_update_records  -  Record information about sent Ack Vectors
++ * @av:		Ack Vector records to update
++ * @seqno:	Sequence number of the packet carrying the Ack Vector just sent
++ * @nonce_sum:	The sum of all buffer nonces contained in the Ack Vector
++ */
++int dccp_ackvec_update_records(struct dccp_ackvec *av, u64 seqno, u8 nonce_sum)
  {
-@@ -409,7 +370,7 @@ static void dccp_ackvec_check_rcv_ackvector(struct dccp_ackvec *av,
- 	 */
- 	avr = list_entry(av->av_records.next, struct dccp_ackvec_record, avr_node);
- 	while (i--) {
--		const u8 rl = *vector & DCCP_ACKVEC_LEN_MASK;
-+		const u8 rl = dccp_ackvec_runlen(vector);
- 		u64 ackno_end_rl;
+-	struct dccp_sock *dp = dccp_sk(sk);
+-	struct dccp_ackvec *av = dp->dccps_hc_rx_ackvec;
+-	/* Figure out how many options do we need to represent the ackvec */
+-	const u16 nr_opts = DIV_ROUND_UP(av->av_vec_len, DCCP_SINGLE_OPT_MAXLEN);
+-	u16 len = av->av_vec_len + 2 * nr_opts;
+-	u8 i, nonce = 0;
+-	const unsigned char *tail, *from;
+-	unsigned char *to;
+ 	struct dccp_ackvec_record *avr;
  
- 		dccp_set_seqno(&ackno_end_rl, *ackno - rl);
-@@ -426,8 +387,8 @@ static void dccp_ackvec_check_rcv_ackvector(struct dccp_ackvec *av,
- 		break;
- found:
- 		if (between48(avr->avr_ack_seqno, ackno_end_rl, *ackno)) {
--			const u8 state = *vector & DCCP_ACKVEC_STATE_MASK;
--			if (state != DCCP_ACKVEC_STATE_NOT_RECEIVED) {
-+			if (dccp_ackvec_state(vector) !=
-+					DCCP_ACKVEC_STATE_NOT_RECEIVED) {
- 				dccp_pr_debug("%s ACK vector 0, len=%d, "
- 					      "ack_seqno=%llu, ack_ackno=%llu, "
- 					      "ACKED!\n",
---- a/net/dccp/ccids/ccid2.c
-+++ b/net/dccp/ccids/ccid2.c
-@@ -578,8 +578,8 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 					 &vector, &veclen)) != -1) {
- 		/* go through this ack vector */
- 		while (veclen--) {
--			const u8 rl = *vector & DCCP_ACKVEC_LEN_MASK;
--			u64 ackno_end_rl = SUB48(ackno, rl);
-+			u64 ackno_end_rl = SUB48(ackno,
-+						 dccp_ackvec_runlen(vector));
+-	if (DCCP_SKB_CB(skb)->dccpd_opt_len + len > DCCP_MAX_OPT_LEN) {
+-		/*
+-		 * FIXME: when running out of option space while piggybacking on
+-		 * DataAck, return 0 here and schedule a separate Ack instead.
+-		 */
+-		DCCP_WARN("Lacking space for %u bytes on %s packet\n", len,
+-			  dccp_packet_name(DCCP_SKB_CB(skb)->dccpd_type));
+-		return -1;
+-	}
+-
+ 	avr = kmem_cache_alloc(dccp_ackvec_record_slab, GFP_ATOMIC);
+ 	if (avr == NULL)
+-		return -1;
+-
+-	DCCP_SKB_CB(skb)->dccpd_opt_len += len;
+-
+-	to   = skb_push(skb, len);
+-	len  = av->av_vec_len;
+-	from = av->av_buf + av->av_buf_head;
+-	tail = av->av_buf + DCCPAV_MAX_ACKVEC_LEN;
+-
+-	for (i = 0; i < nr_opts; ++i) {
+-		int copylen = len;
+-
+-		if (len > DCCP_SINGLE_OPT_MAXLEN)
+-			copylen = DCCP_SINGLE_OPT_MAXLEN;
+-
+-		/*
+-		 * RFC 4340, 12.2: Encode the Nonce Echo for this Ack Vector via
+-		 * its type; ack_nonce is the sum of all individual buf_nonce's.
+-		 */
+-		nonce ^= av->av_buf_nonce[i];
+-
+-		*to++ = DCCPO_ACK_VECTOR_0 + av->av_buf_nonce[i];
+-		*to++ = copylen + 2;
+-
+-		/* Check if buf_head wraps */
+-		if (from + copylen > tail) {
+-			const u16 tailsize = tail - from;
+-
+-			memcpy(to, from, tailsize);
+-			to	+= tailsize;
+-			len	-= tailsize;
+-			copylen	-= tailsize;
+-			from	= av->av_buf;
+-		}
+-
+-		memcpy(to, from, copylen);
+-		from += copylen;
+-		to   += copylen;
+-		len  -= copylen;
+-	}
++		return -ENOBUFS;
  
- 			ccid2_pr_debug("ackvec start:%llu end:%llu\n",
- 				       (unsigned long long)ackno,
-@@ -602,8 +602,7 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 			 * run length
- 			 */
- 			while (between48(seqp->ccid2s_seq,ackno_end_rl,ackno)) {
--				const u8 state = *vector &
--						 DCCP_ACKVEC_STATE_MASK;
-+				const u8 state = dccp_ackvec_state(vector);
+-	/*
+-	 * Each sent Ack Vector is recorded in the list, as per A.2 of RFC 4340.
+-	 */
+-	avr->avr_ack_seqno  = DCCP_SKB_CB(skb)->dccpd_seq;
++	avr->avr_ack_seqno  = seqno;
+ 	avr->avr_ack_ptr    = av->av_buf_head;
+ 	avr->avr_ack_ackno  = av->av_buf_ackno;
+-	avr->avr_ack_nonce  = nonce;
++	avr->avr_ack_nonce  = nonce_sum;
+ 	avr->avr_ack_runlen = dccp_ackvec_runlen(av->av_buf + av->av_buf_head);
++	/*
++	 * Since GSS is incremented for each packet, the list is automatically
++	 * arranged in descending order of @ack_seqno.
++	 */
++	list_add(&avr->avr_node, &av->av_records);
  
- 				/* new packet received or marked */
- 				if (state != DCCP_ACKVEC_STATE_NOT_RECEIVED &&
+-	dccp_ackvec_insert_avr(av, avr);
+-
+-	dccp_pr_debug("%s ACK Vector 0, len=%d, ack_seqno=%llu, "
+-		      "ack_ackno=%llu\n",
+-		      dccp_role(sk), avr->avr_ack_runlen,
++	dccp_pr_debug("Added Vector, ack_seqno=%llu, ack_ackno=%llu (rl=%u)\n",
+ 		      (unsigned long long)avr->avr_ack_seqno,
+-		      (unsigned long long)avr->avr_ack_ackno);
++		      (unsigned long long)avr->avr_ack_ackno,
++		      avr->avr_ack_runlen);
+ 	return 0;
+ }
+ 
+--- a/net/dccp/options.c
++++ b/net/dccp/options.c
+@@ -433,6 +433,71 @@ static int dccp_insert_option_timestamp_echo(struct dccp_sock *dp,
+ 	return 0;
+ }
+ 
++int dccp_insert_option_ackvec(struct sock *sk, struct sk_buff *skb)
++{
++	struct dccp_ackvec *av = dccp_sk(sk)->dccps_hc_rx_ackvec;
++	/* Figure out how many options do we need to represent the ackvec */
++	const u16 nr_opts = DIV_ROUND_UP(av->av_vec_len, DCCP_SINGLE_OPT_MAXLEN);
++	u16 len = av->av_vec_len + 2 * nr_opts;
++	u8 i, nonce = 0;
++	const unsigned char *tail, *from;
++	unsigned char *to;
++
++	if (DCCP_SKB_CB(skb)->dccpd_opt_len + len > DCCP_MAX_OPT_LEN) {
++		/*
++		 * FIXME: when running out of option space while piggybacking on
++		 * DataAck, return 0 here and schedule a separate Ack instead.
++		 */
++		DCCP_WARN("Lacking space for %u bytes on %s packet\n", len,
++			  dccp_packet_name(DCCP_SKB_CB(skb)->dccpd_type));
++		return -1;
++	}
++	DCCP_SKB_CB(skb)->dccpd_opt_len += len;
++
++	to   = skb_push(skb, len);
++	len  = av->av_vec_len;
++	from = av->av_buf + av->av_buf_head;
++	tail = av->av_buf + DCCPAV_MAX_ACKVEC_LEN;
++
++	for (i = 0; i < nr_opts; ++i) {
++		int copylen = len;
++
++		if (len > DCCP_SINGLE_OPT_MAXLEN)
++			copylen = DCCP_SINGLE_OPT_MAXLEN;
++
++		/*
++		 * RFC 4340, 12.2: Encode the Nonce Echo for this Ack Vector via
++		 * its type; ack_nonce is the sum of all individual buf_nonce's.
++		 */
++		nonce ^= av->av_buf_nonce[i];
++
++		*to++ = DCCPO_ACK_VECTOR_0 + av->av_buf_nonce[i];
++		*to++ = copylen + 2;
++
++		/* Check if buf_head wraps */
++		if (from + copylen > tail) {
++			const u16 tailsize = tail - from;
++
++			memcpy(to, from, tailsize);
++			to	+= tailsize;
++			len	-= tailsize;
++			copylen	-= tailsize;
++			from	= av->av_buf;
++		}
++
++		memcpy(to, from, copylen);
++		from += copylen;
++		to   += copylen;
++		len  -= copylen;
++	}
++	/*
++	 * Each sent Ack Vector is recorded in the list, as per A.2 of RFC 4340.
++	 */
++	if (dccp_ackvec_update_records(av, DCCP_SKB_CB(skb)->dccpd_seq, nonce))
++		return -ENOBUFS;
++	return 0;
++}
++
+ /**
+  * dccp_insert_option_mandatory  -  Mandatory option (5.8.2)
+  * Note that since we are using skb_push, this function needs to be called
 -- 
 1.5.3.GIT
 
