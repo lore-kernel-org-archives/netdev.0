@@ -1,105 +1,84 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH net-2.6.25 17/19] [NETNS] Pass namespace through ip_rt_ioctl.
-Date: Wed, 19 Dec 2007 18:24:47 +0300
-Message-ID: <1198077889-10693-18-git-send-email-den@openvz.org>
+Subject: [PATCH net-2.6.25 19/19] [NETNS] Enable routing configuration in non-initial namespace.
+Date: Wed, 19 Dec 2007 18:24:49 +0300
+Message-ID: <1198077889-10693-20-git-send-email-den@openvz.org>
 References: <4769370F.5020303@openvz.org>
 Cc: benjamin.thery@bull.net, dlezcano@fr.ibm.com, devel@openvz.org,
 	containers@lists.osdl.org, netdev@vger.kernel.org, xemul@openvz.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:62023 "EHLO iris"
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:50601 "EHLO iris"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755240AbXLSPXC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2007 10:23:02 -0500
+	id S1754892AbXLSPXR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2007 10:23:17 -0500
 In-Reply-To: <4769370F.5020303@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-... up to rtentry_to_fib_config
+I.e. remove the net != &init_net checks from the places, that now can handle
+other-than-init net namespace.
 
 Acked-by: Benjamin Thery <benjamin.thery@bull.net>
 Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
- include/net/route.h     |    2 +-
- net/ipv4/af_inet.c      |    2 +-
- net/ipv4/fib_frontend.c |    8 ++++----
- net/ipv4/ipconfig.c     |    2 +-
- 4 files changed, 7 insertions(+), 7 deletions(-)
+ net/ipv4/fib_frontend.c |   24 ++++--------------------
+ 1 files changed, 4 insertions(+), 20 deletions(-)
 
-diff --git a/include/net/route.h b/include/net/route.h
-index b777000..5847e6f 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -120,7 +120,7 @@ extern void		ip_rt_send_redirect(struct sk_buff *skb);
- extern unsigned		inet_addr_type(struct net *net, __be32 addr);
- extern unsigned		inet_dev_addr_type(struct net *net, const struct net_device *dev, __be32 addr);
- extern void		ip_rt_multicast_event(struct in_device *);
--extern int		ip_rt_ioctl(unsigned int cmd, void __user *arg);
-+extern int		ip_rt_ioctl(struct net *, unsigned int cmd, void __user *arg);
- extern void		ip_rt_get_source(u8 *src, struct rtable *rt);
- extern int		ip_rt_dump(struct sk_buff *skb,  struct netlink_callback *cb);
- 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 6fac905..f0968a1 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -793,7 +793,7 @@ int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- 		case SIOCADDRT:
- 		case SIOCDELRT:
- 		case SIOCRTMSG:
--			err = ip_rt_ioctl(cmd, (void __user *)arg);
-+			err = ip_rt_ioctl(sk->sk_net, cmd, (void __user *)arg);
- 			break;
- 		case SIOCDARP:
- 		case SIOCGARP:
 diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index cecb660..a5c47fc 100644
+index a5c47fc..a5e2fb3 100644
 --- a/net/ipv4/fib_frontend.c
 +++ b/net/ipv4/fib_frontend.c
-@@ -437,7 +437,7 @@ static int rtentry_to_fib_config(struct net *net, int cmd, struct rtentry *rt,
-  *	Handle IP routing ioctl calls. These are used to manipulate the routing tables
-  */
+@@ -572,9 +572,6 @@ static int inet_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *ar
+ 	struct fib_table *tb;
+ 	int err;
  
--int ip_rt_ioctl(unsigned int cmd, void __user *arg)
-+int ip_rt_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+-	if (net != &init_net)
+-		return -EINVAL;
+-
+ 	err = rtm_to_fib_config(net, skb, nlh, &cfg);
+ 	if (err < 0)
+ 		goto errout;
+@@ -597,9 +594,6 @@ static int inet_rtm_newroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *ar
+ 	struct fib_table *tb;
+ 	int err;
+ 
+-	if (net != &init_net)
+-		return -EINVAL;
+-
+ 	err = rtm_to_fib_config(net, skb, nlh, &cfg);
+ 	if (err < 0)
+ 		goto errout;
+@@ -625,9 +619,6 @@ static int inet_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct hlist_head *head;
+ 	int dumped = 0;
+ 
+-	if (net != &init_net)
+-		return 0;
+-
+ 	if (nlmsg_len(cb->nlh) >= sizeof(struct rtmsg) &&
+ 	    ((struct rtmsg *) nlmsg_data(cb->nlh))->rtm_flags & RTM_F_CLONED)
+ 		return ip_rt_dump(skb, cb);
+@@ -931,9 +922,6 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
+ 	struct net_device *dev = ptr;
+ 	struct in_device *in_dev = __in_dev_get_rtnl(dev);
+ 
+-	if (dev->nd_net != &init_net)
+-		return NOTIFY_DONE;
+-
+ 	if (event == NETDEV_UNREGISTER) {
+ 		fib_disable_ip(dev, 2);
+ 		return NOTIFY_DONE;
+@@ -1013,10 +1001,6 @@ static int __net_init fib_net_init(struct net *net)
  {
- 	struct fib_config cfg;
- 	struct rtentry rt;
-@@ -453,18 +453,18 @@ int ip_rt_ioctl(unsigned int cmd, void __user *arg)
- 			return -EFAULT;
+ 	int error;
  
- 		rtnl_lock();
--		err = rtentry_to_fib_config(&init_net, cmd, &rt, &cfg);
-+		err = rtentry_to_fib_config(net, cmd, &rt, &cfg);
- 		if (err == 0) {
- 			struct fib_table *tb;
- 
- 			if (cmd == SIOCDELRT) {
--				tb = fib_get_table(&init_net, cfg.fc_table);
-+				tb = fib_get_table(net, cfg.fc_table);
- 				if (tb)
- 					err = tb->tb_delete(tb, &cfg);
- 				else
- 					err = -ESRCH;
- 			} else {
--				tb = fib_new_table(&init_net, cfg.fc_table);
-+				tb = fib_new_table(net, cfg.fc_table);
- 				if (tb)
- 					err = tb->tb_insert(tb, &cfg);
- 				else
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 7288adb..7a89247 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -302,7 +302,7 @@ static int __init ic_route_ioctl(unsigned int cmd, struct rtentry *arg)
- 
- 	mm_segment_t oldfs = get_fs();
- 	set_fs(get_ds());
--	res = ip_rt_ioctl(cmd, (void __user *) arg);
-+	res = ip_rt_ioctl(&init_net, cmd, (void __user *) arg);
- 	set_fs(oldfs);
- 	return res;
- }
+-	error = 0;
+-	if (net != &init_net)
+-		goto out;
+-
+ 	error = ip_fib_net_init(net);
+ 	if (error < 0)
+ 		goto out;
 -- 
 1.5.3.rc5
 
