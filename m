@@ -1,85 +1,47 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] [IPv6]: IPV6_MULTICAST_IF setting is ignored on link-local
- connect()
-Date: Wed, 19 Dec 2007 10:20:53 -0500
-Message-ID: <476936D5.4070606@hp.com>
-References: <OF7B1ADDCA.711DCE7B-ON882573B5.00820D67-882573B5.0083AEF8@us.ibm.com>
+From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH netns-2.6.25 0/19] routing virtualization
+Date: Wed, 19 Dec 2007 18:21:51 +0300
+Message-ID: <4769370F.5020303@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=KOI8-R
 Content-Transfer-Encoding: 7bit
-Cc: Brian Haley <brian.haley@hp.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: David Stevens <dlstevens@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:3002 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756302AbXLSPVM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 10:21:12 -0500
-In-Reply-To: <OF7B1ADDCA.711DCE7B-ON882573B5.00820D67-882573B5.0083AEF8@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>,
+        Benjamin Thery <benjamin.thery-6ktuUTfB/bM@public.gmane.org>, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Daven
+Hi, David!
 
-David Stevens wrote:
-> Brian,
-> 
-> OK, I see what you're trying to fix now.
-> 
-> I think the scope_id checks are not quite right-- they
-> should be something like this:
-> 
-> if (addr_type&IPV6_ADDR_LINKLOCAL) {
->         if (addr_len >= sizeof(struct sockaddr_in6)) {
->                 if (sk->sk_bound_dev_if && usin->sin6_scope_id &&
->                     sk->sk_bound_dev_if != usin->sin6_scope_id) {
->                         err = -EINVAL;
->                         goto out;
->                 }
->                 if (usin->sin6_scope_id)
->                         sk->sk_bound_dev_if = usin->sin6_scope_id;
->                 if (!sk->sk_bound_dev_if &&
->                      (addr_type & IPV6_ADDR_MULTICAST))
->                         fl.oif = np->mcast_oif;
->         }
-> 
->         /* connect to the link-local addres requires an interface */
->         if (!sk->sk_bound_dev_if) {
->                 err = -EINVAL;
->                 goto out;
->         }
-> }
+This set adds namespace support for routing tables & rules manipulation
+in the different namespaces. So, one could create a namespace and
+setup IPv4 routing there how he wants.
 
-But this still requires either a SO_BINDTODEVICE or sin6_scope_id.  This
-means the an application can call BINDTODEVICE(eth0), MULTICAST_IF(eth1)
-issue a connect on a UDP socket an succeed?  Seems wrong to me.
+After this patch user will have the ability to configure and
+observe its own isolated set of routing rules/tables, but they
+all will be unused. I.e. routing decisions inside the network
+stack are still made based on the init_net's rules. The reason for doing
+so is to have something self-consistent and not too huge :)
 
-Can you check section 6.7 of RFC 3542.
+The sequence is the following:
+- viritualize generic FIB rules operations
+- change IPv4 FIB initialization sequence
+- virtualize FIB tables access
 
-Thanks
--vlad
+After this, the 'ip' utility and the /proc interface will start
+working correctly inside a namespace, while the 'route' utility
+will not, because IP sockets currently cannot be created in non-init
+namespace.
 
-> 
->         That is (in English):
-> 
->         If I did an SO_BINDTODEVICE and specified sin6_scope_id,
-> then they better agree.
->         If I specified sin6_scope_id without SO_BINDTODEVICE, set
-> the device to that.
->         If I get this far without a device and it's multicast, use 
-> mcast_oif
->         If I get all through that and don't have a device, EINVAL.
-> 
->         Does that work for you?
-> 
->                                         +-DLS
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
+Regards,
+	Den
