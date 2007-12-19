@@ -1,41 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [IPSEC]: Do xfrm_state_check_space before encapsulation
-Date: Tue, 18 Dec 2007 22:14:56 -0800 (PST)
-Message-ID: <20071218.221456.49781139.davem@davemloft.net>
-References: <4768A7CA.4090503@taca.jp>
-	<20071219061210.GA6731@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: miyazawa@taca.jp, usagi-core@linux-ipv6.org, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+From: Joy Latten <latten@austin.ibm.com>
+Subject: Re: IPsec replay sequence number overflow behavior? (RFC4303 section 3.3.3)
+Date: Wed, 19 Dec 2007 00:36:40 -0600
+Message-ID: <200712190636.lBJ6ae2a024167@faith.austin.ibm.com>
+Cc: herbert@gondor.apana.org.au, kaber@trash.net, latten@us.ibm.com,
+	netdev@vger.kernel.org
+To: paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59922
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750802AbXLSGO5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 01:14:57 -0500
-In-Reply-To: <20071219061210.GA6731@gondor.apana.org.au>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:52442 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751457AbXLSGhs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2007 01:37:48 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id lBJ6bjLw006252
+	for <netdev@vger.kernel.org>; Wed, 19 Dec 2007 01:37:45 -0500
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id lBJ6bjYv452798
+	for <netdev@vger.kernel.org>; Wed, 19 Dec 2007 01:37:45 -0500
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id lBJ6biRF013683
+	for <netdev@vger.kernel.org>; Wed, 19 Dec 2007 01:37:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 19 Dec 2007 14:12:10 +0800
+>Rereading the thread it's unclear to me which solution was deemed "correct".  
+>I'm not a big fan of fiddling/forcing SA lifetimes unless we have no other 
+>option; if someone is foolish enough to use manual keying with replay 
+>protection and no mechanism to catch rollover then they most likely have 
+>larger problems.  It's the whole "we'll provide you with the gun, but you 
+>have to shoot yourself" argument as applied to SA lifetimes.
 
-> [IPSEC]: Do xfrm_state_check_space before encapsulation
-> 
-> While merging the IPsec output path I moved the encapsulation output
-> operation to the top of the loop so that it sits outside of the locked
-> section.  Unfortunately in doing so it now sits in front of the space
-> check as well which could be a fatal error.
-> 
-> This patch rearranges the calls so that the space check happens as
-> the thing on the output path.
-> 
-> This patch also fixes an incorrect goto should the encapsulation output
-> fail.
-> 
-> Thanks to Kazunori MIYAZAWA for finding this bug.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Also, the ipsec rfc require auotmated SA management when 
+using anti-replay service and that the option be disabled 
+when SAs are manually setup.
 
-Applied, thanks Herbert.
+It may not stop anyone, but we can always point to rfc. :-)
+
+Joy
+
