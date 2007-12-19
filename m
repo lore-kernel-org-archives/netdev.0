@@ -1,42 +1,40 @@
-From: Gavin McCullagh <Gavin.McCullagh@nuim.ie>
-Subject: Re: [PATCH/RFC] [v2] TCP: use non-delayed ACK for congestion	control
- RTT
-Date: Wed, 19 Dec 2007 10:28:35 +0000
-Message-ID: <20071219102835.GE31508@nuim.ie>
-References: <20071217134425.GD7409@nuim.ie> <20071218204022.GA8936@nuim.ie>
-Reply-To: Gavin McCullagh <Gavin.McCullagh@nuim.ie>
+From: Florian Fainelli <florian.fainelli@telecomint.eu>
+Subject: [PATCH] Add me as maintainer of the RDC r6040 driver
+Date: Wed, 19 Dec 2007 11:30:30 +0100
+Message-ID: <200712191130.31897.florian.fainelli@telecomint.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>, jeff@garzik.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from banyan.nuim.ie ([149.157.1.4]:58086 "EHLO mango.nuim.ie"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752138AbXLSK2b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2007 05:28:31 -0500
-Content-disposition: inline
-Received: from boing.hamilton.local ([149.157.192.252])
- by mango.nuim.ie (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3
- 2007; 32bit)) with ESMTP id <0JTA0013BL3GT1B0@mango.nuim.ie> for
- netdev@vger.kernel.org; Wed, 19 Dec 2007 10:28:28 +0000 (GMT)
-In-reply-to: <20071218204022.GA8936@nuim.ie>
+Received: from smtp1.int-evry.fr ([157.159.10.44]:54468 "EHLO
+	smtp1.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751020AbXLSKap (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 05:30:45 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This patch adds me as maintainer of the RDC R6040 Fast Ethernet driver.
 
-On Tue, 18 Dec 2007, Gavin McCullagh wrote:
-
-> The last attempt didn't take account of the situation where a timestamp
-> wasn't available and tcp_clean_rtx_queue() has to feed both the RTO and the
-> congestion avoidance.  This updated patch stores both RTTs, making the
-> delayed one available for the RTO and the other (ca_seq_rtt) available for
-> congestion control.
-
-I forgot to include some data to show the difference this can make to the
-RTT signal:
-
-	http://www.hamilton.ie/gavinmc/linux/tcp_clean_rtx_queue.html
-
-Gavin
-
+Signed-off-by: Florian Fainelli <florian.fainelli@telecomint.eu>
+-- 
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 9507b42..6038bfb 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -3162,6 +3162,12 @@ M:	mporter@kernel.crashing.org
+ L:	linux-kernel@vger.kernel.org
+ S:	Maintained
+ 
++RDC R6040 FAST ETHERNET DRIVER
++P:	Florian Fainelli
++M:	florian.fainelli@telecomint.eu
++L:	netdev@vger.kernel.org
++S:	Maintained
++
+ READ-COPY UPDATE (RCU)
+ P:	Dipankar Sarma
+ M:	dipankar@in.ibm.com
