@@ -1,73 +1,67 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH 2.6.25 0/9]: SCTP: Update ADD-IP implementation to conform
- to spec
-Date: Wed, 19 Dec 2007 15:53:47 -0500
-Message-ID: <476984DB.4020403@hp.com>
-References: <1197927169-5106-1-git-send-email-vladislav.yasevich@hp.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: After many hours all outbound connections get stuck in SYN_SENT
+Date: Wed, 19 Dec 2007 23:27:45 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0712192209470.26514@kivilampi-30.cs.helsinki.fi>
+References: <83a51e120712141239u52d2dd68p1b6ee7ed08f2cecf@mail.gmail.com>
+ <Pine.LNX.4.64.0712181818360.4422@fbirervta.pbzchgretzou.qr>
+ <83a51e120712181009pf954f43mcb63ea4dab638458@mail.gmail.com>
+ <Pine.LNX.4.64.0712181910580.4422@fbirervta.pbzchgretzou.qr>
+ <83a51e120712181021p4c4c2a13g8820271f1e00361b@mail.gmail.com>
+ <4768123A.7040603@cosmosbay.com>  <83a51e120712181144l65633b32r72cc369f9d012f47@mail.gmail.com>
+  <47682F8C.20205@cosmosbay.com>  <83a51e120712190853q33d9c7c1t4a46380665b7538b@mail.gmail.com>
+  <47694FCC.1020507@cosmosbay.com> <83a51e120712190943m3bf0e2e4v2ea6b660142e9a5a@mail.gmail.com>
+ <47695CEF.4090908@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: lksctp-developers@lists.sourceforge.net,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: MULTIPART/MIXED; boundary="-696243703-317292208-1198095529=:26514"
+Cc: Jan Engelhardt <jengelh@computergmbh.de>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: James Nichols <jamesnichols3@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:8437 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752174AbXLSUyf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 15:54:35 -0500
-In-Reply-To: <1197927169-5106-1-git-send-email-vladislav.yasevich@hp.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:42614 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751580AbXLSV1r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 16:27:47 -0500
+In-Reply-To: <47695CEF.4090908@cosmosbay.com>
+Content-ID: <Pine.LNX.4.64.0712192323110.27945@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Vlad Yasevich wrote:
-> The following is a set of patches that updates the SCTP ADD-IP implementation
-> to conform to the recently published RFC.
-> 
-> ADD-IP is a SCTP Dynamic Address Configuration extensions, whereby
-> the two end systems can dynamically modify the address lists for a given
-> connection.  One of the applications of this is mobility.  The systems
-> exchange Address Configuration (ASCONF) and Address Configuration
-> Acknowlegement (ASCONF-ACK) messages which contain the info.  If you
-> want more info the operation, read RFC 5061.
-> 
-> The implementation in lksctp was a few years old and implemented draft-05
-> of the specification.  So this long overdue.
-> 
-> -vlad
-> 
+---696243703-317292208-1198095529=:26514
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0712192321481.27945@kivilampi-30.cs.helsinki.fi>
 
-Not sure if you got the PATCH 7/9 resend, but it looks like netdev ate that
-too.
+On Wed, 19 Dec 2007, Eric Dumazet wrote:
 
-I made this patch set available here:
- master.kernel.org:/pub/scm/linux/kernel/git/vxy/lksctp-dev.git addip
+> James Nichols a écrit :
+> > On 12/19/07, Eric Dumazet <dada1@cosmosbay.com> wrote:
+> > > James Nichols a écrit :
+> > > > > So you see outgoing SYN packets, but no SYN replies coming from the
+> > > > > remote
+> > > > > peer ?  (you mention ACKS, but the first packet received from the
+> > > > > remote
+> > > > >  peer should be a SYN+ACK),
+> > > > Right, I meant to say SYN+ACK.  I don't see them coming back.
+> > > So... Really unlikely a linux problem, but ...
+> > >
+> > 
+> > 
+> > I don't know how you can be so sure.  Turning tcp_sack off instantly
+> > resovles the problem and all connections are succesful.  I can't
+> > imagine even the most far-fetched scenario where a router or every
+> > single remote endpoints would suddenly stop causing the problem just
+> > by removing a single TCP option.
 
-Vlad Yasevich (9):
-      SCTP: Discard unauthenticated ASCONF and ASCONF ACK chunks
-      SCTP: Handle the wildcard ADD-IP Address parameter
-      SCTP: Add the handling of "Set Primary IP Address" parameter to INIT
-      SCTP: Update association lookup to look at ASCONF chunks as well
-      SCTP: ADD-IP updates the states where ASCONFs can be sent
-      SCTP: Update ASCONF processing to conform to spec.
-      SCTP: Change use_as_src into a full address state
-      SCTP: Implement ADD-IP special case processing for ABORT chunk
-      SCTP: Follow Add-IP security consideratiosn wrt INIT/INIT-ACK
+You could also check if you can pull same trick off by touching 
+tcp_timestamps. It affects the TCP header as well.
 
- include/net/sctp/structs.h |   39 ++++++++----
- net/sctp/associola.c       |   75 +++++++++++++++++++++++-
- net/sctp/bind_addr.c       |   35 ++++++++++-
- net/sctp/input.c           |  124 ++++++++++++++++++++++++++++++++-------
- net/sctp/ipv6.c            |    2 +-
- net/sctp/outqueue.c        |   29 ++++++++-
- net/sctp/protocol.c        |    8 +-
- net/sctp/sm_make_chunk.c   |  132 +++++++++++++++++++++++++++++++++++------
- net/sctp/sm_statefuns.c    |  141 ++++++++++++++++++++++++++++++++++---------
- net/sctp/sm_statetable.c   |   18 +++---
- net/sctp/socket.c          |    8 +-
- 11 files changed, 503 insertions(+), 108 deletions(-)
 
-You may pull from there is you wish.
 
--vlad
+-- 
+ i.
+---696243703-317292208-1198095529=:26514--
