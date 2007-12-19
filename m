@@ -1,35 +1,46 @@
-From: Parag Warudkar <parag.warudkar@gmail.com>
-Subject: [PATCH] e1000e: Use deferrable timer for watchdog
-Date: Tue, 18 Dec 2007 20:49:47 -0500 (EST)
-Message-ID: <Pine.LNX.4.64.0712182046560.3616@mini.warudkars.net>
-Reply-To: parag.warudkar@gmail.com
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH 1/2] net: flow hash timer power saving
+Date: Tue, 18 Dec 2007 18:18:27 -0800
+Message-ID: <20071218181827.5a35d634@shemminger-laptop>
+References: <Pine.LNX.4.64.0712181956180.3616@mini.warudkars.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org
-To: netdev@vger.kernel.org, linux.nics@intel.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
+To: parag.warudkar@gmail.com, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.180]:57325 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751299AbXLSBt6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 20:49:58 -0500
-Received: by py-out-1112.google.com with SMTP id u77so4453959pyb.16
-        for <netdev@vger.kernel.org>; Tue, 18 Dec 2007 17:49:57 -0800 (PST)
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:34650 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751135AbXLSCSp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 21:18:45 -0500
+In-Reply-To: <Pine.LNX.4.64.0712181956180.3616@mini.warudkars.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The net flow hash randomization timer runs every 10 minutes.
+This time is low priority and doesn't need to wakeup the CPU.
 
-Reduce wakeups from idle per second.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Signed-off-by: Parag Warudkar <parag.warudkar@gmail.com>
-
---- linux-2.6/drivers/net/e1000e/netdev.c	2007-12-07 10:04:39.000000000 -0500
-+++ linux-2.6-work/drivers/net/e1000e/netdev.c	2007-12-18 20:45:59.000000000 -0500
-@@ -3899,7 +3899,7 @@
-  		goto err_eeprom;
-  	}
-
--	init_timer(&adapter->watchdog_timer);
-+	init_timer_deferrable(&adapter->watchdog_timer);
-  	adapter->watchdog_timer.function = &e1000_watchdog;
-  	adapter->watchdog_timer.data = (unsigned long) adapter;
-
+--- a/net/core/flow.c	2007-12-18 07:43:31.000000000 -0800
++++ b/net/core/flow.c	2007-12-18 07:44:32.000000000 -0800
+@@ -81,8 +81,8 @@ static void flow_cache_new_hashrnd(unsig
+ 	for_each_possible_cpu(i)
+ 		flow_hash_rnd_recalc(i) = 1;
+ 
+-	flow_hash_rnd_timer.expires = jiffies + FLOW_HASH_RND_PERIOD;
+-	add_timer(&flow_hash_rnd_timer);
++	mod_timer(&flow_hash_rnd_timer,
++		  round_jiffies(jiffies + FLOW_HASH_RND_PERIOD));
+ }
+ 
+ static void flow_entry_kill(int cpu, struct flow_cache_entry *fle)
+@@ -352,7 +352,7 @@ static int __init flow_cache_init(void)
+ 	flow_lwm = 2 * flow_hash_size;
+ 	flow_hwm = 4 * flow_hash_size;
+ 
+-	init_timer(&flow_hash_rnd_timer);
++	init_timer_deferrable(&flow_hash_rnd_timer);
+ 	flow_hash_rnd_timer.function = flow_cache_new_hashrnd;
+ 	flow_hash_rnd_timer.expires = jiffies + FLOW_HASH_RND_PERIOD;
+ 	add_timer(&flow_hash_rnd_timer);
