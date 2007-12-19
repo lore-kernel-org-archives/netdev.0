@@ -1,67 +1,41 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] [IPv6]: IPV6_MULTICAST_IF setting is ignored on link-local
- connect()
-Date: Wed, 19 Dec 2007 14:02:02 -0500
-Message-ID: <47696AAA.2010107@hp.com>
-References: <OF367F9F64.87ED9167-ON882573B6.0063B893-882573B6.0064BE22@us.ibm.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] e1000e: Use deferrable timer for watchdog
+Date: Wed, 19 Dec 2007 11:04:10 -0800
+Message-ID: <47696B2A.1020301@intel.com>
+References: <Pine.LNX.4.64.0712182046560.3616@mini.warudkars.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Brian Haley <brian.haley@hp.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: David Stevens <dlstevens@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:13983 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752819AbXLSTCE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 14:02:04 -0500
-In-Reply-To: <OF367F9F64.87ED9167-ON882573B6.0063B893-882573B6.0064BE22@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org
+To: parag.warudkar@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754947AbXLSTFL@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0712182046560.3616@mini.warudkars.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Stevens wrote:
-> Vlad Yasevich <vladislav.yasevich@hp.com> wrote on 12/19/2007 07:20:53 AM:
+Parag Warudkar wrote:
 > 
->> But this still requires either a SO_BINDTODEVICE or sin6_scope_id.  This
->> means the an application can call BINDTODEVICE(eth0), MULTICAST_IF(eth1)
->> issue a connect on a UDP socket an succeed?  Seems wrong to me.
->>
->> Can you check section 6.7 of RFC 3542.
+> Reduce wakeups from idle per second.
 > 
->         No, it requires one of SO_BINDTODEVICE, sin6_scope_id, or 
-> IPV6_MULTICAST_IF.
-> If you do an SO_BINDTODEVICE(eth0) and then an IPV6_MULTICAST_IF(eth1), 
-> the
-> IPV6_MULTICAST_IF will fail in setsockopt (EINVAL), because it requires a 
-> match
-> for bound sockets.
-
-I should have checked that...  so the case I thought off is not possible...
-
-
-> I'm not sure if SO_BINDTODEVICE resets mcast_oif if you 
-> do
-> them in the reverse order, but that would be a bug in SO_BINDTODEVICE.
-
-I don't think that would be needed since SO_BINDTODEVICE always wins over
-IPV6_MULTICAST_IF, so even if they mismatch, SO_BINDTODEVICE is still used.
-
->         The precedence order as implemented already is:
+> Signed-off-by: Parag Warudkar <parag.warudkar@gmail.com>
 > 
->                 SO_BINDTODEVICE is highest and always wins
->                 sin6_scope_id next
->                 IPV6_MULTICAST_IF
+> --- linux-2.6/drivers/net/e1000e/netdev.c    2007-12-07
+> 10:04:39.000000000 -0500
+> +++ linux-2.6-work/drivers/net/e1000e/netdev.c    2007-12-18
+> 20:45:59.000000000 -0500
+> @@ -3899,7 +3899,7 @@
+>          goto err_eeprom;
+>      }
 > 
-> and the existing code has the rule that all link-local addresses require a
-> sin6_scope_id. The change (intended) is to relax the sin6_scope_id rule 
-> only
-> for link-local multicasts that have done either an SO_BINDTODEVICE or
-> IPV6_MULTICAST_IF already.
+> -    init_timer(&adapter->watchdog_timer);
+> +    init_timer_deferrable(&adapter->watchdog_timer);
+>      adapter->watchdog_timer.function = &e1000_watchdog;
+>      adapter->watchdog_timer.data = (unsigned long) adapter;
 > 
 
-Ok, but I don't think your patch accomplishes that, as Brian pointed out.
 
--vlad
+see my reply to "Re: [PATCH] e1000: Use deferrable timer for watchdog" - IOW no,
+we don't want this
+
+Auke
