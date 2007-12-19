@@ -1,37 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: "ip neigh show" not showing arp cache entries?
-Date: Wed, 19 Dec 2007 09:14:01 +0800
-Message-ID: <20071219011401.GA4585@gondor.apana.org.au>
-References: <E1J4TCz-0005L8-00@gondolin.me.apana.org.au> <4767DE91.9060803@nortel.com>
+From: Parag Warudkar <parag.warudkar@gmail.com>
+Subject: [PATCH] e1000: Use deferrable timer for watchdog
+Date: Tue, 18 Dec 2007 20:46:48 -0500 (EST)
+Message-ID: <Pine.LNX.4.64.0712182040470.3616@mini.warudkars.net>
+Reply-To: parag.warudkar@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: yoshfuji@linux-ipv6.org, dada1@cosmosbay.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Chris Friesen <cfriesen@nortel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org
+To: linux.nics@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1297 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753250AbXLSBOJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 20:14:09 -0500
-Content-Disposition: inline
-In-Reply-To: <4767DE91.9060803@nortel.com>
+Received: from an-out-0708.google.com ([209.85.132.241]:21720 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753146AbXLSBqy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 20:46:54 -0500
+Received: by an-out-0708.google.com with SMTP id d31so691786and.103
+        for <netdev@vger.kernel.org>; Tue, 18 Dec 2007 17:46:53 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 18, 2007 at 08:52:01AM -0600, Chris Friesen wrote:
->
-> Looks like that did it.  Why does specifying the family make a difference?
 
-Because this is the only parameter that changes kernel behaviour.
+Use deferrable timer for watchdog. Reduces wakeups from idle per second.
 
-Next step is to strace both commands with -s 16384 to see exactly
-what the kernel reply looks like to determine the problem.
+Signed-off-by: Parag Warudkar <parag.warudkar@gmail.com>
 
-BTW my emails to you are bouncing so you might want to fix that.
+--- linux-2.6/drivers/net/e1000/e1000_main.c	2007-12-07 10:04:39.000000000 -0500
++++ linux-2.6-work/drivers/net/e1000/e1000_main.c	2007-12-18 20:38:38.000000000 -0500
+@@ -1030,7 +1030,7 @@
+  	adapter->tx_fifo_stall_timer.function = &e1000_82547_tx_fifo_stall;
+  	adapter->tx_fifo_stall_timer.data = (unsigned long) adapter;
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+-	init_timer(&adapter->watchdog_timer);
++	init_timer_deferrable(&adapter->watchdog_timer);
+  	adapter->watchdog_timer.function = &e1000_watchdog;
+  	adapter->watchdog_timer.data = (unsigned long) adapter;
+
