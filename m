@@ -1,261 +1,238 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 06/14] [ACKVEC]: Simplify adding Ack Vector records, split option-specific code
-Date: Wed, 19 Dec 2007 14:25:47 +0000
-Message-ID: <1198074355-18842-7-git-send-email-gerrit@erg.abdn.ac.uk>
-References: dccp_ackvector_rfc_patch_set
- <1198074355-18842-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-5-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-6-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
-To: acme@redhat.com
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [Bugme-new] [Bug 9543] New: RTNL: assertion failed at net/ipv6/addrconf.c (2164)/RTNL: assertion failed at net/ipv4/devinet.c (1055)
+Date: Wed, 19 Dec 2007 09:42:08 -0500
+Message-ID: <20071219144208.GB8728@gospo.usersys.redhat.com>
+References: <E1J2Rgs-0006mz-00@gondolin.me.apana.org.au> <28503.1197481615@death> <Pine.LNX.4.64.0712141707090.30334@bizon.gios.gov.pl> <20071214182638.GC25879@gospo.usersys.redhat.com> <Pine.LNX.4.64.0712141955080.12202@bizon.gios.gov.pl> <20071214224722.GA8728@gospo.usersys.redhat.com> <Pine.LNX.4.64.0712182052490.24949@bizon.gios.gov.pl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	bugme-daemon@bugzilla.kernel.org, shemminger@linux-foundation.org,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Krzysztof Oledzki <olel@ans.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36889 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754642AbXLSO26 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2007 09:28:58 -0500
-In-Reply-To: <1198074355-18842-6-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from mx1.redhat.com ([66.187.233.31]:48560 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752713AbXLSOmo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2007 09:42:44 -0500
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0712182052490.24949@bizon.gios.gov.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch
- * simplifies the dccp_ackvec_insert_avr() routine: the BUG_ON was redundant,
-   since the list is automatically arranged in descending order of ack_no;
- * separates Ack Vector housekeeping code from option-specific code;
- * shifts option-specific code into options.c.
+On Tue, Dec 18, 2007 at 08:53:39PM +0100, Krzysztof Oledzki wrote:
+>=20
+>=20
+> On Fri, 14 Dec 2007, Andy Gospodarek wrote:
+>=20
+> >On Fri, Dec 14, 2007 at 07:57:42PM +0100, Krzysztof Oledzki wrote:
+> >>
+> >>
+> >>On Fri, 14 Dec 2007, Andy Gospodarek wrote:
+> >>
+> >>>On Fri, Dec 14, 2007 at 05:14:57PM +0100, Krzysztof Oledzki wrote:
+> >>>>
+> >>>>
+> >>>>On Wed, 12 Dec 2007, Jay Vosburgh wrote:
+> >>>>
+> >>>>>Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> >>>>>
+> >>>>>>>diff -puN drivers/net/bonding/bond_sysfs.c~bonding-locking-fix
+> >>>>>>>drivers/net/bonding/bond_sysfs.c
+> >>>>>>>--- a/drivers/net/bonding/bond_sysfs.c~bonding-locking-fix
+> >>>>>>>+++ a/drivers/net/bonding/bond_sysfs.c
+> >>>>>>>@@ -1111,8 +1111,6 @@ static ssize_t bonding_store_primary(str
+> >>>>>>>out:
+> >>>>>>>     write_unlock_bh(&bond->lock);
+> >>>>>>>
+> >>>>>>>-       rtnl_unlock();
+> >>>>>>>-
+> >>>>>>
+> >>>>>>Looking at the changeset that added this perhaps the intention
+> >>>>>>is to hold the lock? If so we should add an rtnl_lock to the st=
+art
+> >>>>>>of the function.
+> >>>>>
+> >>>>>	Yes, this function needs to hold locks, and more than just
+> >>>>>what's there now.  I believe the following should be correct; I =
+haven't
+> >>>>>tested it, though (I'm supposedly on vacation right now).
+> >>>>>
+> >>>>>	The following change should be correct for the
+> >>>>>bonding_store_primary case discussed in this thread, and also co=
+rrects
+> >>>>>the bonding_store_active case which performs similar functions.
+> >>>>>
+> >>>>>	The bond_change_active_slave and bond_select_active_slave
+> >>>>>functions both require rtnl, bond->lock for read and curr_slave_=
+lock=20
+> >>>>>for
+> >>>>>write_bh, and no other locks.  This is so that the lower level
+> >>>>>mode-specific functions can release locks down to just rtnl in o=
+rder to
+> >>>>>call, e.g., dev_set_mac_address with the locks it expects (rtnl =
+only).
+> >>>>>
+> >>>>>Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> >>>>>
+> >>>>>diff --git a/drivers/net/bonding/bond_sysfs.c
+> >>>>>b/drivers/net/bonding/bond_sysfs.c
+> >>>>>index 11b76b3..28a2d80 100644
+> >>>>>--- a/drivers/net/bonding/bond_sysfs.c
+> >>>>>+++ b/drivers/net/bonding/bond_sysfs.c
+> >>>>>@@ -1075,7 +1075,10 @@ static ssize_t bonding_store_primary(stru=
+ct=20
+> >>>>>device
+> >>>>>*d,
+> >>>>>	struct slave *slave;
+> >>>>>	struct bonding *bond =3D to_bond(d);
+> >>>>>
+> >>>>>-	write_lock_bh(&bond->lock);
+> >>>>>+	rtnl_lock();
+> >>>>>+	read_lock(&bond->lock);
+> >>>>>+	write_lock_bh(&bond->curr_slave_lock);
+> >>>>>+
+> >>>>>	if (!USES_PRIMARY(bond->params.mode)) {
+> >>>>>		printk(KERN_INFO DRV_NAME
+> >>>>>		       ": %s: Unable to set primary slave; %s is in mode
+> >>>>>		       %d\n",
+> >>>>>@@ -1109,8 +1112,8 @@ static ssize_t bonding_store_primary(struc=
+t=20
+> >>>>>device
+> >>>>>*d,
+> >>>>>		}
+> >>>>>	}
+> >>>>>out:
+> >>>>>-	write_unlock_bh(&bond->lock);
+> >>>>>-
+> >>>>>+	write_unlock_bh(&bond->curr_slave_lock);
+> >>>>>+	read_unlock(&bond->lock);
+> >>>>>	rtnl_unlock();
+> >>>>>
+> >>>>>	return count;
+> >>>>>@@ -1190,7 +1193,8 @@ static ssize_t bonding_store_active_slave(=
+struct
+> >>>>>device *d,
+> >>>>>	struct bonding *bond =3D to_bond(d);
+> >>>>>
+> >>>>>	rtnl_lock();
+> >>>>>-	write_lock_bh(&bond->lock);
+> >>>>>+	read_lock(&bond->lock);
+> >>>>>+	write_lock_bh(&bond->curr_slave_lock);
+> >>>>>
+> >>>>>	if (!USES_PRIMARY(bond->params.mode)) {
+> >>>>>		printk(KERN_INFO DRV_NAME
+> >>>>>@@ -1247,7 +1251,8 @@ static ssize_t bonding_store_active_slave(=
+struct
+> >>>>>device *d,
+> >>>>>		}
+> >>>>>	}
+> >>>>>out:
+> >>>>>-	write_unlock_bh(&bond->lock);
+> >>>>>+	write_unlock_bh(&bond->curr_slave_lock);
+> >>>>>+	read_unlock(&bond->lock);
+> >>>>>	rtnl_unlock();
+> >>>>>
+> >>>>>	return count;
+> >>>>
+> >>>>Vanilla 2.6.24-rc5 plus this patch:
+> >>>>
+> >>>>=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> >>>>[ INFO: possible irq lock inversion dependency detected ]
+> >>>>2.6.24-rc5 #1
+> >>>>---------------------------------------------------------
+> >>>>events/0/9 just changed the state of lock:
+> >>>>(&mc->mca_lock){-+..}, at: [<c0411c7a>] mld_ifc_timer_expire+0x13=
+0/0x1fb
+> >>>>but this lock took another, soft-read-irq-unsafe lock in the past=
+:
+> >>>>(&bond->lock){-.--}
+> >>>>
+> >>>>and interrupts could create inverse lock ordering between them.
+> >>>>
+> >>>>
+> >>>
+> >>>Grrr, I should have seen that -- sorry.  Try your luck with this i=
+nstead:
+> >><CUT>
+> >>
+> >>No luck.
+> >>
+> >
+> >
+> >I'm guessing if we go back to using a write-lock for bond->lock this
+> >will go back to working again, but I'm not totally convinced since t=
+here
+> >are plenty of places where we used a read-lock with it.
+>=20
+> Should I check this patch or rather, based on a future discussion, wa=
+it=20
+> for another version?
+>=20
+> >
+> >diff --git a/drivers/net/bonding/bond_sysfs.c=20
+> >b/drivers/net/bonding/bond_sysfs.c
+> >index 11b76b3..635b857 100644
+> >--- a/drivers/net/bonding/bond_sysfs.c
+> >+++ b/drivers/net/bonding/bond_sysfs.c
+> >@@ -1075,7 +1075,10 @@ static ssize_t bonding_store_primary(struct d=
+evice=20
+> >*d,
+> >	struct slave *slave;
+> >	struct bonding *bond =3D to_bond(d);
+> >
+> >+	rtnl_lock();
+> >	write_lock_bh(&bond->lock);
+> >+	write_lock_bh(&bond->curr_slave_lock);
+> >+
+> >	if (!USES_PRIMARY(bond->params.mode)) {
+> >		printk(KERN_INFO DRV_NAME
+> >		       ": %s: Unable to set primary slave; %s is in mode=20
+> >		       %d\n",
+> >@@ -1109,8 +1112,8 @@ static ssize_t bonding_store_primary(struct de=
+vice=20
+> >*d,
+> >		}
+> >	}
+> >out:
+> >+	write_unlock_bh(&bond->curr_slave_lock);
+> >	write_unlock_bh(&bond->lock);
+> >-
+> >	rtnl_unlock();
+> >
+> >	return count;
+> >@@ -1191,6 +1194,7 @@ static ssize_t bonding_store_active_slave(stru=
+ct=20
+> >device *d,
+> >
+> >	rtnl_lock();
+> >	write_lock_bh(&bond->lock);
+> >+	write_lock_bh(&bond->curr_slave_lock);
+> >
+> >	if (!USES_PRIMARY(bond->params.mode)) {
+> >		printk(KERN_INFO DRV_NAME
+> >@@ -1247,6 +1251,7 @@ static ssize_t bonding_store_active_slave(stru=
+ct=20
+> >device *d,
+> >		}
+> >	}
+> >out:
+> >+	write_unlock_bh(&bond->curr_slave_lock);
+> >	write_unlock_bh(&bond->lock);
+> >	rtnl_unlock();
+> >
+>=20
+>=20
+> Best regards,
+>=20
+> 					Krzysztof Ol=C4=99dzki
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/ackvec.c  |  107 +++++++++-------------------------------------------
- net/dccp/ackvec.h  |    5 +-
- net/dccp/options.c |   65 +++++++++++++++++++++++++++++++
- 3 files changed, 85 insertions(+), 92 deletions(-)
-
---- a/net/dccp/ackvec.h
-+++ b/net/dccp/ackvec.h
-@@ -108,7 +108,7 @@ extern int dccp_ackvec_parse(struct sock *sk, const struct sk_buff *skb,
- 			     u64 *ackno, const u8 opt,
- 			     const u8 *value, const u8 len);
- 
--extern int dccp_insert_option_ackvec(struct sock *sk, struct sk_buff *skb);
-+extern int  dccp_ackvec_update_records(struct dccp_ackvec *av, u64 seq, u8 sum);
- 
- static inline int dccp_ackvec_pending(const struct dccp_ackvec *av)
- {
-@@ -151,8 +151,7 @@ static inline int dccp_ackvec_parse(struct sock *sk, const struct sk_buff *skb,
- 	return -1;
- }
- 
--static inline int dccp_insert_option_ackvec(const struct sock *sk,
--					    const struct sk_buff *skb)
-+static inline int dccp_ackvec_update_records(struct dccp_ackvec *av, u64 seq, u8 nonce)
- {
- 	return -1;
- }
---- a/net/dccp/ackvec.c
-+++ b/net/dccp/ackvec.c
-@@ -54,106 +54,35 @@ void dccp_ackvec_free(struct dccp_ackvec *av)
- 	}
- }
- 
--static void dccp_ackvec_insert_avr(struct dccp_ackvec *av,
--				   struct dccp_ackvec_record *avr)
--{
--	/*
--	 * AVRs are sorted by seqno. Since we are sending them in order, we
--	 * just add the AVR at the head of the list.
--	 * -sorbo.
--	 */
--	if (!list_empty(&av->av_records)) {
--		const struct dccp_ackvec_record *head =
--					list_entry(av->av_records.next,
--						   struct dccp_ackvec_record,
--						   avr_node);
--		BUG_ON(before48(avr->avr_ack_seqno, head->avr_ack_seqno));
--	}
--
--	list_add(&avr->avr_node, &av->av_records);
--}
--
--int dccp_insert_option_ackvec(struct sock *sk, struct sk_buff *skb)
-+/**
-+ * dccp_ackvec_update_records  -  Record information about sent Ack Vectors
-+ * @av:		Ack Vector records to update
-+ * @seqno:	Sequence number of the packet carrying the Ack Vector just sent
-+ * @nonce_sum:	The sum of all buffer nonces contained in the Ack Vector
-+ */
-+int dccp_ackvec_update_records(struct dccp_ackvec *av, u64 seqno, u8 nonce_sum)
- {
--	struct dccp_sock *dp = dccp_sk(sk);
--	struct dccp_ackvec *av = dp->dccps_hc_rx_ackvec;
--	/* Figure out how many options do we need to represent the ackvec */
--	const u16 nr_opts = DIV_ROUND_UP(av->av_vec_len, DCCP_SINGLE_OPT_MAXLEN);
--	u16 len = av->av_vec_len + 2 * nr_opts;
--	u8 i, nonce = 0;
--	const unsigned char *tail, *from;
--	unsigned char *to;
- 	struct dccp_ackvec_record *avr;
- 
--	if (DCCP_SKB_CB(skb)->dccpd_opt_len + len > DCCP_MAX_OPT_LEN) {
--		/*
--		 * FIXME: when running out of option space while piggybacking on
--		 * DataAck, return 0 here and schedule a separate Ack instead.
--		 */
--		DCCP_WARN("Lacking space for %u bytes on %s packet\n", len,
--			  dccp_packet_name(DCCP_SKB_CB(skb)->dccpd_type));
--		return -1;
--	}
--
- 	avr = kmem_cache_alloc(dccp_ackvec_record_slab, GFP_ATOMIC);
- 	if (avr == NULL)
--		return -1;
--
--	DCCP_SKB_CB(skb)->dccpd_opt_len += len;
--
--	to   = skb_push(skb, len);
--	len  = av->av_vec_len;
--	from = av->av_buf + av->av_buf_head;
--	tail = av->av_buf + DCCPAV_MAX_ACKVEC_LEN;
--
--	for (i = 0; i < nr_opts; ++i) {
--		int copylen = len;
--
--		if (len > DCCP_SINGLE_OPT_MAXLEN)
--			copylen = DCCP_SINGLE_OPT_MAXLEN;
--
--		/*
--		 * RFC 4340, 12.2: Encode the Nonce Echo for this Ack Vector via
--		 * its type; ack_nonce is the sum of all individual buf_nonce's.
--		 */
--		nonce ^= av->av_buf_nonce[i];
--
--		*to++ = DCCPO_ACK_VECTOR_0 + av->av_buf_nonce[i];
--		*to++ = copylen + 2;
--
--		/* Check if buf_head wraps */
--		if (from + copylen > tail) {
--			const u16 tailsize = tail - from;
--
--			memcpy(to, from, tailsize);
--			to	+= tailsize;
--			len	-= tailsize;
--			copylen	-= tailsize;
--			from	= av->av_buf;
--		}
--
--		memcpy(to, from, copylen);
--		from += copylen;
--		to   += copylen;
--		len  -= copylen;
--	}
-+		return -ENOBUFS;
- 
--	/*
--	 * Each sent Ack Vector is recorded in the list, as per A.2 of RFC 4340.
--	 */
--	avr->avr_ack_seqno  = DCCP_SKB_CB(skb)->dccpd_seq;
-+	avr->avr_ack_seqno  = seqno;
- 	avr->avr_ack_ptr    = av->av_buf_head;
- 	avr->avr_ack_ackno  = av->av_buf_ackno;
--	avr->avr_ack_nonce  = nonce;
-+	avr->avr_ack_nonce  = nonce_sum;
- 	avr->avr_ack_runlen = dccp_ackvec_runlen(av->av_buf + av->av_buf_head);
-+	/*
-+	 * Since GSS is incremented for each packet, the list is automatically
-+	 * arranged in descending order of @ack_seqno.
-+	 */
-+	list_add(&avr->avr_node, &av->av_records);
- 
--	dccp_ackvec_insert_avr(av, avr);
--
--	dccp_pr_debug("%s ACK Vector 0, len=%d, ack_seqno=%llu, "
--		      "ack_ackno=%llu\n",
--		      dccp_role(sk), avr->avr_ack_runlen,
-+	dccp_pr_debug("Added Vector, ack_seqno=%llu, ack_ackno=%llu (rl=%u)\n",
- 		      (unsigned long long)avr->avr_ack_seqno,
--		      (unsigned long long)avr->avr_ack_ackno);
-+		      (unsigned long long)avr->avr_ack_ackno,
-+		      avr->avr_ack_runlen);
- 	return 0;
- }
- 
---- a/net/dccp/options.c
-+++ b/net/dccp/options.c
-@@ -433,6 +433,71 @@ static int dccp_insert_option_timestamp_echo(struct dccp_sock *dp,
- 	return 0;
- }
- 
-+int dccp_insert_option_ackvec(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct dccp_ackvec *av = dccp_sk(sk)->dccps_hc_rx_ackvec;
-+	/* Figure out how many options do we need to represent the ackvec */
-+	const u16 nr_opts = DIV_ROUND_UP(av->av_vec_len, DCCP_SINGLE_OPT_MAXLEN);
-+	u16 len = av->av_vec_len + 2 * nr_opts;
-+	u8 i, nonce = 0;
-+	const unsigned char *tail, *from;
-+	unsigned char *to;
-+
-+	if (DCCP_SKB_CB(skb)->dccpd_opt_len + len > DCCP_MAX_OPT_LEN) {
-+		/*
-+		 * FIXME: when running out of option space while piggybacking on
-+		 * DataAck, return 0 here and schedule a separate Ack instead.
-+		 */
-+		DCCP_WARN("Lacking space for %u bytes on %s packet\n", len,
-+			  dccp_packet_name(DCCP_SKB_CB(skb)->dccpd_type));
-+		return -1;
-+	}
-+	DCCP_SKB_CB(skb)->dccpd_opt_len += len;
-+
-+	to   = skb_push(skb, len);
-+	len  = av->av_vec_len;
-+	from = av->av_buf + av->av_buf_head;
-+	tail = av->av_buf + DCCPAV_MAX_ACKVEC_LEN;
-+
-+	for (i = 0; i < nr_opts; ++i) {
-+		int copylen = len;
-+
-+		if (len > DCCP_SINGLE_OPT_MAXLEN)
-+			copylen = DCCP_SINGLE_OPT_MAXLEN;
-+
-+		/*
-+		 * RFC 4340, 12.2: Encode the Nonce Echo for this Ack Vector via
-+		 * its type; ack_nonce is the sum of all individual buf_nonce's.
-+		 */
-+		nonce ^= av->av_buf_nonce[i];
-+
-+		*to++ = DCCPO_ACK_VECTOR_0 + av->av_buf_nonce[i];
-+		*to++ = copylen + 2;
-+
-+		/* Check if buf_head wraps */
-+		if (from + copylen > tail) {
-+			const u16 tailsize = tail - from;
-+
-+			memcpy(to, from, tailsize);
-+			to	+= tailsize;
-+			len	-= tailsize;
-+			copylen	-= tailsize;
-+			from	= av->av_buf;
-+		}
-+
-+		memcpy(to, from, copylen);
-+		from += copylen;
-+		to   += copylen;
-+		len  -= copylen;
-+	}
-+	/*
-+	 * Each sent Ack Vector is recorded in the list, as per A.2 of RFC 4340.
-+	 */
-+	if (dccp_ackvec_update_records(av, DCCP_SKB_CB(skb)->dccpd_seq, nonce))
-+		return -ENOBUFS;
-+	return 0;
-+}
-+
- /**
-  * dccp_insert_option_mandatory  -  Mandatory option (5.8.2)
-  * Note that since we are using skb_push, this function needs to be called
--- 
-1.5.3.GIT
+=46or now, I prefer Jay's original patch -- with the read_locks (rather
+than read/write_lock_bh) and the added rtnl_lock.  There is still a
+lockdep issue that we need to sort-out, but this patch is needed first.
 
