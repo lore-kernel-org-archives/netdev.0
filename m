@@ -1,56 +1,36 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: Inline local_bh_disable when TRACE_IRQFLAGS
-Date: Wed, 19 Dec 2007 15:03:13 +0100
-Message-ID: <20071219140313.GE21282@elte.hu>
-References: <20071219034033.GA5770@gondor.apana.org.au> <20071219113152.GD20736@elte.hu> <20071219115019.GA9099@gondor.apana.org.au>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: dn_neigh_table vs pneigh_lookup/pneigh_delete
+Date: Wed, 19 Dec 2007 17:11:34 +0300
+Message-ID: <47692696.1080905@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Linux Netdev List <netdev@vger.kernel.org>,
+	Patrick Caulfield <patrick@tykepenguin.com>,
+	linux-decnet-user@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:38696 "EHLO mx3.mail.elte.hu"
+Received: from sacred.ru ([62.205.161.221]:47106 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751537AbXLSOD1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2007 09:03:27 -0500
-Content-Disposition: inline
-In-Reply-To: <20071219115019.GA9099@gondor.apana.org.au>
+	id S1752907AbXLSOLw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2007 09:11:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi
 
-* Herbert Xu <herbert@gondor.apana.org.au> wrote:
+The pneigh_lookup/delete silently concerns, that the 
+key_len of the table is more that 4 bytes. Look:
 
-> On Wed, Dec 19, 2007 at 12:31:52PM +0100, Ingo Molnar wrote:
-> >
-> > > So I'm wondering if it would be reasonable to make it out-of-line 
-> > > when TRACE_IRQFLAGS is off.  This may make a difference because 
-> > > the networking stack is a frequent user of local_bh_disable and 
-> > > local_bh_enable.
-> > 
-> > do you mean to make it inline again?
-> 
-> Yes I meant in-line :)
+         u32 hash_val = *(u32 *)(pkey + key_len - 4);
 
-if that decreases code size then i guess we could do that.
+The hash_val for the proxy neighbor entry is four last bytes
+from the pkey.
 
-> > (btw., generally i think local_bh_disable() is a poor API because it 
-> > is opaque about the data structure dependency that it governs. 
-> > Explicit exclusion rules generally work better.)
-> 
-> I see where you're coming from especially with your preemptible 
-> softirq work.  However I'm mostly thinking about the existing callers 
-> of local_bh_disable in the networking stack.
+But the dn_neigh_tables' key_len is sizeof(__le16), that is 2,
+so setting (via netlink) the proxy neighbor entry for decnet 
+will cause this entry to reside in arbitrary hash chain.
 
-yeah, i was just commenting on the general concept of 'naked' 
-local_bh_disable(). And just to make it clear: with that i'm not 
-implying anything about the quality of the networking code - networking 
-is one of the cleanest [if not the cleanest] subsystems in the kernel. 
+Is this too bad for decnet?
 
-It's just that it's long term more useful for us if our "global scope" 
-APIs have direct, programmatic relationship to the data structures / 
-data flow they control. So i'd love to have the same flow/performance, 
-just coded a bit more explicitly. [preempt_disable() for example has 
-similar issues.]
-
-	Ingo
+Thanks,
+Pavel
