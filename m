@@ -1,64 +1,42 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] [IPv6]: IPV6_MULTICAST_IF setting is ignored on link-local
- connect()
-Date: Tue, 18 Dec 2007 15:56:22 -0800
-Message-ID: <OF7B1ADDCA.711DCE7B-ON882573B5.00820D67-882573B5.0083AEF8@us.ibm.com>
-References: <47684AE3.7080007@hp.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [UPDATED PATCH] SGISEEQ: use cached memory access to make driver
+ work on IP28
+Date: Tue, 18 Dec 2007 19:38:13 -0500
+Message-ID: <476867F5.3070006@pobox.com>
+References: <20071202103312.75E51C2EB5@solo.franken.de> <47671FEE.90103@pobox.com> <20071218103006.GA18598@alpha.franken.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
+	ralf@linux-mips.org
+To: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:36068 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754179AbXLRX4m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2007 18:56:42 -0500
-In-Reply-To: <47684AE3.7080007@hp.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:36265 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758923AbXLSAiU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Dec 2007 19:38:20 -0500
+In-Reply-To: <20071218103006.GA18598@alpha.franken.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brian,
+Thomas Bogendoerfer wrote:
+> On Mon, Dec 17, 2007 at 08:18:38PM -0500, Jeff Garzik wrote:
+>>> Changes to last version:
+>>> - Use inline functions for dma_sync_* instead of macros (suggested by Ralf)
+>>> - added Kconfig change to make selection for similair SGI boxes easier
+>> hrm, could you rediff?  it doesn't seem to apply
+> 
+> sure, against which tree ? I tried netdev-2.6 and it applies without fuzz...
 
-OK, I see what you're trying to fix now.
+It needs to be the 'upstream' branch of netdev-2.6.
 
-I think the scope_id checks are not quite right-- they
-should be something like this:
+The default netdev-2.6.git branch, master, is a 100% vanilla duplicate 
+of Linus's git repository.
 
-if (addr_type&IPV6_ADDR_LINKLOCAL) {
-        if (addr_len >= sizeof(struct sockaddr_in6)) {
-                if (sk->sk_bound_dev_if && usin->sin6_scope_id &&
-                    sk->sk_bound_dev_if != usin->sin6_scope_id) {
-                        err = -EINVAL;
-                        goto out;
-                }
-                if (usin->sin6_scope_id)
-                        sk->sk_bound_dev_if = usin->sin6_scope_id;
-                if (!sk->sk_bound_dev_if &&
-                     (addr_type & IPV6_ADDR_MULTICAST))
-                        fl.oif = np->mcast_oif;
-        }
+(this permits a common practice of presenting logs and diffs using git's 
+branch..branch notation)
 
-        /* connect to the link-local addres requires an interface */
-        if (!sk->sk_bound_dev_if) {
-                err = -EINVAL;
-                goto out;
-        }
-}
+	Jeff
 
-        That is (in English):
 
-        If I did an SO_BINDTODEVICE and specified sin6_scope_id,
-then they better agree.
-        If I specified sin6_scope_id without SO_BINDTODEVICE, set
-the device to that.
-        If I get this far without a device and it's multicast, use 
-mcast_oif
-        If I get all through that and don't have a device, EINVAL.
-
-        Does that work for you?
-
-                                        +-DLS
 
