@@ -1,68 +1,28 @@
-From: Haavard Skinnemoen <hskinnemoen@atmel.com>
-Subject: [PATCH] MACB: clear transmit buffers properly on transmit underrun
-Date: Wed, 19 Dec 2007 18:23:44 +0100
-Message-ID: <1198085024-17362-1-git-send-email-hskinnemoen@atmel.com>
-Cc: netdev@vger.kernel.org, Gregory CLEMENT <gclement00@gmail.com>,
-	Haavard Skinnemoen <hskinnemoen@atmel.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat-132.atmel.no ([80.232.32.132]:56026 "EHLO relay.atmel.no"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750830AbXLSR0K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2007 12:26:10 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [UPDATED PATCH] SGISEEQ: use cached memory access to make
+	driver work on IP28
+Date: Wed, 19 Dec 2007 18:27:50 +0100
+Message-ID: <20071219172750.GA9717@linux-mips.org>
+References: <20071202103312.75E51C2EB5@solo.franken.de> <47671FEE.90103@pobox.com> <20071218103006.GA18598@alpha.franken.de> <476867F5.3070006@pobox.com> <20071219124235.GA7550@alpha.franken.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org
+To: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <20071219124235.GA7550@alpha.franken.de>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-Id: netdev.vger.kernel.org
 
-From: Gregory CLEMENT <gclement00@gmail.com>
+On Wed, Dec 19, 2007 at 01:42:36PM +0100, Thomas Bogendoerfer wrote:
 
-Initially transmit buffer pointers were only reset. But buffer
-descriptors were possibly still set as ready, and buffer in upper
-layer was not freed. This caused driver hang under big load.  Now
-reset clean properly the buffer descriptor and freed upper layer.
+> - Use inline functions for dma_sync_* instead of macros 
+> - added Kconfig change to make selection for similair SGI boxes easier
+> 
+> Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 
-Signed-off-by: Gregory CLEMENT <gclement00@gmail.com>
-Signed-off-by: Haavard Skinnemoen <hskinnemoen@atmel.com>
----
- drivers/net/macb.c |   25 ++++++++++++++++++++++++-
- 1 files changed, 24 insertions(+), 1 deletions(-)
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
 
-diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index 047ea7b..e10528e 100644
---- a/drivers/net/macb.c
-+++ b/drivers/net/macb.c
-@@ -307,8 +307,31 @@ static void macb_tx(struct macb *bp)
- 		(unsigned long)status);
- 
- 	if (status & MACB_BIT(UND)) {
-+		int i;
- 		printk(KERN_ERR "%s: TX underrun, resetting buffers\n",
--		       bp->dev->name);
-+			bp->dev->name);
-+
-+		head = bp->tx_head;
-+
-+		/*Mark all the buffer as used to avoid sending a lost buffer*/
-+		for (i = 0; i < TX_RING_SIZE; i++)
-+			bp->tx_ring[i].ctrl = MACB_BIT(TX_USED);
-+
-+		/* free transmit buffer in upper layer*/
-+		for (tail = bp->tx_tail; tail != head; tail = NEXT_TX(tail)) {
-+			struct ring_info *rp = &bp->tx_skb[tail];
-+			struct sk_buff *skb = rp->skb;
-+
-+			BUG_ON(skb == NULL);
-+
-+			rmb();
-+
-+			dma_unmap_single(&bp->pdev->dev, rp->mapping, skb->len,
-+							 DMA_TO_DEVICE);
-+			rp->skb = NULL;
-+			dev_kfree_skb_irq(skb);
-+		}
-+
- 		bp->tx_head = bp->tx_tail = 0;
- 	}
- 
--- 
-1.5.3.4
-
+  Ralf
