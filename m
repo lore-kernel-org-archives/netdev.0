@@ -1,61 +1,68 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH net-2.6.25 1/3] Uninline the __inet_hash function
-Date: Wed, 19 Dec 2007 18:15:20 +0100
-Message-ID: <476951A8.4040200@cosmosbay.com>
-References: <4768F77E.5090201@openvz.org> <47690CD1.9060502@cosmosbay.com> <47691B0B.2060508@openvz.org> <47694231.2070406@cosmosbay.com> <47694F96.6030604@openvz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
+From: Haavard Skinnemoen <hskinnemoen@atmel.com>
+Subject: [PATCH] MACB: clear transmit buffers properly on transmit underrun
+Date: Wed, 19 Dec 2007 18:23:44 +0100
+Message-ID: <1198085024-17362-1-git-send-email-hskinnemoen@atmel.com>
+Cc: netdev@vger.kernel.org, Gregory CLEMENT <gclement00@gmail.com>,
+	Haavard Skinnemoen <hskinnemoen@atmel.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:48574 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752078AbXLSRPb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 12:15:31 -0500
-In-Reply-To: <47694F96.6030604@openvz.org>
+Received: from nat-132.atmel.no ([80.232.32.132]:56026 "EHLO relay.atmel.no"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750830AbXLSR0K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2007 12:26:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pavel Emelyanov a =E9crit :
-> Eric Dumazet wrote:
->> Pavel Emelyanov a =E9crit :
->>> Eric Dumazet wrote:
->>>> If you un-inline this (good idea), I am not sure we still need lis=
-ten_possible=20
->>>> argument.
->>>>
->>>> It was usefull only to help compiler to zap dead code (since it wa=
-s known at=20
->>>> compile time), now it only adds some extra test and argument passi=
-ng.
->>> Hm... I've tried to address this issue and got worse result - minus
->>> 600 bytes (vs minus 725). So, what would be more preferable - get a=
-=20
->>> smaller code with one extra 'if' or get a bit larger code without i=
-t?
->>>
->> Strange... What I meant is always assume listen_possible is true.
->=20
-> That's not truth, if I get you right. The __inet_hash() is called
-> with 0, from all the places except for the inet_hash() one.
+From: Gregory CLEMENT <gclement00@gmail.com>
 
-OK, but on cases with 0, sk->sk_state is !=3D TCP_LISTEN, unless I am m=
-istaken.
+Initially transmit buffer pointers were only reset. But buffer
+descriptors were possibly still set as ready, and buffer in upper
+layer was not freed. This caused driver hang under big load.  Now
+reset clean properly the buffer descriptor and freed upper layer.
 
+Signed-off-by: Gregory CLEMENT <gclement00@gmail.com>
+Signed-off-by: Haavard Skinnemoen <hskinnemoen@atmel.com>
+---
+ drivers/net/macb.c |   25 ++++++++++++++++++++++++-
+ 1 files changed, 24 insertions(+), 1 deletions(-)
 
->=20
->> The if (sk->sk_state =3D=3D TCP_LISTEN) will finally see the truth.
->>
->> I did a test here on x86 gcc-4.2.2 and saved 32 bytes.
->>
->>
->>
->=20
-> Thanks,
-> Pavel
->=20
->=20
+diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+index 047ea7b..e10528e 100644
+--- a/drivers/net/macb.c
++++ b/drivers/net/macb.c
+@@ -307,8 +307,31 @@ static void macb_tx(struct macb *bp)
+ 		(unsigned long)status);
+ 
+ 	if (status & MACB_BIT(UND)) {
++		int i;
+ 		printk(KERN_ERR "%s: TX underrun, resetting buffers\n",
+-		       bp->dev->name);
++			bp->dev->name);
++
++		head = bp->tx_head;
++
++		/*Mark all the buffer as used to avoid sending a lost buffer*/
++		for (i = 0; i < TX_RING_SIZE; i++)
++			bp->tx_ring[i].ctrl = MACB_BIT(TX_USED);
++
++		/* free transmit buffer in upper layer*/
++		for (tail = bp->tx_tail; tail != head; tail = NEXT_TX(tail)) {
++			struct ring_info *rp = &bp->tx_skb[tail];
++			struct sk_buff *skb = rp->skb;
++
++			BUG_ON(skb == NULL);
++
++			rmb();
++
++			dma_unmap_single(&bp->pdev->dev, rp->mapping, skb->len,
++							 DMA_TO_DEVICE);
++			rp->skb = NULL;
++			dev_kfree_skb_irq(skb);
++		}
++
+ 		bp->tx_head = bp->tx_tail = 0;
+ 	}
+ 
+-- 
+1.5.3.4
 
