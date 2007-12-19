@@ -1,42 +1,74 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] [IPv6]: IPV6_MULTICAST_IF setting is ignored on link-local
- connect()
-Date: Wed, 19 Dec 2007 11:28:48 -0800
-Message-ID: <OF5E6AD5B5.F8D668D5-ON882573B6.006AAA3D-882573B6.006B2FE2@us.ibm.com>
-References: <47696DCF.3000009@hp.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: [PATCH] XFRM: Audit function arguments misordered
+Date: Wed, 19 Dec 2007 14:29:38 -0500
+Message-ID: <20071219192937.15561.52837.stgit@flek.americas.hpqcorp.net>
+References: <20071219192309.15561.9843.stgit@flek.americas.hpqcorp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, linux-audit@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:44481 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752262AbXLSTbC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 14:31:02 -0500
-In-Reply-To: <47696DCF.3000009@hp.com>
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:4632 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752262AbXLSTbl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 14:31:41 -0500
+In-Reply-To: <20071219192309.15561.9843.stgit@flek.americas.hpqcorp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> 
-> We would still have to check np->mcast_oif is set in the link-local case 
+In several places the arguments to the xfrm_audit_start() function are in the
+wrong order resulting in incorrect user information being reported.  This
+patch corrects this by pacing the arguments in the correct order.
 
-> since we shouldn't be getting here with a zero.
+Signed-off-by: Paul Moore <paul.moore@hp.com>
+---
 
-        Actually, that's one of the things I wanted to look into. I'm not
-sure if there's a path through here with (even non-linklocal) multicasts
-that end up without an interface set. And I'd to do some testing of
-different cases to see if they behave as expected; also compare to the
-similar sendmsg() cases.
+ net/xfrm/xfrm_policy.c |    4 ++--
+ net/xfrm/xfrm_state.c  |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-> 
-> Don't worry about that, they can wait, and I'm leaving for 10 days 
-> anyways...
-
-        Good, thanks. It has been this way for years now, and I'm out
-too. :-) Enjoy,
-
-                                                                +-DLS
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index b91b166..26b846e 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2162,7 +2162,7 @@ xfrm_audit_policy_add(struct xfrm_policy *xp, int result, u32 auid, u32 sid)
+ 
+ 	if (audit_enabled == 0)
+ 		return;
+-	audit_buf = xfrm_audit_start(sid, auid);
++	audit_buf = xfrm_audit_start(auid, sid);
+ 	if (audit_buf == NULL)
+ 		return;
+ 	audit_log_format(audit_buf, " op=SPD-add res=%u", result);
+@@ -2179,7 +2179,7 @@ xfrm_audit_policy_delete(struct xfrm_policy *xp, int result, u32 auid, u32 sid)
+ 
+ 	if (audit_enabled == 0)
+ 		return;
+-	audit_buf = xfrm_audit_start(sid, auid);
++	audit_buf = xfrm_audit_start(auid, sid);
+ 	if (audit_buf == NULL)
+ 		return;
+ 	audit_log_format(audit_buf, " op=SPD-delete res=%u", result);
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 1af522b..ee1e697 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -2033,7 +2033,7 @@ xfrm_audit_state_add(struct xfrm_state *x, int result, u32 auid, u32 sid)
+ 
+ 	if (audit_enabled == 0)
+ 		return;
+-	audit_buf = xfrm_audit_start(sid, auid);
++	audit_buf = xfrm_audit_start(auid, sid);
+ 	if (audit_buf == NULL)
+ 		return;
+ 	audit_log_format(audit_buf, " op=SAD-add res=%u",result);
+@@ -2053,7 +2053,7 @@ xfrm_audit_state_delete(struct xfrm_state *x, int result, u32 auid, u32 sid)
+ 
+ 	if (audit_enabled == 0)
+ 		return;
+-	audit_buf = xfrm_audit_start(sid, auid);
++	audit_buf = xfrm_audit_start(auid, sid);
+ 	if (audit_buf == NULL)
+ 		return;
+ 	audit_log_format(audit_buf, " op=SAD-delete res=%u",result);
 
