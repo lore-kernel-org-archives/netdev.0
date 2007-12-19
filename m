@@ -1,122 +1,59 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 13/14] [ACKVEC]: Aggregate Ack-Vector related processing into single function
-Date: Wed, 19 Dec 2007 14:25:54 +0000
-Message-ID: <1198074355-18842-14-git-send-email-gerrit@erg.abdn.ac.uk>
-References: dccp_ackvector_rfc_patch_set
- <1198074355-18842-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-5-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-6-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-7-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-8-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-9-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-10-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-11-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-12-git-send-email-gerrit@erg.abdn.ac.uk>
- <1198074355-18842-13-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [DCCP] [RFC] [Patch 0/14]: Ack Vector implementation + fixes
+Date: Wed, 19 Dec 2007 14:25:41 +0000
+Message-ID: <1198074355-18842-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36885 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36889 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752564AbXLSO0t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753009AbXLSO0t (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 19 Dec 2007 09:26:49 -0500
-In-Reply-To: <1198074355-18842-13-git-send-email-gerrit@erg.abdn.ac.uk>
+In-Reply-To: dccp_ackvector_rfc_patch_set
+References: dccp_ackvector_rfc_patch_set
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This aggregates Ack Vector processing (handling input and clearing old state)
-into one function, for the following reasons and benefits:
- * duplicated code is removed;
- * all Ack Vector-specific processing is now in one place;
- * sanity: from an Ack Vector point of view, it is better to clear the old
-   state first before entering new state;
- * Ack Event handling happens mostly within the CCIDs, not the main DCCP module.
+This set of patches adds functionality to the existing DCCP Ack Vector
+implementation, extends it to a full circular buffer, and fixes two
+previously undiscovered problems which otherwise result in a corrupted
+buffer state. 
+It is important that Ack Vectors run reliably since otherwise problems in
+other parts (in particular CCID2) can not be fixed.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/input.c |   38 +++++++++++---------------------------
- 1 files changed, 11 insertions(+), 27 deletions(-)
+Quite some testing has been performed so that I am almost convinced it is
+bug free. To make 100% sure that it contains no further hidden issues
+as before, I would like to post this as RFC, to be eventually submitted
+next year.
 
---- a/net/dccp/input.c
-+++ b/net/dccp/input.c
-@@ -159,13 +159,16 @@ static void dccp_rcv_reset(struct sock *sk, struct sk_buff *skb)
- 	dccp_time_wait(sk, DCCP_TIME_WAIT, 0);
- }
- 
--static void dccp_event_ack_recv(struct sock *sk, struct sk_buff *skb)
-+static void dccp_handle_ackvec_processing(struct sock *sk, struct sk_buff *skb)
- {
--	struct dccp_sock *dp = dccp_sk(sk);
-+	struct dccp_ackvec *av = dccp_sk(sk)->dccps_hc_rx_ackvec;
-+	struct dccp_skb_cb *dcb = DCCP_SKB_CB(skb);
- 
--	if (dp->dccps_hc_rx_ackvec != NULL)
--		dccp_ackvec_clear_state(dp->dccps_hc_rx_ackvec,
--					DCCP_SKB_CB(skb)->dccpd_ack_seq);
-+	if (av != NULL) {
-+		if (dcb->dccpd_ack_seq != DCCP_PKT_WITHOUT_ACK_SEQ)
-+			dccp_ackvec_clear_state(av, dcb->dccpd_ack_seq);
-+		dccp_ackvec_input(av, dcb->dccpd_seq, DCCPAV_RECEIVED);
-+	}
- }
- 
- static void dccp_deliver_input_to_ccids(struct sock *sk, struct sk_buff *skb)
-@@ -364,21 +367,13 @@ discard:
- int dccp_rcv_established(struct sock *sk, struct sk_buff *skb,
- 			 const struct dccp_hdr *dh, const unsigned len)
- {
--	struct dccp_sock *dp = dccp_sk(sk);
--
- 	if (dccp_check_seqno(sk, skb))
- 		goto discard;
- 
- 	if (dccp_parse_options(sk, NULL, skb))
- 		goto discard;
- 
--	if (DCCP_SKB_CB(skb)->dccpd_ack_seq != DCCP_PKT_WITHOUT_ACK_SEQ)
--		dccp_event_ack_recv(sk, skb);
--
--	if (dp->dccps_hc_rx_ackvec != NULL &&
--	    dccp_ackvec_add(dp->dccps_hc_rx_ackvec, sk,
--			    DCCP_SKB_CB(skb)->dccpd_seq, DCCPAV_RECEIVED))
--		goto discard;
-+	dccp_handle_ackvec_processing(sk, skb);
- 	dccp_deliver_input_to_ccids(sk, skb);
- 
- 	return __dccp_rcv_established(sk, skb, dh, len);
-@@ -507,11 +502,7 @@ static int dccp_rcv_request_sent_state_process(struct sock *sk,
- 		 */
- 		if (dccp_feat_activate_values(sk, &dp->dccps_featneg))
- 			goto unable_to_proceed;
--
--		if (dp->dccps_hc_rx_ackvec != NULL &&
--		    dccp_ackvec_add(dp->dccps_hc_rx_ackvec, sk,
--				    DCCP_SKB_CB(skb)->dccpd_seq, DCCPAV_RECEIVED))
--			goto unable_to_proceed;
-+		dccp_handle_ackvec_processing(sk, skb);
- 
- 		dccp_send_ack(sk);
- 		return -1;
-@@ -632,14 +623,7 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
- 		if (dccp_parse_options(sk, NULL, skb))
- 			goto discard;
- 
--		if (dcb->dccpd_ack_seq != DCCP_PKT_WITHOUT_ACK_SEQ)
--			dccp_event_ack_recv(sk, skb);
--
--		if (dp->dccps_hc_rx_ackvec != NULL &&
--		    dccp_ackvec_add(dp->dccps_hc_rx_ackvec, sk,
--				    DCCP_SKB_CB(skb)->dccpd_seq, DCCPAV_RECEIVED))
--			goto discard;
--
-+		dccp_handle_ackvec_processing(sk, skb);
- 		dccp_deliver_input_to_ccids(sk, skb);
- 	}
- 
--- 
-1.5.3.GIT
 
+Patch  #1: Fixes the problem that CCID2 ignores Ack Vectors on some packets.
+Patch  #2: Adds a tail pointer to the buffer and makes the size configurable.
+Patch  #3: Decouples the use of Elapsed Time from the use of Ack Vectors. 
+Patch  #4: Provides inlines for Ack Vector state and run length.
+Patch  #5: Removes redundancies from the allocation / de-allocation routines.
+Patch  #6: Splits Ack Vector specific code from option-specific code.
+Patch  #7: Avoids doing unnecessary work when clearing state: the sender of
+           Ack Vectors is only interested in the highest-received Ack Number
+	   when clearing state. Hence parsing any Ack Vectors for this purpose
+	   (which only contain lower Ack Numbers) is entirely unnecessary.
+Patch  #8: Replaces #defines for Ack Vector states with enum.
+Patch  #9: Provides two extensions required for robustness: overflow handling
+           (indicated by a flag) and tracking the lowest-unacknowledged sequence
+	   number (tail_ackno)
+Patch #10: Inlines for buffer index manipulation, dynamic buffer length calculation.
+Patch #11: Implements algorithm to clear buffer state (non-trivial).
+Patch #12: Updates the code which registers incoming packets in the buffer.
+Patch #13: Aggregates Ack-Vector specific code into one function, thus making it
+           easier/simpler for the main DCCP module to use Ack Vectors.
+Patch #14: Cleans up old and now unused bits.
+
+
+The above patches have been uploaded to 
+
+	git://eden-feed.erg.abdn.ac.uk/dccp_exp		[dccp]
+
+but please note that the server will be switched off from 21/12 ... 01/08.
+
+Detailed information and documentation can be found on 
+	http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/ack_vectors/
