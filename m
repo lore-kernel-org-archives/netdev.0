@@ -1,78 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25 1/19] [NETNS] Add netns parameter to
- fib_rules_(un)register.
-Date: Thu, 20 Dec 2007 15:46:36 -0800 (PST)
-Message-ID: <20071220.154636.86238588.davem@davemloft.net>
-References: <4769370F.5020303@openvz.org>
-	<1198077889-10693-2-git-send-email-den@openvz.org>
+Subject: Re: [PATCH net-2.6.25][NEIGH] Make neigh_add_timer symmetrical to
+ neigh_del_timer
+Date: Thu, 20 Dec 2007 15:50:11 -0800 (PST)
+Message-ID: <20071220.155011.245874156.davem@davemloft.net>
+References: <476A3AED.7080503@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: benjamin.thery@bull.net, dlezcano@fr.ibm.com, devel@openvz.org,
-	containers@lists.osdl.org, netdev@vger.kernel.org, xemul@openvz.org
-To: den@openvz.org
+Cc: netdev@vger.kernel.org, devel@openvz.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32787
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53455
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754548AbXLTXqh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 18:46:37 -0500
-In-Reply-To: <1198077889-10693-2-git-send-email-den@openvz.org>
+	by vger.kernel.org with ESMTP id S1754944AbXLTXuM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 18:50:12 -0500
+In-Reply-To: <476A3AED.7080503@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Wed, 19 Dec 2007 18:24:31 +0300
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Thu, 20 Dec 2007 12:50:37 +0300
 
-> @@ -101,14 +101,12 @@ static inline u32 frh_get_table(struct fib_rule_hdr *frh, struct nlattr **nla)
->  	return frh->table;
->  }
->  
-> -extern int			fib_rules_register(struct fib_rules_ops *);
-> -extern int			fib_rules_unregister(struct fib_rules_ops *);
-> -extern void                     fib_rules_cleanup_ops(struct fib_rules_ops *);
-> +extern int fib_rules_register(struct net *, struct fib_rules_ops *);
-> +extern int fib_rules_unregister(struct net *, struct fib_rules_ops *);
-> +extern void fib_rules_cleanup_ops(struct fib_rules_ops *);
->  
-> -extern int			fib_rules_lookup(struct fib_rules_ops *,
-> -						 struct flowi *, int flags,
-> -						 struct fib_lookup_arg *);
-> -extern int			fib_default_rule_add(struct fib_rules_ops *,
-> -						     u32 pref, u32 table,
-> -						     u32 flags);
-> +extern int fib_rules_lookup(struct fib_rules_ops *, struct flowi *, int flags,
-> +			    struct fib_lookup_arg *);
-> +extern int fib_default_rule_add(struct fib_rules_ops *, u32 pref, u32 table,
-> +				u32 flags);
->  #endif
+> The neigh_del_timer() looks sane - it removes the timer and
+> (conditionally) puts the neighbor. I expected, that the
+> neigh_add_timer() is symmetrical to the del one - i.e. it
+> holds the neighbor and arms the timer - but it turned out
+> that it was not so.
+> 
+> I think, that making them look symmetrical makes the code 
+> more readable.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Please do not make gratuitous coding style changes like this!
+I agree, it looks more reable now, applied.
 
-What bothers you so much that there is lots of whitespace there after
-the "extern int"?  Does it bother you so much that you think the side
-effect of your patch being unreadable is worth it?!?!
-
-Why is it unreadable?  I'm glad you asked....
-
-Just like me, someone will have to read this over carefully to
-see what you're actually doing.
-
-Are you deleting all the existing declarations and adding new
-ones with different names?
-
-Are you deleting some of them, but keeping others yet changing
-the arguments to them somehow?
-
-Are you deleting some of them, but masterbating with the coding
-style of others?
-
-NOBODY KNOWS!
-
-Whereas if you just deleted the lines for the functions you
-are removing, it would be totally clear what is happening.
-
-This patch, from a reviewability standpoint, sucks.  It makes
-efficient patch review next to impossible.
-
-I'm not looking at the rest of this patch set, clean this stuff up and
-resubmit it all, thank you.
+This code used to be a lot worse, I think we had some
+confusion about whether the timer should always not be
+pending in these circumstances.  But that was a bug
+fix from a long time ago, however I believe that's
+where the dump_stack() bug check came from in the
+add timer case.
