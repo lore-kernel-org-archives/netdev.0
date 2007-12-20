@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 4/8] tg3: Replace some magic 5704S constants
-Date: Thu, 20 Dec 2007 15:21:39 -0800
-Message-ID: <1198192899.0@teletran1>
+Subject: [PATCH 2/8] tg3: Add 1000T & 1000X flowctrl resolvers
+Date: Thu, 20 Dec 2007 15:21:34 -0800
+Message-ID: <1198192894.0@teletran1>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,129 +9,124 @@ Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
 	andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1091 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1627 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755322AbXLTXUu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Dec 2007 18:20:50 -0500
+	id S1752954AbXLTXUq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Dec 2007 18:20:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch replaces magic values with preprocessor definitions for
-the sg_dig_ctrl and sg_dig_status registers.  This is preparatory work
-for the next patch.
+This patch adds two new utility functions to resolve flow control.  One
+function resolves flow control based on 1000-BaseT register definitions.
+The other resolves flow control based on 1000-Base X register
+definitions.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 9e51457..9985166 100644
+index d503214..0cb0a6a 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -2683,7 +2683,7 @@ static int tg3_setup_fiber_hw_autoneg(struct tg3 *tp, u32 mac_status)
- 	sg_dig_ctrl = tr32(SG_DIG_CTRL);
- 
- 	if (tp->link_config.autoneg != AUTONEG_ENABLE) {
--		if (sg_dig_ctrl & (1 << 31)) {
-+		if (sg_dig_ctrl & SG_DIG_USING_HW_AUTONEG) {
- 			if (workaround) {
- 				u32 val = serdes_cfg;
- 
-@@ -2693,7 +2693,8 @@ static int tg3_setup_fiber_hw_autoneg(struct tg3 *tp, u32 mac_status)
- 					val |= 0x4010000;
- 				tw32_f(MAC_SERDES_CFG, val);
- 			}
--			tw32_f(SG_DIG_CTRL, 0x01388400);
-+
-+			tw32_f(SG_DIG_CTRL, SG_DIG_COMMON_SETUP);
- 		}
- 		if (mac_status & MAC_STATUS_PCS_SYNCED) {
- 			tg3_setup_flow_control(tp, 0, 0);
-@@ -2703,13 +2704,13 @@ static int tg3_setup_fiber_hw_autoneg(struct tg3 *tp, u32 mac_status)
+@@ -1612,6 +1612,50 @@ static void tg3_link_report(struct tg3 *tp)
  	}
+ }
  
- 	/* Want auto-negotiation.  */
--	expected_sg_dig_ctrl = 0x81388400;
-+	expected_sg_dig_ctrl = SG_DIG_USING_HW_AUTONEG | SG_DIG_COMMON_SETUP;
++static u8 tg3_resolve_flowctrl_1000T(u16 lcladv, u16 rmtadv)
++{
++	u8 cap = 0;
++
++	if (lcladv & ADVERTISE_PAUSE_CAP) {
++		if (lcladv & ADVERTISE_PAUSE_ASYM) {
++			if (rmtadv & LPA_PAUSE_CAP)
++				cap = TG3_FLOW_CTRL_TX | TG3_FLOW_CTRL_RX;
++			else if (rmtadv & LPA_PAUSE_ASYM)
++				cap = TG3_FLOW_CTRL_RX;
++		} else {
++			if (rmtadv & LPA_PAUSE_CAP)
++				cap = TG3_FLOW_CTRL_TX | TG3_FLOW_CTRL_RX;
++		}
++	} else if (lcladv & ADVERTISE_PAUSE_ASYM) {
++		if ((rmtadv & LPA_PAUSE_CAP) && (rmtadv & LPA_PAUSE_ASYM))
++			cap = TG3_FLOW_CTRL_TX;
++	}
++
++	return cap;
++}
++
++static u8 tg3_resolve_flowctrl_1000X(u16 lcladv, u16 rmtadv)
++{
++	u8 cap = 0;
++
++	if (lcladv & ADVERTISE_1000XPAUSE) {
++		if (lcladv & ADVERTISE_1000XPSE_ASYM) {
++			if (rmtadv & LPA_1000XPAUSE)
++				cap = TG3_FLOW_CTRL_TX | TG3_FLOW_CTRL_RX;
++			else if (rmtadv & LPA_1000XPAUSE_ASYM)
++				cap = TG3_FLOW_CTRL_RX;
++		} else {
++			if (rmtadv & LPA_1000XPAUSE)
++				cap = TG3_FLOW_CTRL_TX | TG3_FLOW_CTRL_RX;
++		}
++	} else if (lcladv & ADVERTISE_1000XPSE_ASYM) {
++		if ((rmtadv & LPA_1000XPAUSE) && (rmtadv & LPA_1000XPAUSE_ASYM))
++			cap = TG3_FLOW_CTRL_TX;
++	}
++
++	return cap;
++}
++
+ static void tg3_setup_flow_control(struct tg3 *tp, u32 local_adv, u32 remote_adv)
+ {
+ 	u8 new_tg3_flags = 0;
+@@ -1619,42 +1663,12 @@ static void tg3_setup_flow_control(struct tg3 *tp, u32 local_adv, u32 remote_adv
+ 	u32 old_tx_mode = tp->tx_mode;
  
- 	/* Pause capability */
--	expected_sg_dig_ctrl |= (1 << 11);
-+	expected_sg_dig_ctrl |= SG_DIG_PAUSE_CAP;
- 
- 	/* Asymettric pause */
--	expected_sg_dig_ctrl |= (1 << 12);
-+	expected_sg_dig_ctrl |= SG_DIG_ASYM_PAUSE;
- 
- 	if (sg_dig_ctrl != expected_sg_dig_ctrl) {
- 		if ((tp->tg3_flags2 & TG3_FLG2_PARALLEL_DETECT) &&
-@@ -2724,7 +2725,7 @@ static int tg3_setup_fiber_hw_autoneg(struct tg3 *tp, u32 mac_status)
- restart_autoneg:
- 		if (workaround)
- 			tw32_f(MAC_SERDES_CFG, serdes_cfg | 0xc011000);
--		tw32_f(SG_DIG_CTRL, expected_sg_dig_ctrl | (1 << 30));
-+		tw32_f(SG_DIG_CTRL, expected_sg_dig_ctrl | SG_DIG_SOFT_RESET);
- 		udelay(5);
- 		tw32_f(SG_DIG_CTRL, expected_sg_dig_ctrl);
- 
-@@ -2735,22 +2736,22 @@ restart_autoneg:
- 		sg_dig_status = tr32(SG_DIG_STATUS);
- 		mac_status = tr32(MAC_STATUS);
- 
--		if ((sg_dig_status & (1 << 1)) &&
-+		if ((sg_dig_status & SG_DIG_AUTONEG_COMPLETE) &&
- 		    (mac_status & MAC_STATUS_PCS_SYNCED)) {
- 			u32 local_adv, remote_adv;
- 
- 			local_adv = ADVERTISE_PAUSE_CAP;
- 			remote_adv = 0;
--			if (sg_dig_status & (1 << 19))
-+			if (sg_dig_status & SG_DIG_PARTNER_PAUSE_CAPABLE)
- 				remote_adv |= LPA_PAUSE_CAP;
--			if (sg_dig_status & (1 << 20))
-+			if (sg_dig_status & SG_DIG_PARTNER_ASYM_PAUSE)
- 				remote_adv |= LPA_PAUSE_ASYM;
- 
- 			tg3_setup_flow_control(tp, local_adv, remote_adv);
- 			current_link_up = 1;
- 			tp->serdes_counter = 0;
- 			tp->tg3_flags2 &= ~TG3_FLG2_PARALLEL_DETECT;
--		} else if (!(sg_dig_status & (1 << 1))) {
-+		} else if (!(sg_dig_status & SG_DIG_AUTONEG_COMPLETE)) {
- 			if (tp->serdes_counter)
- 				tp->serdes_counter--;
- 			else {
-@@ -2765,7 +2766,7 @@ restart_autoneg:
- 					tw32_f(MAC_SERDES_CFG, val);
- 				}
- 
--				tw32_f(SG_DIG_CTRL, 0x01388400);
-+				tw32_f(SG_DIG_CTRL, SG_DIG_COMMON_SETUP);
- 				udelay(40);
- 
- 				/* Link parallel detection - link is up */
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index ac47c17..3938eb3 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -545,6 +545,8 @@
- #define  SG_DIG_FIBER_MODE		 0x00008000
- #define  SG_DIG_REMOTE_FAULT_MASK	 0x00006000
- #define  SG_DIG_PAUSE_MASK		 0x00001800
-+#define  SG_DIG_PAUSE_CAP		 0x00000800
-+#define  SG_DIG_ASYM_PAUSE		 0x00001000
- #define  SG_DIG_GBIC_ENABLE		 0x00000400
- #define  SG_DIG_CHECK_END_ENABLE	 0x00000200
- #define  SG_DIG_SGMII_AUTONEG_TIMER	 0x00000100
-@@ -556,6 +558,11 @@
- #define  SG_DIG_AUTONEG_LOW_ENABLE	 0x00000004
- #define  SG_DIG_REMOTE_LOOPBACK		 0x00000002
- #define  SG_DIG_LOOPBACK		 0x00000001
-+#define  SG_DIG_COMMON_SETUP (SG_DIG_CRC16_CLEAR_N | \
-+			      SG_DIG_LOCAL_DUPLEX_STATUS | \
-+			      SG_DIG_LOCAL_LINK_STATUS | \
-+			      (0x2 << SG_DIG_SPEED_STATUS_SHIFT) | \
-+			      SG_DIG_FIBER_MODE | SG_DIG_GBIC_ENABLE)
- #define SG_DIG_STATUS			0x000005b4
- #define  SG_DIG_CRC16_BUS_MASK		 0xffff0000
- #define  SG_DIG_PARTNER_FAULT_MASK	 0x00600000 /* If !MRADV_CRC16_SELECT */
+ 	if (tp->tg3_flags & TG3_FLAG_PAUSE_AUTONEG) {
+-
+-		/* Convert 1000BaseX flow control bits to 1000BaseT
+-		 * bits before resolving flow control.
+-		 */
+-		if (tp->tg3_flags2 & TG3_FLG2_MII_SERDES) {
+-			local_adv &= ~(ADVERTISE_PAUSE_CAP |
+-				       ADVERTISE_PAUSE_ASYM);
+-			remote_adv &= ~(LPA_PAUSE_CAP | LPA_PAUSE_ASYM);
+-
+-			if (local_adv & ADVERTISE_1000XPAUSE)
+-				local_adv |= ADVERTISE_PAUSE_CAP;
+-			if (local_adv & ADVERTISE_1000XPSE_ASYM)
+-				local_adv |= ADVERTISE_PAUSE_ASYM;
+-			if (remote_adv & LPA_1000XPAUSE)
+-				remote_adv |= LPA_PAUSE_CAP;
+-			if (remote_adv & LPA_1000XPAUSE_ASYM)
+-				remote_adv |= LPA_PAUSE_ASYM;
+-		}
+-
+-		if (local_adv & ADVERTISE_PAUSE_CAP) {
+-			if (local_adv & ADVERTISE_PAUSE_ASYM) {
+-				if (remote_adv & LPA_PAUSE_CAP)
+-					new_tg3_flags = TG3_FLOW_CTRL_RX |
+-							TG3_FLOW_CTRL_TX;
+-				else if (remote_adv & LPA_PAUSE_ASYM)
+-					new_tg3_flags = TG3_FLOW_CTRL_RX;
+-			} else {
+-				if (remote_adv & LPA_PAUSE_CAP)
+-					new_tg3_flags = TG3_FLOW_CTRL_RX |
+-							TG3_FLOW_CTRL_TX;
+-			}
+-		} else if (local_adv & ADVERTISE_PAUSE_ASYM) {
+-			if ((remote_adv & LPA_PAUSE_CAP) &&
+-			    (remote_adv & LPA_PAUSE_ASYM))
+-				new_tg3_flags = TG3_FLOW_CTRL_TX;
+-		}
++		if (tp->tg3_flags2 & TG3_FLG2_MII_SERDES)
++			new_tg3_flags = tg3_resolve_flowctrl_1000X(local_adv,
++								   remote_adv);
++		else
++			new_tg3_flags = tg3_resolve_flowctrl_1000T(local_adv,
++								   remote_adv);
+ 	} else {
+ 		new_tg3_flags = tp->link_config.flowctrl;
+ 	}
 
 
