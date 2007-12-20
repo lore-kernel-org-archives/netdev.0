@@ -1,44 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: TSO trimming question
-Date: Thu, 20 Dec 2007 04:00:37 -0800 (PST)
-Message-ID: <20071220.040037.48002365.davem@davemloft.net>
-References: <Pine.LNX.4.64.0712192336130.27945@kivilampi-30.cs.helsinki.fi>
-	<20071219.235450.170670042.davem@davemloft.net>
-	<Pine.LNX.4.64.0712201253400.31652@kivilampi-30.cs.helsinki.fi>
+Subject: Re: [PATCH 05/11] drivers/net/niu.c: Use print_mac
+Date: Thu, 20 Dec 2007 04:07:48 -0800 (PST)
+Message-ID: <20071220.040748.77317931.davem@davemloft.net>
+References: <1197671652-32492-4-git-send-email-joe@perches.com>
+	<9fc484fc034428ab68ecb2711c8456df9e98d56d.1197671367.git.joe@perches.com>
+	<1197671652-32492-5-git-send-email-joe@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51626
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57118
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1760419AbXLTMAh convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Dec 2007 07:00:37 -0500
-In-Reply-To: <Pine.LNX.4.64.0712201253400.31652@kivilampi-30.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1762295AbXLTMHt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 07:07:49 -0500
+In-Reply-To: <1197671652-32492-5-git-send-email-joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Thu, 20 Dec 2007 13:40:51 +0200 (EET)
+From: Joe Perches <joe@perches.com>
+Date: Fri, 14 Dec 2007 14:34:06 -0800
 
-> That's not the only case, IMHO if there's odd boundary due to=20
-> snd_una+snd_wnd - skb->seq limit (done in tcp_window_allows()), we do=
-n't=20
-> consider it as odd but break the skb at arbitary point resulting
-> two small segments to the network, and what's worse, when the later s=
-kb=20
-> resulting from the first split is matching skb->len < limit check as =
-well=20
-> causing an unnecessary small skb to be created for nagle purpose too,=
-=20
-> solving it fully requires some thought in case the mss_now !=3D mss_c=
-ache=20
-> even if non-odd boundaries are honored in the middle of skb.
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-In the most ideal sense, tcp_window_allows() should probably
-be changed to only return MSS multiples.
-
-Unfortunately this would add an expensive modulo operation,
-however I think it would elimiate this problem case.
+Applied to net-2.6.25
