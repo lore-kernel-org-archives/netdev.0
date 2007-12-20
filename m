@@ -1,73 +1,43 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 00/29] Swap over NFS -v15
-Date: Thu, 20 Dec 2007 09:00:04 +0100
-Message-ID: <1198137604.6484.25.camel@twins>
-References: <20071214153907.770251000@chello.nl>  <476999B7.1000203@tmr.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] One more XFRM audit fix
+Date: Thu, 20 Dec 2007 00:00:09 -0800 (PST)
+Message-ID: <20071220.000009.173158004.davem@davemloft.net>
+References: <20071219192309.15561.9843.stgit@flek.americas.hpqcorp.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-6SMKnQn+0+PVsF307nk1"
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Bill Davidsen <davidsen@tmr.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-audit@redhat.com
+To: paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:51886 "EHLO
-	viefep11-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750960AbXLTIAJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 03:00:09 -0500
-In-Reply-To: <476999B7.1000203@tmr.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49965
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757409AbXLTIAP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 03:00:15 -0500
+In-Reply-To: <20071219192309.15561.9843.stgit@flek.americas.hpqcorp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Paul Moore <paul.moore@hp.com>
+Date: Wed, 19 Dec 2007 14:29:31 -0500
 
---=-6SMKnQn+0+PVsF307nk1
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> The following patch is backed against David's net-2.6 tree and is pretty
+> trivial.  I know we're late in the 2.6.24 cycle but I think this is worth
+> merging, if you guys don't feel that way let me know and I'll resubmit it
+> for 2.6.25.
 
+Where is that patch?  Or do you mean the fix you emailed
+seperately today (which I will apply, thanks)?
 
-On Wed, 2007-12-19 at 17:22 -0500, Bill Davidsen wrote:
-> Peter Zijlstra wrote:
-> > Hi,
-> >=20
-> > Another posting of the full swap over NFS series.=20
-> >=20
-> > Andrew/Linus, could we start thinking of sticking this in -mm?
-> >=20
->=20
-> Two questions:
-> 1 - what is the memory use impact on the system which don't do swap over=20
-> NFS, such as embedded systems, and
+> As a side note, I'm unable to actually test the patch because I can't get
+> the kernel to compile (M=net/xfrm works just fine).  The problem I keep
+> seeing is below:
+> 
+> make[3]: *** No rule to make target \
+>  `/blah/kernels/net-2.6_xfrm-auid-secid-fix/include/linux/ticable.h', \
+>   needed by \
+>  `/blah/kernels/net-2.6_xfrm-auid-secid-fix/usr/include/linux/ticable.h'. \
+>   Stop.
 
-It should have little to no impact if not used.
+Remove ticable.h from include/linux/Kbuild
 
-> 2 - what is the advantage of this code over the two existing network=20
-> swap approaches,=20
-
-> swapping to NFS mounted file and=20
-
-This is not actually possible with a recent kernel, current swapfile
-support requires a blockdevice.
-
-> swap to NBD device?
-
-> I've used the NFS file when a program was running out of memory and that=20
-> seemed to work, people in UNYUUG have reported that the nbd swap works,=20
-> so what's better here?
-
-swap over NBD works sometimes, its rather easy to deadlock, and its
-impossible to recover from a broken connection.
-
---=-6SMKnQn+0+PVsF307nk1
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQBHaiEEXA2jU0ANEf4RAl93AJ97JZvV0QnnGe1G9cyi4ENjZnyBtgCbBeHc
-BHq+vfwezh/scL/6LPg9c90=
-=VCif
------END PGP SIGNATURE-----
-
---=-6SMKnQn+0+PVsF307nk1--
-
+This is already cured in Linus's tree.
