@@ -1,104 +1,112 @@
-From: "Satoru SATOH" <satoru.satoh@gmail.com>
-Subject: Re: [PATCH] [IPROUTE]: A workaround to make larger rto_min printed correctly
-Date: Fri, 21 Dec 2007 01:21:02 +0900
-Message-ID: <d72b7ace0712200821k7cde0834rf1187b30c68cd1ce@mail.gmail.com>
-References: <d72b7ace0712191931w37f02645u8d5eb5eef9c1fba4@mail.gmail.com>
-	 <20071220091230.GB1924@ff.dom.local>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Please pull 'fixes-davem' branch of wireless-2.6
+Date: Thu, 20 Dec 2007 10:52:27 -0500
+Message-ID: <20071220155227.GE3139@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Jarek Poplawski" <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.229]:13393 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756425AbXLTQVF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 11:21:05 -0500
-Received: by wr-out-0506.google.com with SMTP id c49so2411105wra.1
-        for <netdev@vger.kernel.org>; Thu, 20 Dec 2007 08:21:04 -0800 (PST)
-In-Reply-To: <20071220091230.GB1924@ff.dom.local>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-i see. HZ can be < 1000.. i should be wrong.
+Dave,
 
-however, i got the following,
-
-[root iproute2.org]# ./ip/ip route change 192.168.140.0/24 dev eth1 rto_min 4s
-[root iproute2.org]# gdb -q ./ip/ip
-Using host libthread_db library "/lib/libthread_db.so.1".
-(gdb) br iproute.c:512
-Breakpoint 1 at 0x804fc8d: file iproute.c, line 512.
-(gdb) r route show dev eth1
-Starting program: /root/iproute2.org/ip/ip route show dev eth1
-
-Breakpoint 1, print_route (who=0xbfb9854c, n=0xbfb94528, arg=0x6404c0)
-at iproute.c:512
-512                                     unsigned val =
-*(unsigned*)RTA_DATA(mxrta[i]);
-(gdb) l 512,522
-512                                     unsigned val =
-*(unsigned*)RTA_DATA(mxrta[i]);
-513
-514                                     val *= 1000;
-515                                     if (i == RTAX_RTT)
-516                                             val /= 8;
-517                                     else if (i == RTAX_RTTVAR)
-518                                             val /= 4;
-519                                     if (val >= hz)
-520                                             fprintf(fp, " %ums", val/hz);
-521                                     else
-522                                             fprintf(fp, " %.2fms",
-(float)val/hz);
-(gdb) p hz
-$1 = 1000000000
-(gdb) n
-514                                     val *= 1000;
-(gdb) p val
-$2 = 4000000000
-(gdb) p val/ (hz / 1000)
-$3 = 4000
-(gdb) n
-515                                     if (i == RTAX_RTT)
-(gdb) p val
-$4 = 1385447424
-(gdb) c
-Continuing.
-192.168.140.0/24  scope link  rto_min lock 1ms
-
-Program exited normally.
-(gdb)
-
+A few more stragglers for 2.6.24...let me know if there are any
+problems!
 
 Thanks,
-Satoru SATOH
 
-2007/12/20, Jarek Poplawski <jarkao2@gmail.com>:
-> On 20-12-2007 04:31, Satoru SATOH wrote:
-> > "ip route show" does not print correct value when larger rto_min is
-> > set (e.g. 3sec).
-> >
-> > This problem is because of overflow in print_route() and
-> > the patch below is a workaround fix for that.
-> >
-> ...
-> > --- a/ip/iproute.c
-> > +++ b/ip/iproute.c
-> > @@ -510,16 +510,16 @@ int print_route(const struct sockaddr_nl *who,
-> > struct nlmsghdr *n, void *arg)
-> >                                 fprintf(fp, " %u",
-> > *(unsigned*)RTA_DATA(mxrta[i]));
-> >                         else {
-> >                                 unsigned val = *(unsigned*)RTA_DATA(mxrta[i]);
-> > +                               unsigned hz1 = hz / 1000;
-> ...
-> > +                               if (val >= hz1)
-> > +                                       fprintf(fp, " %ums", val/hz1);
-> ...
->
-> Probably I miss something or my iproute sources are too old, but:
-> does this work with hz < 1000?
->
-> Regards,
-> Jarek P.
+John
+
+---
+
+Individual patches available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/fixes-davem
+
+---
+
+The following changes since commit 82d29bf6dc7317aeb0a3a13c2348ca8591965875:
+  Linus Torvalds (1):
+        Linux 2.6.24-rc5
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-davem
+
+Johannes Berg (2):
+      mac80211: round station cleanup timer
+      mac80211: warn when receiving frames with unaligned data
+
+ net/mac80211/rx.c       |   13 +++++++++++++
+ net/mac80211/sta_info.c |    7 +++++--
+ 2 files changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+index 00f908d..a7263fc 100644
+--- a/net/mac80211/rx.c
++++ b/net/mac80211/rx.c
+@@ -1443,6 +1443,7 @@ void __ieee80211_rx(struct ieee80211_hw *hw, struct sk_buff *skb,
+ 	struct ieee80211_sub_if_data *prev = NULL;
+ 	struct sk_buff *skb_new;
+ 	u8 *bssid;
++	int hdrlen;
+ 
+ 	/*
+ 	 * key references and virtual interfaces are protected using RCU
+@@ -1472,6 +1473,18 @@ void __ieee80211_rx(struct ieee80211_hw *hw, struct sk_buff *skb,
+ 	rx.fc = le16_to_cpu(hdr->frame_control);
+ 	type = rx.fc & IEEE80211_FCTL_FTYPE;
+ 
++	/*
++	 * Drivers are required to align the payload data to a four-byte
++	 * boundary, so the last two bits of the address where it starts
++	 * may not be set. The header is required to be directly before
++	 * the payload data, padding like atheros hardware adds which is
++	 * inbetween the 802.11 header and the payload is not supported,
++	 * the driver is required to move the 802.11 header further back
++	 * in that case.
++	 */
++	hdrlen = ieee80211_get_hdrlen(rx.fc);
++	WARN_ON_ONCE(((unsigned long)(skb->data + hdrlen)) & 3);
++
+ 	if (type == IEEE80211_FTYPE_DATA || type == IEEE80211_FTYPE_MGMT)
+ 		local->dot11ReceivedFragmentCount++;
+ 
+diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
+index e849155..cfd8ee9 100644
+--- a/net/mac80211/sta_info.c
++++ b/net/mac80211/sta_info.c
+@@ -14,6 +14,7 @@
+ #include <linux/slab.h>
+ #include <linux/skbuff.h>
+ #include <linux/if_arp.h>
++#include <linux/timer.h>
+ 
+ #include <net/mac80211.h>
+ #include "ieee80211_i.h"
+@@ -306,7 +307,8 @@ static void sta_info_cleanup(unsigned long data)
+ 	}
+ 	read_unlock_bh(&local->sta_lock);
+ 
+-	local->sta_cleanup.expires = jiffies + STA_INFO_CLEANUP_INTERVAL;
++	local->sta_cleanup.expires =
++		round_jiffies(jiffies + STA_INFO_CLEANUP_INTERVAL);
+ 	add_timer(&local->sta_cleanup);
+ }
+ 
+@@ -345,7 +347,8 @@ void sta_info_init(struct ieee80211_local *local)
+ 	INIT_LIST_HEAD(&local->sta_list);
+ 
+ 	init_timer(&local->sta_cleanup);
+-	local->sta_cleanup.expires = jiffies + STA_INFO_CLEANUP_INTERVAL;
++	local->sta_cleanup.expires =
++		round_jiffies(jiffies + STA_INFO_CLEANUP_INTERVAL);
+ 	local->sta_cleanup.data = (unsigned long) local;
+ 	local->sta_cleanup.function = sta_info_cleanup;
+ 
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
