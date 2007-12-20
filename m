@@ -1,66 +1,37 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: TSO trimming question
-Date: Wed, 19 Dec 2007 23:54:50 -0800 (PST)
-Message-ID: <20071219.235450.170670042.davem@davemloft.net>
-References: <Pine.LNX.4.64.0712192336130.27945@kivilampi-30.cs.helsinki.fi>
+Date: Wed, 19 Dec 2007 23:55:27 -0800 (PST)
+Message-ID: <20071219.235527.231281143.davem@davemloft.net>
+References: <Pine.LNX.4.64.0712200000050.27945@kivilampi-30.cs.helsinki.fi>
+	<E1J5C38-0004kh-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60672
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60675
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758104AbXLTHyz convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Dec 2007 02:54:55 -0500
-In-Reply-To: <Pine.LNX.4.64.0712192336130.27945@kivilampi-30.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1759216AbXLTHz3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 02:55:29 -0500
+In-Reply-To: <E1J5C38-0004kh-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Wed, 19 Dec 2007 23:46:33 +0200 (EET)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 20 Dec 2007 11:26:18 +0800
 
-> I'm not fully sure what's purpose of this code in tcp_write_xmit:
->=20
->                        if (skb->len < limit) {
->                                unsigned int trim =3D skb->len % mss_n=
-ow;
->=20
->                                if (trim)
->                                        limit =3D skb->len - trim;
-> 			}
->=20
-> Is it used to make sure we send only multiples of mss_now here and le=
-ave=20
-> the left-over into another skb? Or does it try to make sure that
-> tso_fragment result honors multiple of mss_now boundaries when snd_wn=
-d
-> is the limitting factor? For latter IMHO this would be necessary:
->=20
-> 			if (skb->len > limit)
-> 				limit -=3D limit % mss_now;
+> Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi> wrote:
+> >
+> >> is the limitting factor? For latter IMHO this would be necessary:
+> >> 
+> >>                       if (skb->len > limit)
+> >>                               limit -= limit % mss_now;
+> 
+> Good catch! But how about putting this logic into tcp_window_allows
+> since then you can avoid the divide for the case when we're not
+> bound by the receiver window.
 
-The purpose of the test is to make sure we process tail sub-mss chunks
-correctly wrt. Nagle, which most closely matches the first purpose
-you've listed.
-
-So I think the calculation really does belong where it is.
-
-Because of the way that the sendmsg() super-skb formation logic
-works, we always will tack on more data and grow the tail
-SKB before creating a new one.  So any sub-mss chunk at the
-end of a TSO frame really is at the end of the write queue
-and really should get nagle processing.
-
-Actually, there is an exception, which is when we run out of
-skb_frag_list slots.  In that case we'll potentially have breaks at
-odd boundaries in the middle of the queue.  But this can only happen
-in exceptional cases (user does tons of 1-byte sendfile()'s over
-random non-consequetive locations of a file) or outright bugs
-(MAX_SKB_FRAGS is defined incorrectly, for example) and thus this
-situation is not worth coding for.
-
-sendmsg()'s goal, when TSO is enabled, is to append to the write
-queue tail SKB, and it does so until the MAX_SKB_FRAGS limit
-is reached.
+Because the purpose of this calculation is different, as I
+described in my other reply, I don't think this change is
+correct, regardless of where it is placed :-)
