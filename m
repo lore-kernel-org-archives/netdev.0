@@ -1,76 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/4] [CORE]: datagram: basic memory accounting functions
-Date: Thu, 20 Dec 2007 03:43:04 -0800 (PST)
-Message-ID: <20071220.034304.212231150.davem@davemloft.net>
-References: <47673195.80004@redhat.com>
-	<47673299.3010301@redhat.com>
+From: Steven Whitehouse <steve@chygwyn.com>
+Subject: Re: dn_neigh_table vs pneigh_lookup/pneigh_delete
+Date: Thu, 20 Dec 2007 11:24:20 +0000
+Message-ID: <20071220112420.GA26048@fogou.chygwyn.com>
+References: <47692696.1080905@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	tyasui@redhat.com, mhiramat@redhat.com,
-	satoshi.oshima.fk@hitachi.com, billfink@mindspring.com,
-	andi@firstfloor.org, johnpol@2ka.mipt.ru,
-	shemminger@linux-foundation.org, yoshfuji@linux-ipv6.org,
-	yumiko.sugita.yf@hitachi.com
-To: haoki@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Patrick Caulfield <patrick@tykepenguin.com>,
+	linux-decnet-user@lists.sourceforge.net
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60223
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756065AbXLTLnF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 06:43:05 -0500
-In-Reply-To: <47673299.3010301@redhat.com>
+Received: from fogou.chygwyn.com ([195.171.2.24]:46744 "EHLO fogou.chygwyn.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757375AbXLTLnj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Dec 2007 06:43:39 -0500
+Content-Disposition: inline
+In-Reply-To: <47692696.1080905@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hideo AOKI <haoki@redhat.com>
-Date: Mon, 17 Dec 2007 21:38:17 -0500
+Hi,
 
-Why do we need seperate stream and datagram accounting functions?
+On Wed, Dec 19, 2007 at 05:11:34PM +0300, Pavel Emelyanov wrote:
+> Hi
+> 
+> The pneigh_lookup/delete silently concerns, that the 
+> key_len of the table is more that 4 bytes. Look:
+> 
+>          u32 hash_val = *(u32 *)(pkey + key_len - 4);
+> 
+> The hash_val for the proxy neighbor entry is four last bytes
+> from the pkey.
+> 
+> But the dn_neigh_tables' key_len is sizeof(__le16), that is 2,
+> so setting (via netlink) the proxy neighbor entry for decnet 
+> will cause this entry to reside in arbitrary hash chain.
+> 
+> Is this too bad for decnet?
+> 
+> Thanks,
+> Pavel
+The pneigh code is never used in DECnet, we only use the "normal"
+part of the neigh code where the hash function was changed so that
+it can be defined for each protocol (and thus doesn't suffer from
+this problem)
 
-Is it just to facilitate things like the following test?
-
-> +static inline int sk_wmem_schedule(struct sock *sk, int size)
-> +{
-> +	if (sk->sk_type == SOCK_DGRAM)
-> +		return sk_datagram_wmem_schedule(sk, size);
-> +	else
-> +		return 1;
-> +}
-
-If so, this can be greatly improved.
-
-All of these other functions are identical copies of the stream
-counterparts, they should all be consolidated.
-
-I still see a lot of special casing, instead of large pieces of common
-code.
-
-There should be one core set of functions that handle the memory
-accounting, regardless of socket type.  Maybe there is one spot where
-something like sk->prot->doing_memory_accounting is tested, but that's
-it.
-
-I am still very dissatisfied with these changes.  They are
-full of special cases, because they mix generic facilities
-(the socket memory accounting) with an unrelated issue
-(we only support memory accounting for datagram sockets which
-are actually UDP).
-
-Also, the memory accounting is done at different parts in
-the socket code paths for stream vs. datagram.  This is why
-everything is inconsistent, and, a mess.
-
-What's funny is that I absolutely do not care if these changes are
-perfect and pass every possible regression test.  Rather, I'm more
-concerned that this thing is designed correctly and will allow us to
-have one core set of memory accounting functions regardless of socket
-type.  As it is coded now, we have two sets of code paths to
-fix, two ways of doing the socket accounting, and therefore twice
-as much code to maintain and debug.
-
-The whole thing needs to be consistent and without special cases.
-
-The "protocol supports memory accounting" test can be performed, as
-you did in this patch, by simply checking if
-sk->sk_prot->memory_allocated is non-NULL.
+Steve.
