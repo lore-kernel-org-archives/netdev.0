@@ -1,42 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25][NEIGH] Make neigh_add_timer symmetrical to
- neigh_del_timer
-Date: Thu, 20 Dec 2007 15:50:11 -0800 (PST)
-Message-ID: <20071220.155011.245874156.davem@davemloft.net>
-References: <476A3AED.7080503@openvz.org>
+Subject: Re: TSO trimming question
+Date: Thu, 20 Dec 2007 15:55:18 -0800 (PST)
+Message-ID: <20071220.155518.42408378.davem@davemloft.net>
+References: <Pine.LNX.4.64.0712201253400.31652@kivilampi-30.cs.helsinki.fi>
+	<20071220.040037.48002365.davem@davemloft.net>
+	<20071220140012.GA22495@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org
-To: xemul@openvz.org
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53455
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48519
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754944AbXLTXuM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 18:50:12 -0500
-In-Reply-To: <476A3AED.7080503@openvz.org>
+	by vger.kernel.org with ESMTP id S1753499AbXLTXzT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 18:55:19 -0500
+In-Reply-To: <20071220140012.GA22495@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Thu, 20 Dec 2007 12:50:37 +0300
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 20 Dec 2007 22:00:12 +0800
 
-> The neigh_del_timer() looks sane - it removes the timer and
-> (conditionally) puts the neighbor. I expected, that the
-> neigh_add_timer() is symmetrical to the del one - i.e. it
-> holds the neighbor and arms the timer - but it turned out
-> that it was not so.
+> On Thu, Dec 20, 2007 at 04:00:37AM -0800, David Miller wrote:
+> >
+> > In the most ideal sense, tcp_window_allows() should probably
+> > be changed to only return MSS multiples.
+> > 
+> > Unfortunately this would add an expensive modulo operation,
+> > however I think it would elimiate this problem case.
 > 
-> I think, that making them look symmetrical makes the code 
-> more readable.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> Well you only have to divide in the unlikely case of us being
+> limited by the receiver window.  In that case speed is probably
+> not of the essence anyway.
 
-I agree, it looks more reable now, applied.
+Agreed, to some extent.
 
-This code used to be a lot worse, I think we had some
-confusion about whether the timer should always not be
-pending in these circumstances.  But that was a bug
-fix from a long time ago, however I believe that's
-where the dump_stack() bug check came from in the
-add timer case.
+I say "to some extent" because it might be realistic, with
+lots (millions) of sockets to hit this case a lot.
+
+There are so many things that are a "don't care" performance
+wise until you have a lot of stinky connections over crappy
+links.
