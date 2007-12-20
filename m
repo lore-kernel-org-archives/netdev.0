@@ -1,47 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25 (resend) 1/3] Uninline the __inet_hash
+Subject: Re: [PATCH net-2.6.25 2/3] Uninline the __inet_lookup_established
  function
-Date: Thu, 20 Dec 2007 15:31:43 -0800 (PST)
-Message-ID: <20071220.153143.44884827.davem@davemloft.net>
-References: <476951A8.4040200@cosmosbay.com>
-	<20071220.003027.20529103.davem@davemloft.net>
-	<476A39DF.5080604@openvz.org>
+Date: Thu, 20 Dec 2007 15:32:24 -0800 (PST)
+Message-ID: <20071220.153224.258648937.davem@davemloft.net>
+References: <4768F834.3060100@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org, devel@openvz.org
+Cc: netdev@vger.kernel.org, devel@openvz.org
 To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54468
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54472
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751790AbXLTXbo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 18:31:44 -0500
-In-Reply-To: <476A39DF.5080604@openvz.org>
+	by vger.kernel.org with ESMTP id S1751790AbXLTXcY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 18:32:24 -0500
+In-Reply-To: <4768F834.3060100@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Emelyanov <xemul@openvz.org>
-Date: Thu, 20 Dec 2007 12:46:07 +0300
+Date: Wed, 19 Dec 2007 13:53:40 +0300
 
-> This one is used in quite many places in the networking code and
-> seems to big to be inline.
+> This is -700 bytes from the net/ipv4/built-in.o
 > 
-> After the patch net/ipv4/build-in.o loses ~650 bytes:
-> add/remove: 2/0 grow/shrink: 0/5 up/down: 461/-1114 (-653)
+> add/remove: 1/0 grow/shrink: 1/3 up/down: 340/-1040 (-700)
 > function                                     old     new   delta
-> __inet_hash_nolisten                           -     282    +282
-> __inet_hash                                    -     179    +179
-> tcp_sacktag_write_queue                     2255    2254      -1
-> __inet_lookup_listener                       284     274     -10
-> tcp_v4_syn_recv_sock                         755     493    -262
-> tcp_v4_hash                                  389      35    -354
-> inet_hash_connect                           1086     599    -487
+> __inet_lookup_established                      -     339    +339
+> tcp_sacktag_write_queue                     2254    2255      +1
+> tcp_v4_err                                  1304     973    -331
+> tcp_v4_rcv                                  2089    1744    -345
+> tcp_v4_do_rcv                                826     462    -364
 > 
-> This version addresses the issue pointed by Eric, that
-> while being inline this function was optimized by gcc
-> in respect to the 'listen_possible' argument.
-> 
-> (Patches 2 and 3 in this series are still applied after this)
+> Exporting is for dccp module (used via e.g. inet_lookup).
 > 
 > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
