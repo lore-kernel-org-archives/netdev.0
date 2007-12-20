@@ -1,106 +1,83 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] sky2: Use deferrable timer for watchdog
-Date: Thu, 20 Dec 2007 11:09:19 -0800
-Message-ID: <476ABDDF.8080607@intel.com>
-References: <Pine.LNX.4.64.0712182008160.3616@mini.warudkars.net>	<20071220091603.0d69b045@deepthought>	<823114761-1198171803-cardhu_decombobulator_blackberry.rim.net-937108990-@bxe019.bisx.prod.on.blackberry> <20071220095121.7859c023@deepthought>
+Subject: Re: [PATCH] e1000e: Use deferrable timer for watchdog
+Date: Thu, 20 Dec 2007 10:49:22 -0800
+Message-ID: <476AB932.8050606@intel.com>
+References: <Pine.LNX.4.64.0712182046560.3616@mini.warudkars.net>	 <476AA0C3.2080503@intel.com> <82e4877d0712200956l4126e221qc0cf4720e59ca2a1@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: parag.warudkar@gmail.com, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	Arjan van de Ven <arjan@linux.intel.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
+To: Parag Warudkar <parag.warudkar@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:1054 "EHLO mga02.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:48051 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752464AbXLTTKA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Dec 2007 14:10:00 -0500
-In-Reply-To: <20071220095121.7859c023@deepthought>
+	id S1754952AbXLTTKb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Dec 2007 14:10:31 -0500
+In-Reply-To: <82e4877d0712200956l4126e221qc0cf4720e59ca2a1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Thu, 20 Dec 2007 17:29:23 +0000
-> 
->> -----Original Message-----
->> From: Stephen Hemminger <shemminger@linux-foundation.org>
->>
->> Date: Thu, 20 Dec 2007 09:16:03 
->> To:parag.warudkar@gmail.com
->> Cc:netdev@vger.kernel.org, akpm@linux-foundation.org,       linux-kernel@vger.kernel.org
->> Subject: Re: [PATCH] sky2: Use deferrable timer for watchdog
->>
->>
->> On Tue, 18 Dec 2007 20:13:28 -0500 (EST)
->> Parag Warudkar <parag.warudkar@gmail.com> wrote:
->>
->>> sky2 can use deferrable timer for watchdog - reduces wakeups from idle per 
->>> second.
->>>
->>> Signed-off-by: Parag Warudkar <parag.warudkar@gmail.com>
->>>
->>> --- linux-2.6/drivers/net/sky2.c	2007-12-07 10:04:39.000000000 -0500
->>> +++ linux-2.6-work/drivers/net/sky2.c	2007-12-18 20:07:58.000000000 -0500
->>> @@ -4230,7 +4230,10 @@
->>>   			sky2_show_addr(dev1);
->>>   	}
->>>
->>> -	setup_timer(&hw->watchdog_timer, sky2_watchdog, (unsigned long) hw);
->>> +	hw->watchdog_timer.function = sky2_watchdog;
->>> +	hw->watchdog_timer.data = (unsigned long) hw;
->>> +	init_timer_deferrable(&hw->watchdog_timer);
->>> +
->>>   	INIT_WORK(&hw->restart_work, sky2_restart);
->>>
->>>   	pci_set_drvdata(pdev, hw);
->> Does it really reduce the wakeup's or only change who gets charged by powertop?
->> The system is going to wakeup once a second anyway. Looks to me that if the
->> timer is using round_jiffies(), that setting deferrable just changes the accounting.
->>
->> My interpretation of the api is:
->>    * round_jiffies()  - timer wants to wakeup but isn't precise about when so schedule
->>                         on next second when system will wake up anyway;
->>                         e.g why meetings are usually scheduled on the hour
->>
->>    * deferrable       - timer doesn't have to really wakeup but wants to happen near
->>                         a particular time. e.g. "I'll meet you at the pub around 8pm"
->>
->> Therefore doing deferrable is unnecessary for timers using round_jiffies unless system
->> is so good at doing timers that it is going to skip doing timer once per second.
->>
-> 
-> parag.warudkar@gmail.com wrote:
-> 
->> NO_HZ kernels don't do timers every second - if you do round_jiffies() the kernel will wakeup and run the timer at that time no matter what. 
->>
->> The reason deferrable was introduced is to avoid waking up the kernel just for this one timer that can be called when the CPU is not idle for some reason other than this timer.
->>
->> In other words let's say there were two timers - one non-deferrable expiring in 3 seconds and other deferrable, expiring in 1.5 seconds. The kernel will not wake up twice - once for 1.5 second and other for 3 second - it will wake up once at expiry of 3 second timer and execute both the 1.5 second and 3 second timers.
->>
->> And this is not just powertop accounting thing - like I said the total num of wakeups per second go down with this patch.
->>
->> Parag
->>
->> Sent via BlackBerry from T-Mobile
-> 
-> 
-> Quit top-posting!
-> 
-> If this is the case then the whole usage of round_jiffies() is bogus. All users of round_jiffies()
-> should just be converted to deferrable??  I am a bit concerned that if deferrable gets used everywhere
-> then a strange situation would occur where all timers were waiting for some other timer to finally
-> happen, kind of a wierd timelock situation. Like the old chip/dale cartoon:
->  "you first, no you first, after you mister chip, no after you mister dale,..."
+Parag Warudkar wrote:
+> On Dec 20, 2007 12:05 PM, Kok, Auke <auke-jan.h.kok@intel.com> wrote:
+>> I can't even apply this patch and the e1000 one... not only is it wh=
+itespace
+>> damaged it is also not properly formatted as patch at all. If you wa=
+nt me to take
+>> these patches seriously, then please fix the formatting issues.
+>=20
+> Sigh - I use Pine, follow Documents/email-clients.txt for the
+> recommended settings and obviously the pathces are not generated with
+> whitespace damage at my end as I test those before sending out.
+>=20
+> So although I hate to see this happen there is nothing at this moment
+> that I can do - except for attaching the patch instead of inlining it=
+=2E
+> Since they have already been reviewed inline, please see if the
+> attached patches work for you.
+
+here's what the files in my Maildir spool look like in vim (my vim disp=
+lays a '=BB'
+char for tabs and a "=B6" for EOL):
+
+ 76 --- linux-2.6/drivers/net/e1000e/netdev.c=BB      2007-12-07 10:04:=
+39.00000000
+ 77 +++ linux-2.6-work/drivers/net/e1000e/netdev.c=BB 2007-12-18 20:45:=
+59.00000000
+ 78 @@ -3899,7 +3899,7 @@=B6
+ 79   =BB     =BB       goto err_eeprom;=B6
+ 80   =BB     }=B6
+ 81 =B6
+ 82 -=BB      init_timer(&adapter->watchdog_timer);=B6
+ 83 +=BB      init_timer_deferrable(&adapter->watchdog_timer);=B6
+ 84   =BB     adapter->watchdog_timer.function =3D &e1000_watchdog;=B6
+ 85   =BB     adapter->watchdog_timer.data =3D (unsigned long) adapter;=
+=B6
+ 86 =B6
+ 87 --=B6
+
+notice that there are two spaces instead of 1. Also there's no line hea=
+ding the
+diff with 'diff a/foo b/foo' which is what throws of stg. And the -p op=
+tion is
+missing.
 
 
+as for content, the patch looks OK with me. I ran the numbers and allth=
+ough there
+was a slight average delay in the link up detection time it is negligea=
+ble (less
+than 0.2sec difference over a bunch of measurements), and I confirmed y=
+our
+powertop numbers are correct. As for the timer interval, the watchdog m=
+ay already
+be delayed up to 3 seconds safely, this doesn't change that.
 
-that's a dangerous situation indeed and I'd really like to know what the limits
-are for deferring deferrable timers.... Arjan, do you know? Anyone?
+I'll forward the patch, Care to make one for e100? plenty of laptops wi=
+th those
+still around! The embedded guys would love it I think.
 
-I don't see a danger just yet on normal systems - I get something like 10 wakeups
-per second from just the kernel (acpi, ahci, usb) on most my systems which
-guarantees that the watchdog runs often enough, but for embedded systems and
-critical timers in other drivers this may be an issue quickly
-
+Thanks,
 
 Auke
+
