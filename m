@@ -1,48 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [SNMP]: Fix SNMP counters with PREEMPT
-Date: Thu, 20 Dec 2007 04:13:39 -0800 (PST)
-Message-ID: <20071220.041339.197739349.davem@davemloft.net>
-References: <20071215135851.GA29063@gondor.apana.org.au>
-	<476408D7.50205@cosmosbay.com>
-	<20071216023025.GA959@gondor.apana.org.au>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH] One more XFRM audit fix
+Date: Thu, 20 Dec 2007 07:25:03 -0500
+Message-ID: <200712200725.03888.paul.moore@hp.com>
+References: <20071219192309.15561.9843.stgit@flek.americas.hpqcorp.net> <20071220.000009.173158004.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, kuznet@ms2.inr.ac.ru, wangchen@cn.fujitsu.com,
-	gerrit@erg.abdn.ac.uk, andi@firstfloor.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, clameter@sgi.com, mingo@elte.hu
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org, linux-audit@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43426
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1763168AbXLTMNk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 07:13:40 -0500
-In-Reply-To: <20071216023025.GA959@gondor.apana.org.au>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:27836 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758050AbXLTMZQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 07:25:16 -0500
+In-Reply-To: <20071220.000009.173158004.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sun, 16 Dec 2007 10:30:25 +0800
+On Thursday 20 December 2007 3:00:09 am David Miller wrote:
+> From: Paul Moore <paul.moore@hp.com>
+> Date: Wed, 19 Dec 2007 14:29:31 -0500
+>
+> > The following patch is backed against David's net-2.6 tree and is pretty
+> > trivial.  I know we're late in the 2.6.24 cycle but I think this is worth
+> > merging, if you guys don't feel that way let me know and I'll resubmit it
+> > for 2.6.25.
+>
+> Where is that patch?  Or do you mean the fix you emailed
+> seperately today (which I will apply, thanks)?
 
-> On Sat, Dec 15, 2007 at 06:03:19PM +0100, Eric Dumazet wrote:
+Yes, it was the patch you applied, "XFRM: Audit function arguments 
+misordered".  I was using stacked-git to post the patch and it apparently 
+doesn't annotate the cover email's subject line with "0/1" when you only send 
+one patch.
+
+Sorry about that.
+
+> > As a side note, I'm unable to actually test the patch because I can't get
+> > the kernel to compile (M=net/xfrm works just fine).  The problem I keep
+> > seeing is below:
 > >
-> > How come you change SNMP_INC_STATS_USER() but not SNMP_INC_STATS() ?
-> 
-> Heh, my brain must have blocked me from seeing it because it's
-> too hard :)
-> 
-> Let's fix it the stupid way first and I'll do a local_t conversion
-> later.
-> 
-> [SNMP]: Fix SNMP counters with PREEMPT
-> 
-> The SNMP macros use raw_smp_processor_id() in process context
-> which is illegal because the process may be preempted and then
-> migrated to another CPU.
-> 
-> This patch makes it use get_cpu/put_cpu to disable preemption.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> > make[3]: *** No rule to make target \
+> >  `/blah/kernels/net-2.6_xfrm-auid-secid-fix/include/linux/ticable.h', \
+> >   needed by \
+> >  `/blah/kernels/net-2.6_xfrm-auid-secid-fix/usr/include/linux/ticable.h'.
+> > \ Stop.
+>
+> Remove ticable.h from include/linux/Kbuild
+>
+> This is already cured in Linus's tree.
 
-I just noticed this and replaced the other SNMP fix patch
-with this one.
+Noted, thanks.
+
+-- 
+paul moore
+linux security @ hp
