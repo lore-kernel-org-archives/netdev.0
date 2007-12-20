@@ -1,72 +1,66 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [IPSEC]: Avoid undefined shift operation when testing
-	algorithm ID
-Date: Thu, 20 Dec 2007 08:58:57 +0100
-Message-ID: <20071220075857.GA1924@ff.dom.local>
-References: <20071220042937.GA18679@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: TSO trimming question
+Date: Wed, 19 Dec 2007 23:54:50 -0800 (PST)
+Message-ID: <20071219.235450.170670042.davem@davemloft.net>
+References: <Pine.LNX.4.64.0712192336130.27945@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:18649 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751142AbXLTHxi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 02:53:38 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so421625ugc.16
-        for <netdev@vger.kernel.org>; Wed, 19 Dec 2007 23:53:36 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20071220042937.GA18679@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60672
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1758104AbXLTHyz convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Dec 2007 02:54:55 -0500
+In-Reply-To: <Pine.LNX.4.64.0712192336130.27945@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20-12-2007 05:29, Herbert Xu wrote:
-> Hi Dave:
-> 
-> I had wanted to fix this for ages but kept putting it off and then
-> forgetting about it :) So before I forget again,
-> 
-> [IPSEC]: Avoid undefined shift operation when testing algorithm ID
-> 
-> The aalgos/ealgos fields are only 32 bits wide.  However, af_key tries
-> to test them with the expression 1 << id where id can be as large as
-> 253.  This produces different behaviour on different architectures.
-> 
-> The following patch explicitly checks whether ID is greater than 31
-> and fails the check if that's the case.
-> 
-> We cannot easily extend the mask to be longer than 32 bits due to
-> exposure to user-space.  Besides, this whole interface is obsolete
-> anyway in favour of the xfrm_user interface which doesn't use this
-> bit mask in templates (well not within the kernel anyway).
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> diff --git a/net/key/af_key.c b/net/key/af_key.c
-> index 878039b..26d5e63 100644
-> --- a/net/key/af_key.c
-> +++ b/net/key/af_key.c
-> @@ -2784,12 +2784,22 @@ static struct sadb_msg *pfkey_get_base_msg(struct sk_buff *skb, int *errp)
->  
->  static inline int aalg_tmpl_set(struct xfrm_tmpl *t, struct xfrm_algo_desc *d)
->  {
-> -	return t->aalgos & (1 << d->desc.sadb_alg_id);
-> +	unsigned int id = d->desc.sadb_alg_id;
-> +
-> +	if (id >= sizeof(t->aalgos) * 8)
-> +		return 0;
-> +
-> +	return (t->aalgos >> id) & 1;
->  }
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Wed, 19 Dec 2007 23:46:33 +0200 (EET)
 
-Hi,
+> I'm not fully sure what's purpose of this code in tcp_write_xmit:
+>=20
+>                        if (skb->len < limit) {
+>                                unsigned int trim =3D skb->len % mss_n=
+ow;
+>=20
+>                                if (trim)
+>                                        limit =3D skb->len - trim;
+> 			}
+>=20
+> Is it used to make sure we send only multiples of mss_now here and le=
+ave=20
+> the left-over into another skb? Or does it try to make sure that
+> tso_fragment result honors multiple of mss_now boundaries when snd_wn=
+d
+> is the limitting factor? For latter IMHO this would be necessary:
+>=20
+> 			if (skb->len > limit)
+> 				limit -=3D limit % mss_now;
 
-you probably have forgotten to mention in the changelog the returned
-value is changed to 0/1 btw?
+The purpose of the test is to make sure we process tail sub-mss chunks
+correctly wrt. Nagle, which most closely matches the first purpose
+you've listed.
 
-But, since you've mentioned different architectures, maybe it's the
-good moment to find out why you and/or Linux doesn't seem to use
-something like CHAR_BIT instead of this 8?
+So I think the calculation really does belong where it is.
 
-Thanks,
-Jarek P.
+Because of the way that the sendmsg() super-skb formation logic
+works, we always will tack on more data and grow the tail
+SKB before creating a new one.  So any sub-mss chunk at the
+end of a TSO frame really is at the end of the write queue
+and really should get nagle processing.
+
+Actually, there is an exception, which is when we run out of
+skb_frag_list slots.  In that case we'll potentially have breaks at
+odd boundaries in the middle of the queue.  But this can only happen
+in exceptional cases (user does tons of 1-byte sendfile()'s over
+random non-consequetive locations of a file) or outright bugs
+(MAX_SKB_FRAGS is defined incorrectly, for example) and thus this
+situation is not worth coding for.
+
+sendmsg()'s goal, when TSO is enabled, is to append to the write
+queue tail SKB, and it does so until the MAX_SKB_FRAGS limit
+is reached.
