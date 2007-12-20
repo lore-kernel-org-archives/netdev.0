@@ -1,73 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPSEC]: Avoid undefined shift operation when testing algorithm ID
-Date: Thu, 20 Dec 2007 12:29:37 +0800
-Message-ID: <20071220042937.GA18679@gondor.apana.org.au>
+From: "Mark Ryden" <markryde@gmail.com>
+Subject: [PATCH] remove not used code: target hw address (tha) definition and assignment in arp_process().
+Date: Thu, 20 Dec 2007 09:29:47 +0200
+Message-ID: <dac45060712192329v48bcd3td4f16f83ea13ba9e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+	boundary="----=_Part_20696_11251323.1198135787872"
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1562 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751339AbXLTE3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 23:29:40 -0500
-Content-Disposition: inline
+Received: from wa-out-1112.google.com ([209.85.146.182]:27265 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751190AbXLTH3s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 02:29:48 -0500
+Received: by wa-out-1112.google.com with SMTP id v27so5064124wah.23
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2007 23:29:47 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave:
+------=_Part_20696_11251323.1198135787872
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-I had wanted to fix this for ages but kept putting it off and then
-forgetting about it :) So before I forget again,
+Hello,
+  In arp_process() (net/ipv4/arp.c), there is unused code: definition
+and assignment of tha (target hw address ).
 
-[IPSEC]: Avoid undefined shift operation when testing algorithm ID
 
-The aalgos/ealgos fields are only 32 bits wide.  However, af_key tries
-to test them with the expression 1 << id where id can be as large as
-253.  This produces different behaviour on different architectures.
+Signed-off-by:
+markryde@gmail.com
 
-The following patch explicitly checks whether ID is greater than 31
-and fails the check if that's the case.
+------=_Part_20696_11251323.1198135787872
+Content-Type: text/x-patch; name=patchGit.diff
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_faez1fxa0
+Content-Disposition: attachment; filename=patchGit.diff
 
-We cannot easily extend the mask to be longer than 32 bits due to
-exposure to user-space.  Besides, this whole interface is obsolete
-anyway in favour of the xfrm_user interface which doesn't use this
-bit mask in templates (well not within the kernel anyway).
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 878039b..26d5e63 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -2784,12 +2784,22 @@ static struct sadb_msg *pfkey_get_base_msg(struct sk_buff *skb, int *errp)
- 
- static inline int aalg_tmpl_set(struct xfrm_tmpl *t, struct xfrm_algo_desc *d)
- {
--	return t->aalgos & (1 << d->desc.sadb_alg_id);
-+	unsigned int id = d->desc.sadb_alg_id;
-+
-+	if (id >= sizeof(t->aalgos) * 8)
-+		return 0;
-+
-+	return (t->aalgos >> id) & 1;
- }
- 
- static inline int ealg_tmpl_set(struct xfrm_tmpl *t, struct xfrm_algo_desc *d)
- {
--	return t->ealgos & (1 << d->desc.sadb_alg_id);
-+	unsigned int id = d->desc.sadb_alg_id;
-+
-+	if (id >= sizeof(t->ealgos) * 8)
-+		return 0;
-+
-+	return (t->ealgos >> id) & 1;
- }
- 
- static int count_ah_combs(struct xfrm_tmpl *t)
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+ZGlmZiAtLWdpdCBhL2EvbmV0L2lwdjQvYXJwLmMgYi9iL25ldC9pcHY0L2FycC5jCmluZGV4IDE0
+ZGVjOTIuLjZmMjZjZmUgMTAwNjQ0Ci0tLSBhL2EvbmV0L2lwdjQvYXJwLmMKKysrIGIvYi9uZXQv
+aXB2NC9hcnAuYwpAQCAtNzA2LDcgKzcwNiw3IEBAIHN0YXRpYyBpbnQgYXJwX3Byb2Nlc3Moc3Ry
+dWN0IHNrX2J1ZmYgKnNrYikKIAlzdHJ1Y3QgYXJwaGRyICphcnA7CiAJdW5zaWduZWQgY2hhciAq
+YXJwX3B0cjsKIAlzdHJ1Y3QgcnRhYmxlICpydDsKLQl1bnNpZ25lZCBjaGFyICpzaGEsICp0aGE7
+CisJdW5zaWduZWQgY2hhciAqc2hhOwogCV9fYmUzMiBzaXAsIHRpcDsKIAl1MTYgZGV2X3R5cGUg
+PSBkZXYtPnR5cGU7CiAJaW50IGFkZHJfdHlwZTsKQEAgLTc3MSw3ICs3NzEsNiBAQCBzdGF0aWMg
+aW50IGFycF9wcm9jZXNzKHN0cnVjdCBza19idWZmICpza2IpCiAJYXJwX3B0ciArPSBkZXYtPmFk
+ZHJfbGVuOwogCW1lbWNweSgmc2lwLCBhcnBfcHRyLCA0KTsKIAlhcnBfcHRyICs9IDQ7Ci0JdGhh
+CT0gYXJwX3B0cjsKIAlhcnBfcHRyICs9IGRldi0+YWRkcl9sZW47CiAJbWVtY3B5KCZ0aXAsIGFy
+cF9wdHIsIDQpOwogLyoK
+------=_Part_20696_11251323.1198135787872--
