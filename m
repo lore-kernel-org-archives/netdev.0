@@ -1,71 +1,73 @@
-From: "Satoru SATOH" <satoru.satoh@gmail.com>
-Subject: [PATCH] [IPROUTE]: A workaround to make larger rto_min printed correctly
-Date: Thu, 20 Dec 2007 12:31:27 +0900
-Message-ID: <d72b7ace0712191931w37f02645u8d5eb5eef9c1fba4@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPSEC]: Avoid undefined shift operation when testing algorithm ID
+Date: Thu, 20 Dec 2007 12:29:37 +0800
+Message-ID: <20071220042937.GA18679@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.234]:58187 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753767AbXLTDb3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 22:31:29 -0500
-Received: by nz-out-0506.google.com with SMTP id s18so1726903nze.1
-        for <netdev@vger.kernel.org>; Wed, 19 Dec 2007 19:31:27 -0800 (PST)
+Received: from rhun.apana.org.au ([64.62.148.172]:1562 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751339AbXLTE3k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2007 23:29:40 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"ip route show" does not print correct value when larger rto_min is
-set (e.g. 3sec).
+Hi Dave:
 
-This problem is because of overflow in print_route() and
-the patch below is a workaround fix for that.
+I had wanted to fix this for ages but kept putting it off and then
+forgetting about it :) So before I forget again,
 
-[root test]# ./iproute2.git.org/ip/ip route show dev eth1
-192.168.140.0/24  proto kernel  scope link  src 192.168.140.130
-169.254.0.0/16  scope link
-[root test]# ./iproute2.git.org/ip/ip route change 192.168.140.0/24
-dev eth1 rto_min 3s
-[root test]# ./iproute2.git.org/ip/ip route show dev eth1
-192.168.140.0/24  scope link  rto_min lock 2ms     <-- wrong
-169.254.0.0/16  scope link
-[root test]# ./iproute2.git/ip/ip route show dev eth1  # patched version
-192.168.140.0/24  scope link  rto_min lock 3000ms  <-- correct
-169.254.0.0/16  scope link
-[root test]#
+[IPSEC]: Avoid undefined shift operation when testing algorithm ID
 
+The aalgos/ealgos fields are only 32 bits wide.  However, af_key tries
+to test them with the expression 1 << id where id can be as large as
+253.  This produces different behaviour on different architectures.
 
-Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
+The following patch explicitly checks whether ID is greater than 31
+and fails the check if that's the case.
 
- ip/iproute.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+We cannot easily extend the mask to be longer than 32 bits due to
+exposure to user-space.  Besides, this whole interface is obsolete
+anyway in favour of the xfrm_user interface which doesn't use this
+bit mask in templates (well not within the kernel anyway).
 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index f4200ae..fa722c6 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -510,16 +510,16 @@ int print_route(const struct sockaddr_nl *who,
-struct nlmsghdr *n, void *arg)
-                                fprintf(fp, " %u",
-*(unsigned*)RTA_DATA(mxrta[i]));
-                        else {
-                                unsigned val = *(unsigned*)RTA_DATA(mxrta[i]);
-+                               unsigned hz1 = hz / 1000;
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
--                               val *= 1000;
-                                if (i == RTAX_RTT)
-                                        val /= 8;
-                                else if (i == RTAX_RTTVAR)
-                                        val /= 4;
--                               if (val >= hz)
--                                       fprintf(fp, " %ums", val/hz);
-+                               if (val >= hz1)
-+                                       fprintf(fp, " %ums", val/hz1);
-                                else
--                                       fprintf(fp, " %.2fms", (float)val/hz);
-+                                       fprintf(fp, " %.2fms", (float)val/hz1);
-                        }
-                }
-        }
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 878039b..26d5e63 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -2784,12 +2784,22 @@ static struct sadb_msg *pfkey_get_base_msg(struct sk_buff *skb, int *errp)
+ 
+ static inline int aalg_tmpl_set(struct xfrm_tmpl *t, struct xfrm_algo_desc *d)
+ {
+-	return t->aalgos & (1 << d->desc.sadb_alg_id);
++	unsigned int id = d->desc.sadb_alg_id;
++
++	if (id >= sizeof(t->aalgos) * 8)
++		return 0;
++
++	return (t->aalgos >> id) & 1;
+ }
+ 
+ static inline int ealg_tmpl_set(struct xfrm_tmpl *t, struct xfrm_algo_desc *d)
+ {
+-	return t->ealgos & (1 << d->desc.sadb_alg_id);
++	unsigned int id = d->desc.sadb_alg_id;
++
++	if (id >= sizeof(t->ealgos) * 8)
++		return 0;
++
++	return (t->ealgos >> id) & 1;
+ }
+ 
+ static int count_ah_combs(struct xfrm_tmpl *t)
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
