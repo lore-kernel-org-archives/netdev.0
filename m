@@ -1,131 +1,76 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: TSO trimming question
-Date: Thu, 20 Dec 2007 13:40:51 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0712201253400.31652@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0712192336130.27945@kivilampi-30.cs.helsinki.fi>
- <20071219.235450.170670042.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/4] [CORE]: datagram: basic memory accounting functions
+Date: Thu, 20 Dec 2007 03:43:04 -0800 (PST)
+Message-ID: <20071220.034304.212231150.davem@davemloft.net>
+References: <47673195.80004@redhat.com>
+	<47673299.3010301@redhat.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-397675333-1198150851=:31652"
-Cc: Netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	tyasui@redhat.com, mhiramat@redhat.com,
+	satoshi.oshima.fk@hitachi.com, billfink@mindspring.com,
+	andi@firstfloor.org, johnpol@2ka.mipt.ru,
+	shemminger@linux-foundation.org, yoshfuji@linux-ipv6.org,
+	yumiko.sugita.yf@hitachi.com
+To: haoki@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:54864 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753623AbXLTLky (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 06:40:54 -0500
-In-Reply-To: <20071219.235450.170670042.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60223
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756065AbXLTLnF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 06:43:05 -0500
+In-Reply-To: <47673299.3010301@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+From: Hideo AOKI <haoki@redhat.com>
+Date: Mon, 17 Dec 2007 21:38:17 -0500
 
----696243703-397675333-1198150851=:31652
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+Why do we need seperate stream and datagram accounting functions?
 
-On Wed, 19 Dec 2007, David Miller wrote:
+Is it just to facilitate things like the following test?
 
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Wed, 19 Dec 2007 23:46:33 +0200 (EET)
-> 
-> > I'm not fully sure what's purpose of this code in tcp_write_xmit:
-> > 
-> >                        if (skb->len < limit) {
-> >                                unsigned int trim = skb->len % mss_now;
-> > 
-> >                                if (trim)
-> >                                        limit = skb->len - trim;
-> > 			}
-> > 
-> > Is it used to make sure we send only multiples of mss_now here and leave 
-> > the left-over into another skb?
+> +static inline int sk_wmem_schedule(struct sock *sk, int size)
+> +{
+> +	if (sk->sk_type == SOCK_DGRAM)
+> +		return sk_datagram_wmem_schedule(sk, size);
+> +	else
+> +		return 1;
+> +}
 
-Yeah, I now understand that this part is correct. I somehow got such 
-impression while trying to figure this out that it ends up being dead code 
-but that wasn't correct thought from my side. However, it caught my 
-attention and after some thinking I'd say there's more to handle here 
-(covered by the second question).
+If so, this can be greatly improved.
 
-Also note that patch I sent earlier is not right either but needs some 
-refining to do the right thing.
+All of these other functions are identical copies of the stream
+counterparts, they should all be consolidated.
 
-> > Or does it try to make sure that
-> > tso_fragment result honors multiple of mss_now boundaries when snd_wnd
-> > is the limitting factor? For latter IMHO this would be necessary:
-> > 
-> > 			if (skb->len > limit)
-> > 				limit -= limit % mss_now;
-> 
-> The purpose of the test is to make sure we process tail sub-mss chunks
-> correctly wrt. Nagle, which most closely matches the first purpose
-> you've listed.
-> 
-> So I think the calculation really does belong where it is.
->
-> Because of the way that the sendmsg() super-skb formation logic
-> works, we always will tack on more data and grow the tail
-> SKB before creating a new one.  So any sub-mss chunk at the
-> end of a TSO frame really is at the end of the write queue
-> and really should get nagle processing.
+I still see a lot of special casing, instead of large pieces of common
+code.
 
-Yes, I now agree this is fully correct for this task.
+There should be one core set of functions that handle the memory
+accounting, regardless of socket type.  Maybe there is one spot where
+something like sk->prot->doing_memory_accounting is tested, but that's
+it.
 
-> Actually, there is an exception, which is when we run out of
-> skb_frag_list slots.  In that case we'll potentially have breaks at
-> odd boundaries in the middle of the queue.  But this can only happen
-> in exceptional cases (user does tons of 1-byte sendfile()'s over
-> random non-consequetive locations of a file) or outright bugs
-> (MAX_SKB_FRAGS is defined incorrectly, for example) and thus this
-> situation is not worth coding for.
+I am still very dissatisfied with these changes.  They are
+full of special cases, because they mix generic facilities
+(the socket memory accounting) with an unrelated issue
+(we only support memory accounting for datagram sockets which
+are actually UDP).
 
-That's not the only case, IMHO if there's odd boundary due to 
-snd_una+snd_wnd - skb->seq limit (done in tcp_window_allows()), we don't 
-consider it as odd but break the skb at arbitary point resulting
-two small segments to the network, and what's worse, when the later skb 
-resulting from the first split is matching skb->len < limit check as well 
-causing an unnecessary small skb to be created for nagle purpose too, 
-solving it fully requires some thought in case the mss_now != mss_cache 
-even if non-odd boundaries are honored in the middle of skb.
+Also, the memory accounting is done at different parts in
+the socket code paths for stream vs. datagram.  This is why
+everything is inconsistent, and, a mess.
 
-Though whether we get there is depending on what tcp_tso_should_defer() 
-decided. Hmm, there seems to be an unrelated bug in it as well :-/. A 
-patch below. Please consider the fact that enabling TSO deferring may 
-have some unpleasant effect to TCP dynamics, considering that I don't find 
-stable mandatory for this to avoid breaking, besides things have been 
-working quite well without it too... Only compile tested.
+What's funny is that I absolutely do not care if these changes are
+perfect and pass every possible regression test.  Rather, I'm more
+concerned that this thing is designed correctly and will allow us to
+have one core set of memory accounting functions regardless of socket
+type.  As it is coded now, we have two sets of code paths to
+fix, two ways of doing the socket accounting, and therefore twice
+as much code to maintain and debug.
 
--- 
- i.
+The whole thing needs to be consistent and without special cases.
 
-
---
-[PATCH] [TCP]: Fix TSO deferring
-
-I'd say that most of what tcp_tso_should_defer had in between
-there was dead code because of this.
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_output.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 8dafda9..693b9f6 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1217,7 +1217,8 @@ static int tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb)
- 		goto send_now;
- 
- 	/* Defer for less than two clock ticks. */
--	if (!tp->tso_deferred && ((jiffies<<1)>>1) - (tp->tso_deferred>>1) > 1)
-+	if (tp->tso_deferred &&
-+	    ((jiffies << 1) >> 1) - (tp->tso_deferred >> 1) > 1)
- 		goto send_now;
- 
- 	in_flight = tcp_packets_in_flight(tp);
--- 
-1.5.0.6
-
----696243703-397675333-1198150851=:31652--
+The "protocol supports memory accounting" test can be performed, as
+you did in this patch, by simply checking if
+sk->sk_prot->memory_allocated is non-NULL.
