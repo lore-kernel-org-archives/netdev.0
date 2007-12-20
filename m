@@ -1,57 +1,106 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [PATCH net-2.6.25 3/3] Uninline the inet_twsk_put function
-Date: Thu, 20 Dec 2007 19:32:45 +0100
-Message-ID: <200712201932.45900.netdev@axxeo.de>
-References: <4768F8CD.2050209@openvz.org>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] sky2: Use deferrable timer for watchdog
+Date: Thu, 20 Dec 2007 11:09:19 -0800
+Message-ID: <476ABDDF.8080607@intel.com>
+References: <Pine.LNX.4.64.0712182008160.3616@mini.warudkars.net>	<20071220091603.0d69b045@deepthought>	<823114761-1198171803-cardhu_decombobulator_blackberry.rim.net-937108990-@bxe019.bisx.prod.on.blackberry> <20071220095121.7859c023@deepthought>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
+Cc: parag.warudkar@gmail.com, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	Arjan van de Ven <arjan@linux.intel.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:3020 "EHLO mail.axxeo.de"
+Received: from mga02.intel.com ([134.134.136.20]:1054 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751016AbXLTTDE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Dec 2007 14:03:04 -0500
-In-Reply-To: <4768F8CD.2050209@openvz.org>
-Content-Disposition: inline
+	id S1752464AbXLTTKA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Dec 2007 14:10:00 -0500
+In-Reply-To: <20071220095121.7859c023@deepthought>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pavel Emelyanov schrieb:
-> This one is not that big, but is widely used: saves 1200 bytes 
-> from net/ipv4/built-in.o
-> +void inet_twsk_put(struct inet_timewait_sock *tw)
-> +{
-> +	if (atomic_dec_and_test(&tw->tw_refcnt)) {
-> +		struct module *owner = tw->tw_prot->owner;
-> +		twsk_destructor((struct sock *)tw);
-> +#ifdef SOCK_REFCNT_DEBUG
-> +		printk(KERN_DEBUG "%s timewait_sock %p released\n",
-> +		       tw->tw_prot->name, tw);
-> +#endif
-> +		kmem_cache_free(tw->tw_prot->twsk_prot->twsk_slab, tw);
-> +		module_put(owner);
-> +	}
-> +}
-> +EXPORT_SYMBOL_GPL(inet_twsk_put);
+Stephen Hemminger wrote:
+> On Thu, 20 Dec 2007 17:29:23 +0000
+> 
+>> -----Original Message-----
+>> From: Stephen Hemminger <shemminger@linux-foundation.org>
+>>
+>> Date: Thu, 20 Dec 2007 09:16:03 
+>> To:parag.warudkar@gmail.com
+>> Cc:netdev@vger.kernel.org, akpm@linux-foundation.org,       linux-kernel@vger.kernel.org
+>> Subject: Re: [PATCH] sky2: Use deferrable timer for watchdog
+>>
+>>
+>> On Tue, 18 Dec 2007 20:13:28 -0500 (EST)
+>> Parag Warudkar <parag.warudkar@gmail.com> wrote:
+>>
+>>> sky2 can use deferrable timer for watchdog - reduces wakeups from idle per 
+>>> second.
+>>>
+>>> Signed-off-by: Parag Warudkar <parag.warudkar@gmail.com>
+>>>
+>>> --- linux-2.6/drivers/net/sky2.c	2007-12-07 10:04:39.000000000 -0500
+>>> +++ linux-2.6-work/drivers/net/sky2.c	2007-12-18 20:07:58.000000000 -0500
+>>> @@ -4230,7 +4230,10 @@
+>>>   			sky2_show_addr(dev1);
+>>>   	}
+>>>
+>>> -	setup_timer(&hw->watchdog_timer, sky2_watchdog, (unsigned long) hw);
+>>> +	hw->watchdog_timer.function = sky2_watchdog;
+>>> +	hw->watchdog_timer.data = (unsigned long) hw;
+>>> +	init_timer_deferrable(&hw->watchdog_timer);
+>>> +
+>>>   	INIT_WORK(&hw->restart_work, sky2_restart);
+>>>
+>>>   	pci_set_drvdata(pdev, hw);
+>> Does it really reduce the wakeup's or only change who gets charged by powertop?
+>> The system is going to wakeup once a second anyway. Looks to me that if the
+>> timer is using round_jiffies(), that setting deferrable just changes the accounting.
+>>
+>> My interpretation of the api is:
+>>    * round_jiffies()  - timer wants to wakeup but isn't precise about when so schedule
+>>                         on next second when system will wake up anyway;
+>>                         e.g why meetings are usually scheduled on the hour
+>>
+>>    * deferrable       - timer doesn't have to really wakeup but wants to happen near
+>>                         a particular time. e.g. "I'll meet you at the pub around 8pm"
+>>
+>> Therefore doing deferrable is unnecessary for timers using round_jiffies unless system
+>> is so good at doing timers that it is going to skip doing timer once per second.
+>>
+> 
+> parag.warudkar@gmail.com wrote:
+> 
+>> NO_HZ kernels don't do timers every second - if you do round_jiffies() the kernel will wakeup and run the timer at that time no matter what. 
+>>
+>> The reason deferrable was introduced is to avoid waking up the kernel just for this one timer that can be called when the CPU is not idle for some reason other than this timer.
+>>
+>> In other words let's say there were two timers - one non-deferrable expiring in 3 seconds and other deferrable, expiring in 1.5 seconds. The kernel will not wake up twice - once for 1.5 second and other for 3 second - it will wake up once at expiry of 3 second timer and execute both the 1.5 second and 3 second timers.
+>>
+>> And this is not just powertop accounting thing - like I said the total num of wakeups per second go down with this patch.
+>>
+>> Parag
+>>
+>> Sent via BlackBerry from T-Mobile
+> 
+> 
+> Quit top-posting!
+> 
+> If this is the case then the whole usage of round_jiffies() is bogus. All users of round_jiffies()
+> should just be converted to deferrable??  I am a bit concerned that if deferrable gets used everywhere
+> then a strange situation would occur where all timers were waiting for some other timer to finally
+> happen, kind of a wierd timelock situation. Like the old chip/dale cartoon:
+>  "you first, no you first, after you mister chip, no after you mister dale,..."
 
-More correct fix seems to be conversion to kref.
-
-Just create out of line inet_twsk_release() containing
-sth. similiar to the code inside these braces and modify 
-inet_twsk_put() to sth. like this:
-
-static inline inet_twsk_put(struct inet_timewait_sock *tw)
-{
-	kref_put(&tw->kref, inet_twsk_release);
-}
-
-David, can you see any reason (e.g. some crazy lock stuff) NOT to do this?
 
 
-Best Regards
+that's a dangerous situation indeed and I'd really like to know what the limits
+are for deferring deferrable timers.... Arjan, do you know? Anyone?
 
-Ingo Oeser
+I don't see a danger just yet on normal systems - I get something like 10 wakeups
+per second from just the kernel (acpi, ahci, usb) on most my systems which
+guarantees that the watchdog runs often enough, but for embedded systems and
+critical timers in other drivers this may be an issue quickly
+
+
+Auke
