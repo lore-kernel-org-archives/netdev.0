@@ -1,49 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] remove not used code: target hw address (tha)
- definition and assignment in arp_process().
-Date: Wed, 19 Dec 2007 23:39:32 -0800 (PST)
-Message-ID: <20071219.233932.210886166.davem@davemloft.net>
-References: <dac45060712192329v48bcd3td4f16f83ea13ba9e@mail.gmail.com>
+Subject: Re: [IPSEC]: Avoid undefined shift operation when testing
+ algorithm ID
+Date: Wed, 19 Dec 2007 23:44:55 -0800 (PST)
+Message-ID: <20071219.234455.79622323.davem@davemloft.net>
+References: <20071220042937.GA18679@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: markryde@gmail.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57436
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50853
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751119AbXLTHji (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 02:39:38 -0500
-In-Reply-To: <dac45060712192329v48bcd3td4f16f83ea13ba9e@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1752906AbXLTHoz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 02:44:55 -0500
+In-Reply-To: <20071220042937.GA18679@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Mark Ryden" <markryde@gmail.com>
-Date: Thu, 20 Dec 2007 09:29:47 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 20 Dec 2007 12:29:37 +0800
 
->   In arp_process() (net/ipv4/arp.c), there is unused code: definition
-> and assignment of tha (target hw address ).
+> [IPSEC]: Avoid undefined shift operation when testing algorithm ID
+> 
+> The aalgos/ealgos fields are only 32 bits wide.  However, af_key tries
+> to test them with the expression 1 << id where id can be as large as
+> 253.  This produces different behaviour on different architectures.
+> 
+> The following patch explicitly checks whether ID is greater than 31
+> and fails the check if that's the case.
+> 
+> We cannot easily extend the mask to be longer than 32 bits due to
+> exposure to user-space.  Besides, this whole interface is obsolete
+> anyway in favour of the xfrm_user interface which doesn't use this
+> bit mask in templates (well not within the kernel anyway).
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Patch applied, thanks.
-
-> Signed-off-by:
-> markryde@gmail.com
-
-Please format your signed off line correctly, it should
-have read like the following, all on one single line:
-
-Signed-off-by: Mark Ryden <markryde@gmail.com>
-
-Also, your patch was not rooted properly:
-
---- a/a/net/ipv4/arp.c
-+++ b/b/net/ipv4/arp.c
-
-This should have been:
-
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-
-Please correct these issues for future patch submissions.
-
-Thanks.
+Thanks for fixing this bug, patch applied!
