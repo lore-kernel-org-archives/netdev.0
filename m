@@ -1,83 +1,68 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 3/3] XFRM: Drop packets when replay counter would
-	overflow
-Date: Fri, 21 Dec 2007 09:28:26 +1100 (EST)
-Message-ID: <Xine.LNX.4.64.0712210928180.27551@us.intercode.com.au>
-References: <20071220214200.12122.89628.stgit@flek.lan>
-	<20071220214230.12122.77900.stgit@flek.lan>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] NET: Fix function put_cmsg() which may cause usr
+ application memory overflow
+Date: Thu, 20 Dec 2007 14:39:56 -0800 (PST)
+Message-ID: <20071220.143956.103295054.davem@davemloft.net>
+References: <4767665D.20300@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-audit@redhat.com
-To: Paul Moore <paul.moore@hp.com>
-Return-path: <linux-audit-bounces@redhat.com>
-In-Reply-To: <20071220214230.12122.77900.stgit@flek.lan>
-List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/linux-audit>
-List-Post: <mailto:linux-audit@redhat.com>
-List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=subscribe>
-Sender: linux-audit-bounces@redhat.com
-Errors-To: linux-audit-bounces@redhat.com
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: yjwei@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44469
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1763556AbXLTWj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 17:39:56 -0500
+In-Reply-To: <4767665D.20300@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 20 Dec 2007, Paul Moore wrote:
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Date: Tue, 18 Dec 2007 15:19:09 +0900
 
-> According to RFC4303, section 3.3.3 we need to drop outgoing packets which
-> cause the replay counter to overflow:
+> When used function put_cmsg() to copy kernel information to user 
+> application memory, if the memory length given by user application is 
+> not enough, by the bad length calculate of msg.msg_controllen, 
+> put_cmsg() function may cause the msg.msg_controllen to be a large 
+> value, such as 0xFFFFFFF0, so the following put_cmsg() can also write 
+> data to usr application memory even usr has no valid memory to store 
+> this. This may cause usr application memory overflow.
+ ...
+> The same promble exists in put_cmsg_compat(). This patch can fix this 
+> problem.
 > 
->    3.3.3.  Sequence Number Generation
-> 
->    The sender's counter is initialized to 0 when an SA is established.
->    The sender increments the sequence number (or ESN) counter for this
->    SA and inserts the low-order 32 bits of the value into the Sequence
->    Number field.  Thus, the first packet sent using a given SA will
->    contain a sequence number of 1.
-> 
->    If anti-replay is enabled (the default), the sender checks to ensure
->    that the counter has not cycled before inserting the new value in the
->    Sequence Number field.  In other words, the sender MUST NOT send a
->    packet on an SA if doing so would cause the sequence number to cycle.
->    An attempt to transmit a packet that would result in sequence number
->    overflow is an auditable event.  The audit log entry for this event
->    SHOULD include the SPI value, current date/time, Source Address,
->    Destination Address, and (in IPv6) the cleartext Flow ID.
-> 
-> Signed-off-by: Paul Moore <paul.moore@hp.com>
+> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 
-Acked-by: James Morris <jmorris@namei.org> 
+Thank you for fixing this bug, patch applied.
 
+put_cmsg() is a confusing function, it takes a while to understand
+what it is trying to accomplish.  And this explains why this bug
+lived for so long.
 
-> ---
-> 
->  net/xfrm/xfrm_output.c |    5 ++++-
->  1 files changed, 4 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-> index eb3333b..284eeef 100644
-> --- a/net/xfrm/xfrm_output.c
-> +++ b/net/xfrm/xfrm_output.c
-> @@ -57,8 +57,11 @@ static int xfrm_output_one(struct sk_buff *skb, int err)
->  
->  		if (x->type->flags & XFRM_TYPE_REPLAY_PROT) {
->  			XFRM_SKB_CB(skb)->seq = ++x->replay.oseq;
-> -			if (unlikely(x->replay.oseq == 0))
-> +			if (unlikely(x->replay.oseq == 0)) {
-> +				x->replay.oseq--;
->  				xfrm_audit_state_replay_overflow(x, skb);
-> +				goto error;
-> +			}
->  			if (xfrm_aevent_is_on())
->  				xfrm_replay_notify(x, XFRM_REPLAY_UPDATE);
->  		}
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Each CMSG entry has to be aligned, but put_cmsg() will allow to
+put the full final message into the CMSG area if there is enough
+room to fit the message without the added alignment.
 
--- 
-James Morris
-<jmorris@namei.org>
+So, with Wei's fix, we now have:
+
+	int cmlen = CMSG_LEN(len);
+ ...
+	if (msg->msg_controllen < cmlen) {
+		msg->msg_flags |= MSG_CTRUNC;
+		cmlen = msg->msg_controllen;
+	}
+ ...
+	if (copy_to_user(cm, &cmhdr, sizeof cmhdr))
+		goto out;
+	if (copy_to_user(CMSG_DATA(cm), data, cmlen - sizeof(struct cmsghdr)))
+		goto out;
+	cmlen = CMSG_SPACE(len);
+	if (msg->msg_controllen < cmlen)
+		cmlen = msg->msg_controllen;
+	msg->msg_control += cmlen;
+	msg->msg_controllen -= cmlen;
+ ...
+
+which I think finally implements the intended behavior
+accurately.
