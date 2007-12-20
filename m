@@ -1,44 +1,46 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: A short question about net git tree and patches
-Date: Thu, 20 Dec 2007 10:55:10 +0100
-Message-ID: <20071220095510.GA2081@uranus.ravnborg.org>
-References: <31436f4a0712200120o4e6de008jf999ca1024b47f9d@mail.gmail.com>
+From: "Remy Bohmer" <linux@bohmer.net>
+Subject: Re: DM9000_IRQ_FLAGS
+Date: Thu, 20 Dec 2007 10:54:34 +0100
+Message-ID: <3efb10970712200154u4c224071q6f5d5d7bb3bf0aa1@mail.gmail.com>
+References: <20071211191823.GD15295@buzzloop.caiaq.de>
+	 <3efb10970712111231r29f9fba1l3528d805d1009c52@mail.gmail.com>
+	 <20071212134153.GA21510@buzzloop.caiaq.de>
+	 <20071220094626.GB9216@fluff.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Shwatrz <dshwatrz@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Daniel Mack" <daniel@caiaq.de>, netdev@vger.kernel.org
+To: "Ben Dooks" <ben@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpa.tele.dk ([80.160.77.114]:33589 "EHLO pasmtpA.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753197AbXLTJxR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Dec 2007 04:53:17 -0500
+Received: from wr-out-0506.google.com ([64.233.184.227]:44517 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754657AbXLTJyf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 04:54:35 -0500
+Received: by wr-out-0506.google.com with SMTP id c49so2325538wra.1
+        for <netdev@vger.kernel.org>; Thu, 20 Dec 2007 01:54:34 -0800 (PST)
+In-Reply-To: <20071220094626.GB9216@fluff.org.uk>
 Content-Disposition: inline
-In-Reply-To: <31436f4a0712200120o4e6de008jf999ca1024b47f9d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 20, 2007 at 11:20:26AM +0200, David Shwatrz wrote:
-> Hello,
-> I have a short question regarding the net git tree and patches:
-> I want to write and send patches against the most recent and
-> bleeding edge kernel networking code.
-> I see in:
-> http://kernel.org/pub/scm/linux/kernel/git/davem/?C=M;O=A
-> that there are 3 git trees which can be candidates for git-clone and
-> making patches against;
-> these are:
-> netdev-2.6.git, net-2.6.25.git and net-2.6.git.
-> 
-> It seems to me that net-2.6.git is the most suitable one to work against;
-> am I right ?
-> what is the difference, in short, between the three repositories?
+Hello Ben,
 
-IIRC the usage is:
-netdev-2.6.git   <= old stuff, 4 weeks since last update. Not in use
-net-2.6.25.git   <= patches for current kernel release (only fixes)
-net-2.6.git      <= patches for next kernel relase and planned to be
-                    applied in next merge window
+> >
+> > Actually, the best way to go is to let the platform resources flags
+> > decide about that with something like
+> >
+> >       resource->flags = IORESOURCE_IRQ | IRQT_RISING;
+> >
+> > but the dm9000 does not care about them at all. Changing that would also
+> > imply modifications to all board support code.
+>
+> I did have a go at trying to get people to pass the information this
+> way, but it seem to be ignored last time I sent it. I can dig out the
+> code that converts resource->flags to IRQT_ flags.
 
-So net-2.6.git is the correct choice for bleeding edge.
+I thought this issue was already solved by using set_irq_type() in the
+BSP, just like all the other boards do...
 
-	Sam
+Kind Regards,
+
+Remy
