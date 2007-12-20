@@ -1,25 +1,36 @@
-From: Meelis Roos <mroos@ut.ee>
-Subject: Re: Badness at net/core/dev.c:2199
-Date: Thu, 20 Dec 2007 12:57:33 +0200 (EET)
-Message-ID: <Pine.SOC.4.64.0712201257090.8646@math.ut.ee>
-References: <Pine.SOC.4.64.0712161952130.27147@math.ut.ee>
- <20071216182057.GB31380@2ka.mipt.ru> <20071216103340.07479359@deepthought>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] net: napi fix
+Date: Thu, 20 Dec 2007 03:22:28 -0800 (PST)
+Message-ID: <20071220.032228.186653113.davem@davemloft.net>
+References: <47601A73.5010804@myri.com>
+	<20071212.093819.205755031.davem@davemloft.net>
+	<18282.15185.592112.550961@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gallatin@myri.com, joonwpark81@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+	shemminger@linux-foundation.org
+To: Robert.Olsson@data.slu.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.it.da.ut.ee ([193.40.5.67]:36740 "EHLO smtp2.it.da.ut.ee"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752265AbXLTK5f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Dec 2007 05:57:35 -0500
-In-Reply-To: <20071216103340.07479359@deepthought>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47471
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754402AbXLTLW3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 06:22:29 -0500
+In-Reply-To: <18282.15185.592112.550961@robur.slu.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I already sendout a correct patch last week. It should pre-increment.
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Date: Thu, 20 Dec 2007 10:52:17 +0100
 
-Any hope getting it upstream?
+>  Yes but the reason was not to wait for all pending polls to
+>  complete so a server/router could be rebooted even under high-
+>  load and DOS. We've experienced some nasty problems with this.
 
--- 
-Meelis Roos (mroos@ut.ee)      http://www.cs.ut.ee/~mroos/
+I know, see the rest of the thread where I agree that
+we need to deal with this somehow.
+
+The device is marked down first, and somehow we need to
+tip off of that to break out of the NAPI loop.  This
+"how" is what hasn't been resolved yet.
