@@ -1,43 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] One more XFRM audit fix
-Date: Thu, 20 Dec 2007 00:00:09 -0800 (PST)
-Message-ID: <20071220.000009.173158004.davem@davemloft.net>
+Subject: Re: [PATCH] XFRM: Audit function arguments misordered
+Date: Thu, 20 Dec 2007 00:01:10 -0800 (PST)
+Message-ID: <20071220.000110.188319069.davem@davemloft.net>
 References: <20071219192309.15561.9843.stgit@flek.americas.hpqcorp.net>
+	<20071219192937.15561.52837.stgit@flek.americas.hpqcorp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-audit@redhat.com
 To: paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49965
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49970
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757409AbXLTIAP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 03:00:15 -0500
-In-Reply-To: <20071219192309.15561.9843.stgit@flek.americas.hpqcorp.net>
+	by vger.kernel.org with ESMTP id S1751367AbXLTIBO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 03:01:14 -0500
+In-Reply-To: <20071219192937.15561.52837.stgit@flek.americas.hpqcorp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Paul Moore <paul.moore@hp.com>
-Date: Wed, 19 Dec 2007 14:29:31 -0500
+Date: Wed, 19 Dec 2007 14:29:38 -0500
 
-> The following patch is backed against David's net-2.6 tree and is pretty
-> trivial.  I know we're late in the 2.6.24 cycle but I think this is worth
-> merging, if you guys don't feel that way let me know and I'll resubmit it
-> for 2.6.25.
-
-Where is that patch?  Or do you mean the fix you emailed
-seperately today (which I will apply, thanks)?
-
-> As a side note, I'm unable to actually test the patch because I can't get
-> the kernel to compile (M=net/xfrm works just fine).  The problem I keep
-> seeing is below:
+> In several places the arguments to the xfrm_audit_start() function are in the
+> wrong order resulting in incorrect user information being reported.  This
+> patch corrects this by pacing the arguments in the correct order.
 > 
-> make[3]: *** No rule to make target \
->  `/blah/kernels/net-2.6_xfrm-auid-secid-fix/include/linux/ticable.h', \
->   needed by \
->  `/blah/kernels/net-2.6_xfrm-auid-secid-fix/usr/include/linux/ticable.h'. \
->   Stop.
+> Signed-off-by: Paul Moore <paul.moore@hp.com>
 
-Remove ticable.h from include/linux/Kbuild
-
-This is already cured in Linus's tree.
+Applied, thanks for fixing this bug.
