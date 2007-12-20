@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: TSO trimming question
-Date: Wed, 19 Dec 2007 23:55:27 -0800 (PST)
-Message-ID: <20071219.235527.231281143.davem@davemloft.net>
-References: <Pine.LNX.4.64.0712200000050.27945@kivilampi-30.cs.helsinki.fi>
-	<E1J5C38-0004kh-00@gondolin.me.apana.org.au>
+Subject: Re: [PATCH 2.6.25 0/9]: SCTP: Update ADD-IP implementation to
+ conform to spec
+Date: Wed, 19 Dec 2007 23:58:45 -0800 (PST)
+Message-ID: <20071219.235845.217028380.davem@davemloft.net>
+References: <1197927169-5106-1-git-send-email-vladislav.yasevich@hp.com>
+	<476984DB.4020403@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60675
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49962
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759216AbXLTHz3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 02:55:29 -0500
-In-Reply-To: <E1J5C38-0004kh-00@gondolin.me.apana.org.au>
+	by vger.kernel.org with ESMTP id S1755326AbXLTH6w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 02:58:52 -0500
+In-Reply-To: <476984DB.4020403@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 20 Dec 2007 11:26:18 +0800
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Wed, 19 Dec 2007 15:53:47 -0500
 
-> Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi> wrote:
-> >
-> >> is the limitting factor? For latter IMHO this would be necessary:
-> >> 
-> >>                       if (skb->len > limit)
-> >>                               limit -= limit % mss_now;
+> Not sure if you got the PATCH 7/9 resend, but it looks like netdev ate that
+> too.
 > 
-> Good catch! But how about putting this logic into tcp_window_allows
-> since then you can avoid the divide for the case when we're not
-> bound by the receiver window.
+> I made this patch set available here:
+>  master.kernel.org:/pub/scm/linux/kernel/git/vxy/lksctp-dev.git addip
 
-Because the purpose of this calculation is different, as I
-described in my other reply, I don't think this change is
-correct, regardless of where it is placed :-)
+I got the patch, there is probably some keyword in there
+that is making it get consumed by the majordomo regexp
+filters we have in place.
