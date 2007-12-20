@@ -1,66 +1,131 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] [UDP]: fix send buffer check
-Date: Thu, 20 Dec 2007 03:31:38 -0800 (PST)
-Message-ID: <20071220.033138.157714241.davem@davemloft.net>
-References: <47673195.80004@redhat.com>
-	<4767328B.70601@redhat.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: TSO trimming question
+Date: Thu, 20 Dec 2007 13:40:51 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0712201253400.31652@kivilampi-30.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0712192336130.27945@kivilampi-30.cs.helsinki.fi>
+ <20071219.235450.170670042.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	tyasui@redhat.com, mhiramat@redhat.com,
-	satoshi.oshima.fk@hitachi.com, billfink@mindspring.com,
-	andi@firstfloor.org, johnpol@2ka.mipt.ru,
-	shemminger@linux-foundation.org, yoshfuji@linux-ipv6.org,
-	yumiko.sugita.yf@hitachi.com
-To: haoki@redhat.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-397675333-1198150851=:31652"
+Cc: Netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58995
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754605AbXLTLbj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 06:31:39 -0500
-In-Reply-To: <4767328B.70601@redhat.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:54864 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753623AbXLTLky (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 06:40:54 -0500
+In-Reply-To: <20071219.235450.170670042.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hideo AOKI <haoki@redhat.com>
-Date: Mon, 17 Dec 2007 21:38:03 -0500
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> This patch introduces sndbuf size check before memory allocation for
-> send buffer.
+---696243703-397675333-1198150851=:31652
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Wed, 19 Dec 2007, David Miller wrote:
+
+> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Wed, 19 Dec 2007 23:46:33 +0200 (EET)
 > 
-> signed-off-by: Satoshi Oshima <satoshi.oshima.fk@hitachi.com>
-> signed-off-by: Hideo Aoki <haoki@redhat.com>
- ...
-> diff -pruN net-2.6/net/ipv4/ip_output.c net-2.6-udp-take11a1-p1/net/ipv4/ip_output.c
-> --- net-2.6/net/ipv4/ip_output.c	2007-12-11 10:54:55.000000000 -0500
-> +++ net-2.6-udp-take11a1-p1/net/ipv4/ip_output.c	2007-12-17 14:42:31.000000000 -0500
-> @@ -1004,6 +1004,11 @@ alloc_new_skb:
->  					frag = &skb_shinfo(skb)->frags[i];
->  				}
->  			} else if (i < MAX_SKB_FRAGS) {
-> +				if (atomic_read(&sk->sk_wmem_alloc) + PAGE_SIZE
-> +				    > 2 * sk->sk_sndbuf) {
-> +					err = -ENOBUFS;
-> +					goto error;
-> +				}
->  				if (copy > PAGE_SIZE)
->  					copy = PAGE_SIZE;
->  				page = alloc_pages(sk->sk_allocation, 0);
+> > I'm not fully sure what's purpose of this code in tcp_write_xmit:
+> > 
+> >                        if (skb->len < limit) {
+> >                                unsigned int trim = skb->len % mss_now;
+> > 
+> >                                if (trim)
+> >                                        limit = skb->len - trim;
+> > 			}
+> > 
+> > Is it used to make sure we send only multiples of mss_now here and leave 
+> > the left-over into another skb?
 
-If we are going to do this, we need to add the same check to
-skb_append_datato_frags() which is invoked via ip_ufo_append_data().
+Yeah, I now understand that this part is correct. I somehow got such 
+impression while trying to figure this out that it ends up being dead code 
+but that wasn't correct thought from my side. However, it caught my 
+attention and after some thinking I'd say there's more to handle here 
+(covered by the second question).
 
-We also have to be very careful in this area.  One problem we had a
-long time ago was that we would socket account when fragmenting an
-outgoing frame.  This was bogus because even if the socket had enough
-space for one full sized frame, the packet send would fail because it
-could not fit the space for both the original frame and the
-fragmented copy of it.
+Also note that patch I sent earlier is not right either but needs some 
+refining to do the right thing.
 
-This situation was cured by simply not enforcing accounting for the
-fragmented copy.  It is valid because after we fragment, we keep
-the fragmented copy but free the original.
+> > Or does it try to make sure that
+> > tso_fragment result honors multiple of mss_now boundaries when snd_wnd
+> > is the limitting factor? For latter IMHO this would be necessary:
+> > 
+> > 			if (skb->len > limit)
+> > 				limit -= limit % mss_now;
+> 
+> The purpose of the test is to make sure we process tail sub-mss chunks
+> correctly wrt. Nagle, which most closely matches the first purpose
+> you've listed.
+> 
+> So I think the calculation really does belong where it is.
+>
+> Because of the way that the sendmsg() super-skb formation logic
+> works, we always will tack on more data and grow the tail
+> SKB before creating a new one.  So any sub-mss chunk at the
+> end of a TSO frame really is at the end of the write queue
+> and really should get nagle processing.
 
-This doesn't apply directly to this specific patch, but it is
-something to keep in mind when doing these changes.
+Yes, I now agree this is fully correct for this task.
+
+> Actually, there is an exception, which is when we run out of
+> skb_frag_list slots.  In that case we'll potentially have breaks at
+> odd boundaries in the middle of the queue.  But this can only happen
+> in exceptional cases (user does tons of 1-byte sendfile()'s over
+> random non-consequetive locations of a file) or outright bugs
+> (MAX_SKB_FRAGS is defined incorrectly, for example) and thus this
+> situation is not worth coding for.
+
+That's not the only case, IMHO if there's odd boundary due to 
+snd_una+snd_wnd - skb->seq limit (done in tcp_window_allows()), we don't 
+consider it as odd but break the skb at arbitary point resulting
+two small segments to the network, and what's worse, when the later skb 
+resulting from the first split is matching skb->len < limit check as well 
+causing an unnecessary small skb to be created for nagle purpose too, 
+solving it fully requires some thought in case the mss_now != mss_cache 
+even if non-odd boundaries are honored in the middle of skb.
+
+Though whether we get there is depending on what tcp_tso_should_defer() 
+decided. Hmm, there seems to be an unrelated bug in it as well :-/. A 
+patch below. Please consider the fact that enabling TSO deferring may 
+have some unpleasant effect to TCP dynamics, considering that I don't find 
+stable mandatory for this to avoid breaking, besides things have been 
+working quite well without it too... Only compile tested.
+
+-- 
+ i.
+
+
+--
+[PATCH] [TCP]: Fix TSO deferring
+
+I'd say that most of what tcp_tso_should_defer had in between
+there was dead code because of this.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_output.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 8dafda9..693b9f6 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1217,7 +1217,8 @@ static int tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb)
+ 		goto send_now;
+ 
+ 	/* Defer for less than two clock ticks. */
+-	if (!tp->tso_deferred && ((jiffies<<1)>>1) - (tp->tso_deferred>>1) > 1)
++	if (tp->tso_deferred &&
++	    ((jiffies << 1) >> 1) - (tp->tso_deferred >> 1) > 1)
+ 		goto send_now;
+ 
+ 	in_flight = tcp_packets_in_flight(tp);
+-- 
+1.5.0.6
+
+---696243703-397675333-1198150851=:31652--
