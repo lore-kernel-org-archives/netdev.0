@@ -1,81 +1,117 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] sky2: Use deferrable timer for watchdog
-Date: Thu, 20 Dec 2007 11:22:45 -0800
-Message-ID: <476AC105.9090206@intel.com>
-References: <Pine.LNX.4.64.0712182008160.3616@mini.warudkars.net>	<20071220091603.0d69b045@deepthought>	<823114761-1198171803-cardhu_decombobulator_blackberry.rim.net-937108990-@bxe019.bisx.prod.on.blackberry> <20071220095121.7859c023@deepthought> <476ABDDF.8080607@intel.com> <476ABE7D.60901@linux.intel.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 1/9][BNX2]: Add function to fetch hardware tx index.
+Date: Thu, 20 Dec 2007 12:31:07 -0800
+Message-ID: <1198182667.9163.27.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	parag.warudkar@gmail.com, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org
-To: Arjan van de Ven <arjan@linux.intel.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:62396 "EHLO mga03.intel.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3541 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751953AbXLTTnF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Dec 2007 14:43:05 -0500
-In-Reply-To: <476ABE7D.60901@linux.intel.com>
+	id S1752551AbXLTTqT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Dec 2007 14:46:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arjan van de Ven wrote:
-> 
->>>> My interpretation of the api is:
->>>>    * round_jiffies()  - timer wants to wakeup but isn't precise
->>>> about when so schedule
->>>>                         on next second when system will wake up anyway;
->>>>                         e.g why meetings are usually scheduled on
->>>> the hour
->>>>
->>>>    * deferrable       - timer doesn't have to really wakeup but
->>>> wants to happen near
->>>>                         a particular time. e.g. "I'll meet you at
->>>> the pub around 8pm"
-> 
-> this is not correct.
-> 
-> deferrable means "if you're busy wake me up at this time. But if not,
-> don't bother waking up for me, get to it
-> later".
-> 
-> The "later" can be a LONG time later, several seconds easily, if not more.
-> (timers are on a per cpu bases, and you may end up with a several-core
-> system where the common timers are all on another cpu
-> than this one)
-> 
-> 
-> 
->>> If this is the case then the whole usage of round_jiffies() is bogus.
->>> All users of round_jiffies()
->>> should just be converted to deferrable??  I am a bit concerned that
->>> if deferrable gets used everywhere
->>> then a strange situation would occur where all timers were waiting
->>> for some other timer to finally
->>> happen, kind of a wierd timelock situation. Like the old chip/dale
->>> cartoon:
->>>  "you first, no you first, after you mister chip, no after you mister
->>> dale,..."
->>
->>
->>
->> that's a dangerous situation indeed and I'd really like to know what
->> the limits
->> are for deferring deferrable timers.... Arjan, do you know? Anyone?
-> 
-> there is NO limit to deferring a timer. Do NOT use a deferrable timer if
-> you can't afford the timer to not happen
-> within.. 10 to 100 seconds! (or more)
-> They are really meant for things where you CAN afford for it to not
-> happen when you're idle....
+[BNX2]: Add function to fetch hardware tx index.
 
-ok, that's just bad and if there's no user-defineable limit to the deferral I
-definately don't like this change.
+This makes the code cleaner and easier to support different tx rings.
 
-Can I safely assume that any irq will cause all deferred timers to run?
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-If this is the case then for e1000 this patch is still OK since the watchdog needs
-to run (1) after a link up/down interrupt or (2) to update statistics. Those
-statistics won't increase if there is no traffic of course...
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 469d259..f19a1e9 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -2323,17 +2323,25 @@ bnx2_phy_int(struct bnx2 *bp)
+ 
+ }
+ 
++static inline u16
++bnx2_get_hw_tx_cons(struct bnx2 *bp)
++{
++	u16 cons;
++
++	cons = bp->status_blk->status_tx_quick_consumer_index0;
++
++	if (unlikely((cons & MAX_TX_DESC_CNT) == MAX_TX_DESC_CNT))
++		cons++;
++	return cons;
++}
++
+ static void
+ bnx2_tx_int(struct bnx2 *bp)
+ {
+-	struct status_block *sblk = bp->status_blk;
+ 	u16 hw_cons, sw_cons, sw_ring_cons;
+ 	int tx_free_bd = 0;
+ 
+-	hw_cons = bp->hw_tx_cons = sblk->status_tx_quick_consumer_index0;
+-	if ((hw_cons & MAX_TX_DESC_CNT) == MAX_TX_DESC_CNT) {
+-		hw_cons++;
+-	}
++	hw_cons = bnx2_get_hw_tx_cons(bp);
+ 	sw_cons = bp->tx_cons;
+ 
+ 	while (sw_cons != hw_cons) {
+@@ -2385,14 +2393,10 @@ bnx2_tx_int(struct bnx2 *bp)
+ 
+ 		dev_kfree_skb(skb);
+ 
+-		hw_cons = bp->hw_tx_cons =
+-			sblk->status_tx_quick_consumer_index0;
+-
+-		if ((hw_cons & MAX_TX_DESC_CNT) == MAX_TX_DESC_CNT) {
+-			hw_cons++;
+-		}
++		hw_cons = bnx2_get_hw_tx_cons(bp);
+ 	}
+ 
++	bp->hw_tx_cons = hw_cons;
+ 	bp->tx_cons = sw_cons;
+ 	/* Need to make the tx_cons update visible to bnx2_start_xmit()
+ 	 * before checking for netif_queue_stopped().  Without the
+@@ -2822,7 +2826,7 @@ bnx2_has_work(struct bnx2 *bp)
+ 	struct status_block *sblk = bp->status_blk;
+ 
+ 	if ((bnx2_get_hw_rx_cons(bp) != bp->rx_cons) ||
+-	    (sblk->status_tx_quick_consumer_index0 != bp->hw_tx_cons))
++	    (bnx2_get_hw_tx_cons(bp) != bp->hw_tx_cons))
+ 		return 1;
+ 
+ 	if ((sblk->status_attn_bits & STATUS_ATTN_EVENTS) !=
+@@ -2851,7 +2855,7 @@ static int bnx2_poll_work(struct bnx2 *bp, int work_done, int budget)
+ 		REG_RD(bp, BNX2_HC_COMMAND);
+ 	}
+ 
+-	if (sblk->status_tx_quick_consumer_index0 != bp->hw_tx_cons)
++	if (bnx2_get_hw_tx_cons(bp) != bp->hw_tx_cons)
+ 		bnx2_tx_int(bp);
+ 
+ 	if (bnx2_get_hw_rx_cons(bp) != bp->rx_cons)
+@@ -4917,7 +4921,7 @@ bnx2_run_loopback(struct bnx2 *bp, int loopback_mode)
+ 	REG_RD(bp, BNX2_HC_COMMAND);
+ 
+ 	udelay(5);
+-	rx_start_idx = bp->status_blk->status_rx_quick_consumer_index0;
++	rx_start_idx = bnx2_get_hw_rx_cons(bp);
+ 
+ 	num_pkts = 0;
+ 
+@@ -4947,11 +4951,10 @@ bnx2_run_loopback(struct bnx2 *bp, int loopback_mode)
+ 	pci_unmap_single(bp->pdev, map, pkt_size, PCI_DMA_TODEVICE);
+ 	dev_kfree_skb(skb);
+ 
+-	if (bp->status_blk->status_tx_quick_consumer_index0 != bp->tx_prod) {
++	if (bnx2_get_hw_tx_cons(bp) != bp->tx_prod)
+ 		goto loopback_test_done;
+-	}
+ 
+-	rx_idx = bp->status_blk->status_rx_quick_consumer_index0;
++	rx_idx = bnx2_get_hw_rx_cons(bp);
+ 	if (rx_idx != rx_start_idx + num_pkts) {
+ 		goto loopback_test_done;
+ 	}
 
-Auke
+
