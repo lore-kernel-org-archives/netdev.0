@@ -1,37 +1,35 @@
-From: John Sigler <linux.kernel@free.fr>
-Subject: neigh: timer & !nud_in_timer
-Date: Thu, 20 Dec 2007 14:35:01 +0100
-Message-ID: <476A6F85.7070905@free.fr>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: A short question about net git tree and patches
+Date: Thu, 20 Dec 2007 14:39:10 +0100
+Message-ID: <20071220133910.GA3543@uranus.ravnborg.org>
+References: <31436f4a0712200120o4e6de008jf999ca1024b47f9d@mail.gmail.com> <20071220095510.GA2081@uranus.ravnborg.org> <20071220.032258.265124532.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-rt-users@vger.kernel.org
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dshwatrz@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pasmtpb.tele.dk ([80.160.77.98]:50235 "EHLO pasmtpB.tele.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762903AbXLTNhT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Dec 2007 08:37:19 -0500
+Content-Disposition: inline
+In-Reply-To: <20071220.032258.265124532.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Thu, Dec 20, 2007 at 03:22:58AM -0800, David Miller wrote:
+> From: Sam Ravnborg <sam@ravnborg.org>
+> Date: Thu, 20 Dec 2007 10:55:10 +0100
+> 
+> > net-2.6.25.git   <= patches for current kernel release (only fixes)
+> > net-2.6.git      <= patches for next kernel relase and planned to be
+> >                     applied in next merge window
+> > 
+> > So net-2.6.git is the correct choice for bleeding edge.
+> 
+> You reversed them, net-2.6.25.git is for bleeding edge
+> stuff, net-2.6.git is for bug fixes only.
 
-I noticed the following message in my kernel log.
-kernel: neigh: timer & !nud_in_timer
-(Might be due to a race condition.)
+Sorry - thanks for clarifying it.
 
-I'm running a UP Linux version 2.6.22.1-rt9
-( http://rt.wiki.kernel.org/index.php )
-
-The following /proc entries might be relevant.
-
-/proc/sys/net/ipv4/conf/all/arp_accept
-0
-/proc/sys/net/ipv4/conf/all/arp_announce
-2
-/proc/sys/net/ipv4/conf/all/arp_filter
-0
-/proc/sys/net/ipv4/conf/all/arp_ignore
-1
-
-I also lowered the priority of softirq-timer/0 to 10 which means
-it can be interrupted by other IRQ handlers.
-
-Regards.
+	Sam - who should refrain from thinking too much in current crappy condition
