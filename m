@@ -1,75 +1,95 @@
-From: Glen Turner <gdt@gdt.id.au>
-Subject: Re: After many hours all outbound connections get stuck in SYN_SENT
-Date: Fri, 21 Dec 2007 01:11:35 +1030
-Message-ID: <1198161695.6154.47.camel@andromache>
-References: <83a51e120712141239u52d2dd68p1b6ee7ed08f2cecf@mail.gmail.com>
-	 <Pine.LNX.4.64.0712181818360.4422@fbirervta.pbzchgretzou.qr>
-	 <83a51e120712181009pf954f43mcb63ea4dab638458@mail.gmail.com>
-	 <Pine.LNX.4.64.0712181910580.4422@fbirervta.pbzchgretzou.qr>
-	 <83a51e120712181021p4c4c2a13g8820271f1e00361b@mail.gmail.com>
-	 <4768123A.7040603@cosmosbay.com>
-	 <83a51e120712181144l65633b32r72cc369f9d012f47@mail.gmail.com>
-	 <47682F8C.20205@cosmosbay.com>
-	 <83a51e120712190853q33d9c7c1t4a46380665b7538b@mail.gmail.com>
-	 <47694FCC.1020507@cosmosbay.com>
-	 <83a51e120712190943m3bf0e2e4v2ea6b660142e9a5a@mail.gmail.com>
-	 <Pine.LNX.4.64.0712191857270.12329@fbirervta.pbzchgretzou.qr>
+From: Vitaly Bordug <vitb@kernel.crashing.org>
+Subject: Re: [PATCH/.24] [NET] fs_enet: check for phydev existence in the
+ ethtool handlers
+Date: Thu, 20 Dec 2007 17:50:08 +0300
+Message-ID: <20071220175008.140690e7@kernel.crashing.org>
+References: <20071220135923.GA28772@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: James Nichols <jamesnichols3@gmail.com>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Jan Engelhardt <jengelh@computergmbh.de>
+Cc: Anton Vorontsov <avorontsov@ru.mvista.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:36960 "EHLO
-	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751048AbXLTOsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 09:48:33 -0500
-In-Reply-To: <Pine.LNX.4.64.0712191857270.12329@fbirervta.pbzchgretzou.qr>
+Received: from gate.crashing.org ([63.228.1.57]:45699 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757870AbXLTOue (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Dec 2007 09:50:34 -0500
+In-Reply-To: <20071220135923.GA28772@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[speculation by network engineer -- not kernel hacker -- follows]
+On Thu, 20 Dec 2007 16:59:23 +0300
+Anton Vorontsov wrote:
 
-> The router could be sooo crappy that it drops all packets from
-> TCP streams that have SACK enabled and the client has opened
-> 200+ SACK connections previously... something like that?
+> Otherwise oops will happen if ethernet device has not been opened:
+> 
+> Unable to handle kernel paging request for data at address 0x0000014c
+> Faulting instruction address: 0xc016f7f0
+> Oops: Kernel access of bad area, sig: 11 [#1]
+> MPC85xx
+> NIP: c016f7f0 LR: c01722a0 CTR: 00000000
+> REGS: c79ddc70 TRAP: 0300   Not tainted  (2.6.24-rc3-g820a386b)
+> MSR: 00029000 <EE,ME>  CR: 20004428  XER: 20000000
+> DEAR: 0000014c, ESR: 00000000
+> TASK = c789f5e0[999] 'snmpd' THREAD: c79dc000
+> GPR00: c01aceb8 c79ddd20 c789f5e0 00000000 c79ddd3c 00000000 c79ddd64
+> 00000000 GPR08: 00000000 c7845b60 c79dde3c c01ace80 20004422 200249fc
+> 000002a0 100da728 GPR16: 100c0000 00000000 00000000 00000000 20022078
+> 00000009 200220e0 bfc85558 GPR24: c79ddd3c 00000000 00000000 c02e0e70
+> c022fc64 ffffffff c7845800 bfc85498 NIP [c016f7f0]
+> phy_ethtool_gset+0x0/0x4c LR [c01722a0] fs_get_settings+0x18/0x28
+> Call Trace:
+> [c79ddd20] [c79dde38] 0xc79dde38 (unreliable)
+> [c79ddd30] [c01aceb8] dev_ethtool+0x294/0x11ec
+> [c79dde30] [c01aaa44] dev_ioctl+0x454/0x6a8
+> [c79ddeb0] [c019b9d4] sock_ioctl+0x84/0x230
+> [c79dded0] [c007ded8] do_ioctl+0x34/0x8c
+> [c79ddee0] [c007dfbc] vfs_ioctl+0x8c/0x41c
+> [c79ddf10] [c007e38c] sys_ioctl+0x40/0x74
+> [c79ddf40] [c000d4c0] ret_from_syscall+0x0/0x3c
+> Instruction dump:
+> 81630000 800b0030 2f800000 419e0010 7c0803a6 4e800021 7c691b78
+> 80010014 7d234b78 38210010 7c0803a6 4e800020 <8003014c> 7c6b1b78
+> 38600000 90040004
+> 
+> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+Acked-by: Vitaly Bordug <vitb@kernel.crashing.org>
 
-As far as any third party is concerned the existing TCP connections
-continue to have negotiated "SACK Permitted". Only new connections
-will not negotiate this.  So "router crappiness" promptly disappearing
-doesn't seem too likely (a way I could see this happening is if the
-Linux box sends a Ack for each connection and this clears out Sack
-datastructures on the third party).
+Jeff: this fix is important and should be merged if possible.
+> ---
+>  drivers/net/fs_enet/fs_enet-main.c |   11 +++++++++--
+>  1 files changed, 9 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/fs_enet/fs_enet-main.c
+> b/drivers/net/fs_enet/fs_enet-main.c index f2a4d39..23fddc3 100644
+> --- a/drivers/net/fs_enet/fs_enet-main.c
+> +++ b/drivers/net/fs_enet/fs_enet-main.c
+> @@ -897,14 +897,21 @@ static void fs_get_regs(struct net_device *dev,
+> struct ethtool_regs *regs, static int fs_get_settings(struct
+> net_device *dev, struct ethtool_cmd *cmd) {
+>  	struct fs_enet_private *fep = netdev_priv(dev);
+> +
+> +	if (!fep->phydev)
+> +		return -ENODEV;
+> +
+>  	return phy_ethtool_gset(fep->phydev, cmd);
+>  }
+>  
+>  static int fs_set_settings(struct net_device *dev, struct
+> ethtool_cmd *cmd) {
+>  	struct fs_enet_private *fep = netdev_priv(dev);
+> -	phy_ethtool_sset(fep->phydev, cmd);
+> -	return 0;
+> +
+> +	if (!fep->phydev)
+> +		return -ENODEV;
+> +
+> +	return phy_ethtool_sset(fep->phydev, cmd);
+>  }
+>  
+>  static int fs_nway_reset(struct net_device *dev)
 
-But I'd be very surprised if the router is acting as anything more
-that a network-layer device. It might perhaps have some soft connection
-state being used for generating accounting records.  Being Cisco
-it's probably a switch-router, so it might carry some per-port hard
-state for validating source IP addresses and ARPs on each port.
 
-The firewall is much more likely to be carrying per-flow Sack
-state. The Cisco PIX had a bug with SACK handling (CSCse14419,
-fixed in 7.0(7), 7.1(2.34), 7.2(2.2), 8.0(0.141) but perhaps it
-has regressed). A simple trace either side of the firewall will
-show the inconsistency between the TCP sequence number (which
-gets randomised) and the Sack sequence number (which didn't).
-You could disable the TCP Sequence Number Randomisation feature
-and see if the fault reoccurs.
-
-You'd probably should also investigate the Linux kernel,
-especially the size and locks of the components of the Sack data
-structures and what happens to those data structures after Sack is
-disabled (presumably the Sack data structure is in some unhappy
-circumstance, and disabling Sack allows the data to be discarded,
-magically unclaging the box).
-
-In the absence of the reporter wanting to dump the kernel's
-core, how about a patch to print the Sack datastructure when
-the command to disable Sack is received by the kernel?
-Maybe just print the last 16b of the IP address?
-
-Best wishes, Glen
-
+-- 
+Sincerely, Vitaly
