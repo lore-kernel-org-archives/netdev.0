@@ -1,96 +1,83 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] Re: Nested VLAN causes recursive locking error
-Date: Thu, 20 Dec 2007 14:52:53 +0100
-Message-ID: <20071220135253.GA10932@ff.dom.local>
-References: <476851DB.5080107@redhat.com>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: [PATCH/.24] [NET] fs_enet: check for phydev existence in the ethtool handlers
+Date: Thu, 20 Dec 2007 16:59:23 +0300
+Message-ID: <20071220135923.GA28772@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, Netdev <netdev@vger.kernel.org>
-To: Chuck Ebbert <cebbert@redhat.com>
+Content-Type: text/plain; charset=utf8
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Jeff Garzik <jeff@garzik.org>,
+	Vitaly Bordug <vbordug@ru.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:13377 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753568AbXLTNro (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 08:47:44 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so456284ugc.16
-        for <netdev@vger.kernel.org>; Thu, 20 Dec 2007 05:47:42 -0800 (PST)
+Received: from rtsoft3.corbina.net ([85.21.88.6]:8933 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932236AbXLTN5R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 08:57:17 -0500
 Content-Disposition: inline
-In-Reply-To: <476851DB.5080107@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19-12-2007 00:03, Chuck Ebbert wrote:
-> From:
-> https://bugzilla.redhat.com/show_bug.cgi?id=426164
-> 
-> 
-> kernel version is 2.6.24-0.107.rc5.git3.fc9
-> 
-> From boot log on serial console:
-> (full log attached)
-> 
-> Added VLAN with VID == 2 to IF -:eth0.1568:-
-> 
-> =============================================
-> [ INFO: possible recursive locking detected ]
-> 2.6.24-0.107.rc5.git3.fc9 #1
-> ---------------------------------------------
-> ifconfig/15011 is trying to acquire lock:
->  (&vlan_netdev_xmit_lock_key){-+..}, at: [<c05d9450>] dev_mc_sync+0x1c/0x102
-> 
-> but task is already holding lock:
->  (&vlan_netdev_xmit_lock_key){-+..}, at: [<c05d51bd>] dev_set_rx_mode+0x14/0x3c
-> 
-> other info that might help us debug this:
-> 2 locks held by ifconfig/15011:
->  #0:  (rtnl_mutex){--..}, at: [<c05de4f7>] rtnl_lock+0xf/0x11
->  #1:  (&vlan_netdev_xmit_lock_key){-+..}, at: [<c05d51bd>] dev_set_rx_mode+0x14/0x3c
-...
+Otherwise oops will happen if ethernet device has not been opened:
 
+Unable to handle kernel paging request for data at address 0x0000014c
+Faulting instruction address: 0xc016f7f0
+Oops: Kernel access of bad area, sig: 11 [#1]
+MPC85xx
+NIP: c016f7f0 LR: c01722a0 CTR: 00000000
+REGS: c79ddc70 TRAP: 0300   Not tainted  (2.6.24-rc3-g820a386b)
+MSR: 00029000 <EE,ME>  CR: 20004428  XER: 20000000
+DEAR: 0000014c, ESR: 00000000
+TASK = c789f5e0[999] 'snmpd' THREAD: c79dc000
+GPR00: c01aceb8 c79ddd20 c789f5e0 00000000 c79ddd3c 00000000 c79ddd64 00000000
+GPR08: 00000000 c7845b60 c79dde3c c01ace80 20004422 200249fc 000002a0 100da728
+GPR16: 100c0000 00000000 00000000 00000000 20022078 00000009 200220e0 bfc85558
+GPR24: c79ddd3c 00000000 00000000 c02e0e70 c022fc64 ffffffff c7845800 bfc85498
+NIP [c016f7f0] phy_ethtool_gset+0x0/0x4c
+LR [c01722a0] fs_get_settings+0x18/0x28
+Call Trace:
+[c79ddd20] [c79dde38] 0xc79dde38 (unreliable)
+[c79ddd30] [c01aceb8] dev_ethtool+0x294/0x11ec
+[c79dde30] [c01aaa44] dev_ioctl+0x454/0x6a8
+[c79ddeb0] [c019b9d4] sock_ioctl+0x84/0x230
+[c79dded0] [c007ded8] do_ioctl+0x34/0x8c
+[c79ddee0] [c007dfbc] vfs_ioctl+0x8c/0x41c
+[c79ddf10] [c007e38c] sys_ioctl+0x40/0x74
+[c79ddf40] [c000d4c0] ret_from_syscall+0x0/0x3c
+Instruction dump:
+81630000 800b0030 2f800000 419e0010 7c0803a6 4e800021 7c691b78 80010014
+7d234b78 38210010 7c0803a6 4e800020 <8003014c> 7c6b1b78 38600000 90040004
 
-Subject: [PATCH] nested VLAN: fix lockdep's recursive locking warning
-
-Allow vlans nesting other vlans without lockdep's warnings (max. 8 levels).
-
-Reported-by: Benny Amorsen
-Tested-by: Benny Amorsen	(?) NEEDS TESTING!
-
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 ---
+ drivers/net/fs_enet/fs_enet-main.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
 
-diff -Nurp linux-2.6.24-rc5-/net/8021q/vlan.c linux-2.6.24-rc5+/net/8021q/vlan.c
---- linux-2.6.24-rc5-/net/8021q/vlan.c	2007-12-17 13:29:19.000000000 +0100
-+++ linux-2.6.24-rc5+/net/8021q/vlan.c	2007-12-20 14:21:02.000000000 +0100
-@@ -307,12 +307,15 @@ int unregister_vlan_device(struct net_de
- 	return ret;
- }
- 
-+#ifdef CONFIG_LOCKDEP
- /*
-  * vlan network devices have devices nesting below it, and are a special
-  * "super class" of normal network devices; split their locks off into a
-  * separate class since they always nest.
-  */
- static struct lock_class_key vlan_netdev_xmit_lock_key;
-+static int subclass; /* vlan nesting vlan */
-+#endif
- 
- static const struct header_ops vlan_header_ops = {
- 	.create	 = vlan_dev_hard_header,
-@@ -349,7 +352,14 @@ static int vlan_dev_init(struct net_devi
- 		dev->hard_start_xmit = vlan_dev_hard_start_xmit;
- 	}
- 
--	lockdep_set_class(&dev->_xmit_lock, &vlan_netdev_xmit_lock_key);
-+#ifdef CONFIG_LOCKDEP
-+	if ((real_dev->priv_flags & IFF_802_1Q_VLAN) &&
-+	    subclass < MAX_LOCKDEP_SUBCLASSES - 1)
-+		subclass++;
+diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
+index f2a4d39..23fddc3 100644
+--- a/drivers/net/fs_enet/fs_enet-main.c
++++ b/drivers/net/fs_enet/fs_enet-main.c
+@@ -897,14 +897,21 @@ static void fs_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+ static int fs_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+ 	struct fs_enet_private *fep = netdev_priv(dev);
 +
-+	lockdep_set_class_and_subclass(&dev->_xmit_lock,
-+				&vlan_netdev_xmit_lock_key, subclass);
-+#endif
- 	return 0;
++	if (!fep->phydev)
++		return -ENODEV;
++
+ 	return phy_ethtool_gset(fep->phydev, cmd);
  }
  
+ static int fs_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+ 	struct fs_enet_private *fep = netdev_priv(dev);
+-	phy_ethtool_sset(fep->phydev, cmd);
+-	return 0;
++
++	if (!fep->phydev)
++		return -ENODEV;
++
++	return phy_ethtool_sset(fep->phydev, cmd);
+ }
+ 
+ static int fs_nway_reset(struct net_device *dev)
+-- 
+1.5.2.2
