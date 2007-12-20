@@ -1,59 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net/niu: Support for Marvell PHY
-Date: Thu, 20 Dec 2007 15:25:03 -0800 (PST)
-Message-ID: <20071220.152503.263532731.davem@davemloft.net>
-References: <1197993838.26679.64.camel@mlindner-lin.skd.de>
+Subject: Re: [PATCH 2/2] net: neighbor timer power saving
+Date: Thu, 20 Dec 2007 15:28:56 -0800 (PST)
+Message-ID: <20071220.152856.39725559.davem@davemloft.net>
+References: <20071218174120.4b0ef6dd@shemminger-laptop>
+	<20071218181845.2f1b539a@shemminger-laptop>
+	<4768C6FF.2090909@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mlindner@marvell.com
+Cc: shemminger@linux-foundation.org, parag.warudkar@gmail.com,
+	netdev@vger.kernel.org, akpm@linux-foundation.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56086
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54463
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752788AbXLTXZE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 18:25:04 -0500
-In-Reply-To: <1197993838.26679.64.camel@mlindner-lin.skd.de>
+	by vger.kernel.org with ESMTP id S1750918AbXLTX24 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 18:28:56 -0500
+In-Reply-To: <4768C6FF.2090909@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mirko Lindner <mlindner@marvell.com>
-Date: Tue, 18 Dec 2007 17:03:58 +0100
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Wed, 19 Dec 2007 08:23:43 +0100
 
-> +static int xcvr_init_10g_mrvl88x2011(struct niu *np)
-> +{
-> +	int err;
-> +
-> +	/* Set LED functions */
-> +	mrvl88x2011_led_blink_rate(np, 2);
-> +	mrvl88x2011_act_led(np, 0);	/* led activity */
-> +
-> +	err = mdio_read(np, np->phy_addr, 3, 0x8300);
-> +	if (err < 0) {
-> +		return(err);
-> +	}
-> +
-> +	err |= 0x0001;
-> +
-> +	err = mdio_write(np, np->phy_addr, 3, 0x8300, err);
-> +	if (err < 0) {
-> +		return(err);
-> +	}
-> +
-> +	/* Enable PMD */
-> +	err = mdio_write(np, np->phy_addr, 1, 0x0009, 0);
-> +	
-> +	return (err);
-> +}
-> +
+> We are going to convert 99% timers to deferrable.
+> 
+> Maybe the right move should be to have the reverse attribute, to
+> mark a timer as non deferrable...
 
-This code doesn't handle putting the PHY into loopback more etc. like
-the BCM8704 chip initialization does.
+I think we are still in a learning process about what
+exactly causes a timer to be converted to deferrable
+or not.
 
-Please also fully document the registers using defines in the niu.h
-header file as is already done for the BCM8704 registers.  Magic
-constants are not allowed.
+It may sound crazy but flipping the switch on %99 of
+our kernel timers is not the nicest way to figure it
+out :-)
 
-I'd like this Marvell PHY chip to be documented so that, just like the
-BCM8704, someone can look at the driver and understand how the chip
-works and thus make bug fixes and changes.
+Therefore it might still make sense to keep the deferrable
+marker for now, so that we can gradually convert the tree
+checking easy case carefully.  This way the breakage is
+containted very well.
+
+Then once we have almost all of the timers verified, we
+can reverse the meaning and mark the timers that remain
+as non-deferrable and kill the deferrable marker.
