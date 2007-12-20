@@ -1,33 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.25 0/9]: SCTP: Update ADD-IP implementation to
- conform to spec
-Date: Wed, 19 Dec 2007 23:58:45 -0800 (PST)
-Message-ID: <20071219.235845.217028380.davem@davemloft.net>
-References: <1197927169-5106-1-git-send-email-vladislav.yasevich@hp.com>
-	<476984DB.4020403@hp.com>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [PATCH 00/29] Swap over NFS -v15
+Date: Thu, 20 Dec 2007 09:00:04 +0100
+Message-ID: <1198137604.6484.25.camel@twins>
+References: <20071214153907.770251000@chello.nl>  <476999B7.1000203@tmr.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: vladislav.yasevich@hp.com
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-6SMKnQn+0+PVsF307nk1"
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no
+To: Bill Davidsen <davidsen@tmr.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49962
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755326AbXLTH6w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 02:58:52 -0500
-In-Reply-To: <476984DB.4020403@hp.com>
+Received: from viefep18-int.chello.at ([213.46.255.22]:51886 "EHLO
+	viefep11-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750960AbXLTIAJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 03:00:09 -0500
+In-Reply-To: <476999B7.1000203@tmr.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Wed, 19 Dec 2007 15:53:47 -0500
 
-> Not sure if you got the PATCH 7/9 resend, but it looks like netdev ate that
-> too.
-> 
-> I made this patch set available here:
->  master.kernel.org:/pub/scm/linux/kernel/git/vxy/lksctp-dev.git addip
+--=-6SMKnQn+0+PVsF307nk1
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-I got the patch, there is probably some keyword in there
-that is making it get consumed by the majordomo regexp
-filters we have in place.
+
+On Wed, 2007-12-19 at 17:22 -0500, Bill Davidsen wrote:
+> Peter Zijlstra wrote:
+> > Hi,
+> >=20
+> > Another posting of the full swap over NFS series.=20
+> >=20
+> > Andrew/Linus, could we start thinking of sticking this in -mm?
+> >=20
+>=20
+> Two questions:
+> 1 - what is the memory use impact on the system which don't do swap over=20
+> NFS, such as embedded systems, and
+
+It should have little to no impact if not used.
+
+> 2 - what is the advantage of this code over the two existing network=20
+> swap approaches,=20
+
+> swapping to NFS mounted file and=20
+
+This is not actually possible with a recent kernel, current swapfile
+support requires a blockdevice.
+
+> swap to NBD device?
+
+> I've used the NFS file when a program was running out of memory and that=20
+> seemed to work, people in UNYUUG have reported that the nbd swap works,=20
+> so what's better here?
+
+swap over NBD works sometimes, its rather easy to deadlock, and its
+impossible to recover from a broken connection.
+
+--=-6SMKnQn+0+PVsF307nk1
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQBHaiEEXA2jU0ANEf4RAl93AJ97JZvV0QnnGe1G9cyi4ENjZnyBtgCbBeHc
+BHq+vfwezh/scL/6LPg9c90=
+=VCif
+-----END PGP SIGNATURE-----
+
+--=-6SMKnQn+0+PVsF307nk1--
+
