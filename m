@@ -1,40 +1,44 @@
-From: "Parag Warudkar" <parag.warudkar@gmail.com>
-Subject: Re: [PATCH 2/2] net: neighbor timer power saving
-Date: Thu, 20 Dec 2007 13:16:21 -0500
-Message-ID: <82e4877d0712201016qe920d68lf9f7eb8c8f117265@mail.gmail.com>
-References: <Pine.LNX.4.64.0712181956180.3616@mini.warudkars.net>
-	 <20071218174120.4b0ef6dd@shemminger-laptop>
-	 <20071218181845.2f1b539a@shemminger-laptop>
-	 <4768C6FF.2090909@cosmosbay.com> <20071220091005.310ab2f8@deepthought>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH 2/2] e1000: Use deferrable timer for watchdog
+Date: Thu, 20 Dec 2007 10:51:36 -0800
+Message-ID: <20071220185136.21903.73382.stgit@localhost.localdomain>
+References: <20071220185125.21903.44752.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric Dumazet" <dada1@cosmosbay.com>,
-	"David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org, parag.warudkar@gmail.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.235]:50063 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S938250AbXLTSQX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 13:16:23 -0500
-Received: by nz-out-0506.google.com with SMTP id s18so1859946nze.1
-        for <netdev@vger.kernel.org>; Thu, 20 Dec 2007 10:16:22 -0800 (PST)
-In-Reply-To: <20071220091005.310ab2f8@deepthought>
-Content-Disposition: inline
+Received: from mga01.intel.com ([192.55.52.88]:19483 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751048AbXLTSwJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Dec 2007 13:52:09 -0500
+In-Reply-To: <20071220185125.21903.44752.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Dec 20, 2007 12:10 PM, Stephen Hemminger
-<shemminger@linux-foundation.org> wrote:
+From: Parag Warudkar <parag.warudkar@gmail.com>
 
-> Thinking about it more, this looks like a case for just using round_jiffies().
-> The GC timer needs to run to clean up under DoS attack, and deferring it probably
-> isn't a good idea.
+Reduces wakeups from idle per second.
 
-But what are the chances that a DoSed machine will be idling which
-will prevent the GC timer to run? I would think there would be lot of
-other activities going on (including non-deferrable timers running)
-that will avoid this situation?
+Signed-off-by: Parag Warudkar <parag.warudkar@gmail.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
-Parag
+ drivers/net/e1000/e1000_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 599153d..6af86fa 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -1066,7 +1066,7 @@ e1000_probe(struct pci_dev *pdev,
+ 	adapter->tx_fifo_stall_timer.function = &e1000_82547_tx_fifo_stall;
+ 	adapter->tx_fifo_stall_timer.data = (unsigned long) adapter;
+ 
+-	init_timer(&adapter->watchdog_timer);
++	init_timer_deferrable(&adapter->watchdog_timer);
+ 	adapter->watchdog_timer.function = &e1000_watchdog;
+ 	adapter->watchdog_timer.data = (unsigned long) adapter;
+ 
+
