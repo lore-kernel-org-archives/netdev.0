@@ -1,59 +1,60 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH] One more XFRM audit fix
-Date: Thu, 20 Dec 2007 07:25:03 -0500
-Message-ID: <200712200725.03888.paul.moore@hp.com>
-References: <20071219192309.15561.9843.stgit@flek.americas.hpqcorp.net> <20071220.000009.173158004.davem@davemloft.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: TSO trimming question
+Date: Thu, 20 Dec 2007 14:35:19 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0712201417470.11007@kivilampi-30.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0712192336130.27945@kivilampi-30.cs.helsinki.fi>
+ <20071219.235450.170670042.davem@davemloft.net>
+ <Pine.LNX.4.64.0712201253400.31652@kivilampi-30.cs.helsinki.fi>
+ <20071220.040037.48002365.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-audit@redhat.com
+Content-Type: MULTIPART/MIXED; boundary="-696243703-1385512550-1198153698=:11007"
+Cc: Netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:27836 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758050AbXLTMZQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 07:25:16 -0500
-In-Reply-To: <20071220.000009.173158004.davem@davemloft.net>
-Content-Disposition: inline
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:33630 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760130AbXLTMfV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 07:35:21 -0500
+In-Reply-To: <20071220.040037.48002365.davem@davemloft.net>
+Content-ID: <Pine.LNX.4.64.0712201428220.11007@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 20 December 2007 3:00:09 am David Miller wrote:
-> From: Paul Moore <paul.moore@hp.com>
-> Date: Wed, 19 Dec 2007 14:29:31 -0500
->
-> > The following patch is backed against David's net-2.6 tree and is pretty
-> > trivial.  I know we're late in the 2.6.24 cycle but I think this is worth
-> > merging, if you guys don't feel that way let me know and I'll resubmit it
-> > for 2.6.25.
->
-> Where is that patch?  Or do you mean the fix you emailed
-> seperately today (which I will apply, thanks)?
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Yes, it was the patch you applied, "XFRM: Audit function arguments 
-misordered".  I was using stacked-git to post the patch and it apparently 
-doesn't annotate the cover email's subject line with "0/1" when you only send 
-one patch.
+---696243703-1385512550-1198153698=:11007
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0712201428221.11007@kivilampi-30.cs.helsinki.fi>
 
-Sorry about that.
+On Thu, 20 Dec 2007, David Miller wrote:
 
-> > As a side note, I'm unable to actually test the patch because I can't get
-> > the kernel to compile (M=net/xfrm works just fine).  The problem I keep
-> > seeing is below:
-> >
-> > make[3]: *** No rule to make target \
-> >  `/blah/kernels/net-2.6_xfrm-auid-secid-fix/include/linux/ticable.h', \
-> >   needed by \
-> >  `/blah/kernels/net-2.6_xfrm-auid-secid-fix/usr/include/linux/ticable.h'.
-> > \ Stop.
->
-> Remove ticable.h from include/linux/Kbuild
->
-> This is already cured in Linus's tree.
+> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Thu, 20 Dec 2007 13:40:51 +0200 (EET)
+> 
+> > That's not the only case, IMHO if there's odd boundary due to 
+> > snd_una+snd_wnd - skb->seq limit (done in tcp_window_allows()), we don't 
+> > consider it as odd but break the skb at arbitary point resulting
+> > two small segments to the network, and what's worse, when the later skb 
+> > resulting from the first split is matching skb->len < limit check as well 
+> > causing an unnecessary small skb to be created for nagle purpose too, 
+> > solving it fully requires some thought in case the mss_now != mss_cache 
+> > even if non-odd boundaries are honored in the middle of skb.
+> 
+> In the most ideal sense, tcp_window_allows() should probably
+> be changed to only return MSS multiples.
 
-Noted, thanks.
+That's what Herbert suggested already, I'll send a patch later
+on... :-)
+
+> Unfortunately this would add an expensive modulo operation,
+> however I think it would elimiate this problem case.
+
+Yes. Should we still call tcp_minshall_update() if split in the middle of 
+wq results in smaller than MSS tail (occurs only if mss_now != mss_cache)?
 
 -- 
-paul moore
-linux security @ hp
+ i.
+---696243703-1385512550-1198153698=:11007--
