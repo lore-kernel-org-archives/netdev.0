@@ -1,43 +1,82 @@
-From: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
-Subject: Re: [PATCH] PS3: gelic: Add wireless support for PS3
-Date: Fri, 21 Dec 2007 15:17:28 +0900
-Message-ID: <20071221150228.BA41.40F06B3A@sm.sony.co.jp>
-References: <1197637127.16724.1.camel@localhost.localdomain> <20071215014244.GI5698@jm.kir.nu>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [SOCK] Avoid integer divides where not necessary in include/net/sock.h
+Date: Fri, 21 Dec 2007 07:18:40 +0100
+Message-ID: <476B5AC0.9060604@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: multipart/mixed;
+ boundary="------------010501050605030704030001"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:51048 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751384AbXLUGSx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 01:18:53 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------010501050605030704030001
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, geoffrey.levand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org,
-	Geert Uytterhoeven <Geert.Uytterhoeven-osDt5Q4Chk1BDgjK7y7TUQ@public.gmane.org>
-To: Jouni Malinen <j@w1.fi>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20071215014244.GI5698-mgr6C1c9aYeHXe+LvDLADg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
 
-	Hi Jouni,
+Because sk_wmem_queued, sk_sndbuf are signed, a divide per two
+forces compiler to use an integer divide. We can instead use
+a right shift.
 
-On Fri, 14 Dec 2007 17:42:44 -0800
-Jouni Malinen <j@w1.fi> wrote:
+SK_STREAM_MEM_QUANTUM deserves to be declared as an unsigned
+quantity, so that sk_stream_pages() and __sk_stream_mem_reclaim()
+can use right shifts instead of integer divides.
 
-> However, there is a part that you are not going to like.. This is likely
-> using a private ioctl for some parts of the association requests, i.e.,
-> no -Dwext.. I would assume that this could be cleaned up, though, if
-> WEXT would be extended a bit to allow one more enc_capa to notify
-> whether the driver wants to take care of 4-way handshake and to allow
-> the PSK to be configured with a new key type.
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-Yes, as the current WEXT did not have this feature, I could not but
-design the new PS3 driver in that way.
 
-> It would be interesting to see whether the driver/firmware/hypervisor
-> could be convinced to allow EAPOL frames to go through between
-> association and 4-way handshake (which would be completed by
-> driver/firmware). This is the way I can support WPA/WPA2-Enterprise with
-> OSX..
+--------------010501050605030704030001
+Content-Type: text/plain;
+ name="sock_h.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="sock_h.patch"
 
-I had asked the hypervisor guy. Unfortunately all EAPOL frames would be
-dropped by the wireless chip firmware.
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 803d8f2..6da08fc 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -445,7 +445,7 @@ static inline int sk_acceptq_is_full(struct sock *sk)
+  */
+ static inline int sk_stream_min_wspace(struct sock *sk)
+ {
+-	return sk->sk_wmem_queued / 2;
++	return sk->sk_wmem_queued >> 1;
+ }
+ 
+ static inline int sk_stream_wspace(struct sock *sk)
+@@ -715,7 +715,7 @@ static inline struct inode *SOCK_INODE(struct socket *socket)
+ extern void __sk_stream_mem_reclaim(struct sock *sk);
+ extern int sk_stream_mem_schedule(struct sock *sk, int size, int kind);
+ 
+-#define SK_STREAM_MEM_QUANTUM ((int)PAGE_SIZE)
++#define SK_STREAM_MEM_QUANTUM ((unsigned int)PAGE_SIZE)
+ 
+ static inline int sk_stream_pages(int amt)
+ {
+@@ -1187,7 +1187,7 @@ static inline void sk_wake_async(struct sock *sk, int how, int band)
+ static inline void sk_stream_moderate_sndbuf(struct sock *sk)
+ {
+ 	if (!(sk->sk_userlocks & SOCK_SNDBUF_LOCK)) {
+-		sk->sk_sndbuf = min(sk->sk_sndbuf, sk->sk_wmem_queued / 2);
++		sk->sk_sndbuf = min(sk->sk_sndbuf, sk->sk_wmem_queued >> 1);
+ 		sk->sk_sndbuf = max(sk->sk_sndbuf, SOCK_MIN_SNDBUF);
+ 	}
+ }
+@@ -1211,7 +1211,7 @@ static inline struct page *sk_stream_alloc_page(struct sock *sk)
+  */
+ static inline int sock_writeable(const struct sock *sk) 
+ {
+-	return atomic_read(&sk->sk_wmem_alloc) < (sk->sk_sndbuf / 2);
++	return atomic_read(&sk->sk_wmem_alloc) < (sk->sk_sndbuf >> 1);
+ }
+ 
+ static inline gfp_t gfp_any(void)
 
--- 
-Masakazu MOKUNO
+--------------010501050605030704030001--
