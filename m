@@ -1,94 +1,57 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: TSO trimming question
-Date: Fri, 21 Dec 2007 03:06:48 -0500
-Message-ID: <20071221030648.389669c4.billfink@mindspring.com>
-References: <Pine.LNX.4.64.0712192336130.27945@kivilampi-30.cs.helsinki.fi>
-	<20071219.235450.170670042.davem@davemloft.net>
-	<Pine.LNX.4.64.0712201253400.31652@kivilampi-30.cs.helsinki.fi>
-	<20071220.035621.147230372.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [TCP] IPV6 : Change a divide into a right shift in tcp_v6_send_ack()
+Date: Fri, 21 Dec 2007 09:11:39 +0100
+Message-ID: <476B753B.7090605@cosmosbay.com>
+References: <476B574E.80601@cosmosbay.com>	<20071221.155030.131184865.yoshfuji@linux-ipv6.org>	<476B65F8.10201@cosmosbay.com> <20071221.162833.82587283.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au, jheffner@psc.edu
-To: David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-curtail.atl.sa.earthlink.net ([209.86.89.64]:60395 "EHLO
-	elasmtp-curtail.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750754AbXLUIG4 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Dec 2007 03:06:56 -0500
-In-Reply-To: <20071220.035621.147230372.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:41924 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753506AbXLUILz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 03:11:55 -0500
+In-Reply-To: <20071221.162833.82587283.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 20 Dec 2007, David Miller wrote:
-
-> From: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Thu, 20 Dec 2007 13:40:51 +0200 (EET)
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E a =C3=A9crit :
+> In article <476B65F8.10201@cosmosbay.com> (at Fri, 21 Dec 2007 08:06:=
+32 +0100), Eric Dumazet <dada1@cosmosbay.com> says:
 >=20
-> > [PATCH] [TCP]: Fix TSO deferring
-> >=20
-> > I'd say that most of what tcp_tso_should_defer had in between
-> > there was dead code because of this.
-> >=20
-> > Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+>> YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E a =C3=A9cri=
+t :
+>>> In article <476B574E.80601@cosmosbay.com> (at Fri, 21 Dec 2007 07:0=
+3:58 +0100), Eric Dumazet <dada1@cosmosbay.com> says:
+>>>
+>>>> Because tot_len is signed in tcp_v6_send_ack(), tot_len/4 forces c=
+ompiler
+>>>> to emit an integer divide, while we can help it to use a right shi=
+ft,
+>>>> less expensive.
+>>> Are you really sure?
+>>> At least, gcc-4.1.2-20061115 (debian) does not make any difference.
+>>>
+>>> And, IMHO, because shift for signed variable is fragile, so we shou=
+ld
+>>> avoid using it.
+>>>
+>> Yes I am sure, but maybe you are on x86_64 ?
+>>
+>> gcc-4.2.2 on x86
 >=20
-> Yikes!!!!!
->=20
-> John, we've been living a lie for more than a year. :-/
->=20
-> On the bright side this explains a lot of small TSO frames I've been
-> seeing in traces over the past year but never got a chance to
-> investigate.
->=20
-> > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> > index 8dafda9..693b9f6 100644
-> > --- a/net/ipv4/tcp_output.c
-> > +++ b/net/ipv4/tcp_output.c
-> > @@ -1217,7 +1217,8 @@ static int tcp_tso_should_defer(struct sock *=
-sk, struct sk_buff *skb)
-> >  		goto send_now;
-> > =20
-> >  	/* Defer for less than two clock ticks. */
-> > -	if (!tp->tso_deferred && ((jiffies<<1)>>1) - (tp->tso_deferred>>1=
-) > 1)
-> > +	if (tp->tso_deferred &&
-> > +	    ((jiffies << 1) >> 1) - (tp->tso_deferred >> 1) > 1)
-> >  		goto send_now;
-> > =20
-> >  	in_flight =3D tcp_packets_in_flight(tp);
+> I'm on gcc-4.1.2 20061115 (prerelease) (Debian 4.1.1-21), on x86 (i68=
+6).
+> Maybe compiler difference?!
 
-I meant to ask about this a while back but then got distracted by
-other things.  But now since the subject has come up, I had a couple
-of more questions about this code.
+hum, more probably a .config difference. Try with
 
-What's with all the shifting back and forth?  Here with:
+CONFIG_CC_OPTIMIZE_FOR_SIZE=3DY
 
-	((jiffies<<1)>>1) - (tp->tso_deferred>>1)
+(default config)
 
-and later with:
 
-	/* Ok, it looks like it is advisable to defer.  */
-	tp->tso_deferred =3D 1 | (jiffies<<1);
-
-Is this just done to try and avoid the special case of jiffies=3D=3D0=20
-when the jiffies wrap?  If so it seems like a lot of unnecessary
-work just to avoid a 1 in 4 billion event, since it's my understanding
-that the whole tcp_tso_should_defer function is just an optimization
-and not a criticality to the proper functioning of TCP, especially
-considering it hasn't even been executing at all up to now.
-
-My second question is more basic and if I'm not mistaken actually
-relates to a remaining bug in the (corrected) test:
-
-	/* Defer for less than two clock ticks. */
-	if (tp->tso_deferred &&
-	    ((jiffies << 1) >> 1) - (tp->tso_deferred >> 1) > 1)
-
-Since jiffies is an unsigned long, which is 64-bits on a 64-bit system,
-whereas tp->tso_deferred is a u32, once jiffies exceeds 31-bits, which
-will happen in about 25 days if HZ=3D1000, won't the second part of the
-test always be true after that?  Or am I missing something obvious?
-
-						-Bill
