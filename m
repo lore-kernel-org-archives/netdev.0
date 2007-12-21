@@ -1,101 +1,50 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: TSO trimming question
-Date: Fri, 21 Dec 2007 05:58:22 -0500
-Message-ID: <20071221055822.8d977800.billfink@mindspring.com>
-References: <20071221030648.389669c4.billfink@mindspring.com>
-	<20071221.012720.67812056.davem@davemloft.net>
-	<20071221092927.GA32434@gondor.apana.org.au>
-	<20071221.013642.29817274.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [SOCK] Avoid integer divides where not necessary in
+ include/net/sock.h
+Date: Fri, 21 Dec 2007 03:06:40 -0800 (PST)
+Message-ID: <20071221.030640.100066714.davem@davemloft.net>
+References: <476B5AC0.9060604@cosmosbay.com>
+	<20071221.015543.19719154.davem@davemloft.net>
+	<20071221114051.f8310a6d.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, ilpo.jarvinen@helsinki.fi,
-	netdev@vger.kernel.org, jheffner@psc.edu
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:41590 "EHLO
-	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751575AbXLUK6f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 05:58:35 -0500
-In-Reply-To: <20071221.013642.29817274.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44138
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753062AbXLULGl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 06:06:41 -0500
+In-Reply-To: <20071221114051.f8310a6d.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 21 Dec 2007, David Miller wrote:
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Fri, 21 Dec 2007 11:40:51 +0100
 
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Fri, 21 Dec 2007 17:29:27 +0800
+> On Fri, 21 Dec 2007 01:55:43 -0800 (PST)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> > On Fri, Dec 21, 2007 at 01:27:20AM -0800, David Miller wrote:
-> > >
-> > > It's two shifts, and this gets scheduled along with the other
-> > > instructions on many cpus so it's effectively free.
-> > > 
-> > > I don't see why this is even worth mentioning and discussing.
-> > 
-> > I totally agree.  Two shifts are way better than a branch.
+> Please tell me if you are OK with this solution, or if you prefer
+> I change sk_forward_alloc to be unsigned :)
+
+When I was playing with this crap a long time ago I
+think I remember that sk->sk_forward_alloc can become
+negative in some circumstances.
+
+Or maybe that was just a bug :-)
+
+> Here is the patch handling the change on sk_wmem_queued, sk_sndbuf.
+> Keeping small patches may help future bisection anyway...
 > 
-> We take probably a thousand+ 100+ cycle cache misses in the TCP stack
-> on big window openning ACKs.
+> [SOCK] Avoid integer divides where not necessary in include/net/sock.h
 > 
-> Instead of discussing ways to solve that huge performance killer we're
-> wanking about two friggin' integer shifts.
+> Because sk_wmem_queued, sk_sndbuf are signed, a divide per two
+> may force compiler to use an integer divide.
 > 
-> It's hilarious isn't it? :-)
+> We can instead use a right shift.
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-I don't think obfuscated code is hilarious.  Instead of the convoluted
-and dense code:
-
-	/* Defer for less than two clock ticks. */
-	if (tp->tso_deferred &&
-	    ((jiffies << 1) >> 1) - (tp->tso_deferred >> 1) > 1)
-
-You can have the much simpler and more easily understandable:
-
-	/* Defer for less than two clock ticks. */
-	if (tp->tso_deferred && (jiffies - tp->tso_deferred) > 1)
-
-And instead of:
-
-	/* Ok, it looks like it is advisable to defer.  */
-        tp->tso_deferred = 1 | (jiffies<<1);
-
-        return 1;
-
-You could do as Ilpo suggested:
-
-	/* Ok, it looks like it is advisable to defer.  */
-	tp->tso_deferred = max_t(u32, jiffies, 1);
-
-        return 1;
-
-Or perhaps more efficiently:
-
-	/* Ok, it looks like it is advisable to defer.  */
-	tp->tso_deferred = jiffies;
-	if (unlikely(jiffies == 0))
-		tp->tso_deferred = 1;
-
-        return 1;
-
-Or perhaps even:
-
-	/* Ok, it looks like it is advisable to defer.  */
-	tp->tso_deferred = jiffies;
-
-	/* need to return a non-zero value to defer, which means won't
-	 * defer if jiffies == 0 but it's only a 1 in 4 billion event
-	 * (and avoids a compare/branch by not checking jiffies)
-	 /
-        return jiffies;
-
-Since it really only needs a non-zero return value to defer.
-
-See, no branches needed and much clearer code.  That seems worthwhile
-to me from a code maintenance standpoint, even if it isn't any speed
-improvement.
-
-And what about the 64-bit jiffies versus 32-bit tp->tso_deferred issue?
-Should tso_deferred be made unsigned long to match jiffies?
-
-						-Bill
+I'll apply this, thanks Eric.
