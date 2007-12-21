@@ -1,48 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] XFRM: Drop packets when replay counter would
- overflow
-Date: Fri, 21 Dec 2007 14:59:16 -0800 (PST)
-Message-ID: <20071221.145916.103462184.davem@davemloft.net>
-References: <20071221141334.11660.9191.stgit@flek.lan>
-	<20071221141500.11660.12287.stgit@flek.lan>
+Subject: Re: BNX2 warning
+Date: Fri, 21 Dec 2007 15:05:12 -0800 (PST)
+Message-ID: <20071221.150512.118852186.davem@davemloft.net>
+References: <20071220.203935.30925934.davem@davemloft.net>
+	<1198262055.28427.2.camel@dell>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-audit@redhat.com,
-	latten@austin.ibm.com
-To: paul.moore@hp.com
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42395
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42192
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757765AbXLUW7W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 17:59:22 -0500
-In-Reply-To: <20071221141500.11660.12287.stgit@flek.lan>
+	by vger.kernel.org with ESMTP id S1754191AbXLUXFN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 18:05:13 -0500
+In-Reply-To: <1198262055.28427.2.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <paul.moore@hp.com>
-Date: Fri, 21 Dec 2007 09:15:00 -0500
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Fri, 21 Dec 2007 10:34:15 -0800
 
-> According to RFC4303, section 3.3.3 we need to drop outgoing packets which
-> cause the replay counter to overflow:
+> [BNX2]: Fix compiler warning.
 > 
->    3.3.3.  Sequence Number Generation
+> Change bnx2_init_napi() to void.
 > 
->    The sender's counter is initialized to 0 when an SA is established.
->    The sender increments the sequence number (or ESN) counter for this
->    SA and inserts the low-order 32 bits of the value into the Sequence
->    Number field.  Thus, the first packet sent using a given SA will
->    contain a sequence number of 1.
+> Warning was noted by DaveM.
 > 
->    If anti-replay is enabled (the default), the sender checks to ensure
->    that the counter has not cycled before inserting the new value in the
->    Sequence Number field.  In other words, the sender MUST NOT send a
->    packet on an SA if doing so would cause the sequence number to cycle.
->    An attempt to transmit a packet that would result in sequence number
->    overflow is an auditable event.  The audit log entry for this event
->    SHOULD include the SPI value, current date/time, Source Address,
->    Destination Address, and (in IPv6) the cleartext Flow ID.
-> 
-> Signed-off-by: Paul Moore <paul.moore@hp.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Applied.
+Applied, thanks!
