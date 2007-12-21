@@ -1,64 +1,75 @@
-From: Robert Stonehouse <rstonehouse@solarflare.com>
-Subject: [PATCH]  New driver "sfc" for Solarstorm SFC4000 controller - 3nd
- try
-Date: Fri, 21 Dec 2007 16:53:40 +0000
-Message-ID: <476BEF94.4000801@solarflare.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] [IPROUTE]: A workaround to make larger rto_min printed
+ correctly
+Date: Fri, 21 Dec 2007 09:14:33 -0800
+Message-ID: <20071221091433.424c52db@deepthought>
+References: <d72b7ace0712201824k3754962cse377256cb5452b8a@mail.gmail.com>
+	<20071221.175352.77874691.yoshfuji@linux-ipv6.org>
+	<d72b7ace0712210549u51043bf8k585fd70e1ded7d8a@mail.gmail.com>
+	<20071221.225804.129665785.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, spope@solarflare.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: satoru.satoh@gmail.com, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: YOSHIFUJI Hideaki / =?UTF-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nextweb.net ([216.237.6.30]:55172 "EHLO
-	smtp.covadwireless.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751016AbXLUQxp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 11:53:45 -0500
-Received: from mail.nextweb.net (mail.nextweb.net [216.237.6.33])
-	by smtp.covadwireless.net (Spam Firewall) with ESMTP id 83D40144985
-	for <netdev@vger.kernel.org>; Fri, 21 Dec 2007 08:53:43 -0800 (PST)
-Received: from mail.nextweb.net (mail.nextweb.net [216.237.6.33]) by smtp.covadwireless.net with ESMTP id ULPUfDcrMKHTrPGC for <netdev@vger.kernel.org>; Fri, 21 Dec 2007 08:53:43 -0800 (PST)
-Received: from unknown (HELO mail.solarflare.com) ([216.237.3.213])
-          (envelope-sender <rstonehouse@solarflare.com>)
-          by mail.nextweb.net (qmail-ldap-1.03) with SMTP
-          for <netdev@vger.kernel.org>; 21 Dec 2007 16:53:43 -0000
-Received: from OCEX01.SolarFlarecom.com (unknown [10.20.40.32])
-	by mail.solarflare.com (Postfix) with ESMTP id 993924492C
-	for <netdev@vger.kernel.org>; Fri, 21 Dec 2007 08:53:42 -0800 (PST)
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:40769 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750763AbXLURPO convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Dec 2007 12:15:14 -0500
+In-Reply-To: <20071221.225804.129665785.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a resubmission of a new driver for Solarflare network controllers.
+On Fri, 21 Dec 2007 22:58:04 +0900 (JST)
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <yoshfuji@linu=
+x-ipv6.org> wrote:
 
-The driver supports several types of PHY (10Gbase-T, XFP, CX4) on six
-different 10G and 1G boards.
+> In article <d72b7ace0712210549u51043bf8k585fd70e1ded7d8a@mail.gmail.c=
+om> (at Fri, 21 Dec 2007 22:49:59 +0900), "Satoru SATOH" <satoru.satoh@=
+gmail.com> says:
+>=20
+> > I agree.
+> >=20
+> > I mistakenly thought hz in that context must be larger than 1000..
+> > As it's uncertain, your's looks much simpler and better.
+> >=20
+> > (btw, the lines "else .... div =3D 1" is not needed, is it?)
+>=20
+> Simplest fix is as follows:
+>=20
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> --
+> diff --git a/ip/iproute.c b/ip/iproute.c
+> index f4200ae..7a885b0 100644
+> --- a/ip/iproute.c
+> +++ b/ip/iproute.c
+> @@ -509,7 +509,7 @@ int print_route(const struct sockaddr_nl *who, st=
+ruct nlmsghdr *n, void *arg)
+>  			    i !=3D RTAX_RTO_MIN)
+>  				fprintf(fp, " %u", *(unsigned*)RTA_DATA(mxrta[i]));
+>  			else {
+> -				unsigned val =3D *(unsigned*)RTA_DATA(mxrta[i]);
+> +				unsigned long long val =3D *(unsigned*)RTA_DATA(mxrta[i]);
+> =20
+>  				val *=3D 1000;
+>  				if (i =3D=3D RTAX_RTT)
+> @@ -517,7 +517,7 @@ int print_route(const struct sockaddr_nl *who, st=
+ruct nlmsghdr *n, void *arg)
+>  				else if (i =3D=3D RTAX_RTTVAR)
+>  					val /=3D 4;
+>  				if (val >=3D hz)
+> -					fprintf(fp, " %ums", val/hz);
+> +					fprintf(fp, " %llums", val/hz);
+>  				else
+>  					fprintf(fp, " %.2fms", (float)val/hz);
+>  			}
+>=20
 
-The previous thread was:
-  [PATCH] [RFC] New driver "sfc" for Solarstorm SFC4000 controller
-  http://marc.info/?l=linux-netdev&m=119757352830103&w=2
+applied thanks.
 
-Thanks to the people who looked at the previous patches. We have addressed
-the following from received comments after the 2nd submission:
-  - Use kzalloc where appropriate
-  - Remove deprecated fastcall attributes
-  - Use kernel routines for hex dumps and MAC address printing
-  - Changes to logging MACROs
-
-The last two patches were marked with RFC but I now think that this driver
-is ready (withstanding any further review comments) and I would like to ask
-that this driver is considered for merging.
-
-
-The patch (against net-2.6.25) is at:
-     https://support.solarflare.com/netdev/3/net-2.6.25-sfc-2.2.0029.patch
-
-The new files may also be downloaded as a tarball:
-     https://support.solarflare.com/netdev/3/net-2.6.25-sfc-2.2.0029.tgz
-
-And for verification there is:
-     https://support.solarflare.com/netdev/3/MD5SUMS
-
-
-Happy Christmas
-
--- 
-Robert Stonehouse
+--=20
+Stephen Hemminger <stephen.hemminger@vyatta.com>
