@@ -1,57 +1,65 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: [TCP] IPV6 : Change a divide into a right shift in tcp_v6_send_ack()
-Date: Fri, 21 Dec 2007 09:21:06 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0712210919350.30982@kivilampi-30.cs.helsinki.fi>
-References: <476B574E.80601@cosmosbay.com>
+Date: Fri, 21 Dec 2007 08:39:24 +0100
+Message-ID: <476B6DAC.2030102@cosmosbay.com>
+References: <476B574E.80601@cosmosbay.com>	<20071221.155030.131184865.yoshfuji@linux-ipv6.org>	<476B65F8.10201@cosmosbay.com> <20071221.162833.82587283.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=_courier-4287-1198221666-0001-2"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"=?UTF-8?B?WU9TSElGVUpJIEhpZGU=?= =?UTF-8?B?YWtpIC8g5ZCJ6Jek6Iux5piO?="
-	<yoshfuji@linux-ipv6.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:38660 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750946AbXLUHVK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 02:21:10 -0500
-In-Reply-To: <476B574E.80601@cosmosbay.com>
-Content-ID: <Pine.LNX.4.64.0712210919351.30982@kivilampi-30.cs.helsinki.fi>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:34294 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753016AbXLUHjj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 02:39:39 -0500
+In-Reply-To: <20071221.162833.82587283.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a MIME-formatted message.  If you see this text it means that your
-E-mail software does not support MIME-formatted messages.
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E a =C3=A9crit :
+> In article <476B65F8.10201@cosmosbay.com> (at Fri, 21 Dec 2007 08:06:=
+32 +0100), Eric Dumazet <dada1@cosmosbay.com> says:
+>=20
+>> YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E a =C3=A9cri=
+t :
+>>> In article <476B574E.80601@cosmosbay.com> (at Fri, 21 Dec 2007 07:0=
+3:58 +0100), Eric Dumazet <dada1@cosmosbay.com> says:
+>>>
+>>>> Because tot_len is signed in tcp_v6_send_ack(), tot_len/4 forces c=
+ompiler
+>>>> to emit an integer divide, while we can help it to use a right shi=
+ft,
+>>>> less expensive.
+>>> Are you really sure?
+>>> At least, gcc-4.1.2-20061115 (debian) does not make any difference.
+>>>
+>>> And, IMHO, because shift for signed variable is fragile, so we shou=
+ld
+>>> avoid using it.
+>>>
+>> Yes I am sure, but maybe you are on x86_64 ?
+>>
+>> gcc-4.2.2 on x86
+>=20
+> I'm on gcc-4.1.2 20061115 (prerelease) (Debian 4.1.1-21), on x86 (i68=
+6).
+> Maybe compiler difference?!
+>=20
+>> If you think tot_len can be negative, I understand you can be agains=
+t this=20
+>> patch. But I am sure it's allways > 0, even if I am a total ipv6 new=
+bie :)
+>=20
+> Okay, anyway, I'll convert them to unsigned int, which is more
+> appropriate.
 
---=_courier-4287-1198221666-0001-2
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Content-ID: <Pine.LNX.4.64.0712210919352.30982@kivilampi-30.cs.helsinki.fi>
+I didnt chose this path, because David was against changing some fields=
+ from=20
+'int' to 'unsigned'. If you look in other parts of networking, we have =
+many >>=20
+1 or >> 2 already there.
 
-On Fri, 21 Dec 2007, Eric Dumazet wrote:
 
-> Because tot_len is signed in tcp_v6_send_ack(), tot_len/4 forces compiler
-> to emit an integer divide, while we can help it to use a right shift,
-> less expensive.
-
-Can't you just change tot_len to unsigned here? It's just sizeof and some 
-positive constants added...
-
--- 
- i.
---=_courier-4287-1198221666-0001-2
-Content-Type: text/plain; name="tcp_ipv6.patch"; charset=iso-8859-1
-Content-Transfer-Encoding: base64
-Content-ID: <Pine.LNX.4.64.0712210919353.30982@kivilampi-30.cs.helsinki.fi>
-Content-Description: 
-Content-Disposition: inline; filename=tcp_ipv6.patch
-
-ZGlmZiAtLWdpdCBhL25ldC9pcHY2L3RjcF9pcHY2LmMgYi9uZXQvaXB2Ni90Y3BfaXB2Ni5j
-CmluZGV4IDAyNjhlMTEuLjkyZjBmZGEgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L3RjcF9pcHY2
-LmMKKysrIGIvbmV0L2lwdjYvdGNwX2lwdjYuYwpAQCAtMTEyNCw3ICsxMTI0LDcgQEAgc3Rh
-dGljIHZvaWQgdGNwX3Y2X3NlbmRfYWNrKHN0cnVjdCB0Y3BfdGltZXdhaXRfc29jayAqdHcs
-CiAJbWVtc2V0KHQxLCAwLCBzaXplb2YoKnQxKSk7CiAJdDEtPmRlc3QgPSB0aC0+c291cmNl
-OwogCXQxLT5zb3VyY2UgPSB0aC0+ZGVzdDsKLQl0MS0+ZG9mZiA9IHRvdF9sZW4vNDsKKwl0
-MS0+ZG9mZiA9IHRvdF9sZW4gPj4gMjsKIAl0MS0+c2VxID0gaHRvbmwoc2VxKTsKIAl0MS0+
-YWNrX3NlcSA9IGh0b25sKGFjayk7CiAJdDEtPmFjayA9IDE7Cg==
---=_courier-4287-1198221666-0001-2--
