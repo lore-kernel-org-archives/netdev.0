@@ -1,48 +1,81 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 2/3] XFRM: RFC4303 compliant auditing
-Date: Fri, 21 Dec 2007 09:22:23 -0500
-Message-ID: <200712210922.23386.paul.moore@hp.com>
-References: <20071221.014310.155404661.davem@davemloft.net>
-	<200712210851.22521.paul.moore@hp.com>
-	<20071221.060241.19624191.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-audit@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-audit-bounces@redhat.com>
-In-Reply-To: <20071221.060241.19624191.davem@davemloft.net>
-Content-Disposition: inline
-List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/linux-audit>
-List-Post: <mailto:linux-audit@redhat.com>
-List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=subscribe>
-Sender: linux-audit-bounces@redhat.com
-Errors-To: linux-audit-bounces@redhat.com
-List-Id: netdev.vger.kernel.org
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: [XFRM]: Fix outbound statistics.
+Date: Fri, 21 Dec 2007 23:25:00 +0900
+Message-ID: <1198247100998-git-send-email-nakam@linux-ipv6.org>
+Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
+	Masahide NAKAMURA <nakam@linux-ipv6.org>
+To: davem@davemloft.net, herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from usagi025.linux-ipv6.org ([203.178.140.25]:37332 "EHLO
+	triton.linux-ipv6.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1751651AbXLUOZT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 09:25:19 -0500
+In-Reply-To: 11982085193489-git-send-email-nakam@linux-ipv6.org
+References: 11982085193489-git-send-email-nakam@linux-ipv6.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 21 December 2007 9:02:41 am David Miller wrote:
-> From: Paul Moore <paul.moore@hp.com>
-> Date: Fri, 21 Dec 2007 08:51:22 -0500
->
-> > Ah, looks like I may not be crazy after all!  It looks like the XFRM
-> > patches from Masahide NAKAMURA were pulled into net-2.6.25 just before
-> > mine last night which caused my patches to conflict ...
->
-> Sorry.  I had double checked and was going to rework your patches
-> by hand if that was the case, but for some reason I didn't see
-> his patches as being the culprit causing the rejects when I
-> checked things out.
->
-> I must have looked over the history correctly.
+Hello David,
 
-No harm, no foul.  I've just about finished respining the patches, expect them 
-shortly ...
+I'm sorry, the previous mail contains wrong code:
 
+
+> David, I failed to include this statistics codes since I didn't notice
+> the conflict with the latest Herbert XFRM fix.
+> 
+> Please apply this, too.
+> 
+> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+> ---
+[snip]
+>  
+>	do {
+>	   err = xfrm_state_check_space(x, skb);
+> -	        if (err)
+> +		if (err) {
+>			goto error_nolock;
+> +			XFRM_INC_STATS(LINUX_MIB_XFRMOUTERROR);
+> +		}
+
+
+Please apply the below patch instead of the previous.
+
+Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+---
+ net/xfrm/xfrm_output.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
+index 867484a..f8e5961 100644
+--- a/net/xfrm/xfrm_output.c
++++ b/net/xfrm/xfrm_output.c
+@@ -43,17 +43,23 @@ static int xfrm_output_one(struct sk_buff *skb, int err)
+ 
+ 	do {
+ 		err = xfrm_state_check_space(x, skb);
+-		if (err)
++		if (err) {
++			XFRM_INC_STATS(LINUX_MIB_XFRMOUTERROR);
+ 			goto error_nolock;
++		}
+ 
+ 		err = x->outer_mode->output(x, skb);
+-		if (err)
++		if (err) {
++			XFRM_INC_STATS(LINUX_MIB_XFRMOUTSTATEMODEERROR);
+ 			goto error_nolock;
++		}
+ 
+ 		spin_lock_bh(&x->lock);
+ 		err = xfrm_state_check_expire(x);
+-		if (err)
++		if (err) {
++			XFRM_INC_STATS(LINUX_MIB_XFRMOUTSTATEEXPIRED);
+ 			goto error;
++		}
+ 
+ 		if (x->type->flags & XFRM_TYPE_REPLAY_PROT) {
+ 			XFRM_SKB_CB(skb)->seq = ++x->replay.oseq;
 -- 
-paul moore
-linux security @ hp
+1.4.4.2
+
