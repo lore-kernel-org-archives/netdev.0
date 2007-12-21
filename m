@@ -1,37 +1,76 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [TCP] Avoid a divide in tcp_mtu_probing()
-Date: Fri, 21 Dec 2007 14:32:41 +0100
-Message-ID: <20071221143241.4aa9f672.dada1@cosmosbay.com>
+From: "Satoru SATOH" <satoru.satoh@gmail.com>
+Subject: Re: [PATCH] [IPROUTE]: A workaround to make larger rto_min printed correctly
+Date: Fri, 21 Dec 2007 22:49:59 +0900
+Message-ID: <d72b7ace0712210549u51043bf8k585fd70e1ded7d8a@mail.gmail.com>
+References: <476ACF8A.7060201@gmail.com> <476AD127.2020909@gmail.com>
+	 <d72b7ace0712201824k3754962cse377256cb5452b8a@mail.gmail.com>
+	 <20071221.175352.77874691.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: "=?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?="
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:52356 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753966AbXLUNcq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Dec 2007 08:32:46 -0500
+Received: from rv-out-0910.google.com ([209.85.198.185]:31870 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750920AbXLUNuB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 08:50:01 -0500
+Received: by rv-out-0910.google.com with SMTP id k20so348857rvb.1
+        for <netdev@vger.kernel.org>; Fri, 21 Dec 2007 05:49:59 -0800 (PST)
+In-Reply-To: <20071221.175352.77874691.yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tcp_mtu_to_mss() being signed, compiler might emit an integer divide
-to compute tcp_mtu_to_mss()/2 .
+I agree.
 
-Using a right shift is OK here and less expensive.
+I mistakenly thought hz in that context must be larger than 1000..
+As it's uncertain, your's looks much simpler and better.
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+(btw, the lines "else .... div = 1" is not needed, is it?)
 
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index ea111e9..ea85bc0 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -125,7 +125,7 @@ static void tcp_mtu_probing(struct inet_connection_sock *icsk, struct sock *sk)
- 			struct tcp_sock *tp = tcp_sk(sk);
- 			int mss;
- 
--			mss = tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low)/2;
-+			mss = tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low) >> 1;
- 			mss = min(sysctl_tcp_base_mss, mss);
- 			mss = max(mss, 68 - tp->tcp_header_len);
- 			icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, mss);
+Thanks,
+Satoru SATOH
+
+2007/12/21, YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>:
+(snip)
+> Why don't you simply use unsigned long long (or maybe uint64_t) here?
+>
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+>
+> ---
+> diff --git a/ip/iproute.c b/ip/iproute.c
+> index f4200ae..db9a3b6 100644
+> --- a/ip/iproute.c
+> +++ b/ip/iproute.c
+> @@ -509,16 +509,21 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+>                             i != RTAX_RTO_MIN)
+>                                 fprintf(fp, " %u", *(unsigned*)RTA_DATA(mxrta[i]));
+>                         else {
+> -                               unsigned val = *(unsigned*)RTA_DATA(mxrta[i]);
+> +                               unsigned long long val = *(unsigned*)RTA_DATA(mxrta[i]);
+> +                               unsigned div = 1;
+>
+> -                               val *= 1000;
+>                                 if (i == RTAX_RTT)
+> -                                       val /= 8;
+> +                                       div = 8;
+>                                 else if (i == RTAX_RTTVAR)
+> -                                       val /= 4;
+> -                               if (val >= hz)
+> -                                       fprintf(fp, " %ums", val/hz);
+> +                                       div = 4;
+>                                 else
+> +                                       div = 1;
+> +
+> +                               val = val * 1000ULL / div;
+> +
+> +                               if (val >= hz) {
+> +                                       fprintf(fp, " %llums", val/hz);
+> +                               } else
+>                                         fprintf(fp, " %.2fms", (float)val/hz);
+>                         }
+>                 }
+>
+> --yoshfuji
