@@ -1,64 +1,57 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Subject: Re: [TCP] IPV6 : Change a divide into a right shift in tcp_v6_send_ack()
-Date: Fri, 21 Dec 2007 08:06:32 +0100
-Message-ID: <476B65F8.10201@cosmosbay.com>
-References: <476B574E.80601@cosmosbay.com> <20071221.155030.131184865.yoshfuji@linux-ipv6.org>
+Date: Fri, 21 Dec 2007 09:21:06 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0712210919350.30982@kivilampi-30.cs.helsinki.fi>
+References: <476B574E.80601@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
-	<yoshfuji@linux-ipv6.org>
+Content-Type: multipart/mixed; boundary="=_courier-4287-1198221666-0001-2"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"=?UTF-8?B?WU9TSElGVUpJIEhpZGU=?= =?UTF-8?B?YWtpIC8g5ZCJ6Jek6Iux5piO?="
+	<yoshfuji@linux-ipv6.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:33816 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750776AbXLUHGs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 02:06:48 -0500
-In-Reply-To: <20071221.155030.131184865.yoshfuji@linux-ipv6.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:38660 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750946AbXLUHVK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 02:21:10 -0500
+In-Reply-To: <476B574E.80601@cosmosbay.com>
+Content-ID: <Pine.LNX.4.64.0712210919351.30982@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E a =C3=A9crit :
-> In article <476B574E.80601@cosmosbay.com> (at Fri, 21 Dec 2007 07:03:=
-58 +0100), Eric Dumazet <dada1@cosmosbay.com> says:
->=20
->> Because tot_len is signed in tcp_v6_send_ack(), tot_len/4 forces com=
-piler
->> to emit an integer divide, while we can help it to use a right shift=
-,
->> less expensive.
->=20
-> Are you really sure?
-> At least, gcc-4.1.2-20061115 (debian) does not make any difference.
->=20
-> And, IMHO, because shift for signed variable is fragile, so we should
-> avoid using it.
->=20
+This is a MIME-formatted message.  If you see this text it means that your
+E-mail software does not support MIME-formatted messages.
 
-Yes I am sure, but maybe you are on x86_64 ?
+--=_courier-4287-1198221666-0001-2
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Content-ID: <Pine.LNX.4.64.0712210919352.30982@kivilampi-30.cs.helsinki.fi>
 
-gcc-4.2.2 on x86
+On Fri, 21 Dec 2007, Eric Dumazet wrote:
 
-# objdump --disassemble net/ipv6/tcp_ipv6.o|grep -6 idiv
-       b2:       66 8b 42 02             mov    0x2(%edx),%ax
-       b6:       ba 04 00 00 00          mov    $0x4,%edx
-       bb:       89 d7                   mov    %edx,%edi
-       bd:       66 89 45 00             mov    %ax,0x0(%ebp)
-       c1:       89 d8                   mov    %ebx,%eax
-       c3:       99                      cltd
-       c4:       f7 ff                   idiv   %edi
-       c6:       88 c2                   mov    %al,%dl
-       c8:       8a 45 0c                mov    0xc(%ebp),%al
-       cb:       c1 e2 04                shl    $0x4,%edx
-       ce:       83 e0 0f                and    $0xf,%eax
-       d1:       09 d0                   or     %edx,%eax
-       d3:       88 45 0c                mov    %al,0xc(%ebp)
+> Because tot_len is signed in tcp_v6_send_ack(), tot_len/4 forces compiler
+> to emit an integer divide, while we can help it to use a right shift,
+> less expensive.
 
+Can't you just change tot_len to unsigned here? It's just sizeof and some 
+positive constants added...
 
-If you think tot_len can be negative, I understand you can be against t=
-his=20
-patch. But I am sure it's allways > 0, even if I am a total ipv6 newbie=
- :)
+-- 
+ i.
+--=_courier-4287-1198221666-0001-2
+Content-Type: text/plain; name="tcp_ipv6.patch"; charset=iso-8859-1
+Content-Transfer-Encoding: base64
+Content-ID: <Pine.LNX.4.64.0712210919353.30982@kivilampi-30.cs.helsinki.fi>
+Content-Description: 
+Content-Disposition: inline; filename=tcp_ipv6.patch
 
-Thank you
+ZGlmZiAtLWdpdCBhL25ldC9pcHY2L3RjcF9pcHY2LmMgYi9uZXQvaXB2Ni90Y3BfaXB2Ni5j
+CmluZGV4IDAyNjhlMTEuLjkyZjBmZGEgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L3RjcF9pcHY2
+LmMKKysrIGIvbmV0L2lwdjYvdGNwX2lwdjYuYwpAQCAtMTEyNCw3ICsxMTI0LDcgQEAgc3Rh
+dGljIHZvaWQgdGNwX3Y2X3NlbmRfYWNrKHN0cnVjdCB0Y3BfdGltZXdhaXRfc29jayAqdHcs
+CiAJbWVtc2V0KHQxLCAwLCBzaXplb2YoKnQxKSk7CiAJdDEtPmRlc3QgPSB0aC0+c291cmNl
+OwogCXQxLT5zb3VyY2UgPSB0aC0+ZGVzdDsKLQl0MS0+ZG9mZiA9IHRvdF9sZW4vNDsKKwl0
+MS0+ZG9mZiA9IHRvdF9sZW4gPj4gMjsKIAl0MS0+c2VxID0gaHRvbmwoc2VxKTsKIAl0MS0+
+YWNrX3NlcSA9IGh0b25sKGFjayk7CiAJdDEtPmFjayA9IDE7Cg==
+--=_courier-4287-1198221666-0001-2--
