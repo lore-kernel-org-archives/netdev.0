@@ -1,50 +1,109 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [TCP] IPV6 : Change a divide into a right shift in tcp_v6_send_ack()
-Date: Fri, 21 Dec 2007 06:26:48 -0500
-Message-ID: <476BA2F8.1090102@garzik.org>
-References: <476B574E.80601@cosmosbay.com> <20071221.155030.131184865.yoshfuji@linux-ipv6.org>
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: Top 10 kernel oopses/warnings for the week of December 21st 2007
+Date: Fri, 21 Dec 2007 12:51:11 +0100
+Message-ID: <476BA8AF.4060201@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dada1@cosmosbay.com, davem@davemloft.net, netdev@vger.kernel.org
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org, Marcel Holtmann <marcel@holtmann.org>,
+	"Pallipadi, Venkatesh" <venkatesh.pallipadi@intel.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:56700 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751321AbXLUL06 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Dec 2007 06:26:58 -0500
-In-Reply-To: <20071221.155030.131184865.yoshfuji@linux-ipv6.org>
+Received: from mga06.intel.com ([134.134.136.21]:53878 "EHLO
+	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759607AbXLULzb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 06:55:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
-> In article <476B574E.80601@cosmosbay.com> (at Fri, 21 Dec 2007 07:03:=
-58 +0100), Eric Dumazet <dada1@cosmosbay.com> says:
->=20
->> Because tot_len is signed in tcp_v6_send_ack(), tot_len/4 forces com=
-piler
->> to emit an integer divide, while we can help it to use a right shift=
-,
->> less expensive.
->=20
-> Are you really sure?
-> At least, gcc-4.1.2-20061115 (debian) does not make any difference.
+The http://www.kerneloops.org website collects kernel oops and
+warning reports from various mailing lists and bugzillas as well as
+with a client users can install to auto-submit oopses.
+Below is a top 10 list of the oopses collected in the last 7 days.
+(Reports prior to 2.6.23 have been omitted in collecting the top 10)
 
-Quite true -- thus it is a matter of taste to the programmer.  Constant=
-=20
-folding inside the compiler ensures that "foo / 4" asm output is just a=
-s=20
-optimal as a shift.
+This week a total of 100 oopses have been collected, up from 59 last week.
+(This does not mean that the kernel quality has gone down; rather it means
+that there's more effective data collection)
 
+Rank 1: ieee80211_tx
+	Warning at net/mac80211/tx.c:1093 in ieee80211_tx()
+	Reported 30 times
+	Only reported for 2.6.24-rc5 so far
+	Probably specific to the rt2x00pci driver
+	More info: http://www.kerneloops.org/search.php?search=ieee80211_tx
+	
+Rank 2: uart_flush_buffer
+	Warning at drivers/serial/serial_core.c:544 in uart_flush_buffer()
+	Reported 16 times
+	No specific version information reported; bug present in 2.6.24-rc5
+	Caused by a bug in the Bluetooth line discipline/tty code
+	More info: http://lkml.org/lkml/2007/12/20/314 (analysis)
+	More info: http://lkml.org/lkml/2007/12/20/414 (patch)
+	More info: http://www.kerneloops.org/search.php?search=uart_flush_buffer
+	
+Rank 3: anon_vma_link
+	Kernel page fault
+	Reported 4 times
+	Reported for 2.6.23.9 and 2.6.23.11
+	So far only reported for reiserfs4 patched kernels
+	More info: http://www.kerneloops.org/search.php?search=anon_vma_link
+	
+Rank 4: acpi_idle_enter_bm
+	Soft lockup / crash
+	Reported 3 times
+	Reported for 2.6.23.8 (FC8) and 2.6.24-rc4
+	Idle path: could be a hardware issue
+	More info: http://www.kerneloops.org/search.php?search=acpi_idle_enter_bm
+	
+Rank 5:	iput
+	Null pointer
+	Reported 3 times
+	No specific version information
+	ISOFS specific; could be caused by an invalid iso formatted disk (security issue)
+	More info: http://www.kerneloops.org/oops.php?number=2493
+	More info: http://www.kerneloops.org/guilty.php?version=<unknown>&guilty=iput&start=0&end=0
 
-> And, IMHO, because shift for signed variable is fragile, so we should
-> avoid using it.
+Rank 6: acpi_idle_enter_simple
+	Soft lockup
+	Reported 2 times
+	Reported only for 2.6.23.8 (FC8)
+	Idle path: could be a hardware issue
+	Possibly related to this weeks Rank 4 issue
+	More info: http://www.kerneloops.org/search.php?search=acpi_idle_enter_simple
+	
+Rank 7: uart_write
+	Warning at drivers/serial/serial_core.c:490 in uart_write()
+	Reported 2 times
+	No specific version information
+	Appears to be a similar bug to the one in this weeks Rank 2
+	More info: http://www.kerneloops.org/search.php?search=uart_write
+	
+Rank 8: __change_page_attr
+	BUG at arch/x86/mm/pageattr_64.c:176
+	Reported 2 times
+	Reported this week for 2.6.24-rc5; history goes back to 2.6.15
+	More info: http://www.kerneloops.org/guilty.php?version=2.6.24-rc5&guilty=__change_page_attr&start=1574144&end=1574144
 
-I respectfully disagree, but this is an unrelated matter.  As you say,=20
-"/4" is fine as-is.
-
-	Jeff
-
+Rank 9: r_show
+	Kernel NULL pointer
+	Reported 2 times
+	Reported only for the -mm tree: 2.6.24-rc5-mm1
+	More info: http://www.kerneloops.org/search.php?search=r_show
+	
+Rank 10: set_dentry_child_flags
+	Warning at fs/inotify.c:172 in set_dentry_child_flags()
+	Reported 2 times
+	No specific version information
+	Inotify related
+	More info: http://www.kerneloops.org/search.php?search=set_dentry_child_flags
+	
+	
+	
+Website news / improvements:
+    * Various user feedback is now incorportated; keep this coming!
+		* Improved banner
+		* BUG/WARN_ON's now have a direct link to the specific line of code in git-web
+    * The oops submit client is now included in the Debian (unstable) and Gentoo distributions
 
