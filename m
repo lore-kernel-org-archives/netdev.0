@@ -1,49 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [SOCK] Avoid integer divides where not necessary in
- include/net/sock.h
-Date: Fri, 21 Dec 2007 01:55:43 -0800 (PST)
-Message-ID: <20071221.015543.19719154.davem@davemloft.net>
-References: <476B5AC0.9060604@cosmosbay.com>
+Subject: Re: [PATCH] OOPS with NETLINK_FIB_LOOKUP netlink socket
+Date: Fri, 21 Dec 2007 01:59:36 -0800 (PST)
+Message-ID: <20071221.015936.124513863.davem@davemloft.net>
+References: <20071221090043.GA25484@iris.sw.ru>
+	<20071221.013321.164620125.davem@davemloft.net>
+	<476B89D8.2060602@sw.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: den@openvz.org, devel@openvz.org, netdev@vger.kernel.org,
+	kaber@trash.net, kuznet@ms2.inr.ac.ru
+To: den@sw.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36245
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60776
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754694AbXLUJzo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 04:55:44 -0500
-In-Reply-To: <476B5AC0.9060604@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1750695AbXLUJ7g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 04:59:36 -0500
+In-Reply-To: <476B89D8.2060602@sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Fri, 21 Dec 2007 07:18:40 +0100
+From: "Denis V. Lunev" <den@sw.ru>
+Date: Fri, 21 Dec 2007 12:39:36 +0300
 
-> Because sk_wmem_queued, sk_sndbuf are signed, a divide per two
-> forces compiler to use an integer divide. We can instead use
-> a right shift.
+> David Miller wrote:
+> > What introduced this bug?  This code didn't have this
+> > problem previously.
 > 
-> SK_STREAM_MEM_QUANTUM deserves to be declared as an unsigned
-> quantity, so that sk_stream_pages() and __sk_stream_mem_reclaim()
-> can use right shifts instead of integer divides.
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> commit cd40b7d3983c708aabe3d3008ec64ffce56d33b0
+> Author: Denis V. Lunev <den@openvz.org>
+> Date:   Wed Oct 10 21:15:29 2007 -0700
 
-Everything that works with SK_STREAM_MEM_QUANTUM is an int.
+Thank you, I'm going to add this reference to the changeset
+comments so that it will help others who look at this fix.
 
-We do a DIV_ROUND_UP() using SK_STREAM_MEM_QUANTUM and an int.
-
-We do sk->sk_forward_alloc modifications using multiplies on
-SK_STREAM_MEM_QUANTUM and an int, sk_forward_alloc is an int
-too.
-
-Changing the type of SK_STREAM_MEM_QUANTUM does nothing more than
-create an exception in the typing used in these operations for no real
-gain, in fact it makes this code's correctness harder to verify.
-
-I'm fine with the rest of your change, so please resubmit this patch
-with the type change removed.
-
-Thanks.
+Consider your patch applied, thanks! :-)
