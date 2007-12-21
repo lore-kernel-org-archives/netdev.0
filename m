@@ -1,26 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] [XFRM]: Add packet processing statistics option.
-Date: Thu, 20 Dec 2007 20:44:10 -0800 (PST)
-Message-ID: <20071220.204410.74978098.davem@davemloft.net>
-References: <119820852455-git-send-email-nakam@linux-ipv6.org>
+Subject: Re: [PATCH 1/3] XFRM: Assorted IPsec fixups
+Date: Thu, 20 Dec 2007 20:49:43 -0800 (PST)
+Message-ID: <20071220.204943.215363882.davem@davemloft.net>
+References: <20071220214200.12122.89628.stgit@flek.lan>
+	<20071220214219.12122.57208.stgit@flek.lan>
+	<Xine.LNX.4.64.0712210925130.27551@us.intercode.com.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
-To: nakam@linux-ipv6.org
+Cc: paul.moore@hp.com, netdev@vger.kernel.org, linux-audit@redhat.com,
+	latten@austin.ibm.com
+To: jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38326
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50121
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754736AbXLUEoL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 23:44:11 -0500
-In-Reply-To: <119820852455-git-send-email-nakam@linux-ipv6.org>
+	by vger.kernel.org with ESMTP id S1753749AbXLUEto (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 23:49:44 -0500
+In-Reply-To: <Xine.LNX.4.64.0712210925130.27551@us.intercode.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Date: Fri, 21 Dec 2007 12:42:04 +0900
+From: James Morris <jmorris@namei.org>
+Date: Fri, 21 Dec 2007 09:25:38 +1100 (EST)
 
-> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+> On Thu, 20 Dec 2007, Paul Moore wrote:
+> 
+> > This patch fixes a number of small but potentially troublesome things in the
+> > XFRM/IPsec code:
+> > 
+> >  * Use the 'audit_enabled' variable already in include/linux/audit.h
+> >    Removed the need for extern declarations local to each XFRM audit fuction
+> > 
+> >  * Convert 'sid' to 'secid' everywhere we can
+> >    The 'sid' name is specific to SELinux, 'secid' is the common naming
+> >    convention used by the kernel when refering to tokenized LSM labels,
+> >    unfortunately we have to leave 'ctx_sid' in 'struct xfrm_sec_ctx' otherwise
+> >    we risk breaking userspace
+> > 
+> >  * Convert address display to use standard NIP* macros
+> >    Similar to what was recently done with the SPD audit code, this also also
+> >    includes the removal of some unnecessary memcpy() calls
+> > 
+> >  * Move common code to xfrm_audit_common_stateinfo()
+> >    Code consolidation from the "less is more" book on software development
+> > 
+> >  * Proper spacing around commas in function arguments
+> >    Minor style tweak since I was already touching the code
+> > 
+> > Signed-off-by: Paul Moore <paul.moore@hp.com>
+> 
+> Acked-by: James Morris <jmorris@namei.org>
 
-Applied, thanks again.
+Applied.
