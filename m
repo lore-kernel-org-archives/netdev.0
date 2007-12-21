@@ -1,40 +1,54 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: Top 10 kernel oopses/warnings for the week of December 21st
- 2007
-Date: Fri, 21 Dec 2007 14:09:34 +0000
-Message-ID: <20071221140934.5f87bf93@the-village.bc.nu>
-References: <476BA8AF.4060201@linux.intel.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [TCP]: Convert several length variable to unsigned.
+Date: Fri, 21 Dec 2007 06:17:31 -0800
+Message-ID: <1198246651.6183.121.camel@localhost>
+References: <20071221.164811.126977620.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	Marcel Holtmann <marcel@holtmann.org>,
-	"Pallipadi, Venkatesh" <venkatesh.pallipadi@intel.com>
-To: Arjan van de Ven <arjan@linux.intel.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki /
+	 =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:40208 "EHLO
-	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751341AbXLUORL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 09:17:11 -0500
-In-Reply-To: <476BA8AF.4060201@linux.intel.com>
+Received: from DSL022.labridge.com ([206.117.136.22]:2516 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753936AbXLUORz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Dec 2007 09:17:55 -0500
+In-Reply-To: <20071221.164811.126977620.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Rank 2: uart_flush_buffer
-> 	Warning at drivers/serial/serial_core.c:544 in uart_flush_buffer()
-> 	Reported 16 times
-> 	No specific version information reported; bug present in 2.6.24-rc5
-> 	Caused by a bug in the Bluetooth line discipline/tty code
+On Fri, 2007-12-21 at 16:48 +0900, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=
+=E8=8B=B1=E6=98=8E wrote:
+> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+> index 93980c3..3b4169c 100644
+> --- a/net/ipv6/tcp_ipv6.c
+> +++ b/net/ipv6/tcp_ipv6.c
+> @@ -985,7 +985,7 @@ static void tcp_v6_send_reset(struct sock *sk, st=
+ruct sk_buff *skb)
+>  	struct tcphdr *th =3D tcp_hdr(skb), *t1;
+>  	struct sk_buff *buff;
+>  	struct flowi fl;
+> -	int tot_len =3D sizeof(*th);
+> +	unsigned int tot_len =3D sizeof(*th);
+>  #ifdef CONFIG_TCP_MD5SIG
+>  	struct tcp_md5sig_key *key;
+>  #endif
+> @@ -1085,7 +1085,7 @@ static void tcp_v6_send_ack(struct tcp_timewait=
+_sock *tw,
+>  	struct tcphdr *th =3D tcp_hdr(skb), *t1;
+>  	struct sk_buff *buff;
+>  	struct flowi fl;
+> -	int tot_len =3D sizeof(struct tcphdr);
+> +	unsigned int tot_len =3D sizeof(struct tcphdr);
+>  	__be32 *topt;
+>  #ifdef CONFIG_TCP_MD5SIG
+>  	struct tcp_md5sig_key *key;
 
-> Rank 7: uart_write
-> 	Warning at drivers/serial/serial_core.c:490 in uart_write()
-> 	Reported 2 times
+Unrelated, but perhaps tot_len should be initialized in
+a consistent fashion?
 
-Seems to be more of the Bluetooth stuf
+I think unsigned int tot_len =3D sizeof(struct tcphdr); is more readabl=
+e.
 
-
-Alan
---
-	                "DASD is not really IBM - it has a vowel"
-                        -Arjan van de Ven
