@@ -1,57 +1,78 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: Update ip command line processing
-Date: Fri, 21 Dec 2007 10:32:08 +0900
-Message-ID: <20071221013206.GB21843@verge.net.au>
-References: <20071218085730.GA10765@verge.net.au> <20071220.152121.188610437.davem@davemloft.net>
+From: "Satoru SATOH" <satoru.satoh@gmail.com>
+Subject: Re: [PATCH] [IPROUTE]: A workaround to make larger rto_min printed correctly
+Date: Fri, 21 Dec 2007 11:24:54 +0900
+Message-ID: <d72b7ace0712201824k3754962cse377256cb5452b8a@mail.gmail.com>
+References: <d72b7ace0712191931w37f02645u8d5eb5eef9c1fba4@mail.gmail.com>
+	 <20071220091230.GB1924@ff.dom.local>
+	 <d72b7ace0712200821k7cde0834rf1187b30c68cd1ce@mail.gmail.com>
+	 <476ACF8A.7060201@gmail.com> <476AD127.2020909@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	apw@us.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:47364 "EHLO koto.vergenet.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751521AbXLUBcK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Dec 2007 20:32:10 -0500
+Received: from nz-out-0506.google.com ([64.233.162.237]:42937 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751476AbXLUCY4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 21:24:56 -0500
+Received: by nz-out-0506.google.com with SMTP id s18so104946nze.1
+        for <netdev@vger.kernel.org>; Thu, 20 Dec 2007 18:24:55 -0800 (PST)
+In-Reply-To: <476AD127.2020909@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20071220.152121.188610437.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 20, 2007 at 03:21:21PM -0800, David Miller wrote:
-> From: Simon Horman <horms@verge.net.au>
-> Date: Tue, 18 Dec 2007 17:57:32 +0900
-> 
-> > @@ -1414,9 +1414,16 @@ late_initcall(ip_auto_config);
-> >   */
-> >  static int __init ic_proto_name(char *name)
-> >  {
-> > +	if (!name) {
-> > +		return 1;
-> > +	}
-> 
-> I do not see any circumstance under which this pointer can
-> be NULL.  Judging by your other changes, I think you mean
-> to use "!*name" here.
-> 
-> Maybe:
-> 
-> 	if (*name == '\0')
-> 
-> would make it clearer what you're checking for, an
-> empty string.
-> 
-> Otherwise I'm fine with your change.
+2007/12/21, Jarek Poplawski <jarkao2@gmail.com>:
+> Jarek Poplawski wrote, On 12/20/2007 09:24 PM:
+> ...
+>
+> > but since it's your patch, I hope you do some additional checking
+> > if it's always like this...
+>
+>
+> ...or maybe only changing this all a little bit will make it look safer!
+>
+> Jarek P.
 
-Sorry, I meant if (*name == '\0') as you suggest to replace the first
-portion of:
 
--	ic_enable = (*addrs &&
--		(strcmp(addrs, "off") != 0) &&
--		(strcmp(addrs, "none") != 0));
+OK, how about this?
 
-I'll send an updated patch shortly.
+Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
 
--- 
-Horms
+ ip/iproute.c |   12 ++++++++----
+ 1 files changed, 8 insertions(+), 4 deletions(-)
 
+diff --git a/ip/iproute.c b/ip/iproute.c
+index f4200ae..c771b34 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -510,16 +510,20 @@ int print_route(const struct sockaddr_nl *who,
+struct nlmsghdr *n, void *arg)
+ 				fprintf(fp, " %u", *(unsigned*)RTA_DATA(mxrta[i]));
+ 			else {
+ 				unsigned val = *(unsigned*)RTA_DATA(mxrta[i]);
++				unsigned hz1 = hz;
++				if (hz1 > 1000)
++					hz1 /= 1000;
++				else
++					val *= 1000;
+
+-				val *= 1000;
+ 				if (i == RTAX_RTT)
+ 					val /= 8;
+ 				else if (i == RTAX_RTTVAR)
+ 					val /= 4;
+-				if (val >= hz)
+-					fprintf(fp, " %ums", val/hz);
++				if (val >= hz1)
++					fprintf(fp, " %ums", val/hz1);
+ 				else
+-					fprintf(fp, " %.2fms", (float)val/hz);
++					fprintf(fp, " %.2fms", (float)val/hz1);
+ 			}
+ 		}
+ 	}
+
+
+Thanks,
+Satoru SATOH
