@@ -1,37 +1,37 @@
 From: dhananjay@netxen.com
-Subject: [patch 2/6] netxen: update driver version
-Date: Thu, 20 Dec 2007 18:36:58 -0800
-Message-ID: <20071221024308.252607174@netxen.com>
+Subject: [patch 1/6] netxen: Update MAINTAINERS
+Date: Thu, 20 Dec 2007 18:36:57 -0800
+Message-ID: <20071221024307.616300485@netxen.com>
 References: <20071221023656.409657310@netxen.com>
 Cc: jeff@garzik.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [64.209.101.202] ([64.209.101.202]:36118 "EHLO dut46.unminc.com"
+Received: from [64.209.101.202] ([64.209.101.202]:36119 "EHLO dut46.unminc.com"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754103AbXLUCvQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754139AbXLUCvQ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 20 Dec 2007 21:51:16 -0500
-Content-Disposition: inline; filename=version.patch
+Content-Disposition: inline; filename=maintainer.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bumping up driver version to 3.4.18, several fixes have gone in since version 3.4.2.
+Changing MAINTAINERS for netxen nic driver.
 
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 
-Index: netdev-2.6/drivers/net/netxen/netxen_nic.h
+Index: netdev-2.6/MAINTAINERS
 ===================================================================
---- netdev-2.6.orig/drivers/net/netxen/netxen_nic.h
-+++ netdev-2.6/drivers/net/netxen/netxen_nic.h
-@@ -65,8 +65,8 @@
+--- netdev-2.6.orig/MAINTAINERS
++++ netdev-2.6/MAINTAINERS
+@@ -2738,8 +2738,8 @@ T:	git kernel.org:/pub/scm/linux/kernel/
+ S:	Maintained
  
- #define _NETXEN_NIC_LINUX_MAJOR 3
- #define _NETXEN_NIC_LINUX_MINOR 4
--#define _NETXEN_NIC_LINUX_SUBVERSION 2
--#define NETXEN_NIC_LINUX_VERSIONID  "3.4.2"
-+#define _NETXEN_NIC_LINUX_SUBVERSION 18
-+#define NETXEN_NIC_LINUX_VERSIONID  "3.4.18"
- 
- #define NETXEN_NUM_FLASH_SECTORS (64)
- #define NETXEN_FLASH_SECTOR_SIZE (64 * 1024)
+ NETXEN (1/10) GbE SUPPORT
+-P:	Amit S. Kale
+-M:	amitkale@netxen.com
++P:	Dhananjay Phadke
++M:	dhananjay@netxen.com
+ L:	netdev@vger.kernel.org
+ W:	http://www.netxen.com
+ S:	Supported
 
 -- 
