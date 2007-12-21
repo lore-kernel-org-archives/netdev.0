@@ -1,53 +1,74 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: Top 10 kernel oopses/warnings for the week of December 21st 2007
-Date: Fri, 21 Dec 2007 15:30:45 +0100
-Message-ID: <476BCE15.6090902@linux.intel.com>
-References: <476BA8AF.4060201@linux.intel.com> <p73ejdgf8vj.fsf@bingen.suse.de>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [SOCK] Avoid divides in sk_stream_pages() and
+ __sk_stream_mem_reclaim()
+Date: Fri, 21 Dec 2007 15:45:08 +0100
+Message-ID: <20071221154508.97aef5d9.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	Marcel Holtmann <marcel@holtmann.org>,
-	"Pallipadi, Venkatesh" <venkatesh.pallipadi@intel.com>
-To: Andi Kleen <andi@firstfloor.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:37554 "EHLO
-	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750920AbXLUOch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 09:32:37 -0500
-In-Reply-To: <p73ejdgf8vj.fsf@bingen.suse.de>
+Received: from pfx2.jmh.fr ([194.153.89.55]:53835 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751286AbXLUOpM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Dec 2007 09:45:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen wrote:
-> Arjan van de Ven <arjan@linux.intel.com> writes:
-> 
->> 	
->> Rank 8: __change_page_attr
->> 	BUG at arch/x86/mm/pageattr_64.c:176
->> 	Reported 2 times
->> 	Reported this week for 2.6.24-rc5; history goes back to 2.6.15
-> 
-> There is no BUG on this line on 2.6.24-rc5.   Since there are many
-> BUG_ONs in this file it is unclear which you mean.
-> 
-> Could you always include the version of the kernel where the actual
-> oops in the line came from?
+Hi David
 
-in this case this is really all the version information available ;(
-it seems to be a patched kernel without patched EXTRAVERSION.
-But in the future if I have more specific information (eg it's only 1 kernel version) I'll mention it in more detail.
-It gets unwieldy if there's 500 reports for an oops of course ;)
+This is the last one of this boring patch suite.
 
-> 
-> Anyways there are a lot of third party modules who do strange 
-> things with c_p_a(), not always legal, so you might look up out for that 
-> pattern too. Perhaps report the out of tree modules loaded in the 
-> summary too?
+I prefered to not change sk_forward_alloc type, I prefer to wait 
+18 months more before taking this responsibility :)
 
-I already always will mention if the oops is tainted or not (that I track specifically);
-I'll keep an eye out for other non-tainting out of tree modules as well.
+Merry Christmas everybody
 
-Thanks for the suggestions.
+Eric
 
+[SOCK] Avoid divides in sk_stream_pages() and __sk_stream_mem_reclaim()
+
+sk_forward_alloc being signed, we should take care of divides by
+SK_STREAM_MEM_QUANTUM we do in sk_stream_pages() and 
+__sk_stream_mem_reclaim()
+
+This patchs introduces SK_STREAM_MEM_QUANTUM_SHIFT, defined
+as ilog2(SK_STREAM_MEM_QUANTUM), to be able to use right
+shifts instead of plain divides.
+
+This should help compiler to choose right shifts instead of
+expensive divides (as seen with CONFIG_CC_OPTIMIZE_FOR_SIZE=y on x86)
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 4456453..a134be1 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -716,10 +716,11 @@ extern void __sk_stream_mem_reclaim(struct sock *sk);
+ extern int sk_stream_mem_schedule(struct sock *sk, int size, int kind);
+ 
+ #define SK_STREAM_MEM_QUANTUM ((int)PAGE_SIZE)
++#define SK_STREAM_MEM_QUANTUM_SHIFT ilog2(SK_STREAM_MEM_QUANTUM)
+ 
+ static inline int sk_stream_pages(int amt)
+ {
+-	return DIV_ROUND_UP(amt, SK_STREAM_MEM_QUANTUM);
++	return (amt + SK_STREAM_MEM_QUANTUM - 1) >> SK_STREAM_MEM_QUANTUM_SHIFT;
+ }
+ 
+ static inline void sk_stream_mem_reclaim(struct sock *sk)
+diff --git a/net/core/stream.c b/net/core/stream.c
+index 5586879..bf188ff 100644
+--- a/net/core/stream.c
++++ b/net/core/stream.c
+@@ -196,7 +196,7 @@ EXPORT_SYMBOL(sk_stream_error);
+ 
+ void __sk_stream_mem_reclaim(struct sock *sk)
+ {
+-	atomic_sub(sk->sk_forward_alloc / SK_STREAM_MEM_QUANTUM,
++	atomic_sub(sk->sk_forward_alloc >> SK_STREAM_MEM_QUANTUM_SHIFT,
+ 		   sk->sk_prot->memory_allocated);
+ 	sk->sk_forward_alloc &= SK_STREAM_MEM_QUANTUM - 1;
+ 	if (*sk->sk_prot->memory_pressure &&
