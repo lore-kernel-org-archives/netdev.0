@@ -1,50 +1,45 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: BNX2 warning
-Date: Fri, 21 Dec 2007 10:34:15 -0800
-Message-ID: <1198262055.28427.2.camel@dell>
-References: <20071220.203935.30925934.davem@davemloft.net>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [PATCH net-2.6.25 3/3] Uninline the inet_twsk_put function
+Date: Fri, 21 Dec 2007 18:53:51 +0100
+Message-ID: <200712211853.52230.netdev@axxeo.de>
+References: <4768F8CD.2050209@openvz.org> <200712201932.45900.netdev@axxeo.de> <20071220.160840.140150524.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2177 "EHLO mms1.broadcom.com"
+Received: from mail.axxeo.de ([82.100.226.146]:4956 "EHLO mail.axxeo.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751905AbXLURta (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Dec 2007 12:49:30 -0500
-In-Reply-To: <20071220.203935.30925934.davem@davemloft.net>
+	id S1752258AbXLURyI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Dec 2007 12:54:08 -0500
+In-Reply-To: <20071220.160840.140150524.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2007-12-20 at 20:39 -0800, David Miller wrote:
+Hi David,
 
-> Michael, please fix this, thanks :-)
+David Miller schrieb:
+> "inet_timewait_sock" begins with a "struct sock_common"
+> which is where the atomic_t is, and:
 > 
-> drivers/net/bnx2.c: In function 'bnx2_init_napi':
-> drivers/net/bnx2.c:7329: warning: no return statement in function returning non-void
+> #define tw_refcnt		__tw_common.skc_refcnt
 > 
+> So you would have to change struct sock_common over to kref, and thus
+> the entire networking, in order to make such a change.
 
-[BNX2]: Fix compiler warning.
-
-Change bnx2_init_napi() to void.
-
-Warning was noted by DaveM.
-
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index aef2a9a..94d1857 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -7313,7 +7313,7 @@ bnx2_bus_string(struct bnx2 *bp, char *str)
- 	return str;
- }
+Ok, that sounds too much. Many thanks for following up and taking the time
+to explain it.
  
--static int __devinit
-+static void __devinit
- bnx2_init_napi(struct bnx2 *bp)
- {
- 	int i;
+> But you would have seen this instantly if you had spent 5 seconds
+> looking at how these datastructures are defined.  Instead you choose
+> to make me do it and explain it to you instead.
+
+Sorry, just matched the wrong pattern here :-)
 
 
+Best Regards
+
+Ingo Oeser
