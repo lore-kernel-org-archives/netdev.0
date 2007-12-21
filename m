@@ -1,74 +1,49 @@
-From: Hideo AOKI <haoki@redhat.com>
-Subject: Re: [PATCH 1/4] [UDP]: fix send buffer check
-Date: Thu, 20 Dec 2007 22:43:17 -0500
-Message-ID: <476B3655.4000508@redhat.com>
-References: <47673195.80004@redhat.com>	<4767328B.70601@redhat.com> <20071220.033138.157714241.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [XFRM] IPv6: Fix dst/routing check at transformation.
+Date: Thu, 20 Dec 2007 19:50:54 -0800 (PST)
+Message-ID: <20071220.195054.23654691.davem@davemloft.net>
+References: <11982084391595-git-send-email-nakam@linux-ipv6.org>
+	<200712211248.31508.nakam@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	tyasui@redhat.com, mhiramat@redhat.com,
-	satoshi.oshima.fk@hitachi.com, billfink@mindspring.com,
-	andi@firstfloor.org, johnpol@2ka.mipt.ru,
-	shemminger@linux-foundation.org, yoshfuji@linux-ipv6.org,
-	yumiko.sugita.yf@hitachi.com, haoki@redhat.com
-To: David Miller <davem@davemloft.net>
+Cc: usagi-core@linux-ipv6.org, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: nakam@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:48237 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750933AbXLUDsT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Dec 2007 22:48:19 -0500
-In-Reply-To: <20071220.033138.157714241.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33628
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1760726AbXLUDuz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 22:50:55 -0500
+In-Reply-To: <200712211248.31508.nakam@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Date: Fri, 21 Dec 2007 12:48:31 +0900
 
-David Miller wrote:
-
->> diff -pruN net-2.6/net/ipv4/ip_output.c net-2.6-udp-take11a1-p1/net/ipv4/ip_output.c
->> --- net-2.6/net/ipv4/ip_output.c	2007-12-11 10:54:55.000000000 -0500
->> +++ net-2.6-udp-take11a1-p1/net/ipv4/ip_output.c	2007-12-17 14:42:31.000000000 -0500
->> @@ -1004,6 +1004,11 @@ alloc_new_skb:
->>  					frag = &skb_shinfo(skb)->frags[i];
->>  				}
->>  			} else if (i < MAX_SKB_FRAGS) {
->> +				if (atomic_read(&sk->sk_wmem_alloc) + PAGE_SIZE
->> +				    > 2 * sk->sk_sndbuf) {
->> +					err = -ENOBUFS;
->> +					goto error;
->> +				}
->>  				if (copy > PAGE_SIZE)
->>  					copy = PAGE_SIZE;
->>  				page = alloc_pages(sk->sk_allocation, 0);
+> My 5 patches for XFRM sent to netdev should be TOed to David, but it is not.
 > 
-> If we are going to do this, we need to add the same check to
-> skb_append_datato_frags() which is invoked via ip_ufo_append_data().
+> It does not seems that the command works for me.
+> git-send-email --to "David S. Miller <davem@davemloft.net>" --to herbert@gondor.apana.org.au --cc...
 > 
-> We also have to be very careful in this area.  One problem we had a
-> long time ago was that we would socket account when fragmenting an
-> outgoing frame.  This was bogus because even if the socket had enough
-> space for one full sized frame, the packet send would fail because it
-> could not fit the space for both the original frame and the
-> fragmented copy of it.
-> 
-> This situation was cured by simply not enforcing accounting for the
-> fragmented copy.  It is valid because after we fragment, we keep
-> the fragmented copy but free the original.
-> 
-> This doesn't apply directly to this specific patch, but it is
-> something to keep in mind when doing these changes.
+> Please see my patches, even it is not TOed to you.
 
-Hello,
+All of your patches won't make it anywhere.
 
-Thank you for sharing your experience.
+In the email headers my name shows up like this:
 
-Let me investigate this code and skb_append_datato_frags().
+	David S. Miller
 
-I'll include the check code in next patch set if it is really needed.
+Email SMTP rules dictate that if special characters like
+"." appear in the name it must be surrounded by double
+quotes otherwise it is a syntax error.
 
-Regards,
-Hideo
+This is a bug in git-send-email that I thought was fixed
+by now.  Perhaps it is fixed in git mainline and not any
+of the stable releases yet.
 
--- 
-Hitachi Computer Products (America) Inc.
+Perhaps you can submit them by hand until you resolve the
+git-send-email problem?
+
+Thanks.
