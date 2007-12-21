@@ -1,43 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH/RFC] [v2] TCP: use non-delayed ACK for congestion
- control RTT
-Date: Fri, 21 Dec 2007 06:05:48 -0800 (PST)
-Message-ID: <20071221.060548.97855627.davem@davemloft.net>
-References: <Pine.LNX.4.64.0712191511120.14629@kivilampi-30.cs.helsinki.fi>
-	<20071221.031400.194877955.davem@davemloft.net>
-	<20071221133106.GA7995@nuim.ie>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [TCP] Avoid two divides in __tcp_grow_window()
+Date: Fri, 21 Dec 2007 15:05:51 +0100
+Message-ID: <20071221150551.dccfe24f.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: Gavin.McCullagh@nuim.ie
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58955
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755786AbXLUOFs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 09:05:48 -0500
-In-Reply-To: <20071221133106.GA7995@nuim.ie>
+Received: from pfx2.jmh.fr ([194.153.89.55]:52844 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756357AbXLUOFz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Dec 2007 09:05:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gavin McCullagh <Gavin.McCullagh@nuim.ie>
-Date: Fri, 21 Dec 2007 13:31:06 +0000
+tcp_win_from_space() being signed, compiler might emit an integer divide
+to compute tcp_win_from_space()/2 .
 
-> On Fri, 21 Dec 2007, David Miller wrote:
-> 
-> > When Gavin respins the patch I'll look at in the context of submitting
-> > it as a bug fix.  So Gavin please generate the patch against Linus's
-> > vanilla GIT tree or net-2.6, your choise.
-> 
-> The existing patch was against Linus' linux-2.6.git from a few days ago so
-> I've updated my tree and regenerated the patch (below).  Is that the right
-> one?
+Using right shifts is OK here and less expensive.
 
-Yep, it is.
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-> I need to re-read properly, but I think the same problem affects the
-> microsecond values where TCP_CONG_RTT_STAMP is set (used by vegas, veno,
-> yeah, illinois).  I might follow up with another patch which changes the
-> behaviour where TCP_CONG_RTT_STAMP when I'm more sure of that.
-
-Ok, let us know what you find.
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 6931946..145b51a 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -289,8 +289,8 @@ static int __tcp_grow_window(const struct sock *sk, const struct sk_buff *skb)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	/* Optimize this! */
+-	int truesize = tcp_win_from_space(skb->truesize)/2;
+-	int window = tcp_win_from_space(sysctl_tcp_rmem[2])/2;
++	int truesize = tcp_win_from_space(skb->truesize) >> 1;
++	int window = tcp_win_from_space(sysctl_tcp_rmem[2]) >> 1;
+ 
+ 	while (tp->rcv_ssthresh <= window) {
+ 		if (truesize <= skb->len)
