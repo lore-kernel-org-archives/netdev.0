@@ -1,65 +1,36 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [TCP] IPV6 : Change a divide into a right shift in tcp_v6_send_ack()
-Date: Fri, 21 Dec 2007 08:39:24 +0100
-Message-ID: <476B6DAC.2030102@cosmosbay.com>
-References: <476B574E.80601@cosmosbay.com>	<20071221.155030.131184865.yoshfuji@linux-ipv6.org>	<476B65F8.10201@cosmosbay.com> <20071221.162833.82587283.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
 	<yoshfuji@linux-ipv6.org>
+Subject: Re: [TCP] IPV6 : Change a divide into a right shift in
+ tcp_v6_send_ack()
+Date: Fri, 21 Dec 2007 16:44:58 +0900 (JST)
+Message-ID: <20071221.164458.51184496.yoshfuji@linux-ipv6.org>
+References: <476B65F8.10201@cosmosbay.com>
+	<20071221.162833.82587283.yoshfuji@linux-ipv6.org>
+	<476B6DAC.2030102@cosmosbay.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:34294 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753016AbXLUHjj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 02:39:39 -0500
-In-Reply-To: <20071221.162833.82587283.yoshfuji@linux-ipv6.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:44220 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751067AbXLUHoW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 02:44:22 -0500
+In-Reply-To: <476B6DAC.2030102@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E a =C3=A9crit :
-> In article <476B65F8.10201@cosmosbay.com> (at Fri, 21 Dec 2007 08:06:=
-32 +0100), Eric Dumazet <dada1@cosmosbay.com> says:
->=20
->> YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E a =C3=A9cri=
-t :
->>> In article <476B574E.80601@cosmosbay.com> (at Fri, 21 Dec 2007 07:0=
-3:58 +0100), Eric Dumazet <dada1@cosmosbay.com> says:
->>>
->>>> Because tot_len is signed in tcp_v6_send_ack(), tot_len/4 forces c=
-ompiler
->>>> to emit an integer divide, while we can help it to use a right shi=
-ft,
->>>> less expensive.
->>> Are you really sure?
->>> At least, gcc-4.1.2-20061115 (debian) does not make any difference.
->>>
->>> And, IMHO, because shift for signed variable is fragile, so we shou=
-ld
->>> avoid using it.
->>>
->> Yes I am sure, but maybe you are on x86_64 ?
->>
->> gcc-4.2.2 on x86
->=20
-> I'm on gcc-4.1.2 20061115 (prerelease) (Debian 4.1.1-21), on x86 (i68=
-6).
-> Maybe compiler difference?!
->=20
->> If you think tot_len can be negative, I understand you can be agains=
-t this=20
->> patch. But I am sure it's allways > 0, even if I am a total ipv6 new=
-bie :)
->=20
-> Okay, anyway, I'll convert them to unsigned int, which is more
-> appropriate.
+In article <476B6DAC.2030102@cosmosbay.com> (at Fri, 21 Dec 2007 08:39:24 +0100), Eric Dumazet <dada1@cosmosbay.com> says:
 
-I didnt chose this path, because David was against changing some fields=
- from=20
-'int' to 'unsigned'. If you look in other parts of networking, we have =
-many >>=20
-1 or >> 2 already there.
+> > Okay, anyway, I'll convert them to unsigned int, which is more
+> > appropriate.
+> 
+> I didnt chose this path, because David was against changing some fields from 
+> 'int' to 'unsigned'. If you look in other parts of networking, we have many >> 
+> 1 or >> 2 already there.
 
+I do think it is safe to convert them here.
 
+--yoshfuji
