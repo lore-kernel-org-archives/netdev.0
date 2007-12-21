@@ -1,110 +1,125 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] [TCP]: Force TSO splits to MSS boundaries
-Date: Fri, 21 Dec 2007 22:01:30 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0712212157220.5878@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0712201253400.31652@kivilampi-30.cs.helsinki.fi>
- <20071220.040037.48002365.davem@davemloft.net> <20071220140012.GA22495@gondor.apana.org.au>
- <20071220.155518.42408378.davem@davemloft.net>
- <Pine.LNX.4.64.0712211953580.7301@kivilampi-30.cs.helsinki.fi>
+From: "Medve Emilian" <Emilian.Medve@freescale.com>
+Subject: RE: [PATCH 2/2] phylib: add module owner to the mii_bus structure
+Date: Fri, 21 Dec 2007 13:55:22 -0700
+Message-ID: <598D5675D34BE349929AF5EDE9B03E27018DF0C6@az33exm24.fsl.freescale.net>
+References: <1198245451-13929-1-git-send-email-ionut.nicu@freescale.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/Mixed; boundary="-696243703-1380546754-1198263328=:31652"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "Nicu Ioan Petru" <ionut.nicu@freescale.com>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:59847 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753848AbXLUUBd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 15:01:33 -0500
-In-Reply-To: <Pine.LNX.4.64.0712211953580.7301@kivilampi-30.cs.helsinki.fi>
-Content-ID: <Pine.LNX.4.64.0712212157221.5878@kivilampi-30.cs.helsinki.fi>
+Received: from az33egw02.freescale.net ([192.88.158.103]:61725 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754006AbXLUUzq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 15:55:46 -0500
+Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
+	by az33egw02.freescale.net (8.12.11/az33egw02) with ESMTP id lBLKtNIL013230
+	for <netdev@vger.kernel.org>; Fri, 21 Dec 2007 13:55:34 -0700 (MST)
+Received: from az33exm24.fsl.freescale.net (az33exm24.am.freescale.net [10.64.32.14])
+	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id lBLKtN1H004988
+	for <netdev@vger.kernel.org>; Fri, 21 Dec 2007 14:55:23 -0600 (CST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1198245451-13929-1-git-send-email-ionut.nicu@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Tested-by: Emil Medve <Emilian.Medve@Freescale.com>
 
----696243703-1380546754-1198263328=:31652
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0712212157222.5878@kivilampi-30.cs.helsinki.fi>
 
-On Fri, 21 Dec 2007, Ilpo Järvinen wrote:
-
-> How about this, I had to use another approach due to reasons
-> outlined in the commit message:
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org 
+> [mailto:netdev-owner@vger.kernel.org] On Behalf Of Nicu Ioan Petru
+> Sent: Friday, December 21, 2007 7:58 AM
+> To: netdev@vger.kernel.org
+> Cc: Nicu Ioan Petru
+> Subject: [PATCH 2/2] phylib: add module owner to the mii_bus structure
+> 
+> Prevent unloading mii bus driver module when other modules 
+> have references to some
+> phydevs on that bus. Added a new member (module owner) to 
+> struct mii_bus and added
+> code to increment the mii bus owner module usage count on 
+> phy_connect and decrement
+> it on phy_disconnect
+> 
+> Set the module owner in the ucc_geth_mdio driver.
+> 
+> Signed-off-by: Ionut Nicu <ionut.nicu@freescale.com>
+> ---
+>  drivers/net/phy/phy_device.c |    9 ++++++++-
+>  drivers/net/ucc_geth_mii.c   |    3 +++
+>  include/linux/phy.h          |    4 ++++
+>  3 files changed, 15 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/phy/phy_device.c 
+> b/drivers/net/phy/phy_device.c
+> index 5b9e175..7dc5480 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -178,6 +178,10 @@ struct phy_device * phy_connect(struct 
+> net_device *dev, const char *phy_id,
+>  	if (phydev->irq > 0)
+>  		phy_start_interrupts(phydev);
+>  
+> +	/* Increment the usage count of the mii bus owner */
+> +	if (!try_module_get(phydev->bus->owner))
+> +		return ERR_PTR(-EFAULT);
+> +
+>  	return phydev;
+>  }
+>  EXPORT_SYMBOL(phy_connect);
+> @@ -192,9 +196,12 @@ void phy_disconnect(struct phy_device *phydev)
+>  		phy_stop_interrupts(phydev);
+>  
+>  	phy_stop_machine(phydev);
+> -	
+> +
+>  	phydev->adjust_link = NULL;
+>  
+> +	/* Decrement the reference count for the mii bus owner */
+> +	module_put(phydev->bus->owner);
+> +
+>  	phy_detach(phydev);
+>  }
+>  EXPORT_SYMBOL(phy_disconnect);
+> diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
+> index a3af4ea..84c7295 100644
+> --- a/drivers/net/ucc_geth_mii.c
+> +++ b/drivers/net/ucc_geth_mii.c
+> @@ -217,6 +217,9 @@ static int uec_mdio_probe(struct 
+> of_device *ofdev, const struct of_device_id *ma
+>  		}
+>  	}
+>  
+> +	/* register ourselves as the owner of this bus */
+> +	new_bus->owner = THIS_MODULE;
+> +
+>  	err = mdiobus_register(new_bus);
+>  	if (0 != err) {
+>  		printk(KERN_ERR "%s: Cannot register as MDIO bus\n",
+> diff --git a/include/linux/phy.h b/include/linux/phy.h
+> index 554836e..04ff6a5 100644
+> --- a/include/linux/phy.h
+> +++ b/include/linux/phy.h
+> @@ -82,6 +82,10 @@ struct mii_bus {
+>  	const char *name;
+>  	int id;
+>  	void *priv;
+> +
+> +	/* The module that owns this bus */
+> +	struct module *owner;
+> +
+>  	int (*read)(struct mii_bus *bus, int phy_id, int regnum);
+>  	int (*write)(struct mii_bus *bus, int phy_id, int 
+> regnum, u16 val);
+>  	int (*reset)(struct mii_bus *bus);
+> -- 
+> 1.5.4.rc0
 > 
 > --
-> [PATCH] [TCP]: Force TSO splits to MSS boundaries
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
-> If snd_wnd - snd_nxt wasn't multiple of MSS, skb was split on
-> odd boundary by the callers of tcp_window_allows.
-> 
-> We try really hard to avoid unnecessary modulos. Therefore the
-> old caller side check "if (skb->len < limit)" was too wide as
-> well because limit is not bound in any way to skb->len and can
-> cause spurious testing for trimming in the middle of the queue
-> while we only wanted that to happen at the tail of the queue.
-> A simple additional caller side check for tcp_write_queue_tail
-> would likely have resulted 2 x modulos because the limit would
-> have to be first calculated from window, however, doing that
-> unnecessary modulo is not mandatory. After a minor change to
-> the algorithm, simply determine first if the modulo is needed
-> at all and at that point immediately decide also from which
-> value it should be calculated from.
-> 
-> This approach also kills some duplicated code.
-> 
-> Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-> ---
->  net/ipv4/tcp_output.c |   51 ++++++++++++++++++++++++-------------------------
->  1 files changed, 25 insertions(+), 26 deletions(-)
-> 
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 1852698..ea92a1b 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -1008,13 +1008,29 @@ static void tcp_cwnd_validate(struct sock *sk)
->  	}
->  }
->  
-> -static unsigned int tcp_window_allows(struct tcp_sock *tp, struct sk_buff *skb, unsigned int mss_now, unsigned int cwnd)
-> +/* Returns the portion of skb which can be sent right away without
-> + * introducing MSS oddities to segment boundaries. In rare cases where
-> + * mss_now != mss_cache, we will request caller to create a small skb
-> + * per input skb which could be mostly avoided here (if desired).
-> + */
-> +static unsigned int tcp_mss_split_point(struct sock *sk, struct sk_buff *skb,
-> +					unsigned int mss_now,
-> +					unsigned int cwnd)
->  {
-> -	u32 window, cwnd_len;
-> +	struct tcp_sock *tp = tcp_sk(sk);
-> +	u32 needed, window, cwnd_len;
->  
->  	window = (tp->snd_una + tp->snd_wnd - TCP_SKB_CB(skb)->seq);
->  	cwnd_len = mss_now * cwnd;
-> -	return min(window, cwnd_len);
-> +
-> +	if (likely(cwnd_len <= window && skb != tcp_write_queue_tail(sk)))
-> +		return cwnd_len;
-> +
-> +	if (skb == tcp_write_queue_tail(sk) && cwnd_len <= skb->len)
-> +		return cwnd_len;
-
-...if desired that this won't cause small skbs in the middle of the queue 
-(except in case where just the sub-MSS portion is left out above window), 
-something like this could be added here (again, avoiding more modulos):
-
-	if (skb != tcp_write_queue_tail(sk) && window > skb->len)
-		return skb->len;
-
-> +	needed = min(skb->len, window);
-> +	return needed - needed % mss_now;
->  }
->  
->  /* Can at least one segment of SKB be sent right now, according to the
-
--- 
- i.
----696243703-1380546754-1198263328=:31652--
