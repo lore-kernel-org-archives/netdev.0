@@ -1,106 +1,50 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH] [IPROUTE]: A workaround to make larger rto_min printed
- correctly
-Date: Fri, 21 Dec 2007 06:18:48 -0500
-Message-ID: <20071221061848.aefa4e6c.billfink@mindspring.com>
-References: <476ACF8A.7060201@gmail.com>
-	<476AD127.2020909@gmail.com>
-	<d72b7ace0712201824k3754962cse377256cb5452b8a@mail.gmail.com>
-	<20071221.175352.77874691.yoshfuji@linux-ipv6.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [TCP] IPV6 : Change a divide into a right shift in tcp_v6_send_ack()
+Date: Fri, 21 Dec 2007 06:26:48 -0500
+Message-ID: <476BA2F8.1090102@garzik.org>
+References: <476B574E.80601@cosmosbay.com> <20071221.155030.131184865.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: satoru.satoh@gmail.com, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki /
-	 =?ISO-8859-1?Q?=5F=5F=5F=5F=5F=5F=5F=5F=5F?=
-	 =?ISO-8859-1?Q?=5F=5F=5F?= <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dada1@cosmosbay.com, davem@davemloft.net, netdev@vger.kernel.org
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-galgo.atl.sa.earthlink.net ([209.86.89.61]:50741 "EHLO
-	elasmtp-galgo.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751204AbXLULS7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 06:18:59 -0500
-In-Reply-To: <20071221.175352.77874691.yoshfuji@linux-ipv6.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:56700 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751321AbXLUL06 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Dec 2007 06:26:58 -0500
+In-Reply-To: <20071221.155030.131184865.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 21 Dec 2007, YOSHIFUJI Hideaki wrote:
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> In article <476B574E.80601@cosmosbay.com> (at Fri, 21 Dec 2007 07:03:=
+58 +0100), Eric Dumazet <dada1@cosmosbay.com> says:
+>=20
+>> Because tot_len is signed in tcp_v6_send_ack(), tot_len/4 forces com=
+piler
+>> to emit an integer divide, while we can help it to use a right shift=
+,
+>> less expensive.
+>=20
+> Are you really sure?
+> At least, gcc-4.1.2-20061115 (debian) does not make any difference.
 
-> In article <d72b7ace0712201824k3754962cse377256cb5452b8a@mail.gmail.com> (at Fri, 21 Dec 2007 11:24:54 +0900), "Satoru SATOH" <satoru.satoh@gmail.com> says:
-> 
-> > 2007/12/21, Jarek Poplawski <jarkao2@gmail.com>:
-> > > Jarek Poplawski wrote, On 12/20/2007 09:24 PM:
-> > > ...
-> > >
-> > > > but since it's your patch, I hope you do some additional checking
-> > > > if it's always like this...
-> > >
-> > >
-> > > ...or maybe only changing this all a little bit will make it look safer!
-> > >
-> > > Jarek P.
-> > 
-> > 
-> > OK, how about this?
-> > 
-> > Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
-> > 
-> >  ip/iproute.c |   12 ++++++++----
-> >  1 files changed, 8 insertions(+), 4 deletions(-)
-> > 
-> > diff --git a/ip/iproute.c b/ip/iproute.c
-> > index f4200ae..c771b34 100644
-> > --- a/ip/iproute.c
-> > +++ b/ip/iproute.c
-> > @@ -510,16 +510,20 @@ int print_route(const struct sockaddr_nl *who,
-> > struct nlmsghdr *n, void *arg)
-> >  				fprintf(fp, " %u", *(unsigned*)RTA_DATA(mxrta[i]));
-> >  			else {
-> >  				unsigned val = *(unsigned*)RTA_DATA(mxrta[i]);
-> > +				unsigned hz1 = hz;
-> > +				if (hz1 > 1000)
-> 
-> Why don't you simply use unsigned long long (or maybe uint64_t) here?
-
-I was wondering that too.  And maybe change the "(float)" cast
-to "(double)" in the fprintf.
-
-						-Bill
+Quite true -- thus it is a matter of taste to the programmer.  Constant=
+=20
+folding inside the compiler ensures that "foo / 4" asm output is just a=
+s=20
+optimal as a shift.
 
 
+> And, IMHO, because shift for signed variable is fragile, so we should
+> avoid using it.
 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> 
-> --- 
-> diff --git a/ip/iproute.c b/ip/iproute.c
-> index f4200ae..db9a3b6 100644
-> --- a/ip/iproute.c
-> +++ b/ip/iproute.c
-> @@ -509,16 +509,21 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
->  			    i != RTAX_RTO_MIN)
->  				fprintf(fp, " %u", *(unsigned*)RTA_DATA(mxrta[i]));
->  			else {
-> -				unsigned val = *(unsigned*)RTA_DATA(mxrta[i]);
-> +				unsigned long long val = *(unsigned*)RTA_DATA(mxrta[i]);
-> +				unsigned div = 1;
->  
-> -				val *= 1000;
->  				if (i == RTAX_RTT)
-> -					val /= 8;
-> +					div = 8;
->  				else if (i == RTAX_RTTVAR)
-> -					val /= 4;
-> -				if (val >= hz)
-> -					fprintf(fp, " %ums", val/hz);
-> +					div = 4;
->  				else
-> +					div = 1;
-> +
-> +				val = val * 1000ULL / div;
-> +
-> +				if (val >= hz) {
-> +					fprintf(fp, " %llums", val/hz);
-> +				} else
->  					fprintf(fp, " %.2fms", (float)val/hz);
->  			}
->  		}
+I respectfully disagree, but this is an unrelated matter.  As you say,=20
+"/4" is fine as-is.
+
+	Jeff
+
+
