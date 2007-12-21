@@ -1,49 +1,40 @@
-From: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH] [XFRM] IPv6: Fix dst/routing check at transformation.
-Date: Thu, 20 Dec 2007 19:50:54 -0800 (PST)
-Message-ID: <20071220.195054.23654691.davem@davemloft.net>
+Date: Fri, 21 Dec 2007 11:50:46 +0800
+Message-ID: <20071221035045.GA30093@gondor.apana.org.au>
 References: <11982084391595-git-send-email-nakam@linux-ipv6.org>
-	<200712211248.31508.nakam@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: usagi-core@linux-ipv6.org, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: nakam@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33628
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1760726AbXLUDuz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 22:50:55 -0500
-In-Reply-To: <200712211248.31508.nakam@linux-ipv6.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:4484 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759879AbXLUDut (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 22:50:49 -0500
+Content-Disposition: inline
+In-Reply-To: <11982084391595-git-send-email-nakam@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Date: Fri, 21 Dec 2007 12:48:31 +0900
-
-> My 5 patches for XFRM sent to netdev should be TOed to David, but it is not.
+On Fri, Dec 21, 2007 at 12:40:39PM +0900, Masahide NAKAMURA wrote:
+> IPv6 specific thing is wrongly removed from transformation at net-2.6.25.
+> This patch recovers it with current design.
 > 
-> It does not seems that the command works for me.
-> git-send-email --to "David S. Miller <davem@davemloft.net>" --to herbert@gondor.apana.org.au --cc...
+> o Update "path" of xfrm_dst since IPv6 transformation should
+>   care about routing changes. It is required by MIPv6 and
+>   off-link destined IPsec.
+> o Rename nfheader_len which is for non-fragment transformation used by
+>   MIPv6 to rt6i_nfheader_len as IPv6 name space.
 > 
-> Please see my patches, even it is not TOed to you.
+> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
 
-All of your patches won't make it anywhere.
+Thanks for fixing this up.  They both look good to me.
 
-In the email headers my name shows up like this:
-
-	David S. Miller
-
-Email SMTP rules dictate that if special characters like
-"." appear in the name it must be surrounded by double
-quotes otherwise it is a syntax error.
-
-This is a bug in git-send-email that I thought was fixed
-by now.  Perhaps it is fixed in git mainline and not any
-of the stable releases yet.
-
-Perhaps you can submit them by hand until you resolve the
-git-send-email problem?
-
-Thanks.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
