@@ -1,35 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] OOPS with NETLINK_FIB_LOOKUP netlink socket
-Date: Fri, 21 Dec 2007 01:33:21 -0800 (PST)
-Message-ID: <20071221.013321.164620125.davem@davemloft.net>
-References: <20071221090043.GA25484@iris.sw.ru>
+Subject: Re: TSO trimming question
+Date: Fri, 21 Dec 2007 01:36:42 -0800 (PST)
+Message-ID: <20071221.013642.29817274.davem@davemloft.net>
+References: <20071221030648.389669c4.billfink@mindspring.com>
+	<20071221.012720.67812056.davem@davemloft.net>
+	<20071221092927.GA32434@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devel@openvz.org, netdev@vger.kernel.org, kaber@trash.net,
-	kuznet@ms2.inr.ac.ru
-To: den@openvz.org
+Cc: billfink@mindspring.com, ilpo.jarvinen@helsinki.fi,
+	netdev@vger.kernel.org, jheffner@psc.edu
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45117
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45125
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753626AbXLUJdW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 04:33:22 -0500
-In-Reply-To: <20071221090043.GA25484@iris.sw.ru>
+	by vger.kernel.org with ESMTP id S1752758AbXLUJgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 04:36:42 -0500
+In-Reply-To: <20071221092927.GA32434@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Fri, 21 Dec 2007 12:00:43 +0300
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 21 Dec 2007 17:29:27 +0800
 
-> nl_fib_input re-reuses incoming skb to send the reply. This means that this
-> packet will be freed twice, namely in:
-> - netlink_unicast_kernel
-> - on receive path
-> Use clone to send as a cure, the caller is responsible for kfree_skb on error.
+> On Fri, Dec 21, 2007 at 01:27:20AM -0800, David Miller wrote:
+> >
+> > It's two shifts, and this gets scheduled along with the other
+> > instructions on many cpus so it's effectively free.
+> > 
+> > I don't see why this is even worth mentioning and discussing.
 > 
-> Thanks to Alexey Dobryan, who originally found the problem.
-> 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
+> I totally agree.  Two shifts are way better than a branch.
 
-What introduced this bug?  This code didn't have this
-problem previously.
+We take probably a thousand+ 100+ cycle cache misses in the TCP stack
+on big window openning ACKs.
+
+Instead of discussing ways to solve that huge performance killer we're
+wanking about two friggin' integer shifts.
+
+It's hilarious isn't it? :-)
+
