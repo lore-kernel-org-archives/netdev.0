@@ -1,116 +1,101 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [SOCK] Avoid integer divides where not necessary in
- include/net/sock.h
-Date: Fri, 21 Dec 2007 11:40:51 +0100
-Message-ID: <20071221114051.f8310a6d.dada1@cosmosbay.com>
-References: <476B5AC0.9060604@cosmosbay.com>
-	<20071221.015543.19719154.davem@davemloft.net>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: TSO trimming question
+Date: Fri, 21 Dec 2007 05:58:22 -0500
+Message-ID: <20071221055822.8d977800.billfink@mindspring.com>
+References: <20071221030648.389669c4.billfink@mindspring.com>
+	<20071221.012720.67812056.davem@davemloft.net>
+	<20071221092927.GA32434@gondor.apana.org.au>
+	<20071221.013642.29817274.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, ilpo.jarvinen@helsinki.fi,
+	netdev@vger.kernel.org, jheffner@psc.edu
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:49852 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750918AbXLUKk5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Dec 2007 05:40:57 -0500
-In-Reply-To: <20071221.015543.19719154.davem@davemloft.net>
+Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:41590 "EHLO
+	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751575AbXLUK6f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 05:58:35 -0500
+In-Reply-To: <20071221.013642.29817274.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 21 Dec 2007 01:55:43 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+On Fri, 21 Dec 2007, David Miller wrote:
 
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Fri, 21 Dec 2007 07:18:40 +0100
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Fri, 21 Dec 2007 17:29:27 +0800
 > 
-> > Because sk_wmem_queued, sk_sndbuf are signed, a divide per two
-> > forces compiler to use an integer divide. We can instead use
-> > a right shift.
+> > On Fri, Dec 21, 2007 at 01:27:20AM -0800, David Miller wrote:
+> > >
+> > > It's two shifts, and this gets scheduled along with the other
+> > > instructions on many cpus so it's effectively free.
+> > > 
+> > > I don't see why this is even worth mentioning and discussing.
 > > 
-> > SK_STREAM_MEM_QUANTUM deserves to be declared as an unsigned
-> > quantity, so that sk_stream_pages() and __sk_stream_mem_reclaim()
-> > can use right shifts instead of integer divides.
-> > 
-> > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> > I totally agree.  Two shifts are way better than a branch.
 > 
-> Everything that works with SK_STREAM_MEM_QUANTUM is an int.
+> We take probably a thousand+ 100+ cycle cache misses in the TCP stack
+> on big window openning ACKs.
 > 
-> We do a DIV_ROUND_UP() using SK_STREAM_MEM_QUANTUM and an int.
+> Instead of discussing ways to solve that huge performance killer we're
+> wanking about two friggin' integer shifts.
 > 
-> We do sk->sk_forward_alloc modifications using multiplies on
-> SK_STREAM_MEM_QUANTUM and an int, sk_forward_alloc is an int
-> too.
-> 
-> Changing the type of SK_STREAM_MEM_QUANTUM does nothing more than
-> create an exception in the typing used in these operations for no real
-> gain, in fact it makes this code's correctness harder to verify.
-> 
-> I'm fine with the rest of your change, so please resubmit this patch
-> with the type change removed.
+> It's hilarious isn't it? :-)
 
-I cannot remove underlying divide without telling compiler *something* is unsigned,
-or adding a new _SHIFT macro
+I don't think obfuscated code is hilarious.  Instead of the convoluted
+and dense code:
 
-We currently do
+	/* Defer for less than two clock ticks. */
+	if (tp->tso_deferred &&
+	    ((jiffies << 1) >> 1) - (tp->tso_deferred >> 1) > 1)
 
-     int_value / int_constant
+You can have the much simpler and more easily understandable:
 
-I was suggesting 
+	/* Defer for less than two clock ticks. */
+	if (tp->tso_deferred && (jiffies - tp->tso_deferred) > 1)
 
-     int_value / uint_constant
+And instead of:
 
-Since you prefer to keep sk_forward_alloc as signed, 
-the only clean (without casts) way is to do :
+	/* Ok, it looks like it is advisable to defer.  */
+        tp->tso_deferred = 1 | (jiffies<<1);
 
-     int_value >> SK_STREAM_MEM_QUANTUM_SHIFT
+        return 1;
 
-Please tell me if you are OK with this solution, or if you prefer
-I change sk_forward_alloc to be unsigned :)
+You could do as Ilpo suggested:
 
-Thank you 
+	/* Ok, it looks like it is advisable to defer.  */
+	tp->tso_deferred = max_t(u32, jiffies, 1);
 
-Here is the patch handling the change on sk_wmem_queued, sk_sndbuf.
-Keeping small patches may help future bisection anyway...
+        return 1;
 
-[SOCK] Avoid integer divides where not necessary in include/net/sock.h
+Or perhaps more efficiently:
 
-Because sk_wmem_queued, sk_sndbuf are signed, a divide per two
-may force compiler to use an integer divide.
+	/* Ok, it looks like it is advisable to defer.  */
+	tp->tso_deferred = jiffies;
+	if (unlikely(jiffies == 0))
+		tp->tso_deferred = 1;
 
-We can instead use a right shift.
+        return 1;
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+Or perhaps even:
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 803d8f2..4456453 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -445,7 +445,7 @@ static inline int sk_acceptq_is_full(struct sock *sk)
-  */
- static inline int sk_stream_min_wspace(struct sock *sk)
- {
--	return sk->sk_wmem_queued / 2;
-+	return sk->sk_wmem_queued >> 1;
- }
- 
- static inline int sk_stream_wspace(struct sock *sk)
-@@ -1187,7 +1187,7 @@ static inline void sk_wake_async(struct sock *sk, int how, int band)
- static inline void sk_stream_moderate_sndbuf(struct sock *sk)
- {
- 	if (!(sk->sk_userlocks & SOCK_SNDBUF_LOCK)) {
--		sk->sk_sndbuf = min(sk->sk_sndbuf, sk->sk_wmem_queued / 2);
-+		sk->sk_sndbuf = min(sk->sk_sndbuf, sk->sk_wmem_queued >> 1);
- 		sk->sk_sndbuf = max(sk->sk_sndbuf, SOCK_MIN_SNDBUF);
- 	}
- }
-@@ -1211,7 +1211,7 @@ static inline struct page *sk_stream_alloc_page(struct sock *sk)
-  */
- static inline int sock_writeable(const struct sock *sk) 
- {
--	return atomic_read(&sk->sk_wmem_alloc) < (sk->sk_sndbuf / 2);
-+	return atomic_read(&sk->sk_wmem_alloc) < (sk->sk_sndbuf >> 1);
- }
- 
- static inline gfp_t gfp_any(void)
+	/* Ok, it looks like it is advisable to defer.  */
+	tp->tso_deferred = jiffies;
+
+	/* need to return a non-zero value to defer, which means won't
+	 * defer if jiffies == 0 but it's only a 1 in 4 billion event
+	 * (and avoids a compare/branch by not checking jiffies)
+	 /
+        return jiffies;
+
+Since it really only needs a non-zero return value to defer.
+
+See, no branches needed and much clearer code.  That seems worthwhile
+to me from a code maintenance standpoint, even if it isn't any speed
+improvement.
+
+And what about the 64-bit jiffies versus 32-bit tp->tso_deferred issue?
+Should tso_deferred be made unsigned long to match jiffies?
+
+						-Bill
