@@ -1,45 +1,45 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 0/10] sysfs network namespace support
-Date: Fri, 21 Dec 2007 06:04:43 -0700
-Message-ID: <m1hcic6vx0.fsf@ebiederm.dsl.xmission.com>
-References: <m163zi9425.fsf@ebiederm.dsl.xmission.com>
-	<20071221030732.GA16122@kroah.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [TCP] tcp_write_timeout.c cleanup
+Date: Fri, 21 Dec 2007 11:14:44 -0200
+Message-ID: <20071221131444.GV6264@ghostprotocols.net>
+References: <476B5581.6040603@cosmosbay.com> <20071221122316.GU6264@ghostprotocols.net> <20071221.043026.19571736.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@suse.de>, Tejun Heo <htejun@gmail.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, cornelia.huck@de.ibm.com,
-	stern@rowland.harvard.edu, kay.sievers@vrfy.org,
-	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
-To: Greg KH <greg@kroah.com>
+Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:32831 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753089AbXLUNHF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 08:07:05 -0500
-In-Reply-To: <20071221030732.GA16122@kroah.com> (Greg KH's message of "Thu, 20
-	Dec 2007 19:07:32 -0800")
+Received: from mx1.redhat.com ([66.187.233.31]:42761 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752539AbXLUNPP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Dec 2007 08:15:15 -0500
+Content-Disposition: inline
+In-Reply-To: <20071221.043026.19571736.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greg KH <greg@kroah.com> writes:
+Em Fri, Dec 21, 2007 at 04:30:26AM -0800, David Miller escreveu:
+> From: Arnaldo Carvalho de Melo <acme@redhat.com>
+> Date: Fri, 21 Dec 2007 10:23:16 -0200
+> 
+> > Em Fri, Dec 21, 2007 at 06:56:17AM +0100, Eric Dumazet escreveu:
+> > > +static void tcp_mtu_probing(struct inet_connection_sock *icsk, struct sock *sk)
+> > > +{
+> > > +	int mss;
+> > -       int mss;
+> > 		
+> > > +
+> > > +	/* Black hole detection */
+> > > +	if (sysctl_tcp_mtu_probing) {
+> > > +		if (!icsk->icsk_mtup.enabled) {
+> > > +			icsk->icsk_mtup.enabled = 1;
+> > > +			tcp_sync_mss(sk, icsk->icsk_pmtu_cookie);
+> > > +		} else {
+> > > +			struct tcp_sock *tp = tcp_sk(sk);
+> > +			int mss;
+> > > +			mss = tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low)/2;
+> 
+> I've checked in this, ummm... patch :-)
 
-> On Sat, Dec 01, 2007 at 02:06:58AM -0700, Eric W. Biederman wrote:
->> 
->> Now that we have network namespace support merged it is time to
->> revisit the sysfs support so we can remove the dependency on !SYSFS.
->
-> <snip>
->
-> Oops, I forgot to apply this to my tree.  Eric, you still want this
-> submitted, right?
+Thanks!
 
-Yes.
-
-I'm am just about to head out of town to visit my parents over Christmas.
-So I'm not going to be very responsive until I after the New Year.
-
-Eric
+- Arnaldo
