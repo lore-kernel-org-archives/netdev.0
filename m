@@ -1,48 +1,30 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [XFRM]: Fix outbound statistics.
-Date: Fri, 21 Dec 2007 23:11:11 +0800
-Message-ID: <20071221151111.GA2466@gondor.apana.org.au>
-References: <1198247100998-git-send-email-nakam@linux-ipv6.org>
+From: "fdgv fg" <meihaolixiang@gmail.com>
+Subject: Hello
+Date: Fri, 21 Dec 2007 23:38:17 +0800
+Message-ID: <b5b108580712210738m778987cfp77915dc842889f5e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
-To: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, anonymous@cvs.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2402 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751000AbXLUPLO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 10:11:14 -0500
+Received: from qb-out-0506.google.com ([72.14.204.238]:21492 "EHLO
+	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752313AbXLUPiT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 10:38:19 -0500
+Received: by qb-out-0506.google.com with SMTP id e11so974440qbe.15
+        for <netdev@vger.kernel.org>; Fri, 21 Dec 2007 07:38:18 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1198247100998-git-send-email-nakam@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 21, 2007 at 11:25:00PM +0900, Masahide NAKAMURA wrote:
->
->  	do {
->  		err = xfrm_state_check_space(x, skb);
-> -		if (err)
-> +		if (err) {
-> +			XFRM_INC_STATS(LINUX_MIB_XFRMOUTERROR);
->  			goto error_nolock;
-> +		}
->  
->  		err = x->outer_mode->output(x, skb);
-> -		if (err)
-> +		if (err) {
-> +			XFRM_INC_STATS(LINUX_MIB_XFRMOUTSTATEMODEERROR);
-
-BTW, none of our existing mode output functions actually return
-an error.  I noticed that the description for this field is actually
-"Transformation mode specific error, e.g. Outer header space is not
-enough".  This is slightly misleading as output header space is
-checked by xfrm_state_check_space so if there's an error that's
-where it'll show up.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Dear Sir / Madam:
+   Nice to meet you.Here is a more useful information if you are
+searching any high-quality digital products with a lower price.We have
+a massive stock where you nearly can find what you want.We strive to
+offer you best sevice! With the advanced transportation,we assure you
+a safe and fast shippment! please contact me.
+my website: www.elec-offer.com
+MSN: elec-offer@hotmail.com
+Best regards
+Sincerely yours
+Li
