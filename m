@@ -1,44 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TSO trimming question
-Date: Thu, 20 Dec 2007 15:55:18 -0800 (PST)
-Message-ID: <20071220.155518.42408378.davem@davemloft.net>
-References: <Pine.LNX.4.64.0712201253400.31652@kivilampi-30.cs.helsinki.fi>
-	<20071220.040037.48002365.davem@davemloft.net>
-	<20071220140012.GA22495@gondor.apana.org.au>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH]: remove netif_running() check from
+ myri10ge_poll()
+Date: Thu, 20 Dec 2007 16:05:18 -0800
+Message-ID: <20071220160518.fa65ac90.akpm@linux-foundation.org>
+References: <47602AAA.8060204@myri.com>
+	<20071212.110243.202840959.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: gallatin@myri.com, jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48519
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753499AbXLTXzT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 18:55:19 -0500
-In-Reply-To: <20071220140012.GA22495@gondor.apana.org.au>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:37360 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759864AbXLUAGE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 19:06:04 -0500
+In-Reply-To: <20071212.110243.202840959.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 20 Dec 2007 22:00:12 +0800
+On Wed, 12 Dec 2007 11:02:43 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-> On Thu, Dec 20, 2007 at 04:00:37AM -0800, David Miller wrote:
-> >
-> > In the most ideal sense, tcp_window_allows() should probably
-> > be changed to only return MSS multiples.
-> > 
-> > Unfortunately this would add an expensive modulo operation,
-> > however I think it would elimiate this problem case.
+> From: Andrew Gallatin <gallatin@myri.com>
+> Date: Wed, 12 Dec 2007 13:38:34 -0500
 > 
-> Well you only have to divide in the unlikely case of us being
-> limited by the receiver window.  In that case speed is probably
-> not of the essence anyway.
+> > Remove the bogus netif_running() check from myri10ge_poll().
+> > 
+> > This eliminates any chance that myri10ge_poll() can trigger
+> > an oops by calling netif_rx_complete() and returning
+> > with work_done == budget.
+> > 
+> > Signed-off-by: Andrew Gallatin <gallatin@myri.com>
+> 
+> Acked-by: David S. Miller <davem@davemloft.net>
 
-Agreed, to some extent.
+hm, eight days old, fixes a possible oops and hasn't been merged anywhere
+yet?
 
-I say "to some extent" because it might be realistic, with
-lots (millions) of sockets to hit this case a lot.
-
-There are so many things that are a "don't care" performance
-wise until you have a lot of stinky connections over crappy
-links.
+I'll put it in my for-2.6.24-via-other-subsystem queue.
