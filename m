@@ -1,41 +1,53 @@
-From: "Denis V. Lunev" <den@sw.ru>
-Subject: Re: [PATCH] OOPS with NETLINK_FIB_LOOKUP netlink socket
-Date: Fri, 21 Dec 2007 12:39:36 +0300
-Message-ID: <476B89D8.2060602@sw.ru>
-References: <20071221090043.GA25484@iris.sw.ru> <20071221.013321.164620125.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/3] XFRM: RFC4303 compliant auditing
+Date: Fri, 21 Dec 2007 01:43:10 -0800 (PST)
+Message-ID: <20071221.014310.155404661.davem@davemloft.net>
+References: <20071220214200.12122.89628.stgit@flek.lan>
+	<20071220214225.12122.48656.stgit@flek.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: den@openvz.org, devel@openvz.org, netdev@vger.kernel.org,
-	kaber@trash.net, kuznet@ms2.inr.ac.ru
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-audit@redhat.com,
+	latten@austin.ibm.com
+To: paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:62401 "EHLO iris"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752360AbXLUJh3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Dec 2007 04:37:29 -0500
-In-Reply-To: <20071221.013321.164620125.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59581
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750970AbXLUJnL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 04:43:11 -0500
+In-Reply-To: <20071220214225.12122.48656.stgit@flek.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: "Denis V. Lunev" <den@openvz.org>
-> Date: Fri, 21 Dec 2007 12:00:43 +0300
-> 
->> nl_fib_input re-reuses incoming skb to send the reply. This means that this
->> packet will be freed twice, namely in:
->> - netlink_unicast_kernel
->> - on receive path
->> Use clone to send as a cure, the caller is responsible for kfree_skb on error.
->>
->> Thanks to Alexey Dobryan, who originally found the problem.
->>
->> Signed-off-by: Denis V. Lunev <den@openvz.org>
-> 
-> What introduced this bug?  This code didn't have this
-> problem previously.
-> 
+From: Paul Moore <paul.moore@hp.com>
+Date: Thu, 20 Dec 2007 16:42:25 -0500
 
-commit cd40b7d3983c708aabe3d3008ec64ffce56d33b0
-Author: Denis V. Lunev <den@openvz.org>
-Date:   Wed Oct 10 21:15:29 2007 -0700
+> This patch adds a number of new IPsec audit events to meet the auditing
+> requirements of RFC4303.  This includes audit hooks for the following events:
+> 
+>  * Could not find a valid SA [sections 2.1, 3.4.2]
+>    . xfrm_audit_state_notfound()
+>    . xfrm_audit_state_notfound_simple()
+> 
+>  * Sequence number overflow [section 3.3.3]
+>    . xfrm_audit_state_replay_overflow()
+> 
+>  * Replayed packet [section 3.4.3]
+>    . xfrm_audit_state_replay()
+> 
+>  * Integrity check failure [sections 3.4.4.1, 3.4.4.2]
+>    . xfrm_audit_state_icvfail()
+> 
+> While RFC4304 deals only with ESP most of the changes in this patch apply to
+> IPsec in general, i.e. both AH and ESP.  The one case, integrity check
+> failure, where ESP specific code had to be modified the same was done to the
+> AH code for the sake of consistency.
+> 
+> Signed-off-by: Paul Moore <paul.moore@hp.com>
+
+This doesn't apply at all to net-2.6.25, in particular
+xfrm6_input_addr() doesn't even have a local variable
+named "xfrm_vec_one" let alone the conditional where you're
+adding the state notfound audit hook.
+
+Please respin this and the third patch, thanks.
