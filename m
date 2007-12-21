@@ -1,40 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] [XFRM] IPv6: Fix dst/routing check at transformation.
-Date: Fri, 21 Dec 2007 11:50:46 +0800
-Message-ID: <20071221035045.GA30093@gondor.apana.org.au>
-References: <11982084391595-git-send-email-nakam@linux-ipv6.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/9][BNX2]: Add function to fetch hardware tx index.
+Date: Thu, 20 Dec 2007 19:55:48 -0800 (PST)
+Message-ID: <20071220.195548.167891054.davem@davemloft.net>
+References: <1198182667.9163.27.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4484 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759879AbXLUDut (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 22:50:49 -0500
-Content-Disposition: inline
-In-Reply-To: <11982084391595-git-send-email-nakam@linux-ipv6.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53463
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752158AbXLUDzs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2007 22:55:48 -0500
+In-Reply-To: <1198182667.9163.27.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 21, 2007 at 12:40:39PM +0900, Masahide NAKAMURA wrote:
-> IPv6 specific thing is wrongly removed from transformation at net-2.6.25.
-> This patch recovers it with current design.
-> 
-> o Update "path" of xfrm_dst since IPv6 transformation should
->   care about routing changes. It is required by MIPv6 and
->   off-link destined IPsec.
-> o Rename nfheader_len which is for non-fragment transformation used by
->   MIPv6 to rt6i_nfheader_len as IPv6 name space.
-> 
-> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Thu, 20 Dec 2007 12:31:07 -0800
 
-Thanks for fixing this up.  They both look good to me.
+> [BNX2]: Add function to fetch hardware tx index.
+> 
+> This makes the code cleaner and easier to support different tx rings.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Applied.
