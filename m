@@ -1,140 +1,48 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [ETH]: Combine format_addr() with print_mac().
-Date: Fri, 21 Dec 2007 14:36:59 -0800
-Message-ID: <1198276619.18877.42.camel@localhost>
-References: <1198274738.5578.2.camel@dell>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] XFRM: RFC4303 compliant auditing
+Date: Fri, 21 Dec 2007 14:58:38 -0800 (PST)
+Message-ID: <20071221.145838.17444757.davem@davemloft.net>
+References: <20071221141334.11660.9191.stgit@flek.lan>
+	<20071221141454.11660.83572.stgit@flek.lan>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, anilgv@broadcom.com,
-	michaelc@cs.wisc.edu, david.somayajulu@qlogic.com
-To: Michael Chan <mchan@broadcom.com>
+Cc: netdev@vger.kernel.org, linux-audit@redhat.com,
+	latten@austin.ibm.com
+To: paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:2841 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754174AbXLUWhW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Dec 2007 17:37:22 -0500
-In-Reply-To: <1198274738.5578.2.camel@dell>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42390
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753354AbXLUW6j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 17:58:39 -0500
+In-Reply-To: <20071221141454.11660.83572.stgit@flek.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2007-12-21 at 14:05 -0800, Michael Chan wrote:
-> [ETH]: Combine format_addr() with print_mac().
-> print_mac() used by most net drivers and format_addr() used by
-> net-sysfs.c are very similar and they can be integrated.
-> format_addr() is also identically redefined in the qla4xxx iscsi
-> driver.
-> diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-> index 6b2e454..f760d41 100644
-> --- a/net/ethernet/eth.c
-> +++ b/net/ethernet/eth.c
-> @@ -359,10 +359,33 @@ struct net_device *alloc_etherdev_mq(int sizeof_priv, unsigned int queue_count)
->  }
->  EXPORT_SYMBOL(alloc_etherdev_mq);
->  
-> +static ssize_t _format_mac_addr(char *buf, const unsigned char *addr, int len)
-> +{
-> +	int i;
-> +	char *cp = buf;
-> +
-> +	for (i = 0; i < len; i++) {
-> +		cp += sprintf(cp, "%02x", addr[i]);
-> +		if (i == len - 1)
-> +			break;
-> +		*cp++ = ':';
-> +	}
-> +	return cp - buf;
-> +}
-> +
-> +ssize_t format_mac_addr(char *buf, const unsigned char *addr, int len)
-> +{
-> +	ssize_t l;
-> +
-> +	l = _format_mac_addr(buf, addr, len);
-> +	strcpy(buf + l, "\n");
-> +	return l + 1;
-> +}
-> +EXPORT_SYMBOL(format_mac_addr);
-> +
->  char *print_mac(char *buf, const u8 *addr)
->  {
-> -	sprintf(buf, MAC_FMT,
-> -		addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
-> +	_format_mac_addr(buf, addr, ETH_ALEN);
->  	return buf;
->  }
->  EXPORT_SYMBOL(print_mac);
+From: Paul Moore <paul.moore@hp.com>
+Date: Fri, 21 Dec 2007 09:14:55 -0500
 
-I think const unsigned char *addr should be const u8 *addr
-ssize_t? shouldn't it be size_t?
-Indexing buf by int len is unchecked.
-That could lead to unintended buffer overruns.
-Maybe add a buflen argument and use snprintf?
+> This patch adds a number of new IPsec audit events to meet the auditing
+> requirements of RFC4303.  This includes audit hooks for the following events:
+> 
+>  * Could not find a valid SA [sections 2.1, 3.4.2]
+>    . xfrm_audit_state_notfound()
+>    . xfrm_audit_state_notfound_simple()
+> 
+>  * Sequence number overflow [section 3.3.3]
+>    . xfrm_audit_state_replay_overflow()
+> 
+>  * Replayed packet [section 3.4.3]
+>    . xfrm_audit_state_replay()
+> 
+>  * Integrity check failure [sections 3.4.4.1, 3.4.4.2]
+>    . xfrm_audit_state_icvfail()
+> 
+> While RFC4304 deals only with ESP most of the changes in this patch apply to
+> IPsec in general, i.e. both AH and ESP.  The one case, integrity check
+> failure, where ESP specific code had to be modified the same was done to the
+> AH code for the sake of consistency.
+> 
+> Signed-off-by: Paul Moore <paul.moore@hp.com>
 
-I had a patch that added some type-safety to print_mac
-and prevented this unintended buffer overrun.
-
-It seems it wasn't applied.
-
----------------------------------------
-
-Subject: Re: [PATCH net-2.6.24] introduce MAC_FMT/MAC_ARG
-Date: Mon, 24 Sep 2007 10:28:36 -0700
-
-Here is a patch that adds some type safety to print_mac
-by using a struct print_mac_buf * instead of char *.
-
-It also reduces the defconfig vmlinux size by 8 bytes.
-
-Signed-off-by:  Joe Perches <joe@perches.com>
-
---
-
- include/linux/if_ether.h |   12 ++++++++++--
- net/ethernet/eth.c       |    6 +++---
- 2 files changed, 13 insertions(+), 5 deletions(-)
-
-diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
-index 57abca1..620d6b1 100644
---- a/include/linux/if_ether.h
-+++ b/include/linux/if_ether.h
-@@ -126,7 +126,15 @@ extern struct ctl_table ether_table[];
-  *     Display a 6 byte device address (MAC) in a readable format.
-  */
- #define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
--extern char *print_mac(char *buf, const u8 *addr);
--#define DECLARE_MAC_BUF(var) char var[18] __maybe_unused
-+
-+struct print_mac_buf {
-+       char formatted_mac_addr[18];
-+};
-+
-+#define DECLARE_MAC_BUF(var) \
-+       struct print_mac_buf __maybe_unused _##var; \
-+       struct print_mac_buf __maybe_unused *var = &_##var
-+
-+extern char *print_mac(struct print_mac_buf *buf, const u8 *addr);
- 
- #endif /* _LINUX_IF_ETHER_H */
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index 2aaf6fa..ad82613 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -338,10 +338,10 @@ struct net_device *alloc_etherdev_mq(int
-sizeof_priv, unsigned int queue_count)
- }
- EXPORT_SYMBOL(alloc_etherdev_mq);
- 
--char *print_mac(char *buf, const u8 *addr)
-+char *print_mac(struct print_mac_buf *buf, const u8 *addr)
- {
--       sprintf(buf, MAC_FMT,
-+       sprintf(buf->formatted_mac_addr, MAC_FMT,
-                addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
--       return buf;
-+       return buf->formatted_mac_addr;
- }
- EXPORT_SYMBOL(print_mac);
-
-
-
+Applied.
