@@ -1,49 +1,49 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH] OOPS with NETLINK_FIB_LOOKUP netlink socket
-Date: Fri, 21 Dec 2007 12:00:43 +0300
-Message-ID: <20071221090043.GA25484@iris.sw.ru>
+From: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
+Subject: Re: [PATCH] PS3: gelic: Add wireless support for PS3
+Date: Fri, 21 Dec 2007 18:26:09 +0900
+Message-ID: <20071221182516.BA49.40F06B3A@sm.sony.co.jp>
+References: <20071213211626.BF8E.MOKUNO@sm.sony.co.jp> <1197614933.3798.36.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devel@openvz.org, netdev@vger.kernel.org, kaber@trash.net,
-	kuznet@ms2.inr.ac.ru
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:64087 "EHLO iris"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753823AbXLUI6i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Dec 2007 03:58:38 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	geoffrey.levand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org,
+	Geert Uytterhoeven <Geert.Uytterhoeven-osDt5Q4Chk1BDgjK7y7TUQ@public.gmane.org>
+To: David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1197614933.3798.36.camel-Fexsq3y4057IgHVZqg5X0TlWvGAXklZc@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-nl_fib_input re-reuses incoming skb to send the reply. This means that this
-packet will be freed twice, namely in:
-- netlink_unicast_kernel
-- on receive path
-Use clone to send as a cure, the caller is responsible for kfree_skb on error.
+	Hi David,
 
-Thanks to Alexey Dobryan, who originally found the problem.
+On Fri, 14 Dec 2007 01:48:52 -0500
+David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org> wrote:
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
----
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index b03c4c6..ac6238a 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -832,10 +832,13 @@ static void nl_fib_input(struct sk_buff *skb)
- 
- 	nlh = nlmsg_hdr(skb);
- 	if (skb->len < NLMSG_SPACE(0) || skb->len < nlh->nlmsg_len ||
--	    nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*frn))) {
--		kfree_skb(skb);
-+	    nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*frn)))
- 		return;
--	}
-+
-+	skb = skb_clone(skb, GFP_KERNEL);
-+	if (skb == NULL)
-+		return;
-+	nlh = nlmsg_hdr(skb);
- 
- 	frn = (struct fib_result_nl *) NLMSG_DATA(nlh);
- 	tb = fib_get_table(frn->tb_id_in);
+> --- linux-2.6.23.ppc64/drivers/net/ps3_gelic_net.c~	2007-12-14 01:31:50.000000000 -0500
+> +++ linux-2.6.23.ppc64/drivers/net/ps3_gelic_net.c	2007-12-14 01:39:25.000000000 -0500
+> @@ -1139,7 +1139,7 @@ static irqreturn_t gelic_card_interrupt(
+>   *
+>   * see Documentation/networking/netconsole.txt
+>   */
+> -static void gelic_net_poll_controller(struct net_device *netdev)
+> +void gelic_net_poll_controller(struct net_device *netdev)
+>  {
+>  	struct gelic_card *card = netdev_card(netdev);
+>  
+> --- linux-2.6.23.ppc64/drivers/net/ps3_gelic_net.h~	2007-12-14 01:31:50.000000000 -0500
+> +++ linux-2.6.23.ppc64/drivers/net/ps3_gelic_net.h	2007-12-14 01:39:47.000000000 -0500
+> @@ -346,6 +346,7 @@ extern void gelic_net_tx_timeout(struct 
+>  extern int gelic_net_change_mtu(struct net_device *netdev, int new_mtu);
+>  extern int gelic_net_setup_netdev(struct net_device *netdev,
+>  				  struct gelic_card *card);
+> +extern void gelic_net_poll_controller(struct net_device *netdev);
+>  
+>  /* shared ethtool ops */
+>  extern void gelic_net_get_drvinfo(struct net_device *netdev,
+
+
+Thank you for your reviewing.  I'll fix it.
+
+-- 
+Masakazu MOKUNO
