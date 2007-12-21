@@ -1,58 +1,64 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: Top 10 kernel oopses/warnings for the week of December 21st 2007
-Date: Fri, 21 Dec 2007 17:22:42 +0100
-Message-ID: <20071221162242.GA29959@one.firstfloor.org>
-References: <476BA8AF.4060201@linux.intel.com> <p73ejdgf8vj.fsf@bingen.suse.de> <476BCE15.6090902@linux.intel.com>
+From: Robert Stonehouse <rstonehouse@solarflare.com>
+Subject: [PATCH]  New driver "sfc" for Solarstorm SFC4000 controller - 3nd
+ try
+Date: Fri, 21 Dec 2007 16:53:40 +0000
+Message-ID: <476BEF94.4000801@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	netdev@vger.kernel.org, Marcel Holtmann <marcel@holtmann.org>,
-	"Pallipadi, Venkatesh" <venkatesh.pallipadi@intel.com>
-To: Arjan van de Ven <arjan@linux.intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-net-drivers@solarflare.com, spope@solarflare.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:54827 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751204AbXLUQVv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 11:21:51 -0500
-Content-Disposition: inline
-In-Reply-To: <476BCE15.6090902@linux.intel.com>
+Received: from smtp.nextweb.net ([216.237.6.30]:55172 "EHLO
+	smtp.covadwireless.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751016AbXLUQxp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 11:53:45 -0500
+Received: from mail.nextweb.net (mail.nextweb.net [216.237.6.33])
+	by smtp.covadwireless.net (Spam Firewall) with ESMTP id 83D40144985
+	for <netdev@vger.kernel.org>; Fri, 21 Dec 2007 08:53:43 -0800 (PST)
+Received: from mail.nextweb.net (mail.nextweb.net [216.237.6.33]) by smtp.covadwireless.net with ESMTP id ULPUfDcrMKHTrPGC for <netdev@vger.kernel.org>; Fri, 21 Dec 2007 08:53:43 -0800 (PST)
+Received: from unknown (HELO mail.solarflare.com) ([216.237.3.213])
+          (envelope-sender <rstonehouse@solarflare.com>)
+          by mail.nextweb.net (qmail-ldap-1.03) with SMTP
+          for <netdev@vger.kernel.org>; 21 Dec 2007 16:53:43 -0000
+Received: from OCEX01.SolarFlarecom.com (unknown [10.20.40.32])
+	by mail.solarflare.com (Postfix) with ESMTP id 993924492C
+	for <netdev@vger.kernel.org>; Fri, 21 Dec 2007 08:53:42 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> in this case this is really all the version information available ;(
-> it seems to be a patched kernel without patched EXTRAVERSION.
-> But in the future if I have more specific information (eg it's only 1 
-> kernel version) I'll mention it in more detail.
-> It gets unwieldy if there's 500 reports for an oops of course ;)
+This is a resubmission of a new driver for Solarflare network controllers.
 
-Hmm would there be an automatic way to check out the file of the 
-kernel version and then check if the BUG_ON/WARN_ON is on that line?
-Maybe it could be done using git.
+The driver supports several types of PHY (10Gbase-T, XFP, CX4) on six
+different 10G and 1G boards.
 
-> 
-> >
-> >Anyways there are a lot of third party modules who do strange 
-> >things with c_p_a(), not always legal, so you might look up out for that 
-> >pattern too. Perhaps report the out of tree modules loaded in the 
-> >summary too?
-> 
-> I already always will mention if the oops is tainted or not (that I track 
-> specifically);
+The previous thread was:
+  [PATCH] [RFC] New driver "sfc" for Solarstorm SFC4000 controller
+  http://marc.info/?l=linux-netdev&m=119757352830103&w=2
 
-I don't necessarily mean tainted, just out of tree modules in general.
-There are some GPL modules who do strange things too. Not saying
-that these oopses should be all ignored -- they might be legitimate
-kernel bugs that they just trigger -- just it should be visible somehow
-in the summary in case there is a pattern. 
+Thanks to the people who looked at the previous patches. We have addressed
+the following from received comments after the 2nd submission:
+  - Use kzalloc where appropriate
+  - Remove deprecated fastcall attributes
+  - Use kernel routines for hex dumps and MAC address printing
+  - Changes to logging MACROs
 
-Especially for c_p_a() i'm quite suspicious
-because it depends a lot on what the caller did.
+The last two patches were marked with RFC but I now think that this driver
+is ready (withstanding any further review comments) and I would like to ask
+that this driver is considered for merging.
 
-One way perhaps would be also to check if there is an out of tree
-module inside the backtrace. I suppose you could keep a list 
-of in tree modules and do this automatically. Of course there could
-be false positives too with the standard inexact backtrace.
 
--Andi
+The patch (against net-2.6.25) is at:
+     https://support.solarflare.com/netdev/3/net-2.6.25-sfc-2.2.0029.patch
 
+The new files may also be downloaded as a tarball:
+     https://support.solarflare.com/netdev/3/net-2.6.25-sfc-2.2.0029.tgz
+
+And for verification there is:
+     https://support.solarflare.com/netdev/3/MD5SUMS
+
+
+Happy Christmas
+
+-- 
+Robert Stonehouse
