@@ -1,54 +1,61 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [TCP]: Convert several length variable to unsigned.
-Date: Fri, 21 Dec 2007 06:17:31 -0800
-Message-ID: <1198246651.6183.121.camel@localhost>
-References: <20071221.164811.126977620.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki /
-	 =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<yoshfuji@linux-ipv6.org>
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: [XFRM]: Fix outbound statistics.
+Date: Fri, 21 Dec 2007 23:17:58 +0900
+Message-ID: <11982466781770-git-send-email-nakam@linux-ipv6.org>
+Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
+	Masahide NAKAMURA <nakam@linux-ipv6.org>
+To: davem@davemloft.net, herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:2516 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753936AbXLUORz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Dec 2007 09:17:55 -0500
-In-Reply-To: <20071221.164811.126977620.yoshfuji@linux-ipv6.org>
+Received: from usagi025.linux-ipv6.org ([203.178.140.25]:59333 "EHLO
+	triton.linux-ipv6.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1756783AbXLUOSR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 09:18:17 -0500
+In-Reply-To: 11982085193489-git-send-email-nakam@linux-ipv6.org
+References: 11982085193489-git-send-email-nakam@linux-ipv6.org
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2007-12-21 at 16:48 +0900, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=
-=E8=8B=B1=E6=98=8E wrote:
-> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-> index 93980c3..3b4169c 100644
-> --- a/net/ipv6/tcp_ipv6.c
-> +++ b/net/ipv6/tcp_ipv6.c
-> @@ -985,7 +985,7 @@ static void tcp_v6_send_reset(struct sock *sk, st=
-ruct sk_buff *skb)
->  	struct tcphdr *th =3D tcp_hdr(skb), *t1;
->  	struct sk_buff *buff;
->  	struct flowi fl;
-> -	int tot_len =3D sizeof(*th);
-> +	unsigned int tot_len =3D sizeof(*th);
->  #ifdef CONFIG_TCP_MD5SIG
->  	struct tcp_md5sig_key *key;
->  #endif
-> @@ -1085,7 +1085,7 @@ static void tcp_v6_send_ack(struct tcp_timewait=
-_sock *tw,
->  	struct tcphdr *th =3D tcp_hdr(skb), *t1;
->  	struct sk_buff *buff;
->  	struct flowi fl;
-> -	int tot_len =3D sizeof(struct tcphdr);
-> +	unsigned int tot_len =3D sizeof(struct tcphdr);
->  	__be32 *topt;
->  #ifdef CONFIG_TCP_MD5SIG
->  	struct tcp_md5sig_key *key;
+David, I failed to include this statistics codes since I didn't notice
+the conflict with the latest Herbert XFRM fix.
 
-Unrelated, but perhaps tot_len should be initialized in
-a consistent fashion?
+Please apply this, too.
 
-I think unsigned int tot_len =3D sizeof(struct tcphdr); is more readabl=
-e.
+Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+---
+ net/xfrm/xfrm_output.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
+index 867484a..8dee031 100644
+--- a/net/xfrm/xfrm_output.c
++++ b/net/xfrm/xfrm_output.c
+@@ -43,17 +43,23 @@ static int xfrm_output_one(struct sk_buff *skb, int err)
+ 
+ 	do {
+ 		err = xfrm_state_check_space(x, skb);
+-		if (err)
++		if (err) {
+ 			goto error_nolock;
++			XFRM_INC_STATS(LINUX_MIB_XFRMOUTERROR);
++		}
+ 
+ 		err = x->outer_mode->output(x, skb);
+-		if (err)
++		if (err) {
++			XFRM_INC_STATS(LINUX_MIB_XFRMOUTSTATEMODEERROR);
+ 			goto error_nolock;
++		}
+ 
+ 		spin_lock_bh(&x->lock);
+ 		err = xfrm_state_check_expire(x);
+-		if (err)
++		if (err) {
++			XFRM_INC_STATS(LINUX_MIB_XFRMOUTSTATEEXPIRED);
+ 			goto error;
++		}
+ 
+ 		if (x->type->flags & XFRM_TYPE_REPLAY_PROT) {
+ 			XFRM_SKB_CB(skb)->seq = ++x->replay.oseq;
+-- 
+1.4.4.2
 
