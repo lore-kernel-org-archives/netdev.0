@@ -1,63 +1,49 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH]  New driver "sfc" for Solarstorm SFC4000 controller - 3nd try
-Date: Fri, 21 Dec 2007 18:30:07 +0000
-Message-ID: <20071221183006.GA8717@solarflare.com>
-References: <476BEF94.4000801@solarflare.com> <20071221100253.fb5b0899.randy.dunlap@oracle.com>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: TSO trimming question
+Date: Fri, 21 Dec 2007 13:54:37 -0500
+Message-ID: <20071221135437.16fa63c8.billfink@mindspring.com>
+References: <20071221030648.389669c4.billfink@mindspring.com>
+	<20071221.012720.67812056.davem@davemloft.net>
+	<20071221092927.GA32434@gondor.apana.org.au>
+	<20071221.013642.29817274.davem@davemloft.net>
+	<20071221055822.8d977800.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Randy Dunlap <randy.dunlap@oracle.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org, jheffner@psc.edu
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rutherford.zen.co.uk ([212.23.3.142]:56929 "EHLO
-	rutherford.zen.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752627AbXLUSaK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 13:30:10 -0500
-Content-Disposition: inline
-In-Reply-To: <20071221100253.fb5b0899.randy.dunlap@oracle.com>
+Received: from elasmtp-curtail.atl.sa.earthlink.net ([209.86.89.64]:41727 "EHLO
+	elasmtp-curtail.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752086AbXLUSys (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 13:54:48 -0500
+In-Reply-To: <20071221055822.8d977800.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Randy Dunlap wrote:
-> On Fri, 21 Dec 2007 16:53:40 +0000 Robert Stonehouse wrote:
+On Fri, 21 Dec 2007, Bill Fink wrote:
+
+> Or perhaps even:
 > 
-> > This is a resubmission of a new driver for Solarflare network controllers.
-<snip>
-> > The last two patches were marked with RFC but I now think that this driver
-> > is ready (withstanding any further review comments) and I would like to ask
-> > that this driver is considered for merging.
-> > 
-> > 
-> > The patch (against net-2.6.25) is at:
-> >      https://support.solarflare.com/netdev/3/net-2.6.25-sfc-2.2.0029.patch
+> 	/* Ok, it looks like it is advisable to defer.  */
+> 	tp->tso_deferred = jiffies;
 > 
-> wow, 750+ KB
-> 
-> How many drivers is this?
+> 	/* need to return a non-zero value to defer, which means won't
+> 	 * defer if jiffies == 0 but it's only a 1 in 4 billion event
+> 	 * (and avoids a compare/branch by not checking jiffies)
+> 	 /
+>         return jiffies;
 
-Just two: sfc (net) and sfc_mtd (MTD).  As Robert said, the net driver
-supports a variety of PHYs.  It also has a fair amount of self-test
-and (conditional) debug code, and comments.
+Ack.  I introduced my own 64-bit to 32-bit issue (too late at night).
+How about:
 
-I've noted your comments on kernel-doc and Kconfig format and will
-address those in the next version.
+	/* Ok, it looks like it is advisable to defer.  */
+	tp->tso_deferred = jiffies;
 
-<snip>
-> c.  Driver contains MTD, SPI, & I2C (at least) code and needs to be
-> reviewed by people in those areas as well (IMO).
-> 
-> I see an MTD dependency in the Kconfig file.
-> What about the SPI and I2C parts?  Are they conditional or
-> how is that handled?  or does the driver not use the kernel
-> infrastructure for these?
+	/* this won't defer if jiffies == 0 but it's only a 1 in
+	 * 4 billion event (and avoids a branch)
+	 */
+	return (jiffies != 0);
 
-We are not currently using the kernel infrastructure for those.
-I'm not sure whether we could do.
-
-I think everyone working on the net driver here will be away until
-the new year, so please forgive our silence in the mean time.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+							-Bill
