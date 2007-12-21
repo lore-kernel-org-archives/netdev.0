@@ -1,62 +1,42 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] [IPROUTE]: A workaround to make larger rto_min printed
- correctly
-Date: Fri, 21 Dec 2007 22:58:04 +0900 (JST)
-Message-ID: <20071221.225804.129665785.yoshfuji@linux-ipv6.org>
-References: <d72b7ace0712201824k3754962cse377256cb5452b8a@mail.gmail.com>
-	<20071221.175352.77874691.yoshfuji@linux-ipv6.org>
-	<d72b7ace0712210549u51043bf8k585fd70e1ded7d8a@mail.gmail.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: Top 10 kernel oopses/warnings for the week of December 21st 2007
+Date: Fri, 21 Dec 2007 14:57:36 +0100
+Message-ID: <p73ejdgf8vj.fsf@bingen.suse.de>
+References: <476BA8AF.4060201@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: satoru.satoh@gmail.com, shemminger@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	Marcel Holtmann <marcel@holtmann.org>,
+	"Pallipadi, Venkatesh" <venkatesh.pallipadi@intel.com>
+To: Arjan van de Ven <arjan@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:44245 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752720AbXLUN52 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 08:57:28 -0500
-In-Reply-To: <d72b7ace0712210549u51043bf8k585fd70e1ded7d8a@mail.gmail.com>
+Received: from mx2.suse.de ([195.135.220.15]:38542 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758978AbXLUN5j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Dec 2007 08:57:39 -0500
+In-Reply-To: <476BA8AF.4060201@linux.intel.com> (Arjan van de Ven's message of "Fri\, 21 Dec 2007 12\:51\:11 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <d72b7ace0712210549u51043bf8k585fd70e1ded7d8a@mail.gmail.com> (at Fri, 21 Dec 2007 22:49:59 +0900), "Satoru SATOH" <satoru.satoh@gmail.com> says:
+Arjan van de Ven <arjan@linux.intel.com> writes:
 
-> I agree.
-> 
-> I mistakenly thought hz in that context must be larger than 1000..
-> As it's uncertain, your's looks much simpler and better.
-> 
-> (btw, the lines "else .... div = 1" is not needed, is it?)
+> 	
+> Rank 8: __change_page_attr
+> 	BUG at arch/x86/mm/pageattr_64.c:176
+> 	Reported 2 times
+> 	Reported this week for 2.6.24-rc5; history goes back to 2.6.15
 
-Simplest fix is as follows:
+There is no BUG on this line on 2.6.24-rc5.   Since there are many
+BUG_ONs in this file it is unclear which you mean.
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
---
-diff --git a/ip/iproute.c b/ip/iproute.c
-index f4200ae..7a885b0 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -509,7 +509,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 			    i != RTAX_RTO_MIN)
- 				fprintf(fp, " %u", *(unsigned*)RTA_DATA(mxrta[i]));
- 			else {
--				unsigned val = *(unsigned*)RTA_DATA(mxrta[i]);
-+				unsigned long long val = *(unsigned*)RTA_DATA(mxrta[i]);
- 
- 				val *= 1000;
- 				if (i == RTAX_RTT)
-@@ -517,7 +517,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 				else if (i == RTAX_RTTVAR)
- 					val /= 4;
- 				if (val >= hz)
--					fprintf(fp, " %ums", val/hz);
-+					fprintf(fp, " %llums", val/hz);
- 				else
- 					fprintf(fp, " %.2fms", (float)val/hz);
- 			}
+Could you always include the version of the kernel where the actual
+oops in the line came from?
 
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Anyways there are a lot of third party modules who do strange 
+things with c_p_a(), not always legal, so you might look up out for that 
+pattern too. Perhaps report the out of tree modules loaded in the 
+summary too?
+
+-Andi
+
