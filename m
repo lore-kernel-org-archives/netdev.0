@@ -1,46 +1,40 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH/RFC] [v2] TCP: use non-delayed ACK for congestion	control
- RTT
-Date: Fri, 21 Dec 2007 16:10:40 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0712211609540.7301@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0712191241450.11908@kivilampi-30.cs.helsinki.fi>
- <20071219113125.GF31508@nuim.ie> <Pine.LNX.4.64.0712191511120.14629@kivilampi-30.cs.helsinki.fi>
- <20071221.031400.194877955.davem@davemloft.net> <20071221133106.GA7995@nuim.ie>
- <Pine.LNX.4.64.0712211545580.7301@kivilampi-30.cs.helsinki.fi>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: Top 10 kernel oopses/warnings for the week of December 21st
+ 2007
+Date: Fri, 21 Dec 2007 14:09:34 +0000
+Message-ID: <20071221140934.5f87bf93@the-village.bc.nu>
+References: <476BA8AF.4060201@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/Mixed; boundary="-696243703-1085451526-1198246049=:7301"
-Cc: Netdev <netdev@vger.kernel.org>
-To: Gavin McCullagh <Gavin.McCullagh@nuim.ie>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	Marcel Holtmann <marcel@holtmann.org>,
+	"Pallipadi, Venkatesh" <venkatesh.pallipadi@intel.com>
+To: Arjan van de Ven <arjan@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:45599 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753036AbXLUOKm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 09:10:42 -0500
-In-Reply-To: <Pine.LNX.4.64.0712211545580.7301@kivilampi-30.cs.helsinki.fi>
-Content-ID: <Pine.LNX.4.64.0712211609541.7301@kivilampi-30.cs.helsinki.fi>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:40208 "EHLO
+	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751341AbXLUORL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 09:17:11 -0500
+In-Reply-To: <476BA8AF.4060201@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+> Rank 2: uart_flush_buffer
+> 	Warning at drivers/serial/serial_core.c:544 in uart_flush_buffer()
+> 	Reported 16 times
+> 	No specific version information reported; bug present in 2.6.24-rc5
+> 	Caused by a bug in the Bluetooth line discipline/tty code
 
----696243703-1085451526-1198246049=:7301
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0712211609542.7301@kivilampi-30.cs.helsinki.fi>
+> Rank 7: uart_write
+> 	Warning at drivers/serial/serial_core.c:490 in uart_write()
+> 	Reported 2 times
 
-On Fri, 21 Dec 2007, Ilpo Järvinen wrote:
+Seems to be more of the Bluetooth stuf
 
-> On Fri, 21 Dec 2007, Gavin McCullagh wrote:
-> 
-> > I'm just checking through the existing CA modules.  I don't see the rtt
-> > used for RTO anywhere.  This is what I gather they're each using rtt for.
-> 
-> I meant more timeout like fashion (e.g., to "timeout" some internal 
-> phase but I don't find that too likely)...
 
-I meant didn't, no need to recheck them due to that... :-)
-
--- 
- i.
----696243703-1085451526-1198246049=:7301--
+Alan
+--
+	                "DASD is not really IBM - it has a vowel"
+                        -Arjan van de Ven
