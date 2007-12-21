@@ -1,96 +1,49 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] [IPROUTE]: A workaround to make larger rto_min printed
- correctly
-Date: Fri, 21 Dec 2007 17:53:52 +0900 (JST)
-Message-ID: <20071221.175352.77874691.yoshfuji@linux-ipv6.org>
-References: <476ACF8A.7060201@gmail.com>
-	<476AD127.2020909@gmail.com>
-	<d72b7ace0712201824k3754962cse377256cb5452b8a@mail.gmail.com>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH] OOPS with NETLINK_FIB_LOOKUP netlink socket
+Date: Fri, 21 Dec 2007 12:00:43 +0300
+Message-ID: <20071221090043.GA25484@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: satoru.satoh@gmail.com, shemminger@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: devel@openvz.org, netdev@vger.kernel.org, kaber@trash.net,
+	kuznet@ms2.inr.ac.ru
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:44229 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753547AbXLUIxR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 03:53:17 -0500
-In-Reply-To: <d72b7ace0712201824k3754962cse377256cb5452b8a@mail.gmail.com>
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:64087 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753823AbXLUI6i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Dec 2007 03:58:38 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <d72b7ace0712201824k3754962cse377256cb5452b8a@mail.gmail.com> (at Fri, 21 Dec 2007 11:24:54 +0900), "Satoru SATOH" <satoru.satoh@gmail.com> says:
+nl_fib_input re-reuses incoming skb to send the reply. This means that this
+packet will be freed twice, namely in:
+- netlink_unicast_kernel
+- on receive path
+Use clone to send as a cure, the caller is responsible for kfree_skb on error.
 
-> 2007/12/21, Jarek Poplawski <jarkao2@gmail.com>:
-> > Jarek Poplawski wrote, On 12/20/2007 09:24 PM:
-> > ...
-> >
-> > > but since it's your patch, I hope you do some additional checking
-> > > if it's always like this...
-> >
-> >
-> > ...or maybe only changing this all a little bit will make it look safer!
-> >
-> > Jarek P.
-> 
-> 
-> OK, how about this?
-> 
-> Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
-> 
->  ip/iproute.c |   12 ++++++++----
->  1 files changed, 8 insertions(+), 4 deletions(-)
-> 
-> diff --git a/ip/iproute.c b/ip/iproute.c
-> index f4200ae..c771b34 100644
-> --- a/ip/iproute.c
-> +++ b/ip/iproute.c
-> @@ -510,16 +510,20 @@ int print_route(const struct sockaddr_nl *who,
-> struct nlmsghdr *n, void *arg)
->  				fprintf(fp, " %u", *(unsigned*)RTA_DATA(mxrta[i]));
->  			else {
->  				unsigned val = *(unsigned*)RTA_DATA(mxrta[i]);
-> +				unsigned hz1 = hz;
-> +				if (hz1 > 1000)
+Thanks to Alexey Dobryan, who originally found the problem.
 
-Why don't you simply use unsigned long long (or maybe uint64_t) here?
-
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
---- 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index f4200ae..db9a3b6 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -509,16 +509,21 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 			    i != RTAX_RTO_MIN)
- 				fprintf(fp, " %u", *(unsigned*)RTA_DATA(mxrta[i]));
- 			else {
--				unsigned val = *(unsigned*)RTA_DATA(mxrta[i]);
-+				unsigned long long val = *(unsigned*)RTA_DATA(mxrta[i]);
-+				unsigned div = 1;
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index b03c4c6..ac6238a 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -832,10 +832,13 @@ static void nl_fib_input(struct sk_buff *skb)
  
--				val *= 1000;
- 				if (i == RTAX_RTT)
--					val /= 8;
-+					div = 8;
- 				else if (i == RTAX_RTTVAR)
--					val /= 4;
--				if (val >= hz)
--					fprintf(fp, " %ums", val/hz);
-+					div = 4;
- 				else
-+					div = 1;
+ 	nlh = nlmsg_hdr(skb);
+ 	if (skb->len < NLMSG_SPACE(0) || skb->len < nlh->nlmsg_len ||
+-	    nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*frn))) {
+-		kfree_skb(skb);
++	    nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*frn)))
+ 		return;
+-	}
 +
-+				val = val * 1000ULL / div;
-+
-+				if (val >= hz) {
-+					fprintf(fp, " %llums", val/hz);
-+				} else
- 					fprintf(fp, " %.2fms", (float)val/hz);
- 			}
- 		}
-
---yoshfuji
++	skb = skb_clone(skb, GFP_KERNEL);
++	if (skb == NULL)
++		return;
++	nlh = nlmsg_hdr(skb);
+ 
+ 	frn = (struct fib_result_nl *) NLMSG_DATA(nlh);
+ 	tb = fib_get_table(frn->tb_id_in);
