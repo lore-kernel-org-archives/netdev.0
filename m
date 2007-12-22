@@ -1,51 +1,34 @@
-From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
-Subject: [PATCH] Documentation: add a guideline for hard_start_xmit method not to modify SKB
-Date: Sat, 22 Dec 2007 18:22:09 +0100 (CET)
-Message-ID: <110604.81450.qm@web52011.mail.re2.yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: jgarzik@pobox.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web52011.mail.re2.yahoo.com ([206.190.48.27]:28951 "HELO
-	web52011.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752178AbXLVRWK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Dec 2007 12:22:10 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bjorge Dijkstra <bjd-a1rhEgazXTw@public.gmane.org>
+Subject: [PATCH 1/8] Fix sparse warning: returning void-valued expression
+Date: Sat, 22 Dec 2007 22:51:27 +0100
+Message-ID: <11983602952341-git-send-email-bjd@jooz.net>
+References: <11983602942818-git-send-email-bjd@jooz.net>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <11983602942818-git-send-email-bjd-a1rhEgazXTw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
+rndis_unbind and usbnet_cdc_unbind don't return anything.
 
-Add a guideline for hard_start_xmit method not to
-modify SKB.
-
-Signed-off-by: Matti Linnanvuori
-<mattilinnanvuori@yahoo.com>
-
+Signed-off-by: Bjorge Dijkstra <bjd-a1rhEgazXTw@public.gmane.org>
 ---
+ drivers/net/usb/rndis_host.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-
---- a/Documentation/networking/driver.txt	2007-12-22
-18:50:28.062169500 +0200
-+++ b/Documentation/networking/driver.txt	2007-12-22
-19:10:58.726566000 +0200
-
-@@ -74,6 +74,9 @@ Transmit path guidelines:
-    If you return 1 from the hard_start_xmit method,
-you must not keep
-    any reference to that SKB and you must not attempt
-to free it up.
+diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
+index 1ebe325..96ef6a9 100644
+--- a/drivers/net/usb/rndis_host.c
++++ b/drivers/net/usb/rndis_host.c
+@@ -585,7 +585,7 @@ static void rndis_unbind(struct usbnet *dev, struct usb_interface *intf)
+ 		kfree(halt);
+ 	}
  
-+4) A hard_start_xmit method must not modify the
-cloned parts of the
-+   SKB.
-+
- Probing guidelines:
+-	return usbnet_cdc_unbind(dev, intf);
++	usbnet_cdc_unbind(dev, intf);
+ }
  
- 1) Any hardware layer address you obtain for your
-device should
-
-
-
-      Machen Sie Yahoo! zu Ihrer Startseite. Los geht's: 
-http://de.yahoo.com/set
+ /*
+-- 
+1.5.2.5
