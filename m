@@ -1,82 +1,49 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: (unknown)
-Date: Sat, 22 Dec 2007 10:48:54 +0900
-Message-ID: <11982881341104-git-send-email-nakam@linux-ipv6.org>
-Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
-	Masahide NAKAMURA <nakam@linux-ipv6.org>
-To: davem@davemloft.net, herbert@gondor.apana.org.au
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] Reduce locking in TX path of forcedth driver
+Date: Fri, 21 Dec 2007 18:54:35 -0800
+Message-ID: <20071221185435.2884f118@deepthought>
+References: <20071222014134.A28994161A0@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi025.linux-ipv6.org ([203.178.140.25]:50208 "EHLO
-	triton.linux-ipv6.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751715AbXLVBtB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2007 20:49:01 -0500
-Subject: 
-In-Reply-To: 20071221151111.GA2466@gondor.apana.org.au
-References: 20071221151111.GA2466@gondor.apana.org.au
+Received: from main.gmane.org ([80.91.229.2]:48431 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750779AbXLVCzl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Dec 2007 21:55:41 -0500
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1J5uWW-0006ZI-Oi
+	for netdev@vger.kernel.org; Sat, 22 Dec 2007 02:55:36 +0000
+Received: from 069-064-229-129.pdx.net ([69.64.229.129])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 22 Dec 2007 02:55:36 +0000
+Received: from shemminger by 069-064-229-129.pdx.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 22 Dec 2007 02:55:36 +0000
+In-Reply-To: <20071222014134.A28994161A0@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Subject: [XFRM] Documentaion: Fix error example at XFRMOUTSTATEMODEERROR. (Re: [XFRM]: Fix outbound statistics.)
+On Fri, 21 Dec 2007 17:41:34 -0800 (PST)
+therbert@google.com (Tom Herbert) wrote:
 
-Hello,
-
-On Fri, 21 Dec 2007 23:11:11 +0800
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
-
-> On Fri, Dec 21, 2007 at 11:25:00PM +0900, Masahide NAKAMURA wrote:
-> >
-> >	do {
-> >		err = xfrm_state_check_space(x, skb);
-> > -		if (err)
-> > +		if (err) {
-> > +			XFRM_INC_STATS(LINUX_MIB_XFRMOUTERROR);
-> >			goto error_nolock;
-> > +		}
-> >  
-> >		err = x->outer_mode->output(x, skb);
-> > -		if (err)
-> > +		if (err) {
-> > +			XFRM_INC_STATS(LINUX_MIB_XFRMOUTSTATEMODEERROR);
+> Reduce the amount of locking in the TX path.  Instead of using both netif_tx_lock and dev->priv->lock on transmitting, a single private lock (dev->priv->tx_lock) is used.  This method is similar to that of the e1000 driver, including the logic to stop the queue in the start xmit functions, and the logic to wake the queue in the TX done functions.  We see some performance improvement with this patch.
 > 
-> BTW, none of our existing mode output functions actually return
-> an error.  I noticed that the description for this field is actually
-> "Transformation mode specific error, e.g. Outer header space is not
-> enough".  This is slightly misleading as output header space is
-> checked by xfrm_state_check_space so if there's an error that's
-> where it'll show up.
-
-Thanks for comment, Herbert.
-
-I fix the documentation to remove "e.g. Outer header space is not enough"
-from XFRMSTATEMODEERROR.
-About error code from xfrm_state_check_space(), I still map it XFRMOUTERROR
-(other errors) this time because I think the error here is not a length
-error by protocol (e.g MTU related things) but an internal buffer management.
-
-Any comments for the statistics are still welcomed.
-
-David, please apply the following patch, too.
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
 
-[XFRM] Documentaion: Fix error example at XFRMOUTSTATEMODEERROR.
+>  
+> +	spin_lock_init(&np->tx_lock);
+> +
+> +	dev->features |= NETIF_F_LLTX;
+> +
 
-Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
----
- Documentation/networking/xfrm_proc.txt |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+NAK - lockless transmit is not desirable for real devices.
 
-diff --git a/Documentation/networking/xfrm_proc.txt b/Documentation/networking/xfrm_proc.txt
-index ec9045b..53c1a58 100644
---- a/Documentation/networking/xfrm_proc.txt
-+++ b/Documentation/networking/xfrm_proc.txt
-@@ -60,7 +60,6 @@ XfrmOutStateProtoError:
- 	Transformation protocol specific error
- XfrmOutStateModeError:
- 	Transformation mode specific error
--	e.g. Outer header space is not enough
- XfrmOutStateExpired:
- 	State is expired
- XfrmOutPolBlock:
+use netif_tx_lock() instead of your private lock
+
 -- 
-1.4.4.2
+Stephen Hemminger <stephen.hemminger@vyatta.com>
 
