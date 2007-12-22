@@ -1,111 +1,186 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 2/2] phylib: add module owner to the mii_bus structure
-Date: Fri, 21 Dec 2007 15:37:13 -0800
-Message-ID: <20071221153713.641f010e@deepthought>
-References: <1198245451-13929-1-git-send-email-ionut.nicu@freescale.com>
+From: James Morris <jmorris@namei.org>
+Subject: [RFC PATCH v9 06/18] LSM: Add inet_sys_snd_skb() LSM hook (fwd)
+Date: Sat, 22 Dec 2007 11:51:26 +1100 (EST)
+Message-ID: <Xine.LNX.4.64.0712221147320.30005@us.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Paul Moore <paul.moore@hp.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:43112 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752429AbXLVApc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Dec 2007 19:45:32 -0500
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1J5sH4-0004sX-0G
-	for netdev@vger.kernel.org; Sat, 22 Dec 2007 00:31:30 +0000
-Received: from 069-064-229-129.pdx.net ([69.64.229.129])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 22 Dec 2007 00:31:29 +0000
-Received: from shemminger by 069-064-229-129.pdx.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 22 Dec 2007 00:31:29 +0000
-In-Reply-To: <1198245451-13929-1-git-send-email-ionut.nicu@freescale.com>
+Received: from namei.org ([69.55.235.186]:51229 "EHLO us.intercode.com.au"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751234AbXLVAwH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Dec 2007 19:52:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 21 Dec 2007 15:57:31 +0200
-Ionut Nicu <ionut.nicu@freescale.com> wrote:
+This is part of a large patchset which finally "fixes" labeled networking, 
+which we're hoping to get into 2.6.25.
 
-> Prevent unloading mii bus driver module when other modules have references to some
-> phydevs on that bus. Added a new member (module owner) to struct mii_bus and added
-> code to increment the mii bus owner module usage count on phy_connect and decrement
-> it on phy_disconnect
-> 
-> Set the module owner in the ucc_geth_mdio driver.
-> 
-> Signed-off-by: Ionut Nicu <ionut.nicu@freescale.com>
-> ---
->  drivers/net/phy/phy_device.c |    9 ++++++++-
->  drivers/net/ucc_geth_mii.c   |    3 +++
->  include/linux/phy.h          |    4 ++++
->  3 files changed, 15 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 5b9e175..7dc5480 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -178,6 +178,10 @@ struct phy_device * phy_connect(struct net_device *dev, const char *phy_id,
->  	if (phydev->irq > 0)
->  		phy_start_interrupts(phydev);
->  
-> +	/* Increment the usage count of the mii bus owner */
-> +	if (!try_module_get(phydev->bus->owner))
-> +		return ERR_PTR(-EFAULT);
+Thread @ http://thread.gmane.org/gmane.linux.kernel.lsm/4894
 
-Shouldn't you get a handle before the first usage (start_interrupts)?
+The patch below is the only one which is not self-contained & impacts on 
+core networking code.
 
-> +
->  	return phydev;
->  }
->  EXPORT_SYMBOL(phy_connect);
-> @@ -192,9 +196,12 @@ void phy_disconnect(struct phy_device *phydev)
->  		phy_stop_interrupts(phydev);
->  
->  	phy_stop_machine(phydev);
-> -	
-> +
->  	phydev->adjust_link = NULL;
->  
-> +	/* Decrement the reference count for the mii bus owner */
-> +	module_put(phydev->bus->owner);
-> +
->  	phy_detach(phydev);
->  }
->  EXPORT_SYMBOL(phy_disconnect);
-> diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
-> index a3af4ea..84c7295 100644
-> --- a/drivers/net/ucc_geth_mii.c
-> +++ b/drivers/net/ucc_geth_mii.c
-> @@ -217,6 +217,9 @@ static int uec_mdio_probe(struct of_device *ofdev, const struct of_device_id *ma
->  		}
->  	}
->  
-> +	/* register ourselves as the owner of this bus */
-> +	new_bus->owner = THIS_MODULE;
-> +
->  	err = mdiobus_register(new_bus);
->  	if (0 != err) {
->  		printk(KERN_ERR "%s: Cannot register as MDIO bus\n",
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index 554836e..04ff6a5 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -82,6 +82,10 @@ struct mii_bus {
->  	const char *name;
->  	int id;
->  	void *priv;
-> +
-> +	/* The module that owns this bus */
-> +	struct module *owner;
-> +
->  	int (*read)(struct mii_bus *bus, int phy_id, int regnum);
->  	int (*write)(struct mii_bus *bus, int phy_id, int regnum, u16 val);
->  	int (*reset)(struct mii_bus *bus);
+If anyone has any objections or comments on this patch, please let us 
+know.
 
+---------- Forwarded message ----------
+Date: Fri, 21 Dec 2007 12:09:28 -0500
+From: Paul Moore <paul.moore@hp.com>
+To: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org
+Cc: vyekkirala@trustedcs.com, chanson@trustedcs.com
+Subject: [RFC PATCH v9 06/18] LSM: Add inet_sys_snd_skb() LSM hook
 
--- 
-Stephen Hemminger <stephen.hemminger@vyatta.com>
+Add an inet_sys_snd_skb() LSM hook to allow the LSM to provide packet level
+access control for all outbound packets.  Using the existing postroute_last
+netfilter hook turns out to be problematic as it is can be invoked multiple
+times for a single packet, e.g. individual IPsec transforms, adding unwanted
+overhead and complicating the security policy.
 
+Signed-off-by: Paul Moore <paul.moore@hp.com>
+---
+
+ include/linux/security.h |   11 +++++++++++
+ net/ipv4/ip_output.c     |    7 +++++++
+ net/ipv6/ip6_output.c    |    5 +++++
+ security/dummy.c         |    8 +++++++-
+ security/security.c      |    6 ++++++
+ 5 files changed, 36 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/security.h b/include/linux/security.h
+index db19c92..1b8d332 100644
+--- a/include/linux/security.h
++++ b/include/linux/security.h
+@@ -876,6 +876,10 @@ struct request_sock;
+  *     Sets the connection's peersid to the secmark on skb.
+  * @req_classify_flow:
+  *	Sets the flow's sid to the openreq sid.
++ * @inet_sys_snd_skb:
++ *	Check permissions on outgoing network packets.
++ *	@skb is the packet to check
++ *	@family is the packet's address family
+  *
+  * Security hooks for XFRM operations.
+  *
+@@ -1416,6 +1420,7 @@ struct security_operations {
+ 	void (*inet_csk_clone)(struct sock *newsk, const struct request_sock *req);
+ 	void (*inet_conn_established)(struct sock *sk, struct sk_buff *skb);
+ 	void (*req_classify_flow)(const struct request_sock *req, struct flowi *fl);
++	int (*inet_sys_snd_skb)(struct sk_buff *skb, int family);
+ #endif	/* CONFIG_SECURITY_NETWORK */
+ 
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+@@ -2328,6 +2333,7 @@ void security_sk_free(struct sock *sk);
+ void security_sk_clone(const struct sock *sk, struct sock *newsk);
+ void security_sk_classify_flow(struct sock *sk, struct flowi *fl);
+ void security_req_classify_flow(const struct request_sock *req, struct flowi *fl);
++int security_inet_sys_snd_skb(struct sk_buff *skb, int family);
+ void security_sock_graft(struct sock*sk, struct socket *parent);
+ int security_inet_conn_request(struct sock *sk,
+ 			struct sk_buff *skb, struct request_sock *req);
+@@ -2471,6 +2477,11 @@ static inline void security_req_classify_flow(const struct request_sock *req, st
+ {
+ }
+ 
++static inline int security_inet_sys_snd_skb(struct sk_buff *skb, int family)
++{
++	return 0;
++}
++
+ static inline void security_sock_graft(struct sock* sk, struct socket *parent)
+ {
+ }
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index fd99fbd..82a7297 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -204,6 +204,8 @@ static inline int ip_skb_dst_mtu(struct sk_buff *skb)
+ 
+ static int ip_finish_output(struct sk_buff *skb)
+ {
++	int err;
++
+ #if defined(CONFIG_NETFILTER) && defined(CONFIG_XFRM)
+ 	/* Policy lookup after SNAT yielded a new policy */
+ 	if (skb->dst->xfrm != NULL) {
+@@ -211,6 +213,11 @@ static int ip_finish_output(struct sk_buff *skb)
+ 		return dst_output(skb);
+ 	}
+ #endif
++
++	err = security_inet_sys_snd_skb(skb, AF_INET);
++	if (err)
++		return err;
++
+ 	if (skb->len > ip_skb_dst_mtu(skb) && !skb_is_gso(skb))
+ 		return ip_fragment(skb, ip_finish_output2);
+ 	else
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 6338a9c..44ddf32 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -72,8 +72,13 @@ static __inline__ void ipv6_select_ident(struct sk_buff *skb, struct frag_hdr *f
+ 
+ static int ip6_output_finish(struct sk_buff *skb)
+ {
++	int err;
+ 	struct dst_entry *dst = skb->dst;
+ 
++	err = security_inet_sys_snd_skb(skb, AF_INET6);
++	if (err)
++		return err;
++
+ 	if (dst->hh)
+ 		return neigh_hh_output(dst->hh, skb);
+ 	else if (dst->neighbour)
+diff --git a/security/dummy.c b/security/dummy.c
+index 0b62f95..384979a 100644
+--- a/security/dummy.c
++++ b/security/dummy.c
+@@ -848,6 +848,11 @@ static inline void dummy_req_classify_flow(const struct request_sock *req,
+ 			struct flowi *fl)
+ {
+ }
++
++static inline int dummy_inet_sys_snd_skb(struct sk_buff *skb, int family)
++{
++	return 0;
++}
+ #endif	/* CONFIG_SECURITY_NETWORK */
+ 
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+@@ -1122,7 +1127,8 @@ void security_fixup_ops (struct security_operations *ops)
+ 	set_to_dummy_if_null(ops, inet_csk_clone);
+ 	set_to_dummy_if_null(ops, inet_conn_established);
+ 	set_to_dummy_if_null(ops, req_classify_flow);
+- #endif	/* CONFIG_SECURITY_NETWORK */
++	set_to_dummy_if_null(ops, inet_sys_snd_skb);
++#endif	/* CONFIG_SECURITY_NETWORK */
+ #ifdef  CONFIG_SECURITY_NETWORK_XFRM
+ 	set_to_dummy_if_null(ops, xfrm_policy_alloc_security);
+ 	set_to_dummy_if_null(ops, xfrm_policy_clone_security);
+diff --git a/security/security.c b/security/security.c
+index 3bdcada..7f55459 100644
+--- a/security/security.c
++++ b/security/security.c
+@@ -961,6 +961,12 @@ void security_req_classify_flow(const struct request_sock *req, struct flowi *fl
+ }
+ EXPORT_SYMBOL(security_req_classify_flow);
+ 
++int security_inet_sys_snd_skb(struct sk_buff *skb, int family)
++{
++	return security_ops->inet_sys_snd_skb(skb, family);
++}
++EXPORT_SYMBOL(security_inet_sys_snd_skb);
++
+ void security_sock_graft(struct sock *sk, struct socket *parent)
+ {
+ 	security_ops->sock_graft(sk, parent);
+
+-
+To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
