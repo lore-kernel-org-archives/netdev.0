@@ -1,51 +1,49 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] MAINTAINERS: remove Adam Fritzler, update his email
-	address in other sources
-Date: Sat, 22 Dec 2007 00:59:36 -0800
-Message-ID: <1198313976.4895.29.camel@localhost>
-References: <1197951126.4891.13.camel@localhost>
-	 <20071217202800.1c898441.akpm@linux-foundation.org>
-	 <1197953283.4891.24.camel@localhost>
-	 <20071222004448.36c95d98.akpm@linux-foundation.org>
-	 <476CD06F.3090402@pobox.com>
+From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
+Subject: Re: hard_start_xmit struct sk_buff read-only?
+Date: Sat, 22 Dec 2007 10:18:08 +0100 (CET)
+Message-ID: <166884.22908.qm@web52012.mail.re2.yahoo.com>
+References: <476CCFBA.2010305@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Adam Fritzler <mid@zigamorph.net>,
-	"James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>,
-	Mike Phillips <mikep@linuxtr.net>,
-	Philip Blundell <philb@gnu.org>, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org, Adrian Bunk <bunk@stusta.de>
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:3158 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750780AbXLVJBe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Dec 2007 04:01:34 -0500
-In-Reply-To: <476CD06F.3090402@pobox.com>
+Received: from web52012.mail.re2.yahoo.com ([206.190.48.28]:47409 "HELO
+	web52012.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757078AbXLVJYv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Dec 2007 04:24:51 -0500
+In-Reply-To: <476CCFBA.2010305@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2007-12-22 at 03:53 -0500, Jeff Garzik wrote:
-> > What was the rationale for removing Adam from MAINTAINERS?
 
-I sent him a patch to that address and it bounced.
-I sent him a note asking if he was still a maintainer to
-his new address and he replied:
+--- Jeff Garzik <jeff@garzik.org> schrieb:
 
-http://www.gossamer-threads.com/lists/linux/kernel/855361
+> This begs the question, what are you trying to do? 
+> ;-)
 
-On Mon, Dec 17, 2007 at 01:03:48PM -0800, Joe Perches wrote: 
-> > You seem to have an old email address in the 
-> > linux-kernel MAINTAINERS file. 
-> > Should it be deleted or changed? 
-On Mon, 2007-12-17 at 19:27 -0800, Adam Fritzler wrote: 
-> I am no longer actively involved. If you can mark me as a former point 
-> of contact, that's fine, or you can just delete the entry. My name is 
-> still in the source, but with the old address. It'd great if the 
-> address in source was updated. 
+I have seen network drivers whose hard_start_xmit
+function calls skb_push or skb_put to extend the used
+data area of the struct skb_buff passed to the
+function. That avoids allocating a new buffer and
+copying the whole data area to it. The drivers
+apparently do that because the device expects a
+specific header or suffix in the DMA buffer it
+handles.
 
-cheers, Joe
+> In terms of object lifetimes, control passes to the
+> net driver when 
+> ->hard_start_xmit() is called, but that does not
+> mean you can freely 
+> scribble over things -- the skb may have been
+> cloned, its destructor 
+> callback still needs to be called (via
+> dev_kfree_skb), etc.
 
+So I assume modifying the data or header area of
+struct sk_buff is incorrect because it can break
+cloned buffers.
+
+
+      Heute schon einen Blick in die Zukunft von E-Mails wagen? www.yahoo.de/mail
