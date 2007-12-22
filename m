@@ -1,60 +1,27 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] Reduce locking in TX path of forcedth driver
-Date: Fri, 21 Dec 2007 22:51:26 -0500
-Message-ID: <476C89BE.9050700@garzik.org>
-References: <20071222014134.A28994161A0@localhost> <20071221185435.2884f118@deepthought>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: [WEXT 0/12]: Un-crapify compat handling.
+Date: Fri, 21 Dec 2007 20:52:40 -0800 (PST)
+Message-ID: <20071221.205240.186733706.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com,
-	Ayaz Abdulla <aabdulla@nvidia.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49095 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750779AbXLVDvd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Dec 2007 22:51:33 -0500
-In-Reply-To: <20071221185435.2884f118@deepthought>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-(Stephen, your mailer is snipping CC's, please fix....)
+This set of 12 patches pulls all of the existing compat
+handling for WEXT ioctls out of fs/compat_ioctl.c and
+allows implementations down in the driver layers to
+handle compat issues properly when necessary.
 
-(Tom, you failed to CC the maintainer at NVIDIA, please fix...)
+In particular it fixes the bug where iw_point objects
+were not being size translated properly in scan
+streams and similar.
 
-Stephen Hemminger wrote:
-> On Fri, 21 Dec 2007 17:41:34 -0800 (PST)
-> therbert@google.com (Tom Herbert) wrote:
-> 
->> Reduce the amount of locking in the TX path.  Instead of using both netif_tx_lock and dev->priv->lock on transmitting, a single private lock (dev->priv->tx_lock) is used.  This method is similar to that of the e1000 driver, including the logic to stop the queue in the start xmit functions, and the logic to wake the queue in the TX done functions.  We see some performance improvement with this patch.
->>
->> Signed-off-by: Tom Herbert <therbert@google.com>
-> 
-> 
->>  
->> +	spin_lock_init(&np->tx_lock);
->> +
->> +	dev->features |= NETIF_F_LLTX;
->> +
-> 
-> NAK - lockless transmit is not desirable for real devices.
-> 
-> use netif_tx_lock() instead of your private lock
-
-True enough, though also note that (a) the forcedeth driver has many 
-problems in the locking department, and (b) anyone interested in working 
-on this problem should start with the existing -- working -- work in 
-progress that has already been posted to netdev a couple times:
-
-     Branch 'fe' of
-     git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
-
-forcedeth (as it exists unmodified in upstream) tries so hard to be 
-lockless...  that it winds up taking a ton of locks all over the place, 
-completely failing to reach its own goal.
-
-	Jeff
-
-
-
+Currently I've only made sure this compiles properly.
+I'm half-way done with a dummy wireless driver that
+can be used purely to validate WEXT ioctl handling
+correctness in the core wireless layers.
