@@ -1,43 +1,50 @@
-From: Bjorge Dijkstra <bjd@jooz.net>
-Subject: [PATCH 0/8] RFC: Wireless Extensions for rndis_host
-Date: Sat, 22 Dec 2007 22:51:26 +0100
-Message-ID: <11983602942818-git-send-email-bjd@jooz.net>
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: dbrownell@users.sourceforge.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:23494 "EHLO
-	viefep33-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754059AbXLVVvt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Dec 2007 16:51:49 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
+Subject: Re: [PATCH 1/8] Fix sparse warning: returning void-valued expression
+Date: Sat, 22 Dec 2007 16:42:03 -0800
+Message-ID: <20071223004203.5DED722313C@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
+References: <11983602942818-git-send-email-bjd@jooz.net>
+ <11983602952341-git-send-email-bjd@jooz.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: bjd-a1rhEgazXTw@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <11983602952341-git-send-email-bjd-a1rhEgazXTw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello all,
+> From bjd-a1rhEgazXTw@public.gmane.org  Sat Dec 22 13:52:53 2007
+> From: Bjorge Dijkstra <bjd-a1rhEgazXTw@public.gmane.org>
+> To: dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Subject: [PATCH 1/8] Fix sparse warning: returning void-valued expression
+> Date: Sat, 22 Dec 2007 22:51:27 +0100
+>
+> rndis_unbind and usbnet_cdc_unbind don't return anything.
+>
+> Signed-off-by: Bjorge Dijkstra <bjd-a1rhEgazXTw@public.gmane.org>
 
-I have here a patchset that needs some review.
-This patchset adds wireless extensions for rndis_host to
-enable support for RNDIS based USB wireless LAN adapters
-(e.g. Linksys WUSB54GS, Belkin F05D7051).
+Acked-by: David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 
-In this patchset:
- 1.  Fix sparse warning: returning void valued expression
- 2.  Hardwire CDC descriptors when missing
- 3.  Use 1KB buffer in rndis_unbind
- 4.  Halt device if rndis_bind fails
- 5.  Fix rndis packet filter flags
- 6.  Split up rndis_host.c
- 7.  Add Wireless Extensions for rndis_host
- 8.  Use wlan device name for RNDIS wireless devices
 
-The first five patches are more generic fixes that I think
-can be applied as they are. Of these, patch 2 is required
-to get these wireless devices working. 
-Patches 6-8 introduce some larger changes that may need a
-closer look.
-
-All these patches should be applied in order.
-The entire series should apply cleanly to current linux
-kernel and net-2.6.25 trees.
-
-regards,
-Bjorge Dijkstra
+> ---
+>  drivers/net/usb/rndis_host.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>
+> diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
+> index 1ebe325..96ef6a9 100644
+> --- a/drivers/net/usb/rndis_host.c
+> +++ b/drivers/net/usb/rndis_host.c
+> @@ -585,7 +585,7 @@ static void rndis_unbind(struct usbnet *dev, struct usb_interface *intf)
+>  		kfree(halt);
+>  	}
+>  
+> -	return usbnet_cdc_unbind(dev, intf);
+> +	usbnet_cdc_unbind(dev, intf);
+>  }
+>  
+>  /*
+> -- 
+> 1.5.2.5
+>
