@@ -1,33 +1,48 @@
-From: Al Viro <viro@ftp.linux.org.uk>
-Subject: Re: [git patches] net driver fixes
-Date: Sun, 23 Dec 2007 07:02:23 +0000
-Message-ID: <20071223070223.GQ8181@ftp.linux.org.uk>
-References: <20071223053314.GA31966@havoc.gtf.org> <20071223062731.GP8181@ftp.linux.org.uk> <476E0346.1030902@garzik.org>
+From: "David Shwatrz" <dshwatrz@gmail.com>
+Subject: [PATCH net-2.6][NEIGH] Updating affected neighbours about MAC address change
+Date: Sun, 23 Dec 2007 12:55:16 +0200
+Message-ID: <31436f4a0712230255w48e19a12ia686f326e87a21db@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:45333 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751352AbXLWHC2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2007 02:02:28 -0500
+Received: from wa-out-1112.google.com ([209.85.146.178]:22833 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752309AbXLWKzR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2007 05:55:17 -0500
+Received: by wa-out-1112.google.com with SMTP id v27so1871087wah.23
+        for <netdev@vger.kernel.org>; Sun, 23 Dec 2007 02:55:16 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <476E0346.1030902@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 23, 2007 at 01:42:14AM -0500, Jeff Garzik wrote:
-> I applied it to #upstream (2.6.25) since forcedeth is not on any 
-> big-endian platforms AFAIK.
+Hello,
 
-All right, then...  I hadn't been sure if it's onboard-only, that's all.
- 
-> I have an epic100 card too if you need it (though it sounds like you 
-> have something testable).
+ We know that changes in MAC addresses are not frequent but
+we are working on a special, highly advanced networking Linux based project
+in our LABs, where we do change MAC addresses of an interface quite frequently.
+(We do not go totally wild; the MAC addresses we are changing into are
+from a set of given MAC addresses).
 
-Picked one for a fiver on ebay, just need to get around to putting it
-into that U60 box and testing; not a problem, just hadn't got around to
-doing that yet.
+Normally, when we change a MAC address of some interface, the
+relevant neighbours in the LAN which have entries with the previous MAC
+address are not sent any update notification; instead, it is there
+regular timers mechanisms which update the MAC address to the new
+one in their ARP tables.
+
+I had written a small patch to neigh_changeaddr() in net/core/neighbour.c
+against the 2.6 git net tree, which sends a gratuitous ARP to update
+the list of
+all the involved neighbours with the change of MAC address.
+The patch is for neigh_changeaddr() only.
+
+This patch was tested and it does work in my LAB; if such a patch is
+not needed,
+I wonder why ?
+It seems to me that it could not cause any troubles.
+BTW, I had noticed that in irlan driver, there is such a mechanism
+of sending a gratuitous ARP to update all the
+neighbours when a MAC address is changed.
+
+Signed-off-by: David Shwatrz <dshwatrz@gmail.com>
