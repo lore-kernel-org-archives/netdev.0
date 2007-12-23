@@ -1,7 +1,7 @@
 From: Ariane Keller <ariane.keller@tik.ee.ethz.ch>
-Subject: Re: [PATCH 0/2] netem: trace enhancement: kernel
-Date: Sun, 23 Dec 2007 20:54:40 +0100
-Message-ID: <476EBD00.2060905@ee.ethz.ch>
+Subject: Re: [PATCH 0/2] netem: trace enhancement: iproute
+Date: Sun, 23 Dec 2007 20:54:56 +0100
+Message-ID: <476EBD10.3040209@ee.ethz.ch>
 References: <20071120231131.oqn4s5eda84k4csw@email.ee.ethz.ch>	<474C2246.50205@ee.ethz.ch> <20071129134554.5c25a891@freepuppy.rosehill>	<474F3719.30101@trash.net> <47503971.9080509@ee.ethz.ch>	<4753B423.7030000@trash.net> <4753C874.80703@ee.ethz.ch>	<47543E65.4060303@trash.net> <47544B1F.1010902@candelatech.com> <20071204154535.4eu35nfe9wks8kgg@email.ee.ethz.ch> <47559119.6070803@candelatech.com> <47559455.1080009@ee.ethz.ch> <47559763.9050408@candelatech.com> <4755C984.70906@ee.ethz.ch> <4755D2EB.4000807@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
@@ -12,765 +12,450 @@ Cc: Ariane Keller <ariane.keller@tik.ee.ethz.ch>,
 	netdev@vger.kernel.org, Rainer Baumann <baumann@tik.ee.ethz.ch>
 To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ee.ethz.ch ([129.132.2.219]:39073 "EHLO smtp.ee.ethz.ch"
+Received: from smtp.ee.ethz.ch ([129.132.2.219]:39092 "EHLO smtp.ee.ethz.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753684AbXLWTyv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Dec 2007 14:54:51 -0500
+	id S1754069AbXLWTzG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Dec 2007 14:55:06 -0500
 In-Reply-To: <4755D2EB.4000807@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch applies to kernel 2.6.23.
-It enhances the network emulator netem with the possibility
-to read all delay/drop/duplicate etc values from a trace file.
-This trace file contains for each packet to be processed one value.
-The values are read from the file in a user space process called
-flowseed. These values are sent to the netem module with the help of
-rtnetlink sockets.
-In the netem module the values are "cached" in buffers.
-The number of buffers is configurable upon start of netem.
-If a buffer is empty the netem module sends a rtnetlink notification
-to the flowseed process.
-Upon receiving such a notification this process sends
-the next 1000 values to the netem module.
+The iproute patch is to big to send on the mailing list,
+since the distribution data have changed the directory.
+For ease of discussion I add the important changes in this mail.
 
-signed-off-by: Ariane Keller <ariane.keller@tik.ee.ethz.ch>
+signed-of-by: Ariane Keller <ariane.keller@tik.ee.ethz.ch
 
 ---
-diff -uprN -X linux-2.6.23.8/Documentation/dontdiff 
-linux-2.6.23.8/include/linux/pkt_sched.h 
-linux-2.6.23.8_mod/include/linux/pkt_sched.h
---- linux-2.6.23.8/include/linux/pkt_sched.h	2007-11-16 
-19:14:27.000000000 +0100
-+++ linux-2.6.23.8_mod/include/linux/pkt_sched.h	2007-12-21 
-19:42:49.000000000 +0100
-@@ -439,6 +439,9 @@ enum
-  	TCA_NETEM_DELAY_DIST,
-  	TCA_NETEM_REORDER,
-  	TCA_NETEM_CORRUPT,
-+	TCA_NETEM_TRACE,
-+	TCA_NETEM_TRACE_DATA,
-+	TCA_NETEM_STATS,
-  	__TCA_NETEM_MAX,
-  };
 
-@@ -454,6 +457,26 @@ struct tc_netem_qopt
-  	__u32	jitter;		/* random jitter in latency (us) */
-  };
-
-+struct tc_netem_stats
-+{
-+	int packetcount;
-+	int packetok;
-+	int normaldelay;
-+	int drops;
-+	int dupl;
-+	int corrupt;
-+	int novaliddata;
-+	int reloadbuffer;
-+};
-+
-+struct tc_netem_trace
-+{
-+	__u32   fid;             /*flowid */
-+	__u32   def;          	 /* default action 0 = no delay, 1 = drop*/
-+	__u32   ticks;	         /* number of ticks corresponding to 1ms */
-+	__u32   nr_bufs;	 /* number of buffers to save trace data*/
-+};
-+
-  struct tc_netem_corr
-  {
-  	__u32	delay_corr;	/* delay correlation */
-diff -uprN -X linux-2.6.23.8/Documentation/dontdiff 
-linux-2.6.23.8/include/net/flowseed.h 
-linux-2.6.23.8_mod/include/net/flowseed.h
---- linux-2.6.23.8/include/net/flowseed.h	1970-01-01 01:00:00.000000000 
+diff -uprN iproute2-2.6.23/netem/trace/flowseed.c 
+iproute2-2.6.23_buf/netem/trace/flowseed.c
+--- iproute2-2.6.23/netem/trace/flowseed.c	1970-01-01 01:00:00.000000000 
 +0100
-+++ linux-2.6.23.8_mod/include/net/flowseed.h	2007-12-21 
-19:43:24.000000000 +0100
-@@ -0,0 +1,34 @@
-+/* flowseed.h     header file for the netem trace enhancement
++++ iproute2-2.6.23_buf/netem/trace/flowseed.c	2007-12-12 
+08:43:01.000000000 +0100
+@@ -0,0 +1,209 @@
++/* flowseed.c    flowseedprocess to deliver values for packet delay,
++ *               duplication, loss and curruption form userspace to netem
++ *
++ *               This program is free software; you can redistribute it 
+and/or
++ *               modify it under the terms of the GNU General Public 
+License
++ *               as published by the Free Software Foundation; either 
+version
++ *               2 of the License, or (at your option) any later version.
++ *
++ *  Authors:     Ariane Keller <arkeller@ee.ethz.ch> ETH Zurich
++ *               Rainer Baumann <baumann@hypert.net> ETH Zurich
 + */
 +
-+#ifndef _FLOWSEED_H
-+#define _FLOWSEED_H
-+#include <net/sch_generic.h>
++#include <ctype.h>
++#include <stdio.h>
++#include <fcntl.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <unistd.h>
++#include <sys/ipc.h>
++#include <sys/sem.h>
++#include <signal.h>
 +
-+/* must be divisible by 4 (=#pkts)*/
++#include "utils.h"
++#include "linux/pkt_sched.h"
++
 +#define DATA_PACKAGE 4000
-+#define DATA_PACKAGE_ID 4008
++#define DATA_PACKAGE_ID DATA_PACKAGE + sizeof(unsigned int) + sizeof(int)
++#define TCA_BUF_MAX  (64*1024)
++/* maximal amount of parallel flows */
++struct rtnl_handle rth;
++unsigned int loop;
++int infinity = 0;
++int fdflowseed;
++char *sendpkg;
++int fid;
++int initialized = 0;
++int semid;
++int moreData = 1, r = 0, rold = 0;
++FILE * file;
 +
-+/* struct per flow - kernel */
-+struct tcn_control
++
++int printfct(const struct sockaddr_nl *who,
++		       struct nlmsghdr *n,
++		       void *arg)
 +{
-+	struct list_head full_buffer_list;
-+	struct list_head empty_buffer_list;
-+	struct buflist * buffer_in_use;		
-+	int *offsetpos;       /* pointer to actual pos in the buffer in use */
-+	int flowid;
-+};
++	struct {
++		struct nlmsghdr 	n;
++		struct tcmsg 		t;
++		char   			buf[TCA_BUF_MAX];
++	} req;
++	struct tcmsg *t = NLMSG_DATA(n);
++	struct rtattr *tail = NULL;
++	struct tc_netem_qopt opt;
++	memset(&opt, 0, sizeof(opt));
 +
-+struct tcn_statistic
-+{
-+	int packetcount;
-+	int packetok;
-+	int normaldelay;
-+	int drops;
-+	int dupl;
-+	int corrupt;
-+	int novaliddata;
-+	int reloadbuffer;
-+};
-+
-+#endif
-diff -uprN -X linux-2.6.23.8/Documentation/dontdiff 
-linux-2.6.23.8/include/net/pkt_sched.h 
-linux-2.6.23.8_mod/include/net/pkt_sched.h
---- linux-2.6.23.8/include/net/pkt_sched.h	2007-11-16 19:14:27.000000000 
-+0100
-+++ linux-2.6.23.8_mod/include/net/pkt_sched.h	2007-12-21 
-19:42:49.000000000 +0100
-@@ -72,6 +72,9 @@ extern void qdisc_watchdog_cancel(struct
-  extern struct Qdisc_ops pfifo_qdisc_ops;
-  extern struct Qdisc_ops bfifo_qdisc_ops;
-
-+extern int qdisc_notify_pid(int pid, struct nlmsghdr *n, u32 clid,
-+			struct Qdisc *old, struct Qdisc *new);
-+
-  extern int register_qdisc(struct Qdisc_ops *qops);
-  extern int unregister_qdisc(struct Qdisc_ops *qops);
-  extern struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle);
-diff -uprN -X linux-2.6.23.8/Documentation/dontdiff 
-linux-2.6.23.8/net/core/rtnetlink.c linux-2.6.23.8_mod/net/core/rtnetlink.c
---- linux-2.6.23.8/net/core/rtnetlink.c	2007-11-16 19:14:27.000000000 +0100
-+++ linux-2.6.23.8_mod/net/core/rtnetlink.c	2007-12-21 
-19:42:49.000000000 +0100
-@@ -460,7 +460,7 @@ int rtnetlink_send(struct sk_buff *skb,
-  	NETLINK_CB(skb).dst_group = group;
-  	if (echo)
-  		atomic_inc(&skb->users);
--	netlink_broadcast(rtnl, skb, pid, group, GFP_KERNEL);
-+	netlink_broadcast(rtnl, skb, pid, group, gfp_any());
-  	if (echo)
-  		err = netlink_unicast(rtnl, skb, pid, MSG_DONTWAIT);
-  	return err;
-diff -uprN -X linux-2.6.23.8/Documentation/dontdiff 
-linux-2.6.23.8/net/sched/sch_api.c linux-2.6.23.8_mod/net/sched/sch_api.c
---- linux-2.6.23.8/net/sched/sch_api.c	2007-11-16 19:14:27.000000000 +0100
-+++ linux-2.6.23.8_mod/net/sched/sch_api.c	2007-12-21 19:42:49.000000000 
-+0100
-@@ -28,6 +28,7 @@
-  #include <linux/list.h>
-  #include <linux/hrtimer.h>
-
-+#include <net/sock.h>
-  #include <net/netlink.h>
-  #include <net/pkt_sched.h>
-
-@@ -841,6 +842,62 @@ rtattr_failure:
-  	nlmsg_trim(skb, b);
-  	return -1;
-  }
-+static int tc_fill(struct sk_buff *skb, struct Qdisc *q, u32 clid,
-+			 u32 pid, u32 seq, u16 flags, int event)
-+{
-+	struct tcmsg *tcm;
-+	struct nlmsghdr  *nlh;
-+	unsigned char *b = skb_tail_pointer(skb);
-+
-+	nlh = NLMSG_NEW(skb, pid, seq, event, sizeof(*tcm), flags);
-+	tcm = NLMSG_DATA(nlh);
-+	tcm->tcm_family = AF_UNSPEC;
-+	tcm->tcm__pad1 = 0;
-+	tcm->tcm__pad2 = 0;
-+	tcm->tcm_ifindex = q->dev->ifindex;
-+	tcm->tcm_parent = clid;
-+	tcm->tcm_handle = q->handle;
-+	tcm->tcm_info = atomic_read(&q->refcnt);
-+	RTA_PUT(skb, TCA_KIND, IFNAMSIZ, q->ops->id);
-+	if (q->ops->dump && q->ops->dump(q, skb) < 0)
-+		goto rtattr_failure;
-+
-+	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
-+
-+	return skb->len;
-+
-+nlmsg_failure:
-+rtattr_failure:
-+	nlmsg_trim(skb, b);
-+	return -1;
-+}
-+
-+int qdisc_notify_pid(int pid, struct nlmsghdr *n,
-+			u32 clid, struct Qdisc *old, struct Qdisc *new)
-+{
-+	struct sk_buff *skb;
-+	skb = alloc_skb(NLMSG_GOODSIZE, gfp_any());
-+	if (!skb)
-+		return -ENOBUFS;
-+
-+	if (old && old->handle) {
-+		if (tc_fill(skb, old, clid, pid, n->nlmsg_seq,
-+				0, RTM_DELQDISC) < 0)
-+			goto err_out;
++	if(n->nlmsg_type == RTM_DELQDISC) {
++		goto outerr;
 +	}
-+	if (new) {
-+		if (tc_fill(skb, new, clid, pid, n->nlmsg_seq,
-+				old ? NLM_F_REPLACE : 0, RTM_NEWQDISC) < 0)
-+			goto err_out;
-+	}
-+	if (skb->len)
-+		return rtnetlink_send(skb, pid, RTNLGRP_TC, n->nlmsg_flags);
++	else if(n->nlmsg_type == RTM_NEWQDISC){
++		initialized = 1;
++	
++		memset(&req, 0, sizeof(req));
++		req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg));
++		req.n.nlmsg_flags = NLM_F_REQUEST;
++		req.n.nlmsg_type = RTM_NEWQDISC;
++		req.t.tcm_family = AF_UNSPEC;
++		req.t.tcm_handle = t->tcm_handle;
++		req.t.tcm_parent = t->tcm_parent;
++		req.t.tcm_ifindex = t->tcm_ifindex;
 +
-+err_out:
-+	kfree_skb(skb);
-+	return -EINVAL;
-+}
-+EXPORT_SYMBOL(qdisc_notify_pid);
-
-  static int qdisc_notify(struct sk_buff *oskb, struct nlmsghdr *n,
-  			u32 clid, struct Qdisc *old, struct Qdisc *new)
-@@ -848,7 +905,7 @@ static int qdisc_notify(struct sk_buff *
-  	struct sk_buff *skb;
-  	u32 pid = oskb ? NETLINK_CB(oskb).pid : 0;
-
--	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
-+	skb = alloc_skb(NLMSG_GOODSIZE, gfp_any());
-  	if (!skb)
-  		return -ENOBUFS;
-
-diff -uprN -X linux-2.6.23.8/Documentation/dontdiff 
-linux-2.6.23.8/net/sched/sch_netem.c 
-linux-2.6.23.8_mod/net/sched/sch_netem.c
---- linux-2.6.23.8/net/sched/sch_netem.c	2007-11-16 19:14:27.000000000 +0100
-+++ linux-2.6.23.8_mod/net/sched/sch_netem.c	2007-12-21 
-19:42:49.000000000 +0100
-@@ -11,6 +11,8 @@
-   *
-   * Authors:	Stephen Hemminger <shemminger@osdl.org>
-   *		Catalin(ux aka Dino) BOIE <catab at umbrella dot ro>
-+ *              netem trace: Ariane Keller <arkeller at ee.ethz.ch> ETH 
-Zurich
-+ *                           Rainer Baumann <baumann at hypert.net> ETH 
-Zurich
-   */
-
-  #include <linux/module.h>
-@@ -19,11 +21,13 @@
-  #include <linux/errno.h>
-  #include <linux/skbuff.h>
-  #include <linux/rtnetlink.h>
--
-+#include <linux/list.h>
-  #include <net/netlink.h>
-  #include <net/pkt_sched.h>
-
--#define VERSION "1.2"
-+#include "net/flowseed.h"
++		tail = NLMSG_TAIL(&req.n);
++again:
++		if (loop <= 0 && !infinity){
++			goto out;
++		}
++		if ((r = read(fdflowseed, sendpkg + rold, DATA_PACKAGE - rold)) >= 0) {
++			if (r + rold < DATA_PACKAGE) {
++			/* Tail of input file reached,
++			   set rest at start from next iteration */
++				rold = r;
++				fprintf(file, "flowseed: at end of file.\n");
 +
-+#define VERSION "1.3"
-
-  /*	Network Emulation Queuing algorithm.
-  	====================================
-@@ -49,6 +53,11 @@
-
-  	 The simulator is limited by the Linux timer resolution
-  	 and will create packet bursts on the HZ boundary (1ms).
-+
-+	 The trace option allows us to read the values for packet delay,
-+	 duplication, loss and corruption from a tracefile. This permits
-+	 the modulation of statistical properties such as long-range
-+	 dependences. See http://tcn.hypert.net.
-  */
-
-  struct netem_sched_data {
-@@ -65,7 +74,11 @@ struct netem_sched_data {
-  	u32 duplicate;
-  	u32 reorder;
-  	u32 corrupt;
--
-+	u32 trace;
-+	u32 ticks;
-+	u32 def;
-+	u32 flowid;
-+	u32 bufnr;
-  	struct crndstate {
-  		u32 last;
-  		u32 rho;
-@@ -75,13 +88,29 @@ struct netem_sched_data {
-  		u32  size;
-  		s16 table[0];
-  	} *delay_dist;
-+
-+	struct tcn_statistic *statistic;
-+	struct tcn_control *flowbuffer;
-+};
-+
-+struct  buflist {
-+	struct list_head list;
-+	char *buf;
-  };
-
-+
-  /* Time stamp put into socket buffer control block */
-  struct netem_skb_cb {
-  	psched_time_t	time_to_send;
-  };
-
-+
-+#define MASK_BITS	29
-+#define MASK_DELAY	((1<<MASK_BITS)-1)
-+#define MASK_HEAD       ~MASK_DELAY
-+
-+enum tcn_action { FLOW_NORMAL, FLOW_DROP, FLOW_DUP, FLOW_MANGLE };
-+
-  /* init_crandom - initialize correlated random number generator
-   * Use entropy source for initial seed.
-   */
-@@ -141,6 +170,72 @@ static psched_tdiff_t tabledist(psched_t
-  	return  x / NETEM_DIST_SCALE + (sigma / NETEM_DIST_SCALE) * t + mu;
-  }
-
-+/* don't call this function directly. It is called after
-+ * a packet has been taken out of a buffer and it was the last.
-+ */
-+static int reload_flowbuffer(struct netem_sched_data *q, struct Qdisc *sch)
-+{
-+	struct tcn_control *flow = q->flowbuffer;
-+	struct nlmsghdr n;
-+	struct buflist *element = list_entry(flow->full_buffer_list.next,
-+					     struct buflist, list);
-+	/* the current buffer is empty */
-+	list_add_tail(&flow->buffer_in_use->list, &flow->empty_buffer_list);
-+
-+	if (list_empty(&q->flowbuffer->full_buffer_list)) {
-+		printk(KERN_ERR "netem: reload_flowbuffer, no full buffer\n");
-+		return -EFAULT;
-+	}
-+
-+	list_del_init(&element->list);
-+	flow->buffer_in_use = element;
-+	flow->offsetpos = (int *)element->buf;
-+	memset(&n, 0, sizeof(struct nlmsghdr));
-+	n.nlmsg_seq = 1;
-+	n.nlmsg_flags = NLM_F_REQUEST;
-+	if (qdisc_notify_pid(q->flowid, &n, sch->parent, NULL, sch) < 0)
-+		printk(KERN_ERR "netem: unable to request for more data\n");
-+
-+	return 0;
-+}
-+
-+/* return pktdelay with delay and drop/dupl/corrupt option */
-+static int get_next_delay(struct netem_sched_data *q, enum tcn_action 
-*head,
-+			  struct sk_buff *skb, struct Qdisc *sch)
-+{
-+	struct tcn_control *flow = q->flowbuffer;
-+	u32 variout;
-+	/*choose whether to drop or 0 delay packets on default*/
-+	*head = q->def;
-+
-+	if (!flow) {
-+		printk(KERN_ERR "netem: read from an uninitialized flow.\n");
-+		q->statistic->novaliddata++;
-+		return 0;
-+	}
-+	if (!flow->buffer_in_use) {
-+		printk(KERN_ERR "netem: read from uninitialized flow\n");
-+		return 0;
-+	}
-+	if (!flow->buffer_in_use->buf || !flow->offsetpos) {
-+		printk(KERN_ERR "netem: buffer empty or offsetpos null\n");
-+		return 0;
-+	}
-+
-+	q->statistic->packetcount++;
-+	/* check if we have to reload a buffer */
-+	if ((void *)flow->offsetpos - (void *)flow->buffer_in_use->buf == 
-DATA_PACKAGE)
-+		reload_flowbuffer(q, sch);
-+
-+	variout = *flow->offsetpos++;
-+	*head = (variout & MASK_HEAD) >> MASK_BITS;
-+
-+	(&q->statistic->normaldelay)[*head] += 1;
-+	q->statistic->packetok++;
-+
-+	return ((variout & MASK_DELAY) * q->ticks) / 1000;
-+}
-+
-  /*
-   * Insert one skb into qdisc.
-   * Note: parent depends on return value to account for queue length.
-@@ -153,17 +248,23 @@ static int netem_enqueue(struct sk_buff
-  	/* We don't fill cb now as skb_unshare() may invalidate it */
-  	struct netem_skb_cb *cb;
-  	struct sk_buff *skb2;
-+	enum tcn_action action = FLOW_NORMAL;
-+	psched_tdiff_t delay  = -1;
-  	int ret;
-  	int count = 1;
-
-  	pr_debug("netem_enqueue skb=%p\n", skb);
-+	if (q->trace)
-+		delay = get_next_delay(q, &action, sch->q.next, sch);
-
-  	/* Random duplication */
--	if (q->duplicate && q->duplicate >= get_crandom(&q->dup_cor))
-+	if (q->trace ? action == FLOW_DUP :
-+	    (q->duplicate && q->duplicate >= get_crandom(&q->dup_cor)))
-  		++count;
-
-  	/* Random packet drop 0 => none, ~0 => all */
--	if (q->loss && q->loss >= get_crandom(&q->loss_cor))
-+	if (q->trace ? action == FLOW_DROP :
-+	    (q->loss && q->loss >= get_crandom(&q->loss_cor)))
-  		--count;
-
-  	if (count == 0) {
-@@ -194,7 +295,8 @@ static int netem_enqueue(struct sk_buff
-  	 * If packet is going to be hardware checksummed, then
-  	 * do it now in software before we mangle it.
-  	 */
--	if (q->corrupt && q->corrupt >= get_crandom(&q->corrupt_cor)) {
-+	if (q->trace ? action == FLOW_MANGLE :
-+	    (q->corrupt && q->corrupt >= get_crandom(&q->corrupt_cor))) {
-  		if (!(skb = skb_unshare(skb, GFP_ATOMIC))
-  		    || (skb->ip_summed == CHECKSUM_PARTIAL
-  			&& skb_checksum_help(skb))) {
-@@ -210,10 +312,10 @@ static int netem_enqueue(struct sk_buff
-  	    || q->counter < q->gap 	/* inside last reordering gap */
-  	    || q->reorder < get_crandom(&q->reorder_cor)) {
-  		psched_time_t now;
--		psched_tdiff_t delay;
-
--		delay = tabledist(q->latency, q->jitter,
--				  &q->delay_cor, q->delay_dist);
-+		if (!q->trace)
-+			delay = tabledist(q->latency, q->jitter,
-+					  &q->delay_cor, q->delay_dist);
-
-  		now = psched_get_time();
-  		cb->time_to_send = now + delay;
-@@ -332,6 +434,61 @@ static int set_fifo_limit(struct Qdisc *
-  	return ret;
-  }
-
-+static void reset_stats(struct netem_sched_data *q)
-+{
-+	if (q->statistic)
-+		memset(q->statistic, 0, sizeof(*(q->statistic)));
-+	return;
-+}
-+
-+static void free_flowbuffer(struct netem_sched_data *q)
-+{
-+	struct buflist *cursor;
-+	struct buflist *next;
-+	list_for_each_entry_safe(cursor, next,
-+				 &q->flowbuffer->full_buffer_list, list) {
-+		kfree(cursor->buf);
-+		list_del(&cursor->list);
-+		kfree(cursor);
-+	}
-+
-+	list_for_each_entry_safe(cursor, next,
-+				 &q->flowbuffer->empty_buffer_list, list) {
-+		kfree(cursor->buf);
-+		list_del(&cursor->list);
-+		kfree(cursor);
-+	}
-+
-+	kfree(q->flowbuffer->buffer_in_use->buf);
-+	kfree(q->flowbuffer->buffer_in_use);
-+
-+	kfree(q->statistic);
-+	kfree(q->flowbuffer);
-+	q->statistic = NULL;
-+	q->flowbuffer = NULL;
-+
-+}
-+
-+static int init_flowbuffer(unsigned int fid, struct netem_sched_data *q)
-+{
-+	q->statistic = kzalloc(sizeof(*(q->statistic)), GFP_KERNEL);
-+	q->flowbuffer = kmalloc(sizeof(*(q->flowbuffer)), GFP_KERNEL);
-+
-+	INIT_LIST_HEAD(&q->flowbuffer->full_buffer_list);
-+	INIT_LIST_HEAD(&q->flowbuffer->empty_buffer_list);
-+
-+	while (q->bufnr > 0) {
-+		int size = sizeof(struct buflist);
-+		struct buflist *element = kmalloc(size, GFP_KERNEL);
-+		element->buf =  kmalloc(DATA_PACKAGE, GFP_KERNEL);
-+		list_add(&element->list, &q->flowbuffer->empty_buffer_list);
-+		q->bufnr--;
-+	}
-+	q->flowbuffer->buffer_in_use = NULL;
-+	q->flowbuffer->offsetpos = NULL;
-+	return 0;
-+}
-+
-  /*
-   * Distribution data is a variable size payload containing
-   * signed 16 bit values.
-@@ -403,6 +560,87 @@ static int get_corrupt(struct Qdisc *sch
-  	return 0;
-  }
-
-+static int get_trace(struct Qdisc *sch, const struct rtattr *attr)
-+{
-+	struct netem_sched_data *q = qdisc_priv(sch);
-+	const struct tc_netem_trace *traceopt = RTA_DATA(attr);
-+	struct nlmsghdr n;
-+	if (RTA_PAYLOAD(attr) != sizeof(*traceopt))
-+		return -EINVAL;
-+
-+	if (traceopt->fid) {
-+		q->ticks = traceopt->ticks;
-+		q->bufnr = traceopt->nr_bufs;
-+		q->trace = 1;
-+		init_flowbuffer(traceopt->fid, q);
-+	} else {
-+		printk(KERN_ERR "netem: invalid flow id\n");
-+		q->trace = 0;
-+	}
-+	q->def = traceopt->def;
-+	q->flowid = traceopt->fid;
-+
-+	memset(&n, 0, sizeof(struct nlmsghdr));
-+
-+	n.nlmsg_seq = 1;
-+	n.nlmsg_flags = NLM_F_REQUEST;
-+
-+	if (qdisc_notify_pid(traceopt->fid, &n, sch->parent, NULL, sch) < 0) {
-+		printk(KERN_ERR "netem: could not send notification");
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+static int get_trace_data(struct Qdisc *sch, const struct rtattr *attr)
-+{
-+	struct netem_sched_data *q = qdisc_priv(sch);
-+	const char *msg = RTA_DATA(attr);
-+	int fid, validData;
-+	struct buflist *element;
-+	struct tcn_control *flow;
-+	if (RTA_PAYLOAD(attr) != DATA_PACKAGE_ID) {
-+		printk("get_trace_data: invalid size\n");
-+		return -EINVAL;
-+	}
-+	memcpy(&fid, msg + DATA_PACKAGE, sizeof(int));
-+	memcpy(&validData, msg + DATA_PACKAGE + sizeof(int), sizeof(int));
-+
-+	/* check whether this process is allowed to send data */
-+	if (fid != q->flowid)
-+		return -EPERM;
-+
-+	/* no empty buffer */
-+	if (list_empty(&q->flowbuffer->empty_buffer_list))
-+		return -ENOBUFS;
-+
-+	element = list_entry(q->flowbuffer->empty_buffer_list.next,
-+			     struct buflist, list);
-+	if (element->buf == NULL)
-+		return -ENOBUFS;
-+
-+	list_del_init(&element->list);
-+	memcpy(element->buf, msg, DATA_PACKAGE);
-+	flow = q->flowbuffer;
-+	if (flow->buffer_in_use == NULL) {
-+		flow->buffer_in_use = element;
-+		flow->offsetpos = (int *)element->buf;
-+	} else
-+		list_add_tail(&element->list, &q->flowbuffer->full_buffer_list);
-+
-+	if (!list_empty(&q->flowbuffer->empty_buffer_list)) {
-+		struct nlmsghdr n;
-+		memset(&n, 0, sizeof(struct nlmsghdr));
-+		n.nlmsg_flags = NLM_F_REQUEST;
-+		n.nlmsg_seq = 1;
-+		if (qdisc_notify_pid(fid, &n, sch->parent, NULL, sch) < 0)
-+			printk(KERN_NOTICE "could not send data "
-+				"request for flow %i\n", fid);
-+	}
-+	q->statistic->reloadbuffer++;
-+	return 0;
-+}
-+
-  /* Parse netlink message to set options */
-  static int netem_change(struct Qdisc *sch, struct rtattr *opt)
-  {
-@@ -414,11 +652,6 @@ static int netem_change(struct Qdisc *sc
-  		return -EINVAL;
-
-  	qopt = RTA_DATA(opt);
--	ret = set_fifo_limit(q->qdisc, qopt->limit);
--	if (ret) {
--		pr_debug("netem: can't set fifo limit\n");
--		return ret;
--	}
-
-  	q->latency = qopt->latency;
-  	q->jitter = qopt->jitter;
-@@ -444,6 +677,29 @@ static int netem_change(struct Qdisc *sc
-  				 RTA_PAYLOAD(opt) - sizeof(*qopt)))
-  			return -EINVAL;
-
-+		/* its a user tc add or tc change command.
-+		 * We free the flowbuffer*/
-+		if (!tb[TCA_NETEM_TRACE_DATA-1] && q->trace) {
-+			struct nlmsghdr n;
-+			q->trace = 0;
-+			memset(&n, 0, sizeof(struct nlmsghdr));
-+			n.nlmsg_flags = NLM_F_REQUEST;
-+			n.nlmsg_seq = 1;
-+			if (qdisc_notify_pid(q->flowid, &n, sch->parent, sch, NULL) < 0)
-+				printk(KERN_NOTICE "netem: cannot send notification\n");
-+
-+			reset_stats(q);
-+			free_flowbuffer(q);
-+
-+			/* we set the fifo limit: this is done here
-+			 * since TRACE_DATA memset qopt to 0 */
-+			ret = set_fifo_limit(q->qdisc, qopt->limit);
-+			if (ret) {
-+				pr_debug("netem: can't set fifo limit\n");
-+				return ret;
++				if (lseek(fdflowseed, 0L, SEEK_SET) < 0){
++					perror("lseek reset");
++					goto out;
++				}
++				goto again;
 +			}
-+		}
++			r = 0;
++			rold = 0;
++			memcpy(sendpkg + DATA_PACKAGE, &fid, sizeof(int));
++			memcpy(sendpkg + DATA_PACKAGE + sizeof(int), &moreData, sizeof(int));
++		
++			/* opt has to be added for each netem request */
++			if (addattr_l(&req.n, TCA_BUF_MAX, TCA_OPTIONS, &opt, sizeof(opt)) < 0){
++				perror("add options");
++				return -1;
++			}
 +
-  		if (tb[TCA_NETEM_CORR-1]) {
-  			ret = get_correlation(sch, tb[TCA_NETEM_CORR-1]);
-  			if (ret)
-@@ -467,7 +723,40 @@ static int netem_change(struct Qdisc *sc
-  			if (ret)
-  				return ret;
-  		}
-+		if (tb[TCA_NETEM_TRACE-1]) {
-+			ret = get_trace(sch, tb[TCA_NETEM_TRACE-1]);
-+			if (ret)
-+				return ret;
-+		}
-+		if (tb[TCA_NETEM_TRACE_DATA-1]) {
-+			ret = get_trace_data(sch, tb[TCA_NETEM_TRACE_DATA-1]);
-+			if (ret)
-+				return ret;
-+		}
++			if(addattr_l(&req.n, TCA_BUF_MAX, TCA_NETEM_TRACE_DATA, sendpkg, 
+DATA_PACKAGE_ID) < 0){
++				perror("add data\n");
++				return -1;
++			}
 +
-  	}
-+	/* it was a user tc add or tc change request,
-+	 * we delete the current flowbuffer*/
-+	else {
-+		if (q->trace) {
-+			struct nlmsghdr n;
-+			q->trace = 0;
-+			memset(&n, 0, sizeof(struct nlmsghdr));
-+			n.nlmsg_flags = NLM_F_REQUEST;
-+			n.nlmsg_seq = 1;
-+			if (qdisc_notify_pid(q->flowid, &n, sch->parent, sch, NULL) < 0)
-+				printk(KERN_NOTICE "netem: could not send notification\n");
-+			reset_stats(q);
-+			free_flowbuffer(q);
-+		}
-+		/* we set the fifo limit */
-+		ret = set_fifo_limit(q->qdisc, qopt->limit);
-+		if (ret) {
-+			pr_debug("netem: can't set fifo limit\n");
-+			return ret;
++			tail->rta_len = (void *)NLMSG_TAIL(&req.n) - (void *)tail;
++
++			if(rtnl_send(&rth, (char*)&req, req.n.nlmsg_len) < 0){
++				perror("send data");
++				return -1;
++			}
++			return 0;
 +		}
 +	}
++/* no more data, what to do? we send a notification to the kernel module */
++out:
++	fprintf(stderr, "flowseed: Tail of input file reached. Exit.\n");
++	fprintf(file, "flowseed: Tail of input file reached. Exit.\n");
++	moreData = 0;
++	memcpy(sendpkg + DATA_PACKAGE, &fid, sizeof(int));
++	memcpy(sendpkg + DATA_PACKAGE + sizeof(int), &moreData, sizeof(int));
++	if (addattr_l(&req.n, TCA_BUF_MAX, TCA_OPTIONS, &opt, sizeof(opt)) < 0){
++		perror("add options");
++		goto outerr;
++	}
++	if(addattr_l(&req.n, TCA_BUF_MAX, TCA_NETEM_TRACE_DATA, sendpkg, 
+DATA_PACKAGE_ID) < 0){
++		perror("add data\n");
++		goto outerr;
++	}
++	
++	tail->rta_len = (void *)NLMSG_TAIL(&req.n) - (void *)tail;
 +
++	if(rtnl_send(&rth, (char*)&req, req.n.nlmsg_len) < 0){
++		perror("rtnl_send");
++	}
++outerr:
++	fprintf(file, "flowseed: outerr Exit.\n");
++	fclose(file);
++	close(fdflowseed);
++	free(sendpkg);
++	rtnl_close(&rth);
++	exit(0);
++}
++
++void sigact(int signal){
++	if(initialized){
++		return;
++	}
++	else{
++		fprintf(stderr, "flowseed: not yet initialized. Exit\n");
++		exit(0);
++	}
++}
++int main(int argc, char *argv[])
++{
++	struct sembuf buf;
++        file = fopen("flowseedout.txt", "a+");
++	fprintf(file, "flowseed: initial msg.\n");
++
++	if (argc < 3) {
++		printf("usage: <tracefilename> <loop>");
++		return -1;
++	}
++	loop = strtoul(argv[2], NULL, 10);
++	if (loop == 0)
++		infinity = 1;
++
++	if ((fdflowseed = open(argv[1], O_RDONLY, 0)) < 0) {
++		perror("cannot open tracefile");
++		return -1;
++	}
++
++	fid = getpid();
++	sendpkg = malloc(DATA_PACKAGE_ID);
++
++	if (rtnl_open(&rth, 0) < 0) {
++		perror("Cannot open rtnetlink");
++		return -1;
++	}
++	ll_init_map(&rth);
++	/* we are ready to receive notifications */
++	if((semid = semget(0x12345678, 1, IPC_CREAT | 0666))<0){
++		perror("semget");
++		return -1;
++	}
++	buf.sem_num = 0;
++	buf.sem_op = +1;
++	buf.sem_flg = SEM_UNDO;
++	if(semop(semid, &buf, 1) < 0){
++		perror("semop");
++		return -1;
++	}
++	/* if the user typed an invalid command we cannot detect this
++ 	 * therefore we set a timer, if the timer expires before we receive
++ 	 * any message from the kernel module, we assume there was an
++ 	 * error and quit.
++ 	 */
++	signal(SIGALRM, sigact);
++	alarm(3);
++
++	/* listen to notifications from kernel */
++	if (rtnl_listen(&rth, printfct, NULL) < 0) {
++		perror("listen");
++		rtnl_close(&rth);
++		exit(2);
++	}
++	return 0;
++}
 
-  	return 0;
+
+diff -uprN iproute2-2.6.23/tc/q_netem.c iproute2-2.6.23_buf/tc/q_netem.c
+--- iproute2-2.6.23/tc/q_netem.c	2007-10-16 23:27:42.000000000 +0200
++++ iproute2-2.6.23_buf/tc/q_netem.c	2007-12-21 19:08:19.000000000 +0100
+@@ -6,7 +6,12 @@
+   *		as published by the Free Software Foundation; either version
+   *		2 of the License, or (at your option) any later version.
+   *
++ *		README files: 	iproute2/netem/distribution
++ *				iproute2/netem/trace
++ *
+   * Authors:	Stephen Hemminger <shemminger@osdl.org>
++ *              netem trace: Ariane Keller <arkeller@ee.ethz.ch> ETH Zurich
++ *                           Rainer Baumann <baumann@hypert.net> ETH Zurich
+   *
+   */
+
+@@ -20,6 +25,9 @@
+  #include <arpa/inet.h>
+  #include <string.h>
+  #include <errno.h>
++#include <sys/types.h>
++#include <sys/ipc.h>
++#include <sys/sem.h>
+
+  #include "utils.h"
+  #include "tc_util.h"
+@@ -34,7 +42,8 @@ static void explain(void)
+  "                 [ drop PERCENT [CORRELATION]] \n" \
+  "                 [ corrupt PERCENT [CORRELATION]] \n" \
+  "                 [ duplicate PERCENT [CORRELATION]]\n" \
+-"                 [ reorder PRECENT [CORRELATION] [ gap DISTANCE ]]\n");
++"                 [ reorder PRECENT [CORRELATION] [ gap DISTANCE ]]\n" \
++"                 [ trace PATH buf NR_BUFS loops NR_LOOPS [DEFAULT]\n");
   }
-@@ -567,6 +856,7 @@ static int netem_init(struct Qdisc *sch,
 
-  	qdisc_watchdog_init(&q->watchdog, sch);
+  static void explain1(const char *arg)
+@@ -42,6 +51,7 @@ static void explain1(const char *arg)
+  	fprintf(stderr, "Illegal \"%s\"\n", arg);
+  }
 
-+	q->trace = 0;
-  	q->qdisc = qdisc_create_dflt(sch->dev, &tfifo_qdisc_ops,
-  				     TC_H_MAKE(sch->handle, 1));
-  	if (!q->qdisc) {
-@@ -585,6 +875,16 @@ static int netem_init(struct Qdisc *sch,
-  static void netem_destroy(struct Qdisc *sch)
-  {
-  	struct netem_sched_data *q = qdisc_priv(sch);
-+	if (q->trace) {
-+		struct nlmsghdr n;
-+		q->trace = 0;
-+		memset(&n, 0, sizeof(struct nlmsghdr));
-+		n.nlmsg_flags = NLM_F_REQUEST;
-+		n.nlmsg_seq = 1;
-+		if (qdisc_notify_pid(q->flowid, &n, sch->parent, sch, NULL) < 0)
-+			printk(KERN_NOTICE "netem: could not send notification\n");
-+		free_flowbuffer(q);
-+	}
++#define FLOWPATH "/usr/local/bin/flowseed"
+  #define usage() return(-1)
 
-  	qdisc_watchdog_cancel(&q->watchdog);
-  	qdisc_destroy(q->qdisc);
-@@ -600,6 +900,7 @@ static int netem_dump(struct Qdisc *sch,
+  /*
+@@ -129,6 +139,7 @@ static int netem_parse_opt(struct qdisc_
   	struct tc_netem_corr cor;
   	struct tc_netem_reorder reorder;
   	struct tc_netem_corrupt corrupt;
 +	struct tc_netem_trace traceopt;
+  	__s16 *dist_data = NULL;
+  	int present[__TCA_NETEM_MAX];
 
-  	qopt.latency = q->latency;
-  	qopt.jitter = q->jitter;
-@@ -622,6 +923,23 @@ static int netem_dump(struct Qdisc *sch,
-  	corrupt.correlation = q->corrupt_cor.rho;
-  	RTA_PUT(skb, TCA_NETEM_CORRUPT, sizeof(corrupt), &corrupt);
-
-+	traceopt.fid = q->trace;
-+	traceopt.def = q->def;
-+	traceopt.ticks = q->ticks;
-+	RTA_PUT(skb, TCA_NETEM_TRACE, sizeof(traceopt), &traceopt);
-+
-+	if (q->trace) {
-+		struct tc_netem_stats tstats;
-+		tstats.packetcount = q->statistic->packetcount;
-+		tstats.packetok = q->statistic->packetok;
-+		tstats.normaldelay = q->statistic->normaldelay;
-+		tstats.drops = q->statistic->drops;
-+		tstats.dupl = q->statistic->dupl;
-+		tstats.corrupt = q->statistic->corrupt;
-+		tstats.novaliddata = q->statistic->novaliddata;
-+		tstats.reloadbuffer = q->statistic->reloadbuffer;
-+		RTA_PUT(skb, TCA_NETEM_STATS, sizeof(tstats), &tstats);
+@@ -137,8 +148,12 @@ static int netem_parse_opt(struct qdisc_
+  	memset(&cor, 0, sizeof(cor));
+  	memset(&reorder, 0, sizeof(reorder));
+  	memset(&corrupt, 0, sizeof(corrupt));
++	memset(&traceopt, 0, sizeof(traceopt));
+  	memset(present, 0, sizeof(present));
+-
++	if (argc == 0) {
++		explain();
++		return -1;
 +	}
-  	rta->rta_len = skb_tail_pointer(skb) - b;
+  	while (argc > 0) {
+  		if (matches(*argv, "limit") == 0) {
+  			NEXT_ARG();
+@@ -164,7 +179,7 @@ static int netem_parse_opt(struct qdisc_
+  				if (NEXT_IS_NUMBER()) {
+  					NEXT_ARG();
+  					++present[TCA_NETEM_CORR];
+-					if (get_percent(&cor.delay_corr,							*argv)) {
++					if (get_percent(&cor.delay_corr, *argv)) {
+  						explain1("latency");
+  						return -1;
+  					}
+@@ -243,6 +258,75 @@ static int netem_parse_opt(struct qdisc_
+  		} else if (strcmp(*argv, "help") == 0) {
+  			explain();
+  			return -1;
++		} else if (strcmp(*argv, "trace") == 0) {
++			int fd;
++			int execvl;
++			char *filename;
++			int pid;
++		
++			/*get ticks correct since tracefile is in us,
++			 *and ticks may not be equal to us
++			 */
++			get_ticks(&traceopt.ticks, "1000us");
++			NEXT_ARG();
++			filename = *argv;
++			if ((fd = open(filename, O_RDONLY, 0)) < 0) {
++				fprintf(stderr, "Cannot open trace file %s! \n", filename);
++				return -1;
++			}
++			close(fd);
++			NEXT_ARG();
++			if(strcmp(*argv, "buf") == 0) {
++				NEXT_ARG();
++				traceopt.nr_bufs = atoi(*argv);
++			}
++			else{
++				explain();
++				return -1;
++			}
++			NEXT_ARG();
++			if (strcmp(*argv, "loops") == 0 && NEXT_IS_NUMBER()) {
++				NEXT_ARG();
++				/*child will load tracefile to kernel */
++				switch (pid = fork()) {
++				case -1:{
++					fprintf(stderr,
++						"Cannot fork\n");
++					return -1;
++					}
++				case 0:{
++					execvl = execl(FLOWPATH, "flowseed", filename, *argv, NULL);
++					if (execvl < 0) {
++						fprintf(stderr,
++						"starting child failed\n");
++						return -1;
++					}
++					}
++				default:{
++					/* parent has to wait until child has done rtnl_open.
++ 					 * otherwise the kernel module cannot send a notification
++ 					 * to the child
++ 					 */
++					int semid = semget(0x12345678, 1, IPC_CREAT | 0666);
++					struct sembuf buf;
++					buf.sem_num = 0;
++					buf.sem_op = -1;
++					buf.sem_flg = SEM_UNDO;
++					semop(semid, &buf, 1);
++					semctl(semid, 0, IPC_RMID);
++					}
++				}
++			}
++			else {
++				explain();
++				return -1;
++			}
++			traceopt.def = 0;
++			if (NEXT_IS_NUMBER()) {
++				NEXT_ARG();
++				traceopt.def = atoi(*argv);
++			}
++			traceopt.fid = pid;
+  		} else {
+  			fprintf(stderr, "What is \"%s\"?\n", *argv);
+  			explain();
+@@ -291,7 +375,13 @@ static int netem_parse_opt(struct qdisc_
+  			      dist_data, dist_size*sizeof(dist_data[0])) < 0)
+  			return -1;
+  	}
+-	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
++	if (traceopt.fid) {
++		if (addattr_l(n, TCA_BUF_MAX, TCA_NETEM_TRACE, &traceopt,
++		     sizeof(traceopt)) < 0)
++			return -1;
++	}
++
++	tail->rta_len = (void *)NLMSG_TAIL(n) - (void *)tail;
+  	return 0;
+  }
 
-  	return skb->len;
+@@ -300,6 +390,8 @@ static int netem_print_opt(struct qdisc_
+  	const struct tc_netem_corr *cor = NULL;
+  	const struct tc_netem_reorder *reorder = NULL;
+  	const struct tc_netem_corrupt *corrupt = NULL;
++	const struct tc_netem_trace *traceopt = NULL;
++	const struct tc_netem_stats *tracestats = NULL;
+  	struct tc_netem_qopt qopt;
+  	int len = RTA_PAYLOAD(opt) - sizeof(qopt);
+  	SPRINT_BUF(b1);
+@@ -333,9 +425,31 @@ static int netem_print_opt(struct qdisc_
+  				return -1;
+  			corrupt = RTA_DATA(tb[TCA_NETEM_CORRUPT]);
+  		}
++		if (tb[TCA_NETEM_TRACE]) {
++			if (RTA_PAYLOAD(tb[TCA_NETEM_TRACE]) < sizeof(*traceopt))
++				return -1;
++			traceopt = RTA_DATA(tb[TCA_NETEM_TRACE]);
++		}
++		if (tb[TCA_NETEM_STATS]) {
++			if (RTA_PAYLOAD(tb[TCA_NETEM_STATS]) < sizeof(*tracestats))
++				return -1;
++			tracestats = RTA_DATA(tb[TCA_NETEM_STATS]);
++		}
+  	}
 
+  	fprintf(f, "limit %d", qopt.limit);
++	if (traceopt && traceopt->fid) {
++		fprintf(f, " trace\n");
++
++		fprintf(f, "packetcount= %d\n", tracestats->packetcount);
++		fprintf(f, "packetok= %d\n", tracestats->packetok);
++		fprintf(f, "normaldelay= %d\n", tracestats->normaldelay);
++		fprintf(f, "drops= %d\n", tracestats->drops);
++		fprintf(f, "dupl= %d\n", tracestats->dupl);
++		fprintf(f, "corrupt= %d\n", tracestats->corrupt);
++		fprintf(f, "novaliddata= %d\n", tracestats->novaliddata);
++		fprintf(f, "bufferreload= %d\n", tracestats->reloadbuffer);
++		}
 
-Ben Greear wrote:
-> Ariane Keller wrote:
-> 
->> Yes, for short-term starvation it helps certainly.
->> But I'm still not convinced that it is really necessary to add more 
->> buffers, because I'm not sure whether the bottleneck is really the 
->> loading of data from user space to kernel space.
->> Some basic tests have shown that the kernel starts loosing packets at 
->> approximately the same packet rate regardless whether we use netem, or 
->> netem with the trace extension.
->> But if you have contrary experience I'm happy to add a parameter which 
->> defines the number of buffers.
-> 
-> I have no numbers, so if you think it works, then that is fine with me.
-> 
-> If you actually run out of the trace buffers, do you just continue to
-> run with the last settings?  If so, that would keep up throughput
-> even if you are out of trace buffers...
-> 
-> What rates do you see, btw?  (pps, bps).
-> 
-> Thanks,
-> Ben
-> 
+  	if (qopt.latency) {
+  		fprintf(f, " delay %s", sprint_ticks(qopt.latency, b1));
 
--- 
-Ariane Keller
-Communication Systems Research Group, ETH Zurich
-Web: http://www.csg.ethz.ch/people/arkeller
-Office: ETZ G 60.1, Gloriastrasse 35, 8092 Zurich
