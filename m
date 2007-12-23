@@ -1,23 +1,25 @@
 From: "David Shwatrz" <dshwatrz@gmail.com>
-Subject: [PATCH net-2.6][NEIGH] Updating affected neighbours about MAC address change
-Date: Sun, 23 Dec 2007 12:55:16 +0200
-Message-ID: <31436f4a0712230255w48e19a12ia686f326e87a21db@mail.gmail.com>
+Subject: [PATCH net-2.6][NEIGH] Updating affected neighbours when about MAC address change
+Date: Sun, 23 Dec 2007 13:41:36 +0200
+Message-ID: <31436f4a0712230341x5a0abf08q7e6f7917ba7e38f0@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.178]:22833 "EHLO
+Received: from wa-out-1112.google.com ([209.85.146.181]:18876 "EHLO
 	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752309AbXLWKzR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2007 05:55:17 -0500
-Received: by wa-out-1112.google.com with SMTP id v27so1871087wah.23
-        for <netdev@vger.kernel.org>; Sun, 23 Dec 2007 02:55:16 -0800 (PST)
+	with ESMTP id S1751302AbXLWLlg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2007 06:41:36 -0500
+Received: by wa-out-1112.google.com with SMTP id v27so1896859wah.23
+        for <netdev@vger.kernel.org>; Sun, 23 Dec 2007 03:41:36 -0800 (PST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hello,
+
+Attached here is the patch - please read the following text here below:
 
  We know that changes in MAC addresses are not frequent but
 we are working on a special, highly advanced networking Linux based project
