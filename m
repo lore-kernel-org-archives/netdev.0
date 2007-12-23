@@ -1,59 +1,51 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: ip xfrm bug
-Date: Sun, 23 Dec 2007 08:06:45 -0500
-Message-ID: <1198415205.4423.86.camel@localhost>
-References: <Pine.LNX.4.64.0711291131080.21906@newtla.xelerance.com>
-	 <20071214091659.GA16129@gondor.apana.org.au>
-	 <20071214112118.118862c3@deepthought>
-	 <20071216074359.GA2800@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH net-2.6][NEIGH] Updating affected neighbours when about
+ MAC address change
+Date: Sun, 23 Dec 2007 22:13:55 +0900 (JST)
+Message-ID: <20071223.221355.40687949.yoshfuji@linux-ipv6.org>
+References: <31436f4a0712230424n1cfaeb27o463e62093af41090@mail.gmail.com>
+	<20071223.213841.108421688.yoshfuji@linux-ipv6.org>
+	<31436f4a0712230504x7b0b4f38i8f69a7a825bcc14b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Paul Wouters <paul@xelerance.com>, dev@openswan.org,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: dshwatrz@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.181]:52940 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752129AbXLWNGx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2007 08:06:53 -0500
-Received: by wa-out-1112.google.com with SMTP id v27so1942748wah.23
-        for <netdev@vger.kernel.org>; Sun, 23 Dec 2007 05:06:53 -0800 (PST)
-In-Reply-To: <20071216074359.GA2800@gondor.apana.org.au>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:44312 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751499AbXLWNNR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2007 08:13:17 -0500
+In-Reply-To: <31436f4a0712230504x7b0b4f38i8f69a7a825bcc14b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2007-16-12 at 15:43 +0800, Herbert Xu wrote:
+In article <31436f4a0712230504x7b0b4f38i8f69a7a825bcc14b@mail.gmail.com> (at Sun, 23 Dec 2007 15:04:37 +0200), "David Shwatrz" <dshwatrz@gmail.com> says:
 
-> Jamal's going to hate me but setkey(8) already uses this so we're
-> stuck with it anyway.
+> Hello,
 > 
-> The test is
 > 
-> 	up->index % 8 >= 3
+> >You should iterate all of ifa_list (for IPv4) / addr_list (for IPv6).
+> > For IPv6, we also have anycast (maintained by ac_list) as well.
 > 
-> This is true iff it's a socket policy.
+> I am not sure that we need to iterate all of ifa_list in IPv4.
+> The reason is that we end with arp_send, and it initiates a broadcast.
+> So all neighbours will receive it and update their arp tables
+> accordingly.
+> The dest hw in the arp_send is NULL according to this patch ; this means that
+> we will assign dev->broadcast to dest_hw  in apr_create().
+> 
+> It seems to me there's no reason to send more than one broadcast.
 
-I would have loved it if user space had a say ;-> 
-In the case of tc actions for example; the (table) index abides to the
-following rules:
+Urgh? what is happend if you have multiple IPv4 addresses on the device?
 
- if user space specified one in rule insertion then {
-     if available, use the allowed entry {
-     } else if inuse {
-         if replace flag is set then {
-            replace
-        } else {
-         return error
-     }
-  } else {
-   grab the next available index
-  }
 
-makes management from user space much simpler.
+> In IPv6, I need to check, since it is multicast.
 
-cheers,
-jamal
+Please read RFC2461 Section 7.2.6.  In short we should send a few
+unsolicited NA, but I think you can start from sending once per an
+address.
 
+--yoshfuji
