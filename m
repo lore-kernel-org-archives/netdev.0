@@ -1,107 +1,59 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Strange Panic (Deadlock)
-Date: Mon, 24 Dec 2007 21:23:30 +0100
-Message-ID: <47701542.9010806@gmail.com>
-References: <476FCC41.8070202@bigtelecom.ru> <20071224211819.e1ebeicf0ggoo08s@mail.bigtelecom.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-2.6.25 1/2][NETNS] net: Modify the neighbour table
+ code so it handles multiple network namespaces
+Date: Mon, 24 Dec 2007 15:56:22 -0800 (PST)
+Message-ID: <20071224.155622.05258191.davem@davemloft.net>
+References: <20071221130223.348101205@ICON-9-164-138-215.megacenter.de.ibm.com>
+	<20071221131601.818555294@ICON-9-164-138-215.megacenter.de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org
-To: slavon@bigtelecom.ru
+Cc: netdev@vger.kernel.org, den@openvz.org, benjamin.thery@bull.net
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:15259 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750966AbXLXUUI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2007 15:20:08 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so1192595ugc.16
-        for <netdev@vger.kernel.org>; Mon, 24 Dec 2007 12:20:06 -0800 (PST)
-In-Reply-To: <20071224211819.e1ebeicf0ggoo08s@mail.bigtelecom.ru>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46921
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751373AbXLXX4X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2007 18:56:23 -0500
+In-Reply-To: <20071221131601.818555294@ICON-9-164-138-215.megacenter.de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-slavon@bigtelecom.ru wrote, On 12/24/2007 07:18 PM:
+From: Eric.W.Biederman" <ebiederm@xmission.com>"@fr.ibm.com
+Date: Fri, 21 Dec 2007 14:02:24 +0100
 
-> Hello again.
-> Its bug depend to
-> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=4aae07025265151e3f7041dfbf0f529e122de1d8
-> ?
-
-
-Hello Vyacheslav!
-
-I wonder why do you think there is such a dependency, and why do you report
-timer.c bug to netdev after all? I added some CCs here, but IMHO you would
-better open a new bug at bugzilla.kernel.org, adding some more details like
-.config, and reply back to this thread with the bug's number. BTW, if it's
-patched by Gentoo or otherwise, you should try and report on 'vanilla' one
-only.
-
-Regards,
-Jarek P.
-
-> Its very critical bug to us. This PC must be HA. Server place so far  
-> for me to go and reboot server. I go to it 1-3 times in week =(
-> Please help to fix it =)
+> I'm actually surprised at how much was involved.  At first glance it appears
+> that the neighbour table data structures are already split by network device
+> so all that should be needed is to modify the user interface commands
+> to filter the set of neighbours by the network namespace of their devices.
 > 
->> Hello all. Some time machine freeze. No information on monitor. No
->> rebooting on sysctl "kernel.panic".
->> Any idea?
->>
->> Catched by netconsole:
->> [91922.085864] ------------[ cut here ]------------
->> [91922.085975] kernel BUG at kernel/timer.c:606!
->> [91922.086058] invalid opcode: 0000 [#1]
->> [91922.086127] SMP
->> [91922.086201] Modules linked in: netconsole cls_u32 sch_sfq sch_htb
->> xt_tcpudp iptable_filter ip_tables x_tables i2c_i801 i2c_core
->> [91922.086386] CPU:    1
->> [91922.086387] EIP:    0060:[<c0127387>]    Not tainted VLI
->> [91922.086389] EFLAGS: 00010087   (2.6.23-gentoo-r4-fw #4)
->> [91922.086600] EIP is at cascade+0x34/0x4f
->> [91922.086669] eax: c0452200   ebx: f450408c   ecx: 00000022   edx: f3c6e08c
->> [91922.086740] esi: 00000022   edi: c21ce000   ebp: 00000001   esp: c21c3ef8
->> [91922.086815] ds: 007b   es: 007b   fs: 00d8  gs: 0000  ss: 0068
->> [91922.086885] Process swapper (pid: 0, ti=c21c2000 task=c21af000
->> task.ti=c21c2000)
->> [91922.086954] Stack: f3c6e08c c21bfb74 00000000 c21ce000 0000000a
->> c012767a c21af000 00000001
->> [91922.087119]        c21c3f18 c0106963 c21c3f68 00000001 00000021
->> c03c0b08 0000000a c0124556
->> [91922.087285]        00000046 00000000 c21c2008 00000000 c01245ec
->> c2015120 c0114a11 00000046
->> [91922.087451] Call Trace:
->> [91922.087586]  [<c012767a>] run_timer_softirq+0x51/0x154
->> [91922.087669]  [<c0106963>] profile_pc+0x21/0x46
->> [91922.087752]  [<c0124556>] __do_softirq+0x5d/0xc1
->> [91922.087833]  [<c01245ec>] do_softirq+0x32/0x36
->> [91922.087915]  [<c0114a11>] smp_apic_timer_interrupt+0x74/0x80
->> [91922.087997]  [<c010484c>] apic_timer_interrupt+0x28/0x30
->> [91922.088076]  [<c0102255>] mwait_idle_with_hints+0x3b/0x3f
->> [91922.088162]  [<c0102259>] mwait_idle+0x0/0xa
->> [91922.088237]  [<c0102398>] cpu_idle+0x91/0xaa
->> [91922.088319]  =======================
->> [91922.088390] Code: 08 8d 04 ca 8b 10 89 62 04 89 14 24 8b 50 04 89 22
->> 89 00 89 54 24 04 8b 14 24 89 40 04 8b 1a eb 19 8b 42 14 83 e0 fe 39 f8
->> 74 04 <0f> 0b eb fe 89 f8 e8 d8 fe ff ff 89 da 8b 1b 39 e2 75 e3 59 89
->> [91922.088864] EIP: [<c0127387>] cascade+0x34/0x4f SS:ESP 0068:c21c3ef8
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->>
+> However a couple things turned up while I was reading through the code.
+> The proxy neighbour table allows entries with no network device, and
+> the neighbour parms are per network device (except for the defaults)
+> so they now need a per network namespace default.
 > 
+> So I updated the two structures (which surprised me) with their very
+> own network namespace parameter.  Updated the relevant lookup and
+> destroy routines with a network namespace parameter and modified
+> the code that interacts with users to filter out neighbour
+> table entries for devices of other namespaces.
 > 
+> I'm a little concerned that we can modify and display the global
+> table configuration and from all network namespaces.  But
+> this appears good enough for now.
 > 
-> ----------------------------------------------------------------
-> This message was sent using IMP, the Internet Messaging Program.
+> I keep thinking modifying the neighbour table to have per network
+> namespace instances of each table type would should be cleaner.  The
+> hash table is already dynamically sized so there are it is not a limiter.
+> The default parameter would be straight forward to take care of.  However
+> when I look at the how the network table is built and used I still find
+> some assumptions that there is only a single neighbour table for each
+> type of table in the kernel.  The netlink operations, neigh_seq_start,
+> the non-core network users that call neigh_lookup.  So while it might
+> be doable it would require more refactoring than my current approach
+> of just doing a little extra filtering in the code.
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 
-
+Applied, thanks.
