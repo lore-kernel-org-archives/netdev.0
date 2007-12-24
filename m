@@ -1,99 +1,66 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: [PATCH] [IPROUTE2] Compatibility with iptables 1.4.0
-Date: Mon, 24 Dec 2007 18:07:38 +0200
-Message-ID: <20071224160739.M84357@visp.net.lb>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] [IPROUTE2] Compatibility with iptables 1.4.0
+Date: Mon, 24 Dec 2007 11:30:37 -0500
+Message-ID: <1198513837.4427.8.camel@localhost>
+References: <20071224160739.M84357@visp.net.lb>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Pablo Neira Ayuso <pablo@netfilter.org>
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:58312 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750842AbXLXQH6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2007 11:07:58 -0500
+Received: from wa-out-1112.google.com ([209.85.146.182]:33363 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750842AbXLXQaq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2007 11:30:46 -0500
+Received: by wa-out-1112.google.com with SMTP id v27so2776374wah.23
+        for <netdev@vger.kernel.org>; Mon, 24 Dec 2007 08:30:46 -0800 (PST)
+In-Reply-To: <20071224160739.M84357@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, probably like this will be better?
-Previous patch was not backward compatible.
-
-Btw i checked twice, name is changed from libipt_MARK to libxt_MARK. So
-probably when you have tested this, your iproute2 was looking to old
-libipt_MARK (iptables is not deleting old libraries on make install).
-
--------------------------
-
-New iptables 1.4.0 need additional dummy functions, and some library names is
-changed from libipt to libxt.
-It is prefferable also to open libxt_ first, as newer "style".
-
-Signed-off-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
----
- drivers/watchdog/w83697hf_wdt.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-diff -Naur iproute2/tc/m_ipt.c iproute2-new/tc/m_ipt.c
---- iproute2/tc/m_ipt.c     2007-12-24 16:59:19.000000000 +0200
-+++ iproute2-new/tc/m_ipt.c     2007-12-24 17:46:14.000000000 +0200
-@@ -69,6 +69,27 @@
- }
-
- void
-+xtables_register_target(struct iptables_target *me)
-+{
-+       me->next = t_list;
-+       t_list = me;
-+}
-+
-+
-+void
-+xtables_register_match(struct iptables_target *me)
-+{
-+       me->next = t_list;
-+       t_list = me;
-+}
-+
-+void
- exit_tryhelp(int status)
- {
-        fprintf(stderr, "Try `%s -h' or '%s --help' for more information.\n",
-@@ -248,16 +269,25 @@
-                }
-        }
-
--       sprintf(path,  "%s/libipt_%s.so",lib_dir, new_name);
-+       sprintf(path,  "%s/libxt_%s.so",lib_dir, new_name);
-        handle = dlopen(path, RTLD_LAZY);
-        if (!handle) {
--               sprintf(path, lib_dir, "/libipt_%s.so", lname);
-+               sprintf(path, "%s/libipt_%s.so", lib_dir , new_name);
-                handle = dlopen(path, RTLD_LAZY);
--               if (!handle) {
--                       fputs(dlerror(), stderr);
--                       printf("\n");
--                       return NULL;
--               }
-+       }
-+       if (!handle) {
-+               sprintf(path, "%s/libxt_%s.so", lib_dir , lname);
-+               handle = dlopen(path, RTLD_LAZY);
-+       }
-+       if (!handle) {
-+               sprintf(path, "%s/libipt_%s.so", lib_dir , lname);
-+               handle = dlopen(path, RTLD_LAZY);
-+       }
-+       if (!handle) {
-+               sprintf(path, "%s/libipt_%s.so", lib_dir , lname);
-+               fputs(dlerror(), stderr);
-+               printf("\n");
-+               return NULL;
-        }
-
-        m = dlsym(handle, new_name);
+On Mon, 2007-24-12 at 18:07 +0200, Denys Fedoryshchenko wrote:
+> Hi, probably like this will be better?
+> Previous patch was not backward compatible.
+> 
+> Btw i checked twice, name is changed from libipt_MARK to libxt_MARK. So
+> probably when you have tested this, your iproute2 was looking to old
+> libipt_MARK (iptables is not deleting old libraries on make install).
+> 
 
 
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
+Grr. I tested with a different iptables target and thought the rest work
+in the same manner. iptables needs to be consistent.
+
+-----
+lilsol:~# export IPTABLES_LIB_DIR=/root/iptables-1.4.0/extensions/
+lilsol:~# tc actions add action ipt -j TOS --set-tos
+Maximize-Reliability
+tablename: mangle hook: NF_IP_POST_ROUTING
+        target: TOS set Maximize-Reliability  index 0
+lilsol:~# tc actions ls action ipt
+
+        action order 0: tablename: mangle  hook: NF_IP_POST_ROUTING
+        target TOS set Maximize-Reliability
+        index 2 ref 1 bind 0
+// the above is what i tested
+// below is what you did
+lilsol:~# tc actions add action ipt -j mark --set-mark 3
+/root/iptables-1.4.0/extensions/: cannot read file data: Is a directory
+ failed to find target mark
+
+bad action parsing
+parse_action: bad value (5:ipt)!
+Illegal "action"
+Command "add" is unknown, try "tc actions help".
+lilsol:~#
+------------
+
+Applying your patch ....
+Seems corrupt; let me fix it up, test it and resend it to Stephen.
+
+cheers,
+jamal
+
 
