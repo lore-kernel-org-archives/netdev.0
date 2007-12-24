@@ -1,57 +1,60 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: [PATCH net-2.6][NEIGH] Updating affected neighbours when about
 	MAC address change
-Date: Mon, 24 Dec 2007 09:33:20 -0500
-Message-ID: <1198506800.9642.40.camel@localhost>
+Date: Mon, 24 Dec 2007 09:50:59 -0500
+Message-ID: <1198507860.9642.53.camel@localhost>
 References: <31436f4a0712230424n1cfaeb27o463e62093af41090@mail.gmail.com>
-	 <20071223.213841.108421688.yoshfuji@linux-ipv6.org>
-	 <1198413975.4423.65.camel@localhost>
-	 <20071223.220447.56355925.yoshfuji@linux-ipv6.org>
-	 <1198415873.4423.96.camel@localhost>
+	 <E1J6RPh-0004mf-00@gondolin.me.apana.org.au>
+	 <31436f4a0712240538n1b65c2a8u35109ce4c69a00d5@mail.gmail.com>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dshwatrz@gmail.com, davem@davemloft.net, netdev@vger.kernel.org,
-	kaber@trash.net
-To: YOSHIFUJI Hideaki /
-	 =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, yoshfuji@linux-ipv6.org,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: David Shwatrz <dshwatrz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.176]:63676 "EHLO
+Received: from wa-out-1112.google.com ([209.85.146.181]:42362 "EHLO
 	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751958AbXLXOdZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2007 09:33:25 -0500
-Received: by wa-out-1112.google.com with SMTP id v27so2719871wah.23
-        for <netdev@vger.kernel.org>; Mon, 24 Dec 2007 06:33:25 -0800 (PST)
-In-Reply-To: <1198415873.4423.96.camel@localhost>
+	with ESMTP id S1753912AbXLXOvF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2007 09:51:05 -0500
+Received: by wa-out-1112.google.com with SMTP id v27so2728333wah.23
+        for <netdev@vger.kernel.org>; Mon, 24 Dec 2007 06:51:04 -0800 (PST)
+In-Reply-To: <31436f4a0712240538n1b65c2a8u35109ce4c69a00d5@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2007-23-12 at 08:17 -0500, jamal wrote:
-> On Sun, 2007-23-12 at 22:04 +0900, YOSHIFUJI Hideaki / =E5=90=89=E8=97=
-=A4=E8=8B=B1=E6=98=8E wrote:
->=20
-> > If the secondary MACs are used with ARP/NDP, we should take care of
-> > that, but I think we use the primary MAC for ARP/NDP, no?
-> > (In other words, we always use primary MAC for ARP reply / NA, no?)
->=20
-> I think it maybe a policy decision;=20
+On Mon, 2007-24-12 at 15:38 +0200, David Shwatrz wrote:
+> Hello,
+> 
+> First, it indeed can be handled by user space. (even though it should
+> be done twice, once for ifconig of net-tools  and once for ip of
+> iproute2) 
 
-Never mind, that was my body being in a different time zone.
-I went back and looked at a little chat i had with Patrick when he
-posted with the macvlan driver.
-At the moment we are still maintaining the model that a NIC can _only_
-appear to have a single MAC to the upper layers. IOW, you have to
-instantiate a macvlan device for each of the 16 MAC addresses on the
-e1000 if you need to expose them. This means that the ip layer - even
-with multiple ip addresses will only ever see one MAC address.=20
-Note also: The name macvlan is a little misleading since it allows for
-the above without need for vlans.
+it needs to be done once only: reacting to netlink events when MAC
+address changes.
+
+> / However, we have already
+> methods which deal with bringing down an interface - neigh_ifdown(),
+> and changing MAC address of an interface (neigh_changeaddr). So why
+> not do it from the kernel ?
+
+Herbert, i agree with you that userspace is the best spot for this[1];
+we unfortunately have precedence already on the kernel sending arps with
+bonding when link status changes (that was added recently).
+So it sounds reasonable to have this patch in the kernel as well.
 
 cheers,
 jamal
 
-
-
+[1] Things like these tend to be very policy rich and thats why user
+space is the best spot for them.
+I have infact implemented this feature in user space in some random box
+i have where i failover MACs for HA reasons. Depending on how much
+traffic there is on the wire, arps do get dropped.
+One of the hardest things to decide on was how many times to retry the
+grat arp sending and what the timeout would be between each sent
+gratarp. 
+The earlier patch posted didnt consider this but would be nice to have a
+couple of sysctls to add the two parameters if this makes it in.
 
