@@ -1,34 +1,58 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: Please pull 'fixes-davem' branch of wireless-2.6
-Date: Mon, 24 Dec 2007 22:07:40 -0800 (PST)
-Message-ID: <20071224.220740.210148455.davem@davemloft.net>
-References: <20071220155227.GE3139@tuxdriver.com>
+From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
+Subject: [patch] skbuff: spelling and formatting fixes
+Date: Tue, 25 Dec 2007 07:59:16 +0100 (CET)
+Message-ID: <537476.77850.qm@web52009.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20071220155227.GE3139-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org, trivial@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from web52009.mail.re2.yahoo.com ([206.190.48.58]:38789 "HELO
+	web52009.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750891AbXLYG7R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Dec 2007 01:59:17 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Thu, 20 Dec 2007 10:52:27 -0500
+--- a/include/linux/skbuff.h	2007-12-25
+08:24:51.032348500 +0200
++++ b/include/linux/skbuff.h	2007-12-25
+08:38:31.067753500 +0200
+@@ -127,7 +127,7 @@ struct sk_buff_head {
+ struct sk_buff;
+=20
+ /* To allow 64K frame to be packed as single skb
+without frag_list */
+-#define MAX_SKB_FRAGS (65536/PAGE_SIZE + 2)
++#define MAX_SKB_FRAGS ((65536 / PAGE_SIZE) + 2)
+=20
+ typedef struct skb_frag_struct skb_frag_t;
+=20
+@@ -394,7 +394,7 @@ static inline void
+skb_truesize_check(st
+=20
+ extern int skb_append_datato_frags(struct sock *sk,
+struct sk_buff *skb,
+ 			int getfrag(void *from, char *to, int offset,
+-			int len,int odd, struct sk_buff *skb),
++					int len, int odd, struct sk_buff *skb),
+ 			void *from, int length);
+=20
+ struct skb_seq_state
+@@ -1346,7 +1346,7 @@ static inline struct sk_buff
+*netdev_all
+  *	@len: length up to which to write
+  *
+  *	Returns true if modifying the header part of the
+cloned buffer
+- *	does not requires the data to be copied.
++ *	does not require the data to be copied.
+  */
+ static inline int skb_clone_writable(struct sk_buff
+*skb, unsigned int len)
+ {
 
-> A few more stragglers for 2.6.24...let me know if there are any
-> problems!
-...
-> The following changes since commit 82d29bf6dc7317aeb0a3a13c2348ca8591965875:
->   Linus Torvalds (1):
->         Linux 2.6.24-rc5
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-davem
-> 
-> Johannes Berg (2):
->       mac80211: round station cleanup timer
->       mac80211: warn when receiving frames with unaligned data
 
-Pulled and pushed back out to net-2.6, thanks John.
+
+       __________________________________ Ihr erstes Fernweh? Wo gibt e=
+s den sch=F6nsten Strand? www.yahoo.de/clever
