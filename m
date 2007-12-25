@@ -1,44 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: santize headers for iproute2
-Date: Mon, 24 Dec 2007 22:05:27 -0800 (PST)
-Message-ID: <20071224.220527.254578945.davem@davemloft.net>
-References: <20071221094336.63600b8c@deepthought>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: Please pull 'fixes-davem' branch of wireless-2.6
+Date: Mon, 24 Dec 2007 22:07:40 -0800 (PST)
+Message-ID: <20071224.220740.210148455.davem@davemloft.net>
+References: <20071220155227.GE3139@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vgusev@openvz.org, netdev@vger.kernel.org
-To: stephen.hemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45320
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751108AbXLYGF2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Dec 2007 01:05:28 -0500
-In-Reply-To: <20071221094336.63600b8c@deepthought>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20071220155227.GE3139-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Date: Fri, 21 Dec 2007 09:43:36 -0800
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Thu, 20 Dec 2007 10:52:27 -0500
 
-> iproute2 source uses headers that result from "make headers_install".
-> The header files net/tcp_states.h and net/veth.h are both being used
-> but are not processed. 
+> A few more stragglers for 2.6.24...let me know if there are any
+> problems!
+...
+> The following changes since commit 82d29bf6dc7317aeb0a3a13c2348ca8591965875:
+>   Linus Torvalds (1):
+>         Linux 2.6.24-rc5
 > 
-> Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-davem
+> 
+> Johannes Berg (2):
+>       mac80211: round station cleanup timer
+>       mac80211: warn when receiving frames with unaligned data
 
-The convention is to place user visible interfaces in header
-files under include/linux/ and purely kernel internal bits
-in header files under include/net/
-
-Therefore exporting net/*.h headers is not right.
-
-net/veth.h only defines user visible interfaces, so it
-belongs under include/linux and added to include/linux/Kbuild,
-and I would happily take a patch implementing that.
-
-net/tcp_states.h is not movable to include/linux/ and thus to
-userspace, it defines things that are present already in existing
-userland header files.  If you look, <netinet/tcp.h> defines these
-state values, as an enumeration.  If you need the TCPF_* flag bit
-versions, sorry... you'll need to find some other way to get those
-into userspace.
+Pulled and pushed back out to net-2.6, thanks John.
