@@ -1,33 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [TCP]: Remove seq_rtt ptr from clean_rtx_queue args
-Date: Mon, 24 Dec 2007 21:56:45 -0800 (PST)
-Message-ID: <20071224.215645.262526271.davem@davemloft.net>
-References: <Pine.LNX.4.64.0712211617020.7301@kivilampi-30.cs.helsinki.fi>
+Subject: Re: [PATCH] net: santize headers for iproute2
+Date: Mon, 24 Dec 2007 22:05:27 -0800 (PST)
+Message-ID: <20071224.220527.254578945.davem@davemloft.net>
+References: <20071221094336.63600b8c@deepthought>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vgusev@openvz.org, netdev@vger.kernel.org
+To: stephen.hemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44119
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45320
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750757AbXLYF4p convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Dec 2007 00:56:45 -0500
-In-Reply-To: <Pine.LNX.4.64.0712211617020.7301@kivilampi-30.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1751108AbXLYGF2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Dec 2007 01:05:28 -0500
+In-Reply-To: <20071221094336.63600b8c@deepthought>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Fri, 21 Dec 2007 16:19:19 +0200 (EET)
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Date: Fri, 21 Dec 2007 09:43:36 -0800
 
-> While checking Gavin's patch I noticed that the returned seq_rtt
-> is not used by the caller.
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> iproute2 source uses headers that result from "make headers_install".
+> The header files net/tcp_states.h and net/veth.h are both being used
+> but are not processed. 
+> 
+> Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
 
-Good catch, applied to net-2.6.25
+The convention is to place user visible interfaces in header
+files under include/linux/ and purely kernel internal bits
+in header files under include/net/
 
-The history of this is that way back when, Vegas used to
-use it for RTT calculations, bit it handles that now via
-the ->pkts_acked() cong-control method.
+Therefore exporting net/*.h headers is not right.
+
+net/veth.h only defines user visible interfaces, so it
+belongs under include/linux and added to include/linux/Kbuild,
+and I would happily take a patch implementing that.
+
+net/tcp_states.h is not movable to include/linux/ and thus to
+userspace, it defines things that are present already in existing
+userland header files.  If you look, <netinet/tcp.h> defines these
+state values, as an enumeration.  If you need the TCPF_* flag bit
+versions, sorry... you'll need to find some other way to get those
+into userspace.
