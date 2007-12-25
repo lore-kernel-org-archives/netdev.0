@@ -1,43 +1,36 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH] via-velocity big-endian support
-Date: Tue, 25 Dec 2007 22:56:06 +0000
-Message-ID: <20071225225606.GC27894@ZenIV.linux.org.uk>
-References: <20071224050659.GS8181@ftp.linux.org.uk> <20071225224333.GA21585@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: santize headers for iproute2
+Date: Tue, 25 Dec 2007 15:02:38 -0800 (PST)
+Message-ID: <20071225.150238.193724414.davem@davemloft.net>
+References: <20071221094336.63600b8c@deepthought>
+	<20071224.220527.254578945.davem@davemloft.net>
+	<20071225124323.70e0c772@deepthought>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Al Viro <viro@ftp.linux.org.uk>, netdev@vger.kernel.org,
-	jgarzik@pobox.com
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vgusev@openvz.org, netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:34301 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232AbXLYW4L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Dec 2007 17:56:11 -0500
-Content-Disposition: inline
-In-Reply-To: <20071225224333.GA21585@electric-eye.fr.zoreil.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49160
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751183AbXLYXCk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Dec 2007 18:02:40 -0500
+In-Reply-To: <20071225124323.70e0c772@deepthought>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 25, 2007 at 11:43:33PM +0100, Francois Romieu wrote:
-> > +#define DESC_OWNER cpu_to_le16(0x8000)
-> > +
-> 
-> DESC_OWNER does not seem to be used.
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Tue, 25 Dec 2007 12:43:23 -0800
 
-*nod*
-That should be removed.
- 
-> [...]
-> > +enum {
-> > +	RX_INTEN = __constant_cpu_to_le16(0x8000)
-> > +};
-> 
-> Can we avoid using cpu_to_leXY here for consistency sake within the driver
-> (and among different drivers as well) ?
+> The problem is that iproute ss.c needs linux/tcp.h to get the
+> tcp_info structure definition but linux/tcp.h has incompatible
+> definitions with netinet/tcp.h.  I propose that the enum be moved
+> from net/tcp_states.h to linux/tcp.h.
 
-???
+This would be fragile, at best.
 
-What is the problem with having such constants?  If you mean "could we
-use cpu_to_le16() instead of __constant_cpu_to_le16()", the answer's
-no - that's one of the very few places where __constant_.... form is
-needed (other are case <...>: and initializers for non-auto variables).
+We need to solve this in a way such that both linux/tcp.h and
+netinet/tcp.h can both be included at the same time by userland.
+
+If we export linux/tcp.h to userspace, we have to make it play nice
+with the existing header file namespace.
