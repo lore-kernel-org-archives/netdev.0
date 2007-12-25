@@ -1,58 +1,88 @@
-From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
-Subject: [patch] skbuff: spelling and formatting fixes
-Date: Tue, 25 Dec 2007 07:59:16 +0100 (CET)
-Message-ID: <537476.77850.qm@web52009.mail.re2.yahoo.com>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: Re: Simple question about network stack
+Date: Tue, 25 Dec 2007 11:52:48 +0300
+Message-ID: <4770C4E0.1040708@bigtelecom.ru>
+References: <476F8166.4070801@bigtelecom.ru> <20071224205358.5c192f8d@catlap>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, trivial@kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Marek Kierdelewicz <marek@piasta.pl>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web52009.mail.re2.yahoo.com ([206.190.48.58]:38789 "HELO
-	web52009.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750891AbXLYG7R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Dec 2007 01:59:17 -0500
+Received: from mail.bigtelecom.ru ([87.255.0.61]:40892 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751293AbXLYIw5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Dec 2007 03:52:57 -0500
+In-Reply-To: <20071224205358.5c192f8d@catlap>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---- a/include/linux/skbuff.h	2007-12-25
-08:24:51.032348500 +0200
-+++ b/include/linux/skbuff.h	2007-12-25
-08:38:31.067753500 +0200
-@@ -127,7 +127,7 @@ struct sk_buff_head {
- struct sk_buff;
-=20
- /* To allow 64K frame to be packed as single skb
-without frag_list */
--#define MAX_SKB_FRAGS (65536/PAGE_SIZE + 2)
-+#define MAX_SKB_FRAGS ((65536 / PAGE_SIZE) + 2)
-=20
- typedef struct skb_frag_struct skb_frag_t;
-=20
-@@ -394,7 +394,7 @@ static inline void
-skb_truesize_check(st
-=20
- extern int skb_append_datato_frags(struct sock *sk,
-struct sk_buff *skb,
- 			int getfrag(void *from, char *to, int offset,
--			int len,int odd, struct sk_buff *skb),
-+					int len, int odd, struct sk_buff *skb),
- 			void *from, int length);
-=20
- struct skb_seq_state
-@@ -1346,7 +1346,7 @@ static inline struct sk_buff
-*netdev_all
-  *	@len: length up to which to write
-  *
-  *	Returns true if modifying the header part of the
-cloned buffer
-- *	does not requires the data to be copied.
-+ *	does not require the data to be copied.
-  */
- static inline int skb_clone_writable(struct sk_buff
-*skb, unsigned int len)
- {
+Marek Kierdelewicz:
+> Hi,
+>
+>   
+>> Have 2 Ethernet adapters e1000. Have 8 CPU (4 real).
+>> Computer work as Shaper. Use only TC rules to shape and IPTABLES to
+>> drop.
+>> question:
+>> 1. I may balance load to other cpu? I understand that i can't balance
+>> polling place, but find in TC and IPTABLES hash may do different cpu?
+>>     
+>
+> You need as many nics as cpus to effectivelu use all your processing
+> power. You can pair-up nics and cpus by configuring appropriate irq
+> smp affinity. Read in [1] from line 350 on.
+>   
+Interesting. Sorry if my questions will be stupid. "smp affinity" its
+was i need, but it not work for me, and never work if i remember =(
+Maybe Guru of Network ask me where i have simple stupid mistake?
+
+In theory
+#cat ffffffff > /proc/irq/ID/smp_affinity
+set mask that all cpus must get interrupts RR
+
+but i see in cat /proc/interrupts that all interrupts get only CPU0
+On CPU1 0 interrupts
+
+i do
+#cat 2 > /proc/irq/16/smp_affinity
+#cat 2 > /proc/irq/17/smp_affinity
+#echo /proc/irq/1[67]/smp_affinity
+00000002
+00000002
+
+Great. Interrupts go to CPU1
+
+#cat 1 > /proc/irq/16/smp_affinity
+#cat 1 > /proc/irq/17/smp_affinity
+#echo /proc/irq/1[67]/smp_affinity
+00000001
+00000001
+
+Great. Interrupts go to CPU0
+
+#cat 3 > /proc/irq/16/smp_affinity
+#cat 3 > /proc/irq/17/smp_affinity
+#echo /proc/irq/1[67]/smp_affinity
+00000003
+00000003
+
+Strange. Interrupts go to CPU0 only.
+
+Where i have mistake? Why i not have RR? Or i mistake in SMP Affinity idea?
+Thanks for answers!
+
+Slavon
 
 
+> Another option is to use recent e1000 nics with multiqueue capability.
+> Read in [2]. Google for more information. I'm not sure but you'll
+> probably need non-kerel recent e1000 drivers from sourceforge.
+>
+> [1]http://www.mjmwired.net/kernel/Documentation/filesystems/proc.txt
+> [2]http://www.mjmwired.net/kernel/Documentation/networking/multiqueue.txt
+>
+> cheers,
+> Marek Kierdelewicz
+>
+>   
 
-       __________________________________ Ihr erstes Fernweh? Wo gibt e=
-s den sch=F6nsten Strand? www.yahoo.de/clever
