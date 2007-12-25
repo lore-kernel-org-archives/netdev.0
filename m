@@ -1,30 +1,46 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [WEXT 3/12]: Extract standard call iw_point handling into
- seperate function.
-Date: Mon, 24 Dec 2007 21:18:45 -0800 (PST)
-Message-ID: <20071224.211845.192499191.davem@davemloft.net>
-References: <20071221.205407.165162566.davem@davemloft.net>
-	<1198308172.4895.11.camel@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [ETH]: Combine format_addr() with print_mac().
+Date: Mon, 24 Dec 2007 21:28:37 -0800 (PST)
+Message-ID: <20071224.212837.265942369.davem@davemloft.net>
+References: <1198295882.6752.9.camel@dell>
+	<1198306965.4895.5.camel@localhost>
+	<1198455635.5491.4.camel@dell>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1198308172.4895.11.camel@localhost>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: joe@perches.com, netdev@vger.kernel.org, anilgv@broadcom.com,
+	michaelc@cs.wisc.edu, david.somayajulu@qlogic.com
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39343
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750759AbXLYF2i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Dec 2007 00:28:38 -0500
+In-Reply-To: <1198455635.5491.4.camel@dell>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Date: Fri, 21 Dec 2007 23:22:52 -0800
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Sun, 23 Dec 2007 16:20:35 -0800
 
-> On Fri, 2007-12-21 at 20:54 -0800, David Miller wrote:
-> > [WEXT]: Extract standard call iw_point handling into seperate function.
+> Here's the revised patch:
 > 
-> This potentially does copy_from_user twice,
-> first to the stack, second to a kmalloc'ed area.
-> Perhaps it's better to kmalloc first and copy once?
+> [ETH]: Combine format_addr() with print_mac().
+> 
+> print_mac() used many most net drivers and format_addr() used by
+> net-sysfs.c are very similar and they can be intergrated.
+> 
+> format_addr() is also identically redefined in the qla4xxx iscsi
+> driver.
+> 
+> Export a new function sysfs_format_mac() to be used by net-sysfs,
+> qla4xxx and others in the future.  Both print_mac() and
+> sysfs_format_mac() call _format_mac_addr() to do the formatting.
+> 
+> Changed print_mac() to use unsigned char * to be consistent with
+> net_device struct's dev_addr.  Added buffer length overrun checking
+> as suggested by Joe Perches.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-I'm preserving existing behavior in these changes,
-feel free to make these kinds of improvements as
-a follow-on changeset.
+Applied to net-2.6.25, thanks Michael.
