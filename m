@@ -1,76 +1,41 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: [PATCH] veth: move veth.h to include/linux
-Date: Tue, 25 Dec 2007 12:46:56 -0800
-Message-ID: <20071225124656.723c2db6@deepthought>
-References: <20071221094336.63600b8c@deepthought>
-	<20071224.220527.254578945.davem@davemloft.net>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: ipv4_devconf.arp_accept mystery
+Date: Tue, 25 Dec 2007 23:08:08 +0100
+Message-ID: <m3ve6mh1h3.fsf@ursa.amorsen.dk>
+References: <d0383f90712230800n6e6d6b92x64eaa8dcff313915@mail.gmail.com> <E1J6mmW-0006dP-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, vgusev@openvz.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:33402 "EHLO mail.vyatta.com"
+Received: from main.gmane.org ([80.91.229.2]:51001 "EHLO ciao.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751117AbXLYUrw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Dec 2007 15:47:52 -0500
-In-Reply-To: <20071224.220527.254578945.davem@davemloft.net>
+	id S1751235AbXLYWIk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Dec 2007 17:08:40 -0500
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1J7Hwi-0006EN-L2
+	for netdev@vger.kernel.org; Tue, 25 Dec 2007 22:08:20 +0000
+Received: from hd5b9080a.c45-01-12.sta.perspektivbredband.net ([213.185.8.10])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 25 Dec 2007 22:08:20 +0000
+Received: from benny+usenet by hd5b9080a.c45-01-12.sta.perspektivbredband.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 25 Dec 2007 22:08:20 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move veth.h from net/ to linux/ since it is a user api, and
-add it to user header processing Kbuild.
+Herbert Xu <herbert@gondor.apana.org.au> writes:
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> As the name suggests you should use
+>
+> 	/proc/sys/net/ipv4/conf/all/arp_accept
 
---- a/drivers/net/veth.c	2007-12-25 12:30:56.000000000 -0800
-+++ b/drivers/net/veth.c	2007-12-25 12:31:38.000000000 -0800
-@@ -15,7 +15,7 @@
- 
- #include <net/dst.h>
- #include <net/xfrm.h>
--#include <net/veth.h>
-+#include <linux/veth.h>
- 
- #define DRV_NAME	"veth"
- #define DRV_VERSION	"1.0"
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/include/linux/veth.h	2007-10-16 16:48:20.000000000 -0700
-@@ -0,0 +1,12 @@
-+#ifndef __NET_VETH_H_
-+#define __NET_VETH_H_
-+
-+enum {
-+	VETH_INFO_UNSPEC,
-+	VETH_INFO_PEER,
-+
-+	__VETH_INFO_MAX
-+#define VETH_INFO_MAX	(__VETH_INFO_MAX - 1)
-+};
-+
-+#endif
---- a/include/net/veth.h	2007-12-25 12:33:49.000000000 -0800
-+++ /dev/null	1970-01-01 00:00:00.000000000 +0000
-@@ -1,12 +0,0 @@
--#ifndef __NET_VETH_H_
--#define __NET_VETH_H_
--
--enum {
--	VETH_INFO_UNSPEC,
--	VETH_INFO_PEER,
--
--	__VETH_INFO_MAX
--#define VETH_INFO_MAX	(__VETH_INFO_MAX - 1)
--};
--
--#endif
---- a/include/linux/Kbuild	2007-12-25 12:44:59.000000000 -0800
-+++ b/include/linux/Kbuild	2007-12-25 12:45:31.000000000 -0800
-@@ -342,6 +342,7 @@ unifdef-y += unistd.h
- unifdef-y += usbdevice_fs.h
- unifdef-y += user.h
- unifdef-y += utsname.h
-+unifdef-y += veth.h
- unifdef-y += videodev2.h
- unifdef-y += videodev.h
- unifdef-y += virtio_config.h
+The documentation says that if arp_accept is 0, unsolicited arp
+replies are dropped. Doesn't that interfere with failover services
+such as vrrp, keepalived, ucarp etc? I thought they did unsolicited
+arp when failing over.
+
+
+/Benny
+
+
