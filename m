@@ -1,37 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-2.6][NEIGH] Updating affected neighbours when about MAC address change
-Date: Tue, 25 Dec 2007 08:53:28 +0800
-Message-ID: <20071225005328.GA29077@gondor.apana.org.au>
-References: <31436f4a0712230424n1cfaeb27o463e62093af41090@mail.gmail.com> <E1J6RPh-0004mf-00@gondolin.me.apana.org.au> <31436f4a0712240538n1b65c2a8u35109ce4c69a00d5@mail.gmail.com> <1198507860.9642.53.camel@localhost>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: Re: [RFC] potential bugs in nexten
+Date: Mon, 24 Dec 2007 17:04:39 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0712241653540.6128@dut46.unminc.com>
+References: <E1J6X0S-0007Sb-AQ@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Shwatrz <dshwatrz@gmail.com>, yoshfuji@linux-ipv6.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+To: Al Viro <viro@ftp.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1298 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752173AbXLYAxm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2007 19:53:42 -0500
-Content-Disposition: inline
-In-Reply-To: <1198507860.9642.53.camel@localhost>
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:51317 "EHLO
+	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750987AbXLYBBX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2007 20:01:23 -0500
+In-Reply-To: <E1J6X0S-0007Sb-AQ@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 24, 2007 at 09:50:59AM -0500, jamal wrote:
->
-> Herbert, i agree with you that userspace is the best spot for this[1];
-> we unfortunately have precedence already on the kernel sending arps with
-> bonding when link status changes (that was added recently).
-> So it sounds reasonable to have this patch in the kernel as well.
+Probably I need to clean up much more junk like that from days before I 
+took over. I recently cleaned up a bit of rx and tx code, which is more 
+frequently executed.
 
-Well just because we've made a mistake in the past does not mean
-that we should repeat it over and over again.  If we keep doing
-this the kernel will soon end up as a whole heap of junk.
+The last one (byte swapping) is serious and I am gonna take care of that 
+in next patch. 
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks,
+-Dhananjay
+
+On Sun, 23 Dec 2007, Al Viro wrote:
+
+> 
+> * what are default: doing in netxen_nic_hw_write_wx()/netxen_nic_hw_read_wx()?
+> Unlike all other cases they do iomem->iomem copying and AFAICS they are never
+> actually triggered.
+> 
+> * netxen_nic_flash_print() reads the entire user_info from card *in* *host-endian*,
+> then uses user_info.serial_number[].
+> 	a) do we need to read the rest?
+> 	b) more interesting question, don't we need cpu_to_le32() here?  After
+> all, that sucker is an array of char, so we want it in the same order regardless
+> of the host...
+> 
+> * in netxen_nic_xmit_frame() we do
+> 	hw->cmd_desc_head[saved_producer].flags_opcode =
+> 		cpu_to_le16(hw->cmd_desc_head[saved_producer].flags_opcode);
+> 	hw->cmd_desc_head[saved_producer].num_of_buffers_total_length =
+> 	  cpu_to_le32(hw->cmd_desc_head[saved_producer].
+> 			  num_of_buffers_total_length);
+> Huh?  Everything that modifies either of those does so in little-endian already.
+> This code appeared in commit 6c80b18df3537d1221ab34555c150bccbfd90260 (NetXen:
+> Port swap feature for multi port cards); what's going on there?
+> 
+> 
