@@ -1,36 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: santize headers for iproute2
-Date: Tue, 25 Dec 2007 15:02:38 -0800 (PST)
-Message-ID: <20071225.150238.193724414.davem@davemloft.net>
-References: <20071221094336.63600b8c@deepthought>
-	<20071224.220527.254578945.davem@davemloft.net>
-	<20071225124323.70e0c772@deepthought>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] via-velocity big-endian support
+Date: Wed, 26 Dec 2007 00:21:35 +0100
+Message-ID: <20071225232135.GA22589@electric-eye.fr.zoreil.com>
+References: <20071224050659.GS8181@ftp.linux.org.uk> <20071225224333.GA21585@electric-eye.fr.zoreil.com> <20071225225606.GC27894@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vgusev@openvz.org, netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com
+To: Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49160
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751183AbXLYXCk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Dec 2007 18:02:40 -0500
-In-Reply-To: <20071225124323.70e0c772@deepthought>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:34725 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751083AbXLYXbA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Dec 2007 18:31:00 -0500
+Content-Disposition: inline
+In-Reply-To: <20071225225606.GC27894@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Tue, 25 Dec 2007 12:43:23 -0800
+Al Viro <viro@ZenIV.linux.org.uk> :
+[...]
+> > Can we avoid using cpu_to_leXY here for consistency sake within the driver
+> > (and among different drivers as well) ?
+> 
+> ???
 
-> The problem is that iproute ss.c needs linux/tcp.h to get the
-> tcp_info structure definition but linux/tcp.h has incompatible
-> definitions with netinet/tcp.h.  I propose that the enum be moved
-> from net/tcp_states.h to linux/tcp.h.
+I admit that it is a bit late for the Xmas wishlist. Compare it with:
 
-This would be fragile, at best.
+@@ -1409,31 +1409,33 @@ static int velocity_rx_srv(struct velocity_info *vptr, int status)
+ 
+        do {
+                struct rx_desc *rd = vptr->rd_ring + rd_curr;
++               u16 rsr;
+[...]
++               rsr = le16_to_cpu(rd->rdesc0.RSR);
+[...]
+-                       if (rd->rdesc0.RSR & RSR_CRC)
++                       if (rsr & RSR_CRC)
+                                  ^^^^^^^ this one is #define RSR_CRC 0x0002
 
-We need to solve this in a way such that both linux/tcp.h and
-netinet/tcp.h can both be included at the same time by userland.
+-> some descriptor bits are now declared with an explicit endianness
+   while others are not (whence "u16 rsr" where "__le16 rsr" whould
+   have fit). Both are fine but it would not hurt to stick with one
+   convention in a given driver.
 
-If we export linux/tcp.h to userspace, we have to make it play nice
-with the existing header file namespace.
+-- 
+Ueimor
