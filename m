@@ -1,36 +1,38 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: Re: [patch 3/6] netxen: improve MSI interrupt handling
-Date: Mon, 24 Dec 2007 16:52:19 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0712241650340.6128@dut46.unminc.com>
-References: <20071221023656.409657310@netxen.com> <20071221024308.680157171@netxen.com>
- <476DDB6E.8050700@garzik.org>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+From: Toyo Abe <tabe@miraclelinux.com>
+Subject: [PATCH] TUNTAP: Fix wrong debug message
+Date: Tue, 25 Dec 2007 10:53:31 +0900
+Message-ID: <200712250153.lBP1rVXR004756@dhcp-0176.miraclelinux.com>
+Cc: vtun@office.satix.net, maxk@qualcomm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:51657 "EHLO
-	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751167AbXLYBH4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2007 20:07:56 -0500
-In-Reply-To: <476DDB6E.8050700@garzik.org>
+Received: from ns.miraclelinux.com ([219.118.163.66]:26951 "EHLO
+	mail.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751007AbXLYCVO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2007 21:21:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Supposedly I had 2.6.24-rc2 as base for the patchset, but looks like it 
-had some stale code. I'll regenrate series on a fresh checkout.
+This is a trivial fix of debug message.
+When a persist flag is set, the message should say "enabled".
 
--Dhananjay
+Signed-off-by: Toyo Abe <tabe@miraclelinux.com>
+---
+ drivers/net/tun.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-On Sat, 22 Dec 2007, Jeff Garzik wrote:
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 1f76446..e5a3f5d 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -610,7 +610,7 @@ static int tun_chr_ioctl(struct inode *inode, struct file *file,
+ 			tun->flags &= ~TUN_PERSIST;
+ 
+ 		DBG(KERN_INFO "%s: persist %s\n",
+-		    tun->dev->name, arg ? "disabled" : "enabled");
++		    tun->dev->name, (!arg) ? "disabled" : "enabled");
+ 		break;
+ 
+ 	case TUNSETOWNER:
+-- 
+1.5.3.6
 
-> Patch does not apply to 2.6.24-rc.
-> 
-> Was this "bug fix" series meant for 2.6.25?
-> 
-> 	Jeff
-> 
-> 
-> 
-> 
-> 
