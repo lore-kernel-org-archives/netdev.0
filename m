@@ -1,81 +1,48 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: [PATCH][XFRM] Documentaion: Fix error example at XFRMOUTSTATEMODEERROR. (Re: [XFRM]: Fix outbound statistics.)
-Date: Tue, 25 Dec 2007 20:43:19 +0900
-Message-ID: <1198582999889-git-send-email-nakam@linux-ipv6.org>
-Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
-	Masahide NAKAMURA <nakam@linux-ipv6.org>
-To: davem@davemloft.net, herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi025.linux-ipv6.org ([203.178.140.25]:53012 "EHLO
-	triton.linux-ipv6.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1750932AbXLYLoK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Dec 2007 06:44:10 -0500
-In-Reply-To: 20071221151111.GA2466@gondor.apana.org.au
-References: 20071221151111.GA2466@gondor.apana.org.au
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcin Slusarz <marcin.slusarz@gmail.com>
+Subject: [PATCH] qla3xxx: convert byte order of constant instead of variable
+Date: Tue, 25 Dec 2007 15:48:56 +0100
+Message-ID: <20071225144852.GB24373@joi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: linux-driver@qlogic.com, LKML <linux-kernel@vger.kernel.org>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753510AbXLYOrX@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-# This is resent email since the Subject is blank at the first time;
+convert byte order of constant instead of variable
+it will be done at compile time (vs run time)
 
-Hello,
-
-On Fri, 21 Dec 2007 23:11:11 +0800
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
-
-> On Fri, Dec 21, 2007 at 11:25:00PM +0900, Masahide NAKAMURA wrote:
-> >
-> >	do {
-> >		err = xfrm_state_check_space(x, skb);
-> > -		if (err)
-> > +		if (err) {
-> > +			XFRM_INC_STATS(LINUX_MIB_XFRMOUTERROR);
-> >			goto error_nolock;
-> > +		}
-> >  
-> >		err = x->outer_mode->output(x, skb);
-> > -		if (err)
-> > +		if (err) {
-> > +			XFRM_INC_STATS(LINUX_MIB_XFRMOUTSTATEMODEERROR);
-> 
-> BTW, none of our existing mode output functions actually return
-> an error.  I noticed that the description for this field is actually
-> "Transformation mode specific error, e.g. Outer header space is not
-> enough".  This is slightly misleading as output header space is
-> checked by xfrm_state_check_space so if there's an error that's
-> where it'll show up.
-
-Thanks for comment, Herbert.
-
-I fix the documentation to remove "e.g. Outer header space is not enough"
-from XFRMSTATEMODEERROR.
-About error code from xfrm_state_check_space(), I still map it XFRMOUTERROR
-(other errors) this time because I think the error here is not a length
-error by protocol (e.g MTU related things) but an internal buffer management.
-
-Any comments for the statistics are still welcomed.
-
-David, please apply the following patch, too.
-
-
-[XFRM] Documentaion: Fix error example at XFRMOUTSTATEMODEERROR.
-
-Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
 ---
- Documentation/networking/xfrm_proc.txt |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ drivers/net/qla3xxx.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/Documentation/networking/xfrm_proc.txt b/Documentation/networking/xfrm_proc.txt
-index ec9045b..53c1a58 100644
---- a/Documentation/networking/xfrm_proc.txt
-+++ b/Documentation/networking/xfrm_proc.txt
-@@ -60,7 +60,6 @@ XfrmOutStateProtoError:
- 	Transformation protocol specific error
- XfrmOutStateModeError:
- 	Transformation mode specific error
--	e.g. Outer header space is not enough
- XfrmOutStateExpired:
- 	State is expired
- XfrmOutPolBlock:
--- 
-1.4.4.2
+diff --git a/drivers/net/qla3xxx.c b/drivers/net/qla3xxx.c
+index a579111..c9f8ba4 100644
+--- a/drivers/net/qla3xxx.c
++++ b/drivers/net/qla3xxx.c
+@@ -2497,8 +2497,7 @@ static int ql_send_map(struct ql3_adapter *qdev,
+
+ 	if (seg_cnt == 1) {
+ 		/* Terminate the last segment. */
+-		oal_entry->len =
+-		    cpu_to_le32(le32_to_cpu(oal_entry->len) | OAL_LAST_ENTRY);
++		oal_entry->len |= cpu_to_le32(OAL_LAST_ENTRY);
+ 	} else {
+ 		oal = tx_cb->oal;
+ 		for (completed_segs=0; completed_segs<frag_cnt; completed_segs++,seg++) {
+@@ -2555,8 +2554,7 @@ static int ql_send_map(struct ql3_adapter *qdev,
+ 					  frag->size);
+ 		}
+ 		/* Terminate the last segment. */
+-		oal_entry->len =
+-		    cpu_to_le32(le32_to_cpu(oal_entry->len) | OAL_LAST_ENTRY);
++		oal_entry->len |= cpu_to_le32(OAL_LAST_ENTRY);
+ 	}
+
+ 	return NETDEV_TX_OK;
+--
+1.5.3.4
 
