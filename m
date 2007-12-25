@@ -1,39 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [SOCK] Avoid divides in sk_stream_pages() and
- __sk_stream_mem_reclaim()
-Date: Mon, 24 Dec 2007 20:58:09 -0800 (PST)
-Message-ID: <20071224.205809.56016548.davem@davemloft.net>
-References: <20071221154508.97aef5d9.dada1@cosmosbay.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [WEXT 3/12]: Extract standard call iw_point handling into
+ seperate function.
+Date: Mon, 24 Dec 2007 21:18:45 -0800 (PST)
+Message-ID: <20071224.211845.192499191.davem@davemloft.net>
+References: <20071221.205407.165162566.davem@davemloft.net>
+	<1198308172.4895.11.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43797
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751656AbXLYE6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2007 23:58:10 -0500
-In-Reply-To: <20071221154508.97aef5d9.dada1@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1198308172.4895.11.camel@localhost>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Fri, 21 Dec 2007 15:45:08 +0100
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Date: Fri, 21 Dec 2007 23:22:52 -0800
 
-> [SOCK] Avoid divides in sk_stream_pages() and __sk_stream_mem_reclaim()
+> On Fri, 2007-12-21 at 20:54 -0800, David Miller wrote:
+> > [WEXT]: Extract standard call iw_point handling into seperate function.
 > 
-> sk_forward_alloc being signed, we should take care of divides by
-> SK_STREAM_MEM_QUANTUM we do in sk_stream_pages() and 
-> __sk_stream_mem_reclaim()
-> 
-> This patchs introduces SK_STREAM_MEM_QUANTUM_SHIFT, defined
-> as ilog2(SK_STREAM_MEM_QUANTUM), to be able to use right
-> shifts instead of plain divides.
-> 
-> This should help compiler to choose right shifts instead of
-> expensive divides (as seen with CONFIG_CC_OPTIMIZE_FOR_SIZE=y on x86)
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> This potentially does copy_from_user twice,
+> first to the stack, second to a kmalloc'ed area.
+> Perhaps it's better to kmalloc first and copy once?
 
-Applied, thanks Eric.
+I'm preserving existing behavior in these changes,
+feel free to make these kinds of improvements as
+a follow-on changeset.
