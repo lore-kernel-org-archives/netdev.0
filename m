@@ -1,43 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: "ip neigh show" not showing arp cache entries?
-Date: Tue, 25 Dec 2007 09:06:50 +0800
-Message-ID: <20071225010650.GA29188@gondor.apana.org.au>
-References: <E1J4TCz-0005L8-00@gondolin.me.apana.org.au> <4767DE91.9060803@nortel.com> <20071219011401.GA4585@gondor.apana.org.au> <47692AA1.20902@mail.usask.ca>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: Re: [patch 3/6] netxen: improve MSI interrupt handling
+Date: Mon, 24 Dec 2007 16:52:19 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0712241650340.6128@dut46.unminc.com>
+References: <20071221023656.409657310@netxen.com> <20071221024308.680157171@netxen.com>
+ <476DDB6E.8050700@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: yoshfuji@linux-ipv6.org, dada1@cosmosbay.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Chris Friesen <cbf123@mail.usask.ca>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752712AbXLYBHX@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <47692AA1.20902@mail.usask.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:51657 "EHLO
+	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751167AbXLYBH4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2007 20:07:56 -0500
+In-Reply-To: <476DDB6E.8050700@garzik.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 19, 2007 at 08:28:49AM -0600, Chris Friesen wrote:
+Supposedly I had 2.6.24-rc2 as base for the patchset, but looks like it 
+had some stale code. I'll regenrate series on a fresh checkout.
+
+-Dhananjay
+
+On Sat, 22 Dec 2007, Jeff Garzik wrote:
+
+> Patch does not apply to 2.6.24-rc.
 > 
-> I've included the traces below, they're pretty long.  I don't know 
-> enough about the netlink format to trace the responses, but I did notice 
-> one interesting thing.
+> Was this "bug fix" series meant for 2.6.25?
 > 
-> In the "ip neigh show" case the "bond2" entry isn't printed out, but I 
-> can see the string "bond2" in the recvmsg() call so it looks like the 
-
-Actually bond2 isn't in the recvmsg, it's just that strace is
-printing out the complete content of the buffer which happenes
-to include bond2.
-
-I've verified that the first recvmsg indeed does not contain the
-bond2 address at all.  Instead of the first 3 IPv4 records it has
-3 IPv6 records.  So we seem to have a kernel problem here.
-
-However, too many changes have been made in this area since 2.6.14
-for it to be worthwhile for me to debug this any further until you
-manage to reproduce it with the current kernel.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> 	Jeff
+> 
+> 
+> 
+> 
+> 
