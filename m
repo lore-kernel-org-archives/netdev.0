@@ -1,170 +1,168 @@
 From: dhananjay@netxen.com
-Subject: [patch 6/7] netxen: optimize tx handling
-Date: Wed, 26 Dec 2007 10:23:58 -0800
-Message-ID: <20071226182928.106261803@netxen.com>
+Subject: [patch 7/7] netxen: fix byte-swapping in tx and rx
+Date: Wed, 26 Dec 2007 10:23:59 -0800
+Message-ID: <20071226182928.425988922@netxen.com>
 References: <20071226182352.704678179@netxen.com>
 Cc: jeff@garzik.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [64.209.101.202] ([64.209.101.202]:45038 "EHLO dut46.unminc.com"
+Received: from [64.209.101.202] ([64.209.101.202]:45040 "EHLO dut46.unminc.com"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751515AbXLZSZy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Dec 2007 13:25:54 -0500
-Content-Disposition: inline; filename=xmit.patch
+	id S1750963AbXLZSZz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Dec 2007 13:25:55 -0500
+Content-Disposition: inline; filename=endian.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netxen driver allows limited number of threads simultaneously posting
-skb's in tx ring. If transmit slot is unavailable, driver calls
-schedule() or loops in xmit_frame().
+This cleans up some unnecessary byte-swapping while setting up tx and
+interpreting rx desc. The 64 bit rx status data should be converted
+to host endian format only once and the macros just need to extract
+bitfields.
 
-This patch returns TX_BUSY and lets the stack reschedule the packet if
-transmit slot is unavailable. Also removes unnecessary check for tx
-timeout in the driver itself, the network stack does that anyway.
+This saves a spate of interrupts on pseries blades caused by buggy 
+(non) processing rx status ring.
 
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 
-Index: upstream/drivers/net/netxen/netxen_nic_main.c
+Index: netdev-2.6/drivers/net/netxen/netxen_nic.h
 ===================================================================
---- upstream.orig/drivers/net/netxen/netxen_nic_main.c
-+++ upstream/drivers/net/netxen/netxen_nic_main.c
-@@ -986,28 +986,6 @@ static int netxen_nic_xmit_frame(struct 
- 		return NETDEV_TX_OK;
- 	}
+--- netdev-2.6.orig/drivers/net/netxen/netxen_nic.h
++++ netdev-2.6/drivers/net/netxen/netxen_nic.h
+@@ -309,23 +309,23 @@ struct netxen_ring_ctx {
+ 	((cmd_desc)->port_ctxid |= ((var) & 0xF0))
  
--	/*
--	 * Everything is set up. Now, we just need to transmit it out.
--	 * Note that we have to copy the contents of buffer over to
--	 * right place. Later on, this can be optimized out by de-coupling the
--	 * producer index from the buffer index.
--	 */
--      retry_getting_window:
--	spin_lock_bh(&adapter->tx_lock);
--	if (adapter->total_threads >= MAX_XMIT_PRODUCERS) {
--		spin_unlock_bh(&adapter->tx_lock);
--		/*
--		 * Yield CPU
--		 */
--		if (!in_atomic())
--			schedule();
--		else {
--			for (i = 0; i < 20; i++)
--				cpu_relax();	/*This a nop instr on i386 */
--		}
--		goto retry_getting_window;
--	}
--	local_producer = adapter->cmd_producer;
- 	/* There 4 fragments per descriptor */
- 	no_of_desc = (frag_count + 3) >> 2;
- 	if (netdev->features & NETIF_F_TSO) {
-@@ -1021,16 +999,19 @@ static int netxen_nic_xmit_frame(struct 
- 			}
- 		}
- 	}
-+
-+	spin_lock_bh(&adapter->tx_lock);
-+	if (adapter->total_threads >= MAX_XMIT_PRODUCERS) {
-+		goto out_requeue;
-+	}
-+	local_producer = adapter->cmd_producer;
- 	k = adapter->cmd_producer;
- 	max_tx_desc_count = adapter->max_tx_desc_count;
- 	last_cmd_consumer = adapter->last_cmd_consumer;
- 	if ((k + no_of_desc) >=
- 	    ((last_cmd_consumer <= k) ? last_cmd_consumer + max_tx_desc_count :
- 	     last_cmd_consumer)) {
--		netif_stop_queue(netdev);
--		adapter->flags |= NETXEN_NETDEV_STATUS;
--		spin_unlock_bh(&adapter->tx_lock);
--		return NETDEV_TX_BUSY;
-+		goto out_requeue;
- 	}
- 	k = get_index_range(k, max_tx_desc_count, no_of_desc);
- 	adapter->cmd_producer = k;
-@@ -1083,6 +1064,8 @@ static int netxen_nic_xmit_frame(struct 
- 						  adapter->max_tx_desc_count);
- 			hwdesc = &hw->cmd_desc_head[producer];
- 			memset(hwdesc, 0, sizeof(struct cmd_desc_type0));
-+			pbuf = &adapter->cmd_buf_arr[producer];
-+			pbuf->skb = NULL;
- 		}
- 		frag = &skb_shinfo(skb)->frags[i - 1];
- 		len = frag->size;
-@@ -1138,6 +1121,8 @@ static int netxen_nic_xmit_frame(struct 
- 		}
- 		/* copy the MAC/IP/TCP headers to the cmd descriptor list */
- 		hwdesc = &hw->cmd_desc_head[producer];
-+		pbuf = &adapter->cmd_buf_arr[producer];
-+		pbuf->skb = NULL;
+ #define netxen_set_cmd_desc_flags(cmd_desc, val)	\
+-	((cmd_desc)->flags_opcode &= ~cpu_to_le16(0x7f), \
+-	(cmd_desc)->flags_opcode |= cpu_to_le16((val) & 0x7f))
++	((cmd_desc)->flags_opcode &= ~(0x7f), \
++	(cmd_desc)->flags_opcode |= (val) & 0x7f)
+ #define netxen_set_cmd_desc_opcode(cmd_desc, val)	\
+-	((cmd_desc)->flags_opcode &= ~cpu_to_le16(0x3f<<7), \
+-	(cmd_desc)->flags_opcode |= cpu_to_le16(((val & 0x3f)<<7)))
++	((cmd_desc)->flags_opcode &= ~(0x3f<<7), \
++	(cmd_desc)->flags_opcode |= ((val) & 0x3f) << 7)
  
- 		/* copy the first 64 bytes */
- 		memcpy(((void *)hwdesc) + 2,
-@@ -1146,6 +1131,8 @@ static int netxen_nic_xmit_frame(struct 
+ #define netxen_set_cmd_desc_num_of_buff(cmd_desc, val)	\
+-	((cmd_desc)->num_of_buffers_total_length &= ~cpu_to_le32(0xff), \
+-	(cmd_desc)->num_of_buffers_total_length |= cpu_to_le32((val) & 0xff))
++	((cmd_desc)->num_of_buffers_total_length &= ~(0xff), \
++	(cmd_desc)->num_of_buffers_total_length |= (val) & 0xff)
+ #define netxen_set_cmd_desc_totallength(cmd_desc, val)	\
+-	((cmd_desc)->num_of_buffers_total_length &= ~cpu_to_le32(0xffffff00), \
+-	(cmd_desc)->num_of_buffers_total_length |= cpu_to_le32(val << 8))
++	((cmd_desc)->num_of_buffers_total_length &= ~(0xffffff << 8), \
++	(cmd_desc)->num_of_buffers_total_length |= (val) << 8)
  
- 		if (more_hdr) {
- 			hwdesc = &hw->cmd_desc_head[producer];
-+			pbuf = &adapter->cmd_buf_arr[producer];
-+			pbuf->skb = NULL;
- 			/* copy the next 64 bytes - should be enough except
- 			 * for pathological case
- 			 */
-@@ -1179,14 +1166,17 @@ static int netxen_nic_xmit_frame(struct 
- 	}
+ #define netxen_get_cmd_desc_opcode(cmd_desc)	\
+-	((le16_to_cpu((cmd_desc)->flags_opcode) >> 7) & 0x003F)
++	(((cmd_desc)->flags_opcode >> 7) & 0x003f)
+ #define netxen_get_cmd_desc_totallength(cmd_desc)	\
+-	(le32_to_cpu((cmd_desc)->num_of_buffers_total_length) >> 8)
++	(((cmd_desc)->num_of_buffers_total_length >> 8) & 0xffffff)
  
- 	adapter->stats.xmitfinished++;
--	spin_unlock_bh(&adapter->tx_lock);
+ struct cmd_desc_type0 {
+ 	u8 tcp_hdr_offset;	/* For LSO only */
+@@ -412,29 +412,29 @@ struct rcv_desc {
+ #define netxen_get_sts_desc_lro_last_frag(status_desc)	\
+ 	(((status_desc)->lro & 0x80) >> 7)
+ 
+-#define netxen_get_sts_port(status_desc)	\
+-	(le64_to_cpu((status_desc)->status_desc_data) & 0x0F)
+-#define netxen_get_sts_status(status_desc)	\
+-	((le64_to_cpu((status_desc)->status_desc_data) >> 4) & 0x0F)
+-#define netxen_get_sts_type(status_desc)	\
+-	((le64_to_cpu((status_desc)->status_desc_data) >> 8) & 0x0F)
+-#define netxen_get_sts_totallength(status_desc)	\
+-	((le64_to_cpu((status_desc)->status_desc_data) >> 12) & 0xFFFF)
+-#define netxen_get_sts_refhandle(status_desc)	\
+-	((le64_to_cpu((status_desc)->status_desc_data) >> 28) & 0xFFFF)
+-#define netxen_get_sts_prot(status_desc)	\
+-	((le64_to_cpu((status_desc)->status_desc_data) >> 44) & 0x0F)
+-#define netxen_get_sts_owner(status_desc)	\
+-	((le64_to_cpu((status_desc)->status_desc_data) >> 56) & 0x03)
+-#define netxen_get_sts_opcode(status_desc)	\
+-	((le64_to_cpu((status_desc)->status_desc_data) >> 58) & 0x03F)
 -
- 	netdev->trans_start = jiffies;
- 
--	DPRINTK(INFO, "wrote CMD producer %x to phantom\n", producer);
--
--	DPRINTK(INFO, "Done. Send\n");
-+	spin_unlock_bh(&adapter->tx_lock);
- 	return NETDEV_TX_OK;
+-#define netxen_clear_sts_owner(status_desc)	\
+-	((status_desc)->status_desc_data &=	\
+-	~cpu_to_le64(((unsigned long long)3) << 56 ))
+-#define netxen_set_sts_owner(status_desc, val)	\
+-	((status_desc)->status_desc_data |=	\
+-	cpu_to_le64(((unsigned long long)((val) & 0x3)) << 56 ))
++#define netxen_get_sts_port(sts_data)	\
++	((sts_data) & 0x0F)
++#define netxen_get_sts_status(sts_data)	\
++	(((sts_data) >> 4) & 0x0F)
++#define netxen_get_sts_type(sts_data)	\
++	(((sts_data) >> 8) & 0x0F)
++#define netxen_get_sts_totallength(sts_data)	\
++	(((sts_data) >> 12) & 0xFFFF)
++#define netxen_get_sts_refhandle(sts_data)	\
++	(((sts_data) >> 28) & 0xFFFF)
++#define netxen_get_sts_prot(sts_data)	\
++	(((sts_data) >> 44) & 0x0F)
++#define netxen_get_sts_owner(sts_data)	\
++	(((sts_data) >> 56) & 0x03)
++#define netxen_get_sts_opcode(sts_data)	\
++	(((sts_data) >> 58) & 0x03F)
 +
-+out_requeue:
-+	netif_stop_queue(netdev);
-+	adapter->flags |= NETXEN_NETDEV_STATUS;
-+
-+	spin_unlock_bh(&adapter->tx_lock);
-+	return NETDEV_TX_BUSY;
- }
++#define netxen_set_sts_owner(status_desc, val)	{ \
++	u64 value = le64_to_cpu((status_desc)->status_desc_data); \
++	value &= ~(0x3ULL << 56); \
++	value |= (u64)(((u64)(val) << 56) & (0x3ULL << 56)); \
++	(status_desc)->status_desc_data = cpu_to_le64(value); \
++}
  
- static void netxen_watchdog(unsigned long v)
-Index: upstream/drivers/net/netxen/netxen_nic_init.c
+ struct status_desc {
+ 	/* Bit pattern: 0-3 port, 4-7 status, 8-11 type, 12-27 total_length
+Index: netdev-2.6/drivers/net/netxen/netxen_nic_init.c
 ===================================================================
---- upstream.orig/drivers/net/netxen/netxen_nic_init.c
-+++ upstream/drivers/net/netxen/netxen_nic_init.c
-@@ -1229,7 +1229,6 @@ int netxen_process_cmd_ring(struct netxe
- 	struct pci_dev *pdev;
- 	struct netxen_skb_frag *frag;
- 	u32 i;
--	struct sk_buff *skb = NULL;
- 	int done;
+--- netdev-2.6.orig/drivers/net/netxen/netxen_nic_init.c
++++ netdev-2.6/drivers/net/netxen/netxen_nic_init.c
+@@ -1053,16 +1053,17 @@ static void netxen_process_rcv(struct ne
+ {
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	struct net_device *netdev = adapter->netdev;
+-	int index = netxen_get_sts_refhandle(desc);
++	u64 sts_data = le64_to_cpu(desc->status_desc_data);
++	int index = netxen_get_sts_refhandle(sts_data);
+ 	struct netxen_recv_context *recv_ctx = &(adapter->recv_ctx[ctxid]);
+ 	struct netxen_rx_buffer *buffer;
+ 	struct sk_buff *skb;
+-	u32 length = netxen_get_sts_totallength(desc);
++	u32 length = netxen_get_sts_totallength(sts_data);
+ 	u32 desc_ctx;
+ 	struct netxen_rcv_desc_ctx *rcv_desc;
+ 	int ret;
  
- 	spin_lock(&adapter->tx_lock);
-@@ -1259,9 +1258,8 @@ int netxen_process_cmd_ring(struct netxe
- 	while ((last_consumer != consumer) && (count1 < MAX_STATUS_HANDLE)) {
- 		buffer = &adapter->cmd_buf_arr[last_consumer];
- 		pdev = adapter->pdev;
--		frag = &buffer->frag_array[0];
--		skb = buffer->skb;
--		if (skb && (cmpxchg(&buffer->skb, skb, 0) == skb)) {
-+		if (buffer->skb) {
-+			frag = &buffer->frag_array[0];
- 			pci_unmap_single(pdev, frag->dma, frag->length,
- 					 PCI_DMA_TODEVICE);
- 			frag->dma = 0ULL;
-@@ -1274,8 +1272,8 @@ int netxen_process_cmd_ring(struct netxe
- 			}
+-	desc_ctx = netxen_get_sts_type(desc);
++	desc_ctx = netxen_get_sts_type(sts_data);
+ 	if (unlikely(desc_ctx >= NUM_RCV_DESC_RINGS)) {
+ 		printk("%s: %s Bad Rcv descriptor ring\n",
+ 		       netxen_nic_driver_name, netdev->name);
+@@ -1102,7 +1103,7 @@ static void netxen_process_rcv(struct ne
+ 	skb = (struct sk_buff *)buffer->skb;
  
- 			adapter->stats.skbfreed++;
--			dev_kfree_skb_any(skb);
--			skb = NULL;
-+			dev_kfree_skb_any(buffer->skb);
-+			buffer->skb = NULL;
- 		} else if (adapter->proc_cmd_buf_counter == 1) {
- 			adapter->stats.txnullskb++;
+ 	if (likely(adapter->rx_csum &&
+-				netxen_get_sts_status(desc) == STATUS_CKSUM_OK)) {
++				netxen_get_sts_status(sts_data) == STATUS_CKSUM_OK)) {
+ 		adapter->stats.csummed++;
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	} else
+@@ -1185,13 +1186,12 @@ u32 netxen_process_rcv_ring(struct netxe
+ 	 */
+ 	while (count < max) {
+ 		desc = &desc_head[consumer];
+-		if (!(netxen_get_sts_owner(desc) & STATUS_OWNER_HOST)) {
++		if (!(netxen_get_sts_owner(le64_to_cpu(desc->status_desc_data)) & STATUS_OWNER_HOST)) {
+ 			DPRINTK(ERR, "desc %p ownedby %x\n", desc,
+ 				netxen_get_sts_owner(desc));
+ 			break;
  		}
+ 		netxen_process_rcv(adapter, ctxid, desc);
+-		netxen_clear_sts_owner(desc);
+ 		netxen_set_sts_owner(desc, STATUS_OWNER_PHANTOM);
+ 		consumer = (consumer + 1) & (adapter->max_rx_desc_count - 1);
+ 		count++;
 
 -- 
