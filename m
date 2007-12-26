@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] ipv4: Update ip command line processing (take II)
-Date: Tue, 25 Dec 2007 20:55:43 -0800 (PST)
-Message-ID: <20071225.205543.240106823.davem@davemloft.net>
-References: <20071226025903.GB14422@verge.net.au>
+Subject: Re: [PATCH][XFRM] Documentaion: Fix error example at
+ XFRMOUTSTATEMODEERROR.
+Date: Tue, 25 Dec 2007 20:57:43 -0800 (PST)
+Message-ID: <20071225.205743.178174070.davem@davemloft.net>
+References: <1198582999889-git-send-email-nakam@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	apw@us.ibm.com
-To: horms@verge.net.au
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752499AbXLZE4D@vger.kernel.org>
-In-Reply-To: <20071226025903.GB14422@verge.net.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
+To: nakam@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35521
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751590AbXLZE5u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Dec 2007 23:57:50 -0500
+In-Reply-To: <1198582999889-git-send-email-nakam@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
-Date: Wed, 26 Dec 2007 11:59:05 +0900
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Date: Tue, 25 Dec 2007 20:43:19 +0900
 
-> Recently the documentation in Documentation/nfsroot.txt was
-> update to note that in fact ip=off and ip=::::::off as the
-> latter is ignored and the default (on) is used.
+> [XFRM] Documentaion: Fix error example at XFRMOUTSTATEMODEERROR.
 > 
-> This was certainly a step in the direction of reducing confusion.
-> But it seems to me that the code ought to be fixed up so that
-> ip=::::::off actually turns off ip autoconfiguration.
-> 
-> This patch also notes more specifically that ip=on (aka ip=::::::on)
-> is the default.
-> 
-> Cc: Amos Waterland <apw@us.ibm.com>
-> Signed-off-by: Simon Horman <horms@verge.net.au>
+> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
 
-I applied this to net-2.6 since I think it's a bug fix, and
-I also tailored the changelog header to more it clear this
-is a fix not just an "Update". :-)
-
-Thanks!
-
+Applied, thank you.
