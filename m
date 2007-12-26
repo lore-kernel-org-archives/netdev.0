@@ -1,8 +1,8 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [3/4] DST: Network state machine.
+Subject: [4/4] DST: Algorithms used in distributed storage.
 Date: Wed, 26 Dec 2007 14:22:51 +0300
-Message-ID: <11986681711013@2ka.mipt.ru>
-References: <11986681713812@2ka.mipt.ru>
+Message-ID: <11986681714159@2ka.mipt.ru>
+References: <11986681711013@2ka.mipt.ru>
 Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -10,28 +10,27 @@ Content-Transfer-Encoding: 7BIT
 Cc: netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
 To: lkml <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kandzendo.ru ([195.178.208.66]:49647 "EHLO tservice.net.ru"
+Received: from kandzendo.ru ([195.178.208.66]:49651 "EHLO tservice.net.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755470AbXLZLXD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Dec 2007 06:23:03 -0500
-In-Reply-To: <11986681713812@2ka.mipt.ru>
+	id S1753695AbXLZLXG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Dec 2007 06:23:06 -0500
+In-Reply-To: <11986681711013@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Network state machine.
-
-Includes network async processing state machine and related tasks.
+Algorithms used in distributed storage.
+Mirror and linear mapping code.
 
 Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 
 
-diff --git a/drivers/block/dst/kst.c b/drivers/block/dst/kst.c
+diff --git a/drivers/block/dst/alg_linear.c b/drivers/block/dst/alg_linear.c
 new file mode 100644
-index 0000000..6d92014
+index 0000000..2f9ed65
 --- /dev/null
-+++ b/drivers/block/dst/kst.c
-@@ -0,0 +1,1515 @@
++++ b/drivers/block/dst/alg_linear.c
+@@ -0,0 +1,105 @@
 +/*
 + * 2007+ Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 + * All rights reserved.
@@ -47,1504 +46,1714 @@ index 0000000..6d92014
 + * GNU General Public License for more details.
 + */
 +
-+#include <linux/kernel.h>
 +#include <linux/module.h>
-+#include <linux/list.h>
-+#include <linux/slab.h>
-+#include <linux/socket.h>
-+#include <linux/kthread.h>
-+#include <linux/net.h>
-+#include <linux/in.h>
-+#include <linux/poll.h>
-+#include <linux/bio.h>
++#include <linux/kernel.h>
++#include <linux/init.h>
 +#include <linux/dst.h>
 +
-+#include <net/sock.h>
-+
-+struct kst_poll_helper
-+{
-+	poll_table 		pt;
-+	struct kst_state	*st;
-+};
-+
-+static LIST_HEAD(kst_worker_list);
-+static DEFINE_MUTEX(kst_worker_mutex);
++static struct dst_alg *alg_linear;
 +
 +/*
-+ * This function creates bound socket for local export node.
++ * This callback is invoked when node is removed from storage.
 + */
-+static int kst_sock_create(struct kst_state *st, struct saddr *addr,
-+		int type, int proto, int backlog)
++static void dst_linear_del_node(struct dst_node *n)
++{
++}
++
++/*
++ * This callback is invoked when node is added to storage.
++ */
++static int dst_linear_add_node(struct dst_node *n)
++{
++	struct dst_storage *st = n->st;
++
++	dprintk("%s: disk_size: %llu, node_size: %llu.\n",
++			__func__, st->disk_size, n->size);
++
++	mutex_lock(&st->tree_lock);
++	n->start = st->disk_size;
++	st->disk_size += n->size;
++	dst_set_disk_size(st);
++	mutex_unlock(&st->tree_lock);
++
++	return 0;
++}
++
++static int dst_linear_remap(struct dst_request *req)
 +{
 +	int err;
 +
-+	err = sock_create(addr->sa_family, type, proto, &st->socket);
++	if (req->node->bdev) {
++		generic_make_request(req->bio);
++		return 0;
++	}
++
++	err = kst_check_permissions(req->state, req->bio);
 +	if (err)
-+		goto err_out_exit;
++		return err;
 +
-+	err = st->socket->ops->bind(st->socket, (struct sockaddr *)addr,
-+			addr->sa_data_len);
++	return req->state->ops->push(req);
++}
 +
-+	err = st->socket->ops->listen(st->socket, backlog);
++/*
++ * Failover callback - it is invoked each time error happens during
++ * request processing.
++ */
++static int dst_linear_error(struct kst_state *st, int err)
++{
 +	if (err)
-+		goto err_out_release;
++		set_bit(DST_NODE_FROZEN, &st->node->flags);
++	else
++		clear_bit(DST_NODE_FROZEN, &st->node->flags);
++	return 0;
++}
 +
-+	st->socket->sk->sk_allocation = GFP_NOIO;
++static struct dst_alg_ops alg_linear_ops = {
++	.remap		= dst_linear_remap,
++	.add_node 	= dst_linear_add_node,
++	.del_node 	= dst_linear_del_node,
++	.error		= dst_linear_error,
++	.owner		= THIS_MODULE,
++};
++
++static int __devinit alg_linear_init(void)
++{
++	alg_linear = dst_alloc_alg("alg_linear", &alg_linear_ops);
++	if (!alg_linear)
++		return -ENOMEM;
 +
 +	return 0;
++}
 +
-+err_out_release:
-+	sock_release(st->socket);
++static void __devexit alg_linear_exit(void)
++{
++	dst_remove_alg(alg_linear);
++}
++
++module_init(alg_linear_init);
++module_exit(alg_linear_exit);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Evgeniy Polyakov <johnpol@2ka.mipt.ru>");
++MODULE_DESCRIPTION("Linear distributed algorithm.");
+diff --git a/drivers/block/dst/alg_mirror.c b/drivers/block/dst/alg_mirror.c
+new file mode 100644
+index 0000000..529b8cb
+--- /dev/null
++++ b/drivers/block/dst/alg_mirror.c
+@@ -0,0 +1,1614 @@
++/*
++ * 2007+ Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
++
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/poll.h>
++#include <linux/dst.h>
++#include <linux/vmstat.h>
++
++struct dst_write_entry
++{
++	int		error;
++	u32		size;
++	u64		start;
++};
++#define DST_LOG_ENTRIES_PER_PAGE	(PAGE_SIZE/sizeof(struct dst_write_entry))
++
++#define DST_MIRROR_COOKIE		0xc47fd0d33274d7c6ULL
++
++struct dst_mirror_node_data
++{
++	u64			age;
++	u32			num, write_idx, resync_idx, unused;
++	u64			magic;
++};
++
++struct dst_mirror_log
++{
++	unsigned int		nr_pages;
++	struct dst_write_entry	**entries;
++};
++
++struct dst_mirror_priv
++{
++	u64			resync_start, resync_size;
++	atomic_t		resync_num;
++	struct completion	resync_complete;
++	struct delayed_work	resync_work;
++	unsigned int		resync_timeout;
++
++	u64			last_start;
++	
++	spinlock_t		resync_wait_lock;
++	struct list_head	resync_wait_list;
++	int			resync_wait_num;
++	int			full_resync;
++
++	spinlock_t		backlog_lock;
++	struct list_head	backlog_list;
++
++	struct dst_node		*node;
++
++	u64			old_age, ndp_sector;
++	struct dst_mirror_node_data	data;
++
++	spinlock_t		log_lock;
++	struct dst_mirror_log	log;
++};
++
++struct dst_mirror_sync_container
++{
++	struct list_head	sync_entry;
++	u64			start, size;
++	struct dst_node		*node;
++	struct bio		*bio;
++};
++
++static struct dst_alg *alg_mirror;
++static struct bio_set *dst_mirror_bio_set;
++
++static int dst_mirror_resync(struct dst_node *n, int ndp);
++static int dst_mirror_process_log_on_disk(struct dst_node *n, int op);
++
++static int dst_mirror_mark_notsync(struct dst_node *n)
++{
++	if (!test_and_set_bit(DST_NODE_NOTSYNC, &n->flags)) {
++		struct dst_mirror_priv *priv = n->priv;
++		printk(KERN_NOTICE "%s: not synced node n: %p.\n", __func__, n);
++
++		priv->data.resync_idx = priv->data.write_idx;
++		return 1;
++	}
++
++	return 0;
++}
++
++static void dst_mirror_mark_node_sync(struct dst_node *n)
++{
++	struct dst_mirror_priv *priv = n->priv;
++
++	if (test_and_clear_bit(DST_NODE_NOTSYNC, &n->flags))
++		printk(KERN_NOTICE "%s: node: %p, %llu:%llu synchronization "
++				"has been completed.\n",
++			__func__, n, n->start, n->size);
++
++	priv->full_resync = 0;
++	complete(&priv->resync_complete);
++}
++
++static ssize_t dst_mirror_mark_dirty(struct device *dev, struct device_attribute *attr,
++			 const char *buf, size_t count)
++{
++	struct dst_node *n = container_of(dev, struct dst_node, device);
++	struct dst_mirror_priv *priv = n->priv;
++
++	priv->data.age = 0;
++	priv->full_resync = 1;
++	dst_mirror_mark_notsync(n);
++	return count;
++}
++
++static ssize_t dst_mirror_mark_clean(struct device *dev, struct device_attribute *attr,
++			 const char *buf, size_t count)
++{
++	struct dst_node *n = container_of(dev, struct dst_node, device);
++	struct dst_mirror_priv *priv = n->priv;
++	struct dst_mirror_priv *fp = priv;
++
++	if (n->shared_head)
++		fp = n->shared_head->priv;
++
++	priv->data = fp->data;
++	priv->full_resync = 0;
++	dst_mirror_process_log_on_disk(n, WRITE);
++	dst_mirror_mark_node_sync(n);
++	return count;
++}
++
++static ssize_t dst_mirror_show_state(struct device *dev, struct device_attribute *attr,
++			char *buf)
++{
++	struct dst_node *n = container_of(dev, struct dst_node, device);
++
++	return sprintf(buf, "%s\n", test_bit(DST_NODE_NOTSYNC, &n->flags) ? "notsync" : "sync");
++}
++
++static ssize_t dst_mirror_show_resync_timeout(struct device *dev, struct device_attribute *attr,
++			char *buf)
++{
++	struct dst_node *n = container_of(dev, struct dst_node, device);
++	struct dst_mirror_priv *priv = n->priv;
++
++	return sprintf(buf, "%u\n", priv->resync_timeout);
++}
++
++static ssize_t dst_mirror_show_resync_size(struct device *dev, struct device_attribute *attr,
++			char *buf)
++{
++	struct dst_node *n = container_of(dev, struct dst_node, device);
++	struct dst_mirror_priv *priv = n->priv;
++
++	return sprintf(buf, "%llu\n", priv->resync_size);
++}
++
++static ssize_t dst_mirror_set_resync_size(struct device *dev, struct device_attribute *attr,
++			 const char *buf, size_t count)
++{
++	struct dst_node *n = container_of(dev, struct dst_node, device);
++	struct dst_mirror_priv *priv = n->priv;
++	unsigned long size;
++
++	size = simple_strtoul(buf, NULL, 0);
++
++	if (size > n->st->disk_size)
++		return -E2BIG;
++
++	priv->resync_size = size;
++
++	return count;
++}
++
++static ssize_t dst_mirror_show_log_num(struct device *dev, struct device_attribute *attr,
++			char *buf)
++{
++	struct dst_node *n = container_of(dev, struct dst_node, device);
++	struct dst_mirror_priv *priv = n->priv;
++
++	return sprintf(buf, "%u\n", priv->data.num);
++}
++
++static ssize_t dst_mirror_set_resync_timeout(struct device *dev, struct device_attribute *attr,
++			 const char *buf, size_t count)
++{
++	struct dst_node *n = container_of(dev, struct dst_node, device);
++	struct dst_mirror_priv *priv = n->priv;
++	unsigned long tm;
++
++	tm = simple_strtoul(buf, NULL, 0);
++
++	if (tm < 100 || tm > 30000)
++		return -EINVAL;
++
++	priv->resync_timeout = (unsigned int)tm;
++
++	return count;
++}
++
++static struct device_attribute dst_mirror_attrs[] = {
++	__ATTR(dirty, S_IWUSR, NULL, dst_mirror_mark_dirty),
++	__ATTR(clean, S_IWUSR, NULL, dst_mirror_mark_clean),
++	__ATTR(resync_size, S_IWUSR | S_IRUGO, dst_mirror_show_resync_size,
++			dst_mirror_set_resync_size),
++	__ATTR(resync_timeout, S_IWUSR | S_IRUGO, dst_mirror_show_resync_timeout,
++			dst_mirror_set_resync_timeout),
++	__ATTR(state, S_IRUSR, dst_mirror_show_state, NULL),
++	__ATTR(log_num, S_IRUSR, dst_mirror_show_log_num, NULL),
++};
++
++static void dst_mirror_handle_priv(struct dst_node *n)
++{
++	if (n->priv) {
++		int err, i;
++
++		for (i=0; i<ARRAY_SIZE(dst_mirror_attrs); ++i)
++			err = device_create_file(&n->device,
++					&dst_mirror_attrs[i]);
++	}
++}
++
++static void dst_mirror_destructor(struct bio *bio)
++{
++	dprintk("%s: bio: %p.\n", __func__, bio);
++	bio_free(bio, dst_mirror_bio_set);
++}
++
++struct dst_mirror_ndp
++{
++	int			err;
++	struct page		*page;
++	struct completion	complete;
++};
++
++static void dst_mirror_ndb_complete(struct dst_mirror_ndp *cmp, int err)
++{
++	cmp->err = err;
++	dprintk("%s: completing request: cmp: %p, err: %d.\n",
++			__func__, cmp, err);
++	complete(&cmp->complete);
++}
++
++static void dst_mirror_ndp_bio_endio(struct dst_request *req, int err)
++{
++	struct dst_mirror_ndp *cmp = req->bio->bi_private;
++
++	dst_mirror_ndb_complete(cmp, err);
++}
++
++static int dst_mirror_ndp_end_io(struct bio *bio, unsigned int size, int err)
++{
++	struct dst_mirror_ndp *cmp = bio->bi_private;
++
++	if (bio->bi_size)
++		return 0;
++
++	dst_mirror_ndb_complete(cmp, err);
++	return 0;
++}
++
++/*
++ * This function reads or writes node's private data from underlying media.
++ */
++static int dst_mirror_process_node_data(struct dst_node *n,
++		struct dst_mirror_node_data *ndata, int op)
++{
++	struct bio *bio;
++	int err = -ENOMEM;
++	struct dst_mirror_ndp *cmp;
++	struct dst_mirror_priv *priv = n->priv;
++	struct dst_mirror_node_data *dst;
++
++	cmp = kzalloc(sizeof(struct dst_mirror_ndp), GFP_KERNEL);
++	if (!cmp)
++		goto err_out_exit;
++
++	cmp->page = alloc_page(GFP_NOIO);
++	if (!cmp->page)
++		goto err_out_free_cmp;
++
++	dst = kmap(cmp->page);
++
++	init_completion(&cmp->complete);
++
++	if (op == WRITE) {
++		memset(dst, 0, PAGE_SIZE);
++
++		dst->age = cpu_to_le64(ndata->age);
++		dst->num = cpu_to_le64(ndata->num);
++		dst->write_idx = cpu_to_le64(ndata->write_idx);
++		dst->resync_idx = cpu_to_le64(ndata->resync_idx);
++		dst->magic = cpu_to_le64(ndata->magic);
++	}
++
++	bio = bio_alloc_bioset(GFP_NOIO, 1, dst_mirror_bio_set);
++	if (!bio)
++		goto err_out_free_page;
++
++	bio->bi_rw = op;
++	bio->bi_private = cmp;
++	bio->bi_sector = priv->ndp_sector;
++	bio->bi_bdev = n->bdev;
++	bio->bi_destructor = dst_mirror_destructor;
++	bio->bi_end_io = dst_mirror_ndp_end_io;
++
++	err = bio_add_pc_page(n->st->queue, bio, cmp->page, 512, 0);
++	if (err <= 0)
++		goto err_out_free_bio;
++
++	if (n->bdev) {
++		generic_make_request(bio);
++	} else {
++		struct dst_request req;
++
++		memset(&req, 0, sizeof(struct dst_request));
++		dst_fill_request(&req, bio, bio->bi_sector, n,
++				&dst_mirror_ndp_bio_endio);
++
++		err = req.state->ops->push(&req);
++		if (err)
++			req.bio_endio(&req, err);
++	}
++
++	dprintk("%s: waiting for completion: bio: %p, cmp: %p.\n",
++			__func__, bio, cmp);
++
++	wait_for_completion(&cmp->complete);
++
++	err = cmp->err;
++	if (!err && (op != WRITE)) {
++		ndata->age = cpu_to_le64(dst->age);
++		ndata->num = cpu_to_le64(dst->num);
++		ndata->write_idx = cpu_to_le64(dst->write_idx);
++		ndata->resync_idx = cpu_to_le64(dst->resync_idx);
++		ndata->magic = cpu_to_le64(dst->magic);
++	}
++
++	kunmap(cmp->page);
++
++	dprintk("%s: freeing bio: %p, err: %d.\n", __func__, bio, err);
++
++err_out_free_bio:
++	bio_put(bio);
++err_out_free_page:
++	kunmap(cmp->page);
++	__free_page(cmp->page);
++err_out_free_cmp:
++	kfree(cmp);
 +err_out_exit:
 +	return err;
 +}
 +
-+static void kst_sock_release(struct kst_state *st)
++/*
++ * This function reads node's private data from underlying media.
++ */
++static int dst_mirror_read_node_data(struct dst_node *n,
++		struct dst_mirror_node_data *ndata)
 +{
-+	if (st->socket) {
-+		sock_release(st->socket);
-+		st->socket = NULL;
++	return dst_mirror_process_node_data(n, ndata, READ);
++}
++
++/*
++ * This function writes node's private data from underlying media.
++ */
++static int dst_mirror_write_node_data(struct dst_node *n,
++		struct dst_mirror_node_data *ndata)
++{
++	dprintk("%s: writing new age: %llx, node: %p %llu-%llu.\n",
++			__func__, ndata->age, n, n->start, n->size);
++	return dst_mirror_process_node_data(n, ndata, WRITE);
++}
++
++static int dst_mirror_process_log_on_disk(struct dst_node *n, int op)
++{
++	struct dst_mirror_priv *priv = n->priv;
++	struct dst_mirror_log *log = &priv->log;
++	int err = -ENOMEM;
++	unsigned int i;
++	struct bio *bio;
++	struct dst_mirror_ndp *cmp;
++	struct request_queue *q = n->st->queue;
++
++	cmp = kzalloc(sizeof(struct dst_mirror_ndp), GFP_KERNEL);
++	if (!cmp)
++		goto err_out_exit;
++
++	if (n->bdev) {
++		q = bdev_get_queue(n->bdev);
++		BUG_ON(!q);
 +	}
-+}
 +
-+void kst_wake(struct kst_state *st)
-+{
-+	if (st) {
-+		struct kst_worker *w = st->node->w;
-+		unsigned long flags;
++	for (i=0; i<log->nr_pages; ++i) {
++		err = -ENOMEM;
++		bio = bio_alloc_bioset(GFP_NOIO, 1, dst_mirror_bio_set);
++		if (!bio)
++			break;
 +
-+		spin_lock_irqsave(&w->ready_lock, flags);
-+		if (list_empty(&st->ready_entry))
-+			list_add_tail(&st->ready_entry, &w->ready_list);
-+		spin_unlock_irqrestore(&w->ready_lock, flags);
++		bio->bi_rw = op;
++		bio->bi_private = cmp;
++		bio->bi_bdev = n->bdev;
++		bio->bi_destructor = dst_mirror_destructor;
++		bio->bi_end_io = dst_mirror_ndp_end_io;
 +
-+		wake_up(&w->wait);
-+	}
-+}
-+EXPORT_SYMBOL_GPL(kst_wake);
++		bio->bi_sector = n->size + to_sector(i*PAGE_SIZE);
 +
-+/*
-+ * Polling machinery.
-+ */
-+static int kst_state_wake_callback(wait_queue_t *wait, unsigned mode,
-+		int sync, void *key)
-+{
-+	struct kst_state *st = container_of(wait, struct kst_state, wait);
-+	kst_wake(st);
-+	return 1;
-+}
++		err = bio_add_pc_page(q, bio,
++				virt_to_page(log->entries[i]), PAGE_SIZE,
++				offset_in_page(log->entries[i]));
++		if (err <= 0) {
++			bio_put(bio);
++			break;
++		}
 +
-+static void kst_queue_func(struct file *file, wait_queue_head_t *whead,
-+				 poll_table *pt)
-+{
-+	struct kst_state *st = container_of(pt, struct kst_poll_helper, pt)->st;
++		init_completion(&cmp->complete);
 +
-+	st->whead = whead;
-+	init_waitqueue_func_entry(&st->wait, kst_state_wake_callback);
-+	add_wait_queue(whead, &st->wait);
-+}
++		if (n->bdev) {
++			generic_make_request(bio);
++		} else {
++			struct dst_request req;
 +
-+static void kst_poll_exit(struct kst_state *st)
-+{
-+	if (st->whead) {
-+		remove_wait_queue(st->whead, &st->wait);
-+		st->whead = NULL;
-+	}
-+}
++			memset(&req, 0, sizeof(struct dst_request));
++			dst_fill_request(&req, bio, bio->bi_sector, n,
++					&dst_mirror_ndp_bio_endio);
 +
-+/*
-+ * This function removes request from state tree and ordering list.
-+ */
-+void kst_del_req(struct dst_request *req)
-+{
-+	list_del_init(&req->request_list_entry);
-+}
-+EXPORT_SYMBOL_GPL(kst_del_req);
++			err = req.state->ops->push(&req);
++			if (err)
++				req.bio_endio(&req, err);
++		}
 +
-+static struct dst_request *kst_req_first(struct kst_state *st)
-+{
-+	struct dst_request *req = NULL;
++		dprintk("%s: waiting for completion: bio: %p, cmp: %p.\n",
++			__func__, bio, cmp);
 +
-+	if (!list_empty(&st->request_list))
-+		req = list_entry(st->request_list.next, struct dst_request,
-+				request_list_entry);
-+	return req;
-+}
++		wait_for_completion(&cmp->complete);
++		bio_put(bio);
 +
-+/*
-+ * This function dequeues first request from the queue and tree.
-+ */
-+static struct dst_request *kst_dequeue_req(struct kst_state *st)
-+{
-+	struct dst_request *req;
-+
-+	mutex_lock(&st->request_lock);
-+	req = kst_req_first(st);
-+	if (req)
-+		kst_del_req(req);
-+	mutex_unlock(&st->request_lock);
-+	return req;
-+}
-+
-+/*
-+ * This function enqueues request into tree, indexed by start of the request,
-+ * and also puts request into ordered queue.
-+ */
-+int kst_enqueue_req(struct kst_state *st, struct dst_request *req)
-+{
-+	if (unlikely(req->flags & DST_REQ_CHECK_QUEUE)) {
-+		struct dst_request *r;
-+
-+		list_for_each_entry(r, &st->request_list, request_list_entry) {
-+			if (bio_rw(r->bio) != bio_rw(req->bio))
-+				continue;
-+
-+			if (r->start >= req->start + req->size)
-+				continue;
-+
-+			if (r->start + r->size <= req->start)
-+				continue;
-+
-+			return -EEXIST;
++		if (cmp->err) {
++			err = cmp->err;
++			break;
 +		}
 +	}
 +
-+	list_add_tail(&req->request_list_entry, &st->request_list);
++	err = dst_mirror_write_node_data(n, &priv->data);
++
++	kfree(cmp);
++err_out_exit:
++	if (err)
++		dst_mirror_mark_notsync(n);
++
++	return err;
++}
++
++static int dst_mirror_ndp_setup(struct dst_node *n, int first_node, int clean_on_sync)
++{
++	struct dst_mirror_priv *p = n->priv;
++	int sync = 1, err;
++	struct dst_mirror_priv *fp = p;
++	struct dst_node *first;
++
++	p->full_resync = 0;
++
++	if (first_node) {
++		u64 new_age = *(u64 *)&n->st;
++
++		p->old_age = p->data.age;
++		printk(KERN_NOTICE "%s: first age: %llx -> %llx. "
++			"Old will be set to new for the first node.\n",
++				__func__, p->old_age, new_age);
++		p->data.age = new_age;
++		n->shared_head = n;
++
++		err = dst_mirror_write_node_data(n, &p->data);
++		if (err)
++			return err;
++	} else {
++		mutex_lock(&n->st->tree_lock);
++		first = dst_storage_tree_search(n->st, n->start);
++		if (!first) {
++			mutex_unlock(&n->st->tree_lock);
++			dprintk("%s: there are no nodes in the storage.\n", __func__);
++			return -ENODEV;
++		}
++
++		fp = first->priv;
++
++		if (fp->old_age != p->data.age) {
++			p->full_resync = 1;
++			sync = 0;
++		} else
++			p->data.age = fp->data.age;
++
++		p->old_age = fp->old_age;
++
++		n->shared_head = first;
++		atomic_inc(&first->shared_num);
++		list_add_tail(&n->shared, &first->shared);
++		mutex_unlock(&n->st->tree_lock);
++
++		if (sync) {
++			unsigned long flags;
++			unsigned int pidx, pnum;
++
++			err = dst_mirror_process_log_on_disk(n, READ);
++			if (err)
++				goto err_out_put;
++
++			spin_lock_irqsave(&fp->log_lock, flags);
++			if (fp->data.write_idx != p->data.write_idx)
++				sync = 0;
++			spin_unlock_irqrestore(&fp->log_lock, flags);
++
++			pnum = p->data.resync_idx / DST_LOG_ENTRIES_PER_PAGE;
++			pidx = p->data.resync_idx % DST_LOG_ENTRIES_PER_PAGE;
++
++			if (p->log.entries[pnum][pidx].error)
++				sync = 0;
++		}
++	}
++
++	if (!sync) {
++		printk(KERN_NOTICE "%s: node %llu:%llu is not synced with the first one: "
++					"first_age: %llx, new_age: %llx, full: %d.\n",
++					__func__, n->start, n->start+n->size,
++					p->data.age, fp->data.age, p->full_resync);
++		dst_mirror_mark_notsync(n);
++	} else {
++	       	if (clean_on_sync)
++			dst_mirror_mark_node_sync(n);
++		complete(&p->resync_complete);
++
++		printk(KERN_NOTICE "%s: node %llu:%llu is in sync with the first node.\n",
++				__func__, n->start, n->start+n->size);
++	}
++
++	printk("%s: n: %p, shared_head: %p, age: old: %llx, new: %llx.\n",
++			__func__, n, n->shared_head, p->old_age, fp->data.age);
++
++	return 0;
++
++err_out_put:
++	first = n->shared_head;
++	atomic_dec(&first->shared_num);
++	mutex_lock(&n->st->tree_lock);
++	list_del(&n->shared);
++	n->shared_head = NULL;
++	mutex_unlock(&n->st->tree_lock);
++	dst_node_put(first);
++
++	return err;
++}
++
++static int dst_mirror_end_io(struct bio *bio, unsigned int size, int err)
++{
++	struct dst_request *req = bio->bi_private;
++
++	if (bio->bi_size)
++		return 0;
++
++	dprintk("%s: req: %p, bio: %p, req->bio: %p, err: %d.\n",
++			__func__, req, bio, req->bio, err);
++	req->bio_endio(req, err);
++	bio_put(bio);
 +	return 0;
 +}
-+EXPORT_SYMBOL_GPL(kst_enqueue_req);
 +
-+/*
-+ * BIOs for local exporting node are freed via this function.
-+ */
-+static void kst_export_put_bio(struct bio *bio)
++static int dst_mirror_process_request_nosync(struct dst_request *req,
++		struct dst_node *n)
 +{
-+	int i;
-+	struct bio_vec *bv;
++	int err = 0;
 +
-+	dprintk("%s: bio: %p, size: %u, idx: %d, num: %d, req: %p.\n",
-+			__func__, bio, bio->bi_size, bio->bi_idx,
-+			bio->bi_vcnt, bio->bi_private);
++	/*
++	 * Block layer requires to clone a bio.
++	 */
++	if (n->bdev) {
++		struct bio *clone = bio_alloc_bioset(GFP_NOIO,
++			req->bio->bi_max_vecs, dst_mirror_bio_set);
 +
-+	bio_for_each_segment(bv, bio, i)
-+		__free_page(bv->bv_page);
-+	bio_put(bio);
++		__bio_clone(clone, req->bio);
++
++		clone->bi_bdev = n->bdev;
++		clone->bi_destructor = dst_mirror_destructor;
++		clone->bi_private = req;
++		clone->bi_end_io = &dst_mirror_end_io;
++
++		dprintk("%s: clone: %p, bio: %p, req: %p.\n",
++				__func__, clone, req->bio, req);
++
++		generic_make_request(clone);
++		err = 1;
++	} else {
++		struct dst_request nr;
++		/*
++		 * Network state processing engine will clone request
++		 * by itself if needed. We can not use the same structure
++		 * here, since number of its fields will be modified.
++		 */
++		memcpy(&nr, req, sizeof(struct dst_request));
++
++		nr.node = n;
++		nr.state = n->state;
++		nr.priv = req;
++
++		err = kst_check_permissions(n->state, req->bio);
++		if (!err)
++			err = n->state->ops->push(&nr);
++	}
++
++	dprintk("%s: req: %p, n: %p, bdev: %p, err: %d.\n",
++			__func__, req, n, n->bdev, err);
++
++	return err;
 +}
 +
-+/*
-+ * This is a generic request completion function for requests,
-+ * queued for async processing.
-+ * If it is local export node, state machine is different,
-+ * see details below.
-+ */
-+void kst_complete_req(struct dst_request *req, int err)
++static int dst_mirror_sync_requeue(struct dst_node *n, int exiting)
 +{
-+	dprintk("%s: bio: %p, req: %p, size: %llu, orig_size: %llu, "
-+			"bi_size: %u, err: %d, flags: %u.\n",
-+			__func__, req->bio, req, req->size, req->orig_size,
-+			req->bio->bi_size, err, req->flags);
++	struct dst_mirror_priv *p = n->priv;
++	struct dst_mirror_sync_container *sc;
++	struct dst_request req;
++	unsigned long flags;
++	int err, num = 0;
 +
-+	if (req->flags & DST_REQ_EXPORT) {
-+		if (err || !(req->flags & DST_REQ_EXPORT_WRITE)) {
-+			req->bio_endio(req, err);
++	if (!list_empty(&p->backlog_list))
++		dprintk("%s: n: %p, backlog_empty: %d, resync_num: %d.\n",
++			__func__, n, list_empty(&p->backlog_list),
++			atomic_read(&p->resync_num));
++
++	while (!list_empty(&p->backlog_list)) {
++		sc = NULL;
++		spin_lock_irqsave(&p->backlog_lock, flags);
++		if (!list_empty(&p->backlog_list)) {
++			sc = list_entry(p->backlog_list.next,
++					struct dst_mirror_sync_container,
++					sync_entry);
++			if (bio_rw(sc->bio) == WRITE)
++				list_del(&sc->sync_entry);
++			else
++				sc = NULL;
++		}
++		spin_unlock_irqrestore(&p->backlog_lock, flags);
++
++		if (!sc)
++			break;
++
++		sc->bio->bi_private = n;
++		if (sc->bio->bi_size == 0 || exiting) {
++			err = -EIO;
 +			goto out;
 +		}
 +
-+		req->bio->bi_rw = WRITE;
-+		generic_make_request(req->bio);
-+	} else {
-+		req->bio_endio(req, err);
-+	}
++		memset(&req, 0, sizeof(struct dst_request));
++		dst_fill_request(&req, sc->bio, sc->start - n->start,
++				n, &kst_bio_endio);
++
++		err = dst_mirror_process_request_nosync(&req, n);
 +out:
-+	dst_free_request(req);
-+}
-+EXPORT_SYMBOL_GPL(kst_complete_req);
-+
-+static void kst_flush_requests(struct kst_state *st)
-+{
-+	struct dst_request *req;
-+
-+	while ((req = kst_dequeue_req(st)) != NULL)
-+		kst_complete_req(req, -EIO);
-+}
-+
-+static int kst_poll_init(struct kst_state *st)
-+{
-+	struct kst_poll_helper ph;
-+
-+	ph.st = st;
-+	init_poll_funcptr(&ph.pt, &kst_queue_func);
-+
-+	st->socket->ops->poll(NULL, st->socket, &ph.pt);
-+	return 0;
-+}
-+
-+/*
-+ * Main state creation function.
-+ * It creates new state according to given operations
-+ * and links it into worker structure and node.
-+ */
-+static struct kst_state *kst_state_init(struct dst_node *node,
-+		unsigned int permissions,
-+		struct kst_state_ops *ops, void *data)
-+{
-+	struct kst_state *st;
-+	int err;
-+
-+	st = kzalloc(sizeof(struct kst_state), GFP_KERNEL);
-+	if (!st)
-+		return ERR_PTR(-ENOMEM);
-+
-+	st->permissions = permissions;
-+	st->node = node;
-+	st->ops = ops;
-+	INIT_LIST_HEAD(&st->ready_entry);
-+	INIT_LIST_HEAD(&st->entry);
-+	INIT_LIST_HEAD(&st->request_list);
-+	mutex_init(&st->request_lock);
-+
-+	err = st->ops->init(st, data);
-+	if (err)
-+		goto err_out_free;
-+	mutex_lock(&node->w->state_mutex);
-+	list_add_tail(&st->entry, &node->w->state_list);
-+	mutex_unlock(&node->w->state_mutex);
-+
-+	kst_wake(st);
-+
-+	return st;
-+
-+err_out_free:
-+	kfree(st);
-+	return ERR_PTR(err);
-+}
-+
-+/*
-+ * This function is called when node is removed,
-+ * or when state is destroyed for connected to local exporting
-+ * node client.
-+ */
-+void kst_state_exit(struct kst_state *st)
-+{
-+	struct kst_worker *w = st->node->w;
-+
-+	mutex_lock(&w->state_mutex);
-+	list_del_init(&st->entry);
-+	mutex_unlock(&w->state_mutex);
-+
-+	st->ops->exit(st);
-+
-+	if (st == st->node->state)
-+		st->node->state = NULL;
-+
-+	kfree(st);
-+}
-+
-+static int kst_error(struct kst_state *st, int err)
-+{
-+	if ((err == -ECONNRESET || err == -EPIPE) && st->ops->recovery)
-+		err = st->ops->recovery(st, err);
-+
-+	return st->node->st->alg->ops->error(st, err);
-+}
-+
-+/*
-+ * This is main state processing function.
-+ * It tries to complete request and invoke appropriate
-+ * callbacks in case of errors or successfull operation finish.
-+ */
-+static int kst_thread_process_state(struct kst_state *st)
-+{
-+	int err, empty;
-+	unsigned int revents;
-+	struct dst_request *req, *tmp;
-+
-+	mutex_lock(&st->request_lock);
-+	if (st->ops->ready) {
-+		err = st->ops->ready(st);
-+		if (err) {
-+			mutex_unlock(&st->request_lock);
-+			if (err < 0)
-+				kst_state_exit(st);
-+			return err;
-+		}
++		if (err < 0)
++			bio_endio(sc->bio, sc->bio->bi_size, err);
++		kfree(sc);
++		num++;
 +	}
 +
-+	err = 0;
-+	empty = 1;
-+	req = NULL;
-+	list_for_each_entry_safe(req, tmp, &st->request_list, request_list_entry) {
-+		empty = 0;
-+		revents = st->socket->ops->poll(st->socket->file,
-+				st->socket, NULL);
-+		if (!revents)
-+			break;
-+		err = req->callback(req, revents);
-+		if (req->size && !err)
-+			err = 1;
++	return num;
++}
 +
-+		if (err < 0 || !req->size) {
-+			if (!req->size)
-+				err = 0;
-+			kst_del_req(req);
-+			kst_complete_req(req, err);
-+		}
++static void dst_mirror_resync_work(struct work_struct *work)
++{
++	struct dst_mirror_priv *priv = container_of(work,
++			struct dst_mirror_priv, resync_work.work);
++	struct dst_node *n = priv->node;
 +
-+		if (err)
-+			break;
-+	}
-+
-+	dprintk("%s: broke the loop: err: %d, list_empty: %d.\n",
-+			__func__, err, list_empty(&st->request_list));
-+	mutex_unlock(&st->request_lock);
-+
-+	if (err < 0) {
-+		dprintk("%s: req: %p, err: %d, st: %p, node->state: %p.\n",
-+			__func__, req, err, st, st->node->state);
-+
-+		if (st != st->node->state) {
-+			/*
-+			 * Accepted client has state not related to storage
-+			 * node, so it must be freed explicitely.
-+			 * We do not try to fix clients connections to local
-+			 * export nodes, just drop the client.
-+			 */
-+
-+			kst_state_exit(st);
-+			return err;
-+		}
-+
-+		err = kst_error(st, err);
-+		if (err)
-+			return err;
-+
-+		kst_wake(st);
-+	}
-+
-+	if (list_empty(&st->request_list) && !empty)
-+		kst_wake(st);
-+
-+	return err;
++	dst_mirror_resync(n, 0);
++	dst_mirror_sync_requeue(n, 0);
++	dst_mirror_process_log_on_disk(n, WRITE);
++	schedule_delayed_work(&priv->resync_work, priv->resync_timeout);
 +}
 +
 +/*
-+ * Main worker thread - one per storage.
-+ */
-+static int kst_thread_func(void *data)
-+{
-+	struct kst_worker *w = data;
-+	struct kst_state *st;
-+	unsigned long flags;
-+	int err = 0;
-+
-+	while (!kthread_should_stop()) {
-+		wait_event_interruptible_timeout(w->wait,
-+			(!list_empty(&w->ready_list) && !list_empty(&w->state_list)) ||
-+			kthread_should_stop(), HZ);
-+		st = NULL;
-+		spin_lock_irqsave(&w->ready_lock, flags);
-+		if (!list_empty(&w->ready_list)) {
-+			st = list_entry(w->ready_list.next, struct kst_state,
-+				ready_entry);
-+			list_del_init(&st->ready_entry);
-+		}
-+		spin_unlock_irqrestore(&w->ready_lock, flags);
-+
-+		if (!st)
-+			continue;
-+
-+		err = kst_thread_process_state(st);
-+	}
-+
-+	return err;
-+}
-+
-+/*
-+ * Worker initialization - this object will host andprocess all states,
-+ * which in turn host requests for remote targets.
-+ */
-+struct kst_worker *kst_worker_init(int id)
-+{
-+	struct kst_worker *w;
-+	int err;
-+
-+	w = kzalloc(sizeof(struct kst_worker), GFP_KERNEL);
-+	if (!w)
-+		return ERR_PTR(-ENOMEM);
-+
-+	w->id = id;
-+	init_waitqueue_head(&w->wait);
-+	spin_lock_init(&w->ready_lock);
-+	mutex_init(&w->state_mutex);
-+
-+	INIT_LIST_HEAD(&w->ready_list);
-+	INIT_LIST_HEAD(&w->state_list);
-+
-+	w->req_pool = mempool_create_slab_pool(256, dst_request_cache);
-+	if (!w->req_pool) {
-+		err = -ENOMEM;
-+		goto err_out_free;
-+	}
-+
-+	w->thread = kthread_run(&kst_thread_func, w, "kst%d", w->id);
-+	if (IS_ERR(w->thread)) {
-+		err = PTR_ERR(w->thread);
-+		goto err_out_destroy;
-+	}
-+
-+	mutex_lock(&kst_worker_mutex);
-+	list_add_tail(&w->entry, &kst_worker_list);
-+	mutex_unlock(&kst_worker_mutex);
-+
-+	return w;
-+
-+err_out_destroy:
-+	mempool_destroy(w->req_pool);
-+err_out_free:
-+	kfree(w);
-+	return ERR_PTR(err);
-+}
-+
-+void kst_worker_exit(struct kst_worker *w)
-+{
-+	struct kst_state *st, *n;
-+
-+	mutex_lock(&kst_worker_mutex);
-+	list_del(&w->entry);
-+	mutex_unlock(&kst_worker_mutex);
-+
-+	kthread_stop(w->thread);
-+
-+	list_for_each_entry_safe(st, n, &w->state_list, entry) {
-+		kst_state_exit(st);
-+	}
-+
-+	mempool_destroy(w->req_pool);
-+	kfree(w);
-+}
-+
-+/*
-+ * Common state exit callback.
-+ * Removes itself from worker's list of states,
-+ * releases socket and flushes all requests.
-+ */
-+static void kst_common_exit(struct kst_state *st)
-+{
-+	unsigned long flags;
-+	struct kst_worker *w = st->node->w;
-+
-+	kst_poll_exit(st);
-+
-+	spin_lock_irqsave(&w->ready_lock, flags);
-+	list_del_init(&st->ready_entry);
-+	spin_unlock_irqrestore(&w->ready_lock, flags);
-+
-+	kst_flush_requests(st);
-+	kst_sock_release(st);
-+}
-+
-+/*
-+ * Listen socket contains security attributes in request_list,
-+ * so it can not be flushed via usual way.
-+ */
-+static void kst_listen_flush(struct kst_state *st)
-+{
-+	struct dst_secure *s, *tmp;
-+
-+	list_for_each_entry_safe(s, tmp, &st->request_list, sec_entry) {
-+		list_del(&s->sec_entry);
-+		kfree(s);
-+	}
-+}
-+
-+static void kst_listen_exit(struct kst_state *st)
-+{
-+	kst_listen_flush(st);
-+	kst_common_exit(st);
-+}
-+
-+/*
-+ * BIO vector receiving function - does not block, but may sleep because
-+ * of scheduling policy.
-+ */
-+static int kst_data_recv_bio_vec(struct kst_state *st, struct bio_vec *bv,
-+		unsigned int offset, unsigned int size)
-+{
-+	struct msghdr msg;
-+	struct kvec iov;
-+	void *kaddr;
-+	int err;
-+
-+	kaddr = kmap(bv->bv_page);
-+
-+	iov.iov_base = kaddr + bv->bv_offset + offset;
-+	iov.iov_len = size;
-+
-+	msg.msg_iov = (struct iovec *)&iov;
-+	msg.msg_iovlen = 1;
-+	msg.msg_name = NULL;
-+	msg.msg_namelen = 0;
-+	msg.msg_control = NULL;
-+	msg.msg_controllen = 0;
-+	msg.msg_flags = MSG_DONTWAIT | MSG_NOSIGNAL;
-+
-+	err = kernel_recvmsg(st->socket, &msg, &iov, 1, iov.iov_len,
-+			msg.msg_flags);
-+	kunmap(bv->bv_page);
-+
-+	return err;
-+}
-+
-+/*
-+ * BIO vector sending function - does not block, but may sleep because
-+ * of scheduling policy.
-+ */
-+static int kst_data_send_bio_vec(struct kst_state *st, struct bio_vec *bv,
-+		unsigned int offset, unsigned int size)
-+{
-+	return kernel_sendpage(st->socket, bv->bv_page,
-+			bv->bv_offset + offset, size,
-+			MSG_DONTWAIT | MSG_NOSIGNAL);
-+}
-+
-+static int kst_data_send_bio_vec_slow(struct kst_state *st, struct bio_vec *bv,
-+		unsigned int offset, unsigned int size)
-+{
-+	struct msghdr msg;
-+	struct kvec iov;
-+	void *addr;
-+	int err;
-+
-+	addr = kmap(bv->bv_page);
-+	iov.iov_base = addr + bv->bv_offset + offset;
-+	iov.iov_len = size;
-+
-+	msg.msg_iov = (struct iovec *)&iov;
-+	msg.msg_iovlen = 1;
-+	msg.msg_name = NULL;
-+	msg.msg_namelen = 0;
-+	msg.msg_control = NULL;
-+	msg.msg_controllen = 0;
-+	msg.msg_flags = MSG_DONTWAIT | MSG_NOSIGNAL;
-+
-+	err = kernel_sendmsg(st->socket, &msg, &iov, 1, iov.iov_len);
-+	kunmap(bv->bv_page);
-+
-+	return err;
-+}
-+
-+static u32 dst_csum_bvec(struct bio_vec *bv, unsigned int offset, unsigned int size)
-+{
-+	void *addr;
-+	u32 csum;
-+
-+	addr = kmap_atomic(bv->bv_page, KM_USER0);
-+	csum =  dst_csum_data(addr + bv->bv_offset + offset, size);
-+	kunmap_atomic(addr, KM_USER0);
-+
-+	return csum;
-+}
-+
-+typedef int (*kst_data_process_bio_vec_t)(struct kst_state *st,
-+		struct bio_vec *bv, unsigned int offset, unsigned int size);
-+
-+/*
-+ * @req: processing request.
-+ * Contains BIO and all related to its processing info.
++ * Mirroring log is used to store write request information.
++ * It is allocated on disk and in memory (sync happens each time
++ * resync work queue fires), and eats about 1% of free RAM or disk
++ * (what is less). Each write updates log, so when node goes offline,
++ * its log will be updated with error values, so that this entries
++ * could be resynced when node will be back online. When number of
++ * failed writes becomes equal to number of entries in the write log,
++ * recovery becomes impossible (since old log entries were overwritten)
++ * and full resync is scheduled. 
 + *
-+ * This function sends or receives requested number of pages from given BIO.
-+ *
-+ * In case of errors negative value is returned and @size,
-+ * @index and @off are set to the:
-+ * - number of bytes not yet processed (i.e. the rest of the bytes to be
-+ *   processed).
-+ * - index of the last bio_vec started to be processed (header sent).
-+ * - offset of the first byte to be processed in the bio_vec.
-+ *
-+ * If there are no errors, zero is returned.
-+ * -EAGAIN is not an error and is transformed into zero return value,
-+ * called must check if @size is zero, in that case whole BIO is processed
-+ * and thus req->bio_endio() can be called, othervise new request must be allocated
-+ * to be processed later.
++ * This does not work well with the situation, when there are multiple
++ * writes to the same locations - they are considered as different
++ * writes and thus will be resynced multiple times.
++ * The right solution is to check log for each write, better if log
++ * would be not array, but tree.
 + */
-+static int kst_data_process_bio(struct dst_request *req)
++static int dst_mirror_log_init(struct dst_node *n)
 +{
-+	int err = -ENOSPC;
-+	struct dst_remote_request r;
-+	kst_data_process_bio_vec_t func;
-+	unsigned int cur_size;
-+	int use_csum = test_bit(DST_NODE_USE_CSUM, &req->node->flags);
-+
-+	if (bio_rw(req->bio) == WRITE) {
-+		int i;
-+
-+		func = kst_data_send_bio_vec;
-+		for (i=req->idx; i<req->num; ++i) {
-+			struct bio_vec *bv = bio_iovec_idx(req->bio, i);
-+
-+			if (PageSlab(bv->bv_page)) {
-+				func = kst_data_send_bio_vec_slow;
-+				break;
-+			}
-+		}
-+		r.cmd = cpu_to_be32(DST_WRITE);
-+	} else {
-+		r.cmd = cpu_to_be32(DST_READ);
-+		func = kst_data_recv_bio_vec;
-+	}
-+
-+	dprintk("%s: start: [%c], state: %p, node: %p, start: %llu, idx: %d, num: %d, "
-+			"size: %llu, offset: %u, flags: %x, use_csum: %d.\n",
-+			__func__, (bio_rw(req->bio) == WRITE)?'W':'R', req->state, req->node,
-+			req->start, req->idx, req->num, req->size, req->offset,
-+			req->flags, use_csum);
-+
-+	while (req->idx < req->num) {
-+		struct bio_vec *bv = bio_iovec_idx(req->bio, req->idx);
-+
-+		cur_size = min_t(u64, bv->bv_len - req->offset, req->size);
-+
-+		dprintk("%s: page: %p, slab: %d, count: %d, max: %d, off: %u, len: %u, req->offset: %u, "
-+				"req->size: %llu, cur_size: %u, flags: %x, "
-+				"use_csum: %d, req->csum: %x.\n",
-+				__func__, bv->bv_page, PageSlab(bv->bv_page),
-+				atomic_read(&bv->bv_page->_count), req->bio->bi_vcnt,
-+				bv->bv_offset, bv->bv_len,
-+				req->offset, req->size, cur_size,
-+				req->flags, use_csum, req->tmp_csum);
-+
-+		if (cur_size == 0) {
-+			printk(KERN_ERR "%s: %d/%d: start: %llu, "
-+				"bv_offset: %u, bv_len: %u, "
-+				"req_offset: %u, req_size: %llu, "
-+				"req: %p, bio: %p, err: %d.\n",
-+				__func__, req->idx, req->num, req->start,
-+				bv->bv_offset, bv->bv_len,
-+				req->offset, req->size,
-+				req, req->bio, err);
-+			BUG();
-+		}
-+
-+		if (!(req->flags & DST_REQ_HEADER_SENT)) {
-+			r.sector = cpu_to_be64(req->start);
-+			r.offset = cpu_to_be32(bv->bv_offset + req->offset);
-+			r.size = cpu_to_be32(cur_size);
-+			r.csum = 0;
-+
-+			if (use_csum && bio_rw(req->bio) == WRITE &&
-+					!req->tmp_offset) {
-+				req->tmp_offset = req->offset;
-+				r.csum = cpu_to_be32(dst_csum_bvec(bv,
-+						req->offset, cur_size));
-+			}
-+
-+			err = dst_data_send_header(req->state->socket, &r);
-+			dprintk("%s: %d/%d: sending header: cmd: %u, start: %llu, "
-+				"bv_offset: %u, bv_len: %u, "
-+				"a offset: %u, offset: %u, "
-+				"cur_size: %u, err: %d.\n",
-+				__func__, req->idx, req->num, be32_to_cpu(r.cmd),
-+				req->start, bv->bv_offset, bv->bv_len,
-+				bv->bv_offset + req->offset,
-+				req->offset, cur_size, err);
-+
-+			if (err != sizeof(struct dst_remote_request)) {
-+				if (err >= 0)
-+					err = -EINVAL;
-+				break;
-+			}
-+
-+			req->flags |= DST_REQ_HEADER_SENT;
-+		}
-+
-+		if (use_csum && (bio_rw(req->bio) != WRITE) &&
-+				!(req->flags & DST_REQ_CHEKSUM_RECV)) {
-+			struct dst_remote_request tmp_req;
-+
-+			err = dst_data_recv_header(req->state->socket, &tmp_req, 0);
-+			dprintk("%s: %d/%d: receiving header: start: %llu, "
-+				"bv_offset: %u, bv_len: %u, "
-+				"a offset: %u, offset: %u, "
-+				"cur_size: %u, err: %d.\n",
-+				__func__, req->idx, req->num,
-+				req->start, bv->bv_offset, bv->bv_len,
-+				bv->bv_offset + req->offset,
-+				req->offset, cur_size, err);
-+
-+			if (err != sizeof(struct dst_remote_request)) {
-+				if (err >= 0)
-+					err = -EINVAL;
-+				break;
-+			}
-+
-+			if (req->tmp_csum) {
-+				printk(KERN_ERR "%s: req: %p, old csum: %x, new: %x.\n",
-+						__func__, req, req->tmp_csum,
-+						be32_to_cpu(tmp_req.csum));
-+				BUG_ON(1);
-+			}
-+
-+			dprintk("%s: req: %p, old csum: %x, new: %x.\n",
-+					__func__, req, req->tmp_csum,
-+					be32_to_cpu(tmp_req.csum));
-+			req->tmp_csum = be32_to_cpu(tmp_req.csum);
-+
-+			req->flags |= DST_REQ_CHEKSUM_RECV;
-+		}
-+
-+		err = func(req->state, bv, req->offset, cur_size);
-+		if (err <= 0)
-+			break;
-+
-+		req->offset += err;
-+		req->size -= err;
-+
-+		if (req->offset != bv->bv_len) {
-+			dprintk("%s: %d/%d: this: start: %llu, bv_offset: %u, "
-+				"bv_len: %u, offset: %u, "
-+				"cur_size: %u, err: %d.\n",
-+				__func__, req->idx, req->num, req->start,
-+				bv->bv_offset, bv->bv_len,
-+				req->offset, cur_size, err);
-+			err = -EAGAIN;
-+			break;
-+		}
-+
-+		if (use_csum && bio_rw(req->bio) != WRITE) {
-+			u32 csum = dst_csum_bvec(bv, req->tmp_offset,
-+					bv->bv_len - req->tmp_offset);
-+
-+			dprintk("%s: req: %p, csum: %x, received csum: %x.\n",
-+					__func__, req, csum, req->tmp_csum);
-+
-+			if (csum != req->tmp_csum) {
-+				if (printk_ratelimit()) {
-+					printk(KERN_INFO "%s: %d/%d: broken checksum: start: %llu, "
-+						"bv_offset: %u, bv_len: %u, "
-+						"a offset: %u, offset: %u, "
-+						"cur_size: %u, orig_size: %llu.\n",
-+						__func__, req->idx, req->num,
-+						req->start, bv->bv_offset, bv->bv_len,
-+						bv->bv_offset + req->offset,
-+						req->offset, cur_size, req->orig_size);
-+					printk(KERN_INFO "%s: broken checksum: req: %p, csum: %x, "
-+						"should be: %x, flags: %x, "
-+						"req->tmp_offset: %u, rw: %lu.\n",
-+						__func__, req, csum, req->tmp_csum,
-+						req->flags, req->tmp_offset, bio_rw(req->bio));
-+				}
-+
-+				req->offset -= err;
-+				req->size += err;
-+
-+				err = -EREMOTEIO;
-+				break;
-+			}
-+		}
-+
-+		req->offset = 0;
-+		req->idx++;
-+		req->flags &= ~(DST_REQ_HEADER_SENT | DST_REQ_CHEKSUM_RECV);
-+		req->tmp_csum = 0;
-+		req->start += to_sector(bv->bv_len);
-+	}
-+
-+	if (err <= 0 && err != -EAGAIN) {
-+		if (err == 0)
-+			err = -ECONNRESET;
-+	} else
-+		err = 0;
-+
-+	if (err < 0 || (req->idx == req->num && req->size)) {
-+		dprintk("%s: return: idx: %d, num: %d, offset: %u, "
-+				"size: %llu, err: %d.\n",
-+			__func__, req->idx, req->num, req->offset,
-+			req->size, err);
-+	}
-+	dprintk("%s: end: start: %llu, idx: %d, num: %d, "
-+			"size: %llu, offset: %u.\n",
-+		__func__, req->start, req->idx, req->num,
-+		req->size, req->offset);
-+
-+	return err;
-+}
-+
-+void kst_bio_endio(struct dst_request *req, int err)
-+{
-+	if (err && printk_ratelimit())
-+		printk(KERN_INFO "%s: freeing bio: %p, bi_size: %u, "
-+			"orig_size: %llu, req: %p, err: %d.\n",
-+		__func__, req->bio, req->bio->bi_size, req->orig_size,
-+		req, err);
-+	bio_endio(req->bio, req->orig_size, err);
-+}
-+EXPORT_SYMBOL_GPL(kst_bio_endio);
-+
-+/*
-+ * This callback is invoked by worker thread to process given request.
-+ */
-+int kst_data_callback(struct dst_request *req, unsigned int revents)
-+{
++	struct dst_mirror_priv *priv = n->priv;
++	struct dst_mirror_log *log = &priv->log;
++	struct dst_mirror_node_data *pd = &priv->data;
++	struct dst_node *first;
++	unsigned int i;
 +	int err;
 +
-+	dprintk("%s: req: %p, num: %d, idx: %d, bio: %p, "
-+			"revents: %x, flags: %x.\n",
-+			__func__, req, req->num, req->idx, req->bio,
-+			revents, req->flags);
-+
-+	if (req->flags & DST_REQ_EXPORT_READ)
-+		return 1;
-+
-+	err = kst_data_process_bio(req);
-+
-+	if (revents & (POLLERR | POLLHUP | POLLRDHUP))
-+		err = -EPIPE;
-+
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(kst_data_callback);
-+
-+struct dst_request *dst_clone_request(struct dst_request *req, mempool_t *pool)
-+{
-+	struct dst_request *new_req;
-+
-+	new_req = mempool_alloc(pool, GFP_NOIO);
-+	if (!new_req)
-+		return NULL;
-+
-+	memset(new_req, 0, sizeof(struct dst_request));
-+
-+	dprintk("%s: req: %p, new_req: %p.\n", __func__, req, new_req);
-+
-+	if (req) {
-+		new_req->bio = req->bio;
-+		new_req->state = req->state;
-+		new_req->node = req->node;
-+		new_req->idx = req->idx;
-+		new_req->num = req->num;
-+		new_req->size = req->size;
-+		new_req->orig_size = req->orig_size;
-+		new_req->offset = req->offset;
-+		new_req->tmp_offset = req->tmp_offset;
-+		new_req->tmp_csum = req->tmp_csum;
-+		new_req->start = req->start;
-+		new_req->flags = req->flags;
-+		new_req->bio_endio = req->bio_endio;
-+		new_req->priv = req->priv;
-+	}
-+
-+	return new_req;
-+}
-+EXPORT_SYMBOL_GPL(dst_clone_request);
-+
-+void dst_free_request(struct dst_request *req)
-+{
-+	dprintk("%s: free req: %p, pool: %p, bio: %p, state: %p, node: %p.\n",
-+			__func__, req, req->node->w->req_pool,
-+			req->bio, req->state, req->node);
-+	mempool_free(req, req->node->w->req_pool);
-+}
-+EXPORT_SYMBOL_GPL(dst_free_request);
-+
-+/*
-+ * This is main data processing function, eventually invoked from block layer.
-+ * It tries to complte request, but if it is about to block, it allocates
-+ * new request and queues it to main worker to be processed when events allow.
-+ */
-+static int kst_data_push(struct dst_request *req)
-+{
-+	struct kst_state *st = req->state;
-+	struct dst_request *new_req;
-+	unsigned int revents;
-+	int err, locked = 0;
-+
-+	dprintk("%s: start: %llu, size: %llu, bio: %p.\n",
-+			__func__, req->start, req->size, req->bio);
-+
-+	if (!list_empty(&st->request_list) || (req->flags & DST_REQ_ALWAYS_QUEUE))
-+		goto alloc_new_req;
-+
-+	if (mutex_trylock(&st->request_lock)) {
-+		locked = 1;
-+
-+		if (!list_empty(&st->request_list))
-+			goto alloc_new_req;
-+
-+		revents = st->socket->ops->poll(NULL, st->socket, NULL);
-+		if (revents & POLLOUT) {
-+			err = kst_data_process_bio(req);
-+			if (err < 0)
-+				goto out_unlock;
-+
-+			if (!req->size)
-+				goto out_bio_endio;
-+		}
-+	}
-+
-+alloc_new_req:
-+	err = -ENOMEM;
-+	new_req = dst_clone_request(req, req->node->w->req_pool);
-+	if (!new_req)
-+		goto out_unlock;
-+
-+	new_req->callback = &kst_data_callback;
-+
-+	if (!locked)
-+		mutex_lock(&st->request_lock);
-+
-+	locked = 1;
-+
-+	err = kst_enqueue_req(st, new_req);
-+	if (err)
-+		goto out_unlock;
-+	mutex_unlock(&st->request_lock);
-+
-+	err = 0;
-+	goto out;
-+
-+out_bio_endio:
-+	req->bio_endio(req, err);
-+out_unlock:
-+	if (locked)
-+		mutex_unlock(&st->request_lock);
-+	locked = 0;
-+
-+	if (err) {
-+		err = kst_error(st, err);
-+		if (!err)
-+			goto alloc_new_req;
-+	}
-+
-+	if (err && printk_ratelimit()) {
-+		printk(KERN_INFO "%s: error [%c], start: %llu, idx: %d, num: %d, "
-+				"size: %llu, offset: %u, err: %d.\n",
-+			__func__, (bio_rw(req->bio) == WRITE)?'W':'R',
-+			req->start, req->idx, req->num, req->size,
-+			req->offset, err);
-+	}
-+
-+out:
-+
-+	kst_wake(st);
-+	return err;
-+}
-+
-+/*
-+ * Remote node initialization callback.
-+ */
-+static int kst_data_init(struct kst_state *st, void *data)
-+{
-+	int err;
-+
-+	st->socket = data;
-+	st->socket->sk->sk_allocation = GFP_NOIO;
-+	/*
-+	 * Why not?
-+	 */
-+	st->socket->sk->sk_sndbuf = st->socket->sk->sk_sndbuf = 1024*1024*10;
-+
-+	err = kst_poll_init(st);
++	err = dst_mirror_read_node_data(n, pd);
 +	if (err)
 +		return err;
 +
++	mutex_lock(&n->st->tree_lock);
++	first = dst_storage_tree_search(n->st, n->start);
++	mutex_unlock(&n->st->tree_lock);
++
++	if (first) {
++		struct dst_mirror_priv *fp = first->priv;
++
++		pd->num = fp->data.num;
++		log->nr_pages = fp->log.nr_pages;
++		dst_node_put(first);
++	} else if (pd->magic == DST_MIRROR_COOKIE) {
++		log->nr_pages = (pd->num*sizeof(struct dst_write_entry))>>PAGE_SHIFT;
++	} else {
++		unsigned long allowed_ram = DIV_ROUND_UP(global_page_state(NR_FREE_PAGES), 256);
++		unsigned long allowed_disk = DIV_ROUND_UP(to_bytes(n->size), 256);
++
++		allowed_ram <<= PAGE_SHIFT;
++
++		pd->num = min(allowed_disk, allowed_ram)/sizeof(struct dst_write_entry);
++		log->nr_pages = min(allowed_disk, allowed_ram) >> PAGE_SHIFT;
++		pd->write_idx = pd->resync_idx = 0;
++	}
++	pd->magic = DST_MIRROR_COOKIE;
++
++	log->entries = kzalloc(log->nr_pages * sizeof(void *), GFP_KERNEL);
++	if (!log->entries)
++		return -ENOMEM;
++
++	for (i=0; i<log->nr_pages; ++i) {
++		log->entries[i] = kzalloc(PAGE_SIZE, GFP_KERNEL);
++		if (!log->entries[i])
++			goto err_out_free;
++	}
++
++	printk(KERN_INFO "%s: mirror write log contains %u entries (%u pages).\n",
++			__func__, pd->num, log->nr_pages);
++
 +	return 0;
++
++err_out_free:
++	while (i-- != 0)
++		kfree(log->entries[i]);
++	kfree(log->entries);
++
++	return -ENOMEM;
++}
++
++static void dst_mirror_log_exit(struct dst_node *n)
++{
++	struct dst_mirror_priv *priv = n->priv;
++	unsigned int i;
++
++	for (i=0; i<priv->log.nr_pages; ++i)
++		kfree(priv->log.entries[i]);
++	kfree(priv->log.entries);
 +}
 +
 +/*
-+ * Remote node recovery function - tries to reconnect to given target.
++ * This callback is invoked when node is added to storage.
 + */
-+static int kst_data_recovery(struct kst_state *st, int err)
++static int dst_mirror_add_node(struct dst_node *n)
 +{
-+	struct socket *sock;
-+	struct sockaddr addr;
-+	int addrlen;
-+	struct dst_request *req;
++	struct dst_storage *st = n->st;
++	struct dst_mirror_priv *priv;
++	int err = -ENOMEM, first_node = 0;
++	u64 disk_size;
 +
-+	if (err != -ECONNRESET && err != -EPIPE) {
-+		dprintk("%s: state %p does not know how "
-+				"to recover from error %d.\n",
-+				__func__, st, err);
-+		return err;
-+	}
++	n->size--; /* A sector size actually. */
 +
-+	err = sock_create(st->socket->ops->family, st->socket->type,
-+			st->socket->sk->sk_protocol, &sock);
-+	if (err < 0)
-+		goto err_out_exit;
++	priv = kzalloc(sizeof(struct dst_mirror_priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
 +
-+	sock->sk->sk_sndtimeo = sock->sk->sk_rcvtimeo =
-+		msecs_to_jiffies(DST_DEFAULT_TIMEO);
++	priv->ndp_sector = n->size;
++	priv->node = n;
++	priv->resync_start = 0;
++	priv->resync_size = to_sector(1024*1024*100ULL);
++	init_completion(&priv->resync_complete);
++	atomic_set(&priv->resync_num, 0);
++	INIT_DELAYED_WORK(&priv->resync_work, dst_mirror_resync_work);
++	priv->resync_timeout = 1000;
 +
-+	err = sock->ops->getname(st->socket, &addr, &addrlen, 2);
++	spin_lock_init(&priv->resync_wait_lock);
++	INIT_LIST_HEAD(&priv->resync_wait_list);
++	priv->resync_wait_num = 0;
++
++	spin_lock_init(&priv->backlog_lock);
++	INIT_LIST_HEAD(&priv->backlog_list);
++
++	n->priv_callback = &dst_mirror_handle_priv;
++	n->priv = priv;
++
++	spin_lock_init(&priv->log_lock);
++	
++	err = dst_mirror_log_init(n);
 +	if (err)
-+		goto err_out_destroy;
++		goto err_out_free;
 +
-+	err = sock->ops->connect(sock, &addr, addrlen, 0);
-+	if (err)
-+		goto err_out_destroy;
++	n->size -= to_sector(priv->log.nr_pages << PAGE_SHIFT);
 +
-+	kst_poll_exit(st);
-+	kst_sock_release(st);
-+
-+	mutex_lock(&st->request_lock);
-+	err = st->ops->init(st, sock);
-+	if (!err) {
-+		/*
-+		 * After reconnection is completed all requests
-+		 * must be resent from the state they were finished previously,
-+		 * but with new headers.
-+		 */
-+		list_for_each_entry(req, &st->request_list, request_list_entry)
-+			req->flags &= ~(DST_REQ_HEADER_SENT | DST_REQ_CHEKSUM_RECV);
-+	}
-+	mutex_unlock(&st->request_lock);
-+	if (err < 0)
-+		goto err_out_destroy;
-+
-+	kst_wake(st);
-+	dprintk("%s: reconnected.\n", __func__);
-+
-+	return 0;
-+
-+err_out_destroy:
-+	sock_release(sock);
-+err_out_exit:
-+	dprintk("%s: recovery failed: st: %p, err: %d.\n", __func__, st, err);
-+	return err;
-+}
-+
-+/*
-+ * Local exporting node end IO callbacks.
-+ */
-+static int kst_export_write_end_io(struct bio *bio, unsigned int size, int err)
-+{
-+	dprintk("%s: bio: %p, size: %u, idx: %d, num: %d, err: %d.\n",
-+		__func__, bio, bio->bi_size, bio->bi_idx, bio->bi_vcnt, err);
-+
-+	if (bio->bi_size)
-+		return 1;
-+
-+	kst_export_put_bio(bio);
-+	return 0;
-+}
-+
-+static int kst_export_read_end_io(struct bio *bio, unsigned int size, int err)
-+{
-+	struct dst_request *req = bio->bi_private;
-+	struct kst_state *st = req->state;
-+	int use_csum = test_bit(DST_NODE_USE_CSUM, &req->node->flags);
-+
-+	dprintk("%s: bio: %p, req: %p, size: %u, idx: %d, num: %d, err: %d.\n",
-+		__func__, bio, req, bio->bi_size, bio->bi_idx,
-+		bio->bi_vcnt, err);
-+
-+	if (bio->bi_size)
-+		return 1;
-+
-+	if (err) {
-+		kst_export_put_bio(bio);
-+		return 0;
-+	}
-+
-+	bio->bi_size = req->size = req->orig_size;
-+	bio->bi_rw = WRITE;
-+	bio->bi_end_io = kst_export_write_end_io;
-+	if (use_csum)
-+		req->flags &= ~(DST_REQ_HEADER_SENT | DST_REQ_CHEKSUM_RECV);
-+
-+	/*
-+	 * This is a race with kst_data_callback(), which checks
-+	 * this bit to determine if it can or can not process given
-+	 * request. This does not harm actually, since subsequent
-+	 * state wakeup will call it again and thus will pick
-+	 * given request in time.
-+	 */
-+	req->flags &= ~DST_REQ_EXPORT_READ;
-+	kst_wake(st);
-+	return 0;
-+}
-+
-+/*
-+ * This callback is invoked each time new request from remote
-+ * node to given local export node is received.
-+ * It allocates new block IO request and queues it for processing.
-+ */
-+static int kst_export_ready(struct kst_state *st)
-+{
-+	struct dst_remote_request r;
-+	struct bio *bio;
-+	int err, nr, i;
-+	struct dst_request *req;
-+	unsigned int revents = st->socket->ops->poll(NULL, st->socket, NULL);
-+
-+	if (revents & (POLLERR | POLLHUP)) {
-+		err = -EPIPE;
-+		goto err_out_exit;
-+	}
-+
-+	if (!(revents & POLLIN) || !list_empty(&st->request_list))
-+		return 0;
-+
-+	err = dst_data_recv_header(st->socket, &r, 1);
-+	if (err != sizeof(struct dst_remote_request)) {
-+		err = -ECONNRESET;
-+		goto err_out_exit;
-+	}
-+
-+	kst_convert_header(&r);
-+
-+	dprintk("\n%s: st: %p, cmd: %u, sector: %llu, size: %u, "
-+			"csum: %x, offset: %u.\n",
-+			__func__, st, r.cmd, r.sector,
-+			r.size, r.csum, r.offset);
-+
-+	err = -EINVAL;
-+	if (r.cmd != DST_READ && r.cmd != DST_WRITE && r.cmd != DST_REMOTE_CFG)
-+		goto err_out_exit;
-+
-+	if ((s64)(r.sector + to_sector(r.size)) < 0 ||
-+		(r.sector + to_sector(r.size)) > st->node->size ||
-+		r.offset >= PAGE_SIZE)
-+		goto err_out_exit;
-+
-+	if (r.cmd == DST_REMOTE_CFG) {
-+		r.sector = st->node->size;
-+
-+		if (test_bit(DST_NODE_USE_CSUM, &st->node->flags))
-+			r.csum = 1;
-+
-+		kst_convert_header(&r);
-+
-+		err = dst_data_send_header(st->socket, &r);
-+		if (err != sizeof(struct dst_remote_request)) {
++	mutex_lock(&st->tree_lock);
++	disk_size = st->disk_size;
++	if (st->disk_size) {
++		if (st->disk_size != n->size)
 +			err = -EINVAL;
-+			goto err_out_exit;
++		st->disk_size = min(n->size, st->disk_size);
++	} else {
++		st->disk_size = n->size;
++		first_node = 1;
++	}
++	dst_set_disk_size(st);
++	mutex_unlock(&st->tree_lock);
++
++	if (err)
++		goto err_out_free_log;
++
++	err = dst_mirror_ndp_setup(n, first_node, 1);
++	if (err)
++		goto err_out_free_log;
++
++	schedule_delayed_work(&priv->resync_work, priv->resync_timeout);
++
++	dprintk("%s: n: %p, %llu:%llu, disk_size: %llu.\n",
++		__func__, n, n->start, n->size, st->disk_size);
++
++	return 0;
++
++err_out_free_log:
++	mutex_lock(&st->tree_lock);
++	st->disk_size = disk_size;
++	mutex_unlock(&st->tree_lock);
++	dst_mirror_log_exit(n);
++err_out_free:
++	kfree(priv);
++	n->priv = NULL;
++	return err;
++}
++
++static void dst_mirror_sync_destructor(struct bio *bio)
++{
++	struct bio_vec *bv;
++	int i;
++
++	bio_for_each_segment(bv, bio, i)
++		__free_page(bv->bv_page);
++	bio_free(bio, dst_mirror_bio_set);
++}
++
++static void dst_mirror_check_resync_complete(struct dst_node *n, int num_completed, int err)
++{
++	struct dst_mirror_priv *priv = n->priv;
++
++	if (atomic_sub_return(num_completed, &priv->resync_num) == 0) {
++		dprintk("%s: completing resync request, start: %llu, size: %llu.\n",
++				__func__, priv->resync_start, priv->resync_size);
++		complete(&priv->resync_complete);
++		if (!priv->full_resync && !err)
++			schedule_delayed_work(&priv->resync_work, 0);
++	}
++}
++
++static int dst_mirror_sync_check(struct dst_node *n)
++{
++	struct dst_mirror_priv *priv = n->priv;
++	struct dst_mirror_node_data *pd = &priv->data;
++	unsigned int pidx, pnum, i, j;
++	struct dst_write_entry *e;
++
++	dprintk("%s: n: %p, resync_idx: %u.\n", __func__, n, pd->resync_idx);
++
++	pnum = pd->resync_idx / DST_LOG_ENTRIES_PER_PAGE;
++	pidx = pd->resync_idx % DST_LOG_ENTRIES_PER_PAGE;
++
++	for (i=pnum; i<priv->log.nr_pages; ++i) {
++		for (j=pidx; j<DST_LOG_ENTRIES_PER_PAGE; ++j) {
++			e = &priv->log.entries[i][j];
++
++			if (e->error) {
++				pd->resync_idx = i*DST_LOG_ENTRIES_PER_PAGE + j;
++				return 1;
++			}
 +		}
-+		kst_wake(st);
-+		return 0;
++
++		pidx = 0;
 +	}
 +
-+	nr = DIV_ROUND_UP(r.size, PAGE_SIZE);
++	dst_mirror_mark_node_sync(n);
++	return 0;
++}
 +
-+	while (r.size) {
-+		int nr_pages = min(BIO_MAX_PAGES, nr);
-+		unsigned int size;
-+		struct page *page;
++static int dst_mirror_sync_endio(struct bio *bio, unsigned int size, int err)
++{
++	dprintk("%s: bio: %p, err: %d, size: %u, op: %s.\n",
++			__func__, bio, err, bio->bi_size,
++			(bio_rw(bio) != WRITE)?"read":"write");
 +
-+		err = -ENOMEM;
-+		req = dst_clone_request(NULL, st->node->w->req_pool);
-+		if (!req)
-+			goto err_out_exit;
++	if (bio->bi_size)
++		return 1;
 +
-+		bio = bio_alloc(GFP_NOIO, nr_pages);
-+		if (!bio)
-+			goto err_out_free_req;
++	if (bio_rw(bio) != WRITE) {
++		struct dst_mirror_sync_container *sc = bio->bi_private;
++		struct dst_node *n = sc->node;
++		struct dst_mirror_priv *priv = n->priv;
 +
-+		req->flags = DST_REQ_EXPORT | DST_REQ_HEADER_SENT |
-+				DST_REQ_CHEKSUM_RECV;
-+		req->bio = bio;
-+		req->state = st;
-+		req->node = st->node;
-+		req->callback = &kst_data_callback;
-+		req->bio_endio = &kst_bio_endio;
++		if (err)
++			dst_mirror_mark_notsync(sc->node);
 +
-+		req->tmp_offset = 0;
-+		req->tmp_csum = r.csum;
-+
-+		/*
-+		 * Yes, looks a bit weird.
-+		 * Logic is simple - for local exporting node all operations
-+		 * are reversed compared to usual nodes, since usual nodes
-+		 * process remote data and local export node process remote
-+		 * requests, so that writing data means sending data to
-+		 * remote node and receiving on the local export one.
-+		 *
-+		 * So, to process writing to the exported node we need first
-+		 * to receive data from the net (i.e. to perform READ
-+		 * operationin terms of usual node), and then put it to the
-+		 * storage (WRITE command, so it will be changed before
-+		 * calling generic_make_request()).
-+		 *
-+		 * To process read request from the exported node we need
-+		 * first to read it from storage (READ command for BIO)
-+		 * and then send it over the net (perform WRITE operation
-+		 * in terms of network).
-+		 */
-+		if (r.cmd == DST_WRITE) {
-+			req->flags |= DST_REQ_EXPORT_WRITE;
-+			bio->bi_end_io = kst_export_write_end_io;
-+		} else {
-+			req->flags |= DST_REQ_EXPORT_READ;
-+			bio->bi_end_io = kst_export_read_end_io;
++		if (!err) {
++			bio->bi_size = sc->size;
++			bio->bi_sector = sc->start;
 +		}
-+		bio->bi_rw = READ;
-+		bio->bi_private = req;
-+		bio->bi_sector = r.sector;
-+		bio->bi_bdev = st->node->bdev;
++		bio->bi_rw = WRITE;
++		if (!priv->full_resync && !err)
++			schedule_delayed_work(&priv->resync_work, 0);
++	} else {
++		struct dst_node *n = bio->bi_private;
++		struct dst_mirror_priv *priv = n->priv;
++		
++		if (err)
++			dst_mirror_mark_notsync(n);
++		else if (!priv->full_resync) {
++			struct dst_mirror_node_data *pd = &priv->data;
++			unsigned long flags;
 +
-+		for (i = 0; i < nr_pages; ++i) {
++			spin_lock_irqsave(&priv->log_lock, flags);
++			pd->resync_idx = (pd->resync_idx + 1) % pd->num;
++			dst_mirror_sync_check(n);
++			spin_unlock_irqrestore(&priv->log_lock, flags);
++		}
++		bio_put(bio);
++		dst_mirror_check_resync_complete(n, 1, err);
++	}
++
++	return 0;
++}
++
++static int dst_mirror_sync_block(struct dst_node *n,
++		u64 start, u32 size)
++{
++	struct bio *bio;
++	unsigned int nr_pages = DIV_ROUND_UP(size, PAGE_SIZE), i, nr;
++	struct page *page;
++	int err = -ENOMEM;
++	unsigned long flags;
++	struct dst_mirror_sync_container *sc;
++	struct dst_mirror_priv *priv = n->priv;
++
++	dprintk("%s: [all in sectors] start: %llu, size: %u, nr_pages: %u, disk_size: %llu.\n",
++			__func__, (u64)to_sector(start), (unsigned int)to_sector(size),
++			nr_pages, n->st->disk_size);
++
++	atomic_set(&priv->resync_num, nr_pages);
++
++	while (nr_pages) {
++		nr = min_t(unsigned int, nr_pages, BIO_MAX_PAGES);
++
++		sc = kmalloc(sizeof(struct dst_mirror_sync_container), GFP_KERNEL);
++		if (!sc)
++			return -ENOMEM;
++
++		bio = bio_alloc_bioset(GFP_NOIO, nr, dst_mirror_bio_set);
++		if (!bio)
++			goto err_out_free_sc;
++
++		bio->bi_rw = READ;
++		bio->bi_private = sc;
++		bio->bi_sector = to_sector(start);
++		bio->bi_bdev = NULL;
++		bio->bi_destructor = dst_mirror_sync_destructor;
++		bio->bi_end_io = dst_mirror_sync_endio;
++
++		for (i = 0; i < nr; ++i) {
 +			page = alloc_page(GFP_NOIO);
 +			if (!page)
 +				break;
 +
-+			size = min_t(u32, PAGE_SIZE - r.offset, r.size);
-+
-+			err = bio_add_page(bio, page, size, 0);
-+			dprintk("%s: %d/%d: page: %p, size: %u, "
-+					"offset: %u (used zero), err: %d.\n",
-+					__func__, i, nr_pages, page, size,
-+					r.offset, err);
++			err = bio_add_pc_page(n->st->queue, bio, page,
++					min_t(u32, PAGE_SIZE, size), 0);
 +			if (err <= 0)
 +				break;
-+
-+			if (err == size)
-+				nr--;
-+
-+			r.size -= err;
-+			r.sector += to_sector(err);
-+
-+			if (!r.size)
-+				break;
++			size -= err;
++			err = 0;
 +		}
 +
 +		if (!bio->bi_vcnt) {
 +			err = -ENOMEM;
-+			goto err_out_put;
++			goto err_out_put_bio;
 +		}
 +
-+		req->size = req->orig_size = bio->bi_size;
-+		req->start = bio->bi_sector;
-+		req->idx = 0;
-+		req->num = bio->bi_vcnt;
++		sc->node = n;
++		sc->bio = bio;
++		sc->start = bio->bi_sector;
++		sc->size = bio->bi_size;
 +
-+		dprintk("%s: submitting: bio: %p, req: %p, start: %llu, "
-+			"size: %llu, idx: %d, num: %d, offset: %u, csum: %x.\n",
-+			__func__, bio, req, req->start, req->size,
-+			req->idx, req->num, req->offset, req->tmp_csum);
++		dst_mirror_check_resync_complete(n, i-1, 0);
 +
-+		err = kst_enqueue_req(st, req);
++		spin_lock_irqsave(&priv->backlog_lock, flags);
++		list_add_tail(&sc->sync_entry, &priv->backlog_list);
++		spin_unlock_irqrestore(&priv->backlog_lock, flags);
++
++		nr_pages -= bio->bi_vcnt;
++		dprintk("%s: start: %llu, size: %u/%u, bio: %p, rest_pages: %u, rest_bytes: %u.\n",
++			__func__, start, bio->bi_size, nr, bio, nr_pages, size);
++
++		start += bio->bi_size;
++
++		err = n->st->queue->make_request_fn(n->st->queue, bio);
 +		if (err)
-+			goto err_out_put;
++			goto err_out_del;
++	}
 +
-+		if (r.cmd == DST_READ) {
-+			generic_make_request(bio);
++	return 0;
++
++err_out_del:
++	spin_lock_irqsave(&priv->backlog_lock, flags);
++	list_del(&sc->sync_entry);
++	spin_unlock_irqrestore(&priv->backlog_lock, flags);
++err_out_put_bio:
++	bio_put(bio);
++err_out_free_sc:
++	kfree(sc);
++	return err;
++}
++
++static void dst_mirror_read_endio(struct dst_request *req, int err)
++{
++	if (err)
++		dst_mirror_mark_notsync(req->node);
++
++	if (err && req->state)
++		kst_wake(req->state);
++
++	if (!err || req->callback)
++		kst_bio_endio(req, err);
++}
++
++static void dst_mirror_update_write_log(struct dst_request *req, int err)
++{
++	struct dst_mirror_priv *priv = req->node->priv;
++	struct dst_mirror_log *log = &priv->log;
++	struct dst_mirror_node_data *pd = &priv->data;
++	unsigned long flags;
++	struct dst_write_entry *e;
++	unsigned int pnum, idx;
++	u32 size = req->orig_size;
++
++	spin_lock_irqsave(&priv->log_lock, flags);
++
++	pnum = pd->write_idx / DST_LOG_ENTRIES_PER_PAGE;
++	idx = pd->write_idx % DST_LOG_ENTRIES_PER_PAGE;
++
++	e = &log->entries[pnum][idx];
++	e->error = cpu_to_le32(err);
++	e->size = cpu_to_le32(size);
++	e->start = cpu_to_le64(req->start - to_sector(req->orig_size));
++
++	if (++pd->write_idx == pd->num)
++		pd->write_idx = 0;
++
++	if (test_bit(DST_NODE_NOTSYNC, &req->node->flags) &&
++			pd->write_idx == pd->resync_idx)
++		priv->full_resync = 1;
++
++	spin_unlock_irqrestore(&priv->log_lock, flags);
++}
++
++static void dst_mirror_write_endio(struct dst_request *req, int err)
++{
++	if (err) {
++		dst_mirror_mark_notsync(req->node);
++		if (req->state)
++			kst_wake(req->state);
++	}
++	dst_mirror_update_write_log(req, err);
++
++	req = req->priv;
++
++	dprintk("%s: req: %p, priv: %p err: %d, bio: %p, "
++			"cnt: %d, orig_size: %llu.\n",
++		__func__, req, req->priv, err, req->bio,
++		atomic_read(&req->refcnt), req->orig_size);
++
++	if (atomic_dec_and_test(&req->refcnt)) {
++		bio_endio(req->bio, req->orig_size, 0);
++		dst_free_request(req);
++	}
++}
++
++static int dst_mirror_process_request(struct dst_request *req,
++		struct dst_node *n)
++{
++	int err;
++
++	dst_mirror_sync_requeue(n, 0);
++	err = dst_mirror_process_request_nosync(req, n);
++	if (err > 0)
++		err = 0;
++	if (err) {
++		req->node = n;
++		req->bio_endio(req, err);
++	}
++
++	return err;
++}
++
++static int dst_mirror_write(struct dst_request *oreq)
++{
++	struct dst_node *n, *node = oreq->node;
++	struct dst_request *req = oreq;
++	int num, err = 0, err_num = 0, orig_num;
++	struct dst_mirror_priv *priv = node->priv;
++	unsigned long flags;
++
++	/*
++	 * This check is for requests which fell into resync window.
++	 * Such requests are written when resync window moves forward.
++	 */
++	if (oreq->bio_endio != &dst_mirror_write_endio) {
++		req = dst_clone_request(oreq, oreq->node->w->req_pool);
++		if (!req) {
++			err = -ENOMEM;
++			goto err_out_exit;
++		}
++
++		req->priv = req;
++		req->bio_endio = &dst_mirror_write_endio;
++	}
++
++	if (test_bit(DST_NODE_NOTSYNC, &node->flags) &&
++			oreq->start >= priv->resync_start &&
++			to_sector(oreq->orig_size) <= priv->resync_size &&
++			priv->full_resync) {
++		dprintk("%s: queueing request: start: %llu, size: %llu, resync window start: %llu, size: %llu.\n",
++				__func__, oreq->start, (u64)to_sector(oreq->orig_size),
++				priv->resync_start, priv->resync_size);
++		spin_lock_irqsave(&priv->resync_wait_lock, flags);
++		list_add_tail(&req->request_list_entry, &priv->resync_wait_list);
++		priv->resync_wait_num++;
++		spin_unlock_irqrestore(&priv->resync_wait_lock, flags);
++		return 0;
++	}
++
++	/*
++	 * This logic is pretty simple - req->bio_endio will not
++	 * call bio_endio() until all mirror devices completed
++	 * processing of the request (no matter with or without error).
++	 * Mirror's req->bio_endio callback will take care of that.
++	 */
++	orig_num = num = atomic_read(&req->node->shared_num) + 1;
++	atomic_set(&req->refcnt, num);
++
++	dprintk("\n%s: req: %p, mirror to %d nodes.\n",
++			__func__, req, num);
++
++	err = dst_mirror_process_request(req, node);
++	if (err)
++		err_num++;
++
++	if (--num) {
++		list_for_each_entry(n, &node->shared, shared) {
++			dprintk("\n%s: req: %p, start: %llu, size: %llu, "
++					"num: %d, n: %p, state: %p.\n",
++				__func__, req, req->start,
++				req->size, num, n, n->state);
++
++			err = dst_mirror_process_request(req, n);
++			if (err)
++				err_num++;
++
++			if (--num <= 0)
++				break;
 +		}
 +	}
 +
-+	kst_wake(st);
-+	return 0;
++	if (err_num == orig_num)
++		dprintk("%s: req: %p, num: %d, err: %d.\n",
++				__func__, req, num, err);
 +
-+err_out_put:
-+	bio_put(bio);
-+err_out_free_req:
-+	dst_free_request(req);
++	err = 0;
++
 +err_out_exit:
 +	return err;
 +}
 +
-+static void kst_export_exit(struct kst_state *st)
++static int dst_mirror_read(struct dst_request *req)
 +{
-+	struct dst_node *n = st->node;
-+
-+	kst_common_exit(st);
-+	dst_node_put(n);
-+}
-+
-+static struct kst_state_ops kst_data_export_ops = {
-+	.init = &kst_data_init,
-+	.push = &kst_data_push,
-+	.exit = &kst_export_exit,
-+	.ready = &kst_export_ready,
-+};
-+
-+/*
-+ * This callback is invoked each time listening socket for
-+ * given local export node becomes ready.
-+ * It creates new state for connected client and queues for processing.
-+ */
-+static int kst_listen_ready(struct kst_state *st)
-+{
-+	struct socket *newsock;
-+	struct saddr addr;
-+	struct kst_state *newst;
++	struct dst_node *node = req->node, *n, *min_dist_node;
++	struct dst_mirror_priv *priv = node->priv;
++	u64 dist, d;
 +	int err;
-+	unsigned int revents, permissions = 0;
-+	struct dst_secure *s;
 +
-+	revents = st->socket->ops->poll(NULL, st->socket, NULL);
-+	if (!(revents & POLLIN))
-+		return 1;
++	req->bio_endio = &dst_mirror_read_endio;
 +
-+	err = sock_create(st->socket->ops->family, st->socket->type,
-+			st->socket->sk->sk_protocol, &newsock);
-+	if (err)
-+		goto err_out_exit;
++	do {
++		err = -ENODEV;
++		min_dist_node = NULL;
++		dist = -1ULL;
 +
-+	err = st->socket->ops->accept(st->socket, newsock, 0);
-+	if (err)
-+		goto err_out_put;
++		/*
++		 * Reading is never performed from the node under resync.
++		 */
 +
-+	if (newsock->ops->getname(newsock, (struct sockaddr *)&addr,
-+				  (int *)&addr.sa_data_len, 2) < 0) {
-+		err = -ECONNABORTED;
-+		goto err_out_put;
-+	}
++		if (!test_bit(DST_NODE_NOTSYNC, &node->flags)) {
++			priv = node->priv;
++			if (req->start > priv->last_start)
++				dist = req->start - priv->last_start;
++			else
++				dist = priv->last_start - req->start;
++			min_dist_node = req->node;
++		}
 +
-+	list_for_each_entry(s, &st->request_list, sec_entry) {
-+		void *sec_addr, *new_addr;
++		list_for_each_entry(n, &node->shared, shared) {
++			if (test_bit(DST_NODE_NOTSYNC, &n->flags))
++				continue;
 +
-+		sec_addr = ((void *)&s->sec.addr) + s->sec.check_offset;
-+		new_addr = ((void *)&addr) + s->sec.check_offset;
++			priv = n->priv;
 +
-+		if (!memcmp(sec_addr, new_addr,
-+				addr.sa_data_len - s->sec.check_offset)) {
-+			permissions = s->sec.permissions;
++			if (req->start > priv->last_start)
++				d = req->start - priv->last_start;
++			else
++				d = priv->last_start - req->start;
++
++			if (d < dist)
++				min_dist_node = n;
++		}
++
++		if (!min_dist_node)
++			break;
++
++		priv = min_dist_node->priv;
++		priv->last_start = req->start;
++
++		req->node = min_dist_node;
++		req->state = req->node->state;
++
++		if (req->node->bdev) {
++			req->bio->bi_bdev = req->node->bdev;
++			generic_make_request(req->bio);
++			err = 0;
 +			break;
 +		}
-+	}
 +
-+	/*
-+	 * So far only reading and writing are supported.
-+	 * Block device does not know about anything else,
-+	 * but as far as I recall, there was a prognosis,
-+	 * that computer will never require more than 640kb of RAM.
-+	 */
-+	if (permissions == 0) {
-+		err = -EPERM;
-+		goto err_out_put;
-+	}
-+
-+	if (st->socket->ops->family == AF_INET) {
-+		struct sockaddr_in *sin = (struct sockaddr_in *)&addr;
-+		printk(KERN_INFO "%s: Client: %u.%u.%u.%u:%d.\n", __func__,
-+			NIPQUAD(sin->sin_addr.s_addr), ntohs(sin->sin_port));
-+	} else if (st->socket->ops->family == AF_INET6) {
-+		struct sockaddr_in6 *sin = (struct sockaddr_in6 *)&addr;
-+		printk(KERN_INFO "%s: Client: "
-+			"%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x:%d",
-+			__func__,
-+			NIP6(sin->sin6_addr), ntohs(sin->sin6_port));
-+	}
-+
-+	dst_node_get(st->node);
-+	newst = kst_state_init(st->node, permissions,
-+			&kst_data_export_ops, newsock);
-+	if (IS_ERR(newst)) {
-+		err = PTR_ERR(newst);
-+		goto err_out_put;
-+	}
-+
-+	/*
-+	 * Negative return value means error, positive - stop this state
-+	 * processing. Zero allows to check state for pending requests.
-+	 * Listening socket contains security objects in request list,
-+	 * since it does not have any requests.
-+	 */
-+	return 1;
-+
-+err_out_put:
-+	sock_release(newsock);
-+err_out_exit:
-+	return 1;
-+}
-+
-+static int kst_listen_init(struct kst_state *st, void *data)
-+{
-+	int err = -ENOMEM, i;
-+	struct dst_le_template *tmp = data;
-+	struct dst_secure *s;
-+
-+	for (i=0; i<tmp->le->secure_attr_num; ++i) {
-+		s = kmalloc(sizeof(struct dst_secure), GFP_KERNEL);
-+		if (!s)
-+			goto err_out_exit;
-+
-+		memcpy(&s->sec, tmp->data, sizeof(struct dst_secure_user));
-+
-+		list_add_tail(&s->sec_entry, &st->request_list);
-+		tmp->data += sizeof(struct dst_secure_user);
-+
-+		if (s->sec.addr.sa_family == AF_INET) {
-+			struct sockaddr_in *sin =
-+				(struct sockaddr_in *)&s->sec.addr;
-+			printk(KERN_INFO "%s: Client: %u.%u.%u.%u:%d, "
-+					"permissions: %x.\n",
-+				__func__, NIPQUAD(sin->sin_addr.s_addr),
-+				ntohs(sin->sin_port), s->sec.permissions);
-+		} else if (s->sec.addr.sa_family == AF_INET6) {
-+			struct sockaddr_in6 *sin =
-+				(struct sockaddr_in6 *)&s->sec.addr;
-+			printk(KERN_INFO "%s: Client: "
-+				"%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x:%d, "
-+				"permissions: %x.\n",
-+				__func__, NIP6(sin->sin6_addr),
-+				ntohs(sin->sin6_port), s->sec.permissions);
++		err = req->state->ops->push(req);
++		if (err) {
++			dprintk("%s: req: %p, bio: %p, node: %p, err: %d.\n",
++				__func__, req, req->bio, min_dist_node, err);
++			dst_mirror_mark_notsync(req->node);
 +		}
++	} while (err && min_dist_node);
++
++	if (err || !min_dist_node) {
++		dprintk("%s: req: %p, bio: %p, node: %p, err: %d.\n",
++			__func__, req, req->bio, min_dist_node, err);
++		if (!err)
++			err = -ENODEV;
 +	}
-+
-+	err = kst_sock_create(st, &tmp->le->rctl.addr, tmp->le->rctl.type,
-+			tmp->le->rctl.proto, tmp->le->backlog);
-+	if (err)
-+		goto err_out_exit;
-+
-+	err = kst_poll_init(st);
-+	if (err)
-+		goto err_out_release;
-+
-+	return 0;
-+
-+err_out_release:
-+	kst_sock_release(st);
-+err_out_exit:
-+	kst_listen_flush(st);
++	dprintk("%s: req: %p, err: %d.\n", __func__, req, err);
 +	return err;
 +}
 +
 +/*
-+ * Operations for different types of states.
-+ * There are three:
-+ * data state - created for remote node, when distributed storage connects
-+ * 	to remote node, which contain data.
-+ * listen state - created for local export node, when remote distributed
-+ * 	storage's node connects to given node to get/put data.
-+ * data export state - created for each client connected to above listen
-+ * 	state.
++ * This callback is invoked from block layer request processing function,
++ * its task is to remap block request to different nodes.
 + */
-+static struct kst_state_ops kst_listen_ops = {
-+	.init = &kst_listen_init,
-+	.exit = &kst_listen_exit,
-+	.ready = &kst_listen_ready,
-+};
-+static struct kst_state_ops kst_data_ops = {
-+	.init = &kst_data_init,
-+	.push = &kst_data_push,
-+	.exit = &kst_common_exit,
-+	.recovery = &kst_data_recovery,
-+};
-+
-+struct kst_state *kst_listener_state_init(struct dst_node *node,
-+		struct dst_le_template *tmp)
++static int dst_mirror_remap(struct dst_request *req)
 +{
-+	return kst_state_init(node, DST_PERM_READ | DST_PERM_WRITE,
-+			&kst_listen_ops, tmp);
++	int (*remap[])(struct dst_request *) =
++		{&dst_mirror_read, &dst_mirror_write};
++
++	return remap[bio_rw(req->bio) == WRITE](req);
 +}
 +
-+struct kst_state *kst_data_state_init(struct dst_node *node,
-+		struct socket *newsock)
++static void dst_mirror_write_queued(struct dst_node *n)
 +{
-+	return kst_state_init(node, DST_PERM_READ | DST_PERM_WRITE,
-+			&kst_data_ops, newsock);
++	struct dst_mirror_priv *priv = n->priv;
++	unsigned long flags;
++	struct dst_request *req;
++	int num = priv->resync_wait_num, err;
++
++	while (!list_empty(&priv->resync_wait_list) && num != 0) {
++		req = NULL;
++		spin_lock_irqsave(&priv->resync_wait_lock, flags);
++		if (!list_empty(&priv->resync_wait_list)) {
++			req = list_entry(priv->resync_wait_list.next,
++					struct dst_request,
++					request_list_entry);
++			list_del_init(&req->request_list_entry);
++			num--;
++		}
++		spin_unlock_irqrestore(&priv->resync_wait_lock, flags);
++
++		if (!req)
++			break;
++
++		dprintk("%s: queued request n: %p, req: %p, start: %llu, size: %llu, num: %d.\n",
++				__func__, n, req, req->start, (u64)to_sector(req->size), num);
++		err = dst_mirror_process_request(req, n);
++		if (err)
++			break;
++	}
++}
++
++static int dst_mirror_resync_partial(struct dst_node *node)
++{
++	struct dst_storage *st = node->st;
++	struct dst_node *first = node->shared_head, *n, *sync;
++	struct dst_mirror_priv *p = node->priv, *sp;
++	struct dst_mirror_node_data *pd = &p->data;
++	struct dst_mirror_node_data *spd;
++	struct dst_write_entry *e;
++	unsigned long flags;
++	unsigned int pnum, idx;
++	u64 start;
++	u32 size;
++
++	if (!first)
++		first = node;
++
++	sync = NULL;
++	mutex_lock(&st->tree_lock);
++	dprintk("%s: ", __func__);
++	if (!test_bit(DST_NODE_NOTSYNC, &first->flags)) {
++		sync = first;
++		dst_node_get(sync);
++	} else {
++		list_for_each_entry(n, &first->shared, shared) {
++			dprintk("n: %p, sync: %d; ", n, !test_bit(DST_NODE_NOTSYNC, &n->flags));
++			if (!test_bit(DST_NODE_NOTSYNC, &n->flags)) {
++				sync = n;
++				dst_node_get(sync);
++				break;
++			}
++		}
++	}
++	mutex_unlock(&st->tree_lock);
++	dprintk("node: %p, first: %p, sync: %p.\n", node, first, sync);
++
++	if (!sync)
++		return -ENODEV;
++
++	sp = sync->priv;
++	spd = &sp->data;
++
++	spin_lock_irqsave(&sp->log_lock, flags);
++	spin_lock(&p->log_lock);
++
++	pnum = pd->resync_idx / DST_LOG_ENTRIES_PER_PAGE;
++	idx = pd->resync_idx % DST_LOG_ENTRIES_PER_PAGE;
++
++	e = &sp->log.entries[pnum][idx];
++	start = le64_to_cpu(e->start);
++	size = le32_to_cpu(e->size);
++
++	dst_mirror_sync_check(node);
++
++	spin_unlock(&p->log_lock);
++	spin_unlock_irqrestore(&sp->log_lock, flags);
++
++	printk("%s: node write_idx: %u, resync_idx: %u, num: %u, sync write_idx: %u, num: %u.\n",
++			__func__, pd->write_idx, pd->resync_idx, pd->num, spd->write_idx, spd->num);
++	printk("%s: sync request: start: %llu, size: %llu.\n",
++			__func__, start, (u64)to_sector(size));
++
++	dst_node_put(sync);
++
++	return dst_mirror_sync_block(node, to_bytes(start), size);
 +}
 +
 +/*
-+ * Remove all workers and associated states.
++ * Resync logic - sliding window algorithm.
++ *
++ * At startup system checks age (unique cookie) of the node and if it
++ * does not match first node it resyncs all data from the first node in
++ * the mirror to others (non-sync nodes), each non-synced node has a
++ * window, which slides from the start of the node to the end. 
++ * During resync all requests, which enter the window are queued, thus
++ * window has to be sufficiently small. When window is synced from the
++ * other nodes, queued requests are written and window moves forward,
++ * thus subsequent resync is started when previous window is fully completed.
++ * When window reaches end of the node, it is marked as synchronized.
++ *
++ * If age of the node matches the first one, but log contains different
++ * number of write log entries compared to the first node (first node always
++ * stands as a clean), then partial resync is scheduled.
++ * Partial resync will also be scheduled when log entry pointed by resync
++ * index of the node contains error.
++ *
++ * Mechanism of this resync type is following: system selects a sync node
++ * (checking each node's flags) and fetches a log entry pointed by resync
++ * index of the given node and resync data from other nodes to given one.
++ * Then it checks the rest of the write log and checks if there are
++ * another failed writes, so that next resync block would be fetched for
++ * them.
 + */
-+void kst_exit_all(void)
++static int dst_mirror_resync(struct dst_node *n, int ndp)
 +{
-+	struct kst_worker *w, *n;
++	struct dst_mirror_priv *priv = n->priv;
++	struct dst_mirror_priv *fp = priv;
++	u64 total, allowed, size;
++	int err;
++	
++	if (n->shared_head)
++		fp = n->shared_head->priv;
 +
-+	list_for_each_entry_safe(w, n, &kst_worker_list, entry) {
-+		kst_worker_exit(w);
++	if (!test_bit(DST_NODE_NOTSYNC, &n->flags))
++		return 0;
++	if (atomic_read(&priv->resync_num) != 0) {
++		dprintk("%s: n: %p, resync_num: %d.\n",
++			__func__, n, atomic_read(&priv->resync_num));
++		return -EAGAIN;
++	}
++
++	allowed = global_page_state(NR_FREE_PAGES) +
++		global_page_state(NR_FILE_PAGES);
++	allowed >>= 1;
++	allowed = to_sector(allowed << PAGE_SHIFT);
++
++	size = min(priv->resync_size, n->size - priv->resync_start);
++
++	total = min(allowed, size);
++
++	printk(KERN_NOTICE "%s: node: %p [%d], %llu:%llu %s synchronization has been started "
++			"from %llu, allowed: %llu, total: %llu.\n",
++			__func__, n, atomic_read(&n->refcnt),
++			n->start, n->size,
++			(!priv->full_resync) ? "partial" : "full",
++			priv->resync_start, allowed, total);
++
++	if (!priv->full_resync)
++		return dst_mirror_resync_partial(n);
++
++	dst_mirror_write_queued(n);
++
++	if (priv->resync_start == n->size) {
++		dst_mirror_mark_node_sync(n);
++		priv->data.age = fp->data.age;
++		dst_mirror_write_node_data(n, &priv->data);
++		return 0;
++	}
++
++	if (ndp) {
++		err = dst_mirror_ndp_setup(n, 0, 0);
++		if (err)
++			return err;
++	}
++
++	err = dst_mirror_sync_block(n, to_bytes(priv->resync_start),
++			to_bytes(total));
++	if (!err)
++		priv->resync_start += total;
++
++	return err;
++}
++
++static int dst_mirror_error(struct kst_state *st, int err)
++{
++	struct dst_request *req, *tmp;
++	unsigned int revents = st->socket->ops->poll(NULL, st->socket, NULL);
++
++	dprintk("%s: err: %d, revents: %x, notsync: %d.\n",
++			__func__, err, revents,
++			test_bit(DST_NODE_NOTSYNC, &st->node->flags));
++
++	if (err == -EEXIST)
++		return err;
++
++	if (!(revents & (POLLERR | POLLHUP)) &&
++		   	(err == -EPIPE || err == -ECONNRESET)) {
++		if (test_bit(DST_NODE_NOTSYNC, &st->node->flags))
++			return dst_mirror_resync(st->node, 1);
++		return 0;
++	}
++
++	if (atomic_read(&st->node->shared_num) == 0 &&
++			!st->node->shared_head) {
++		dprintk("%s: this node is the only one in the mirror, "
++				"can not mark it notsync.\n", __func__);
++		return err;
++	}
++
++	dst_mirror_mark_notsync(st->node);
++
++	mutex_lock(&st->request_lock);
++	list_for_each_entry_safe(req, tmp, &st->request_list,
++					request_list_entry) {
++		kst_del_req(req);
++		dprintk("%s: requeue [%c], start: %llu, idx: %d,"
++				" num: %d, size: %llu, offset: %u, err: %d.\n",
++			__func__, (bio_rw(req->bio) == WRITE)?'W':'R',
++			req->start, req->idx, req->num, req->size,
++			req->offset, err);
++
++		if (bio_rw(req->bio) != WRITE) {
++			req->start -= to_sector(req->orig_size - req->size);
++			req->size = req->orig_size;
++			req->flags &= ~(DST_REQ_HEADER_SENT | DST_REQ_CHEKSUM_RECV);
++			req->idx = 0;
++			if (dst_mirror_read(req))
++				dst_free_request(req);
++		} else {
++			kst_complete_req(req, err);
++		}
++	}
++	mutex_unlock(&st->request_lock);
++	return err;
++}
++
++static void dst_mirror_pre_del_node(struct dst_node *n)
++{
++	struct dst_mirror_priv *priv = n->priv;
++
++	dprintk("%s: n: %p.\n", __func__, n);
++	priv->full_resync = 1;
++	cancel_rearming_delayed_work(&priv->resync_work);
++	flush_scheduled_work();
++}
++
++/*
++ * This callback is invoked when node is removed from storage.
++ */
++static void dst_mirror_del_node(struct dst_node *n)
++{
++	struct dst_mirror_priv *priv = n->priv;
++
++	dprintk("%s: n: %p, backlog_empty: %d, resync_num: %d.\n",
++		__func__, n, list_empty(&priv->backlog_list),
++		atomic_read(&priv->resync_num));
++
++	/*
++	 * This strange-looking loop waits until all resync read requests
++	 * are completed, this happens in dst_mirror_sync_requeue().
++	 */
++	while (atomic_read(&priv->resync_num)) {
++		dst_mirror_sync_requeue(n, 1);
++		if (printk_ratelimit())
++			dprintk("%s: n: %p, backlog_empty: %d, resync_num: %d.\n",
++				__func__, n, list_empty(&priv->backlog_list),
++				atomic_read(&priv->resync_num));
++		msleep(100);
++	}
++
++	wait_for_completion(&priv->resync_complete);
++	dst_mirror_sync_requeue(n, 1);
++
++	if (priv) {
++		dst_mirror_log_exit(n);
++		kfree(priv);
++		n->priv = NULL;
++	}
++
++	if (n->device.parent == &n->st->device) {
++		int i;
++
++		for (i=0; i<ARRAY_SIZE(dst_mirror_attrs); ++i)
++			device_remove_file(&n->device, &dst_mirror_attrs[i]);
 +	}
 +}
++
++static struct dst_alg_ops alg_mirror_ops = {
++	.remap		= dst_mirror_remap,
++	.add_node	= dst_mirror_add_node,
++	.del_node	= dst_mirror_del_node,
++	.del_node	= dst_mirror_pre_del_node,
++	.error		= dst_mirror_error,
++	.owner		= THIS_MODULE,
++};
++
++static int __devinit alg_mirror_init(void)
++{
++	int err = -ENOMEM;
++
++	dst_mirror_bio_set = bioset_create(256, 256);
++	if (!dst_mirror_bio_set)
++		return -ENOMEM;
++
++	alg_mirror = dst_alloc_alg("alg_mirror", &alg_mirror_ops);
++	if (!alg_mirror)
++		goto err_out;
++
++	return 0;
++
++err_out:
++	bioset_free(dst_mirror_bio_set);
++	return err;
++}
++
++static void __devexit alg_mirror_exit(void)
++{
++	dst_remove_alg(alg_mirror);
++	bioset_free(dst_mirror_bio_set);
++}
++
++module_init(alg_mirror_init);
++module_exit(alg_mirror_exit);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Evgeniy Polyakov <johnpol@2ka.mipt.ru>");
++MODULE_DESCRIPTION("Mirror distributed algorithm.");
 
