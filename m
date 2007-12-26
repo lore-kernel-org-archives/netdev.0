@@ -1,38 +1,33 @@
 From: dhananjay@netxen.com
-Subject: [patch 2/7] netxen: update driver version
-Date: Wed, 26 Dec 2007 10:23:54 -0800
-Message-ID: <20071226182926.554558906@netxen.com>
-References: <20071226182352.704678179@netxen.com>
+Subject: [patch 0/7] netxen bug fixes
+Date: Wed, 26 Dec 2007 10:23:52 -0800
+Message-ID: <20071226182352.704678179@netxen.com>
 Cc: jeff@garzik.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [64.209.101.202] ([64.209.101.202]:45029 "EHLO dut46.unminc.com"
+Received: from [64.209.101.202] ([64.209.101.202]:45022 "EHLO dut46.unminc.com"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751401AbXLZSZx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750883AbXLZSZx (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 26 Dec 2007 13:25:53 -0500
-Content-Disposition: inline; filename=version.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bumping up driver version to 3.4.18, several fixes have gone in since
-version 3.4.2.
+Resending recent patch set with an additional patch to fix byte
+ordering in tx desc besides the original bug fixes and some
+enhancements in tx and rx.
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+Recreated these patches from a fresh cloned tree.
 
-Index: upstream/drivers/net/netxen/netxen_nic.h
-===================================================================
---- upstream.orig/drivers/net/netxen/netxen_nic.h
-+++ upstream/drivers/net/netxen/netxen_nic.h
-@@ -65,8 +65,8 @@
- 
- #define _NETXEN_NIC_LINUX_MAJOR 3
- #define _NETXEN_NIC_LINUX_MINOR 4
--#define _NETXEN_NIC_LINUX_SUBVERSION 2
--#define NETXEN_NIC_LINUX_VERSIONID  "3.4.2"
-+#define _NETXEN_NIC_LINUX_SUBVERSION 18
-+#define NETXEN_NIC_LINUX_VERSIONID  "3.4.18"
- 
- #define NETXEN_NUM_FLASH_SECTORS (64)
- #define NETXEN_FLASH_SECTOR_SIZE (64 * 1024)
+Thanks,
+	Dhananjay
 
 -- 
+ MAINTAINERS                              |    4 +-
+ drivers/net/netxen/netxen_nic.h          |   76 +++++++-------
+ drivers/net/netxen/netxen_nic_hdr.h      |   12 ++
+ drivers/net/netxen/netxen_nic_hw.c       |    2 +
+ drivers/net/netxen/netxen_nic_init.c     |   77 +++-----------
+ drivers/net/netxen/netxen_nic_main.c     |  174 ++++++++++--------------------
+ drivers/net/netxen/netxen_nic_niu.c      |    8 +-
+ drivers/net/netxen/netxen_nic_phan_reg.h |    3 +
+ 8 files changed, 133 insertions(+), 223 deletions(-)
