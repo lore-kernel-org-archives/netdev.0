@@ -1,29 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][XFRM] Documentaion: Fix error example at
- XFRMOUTSTATEMODEERROR.
-Date: Tue, 25 Dec 2007 20:57:43 -0800 (PST)
-Message-ID: <20071225.205743.178174070.davem@davemloft.net>
-References: <1198582999889-git-send-email-nakam@linux-ipv6.org>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: testing crazy stuff with iproute2
+Date: Wed, 26 Dec 2007 06:57:42 +0200
+Message-ID: <20071226045037.M75814@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
-To: nakam@linux-ipv6.org
+Content-Type: text/plain;
+	charset=koi8-r
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35521
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751590AbXLZE5u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Dec 2007 23:57:50 -0500
-In-Reply-To: <1198582999889-git-send-email-nakam@linux-ipv6.org>
+Received: from usermail.globalproof.net ([194.146.153.18]:51275 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751159AbXLZFCj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Dec 2007 00:02:39 -0500
+Received: from visp.net.lb (localhost [127.0.0.1])
+	by usermail.globalproof.net (Postfix) with ESMTP id 903AFBDBB2
+	for <netdev@vger.kernel.org>; Wed, 26 Dec 2007 06:57:42 +0200 (EET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Date: Tue, 25 Dec 2007 20:43:19 +0900
+I did rules:
 
-> [XFRM] Documentaion: Fix error example at XFRMOUTSTATEMODEERROR.
-> 
-> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+tc qdisc        del dev eth0 root
+tc qdisc        add dev eth0 handle 1: root htb
 
-Applied, thank you.
+tc class        add dev eth0 parent 1:0 classid 1:2 htb rate 100Mbit ceil 
+100Mbit quantum 1514
+tc qdisc        add dev eth0 handle 2: parent 1:2 sfq
+
+tc class        add dev eth0 parent 1:0 classid 1:3 htb rate 100Mbit ceil 
+100Mbit quantum 1514
+tc qdisc        add dev eth0 parent 1:3 handle 3: est 1sec 8sec tbf buffer 
+1024kb latency 500ms rate 10240 peakrate 1024000 mtu 1500
+tc qdisc        add dev eth0 parent 3:1 handle 30 pfifo limit 1
+
+tc filter       add dev eth0 parent 1:0 protocol ip prio 5 u32 match ip src 
+192.168.1.1/32 flowid 1:3
+
+Probably it must not work at all (attaching tbf), but it works as expected in 
+my understanding.
+
+classid 1:2 just fake, not used at all
+classid 1:3 is created, because i want to use tbf multiple times. 
+I like burst introduced in TBF, and seems burst/cburst in HTB not doing same 
+job, at least i had some difficulties with them (will research more).
+
+filter don't want to attach with parent 3:0 or 3:1, so i had to attach it to 
+1:3. It works fine, but i have to put high value in ceil to not be limited by 
+htb. TBF working as expected. When rate-limit in TBF reached, it is queueing 
+buffer in qdisc with handle 30
+
+But i got few times in dmesg, during tests (probably when i set sfq instead 
+pfifo, or etc).
+
+[2090816.116000] htb: class 10003 isn't work conserving ?!
+
+Is it a bug? And does it worth to do such "shaper"?
+
+
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
+
