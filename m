@@ -1,63 +1,47 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: testing crazy stuff with iproute2
-Date: Wed, 26 Dec 2007 06:57:42 +0200
-Message-ID: <20071226045037.M75814@visp.net.lb>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [patch] ipv4: Update ip command line processing (take II)
+Date: Wed, 26 Dec 2007 14:04:37 +0900
+Message-ID: <20071226050435.GA18934@verge.net.au>
+References: <20071226025903.GB14422@verge.net.au> <20071225.205543.240106823.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	apw@us.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:51275 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751159AbXLZFCj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Dec 2007 00:02:39 -0500
-Received: from visp.net.lb (localhost [127.0.0.1])
-	by usermail.globalproof.net (Postfix) with ESMTP id 903AFBDBB2
-	for <netdev@vger.kernel.org>; Wed, 26 Dec 2007 06:57:42 +0200 (EET)
+Received: from koto.vergenet.net ([210.128.90.7]:57031 "EHLO koto.vergenet.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751215AbXLZFEl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Dec 2007 00:04:41 -0500
+Content-Disposition: inline
+In-Reply-To: <20071225.205543.240106823.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I did rules:
+On Tue, Dec 25, 2007 at 08:55:43PM -0800, David Miller wrote:
+> From: Simon Horman <horms@verge.net.au>
+> Date: Wed, 26 Dec 2007 11:59:05 +0900
+> 
+> > Recently the documentation in Documentation/nfsroot.txt was
+> > update to note that in fact ip=off and ip=::::::off as the
+> > latter is ignored and the default (on) is used.
+> > 
+> > This was certainly a step in the direction of reducing confusion.
+> > But it seems to me that the code ought to be fixed up so that
+> > ip=::::::off actually turns off ip autoconfiguration.
+> > 
+> > This patch also notes more specifically that ip=on (aka ip=::::::on)
+> > is the default.
+> > 
+> > Cc: Amos Waterland <apw@us.ibm.com>
+> > Signed-off-by: Simon Horman <horms@verge.net.au>
+> 
+> I applied this to net-2.6 since I think it's a bug fix, and
+> I also tailored the changelog header to more it clear this
+> is a fix not just an "Update". :-)
 
-tc qdisc        del dev eth0 root
-tc qdisc        add dev eth0 handle 1: root htb
+Ok, thanks.
 
-tc class        add dev eth0 parent 1:0 classid 1:2 htb rate 100Mbit ceil 
-100Mbit quantum 1514
-tc qdisc        add dev eth0 handle 2: parent 1:2 sfq
-
-tc class        add dev eth0 parent 1:0 classid 1:3 htb rate 100Mbit ceil 
-100Mbit quantum 1514
-tc qdisc        add dev eth0 parent 1:3 handle 3: est 1sec 8sec tbf buffer 
-1024kb latency 500ms rate 10240 peakrate 1024000 mtu 1500
-tc qdisc        add dev eth0 parent 3:1 handle 30 pfifo limit 1
-
-tc filter       add dev eth0 parent 1:0 protocol ip prio 5 u32 match ip src 
-192.168.1.1/32 flowid 1:3
-
-Probably it must not work at all (attaching tbf), but it works as expected in 
-my understanding.
-
-classid 1:2 just fake, not used at all
-classid 1:3 is created, because i want to use tbf multiple times. 
-I like burst introduced in TBF, and seems burst/cburst in HTB not doing same 
-job, at least i had some difficulties with them (will research more).
-
-filter don't want to attach with parent 3:0 or 3:1, so i had to attach it to 
-1:3. It works fine, but i have to put high value in ceil to not be limited by 
-htb. TBF working as expected. When rate-limit in TBF reached, it is queueing 
-buffer in qdisc with handle 30
-
-But i got few times in dmesg, during tests (probably when i set sfq instead 
-pfifo, or etc).
-
-[2090816.116000] htb: class 10003 isn't work conserving ?!
-
-Is it a bug? And does it worth to do such "shaper"?
-
-
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
+-- 
+Horms
 
