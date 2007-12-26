@@ -1,266 +1,39 @@
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Subject: [PATCH] netconsole: register cmdline netconsole configs to configfs
-Date: Wed, 26 Dec 2007 12:10:07 +0900
-Message-ID: <003201c8476c$d2e98ae0$47e7a8c0@jason>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch] ipv4: Update ip command line processing (take II)
+Date: Tue, 25 Dec 2007 20:55:43 -0800 (PST)
+Message-ID: <20071225.205543.240106823.davem@davemloft.net>
+References: <20071226025903.GB14422@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <satyam@infradead.org>, <mpm@selenic.com>
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.179]:44468 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752477AbXLZDKf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Dec 2007 22:10:35 -0500
-Received: by wa-out-1112.google.com with SMTP id v27so3842873wah.23
-        for <netdev@vger.kernel.org>; Tue, 25 Dec 2007 19:10:35 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	apw@us.ibm.com
+To: horms@verge.net.au
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752499AbXLZE4D@vger.kernel.org>
+In-Reply-To: <20071226025903.GB14422@verge.net.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch intorduces cmdline netconsole configs to register to configfs with dynamic netconsole. Satyam Sharma who designed shiny
-dynamic reconfiguration for netconsole, mentioned about this issue already. (http://lkml.org/lkml/2007/7/29/360)
-But I think, without separately managing of two kind of netconsole target objects, it's possible by using config_group instead of
-config_item in the netconsole_target and default_groups feature of configfs.
+From: Simon Horman <horms@verge.net.au>
+Date: Wed, 26 Dec 2007 11:59:05 +0900
 
-Patch was tested with configuration creation/destruction by kernel and module.
-And it makes possible to enable/disable, modify and review netconsole target configs from cmdline.
+> Recently the documentation in Documentation/nfsroot.txt was
+> update to note that in fact ip=off and ip=::::::off as the
+> latter is ignored and the default (on) is used.
+> 
+> This was certainly a step in the direction of reducing confusion.
+> But it seems to me that the code ought to be fixed up so that
+> ip=::::::off actually turns off ip autoconfiguration.
+> 
+> This patch also notes more specifically that ip=on (aka ip=::::::on)
+> is the default.
+> 
+> Cc: Amos Waterland <apw@us.ibm.com>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
----
- drivers/net/netconsole.c |   91 ++++++++++++++++++++++++++++++++++++----------
- 1 files changed, 72 insertions(+), 19 deletions(-)
+I applied this to net-2.6 since I think it's a bug fix, and
+I also tailored the changelog header to more it clear this
+is a fix not just an "Update". :-)
 
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index 5ffbb88..04e4555 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -93,7 +93,7 @@ static DEFINE_SPINLOCK(target_list_lock);
- struct netconsole_target {
- 	struct list_head	list;
- #ifdef	CONFIG_NETCONSOLE_DYNAMIC
--	struct config_item	item;
-+	struct config_group	group;
- #endif
- 	int			enabled;
- 	struct netpoll		np;
-@@ -103,16 +103,49 @@ struct netconsole_target {
- 
- static struct configfs_subsystem netconsole_subsys;
- 
--static int __init dynamic_netconsole_init(void)
-+static void netconsole_target_put(struct netconsole_target *nt);
-+static struct config_item_type netconsole_target_type;
-+
-+static int __init dynamic_netconsole_init(int defaults)
- {
-+	int err;
-+	unsigned long flags;
- 	config_group_init(&netconsole_subsys.su_group);
-+
-+	if (defaults > 0) {
-+		struct list_head *pos;
-+		struct config_group **groups;
-+		int i = 0;
-+
-+		groups = kcalloc(defaults, sizeof(struct config_group *),
-+				GFP_KERNEL);
-+		if (!groups)
-+			return -ENOMEM;
-+
-+		spin_lock_irqsave(&target_list_lock, flags);
-+		list_for_each(pos, &target_list) {
-+			struct netconsole_target *nt;
-+			nt = list_entry(pos, struct netconsole_target, list);
-+			groups[i] = &nt->group;
-+			i++;
-+		}
-+		spin_unlock_irqrestore(&target_list_lock, flags);
-+		netconsole_subsys.su_group.default_groups = groups;
-+	}
-+
- 	mutex_init(&netconsole_subsys.su_mutex);
--	return configfs_register_subsystem(&netconsole_subsys);
-+
-+	err = configfs_register_subsystem(&netconsole_subsys);
-+	if (err)
-+		kfree(netconsole_subsys.su_group.default_groups);
-+
-+	return err;
- }
- 
- static void __exit dynamic_netconsole_exit(void)
- {
- 	configfs_unregister_subsystem(&netconsole_subsys);
-+	kfree(netconsole_subsys.su_group.default_groups);
- }
- 
- /*
-@@ -122,14 +155,23 @@ static void __exit dynamic_netconsole_exit(void)
-  */
- static void netconsole_target_get(struct netconsole_target *nt)
- {
--	if (config_item_name(&nt->item))
--		config_item_get(&nt->item);
-+	if (config_item_name(&nt->group.cg_item))
-+		config_item_get(&nt->group.cg_item);
- }
- 
- static void netconsole_target_put(struct netconsole_target *nt)
- {
--	if (config_item_name(&nt->item))
--		config_item_put(&nt->item);
-+	if (config_item_name(&nt->group.cg_item))
-+		config_item_put(&nt->group.cg_item);
-+}
-+
-+static void dynamic_netconsole_init_type_name(struct netconsole_target *nt,
-+						int index)
-+{
-+	char name[16];
-+	snprintf(name, sizeof(name), "netcon%d", index);
-+	config_item_init_type_name(&nt->group.cg_item, name,
-+				&netconsole_target_type);
- }
- 
- #else	/* !CONFIG_NETCONSOLE_DYNAMIC */
-@@ -155,6 +197,11 @@ static void netconsole_target_put(struct netconsole_target *nt)
- {
- }
- 
-+static void dynamic_netconsole_init_type_name(struct netconsole_target *nt,
-+						int index)
-+{
-+}
-+
- #endif	/* CONFIG_NETCONSOLE_DYNAMIC */
- 
- /* Allocate new target (from boot/module param) and setup netpoll for it */
-@@ -236,8 +283,8 @@ struct netconsole_target_attr {
- static struct netconsole_target *to_target(struct config_item *item)
- {
- 	return item ?
--		container_of(item, struct netconsole_target, item) :
--		NULL;
-+		container_of(to_config_group(item), struct netconsole_target,
-+			group) : NULL;
- }
- 
- /*
-@@ -368,7 +415,7 @@ static ssize_t store_dev_name(struct netconsole_target *nt,
- 	if (nt->enabled) {
- 		printk(KERN_ERR "netconsole: target (%s) is enabled, "
- 				"disable to update parameters\n",
--				config_item_name(&nt->item));
-+				config_item_name(&nt->group.cg_item));
- 		return -EINVAL;
- 	}
- 
-@@ -392,7 +439,7 @@ static ssize_t store_local_port(struct netconsole_target *nt,
- 	if (nt->enabled) {
- 		printk(KERN_ERR "netconsole: target (%s) is enabled, "
- 				"disable to update parameters\n",
--				config_item_name(&nt->item));
-+				config_item_name(&nt->group.cg_item));
- 		return -EINVAL;
- 	}
- 
-@@ -415,7 +462,7 @@ static ssize_t store_remote_port(struct netconsole_target *nt,
- 	if (nt->enabled) {
- 		printk(KERN_ERR "netconsole: target (%s) is enabled, "
- 				"disable to update parameters\n",
--				config_item_name(&nt->item));
-+				config_item_name(&nt->group.cg_item));
- 		return -EINVAL;
- 	}
- 
-@@ -435,7 +482,7 @@ static ssize_t store_local_ip(struct netconsole_target *nt,
- 	if (nt->enabled) {
- 		printk(KERN_ERR "netconsole: target (%s) is enabled, "
- 				"disable to update parameters\n",
--				config_item_name(&nt->item));
-+				config_item_name(&nt->group.cg_item));
- 		return -EINVAL;
- 	}
- 
-@@ -451,7 +498,7 @@ static ssize_t store_remote_ip(struct netconsole_target *nt,
- 	if (nt->enabled) {
- 		printk(KERN_ERR "netconsole: target (%s) is enabled, "
- 				"disable to update parameters\n",
--				config_item_name(&nt->item));
-+				config_item_name(&nt->group.cg_item));
- 		return -EINVAL;
- 	}
- 
-@@ -471,7 +518,7 @@ static ssize_t store_remote_mac(struct netconsole_target *nt,
- 	if (nt->enabled) {
- 		printk(KERN_ERR "netconsole: target (%s) is enabled, "
- 				"disable to update parameters\n",
--				config_item_name(&nt->item));
-+				config_item_name(&nt->group.cg_item));
- 		return -EINVAL;
- 	}
- 
-@@ -606,14 +653,15 @@ static struct config_item *make_netconsole_target(struct config_group *group,
- 	memset(nt->np.remote_mac, 0xff, ETH_ALEN);
- 
- 	/* Initialize the config_item member */
--	config_item_init_type_name(&nt->item, name, &netconsole_target_type);
-+	config_item_init_type_name(&nt->group.cg_item, name,
-+				&netconsole_target_type);
- 
- 	/* Adding, but it is disabled */
- 	spin_lock_irqsave(&target_list_lock, flags);
- 	list_add(&nt->list, &target_list);
- 	spin_unlock_irqrestore(&target_list_lock, flags);
- 
--	return &nt->item;
-+	return &nt->group.cg_item;
- }
- 
- static void drop_netconsole_target(struct config_group *group,
-@@ -633,7 +681,7 @@ static void drop_netconsole_target(struct config_group *group,
- 	if (nt->enabled)
- 		netpoll_cleanup(&nt->np);
- 
--	config_item_put(&nt->item);
-+	config_item_put(&nt->group.cg_item);
- }
- 
- static struct configfs_group_operations netconsole_subsys_group_ops = {
-@@ -743,6 +791,7 @@ static int __init init_netconsole(void)
- 	unsigned long flags;
- 	char *target_config;
- 	char *input = config;
-+	int i = 0;
- 
- 	if (strnlen(input, MAX_PARAM_LENGTH)) {
- 		while ((target_config = strsep(&input, ";"))) {
-@@ -751,9 +800,13 @@ static int __init init_netconsole(void)
- 				err = PTR_ERR(nt);
- 				goto fail;
- 			}
-+
-+			dynamic_netconsole_init_type_name(nt, i);
-+
- 			spin_lock_irqsave(&target_list_lock, flags);
- 			list_add(&nt->list, &target_list);
- 			spin_unlock_irqrestore(&target_list_lock, flags);
-+			i++;
- 		}
- 	}
- 
-@@ -761,7 +814,7 @@ static int __init init_netconsole(void)
- 	if (err)
- 		goto fail;
- 
--	err = dynamic_netconsole_init();
-+	err = dynamic_netconsole_init(i);
- 	if (err)
- 		goto undonotifier;
- 
----
-
-Thanks.
-Joonwoo 
+Thanks!
 
