@@ -1,32 +1,64 @@
-From: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
-Subject: fib6_del_route has redundant code
-Date: Thu, 27 Dec 2007 15:26:46 +0800
-Message-ID: <477353B6.6000102@cn.fujitsu.com>
+From: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
+Subject: Re: : Emit event stream compat iw_point objects correctly.
+Date: Thu, 27 Dec 2007 17:51:49 +0900
+Message-ID: <20071227173802.6F56.40F06B3A@sm.sony.co.jp>
+References: <20071221.205808.213484078.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:52093 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751258AbXL0H1l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Dec 2007 02:27:41 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20071221.205808.213484078.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
-I think the following code in fib6_del_route in the latest kernel is useless.
-1125         if (fn->leaf == NULL && fn->fn_flags&RTN_TL_ROOT)
-1126                 fn->leaf = &ip6_null_entry;
+	Hi
 
-ip6_null_entry will never be unlinked from fn->leaf now, that is, fn->leaf == NULL will never meet.
+On Fri, 21 Dec 2007 20:58:08 -0800 (PST)
+David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
 
-In previous kernel, When adding a default route, ip6_null_entry will be unlinked from fn->leaf.
-So, when deleting a default route, it need to check whether the deleted route is the last one,
-if so, ip6_null_entry will link to fn->leaf again.
+> @@ -520,7 +530,7 @@ iwe_stream_add_point(char *	stream,		/* Stream of events */
+>  		memcpy(stream + IW_EV_LCP_LEN,
+>  		       ((char *) iwe) + IW_EV_LCP_LEN + IW_EV_POINT_OFF,
+>  		       IW_EV_POINT_PK_LEN - IW_EV_LCP_PK_LEN);
 
-I am not sure if there is another place unlinks ip6_null_entry from fn->leaf.
+As the alignment of 64bit platforms may be defferent from 32bit one,
+should it be like the following?
 
-Regards,
-Gui Jiafeng
+static inline char *
+iwe_stream_add_point(char *	stream,		/* Stream of events */
+		     char *	ends,		/* End of stream */
+		     struct iw_event *iwe,	/* Payload length + flags */
+		     char *	extra,		/* More payload */
+		     struct iw_request_info *info)
+{
+	int	event_len = IW_EV_POINT_LEN + iwe->u.data.length;
+	int	point_len = IW_EV_POINT_LEN;
+	int	lcp_len = IW_EV_LCP_LEN;
+
+#ifdef CONFIG_COMPAT
+	if (info->flags & IW_REQUEST_FLAG_COMPAT) {
+		event_len = IW_EV_COMPAT_POINT_LEN + iwe->u.data.length;
+		point_len = IW_EV_COMPAT_POINT_LEN;
+		lcp_len = IW_EV_COMPAT_LCP_LEN;
+	}
+#endif
+
+	/* Check if it's possible */
+	if(likely((stream + event_len) < ends)) {
+		iwe->len = event_len;
+		memcpy(stream, (char *) iwe, IW_EV_LCP_PK_LEN);
+		memcpy(stream + lcp_len,
+		       ((char *) iwe) + IW_EV_LCP_LEN + IW_EV_POINT_OFF,
+		       IW_EV_POINT_PK_LEN - IW_EV_LCP_PK_LEN);
+		memcpy(stream + point_len, extra, iwe->u.data.length);
+		stream += event_len;
+	}
+	return stream;
+}
+
+(Note that IW_EV_COMPAT_LCP_LEN is just a example; not defined anywhere)
+
+-- 
+Masakazu MOKUNO
