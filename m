@@ -1,43 +1,44 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH 2.6.24-rc3] Fix /proc/net breakage
-Date: Thu, 27 Dec 2007 21:41:45 +0300
-Message-ID: <20071227184145.GA1831@martell.zuzino.mipt.ru>
-References: <20071119191000.GA1560@elf.ucw.cz> <200711192304.25087.rjw@sisk.pl> <4743026B.2020907@openvz.org> <m1hcj8mz1p.fsf_-_@ebiederm.dsl.xmission.com> <1197003097.13978.557.camel@pmac.infradead.org> <20071207022342.806ee4ee.akpm@linux-foundation.org> <20071227174056.GA17350@rhlx01.hs-esslingen.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Woodhouse <dwmw2@infradead.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
-	kernel list <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	"Denis V. Lunev" <den@openvz.org>
-To: Andreas Mohr <andi@lisas.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754283AbXL0SmR@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20071227174056.GA17350@rhlx01.hs-esslingen.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Emil Medve <Emilian.Medve@freescale.com>
+Subject: [PATCH] [NET] Fixed a small typo in the loopback driver
+Date: Thu, 27 Dec 2007 08:17:22 -0600
+Message-ID: <1198765042-30349-1-git-send-email-Emilian.Medve@Freescale.com>
+Cc: Emil Medve <Emilian.Medve@freescale.com>
+To: davem@davemloft.net, jgarzik@pobox.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:36445 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753728AbXL0TBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Dec 2007 14:01:16 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 27, 2007 at 06:40:56PM +0100, Andreas Mohr wrote:
-> On Fri, Dec 07, 2007 at 02:23:42AM -0800, Andrew Morton wrote:
-> > > (commit 2b1e300a9dfc3196ccddf6f1d74b91b7af55e416)
-> > > 
-> > > This seems to have broken the use of /proc/bus/usb as a mountpoint. It
-> > > always appears empty now, whatever's supposed to be mounted there.
-> > > 
-> > 
-> > Yes.  Denis and Eric are tossing around competing patches but afaik nobody
-> > is happy with any of them.  Guys, could we get this sorted soonish please?
-> 
-> "Soonish" being rather earlier than 20071227?
-> 'cause it's still throwing a fit for me on 2.6.24-rc6-mm1(!) (plus hotfix),
-> nothing visible in /proc/bus/usb, thus WLAN driver won't probe
-> anything.
+This is probably a result of the changes from commit
+854d836 - [NET]: Dynamically allocate the loopback device, part 2
 
-Patch which restores usual behaviour was merged in 2.6.24-rc5
-(3790ee4bd86396558eedd86faac1052cb782e4e1 "proc: remove/Fix proc generic d_revalidate")
-so no hotfixes are needed. I just checked with bind mounting / to
-/proc/bus/usb -- it works.
+Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
+---
+
+linux-2.6> scripts/checkpatch.pl 0001-NET-Fixed-a-small-typo-in-the-loopback-driver.patch 
+total: 0 errors, 0 warnings, 8 lines checked
+
+Your patch has no obvious style problems and is ready for submission.
+
+
+ drivers/net/loopback.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index 662b8d1..fa147cd 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -242,7 +242,7 @@ static void loopback_setup(struct net_device *dev)
+ 		| NETIF_F_NO_CSUM
+ 		| NETIF_F_HIGHDMA
+ 		| NETIF_F_LLTX
+-		| NETIF_F_NETNS_LOCAL,
++		| NETIF_F_NETNS_LOCAL;
+ 	dev->ethtool_ops	= &loopback_ethtool_ops;
+ 	dev->header_ops		= &eth_header_ops;
+ 	dev->init = loopback_dev_init;
+-- 
+1.5.4-rc1.GIT
