@@ -1,38 +1,27 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 2.6.25] compilation fix for
-	drivers/net/wireless/libertas/debugfs.c
-Date: Thu, 27 Dec 2007 13:24:54 +0300
-Message-ID: <20071227102454.GA14163@iris.sw.ru>
+From: Meelis Roos <mroos@linux.ee>
+Subject: Re: [git patches] net driver fixes
+Date: Thu, 27 Dec 2007 13:28:55 +0200 (EET)
+Message-ID: <Pine.SOC.4.64.0712271327030.20202@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devel@openvz.org, mchan@broadcom.com, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>
+To: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ppp91-76-74-99.pppoe.mtu-net.ru ([91.76.74.99]:55550 "EHLO
-	iris.sw.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751067AbXL0LEr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Dec 2007 06:04:47 -0500
-Content-Disposition: inline
+Received: from smtp2.it.da.ut.ee ([193.40.5.67]:40338 "EHLO smtp2.it.da.ut.ee"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750989AbXL0L25 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Dec 2007 06:28:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Compilation fix. MAC_FMT is required for
-drivers/net/wireless/libertas/debugfs.c
+JG> A couple [minorly] notable wireless bug fixes, and plenty of viro fixes
+JG> for obscure issues :)
 
-The problem has been introduced by the
-commit 4b326fa2167d4ee2d722bff4e241fae299e32442
-Author: Michael Chan <mchan@broadcom.com>
-Date:   Mon Dec 24 21:28:09 2007 -0800
+What about the tulip NAPI fix from Stephen Hemminger? Without this, my 
+tulip is hosed easily.
 
-diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
-index 7a1e011..2928586 100644
---- a/include/linux/if_ether.h
-+++ b/include/linux/if_ether.h
-@@ -129,6 +129,7 @@ extern ssize_t sysfs_format_mac(char *buf, const unsigned char *addr, int len);
- /*
-  *	Display a 6 byte device address (MAC) in a readable format.
-  */
-+#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
- extern char *print_mac(char *buf, const unsigned char *addr);
- #define MAC_BUF_SIZE	18
- #define DECLARE_MAC_BUF(var) char var[MAC_BUF_SIZE] __maybe_unused
+The thread where I reported it was "Badness at net/core/dev.c:2199", 
+around Dec 16.
+
+-- 
+Meelis Roos (mroos@linux.ee)
