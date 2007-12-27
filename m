@@ -1,52 +1,48 @@
-From: Denys Vlasenko <vda.linux@googlemail.com>
-Subject: Re: [PATCH] net/ipv4/netfilter/ip_tables.c: remove some inlines
-Date: Thu, 27 Dec 2007 04:01:35 +0000
-Message-ID: <200712270401.35983.vda.linux@googlemail.com>
-References: <200712161247.53986.vda.linux@googlemail.com> <47668BE9.8010504@trash.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Strange Panic (Deadlock)
+Date: Thu, 27 Dec 2007 08:19:54 +0100
+Message-ID: <20071227071954.GA1670@ff.dom.local>
+References: <20071226185822.GC3061@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Harald Welte <laforge@gnumonks.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753362AbXL0EB4@vger.kernel.org>
-In-Reply-To: <47668BE9.8010504@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fk-out-0910.google.com ([209.85.128.190]:21112 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750998AbXL0HOS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Dec 2007 02:14:18 -0500
+Received: by fk-out-0910.google.com with SMTP id z23so3166229fkz.5
+        for <netdev@vger.kernel.org>; Wed, 26 Dec 2007 23:14:17 -0800 (PST)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20071226185822.GC3061@ami.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 17 December 2007 14:47, Patrick McHardy wrote:
-> Please CC netfilter-devel on netfilter patches.
->
-> Denys Vlasenko wrote:
-> > Hi Patrick, Harald,
-> >
-> > I was working on unrelated problem and noticed that ip_tables.c
-> > seem to abuse inline. I prepared a patch which removes inlines
-> > except those which are used by packet matching code
-> > (and thus are really performance-critical).
-> > I added comments explaining that remaining inlines are
-> > performance critical.
-> >
-> > Result as reported by size:
-> >
-> >    text    data     bss     dec     hex filename
-> > -  6451     380      88    6919    1b07 ip_tables.o
-> > +  6339     348      72    6759    1a67 ip_tables.o
-> >
-> > Please take this patch into netfilter queue.
->
-> This clashes with my pending patches, which I'll push upstream
-> today. I also spent some time resyncing ip_tables and ip6_tables
-> so a diff of both (with some sed'ing) shows only the actual
-> differences, so please update ip6_tables as well.
+On 26-12-2007 19:58, Jarek Poplawski wrote:
+> ...
 
-I would be happy to rediff the patch.
+And here is one more: this place needs more advanced debugging, but
+let's check something simple at the beginning... (and just like before
+- could be tested with or without these earlier patches).
 
-Which tree should I sync against in order to not collide
-with your changes?
---
-vda
+Jarek P.
+ 
+[PATCH 4/3] (for testing only)
+---
+
+diff -Nurp linux-2.6.23-/kernel/timer.c linux-2.6.23+/kernel/timer.c
+--- linux-2.6.23-/kernel/timer.c	2007-10-09 22:31:38.000000000 +0200
++++ linux-2.6.23+/kernel/timer.c	2007-12-27 08:07:20.000000000 +0100
+@@ -603,7 +603,10 @@ static int cascade(tvec_base_t *base, tv
+ 	 * don't have to detach them individually.
+ 	 */
+ 	list_for_each_entry_safe(timer, tmp, &tv_list, entry) {
+-		BUG_ON(tbase_get_base(timer->base) != base);
++		if (tbase_get_base(timer->base) != base) {
++			print_ip_sym((long)timer->function);
++			BUG_ON(1);
++		}
+ 		internal_add_timer(base, timer);
+ 	}
+ 
