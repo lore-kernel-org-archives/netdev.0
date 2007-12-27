@@ -1,56 +1,52 @@
-From: Pierre Ynard <linkfanel@yahoo.fr>
-Subject: Re : [RFC] old stuff - Kernel Bug Tracker Bug 7398
-Date: Thu, 27 Dec 2007 01:07:22 +0000 (GMT)
-Message-ID: <228293.73285.qm@web25712.mail.ukl.yahoo.com>
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Subject: Re: [PATCH] net/ipv4/netfilter/ip_tables.c: remove some inlines
+Date: Thu, 27 Dec 2007 04:01:35 +0000
+Message-ID: <200712270401.35983.vda.linux@googlemail.com>
+References: <200712161247.53986.vda.linux@googlemail.com> <47668BE9.8010504@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: 394780@bugs.debian.org
-To: Andreas Henriksson <andreas@fatal.se>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web25712.mail.ukl.yahoo.com ([217.12.10.54]:41753 "HELO
-	web25712.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751711AbXL0BOG convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Dec 2007 20:14:06 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Harald Welte <laforge@gnumonks.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753362AbXL0EB4@vger.kernel.org>
+In-Reply-To: <47668BE9.8010504@trash.net>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> While looking over the old remaining bugs reported against iproute in
-> Debian I came across http://bugs.debian.org/394780 which has also bee=
-n
-> reported as http://bugzilla.kernel.org/show_bug.cgi?id=3D7398 (please
-> see the old comments here).
-> [...]
-> The bugs last comment was from Pierre asking about a patch he
-> provided:
-> > I am sorry, I didn't mean to break anything... What about a sysctl
-> > option, to give the user the possibility to disable the hack? See
-> > attached patch. I can't really see any drawback to that. Please
-> > review and consider re-opening the bug.
+On Monday 17 December 2007 14:47, Patrick McHardy wrote:
+> Please CC netfilter-devel on netfilter patches.
+>
+> Denys Vlasenko wrote:
+> > Hi Patrick, Harald,
+> >
+> > I was working on unrelated problem and noticed that ip_tables.c
+> > seem to abuse inline. I prepared a patch which removes inlines
+> > except those which are used by packet matching code
+> > (and thus are really performance-critical).
+> > I added comments explaining that remaining inlines are
+> > performance critical.
+> >
+> > Result as reported by size:
+> >
+> >    text    data     bss     dec     hex filename
+> > -  6451     380      88    6919    1b07 ip_tables.o
+> > +  6339     348      72    6759    1a67 ip_tables.o
+> >
+> > Please take this patch into netfilter queue.
+>
+> This clashes with my pending patches, which I'll push upstream
+> today. I also spent some time resyncing ip_tables and ip6_tables
+> so a diff of both (with some sed'ing) shows only the actual
+> differences, so please update ip6_tables as well.
 
-This patch just by-passes the hack altogether. I haven't looked into th=
-e
-details of what the hack does, nor do I know about vic or vat, so this
-patch may not be the optimal solution. Anyway, I used it on my box, and
-it did do the trick.
+I would be happy to rediff the patch.
 
-There must be other people who stumbled across this quirk. At the very
-least, it should be clearly documented, where a sysadmin setting up
-multicast streaming would find it.
-
-
---=20
-Pierre Ynard
-=46or hire - http://www.linkfanel.net/resume.pdf
-"Une =E2me dans un corps, c'est comme un dessin sur une feuille de papi=
-er."
-
-
-
-      _________________________________________________________________=
-____________=20
-Ne gardez plus qu'une seule adresse mail ! Copiez vos mails vers Yahoo!=
- Mail http://mail.yahoo.fr
+Which tree should I sync against in order to not collide
+with your changes?
+--
+vda
