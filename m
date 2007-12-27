@@ -1,48 +1,32 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Strange Panic (Deadlock)
-Date: Thu, 27 Dec 2007 08:19:54 +0100
-Message-ID: <20071227071954.GA1670@ff.dom.local>
-References: <20071226185822.GC3061@ami.dom.local>
+From: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+Subject: fib6_del_route has redundant code
+Date: Thu, 27 Dec 2007 15:26:46 +0800
+Message-ID: <477353B6.6000102@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.190]:21112 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750998AbXL0HOS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Dec 2007 02:14:18 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so3166229fkz.5
-        for <netdev@vger.kernel.org>; Wed, 26 Dec 2007 23:14:17 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20071226185822.GC3061@ami.dom.local>
+Received: from cn.fujitsu.com ([222.73.24.84]:52093 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751258AbXL0H1l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Dec 2007 02:27:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26-12-2007 19:58, Jarek Poplawski wrote:
-> ...
+Hi all,
+I think the following code in fib6_del_route in the latest kernel is useless.
+1125         if (fn->leaf == NULL && fn->fn_flags&RTN_TL_ROOT)
+1126                 fn->leaf = &ip6_null_entry;
 
-And here is one more: this place needs more advanced debugging, but
-let's check something simple at the beginning... (and just like before
-- could be tested with or without these earlier patches).
+ip6_null_entry will never be unlinked from fn->leaf now, that is, fn->leaf == NULL will never meet.
 
-Jarek P.
- 
-[PATCH 4/3] (for testing only)
----
+In previous kernel, When adding a default route, ip6_null_entry will be unlinked from fn->leaf.
+So, when deleting a default route, it need to check whether the deleted route is the last one,
+if so, ip6_null_entry will link to fn->leaf again.
 
-diff -Nurp linux-2.6.23-/kernel/timer.c linux-2.6.23+/kernel/timer.c
---- linux-2.6.23-/kernel/timer.c	2007-10-09 22:31:38.000000000 +0200
-+++ linux-2.6.23+/kernel/timer.c	2007-12-27 08:07:20.000000000 +0100
-@@ -603,7 +603,10 @@ static int cascade(tvec_base_t *base, tv
- 	 * don't have to detach them individually.
- 	 */
- 	list_for_each_entry_safe(timer, tmp, &tv_list, entry) {
--		BUG_ON(tbase_get_base(timer->base) != base);
-+		if (tbase_get_base(timer->base) != base) {
-+			print_ip_sym((long)timer->function);
-+			BUG_ON(1);
-+		}
- 		internal_add_timer(base, timer);
- 	}
- 
+I am not sure if there is another place unlinks ip6_null_entry from fn->leaf.
+
+Regards,
+Gui Jiafeng
