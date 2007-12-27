@@ -1,56 +1,73 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFC] skge csum problems
-Date: Thu, 27 Dec 2007 11:31:46 -0800
-Message-ID: <20071227113146.758f0cce@deepthought>
-References: <20071224094352.GU8181@ftp.linux.org.uk>
-	<p73sl1sp72b.fsf@bingen.suse.de>
-	<20071224183950.GA5024@ZenIV.linux.org.uk>
-	<20071224113638.0de0f189@speedy>
-	<20071224194523.GA27894@ZenIV.linux.org.uk>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: [PATCH net-2.6.25] CAN: Add missing Kbuild entries
+Date: Thu, 27 Dec 2007 21:14:53 +0100
+Message-ID: <477407BD.1040406@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
+Content-Type: multipart/mixed;
+ boundary="------------000304090400080703000909"
+Cc: Sam Ravnborg <sam@ravnborg.org>,
+	Urs Thuermann <urs@isnogud.escape.de>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:48553 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751977AbXL0Tcp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Dec 2007 14:32:45 -0500
-In-Reply-To: <20071224194523.GA27894@ZenIV.linux.org.uk>
+Received: from cg-p07-fb.rzone.de ([81.169.146.215]:32355 "EHLO
+	cg-p07-fb.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752000AbXL0UP7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Dec 2007 15:15:59 -0500
+Received: from mo-p00-ob.rzone.de (klopstock-mo-p00-ob.mail [192.168.63.66])
+	by charnel-fb-06.store (RZmta 14.0) with ESMTP id P00206jBRDeiMZ
+	for <netdev@vger.kernel.org>; Thu, 27 Dec 2007 21:15:58 +0100 (MET)
+	(envelope-from: <oliver@hartkopp.net>)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 24 Dec 2007 19:45:23 +0000
-Al Viro <viro@ZenIV.linux.org.uk> wrote:
+This is a multi-part message in MIME format.
+--------------000304090400080703000909
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> On Mon, Dec 24, 2007 at 11:36:38AM -0800, Stephen Hemminger wrote:
-> > > you will get the same behaviour on big- and little-endian boxen, even though
-> > > the intermediate integer values will be of course different.
-> > > 
-> > > skb->csum *must* be stored in the same order on l-e and b-e boxen; that
-> > > way you don't need to convert it or raw data when updating the sucker [*].
-> > > 
-> > > [*] it's slightly more complicated since skb->csum is 4-byte, not 2-byte
-> > > and the real invariant is "checksum of 4-octet array at &skb->csum must
-> > > not depend on host" (so e.g XX YY 00 00 and 00 00 XX YY are equivalent -
-> > > checksum doesn't change from reordering octet pairs; XX YY 00 00 and
-> > > 00 00 YY XX are very definitely *NOT* equivalent; odd and even bytes
-> > > can't be exchanged).
-> > 
-> > Did you test this on real hardware?
-> 
-> Test _what_ on real hardware?  That kernel expects skb->csum fixed-endian?
-> That csum_add() and friends work?  Yes to both.
-> 
-> If you are asking whether I'd tested what skge does to csum in its rx
-> descriptors when asked to byteswap - as I've said, all skge-handled stuff
-> I have is on-board in little-endian boxen.  Thus asking for folks who
-> could test it on big-endian and see what does that sucker actually do...
+This patch adds the missing Kbuild entries and the missing Kbuild file 
+in include/linux/can for the CAN subsystem.
 
-I'll wait for 2.6.25 then. I am just concerned about how real hardware
-interprets the byte swap PCI flag. I'll see if I can find some cost
-competitive bigendian hardware.
+It applies on the current net-2.6.25 tree.
 
--- 
-Stephen Hemminger <stephen.hemminger@vyatta.com>
+Tnx & best regards,
+Oliver
+
+Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
+Acked-by: Sam Ravnborg <sam@ravnborg.org>
+---
+
+
+--------------000304090400080703000909
+Content-Type: text/x-diff;
+ name="Kbuild-CAN.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="Kbuild-CAN.patch"
+
+diff -uprN -X net-2.6.25/Documentation/dontdiff net-2.6.25/include/linux/can/Kbuild export/net2625-2007-12-27/include/linux/can/Kbuild
+--- net-2.6.25/include/linux/can/Kbuild	1970-01-01 01:00:00.000000000 +0100
++++ export/net2625-2007-12-27/include/linux/can/Kbuild	2007-12-27 20:35:22.000000000 +0100
+@@ -0,0 +1,3 @@
++header-y += raw.h
++header-y += bcm.h
++header-y += error.h
+diff -uprN -X net-2.6.25/Documentation/dontdiff net-2.6.25/include/linux/Kbuild export/net2625-2007-12-27/include/linux/Kbuild
+--- net-2.6.25/include/linux/Kbuild	2007-12-15 19:33:20.000000000 +0100
++++ export/net2625-2007-12-27/include/linux/Kbuild	2007-12-27 20:35:22.000000000 +0100
+@@ -1,4 +1,5 @@
+ header-y += byteorder/
++header-y += can/
+ header-y += dvb/
+ header-y += hdlc/
+ header-y += isdn/
+@@ -41,6 +42,7 @@ header-y += baycom.h
+ header-y += bfs_fs.h
+ header-y += blkpg.h
+ header-y += bpqether.h
++header-y += can.h
+ header-y += cdk.h
+ header-y += chio.h
+ header-y += coda_psdev.h
+
+--------------000304090400080703000909--
