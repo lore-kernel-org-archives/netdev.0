@@ -1,8 +1,8 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-2.6.25] CAN: Fix plain integer definitions in
  userspace header & new CAN version 20071227
-Date: Thu, 27 Dec 2007 16:49:00 -0800 (PST)
-Message-ID: <20071227.164900.233018217.davem@davemloft.net>
+Date: Thu, 27 Dec 2007 16:50:52 -0800 (PST)
+Message-ID: <20071227.165052.167438890.davem@davemloft.net>
 References: <477407C1.1050405@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
@@ -10,10 +10,10 @@ Content-Transfer-Encoding: 7bit
 Cc: sam@ravnborg.org, urs@isnogud.escape.de, netdev@vger.kernel.org
 To: oliver@hartkopp.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53274
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53940
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754214AbXL1AtB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Dec 2007 19:49:01 -0500
+	by vger.kernel.org with ESMTP id S1752546AbXL1Aux (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Dec 2007 19:50:53 -0500
 In-Reply-To: <477407C1.1050405@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,27 +21,13 @@ List-ID: <netdev.vger.kernel.org>
 From: Oliver Hartkopp <oliver@hartkopp.net>
 Date: Thu, 27 Dec 2007 21:14:57 +0100
 
-> This patch fixes the use of plain integers instead of __u32 in a struct 
-> that is visible from kernel space and user space. As this change is user 
-> visible this patch also updates the CAN version to 20071227.
-> 
-> Thanks to Sam Ravnborg for pointing out the wrong plain int usage.
-> 
-> It applies on the current net-2.6.25 tree.
+> diff -uprN -X net-2.6.25/Documentation/dontdiff net-2.6.25/include/linux/can/bcm.h export/net2625-2007-12-27/include/linux/can/bcm.h
+> --- net-2.6.25/include/linux/can/bcm.h	2007-12-15 19:33:20.000000000 +0100
+> +++ export/net2625-2007-12-27/include/linux/can/bcm.h	2007-12-27 20:35:54.000000000 +0100
 
-The types are exactly the same size regardless of anything.
+Also, please properly root your patches in the future:
 
-There is no reason to make such a big fuss about this, changing the
-CAN version etc.
-
-Also, since CAN has never shown up in a released kernel, there is
-nothing to be incompatible with.
-
-Finally, once CAN is in fact in a released kernel, you can't make
-incompatible changes to the userland visible structures.  They are
-going to be fixed in stone.
-
-Therefore I'm going to check this in without all the version
-changes.
+davem@sunset:~/src/GIT/net-2.6.25$ git apply --check --whitespace=error-all diff
+error: net2625-2007-12-27/include/linux/can/bcm.h: No such file or directory
 
 Thanks.
