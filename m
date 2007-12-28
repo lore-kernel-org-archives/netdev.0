@@ -1,55 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.25] compilation fix for
- drivers/net/wireless/libertas/debugfs.c
-Date: Thu, 27 Dec 2007 16:45:16 -0800 (PST)
-Message-ID: <20071227.164516.236177397.davem@davemloft.net>
-References: <20071227102454.GA14163@iris.sw.ru>
+Subject: Re: [PATCH net-2.6.25] CAN: Fix plain integer definitions in
+ userspace header & new CAN version 20071227
+Date: Thu, 27 Dec 2007 16:49:00 -0800 (PST)
+Message-ID: <20071227.164900.233018217.davem@davemloft.net>
+References: <477407C1.1050405@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devel@openvz.org, mchan@broadcom.com, netdev@vger.kernel.org
-To: den@openvz.org
+Cc: sam@ravnborg.org, urs@isnogud.escape.de, netdev@vger.kernel.org
+To: oliver@hartkopp.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53258
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53274
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754663AbXL1ApQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Dec 2007 19:45:16 -0500
-In-Reply-To: <20071227102454.GA14163@iris.sw.ru>
+	by vger.kernel.org with ESMTP id S1754214AbXL1AtB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Dec 2007 19:49:01 -0500
+In-Reply-To: <477407C1.1050405@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Thu, 27 Dec 2007 13:24:54 +0300
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Date: Thu, 27 Dec 2007 21:14:57 +0100
 
-> Compilation fix. MAC_FMT is required for
-> drivers/net/wireless/libertas/debugfs.c
+> This patch fixes the use of plain integers instead of __u32 in a struct 
+> that is visible from kernel space and user space. As this change is user 
+> visible this patch also updates the CAN version to 20071227.
+> 
+> Thanks to Sam Ravnborg for pointing out the wrong plain int usage.
+> 
+> It applies on the current net-2.6.25 tree.
 
-Putting this public macro back into a header file just
-for one driver's debug handling is just rediculious.
+The types are exactly the same size regardless of anything.
 
-I've checked in the following fix instead, thanks.
+There is no reason to make such a big fuss about this, changing the
+CAN version etc.
 
-commit f7b4d3b86615b95b104ca0a95902ca86373a6548
-Author: David S. Miller <davem@davemloft.net>
-Date:   Thu Dec 27 16:43:38 2007 -0800
+Also, since CAN has never shown up in a released kernel, there is
+nothing to be incompatible with.
 
-    [LIBERTAS]: Remove last stray user of MAC_FMT.
-    
-    Reported by Denis V. Lunev
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Finally, once CAN is in fact in a released kernel, you can't make
+incompatible changes to the userland visible structures.  They are
+going to be fixed in stone.
 
-diff --git a/drivers/net/wireless/libertas/debugfs.c b/drivers/net/wireless/libertas/debugfs.c
-index 0bda0b5..95dd4ed 100644
---- a/drivers/net/wireless/libertas/debugfs.c
-+++ b/drivers/net/wireless/libertas/debugfs.c
-@@ -243,7 +243,8 @@ static void libertas_parse_bssid(char *buf, size_t count,
- 	if (!hold)
- 		return;
- 	hold += 6;
--	sscanf(hold, MAC_FMT, mac, mac+1, mac+2, mac+3, mac+4, mac+5);
-+	sscanf(hold, "%02x:%02x:%02x:%02x:%02x:%02x",
-+	       mac, mac+1, mac+2, mac+3, mac+4, mac+5);
- 	memcpy(scan_cfg->bssid, mac, ETH_ALEN);
- }
- 
+Therefore I'm going to check this in without all the version
+changes.
+
+Thanks.
