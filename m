@@ -1,7 +1,7 @@
 From: Arjan van de Ven <arjan@linux.intel.com>
 Subject: Re: Top 9 kernel oopses/warnings for the week of December 29th, 2007
-Date: Sat, 29 Dec 2007 20:31:08 +0100
-Message-ID: <4776A07C.5090806@linux.intel.com>
+Date: Sat, 29 Dec 2007 20:34:20 +0100
+Message-ID: <4776A13C.1080405@linux.intel.com>
 References: <477630CF.5070609@linux.intel.com> <alpine.LFD.0.9999.0712291116190.2778@woody.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
@@ -10,10 +10,10 @@ Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
 	netdev@vger.kernel.org
 To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:8828 "EHLO
-	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750948AbXL2Tc7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Dec 2007 14:32:59 -0500
+Received: from mga07.intel.com ([143.182.124.22]:50720 "EHLO
+	azsmga101.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751331AbXL2TgN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Dec 2007 14:36:13 -0500
 In-Reply-To: <alpine.LFD.0.9999.0712291116190.2778@woody.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -27,11 +27,6 @@ Linus Torvalds wrote:
 > This would be more useful if it was more readable. As it is, you seem to 
 > have some formatting errors in your automation, where the things are 
 > incorrectly grouped:
-
-this is manual made; I'll blame thunderbird for now
-
-let me see if I can send it again without corruption
-
 > 
 >> Rank 1: sysctl_head_finish
 >> 	sysctl table check failed
@@ -44,5 +39,9 @@ let me see if I can send it again without corruption
 > ie notice how that "Rank 2" got reported as if it was part of the "Rank 1" 
 > issue. 
 > 
-> 		Linus
 
+
+hmmm.. the copy in my Sent folder looks fine, as does the one in the lkml archive:
+http://lkml.org/lkml/2007/12/29/41
+
+This is distinctly weird.
