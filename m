@@ -1,36 +1,53 @@
-From: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Subject: [PATCH] Fix broken ip= parsing
-Date: Sat, 29 Dec 2007 18:08:49 +0100 (CET)
-Message-ID: <20071229170849.C2E68C2EEE@solo.franken.de>
-Cc: horms@verge.net.au, davem@davemloft.net
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+From: "Joakim Tjernlund" <joakim.tjernlund@transmode.se>
+Subject: RE: [PATCH 1/3] [NET] phy/fixed.c: rework to not duplicate PHY layerfunctionality
+Date: Sat, 29 Dec 2007 18:13:08 +0100
+Message-ID: <003c01c84a3e$15d3a9c0$02ac10ac@Jocke>
+References: <20071206225121.31080.86606.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>,
+	"'linuxppc-dev'" <linuxppc-dev@ozlabs.org>
+To: "'Vitaly Bordug'" <vitb@kernel.crashing.org>,
+	"'Paul Mackerras'" <paulus@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elvis.franken.de ([193.175.24.41]:47497 "EHLO elvis.franken.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753042AbXL2RJM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Dec 2007 12:09:12 -0500
+Received: from mail.transmode.se ([83.241.175.147]:62119 "EHLO
+	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753539AbXL2RNZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Dec 2007 12:13:25 -0500
+In-reply-to: <20071206225121.31080.86606.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit a6c05c3d064dbb83be88cba3189beb5db9d2dfc3 breaks ip= parsing
-completly, because ic_enable is never set. The patch below puts
-back the way ic_enable was set before.
+> -----Original Message-----
+> From: 
+> linuxppc-dev-bounces+joakim.tjernlund=transmode.se@ozlabs.org 
+> [mailto:linuxppc-dev-bounces+joakim.tjernlund=transmode.se@ozl
+> abs.org] On Behalf Of Vitaly Bordug
+> Sent: den 6 december 2007 23:51
+> To: Paul Mackerras
+> Cc: netdev@vger.kernel.org; linuxppc-dev
+> Subject: [PATCH 1/3] [NET] phy/fixed.c: rework to not 
+> duplicate PHY layerfunctionality
+> 
+> 
+> With that patch fixed.c now fully emulates MDIO bus, thus no need
+> to duplicate PHY layer functionality. That, in turn, drastically
+> simplifies the code, and drops down line count.
+> 
+> As an additional bonus, now there is no need to register MDIO bus
+> for each PHY, all emulated PHYs placed on the platform fixed MDIO bus.
+> There is also no more need to pre-allocate PHYs via .config option,
+> this is all now handled dynamically.
+> 
+> 
+> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+> Signed-off-by: Vitaly Bordug <vitb@kernel.crashing.org>
+> Acked-by: Jeff Garzik <jeff@garzik.org>
 
-Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
----
+What happened to this patch set? Is it sitting in a tree somewhere waiting
+for 2.4.25 or does it need more work?
 
- net/ipv4/ipconfig.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ Jocke
 
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 420f56a..4266528 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -1440,6 +1440,7 @@ static int __init ip_auto_config_setup(char *addrs)
- 	int num = 0;
- 
- 	ic_set_manually = 1;
-+	ic_enable = *addrs;
- 
- 	if (ic_proto_name(addrs))
- 		return 1;
