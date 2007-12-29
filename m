@@ -1,54 +1,67 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [PATCH] Make FC, FDDI, HIPPI and TR tristate
-Date: Sat, 29 Dec 2007 02:52:08 +0200
-Message-ID: <20071229005208.GE9105@does.not.exist>
-References: <Pine.LNX.4.64.0712282348280.29013@fbirervta.pbzchgretzou.qr> <20071229000930.GD9105@does.not.exist> <Pine.LNX.4.64.0712290140090.29013@fbirervta.pbzchgretzou.qr>
+From: "Keyur Chudgar" <kchudgar.linux@gmail.com>
+Subject: Fwd: skbuff data pointer alignment requirement
+Date: Fri, 28 Dec 2007 16:54:23 -0800
+Message-ID: <a967d7d00712281654i9de6b31if34a341fcd618e8a@mail.gmail.com>
+References: <a967d7d00712201712m6981373ife9a333be7d343e0@mail.gmail.com>
+	 <476CEE69.20902@gmail.com>
+	 <a967d7d00712281653m5b1a937ch898a5b48f8ee1887@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@computergmbh.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.pp.htv.fi ([213.243.153.39]:53158 "EHLO smtp5.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752774AbXL2AwU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Dec 2007 19:52:20 -0500
+Received: from hs-out-0708.google.com ([64.233.178.246]:15434 "EHLO
+	hs-out-2122.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751579AbXL2AyZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2007 19:54:25 -0500
+Received: by hs-out-2122.google.com with SMTP id 54so2522899hsz.5
+        for <netdev@vger.kernel.org>; Fri, 28 Dec 2007 16:54:23 -0800 (PST)
+In-Reply-To: <a967d7d00712281653m5b1a937ch898a5b48f8ee1887@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0712290140090.29013@fbirervta.pbzchgretzou.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 29, 2007 at 01:41:23AM +0100, Jan Engelhardt wrote:
-> 
-> On Dec 29 2007 02:09, Adrian Bunk wrote:
-> >On Sat, Dec 29, 2007 at 12:45:12AM +0100, Jan Engelhardt wrote:
-> >> Turn CONFIG_FC, CONFIG_FDDI, CONFIG_HIPPI and CONFIG_TR into tristate
-> >> so they can be built as modules. This will allow CONFIG_LLC to be
-> >> built as a module too, overall reducing the core kernel image size.
-> >>...
-> >
-> >Just an example of code you have to fix if you do this:
-> >
-> >$ grep -r "#ifdef CONFIG_TR" net/
-> 
-> Ah, thank you for reminding me. For lec.c, would it be ok to do
-> 
-> #if defined(CONFIG_TR) || defined(CONFIG_TR_MODULE)
-> #	define WITH_TR 1
-> #endif
->...
+---------- Forwarded message ----------
+From: Keyur Chudgar <kchudgar.linux@gmail.com>
+Date: Dec 28, 2007 4:53 PM
+Subject: Re: skbuff data pointer alignment requirement
+To: Jarek Poplawski <jarkao2@gmail.com>
 
-#if defined(CONFIG_TR) || (defined(CONFIG_TR_MODULE) && defined(MODULE))
 
-Otherwise stuff like calling alloc_trdev() will cause build errors with 
-CONFIG_TR=m, CONFIG_ATM_LANE=y.
+Hi Jarek,
 
-cu
-Adrian
+> Do you mean hardware requirements of an architecture or a specific driver?
+I meant any hardware requirements of an architecture.
 
--- 
+> So, if you have more than one network card, is it needed by all of them,
+> while other (not network) drivers are happy with default allocations?
+Yes. So, anything related to skbuff data block, will need specific alignment
+requirements, while others (non-network drivers) will work as default.
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Thanks,
+- Keyur
 
+
+
+On Dec 22, 2007 3:00 AM, Jarek Poplawski <jarkao2@gmail.com> wrote:
+> Keyur Chudgar wrote, On 12/21/2007 02:12 AM:
+> ...
+>
+> > If some hardware requirements, for example is, they need to have 256
+> > bytes aligned address for them to do the DMA, no matter what the
+> > packet size is. In this kind of cases, can you guide me what should I
+> > do? Is there any way already in Linux I can do this?
+>
+> ...
+>
+> > In the above specified situation, I can define SKB_ADDR_MIN_ALIGN =
+> > 256 in my Makefile or I don't define it at all if I am okay with
+> > default alignment size.
+>
+> Do you mean hardware requirements of an architecture or a specific driver?
+> So, if you have more than one network card, is it needed by all of them,
+> while other (not network) drivers are happy with default allocations?
+>
+> Regards,
+> Jarek P.
+>
