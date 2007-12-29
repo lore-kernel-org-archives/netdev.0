@@ -1,65 +1,59 @@
-From: Adrian Bunk <bunk@kernel.org>
+From: Jan Engelhardt <jengelh@computergmbh.de>
 Subject: Re: [PATCH] Make FC, FDDI, HIPPI and TR tristate
-Date: Sat, 29 Dec 2007 02:09:30 +0200
-Message-ID: <20071229000930.GD9105@does.not.exist>
+Date: Sat, 29 Dec 2007 01:41:23 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0712290140090.29013@fbirervta.pbzchgretzou.qr>
 References: <Pine.LNX.4.64.0712282348280.29013@fbirervta.pbzchgretzou.qr>
+ <20071229000930.GD9105@does.not.exist>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: jgarzik@pobox.com, netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@computergmbh.de>
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.pp.htv.fi ([213.243.153.39]:52652 "EHLO smtp5.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751926AbXL2Ae4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Dec 2007 19:34:56 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0712282348280.29013@fbirervta.pbzchgretzou.qr>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:44677 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752760AbXL2AlZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2007 19:41:25 -0500
+In-Reply-To: <20071229000930.GD9105@does.not.exist>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 29, 2007 at 12:45:12AM +0100, Jan Engelhardt wrote:
-> Turn CONFIG_FC, CONFIG_FDDI, CONFIG_HIPPI and CONFIG_TR into tristate
-> so they can be built as modules. This will allow CONFIG_LLC to be
-> built as a module too, overall reducing the core kernel image size.
->...
 
-Just an example of code you have to fix if you do this:
+On Dec 29 2007 02:09, Adrian Bunk wrote:
+>On Sat, Dec 29, 2007 at 12:45:12AM +0100, Jan Engelhardt wrote:
+>> Turn CONFIG_FC, CONFIG_FDDI, CONFIG_HIPPI and CONFIG_TR into tristate
+>> so they can be built as modules. This will allow CONFIG_LLC to be
+>> built as a module too, overall reducing the core kernel image size.
+>>...
+>
+>Just an example of code you have to fix if you do this:
+>
+>$ grep -r "#ifdef CONFIG_TR" net/
 
-$ grep -r "#ifdef CONFIG_TR" net/
-net/802/sysctl_net_802.c:#ifdef CONFIG_TR
-net/802/sysctl_net_802.c:#ifdef CONFIG_TR
-net/atm/lec.c:#ifdef CONFIG_TR
-net/atm/lec.c:#ifdef CONFIG_TR
-net/atm/lec.c:#ifdef CONFIG_TR
-net/atm/lec.c:#ifdef CONFIG_TR
-net/atm/lec.c:#ifdef CONFIG_TR
-net/atm/lec.c:#ifdef CONFIG_TR
-net/atm/lec.c:#ifdef CONFIG_TR
-net/atm/lec.c:#ifdef CONFIG_TR
-net/atm/lec.c:#ifdef CONFIG_TR
-net/atm/lec.c:#ifdef CONFIG_TR
-net/atm/lec.c:#ifdef CONFIG_TR
-net/atm/lec.c:#ifdef CONFIG_TR
-net/ipv4/arp.c:#ifdef CONFIG_TR
-net/llc/llc_output.c:#ifdef CONFIG_TR
-net/sysctl_net.c:#ifdef CONFIG_TR
-net/sysctl_net.c:#ifdef CONFIG_TR
-$ 
+Ah, thank you for reminding me. For lec.c, would it be ok to do
 
-For all variables you change to tristates you have to check every single 
-#ifdef in C code in the kernel using this variable whether it needs to
-be fixed when it's modular.
+#if defined(CONFIG_TR) || defined(CONFIG_TR_MODULE)
+#	define WITH_TR 1
+#endif
 
-You also have to check all usages of these variables in Kconfig files, 
-but my first impression is they are all OK.
+at the top and then do a s/CONFIG_TR/WITH_TR/? Just so that the #ifdef
+lines do not explode in redundance.
 
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+>net/802/sysctl_net_802.c:#ifdef CONFIG_TR
+>net/802/sysctl_net_802.c:#ifdef CONFIG_TR
+>net/atm/lec.c:#ifdef CONFIG_TR
+>net/atm/lec.c:#ifdef CONFIG_TR
+>net/atm/lec.c:#ifdef CONFIG_TR
+>net/atm/lec.c:#ifdef CONFIG_TR
+>net/atm/lec.c:#ifdef CONFIG_TR
+>net/atm/lec.c:#ifdef CONFIG_TR
+>net/atm/lec.c:#ifdef CONFIG_TR
+>net/atm/lec.c:#ifdef CONFIG_TR
+>net/atm/lec.c:#ifdef CONFIG_TR
+>net/atm/lec.c:#ifdef CONFIG_TR
+>net/atm/lec.c:#ifdef CONFIG_TR
+>net/atm/lec.c:#ifdef CONFIG_TR
+>net/ipv4/arp.c:#ifdef CONFIG_TR
+>net/llc/llc_output.c:#ifdef CONFIG_TR
+>net/sysctl_net.c:#ifdef CONFIG_TR
+>net/sysctl_net.c:#ifdef CONFIG_TR
+>$ 
