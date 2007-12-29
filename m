@@ -1,43 +1,40 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: skbuff data pointer alignment requirement
-Date: Sat, 29 Dec 2007 14:04:14 +0100
-Message-ID: <20071229130414.GB3125@ami.dom.local>
-References: <a967d7d00712201712m6981373ife9a333be7d343e0@mail.gmail.com> <476CEE69.20902@gmail.com> <a967d7d00712281653m5b1a937ch898a5b48f8ee1887@mail.gmail.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: Top 9 kernel oopses/warnings for the week of December 29th,
+	2007
+Date: Sat, 29 Dec 2007 14:17:12 +0100
+Message-ID: <20071229131712.GB21805@elte.hu>
+References: <477630CF.5070609@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:53323 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752791AbXL2NBu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Dec 2007 08:01:50 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so1993893ugc.16
-        for <netdev@vger.kernel.org>; Sat, 29 Dec 2007 05:01:48 -0800 (PST)
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Arjan van de Ven <arjan@linux.intel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755154AbXL2NRo@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <a967d7d00712281653m5b1a937ch898a5b48f8ee1887@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <477630CF.5070609@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 28, 2007 at 04:53:24PM -0800, Keyur Chudgar wrote:
-> Hi Jarek,
-> 
-> > Do you mean hardware requirements of an architecture or a specific driver?
-> I meant any hardware requirements of an architecture.
-> 
-> > So, if you have more than one network card, is it needed by all of them,
-> > while other (not network) drivers are happy with default allocations?
-> Yes. So, anything related to skbuff data block, will need specific alignment
-> requirements, while others (non-network drivers) will work as default.
 
-Hi Keyur,
+* Arjan van de Ven <arjan@linux.intel.com> wrote:
 
-It seems this is rather unusual case, probably something new, because 
-considering the number of various architectures available on Linux it
-looks like the first which requires this feature. Then, of course,
-your proposal would make sense, but you should simply name this
-hardware in your patch description. On the other hand, if it's
-something very uncommon, it could be hard for you to convince somebody
-to merge this change.
+> kerneloops.org news:
+>
+> * As of 2.6.24-rc6, oopses have a unique identifier which makes it 
+>   possible to filter out duplicate reports of (and replies to) the 
+>   same oops. Unfortunately some reporters remove this line from their 
+>   reports to lkml.
 
-Regards,
-Jarek P.
+i'd not mind printing out the bootup-ID as a regular part of the oops, 
+as long as it's put into an unintrusive place, preferably without adding 
+a new line. (just use an empty spot somewhere)
+
+for example:
+
+Call Trace: (ID afbf0104e2079481)
+ [<ffffffff805079f6>] sysdev_driver_unregister+0x5b/0x91
+ [<ffffffff806f2ef4>] cpufreq_register_driver+0x15a/0x19b
+ [<ffffffff80cb0586>] powernowk8_init+0x86/0x94
+
+	Ingo
