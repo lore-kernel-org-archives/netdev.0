@@ -1,95 +1,173 @@
-From: "Torsten Kaiser" <just.for.lkml@googlemail.com>
-Subject: Re: 2.6.24-rc6-mm1
-Date: Sun, 30 Dec 2007 22:35:00 +0100
-Message-ID: <64bb37e0712301335k3ae8c0car1fa9b34034f9df0e@mail.gmail.com>
-References: <20071222233056.d652743e.akpm@linux-foundation.org>
-	 <64bb37e0712230827m7d368e2l3174f3b4396d09c1@mail.gmail.com>
-	 <64bb37e0712281453y4aac82b7h7acc8ec314ca6e3e@mail.gmail.com>
-	 <20071228150746.42b3bbc0.akpm@linux-foundation.org>
-	 <20071230212443.GA23320@fieldses.org>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [Patch 2.6.22.2 ] : drivers/net/via-rhine.c:   Offload checksum handling to VT6105M
+Date: Sun, 30 Dec 2007 23:33:54 +0100
+Message-ID: <20071230223354.GA28568@1wt.eu>
+References: <534451.72377.qm@web53807.mail.re2.yahoo.com> <20070818052351.GN6002@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, "Neil Brown" <neilb@suse.de>,
-	netdev@vger.kernel.org, "Tom Tucker" <tom@opengridcomputing.com>
-To: "J. Bruce Fields" <bfields@fieldses.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.176]:32299 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757224AbXL3VfD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2007 16:35:03 -0500
-Received: by py-out-1112.google.com with SMTP id u52so8733592pyb.10
-        for <netdev@vger.kernel.org>; Sun, 30 Dec 2007 13:35:02 -0800 (PST)
-In-Reply-To: <20071230212443.GA23320@fieldses.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: rl@hellgate.ch, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: K Naru <squat_rack@yahoo.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758409AbXL3WeU@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20070818052351.GN6002@1wt.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Dec 30, 2007 10:24 PM, J. Bruce Fields <bfields@fieldses.org> wrote:
->
-> On Fri, Dec 28, 2007 at 03:07:46PM -0800, Andrew Morton wrote:
-> > On Fri, 28 Dec 2007 23:53:49 +0100 "Torsten Kaiser" <just.for.lkml@googlemail.com> wrote:
-> >
-> > > On Dec 23, 2007 5:27 PM, Torsten Kaiser <just.for.lkml@googlemail.com> wrote:
-> > > > On Dec 23, 2007 8:30 AM, Andrew Morton <akpm@linux-foundation.org> wrote:
-> > > > >
-> > > > > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.24-rc6/2.6.24-rc6-mm1/
-> > > > I have finally given up on using 2.6.24-rc3-mm2 with slub_debug=FZP to
-> > > > get more information out of the random crashes I had seen with that
-> > > > version. (Did not crash once with slub_debug, so no new information on
-> > > > what the cause was)
-> > >
-> > > Murphy: Just after sending that mail the system crashed two times with
-> > > slub_debug=FZP, but did not show any new informations.
-> > > No debug output from slub, only this stacktrace: (Its the same I
-> > > already reported in the 2.6.24-rc3-mm2 thread)
-> > >
-[snip]
-> > > [ 7620.708561] Pid: 5698, comm: nfsv4-svc Not tainted 2.6.24-rc3-mm2 #2
-[snip]
-> >
-> > That looks like a sunrpc bug.  git-nfsd has bene mucking around in there a
-> > bit.
->
-> Can you still reproduce this?  Tom thought there was a chance the
-> following could fix it.
+Hi Kim,
 
-Please see also http://lkml.org/lkml/2007/12/29/76
+On Fri, Aug 17, 2007 at 11:34:37AM -0700, K Naru wrote:
+> From: Kim Naru (squat_rack@yahoo.com)
+> 
+> Added support to offload TCP/UDP/IP checksum to the
+> VIA Technologies VT6105M chip.
+> Firstly, let the stack know this chip is capable of
+> doing its own checksum(IPV4 only).
+> Secondly offload checksum to VT6105M, if necessary. 
+> 
+> 
+> Verbose Mode:
+> 
+> #1. Define 3 bits(18,19,20) in Transmit Descriptor 1
+> of chip, which affect checksum processing.
+> The prefix(TDES1) for the 3 variables is the short
+> name for Transmit Descriptior 1.
+> #2. In rhine_init_one(), if pci_rev >=  VT6105M then
+> set  NETIF_F_IP_CSUM(see skbuff.h for details).
+> #3. In rhine_start_tx() if NETIF_F_IP_CSUM is set AND
+> the stack requires a checksum then
+> set either bit 19(UDP),20(TCP) AND bit 18(IP).
+> 
+> Note : The numbered items above(i.e.#1,#2,#3) denote
+> pseudo code.
+> 
+> This patch was developed and tested on Imedia
+> linux-2.6.20 under a PC-Engines Alix System board
+> (www.pcengines.ch/alix.htm). It was tested(compilation
+> only) on linux-2.6.22.2. The minor code change between
+> 2.6.20 and 2.6.22 is the use of ip_hdr() in 2.26.22.
+> 
+> In 2.6.20 :
+>                 struct iphdr *ip = skb->nh.iph;
+> In 2.6.22 :
+>                 const struct iphdr *ip = ip_hdr(skb);
+> 
+> Testing:
+> 
+> 
+> ttcp,netperf ftp and top  where used. There appears to
+> be a small CPU utilization gain. Throughput results 
+> where more inconclusive.
+> 
+> The data sheet used to get information is 'VT6105M
+> Data Sheet, Revision 1.63  June21,2006'.
+> 
+> Signed-off-by: Kim Naru (squat_rack@yahoo.com)
+> 
+> ---
 
-Just wanted to say that slub_debug did not help to get more infos.
+Well, I've reformated your patch so that it can be applied, and very
+slightly arranged it in order to save 13 bytes of code and a few CPU
+cycles.
 
-I will try to reproduce this with rc3-mm2 and the below patch tomorrow.
-Without slub_debug this seemed to trigger rather reliable when trying
-to update/upgrade packages on my system.
+Also, I moved the if block before the spinlock as there is no reason
+for this code to be run with the lock held.
 
-> From:   Tom Tucker <tom@opengridcomputing.com>
-> Date:   Sun, 30 Dec 2007 10:07:17 -0600
->
-> Bruce/Aime:
->
-> Here is what I believe to be the fix for the crashes/svc_xprt BUG_ON
-> that people are seeing. It would be great if those who have seen this
-> problem could apply this patch and see if it resolves their problem.
->
-> The common code calls svc_xprt_received on behalf of the transport.
-> Since the provider was calling it as well, this resulted in clearing the
-> busy bit/resetting xpt_pool when the BUSY bit wasn't held.
->
-> diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-> index 4628881..4d39db1 100644
-> --- a/net/sunrpc/svcsock.c
-> +++ b/net/sunrpc/svcsock.c
-> @@ -1272,7 +1272,6 @@ static struct svc_xprt *svc_create_socket(struct svc_serv *serv,
->
->         if ((svsk = svc_setup_socket(serv, sock, &error, flags)) != NULL) {
->                 svc_xprt_set_local(&svsk->sk_xprt, newsin, newlen);
-> -               svc_xprt_received(&svsk->sk_xprt);
->                 return (struct svc_xprt *)svsk;
->         }
+I have run some performance measurements on an ALIX 3C2 motherboard
+with a 2.6.22-stable kernel. What I see is a reduction of CPU usage
+by about 20% when the network is saturated, but also a reduction of
+the network speed by 8%!
 
-I will send a mail, when I'm done with testing this...
+Without the patch, I can produce a continuous traffic of about 99 Mbps with
+about 11% CPU (system only, 89% idle).
 
-Thanks for the patch.
+With the patch, the traffic drops to 91 Mbps but CPU usage decreases to 9%.
 
-Torsten
+Now, if I reduce the MTU to exactly 1000, then the traffic increases to about
+98 Mbps, but it progressively reduces when the MTU moves away from 1000.
+
+So I have run some deeper tests consisting in leaving NETIF_F_IP_CSUM unset
+and still asking the NIC to compute the checksums. The conclusion is very
+clear: as soon as *any* checksum bit is set (IP, TCP, UDP), the traffic
+immediately drops.
+
+I think that what happens is that the NIC is not pipelined at all and that
+no data is transferred while a checksum is being computed. This would also
+explain why reducing the MTU increases performance, since it reduces the
+time required to compute a checksum, reducing the off time. And the more I
+think about it, the more I think this is the problem, because the VT6105M
+has a 2kB transmit buffer, so it cannot checksum a 1.5kB frame while sending
+another one if it does it inside the buffer.
+
+And I'm pretty sure that the checksum is computed in the buffer and that the
+data is not transferred twice on the bus, because playing with PCI latency
+timer and other parameters does not change anything.
+
+So basically, we're there with a chip which can offload the CPU by performing
+the checksums itself, but it reduces performance for packets larger than 1kB
+(or possibly 500 bytes if there's a 1.5kB packet being transferred).
+
+The driver should be adjusted to permit the user to enable and disable this
+feature with ethtool. Right now, its status can only be consulted, and I'm
+using dd on /dev/mem and /dev/kmem to change the values on the fly.
+
+Given the fact that a 20% reduction on CPU usage which was already 10% only
+leaves a net gain of about 2% more CPU available, I'm not convinced that there
+is any advantage in enabling this feature by default with this NIC.
+
+Here's the updated patch for reference (maybe you'd want to enhance it).
+
+--- linux-2.6.22-wt3/drivers/net/via-rhine.c	2007-11-22 17:48:34 +0100
++++ linux-2.6.22-wt3.via-cksum/drivers/net/via-rhine.c	2007-12-30 20:53:30 +0100
+@@ -95,6 +95,8 @@
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/skbuff.h>
++#include <linux/in.h>
++#include <linux/ip.h>
+ #include <linux/init.h>
+ #include <linux/delay.h>
+ #include <linux/mii.h>
+@@ -343,6 +345,9 @@
+ 
+ /* Initial value for tx_desc.desc_length, Buffer size goes to bits 0-10 */
+ #define TXDESC		0x00e08000
++#define TDES1_TCPCK	0x00100000  /* Bit 20, Transmit Desc 1  */
++#define TDES1_UDPCK	0x00080000  /* Bit 19, Transmit Desc 1  */
++#define TDES1_IPCK	0x00040000  /* Bit 18, Transmit Desc 1  */
+ 
+ enum rx_status_bits {
+ 	RxOK=0x8000, RxWholePkt=0x0300, RxErr=0x008F
+@@ -788,6 +793,9 @@
+ 	if (rp->quirks & rqRhineI)
+ 		dev->features |= NETIF_F_SG|NETIF_F_HW_CSUM;
+ 
++	if (pci_rev >=  VT6105M)
++		dev->features |= NETIF_F_IP_CSUM;   /* chip does checksum */
++
+ 	/* dev->name not defined before register_netdev()! */
+ 	rc = register_netdev(dev);
+ 	if (rc)
+@@ -1260,6 +1268,18 @@
+ 	rp->tx_ring[entry].desc_length =
+ 		cpu_to_le32(TXDESC | (skb->len >= ETH_ZLEN ? skb->len : ETH_ZLEN));
+ 
++	if ((dev->features & NETIF_F_IP_CSUM) &&
++	    (skb->ip_summed == CHECKSUM_PARTIAL)) {
++		/* Offload checksum to chip. */
++		const struct iphdr *ip = ip_hdr(skb);
++		unsigned long flag;
++
++		flag = (ip->protocol == IPPROTO_TCP) ? TDES1_TCPCK|TDES1_IPCK :
++		       (ip->protocol == IPPROTO_UDP) ? TDES1_UDPCK|TDES1_IPCK :
++		       TDES1_IPCK;
++		rp->tx_ring[entry].desc_length |= flag;
++	}
++
+ 	/* lock eth irq */
+ 	spin_lock_irq(&rp->lock);
+ 	wmb();
+
+Best regards,
+Willy
+
