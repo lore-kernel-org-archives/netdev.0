@@ -1,7 +1,7 @@
 From: Hideo AOKI <haoki@redhat.com>
-Subject: [PATCH 1/4] [CORE]: introducing new memory accounting interface
-Date: Sun, 30 Dec 2007 03:51:06 -0500
-Message-ID: <47775BFA.9090100@redhat.com>
+Subject: [PATCH 3/4] [TCP]: using new interface
+Date: Sun, 30 Dec 2007 03:53:53 -0500
+Message-ID: <47775CA1.10307@redhat.com>
 References: <47775B25.7020401@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -19,40 +19,16 @@ To: David Miller <davem@davemloft.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	vladislav.yasevich@hp.com, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:34992 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:34990 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751244AbXL3I7v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753127AbXL3I7v (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 30 Dec 2007 03:59:51 -0500
 In-Reply-To: <47775B25.7020401@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch introduces new memory accounting functions for each network
-protocol. Most of them are renamed from memory accounting functions
-for stream protocols. At the same time, some stream memory accounting
-functions are removed since other functions do same thing.
-
-Renaming:
-	sk_stream_free_skb()		->	sk_wmem_free_skb()
-	__sk_stream_mem_reclaim()	->	__sk_mem_reclaim()
-	sk_stream_mem_reclaim()		->	sk_mem_reclaim()
-	sk_stream_mem_schedule 		->    	__sk_mem_schedule()
-	sk_stream_pages()      		->	sk_mem_pages()
-	sk_stream_rmem_schedule()	->	sk_rmem_schedule()
-	sk_stream_wmem_schedule()	->	sk_wmem_schedule()
-	sk_charge_skb()			->	sk_mem_charge()
-
-Removeing
-	sk_stream_rfree():	consolidates into sock_rfree()
-	sk_stream_set_owner_r(): consolidates into skb_set_owner_r()
-	sk_stream_mem_schedule()
-
-The following functions are added.
-    	sk_has_account(): check if the protocol supports accounting
-	sk_mem_uncharge(): do the opposite of sk_mem_charge()
-
-In addition, to achieve consolidation, updating sk_wmem_queued is
-removed from sk_mem_charge().
+This patch replaces present memory accounting calls with new interface
+in TCP.
 
 Cc: Satoshi Oshima <satoshi.oshima.fk@hitachi.com>
 Cc: Masami Hiramatsu <mhiramat@redhat.com>
@@ -60,355 +36,359 @@ signed-off-by: Takahiro Yasui <tyasui@redhat.com>
 signed-off-by: Hideo Aoki <haoki@redhat.com>
 ---
 
- include/net/sock.h |   95 ++++++++++++++++++++++++++++++---------------------
- net/core/sock.c    |   97 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- net/core/stream.c  |   82 --------------------------------------------
- 3 files changed, 152 insertions(+), 122 deletions(-)
+ include/net/tcp.h     |    4 ++--
+ net/ipv4/tcp.c        |   23 ++++++++++++-----------
+ net/ipv4/tcp_input.c  |   26 +++++++++++++-------------
+ net/ipv4/tcp_output.c |   26 ++++++++++++++++----------
+ net/ipv4/tcp_timer.c  |    8 ++++----
+ 5 files changed, 47 insertions(+), 40 deletions(-)
 
-diff -pruN net-2.6.25/include/net/sock.h net-2.6.25-t12t19m-p1/include/net/sock.h
---- net-2.6.25/include/net/sock.h	2007-12-27 10:18:58.000000000 -0500
-+++ net-2.6.25-t12t19m-p1/include/net/sock.h	2007-12-29 20:16:31.000000000 -0500
-@@ -460,25 +460,6 @@ static inline int sk_stream_memory_free(
- 	return sk->sk_wmem_queued < sk->sk_sndbuf;
+diff -pruN net-2.6.25-t12t19m-p2/include/net/tcp.h net-2.6.25-t12t19m-p3/include/net/tcp.h
+--- net-2.6.25-t12t19m-p2/include/net/tcp.h	2007-12-27 10:18:58.000000000 -0500
++++ net-2.6.25-t12t19m-p3/include/net/tcp.h	2007-12-29 20:49:59.000000000 -0500
+@@ -1196,8 +1196,8 @@ static inline void tcp_write_queue_purge
+ 	struct sk_buff *skb;
+
+ 	while ((skb = __skb_dequeue(&sk->sk_write_queue)) != NULL)
+-		sk_stream_free_skb(sk, skb);
+-	sk_stream_mem_reclaim(sk);
++		sk_wmem_free_skb(sk, skb);
++	sk_mem_reclaim(sk);
  }
 
--extern void sk_stream_rfree(struct sk_buff *skb);
--
--static inline void sk_stream_set_owner_r(struct sk_buff *skb, struct sock *sk)
--{
--	skb->sk = sk;
--	skb->destructor = sk_stream_rfree;
--	atomic_add(skb->truesize, &sk->sk_rmem_alloc);
--	sk->sk_forward_alloc -= skb->truesize;
--}
--
--static inline void sk_stream_free_skb(struct sock *sk, struct sk_buff *skb)
--{
--	skb_truesize_check(skb);
--	sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
--	sk->sk_wmem_queued   -= skb->truesize;
--	sk->sk_forward_alloc += skb->truesize;
--	__kfree_skb(skb);
--}
--
- /* The per-socket spinlock must be held here. */
- static inline void sk_add_backlog(struct sock *sk, struct sk_buff *skb)
- {
-@@ -576,7 +557,7 @@ struct proto {
- 	/*
- 	 * Pressure flag: try to collapse.
- 	 * Technical note: it is used by multiple contexts non atomically.
--	 * All the sk_stream_mem_schedule() is of this nature: accounting
-+	 * All the __sk_mem_schedule() is of this nature: accounting
- 	 * is strict, actions are advisory and have some latency.
- 	 */
- 	int			*memory_pressure;
-@@ -712,33 +693,73 @@ static inline struct inode *SOCK_INODE(s
- 	return &container_of(socket, struct socket_alloc, socket)->vfs_inode;
- }
-
--extern void __sk_stream_mem_reclaim(struct sock *sk);
--extern int sk_stream_mem_schedule(struct sock *sk, int size, int kind);
-+/*
-+ * Functions for memory accounting
-+ */
-+extern int __sk_mem_schedule(struct sock *sk, int size, int kind);
-+extern void __sk_mem_reclaim(struct sock *sk);
-
--#define SK_STREAM_MEM_QUANTUM ((int)PAGE_SIZE)
--#define SK_STREAM_MEM_QUANTUM_SHIFT ilog2(SK_STREAM_MEM_QUANTUM)
-+#define SK_MEM_QUANTUM ((int)PAGE_SIZE)
-+#define SK_MEM_QUANTUM_SHIFT ilog2(SK_MEM_QUANTUM)
-+#define SK_MEM_SEND	0
-+#define SK_MEM_RECV	1
-
--static inline int sk_stream_pages(int amt)
-+static inline int sk_mem_pages(int amt)
- {
--	return (amt + SK_STREAM_MEM_QUANTUM - 1) >> SK_STREAM_MEM_QUANTUM_SHIFT;
-+	return (amt + SK_MEM_QUANTUM - 1) >> SK_MEM_QUANTUM_SHIFT;
- }
-
--static inline void sk_stream_mem_reclaim(struct sock *sk)
-+static inline int sk_has_account(struct sock *sk)
- {
--	if (sk->sk_forward_alloc >= SK_STREAM_MEM_QUANTUM)
--		__sk_stream_mem_reclaim(sk);
-+	/* return true if protocol supports memory accounting */
-+	return !!sk->sk_prot->memory_allocated;
- }
-
--static inline int sk_stream_rmem_schedule(struct sock *sk, struct sk_buff *skb)
-+static inline int sk_wmem_schedule(struct sock *sk, int size)
- {
--	return (int)skb->truesize <= sk->sk_forward_alloc ||
--		sk_stream_mem_schedule(sk, skb->truesize, 1);
-+	if (!sk_has_account(sk))
-+		return 1;
-+	return size <= sk->sk_forward_alloc ||
-+		__sk_mem_schedule(sk, size, SK_MEM_SEND);
- }
-
--static inline int sk_stream_wmem_schedule(struct sock *sk, int size)
-+static inline int sk_rmem_schedule(struct sock *sk, int size)
- {
-+	if (!sk_has_account(sk))
-+		return 1;
- 	return size <= sk->sk_forward_alloc ||
--	       sk_stream_mem_schedule(sk, size, 0);
-+		__sk_mem_schedule(sk, size, SK_MEM_RECV);
-+}
-+
-+static inline void sk_mem_reclaim(struct sock *sk)
-+{
-+	if (!sk_has_account(sk))
-+		return;
-+	if (sk->sk_forward_alloc >= SK_MEM_QUANTUM)
-+		__sk_mem_reclaim(sk);
-+}
-+
-+static inline void sk_mem_charge(struct sock *sk, int size)
-+{
-+	if (!sk_has_account(sk))
-+		return;
-+	sk->sk_forward_alloc -= size;
-+}
-+
-+static inline void sk_mem_uncharge(struct sock *sk, int size)
-+{
-+	if (!sk_has_account(sk))
-+		return;
-+	sk->sk_forward_alloc += size;
-+}
-+
-+static inline void sk_wmem_free_skb(struct sock *sk, struct sk_buff *skb)
-+{
-+	skb_truesize_check(skb);
-+	sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
-+	sk->sk_wmem_queued -= skb->truesize;
-+	sk_mem_uncharge(sk, skb->truesize);
-+	__kfree_skb(skb);
- }
-
- /* Used by processes to "lock" a socket state, so that
-@@ -1076,12 +1097,6 @@ static inline int sk_can_gso(const struc
-
- extern void sk_setup_caps(struct sock *sk, struct dst_entry *dst);
-
--static inline void sk_charge_skb(struct sock *sk, struct sk_buff *skb)
--{
--	sk->sk_wmem_queued   += skb->truesize;
--	sk->sk_forward_alloc -= skb->truesize;
--}
--
- static inline int skb_copy_to_page(struct sock *sk, char __user *from,
- 				   struct sk_buff *skb, struct page *page,
- 				   int off, int copy)
-diff -pruN net-2.6.25/net/core/sock.c net-2.6.25-t12t19m-p1/net/core/sock.c
---- net-2.6.25/net/core/sock.c	2007-12-27 10:19:02.000000000 -0500
-+++ net-2.6.25-t12t19m-p1/net/core/sock.c	2007-12-29 20:16:31.000000000 -0500
-@@ -1384,6 +1384,103 @@ int sk_wait_data(struct sock *sk, long *
-
- EXPORT_SYMBOL(sk_wait_data);
-
-+/**
-+ *	__sk_mem_schedule - increase sk_forward_alloc and memory_allocated
-+ *	@sk: socket
-+ *	@size: memory size to allocate
-+ *	@kind: allocation type
-+ *
-+ *	If kind is SK_MEM_SEND, it means wmem allocation. Otherwise it means
-+ *	rmem allocation. This function assumes that protocols which have
-+ *	memory_pressure use sk_wmem_queued as write buffer accounting.
-+ */
-+int __sk_mem_schedule(struct sock *sk, int size, int kind)
-+{
-+	struct proto *prot = sk->sk_prot;
-+	int amt = sk_mem_pages(size);
-+	int allocated;
-+
-+	sk->sk_forward_alloc += amt * SK_MEM_QUANTUM;
-+	allocated = atomic_add_return(amt, prot->memory_allocated);
-+
-+	/* Under limit. */
-+	if (allocated <= prot->sysctl_mem[0]) {
-+		if (prot->memory_pressure && *prot->memory_pressure)
-+			*prot->memory_pressure = 0;
-+		return 1;
-+	}
-+
-+	/* Under pressure. */
-+	if (allocated > prot->sysctl_mem[1])
-+		if (prot->enter_memory_pressure)
-+			prot->enter_memory_pressure();
-+
-+	/* Over hard limit. */
-+	if (allocated > prot->sysctl_mem[2])
-+		goto suppress_allocation;
-+
-+	/* guarantee minimum buffer size under pressure */
-+	if (kind == SK_MEM_RECV) {
-+		if (atomic_read(&sk->sk_rmem_alloc) < prot->sysctl_rmem[0])
-+			return 1;
-+	} else { /* SK_MEM_SEND */
-+		if (sk->sk_type == SOCK_STREAM) {
-+			if (sk->sk_wmem_queued < prot->sysctl_wmem[0])
-+				return 1;
-+		} else if (atomic_read(&sk->sk_wmem_alloc) <
-+			   prot->sysctl_wmem[0])
-+				return 1;
-+	}
-+
-+	if (prot->memory_pressure) {
-+		if (!*prot->memory_pressure ||
-+		    prot->sysctl_mem[2] > atomic_read(prot->sockets_allocated) *
-+		    sk_mem_pages(sk->sk_wmem_queued +
-+				 atomic_read(&sk->sk_rmem_alloc) +
-+				 sk->sk_forward_alloc))
-+			return 1;
-+	}
-+
-+suppress_allocation:
-+
-+	if (kind == SK_MEM_SEND && sk->sk_type == SOCK_STREAM) {
-+		sk_stream_moderate_sndbuf(sk);
-+
-+		/* Fail only if socket is _under_ its sndbuf.
-+		 * In this case we cannot block, so that we have to fail.
-+		 */
-+		if (sk->sk_wmem_queued + size >= sk->sk_sndbuf)
-+			return 1;
-+	}
-+
-+	/* Alas. Undo changes. */
-+	sk->sk_forward_alloc -= amt * SK_MEM_QUANTUM;
-+	atomic_sub(amt, prot->memory_allocated);
-+	return 0;
-+}
-+
-+EXPORT_SYMBOL(__sk_mem_schedule);
-+
-+/**
-+ *	__sk_reclaim - reclaim memory_allocated
-+ *	@sk: socket
-+ */
-+void __sk_mem_reclaim(struct sock *sk)
-+{
-+	struct proto *prot = sk->sk_prot;
-+
-+	atomic_sub(sk->sk_forward_alloc / SK_MEM_QUANTUM,
-+		   prot->memory_allocated);
-+	sk->sk_forward_alloc &= SK_MEM_QUANTUM - 1;
-+
-+	if (prot->memory_pressure && *prot->memory_pressure &&
-+	    (atomic_read(prot->memory_allocated) < prot->sysctl_mem[0]))
-+		*prot->memory_pressure = 0;
-+}
-+
-+EXPORT_SYMBOL(__sk_mem_reclaim);
-+
-+
+ static inline struct sk_buff *tcp_write_queue_head(struct sock *sk)
+diff -pruN net-2.6.25-t12t19m-p2/net/ipv4/tcp.c net-2.6.25-t12t19m-p3/net/ipv4/tcp.c
+--- net-2.6.25-t12t19m-p2/net/ipv4/tcp.c	2007-12-27 10:19:02.000000000 -0500
++++ net-2.6.25-t12t19m-p3/net/ipv4/tcp.c	2007-12-29 20:49:59.000000000 -0500
+@@ -308,7 +308,7 @@ struct tcp_splice_state {
  /*
-  * Set of default routines for initialising struct proto_ops when
-  * the protocol does not support a particular function. In certain
-diff -pruN net-2.6.25/net/core/stream.c net-2.6.25-t12t19m-p1/net/core/stream.c
---- net-2.6.25/net/core/stream.c	2007-12-27 10:19:02.000000000 -0500
-+++ net-2.6.25-t12t19m-p1/net/core/stream.c	2007-12-29 20:16:31.000000000 -0500
-@@ -172,17 +172,6 @@ do_interrupted:
+  * Pressure flag: try to collapse.
+  * Technical note: it is used by multiple contexts non atomically.
+- * All the sk_stream_mem_schedule() is of this nature: accounting
++ * All the __sk_mem_schedule() is of this nature: accounting
+  * is strict, actions are advisory and have some latency.
+  */
+ int tcp_memory_pressure __read_mostly;
+@@ -485,7 +485,8 @@ static inline void skb_entail(struct soc
+ 	tcb->sacked  = 0;
+ 	skb_header_release(skb);
+ 	tcp_add_write_queue_tail(sk, skb);
+-	sk_charge_skb(sk, skb);
++	sk->sk_wmem_queued += skb->truesize;
++	sk_mem_charge(sk, skb->truesize);
+ 	if (tp->nonagle & TCP_NAGLE_PUSH)
+ 		tp->nonagle &= ~TCP_NAGLE_PUSH;
+ }
+@@ -638,7 +639,7 @@ struct sk_buff *sk_stream_alloc_skb(stru
 
- EXPORT_SYMBOL(sk_stream_wait_memory);
+ 	skb = alloc_skb_fclone(size + sk->sk_prot->max_header, gfp);
+ 	if (skb) {
+-		if (sk_stream_wmem_schedule(sk, skb->truesize)) {
++		if (sk_wmem_schedule(sk, skb->truesize)) {
+ 			/*
+ 			 * Make sure that we have exactly size bytes
+ 			 * available to the caller, no more, no less.
+@@ -707,7 +708,7 @@ new_segment:
+ 			tcp_mark_push(tp, skb);
+ 			goto new_segment;
+ 		}
+-		if (!sk_stream_wmem_schedule(sk, copy))
++		if (!sk_wmem_schedule(sk, copy))
+ 			goto wait_for_memory;
 
--void sk_stream_rfree(struct sk_buff *skb)
--{
--	struct sock *sk = skb->sk;
--
--	skb_truesize_check(skb);
--	atomic_sub(skb->truesize, &sk->sk_rmem_alloc);
--	sk->sk_forward_alloc += skb->truesize;
--}
--
--EXPORT_SYMBOL(sk_stream_rfree);
--
- int sk_stream_error(struct sock *sk, int flags, int err)
- {
- 	if (err == -EPIPE)
-@@ -194,77 +183,6 @@ int sk_stream_error(struct sock *sk, int
+ 		if (can_coalesce) {
+@@ -721,7 +722,7 @@ new_segment:
+ 		skb->data_len += copy;
+ 		skb->truesize += copy;
+ 		sk->sk_wmem_queued += copy;
+-		sk->sk_forward_alloc -= copy;
++		sk_mem_charge(sk, copy);
+ 		skb->ip_summed = CHECKSUM_PARTIAL;
+ 		tp->write_seq += copy;
+ 		TCP_SKB_CB(skb)->end_seq += copy;
+@@ -928,7 +929,7 @@ new_segment:
+ 				if (copy > PAGE_SIZE - off)
+ 					copy = PAGE_SIZE - off;
 
- EXPORT_SYMBOL(sk_stream_error);
+-				if (!sk_stream_wmem_schedule(sk, copy))
++				if (!sk_wmem_schedule(sk, copy))
+ 					goto wait_for_memory;
 
--void __sk_stream_mem_reclaim(struct sock *sk)
--{
--	atomic_sub(sk->sk_forward_alloc >> SK_STREAM_MEM_QUANTUM_SHIFT,
--		   sk->sk_prot->memory_allocated);
--	sk->sk_forward_alloc &= SK_STREAM_MEM_QUANTUM - 1;
--	if (*sk->sk_prot->memory_pressure &&
--	    (atomic_read(sk->sk_prot->memory_allocated) <
--	     sk->sk_prot->sysctl_mem[0]))
--		*sk->sk_prot->memory_pressure = 0;
--}
--
--EXPORT_SYMBOL(__sk_stream_mem_reclaim);
--
--int sk_stream_mem_schedule(struct sock *sk, int size, int kind)
--{
--	int amt = sk_stream_pages(size);
--	struct proto *prot = sk->sk_prot;
--
--	sk->sk_forward_alloc += amt * SK_STREAM_MEM_QUANTUM;
--	atomic_add(amt, prot->memory_allocated);
--
--	/* Under limit. */
--	if (atomic_read(prot->memory_allocated) < prot->sysctl_mem[0]) {
--		if (*prot->memory_pressure)
--			*prot->memory_pressure = 0;
--		return 1;
--	}
--
--	/* Over hard limit. */
--	if (atomic_read(prot->memory_allocated) > prot->sysctl_mem[2]) {
--		prot->enter_memory_pressure();
--		goto suppress_allocation;
--	}
--
--	/* Under pressure. */
--	if (atomic_read(prot->memory_allocated) > prot->sysctl_mem[1])
--		prot->enter_memory_pressure();
--
--	if (kind) {
--		if (atomic_read(&sk->sk_rmem_alloc) < prot->sysctl_rmem[0])
--			return 1;
--	} else if (sk->sk_wmem_queued < prot->sysctl_wmem[0])
--		return 1;
--
--	if (!*prot->memory_pressure ||
--	    prot->sysctl_mem[2] > atomic_read(prot->sockets_allocated) *
--				sk_stream_pages(sk->sk_wmem_queued +
--						atomic_read(&sk->sk_rmem_alloc) +
--						sk->sk_forward_alloc))
--		return 1;
--
--suppress_allocation:
--
--	if (!kind) {
--		sk_stream_moderate_sndbuf(sk);
--
--		/* Fail only if socket is _under_ its sndbuf.
--		 * In this case we cannot block, so that we have to fail.
--		 */
--		if (sk->sk_wmem_queued + size >= sk->sk_sndbuf)
--			return 1;
--	}
--
--	/* Alas. Undo changes. */
--	sk->sk_forward_alloc -= amt * SK_STREAM_MEM_QUANTUM;
--	atomic_sub(amt, prot->memory_allocated);
--	return 0;
--}
--
--EXPORT_SYMBOL(sk_stream_mem_schedule);
--
- void sk_stream_kill_queues(struct sock *sk)
- {
- 	/* First the read buffer. */
+ 				if (!page) {
+@@ -1019,7 +1020,7 @@ do_fault:
+ 		 * reset, where we can be unlinking the send_head.
+ 		 */
+ 		tcp_check_send_head(sk, skb);
+-		sk_stream_free_skb(sk, skb);
++		sk_wmem_free_skb(sk, skb);
+ 	}
+
+ do_error:
+@@ -1738,7 +1739,7 @@ void tcp_close(struct sock *sk, long tim
+ 		__kfree_skb(skb);
+ 	}
+
+-	sk_stream_mem_reclaim(sk);
++	sk_mem_reclaim(sk);
+
+ 	/* As outlined in RFC 2525, section 2.17, we send a RST here because
+ 	 * data was lost. To witness the awful effects of the old behavior of
+@@ -1841,7 +1842,7 @@ adjudge_to_death:
+ 		}
+ 	}
+ 	if (sk->sk_state != TCP_CLOSE) {
+-		sk_stream_mem_reclaim(sk);
++		sk_mem_reclaim(sk);
+ 		if (tcp_too_many_orphans(sk,
+ 				atomic_read(sk->sk_prot->orphan_count))) {
+ 			if (net_ratelimit())
+@@ -2658,11 +2659,11 @@ void __init tcp_init(void)
+ 	limit = ((unsigned long)sysctl_tcp_mem[1]) << (PAGE_SHIFT - 7);
+ 	max_share = min(4UL*1024*1024, limit);
+
+-	sysctl_tcp_wmem[0] = SK_STREAM_MEM_QUANTUM;
++	sysctl_tcp_wmem[0] = SK_MEM_QUANTUM;
+ 	sysctl_tcp_wmem[1] = 16*1024;
+ 	sysctl_tcp_wmem[2] = max(64*1024, max_share);
+
+-	sysctl_tcp_rmem[0] = SK_STREAM_MEM_QUANTUM;
++	sysctl_tcp_rmem[0] = SK_MEM_QUANTUM;
+ 	sysctl_tcp_rmem[1] = 87380;
+ 	sysctl_tcp_rmem[2] = max(87380, max_share);
+
+diff -pruN net-2.6.25-t12t19m-p2/net/ipv4/tcp_input.c net-2.6.25-t12t19m-p3/net/ipv4/tcp_input.c
+--- net-2.6.25-t12t19m-p2/net/ipv4/tcp_input.c	2007-12-27 10:19:02.000000000 -0500
++++ net-2.6.25-t12t19m-p3/net/ipv4/tcp_input.c	2007-12-29 20:49:59.000000000 -0500
+@@ -591,7 +591,7 @@ static void tcp_event_data_recv(struct s
+ 			 * restart window, so that we send ACKs quickly.
+ 			 */
+ 			tcp_incr_quickack(sk);
+-			sk_stream_mem_reclaim(sk);
++			sk_mem_reclaim(sk);
+ 		}
+ 	}
+ 	icsk->icsk_ack.lrcvtime = now;
+@@ -2848,7 +2848,7 @@ static int tcp_clean_rtx_queue(struct so
+ 			break;
+
+ 		tcp_unlink_write_queue(skb, sk);
+-		sk_stream_free_skb(sk, skb);
++		sk_wmem_free_skb(sk, skb);
+ 		tcp_clear_all_retrans_hints(tp);
+ 	}
+
+@@ -3564,7 +3564,7 @@ static void tcp_fin(struct sk_buff *skb,
+ 	__skb_queue_purge(&tp->out_of_order_queue);
+ 	if (tcp_is_sack(tp))
+ 		tcp_sack_reset(&tp->rx_opt);
+-	sk_stream_mem_reclaim(sk);
++	sk_mem_reclaim(sk);
+
+ 	if (!sock_flag(sk, SOCK_DEAD)) {
+ 		sk->sk_state_change(sk);
+@@ -3847,12 +3847,12 @@ static void tcp_data_queue(struct sock *
+ queue_and_out:
+ 			if (eaten < 0 &&
+ 			    (atomic_read(&sk->sk_rmem_alloc) > sk->sk_rcvbuf ||
+-			     !sk_stream_rmem_schedule(sk, skb))) {
++			     !sk_rmem_schedule(sk, skb->truesize))) {
+ 				if (tcp_prune_queue(sk) < 0 ||
+-				    !sk_stream_rmem_schedule(sk, skb))
++				    !sk_rmem_schedule(sk, skb->truesize))
+ 					goto drop;
+ 			}
+-			sk_stream_set_owner_r(skb, sk);
++			skb_set_owner_r(skb, sk);
+ 			__skb_queue_tail(&sk->sk_receive_queue, skb);
+ 		}
+ 		tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
+@@ -3921,9 +3921,9 @@ drop:
+ 	TCP_ECN_check_ce(tp, skb);
+
+ 	if (atomic_read(&sk->sk_rmem_alloc) > sk->sk_rcvbuf ||
+-	    !sk_stream_rmem_schedule(sk, skb)) {
++	    !sk_rmem_schedule(sk, skb->truesize)) {
+ 		if (tcp_prune_queue(sk) < 0 ||
+-		    !sk_stream_rmem_schedule(sk, skb))
++		    !sk_rmem_schedule(sk, skb->truesize))
+ 			goto drop;
+ 	}
+
+@@ -3934,7 +3934,7 @@ drop:
+ 	SOCK_DEBUG(sk, "out of order segment: rcv_next %X seq %X - %X\n",
+ 		   tp->rcv_nxt, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq);
+
+-	sk_stream_set_owner_r(skb, sk);
++	skb_set_owner_r(skb, sk);
+
+ 	if (!skb_peek(&tp->out_of_order_queue)) {
+ 		/* Initial out of order segment, build 1 SACK. */
+@@ -4076,7 +4076,7 @@ tcp_collapse(struct sock *sk, struct sk_
+ 		memcpy(nskb->cb, skb->cb, sizeof(skb->cb));
+ 		TCP_SKB_CB(nskb)->seq = TCP_SKB_CB(nskb)->end_seq = start;
+ 		__skb_insert(nskb, skb->prev, skb, list);
+-		sk_stream_set_owner_r(nskb, sk);
++		skb_set_owner_r(nskb, sk);
+
+ 		/* Copy data, releasing collapsed skbs. */
+ 		while (copy > 0) {
+@@ -4174,7 +4174,7 @@ static int tcp_prune_queue(struct sock *
+ 		     sk->sk_receive_queue.next,
+ 		     (struct sk_buff*)&sk->sk_receive_queue,
+ 		     tp->copied_seq, tp->rcv_nxt);
+-	sk_stream_mem_reclaim(sk);
++	sk_mem_reclaim(sk);
+
+ 	if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf)
+ 		return 0;
+@@ -4194,7 +4194,7 @@ static int tcp_prune_queue(struct sock *
+ 		 */
+ 		if (tcp_is_sack(tp))
+ 			tcp_sack_reset(&tp->rx_opt);
+-		sk_stream_mem_reclaim(sk);
++		sk_mem_reclaim(sk);
+ 	}
+
+ 	if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf)
+@@ -4696,7 +4696,7 @@ int tcp_rcv_established(struct sock *sk,
+ 				/* Bulk data transfer: receiver */
+ 				__skb_pull(skb,tcp_header_len);
+ 				__skb_queue_tail(&sk->sk_receive_queue, skb);
+-				sk_stream_set_owner_r(skb, sk);
++				skb_set_owner_r(skb, sk);
+ 				tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
+ 			}
+
+diff -pruN net-2.6.25-t12t19m-p2/net/ipv4/tcp_output.c net-2.6.25-t12t19m-p3/net/ipv4/tcp_output.c
+--- net-2.6.25-t12t19m-p2/net/ipv4/tcp_output.c	2007-12-27 10:19:02.000000000 -0500
++++ net-2.6.25-t12t19m-p3/net/ipv4/tcp_output.c	2007-12-29 20:49:59.000000000 -0500
+@@ -637,7 +637,8 @@ static void tcp_queue_skb(struct sock *s
+ 	tp->write_seq = TCP_SKB_CB(skb)->end_seq;
+ 	skb_header_release(skb);
+ 	tcp_add_write_queue_tail(sk, skb);
+-	sk_charge_skb(sk, skb);
++	sk->sk_wmem_queued += skb->truesize;
++	sk_mem_charge(sk, skb->truesize);
+ }
+
+ static void tcp_set_skb_tso_segs(struct sock *sk, struct sk_buff *skb, unsigned int mss_now)
+@@ -701,7 +702,8 @@ int tcp_fragment(struct sock *sk, struct
+ 	if (buff == NULL)
+ 		return -ENOMEM; /* We'll just try again later. */
+
+-	sk_charge_skb(sk, buff);
++	sk->sk_wmem_queued += buff->truesize;
++	sk_mem_charge(sk, buff->truesize);
+ 	nlen = skb->len - len - nsize;
+ 	buff->truesize += nlen;
+ 	skb->truesize -= nlen;
+@@ -825,7 +827,7 @@ int tcp_trim_head(struct sock *sk, struc
+
+ 	skb->truesize	     -= len;
+ 	sk->sk_wmem_queued   -= len;
+-	sk->sk_forward_alloc += len;
++	sk_mem_uncharge(sk, len);
+ 	sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
+
+ 	/* Any change of skb->len requires recalculation of tso
+@@ -1197,7 +1199,8 @@ static int tso_fragment(struct sock *sk,
+ 	if (unlikely(buff == NULL))
+ 		return -ENOMEM;
+
+-	sk_charge_skb(sk, buff);
++	sk->sk_wmem_queued += buff->truesize;
++	sk_mem_charge(sk, buff->truesize);
+ 	buff->truesize += nlen;
+ 	skb->truesize -= nlen;
+
+@@ -1350,7 +1353,8 @@ static int tcp_mtu_probe(struct sock *sk
+ 	/* We're allowed to probe.  Build it now. */
+ 	if ((nskb = sk_stream_alloc_skb(sk, probe_size, GFP_ATOMIC)) == NULL)
+ 		return -1;
+-	sk_charge_skb(sk, nskb);
++	sk->sk_wmem_queued += nskb->truesize;
++	sk_mem_charge(sk, nskb->truesize);
+
+ 	skb = tcp_send_head(sk);
+
+@@ -1377,7 +1381,7 @@ static int tcp_mtu_probe(struct sock *sk
+ 			 * Throw it away. */
+ 			TCP_SKB_CB(nskb)->flags |= TCP_SKB_CB(skb)->flags;
+ 			tcp_unlink_write_queue(skb, sk);
+-			sk_stream_free_skb(sk, skb);
++			sk_wmem_free_skb(sk, skb);
+ 		} else {
+ 			TCP_SKB_CB(nskb)->flags |= TCP_SKB_CB(skb)->flags &
+ 						   ~(TCPCB_FLAG_FIN|TCPCB_FLAG_PSH);
+@@ -1744,7 +1748,7 @@ static void tcp_retrans_try_collapse(str
+ 		/* changed transmit queue under us so clear hints */
+ 		tcp_clear_retrans_hints_partial(tp);
+
+-		sk_stream_free_skb(sk, next_skb);
++		sk_wmem_free_skb(sk, next_skb);
+ 	}
+ }
+
+@@ -2139,8 +2143,9 @@ int tcp_send_synack(struct sock *sk)
+ 			tcp_unlink_write_queue(skb, sk);
+ 			skb_header_release(nskb);
+ 			__tcp_add_write_queue_head(sk, nskb);
+-			sk_stream_free_skb(sk, skb);
+-			sk_charge_skb(sk, nskb);
++			sk_wmem_free_skb(sk, skb);
++			sk->sk_wmem_queued += nskb->truesize;
++			sk_mem_charge(sk, nskb->truesize);
+ 			skb = nskb;
+ 		}
+
+@@ -2343,7 +2348,8 @@ int tcp_connect(struct sock *sk)
+ 	tp->retrans_stamp = TCP_SKB_CB(buff)->when;
+ 	skb_header_release(buff);
+ 	__tcp_add_write_queue_tail(sk, buff);
+-	sk_charge_skb(sk, buff);
++	sk->sk_wmem_queued += buff->truesize;
++	sk_mem_charge(sk, buff->truesize);
+ 	tp->packets_out += tcp_skb_pcount(buff);
+ 	tcp_transmit_skb(sk, buff, 1, GFP_KERNEL);
+
+diff -pruN net-2.6.25-t12t19m-p2/net/ipv4/tcp_timer.c net-2.6.25-t12t19m-p3/net/ipv4/tcp_timer.c
+--- net-2.6.25-t12t19m-p2/net/ipv4/tcp_timer.c	2007-12-27 10:19:02.000000000 -0500
++++ net-2.6.25-t12t19m-p3/net/ipv4/tcp_timer.c	2007-12-29 20:49:59.000000000 -0500
+@@ -186,7 +186,7 @@ static void tcp_delack_timer(unsigned lo
+ 		goto out_unlock;
+ 	}
+
+-	sk_stream_mem_reclaim(sk);
++	sk_mem_reclaim(sk);
+
+ 	if (sk->sk_state == TCP_CLOSE || !(icsk->icsk_ack.pending & ICSK_ACK_TIMER))
+ 		goto out;
+@@ -226,7 +226,7 @@ static void tcp_delack_timer(unsigned lo
+
+ out:
+ 	if (tcp_memory_pressure)
+-		sk_stream_mem_reclaim(sk);
++		sk_mem_reclaim(sk);
+ out_unlock:
+ 	bh_unlock_sock(sk);
+ 	sock_put(sk);
+@@ -420,7 +420,7 @@ static void tcp_write_timer(unsigned lon
+ 	TCP_CHECK_TIMER(sk);
+
+ out:
+-	sk_stream_mem_reclaim(sk);
++	sk_mem_reclaim(sk);
+ out_unlock:
+ 	bh_unlock_sock(sk);
+ 	sock_put(sk);
+@@ -514,7 +514,7 @@ static void tcp_keepalive_timer (unsigne
+ 	}
+
+ 	TCP_CHECK_TIMER(sk);
+-	sk_stream_mem_reclaim(sk);
++	sk_mem_reclaim(sk);
+
+ resched:
+ 	inet_csk_reset_keepalive_timer (sk, elapsed);
 -- 
 Hitachi Computer Products (America) Inc.
