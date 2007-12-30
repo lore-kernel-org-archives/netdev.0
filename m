@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix broken ip= parsing
-Date: Sat, 29 Dec 2007 18:59:48 -0800 (PST)
-Message-ID: <20071229.185948.13302114.davem@davemloft.net>
-References: <20071229170849.C2E68C2EEE@solo.franken.de>
+Subject: Re: [Bugme-new] [Bug 9661] New: Booting from nfsroot fails
+Date: Sat, 29 Dec 2007 19:05:18 -0800 (PST)
+Message-ID: <20071229.190518.199477479.davem@davemloft.net>
+References: <bug-9661-10286@http.bugzilla.kernel.org/>
+	<20071229151401.ee32b8f7.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	horms@verge.net.au
-To: tsbogend@alpha.franken.de
+Cc: bugs@psycast.de, bugme-daemon@bugzilla.kernel.org,
+	netdev@vger.kernel.org, horms@verge.net.au
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35904
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48904
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752160AbXL3C7z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Dec 2007 21:59:55 -0500
-In-Reply-To: <20071229170849.C2E68C2EEE@solo.franken.de>
+	by vger.kernel.org with ESMTP id S1752355AbXL3DFY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Dec 2007 22:05:24 -0500
+In-Reply-To: <20071229151401.ee32b8f7.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Date: Sat, 29 Dec 2007 18:08:49 +0100 (CET)
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Sat, 29 Dec 2007 15:14:01 -0800
 
-> Commit a6c05c3d064dbb83be88cba3189beb5db9d2dfc3 breaks ip= parsing
-> completly, because ic_enable is never set. The patch below puts
-> back the way ic_enable was set before.
+> Thanks for the fix, but please send patches via email and not via bugzilla?
 > 
-> Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+> Suitable recipients for this one would be
+> 
+> netdev@vger.kernel.org
+> Simon Horman <horms@verge.net.au>
+> "David S. Miller" <davem@davemloft.net>
 
-I already have this exact patch in my net-2.6 tree from Simon.
-Thanks.
+Simon already sent me a fix for this a few days ago, it's
+in my tree and will be sent to Linus in due time.
