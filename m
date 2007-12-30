@@ -1,44 +1,45 @@
 From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH net-2.6.25 6/7][ATM]: [ambassador] kmalloc + memset conversion to kzalloc
-Date: Sat, 29 Dec 2007 20:08:12 -0500
-Message-ID: <200712300108.lBU18CjE003595@cmf.nrl.navy.mil>
+Subject: [PATCH net-2.6.25 7/7][ATM]: [he] fixing compilation when you define USE_RBPS_POOL/USE_RBPL_POOL
+Date: Sat, 29 Dec 2007 20:08:30 -0500
+Message-ID: <200712300108.lBU18UUa003635@cmf.nrl.navy.mil>
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:59190 "EHLO
+Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:59192 "EHLO
 	ginger.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752571AbXL3BI2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Dec 2007 20:08:28 -0500
+	with ESMTP id S1752628AbXL3BIo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Dec 2007 20:08:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 87c1811be8f1c6587ed3b57d23f93c7e91afdde7
-Author: Joonwoo Park <joonwpark81@gmail.com>
-Date:   Tue Nov 27 09:43:04 2007 -0500
+commit 62024377f1da8a3f5b49cfd60d892c778f5a5741
+Author: Jorge Boncompte <jorge@dti2.net>
+Date:   Thu Dec 13 16:14:40 2007 -0500
 
-    [ATM]: [ambassador] kmalloc + memset conversion to kzalloc
+    [ATM]: [he] fixing compilation when you define USE_RBPS_POOL/USE_RBPL_POOL
     
-    Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
+    Signed-off-by: Jorge Boncompte <jorge@dti2.net>
     Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
-diff --git a/drivers/atm/ambassador.c b/drivers/atm/ambassador.c
-index b34b382..7b44a59 100644
---- a/drivers/atm/ambassador.c
-+++ b/drivers/atm/ambassador.c
-@@ -2163,7 +2163,6 @@ static int __devinit amb_init (amb_dev * dev)
- static void setup_dev(amb_dev *dev, struct pci_dev *pci_dev) 
- {
-       unsigned char pool;
--      memset (dev, 0, sizeof(amb_dev));
-       
-       // set up known dev items straight away
-       dev->pci_dev = pci_dev; 
-@@ -2253,7 +2252,7 @@ static int __devinit amb_probe(struct pci_dev *pci_dev, const struct pci_device_
- 		goto out_disable;
- 	}
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+index 3b64a99..20df4bb 100644
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -1643,6 +1643,8 @@ he_stop(struct he_dev *he_dev)
  
--	dev = kmalloc (sizeof(amb_dev), GFP_KERNEL);
-+	dev = kzalloc(sizeof(amb_dev), GFP_KERNEL);
- 	if (!dev) {
- 		PRINTK (KERN_ERR, "out of memory!");
- 		err = -ENOMEM;
+ 	if (he_dev->rbpl_base) {
+ #ifdef USE_RBPL_POOL
++		int i;
++
+ 		for (i = 0; i < CONFIG_RBPL_SIZE; ++i) {
+ 			void *cpuaddr = he_dev->rbpl_virt[i].virt;
+ 			dma_addr_t dma_handle = he_dev->rbpl_base[i].phys;
+@@ -1665,6 +1667,8 @@ he_stop(struct he_dev *he_dev)
+ #ifdef USE_RBPS
+ 	if (he_dev->rbps_base) {
+ #ifdef USE_RBPS_POOL
++		int i;
++
+ 		for (i = 0; i < CONFIG_RBPS_SIZE; ++i) {
+ 			void *cpuaddr = he_dev->rbps_virt[i].virt;
+ 			dma_addr_t dma_handle = he_dev->rbps_base[i].phys;
