@@ -1,68 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][ROSE][AX25] af_ax25: possible circular locking
-Date: Sat, 29 Dec 2007 19:14:43 -0800 (PST)
-Message-ID: <20071229.191443.10947724.davem@davemloft.net>
-References: <20071218135202.GA2023@ff.dom.local>
-	<47755FDB.2070501@free.fr>
-	<20071228214857.GA3290@ami.dom.local>
+Subject: Re: [PATCH] net: santize headers for iproute2
+Date: Sat, 29 Dec 2007 19:22:12 -0800 (PST)
+Message-ID: <20071229.192212.149111967.davem@davemloft.net>
+References: <20071225124323.70e0c772@deepthought>
+	<20071225.150238.193724414.davem@davemloft.net>
+	<20071225171310.1c43a0e2@deepthought>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f6bvp@free.fr, ralf@linux-mips.org, adobriyan@gmail.com,
-	netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: vgusev@openvz.org, netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35322
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35135
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752160AbXL3DOs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Dec 2007 22:14:48 -0500
-In-Reply-To: <20071228214857.GA3290@ami.dom.local>
+	by vger.kernel.org with ESMTP id S1752920AbXL3DWP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Dec 2007 22:22:15 -0500
+In-Reply-To: <20071225171310.1c43a0e2@deepthought>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Fri, 28 Dec 2007 22:48:57 +0100
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Tue, 25 Dec 2007 17:13:10 -0800
 
-> lockdep is worried about the different order here:
-> 
-> #1 (rose_neigh_list_lock){-+..}:
-> #3 (ax25_list_lock){-+..}:
-> 
-> #0 (linkfail_lock){-+..}:
-> #1 (rose_neigh_list_lock){-+..}:
-> 
-> #3 (ax25_list_lock){-+..}:
-> #0 (linkfail_lock){-+..}:
-> 
-> So, ax25_list_lock could be taken before and after linkfail_lock. 
-> I don't know if this three-thread clutch is very probable (or
-> possible at all), but it seems another bug reported by Bernard
-> ("[...] system impossible to reboot with linux-2.6.24-rc5")
-> could have similar source - namely ax25_list_lock held by
-> ax25_kill_by_device() during ax25_disconnect(). It looks like the
-> only place which calls ax25_disconnect() this way, so I guess, it
-> isn't necessary.
-> 
-> This patch is breaking the lock for ax25_disconnect(), with some
-> failsafe and debugging added to detect unforeseen problems.
-> 
-> 
-> Reported-and-tested-by: Bernard Pidoux <f6bvp@free.fr>
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> Well changing netinet/tcp.h is just not a realistic proposition, it takes
+> too long to filter from glibc through distro's to be worth it.
 
-I can't apply this fix, sorry.
+But you have to, the ifdef mess you are suggesting is so much
+worse.
 
-You can't just drop this linked list lock and expect it to stay
-consistent like that.
+Look at the reason you even have to do add the ifdefs, it's because
+lo' and behold the congestion control defines have already propagated
+properly into netinet/tcp.h
 
-Once you drop it, any thread of control can get in there and delete
-entries from the list.
+And this alone proves that your argument against putting this stuff in
+the right place has no basis in reality.
 
-Since we know it can happen, using a WARN_ON_ONCE(1) is not
-appropriate.  And if it triggers it will do the wrong thing, because
-by branching back to "again" we can call ax25_disconnect() multiple
-times on the same entry which isn't right.
+Please just submit a patch to the appropriate place to get the
+interfaces you need into netinet/tcp.h included instead of crapping
+all over the kernel headers.
 
-You'll thus need to resolve this locking conflict more properly.
-I know it's hard, but your current fix is worse because it adds
-a new known bug.
+In the interum you can put a special header into the iproute2
+distribution to handle this until it's sorted.
