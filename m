@@ -1,19 +1,28 @@
-From: Ramesh R <rramesh1@gmail.com>
-Subject: (no subject)
-Date: Sun, 30 Dec 2007 23:03:10 -0800
-Message-ID: <4778942E.9060901@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.25 1/7][ATM]: atm is no longer experimental
+Date: Sun, 30 Dec 2007 23:15:27 -0800 (PST)
+Message-ID: <20071230.231527.148150127.davem@davemloft.net>
+References: <200712300106.lBU16311003517@cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.176]:40745 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752590AbXLaHDR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 02:03:17 -0500
-Received: by wa-out-1112.google.com with SMTP id v27so7505248wah.23
-        for <netdev@vger.kernel.org>; Sun, 30 Dec 2007 23:03:16 -0800 (PST)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54500
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752786AbXLaHP2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 02:15:28 -0500
+In-Reply-To: <200712300106.lBU16311003517@cmf.nrl.navy.mil>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-subscribe linux-wireless
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Date: Sat, 29 Dec 2007 20:06:03 -0500
+
+>     [ATM]: atm is no longer experimental
+>     
+>     From: Robert P. J. Day <rpjday@mindspring.com>
+>     Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
+
+Applied.
