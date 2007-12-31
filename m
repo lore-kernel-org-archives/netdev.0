@@ -1,67 +1,33 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: 2.6.24-rc6-mm1 - git-lblnet.patch and networking horkage
-Date: Mon, 31 Dec 2007 17:01:24 -0500
-Message-ID: <200712311701.24685.paul.moore@hp.com>
-References: <3281504256.5618888@mail.hp.com> <200712311506.15230.paul.moore@hp.com> <Xine.LNX.4.64.0801010841060.25768@us.intercode.com.au>
+From: Jan Engelhardt <jengelh@computergmbh.de>
+Subject: Re: [PATCH] Force UNIX domain sockets to be built in
+Date: Mon, 31 Dec 2007 23:20:40 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0712312316050.28123@fbirervta.pbzchgretzou.qr>
+References: <alpine.LSU.0.999.0712311300020.3686@be1.lrz>
+ <20071231122419.GA13803@does.not.exist> <alpine.LSU.0.999.0712311335210.3761@be1.lrz>
+ <20071231144255.GB13803@does.not.exist> <alpine.LSU.0.999.0712311553530.4211@be1.lrz>
+ <Pine.LNX.4.64.0712311628330.28123@fbirervta.pbzchgretzou.qr>
+ <20071231174302.GA1627@oscar.prima.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Valdis.Kletnieks@vt.edu, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, sds@tycho.nsa.gov,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Bodo Eggert <7eggert@gmx.de>, Adrian Bunk <bunk@kernel.org>,
+	devzero@web.de, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: James Morris <jmorris@namei.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:47932 "EHLO
-	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751522AbXLaWBg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 17:01:36 -0500
-In-Reply-To: <Xine.LNX.4.64.0801010841060.25768@us.intercode.com.au>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Patrick Mau <mau@oscar.ping.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752646AbXLaWUy@vger.kernel.org>
+In-Reply-To: <20071231174302.GA1627@oscar.prima.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday 31 December 2007 4:46:09 pm James Morris wrote:
-> On Mon, 31 Dec 2007, Paul Moore wrote:
-> > I'm pretty certain this is an uninitialized value problem now and not a
-> > use-after-free issue.  The invalid/garbage ->iif value seems to only
-> > happen on packets that are generated locally and sent back into the stack
-> > for local consumption, e.g. loopback.  These local packets also need to
-> > have been cloned at some point, either on the output or input path.
+
+On Dec 31 2007 18:43, Patrick Mau wrote:
 >
-> I think we need to find out exactly what's happening, first.
-
-The more I've looked at the code this afternoon, I'm certain this is the case.  
-I've also been running a patched kernel (using option #2 from below) and all 
-of the skbs coming up the stack have valid ->iif values.  Granted, I haven't 
-examined the code from the avahi daemon or the tcl test cases and traced the 
-entire code path through the kernel but I _am_ certain that at some point in 
-that code path the packet is cloned and due to a problem in skb_clone() 
-the ->iif field is not copied correctly causing the problems we have all 
-seen.
-
-How much smoke needs to be coming from the gun? :)
-
-> > The problem appears to be a skb_clone() function which does not clear the
-> > skb structure properly and fails to copy the ->iif value from the
-> > original skb to the cloned skb.  From what I can tell, there are two
-> > possible solutions to this problem:
-> >
-> >  1. Clear all of the cloned skb fields in skb_clone() via memset()
+>May I ask something that might be obvious for most of the
+>development community:
 >
-> Sounds like it's not going to fly for performance reasons in any case.
+>Modules have to be loaded in seperate pages, right ?
 
-That was my gut feeling.  I was also a little unsure where exactly the correct 
-placement should be for the memset() call.
+That seems to be the case, judging from /proc/modules always ending in 000,
+meaning each module is aligned at 0x1000 (4096, a page on i386).
 
-> >  2. Copy the ->iif field in __copy_skb_header()
->
-> Seems valid.
-
-Okay, I'll stick with this approach.  I'll post a patch backed against 
-net-2.6.25 tomorrow as an RFC to see if anyone on netdev has any strong 
-feelings.  If no one complains, I'll add it to the lblnet git tree.
-
--- 
-paul moore
-linux security @ hp
+Additionally, it looks like 48% of all kernel symbols (from System.map)
+are aligned to 16 byte boundaries (what a waste! ;-))
