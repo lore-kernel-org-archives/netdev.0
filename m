@@ -1,8 +1,8 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH 2/9] [TCP]: Rename update_send_head & include related increment to it
-Date: Mon, 31 Dec 2007 12:47:50 +0200
-Message-ID: <11990980773391-git-send-email-ilpo.jarvinen@helsinki.fi>
-References: <11990980772344-git-send-email-ilpo.jarvinen@helsinki.fi> <1199098077874-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH 6/9] [TCP]: Remove TCPCB_URG & TCPCB_AT_TAIL as unnecessary
+Date: Mon, 31 Dec 2007 12:47:54 +0200
+Message-ID: <11990980772445-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <11990980772344-git-send-email-ilpo.jarvinen@helsinki.fi> <1199098077874-git-send-email-ilpo.jarvinen@helsinki.fi> <11990980773391-git-send-email-ilpo.jarvinen@helsinki.fi> <11990980771495-git-send-email-ilpo.jarvinen@helsinki.fi> <11990980772309-git-send-email-ilpo.jarvinen@helsinki.fi> <11990980773732-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -11,104 +11,113 @@ To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from courier.cs.helsinki.fi ([128.214.9.1]:46986 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755524AbXLaKr7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 05:47:59 -0500
-In-Reply-To: <1199098077874-git-send-email-ilpo.jarvinen@helsinki.fi>
+	with ESMTP id S1755939AbXLaKsB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 05:48:01 -0500
+In-Reply-To: <11990980773732-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There's very little need to have the packets_out incrementing in
-a separate function. Also name the combined function
-appropriately.
+The snd_up check should be enough. I suspect this has been
+there to provide a minor optimization in clean_rtx_queue which
+used to have a small if (!->sacked) block which could skip
+snd_up check among the other work.
 
 Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 ---
- net/ipv4/tcp_output.c |   32 ++++++++++++--------------------
- 1 files changed, 12 insertions(+), 20 deletions(-)
+ include/net/tcp.h     |    4 ----
+ net/ipv4/tcp.c        |    1 -
+ net/ipv4/tcp_input.c  |    3 +--
+ net/ipv4/tcp_output.c |    7 +++----
+ 4 files changed, 4 insertions(+), 11 deletions(-)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 7a4834a..1ca638b 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -61,29 +61,22 @@ int sysctl_tcp_base_mss __read_mostly =3D 512;
- /* By default, RFC2861 behavior.  */
- int sysctl_tcp_slow_start_after_idle __read_mostly =3D 1;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 6a732d4..48081ad 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -578,10 +578,6 @@ struct tcp_skb_cb {
+ #define TCPCB_EVER_RETRANS	0x80	/* Ever retransmitted frame	*/
+ #define TCPCB_RETRANS		(TCPCB_SACKED_RETRANS|TCPCB_EVER_RETRANS)
 =20
--static inline void tcp_packets_out_inc(struct sock *sk,
--				       const struct sk_buff *skb)
--{
--	struct tcp_sock *tp =3D tcp_sk(sk);
--	int orig =3D tp->packets_out;
+-#define TCPCB_URG		0x20	/* Urgent pointer advanced here	*/
 -
--	tp->packets_out +=3D tcp_skb_pcount(skb);
--	if (!orig)
--		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
--					  inet_csk(sk)->icsk_rto, TCP_RTO_MAX);
--}
+-#define TCPCB_AT_TAIL		(TCPCB_URG)
 -
--static void update_send_head(struct sock *sk, struct sk_buff *skb)
-+static void tcp_event_new_data_sent(struct sock *sk, struct sk_buff *s=
-kb)
- {
- 	struct tcp_sock *tp =3D tcp_sk(sk);
-+	unsigned int prior_packets =3D tp->packets_out;
-=20
- 	tcp_advance_send_head(sk, skb);
- 	tp->snd_nxt =3D TCP_SKB_CB(skb)->end_seq;
--	tcp_packets_out_inc(sk, skb);
-=20
- 	/* Don't override Nagle indefinately with F-RTO */
- 	if (tp->frto_counter =3D=3D 2)
- 		tp->frto_counter =3D 3;
-+
-+	tp->packets_out +=3D tcp_skb_pcount(skb);
-+	if (!prior_packets)
-+		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
-+					  inet_csk(sk)->icsk_rto, TCP_RTO_MAX);
+ 	__u16		urg_ptr;	/* Valid w/URG flags is set.	*/
+ 	__u32		ack_seq;	/* Sequence number ACK'd	*/
+ };
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 2cbfa6d..34085e3 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -497,7 +497,6 @@ static inline void tcp_mark_urg(struct tcp_sock *tp=
+, int flags,
+ 	if (flags & MSG_OOB) {
+ 		tp->urg_mode =3D 1;
+ 		tp->snd_up =3D tp->write_seq;
+-		TCP_SKB_CB(skb)->sacked |=3D TCPCB_URG;
+ 	}
  }
 =20
- /* SND.NXT, if window was not shrunk.
-@@ -1410,7 +1403,7 @@ static int tcp_mtu_probe(struct sock *sk)
- 		/* Decrement cwnd here because we are sending
- 		* effectively two packets. */
- 		tp->snd_cwnd--;
--		update_send_head(sk, nskb);
-+		tcp_event_new_data_sent(sk, nskb);
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 7bac1fa..1e7fd81 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2821,8 +2821,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, i=
+nt prior_fackets)
+ 		if (sacked & TCPCB_LOST)
+ 			tp->lost_out -=3D acked_pcount;
 =20
- 		icsk->icsk_mtup.probe_size =3D tcp_mss_to_mtu(sk, nskb->len);
- 		tp->mtu_probe.probe_seq_start =3D TCP_SKB_CB(nskb)->seq;
-@@ -1494,7 +1487,7 @@ static int tcp_write_xmit(struct sock *sk, unsign=
-ed int mss_now, int nonagle)
- 		/* Advance the send_head.  This one is sent out.
- 		 * This call will increment packets_out.
+-		if (unlikely((sacked & TCPCB_URG) && tp->urg_mode &&
+-			     !before(end_seq, tp->snd_up)))
++		if (unlikely(tp->urg_mode && !before(end_seq, tp->snd_up)))
+ 			tp->urg_mode =3D 0;
+=20
+ 		tp->packets_out -=3D acked_pcount;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 202d60c..182ae21 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -711,7 +711,6 @@ int tcp_fragment(struct sock *sk, struct sk_buff *s=
+kb, u32 len, unsigned int mss
+ 	TCP_SKB_CB(skb)->flags =3D flags & ~(TCPCB_FLAG_FIN|TCPCB_FLAG_PSH);
+ 	TCP_SKB_CB(buff)->flags =3D flags;
+ 	TCP_SKB_CB(buff)->sacked =3D TCP_SKB_CB(skb)->sacked;
+-	TCP_SKB_CB(skb)->sacked &=3D ~TCPCB_AT_TAIL;
+=20
+ 	if (!skb_shinfo(skb)->nr_frags && skb->ip_summed !=3D CHECKSUM_PARTIA=
+L) {
+ 		/* Copy and checksum data tail into the new buffer. */
+@@ -1721,7 +1720,7 @@ static void tcp_retrans_try_collapse(struct sock =
+*sk, struct sk_buff *skb, int m
+ 		/* All done, get rid of second SKB and account for it so
+ 		 * packet counting does not break.
  		 */
--		update_send_head(sk, skb);
-+		tcp_event_new_data_sent(sk, skb);
-=20
- 		tcp_minshall_update(tp, mss_now, skb);
- 		sent_pkts++;
-@@ -1553,7 +1546,7 @@ void tcp_push_one(struct sock *sk, unsigned int m=
-ss_now)
- 		TCP_SKB_CB(skb)->when =3D tcp_time_stamp;
-=20
- 		if (likely(!tcp_transmit_skb(sk, skb, 1, sk->sk_allocation))) {
--			update_send_head(sk, skb);
-+			tcp_event_new_data_sent(sk, skb);
- 			tcp_cwnd_validate(sk);
- 			return;
- 		}
-@@ -2528,9 +2521,8 @@ int tcp_write_wakeup(struct sock *sk)
- 			TCP_SKB_CB(skb)->flags |=3D TCPCB_FLAG_PSH;
- 			TCP_SKB_CB(skb)->when =3D tcp_time_stamp;
- 			err =3D tcp_transmit_skb(sk, skb, 1, GFP_ATOMIC);
--			if (!err) {
--				update_send_head(sk, skb);
--			}
-+			if (!err)
-+				tcp_event_new_data_sent(sk, skb);
- 			return err;
+-		TCP_SKB_CB(skb)->sacked |=3D TCP_SKB_CB(next_skb)->sacked&(TCPCB_EVE=
+R_RETRANS|TCPCB_AT_TAIL);
++		TCP_SKB_CB(skb)->sacked |=3D TCP_SKB_CB(next_skb)->sacked & TCPCB_EV=
+ER_RETRANS;
+ 		if (TCP_SKB_CB(next_skb)->sacked&TCPCB_SACKED_RETRANS)
+ 			tp->retrans_out -=3D tcp_skb_pcount(next_skb);
+ 		if (TCP_SKB_CB(next_skb)->sacked&TCPCB_LOST)
+@@ -2470,7 +2469,7 @@ static int tcp_xmit_probe_skb(struct sock *sk, in=
+t urgent)
+ 	skb_reserve(skb, MAX_TCP_HEADER);
+ 	skb->csum =3D 0;
+ 	TCP_SKB_CB(skb)->flags =3D TCPCB_FLAG_ACK;
+-	TCP_SKB_CB(skb)->sacked =3D urgent;
++	TCP_SKB_CB(skb)->sacked =3D 0;
+ 	skb_shinfo(skb)->gso_segs =3D 1;
+ 	skb_shinfo(skb)->gso_size =3D 0;
+ 	skb_shinfo(skb)->gso_type =3D 0;
+@@ -2522,7 +2521,7 @@ int tcp_write_wakeup(struct sock *sk)
  		} else {
  			if (tp->urg_mode &&
+ 			    between(tp->snd_up, tp->snd_una+1, tp->snd_una+0xFFFF))
+-				tcp_xmit_probe_skb(sk, TCPCB_URG);
++				tcp_xmit_probe_skb(sk, 1);
+ 			return tcp_xmit_probe_skb(sk, 0);
+ 		}
+ 	}
 --=20
 1.5.0.6
 
