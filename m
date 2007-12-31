@@ -1,27 +1,51 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] Re: Nested VLAN causes recursive locking error
-Date: Mon, 31 Dec 2007 18:54:16 +0100
-Message-ID: <20071231175416.GB3097@ami.dom.local>
-References: <20071220135253.GA10932@ff.dom.local> <477904F1.6090403@trash.net> <20071231174555.GA3097@ami.dom.local>
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Subject: Re: [PATCH] ip[6]_tables.c: remove some inlines
+Date: Mon, 31 Dec 2007 17:55:02 +0000
+Message-ID: <200712311755.02578.vda.linux@googlemail.com>
+References: <200712161247.53986.vda.linux@googlemail.com> <200712311643.41946.vda.linux@googlemail.com> <47792032.3020609@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chuck Ebbert <cebbert@redhat.com>, Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Harald Welte <laforge@gnumonks.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
 To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:39679 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751990AbXLaRwS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 12:52:18 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so2312450ugc.16
-        for <netdev@vger.kernel.org>; Mon, 31 Dec 2007 09:52:14 -0800 (PST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <47792032.3020609@trash.net>
 Content-Disposition: inline
-In-Reply-To: <20071231174555.GA3097@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 31, 2007 at 06:45:55PM +0100, Jarek Poplawski wrote:
-> Patric, [...]
+On Monday 31 December 2007 17:00, Patrick McHardy wrote:
+> Denys Vlasenko wrote:
+> > ip[6]_tables.c seem to abuse inline.
+> >
+> > This patch removes inlines except those which are used
+> > by packet matching code and thus are performance-critical.
+> >   
+> 
+> Some people also consider the ruleset replacement path performance
+> critical, but overall I agree with your patch. I'm travelling currently
+> though so it will take a few days until I'll apply it.
+> 
+> Do you have some numbers that show the actual difference these
+> changes make?
 
-OOPS... Sorry Patrick!
+Before:
 
-Jarek P.
+$ size */*/*/ip*tables*.o
+   text    data     bss     dec     hex filename
+   6402     500      16    6918    1b06 net/ipv4/netfilter/ip_tables.o
+   7130     500      16    7646    1dde net/ipv6/netfilter/ip6_tables.o
+
+After:
+
+$ size */*/*/ip*tables*.o
+   text    data     bss     dec     hex filename
+   6307     500      16    6823    1aa7 net/ipv4/netfilter/ip_tables.o
+   7010     500      16    7526    1d66 net/ipv6/netfilter/ip6_tables.o
+
+--
+vda
