@@ -1,46 +1,43 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH net-2.6.25 4/7][ATM]: [br2864] routed support
-Date: Mon, 31 Dec 2007 09:09:58 +0000
-Message-ID: <20071231090957.GA28855@infradead.org>
-References: <200712300107.lBU17O8i003566@cmf.nrl.navy.mil>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/3] [UDP]: add udp_mem, udp_rmem_min and udp_wmem_min
+Date: Mon, 31 Dec 2007 20:11:45 +1100
+Message-ID: <20071231091145.GA28133@gondor.apana.org.au>
+References: <47775D8C.5010104@redhat.com> <47775E7A.60708@redhat.com> <20071231.001925.151533664.davem@davemloft.net> <4778AE48.1040701@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Cc: David Miller <davem@davemloft.net>, haoki@redhat.com,
+	netdev@vger.kernel.org, tyasui@redhat.com, mhiramat@redhat.com,
+	satoshi.oshima.fk@hitachi.com, billfink@mindspring.com,
+	andi@firstfloor.org, johnpol@2ka.mipt.ru,
+	shemminger@linux-foundation.org, yoshfuji@linux-ipv6.org,
+	yumiko.sugita.yf@hitachi.com
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:56296 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751794AbXLaJJ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 04:09:59 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:1815 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753544AbXLaJMB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 04:12:01 -0500
 Content-Disposition: inline
-In-Reply-To: <200712300107.lBU17O8i003566@cmf.nrl.navy.mil>
+In-Reply-To: <4778AE48.1040701@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +#define BR2684_ETHERTYPE_LEN	2
-> +#define BR2684_PAD_LEN		2
-> +
-> +#define LLC		0xaa, 0xaa, 0x03
-> +#define SNAP_BRIDGED	0x00, 0x80, 0xc2
-> +#define SNAP_ROUTED	0x00, 0x00, 0x00
-> +#define PID_ETHERNET	0x00, 0x07
-> +#define ETHERTYPE_IPV4	0x08, 0x00
-> +#define ETHERTYPE_IPV6	0x86, 0xdd
-> +#define PAD_BRIDGED	0x00, 0x00
-> +
-> +static unsigned char ethertype_ipv4[] =
-> +	{ ETHERTYPE_IPV4 };
-> +static unsigned char ethertype_ipv6[] =
-> +	{ ETHERTYPE_IPV6 };
->  static unsigned char llc_oui_pid_pad[] =
-> -    { 0xAA, 0xAA, 0x03, 0x00, 0x80, 0xC2, 0x00, 0x07, 0x00, 0x00 };
-> -#define PADLEN	(2)
-> +	{ LLC, SNAP_BRIDGED, PID_ETHERNET, PAD_BRIDGED };
-> +static unsigned char llc_oui_ipv4[] =
-> +	{ LLC, SNAP_ROUTED, ETHERTYPE_IPV4 };
-> +static unsigned char llc_oui_ipv6[] =
-> +	{ LLC, SNAP_ROUTED, ETHERTYPE_IPV6 };
+On Mon, Dec 31, 2007 at 09:54:32AM +0100, Eric Dumazet wrote:
+>
+> Maybe I read the patch incorrectly, or we could add some new sysctl so that
+> we not try to uncharge memory if a socket 'forward_alloc' is beyond a given 
+> limit (say 2 pages), so that number of atomic_inc/dec on 
+> udp_memory_allocated (or tcp_memory_allocated) is reduced.
 
-I think this should be in a global header.  And IIRC we already have
-at least some of these somewhere as part of the general llc support.
+I don't have time to go through these patches right now but
+that was the whole point of using forward_alloc, i.e., avoid
+touching the global for every packet.
 
+So if it's still doing that then we're doing something wrong.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
