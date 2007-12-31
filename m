@@ -1,33 +1,31 @@
-From: Jan Engelhardt <jengelh@computergmbh.de>
-Subject: Re: [PATCH] Force UNIX domain sockets to be built in
-Date: Mon, 31 Dec 2007 23:20:40 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0712312316050.28123@fbirervta.pbzchgretzou.qr>
-References: <alpine.LSU.0.999.0712311300020.3686@be1.lrz>
- <20071231122419.GA13803@does.not.exist> <alpine.LSU.0.999.0712311335210.3761@be1.lrz>
- <20071231144255.GB13803@does.not.exist> <alpine.LSU.0.999.0712311553530.4211@be1.lrz>
- <Pine.LNX.4.64.0712311628330.28123@fbirervta.pbzchgretzou.qr>
- <20071231174302.GA1627@oscar.prima.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] [TCP]: cleanup tcp_{in,out}put.c style
+Date: Mon, 31 Dec 2007 14:58:31 -0800 (PST)
+Message-ID: <20071231.145831.210091152.davem@davemloft.net>
+References: <11991109072239-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Bodo Eggert <7eggert@gmx.de>, Adrian Bunk <bunk@kernel.org>,
-	devzero@web.de, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Patrick Mau <mau@oscar.ping.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752646AbXLaWUy@vger.kernel.org>
-In-Reply-To: <20071231174302.GA1627@oscar.prima.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60073
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750797AbXLaW6c convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Dec 2007 17:58:32 -0500
+In-Reply-To: <11991109072239-git-send-email-ilpo.jarvinen@helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Mon, 31 Dec 2007 16:21:45 +0200
 
-On Dec 31 2007 18:43, Patrick Mau wrote:
->
->May I ask something that might be obvious for most of the
->development community:
->
->Modules have to be loaded in seperate pages, right ?
+> These were manually selected from indent's results which as is
+> are too noisy to be of any use without human reason. In addition,
+> some extra newlines between function and its comment were removed
+> too.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-That seems to be the case, judging from /proc/modules always ending in 000,
-meaning each module is aligned at 0x1000 (4096, a page on i386).
-
-Additionally, it looks like 48% of all kernel symbols (from System.map)
-are aligned to 16 byte boundaries (what a waste! ;-))
+Applied.
