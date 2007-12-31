@@ -1,45 +1,53 @@
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH net-2.6.25 4/7][ATM]: [br2864] routed support
-Date: Mon, 31 Dec 2007 10:44:46 -0500
-Message-ID: <200712311544.lBVFikVL012169@cmf.nrl.navy.mil>
-References: <20071231090957.GA28855@infradead.org>
-Reply-To: chas3@users.sourceforge.net
-Cc: netdev@vger.kernel.org
-To: Christoph Hellwig <hch@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:60125 "EHLO
-	ginger.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750789AbXLaPpS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 10:45:18 -0500
-In-reply-to: <20071231090957.GA28855@infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Matthew Wilcox <matthew@wil.cx>
+Subject: Re: Bad escriptions in Kconfig
+Date: Mon, 31 Dec 2007 08:47:31 -0700
+Message-ID: <20071231154731.GY11638@parisc-linux.org>
+References: <alpine.LSU.0.999.0712311313050.3761@be1.lrz> <477907DB.8030406@torque.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Bodo Eggert <7eggert@gmx.de>, linux-kernel@vger.kernel.org,
+	linux-scsi@vger.kernel.org, netdev@vger.kernel.org
+To: Douglas Gilbert <dougg@torque.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <477907DB.8030406@torque.net>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In message <20071231090957.GA28855@infradead.org>,Christoph Hellwig writes:
->> +#define LLC		0xaa, 0xaa, 0x03
->> +#define SNAP_BRIDGED	0x00, 0x80, 0xc2
->> +#define SNAP_ROUTED	0x00, 0x00, 0x00
->> +#define PID_ETHERNET	0x00, 0x07
->> +#define ETHERTYPE_IPV4	0x08, 0x00
->> +#define ETHERTYPE_IPV6	0x86, 0xdd
->> +#define PAD_BRIDGED	0x00, 0x00
-...
->> +	{ LLC, SNAP_BRIDGED, PID_ETHERNET, PAD_BRIDGED };
->> +static unsigned char llc_oui_ipv4[] =
->> +	{ LLC, SNAP_ROUTED, ETHERTYPE_IPV4 };
->> +static unsigned char llc_oui_ipv6[] =
->> +	{ LLC, SNAP_ROUTED, ETHERTYPE_IPV6 };
->
->I think this should be in a global header.  And IIRC we already have
->at least some of these somewhere as part of the general llc support.
+On Mon, Dec 31, 2007 at 10:16:43AM -0500, Douglas Gilbert wrote:
+> Bodo Eggert wrote:
+> > ---
+> > SCSI target support (SCSI_TGT) [N/m/y/?] (NEW) ?
+> > 
+> > If you want to use SCSI target mode drivers enable this option.
+> > If you choose M, the module will be called scsi_tgt.
+> > ---
+> > 
+> > What TF is a SCSI target mode, what is a target mode driver?
+> 
+> Heard of google :-)
+> 
+> For explanations of SCSI (and other storage) terminology
+> reference could be made to SAM-3 or SAM-4 drafts (because
+> the real standards cost money) at www.t10.org .
+> 
+> Perhaps many other subsections in the kernel could have
+> similar references.
 
-sounds good to me, but i dont think its already in a generalized
-llc header.  the only appearance i can find is:
+I think that's an appalling idea.  Someone's trying to configure their
+kernel, not research hundreds of new ideas on the internet.  Here's a
+better description:
 
-net/ieee80211/ieee80211_rx.c:static unsigned char rfc1042_header[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
-net/ieee80211/ieee80211_rx.c:    { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0xf8 };
-net/ieee80211/ieee80211_tx.c:      | 0xAA | 0xAA |0x03 (UI)|0x00-00-F8|      |         |
-net/mac80211/util.c:    { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
-net/mac80211/util.c:    { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0xf8 };
+	help
+	  The SCSI target code allows your computer to appear as a SCSI
+	  device.  This is useful in a SAN or NAS environment where you
+	  want other computers to be able to treat this computer as a disc.
 
-any suggestions on how and where you would like to see these structures?
+	  To compile this driver as a module, choose M here: the module
+	  will be called scsi_tgt.
+
+-- 
+Intel are signing my paycheques ... these opinions are still mine
+"Bill, look, we understand that you're interested in selling us this
+operating system, but compare it to ours.  We can't possibly take such
+a retrograde step."
