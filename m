@@ -1,111 +1,93 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [usb regression] Re: [PATCH 2.6.24-rc3] Fix /proc/net breakage
-Date: Mon, 31 Dec 2007 12:49:52 -0500 (EST)
-Message-ID: <Pine.LNX.4.44L0.0712311237150.7182-100000@iolanthe.rowland.org>
-References: <20071231052500.GB4187@kroah.com>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: [PATCH] Force UNIX domain sockets to be built in
+Date: Mon, 31 Dec 2007 19:51:58 +0200
+Message-ID: <20071231175158.GA2360@does.not.exist>
+References: <alpine.LSU.0.999.0712311300020.3686@be1.lrz> <20071231122419.GA13803@does.not.exist> <alpine.LSU.0.999.0712311335210.3761@be1.lrz> <20071231144255.GB13803@does.not.exist> <alpine.LSU.0.999.0712311553530.4211@be1.lrz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andreas Mohr <andi@lisas.de>, Ingo Molnar <mingo@elte.hu>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Woodhouse <dwmw2@infradead.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
-	kernel list <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	"Denis V. Lunev" <den@openvz.org>,
-	USB list <linux-usb@vger.kernel.org>
-To: Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Jan Engelhardt <jengelh@computergmbh.de>, devzero@web.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Bodo Eggert <7eggert@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iolanthe.rowland.org ([192.131.102.54]:34663 "HELO
-	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1750935AbXLaRtx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 12:49:53 -0500
-In-Reply-To: <20071231052500.GB4187@kroah.com>
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:51172 "EHLO smtp4.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751473AbXLaRwK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Dec 2007 12:52:10 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.LSU.0.999.0712311553530.4211@be1.lrz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 30 Dec 2007, Greg KH wrote:
-
-> > It looks like Greg misused the debugfs API -- which is ironic, because
-> > he wrote debugfs in the first place!  :-)
+On Mon, Dec 31, 2007 at 04:19:23PM +0100, Bodo Eggert wrote:
+> On Mon, 31 Dec 2007, Adrian Bunk wrote:
+> > On Mon, Dec 31, 2007 at 02:26:42PM +0100, Bodo Eggert wrote:
+> > > On Mon, 31 Dec 2007, Adrian Bunk wrote:
+> > > > On Mon, Dec 31, 2007 at 01:09:43PM +0100, Bodo Eggert wrote:
 > 
-> Oh crap, sorry, I did mess that up :(
+> > > > > As suggested by Adrian Bunk, UNIX domain sockets should always be built in 
+> > > > > on normal systems. This is especially true since udev needs these sockets
+> > > > > and fails to run if UNIX=m.
+> > > > > 
+> > > > > Signed-Off-By: Bodo Eggert <7eggert@gmx.de>
+> > > > > 
+> > > > > ---
+> > > > > Last minute change: I decided against making it a bool because embedded 
+> > > > > folks might depend on a small kernel image. Edited in the patch below.
+> > > > >...
+> > > > 
+> > > > Is this just a purely theoretical thought or is this a reasonable use 
+> > > > case people actually use in practice?
+> > >  
+> > > For now, it's a theoretical thought, but having an embedded device, I can 
+> > > see the reason for $EVERYTHING=m there.
+> > 
+> > The only advantage I see is that the kernel image you have to flash 
+> > can be made smaller - with the disadvantage that the running kernel
+> > is bigger by more than 10%.
+> > 
+> > If you don't believe me, try it yourself:
+> > Build all drivers statically into your kernel, and then compare the 
+> > vmlinux sizes with CONFIG_MODULES=n and CONFIG_MODULES=y.
 > 
-> > Let me know if this patch fixes the problem.  If it does, I'll submit 
-> > it to Greg with all the proper accoutrements.
+> If you'd aim for a small kernel image, you would build anything as a module 
+> that is not requred for booting.
 > 
-> This isn't going to work if CONFIG_DEBUGFS is not enabled either :(
-
-Why not?  The debugging files won't be created, true, but the driver
-should work just fine regardless.  This is exactly the way uhci-hcd
-behaves, and it hasn't caused any problems.
-
-> > Index: 2.6.24-rc6-mm1/drivers/usb/host/ohci-hcd.c
-> > ===================================================================
-> > --- 2.6.24-rc6-mm1.orig/drivers/usb/host/ohci-hcd.c
-> > +++ 2.6.24-rc6-mm1/drivers/usb/host/ohci-hcd.c
-> > @@ -1067,14 +1067,8 @@ static int __init ohci_hcd_mod_init(void
-> >  
-> >  #ifdef DEBUG
-> >  	ohci_debug_root = debugfs_create_dir("ohci", NULL);
-> > -	if (!ohci_debug_root || IS_ERR(ohci_debug_root)) {
-> > -		if (!ohci_debug_root)
-> > -			retval = -ENOENT;
-> > -		else
-> > -			retval = PTR_ERR(ohci_debug_root);
-> > -
-> > -		goto error_debug;
-> > -	}
-> > +	if (!ohci_debug_root)
-> > +		return -ENOENT;
+> > > > After all, changing it to a bool will allow us to make the kernel image 
+> > > > for nearly everyone smaller by a few hundred bytes...
+> > > 
+> > > I can't see why optionally building it as a module would force us to make 
+> > > the kernel bigger. It may be a little more ugly to support =m, but thats it,
+> > > isn't it?
+> > 
+> > On architectures like x86 where __exit code is freed at runtime 
+> > af_unix_exit() makes your kernel image (but not the running kernel) 
+> > bigger.
+> > 
+> > With CONFIG_MODULES=y the 13 EXPORT_SYMBOL's that only exist for the 
+> > theoretical possibility of CONIG_UNIX=m waste a few hundred bytes 
+> > of memory.
 > 
-> It needs to check for ERR_PTR(-ENODEV) which is the return value if
-> debugfs is not enabled, and if so, just ignore things.
-
-No.  That is the mistake you made before.  If debugfs isn't enabled 
-then the driver should just ignore things, yes -- and in particular it 
-should ignore the fact that the return code is ERR_PTR(-ENODEV).  No 
-extra checking is required.
-
-> If NULL is returned, or anything else, it's a real error.
-
-If NULL is returned, it's a real error, agreed.  But if anything else
-is returned then the call was successful as far as the driver is 
-concerned.
-
-> So, try something like:
-> 	if (!ohci_debug_root) {
-> 		retval = -ENOENT;
-> 		goto error_debug;
-> 	}
-> 	if (IS_ERR(ohci_debug_root) && PTR_ERR(ohci_debug_root) != -ENODEV) {
-> 		retval = PTR_ERR(ohci_debug_root);
-> 		goto error_debug;
-> 	}
+> #define m='m'
+> #if CONIG_UNIX=='m'
+> #define EXPORT_SYMBOL_AF_UNIX EXPORT_SYMBOL
+> #else
+> #define EXPORT_SYMBOL_AF_UNIX()
+> #endif
+> #undef m
 > 
-> and let me know of that works for you.
+> You could also use "#if defined(C_U) && (C_U == m)".
 
-Greg, it sounds like you have forgotten the rationale you originally 
-used for specifying the return codes in debugfs!  The idea was to 
-return non-NULL if CONFIG_DEBUGFS was disabled, so that drivers could 
-pretend the calls had succeeded and not need to worry about matters 
-beyond their control.
+Look at the number of exports in the kernel and the number of lines 
+changed per months, and it becomes obvious that somwthing like that
+would not be maintainable.
 
-Only a NULL return indicates a genuine error.  The kerneldoc for 
-debugfs_create_dir says this very plainly.
+cu
+Adrian
 
-> Although the combination of CONFIG_USB_DEBUG and not CONFIG_DEBUGFS is
-> strange, we could just enable CONFIG_DEBUGFS is USB_DEBUG is enabled and
-> then simplify this logic a bunch at the same time.
+-- 
 
-Most distributions enable CONFIG_DEBUGFS by default, don't they?  So 
-this problem only comes up when people make up their own configs.  
-Having USB_DEBUG enabled and DEBUGFS disabled seems like a perfectly 
-reasonable combination to me.  I wouldn't change any aspect of the 
-configuration logic.
-
-Alan Stern
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
