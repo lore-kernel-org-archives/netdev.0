@@ -1,48 +1,74 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [PATCH] Force UNIX domain sockets to be built in
-Date: Mon, 31 Dec 2007 14:24:19 +0200
-Message-ID: <20071231122419.GA13803@does.not.exist>
-References: <alpine.LSU.0.999.0712311300020.3686@be1.lrz>
+From: Bodo Eggert <7eggert@gmx.de>
+Subject: Bad escriptions in Kconfig
+Date: Mon, 31 Dec 2007 13:26:32 +0100 (CET)
+Message-ID: <alpine.LSU.0.999.0712311313050.3761@be1.lrz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Jan Engelhardt <jengelh@computergmbh.de>, devzero@web.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Bodo Eggert <7eggert@gmx.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6.pp.htv.fi ([213.243.153.40]:54367 "EHLO smtp6.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757382AbXLaMYb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Dec 2007 07:24:31 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.LSU.0.999.0712311300020.3686@be1.lrz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 31, 2007 at 01:09:43PM +0100, Bodo Eggert wrote:
-> As suggested by Adrian Bunk, UNIX domain sockets should always be built in 
-> on normal systems. This is especially true since udev needs these sockets
-> and fails to run if UNIX=m.
-> 
-> Signed-Off-By: Bodo Eggert <7eggert@gmx.de>
-> 
-> ---
-> Last minute change: I decided against making it a bool because embedded 
-> folks might depend on a small kernel image. Edited in the patch below.
->...
+In some of the Kconfig files, the options are not adequately decribed. I 
+collected a few of the bad descriptions I found:
 
-Is this just a purely theoretical thought or is this a reasonable use 
-case people actually use in practice?
 
-After all, changing it to a bool will allow us to make the kernel image 
-for nearly everyone smaller by a few hundred bytes...
+---
+Lowlevel video output switch controls (VIDEO_OUTPUT_CONTROL) [M/n/y/?] (NEW) ?
 
-cu
-Adrian
+This framework adds support for low-level control of the video
+output switch.
+---
+
+- What is THE video output switch and why would I need low level control?
+
+- Frameworks should be auto-selected like libraries, shouldn't they?
+
+- WTF is this a module?
+
+
+-------------
+---
+Auxiliary Display support (AUXDISPLAY) [N/y/?] (NEW) ?
+
+Say Y here to get to see options for auxiliary display drivers.
+This option alone does not add any kernel code.
+---
+
+- If I knw what an axilary display was, I would not read this help text!
+
+- After digging some time, I discovered that all Auxdisplays are parallel 
+  port devices.
+  Rename to "Parallel port display device support"?
+
+
+-------------
+---
+Transformation user configuration interface (XFRM_USER) [N/m/y/?] (NEW)
+  
+Support for Transformation(XFRM) user configuration interface
+like IPsec used by native Linux tools.
+
+If unsure, say Y.
+---
+
+- I'm not sure if these words combine to a sentence.
+- I can't tell if IPSEC is the only user or if I'd break other parts by not 
+  saying 'Y'. OTOH, I don't want to bloat my kernel ...
+- What's a native linux tool?
+
+  
+-------------
+---
+SCSI target support (SCSI_TGT) [N/m/y/?] (NEW) ?
+
+If you want to use SCSI target mode drivers enable this option.
+If you choose M, the module will be called scsi_tgt.
+---
+
+What TF is a SCSI target mode, what is a target mode driver?
 
 -- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+I'm a member of DNA (National Assocciation of Dyslexics).
+	-- Storm in <5Z4Z7.52353$4x4.6445347@news2-win.server.ntlworld.com>
