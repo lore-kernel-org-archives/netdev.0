@@ -1,104 +1,65 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH 0/4] New interface for memory accounting (take 1)
-Date: Mon, 31 Dec 2007 16:17:37 +0100
-Message-ID: <47790811.9080004@cosmosbay.com>
-References: <47775B25.7020401@redhat.com> <20071230.233413.117211235.davem@davemloft.net>
+From: Jan Engelhardt <jengelh@computergmbh.de>
+Subject: Re: [PATCH] Force UNIX domain sockets to be built in
+Date: Mon, 31 Dec 2007 16:34:55 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0712311628330.28123@fbirervta.pbzchgretzou.qr>
+References: <alpine.LSU.0.999.0712311300020.3686@be1.lrz>
+ <20071231122419.GA13803@does.not.exist> <alpine.LSU.0.999.0712311335210.3761@be1.lrz>
+ <20071231144255.GB13803@does.not.exist> <alpine.LSU.0.999.0712311553530.4211@be1.lrz>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050401020704020509010701"
-Cc: haoki@redhat.com, herbert@gondor.apana.org.au,
-	vladislav.yasevich@hp.com, netdev@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net, tyasui@redhat.com,
-	mhiramat@redhat.com, satoshi.oshima.fk@hitachi.com,
-	billfink@mindspring.com, andi@firstfloor.org, johnpol@2ka.mipt.ru,
-	shemminger@linux-foundation.org, yoshfuji@linux-ipv6.org,
-	yumiko.sugita.yf@hitachi.com
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Adrian Bunk <bunk@kernel.org>, devzero@web.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Bodo Eggert <7eggert@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:36905 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752144AbXLaPUF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 10:20:05 -0500
-In-Reply-To: <20071230.233413.117211235.davem@davemloft.net>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:38664 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751332AbXLaPe4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 10:34:56 -0500
+In-Reply-To: <alpine.LSU.0.999.0712311553530.4211@be1.lrz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------050401020704020509010701
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 8bit
 
-David Miller a écrit :
-> From: Hideo AOKI <haoki@redhat.com>
-> Date: Sun, 30 Dec 2007 03:47:33 -0500
-> 
->> Hello,
->>
->> This patch set introduces new memory accounting interface.
->> Current interface is written for stream protocols only.
->> To enable memory accounting in other protocols (e.g. UDP),
->> I enhanced the interface and updated TCP and SCTP memory
->> accounting.
->>
->> The patch set consists of the following 4 patches.
->>
->> [1/4] introducing new memory accounting interface
->> [2/4] adding memory accounting points to consolidate functions
->> [3/4] updating TCP to use new interface
->> [4/4] updating SCTP to use new interface
->>
->> The patch set was tested on net-2.6.25 tree.
-> 
-> I like this work very much and will add this to net-2.6.25
-> But I will have to combine it all into one patch.
-> 
-> You cannot have one patch which breaks the build in any way.  All of
-> the kernel must build properly after each patch in your patchset is
-> applied.
-> 
-> Since patch 1 renames all of the sk_stream_*() functions, TCP and SCTP
-> stop building.
-> 
-> We enforce this rule, otherwise when users try to use "git bisect" to
-> find out where regressions are added, they will get stuck in places
-> like this where the tree will not build due to such careless
-> changesets.
+On Dec 31 2007 16:19, Bodo Eggert wrote:
+>Adrian Bunk wrote:
+>> 
+>> The only advantage I see is that the kernel image you have to flash 
+>> can be made smaller - with the disadvantage that the running kernel
+>> is bigger by more than 10%.
+>> 
+>> If you don't believe me, try it yourself:
+>> Build all drivers statically into your kernel, and then compare the 
+>> vmlinux sizes with CONFIG_MODULES=n and CONFIG_MODULES=y.
+>
+>If you'd aim for a small kernel image, you would build anything as a module 
+>that is not requred for booting.
+>
+Yes, there is a tradeoff for both.
 
-Hi David
+Example:
+16:30 ichi:../net/802 > l fc.o fc.ko 
+-rw-r--r-- 1 jengelh users 7961 Dec 27 15:19 fc.ko
+-rw-r--r-- 1 jengelh users 2453 Dec 28 23:58 fc.o
+(from a recent not-so-complete patch turning CONFIG_FC etc. into =m)
 
-Could you add the following patch, because it apparently was lost
-during the battle :)
+If fc was modular, it might save the 2453 bytes off the core kernel image,
+but adds ~5508 bytes to disk.
+So one has to pick =y or =m depending on whatever suits his/her situation.
 
-Thank you
+But the choice should be _available_.
 
-[PATCH] use SK_MEM_QUANTUM_SHIFT in __sk_mem_reclaim()
-
-Avoid an expensive divide (as done in commit 
-18030477e70a826b91608aee40a987bbd368fec6 but lost in commit 
-23821d2653111d20e75472c8c5003df1a55309a8)
-
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
---------------050401020704020509010701
-Content-Type: text/plain;
- name="__sk_mem_reclaim.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="__sk_mem_reclaim.patch"
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 8c184c4..3804e7d 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1476,7 +1476,7 @@ void __sk_mem_reclaim(struct sock *sk)
- {
- 	struct proto *prot = sk->sk_prot;
- 
--	atomic_sub(sk->sk_forward_alloc / SK_MEM_QUANTUM,
-+	atomic_sub(sk->sk_forward_alloc >> SK_MEM_QUANTUM_SHIFT,
- 		   prot->memory_allocated);
- 	sk->sk_forward_alloc &= SK_MEM_QUANTUM - 1;
- 
-
---------------050401020704020509010701--
+>>>> After all, changing it to a bool will allow us to make the
+>>>> kernel image for nearly everyone smaller by a few hundred
+>>>> bytes...
+>>> 
+>>> I can't see why optionally building it as a module would force us
+>>> to make the kernel bigger. It may be a little more ugly to
+>>> support =m, but thats it, isn't it?
+>> 
+>> On architectures like x86 where __exit code is freed at runtime 
+>> af_unix_exit() makes your kernel image (but not the running kernel) 
+>> bigger.
+>> 
+>> With CONFIG_MODULES=y the 13 EXPORT_SYMBOL's that only exist for
+>> the theoretical possibility of CONIG_UNIX=m waste a few hundred
+>> bytes of memory.
