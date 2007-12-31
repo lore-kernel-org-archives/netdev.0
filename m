@@ -1,97 +1,50 @@
-From: devzero@web.de
+From: Bodo Eggert <7eggert@gmx.de>
 Subject: Re: [PATCH] Force UNIX domain sockets to be built in
-Date: Mon, 31 Dec 2007 14:23:01 +0100
-Message-ID: <78342039@web.de>
+Date: Mon, 31 Dec 2007 14:26:42 +0100 (CET)
+Message-ID: <alpine.LSU.0.999.0712311335210.3761@be1.lrz>
+References: <alpine.LSU.0.999.0712311300020.3686@be1.lrz>
+ <20071231122419.GA13803@does.not.exist>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bunk@kernel.org, jengelh@computergmbh.de,
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: Bodo Eggert <7eggert@gmx.de>,
+	Jan Engelhardt <jengelh@computergmbh.de>, devzero@web.de,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: 7eggert@gmx.de, David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759403AbXLaNY6@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Adrian Bunk <bunk@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.186]:55151 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751739AbXLaN1G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 08:27:06 -0500
+In-Reply-To: <20071231122419.GA13803@does.not.exist>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-when i had that module modular and added to the initrd, udev didn`t wor=
-k, though.
-same error message:
+On Mon, 31 Dec 2007, Adrian Bunk wrote:
+> On Mon, Dec 31, 2007 at 01:09:43PM +0100, Bodo Eggert wrote:
 
-udevd[1226]: init_udev_socket: error getting socket: Address family not=
- supported by protocol=20
-
-not sure if i did a mistake here....
-
-anyway, this message is not obvious to the end user.
-
-i like the kernel being modular, but i also like it if things "just wor=
-k" - and with "allmodconfig", modular UNIX domain sockets seem to creat=
-e hassle.
-(see http://forums.gentoo.org/viewtopic-t-476363-highlight-.html or htt=
-p://forums.gentoo.org/viewtopic-t-463793-highlight-.html )
-
-
-so, if this patch is being rejected, maybe it would be useful if udev w=
-ould give a proper hint, if it`s missing this kernel feature.=20
-
-btw, udev documentation telling this:
-
-  - The kernel must have sysfs, unix domain sockets and networking enab=
-led.
-    (unix domain sockets (CONFIG_UNIX) as a loadable kernel module may =
-work,
-    but it is completely silly - don't complain if anything goes wrong.=
-)
-
-furthermore, if this needs to be modular, then i`d please have tcp/ip n=
-etworking modular, too. :)
-
-regards
-roland
-
-ps:
-not being a skilled programmer, so this is mostly an admins/users persp=
-ective.
-
-
->=20
-> From: Bodo Eggert <7eggert@gmx.de>
-> Date: Mon, 31 Dec 2007 13:09:43 +0100 (CET)
->=20
-> > As suggested by Adrian Bunk, UNIX domain sockets should always be b=
-uilt in=20
-> > on normal systems. This is especially true since udev needs these s=
-ockets
-> > and fails to run if UNIX=3Dm.
-> >=20
+> > As suggested by Adrian Bunk, UNIX domain sockets should always be built in 
+> > on normal systems. This is especially true since udev needs these sockets
+> > and fails to run if UNIX=m.
+> > 
 > > Signed-Off-By: Bodo Eggert <7eggert@gmx.de>
->=20
-> People who use udev can make sure they have it built into their kerne=
-l
-> if they have such a dependency.
->=20
-> Not everyone uses udev, and therefore needs AF_UNIX non-modular.
->=20
-> I keep seeing this crap patch get submitted and I'm going to keep
-> dropping it because it's bogus.
->=20
-> It seems to stem from some filesystem interface or whatever that the
-> VFS folks don't want to export or one they want to now stop exporting=
-=2E
->=20
-> But that is a really cruddy reason to want to force AF_UNIX to not
-> be allowed to be modular, and the udev thing just makes it more of a
-> joke rather than a good technical reason.
->=20
+> > 
+> > ---
+> > Last minute change: I decided against making it a bool because embedded 
+> > folks might depend on a small kernel image. Edited in the patch below.
+> >...
+> 
+> Is this just a purely theoretical thought or is this a reasonable use 
+> case people actually use in practice?
+ 
+For now, it's a theoretical thought, but having an embedded device, I can 
+see the reason for $EVERYTHING=m there.
 
+> After all, changing it to a bool will allow us to make the kernel image 
+> for nearly everyone smaller by a few hundred bytes...
 
-_______________________________________________________________________
-Jetzt neu! Sch=FCtzen Sie Ihren PC mit McAfee und WEB.DE. 30 Tage
-kostenlos testen. http://www.pc-sicherheit.web.de/startseite/?mc=3D0222=
-20
+I can't see why optionally building it as a module would force us to make 
+the kernel bigger. It may be a little more ugly to support =m, but thats it,
+isn't it?
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
- in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
+-- 
+Logic: The art of being wrong with confidence...
