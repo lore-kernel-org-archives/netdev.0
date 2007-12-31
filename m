@@ -1,44 +1,37 @@
-From: Bodo Eggert <7eggert@gmx.de>
-Subject: [PATCH] Force UNIX domain sockets to be built in
-Date: Mon, 31 Dec 2007 13:09:43 +0100 (CET)
-Message-ID: <alpine.LSU.0.999.0712311300020.3686@be1.lrz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] [UDP]: add udp_mem, udp_rmem_min and udp_wmem_min
+Date: Mon, 31 Dec 2007 04:13:42 -0800 (PST)
+Message-ID: <20071231.041342.101160102.davem@davemloft.net>
+References: <47775E7A.60708@redhat.com>
+	<20071231.001925.151533664.davem@davemloft.net>
+	<4778AE48.1040701@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-To: Jan Engelhardt <jengelh@computergmbh.de>, devzero@web.de,
-	linux-kernel@vger.kernel.org, Adrian Bunk <bunk@kernel.org>,
-	netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: haoki@redhat.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, tyasui@redhat.com, mhiramat@redhat.com,
+	satoshi.oshima.fk@hitachi.com, billfink@mindspring.com,
+	andi@firstfloor.org, johnpol@2ka.mipt.ru,
+	shemminger@linux-foundation.org, yoshfuji@linux-ipv6.org,
+	yumiko.sugita.yf@hitachi.com
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:57320 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757382AbXLaMJy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 07:09:54 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46899
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1759387AbXLaMNo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 07:13:44 -0500
+In-Reply-To: <4778AE48.1040701@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As suggested by Adrian Bunk, UNIX domain sockets should always be built in 
-on normal systems. This is especially true since udev needs these sockets
-and fails to run if UNIX=m.
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Mon, 31 Dec 2007 09:54:32 +0100
 
-Signed-Off-By: Bodo Eggert <7eggert@gmx.de>
+> Maybe I read the patch incorrectly, or we could add some new sysctl so that
+> we not try to uncharge memory if a socket 'forward_alloc' is beyond a given 
+> limit (say 2 pages), so that number of atomic_inc/dec on udp_memory_allocated 
+> (or tcp_memory_allocated) is reduced.
 
----
-Last minute change: I decided against making it a bool because embedded 
-folks might depend on a small kernel image. Edited in the patch below.
-
-diff -X dontdiff -pruN linux-2.6.23.base/net/unix/Kconfig linux-2.6.23.socket-y/net/unix/Kconfig
---- linux-2.6.23.base/net/unix/Kconfig	2006-11-29 22:57:37.000000000 +0100
-+++ linux-2.6.23.socket-y/net/unix/Kconfig	2007-12-31 12:57:44.000000000 +0100
-@@ -3,7 +3,8 @@
- #
- 
- config UNIX
--	tristate "Unix domain sockets"
-+	tristate "Unix domain sockets" if EMBEDDED
-+	default y
- 	---help---
- 	  If you say Y here, you will include support for Unix domain sockets;
- 	  sockets are the standard Unix mechanism for establishing and
-
--- 
-            A. Top posters
-            Q. What's the most annoying thing on Usenet?
+This is what we should be striving for, using forward_alloc
+as much as possible as a "cache" to avoid the atomics on
+the global var as much as possible.
