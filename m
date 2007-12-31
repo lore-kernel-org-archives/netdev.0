@@ -1,53 +1,52 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Subject: Re: Bad escriptions in Kconfig
-Date: Mon, 31 Dec 2007 08:47:31 -0700
-Message-ID: <20071231154731.GY11638@parisc-linux.org>
-References: <alpine.LSU.0.999.0712311313050.3761@be1.lrz> <477907DB.8030406@torque.net>
+From: "Torsten Kaiser" <just.for.lkml@googlemail.com>
+Subject: Re: [PATCH] Force UNIX domain sockets to be built in
+Date: Mon, 31 Dec 2007 16:55:57 +0100
+Message-ID: <64bb37e0712310755k2446e67eq81d31cd476eb75e3@mail.gmail.com>
+References: <alpine.LSU.0.999.0712311300020.3686@be1.lrz>
+	 <20071231122419.GA13803@does.not.exist>
+	 <alpine.LSU.0.999.0712311335210.3761@be1.lrz>
+	 <20071231144255.GB13803@does.not.exist>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bodo Eggert <7eggert@gmx.de>, linux-kernel@vger.kernel.org,
-	linux-scsi@vger.kernel.org, netdev@vger.kernel.org
-To: Douglas Gilbert <dougg@torque.net>
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Bodo Eggert" <7eggert@gmx.de>,
+	"Jan Engelhardt" <jengelh@computergmbh.de>, devzero@web.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Adrian Bunk" <bunk@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from py-out-1112.google.com ([64.233.166.179]:54944 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750944AbXLaPz5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 10:55:57 -0500
+Received: by py-out-1112.google.com with SMTP id u52so9074933pyb.10
+        for <netdev@vger.kernel.org>; Mon, 31 Dec 2007 07:55:57 -0800 (PST)
+In-Reply-To: <20071231144255.GB13803@does.not.exist>
 Content-Disposition: inline
-In-Reply-To: <477907DB.8030406@torque.net>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 31, 2007 at 10:16:43AM -0500, Douglas Gilbert wrote:
-> Bodo Eggert wrote:
-> > ---
-> > SCSI target support (SCSI_TGT) [N/m/y/?] (NEW) ?
-> > 
-> > If you want to use SCSI target mode drivers enable this option.
-> > If you choose M, the module will be called scsi_tgt.
-> > ---
-> > 
-> > What TF is a SCSI target mode, what is a target mode driver?
-> 
-> Heard of google :-)
-> 
-> For explanations of SCSI (and other storage) terminology
-> reference could be made to SAM-3 or SAM-4 drafts (because
-> the real standards cost money) at www.t10.org .
-> 
-> Perhaps many other subsections in the kernel could have
-> similar references.
+On Dec 31, 2007 3:42 PM, Adrian Bunk <bunk@kernel.org> wrote:
+> With CONFIG_MODULES=y the 13 EXPORT_SYMBOL's that only exist for the
+> theoretical possibility of CONIG_UNIX=m waste a few hundred bytes
+> of memory.
 
-I think that's an appalling idea.  Someone's trying to configure their
-kernel, not research hundreds of new ideas on the internet.  Here's a
-better description:
+One thing I always wondered about in this discussion about wasted
+EXPORT_SYMBOL's:
+Shouldn't it be possible to garbage collect these?
 
-	help
-	  The SCSI target code allows your computer to appear as a SCSI
-	  device.  This is useful in a SAN or NAS environment where you
-	  want other computers to be able to treat this computer as a disc.
+depmod already contains code to analyze all modules to create a
+dependency tree. It should not be too difficult to extend it to create
+a list of all symbols that really are used by the current modules.
+Everything else could be stripped to save space.
 
-	  To compile this driver as a module, choose M here: the module
-	  will be called scsi_tgt.
+The problem with that:
+* out-of-tree modules would break if they don't get lucky to only use
+the remaining symbol. I would not see this as a problem, if the help
+text of the garbage-collect-option would contain a note like "don't
+enable this if you want out-of-tree modules".
+* if you later change your .config to include additional modules you
+might need to rebuild vmlinux and reboot into the new kernel.
+Currently you can probably build and load new modules without a
+reboot. (for example: usb drivers)
 
--- 
-Intel are signing my paycheques ... these opinions are still mine
-"Bill, look, we understand that you're interested in selling us this
-operating system, but compare it to ours.  We can't possibly take such
-a retrograde step."
+Torsten
