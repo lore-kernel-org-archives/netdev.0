@@ -1,78 +1,80 @@
-From: Adrian Bunk <bunk@kernel.org>
+From: "Torsten Kaiser" <just.for.lkml@googlemail.com>
 Subject: Re: [PATCH] Force UNIX domain sockets to be built in
-Date: Mon, 31 Dec 2007 20:05:26 +0200
-Message-ID: <20071231180526.GB2360@does.not.exist>
-References: <alpine.LSU.0.999.0712311300020.3686@be1.lrz> <20071231122419.GA13803@does.not.exist> <alpine.LSU.0.999.0712311335210.3761@be1.lrz> <20071231144255.GB13803@does.not.exist> <alpine.LSU.0.999.0712311553530.4211@be1.lrz>
+Date: Mon, 31 Dec 2007 19:37:43 +0100
+Message-ID: <64bb37e0712311037w42bae43ayb3c10b2e0310586d@mail.gmail.com>
+References: <alpine.LSU.0.999.0712311300020.3686@be1.lrz>
+	 <64bb37e0712310817g621d818dyebbf2228063d4d5f@mail.gmail.com>
+	 <20071231163803.33acb647@the-village.bc.nu>
+	 <200712311818.12825.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Jan Engelhardt <jengelh@computergmbh.de>, devzero@web.de,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Alan Cox" <alan@lxorguk.ukuu.org.uk>,
+	"Adrian Bunk" <bunk@kernel.org>, "Bodo Eggert" <7eggert@gmx.de>,
+	"Jan Engelhardt" <jengelh@computergmbh.de>, devzero@web.de,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Bodo Eggert <7eggert@gmx.de>
+To: "Michael Buesch" <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.pp.htv.fi ([213.243.153.39]:35014 "EHLO smtp5.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751393AbXLaSFi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Dec 2007 13:05:38 -0500
+Received: from py-out-1112.google.com ([64.233.166.180]:29207 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751619AbXLaShp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 13:37:45 -0500
+Received: by py-out-1112.google.com with SMTP id u52so9137251pyb.10
+        for <netdev@vger.kernel.org>; Mon, 31 Dec 2007 10:37:44 -0800 (PST)
+In-Reply-To: <200712311818.12825.mb@bu3sch.de>
 Content-Disposition: inline
-In-Reply-To: <alpine.LSU.0.999.0712311553530.4211@be1.lrz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 31, 2007 at 04:19:23PM +0100, Bodo Eggert wrote:
-> On Mon, 31 Dec 2007, Adrian Bunk wrote:
-> > On Mon, Dec 31, 2007 at 02:26:42PM +0100, Bodo Eggert wrote:
-> > > On Mon, 31 Dec 2007, Adrian Bunk wrote:
-> > > > On Mon, Dec 31, 2007 at 01:09:43PM +0100, Bodo Eggert wrote:
-> 
-> > > > > As suggested by Adrian Bunk, UNIX domain sockets should always be built in 
-> > > > > on normal systems. This is especially true since udev needs these sockets
-> > > > > and fails to run if UNIX=m.
-> > > > > 
-> > > > > Signed-Off-By: Bodo Eggert <7eggert@gmx.de>
-> > > > > 
-> > > > > ---
-> > > > > Last minute change: I decided against making it a bool because embedded 
-> > > > > folks might depend on a small kernel image. Edited in the patch below.
-> > > > >...
-> > > > 
-> > > > Is this just a purely theoretical thought or is this a reasonable use 
-> > > > case people actually use in practice?
-> > >  
-> > > For now, it's a theoretical thought, but having an embedded device, I can 
-> > > see the reason for $EVERYTHING=m there.
-> > 
-> > The only advantage I see is that the kernel image you have to flash 
-> > can be made smaller - with the disadvantage that the running kernel
-> > is bigger by more than 10%.
-> > 
-> > If you don't believe me, try it yourself:
-> > Build all drivers statically into your kernel, and then compare the 
-> > vmlinux sizes with CONFIG_MODULES=n and CONFIG_MODULES=y.
-> 
-> If you'd aim for a small kernel image, you would build anything as a module 
-> that is not requred for booting.
->...
+On Dec 31, 2007 6:18 PM, Michael Buesch <mb@bu3sch.de> wrote:
+> On Monday 31 December 2007 17:38:03 Alan Cox wrote:
+> > On Mon, 31 Dec 2007 17:17:19 +0100
+> > "Torsten Kaiser" <just.for.lkml@googlemail.com> wrote:
+> >
+> > > a) this could be disabled during development if you want this
+> > > b) this would even only affect development if you add new code that
+> > > now needs a EXPORT_SYMBOL that was removed on an earlier build. And
+> > > right now this would also need to trigger a rerun of depmod. And the
+> > > same trigger could redo this garbage collect.
+> > >
+> > > Or am I missing something obvious?
+> >
+> > Development is not a phase seperate from use or distribution. A lot of
+> > module testers for distributions will not be compiling their own modules
+> > but loading in ones to test provided by their vendor - which may of
+> > course then need different ksyms
 
-Small kernel image to flash (e.g. due to a size limit there), if you 
-would aim for a small running kernel you wouldn't use modules.
+I understand that point.
+I just always assumed that kernel tests meant 'please test this patch'
+and doing the compile yourself.
 
-And I'm not so sure about the image size without seeing actual numbers, 
-e.g. for your device.
+But I'm not convinced be the following:
+> As an example, the whole purpose wireless-compat package is
+> to load latest bleeding edge wireless stuff into a distribution kernel.
+> So people are not required to recompile their kernels for using
+> drivers that support their hardware.
+> And guess what, it is used a _lot_. And lots of bugs are found with it.
+> It increases our testing community a lot.
 
-Especially comparing your all-modular approach with a CONFIG_MODULES=n 
-kernel using Denys' section garbage collection patches in both cases 
-would be interesting.
+This looks more like a "regular" out-of-tree module for the purpose of
+the suggested symbol garbage collector.
+And for that case I already a 'don't use it then'-note.
 
-I'm not claiming you are wrong, all I say is that I'm not convinced 
-without actual numbers that you are right.
+The base problem is that there already are many options to break
+external modules. (CONFIG_MODULES=n ;) )
+Or in the case of this wireless module: CONFIG_CRYPTO_ARC4=n
+(Without 'arc4' ieee80211_wep_init() will fail, that will fail
+ieee80211_register_hw() and so no mac80211 driver could be loaded)
 
-cu
-Adrian
+> So, all this wouldn't work, if kernel symbols could randomly get
+> nuked by some "garbage collector".
+>
+> In practice, no distribution would use symbol garbage collection, as the
+> only benefit from it would be an increased level of bugreports.
 
--- 
+The question I can't answer in this context is: Do distributions want
+to support external modules?
+Only if yes, your argument is valid. But then they could just disable
+this feature and prevent this kind of bugreports.
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+Torsten
