@@ -1,40 +1,37 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] Force UNIX domain sockets to be built in
-Date: Mon, 31 Dec 2007 20:05:16 +0100
-Message-ID: <200712312005.17384.mb@bu3sch.de>
-References: <alpine.LSU.0.999.0712311300020.3686@be1.lrz> <200712311818.12825.mb@bu3sch.de> <64bb37e0712311037w42bae43ayb3c10b2e0310586d@mail.gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] [IPROUTE2] IPT action compatibility with iptables 1.4.0
+Date: Mon, 31 Dec 2007 11:16:11 -0800
+Message-ID: <20071231111611.795d8236@deepthought>
+References: <1198515305.4427.12.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Alan Cox" <alan@lxorguk.ukuu.org.uk>,
-	"Adrian Bunk" <bunk@kernel.org>, "Bodo Eggert" <7eggert@gmx.de>,
-	"Jan Engelhardt" <jengelh@computergmbh.de>, devzero@web.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Torsten Kaiser" <just.for.lkml@googlemail.com>
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vs166246.vserver.de ([62.75.166.246]:59714 "EHLO
-	vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751244AbXLaTGT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 14:06:19 -0500
-In-Reply-To: <64bb37e0712311037w42bae43ayb3c10b2e0310586d@mail.gmail.com>
-Content-Disposition: inline
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:53930 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750935AbXLaTSM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 14:18:12 -0500
+In-Reply-To: <1198515305.4427.12.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 31 December 2007 19:37:43 Torsten Kaiser wrote:
-> The base problem is that there already are many options to break
-> external modules. (CONFIG_MODULES=n ;) )
+On Mon, 24 Dec 2007 11:55:05 -0500
+jamal <hadi@cyberus.ca> wrote:
 
-Exactly. There already are enough ways to break external modules.
-No need to introduce more. ;)
+> 
+> Stephen,
+> 
+> Please apply this patch from Denys Fedoryshchenko to make the ipt action
+> work with latest iptables.
+> 
+> cheers,
+> jamal
+> 
 
-> The question I can't answer in this context is: Do distributions want
-> to support external modules?
-> Only if yes, your argument is valid. But then they could just disable
-> this feature and prevent this kind of bugreports.
-
-That's my point. Nobody will risk bugs to save a few bytes of memory.
+applied and pushed
 
 -- 
-Greetings Michael.
+Stephen Hemminger <stephen.hemminger@vyatta.com>
