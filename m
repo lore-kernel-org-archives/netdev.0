@@ -1,61 +1,41 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [usb regression] Re: [PATCH 2.6.24-rc3] Fix /proc/net breakage
-Date: Mon, 31 Dec 2007 11:26:43 -0800
-Message-ID: <20071231192643.GA25341@kroah.com>
-References: <20071231052500.GB4187@kroah.com> <Pine.LNX.4.44L0.0712311237150.7182-100000@iolanthe.rowland.org>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH] Force UNIX domain sockets to be built in
+Date: Mon, 31 Dec 2007 19:38:48 +0000
+Message-ID: <20071231193848.GQ27894@ZenIV.linux.org.uk>
+References: <alpine.LSU.0.999.0712311300020.3686@be1.lrz> <20071231.042055.145660385.davem@davemloft.net> <alpine.LSU.0.999.0712311426520.3761@be1.lrz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andreas Mohr <andi@lisas.de>, Ingo Molnar <mingo@elte.hu>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Woodhouse <dwmw2@infradead.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
-	kernel list <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	"Denis V. Lunev" <den@openvz.org>,
-	USB list <linux-usb@vger.kernel.org>
-To: Alan Stern <stern@rowland.harvard.edu>
+Cc: David Miller <davem@davemloft.net>, jengelh@computergmbh.de,
+	devzero@web.de, linux-kernel@vger.kernel.org, bunk@kernel.org,
+	netdev@vger.kernel.org
+To: Bodo Eggert <7eggert@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:41297 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751196AbXLaT2g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 14:28:36 -0500
+Received: from zeniv.linux.org.uk ([195.92.253.2]:51263 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751808AbXLaTiw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 14:38:52 -0500
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44L0.0712311237150.7182-100000@iolanthe.rowland.org>
+In-Reply-To: <alpine.LSU.0.999.0712311426520.3761@be1.lrz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 31, 2007 at 12:49:52PM -0500, Alan Stern wrote:
-> On Sun, 30 Dec 2007, Greg KH wrote:
+On Mon, Dec 31, 2007 at 03:03:20PM +0100, Bodo Eggert wrote:
+> On Mon, 31 Dec 2007, David Miller wrote:
+> > From: Bodo Eggert <7eggert@gmx.de>
 > 
-> > > It looks like Greg misused the debugfs API -- which is ironic, because
-> > > he wrote debugfs in the first place!  :-)
+> > > As suggested by Adrian Bunk, UNIX domain sockets should always be built in 
+> > > on normal systems. This is especially true since udev needs these sockets
+> > > and fails to run if UNIX=m.
+> > > 
+> > > Signed-Off-By: Bodo Eggert <7eggert@gmx.de>
 > > 
-> > Oh crap, sorry, I did mess that up :(
+> > People who use udev can make sure they have it built into their kernel
+> > if they have such a dependency.
 > > 
-> > > Let me know if this patch fixes the problem.  If it does, I'll submit 
-> > > it to Greg with all the proper accoutrements.
-> > 
-> > This isn't going to work if CONFIG_DEBUGFS is not enabled either :(
+> > Not everyone uses udev, and therefore needs AF_UNIX non-modular.
 > 
-> Why not?  The debugging files won't be created, true, but the driver
-> should work just fine regardless.  This is exactly the way uhci-hcd
-> behaves, and it hasn't caused any problems.
+> That's why I kept this option for embedded folks.
+> 
+> Is there any benefit for non-embedded systems from having UNIX=m?
 
-Ok, you are right, it was late and after some wine and I shouldn't have
-been responding to email :)
-
-I'll rework this, and send out a patch tonight or tomorrow when I get a
-chance (am on the road right now).  We should only care about NULL being
-returned here, that's the only "real" error.
-
-And in thinking about it some more, I should go audit all the debugfs
-callers to make sure they are doing something sane too, it shouldn't be
-this complex at all...
-
-thanks,
-
-greg k-h
+udev-free != embedded.
