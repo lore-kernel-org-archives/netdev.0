@@ -1,59 +1,110 @@
 From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: [PATCH 06/26] atl1: update initialization parameters
-Date: Mon, 31 Dec 2007 20:22:33 -0600
-Message-ID: <1199154173-4058-7-git-send-email-jacliburn@bellsouth.net>
+Subject: [PATCH 04/26] atl1: add ethtool register dump
+Date: Mon, 31 Dec 2007 20:22:31 -0600
+Message-ID: <1199154173-4058-5-git-send-email-jacliburn@bellsouth.net>
 References: <1199154173-4058-1-git-send-email-jacliburn@bellsouth.net>
 Cc: Jay Cliburn <jacliburn@bellsouth.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmailhost01.isp.att.net ([204.127.217.101]:61218 "EHLO
-	fmailhost01.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751750AbYAAC2M (ORCPT
+Received: from fmailhost02.isp.att.net ([204.127.217.102]:63805 "EHLO
+	fmailhost02.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751754AbYAAC2M (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 21:28:12 -0500
 In-Reply-To: <1199154173-4058-1-git-send-email-jacliburn@bellsouth.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update initialization parameters to match the current vendor driver
-version 1.2.40.2.
+Add the ethtool register dump option to the atl1 driver.
 
 Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
 ---
- drivers/net/atlx/atl1.c |   14 +++++++-------
- 1 files changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/atlx/atl1.c |   53 +++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/atlx/atl1.h |    1 +
+ 2 files changed, 54 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
-index 262d3ca..695dcbc 100644
+index 4e98c16..239641f 100644
 --- a/drivers/net/atlx/atl1.c
 +++ b/drivers/net/atlx/atl1.c
-@@ -136,20 +136,20 @@ static int __devinit atl1_sw_init(struct atl1_adapter *adapter)
- 	hw->rfd_fetch_gap = 1;
- 	hw->rx_jumbo_th = adapter->rx_buffer_len / 8;
- 	hw->rx_jumbo_lkah = 1;
--	hw->rrd_ret_timer = 16;
--	hw->tpd_burst = 4;
-+	hw->rrd_ret_timer = 4;	/* 8 us */
-+	hw->tpd_burst = 8;
- 	hw->tpd_fetch_th = 16;
--	hw->txf_burst = 0x100;
-+	hw->txf_burst = 0x200;
- 	hw->tx_jumbo_task_th = (hw->max_frame_size + 7) >> 3;
- 	hw->tpd_fetch_gap = 1;
- 	hw->rcb_value = atl1_rcb_64;
- 	hw->dma_ord = atl1_dma_ord_enh;
--	hw->dmar_block = atl1_dma_req_256;
--	hw->dmaw_block = atl1_dma_req_256;
-+	hw->dmar_block = atl1_dma_req_1024;
-+	hw->dmaw_block = atl1_dma_req_1024;
- 	hw->cmb_rrd = 4;
- 	hw->cmb_tpd = 4;
--	hw->cmb_rx_timer = 1;	/* about 2us */
--	hw->cmb_tx_timer = 1;	/* about 2us */
-+	hw->cmb_rx_timer = 2;	/* about 4us */
-+	hw->cmb_tx_timer = 256;	/* about 512us */
- 	hw->smb_timer = 100000;	/* about 200ms */
+@@ -2513,6 +2513,57 @@ static int atl1_set_wol(struct net_device *netdev,
+ 	return 0;
+ }
  
- 	spin_lock_init(&adapter->lock);
++static int atl1_get_regs_len(struct net_device *netdev)
++{
++	return ATL1_REG_COUNT * sizeof(u32);
++}
++
++static void atl1_get_regs(struct net_device *netdev, struct ethtool_regs *regs,
++	void *p)
++{
++	struct atl1_adapter *adapter = netdev_priv(netdev);
++	struct atl1_hw *hw = &adapter->hw;
++	unsigned int i;
++	u32 *regbuf = p;
++
++	for (i = 0; i < ATL1_REG_COUNT; i++) {
++		/*
++		 * This switch statement avoids reserved regions
++		 * of register space.
++		 */
++		switch (i) {
++		case 6 ... 9:
++		case 14:
++		case 29 ... 31:
++		case 34 ... 63:
++		case 75 ... 127:
++		case 136 ... 1023:
++		case 1027 ... 1087:
++		case 1091 ... 1151:
++		case 1194 ... 1195:
++		case 1200 ... 1201:
++		case 1206 ... 1213:
++		case 1216 ... 1279:
++		case 1290 ... 1311:
++		case 1323 ... 1343:
++		case 1358 ... 1359:
++		case 1368 ... 1375:
++		case 1378 ... 1383:
++		case 1388 ... 1391:
++		case 1393 ... 1395:
++		case 1402 ... 1403:
++		case 1410 ... 1471:
++		case 1522 ... 1535:
++			/* reserved region; don't read it */
++			regbuf[i] = 0;
++			break;
++		default:
++			/* unreserved region */
++			regbuf[i] = ioread32(hw->hw_addr + (i * sizeof(u32)));
++		}
++	}
++}
++
+ static void atl1_get_ringparam(struct net_device *netdev,
+ 	struct ethtool_ringparam *ring)
+ {
+@@ -2703,6 +2754,8 @@ const struct ethtool_ops atl1_ethtool_ops = {
+ 	.get_drvinfo		= atl1_get_drvinfo,
+ 	.get_wol		= atl1_get_wol,
+ 	.set_wol		= atl1_set_wol,
++	.get_regs_len		= atl1_get_regs_len,
++	.get_regs		= atl1_get_regs,
+ 	.get_ringparam		= atl1_get_ringparam,
+ 	.set_ringparam		= atl1_set_ringparam,
+ 	.get_pauseparam		= atl1_get_pauseparam,
+diff --git a/drivers/net/atlx/atl1.h b/drivers/net/atlx/atl1.h
+index 538948d..30c5a8d 100644
+--- a/drivers/net/atlx/atl1.h
++++ b/drivers/net/atlx/atl1.h
+@@ -584,6 +584,7 @@ enum atl1_dma_req_block {
+ #define ATL1_DEFAULT_RFD	512
+ #define ATL1_MIN_RFD		128
+ #define ATL1_MAX_RFD		2048
++#define ATL1_REG_COUNT		1538
+ 
+ #define ATL1_GET_DESC(R, i, type)	(&(((type *)((R)->desc))[i]))
+ #define ATL1_RFD_DESC(R, i)	ATL1_GET_DESC(R, i, struct rx_free_desc)
 -- 
 1.5.3.3
 
