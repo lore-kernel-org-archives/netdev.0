@@ -1,431 +1,191 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: Re: [PATCH 25/26] [REVISED] atl1: add NAPI support
-Date: Tue, 1 Jan 2008 12:15:36 -0600
-Message-ID: <20080101121536.3df9c497@osprey.hogchain.net>
-References: <1199152804-3889-1-git-send-email-jacliburn@bellsouth.net>
-	<1199152804-3889-26-git-send-email-jacliburn@bellsouth.net>
+From: "Torsten Kaiser" <just.for.lkml@googlemail.com>
+Subject: Re: 2.6.24-rc6-mm1
+Date: Tue, 1 Jan 2008 19:29:11 +0100
+Message-ID: <64bb37e0801011029n7d4069fejddf9a1d184c388eb@mail.gmail.com>
+References: <20071222233056.d652743e.akpm@linux-foundation.org>
+	 <64bb37e0712230827m7d368e2l3174f3b4396d09c1@mail.gmail.com>
+	 <64bb37e0712281453y4aac82b7h7acc8ec314ca6e3e@mail.gmail.com>
+	 <20071228150746.42b3bbc0.akpm@linux-foundation.org>
+	 <64bb37e0712290851r6d41768dk270e47884713a3de@mail.gmail.com>
+	 <20071230013021.GA13603@gondor.apana.org.au>
+	 <64bb37e0712291934o77a3d365h56c9c31ac8437469@mail.gmail.com>
+	 <64bb37e0712311215x519b10e9kd51eb745b3b7290a@mail.gmail.com>
+	 <20080101120406.GA27209@gondor.apana.org.au>
+	 <64bb37e0801010459h68976d56i21d505eb2817f1ac@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: jeff@garzik.org, csnook@redhat.com, linux-kernel@vger.kernel.org,
-	atl1-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, joonwpark81@gmail.com
-To: jacliburn@bellsouth.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756547AbYAASTH@vger.kernel.org>
-In-Reply-To: <1199152804-3889-26-git-send-email-jacliburn@bellsouth.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Andrew Morton" <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, "Neil Brown" <neilb@suse.de>,
+	"J. Bruce Fields" <bfields@fieldses.org>, netdev@vger.kernel.org,
+	"Tom Tucker" <tom@opengridcomputing.com>
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from py-out-1112.google.com ([64.233.166.179]:22697 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753482AbYAAS3P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jan 2008 13:29:15 -0500
+Received: by py-out-1112.google.com with SMTP id u52so9538698pyb.10
+        for <netdev@vger.kernel.org>; Tue, 01 Jan 2008 10:29:14 -0800 (PST)
+In-Reply-To: <64bb37e0801010459h68976d56i21d505eb2817f1ac@mail.gmail.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks for your comments Stephen and Joonwoo.  Here's the revised
-version of the atl1 NAPI patch.
+On Jan 1, 2008 1:59 PM, Torsten Kaiser <just.for.lkml@googlemail.com> wrote:
+> On Jan 1, 2008 1:04 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> > On Mon, Dec 31, 2007 at 09:15:19PM +0100, Torsten Kaiser wrote:
+> > >
+> > > I then tried to "fix" it with this suspect.
+> > > I changed "skb_release_all(dst);" back to "skb_release_data(dst);" in
+> > > skb_morph() (net/core/skbuff.c).
 
+I can't explain, why this seems to fix 2.6.24-rc3-mm2 for me, but at
+least in 2.6.24-rc6-mm1 it does not seem to be involved.
 
+> > Check /proc/net/snmp to see if you're getting any fragments, if not
+> > then skb_morph shouldn't even be getting called.
+>
+> OK, thanks for that hint.
+> I look at this after my next tests.
 
->From 9c3a8944220287671f983557099bc329f02fda9b Mon Sep 17 00:00:00 2001
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Date: Tue, 1 Jan 2008 11:55:24 -0600
-Subject: [PATCH 25/26] atl1: add NAPI support
+During normal work I did not see the frag counters increase.
+I used ping -s 10000 to create some frags, worked perfectly.
+I used netio -b 63k -u [target] to create around half a million frags,
+worked too.
 
-Add support for NAPI.
+And what really is strange is that I changed skb_morph into this:
+struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src)
+{
+        printk(KERN_ERR "morph %p:%p",dst,src);
+        WARN_ON(1);
+        skb_release_all(dst);
+        return __skb_clone(dst, src);
+}
+... that warning was not triggered once.
 
-Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
----
- drivers/net/Kconfig     |   14 +++++
- drivers/net/atlx/atl1.c |  125 +++++++++++++++++++++++++++++++++++------------
- drivers/net/atlx/atl1.h |   19 +++++++
- drivers/net/atlx/atlx.h |    7 ++-
- 4 files changed, 132 insertions(+), 33 deletions(-)
+> > > I'm now at 205 of 210 packages completed without a further hang. I
+> > > also do not see an obvious memory leak.
+> >
+> > In any case, I suspect the cause of your problem is that somebody
+> > somewhere is doing a double-free on an skb.
+> >
+> > Since you're the only person who can reproduce this, we really need
+> > your help to track this down.  Since bisecting the mm tree is not
+> > practical, you could start by checking whether the bug is in mm only
+> > or whether it affects rc6 too.
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index d9107e5..095629f 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2371,6 +2371,20 @@ config ATL1
- 	  To compile this driver as a module, choose M here.  The module
- 	  will be called atl1.
- 
-+config ATL1_NAPI
-+	bool "Use Rx Polling (NAPI) (EXPERIMENTAL)"
-+	depends on ATL1 && EXPERIMENTAL
-+	help
-+	  NAPI is a new driver API designed to reduce CPU and interrupt load
-+	  when the driver is receiving lots of packets from the card. It is
-+	  still somewhat experimental and thus not yet enabled by default.
-+
-+	  If your estimated Rx load is 10kpps or more, or if the card will be
-+	  deployed on potentially unfriendly networks (e.g. in a firewall),
-+	  then say Y here.
-+
-+	  If in doubt, say N.
-+
- endif # NETDEV_1000
- 
- #
-diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
-index 8b4aa94..88ff000 100644
---- a/drivers/net/atlx/atl1.c
-+++ b/drivers/net/atlx/atl1.c
-@@ -754,13 +754,6 @@ static void atl1_set_mac_addr(struct atl1_hw *hw)
- 	iowrite32(value, (hw->hw_addr + REG_MAC_STA_ADDR) + (1 << 2));
- }
- 
--static int atl1_alloc_queues(struct atl1_adapter *adapter)
--{
--	/* temporary placeholder function for NAPI */
--
--	return 0;
--}
--
- /*
-  * atl1_sw_init - Initialize general software structures (struct atl1_adapter)
-  * @adapter: board private structure to initialize
-@@ -769,7 +762,6 @@ static int __devinit atl1_sw_init(struct atl1_adapter *adapter)
- {
- 	struct atl1_hw *hw = &adapter->hw;
- 	struct net_device *netdev = adapter->netdev;
--	int err;
- 
- 	hw->max_frame_size = netdev->mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
- 	hw->min_frame_size = ETH_ZLEN + ETH_FCS_LEN;
-@@ -811,13 +803,6 @@ static int __devinit atl1_sw_init(struct atl1_adapter *adapter)
- 	hw->cmb_tx_timer = 256;	/* about 512us */
- 	hw->smb_timer = 100000;	/* about 200ms */
- 
--	err = atl1_alloc_queues(adapter);
--	if (err) {
--		dev_printk(KERN_DEBUG, &adapter->pdev->dev,
--			"unable to allocate memory for queues\n");
--		return -ENOMEM;
--	}
--
- 	spin_lock_init(&adapter->lock);
- 	spin_lock_init(&adapter->mb_lock);
- 	set_bit(__ATL1_DOWN, &adapter->flags);
-@@ -1209,9 +1194,8 @@ static u32 atl1_check_link(struct atl1_adapter *adapter)
- 	}
- 
- 	/* autoneg, insert timer to reconfig phy */
--	if (!test_and_set_bit(0, &adapter->cfg_phy)) {
-+	if (!test_and_set_bit(0, &adapter->cfg_phy))
- 		mod_timer(&adapter->phy_config_timer, jiffies + 5 * HZ);
--	}
- 
- 	return 0;
- }
-@@ -1699,18 +1683,21 @@ next:
- 	return num_alloc;
- }
- 
--static void atl1_clean_rx_irq(struct atl1_adapter *adapter)
-+#ifdef CONFIG_ATL1_NAPI
-+static int atl1_clean_rx_irq(struct atl1_adapter *adapter, int work_to_do)
-+#else
-+static int atl1_clean_rx_irq(struct atl1_adapter *adapter)
-+#endif
- {
- 	struct net_device *netdev = adapter->netdev;
--	int i, count;
-+	int i, count = 0;
- 	u16 length, rrd_next_to_clean;
- 	struct atl1_rfd_ring *rfd_ring = &adapter->rfd_ring;
- 	struct atl1_rrd_ring *rrd_ring = &adapter->rrd_ring;
- 	struct atl1_buffer *buffer_info;
- 	struct rx_return_desc *rrd;
- 	struct sk_buff *skb;
--
--	count = 0;
-+	int work_done = 0;
- 
- 	rrd_next_to_clean = (u16) atomic_read(&rrd_ring->next_to_clean);
- 
-@@ -1809,6 +1796,18 @@ rrd_ok:
- 		atl1_rx_checksum(adapter, rrd, skb);
- 		skb->protocol = eth_type_trans(skb, adapter->netdev);
- 
-+#ifdef CONFIG_ATL1_NAPI
-+		if (adapter->vlgrp && (rrd->pkt_flg & PACKET_FLAG_VLAN_INS)) {
-+			u16 vlan_tag = (rrd->vlan_tag >> 4) |
-+					((rrd->vlan_tag & 7) << 13) |
-+					((rrd->vlan_tag & 8) << 9);
-+			vlan_hwaccel_receive_skb(skb, adapter->vlgrp, vlan_tag);
-+		} else
-+			netif_receive_skb(skb);
-+
-+		if (++work_done >= work_to_do)
-+			break;
-+#else
- 		if (adapter->vlgrp && (rrd->pkt_flg & PACKET_FLAG_VLAN_INS)) {
- 			u16 vlan_tag = (rrd->vlan_tag >> 4) |
- 					((rrd->vlan_tag & 7) << 13) |
-@@ -1816,6 +1815,7 @@ rrd_ok:
- 			vlan_hwaccel_rx(skb, adapter->vlgrp, vlan_tag);
- 		} else
- 			netif_rx(skb);
-+#endif
- 
- 		/* let protocol layer free skb */
- 		buffer_info->skb = NULL;
-@@ -1830,9 +1830,11 @@ rrd_ok:
- 
- 	if (count)
- 		atl1_update_mailbox(adapter);
-+
-+	return work_done;
- }
- 
--static bool atl1_clean_tx_irq(struct atl1_adapter *adapter)
-+static void atl1_clean_tx_irq(struct atl1_adapter *adapter)
- {
- 	struct atl1_tpd_ring *tpd_ring = &adapter->tpd_ring;
- 	struct atl1_buffer *buffer_info;
-@@ -1866,12 +1868,34 @@ static bool atl1_clean_tx_irq(struct atl1_adapter *adapter)
- 	if (netif_queue_stopped(adapter->netdev)
- 	    && netif_carrier_ok(adapter->netdev))
- 		netif_wake_queue(adapter->netdev);
-+}
- 
--	if (sw_tpd_next_to_clean == (u16) atomic_read(&tpd_ring->next_to_use))
--		return true;
--	else
--		return false;
-+#ifdef CONFIG_ATL1_NAPI
-+static int atl1_clean(struct napi_struct *napi, int budget)
-+{
-+	struct atl1_adapter *adapter = container_of(napi, struct atl1_adapter,
-+		napi);
-+	struct net_device *poll_dev = adapter->netdev;
-+	int work_done = 0;
-+
-+	adapter = poll_dev->priv;
-+
-+	if (!netif_carrier_ok(poll_dev))
-+		goto quit_polling;
-+
-+	work_done = atl1_clean_rx_irq(adapter, budget);
-+
-+	if ((work_done < budget) || !netif_running(poll_dev)) {
-+quit_polling:
-+		netif_rx_complete(poll_dev, napi);
-+
-+		if (!test_bit(__ATL1_DOWN, &adapter->flags))
-+			atlx_irq_enable(adapter);
-+	}
-+
-+	return work_done;
- }
-+#endif
- 
- static u16 atl1_tpd_avail(struct atl1_tpd_ring *tpd_ring)
- {
-@@ -2176,7 +2200,6 @@ static int atl1_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 
- 	if (!spin_trylock_irqsave(&adapter->lock, flags)) {
- 		/* Can't get lock - tell upper layer to requeue */
--		dev_printk(KERN_DEBUG, &adapter->pdev->dev, "tx locked\n");
- 		return NETDEV_TX_LOCKED;
- 	}
- 
-@@ -2184,7 +2207,6 @@ static int atl1_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 		/* not enough descriptors */
- 		netif_stop_queue(netdev);
- 		spin_unlock_irqrestore(&adapter->lock, flags);
--		dev_printk(KERN_DEBUG, &adapter->pdev->dev, "tx busy\n");
- 		return NETDEV_TX_BUSY;
- 	}
- 
-@@ -2233,16 +2255,21 @@ static int atl1_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
-  */
- static irqreturn_t atl1_intr(int irq, void *data)
- {
-+	struct net_device *netdev = data;
- 	struct atl1_adapter *adapter = netdev_priv(data);
- 	struct atl1_hw *hw = &adapter->hw;
- 	u32 status;
--	int max_ints = 10;
-+#ifndef CONFIG_ATL1_NAPI
-+	int max_ints = 12;
-+#endif
- 
- 	status = adapter->cmb.cmb->int_stats;
- 	if (!status)
- 		return IRQ_NONE;
- 
-+#ifndef CONFIG_ATL1_NAPI
- loopint:
-+#endif
- 	/* clear CMB interrupt status at once */
- 	adapter->cmb.cmb->int_stats = 0;
- 
-@@ -2257,7 +2284,7 @@ loopint:
- 	if (status & ISR_PHY_LINKDOWN) {
- 		dev_printk(KERN_DEBUG, &adapter->pdev->dev,
- 			"pcie phy link down %x\n", status);
--		if (netif_running(adapter->netdev)) {
-+		if (netif_running(netdev)) {
- 			/* reset MAC */
- 			iowrite32(0, hw->hw_addr + REG_ISR);
- 			iowrite32(0, hw->hw_addr + REG_IMR);
-@@ -2293,13 +2320,29 @@ loopint:
- 	if (status & ISR_TX_EVENT)
- 		atl1_clean_tx_irq(adapter);
- 
--	/* rx event */
-+#ifdef CONFIG_ATL1_NAPI
-+	/* rx event with NAPI */
-+	if (status & ISR_RX_EVENT) {
-+		struct atl1_rrd_ring *rrd_ring = &adapter->rrd_ring;
-+		struct rx_return_desc *rrd;
-+		rrd = ATL1_RRD_DESC(rrd_ring,
-+			((u16) atomic_read(&rrd_ring->next_to_clean)));
-+		if (rrd->xsz.valid) {
-+			/* valid packet; disable interrupts */
-+			iowrite32(IMR_NONRX_MASK, hw->hw_addr + REG_IMR);
-+			ioread32(hw->hw_addr + REG_IMR);
-+			napi_schedule(&adapter->napi);
-+		}
-+	}
-+#else
-+	/* rx event no NAPI */
- 	if (status & ISR_RX_EVENT)
- 		atl1_clean_rx_irq(adapter);
- 
- 	status = adapter->cmb.cmb->int_stats;
- 	if ((--max_ints > 0) && status)
- 		goto loopint;
-+#endif
- 
- 	/* re-enable interrupts */
- 	iowrite32((ISR_DIS_SMB | ISR_DIS_DMA), adapter->hw.hw_addr + REG_ISR);
-@@ -2376,6 +2419,10 @@ static s32 atl1_up(struct atl1_adapter *adapter)
- 	retval = ioread32(&adapter->hw + REG_MASTER_CTRL);
- 	retval |= MASTER_CTRL_MANUAL_INT;
- 	iowrite32(retval, &adapter->hw + REG_MASTER_CTRL);
-+
-+#ifdef CONFIG_ATL1_NAPI
-+	napi_enable(&adapter->napi);
-+#endif
- 	atlx_irq_enable(adapter);
- 
- 	return 0;
-@@ -2390,6 +2437,10 @@ void atl1_down(struct atl1_adapter *adapter)
- 	atl1_reset_hw(&adapter->hw);
- 	adapter->cmb.cmb->int_stats = 0;
- 	msleep(1);
-+
-+#ifdef CONFIG_ATL1_NAPI
-+	napi_disable(&adapter->napi);
-+#endif
- 	atlx_irq_disable(adapter);
- 	del_timer_sync(&adapter->watchdog_timer);
- 	del_timer_sync(&adapter->phy_config_timer);
-@@ -2529,6 +2580,10 @@ static int atl1_open(struct net_device *netdev)
- 		goto err_open;
- 
- 	clear_bit(__ATL1_DOWN, &adapter->flags);
-+
-+#ifdef CONFIG_ATL1_NAPI
-+	napi_enable(&adapter->napi);
-+#endif
- 	mod_timer(&adapter->watchdog_timer, jiffies + (4 * HZ));
- 	val = ioread32(hw->hw_addr + REG_MASTER_CTRL);
- 	val |= MASTER_CTRL_MANUAL_INT;
-@@ -2615,7 +2670,7 @@ static int atl1_suspend(struct pci_dev *pdev, pm_message_t state)
- 	if ((ctrl & BMSR_LSTATUS) && wufc) {
- 		retval = atl1_get_speed_and_duplex(hw, &speed, &duplex);
- 		if (retval) {
--			dev_printk (KERN_DEBUG, &adapter->pdev->dev,
-+			dev_printk(KERN_DEBUG, &adapter->pdev->dev,
- 				"speed/duplex error during suspend\n");
- 			goto wol_dis;
- 		}
-@@ -2737,6 +2792,9 @@ static void atl1_netpoll(struct net_device *netdev)
- 	disable_irq(adapter->pdev->irq);
- 	atl1_intr(netdev->irq, netdev);
- 	atl1_clean_tx_irq(adapter);
-+#ifndef CONFIG_ATL1_NAPI
-+	atl1_clean_rx_irq(adapter);
-+#endif
- 	enable_irq(adapter->pdev->irq);
- }
- #endif
-@@ -2837,6 +2895,9 @@ static int __devinit atl1_probe(struct pci_dev *pdev,
- 	netdev->do_ioctl = &atlx_ioctl;
- 	netdev->tx_timeout = &atlx_tx_timeout;
- 	netdev->watchdog_timeo = 5 * HZ;
-+#ifdef CONFIG_ATL1_NAPI
-+	netif_napi_add(netdev, &adapter->napi, &atl1_clean, ATL1_NAPI_WEIGHT);
-+#endif
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	netdev->poll_controller = atl1_netpoll;
- #endif
-diff --git a/drivers/net/atlx/atl1.h b/drivers/net/atlx/atl1.h
-index 5187f74..c1ae519 100644
---- a/drivers/net/atlx/atl1.h
-+++ b/drivers/net/atlx/atl1.h
-@@ -63,6 +63,9 @@ static void atl1_set_mac_addr(struct atl1_hw *hw);
- static int atl1_mii_ioctl(struct net_device *netdev, struct ifreq *ifr,
- 	int cmd);
- static u32 atl1_check_link(struct atl1_adapter *adapter);
-+#ifdef CONFIG_ATL1_NAPI
-+static int atl1_clean(struct napi_struct *napi, int budget);
-+#endif
- 
- extern const struct ethtool_ops atl1_ethtool_ops;
- 
-@@ -288,6 +291,15 @@ extern const struct ethtool_ops atl1_ethtool_ops;
- 	ISR_CMB_TX	|\
- 	ISR_CMB_RX)
- 
-+#define IMR_NONRX_MASK	(\
-+	ISR_MANUAL	|\
-+	ISR_SMB		|\
-+	ISR_GPHY	|\
-+	ISR_PHY_LINKDOWN|\
-+	ISR_DMAR_TO_RST	|\
-+	ISR_DMAW_TO_RST	|\
-+	ISR_CMB_TX)
-+
- #define ISR_TX_EVENT	(\
- 	ISR_TXF_UNRUN	|\
- 	ISR_TX_PKT	|\
-@@ -606,6 +618,10 @@ enum atl1_dma_req_block {
- #define ATL1_MAX_RFD		2048
- #define ATL1_REG_COUNT		1538
- 
-+#ifdef CONFIG_ATL1_NAPI
-+#define ATL1_NAPI_WEIGHT 64
-+#endif
-+
- #define ATL1_GET_DESC(R, i, type)	(&(((type *)((R)->desc))[i]))
- #define ATL1_RFD_DESC(R, i)	ATL1_GET_DESC(R, i, struct rx_free_desc)
- #define ATL1_TPD_DESC(R, i)	ATL1_GET_DESC(R, i, struct tx_packet_desc)
-@@ -818,6 +834,9 @@ struct atl1_adapter {
- 	struct atl1_cmb cmb;
- 	unsigned long flags;
- 	int num_rx_queues;
-+#ifdef CONFIG_ATL1_NAPI
-+	struct napi_struct napi;
-+#endif
- };
- 
- enum atl1_state {
-diff --git a/drivers/net/atlx/atlx.h b/drivers/net/atlx/atlx.h
-index 352432e..18021d9 100644
---- a/drivers/net/atlx/atlx.h
-+++ b/drivers/net/atlx/atlx.h
-@@ -29,7 +29,12 @@
- #include <linux/module.h>
- #include <linux/types.h>
- 
--#define ATLX_DRIVER_VERSION "2.1.1"
-+#ifndef CONFIG_ATL1_NAPI
-+#define DRIVERNAPI
-+#else
-+#define DRIVERNAPI "-NAPI"
-+#endif
-+#define ATLX_DRIVER_VERSION "2.1.1"DRIVERNAPI
- MODULE_AUTHOR("Xiong Huang <xiong.huang@atheros.com>, \
- 	Chris Snook <csnook@redhat.com>, Jay Cliburn <jcliburn@gmail.com>");
- MODULE_LICENSE("GPL");
--- 
-1.5.3.3
+The problem bisecting this, is that I can't seem to trigger this on
+demand. Today I was just about giving up on triggering it in -rc6-mm1
+with doing package complies when did happen again. But that was after
+more then 4 hours...
+
+> I will try -rc6-mm1 and vanilla -rc6 and report back.
+
+As noted above, my WARN_ON(1) in skb_morph did not trigger once before
+the system died with this OOPS:
+[18663.909931] Unable to handle kernel NULL pointer dereference at
+0000000000000000 RIP:
+[18663.915489]  [<ffffffff8055f2e8>] tcp_read_sock+0x58/0x1b0
+[18663.918652] PGD 73442067 PUD 7480e067 PMD 0
+[18663.918652] Oops: 0000 [1] SMP
+[18663.918652] last sysfs file:
+/sys/devices/system/cpu/cpu3/cache/index2/shared_cpu_map
+[18663.918652] CPU 1
+[18663.918652] Modules linked in: radeon drm nfsd exportfs w83792d
+ipv6 tuner tea5767 tda8290 tuner_xc2028 tda9887 tuner_simple mt20xx
+tea5761 tvaudio msp3400 bttv ir_common compat_ioctl32 videobuf_dma_sg
+videobuf_core btcx_risc tveeprom usbhid videodev v4l2_common
+v4l1_compat hid sg pata_amd i2c_nforce2
+[18663.918652] Pid: 0, comm: swapper Not tainted 2.6.24-rc6-mm1 #13
+[18663.918652] RIP: 0010:[<ffffffff8055f2e8>]  [<ffffffff8055f2e8>]
+tcp_read_sock+0x58/0x1b0
+[18663.918652] RSP: 0018:ffff81007ff4fb60  EFLAGS: 00010286
+[18663.918652] RAX: 0000000000000038 RBX: 0000000000000000 RCX: 0000000000000000
+[18663.918652] RDX: ffff8100141a40b0 RSI: ffff81007ff4fbc0 RDI: 0000000000000000
+[18663.918652] RBP: ffff81007ff4fbb0 R08: 0000000000000002 R09: 0000000000000000
+[18663.918652] R10: ffffffff805b2afb R11: 000000000520cde8 R12: 00000000c05a019a
+[18663.918652] R13: 000000000f26378b R14: ffff810066469d38 R15: ffff81004b4e4000
+[18663.918652] FS:  00007f58ac9a0700(0000) GS:ffff81007ff12580(0000)
+knlGS:0000000000000000
+[18663.918652] CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
+[18663.918652] CR2: 0000000000000000 CR3: 0000000073441000 CR4: 00000000000006e0
+[18663.918652] DR0: 00007fffe1e55cbc DR1: 0000000000000000 DR2: 0000000000000000
+[18663.918652] DR3: 0000000000000000 DR6: 00000000ffff4ff0 DR7: 0000000000000400
+[18663.918652] Process swapper (pid: 0, threadinfo ffff81011ff2c000,
+task ffff81007ff4a000)
+[18663.918652] Stack:  ffff810066469d38 ffff81004b4e4148
+ffffffff805b1ab0 ffff81007ff4fbc0
+[18663.918652] Stack:  ffff810066469d38 ffff81004b4e4148
+ffffffff805b1ab0 ffff81007ff4fbc0
+[18663.918652]  00000000805b2afb ffff81004b4e4000 ffff81004b4e4298
+ffff810066469d00
+[18663.918652]  ffff810066469d38 0000000000000000 ffff81007ff4fbf0
+ffffffff805b2b41
+[18663.918652] Call Trace:
+[18663.918652]  <IRQ>  [<ffffffff805b1ab0>] xs_tcp_data_recv+0x0/0x560
+[18663.918652]  [<ffffffff805b2b41>] xs_tcp_data_ready+0x71/0x90
+[18663.918652]  [<ffffffff80568bec>] __tcp_ack_snd_check+0x5c/0xa0
+[18663.918652]  [<ffffffff8056a458>] tcp_rcv_established+0x3c8/0x800
+[18663.918652]  [<ffffffff80571451>] tcp_v4_do_rcv+0x2e1/0x4e0
+[18663.918652]  [<ffffffff80573cb1>] tcp_v4_rcv+0x721/0x850
+[18663.918652]  [<ffffffff80553d63>] ip_local_deliver_finish+0xd3/0x250
+[18663.918652]  [<ffffffff8055433b>] ip_local_deliver+0x3b/0x90
+[18663.918652]  [<ffffffff80553988>] ip_rcv_finish+0x118/0x420
+[18663.918652]  [<ffffffff8022e313>] enqueue_task_fair+0x73/0xd0
+[18663.918652]  [<ffffffff80554236>] ip_rcv+0x226/0x2f0
+[18663.918652]  [<ffffffff80537576>] netif_receive_skb+0x1d6/0x280
+[18663.918652]  [<ffffffff8053a1ea>] process_backlog+0x8a/0xf0
+[18663.918652]  [<ffffffff80539e84>] net_rx_action+0xb4/0x130
+[18663.918652]  [<ffffffff8023d624>] __do_softirq+0x84/0x110
+[18663.918652]  [<ffffffff8020c82c>] call_softirq+0x1c/0x30
+[18663.918652]  [<ffffffff8020eaa5>] do_softirq+0x65/0xc0
+[18663.918652]  [<ffffffff8023d595>] irq_exit+0x95/0xa0
+[18663.918652]  [<ffffffff8020ebbf>] do_IRQ+0x8f/0x100
+[18663.918652]  [<ffffffff8020a4b0>] default_idle+0x0/0x80
+[18663.918652]  [<ffffffff8020bb26>] ret_from_intr+0x0/0xf
+[18663.918652]  <EOI>  [<ffffffff80252310>]
+__atomic_notifier_call_chain+0x0/0xa0
+[18663.918652]  [<ffffffff8020a4f3>] default_idle+0x43/0x80
+[18663.918652]  [<ffffffff8020a4f1>] default_idle+0x41/0x80
+[18663.918652]  [<ffffffff8020a4b0>] default_idle+0x0/0x80
+[18663.918652]  [<ffffffff8020a59c>] cpu_idle+0x6c/0xa0
+[18663.918652]  [<ffffffff808109b8>] start_secondary+0x2f8/0x420
+[18663.918652]
+[18663.918652]
+[18663.918652] Code: 48 8b 3b 0f 18 0f 74 75 8b 93 a0 00 00 00 45 89 ec 44 2b 63
+[18663.918652] RIP  [<ffffffff8055f2e8>] tcp_read_sock+0x58/0x1b0
+[18663.918652]  RSP <ffff81007ff4fb60>
+[18663.918652] CR2: 0000000000000000
+[18663.918680] ---[ end trace 1dc6b1bf3734ac14 ]---
+
+(gdb) list *0xffffffff8055f2e8
+0xffffffff8055f2e8 is in tcp_read_sock (net/ipv4/tcp.c:1173).
+1168    static inline struct sk_buff *tcp_recv_skb(struct sock *sk,
+u32 seq, u32 *off)
+1169    {
+1170            struct sk_buff *skb;
+1171            u32 offset;
+1172
+1173            skb_queue_walk(&sk->sk_receive_queue, skb) {
+1174                    offset = seq - TCP_SKB_CB(skb)->seq;
+1175                    if (tcp_hdr(skb)->syn)
+1176                            offset--;
+1177                    if (offset < skb->len || tcp_hdr(skb)->fin) {
+
+(gdb) list *0xffffffff805b2b41
+0xffffffff805b2b41 is in xs_tcp_data_ready (net/sunrpc/xprtsock.c:1079).
+1074                    goto out;
+1075
+1076            /* We use rd_desc to pass struct xprt to xs_tcp_data_recv */
+1077            rd_desc.arg.data = xprt;
+1078            rd_desc.count = 65536;
+1079            tcp_read_sock(sk, &rd_desc, xs_tcp_data_recv);
+1080    out:
+1081            read_unlock(&sk->sk_callback_lock);
+1082    }
+1083
+
+I will see what vanilla -rc6 will do...
+
+Torsten
