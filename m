@@ -1,44 +1,78 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.24-rc6-mm1
-Date: Tue, 1 Jan 2008 23:04:07 +1100
-Message-ID: <20080101120406.GA27209@gondor.apana.org.au>
-References: <20071222233056.d652743e.akpm@linux-foundation.org> <64bb37e0712230827m7d368e2l3174f3b4396d09c1@mail.gmail.com> <64bb37e0712281453y4aac82b7h7acc8ec314ca6e3e@mail.gmail.com> <20071228150746.42b3bbc0.akpm@linux-foundation.org> <64bb37e0712290851r6d41768dk270e47884713a3de@mail.gmail.com> <20071230013021.GA13603@gondor.apana.org.au> <64bb37e0712291934o77a3d365h56c9c31ac8437469@mail.gmail.com> <64bb37e0712311215x519b10e9kd51eb745b3b7290a@mail.gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [IPSEC] flow : NUMA aware hash table allocation
+Date: Tue, 01 Jan 2008 13:44:15 +0100
+Message-ID: <477A359F.20902@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, Neil Brown <neilb@suse.de>,
-	"J. Bruce Fields" <bfields@fieldses.org>, netdev@vger.kernel.org,
-	Tom Tucker <tom@opengridcomputing.com>
-To: Torsten Kaiser <just.for.lkml@googlemail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754243AbYAAMEh@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <64bb37e0712311215x519b10e9kd51eb745b3b7290a@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------080700010801040008090602"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:44863 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753321AbYAAMo2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jan 2008 07:44:28 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 31, 2007 at 09:15:19PM +0100, Torsten Kaiser wrote:
-> 
-> I then tried to "fix" it with this suspect.
-> I changed "skb_release_all(dst);" back to "skb_release_data(dst);" in
-> skb_morph() (net/core/skbuff.c).
+This is a multi-part message in MIME format.
+--------------080700010801040008090602
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Check /proc/net/snmp to see if you're getting any fragments, if not
-then skb_morph shouldn't even be getting called.
+Using __get_free_pages() has some drawbacks :
 
-> I'm now at 205 of 210 packages completed without a further hang. I
-> also do not see an obvious memory leak.
+1) Not NUMA aware
 
-In any case, I suspect the cause of your problem is that somebody
-somewhere is doing a double-free on an skb.
+2) 2^X page granularity :
+On arches with big PAGE_SIZE, we waste some ram for each cpu.
 
-Since you're the only person who can reproduce this, we really need
-your help to track this down.  Since bisecting the mm tree is not
-practical, you could start by checking whether the bug is in mm only
-or whether it affects rc6 too.
+(We currently use 1024 pointers, that is at most 8192 bytes, but
+PAGE_SIZE can be 65536 for example : With say 64 possible cpus,
+thats about 56*64 Kbytes that are wasted)
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Using kmalloc_node() can help to solve these two points.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+  net/core/flow.c |   15 +++++----------
+  1 files changed, 5 insertions(+), 10 deletions(-)
+
+
+--------------080700010801040008090602
+Content-Type: text/plain;
+ name="flow.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="flow.patch"
+
+diff --git a/net/core/flow.c b/net/core/flow.c
+index a618f89..bcbbe2d 100644
+--- a/net/core/flow.c
++++ b/net/core/flow.c
+@@ -311,18 +311,13 @@ void flow_cache_flush(void)
+ static void __devinit flow_cache_cpu_prepare(int cpu)
+ {
+ 	struct tasklet_struct *tasklet;
+-	unsigned long order;
+ 
+-	for (order = 0;
+-	     (PAGE_SIZE << order) <
+-		     (sizeof(struct flow_cache_entry *)*flow_hash_size);
+-	     order++)
+-		/* NOTHING */;
+-
+-	flow_table(cpu) = (struct flow_cache_entry **)
+-		__get_free_pages(GFP_KERNEL|__GFP_ZERO, order);
++	flow_table(cpu) = kmalloc_node(
++		sizeof(struct flow_cache_entry *) * flow_hash_size,
++		GFP_KERNEL | __GFP_ZERO,
++		cpu_to_node(cpu));
+ 	if (!flow_table(cpu))
+-		panic("NET: failed to allocate flow cache order %lu\n", order);
++		panic("NET: failed to allocate flow cache for cpu %d\n", cpu);
+ 
+ 	flow_hash_rnd_recalc(cpu) = 1;
+ 	flow_count(cpu) = 0;
+
+--------------080700010801040008090602--
