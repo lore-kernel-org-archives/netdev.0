@@ -1,94 +1,62 @@
-From: Andreas Mohr <andim2@users.sourceforge.net>
-Subject: Re: [RFC/PATCH] e100 driver didn't support any MII-less PHYs...
-Date: Tue, 1 Jan 2008 21:10:31 +0100
-Message-ID: <20080101201031.GB14805@rhlx01.hs-esslingen.de>
-References: <20071228235118.GA31059@rhlx01.hs-esslingen.de> <477732A5.5020501@intel.com>
-Reply-To: andi@lisas.de
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: announce: Babylon PPP (scalable L2TP) 2.0 beta 1
+Date: Tue, 1 Jan 2008 18:00:42 -0500
+Message-ID: <20080101230042.GH13328@kvack.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: andi@lisas.de, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bunk@kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:59155 "EHLO
-	rhlx01.hs-esslingen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754659AbYAAUKc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jan 2008 15:10:32 -0500
+Received: from kanga.kvack.org ([66.96.29.28]:52989 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754902AbYAAXBC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Jan 2008 18:01:02 -0500
 Content-Disposition: inline
-In-Reply-To: <477732A5.5020501@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hello all,
 
-On Sat, Dec 29, 2007 at 09:54:45PM -0800, Kok, Auke wrote:
-> ok, barely glanced over the patch but it might just be fine. Can you split up this
-> patch and send a separate patch for the spelling mistakes? I'll then have some
-> quick testing done on the result and do a bit deeper review after newyears.
+This is an announcement for a new beta release of a decently scalable L2TP 
+stack for Linux.  It is based off of the Babylon PPP stack created by 
+SpellCaster back in the '98-'00 timeframe.  Right now there are lots of 
+rough edges (especially in terms of documentation), but it works well enough 
+for many purposes.
 
-Part 2, the spelling corrections.
+The main difference between the Babylon PPP stack and pppd is that the 
+Babylon code uses a single process for controlling all PPP sessions 
+established throughout the system, which uses significantly less memory 
+and processing power per connection.  Practically speaking, a mid range 
+system can terminate thousands of sessions without breaking a sweat.
 
-Thanks!
+Features
+	- entirely GPLed
+	- can terminate thousands of sessions
+	- includes kernel mode multihop for L2TP
+	- can act as an LAC or LNS
+	- has gigawords accounting for sessions
+	- includes Radius client support
+	- already in use to terminate real L2TP traffic for 2 ISPs.
+	- works on x86/x86-64.  Not expected to work on architectures where 
+	unaligned memory accesses are problematic.
 
-Signed-off-by: Andreas Mohr <andi@lisas.de>
+Non-Features
+	- Uses its own kernel mode PPP stack for L2TP and PPPoE.  The 
+	exact direction for this is open to discussions, but will require 
+	lots of work to address the scalability issues.
+	- PPPoE support is not well integrated at present.  It works for 
+	dial out (kernel mode via drivers/pppoe/pppoed and kernel/bab_pppoe.o) 
+	or PPPoE->L2TP conversion (userspace), but not incoming calls as-is.
+	- device nodes are still a work in progress
+	- packaging needs improvement
+	- the kernel code is not at all ready for merging as it needs fairly 
+	major cleanup in several areas
 
---- linux-2.6.24-rc6/drivers/net/e100.c	2008-01-01 18:53:21.000000000 +0100
-+++ linux-2.6.24-rc6/drivers/net/e100.c	2008-01-01 18:53:25.000000000 +0100
-@@ -94,7 +94,7 @@
-  * 	enabled.  82557 pads with 7Eh, while the later controllers pad
-  * 	with 00h.
-  *
-- *	IV.  Recieve
-+ *	IV.  Receive
-  *
-  *	The Receive Frame Area (RFA) comprises a ring of Receive Frame
-  *	Descriptors (RFD) + data buffer, thus forming the simplified mode
-@@ -113,7 +113,7 @@
-  *	and Rx indication and re-allocation happen in the same context,
-  *	therefore no locking is required.  A software-generated interrupt
-  *	is generated from the watchdog to recover from a failed allocation
-- *	senario where all Rx resources have been indicated and none re-
-+ *	scenario where all Rx resources have been indicated and none re-
-  *	placed.
-  *
-  *	V.   Miscellaneous
-@@ -958,7 +958,7 @@
- 	/* Quadwords to DMA into FIFO before starting frame transmit */
- 	nic->tx_threshold = 0xE0;
- 
--	/* no interrupt for every tx completion, delay = 256us if not 557*/
-+	/* no interrupt for every tx completion, delay = 256us if not 557 */
- 	nic->tx_command = cpu_to_le16(cb_tx | cb_tx_sf |
- 		((nic->mac >= mac_82558_D101_A4) ? cb_cid : cb_i));
- 
-@@ -1550,7 +1550,7 @@
- 		&s->complete;
- 
- 	/* Device's stats reporting may take several microseconds to
--	 * complete, so where always waiting for results of the
-+	 * complete, so we're always waiting for results of the
- 	 * previous command. */
- 
- 	if(*complete == le32_to_cpu(cuc_dump_reset_complete)) {
-@@ -2884,17 +2884,17 @@
- /**
-  * e100_io_error_detected - called when PCI error is detected.
-  * @pdev: Pointer to PCI device
-- * @state: The current pci conneection state
-+ * @state: The current pci connection state
-  */
- static pci_ers_result_t e100_io_error_detected(struct pci_dev *pdev, pci_channel_state_t state)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct nic *nic = netdev_priv(netdev);
- 
--	/* Similar to calling e100_down(), but avoids adpater I/O. */
-+	/* Similar to calling e100_down(), but avoids adapter I/O. */
- 	netdev->stop(netdev);
- 
--	/* Detach; put netif into state similar to hotplug unplug. */
-+	/* Detach; put netif into a state similar to hotplug unplug. */
- 	napi_enable(&nic->napi);
- 	netif_device_detach(netdev);
- 	pci_disable_device(pdev);
+The README.l2tp file gives a rough description of what is needed to get 
+things going on recent 2.6 kernels, but I've only been testing 2.6.22.5 
+for this release.  Questions/comments are appreciated.  The source can 
+be had via git clone http://www.kvack.org/~bcrl/babylon.git/.git .  Cheers,
+
+		-ben
+-- 
+"Time is of no importance, Mr. President, only life is important."
+Don't Email: <zyntrop@kvack.org>.
