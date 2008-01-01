@@ -1,78 +1,67 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [IPSEC] flow : NUMA aware hash table allocation
-Date: Tue, 01 Jan 2008 13:44:15 +0100
-Message-ID: <477A359F.20902@cosmosbay.com>
+From: "Torsten Kaiser" <just.for.lkml@googlemail.com>
+Subject: Re: 2.6.24-rc6-mm1
+Date: Tue, 1 Jan 2008 13:59:12 +0100
+Message-ID: <64bb37e0801010459h68976d56i21d505eb2817f1ac@mail.gmail.com>
+References: <20071222233056.d652743e.akpm@linux-foundation.org>
+	 <64bb37e0712230827m7d368e2l3174f3b4396d09c1@mail.gmail.com>
+	 <64bb37e0712281453y4aac82b7h7acc8ec314ca6e3e@mail.gmail.com>
+	 <20071228150746.42b3bbc0.akpm@linux-foundation.org>
+	 <64bb37e0712290851r6d41768dk270e47884713a3de@mail.gmail.com>
+	 <20071230013021.GA13603@gondor.apana.org.au>
+	 <64bb37e0712291934o77a3d365h56c9c31ac8437469@mail.gmail.com>
+	 <64bb37e0712311215x519b10e9kd51eb745b3b7290a@mail.gmail.com>
+	 <20080101120406.GA27209@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080700010801040008090602"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Andrew Morton" <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, "Neil Brown" <neilb@suse.de>,
+	"J. Bruce Fields" <bfields@fieldses.org>, netdev@vger.kernel.org,
+	"Tom Tucker" <tom@opengridcomputing.com>
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:44863 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753321AbYAAMo2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jan 2008 07:44:28 -0500
+Received: from py-out-1112.google.com ([64.233.166.179]:22777 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753664AbYAAM7O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jan 2008 07:59:14 -0500
+Received: by py-out-1112.google.com with SMTP id u52so9433884pyb.10
+        for <netdev@vger.kernel.org>; Tue, 01 Jan 2008 04:59:13 -0800 (PST)
+In-Reply-To: <20080101120406.GA27209@gondor.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080700010801040008090602
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Jan 1, 2008 1:04 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> On Mon, Dec 31, 2007 at 09:15:19PM +0100, Torsten Kaiser wrote:
+> >
+> > I then tried to "fix" it with this suspect.
+> > I changed "skb_release_all(dst);" back to "skb_release_data(dst);" in
+> > skb_morph() (net/core/skbuff.c).
+>
+> Check /proc/net/snmp to see if you're getting any fragments, if not
+> then skb_morph shouldn't even be getting called.
 
-Using __get_free_pages() has some drawbacks :
+OK, thanks for that hint.
+I look at this after my next tests.
 
-1) Not NUMA aware
+> > I'm now at 205 of 210 packages completed without a further hang. I
+> > also do not see an obvious memory leak.
+>
+> In any case, I suspect the cause of your problem is that somebody
+> somewhere is doing a double-free on an skb.
 
-2) 2^X page granularity :
-On arches with big PAGE_SIZE, we waste some ram for each cpu.
+Is there any debug option I could turn on to catch this?
 
-(We currently use 1024 pointers, that is at most 8192 bytes, but
-PAGE_SIZE can be 65536 for example : With say 64 possible cpus,
-thats about 56*64 Kbytes that are wasted)
+Hmm... __alloc_skb() uses kmem_cache_alloc_node() and I did run
+-rc3-mm2 a long time with slub_debug=FZP and that did not catch
+anything. Shouldn't the poisoning catch that? (Sorry if this question
+is stupid, but while I can read C, I'm not a kernel expert)
 
-Using kmalloc_node() can help to solve these two points.
+> Since you're the only person who can reproduce this, we really need
+> your help to track this down.  Since bisecting the mm tree is not
+> practical, you could start by checking whether the bug is in mm only
+> or whether it affects rc6 too.
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+I will try -rc6-mm1 and vanilla -rc6 and report back.
 
-  net/core/flow.c |   15 +++++----------
-  1 files changed, 5 insertions(+), 10 deletions(-)
-
-
---------------080700010801040008090602
-Content-Type: text/plain;
- name="flow.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="flow.patch"
-
-diff --git a/net/core/flow.c b/net/core/flow.c
-index a618f89..bcbbe2d 100644
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -311,18 +311,13 @@ void flow_cache_flush(void)
- static void __devinit flow_cache_cpu_prepare(int cpu)
- {
- 	struct tasklet_struct *tasklet;
--	unsigned long order;
- 
--	for (order = 0;
--	     (PAGE_SIZE << order) <
--		     (sizeof(struct flow_cache_entry *)*flow_hash_size);
--	     order++)
--		/* NOTHING */;
--
--	flow_table(cpu) = (struct flow_cache_entry **)
--		__get_free_pages(GFP_KERNEL|__GFP_ZERO, order);
-+	flow_table(cpu) = kmalloc_node(
-+		sizeof(struct flow_cache_entry *) * flow_hash_size,
-+		GFP_KERNEL | __GFP_ZERO,
-+		cpu_to_node(cpu));
- 	if (!flow_table(cpu))
--		panic("NET: failed to allocate flow cache order %lu\n", order);
-+		panic("NET: failed to allocate flow cache for cpu %d\n", cpu);
- 
- 	flow_hash_rnd_recalc(cpu) = 1;
- 	flow_count(cpu) = 0;
-
---------------080700010801040008090602--
+Torsten
