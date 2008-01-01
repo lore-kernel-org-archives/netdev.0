@@ -1,116 +1,53 @@
 From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: [PATCH 03/26] atl1: fix broken TSO
-Date: Mon, 31 Dec 2007 20:22:30 -0600
-Message-ID: <1199154173-4058-4-git-send-email-jacliburn@bellsouth.net>
+Subject: [PATCH 10/26] atl1: use csum_start
+Date: Mon, 31 Dec 2007 20:22:37 -0600
+Message-ID: <1199154173-4058-11-git-send-email-jacliburn@bellsouth.net>
 References: <1199154173-4058-1-git-send-email-jacliburn@bellsouth.net>
 Cc: Jay Cliburn <jacliburn@bellsouth.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmailhost01.isp.att.net ([204.127.217.101]:61218 "EHLO
-	fmailhost01.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751392AbYAAC2L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 21:28:11 -0500
+Received: from fmailhost03.isp.att.net ([207.115.11.53]:64476 "EHLO
+	fmailhost03.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751743AbYAAC2M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2007 21:28:12 -0500
 In-Reply-To: <1199154173-4058-1-git-send-email-jacliburn@bellsouth.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The L1 tx packet descriptor expects TCP Header Length to be expressed as a
-number of 32-bit dwords.  The atl1 driver uses tcp_hdrlen() to populate the
-field, but tcp_hdrlen() returns the header length in bytes, not in dwords.
-Add a shift to convert tcp_hdrlen() to dwords when we write it to the tpd.
-
-Also, some of our bit assignments are made to the wrong tpd words.  Change
-those to the correct words.
-
-Finally, since all this fixes TSO, enable TSO by default.
+Use skb->csum_start for tx checksum offload preparation.
 
 Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
 ---
- drivers/net/atlx/atl1.c |   29 +++++++++++------------------
- 1 files changed, 11 insertions(+), 18 deletions(-)
+ drivers/net/atlx/atl1.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
-index 0df3f32..4e98c16 100644
+index b0c3273..31aad9f 100644
 --- a/drivers/net/atlx/atl1.c
 +++ b/drivers/net/atlx/atl1.c
-@@ -36,7 +36,6 @@
-  * A very incomplete list of things that need to be dealt with:
-  *
-  * TODO:
-- * Fix TSO; tx performance is horrible with TSO enabled.
-  * Wake on LAN.
-  * Add more ethtool functions.
-  * Fix abstruse irq enable/disable condition described here:
-@@ -1308,8 +1307,8 @@ static int atl1_tso(struct atl1_adapter *adapter, struct sk_buff *skb,
- 				tso->tsopl |= 1 << TSO_PARAM_ETHTYPE_SHIFT;
+@@ -1376,16 +1376,17 @@ static int atl1_tx_csum(struct atl1_adapter *adapter, struct sk_buff *skb,
+ 	u8 css, cso;
  
- 			tso->tsopl |= (iph->ihl &
--				CSUM_PARAM_IPHL_MASK) << CSUM_PARAM_IPHL_SHIFT;
--			tso->tsopl |= (tcp_hdrlen(skb) &
-+				TSO_PARAM_IPHL_MASK) << TSO_PARAM_IPHL_SHIFT;
-+			tso->tsopl |= ((tcp_hdrlen(skb) >> 2) &
- 				TSO_PARAM_TCPHDRLEN_MASK) <<
- 				TSO_PARAM_TCPHDRLEN_SHIFT;
- 			tso->tsopl |= (skb_shinfo(skb)->gso_size &
-@@ -1472,8 +1471,8 @@ static void atl1_tx_queue(struct atl1_adapter *adapter, int count,
- 		tpd->desc.tso.tsopl = descr->tso.tsopl;
- 		tpd->buffer_addr = cpu_to_le64(buffer_info->dma);
- 		tpd->desc.data = descr->data;
--		tpd->desc.csum.csumpu |= (cpu_to_le16(buffer_info->length) &
--			CSUM_PARAM_BUFLEN_MASK) << CSUM_PARAM_BUFLEN_SHIFT;
-+		tpd->desc.tso.tsopu |= (cpu_to_le16(buffer_info->length) &
-+			TSO_PARAM_BUFLEN_MASK) << TSO_PARAM_BUFLEN_SHIFT;
- 
- 		val = (descr->tso.tsopl >> TSO_PARAM_SEGMENT_SHIFT) &
- 			TSO_PARAM_SEGMENT_MASK;
-@@ -1481,7 +1480,7 @@ static void atl1_tx_queue(struct atl1_adapter *adapter, int count,
- 			tpd->desc.tso.tsopl |= 1 << TSO_PARAM_HDRFLAG_SHIFT;
- 
- 		if (j == (count - 1))
--			tpd->desc.csum.csumpl |= 1 << CSUM_PARAM_EOP_SHIFT;
-+			tpd->desc.tso.tsopl |= 1 << TSO_PARAM_EOP_SHIFT;
- 
- 		if (++tpd_next_to_use == tpd_ring->count)
- 			tpd_next_to_use = 0;
-@@ -1574,9 +1573,9 @@ static int atl1_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 		vlan_tag = vlan_tx_tag_get(skb);
- 		vlan_tag = (vlan_tag << 4) | (vlan_tag >> 13) |
- 			((vlan_tag >> 9) & 0x8);
--		param.csum.csumpl |= 1 << CSUM_PARAM_INSVLAG_SHIFT;
--		param.csum.csumpu |= (vlan_tag & CSUM_PARAM_VALANTAG_MASK) <<
--			CSUM_PARAM_VALAN_SHIFT;
-+		param.tso.tsopl |= 1 << TSO_PARAM_INSVLAG_SHIFT;
-+		param.tso.tsopu |= (vlan_tag & TSO_PARAM_VLANTAG_MASK) <<
-+			TSO_PARAM_VLAN_SHIFT;
- 	}
- 
- 	tso = atl1_tso(adapter, skb, &param.tso);
-@@ -1595,8 +1594,8 @@ static int atl1_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
+-		cso = skb_transport_offset(skb);
+-		css = cso + skb->csum_offset;
+-		if (unlikely(cso & 0x1)) {
++		css = (u8) (skb->csum_start - skb_headroom(skb));
++		cso = css + (u8) skb->csum_offset;
++		if (unlikely(css & 0x1)) {
++			/* L1 hardware requires an even number here */
+ 			dev_printk(KERN_DEBUG, &adapter->pdev->dev,
+ 				"payload offset not an even number\n");
+ 			return -1;
  		}
- 	}
- 
--	val = (param.csum.csumpl >> CSUM_PARAM_SEGMENT_SHIFT) &
--		CSUM_PARAM_SEGMENT_MASK;
-+	val = (param.tso.tsopl >> TSO_PARAM_SEGMENT_SHIFT) &
-+		TSO_PARAM_SEGMENT_MASK;
- 	atl1_tx_map(adapter, skb, 1 == val);
- 	atl1_tx_queue(adapter, count, &param);
- 	netdev->trans_start = jiffies;
-@@ -2091,13 +2090,7 @@ static int __devinit atl1_probe(struct pci_dev *pdev,
- 	netdev->features = NETIF_F_HW_CSUM;
- 	netdev->features |= NETIF_F_SG;
- 	netdev->features |= (NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX);
--
--	/*
--	 * FIXME - Until tso performance gets fixed, disable the feature.
--	 * Enable it with ethtool -K if desired.
--	 */
--	/* netdev->features |= NETIF_F_TSO; */
--
-+	netdev->features |= NETIF_F_TSO;
- 	netdev->features |= NETIF_F_LLTX;
- 
- 	/*
+-		ptpd->word3 |= (cso & TPD_PLOADOFFSET_MASK) <<
++		ptpd->word3 |= (css & TPD_PLOADOFFSET_MASK) <<
+ 			TPD_PLOADOFFSET_SHIFT;
+-		ptpd->word3 |= (css & TPD_CCSUMOFFSET_MASK) <<
++		ptpd->word3 |= (cso & TPD_CCSUMOFFSET_MASK) <<
+ 			TPD_CCSUMOFFSET_SHIFT;
+ 		ptpd->word3 |= 1 << TPD_CUST_CSUM_EN_SHIFT;
+ 		return true;
 -- 
 1.5.3.3
 
