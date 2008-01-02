@@ -1,104 +1,50 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: Request to include ESFQ patch
-Date: Wed, 2 Jan 2008 18:10:30 +0200
-Message-ID: <20080102155903.M66678@visp.net.lb>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: [PATCH] Re: Nested VLAN causes recursive locking error
+Date: Wed, 02 Jan 2008 17:40:56 +0100
+Message-ID: <m3r6h0dvtz.fsf@ursa.amorsen.dk>
+References: <476851DB.5080107@redhat.com> <20071220135253.GA10932@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-Cc: bugfood-c@fatooh.org
+Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:60495 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755172AbYABQVq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 11:21:46 -0500
+Received: from main.gmane.org ([80.91.229.2]:49819 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753842AbYABQlI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jan 2008 11:41:08 -0500
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1JA6eQ-0007jD-Ae
+	for netdev@vger.kernel.org; Wed, 02 Jan 2008 16:41:06 +0000
+Received: from hd5b9080a.c45-01-12.sta.perspektivbredband.net ([213.185.8.10])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 02 Jan 2008 16:41:06 +0000
+Received: from benny+usenet by hd5b9080a.c45-01-12.sta.perspektivbredband.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 02 Jan 2008 16:41:06 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+Jarek Poplawski <jarkao2@gmail.com> writes:
 
-I took risk and installed ESFQ on my main backbone QoS. I found it highly 
-useful, and very need in setup's where is more than 128 flows passing and 
-especially where is nat available.
+> Subject: [PATCH] nested VLAN: fix lockdep's recursive locking warning
+>
+> Allow vlans nesting other vlans without lockdep's warnings (max. 8 levels).
+>
+> Reported-by: Benny Amorsen
+> Tested-by: Benny Amorsen	(?) NEEDS TESTING!
+>
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-Here is results with overloaded class for low-priority P2P traffic customers:
+The box that shows the problem is "almost-production", so it doesn't
+have a build system. Is there a chance you could get the patch into
+Rawhide or some other testing repository? It takes forever and a lot
+of disk space to rebuild a kernel RPM, so if I could get someone else
+to do the hard work, that would be lovely...
 
-pfifo 128Kbyte, bandwidth 512Kbit/s
-... cut ...
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=27 ttl=51 
-time=228 ms
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=28 ttl=51 
-time=247 ms
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=29 ttl=51 
-time=415 ms
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=30 ttl=51 
-time=198 ms
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=31 ttl=51 
-time=2274 ms
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=32 ttl=51 
-time=2237 ms
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=33 ttl=51 
-time=2235 ms
-... cut ...
---- www.nuclearcat.com ping statistics ---
-100 packets transmitted, 98 received, 2% packet loss, time 99006ms
-rtt min/avg/max/mdev = 155.647/1022.177/2289.229/881.461 ms, pipe 3
+If not, I'll probably find the time to do the RPM rebuild sometime
+within the next week or so.
 
 
-ping is very unstable, there is drops also. And i dont use almost traffic.
+/Benny
 
-sfq
-... cut ...
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=61 ttl=51 
-time=1136 ms
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=62 ttl=51 
-time=930 ms
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=63 ttl=51 
-time=1057 ms
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=64 ttl=51 
-time=1055 ms
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=65 ttl=51 
-time=1012 ms
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=66 ttl=51 
-time=880 ms
-... cut ...
---- www.nuclearcat.com ping statistics ---
-100 packets transmitted, 95 received, 5% packet loss, time 98984ms
-rtt min/avg/max/mdev = 157.328/479.812/1136.569/331.170 ms, pipe 2
-
-Also not so stable, buffer in sfq is 128packets, on average packet 500 bytes 
-it will be around 64000 bytes, about 1 second delay only (while i need for 
-test 2 second). Packetloss very high.
-
-esfq: perturb 30 depth 65536 divisor 14 limit 256 hash ctorigdst
-... cut ...
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=12 ttl=51 
-time=185 ms
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=13 ttl=51 
-time=238 ms
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=14 ttl=51 
-time=228 ms
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=15 ttl=51 
-time=377 ms
-64 bytes from usa.nuclearcat.com (66.230.167.210): icmp_seq=16 ttl=51 
-time=177 ms
-... cut ...
---- www.nuclearcat.com ping statistics ---
-100 packets transmitted, 100 received, 0% packet loss, time 99009ms
-rtt min/avg/max/mdev = 154.254/208.048/553.740/58.716 ms
-
-This is worst jitter, other looks fine.
-ping just great, no packetloss, even jitter is acceptable. This queue just my 
-dream.
-
-Conclusion:
-There is no fair queue qdisc available for "serious" setup. ESFQ only one 
-real pretendent i seen for today, to be included in kernel. And probably it 
-will be highly useful feature.
-
-
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
 
