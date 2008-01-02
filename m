@@ -1,59 +1,74 @@
-From: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
-Subject: Re: [PATCH 6/8] [PATCH] Split up rndis_host.c
-Date: Wed, 02 Jan 2008 22:13:47 +0200
-Message-ID: <1199304827.8532.31.camel@localhost>
-References: <11983602942818-git-send-email-bjd@jooz.net>
-	 <11983602953056-git-send-email-bjd@jooz.net>
-	 <20071223011707.1798C2360C6@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
+From: "Rami Rosen" <ramirose@gmail.com>
+Subject: [PATCH net-2.6.25] [IPV4] Remove unsupported DNAT (RTCF_NAT and RTCF_NAT) in IPV4
+Date: Wed, 2 Jan 2008 23:31:37 +0200
+Message-ID: <eb3ff54b0801021331w63637142sd39b6605bd6f8be4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/mixed;
+	boundary="----=_Part_5911_766461.1199309497124"
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.155]:58842 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757764AbYABVbj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 16:31:39 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so3226282fga.17
+        for <netdev@vger.kernel.org>; Wed, 02 Jan 2008 13:31:37 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+------=_Part_5911_766461.1199309497124
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: bjd-a1rhEgazXTw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20071223011707.1798C2360C6-ZcXrCSuhvln6VZ3dlLfH/g4gEjPzgfUyLrfjE7I9kuVHxeISYlDBzl6hYfS7NtTn@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Disposition: inline
 
-Hello,
+Hi,
 
-Bjorge was not comfortable with double probing rndis_wext requires,
-wireless RNDIS devices have same device id as the rest of RNDIS. Our
-module version checks OID_GEN_PHYSICAL_MEDIUM in generic_rndis_bind,
-with rndis_host bind fails if OID is supported and wireless media type
-is returned, with rndis_wext if OID isn't supported or type isn't
-wireless. Should this be ok?
+- The DNAT (Destination NAT) is not implemented in IPV4.
 
-Should separate rndis_wext be located in drivers/net/wireless instead of
-drivers/net/usb?
+- This patch remove the code which checks these flags
+in net/ipv4/arp.c and net/ipv4/route.c.
 
- - Jussi Kivilinna
+The RTCF_NAT and RTCF_NAT should stay in the header (linux/in_route.h)
+because they are used in DECnet.
 
-On Sat, 2007-12-22 at 17:17 -0800, David Brownell wrote:
-> > From: Bjorge Dijkstra <bjd-a1rhEgazXTw@public.gmane.org>
-> > Subject: [PATCH 6/8] [PATCH] Split up rndis_host.c
-> > Date: Sat, 22 Dec 2007 22:51:32 +0100
-> >
-> > Split up rndis_host.c into rndis_host.h and rndis_base.c and
-> > change Makefile accordingly. This is done so we can add extra
-> > source files to the rndis_host module later on.
-> 
-> I'm fine with splitting out a header file and the EXPORT_SYMBOL_GPL.
-> But why not just have a separate "rndis_wext" module?
-> 
-> 
-> > ---
-> >  drivers/net/usb/Makefile     |    1 +
-> >  drivers/net/usb/rndis_base.c |  548 ++++++++++++++++++++++++++++++
-> >  drivers/net/usb/rndis_host.c |  763 ------------------------------------------
-> >  drivers/net/usb/rndis_host.h |  256 ++++++++++++++
-> >  4 files changed, 805 insertions(+), 763 deletions(-)
-> >  create mode 100644 drivers/net/usb/rndis_base.c
-> >  delete mode 100644 drivers/net/usb/rndis_host.c
-> >  create mode 100644 drivers/net/usb/rndis_host.h
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Regards,
+Rami Rosen
+
+
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+
+------=_Part_5911_766461.1199309497124
+Content-Type: text/plain; name=patch.txt
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_faydu48s0
+Content-Disposition: attachment; filename=patch.txt
+
+ZGlmZiAtLWdpdCBhL25ldC9pcHY0L2FycC5jIGIvbmV0L2lwdjQvYXJwLmMKaW5kZXggMTQxNmJj
+OS4uMmI3MmJhNiAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvYXJwLmMKKysrIGIvbmV0L2lwdjQvYXJw
+LmMKQEAgLTgzNSw5ICs4MzUsOCBAQCBzdGF0aWMgaW50IGFycF9wcm9jZXNzKHN0cnVjdCBza19i
+dWZmICpza2IpCiAJCQl9CiAJCQlnb3RvIG91dDsKIAkJfSBlbHNlIGlmIChJTl9ERVZfRk9SV0FS
+RChpbl9kZXYpKSB7Ci0JCQlpZiAoKHJ0LT5ydF9mbGFncyZSVENGX0ROQVQpIHx8Ci0JCQkgICAg
+KGFkZHJfdHlwZSA9PSBSVE5fVU5JQ0FTVCAgJiYgcnQtPnUuZHN0LmRldiAhPSBkZXYgJiYKLQkJ
+CSAgICAgKGFycF9md2RfcHJveHkoaW5fZGV2LCBydCkgfHwgcG5laWdoX2xvb2t1cCgmYXJwX3Ri
+bCwgJmluaXRfbmV0LCAmdGlwLCBkZXYsIDApKSkpIHsKKwkJCSAgICBpZiAoYWRkcl90eXBlID09
+IFJUTl9VTklDQVNUICAmJiBydC0+dS5kc3QuZGV2ICE9IGRldiAmJgorCQkJICAgICAoYXJwX2Z3
+ZF9wcm94eShpbl9kZXYsIHJ0KSB8fCBwbmVpZ2hfbG9va3VwKCZhcnBfdGJsLCAmaW5pdF9uZXQs
+ICZ0aXAsIGRldiwgMCkpKSB7CiAJCQkJbiA9IG5laWdoX2V2ZW50X25zKCZhcnBfdGJsLCBzaGEs
+ICZzaXAsIGRldik7CiAJCQkJaWYgKG4pCiAJCQkJCW5laWdoX3JlbGVhc2Uobik7CmRpZmYgLS1n
+aXQgYS9uZXQvaXB2NC9yb3V0ZS5jIGIvbmV0L2lwdjQvcm91dGUuYwppbmRleCAxMDkxNWJiLi5l
+ZTljOTNjIDEwMDY0NAotLS0gYS9uZXQvaXB2NC9yb3V0ZS5jCisrKyBiL25ldC9pcHY0L3JvdXRl
+LmMKQEAgLTE3NjgsNyArMTc2OCw3IEBAIHN0YXRpYyBpbmxpbmUgaW50IF9fbWtyb3V0ZV9pbnB1
+dChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCWlmIChlcnIpCiAJCWZsYWdzIHw9IFJUQ0ZfRElSRUNU
+U1JDOwogCi0JaWYgKG91dF9kZXYgPT0gaW5fZGV2ICYmIGVyciAmJiAhKGZsYWdzICYgKFJUQ0Zf
+TkFUIHwgUlRDRl9NQVNRKSkgJiYKKwlpZiAob3V0X2RldiA9PSBpbl9kZXYgJiYgZXJyICYmICEo
+ZmxhZ3MgJiBSVENGX01BU1EpICYmCiAJICAgIChJTl9ERVZfU0hBUkVEX01FRElBKG91dF9kZXYp
+IHx8CiAJICAgICBpbmV0X2FkZHJfb25saW5rKG91dF9kZXYsIHNhZGRyLCBGSUJfUkVTX0dXKCpy
+ZXMpKSkpCiAJCWZsYWdzIHw9IFJUQ0ZfRE9SRURJUkVDVDsKQEAgLTE3NzcsNyArMTc3Nyw3IEBA
+IHN0YXRpYyBpbmxpbmUgaW50IF9fbWtyb3V0ZV9pbnB1dChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAog
+CQkvKiBOb3QgSVAgKGkuZS4gQVJQKS4gRG8gbm90IGNyZWF0ZSByb3V0ZSwgaWYgaXQgaXMKIAkJ
+ICogaW52YWxpZCBmb3IgcHJveHkgYXJwLiBETkFUIHJvdXRlcyBhcmUgYWx3YXlzIHZhbGlkLgog
+CQkgKi8KLQkJaWYgKG91dF9kZXYgPT0gaW5fZGV2ICYmICEoZmxhZ3MgJiBSVENGX0ROQVQpKSB7
+CisJCWlmIChvdXRfZGV2ID09IGluX2RldikgewogCQkJZXJyID0gLUVJTlZBTDsKIAkJCWdvdG8g
+Y2xlYW51cDsKIAkJfQo=
+------=_Part_5911_766461.1199309497124--
