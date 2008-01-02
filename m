@@ -1,44 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Force UNIX domain sockets to be built in
-Date: Wed, 02 Jan 2008 21:25:01 +1100
-Message-ID: <E1JA0mT-0008U2-00@gondolin.me.apana.org.au>
-References: <20080101050154.GG11776@mit.edu>
-Cc: 7eggert@gmx.de, viro@zeniv.linux.org.uk, davem@davemloft.net,
-	jengelh@computergmbh.de, devzero@web.de,
-	linux-kernel@vger.kernel.org, bunk@kernel.org,
-	netdev@vger.kernel.org
-To: tytso@mit.edu (Theodore Tso)
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: TCP event tracking via netlink...
+Date: Wed, 2 Jan 2008 13:05:17 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0801021304050.31652@kivilampi-30.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0712051533050.3119@kivilampi-30.cs.helsinki.fi>
+ <20071206.023346.256200942.davem@davemloft.net> <20071206092312.79a83208@freepuppy.rosehill>
+ <20080102.002227.67777942.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3456 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754771AbYABK0M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 05:26:12 -0500
-In-Reply-To: <20080101050154.GG11776@mit.edu>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:34892 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753989AbYABLFV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 06:05:21 -0500
+In-Reply-To: <20080102.002227.67777942.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Theodore Tso <tytso@mit.edu> wrote:
->
-> The question is whether the size of the Unix domain sockets support is
-> worth the complexity of yet another config option that we expose to
-> the user.  For the embedded world, OK, maybe they want to save 14k of
-> non-swappable memory.  But for the non-embedded world, given the 117k
-> mandatory memory usage of sysfs, or the 124k memory usage of the core
-> networking stack, never mind the 3 megabytes of memory used by objects
-> in the kernel subdirectory, it's not clear that it's worth worrying
-> over 14k of memory, especially when many Unix programs assume
-> that Unix Domain Sockets are present.
+On Wed, 2 Jan 2008, David Miller wrote:
 
-That would make sense if we were proposing to get rid of the CONFIG_UNIX
-question altogether for !CONFIG_EMBEDDED.  However, the proposal here is
-merely to eliminate the modular option but the CONFIG_UNIX prompt itself
-will remain even without CONFIG_EMBEDDED.
+> From: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date: Thu, 6 Dec 2007 09:23:12 -0800
+> 
+> > Tools and scripts for testing that generate graphs are at:
+> > 	git://git.kernel.org/pub/scm/tcptest/tcptest
+> 
+> Did you move it somewhere else?
+> 
+> davem@sunset:~/src/GIT$ git clone git://git.kernel.org/pub/scm/tcptest/tcptest
+> Initialized empty Git repository in /home/davem/src/GIT/tcptest/.git/
+> fatal: The remote end hung up unexpectedly
+> fetch-pack from 'git://git.kernel.org/pub/scm/tcptest/tcptest' failed.
 
-This I think is quite pointless.
+.../network/ was missing from the path :-).
 
-Cheers,
+$ git-remote show origin
+* remote origin
+  URL: git://git.kernel.org/pub/scm/network/tcptest/tcptest.git
+  Remote branch(es) merged with 'git pull' while on branch master
+    master
+  Tracked remote branches
+    master
+
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+ i.
