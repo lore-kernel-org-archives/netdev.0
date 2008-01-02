@@ -1,34 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] the scheduled shaper removal
-Date: Tue, 01 Jan 2008 19:27:20 -0800 (PST)
-Message-ID: <20080101.192720.24588707.davem@davemloft.net>
-References: <20080101134735.GI2360@does.not.exist>
-	<20080101142430.27e0ef66@the-village.bc.nu>
+Subject: Re: [PATCH net-2.6.25] [IPV4] Remove three declarations of
+ unimplemented methods and correct a typo in include/net/ip.h
+Date: Tue, 01 Jan 2008 21:13:20 -0800 (PST)
+Message-ID: <20080101.211320.160753170.davem@davemloft.net>
+References: <eb3ff54b0801010030g36bef670n6150af5b683c4345@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bunk@kernel.org, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: alan@lxorguk.ukuu.org.uk
+Cc: netdev@vger.kernel.org
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57526
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39831
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754255AbYABD1U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jan 2008 22:27:20 -0500
-In-Reply-To: <20080101142430.27e0ef66@the-village.bc.nu>
+	by vger.kernel.org with ESMTP id S1750899AbYABFNU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 00:13:20 -0500
+In-Reply-To: <eb3ff54b0801010030g36bef670n6150af5b683c4345@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Tue, 1 Jan 2008 14:24:30 +0000
+From: "Rami Rosen" <ramirose@gmail.com>
+Date: Tue, 1 Jan 2008 10:30:53 +0200
 
-> On Tue, 1 Jan 2008 15:47:35 +0200
-> Adrian Bunk <bunk@kernel.org> wrote:
+> These three declarations in include/net/ip.h are not implemented
+> anywhere:
+> ip_mc_dropsocket(), ip_mc_dropdevice() and ip_net_unreachable().
 > 
-> > This patch contains the scheduled removal of the shaper driver.
-> > 
-> > Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> Also, correct a comment to be "Functions provided by ip_fragment.c"
+> (instead of by ip_fragment.o) in consistency with the other comments in this
+> header.
 > 
-> Acked-by: Alan Cox <alan@redhat.com>
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
 Applied, thanks.
