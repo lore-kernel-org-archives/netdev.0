@@ -1,50 +1,65 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: TCP event tracking via netlink...
-Date: Wed, 2 Jan 2008 13:05:17 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0801021304050.31652@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0712051533050.3119@kivilampi-30.cs.helsinki.fi>
- <20071206.023346.256200942.davem@davemloft.net> <20071206092312.79a83208@freepuppy.rosehill>
- <20080102.002227.67777942.davem@davemloft.net>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: Re: iproute2 syntax change in tc police?
+Date: Wed, 2 Jan 2008 02:43:44 +0200
+Message-ID: <20080102003909.M73325@visp.net.lb>
+References: <1199230752.16358.22.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset=koi8-r
+Cc: netdev <netdev@vger.kernel.org>
+To: Andreas Henriksson <andreas@fatal.se>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:34892 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753989AbYABLFV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 06:05:21 -0500
-In-Reply-To: <20080102.002227.67777942.davem@davemloft.net>
+Received: from usermail.globalproof.net ([194.146.153.18]:43887 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752291AbYABMKV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 07:10:21 -0500
+In-Reply-To: <1199230752.16358.22.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2 Jan 2008, David Miller wrote:
+Maybe something like 
+-tc filter add dev ppp0 parent ffff: protocol ip prio 50 u32 match ip src 
+0.0.0.0/0 police rate 4mbit burst 10k drop flowid :1
++tc filter add dev ppp0 parent ffff: protocol ip prio 50 u32 match ip src 
+0.0.0.0/0 flowid :1 police rate 4mbit burst 10k drop 
 
-> From: Stephen Hemminger <shemminger@linux-foundation.org>
-> Date: Thu, 6 Dec 2007 09:23:12 -0800
+I can't test it now, but in my case moving flowid BEFORE police (or somewhere 
+else "before", i dont remeber well) - helped.
+
+On Wed, 02 Jan 2008 00:39:11 +0100, Andreas Henriksson wrote
+> Hello Patrick McHardy!
 > 
-> > Tools and scripts for testing that generate graphs are at:
-> > 	git://git.kernel.org/pub/scm/tcptest/tcptest
+> We have recently updated iproute in debian and have reports about the
+> new version breaking shorewall generated scripts.
 > 
-> Did you move it somewhere else?
+> The original bug-report can be found at:
+> http://bugs.debian.org/458539
 > 
-> davem@sunset:~/src/GIT$ git clone git://git.kernel.org/pub/scm/tcptest/tcptest
-> Initialized empty Git repository in /home/davem/src/GIT/tcptest/.git/
-> fatal: The remote end hung up unexpectedly
-> fetch-pack from 'git://git.kernel.org/pub/scm/tcptest/tcptest' failed.
+> Commands like "tc filter add dev ppp0 parent ffff: protocol ip prio 
+> 50 u32 match ip src 0.0.0.0/0 police rate 4mbit burst 10k drop 
+> flowid :1" apparently no longer works. The flowid is not accepted anymore.
+> Reverting commit 720a2e8d99... which you authored seems to "fix" this.
+> 
+> http://git.kernel.org/?p=linux/kernel/git/shemminger/
+iproute2.git;a=commitdiff;h=720a2e8d990707749b2cafa77ab3cd2b8241ec47
+> 
+> I guess the flowid is invalid syntax, but that it just got ignored
+> instead of caught before... 
+> Could you please have a look and tell me what you think about this?
+> 
+> -- 
+> Regards,
+> Andreas Henriksson
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-.../network/ was missing from the path :-).
 
-$ git-remote show origin
-* remote origin
-  URL: git://git.kernel.org/pub/scm/network/tcptest/tcptest.git
-  Remote branch(es) merged with 'git pull' while on branch master
-    master
-  Tracked remote branches
-    master
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
 
-
--- 
- i.
