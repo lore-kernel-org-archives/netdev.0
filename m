@@ -1,54 +1,78 @@
-From: Bodo Eggert <7eggert@gmx.de>
-Subject: Re: [PATCH] Force UNIX domain sockets to be built in
-Date: Wed, 2 Jan 2008 13:26:10 +0100 (CET)
-Message-ID: <alpine.LSU.0.999.0801021308260.2414@be1.lrz>
-References: <E1JA0mT-0008U2-00@gondolin.me.apana.org.au>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Theodore Tso <tytso@mit.edu>, 7eggert@gmx.de,
-	viro@zeniv.linux.org.uk, davem@davemloft.net,
-	jengelh@computergmbh.de, devzero@web.de,
-	linux-kernel@vger.kernel.org, bunk@kernel.org,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: [patch 2/9][NETNS][IPV6] make the ipv6 sysctl to be a netns subsystem
+Date: Wed, 02 Jan 2008 13:25:50 +0100
+Message-ID: <20080102122805.293889108@localhost.localdomain>
+References: <20080102122548.629622062@localhost.localdomain>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.174]:52413 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752133AbYABM0p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 07:26:45 -0500
-In-Reply-To: <E1JA0mT-0008U2-00@gondolin.me.apana.org.au>
+Received: from mtagate5.de.ibm.com ([195.212.29.154]:33838 "EHLO
+	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752339AbYABMgI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 07:36:08 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate5.de.ibm.com (8.13.8/8.13.8) with ESMTP id m02Ca7ma513216
+	for <netdev@vger.kernel.org>; Wed, 2 Jan 2008 12:36:07 GMT
+Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m02Ca75V2908354
+	for <netdev@vger.kernel.org>; Wed, 2 Jan 2008 13:36:07 +0100
+Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m02Ca6E5003987
+	for <netdev@vger.kernel.org>; Wed, 2 Jan 2008 13:36:07 +0100
+Content-Disposition: inline; filename=make-ipv6-sysctl-to-be-a-subsystem.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2 Jan 2008, Herbert Xu wrote:
-> Theodore Tso <tytso@mit.edu> wrote:
+The initialization of the sysctl for the ipv6 protocol is changed to
+a network namespace subsystem. That means when a new network namespace
+is created the initialization function for the sysctl will be called.
 
-> > The question is whether the size of the Unix domain sockets support is
-> > worth the complexity of yet another config option that we expose to
-> > the user.  For the embedded world, OK, maybe they want to save 14k of
-> > non-swappable memory.  But for the non-embedded world, given the 117k
-> > mandatory memory usage of sysfs, or the 124k memory usage of the core
-> > networking stack, never mind the 3 megabytes of memory used by objects
-> > in the kernel subdirectory, it's not clear that it's worth worrying
-> > over 14k of memory, especially when many Unix programs assume
-> > that Unix Domain Sockets are present.
-> 
-> That would make sense if we were proposing to get rid of the CONFIG_UNIX
-> question altogether for !CONFIG_EMBEDDED.
+That do not change the behavior of the sysctl in case of the kernel
+with the network namespace disabled.
 
-Exactly this is what my patch does: The question is not to be displayed 
-unless EMBEDDED, and the default is changed to y.
+Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+---
+ net/ipv6/sysctl_net_ipv6.c |   21 ++++++++++++++++++---
+ 1 file changed, 18 insertions(+), 3 deletions(-)
 
->  However, the proposal here is
-> merely to eliminate the modular option but the CONFIG_UNIX prompt itself
-> will remain even without CONFIG_EMBEDDED.
-> 
-> This I think is quite pointless.
-
-That's what another patch would do. I decided that s/tristate/bool/ is 
-something completely different from adding the default and hiding the 
-option, and that I'd avoid this discussion by not eliminating UNIX=m.
+Index: net-2.6.25/net/ipv6/sysctl_net_ipv6.c
+===================================================================
+--- net-2.6.25.orig/net/ipv6/sysctl_net_ipv6.c
++++ net-2.6.25/net/ipv6/sysctl_net_ipv6.c
+@@ -90,16 +90,31 @@ static struct ctl_path ipv6_ctl_path[] =
+ 
+ static struct ctl_table_header *ipv6_sysctl_header;
+ 
+-int ipv6_sysctl_register(void)
++static int ipv6_sysctl_net_init(struct net *net)
+ {
+-	ipv6_sysctl_header = register_sysctl_paths(ipv6_ctl_path, ipv6_table);
++	ipv6_sysctl_header = register_net_sysctl_table(net, ipv6_ctl_path, ipv6_table);
+ 	if (!ipv6_sysctl_header)
+ 		return -ENOMEM;
+ 
+ 	return 0;
+ }
+ 
++static void ipv6_sysctl_net_exit(struct net *net)
++{
++	unregister_net_sysctl_table(ipv6_sysctl_header);
++}
++
++static struct pernet_operations ipv6_sysctl_net_ops = {
++	.init = ipv6_sysctl_net_init,
++	.exit = ipv6_sysctl_net_exit,
++};
++
++int ipv6_sysctl_register(void)
++{
++	return register_pernet_subsys(&ipv6_sysctl_net_ops);
++}
++
+ void ipv6_sysctl_unregister(void)
+ {
+-	unregister_sysctl_table(ipv6_sysctl_header);
++	unregister_pernet_subsys(&ipv6_sysctl_net_ops);
+ }
 
 -- 
-Top 100 things you don't want the sysadmin to say:
-96. That's SOOOOO bizarre.
