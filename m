@@ -1,40 +1,35 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH 2.6.23.12] net/bonding: option to specify initial bond interface number
-Date: Wed, 02 Jan 2008 14:24:23 -0800
-Message-ID: <22042.1199312663@death>
-References: <413FEEF1743111439393FB76D0221E4809790942@leopard.zoo.q9networks.com>
-Cc: netdev@vger.kernel.org
-To: "Jari Takkala" <Jari.Takkala@Q9.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [patch 7/9][NETNS][IPV6] make mld_max_msf per namespace
+Date: Wed, 2 Jan 2008 15:31:48 -0800
+Message-ID: <OF222680D1.A9003264-ON882573C4.0080098D-882573C4.008140B5@us.ibm.com>
+References: <20080102122827.779444823@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:56461 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753413AbYABWYa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 17:24:30 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e32.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m02LLuDd013392
-	for <netdev@vger.kernel.org>; Wed, 2 Jan 2008 16:21:56 -0500
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m02MOPQH116176
-	for <netdev@vger.kernel.org>; Wed, 2 Jan 2008 15:24:25 -0700
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m02MOOTr019692
-	for <netdev@vger.kernel.org>; Wed, 2 Jan 2008 15:24:24 -0700
-In-reply-to: <413FEEF1743111439393FB76D0221E4809790942@leopard.zoo.q9networks.com> 
+Received: from e36.co.us.ibm.com ([32.97.110.154]:37513 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754855AbYABXbz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 18:31:55 -0500
+In-Reply-To: <20080102122827.779444823@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jari Takkala <Jari.Takkala@Q9.com> wrote:
+Daniel,
+        I'm not sure what benefit you get from making this per-namespace.
+The point of it is really to prevent one (non-root, even) application from
+killing machine performance with source filters (because maintaining them
+is an n^2 algorithm). It's a weak constraint, but the resources it's 
+protecting are
+the processor and MLDv2 packet counts. If any one namespace has a
+large value, all will have a problem still, and  (even without your 
+patch),
+lots of separate source filters can still cause a problem. What it catches
+is one application creating thousands (or millions) of source filters and
+killing the machine and network with MLDv2 reports as a result. Why
+shouldn't that remain global?
 
->Allow the user to specify an initial interface number when loading the bonding driver. This is useful when loading multiple instances of the bonding driver and you want to control the interface number assignment. For example, if the user wishes to create a bond5 interface they can type 'modprobe -o bond5 bonding ifnum=5'. It also works with the max_bonds option.
+                                                +-DLS
 
-	What advantage does this have over:
-
-# echo +bond5 > /sys/class/net/bonding_masters
-
-	which will create a new bonding master for the already-loaded
-driver?
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
