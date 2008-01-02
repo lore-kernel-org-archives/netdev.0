@@ -1,42 +1,49 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: iproute2 syntax change in tc police?
-Date: Wed, 02 Jan 2008 00:39:11 +0100
-Message-ID: <1199230752.16358.22.camel@localhost.localdomain>
+From: "Joonwoo Park" <joonwpark81@gmail.com>
+Subject: RE: [PATCH 25/26] [REVISED] atl1: add NAPI support
+Date: Wed, 2 Jan 2008 11:56:36 +0900
+Message-ID: <000001c84ceb$18a967c0$47e7a8c0@jason>
+References: <1199152804-3889-1-git-send-email-jacliburn@bellsouth.net><1199152804-3889-26-git-send-email-jacliburn@bellsouth.net> <20080101121536.3df9c497@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: <jeff@garzik.org>, <csnook@redhat.com>,
+	<linux-kernel@vger.kernel.org>, <atl1-devel@lists.sourceforge.net>,
+	<netdev@vger.kernel.org>, <shemminger@linux-foundation.org>
+To: "'Jay Cliburn'" <jacliburn@bellsouth.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1-1-1-9a.ghn.gbg.bostream.se ([82.182.69.4]:48203 "EHLO
-	scream.fatal.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754857AbYAAXf7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jan 2008 18:35:59 -0500
+Received: from rv-out-0910.google.com ([209.85.198.188]:29028 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754196AbYABC5W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jan 2008 21:57:22 -0500
+Received: by rv-out-0910.google.com with SMTP id k20so5095874rvb.1
+        for <netdev@vger.kernel.org>; Tue, 01 Jan 2008 18:57:16 -0800 (PST)
+In-Reply-To: <20080101121536.3df9c497@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Patrick McHardy!
+Hi Jay,
 
-We have recently updated iproute in debian and have reports about the
-new version breaking shorewall generated scripts. 
++	if ((work_done < budget) || !netif_running(poll_dev)) {
++quit_polling:
++		netif_rx_complete(poll_dev, napi);
++
++		if (!test_bit(__ATL1_DOWN, &adapter->flags))
++			atlx_irq_enable(adapter);
++	}
 
-The original bug-report can be found at:
-http://bugs.debian.org/458539
+Not enough :)
+If netif_running() is false, it can make problem.
+The problem occurs calling netif_rx_complete with work_done == budget.
+If do that, net_rx_action would do poll list double deletion.
 
+Since we had reached a consensus on fixing it without each drivers modifications, there is no best solution for that problem for
+now. I'm expecting Dave or others work for net-core.
+(http://lkml.org/lkml/2007/12/20/600)
 
-Commands like "tc filter add dev ppp0 parent ffff: protocol ip prio 50
-u32 match ip src 0.0.0.0/0 police rate 4mbit burst 10k drop flowid :1"
-apparently no longer works. The flowid is not accepted anymore.
-Reverting commit 720a2e8d99... which you authored seems to "fix" this.
+IMHO, atl1_clean should wait for work_done != budget even though netif_running is false at this time.
+At least, It would not make oops.
 
-http://git.kernel.org/?p=linux/kernel/git/shemminger/iproute2.git;a=commitdiff;h=720a2e8d990707749b2cafa77ab3cd2b8241ec47
-
-I guess the flowid is invalid syntax, but that it just got ignored
-instead of caught before... 
-Could you please have a look and tell me what you think about this?
-
-
--- 
-Regards,
-Andreas Henriksson
+Thanks,
+Joonwoo
 
