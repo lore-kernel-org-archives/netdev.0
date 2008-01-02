@@ -1,63 +1,82 @@
-From: Andreas Mohr <andi@lisas.de>
-Subject: Re: [usb regression] Re: [PATCH 2.6.24-rc3] Fix /proc/net breakage
-Date: Wed, 2 Jan 2008 07:13:08 +0100
-Message-ID: <20080102061308.GB30929@rhlx01.hs-esslingen.de>
-References: <20071231052500.GB4187@kroah.com> <Pine.LNX.4.44L0.0712311237150.7182-100000@iolanthe.rowland.org> <20071231192643.GA25341@kroah.com> <20080102060006.GA27693@kroah.com>
+From: "Rami Rosen" <ramirose@gmail.com>
+Subject: Re: [PATCH net-2.6.25] [BRIDGE] Remove useless code in net/bridge/br_netfilter.c
+Date: Wed, 2 Jan 2008 08:16:54 +0200
+Message-ID: <eb3ff54b0801012216r486ba195p127d9f9102143c84@mail.gmail.com>
+References: <eb3ff54b0801010248t65d296ccm481202d50fad7c4f@mail.gmail.com>
+	 <20080101.212026.187527188.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Stern <stern@rowland.harvard.edu>,
-	Andreas Mohr <andi@lisas.de>, Ingo Molnar <mingo@elte.hu>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Woodhouse <dwmw2@infradead.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
-	kernel list <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	"Denis V. Lunev" <den@openvz.org>,
-	USB list <linux-usb@vger.kernel.org>
-To: Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:35330 "EHLO
-	rhlx01.hs-esslingen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750765AbYABGNJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 01:13:09 -0500
+Received: from fg-out-1718.google.com ([72.14.220.153]:46200 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755093AbYABGQ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 01:16:56 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so3083895fga.17
+        for <netdev@vger.kernel.org>; Tue, 01 Jan 2008 22:16:55 -0800 (PST)
+In-Reply-To: <20080101.212026.187527188.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20080102060006.GA27693@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi,
+> It's a pointer dereference assignment,
+Sorry, I was wrong here !
 
-On Tue, Jan 01, 2008 at 10:00:06PM -0800, Greg KH wrote:
-> Ok, no, I didn't write that patch, I'm getting very confused here.
-> 
-> In 2.6.24-rc6 there is no usage of debugfs in the ohci driver.
-> 
-> In the -mm tree there is a patch, from Tony Jones, that moves some debug
-> code out of sysfs and into debugfs where it belongs.  It does it for
-> both the ehci and ohci USB host controller drivers, and this is the code
-> that is incorrect if CONFIG_DEBUGFS is not enabled.
-> 
-> So, for the 2.6.24 release, nothing needs to be changed, all is good,
-> and there is no regression.
-> 
-> Right?  Or am I still confused about this whole thing?
+> What automated tool showed this as useless to you?
+> Please correct it's logic so it doesn't mark real side effects like
+> this as superfluous.
 
-Probably, since I also wasn't sure about this getting added to the
-post-2.6.23 regressions. I'd expect this problem to be -mm only myself,
-but then I didn't actively verify it in code (and I haven't tried -rc6
-proper on that machine yet either, build takes ages ;).
-OK, since I cannot really offer anything other than positive feelings about
-this being non-rc6 breakage, should I try -rc6 proper, too?
+I am not using any automated tool, only my eyes. And I
+missed the intention here. It could be implemnted differently
+but since it not marked as superfluous anywhere I suggest
+to leave it as it is.
 
-> Hm, I wonder if this means I can go back to drinking more holiday
-> wine... :)
+Sorry,
 
-.....even more confusion? :)
+Regards,
+Rami Rosen
 
-Thanks for your help,
 
-Andreas Mohr
+
+
+
+On Jan 2, 2008 7:20 AM, David Miller <davem@davemloft.net> wrote:
+> From: "Rami Rosen" <ramirose@gmail.com>
+> Date: Tue, 1 Jan 2008 12:48:14 +0200
+>
+> > These following two commands in br_nf_forward_arp() achieve nothing and
+> > should be removed; the d variable is not used later in this method:
+> >
+> >       ...
+> >       struct net_device **d = (struct net_device **)(skb->cb);
+> >       ...
+> >       *d = (struct net_device *)in;
+> >       ...
+> >
+> > Signed-off-by: Rami Rosen <ramirose@gmail.com>
+>
+> It's a pointer dereference assignment, this last line has a
+> side effect, therefore you can't remove it.
+>
+> The code is equivalent to:
+>
+> struct skb_bridge_info {
+>         struct net_device *dev;
+> };
+>
+>         struct skb_bridge_info *d;
+>
+>         d = (struct skb_bridge_info *) skb->cb;
+>
+>         d->dev = in;
+>
+> What automated tool showed this as useless to you?
+>
+> Please correct it's logic so it doesn't mark real side effects like
+> this as superfluous.
+>
+> Thanks.
+>
