@@ -1,52 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [IPSEC] flow : Remove an unecessary ____cacheline_aligned
-Date: Tue, 01 Jan 2008 19:24:39 -0800 (PST)
-Message-ID: <20080101.192439.201858398.davem@davemloft.net>
-References: <477A5D4D.6000800@cosmosbay.com>
+Subject: Re: [2.6 patch] the scheduled shaper removal
+Date: Tue, 01 Jan 2008 19:27:20 -0800 (PST)
+Message-ID: <20080101.192720.24588707.davem@davemloft.net>
+References: <20080101134735.GI2360@does.not.exist>
+	<20080101142430.27e0ef66@the-village.bc.nu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: bunk@kernel.org, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: alan@lxorguk.ukuu.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57520
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57526
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753279AbYABDYk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jan 2008 22:24:40 -0500
-In-Reply-To: <477A5D4D.6000800@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1754255AbYABD1U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jan 2008 22:27:20 -0500
+In-Reply-To: <20080101142430.27e0ef66@the-village.bc.nu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 01 Jan 2008 16:33:33 +0100
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Date: Tue, 1 Jan 2008 14:24:30 +0000
 
-> We use a percpu variable named flow_hash_info, which holds 12 bytes.
+> On Tue, 1 Jan 2008 15:47:35 +0200
+> Adrian Bunk <bunk@kernel.org> wrote:
 > 
-> It is currently marked as ____cacheline_aligned, which makes linker
-> skip space to properly align this variable.
+> > This patch contains the scheduled removal of the shaper driver.
+> > 
+> > Signed-off-by: Adrian Bunk <bunk@kernel.org>
 > 
-> Before :
-> c065cc90 D per_cpu__softnet_data
-> c065cd00 d per_cpu__flow_tables
-> <Here, hole of 124 bytes>
-> c065cd80 d per_cpu__flow_hash_info
-> <Here, hole of 116 bytes>
-> c065ce00 d per_cpu__flow_flush_tasklets
-> c065ce14 d per_cpu__rt_cache_stat
-> 
-> 
-> This alignement is quite unproductive, and removing it reduces the
-> size of percpu data (by 240 bytes on my x86 machine), and improves
-> performance (flow_tables & flow_hash_info can share a single cache
-> line)
-> 
-> After patch :
-> c065cc04 D per_cpu__softnet_data
-> c065cc4c d per_cpu__flow_tables
-> c065cc50 d per_cpu__flow_hash_info
-> c065cc5c d per_cpu__flow_flush_tasklets
-> c065cc70 d per_cpu__rt_cache_stat
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> Acked-by: Alan Cox <alan@redhat.com>
 
-Also applied, thanks a lot for these patches Eric.
+Applied, thanks.
