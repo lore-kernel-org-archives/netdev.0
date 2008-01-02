@@ -1,77 +1,41 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH 2.6.23.12] net/bonding: option to specify initial bond
- interface number
-Date: Wed, 2 Jan 2008 13:55:54 -0800
-Message-ID: <20080102135554.65f86364.randy.dunlap@oracle.com>
-References: <413FEEF1743111439393FB76D0221E4809790942@leopard.zoo.q9networks.com>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: 2.6.24-rc6-mm1
+Date: Wed, 2 Jan 2008 16:57:06 -0500
+Message-ID: <20080102215706.GB6480@fieldses.org>
+References: <64bb37e0712230827m7d368e2l3174f3b4396d09c1@mail.gmail.com> <64bb37e0712281453y4aac82b7h7acc8ec314ca6e3e@mail.gmail.com> <20071228150746.42b3bbc0.akpm@linux-foundation.org> <64bb37e0712290851r6d41768dk270e47884713a3de@mail.gmail.com> <20071230013021.GA13603@gondor.apana.org.au> <64bb37e0712291934o77a3d365h56c9c31ac8437469@mail.gmail.com> <64bb37e0712311215x519b10e9kd51eb745b3b7290a@mail.gmail.com> <20080101120406.GA27209@gondor.apana.org.au> <64bb37e0801021029u1735bb9eta53906b123abf577@mail.gmail.com> <20080102215154.GA13911@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: "Jari Takkala" <Jari.Takkala@Q9.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Torsten Kaiser <just.for.lkml@googlemail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, Neil Brown <neilb@suse.de>,
+	netdev@vger.kernel.org, Tom Tucker <tom@opengridcomputing.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:62339 "EHLO
-	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752507AbYABV4G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 16:56:06 -0500
-In-Reply-To: <413FEEF1743111439393FB76D0221E4809790942@leopard.zoo.q9networks.com>
+Received: from mail.fieldses.org ([66.93.2.214]:49277 "EHLO fieldses.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752333AbYABV5O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jan 2008 16:57:14 -0500
+Content-Disposition: inline
+In-Reply-To: <20080102215154.GA13911@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2 Jan 2008 16:20:48 -0500 Jari Takkala wrote:
-
-> Allow the user to specify an initial interface number when loading the bonding driver. This is useful when loading multiple instances of the bonding driver and you want to control the interface number assignment. For example, if the user wishes to create a bond5 interface they can type 'modprobe -o bond5 bonding ifnum=5'. It also works with the max_bonds option.
+On Thu, Jan 03, 2008 at 08:51:54AM +1100, Herbert Xu wrote:
+> On Wed, Jan 02, 2008 at 07:29:59PM +0100, Torsten Kaiser wrote:
+> >
+> > Vanilla 2.6.24-rc6 seems stable. I did not see any crash or warnings.
 > 
-> Signed-off-by: Jari Takkala <jari.takkala@q9.com>
-> ---
-> diff -ruN linux-2.6.23.12.orig/drivers/net/bonding/bond_main.c linux-2.6.23.12/drivers/net/bonding/bond_main.c
-> --- linux-2.6.23.12.orig/drivers/net/bonding/bond_main.c	2007-12-18 16:55:57.000000000 -0500
-> +++ linux-2.6.23.12/drivers/net/bonding/bond_main.c	2008-01-02 14:49:37.000000000 -0500
-> @@ -85,6 +85,7 @@
->  #define BOND_LINK_MON_INTERV	0
->  #define BOND_LINK_ARP_INTERV	0
->  
-> +static int ifnum	= BOND_DEFAULT_IFNUM;
->  static int max_bonds	= BOND_DEFAULT_MAX_BONDS;
->  static int miimon	= BOND_LINK_MON_INTERV;
->  static int updelay	= 0;
-> @@ -99,6 +100,8 @@
->  static char *arp_validate = NULL;
->  struct bond_params bonding_defaults;
->  
-> +module_param(ifnum, int, 0);
+> OK that's great.  The next step would be to try excluding specific git
+> trees from mm to see if they make a difference.
+> 
+> The two specific trees of interest would be git-nfsd and git-net.
 
-You could (should) make <ifnum> be unsigned int and then use
-module_param(ifnum, uint, 0);
-and then ...
+Also, if it's git-nfsd, it'd be useful to test with the current git-nfsd
+from the for-mm branch at:
 
-> +MODULE_PARM_DESC(ifnum, "Initial interface number to assign");
->  module_param(max_bonds, int, 0);
->  MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
->  module_param(miimon, int, 0);
-> @@ -4388,6 +4391,14 @@
->  		}
->  	}
+	git://linux-nfs.org/~bfields/linus.git for-mm
 
-then this block is mostly useless since ifnum cannot be < 0.
-And how could it ever be > INT_MAX (when ifnum was an int)?
+and then any bisection results (even partial) from that tree would help
+immensely....
 
-If <ifnum> is unsigned int but you want to limit it to INT_MAX,
-then half of this if-test would be OK.
-
-> +	if (ifnum < 0 || ifnum > INT_MAX) {
-> +		printk(KERN_WARNING DRV_NAME
-> +		       ": Warning: ifnum (%d) not in range %d-%d, so it "
-> +		       "was reset to BOND_DEFAULT_IFNUM (%d)\n",
-> +		       ifnum, 0, INT_MAX, BOND_DEFAULT_IFNUM);
-> +		ifnum = BOND_DEFAULT_IFNUM;
-> +	}
-> +
->  	if (max_bonds < 1 || max_bonds > INT_MAX) {
->  		printk(KERN_WARNING DRV_NAME
->  		       ": Warning: max_bonds (%d) not in range %d-%d, so it "
-
-
----
-~Randy
-desserts:  http://www.xenotime.net/linux/recipes/
+--b.
