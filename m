@@ -1,109 +1,148 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [patch 5/9][NETNS][IPV6] make bindv6only sysctl per namespace
-Date: Wed, 02 Jan 2008 13:25:53 +0100
-Message-ID: <20080102122819.752149045@localhost.localdomain>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [patch 0/9][NETNS][IPV6] make sysctl per namespace
+Date: Wed, 2 Jan 2008 14:54:34 +0100
+Message-ID: <20080102145434.8bdba06d.dada1@cosmosbay.com>
 References: <20080102122548.629622062@localhost.localdomain>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.uk.ibm.com ([195.212.29.138]:42255 "EHLO
-	mtagate5.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753446AbYABMhL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 07:37:11 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate5.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m02CanfL684606
-	for <netdev@vger.kernel.org>; Wed, 2 Jan 2008 12:36:49 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m02CaniP5054586
-	for <netdev@vger.kernel.org>; Wed, 2 Jan 2008 12:36:49 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m02CaWaW008400
-	for <netdev@vger.kernel.org>; Wed, 2 Jan 2008 12:36:33 GMT
-Content-Disposition: inline; filename=move-bindv6only-to-netns.patch
+Received: from pfx2.jmh.fr ([194.153.89.55]:55823 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751211AbYABNyl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jan 2008 08:54:41 -0500
+In-Reply-To: <20080102122548.629622062@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch moves the bindv6only sysctl to the network namespace
-structure. Until the ipv6 protocol is not per namespace, the sysctl
-variable is always from the initial network namespace.
+On Wed, 02 Jan 2008 13:25:48 +0100
+Daniel Lezcano <dlezcano@fr.ibm.com> wrote:
 
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
----
- include/net/ipv6.h         |    1 -
- include/net/netns/ipv6.h   |    1 +
- net/ipv6/af_inet6.c        |    4 +---
- net/ipv6/sysctl_net_ipv6.c |    6 +++++-
- 4 files changed, 7 insertions(+), 5 deletions(-)
+> The following patchset makes the ipv6 sysctl to handle multiple
+> network namespaces. Each instance of a network namespace as its own
+> set of sysctl values, that means the behavior of the ipv6 stack can be
+> different depending on the sysctl values setup in the different
+> network namespaces.
 
-Index: net-2.6.25/include/net/ipv6.h
-===================================================================
---- net-2.6.25.orig/include/net/ipv6.h
-+++ net-2.6.25/include/net/ipv6.h
-@@ -109,7 +109,6 @@ struct frag_hdr {
- #include <net/sock.h>
+Hi Daniel
+
+Did you tested your patches with CONFIG_SYSCTL=n ?
+
+For example, I had to apply this patch on current git.
+
+Thank you
+
+[PATCH] IPV4 : Should build with CONFIG_SYSCTL=n
+
+Previous NETNS patches broke CONFIG_SYSCTL=n case
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index e06d7cf..61a28ff 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -8,7 +8,9 @@ struct ctl_table_header;
+ struct ipv4_devconf;
  
- /* sysctls */
--extern int sysctl_ipv6_bindv6only;
- extern int sysctl_mld_max_msf;
- 
- #define _DEVINC(statname, modifier, idev, field)			\
-Index: net-2.6.25/include/net/netns/ipv6.h
-===================================================================
---- net-2.6.25.orig/include/net/netns/ipv6.h
-+++ net-2.6.25/include/net/netns/ipv6.h
-@@ -9,6 +9,7 @@ struct ctl_table_header;
- 
- struct netns_sysctl_ipv6 {
- 	struct ctl_table_header *table;
-+ 	int bindv6only;
+ struct netns_ipv4 {
++#ifdef CONFIG_SYSCTL
+ 	struct ctl_table_header	*forw_hdr;
++#endif
+ 	struct ipv4_devconf	*devconf_all;
+ 	struct ipv4_devconf	*devconf_dflt;
  };
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 252ce01..98a0079 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1542,7 +1542,6 @@ static void devinet_sysctl_unregister(struct in_device *idev)
+ 	__devinet_sysctl_unregister(&idev->cnf);
+ 	neigh_sysctl_unregister(idev->arp_parms);
+ }
+-#endif
  
- struct netns_ipv6 {
-Index: net-2.6.25/net/ipv6/af_inet6.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/af_inet6.c
-+++ net-2.6.25/net/ipv6/af_inet6.c
-@@ -66,8 +66,6 @@ MODULE_AUTHOR("Cast of dozens");
- MODULE_DESCRIPTION("IPv6 protocol stack for Linux");
- MODULE_LICENSE("GPL");
- 
--int sysctl_ipv6_bindv6only __read_mostly;
--
- /* The inetsw6 table contains everything that inet6_create needs to
-  * build a new socket.
-  */
-@@ -193,7 +191,7 @@ lookup_protocol:
- 	np->mcast_hops	= -1;
- 	np->mc_loop	= 1;
- 	np->pmtudisc	= IPV6_PMTUDISC_WANT;
--	np->ipv6only	= sysctl_ipv6_bindv6only;
-+	np->ipv6only	= init_net.ipv6.sysctl.bindv6only;
- 
- 	/* Init the ipv4 part of the socket since we can have sockets
- 	 * using v6 API for ipv4.
-Index: net-2.6.25/net/ipv6/sysctl_net_ipv6.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/sysctl_net_ipv6.c
-+++ net-2.6.25/net/ipv6/sysctl_net_ipv6.c
-@@ -35,7 +35,7 @@ static ctl_table ipv6_table_template[] =
+ static struct ctl_table ctl_forward_entry[] = {
  	{
- 		.ctl_name	= NET_IPV6_BINDV6ONLY,
- 		.procname	= "bindv6only",
--		.data		= &sysctl_ipv6_bindv6only,
-+		.data		= &init_net.ipv6.sysctl.bindv6only,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= &proc_dointvec
-@@ -115,6 +115,10 @@ static int ipv6_sysctl_net_init(struct n
-    	ipv6_table[0].child = ipv6_route_table;
-    	ipv6_table[1].child = ipv6_icmp_table;
+@@ -1565,18 +1564,20 @@ static __net_initdata struct ctl_path net_ipv4_path[] = {
+ 	{ .procname = "ipv4", .ctl_name = NET_IPV4, },
+ 	{ },
+ };
++#endif
  
-+  	ipv6_table[2].data = &net->ipv6.sysctl.bindv6only;
-+
-+	net->ipv6.sysctl.bindv6only = 0;
-+
-    	net->ipv6.sysctl.table = register_net_sysctl_table(net, ipv6_ctl_path, ipv6_table);
-    	if (!net->ipv6.sysctl.table)
-    		goto out_ipv6_icmp_table;
+ static __net_init int devinet_init_net(struct net *net)
+ {
+ 	int err;
+-	struct ctl_table *tbl;
+-	struct ipv4_devconf *all, *dflt;
++#ifdef CONFIG_SYSCTL
++	struct ctl_table *tbl = ctl_forward_entry;
+ 	struct ctl_table_header *forw_hdr;
++#endif
++	struct ipv4_devconf *all, *dflt;
+ 
+ 	err = -ENOMEM;
+ 	all = &ipv4_devconf;
+ 	dflt = &ipv4_devconf_dflt;
+-	tbl = ctl_forward_entry;
+ 
+ 	if (net != &init_net) {
+ 		all = kmemdup(all, sizeof(ipv4_devconf), GFP_KERNEL);
+@@ -1587,6 +1588,7 @@ static __net_init int devinet_init_net(struct net *net)
+ 		if (dflt == NULL)
+ 			goto err_alloc_dflt;
+ 
++#ifdef CONFIG_SYSCTL
+ 		tbl = kmemdup(tbl, sizeof(ctl_forward_entry), GFP_KERNEL);
+ 		if (tbl == NULL)
+ 			goto err_alloc_ctl;
+@@ -1594,6 +1596,7 @@ static __net_init int devinet_init_net(struct net *net)
+ 		tbl[0].data = &all->data[NET_IPV4_CONF_FORWARDING - 1];
+ 		tbl[0].extra1 = all;
+ 		tbl[0].extra2 = net;
++#endif
+ 	}
+ 
+ #ifdef CONFIG_SYSCTL
+@@ -1611,9 +1614,9 @@ static __net_init int devinet_init_net(struct net *net)
+ 	forw_hdr = register_net_sysctl_table(net, net_ipv4_path, tbl);
+ 	if (forw_hdr == NULL)
+ 		goto err_reg_ctl;
++	net->ipv4.forw_hdr = forw_hdr;
+ #endif
+ 
+-	net->ipv4.forw_hdr = forw_hdr;
+ 	net->ipv4.devconf_all = all;
+ 	net->ipv4.devconf_dflt = dflt;
+ 	return 0;
+@@ -1626,8 +1629,8 @@ err_reg_dflt:
+ err_reg_all:
+ 	if (tbl != ctl_forward_entry)
+ 		kfree(tbl);
+-#endif
+ err_alloc_ctl:
++#endif
+ 	if (dflt != &ipv4_devconf_dflt)
+ 		kfree(dflt);
+ err_alloc_dflt:
+@@ -1639,15 +1642,15 @@ err_alloc_all:
+ 
+ static __net_exit void devinet_exit_net(struct net *net)
+ {
++#ifdef CONFIG_SYSCTL
+ 	struct ctl_table *tbl;
+ 
+ 	tbl = net->ipv4.forw_hdr->ctl_table_arg;
+-#ifdef CONFIG_SYSCTL
+ 	unregister_net_sysctl_table(net->ipv4.forw_hdr);
+ 	__devinet_sysctl_unregister(net->ipv4.devconf_dflt);
+ 	__devinet_sysctl_unregister(net->ipv4.devconf_all);
+-#endif
+ 	kfree(tbl);
++#endif
+ 	kfree(net->ipv4.devconf_dflt);
+ 	kfree(net->ipv4.devconf_all);
+ }
 
--- 
