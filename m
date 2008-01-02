@@ -1,34 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [IPSEC]: Return EOVERFLOW when output sequence number overflows
-Date: Tue, 01 Jan 2008 23:53:42 -0800 (PST)
-Message-ID: <20080101.235342.183794044.davem@davemloft.net>
-References: <20080102071619.GA23687@gondor.apana.org.au>
+Subject: Re: TCP event tracking via netlink...
+Date: Wed, 02 Jan 2008 00:22:27 -0800 (PST)
+Message-ID: <20080102.002227.67777942.davem@davemloft.net>
+References: <Pine.LNX.4.64.0712051533050.3119@kivilampi-30.cs.helsinki.fi>
+	<20071206.023346.256200942.davem@davemloft.net>
+	<20071206092312.79a83208@freepuppy.rosehill>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59430
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59871
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752823AbYABHxm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 02:53:42 -0500
-In-Reply-To: <20080102071619.GA23687@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1752590AbYABIW2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 03:22:28 -0500
+In-Reply-To: <20071206092312.79a83208@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 2 Jan 2008 18:16:20 +1100
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Thu, 6 Dec 2007 09:23:12 -0800
 
-> [IPSEC]: Return EOVERFLOW when output sequence number overflows
-> 
-> Previously we made it an error on the output path if the sequence number
-> overflowed.  However we did not set the err variable accordingly.  This
-> patch sets err to -EOVERFLOW in that case.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Tools and scripts for testing that generate graphs are at:
+> 	git://git.kernel.org/pub/scm/tcptest/tcptest
 
-Applied.
+Did you move it somewhere else?
 
-It seems this was a regression added by Paul's patch in net-2.6.25 and
-not something that needs fixing in 2.6.24 and stable?
+davem@sunset:~/src/GIT$ git clone git://git.kernel.org/pub/scm/tcptest/tcptest
+Initialized empty Git repository in /home/davem/src/GIT/tcptest/.git/
+fatal: The remote end hung up unexpectedly
+fetch-pack from 'git://git.kernel.org/pub/scm/tcptest/tcptest' failed.
