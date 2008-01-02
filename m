@@ -1,8 +1,8 @@
-From: Greg KH <greg@kroah.com>
+From: Andreas Mohr <andi@lisas.de>
 Subject: Re: [usb regression] Re: [PATCH 2.6.24-rc3] Fix /proc/net breakage
-Date: Tue, 1 Jan 2008 22:00:06 -0800
-Message-ID: <20080102060006.GA27693@kroah.com>
-References: <20071231052500.GB4187@kroah.com> <Pine.LNX.4.44L0.0712311237150.7182-100000@iolanthe.rowland.org> <20071231192643.GA25341@kroah.com>
+Date: Wed, 2 Jan 2008 07:04:22 +0100
+Message-ID: <20080102060422.GA30929@rhlx01.hs-esslingen.de>
+References: <20071230161405.GA27788@elte.hu> <Pine.LNX.4.44L0.0712301526090.1963-100000@netrider.rowland.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Andreas Mohr <andi@lisas.de>, Ingo Molnar <mingo@elte.hu>,
@@ -15,50 +15,30 @@ Cc: Andreas Mohr <andi@lisas.de>, Ingo Molnar <mingo@elte.hu>,
 	kernel list <linux-kernel@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>,
 	Pavel Emelyanov <xemul@openvz.org>,
-	"Denis V. Lunev" <den@openvz.org>,
-	USB list <linux-usb@vger.kernel.org>
+	"Denis V. Lunev" <den@openvz.org>, Greg KH <greg@kroah.com>
 To: Alan Stern <stern@rowland.harvard.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:49502 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754485AbYABF7A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 00:59:00 -0500
+Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:38221 "EHLO
+	rhlx01.hs-esslingen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754606AbYABGEX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 01:04:23 -0500
 Content-Disposition: inline
-In-Reply-To: <20071231192643.GA25341@kroah.com>
+In-Reply-To: <Pine.LNX.4.44L0.0712301526090.1963-100000@netrider.rowland.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 31, 2007 at 11:26:43AM -0800, Greg KH wrote:
-> On Mon, Dec 31, 2007 at 12:49:52PM -0500, Alan Stern wrote:
-> > On Sun, 30 Dec 2007, Greg KH wrote:
-> > 
-> > > > It looks like Greg misused the debugfs API -- which is ironic, because
-> > > > he wrote debugfs in the first place!  :-)
-> > > 
-> > > Oh crap, sorry, I did mess that up :(
+Hi,
 
-Ok, no, I didn't write that patch, I'm getting very confused here.
+On Sun, Dec 30, 2007 at 03:34:45PM -0500, Alan Stern wrote:
+> It looks like Greg misused the debugfs API -- which is ironic, because
+> he wrote debugfs in the first place!  :-)
+> 
+> Let me know if this patch fixes the problem.  If it does, I'll submit 
+> it to Greg with all the proper accoutrements.
 
-In 2.6.24-rc6 there is no usage of debugfs in the ohci driver.
+Finally a 2.6.24-rc6-mm1 with working USB WLAN. :)
+IOW I can confirm that this was the cause of the USB problem I was having.
 
-In the -mm tree there is a patch, from Tony Jones, that moves some debug
-code out of sysfs and into debugfs where it belongs.  It does it for
-both the ehci and ohci USB host controller drivers, and this is the code
-that is incorrect if CONFIG_DEBUGFS is not enabled.
+Thanks!
 
-So, for the 2.6.24 release, nothing needs to be changed, all is good,
-and there is no regression.
-
-Right?  Or am I still confused about this whole thing?
-
-I will go fix up Tony's patches in the -mm tree that do not handle the
-error return values from debugfs properly, but that is not such a rush,
-as Tony is on vacation for a few weeks, and those patches are going to
-be going in only after 2.6.24 is out.
-
-Hm, I wonder if this means I can go back to drinking more holiday
-wine... :)
-
-thanks,
-
-greg k-h
+Andreas Mohr
