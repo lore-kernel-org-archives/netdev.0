@@ -1,60 +1,41 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [patch 0/9][NETNS][IPV6] make sysctl per namespace
-Date: Wed, 02 Jan 2008 15:05:04 +0100
-Message-ID: <477B9A10.4020803@fr.ibm.com>
-References: <20080102122548.629622062@localhost.localdomain> <20080102145434.8bdba06d.dada1@cosmosbay.com>
+From: "Andy Johnson" <johnsonzjo@gmail.com>
+Subject: Section mismatch between 'copy_net_ns' and 'net_enable_timestamp
+Date: Wed, 2 Jan 2008 16:16:12 +0200
+Message-ID: <147a89290801020616g310fff86t6c8d34d32df3865a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.uk.ibm.com ([195.212.29.138]:46364 "EHLO
-	mtagate5.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752634AbYABONm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 09:13:42 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate5.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m02EDSr6039696
-	for <netdev@vger.kernel.org>; Wed, 2 Jan 2008 14:13:28 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m02EDSmj5107744
-	for <netdev@vger.kernel.org>; Wed, 2 Jan 2008 14:13:28 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m02EDB42020722
-	for <netdev@vger.kernel.org>; Wed, 2 Jan 2008 14:13:12 GMT
-In-Reply-To: <20080102145434.8bdba06d.dada1@cosmosbay.com>
+Received: from fg-out-1718.google.com ([72.14.220.158]:9914 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752308AbYABOQO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 09:16:14 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so3162383fga.17
+        for <netdev@vger.kernel.org>; Wed, 02 Jan 2008 06:16:12 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> On Wed, 02 Jan 2008 13:25:48 +0100
-> Daniel Lezcano <dlezcano@fr.ibm.com> wrote:
-> 
->> The following patchset makes the ipv6 sysctl to handle multiple
->> network namespaces. Each instance of a network namespace as its own
->> set of sysctl values, that means the behavior of the ipv6 stack can be
->> different depending on the sysctl values setup in the different
->> network namespaces.
-> 
-> Hi Daniel
-> 
-> Did you tested your patches with CONFIG_SYSCTL=n ?
-> 
-> For example, I had to apply this patch on current git.
-> 
-> Thank you
-> 
-> [PATCH] IPV4 : Should build with CONFIG_SYSCTL=n
-> 
-> Previous NETNS patches broke CONFIG_SYSCTL=n case
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+Hello,
+ I had git-cloned the net-2.6.25.git tree today;
 
-Thanks Eric for fixing that.
+ Then I ran "make menuconfig" and accepted the defaults without any change.
+I want to build this tree with network namespace support.
+I saw that in 2.6.25/net/core/net_namespace.c
+we have some #ifdef CONFIG_NET_NS ; I did not CONFIG_NET_NS in "make
+menuconfig".
+So I added in net_namespace.c #define CONFIG_NET_NS, before the first
+#ifdef CONFIG_NET_NS; then I ran make.
 
-I compiled with CONFIG_SYSCTL=n and booted.
-I try to always do allmodconfig, allyesconfig, allnoconfig with a 
-cross-compiler for different arch, i386, x86_64, s390, ppc, ia64, sh, 
-sparc, arm and alpha, before sending to netdev@.
+I saw the following warning:
 
-  -- Daniel
+WARNING: vmlinux.o(.text+0x1d47cd): Section mismatch: reference to .init.text:
+(between 'copy_net_ns' and 'net_enable_timestamp')
+
+
+Is there something wrong here causing this "Section mismatch"?
+or did I do something wrong?
+
+Regards,
+Andy
