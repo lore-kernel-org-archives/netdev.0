@@ -1,41 +1,40 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: 2.6.24-rc6-mm1
-Date: Wed, 2 Jan 2008 16:57:06 -0500
-Message-ID: <20080102215706.GB6480@fieldses.org>
-References: <64bb37e0712230827m7d368e2l3174f3b4396d09c1@mail.gmail.com> <64bb37e0712281453y4aac82b7h7acc8ec314ca6e3e@mail.gmail.com> <20071228150746.42b3bbc0.akpm@linux-foundation.org> <64bb37e0712290851r6d41768dk270e47884713a3de@mail.gmail.com> <20071230013021.GA13603@gondor.apana.org.au> <64bb37e0712291934o77a3d365h56c9c31ac8437469@mail.gmail.com> <64bb37e0712311215x519b10e9kd51eb745b3b7290a@mail.gmail.com> <20080101120406.GA27209@gondor.apana.org.au> <64bb37e0801021029u1735bb9eta53906b123abf577@mail.gmail.com> <20080102215154.GA13911@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Torsten Kaiser <just.for.lkml@googlemail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, Neil Brown <neilb@suse.de>,
-	netdev@vger.kernel.org, Tom Tucker <tom@opengridcomputing.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH 2.6.23.12] net/bonding: option to specify initial bond interface number
+Date: Wed, 02 Jan 2008 14:24:23 -0800
+Message-ID: <22042.1199312663@death>
+References: <413FEEF1743111439393FB76D0221E4809790942@leopard.zoo.q9networks.com>
+Cc: netdev@vger.kernel.org
+To: "Jari Takkala" <Jari.Takkala@Q9.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fieldses.org ([66.93.2.214]:49277 "EHLO fieldses.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752333AbYABV5O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Jan 2008 16:57:14 -0500
-Content-Disposition: inline
-In-Reply-To: <20080102215154.GA13911@gondor.apana.org.au>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:56461 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753413AbYABWYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 17:24:30 -0500
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e32.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m02LLuDd013392
+	for <netdev@vger.kernel.org>; Wed, 2 Jan 2008 16:21:56 -0500
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m02MOPQH116176
+	for <netdev@vger.kernel.org>; Wed, 2 Jan 2008 15:24:25 -0700
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m02MOOTr019692
+	for <netdev@vger.kernel.org>; Wed, 2 Jan 2008 15:24:24 -0700
+In-reply-to: <413FEEF1743111439393FB76D0221E4809790942@leopard.zoo.q9networks.com> 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 03, 2008 at 08:51:54AM +1100, Herbert Xu wrote:
-> On Wed, Jan 02, 2008 at 07:29:59PM +0100, Torsten Kaiser wrote:
-> >
-> > Vanilla 2.6.24-rc6 seems stable. I did not see any crash or warnings.
-> 
-> OK that's great.  The next step would be to try excluding specific git
-> trees from mm to see if they make a difference.
-> 
-> The two specific trees of interest would be git-nfsd and git-net.
+Jari Takkala <Jari.Takkala@Q9.com> wrote:
 
-Also, if it's git-nfsd, it'd be useful to test with the current git-nfsd
-from the for-mm branch at:
+>Allow the user to specify an initial interface number when loading the bonding driver. This is useful when loading multiple instances of the bonding driver and you want to control the interface number assignment. For example, if the user wishes to create a bond5 interface they can type 'modprobe -o bond5 bonding ifnum=5'. It also works with the max_bonds option.
 
-	git://linux-nfs.org/~bfields/linus.git for-mm
+	What advantage does this have over:
 
-and then any bisection results (even partial) from that tree would help
-immensely....
+# echo +bond5 > /sys/class/net/bonding_masters
 
---b.
+	which will create a new bonding master for the already-loaded
+driver?
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
