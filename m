@@ -1,45 +1,33 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPSEC]: Kill duplicate xfrm_policy_flush prototype
-Date: Wed, 2 Jan 2008 14:02:11 +1100
-Message-ID: <20080102030211.GA31886@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 25/26] [REVISED] atl1: add NAPI support
+Date: Tue, 01 Jan 2008 19:07:12 -0800 (PST)
+Message-ID: <20080101.190712.216262124.davem@davemloft.net>
+References: <1199152804-3889-26-git-send-email-jacliburn@bellsouth.net>
+	<20080101121536.3df9c497@osprey.hogchain.net>
+	<000001c84ceb$18a967c0$47e7a8c0@jason>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jacliburn@bellsouth.net, jeff@garzik.org, csnook@redhat.com,
+	linux-kernel@vger.kernel.org, atl1-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, shemminger@linux-foundation.org
+To: joonwpark81@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4293 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752993AbYABDCQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jan 2008 22:02:16 -0500
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50964
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753417AbYABDHN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jan 2008 22:07:13 -0500
+In-Reply-To: <000001c84ceb$18a967c0$47e7a8c0@jason>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave:
+From: "Joonwoo Park" <joonwpark81@gmail.com>
+Date: Wed, 2 Jan 2008 11:56:36 +0900
 
-[IPSEC]: Kill duplicate xfrm_policy_flush prototype
+> Since we had reached a consensus on fixing it without each drivers
+> modifications, there is no best solution for that problem for
+> now. I'm expecting Dave or others work for net-core.
+> (http://lkml.org/lkml/2007/12/20/600)
 
-For five years we had two xfrm_policy_flush prototypes and every time that
-function's signature changed people have been diligently updating both of
-them without noticing :)
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 2b6246a..1dbd2f9 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1316,7 +1316,6 @@ extern int xfrm_alloc_spi(struct xfrm_state *x, u32 minspi, u32 maxspi);
- struct xfrm_state * xfrm_find_acq(u8 mode, u32 reqid, u8 proto,
- 				  xfrm_address_t *daddr, xfrm_address_t *saddr,
- 				  int create, unsigned short family);
--extern int xfrm_policy_flush(u8 type, struct xfrm_audit *audit_info);
- extern int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol);
- extern int xfrm_bundle_ok(struct xfrm_policy *pol, struct xfrm_dst *xdst,
- 			  struct flowi *fl, int family, int strict);
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Indeed, I really hope to try and close this out very soon.
+Sorry for taking so long.
