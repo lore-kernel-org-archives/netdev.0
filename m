@@ -1,74 +1,94 @@
-From: "Rami Rosen" <ramirose@gmail.com>
-Subject: [PATCH net-2.6.25] [IPV4] Remove unsupported DNAT (RTCF_NAT and RTCF_NAT) in IPV4
-Date: Wed, 2 Jan 2008 23:31:37 +0200
-Message-ID: <eb3ff54b0801021331w63637142sd39b6605bd6f8be4@mail.gmail.com>
+From: "Jari Takkala" <Jari.Takkala@Q9.com>
+Subject: [PATCH 2.6.23.12] net/bonding: option to specify initial bond interface number
+Date: Wed, 2 Jan 2008 16:20:48 -0500
+Message-ID: <413FEEF1743111439393FB76D0221E4809790942@leopard.zoo.q9networks.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_5911_766461.1199309497124"
-Cc: netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:58842 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757764AbYABVbj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 16:31:39 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so3226282fga.17
-        for <netdev@vger.kernel.org>; Wed, 02 Jan 2008 13:31:37 -0800 (PST)
+Received: from mx3.q9.com ([216.220.35.252]:53251 "EHLO mx3.q9.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752783AbYABVih convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2008 16:38:37 -0500
+Received: from leopard.zoo.q9networks.com (unknown [10.220.34.6])
+	by mx3.q9.com (Postfix) with ESMTP id 7788214A
+	for <netdev@vger.kernel.org>; Wed,  2 Jan 2008 16:20:49 -0500 (EST)
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_5911_766461.1199309497124
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Allow the user to specify an initial interface number when loading the bonding driver. This is useful when loading multiple instances of the bonding driver and you want to control the interface number assignment. For example, if the user wishes to create a bond5 interface they can type 'modprobe -o bond5 bonding ifnum=5'. It also works with the max_bonds option.
 
-Hi,
+Signed-off-by: Jari Takkala <jari.takkala@q9.com>
+---
+diff -ruN linux-2.6.23.12.orig/drivers/net/bonding/bond_main.c linux-2.6.23.12/drivers/net/bonding/bond_main.c
+--- linux-2.6.23.12.orig/drivers/net/bonding/bond_main.c	2007-12-18 16:55:57.000000000 -0500
++++ linux-2.6.23.12/drivers/net/bonding/bond_main.c	2008-01-02 14:49:37.000000000 -0500
+@@ -85,6 +85,7 @@
+ #define BOND_LINK_MON_INTERV	0
+ #define BOND_LINK_ARP_INTERV	0
+ 
++static int ifnum	= BOND_DEFAULT_IFNUM;
+ static int max_bonds	= BOND_DEFAULT_MAX_BONDS;
+ static int miimon	= BOND_LINK_MON_INTERV;
+ static int updelay	= 0;
+@@ -99,6 +100,8 @@
+ static char *arp_validate = NULL;
+ struct bond_params bonding_defaults;
+ 
++module_param(ifnum, int, 0);
++MODULE_PARM_DESC(ifnum, "Initial interface number to assign");
+ module_param(max_bonds, int, 0);
+ MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
+ module_param(miimon, int, 0);
+@@ -4388,6 +4391,14 @@
+ 		}
+ 	}
+ 
++	if (ifnum < 0 || ifnum > INT_MAX) {
++		printk(KERN_WARNING DRV_NAME
++		       ": Warning: ifnum (%d) not in range %d-%d, so it "
++		       "was reset to BOND_DEFAULT_IFNUM (%d)\n",
++		       ifnum, 0, INT_MAX, BOND_DEFAULT_IFNUM);
++		ifnum = BOND_DEFAULT_IFNUM;
++	}
++
+ 	if (max_bonds < 1 || max_bonds > INT_MAX) {
+ 		printk(KERN_WARNING DRV_NAME
+ 		       ": Warning: max_bonds (%d) not in range %d-%d, so it "
+@@ -4703,6 +4714,7 @@
+ {
+ 	int i;
+ 	int res;
++	char ifname[16];
+ 
+ 	printk(KERN_INFO "%s", version);
+ 
+@@ -4715,7 +4727,13 @@
+ 	bond_create_proc_dir();
+ #endif
+ 	for (i = 0; i < max_bonds; i++) {
+-		res = bond_create(NULL, &bonding_defaults, NULL);
++		if (ifnum != BOND_DEFAULT_IFNUM) {
++			ifnum = ifnum + i;
++			snprintf(ifname, sizeof(ifname) - 1, "bond%d", ifnum);
++			res = bond_create(ifname, &bonding_defaults, NULL);
++		} else {
++			res = bond_create(NULL, &bonding_defaults, NULL);
++		}
+ 		if (res)
+ 			goto err;
+ 	}
+diff -ruN linux-2.6.23.12.orig/include/linux/if_bonding.h linux-2.6.23.12/include/linux/if_bonding.h
+--- linux-2.6.23.12.orig/include/linux/if_bonding.h	2007-12-18 16:55:57.000000000 -0500
++++ linux-2.6.23.12/include/linux/if_bonding.h	2008-01-02 13:30:18.000000000 -0500
+@@ -81,6 +81,7 @@
+ #define BOND_STATE_ACTIVE       0   /* link is active */
+ #define BOND_STATE_BACKUP       1   /* link is backup */
+ 
++#define BOND_DEFAULT_IFNUM	0   /* Default interface number */
+ #define BOND_DEFAULT_MAX_BONDS  1   /* Default maximum number of devices to support */
+ 
+ /* hashing types */
 
-- The DNAT (Destination NAT) is not implemented in IPV4.
-
-- This patch remove the code which checks these flags
-in net/ipv4/arp.c and net/ipv4/route.c.
-
-The RTCF_NAT and RTCF_NAT should stay in the header (linux/in_route.h)
-because they are used in DECnet.
-
-Regards,
-Rami Rosen
-
-
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
-
-------=_Part_5911_766461.1199309497124
-Content-Type: text/plain; name=patch.txt
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_faydu48s0
-Content-Disposition: attachment; filename=patch.txt
-
-ZGlmZiAtLWdpdCBhL25ldC9pcHY0L2FycC5jIGIvbmV0L2lwdjQvYXJwLmMKaW5kZXggMTQxNmJj
-OS4uMmI3MmJhNiAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvYXJwLmMKKysrIGIvbmV0L2lwdjQvYXJw
-LmMKQEAgLTgzNSw5ICs4MzUsOCBAQCBzdGF0aWMgaW50IGFycF9wcm9jZXNzKHN0cnVjdCBza19i
-dWZmICpza2IpCiAJCQl9CiAJCQlnb3RvIG91dDsKIAkJfSBlbHNlIGlmIChJTl9ERVZfRk9SV0FS
-RChpbl9kZXYpKSB7Ci0JCQlpZiAoKHJ0LT5ydF9mbGFncyZSVENGX0ROQVQpIHx8Ci0JCQkgICAg
-KGFkZHJfdHlwZSA9PSBSVE5fVU5JQ0FTVCAgJiYgcnQtPnUuZHN0LmRldiAhPSBkZXYgJiYKLQkJ
-CSAgICAgKGFycF9md2RfcHJveHkoaW5fZGV2LCBydCkgfHwgcG5laWdoX2xvb2t1cCgmYXJwX3Ri
-bCwgJmluaXRfbmV0LCAmdGlwLCBkZXYsIDApKSkpIHsKKwkJCSAgICBpZiAoYWRkcl90eXBlID09
-IFJUTl9VTklDQVNUICAmJiBydC0+dS5kc3QuZGV2ICE9IGRldiAmJgorCQkJICAgICAoYXJwX2Z3
-ZF9wcm94eShpbl9kZXYsIHJ0KSB8fCBwbmVpZ2hfbG9va3VwKCZhcnBfdGJsLCAmaW5pdF9uZXQs
-ICZ0aXAsIGRldiwgMCkpKSB7CiAJCQkJbiA9IG5laWdoX2V2ZW50X25zKCZhcnBfdGJsLCBzaGEs
-ICZzaXAsIGRldik7CiAJCQkJaWYgKG4pCiAJCQkJCW5laWdoX3JlbGVhc2Uobik7CmRpZmYgLS1n
-aXQgYS9uZXQvaXB2NC9yb3V0ZS5jIGIvbmV0L2lwdjQvcm91dGUuYwppbmRleCAxMDkxNWJiLi5l
-ZTljOTNjIDEwMDY0NAotLS0gYS9uZXQvaXB2NC9yb3V0ZS5jCisrKyBiL25ldC9pcHY0L3JvdXRl
-LmMKQEAgLTE3NjgsNyArMTc2OCw3IEBAIHN0YXRpYyBpbmxpbmUgaW50IF9fbWtyb3V0ZV9pbnB1
-dChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCWlmIChlcnIpCiAJCWZsYWdzIHw9IFJUQ0ZfRElSRUNU
-U1JDOwogCi0JaWYgKG91dF9kZXYgPT0gaW5fZGV2ICYmIGVyciAmJiAhKGZsYWdzICYgKFJUQ0Zf
-TkFUIHwgUlRDRl9NQVNRKSkgJiYKKwlpZiAob3V0X2RldiA9PSBpbl9kZXYgJiYgZXJyICYmICEo
-ZmxhZ3MgJiBSVENGX01BU1EpICYmCiAJICAgIChJTl9ERVZfU0hBUkVEX01FRElBKG91dF9kZXYp
-IHx8CiAJICAgICBpbmV0X2FkZHJfb25saW5rKG91dF9kZXYsIHNhZGRyLCBGSUJfUkVTX0dXKCpy
-ZXMpKSkpCiAJCWZsYWdzIHw9IFJUQ0ZfRE9SRURJUkVDVDsKQEAgLTE3NzcsNyArMTc3Nyw3IEBA
-IHN0YXRpYyBpbmxpbmUgaW50IF9fbWtyb3V0ZV9pbnB1dChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAog
-CQkvKiBOb3QgSVAgKGkuZS4gQVJQKS4gRG8gbm90IGNyZWF0ZSByb3V0ZSwgaWYgaXQgaXMKIAkJ
-ICogaW52YWxpZCBmb3IgcHJveHkgYXJwLiBETkFUIHJvdXRlcyBhcmUgYWx3YXlzIHZhbGlkLgog
-CQkgKi8KLQkJaWYgKG91dF9kZXYgPT0gaW5fZGV2ICYmICEoZmxhZ3MgJiBSVENGX0ROQVQpKSB7
-CisJCWlmIChvdXRfZGV2ID09IGluX2RldikgewogCQkJZXJyID0gLUVJTlZBTDsKIAkJCWdvdG8g
-Y2xlYW51cDsKIAkJfQo=
-------=_Part_5911_766461.1199309497124--
