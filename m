@@ -1,85 +1,46 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [patch 7/9][NETNS][IPV6] make mld_max_msf per namespace
-Date: Thu, 03 Jan 2008 12:00:48 +0100
-Message-ID: <477CC060.10700@fr.ibm.com>
-References: <OF222680D1.A9003264-ON882573C4.0080098D-882573C4.008140B5@us.ibm.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC PATCH] NET: Clone the sk_buff->iif field properly
+Date: Thu, 03 Jan 2008 06:23:22 -0500
+Message-ID: <1199359402.4710.17.camel@localhost>
+References: <20080103095829.GB2000@ff.dom.local>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+Cc: Paul Moore <paul.moore@hp.com>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.29.150]:36566 "EHLO
-	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752659AbYACLI7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2008 06:08:59 -0500
-In-Reply-To: <OF222680D1.A9003264-ON882573C4.0080098D-882573C4.008140B5@us.ibm.com>
+Received: from py-out-1112.google.com ([64.233.166.179]:30242 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752218AbYACLXZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2008 06:23:25 -0500
+Received: by py-out-1112.google.com with SMTP id u52so10440468pyb.10
+        for <netdev@vger.kernel.org>; Thu, 03 Jan 2008 03:23:24 -0800 (PST)
+In-Reply-To: <20080103095829.GB2000@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Stevens wrote:
-> Daniel,
->         I'm not sure what benefit you get from making this per-namespace.
-> The point of it is really to prevent one (non-root, even) application from
-> killing machine performance with source filters (because maintaining them
-> is an n^2 algorithm). It's a weak constraint, but the resources it's 
-> protecting are
-> the processor and MLDv2 packet counts. If any one namespace has a
-> large value, all will have a problem still, and  (even without your 
-> patch),
-> lots of separate source filters can still cause a problem. What it catches
-> is one application creating thousands (or millions) of source filters and
-> killing the machine and network with MLDv2 reports as a result. Why
-> shouldn't that remain global?
+On Thu, 2008-03-01 at 10:58 +0100, Jarek Poplawski wrote:
+> On 02-01-2008 17:01, Paul Moore wrote:
+
+> > This patch is needed by some of the labeled networking changes proposed for
+> > 2.6.25, does anyone have any objections?
 > 
->                                                 +-DLS
+> Probably Jamal could be the most interested (added to CC):
+> 
 
-Good point.
+Gracias Jarek.
+Paul, (out of curiosity more than anything) what are the circumstances
+of the cloned skb - are you going to reinject it back at some point?
 
-The problem you are pointing is in the case you have a namespace making 
-this variable very big. And you are right this is a problem. But, if we 
-make the variable global to all the namespaces, we will not able to 
-reduce this value for a specific namespace.
+I cant think of any good reason why iif shouldnt be copied - thats how
+its been from the begining (dammit;->). The reason it hasnt mattered so
+far is everything that needs to write the iif never copied (refer to 
+Documentation/networking/tc-actions-env-rules.txt). For correctness i
+think it should be copied. So no objections;
+The better patch would be to just put it in skb_clone and remove it from
+tc_act_clone.
 
-I propose the following solution, at the namespace creation the variable 
-value is copied from the initial network namespace, the modification of 
-this variable is only valid if the value is less than the initial 
-network namespace value.
-
-With this solution, we can handle different values for the namespaces 
-but these values are driven by the initial network namespace because 
-their values are lesser or equal to the one from the initial network 
-namespace.
-
-Is it acceptable ?
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+cheers,
+jamal
 
