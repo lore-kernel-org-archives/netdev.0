@@ -1,51 +1,43 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: 2.6.24-rc6-mm1
-Date: Thu, 3 Jan 2008 13:52:37 -0500
-Message-ID: <20080103185237.GC15354@fieldses.org>
-References: <20071228150746.42b3bbc0.akpm@linux-foundation.org> <64bb37e0712290851r6d41768dk270e47884713a3de@mail.gmail.com> <20071230013021.GA13603@gondor.apana.org.au> <64bb37e0712291934o77a3d365h56c9c31ac8437469@mail.gmail.com> <64bb37e0712311215x519b10e9kd51eb745b3b7290a@mail.gmail.com> <20080101120406.GA27209@gondor.apana.org.au> <64bb37e0801021029u1735bb9eta53906b123abf577@mail.gmail.com> <20080102215154.GA13911@gondor.apana.org.au> <20080102215706.GB6480@fieldses.org> <64bb37e0801030737r435ff2b1r6632ab98c2286f46@mail.gmail.com>
+From: "Jari Takkala" <Jari.Takkala@Q9.com>
+Subject: RE: [PATCH 2.6.23.12] net/bonding: option to specify initial bond interface number
+Date: Thu, 3 Jan 2008 14:19:42 -0500
+Message-ID: <413FEEF1743111439393FB76D0221E4809790B39@leopard.zoo.q9networks.com>
+References: <29661.1199379831@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, Neil Brown <neilb@suse.de>,
-	netdev@vger.kernel.org, Tom Tucker <tom@opengridcomputing.com>
-To: Torsten Kaiser <just.for.lkml@googlemail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>
+To: "Jay Vosburgh" <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fieldses.org ([66.93.2.214]:56936 "EHLO fieldses.org"
+Received: from mx3.q9.com ([216.220.35.252]:34667 "EHLO mx3.q9.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751435AbYACSwp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Jan 2008 13:52:45 -0500
-Content-Disposition: inline
-In-Reply-To: <64bb37e0801030737r435ff2b1r6632ab98c2286f46@mail.gmail.com>
+	id S1752910AbYACTTo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2008 14:19:44 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <29661.1199379831@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 03, 2008 at 04:37:46PM +0100, Torsten Kaiser wrote:
-> On Jan 2, 2008 10:57 PM, J. Bruce Fields <bfields@fieldses.org> wrote:
-> > On Thu, Jan 03, 2008 at 08:51:54AM +1100, Herbert Xu wrote:
-> > > The two specific trees of interest would be git-nfsd and git-net.
-> >
-> > Also, if it's git-nfsd, it'd be useful to test with the current git-nfsd
-> > from the for-mm branch at:
-> >
-> >         git://linux-nfs.org/~bfields/linus.git for-mm
-> >
-> > and then any bisection results (even partial) from that tree would help
-> > immensely....
+On Thursday, January 03, 2008 12:04, Jay Vosburgh wrote:
+>> In our startup scripts we need to be able to ensure that the
+>> interface name is consistent across reboots. Sometimes bond1 may be
+>> brought up before bond0 and it may have different options (requiring
+>> a different instance of the bonding driver).
 > 
-> Wrong URL, its (now?) at git://git.linux-nfs.org/projects/bfields/linux.git
-
-Whoops, apologies.  Actually, the only change required should have been
-to change "linus" to "linux".  I should cut-n-paste and not relying on
-typing it right each time....
-
-> Using "HEAD is now at cd7e1c9... Merge commit 'server-xprt-switch^' into for-mm"
-> I was able to compile&install 54 packages, so this seems to be working.
-
-Hm, OK, thanks again for all this followup.
-
---b.
-
+> 	With the sysfs interface to bonding, your last statement is not
+> true; any number of bonding interfaces, with arbitrary names, can be
+> created and have their options set without loading multiple instances
+> of the bonding driver.
 > 
-> Now git-fetch'ing
-> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.25.git
+> 	Does your embedded system have sysfs available?  If it does,
+> then it's to your advantage to use the sysfs API; for one thing, the
+> single instance of the bonding driver with all interfaces through it
+> should utilize fewer resources than loading the driver repeatedly.
+> 
+
+We do have sysfs available. I actually did not realize that it is possible to have one bonding instance and create multiple interfaces with different options. It looks like when I initially wrote this patch  (~2.6.20) either this feature was not available, or the bonding documentation may have been out of date. I see now in the latest Documentation/networking/bonding.txt that this is explained clearly.
+
+Thank you for your help, I will drop the patch and move to using the sysfs method. Although I may need to patch it for our own uses to either not create bond0 on module load, or I may just run 'echo -bond0 > /sys/class/net/bonding_masters' immediately after loading the module.
+
+Jari
+
