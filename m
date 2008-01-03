@@ -1,56 +1,38 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [XFRM]: Do not define km_migrate() if !CONFIG_XFRM_MIGRATE
-Date: Thu, 3 Jan 2008 18:24:49 +0100
-Message-ID: <20080103182449.ee02958e.dada1@cosmosbay.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: [PATCH 0/2] Labeled networking core stack changes for 2.6.25
+Date: Thu, 03 Jan 2008 12:25:33 -0500
+Message-ID: <20080103171649.14445.65274.stgit@flek.americas.hpqcorp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:55577 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751631AbYACRYx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Jan 2008 12:24:53 -0500
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:26374 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751983AbYACRZi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2008 12:25:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In include/net/xfrm.h we find :
+Two small patches for 2.6.25 which enable some new labeled networking features
+and fixes.  One patch introduces a new outbound packet LSM hook and one adds
+the skb 'iif' field to the list of fields copied during a clone operation.
 
-#ifdef CONFIG_XFRM_MIGRATE
-extern int km_migrate(struct xfrm_selector *sel, u8 dir, u8 type,
-                      struct xfrm_migrate *m, int num_bundles);
-...
-#endif
+Both of these patches are part of a much larger patchset that has been under
+review on the SELinux and LSM mailing lists for the past few months (some bits
+have been under review since this past spring).  I'll save everyone the spam
+and not post the entire patchset here, but if you want to take a look you can
+find the latest bits here:
 
-We can also guard the function body itself in net/xfrm/xfrm_state.c
-with same condition.
+ * git://git.infradead.org/users/pcmoore/lblnet-2.6_testing
 
-(Problem spoted by sparse checker)
-make C=2 net/xfrm/xfrm_state.o
-...
-net/xfrm/xfrm_state.c:1765:5: warning: symbol 'km_migrate' was not declared. Should it be static?
-...
+I'm posting these patches here for review and hopefully an 'Acked-by', not
+inclusion into net-2.6.25.  If these patches are acceptable then they will
+pushed upstream with the rest of the changes when 2.6.25 is ready.
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+Thanks.
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 4dec655..65f5ea4 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1762,6 +1762,7 @@ void km_policy_expired(struct xfrm_policy *pol, int dir, int hard, u32 pid)
- }
- EXPORT_SYMBOL(km_policy_expired);
- 
-+#ifdef CONFIG_XFRM_MIGRATE
- int km_migrate(struct xfrm_selector *sel, u8 dir, u8 type,
- 	       struct xfrm_migrate *m, int num_migrate)
- {
-@@ -1781,6 +1782,7 @@ int km_migrate(struct xfrm_selector *sel, u8 dir, u8 type,
- 	return err;
- }
- EXPORT_SYMBOL(km_migrate);
-+#endif
- 
- int km_report(u8 proto, struct xfrm_selector *sel, xfrm_address_t *addr)
- {
+-- 
+paul moore
+linux security @ hp
