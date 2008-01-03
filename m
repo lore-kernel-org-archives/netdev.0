@@ -1,34 +1,41 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [RFC PATCH] NET: Clone the sk_buff->iif field properly
-Date: Thu, 3 Jan 2008 23:49:12 +0100
-Message-ID: <20080103224912.GC7258@ami.dom.local>
-References: <20080103095829.GB2000@ff.dom.local> <200801031115.34886.paul.moore@hp.com> <20080103211312.GA7258@ami.dom.local> <200801031620.06603.paul.moore@hp.com> <20080103220608.GB7258@ami.dom.local>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/1] r8169: fix missing loop variable increment
+Date: Thu, 3 Jan 2008 23:38:38 +0100
+Message-ID: <20080103223838.GA19191@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org
-To: Paul Moore <paul.moore@hp.com>
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Citizen Lee <citizen_lee@thecus.com>"@fr.zoreil.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.190]:59474 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752006AbYACWpj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2008 17:45:39 -0500
-Received: by mu-out-0910.google.com with SMTP id i10so5037158mue.5
-        for <netdev@vger.kernel.org>; Thu, 03 Jan 2008 14:45:36 -0800 (PST)
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:49627 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752745AbYACWuK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2008 17:50:10 -0500
 Content-Disposition: inline
-In-Reply-To: <20080103220608.GB7258@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 03, 2008 at 11:06:08PM +0100, Jarek Poplawski wrote:
-...
-> I'm not macros fan in general: just yesterday I've cursed a bit at some
-> guy (I forgot the name...), who gave all these "meaningful" names to
-> macros in linux/pkt_cls.h. But, maybe after some time I'll start to
-> defend them as well... Especially when I try to imagine doing the same
-> without them.
+Spotted-by: Citizen Lee <citizen_lee@thecus.com>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/r8169.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-...Jamal, as a matter of fact, I don't know why, just about writing this
-previous message, I started to like all these names without exception!
-Isn't it a miracle?
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 5863190..6ee9db1 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -2002,7 +2002,7 @@ static void rtl8169_set_magic_reg(void __iomem *ioaddr, unsigned mac_version)
+ 	u32 clk;
+ 
+ 	clk = RTL_R8(Config2) & PCI_Clock_66MHz;
+-	for (i = 0; i < ARRAY_SIZE(cfg2_info); i++) {
++	for (i = 0; i < ARRAY_SIZE(cfg2_info); i++, p++) {
+ 		if ((p->mac_version == mac_version) && (p->clk == clk)) {
+ 			RTL_W32(0x7c, p->val);
+ 			break;
+-- 
+1.5.3.3
 
-Jarek P.
