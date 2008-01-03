@@ -1,62 +1,35 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC PATCH] NET: Clone the sk_buff->iif field properly
-Date: Thu, 3 Jan 2008 09:01:37 -0500
-Message-ID: <200801030901.38962.paul.moore@hp.com>
-References: <20080103095829.GB2000@ff.dom.local> <1199359402.4710.17.camel@localhost>
+From: "Jari Takkala" <Jari.Takkala@Q9.com>
+Subject: RE: [PATCH 2.6.23.12] net/bonding: option to specify initial bond interface number
+Date: Thu, 3 Jan 2008 10:23:08 -0500
+Message-ID: <413FEEF1743111439393FB76D0221E4809790A30@leopard.zoo.q9networks.com>
+References: <22042.1199312663@death>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>
+To: "Jay Vosburgh" <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:18248 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750823AbYACOB4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2008 09:01:56 -0500
-In-Reply-To: <1199359402.4710.17.camel@localhost>
-Content-Disposition: inline
+Received: from mx3.q9.com ([216.220.35.252]:60621 "EHLO mx3.q9.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751042AbYACPXK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2008 10:23:10 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <22042.1199312663@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 03 January 2008 6:23:22 am jamal wrote:
-> On Thu, 2008-03-01 at 10:58 +0100, Jarek Poplawski wrote:
-> > On 02-01-2008 17:01, Paul Moore wrote:
-> > > This patch is needed by some of the labeled networking changes proposed
-> > > for 2.6.25, does anyone have any objections?
-> >
-> > Probably Jamal could be the most interested (added to CC):
+On Wednesday, January 02, 2008 17:24, Jay Vosburgh wrote:
+> 	What advantage does this have over:
+> 
+> # echo +bond5 > /sys/class/net/bonding_masters
+> 
+> 	which will create a new bonding master for the already-loaded driver?
 >
-> Gracias Jarek.
 
-Yes, thank you.  One of these days I need to learn some git commands other 
-than clone, update, and push ;)
+The advantage is that you can load multiple instances of the bonding driver and control the name of the bond interface that will be created. Normally the bond interface name would take the next available number.
 
-> Paul, (out of curiosity more than anything) what are the circumstances
-> of the cloned skb - are you going to reinject it back at some point?
+In our startup scripts we need to be able to ensure that the interface name is consistent across reboots. Sometimes bond1 may be brought up before bond0 and it may have different options (requiring a different instance of the bonding driver).
 
-Well, I'm not planning on reinjecting the cloned skb at present (doesn't mean 
-I won't think up some contrived use in the future) but the stack appears to 
-do this already in a few cases and it is causing problems when we try to 
-perform access control on the cloned skb.  The git-lblnet "horkage" in 
-the -mm tree just before the holiday is the most notable example.
+I understand that the startup scripts could be modified to account for this, however we also have an IOS like interface to an embedded system where the user can create new bond interfaces and specify the interface number, they may create interfaces out of order and this feature enables them to accomplish that.
 
-> I cant think of any good reason why iif shouldnt be copied - thats how
-> its been from the begining (dammit;->). The reason it hasnt mattered so
-> far is everything that needs to write the iif never copied (refer to
-> Documentation/networking/tc-actions-env-rules.txt). For correctness i
-> think it should be copied. So no objections;
-
-Great.
-
-> The better patch would be to just put it in skb_clone and remove it from
-> tc_act_clone.
-
-I assume you mean skb_act_clone()?  That sounds like the best idea, I'll fixup 
-the patch and resend it today for more review.
-
-Thanks guys.
-
--- 
-paul moore
-linux security @ hp
+Jari
