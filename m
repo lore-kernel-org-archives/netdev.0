@@ -1,41 +1,47 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 1/1] r8169: fix missing loop variable increment
-Date: Thu, 3 Jan 2008 23:38:38 +0100
-Message-ID: <20080103223838.GA19191@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] NET: Clone the sk_buff->iif field properly
+Date: Thu, 03 Jan 2008 15:05:18 -0800 (PST)
+Message-ID: <20080103.150518.05131300.davem@davemloft.net>
+References: <200801031115.34886.paul.moore@hp.com>
+	<20080103211312.GA7258@ami.dom.local>
+	<200801031620.06603.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Citizen Lee <citizen_lee@thecus.com>"@fr.zoreil.com
-To: jeff@garzik.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jarkao2@gmail.com, hadi@cyberus.ca, netdev@vger.kernel.org
+To: paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:49627 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752745AbYACWuK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2008 17:50:10 -0500
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55096
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753622AbYACXFT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2008 18:05:19 -0500
+In-Reply-To: <200801031620.06603.paul.moore@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Spotted-by: Citizen Lee <citizen_lee@thecus.com>
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/r8169.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+From: Paul Moore <paul.moore@hp.com>
+Date: Thu, 3 Jan 2008 16:20:06 -0500
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 5863190..6ee9db1 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -2002,7 +2002,7 @@ static void rtl8169_set_magic_reg(void __iomem *ioaddr, unsigned mac_version)
- 	u32 clk;
- 
- 	clk = RTL_R8(Config2) & PCI_Clock_66MHz;
--	for (i = 0; i < ARRAY_SIZE(cfg2_info); i++) {
-+	for (i = 0; i < ARRAY_SIZE(cfg2_info); i++, p++) {
- 		if ((p->mac_version == mac_version) && (p->clk == clk)) {
- 			RTL_W32(0x7c, p->val);
- 			break;
--- 
-1.5.3.3
+> On Thursday 03 January 2008 4:13:12 pm Jarek Poplawski wrote:
+> > On Thu, Jan 03, 2008 at 11:15:34AM -0500, Paul Moore wrote:
+> > ...
+> >
+> > > While I'm at it, is there some reason for this #define in
+> > > __skb_clone()?
+> > >
+> > >  #define C(x) n->x = skb->x
+> > >
+> > > ... it seems kinda silly to me and I tend to think the code would
+> > > be better without it.
+> >
+> > IMHO, if there are a lot of this, it's definitely more readable:
+> > easier to check which values are simply copied and which need
+> > something more. But, as usual, it's probably a question of taste, and
+> > of course without it it would definitely look classier...
+> 
+> For me personally, I would argue the readability bit.
+
+I definitely think the C() thing is more readable.
+
+Less typing, less reading...
 
