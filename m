@@ -1,64 +1,50 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: 2.6.24-rc6-mm1
-Date: Fri, 4 Jan 2008 14:30:31 +0100
-Message-ID: <20080104133031.GA3329@ff.dom.local>
-References: <64bb37e0801040223q17a76565k3c7667a197403ce5@mail.gmail.com>
+From: Nick Piggin <npiggin@suse.de>
+Subject: Re: lockless pagecache Cassini regression
+Date: Fri, 4 Jan 2008 15:27:33 +0100
+Message-ID: <20080104142733.GA31052@wotan.suse.de>
+References: <20080103.193245.15134133.davem@davemloft.net> <20080104113351.GA12706@wotan.suse.de> <20080104.035831.52071724.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, Neil Brown <neilb@suse.de>,
-	"J. Bruce Fields" <bfields@fieldses.org>, netdev@vger.kernel.org,
-	Tom Tucker <tom@opengridcomputing.com>
-To: Torsten Kaiser <just.for.lkml@googlemail.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:59552 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751857AbYADNYk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2008 08:24:40 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so2784426ugc.16
-        for <netdev@vger.kernel.org>; Fri, 04 Jan 2008 05:24:38 -0800 (PST)
+Received: from mx1.suse.de ([195.135.220.2]:47374 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752208AbYADO1f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jan 2008 09:27:35 -0500
 Content-Disposition: inline
-In-Reply-To: <64bb37e0801040223q17a76565k3c7667a197403ce5@mail.gmail.com>
+In-Reply-To: <20080104.035831.52071724.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04-01-2008 11:23, Torsten Kaiser wrote:
-> On Jan 2, 2008 10:51 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
->> On Wed, Jan 02, 2008 at 07:29:59PM +0100, Torsten Kaiser wrote:
->>> Vanilla 2.6.24-rc6 seems stable. I did not see any crash or warnings.
->> OK that's great.  The next step would be to try excluding specific git
->> trees from mm to see if they make a difference.
->>
->> The two specific trees of interest would be git-nfsd and git-net.
+On Fri, Jan 04, 2008 at 03:58:31AM -0800, David Miller wrote:
+> From: Nick Piggin <npiggin@suse.de>
+> Date: Fri, 4 Jan 2008 12:33:52 +0100
 > 
-> git-nfsd from git://git.linux-nfs.org/projects/bfields/linux.git#for-mm
-> -> compiling and installing 54 packages worked without crashes.
+> > Just for interest, the lockless pagecache actually makes
+> > page->_count unstable for all pages that _have ever_ been pagecache
+> > pages (since the last quiescent rcu state, anyway). Basically, it
+> > looks up and takes a ref on the struct page without ever having a
+> > prior pin or reference on that page. It can do this because it knows
+> > the struct page won't actually get freed. After taking the ref, it
+> > rechecks that it has got the right page...
 > 
-> git-net from git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.25.git
-> -> compiling and installing 95 packages worked without crashes.
-...
-> I will enable CONFIG_IOMMU_DEBUG in -rc6-mm1 and see, as otherwise I
-> have no clue where to look...
+> Ok, I understand the needs now.
+> 
+> I think the way the drivers/net/niu.c driver handles things
+> would work better.  It only performs get_page(), atomic
+> increments on compound_head(page)->_count, and __free_page().
+> Is that all legal with the lockless pagecache?
 
-Hi,
+Yes, you can use the regular refcounting and freeing operations. If the
+lockless pagecache has got a speculative reference on the page after the
+driver drops all "real" references, it will take care of freeing the page.
 
-A few questions/suggestions:
+ 
+> If so I can likely rework the Cassini page management to
+> behave similarly.
 
-- is it still vanilla -rc6-mm1; I've seen on kernel list you tried
-some fixes around raid?
+If you got the chance, that would be very nice.
 
-- could you remind this lockdep warning; is it always and the same,
-always before crash, or no rules?
-
-- I've seen you looked after double freeing, but this last debug list
-warning could suggest locking problems during list modification too.
-
-- above git-nfsd and git-net tests should be probably repeated with
--rc6-mm1 git versions: so vanilla rc6 plus both these -mm patches
-only, and if bug triggers, with one reversed; btw., since in previous
-message you mentioned that 50 packages could be not enough to trigger
-this, these 54 above could make too little margin yet.
-
-Regards,
-Jarek P.
+Thanks,
+Nick
