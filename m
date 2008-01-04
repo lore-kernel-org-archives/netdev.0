@@ -1,334 +1,221 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [patch 8/9][NETNS][IPV6] make sysctls route per namespace
-Date: Fri, 04 Jan 2008 12:12:34 +0100
-Message-ID: <20080104111446.121740535@localhost.localdomain>
-References: <20080104111226.776105484@localhost.localdomain>
+From: Nick Piggin <npiggin@suse.de>
+Subject: Re: lockless pagecache Cassini regression
+Date: Fri, 4 Jan 2008 12:33:52 +0100
+Message-ID: <20080104113351.GA12706@wotan.suse.de>
+References: <20080103.193245.15134133.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.uk.ibm.com ([195.212.29.138]:54795 "EHLO
-	mtagate5.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751822AbYADLXk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2008 06:23:40 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate5.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m04BNdGT477978
-	for <netdev@vger.kernel.org>; Fri, 4 Jan 2008 11:23:39 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m04BNdKR5058592
-	for <netdev@vger.kernel.org>; Fri, 4 Jan 2008 11:23:39 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m04BNMBX019204
-	for <netdev@vger.kernel.org>; Fri, 4 Jan 2008 11:23:22 GMT
-Content-Disposition: inline; filename=sysctl/move-sysctl-route-to-netns.patch
+Received: from mail.suse.de ([195.135.220.2]:49222 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751146AbYADLdx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jan 2008 06:33:53 -0500
+Content-Disposition: inline
+In-Reply-To: <20080103.193245.15134133.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All the sysctl concerning the routes are moved to the network namespace
-structure. A helper function is called to initialize the variables.
+On Thu, Jan 03, 2008 at 07:32:45PM -0800, David Miller wrote:
+> 
+> Nick, I think the following changeset:
+> 
+>     commit fa4f0774d7c6cccb4d1fda76b91dd8eddcb2dd6a
+> 
+>     [CASSINI]: dont touch page_count
+>     
+>     Remove page refcount manipulations from cassini driver by using
+>     another field in struct page. Needed for lockless pagecache.
+>     
+>     Signed-off-by: Nick Piggin <npiggin@suse.de>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> Broke the Cassini driver.
+> 
+> While it is true that, within the cassini driver, you converted
+> the counter bumps and tests accurately, this changeset does not
+> account for the page count bumps that are going to occur
+> in other contexts when the SKBs being constructed are freed
+> up (and thus the skb_frag_struct pages get liberated).
 
-Because the ipv6 protocol is not yet per namespace, the variables are
-accessed relatively from the network namespace.
+Dang :(
 
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
----
- include/net/ip6_route.h    |    2 -
- include/net/netns/ipv6.h   |    8 ++++++
- net/ipv6/ip6_fib.c         |   14 ++++++----
- net/ipv6/route.c           |   58 ++++++++++++++++++++++-----------------------
- net/ipv6/sysctl_net_ipv6.c |    9 ++++++
- 5 files changed, 55 insertions(+), 36 deletions(-)
+ 
+> Basically what these drivers do is allocate a page, give it
+> to the network card, and the card decides how to chop up the
+> page based upon the size of arriving packets.  Therefore we
+> don't know ahead of time how many references to the page we
+> will generate while attaching bits of the page to receive
+> packet SKBs that get built.
+> 
+> As incoming packets are constructed by the card using chunks of these
+> system pages, it indicates in the descriptor which parts of which
+> pages were used.  We then use this to attach the page parts onto the
+> SKB.  Once the SKB is constructed it is passed up to the networking,
+> later on the SKB is freed and the page references are dropped by
+> kfree_skbmem().
+> 
+> And it is these page reference counts that the Cassini driver needs to
+> test to be correct, not the driver local ones we are now using.
+> 
+> I do something similar to what Cassini was doing in the NIU driver
+> (drivers/net/niu.c).  I think we need to restore Cassini to something
+> similar to what NIU is doing.
+> 
+> The only tricky bit is the page count checks, and frankly those can
+> just be transformed into references to compount_head(page)->_count or
+> similar.
+> 
+> Actually, page_count() does exactly that, it is implemented by
+> checking atomic_read(&compound_head(page)->_count) and thus I
+> think the best thing to do is revert your changes.
+> 
+> These pages are freshly allocated pages, not stuff in the page
+> cache or similar, so I think this is safe and the way to move
+> forward.
+> 
+> Also, these changes added lots of new atomics to the driver.
+> It's already doing get_page() etc. as needed.
+> 
+> What do you think Nick?
 
-Index: net-2.6.25/include/net/netns/ipv6.h
-===================================================================
---- net-2.6.25.orig/include/net/netns/ipv6.h
-+++ net-2.6.25/include/net/netns/ipv6.h
-@@ -13,6 +13,14 @@ struct netns_sysctl_ipv6 {
- 	struct ctl_table_header *table;
-    	struct inet_frags_ctl frags;
-  	int bindv6only;
-+  	int flush_delay;
-+  	int ip6_rt_max_size;
-+  	int ip6_rt_gc_min_interval;
-+  	int ip6_rt_gc_timeout;
-+  	int ip6_rt_gc_interval;
-+  	int ip6_rt_gc_elasticity;
-+  	int ip6_rt_mtu_expires;
-+  	int ip6_rt_min_advmss;
- };
- 
- struct netns_ipv6 {
-Index: net-2.6.25/net/ipv6/route.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/route.c
-+++ net-2.6.25/net/ipv6/route.c
-@@ -73,14 +73,6 @@
- 
- #define CLONE_OFFLINK_ROUTE 0
- 
--static int ip6_rt_max_size = 4096;
--static int ip6_rt_gc_min_interval = HZ / 2;
--static int ip6_rt_gc_timeout = 60*HZ;
--int ip6_rt_gc_interval = 30*HZ;
--static int ip6_rt_gc_elasticity = 9;
--static int ip6_rt_mtu_expires = 10*60*HZ;
--static int ip6_rt_min_advmss = IPV6_MIN_MTU - 20 - 40;
--
- static struct rt6_info * ip6_rt_copy(struct rt6_info *ort);
- static struct dst_entry	*ip6_dst_check(struct dst_entry *dst, u32 cookie);
- static struct dst_entry *ip6_negative_advice(struct dst_entry *);
-@@ -889,8 +881,8 @@ static inline unsigned int ipv6_advmss(u
- {
- 	mtu -= sizeof(struct ipv6hdr) + sizeof(struct tcphdr);
- 
--	if (mtu < ip6_rt_min_advmss)
--		mtu = ip6_rt_min_advmss;
-+	if (mtu < init_net.ipv6.sysctl.ip6_rt_min_advmss)
-+		mtu = init_net.ipv6.sysctl.ip6_rt_min_advmss;
- 
- 	/*
- 	 * Maximal non-jumbo IPv6 payload is IPV6_MAXPLEN and
-@@ -990,19 +982,19 @@ static int ip6_dst_gc(void)
- 	static unsigned long last_gc;
- 	unsigned long now = jiffies;
- 
--	if (time_after(last_gc + ip6_rt_gc_min_interval, now) &&
--	    atomic_read(&ip6_dst_ops.entries) <= ip6_rt_max_size)
-+	if (time_after(last_gc + init_net.ipv6.sysctl.ip6_rt_gc_min_interval, now) &&
-+	    atomic_read(&ip6_dst_ops.entries) <= init_net.ipv6.sysctl.ip6_rt_max_size)
- 		goto out;
- 
- 	expire++;
- 	fib6_run_gc(expire);
- 	last_gc = now;
- 	if (atomic_read(&ip6_dst_ops.entries) < ip6_dst_ops.gc_thresh)
--		expire = ip6_rt_gc_timeout>>1;
-+		expire = init_net.ipv6.sysctl.ip6_rt_gc_timeout>>1;
- 
- out:
--	expire -= expire>>ip6_rt_gc_elasticity;
--	return (atomic_read(&ip6_dst_ops.entries) > ip6_rt_max_size);
-+	expire -= expire>>init_net.ipv6.sysctl.ip6_rt_gc_elasticity;
-+	return (atomic_read(&ip6_dst_ops.entries) > init_net.ipv6.sysctl.ip6_rt_max_size);
- }
- 
- /* Clean host part of a prefix. Not necessary in radix tree,
-@@ -1508,7 +1500,7 @@ void rt6_pmtu_discovery(struct in6_addr 
- 		rt->u.dst.metrics[RTAX_MTU-1] = pmtu;
- 		if (allfrag)
- 			rt->u.dst.metrics[RTAX_FEATURES-1] |= RTAX_FEATURE_ALLFRAG;
--		dst_set_expires(&rt->u.dst, ip6_rt_mtu_expires);
-+		dst_set_expires(&rt->u.dst, init_net.ipv6.sysctl.ip6_rt_mtu_expires);
- 		rt->rt6i_flags |= RTF_MODIFIED|RTF_EXPIRES;
- 		goto out;
- 	}
-@@ -1534,7 +1526,7 @@ void rt6_pmtu_discovery(struct in6_addr 
- 		 * which is 10 mins. After 10 mins the decreased pmtu is expired
- 		 * and detecting PMTU increase will be automatically happened.
- 		 */
--		dst_set_expires(&nrt->u.dst, ip6_rt_mtu_expires);
-+		dst_set_expires(&nrt->u.dst, init_net.ipv6.sysctl.ip6_rt_mtu_expires);
- 		nrt->rt6i_flags |= RTF_DYNAMIC|RTF_EXPIRES;
- 
- 		ip6_ins_rt(nrt);
-@@ -2390,15 +2382,14 @@ static inline void ipv6_route_proc_fini(
- 
- #ifdef CONFIG_SYSCTL
- 
--static int flush_delay;
--
- static
- int ipv6_sysctl_rtcache_flush(ctl_table *ctl, int write, struct file * filp,
- 			      void __user *buffer, size_t *lenp, loff_t *ppos)
- {
-+	int delay = init_net.ipv6.sysctl.flush_delay;
- 	if (write) {
- 		proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
--		fib6_run_gc(flush_delay <= 0 ? ~0UL : (unsigned long)flush_delay);
-+		fib6_run_gc(delay <= 0 ? ~0UL : (unsigned long)delay);
- 		return 0;
- 	} else
- 		return -EINVAL;
-@@ -2407,7 +2398,7 @@ int ipv6_sysctl_rtcache_flush(ctl_table 
- ctl_table ipv6_route_table_template[] = {
- 	{
- 		.procname	=	"flush",
--		.data		=	&flush_delay,
-+		.data		=	&init_net.ipv6.sysctl.flush_delay,
- 		.maxlen		=	sizeof(int),
- 		.mode		=	0200,
- 		.proc_handler	=	&ipv6_sysctl_rtcache_flush
-@@ -2423,7 +2414,7 @@ ctl_table ipv6_route_table_template[] = 
- 	{
- 		.ctl_name	=	NET_IPV6_ROUTE_MAX_SIZE,
- 		.procname	=	"max_size",
--		.data		=	&ip6_rt_max_size,
-+		.data		=	&init_net.ipv6.sysctl.ip6_rt_max_size,
- 		.maxlen		=	sizeof(int),
- 		.mode		=	0644,
- 		.proc_handler	=	&proc_dointvec,
-@@ -2431,7 +2422,7 @@ ctl_table ipv6_route_table_template[] = 
- 	{
- 		.ctl_name	=	NET_IPV6_ROUTE_GC_MIN_INTERVAL,
- 		.procname	=	"gc_min_interval",
--		.data		=	&ip6_rt_gc_min_interval,
-+		.data		=	&init_net.ipv6.sysctl.ip6_rt_gc_min_interval,
- 		.maxlen		=	sizeof(int),
- 		.mode		=	0644,
- 		.proc_handler	=	&proc_dointvec_jiffies,
-@@ -2440,7 +2431,7 @@ ctl_table ipv6_route_table_template[] = 
- 	{
- 		.ctl_name	=	NET_IPV6_ROUTE_GC_TIMEOUT,
- 		.procname	=	"gc_timeout",
--		.data		=	&ip6_rt_gc_timeout,
-+		.data		=	&init_net.ipv6.sysctl.ip6_rt_gc_timeout,
- 		.maxlen		=	sizeof(int),
- 		.mode		=	0644,
- 		.proc_handler	=	&proc_dointvec_jiffies,
-@@ -2449,7 +2440,7 @@ ctl_table ipv6_route_table_template[] = 
- 	{
- 		.ctl_name	=	NET_IPV6_ROUTE_GC_INTERVAL,
- 		.procname	=	"gc_interval",
--		.data		=	&ip6_rt_gc_interval,
-+		.data		=	&init_net.ipv6.sysctl.ip6_rt_gc_interval,
- 		.maxlen		=	sizeof(int),
- 		.mode		=	0644,
- 		.proc_handler	=	&proc_dointvec_jiffies,
-@@ -2458,7 +2449,7 @@ ctl_table ipv6_route_table_template[] = 
- 	{
- 		.ctl_name	=	NET_IPV6_ROUTE_GC_ELASTICITY,
- 		.procname	=	"gc_elasticity",
--		.data		=	&ip6_rt_gc_elasticity,
-+		.data		=	&init_net.ipv6.sysctl.ip6_rt_gc_elasticity,
- 		.maxlen		=	sizeof(int),
- 		.mode		=	0644,
- 		.proc_handler	=	&proc_dointvec_jiffies,
-@@ -2467,7 +2458,7 @@ ctl_table ipv6_route_table_template[] = 
- 	{
- 		.ctl_name	=	NET_IPV6_ROUTE_MTU_EXPIRES,
- 		.procname	=	"mtu_expires",
--		.data		=	&ip6_rt_mtu_expires,
-+		.data		=	&init_net.ipv6.sysctl.ip6_rt_mtu_expires,
- 		.maxlen		=	sizeof(int),
- 		.mode		=	0644,
- 		.proc_handler	=	&proc_dointvec_jiffies,
-@@ -2476,7 +2467,7 @@ ctl_table ipv6_route_table_template[] = 
- 	{
- 		.ctl_name	=	NET_IPV6_ROUTE_MIN_ADVMSS,
- 		.procname	=	"min_adv_mss",
--		.data		=	&ip6_rt_min_advmss,
-+		.data		=	&init_net.ipv6.sysctl.ip6_rt_min_advmss,
- 		.maxlen		=	sizeof(int),
- 		.mode		=	0644,
- 		.proc_handler	=	&proc_dointvec_jiffies,
-@@ -2485,7 +2476,7 @@ ctl_table ipv6_route_table_template[] = 
- 	{
- 		.ctl_name	=	NET_IPV6_ROUTE_GC_MIN_INTERVAL_MS,
- 		.procname	=	"gc_min_interval_ms",
--		.data		=	&ip6_rt_gc_min_interval,
-+		.data		=	&init_net.ipv6.sysctl.ip6_rt_gc_min_interval,
- 		.maxlen		=	sizeof(int),
- 		.mode		=	0644,
- 		.proc_handler	=	&proc_dointvec_ms_jiffies,
-@@ -2498,6 +2489,15 @@ struct ctl_table *ipv6_route_sysctl_init
- {
- 	struct ctl_table *table;
- 
-+	net->ipv6.sysctl.flush_delay = 0;
-+	net->ipv6.sysctl.ip6_rt_max_size = 4096;
-+	net->ipv6.sysctl.ip6_rt_gc_min_interval = HZ / 2;
-+	net->ipv6.sysctl.ip6_rt_gc_timeout = 60*HZ;
-+	net->ipv6.sysctl.ip6_rt_gc_interval = 30*HZ;
-+	net->ipv6.sysctl.ip6_rt_gc_elasticity = 9;
-+	net->ipv6.sysctl.ip6_rt_mtu_expires = 10*60*HZ;
-+	net->ipv6.sysctl.ip6_rt_min_advmss = IPV6_MIN_MTU - 20 - 40;
-+
-    	table = kmemdup(ipv6_route_table_template,
- 			sizeof(ipv6_route_table_template),
- 			GFP_KERNEL);
-Index: net-2.6.25/net/ipv6/sysctl_net_ipv6.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/sysctl_net_ipv6.c
-+++ net-2.6.25/net/ipv6/sysctl_net_ipv6.c
-@@ -113,7 +113,16 @@ static int ipv6_sysctl_net_init(struct n
-    	if (!ipv6_icmp_table)
-    		goto out_ipv6_route_table;
- 
-+   	ipv6_route_table[0].data = &net->ipv6.sysctl.flush_delay;
-+   	ipv6_route_table[2].data = &net->ipv6.sysctl.ip6_rt_max_size;
-+   	ipv6_route_table[3].data = &net->ipv6.sysctl.ip6_rt_gc_min_interval;
-+   	ipv6_route_table[4].data = &net->ipv6.sysctl.ip6_rt_gc_timeout;
-+   	ipv6_route_table[5].data = &net->ipv6.sysctl.ip6_rt_gc_interval;
-+   	ipv6_route_table[6].data = &net->ipv6.sysctl.ip6_rt_gc_elasticity;
-+   	ipv6_route_table[7].data = &net->ipv6.sysctl.ip6_rt_mtu_expires;
-+   	ipv6_route_table[8].data = &net->ipv6.sysctl.ip6_rt_min_advmss;
-    	ipv6_table[0].child = ipv6_route_table;
-+
-    	ipv6_table[1].child = ipv6_icmp_table;
- 
-   	ipv6_table[2].data = &net->ipv6.sysctl.bindv6only;
-Index: net-2.6.25/include/net/ip6_route.h
-===================================================================
---- net-2.6.25.orig/include/net/ip6_route.h
-+++ net-2.6.25/include/net/ip6_route.h
-@@ -43,8 +43,6 @@ extern struct rt6_info	ip6_prohibit_entr
- extern struct rt6_info	ip6_blk_hole_entry;
- #endif
- 
--extern int ip6_rt_gc_interval;
--
- extern void			ip6_route_input(struct sk_buff *skb);
- 
- extern struct dst_entry *	ip6_route_output(struct sock *sk,
-Index: net-2.6.25/net/ipv6/ip6_fib.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/ip6_fib.c
-+++ net-2.6.25/net/ipv6/ip6_fib.c
-@@ -681,13 +681,15 @@ static __inline__ void fib6_start_gc(str
- {
- 	if (ip6_fib_timer.expires == 0 &&
- 	    (rt->rt6i_flags & (RTF_EXPIRES|RTF_CACHE)))
--		mod_timer(&ip6_fib_timer, jiffies + ip6_rt_gc_interval);
-+		mod_timer(&ip6_fib_timer, jiffies +
-+			  init_net.ipv6.sysctl.ip6_rt_gc_interval);
- }
- 
- void fib6_force_start_gc(void)
- {
- 	if (ip6_fib_timer.expires == 0)
--		mod_timer(&ip6_fib_timer, jiffies + ip6_rt_gc_interval);
-+		mod_timer(&ip6_fib_timer, jiffies +
-+			  init_net.ipv6.sysctl.ip6_rt_gc_interval);
- }
- 
- /*
-@@ -1447,7 +1449,8 @@ void fib6_run_gc(unsigned long dummy)
- {
- 	if (dummy != ~0UL) {
- 		spin_lock_bh(&fib6_gc_lock);
--		gc_args.timeout = dummy ? (int)dummy : ip6_rt_gc_interval;
-+		gc_args.timeout = dummy ? (int)dummy :
-+			init_net.ipv6.sysctl.ip6_rt_gc_interval;
- 	} else {
- 		local_bh_disable();
- 		if (!spin_trylock(&fib6_gc_lock)) {
-@@ -1455,7 +1458,7 @@ void fib6_run_gc(unsigned long dummy)
- 			local_bh_enable();
- 			return;
- 		}
--		gc_args.timeout = ip6_rt_gc_interval;
-+		gc_args.timeout = init_net.ipv6.sysctl.ip6_rt_gc_interval;
- 	}
- 	gc_args.more = 0;
- 
-@@ -1463,7 +1466,8 @@ void fib6_run_gc(unsigned long dummy)
- 	fib6_clean_all(fib6_age, 0, NULL);
- 
- 	if (gc_args.more)
--		mod_timer(&ip6_fib_timer, jiffies + ip6_rt_gc_interval);
-+		mod_timer(&ip6_fib_timer, jiffies +
-+			  init_net.ipv6.sysctl.ip6_rt_gc_interval);
- 	else {
- 		del_timer(&ip6_fib_timer);
- 		ip6_fib_timer.expires = 0;
+Thanks for the detailed explanation as always, Dave. And I hope I didn't
+waste too much of your time debugging this...
 
--- 
+It is a regression so clearly needs to be reverted. It would actually break
+with the lockless pagecache, however the lockless pagecache is not merged
+anyway, so reverting is a no-brainer at this point. 
+
+Just for interest, the lockless pagecache actually makes page->_count unstable
+for all pages that _have ever_ been pagecache pages (since the last quiescent
+rcu state, anyway). Basically, it looks up and takes a ref on the struct page
+without ever having a prior pin or reference on that page. It can do this
+because it knows the struct page won't actually get freed. After taking the
+ref, it rechecks that it has got the right page...
+
+Anyway, that's the short story but probably gives you an idea of why it
+hasn't been merged yet ;) I could avoid that whole hassle by rcu freeing
+pagecache pages, but that would add other overheads.
+
+
+> [CASSINI]: Revert 'dont touch page_count'.
+> 
+> This reverts changeset fa4f0774d7c6cccb4d1fda76b91dd8eddcb2dd6a
+> ([CASSINI]: dont touch page_count) because it breaks the driver.
+> 
+> The local page counting added by this changeset did not account
+> for the asynchronous page count changes done by kfree_skb()
+> and friends.
+> 
+> The change adds extra atomics and on top of it all appears to be
+> totally unnecessary as well.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Acked-by: Nick Piggin <npiggin@suse.de>
+
+
+> diff --git a/drivers/net/cassini.c b/drivers/net/cassini.c
+> index 9030ca5..ff957f2 100644
+> --- a/drivers/net/cassini.c
+> +++ b/drivers/net/cassini.c
+> @@ -336,30 +336,6 @@ static inline void cas_mask_intr(struct cas *cp)
+>  		cas_disable_irq(cp, i);
+>  }
+>  
+> -static inline void cas_buffer_init(cas_page_t *cp)
+> -{
+> -	struct page *page = cp->buffer;
+> -	atomic_set((atomic_t *)&page->lru.next, 1);
+> -}
+> -
+> -static inline int cas_buffer_count(cas_page_t *cp)
+> -{
+> -	struct page *page = cp->buffer;
+> -	return atomic_read((atomic_t *)&page->lru.next);
+> -}
+> -
+> -static inline void cas_buffer_inc(cas_page_t *cp)
+> -{
+> -	struct page *page = cp->buffer;
+> -	atomic_inc((atomic_t *)&page->lru.next);
+> -}
+> -
+> -static inline void cas_buffer_dec(cas_page_t *cp)
+> -{
+> -	struct page *page = cp->buffer;
+> -	atomic_dec((atomic_t *)&page->lru.next);
+> -}
+> -
+>  static void cas_enable_irq(struct cas *cp, const int ring)
+>  {
+>  	if (ring == 0) { /* all but TX_DONE */
+> @@ -497,7 +473,6 @@ static int cas_page_free(struct cas *cp, cas_page_t *page)
+>  {
+>  	pci_unmap_page(cp->pdev, page->dma_addr, cp->page_size,
+>  		       PCI_DMA_FROMDEVICE);
+> -	cas_buffer_dec(page);
+>  	__free_pages(page->buffer, cp->page_order);
+>  	kfree(page);
+>  	return 0;
+> @@ -527,7 +502,6 @@ static cas_page_t *cas_page_alloc(struct cas *cp, const gfp_t flags)
+>  	page->buffer = alloc_pages(flags, cp->page_order);
+>  	if (!page->buffer)
+>  		goto page_err;
+> -	cas_buffer_init(page);
+>  	page->dma_addr = pci_map_page(cp->pdev, page->buffer, 0,
+>  				      cp->page_size, PCI_DMA_FROMDEVICE);
+>  	return page;
+> @@ -606,7 +580,7 @@ static void cas_spare_recover(struct cas *cp, const gfp_t flags)
+>  	list_for_each_safe(elem, tmp, &list) {
+>  		cas_page_t *page = list_entry(elem, cas_page_t, list);
+>  
+> -		if (cas_buffer_count(page) > 1)
+> +		if (page_count(page->buffer) > 1) 
+>  			continue;
+>  
+>  		list_del(elem);
+> @@ -1374,7 +1348,7 @@ static inline cas_page_t *cas_page_spare(struct cas *cp, const int index)
+>  	cas_page_t *page = cp->rx_pages[1][index];
+>  	cas_page_t *new;
+>  
+> -	if (cas_buffer_count(page) == 1)
+> +	if (page_count(page->buffer) == 1)
+>  		return page;
+>  
+>  	new = cas_page_dequeue(cp);
+> @@ -1394,7 +1368,7 @@ static cas_page_t *cas_page_swap(struct cas *cp, const int ring,
+>  	cas_page_t **page1 = cp->rx_pages[1];
+>  
+>  	/* swap if buffer is in use */
+> -	if (cas_buffer_count(page0[index]) > 1) {
+> +	if (page_count(page0[index]->buffer) > 1) {
+>  		cas_page_t *new = cas_page_spare(cp, index);
+>  		if (new) {
+>  			page1[index] = page0[index];
+> @@ -2066,7 +2040,6 @@ static int cas_rx_process_pkt(struct cas *cp, struct cas_rx_comp *rxc,
+>  		skb->len      += hlen - swivel;
+>  
+>  		get_page(page->buffer);
+> -		cas_buffer_inc(page);
+>  		frag->page = page->buffer;
+>  		frag->page_offset = off;
+>  		frag->size = hlen - swivel;
+> @@ -2091,7 +2064,6 @@ static int cas_rx_process_pkt(struct cas *cp, struct cas_rx_comp *rxc,
+>  			frag++;
+>  
+>  			get_page(page->buffer);
+> -			cas_buffer_inc(page);
+>  			frag->page = page->buffer;
+>  			frag->page_offset = 0;
+>  			frag->size = hlen;
+> @@ -2255,7 +2227,7 @@ static int cas_post_rxds_ringN(struct cas *cp, int ring, int num)
+>  	released = 0;
+>  	while (entry != last) {
+>  		/* make a new buffer if it's still in use */
+> -		if (cas_buffer_count(page[entry]) > 1) {
+> +		if (page_count(page[entry]->buffer) > 1) {
+>  			cas_page_t *new = cas_page_dequeue(cp);
+>  			if (!new) {
+>  				/* let the timer know that we need to
