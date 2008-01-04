@@ -1,44 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: lockless pagecache Cassini regression
-Date: Fri, 04 Jan 2008 03:58:31 -0800 (PST)
-Message-ID: <20080104.035831.52071724.davem@davemloft.net>
-References: <20080103.193245.15134133.davem@davemloft.net>
-	<20080104113351.GA12706@wotan.suse.de>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: e1000_clean_tx_irq: Detected Tx Unit Hang - it's bug?
+Date: Fri, 04 Jan 2008 15:36:03 +0300
+Message-ID: <477E2833.70301@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: npiggin@suse.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51513
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751397AbYADL6b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2008 06:58:31 -0500
-In-Reply-To: <20080104113351.GA12706@wotan.suse.de>
+Received: from mail.bigtelecom.ru ([87.255.0.61]:35899 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751015AbYADMgM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2008 07:36:12 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by mail.bigtelecom.ru (Postfix) with ESMTP id 180F4A6C143
+	for <netdev@vger.kernel.org>; Fri,  4 Jan 2008 15:36:11 +0300 (MSK)
+Received: from mail.bigtelecom.ru ([127.0.0.1])
+	by localhost (mail.bigtelecom.ru [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 1jgvL9dNgpf8 for <netdev@vger.kernel.org>;
+	Fri,  4 Jan 2008 15:36:04 +0300 (MSK)
+Received: from [87.255.0.131] (slavon.bigtelecom.ru [87.255.0.131])
+	by mail.bigtelecom.ru (Postfix) with ESMTP id 32FF6A6C2BE
+	for <netdev@vger.kernel.org>; Fri,  4 Jan 2008 15:36:04 +0300 (MSK)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nick Piggin <npiggin@suse.de>
-Date: Fri, 4 Jan 2008 12:33:52 +0100
+Hello all.
+Some time in dmesg i see this:
 
-> Just for interest, the lockless pagecache actually makes
-> page->_count unstable for all pages that _have ever_ been pagecache
-> pages (since the last quiescent rcu state, anyway). Basically, it
-> looks up and takes a ref on the struct page without ever having a
-> prior pin or reference on that page. It can do this because it knows
-> the struct page won't actually get freed. After taking the ref, it
-> rechecks that it has got the right page...
+[16121.400422] e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+[16121.400426]   Tx Queue             <0>
+[16121.400427]   TDH                  <28>
+[16121.400429]   TDT                  <28>
+[16121.400430]   next_to_use          <28>
+[16121.400431]   next_to_clean        <7d>
+[16121.400433] buffer_info[next_to_clean]
+[16121.400434]   time_stamp           <17b949>
+[16121.400435]   next_to_watch        <7d>
+[16121.400437]   jiffies              <17ba57>
+[16121.400438]   next_to_watch.status <1>
+[16121.400968] htb: too many events !
 
-Ok, I understand the needs now.
-
-I think the way the drivers/net/niu.c driver handles things
-would work better.  It only performs get_page(), atomic
-increments on compound_head(page)->_count, and __free_page().
-Is that all legal with the lockless pagecache?
-
-If so I can likely rework the Cassini page management to
-behave similarly.
-
-> Acked-by: Nick Piggin <npiggin@suse.de>
-
-Thanks for reviewing.
+Its bug or overload information?
+Thanks
