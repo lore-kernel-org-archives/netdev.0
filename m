@@ -1,70 +1,99 @@
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH net-2.6.24][ATM]: [nicstar] delay irq setup until card is configured
-Date: Fri, 04 Jan 2008 16:29:15 -0500
-Message-ID: <200801042129.m04LTFxZ030640@cmf.nrl.navy.mil>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: NAPI poll behavior in various Intel drivers
+Date: Fri, 04 Jan 2008 20:10:30 +0000
+Message-ID: <477E92B6.8010809@katalix.com>
+References: <20080104.034036.160194618.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, auke-jan.h.kok@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:65315 "EHLO
-	ginger.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753029AbYADV3p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2008 16:29:45 -0500
+Received: from s36.avahost.net ([74.53.95.194]:58420 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753737AbYADVc0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jan 2008 16:32:26 -0500
+In-Reply-To: <20080104.034036.160194618.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-if an interrupt occurs too soon, the driver oops while trying to handle
-a shortage of buffers condition (caused by no buffers having been
-allocated yet).
+David Miller wrote:
+> Several Intel networking drivers such as e1000, e1000e
+> and e100 all do this to exit NAPI polling:
+> 
+> 	if ((!tx_cleaned && (work_done == 0)) ||
+>  	   !netif_running(poll_dev)) {
+> 
+> I tried to make this use in the NAPI rework:
+> 
+> 	if ((!tx_cleaned && (work_done < budget)) ||
+>  	   !netif_running(poll_dev)) {
+> 
+> But that got reverted by:
+> 
+> 	commit f7bbb9098315d712351aba7861a8c9fcf6bf0213
+> 
+> 	e1000: Fix NAPI state bug when Rx complete
+>     
+> 	Don't exit polling when we have not yet used our budget, this causes
+> 	the NAPI system to end up with a messed up poll list.
+>     
+> 	Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> 	Signed-off-by: Jeff Garzik <jeff@garzik.org>
+> 
+> I definitely would not have signed off on that :-)
+> 
+> That "tx_cleaned" thing clouds the logic in all of these driver's
+> poll routines.
+> 
+> The one necessary precondition is that when work_done < budget
+> we exit polling and return a value less than budget.
+> 
+> If the ->poll() returns a value less than budget, net_rx_action()
+> assumes that the device has been removed from the poll() list.
+> 
+> 		/* Drivers must not modify the NAPI state if they
+> 		 * consume the entire weight.  In such cases this code
+> 		 * still "owns" the NAPI instance and therefore can
+> 		 * move the instance around on the list at-will.
+> 		 */
+> 		if (unlikely(work == weight))
+> 			list_move_tail(&n->poll_list, list);
+> 
+> This "work_done == 0" test in these drivers, is thus, wrong.  It
+> should be "work_done < budget" and the whole tx_cleaned thing needs to
+> be removed.
+> 
+> It happens to work, because what happens is that we loop again and
+> process the same NAPI struct again.
+> 
+> As a result, E1000 devices get polled TWICE every time they
+> process at least one RX packet, but do not consume the whole
+> quota.
+> 
+> I smell a performance hack, and if so this is wrong and against
+> all of the principles of NAPI.  Either that or it's a workaround
+> for the "!netif_running()" case.
 
-commit a3322d3d34854edf27f7950efaa93e68f5f71ace
-Author: Chas Williams - CONTRACTOR <chas@relax.cmf.nrl.navy.mil>
-Date:   Fri Jan 4 16:27:07 2008 -0500
+You have a good nose, Dave. :) And you can probably partly blame me for
+this scheme. I worked with the e100 driver author (Scott Feldman) 5
+years ago to performance tune and stress test the driver. I found much
+better packets/sec forwarding performance (packets in one e100, out
+another) by staying in polled mode until no receive or transmit was done.
 
-    [ATM]: [nicstar] delay irq setup until card is configured
-    
-    Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
+With the latest NAPI, this code has to change. But rather than remove
+the tx_cleaned logic completely, shouldn't transmit processing be
+included in the work_done accounting when a driver does transmit cleanup
+processing in the poll? If not, then when an interface is transmitting
+far more than receiving, it will exit polled mode on every poll.
 
-diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
-index 14ced85..0c205b0 100644
---- a/drivers/atm/nicstar.c
-+++ b/drivers/atm/nicstar.c
-@@ -625,14 +625,6 @@ static int __devinit ns_init_card(int i, struct pci_dev *pcidev)
-    if (mac[i] == NULL)
-       nicstar_init_eprom(card->membase);
- 
--   if (request_irq(pcidev->irq, &ns_irq_handler, IRQF_DISABLED | IRQF_SHARED, "nicstar", card) != 0)
--   {
--      printk("nicstar%d: can't allocate IRQ %d.\n", i, pcidev->irq);
--      error = 9;
--      ns_init_card_error(card, error);
--      return error;
--   }
--
-    /* Set the VPI/VCI MSb mask to zero so we can receive OAM cells */
-    writel(0x00000000, card->membase + VPM);
-       
-@@ -858,8 +850,6 @@ static int __devinit ns_init_card(int i, struct pci_dev *pcidev)
-       card->iovpool.count++;
-    }
- 
--   card->intcnt = 0;
--
-    /* Configure NICStAR */
-    if (card->rct_size == 4096)
-       ns_cfg_rctsize = NS_CFG_RCTSIZE_4096_ENTRIES;
-@@ -868,6 +858,15 @@ static int __devinit ns_init_card(int i, struct pci_dev *pcidev)
- 
-    card->efbie = 1;
- 
-+   card->intcnt = 0;
-+   if (request_irq(pcidev->irq, &ns_irq_handler, IRQF_DISABLED | IRQF_SHARED, "nicstar", card) != 0)
-+   {
-+      printk("nicstar%d: can't allocate IRQ %d.\n", i, pcidev->irq);
-+      error = 9;
-+      ns_init_card_error(card, error);
-+      return error;
-+   }
-+
-    /* Register device */
-    card->atmdev = atm_dev_register("nicstar", &atm_ops, -1, NULL);
-    if (card->atmdev == NULL)
+> I noticed this while trying to work on a generic fix for the
+> "->poll() does not exit when device is brought down while being
+> bombed with packets" bug.
+
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
+
