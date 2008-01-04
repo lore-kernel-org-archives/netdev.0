@@ -1,42 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [XFRM]: Do not define km_migrate() if !CONFIG_XFRM_MIGRATE
-Date: Thu, 03 Jan 2008 20:43:43 -0800 (PST)
-Message-ID: <20080103.204343.134131840.davem@davemloft.net>
-References: <20080103182449.ee02958e.dada1@cosmosbay.com>
+Subject: Re: [PATCH 1/2] LSM: Add inet_sys_snd_skb() LSM hook
+Date: Thu, 03 Jan 2008 20:45:49 -0800 (PST)
+Message-ID: <20080103.204549.204229388.davem@davemloft.net>
+References: <20080103171649.14445.65274.stgit@flek.americas.hpqcorp.net>
+	<20080103172539.14445.1668.stgit@flek.americas.hpqcorp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+To: paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59736
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33030
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753346AbYADEnn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2008 23:43:43 -0500
-In-Reply-To: <20080103182449.ee02958e.dada1@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1753724AbYADEpu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2008 23:45:50 -0500
+In-Reply-To: <20080103172539.14445.1668.stgit@flek.americas.hpqcorp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Thu, 3 Jan 2008 18:24:49 +0100
+From: Paul Moore <paul.moore@hp.com>
+Date: Thu, 03 Jan 2008 12:25:39 -0500
 
-> In include/net/xfrm.h we find :
+> Add an inet_sys_snd_skb() LSM hook to allow the LSM to provide packet level
+> access control for all outbound packets.  Using the existing postroute_last
+> netfilter hook turns out to be problematic as it is can be invoked multiple
+> times for a single packet, e.g. individual IPsec transforms, adding unwanted
+> overhead and complicating the security policy.
 > 
-> #ifdef CONFIG_XFRM_MIGRATE
-> extern int km_migrate(struct xfrm_selector *sel, u8 dir, u8 type,
->                       struct xfrm_migrate *m, int num_bundles);
-> ...
-> #endif
-> 
-> We can also guard the function body itself in net/xfrm/xfrm_state.c
-> with same condition.
-> 
-> (Problem spoted by sparse checker)
-> make C=2 net/xfrm/xfrm_state.o
-> ...
-> net/xfrm/xfrm_state.c:1765:5: warning: symbol 'km_migrate' was not declared. Should it be static?
-> ...
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> Signed-off-by: Paul Moore <paul.moore@hp.com>
 
-Applied to net-2.6, thanks Eric.
+I disagree with this change.
+
+The packet is different each time you see it in the postrouting hook,
+and also the new hook is thus redundant.
+
+If it's a performance issue and you can classify the security early,
+mark the SKB as "seen" and then on subsequent hooks you can just
+return immediately if that flag is set.
