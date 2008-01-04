@@ -1,34 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: NAPI poll behavior in various Intel drivers
-Date: Fri, 04 Jan 2008 13:24:43 -0800 (PST)
-Message-ID: <20080104.132443.25068269.davem@davemloft.net>
-References: <20080104.034036.160194618.davem@davemloft.net>
-	<477E92B6.8010809@katalix.com>
+From: "Torsten Kaiser" <just.for.lkml@googlemail.com>
+Subject: Re: 2.6.24-rc6-mm1
+Date: Fri, 4 Jan 2008 22:24:37 +0100
+Message-ID: <64bb37e0801041324j12184660m3c3be34e23dfd957@mail.gmail.com>
+References: <64bb37e0801040223q17a76565k3c7667a197403ce5@mail.gmail.com>
+	 <20080104133031.GA3329@ff.dom.local>
+	 <64bb37e0801040721p57ff3d54wc3de00546d1d2ff1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, auke-jan.h.kok@intel.com
-To: jchapman@katalix.com
+Cc: "Herbert Xu" <herbert@gondor.apana.org.au>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, "Neil Brown" <neilb@suse.de>,
+	"J. Bruce Fields" <bfields@fieldses.org>, netdev@vger.kernel.org,
+	"Tom Tucker" <tom@opengridcomputing.com>
+To: "Jarek Poplawski" <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46717
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754150AbYADVYn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2008 16:24:43 -0500
-In-Reply-To: <477E92B6.8010809@katalix.com>
+Received: from py-out-1112.google.com ([64.233.166.178]:42267 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752617AbYADVYl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2008 16:24:41 -0500
+Received: by py-out-1112.google.com with SMTP id u52so11302641pyb.10
+        for <netdev@vger.kernel.org>; Fri, 04 Jan 2008 13:24:41 -0800 (PST)
+In-Reply-To: <64bb37e0801040721p57ff3d54wc3de00546d1d2ff1@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: James Chapman <jchapman@katalix.com>
-Date: Fri, 04 Jan 2008 20:10:30 +0000
+On Jan 4, 2008 4:21 PM, Torsten Kaiser <just.for.lkml@googlemail.com> wrote:
+> On Jan 4, 2008 2:30 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
+> > - above git-nfsd and git-net tests should be probably repeated with
+> > -rc6-mm1 git versions: so vanilla rc6 plus both these -mm patches
+> > only, and if bug triggers, with one reversed; btw., since in previous
+> > message you mentioned that 50 packages could be not enough to trigger
+> > this, these 54 above could make too little margin yet.
+>
+> Yes, I think I really need to redo the git-nfsd-test.
+> With IOMMU_DEBUG enabled rc6-mm1worked for 52 packages, only a secound
+> run of kde-packages triggered it after only 5 packages.
+> I don't know what this bug hates about kdeartwork-wallpaper (triggered
+> it this time) or kdeartwork-styles.
 
-> With the latest NAPI, this code has to change. But rather than remove
-> the tx_cleaned logic completely, shouldn't transmit processing be
-> included in the work_done accounting when a driver does transmit cleanup
-> processing in the poll?
+49 more (kde-)packages did work too. Still looks like it is only in -mm.
 
-Most other NAPI drivers don't do this, they just process all the
-pending TX work unconditionally and do not account it into the NAPI
-poll work.
-
-The logic is that, like link state handling, TX work is very cheap and
-not the cpu cycle eater that RX packet processing is.
+Torsten
