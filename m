@@ -1,50 +1,40 @@
-From: Jeff Gustafson <ncjeffgus@zimage.com>
-Subject: ESFQ (or SFQ updates) mainline status?
-Date: Fri, 04 Jan 2008 11:21:15 -0800
-Message-ID: <1199474475.3820.65.camel@sally>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: e1000_clean_tx_irq: Detected Tx Unit Hang - it's bug?
+Date: Fri, 04 Jan 2008 12:11:15 -0800
+Message-ID: <477E92E3.1000202@intel.com>
+References: <477E2833.70301@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Badalian Vyacheslav <slavon@bigtelecom.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alpha.zimage.com ([216.86.199.5]:59814 "EHLO alpha.zimage.com"
+Received: from mga03.intel.com ([143.182.124.21]:33693 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753297AbYADTwl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Jan 2008 14:52:41 -0500
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by alpha.zimage.com (Postfix) with ESMTP id 1BF861C2960
-	for <netdev@vger.kernel.org>; Fri,  4 Jan 2008 11:21:33 -0800 (PST)
-Received: from alpha.zimage.com ([127.0.0.1])
- by localhost (alpha.zimage.com [127.0.0.1]) (amavisd-new, port 10024)
- with ESMTP id 11332-03 for <netdev@vger.kernel.org>;
- Fri,  4 Jan 2008 11:21:26 -0800 (PST)
-Received: from [192.168.0.3] (mail.idc-global.com [66.92.217.130])
-	by alpha.zimage.com (Postfix) with ESMTP id C3B181C291D
-	for <netdev@vger.kernel.org>; Fri,  4 Jan 2008 11:21:24 -0800 (PST)
+	id S1752593AbYADUMk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jan 2008 15:12:40 -0500
+In-Reply-To: <477E2833.70301@bigtelecom.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
-	I have a question about the status of the spiffy updates to SFQ.  I
-*really* like the ESFQ idea.  I appears to be exactly what I'm looking
-for.  From what I can tell from this mailing list, SFQ is getting some
-or all of the ESFQ features.  Although the ESFQ web site gives detailed
-information about the status for inclusion in mainline, I am having
-trouble finding out exactly what (if any) parts of ESFQ got into SFQ in
-mainline.
-	Did any of the ESFQ-like enhancements for SFQ reach .23 or do I still
-need to patch?  I am running a stripped-down Fedora 8 box and it would
-be very convenient if the patches were already in .23 or added by the
-Fedora team.
-	I tried to run the ESFQ command against SFQ, but the command was
-rejected:
+Badalian Vyacheslav wrote:
+> Hello all.
+> Some time in dmesg i see this:
+> 
+> [16121.400422] e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+> [16121.400426]   Tx Queue             <0>
+> [16121.400427]   TDH                  <28>
+> [16121.400429]   TDT                  <28>
+> [16121.400430]   next_to_use          <28>
+> [16121.400431]   next_to_clean        <7d>
+> [16121.400433] buffer_info[next_to_clean]
+> [16121.400434]   time_stamp           <17b949>
+> [16121.400435]   next_to_watch        <7d>
+> [16121.400437]   jiffies              <17ba57>
+> [16121.400438]   next_to_watch.status <1>
 
-/sbin/tc qdisc add dev eth1 parent 1:12 handle 12: sfq perturb 10 hash
-ctnatchg
+might be a bug. What kernel version are you using? it appears the tx handler was
+just sitting idle and this message might be bogus, which is one of the things that
+we fixed recently.
 
-	It appears the even if the kernel does have the patches, the shipped
-version tc does not.
-
-				..Jeff
-
-
+Auke
