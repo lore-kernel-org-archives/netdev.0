@@ -1,50 +1,58 @@
-From: Nick Piggin <npiggin@suse.de>
-Subject: Re: lockless pagecache Cassini regression
-Date: Fri, 4 Jan 2008 15:27:33 +0100
-Message-ID: <20080104142733.GA31052@wotan.suse.de>
-References: <20080103.193245.15134133.davem@davemloft.net> <20080104113351.GA12706@wotan.suse.de> <20080104.035831.52071724.davem@davemloft.net>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 1/2] LSM: Add inet_sys_snd_skb() LSM hook
+Date: Fri, 4 Jan 2008 09:38:27 -0500
+Message-ID: <200801040938.27515.paul.moore@hp.com>
+References: <20080103171649.14445.65274.stgit@flek.americas.hpqcorp.net> <20080103172539.14445.1668.stgit@flek.americas.hpqcorp.net> <20080103.204549.204229388.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:47374 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752208AbYADO1f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Jan 2008 09:27:35 -0500
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:45363 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752119AbYADOim (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2008 09:38:42 -0500
+In-Reply-To: <20080103.204549.204229388.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20080104.035831.52071724.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 04, 2008 at 03:58:31AM -0800, David Miller wrote:
-> From: Nick Piggin <npiggin@suse.de>
-> Date: Fri, 4 Jan 2008 12:33:52 +0100
-> 
-> > Just for interest, the lockless pagecache actually makes
-> > page->_count unstable for all pages that _have ever_ been pagecache
-> > pages (since the last quiescent rcu state, anyway). Basically, it
-> > looks up and takes a ref on the struct page without ever having a
-> > prior pin or reference on that page. It can do this because it knows
-> > the struct page won't actually get freed. After taking the ref, it
-> > rechecks that it has got the right page...
-> 
-> Ok, I understand the needs now.
-> 
-> I think the way the drivers/net/niu.c driver handles things
-> would work better.  It only performs get_page(), atomic
-> increments on compound_head(page)->_count, and __free_page().
-> Is that all legal with the lockless pagecache?
+On Thursday 03 January 2008 11:45:49 pm David Miller wrote:
+> From: Paul Moore <paul.moore@hp.com>
+> Date: Thu, 03 Jan 2008 12:25:39 -0500
+>
+> > Add an inet_sys_snd_skb() LSM hook to allow the LSM to provide
+> > packet level access control for all outbound packets.  Using the
+> > existing postroute_last netfilter hook turns out to be problematic
+> > as it is can be invoked multiple times for a single packet, e.g.
+> > individual IPsec transforms, adding unwanted overhead and
+> > complicating the security policy.
+> >
+> > Signed-off-by: Paul Moore <paul.moore@hp.com>
+>
+> I disagree with this change.
+>
+> The packet is different each time you see it in the postrouting hook,
+> and also the new hook is thus redundant.
 
-Yes, you can use the regular refcounting and freeing operations. If the
-lockless pagecache has got a speculative reference on the page after the
-driver drops all "real" references, it will take care of freeing the page.
+Well, thanks for taking a look.
 
- 
-> If so I can likely rework the Cassini page management to
-> behave similarly.
+> If it's a performance issue and you can classify the security early,
+> mark the SKB as "seen" and then on subsequent hooks you can just
+> return immediately if that flag is set.
 
-If you got the chance, that would be very nice.
+Unfortunately, it's not quite that easy at present.  The only field we 
+have in the skb where we could possibly set a flag is the secmark field 
+which is already taken.  Granted, there is the possibility of 
+segmenting the secmark field to some degree but that brings about a new 
+set of problems involving the number of unique labels, backwards 
+compatibility, etc.
 
-Thanks,
-Nick
+Regardless, back to the drawing board.  I'll have to think a bit harder 
+about a way to make the netfilter hooks work ...
+
+-- 
+paul moore
+linux security @ hp
