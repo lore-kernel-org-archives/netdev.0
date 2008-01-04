@@ -1,44 +1,38 @@
-From: Badalian Vyacheslav <slavon@bigtelecom.ru>
-Subject: e1000_clean_tx_irq: Detected Tx Unit Hang - it's bug?
-Date: Fri, 04 Jan 2008 15:36:03 +0300
-Message-ID: <477E2833.70301@bigtelecom.ru>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] (Revised) USB VID/PID clash between pegasus and
+	hci_usb drivers
+Date: Fri, 04 Jan 2008 13:45:06 +0100
+Message-ID: <1199450706.26099.60.camel@aeonflux>
+References: <130968.6446.qm@web52904.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, greg@kroah.com
+To: Chris Rankin <rankincj@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bigtelecom.ru ([87.255.0.61]:35899 "EHLO
-	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751015AbYADMgM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2008 07:36:12 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by mail.bigtelecom.ru (Postfix) with ESMTP id 180F4A6C143
-	for <netdev@vger.kernel.org>; Fri,  4 Jan 2008 15:36:11 +0300 (MSK)
-Received: from mail.bigtelecom.ru ([127.0.0.1])
-	by localhost (mail.bigtelecom.ru [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id 1jgvL9dNgpf8 for <netdev@vger.kernel.org>;
-	Fri,  4 Jan 2008 15:36:04 +0300 (MSK)
-Received: from [87.255.0.131] (slavon.bigtelecom.ru [87.255.0.131])
-	by mail.bigtelecom.ru (Postfix) with ESMTP id 32FF6A6C2BE
-	for <netdev@vger.kernel.org>; Fri,  4 Jan 2008 15:36:04 +0300 (MSK)
+Received: from senator.holtmann.net ([87.106.208.187]:48586 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752605AbYADMpq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2008 07:45:46 -0500
+In-Reply-To: <130968.6446.qm@web52904.mail.re2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello all.
-Some time in dmesg i see this:
+Hi Chris,
 
-[16121.400422] e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
-[16121.400426]   Tx Queue             <0>
-[16121.400427]   TDH                  <28>
-[16121.400429]   TDT                  <28>
-[16121.400430]   next_to_use          <28>
-[16121.400431]   next_to_clean        <7d>
-[16121.400433] buffer_info[next_to_clean]
-[16121.400434]   time_stamp           <17b949>
-[16121.400435]   next_to_watch        <7d>
-[16121.400437]   jiffies              <17ba57>
-[16121.400438]   next_to_watch.status <1>
-[16121.400968] htb: too many events !
+> I have surprisingly managed to track down the USB device descriptor for the wired Belkin network
+> adapter, and it looks as if the device class is actually 0x00 instead of 0xFF. I originally used
+> 0xFF because that is what my 3com device used (for some reason) and so I was hoping that Belkin
+> would also use 0xFF for the same reason.
 
-Its bug or overload information?
-Thanks
+can you please follow Documentation/SubmittingPatches. The commit
+message should explain why this is needed and why this change is the
+best choice.
+
+The patch itself is Acked-by: Marcel Holtmann <marcel@holtmann.org>
+
+Regards
+
+Marcel
+
+
