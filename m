@@ -1,180 +1,90 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: [ofa-general] [RFC PATCH] IPoIB: improve IPv4/IPv6 to IB mcast
-	mapping functions
-Date: Fri, 04 Jan 2008 14:05:29 -0800
-Message-ID: <adair29mel2.fsf_-_@cisco.com>
-References: <20071210203544.GI30090@obsidianresearch.com>
-	<20071210203841.GJ30090@obsidianresearch.com>
+From: =?iso-8859-1?Q?Bj=F6rn?= Steinbrink <B.Steinbrink@gmx.de>
+Subject: [PATCH] Fix forcedeth reversing the MAC address on suspend
+Date: Fri, 4 Jan 2008 23:26:33 +0100
+Message-ID: <20080104222633.GA21133@atjola.homenet>
+References: <477BFC71.7090002@coderworld.net> <20080102214843.GA19224@rhlx01.hs-esslingen.de> <20080102234209.GA10831@does.not.exist> <20080104034357.GA2113@atjola.homenet> <477E3DEA.4070001@coderworld.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: general@lists.openfabrics.org
-To: netdev@vger.kernel.org
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20071210203841.GJ30090@obsidianresearch.com> (Rolf
-	Manderscheid's message of "Mon, 10 Dec 2007 13:38:41 -0700")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, Adrian Bunk <bunk@kernel.org>,
+	Andreas Mohr <andi@lisas.de>,
+	Ayaz Abdulla <aabdulla@nvidia.com>, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+To: Richard Jonsson <richie@coderworld.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.gmx.net ([213.165.64.20]:45927 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754561AbYADW0h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jan 2008 17:26:37 -0500
+Content-Disposition: inline
+In-Reply-To: <477E3DEA.4070001@coderworld.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Any objection to merging the following for 2.6.25?
+=46or cards that initially have the MAC address stored in reverse order=
+,
+the forcedeth driver uses a flag to signal whether the address was
+already corrected, so that it is not reversed again on a subsequent
+probe.
 
-[Rolf -- I think it makes more sense to delete the overwriting of the
-P_Key in ipoib_multicast.c in this patch rather than later in the
-series; do you agree?]
+Unfortunately this flag, which is stored in a register of the card,
+seems to get lost during suspend, resulting in the MAC address being
+reversed again. To fix that, the MAC address needs to be written back i=
+n
+reversed order before we suspend and the flag needs to be reset.
 
-Thanks,
-  Roland
+The flag is still required because at least kexec will never write back
+the reversed address and thus needs to know what state the card is in.
 
-
-From: Rolf Manderscheid <rvm@obsidianresearch.com>
-
-An IPoIB subnet on an IB fabric that spans multiple IB subnets can't
-use link-local scope in multicast GIDs.  The existing routines that
-map IP/IPv6 multicast addresses into IB link-level addresses hard-code
-the scope to link-local, and they also leave the partition key field
-uninitialised.  This patch adds a parameter (the link-level broadcast
-address) to the mapping routines, allowing them to initialise both the
-scope and the P_Key appropriately, and fixes up the call sites.
-
-The next step will be to add a way to configure the scope for an IPoIB
-interface.
-
-Signed-off-by: Rolf Manderscheid <rvm@obsidianresearch.com>
-Signed-off-by: Roland Dreier <rolandd@cisco.com>
+Signed-off-by: Bj=F6rn Steinbrink <B.Steinbrink@gmx.de>
 ---
- drivers/infiniband/core/cma.c                  |    4 +---
- drivers/infiniband/ulp/ipoib/ipoib_multicast.c |    4 ----
- include/net/if_inet6.h                         |   11 +++++++----
- include/net/ip.h                               |   10 ++++++----
- net/ipv4/arp.c                                 |    2 +-
- net/ipv6/ndisc.c                               |    2 +-
- 6 files changed, 16 insertions(+), 17 deletions(-)
+On 2008.01.04 15:08:42 +0100, Richard Jonsson wrote:
+> Bj=F6rn Steinbrink skrev:
+>> Richard, could you give this a spin? And then we'd likely need someo=
+ne
+>> to test that with kexec...
+>
+> The patch you sent does the trick, works fine now, thanks!
+> I cannot test this with kexec as I barely know what it is, I'll leave=
+ that=20
+> to someone else.
 
-diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index 312ec74..982836e 100644
---- a/drivers/infiniband/core/cma.c
-+++ b/drivers/infiniband/core/cma.c
-@@ -2610,11 +2610,9 @@ static void cma_set_mgid(struct rdma_id_private *id_priv,
- 		/* IPv6 address is an SA assigned MGID. */
- 		memcpy(mgid, &sin6->sin6_addr, sizeof *mgid);
- 	} else {
--		ip_ib_mc_map(sin->sin_addr.s_addr, mc_map);
-+		ip_ib_mc_map(sin->sin_addr.s_addr, dev_addr->broadcast, mc_map);
- 		if (id_priv->id.ps == RDMA_PS_UDP)
- 			mc_map[7] = 0x01;	/* Use RDMA CM signature */
--		mc_map[8] = ib_addr_get_pkey(dev_addr) >> 8;
--		mc_map[9] = (unsigned char) ib_addr_get_pkey(dev_addr);
- 		*mgid = *(union ib_gid *) (mc_map + 4);
+Thanks.
+
+Ayaz, you originally wrote the kexec fix (IIRC), was my analysis of the
+problem correct? If so, I'm quite sure that the patch DTRT. Still it
+should be tested for the rmmod+modprobe and the kexec case. I'll try to
+get my box free for some testing, but that's unlikely in the next few
+days. Plus, I've never used kexec myself either. So I'd be grateful if
+someone else would step up.
+
+diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+index a96583c..f84c752 100644
+--- a/drivers/net/forcedeth.c
++++ b/drivers/net/forcedeth.c
+@@ -5199,10 +5199,6 @@ static int __devinit nv_probe(struct pci_dev *pc=
+i_dev, const struct pci_device_i
+ 		dev->dev_addr[3] =3D (np->orig_mac[0] >> 16) & 0xff;
+ 		dev->dev_addr[4] =3D (np->orig_mac[0] >>  8) & 0xff;
+ 		dev->dev_addr[5] =3D (np->orig_mac[0] >>  0) & 0xff;
+-		/* set permanent address to be correct aswell */
+-		np->orig_mac[0] =3D (dev->dev_addr[0] << 0) + (dev->dev_addr[1] << 8=
+) +
+-			(dev->dev_addr[2] << 16) + (dev->dev_addr[3] << 24);
+-		np->orig_mac[1] =3D (dev->dev_addr[4] << 0) + (dev->dev_addr[5] << 8=
+);
+ 		writel(txreg|NVREG_TRANSMITPOLL_MAC_ADDR_REV, base + NvRegTransmitPo=
+ll);
  	}
- }
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_multicast.c b/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
-index 858ada1..2628339 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
-@@ -788,10 +788,6 @@ void ipoib_mcast_restart_task(struct work_struct *work)
- 
- 		memcpy(mgid.raw, mclist->dmi_addr + 4, sizeof mgid);
- 
--		/* Add in the P_Key */
--		mgid.raw[4] = (priv->pkey >> 8) & 0xff;
--		mgid.raw[5] = priv->pkey & 0xff;
--
- 		mcast = __ipoib_mcast_find(dev, &mgid);
- 		if (!mcast || test_bit(IPOIB_MCAST_FLAG_SENDONLY, &mcast->flags)) {
- 			struct ipoib_mcast *nmcast;
-diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
-index 448eccb..b24508a 100644
---- a/include/net/if_inet6.h
-+++ b/include/net/if_inet6.h
-@@ -269,18 +269,21 @@ static inline void ipv6_arcnet_mc_map(const struct in6_addr *addr, char *buf)
- 	buf[0] = 0x00;
- }
- 
--static inline void ipv6_ib_mc_map(struct in6_addr *addr, char *buf)
-+static inline void ipv6_ib_mc_map(const struct in6_addr *addr,
-+				  const unsigned char *broadcast, char *buf)
- {
-+	unsigned char scope = broadcast[5] & 0xF;
-+
- 	buf[0]  = 0;		/* Reserved */
- 	buf[1]  = 0xff;		/* Multicast QPN */
- 	buf[2]  = 0xff;
- 	buf[3]  = 0xff;
- 	buf[4]  = 0xff;
--	buf[5]  = 0x12;		/* link local scope */
-+	buf[5]  = 0x10 | scope;	/* scope from broadcast address */
- 	buf[6]  = 0x60;		/* IPv6 signature */
- 	buf[7]  = 0x1b;
--	buf[8]  = 0;		/* P_Key */
--	buf[9]  = 0;
-+	buf[8]  = broadcast[8];	/* P_Key */
-+	buf[9]  = broadcast[9];
- 	memcpy(buf + 10, addr->s6_addr + 6, 10);
- }
- #endif
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 840dd91..50c8889 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -266,20 +266,22 @@ static inline void ip_eth_mc_map(__be32 naddr, char *buf)
-  *	Leave P_Key as 0 to be filled in by driver.
-  */
- 
--static inline void ip_ib_mc_map(__be32 naddr, char *buf)
-+static inline void ip_ib_mc_map(__be32 naddr, const unsigned char *broadcast, char *buf)
- {
- 	__u32 addr;
-+	unsigned char scope = broadcast[5] & 0xF;
-+
- 	buf[0]  = 0;		/* Reserved */
- 	buf[1]  = 0xff;		/* Multicast QPN */
- 	buf[2]  = 0xff;
- 	buf[3]  = 0xff;
- 	addr    = ntohl(naddr);
- 	buf[4]  = 0xff;
--	buf[5]  = 0x12;		/* link local scope */
-+	buf[5]  = 0x10 | scope;	/* scope from broadcast address */
- 	buf[6]  = 0x40;		/* IPv4 signature */
- 	buf[7]  = 0x1b;
--	buf[8]  = 0;		/* P_Key */
--	buf[9]  = 0;
-+	buf[8]  = broadcast[8];		/* P_Key */
-+	buf[9]  = broadcast[9];
- 	buf[10] = 0;
- 	buf[11] = 0;
- 	buf[12] = 0;
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 08174a2..54a76b8 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -211,7 +211,7 @@ int arp_mc_map(__be32 addr, u8 *haddr, struct net_device *dev, int dir)
- 		ip_tr_mc_map(addr, haddr);
- 		return 0;
- 	case ARPHRD_INFINIBAND:
--		ip_ib_mc_map(addr, haddr);
-+		ip_ib_mc_map(addr, dev->broadcast, haddr);
- 		return 0;
- 	default:
- 		if (dir) {
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 777ed73..85947ea 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -337,7 +337,7 @@ int ndisc_mc_map(struct in6_addr *addr, char *buf, struct net_device *dev, int d
- 		ipv6_arcnet_mc_map(addr, buf);
- 		return 0;
- 	case ARPHRD_INFINIBAND:
--		ipv6_ib_mc_map(addr, buf);
-+		ipv6_ib_mc_map(addr, dev->broadcast, buf);
- 		return 0;
- 	default:
- 		if (dir) {
--- 
-1.5.4.rc2
+ 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+@@ -5414,6 +5410,8 @@ static void __devexit nv_remove(struct pci_dev *p=
+ci_dev)
+ 	 */
+ 	writel(np->orig_mac[0], base + NvRegMacAddrA);
+ 	writel(np->orig_mac[1], base + NvRegMacAddrB);
++	writel(readl(base + NvRegTransmitPoll) & ~NVREG_TRANSMITPOLL_MAC_ADDR=
+_REV,
++	       base + NvRegTransmitPoll);
+=20
+ 	/* free all structures */
+ 	free_rings(dev);
