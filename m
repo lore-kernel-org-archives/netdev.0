@@ -1,99 +1,78 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: NAPI poll behavior in various Intel drivers
-Date: Fri, 04 Jan 2008 20:10:30 +0000
-Message-ID: <477E92B6.8010809@katalix.com>
-References: <20080104.034036.160194618.davem@davemloft.net>
+From: Milan Kocian <milon@wq.cz>
+Subject: Re: network interface state
+Date: Fri, 04 Jan 2008 21:58:26 +0100
+Message-ID: <1199480306.21869.39.camel@sm.wq.cz>
+References: <473B61C8.3030302@redhat.com>
+	 <20071114.153103.230463871.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, auke-jan.h.kok@intel.com
+Cc: netdev@vger.kernel.org, drepper <drepper@redhat.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:58420 "EHLO s36.avahost.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753737AbYADVc0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Jan 2008 16:32:26 -0500
-In-Reply-To: <20080104.034036.160194618.davem@davemloft.net>
+Received: from fw.wq.cz ([82.202.95.52]:56833 "EHLO rd.wq.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753297AbYADVxZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jan 2008 16:53:25 -0500
+In-Reply-To: <20071114.153103.230463871.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> Several Intel networking drivers such as e1000, e1000e
-> and e100 all do this to exit NAPI polling:
-> 
-> 	if ((!tx_cleaned && (work_done == 0)) ||
->  	   !netif_running(poll_dev)) {
-> 
-> I tried to make this use in the NAPI rework:
-> 
-> 	if ((!tx_cleaned && (work_done < budget)) ||
->  	   !netif_running(poll_dev)) {
-> 
-> But that got reverted by:
-> 
-> 	commit f7bbb9098315d712351aba7861a8c9fcf6bf0213
-> 
-> 	e1000: Fix NAPI state bug when Rx complete
->     
-> 	Don't exit polling when we have not yet used our budget, this causes
-> 	the NAPI system to end up with a messed up poll list.
->     
-> 	Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> 	Signed-off-by: Jeff Garzik <jeff@garzik.org>
-> 
-> I definitely would not have signed off on that :-)
-> 
-> That "tx_cleaned" thing clouds the logic in all of these driver's
-> poll routines.
-> 
-> The one necessary precondition is that when work_done < budget
-> we exit polling and return a value less than budget.
-> 
-> If the ->poll() returns a value less than budget, net_rx_action()
-> assumes that the device has been removed from the poll() list.
-> 
-> 		/* Drivers must not modify the NAPI state if they
-> 		 * consume the entire weight.  In such cases this code
-> 		 * still "owns" the NAPI instance and therefore can
-> 		 * move the instance around on the list at-will.
-> 		 */
-> 		if (unlikely(work == weight))
-> 			list_move_tail(&n->poll_list, list);
-> 
-> This "work_done == 0" test in these drivers, is thus, wrong.  It
-> should be "work_done < budget" and the whole tx_cleaned thing needs to
-> be removed.
-> 
-> It happens to work, because what happens is that we loop again and
-> process the same NAPI struct again.
-> 
-> As a result, E1000 devices get polled TWICE every time they
-> process at least one RX packet, but do not consume the whole
-> quota.
-> 
-> I smell a performance hack, and if so this is wrong and against
-> all of the principles of NAPI.  Either that or it's a workaround
-> for the "!netif_running()" case.
 
-You have a good nose, Dave. :) And you can probably partly blame me for
-this scheme. I worked with the e100 driver author (Scott Feldman) 5
-years ago to performance tune and stress test the driver. I found much
-better packets/sec forwarding performance (packets in one e100, out
-another) by staying in polled mode until no receive or transmit was done.
+On Wed, 2007-11-14 at 15:31 -0800, David Miller wrote:
+> From: Ulrich Drepper <drepper@redhat.com>
+> Date: Wed, 14 Nov 2007 12:59:52 -0800
+> 
+> > Just FYI, with the current getaddrinfo code it is even more critical to
+> > get to a point where I can cache network interface information and query
+> > the kernel whether it changed.  We now have to read the RTM_GETADDR
+> > tables for every lookup.  It was more limited with the old, incomplete
+> > implementation.
+> > 
+> > Even if it's something as simple as a RTM_SEQUENCE request which returns
+> > a number that is bumped at every interface change.
+> 
+> This sounds like a useful feature.  Essentially you want a generation
+> ID that increments every time a configuration change is made?
+> 
+> Most daemons handle this by listening for events on the netlink
+> socket, but I understand how that might not be practical for
+> glibc.
+> 
+> > Related: I need to know about the device type (the ARPHRD_* values) to
+> > determine whether a device is for a native transport or a tunnel.  What
+> > I currently do is:
+> > 
+> > - - at the beginning I get information about all interfaces using
+> > RTM_GETADDR
+> > 
+> > - - them later I have to find the device type by
+> > 
+> >   + reading the RTM_GETLINK data to get to the device name
+> > 
+> >   + then using the name and ioctl(SIOCGIFHWADDR) I get the device type
+> > 
+> > 
+> > It would be so much nicer if the device type would be part of the
+> > RTM_GETADDR data, or at least the RTM_GETLINK data.
+> 
+> It's part of the link information, Look in ifinfomsg->ifi_type
+> 
+> In general be suspicious if it seems netlink isn't providing
+> the same information available via the old ioctls :-)
 
-With the latest NAPI, this code has to change. But rather than remove
-the tx_cleaned logic completely, shouldn't transmit processing be
-included in the work_done accounting when a driver does transmit cleanup
-processing in the poll? If not, then when an interface is transmitting
-far more than receiving, it will exit polled mode on every poll.
+Sorry for late little offtopic question: Exists any simple way how to
+differentiate virtual network devices from real devices (e.g. vlans,
+bridges)?
 
-> I noticed this while trying to work on a generic fix for the
-> "->poll() does not exit when device is brought down while being
-> bombed with packets" bug.
+They have the same ifinfomsg->ifi_type as real devices (ARPHRD_ETHER). I
+know to differentiate vlans via IFLA_LINK attribute. But how to
+differentiate bridges from real devices I didn't determine.
+Thanks for any answer.
 
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+regards,
+
+milan kocian
+
+
 
