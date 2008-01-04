@@ -1,90 +1,78 @@
-From: =?iso-8859-1?Q?Bj=F6rn?= Steinbrink <B.Steinbrink@gmx.de>
-Subject: [PATCH] Fix forcedeth reversing the MAC address on suspend
-Date: Fri, 4 Jan 2008 23:26:33 +0100
-Message-ID: <20080104222633.GA21133@atjola.homenet>
-References: <477BFC71.7090002@coderworld.net> <20080102214843.GA19224@rhlx01.hs-esslingen.de> <20080102234209.GA10831@does.not.exist> <20080104034357.GA2113@atjola.homenet> <477E3DEA.4070001@coderworld.net>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 1/2] LSM: Add inet_sys_snd_skb() LSM hook
+Date: Fri, 4 Jan 2008 17:37:50 -0500
+Message-ID: <200801041737.50883.paul.moore@hp.com>
+References: <20080103172539.14445.1668.stgit@flek.americas.hpqcorp.net> <200801040938.27515.paul.moore@hp.com> <20080104.130902.217217806.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, Adrian Bunk <bunk@kernel.org>,
-	Andreas Mohr <andi@lisas.de>,
-	Ayaz Abdulla <aabdulla@nvidia.com>, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: Richard Jonsson <richie@coderworld.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:45927 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754561AbYADW0h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Jan 2008 17:26:37 -0500
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:21468 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754217AbYADWh4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2008 17:37:56 -0500
+In-Reply-To: <20080104.130902.217217806.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <477E3DEA.4070001@coderworld.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46or cards that initially have the MAC address stored in reverse order=
-,
-the forcedeth driver uses a flag to signal whether the address was
-already corrected, so that it is not reversed again on a subsequent
-probe.
-
-Unfortunately this flag, which is stored in a register of the card,
-seems to get lost during suspend, resulting in the MAC address being
-reversed again. To fix that, the MAC address needs to be written back i=
-n
-reversed order before we suspend and the flag needs to be reset.
-
-The flag is still required because at least kexec will never write back
-the reversed address and thus needs to know what state the card is in.
-
-Signed-off-by: Bj=F6rn Steinbrink <B.Steinbrink@gmx.de>
----
-On 2008.01.04 15:08:42 +0100, Richard Jonsson wrote:
-> Bj=F6rn Steinbrink skrev:
->> Richard, could you give this a spin? And then we'd likely need someo=
-ne
->> to test that with kexec...
+On Friday 04 January 2008 4:09:02 pm David Miller wrote:
+> From: Paul Moore <paul.moore@hp.com>
+> Date: Fri, 4 Jan 2008 09:38:27 -0500
 >
-> The patch you sent does the trick, works fine now, thanks!
-> I cannot test this with kexec as I barely know what it is, I'll leave=
- that=20
-> to someone else.
+> > Unfortunately, it's not quite that easy at present.  The only field
+> > we have in the skb where we could possibly set a flag is the
+> > secmark field which is already taken.
+>
+> Herbert Xu added a "peeked" field in net-2.6.25 that is only used on
+> input while processing socket receive queues.  You could use it on
+> output.
 
-Thanks.
+Actually, I went back to the drawing board and I think I found a 
+solution that _should_ work using the existing postroute hook.  It 
+isn't as general but it is relatively simple.
 
-Ayaz, you originally wrote the kexec fix (IIRC), was my analysis of the
-problem correct? If so, I'm quite sure that the patch DTRT. Still it
-should be tested for the rmmod+modprobe and the kexec case. I'll try to
-get my box free for some testing, but that's unlikely in the next few
-days. Plus, I've never used kexec myself either. So I'd be grateful if
-someone else would step up.
+Historically the problem has been with labeled IPsec and the fact that 
+the postroute hook can get hit multiple times when it is in use.  While 
+yes, the packet is different each time through the hook but the packet's 
+security label never changes (the packet's security label is determined 
+by the original sender).  From a security point of view we really only 
+want to check the packet once on the way out and we want that check to 
+happen at the very end, not while packet transforms are in progress.  
+This was the motivation for the new LSM hook.
 
-diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-index a96583c..f84c752 100644
---- a/drivers/net/forcedeth.c
-+++ b/drivers/net/forcedeth.c
-@@ -5199,10 +5199,6 @@ static int __devinit nv_probe(struct pci_dev *pc=
-i_dev, const struct pci_device_i
- 		dev->dev_addr[3] =3D (np->orig_mac[0] >> 16) & 0xff;
- 		dev->dev_addr[4] =3D (np->orig_mac[0] >>  8) & 0xff;
- 		dev->dev_addr[5] =3D (np->orig_mac[0] >>  0) & 0xff;
--		/* set permanent address to be correct aswell */
--		np->orig_mac[0] =3D (dev->dev_addr[0] << 0) + (dev->dev_addr[1] << 8=
-) +
--			(dev->dev_addr[2] << 16) + (dev->dev_addr[3] << 24);
--		np->orig_mac[1] =3D (dev->dev_addr[4] << 0) + (dev->dev_addr[5] << 8=
-);
- 		writel(txreg|NVREG_TRANSMITPOLL_MAC_ADDR_REV, base + NvRegTransmitPo=
-ll);
- 	}
- 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
-@@ -5414,6 +5410,8 @@ static void __devexit nv_remove(struct pci_dev *p=
-ci_dev)
- 	 */
- 	writel(np->orig_mac[0], base + NvRegMacAddrA);
- 	writel(np->orig_mac[1], base + NvRegMacAddrB);
-+	writel(readl(base + NvRegTransmitPoll) & ~NVREG_TRANSMITPOLL_MAC_ADDR=
-_REV,
-+	       base + NvRegTransmitPoll);
-=20
- 	/* free all structures */
- 	free_rings(dev);
+After the new hook was rejected I took a step back and thought about the 
+problem a bit more.  The multi-hit postroute hook problem was really 
+only an issue for IPsec; the other labeling protocols don't have this 
+problem because they don't do any transformation of the packet.  If we 
+could find a quick way to determine when all of the IPsec processing 
+was finished would could use the existing postroute hook approach and 
+simply fall through if the hook was hit when IPsec processing was still 
+needed.
+
+I still need to test this to make sure it does everything we need, but 
+I'm pretty certain that using the we can key off the skb->dst->xfrm 
+value as a way to determine if a packet is done with it's IPsec 
+transformation, if any.  Basically we rewrite our postroute hook to 
+look something like this:
+
+ int hook(...)
+ {
+	/* stuff to do every time */
+
+	if (skb->dst->xfrm != NULL)
+		return NF_ACCEPT;
+
+	/* stuff to do only on the last time we are called */
+
+ }
+
+If it doesn't end up meeting our needs I'll look into the 'peeked' 
+field, thanks for the suggestion.
+
+-- 
+paul moore
+linux security @ hp
