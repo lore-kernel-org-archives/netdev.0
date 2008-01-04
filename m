@@ -1,109 +1,93 @@
 From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [patch 5/9][NETNS][IPV6] make bindv6only sysctl per namespace
-Date: Fri, 04 Jan 2008 12:12:31 +0100
-Message-ID: <20080104111431.444295890@localhost.localdomain>
+Subject: [patch 1/9][NETNS][IPV6] make ipv6_sysctl_register to return a value
+Date: Fri, 04 Jan 2008 12:12:27 +0100
+Message-ID: <20080104111425.807489403@localhost.localdomain>
 References: <20080104111226.776105484@localhost.localdomain>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([195.212.29.140]:17037 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751619AbYADLXM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2008 06:23:12 -0500
+Received: from mtagate8.uk.ibm.com ([195.212.29.141]:12772 "EHLO
+	mtagate8.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751667AbYADLXP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2008 06:23:15 -0500
 Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate7.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m04BNBV0540740
-	for <netdev@vger.kernel.org>; Fri, 4 Jan 2008 11:23:11 GMT
+	by mtagate8.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m04BNEYW226428
+	for <netdev@vger.kernel.org>; Fri, 4 Jan 2008 11:23:14 GMT
 Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m04BNBeO5058762
-	for <netdev@vger.kernel.org>; Fri, 4 Jan 2008 11:23:11 GMT
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m04BNEf25083358
+	for <netdev@vger.kernel.org>; Fri, 4 Jan 2008 11:23:14 GMT
 Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m04BMssC027475
-	for <netdev@vger.kernel.org>; Fri, 4 Jan 2008 11:22:55 GMT
-Content-Disposition: inline; filename=sysctl/move-bindv6only-to-netns.patch
+	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m04BMvmS027744
+	for <netdev@vger.kernel.org>; Fri, 4 Jan 2008 11:22:57 GMT
+Content-Disposition: inline; filename=sysctl/ipv6-sysctl-register-return-value.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch moves the bindv6only sysctl to the network namespace
-structure. Until the ipv6 protocol is not per namespace, the sysctl
-variable is always from the initial network namespace.
+This patch makes the function ipv6_sysctl_register to return a
+value. The af_inet6 init function is now able to handle an error
+and catch it from the initialization of the sysctl.
 
 Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 ---
- include/net/ipv6.h         |    1 -
- include/net/netns/ipv6.h   |    1 +
- net/ipv6/af_inet6.c        |    4 +---
+ include/net/ipv6.h         |    2 +-
+ net/ipv6/af_inet6.c        |    5 ++++-
  net/ipv6/sysctl_net_ipv6.c |    6 +++++-
- 4 files changed, 7 insertions(+), 5 deletions(-)
+ 3 files changed, 10 insertions(+), 3 deletions(-)
 
 Index: net-2.6.25/include/net/ipv6.h
 ===================================================================
 --- net-2.6.25.orig/include/net/ipv6.h
 +++ net-2.6.25/include/net/ipv6.h
-@@ -109,7 +109,6 @@ struct frag_hdr {
- #include <net/sock.h>
+@@ -620,7 +620,7 @@ static inline int snmp6_unregister_dev(s
+ extern ctl_table ipv6_route_table[];
+ extern ctl_table ipv6_icmp_table[];
  
- /* sysctls */
--extern int sysctl_ipv6_bindv6only;
- extern int sysctl_mld_max_msf;
+-extern void ipv6_sysctl_register(void);
++extern int ipv6_sysctl_register(void);
+ extern void ipv6_sysctl_unregister(void);
+ #endif
  
- #define _DEVINC(statname, modifier, idev, field)			\
-Index: net-2.6.25/include/net/netns/ipv6.h
-===================================================================
---- net-2.6.25.orig/include/net/netns/ipv6.h
-+++ net-2.6.25/include/net/netns/ipv6.h
-@@ -9,6 +9,7 @@ struct ctl_table_header;
- 
- struct netns_sysctl_ipv6 {
- 	struct ctl_table_header *table;
-+ 	int bindv6only;
- };
- 
- struct netns_ipv6 {
 Index: net-2.6.25/net/ipv6/af_inet6.c
 ===================================================================
 --- net-2.6.25.orig/net/ipv6/af_inet6.c
 +++ net-2.6.25/net/ipv6/af_inet6.c
-@@ -66,8 +66,6 @@ MODULE_AUTHOR("Cast of dozens");
- MODULE_DESCRIPTION("IPv6 protocol stack for Linux");
- MODULE_LICENSE("GPL");
+@@ -783,7 +783,9 @@ static int __init inet6_init(void)
+ 	 */
  
--int sysctl_ipv6_bindv6only __read_mostly;
--
- /* The inetsw6 table contains everything that inet6_create needs to
-  * build a new socket.
-  */
-@@ -193,7 +191,7 @@ lookup_protocol:
- 	np->mcast_hops	= -1;
- 	np->mc_loop	= 1;
- 	np->pmtudisc	= IPV6_PMTUDISC_WANT;
--	np->ipv6only	= sysctl_ipv6_bindv6only;
-+	np->ipv6only	= init_net.ipv6.sysctl.bindv6only;
- 
- 	/* Init the ipv4 part of the socket since we can have sockets
- 	 * using v6 API for ipv4.
+ #ifdef CONFIG_SYSCTL
+-	ipv6_sysctl_register();
++	err = ipv6_sysctl_register();
++	if (err)
++		goto sysctl_fail;
+ #endif
+ 	err = icmpv6_init(&inet6_family_ops);
+ 	if (err)
+@@ -897,6 +899,7 @@ ndisc_fail:
+ icmp_fail:
+ #ifdef CONFIG_SYSCTL
+ 	ipv6_sysctl_unregister();
++sysctl_fail:
+ #endif
+ 	cleanup_ipv6_mibs();
+ out_unregister_sock:
 Index: net-2.6.25/net/ipv6/sysctl_net_ipv6.c
 ===================================================================
 --- net-2.6.25.orig/net/ipv6/sysctl_net_ipv6.c
 +++ net-2.6.25/net/ipv6/sysctl_net_ipv6.c
-@@ -35,7 +35,7 @@ static ctl_table ipv6_table_template[] =
- 	{
- 		.ctl_name	= NET_IPV6_BINDV6ONLY,
- 		.procname	= "bindv6only",
--		.data		= &sysctl_ipv6_bindv6only,
-+		.data		= &init_net.ipv6.sysctl.bindv6only,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= &proc_dointvec
-@@ -115,6 +115,10 @@ static int ipv6_sysctl_net_init(struct n
-    	ipv6_table[0].child = ipv6_route_table;
-    	ipv6_table[1].child = ipv6_icmp_table;
+@@ -90,9 +90,13 @@ static struct ctl_path ipv6_ctl_path[] =
  
-+  	ipv6_table[2].data = &net->ipv6.sysctl.bindv6only;
+ static struct ctl_table_header *ipv6_sysctl_header;
+ 
+-void ipv6_sysctl_register(void)
++int ipv6_sysctl_register(void)
+ {
+ 	ipv6_sysctl_header = register_sysctl_paths(ipv6_ctl_path, ipv6_table);
++	if (!ipv6_sysctl_header)
++		return -ENOMEM;
 +
-+	net->ipv6.sysctl.bindv6only = 0;
-+
-    	net->ipv6.sysctl.table = register_net_sysctl_table(net, ipv6_ctl_path, ipv6_table);
-    	if (!net->ipv6.sysctl.table)
-    		goto out_ipv6_icmp_table;
++	return 0;
+ }
+ 
+ void ipv6_sysctl_unregister(void)
 
 -- 
