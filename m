@@ -1,78 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: NAPI poll behavior in various Intel drivers
-Date: Fri, 04 Jan 2008 03:40:36 -0800 (PST)
-Message-ID: <20080104.034036.160194618.davem@davemloft.net>
+Subject: Re: lockless pagecache Cassini regression
+Date: Fri, 04 Jan 2008 03:58:31 -0800 (PST)
+Message-ID: <20080104.035831.52071724.davem@davemloft.net>
+References: <20080103.193245.15134133.davem@davemloft.net>
+	<20080104113351.GA12706@wotan.suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: npiggin@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44027
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51513
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751419AbYADLkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2008 06:40:37 -0500
+	by vger.kernel.org with ESMTP id S1751397AbYADL6b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2008 06:58:31 -0500
+In-Reply-To: <20080104113351.GA12706@wotan.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Nick Piggin <npiggin@suse.de>
+Date: Fri, 4 Jan 2008 12:33:52 +0100
 
-Several Intel networking drivers such as e1000, e1000e
-and e100 all do this to exit NAPI polling:
+> Just for interest, the lockless pagecache actually makes
+> page->_count unstable for all pages that _have ever_ been pagecache
+> pages (since the last quiescent rcu state, anyway). Basically, it
+> looks up and takes a ref on the struct page without ever having a
+> prior pin or reference on that page. It can do this because it knows
+> the struct page won't actually get freed. After taking the ref, it
+> rechecks that it has got the right page...
 
-	if ((!tx_cleaned && (work_done == 0)) ||
- 	   !netif_running(poll_dev)) {
+Ok, I understand the needs now.
 
-I tried to make this use in the NAPI rework:
+I think the way the drivers/net/niu.c driver handles things
+would work better.  It only performs get_page(), atomic
+increments on compound_head(page)->_count, and __free_page().
+Is that all legal with the lockless pagecache?
 
-	if ((!tx_cleaned && (work_done < budget)) ||
- 	   !netif_running(poll_dev)) {
+If so I can likely rework the Cassini page management to
+behave similarly.
 
-But that got reverted by:
+> Acked-by: Nick Piggin <npiggin@suse.de>
 
-	commit f7bbb9098315d712351aba7861a8c9fcf6bf0213
-
-	e1000: Fix NAPI state bug when Rx complete
-    
-	Don't exit polling when we have not yet used our budget, this causes
-	the NAPI system to end up with a messed up poll list.
-    
-	Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-	Signed-off-by: Jeff Garzik <jeff@garzik.org>
-
-I definitely would not have signed off on that :-)
-
-That "tx_cleaned" thing clouds the logic in all of these driver's
-poll routines.
-
-The one necessary precondition is that when work_done < budget
-we exit polling and return a value less than budget.
-
-If the ->poll() returns a value less than budget, net_rx_action()
-assumes that the device has been removed from the poll() list.
-
-		/* Drivers must not modify the NAPI state if they
-		 * consume the entire weight.  In such cases this code
-		 * still "owns" the NAPI instance and therefore can
-		 * move the instance around on the list at-will.
-		 */
-		if (unlikely(work == weight))
-			list_move_tail(&n->poll_list, list);
-
-This "work_done == 0" test in these drivers, is thus, wrong.  It
-should be "work_done < budget" and the whole tx_cleaned thing needs to
-be removed.
-
-It happens to work, because what happens is that we loop again and
-process the same NAPI struct again.
-
-As a result, E1000 devices get polled TWICE every time they
-process at least one RX packet, but do not consume the whole
-quota.
-
-I smell a performance hack, and if so this is wrong and against
-all of the principles of NAPI.  Either that or it's a workaround
-for the "!netif_running()" case.
-
-I noticed this while trying to work on a generic fix for the
-"->poll() does not exit when device is brought down while being
-bombed with packets" bug.
+Thanks for reviewing.
