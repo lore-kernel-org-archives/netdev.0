@@ -1,104 +1,193 @@
 From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [patch 9/9][NETNS][IPV6] make icmpv6_time sysctl per namespace
-Date: Fri, 04 Jan 2008 12:12:35 +0100
-Message-ID: <20080104111452.437994451@localhost.localdomain>
+Subject: [patch 6/9][NETNS][IPV6] make ip6_frags per namespace
+Date: Fri, 04 Jan 2008 12:12:32 +0100
+Message-ID: <20080104111432.764277202@localhost.localdomain>
 References: <20080104111226.776105484@localhost.localdomain>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.uk.ibm.com ([195.212.29.134]:19161 "EHLO
-	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751750AbYADLXW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2008 06:23:22 -0500
+Received: from mtagate2.uk.ibm.com ([195.212.29.135]:16537 "EHLO
+	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751742AbYADLXR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2008 06:23:17 -0500
 Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate1.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m04BNLLY151204
-	for <netdev@vger.kernel.org>; Fri, 4 Jan 2008 11:23:21 GMT
+	by mtagate2.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m04BNGDl105576
+	for <netdev@vger.kernel.org>; Fri, 4 Jan 2008 11:23:16 GMT
 Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m04BNKmg4956244
-	for <netdev@vger.kernel.org>; Fri, 4 Jan 2008 11:23:20 GMT
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m04BNGhu4825090
+	for <netdev@vger.kernel.org>; Fri, 4 Jan 2008 11:23:16 GMT
 Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m04BNE2O000747
-	for <netdev@vger.kernel.org>; Fri, 4 Jan 2008 11:23:14 GMT
-Content-Disposition: inline; filename=sysctl/move-sysctl-icmp-to-netns.patch
+	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m04BN9Tb000623
+	for <netdev@vger.kernel.org>; Fri, 4 Jan 2008 11:23:10 GMT
+Content-Disposition: inline; filename=sysctl/move-ip6-frags-to-netns.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch moves the icmpv6_time sysctl to the network namespace
-structure. A small initialization helper function has been added.
+The ip6_frags is moved to the network namespace structure.
+Because there can be multiple instances of the network namespaces,
+and the ip6_frags is no longer a global static variable, a helper
+function has been added to facilitate the initialization of the
+variables.
 
-Because the ipv6 protocol is not yet per namespace, the variable is
-accessed relatively to the initial network namespace.
+Until the ipv6 protocol is not per namespace, the variables are
+accessed relatively from the initial network namespace.
 
 Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 ---
- include/net/netns/ipv6.h   |    1 +
- net/ipv6/icmp.c            |    8 ++++----
- net/ipv6/sysctl_net_ipv6.c |    1 +
- 3 files changed, 6 insertions(+), 4 deletions(-)
+ include/net/ipv6.h         |    3 ---
+ include/net/netns/ipv6.h   |    3 +++
+ net/ipv6/reassembly.c      |   21 ++++++++++++---------
+ net/ipv6/sysctl_net_ipv6.c |   15 +++++++++++----
+ 4 files changed, 26 insertions(+), 16 deletions(-)
 
+Index: net-2.6.25/include/net/ipv6.h
+===================================================================
+--- net-2.6.25.orig/include/net/ipv6.h
++++ net-2.6.25/include/net/ipv6.h
+@@ -570,9 +570,6 @@ extern int inet6_hash_connect(struct ine
+ /*
+  * reassembly.c
+  */
+-struct inet_frags_ctl;
+-extern struct inet_frags_ctl ip6_frags_ctl;
+-
+ extern const struct proto_ops inet6_stream_ops;
+ extern const struct proto_ops inet6_dgram_ops;
+ 
 Index: net-2.6.25/include/net/netns/ipv6.h
 ===================================================================
 --- net-2.6.25.orig/include/net/netns/ipv6.h
 +++ net-2.6.25/include/net/netns/ipv6.h
-@@ -21,6 +21,7 @@ struct netns_sysctl_ipv6 {
-   	int ip6_rt_gc_elasticity;
-   	int ip6_rt_mtu_expires;
-   	int ip6_rt_min_advmss;
-+	int icmpv6_time;
+@@ -2,6 +2,8 @@
+  * ipv6 in net namespaces
+  */
+ 
++#include <net/inet_frag.h>
++
+ #ifndef __NETNS_IPV6_H__
+ #define __NETNS_IPV6_H__
+ 
+@@ -9,6 +11,7 @@ struct ctl_table_header;
+ 
+ struct netns_sysctl_ipv6 {
+ 	struct ctl_table_header *table;
++   	struct inet_frags_ctl frags;
+  	int bindv6only;
  };
  
- struct netns_ipv6 {
-Index: net-2.6.25/net/ipv6/icmp.c
+Index: net-2.6.25/net/ipv6/reassembly.c
 ===================================================================
---- net-2.6.25.orig/net/ipv6/icmp.c
-+++ net-2.6.25/net/ipv6/icmp.c
-@@ -154,8 +154,6 @@ static int is_ineligible(struct sk_buff 
- 	return 0;
- }
+--- net-2.6.25.orig/net/ipv6/reassembly.c
++++ net-2.6.25/net/ipv6/reassembly.c
+@@ -82,13 +82,6 @@ struct frag_queue
+ 	__u16			nhoffset;
+ };
  
--static int sysctl_icmpv6_time __read_mostly = 1*HZ;
+-struct inet_frags_ctl ip6_frags_ctl __read_mostly = {
+-	.high_thresh 	 = 256 * 1024,
+-	.low_thresh	 = 192 * 1024,
+-	.timeout	 = IPV6_FRAG_TIMEOUT,
+-	.secret_interval = 10 * 60 * HZ,
+-};
 -
- /*
-  * Check the ICMP output rate limit
-  */
-@@ -186,7 +184,7 @@ static inline int icmpv6_xrlim_allow(str
- 		res = 1;
- 	} else {
- 		struct rt6_info *rt = (struct rt6_info *)dst;
--		int tmo = sysctl_icmpv6_time;
-+		int tmo = init_net.ipv6.sysctl.icmpv6_time;
+ static struct inet_frags ip6_frags;
  
- 		/* Give more bandwidth to wider prefixes. */
- 		if (rt->rt6i_dst.plen < 128)
-@@ -913,7 +911,7 @@ ctl_table ipv6_icmp_table_template[] = {
- 	{
- 		.ctl_name	= NET_IPV6_ICMP_RATELIMIT,
- 		.procname	= "ratelimit",
--		.data		= &sysctl_icmpv6_time,
-+		.data		= &init_net.ipv6.sysctl.icmpv6_time,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= &proc_dointvec
-@@ -925,6 +923,8 @@ struct ctl_table *ipv6_icmp_sysctl_init(
- {
- 	struct ctl_table *table;
+ int ip6_frag_nqueues(void)
+@@ -605,7 +598,7 @@ static int ipv6_frag_rcv(struct sk_buff 
+ 		return 1;
+ 	}
  
-+	net->ipv6.sysctl.icmpv6_time = 1*HZ;
+-	if (atomic_read(&ip6_frags.mem) > ip6_frags_ctl.high_thresh)
++	if (atomic_read(&ip6_frags.mem) > init_net.ipv6.sysctl.frags.high_thresh)
+ 		ip6_evictor(ip6_dst_idev(skb->dst));
+ 
+ 	if ((fq = fq_find(fhdr->identification, &hdr->saddr, &hdr->daddr,
+@@ -632,6 +625,16 @@ static struct inet6_protocol frag_protoc
+ 	.flags		=	INET6_PROTO_NOPOLICY,
+ };
+ 
++void ipv6_frag_sysctl_init(struct net *net)
++{
++	net->ipv6.sysctl.frags.high_thresh = 256 * 1024,
++	net->ipv6.sysctl.frags.low_thresh = 192 * 1024,
++	net->ipv6.sysctl.frags.timeout = IPV6_FRAG_TIMEOUT,
++	net->ipv6.sysctl.frags.secret_interval = 10 * 60 * HZ,
 +
-    	table = kmemdup(ipv6_icmp_table_template,
- 			sizeof(ipv6_icmp_table_template),
- 			GFP_KERNEL);
++	ip6_frags.ctl = &net->ipv6.sysctl.frags;
++}
++
+ int __init ipv6_frag_init(void)
+ {
+ 	int ret;
+@@ -639,7 +642,7 @@ int __init ipv6_frag_init(void)
+ 	ret = inet6_add_protocol(&frag_protocol, IPPROTO_FRAGMENT);
+ 	if (ret)
+ 		goto out;
+-	ip6_frags.ctl = &ip6_frags_ctl;
++
+ 	ip6_frags.hashfn = ip6_hashfn;
+ 	ip6_frags.constructor = ip6_frag_init;
+ 	ip6_frags.destructor = NULL;
 Index: net-2.6.25/net/ipv6/sysctl_net_ipv6.c
 ===================================================================
 --- net-2.6.25.orig/net/ipv6/sysctl_net_ipv6.c
 +++ net-2.6.25/net/ipv6/sysctl_net_ipv6.c
-@@ -123,6 +123,7 @@ static int ipv6_sysctl_net_init(struct n
-    	ipv6_route_table[8].data = &net->ipv6.sysctl.ip6_rt_min_advmss;
-    	ipv6_table[0].child = ipv6_route_table;
+@@ -16,6 +16,7 @@
  
-+  	ipv6_icmp_table[0].data = &net->ipv6.sysctl.icmpv6_time;
+ extern struct ctl_table *ipv6_route_sysctl_init(struct net *net);
+ extern struct ctl_table *ipv6_icmp_sysctl_init(struct net *net);
++extern void ipv6_frag_sysctl_init(struct net *net);
+ 
+ static ctl_table ipv6_table_template[] = {
+ 	{
+@@ -43,7 +44,7 @@ static ctl_table ipv6_table_template[] =
+ 	{
+ 		.ctl_name	= NET_IPV6_IP6FRAG_HIGH_THRESH,
+ 		.procname	= "ip6frag_high_thresh",
+-		.data		= &ip6_frags_ctl.high_thresh,
++		.data		= &init_net.ipv6.sysctl.frags.high_thresh,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec
+@@ -51,7 +52,7 @@ static ctl_table ipv6_table_template[] =
+ 	{
+ 		.ctl_name	= NET_IPV6_IP6FRAG_LOW_THRESH,
+ 		.procname	= "ip6frag_low_thresh",
+-		.data		= &ip6_frags_ctl.low_thresh,
++		.data		= &init_net.ipv6.sysctl.frags.low_thresh,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec
+@@ -59,7 +60,7 @@ static ctl_table ipv6_table_template[] =
+ 	{
+ 		.ctl_name	= NET_IPV6_IP6FRAG_TIME,
+ 		.procname	= "ip6frag_time",
+-		.data		= &ip6_frags_ctl.timeout,
++		.data		= &init_net.ipv6.sysctl.frags.timeout,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec_jiffies,
+@@ -68,7 +69,7 @@ static ctl_table ipv6_table_template[] =
+ 	{
+ 		.ctl_name	= NET_IPV6_IP6FRAG_SECRET_INTERVAL,
+ 		.procname	= "ip6frag_secret_interval",
+-		.data		= &ip6_frags_ctl.secret_interval,
++		.data		= &init_net.ipv6.sysctl.frags.secret_interval,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec_jiffies,
+@@ -116,6 +117,12 @@ static int ipv6_sysctl_net_init(struct n
     	ipv6_table[1].child = ipv6_icmp_table;
  
    	ipv6_table[2].data = &net->ipv6.sysctl.bindv6only;
++    	ipv6_table[3].data = &net->ipv6.sysctl.frags.high_thresh;
++    	ipv6_table[4].data = &net->ipv6.sysctl.frags.low_thresh;
++    	ipv6_table[5].data = &net->ipv6.sysctl.frags.timeout;
++  	ipv6_table[6].data = &net->ipv6.sysctl.frags.secret_interval;
++
++	ipv6_frag_sysctl_init(net);
+ 
+ 	net->ipv6.sysctl.bindv6only = 0;
+ 
 
 -- 
