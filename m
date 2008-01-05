@@ -1,54 +1,54 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: NAPI poll behavior in various Intel drivers
-Date: Sat, 05 Jan 2008 14:29:05 +0100
-Message-ID: <p738x348kpq.fsf@bingen.suse.de>
-References: <477E92B6.8010809@katalix.com>
-	<20080104.132443.25068269.davem@davemloft.net>
-	<477ECCD7.8090905@katalix.com>
-	<20080104.232504.238436937.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jchapman@katalix.com, netdev@vger.kernel.org,
-	auke-jan.h.kok@intel.com
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH net-2.6.25 0/4] [NET]: Bloat, bloat and more bloat
+Date: Sat,  5 Jan 2008 15:39:04 +0200
+Message-ID: <11995403482366-git-send-email-ilpo.jarvinen@helsinki.fi>
+Cc: netdev@vger.kernel.org, Arnaldo Carvalho de Melo <acme@redhat.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:45381 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754660AbYAEN3I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Jan 2008 08:29:08 -0500
-In-Reply-To: <20080104.232504.238436937.davem@davemloft.net> (David Miller's message of "Fri\, 04 Jan 2008 23\:25\:04 -0800 \(PST\)")
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:47078 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754768AbYAENjL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2008 08:39:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+Hi Dave,
 
-> From: James Chapman <jchapman@katalix.com>
-> Date: Sat, 05 Jan 2008 00:18:31 +0000
->
->> David Miller wrote:
->> > From: James Chapman <jchapman@katalix.com>
->> > Date: Fri, 04 Jan 2008 20:10:30 +0000
->> > 
->> >> With the latest NAPI, this code has to change. But rather than remove
->> >> the tx_cleaned logic completely, shouldn't transmit processing be
->> >> included in the work_done accounting when a driver does transmit cleanup
->> >> processing in the poll?
->> > 
->> > Most other NAPI drivers don't do this, they just process all the
->> > pending TX work unconditionally and do not account it into the NAPI
->> > poll work.
->> 
->> This will cause the interface to thrash in/out of polled mode very
->> quickly when it is doing almost all transmit work. That's something to
->> avoid, no?
->
-> I see your point although I've never seen this in practice
-> with tg3 or niu.
+After Arnaldo got codiff's inline instrumentation bugs fixed
+(thanks! :-)), I got my .c-inline-bloat-o-meter to power up
+reliably after some tweaking and bug fixing on my behalf...
+It shows some very high readings every now and then in the
+code under net/.
 
-In 2.4 we used to have (haven't checked recently) performance regressions
-with NAPI vs non NAPI (or versus the old BCM vendor driver) on tg3 for
-some workloads that didn't fully fill the link. The theory was always
-that the reason for that was something like the regular switching in
-and out. So I think we saw that problem on tg3 too.
+...Aand... we've a sovereign winner, though it was only fifth
+on a kernel wide list (arch/ excluded due to number of
+reasons) :-/.
 
--Andi
+Hall of (unquestionable) fame (measured per inline, top 10 under
+net/):
+  -4496 ctnetlink_parse_tuple        netfilter/nf_conntrack_netlink.c
+  -2165 ctnetlink_dump_tuples        netfilter/nf_conntrack_netlink.c
+  -2115 __ip_vs_get_out_rt           ipv4/ipvs/ip_vs_xmit.c
+  -1924 xfrm_audit_helper_pktinfo    xfrm/xfrm_state.c
+  -1799 ctnetlink_parse_tuple_proto  netfilter/nf_conntrack_netlink.c
+  -1268 ctnetlink_parse_tuple_ip     netfilter/nf_conntrack_netlink.c
+  -1093 ctnetlink_exp_dump_expect    netfilter/nf_conntrack_netlink.c
+  -1060 ccid3_update_send_interval   dccp/ccids/ccid3.c
+  -983  ctnetlink_dump_tuples_proto  netfilter/nf_conntrack_netlink.c
+  -827  ctnetlink_exp_dump_tuple     netfilter/nf_conntrack_netlink.c
+
+Removing inlines is done iteratively because e.g., uninlining
+ctnetlink_parse_tuple affected ..._{proto,ip} prices as well.
+
+i386/gcc (GCC) 4.1.2 20070626 (Red Hat 4.1.2-13)/allyesconfig
+except CONFIG_FORCED_INLINING. Tried without some CONFIG.*DEBUG
+as well and got slightly better numbers for some functions, yet
+the number don't differ enough to be that meaningful, ie., if  
+there's bloat somewhere, removing DEBUGs won't make it go away.
+
+...After this first aid we're at least below 1k :-).
+
+--
+ i.
+
+
