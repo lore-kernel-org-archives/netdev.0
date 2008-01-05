@@ -1,35 +1,64 @@
-From: =?iso-8859-1?Q?Bj=F6rn?= Steinbrink <B.Steinbrink@gmx.de>
-Subject: Re: forcedeth: MAC-address reversed on resume from suspend
-Date: Sat, 5 Jan 2008 07:39:04 +0100
-Message-ID: <20080105063904.GC22739@atjola.homenet>
-References: <477BFC71.7090002@coderworld.net> <20080102214843.GA19224@rhlx01.hs-esslingen.de> <20080102234209.GA10831@does.not.exist> <20080104034357.GA2113@atjola.homenet> <20080104084517.GA21628@rhlx01.hs-esslingen.de> <20080104101740.GA4406@atjola.homenet> <20080104224352.GA7853@rhlx01.hs-esslingen.de> <20080105061002.GA22739@atjola.homenet>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: bridge, packet destination not found in fdb, how to match in ebtables?
+Date: Sat, 5 Jan 2008 08:51:11 +0200
+Message-ID: <20080105062204.M26820@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Adrian Bunk <bunk@kernel.org>,
-	Richard Jonsson <richie@coderworld.net>,
-	linux-kernel@vger.kernel.org, Ayaz Abdulla <aabdulla@nvidia.com>,
-	jgarzik@pobox.com, netdev@vger.kernel.org
-To: Andreas Mohr <andi@lisas.de>
+Content-Type: text/plain;
+	charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:35329 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751686AbYAEGjH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Jan 2008 01:39:07 -0500
-Content-Disposition: inline
-In-Reply-To: <20080105061002.GA22739@atjola.homenet>
+Received: from usermail.globalproof.net ([194.146.153.18]:47798 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752086AbYAEGv1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2008 01:51:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2008.01.05 07:10:02 +0100, Bj=F6rn Steinbrink wrote:
-> - nv_probe sees 00:11:22:00:00:01
-> - doesn't match the vendor stuff
-> - becomes 01:00:00:22:11:00
->=20
-> Oops, that's not quite the expected thing.
+Hi
 
-Haha, I just noticed that that even is a multicast address, so you'd ge=
-t
-a random MAC address in that case *lol.
+In few words: i have problem with bridge, that if some MAC address is not
+known, even expired by age bridge will send packet as "flood".
 
-Bj=F6rn
+If i am not wrong
+in br_device.c
+int br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+...
+        if (dest[0] & 1)
+                br_flood_deliver(br, skb);
+        else if ((dst = __br_fdb_get(br, dest)) != NULL)
+                br_deliver(dst->dst, skb);
+        else
+                br_flood_deliver(br, skb);
+...
+
+Probably, because packet becoming broadcast in bridge terms, it is useful to
+set it  something skb->pkt_type = PACKET_BROADCAST; ?
+But as i understand after looking in kernel code it can't be set
+PACKET_BROADCAST, because it will mess with most of network drivers. So packet
+is in ebtables pkttype is matching as "otherhost", same as "good"(non-flood)
+packets.
+
+
+But is there a way to set "flood packet" to some type, that i can match in
+ebtables and block it as broadcast?
+
+I had with PPPoE troubles with this, cause PPPoE acting differently than
+IP+ARP, and situation when some buggy linksys router start flooding network by
+PADT packet to address not existing in fdb, just killing network by "flood" of
+this frames to all ports.
+
+Here i see two solutions:
+1)Change pkt_type
+2)Develop additional module to handle "fdb attributes" (destination found in
+fdb or unknown)
+
+I think it is relatively trivial to implement, and it will be useful, as usual
+settings available on modern switches, known as "flood limit", but i think i
+am not enough programmer to do that. If possible guide me what to do.
+
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
+
