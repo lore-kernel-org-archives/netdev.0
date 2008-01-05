@@ -1,38 +1,42 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: Top 10 kernel oopses for the week ending January 5th, 2008
-Date: Sat, 5 Jan 2008 21:39:35 +0000
-Message-ID: <20080105213935.GN27894@ZenIV.linux.org.uk>
-References: <477FF149.4070609@linux.intel.com>
+From: Adrian Bunk <adrian.bunk@movial.fi>
+Subject: [2.6.24 patch] fix netx-eth.c compilation
+Date: Sat, 5 Jan 2008 23:46:16 +0200
+Message-ID: <20080105214616.GE22232@does.not.exist>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>
-To: Arjan van de Ven <arjan@linux.intel.com>
+Content-Type: text/plain; charset=utf-8
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:34167 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756878AbYAEVjg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2008 16:39:36 -0500
+Received: from smtp5.pp.htv.fi ([213.243.153.39]:48905 "EHLO smtp5.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756667AbYAEVqr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Jan 2008 16:46:47 -0500
 Content-Disposition: inline
-In-Reply-To: <477FF149.4070609@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 05, 2008 at 01:06:17PM -0800, Arjan van de Ven wrote:
-> The http://www.kerneloops.org website collects kernel oops and
-> warning reports from various mailing lists and bugzillas as well as
-> with a client users can install to auto-submit oopses.
-> Below is a top 10 list of the oopses collected in the last 7 days.
-> (Reports prior to 2.6.23 have been omitted in collecting the top 10)
-> 
-> This week, a total of 49 oopses and warnings have been reported,
-> compared to 53 reports in the previous week.
+This was missed when commit e2ac455a18806b31c2d0da0a51d8740af5010b7a 
+fixed the compile errors in drivers/net/netx-eth.c caused by
+commit 09f75cd7bf13720738e6a196cc0107ce9a5bd5a0.
 
-FWIW, people moaning about the lack of entry-level kernel work would
-do well by decoding those to the level of "this place in this function,
-called from <here>, with so-and-so variable being <this>" and posting
-the results.  As skills go, it's far more useful than "how to trim
-the trailing whitespace" and the rest of checkpatch.pl-inspired crap
-that got so popular lately...
+Signed-off-by: Adrian Bunk <adrian.bunk@movial.fi>
+
+---
+15e5efb728c61333ca10648334185efba86c4815 
+diff --git a/drivers/net/netx-eth.c b/drivers/net/netx-eth.c
+index 5267e03..78d34af 100644
+--- a/drivers/net/netx-eth.c
++++ b/drivers/net/netx-eth.c
+@@ -169,8 +169,8 @@ static void netx_eth_receive(struct net_device *ndev)
+ 	ndev->last_rx = jiffies;
+ 	skb->protocol = eth_type_trans(skb, ndev);
+ 	netif_rx(skb);
+-	dev->stats.rx_packets++;
+-	dev->stats.rx_bytes += len;
++	ndev->stats.rx_packets++;
++	ndev->stats.rx_bytes += len;
+ }
+ 
+ static irqreturn_t
+
