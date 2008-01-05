@@ -1,64 +1,57 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: bridge, packet destination not found in fdb, how to match in ebtables?
-Date: Sat, 5 Jan 2008 08:51:11 +0200
-Message-ID: <20080105062204.M26820@visp.net.lb>
+From: David Miller <davem@davemloft.net>
+Subject: Re: NAPI poll behavior in various Intel drivers
+Date: Fri, 04 Jan 2008 23:25:04 -0800 (PST)
+Message-ID: <20080104.232504.238436937.davem@davemloft.net>
+References: <477E92B6.8010809@katalix.com>
+	<20080104.132443.25068269.davem@davemloft.net>
+	<477ECCD7.8090905@katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, auke-jan.h.kok@intel.com
+To: jchapman@katalix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:47798 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752086AbYAEGv1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2008 01:51:27 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32890
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751686AbYAEHZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2008 02:25:06 -0500
+In-Reply-To: <477ECCD7.8090905@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+From: James Chapman <jchapman@katalix.com>
+Date: Sat, 05 Jan 2008 00:18:31 +0000
 
-In few words: i have problem with bridge, that if some MAC address is not
-known, even expired by age bridge will send packet as "flood".
+> David Miller wrote:
+> > From: James Chapman <jchapman@katalix.com>
+> > Date: Fri, 04 Jan 2008 20:10:30 +0000
+> > 
+> >> With the latest NAPI, this code has to change. But rather than remove
+> >> the tx_cleaned logic completely, shouldn't transmit processing be
+> >> included in the work_done accounting when a driver does transmit cleanup
+> >> processing in the poll?
+> > 
+> > Most other NAPI drivers don't do this, they just process all the
+> > pending TX work unconditionally and do not account it into the NAPI
+> > poll work.
+> 
+> This will cause the interface to thrash in/out of polled mode very
+> quickly when it is doing almost all transmit work. That's something to
+> avoid, no?
 
-If i am not wrong
-in br_device.c
-int br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
-...
-        if (dest[0] & 1)
-                br_flood_deliver(br, skb);
-        else if ((dst = __br_fdb_get(br, dest)) != NULL)
-                br_deliver(dst->dst, skb);
-        else
-                br_flood_deliver(br, skb);
-...
+I see your point although I've never seen this in practice
+with tg3 or niu.
 
-Probably, because packet becoming broadcast in bridge terms, it is useful to
-set it  something skb->pkt_type = PACKET_BROADCAST; ?
-But as i understand after looking in kernel code it can't be set
-PACKET_BROADCAST, because it will mess with most of network drivers. So packet
-is in ebtables pkttype is matching as "otherhost", same as "good"(non-flood)
-packets.
+For a heavy transmit load with TCP, the cpu killer is the ACK receive
+processing.
 
+I guess for a datagram send situation it might start to edge up.
 
-But is there a way to set "flood packet" to some type, that i can match in
-ebtables and block it as broadcast?
+However, you're likely deferring TX events (say every 1/4 of the TX
+ring or similar) which should make the effect matter much less.
 
-I had with PPPoE troubles with this, cause PPPoE acting differently than
-IP+ARP, and situation when some buggy linksys router start flooding network by
-PADT packet to address not existing in fdb, just killing network by "flood" of
-this frames to all ports.
+But anyways, it's someone else's driver so if they want to take
+TX work into account sure. :-)  I'll keep this in mind in my NAPI
+changes.
 
-Here i see two solutions:
-1)Change pkt_type
-2)Develop additional module to handle "fdb attributes" (destination found in
-fdb or unknown)
-
-I think it is relatively trivial to implement, and it will be useful, as usual
-settings available on modern switches, known as "flood limit", but i think i
-am not enough programmer to do that. If possible guide me what to do.
-
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
-
+Thanks.
