@@ -1,154 +1,81 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [NETNS]: Should build with CONFIG_SYSCTL=n
-Date: Sun, 06 Jan 2008 00:16:04 +0100
-Message-ID: <47800FB4.2040008@cosmosbay.com>
+From: "Manfred Schwarb" <manfred99@gmx.ch>
+Subject: Re: driver for et131x?
+Date: Sun, 06 Jan 2008 00:35:36 +0100
+Message-ID: <20080105233536.170230@gmx.net>
+References: <20080104100253.63070@gmx.net>
+ <107d3fc0801040302g6350a572if3d0fd5d470b44b3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000708030303010106000706"
-To: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Hellwig <hch@infradead.org>
+To: netdev@vger.kernel.org, "Dean Adams" <dadams1969@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:41421 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752756AbYAEXQP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2008 18:16:15 -0500
+Received: from mail.gmx.net ([213.165.64.20]:53862 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753071AbYAEXf7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Jan 2008 18:35:59 -0500
+In-Reply-To: <107d3fc0801040302g6350a572if3d0fd5d470b44b3@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------000708030303010106000706
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Hi David
-
-Current net-2.6.25 doesnt build if CONFIG_SYSCTL=n
-
-(Was posted last wednesday, you missed it or I missed your reply :) )
-
-Thank you
-
-[NETNS]: Should build with CONFIG_SYSCTL=n
-
-Previous NETNS patches broke CONFIG_SYSCTL=n case
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
-  include/net/netns/ipv4.h |    2 ++
-  net/ipv4/devinet.c       |   17 ++++++++++-------
-  2 files changed, 12 insertions(+), 7 deletions(-)
 
 
---------------000708030303010106000706
-Content-Type: text/plain;
- name="ipv4.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="ipv4.patch"
+> The driver that is available is NOT open souce. It was released under the
+> BSD license.
+> I tried getting Agere to release under the GPL, but the main dev there
+> (Victor) said that it wasn't happening and that we'd have to use it the
+> way
+> it is.
+> 
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index e06d7cf..61a28ff 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -8,7 +8,9 @@ struct ctl_table_header;
- struct ipv4_devconf;
- 
- struct netns_ipv4 {
-+#ifdef CONFIG_SYSCTL
- 	struct ctl_table_header	*forw_hdr;
-+#endif
- 	struct ipv4_devconf	*devconf_all;
- 	struct ipv4_devconf	*devconf_dflt;
- };
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 252ce01..282426e 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1542,7 +1542,6 @@ static void devinet_sysctl_unregister(struct in_device *idev)
- 	__devinet_sysctl_unregister(&idev->cnf);
- 	neigh_sysctl_unregister(idev->arp_parms);
- }
--#endif
- 
- static struct ctl_table ctl_forward_entry[] = {
- 	{
-@@ -1565,18 +1564,20 @@ static __net_initdata struct ctl_path net_ipv4_path[] = {
- 	{ .procname = "ipv4", .ctl_name = NET_IPV4, },
- 	{ },
- };
-+#endif
- 
- static __net_init int devinet_init_net(struct net *net)
- {
- 	int err;
--	struct ctl_table *tbl;
- 	struct ipv4_devconf *all, *dflt;
-+#ifdef CONFIG_SYSCTL
-+	struct ctl_table *tbl = ctl_forward_entry;
- 	struct ctl_table_header *forw_hdr;
-+#endif
- 
- 	err = -ENOMEM;
- 	all = &ipv4_devconf;
- 	dflt = &ipv4_devconf_dflt;
--	tbl = ctl_forward_entry;
- 
- 	if (net != &init_net) {
- 		all = kmemdup(all, sizeof(ipv4_devconf), GFP_KERNEL);
-@@ -1587,6 +1588,7 @@ static __net_init int devinet_init_net(struct net *net)
- 		if (dflt == NULL)
- 			goto err_alloc_dflt;
- 
-+#ifdef CONFIG_SYSCTL
- 		tbl = kmemdup(tbl, sizeof(ctl_forward_entry), GFP_KERNEL);
- 		if (tbl == NULL)
- 			goto err_alloc_ctl;
-@@ -1594,6 +1596,7 @@ static __net_init int devinet_init_net(struct net *net)
- 		tbl[0].data = &all->data[NET_IPV4_CONF_FORWARDING - 1];
- 		tbl[0].extra1 = all;
- 		tbl[0].extra2 = net;
-+#endif
- 	}
- 
- #ifdef CONFIG_SYSCTL
-@@ -1611,9 +1614,9 @@ static __net_init int devinet_init_net(struct net *net)
- 	forw_hdr = register_net_sysctl_table(net, net_ipv4_path, tbl);
- 	if (forw_hdr == NULL)
- 		goto err_reg_ctl;
-+	net->ipv4.forw_hdr = forw_hdr;
- #endif
- 
--	net->ipv4.forw_hdr = forw_hdr;
- 	net->ipv4.devconf_all = all;
- 	net->ipv4.devconf_dflt = dflt;
- 	return 0;
-@@ -1626,8 +1629,8 @@ err_reg_dflt:
- err_reg_all:
- 	if (tbl != ctl_forward_entry)
- 		kfree(tbl);
--#endif
- err_alloc_ctl:
-+#endif
- 	if (dflt != &ipv4_devconf_dflt)
- 		kfree(dflt);
- err_alloc_dflt:
-@@ -1639,15 +1642,15 @@ err_alloc_all:
- 
- static __net_exit void devinet_exit_net(struct net *net)
- {
-+#ifdef CONFIG_SYSCTL
- 	struct ctl_table *tbl;
- 
- 	tbl = net->ipv4.forw_hdr->ctl_table_arg;
--#ifdef CONFIG_SYSCTL
- 	unregister_net_sysctl_table(net->ipv4.forw_hdr);
- 	__devinet_sysctl_unregister(net->ipv4.devconf_dflt);
- 	__devinet_sysctl_unregister(net->ipv4.devconf_all);
--#endif
- 	kfree(tbl);
-+#endif
- 	kfree(net->ipv4.devconf_dflt);
- 	kfree(net->ipv4.devconf_all);
- }
+As far as I know (IANAL), a BSD Licence is open source. In fact, it 
+is more liberal than GPL. I think it means you can do whatever you
+want, you only have to retain the copyright notice. It is even possible
+to fork the code and change the licence to GPL. In fact such things
+have already been done in linux. There exists also numerous code in linux
+which is dual-licenced under BSD and GPL (which means you can choose one
+or the other at your will).
 
---------------000708030303010106000706--
+I don't know how the linux community would like to handle things, but
+I think it should be possible somehow.
+
+Regards,
+Manfred
+
+
+> On Jan 4, 2008 4:02 AM, Manfred Schwarb <manfred99@gmx.ch> wrote:
+> 
+> > [ next try, first attempt was blocked because of an '@' in 'X-Sender:'
+> > line? ]
+> >
+> >
+> > Hi,
+> >
+> > meanwhile the Agere et1310 chip has grown to a quite popular network
+> > chip, in laptops as well as for PCI-E cards. The release date of this
+> chip
+> > was
+> > already in June 2004, and still no support in mainline linux.
+> >
+> > There is apparently an opensource driver from Agere which is maintained
+> by
+> > volunteers at http://sourceforge.net/projects/et131x/
+> >
+> > It seems some distros (e.g. Ubuntu) even patch their kernels with this
+> > driver.
+> >
+> > Please consider adding support for this chip in mainline linux.
+> >
+> > Thanks a lot!
+> > Manfred
+> >
+> >
+> > see also:
+> > http://lkml.org/lkml/2006/7/3/123
+> > http://dadams1969.googlepages.com/et131xkernelmodule
+> >
+
+
+-- 
+GMX FreeMail: 1 GB Postfach, 5 E-Mail-Adressen, 10 Free SMS.
+Alle Infos und kostenlose Anmeldung: http://www.gmx.net/de/go/freemail
