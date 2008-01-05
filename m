@@ -1,43 +1,98 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] ibm_newemac: Increase number of default rx-/tx-buffers
-Date: Sun, 06 Jan 2008 07:53:06 +1100
-Message-ID: <1199566386.7291.58.camel@pasglop>
-References: <1199526609-12290-1-git-send-email-sr@denx.de>
-	 <1199528388.7291.55.camel@pasglop>  <200801051338.17957.sr@denx.de>
-Reply-To: benh@kernel.crashing.org
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: Top 10 kernel oopses for the week ending January 5th, 2008
+Date: Sat, 05 Jan 2008 13:06:17 -0800
+Message-ID: <477FF149.4070609@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Stefan Roese <sr@denx.de>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	NetDev <netdev@vger.kernel.org>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:50493 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756654AbYAEUxc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Jan 2008 15:53:32 -0500
-In-Reply-To: <200801051338.17957.sr@denx.de>
+Received: from mga06.intel.com ([134.134.136.21]:56837 "EHLO
+	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755922AbYAEVIS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2008 16:08:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The http://www.kerneloops.org website collects kernel oops and
+warning reports from various mailing lists and bugzillas as well as
+with a client users can install to auto-submit oopses.
+Below is a top 10 list of the oopses collected in the last 7 days.
+(Reports prior to 2.6.23 have been omitted in collecting the top 10)
 
-On Sat, 2008-01-05 at 13:38 +0100, Stefan Roese wrote:
-> On Saturday 05 January 2008, Benjamin Herrenschmidt wrote:
-> > On Sat, 2008-01-05 at 10:50 +0100, Stefan Roese wrote:
-> > > Performance tests done by AMCC have shown that 256 buffer increase the
-> > > performance of the Linux EMAC driver. So let's update the default
-> > > values to match this setup.
-> > >
-> > > Signed-off-by: Stefan Roese <sr@denx.de>
-> > > ---
-> >
-> > Do we have the numbers ? Did they also measure latency ?
-> 
-> I hoped this question would not come. ;) No, unfortunately I don't have any 
-> numbers. Just the recommendation from AMCC to always use 256 buffers.
-
-Ok. Well, it's just a .config option so I suppose the patch is fine. Can
-you also update the defconfigs (at least for the recent AMCC boards) ?
-
-Ben.
+This week, a total of 49 oopses and warnings have been reported,
+compared to 53 reports in the previous week.
 
 
+Rank 1: __ieee80211_rx
+	Warning at net/mac80211/rx.c:1672
+	Reported 6 times (11 total reports)
+	Same issue that was ranked 2nd last week
+	Johannes has diagnosed this as a driver bug in the iwlwifi drivers
+	More info: http://www.kerneloops.org/search.php?search=__ieee80211_rx
+
+Rank 2: elv_next_request
+	kernel page fault
+	Reported 6 times (7 total reports)
+	Seems to be related to fast modprobe/rmmod cycles
+	More info: http://www.kerneloops.org/search.php?search=elv_next_request
+
+Rank 3: d_splice_alias
+	NULL pointer deref
+	Reported 3 times
+	Happens in the isofs code
+	Only seen in 2.6.24-rc5-mm1
+	More info: http://www.kerneloops.org/search.php?search=d_splice_alias
+
+Rank 4: remove_proc_entry
+	Was also ranked 4th last week
+	Only in tainted oopses
+	Reported 3 times (12 total reports)
+	More info: http://www.kerneloops.org/search.php?search=remove_proc_entry
+
+Rank 5: __d_path
+	In the sys_getcwd system call
+	Only reported for 2.6.23.x, by one user
+	Reported 2 times
+	More info: http://www.kerneloops.org/search.php?search=__d_path
+
+Rank 6: device_release
+	Was ranked 8th last week
+	Same reports as last week, but now entered into bugzilla.kernel.org
+	Reported 2 times (8 total reports)
+	More info: http://www.kerneloops.org/search.php?search=device_release
+
+Rank 7: pgd_alloc
+	Has only been seen on machines tainted with the nvidia module
+	Reported 2 times
+	More info: http://www.kerneloops.org/search.php?search=pgd_alloc
+
+Rank 8: evdev_disconnect
+	kernel page fault
+	Reported 2 times (10 total reports)
+	Previously seen in older kernels including 2.6.21 but as far back as 2.6.16
+	More info: http://www.kerneloops.org/search.php?search=evdev_disconnect
+
+Rank 9: mutex_lock
+	kernel null pointer due to rfcomm_tty_close sysfs interaction
+	Reported 2 times (9 total reports)
+	Ranked 9th last week as well
+	More info: http://www.kerneloops.org/search.php?search=mutex_lock
+
+Rank 10: lock_acquire
+	WARNING: at kernel/lockdep.c:2658 check_flags()
+	Reported 2 times (8 total reports)
+	Seems related to __atomic_notifier_call_chain
+	More info: http://www.kerneloops.org/search.php?search=lock_acquire
+
+
+kerneloops.org news
+* There is now a UI client so that if your kernel has an oops, you'll get asked for permission
+   to submit this (rather than having to manually edit a config file as before)
+* If you run the Gentoo distribution, please install the client using "emerge kerneloops"
+* If you run the Fedora 8 (or rawhide) distribution, please install the rpm you can download
+   from the http://www.kerneloops.org homepage
+* If you run Debian unstable, please install the client via apt-get install kerneloops
