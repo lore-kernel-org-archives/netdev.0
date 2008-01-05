@@ -1,46 +1,37 @@
-From: "Andy Johnson" <johnsonzjo@gmail.com>
-Subject: Question about arp_error_report() (IPV4): clarification
-Date: Sat, 5 Jan 2008 10:43:24 +0200
-Message-ID: <147a89290801050043p24b3a116j75dc58954cdf8ed7@mail.gmail.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: driver for et131x?
+Date: Sat, 5 Jan 2008 08:58:24 +0000
+Message-ID: <20080105085823.GA19656@infradead.org>
+References: <20080104100253.63070@gmx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Dean Adams <dadams1969@gmail.com>
+To: Manfred Schwarb <manfred99@gmx.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:35978 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752700AbYAEIn2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2008 03:43:28 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so3780681fga.17
-        for <netdev@vger.kernel.org>; Sat, 05 Jan 2008 00:43:24 -0800 (PST)
+Received: from pentafluge.infradead.org ([213.146.154.40]:34882 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752479AbYAEI6Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2008 03:58:25 -0500
 Content-Disposition: inline
+In-Reply-To: <20080104100253.63070@gmx.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-In neigh_timer_handler( ),  (core/neighbour.c), there is a comment which says:
+On Fri, Jan 04, 2008 at 11:02:53AM +0100, Manfred Schwarb wrote:
+> meanwhile the Agere et1310 chip has grown to a quite popular network
+> chip, in laptops as well as for PCI-E cards. The release date of this chip was
+> already in June 2004, and still no support in mainline linux.
+> 
+> There is apparently an opensource driver from Agere which is maintained by
+> volunteers at http://sourceforge.net/projects/et131x/
+> 
+> It seems some distros (e.g. Ubuntu) even patch their kernels with this driver.
+> 
+> Please consider adding support for this chip in mainline linux.
 
-# It is very thin place. report_unreachable is very complicated
-# routine. Particularly, it can hit the same neighbour entry!
+The driver on the above site would need quite a bit of work to bring it
+up to Linux standards.  That work shouldn't be difficult but enough to
+keep someone busy for a while.  If you have the hardware I'd be happy yo
+guide you through the required work.  Are you interested in taking up
+this project?
 
-#  So that, we try to be accurate and avoid dead loop. --ANK
-
-I tried to figure exactly what this comment mean (when dealing with IPV4).
- Can someone elaborate in 3-4 sentences on it ?
-
-
-Why  "hit the same neighbour entry" can cause any complications ?
-Why is report_unreachable() considered complicated ?
-It seems to be simple, or am I missing something?
-
-
-As far as I understand, eventually  ipv4_link_failure()
-(net/ipv4/route.c) is called when  report_unreachable() is invoked.
-
-(The path is: arp_error_report() calls dst_link_failure(skb), which in
-case of ipv4, calls ipv4_link_failure().)
-So it seems simply a matter of calling eventually ipv4_link_failure(),
-which ends up with generating ICMP.
-
-Regards,
-Andy
