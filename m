@@ -1,42 +1,52 @@
-From: Adrian Bunk <adrian.bunk@movial.fi>
-Subject: [2.6.24 patch] fix netx-eth.c compilation
-Date: Sat, 5 Jan 2008 23:46:16 +0200
-Message-ID: <20080105214616.GE22232@does.not.exist>
+From: Josh Boyer <jwboyer@gmail.com>
+Subject: Re: [PATCH] ibm_newemac: Increase number of default rx-/tx-buffers
+Date: Sat, 5 Jan 2008 15:48:05 -0600
+Message-ID: <20080105154805.118eb3d1@vader.jdub.homelinux.org>
+References: <1199526609-12290-1-git-send-email-sr@denx.de>
+	<1199528388.7291.55.camel@pasglop>
+	<200801051338.17957.sr@denx.de>
+	<1199566386.7291.58.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Stefan Roese <sr@denx.de>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.pp.htv.fi ([213.243.153.39]:48905 "EHLO smtp5.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756667AbYAEVqr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Jan 2008 16:46:47 -0500
-Content-Disposition: inline
+Received: from py-out-1112.google.com ([64.233.166.180]:65097 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756878AbYAEVsL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2008 16:48:11 -0500
+Received: by py-out-1112.google.com with SMTP id u52so11784651pyb.10
+        for <netdev@vger.kernel.org>; Sat, 05 Jan 2008 13:48:11 -0800 (PST)
+In-Reply-To: <1199566386.7291.58.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This was missed when commit e2ac455a18806b31c2d0da0a51d8740af5010b7a 
-fixed the compile errors in drivers/net/netx-eth.c caused by
-commit 09f75cd7bf13720738e6a196cc0107ce9a5bd5a0.
+On Sun, 06 Jan 2008 07:53:06 +1100
+Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
 
-Signed-off-by: Adrian Bunk <adrian.bunk@movial.fi>
+> 
+> On Sat, 2008-01-05 at 13:38 +0100, Stefan Roese wrote:
+> > On Saturday 05 January 2008, Benjamin Herrenschmidt wrote:
+> > > On Sat, 2008-01-05 at 10:50 +0100, Stefan Roese wrote:
+> > > > Performance tests done by AMCC have shown that 256 buffer increase the
+> > > > performance of the Linux EMAC driver. So let's update the default
+> > > > values to match this setup.
+> > > >
+> > > > Signed-off-by: Stefan Roese <sr@denx.de>
+> > > > ---
+> > >
+> > > Do we have the numbers ? Did they also measure latency ?
+> > 
+> > I hoped this question would not come. ;) No, unfortunately I don't have any 
+> > numbers. Just the recommendation from AMCC to always use 256 buffers.
+> 
+> Ok. Well, it's just a .config option so I suppose the patch is fine. Can
+> you also update the defconfigs (at least for the recent AMCC boards) ?
 
----
-15e5efb728c61333ca10648334185efba86c4815 
-diff --git a/drivers/net/netx-eth.c b/drivers/net/netx-eth.c
-index 5267e03..78d34af 100644
---- a/drivers/net/netx-eth.c
-+++ b/drivers/net/netx-eth.c
-@@ -169,8 +169,8 @@ static void netx_eth_receive(struct net_device *ndev)
- 	ndev->last_rx = jiffies;
- 	skb->protocol = eth_type_trans(skb, ndev);
- 	netif_rx(skb);
--	dev->stats.rx_packets++;
--	dev->stats.rx_bytes += len;
-+	ndev->stats.rx_packets++;
-+	ndev->stats.rx_bytes += len;
- }
- 
- static irqreturn_t
+No need for a defconfig update patch.  Paul or I usually do a general
+defconfig update for most boards before the next kernel version.  This
+will get picked up then.
 
+josh
