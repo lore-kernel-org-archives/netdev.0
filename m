@@ -1,57 +1,72 @@
-From: "Manfred Schwarb" <manfred99@gmx.ch>
-Subject: Re: driver for et131x?
-Date: Sun, 06 Jan 2008 00:50:56 +0100
-Message-ID: <20080105235056.170200@gmx.net>
-References: <20080104100253.63070@gmx.net>
- <20080105085823.GA19656@infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dadams1969@gmail.com, netdev@vger.kernel.org
-To: Christoph Hellwig <hch@infradead.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: sparc oops in ip_fast_csum
+Date: Sun, 06 Jan 2008 11:22:04 +1100
+Message-ID: <E1JBJHA-0000hy-00@gondolin.me.apana.org.au>
+References: <20080105094400.GH27894@ZenIV.linux.org.uk>
+Cc: m.kozlowski@tuxland.pl, davem@davemloft.net,
+	sparclinux@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: viro@ZenIV.linux.org.uk (Al Viro)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:53068 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752762AbYAEXu6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Jan 2008 18:50:58 -0500
-In-Reply-To: <20080105085823.GA19656@infradead.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:2577 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753869AbYAFAWk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2008 19:22:40 -0500
+In-Reply-To: <20080105094400.GH27894@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Christoph,
-
-> On Fri, Jan 04, 2008 at 11:02:53AM +0100, Manfred Schwarb wrote:
-> > meanwhile the Agere et1310 chip has grown to a quite popular network
-> > chip, in laptops as well as for PCI-E cards. The release date of this
-> chip was
-> > already in June 2004, and still no support in mainline linux.
-> > 
-> > There is apparently an opensource driver from Agere which is maintained
-> by
-> > volunteers at http://sourceforge.net/projects/et131x/
-> > 
-> > It seems some distros (e.g. Ubuntu) even patch their kernels with this
-> driver.
-> > 
-> > Please consider adding support for this chip in mainline linux.
+Al Viro <viro@zeniv.linux.org.uk> wrote:
 > 
-> The driver on the above site would need quite a bit of work to bring it
-> up to Linux standards.  That work shouldn't be difficult but enough to
-> keep someone busy for a while.  If you have the hardware I'd be happy yo
-> guide you through the required work.  Are you interested in taking up
-> this project?
+> ip_fast_csum() called from raw_send_hdrinc() from raw_sendmsg() ran through
+> the page boundary into unmapped page...  Bloody odd, that, seeing that
+> we have checked iph->ihl * 4U <= length and had done
+>        err = memcpy_fromiovecend((void *)iph, from, 0, length);
+> before the
+>                iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
+> that had triggered that crap..
 
-I'm afraid my c and linux network driver programming knowledge is not
-good enough to dare to take up such a project.
+Actually if you read the code for ip_fast_csum it's obvious what has
+happened.  %o1 == iph->ihl contains the value 2 which is bogus.
 
-However, I would volunteer to do the dirty work, i.e. bring it to 
-linux coding style, try to clean up some #ifdef and typedef things,
-if there is someone to take it over afterwards, who will do the
-"real" work.
+[IPV4] raw: Strengthen check on validity of iph->ihl 
 
-Regards,
-Manfred
+We currently check that iph->ihl is bounded by the real length and that
+the real length is greater than the minimum IP header length.  However,
+we did not check the caes where iph->ihl is less than the minimum IP
+header length.
 
+This breaks because some ip_fast_csum implementations assume that which
+is quite reasonable.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
 -- 
-GMX FreeMail: 1 GB Postfach, 5 E-Mail-Adressen, 10 Free SMS.
-Alle Infos und kostenlose Anmeldung: http://www.gmx.net/de/go/freemail
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 66b42f5..e7050f8 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -271,6 +271,7 @@ static int raw_send_hdrinc(struct sock *sk, void *from, size_t length,
+ 	int hh_len;
+ 	struct iphdr *iph;
+ 	struct sk_buff *skb;
++	unsigned int iphlen;
+ 	int err;
+ 
+ 	if (length > rt->u.dst.dev->mtu) {
+@@ -304,7 +305,8 @@ static int raw_send_hdrinc(struct sock *sk, void *from, size_t length,
+ 		goto error_fault;
+ 
+ 	/* We don't modify invalid header */
+-	if (length >= sizeof(*iph) && iph->ihl * 4U <= length) {
++	iphlen = iph->ihl * 4;
++	if (iphlen >= sizeof(*iph) && iphlen <= length) {
+ 		if (!iph->saddr)
+ 			iph->saddr = rt->rt_src;
+ 		iph->check   = 0;
