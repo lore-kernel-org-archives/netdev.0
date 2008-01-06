@@ -1,40 +1,92 @@
-From: Andy Furniss <lists@andyfurniss.entadsl.com>
-Subject: Re: Request to include ESFQ patch
-Date: Sun, 06 Jan 2008 20:01:40 +0000
-Message-ID: <478133A4.4020903@andyfurniss.entadsl.com>
-References: <20080102155903.M66678@visp.net.lb>
-Reply-To: lists@andyfurniss.entadsl.com
+From: Ralph Spitzner <rasp@spitzner.org>
+Subject: Atheros driver
+Date: Sun, 06 Jan 2008 21:04:02 +0100
+Message-ID: <47813432.2010208@spitzner.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugfood-c@fatooh.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.ukfsn.org ([77.75.108.10]:47818 "EHLO mail.ukfsn.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752704AbYAFUdv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Jan 2008 15:33:51 -0500
-In-Reply-To: <20080102155903.M66678@visp.net.lb>
+Received: from myrna.kimmina.net ([194.29.232.114]:62355 "EHLO
+	myrna.kimmina.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752677AbYAFUfl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2008 15:35:41 -0500
+Received: from email.kimmina.net (194-29-232-115.ipberlin.com [194.29.232.115] (may be forged))
+	by myrna.kimmina.net (8.12.11.20060614/8.12.11) with ESMTP id m06K43kv012588
+	for <netdev@vger.kernel.org>; Sun, 6 Jan 2008 21:04:03 +0100 (CET)
+Received: from [10.0.68.5] (e178083137.adsl.alicedsl.de [85.178.83.137])
+	by email.kimmina.net (8.12.11/8.11.6) with ESMTP id m06MFmDY009498
+	for <netdev@vger.kernel.org>; Sun, 6 Jan 2008 23:15:48 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryshchenko wrote:
-> Hi
-> 
-> I took risk and installed ESFQ on my main backbone QoS. I found it highly 
-> useful, and very need in setup's where is more than 128 flows passing and 
-> especially where is nat available.
+With Kernel 2.6.23.12 && ath5k I get this:
+------------------------------------------------------------------
 
-I agree it will be good when it's in.
+Jan  6 20:42:44 meepmeep kernel: CPU:    0
+Jan  6 20:42:44 meepmeep kernel: EIP:    0060:[<d0d98e61>]    Not 
+tainted VLI
+Jan  6 20:42:44 meepmeep kernel: EFLAGS: 00010246   (2.6.23.12 #1)
+Jan  6 20:42:44 meepmeep kernel: EIP is at 
+ieee80211_generic_frame_duration+0x21/0x70 [mac80211]
+Jan  6 20:42:44 meepmeep kernel: eax: c2c68180   ebx: c2c68180   ecx: 
+0000000a   edx: 00000000
+Jan  6 20:42:44 meepmeep kernel: esi: 00000000   edi: 0000000a   ebp: 
+000003e8   esp: c3a03dd8
+Jan  6 20:42:44 meepmeep kernel: ds: 007b   es: 007b   fs: 0000  gs: 
+0033  ss: 0068
+Jan  6 20:42:44 meepmeep kernel: Process ifconfig (pid: 5119, 
+ti=c3a02000 task=c363c570 task.ti=c3a02000)
+Jan  6 20:42:44 meepmeep kernel: Stack: d0e7539b 00000002 0000876c 
+00000000 c4555000 d0e71c67 0000000a 1fb748ed
+Jan  6 20:42:44 meepmeep kernel:        0000006b c2c68180 00000000 
+d0e76e44 c2c68eec 00000000 00000000 00000003
+Jan  6 20:42:44 meepmeep kernel:        00000002 00000002 00000014 
+00000000 d0e76e20 c2c68de0 00000001 00000003
+Jan  6 20:42:44 meepmeep kernel: Call Trace:
+Jan  6 20:42:44 meepmeep kernel:  [<d0e7539b>] ath5k_hw_rfgain+0x4b/0x80 
+[ath5k]
+Jan  6 20:42:44 meepmeep kernel:  [<d0e71c67>] 
+ath5k_hw_reset+0xaa7/0xeb0 [ath5k]
+Jan  6 20:42:44 meepmeep kernel:  [<d0e6a766>] ath5k_init+0x46/0x110 [ath5k]
+Jan  6 20:42:44 meepmeep kernel:  [<d0d86b7c>] 
+ieee80211_open+0x19c/0x4c0 [mac80211]
+Jan  6 20:42:44 meepmeep kernel:  [<c0142235>] filemap_fault+0x1c5/0x3e0
+Jan  6 20:42:44 meepmeep kernel:  [<c06a1353>] dev_open+0x33/0x80
+Jan  6 20:42:44 meepmeep kernel:  [<c069f1a9>] dev_change_flags+0x149/0x1c0
+Jan  6 20:42:44 meepmeep kernel:  [<c06e7261>] devinet_ioctl+0x521/0x6c0
+Jan  6 20:42:44 meepmeep kernel:  [<c069efbf>] __dev_get_by_name+0x6f/0x90
+Jan  6 20:42:44 meepmeep kernel:  [<c0693f4f>] sock_ioctl+0xbf/0x230
+Jan  6 20:42:44 meepmeep kernel:  [<c0113b2b>] do_page_fault+0x18b/0x6d0
+Jan  6 20:42:44 meepmeep kernel:  [<c0693e90>] sock_ioctl+0x0/0x230
+Jan  6 20:42:44 meepmeep kernel:  [<c01682cf>] do_ioctl+0x1f/0x70
+Jan  6 20:42:44 meepmeep kernel:  [<c016837c>] vfs_ioctl+0x5c/0x260
+Jan  6 20:42:44 meepmeep kernel:  [<c01685f2>] sys_ioctl+0x72/0x90
+Jan  6 20:42:44 meepmeep kernel:  [<c0104012>] syscall_call+0x7/0xb
+Jan  6 20:42:44 meepmeep kernel:  [<c0710000>] __svc_create+0x1c0/0x1d0
+Jan  6 20:42:44 meepmeep kernel:  =======================
+Jan  6 20:42:44 meepmeep kernel: Code: 5d c3 90 8d b4 26 00 00 00 00 83 
+ec 14 89 5c 24 08 89 c3 89 74 24 0c 89 d6 89 7c 24 10
+89 cf 8b 4c 24 18 83 78 0c 02 74 31 31 d2 <8b> 86 d0 fd ff ff 89 14 24 
+89 fa 83 e0 08 89 44 24 04 89 d8 e8
+Jan  6 20:42:44 meepmeep kernel: EIP: [<d0d98e61>] 
+ieee80211_generic_frame_duration+0x21/0x70 [mac80211] SS:ESP 0068:c3a03dd8
+Jan  6 20:47:27 meepmeep kernel: ACPI: RTC can wake from S4
 
-> 
-> Here is results with overloaded class for low-priority P2P traffic customers:
-> 
+------------------------------------------------------------------
 
-*sfq was never meant for interactive traffic as such. If you really want 
-to do QOS for them you would need to (somehow) classify interactive and 
-give it prio over bulk. I know this may not be practical for your setup, 
-but what ping times users get will vary depending how many other active 
-users there are/queue length/how many tcps the user has open etc.
 
-Andy.
+Just in case someone is interested in this......
+
+
+	-rasp
+
+
+
+
+
+
+
+-- 
+"If I were you, I'd take a permanent vacation"
+	-Angels
