@@ -1,51 +1,47 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] Fix regression in ip command line processing
-Date: Sun, 6 Jan 2008 18:25:48 +0900
-Message-ID: <20080106092545.GA3172@verge.net.au>
-References: <20071226025903.GB14422@verge.net.au> <20080106035816.GA16459@us.ibm.com> <20080105.232033.240181112.davem@davemloft.net>
+From: "Rami Rosen" <ramirose@gmail.com>
+Subject: [PATCH net-2.6.25] [IPV4] Remove unused member of dst_entry
+Date: Sun, 6 Jan 2008 12:15:35 +0200
+Message-ID: <eb3ff54b0801060215g55cf862ja793400f060b9e34@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: apw@us.ibm.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, akpm@osdl.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed;
+	boundary="----=_Part_8410_8382154.1199614535366"
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:52161 "EHLO koto.vergenet.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751174AbYAFJZy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Jan 2008 04:25:54 -0500
-Content-Disposition: inline
-In-Reply-To: <20080105.232033.240181112.davem@davemloft.net>
+Received: from fg-out-1718.google.com ([72.14.220.154]:40592 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751480AbYAFKPi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2008 05:15:38 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so4021834fga.17
+        for <netdev@vger.kernel.org>; Sun, 06 Jan 2008 02:15:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 05, 2008 at 11:20:33PM -0800, David Miller wrote:
-> From: Amos Waterland <apw@us.ibm.com>
-> Date: Sat, 5 Jan 2008 22:58:16 -0500
-> 
-> > ADDRESS ASSIGNED
-> > 
-> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=on"
-> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=dhcp"
-> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=both"
-> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=any"
-> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=::::::on"
-> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=::::::dhcp"
-> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=10.0.2.15::10.0.2.2:255.255.255.0::eth0:off"
-> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=10.0.2.15::10.0.2.2:255.255.255.0::eth0:on"
-> > 
-> > ADDRESS NOT ASSIGNED
-> > 
-> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip="
-> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=off"
-> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=::::::off"
-> 
-> I really wish Simon had tested his original patch as extensively
-> as you have, this is the second major regression it has caused.
-> :-/
+------=_Part_8410_8382154.1199614535366
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Ok, this time around its an issue with my understainding of how things
-are supposed to work. But sorry none the less.
+Hi,
+	
+  The info placeholder member of dst_entry seems to be unused in the
+network stack.
+	
+Regards,
+Rami Rosen
 
--- 
-Horms
 
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+
+------=_Part_8410_8382154.1199614535366
+Content-Type: text/plain; name=patch.txt
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fb3f2om20
+Content-Disposition: attachment; filename=patch.txt
+
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2RzdC5oIGIvaW5jbHVkZS9uZXQvZHN0LmgKaW5kZXgg
+MzE0NjhjOS4uZTAzZWEwYyAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvZHN0LmgKKysrIGIvaW5j
+bHVkZS9uZXQvZHN0LmgKQEAgLTgwLDcgKzgwLDYgQEAgc3RydWN0IGRzdF9lbnRyeQogCQlzdHJ1
+Y3QgcnQ2X2luZm8gICAqcnQ2X25leHQ7CiAJCXN0cnVjdCBkbl9yb3V0ZSAgKmRuX25leHQ7CiAJ
+fTsKLQljaGFyCQkJaW5mb1swXTsKIH07CiAKIAo=
+------=_Part_8410_8382154.1199614535366--
