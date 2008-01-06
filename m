@@ -1,56 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] METH: fix MAC address handling
-Date: Sun, 06 Jan 2008 00:23:05 -0800 (PST)
-Message-ID: <20080106.002305.99653155.davem@davemloft.net>
-References: <20080105224842.78EDCC2EFB@solo.franken.de>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: 2.6.24-rc6-mm1
+Date: Sun, 6 Jan 2008 09:27:40 +0100
+Message-ID: <20080106082740.GA3117@ami.dom.local>
+References: <64bb37e0801040223q17a76565k3c7667a197403ce5@mail.gmail.com> <20080104133031.GA3329@ff.dom.local> <64bb37e0801040721p57ff3d54wc3de00546d1d2ff1@mail.gmail.com> <20080105000700.GA3224@ami.dom.local> <64bb37e0801050001x65b104bdl5a68c731b3656d17@mail.gmail.com> <20080105101327.GA3103@ami.dom.local> <64bb37e0801050652t7568e438uf93208601df84ef6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
-	ralf@linux-mips.org, jgarzik@pobox.com
-To: tsbogend@alpha.franken.de
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, Neil Brown <neilb@suse.de>,
+	"J. Bruce Fields" <bfields@fieldses.org>, netdev@vger.kernel.org,
+	Tom Tucker <tom@opengridcomputing.com>
+To: Torsten Kaiser <just.for.lkml@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34087
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750728AbYAFIXG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2008 03:23:06 -0500
-In-Reply-To: <20080105224842.78EDCC2EFB@solo.franken.de>
+Received: from fg-out-1718.google.com ([72.14.220.155]:65229 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751817AbYAFIZB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2008 03:25:01 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so4003888fga.17
+        for <netdev@vger.kernel.org>; Sun, 06 Jan 2008 00:25:00 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <64bb37e0801050652t7568e438uf93208601df84ef6@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Date: Sat,  5 Jan 2008 23:48:42 +0100 (CET)
-
-> meth didn't set a valid mac address during probing, but later during
-> open. Newer kernel refuse to open device with 00:00:00:00:00:00 as
-> mac address -> dead ethernet. This patch sets the mac address in
-> the probe function and uses only the mac address from the netdevice
-> struct when setting up the hardware.
+On Sat, Jan 05, 2008 at 03:52:32PM +0100, Torsten Kaiser wrote:
+...
+> So my personal conclusion would be, that someone is writing to memory
+> that he no longer owns. Most probably 0-bytes. (the complete_routine
+> got NULLed and the warning about dst->__refcnt being 0).
 > 
-> Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+> Use-after-free or something else?
 
-Applied, thanks.
+I agree: your conclusion seems to be the most probable explanation for
+this. Then it could be really hard to solve this without bisection or
+something similar. But there is some probabability this something could
+try kfree later too, but simply this list debugging triggers earlier.
 
-> +	u64 macaddr;
->  
-> -	for (i = 0; i < 6; i++)
-> -		dev->dev_addr[i] = o2meth_eaddr[i];
->  	DPRINTK("Loading MAC Address: %s\n", print_mac(mac, dev->dev_addr));
-> -	mace->eth.mac_addr = (*(unsigned long*)o2meth_eaddr) >> 16;
-> +	macaddr = 0;
-> +	for (i = 0; i < 6; i++)
-> +		macaddr |= dev->dev_addr[i] << ((5 - i) * 8);
-> +
-> +	mace->eth.mac_addr = macaddr;
->  }
->  
->  /*
+> > > If you think some other slub_debug might catch it, I would try this...
 
-Can you double-check that this conversion is equivalent.
+You can try to add "U" to these other slub_debug options. As a matter
+of fact, if your above diagnose is right, it seems you risk to damage
+your system or even the box with these tests, so if you want to
+continue, you should probably turn any possible debugging on (not in
+mm only).
 
-I know that this whole driver is full of assumptions about
-the endianness of the system this chip is found on, so
-I'm only interested in if the transformation is equivalent
-and the driver will keep working properly.
+BTW, you've written that some debugging options seem to delay the bug.
+Since they often change sizes of some structures than such wrong
+writes could have some 'safer' offsets. So, this could really delay
+e.g. these list's bugs, but maybe this could also let to stay 'alive'
+to such wrong kfree?
 
-Thanks.
+Cheers,
+Jarek P.
