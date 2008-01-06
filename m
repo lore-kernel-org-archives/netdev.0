@@ -1,54 +1,51 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: 2.6.24-rc6-mm1
-Date: Sun, 6 Jan 2008 09:27:40 +0100
-Message-ID: <20080106082740.GA3117@ami.dom.local>
-References: <64bb37e0801040223q17a76565k3c7667a197403ce5@mail.gmail.com> <20080104133031.GA3329@ff.dom.local> <64bb37e0801040721p57ff3d54wc3de00546d1d2ff1@mail.gmail.com> <20080105000700.GA3224@ami.dom.local> <64bb37e0801050001x65b104bdl5a68c731b3656d17@mail.gmail.com> <20080105101327.GA3103@ami.dom.local> <64bb37e0801050652t7568e438uf93208601df84ef6@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] Fix regression in ip command line processing
+Date: Sun, 6 Jan 2008 18:25:48 +0900
+Message-ID: <20080106092545.GA3172@verge.net.au>
+References: <20071226025903.GB14422@verge.net.au> <20080106035816.GA16459@us.ibm.com> <20080105.232033.240181112.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, Neil Brown <neilb@suse.de>,
-	"J. Bruce Fields" <bfields@fieldses.org>, netdev@vger.kernel.org,
-	Tom Tucker <tom@opengridcomputing.com>
-To: Torsten Kaiser <just.for.lkml@googlemail.com>
+Cc: apw@us.ibm.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, akpm@osdl.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:65229 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751817AbYAFIZB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2008 03:25:01 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so4003888fga.17
-        for <netdev@vger.kernel.org>; Sun, 06 Jan 2008 00:25:00 -0800 (PST)
+Received: from koto.vergenet.net ([210.128.90.7]:52161 "EHLO koto.vergenet.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751174AbYAFJZy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Jan 2008 04:25:54 -0500
 Content-Disposition: inline
-In-Reply-To: <64bb37e0801050652t7568e438uf93208601df84ef6@mail.gmail.com>
+In-Reply-To: <20080105.232033.240181112.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 05, 2008 at 03:52:32PM +0100, Torsten Kaiser wrote:
-...
-> So my personal conclusion would be, that someone is writing to memory
-> that he no longer owns. Most probably 0-bytes. (the complete_routine
-> got NULLed and the warning about dst->__refcnt being 0).
+On Sat, Jan 05, 2008 at 11:20:33PM -0800, David Miller wrote:
+> From: Amos Waterland <apw@us.ibm.com>
+> Date: Sat, 5 Jan 2008 22:58:16 -0500
 > 
-> Use-after-free or something else?
+> > ADDRESS ASSIGNED
+> > 
+> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=on"
+> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=dhcp"
+> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=both"
+> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=any"
+> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=::::::on"
+> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=::::::dhcp"
+> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=10.0.2.15::10.0.2.2:255.255.255.0::eth0:off"
+> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=10.0.2.15::10.0.2.2:255.255.255.0::eth0:on"
+> > 
+> > ADDRESS NOT ASSIGNED
+> > 
+> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip="
+> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=off"
+> > qemu -kernel x86/arch/i386/boot/bzImage /dev/zero -append "ip=::::::off"
+> 
+> I really wish Simon had tested his original patch as extensively
+> as you have, this is the second major regression it has caused.
+> :-/
 
-I agree: your conclusion seems to be the most probable explanation for
-this. Then it could be really hard to solve this without bisection or
-something similar. But there is some probabability this something could
-try kfree later too, but simply this list debugging triggers earlier.
+Ok, this time around its an issue with my understainding of how things
+are supposed to work. But sorry none the less.
 
-> > > If you think some other slub_debug might catch it, I would try this...
+-- 
+Horms
 
-You can try to add "U" to these other slub_debug options. As a matter
-of fact, if your above diagnose is right, it seems you risk to damage
-your system or even the box with these tests, so if you want to
-continue, you should probably turn any possible debugging on (not in
-mm only).
-
-BTW, you've written that some debugging options seem to delay the bug.
-Since they often change sizes of some structures than such wrong
-writes could have some 'safer' offsets. So, this could really delay
-e.g. these list's bugs, but maybe this could also let to stay 'alive'
-to such wrong kfree?
-
-Cheers,
-Jarek P.
