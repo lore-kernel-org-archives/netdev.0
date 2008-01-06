@@ -1,47 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: sparc oops in ip_fast_csum
-Date: Sun, 6 Jan 2008 15:14:30 +1100
-Message-ID: <20080106041430.GA3784@gondor.apana.org.au>
-References: <20080105094400.GH27894@ZenIV.linux.org.uk> <E1JBJHA-0000hy-00@gondolin.me.apana.org.au> <20080106020214.GQ27894@ZenIV.linux.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: NAPI poll behavior in various Intel drivers
+Date: Sat, 05 Jan 2008 20:15:49 -0800 (PST)
+Message-ID: <20080105.201549.184458758.davem@davemloft.net>
+References: <477ECCD7.8090905@katalix.com>
+	<20080104.232504.238436937.davem@davemloft.net>
+	<p738x348kpq.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: m.kozlowski@tuxland.pl, davem@davemloft.net,
-	sparclinux@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: Al Viro <viro@ZenIV.linux.org.uk>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jchapman@katalix.com, netdev@vger.kernel.org,
+	auke-jan.h.kok@intel.com
+To: andi@firstfloor.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4732 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753211AbYAFEOo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2008 23:14:44 -0500
-Content-Disposition: inline
-In-Reply-To: <20080106020214.GQ27894@ZenIV.linux.org.uk>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60059
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753479AbYAFEPu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2008 23:15:50 -0500
+In-Reply-To: <p738x348kpq.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 06, 2008 at 02:02:14AM +0000, Al Viro wrote:
-> 
-> E.g. what about ipt_REJECT.c::send_reset()?  Or myri10ge_get_frag_header()?
+From: Andi Kleen <andi@firstfloor.org>
+Date: Sat, 05 Jan 2008 14:29:05 +0100
 
-Yes both look wrong.
+> In 2.4 we used to have (haven't checked recently) performance regressions
+> with NAPI vs non NAPI (or versus the old BCM vendor driver) on tg3 for
+> some workloads that didn't fully fill the link. The theory was always
+> that the reason for that was something like the regular switching in
+> and out. So I think we saw that problem on tg3 too.
 
-Patrick, please have a look at the former.  In fact it's not just
-that ihl may be bogus (which might be harmless as long as the REJECT
-hook only gets called from within the IP stack), I think REJECT would
-also do the wrong thing if the packet had IP options.  So perhaps we
-should just make it create a packet from scratch rather than being
-too clever in reusing the old one.
-
-As to LRO, I must say it was a pretty shoddy job.  Now I can't complain
-too much because I wasn't able to spend any time in 2007 working on it.
-But it's definitely high on my todo list for 2008.
-
-Oh and Al, your effort in going through all the ip_fast_csum callers
-is much appreciated!
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+It was because we originally didn't program the HW interrupt
+mitigation settings at all when using NAPI, now we do and the problem
+is long gone.
