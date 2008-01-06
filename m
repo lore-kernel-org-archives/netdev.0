@@ -1,51 +1,105 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
+From: "Torsten Kaiser" <just.for.lkml@googlemail.com>
 Subject: Re: 2.6.24-rc6-mm1
-Date: Sun, 6 Jan 2008 15:52:27 +0100
-Message-ID: <20080106145227.GB3117@ami.dom.local>
-References: <64bb37e0801040223q17a76565k3c7667a197403ce5@mail.gmail.com> <20080104133031.GA3329@ff.dom.local> <64bb37e0801040721p57ff3d54wc3de00546d1d2ff1@mail.gmail.com> <20080105000700.GA3224@ami.dom.local> <64bb37e0801050001x65b104bdl5a68c731b3656d17@mail.gmail.com> <20080105101327.GA3103@ami.dom.local> <64bb37e0801050652t7568e438uf93208601df84ef6@mail.gmail.com> <20080106082740.GA3117@ami.dom.local> <64bb37e0801060230x6b392542la9556d72a184f306@mail.gmail.com>
+Date: Sun, 6 Jan 2008 21:03:42 +0100
+Message-ID: <64bb37e0801061203l503f29f0hd922a1347f8169ac@mail.gmail.com>
+References: <64bb37e0801060241o2c6d8172r73b69291fce76ce1@mail.gmail.com>
+	 <20080106202616Z.tomof@acm.org>
+	 <64bb37e0801060335k4afb3134u9c6fadb57d525dc5@mail.gmail.com>
+	 <20080106223650E.tomof@acm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, Neil Brown <neilb@suse.de>,
-	"J. Bruce Fields" <bfields@fieldses.org>, netdev@vger.kernel.org,
-	Tom Tucker <tom@opengridcomputing.com>
-To: Torsten Kaiser <just.for.lkml@googlemail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, jarkao2@gmail.com,
+	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
+	neilb@suse.de, bfields@fieldses.org, netdev@vger.kernel.org,
+	tom@opengridcomputing.com, fujita.tomonori@lab.ntt.co.jp
+To: "FUJITA Tomonori" <tomof@acm.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.187]:31065 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760039AbYAFOq7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2008 09:46:59 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so8017038fkz.5
-        for <netdev@vger.kernel.org>; Sun, 06 Jan 2008 06:46:55 -0800 (PST)
+Received: from py-out-1112.google.com ([64.233.166.178]:41784 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752823AbYAFUDo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2008 15:03:44 -0500
+Received: by py-out-1112.google.com with SMTP id u52so12183834pyb.10
+        for <netdev@vger.kernel.org>; Sun, 06 Jan 2008 12:03:43 -0800 (PST)
+In-Reply-To: <20080106223650E.tomof@acm.org>
 Content-Disposition: inline
-In-Reply-To: <64bb37e0801060230x6b392542la9556d72a184f306@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 06, 2008 at 11:30:48AM +0100, Torsten Kaiser wrote:
-...
-> I think this bug is highly timing dependent. Its not always the same
-> package that dies and as this is a SMP system I would guess two CPUs
-> using the same data will trigger this.
-> And using the poison-option will definitily slow the system down and
-> mess up the timings.
+On Jan 6, 2008 2:33 PM, FUJITA Tomonori <tomof@acm.org> wrote:
+> On Sun, 6 Jan 2008 12:35:35 +0100
+> "Torsten Kaiser" <just.for.lkml@googlemail.com> wrote:
+> > On Jan 6, 2008 12:23 PM, FUJITA Tomonori <tomof@acm.org> wrote:
+> > > On Sun, 6 Jan 2008 11:41:10 +0100
+> > > "Torsten Kaiser" <just.for.lkml@googlemail.com> wrote:
+> > > > I will applie your patch and see if this hunk from
+> > > > find_next_zero_area() makes a difference:
+> > > >
+> > > >        end = index + nr;
+> > > > -       if (end > size)
+> > > > +       if (end >= size)
+> > > >                 return -1;
 
-Of course it looks like using the same data, but it seems there is no
-reason to think it needs the same time: e.g. some timer or workqueue
-could retrigger after it's supposed to be killed. Any additional
-debugging/poisonning might help to see it earlier, so this should be
-safer for your system, but, most probably this would show data from
-the damaged side, so not necessarily very helpful.
+-> that might still have made a difference, but ...
 
-> What also speaks against the 'safer' offsets is, that after adding my
-> notfreed-byte to skbuff the bug still triggered in the same way.
+> > > > -       for (i = index + 1; i < end; i++) {
+> > > > +       for (i = index; i < end; i++) {
 
-We are not even sure skbuffs were directly affected by this or they
-were incorrectly freed because of other structures beeing damaged?
+... as you say below, the test for the index position is only needed
+if index is modified after find_next_zero_bit().
 
-IMHO, e.g. starting your system with limited memory should cause
-faster memory reclaiming, and thus more often triggering of these bugs,
-but of course I can be wrong.
+> > > >                 if (test_bit(i, map)) {
+> > >
+> > > The patch should not make a difference for X86_64.
+> >
+> > Hmm...
+> > arch/x86/kernel/pci-gart_64.c:
+> > alloc_iommu() calls iommu_area_alloc()
+> > lib/iommu-helper.c:
+> > iommu_area_alloc() calls find_next_zero_area()
+> > -> so the above code should be called even on X86_64
+>
+> Oops, I meant that the patch fixes the align allocation (non zero
+> align_mask case). X86_64 doesn't use the align allocation.
+>
+>
+> > And the change in the for loop means that 'index' will now be tested,
+> > but with the old code it was not.
+>
+> With the old code, 'index' is tested by find_next_zero_bit.
+>
+> With the new code and non zero align_mask case, 'index' is not tested
+> by find_next_zero_bit. So test_bit needs to start with 'index'.
+>
+> So If I understand the correctly, this patch should not make a
+> difference for x86_64 though I might miss something.
 
-Jarek P.
+You did not miss anything.
+After 18 packages my system crashed again.
+
+> > And double using something does fit with the errors I'm seeing...
+> >
+> > > Can you try the patch to revert my IOMMU changes?
+> > >
+> > > http://www.mail-archive.com/linux-scsi@vger.kernel.org/msg12694.html
+> >
+> > Testing for this bug is a little bit slow, as I'm compiling ~100
+> > packages trying to trigger it.
+> > If my current testrun with the patch from
+> > http://www.mail-archive.com/linux-scsi@vger.kernel.org/msg12702.html
+> > crashes, I will revert the hole IOMMU changes with above patch and try again.
+>
+> Thanks for testing,
+
+OK, I'm still testing this, but after 95 completed packages I'm rather
+certain that reverting the IOMMU changes with this patch fixes my
+problem.
+I didn't have time to look more into this, so I can't offer any
+concrete ideas where the bug is.
+
+If you send more patches, I'm willing to test them, but it might take
+some more time during the next week.
+
+Thanks for looking into this.
+
+Torsten
