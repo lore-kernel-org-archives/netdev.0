@@ -1,40 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/4] [XFRM]: Kill some bloat
-Date: Sun, 06 Jan 2008 11:29:35 +1100
-Message-ID: <E1JBJOR-0000jO-00@gondolin.me.apana.org.au>
-References: <1199540349385-git-send-email-ilpo.jarvinen@helsinki.fi>
-Cc: davem@davemloft.net, netdev@vger.kernel.org, acme@redhat.com,
-	ilpo.jarvinen@helsinki.fi, paul.moore@hp.com, latten@us.ibm.com
-To: ilpo.jarvinen@helsinki.fi (Ilpo J??rvinen)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2637 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753862AbYAFA3s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2008 19:29:48 -0500
-In-Reply-To: <1199540349385-git-send-email-ilpo.jarvinen@helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jan Engelhardt <jengelh@computergmbh.de>
+Subject: Re: sparc oops in ip_fast_csum
+Date: Sun, 6 Jan 2008 01:57:13 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0801060156410.14194@fbirervta.pbzchgretzou.qr>
+References: <E1JBJHA-0000hy-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Al Viro <viro@ZenIV.linux.org.uk>, m.kozlowski@tuxland.pl,
+	davem@davemloft.net, sparclinux@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757651AbYAFA51@vger.kernel.org>
+In-Reply-To: <E1JBJHA-0000hy-00@gondolin.me.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi> wrote:
->
-> Signed-off-by: Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi>
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+On Jan 6 2008 11:22, Herbert Xu wrote:
+>@@ -271,6 +271,7 @@ static int raw_send_hdrinc(struct sock *sk, void *from, size_t length,
+> 	int hh_len;
+> 	struct iphdr *iph;
+> 	struct sk_buff *skb;
+>+	unsigned int iphlen;
+> 	int err;
+> 
+> 	if (length > rt->u.dst.dev->mtu) {
+>@@ -304,7 +305,8 @@ static int raw_send_hdrinc(struct sock *sk, void *from, size_t length,
+> 		goto error_fault;
+> 
+> 	/* We don't modify invalid header */
+>-	if (length >= sizeof(*iph) && iph->ihl * 4U <= length) {
+>+	iphlen = iph->ihl * 4;
+>+	if (iphlen >= sizeof(*iph) && iphlen <= length) {
 
-> #ifdef CONFIG_AUDITSYSCALL
-> -static inline void xfrm_audit_helper_sainfo(struct xfrm_state *x,
-> -                                           struct audit_buffer *audit_buf)
-> +static void xfrm_audit_helper_sainfo(struct xfrm_state *x,
-> +                                    struct audit_buffer *audit_buf)
-
-We should never use inline except when it's on the fast path and this
-is definitely not a fast path.  If a function ends up being called
-just once the compiler will most likely inline it anyway, making the
-use of the keyword inline redundant.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Humm, this could use ip_hdrlen(skb) :-)
