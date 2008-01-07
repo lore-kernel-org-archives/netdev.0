@@ -1,110 +1,117 @@
 From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: make ipv6_sysctl_register to return a value
-Date: Mon, 07 Jan 2008 21:39:07 +0100
-Message-ID: <47828DEB.9070301@fr.ibm.com>
+Subject: [PATCH net-2.6.25][NETNS][IPV6] make a subsystem for af_inet6
+Date: Mon, 07 Jan 2008 21:44:36 +0100
+Message-ID: <47828F34.6020101@fr.ibm.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------030407040100080104070003"
+ boundary="------------070809070405030702060302"
 Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.uk.ibm.com ([195.212.29.137]:20469 "EHLO
-	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756576AbYAGUso (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 15:48:44 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate4.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m07KmhJr039962
-	for <netdev@vger.kernel.org>; Mon, 7 Jan 2008 20:48:43 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m07Kmhpm4874448
-	for <netdev@vger.kernel.org>; Mon, 7 Jan 2008 20:48:43 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m07KmUHf007756
-	for <netdev@vger.kernel.org>; Mon, 7 Jan 2008 20:48:30 GMT
+Received: from mtagate6.de.ibm.com ([195.212.29.155]:36514 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758350AbYAGUxl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 15:53:41 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate6.de.ibm.com (8.13.8/8.13.8) with ESMTP id m07KremG124864
+	for <netdev@vger.kernel.org>; Mon, 7 Jan 2008 20:53:40 GMT
+Received: from d12av03.megacenter.de.ibm.com (d12av03.megacenter.de.ibm.com [9.149.165.213])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m07KrecF3022954
+	for <netdev@vger.kernel.org>; Mon, 7 Jan 2008 21:53:40 +0100
+Received: from d12av03.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m07KrdY2028855
+	for <netdev@vger.kernel.org>; Mon, 7 Jan 2008 21:53:40 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------030407040100080104070003
+--------------070809070405030702060302
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
 
---------------030407040100080104070003
+
+
+
+
+
+--------------070809070405030702060302
 Content-Type: text/x-patch;
- name="ipv6-sysctl-register-return-value.patch"
+ name="make-af-inet6-a-subsystem.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="ipv6-sysctl-register-return-value.patch"
+ filename="make-af-inet6-a-subsystem.patch"
 
-Subject: make ipv6_sysctl_register to return a value
+Subject: make a subsystem for af_inet6
 From: Daniel Lezcano <dlezcano@fr.ibm.com>
 
-This patch makes the function ipv6_sysctl_register to return a
-value. The af_inet6 init function is now able to handle an error
-and catch it from the initialization of the sysctl.
+This patch add a network namespace subsystem for the af_inet6 module. 
+It does nothing right now, but one of its purpose is to receive the 
+different variables for sysctl in order to initialize them.
+
+When the sysctl variable will be moved to the network namespace structure,
+they will be no longer initialized as global static variables, so we must
+find a place to initialize them. Because the sysctl can be disabled, it 
+has no sense to store them in the sysctl_net_ipv6 file.
 
 Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 ---
- include/net/ipv6.h         |    2 +-
- net/ipv6/af_inet6.c        |    5 ++++-
- net/ipv6/sysctl_net_ipv6.c |    6 +++++-
- 3 files changed, 10 insertions(+), 3 deletions(-)
+ net/ipv6/af_inet6.c |   22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
 
-Index: net-2.6.25/include/net/ipv6.h
-===================================================================
---- net-2.6.25.orig/include/net/ipv6.h
-+++ net-2.6.25/include/net/ipv6.h
-@@ -620,7 +620,7 @@ static inline int snmp6_unregister_dev(s
- extern ctl_table ipv6_route_table[];
- extern ctl_table ipv6_icmp_table[];
- 
--extern void ipv6_sysctl_register(void);
-+extern int ipv6_sysctl_register(void);
- extern void ipv6_sysctl_unregister(void);
- #endif
- 
 Index: net-2.6.25/net/ipv6/af_inet6.c
 ===================================================================
 --- net-2.6.25.orig/net/ipv6/af_inet6.c
 +++ net-2.6.25/net/ipv6/af_inet6.c
-@@ -783,7 +783,9 @@ static int __init inet6_init(void)
- 	 */
- 
- #ifdef CONFIG_SYSCTL
--	ipv6_sysctl_register();
-+	err = ipv6_sysctl_register();
-+	if (err)
-+		goto sysctl_fail;
- #endif
- 	err = icmpv6_init(&inet6_family_ops);
- 	if (err)
-@@ -897,6 +899,7 @@ ndisc_fail:
- icmp_fail:
- #ifdef CONFIG_SYSCTL
- 	ipv6_sysctl_unregister();
-+sysctl_fail:
- #endif
- 	cleanup_ipv6_mibs();
- out_unregister_sock:
-Index: net-2.6.25/net/ipv6/sysctl_net_ipv6.c
-===================================================================
---- net-2.6.25.orig/net/ipv6/sysctl_net_ipv6.c
-+++ net-2.6.25/net/ipv6/sysctl_net_ipv6.c
-@@ -90,9 +90,13 @@ static struct ctl_path ipv6_ctl_path[] =
- 
- static struct ctl_table_header *ipv6_sysctl_header;
- 
--void ipv6_sysctl_register(void)
-+int ipv6_sysctl_register(void)
- {
- 	ipv6_sysctl_header = register_sysctl_paths(ipv6_ctl_path, ipv6_table);
-+	if (!ipv6_sysctl_header)
-+		return -ENOMEM;
-+
-+	return 0;
+@@ -719,6 +719,21 @@ static void cleanup_ipv6_mibs(void)
+ 	snmp_mib_free((void **)udplite_stats_in6);
  }
  
- void ipv6_sysctl_unregister(void)
++static int inet6_net_init(struct net *net)
++{
++	return 0;
++}
++
++static void inet6_net_exit(struct net *net)
++{
++	return;
++}
++
++static struct pernet_operations inet6_net_ops = {
++	.init = inet6_net_init,
++	.exit = inet6_net_exit,
++};
++
+ static int __init inet6_init(void)
+ {
+ 	struct sk_buff *dummy_skb;
+@@ -782,6 +797,10 @@ static int __init inet6_init(void)
+ 	 *	able to communicate via both network protocols.
+ 	 */
+ 
++	err = register_pernet_subsys(&inet6_net_ops);
++	if (err)
++		goto register_pernet_fail;
++
+ #ifdef CONFIG_SYSCTL
+ 	ipv6_sysctl_register();
+ #endif
+@@ -898,6 +917,8 @@ icmp_fail:
+ #ifdef CONFIG_SYSCTL
+ 	ipv6_sysctl_unregister();
+ #endif
++	unregister_pernet_subsys(&inet6_net_ops);
++register_pernet_fail:
+ 	cleanup_ipv6_mibs();
+ out_unregister_sock:
+ 	sock_unregister(PF_INET6);
+@@ -953,6 +974,7 @@ static void __exit inet6_exit(void)
+ #ifdef CONFIG_SYSCTL
+ 	ipv6_sysctl_unregister();
+ #endif
++	unregister_pernet_subsys(&inet6_net_ops);
+ 	cleanup_ipv6_mibs();
+ 	proto_unregister(&rawv6_prot);
+ 	proto_unregister(&udplitev6_prot);
 
---------------030407040100080104070003--
+--------------070809070405030702060302--
