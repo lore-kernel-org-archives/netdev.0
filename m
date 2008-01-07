@@ -1,88 +1,114 @@
-From: Dave Young <hidave.darkstar@gmail.com>
-Subject: [PATCH] bluetooth : rfcomm tty BUG_ON() code fix
-Date: Mon, 7 Jan 2008 13:41:22 +0800
-Message-ID: <20080107054122.GA4502@darkstar.te-china.tietoenator.com>
-Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Subject: Re: 2.6.24-rc6-mm1
+Date: Mon, 07 Jan 2008 15:16:39 +0900
+Message-ID: <20080107151639P.fujita.tomonori@lab.ntt.co.jp>
+References: <64bb37e0801060335k4afb3134u9c6fadb57d525dc5@mail.gmail.com>
+	<20080106223650E.tomof@acm.org>
+	<64bb37e0801061203l503f29f0hd922a1347f8169ac@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bluez-devel@lists.sourceforge.net,
-	davem@davemloft.net, linux-kernel@vger.kernel.org
-To: marcel@holtmann.org
-Return-path: <bluez-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=bluez-devel>
-List-Post: <mailto:bluez-devel@lists.sourceforge.net>
-List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: bluez-devel-bounces@lists.sourceforge.net
-Errors-To: bluez-devel-bounces@lists.sourceforge.net
+Cc: tomof@acm.org, akpm@linux-foundation.org, jarkao2@gmail.com,
+	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
+	neilb@suse.de, bfields@fieldses.org, netdev@vger.kernel.org,
+	tom@opengridcomputing.com, fujita.tomonori@lab.ntt.co.jp
+To: just.for.lkml@googlemail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755316AbYAGGSI@vger.kernel.org>
+In-Reply-To: <64bb37e0801061203l503f29f0hd922a1347f8169ac@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-1) In tty.c the BUG_ON at line 115 will never be called, because the the before list_del_init in this same function.
- 115          BUG_ON(!list_empty(&dev->list));
-So move the list_del_init to rfcomm_dev_del 
+On Sun, 6 Jan 2008 21:03:42 +0100
+"Torsten Kaiser" <just.for.lkml@googlemail.com> wrote:
 
-2) The rfcomm_dev_del could be called from diffrent path (rfcomm_tty_hangup/rfcomm_dev_state_change/rfcomm_release_dev),
-So add another BUG_ON when the rfcomm_dev_del is called more than one time.
+> On Jan 6, 2008 2:33 PM, FUJITA Tomonori <tomof@acm.org> wrote:
+> > On Sun, 6 Jan 2008 12:35:35 +0100
+> > "Torsten Kaiser" <just.for.lkml@googlemail.com> wrote:
+> > > On Jan 6, 2008 12:23 PM, FUJITA Tomonori <tomof@acm.org> wrote:
+> > > > On Sun, 6 Jan 2008 11:41:10 +0100
+> > > > "Torsten Kaiser" <just.for.lkml@googlemail.com> wrote:
+> > > > > I will applie your patch and see if this hunk from
+> > > > > find_next_zero_area() makes a difference:
+> > > > >
+> > > > >        end = index + nr;
+> > > > > -       if (end > size)
+> > > > > +       if (end >= size)
+> > > > >                 return -1;
+> 
+> -> that might still have made a difference, but ...
+> 
+> > > > > -       for (i = index + 1; i < end; i++) {
+> > > > > +       for (i = index; i < end; i++) {
+> 
+> ... as you say below, the test for the index position is only needed
+> if index is modified after find_next_zero_bit().
+> 
+> > > > >                 if (test_bit(i, map)) {
+> > > >
+> > > > The patch should not make a difference for X86_64.
+> > >
+> > > Hmm...
+> > > arch/x86/kernel/pci-gart_64.c:
+> > > alloc_iommu() calls iommu_area_alloc()
+> > > lib/iommu-helper.c:
+> > > iommu_area_alloc() calls find_next_zero_area()
+> > > -> so the above code should be called even on X86_64
+> >
+> > Oops, I meant that the patch fixes the align allocation (non zero
+> > align_mask case). X86_64 doesn't use the align allocation.
+> >
+> >
+> > > And the change in the for loop means that 'index' will now be tested,
+> > > but with the old code it was not.
+> >
+> > With the old code, 'index' is tested by find_next_zero_bit.
+> >
+> > With the new code and non zero align_mask case, 'index' is not tested
+> > by find_next_zero_bit. So test_bit needs to start with 'index'.
+> >
+> > So If I understand the correctly, this patch should not make a
+> > difference for x86_64 though I might miss something.
+> 
+> You did not miss anything.
+> After 18 packages my system crashed again.
+> 
+> > > And double using something does fit with the errors I'm seeing...
+> > >
+> > > > Can you try the patch to revert my IOMMU changes?
+> > > >
+> > > > http://www.mail-archive.com/linux-scsi@vger.kernel.org/msg12694.html
+> > >
+> > > Testing for this bug is a little bit slow, as I'm compiling ~100
+> > > packages trying to trigger it.
+> > > If my current testrun with the patch from
+> > > http://www.mail-archive.com/linux-scsi@vger.kernel.org/msg12702.html
+> > > crashes, I will revert the hole IOMMU changes with above patch and try again.
+> >
+> > Thanks for testing,
+> 
+> OK, I'm still testing this, but after 95 completed packages I'm rather
+> certain that reverting the IOMMU changes with this patch fixes my
+> problem.
+> I didn't have time to look more into this, so I can't offer any
+> concrete ideas where the bug is.
+> 
+> If you send more patches, I'm willing to test them, but it might take
+> some more time during the next week.
 
-Signed-off-by: Dave Young <hidave.darkstar@gmail.com> 
+Can you try 2.6.24-rc7 + the IOMMU changes?
 
----
-net/bluetooth/rfcomm/tty.c |   22 +++++++++++++---------
-1 file changed, 13 insertions(+), 9 deletions(-)
+The patches are available at:
 
-diff -upr linux/net/bluetooth/rfcomm/tty.c linux.new/net/bluetooth/rfcomm/tty.c
---- linux/net/bluetooth/rfcomm/tty.c	2008-01-07 13:20:17.000000000 +0800
-+++ linux.new/net/bluetooth/rfcomm/tty.c	2008-01-07 13:25:17.000000000 +0800
-@@ -95,9 +95,10 @@ static void rfcomm_dev_destruct(struct r
- 
- 	BT_DBG("dev %p dlc %p", dev, dlc);
- 
--	write_lock_bh(&rfcomm_dev_lock);
--	list_del_init(&dev->list);
--	write_unlock_bh(&rfcomm_dev_lock);
-+	/* Refcount should only hit zero when called from rfcomm_dev_del()
-+	   which will have taken us off the list. Everything else are
-+	   refcounting bugs. */
-+	BUG_ON(!list_empty(&dev->list));
- 
- 	rfcomm_dlc_lock(dlc);
- 	/* Detach DLC if it's owned by this dev */
-@@ -109,11 +110,6 @@ static void rfcomm_dev_destruct(struct r
- 
- 	tty_unregister_device(rfcomm_tty_driver, dev->id);
- 
--	/* Refcount should only hit zero when called from rfcomm_dev_del()
--	   which will have taken us off the list. Everything else are
--	   refcounting bugs. */
--	BUG_ON(!list_empty(&dev->list));
--
- 	kfree(dev);
- 
- 	/* It's safe to call module_put() here because socket still
-@@ -313,7 +309,15 @@ static void rfcomm_dev_del(struct rfcomm
- {
- 	BT_DBG("dev %p", dev);
- 
--	set_bit(RFCOMM_TTY_RELEASED, &dev->flags);
-+	if (test_bit(RFCOMM_TTY_RELEASED, &dev->flags))
-+		BUG_ON(1);
-+	else
-+		set_bit(RFCOMM_TTY_RELEASED, &dev->flags);
-+
-+	write_lock_bh(&rfcomm_dev_lock);
-+	list_del_init(&dev->list);
-+	write_unlock_bh(&rfcomm_dev_lock);
-+
- 	rfcomm_dev_put(dev);
- }
- 
+http://www.kernel.org/pub/linux/kernel/people/tomo/iommu/
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2005.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+Or if you prefer the git tree:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/tomo/linux-2.6-misc.git iommu-sg-fixes
+
+
+
+I've looked at the changes to GART but they are straightforward and
+don't look wrong...
+
+
+Thanks,
