@@ -1,53 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPV4] ROUTE: Avoid sparse warnings
-Date: Mon, 07 Jan 2008 23:11:53 +1100
-Message-ID: <E1JBqpd-0006vB-00@gondolin.me.apana.org.au>
-References: <20080107120117.aeebd0c8.dada1@cosmosbay.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	viro@ZenIV.linux.org.uk
-To: dada1@cosmosbay.com (Eric Dumazet)
+From: Meelis Roos <mroos@linux.ee>
+Subject: Re: [git patches] net driver fixes
+Date: Mon, 7 Jan 2008 14:44:03 +0200 (EET)
+Message-ID: <Pine.SOC.4.64.0801071443390.28077@math.ut.ee>
+References: <Pine.SOC.4.64.0712271327030.20202@math.ut.ee> <47738F31.20304@garzik.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1358 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754135AbYAGMMN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 07:12:13 -0500
-In-Reply-To: <20080107120117.aeebd0c8.dada1@cosmosbay.com>
+Received: from smtp2.it.da.ut.ee ([193.40.5.67]:47300 "EHLO smtp2.it.da.ut.ee"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755550AbYAGMoG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jan 2008 07:44:06 -0500
+In-Reply-To: <47738F31.20304@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <dada1@cosmosbay.com> wrote:
->  CHECK   net/ipv4/route.c
-> net/ipv4/route.c:298:2: warning: context imbalance in 'rt_cache_get_first' - wrong count at exit
-> net/ipv4/route.c:307:3: warning: context imbalance in 'rt_cache_get_next' - unexpected unlock
-> net/ipv4/route.c:346:3: warning: context imbalance in 'rt_cache_seq_stop' - unexpected unlock
+> > JG> A couple [minorly] notable wireless bug fixes, and plenty of viro fixes
+> > JG> for obscure issues :)
+> > 
+> > What about the tulip NAPI fix from Stephen Hemminger? Without this, my tulip
+> > is hosed easily.
+> > 
+> > The thread where I reported it was "Badness at net/core/dev.c:2199", around
+> > Dec 16.
 > 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 10915bb..fec0571 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -289,11 +289,11 @@ static struct rtable *rt_cache_get_first(struct seq_file *seq)
->        struct rt_cache_iter_state *st = seq->private;
-> 
->        for (st->bucket = rt_hash_mask; st->bucket >= 0; --st->bucket) {
-> -               rcu_read_lock_bh();
->                r = rt_hash_table[st->bucket].chain;
->                if (r)
->                        break;
->                rcu_read_unlock_bh();
-> +               rcu_read_lock_bh();
+> That's going up in the first post-Xmas batch.
 
-If we have to change perfectly working code to silence sparse then
-either sparse or we are doing something wrong.
+Well, it's 2.6.24-rc7 already - any news?
 
-This is not the only spot where we conditionally hold the lock.
-There's got to be a better fix than changing all of them to hold
-locks unconditionally.
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Meelis Roos (mroos@linux.ee)
