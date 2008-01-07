@@ -1,41 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [git patches] net driver fixes
-Date: Mon, 07 Jan 2008 13:56:21 -0800 (PST)
-Message-ID: <20080107.135621.259663114.davem@davemloft.net>
-References: <Pine.SOC.4.64.0712271327030.20202@math.ut.ee>
-	<47738F31.20304@garzik.org>
-	<Pine.SOC.4.64.0801071443390.28077@math.ut.ee>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: sunhme x86 SMP issues
+Date: Tue, 08 Jan 2008 00:01:20 +0100
+Message-ID: <4782AF40.8080200@gmail.com>
+References: <477369C9.7030405@tsaousis.gr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org
-To: mroos@linux.ee
+Cc: netdev@vger.kernel.org
+To: Costa Tsaousis <costa@tsaousis.gr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43302
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752689AbYAGV4W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 16:56:22 -0500
-In-Reply-To: <Pine.SOC.4.64.0801071443390.28077@math.ut.ee>
+Received: from mu-out-0910.google.com ([209.85.134.189]:41290 "EHLO
+	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752319AbYAGW5b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 17:57:31 -0500
+Received: by mu-out-0910.google.com with SMTP id w8so5183208mue.1
+        for <netdev@vger.kernel.org>; Mon, 07 Jan 2008 14:57:30 -0800 (PST)
+In-Reply-To: <477369C9.7030405@tsaousis.gr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Meelis Roos <mroos@linux.ee>
-Date: Mon, 7 Jan 2008 14:44:03 +0200 (EET)
+Costa Tsaousis wrote, On 12/27/2007 10:00 AM:
 
-> > > JG> A couple [minorly] notable wireless bug fixes, and plenty of viro fixes
-> > > JG> for obscure issues :)
-> > > 
-> > > What about the tulip NAPI fix from Stephen Hemminger? Without this, my tulip
-> > > is hosed easily.
-> > > 
-> > > The thread where I reported it was "Badness at net/core/dev.c:2199", around
-> > > Dec 16.
-> > 
-> > That's going up in the first post-Xmas batch.
+> Merry Christams,
 > 
-> Well, it's 2.6.24-rc7 already - any news?
+> I would like to report incompatibilities of the sunhme driver with x86 SMP.
+> 
 
-I put this into my net-2.6 tree last night since Jeff asked
-me to look over critical networking driver stuff for a little
-while.
+
+Hi Costa,
+
+It seems your report has to wait for better times... I'm not driver's
+expert, but maybe you could try some of these:
+
+- since 'the list' seems to be busy now, opening a bug report at
+bugzilla.kernel.org (copy most of these information and lspci -vvv)
+looks like the best way to not forget about this,
+
+- I'd a look at the code and it seems it uses quite coarse locking,
+so it could be SMP unfriendly by design...; could you try with
+kernel boot parameter: noirqbalance (or read about SMP issues e.g.
+for another card Documentation/networking/cxgb.txt).
+
+Regards,
+Jarek P.
