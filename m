@@ -1,41 +1,34 @@
-From: maximilian attems <max@stro.at>
-Subject: [PATCH] IRDA: irda_create() nuke user triggable printk
-Date: Mon,  7 Jan 2008 01:34:32 +0100
-Message-ID: <1199666072-1824-1-git-send-email-max@stro.at>
-Cc: netdev@vger.kernel.org, samuel@sortiz.org,
-	maximilian attems <max@stro.at>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] METH: fix MAC address handling
+Date: Sun, 06 Jan 2008 17:20:18 -0800 (PST)
+Message-ID: <20080106.172018.39803221.davem@davemloft.net>
+References: <20080105224842.78EDCC2EFB@solo.franken.de>
+	<20080106.002305.99653155.davem@davemloft.net>
+	<20080106113815.GA6140@alpha.franken.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
+	ralf@linux-mips.org, jgarzik@pobox.com
+To: tsbogend@alpha.franken.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from baikonur.stro.at ([213.239.196.228]:55650 "EHLO
-	baikonur.stro.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750904AbYAGAek (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2008 19:34:40 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48014
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752075AbYAGBUT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2008 20:20:19 -0500
+In-Reply-To: <20080106113815.GA6140@alpha.franken.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-easy to trigger as user with sfuzz.
+From: tsbogend@alpha.franken.de (Thomas Bogendoerfer)
+Date: Sun, 6 Jan 2008 12:38:16 +0100
 
-irda_create() is quiet on unknown sock->type,
-match this behaviour for SOCK_DGRAM unknown protocol
+> On Sun, Jan 06, 2008 at 12:23:05AM -0800, David Miller wrote:
+> > I know that this whole driver is full of assumptions about
+> > the endianness of the system this chip is found on, so
+> > I'm only interested in if the transformation is equivalent
+> > and the driver will keep working properly.
+> 
+> I've tested the driver and it's still working :-)
 
-Signed-off-by: maximilian attems <max@stro.at>
----
- net/irda/af_irda.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
-
-diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
-index 48ce59a..d5e4dd7 100644
---- a/net/irda/af_irda.c
-+++ b/net/irda/af_irda.c
-@@ -1118,8 +1118,6 @@ static int irda_create(struct net *net, struct socket *sock, int protocol)
- 			self->max_sdu_size_rx = TTP_SAR_UNBOUND;
- 			break;
- 		default:
--			IRDA_ERROR("%s: protocol not supported!\n",
--				   __FUNCTION__);
- 			return -ESOCKTNOSUPPORT;
- 		}
- 		break;
--- 
-debian.1.5.3.7.1-dirty
-
+Great :)
