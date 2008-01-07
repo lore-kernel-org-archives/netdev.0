@@ -1,79 +1,88 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: Re: Request to include ESFQ patch
-Date: Mon, 7 Jan 2008 06:46:29 +0200
-Message-ID: <20080107043027.M83313@visp.net.lb>
-References: <20080102155903.M66678@visp.net.lb> <478133A4.4020903@andyfurniss.entadsl.com>
+From: Dave Young <hidave.darkstar@gmail.com>
+Subject: [PATCH] bluetooth : rfcomm tty BUG_ON() code fix
+Date: Mon, 7 Jan 2008 13:41:22 +0800
+Message-ID: <20080107054122.GA4502@darkstar.te-china.tietoenator.com>
+Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-Cc: netdev@vger.kernel.org, bugfood-c@fatooh.org
-To: lists@andyfurniss.entadsl.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:42671 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753288AbYAGEqj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2008 23:46:39 -0500
-In-Reply-To: <478133A4.4020903@andyfurniss.entadsl.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bluez-devel@lists.sourceforge.net,
+	davem@davemloft.net, linux-kernel@vger.kernel.org
+To: marcel@holtmann.org
+Return-path: <bluez-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=bluez-devel>
+List-Post: <mailto:bluez-devel@lists.sourceforge.net>
+List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: bluez-devel-bounces@lists.sourceforge.net
+Errors-To: bluez-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Sun, 06 Jan 2008 20:01:40 +0000, Andy Furniss wrote
-> Denys Fedoryshchenko wrote:
-> > Hi
-> > 
-> > I took risk and installed ESFQ on my main backbone QoS. I found it highly 
-> > useful, and very need in setup's where is more than 128 flows passing and 
-> > especially where is nat available.
-> 
-> I agree it will be good when it's in.
-> 
-> > 
-> > Here is results with overloaded class for low-priority P2P traffic customers:
-> >
-> 
-> *sfq was never meant for interactive traffic as such. If you really 
-> want to do QOS for them you would need to (somehow) classify 
-> interactive and give it prio over bulk. I know this may not be 
-> practical for your setup, but what ping times users get will vary 
-> depending how many other active users there are/queue length/how 
-> many tcps the user has open etc.
+1) In tty.c the BUG_ON at line 115 will never be called, because the the before list_del_init in this same function.
+ 115          BUG_ON(!list_empty(&dev->list));
+So move the list_del_init to rfcomm_dev_del 
 
-In this specific setup i have a lot of classes just for type of traffic and
-with priority, with many levels of hierarchy (root, realtime low bw
-apps(inside also separation for few levels, and next step is specific
-applications), realtime high bw apps, p2p low priority high bw and etc), plus
-i have at root separation for types of customers. 
+2) The rfcomm_dev_del could be called from diffrent path (rfcomm_tty_hangup/rfcomm_dev_state_change/rfcomm_release_dev),
+So add another BUG_ON when the rfcomm_dev_del is called more than one time.
 
-But because even with this, i have few thousands of IP's, and after all if i
-will create classes for each customer i will not fit in 65k of classes, plus i
-will face performance issues, even if i will use hashes in filters. Instead
-doing a thousands of classes, i group traffic and customers types and inside
-distribute traffic fairly by ESFQ. ESFQ do the job perfectly. 
-SFQ for example cause of limit 128 flows will mess up with VoIP and other
-applications for whom is critical packet ordering.
+Signed-off-by: Dave Young <hidave.darkstar@gmail.com> 
 
-ESFQ does good job to prevent one dst IP inside group (for example) taking
-prevailing part of bandwidth. Or to prevent one source to do same thing. Or
-whatever - depends on hash type. It is not corrupting packet ordering on
-non-classic hash type.
+---
+net/bluetooth/rfcomm/tty.c |   22 +++++++++++++---------
+1 file changed, 13 insertions(+), 9 deletions(-)
 
-Btw in test i used ping just to get statistics how traffic passing class, how
-bandwidth of single user affected with different qdiscs, and etc. If i see
-some problem with specific type of bandwidth, i can forward ping with specific
-ToS to that class by filters and i can compare regular ping with ToS'ed ping,
-to see if issue caused by shaper, router,backbone provider or whatever.
+diff -upr linux/net/bluetooth/rfcomm/tty.c linux.new/net/bluetooth/rfcomm/tty.c
+--- linux/net/bluetooth/rfcomm/tty.c	2008-01-07 13:20:17.000000000 +0800
++++ linux.new/net/bluetooth/rfcomm/tty.c	2008-01-07 13:25:17.000000000 +0800
+@@ -95,9 +95,10 @@ static void rfcomm_dev_destruct(struct r
+ 
+ 	BT_DBG("dev %p dlc %p", dev, dlc);
+ 
+-	write_lock_bh(&rfcomm_dev_lock);
+-	list_del_init(&dev->list);
+-	write_unlock_bh(&rfcomm_dev_lock);
++	/* Refcount should only hit zero when called from rfcomm_dev_del()
++	   which will have taken us off the list. Everything else are
++	   refcounting bugs. */
++	BUG_ON(!list_empty(&dev->list));
+ 
+ 	rfcomm_dlc_lock(dlc);
+ 	/* Detach DLC if it's owned by this dev */
+@@ -109,11 +110,6 @@ static void rfcomm_dev_destruct(struct r
+ 
+ 	tty_unregister_device(rfcomm_tty_driver, dev->id);
+ 
+-	/* Refcount should only hit zero when called from rfcomm_dev_del()
+-	   which will have taken us off the list. Everything else are
+-	   refcounting bugs. */
+-	BUG_ON(!list_empty(&dev->list));
+-
+ 	kfree(dev);
+ 
+ 	/* It's safe to call module_put() here because socket still
+@@ -313,7 +309,15 @@ static void rfcomm_dev_del(struct rfcomm
+ {
+ 	BT_DBG("dev %p", dev);
+ 
+-	set_bit(RFCOMM_TTY_RELEASED, &dev->flags);
++	if (test_bit(RFCOMM_TTY_RELEASED, &dev->flags))
++		BUG_ON(1);
++	else
++		set_bit(RFCOMM_TTY_RELEASED, &dev->flags);
++
++	write_lock_bh(&rfcomm_dev_lock);
++	list_del_init(&dev->list);
++	write_unlock_bh(&rfcomm_dev_lock);
++
+ 	rfcomm_dev_put(dev);
+ }
+ 
 
-
-> 
-> Andy.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
-
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
