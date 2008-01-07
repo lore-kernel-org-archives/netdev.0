@@ -1,61 +1,128 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [IPV4] ROUTE: Avoid sparse warnings
-Date: Mon, 7 Jan 2008 14:56:24 +0100
-Message-ID: <20080107145624.05918cea.dada1@cosmosbay.com>
-References: <20080107120117.aeebd0c8.dada1@cosmosbay.com>
-	<E1JBqpd-0006vB-00@gondolin.me.apana.org.au>
+From: Brice Goglin <Brice.Goglin@inria.fr>
+Subject: [PATCH][LRO] Fix lro_mgr->features checks
+Date: Mon, 07 Jan 2008 14:33:32 +0100
+Message-ID: <47822A2C.4020303@inria.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	viro@ZenIV.linux.org.uk
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: "Andrew J. Gallatin" <gallatin@myri.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	Linus Torvalds <torvalds@osdl.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:53803 "EHLO pfx2.jmh.fr"
+Received: from iona.labri.fr ([147.210.8.143]:50087 "EHLO iona.labri.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755584AbYAGOA3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jan 2008 09:00:29 -0500
-In-Reply-To: <E1JBqpd-0006vB-00@gondolin.me.apana.org.au>
+	id S1751184AbYAGOAO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jan 2008 09:00:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 07 Jan 2008 23:11:53 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Hi Dave,
 
-> Eric Dumazet <dada1@cosmosbay.com> wrote:
-> >  CHECK   net/ipv4/route.c
-> > net/ipv4/route.c:298:2: warning: context imbalance in 'rt_cache_get_first' - wrong count at exit
-> > net/ipv4/route.c:307:3: warning: context imbalance in 'rt_cache_get_next' - unexpected unlock
-> > net/ipv4/route.c:346:3: warning: context imbalance in 'rt_cache_seq_stop' - unexpected unlock
-> > 
-> > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> > 
-> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> > index 10915bb..fec0571 100644
-> > --- a/net/ipv4/route.c
-> > +++ b/net/ipv4/route.c
-> > @@ -289,11 +289,11 @@ static struct rtable *rt_cache_get_first(struct seq_file *seq)
-> >        struct rt_cache_iter_state *st = seq->private;
-> > 
-> >        for (st->bucket = rt_hash_mask; st->bucket >= 0; --st->bucket) {
-> > -               rcu_read_lock_bh();
-> >                r = rt_hash_table[st->bucket].chain;
-> >                if (r)
-> >                        break;
-> >                rcu_read_unlock_bh();
-> > +               rcu_read_lock_bh();
-> 
-> If we have to change perfectly working code to silence sparse then
-> either sparse or we are doing something wrong.
-> 
-> This is not the only spot where we conditionally hold the lock.
-> There's got to be a better fix than changing all of them to hold
-> locks unconditionally.
+The LRO_F_* checks in inet_lro.c are buggy, the following patch
+is needed to check lro_mgr->features correctly.
 
-Maybe sparse (or me :) ) is a litle bit dumb :(
+I decided to follow the NETIF_F_* convention and thus removed
+test_bit. Some people might like it better if we keep using
+test_bit and just set lro_mgr->features to 1<<LRO_F_NAPI instead
+of just LRO_F_NAPI. I don't know what's the best.
 
-You are right other functions conditionally hold some lock(s), but in this
-case this is not really necessary / worth the complexity.
+Without this patch, we noticed several problems with myri10ge,
+at least when using non-IP packets. I guess the ehea driver did
+not expose any big problem because test_bit(NAPI) returns true
+thanks to lro_mgr->features containing LRO_F_EXTRACT_VLAN_ID.
 
-AFAIK, this patch reduces complexity and text size.
+Please apply for 2.6.24.
+
+Brice
+
+
+
+[PATCH][LRO] Fix lro_mgr->features checks
+
+lro_mgr->features contains a bitmask of LRO_F_* values which are
+defined as power of two, not as bit indexes.
+They must be checked with x&LRO_F_FOO, not with test_bit(LRO_F_FOO,&x).
+
+Signed-off-by: Brice Goglin <Brice.Goglin@inria.fr>
+Acked-by: Andrew Gallatin <gallatin@myri.com>
+---
+diff --git a/net/ipv4/inet_lro.c b/net/ipv4/inet_lro.c
+index 9a96c27..4a4d49f 100644
+--- a/net/ipv4/inet_lro.c
++++ b/net/ipv4/inet_lro.c
+@@ -310,7 +310,7 @@ static void lro_flush(struct net_lro_mgr *lro_mgr,
+ 	skb_shinfo(lro_desc->parent)->gso_size = lro_desc->mss;
+ 
+ 	if (lro_desc->vgrp) {
+-		if (test_bit(LRO_F_NAPI, &lro_mgr->features))
++		if (lro_mgr->features & LRO_F_NAPI)
+ 			vlan_hwaccel_receive_skb(lro_desc->parent,
+ 						 lro_desc->vgrp,
+ 						 lro_desc->vlan_tag);
+@@ -320,7 +320,7 @@ static void lro_flush(struct net_lro_mgr *lro_mgr,
+ 					lro_desc->vlan_tag);
+ 
+ 	} else {
+-		if (test_bit(LRO_F_NAPI, &lro_mgr->features))
++		if (lro_mgr->features & LRO_F_NAPI)
+ 			netif_receive_skb(lro_desc->parent);
+ 		else
+ 			netif_rx(lro_desc->parent);
+@@ -352,7 +352,7 @@ static int __lro_proc_skb(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
+ 		goto out;
+ 
+ 	if ((skb->protocol == htons(ETH_P_8021Q))
+-	    && !test_bit(LRO_F_EXTRACT_VLAN_ID, &lro_mgr->features))
++	    && !(lro_mgr->features & LRO_F_EXTRACT_VLAN_ID))
+ 		vlan_hdr_len = VLAN_HLEN;
+ 
+ 	if (!lro_desc->active) { /* start new lro session */
+@@ -474,7 +474,7 @@ static struct sk_buff *__lro_proc_segment(struct net_lro_mgr *lro_mgr,
+ 			goto out;
+ 
+ 		if ((skb->protocol == htons(ETH_P_8021Q))
+-		    && !test_bit(LRO_F_EXTRACT_VLAN_ID, &lro_mgr->features))
++		    && !(lro_mgr->features & LRO_F_EXTRACT_VLAN_ID))
+ 			vlan_hdr_len = VLAN_HLEN;
+ 
+ 		iph = (void *)(skb->data + vlan_hdr_len);
+@@ -516,7 +516,7 @@ void lro_receive_skb(struct net_lro_mgr *lro_mgr,
+ 		     void *priv)
+ {
+ 	if (__lro_proc_skb(lro_mgr, skb, NULL, 0, priv)) {
+-		if (test_bit(LRO_F_NAPI, &lro_mgr->features))
++		if (lro_mgr->features & LRO_F_NAPI)
+ 			netif_receive_skb(skb);
+ 		else
+ 			netif_rx(skb);
+@@ -531,7 +531,7 @@ void lro_vlan_hwaccel_receive_skb(struct net_lro_mgr *lro_mgr,
+ 				  void *priv)
+ {
+ 	if (__lro_proc_skb(lro_mgr, skb, vgrp, vlan_tag, priv)) {
+-		if (test_bit(LRO_F_NAPI, &lro_mgr->features))
++		if (lro_mgr->features & LRO_F_NAPI)
+ 			vlan_hwaccel_receive_skb(skb, vgrp, vlan_tag);
+ 		else
+ 			vlan_hwaccel_rx(skb, vgrp, vlan_tag);
+@@ -550,7 +550,7 @@ void lro_receive_frags(struct net_lro_mgr *lro_mgr,
+ 	if (!skb)
+ 		return;
+ 
+-	if (test_bit(LRO_F_NAPI, &lro_mgr->features))
++	if (lro_mgr->features & LRO_F_NAPI)
+ 		netif_receive_skb(skb);
+ 	else
+ 		netif_rx(skb);
+@@ -570,7 +570,7 @@ void lro_vlan_hwaccel_receive_frags(struct net_lro_mgr *lro_mgr,
+ 	if (!skb)
+ 		return;
+ 
+-	if (test_bit(LRO_F_NAPI, &lro_mgr->features))
++	if (lro_mgr->features & LRO_F_NAPI)
+ 		vlan_hwaccel_receive_skb(skb, vgrp, vlan_tag);
+ 	else
+ 		vlan_hwaccel_rx(skb, vgrp, vlan_tag);
+
 
