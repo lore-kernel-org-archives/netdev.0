@@ -1,45 +1,57 @@
-From: linux@horizon.com
-Subject: Re: 2.6.24-rc6 oops in net_tx_action
-Date: 7 Jan 2008 01:43:50 -0500
-Message-ID: <20080107064350.5042.qmail@science.horizon.com>
-References: <20080106235719.GA10588@electric-eye.fr.zoreil.com>
-Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, shemminger@linux-foundation.org
-To: linux@horizon.com, romieu@fr.zoreil.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755386AbYAGGoD@vger.kernel.org>
-In-Reply-To: <20080106235719.GA10588@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 3/4] [XFRM]: Kill some bloat
+Date: Mon, 7 Jan 2008 09:13:22 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0801070908001.17676@kivilampi-30.cs.helsinki.fi>
+References: <1199540349385-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <E1JBJOR-0000jO-00@gondolin.me.apana.org.au> <20080105.231658.168081302.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Netdev <netdev@vger.kernel.org>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	paul.moore@hp.com, latten@us.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:46674 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752042AbYAGHNY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 02:13:24 -0500
+In-Reply-To: <20080105.231658.168081302.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> linux@horizon.com <linux@horizon.com> :
->> Kernel is 2.6.24-rc6 + linuxpps patches, which are all to the serial
->> port driver.
->> 
->> 2.6.23 was known stable.  I haven't tested earlier 2.6.24 releases.
->> I think it happened once before; I got a black-screen lockup with
->> keyboard LEDs blinking, but that was with X running so I couldn't see a
->> console oops.  But given that I installed 2.6.24-rc6 about 24 hours ago,
->> that's a disturbing pattern.
+On Sat, 5 Jan 2008, David Miller wrote:
 
-> It is probably this one:
->
-> http://marc.info/?t=119782794000003&r=1&w=2
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Sun, 06 Jan 2008 11:29:35 +1100
+> 
+> > We should never use inline except when it's on the fast path and this
+> > is definitely not a fast path.  If a function ends up being called
+> > just once the compiler will most likely inline it anyway, making the
+> > use of the keyword inline redundant.
+> 
+> Similarly I question just about any inline usage at all in *.c files
+> these days.
+> 
+> I even would discourage it's use for fast-path cases as well.
 
-Thanks!  I got the patch from
-http://marc.info/?l=linux-netdev&m=119756785219214
-(Which didn't make it into -rc7; please fix!)
-and am recompiling now.
+There still seems to be good candidates for inline in *.c files, in worst 
+case I had +172 due to inline removed and ~60 are on +10-+90 range with 
+my gcc, later gccs might do better but I definately would just blindly 
+remove them all. Here's the other end of the list:
 
-Actually, I grabbed the hardware mitigation followon patch while I was
-at it.  I notice that the comment explaining the format of CSR11 and
-what 0x80F10000 means got lost; perhaps it would be nice to resurrect it?
++35 static inline hci_encrypt_change_evt        net/bluetooth/hci_event.c
++36 static __inline__ tcp_in_window     net/ipv4/tcp_minisocks.c
++38 static inline hci_conn_complete_evt net/bluetooth/hci_event.c
++38 static inline hci_conn_request_evt  net/bluetooth/hci_event.c
++42 static inline gred_wred_mode        net/sched/sch_gred.c
++45 static inline secpath_has_nontransport      net/xfrm/xfrm_policy.c
++52 static inline bool port_match       net/netfilter/xt_tcpudp.c
++67 static inline dn_check_idf  net/decnet/dn_nsp_in.c
++90 static inline __ieee80211_queue_stopped     net/mac80211/tx.c
++172 static inline sctp_chunk_length_valid      net/sctp/sm_statefuns.c
 
-0x80F10000
-  80000000 = Cycle size (timer control)
-  78000000 = TX timer in 16 * Cycle size
-  07000000 = No. pkts before Int. (0 =  interrupt per packet)
-  00F00000 = Rx timer in Cycle size
-  000E0000 = No. pkts before Int.
-  00010000 = Continues mode (CM)
-  
-(Boy, that tulip driver could use a whitespace overhaul.)
+
+-- 
+ i.
