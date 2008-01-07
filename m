@@ -1,59 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/4] [XFRM]: Kill some bloat
-Date: Mon, 7 Jan 2008 21:02:01 +1100
-Message-ID: <20080107100201.GC24258@gondor.apana.org.au>
-References: <E1JBJOR-0000jO-00@gondolin.me.apana.org.au> <Pine.LNX.4.64.0801071000390.17676@kivilampi-30.cs.helsinki.fi>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PACKET]: Fix sparse warnings in af_packet.c
+Date: Mon, 7 Jan 2008 12:01:08 +0100
+Message-ID: <20080107120108.06453951.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	paul.moore@hp.com, latten@us.ibm.com
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4073 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754373AbYAGKCP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 05:02:15 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0801071000390.17676@kivilampi-30.cs.helsinki.fi>
+Received: from pfx2.jmh.fr ([194.153.89.55]:50018 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752807AbYAGLBO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jan 2008 06:01:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 07, 2008 at 10:21:47AM +0200, Ilpo J=E4rvinen wrote:
->
-> Unexpected enough, even this logic seems to fail in a way with my gcc=
-, I'm=20
-> yet to study it closer but it seems to me that e.g., uninlining only =
-once=20
-> called tcp_fastretrans_alert is worth of at least 100 bytes (note tha=
-t=20
-> it's not inlined by us, gcc did it all by itself)! Otherwise I'd fail=
- to=20
-> understand why I got -270 bytes from uninlining tcp_moderate_cwnd whi=
-ch is=20
-> only 57 bytes as unlined with three call sites.
+  CHECK   net/packet/af_packet.c
+net/packet/af_packet.c:1876:14: warning: context imbalance in 'packet_seq_start' - wrong count at exit
+net/packet/af_packet.c:1888:13: warning: context imbalance in 'packet_seq_stop' - unexpected unlock
 
-Yeah I've studied this effect over the years in my maintainence of
-the dash shell where size is paramount :)=20
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-On x86-32 due to the scarcity of registers local variables often end
-up on the stack.  In that case gcc will usually refer to them via %ebp
-or %esp.  It just so happens that if the offset is within 128 bytes
-of the base register then the instruction can encode the offset with
-just a single byte.  However, if it exceeds 128 bytes the instruction
-will take 4 bytes to encode the offset.
-
-Since bigger functions are more likely to go over that threshold,
-this explains some instances where uninlining ends up being bigger.
-
-There are other similar issues, such as the branch offset which also
-goes from 1 byte to 4 when you go over 128 bytes.
-
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 43e49f4..b8b827c 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1870,6 +1870,7 @@ static inline struct sock *packet_seq_idx(struct net *net, loff_t off)
+ }
+ 
+ static void *packet_seq_start(struct seq_file *seq, loff_t *pos)
++	__acquires(seq_file_net(seq)->packet.sklist_lock)
+ {
+ 	struct net *net = seq_file_net(seq);
+ 	read_lock(&net->packet.sklist_lock);
+@@ -1886,6 +1887,7 @@ static void *packet_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ }
+ 
+ static void packet_seq_stop(struct seq_file *seq, void *v)
++	__releases(seq_file_net(seq)->packet.sklist_lock)
+ {
+ 	struct net *net = seq_file_net(seq);
+ 	read_unlock(&net->packet.sklist_lock);
