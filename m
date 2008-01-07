@@ -1,45 +1,32 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/4] [XFRM]: Kill some bloat
-Date: Mon, 7 Jan 2008 18:32:38 +1100
-Message-ID: <20080107073237.GA23026@gondor.apana.org.au>
-References: <1199540349385-git-send-email-ilpo.jarvinen@helsinki.fi> <E1JBJOR-0000jO-00@gondolin.me.apana.org.au> <20080105.231658.168081302.davem@davemloft.net> <Pine.LNX.4.64.0801070908001.17676@kivilampi-30.cs.helsinki.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Module for simulating network default
+Date: Sun, 06 Jan 2008 23:42:07 -0800 (PST)
+Message-ID: <20080106.234207.113177790.davem@davemloft.net>
+References: <20080107083704.6527306e@tux.DEF.witbe.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	paul.moore@hp.com, latten@us.ibm.com
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: rol@as2917.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2501 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752042AbYAGHcv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 02:32:51 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0801070908001.17676@kivilampi-30.cs.helsinki.fi>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51824
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753858AbYAGHmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 02:42:07 -0500
+In-Reply-To: <20080107083704.6527306e@tux.DEF.witbe.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 07, 2008 at 09:13:22AM +0200, Ilpo J=E4rvinen wrote:
->
-> There still seems to be good candidates for inline in *.c files, in w=
-orst=20
-> case I had +172 due to inline removed and ~60 are on +10-+90 range wi=
-th=20
-> my gcc, later gccs might do better but I definately would just blindl=
-y=20
-> remove them all. Here's the other end of the list:
+From: Paul Rolland <rol@as2917.net>
+Date: Mon, 7 Jan 2008 08:37:04 +0100
 
-Right.  If the inline helps the compiler perform code size optimisation=
-s
-that it otherwise couldn't then it might be worthwhile.
+> I remember reading some time ago about a network driver to "simulate"
+> network default, for example packet loss...
+> Unfortunately, I can't find the post, neither in my mailbox nor in
+> archives...
+> 
+> Does anyone has an URL that you could send me ?
 
-So when in doubt, check the assembly :)
-
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+You want the "netem" packet scheduler, and you'll get better
+answers to networking questions on the networking list
+netdev@vger.kernel.org
