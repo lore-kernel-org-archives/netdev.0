@@ -1,128 +1,122 @@
-From: Brice Goglin <Brice.Goglin@inria.fr>
-Subject: [PATCH][LRO] Fix lro_mgr->features checks
-Date: Mon, 07 Jan 2008 14:33:32 +0100
-Message-ID: <47822A2C.4020303@inria.fr>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: Re: [patch 5/9][NETNS][IPV6] make bindv6only sysctl per namespace
+Date: Mon, 07 Jan 2008 17:32:02 +0100
+Message-ID: <47825402.8030504@bull.net>
+References: <20080104111226.776105484@localhost.localdomain> <20080104111431.444295890@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Andrew J. Gallatin" <gallatin@myri.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	Linus Torvalds <torvalds@osdl.org>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iona.labri.fr ([147.210.8.143]:50087 "EHLO iona.labri.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751184AbYAGOAO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jan 2008 09:00:14 -0500
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:48361 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755658AbYAGQcH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 11:32:07 -0500
+In-Reply-To: <20080104111431.444295890@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Daniel,
 
-The LRO_F_* checks in inet_lro.c are buggy, the following patch
-is needed to check lro_mgr->features correctly.
+The kernel fails to build with this patch applied when CONFIG_SYSCTL=n
+See comment below.
 
-I decided to follow the NETIF_F_* convention and thus removed
-test_bit. Some people might like it better if we keep using
-test_bit and just set lro_mgr->features to 1<<LRO_F_NAPI instead
-of just LRO_F_NAPI. I don't know what's the best.
-
-Without this patch, we noticed several problems with myri10ge,
-at least when using non-IP packets. I guess the ehea driver did
-not expose any big problem because test_bit(NAPI) returns true
-thanks to lro_mgr->features containing LRO_F_EXTRACT_VLAN_ID.
-
-Please apply for 2.6.24.
-
-Brice
-
-
-
-[PATCH][LRO] Fix lro_mgr->features checks
-
-lro_mgr->features contains a bitmask of LRO_F_* values which are
-defined as power of two, not as bit indexes.
-They must be checked with x&LRO_F_FOO, not with test_bit(LRO_F_FOO,&x).
-
-Signed-off-by: Brice Goglin <Brice.Goglin@inria.fr>
-Acked-by: Andrew Gallatin <gallatin@myri.com>
----
-diff --git a/net/ipv4/inet_lro.c b/net/ipv4/inet_lro.c
-index 9a96c27..4a4d49f 100644
---- a/net/ipv4/inet_lro.c
-+++ b/net/ipv4/inet_lro.c
-@@ -310,7 +310,7 @@ static void lro_flush(struct net_lro_mgr *lro_mgr,
- 	skb_shinfo(lro_desc->parent)->gso_size = lro_desc->mss;
- 
- 	if (lro_desc->vgrp) {
--		if (test_bit(LRO_F_NAPI, &lro_mgr->features))
-+		if (lro_mgr->features & LRO_F_NAPI)
- 			vlan_hwaccel_receive_skb(lro_desc->parent,
- 						 lro_desc->vgrp,
- 						 lro_desc->vlan_tag);
-@@ -320,7 +320,7 @@ static void lro_flush(struct net_lro_mgr *lro_mgr,
- 					lro_desc->vlan_tag);
- 
- 	} else {
--		if (test_bit(LRO_F_NAPI, &lro_mgr->features))
-+		if (lro_mgr->features & LRO_F_NAPI)
- 			netif_receive_skb(lro_desc->parent);
- 		else
- 			netif_rx(lro_desc->parent);
-@@ -352,7 +352,7 @@ static int __lro_proc_skb(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
- 		goto out;
- 
- 	if ((skb->protocol == htons(ETH_P_8021Q))
--	    && !test_bit(LRO_F_EXTRACT_VLAN_ID, &lro_mgr->features))
-+	    && !(lro_mgr->features & LRO_F_EXTRACT_VLAN_ID))
- 		vlan_hdr_len = VLAN_HLEN;
- 
- 	if (!lro_desc->active) { /* start new lro session */
-@@ -474,7 +474,7 @@ static struct sk_buff *__lro_proc_segment(struct net_lro_mgr *lro_mgr,
- 			goto out;
- 
- 		if ((skb->protocol == htons(ETH_P_8021Q))
--		    && !test_bit(LRO_F_EXTRACT_VLAN_ID, &lro_mgr->features))
-+		    && !(lro_mgr->features & LRO_F_EXTRACT_VLAN_ID))
- 			vlan_hdr_len = VLAN_HLEN;
- 
- 		iph = (void *)(skb->data + vlan_hdr_len);
-@@ -516,7 +516,7 @@ void lro_receive_skb(struct net_lro_mgr *lro_mgr,
- 		     void *priv)
- {
- 	if (__lro_proc_skb(lro_mgr, skb, NULL, 0, priv)) {
--		if (test_bit(LRO_F_NAPI, &lro_mgr->features))
-+		if (lro_mgr->features & LRO_F_NAPI)
- 			netif_receive_skb(skb);
- 		else
- 			netif_rx(skb);
-@@ -531,7 +531,7 @@ void lro_vlan_hwaccel_receive_skb(struct net_lro_mgr *lro_mgr,
- 				  void *priv)
- {
- 	if (__lro_proc_skb(lro_mgr, skb, vgrp, vlan_tag, priv)) {
--		if (test_bit(LRO_F_NAPI, &lro_mgr->features))
-+		if (lro_mgr->features & LRO_F_NAPI)
- 			vlan_hwaccel_receive_skb(skb, vgrp, vlan_tag);
- 		else
- 			vlan_hwaccel_rx(skb, vgrp, vlan_tag);
-@@ -550,7 +550,7 @@ void lro_receive_frags(struct net_lro_mgr *lro_mgr,
- 	if (!skb)
- 		return;
- 
--	if (test_bit(LRO_F_NAPI, &lro_mgr->features))
-+	if (lro_mgr->features & LRO_F_NAPI)
- 		netif_receive_skb(skb);
- 	else
- 		netif_rx(skb);
-@@ -570,7 +570,7 @@ void lro_vlan_hwaccel_receive_frags(struct net_lro_mgr *lro_mgr,
- 	if (!skb)
- 		return;
- 
--	if (test_bit(LRO_F_NAPI, &lro_mgr->features))
-+	if (lro_mgr->features & LRO_F_NAPI)
- 		vlan_hwaccel_receive_skb(skb, vgrp, vlan_tag);
- 	else
- 		vlan_hwaccel_rx(skb, vgrp, vlan_tag);
+Daniel Lezcano wrote:
+> This patch moves the bindv6only sysctl to the network namespace
+> structure. Until the ipv6 protocol is not per namespace, the sysctl
+> variable is always from the initial network namespace.
+> 
+> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+> ---
+>  include/net/ipv6.h         |    1 -
+>  include/net/netns/ipv6.h   |    1 +
+>  net/ipv6/af_inet6.c        |    4 +---
+>  net/ipv6/sysctl_net_ipv6.c |    6 +++++-
+>  4 files changed, 7 insertions(+), 5 deletions(-)
+> 
+> Index: net-2.6.25/include/net/ipv6.h
+> ===================================================================
+> --- net-2.6.25.orig/include/net/ipv6.h
+> +++ net-2.6.25/include/net/ipv6.h
+> @@ -109,7 +109,6 @@ struct frag_hdr {
+>  #include <net/sock.h>
+>  
+>  /* sysctls */
+> -extern int sysctl_ipv6_bindv6only;
+>  extern int sysctl_mld_max_msf;
+>  
+>  #define _DEVINC(statname, modifier, idev, field)			\
+> Index: net-2.6.25/include/net/netns/ipv6.h
+> ===================================================================
+> --- net-2.6.25.orig/include/net/netns/ipv6.h
+> +++ net-2.6.25/include/net/netns/ipv6.h
+> @@ -9,6 +9,7 @@ struct ctl_table_header;
+>  
+>  struct netns_sysctl_ipv6 {
+>  	struct ctl_table_header *table;
+> + 	int bindv6only;
+>  };
+>  
+>  struct netns_ipv6 {
+> Index: net-2.6.25/net/ipv6/af_inet6.c
+> ===================================================================
+> --- net-2.6.25.orig/net/ipv6/af_inet6.c
+> +++ net-2.6.25/net/ipv6/af_inet6.c
+> @@ -66,8 +66,6 @@ MODULE_AUTHOR("Cast of dozens");
+>  MODULE_DESCRIPTION("IPv6 protocol stack for Linux");
+>  MODULE_LICENSE("GPL");
+>  
+> -int sysctl_ipv6_bindv6only __read_mostly;
+> -
+>  /* The inetsw6 table contains everything that inet6_create needs to
+>   * build a new socket.
+>   */
+> @@ -193,7 +191,7 @@ lookup_protocol:
+>  	np->mcast_hops	= -1;
+>  	np->mc_loop	= 1;
+>  	np->pmtudisc	= IPV6_PMTUDISC_WANT;
+> -	np->ipv6only	= sysctl_ipv6_bindv6only;
+> +	np->ipv6only	= init_net.ipv6.sysctl.bindv6only;
 
 
+The problem is here:
+init_net.ipv6.sysctl is not defined if CONFIG_SYSCTL=n.
+
+Benjamin
+
+>  
+>  	/* Init the ipv4 part of the socket since we can have sockets
+>  	 * using v6 API for ipv4.
+> Index: net-2.6.25/net/ipv6/sysctl_net_ipv6.c
+> ===================================================================
+> --- net-2.6.25.orig/net/ipv6/sysctl_net_ipv6.c
+> +++ net-2.6.25/net/ipv6/sysctl_net_ipv6.c
+> @@ -35,7 +35,7 @@ static ctl_table ipv6_table_template[] =
+>  	{
+>  		.ctl_name	= NET_IPV6_BINDV6ONLY,
+>  		.procname	= "bindv6only",
+> -		.data		= &sysctl_ipv6_bindv6only,
+> +		.data		= &init_net.ipv6.sysctl.bindv6only,
+>  		.maxlen		= sizeof(int),
+>  		.mode		= 0644,
+>  		.proc_handler	= &proc_dointvec
+> @@ -115,6 +115,10 @@ static int ipv6_sysctl_net_init(struct n
+>     	ipv6_table[0].child = ipv6_route_table;
+>     	ipv6_table[1].child = ipv6_icmp_table;
+>  
+> +  	ipv6_table[2].data = &net->ipv6.sysctl.bindv6only;
+> +
+> +	net->ipv6.sysctl.bindv6only = 0;
+> +
+>     	net->ipv6.sysctl.table = register_net_sysctl_table(net, ipv6_ctl_path, ipv6_table);
+>     	if (!net->ipv6.sysctl.table)
+>     		goto out_ipv6_icmp_table;
+> 
+> -- -- To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More majordomo info at http://vger.kernel.org/majordomo-info.html 
+
+
+-- 
+B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
+
+    http://www.bull.com
