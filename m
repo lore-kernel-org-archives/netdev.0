@@ -1,70 +1,79 @@
-From: =?iso-8859-1?Q?Bj=F6rn?= Steinbrink <B.Steinbrink@gmx.de>
-Subject: Re: [PATCH] Fix forcedeth reversing the MAC address on suspend
-Date: Mon, 7 Jan 2008 02:47:56 +0100
-Message-ID: <20080107014756.GB4170@atjola.homenet>
-References: <477BFC71.7090002@coderworld.net> <20080102214843.GA19224@rhlx01.hs-esslingen.de> <20080102234209.GA10831@does.not.exist> <20080104034357.GA2113@atjola.homenet> <477E3DEA.4070001@coderworld.net> <20080104222633.GA21133@atjola.homenet>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: Re: Request to include ESFQ patch
+Date: Mon, 7 Jan 2008 06:46:29 +0200
+Message-ID: <20080107043027.M83313@visp.net.lb>
+References: <20080102155903.M66678@visp.net.lb> <478133A4.4020903@andyfurniss.entadsl.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, Adrian Bunk <bunk@kernel.org>,
-	Andreas Mohr <andi@lisas.de>,
-	Ayaz Abdulla <aabdulla@nvidia.com>, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: Richard Jonsson <richie@coderworld.net>
+Content-Type: text/plain;
+	charset=koi8-r
+Cc: netdev@vger.kernel.org, bugfood-c@fatooh.org
+To: lists@andyfurniss.entadsl.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:40174 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752628AbYAGBr7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Jan 2008 20:47:59 -0500
-Content-Disposition: inline
-In-Reply-To: <20080104222633.GA21133@atjola.homenet>
+Received: from usermail.globalproof.net ([194.146.153.18]:42671 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753288AbYAGEqj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2008 23:46:39 -0500
+In-Reply-To: <478133A4.4020903@andyfurniss.entadsl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2008.01.04 23:26:33 +0100, Bj=F6rn Steinbrink wrote:
-> For cards that initially have the MAC address stored in reverse order=
-,
-> the forcedeth driver uses a flag to signal whether the address was
-> already corrected, so that it is not reversed again on a subsequent
-> probe.
->=20
-> Unfortunately this flag, which is stored in a register of the card,
-> seems to get lost during suspend, resulting in the MAC address being
-> reversed again. To fix that, the MAC address needs to be written back=
- in
-> reversed order before we suspend and the flag needs to be reset.
->=20
-> The flag is still required because at least kexec will never write ba=
-ck
-> the reversed address and thus needs to know what state the card is in=
-=2E
->=20
-> Signed-off-by: Bj=F6rn Steinbrink <B.Steinbrink@gmx.de>
-> ---
-> On 2008.01.04 15:08:42 +0100, Richard Jonsson wrote:
-> > Bj=F6rn Steinbrink skrev:
-> >> Richard, could you give this a spin? And then we'd likely need som=
-eone
-> >> to test that with kexec...
+On Sun, 06 Jan 2008 20:01:40 +0000, Andy Furniss wrote
+> Denys Fedoryshchenko wrote:
+> > Hi
+> > 
+> > I took risk and installed ESFQ on my main backbone QoS. I found it highly 
+> > useful, and very need in setup's where is more than 128 flows passing and 
+> > especially where is nat available.
+> 
+> I agree it will be good when it's in.
+> 
+> > 
+> > Here is results with overloaded class for low-priority P2P traffic customers:
 > >
-> > The patch you sent does the trick, works fine now, thanks!
-> > I cannot test this with kexec as I barely know what it is, I'll lea=
-ve that=20
-> > to someone else.
->=20
-> Thanks.
->=20
-> Ayaz, you originally wrote the kexec fix (IIRC), was my analysis of t=
-he
-> problem correct? If so, I'm quite sure that the patch DTRT. Still it
-> should be tested for the rmmod+modprobe and the kexec case. I'll try =
-to
-> get my box free for some testing, but that's unlikely in the next few
-> days. Plus, I've never used kexec myself either. So I'd be grateful i=
-f
-> someone else would step up.
+> 
+> *sfq was never meant for interactive traffic as such. If you really 
+> want to do QOS for them you would need to (somehow) classify 
+> interactive and give it prio over bulk. I know this may not be 
+> practical for your setup, but what ping times users get will vary 
+> depending how many other active users there are/queue length/how 
+> many tcps the user has open etc.
 
-=46ound a few minutes to test, but kexec would just hang for me. So I'm
-unable to test that atm. :-(
+In this specific setup i have a lot of classes just for type of traffic and
+with priority, with many levels of hierarchy (root, realtime low bw
+apps(inside also separation for few levels, and next step is specific
+applications), realtime high bw apps, p2p low priority high bw and etc), plus
+i have at root separation for types of customers. 
 
-Bj=F6rn
+But because even with this, i have few thousands of IP's, and after all if i
+will create classes for each customer i will not fit in 65k of classes, plus i
+will face performance issues, even if i will use hashes in filters. Instead
+doing a thousands of classes, i group traffic and customers types and inside
+distribute traffic fairly by ESFQ. ESFQ do the job perfectly. 
+SFQ for example cause of limit 128 flows will mess up with VoIP and other
+applications for whom is critical packet ordering.
+
+ESFQ does good job to prevent one dst IP inside group (for example) taking
+prevailing part of bandwidth. Or to prevent one source to do same thing. Or
+whatever - depends on hash type. It is not corrupting packet ordering on
+non-classic hash type.
+
+Btw in test i used ping just to get statistics how traffic passing class, how
+bandwidth of single user affected with different qdiscs, and etc. If i see
+some problem with specific type of bandwidth, i can forward ping with specific
+ToS to that class by filters and i can compare regular ping with ToS'ed ping,
+to see if issue caused by shaper, router,backbone provider or whatever.
+
+
+> 
+> Andy.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
+
