@@ -1,44 +1,85 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: Top 10 kernel oopses for the week ending January 5th, 2008
-Date: Mon, 7 Jan 2008 12:44:31 -0500
-Message-ID: <20080107174431.GC27741@fieldses.org>
-References: <477FF149.4070609@linux.intel.com> <20080105213935.GN27894@ZenIV.linux.org.uk>
+From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Atheros driver
+Date: Mon, 7 Jan 2008 12:44:57 -0500
+Message-ID: <43e72e890801070944k5248be94me816452ab12a1a83@mail.gmail.com>
+References: <47813432.2010208@spitzner.org>
+	 <20080106212155.GA3149@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arjan van de Ven <arjan@linux.intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fieldses.org ([66.93.2.214]:60244 "EHLO fieldses.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754708AbYAGRou (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jan 2008 12:44:50 -0500
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "Ralph Spitzner" <rasp-t/QVniynKFVg9hUCZPvPmw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080106212155.GA3149-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20080105213935.GN27894@ZenIV.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 05, 2008 at 09:39:35PM +0000, Al Viro wrote:
-> On Sat, Jan 05, 2008 at 01:06:17PM -0800, Arjan van de Ven wrote:
-> > The http://www.kerneloops.org website collects kernel oops and
-> > warning reports from various mailing lists and bugzillas as well as
-> > with a client users can install to auto-submit oopses.
-> > Below is a top 10 list of the oopses collected in the last 7 days.
-> > (Reports prior to 2.6.23 have been omitted in collecting the top 10)
-> > 
-> > This week, a total of 49 oopses and warnings have been reported,
-> > compared to 53 reports in the previous week.
-> 
-> FWIW, people moaning about the lack of entry-level kernel work would
-> do well by decoding those to the level of "this place in this function,
-> called from <here>, with so-and-so variable being <this>" and posting
-> the results.  As skills go, it's far more useful than "how to trim
-> the trailing whitespace" and the rest of checkpatch.pl-inspired crap
-> that got so popular lately...
+On Jan 6, 2008 4:21 PM, John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+>
+> On Sun, Jan 06, 2008 at 09:04:02PM +0100, Ralph Spitzner wrote:
+> > With Kernel 2.6.23.12 && ath5k I get this:
+> > ------------------------------------------------------------------
+> >
+> > Jan  6 20:42:44 meepmeep kernel: CPU:    0
+> > Jan  6 20:42:44 meepmeep kernel: EIP:    0060:[<d0d98e61>]    Not tainted
+> > VLI
+> > Jan  6 20:42:44 meepmeep kernel: EFLAGS: 00010246   (2.6.23.12 #1)
+> > Jan  6 20:42:44 meepmeep kernel: EIP is at
+> > ieee80211_generic_frame_duration+0x21/0x70 [mac80211]
+> > Jan  6 20:42:44 meepmeep kernel: eax: c2c68180   ebx: c2c68180   ecx:
+> > 0000000a   edx: 00000000
+> > Jan  6 20:42:44 meepmeep kernel: esi: 00000000   edi: 0000000a   ebp:
+> > 000003e8   esp: c3a03dd8
+> > Jan  6 20:42:44 meepmeep kernel: ds: 007b   es: 007b   fs: 0000  gs: 0033
+> > ss: 0068
+> > Jan  6 20:42:44 meepmeep kernel: Process ifconfig (pid: 5119, ti=c3a02000
+> > task=c363c570 task.ti=c3a02000)
+> > Jan  6 20:42:44 meepmeep kernel: Stack: d0e7539b 00000002 0000876c 00000000
+> > c4555000 d0e71c67 0000000a 1fb748ed
+> > Jan  6 20:42:44 meepmeep kernel:        0000006b c2c68180 00000000 d0e76e44
+> > c2c68eec 00000000 00000000 00000003
+> > Jan  6 20:42:44 meepmeep kernel:        00000002 00000002 00000014 00000000
+> > d0e76e20 c2c68de0 00000001 00000003
+> > Jan  6 20:42:44 meepmeep kernel: Call Trace:
+> > Jan  6 20:42:44 meepmeep kernel:  [<d0e7539b>] ath5k_hw_rfgain+0x4b/0x80
+> > [ath5k]
+> > Jan  6 20:42:44 meepmeep kernel:  [<d0e71c67>] ath5k_hw_reset+0xaa7/0xeb0
+> > [ath5k]
+> > Jan  6 20:42:44 meepmeep kernel:  [<d0e6a766>] ath5k_init+0x46/0x110 [ath5k]
+> > Jan  6 20:42:44 meepmeep kernel:  [<d0d86b7c>] ieee80211_open+0x19c/0x4c0
+> > [mac80211]
+> > Jan  6 20:42:44 meepmeep kernel:  [<c0142235>] filemap_fault+0x1c5/0x3e0
+> > Jan  6 20:42:44 meepmeep kernel:  [<c06a1353>] dev_open+0x33/0x80
+> > Jan  6 20:42:44 meepmeep kernel:  [<c069f1a9>] dev_change_flags+0x149/0x1c0
+> > Jan  6 20:42:44 meepmeep kernel:  [<c06e7261>] devinet_ioctl+0x521/0x6c0
+> > Jan  6 20:42:44 meepmeep kernel:  [<c069efbf>] __dev_get_by_name+0x6f/0x90
+> > Jan  6 20:42:44 meepmeep kernel:  [<c0693f4f>] sock_ioctl+0xbf/0x230
+> > Jan  6 20:42:44 meepmeep kernel:  [<c0113b2b>] do_page_fault+0x18b/0x6d0
+> > Jan  6 20:42:44 meepmeep kernel:  [<c0693e90>] sock_ioctl+0x0/0x230
+> > Jan  6 20:42:44 meepmeep kernel:  [<c01682cf>] do_ioctl+0x1f/0x70
+> > Jan  6 20:42:44 meepmeep kernel:  [<c016837c>] vfs_ioctl+0x5c/0x260
+> > Jan  6 20:42:44 meepmeep kernel:  [<c01685f2>] sys_ioctl+0x72/0x90
+> > Jan  6 20:42:44 meepmeep kernel:  [<c0104012>] syscall_call+0x7/0xb
+> > Jan  6 20:42:44 meepmeep kernel:  [<c0710000>] __svc_create+0x1c0/0x1d0
+> > Jan  6 20:42:44 meepmeep kernel:  =======================
+> > Jan  6 20:42:44 meepmeep kernel: Code: 5d c3 90 8d b4 26 00 00 00 00 83 ec
+> > 14 89 5c 24 08 89 c3 89 74 24 0c 89 d6 89 7c 24 10
+> > 89 cf 8b 4c 24 18 83 78 0c 02 74 31 31 d2 <8b> 86 d0 fd ff ff 89 14 24 89
+> > fa 83 e0 08 89 44 24 04 89 d8 e8
+> > Jan  6 20:42:44 meepmeep kernel: EIP: [<d0d98e61>]
+> > ieee80211_generic_frame_duration+0x21/0x70 [mac80211] SS:ESP 0068:c3a03dd8
+> > Jan  6 20:47:27 meepmeep kernel: ACPI: RTC can wake from S4
+> >
+> > ------------------------------------------------------------------
+> >
+> >
+> > Just in case someone is interested in this......
+>
+> I'm sure someone is interested
 
-Is there any good basic documentation on this to point people at?
+This is fixed by the patch titled: "[PATCH] ath5k: Fix frame duration
+oops" posted on January 4rth.
 
---b.
+  Luis
