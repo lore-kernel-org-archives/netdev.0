@@ -1,117 +1,90 @@
 From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: [PATCH net-2.6.25][NETNS][IPV6] make a subsystem for af_inet6
-Date: Mon, 07 Jan 2008 21:44:36 +0100
-Message-ID: <47828F34.6020101@fr.ibm.com>
+Subject: [PATCH net-2.6.25][NETNS][IPV6] add ipv6 structure for netns
+Date: Mon, 07 Jan 2008 21:48:11 +0100
+Message-ID: <4782900B.9040608@fr.ibm.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------070809070405030702060302"
+ boundary="------------070105050402070108010409"
 Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.de.ibm.com ([195.212.29.155]:36514 "EHLO
-	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758350AbYAGUxl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 15:53:41 -0500
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate6.de.ibm.com (8.13.8/8.13.8) with ESMTP id m07KremG124864
-	for <netdev@vger.kernel.org>; Mon, 7 Jan 2008 20:53:40 GMT
-Received: from d12av03.megacenter.de.ibm.com (d12av03.megacenter.de.ibm.com [9.149.165.213])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m07KrecF3022954
-	for <netdev@vger.kernel.org>; Mon, 7 Jan 2008 21:53:40 +0100
-Received: from d12av03.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m07KrdY2028855
-	for <netdev@vger.kernel.org>; Mon, 7 Jan 2008 21:53:40 +0100
+Received: from mtagate4.uk.ibm.com ([195.212.29.137]:20702 "EHLO
+	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755716AbYAGU5n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 15:57:43 -0500
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate4.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m07KvgAL043190
+	for <netdev@vger.kernel.org>; Mon, 7 Jan 2008 20:57:42 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m07KvgE24956236
+	for <netdev@vger.kernel.org>; Mon, 7 Jan 2008 20:57:42 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m07KvPO0016863
+	for <netdev@vger.kernel.org>; Mon, 7 Jan 2008 20:57:25 GMT
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------070809070405030702060302
+--------------070105050402070108010409
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
 
-
-
-
-
-
---------------070809070405030702060302
+--------------070105050402070108010409
 Content-Type: text/x-patch;
- name="make-af-inet6-a-subsystem.patch"
+ name="add-ipv6-for-netns.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="make-af-inet6-a-subsystem.patch"
+ filename="add-ipv6-for-netns.patch"
 
-Subject: make a subsystem for af_inet6
+Subject: add ipv6 structure for netns
 From: Daniel Lezcano <dlezcano@fr.ibm.com>
 
-This patch add a network namespace subsystem for the af_inet6 module. 
-It does nothing right now, but one of its purpose is to receive the 
-different variables for sysctl in order to initialize them.
-
-When the sysctl variable will be moved to the network namespace structure,
-they will be no longer initialized as global static variables, so we must
-find a place to initialize them. Because the sysctl can be disabled, it 
-has no sense to store them in the sysctl_net_ipv6 file.
+Like the ipv4 part, this patch adds an ipv6 structure in the net structure
+to aggregate the different resources to make ipv6 per namespace.
 
 Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 ---
- net/ipv6/af_inet6.c |   22 ++++++++++++++++++++++
- 1 file changed, 22 insertions(+)
+ include/net/net_namespace.h |    4 ++++
+ include/net/netns/ipv6.h    |   10 ++++++++++
+ 2 files changed, 14 insertions(+)
 
-Index: net-2.6.25/net/ipv6/af_inet6.c
+Index: net-2.6.25/include/net/net_namespace.h
 ===================================================================
---- net-2.6.25.orig/net/ipv6/af_inet6.c
-+++ net-2.6.25/net/ipv6/af_inet6.c
-@@ -719,6 +719,21 @@ static void cleanup_ipv6_mibs(void)
- 	snmp_mib_free((void **)udplite_stats_in6);
- }
+--- net-2.6.25.orig/include/net/net_namespace.h
++++ net-2.6.25/include/net/net_namespace.h
+@@ -11,6 +11,7 @@
+ #include <net/netns/unix.h>
+ #include <net/netns/packet.h>
+ #include <net/netns/ipv4.h>
++#include <net/netns/ipv6.h>
  
-+static int inet6_net_init(struct net *net)
-+{
-+	return 0;
-+}
+ struct proc_dir_entry;
+ struct net_device;
+@@ -48,6 +49,9 @@ struct net {
+ 	struct netns_packet	packet;
+ 	struct netns_unix	unx;
+ 	struct netns_ipv4	ipv4;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	struct netns_ipv6	ipv6;
++#endif
+ };
+ 
+ #ifdef CONFIG_NET
+Index: net-2.6.25/include/net/netns/ipv6.h
+===================================================================
+--- /dev/null
++++ net-2.6.25/include/net/netns/ipv6.h
+@@ -0,0 +1,10 @@
++/*
++ * ipv6 in net namespaces
++ */
 +
-+static void inet6_net_exit(struct net *net)
-+{
-+	return;
-+}
++#ifndef __NETNS_IPV6_H__
++#define __NETNS_IPV6_H__
 +
-+static struct pernet_operations inet6_net_ops = {
-+	.init = inet6_net_init,
-+	.exit = inet6_net_exit,
++struct netns_ipv6 {
 +};
-+
- static int __init inet6_init(void)
- {
- 	struct sk_buff *dummy_skb;
-@@ -782,6 +797,10 @@ static int __init inet6_init(void)
- 	 *	able to communicate via both network protocols.
- 	 */
- 
-+	err = register_pernet_subsys(&inet6_net_ops);
-+	if (err)
-+		goto register_pernet_fail;
-+
- #ifdef CONFIG_SYSCTL
- 	ipv6_sysctl_register();
- #endif
-@@ -898,6 +917,8 @@ icmp_fail:
- #ifdef CONFIG_SYSCTL
- 	ipv6_sysctl_unregister();
- #endif
-+	unregister_pernet_subsys(&inet6_net_ops);
-+register_pernet_fail:
- 	cleanup_ipv6_mibs();
- out_unregister_sock:
- 	sock_unregister(PF_INET6);
-@@ -953,6 +974,7 @@ static void __exit inet6_exit(void)
- #ifdef CONFIG_SYSCTL
- 	ipv6_sysctl_unregister();
- #endif
-+	unregister_pernet_subsys(&inet6_net_ops);
- 	cleanup_ipv6_mibs();
- 	proto_unregister(&rawv6_prot);
- 	proto_unregister(&udplitev6_prot);
++#endif
 
---------------070809070405030702060302--
+--------------070105050402070108010409--
