@@ -1,87 +1,44 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] [IPv6]: IPV6_MULTICAST_IF setting is ignored on link-local
- connect()
-Date: Mon, 07 Jan 2008 12:03:12 -0500
-Message-ID: <47825B50.2060200@hp.com>
-References: <OF27B7DA9C.52E5380F-ON882573B6.00650422-882573B6.0068581B@us.ibm.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH 3/3] ethtool: correct man page for advertise mask value of
+	10gig
+Date: Mon, 07 Jan 2008 09:36:16 -0800
+Message-ID: <20080107173616.8429.92551.stgit@localhost.localdomain>
+References: <20080107173602.8429.56354.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000601010502020900000508"
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jesse.brandeburg@intel.com,
+	davem@davemloft.net
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:6483 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753217AbYAGRDP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 12:03:15 -0500
-In-Reply-To: <OF27B7DA9C.52E5380F-ON882573B6.00650422-882573B6.0068581B@us.ibm.com>
+Received: from mga11.intel.com ([192.55.52.93]:39030 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754835AbYAGRgR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jan 2008 12:36:17 -0500
+In-Reply-To: <20080107173602.8429.56354.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------000601010502020900000508
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+10 gigabit is defined as 0x1000 in the advertise mask. The man
+page mistakenly lists 0x800.
 
-David Stevens wrote:
->         Yeah, that's what I get for typing in off-the-cuff code. What
-> I was thinking was the fl.oif assignment instead was:
->         if (!sk->sk_bound_dev_if &&
->                 (addr_type & IPV6_ADDR_MULTICAST))
->                         sk->sk_bound_dev_if = np->mcast_oif;
-> 
-> Which it is not, but maybe it could be, since this is a connect().
-
-How about the simple patch below?  I just removed the ENINVAL check from 
-my original patch, but it accomplishes the same thing.
-
-> That patch looks better, but I'm wondering if we could just remove the
-> requirement that sin6_scope_id be set here if it's multicast, since it
-> is doing the following later in the code:
-> 
->         if (!fl.oif && (addr_type&IPV6_ADDR_MULTICAST))
->                 fl.oif = np->mcast_oif;
-> 
-> So, really, all we need to do is get through the LINKLOCAL section
-> without error in the multicast case and we can remove the redundant
-> multicast check there. I think that'd be simpler.
-
-I don't think we can remove that check since it covers the non-multicast 
-case.
-
--Brian
-
-Signed-off-by: Brian Haley <brian.haley@hp.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
---------------000601010502020900000508
-Content-Type: text/x-patch;
- name="mcast_oif.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="mcast_oif.patch"
+ ethtool.8 |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 2ed689a..5d4245a 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -123,11 +123,11 @@ ipv4_connected:
- 				goto out;
- 			}
- 			sk->sk_bound_dev_if = usin->sin6_scope_id;
--			if (!sk->sk_bound_dev_if &&
--			    (addr_type & IPV6_ADDR_MULTICAST))
--				fl.oif = np->mcast_oif;
- 		}
- 
-+		if (!sk->sk_bound_dev_if && (addr_type & IPV6_ADDR_MULTICAST))
-+			sk->sk_bound_dev_if = np->mcast_oif;
-+
- 		/* Connect to link-local address requires an interface */
- 		if (!sk->sk_bound_dev_if) {
- 			err = -EINVAL;
+diff --git a/ethtool.8 b/ethtool.8
+index af51056..cc6a46e 100644
+--- a/ethtool.8
++++ b/ethtool.8
+@@ -362,7 +362,7 @@ a hexidecimal value using one or a combination of the following values:
+ .TP 3
+ .BR "0x8000" "   2500 Full" "(not supported by IEEE standards)"
+ .TP 3
+-.BR "0x800" "    10000 Full"
++.BR "0x1000" "   10000 Full"
+ .TP 3
+ .BR "0x03F" "    Auto"
+ .PD
 
---------------000601010502020900000508--
