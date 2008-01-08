@@ -1,63 +1,45 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [IPV4] ROUTE: Avoid sparse warnings
-Date: Tue, 8 Jan 2008 13:59:02 +0100
-Message-ID: <20080108125902.GB1920@ff.dom.local>
-References: <47832BE6.5070906@cosmosbay.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [RFC PATCH v2 2/2] SELinux: Add network ingress and egress control permission checks
+Date: Tue, 8 Jan 2008 08:13:57 -0500
+Message-ID: <200801080813.57719.paul.moore@hp.com>
+References: <20080107173829.13488.47471.stgit@flek.americas.hpqcorp.net> <20080107174748.13488.11389.stgit@flek.americas.hpqcorp.net> <20080107.220211.250933730.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.185]:6348 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753094AbYAHMw6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 07:52:58 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so9110052fkz.5
-        for <netdev@vger.kernel.org>; Tue, 08 Jan 2008 04:52:56 -0800 (PST)
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:31366 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756121AbYAHNOL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 08:14:11 -0500
+In-Reply-To: <20080107.220211.250933730.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <47832BE6.5070906@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08-01-2008 08:53, Eric Dumazet wrote:
-> David Miller a =E9crit :
-=2E..
->> Furthermore, these:
->>
->>     rcu_read_unlock_bh()
->>     rcu_read_lock_bh()
->>
->> sequences are at best funny looking.  For other lock types we would
->> look at this and ask "Does this even accomplish anything reliably?"
->=20
-> Well, original code exactly does the same thing.
->=20
->>
->> The answer here is that it wants the preempt_enable() to run to get
->> any potential kernel preemptions executed.  It also allows any
->> pending software interrupts to run.
->>
->> So this does something reliably only because rcu_read_unlock_bh() ha=
-s
->> specific and explicit side effects.
->>
->=20
-> I will post a patch to introduce a helper function, so that this is=20
-> clearly documented and not relying on side effects. Actual=20
-> implementation has latency
-> problems on empty hash tables if CONFIG_PREEMPT=3Dn
->=20
->=20
->> I don't know, to me it just looks awful :-)  I better understood the
->> original code.
+On Tuesday 08 January 2008 1:02:11 am David Miller wrote:
+> From: Paul Moore <paul.moore@hp.com>
+> Date: Mon, 07 Jan 2008 12:47:48 -0500
+>
+> > This patch implements packet ingress/egress controls for SELinux which
+> > allow SELinux security policy to control the flow of all IPv4 and IPv6
+> > packets into and out of the system.  Currently SELinux does not have
+> > proper control over forwarded packets and this patch corrects this
+> > problem.
+> >
+> > Special thanks to Venkat Yekkirala <vyekkirala@trustedcs.com> whose
+> > earlier work on this topic eventually led to this patch.
+> >
+> > Signed-off-by: Paul Moore <paul.moore@hp.com>
+>
+> This looks fine, and since it doesn't touch anything under net/
+> please feel free to merge it however you like.
 
-It seems this patch only made it more visible how it currently works.
-I don't know what changes do you plan for this helper function, but
-my proposal is to add some counter and break this rcu only after
-looping for some time. Alternatively cpu_relax() could be probably
-used between these "locks". Without this probably some cache problems
-are possible, but you know this better, I guess.
+Thanks.  For the record, I believe the plan is that James will be pushing all 
+the labeled networking changes to Linus when the time comes.
 
-Regards,
-Jarek P.
+-- 
+paul moore
+linux security @ hp
