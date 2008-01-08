@@ -1,192 +1,45 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 7/7]: [NET]: Make ->poll() breakout consistent in Intel
- ethernet drivers.
-Date: Tue, 08 Jan 2008 11:04:59 -0800
-Message-ID: <4783C95B.8060005@intel.com>
-References: <20080107.214110.257940011.davem@davemloft.net>
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: Re: Top 10 kernel oopses for the week ending January 5th, 2008
+Date: Tue, 08 Jan 2008 11:05:00 -0800
+Message-ID: <4783C95C.7050303@linux.intel.com>
+References: <477FF149.4070609@linux.intel.com> <20080105213935.GN27894@ZenIV.linux.org.uk> <20080107174431.GC27741@fieldses.org> <4782CF9C.6000508@gmail.com> <alpine.LFD.1.00.0801071851120.3148@woody.linux-foundation.org> <20080108081401.d9576ac5.randy.dunlap@oracle.com> <4783B602.1050307@linux.intel.com> <alpine.LFD.1.00.0801080957280.3148@woody.linux-foundation.org> <4783BE06.1070507@linux.intel.com> <alpine.LFD.1.00.0801081025470.3148@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: David Miller <davem@davemloft.net>
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	Kevin Winchester <kjwinchester@gmail.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	NetDev <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:1799 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751039AbYAHTGU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jan 2008 14:06:20 -0500
-In-Reply-To: <20080107.214110.257940011.davem@davemloft.net>
+Received: from mga06.intel.com ([134.134.136.21]:3575 "EHLO
+	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751505AbYAHTHl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 14:07:41 -0500
+In-Reply-To: <alpine.LFD.1.00.0801081025470.3148@woody.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> [NET]: Make ->poll() breakout consistent in Intel ethernet drivers.
+Linus Torvalds wrote:
 > 
-> This makes the ->poll() routines of the E100, E1000, E1000E, IXGB, and
-> IXGBE drivers complete ->poll() consistently.
+> On Tue, 8 Jan 2008, Arjan van de Ven wrote:
+>> the database has the information so it's just a matter of slightly different
+>> php code ;)
+>> Before I do that... do you want the BUG's separate, part of the warnings or
+>> part of the oopses?
+>> (I rather make this change once ;)
 > 
-> Now they will all break out when the amount of RX work done is less
-> than 'budget'.
+> I'd like them all separate, they tend to be very different and contain 
+> different information.
 > 
-> At a later time, we may want put back code to include the TX work as
-> well (as at least one other NAPI driver does, but by in large NAPI
-> drivers do not do this).  But if so, it should be done consistently
-> across the board to all of these drivers.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+> Put the warnings last, as the least important. Oopses at the top, since 
+> they tend to be the ones that are less expected.
 
-
-this is exactly the change I was eyeballing and indeed this seems to be the
-general use case in most drivers anyway.
-
-I'll try to see how this impacts the (especially 4-port) TX performance issue with
-e1000e, but this should be just fine for now, and we can address later anyway.
-
-Acked-by: Auke Kok <auke-jan.h.kok@intel.com>
-
-
-Auke
-
-
-> ---
->  drivers/net/e100.c             |    7 +++----
->  drivers/net/e1000/e1000_main.c |   10 +++++-----
->  drivers/net/e1000e/netdev.c    |    8 ++++----
->  drivers/net/ixgb/ixgb_main.c   |    7 +++----
->  drivers/net/ixgbe/ixgbe_main.c |    8 ++++----
->  5 files changed, 19 insertions(+), 21 deletions(-)
-> 
-> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-> index 68316f1..b87402b 100644
-> --- a/drivers/net/e100.c
-> +++ b/drivers/net/e100.c
-> @@ -1991,13 +1991,12 @@ static int e100_poll(struct napi_struct *napi, int budget)
->  	struct nic *nic = container_of(napi, struct nic, napi);
->  	struct net_device *netdev = nic->netdev;
->  	unsigned int work_done = 0;
-> -	int tx_cleaned;
->  
->  	e100_rx_clean(nic, &work_done, budget);
-> -	tx_cleaned = e100_tx_clean(nic);
-> +	e100_tx_clean(nic);
->  
-> -	/* If no Rx and Tx cleanup work was done, exit polling mode. */
-> -	if((!tx_cleaned && (work_done == 0))) {
-> +	/* If budget not fully consumed, exit the polling mode */
-> +	if (work_done < budget) {
->  		netif_rx_complete(netdev, napi);
->  		e100_enable_irq(nic);
->  	}
-> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-> index 9de7144..13d57b0 100644
-> --- a/drivers/net/e1000/e1000_main.c
-> +++ b/drivers/net/e1000/e1000_main.c
-> @@ -3919,7 +3919,7 @@ e1000_clean(struct napi_struct *napi, int budget)
->  {
->  	struct e1000_adapter *adapter = container_of(napi, struct e1000_adapter, napi);
->  	struct net_device *poll_dev = adapter->netdev;
-> -	int tx_cleaned = 0, work_done = 0;
-> +	int work_done = 0;
->  
->  	/* Must NOT use netdev_priv macro here. */
->  	adapter = poll_dev->priv;
-> @@ -3929,16 +3929,16 @@ e1000_clean(struct napi_struct *napi, int budget)
->  	 * simultaneously.  A failure obtaining the lock means
->  	 * tx_ring[0] is currently being cleaned anyway. */
->  	if (spin_trylock(&adapter->tx_queue_lock)) {
-> -		tx_cleaned = e1000_clean_tx_irq(adapter,
-> -		                                &adapter->tx_ring[0]);
-> +		e1000_clean_tx_irq(adapter,
-> +				   &adapter->tx_ring[0]);
->  		spin_unlock(&adapter->tx_queue_lock);
->  	}
->  
->  	adapter->clean_rx(adapter, &adapter->rx_ring[0],
->  	                  &work_done, budget);
->  
-> -	/* If no Tx and not enough Rx work done, exit the polling mode */
-> -	if ((!tx_cleaned && (work_done == 0))) {
-> +	/* If budget not fully consumed, exit the polling mode */
-> +	if (work_done < budget) {
->  		if (likely(adapter->itr_setting & 3))
->  			e1000_set_itr(adapter);
->  		netif_rx_complete(poll_dev, napi);
-> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-> index dd9698c..4a6fc74 100644
-> --- a/drivers/net/e1000e/netdev.c
-> +++ b/drivers/net/e1000e/netdev.c
-> @@ -1384,7 +1384,7 @@ static int e1000_clean(struct napi_struct *napi, int budget)
->  {
->  	struct e1000_adapter *adapter = container_of(napi, struct e1000_adapter, napi);
->  	struct net_device *poll_dev = adapter->netdev;
-> -	int tx_cleaned = 0, work_done = 0;
-> +	int work_done = 0;
->  
->  	/* Must NOT use netdev_priv macro here. */
->  	adapter = poll_dev->priv;
-> @@ -1394,14 +1394,14 @@ static int e1000_clean(struct napi_struct *napi, int budget)
->  	 * simultaneously.  A failure obtaining the lock means
->  	 * tx_ring is currently being cleaned anyway. */
->  	if (spin_trylock(&adapter->tx_queue_lock)) {
-> -		tx_cleaned = e1000_clean_tx_irq(adapter);
-> +		e1000_clean_tx_irq(adapter);
->  		spin_unlock(&adapter->tx_queue_lock);
->  	}
->  
->  	adapter->clean_rx(adapter, &work_done, budget);
->  
-> -	/* If no Tx and not enough Rx work done, exit the polling mode */
-> -	if ((!tx_cleaned && (work_done < budget))) {
-> +	/* If budget not fully consumed, exit the polling mode */
-> +	if (work_done < budget) {
->  		if (adapter->itr_setting & 3)
->  			e1000_set_itr(adapter);
->  		netif_rx_complete(poll_dev, napi);
-> diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-> index a8bef52..d2fb88d 100644
-> --- a/drivers/net/ixgb/ixgb_main.c
-> +++ b/drivers/net/ixgb/ixgb_main.c
-> @@ -1787,14 +1787,13 @@ ixgb_clean(struct napi_struct *napi, int budget)
->  {
->  	struct ixgb_adapter *adapter = container_of(napi, struct ixgb_adapter, napi);
->  	struct net_device *netdev = adapter->netdev;
-> -	int tx_cleaned;
->  	int work_done = 0;
->  
-> -	tx_cleaned = ixgb_clean_tx_irq(adapter);
-> +	ixgb_clean_tx_irq(adapter);
->  	ixgb_clean_rx_irq(adapter, &work_done, budget);
->  
-> -	/* if no Tx and not enough Rx work done, exit the polling mode */
-> -	if((!tx_cleaned && (work_done == 0))) {
-> +	/* If budget not fully consumed, exit the polling mode */
-> +	if (work_done < budget) {
->  		netif_rx_complete(netdev, napi);
->  		ixgb_irq_enable(adapter);
->  	}
-> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-> index 7c31930..a564916 100644
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -1468,15 +1468,15 @@ static int ixgbe_clean(struct napi_struct *napi, int budget)
->  	struct ixgbe_adapter *adapter = container_of(napi,
->  					struct ixgbe_adapter, napi);
->  	struct net_device *netdev = adapter->netdev;
-> -	int tx_cleaned = 0, work_done = 0;
-> +	int work_done = 0;
->  
->  	/* In non-MSIX case, there is no multi-Tx/Rx queue */
-> -	tx_cleaned = ixgbe_clean_tx_irq(adapter, adapter->tx_ring);
-> +	ixgbe_clean_tx_irq(adapter, adapter->tx_ring);
->  	ixgbe_clean_rx_irq(adapter, &adapter->rx_ring[0], &work_done,
->  			   budget);
->  
-> -	/* If no Tx and not enough Rx work done, exit the polling mode */
-> -	if ((!tx_cleaned && (work_done < budget))) {
-> +	/* If budget not fully consumed, exit the polling mode */
-> +	if (work_done < budget) {
->  		netif_rx_complete(netdev, napi);
->  		ixgbe_irq_enable(adapter);
->  	}
+ok done; I had to fizzle a bit because some things aren't *exactly* a BUG() statement
+but I track them anyway (things like the "sleeping in invalid context" check), so I
+had to somewhat arbitrarily assign categories for those. I might fine tune these over time
+some; if you or someone else sees problems with categorization please let me know
 
