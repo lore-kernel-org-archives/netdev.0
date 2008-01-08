@@ -1,33 +1,75 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/3] drivers/net/ipg.c: Fix skbuff leak
-Date: Wed, 9 Jan 2008 00:28:58 +0100
-Message-ID: <20080108232858.GA13069@electric-eye.fr.zoreil.com>
-References: <20080108122814.12005.qmail@science.horizon.com> <20080108131956.13905.qmail@science.horizon.com> <20080108213640.GC4450@electric-eye.fr.zoreil.com> <20080108.150038.57735076.davem@davemloft.net>
+From: "Tom Spink" <tspink@gmail.com>
+Subject: Re: AF_UNIX MSG_PEEK bug?
+Date: Tue, 8 Jan 2008 23:46:15 +0000
+Message-ID: <7b9198260801081546u50f11e9ck32ec6f071efa300d@mail.gmail.com>
+References: <alpine.BSF.1.00.0801081556580.24286@pkunk.americas.sgi.com>
+	 <4783FBD6.1000004@hp.com>
+	 <7b9198260801081453s198af7efycc7c35668c65eaf1@mail.gmail.com>
+	 <alpine.BSF.1.00.0801081716010.24286@pkunk.americas.sgi.com>
+	 <7b9198260801081539x7aee72fbm53b5f298c5faf56@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux@horizon.com, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Rick Jones" <rick.jones2@hp.com>, netdev@vger.kernel.org,
+	"David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org
+To: "Brent Casavant" <bcasavan@sgi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:60747 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750844AbYAHXmE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 18:42:04 -0500
+Received: from py-out-1112.google.com ([64.233.166.182]:10491 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752755AbYAHXqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 18:46:16 -0500
+Received: by py-out-1112.google.com with SMTP id u52so28885pyb.10
+        for <netdev@vger.kernel.org>; Tue, 08 Jan 2008 15:46:16 -0800 (PST)
+In-Reply-To: <7b9198260801081539x7aee72fbm53b5f298c5faf56@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20080108.150038.57735076.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> :
-[...]
-> Same kind of bug as the RX side :-)  I bet this fixes his
-> problem...
+On 08/01/2008, Tom Spink <tspink@gmail.com> wrote:
+> On 08/01/2008, Brent Casavant <bcasavan@sgi.com> wrote:
+> > On Tue, 8 Jan 2008, Tom Spink wrote:
+> >
+> > > Where in the code is the message length being sent across the socket?
+> >
+> > In do_producer(), there are the following lines in the main loop:
+> >
+> >         /* Send random lengths of data */
+> >         messages[i].length = (rand() % MAXLEN) + sizeof(size_t);
+> >         iov[i].iov_len = messages[i].length;
+> >
+> > The entire "struct sockmsg" is sent across the socket, so the first
+> > size_t in each message contains the length of the entire message
+> > (including the size_t).  This size gets picked up at the
+> > recv(...,MSG_PEEK) line in do_consumer().
+> >
+> > Thanks,
+> > Brent
+> >
+> > --
+> > Brent Casavant                          All music is folk music.  I ain't
+> > bcasavan@sgi.com                        never heard a horse sing a song.
+> > Silicon Graphics, Inc.                    -- Louis Armstrong
+> >
+>
+> Hi,
+>
+> But you're not consuming the size_t on the other end.  You're only
+> peeking it, i.e. you're doing the recv to peek at the message, but
+> never calling recv to remove that data from the queue... or am I
+> missing something?
+>
+> --
+> Regards,
+> Tom Spink
+> University of Edinburgh
+>
 
-I am not sure but the Rx side is probably just here to distract
-from the real problem. Please don't ask... :o)
+Ach.  I *am* missing something... and what I'm missing is my
+understanding of the sendmsg and recvmsg calls.
 
-Anyway I'll poke an adapter in the test computer and give it a
-try tomorrow. Nobody will complain if I crash it.
+A quick Google has sorted me out.
 
 -- 
-Ueimor
+Regards,
+Tom Spink
+University of Edinburgh
