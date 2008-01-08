@@ -1,143 +1,155 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/3] [ACKVEC]: Separate skb option parsing from CCID-specific code
-Date: Tue,  8 Jan 2008 14:07:55 +0000
-Message-ID: <1199801276-16955-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 1/3] [ACKVEC]: Schedule SyncAck when running out of space
+Date: Tue,  8 Jan 2008 14:07:54 +0000
+Message-ID: <1199801276-16955-2-git-send-email-gerrit@erg.abdn.ac.uk>
 References: finishing_ackvector_patch_set
  <1199801276-16955-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1199801276-16955-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:56299 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:56287 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751755AbYAHOIz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jan 2008 09:08:55 -0500
-In-Reply-To: <1199801276-16955-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753598AbYAHOJS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jan 2008 09:09:18 -0500
+In-Reply-To: <1199801276-16955-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch replaces an almost identical reduplication of code; large parts of
-dccp_parse_options() are repeated as ccid2_ackvector() in ccid2.c.
+The problem with Ack Vectors is that
 
-Two problems are involved, apart from the duplication:
- 1. no separation of concerns: CCIDs should not need to be concerned with the
-    details of parsing header options;
- 2. one can not assume that Ack Vectors appear as a contiguous area within an
-    skb, it is legal to insert other options and/or padding in between. The
-    current code would throw an error and stop reading in such a case. Not good.
+  i) their length is variable and can in principle grow quite large,
+ ii) it is hard to predict exactly how large they will be.
 
-Details:
---------
- * received Ack Vectors are parsed by dccp_parse_options() alone, which passes
-   the result on to the CCID-specific ccid_hc_tx_parse_options();
- * CCIDs interested in using/decoding Ack Vector information need to add code
-   to receive parsed Ack Vectors via this interface;
- * a data structure, `struct dccp_ackvec_parsed' is provided, which arranges all
-   Ack Vectors of a single skb into a list of parsed chunks;
- * a doubly-linked list was used since insertion needs to be at the tail end;
- * the associated list handling and list de-allocation routines.
+ Due to the second point it seems not a good idea to reduce the MPS;
+i particular when on average there is enough room for the Ack Vector
+and an increase in length is momentarily due to some burst loss, after
+which the Ack Vector returns to its normal/average length.
+
+The solution taken by this patch to address the outstanding FIXME is
+to schedule a separate Sync when running out of space on the skb, and to
+log a warning into the syslog.
+
+The mechanism can also be used for other out-of-band signalling: it does
+quicker signalling than scheduling an Ack, since it does not need to wait
+for new data.
+
+ Additional Note:
+ ----------------
+ It is possible to lower MPS according to the average length of Ack Vectors;
+ the following argues why this does not seem to be a good idea.
+
+ When determining the average Ack Vector length, a moving-average is more
+ useful than a normal average, since sudden peaks (burst losses) are better
+ dampened. The Ack Vector buffer would have a field `av_avg_len' which tracks
+ this moving average and MPS would be reduced by this value (plus 2 bytes for
+ type/value for each full Ack Vector).
+
+ However, this means that the MPS decreases in the middle of an established
+ connection. For a user who has tuned his/her application to work with the
+ MPS taken at the beginning of the connection this can be very counter-
+ intuitive and annoying.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ackvec.c  |   28 ++++++++++++++++++++++++++++
- net/dccp/ackvec.h  |   19 +++++++++++++++++++
- net/dccp/options.c |   17 ++++++++++-------
- 3 files changed, 57 insertions(+), 7 deletions(-)
+ include/linux/dccp.h |    2 ++
+ net/dccp/options.c   |   28 +++++++++++++++++++---------
+ net/dccp/output.c    |    8 ++++++++
+ 3 files changed, 29 insertions(+), 9 deletions(-)
 
---- a/net/dccp/ackvec.h
-+++ b/net/dccp/ackvec.h
-@@ -112,4 +112,23 @@ static inline bool dccp_ackvec_is_empty(const struct dccp_ackvec *av)
- {
- 	return av->av_overflow == 0 && av->av_buf_head == av->av_buf_tail;
- }
-+
-+/**
-+ * struct dccp_ackvec_parsed  -  Record offsets of Ack Vectors in skb
-+ * @vec:	start of vector (offset into skb)
-+ * @len:	length of @vec
-+ * @nonce:	whether @vec had an ECN nonce of 0 or 1
-+ * @node:	FIFO - arranged in descending order of ack_ackno
-+ * This structure is used by CCIDs to access Ack Vectors in a received skb.
-+ */
-+struct dccp_ackvec_parsed {
-+	u8		 *vec,
-+			 len,
-+			 nonce:1;
-+	struct list_head node;
-+};
-+
-+extern int dccp_ackvec_parsed_add(struct list_head *head,
-+				  u8 *vec, u8 len, u8 nonce);
-+extern void dccp_ackvec_parsed_cleanup(struct list_head *parsed_chunks);
- #endif /* _ACKVEC_H */
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -475,6 +475,7 @@ struct dccp_ackvec;
+  * @dccps_hc_rx_insert_options - receiver wants to add options when acking
+  * @dccps_hc_tx_insert_options - sender wants to add options when sending
+  * @dccps_server_timewait - server holds timewait state on close (RFC 4340, 8.3)
++ * @dccps_sync_scheduled - flag which signals "send out-of-band message soon"
+  * @dccps_xmit_timer - timer for when CCID is not ready to send
+  * @dccps_syn_rtt - RTT sample from Request/Response exchange (in usecs)
+  */
+@@ -515,6 +516,7 @@ struct dccp_sock {
+ 	__u8				dccps_hc_rx_insert_options:1;
+ 	__u8				dccps_hc_tx_insert_options:1;
+ 	__u8				dccps_server_timewait:1;
++	__u8				dccps_sync_scheduled:1;
+ 	struct timer_list		dccps_xmit_timer;
+ };
+ 
 --- a/net/dccp/options.c
 +++ b/net/dccp/options.c
-@@ -135,13 +135,6 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
- 			if (rc)
- 				goto out_invalid_option;
- 			break;
--		case DCCPO_ACK_VECTOR_0:
--		case DCCPO_ACK_VECTOR_1:
--			if (dccp_packet_without_ack(skb))   /* RFC 4340, 11.4 */
--				break;
--			dccp_pr_debug("%s Ack Vector (len=%u)\n", dccp_role(sk),
--				      len);
--			break;
- 		case DCCPO_TIMESTAMP:
- 			if (len != 4)
- 				goto out_invalid_option;
-@@ -229,6 +222,16 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
- 						     value) != 0)
- 				goto out_invalid_option;
- 			break;
-+		case DCCPO_ACK_VECTOR_0:
-+		case DCCPO_ACK_VECTOR_1:
-+			if (dccp_packet_without_ack(skb))   /* RFC 4340, 11.4 */
-+				break;
-+			/*
-+			 * Ack vectors are processed by the TX CCID if it is
-+			 * interested. The RX CCID need not parse Ack Vectors,
-+			 * since it is only interested in clearing old state.
-+			 * Fall through.
-+			 */
- 		case DCCPO_MIN_TX_CCID_SPECIFIC ... DCCPO_MAX_TX_CCID_SPECIFIC:
- 			if (ccid_hc_tx_parse_options(dp->dccps_hc_tx_ccid, sk,
- 						     opt, len, value - options,
---- a/net/dccp/ackvec.c
-+++ b/net/dccp/ackvec.c
-@@ -345,6 +345,34 @@ free_records:
+@@ -426,7 +426,9 @@ static int dccp_insert_option_timestamp_echo(struct dccp_sock *dp,
+ 
+ int dccp_insert_option_ackvec(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct dccp_ackvec *av = dccp_sk(sk)->dccps_hc_rx_ackvec;
++	struct dccp_sock *dp = dccp_sk(sk);
++	struct dccp_ackvec *av = dp->dccps_hc_rx_ackvec;
++	struct dccp_skb_cb *dcb = DCCP_SKB_CB(skb);
+ 	const u16 buflen = dccp_ackvec_buflen(av);
+ 	/* Figure out how many options do we need to represent the ackvec */
+ 	const u16 nr_opts = DIV_ROUND_UP(buflen, DCCP_SINGLE_OPT_MAXLEN);
+@@ -435,16 +437,24 @@ int dccp_insert_option_ackvec(struct sock *sk, struct sk_buff *skb)
+ 	const unsigned char *tail, *from;
+ 	unsigned char *to;
+ 
+-	if (DCCP_SKB_CB(skb)->dccpd_opt_len + len > DCCP_MAX_OPT_LEN) {
+-		/*
+-		 * FIXME: when running out of option space while piggybacking on
+-		 * DataAck, return 0 here and schedule a separate Ack instead.
+-		 */
++	if (dcb->dccpd_opt_len + len > DCCP_MAX_OPT_LEN) {
+ 		DCCP_WARN("Lacking space for %u bytes on %s packet\n", len,
+-			  dccp_packet_name(DCCP_SKB_CB(skb)->dccpd_type));
++			  dccp_packet_name(dcb->dccpd_type));
+ 		return -1;
  	}
+-	DCCP_SKB_CB(skb)->dccpd_opt_len += len;
++	/*
++	 * Since Ack Vectors are variable-length, we can not always predict
++	 * their size. To catch exception cases where the space is running out
++	 * on the skb, a separate Sync is scheduled to carry the Ack Vector.
++	 */
++	if (dcb->dccpd_opt_len + skb->len + len > dp->dccps_mss_cache) {
++		DCCP_WARN("No space left for Ack Vector (%u) on skb (%u+%u), "
++			  "MPS=%u ==> reduce payload size?\n", len, skb->len,
++			  dcb->dccpd_opt_len, dp->dccps_mss_cache);
++		dp->dccps_sync_scheduled = 1;
++		return 0;
++	}
++	dcb->dccpd_opt_len += len;
+ 
+ 	to   = skb_push(skb, len);
+ 	len  = buflen;
+@@ -485,7 +495,7 @@ int dccp_insert_option_ackvec(struct sock *sk, struct sk_buff *skb)
+ 	/*
+ 	 * Each sent Ack Vector is recorded in the list, as per A.2 of RFC 4340.
+ 	 */
+-	if (dccp_ackvec_update_records(av, DCCP_SKB_CB(skb)->dccpd_seq, nonce))
++	if (dccp_ackvec_update_records(av, dcb->dccpd_seq, nonce))
+ 		return -ENOBUFS;
+ 	return 0;
+ }
+--- a/net/dccp/output.c
++++ b/net/dccp/output.c
+@@ -282,6 +282,8 @@ void dccp_write_xmit(struct sock *sk, int block)
+ 			if (err)
+ 				DCCP_BUG("err=%d after ccid_hc_tx_packet_sent",
+ 					 err);
++			if (dp->dccps_sync_scheduled)
++				dccp_send_sync(sk, dp->dccps_gsr, DCCP_PKT_SYNC);
+ 		} else {
+ 			dccp_pr_debug("packet discarded due to err=%d\n", err);
+ 			kfree_skb(skb);
+@@ -574,6 +576,12 @@ void dccp_send_sync(struct sock *sk, const u64 ackno,
+ 	DCCP_SKB_CB(skb)->dccpd_type = pkt_type;
+ 	DCCP_SKB_CB(skb)->dccpd_ack_seq = ackno;
+ 
++	/*
++	 * Clear the flag in case the Sync was scheduled for out-of-band data,
++	 * such as carrying a long Ack Vector.
++	 */
++	dccp_sk(sk)->dccps_sync_scheduled = 0;
++
+ 	dccp_transmit_skb(sk, skb);
  }
  
-+/*
-+ *	Routines to keep track of Ack Vectors received in an skb
-+ */
-+int dccp_ackvec_parsed_add(struct list_head *head, u8 *vec, u8 len, u8 nonce)
-+{
-+	struct dccp_ackvec_parsed *new = kmalloc(sizeof(*new), GFP_ATOMIC);
-+
-+	if (new == NULL)
-+		return -ENOBUFS;
-+	new->vec   = vec;
-+	new->len   = len;
-+	new->nonce = nonce;
-+
-+	list_add_tail(&new->node, head);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(dccp_ackvec_parsed_add);
-+
-+void dccp_ackvec_parsed_cleanup(struct list_head *parsed_chunks)
-+{
-+	struct dccp_ackvec_parsed *cur, *next;
-+
-+	list_for_each_entry_safe(cur, next, parsed_chunks, node)
-+		kfree(cur);
-+	INIT_LIST_HEAD(parsed_chunks);
-+}
-+EXPORT_SYMBOL_GPL(dccp_ackvec_parsed_cleanup);
-+
- int __init dccp_ackvec_init(void)
- {
- 	dccp_ackvec_slab = kmem_cache_create("dccp_ackvec",
