@@ -1,63 +1,32 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [XFRM]: xfrm_state_clone() should be static, not exported
-Date: Tue, 08 Jan 2008 09:00:20 +0100
-Message-ID: <47832D94.3000302@cosmosbay.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: 2.6.23-rc8 network problem. Mem leak? ip1000a?
+Date: Tue, 8 Jan 2008 08:51:26 +0100
+Message-ID: <20080108075126.GA21412@electric-eye.fr.zoreil.com>
+References: <20070930022347.37514be3.akpm@linux-foundation.org> <20080108065211.25290.qmail@science.horizon.com> <20080107.230709.216880096.davem@davemloft.net> <20080107.231447.08811264.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040307020909010103000409"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux@horizon.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:48178 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750727AbYAHIA3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 03:00:29 -0500
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:45359 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750907AbYAHIDr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 03:03:47 -0500
+Content-Disposition: inline
+In-Reply-To: <20080107.231447.08811264.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------040307020909010103000409
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+David Miller <davem@davemloft.net> :
+[...]
+> I invested 30 seconds of code reading to figure out the leak.  A much
+> better investment of time than adding bogus comments to the Kconfig
+> help text don't you think? :-)
 
-xfrm_state_clone() is not used outside of net/xfrm/xfrm_state.c
-There is no need to export it.
+Thanks for the hint David.
 
-Spoted by sparse checker.
-   CHECK   net/xfrm/xfrm_state.c
-net/xfrm/xfrm_state.c:1103:19: warning: symbol 'xfrm_state_clone' was not 
-declared. Should it be static?
+I'll roll up a patch for it after the day work.
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
-
---------------040307020909010103000409
-Content-Type: text/plain;
- name="xfrm_state.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="xfrm_state.patch"
-
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 81b0fce..5fc8217 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1100,7 +1100,7 @@ out:
- EXPORT_SYMBOL(xfrm_state_add);
- 
- #ifdef CONFIG_XFRM_MIGRATE
--struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig, int *errp)
-+static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig, int *errp)
- {
- 	int err = -ENOMEM;
- 	struct xfrm_state *x = xfrm_state_alloc();
-@@ -1175,7 +1175,6 @@ struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig, int *errp)
- 	kfree(x);
- 	return NULL;
- }
--EXPORT_SYMBOL(xfrm_state_clone);
- 
- /* xfrm_state_lock is held */
- struct xfrm_state * xfrm_migrate_state_find(struct xfrm_migrate *m)
-
---------------040307020909010103000409--
+-- 
+Ueimor
