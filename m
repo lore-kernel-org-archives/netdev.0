@@ -1,36 +1,99 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/4] [XFRM]: Kill some bloat
-Date: Mon, 07 Jan 2008 21:10:18 -0800 (PST)
-Message-ID: <20080107.211018.160153013.davem@davemloft.net>
-References: <20080108020529.GC16156@one.firstfloor.org>
-	<20080107.193700.159646842.davem@davemloft.net>
-	<20080108050007.GA25338@one.firstfloor.org>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Please pull 'fixes-davem' branch of wireless-2.6
+Date: Tue, 8 Jan 2008 00:14:25 -0500
+Message-ID: <20080108051425.GA3125@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, ilpo.jarvinen@helsinki.fi,
-	netdev@vger.kernel.org, acme@redhat.com, paul.moore@hp.com,
-	latten@us.ibm.com
-To: andi@firstfloor.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46706
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750707AbYAHFKT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 00:10:19 -0500
-In-Reply-To: <20080108050007.GA25338@one.firstfloor.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Tue, 8 Jan 2008 06:00:07 +0100
+Dave,
 
-> On Mon, Jan 07, 2008 at 07:37:00PM -0800, David Miller wrote:
-> > The vast majority of them are one, two, and three liners.
-> 
-> % awk '  { line++ } ; /^{/ { total++; start = line } ; /^}/ { len=line-start-3; if (len > 4) l++; if (len >= 10) k++; } ; END { print total, l, l/total, k, k/total }' < include/net/tcp.h
-> 68 28 0.411765 20 0.294118
-> 
-> 41% are over 4 lines, 29% are >= 10 lines.
+Two more fixes for 2.6.24.  I think they are self-explanatory --
+let me know if I'm too optimistic! :-)
 
-Take out the comments and whitespace lines, your script is
-too simplistic.
+Thanks,
+
+John
+
+---
+
+Individual patches are available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/fixes-davem
+
+---
+
+The following changes since commit 3ce54450461bad18bbe1f9f5aa3ecd2f8e8d1235:
+  Linus Torvalds (1):
+        Linux 2.6.24-rc7
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-davem
+
+Andrew Lutomirski (1):
+      mac80211: return an error when SIWRATE doesn't match any rate
+
+Michael Buesch (1):
+      ssb: Fix probing of PCI cores if PCI and PCIE core is available
+
+ drivers/ssb/scan.c             |   11 +++++++++++
+ net/mac80211/ieee80211_ioctl.c |    6 +++---
+ 2 files changed, 14 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/ssb/scan.c b/drivers/ssb/scan.c
+index 96258c6..63ee5cf 100644
+--- a/drivers/ssb/scan.c
++++ b/drivers/ssb/scan.c
+@@ -388,6 +388,17 @@ int ssb_bus_scan(struct ssb_bus *bus,
+ 		case SSB_DEV_PCI:
+ 		case SSB_DEV_PCIE:
+ #ifdef CONFIG_SSB_DRIVER_PCICORE
++			if (bus->bustype == SSB_BUSTYPE_PCI) {
++				/* Ignore PCI cores on PCI-E cards.
++				 * Ignore PCI-E cores on PCI cards. */
++				if (dev->id.coreid == SSB_DEV_PCI) {
++					if (bus->host_pci->is_pcie)
++						continue;
++				} else {
++					if (!bus->host_pci->is_pcie)
++						continue;
++				}
++			}
+ 			if (bus->pcicore.dev) {
+ 				ssb_printk(KERN_WARNING PFX
+ 					   "WARNING: Multiple PCI(E) cores found\n");
+diff --git a/net/mac80211/ieee80211_ioctl.c b/net/mac80211/ieee80211_ioctl.c
+index 7027eed..308bbe4 100644
+--- a/net/mac80211/ieee80211_ioctl.c
++++ b/net/mac80211/ieee80211_ioctl.c
+@@ -591,7 +591,7 @@ static int ieee80211_ioctl_siwrate(struct net_device *dev,
+ 	sdata->bss->force_unicast_rateidx = -1;
+ 	if (rate->value < 0)
+ 		return 0;
+-	for (i=0; i< mode->num_rates; i++) {
++	for (i=0; i < mode->num_rates; i++) {
+ 		struct ieee80211_rate *rates = &mode->rates[i];
+ 		int this_rate = rates->rate;
+ 
+@@ -599,10 +599,10 @@ static int ieee80211_ioctl_siwrate(struct net_device *dev,
+ 			sdata->bss->max_ratectrl_rateidx = i;
+ 			if (rate->fixed)
+ 				sdata->bss->force_unicast_rateidx = i;
+-			break;
++			return 0;
+ 		}
+ 	}
+-	return 0;
++	return -EINVAL;
+ }
+ 
+ static int ieee80211_ioctl_giwrate(struct net_device *dev,
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
