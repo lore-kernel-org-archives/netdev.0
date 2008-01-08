@@ -1,56 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: forcedeth: MAC-address reversed on resume from suspend
-Date: Mon, 07 Jan 2008 23:23:55 -0800 (PST)
-Message-ID: <20080107.232355.228915298.davem@davemloft.net>
-References: <20080104034357.GA2113@atjola.homenet>
-	<b4292e150801061349v3b54ffc0vfed75dbcb83daf9b@mail.gmail.com>
-	<20080107014638.GA4170@atjola.homenet>
+From: Russ Dill <Russ.Dill@asu.edu>
+Subject: [NET] mcs7830 passes msecs instead of jiffies to usb_control_msg
+Date: Tue, 08 Jan 2008 00:09:39 -0700
+Message-ID: <1199776179.26870.1.camel@russ-laptop>
+References: <134b1d6c0801071520h9932537ke0b5daeaabab289b@mail.gmail.com>
+	 <20080107.214826.153054474.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: arbrandes@gmail.com, bunk@kernel.org, andi@lisas.de,
-	richie@coderworld.net, linux-kernel@vger.kernel.org,
-	aabdulla@nvidia.com, jgarzik@pobox.com, netdev@vger.kernel.org
-To: B.Steinbrink@gmx.de
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57838
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750776AbYAHHX4 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jan 2008 02:23:56 -0500
-In-Reply-To: <20080107014638.GA4170@atjola.homenet>
+Received: from epo-int1.asu.edu ([129.219.187.20]:52271 "EHLO epo-int1.asu.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751018AbYAHH1r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jan 2008 02:27:47 -0500
+In-Reply-To: <20080107.214826.153054474.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F6rn Steinbrink <B.Steinbrink@gmx.de>
-Date: Mon, 7 Jan 2008 02:46:38 +0100
+usb_control_msg was changed long ago (2.6.12-pre) to take milliseconds
+instead of jiffies. Oddly, mcs7830 wasn't added until 2.6.19-rc3.
 
-> On 2008.01.06 19:49:49 -0200, Adolfo R. Brandes wrote:
-> >  I have this forcedeth MAC address reversal problem when suspending
-> > on 2 distinct boxes.  I can confirm Steinbrink's patch fixes the
-> > problem on only one of them:
-> >=20
-> > 00:0a.0 Bridge: nVidia Corporation CK804 Ethernet Controller (rev f=
-3)
-> >=20
-> >  On the other one the problem persists:
-> >=20
-> > 00:14.0 Bridge: nVidia Corporation MCP51 Ethernet Controller (rev a=
-1)
->=20
-> Thanks. Leaves me pretty clueless though. Especially since it worked =
-for
-> Richard, who also has a MCP51. In a private mail, you said that you h=
-ad
-> hardcoded the mac address in the source. Any chance that you applied =
-the
-> patch on your modified sources and didn't get it right?
+Signed-off-by: Russ Dill <Russ.Dill@asu.edu>
+---
+ drivers/net/usb/mcs7830.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-I am going to push this patch upstream, it is correct and we
-have a positive test case that failed before, so overall it's
-a net improvement even if we still don't exactly know why
-Adolfo's case still fails.
+diff --git a/drivers/net/usb/mcs7830.c b/drivers/net/usb/mcs7830.c
+index f55a595..5ea7411 100644
+--- a/drivers/net/usb/mcs7830.c
++++ b/drivers/net/usb/mcs7830.c
+@@ -94,7 +94,7 @@ static int mcs7830_get_reg(struct usbnet *dev, u16 index, u16 size, void *data)
+ 
+ 	ret = usb_control_msg(xdev, usb_rcvctrlpipe(xdev, 0), MCS7830_RD_BREQ,
+ 			      MCS7830_RD_BMREQ, 0x0000, index, data,
+-			      size, msecs_to_jiffies(MCS7830_CTRL_TIMEOUT));
++			      size, MCS7830_CTRL_TIMEOUT);
+ 	return ret;
+ }
+ 
+@@ -105,7 +105,7 @@ static int mcs7830_set_reg(struct usbnet *dev, u16 index, u16 size, void *data)
+ 
+ 	ret = usb_control_msg(xdev, usb_sndctrlpipe(xdev, 0), MCS7830_WR_BREQ,
+ 			      MCS7830_WR_BMREQ, 0x0000, index, data,
+-			      size, msecs_to_jiffies(MCS7830_CTRL_TIMEOUT));
++			      size, MCS7830_CTRL_TIMEOUT);
+ 	return ret;
+ }
+ 
+-- 
+1.5.3.7
 
-Let me know if there are any follow-on patches.
 
-Thanks.
+
