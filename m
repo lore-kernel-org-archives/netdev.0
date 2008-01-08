@@ -1,47 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/4] [XFRM]: Kill some bloat
-Date: Mon, 07 Jan 2008 19:37:00 -0800 (PST)
-Message-ID: <20080107.193700.159646842.davem@davemloft.net>
-References: <p73sl19qi6o.fsf@bingen.suse.de>
-	<20080107.175458.127194310.davem@davemloft.net>
-	<20080108020529.GC16156@one.firstfloor.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, ilpo.jarvinen@helsinki.fi,
-	netdev@vger.kernel.org, acme@redhat.com, paul.moore@hp.com,
-	latten@us.ibm.com
-To: andi@firstfloor.org
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: [PATCH][XFRM] Statistics: Add outbound-dropping error.
+Date: Tue,  8 Jan 2008 13:29:28 +0900
+Message-ID: <11997665683729-git-send-email-nakam@linux-ipv6.org>
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	Masahide NAKAMURA <nakam@linux-ipv6.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54351
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750768AbYAHDhB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 22:37:01 -0500
-In-Reply-To: <20080108020529.GC16156@one.firstfloor.org>
+Received: from usagi025.linux-ipv6.org ([203.178.140.25]:41094 "EHLO
+	triton.linux-ipv6.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1753291AbYAHE3h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 23:29:37 -0500
+In-Reply-To: 20071224.160029.100992026.davem@davemloft.net
+References: 20071224.160029.100992026.davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Tue, 8 Jan 2008 03:05:29 +0100
+Hello,
 
-> On Mon, Jan 07, 2008 at 05:54:58PM -0800, David Miller wrote:
-> > I explicitly left them out.
-> > 
-> > Most of them are abstractions of common 2 or 3 instruction
-> > calculations, and thus should stay inline.
-> 
-> Definitely not in tcp.h. It has quite a lot of very long functions, of
-> which very few really need to be inline: (AFAIK the only one where 
-> it makes really sense is tcp_set_state due to constant evaluation; 
-> although I never quite understood why the callers just didn't 
-> call explicit functions to do these actions) 
-> 
-> % awk '  { line++ } ; /^{/ { start = line } ; /^}/ { n++; r += line-start-2; } ; END { print r/n }' < include/net/tcp.h 
-> 9.48889
-> 
-> The average function length is 9 lines.
+I found two more points where they should be incremented
+as XFRM packet dropping counter. Please apply it.
 
-The vast majority of them are one, two, and three liners.
+P.S.
+I don't touch XFRM_LOOKUP_ICMP related error at __xfrm_lookup()
+since it may not drop the packet.
+Correct me if it is wrong or comments are welcomed.
 
-There are about 4 or 5 inlines in there are in fact large and perhaps
-should be removed, and these puff up your average.
+
+[PATCH][XFRM] Statistics: Add outbound-dropping error.
+
+o Increment PolError counter when flow_cache_lookup() returns
+  errored pointer.
+
+o Increment NoStates counter at larval-drop.
+
+Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+---
+ net/xfrm/xfrm_policy.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 280f8de..d83227b 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1510,8 +1510,10 @@ restart:
+ 		policy = flow_cache_lookup(fl, dst_orig->ops->family,
+ 					   dir, xfrm_policy_lookup);
+ 		err = PTR_ERR(policy);
+-		if (IS_ERR(policy))
++		if (IS_ERR(policy)) {
++			XFRM_INC_STATS(LINUX_MIB_XFRMOUTPOLERROR);
+ 			goto dropdst;
++		}
+ 	}
+ 
+ 	if (!policy)
+@@ -1603,6 +1605,7 @@ restart:
+ 				/* EREMOTE tells the caller to generate
+ 				 * a one-shot blackhole route.
+ 				 */
++				XFRM_INC_STATS(LINUX_MIB_XFRMOUTNOSTATES);
+ 				xfrm_pol_put(policy);
+ 				return -EREMOTE;
+ 			}
+-- 
+1.4.4.2
+
