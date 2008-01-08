@@ -1,9 +1,10 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: 2.6.23-rc8 network problem. Mem leak? ip1000a?
-Date: Mon, 07 Jan 2008 23:07:09 -0800 (PST)
-Message-ID: <20080107.230709.216880096.davem@davemloft.net>
+Date: Mon, 07 Jan 2008 23:14:47 -0800 (PST)
+Message-ID: <20080107.231447.08811264.davem@davemloft.net>
 References: <20070930022347.37514be3.akpm@linux-foundation.org>
 	<20080108065211.25290.qmail@science.horizon.com>
+	<20080107.230709.216880096.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -11,31 +12,74 @@ Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
 	romieu@fr.zoreil.com
 To: linux@horizon.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50484
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43358
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754478AbYAHHHJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 02:07:09 -0500
-In-Reply-To: <20080108065211.25290.qmail@science.horizon.com>
+	by vger.kernel.org with ESMTP id S1751321AbYAHHOr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 02:14:47 -0500
+In-Reply-To: <20080107.230709.216880096.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: linux@horizon.com
-Date: 8 Jan 2008 01:52:11 -0500
+From: David Miller <davem@davemloft.net>
+Date: Mon, 07 Jan 2008 23:07:09 -0800 (PST)
 
-> @@ -172,6 +172,10 @@ config IP1000
->  	select MII
->  	---help---
->  	  This driver supports IP1000 gigabit Ethernet cards.
-> +	  It works, but suffers from a memory leak.  Signifcant
-> +	  use will consume unswappable kernel memory until the
-> +	  machine runs out of memory and crashes.  Thus, this
-> +	  driver cannot be considered usable at the the present time.
+> From: linux@horizon.com
+> Date: 8 Jan 2008 01:52:11 -0500
+> 
+> > @@ -172,6 +172,10 @@ config IP1000
+> >  	select MII
+> >  	---help---
+> >  	  This driver supports IP1000 gigabit Ethernet cards.
+> > +	  It works, but suffers from a memory leak.  Signifcant
+> > +	  use will consume unswappable kernel memory until the
+> > +	  machine runs out of memory and crashes.  Thus, this
+> > +	  driver cannot be considered usable at the the present time.
+> 
+> This is not how we handle and track bugs.
+> 
+> Such a patch is inappropriate, and I'd like to ask that you just be
+> patient until someone has a chance to try and figure out what the
+> problem is.  Or even better, you can try to track down the problem
+> yourself since you seem to have a specific interest in this problem.
 
-This is not how we handle and track bugs.
+Actually, the bug is amazingly obvious after a quick scan of this
+driver.
 
-Such a patch is inappropriate, and I'd like to ask that you just be
-patient until someone has a chance to try and figure out what the
-problem is.  Or even better, you can try to track down the problem
-yourself since you seem to have a specific interest in this problem.
+ipg_nic_rx_free_skb() is called from various places and is given zero
+context to work with.  It assumes that the caller wants
+"sp->rx_current % IPG_RFCLIST_LENGTH" to be freed.
 
-Thanks.
+But that's not right in most cases.  For example, consider the call in
+ipg_nic_rx_with_end().  This function is invoked from ipg_nic_rx()
+like so:
+
+	unsigned int curr = sp->rx_current;
+ ...
+	for (i = 0; i < IPG_MAXRFDPROCESS_COUNT; i++, curr++) {
+		unsigned int entry = curr % IPG_RFDLIST_LENGTH;
+		struct ipg_rx *rxfd = sp->rxd + entry;
+
+		if (!(rxfd->rfs & le64_to_cpu(IPG_RFS_RFDDONE)))
+			break;
+
+		switch (ipg_nic_rx_check_frame_type(dev)) {
+ ...
+		case Frame_WithEnd:
+			ipg_nic_rx_with_end(dev, tp, rxfd, entry);
+			break;
+ ...
+		}
+	}
+
+	sp->rx_current = curr;
+
+So sp->rx_current does not correspond to the packet being processed
+currently, so ipg_nic_rx_free_skb() will only look at and try to free
+only the first packet the above loop tries to processe.
+
+WOW!!!!  Amazing!!!
+
+I invested 30 seconds of code reading to figure out the leak.  A much
+better investment of time than adding bogus comments to the Kconfig
+help text don't you think? :-)
+
