@@ -1,93 +1,43 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [IPV4] ROUTE: ip_rt_dump() is unecessary slow
-Date: Tue, 08 Jan 2008 07:11:30 +0100
-Message-ID: <47831412.40606@cosmosbay.com>
-References: <20080107193002.df137d57.dada1@cosmosbay.com> <20080107.215253.250616600.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Patch] xfrm_policy_destroy: rename and relative fixes
+Date: Tue, 8 Jan 2008 17:15:16 +1100
+Message-ID: <20080108061516.GD2529@gondor.apana.org.au>
+References: <20080103120550.GB2498@hacking>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070906050107050908070108"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: WANG Cong <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:57093 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755843AbYAHGLj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 01:11:39 -0500
-In-Reply-To: <20080107.215253.250616600.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:4437 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754551AbYAHGPW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 01:15:22 -0500
+Content-Disposition: inline
+In-Reply-To: <20080103120550.GB2498@hacking>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------070906050107050908070108
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 8bit
-
-David Miller a écrit :
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Mon, 7 Jan 2008 19:30:02 +0100
+On Thu, Jan 03, 2008 at 08:05:50PM +0800, WANG Cong wrote:
 > 
->> I noticed "ip route list cache x.y.z.t" can be *very* slow.
->>
->> While strace-ing -T it I also noticed that first part of route cache is
->> fetched quite fast :
->  ...
->> The following patch corrects this performance/latency problem, removing quadratic behavior.
->>
->> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> Since __xfrm_policy_destroy is used to destory the resources
+> allocated by xfrm_policy_alloc. So using the name
+> __xfrm_policy_destroy is not correspond with xfrm_policy_alloc.
+> Rename it to xfrm_policy_destroy.
 > 
-> I think removing quadratic behavior is a bug fix, thus applied
-> to net-2.6, thanks Eric :-)
+> And along with some instances that call xfrm_policy_alloc
+> but not using xfrm_policy_destroy to destroy the resource,
+> fix them.
+> 
+> Cc: David Miller <davem@davemloft.net>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: WANG Cong <xiyou.wangcong@gmail.com>
 
-You are the boss :)
+This patch looks OK to me.
 
-I had another patch to submit, so I based it no net-2.6, please just say me if 
-you prefer a net-2/6.25 one, as it's not a critical bug fix...
-
-Thank you
-
-[IPV4] ROUTE: fix rcu_dereference() uses in /proc/net/rt_cache
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
-
---------------070906050107050908070108
-Content-Type: text/plain;
- name="route_rcu.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="route_rcu.patch"
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index d337706..3b7562f 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -278,7 +278,7 @@ static struct rtable *rt_cache_get_first(struct seq_file *seq)
- 
- 	for (st->bucket = rt_hash_mask; st->bucket >= 0; --st->bucket) {
- 		rcu_read_lock_bh();
--		r = rt_hash_table[st->bucket].chain;
-+		r = rcu_dereference(rt_hash_table[st->bucket].chain);
- 		if (r)
- 			break;
- 		rcu_read_unlock_bh();
-@@ -288,15 +288,15 @@ static struct rtable *rt_cache_get_first(struct seq_file *seq)
- 
- static struct rtable *rt_cache_get_next(struct seq_file *seq, struct rtable *r)
- {
--	struct rt_cache_iter_state *st = rcu_dereference(seq->private);
-+	struct rt_cache_iter_state *st = seq->private;
- 
--	r = r->u.dst.rt_next;
-+	r = rcu_dereference(r->u.dst.rt_next);
- 	while (!r) {
- 		rcu_read_unlock_bh();
- 		if (--st->bucket < 0)
- 			break;
- 		rcu_read_lock_bh();
--		r = rt_hash_table[st->bucket].chain;
-+		r = rcu_dereference(rt_hash_table[st->bucket].chain);
- 	}
- 	return r;
- }
-
---------------070906050107050908070108--
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
