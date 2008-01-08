@@ -1,30 +1,71 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH 3/4] [XFRM]: Kill some bloat
-Date: Tue, 08 Jan 2008 01:23:11 +0100
-Message-ID: <p73sl19qi6o.fsf@bingen.suse.de>
-References: <1199540349385-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<E1JBJOR-0000jO-00@gondolin.me.apana.org.au>
-	<20080105.231658.168081302.davem@davemloft.net>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] intel ethernet drivers: update MAINTAINERS
+Date: Mon, 07 Jan 2008 16:54:14 -0800
+Message-ID: <20080108005414.31671.37938.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, ilpo.jarvinen@helsinki.fi,
-	netdev@vger.kernel.org, acme@redhat.com, paul.moore@hp.com,
-	latten@us.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jeff@garzik.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.suse.de ([195.135.220.2]:36955 "EHLO mx1.suse.de"
+Received: from mga09.intel.com ([134.134.136.24]:1983 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753553AbYAHAXP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jan 2008 19:23:15 -0500
-In-Reply-To: <20080105.231658.168081302.davem@davemloft.net> (David Miller's message of "Sat\, 05 Jan 2008 23\:16\:58 -0800 \(PST\)")
+	id S1750871AbYAHAz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jan 2008 19:55:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+Unfortunately Jeb decided to move away from our group. We wish
+Jeb good luck with his new group!
 
-> Similarly I question just about any inline usage at all in *.c files
+Reordered people a bit so most active team members are on top.
 
-Don't forget the .h files. Especially a lot of stuff in tcp.h should
-be probably in some .c file and not be inline.
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
--Andi
+ MAINTAINERS |   18 ++++++++----------
+ 1 files changed, 8 insertions(+), 10 deletions(-)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index efdef65..087b871 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1982,29 +1982,27 @@ L:	netdev@vger.kernel.org
+ S:	Maintained
+ 
+ INTEL PRO/100 ETHERNET SUPPORT
+-P:	John Ronciak
+-M:	john.ronciak@intel.com
++P:	Auke Kok
++M:	auke-jan.h.kok@intel.com
+ P:	Jesse Brandeburg
+ M:	jesse.brandeburg@intel.com
+ P:	Jeff Kirsher
+ M:	jeffrey.t.kirsher@intel.com
+-P:	Auke Kok
+-M:	auke-jan.h.kok@intel.com
++P:	John Ronciak
++M:	john.ronciak@intel.com
+ L:	e1000-devel@lists.sourceforge.net
+ W:	http://sourceforge.net/projects/e1000/
+ S:	Supported
+ 
+ INTEL PRO/1000 GIGABIT ETHERNET SUPPORT
+-P:	Jeb Cramer
+-M:	cramerj@intel.com
+-P:	John Ronciak
+-M:	john.ronciak@intel.com
++P:	Auke Kok
++M:	auke-jan.h.kok@intel.com
+ P:	Jesse Brandeburg
+ M:	jesse.brandeburg@intel.com
+ P:	Jeff Kirsher
+ M:	jeffrey.t.kirsher@intel.com
+-P:	Auke Kok
+-M:	auke-jan.h.kok@intel.com
++P:	John Ronciak
++M:	john.ronciak@intel.com
+ L:	e1000-devel@lists.sourceforge.net
+ W:	http://sourceforge.net/projects/e1000/
+ S:	Supported
+
