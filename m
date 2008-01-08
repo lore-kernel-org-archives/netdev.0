@@ -1,43 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Patch] xfrm_policy_destroy: rename and relative fixes
-Date: Tue, 8 Jan 2008 17:15:16 +1100
-Message-ID: <20080108061516.GD2529@gondor.apana.org.au>
-References: <20080103120550.GB2498@hacking>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [IPV4] ROUTE: ip_rt_dump() is unecessary slow
+Date: Mon, 07 Jan 2008 22:15:37 -0800 (PST)
+Message-ID: <20080107.221537.178212902.davem@davemloft.net>
+References: <20080107193002.df137d57.dada1@cosmosbay.com>
+	<20080107.215253.250616600.davem@davemloft.net>
+	<47831412.40606@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: WANG Cong <xiyou.wangcong@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4437 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754551AbYAHGPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 01:15:22 -0500
-Content-Disposition: inline
-In-Reply-To: <20080103120550.GB2498@hacking>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54378
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757799AbYAHGPh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 01:15:37 -0500
+In-Reply-To: <47831412.40606@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 03, 2008 at 08:05:50PM +0800, WANG Cong wrote:
-> 
-> Since __xfrm_policy_destroy is used to destory the resources
-> allocated by xfrm_policy_alloc. So using the name
-> __xfrm_policy_destroy is not correspond with xfrm_policy_alloc.
-> Rename it to xfrm_policy_destroy.
-> 
-> And along with some instances that call xfrm_policy_alloc
-> but not using xfrm_policy_destroy to destroy the resource,
-> fix them.
-> 
-> Cc: David Miller <davem@davemloft.net>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Signed-off-by: WANG Cong <xiyou.wangcong@gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Tue, 08 Jan 2008 07:11:30 +0100
 
-This patch looks OK to me.
+> @@ -288,15 +288,15 @@ static struct rtable *rt_cache_get_first(struct seq_file *seq)
+>  
+>  static struct rtable *rt_cache_get_next(struct seq_file *seq, struct rtable *r)
+>  {
+> -	struct rt_cache_iter_state *st = rcu_dereference(seq->private);
+> +	struct rt_cache_iter_state *st = seq->private;
+>  
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Can you explain to me why this rcu_dereference() can be removed?
+
+The rest of your patch is OK and once I understand the above
+I'll add it to net-2.6, thanks!
