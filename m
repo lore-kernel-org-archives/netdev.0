@@ -1,49 +1,85 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] ip[6]_tables.c: remove some inlines
-Date: Tue, 08 Jan 2008 17:36:21 +0100
-Message-ID: <4783A685.7070109@trash.net>
-References: <200712161247.53986.vda.linux@googlemail.com> <200712311643.41946.vda.linux@googlemail.com> <47792032.3020609@trash.net> <200712311755.02578.vda.linux@googlemail.com>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: SACK scoreboard
+Date: Tue, 08 Jan 2008 11:51:53 -0500
+Message-ID: <4783AA29.3080406@psc.edu>
+References: <Pine.LNX.4.64.0712081523470.17809@kivilampi-30.cs.helsinki.fi>	<20071211.043239.224938181.davem@davemloft.net>	<Pine.LNX.4.64.0712111547300.18529@kivilampi-30.cs.helsinki.fi> <20080107.233617.203640686.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Harald Welte <laforge@gnumonks.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Denys Vlasenko <vda.linux@googlemail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <200712311755.02578.vda.linux@googlemail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ilpo.jarvinen@helsinki.fi, lachlan.andrew@gmail.com,
+	netdev@vger.kernel.org, quetchen@caltech.edu
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailer2.psc.edu ([128.182.66.106]:63046 "EHLO mailer2.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751965AbYAHQwN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jan 2008 11:52:13 -0500
+In-Reply-To: <20080107.233617.203640686.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Denys Vlasenko wrote:
-> On Monday 31 December 2007 17:00, Patrick McHardy wrote:
->> Denys Vlasenko wrote:
->>> ip[6]_tables.c seem to abuse inline.
->>>
->>> This patch removes inlines except those which are used
->>> by packet matching code and thus are performance-critical.
->>>   
->> Some people also consider the ruleset replacement path performance
->> critical, but overall I agree with your patch. I'm travelling currently
->> though so it will take a few days until I'll apply it.
->>
->> Do you have some numbers that show the actual difference these
->> changes make?
+David Miller wrote:
+> Ilpo, just trying to keep an old conversation from dying off.
 > 
-> Before:
+> Did you happen to read a recent blog posting of mine?
 > 
-> $ size */*/*/ip*tables*.o
->    text    data     bss     dec     hex filename
->    6402     500      16    6918    1b06 net/ipv4/netfilter/ip_tables.o
->    7130     500      16    7646    1dde net/ipv6/netfilter/ip6_tables.o
+> 	http://vger.kernel.org/~davem/cgi-bin/blog.cgi/2007/12/31#tcp_overhead
 > 
-> After:
+> I've been thinking more and more and I think we might be able
+> to get away with enforcing that SACKs are always increasing in
+> coverage.
 > 
-> $ size */*/*/ip*tables*.o
->    text    data     bss     dec     hex filename
->    6307     500      16    6823    1aa7 net/ipv4/netfilter/ip_tables.o
->    7010     500      16    7526    1d66 net/ipv6/netfilter/ip6_tables.o
+> I doubt there are any real systems out there that drop out of order
+> packets that are properly formed and are in window, even though the
+> SACK specification (foolishly, in my opinion) allows this.
+> 
+> If we could free packets as SACK blocks cover them, all the problems
+> go away.
+> 
+> For one thing, this will allow the retransmit queue liberation during
+> loss recovery to be spread out over the event, instead of batched up
+> like crazy to the point where the cumulative ACK finally moves and
+> releases an entire window's worth of data.
+> 
+> Next, it would simplify all of this scanning code trying to figure out
+> which holes to fill during recovery.
+> 
+> And for SACK scoreboard marking, the RB trie would become very nearly
+> unecessary as far as I can tell.
+> 
+> I would not even entertain this kind of crazy idea unless I thought
+> the fundamental complexity simplification payback was enormous.  And
+> in this case I think it is.
+> 
+> What we could do is put some experimental hack in there for developers
+> to start playing with, which would enforce that SACKs always increase
+> in coverage.  If violated the connection reset and a verbose log
+> message is logged so we can analyze any cases that occur.
+> 
+> Sounds crazy, but maybe has potential.  What do you think?
 
 
-Applied, thanks.
+Linux has a code path where this can happen under memory over-commit, in 
+tcp_prune_queue().  Also, I think one of the motivations for making SACK 
+strictly advisory is there was some concern about buggy SACK 
+implementations.  Keeping data in your retransmit queue allows you to 
+fall back to timeout and go-back-n if things completely fall apart.  For 
+better or worse, we have to deal with the spec the way it is.
+
+Even if you made this assumption of "hard" SACKs, you still have to 
+worry about large ACKs if SACK is disabled, though I guess you could say 
+people running with large windows without SACK deserve what they get. :)
+
+
+I haven't thought about this too hard, but can we approximate this by 
+moving scaked data into a sacked queue, then if something bad happens 
+merge this back into the retransmit queue?  The code will have to deal 
+with non-contiguous data in the retransmit queue; I'm not sure offhand 
+if that violates any assumptions.  You still have a single expensive ACK 
+at the end of recovery, though I wonder how much this really hurts.  If 
+you want to ameliorate this, you could save this sacked queue to be 
+batch processed later, in application context for instance.
+
+   -John
+
+
