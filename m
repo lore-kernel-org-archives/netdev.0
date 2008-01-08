@@ -1,50 +1,30 @@
-From: "Russell Dill" <russd@asu.edu>
-Subject: [PATCH] [NET] kaweth was forgotten in msec switchover of usb_start_wait_urb
-Date: Mon, 7 Jan 2008 16:20:20 -0700
-Message-ID: <134b1d6c0801071520h9932537ke0b5daeaabab289b@mail.gmail.com>
-Reply-To: Russ.Dill@asu.edu
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 3/4] [XFRM]: Kill some bloat
+Date: Tue, 08 Jan 2008 01:23:11 +0100
+Message-ID: <p73sl19qi6o.fsf@bingen.suse.de>
+References: <1199540349385-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<E1JBJOR-0000jO-00@gondolin.me.apana.org.au>
+	<20080105.231658.168081302.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Michael Zappe" <zapman@interlan.net>,
-	"Stephane Alnet" <stephane@u-picardie.fr>,
-	"Brad Hards" <bhards@bigpond.net.au>,
-	"Oliver Neukum" <oliver@neukum.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, ilpo.jarvinen@helsinki.fi,
+	netdev@vger.kernel.org, acme@redhat.com, paul.moore@hp.com,
+	latten@us.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from epo-ps.asu.edu ([129.219.187.8]:57312 "EHLO epo-ps.asu.edu"
+Received: from ns.suse.de ([195.135.220.2]:36955 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754702AbYAGXu0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jan 2008 18:50:26 -0500
-Received: from fg-out-1718.google.com (fg-out-1718.google.com [72.14.220.154])
-	by epo-ps.asu.edu (Switch-3.3.0/Switch-3.3.0/asu-postoffice-prod) with ESMTP id m07NKKqw015240
-	for <netdev@vger.kernel.org>; Mon, 7 Jan 2008 16:20:20 -0700
-Received: by fg-out-1718.google.com with SMTP id 22so4884670fge.24
-        for <netdev@vger.kernel.org>; Mon, 07 Jan 2008 15:20:20 -0800 (PST)
-Content-Disposition: inline
+	id S1753553AbYAHAXP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jan 2008 19:23:15 -0500
+In-Reply-To: <20080105.231658.168081302.davem@davemloft.net> (David Miller's message of "Sat\, 05 Jan 2008 23\:16\:58 -0800 \(PST\)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Back in 2.6.12-pre, usb_start_wait_urb was switched over to take
-milliseconds instead of jiffies. kaweth.c was never updated to match.
+David Miller <davem@davemloft.net> writes:
 
-Signed-off-by: Russ Dill <Russ.Dill@asu.edu>
----
- drivers/net/usb/kaweth.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> Similarly I question just about any inline usage at all in *.c files
 
-diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
-index 58a53a6..569ad8b 100644
---- a/drivers/net/usb/kaweth.c
-+++ b/drivers/net/usb/kaweth.c
-@@ -70,7 +70,7 @@
- #define KAWETH_TX_TIMEOUT		(5 * HZ)
- #define KAWETH_SCRATCH_SIZE		32
- #define KAWETH_FIRMWARE_BUF_SIZE	4096
--#define KAWETH_CONTROL_TIMEOUT		(30 * HZ)
-+#define KAWETH_CONTROL_TIMEOUT		(30000)
+Don't forget the .h files. Especially a lot of stuff in tcp.h should
+be probably in some .c file and not be inline.
 
- #define KAWETH_STATUS_BROKEN		0x0000001
- #define KAWETH_STATUS_CLOSING		0x0000002
---
-1.5.3.4
+-Andi
