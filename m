@@ -1,45 +1,54 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC PATCH v2 2/2] SELinux: Add network ingress and egress control permission checks
-Date: Tue, 8 Jan 2008 08:13:57 -0500
-Message-ID: <200801080813.57719.paul.moore@hp.com>
-References: <20080107173829.13488.47471.stgit@flek.americas.hpqcorp.net> <20080107174748.13488.11389.stgit@flek.americas.hpqcorp.net> <20080107.220211.250933730.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: linux@horizon.com
+Subject: [PATCH 1/3] drivers/net/ipg.c: Fix skbuff leak
+Date: 8 Jan 2008 07:28:14 -0500
+Message-ID: <20080108122814.12005.qmail@science.horizon.com>
+References: <20080107.231447.08811264.davem@davemloft.net>
+Cc: akpm@linux-foundation.org, davem@davemloft.net, linux@horizon.com
+To: netdev@vger.kernel.org, romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:31366 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756121AbYAHNOL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 08:14:11 -0500
-In-Reply-To: <20080107.220211.250933730.davem@davemloft.net>
-Content-Disposition: inline
+Received: from science.horizon.com ([192.35.100.1]:19696 "HELO
+	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754038AbYAHN2K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 08:28:10 -0500
+In-Reply-To: <20080107.231447.08811264.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 08 January 2008 1:02:11 am David Miller wrote:
-> From: Paul Moore <paul.moore@hp.com>
-> Date: Mon, 07 Jan 2008 12:47:48 -0500
->
-> > This patch implements packet ingress/egress controls for SELinux which
-> > allow SELinux security policy to control the flow of all IPv4 and IPv6
-> > packets into and out of the system.  Currently SELinux does not have
-> > proper control over forwarded packets and this patch corrects this
-> > problem.
-> >
-> > Special thanks to Venkat Yekkirala <vyekkirala@trustedcs.com> whose
-> > earlier work on this topic eventually led to this patch.
-> >
-> > Signed-off-by: Paul Moore <paul.moore@hp.com>
->
-> This looks fine, and since it doesn't touch anything under net/
-> please feel free to merge it however you like.
-
-Thanks.  For the record, I believe the plan is that James will be pushing all 
-the labeled networking changes to Linus when the time comes.
-
--- 
-paul moore
-linux security @ hp
+Prompted by davem, this attempt at fixing the memory leak
+actually appears to work.  At least, leaving ping -f -s1472 -l64
+running doesn't drop packets and doesn't show up in /proc/slabinfo.
+---
+diff --git a/drivers/net/ipg.c b/drivers/net/ipg.c
+index dbd23bb..a0dfba5 100644
+--- a/drivers/net/ipg.c
++++ b/drivers/net/ipg.c
+@@ -1110,10 +1110,9 @@ enum {
+ 	Frame_WithStart_WithEnd = 11
+ };
+ 
+-inline void ipg_nic_rx_free_skb(struct net_device *dev)
++inline void ipg_nic_rx_free_skb(struct net_device *dev, unsigned entry)
+ {
+ 	struct ipg_nic_private *sp = netdev_priv(dev);
+-	unsigned int entry = sp->rx_current % IPG_RFDLIST_LENGTH;
+ 
+ 	if (sp->RxBuff[entry]) {
+ 		struct ipg_rx *rxfd = sp->rxd + entry;
+@@ -1308,7 +1307,7 @@ static void ipg_nic_rx_with_end(struct net_device *dev,
+ 		jumbo->CurrentSize = 0;
+ 		jumbo->skb = NULL;
+ 
+-		ipg_nic_rx_free_skb(dev);
++		ipg_nic_rx_free_skb(dev, entry);
+ 	} else {
+ 		IPG_DEV_KFREE_SKB(jumbo->skb);
+ 		jumbo->FoundStart = 0;
+@@ -1337,7 +1336,7 @@ static void ipg_nic_rx_no_start_no_end(struct net_device *dev,
+ 				}
+ 			}
+ 			dev->last_rx = jiffies;
+-			ipg_nic_rx_free_skb(dev);
++			ipg_nic_rx_free_skb(dev, entry);
+ 		}
+ 	} else {
+ 		IPG_DEV_KFREE_SKB(jumbo->skb);
