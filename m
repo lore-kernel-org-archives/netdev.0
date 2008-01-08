@@ -1,227 +1,39 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.25 2/6][IPVS] Switch to using ctl_paths.
-Date: Tue, 08 Jan 2008 18:58:11 +0300
-Message-ID: <47839D93.8090406@openvz.org>
-References: <47839C30.2040402@openvz.org>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: 2.6.24-rc6-mm1
+Date: Tue, 8 Jan 2008 16:59:48 +0100
+Message-ID: <20080108155948.GC26114@elte.hu>
+References: <64bb37e0801060335k4afb3134u9c6fadb57d525dc5@mail.gmail.com> <20080106223650E.tomof@acm.org> <64bb37e0801061203l503f29f0hd922a1347f8169ac@mail.gmail.com> <20080107151639P.fujita.tomonori@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: just.for.lkml@googlemail.com, tomof@acm.org,
+	akpm@linux-foundation.org, jarkao2@gmail.com,
+	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
+	neilb@suse.de, bfields@fieldses.org, netdev@vger.kernel.org,
+	tom@opengridcomputing.com
+To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:60649 "EHLO sacred.ru"
+Received: from mx2.mail.elte.hu ([157.181.151.9]:40633 "EHLO mx2.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752962AbYAHP57 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jan 2008 10:57:59 -0500
-In-Reply-To: <47839C30.2040402@openvz.org>
+	id S1753120AbYAHQAx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jan 2008 11:00:53 -0500
+Content-Disposition: inline
+In-Reply-To: <20080107151639P.fujita.tomonori@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The feature of ipvs ctls is that the net/ipv4/vs path
-is common for core ipvs ctls and for two schedulers,
-so I make it exported and re-use it in modules.
 
-Two other .c files required linux/sysctl.h to make the
-extern declaration of this path compile well.
+* FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp> wrote:
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> The patches are available at:
+> 
+> http://www.kernel.org/pub/linux/kernel/people/tomo/iommu/
+> 
+> Or if you prefer the git tree:
+> 
+> git://git.kernel.org/pub/scm/linux/kernel/git/tomo/linux-2.6-misc.git 
+> iommu-sg-fixes
 
----
+btw., these improvements to the IOMMU code are in -mm and will go into 
+v2.6.25, right? The changes look robust to me.
 
- include/net/ip_vs.h         |    1 +
- net/ipv4/ipvs/ip_vs_ctl.c   |   35 +++++++----------------------------
- net/ipv4/ipvs/ip_vs_est.c   |    1 +
- net/ipv4/ipvs/ip_vs_lblc.c  |   31 +------------------------------
- net/ipv4/ipvs/ip_vs_lblcr.c |   31 +------------------------------
- net/ipv4/ipvs/ip_vs_sched.c |    1 +
- 6 files changed, 12 insertions(+), 88 deletions(-)
-
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 3de6d1e..02ab7ca 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -854,6 +854,7 @@ extern int sysctl_ip_vs_expire_quiescent_template;
- extern int sysctl_ip_vs_sync_threshold[2];
- extern int sysctl_ip_vs_nat_icmp_send;
- extern struct ip_vs_stats ip_vs_stats;
-+extern struct ctl_path net_vs_ctl_path[];
- 
- extern struct ip_vs_service *
- ip_vs_service_get(__u32 fwmark, __u16 protocol, __be32 vaddr, __be16 vport);
-diff --git a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
-index 693d924..9fecfe7 100644
---- a/net/ipv4/ipvs/ip_vs_ctl.c
-+++ b/net/ipv4/ipvs/ip_vs_ctl.c
-@@ -1591,34 +1591,13 @@ static struct ctl_table vs_vars[] = {
- 	{ .ctl_name = 0 }
- };
- 
--static ctl_table vs_table[] = {
--	{
--		.procname	= "vs",
--		.mode		= 0555,
--		.child		= vs_vars
--	},
--	{ .ctl_name = 0 }
--};
--
--static ctl_table ipvs_ipv4_table[] = {
--	{
--		.ctl_name	= NET_IPV4,
--		.procname	= "ipv4",
--		.mode		= 0555,
--		.child		= vs_table,
--	},
--	{ .ctl_name = 0 }
--};
--
--static ctl_table vs_root_table[] = {
--	{
--		.ctl_name	= CTL_NET,
--		.procname	= "net",
--		.mode		= 0555,
--		.child		= ipvs_ipv4_table,
--	},
--	{ .ctl_name = 0 }
-+struct ctl_path net_vs_ctl_path[] = {
-+	{ .procname = "net", .ctl_name = CTL_NET, },
-+	{ .procname = "ipv4", .ctl_name = NET_IPV4, },
-+	{ .procname = "vs", },
-+	{ }
- };
-+EXPORT_SYMBOL_GPL(net_vs_ctl_path);
- 
- static struct ctl_table_header * sysctl_header;
- 
-@@ -2345,7 +2324,7 @@ int ip_vs_control_init(void)
- 	proc_net_fops_create(&init_net, "ip_vs", 0, &ip_vs_info_fops);
- 	proc_net_fops_create(&init_net, "ip_vs_stats",0, &ip_vs_stats_fops);
- 
--	sysctl_header = register_sysctl_table(vs_root_table);
-+	sysctl_header = register_sysctl_paths(net_vs_ctl_path, vs_vars);
- 
- 	/* Initialize ip_vs_svc_table, ip_vs_svc_fwm_table, ip_vs_rtable */
- 	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++)  {
-diff --git a/net/ipv4/ipvs/ip_vs_est.c b/net/ipv4/ipvs/ip_vs_est.c
-index efdd74e..dfa0d71 100644
---- a/net/ipv4/ipvs/ip_vs_est.c
-+++ b/net/ipv4/ipvs/ip_vs_est.c
-@@ -18,6 +18,7 @@
- #include <linux/slab.h>
- #include <linux/types.h>
- #include <linux/interrupt.h>
-+#include <linux/sysctl.h>
- 
- #include <net/ip_vs.h>
- 
-diff --git a/net/ipv4/ipvs/ip_vs_lblc.c b/net/ipv4/ipvs/ip_vs_lblc.c
-index bf8c04a..3888642 100644
---- a/net/ipv4/ipvs/ip_vs_lblc.c
-+++ b/net/ipv4/ipvs/ip_vs_lblc.c
-@@ -123,35 +123,6 @@ static ctl_table vs_vars_table[] = {
- 	{ .ctl_name = 0 }
- };
- 
--static ctl_table vs_table[] = {
--	{
--		.procname	= "vs",
--		.mode		= 0555,
--		.child		= vs_vars_table
--	},
--	{ .ctl_name = 0 }
--};
--
--static ctl_table ipvs_ipv4_table[] = {
--	{
--		.ctl_name	= NET_IPV4,
--		.procname	= "ipv4",
--		.mode		= 0555,
--		.child		= vs_table
--	},
--	{ .ctl_name = 0 }
--};
--
--static ctl_table lblc_root_table[] = {
--	{
--		.ctl_name	= CTL_NET,
--		.procname	= "net",
--		.mode		= 0555,
--		.child		= ipvs_ipv4_table
--	},
--	{ .ctl_name = 0 }
--};
--
- static struct ctl_table_header * sysctl_header;
- 
- /*
-@@ -582,7 +553,7 @@ static int __init ip_vs_lblc_init(void)
- 	int ret;
- 
- 	INIT_LIST_HEAD(&ip_vs_lblc_scheduler.n_list);
--	sysctl_header = register_sysctl_table(lblc_root_table);
-+	sysctl_header = register_sysctl_paths(net_vs_ctl_path, vs_vars_table);
- 	ret = register_ip_vs_scheduler(&ip_vs_lblc_scheduler);
- 	if (ret)
- 		unregister_sysctl_table(sysctl_header);
-diff --git a/net/ipv4/ipvs/ip_vs_lblcr.c b/net/ipv4/ipvs/ip_vs_lblcr.c
-index f50da64..daa260e 100644
---- a/net/ipv4/ipvs/ip_vs_lblcr.c
-+++ b/net/ipv4/ipvs/ip_vs_lblcr.c
-@@ -311,35 +311,6 @@ static ctl_table vs_vars_table[] = {
- 	{ .ctl_name = 0 }
- };
- 
--static ctl_table vs_table[] = {
--	{
--		.procname	= "vs",
--		.mode		= 0555,
--		.child		= vs_vars_table
--	},
--	{ .ctl_name = 0 }
--};
--
--static ctl_table ipvs_ipv4_table[] = {
--	{
--		.ctl_name	= NET_IPV4,
--		.procname	= "ipv4",
--		.mode		= 0555,
--		.child		= vs_table
--	},
--	{ .ctl_name = 0 }
--};
--
--static ctl_table lblcr_root_table[] = {
--	{
--		.ctl_name	= CTL_NET,
--		.procname	= "net",
--		.mode		= 0555,
--		.child		= ipvs_ipv4_table
--	},
--	{ .ctl_name = 0 }
--};
--
- static struct ctl_table_header * sysctl_header;
- 
- /*
-@@ -771,7 +742,7 @@ static int __init ip_vs_lblcr_init(void)
- 	int ret;
- 
- 	INIT_LIST_HEAD(&ip_vs_lblcr_scheduler.n_list);
--	sysctl_header = register_sysctl_table(lblcr_root_table);
-+	sysctl_header = register_sysctl_paths(net_vs_ctl_path, vs_vars_table);
- 	ret = register_ip_vs_scheduler(&ip_vs_lblcr_scheduler);
- 	if (ret)
- 		unregister_sysctl_table(sysctl_header);
-diff --git a/net/ipv4/ipvs/ip_vs_sched.c b/net/ipv4/ipvs/ip_vs_sched.c
-index 4322358..121a32b 100644
---- a/net/ipv4/ipvs/ip_vs_sched.c
-+++ b/net/ipv4/ipvs/ip_vs_sched.c
-@@ -24,6 +24,7 @@
- #include <linux/interrupt.h>
- #include <asm/string.h>
- #include <linux/kmod.h>
-+#include <linux/sysctl.h>
- 
- #include <net/ip_vs.h>
- 
-
+	Ingo
