@@ -1,46 +1,47 @@
-From: Kevin Winchester <kjwinchester@gmail.com>
-Subject: Re: Top 10 kernel oopses for the week ending January 5th, 2008
-Date: Mon, 07 Jan 2008 21:19:24 -0400
-Message-ID: <4782CF9C.6000508@gmail.com>
-References: <477FF149.4070609@linux.intel.com> <20080105213935.GN27894@ZenIV.linux.org.uk> <20080107174431.GC27741@fieldses.org>
+From: Tom Quetchenbach <virtualphtn@gmail.com>
+Subject: TCP cache performance
+Date: Mon, 07 Jan 2008 17:22:51 -0800
+Message-ID: <4782D06B.30706@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Al Viro <viro@ZenIV.linux.org.uk>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>
-To: "J. Bruce Fields" <bfields@fieldses.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758576AbYAHBTi@vger.kernel.org>
-In-Reply-To: <20080107174431.GC27741@fieldses.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Lachlan Andrew <lachlan.andrew@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outgoing-mail.its.caltech.edu ([131.215.239.19]:17076 "EHLO
+	outgoing-mail.its.caltech.edu" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753215AbYAHBdV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 20:33:21 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-J. Bruce Fields wrote:
-> On Sat, Jan 05, 2008 at 09:39:35PM +0000, Al Viro wrote:
->> On Sat, Jan 05, 2008 at 01:06:17PM -0800, Arjan van de Ven wrote:
->>> The http://www.kerneloops.org website collects kernel oops and 
->>> warning reports from various mailing lists and bugzillas as well 
->>> as with a client users can install to auto-submit oopses. Below 
->>> is a top 10 list of the oopses collected in the last 7 days. 
->>> (Reports prior to 2.6.23 have been omitted in collecting the top 
->>> 10)
->>> 
->>> This week, a total of 49 oopses and warnings have been reported,
->>>  compared to 53 reports in the previous week.
->> FWIW, people moaning about the lack of entry-level kernel work 
->> would do well by decoding those to the level of "this place in this
->>  function, called from <here>, with so-and-so variable being
->> <this>" and posting the results.  As skills go, it's far more
->> useful than "how to trim the trailing whitespace" and the rest of 
->> checkpatch.pl-inspired crap that got so popular lately...
-> 
-> Is there any good basic documentation on this to point people at?
-> 
+I've been continuing off and on to investigate TCP performance issues.
+As has been noted before on this list, loss and subsequent processing
+can lead to spikes in the measured RTT which confuse delay-based
+congestion control algorithms.
 
-I would second this question.  I see people "decode" oops on lkml often enough, but I've never been entirely sure how its done.  Is it somewhere in Documentation?
+I've done some experiments that indicate that cache size is a
+significant limiting factor here. My desktop machine with a 2.4 GHz Core
+Duo and 4 MB cache quite noticeably outperforms our experiment servers,
+which have two dual-core Xeons at 2.66 GHz but only 512 KB cache. At 400
+Mbps with 40ms round-trip delay and 1024-packet buffer the desktop
+behaves fairly normally, although there is still a large RTT spike at
+the start of the flow due to slow-start. The servers show large RTT
+spikes at each loss event, as well as some timeouts.
 
--- 
-Kevin Winchester
+This suggests that efforts to improve TCP performance should focus on
+cache usage rather than just processing time.
+
+Plots of cwnd, RTT, and CPU load are available here:
+
+512K cache:
+http://wil-ns.cs.caltech.edu/benchmark.tmp/265/2flow--ALG=illinois-BUF=1024-BUF_tgt=1333,1.0-BW=400M-GAP=150-LEN=600-RTT=40--1/
+
+4M cache:
+http://wil-ns.cs.caltech.edu/benchmark.tmp/266/2flow--ALG=illinois-BUF=1024-BUF_tgt=1333,1.0-BW=400M-GAP=150-LEN=600-RTT=40--1/
+
+Tests were done with net-2.6 (2.6.23.1 gives similar results though)
+using tcp_probe to capture data.
+
+-Tom
+
