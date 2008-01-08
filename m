@@ -1,37 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/4] [XFRM]: Kill some bloat
-Date: Mon, 07 Jan 2008 17:54:58 -0800 (PST)
-Message-ID: <20080107.175458.127194310.davem@davemloft.net>
-References: <E1JBJOR-0000jO-00@gondolin.me.apana.org.au>
-	<20080105.231658.168081302.davem@davemloft.net>
-	<p73sl19qi6o.fsf@bingen.suse.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, ilpo.jarvinen@helsinki.fi,
-	netdev@vger.kernel.org, acme@redhat.com, paul.moore@hp.com,
-	latten@us.ibm.com
-To: andi@firstfloor.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH 0/3] bonding: 3 fixes for 2.6.24
+Date: Mon,  7 Jan 2008 17:56:57 -0800
+Message-ID: <11997574203125-git-send-email-fubar@us.ibm.com>
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Krzysztof Oledzki <olel@ans.pl>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40312
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752373AbYAHBy7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 20:54:59 -0500
-In-Reply-To: <p73sl19qi6o.fsf@bingen.suse.de>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:39276 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754012AbYAHB5F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jan 2008 20:57:05 -0500
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m081v3eo001826
+	for <netdev@vger.kernel.org>; Mon, 7 Jan 2008 20:57:03 -0500
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m081v3d0105296
+	for <netdev@vger.kernel.org>; Mon, 7 Jan 2008 20:57:03 -0500
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m081v2Ht022323
+	for <netdev@vger.kernel.org>; Mon, 7 Jan 2008 20:57:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Tue, 08 Jan 2008 01:23:11 +0100
+	Following are three fixes to fix locking problems and
+silence locking-related warnings in the current 2.6.24-rc.
 
-> David Miller <davem@davemloft.net> writes:
-> 
-> > Similarly I question just about any inline usage at all in *.c files
-> 
-> Don't forget the .h files. Especially a lot of stuff in tcp.h should
-> be probably in some .c file and not be inline.
+	patch 1: fix locking in sysfs primary/active selection
 
-I explicitly left them out.
+	Call core network functions with expected locks to
+eliminate potential deadlock and silence warnings.
 
-Most of them are abstractions of common 2 or 3 instruction
-calculations, and thus should stay inline.
+	patch 2: fix ASSERT_RTNL that produces spurious warnings
+
+	Relocate ASSERT_RTNL to remove a false warning; after patch,
+ASSERT is located in code that holds only RTNL (additional locks were
+causing the ASSERT to trip)
+
+	patch 3: fix locking during alb failover and slave removal
+
+	Fix all call paths into alb_fasten_mac_swap to hold only RTNL.
+Eliminates deadlock and silences warnings.
+
+	Patches are against the current netdev-2.6#upstream branch.
+
+	Please apply for 2.6.24.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
