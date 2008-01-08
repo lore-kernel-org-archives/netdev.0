@@ -1,40 +1,49 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net-2.6.25 6/6][NETFILTER] Use the ctl paths instead of
- hand-made analogue
-Date: Tue, 08 Jan 2008 17:13:30 +0100
-Message-ID: <4783A12A.3060207@trash.net>
-References: <47839C30.2040402@openvz.org> <4783A0D1.4010202@openvz.org>
+Subject: Re: [PATCH] ip[6]_tables.c: remove some inlines
+Date: Tue, 08 Jan 2008 17:36:21 +0100
+Message-ID: <4783A685.7070109@trash.net>
+References: <200712161247.53986.vda.linux@googlemail.com> <200712311643.41946.vda.linux@googlemail.com> <47792032.3020609@trash.net> <200712311755.02578.vda.linux@googlemail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63695 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753340AbYAHQR1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 11:17:27 -0500
-In-Reply-To: <4783A0D1.4010202@openvz.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Harald Welte <laforge@gnumonks.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Denys Vlasenko <vda.linux@googlemail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <200712311755.02578.vda.linux@googlemail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Pavel Emelyanov wrote:
-> The conntracks subsystem has a similar infrastructure
-> to maintain ctl_paths, but since we already have it
-> on the generic level, I think it's OK to switch to
-> using it.
+Denys Vlasenko wrote:
+> On Monday 31 December 2007 17:00, Patrick McHardy wrote:
+>> Denys Vlasenko wrote:
+>>> ip[6]_tables.c seem to abuse inline.
+>>>
+>>> This patch removes inlines except those which are used
+>>> by packet matching code and thus are performance-critical.
+>>>   
+>> Some people also consider the ruleset replacement path performance
+>> critical, but overall I agree with your patch. I'm travelling currently
+>> though so it will take a few days until I'll apply it.
+>>
+>> Do you have some numbers that show the actual difference these
+>> changes make?
 > 
-> So, basically, this patch just replaces the ctl_table-s
-> with ctl_path-s, nf_register_sysctl_table with 
-> register_sysctl_paths() and removes no longer needed code.
+> Before:
+> 
+> $ size */*/*/ip*tables*.o
+>    text    data     bss     dec     hex filename
+>    6402     500      16    6918    1b06 net/ipv4/netfilter/ip_tables.o
+>    7130     500      16    7646    1dde net/ipv6/netfilter/ip6_tables.o
+> 
+> After:
+> 
+> $ size */*/*/ip*tables*.o
+>    text    data     bss     dec     hex filename
+>    6307     500      16    6823    1aa7 net/ipv4/netfilter/ip_tables.o
+>    7010     500      16    7526    1d66 net/ipv6/netfilter/ip6_tables.o
 
-Also looks good, thanks. But please remeber to CC netfilter-devel
-on patches affecting netfilter.
 
-> After this the net/netfilter/nf_sysctl.c file contains 
-> the paths only.
-
-That sounds like they should be moved to net/netfilter/core.c
-instead and the file removed. I can take care of that once
-your patches are in Dave's tree.
+Applied, thanks.
