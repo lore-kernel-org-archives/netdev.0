@@ -1,57 +1,46 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] [IPv6]: IPV6_MULTICAST_IF setting is ignored on link-local
- connect()
-Date: Mon, 7 Jan 2008 17:18:56 -0800
-Message-ID: <OF3393858D.9874E03A-ON882573CA.00071BC8-882573CA.000738ED@us.ibm.com>
-References: <47825B50.2060200@hp.com>
+From: Kevin Winchester <kjwinchester@gmail.com>
+Subject: Re: Top 10 kernel oopses for the week ending January 5th, 2008
+Date: Mon, 07 Jan 2008 21:19:24 -0400
+Message-ID: <4782CF9C.6000508@gmail.com>
+References: <477FF149.4070609@linux.intel.com> <20080105213935.GN27894@ZenIV.linux.org.uk> <20080107174431.GC27741@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Brian Haley <brian.haley@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:53246 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754093AbYAHBS5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2008 20:18:57 -0500
-In-Reply-To: <47825B50.2060200@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Al Viro <viro@ZenIV.linux.org.uk>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	NetDev <netdev@vger.kernel.org>
+To: "J. Bruce Fields" <bfields@fieldses.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758576AbYAHBTi@vger.kernel.org>
+In-Reply-To: <20080107174431.GC27741@fieldses.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Brian,
-        Looks good to me.
-
-                        +-DLS
-
-
-Acked-by: David L Stevens <dlstevens@us.ibm.com>
-
-> How about the simple patch below?  I just removed the ENINVAL check from 
-
-> my original patch, but it accomplishes the same thing.
-...
+J. Bruce Fields wrote:
+> On Sat, Jan 05, 2008 at 09:39:35PM +0000, Al Viro wrote:
+>> On Sat, Jan 05, 2008 at 01:06:17PM -0800, Arjan van de Ven wrote:
+>>> The http://www.kerneloops.org website collects kernel oops and 
+>>> warning reports from various mailing lists and bugzillas as well 
+>>> as with a client users can install to auto-submit oopses. Below 
+>>> is a top 10 list of the oopses collected in the last 7 days. 
+>>> (Reports prior to 2.6.23 have been omitted in collecting the top 
+>>> 10)
+>>> 
+>>> This week, a total of 49 oopses and warnings have been reported,
+>>>  compared to 53 reports in the previous week.
+>> FWIW, people moaning about the lack of entry-level kernel work 
+>> would do well by decoding those to the level of "this place in this
+>>  function, called from <here>, with so-and-so variable being
+>> <this>" and posting the results.  As skills go, it's far more
+>> useful than "how to trim the trailing whitespace" and the rest of 
+>> checkpatch.pl-inspired crap that got so popular lately...
 > 
-> Signed-off-by: Brian Haley <brian.haley@hp.com>
-> ---
-> diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-> index 2ed689a..5d4245a 100644
-> --- a/net/ipv6/datagram.c
-> +++ b/net/ipv6/datagram.c
-> @@ -123,11 +123,11 @@ ipv4_connected:
->              goto out;
->           }
->           sk->sk_bound_dev_if = usin->sin6_scope_id;
-> -         if (!sk->sk_bound_dev_if &&
-> -             (addr_type & IPV6_ADDR_MULTICAST))
-> -            fl.oif = np->mcast_oif;
->        }
+> Is there any good basic documentation on this to point people at?
 > 
-> +      if (!sk->sk_bound_dev_if && (addr_type & IPV6_ADDR_MULTICAST))
-> +         sk->sk_bound_dev_if = np->mcast_oif;
-> +
->        /* Connect to link-local address requires an interface */
->        if (!sk->sk_bound_dev_if) {
->           err = -EINVAL;
 
+I would second this question.  I see people "decode" oops on lkml often enough, but I've never been entirely sure how its done.  Is it somewhere in Documentation?
+
+-- 
+Kevin Winchester
