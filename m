@@ -1,7 +1,7 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.25 1/6][NET] Simple ctl_table to ctl_path conversions.
-Date: Tue, 08 Jan 2008 18:54:57 +0300
-Message-ID: <47839CD1.4080505@openvz.org>
+Subject: [PATCH net-2.6.25 2/6][IPVS] Switch to using ctl_paths.
+Date: Tue, 08 Jan 2008 18:58:11 +0300
+Message-ID: <47839D93.8090406@openvz.org>
 References: <47839C30.2040402@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -9,457 +9,219 @@ Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:41043 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:60649 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751156AbYAHPyq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jan 2008 10:54:46 -0500
+	id S1752962AbYAHP57 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jan 2008 10:57:59 -0500
 In-Reply-To: <47839C30.2040402@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch includes many places, that only required
-replacing the ctl_table-s with appropriate ctl_paths
-and call register_sysctl_paths().
+The feature of ipvs ctls is that the net/ipv4/vs path
+is common for core ipvs ctls and for two schedulers,
+so I make it exported and re-use it in modules.
 
-Nothing special was done with them.
+Two other .c files required linux/sysctl.h to make the
+extern declaration of this path compile well.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
 
- net/appletalk/sysctl_net_atalk.c |   24 +++++-------------------
- net/bridge/br_netfilter.c        |   24 +++++-------------------
- net/dccp/sysctl.c                |   36 +++++++-----------------------------
- net/ipx/sysctl_net_ipx.c         |   24 +++++-------------------
- net/irda/irsysctl.c              |   28 +++++-----------------------
- net/llc/sysctl_net_llc.c         |   24 +++++-------------------
- net/netrom/sysctl_net_netrom.c   |   24 +++++-------------------
- net/rose/sysctl_net_rose.c       |   24 +++++-------------------
- net/sctp/sysctl.c                |   24 +++++-------------------
- net/x25/sysctl_net_x25.c         |   24 +++++-------------------
- 10 files changed, 52 insertions(+), 204 deletions(-)
+ include/net/ip_vs.h         |    1 +
+ net/ipv4/ipvs/ip_vs_ctl.c   |   35 +++++++----------------------------
+ net/ipv4/ipvs/ip_vs_est.c   |    1 +
+ net/ipv4/ipvs/ip_vs_lblc.c  |   31 +------------------------------
+ net/ipv4/ipvs/ip_vs_lblcr.c |   31 +------------------------------
+ net/ipv4/ipvs/ip_vs_sched.c |    1 +
+ 6 files changed, 12 insertions(+), 88 deletions(-)
 
-diff --git a/net/appletalk/sysctl_net_atalk.c b/net/appletalk/sysctl_net_atalk.c
-index 7df1778..621805d 100644
---- a/net/appletalk/sysctl_net_atalk.c
-+++ b/net/appletalk/sysctl_net_atalk.c
-@@ -49,31 +49,17 @@ static struct ctl_table atalk_table[] = {
- 	{ 0 },
- };
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 3de6d1e..02ab7ca 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -854,6 +854,7 @@ extern int sysctl_ip_vs_expire_quiescent_template;
+ extern int sysctl_ip_vs_sync_threshold[2];
+ extern int sysctl_ip_vs_nat_icmp_send;
+ extern struct ip_vs_stats ip_vs_stats;
++extern struct ctl_path net_vs_ctl_path[];
  
--static struct ctl_table atalk_dir_table[] = {
--	{
--		.ctl_name	= NET_ATALK,
--		.procname	= "appletalk",
--		.mode		= 0555,
--		.child		= atalk_table,
--	},
--	{ 0 },
--};
--
--static struct ctl_table atalk_root_table[] = {
--	{
--		.ctl_name	= CTL_NET,
--		.procname	= "net",
--		.mode		= 0555,
--		.child		= atalk_dir_table,
--	},
--	{ 0 },
-+static struct ctl_path atalk_path[] = {
-+	{ .procname = "net", .ctl_name = CTL_NET, },
-+	{ .procname = "appletalk", .ctl_name = NET_ATALK, },
-+	{ }
- };
- 
- static struct ctl_table_header *atalk_table_header;
- 
- void atalk_register_sysctl(void)
- {
--	atalk_table_header = register_sysctl_table(atalk_root_table);
-+	atalk_table_header = register_sysctl_paths(atalk_path, atalk_table);
- }
- 
- void atalk_unregister_sysctl(void)
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 32ac035..91a180a 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -934,24 +934,10 @@ static ctl_table brnf_table[] = {
+ extern struct ip_vs_service *
+ ip_vs_service_get(__u32 fwmark, __u16 protocol, __be32 vaddr, __be16 vport);
+diff --git a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
+index 693d924..9fecfe7 100644
+--- a/net/ipv4/ipvs/ip_vs_ctl.c
++++ b/net/ipv4/ipvs/ip_vs_ctl.c
+@@ -1591,34 +1591,13 @@ static struct ctl_table vs_vars[] = {
  	{ .ctl_name = 0 }
  };
  
--static ctl_table brnf_bridge_table[] = {
+-static ctl_table vs_table[] = {
 -	{
--		.ctl_name	= NET_BRIDGE,
--		.procname	= "bridge",
+-		.procname	= "vs",
 -		.mode		= 0555,
--		.child		= brnf_table,
+-		.child		= vs_vars
 -	},
 -	{ .ctl_name = 0 }
 -};
 -
--static ctl_table brnf_net_table[] = {
+-static ctl_table ipvs_ipv4_table[] = {
 -	{
--		.ctl_name	= CTL_NET,
--		.procname	= "net",
+-		.ctl_name	= NET_IPV4,
+-		.procname	= "ipv4",
 -		.mode		= 0555,
--		.child		= brnf_bridge_table,
+-		.child		= vs_table,
 -	},
 -	{ .ctl_name = 0 }
-+static struct ctl_path brnf_path[] = {
-+	{ .procname = "net", .ctl_name = CTL_NET, },
-+	{ .procname = "bridge", .ctl_name = NET_BRIDGE, },
-+	{ }
- };
- #endif
- 
-@@ -963,7 +949,7 @@ int __init br_netfilter_init(void)
- 	if (ret < 0)
- 		return ret;
- #ifdef CONFIG_SYSCTL
--	brnf_sysctl_header = register_sysctl_table(brnf_net_table);
-+	brnf_sysctl_header = register_sysctl_paths(brnf_path, brnf_table);
- 	if (brnf_sysctl_header == NULL) {
- 		printk(KERN_WARNING
- 		       "br_netfilter: can't register to sysctl.\n");
-diff --git a/net/dccp/sysctl.c b/net/dccp/sysctl.c
-index c62c050..2129599 100644
---- a/net/dccp/sysctl.c
-+++ b/net/dccp/sysctl.c
-@@ -100,41 +100,19 @@ static struct ctl_table dccp_default_table[] = {
- 	{ .ctl_name = 0, }
- };
- 
--static struct ctl_table dccp_table[] = {
--	{
--		.ctl_name	= NET_DCCP_DEFAULT,
--		.procname	= "default",
--		.mode		= 0555,
--		.child		= dccp_default_table,
--	},
--	{ .ctl_name = 0, },
 -};
 -
--static struct ctl_table dccp_dir_table[] = {
--	{
--		.ctl_name	= NET_DCCP,
--		.procname	= "dccp",
--		.mode		= 0555,
--		.child		= dccp_table,
--	},
--	{ .ctl_name = 0, },
--};
--
--static struct ctl_table dccp_root_table[] = {
+-static ctl_table vs_root_table[] = {
 -	{
 -		.ctl_name	= CTL_NET,
 -		.procname	= "net",
 -		.mode		= 0555,
--		.child		= dccp_dir_table,
+-		.child		= ipvs_ipv4_table,
 -	},
--	{ .ctl_name = 0, },
-+static struct ctl_path dccp_path[] = {
+-	{ .ctl_name = 0 }
++struct ctl_path net_vs_ctl_path[] = {
 +	{ .procname = "net", .ctl_name = CTL_NET, },
-+	{ .procname = "dccp", .ctl_name = NET_DCCP, },
-+	{ .procname = "default", .ctl_name = NET_DCCP_DEFAULT, },
++	{ .procname = "ipv4", .ctl_name = NET_IPV4, },
++	{ .procname = "vs", },
 +	{ }
  };
++EXPORT_SYMBOL_GPL(net_vs_ctl_path);
  
- static struct ctl_table_header *dccp_table_header;
+ static struct ctl_table_header * sysctl_header;
  
- int __init dccp_sysctl_init(void)
- {
--	dccp_table_header = register_sysctl_table(dccp_root_table);
-+	dccp_table_header = register_sysctl_paths(dccp_path,
-+			dccp_default_table);
+@@ -2345,7 +2324,7 @@ int ip_vs_control_init(void)
+ 	proc_net_fops_create(&init_net, "ip_vs", 0, &ip_vs_info_fops);
+ 	proc_net_fops_create(&init_net, "ip_vs_stats",0, &ip_vs_stats_fops);
  
- 	return dccp_table_header != NULL ? 0 : -ENOMEM;
- }
-diff --git a/net/ipx/sysctl_net_ipx.c b/net/ipx/sysctl_net_ipx.c
-index 0cf5264..92fef86 100644
---- a/net/ipx/sysctl_net_ipx.c
-+++ b/net/ipx/sysctl_net_ipx.c
-@@ -28,31 +28,17 @@ static struct ctl_table ipx_table[] = {
- 	{ 0 },
- };
+-	sysctl_header = register_sysctl_table(vs_root_table);
++	sysctl_header = register_sysctl_paths(net_vs_ctl_path, vs_vars);
  
--static struct ctl_table ipx_dir_table[] = {
--	{
--		.ctl_name	= NET_IPX,
--		.procname	= "ipx",
--		.mode		= 0555,
--		.child		= ipx_table,
--	},
--	{ 0 },
--};
--
--static struct ctl_table ipx_root_table[] = {
--	{
--		.ctl_name	= CTL_NET,
--		.procname	= "net",
--		.mode		= 0555,
--		.child		= ipx_dir_table,
--	},
--	{ 0 },
-+static struct ctl_path ipx_path[] = {
-+	{ .procname = "net", .ctl_name = CTL_NET, },
-+	{ .procname = "ipx", .ctl_name = NET_IPX, },
-+	{ }
- };
+ 	/* Initialize ip_vs_svc_table, ip_vs_svc_fwm_table, ip_vs_rtable */
+ 	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++)  {
+diff --git a/net/ipv4/ipvs/ip_vs_est.c b/net/ipv4/ipvs/ip_vs_est.c
+index efdd74e..dfa0d71 100644
+--- a/net/ipv4/ipvs/ip_vs_est.c
++++ b/net/ipv4/ipvs/ip_vs_est.c
+@@ -18,6 +18,7 @@
+ #include <linux/slab.h>
+ #include <linux/types.h>
+ #include <linux/interrupt.h>
++#include <linux/sysctl.h>
  
- static struct ctl_table_header *ipx_table_header;
+ #include <net/ip_vs.h>
  
- void ipx_register_sysctl(void)
- {
--	ipx_table_header = register_sysctl_table(ipx_root_table);
-+	ipx_table_header = register_sysctl_paths(ipx_path, ipx_table);
- }
- 
- void ipx_unregister_sysctl(void)
-diff --git a/net/irda/irsysctl.c b/net/irda/irsysctl.c
-index 565cbf0..d8aba86 100644
---- a/net/irda/irsysctl.c
-+++ b/net/irda/irsysctl.c
-@@ -234,28 +234,10 @@ static ctl_table irda_table[] = {
+diff --git a/net/ipv4/ipvs/ip_vs_lblc.c b/net/ipv4/ipvs/ip_vs_lblc.c
+index bf8c04a..3888642 100644
+--- a/net/ipv4/ipvs/ip_vs_lblc.c
++++ b/net/ipv4/ipvs/ip_vs_lblc.c
+@@ -123,35 +123,6 @@ static ctl_table vs_vars_table[] = {
  	{ .ctl_name = 0 }
  };
  
--/* One directory */
--static ctl_table irda_net_table[] = {
+-static ctl_table vs_table[] = {
 -	{
--		.ctl_name	= NET_IRDA,
--		.procname	= "irda",
--		.maxlen		= 0,
+-		.procname	= "vs",
 -		.mode		= 0555,
--		.child		= irda_table
+-		.child		= vs_vars_table
 -	},
 -	{ .ctl_name = 0 }
 -};
 -
--/* The parent directory */
--static ctl_table irda_root_table[] = {
+-static ctl_table ipvs_ipv4_table[] = {
 -	{
--		.ctl_name	= CTL_NET,
--		.procname	= "net",
--		.maxlen		= 0,
+-		.ctl_name	= NET_IPV4,
+-		.procname	= "ipv4",
 -		.mode		= 0555,
--		.child		= irda_net_table
+-		.child		= vs_table
 -	},
 -	{ .ctl_name = 0 }
-+static struct ctl_path irda_path[] = {
-+	{ .procname = "net", .ctl_name = CTL_NET, },
-+	{ .procname = "irda", .ctl_name = NET_IRDA, },
-+	{ }
- };
- 
- static struct ctl_table_header *irda_table_header;
-@@ -268,7 +250,7 @@ static struct ctl_table_header *irda_table_header;
-  */
- int __init irda_sysctl_register(void)
- {
--	irda_table_header = register_sysctl_table(irda_root_table);
-+	irda_table_header = register_sysctl_paths(irda_path, irda_table);
- 	if (!irda_table_header)
- 		return -ENOMEM;
- 
-diff --git a/net/llc/sysctl_net_llc.c b/net/llc/sysctl_net_llc.c
-index 46992d0..5bef1dc 100644
---- a/net/llc/sysctl_net_llc.c
-+++ b/net/llc/sysctl_net_llc.c
-@@ -92,31 +92,17 @@ static struct ctl_table llc_table[] = {
- 	{ 0 },
- };
- 
--static struct ctl_table llc_dir_table[] = {
--	{
--		.ctl_name	= NET_LLC,
--		.procname	= "llc",
--		.mode		= 0555,
--		.child		= llc_table,
--	},
--	{ 0 },
 -};
 -
--static struct ctl_table llc_root_table[] = {
+-static ctl_table lblc_root_table[] = {
 -	{
 -		.ctl_name	= CTL_NET,
 -		.procname	= "net",
 -		.mode		= 0555,
--		.child		= llc_dir_table,
+-		.child		= ipvs_ipv4_table
 -	},
--	{ 0 },
-+static struct ctl_path llc_path[] = {
-+	{ .procname = "net", .ctl_name = CTL_NET, },
-+	{ .procname = "llc", .ctl_name = NET_LLC, },
-+	{ }
- };
+-	{ .ctl_name = 0 }
+-};
+-
+ static struct ctl_table_header * sysctl_header;
  
- static struct ctl_table_header *llc_table_header;
+ /*
+@@ -582,7 +553,7 @@ static int __init ip_vs_lblc_init(void)
+ 	int ret;
  
- int __init llc_sysctl_init(void)
- {
--	llc_table_header = register_sysctl_table(llc_root_table);
-+	llc_table_header = register_sysctl_paths(llc_path, llc_table);
- 
- 	return llc_table_header ? 0 : -ENOMEM;
- }
-diff --git a/net/netrom/sysctl_net_netrom.c b/net/netrom/sysctl_net_netrom.c
-index 2ea68da..34c96c9 100644
---- a/net/netrom/sysctl_net_netrom.c
-+++ b/net/netrom/sysctl_net_netrom.c
-@@ -170,29 +170,15 @@ static ctl_table nr_table[] = {
+ 	INIT_LIST_HEAD(&ip_vs_lblc_scheduler.n_list);
+-	sysctl_header = register_sysctl_table(lblc_root_table);
++	sysctl_header = register_sysctl_paths(net_vs_ctl_path, vs_vars_table);
+ 	ret = register_ip_vs_scheduler(&ip_vs_lblc_scheduler);
+ 	if (ret)
+ 		unregister_sysctl_table(sysctl_header);
+diff --git a/net/ipv4/ipvs/ip_vs_lblcr.c b/net/ipv4/ipvs/ip_vs_lblcr.c
+index f50da64..daa260e 100644
+--- a/net/ipv4/ipvs/ip_vs_lblcr.c
++++ b/net/ipv4/ipvs/ip_vs_lblcr.c
+@@ -311,35 +311,6 @@ static ctl_table vs_vars_table[] = {
  	{ .ctl_name = 0 }
  };
  
--static ctl_table nr_dir_table[] = {
+-static ctl_table vs_table[] = {
 -	{
--		.ctl_name	= NET_NETROM,
--		.procname	= "netrom",
+-		.procname	= "vs",
 -		.mode		= 0555,
--		.child		= nr_table
+-		.child		= vs_vars_table
 -	},
 -	{ .ctl_name = 0 }
 -};
 -
--static ctl_table nr_root_table[] = {
+-static ctl_table ipvs_ipv4_table[] = {
+-	{
+-		.ctl_name	= NET_IPV4,
+-		.procname	= "ipv4",
+-		.mode		= 0555,
+-		.child		= vs_table
+-	},
+-	{ .ctl_name = 0 }
+-};
+-
+-static ctl_table lblcr_root_table[] = {
 -	{
 -		.ctl_name	= CTL_NET,
 -		.procname	= "net",
 -		.mode		= 0555,
--		.child		= nr_dir_table
--	},
--	{ .ctl_name = 0 }
-+static struct ctl_path nr_path[] = {
-+	{ .procname = "net", .ctl_name = CTL_NET, },
-+	{ .procname = "netrom", .ctl_name = NET_NETROM, },
-+	{ }
- };
- 
- void __init nr_register_sysctl(void)
- {
--	nr_table_header = register_sysctl_table(nr_root_table);
-+	nr_table_header = register_sysctl_paths(nr_path, nr_table);
- }
- 
- void nr_unregister_sysctl(void)
-diff --git a/net/rose/sysctl_net_rose.c b/net/rose/sysctl_net_rose.c
-index 455b055..20be348 100644
---- a/net/rose/sysctl_net_rose.c
-+++ b/net/rose/sysctl_net_rose.c
-@@ -138,29 +138,15 @@ static ctl_table rose_table[] = {
- 	{ .ctl_name = 0 }
- };
- 
--static ctl_table rose_dir_table[] = {
--	{
--		.ctl_name	= NET_ROSE,
--		.procname	= "rose",
--		.mode		= 0555,
--		.child		= rose_table
+-		.child		= ipvs_ipv4_table
 -	},
 -	{ .ctl_name = 0 }
 -};
 -
--static ctl_table rose_root_table[] = {
--	{
--		.ctl_name	= CTL_NET,
--		.procname	= "net",
--		.mode		= 0555,
--		.child		= rose_dir_table
--	},
--	{ .ctl_name = 0 }
-+static struct ctl_path rose_path[] = {
-+	{ .procname = "net", .ctl_name = CTL_NET, },
-+	{ .procname = "rose", .ctl_name = NET_ROSE, },
-+	{ }
- };
+ static struct ctl_table_header * sysctl_header;
  
- void __init rose_register_sysctl(void)
- {
--	rose_table_header = register_sysctl_table(rose_root_table);
-+	rose_table_header = register_sysctl_paths(rose_path, rose_table);
- }
+ /*
+@@ -771,7 +742,7 @@ static int __init ip_vs_lblcr_init(void)
+ 	int ret;
  
- void rose_unregister_sysctl(void)
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index da4f157..5eb6ea8 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -275,24 +275,10 @@ static ctl_table sctp_table[] = {
- 	{ .ctl_name = 0 }
- };
+ 	INIT_LIST_HEAD(&ip_vs_lblcr_scheduler.n_list);
+-	sysctl_header = register_sysctl_table(lblcr_root_table);
++	sysctl_header = register_sysctl_paths(net_vs_ctl_path, vs_vars_table);
+ 	ret = register_ip_vs_scheduler(&ip_vs_lblcr_scheduler);
+ 	if (ret)
+ 		unregister_sysctl_table(sysctl_header);
+diff --git a/net/ipv4/ipvs/ip_vs_sched.c b/net/ipv4/ipvs/ip_vs_sched.c
+index 4322358..121a32b 100644
+--- a/net/ipv4/ipvs/ip_vs_sched.c
++++ b/net/ipv4/ipvs/ip_vs_sched.c
+@@ -24,6 +24,7 @@
+ #include <linux/interrupt.h>
+ #include <asm/string.h>
+ #include <linux/kmod.h>
++#include <linux/sysctl.h>
  
--static ctl_table sctp_net_table[] = {
--	{
--		.ctl_name	= NET_SCTP,
--		.procname	= "sctp",
--		.mode		= 0555,
--		.child		= sctp_table
--	},
--	{ .ctl_name = 0 }
--};
--
--static ctl_table sctp_root_table[] = {
--	{
--		.ctl_name	= CTL_NET,
--		.procname	= "net",
--		.mode		= 0555,
--		.child		= sctp_net_table
--	},
--	{ .ctl_name = 0 }
-+static struct ctl_path sctp_path[] = {
-+	{ .procname = "net", .ctl_name = CTL_NET, },
-+	{ .procname = "sctp", .ctl_name = NET_SCTP, },
-+	{ }
- };
+ #include <net/ip_vs.h>
  
- static struct ctl_table_header * sctp_sysctl_header;
-@@ -300,7 +286,7 @@ static struct ctl_table_header * sctp_sysctl_header;
- /* Sysctl registration.  */
- void sctp_sysctl_register(void)
- {
--	sctp_sysctl_header = register_sysctl_table(sctp_root_table);
-+	sctp_sysctl_header = register_sysctl_paths(sctp_path, sctp_table);
- }
- 
- /* Sysctl deregistration.  */
-diff --git a/net/x25/sysctl_net_x25.c b/net/x25/sysctl_net_x25.c
-index a59b77f..6ebda25 100644
---- a/net/x25/sysctl_net_x25.c
-+++ b/net/x25/sysctl_net_x25.c
-@@ -84,29 +84,15 @@ static struct ctl_table x25_table[] = {
- 	{ 0, },
- };
- 
--static struct ctl_table x25_dir_table[] = {
--	{
--		.ctl_name =	NET_X25,
--		.procname =	"x25",
--		.mode =		0555,
--		.child =	x25_table,
--	},
--	{ 0, },
--};
--
--static struct ctl_table x25_root_table[] = {
--	{
--		.ctl_name =	CTL_NET,
--		.procname =	"net",
--		.mode =		0555,
--		.child =	x25_dir_table,
--	},
--	{ 0, },
-+static struct ctl_path x25_path[] = {
-+	{ .procname = "net", .ctl_name = CTL_NET, },
-+	{ .procname = "x25", .ctl_name = NET_X25, },
-+	{ }
- };
- 
- void __init x25_register_sysctl(void)
- {
--	x25_table_header = register_sysctl_table(x25_root_table);
-+	x25_table_header = register_sysctl_paths(x25_path, x25_table);
- }
- 
- void x25_unregister_sysctl(void)
 
