@@ -1,50 +1,134 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: Top 10 kernel oopses for the week ending January 5th, 2008
-Date: Tue, 8 Jan 2008 10:27:34 -0800 (PST)
-Message-ID: <alpine.LFD.1.00.0801081025470.3148@woody.linux-foundation.org>
-References: <477FF149.4070609@linux.intel.com> <20080105213935.GN27894@ZenIV.linux.org.uk> <20080107174431.GC27741@fieldses.org> <4782CF9C.6000508@gmail.com> <alpine.LFD.1.00.0801071851120.3148@woody.linux-foundation.org> <20080108081401.d9576ac5.randy.dunlap@oracle.com>
- <4783B602.1050307@linux.intel.com> <alpine.LFD.1.00.0801080957280.3148@woody.linux-foundation.org> <4783BE06.1070507@linux.intel.com>
+From: <Jayakrishnan.Chathu@nokia.com>
+Subject: RE: WARNING: at kernel/softirq.c:139 local_bh_enable()
+Date: Tue, 8 Jan 2008 12:36:46 -0600
+Message-ID: <2198383E1141814486F0B881B3260CF501D6BD24@daebe103.NOE.Nokia.com>
+References: <4782CD50.90006@intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Randy Dunlap <randy.dunlap@oracle.com>,
-	Kevin Winchester <kjwinchester@gmail.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>
-To: Arjan van de Ven <arjan@linux.intel.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:41275 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751632AbYAHS2j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 13:28:39 -0500
-In-Reply-To: <4783BE06.1070507@linux.intel.com>
+Received: from smtp.nokia.com ([192.100.105.134]:46824 "EHLO
+	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751765AbYAHSh1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 13:37:27 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <4782CD50.90006@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+It is an embedded system, With a small file system and 2.6.23 kernel.
+There are no link-monitoring tool running.  I will
+Try to reproduce with 2.6.24-rc7. 
 
+Chathu
 
-On Tue, 8 Jan 2008, Arjan van de Ven wrote:
+-----Original Message-----
+From: ext Kok, Auke [mailto:auke-jan.h.kok@intel.com] 
+Sent: Monday, January 07, 2008 5:10 PM
+To: Chathu Jayakrishnan (Nokia-S&S/MtView)
+Cc: linux-kernel@vger.kernel.org; NetDev
+Subject: Re: WARNING: at kernel/softirq.c:139 local_bh_enable()
+
+Jayakrishnan.Chathu@nokia.com wrote:
+> I am running 2.6.23 kernel on a DUAL core and QUAD core i386 boxes and
+
+> after everyboot, when the ethernet traffic starts i get this warning.
 > 
-> the database has the information so it's just a matter of slightly different
-> php code ;)
-> Before I do that... do you want the BUG's separate, part of the warnings or
-> part of the oopses?
-> (I rather make this change once ;)
+> All the ports in the system are e1000 and i am using the kernel e1000 
+> driver.
 
-I'd like them all separate, they tend to be very different and contain 
-different information.
+[added netdev to the Cc:]
 
-Put the warnings last, as the least important. Oopses at the top, since 
-they tend to be the ones that are less expected.
+can you repro this with 2.6.24-rc7? What distro are you using? Is your
+distro running a link-monitoring tool of some sorts?
 
-> > and notice how the Code: never made it into the raw message (and thus there
-> > is also no instruction disassembly).
+Auke
+
+
+
 > 
-> ok I'll fix this; I can fix this for all new entries at least, fixing
-> retroactive is going to be near impossible I suspect.
+> Jan  7 22:31:00 localhost [warning] WARNING: at kernel/softirq.c:139
+> local_bh_enable()
+> Jan  7 22:31:00 localhost [warning] [<c012bd0f>]
+> local_bh_enable+0x49/0xa9
+> Jan  7 22:31:00 localhost [warning] [<c039ba1a>]
+> dev_queue_xmit+0x26c/0x275
+> Jan  7 22:31:00 localhost [warning] [<c03cdf6c>] arp_xmit+0x4d/0x51 
+> Jan  7 22:31:00 localhost [warning] [<c03cd9f6>] 
+> arp_solicit+0x156/0x174
+> 
+> Jan  7 22:31:00 localhost [warning] [<c03a047f>]
+> neigh_timer_handler+0x1e0/0x224
+> Jan  7 22:31:00 localhost [warning] [<c012f820>]
+> run_timer_softirq+0x113/0x172
+> Jan  7 22:31:00 localhost [warning] [<c013b042>] WARNING: at
+> kernel/softirq.c:139 local_bh_enable() Jan  7 22:31:00 localhost 
+> [warning] hrtimer_interrupt+0x19c/0x1c4 Jan  7 22:31:00 localhost 
+> [warning] [<c014002a>]  [<c012bd0f>]
+> local_bh_enable+0x49/0xa9
+> Jan  7 22:31:00 localhost [warning] [<c039ba1a>]
+> dev_queue_xmit+0x26c/0x275
+> Jan  7 22:31:00 localhost [warning] [<c03a0c05>] 
+> neigh_resolve_output+0x12c/0x15e Jan  7 22:31:00 localhost [warning] 
+> [<c03a0881>] neigh_update+0x246/0x2cb Jan  7 22:31:00 localhost 
+> [warning] [<c039fb21>] neigh_lookup+0xa9/0xb3 Jan  7 22:31:00 
+> localhost [warning] [<c03ce410>] arp_process+0x43c/0x477
+> 
+> Jan  7 22:31:00 localhost [warning] [<c0120b73>] 
+> enqueue_task_fair+0x2d/0x30 Jan  7 22:31:00 localhost [warning] 
+> tick_sched_timer+0x0/0xba Jan  7 22:31:00 localhost [warning] 
+> [<c03ce554>] arp_rcv+0x104/0x119 Jan  7 22:31:00 localhost [warning] 
+> [<c03a029f>]  [<c039bda6>] netif_receive_skb+0x1c5/0x1de Jan  7 
+> 22:31:00 localhost [warning] [<f897a61d>] 
+> e1000_clean_rx_irq+0x40e/0x4ca [e1000] Jan  7 22:31:00 localhost 
+> [warning] [<c013bdc6>]
+> getnstimeofday+0x36/0x10c
+> Jan  7 22:31:00 localhost [warning] neigh_timer_handler+0x0/0x224 Jan
 
-Oh well..
+> 7 22:31:00 localhost [warning] [<c012be12>] __do_softirq+0x60/0xc1 Jan
 
-		Linus
+> 7 22:31:00 localhost [warning] [<f8979e34>] e1000_clean+0x74/0x119 
+> [e1000] Jan  7 22:31:00 localhost [warning] [<c039bf03>]  [<c012bea4>]
+> net_rx_action+0x5a/0xd3
+> Jan  7 22:31:00 localhost [warning] [<c012be12>] 
+> __do_softirq+0x60/0xc1 Jan  7 22:31:00 localhost [warning] 
+> do_softirq+0x31/0x35 Jan  7 22:31:00 localhost [warning] [<c012bea4>] 
+> do_softirq+0x31/0x35 Jan  7 22:31:00 localhost [warning] [<c012bf03>] 
+> irq_exit+0x38/0x6b Jan  7 22:31:00 localhost [warning] [<c0106a1e>]  
+> [<c012bf03>]
+> do_IRQ+0x80/0x93
+> Jan  7 22:31:00 localhost [warning] irq_exit+0x38/0x6b Jan  7 22:31:00
+
+> localhost [warning] [<c01057b7>]
+> common_interrupt+0x23/0x28
+> Jan  7 22:31:00 localhost [warning] [<c01600d8>]  [<c011a34d>]
+> get_swap_page+0xe7/0x215
+> Jan  7 22:31:00 localhost [warning] [<c0103232>]
+> mwait_idle_with_hints+0x34/0x38 Jan  7 22:31:00 localhost [warning] 
+> [<c0103236>] mwait_idle+0x0/0xa Jan  7 22:31:00 localhost [warning] 
+> [<c01030f2>] cpu_idle+0x98/0xb9 Jan  7 22:31:00 localhost [warning] 
+> smp_apic_timer_interrupt+0x2c/0x35
+> Jan  7 22:31:00 localhost [warning] ======================= Jan  7 
+> 22:31:00 localhost [warning] [<c0105874>] 
+> apic_timer_interrupt+0x28/0x30 Jan  7 22:31:00 localhost [warning] 
+> [<c01600d8>]
+> get_swap_page+0xe7/0x215
+> Jan  7 22:31:00 localhost [warning] [<c0103232>]
+> mwait_idle_with_hints+0x34/0x38
+> Jan  7 22:31:00 localhost [warning] [<c0103236>] mwait_idle+0x0/0xa 
+> Jan  7 22:31:00 localhost [warning] [<c01030f2>] cpu_idle+0x98/0xb9 
+> Jan  7 22:31:00 localhost [warning] =======================
+> 
+> 
+> Thanks
+> Jayakrishnan Chathu
+> --
+> To unsubscribe from this list: send the line "unsubscribe
+linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+
