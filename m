@@ -1,107 +1,54 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH 2/4] [POWERPC][NET] ucc_geth_mii and users: get rid of device_type
-Date: Tue, 8 Jan 2008 17:29:42 +0300
-Message-ID: <20080108142942.GB11047@localhost.localdomain>
-References: <20080108142634.GA5989@localhost.localdomain>
+From: "Rami Rosen" <ramirose@gmail.com>
+Subject: [PATCH net-2.6.25] [BRIDGE] Remove unused macros from ebt_vlan.c
+Date: Tue, 8 Jan 2008 16:38:15 +0200
+Message-ID: <eb3ff54b0801080638j48b51978j9beb11b310ef2b8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: Kumar Gala <galak@kernel.crashing.org>,
-	Jeff Garzik <jgarzik@pobox.com>
+Content-Type: multipart/mixed;
+	boundary="----=_Part_10569_6770878.1199803095885"
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:57552 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751601AbYAHO3x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 09:29:53 -0500
-Content-Disposition: inline
-In-Reply-To: <20080108142634.GA5989@localhost.localdomain>
+Received: from fg-out-1718.google.com ([72.14.220.152]:9078 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752328AbYAHOiR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 09:38:17 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so4507540fga.17
+        for <netdev@vger.kernel.org>; Tue, 08 Jan 2008 06:38:16 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-device_type property is bogus, thus use proper compatible.
+------=_Part_10569_6770878.1199803095885
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Also change compatible property to "fsl,ucc-mdio".
+Hi,
 
-Per http://ozlabs.org/pipermail/linuxppc-dev/2007-December/048388.html
+ Remove two unused macros, INV_FLAG and SET_BITMASK
+ from net/bridge/netfilter/ebt_vlan.c.
 
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
----
- arch/powerpc/boot/dts/mpc832x_mds.dts |    3 +--
- arch/powerpc/boot/dts/mpc832x_rdb.dts |    3 +--
- arch/powerpc/boot/dts/mpc836x_mds.dts |    3 +--
- arch/powerpc/boot/dts/mpc8568mds.dts  |    2 +-
- drivers/net/ucc_geth_mii.c            |    3 +++
- 5 files changed, 7 insertions(+), 7 deletions(-)
+Regards,
+Rami Rosen
 
-diff --git a/arch/powerpc/boot/dts/mpc832x_mds.dts b/arch/powerpc/boot/dts/mpc832x_mds.dts
-index 010c8d9..cf41194 100644
---- a/arch/powerpc/boot/dts/mpc832x_mds.dts
-+++ b/arch/powerpc/boot/dts/mpc832x_mds.dts
-@@ -255,8 +255,7 @@
- 			#address-cells = <1>;
- 			#size-cells = <0>;
- 			reg = <2320 18>;
--			device_type = "mdio";
--			compatible = "ucc_geth_phy";
-+			compatible = "fsl,ucc-mdio";
- 
- 			phy3: ethernet-phy@03 {
- 				interrupt-parent = < &ipic >;
-diff --git a/arch/powerpc/boot/dts/mpc832x_rdb.dts b/arch/powerpc/boot/dts/mpc832x_rdb.dts
-index 3a73134..09301c1 100644
---- a/arch/powerpc/boot/dts/mpc832x_rdb.dts
-+++ b/arch/powerpc/boot/dts/mpc832x_rdb.dts
-@@ -236,8 +236,7 @@
- 			#address-cells = <1>;
- 			#size-cells = <0>;
- 			reg = <3120 18>;
--			device_type = "mdio";
--			compatible = "ucc_geth_phy";
-+			compatible = "fsl,ucc-mdio";
- 
- 			phy00:ethernet-phy@00 {
- 				interrupt-parent = <&pic>;
-diff --git a/arch/powerpc/boot/dts/mpc836x_mds.dts b/arch/powerpc/boot/dts/mpc836x_mds.dts
-index 2986860..3eb8f72 100644
---- a/arch/powerpc/boot/dts/mpc836x_mds.dts
-+++ b/arch/powerpc/boot/dts/mpc836x_mds.dts
-@@ -288,8 +288,7 @@
- 			#address-cells = <1>;
- 			#size-cells = <0>;
- 			reg = <2120 18>;
--			device_type = "mdio";
--			compatible = "ucc_geth_phy";
-+			compatible = "fsl,ucc-mdio";
- 
- 			phy0: ethernet-phy@00 {
- 				interrupt-parent = < &ipic >;
-diff --git a/arch/powerpc/boot/dts/mpc8568mds.dts b/arch/powerpc/boot/dts/mpc8568mds.dts
-index 7440347..2bc147f 100644
---- a/arch/powerpc/boot/dts/mpc8568mds.dts
-+++ b/arch/powerpc/boot/dts/mpc8568mds.dts
-@@ -356,7 +356,7 @@
- 			#address-cells = <1>;
- 			#size-cells = <0>;
- 			reg = <2120 18>;
--			compatible = "ucc_geth_phy";
-+			compatible = "fsl,ucc-mdio";
- 
- 			/* These are the same PHYs as on
- 			 * gianfar's MDIO bus */
-diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
-index df884f0..e3ba14a 100644
---- a/drivers/net/ucc_geth_mii.c
-+++ b/drivers/net/ucc_geth_mii.c
-@@ -256,6 +256,9 @@ static struct of_device_id uec_mdio_match[] = {
- 		.type = "mdio",
- 		.compatible = "ucc_geth_phy",
- 	},
-+	{
-+		.compatible = "fsl,ucc-mdio",
-+	},
- 	{},
- };
- 
--- 
-1.5.2.2
 
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+
+------=_Part_10569_6770878.1199803095885
+Content-Type: text/plain; name=patch.txt
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fb6jj9hg0
+Content-Disposition: attachment; filename=patch.txt
+
+ZGlmZiAtLWdpdCBhL25ldC9icmlkZ2UvbmV0ZmlsdGVyL2VidF92bGFuLmMgYi9uZXQvYnJpZGdl
+L25ldGZpbHRlci9lYnRfdmxhbi5jCmluZGV4IGE0M2M2OTcuLjBkZGY3NDkgMTAwNjQ0Ci0tLSBh
+L25ldC9icmlkZ2UvbmV0ZmlsdGVyL2VidF92bGFuLmMKKysrIGIvbmV0L2JyaWRnZS9uZXRmaWx0
+ZXIvZWJ0X3ZsYW4uYwpAQCAtMzcsOSArMzcsNyBAQCBNT0RVTEVfTElDRU5TRSgiR1BMIik7CiAK
+IAogI2RlZmluZSBERUJVR19NU0coYXJncy4uLikgaWYgKGRlYnVnKSBwcmludGsgKEtFUk5fREVC
+VUcgImVidF92bGFuOiAiIGFyZ3MpCi0jZGVmaW5lIElOVl9GTEFHKF9pbnZfZmxhZ18pIChpbmZv
+LT5pbnZmbGFncyAmIF9pbnZfZmxhZ18pID8gIiEiIDogIiIKICNkZWZpbmUgR0VUX0JJVE1BU0so
+X0JJVF9NQVNLXykgaW5mby0+Yml0bWFzayAmIF9CSVRfTUFTS18KLSNkZWZpbmUgU0VUX0JJVE1B
+U0soX0JJVF9NQVNLXykgaW5mby0+Yml0bWFzayB8PSBfQklUX01BU0tfCiAjZGVmaW5lIEVYSVRf
+T05fTUlTTUFUQ0goX01BVENIXyxfTUFTS18pIHtpZiAoISgoaW5mby0+X01BVENIXyA9PSBfTUFU
+Q0hfKV4hIShpbmZvLT5pbnZmbGFncyAmIF9NQVNLXykpKSByZXR1cm4gRUJUX05PTUFUQ0g7fQog
+CiBzdGF0aWMgaW50Cg==
+------=_Part_10569_6770878.1199803095885--
