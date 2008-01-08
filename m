@@ -1,48 +1,47 @@
-From: "Tom Spink" <tspink@gmail.com>
-Subject: Re: AF_UNIX MSG_PEEK bug?
-Date: Tue, 8 Jan 2008 22:53:59 +0000
-Message-ID: <7b9198260801081453s198af7efycc7c35668c65eaf1@mail.gmail.com>
-References: <alpine.BSF.1.00.0801081556580.24286@pkunk.americas.sgi.com>
-	 <4783FBD6.1000004@hp.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: Top 10 kernel oopses for the week ending January 5th, 2008
+Date: Tue, 8 Jan 2008 23:56:27 +0100
+Message-ID: <200801082356.28258.rjw@sisk.pl>
+References: <477FF149.4070609@linux.intel.com> <4783C95C.7050303@linux.intel.com> <alpine.LFD.1.00.0801081126200.3148@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Brent Casavant" <bcasavan@sgi.com>, netdev@vger.kernel.org,
-	"David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org
-To: "Rick Jones" <rick.jones2@hp.com>
+Cc: Arjan van de Ven <arjan@linux.intel.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	Kevin Winchester <kjwinchester@gmail.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	NetDev <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.178]:59385 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752143AbYAHWyA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 17:54:00 -0500
-Received: by py-out-1112.google.com with SMTP id u52so5839pyb.10
-        for <netdev@vger.kernel.org>; Tue, 08 Jan 2008 14:53:59 -0800 (PST)
-In-Reply-To: <4783FBD6.1000004@hp.com>
+Received: from ogre.sisk.pl ([217.79.144.158]:43841 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753295AbYAHWyD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jan 2008 17:54:03 -0500
+In-Reply-To: <alpine.LFD.1.00.0801081126200.3148@woody.linux-foundation.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/01/2008, Rick Jones <rick.jones2@hp.com> wrote:
-> Potential bugs notwithstanding, given that this is a STREAM socket, and
-> as such shouldn't (I hope, or I'm eating toes for dinner again) have
-> side effects like tossing the rest of a datagram, why are you using
-> MSG_PEEK?  Why not simply read the N bytes of the message that will have
-> the message length with a normal read/recv, and then read that many
-> bytes in the next call?
->
-> rick jones
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->
+On Tuesday, 8 of January 2008, Linus Torvalds wrote:
+> 
+> On Tue, 8 Jan 2008, Arjan van de Ven wrote:
+> > 
+> > ok done; I had to fizzle a bit because some things aren't *exactly* a 
+> > BUG() statement but I track them anyway (things like the "sleeping in 
+> > invalid context" check), so I had to somewhat arbitrarily assign 
+> > categories for those. I might fine tune these over time some; if you or 
+> > someone else sees problems with categorization please let me know
+> 
+> Looking good. I wonder if we could also have some way to cross-ref these 
+> things with the regression list (notably try to get pointers to them in 
+> the regression list). 
 
-Hi,
+I'm thinking about that, but haven't invented any automated solution yet.
+I only can manually add references to kerneloops.org, for now.
 
-Where in the code is the message length being sent across the socket?
-
--- 
-Regards,
-Tom Spink
-University of Edinburgh
+Greetings,
+Rafael
