@@ -1,60 +1,41 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 6/8] [PATCH] Split up rndis_host.c
-Date: Tue, 08 Jan 2008 18:32:41 +0100
-Message-ID: <1199813561.6762.13.camel@johannes.berg>
-References: <11983602942818-git-send-email-bjd@jooz.net>
-	 <20071223011707.1798C2360C6@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
-	 <1199304827.8532.31.camel@localhost>
-	 <200801080319.23299.david-b@pacbell.net>
-	 (sfid-20080108_111935_296045_A569FA94)
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: Re: Top 10 kernel oopses for the week ending January 5th, 2008
+Date: Tue, 08 Jan 2008 09:42:26 -0800
+Message-ID: <4783B602.1050307@linux.intel.com>
+References: <477FF149.4070609@linux.intel.com>	<20080105213935.GN27894@ZenIV.linux.org.uk>	<20080107174431.GC27741@fieldses.org>	<4782CF9C.6000508@gmail.com>	<alpine.LFD.1.00.0801071851120.3148@woody.linux-foundation.org> <20080108081401.d9576ac5.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-oNmtRVchPmDQJX1+25Q+"
-Cc: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>, bjd-a1rhEgazXTw@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200801080319.23299.david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org> (sfid-20080108_111935_296045_A569FA94)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Kevin Winchester <kjwinchester@gmail.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	NetDev <netdev@vger.kernel.org>
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:63172 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751438AbYAHRok (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jan 2008 12:44:40 -0500
+In-Reply-To: <20080108081401.d9576ac5.randy.dunlap@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Randy Dunlap wrote:
+>>
+>> (You can do it other and smarter ways too, I'm not claiming that's a 
+>> particularly good way to do it, and the old "ksymoops" program used to do 
+>> a pretty good job of this, but I'm used to that particular idiotic way 
+>> myself, since it's how I've basically always done it)
+> 
+> One other way to do it (at least for x86-32/64) is to use
+> $kerneltree/scripts/decodecode.  It may work on other $arches also,
+> but I haven't tested it on others.
 
---=-oNmtRVchPmDQJX1+25Q+
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+I've made life easier for those using the www.kerneloops.org website;
+at least for x86 oopses the website now does this for you and shows
+the decoded Code: line in the raw oops data:
 
-
-> I see that the rndis_wext.c Kconfig won't kick in unless the
-> 802.11 stuff is available ... what additional dependencies
-> does that imply for a fatter rndis_host module?
-
-No extra modules are currently required for just plain wext [1]. In the
-future, we hope to migrate stuff to cfg80211 though, which is a separate
-module.
-
-johannes
-
-[1] mostly because all the code is simply compiled into the kernel...
-
---=-oNmtRVchPmDQJX1+25Q+
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUAR4OzuKVg1VMiehFYAQLe/hAAknDzmyudpbpX8NP8zUV46pVuKx2T/tUi
-KbQVTTM+e2e63ODPBI4uLjgLMgLriXI7gtQNGVF53syGCbpW6iOltxY1GBGhJzhD
-0TLVK21Ql5341RHyQVMDnm7RFmSSP7lHAwmzMwVMbz8h39Id/MCsu02uXsfUmNDA
-EXEcvWrz87uefsGc+WbISCz5SqSqMcMTO40PWi/deuiKf+NekeLNmag70r4jRnKF
-hY66JG441xm+89AtGpGpEJKhDtHkqmt5odA6ZnezOjrOTRo+Y29y35bxFyHKdIxX
-7kWI9kYtCFHwOcNyoNpaGjuZpy21fgPFJNRoPi1C872fKnsQF8MCelbgfyW2VXqe
-20DlhLBTVCzW0fHYfcFpLmtFdeoFPR9EyzhN3K0pWNEKvhAMQPKvVMqOhreoBRYy
-J+VoJol6UAgUYRJN23ZE/3JC+k13WTB7Fyl8zyuw3Ww0CWB1T1KpLEEq1Jq6cVcE
-6jpXc4O/P6NohOgcX3SoKnxSjuQ6b6JBX783j8IqQRj6ZLdXrqD/3M2cxdskk+Dr
-7Fu9iiUnwusGRrCwUekjHcQv9B5fOQIFN/jYbFogUSt3CJVpuZ7MQ/vUyiAsU+gJ
-uR9vNSWTttPgRBLPKwbnMdHmvMyv/Om9qrPdtexN7tSFKpn/H27Uhm28TsmXjUFM
-DBoZhp3GqLM=
-=AegI
------END PGP SIGNATURE-----
-
---=-oNmtRVchPmDQJX1+25Q+--
+http://www.kerneloops.org/raw.php?rawid=2716
