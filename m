@@ -1,47 +1,33 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Belay that... -- Re: Please pull 'upstream-jgarzik' branch of
-	wireless-2.6
-Date: Tue, 8 Jan 2008 20:49:57 -0500
-Message-ID: <20080109014957.GA3048@tuxdriver.com>
-References: <20080108222305.GD3086@tuxdriver.com> <20080108224202.GE3086@tuxdriver.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: SACK scoreboard
+Date: Wed, 09 Jan 2008 03:25:05 +0100
+Message-ID: <p73sl17pwfy.fsf@bingen.suse.de>
+References: <Pine.LNX.4.64.0712111547300.18529@kivilampi-30.cs.helsinki.fi>
+	<20080107.233617.203640686.davem@davemloft.net>
+	<4783AA29.3080406@psc.edu>
+	<20080108.144456.173014334.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20080108224202.GE3086-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: jheffner@psc.edu, ilpo.jarvinen@helsinki.fi,
+	lachlan.andrew@gmail.com, netdev@vger.kernel.org,
+	quetchen@caltech.edu
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.suse.de ([195.135.220.2]:45503 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751144AbYAICZH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jan 2008 21:25:07 -0500
+In-Reply-To: <20080108.144456.173014334.davem@davemloft.net> (David Miller's message of "Tue\, 08 Jan 2008 14\:44\:56 -0800 \(PST\)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Please don't pull yet -- I let a patch get in out of order.
+David Miller <davem@davemloft.net> writes:
+>
+> The big problem is that recovery from even a single packet loss in a
+> window makes us run kfree_skb() for a all the packets in a full
+> window's worth of data when recovery completes.
 
-I'll post a new pull request when I straighten this out...
+Why exactly is it a problem to free them all at once? Are you worried
+about kernel preemption latencies?
 
-John
-
-On Tue, Jan 08, 2008 at 05:42:02PM -0500, John W. Linville wrote:
-> On Tue, Jan 08, 2008 at 05:23:05PM -0500, John W. Linville wrote:
-> > Jeff,
-> > 
-> > Another round of patches intended for 2.6.25...the biggest factions are
-> > rt2x00 and b43 updates, as well as some Viro-isms... :-)
-> > 
-> > Please let me know if there are any problems!
-> > 
-> > John
-> > 
-> > P.S.  Copying Dave in case he is handling these requests...FWIW, it
-> > will definitely depend on the patches already in netdev-2.6#upstream...
-> 
-> I left out a patch.  I have pushed it on top of the previous request.
-> 
-> Let me know if there are problems!
-> 
-> Thanks,
-> 
-> John
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+-Andi
