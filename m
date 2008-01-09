@@ -1,95 +1,57 @@
-From: maximilian attems <max@stro.at>
-Subject: [PATCH v3] AX25: kill user triggable printks
-Date: Wed,  9 Jan 2008 11:21:10 +0100
-Message-ID: <1199874070-9524-1-git-send-email-max@stro.at>
-Cc: netdev@vger.kernel.org, maximilian attems <max@stro.at>
-To: davem@davemloft.net
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [ATM]: Check IP header validity in mpc_send_packet
+Date: Wed, 9 Jan 2008 21:27:45 +1100
+Message-ID: <20080109102745.GA29297@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Al Viro <viro@ftp.linux.org.uk>,
+	Chas Williams <chas@cmf.nrl.navy.mil>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from baikonur.stro.at ([213.239.196.228]:56417 "EHLO
-	baikonur.stro.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751091AbYAIKVl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 05:21:41 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:4644 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751837AbYAIK1u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 05:27:50 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sfuzz can easily trigger any of those.
+Hi Dave:
 
-move the printk message to the corresponding comment:
-makes the intention of the code clear and easy
-to pick up on an scheduled removal.
-as bonus simplify the braces placement.
+[ATM]: Check IP header validity in mpc_send_packet
 
-Signed-off-by: maximilian attems <max@stro.at>
----
- net/ax25/af_ax25.c |   39 ++++++++++++++++++---------------------
- 1 files changed, 18 insertions(+), 21 deletions(-)
+Al went through the ip_fast_csum callers and found this piece of code
+that did not validate the IP header.  While root crashing the machine
+by sending bogus packets through raw or AF_PACKET sockets isn't that
+serious, it is still nice to react gracefully.
 
-diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-index 8378afd..ecb14ee 100644
---- a/net/ax25/af_ax25.c
-+++ b/net/ax25/af_ax25.c
-@@ -1109,21 +1109,19 @@ static int __must_check ax25_connect(struct socket *sock,
- 	 * some sanity checks. code further down depends on this
- 	 */
- 
--	if (addr_len == sizeof(struct sockaddr_ax25)) {
--		/* support for this will go away in early 2.5.x */
--		printk(KERN_WARNING "ax25_connect(): %s uses obsolete socket structure\n",
--			current->comm);
--	}
--	else if (addr_len != sizeof(struct full_sockaddr_ax25)) {
--		/* support for old structure may go away some time */
-+	if (addr_len == sizeof(struct sockaddr_ax25))
-+		/* support for this will go away in early 2.5.x
-+		 * ax25_connect(): uses obsolete socket structure
-+		 */
-+		;
-+	else if (addr_len != sizeof(struct full_sockaddr_ax25))
-+		/* support for old structure may go away some time
-+		 * ax25_connect(): uses old (6 digipeater) socket structure.
-+		 */
- 		if ((addr_len < sizeof(struct sockaddr_ax25) + sizeof(ax25_address) * 6) ||
--		    (addr_len > sizeof(struct full_sockaddr_ax25))) {
-+		    (addr_len > sizeof(struct full_sockaddr_ax25)))
- 			return -EINVAL;
--		}
- 
--		printk(KERN_WARNING "ax25_connect(): %s uses old (6 digipeater) socket structure.\n",
--			current->comm);
--	}
- 
- 	if (fsa->fsa_ax25.sax25_family != AF_AX25)
- 		return -EINVAL;
-@@ -1467,21 +1465,20 @@ static int ax25_sendmsg(struct kiocb *iocb, struct socket *sock,
- 			goto out;
- 		}
- 
--		if (addr_len == sizeof(struct sockaddr_ax25)) {
--			printk(KERN_WARNING "ax25_sendmsg(): %s uses obsolete socket structure\n",
--				current->comm);
--		}
--		else if (addr_len != sizeof(struct full_sockaddr_ax25)) {
--			/* support for old structure may go away some time */
-+		if (addr_len == sizeof(struct sockaddr_ax25))
-+			/* ax25_sendmsg(): uses obsolete socket structure */
-+			;
-+		else if (addr_len != sizeof(struct full_sockaddr_ax25))
-+			/* support for old structure may go away some time
-+			 * ax25_sendmsg(): uses old (6 digipeater)
-+			 * socket structure.
-+			 */
- 			if ((addr_len < sizeof(struct sockaddr_ax25) + sizeof(ax25_address) * 6) ||
- 			    (addr_len > sizeof(struct full_sockaddr_ax25))) {
- 				err = -EINVAL;
- 				goto out;
- 			}
- 
--			printk(KERN_WARNING "ax25_sendmsg(): %s uses old (6 digipeater) socket structure.\n",
--				current->comm);
--		}
- 
- 		if (addr_len > sizeof(struct sockaddr_ax25) && usax->sax25_ndigis != 0) {
- 			int ct           = 0;
+This patch ensures that the skb has enough data for an IP header and
+that the header length field is valid.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Thanks,
 -- 
-debian.1.5.3.7.1-dirty
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/atm/mpc.c b/net/atm/mpc.c
+index 2086396..9c7f712 100644
+--- a/net/atm/mpc.c
++++ b/net/atm/mpc.c
+@@ -542,6 +542,13 @@ static int mpc_send_packet(struct sk_buff *skb, struct net_device *dev)
+ 	if (eth->h_proto != htons(ETH_P_IP))
+ 		goto non_ip; /* Multi-Protocol Over ATM :-) */
+ 
++	/* Weed out funny packets (e.g., AF_PACKET or raw). */
++	if (skb->len < ETH_HLEN + sizeof(struct iphdr))
++		goto non_ip;
++	skb_set_network_header(skb, ETH_HLEN);
++	if (skb->len < ETH_HLEN + ip_hdr(skb)->ihl * 4 || ip_hdr(skb)->ihl < 5)
++		goto non_ip;
++
+ 	while (i < mpc->number_of_mps_macs) {
+ 		if (!compare_ether_addr(eth->h_dest, (mpc->mps_macs + i*ETH_ALEN)))
+ 			if ( send_via_shortcut(skb, mpc) == 0 )           /* try shortcut */
