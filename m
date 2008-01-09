@@ -1,18 +1,18 @@
-From: linel patrice <patnathanael@yahoo.fr>
+From: patnel972-linux@yahoo.fr
 Subject: Re : Bonding : Monitoring of 4965 wireless card
-Date: Wed, 9 Jan 2008 20:44:27 +0000 (GMT)
-Message-ID: <177189.1005.qm@web25711.mail.ukl.yahoo.com>
+Date: Wed, 9 Jan 2008 20:52:49 +0000 (GMT)
+Message-ID: <605535.45233.qm@web25704.mail.ukl.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web25711.mail.ukl.yahoo.com ([217.12.10.53]:39009 "HELO
-	web25711.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753115AbYAIUvJ convert rfc822-to-8bit
+Received: from web25704.mail.ukl.yahoo.com ([217.12.10.176]:28901 "HELO
+	web25704.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752218AbYAIUwv convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jan 2008 15:51:09 -0500
+	Wed, 9 Jan 2008 15:52:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -28,7 +28,7 @@ es not
 
 Am i clear?
 
-
+Ps:(sorry i have trouble with my mail)
 ----- Message d'origine ----
 De : John W. Linville <linville@tuxdriver.com>
 =C0 : patnel972-linux@yahoo.fr
