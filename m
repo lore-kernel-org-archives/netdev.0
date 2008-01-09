@@ -1,7 +1,7 @@
 From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net-2.6.25 7/19] [IPV4] Unify access to the routing tables.
-Date: Wed,  9 Jan 2008 21:04:28 +0300
-Message-ID: <1199901880-6812-7-git-send-email-den@openvz.org>
+Subject: [PATCH net-2.6.25 16/19] [NETNS] Correctly fill fib_config data.
+Date: Wed,  9 Jan 2008 21:04:37 +0300
+Message-ID: <1199901880-6812-16-git-send-email-den@openvz.org>
 References: <47850C57.60907@openvz.org>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org,
         benjamin.thery-6ktuUTfB/bM@public.gmane.org
@@ -19,156 +19,124 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Replace the direct pointers to local and main tables with
-calls to fib_get_table() with appropriate argument.
-
-This doesn't introduce additional dereferences, but makes the access to fib
-tables uniform in any (CONFIG_IP_MULTIPLE_TABLES) case.
-
 Acked-by: Benjamin Thery <benjamin.thery-6ktuUTfB/bM@public.gmane.org>
-Acked-by: Daniel Lezcano <dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org>
+Acked-by: Daniel Lezcano <dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org> 
 Signed-off-by: Denis V. Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 ---
- include/net/ip_fib.h    |   39 ++++++++++++++++++++++++++++-----------
- net/ipv4/fib_frontend.c |   29 ++++++++++++-----------------
- 2 files changed, 40 insertions(+), 28 deletions(-)
+ net/ipv4/fib_frontend.c |   27 ++++++++++++++-------------
+ 1 files changed, 14 insertions(+), 13 deletions(-)
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 338d3ed..06e6a33 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -120,16 +120,22 @@ struct fib_result_nl {
- 	int             err;      
- };
- 
-+extern struct hlist_head fib_table_hash[];
-+
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 
- #define FIB_RES_NH(res)		((res).fi->fib_nh[(res).nh_sel])
- #define FIB_RES_RESET(res)	((res).nh_sel = 0)
- 
-+#define FIB_TABLE_HASHSZ 2
-+
- #else /* CONFIG_IP_ROUTE_MULTIPATH */
- 
- #define FIB_RES_NH(res)		((res).fi->fib_nh[0])
- #define FIB_RES_RESET(res)
- 
-+#define FIB_TABLE_HASHSZ 256
-+
- #endif /* CONFIG_IP_ROUTE_MULTIPATH */
- 
- #define FIB_RES_PREFSRC(res)		((res).fi->fib_prefsrc ? : __fib_res_prefsrc(&res))
-@@ -156,14 +162,17 @@ struct fib_table {
- 
- #ifndef CONFIG_IP_MULTIPLE_TABLES
- 
--extern struct fib_table *ip_fib_local_table;
--extern struct fib_table *ip_fib_main_table;
-+#define TABLE_LOCAL_INDEX	0
-+#define TABLE_MAIN_INDEX	1
- 
- static inline struct fib_table *fib_get_table(u32 id)
- {
--	if (id != RT_TABLE_LOCAL)
--		return ip_fib_main_table;
--	return ip_fib_local_table;
-+	struct hlist_head *ptr;
-+
-+	ptr = id == RT_TABLE_LOCAL ?
-+		&fib_table_hash[TABLE_LOCAL_INDEX] :
-+		&fib_table_hash[TABLE_MAIN_INDEX];
-+	return hlist_entry(ptr->first, struct fib_table, tb_hlist);
- }
- 
- static inline struct fib_table *fib_new_table(u32 id)
-@@ -173,16 +182,24 @@ static inline struct fib_table *fib_new_table(u32 id)
- 
- static inline int fib_lookup(const struct flowi *flp, struct fib_result *res)
- {
--	if (ip_fib_local_table->tb_lookup(ip_fib_local_table, flp, res) &&
--	    ip_fib_main_table->tb_lookup(ip_fib_main_table, flp, res))
--		return -ENETUNREACH;
--	return 0;
-+	struct fib_table *table;
-+
-+	table = fib_get_table(RT_TABLE_LOCAL);
-+	if (!table->tb_lookup(table, flp, res))
-+		return 0;
-+
-+	table = fib_get_table(RT_TABLE_MAIN);
-+	if (!table->tb_lookup(table, flp, res))
-+		return 0;
-+	return -ENETUNREACH;
- }
- 
--static inline void fib_select_default(const struct flowi *flp, struct fib_result *res)
-+static inline void fib_select_default(const struct flowi *flp,
-+				      struct fib_result *res)
- {
-+	struct fib_table *table = fib_get_table(RT_TABLE_MAIN);
- 	if (FIB_RES_GW(*res) && FIB_RES_NH(*res).nh_scope == RT_SCOPE_LINK)
--		ip_fib_main_table->tb_select_default(ip_fib_main_table, flp, res);
-+		table->tb_select_default(table, flp, res);
- }
- 
- #else /* CONFIG_IP_MULTIPLE_TABLES */
 diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 714fff9..df9716f 100644
+index abe9f43..cecb660 100644
 --- a/net/ipv4/fib_frontend.c
 +++ b/net/ipv4/fib_frontend.c
-@@ -50,39 +50,34 @@
- #define FFprint(a...) printk(KERN_DEBUG a)
- 
- static struct sock *fibnl;
-+struct hlist_head fib_table_hash[FIB_TABLE_HASHSZ];
- 
- #ifndef CONFIG_IP_MULTIPLE_TABLES
- 
--struct fib_table *ip_fib_local_table;
--struct fib_table *ip_fib_main_table;
--
--#define FIB_TABLE_HASHSZ 1
--static struct hlist_head fib_table_hash[FIB_TABLE_HASHSZ];
--
- static int __net_init fib4_rules_init(struct net *net)
- {
--	ip_fib_local_table = fib_hash_init(RT_TABLE_LOCAL);
--	if (ip_fib_local_table == NULL)
-+	struct fib_table *local_table, *main_table;
-+
-+	local_table = fib_hash_init(RT_TABLE_LOCAL);
-+	if (local_table == NULL)
- 		return -ENOMEM;
- 
--	ip_fib_main_table  = fib_hash_init(RT_TABLE_MAIN);
--	if (ip_fib_main_table == NULL)
-+	main_table  = fib_hash_init(RT_TABLE_MAIN);
-+	if (main_table == NULL)
- 		goto fail;
- 
--	hlist_add_head_rcu(&ip_fib_local_table->tb_hlist, &fib_table_hash[0]);
--	hlist_add_head_rcu(&ip_fib_main_table->tb_hlist, &fib_table_hash[0]);
-+	hlist_add_head_rcu(&local_table->tb_hlist,
-+				&fib_table_hash[TABLE_LOCAL_INDEX]);
-+	hlist_add_head_rcu(&main_table->tb_hlist,
-+				&fib_table_hash[TABLE_MAIN_INDEX]);
- 	return 0;
- 
- fail:
--	kfree(ip_fib_local_table);
--	ip_fib_local_table = NULL;
-+	kfree(local_table);
- 	return -ENOMEM;
+@@ -305,14 +305,14 @@ static int put_rtax(struct nlattr *mx, int len, int type, u32 value)
+ 	return len + nla_total_size(4);
  }
- #else
  
--#define FIB_TABLE_HASHSZ 256
--static struct hlist_head fib_table_hash[FIB_TABLE_HASHSZ];
--
- struct fib_table *fib_new_table(u32 id)
+-static int rtentry_to_fib_config(int cmd, struct rtentry *rt,
++static int rtentry_to_fib_config(struct net *net, int cmd, struct rtentry *rt,
+ 				 struct fib_config *cfg)
  {
+ 	__be32 addr;
+ 	int plen;
+ 
+ 	memset(cfg, 0, sizeof(*cfg));
+-	cfg->fc_nlinfo.nl_net = &init_net;
++	cfg->fc_nlinfo.nl_net = net;
+ 
+ 	if (rt->rt_dst.sa_family != AF_INET)
+ 		return -EAFNOSUPPORT;
+@@ -373,7 +373,7 @@ static int rtentry_to_fib_config(int cmd, struct rtentry *rt,
+ 		colon = strchr(devname, ':');
+ 		if (colon)
+ 			*colon = 0;
+-		dev = __dev_get_by_name(&init_net, devname);
++		dev = __dev_get_by_name(net, devname);
+ 		if (!dev)
+ 			return -ENODEV;
+ 		cfg->fc_oif = dev->ifindex;
+@@ -396,7 +396,7 @@ static int rtentry_to_fib_config(int cmd, struct rtentry *rt,
+ 	if (rt->rt_gateway.sa_family == AF_INET && addr) {
+ 		cfg->fc_gw = addr;
+ 		if (rt->rt_flags & RTF_GATEWAY &&
+-		    inet_addr_type(&init_net, addr) == RTN_UNICAST)
++		    inet_addr_type(net, addr) == RTN_UNICAST)
+ 			cfg->fc_scope = RT_SCOPE_UNIVERSE;
+ 	}
+ 
+@@ -453,7 +453,7 @@ int ip_rt_ioctl(unsigned int cmd, void __user *arg)
+ 			return -EFAULT;
+ 
+ 		rtnl_lock();
+-		err = rtentry_to_fib_config(cmd, &rt, &cfg);
++		err = rtentry_to_fib_config(&init_net, cmd, &rt, &cfg);
+ 		if (err == 0) {
+ 			struct fib_table *tb;
+ 
+@@ -494,8 +494,8 @@ const struct nla_policy rtm_ipv4_policy[RTA_MAX+1] = {
+ 	[RTA_FLOW]		= { .type = NLA_U32 },
+ };
+ 
+-static int rtm_to_fib_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+-			     struct fib_config *cfg)
++static int rtm_to_fib_config(struct net *net, struct sk_buff *skb,
++			    struct nlmsghdr *nlh, struct fib_config *cfg)
+ {
+ 	struct nlattr *attr;
+ 	int err, remaining;
+@@ -519,7 +519,7 @@ static int rtm_to_fib_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 
+ 	cfg->fc_nlinfo.pid = NETLINK_CB(skb).pid;
+ 	cfg->fc_nlinfo.nlh = nlh;
+-	cfg->fc_nlinfo.nl_net = &init_net;
++	cfg->fc_nlinfo.nl_net = net;
+ 
+ 	if (cfg->fc_type > RTN_MAX) {
+ 		err = -EINVAL;
+@@ -575,7 +575,7 @@ static int inet_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *ar
+ 	if (net != &init_net)
+ 		return -EINVAL;
+ 
+-	err = rtm_to_fib_config(skb, nlh, &cfg);
++	err = rtm_to_fib_config(net, skb, nlh, &cfg);
+ 	if (err < 0)
+ 		goto errout;
+ 
+@@ -600,7 +600,7 @@ static int inet_rtm_newroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *ar
+ 	if (net != &init_net)
+ 		return -EINVAL;
+ 
+-	err = rtm_to_fib_config(skb, nlh, &cfg);
++	err = rtm_to_fib_config(net, skb, nlh, &cfg);
+ 	if (err < 0)
+ 		goto errout;
+ 
+@@ -667,6 +667,7 @@ out:
+ 
+ static void fib_magic(int cmd, int type, __be32 dst, int dst_len, struct in_ifaddr *ifa)
+ {
++	struct net *net = ifa->ifa_dev->dev->nd_net;
  	struct fib_table *tb;
+ 	struct fib_config cfg = {
+ 		.fc_protocol = RTPROT_KERNEL,
+@@ -677,14 +678,14 @@ static void fib_magic(int cmd, int type, __be32 dst, int dst_len, struct in_ifad
+ 		.fc_oif = ifa->ifa_dev->dev->ifindex,
+ 		.fc_nlflags = NLM_F_CREATE | NLM_F_APPEND,
+ 		.fc_nlinfo = {
+-			.nl_net = &init_net,
++			.nl_net = net,
+ 		},
+ 	};
+ 
+ 	if (type == RTN_UNICAST)
+-		tb = fib_new_table(&init_net, RT_TABLE_MAIN);
++		tb = fib_new_table(net, RT_TABLE_MAIN);
+ 	else
+-		tb = fib_new_table(&init_net, RT_TABLE_LOCAL);
++		tb = fib_new_table(net, RT_TABLE_LOCAL);
+ 
+ 	if (tb == NULL)
+ 		return;
 -- 
 1.5.3.rc5
