@@ -1,65 +1,93 @@
-From: "Matvejchikov Ilya" <matvejchikov@gmail.com>
-Subject: Re: [PATCH for 2.6.24][NET] fs_enet: check for phydev existence in
-	the ethtool handlers
-Date: Wed, 9 Jan 2008 23:10:00 +0300
-Message-ID: <8496f91a0801091210q3eda8338y74cf99382c097b41@mail.gmail.com>
-Reply-To: matvejchikov@gmail.com
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1592419291=="
-To: linuxppc-embedded@ozlabs.org, netdev@vger.kernel.org
-Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Mime-version: 1.0
-Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH net-2.6.25 11/19] [NETNS] Show routing information from
+	correct namespace (fib_hash.c)
+Date: Wed,  9 Jan 2008 21:04:32 +0300
+Message-ID: <1199901880-6812-11-git-send-email-den@openvz.org>
+References: <47850C57.60907@openvz.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org,
+        benjamin.thery-6ktuUTfB/bM@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <47850C57.60907-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---===============1592419291==
-Content-Type: multipart/alternative;
-	boundary="----=_Part_11290_5481638.1199909400758"
+This is the second part (for the CONFIG_IP_FIB_HASH case) of the patch #4,
+where we have created proc files in namespaces.
 
-------=_Part_11290_5481638.1199909400758
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Now we can dump correct info in them.
 
-Hi folks!
+Acked-by: Benjamin Thery <benjamin.thery-6ktuUTfB/bM@public.gmane.org>
+Acked-by: Daniel Lezcano <dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Denis V. Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+---
+ net/ipv4/fib_hash.c |   17 +++++++++++------
+ 1 files changed, 11 insertions(+), 6 deletions(-)
 
-I had the same problem too. The solution was the following:
-http://www.mail-archive.com/netdev@vger.kernel.org/msg37951.html
-
-Also have a look at the potential multicasting recovery problem in fs_enet
-driver:
-http://patchwork.ozlabs.org/linuxppc/patch?id=10700
-
-Best regards,
-Matvejchikov Ilya.
-
-------=_Part_11290_5481638.1199909400758
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-Hi folks!<br><br>I had the same problem too. The solution was the following:<br><a href="http://www.mail-archive.com/netdev@vger.kernel.org/msg37951.html">http://www.mail-archive.com/netdev@vger.kernel.org/msg37951.html</a>
-<br><br>Also have a look at the potential multicasting recovery problem in fs_enet driver:<br><a href="http://patchwork.ozlabs.org/linuxppc/patch?id=10700">http://patchwork.ozlabs.org/linuxppc/patch?id=10700</a><br><br>Best regards,
-<br>Matvejchikov Ilya.<br><br>
-
-------=_Part_11290_5481638.1199909400758--
-
---===============1592419291==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Linuxppc-embedded mailing list
-Linuxppc-embedded@ozlabs.org
-https://ozlabs.org/mailman/listinfo/linuxppc-embedded
---===============1592419291==--
+diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
+index fb61ca9..c9f1f73 100644
+--- a/net/ipv4/fib_hash.c
++++ b/net/ipv4/fib_hash.c
+@@ -782,6 +782,7 @@ struct fib_table *fib_hash_init(u32 id)
+ #ifdef CONFIG_PROC_FS
+ 
+ struct fib_iter_state {
++	struct seq_net_private p;
+ 	struct fn_zone	*zone;
+ 	int		bucket;
+ 	struct hlist_head *hash_head;
+@@ -795,8 +796,11 @@ struct fib_iter_state {
+ static struct fib_alias *fib_get_first(struct seq_file *seq)
+ {
+ 	struct fib_iter_state *iter = seq->private;
+-	struct fib_table *main_table = fib_get_table(&init_net, RT_TABLE_MAIN);
+-	struct fn_hash *table = (struct fn_hash *)main_table->tb_data;
++	struct fib_table *main_table;
++	struct fn_hash *table;
++
++	main_table = fib_get_table(iter->p.net, RT_TABLE_MAIN);
++	table = (struct fn_hash *)main_table->tb_data;
+ 
+ 	iter->bucket    = 0;
+ 	iter->hash_head = NULL;
+@@ -933,10 +937,11 @@ static struct fib_alias *fib_get_idx(struct seq_file *seq, loff_t pos)
+ static void *fib_seq_start(struct seq_file *seq, loff_t *pos)
+ 	__acquires(fib_hash_lock)
+ {
++	struct fib_iter_state *iter = seq->private;
+ 	void *v = NULL;
+ 
+ 	read_lock(&fib_hash_lock);
+-	if (fib_get_table(&init_net, RT_TABLE_MAIN))
++	if (fib_get_table(iter->p.net, RT_TABLE_MAIN))
+ 		v = *pos ? fib_get_idx(seq, *pos - 1) : SEQ_START_TOKEN;
+ 	return v;
+ }
+@@ -1024,8 +1029,8 @@ static const struct seq_operations fib_seq_ops = {
+ 
+ static int fib_seq_open(struct inode *inode, struct file *file)
+ {
+-	return seq_open_private(file, &fib_seq_ops,
+-			sizeof(struct fib_iter_state));
++	return seq_open_net(inode, file, &fib_seq_ops,
++			    sizeof(struct fib_iter_state));
+ }
+ 
+ static const struct file_operations fib_seq_fops = {
+@@ -1033,7 +1038,7 @@ static const struct file_operations fib_seq_fops = {
+ 	.open           = fib_seq_open,
+ 	.read           = seq_read,
+ 	.llseek         = seq_lseek,
+-	.release	= seq_release_private,
++	.release	= seq_release_net,
+ };
+ 
+ int __net_init fib_proc_init(struct net *net)
