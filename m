@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25 6/6][NETFILTER] Use the ctl paths instead of
- hand-made analogue
-Date: Wed, 09 Jan 2008 00:34:22 -0800 (PST)
-Message-ID: <20080109.003422.78089670.davem@davemloft.net>
-References: <47839C30.2040402@openvz.org>
-	<4783A0D1.4010202@openvz.org>
-	<4783A12A.3060207@trash.net>
+Subject: Re: [PATCH net-2.6.25] [BRIDGE] Remove unused macros from
+ ebt_vlan.c
+Date: Wed, 09 Jan 2008 00:35:28 -0800 (PST)
+Message-ID: <20080109.003528.141516481.davem@davemloft.net>
+References: <eb3ff54b0801080638j48b51978j9beb11b310ef2b8@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xemul@openvz.org, netdev@vger.kernel.org, devel@openvz.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57264
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57267
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751024AbYAIIeW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 03:34:22 -0500
-In-Reply-To: <4783A12A.3060207@trash.net>
+	by vger.kernel.org with ESMTP id S1750756AbYAIIf3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 03:35:29 -0500
+In-Reply-To: <eb3ff54b0801080638j48b51978j9beb11b310ef2b8@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 08 Jan 2008 17:13:30 +0100
+From: "Rami Rosen" <ramirose@gmail.com>
+Date: Tue, 8 Jan 2008 16:38:15 +0200
 
-> Pavel Emelyanov wrote:
-> > The conntracks subsystem has a similar infrastructure
-> > to maintain ctl_paths, but since we already have it
-> > on the generic level, I think it's OK to switch to
-> > using it.
-> > 
-> > So, basically, this patch just replaces the ctl_table-s
-> > with ctl_path-s, nf_register_sysctl_table with 
-> > register_sysctl_paths() and removes no longer needed code.
+> Remove two unused macros, INV_FLAG and SET_BITMASK
+> from net/bridge/netfilter/ebt_vlan.c.
 > 
-> Also looks good, thanks.
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-Also applied, thanks.
-
+Applied, thanks.
