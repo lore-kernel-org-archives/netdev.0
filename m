@@ -1,89 +1,48 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 2.6.24-rc6-mm1
-Date: Tue, 8 Jan 2008 16:27:39 -0800
-Message-ID: <20080108162739.f2f577ce.akpm@linux-foundation.org>
-References: <64bb37e0801061203l503f29f0hd922a1347f8169ac@mail.gmail.com>
-	<20080107151639P.fujita.tomonori@lab.ntt.co.jp>
-	<20080108155948.GC26114@elte.hu>
-	<20080109085753O.fujita.tomonori@lab.ntt.co.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, fujita.tomonori@lab.ntt.co.jp,
-	just.for.lkml@googlemail.com, tomof@acm.org, jarkao2@gmail.com,
-	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
-	neilb@suse.de, bfields@fieldses.org, netdev@vger.kernel.org,
-	tom@opengridcomputing.com
-To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+From: linux@horizon.com
+Subject: Re: [PATCH 1/3] drivers/net/ipg.c: Fix skbuff leak
+Date: 8 Jan 2008 19:38:40 -0500
+Message-ID: <20080109003840.22917.qmail@science.horizon.com>
+References: <20080108213640.GC4450@electric-eye.fr.zoreil.com>
+Cc: akpm@linux-foundation.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: linux@horizon.com, romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:42767 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751943AbYAIA3L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 19:29:11 -0500
-In-Reply-To: <20080109085753O.fujita.tomonori@lab.ntt.co.jp>
+Received: from science.horizon.com ([192.35.100.1]:13028 "HELO
+	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752163AbYAIAim (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2008 19:38:42 -0500
+In-Reply-To: <20080108213640.GC4450@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 09 Jan 2008 08:57:53 +0900
-FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp> wrote:
+> Can you try the patch below ?
 
-> Andrew, can you replace
-> 
-> iommu-sg-add-iommu-helper-functions-for-the-free-area-management.patch
-> 
-> with the updated patch:
-> 
-> http://ozlabs.org/pipermail/linuxppc-dev/2007-December/048997.html
-> 
-> For your convenience I've attached the updated patch too.
+Testing now... (I presume you noticed the one-character typo in my
+earlier patch.  That should be "mc = mc->next", not "mv = mc->next".)
 
-<generates the incremental>
+That doesn't seem to do it.  Not entirely, at least.  After downloading
+and partially re-uploading an 800M file, slabtop reports:
 
+  OBJS ACTIVE  USE OBJ SIZE  SLABS OBJ/SLAB CACHE SIZE NAME
+341576 341574  99%    0.50K  42697        8    170788K kmalloc-512
+342006 341953  99%    0.19K  16286       21     65144K kmalloc-192
+ 30592  30575  99%    2.00K   7648        4     61184K kmalloc-2048
+ 30213  30193  99%    0.44K   3357        9     13428K skbuff_fclone_cache
+  7650   7643  99%    0.08K    150       51       600K sysfs_dir_cache
+  4000   3938  98%    0.12K    125       32       500K kmalloc-128
+   258    258 100%    1.15K     43        6       344K raid5-md5
+   232    221  95%    1.00K     58        4       232K kmalloc-1024
+  3136   3110  99%    0.06K     49       64       196K kmalloc-64
+   264     80  30%    0.68K     24       11       192K ext3_inode_cache
 
-> --- a/lib/iommu-helper.c~a
-> +++ a/lib/iommu-helper.c
-> @@ -8,15 +8,20 @@
->  static unsigned long find_next_zero_area(unsigned long *map,
->  					 unsigned long size,
->  					 unsigned long start,
-> -					 unsigned int nr)
-> +					 unsigned int nr,
-> +					 unsigned long align_mask)
->  {
->  	unsigned long index, end, i;
->  again:
->  	index = find_next_zero_bit(map, size, start);
-> +
-> +	/* Align allocation */
-> +	index = (index + align_mask) & ~align_mask;
-
-The ALIGN() macro is the approved way of doing this.
-
-(I don't think ALIGN adds much value really, especially given that you've
-commented what's going on, but I guess it does make reviewing and reading a
-little easier).
+The "kmalloc-2048" was down in the noise before the upload started.
+This is in single-user mode, after sync and echo 3 > /proc/sys/vm/drop_caches.
 
 
->  	end = index + nr;
-> -	if (end > size)
-> +	if (end >= size)
->  		return -1;
-> -	for (i = index + 1; i < end; i++) {
-> +	for (i = index; i < end; i++) {
->  		if (test_bit(i, map)) {
->  			start = i+1;
->  			goto again;
-> @@ -50,9 +55,8 @@ unsigned long iommu_area_alloc(unsigned 
->  {
->  	unsigned long index;
->  again:
-> -	index = find_next_zero_area(map, size, start, nr);
-> +	index = find_next_zero_area(map, size, start, nr, align_mask);
->  	if (index != -1) {
-> -		index = (index + align_mask) & ~align_mask;
->  		if (is_span_boundary(index, nr, shift, boundary_size)) {
->  			/* we could do more effectively */
->  			start = index + 1;
-> _
-> 
-> 
+I'll have to try this after this evening's social plans, but I'm thinking
+of implementing more rapid bug detection: explicitly zero the sp->TxBuff
+slot when the skb is freed, and check that it is zero before putting
+anything else in there.  (And likewise for RxBuff.)
+
+That way, I don't have to use up a noticeable amount of memory to see
+the bug and reboot to clear up the damage each test cycle.
