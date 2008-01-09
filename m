@@ -1,37 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [SOCK]: Adds a rcu_dereference() in sk_filter
-Date: Tue, 08 Jan 2008 23:41:54 -0800 (PST)
-Message-ID: <20080108.234154.107152881.davem@davemloft.net>
-References: <4783DDBF.2040303@cosmosbay.com>
-	<E1JCUFO-00079j-00@gondolin.me.apana.org.au>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [XFRM]: xfrm_algo_clone() allocates too much memory
+Date: Wed, 09 Jan 2008 08:51:39 +0100
+Message-ID: <47847D0B.3050003@cosmosbay.com>
+References: <E1JCUDY-000791-00@gondolin.me.apana.org.au>	<478477C7.9030004@cosmosbay.com> <20080108.234012.181072357.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org, dim@openvz.org,
-	kuznet@ms2.inr.ac.ru
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48332
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751211AbYAIHlz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 02:41:55 -0500
-In-Reply-To: <E1JCUFO-00079j-00@gondolin.me.apana.org.au>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:42441 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750737AbYAIHvx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 02:51:53 -0500
+In-Reply-To: <20080108.234012.181072357.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 09 Jan 2008 17:17:06 +1100
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Wed, 09 Jan 2008 08:29:11 +0100
+>=20
+> Thanks for catching this.
+>=20
+> Applied to net-2.6
+>=20
+>> +static inline int xfrm_alg_len(struct xfrm_algo *alg)
+>> +{
+>> +	return sizeof(*alg) + ((alg->alg_key_len + 7) / 8);
+>> +}
+>=20
+> That gets emitted as a divide doesn't it :-))))
+>=20
+>=20
+Yes I have a patch for these divides, but will apply on 2.6.25 once thi=
+s one=20
+hits it.  (this saves 192 bytes of kernel text BTW)
 
-> Eric Dumazet <dada1@cosmosbay.com> wrote:
-> > 
-> > It seems commit fda9ef5d679b07c9d9097aaf6ef7f069d794a8f9 introduced a RCU 
-> > protection for sk_filter(), without a rcu_dereference()
-> > 
-> > Either we need a rcu_dereference(), either a comment should explain why we 
-> > dont need it. I vote for the former.
-> > 
-> > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> 
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Applied, thanks everyone.
