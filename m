@@ -1,8 +1,8 @@
 From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net-2.6.25 8/19] [NETNS] Add netns parameter to
-	fib_get_table/fib_new_table.
-Date: Wed,  9 Jan 2008 21:04:29 +0300
-Message-ID: <1199901880-6812-8-git-send-email-den@openvz.org>
+Subject: [PATCH net-2.6.25 3/19] [NETNS] Namespacing in the generic fib
+	rules code.
+Date: Wed,  9 Jan 2008 21:04:24 +0300
+Message-ID: <1199901880-6812-3-git-send-email-den@openvz.org>
 References: <47850C57.60907@openvz.org>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org,
         benjamin.thery-6ktuUTfB/bM@public.gmane.org
@@ -20,283 +20,277 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch extends the fib_get_table and the fib_new_table functions with
-the network namespace pointer. That will allow to access the table relatively
-from the network namespace.
+Move static rules_ops & rules_mod_lock to the struct net, register the
+pernet subsys to init them and enjoy the fact that the core rules
+infrastructure works in the namespace.
+
+Real IPv4 fib rules virtualization requires fib tables support in the
+namespace and will be done seriously later in the patchset.
 
 Acked-by: Benjamin Thery <benjamin.thery-6ktuUTfB/bM@public.gmane.org>
 Acked-by: Daniel Lezcano <dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Denis V. Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 ---
- include/net/ip_fib.h    |   16 ++++++++--------
- net/ipv4/fib_frontend.c |   24 ++++++++++++------------
- net/ipv4/fib_hash.c     |    4 ++--
- net/ipv4/fib_rules.c    |   12 ++++++------
- net/ipv4/fib_trie.c     |    8 ++++----
- 5 files changed, 32 insertions(+), 32 deletions(-)
+ include/net/net_namespace.h |    4 ++
+ net/core/fib_rules.c        |   91 +++++++++++++++++++++++++-----------------
+ 2 files changed, 58 insertions(+), 37 deletions(-)
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 249af66..dfb95d7 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -165,7 +165,7 @@ struct fib_table {
- #define TABLE_LOCAL_INDEX	0
- #define TABLE_MAIN_INDEX	1
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index d04ddf2..a5055fa 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -39,6 +39,10 @@ struct net {
+ 	struct hlist_head 	*dev_name_head;
+ 	struct hlist_head	*dev_index_head;
  
--static inline struct fib_table *fib_get_table(u32 id)
-+static inline struct fib_table *fib_get_table(struct net *net, u32 id)
++	/* core fib_rules */
++	struct list_head	rules_ops;
++	spinlock_t		rules_mod_lock;
++
+ 	struct sock 		*rtnl;			/* rtnetlink socket */
+ 
+ 	/* core sysctls */
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index e12e9f5..c5f78fe 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -15,9 +15,6 @@
+ #include <net/sock.h>
+ #include <net/fib_rules.h>
+ 
+-static LIST_HEAD(rules_ops);
+-static DEFINE_SPINLOCK(rules_mod_lock);
+-
+ int fib_default_rule_add(struct fib_rules_ops *ops,
+ 			 u32 pref, u32 table, u32 flags)
  {
- 	struct hlist_head *ptr;
- 
-@@ -175,20 +175,20 @@ static inline struct fib_table *fib_get_table(u32 id)
- 	return hlist_entry(ptr->first, struct fib_table, tb_hlist);
+@@ -40,16 +37,17 @@ int fib_default_rule_add(struct fib_rules_ops *ops,
  }
+ EXPORT_SYMBOL(fib_default_rule_add);
  
--static inline struct fib_table *fib_new_table(u32 id)
-+static inline struct fib_table *fib_new_table(struct net *net, u32 id)
+-static void notify_rule_change(int event, struct fib_rule *rule,
++static void notify_rule_change(struct net *net, int event,
++			       struct fib_rule *rule,
+ 			       struct fib_rules_ops *ops, struct nlmsghdr *nlh,
+ 			       u32 pid);
+ 
+-static struct fib_rules_ops *lookup_rules_ops(int family)
++static struct fib_rules_ops *lookup_rules_ops(struct net *net, int family)
  {
--	return fib_get_table(id);
-+	return fib_get_table(net, id);
+ 	struct fib_rules_ops *ops;
+ 
+ 	rcu_read_lock();
+-	list_for_each_entry_rcu(ops, &rules_ops, list) {
++	list_for_each_entry_rcu(ops, &net->rules_ops, list) {
+ 		if (ops->family == family) {
+ 			if (!try_module_get(ops->owner))
+ 				ops = NULL;
+@@ -87,15 +85,16 @@ int fib_rules_register(struct net *net, struct fib_rules_ops *ops)
+ 	    ops->action == NULL)
+ 		return -EINVAL;
+ 
+-	spin_lock(&rules_mod_lock);
+-	list_for_each_entry(o, &rules_ops, list)
++	spin_lock(&net->rules_mod_lock);
++	list_for_each_entry(o, &net->rules_ops, list)
+ 		if (ops->family == o->family)
+ 			goto errout;
+ 
+-	list_add_tail_rcu(&ops->list, &rules_ops);
++	hold_net(net);
++	list_add_tail_rcu(&ops->list, &net->rules_ops);
+ 	err = 0;
+ errout:
+-	spin_unlock(&rules_mod_lock);
++	spin_unlock(&net->rules_mod_lock);
+ 
+ 	return err;
  }
+@@ -118,8 +117,8 @@ int fib_rules_unregister(struct net *net, struct fib_rules_ops *ops)
+ 	int err = 0;
+ 	struct fib_rules_ops *o;
  
- static inline int fib_lookup(const struct flowi *flp, struct fib_result *res)
- {
- 	struct fib_table *table;
+-	spin_lock(&rules_mod_lock);
+-	list_for_each_entry(o, &rules_ops, list) {
++	spin_lock(&net->rules_mod_lock);
++	list_for_each_entry(o, &net->rules_ops, list) {
+ 		if (o == ops) {
+ 			list_del_rcu(&o->list);
+ 			fib_rules_cleanup_ops(ops);
+@@ -129,9 +128,11 @@ int fib_rules_unregister(struct net *net, struct fib_rules_ops *ops)
  
--	table = fib_get_table(RT_TABLE_LOCAL);
-+	table = fib_get_table(&init_net, RT_TABLE_LOCAL);
- 	if (!table->tb_lookup(table, flp, res))
- 		return 0;
+ 	err = -ENOENT;
+ out:
+-	spin_unlock(&rules_mod_lock);
++	spin_unlock(&net->rules_mod_lock);
  
--	table = fib_get_table(RT_TABLE_MAIN);
-+	table = fib_get_table(&init_net, RT_TABLE_MAIN);
- 	if (!table->tb_lookup(table, flp, res))
- 		return 0;
- 	return -ENETUNREACH;
-@@ -197,7 +197,7 @@ static inline int fib_lookup(const struct flowi *flp, struct fib_result *res)
- static inline void fib_select_default(const struct flowi *flp,
- 				      struct fib_result *res)
- {
--	struct fib_table *table = fib_get_table(RT_TABLE_MAIN);
-+	struct fib_table *table = fib_get_table(&init_net, RT_TABLE_MAIN);
- 	if (FIB_RES_GW(*res) && FIB_RES_NH(*res).nh_scope == RT_SCOPE_LINK)
- 		table->tb_select_default(table, flp, res);
+ 	synchronize_rcu();
++	if (!err)
++		release_net(net);
+ 
+ 	return err;
  }
-@@ -212,8 +212,8 @@ extern u32 fib_rules_tclass(struct fib_result *res);
+@@ -229,13 +230,10 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	struct nlattr *tb[FRA_MAX+1];
+ 	int err = -EINVAL, unresolved = 0;
  
- extern int fib_lookup(struct flowi *flp, struct fib_result *res);
- 
--extern struct fib_table *fib_new_table(u32 id);
--extern struct fib_table *fib_get_table(u32 id);
-+extern struct fib_table *fib_new_table(struct net *net, u32 id);
-+extern struct fib_table *fib_get_table(struct net *net, u32 id);
- extern void fib_select_default(const struct flowi *flp, struct fib_result *res);
- 
- #endif /* CONFIG_IP_MULTIPLE_TABLES */
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 9ff1e66..7718823 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -78,14 +78,14 @@ fail:
- }
- #else
- 
--struct fib_table *fib_new_table(u32 id)
-+struct fib_table *fib_new_table(struct net *net, u32 id)
- {
- 	struct fib_table *tb;
- 	unsigned int h;
- 
- 	if (id == 0)
- 		id = RT_TABLE_MAIN;
--	tb = fib_get_table(id);
-+	tb = fib_get_table(net, id);
- 	if (tb)
- 		return tb;
- 	tb = fib_hash_init(id);
-@@ -96,7 +96,7 @@ struct fib_table *fib_new_table(u32 id)
- 	return tb;
- }
- 
--struct fib_table *fib_get_table(u32 id)
-+struct fib_table *fib_get_table(struct net *net, u32 id)
- {
- 	struct fib_table *tb;
- 	struct hlist_node *node;
-@@ -148,7 +148,7 @@ struct net_device * ip_dev_find(__be32 addr)
- 	res.r = NULL;
- #endif
- 
--	local_table = fib_get_table(RT_TABLE_LOCAL);
-+	local_table = fib_get_table(&init_net, RT_TABLE_LOCAL);
- 	if (!local_table || local_table->tb_lookup(local_table, &fl, &res))
- 		return NULL;
- 	if (res.type != RTN_LOCAL)
-@@ -183,7 +183,7 @@ static inline unsigned __inet_dev_addr_type(const struct net_device *dev,
- 	res.r = NULL;
- #endif
- 
--	local_table = fib_get_table(RT_TABLE_LOCAL);
-+	local_table = fib_get_table(&init_net, RT_TABLE_LOCAL);
- 	if (local_table) {
- 		ret = RTN_UNICAST;
- 		if (!local_table->tb_lookup(local_table, &fl, &res)) {
-@@ -453,13 +453,13 @@ int ip_rt_ioctl(unsigned int cmd, void __user *arg)
- 			struct fib_table *tb;
- 
- 			if (cmd == SIOCDELRT) {
--				tb = fib_get_table(cfg.fc_table);
-+				tb = fib_get_table(&init_net, cfg.fc_table);
- 				if (tb)
- 					err = tb->tb_delete(tb, &cfg);
- 				else
- 					err = -ESRCH;
- 			} else {
--				tb = fib_new_table(cfg.fc_table);
-+				tb = fib_new_table(&init_net, cfg.fc_table);
- 				if (tb)
- 					err = tb->tb_insert(tb, &cfg);
- 				else
-@@ -573,7 +573,7 @@ static int inet_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *ar
- 	if (err < 0)
+-	if (net != &init_net)
+-		return -EINVAL;
+-
+ 	if (nlh->nlmsg_len < nlmsg_msg_size(sizeof(*frh)))
  		goto errout;
  
--	tb = fib_get_table(cfg.fc_table);
-+	tb = fib_get_table(net, cfg.fc_table);
- 	if (tb == NULL) {
- 		err = -ESRCH;
+-	ops = lookup_rules_ops(frh->family);
++	ops = lookup_rules_ops(net, frh->family);
+ 	if (ops == NULL) {
+ 		err = EAFNOSUPPORT;
  		goto errout;
-@@ -598,7 +598,7 @@ static int inet_rtm_newroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *ar
- 	if (err < 0)
- 		goto errout;
- 
--	tb = fib_new_table(cfg.fc_table);
-+	tb = fib_new_table(&init_net, cfg.fc_table);
- 	if (tb == NULL) {
- 		err = -ENOBUFS;
- 		goto errout;
-@@ -671,9 +671,9 @@ static void fib_magic(int cmd, int type, __be32 dst, int dst_len, struct in_ifad
- 	};
- 
- 	if (type == RTN_UNICAST)
--		tb = fib_new_table(RT_TABLE_MAIN);
-+		tb = fib_new_table(&init_net, RT_TABLE_MAIN);
+@@ -348,7 +346,7 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
  	else
--		tb = fib_new_table(RT_TABLE_LOCAL);
-+		tb = fib_new_table(&init_net, RT_TABLE_LOCAL);
+ 		list_add_rcu(&rule->list, &ops->rules_list);
  
- 	if (tb == NULL)
- 		return;
-@@ -848,7 +848,7 @@ static void nl_fib_input(struct sk_buff *skb)
- 	nlh = nlmsg_hdr(skb);
+-	notify_rule_change(RTM_NEWRULE, rule, ops, nlh, NETLINK_CB(skb).pid);
++	notify_rule_change(net, RTM_NEWRULE, rule, ops, nlh, NETLINK_CB(skb).pid);
+ 	flush_route_cache(ops);
+ 	rules_ops_put(ops);
+ 	return 0;
+@@ -369,13 +367,10 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	struct nlattr *tb[FRA_MAX+1];
+ 	int err = -EINVAL;
  
- 	frn = (struct fib_result_nl *) NLMSG_DATA(nlh);
--	tb = fib_get_table(frn->tb_id_in);
-+	tb = fib_get_table(&init_net, frn->tb_id_in);
- 
- 	nl_fib_lookup(frn, tb);
- 
-diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
-index f614914..fb61ca9 100644
---- a/net/ipv4/fib_hash.c
-+++ b/net/ipv4/fib_hash.c
-@@ -795,7 +795,7 @@ struct fib_iter_state {
- static struct fib_alias *fib_get_first(struct seq_file *seq)
- {
- 	struct fib_iter_state *iter = seq->private;
--	struct fib_table *main_table = fib_get_table(RT_TABLE_MAIN);
-+	struct fib_table *main_table = fib_get_table(&init_net, RT_TABLE_MAIN);
- 	struct fn_hash *table = (struct fn_hash *)main_table->tb_data;
- 
- 	iter->bucket    = 0;
-@@ -936,7 +936,7 @@ static void *fib_seq_start(struct seq_file *seq, loff_t *pos)
- 	void *v = NULL;
- 
- 	read_lock(&fib_hash_lock);
--	if (fib_get_table(RT_TABLE_MAIN))
-+	if (fib_get_table(&init_net, RT_TABLE_MAIN))
- 		v = *pos ? fib_get_idx(seq, *pos - 1) : SEQ_START_TOKEN;
- 	return v;
- }
-diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index 1aae61c..49819fe 100644
---- a/net/ipv4/fib_rules.c
-+++ b/net/ipv4/fib_rules.c
-@@ -93,7 +93,7 @@ static int fib4_rule_action(struct fib_rule *rule, struct flowi *flp,
- 		goto errout;
- 	}
- 
--	if ((tbl = fib_get_table(rule->table)) == NULL)
-+	if ((tbl = fib_get_table(&init_net, rule->table)) == NULL)
+-	if (net != &init_net)
+-		return -EINVAL;
+-
+ 	if (nlh->nlmsg_len < nlmsg_msg_size(sizeof(*frh)))
  		goto errout;
  
- 	err = tbl->tb_lookup(tbl, flp, (struct fib_result *) arg->result);
-@@ -109,7 +109,7 @@ void fib_select_default(const struct flowi *flp, struct fib_result *res)
- 	if (res->r && res->r->action == FR_ACT_TO_TBL &&
- 	    FIB_RES_GW(*res) && FIB_RES_NH(*res).nh_scope == RT_SCOPE_LINK) {
- 		struct fib_table *tb;
--		if ((tb = fib_get_table(res->r->table)) != NULL)
-+		if ((tb = fib_get_table(&init_net, res->r->table)) != NULL)
- 			tb->tb_select_default(tb, flp, res);
+-	ops = lookup_rules_ops(frh->family);
++	ops = lookup_rules_ops(net, frh->family);
+ 	if (ops == NULL) {
+ 		err = EAFNOSUPPORT;
+ 		goto errout;
+@@ -441,7 +436,7 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 		}
+ 
+ 		synchronize_rcu();
+-		notify_rule_change(RTM_DELRULE, rule, ops, nlh,
++		notify_rule_change(net, RTM_DELRULE, rule, ops, nlh,
+ 				   NETLINK_CB(skb).pid);
+ 		fib_rule_put(rule);
+ 		flush_route_cache(ops);
+@@ -551,13 +546,10 @@ static int fib_nl_dumprule(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct fib_rules_ops *ops;
+ 	int idx = 0, family;
+ 
+-	if (net != &init_net)
+-		return -EINVAL;
+-
+ 	family = rtnl_msg_family(cb->nlh);
+ 	if (family != AF_UNSPEC) {
+ 		/* Protocol specific dump request */
+-		ops = lookup_rules_ops(family);
++		ops = lookup_rules_ops(net, family);
+ 		if (ops == NULL)
+ 			return -EAFNOSUPPORT;
+ 
+@@ -565,7 +557,7 @@ static int fib_nl_dumprule(struct sk_buff *skb, struct netlink_callback *cb)
  	}
- }
-@@ -130,13 +130,13 @@ static int fib4_rule_match(struct fib_rule *rule, struct flowi *fl, int flags)
- 	return 1;
+ 
+ 	rcu_read_lock();
+-	list_for_each_entry_rcu(ops, &rules_ops, list) {
++	list_for_each_entry_rcu(ops, &net->rules_ops, list) {
+ 		if (idx < cb->args[0] || !try_module_get(ops->owner))
+ 			goto skip;
+ 
+@@ -582,7 +574,7 @@ static int fib_nl_dumprule(struct sk_buff *skb, struct netlink_callback *cb)
+ 	return skb->len;
  }
  
--static struct fib_table *fib_empty_table(void)
-+static struct fib_table *fib_empty_table(struct net *net)
+-static void notify_rule_change(int event, struct fib_rule *rule,
++static void notify_rule_change(struct net *net, int event, struct fib_rule *rule,
+ 			       struct fib_rules_ops *ops, struct nlmsghdr *nlh,
+ 			       u32 pid)
  {
- 	u32 id;
- 
- 	for (id = 1; id <= RT_TABLE_MAX; id++)
--		if (fib_get_table(id) == NULL)
--			return fib_new_table(id);
-+		if (fib_get_table(net, id) == NULL)
-+			return fib_new_table(net, id);
- 	return NULL;
+@@ -600,10 +592,10 @@ static void notify_rule_change(int event, struct fib_rule *rule,
+ 		kfree_skb(skb);
+ 		goto errout;
+ 	}
+-	err = rtnl_notify(skb, &init_net, pid, ops->nlgroup, nlh, GFP_KERNEL);
++	err = rtnl_notify(skb, net, pid, ops->nlgroup, nlh, GFP_KERNEL);
+ errout:
+ 	if (err < 0)
+-		rtnl_set_sk_err(&init_net, ops->nlgroup, err);
++		rtnl_set_sk_err(net, ops->nlgroup, err);
  }
  
-@@ -159,7 +159,7 @@ static int fib4_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
- 		if (rule->action == FR_ACT_TO_TBL) {
- 			struct fib_table *table;
+ static void attach_rules(struct list_head *rules, struct net_device *dev)
+@@ -631,22 +623,20 @@ static int fib_rules_event(struct notifier_block *this, unsigned long event,
+ 			    void *ptr)
+ {
+ 	struct net_device *dev = ptr;
++	struct net *net = dev->nd_net;
+ 	struct fib_rules_ops *ops;
  
--			table = fib_empty_table();
-+			table = fib_empty_table(&init_net);
- 			if (table == NULL) {
- 				err = -ENOBUFS;
- 				goto errout;
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 43b6e94..9526758 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -2164,12 +2164,12 @@ static int fib_triestat_seq_show(struct seq_file *seq, void *v)
- 	struct fib_table *tb;
+-	if (dev->nd_net != &init_net)
+-		return NOTIFY_DONE;
+-
+ 	ASSERT_RTNL();
+ 	rcu_read_lock();
  
- 	trie_local = NULL;
--	tb = fib_get_table(RT_TABLE_LOCAL);
-+	tb = fib_get_table(&init_net, RT_TABLE_LOCAL);
- 	if (tb)
- 		trie_local = (struct trie *) tb->tb_data;
+ 	switch (event) {
+ 	case NETDEV_REGISTER:
+-		list_for_each_entry(ops, &rules_ops, list)
++		list_for_each_entry(ops, &net->rules_ops, list)
+ 			attach_rules(&ops->rules_list, dev);
+ 		break;
  
- 	trie_main = NULL;
--	tb = fib_get_table(RT_TABLE_MAIN);
-+	tb = fib_get_table(&init_net, RT_TABLE_MAIN);
- 	if (tb)
- 		trie_main = (struct trie *) tb->tb_data;
- 
-@@ -2236,12 +2236,12 @@ static void *fib_trie_seq_start(struct seq_file *seq, loff_t *pos)
- 	struct fib_table *tb;
- 
- 	if (!iter->trie_local) {
--		tb = fib_get_table(RT_TABLE_LOCAL);
-+		tb = fib_get_table(&init_net, RT_TABLE_LOCAL);
- 		if (tb)
- 			iter->trie_local = (struct trie *) tb->tb_data;
+ 	case NETDEV_UNREGISTER:
+-		list_for_each_entry(ops, &rules_ops, list)
++		list_for_each_entry(ops, &net->rules_ops, list)
+ 			detach_rules(&ops->rules_list, dev);
+ 		break;
  	}
- 	if (!iter->trie_main) {
--		tb = fib_get_table(RT_TABLE_MAIN);
-+		tb = fib_get_table(&init_net, RT_TABLE_MAIN);
- 		if (tb)
- 			iter->trie_main = (struct trie *) tb->tb_data;
- 	}
+@@ -660,13 +650,40 @@ static struct notifier_block fib_rules_notifier = {
+ 	.notifier_call = fib_rules_event,
+ };
+ 
++static int fib_rules_net_init(struct net *net)
++{
++	INIT_LIST_HEAD(&net->rules_ops);
++	spin_lock_init(&net->rules_mod_lock);
++	return 0;
++}
++
++static struct pernet_operations fib_rules_net_ops = {
++	.init = fib_rules_net_init,
++};
++
+ static int __init fib_rules_init(void)
+ {
++	int err;
+ 	rtnl_register(PF_UNSPEC, RTM_NEWRULE, fib_nl_newrule, NULL);
+ 	rtnl_register(PF_UNSPEC, RTM_DELRULE, fib_nl_delrule, NULL);
+ 	rtnl_register(PF_UNSPEC, RTM_GETRULE, NULL, fib_nl_dumprule);
+ 
+-	return register_netdevice_notifier(&fib_rules_notifier);
++	err = register_netdevice_notifier(&fib_rules_notifier);
++	if (err < 0)
++		goto fail;
++
++	err = register_pernet_subsys(&fib_rules_net_ops);
++	if (err < 0)
++		goto fail_unregister;
++	return 0;
++
++fail_unregister:
++	unregister_netdevice_notifier(&fib_rules_notifier);
++fail:
++	rtnl_unregister(PF_UNSPEC, RTM_NEWRULE);
++	rtnl_unregister(PF_UNSPEC, RTM_DELRULE);
++	rtnl_unregister(PF_UNSPEC, RTM_GETRULE);
++	return err;
+ }
+ 
+ subsys_initcall(fib_rules_init);
+-- 
+1.5.3.rc5
