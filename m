@@ -1,47 +1,63 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Re : Re : Bonding : Monitoring of 4965 wireless card
-Date: Wed, 09 Jan 2008 13:36:00 -0800
-Message-ID: <1105.1199914560@death>
-References: <168648.20508.qm@web25705.mail.ukl.yahoo.com>
-Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
-To: patnel972-linux@yahoo.fr
+From: patnel972-linux@yahoo.fr
+Subject: Re : Re : Re : Bonding : Monitoring of 4965 wireless card
+Date: Wed, 9 Jan 2008 21:52:39 +0000 (GMT)
+Message-ID: <416779.67064.qm@web25704.mail.ukl.yahoo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:38887 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753447AbYAIVgD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 16:36:03 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e31.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m09La3qv002876
-	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 16:36:03 -0500
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m09La2qr087170
-	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 14:36:02 -0700
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m09La2Jc005912
-	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 14:36:02 -0700
-In-reply-to: <168648.20508.qm@web25705.mail.ukl.yahoo.com> 
+Received: from web25704.mail.ukl.yahoo.com ([217.12.10.176]:43012 "HELO
+	web25704.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750764AbYAIVwl convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jan 2008 16:52:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+I mean that instead of arp test an ip in lan or else, i want it to test=
+ 127.0.0.1 but in order to do this it must go out and re-enter and then=
+ use wlan0 to go out.
+
+
+----- Message d'origine ----
+De : Jay Vosburgh <fubar@us.ibm.com>
+=C0 : patnel972-linux@yahoo.fr
+Cc : John W. Linville <linville@tuxdriver.com>; netdev@vger.kernel.org
+Envoy=E9 le : Mercredi, 9 Janvier 2008, 22h36mn 00s
+Objet : Re: Re : Re : Bonding : Monitoring of 4965 wireless card=20
+
 patnel972-linux@yahoo.fr wrote:
 
->I ignore it, but it seems like it prevent bonding detect link of wlan0. I enslave wlan0 and i already use use_carrier=1;
+>I ignore it, but it seems like it prevent bonding detect link of
+ wlan0. I enslave wlan0 and i already use use_carrier=3D1;
 
-	The default for bonding is use_carrier=1, which makes bonding
+    The default for bonding is use_carrier=3D1, which makes bonding
 use the device driver's netif_carrier_on/off state for link detection.
-Bonding only checks via ethtool/mii if use_carrier=0.
+Bonding only checks via ethtool/mii if use_carrier=3D0.
 
->I'll try arp monitoring but this is annoying i c'ant test localhost. Is there a way to test localhost with arp, without pass through lo ? 
+>I'll try arp monitoring but this is annoying i c'ant test localhost.
+ Is there a way to test localhost with arp, without pass through lo ?=20
 
-	What do you mean by "test localhost with arp, without pass
+    What do you mean by "test localhost with arp, without pass
 through lo"?  ARP monitoring issues probes (ARPs) to a remote
 destination to confirm that there is connectivity; I'm not sure what
 localhost has to do with it.
 
-	In general, though, I have not tested bonding with wireless
+    In general, though, I have not tested bonding with wireless
 adapters, so I'm unfamiliar with how well it does or does not work.
 
-	-J
+    -J
 
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+    -Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+
+
+
+
+      _________________________________________________________________=
+____________=20
+Ne gardez plus qu'une seule adresse mail ! Copiez vos mails vers Yahoo!=
+ Mail http://mail.yahoo.fr
