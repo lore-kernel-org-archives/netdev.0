@@ -1,59 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPV4] ROUTE: ip_rt_dump() is unecessary slow
-Date: Wed, 09 Jan 2008 17:02:28 +1100
-Message-ID: <E1JCU1E-00076z-00@gondolin.me.apana.org.au>
-References: <47831A37.5000607@cosmosbay.com>
-Cc: davem@davemloft.net, dipankar@in.ibm.com, netdev@vger.kernel.org
-To: dada1@cosmosbay.com (Eric Dumazet)
+From: linux@horizon.com
+Subject: Re: SACK scoreboard
+Date: 9 Jan 2008 01:04:09 -0500
+Message-ID: <20080109060409.18161.qmail@science.horizon.com>
+Cc: linux@horizon.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2534 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751943AbYAIGDE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 01:03:04 -0500
-In-Reply-To: <47831A37.5000607@cosmosbay.com>
+Received: from science.horizon.com ([192.35.100.1]:13448 "HELO
+	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1750940AbYAIGEM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 01:04:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <dada1@cosmosbay.com> wrote:
-> 
-> Very good question, but honestly I really dont see why it was there at the 
-> first place :
+Just some idle brainstorming on the subject...
 
-It was there because someone went through this file and robotically
-replaced all conditional read barriers with rcu_dereference, even when
-it made zero sense.
+It seems the only way to handle network pipes sigificantly larger (delay *
+bandwidth product) than the processor cache is to make freeing retransmit
+data o(n).
 
-Basically you can add a conditional barrier either at the point where
-the pointer gets read, or where it gets derferenced.  Previously we
-did the latter (except that the show function didn't have a barrier
-at all which is technically a bug though harmless in pratice).  This
-patch moves it to the spot where it gets read which is also OK.
+Now, there are some ways to reduce the constant factor.  The one that
+comes to mind first is to not queue sk_buffs.  Throw away the struct
+sk_buff after transmission and just queue skb_frag_structs, pages, or
+maybe even higher-order pages of data.  Then freeing the data when it's
+acked has a much smaller constant factor, particularly d-cache footprint,
+and no slab operations.
 
-> static struct rtable *rt_cache_get_next(struct seq_file *seq, struct rtable *r)
-> {
-> -       struct rt_cache_iter_state *st = rcu_dereference(seq->private);
-> +       struct rt_cache_iter_state *st = seq->private;
-> 
-> -       r = r->u.dst.rt_next;
-> +       r = rcu_dereference(r->u.dst.rt_next);
->        while (!r) {
->                rcu_read_unlock_bh();
->                if (--st->bucket < 0)
->                        break;
->                rcu_read_lock_bh();
-> -               r = rt_hash_table[st->bucket].chain;
-> +               r = rcu_dereference(rt_hash_table[st->bucket].chain);
->        }
->        return r;
+The downside is more work to recreate the skb if you do have to
+retransmit, but optimizing for retransmits is silly.
 
-Slight optimisation: please move both barriers onto the return statement,
-i.e.,
+Some implementations could leave large chunks of memory locked until
+all of the sk_buff->skb_shared_info->skb_frag_structs referencing them
+have gone away, but you can look at the transmit window when deciding
+how big a chunk size to use.
 
-	return rcu_dereference(r);
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Then, to actually get below O(n), you want to keep the queued data in
+a data structure known to the memory manager.  Basically, splice the
+retransmit queue onto the free list.
+
+It may require some kludgery in the memory manager.  In particular, doing
+that in O(1) time obviously means that you can't coalesce adjacent free
+regions to build higher-order pages.  So you'd have to have a threshold
+for uncoalesced pages and a way to force coalescing under memory pressure.
+
+You're just deferring work until the page is allocated, but the point
+is that then it's okay to bring it into cache when it's about to be
+used again.  It's the redundant round trip just because an ack arrived
+that's annoying.
+
+I've done thins sort of thing with specialized fixed-block-size allocators
+before (an alpha-beta minimax search tree allocates nodes one at a
+time, but frees whole subtrees at once), but might it be feasible for
+kernel use?
