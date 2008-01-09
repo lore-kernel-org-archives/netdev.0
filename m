@@ -1,37 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25] [IPVS] Added include for ip_vs.h for
- ctl_path (build was broken)
-Date: Wed, 09 Jan 2008 03:57:00 -0800 (PST)
-Message-ID: <20080109.035700.103587122.davem@davemloft.net>
-References: <eb3ff54b0801090333r4c1770dakd65f61e356aa0304@mail.gmail.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: FW:  ccid2/ccid3 oopses
+Date: Wed, 9 Jan 2008 12:28:27 +0000
+Message-ID: <20080109122827.GC4461@gerrit.erg.abdn.ac.uk>
+References: <93680347@web.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ramirose@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: devzero@web.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52434
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752560AbYAIL5A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 06:57:00 -0500
-In-Reply-To: <eb3ff54b0801090333r4c1770dakd65f61e356aa0304@mail.gmail.com>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:59623 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751169AbYAIM2i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jan 2008 07:28:38 -0500
+Content-Disposition: inline
+In-Reply-To: <93680347@web.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rami Rosen" <ramirose@gmail.com>
-Date: Wed, 9 Jan 2008 13:33:49 +0200
+Roland, -
 
-> Hi,
->    The build was broken with this error:
-> 	
->   In file included from net/ipv4/ipvs/ip_vs_rr.c:27:
->   include/net/ip_vs.h:857: error: array type has incomplete element type
->   make[3]: *** [net/ipv4/ipvs/ip_vs_rr.o] Error 1
-> 
-> 	This was due to missing include to the header file for ctl_path.
-> 	
-> 	This patch added #include <linux/sysctl.h> to ip_vs_.h to avoid it
-> 
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+>> apparently, i got crashes when loading/unloading other driver modules just
+>> after ccid2 or ccid3 had been loaded/unloaded _once_ (have not used them at
+>> all, just modprobe module;modprobe -r module) >
+>> 
+<snip>
+>> the easiest way to reproduce is:
+>> 
+>> while true;do modprobe dccp_ccid2/3;modprobe -r dccp_ccid2/3;done
+>> after short time, the kernel oopses (messages below)
+>> 
+>> i`m not sure if this is worth to be filed at kernel bugzilla, so i`m contacting
+>> you personally first.
+>>
+The issue is known: once loaded, the DCCP modules can not be unloaded
+without causing a crash as the one you have observed. This is due to the
+fact that dccp_ipv{4,6} use control sockets which need to be released
+before the module can be unloaded.
+When the control sockets are not released then crashes will always
+result.
+In earlier versions of DCCP there was a kernel option known as "unload hack",
+which conditionally inserted 
+	sock_release(dccp_v{4,6}_ctl_socket);
+in 
+	dccp_v{4,6}_exit()
 
-Applied, thanks.
+However, as the name says, it is a hack since there are other issues to 
+be considered:
+	* sockets in timewait state
+	* other wait states (e.g. half-open connections)
+	* memory which has not been released
+	* module dependencies
+
+With regard to the latter, I am normally using the Unload Hack and
+release modules in the following order:
+
+	dccp_probe => dccp_ccid2 => dccp_ccid3 => dccp_tfrc_lib =>
+        dccp_ipv6  => dccp_ipv4  => dccp_diag  => dccp
+
+Long story short
+ * the CCID/DCCP modules can currently not safely be unloaded
+ * maybe we should disable module unloading for the mainline kernel
+ * if anyone is interested to use the unload hack, here is the old patch
+   http://www.erg.abdn.ac.uk/users/gerrit/dccp/testing_dccp/Unload_Hack.diff
+
+Please feel free to come back on this issue
+Gerrit
