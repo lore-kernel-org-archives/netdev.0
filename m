@@ -1,32 +1,80 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: SACK scoreboard
-Date: Wed, 9 Jan 2008 15:02:48 +0100
-Message-ID: <20080109140248.GA12855@one.firstfloor.org>
-References: <4783AA29.3080406@psc.edu> <20080108.144456.173014334.davem@davemloft.net> <p73sl17pwfy.fsf@bingen.suse.de> <20080108.223925.105105455.davem@davemloft.net> <20080109070318.GA8581@one.firstfloor.org> <20080109094725.GA22140@2ka.mipt.ru>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: FW:  ccid2/ccid3 oopses
+Date: Wed, 9 Jan 2008 12:02:11 -0200
+Message-ID: <20080109140211.GA9857@ghostprotocols.net>
+References: <93680347@web.de> <20080109122827.GC4461@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, jheffner@psc.edu,
-	ilpo.jarvinen@helsinki.fi, lachlan.andrew@gmail.com,
-	netdev@vger.kernel.org, quetchen@caltech.edu
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>, devzero@web.de,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:47550 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753167AbYAIOAS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 09:00:18 -0500
+Received: from mx1.redhat.com ([66.187.233.31]:53100 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751746AbYAIOCS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jan 2008 09:02:18 -0500
 Content-Disposition: inline
-In-Reply-To: <20080109094725.GA22140@2ka.mipt.ru>
+In-Reply-To: <20080109122827.GC4461@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Postponing freeing of the skb has major drawbacks. Some time ago I
+Em Wed, Jan 09, 2008 at 12:28:27PM +0000, Gerrit Renker escreveu:
+> Roland, -
+> 
+> >> apparently, i got crashes when loading/unloading other driver modules just
+> >> after ccid2 or ccid3 had been loaded/unloaded _once_ (have not used them at
+> >> all, just modprobe module;modprobe -r module) >
+> >> 
+> <snip>
+> >> the easiest way to reproduce is:
+> >> 
+> >> while true;do modprobe dccp_ccid2/3;modprobe -r dccp_ccid2/3;done
+> >> after short time, the kernel oopses (messages below)
+> >> 
+> >> i`m not sure if this is worth to be filed at kernel bugzilla, so i`m contacting
+> >> you personally first.
+> >>
+> The issue is known: once loaded, the DCCP modules can not be unloaded
+> without causing a crash as the one you have observed. This is due to the
+> fact that dccp_ipv{4,6} use control sockets which need to be released
+> before the module can be unloaded.
+> When the control sockets are not released then crashes will always
+> result.
+> In earlier versions of DCCP there was a kernel option known as "unload hack",
+> which conditionally inserted 
+> 	sock_release(dccp_v{4,6}_ctl_socket);
+> in 
+> 	dccp_v{4,6}_exit()
+> 
+> However, as the name says, it is a hack since there are other issues to 
+> be considered:
+> 	* sockets in timewait state
+> 	* other wait states (e.g. half-open connections)
+> 	* memory which has not been released
+> 	* module dependencies
+> 
+> With regard to the latter, I am normally using the Unload Hack and
+> release modules in the following order:
+> 
+> 	dccp_probe => dccp_ccid2 => dccp_ccid3 => dccp_tfrc_lib =>
+>         dccp_ipv6  => dccp_ipv4  => dccp_diag  => dccp
+> 
+> Long story short
+>  * the CCID/DCCP modules can currently not safely be unloaded
+>  * maybe we should disable module unloading for the mainline kernel
+>  * if anyone is interested to use the unload hack, here is the old patch
+>    http://www.erg.abdn.ac.uk/users/gerrit/dccp/testing_dccp/Unload_Hack.diff
 
-Yes, the trick would be to make sure that it also does not tie up
-too much memory. e.g. it would need some throttling at least.
+Gerrit, the control socket isn't attached to any CCID module, so the
+CCID modules should be safe to remove, and IIRC they were safe to
+unload.
 
-Also the fast path of kmem_cache_free() is actually not that
-much different from just putting something on a list so perhaps
-it would not make that much difference.
+The unload hack was for something else, for the core DCCP modules. We
+can't unload because there are refcounts held by the control sock, so
+the unload hack would just destroy the control sock and thus the module
+refcount would reach zero and it could then be unloaded.
 
--Andi
+I've been consistently being sidetracked with work (huh :-)) and
+couldn't look at this issue, but the CCID modules should be safe to
+unload.
+
+- Arnaldo
