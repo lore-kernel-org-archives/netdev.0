@@ -1,40 +1,28 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [XFRM]: xfrm_algo_clone() allocates too much memory
-Date: Wed, 09 Jan 2008 08:51:39 +0100
-Message-ID: <47847D0B.3050003@cosmosbay.com>
-References: <E1JCUDY-000791-00@gondolin.me.apana.org.au>	<478477C7.9030004@cosmosbay.com> <20080108.234012.181072357.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [IPv6]: IPV6_MULTICAST_IF setting is ignored on
+ link-local connect()
+Date: Tue, 08 Jan 2008 23:53:01 -0800 (PST)
+Message-ID: <20080108.235301.161852730.davem@davemloft.net>
+References: <47825B50.2060200@hp.com>
+	<OF3393858D.9874E03A-ON882573CA.00071BC8-882573CA.000738ED@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: brian.haley@hp.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: dlstevens@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:42441 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750737AbYAIHvx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 02:51:53 -0500
-In-Reply-To: <20080108.234012.181072357.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56124
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751364AbYAIHxC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 02:53:02 -0500
+In-Reply-To: <OF3393858D.9874E03A-ON882573CA.00071BC8-882573CA.000738ED@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller a =E9crit :
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Wed, 09 Jan 2008 08:29:11 +0100
->=20
-> Thanks for catching this.
->=20
-> Applied to net-2.6
->=20
->> +static inline int xfrm_alg_len(struct xfrm_algo *alg)
->> +{
->> +	return sizeof(*alg) + ((alg->alg_key_len + 7) / 8);
->> +}
->=20
-> That gets emitted as a divide doesn't it :-))))
->=20
->=20
-Yes I have a patch for these divides, but will apply on 2.6.25 once thi=
-s one=20
-hits it.  (this saves 192 bytes of kernel text BTW)
+From: David Stevens <dlstevens@us.ibm.com>
+Date: Mon, 7 Jan 2008 17:18:56 -0800
 
+> Acked-by: David L Stevens <dlstevens@us.ibm.com>
+
+Patch applied, thanks everyone.
