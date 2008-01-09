@@ -1,84 +1,58 @@
-From: patnel972-linux@yahoo.fr
-Subject: Re : Bonding : Monitoring of 4965 wireless card
-Date: Wed, 9 Jan 2008 20:52:49 +0000 (GMT)
-Message-ID: <605535.45233.qm@web25704.mail.ukl.yahoo.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: Linux IPv6 DAD not full conform to RFC 4862 ?
+Date: Wed, 09 Jan 2008 16:09:57 -0500
+Message-ID: <47853825.2030002@hp.com>
+References: <20080109153656.GA16962@pingi.kke.suse.de> <20080110.013857.37616214.yoshfuji@linux-ipv6.org> <20080109185744.GB25106@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Cc: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>, kkeil@suse.de, netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web25704.mail.ukl.yahoo.com ([217.12.10.176]:28901 "HELO
-	web25704.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752218AbYAIUwv convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jan 2008 15:52:51 -0500
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:32568 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752301AbYAIVJ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 16:09:59 -0500
+In-Reply-To: <20080109185744.GB25106@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm doing a bonding with my eth0(e1000 driver) and my wlan
- card(iwl4965). It work like i want, when i'm in wifi the dhcp give me =
-my ethernet
- adress. When i unplug the cable, my wlan card become in charge of
- network. My problem is when i disconnect the wlan card, the bonding do=
-es not
- detect it correctly, and ifplugstatus show me wlan0 not connected and
- wmaster0 connected!! The bonding module does not say no active
- interface, it work like wlan is on.
-
-Am i clear?
-
-Ps:(sorry i have trouble with my mail)
------ Message d'origine ----
-De : John W. Linville <linville@tuxdriver.com>
-=C0 : patnel972-linux@yahoo.fr
-Cc : netdev@vger.kernel.org
-Envoy=E9 le : Mercredi, 9 Janvier 2008, 18h02mn 05s
-Objet : Re: Bonding : Monitoring of 4965 wireless card
-
-On Wed, Jan 09, 2008 at 09:00:05AM +0000, patnel972-linux@yahoo.fr
- wrote:
-> Hi,
+Neil Horman wrote:
+> On Thu, Jan 10, 2008 at 01:38:57AM +0900, YOSHIFUJI Hideaki / =E5=90=89=
+=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+>> In article <20080109153656.GA16962@pingi.kke.suse.de> (at Wed, 9 Jan=
+ 2008 16:36:56 +0100), Karsten Keil <kkeil@suse.de> says:
+>>
+>>> So I think we should disable the interface now, if DAD fails on a
+>>> hardware based LLA.
+>> I don't want to do this, at least, unconditionally.
+>>
+>> Options (not exclusive):
+>>
+>> - we could have "dad_reaction" interface variable and
+>>  > 1: disable interface
+>>  =3D 1: disable IPv6
+>>  < 0: ignore (as we do now)
+>>
+> I like the flexibility of this solution, but given that the only part=
+ of the RFC
+> that we're missing on at the moment is that we SHOULD disable the int=
+erface on
+> DAD failure for a link-local address, I would think this scheme would=
+ be good:
 >=20
-> I want to make a bond with my wireless card. The ipw driver create
- two
->  interfaces (wlan0 and wmaster0). When i switch the rf_kill button,
->  ifplug detect wlan0 unplugged but not wmaster0. If i down wlan0
- (while
->  rf_kil ), bonding detect the inactivity when i up the interface.
+>   < 0 : ignore, and del address from interface (current behavior)=20
+>   =3D 0 : disable interface for dad failure for a link-local address=20
+>   > 0 : disable interface for dad failure for any address=20
 >=20
-> Have you some idea where is the problem? the driver or the miimon of
->  the module?
->=20
-> my module parameters mode=3D1 miimon=3D100 primary eth0
+> Regards
+> Neil
+> =20
 
-I'm not sure I understand your description...what are you trying to do?
-How exactly is it failing?
+Just a friendly reminder that such a scheme should only be
+applied to autoconfigured addresses.  A manually configured
+duplicated address should not bring down the whole interface.
 
-John
---=20
-John W. Linville
-linville@tuxdriver.com
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
-
-
-
-   =20
-  _____________________________________________________________________=
-________=20
-Ne gardez plus qu'une seule adresse mail ! Copiez vos mails vers Yahoo!
- Mail http://mail.yahoo.fr
-
-
-
-
-
-      _________________________________________________________________=
-____________=20
-Ne gardez plus qu'une seule adresse mail ! Copiez vos mails vers Yahoo!=
- Mail http://mail.yahoo.fr
+-vlad
