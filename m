@@ -1,26 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: make ipv6_sysctl_register to return a value
-Date: Wed, 09 Jan 2008 00:26:32 -0800 (PST)
-Message-ID: <20080109.002632.136758957.davem@davemloft.net>
-References: <47828DEB.9070301@fr.ibm.com>
+Subject: Re: [PATCH net-2.6.25 1/6][NET] Simple ctl_table to ctl_path
+ conversions.
+Date: Wed, 09 Jan 2008 00:30:12 -0800 (PST)
+Message-ID: <20080109.003012.237111193.davem@davemloft.net>
+References: <47839C30.2040402@openvz.org>
+	<47839CD1.4080505@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dlezcano@fr.ibm.com
+Cc: netdev@vger.kernel.org, devel@openvz.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43831
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57617
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750737AbYAII0d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 03:26:33 -0500
-In-Reply-To: <47828DEB.9070301@fr.ibm.com>
+	by vger.kernel.org with ESMTP id S1750844AbYAIIaN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 03:30:13 -0500
+In-Reply-To: <47839CD1.4080505@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Tue, 08 Jan 2008 18:54:57 +0300
 
-Why did you post this again?  It's identical to patch 1/9
-from the previous series you sent out.
+> This patch includes many places, that only required
+> replacing the ctl_table-s with appropriate ctl_paths
+> and call register_sysctl_paths().
+> 
+> Nothing special was done with them.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-This is confusing, since it makes me think you wanted me to
-perhaps do something different or update an already
-submitted patch.
+Applied.
