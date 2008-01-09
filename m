@@ -1,48 +1,36 @@
-From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH netns-2.6.25 0/19] routing virtualization v2
-Date: Wed, 09 Jan 2008 21:03:03 +0300
-Message-ID: <47850C57.60907@openvz.org>
+From: Brent Casavant <bcasavan@sgi.com>
+Subject: Re: AF_UNIX MSG_PEEK bug?
+Date: Wed, 9 Jan 2008 12:01:42 -0600 (CST)
+Message-ID: <alpine.BSF.1.00.0801091201180.35527@pkunk.americas.sgi.com>
+References: <alpine.BSF.1.00.0801081556580.24286@pkunk.americas.sgi.com> <200801092004.IJJ48416.FVQOtOLFSOJHMF@I-love.SAKURA.ne.jp>
+Reply-To: Brent Casavant <bcasavan@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>,
-        Benjamin Thery <benjamin.thery-6ktuUTfB/bM@public.gmane.org>, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay1.sgi.com ([192.48.171.29]:50626 "EHLO relay.sgi.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751844AbYAISBo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jan 2008 13:01:44 -0500
+In-Reply-To: <200801092004.IJJ48416.FVQOtOLFSOJHMF@I-love.SAKURA.ne.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, Dave!
+On Wed, 9 Jan 2008, Tetsuo Handa wrote:
 
-This set adds namespace support for routing tables & rules manipulation
-in the different namespaces. So, one could create a namespace and
-setup IPv4 routing there how he wants.
+> Did you try MSG_WAITALL flag? See "man 2 recv".
+> A TCP socket handles data in bytes.
+> You cannot complain if the amount received by recv() is smaller than expected
+> unless you use MSG_WAITALL flag.
 
-After this patch user will have the ability to configure and
-observe its own isolated set of routing rules/tables, but they
-all will be unused. I.e. routing decisions inside the network
-stack are still made based on the init_net's rules. The reason for doing
-so is to have something self-consistent and not too huge :)
+Yes. It made no difference, as noted in the comments in the
+provided test program.
 
-The sequence is the following:
-- viritualize generic FIB rules operations
-- change IPv4 FIB initialization sequence
-- virtualize FIB tables access
+Brent
 
-After this, the 'ip' utility and the /proc interface will start
-working correctly inside a namespace, while the 'route' utility
-will not, because IP sockets currently cannot be created in non-init
-namespace.
-
-Changes from v1:
-- fixed spacing in the fib_rules.h
-- improved patch description by the suggestion of Daniel Lezcano
+-- 
+Brent Casavant                          All music is folk music.  I ain't
+bcasavan@sgi.com                        never heard a horse sing a song.
+Silicon Graphics, Inc.                    -- Louis Armstrong
