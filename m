@@ -1,43 +1,38 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH][VLAN] Merge tree equal tails in vlan_skb_recv
-Date: Wed, 09 Jan 2008 11:15:35 +0300
-Message-ID: <478482A7.1040505@openvz.org>
-References: <47591ECF.2020707@openvz.org> <47591F9F.1020607@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.25] [IPV4] Remove unsupported DNAT (RTCF_NAT
+ and RTCF_NAT) in IPV4
+Date: Wed, 09 Jan 2008 00:19:48 -0800 (PST)
+Message-ID: <20080109.001948.86613926.davem@davemloft.net>
+References: <eb3ff54b0801021331w63637142sd39b6605bd6f8be4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:55704 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750718AbYAIIPY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jan 2008 03:15:24 -0500
-In-Reply-To: <47591F9F.1020607@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41697
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751006AbYAIITt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 03:19:49 -0500
+In-Reply-To: <eb3ff54b0801021331w63637142sd39b6605bd6f8be4@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Patrick.
+From: "Rami Rosen" <ramirose@gmail.com>
+Date: Wed, 2 Jan 2008 23:31:37 +0200
 
-> Pavel Emelyanov wrote:
->> There are tree paths in it, that set the skb->proto and then
->> perform common receive manipulations (basically call netif_rx()).
->>
->> I think, that we can make this code flow easier to understand
->> by introducing the vlan_set_encap_proto() function (I hope the 
->> name is good) to setup the skb proto and merge the paths calling 
->> netif_rx() together.
->>
->> Surprisingly, but gcc detects this thing and merges these paths
->> by itself, so this patch doesn't make the vlan module smaller.
+> - The DNAT (Destination NAT) is not implemented in IPV4.
 > 
+> - This patch remove the code which checks these flags
+> in net/ipv4/arp.c and net/ipv4/route.c.
 > 
-> I already have something similar queued, but your patch is a nice
-> cleanup on top. I'll merge it into my tree and send it out after
-> some testing, hopefully today.
+> The RTCF_NAT and RTCF_NAT should stay in the header (linux/in_route.h)
+> because they are used in DECnet.
 > 
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-What are your plans about this patch? Should I resubmit this one?
+Applied, thanks Rami.
 
-Thanks,
-Pavel
+If someone has the stamina, it's very likely that the partial
+NAT support in the decnet code can simply be removed.  If
+successful, then the in_route.h macros can be removed.
