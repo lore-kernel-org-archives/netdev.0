@@ -1,38 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25] [IPV4] Remove unsupported DNAT (RTCF_NAT
- and RTCF_NAT) in IPV4
-Date: Wed, 09 Jan 2008 00:19:48 -0800 (PST)
-Message-ID: <20080109.001948.86613926.davem@davemloft.net>
-References: <eb3ff54b0801021331w63637142sd39b6605bd6f8be4@mail.gmail.com>
+Subject: Re: [patch 5/9][NETNS][IPV6] make bindv6only sysctl per namespace
+Date: Wed, 09 Jan 2008 00:25:33 -0800 (PST)
+Message-ID: <20080109.002533.265593679.davem@davemloft.net>
+References: <20080104111431.444295890@localhost.localdomain>
+	<47825402.8030504@bull.net>
+	<47825513.50100@fr.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ramirose@gmail.com
+Cc: benjamin.thery@bull.net, netdev@vger.kernel.org,
+	dada1@cosmosbay.com
+To: dlezcano@fr.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41697
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43808
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751006AbYAIITt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 03:19:49 -0500
-In-Reply-To: <eb3ff54b0801021331w63637142sd39b6605bd6f8be4@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1750884AbYAIIZe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 03:25:34 -0500
+In-Reply-To: <47825513.50100@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rami Rosen" <ramirose@gmail.com>
-Date: Wed, 2 Jan 2008 23:31:37 +0200
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Date: Mon, 07 Jan 2008 17:36:35 +0100
 
-> - The DNAT (Destination NAT) is not implemented in IPV4.
+> Thanks Benjamin to catch this.
 > 
-> - This patch remove the code which checks these flags
-> in net/ipv4/arp.c and net/ipv4/route.c.
-> 
-> The RTCF_NAT and RTCF_NAT should stay in the header (linux/in_route.h)
-> because they are used in DECnet.
-> 
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+> I think I have to apologize to Eric, I thought I tested with this option 
+> off but it wasn't and Eric was right. I will wait a little for feedbacks 
+> and send a V3.
 
-Applied, thanks Rami.
+I would have preferred if you just reposted a fixed version of patch 5
+instead of waiting for the feedback that realistically isn't going to
+come at all after this much time has passed.
 
-If someone has the stamina, it's very likely that the partial
-NAT support in the decnet code can simply be removed.  If
-successful, then the in_route.h macros can be removed.
+I was about to apply this series, then looked through my mailbox for
+reported regressions and hit this.
+
+That makes me not start applying your patch series.  I want the whole
+thing with known bug fixes available by the time I get around to
+reviewing it.
+
+Thanks.
