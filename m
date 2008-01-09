@@ -1,45 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: SACK scoreboard
-Date: Tue, 08 Jan 2008 22:39:25 -0800 (PST)
-Message-ID: <20080108.223925.105105455.davem@davemloft.net>
-References: <4783AA29.3080406@psc.edu>
-	<20080108.144456.173014334.davem@davemloft.net>
-	<p73sl17pwfy.fsf@bingen.suse.de>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: Re: [ANNOUNCE] bridge-utils 1.4
+Date: Wed, 9 Jan 2008 08:40:35 +0200
+Message-ID: <20080109063654.M87339@visp.net.lb>
+References: <20080108085607.37ab168f@deepthought>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jheffner@psc.edu, ilpo.jarvinen@helsinki.fi,
-	lachlan.andrew@gmail.com, netdev@vger.kernel.org,
-	quetchen@caltech.edu
-To: andi@firstfloor.org
+Content-Type: text/plain;
+	charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	bridge@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55788
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751693AbYAIGj0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 01:39:26 -0500
-In-Reply-To: <p73sl17pwfy.fsf@bingen.suse.de>
+Received: from usermail.globalproof.net ([194.146.153.18]:37461 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750882AbYAIGkr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 01:40:47 -0500
+In-Reply-To: <20080108085607.37ab168f@deepthought>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Wed, 09 Jan 2008 03:25:05 +0100
 
-> David Miller <davem@davemloft.net> writes:
-> >
-> > The big problem is that recovery from even a single packet loss in a
-> > window makes us run kfree_skb() for a all the packets in a full
-> > window's worth of data when recovery completes.
+As mentioned in
+http://marc.info/?l=linux-bridge&m=113105949718826&w=2
+
+Released package doesn't contain ./configure script
+
+For people who know what is make on, it is easy to run autoconf , but some 
+know only how to use ./configure :-)
+
+Other than this, it is works fine with me, but i didn't test it deeply yet.
+
+On Tue, 8 Jan 2008 08:56:07 -0800, Stephen Hemminger wrote
+> Minor update to bridge-utils. Mostly fixing bugs in usage of sysfs.
 > 
-> Why exactly is it a problem to free them all at once? Are you worried
-> about kernel preemption latencies?
+> Release tarball:
+>   http://downloads.sourceforge.net/bridge/bridge-utils-1.4.tar.gz
+> 
+> Alon Bar-Lev (1):
+>       Allow bridge-utils to run when no TCP/IP is available
+> 
+> Denys Vlasenko (1):
+>       fix use of sysfs (affects 32/64 bit compat)
+> 
+> Jeremy Jackson (1):
+>       Fix parsing of port_id's (hex).
+> 
+> Stephen Hemminger (3):
+>       Add ignore for generated files.
+>       Update gitignore
+>       Use linux/if.h rather than net/if.h
+> 
+> -- 
+> Stephen Hemminger <stephen.hemminger@vyatta.com>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-If the cpu is there spinning freeing up 500,000 SKBs, it isn't
-processing RX packets.
 
-It adds severe spikes in CPU utilization that are even moderate
-line rates begins to affect RTTs.
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
 
-Or do you think it's OK to process 500,000 SKBs while locked
-in a software interrupt.
-
-Perhaps you have another broken awk script to prove this :-)
