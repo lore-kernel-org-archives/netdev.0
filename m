@@ -1,67 +1,46 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: FW:  ccid2/ccid3 oopses
-Date: Wed, 9 Jan 2008 12:28:27 +0000
-Message-ID: <20080109122827.GC4461@gerrit.erg.abdn.ac.uk>
-References: <93680347@web.de>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: SACK scoreboard
+Date: Wed, 9 Jan 2008 14:55:30 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0801091435390.31652@kivilampi-30.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0712111547300.18529@kivilampi-30.cs.helsinki.fi>
+ <20080107.233617.203640686.davem@davemloft.net> <4783AA29.3080406@psc.edu>
+ <20080108.144456.173014334.davem@davemloft.net> <p73sl17pwfy.fsf@bingen.suse.de>
+ <47844D1C.1060706@psc.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: devzero@web.de
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>, lachlan.andrew@gmail.com,
+	Netdev <netdev@vger.kernel.org>, quetchen@caltech.edu
+To: John Heffner <jheffner@psc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:59623 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751169AbYAIM2i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jan 2008 07:28:38 -0500
-Content-Disposition: inline
-In-Reply-To: <93680347@web.de>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:35773 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752138AbYAIMze (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 07:55:34 -0500
+In-Reply-To: <47844D1C.1060706@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roland, -
+On Tue, 8 Jan 2008, John Heffner wrote:
 
->> apparently, i got crashes when loading/unloading other driver modules just
->> after ccid2 or ccid3 had been loaded/unloaded _once_ (have not used them at
->> all, just modprobe module;modprobe -r module) >
->> 
-<snip>
->> the easiest way to reproduce is:
->> 
->> while true;do modprobe dccp_ccid2/3;modprobe -r dccp_ccid2/3;done
->> after short time, the kernel oopses (messages below)
->> 
->> i`m not sure if this is worth to be filed at kernel bugzilla, so i`m contacting
->> you personally first.
->>
-The issue is known: once loaded, the DCCP modules can not be unloaded
-without causing a crash as the one you have observed. This is due to the
-fact that dccp_ipv{4,6} use control sockets which need to be released
-before the module can be unloaded.
-When the control sockets are not released then crashes will always
-result.
-In earlier versions of DCCP there was a kernel option known as "unload hack",
-which conditionally inserted 
-	sock_release(dccp_v{4,6}_ctl_socket);
-in 
-	dccp_v{4,6}_exit()
+> Andi Kleen wrote:
+> > David Miller <davem@davemloft.net> writes:
+> > > The big problem is that recovery from even a single packet loss in a
+> > > window makes us run kfree_skb() for a all the packets in a full
+> > > window's worth of data when recovery completes.
+> > 
+> > Why exactly is it a problem to free them all at once? Are you worried
+> > about kernel preemption latencies?
+> 
+> I also wonder how much of a problem this is (for now, with window sizes of
+> order 10000 packets.  My understanding is that the biggest problems arise from
+> O(N^2) time for recovery because every ack was expensive. Have current 
+> tests shown the final ack to be a major source of problems?
 
-However, as the name says, it is a hack since there are other issues to 
-be considered:
-	* sockets in timewait state
-	* other wait states (e.g. half-open connections)
-	* memory which has not been released
-	* module dependencies
+This thread got started because I tried to solve the other latencies but 
+realized that it helps very little because this latency spike would 
+have remained unsolved and it happens in one of the most common case.
 
-With regard to the latter, I am normally using the Unload Hack and
-release modules in the following order:
-
-	dccp_probe => dccp_ccid2 => dccp_ccid3 => dccp_tfrc_lib =>
-        dccp_ipv6  => dccp_ipv4  => dccp_diag  => dccp
-
-Long story short
- * the CCID/DCCP modules can currently not safely be unloaded
- * maybe we should disable module unloading for the mainline kernel
- * if anyone is interested to use the unload hack, here is the old patch
-   http://www.erg.abdn.ac.uk/users/gerrit/dccp/testing_dccp/Unload_Hack.diff
-
-Please feel free to come back on this issue
-Gerrit
+-- 
+ i.
