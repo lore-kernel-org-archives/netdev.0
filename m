@@ -1,57 +1,95 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: make ipv6_sysctl_register to return a value
-Date: Wed, 09 Jan 2008 10:56:48 +0100
-Message-ID: <47849A60.1020909@fr.ibm.com>
-References: <47828DEB.9070301@fr.ibm.com> <20080109.002632.136758957.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: maximilian attems <max@stro.at>
+Subject: [PATCH] AX25: kill user triggable printks
+Date: Wed,  9 Jan 2008 11:11:23 +0100
+Message-ID: <1199873483-8844-1-git-send-email-max@stro.at>
+Cc: netdev@vger.kernel.org, maximilian attems <max@stro.at>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.de.ibm.com ([195.212.29.153]:40998 "EHLO
-	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752225AbYAIKGO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 05:06:14 -0500
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate4.de.ibm.com (8.13.8/8.13.8) with ESMTP id m09A6C8e180102
-	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 10:06:13 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m09A6CdV2699518
-	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 11:06:12 +0100
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m09A6Cn2008205
-	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 11:06:12 +0100
-In-Reply-To: <20080109.002632.136758957.davem@davemloft.net>
+Received: from baikonur.stro.at ([213.239.196.228]:49866 "EHLO
+	baikonur.stro.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750884AbYAIKLa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 05:11:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> Why did you post this again?  It's identical to patch 1/9
-> from the previous series you sent out.
-> 
-> This is confusing, since it makes me think you wanted me to
-> perhaps do something different or update an already
-> submitted patch.
+sfuzz can easily trigger any of those.
 
-I thought you was expecting a new netns ipv6 sysctl series and ignored 
-the current one. While I was looking at them again I found a problem and 
-I wanted to fix that before resending. In the meantime, there were three 
-independant trivial patches I wanted to send as a pre-requesite for the 
-incoming sysctl patches. Bad idea ... :)
+move the printk message to the corresponding comment:
+makes the intention of the code clear and easy
+to pick up on an scheduled removal.
+as bonus simplify the braces placement.
 
-  - make ipv6_sysctl_register to return a value
-  - make a subsystem for af_inet6
-  - add ipv6 structure for netns
+Signed-off-by: maximilian attems <max@stro.at>
+---
+ net/ax25/af_ax25.c |   39 ++++++++++++++++++---------------------
+ 1 files changed, 18 insertions(+), 21 deletions(-)
 
-With the sysctl Pavel's patch, the first one does not apply.
-
-To clear out any confusion, please can you just ignore all my previous 
-patches, I will resend a new serie rebased on the work done by Pavel.
-
-Sorry for the inconvenience.
-
-Thanks.
-
-   -- Daniel
+diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+index 8378afd..9b04b48 100644
+--- a/net/ax25/af_ax25.c
++++ b/net/ax25/af_ax25.c
+@@ -1109,21 +1109,19 @@ static int __must_check ax25_connect(struct socket *sock,
+ 	 * some sanity checks. code further down depends on this
+ 	 */
+ 
+-	if (addr_len == sizeof(struct sockaddr_ax25)) {
+-		/* support for this will go away in early 2.5.x */
+-		printk(KERN_WARNING "ax25_connect(): %s uses obsolete socket structure\n",
+-			current->comm);
+-	}
+-	else if (addr_len != sizeof(struct full_sockaddr_ax25)) {
+-		/* support for old structure may go away some time */
++	if (addr_len == sizeof(struct sockaddr_ax25))
++		/* support for this will go away in early 2.5.x
++		 * ax25_connect(): uses obsolete socket structure
++		 */
++		;
++	else if (addr_len != sizeof(struct full_sockaddr_ax25))
++		/* support for old structure may go away some time
++		 * ax25_connect(): uses old (6 digipeater) socket structure.
++		 */
+ 		if ((addr_len < sizeof(struct sockaddr_ax25) + sizeof(ax25_address) * 6) ||
+-		    (addr_len > sizeof(struct full_sockaddr_ax25))) {
++		    (addr_len > sizeof(struct full_sockaddr_ax25)))
+ 			return -EINVAL;
+-		}
+ 
+-		printk(KERN_WARNING "ax25_connect(): %s uses old (6 digipeater) socket structure.\n",
+-			current->comm);
+-	}
+ 
+ 	if (fsa->fsa_ax25.sax25_family != AF_AX25)
+ 		return -EINVAL;
+@@ -1467,21 +1465,20 @@ static int ax25_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 			goto out;
+ 		}
+ 
+-		if (addr_len == sizeof(struct sockaddr_ax25)) {
+-			printk(KERN_WARNING "ax25_sendmsg(): %s uses obsolete socket structure\n",
+-				current->comm);
+-		}
+-		else if (addr_len != sizeof(struct full_sockaddr_ax25)) {
+-			/* support for old structure may go away some time */
++		if (addr_len == sizeof(struct sockaddr_ax25))
++			/* ax25_sendmsg(): uses obsolete socket structure */
++			;
++		else if (addr_len != sizeof(struct full_sockaddr_ax25))
++			/* support for old structure may go away some time
++			 * ax25_sendmsg(): uses old (6 digipeater)
++			 * socket structure.\n",
++			 */
+ 			if ((addr_len < sizeof(struct sockaddr_ax25) + sizeof(ax25_address) * 6) ||
+ 			    (addr_len > sizeof(struct full_sockaddr_ax25))) {
+ 				err = -EINVAL;
+ 				goto out;
+ 			}
+ 
+-			printk(KERN_WARNING "ax25_sendmsg(): %s uses old (6 digipeater) socket structure.\n",
+-				current->comm);
+-		}
+ 
+ 		if (addr_len > sizeof(struct sockaddr_ax25) && usax->sax25_ndigis != 0) {
+ 			int ct           = 0;
+-- 
+debian.1.5.3.7.1-dirty
 
