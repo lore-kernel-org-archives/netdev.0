@@ -1,31 +1,73 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: Linux IPv6 DAD not full conform to RFC 4862 ?
-Date: Thu, 10 Jan 2008 01:40:51 +0900 (JST)
-Message-ID: <20080110.014051.121940744.yoshfuji@linux-ipv6.org>
-References: <20080109153656.GA16962@pingi.kke.suse.de>
-	<20080110.013857.37616214.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: kkeil@suse.de
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: [patch net-2.6.25 03/10][NETNS][IPV6] add ipv6 structure for netns
+Date: Wed, 09 Jan 2008 17:45:36 +0100
+Message-ID: <20080109165026.965715520@localhost.localdomain>
+References: <20080109164533.695191040@localhost.localdomain>
+Cc: netdev@vger.kernel.org, benjamin.thery@bull.net
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:34735 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752347AbYAIQks (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 11:40:48 -0500
-In-Reply-To: <20080110.013857.37616214.yoshfuji@linux-ipv6.org>
+Received: from mtagate5.uk.ibm.com ([195.212.29.138]:57429 "EHLO
+	mtagate5.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753121AbYAIRAE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 12:00:04 -0500
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate5.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m09H02Oo141094
+	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 17:00:02 GMT
+Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m09H02xw4866134
+	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 17:00:02 GMT
+Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m09Gxuue021261
+	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 16:59:56 GMT
+Content-Disposition: inline; filename=add-ipv6-for-netns.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <20080110.013857.37616214.yoshfuji@linux-ipv6.org> (at Thu, 10 Jan 2008 01:38:57 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
+Like the ipv4 part, this patch adds an ipv6 structure in the net structure
+to aggregate the different resources to make ipv6 per namespace.
 
-> - we could have "dad_reaction" interface variable and
->  > 1: disable interface
->  = 1: disable IPv6
->  < 0: ignore (as we do now)
+Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+---
+ include/net/net_namespace.h |    4 ++++
+ include/net/netns/ipv6.h    |   10 ++++++++++
+ 2 files changed, 14 insertions(+)
 
-Argh, >0, 0 and <0, maybe.
+Index: net-2.6.25/include/net/net_namespace.h
+===================================================================
+--- net-2.6.25.orig/include/net/net_namespace.h
++++ net-2.6.25/include/net/net_namespace.h
+@@ -11,6 +11,7 @@
+ #include <net/netns/unix.h>
+ #include <net/netns/packet.h>
+ #include <net/netns/ipv4.h>
++#include <net/netns/ipv6.h>
+ 
+ struct proc_dir_entry;
+ struct net_device;
+@@ -48,6 +49,9 @@ struct net {
+ 	struct netns_packet	packet;
+ 	struct netns_unix	unx;
+ 	struct netns_ipv4	ipv4;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	struct netns_ipv6	ipv6;
++#endif
+ };
+ 
+ #ifdef CONFIG_NET
+Index: net-2.6.25/include/net/netns/ipv6.h
+===================================================================
+--- /dev/null
++++ net-2.6.25/include/net/netns/ipv6.h
+@@ -0,0 +1,10 @@
++/*
++ * ipv6 in net namespaces
++ */
++
++#ifndef __NETNS_IPV6_H__
++#define __NETNS_IPV6_H__
++
++struct netns_ipv6 {
++};
++#endif
 
---yoshfuji
+-- 
