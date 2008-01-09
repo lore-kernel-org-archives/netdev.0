@@ -1,55 +1,72 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH 0/3] bonding: 3 fixes for 2.6.24
-Date: Wed, 9 Jan 2008 10:27:40 -0500
-Message-ID: <20080109152740.GE8728@gospo.usersys.redhat.com>
-References: <11997574203125-git-send-email-fubar@us.ibm.com> <Pine.LNX.4.64.0801081949290.1135@bizon.gios.gov.pl> <29560.1199820632@death> <Pine.LNX.4.64.0801090732490.1135@bizon.gios.gov.pl> <17850.1199865514@death>
+From: Karsten Keil <kkeil@suse.de>
+Subject: Linux IPv6 DAD not full conform to RFC 4862 ?
+Date: Wed, 9 Jan 2008 16:36:56 +0100
+Message-ID: <20080109153656.GA16962@pingi.kke.suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Krzysztof Oledzki <olel@ans.pl>, netdev@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Jay Vosburgh <fubar@us.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:48044 "EHLO mx1.redhat.com"
+Received: from ns2.suse.de ([195.135.220.15]:39924 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752092AbYAIP3e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jan 2008 10:29:34 -0500
+	id S1752535AbYAIPg6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jan 2008 10:36:58 -0500
+Received: from Relay1.suse.de (relay-ext.suse.de [195.135.221.8])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mx2.suse.de (Postfix) with ESMTP id A19452FE02
+	for <netdev@vger.kernel.org>; Wed,  9 Jan 2008 16:36:57 +0100 (CET)
 Content-Disposition: inline
-In-Reply-To: <17850.1199865514@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 08, 2008 at 11:58:34PM -0800, Jay Vosburgh wrote:
-> Krzysztof Oledzki <olel@ans.pl> wrote:
-> 
-> >Fine. Just let you know that someone test your patches and everything
-> >works, except mentioned problem.
-> 
-> 	And I appreciate it; I just wanted to make sure our many fans
-> following along at home didn't misunderstand.
-> 
-> 	Could you let me know if the patch below make the lockdep
-> warning go away?  This applies on top of the previous three, although it
-> should be trivial to do by hand.
-> 
-> 	I'm still checking to make sure this is safe with regard to
-> mutexing the bonding structures, but it would be good to know if it
-> eliminates the warning.
-> 
-> 	-J
-> 
+Hi,
 
-Jay,
+I tried to run the 1.5.0 Beta2  TAHI Selftest on recent Linux kernel.
+It fails in the Stateless Address Autoconfiguration section with
+6 tests.
+These tests are for Duplicate Address Detection (DAD).
+They are detect for the Link Local Address a duplicate address on the
+network. It seems that our current behavior is to log an message and
+do not assign this address.
 
-My initial concern was that a slave device could disappear out from
-under us, but it seems like this certainly isn't the case since all
-calls to bond_release are protected by rtnl-locks, so I think you are
-correct that we are safe.  I'll test this on my setup here and let you
-know if I see any problems.
+But the RFC 4862 says:
 
--andy
+5.4.5.  When Duplicate Address Detection Fails
+
+   A tentative address that is determined to be a duplicate as described
+   above MUST NOT be assigned to an interface, and the node SHOULD log a
+   system management error.
+
+   If the address is a link-local address formed from an interface
+   identifier based on the hardware address, which is supposed to be
+   uniquely assigned (e.g., EUI-64 for an Ethernet interface), IP
+   operation on the interface SHOULD be disabled.  By disabling IP
+   operation, the node will then:
+
+   -  not send any IP packets from the interface,
+
+   -  silently drop any IP packets received on the interface, and
+
+   -  not forward any IP packets to the interface (when acting as a
+      router or processing a packet with a Routing header).
+
+   In this case, the IP address duplication probably means duplicate
+   hardware addresses are in use, and trying to recover from it by
+   configuring another IP address will not result in a usable network.
+   In fact, it probably makes things worse by creating problems that are
+   harder to diagnose than just disabling network operation on the
+   interface; the user will see a partially working network where some
+   things work, and other things do not.
+
+   On the other hand, if the duplicate link-local address is not formed
+   from an interface identifier based on the hardware address, which is
+   supposed to be uniquely assigned, IP operation on the interface MAY
+   be continued.
 
 
+So I think we should disable the interface now, if DAD fails on a
+hardware based LLA.
 
+-- 
+Karsten Keil
+SuSE Labs
