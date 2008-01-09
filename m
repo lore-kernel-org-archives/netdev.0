@@ -1,7 +1,7 @@
 From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net-2.6.25 10/19] [NETNS] Add netns to nl_info structure.
-Date: Wed,  9 Jan 2008 21:04:31 +0300
-Message-ID: <1199901880-6812-10-git-send-email-den@openvz.org>
+Subject: [PATCH net-2.6.25 14/19] [NETNS] Place fib tables into netns.
+Date: Wed,  9 Jan 2008 21:04:35 +0300
+Message-ID: <1199901880-6812-14-git-send-email-den@openvz.org>
 References: <47850C57.60907@openvz.org>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org,
         benjamin.thery-6ktuUTfB/bM@public.gmane.org
@@ -19,155 +19,201 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-nl_info is used to track the end-user destination of routing change
-notification. This is a natural object to hold a namespace on. Place it
-there and utilize the context in the appropriate places.
+The preparatory work has been done. All we need is to substitute
+fib_table_hash with net->ipv4.fib_table_hash. Netns context is available when
+required.
 
 Acked-by: Benjamin Thery <benjamin.thery-6ktuUTfB/bM@public.gmane.org>
 Acked-by: Daniel Lezcano <dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Denis V. Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 ---
- include/net/netlink.h    |    1 +
- net/ipv4/fib_frontend.c  |    5 +++++
- net/ipv4/fib_semantics.c |   16 ++++++++++------
- net/ipv6/ip6_fib.c       |    4 +++-
- net/ipv6/route.c         |    8 ++++++--
- 5 files changed, 25 insertions(+), 9 deletions(-)
+ include/net/ip_fib.h     |    6 ++----
+ include/net/netns/ipv4.h |    2 ++
+ net/ipv4/fib_frontend.c  |   36 ++++++++++++++++++++++++------------
+ 3 files changed, 28 insertions(+), 16 deletions(-)
 
-diff --git a/include/net/netlink.h b/include/net/netlink.h
-index db4b935..87cf0bc 100644
---- a/include/net/netlink.h
-+++ b/include/net/netlink.h
-@@ -217,6 +217,7 @@ struct nla_policy {
-  */
- struct nl_info {
- 	struct nlmsghdr		*nlh;
-+	struct net		*nl_net;
- 	u32			pid;
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 1faad1f..ddb4c20 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -120,8 +120,6 @@ struct fib_result_nl {
+ 	int             err;      
  };
  
+-extern struct hlist_head fib_table_hash[];
+-
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+ 
+ #define FIB_RES_NH(res)		((res).fi->fib_nh[(res).nh_sel])
+@@ -169,9 +167,9 @@ static inline struct fib_table *fib_get_table(struct net *net, u32 id)
+ {
+ 	struct hlist_head *ptr;
+ 
+-	ptr = id == RT_TABLE_LOCAL ?
+-		&fib_table_hash[TABLE_LOCAL_INDEX] :
+-		&fib_table_hash[TABLE_MAIN_INDEX];
++	ptr = id == RT_TABLE_LOCAL ?
++		&net->ipv4.fib_table_hash[TABLE_LOCAL_INDEX] :
++		&net->ipv4.fib_table_hash[TABLE_MAIN_INDEX];
+ 	return hlist_entry(ptr->first, struct fib_table, tb_hlist);
+ }
+ 
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 299f8c6..629ec6c 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -8,6 +8,7 @@
+ struct ctl_table_header;
+ struct ipv4_devconf;
+ struct fib_rules_ops;
++struct hlist_head;
+ 
+ struct netns_ipv4 {
+ #ifdef CONFIG_SYSCTL
+@@ -16,5 +17,6 @@ struct netns_ipv4 {
+ #ifdef CONFIG_IP_MULTIPLE_TABLES
+ 	struct fib_rules_ops	*rules_ops;
+ #endif
++	struct hlist_head	*fib_table_hash;
+ };
+ #endif
 diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 312a728..08414eb 100644
+index 08414eb..2e150ae 100644
 --- a/net/ipv4/fib_frontend.c
 +++ b/net/ipv4/fib_frontend.c
-@@ -310,6 +310,7 @@ static int rtentry_to_fib_config(int cmd, struct rtentry *rt,
- 	int plen;
+@@ -50,7 +50,6 @@
+ #define FFprint(a...) printk(KERN_DEBUG a)
  
- 	memset(cfg, 0, sizeof(*cfg));
-+	cfg->fc_nlinfo.nl_net = &init_net;
+ static struct sock *fibnl;
+-struct hlist_head fib_table_hash[FIB_TABLE_HASHSZ];
  
- 	if (rt->rt_dst.sa_family != AF_INET)
- 		return -EAFNOSUPPORT;
-@@ -516,6 +517,7 @@ static int rtm_to_fib_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+ #ifndef CONFIG_IP_MULTIPLE_TABLES
  
- 	cfg->fc_nlinfo.pid = NETLINK_CB(skb).pid;
- 	cfg->fc_nlinfo.nlh = nlh;
-+	cfg->fc_nlinfo.nl_net = &init_net;
+@@ -67,9 +66,9 @@ static int __net_init fib4_rules_init(struct net *net)
+ 		goto fail;
  
- 	if (cfg->fc_type > RTN_MAX) {
- 		err = -EINVAL;
-@@ -670,6 +672,9 @@ static void fib_magic(int cmd, int type, __be32 dst, int dst_len, struct in_ifad
- 		.fc_prefsrc = ifa->ifa_local,
- 		.fc_oif = ifa->ifa_dev->dev->ifindex,
- 		.fc_nlflags = NLM_F_CREATE | NLM_F_APPEND,
-+		.fc_nlinfo = {
-+			.nl_net = &init_net,
-+		},
- 	};
+ 	hlist_add_head_rcu(&local_table->tb_hlist,
+-				&fib_table_hash[TABLE_LOCAL_INDEX]);
++				&net->ipv4.fib_table_hash[TABLE_LOCAL_INDEX]);
+ 	hlist_add_head_rcu(&main_table->tb_hlist,
+-				&fib_table_hash[TABLE_MAIN_INDEX]);
++				&net->ipv4.fib_table_hash[TABLE_MAIN_INDEX]);
+ 	return 0;
  
- 	if (type == RTN_UNICAST)
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index c1263e2..0de6102 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -320,11 +320,11 @@ void rtmsg_fib(int event, __be32 key, struct fib_alias *fa,
- 		kfree_skb(skb);
- 		goto errout;
- 	}
--	err = rtnl_notify(skb, &init_net, info->pid, RTNLGRP_IPV4_ROUTE,
-+	err = rtnl_notify(skb, info->nl_net, info->pid, RTNLGRP_IPV4_ROUTE,
- 			  info->nlh, GFP_KERNEL);
- errout:
- 	if (err < 0)
--		rtnl_set_sk_err(&init_net, RTNLGRP_IPV4_ROUTE, err);
-+		rtnl_set_sk_err(info->nl_net, RTNLGRP_IPV4_ROUTE, err);
+ fail:
+@@ -92,7 +91,7 @@ struct fib_table *fib_new_table(struct net *net, u32 id)
+ 	if (!tb)
+ 		return NULL;
+ 	h = id & (FIB_TABLE_HASHSZ - 1);
+-	hlist_add_head_rcu(&tb->tb_hlist, &fib_table_hash[h]);
++	hlist_add_head_rcu(&tb->tb_hlist, &net->ipv4.fib_table_hash[h]);
+ 	return tb;
  }
  
- /* Return the first fib alias matching TOS with
-@@ -531,9 +531,11 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
+@@ -100,13 +99,16 @@ struct fib_table *fib_get_table(struct net *net, u32 id)
+ {
+ 	struct fib_table *tb;
+ 	struct hlist_node *node;
++	struct hlist_head *head;
+ 	unsigned int h;
  
- 			if (cfg->fc_scope >= RT_SCOPE_LINK)
- 				return -EINVAL;
--			if (inet_addr_type(&init_net, nh->nh_gw) != RTN_UNICAST)
-+			if (inet_addr_type(cfg->fc_nlinfo.nl_net,
-+					   nh->nh_gw) != RTN_UNICAST)
- 				return -EINVAL;
--			if ((dev = __dev_get_by_index(&init_net, nh->nh_oif)) == NULL)
-+			if ((dev = __dev_get_by_index(cfg->fc_nlinfo.nl_net,
-+						      nh->nh_oif)) == NULL)
- 				return -ENODEV;
- 			if (!(dev->flags&IFF_UP))
- 				return -ENETDOWN;
-@@ -795,7 +797,8 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
- 		if (nhs != 1 || nh->nh_gw)
- 			goto err_inval;
- 		nh->nh_scope = RT_SCOPE_NOWHERE;
--		nh->nh_dev = dev_get_by_index(&init_net, fi->fib_nh->nh_oif);
-+		nh->nh_dev = dev_get_by_index(cfg->fc_nlinfo.nl_net,
-+					      fi->fib_nh->nh_oif);
- 		err = -ENODEV;
- 		if (nh->nh_dev == NULL)
- 			goto failure;
-@@ -809,7 +812,8 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
- 	if (fi->fib_prefsrc) {
- 		if (cfg->fc_type != RTN_LOCAL || !cfg->fc_dst ||
- 		    fi->fib_prefsrc != cfg->fc_dst)
--			if (inet_addr_type(&init_net, fi->fib_prefsrc) != RTN_LOCAL)
-+			if (inet_addr_type(cfg->fc_nlinfo.nl_net,
-+					   fi->fib_prefsrc) != RTN_LOCAL)
- 				goto err_inval;
+ 	if (id == 0)
+ 		id = RT_TABLE_MAIN;
+ 	h = id & (FIB_TABLE_HASHSZ - 1);
++
+ 	rcu_read_lock();
+-	hlist_for_each_entry_rcu(tb, node, &fib_table_hash[h], tb_hlist) {
++	head = &net->ipv4.fib_table_hash[h];
++	hlist_for_each_entry_rcu(tb, node, head, tb_hlist) {
+ 		if (tb->tb_id == id) {
+ 			rcu_read_unlock();
+ 			return tb;
+@@ -117,15 +119,17 @@ struct fib_table *fib_get_table(struct net *net, u32 id)
+ }
+ #endif /* CONFIG_IP_MULTIPLE_TABLES */
+ 
+-static void fib_flush(void)
++static void fib_flush(struct net *net)
+ {
+ 	int flushed = 0;
+ 	struct fib_table *tb;
+ 	struct hlist_node *node;
++	struct hlist_head *head;
+ 	unsigned int h;
+ 
+ 	for (h = 0; h < FIB_TABLE_HASHSZ; h++) {
+-		hlist_for_each_entry(tb, node, &fib_table_hash[h], tb_hlist)
++		head = &net->ipv4.fib_table_hash[h];
++		hlist_for_each_entry(tb, node, head, tb_hlist)
+ 			flushed += tb->tb_flush(tb);
  	}
  
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index df05c6f..242a8ca 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -1315,7 +1315,9 @@ static int fib6_walk(struct fib6_walker_t *w)
+@@ -620,6 +624,7 @@ static int inet_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
+ 	unsigned int e = 0, s_e;
+ 	struct fib_table *tb;
+ 	struct hlist_node *node;
++	struct hlist_head *head;
+ 	int dumped = 0;
  
- static int fib6_clean_node(struct fib6_walker_t *w)
- {
--	struct nl_info info = {};
-+	struct nl_info info = {
-+		.nl_net = &init_net,
-+	};
- 	int res;
- 	struct rt6_info *rt;
- 	struct fib6_cleaner_t *c = container_of(w, struct fib6_cleaner_t, w);
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 02354a7..7f03ae9 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -604,7 +604,9 @@ static int __ip6_ins_rt(struct rt6_info *rt, struct nl_info *info)
+ 	if (net != &init_net)
+@@ -634,7 +639,8 @@ static int inet_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
  
- int ip6_ins_rt(struct rt6_info *rt)
+ 	for (h = s_h; h < FIB_TABLE_HASHSZ; h++, s_e = 0) {
+ 		e = 0;
+-		hlist_for_each_entry(tb, node, &fib_table_hash[h], tb_hlist) {
++		head = &net->ipv4.fib_table_hash[h];
++		hlist_for_each_entry(tb, node, head, tb_hlist) {
+ 			if (e < s_e)
+ 				goto next;
+ 			if (dumped)
+@@ -797,7 +803,7 @@ static void fib_del_ifaddr(struct in_ifaddr *ifa)
+ 			   for stray nexthop entries, then ignite fib_flush.
+ 			*/
+ 			if (fib_sync_down(ifa->ifa_local, NULL, 0))
+-				fib_flush();
++				fib_flush(&init_net);
+ 		}
+ 	}
+ #undef LOCAL_OK
+@@ -877,7 +883,7 @@ static void nl_fib_lookup_exit(struct net *net)
+ static void fib_disable_ip(struct net_device *dev, int force)
  {
--	struct nl_info info = {};
-+	struct nl_info info = {
-+		.nl_net = &init_net,
-+	};
- 	return __ip6_ins_rt(rt, &info);
+ 	if (fib_sync_down(0, dev, force))
+-		fib_flush();
++		fib_flush(&init_net);
+ 	rt_cache_flush(0);
+ 	arp_ifdown(dev);
+ }
+@@ -958,8 +964,13 @@ static int __net_init ip_fib_net_init(struct net *net)
+ {
+ 	unsigned int i;
+ 
++	net->ipv4.fib_table_hash = kzalloc(
++			sizeof(struct hlist_head)*FIB_TABLE_HASHSZ, GFP_KERNEL);
++	if (net->ipv4.fib_table_hash == NULL)
++		return -ENOMEM;
++
+ 	for (i = 0; i < FIB_TABLE_HASHSZ; i++)
+-		INIT_HLIST_HEAD(&fib_table_hash[i]);
++		INIT_HLIST_HEAD(&net->ipv4.fib_table_hash[i]);
+ 
+ 	return fib4_rules_init(net);
+ }
+@@ -977,13 +988,14 @@ static void __net_exit ip_fib_net_exit(struct net *net)
+ 		struct hlist_head *head;
+ 		struct hlist_node *node, *tmp;
+ 
+-		head = &fib_table_hash[i];
++		head = &net->ipv4.fib_table_hash[i];
+ 		hlist_for_each_entry_safe(tb, node, tmp, head, tb_hlist) {
+ 			hlist_del(node);
+ 			tb->tb_flush(tb);
+ 			kfree(tb);
+ 		}
+ 	}
++	kfree(net->ipv4.fib_table_hash);
  }
  
-@@ -1262,7 +1264,9 @@ static int __ip6_del_rt(struct rt6_info *rt, struct nl_info *info)
- 
- int ip6_del_rt(struct rt6_info *rt)
- {
--	struct nl_info info = {};
-+	struct nl_info info = {
-+		.nl_net = &init_net,
-+	};
- 	return __ip6_del_rt(rt, &info);
- }
- 
+ static int __net_init fib_net_init(struct net *net)
 -- 
 1.5.3.rc5
