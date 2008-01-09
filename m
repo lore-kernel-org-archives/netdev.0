@@ -1,107 +1,98 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH 0/3] bonding: 3 fixes for 2.6.24
-Date: Wed, 09 Jan 2008 15:19:10 -0800
-Message-ID: <7603.1199920750@death>
-References: <11997574203125-git-send-email-fubar@us.ibm.com> <Pine.LNX.4.64.0801081949290.1135@bizon.gios.gov.pl> <29560.1199820632@death> <Pine.LNX.4.64.0801090732490.1135@bizon.gios.gov.pl> <17850.1199865514@death> <20080109152740.GE8728@gospo.usersys.redhat.com> <32361.1199901296@death> <20080109201709.GF8728@gospo.usersys.redhat.com> <20080109220534.GA2692@gondor.apana.org.au>
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Krzysztof Oledzki <olel@ans.pl>, netdev@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>,
-	David Miller <davem@davemloft.net>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Re : Re : Re : Bonding : Monitoring of 4965 wireless card
+Date: Wed, 09 Jan 2008 15:26:38 -0800
+Message-ID: <10541.1199921198@death>
+References: <416779.67064.qm@web25704.mail.ukl.yahoo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: patnel972-linux@yahoo.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:46919 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752431AbYAIXTj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jan 2008 18:19:39 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m09NJbKt003181
-	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 18:19:37 -0500
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m09NJbM9455354
-	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 18:19:37 -0500
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m09NJaxU009857
-	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 18:19:37 -0500
-In-reply-to: <20080109220534.GA2692@gondor.apana.org.au> 
+Received: from e34.co.us.ibm.com ([32.97.110.152]:44782 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750962AbYAIX0k convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 18:26:40 -0500
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m09NQemp028089
+	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 18:26:40 -0500
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m09NQd6e106968
+	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 16:26:39 -0700
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m09NQdJs020711
+	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 16:26:39 -0700
+In-reply-to: <416779.67064.qm@web25704.mail.ukl.yahoo.com> 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+patnel972-linux@yahoo.fr wrote:
 
->On Wed, Jan 09, 2008 at 03:17:09PM -0500, Andy Gospodarek wrote:
->>
->> Agreed.  And despite Herbert's opinion that this isn't the correct fix,
->> I think this will work fine.  This is one of the cases where we can take
->> a write_lock(bond->lock) in softirq context, so we need to drop that (or
->> make sure all the read_lock's are read_lock_bh's).  The latter isn't
->> really an option since having a majority of the bonding code run in
->> softirq context was what we are trying to avoid with the workqueue
->> conversion.
->
->No that's not the point.  The point is to move the majority of the code
->into process context so that you can take the RTNL.  Once you have taken
->the RTNL you can disable BH all you want and I don't care one bit.
+>I mean that instead of arp test an ip in lan or else, i want it to tes=
+t 127.0.0.1 but in order to do this it must go out and re-enter and the=
+n use wlan0 to go out.
 
-	I'm not sure how we could move more code into a process context;
-much of the bonding driver is at the mercy of its callers, as in this
-case.  The monitoring stuff and enslave / deslave is all in a process
-context now (workqueue).  The transmit processing functions, for
-example, can't be assumed to be in any particular context as they're
-called by dev_queue_xmit.
+	In other words, what I think you're saying (and I'm not entirely
+sure here) is that you want probes to go to a remote node on the
+network, and back, without having to actually know the identity of the
+remote node (because, presumably, on a roaming type of wireless
+configuration, your gateway and whatnot can change from time to time).
 
-	The function in question here is the dev->set_multicast_list
-method function, which is sometimes called with RTNL, and sometimes with
-other random locks, but seems to always be called with netif_tx_lock_bh.
-Then, bonding's bond_set_multicast_list calls dev_set_promiscuity (on
-slaves), which I believe is an "RTNL only" function (which is probably
-another discussion).
+	Is that what you're looking for?
 
->In any case, fixing a known dead-lock is important.
-
-	Agreed.
-
-	I'm now thinking for just the topic at hand (the previously
-posted lockdep report), something like this will resolve it:
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 77d004d..b7ac10b 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3937,8 +3937,6 @@ static void bond_set_multicast_list(struct net_device *bond_dev)
- 	struct bonding *bond = bond_dev->priv;
- 	struct dev_mc_list *dmi;
- 
--	write_lock_bh(&bond->lock);
--
- 	/*
- 	 * Do promisc before checking multicast_mode
- 	 */
-@@ -3959,6 +3957,8 @@ static void bond_set_multicast_list(struct net_device *bond_dev)
- 		bond_set_allmulti(bond, -1);
- 	}
- 
-+	read_lock_bh(&bond->lock);
-+
- 	bond->flags = bond_dev->flags;
- 
- 	/* looking for addresses to add to slaves' mc list */
-@@ -3979,7 +3979,7 @@ static void bond_set_multicast_list(struct net_device *bond_dev)
- 	bond_mc_list_destroy(bond);
- 	bond_mc_list_copy(bond_dev->mc_list, bond, GFP_ATOMIC);
- 
--	write_unlock_bh(&bond->lock);
-+	read_unlock_bh(&bond->lock);
- }
- 
- /*
-
-
-	This (a) converts the write_lock_bh to a read_lock_bh, and moves
-it down to not cover the promisc/allmulti code (which is protected by
-RTNL).  I'm not sure that this is really a signficant alteration, but
-it's a bit closer to "correct."
+	That isn't available now, but might be straightforward to plug
+into the address update system to keep the arp_ip_target up to date as
+the current gateway as the gateway changes.  I haven't looked into the
+details of doing that, but in theory it sounds straightforward.
 
 	-J
 
 ---
 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+
+>
+>----- Message d'origine ----
+>De : Jay Vosburgh <fubar@us.ibm.com>
+>=C3=80 : patnel972-linux@yahoo.fr
+>Cc : John W. Linville <linville@tuxdriver.com>; netdev@vger.kernel.org
+>Envoy=C3=A9 le : Mercredi, 9 Janvier 2008, 22h36mn 00s
+>Objet : Re: Re : Re : Bonding : Monitoring of 4965 wireless card=20
+>
+>patnel972-linux@yahoo.fr wrote:
+>
+>>I ignore it, but it seems like it prevent bonding detect link of
+> wlan0. I enslave wlan0 and i already use use_carrier=3D1;
+>
+>    The default for bonding is use_carrier=3D1, which makes bonding
+>use the device driver's netif_carrier_on/off state for link detection.
+>Bonding only checks via ethtool/mii if use_carrier=3D0.
+>
+>>I'll try arp monitoring but this is annoying i c'ant test localhost.
+> Is there a way to test localhost with arp, without pass through lo ?=20
+>
+>    What do you mean by "test localhost with arp, without pass
+>through lo"?  ARP monitoring issues probes (ARPs) to a remote
+>destination to confirm that there is connectivity; I'm not sure what
+>localhost has to do with it.
+>
+>    In general, though, I have not tested bonding with wireless
+>adapters, so I'm unfamiliar with how well it does or does not work.
+>
+>    -J
+>
+>---
+>    -Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>
+>
+>
+>
+>
+>      ________________________________________________________________=
+_____________=20
+>Ne gardez plus qu'une seule adresse mail ! Copiez vos mails vers Yahoo=
+! Mail http://mail.yahoo.fr
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
