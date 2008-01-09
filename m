@@ -1,8 +1,8 @@
 From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net-2.6.25 2/19] [NETNS] Pass fib_rules_ops into
-	default_pref method.
-Date: Wed,  9 Jan 2008 21:04:23 +0300
-Message-ID: <1199901880-6812-2-git-send-email-den@openvz.org>
+Subject: [PATCH net-2.6.25 1/19] [NETNS] Add netns parameter to
+	fib_rules_(un)register.
+Date: Wed,  9 Jan 2008 21:04:22 +0300
+Message-ID: <1199901880-6812-1-git-send-email-den@openvz.org>
 References: <47850C57.60907@openvz.org>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org,
         benjamin.thery-6ktuUTfB/bM@public.gmane.org
@@ -20,85 +20,108 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-fib_rules_ops contains operations and the list of configured rules. ops will
-become per/namespace soon, so we need them to be known in the default_pref
-callback.
+The patch extends the different fib rules API in order to pass the network
+namespace pointer. That will allow to access the different tables from
+a namespace relative object. As usual, the pointer to the init_net variable
+is passed as parameter so we don't break the network.
 
 Acked-by: Benjamin Thery <benjamin.thery-6ktuUTfB/bM@public.gmane.org>
 Acked-by: Daniel Lezcano <dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Denis V. Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 ---
- include/net/fib_rules.h |    2 +-
- net/core/fib_rules.c    |    2 +-
- net/decnet/dn_rules.c   |    2 +-
+ include/net/fib_rules.h |    4 ++--
+ net/core/fib_rules.c    |    4 ++--
+ net/decnet/dn_rules.c   |    4 ++--
  net/ipv4/fib_rules.c    |    2 +-
- net/ipv6/fib6_rules.c   |    2 +-
- 5 files changed, 5 insertions(+), 5 deletions(-)
+ net/ipv6/fib6_rules.c   |    4 ++--
+ 5 files changed, 9 insertions(+), 9 deletions(-)
 
 diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
-index af62345..14b8a71 100644
+index 2364db1..af62345 100644
 --- a/include/net/fib_rules.h
 +++ b/include/net/fib_rules.h
-@@ -56,7 +56,7 @@ struct fib_rules_ops
- 	int			(*fill)(struct fib_rule *, struct sk_buff *,
- 					struct nlmsghdr *,
- 					struct fib_rule_hdr *);
--	u32			(*default_pref)(void);
-+	u32			(*default_pref)(struct fib_rules_ops *ops);
- 	size_t			(*nlmsg_payload)(struct fib_rule *);
+@@ -101,8 +101,8 @@ static inline u32 frh_get_table(struct fib_rule_hdr *frh, struct nlattr **nla)
+ 	return frh->table;
+ }
  
- 	/* Called after modifications to the rules set, must flush
+-extern int			fib_rules_register(struct fib_rules_ops *);
+-extern int			fib_rules_unregister(struct fib_rules_ops *);
++extern int fib_rules_register(struct net *, struct fib_rules_ops *);
++extern int fib_rules_unregister(struct net *, struct fib_rules_ops *);
+ extern void                     fib_rules_cleanup_ops(struct fib_rules_ops *);
+ 
+ extern int			fib_rules_lookup(struct fib_rules_ops *,
 diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index ada9c81..e12e9f5 100644
+index fcbf41c..ada9c81 100644
 --- a/net/core/fib_rules.c
 +++ b/net/core/fib_rules.c
-@@ -285,7 +285,7 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 	rule->table = frh_get_table(frh, tb);
+@@ -74,7 +74,7 @@ static void flush_route_cache(struct fib_rules_ops *ops)
+ 		ops->flush_cache();
+ }
  
- 	if (!rule->pref && ops->default_pref)
--		rule->pref = ops->default_pref();
-+		rule->pref = ops->default_pref(ops);
+-int fib_rules_register(struct fib_rules_ops *ops)
++int fib_rules_register(struct net *net, struct fib_rules_ops *ops)
+ {
+ 	int err = -EEXIST;
+ 	struct fib_rules_ops *o;
+@@ -113,7 +113,7 @@ void fib_rules_cleanup_ops(struct fib_rules_ops *ops)
+ }
+ EXPORT_SYMBOL_GPL(fib_rules_cleanup_ops);
  
- 	err = -EINVAL;
- 	if (tb[FRA_GOTO]) {
+-int fib_rules_unregister(struct fib_rules_ops *ops)
++int fib_rules_unregister(struct net *net, struct fib_rules_ops *ops)
+ {
+ 	int err = 0;
+ 	struct fib_rules_ops *o;
 diff --git a/net/decnet/dn_rules.c b/net/decnet/dn_rules.c
-index 0b5e2b9..c1fae23 100644
+index ffebea0..0b5e2b9 100644
 --- a/net/decnet/dn_rules.c
 +++ b/net/decnet/dn_rules.c
-@@ -212,7 +212,7 @@ nla_put_failure:
- 	return -ENOBUFS;
+@@ -255,12 +255,12 @@ void __init dn_fib_rules_init(void)
+ {
+ 	BUG_ON(fib_default_rule_add(&dn_fib_rules_ops, 0x7fff,
+ 			            RT_TABLE_MAIN, 0));
+-	fib_rules_register(&dn_fib_rules_ops);
++	fib_rules_register(&init_net, &dn_fib_rules_ops);
  }
  
--static u32 dn_fib_rule_default_pref(void)
-+static u32 dn_fib_rule_default_pref(struct fib_rules_ops *ops)
+ void __exit dn_fib_rules_cleanup(void)
  {
- 	struct list_head *pos;
- 	struct fib_rule *rule;
+-	fib_rules_unregister(&dn_fib_rules_ops);
++	fib_rules_unregister(&init_net, &dn_fib_rules_ops);
+ }
+ 
+ 
 diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index eac3f71..afe669d 100644
+index a0ada3a..eac3f71 100644
 --- a/net/ipv4/fib_rules.c
 +++ b/net/ipv4/fib_rules.c
-@@ -245,7 +245,7 @@ nla_put_failure:
- 	return -ENOBUFS;
- }
- 
--static u32 fib4_rule_default_pref(void)
-+static u32 fib4_rule_default_pref(struct fib_rules_ops *ops)
+@@ -314,5 +314,5 @@ static int __init fib_default_rules_init(void)
+ void __init fib4_rules_init(void)
  {
- 	struct list_head *pos;
- 	struct fib_rule *rule;
+ 	BUG_ON(fib_default_rules_init());
+-	fib_rules_register(&fib4_rules_ops);
++	fib_rules_register(&init_net, &fib4_rules_ops);
+ }
 diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index e4d7e5a..76437a1 100644
+index 9ce2e0a..e4d7e5a 100644
 --- a/net/ipv6/fib6_rules.c
 +++ b/net/ipv6/fib6_rules.c
-@@ -223,7 +223,7 @@ nla_put_failure:
- 	return -ENOBUFS;
- }
+@@ -273,7 +273,7 @@ int __init fib6_rules_init(void)
+ 	if (ret)
+ 		goto out;
  
--static u32 fib6_rule_default_pref(void)
-+static u32 fib6_rule_default_pref(struct fib_rules_ops *ops)
+-	ret = fib_rules_register(&fib6_rules_ops);
++	ret = fib_rules_register(&init_net, &fib6_rules_ops);
+ 	if (ret)
+ 		goto out_default_rules_init;
+ out:
+@@ -286,5 +286,5 @@ out_default_rules_init:
+ 
+ void fib6_rules_cleanup(void)
  {
- 	return 0x3FFF;
+-	fib_rules_unregister(&fib6_rules_ops);
++	fib_rules_unregister(&init_net, &fib6_rules_ops);
  }
 -- 
 1.5.3.rc5
