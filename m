@@ -1,54 +1,44 @@
-From: linux@horizon.com
-Subject: Re: SACK scoreboard
-Date: 9 Jan 2008 01:04:09 -0500
-Message-ID: <20080109060409.18161.qmail@science.horizon.com>
-Cc: linux@horizon.com
-To: netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 0/3] bonding: 3 fixes for 2.6.24
+Date: Wed, 09 Jan 2008 17:08:32 +1100
+Message-ID: <E1JCU76-00077z-00@gondolin.me.apana.org.au>
+References: <20080108191706.GD8728@gospo.usersys.redhat.com>
+Cc: olel@ans.pl, fubar@us.ibm.com, netdev@vger.kernel.org,
+	jgarzik@pobox.com, davem@davemloft.net, andy@greyhouse.net
+To: andy@greyhouse.net (Andy Gospodarek)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from science.horizon.com ([192.35.100.1]:13448 "HELO
-	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1750940AbYAIGEM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 01:04:12 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:2570 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750903AbYAIGI4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 01:08:56 -0500
+In-Reply-To: <20080108191706.GD8728@gospo.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just some idle brainstorming on the subject...
+Andy Gospodarek <andy@greyhouse.net> wrote:
+> 
+> Jay's patches will not fix this issue.  I think something like this did
+> it for me, but as I mentioned to Jay in the last thread, I'm not
+> convinced it doesn't violate some of the locking expectations we have.
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 423298c..3c6619a 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -3915,7 +3915,7 @@ static void bond_set_multicast_list(struct net_device *bond_dev)
+>        struct bonding *bond = bond_dev->priv;
+>        struct dev_mc_list *dmi;
+> 
+> -       write_lock_bh(&bond->lock);
+> +       read_lock(&bond->lock);
 
-It seems the only way to handle network pipes sigificantly larger (delay *
-bandwidth product) than the processor cache is to make freeing retransmit
-data o(n).
+This is wrong.  As I said before, the correct fix (until set_multicast
+no longer gets called from BH context) is to change all you process
+context read_lock's to read_lock_bh.
 
-Now, there are some ways to reduce the constant factor.  The one that
-comes to mind first is to not queue sk_buffs.  Throw away the struct
-sk_buff after transmission and just queue skb_frag_structs, pages, or
-maybe even higher-order pages of data.  Then freeing the data when it's
-acked has a much smaller constant factor, particularly d-cache footprint,
-and no slab operations.
-
-The downside is more work to recreate the skb if you do have to
-retransmit, but optimizing for retransmits is silly.
-
-Some implementations could leave large chunks of memory locked until
-all of the sk_buff->skb_shared_info->skb_frag_structs referencing them
-have gone away, but you can look at the transmit window when deciding
-how big a chunk size to use.
-
-
-Then, to actually get below O(n), you want to keep the queued data in
-a data structure known to the memory manager.  Basically, splice the
-retransmit queue onto the free list.
-
-It may require some kludgery in the memory manager.  In particular, doing
-that in O(1) time obviously means that you can't coalesce adjacent free
-regions to build higher-order pages.  So you'd have to have a threshold
-for uncoalesced pages and a way to force coalescing under memory pressure.
-
-You're just deferring work until the page is allocated, but the point
-is that then it's okay to bring it into cache when it's about to be
-used again.  It's the redundant round trip just because an ack arrived
-that's annoying.
-
-I've done thins sort of thing with specialized fixed-block-size allocators
-before (an alpha-beta minimax search tree allocates nodes one at a
-time, but frees whole subtrees at once), but might it be feasible for
-kernel use?
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
