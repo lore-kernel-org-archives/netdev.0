@@ -1,63 +1,43 @@
-From: patnel972-linux@yahoo.fr
-Subject: Re : Re : Re : Bonding : Monitoring of 4965 wireless card
-Date: Wed, 9 Jan 2008 21:52:39 +0000 (GMT)
-Message-ID: <416779.67064.qm@web25704.mail.ukl.yahoo.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 0/3] bonding: 3 fixes for 2.6.24
+Date: Thu, 10 Jan 2008 09:05:34 +1100
+Message-ID: <20080109220534.GA2692@gondor.apana.org.au>
+References: <11997574203125-git-send-email-fubar@us.ibm.com> <Pine.LNX.4.64.0801081949290.1135@bizon.gios.gov.pl> <29560.1199820632@death> <Pine.LNX.4.64.0801090732490.1135@bizon.gios.gov.pl> <17850.1199865514@death> <20080109152740.GE8728@gospo.usersys.redhat.com> <32361.1199901296@death> <20080109201709.GF8728@gospo.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <fubar@us.ibm.com>, Krzysztof Oledzki <olel@ans.pl>,
+	netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>,
+	David Miller <davem@davemloft.net>
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web25704.mail.ukl.yahoo.com ([217.12.10.176]:43012 "HELO
-	web25704.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750764AbYAIVwl convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jan 2008 16:52:41 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:2695 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752270AbYAIWGQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 17:06:16 -0500
+Content-Disposition: inline
+In-Reply-To: <20080109201709.GF8728@gospo.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I mean that instead of arp test an ip in lan or else, i want it to test=
- 127.0.0.1 but in order to do this it must go out and re-enter and then=
- use wlan0 to go out.
+On Wed, Jan 09, 2008 at 03:17:09PM -0500, Andy Gospodarek wrote:
+>
+> Agreed.  And despite Herbert's opinion that this isn't the correct fix,
+> I think this will work fine.  This is one of the cases where we can take
+> a write_lock(bond->lock) in softirq context, so we need to drop that (or
+> make sure all the read_lock's are read_lock_bh's).  The latter isn't
+> really an option since having a majority of the bonding code run in
+> softirq context was what we are trying to avoid with the workqueue
+> conversion.
 
+No that's not the point.  The point is to move the majority of the code
+into process context so that you can take the RTNL.  Once you have taken
+the RTNL you can disable BH all you want and I don't care one bit.
 
------ Message d'origine ----
-De : Jay Vosburgh <fubar@us.ibm.com>
-=C0 : patnel972-linux@yahoo.fr
-Cc : John W. Linville <linville@tuxdriver.com>; netdev@vger.kernel.org
-Envoy=E9 le : Mercredi, 9 Janvier 2008, 22h36mn 00s
-Objet : Re: Re : Re : Bonding : Monitoring of 4965 wireless card=20
+In any case, fixing a known dead-lock is important.
 
-patnel972-linux@yahoo.fr wrote:
-
->I ignore it, but it seems like it prevent bonding detect link of
- wlan0. I enslave wlan0 and i already use use_carrier=3D1;
-
-    The default for bonding is use_carrier=3D1, which makes bonding
-use the device driver's netif_carrier_on/off state for link detection.
-Bonding only checks via ethtool/mii if use_carrier=3D0.
-
->I'll try arp monitoring but this is annoying i c'ant test localhost.
- Is there a way to test localhost with arp, without pass through lo ?=20
-
-    What do you mean by "test localhost with arp, without pass
-through lo"?  ARP monitoring issues probes (ARPs) to a remote
-destination to confirm that there is connectivity; I'm not sure what
-localhost has to do with it.
-
-    In general, though, I have not tested bonding with wireless
-adapters, so I'm unfamiliar with how well it does or does not work.
-
-    -J
-
----
-    -Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-
-
-
-
-
-      _________________________________________________________________=
-____________=20
-Ne gardez plus qu'une seule adresse mail ! Copiez vos mails vers Yahoo!=
- Mail http://mail.yahoo.fr
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
