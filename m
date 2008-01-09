@@ -1,58 +1,95 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: [PATCH 0/3] bonding: 3 fixes for 2.6.24
-Date: Wed, 9 Jan 2008 10:36:38 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0801091034390.27051@bizon.gios.gov.pl>
-References: <11997574203125-git-send-email-fubar@us.ibm.com>
- <Pine.LNX.4.64.0801081949290.1135@bizon.gios.gov.pl> <29560.1199820632@death>
- <Pine.LNX.4.64.0801090732490.1135@bizon.gios.gov.pl> <17850.1199865514@death>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-653894207-1199871398=:27051"
-Cc: netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Jay Vosburgh <fubar@us.ibm.com>
+From: maximilian attems <max@stro.at>
+Subject: [PATCH v3] AX25: kill user triggable printks
+Date: Wed,  9 Jan 2008 11:21:10 +0100
+Message-ID: <1199874070-9524-1-git-send-email-max@stro.at>
+Cc: netdev@vger.kernel.org, maximilian attems <max@stro.at>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:40764 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750936AbYAIKRe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 05:17:34 -0500
-In-Reply-To: <17850.1199865514@death>
+Received: from baikonur.stro.at ([213.239.196.228]:56417 "EHLO
+	baikonur.stro.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751091AbYAIKVl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 05:21:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+sfuzz can easily trigger any of those.
 
----187430788-653894207-1199871398=:27051
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+move the printk message to the corresponding comment:
+makes the intention of the code clear and easy
+to pick up on an scheduled removal.
+as bonus simplify the braces placement.
 
+Signed-off-by: maximilian attems <max@stro.at>
+---
+ net/ax25/af_ax25.c |   39 ++++++++++++++++++---------------------
+ 1 files changed, 18 insertions(+), 21 deletions(-)
 
+diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+index 8378afd..ecb14ee 100644
+--- a/net/ax25/af_ax25.c
++++ b/net/ax25/af_ax25.c
+@@ -1109,21 +1109,19 @@ static int __must_check ax25_connect(struct socket *sock,
+ 	 * some sanity checks. code further down depends on this
+ 	 */
+ 
+-	if (addr_len == sizeof(struct sockaddr_ax25)) {
+-		/* support for this will go away in early 2.5.x */
+-		printk(KERN_WARNING "ax25_connect(): %s uses obsolete socket structure\n",
+-			current->comm);
+-	}
+-	else if (addr_len != sizeof(struct full_sockaddr_ax25)) {
+-		/* support for old structure may go away some time */
++	if (addr_len == sizeof(struct sockaddr_ax25))
++		/* support for this will go away in early 2.5.x
++		 * ax25_connect(): uses obsolete socket structure
++		 */
++		;
++	else if (addr_len != sizeof(struct full_sockaddr_ax25))
++		/* support for old structure may go away some time
++		 * ax25_connect(): uses old (6 digipeater) socket structure.
++		 */
+ 		if ((addr_len < sizeof(struct sockaddr_ax25) + sizeof(ax25_address) * 6) ||
+-		    (addr_len > sizeof(struct full_sockaddr_ax25))) {
++		    (addr_len > sizeof(struct full_sockaddr_ax25)))
+ 			return -EINVAL;
+-		}
+ 
+-		printk(KERN_WARNING "ax25_connect(): %s uses old (6 digipeater) socket structure.\n",
+-			current->comm);
+-	}
+ 
+ 	if (fsa->fsa_ax25.sax25_family != AF_AX25)
+ 		return -EINVAL;
+@@ -1467,21 +1465,20 @@ static int ax25_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 			goto out;
+ 		}
+ 
+-		if (addr_len == sizeof(struct sockaddr_ax25)) {
+-			printk(KERN_WARNING "ax25_sendmsg(): %s uses obsolete socket structure\n",
+-				current->comm);
+-		}
+-		else if (addr_len != sizeof(struct full_sockaddr_ax25)) {
+-			/* support for old structure may go away some time */
++		if (addr_len == sizeof(struct sockaddr_ax25))
++			/* ax25_sendmsg(): uses obsolete socket structure */
++			;
++		else if (addr_len != sizeof(struct full_sockaddr_ax25))
++			/* support for old structure may go away some time
++			 * ax25_sendmsg(): uses old (6 digipeater)
++			 * socket structure.
++			 */
+ 			if ((addr_len < sizeof(struct sockaddr_ax25) + sizeof(ax25_address) * 6) ||
+ 			    (addr_len > sizeof(struct full_sockaddr_ax25))) {
+ 				err = -EINVAL;
+ 				goto out;
+ 			}
+ 
+-			printk(KERN_WARNING "ax25_sendmsg(): %s uses old (6 digipeater) socket structure.\n",
+-				current->comm);
+-		}
+ 
+ 		if (addr_len > sizeof(struct sockaddr_ax25) && usax->sax25_ndigis != 0) {
+ 			int ct           = 0;
+-- 
+debian.1.5.3.7.1-dirty
 
-On Tue, 8 Jan 2008, Jay Vosburgh wrote:
-
-> Krzysztof Oledzki <olel@ans.pl> wrote:
->
->> Fine. Just let you know that someone test your patches and everything
->> works, except mentioned problem.
->
-> =09And I appreciate it; I just wanted to make sure our many fans
-> following along at home didn't misunderstand.
->
-> =09Could you let me know if the patch below make the lockdep
-> warning go away?  This applies on top of the previous three, although it
-> should be trivial to do by hand.
->
-> =09I'm still checking to make sure this is safe with regard to
-> mutexing the bonding structures, but it would be good to know if it
-> eliminates the warning.
-
-I can confirm that the warning went away.
-
-Tested-by: Krzysztof Piotr Oledzki <ole@ans.pl>
-
-Best regards,
-
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-653894207-1199871398=:27051--
