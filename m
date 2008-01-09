@@ -1,58 +1,86 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: Linux IPv6 DAD not full conform to RFC 4862 ?
-Date: Wed, 09 Jan 2008 16:09:57 -0500
-Message-ID: <47853825.2030002@hp.com>
-References: <20080109153656.GA16962@pingi.kke.suse.de> <20080110.013857.37616214.yoshfuji@linux-ipv6.org> <20080109185744.GB25106@hmsreliant.think-freely.org>
+From: patnel972-linux@yahoo.fr
+Subject: Re : Re : Bonding : Monitoring of 4965 wireless card
+Date: Wed, 9 Jan 2008 21:17:06 +0000 (GMT)
+Message-ID: <168648.20508.qm@web25705.mail.ukl.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
-	<yoshfuji@linux-ipv6.org>, kkeil@suse.de, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: netdev@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:32568 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752301AbYAIVJ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 16:09:59 -0500
-In-Reply-To: <20080109185744.GB25106@hmsreliant.think-freely.org>
+Received: from web25705.mail.ukl.yahoo.com ([217.12.10.177]:22361 "HELO
+	web25705.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750825AbYAIVRJ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jan 2008 16:17:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Neil Horman wrote:
-> On Thu, Jan 10, 2008 at 01:38:57AM +0900, YOSHIFUJI Hideaki / =E5=90=89=
-=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
->> In article <20080109153656.GA16962@pingi.kke.suse.de> (at Wed, 9 Jan=
- 2008 16:36:56 +0100), Karsten Keil <kkeil@suse.de> says:
->>
->>> So I think we should disable the interface now, if DAD fails on a
->>> hardware based LLA.
->> I don't want to do this, at least, unconditionally.
->>
->> Options (not exclusive):
->>
->> - we could have "dad_reaction" interface variable and
->>  > 1: disable interface
->>  =3D 1: disable IPv6
->>  < 0: ignore (as we do now)
->>
-> I like the flexibility of this solution, but given that the only part=
- of the RFC
-> that we're missing on at the moment is that we SHOULD disable the int=
-erface on
-> DAD failure for a link-local address, I would think this scheme would=
- be good:
->=20
->   < 0 : ignore, and del address from interface (current behavior)=20
->   =3D 0 : disable interface for dad failure for a link-local address=20
->   > 0 : disable interface for dad failure for any address=20
->=20
-> Regards
-> Neil
-> =20
+I ignore it, but it seems like it prevent bonding detect link of wlan0.=
+ I enslave wlan0 and i already use use_carrier=3D1;
+I use bond to have my etherenet ip in wifi at office, else the wireless=
+ connection give temporary and you must pass through proxy then.
+I'll try arp monitoring but this is annoying i c'ant test localhost. Is=
+ there a way to test localhost with arp, without pass through lo ?=20
 
-Just a friendly reminder that such a scheme should only be
-applied to autoconfigured addresses.  A manually configured
-duplicated address should not bring down the whole interface.
 
--vlad
+
+----- Message d'origine ----
+De : John W. Linville <linville@tuxdriver.com>
+=C0 : patnel972-linux@yahoo.fr
+Envoy=E9 le : Mercredi, 9 Janvier 2008, 21h24mn 10s
+Objet : Re: Re : Bonding : Monitoring of 4965 wireless card
+
+On Wed, Jan 09, 2008 at 07:31:37PM +0000, patnel972-linux@yahoo.fr
+ wrote:
+> I'm doing a bonding with my eth0(e1000 driver) and my wlan
+> card(iwl4965). It work like i want, when i'm in wifi the dhcp give
+> me my ethernet adress. When i unplug the cable, my wlan card become
+> in charge of network. My problem is when i disconnect the wlan card,
+> the bonding does not detect it correctly, and ifplugstatus show me
+> wlan0 not connected and wmaster0 connected!! The bonding module does
+> not say no active interface, it work like wlan is on.
+>=20
+> Am i clear?
+
+Yes, that is much more clear to me.
+
+What (if anything) are you doing to wmaster0?  You should just
+ignore it.
+
+=46WIW, miimon is not going to work with a mac80211-based device at
+this time.  The miimon option relies on support for either miitool
+or ethtool, and mac80211 device support neither of those.
+
+Hmmm...it looks like there is a use_carrier option for miimon.
+Based on its description I would think it would work.  Of course,
+I think it is supposed to be the default and you don't seem to be
+disabling it.  So, I'm not sure what is happening.
+
+Are you enslaving wlan0?  Or wmaster0?  Make sure it is wlan0.
+Also, please add use_carrier=3D1 to your bonding module options.
+Does this change the behaviour?  If not, please open a bug at either
+bugzilla.redhat.com (if you are a Fedora, RHEL, or even CentOS user)
+or bugzilla.kernel.org (otherwise).
+
+In the meantime, you might try using NetworkManger.  Or you
+might consider using ARP monitoring.  The former probably is the
+best solution if you are mobile (e.g.  at a cafe or other hotspot)
+while the latter might be appropriate if you are just plugging and
+un-plugging within the same network (like at home or office).
+
+Hth!
+
+John
+--=20
+John W. Linville
+linville@tuxdriver.com
+
+
+
+
+
+      _________________________________________________________________=
+____________=20
+Ne gardez plus qu'une seule adresse mail ! Copiez vos mails vers Yahoo!=
+ Mail http://mail.yahoo.fr
