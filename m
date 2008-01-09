@@ -1,8 +1,8 @@
 From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net-2.6.25 12/19] [NETNS] Show routing information from
-	correct namespace (fib_trie.c)
-Date: Wed,  9 Jan 2008 21:04:33 +0300
-Message-ID: <1199901880-6812-12-git-send-email-den@openvz.org>
+Subject: [PATCH net-2.6.25 15/19] [NETNS] Provide correct namespace for
+	fibnl netlink socket.
+Date: Wed,  9 Jan 2008 21:04:36 +0300
+Message-ID: <1199901880-6812-15-git-send-email-den@openvz.org>
 References: <47850C57.60907@openvz.org>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org,
         benjamin.thery-6ktuUTfB/bM@public.gmane.org
@@ -20,141 +20,103 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is the second part (for the CONFIG_IP_FIB_TRIE case) of the patch #4,
-where we have created proc files in namespaces.
-
-Now we can dump correct info in them.
+This patch makes the netlink socket to be per namespace. That allows to have
+each namespace its own socket for routing queries.
 
 Acked-by: Benjamin Thery <benjamin.thery-6ktuUTfB/bM@public.gmane.org>
 Acked-by: Daniel Lezcano <dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Denis V. Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 ---
- net/ipv4/fib_trie.c |   44 ++++++++++++++++++++++++++++++++------------
- 1 files changed, 32 insertions(+), 12 deletions(-)
+ include/net/netns/ipv4.h |    2 ++
+ net/ipv4/fib_frontend.c  |   24 ++++++++++++++++--------
+ 2 files changed, 18 insertions(+), 8 deletions(-)
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 9526758..708faa9 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1992,6 +1992,7 @@ struct fib_table *fib_hash_init(u32 id)
- #ifdef CONFIG_PROC_FS
- /* Depth first Trie walk iterator */
- struct fib_trie_iter {
-+	struct seq_net_private p;
- 	struct trie *trie_local, *trie_main;
- 	struct tnode *tnode;
- 	struct trie *trie;
-@@ -2159,17 +2160,18 @@ static void trie_show_stats(struct seq_file *seq, struct trie_stat *stat)
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 629ec6c..031d761 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -9,6 +9,7 @@ struct ctl_table_header;
+ struct ipv4_devconf;
+ struct fib_rules_ops;
+ struct hlist_head;
++struct sock;
  
- static int fib_triestat_seq_show(struct seq_file *seq, void *v)
+ struct netns_ipv4 {
+ #ifdef CONFIG_SYSCTL
+@@ -18,5 +19,6 @@ struct netns_ipv4 {
+ 	struct fib_rules_ops	*rules_ops;
+ #endif
+ 	struct hlist_head	*fib_table_hash;
++	struct sock		*fibnl;
+ };
+ #endif
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 7fe54a3..a5e8167 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -49,8 +49,6 @@
+ 
+ #define FFprint(a...) printk(KERN_DEBUG a)
+ 
+-static struct sock *fibnl;
+-
+ #ifndef CONFIG_IP_MULTIPLE_TABLES
+ 
+ static int __net_init fib4_rules_init(struct net *net)
+@@ -845,11 +843,13 @@ static void nl_fib_lookup(struct fib_result_nl *frn, struct fib_table *tb )
+ 
+ static void nl_fib_input(struct sk_buff *skb)
  {
-+	struct net *net = (struct net *)seq->private;
- 	struct trie *trie_local, *trie_main;
- 	struct trie_stat *stat;
- 	struct fib_table *tb;
- 
- 	trie_local = NULL;
--	tb = fib_get_table(&init_net, RT_TABLE_LOCAL);
-+	tb = fib_get_table(net, RT_TABLE_LOCAL);
- 	if (tb)
- 		trie_local = (struct trie *) tb->tb_data;
- 
- 	trie_main = NULL;
--	tb = fib_get_table(&init_net, RT_TABLE_MAIN);
-+	tb = fib_get_table(net, RT_TABLE_MAIN);
- 	if (tb)
- 		trie_main = (struct trie *) tb->tb_data;
- 
-@@ -2199,7 +2201,25 @@ static int fib_triestat_seq_show(struct seq_file *seq, void *v)
- 
- static int fib_triestat_seq_open(struct inode *inode, struct file *file)
- {
--	return single_open(file, fib_triestat_seq_show, NULL);
-+	int err;
 +	struct net *net;
-+
-+	net = get_proc_net(inode);
-+	if (net == NULL)
-+		return -ENXIO;
-+	err = single_open(file, fib_triestat_seq_show, net);
-+	if (err < 0) {
-+		put_net(net);
-+		return err;
-+	}
-+	return 0;
-+}
-+
-+static int fib_triestat_seq_release(struct inode *ino, struct file *f)
-+{
-+	struct seq_file *seq = f->private_data;
-+	put_net(seq->private);
-+	return single_release(ino, f);
- }
- 
- static const struct file_operations fib_triestat_fops = {
-@@ -2207,7 +2227,7 @@ static const struct file_operations fib_triestat_fops = {
- 	.open	= fib_triestat_seq_open,
- 	.read	= seq_read,
- 	.llseek	= seq_lseek,
--	.release = single_release,
-+	.release = fib_triestat_seq_release,
- };
- 
- static struct node *fib_trie_get_idx(struct fib_trie_iter *iter,
-@@ -2236,12 +2256,12 @@ static void *fib_trie_seq_start(struct seq_file *seq, loff_t *pos)
+ 	struct fib_result_nl *frn;
+ 	struct nlmsghdr *nlh;
  	struct fib_table *tb;
+ 	u32 pid;
  
- 	if (!iter->trie_local) {
--		tb = fib_get_table(&init_net, RT_TABLE_LOCAL);
-+		tb = fib_get_table(iter->p.net, RT_TABLE_LOCAL);
- 		if (tb)
- 			iter->trie_local = (struct trie *) tb->tb_data;
- 	}
- 	if (!iter->trie_main) {
--		tb = fib_get_table(&init_net, RT_TABLE_MAIN);
-+		tb = fib_get_table(iter->p.net, RT_TABLE_MAIN);
- 		if (tb)
- 			iter->trie_main = (struct trie *) tb->tb_data;
- 	}
-@@ -2385,8 +2405,8 @@ static const struct seq_operations fib_trie_seq_ops = {
++	net = skb->sk->sk_net;
+ 	nlh = nlmsg_hdr(skb);
+ 	if (skb->len < NLMSG_SPACE(0) || skb->len < nlh->nlmsg_len ||
+ 	    nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*frn)))
+@@ -861,28 +861,36 @@ static void nl_fib_input(struct sk_buff *skb)
+ 	nlh = nlmsg_hdr(skb);
  
- static int fib_trie_seq_open(struct inode *inode, struct file *file)
- {
--	return seq_open_private(file, &fib_trie_seq_ops,
--			sizeof(struct fib_trie_iter));
-+	return seq_open_net(inode, file, &fib_trie_seq_ops,
-+			    sizeof(struct fib_trie_iter));
+ 	frn = (struct fib_result_nl *) NLMSG_DATA(nlh);
+-	tb = fib_get_table(&init_net, frn->tb_id_in);
++	tb = fib_get_table(net, frn->tb_id_in);
+ 
+ 	nl_fib_lookup(frn, tb);
+ 
+ 	pid = NETLINK_CB(skb).pid;       /* pid of sending process */
+ 	NETLINK_CB(skb).pid = 0;         /* from kernel */
+ 	NETLINK_CB(skb).dst_group = 0;  /* unicast */
+-	netlink_unicast(fibnl, skb, pid, MSG_DONTWAIT);
++	netlink_unicast(net->ipv4.fibnl, skb, pid, MSG_DONTWAIT);
  }
  
- static const struct file_operations fib_trie_fops = {
-@@ -2394,7 +2414,7 @@ static const struct file_operations fib_trie_fops = {
- 	.open   = fib_trie_seq_open,
- 	.read   = seq_read,
- 	.llseek = seq_lseek,
--	.release = seq_release_private,
-+	.release = seq_release_net,
- };
- 
- static unsigned fib_flag_trans(int type, __be32 mask, const struct fib_info *fi)
-@@ -2489,8 +2509,8 @@ static const struct seq_operations fib_route_seq_ops = {
- 
- static int fib_route_seq_open(struct inode *inode, struct file *file)
+ static int nl_fib_lookup_init(struct net *net)
  {
--	return seq_open_private(file, &fib_route_seq_ops,
--			sizeof(struct fib_trie_iter));
-+	return seq_open_net(inode, file, &fib_route_seq_ops,
-+			    sizeof(struct fib_trie_iter));
+-	fibnl = netlink_kernel_create(net, NETLINK_FIB_LOOKUP, 0,
+-				      nl_fib_input, NULL, THIS_MODULE);
+-	if (fibnl == NULL)
++	struct sock *sk;
++	sk = netlink_kernel_create(net, NETLINK_FIB_LOOKUP, 0,
++				   nl_fib_input, NULL, THIS_MODULE);
++	if (sk == NULL)
+ 		return -EAFNOSUPPORT;
++	/* Don't hold an extra reference on the namespace */
++	put_net(sk->sk_net);
++	net->ipv4.fibnl = sk;
+ 	return 0;
  }
  
- static const struct file_operations fib_route_fops = {
-@@ -2498,7 +2518,7 @@ static const struct file_operations fib_route_fops = {
- 	.open   = fib_route_seq_open,
- 	.read   = seq_read,
- 	.llseek = seq_lseek,
--	.release = seq_release_private,
-+	.release = seq_release_net,
- };
+ static void nl_fib_lookup_exit(struct net *net)
+ {
+-	sock_put(fibnl);
++	/* At the last minute lie and say this is a socket for the
++	 * initial network namespace. So the socket will  be safe to free.
++	 */
++	net->ipv4.fibnl->sk_net = get_net(&init_net);
++	sock_put(net->ipv4.fibnl);
+ }
  
- int __net_init fib_proc_init(struct net *net)
--- 
-1.5.3.rc5
+ static void fib_disable_ip(struct net_device *dev, int force)
