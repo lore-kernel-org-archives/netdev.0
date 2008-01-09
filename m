@@ -1,36 +1,55 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: SACK scoreboard
-Date: Wed, 09 Jan 2008 09:56:16 -0500
-Message-ID: <4784E090.8080303@psc.edu>
-References: <20080108.144456.173014334.davem@davemloft.net>	<p73sl17pwfy.fsf@bingen.suse.de>	<47844D1C.1060706@psc.edu> <20080108.224144.234253941.davem@davemloft.net>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH 0/3] bonding: 3 fixes for 2.6.24
+Date: Wed, 9 Jan 2008 10:27:40 -0500
+Message-ID: <20080109152740.GE8728@gospo.usersys.redhat.com>
+References: <11997574203125-git-send-email-fubar@us.ibm.com> <Pine.LNX.4.64.0801081949290.1135@bizon.gios.gov.pl> <29560.1199820632@death> <Pine.LNX.4.64.0801090732490.1135@bizon.gios.gov.pl> <17850.1199865514@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, ilpo.jarvinen@helsinki.fi,
-	lachlan.andrew@gmail.com, netdev@vger.kernel.org,
-	quetchen@caltech.edu
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Krzysztof Oledzki <olel@ans.pl>, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer2.psc.edu ([128.182.66.106]:62111 "EHLO mailer2.psc.edu"
+Received: from mx1.redhat.com ([66.187.233.31]:48044 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751257AbYAIO4d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jan 2008 09:56:33 -0500
-In-Reply-To: <20080108.224144.234253941.davem@davemloft.net>
+	id S1752092AbYAIP3e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jan 2008 10:29:34 -0500
+Content-Disposition: inline
+In-Reply-To: <17850.1199865514@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: John Heffner <jheffner@psc.edu>
-> Date: Tue, 08 Jan 2008 23:27:08 -0500
+On Tue, Jan 08, 2008 at 11:58:34PM -0800, Jay Vosburgh wrote:
+> Krzysztof Oledzki <olel@ans.pl> wrote:
 > 
->> I also wonder how much of a problem this is (for now, with window sizes 
->> of order 10000 packets.  My understanding is that the biggest problems 
->> arise from O(N^2) time for recovery because every ack was expensive. 
->> Have current tests shown the final ack to be a major source of problems?
+> >Fine. Just let you know that someone test your patches and everything
+> >works, except mentioned problem.
 > 
-> Yes, several people have reported this.
+> 	And I appreciate it; I just wanted to make sure our many fans
+> following along at home didn't misunderstand.
+> 
+> 	Could you let me know if the patch below make the lockdep
+> warning go away?  This applies on top of the previous three, although it
+> should be trivial to do by hand.
+> 
+> 	I'm still checking to make sure this is safe with regard to
+> mutexing the bonding structures, but it would be good to know if it
+> eliminates the warning.
+> 
+> 	-J
+> 
 
-I may have missed some of this.  Does anyone have a link to some recent 
-data?
+Jay,
 
-   -John
+My initial concern was that a slave device could disappear out from
+under us, but it seems like this certainly isn't the case since all
+calls to bond_release are protected by rtnl-locks, so I think you are
+correct that we are safe.  I'll test this on my setup here and let you
+know if I see any problems.
+
+-andy
+
+
+
