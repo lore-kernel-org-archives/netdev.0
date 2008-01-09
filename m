@@ -1,72 +1,36 @@
-From: Karsten Keil <kkeil@suse.de>
-Subject: Linux IPv6 DAD not full conform to RFC 4862 ?
-Date: Wed, 9 Jan 2008 16:36:56 +0100
-Message-ID: <20080109153656.GA16962@pingi.kke.suse.de>
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: Re: Top 10 kernel oopses for the week ending January 5th, 2008
+Date: Wed, 09 Jan 2008 07:28:40 -0800
+Message-ID: <4784E828.7090906@linux.intel.com>
+References: <477FF149.4070609@linux.intel.com>	 (sfid-20080105_210825_521052_738F2802) <1199887950.6762.26.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:39924 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752535AbYAIPg6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jan 2008 10:36:58 -0500
-Received: from Relay1.suse.de (relay-ext.suse.de [195.135.221.8])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mx2.suse.de (Postfix) with ESMTP id A19452FE02
-	for <netdev@vger.kernel.org>; Wed,  9 Jan 2008 16:36:57 +0100 (CET)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	NetDev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755634AbYAIPlG@vger.kernel.org>
+In-Reply-To: <1199887950.6762.26.camel@johannes.berg>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Johannes Berg wrote:
+>> Rank 1: __ieee80211_rx
+>> 	Warning at net/mac80211/rx.c:1672
+>> 	Reported 6 times (11 total reports)
+>> 	Same issue that was ranked 2nd last week
+>> 	Johannes has diagnosed this as a driver bug in the iwlwifi drivers
+>> 	More info: http://www.kerneloops.org/search.php?search=__ieee80211_rx
+> 
+> Note that because we don't get the module list for WARN_ON, we don't
+> actually know whether all of these instances are from the iwlwifi
+> drivers. A few other drivers suffer from the same problem. In one of
+> these cases, iwlwifi was contained in the stack trace, but in the common
+> case that isn't happening because packet processing is delayed to a
+> tasklet.
+> 
 
-I tried to run the 1.5.0 Beta2  TAHI Selftest on recent Linux kernel.
-It fails in the Stateless Address Autoconfiguration section with
-6 tests.
-These tests are for Duplicate Address Detection (DAD).
-They are detect for the Link Local Address a duplicate address on the
-network. It seems that our current behavior is to log an message and
-do not assign this address.
-
-But the RFC 4862 says:
-
-5.4.5.  When Duplicate Address Detection Fails
-
-   A tentative address that is determined to be a duplicate as described
-   above MUST NOT be assigned to an interface, and the node SHOULD log a
-   system management error.
-
-   If the address is a link-local address formed from an interface
-   identifier based on the hardware address, which is supposed to be
-   uniquely assigned (e.g., EUI-64 for an Ethernet interface), IP
-   operation on the interface SHOULD be disabled.  By disabling IP
-   operation, the node will then:
-
-   -  not send any IP packets from the interface,
-
-   -  silently drop any IP packets received on the interface, and
-
-   -  not forward any IP packets to the interface (when acting as a
-      router or processing a packet with a Routing header).
-
-   In this case, the IP address duplication probably means duplicate
-   hardware addresses are in use, and trying to recover from it by
-   configuring another IP address will not result in a usable network.
-   In fact, it probably makes things worse by creating problems that are
-   harder to diagnose than just disabling network operation on the
-   interface; the user will see a partially working network where some
-   things work, and other things do not.
-
-   On the other hand, if the duplicate link-local address is not formed
-   from an interface identifier based on the hardware address, which is
-   supposed to be uniquely assigned, IP operation on the interface MAY
-   be continued.
-
-
-So I think we should disable the interface now, if DAD fails on a
-hardware based LLA.
-
--- 
-Karsten Keil
-SuSE Labs
+and fwiw a patch to get this added to WARN_ON was posted by my last week to fix this;
+once this goes into 2.6.25-rc this annoyance/hinderance in debugging will be fixed.
