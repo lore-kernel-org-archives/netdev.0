@@ -1,28 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: make ipv6_sysctl_register to return a value
-Date: Wed, 09 Jan 2008 03:50:28 -0800 (PST)
-Message-ID: <20080109.035028.49376263.davem@davemloft.net>
-References: <47828DEB.9070301@fr.ibm.com>
-	<20080109.002632.136758957.davem@davemloft.net>
-	<47849A60.1020909@fr.ibm.com>
+Subject: Re: [ATM]: Check IP header validity in mpc_send_packet
+Date: Wed, 09 Jan 2008 03:52:28 -0800 (PST)
+Message-ID: <20080109.035228.236150477.davem@davemloft.net>
+References: <20080109102745.GA29297@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dlezcano@fr.ibm.com
+Cc: netdev@vger.kernel.org, viro@ftp.linux.org.uk,
+	chas@cmf.nrl.navy.mil
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50682
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50700
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751894AbYAILu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 06:50:29 -0500
-In-Reply-To: <47849A60.1020909@fr.ibm.com>
+	by vger.kernel.org with ESMTP id S1752519AbYAILw3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 06:52:29 -0500
+In-Reply-To: <20080109102745.GA29297@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Date: Wed, 09 Jan 2008 10:56:48 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 9 Jan 2008 21:27:45 +1100
 
-> To clear out any confusion, please can you just ignore all my previous 
-> patches, I will resend a new serie rebased on the work done by Pavel.
+> [ATM]: Check IP header validity in mpc_send_packet
+> 
+> Al went through the ip_fast_csum callers and found this piece of code
+> that did not validate the IP header.  While root crashing the machine
+> by sending bogus packets through raw or AF_PACKET sockets isn't that
+> serious, it is still nice to react gracefully.
+> 
+> This patch ensures that the skb has enough data for an IP header and
+> that the header length field is valid.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Ok, thanks.
+Applied, thanks for following up on this.
