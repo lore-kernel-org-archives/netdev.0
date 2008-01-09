@@ -1,28 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC 1/2] [XFRM] remove ifdef crypto
-Date: Wed, 09 Jan 2008 00:36:31 -0800 (PST)
-Message-ID: <20080109.003631.47985276.davem@davemloft.net>
-References: <20080105123637.GA12561@Chamillionaire.breakpoint.cc>
-	<E1JCLys-0000RU-2G@Chamillionaire.breakpoint.cc>
+Subject: Re: [PATCH 1/3] drivers/net/ipg.c: Fix skbuff leak
+Date: Wed, 09 Jan 2008 00:39:52 -0800 (PST)
+Message-ID: <20080109.003952.25384040.davem@davemloft.net>
+References: <20080108213640.GC4450@electric-eye.fr.zoreil.com>
+	<20080109003840.22917.qmail@science.horizon.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sebastian@breakpoint.cc
+Cc: romieu@fr.zoreil.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org
+To: linux@horizon.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57271
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39141
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751480AbYAIIgc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 03:36:32 -0500
-In-Reply-To: <E1JCLys-0000RU-2G@Chamillionaire.breakpoint.cc>
+	by vger.kernel.org with ESMTP id S1751894AbYAIIjx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 03:39:53 -0500
+In-Reply-To: <20080109003840.22917.qmail@science.horizon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sebastian Siewior <sebastian@breakpoint.cc>
-Date: Sat, 8 Jan 2008 22:26:37 +0100
+From: linux@horizon.com
+Date: 8 Jan 2008 19:38:40 -0500
 
-> and select the crypto subsystem if neccessary
-> 
-> Signed-off-by: Sebastian Siewior <sebastian@breakpoint.cc>
+> That doesn't seem to do it.  Not entirely, at least.  After downloading
+> and partially re-uploading an 800M file, slabtop reports:
 
-Applied, thanks.
+Ok, I'll let you and Francois work out how to fix this for
+good.
+
+Please submit just the outright leak bug fixes once this is
+all resolved.  All of that code cleanup stuff needs to wait
+until later, let's fix bugs before adding new ones. :-)
+
+Thanks.
