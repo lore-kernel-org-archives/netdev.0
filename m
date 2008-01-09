@@ -1,98 +1,98 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Re : Re : Re : Bonding : Monitoring of 4965 wireless card
-Date: Wed, 09 Jan 2008 15:26:38 -0800
-Message-ID: <10541.1199921198@death>
-References: <416779.67064.qm@web25704.mail.ukl.yahoo.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new]  [Bug 9719] New: when a system is configured as a
+ bridge, and at the same time configured to have multipath weighted route,
+ with one leg goes thru NAT and another without NAT, the nat path will
+ intermittently get packets leaking out using internal IP without being
+ SNAT-ted
+Date: Wed, 9 Jan 2008 15:28:13 -0800
+Message-ID: <20080109152813.83fb8168.akpm@linux-foundation.org>
+References: <bug-9719-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: patnel972-linux@yahoo.fr
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: mingching.tiew@redtone.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:44782 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750962AbYAIX0k convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 18:26:40 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m09NQemp028089
-	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 18:26:40 -0500
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m09NQd6e106968
-	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 16:26:39 -0700
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m09NQdJs020711
-	for <netdev@vger.kernel.org>; Wed, 9 Jan 2008 16:26:39 -0700
-In-reply-to: <416779.67064.qm@web25704.mail.ukl.yahoo.com> 
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:34759 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754156AbYAIX2q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2008 18:28:46 -0500
+In-Reply-To: <bug-9719-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-patnel972-linux@yahoo.fr wrote:
 
->I mean that instead of arp test an ip in lan or else, i want it to tes=
-t 127.0.0.1 but in order to do this it must go out and re-enter and the=
-n use wlan0 to go out.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-	In other words, what I think you're saying (and I'm not entirely
-sure here) is that you want probes to go to a remote node on the
-network, and back, without having to actually know the identity of the
-remote node (because, presumably, on a roaming type of wireless
-configuration, your gateway and whatnot can change from time to time).
+On Wed,  9 Jan 2008 11:55:50 -0800 (PST)
+bugme-daemon@bugzilla.kernel.org wrote:
 
-	Is that what you're looking for?
+> http://bugzilla.kernel.org/show_bug.cgi?id=9719
+> 
+>            Summary: when a system is configured as a bridge, and at the same
+>                     time configured to have multipath weighted route, with
+>                     one leg goes thru NAT and another without NAT, the nat
+>                     path will intermittently get packets leaking out using
+>                     internal IP without being SNAT-ted
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6.22.15 and 2.6.23
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Netfilter/Iptables
+>         AssignedTo: networking_netfilter-iptables@kernel-bugs.osdl.org
+>         ReportedBy: mingching.tiew@redtone.com
+> 
+> 
+> Latest working kernel version: 2.6.23
+> Earliest failing kernel version: 2.6.22.15
 
-	That isn't available now, but might be straightforward to plug
-into the address update system to keep the arp_ip_target up to date as
-the current gateway as the gateway changes.  I haven't looked into the
-details of doing that, but in theory it sounds straightforward.
+This doesn't make sense.  What we're trying to ask here (and we've been
+unable to find a pair of questions which 100% of reporters can successfully
+answer) is whether this is a regression, and in which kernel release did we
+regress?
 
-	-J
+In other words: did we break it, and if so, when did we break it?
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+> Distribution: iptables 1.4.0 was used with kernel 2.6.23 and iptables 1.3.8
+> with 2.6.22.15
+> Hardware Environment: 3 interfaces, 2 interfaces bridged to form br0, and
+> another connects to internet using pppoe.
+> Software Environment: bridge, multipath routing
+> Problem Description: when a system is configured as a bridge with IP assigned
+> to br0 interface, and at the same time it is configured to have multipath
+> weighted default route, and one of the default route is NAT-ed and another of
+> the default route is not NAT-ed, then it is NAT-ed interface will occasionally
+> get packets leaking out to it with packets with private IPs.
+> 
+> Steps to reproduce: 
+> 1) setup the bridge interface and assign an IP to it 
+> 2) setup an default gateway on side B of the bridge ( without NAT ) and default
+> route the bridge to this gateway. 
+> 3) Setup a client on side A of the bridge and default route to the bridge br0
+> interface.
+> 4) Start ping'ing an internet site, for example www.google.com from the client.
+>    Run the ping continuously, for example :-
+>          while true
+>          do
+>             ping -c 1 www.google.com
+>             sleep 1
+>          done
+> 5) after successfully and consistently getting a ping response from the
+> www.google.com, on the bridge system start up another uplink to the internet,
+> but this uplink is SNAT-ed 
+> 
+>        ( eg iptables -t nat -A POSTROUTING -o eth2 -j MASQUERADE ) 
+> 
+> 6) verify and make sure that the second uplink is working.
+> 7) change the default route on the bridge to multipath weighted route with
+> equal weight on both the uplinks.
+> 8) sniff the NAT-ed inteface for packets coming in from the LAN client.
+> Occasionallly packets with private IP leaks to the NAT-ed interface.
+> 
 
-
->
->----- Message d'origine ----
->De : Jay Vosburgh <fubar@us.ibm.com>
->=C3=80 : patnel972-linux@yahoo.fr
->Cc : John W. Linville <linville@tuxdriver.com>; netdev@vger.kernel.org
->Envoy=C3=A9 le : Mercredi, 9 Janvier 2008, 22h36mn 00s
->Objet : Re: Re : Re : Bonding : Monitoring of 4965 wireless card=20
->
->patnel972-linux@yahoo.fr wrote:
->
->>I ignore it, but it seems like it prevent bonding detect link of
-> wlan0. I enslave wlan0 and i already use use_carrier=3D1;
->
->    The default for bonding is use_carrier=3D1, which makes bonding
->use the device driver's netif_carrier_on/off state for link detection.
->Bonding only checks via ethtool/mii if use_carrier=3D0.
->
->>I'll try arp monitoring but this is annoying i c'ant test localhost.
-> Is there a way to test localhost with arp, without pass through lo ?=20
->
->    What do you mean by "test localhost with arp, without pass
->through lo"?  ARP monitoring issues probes (ARPs) to a remote
->destination to confirm that there is connectivity; I'm not sure what
->localhost has to do with it.
->
->    In general, though, I have not tested bonding with wireless
->adapters, so I'm unfamiliar with how well it does or does not work.
->
->    -J
->
->---
->    -Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
->
->
->
->
->
->      ________________________________________________________________=
-_____________=20
->Ne gardez plus qu'une seule adresse mail ! Copiez vos mails vers Yahoo=
-! Mail http://mail.yahoo.fr
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
