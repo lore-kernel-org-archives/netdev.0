@@ -1,333 +1,152 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: Top 10 kernel oopses for the week ending January 5th, 2008
-Date: Thu, 10 Jan 2008 05:53:59 +0000
-Message-ID: <20080110055359.GA27894@ZenIV.linux.org.uk>
-References: <477FF149.4070609@linux.intel.com> <20080105213935.GN27894@ZenIV.linux.org.uk> <20080107174431.GC27741@fieldses.org> <4782CF9C.6000508@gmail.com> <alpine.LFD.1.00.0801071851120.3148@woody.linux-foundation.org> <20080108055917.GZ27894@ZenIV.linux.org.uk> <18309.39804.31974.851666@notabene.brown>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Kevin Winchester <kjwinchester@gmail.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>, gregkh@suse.de
-To: Neil Brown <neilb@suse.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754317AbYAJFyZ@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <18309.39804.31974.851666@notabene.brown>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: linux@horizon.com
+Subject: ipg.c bugs
+Date: 10 Jan 2008 02:28:09 -0500
+Message-ID: <20080110072809.1473.qmail@science.horizon.com>
+References: <20080109233056.GA5673@electric-eye.fr.zoreil.com>
+Cc: akpm@linux-foundation.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: linux@horizon.com, romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from science.horizon.com ([192.35.100.1]:15094 "HELO
+	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753022AbYAJH3w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 02:29:52 -0500
+In-Reply-To: <20080109233056.GA5673@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 10, 2008 at 03:13:48PM +1100, Neil Brown wrote:
-> > What guarantees that it doesn't happen before we get to callback?  AFAICS,
-> > nothing whatsoever...
-> 
-> Yes, that's bad isn't it :-)
-> 
-> I think I should be using sysfs_schedule_callback here.  That makes the 
-> required 'get' and 'put' calls.... but it can fail with -ENOMEM.  I
-> wonder what I do if -ENOMEM???  Maybe I'll just continue to roll my
-> one :-( 
+I'm just about to test that second memory leak patch, but I gave the
+original code a careful reading, and found a few problems:
 
-How about this instead (completely untested)
+* Huge monstrous glaring bug
 
-	* split failure exits
-	* switch to kick_rdev_from_array()
-	* fold unbind_rdev_from_array() into it (no other callers anymore)
-	* take export_rdev() into failure case in bind_rdev_to_array()
-	* in kick_rdev_from_array() do what export_rdev() does sans
-kobject_put() and do that before schedule_work().  Take kobject_put() into
-delayed_delete().
+  In ipg_interrupt_handler the code to habdle a shared interrupt
+  not caused by this device:
+	if (!(status & IPG_IS_RSVD_MASK))
+		goto out_enable
+  is *before* spin_lock(&sp->lock), but the code following
+  out_enable does spin_unlock(&sp->lock).
 
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
----
-diff --git a/drivers/md/md.c b/drivers/md/md.c
-index cef9ebd..116cc5a 100644
---- a/drivers/md/md.c
-+++ b/drivers/md/md.c
-@@ -1344,6 +1344,39 @@ static int match_mddev_units(mddev_t *mddev1, mddev_t *mddev2)
- 
- static LIST_HEAD(pending_raid_disks);
- 
-+static void unlock_rdev(mdk_rdev_t *rdev)
-+{
-+	struct block_device *bdev = rdev->bdev;
-+	rdev->bdev = NULL;
-+	if (!bdev)
-+		MD_BUG();
-+	bd_release(bdev);
-+	blkdev_put(bdev);
-+}
-+
-+void md_autodetect_dev(dev_t dev);
-+
-+static void __export_rdev(mdk_rdev_t * rdev)
-+{
-+	char b[BDEVNAME_SIZE];
-+	printk(KERN_INFO "md: export_rdev(%s)\n",
-+		bdevname(rdev->bdev,b));
-+	if (rdev->mddev)
-+		MD_BUG();
-+	free_disk_sb(rdev);
-+	list_del_init(&rdev->same_set);
-+#ifndef MODULE
-+	md_autodetect_dev(rdev->bdev->bd_dev);
-+#endif
-+	unlock_rdev(rdev);
-+}
-+
-+static void export_rdev(mdk_rdev_t * rdev)
-+{
-+	__export_rdev(rdev);
-+	kobject_put(&rdev->kobj);
-+}
-+
- static int bind_rdev_to_array(mdk_rdev_t * rdev, mddev_t * mddev)
- {
- 	char b[BDEVNAME_SIZE];
-@@ -1353,7 +1386,8 @@ static int bind_rdev_to_array(mdk_rdev_t * rdev, mddev_t * mddev)
- 
- 	if (rdev->mddev) {
- 		MD_BUG();
--		return -EINVAL;
-+		err = -EINVAL;
-+		goto out;
- 	}
- 	/* make sure rdev->size exceeds mddev->size */
- 	if (rdev->size && (mddev->size == 0 || rdev->size < mddev->size)) {
-@@ -1362,8 +1396,10 @@ static int bind_rdev_to_array(mdk_rdev_t * rdev, mddev_t * mddev)
- 			 * If mddev->level <= 0, then we don't care
- 			 * about aligning sizes (e.g. linear)
- 			 */
--			if (mddev->level > 0)
--				return -ENOSPC;
-+			if (mddev->level > 0) {
-+				err = -ENOSPC;
-+				goto out;
-+			}
- 		} else
- 			mddev->size = rdev->size;
- 	}
-@@ -1379,12 +1415,16 @@ static int bind_rdev_to_array(mdk_rdev_t * rdev, mddev_t * mddev)
- 			choice++;
- 		rdev->desc_nr = choice;
- 	} else {
--		if (find_rdev_nr(mddev, rdev->desc_nr))
--			return -EBUSY;
-+		if (find_rdev_nr(mddev, rdev->desc_nr)) {
-+			err = -EBUSY;
-+			goto out;
-+		}
- 	}
- 	bdevname(rdev->bdev,b);
--	if (kobject_set_name(&rdev->kobj, "dev-%s", b) < 0)
--		return -ENOMEM;
-+	if (kobject_set_name(&rdev->kobj, "dev-%s", b) < 0) {
-+		err = -ENOMEM;
-+		goto out;
-+	}
- 	while ( (s=strchr(rdev->kobj.k_name, '/')) != NULL)
- 		*s = '!';
- 			
-@@ -1407,9 +1447,11 @@ static int bind_rdev_to_array(mdk_rdev_t * rdev, mddev_t * mddev)
- 	bd_claim_by_disk(rdev->bdev, rdev, mddev->gendisk);
- 	return 0;
- 
-- fail:
-+fail:
- 	printk(KERN_WARNING "md: failed to register dev-%s for %s\n",
- 	       b, mdname(mddev));
-+out:
-+	export_rdev(rdev);
- 	return err;
- }
- 
-@@ -1417,19 +1459,22 @@ static void delayed_delete(struct work_struct *ws)
- {
- 	mdk_rdev_t *rdev = container_of(ws, mdk_rdev_t, del_work);
- 	kobject_del(&rdev->kobj);
-+	kobject_put(&rdev->kobj);
- }
- 
--static void unbind_rdev_from_array(mdk_rdev_t * rdev)
-+static void kick_rdev_from_array(mdk_rdev_t * rdev)
- {
- 	char b[BDEVNAME_SIZE];
- 	if (!rdev->mddev) {
- 		MD_BUG();
-+		export_rdev(rdev);
- 		return;
- 	}
- 	bd_release_from_disk(rdev->bdev, rdev->mddev->gendisk);
- 	list_del_init(&rdev->same_set);
- 	printk(KERN_INFO "md: unbind<%s>\n", bdevname(rdev->bdev,b));
- 	rdev->mddev = NULL;
-+	__export_rdev(rdev);
- 	sysfs_remove_link(&rdev->kobj, "block");
- 
- 	/* We need to delay this, otherwise we can deadlock when
-@@ -1467,40 +1512,6 @@ static int lock_rdev(mdk_rdev_t *rdev, dev_t dev)
- 	return err;
- }
- 
--static void unlock_rdev(mdk_rdev_t *rdev)
--{
--	struct block_device *bdev = rdev->bdev;
--	rdev->bdev = NULL;
--	if (!bdev)
--		MD_BUG();
--	bd_release(bdev);
--	blkdev_put(bdev);
--}
--
--void md_autodetect_dev(dev_t dev);
--
--static void export_rdev(mdk_rdev_t * rdev)
--{
--	char b[BDEVNAME_SIZE];
--	printk(KERN_INFO "md: export_rdev(%s)\n",
--		bdevname(rdev->bdev,b));
--	if (rdev->mddev)
--		MD_BUG();
--	free_disk_sb(rdev);
--	list_del_init(&rdev->same_set);
--#ifndef MODULE
--	md_autodetect_dev(rdev->bdev->bd_dev);
--#endif
--	unlock_rdev(rdev);
--	kobject_put(&rdev->kobj);
--}
--
--static void kick_rdev_from_array(mdk_rdev_t * rdev)
--{
--	unbind_rdev_from_array(rdev);
--	export_rdev(rdev);
--}
--
- static void export_array(mddev_t *mddev)
- {
- 	struct list_head *tmp;
-@@ -2576,8 +2587,10 @@ new_dev_store(mddev_t *mddev, const char *buf, size_t len)
- 						       mdk_rdev_t, same_set);
- 			err = super_types[mddev->major_version]
- 				.load_super(rdev, rdev0, mddev->minor_version);
--			if (err < 0)
--				goto out;
-+			if (err < 0) {
-+				export_rdev(rdev);
-+				return err;
-+			}
- 		}
- 	} else
- 		rdev = md_import_device(dev, -1, -1);
-@@ -2585,9 +2598,6 @@ new_dev_store(mddev_t *mddev, const char *buf, size_t len)
- 	if (IS_ERR(rdev))
- 		return PTR_ERR(rdev);
- 	err = bind_rdev_to_array(rdev, mddev);
-- out:
--	if (err)
--		export_rdev(rdev);
- 	return err ? err : len;
- }
- 
-@@ -3637,8 +3647,7 @@ static void autorun_devices(int part)
- 			printk(KERN_INFO "md: created %s\n", mdname(mddev));
- 			ITERATE_RDEV_GENERIC(candidates,rdev,tmp) {
- 				list_del_init(&rdev->same_set);
--				if (bind_rdev_to_array(rdev, mddev))
--					export_rdev(rdev);
-+				bind_rdev_to_array(rdev, mddev);
- 			}
- 			autorun_array(mddev);
- 			mddev_unlock(mddev);
-@@ -3807,7 +3816,6 @@ static int add_new_disk(mddev_t * mddev, mdu_disk_info_t *info)
- 		return -EOVERFLOW;
- 
- 	if (!mddev->raid_disks) {
--		int err;
- 		/* expecting a device which has a superblock */
- 		rdev = md_import_device(dev, mddev->major_version, mddev->minor_version);
- 		if (IS_ERR(rdev)) {
-@@ -3830,10 +3838,7 @@ static int add_new_disk(mddev_t * mddev, mdu_disk_info_t *info)
- 				return -EINVAL;
- 			}
- 		}
--		err = bind_rdev_to_array(rdev, mddev);
--		if (err)
--			export_rdev(rdev);
--		return err;
-+		return bind_rdev_to_array(rdev, mddev);
- 	}
- 
- 	/*
-@@ -3887,10 +3892,8 @@ static int add_new_disk(mddev_t * mddev, mdu_disk_info_t *info)
- 				validate_super(mddev, rdev);
- 			err = mddev->pers->hot_add_disk(mddev, rdev);
- 			if (err)
--				unbind_rdev_from_array(rdev);
-+				kick_rdev_from_array(rdev);
- 		}
--		if (err)
--			export_rdev(rdev);
- 
- 		md_update_sb(mddev, 1);
- 		set_bit(MD_RECOVERY_NEEDED, &mddev->recovery);
-@@ -3908,7 +3911,6 @@ static int add_new_disk(mddev_t * mddev, mdu_disk_info_t *info)
- 	}
- 
- 	if (!(info->state & (1<<MD_DISK_FAULTY))) {
--		int err;
- 		rdev = md_import_device (dev, -1, 0);
- 		if (IS_ERR(rdev)) {
- 			printk(KERN_WARNING 
-@@ -3938,11 +3940,7 @@ static int add_new_disk(mddev_t * mddev, mdu_disk_info_t *info)
- 			rdev->sb_offset = calc_dev_sboffset(rdev->bdev);
- 		rdev->size = calc_dev_size(rdev, mddev->chunk_size);
- 
--		err = bind_rdev_to_array(rdev, mddev);
--		if (err) {
--			export_rdev(rdev);
--			return err;
--		}
-+		return bind_rdev_to_array(rdev, mddev);
- 	}
- 
- 	return 0;
-@@ -4018,15 +4016,15 @@ static int hot_add_disk(mddev_t * mddev, dev_t dev)
- 		printk(KERN_WARNING 
- 			"md: can not hot-add faulty %s disk to %s!\n",
- 			bdevname(rdev->bdev,b), mdname(mddev));
--		err = -EINVAL;
--		goto abort_export;
-+		export_rdev(rdev);
-+		return -EINVAL;
- 	}
- 	clear_bit(In_sync, &rdev->flags);
- 	rdev->desc_nr = -1;
- 	rdev->saved_raid_disk = -1;
- 	err = bind_rdev_to_array(rdev, mddev);
- 	if (err)
--		goto abort_export;
-+		return err;
- 
- 	/*
- 	 * The rest should better be atomic, we can have disk failures
-@@ -4036,8 +4034,8 @@ static int hot_add_disk(mddev_t * mddev, dev_t dev)
- 	if (rdev->desc_nr == mddev->max_disks) {
- 		printk(KERN_WARNING "%s: can not hot-add to full array!\n",
- 			mdname(mddev));
--		err = -EBUSY;
--		goto abort_unbind_export;
-+		kick_rdev_from_array(rdev);
-+		return -EBUSY;
- 	}
- 
- 	rdev->raid_disk = -1;
-@@ -4052,13 +4050,6 @@ static int hot_add_disk(mddev_t * mddev, dev_t dev)
- 	md_wakeup_thread(mddev->thread);
- 	md_new_event(mddev);
- 	return 0;
--
--abort_unbind_export:
--	unbind_rdev_from_array(rdev);
+  Thus, the sp->lock is all f*ed up.  The lack of any sort of
+  locking between the interrupt handler and hard_start_xmit
+  could cause all sort of issues.
+
+  I'm not actually sure if it's even necessary; I'd think some
+  suitable atomic access to sp->tx_current would suffice.
+
+* Lesser bugs
+
+  There's a general pattern of loops over the range from
+  s->rx_current to sp->rx_dirty.  Some of them are call code
+  that refers to s->rx_current, even though that hasn't been
+  updated yet.
+
+  One instance is in ipg_nic_check_frame_type.
+  A second is in ipg_nic_check_error.
+
+  In ipg_nic_set_multicast(), the code to enable the multicast flags
+  is of the form "if (dev->flags & IFF_MULTICAST & (dev->mc_count > ...))".
+  But IFF_MULTI CAST is not 1, so this will always be false.
+  The seond & needs to be && (2x).
+
+
+  In ipg_io_config(), there's
+	/* Transmitter and receiver must be disabled before setting
+	 * IFSSelect.
+	 */
+	ipg_w32((origmacctrl & (IPG_MC_RX_DISABLE | IPG_MC_TX_DISABLE)) &
+		IPG_MC_RSVD_MASK, MAC_CTRL);
+  I don't know what's going on there, but unless the IPG_MC_RX_DISABLE
+  bit is already set in origmacctrl, that's going to write 0, which
+  won't disable anything.
+
+  Immediately following, there's some similarly buggy code doing something
+  I don't understand with IPG_MC_IFS_96BIT.
+
+
+  The setting of curr in ipg_nic_txfree, with that bizarre do_div, can't
+  possibly be working right.
+
+
+* Possible bugs
+
+  I'm not very sanguine about the handling in init_rfdlist, of the
+  code that handles a failed ipg_get_rxbuff.  In particular, it leaves
+  rxfd->frag_info uninitialized in that case, but does set rxfd->rfs to
+  "buffer ready to be received into", which could lead to receiving into
+  random memory locations.
+
+  In ipg_nic_hard_start_xmit(), the code
+	if (sp->tx_current == (sp->tx_dirty + IPG_TFDLIST_LENGTH))
+		netif_wake_queue(dev);
+  shouldn't that *stop* the queue if the TFDLIST is full?
+
+  I think that the places where the rxfd->rfs and txfd->tfc fields
+  are filled in (containing the hardware-handoff flag) should
+  have memory barriers.
+  
+* Stupid code
+
+  In ipg_io_config, there are three writes to DEBUG_CTRL "Per silicon
+  B3 eratta".  First, that's "errata".  But more significantly,
+  can those writes be combined into one?  Is it necessary to read
+  the DEBUG_CTRL register each time?
+
+  The initialization of rxfd->rfs in init_rfdlist() and ipg_nix_rxrestore()
+  should be moved into ipg_get_rxbuf().  And since the ready bit is there,
+  it should be set AFTER the pointer fields AND there should be a barrier
+  so the hardware doesn't read the fields out of order.
+
+  In ipg_nic_txcleanup(), there's code to call netif_wake_queue every
+  time through the loop in 10 MBit mode (to balance some bug-workaround
+  call that stops the queue every packet in that case), which is
+  quite unnecessary, as ipg_nic_txfree() will do it.
+
+  The IPG_INSERT_MANUAL_VLAN_TAG code (fortunately disabled by default)
+  is just plain bizarre.  What exactly is the use of assigning a tag of
+  0xABC to every packet?
+
+  The code in ipg_hw_init to set up dev->dev_addr reads each of the
+  16-bit address reigsters twice, for no apparent reason.
+
+  There's a lots of code in e.g. ipg_nic_rx() that does endless
+  manipulation of rxfd->rfs with an le64_to_cpu() call around each
+  instance, that should copy it to a CPU-ordered native value and be
+  done with it.  (Some sparse annotations would help, too.)
+
+  Likewise for messing with txfd->tfc in ipg_nic_hard_start_xmit().
+
+  The Frame_WithEnd enum is a very strange value (decimal 10) to use as
+  a bitmapped status flag.
+
+  The four frame fragment functions
+	nic_rx_with_start_and_end
+	nic_rx_with_start
+	nic_rx_with_end
+	nic_rx_so_start_no_end
+  could easily be unified into one.
+
+* Performance left on the floor
+
+  The hardware supports scallter/gather, hardware checksums, VLAN tagging,
+  and 64-bit (well, 40-bit) DMA, but the driver sets no feature flags.
+
+  The jumbo frame reception code could generate fragmented skbs rather
+  that doing all those memcopies.
+
+  Would it be worth splitting the 64-bit ->rfs and ->txc fields into
+  two 32-bit fields?
+
+  Would it be worth copying small incoming packets to small skbs and
+  keeping the large skb in the receive queue?
+
+* Questions
+
+  In net_device_stats, are all those statistics registers cleared by
+  a read?
+
+  How do we determine the silicon revision numbers, so we can stop enabling
+  bug workarounds on versions that don't need it?
+
+  Where can I find docs about the scatter/gather features?  The bitfield
+  definitions are a bit vague.
