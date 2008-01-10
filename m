@@ -1,159 +1,109 @@
-From: Badalian Vyacheslav <slavon@bigtelecom.ru>
-Subject: Re: No idea about shaping trough many pc
-Date: Thu, 10 Jan 2008 14:23:17 +0300
-Message-ID: <47860025.2040301@bigtelecom.ru>
-References: <4785E01B.3080900@bigtelecom.ru> <20080110103708.M15442@visp.net.lb>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH 2.6.25] [ATM] Oops reading net/atm/arp
+Date: Thu, 10 Jan 2008 14:28:53 +0300
+Message-ID: <20080110112853.GA16173@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: text/plain; charset=us-ascii
+Cc: dlezcano@fr.ibm.com, xemul@openvz.org, netdev@vger.kernel.org,
+	containers@lists.osdl.org, devel@openvz.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bigtelecom.ru ([87.255.0.61]:52940 "EHLO
-	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750926AbYAJLXZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 06:23:25 -0500
-In-Reply-To: <20080110103708.M15442@visp.net.lb>
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:61166 "EHLO iris.sw.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753317AbYAJLZi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jan 2008 06:25:38 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for answer!
-1 PC have more then 15k TC rules.... tc get many cpu si...
-I don't wont split networks on cisco, becouse i need HA. If PC do 
-shutdown - another must get all function. BGP work great for this solution.
-But have troubles in control common traffic from users.
-Will be great if i can create common TC rules that share to all PC and 
-its have common data (statistic, info, tokens, and e.t.c.). Maybe netdev 
-think about system mode that we have one OS on many PC (Like HA 
-Cluster). Linux may do great routing solution!
-Will be great if all 20 PC may be 1 logical PC that have many CPU and 
-may process lots of interrupts!
+cat /proc/net/atm/arp causes the NULL pointer dereference in the
+get_proc_net+0xc/0x3a. This happens as proc_get_net believes that the
+parent proc dir entry contains struct net.
 
-Thanks =)
+Fix this assumption for "net/atm" case.
 
-> For proper link bandwidth sharing i guess something like network counters 
-> have to be shared between PC's (with proper locking). I didn't heard anything 
-> like this
->
-> IMHO a ways to do this:
-> Split destination network to multiple parts and do routes on Cisco. Let's say 
-> you have:
-> 192.168.0.0/16
-> and u have 4 balancing PC's
-> total bandwidth 1Gbit/s (speed conforming to IEC 1000Mbit/s in 1Gbit/s)
->
-> Then u do on cisco :
-> 192.168.0.0/18 via PC1(shared speed 250Mbit/s)
-> 192.168.64.0/18 via PC2(shared speed 250Mbit/s)
-> 192.168.128.0/18 via PC3(shared speed 250Mbit/s)
-> 192.168.192.0/18 via PC4(shared speed 250Mbit/s)
->
-> Probably you can do some scripts to check, if there is in some PC too much 
-> available bandwidth (average 5 minutes), then you can give some other PC 
-> which is need more bandwidth - more bandwidth. For example:
->
-> Average counters for 5minute shows:
-> PC1 - occupy 100Mbit/s
-> PC2 - -//- 50Mbit/s
-> PC3 - -//- 150Mbit/s
-> PC4 - -//- 230Mbit/s
->
-> Then u change link speed:
-> PC1 max 200
-> PC2 max 150
-> PC3 max 250
-> PC4 max 400 (100 from PC2 and 50 from PC1)
->
-> Sure PC must be capable to pass this traffic. And my IMHO it is not normal 
-> that your PC's not able to handle more than 200Mbps of traffic. I have 
-> complicated setup, with 4 LAN 8139 cards, which is passing totally 200Mbps 
-> traffic. I am sure it can handle up to 300mbps, but already i am changing it 
-> to PC with PCI-E e1000/broadcom netxtreme with offloading capabilities, large 
-> buffers and proper drivers with NAPI. I have such hardware handling now for 
-> example 160Mbps and counters is:
-> 12:50:41     CPU   %user   %nice    %sys %iowait    %irq   %soft  %steal
->    %idle    intr/s
-> 12:50:42     all    0.00    0.00    0.00    0.00    0.25    1.24    0.00   
-> 98.51   4009.90
-> 12:50:43     all    0.00    0.00    0.00    0.00    0.00    1.25    0.00   
-> 98.75   4024.75
-> 12:50:44     all    0.00    0.00    0.00    0.00    0.00    1.50    0.00   
-> 98.50   4181.82
-> 12:50:45     all    0.25    0.00    0.00    0.00    0.00    1.50    0.00   
-> 98.25   4626.73
-> 12:50:46     all    0.00    0.00    0.00    0.00    0.00    1.50    0.00   
-> 98.50   4351.52
-> 12:50:47     all    0.25    0.00    0.00    0.00    0.00    1.75    0.00   
-> 98.00   4805.88
->
-> It is 2.6.23.8 with some mistakes during configuration, i am doing to try 
-> 2.6.24-rc7 and some optimizations.
->
-> Right now profile looks like:
-> 10957    17.0675  mwait_idle_with_hints
-> 7454     11.6110  read_hpet
-> 3883      6.0485  _raw_spin_lock
-> 1605      2.5001  timer_interrupt
-> 1363      2.1231  irq_entries_start
->
-> So maybe i will have to try change timers to TSC, disable nmi_watchdog and 
-> try to tune up network driver (bnx2).
-> Probably you have to check such things too.
->
-> On Thu, 10 Jan 2008 12:06:35 +0300, Badalian Vyacheslav wrote
->   
->> Hello all.
->> I try more then 2 month resolve problem witch my shaping.  Maybe you 
->> can help for me?
->>
->> Sheme:
->>                                 +-------------------+
->>                      + ----- | Shaping PC 1 | ---------+
->>                      /          +-------------------+              \
->> +--------+   /           +--------------------+              \       
->>    + --------+ | Cisco |  +-------- | Shaping PC N  | -----------+ --
->> ---| CISCO | +--------+   \           +--------------------+         
->>      /          +---------+                     \          +---------
->> ------------+           /                     + ----- | Shaping PC 
->> 20 | --------+                                +---------------------+
->>
->> Network - Over 10k users. Common bandwidth to INTERNET more then 1 
->> GBs All computers have BGP and turn on multipath. Cisco can't do 
->> load sharing by Packet (its can resolve all my problems =((( ). Only 
->> by DST IP, SRC IP, or +Level4. Ok. User must have speed 1mbs. Lets 
->> look variants:
->> 1. Create rules to user = (1mbs/N computers). If user use N 
->> connection all great, but if it use 1 connection his speed = 1mbs/N -
->>  its not look good. All be great if cisco can PER PACKET load 
->> sharing =(
->> 2. Create rules to user = 1mbs. If user use 1 connection all great,
->>  but if it use N connection his speed much more then needed limit =(
->>
->> Why i use 20 PC? Becouse 1 pc normal forward 100-150mbs... when it 
->> have 100% cpu usage on Sofware Interrupts...
->>
->> Any idea how to resolve this problem?
->>
->> In my dreams (feature request to netdev ;) ):
->> Get PC - title: MASTER TC.  All 20 PC syncronize statistic with 
->> MASTER and have common rules and statistic. Then i use variant 2 and 
->> will be happy... but its not real? =( Maybe have other variants?
->>
->> Thanks for help!
->> Slavon.
->> P.S. Sorry for my english =(
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>     
->
->
-> --
-> Denys Fedoryshchenko
-> Technical Manager
-> Virtual ISP S.A.L.
->
->
->   
+The problem is introduced by the commit c0097b07abf5f92ab135d024dd41bd2aada1512f
+from Eric W. Biederman/Daniel Lezcano.
 
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+
+---
+
+diff --git a/fs/proc/proc_net.c b/fs/proc/proc_net.c
+index cfc4f6c..4823c96 100644
+--- a/fs/proc/proc_net.c
++++ b/fs/proc/proc_net.c
+@@ -96,6 +96,17 @@ static struct proc_dir_entry *proc_net_shadow(struct task_struct *task,
+ 	return task->nsproxy->net_ns->proc_net;
+ }
+ 
++struct proc_dir_entry *proc_net_mkdir(struct net *net, const char *name,
++		struct proc_dir_entry *parent)
++{
++	struct proc_dir_entry *pde;
++	pde = proc_mkdir_mode(name, S_IRUGO | S_IXUGO, parent);
++	if (pde != NULL)
++		pde->data = net;
++	return pde;
++}
++EXPORT_SYMBOL_GPL(proc_net_mkdir);
++
+ static __net_init int proc_net_ns_init(struct net *net)
+ {
+ 	struct proc_dir_entry *root, *netd, *net_statd;
+@@ -107,18 +118,16 @@ static __net_init int proc_net_ns_init(struct net *net)
+ 		goto out;
+ 
+ 	err = -EEXIST;
+-	netd = proc_mkdir("net", root);
++	netd = proc_net_mkdir(net, "net", root);
+ 	if (!netd)
+ 		goto free_root;
+ 
+ 	err = -EEXIST;
+-	net_statd = proc_mkdir("stat", netd);
++	net_statd = proc_net_mkdir(net, "stat", netd);
+ 	if (!net_statd)
+ 		goto free_net;
+ 
+ 	root->data = net;
+-	netd->data = net;
+-	net_statd->data = net;
+ 
+ 	net->proc_net_root = root;
+ 	net->proc_net = netd;
+diff --git a/include/linux/proc_fs.h b/include/linux/proc_fs.h
+index a531682..8f92546 100644
+--- a/include/linux/proc_fs.h
++++ b/include/linux/proc_fs.h
+@@ -201,6 +201,8 @@ static inline struct proc_dir_entry *create_proc_info_entry(const char *name,
+ extern struct proc_dir_entry *proc_net_fops_create(struct net *net,
+ 	const char *name, mode_t mode, const struct file_operations *fops);
+ extern void proc_net_remove(struct net *net, const char *name);
++extern struct proc_dir_entry *proc_net_mkdir(struct net *net, const char *name,
++	struct proc_dir_entry *parent);
+ 
+ #else
+ 
+diff --git a/net/atm/proc.c b/net/atm/proc.c
+index 5d9d5ff..565e75e 100644
+--- a/net/atm/proc.c
++++ b/net/atm/proc.c
+@@ -476,7 +476,7 @@ static void atm_proc_dirs_remove(void)
+ 		if (e->dirent)
+ 			remove_proc_entry(e->name, atm_proc_root);
+ 	}
+-	remove_proc_entry("atm", init_net.proc_net);
++	proc_net_remove(&init_net, "atm");
+ }
+ 
+ int __init atm_proc_init(void)
+@@ -484,7 +484,7 @@ int __init atm_proc_init(void)
+ 	static struct atm_proc_entry *e;
+ 	int ret;
+ 
+-	atm_proc_root = proc_mkdir("atm", init_net.proc_net);
++	atm_proc_root = proc_net_mkdir(&init_net, "atm", init_net.proc_net);
+ 	if (!atm_proc_root)
+ 		goto err_out;
+ 	for (e = atm_proc_ents; e->name; e++) {
