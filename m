@@ -1,87 +1,81 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: questions on NAPI processing latency and dropped network packets
-Date: Thu, 10 Jan 2008 11:24:19 -0600
-Message-ID: <478654C3.60806@nortel.com>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: [PROCFS] [NETNS] issue with /proc/net entries
+Date: Thu, 10 Jan 2008 18:24:49 +0100
+Message-ID: <478654E1.5050501@bull.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758383AbYAJRYl@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ebiederm@xmission.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:42209 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755254AbYAJRYw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 12:24:52 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Hi Eric,
 
-I've got an issue that's popped up with a deployed system running 
-2.6.10.  I'm looking for some help figuring out why incoming network 
-packets aren't being processed fast enough.
+While testing the current network namespace stuff merged in net-2.6.25,
+I bumped into the following problem with the /proc/net/ entries.
+It doesn't always display the actual data of the current namespace,
+but sometime displays data from other namespaces.
 
-After a recent userspace app change, we've started seeing packets being 
-dropped by the ethernet hardware (e1000, NAPI is enabled).  The 
-error/dropped/fifo counts are going up in ethtool:
+I bisected the problem to the commit:
+"proc: remove/Fix proc generic d_revalidate"
+3790ee4bd86396558eedd86faac1052cb782e4e1
 
-      rx_packets: 32180834
-      rx_bytes: 5480756958
-      rx_errors: 862506
-      rx_dropped: 771345
-      rx_length_errors: 0
-      rx_over_errors: 0
-      rx_crc_errors: 0
-      rx_frame_errors: 0
-      rx_fifo_errors: 91161
-      rx_missed_errors: 91161
+The problem: If a process in a particular network namespace changes
+current directory to /proc/net, then processes in other network
+namespaces trying to look at /proc/net entries will see data from the
+first namespace (the one with CWD /proc/net). (See test case below).
 
-This link is receiving roughly 13K packets/sec, and we're dropping 
-roughly 51 packets/sec due to fifo errors.
+As you comments in the commit suggest, you seem to be aware of some
+issues when CONFIG_NET_NS=y. Is it one of these corner cases you
+identified? Any idea on how we can fix it?
 
-Increasing the rx descriptor ring size from 256 up to around 3000 or so 
-seems to make the problem stop, but it seems to me that this is just a 
-workaround for the latency in processing the incoming packets.
+Thanks.
 
-So, I'm looking for some suggestions on how to fix this or to figure out 
-where the latency is coming from.
-
-Some additional information:
+Benjamin
 
 
-1) Interrupts are being processed on both cpus:
+Test case:
+----------
+(1) Shell 1, in init namespace:
+$ cat /proc/net/dev
+lo ...
+eth0 ...
 
-root@base0-0-0-13-0-11-1:/root> cat /proc/interrupts
-            CPU0       CPU1
-  30:    1703756    4530785  U3-MPIC Level     eth0
+(2) Shell 2, in another network namespace
+$ cat /proc/net/dev
+lo ...
+
+(3) Shell 1
+$ cd /proc/net
+$ cat dev
+lo ...
+eth0 ...
+
+(4) Shell 2
+$ cat /proc/net/dev
+lo ...
+eth0 ...
+
+Argh, lo + eth0 in child namespace.... the device list of init netns
+is displayed in /proc/net/dev of child namespace :-(
+
+(5) Shell 1
+$ cd /
+
+(6) Shell 2
+$ cat /proc/net/dev
+lo ...
+
+Back to normality.
 
 
+-- 
+B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
 
-
-2) "top" shows a fair amount of time processing softirqs, but very 
-little time in ksoftirqd (or is that a sampling artifact?).
-
-
-Tasks: 79 total, 1 running, 78 sleeping, 0 stopped, 0 zombie
-Cpu0: 23.6% us, 30.9% sy, 0.0% ni, 36.9% id, 0.0% wa, 0.3% hi, 8.3% si
-Cpu1: 30.4% us, 24.1% sy, 0.0% ni, 5.9% id, 0.0% wa, 0.7% hi, 38.9% si
-Mem:  4007812k total, 2199148k used,  1808664k free,     0k buffers
-Swap:   0k total,       0k used,      0k free,   219844k cached
-
-   PID USER      PR  NI  VIRT  RES  SHR S %CPU %MEM    TIME+  COMMAND
-  5375 root      15   0 2682m 1.8g 6640 S 99.9 46.7  31:17.68 
-SigtranServices
-  7696 root      17   0  6952 3212 1192 S  7.3  0.1   0:15.75 
-schedmon.ppc210
-  7859 root      16   0  2688 1228  964 R  0.7  0.0   0:00.04 top
-  2956 root       8  -8 18940 7436 5776 S  0.3  0.2   0:01.35 blademtc
-     1 root      16   0  1660  620  532 S  0.0  0.0   0:30.62 init
-     2 root      RT   0     0    0    0 S  0.0  0.0   0:00.01 migration/0
-     3 root      15   0     0    0    0 S  0.0  0.0   0:00.55 ksoftirqd/0
-     4 root      RT   0     0    0    0 S  0.0  0.0   0:00.01 migration/1
-     5 root      15   0     0    0    0 S  0.0  0.0   0:00.43 ksoftirqd/1
-
-
-3) /proc/sys/net/core/netdev_max_backlog is set to the default of 300
-
-
-So...anyone have any ideas/suggestions?
-
-Thanks,
-
-Chris
+    http://www.bull.com
