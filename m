@@ -1,42 +1,40 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH take2] Re: Nested VLAN causes recursive locking error
-Date: Thu, 10 Jan 2008 22:08:16 +0100
-Message-ID: <20080110210816.GA3064@ami.dom.local>
-References: <20080102234107.GA6902@ami.dom.local> <47863A4A.6070303@trash.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 0/3] bonding: 3 fixes for 2.6.24
+Date: Fri, 11 Jan 2008 08:05:07 +1100
+Message-ID: <20080110210507.GA17344@gondor.apana.org.au>
+References: <20080109152740.GE8728@gospo.usersys.redhat.com> <32361.1199901296@death> <20080109201709.GF8728@gospo.usersys.redhat.com> <20080109220534.GA2692@gondor.apana.org.au> <7603.1199920750@death> <20080110005809.GA3851@gondor.apana.org.au> <20080110145144.GH8728@gospo.usersys.redhat.com> <20080110203604.GB16621@gondor.apana.org.au> <25832.1199998246@death> <20080110210353.GI8728@gospo.usersys.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Benny Amorsen <benny+usenet@amorsen.dk>,
-	Chuck Ebbert <cebbert@redhat.com>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: Jay Vosburgh <fubar@us.ibm.com>, Krzysztof Oledzki <olel@ans.pl>,
+	netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>,
+	David Miller <davem@davemloft.net>
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.187]:28030 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753873AbYAJVFf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 16:05:35 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so633358fkz.5
-        for <netdev@vger.kernel.org>; Thu, 10 Jan 2008 13:05:33 -0800 (PST)
+Received: from rhun.apana.org.au ([64.62.148.172]:1630 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751918AbYAJVFb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 16:05:31 -0500
 Content-Disposition: inline
-In-Reply-To: <47863A4A.6070303@trash.net>
+In-Reply-To: <20080110210353.GI8728@gospo.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 10, 2008 at 04:31:22PM +0100, Patrick McHardy wrote:
-...
-> No, this seems fine, thanks. Even better would be a way to get
-> the last lockdep subclass through lockdep somehow, but I couldn't
-> find a clean way for this. So I've applied your patch and also
-> fixed macvlan.
+On Thu, Jan 10, 2008 at 04:03:53PM -0500, Andy Gospodarek wrote:
+>
+> > >Sure, but where do you call that function while holding the bond lock?
+> > 
+> > 	If I recall correctly, the problem was that tg3, et al, did
+> > things that might sleep, and bonding was calling from a timer context,
+> > which couldn't sleep.  It wasn't about the lock.
+> 
+> Exactly, I was just about to post the same.
 
-As a matter of fact this simplified version was done mainly to remove
-this bad looking effect of a never decreased global. Of course, your
-proposal with using parent's subclass + 1 would be better, if deeper
-nestings are required: so, I could try to enhance this (probably with
-such additional lockdep macro) after some hint.
+In other words, changing read_lock on bond->lock to read_lock_bh doesn't
+affect this one bit.
 
-But still some 'quirks' are possible there: removing and adding
-devices 'properly' would often require resetting of many subclasses,
-so quite a lot of activities if more devices. And probably not very
-common if not requested until now...
-
-Thanks,
-Jarek P.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
