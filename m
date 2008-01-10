@@ -1,31 +1,23 @@
-From: "Andy Johnson" <johnsonzjo@gmail.com>
-Subject: ipip tunnel code (IPV4)
-Date: Thu, 10 Jan 2008 16:34:34 +0200
-Message-ID: <147a89290801100634t7854a101w203de150982b0284@mail.gmail.com>
+From: Jeba Anandhan <jeba.anandhan@vaioni.com>
+Subject: TCP/IP stack / SMP kernel
+Date: Thu, 10 Jan 2008 14:41:11 +0000
+Message-ID: <1199976071.29856.32.camel@vglwks010.vgl2.office.vaioni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:11724 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753922AbYAJOeg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 09:34:36 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so711022fga.17
-        for <netdev@vger.kernel.org>; Thu, 10 Jan 2008 06:34:34 -0800 (PST)
-Content-Disposition: inline
+Received: from vglsrv002.office.vaioni.com ([84.19.35.12]:3168 "EHLO
+	vglsrv02.vgl2.office.vaioni.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754718AbYAJOmr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 09:42:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hi All,
+I am just wondering how TCP/IP stack runs in SMP kernel with multi
+processor environment?. will TCP/IP stack be on one processor or it is
+shared among the different processors?
 
-I am trying to learn the IPV4 ipip tunnel code  (net/ipv4/ipip.c)
-and I have two little questions about
-semantics of variables:
-
-ipip_fb_tunnel_init - what does "fb" stand for ?
-
-In tunnels_wc   : what does "wc" stand for ?
-
-Regards,
-Andy
+thanks
+Jeba
