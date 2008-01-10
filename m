@@ -1,72 +1,33 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [DECNET] ROUTE: fix rcu_dereference() uses in
- /proc/net/decnet_cache
-Date: Thu, 10 Jan 2008 15:06:10 +0100
-Message-ID: <20080110150610.c13e2125.dada1@cosmosbay.com>
-References: <E1JCU1E-00076z-00@gondolin.me.apana.org.au>
-	<47847A10.1020508@cosmosbay.com>
-	<20080109094637.GA28874@gondor.apana.org.au>
-	<20080109113727.50eae500.dada1@cosmosbay.com>
+From: Jeba Anandhan <jeba.anandhan@vaioni.com>
+Subject: SMP code / network stack
+Date: Thu, 10 Jan 2008 14:05:46 +0000
+Message-ID: <1199973946.29856.27.camel@vglwks010.vgl2.office.vaioni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	dipankar@in.ibm.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: matthew.hattersley@vaioni.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:41562 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754118AbYAJOGL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2008 09:06:11 -0500
-In-Reply-To: <20080109113727.50eae500.dada1@cosmosbay.com>
+Received: from vglsrv002.office.vaioni.com ([84.19.35.12]:2986 "EHLO
+	vglsrv02.vgl2.office.vaioni.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754186AbYAJOHW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 09:07:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David
+Hi All,
 
-Here is DECNET part, shadowing commit 0bcceadceb0907094ba4e40bf9a7cd9b080f13fb ([IPV4] ROUTE: fix rcu_dereference() uses in /proc/net/rt_cache )
+If a server has multiple processors and N number of ethernet cards, is
+it possible to handle transmission by each processor separately? .In
+other words, each processor will be responsible for tx of few ethernet
+cards?.
 
-Thank you
 
 
-[DECNET] ROUTE: fix rcu_dereference() uses in /proc/net/decnet_cache
+Example: Server has 4 processors and 8 ethernet cards. is it possible
+for each processor for transmission using 2 ethernet cards only?. So
+that, at a instant , data will be send out from 8 ethernet cards.
 
-In dn_rt_cache_get_next(), no need to guard seq->private by a rcu_dereference()
-since seq is private to the thread running this function. Reading seq.private
-once (as guaranted bu rcu_dereference()) or several time if compiler really is 
-dumb enough wont change the result.
- 
-But we miss real spots where rcu_dereference() are needed, both in 
-dn_rt_cache_get_first() and dn_rt_cache_get_next()
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index 66663e5..0e10ff2 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -1665,12 +1665,12 @@ static struct dn_route *dn_rt_cache_get_first(struct seq_file *seq)
- 			break;
- 		rcu_read_unlock_bh();
- 	}
--	return rt;
-+	return rcu_dereference(rt);
- }
- 
- static struct dn_route *dn_rt_cache_get_next(struct seq_file *seq, struct dn_route *rt)
- {
--	struct dn_rt_cache_iter_state *s = rcu_dereference(seq->private);
-+	struct dn_rt_cache_iter_state *s = seq->private;
- 
- 	rt = rt->u.dst.dn_next;
- 	while(!rt) {
-@@ -1680,7 +1680,7 @@ static struct dn_route *dn_rt_cache_get_next(struct seq_file *seq, struct dn_rou
- 		rcu_read_lock_bh();
- 		rt = dn_rt_hash_table[s->bucket].chain;
- 	}
--	return rt;
-+	return rcu_dereference(rt);
- }
- 
- static void *dn_rt_cache_seq_start(struct seq_file *seq, loff_t *pos)
+Thanks
+Jeba
