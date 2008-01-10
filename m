@@ -1,104 +1,96 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: questions on NAPI processing latency and dropped network packets
-Date: Thu, 10 Jan 2008 09:37:05 -0800
-Message-ID: <478657C1.8040107@intel.com>
-References: <478654C3.60806@nortel.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: SMP code / network stack
+Date: Thu, 10 Jan 2008 15:46:57 -0200
+Message-ID: <20080110174657.GL22437@ghostprotocols.net>
+References: <1199973946.29856.27.camel@vglwks010.vgl2.office.vaioni.com> <20080110154548.4b78ec7c.dada1@cosmosbay.com> <1199978819.29856.43.camel@vglwks010.vgl2.office.vaioni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Chris Friesen <cfriesen@nortel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
+	matthew.hattersley@vaioni.com
+To: Jeba Anandhan <jeba.anandhan@vaioni.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:15119 "EHLO mga02.intel.com"
+Received: from mx1.redhat.com ([66.187.233.31]:40847 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756253AbYAJRh5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2008 12:37:57 -0500
-In-Reply-To: <478654C3.60806@nortel.com>
+	id S1756437AbYAJRrh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jan 2008 12:47:37 -0500
+Content-Disposition: inline
+In-Reply-To: <1199978819.29856.43.camel@vglwks010.vgl2.office.vaioni.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chris Friesen wrote:
-> Hi all,
+Em Thu, Jan 10, 2008 at 03:26:59PM +0000, Jeba Anandhan escreveu:
+> Hi Eric,
+> Thanks for the reply. I have one more doubt. For example, if we have 2
+> processor and 4 ethernet cards. Only CPU0 does all work through 8 cards.
+> If we set the affinity to each ethernet card as CPU number, will it be
+> efficient?.
 > 
-> I've got an issue that's popped up with a deployed system running
-> 2.6.10.  I'm looking for some help figuring out why incoming network
-> packets aren't being processed fast enough.
+> Will this be default behavior?
 > 
-> After a recent userspace app change, we've started seeing packets being
-> dropped by the ethernet hardware (e1000, NAPI is enabled).  The
-> error/dropped/fifo counts are going up in ethtool:
+> # cat /proc/interrupts 
+>            CPU0       CPU1       
+>   0:   11472559   74291833    IO-APIC-edge  timer
+>   2:          0          0          XT-PIC  cascade
+>   8:          0          1    IO-APIC-edge  rtc
+>  81:          0          0   IO-APIC-level  ohci_hcd
+>  97: 1830022231        847   IO-APIC-level  ehci_hcd, eth0
+>  97: 3830012232        847   IO-APIC-level  ehci_hcd, eth1
+>  97: 5830052231        847   IO-APIC-level  ehci_hcd, eth2
+>  97: 6830032213        847   IO-APIC-level  ehci_hcd, eth3
+> #sleep 10
 > 
->      rx_packets: 32180834
->      rx_bytes: 5480756958
->      rx_errors: 862506
->      rx_dropped: 771345
->      rx_length_errors: 0
->      rx_over_errors: 0
->      rx_crc_errors: 0
->      rx_frame_errors: 0
->      rx_fifo_errors: 91161
->      rx_missed_errors: 91161
-> 
-> This link is receiving roughly 13K packets/sec, and we're dropping
-> roughly 51 packets/sec due to fifo errors.
-> 
-> Increasing the rx descriptor ring size from 256 up to around 3000 or so
-> seems to make the problem stop, but it seems to me that this is just a
-> workaround for the latency in processing the incoming packets.
-> 
-> So, I'm looking for some suggestions on how to fix this or to figure out
-> where the latency is coming from.
-> 
-> Some additional information:
+> # cat /proc/interrupts 
+>            CPU0       CPU1       
+>   0:   11472559   74291833    IO-APIC-edge  timer
+>   2:          0          0          XT-PIC  cascade
+>   8:          0          1    IO-APIC-edge  rtc
+>  81:          0          0   IO-APIC-level  ohci_hcd
+>  97: 2031409801        847   IO-APIC-level  ehci_hcd, eth0
+>  97: 4813981390        847   IO-APIC-level  ehci_hcd, eth1
+>  97: 7123982139        847   IO-APIC-level  ehci_hcd, eth2
+>  97: 8030193010        847   IO-APIC-level  ehci_hcd, eth3
 > 
 > 
-> 1) Interrupts are being processed on both cpus:
+> Instead of the above mentioned ,if we set the affinity for eth2 and
+> eth3.
+> the output will be
 > 
-> root@base0-0-0-13-0-11-1:/root> cat /proc/interrupts
->            CPU0       CPU1
->  30:    1703756    4530785  U3-MPIC Level     eth0
+> # cat /proc/interrupts 
+>            CPU0       CPU1       
+>   0:   11472559   74291833    IO-APIC-edge  timer
+>   2:          0          0          XT-PIC  cascade
+>   8:          0          1    IO-APIC-edge  rtc
+>  81:          0          0   IO-APIC-level  ohci_hcd
+>  97: 1830022231        847   IO-APIC-level  ehci_hcd, eth0
+>  97: 3830012232        847   IO-APIC-level  ehci_hcd, eth1
+>  97: 5830052231        923   IO-APIC-level  ehci_hcd, eth2
+>  97: 6830032213        1230   IO-APIC-level  ehci_hcd, eth3
+> #sleep 10
 > 
+> # cat /proc/interrupts 
+>            CPU0       CPU1       
+>   0:   11472559   74291833    IO-APIC-edge  timer
+>   2:          0          0          XT-PIC  cascade
+>   8:          0          1    IO-APIC-edge  rtc
+>  81:          0          0   IO-APIC-level  ohci_hcd
+>  97: 2300022231        847   IO-APIC-level  ehci_hcd, eth0
+>  97: 4010212232        847   IO-APIC-level  ehci_hcd, eth1
+>  97: 5830052231        1847   IO-APIC-level  ehci_hcd, eth2
+>  97: 6830032213        2337   IO-APIC-level  ehci_hcd, eth3
 > 
-> 
-> 
-> 2) "top" shows a fair amount of time processing softirqs, but very
-> little time in ksoftirqd (or is that a sampling artifact?).
-> 
-> 
-> Tasks: 79 total, 1 running, 78 sleeping, 0 stopped, 0 zombie
-> Cpu0: 23.6% us, 30.9% sy, 0.0% ni, 36.9% id, 0.0% wa, 0.3% hi, 8.3% si
-> Cpu1: 30.4% us, 24.1% sy, 0.0% ni, 5.9% id, 0.0% wa, 0.7% hi, 38.9% si
-> Mem:  4007812k total, 2199148k used,  1808664k free,     0k buffers
-> Swap:   0k total,       0k used,      0k free,   219844k cached
-> 
->   PID USER      PR  NI  VIRT  RES  SHR S %CPU %MEM    TIME+  COMMAND
->  5375 root      15   0 2682m 1.8g 6640 S 99.9 46.7  31:17.68
-> SigtranServices
->  7696 root      17   0  6952 3212 1192 S  7.3  0.1   0:15.75
-> schedmon.ppc210
->  7859 root      16   0  2688 1228  964 R  0.7  0.0   0:00.04 top
->  2956 root       8  -8 18940 7436 5776 S  0.3  0.2   0:01.35 blademtc
->     1 root      16   0  1660  620  532 S  0.0  0.0   0:30.62 init
->     2 root      RT   0     0    0    0 S  0.0  0.0   0:00.01 migration/0
->     3 root      15   0     0    0    0 S  0.0  0.0   0:00.55 ksoftirqd/0
->     4 root      RT   0     0    0    0 S  0.0  0.0   0:00.01 migration/1
->     5 root      15   0     0    0    0 S  0.0  0.0   0:00.43 ksoftirqd/1
-> 
-> 
-> 3) /proc/sys/net/core/netdev_max_backlog is set to the default of 300
-> 
-> 
-> So...anyone have any ideas/suggestions?
+> In this case, will the performance improves?.
 
-You're using 2.6.10... you can always replace the e1000 module with the
-out-of-tree version from e1000.sf.net, this might help a bit - the version in the
-2.6.10 kernel is very very old.
+ps ax | grep irqbalance
 
-it also appears that your app is eating up CPU time. perhaps setting the app to a
-nicer nice level might mitigate things a bit. Also turn off the in-kernel irq
-mitigation, it just causes cache misses and you really need the network irq to sit
-on a single cpu at most (if not all) the time to get the best performance. Use the
-userspace irqbalance daemon instead to achieve this.
+tells what?
 
-Auke
+If it is enabled please try:
 
+service irqbalance stop
+chkconfig irqbalance off
+
+Then reset the smp_affinity entries to ff so and try again.
+
+http://www.irqbalance.org/
+
+- Arnaldo
