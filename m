@@ -1,62 +1,66 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [NET] ROUTE: fix rcu_dereference() uses in /proc/net/rt_cache
-Date: Fri, 11 Jan 2008 00:10:42 +0100
-Message-ID: <20080110231042.GA3199@ami.dom.local>
-References: <20080109113727.50eae500.dada1@cosmosbay.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/4] ipg: balance locking in irq handler
+Date: Fri, 11 Jan 2008 00:35:52 +0100
+Message-ID: <20080110233552.GB13315@electric-eye.fr.zoreil.com>
+References: <20080110233508.GA13315@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	davem@davemloft.net, dipankar@in.ibm.com, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: linux@horizon.com, jeff@garzik.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:33695 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752564AbYAJXHB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 18:07:01 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so385152ugc.16
-        for <netdev@vger.kernel.org>; Thu, 10 Jan 2008 15:07:00 -0800 (PST)
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:38156 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752848AbYAJXtr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 18:49:47 -0500
 Content-Disposition: inline
-In-Reply-To: <20080109113727.50eae500.dada1@cosmosbay.com>
+In-Reply-To: <20080110233508.GA13315@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote, On 01/09/2008 11:37 AM:
-...
-> [NET] ROUTE: fix rcu_dereference() uses in /proc/net/rt_cache
-...
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index d337706..28484f3 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -283,12 +283,12 @@ static struct rtable *rt_cache_get_first(struct seq_file *seq)
->  			break;
->  		rcu_read_unlock_bh();
->  	}
-> -	return r;
-> +	return rcu_dereference(r);
->  }
->  
->  static struct rtable *rt_cache_get_next(struct seq_file *seq, struct rtable *r)
->  {
-> -	struct rt_cache_iter_state *st = rcu_dereference(seq->private);
-> +	struct rt_cache_iter_state *st = seq->private;
->  
->  	r = r->u.dst.rt_next;
->  	while (!r) {
-> @@ -298,7 +298,7 @@ static struct rtable *rt_cache_get_next(struct seq_file *seq, struct rtable *r)
->  		rcu_read_lock_bh();
->  		r = rt_hash_table[st->bucket].chain;
->  	}
-> -	return r;
-> +	return rcu_dereference(r);
->  }
+Spotted-by: <linux@horizon.com>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/ipg.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-It seems this optimization could've a side effect: if during such a
-loop updates are done, and r is seen !NULL during while() check, but
-NULL after rcu_dereference(), the listing/counting could stop too
-soon. So, IMHO, probably the first version of this patch is more
-reliable. (Or alternatively additional check is needed before return.)
+diff --git a/drivers/net/ipg.c b/drivers/net/ipg.c
+index dbd23bb..cd1650e 100644
+--- a/drivers/net/ipg.c
++++ b/drivers/net/ipg.c
+@@ -1630,6 +1630,8 @@ static irqreturn_t ipg_interrupt_handler(int irq, void *dev_inst)
+ #ifdef JUMBO_FRAME
+ 	ipg_nic_rxrestore(dev);
+ #endif
++	spin_lock(&sp->lock);
++
+ 	/* Get interrupt source information, and acknowledge
+ 	 * some (i.e. TxDMAComplete, RxDMAComplete, RxEarly,
+ 	 * IntRequested, MacControlFrame, LinkEvent) interrupts
+@@ -1647,9 +1649,7 @@ static irqreturn_t ipg_interrupt_handler(int irq, void *dev_inst)
+ 	handled = 1;
+ 
+ 	if (unlikely(!netif_running(dev)))
+-		goto out;
+-
+-	spin_lock(&sp->lock);
++		goto out_unlock;
+ 
+ 	/* If RFDListEnd interrupt, restore all used RFDs. */
+ 	if (status & IPG_IS_RFD_LIST_END) {
+@@ -1733,9 +1733,9 @@ out_enable:
+ 	ipg_w16(IPG_IE_TX_DMA_COMPLETE | IPG_IE_RX_DMA_COMPLETE |
+ 		IPG_IE_HOST_ERROR | IPG_IE_INT_REQUESTED | IPG_IE_TX_COMPLETE |
+ 		IPG_IE_LINK_EVENT | IPG_IE_UPDATE_STATS, INT_ENABLE);
+-
++out_unlock:
+ 	spin_unlock(&sp->lock);
+-out:
++
+ 	return IRQ_RETVAL(handled);
+ }
+ 
+-- 
+1.5.3.3
 
-Regards,
-Jarek P.
