@@ -1,47 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-2.6.25 00/10][NETNS][IPV6] make sysctl per
- namespace - V3
-Date: Thu, 10 Jan 2008 03:15:44 -0800 (PST)
-Message-ID: <20080110.031544.259471083.davem@davemloft.net>
-References: <20080109164533.695191040@localhost.localdomain>
+From: Karsten Keil <kkeil@suse.de>
+Subject: Re: Linux IPv6 DAD not full conform to RFC 4862 ?
+Date: Thu, 10 Jan 2008 12:16:19 +0100
+Message-ID: <20080110111619.GA5065@pingi.kke.suse.de>
+References: <20080109153656.GA16962@pingi.kke.suse.de> <20080109161748.GA25106@hmsreliant.think-freely.org> <20080109202653.GA26160@pingi.kke.suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benjamin.thery@bull.net
-To: dlezcano@fr.ibm.com
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58618
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753985AbYAJLPp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 06:15:45 -0500
-In-Reply-To: <20080109164533.695191040@localhost.localdomain>
+Received: from cantor.suse.de ([195.135.220.2]:58777 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752958AbYAJLQV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jan 2008 06:16:21 -0500
+Received: from Relay1.suse.de (mail2.suse.de [195.135.221.8])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mx1.suse.de (Postfix) with ESMTP id 2E5882689F
+	for <netdev@vger.kernel.org>; Thu, 10 Jan 2008 12:16:20 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <20080109202653.GA26160@pingi.kke.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Date: Wed, 09 Jan 2008 17:45:33 +0100
+Hi,
+On Wed, Jan 09, 2008 at 09:26:53PM +0100, Karsten Keil wrote:
+> > 
+> > Reading the section you reference, we do follow all the MUST requirements, and
+> > we log an error.  Given that the disable section is a SHOULD, I think we can at
+> > least be somewhat more restrictive in our implementation.  Perhaps we should
+> > just disable the interface iff the failed address is link-local AND there are no
+> > other functional address assigned to the interface.
+> 
+> I agree here, but it seems that currently the IPv6 Logo Committee thinks
+> that it has to be disable the interface to get the IPv6 ready Logo in
+> future. I already claim that on a discussion at the TAHI users list.
+> 
 
-> The following patchset makes the ipv6 sysctl to handle multiple
-> network namespaces. Each instance of a network namespace as its own
-> set of sysctl values, that means the behavior of the ipv6 stack can be
-> different depending on the sysctl values setup in the different
-> network namespaces.
+JFYI, here the answer from the TAHI list.
 
-I applied all of this to net-2.6.25 but what a rough half hour
-it was :-/
+    Hi, Karsten.
 
-Starting at patch #5 there were tons of "space before tab" errors.
-And as I fixed them up, this made subsequent patches need rediffing
-since the contextual lines in patches after #5 needed the whitespace
-fixed up as well.
+    Thanks for your comments.
 
-I didn't push this back to you because this was already the 3rd round,
-but please show me some love and check this stuff out before
-submission.  GIT gives you effective ways to verify the whitespace
-without even applying the patch.
+    I know that it is SHOULD,
+    but our test tool supports the test specification
+    published by IPv6 Ready Logo Program <http://www.ipv6ready.org/>,
+    and basically the test specification supports all of MUST and SHOULD.
 
-~davem/bin/pcheck:
+    You may know,
+    now IPv6 Ready Logo Committee is also discussing
+    about the next major revision up of test specification.
 
-#!/bin/sh
-set -x
-git apply --check --whitespace=error-all $1
+
+    RFC 4862 Section 5.4.5 is one of discussing point.
+
+    The public review has been over,
+    but if you have strong concern about it,
+    I recommend to comment to <ipv6ready-info@ipv6ready.org>.
+
+    Personally,
+    I think that mandating this function is the best way.
+    But vendor's input will really important for them.
+
+    Regards,
+    Yukiyo Akisada
+
+
+So it would be good if some of the networking experts complain there.
+
+-- 
+Karsten Keil
+SuSE Labs
+ISDN and VOIP development
+SUSE LINUX Products GmbH, Maxfeldstr.5 90409 Nuernberg, GF: Markus Rex, HRB 16746 (AG Nuernberg)
