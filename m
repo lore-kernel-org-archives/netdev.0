@@ -1,84 +1,39 @@
-From: Jeba Anandhan <jeba.anandhan@vaioni.com>
-Subject: Re: SMP code / network stack
-Date: Thu, 10 Jan 2008 15:26:59 +0000
-Message-ID: <1199978819.29856.43.camel@vglwks010.vgl2.office.vaioni.com>
-References: <1199973946.29856.27.camel@vglwks010.vgl2.office.vaioni.com>
-	 <20080110154548.4b78ec7c.dada1@cosmosbay.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH take2] Re: Nested VLAN causes recursive locking error
+Date: Thu, 10 Jan 2008 16:31:22 +0100
+Message-ID: <47863A4A.6070303@trash.net>
+References: <20080102234107.GA6902@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, matthew.hattersley@vaioni.com
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: Benny Amorsen <benny+usenet@amorsen.dk>,
+	Chuck Ebbert <cebbert@redhat.com>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vglsrv002.office.vaioni.com ([84.19.35.12]:3427 "EHLO
-	vglsrv02.vgl2.office.vaioni.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754254AbYAJP2h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 10:28:37 -0500
-In-Reply-To: <20080110154548.4b78ec7c.dada1@cosmosbay.com>
+Received: from stinky.trash.net ([213.144.137.162]:57216 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759877AbYAJPfr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 10:35:47 -0500
+In-Reply-To: <20080102234107.GA6902@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
-Thanks for the reply. I have one more doubt. For example, if we have 2
-processor and 4 ethernet cards. Only CPU0 does all work through 8 cards.
-If we set the affinity to each ethernet card as CPU number, will it be
-efficient?.
+Jarek Poplawski wrote:
+> As a matter of fact I started to doubt it's a real problem: 2 vlan
+> headers in the row - is it working?
 
-Will this be default behavior?
+Yes, apparently some people are using this.
 
-# cat /proc/interrupts 
-           CPU0       CPU1       
-  0:   11472559   74291833    IO-APIC-edge  timer
-  2:          0          0          XT-PIC  cascade
-  8:          0          1    IO-APIC-edge  rtc
- 81:          0          0   IO-APIC-level  ohci_hcd
- 97: 1830022231        847   IO-APIC-level  ehci_hcd, eth0
- 97: 3830012232        847   IO-APIC-level  ehci_hcd, eth1
- 97: 5830052231        847   IO-APIC-level  ehci_hcd, eth2
- 97: 6830032213        847   IO-APIC-level  ehci_hcd, eth3
-#sleep 10
+> Anyway, as Patrick pointed, the previous patch was a bit buggy, and
+> deeper nesting needs a little more (if it's can work too...). So,
+> here is something minimal.
+> 
+> Patrick, if you think about something else, then of course don't care
+> about this patch.
 
-# cat /proc/interrupts 
-           CPU0       CPU1       
-  0:   11472559   74291833    IO-APIC-edge  timer
-  2:          0          0          XT-PIC  cascade
-  8:          0          1    IO-APIC-edge  rtc
- 81:          0          0   IO-APIC-level  ohci_hcd
- 97: 2031409801        847   IO-APIC-level  ehci_hcd, eth0
- 97: 4813981390        847   IO-APIC-level  ehci_hcd, eth1
- 97: 7123982139        847   IO-APIC-level  ehci_hcd, eth2
- 97: 8030193010        847   IO-APIC-level  ehci_hcd, eth3
+No, this seems fine, thanks. Even better would be a way to get
+the last lockdep subclass through lockdep somehow, but I couldn't
+find a clean way for this. So I've applied your patch and also
+fixed macvlan.
 
 
-Instead of the above mentioned ,if we set the affinity for eth2 and
-eth3.
-the output will be
-
-# cat /proc/interrupts 
-           CPU0       CPU1       
-  0:   11472559   74291833    IO-APIC-edge  timer
-  2:          0          0          XT-PIC  cascade
-  8:          0          1    IO-APIC-edge  rtc
- 81:          0          0   IO-APIC-level  ohci_hcd
- 97: 1830022231        847   IO-APIC-level  ehci_hcd, eth0
- 97: 3830012232        847   IO-APIC-level  ehci_hcd, eth1
- 97: 5830052231        923   IO-APIC-level  ehci_hcd, eth2
- 97: 6830032213        1230   IO-APIC-level  ehci_hcd, eth3
-#sleep 10
-
-# cat /proc/interrupts 
-           CPU0       CPU1       
-  0:   11472559   74291833    IO-APIC-edge  timer
-  2:          0          0          XT-PIC  cascade
-  8:          0          1    IO-APIC-edge  rtc
- 81:          0          0   IO-APIC-level  ohci_hcd
- 97: 2300022231        847   IO-APIC-level  ehci_hcd, eth0
- 97: 4010212232        847   IO-APIC-level  ehci_hcd, eth1
- 97: 5830052231        1847   IO-APIC-level  ehci_hcd, eth2
- 97: 6830032213        2337   IO-APIC-level  ehci_hcd, eth3
-
-In this case, will the performance improves?.
-
-Thanks
-Jeba
-On Thu, 2008-01-10 at 15:45 +0100, Eric Dumazet wrote:
