@@ -1,85 +1,62 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: SMP code / network stack
-Date: Thu, 10 Jan 2008 15:45:48 +0100
-Message-ID: <20080110154548.4b78ec7c.dada1@cosmosbay.com>
-References: <1199973946.29856.27.camel@vglwks010.vgl2.office.vaioni.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH 0/3] bonding: 3 fixes for 2.6.24
+Date: Thu, 10 Jan 2008 09:51:44 -0500
+Message-ID: <20080110145144.GH8728@gospo.usersys.redhat.com>
+References: <Pine.LNX.4.64.0801081949290.1135@bizon.gios.gov.pl> <29560.1199820632@death> <Pine.LNX.4.64.0801090732490.1135@bizon.gios.gov.pl> <17850.1199865514@death> <20080109152740.GE8728@gospo.usersys.redhat.com> <32361.1199901296@death> <20080109201709.GF8728@gospo.usersys.redhat.com> <20080109220534.GA2692@gondor.apana.org.au> <7603.1199920750@death> <20080110005809.GA3851@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, matthew.hattersley@vaioni.com
-To: Jeba Anandhan <jeba.anandhan@vaioni.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Krzysztof Oledzki <olel@ans.pl>, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>,
+	David Miller <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:42068 "EHLO pfx2.jmh.fr"
+Received: from mx1.redhat.com ([66.187.233.31]:54937 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753437AbYAJOps (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2008 09:45:48 -0500
-In-Reply-To: <1199973946.29856.27.camel@vglwks010.vgl2.office.vaioni.com>
+	id S1753922AbYAJO7w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jan 2008 09:59:52 -0500
+Content-Disposition: inline
+In-Reply-To: <20080110005809.GA3851@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 10 Jan 2008 14:05:46 +0000
-Jeba Anandhan <jeba.anandhan@vaioni.com> wrote:
-
-> Hi All,
+On Thu, Jan 10, 2008 at 11:58:09AM +1100, Herbert Xu wrote:
+> On Wed, Jan 09, 2008 at 03:19:10PM -0800, Jay Vosburgh wrote:
+> >
+> > >No that's not the point.  The point is to move the majority of the code
+> > >into process context so that you can take the RTNL.  Once you have taken
+> > >the RTNL you can disable BH all you want and I don't care one bit.
+> > 
+> > 	I'm not sure how we could move more code into a process context;
+> > much of the bonding driver is at the mercy of its callers, as in this
+> > case.  The monitoring stuff and enslave / deslave is all in a process
+> > context now (workqueue).  The transmit processing functions, for
+> > example, can't be assumed to be in any particular context as they're
+> > called by dev_queue_xmit.
 > 
-> If a server has multiple processors and N number of ethernet cards, is
-> it possible to handle transmission by each processor separately? .In
-> other words, each processor will be responsible for tx of few ethernet
-> cards?.
+> No I'm not calling for you to move any more code into process context.
+> I was replying to the comment that changing the read_lock calls in
+> process context to read_lock_bh somehow undoes the benefit of moving
+> softirq code into process context.  It does not since the point of the
+> move is to be able to take the RTNL, which you can still do as long as
+> you do it before you disable BH.
 > 
-> 
-> 
-> Example: Server has 4 processors and 8 ethernet cards. is it possible
-> for each processor for transmission using 2 ethernet cards only?. So
-> that, at a instant , data will be send out from 8 ethernet cards.
 
-Hi Jeba
+That wasn't the only purpose, Herbert.  Making sure that calls to
+dev_set_mac_address were called from process context was important at
+the time of the coding as well since at least the tg3 driver took locks
+that could not be taken reliably in soft-irq context.  Michael Chan
+fixed this here:
 
-Modern ethernet cards have a big TX queue, so that even one CPU is enough
-to keep several cards busy in //
+commit 986e0aeb9ae09127b401c3baa66f15b7a31f354c
+Author: Michael Chan <mchan@broadcom.com>
+Date:   Sat May 5 12:10:20 2007 -0700
 
-You can check /proc/interrupts and change /proc/irq/*/smp_affinities to direct IRQ to 
-particular cpus, but transmit is usually trigered by processes that might run on different
-cpus.
+    [TG3]: Remove reset during MAC address changes.
 
-If all ethernet cards are on the same IRQ, then you might have a problem...
-
-Example on a dual processor :
-# cat /proc/interrupts 
-           CPU0       CPU1       
-  0:   11472559   74291833    IO-APIC-edge  timer
-  2:          0          0          XT-PIC  cascade
-  8:          0          1    IO-APIC-edge  rtc
- 81:          0          0   IO-APIC-level  ohci_hcd
- 97: 1830022231        847   IO-APIC-level  ehci_hcd, eth0
-121:  163095662  166443627   IO-APIC-level  libata
-NMI:          0          0 
-LOC:   85887285   85887193 
-ERR:          0
-MIS:          0
-
-You can see eth0 is on IRQ 97
-Then :
-# cat /proc/irq/97/smp_affinity 
-00000001
-# echo 2 >/proc/irq/97/smp_affinity
-# grep 97 /proc/interrupts
- 97: 1830035216       2259   IO-APIC-level  ehci_hcd, eth0
-# sleep 10
-# grep 97 /proc/interrupts
- 97: 1830035216       5482   IO-APIC-level  ehci_hcd, eth0
-
-You can see only CPU1 is now handling IRQ 97 (but CPU0 is allowed to give to eth0 some transmit work)
-
-You might want to check /proc/net/softnet_stat too.
-
-If your server is doing something very special (network trafic, no disk accesses or number crunching),
- you might need to bind application processes to cpus, not only network irqs.
-
-process A, using nic eth0 & eth1, bound to CPU 0 (process and IRQs)
-process B, using nic eth2 & eth3, bound to CPU 1
-process C, using nic eth4 & eth5, bound to CPU 2
-process D, using nic eth6 & eth7, bound to CPU 3
+so if wasn't as much of an issue after that, but moving as much of the
+code to process context was important for that as well (hence the move
+to not continue to try to not use bh-locks everywhere).
 
 
-Also, take a look at "ethtool -c ethX" command
