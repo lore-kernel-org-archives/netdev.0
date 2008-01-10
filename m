@@ -1,190 +1,110 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Please pull 'fixes-jgarzik' branch of wireless-2.6 (use this one)
-Date: Thu, 10 Jan 2008 16:30:34 -0500
-Message-ID: <20080110213034.GI3109@tuxdriver.com>
+From: Brent Casavant <bcasavan@sgi.com>
+Subject: Re: AF_UNIX MSG_PEEK bug?
+Date: Thu, 10 Jan 2008 16:35:55 -0600 (CST)
+Message-ID: <alpine.BSF.1.00.0801101554100.52456@pkunk.americas.sgi.com>
+References: <E1JCkrp-0000vX-00@gondolin.me.apana.org.au> <alpine.BSF.1.00.0801092031290.35527@pkunk.americas.sgi.com>
+Reply-To: Brent Casavant <bcasavan@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: penguin-kernel@i-love.sakura.ne.jp, netdev@vger.kernel.org,
+	davem@davemloft.net, linux-kernel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from netops-testserver-3-out.sgi.com ([192.48.171.28]:42544 "EHLO
+	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756136AbYAJWf5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 17:35:57 -0500
+In-Reply-To: <alpine.BSF.1.00.0801092031290.35527@pkunk.americas.sgi.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[2nd try -- turns-out the Mattis Nissler patch needed an extra tweak.
-It will probably also cause build breakage when you rebase since
-rt2x00lib_txdone(...) becomes rt2x00pci_txdone(rt2x00dev,...) in 2.6.25,
-so FYI... :-)
+Here's what I think is a better patch.  Or maybe just simpler.
 
-This also includes another patch (the "4 byte boundary" one) which
-is already in your upstream branch.  So, beware of that one too. :-)]
+However, I'm still unsure what the effect of this patch on
+file descriptor passing might be.  Reading the prior code,
+and the parallel portions/comments in unix_dgram_recvmsg(),
+it looks like there's been a lot of uncertainty as to how
+file descriptor passing should be handled durning MSG_PEEK
+operations.  To quote:
 
-Jeff,
+	/* It is questionable: on PEEK we could:
+	   - do not return fds - good, but too simple 8)
+	   - return fds, and do not return them on read (old strategy,
+	     apparently wrong)
+	   - clone fds (I chose it for now, it is the most universal
+	     solution)
 
-Three more fixes for 2.6.24.  The one from Mattias Nissler is already
-in your upstream tree...FYI.
+	   POSIX 1003.1g does not actually define this clearly
+	   at all. POSIX 1003.1g doesn't define a lot of things
+	   clearly however!
+	*/
 
-Let me know if there are problems!
+With this patch, passed file descriptors are ignored during MSG_PEEK.
+This is essentially the first case in the comment above.  What I
+can't seem to figure out is why this is incorrect.  I suspect there's
+some history here that I can't find via Google, mailing list archives,
+or revision logs.
+
+So, that said, here's a cleaner patch.  It's still not ready for
+application until the file descriptor passing is better understood.
 
 Thanks,
+Brent
 
-John
-
----
-
-Individual patches available here:
-
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/fixes-jgarzik/
-
----
-
-The following changes since commit 3ce54450461bad18bbe1f9f5aa3ecd2f8e8d1235:
-  Linus Torvalds (1):
-        Linux 2.6.24-rc7
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-jgarzik
-
-Ivo van Doorn (2):
-      rt2x00: Corectly initialize rt2500usb MAC
-      rt2x00: Put 802.11 data on 4 byte boundary
-
-Mattias Nissler (1):
-      rt2x00: Allow rt61 to catch up after a missing tx report
-
- drivers/net/wireless/rt2x00/rt2500usb.c |    2 +-
- drivers/net/wireless/rt2x00/rt2x00pci.c |   20 ++++++++++++++++----
- drivers/net/wireless/rt2x00/rt2x00usb.c |   17 +++++++++++++++--
- drivers/net/wireless/rt2x00/rt61pci.c   |   12 ++++++++++++
- 4 files changed, 44 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/wireless/rt2x00/rt2500usb.c b/drivers/net/wireless/rt2x00/rt2500usb.c
-index 50775f9..18b1f91 100644
---- a/drivers/net/wireless/rt2x00/rt2500usb.c
-+++ b/drivers/net/wireless/rt2x00/rt2500usb.c
-@@ -257,7 +257,7 @@ static const struct rt2x00debug rt2500usb_rt2x00debug = {
- static void rt2500usb_config_mac_addr(struct rt2x00_dev *rt2x00dev,
- 				      __le32 *mac)
- {
--	rt2500usb_register_multiwrite(rt2x00dev, MAC_CSR2, &mac,
-+	rt2500usb_register_multiwrite(rt2x00dev, MAC_CSR2, mac,
- 				      (3 * sizeof(__le16)));
- }
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 060bba4..6d6cdb4 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1750,6 +1750,8 @@ static int unix_stream_recvmsg(struct ki
+ 	int target;
+ 	int err = 0;
+ 	long timeo;
++	struct sk_buff *skb;
++	struct sk_buff_head peek_stack;
  
-diff --git a/drivers/net/wireless/rt2x00/rt2x00pci.c b/drivers/net/wireless/rt2x00/rt2x00pci.c
-index 2780df0..6d5d9ab 100644
---- a/drivers/net/wireless/rt2x00/rt2x00pci.c
-+++ b/drivers/net/wireless/rt2x00/rt2x00pci.c
-@@ -124,7 +124,10 @@ void rt2x00pci_rxdone(struct rt2x00_dev *rt2x00dev)
- 	struct data_entry *entry;
- 	struct data_desc *rxd;
- 	struct sk_buff *skb;
-+	struct ieee80211_hdr *hdr;
- 	struct rxdata_entry_desc desc;
-+	int header_size;
-+	int align;
- 	u32 word;
+ 	err = -EINVAL;
+ 	if (sk->sk_state != TCP_ESTABLISHED)
+@@ -1759,6 +1761,9 @@ static int unix_stream_recvmsg(struct ki
+ 	if (flags&MSG_OOB)
+ 		goto out;
  
- 	while (1) {
-@@ -138,17 +141,26 @@ void rt2x00pci_rxdone(struct rt2x00_dev *rt2x00dev)
- 		memset(&desc, 0x00, sizeof(desc));
- 		rt2x00dev->ops->lib->fill_rxdone(entry, &desc);
- 
-+		hdr = (struct ieee80211_hdr *)entry->data_addr;
-+		header_size =
-+		    ieee80211_get_hdrlen(le16_to_cpu(hdr->frame_control));
++	if (flags & MSG_PEEK)
++		skb_queue_head_init(&peek_stack);
 +
-+		/*
-+		 * The data behind the ieee80211 header must be
-+		 * aligned on a 4 byte boundary.
-+		 */
-+		align = NET_IP_ALIGN + (2 * (header_size % 4 == 0));
-+
- 		/*
- 		 * Allocate the sk_buffer, initialize it and copy
- 		 * all data into it.
- 		 */
--		skb = dev_alloc_skb(desc.size + NET_IP_ALIGN);
-+		skb = dev_alloc_skb(desc.size + align);
- 		if (!skb)
- 			return;
+ 	target = sock_rcvlowat(sk, flags&MSG_WAITALL, size);
+ 	timeo = sock_rcvtimeo(sk, flags&MSG_DONTWAIT);
  
--		skb_reserve(skb, NET_IP_ALIGN);
--		skb_put(skb, desc.size);
--		memcpy(skb->data, entry->data_addr, desc.size);
-+		skb_reserve(skb, align);
-+		memcpy(skb_put(skb, desc.size), entry->data_addr, desc.size);
+@@ -1778,7 +1783,6 @@ static int unix_stream_recvmsg(struct ki
+ 	do
+ 	{
+ 		int chunk;
+-		struct sk_buff *skb;
  
- 		/*
- 		 * Send the frame to rt2x00lib for further processing.
-diff --git a/drivers/net/wireless/rt2x00/rt2x00usb.c b/drivers/net/wireless/rt2x00/rt2x00usb.c
-index 1f5675d..ab4797e 100644
---- a/drivers/net/wireless/rt2x00/rt2x00usb.c
-+++ b/drivers/net/wireless/rt2x00/rt2x00usb.c
-@@ -221,7 +221,9 @@ static void rt2x00usb_interrupt_rxdone(struct urb *urb)
- 	struct data_ring *ring = entry->ring;
- 	struct rt2x00_dev *rt2x00dev = ring->rt2x00dev;
- 	struct sk_buff *skb;
-+	struct ieee80211_hdr *hdr;
- 	struct rxdata_entry_desc desc;
-+	int header_size;
- 	int frame_size;
+ 		unix_state_lock(sk);
+ 		skb = skb_dequeue(&sk->sk_receive_queue);
+@@ -1864,19 +1868,14 @@ static int unix_stream_recvmsg(struct ki
  
- 	if (!test_bit(DEVICE_ENABLED_RADIO, &rt2x00dev->flags) ||
-@@ -253,9 +255,20 @@ static void rt2x00usb_interrupt_rxdone(struct urb *urb)
- 	skb_put(skb, frame_size);
+ 			if (siocb->scm->fp)
+ 				break;
+-		}
+-		else
+-		{
+-			/* It is questionable, see note in unix_dgram_recvmsg.
+-			 */
+-			if (UNIXCB(skb).fp)
+-				siocb->scm->fp = scm_fp_dup(UNIXCB(skb).fp);
++		} else
++			__skb_queue_head(&peek_stack, skb);
++	} while (size);
  
- 	/*
--	 * Trim the skb_buffer to only contain the valid
--	 * frame data (so ignore the device's descriptor).
-+	 * The data behind the ieee80211 header must be
-+	 * aligned on a 4 byte boundary.
-+	 * After that trim the entire buffer down to only
-+	 * contain the valid frame data excluding the device
-+	 * descriptor.
- 	 */
-+	hdr = (struct ieee80211_hdr *)entry->skb->data;
-+	header_size =
-+	    ieee80211_get_hdrlen(le16_to_cpu(hdr->frame_control));
-+
-+	if (header_size % 4 == 0) {
-+		skb_push(entry->skb, 2);
-+		memmove(entry->skb->data, entry->skb->data + 2, skb->len - 2);
-+	}
- 	skb_trim(entry->skb, desc.size);
+-			/* put message back and return */
++	/* Push all peeked skbs back onto receive queue */
++	if (flags & MSG_PEEK)
++		while ((skb = __skb_dequeue(&peek_stack)))
+ 			skb_queue_head(&sk->sk_receive_queue, skb);
+-			break;
+-		}
+-	} while (size);
  
- 	/*
-diff --git a/drivers/net/wireless/rt2x00/rt61pci.c b/drivers/net/wireless/rt2x00/rt61pci.c
-index 01dbef1..ecae968 100644
---- a/drivers/net/wireless/rt2x00/rt61pci.c
-+++ b/drivers/net/wireless/rt2x00/rt61pci.c
-@@ -1738,6 +1738,7 @@ static void rt61pci_txdone(struct rt2x00_dev *rt2x00dev)
- {
- 	struct data_ring *ring;
- 	struct data_entry *entry;
-+	struct data_entry *entry_done;
- 	struct data_desc *txd;
- 	u32 word;
- 	u32 reg;
-@@ -1791,6 +1792,17 @@ static void rt61pci_txdone(struct rt2x00_dev *rt2x00dev)
- 		    !rt2x00_get_field32(word, TXD_W0_VALID))
- 			return;
- 
-+		entry_done = rt2x00_get_data_entry_done(ring);
-+		while (entry != entry_done) {
-+			/* Catch up. Just report any entries we missed as
-+			 * failed. */
-+			WARNING(rt2x00dev,
-+				"TX status report missed for entry %p\n",
-+				entry_done);
-+			rt2x00lib_txdone(entry_done, TX_FAIL_OTHER, 0);
-+			entry_done = rt2x00_get_data_entry_done(ring);
-+		}
-+
- 		/*
- 		 * Obtain the status about this packet.
- 		 */
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+ 	mutex_unlock(&u->readlock);
+ 	scm_recv(sock, msg, siocb->scm, flags);
