@@ -1,64 +1,79 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PROCFS] [NETNS] issue with /proc/net entries
-Date: Thu, 10 Jan 2008 12:55:32 -0700
-Message-ID: <m1ir21v4jv.fsf@ebiederm.dsl.xmission.com>
-References: <478654E1.5050501@bull.net>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: RFC: igb: Intel 82575 gigabit ethernet driver (take #2)
+Date: Thu, 10 Jan 2008 11:57:33 -0800
+Message-ID: <478678AD.1070006@intel.com>
+References: <475F107A.8080201@intel.com> <47684AA9.9050409@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Benjamin Thery <benjamin.thery@bull.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	NetDev <netdev@vger.kernel.org>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:56356 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754030AbYAJT4W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 14:56:22 -0500
-In-Reply-To: <478654E1.5050501@bull.net> (Benjamin Thery's message of "Thu, 10
-	Jan 2008 18:24:49 +0100")
+Received: from mga02.intel.com ([134.134.136.20]:23704 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754390AbYAJT6x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jan 2008 14:58:53 -0500
+In-Reply-To: <47684AA9.9050409@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Benjamin Thery <benjamin.thery@bull.net> writes:
+Jeff Garzik wrote:
+> Looks pretty decent.  Main comments (style mostly, driver operation path
+> seems sound):
 
-> Hi Eric,
->
-> While testing the current network namespace stuff merged in net-2.6.25,
-> I bumped into the following problem with the /proc/net/ entries.
-> It doesn't always display the actual data of the current namespace,
-> but sometime displays data from other namespaces.
->
-> I bisected the problem to the commit:
-> "proc: remove/Fix proc generic d_revalidate"
-> 3790ee4bd86396558eedd86faac1052cb782e4e1
->
-> The problem: If a process in a particular network namespace changes
-> current directory to /proc/net, then processes in other network
-> namespaces trying to look at /proc/net entries will see data from the
-> first namespace (the one with CWD /proc/net). (See test case below).
->
-> As you comments in the commit suggest, you seem to be aware of some
-> issues when CONFIG_NET_NS=y. Is it one of these corner cases you
-> identified? Any idea on how we can fix it?
+thanks again for the comments. I am about to send an updated patch just before my
+vacation and before I do let me just quickly touch on your comments below:
 
-Yes.  It isn't especially hard.   I have most of it in my queue
-I just need to get the silly patches out of there.
+> * kill the bitfields and unions [in descriptor structs].  they are not
+> endian-safe as presented, generate poor code, and are otherwise
+> undesirable.
 
-Essentially we need to fix the caching of proc_generic entries,
-So that we can have a proper d_revalidate implementation.
+that bitfield was unused and so I removed the code. I don't see any more bitfields
+at all now in this driver.
 
-To get d_revalidate and the caching correct for /proc/net will take
-just a bit more work.  We need to make /proc/net a symlink
-to something like /proc/self/net so that we don't get excess
-revalidates when switching between different processes.
+> * the basic operations are too verbose:  E1000_READ_REG(hw, REGISTER) is
+> far more readable as ER32(REGISTER), following the style of other
+> drivers.  Furthermore, the "E1000_" prefix, in addition to being overly
+> redundant (used in each register read/write), it is also incorrect,
+> because this is not E1000...
 
-Or else we can't properly implement the case you have described.
-Where being in the directory causes the wrong version of /proc/net
-to show up. Changing the contents of the dentry for /proc/net
-should only happen during unshare.  Not when we switch between
-processes or else we get into the d_revalidate leaks mount points
-problem again.
+partially I agree, and I refined the register writes to remove the need for the
+"hw" part.
 
-We also need the check to see if something is mounted on top of
-us before we call drop the dentry.  But if we don't even try until
-we know the dentry is invalid it should not be too bad.
+However the hardware *is* e1000, we ended up making a new driver since it just
+does not make sense to add all of this infrastructure for older chipsets anymore.
 
-Eric
+renaming everything (from e1000_ to igb_) would just make life for us really hard
+looking up historical diffs, history etc. and most importantly compare with
+e1000/e1000e when we encounter an issue that might affect the other drivers. For
+now it is easier to just leave these alone.
+
+I however do not rule out that we change this at a later stage ...
+
+> * in general, rename everything with "e1000_" prefix.  this will
+> eliminate plenty of human confusion in the long run.
+
+I'm doing this for all functions, which solves the namespace collisions. The
+"e1000" specific static structs (which are the same in igb as they are in e1000,
+e1000e) as well as the registers (ditto) I'll keep unchanged for now.
+
+> * API:   unless you have chips in the lab that will require an API hook,
+> don't create one.  For example, a direct call to
+> e1000_acquire_nvm_82575() should replace all ->acquire_nvm() hooks....
+> if there are no chips in pipeline GUARANTEED to have a different
+> ->acquire_nvm() feature.
+
+Noted
+
+Note also that there are already many less hooks as there are in e1000e. We did
+already make an effort to scrub as many as we can.
+
+
+Cheers,
+
+Auke
+
