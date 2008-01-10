@@ -1,32 +1,31 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: Please pull 'fixes-jgarzik' branch of wireless-2.6
-Date: Thu, 10 Jan 2008 15:57:56 -0500
-Message-ID: <20080110205756.GG3109@tuxdriver.com>
-References: <20080110194922.GF3109@tuxdriver.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH take2] Re: Nested VLAN causes recursive locking error
+Date: Thu, 10 Jan 2008 22:33:24 +0100
+Message-ID: <20080110213324.GB3064@ami.dom.local>
+References: <20080102234107.GA6902@ami.dom.local> <47863A4A.6070303@trash.net> <20080110210816.GA3064@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Benny Amorsen <benny+usenet@amorsen.dk>,
+	Chuck Ebbert <cebbert@redhat.com>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.152]:24944 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751421AbYAJVaa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 16:30:30 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so840102fga.17
+        for <netdev@vger.kernel.org>; Thu, 10 Jan 2008 13:30:26 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20080110194922.GF3109-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080110210816.GA3064@ami.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 10, 2008 at 02:49:22PM -0500, John W. Linville wrote:
-> Jeff,
-> 
-> A couple more fixes for 2.6.24.  The one from Mattias Nissler is already
-> in your upstream tree...FYI.
-> 
-> Let me know if there are problems!
+On Thu, Jan 10, 2008 at 10:08:16PM +0100, Jarek Poplawski wrote:
+...
+> But still some 'quirks' are possible there: removing and adding
+> devices 'properly' would often require resetting of many subclasses,
 
-Please disregard this request.  The 'upstream-jgarzik-2' request is still valid.
+...Hmm, probably they are always removed from/with the children, then no
+problem! (I know, I could've checked...)
 
-Thanks,
-
-John
-
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Jarek P.
