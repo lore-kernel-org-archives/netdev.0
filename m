@@ -1,42 +1,123 @@
-From: Ming-Ching Tiew <mingching.tiew@redtone.com>
-Subject: Re: [Bugme-new]  [Bug 9719] New: when a system is configured as a
- bridge, and at the same time configured to have multipath weighted route,
- with one leg goes thru NAT and another without NAT, the nat path will intermittently
- get packets leaking out using internal IP without being SNAT-ted
-Date: Fri, 11 Jan 2008 01:25:49 +0800
-Message-ID: <4786551D.8010700@redtone.com>
-References: <bug-9719-10286@http.bugzilla.kernel.org/> <20080109152813.83fb8168.akpm@linux-foundation.org> <4786187E.3090000@redtone.com> <47864892.9010605@redtone.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 9721] New: wake on lan fails with sky2 module
+Date: Wed, 9 Jan 2008 20:52:10 -0800
+Message-ID: <20080109205210.1f8a83bb@deepthought>
+References: <bug-9721-10286@http.bugzilla.kernel.org/>
+	<20080109160300.304ec687.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
-To: Ming-Ching Tiew <mingching.tiew@redtone.com>
+Cc: netdev@vger.kernel.org, linux-acpi@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>, supersud501@yahoo.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.cnx.com.my ([202.46.113.21]:2635 "EHLO mail.cnx.com.my"
+Received: from mail.vyatta.com ([216.93.170.194]:40474 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753599AbYAJE0E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jan 2008 23:26:04 -0500
-In-Reply-To: <47864892.9010605@redtone.com>
+	id S1754436AbYAJEy1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jan 2008 23:54:27 -0500
+In-Reply-To: <20080109160300.304ec687.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ming-Ching Tiew wrote:
-> Ming-Ching Tiew wrote:
->>
->> What I meant was that it failed on both the kernel versions I tested. 
->> I am afraid it  is a problem which exists all a long. Perhaps it has 
->> been broken quite sometime already. I need to go back to try some 
->> older kernel version and see if I could repeat the problem.
->
-> OK based on the I repeat the problem, so far I could not find such 
-> misbehaviour on kernel 2.6.18. I will do more tests to make it more 
-> conclusive.
->
+On Wed, 9 Jan 2008 16:03:00 -0800
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
-Sorry for jumping the gun. Kernel 2.6.18 has the same problem too.
-I think from now on, I will refrain from early posting until conclusive 
-results.
+> 
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
+> 
+> On Wed,  9 Jan 2008 13:05:34 -0800 (PST)
+> bugme-daemon@bugzilla.kernel.org wrote:
+> 
+> > http://bugzilla.kernel.org/show_bug.cgi?id=9721
+> > 
+> >            Summary: wake on lan fails with sky2 module
+> >            Product: ACPI
+> >            Version: 2.5
+> >      KernelVersion: 2.6.24-rc7
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: normal
+> >           Priority: P1
+> >          Component: Power-Sleep-Wake
+> >         AssignedTo: acpi_power-sleep-wake@kernel-bugs.osdl.org
+> >         ReportedBy: supersud501@yahoo.de
+> 
+> This post-2.6.23 regression was assigned to ACPI but is quite possibly a
+> net driver problem?
+> 
+> > 
+> > Latest working kernel version: 2.6.23.12
+> > Earliest failing kernel version: 2.6.24-rc6 (not tested earlier kernel,
+> > 2.6.24-rc7 still failing)
+> > Distribution: Ubuntu 8.04 (but Kernel build from Kernel.org and system modifiet
+> > to make wake on lan work, i.e. network cards are not shutted down on poweroff)
+> > Hardware Environment: Marvell Technology Group Ltd. 88E8053 PCI-E Gigabit
+> > Ethernet Controller (rev 20) onboard Asus P5W DH motherboard, uses module SKY2
+> > Software Environment:
+> > Problem Description:
+> > 
+> > When enabling wake on lan with: 'ethtool -s eth0 wol' i get the following
+> > status:
+> > 
+> > 21:56:29 ~ # sudo ethtool eth0
+> > Settings for eth0:
+> >         Supported ports: [ TP ]
+> >         Supported link modes:   10baseT/Half 10baseT/Full 
+> >                                 100baseT/Half 100baseT/Full 
+> >                                 1000baseT/Half 1000baseT/Full 
+> >         Supports auto-negotiation: Yes
+> >         Advertised link modes:  10baseT/Half 10baseT/Full 
+> >                                 100baseT/Half 100baseT/Full 
+> >                                 1000baseT/Half 1000baseT/Full 
+> >         Advertised auto-negotiation: Yes
+> >         Speed: 100Mb/s
+> >         Duplex: Full
+> >         Port: Twisted Pair
+> >         PHYAD: 0
+> >         Transceiver: internal
+> >         Auto-negotiation: on
+> >         Supports Wake-on: pg
+> >         Wake-on: g    <---- wol enabled
+> >         Current message level: 0x000000ff (255)
+> >         Link detected: yes
+> > 
+> > but after shutting down the pc doesn't wake up when magic packet is sent.
+> > 
+> > the status lights of the network card are still on (so the card seems to be
+> > online).
+> > 
+> > same system with only changed kernel to 2.6.23.12 and same procedure like
+> > above: wake on lan works.
+> > 
+> > Steps to reproduce: enable wol on your network card using SKY2 module and it
+> > doesn't work too?
+> > 
+> > if you need more information, just tell me, it's my first bug report.
+> > regards
+> > 
 
 
+Wake from power off works on 2.6.24-rc7 for me.
+Wake from suspend doesn't because Network Manager, HAL, or some other
+user space tool gets confused.
 
+I just rechecked it with Fujitsu Lifebook, which has sky2 (88E8055).
+There many variations of this chip, and it maybe chip specific problem
+or ACPI/BIOS issues.  If you don't enable Wake on Lan in BIOS, the
+driver can't do it for you. Also, check how you are shutting down.
+
+Also since the device has to restart the PHY, it could be a switch
+issue if you have some fancy pants switch doing intrusion detection
+or something, but I doubt that.
+
+Is it a clean or fast shutdown, most distributions mark network
+devices as down on shutdown, but if the distribution does something 
+stupid like remove the driver module, then the driver is unable to setup Wake On Lan.
+The wake on lan setup is done in one place in the driver, add
+a printk to see if it is ever called.
+
+
+-- 
+Stephen Hemminger <stephen.hemminger@vyatta.com>
