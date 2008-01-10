@@ -1,96 +1,63 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: SMP code / network stack
-Date: Thu, 10 Jan 2008 15:46:57 -0200
-Message-ID: <20080110174657.GL22437@ghostprotocols.net>
-References: <1199973946.29856.27.camel@vglwks010.vgl2.office.vaioni.com> <20080110154548.4b78ec7c.dada1@cosmosbay.com> <1199978819.29856.43.camel@vglwks010.vgl2.office.vaioni.com>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: questions on NAPI processing latency and dropped network packets
+Date: Thu, 10 Jan 2008 12:12:13 -0600
+Message-ID: <47865FFD.2010407@nortel.com>
+References: <478654C3.60806@nortel.com> <478657C1.8040107@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
-	matthew.hattersley@vaioni.com
-To: Jeba Anandhan <jeba.anandhan@vaioni.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:40847 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756437AbYAJRrh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2008 12:47:37 -0500
-Content-Disposition: inline
-In-Reply-To: <1199978819.29856.43.camel@vglwks010.vgl2.office.vaioni.com>
+Received: from zcars04f.nortel.com ([47.129.242.57]:56270 "EHLO
+	zcars04f.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753781AbYAJSMh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 13:12:37 -0500
+In-Reply-To: <478657C1.8040107@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Thu, Jan 10, 2008 at 03:26:59PM +0000, Jeba Anandhan escreveu:
-> Hi Eric,
-> Thanks for the reply. I have one more doubt. For example, if we have 2
-> processor and 4 ethernet cards. Only CPU0 does all work through 8 cards.
-> If we set the affinity to each ethernet card as CPU number, will it be
-> efficient?.
-> 
-> Will this be default behavior?
-> 
-> # cat /proc/interrupts 
->            CPU0       CPU1       
->   0:   11472559   74291833    IO-APIC-edge  timer
->   2:          0          0          XT-PIC  cascade
->   8:          0          1    IO-APIC-edge  rtc
->  81:          0          0   IO-APIC-level  ohci_hcd
->  97: 1830022231        847   IO-APIC-level  ehci_hcd, eth0
->  97: 3830012232        847   IO-APIC-level  ehci_hcd, eth1
->  97: 5830052231        847   IO-APIC-level  ehci_hcd, eth2
->  97: 6830032213        847   IO-APIC-level  ehci_hcd, eth3
-> #sleep 10
-> 
-> # cat /proc/interrupts 
->            CPU0       CPU1       
->   0:   11472559   74291833    IO-APIC-edge  timer
->   2:          0          0          XT-PIC  cascade
->   8:          0          1    IO-APIC-edge  rtc
->  81:          0          0   IO-APIC-level  ohci_hcd
->  97: 2031409801        847   IO-APIC-level  ehci_hcd, eth0
->  97: 4813981390        847   IO-APIC-level  ehci_hcd, eth1
->  97: 7123982139        847   IO-APIC-level  ehci_hcd, eth2
->  97: 8030193010        847   IO-APIC-level  ehci_hcd, eth3
-> 
-> 
-> Instead of the above mentioned ,if we set the affinity for eth2 and
-> eth3.
-> the output will be
-> 
-> # cat /proc/interrupts 
->            CPU0       CPU1       
->   0:   11472559   74291833    IO-APIC-edge  timer
->   2:          0          0          XT-PIC  cascade
->   8:          0          1    IO-APIC-edge  rtc
->  81:          0          0   IO-APIC-level  ohci_hcd
->  97: 1830022231        847   IO-APIC-level  ehci_hcd, eth0
->  97: 3830012232        847   IO-APIC-level  ehci_hcd, eth1
->  97: 5830052231        923   IO-APIC-level  ehci_hcd, eth2
->  97: 6830032213        1230   IO-APIC-level  ehci_hcd, eth3
-> #sleep 10
-> 
-> # cat /proc/interrupts 
->            CPU0       CPU1       
->   0:   11472559   74291833    IO-APIC-edge  timer
->   2:          0          0          XT-PIC  cascade
->   8:          0          1    IO-APIC-edge  rtc
->  81:          0          0   IO-APIC-level  ohci_hcd
->  97: 2300022231        847   IO-APIC-level  ehci_hcd, eth0
->  97: 4010212232        847   IO-APIC-level  ehci_hcd, eth1
->  97: 5830052231        1847   IO-APIC-level  ehci_hcd, eth2
->  97: 6830032213        2337   IO-APIC-level  ehci_hcd, eth3
-> 
-> In this case, will the performance improves?.
+Kok, Auke wrote:
 
-ps ax | grep irqbalance
+> You're using 2.6.10... you can always replace the e1000 module with the
+> out-of-tree version from e1000.sf.net, this might help a bit - the version in the
+> 2.6.10 kernel is very very old.
 
-tells what?
+Do you have any reason to believe this would improve things?  It seems 
+like the problem lies in the NAPI/softirq code rather than in the e1000 
+driver itself, no?
 
-If it is enabled please try:
+> it also appears that your app is eating up CPU time. perhaps setting the app to a
+> nicer nice level might mitigate things a bit.
 
-service irqbalance stop
-chkconfig irqbalance off
+If we're not handling the softirq work from ksoftirqd how would changing 
+scheduler settings affect anything?
 
-Then reset the smp_affinity entries to ff so and try again.
+ > Also turn off the in-kernel irq
+> mitigation, it just causes cache misses and you really need the network irq to sit
+> on a single cpu at most (if not all) the time to get the best performance. Use the
+> userspace irqbalance daemon instead to achieve this.
 
-http://www.irqbalance.org/
+Using userspace irqbalance would be some effort to test and deploy 
+properly.  However, as a quick test I tried setting the irq affinity for 
+this device and it didn't help.
 
-- Arnaldo
+One thing that might be of interest is that it seems to be bursty rather 
+than gradual.  Here are some timestamps (in seconds) along with the 
+number of overruns on eth0:
+
+6552.15  overruns:260097
+6552.69  overruns:260097
+6553.32  overruns:260097
+6553.83  overruns:260097
+6554.35  overruns:260097
+6554.87  overruns:260097
+6555.41  overruns:260097
+6555.94  overruns:260097
+6556.51  overruns:260097
+6557.07  overruns:260282
+6557.58  overruns:260282
+6558.23  overruns:260282
+
+
+Chris
