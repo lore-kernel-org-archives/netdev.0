@@ -1,74 +1,50 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [NET] ROUTE: fix rcu_dereference() uses in /proc/net/rt_cache
-Date: Thu, 10 Jan 2008 15:51:11 -0800
-Message-ID: <20080110235111.GF9586@linux.vnet.ibm.com>
-References: <20080109113727.50eae500.dada1@cosmosbay.com> <20080110231042.GA3199@ami.dom.local>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 4/4] ipg: fix Tx completion irq request
+Date: Fri, 11 Jan 2008 00:38:31 +0100
+Message-ID: <20080110233831.GE13315@electric-eye.fr.zoreil.com>
+References: <20080110233508.GA13315@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
-	dipankar@in.ibm.com, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: linux@horizon.com, jeff@garzik.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:58230 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754318AbYAJXvO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 18:51:14 -0500
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m0ANpDfC025150
-	for <netdev@vger.kernel.org>; Thu, 10 Jan 2008 18:51:13 -0500
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0ANpDTM094620
-	for <netdev@vger.kernel.org>; Thu, 10 Jan 2008 16:51:13 -0700
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0ANpCqq022699
-	for <netdev@vger.kernel.org>; Thu, 10 Jan 2008 16:51:13 -0700
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:42959 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754001AbYAJXxS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 18:53:18 -0500
 Content-Disposition: inline
-In-Reply-To: <20080110231042.GA3199@ami.dom.local>
+In-Reply-To: <20080110233508.GA13315@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 11, 2008 at 12:10:42AM +0100, Jarek Poplawski wrote:
-> Eric Dumazet wrote, On 01/09/2008 11:37 AM:
-> ...
-> > [NET] ROUTE: fix rcu_dereference() uses in /proc/net/rt_cache
-> ...
-> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> > index d337706..28484f3 100644
-> > --- a/net/ipv4/route.c
-> > +++ b/net/ipv4/route.c
-> > @@ -283,12 +283,12 @@ static struct rtable *rt_cache_get_first(struct seq_file *seq)
-> >  			break;
-> >  		rcu_read_unlock_bh();
-> >  	}
-> > -	return r;
-> > +	return rcu_dereference(r);
-> >  }
-> >  
-> >  static struct rtable *rt_cache_get_next(struct seq_file *seq, struct rtable *r)
-> >  {
-> > -	struct rt_cache_iter_state *st = rcu_dereference(seq->private);
-> > +	struct rt_cache_iter_state *st = seq->private;
-> >  
-> >  	r = r->u.dst.rt_next;
-> >  	while (!r) {
-> > @@ -298,7 +298,7 @@ static struct rtable *rt_cache_get_next(struct seq_file *seq, struct rtable *r)
-> >  		rcu_read_lock_bh();
-> >  		r = rt_hash_table[st->bucket].chain;
-> >  	}
-> > -	return r;
-> > +	return rcu_dereference(r);
-> >  }
-> 
-> It seems this optimization could've a side effect: if during such a
-> loop updates are done, and r is seen !NULL during while() check, but
-> NULL after rcu_dereference(), the listing/counting could stop too
-> soon. So, IMHO, probably the first version of this patch is more
-> reliable. (Or alternatively additional check is needed before return.)
+The current logic will only request an ack for the first pending
+packet. No irq is triggered as soon as the CPU submits a few
+packets a bit quickly.  Let's request an irq for every packet
+instead.
 
-Looks to me like "r" is a local variable (argument list), so there
-should not be any possibility of it being changed by some other
-task, right?
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/ipg.c |    5 +----
+ 1 files changed, 1 insertions(+), 4 deletions(-)
 
-							Thanx, Paul
+diff --git a/drivers/net/ipg.c b/drivers/net/ipg.c
+index b234b29..50f0c17 100644
+--- a/drivers/net/ipg.c
++++ b/drivers/net/ipg.c
+@@ -1934,10 +1934,7 @@ static int ipg_nic_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 */
+ 	if (sp->tenmbpsmode)
+ 		txfd->tfc |= cpu_to_le64(IPG_TFC_TXINDICATE);
+-	else if (!((sp->tx_current - sp->tx_dirty + 1) >
+-	    IPG_FRAMESBETWEENTXDMACOMPLETES)) {
+-		txfd->tfc |= cpu_to_le64(IPG_TFC_TXDMAINDICATE);
+-	}
++	txfd->tfc |= cpu_to_le64(IPG_TFC_TXDMAINDICATE);
+ 	/* Based on compilation option, determine if FCS is to be
+ 	 * appended to transmit frame by IPG.
+ 	 */
+-- 
+1.5.3.3
+
