@@ -1,90 +1,74 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2/4] ipg: plug Tx completion leak
-Date: Fri, 11 Jan 2008 00:37:07 +0100
-Message-ID: <20080110233707.GC13315@electric-eye.fr.zoreil.com>
-References: <20080110233508.GA13315@electric-eye.fr.zoreil.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [NET] ROUTE: fix rcu_dereference() uses in /proc/net/rt_cache
+Date: Thu, 10 Jan 2008 15:51:11 -0800
+Message-ID: <20080110235111.GF9586@linux.vnet.ibm.com>
+References: <20080109113727.50eae500.dada1@cosmosbay.com> <20080110231042.GA3199@ami.dom.local>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux@horizon.com, jeff@garzik.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	dipankar@in.ibm.com, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:38178 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755979AbYAJXuw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 18:50:52 -0500
+Received: from e35.co.us.ibm.com ([32.97.110.153]:58230 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754318AbYAJXvO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 18:51:14 -0500
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m0ANpDfC025150
+	for <netdev@vger.kernel.org>; Thu, 10 Jan 2008 18:51:13 -0500
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0ANpDTM094620
+	for <netdev@vger.kernel.org>; Thu, 10 Jan 2008 16:51:13 -0700
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0ANpCqq022699
+	for <netdev@vger.kernel.org>; Thu, 10 Jan 2008 16:51:13 -0700
 Content-Disposition: inline
-In-Reply-To: <20080110233508.GA13315@electric-eye.fr.zoreil.com>
+In-Reply-To: <20080110231042.GA3199@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Tx skb release could not free more than one skb per call.
-Add it to the fact that the xmit handler does not check for
-a queue full condition and you have a recipe to leak quickly.
+On Fri, Jan 11, 2008 at 12:10:42AM +0100, Jarek Poplawski wrote:
+> Eric Dumazet wrote, On 01/09/2008 11:37 AM:
+> ...
+> > [NET] ROUTE: fix rcu_dereference() uses in /proc/net/rt_cache
+> ...
+> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> > index d337706..28484f3 100644
+> > --- a/net/ipv4/route.c
+> > +++ b/net/ipv4/route.c
+> > @@ -283,12 +283,12 @@ static struct rtable *rt_cache_get_first(struct seq_file *seq)
+> >  			break;
+> >  		rcu_read_unlock_bh();
+> >  	}
+> > -	return r;
+> > +	return rcu_dereference(r);
+> >  }
+> >  
+> >  static struct rtable *rt_cache_get_next(struct seq_file *seq, struct rtable *r)
+> >  {
+> > -	struct rt_cache_iter_state *st = rcu_dereference(seq->private);
+> > +	struct rt_cache_iter_state *st = seq->private;
+> >  
+> >  	r = r->u.dst.rt_next;
+> >  	while (!r) {
+> > @@ -298,7 +298,7 @@ static struct rtable *rt_cache_get_next(struct seq_file *seq, struct rtable *r)
+> >  		rcu_read_lock_bh();
+> >  		r = rt_hash_table[st->bucket].chain;
+> >  	}
+> > -	return r;
+> > +	return rcu_dereference(r);
+> >  }
+> 
+> It seems this optimization could've a side effect: if during such a
+> loop updates are done, and r is seen !NULL during while() check, but
+> NULL after rcu_dereference(), the listing/counting could stop too
+> soon. So, IMHO, probably the first version of this patch is more
+> reliable. (Or alternatively additional check is needed before return.)
 
-Let's release every pending Tx descriptor which has been given
-back to the host CPU by the network controller. The xmit handler
-suggests that it is done through the IPG_TFC_TFDDONE bit.
+Looks to me like "r" is a local variable (argument list), so there
+should not be any possibility of it being changed by some other
+task, right?
 
-Remove the former "curr" computing: it does not produce anything
-usable in its current form.
-
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/ipg.c |   19 +++++--------------
- 1 files changed, 5 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/ipg.c b/drivers/net/ipg.c
-index cd1650e..9752902 100644
---- a/drivers/net/ipg.c
-+++ b/drivers/net/ipg.c
-@@ -857,21 +857,14 @@ static void init_tfdlist(struct net_device *dev)
- static void ipg_nic_txfree(struct net_device *dev)
- {
- 	struct ipg_nic_private *sp = netdev_priv(dev);
--	void __iomem *ioaddr = sp->ioaddr;
--	unsigned int curr;
--	u64 txd_map;
--	unsigned int released, pending;
--
--	txd_map = (u64)sp->txd_map;
--	curr = ipg_r32(TFD_LIST_PTR_0) -
--		do_div(txd_map, sizeof(struct ipg_tx)) - 1;
-+	unsigned int released, pending, dirty;
- 
- 	IPG_DEBUG_MSG("_nic_txfree\n");
- 
- 	pending = sp->tx_current - sp->tx_dirty;
-+	dirty = sp->tx_dirty % IPG_TFDLIST_LENGTH;
- 
- 	for (released = 0; released < pending; released++) {
--		unsigned int dirty = sp->tx_dirty % IPG_TFDLIST_LENGTH;
- 		struct sk_buff *skb = sp->TxBuff[dirty];
- 		struct ipg_tx *txfd = sp->txd + dirty;
- 
-@@ -882,11 +875,8 @@ static void ipg_nic_txfree(struct net_device *dev)
- 		 * If the TFDDone bit is set, free the associated
- 		 * buffer.
- 		 */
--		if (dirty == curr)
--			break;
--
--		/* Setup TFDDONE for compatible issue. */
--		txfd->tfc |= cpu_to_le64(IPG_TFC_TFDDONE);
-+		if (!(txfd->tfc & cpu_to_le64(IPG_TFC_TFDDONE)))
-+                        break;
- 
- 		/* Free the transmit buffer. */
- 		if (skb) {
-@@ -898,6 +888,7 @@ static void ipg_nic_txfree(struct net_device *dev)
- 
- 			sp->TxBuff[dirty] = NULL;
- 		}
-+		dirty = (dirty + 1) % IPG_TFDLIST_LENGTH;
- 	}
- 
- 	sp->tx_dirty += released;
--- 
-1.5.3.3
-
+							Thanx, Paul
