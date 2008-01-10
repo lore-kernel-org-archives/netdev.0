@@ -1,64 +1,46 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Subject: Re: questions on NAPI processing latency and dropped network packets
-Date: Thu, 10 Jan 2008 10:26:44 -0800
-Message-ID: <47866364.1010501@intel.com>
-References: <478654C3.60806@nortel.com> <478657C1.8040107@intel.com> <47865FFD.2010407@nortel.com>
+Date: Thu, 10 Jan 2008 11:01:30 -0800
+Message-ID: <47866B8A.3040607@intel.com>
+References: <478654C3.60806@nortel.com> <478666F4.50405@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Chris Friesen <cfriesen@nortel.com>
+Cc: Chris Friesen <cfriesen@nortel.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:23350 "EHLO mga03.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:7760 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756253AbYAJSvC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2008 13:51:02 -0500
-In-Reply-To: <47865FFD.2010407@nortel.com>
+	id S1754671AbYAJTCR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jan 2008 14:02:17 -0500
+In-Reply-To: <478666F4.50405@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chris Friesen wrote:
-> Kok, Auke wrote:
+Rick Jones wrote:
+>> 1) Interrupts are being processed on both cpus:
+>>
+>> root@base0-0-0-13-0-11-1:/root> cat /proc/interrupts
+>>            CPU0       CPU1
+>>  30:    1703756    4530785  U3-MPIC Level     eth0
 > 
->> You're using 2.6.10... you can always replace the e1000 module with the
->> out-of-tree version from e1000.sf.net, this might help a bit - the
->> version in the
->> 2.6.10 kernel is very very old.
-> 
-> Do you have any reason to believe this would improve things?  It seems
-> like the problem lies in the NAPI/softirq code rather than in the e1000
-> driver itself, no?
+> IIRC none of the e1000 driven cards are multi-queue
 
-your real issue is that your userspace app is hogging the CPU. While network is
-not really cpu intensive, it does require that ample time at many intervals is
-given to the CPU to run cleanups and prevent FIFO issues.
+the pci-express variants are, but the functionality is almost always disabled (and
+relatively new anyway).
 
-alternatively, you can increase your rx/tx ring descriptor count (with ethtool),
-which basically makes it easier for the hardware not to be serviced for a longer
-period, since there are more buffers available and the card can go longer on when
-userspace is hogging the CPU.
+even with multiqueue, you can still have only a single irq line (which defeats the
+purpose of course mostly).
 
->> it also appears that your app is eating up CPU time. perhaps setting
->> the app to a
->> nicer nice level might mitigate things a bit.
-> 
-> If we're not handling the softirq work from ksoftirqd how would changing
-> scheduler settings affect anything?
+>, so while the above 
+> shows that interrupts from eth0 have been processed on both CPUs at
+> various points in the past, it doesn't necessarily mean that they are
+> being processed on both CPUs at the same time right?
 
-correct, it might not.
-
->> Also turn off the in-kernel irq
->> mitigation, it just causes cache misses and you really need the
->> network irq to sit
->> on a single cpu at most (if not all) the time to get the best
->> performance. Use the
->> userspace irqbalance daemon instead to achieve this.
-> 
-> Using userspace irqbalance would be some effort to test and deploy
-> properly.  However, as a quick test I tried setting the irq affinity for
-> this device and it didn't help.
-
-irqbalance is a simple userspace app that drops into any system seemlessly and
-does the best job all around - often it beats manual tuning of smp_affinity even ;)
+never will, an irq can only be processed on one cpu at a time anyway, obviously
+the irq here has been migrated ONCE from one of the cpu's to the other.
+unfortunately you can't see from /proc/interrupts whether this happens frequently
+or not, or how many times it happened before.
 
 Auke
