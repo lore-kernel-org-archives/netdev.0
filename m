@@ -1,47 +1,84 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-2.6.25][NEIGH]: Add a comment describing what a NUD stands
- for.
-Date: Thu, 10 Jan 2008 18:05:25 +0300
-Message-ID: <47863435.3090407@openvz.org>
+From: Jeba Anandhan <jeba.anandhan@vaioni.com>
+Subject: Re: SMP code / network stack
+Date: Thu, 10 Jan 2008 15:26:59 +0000
+Message-ID: <1199978819.29856.43.camel@vglwks010.vgl2.office.vaioni.com>
+References: <1199973946.29856.27.camel@vglwks010.vgl2.office.vaioni.com>
+	 <20080110154548.4b78ec7c.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, matthew.hattersley@vaioni.com
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:47996 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760683AbYAJPFn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2008 10:05:43 -0500
+Received: from vglsrv002.office.vaioni.com ([84.19.35.12]:3427 "EHLO
+	vglsrv02.vgl2.office.vaioni.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754254AbYAJP2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 10:28:37 -0500
+In-Reply-To: <20080110154548.4b78ec7c.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When I studied the neighbor code I puzzled over what
-the NUD can mean for quite a long time.
+Hi Eric,
+Thanks for the reply. I have one more doubt. For example, if we have 2
+processor and 4 ethernet cards. Only CPU0 does all work through 8 cards.
+If we set the affinity to each ethernet card as CPU number, will it be
+efficient?.
 
-Finally I asked Alexey and he said that this was smth
-like "neighbor unreachability detection".
+Will this be default behavior?
 
-Does it worth adding a comment helping future developers 
-understand what's going on?
+# cat /proc/interrupts 
+           CPU0       CPU1       
+  0:   11472559   74291833    IO-APIC-edge  timer
+  2:          0          0          XT-PIC  cascade
+  8:          0          1    IO-APIC-edge  rtc
+ 81:          0          0   IO-APIC-level  ohci_hcd
+ 97: 1830022231        847   IO-APIC-level  ehci_hcd, eth0
+ 97: 3830012232        847   IO-APIC-level  ehci_hcd, eth1
+ 97: 5830052231        847   IO-APIC-level  ehci_hcd, eth2
+ 97: 6830032213        847   IO-APIC-level  ehci_hcd, eth3
+#sleep 10
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+# cat /proc/interrupts 
+           CPU0       CPU1       
+  0:   11472559   74291833    IO-APIC-edge  timer
+  2:          0          0          XT-PIC  cascade
+  8:          0          1    IO-APIC-edge  rtc
+ 81:          0          0   IO-APIC-level  ohci_hcd
+ 97: 2031409801        847   IO-APIC-level  ehci_hcd, eth0
+ 97: 4813981390        847   IO-APIC-level  ehci_hcd, eth1
+ 97: 7123982139        847   IO-APIC-level  ehci_hcd, eth2
+ 97: 8030193010        847   IO-APIC-level  ehci_hcd, eth3
 
----
 
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index 09f9fc6..bc34144 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -26,6 +26,10 @@
- #include <linux/sysctl.h>
- #include <net/rtnetlink.h>
- 
-+/*
-+ * NUD stands for "neighbor unreachability detection"
-+ */
-+
- #define NUD_IN_TIMER	(NUD_INCOMPLETE|NUD_REACHABLE|NUD_DELAY|NUD_PROBE)
- #define NUD_VALID	(NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE|NUD_PROBE|NUD_STALE|NUD_DELAY)
- #define NUD_CONNECTED	(NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE)
+Instead of the above mentioned ,if we set the affinity for eth2 and
+eth3.
+the output will be
+
+# cat /proc/interrupts 
+           CPU0       CPU1       
+  0:   11472559   74291833    IO-APIC-edge  timer
+  2:          0          0          XT-PIC  cascade
+  8:          0          1    IO-APIC-edge  rtc
+ 81:          0          0   IO-APIC-level  ohci_hcd
+ 97: 1830022231        847   IO-APIC-level  ehci_hcd, eth0
+ 97: 3830012232        847   IO-APIC-level  ehci_hcd, eth1
+ 97: 5830052231        923   IO-APIC-level  ehci_hcd, eth2
+ 97: 6830032213        1230   IO-APIC-level  ehci_hcd, eth3
+#sleep 10
+
+# cat /proc/interrupts 
+           CPU0       CPU1       
+  0:   11472559   74291833    IO-APIC-edge  timer
+  2:          0          0          XT-PIC  cascade
+  8:          0          1    IO-APIC-edge  rtc
+ 81:          0          0   IO-APIC-level  ohci_hcd
+ 97: 2300022231        847   IO-APIC-level  ehci_hcd, eth0
+ 97: 4010212232        847   IO-APIC-level  ehci_hcd, eth1
+ 97: 5830052231        1847   IO-APIC-level  ehci_hcd, eth2
+ 97: 6830032213        2337   IO-APIC-level  ehci_hcd, eth3
+
+In this case, will the performance improves?.
+
+Thanks
+Jeba
+On Thu, 2008-01-10 at 15:45 +0100, Eric Dumazet wrote:
