@@ -1,57 +1,28 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: FW: ccid2/ccid3 oopses
-Date: Thu, 10 Jan 2008 11:31:03 +0000
-Message-ID: <20080110113103.GA5606@gerrit.erg.abdn.ac.uk>
-References: <95473050@web.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH netns-2.6.25 0/19] routing virtualization v2
+Date: Thu, 10 Jan 2008 03:38:12 -0800 (PST)
+Message-ID: <20080110.033812.253438990.davem@davemloft.net>
+References: <47850C57.60907@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: devzero@web.de
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: benjamin.thery@bull.net, dlezcano@fr.ibm.com, devel@openvz.org,
+	containers@lists.osdl.org, netdev@vger.kernel.org, xemul@openvz.org
+To: den@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:60229 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753851AbYAJL3s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2008 06:29:48 -0500
-Content-Disposition: inline
-In-Reply-To: <95473050@web.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55761
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751916AbYAJLiN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 06:38:13 -0500
+In-Reply-To: <47850C57.60907@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > So maybe the cause triggering this oops is somewhere else.
-| 
-| yes, probably.  sorry - i didn`t tell or maybe i didn`t know when writing
-| my first mail to module authors and forget to add that before forwarding here.
-| 
-| for me , the problem does not happen with suse kernel of the day
-| (2.6.24-rc6-git7-20080102160500-default, .config attached) but it happens
-| with vanilla 2.6.24-rc6 (mostly allmodconfig, also attached)
-| 
-There are 256 differences between the two .config files. I think there are other
-people on the list who will be able to give more information regarding the .config
-files. The differences that struck me in the one which doesn't work is
+From: "Denis V. Lunev" <den@openvz.org>
+Date: Wed, 09 Jan 2008 21:03:03 +0300
 
- -- CONFIG_DEBUG_KERNEL     and
- -- CONFIG_DEBUG_BUGVERBOSE were not set. Both are very useful for bug-hunting,
-                            the latter is much better for decoding oopses.
+> This set adds namespace support for routing tables & rules
+> manipulation in the different namespaces. So, one could create a
+> namespace and setup IPv4 routing there how he wants.
 
-Can't say anything about the Suse kernel. We use the plain kernel from www.kernel.org, 
-specifically the netdev-tree:
-	git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6
-If you can't get further here, try with a kernel.org kernel or check Suse forums.	
-
- 1. the tests yesterday were done on the DCCP test tree based on the above netdev-2.6
-    2.6.24-rc7 tree from git://eden-feed.erg.abdn.ac.uk/dccp_exp   (dccp subtree)
-    Tested your for-loop 60 seconds each for CCID3/4 -- no oops.
-
- 2. also repeated the tests on an unmodified 2.6.24-rc7 tree from netdev-2.6 (today)
-    120 seconds for-loop each -- no oops.	
-
-As said, if the above does not help, try a www.kernel.org kernel (or one of the
-above trees) first.
-| 
-| >| > >> the easiest way to reproduce is:
-| > | > >> 
-| > | > >> while true;do modprobe dccp_ccid2/3;modprobe -r dccp_ccid2/3;done
-| > | > >> after short time, the kernel oopses (messages below)
-| > | > >> 
+All 19 patches applied, thanks Denis.
