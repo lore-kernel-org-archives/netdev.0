@@ -1,40 +1,75 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/3] bonding: 3 fixes for 2.6.24
-Date: Fri, 11 Jan 2008 08:05:07 +1100
-Message-ID: <20080110210507.GA17344@gondor.apana.org.au>
-References: <20080109152740.GE8728@gospo.usersys.redhat.com> <32361.1199901296@death> <20080109201709.GF8728@gospo.usersys.redhat.com> <20080109220534.GA2692@gondor.apana.org.au> <7603.1199920750@death> <20080110005809.GA3851@gondor.apana.org.au> <20080110145144.GH8728@gospo.usersys.redhat.com> <20080110203604.GB16621@gondor.apana.org.au> <25832.1199998246@death> <20080110210353.GI8728@gospo.usersys.redhat.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: e1000 performance issue in 4 simultaneous links
+Date: Thu, 10 Jan 2008 12:52:15 -0800
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5204275B04@orsmsx418.amr.corp.intel.com>
+References: <1199981839.8931.35.camel@cafe>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <fubar@us.ibm.com>, Krzysztof Oledzki <olel@ans.pl>,
-	netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>,
-	David Miller <davem@davemloft.net>
-To: Andy Gospodarek <andy@greyhouse.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: "Breno Leitao" <leitao@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1630 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751918AbYAJVFb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 16:05:31 -0500
-Content-Disposition: inline
-In-Reply-To: <20080110210353.GI8728@gospo.usersys.redhat.com>
+Received: from mga03.intel.com ([143.182.124.21]:51497 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752558AbYAJVM1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 16:12:27 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <1199981839.8931.35.camel@cafe>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 10, 2008 at 04:03:53PM -0500, Andy Gospodarek wrote:
->
-> > >Sure, but where do you call that function while holding the bond lock?
-> > 
-> > 	If I recall correctly, the problem was that tg3, et al, did
-> > things that might sleep, and bonding was calling from a timer context,
-> > which couldn't sleep.  It wasn't about the lock.
+Breno Leitao wrote:
+> When I run netperf in just one interface, I get 940.95 * 10^6 bits/sec
+> of transfer rate. If I run 4 netperf against 4 different interfaces, I
+> get around 720 * 10^6 bits/sec.
+
+This is actually a known issue that we have worked with your company
+before on.  It comes down to your system's default behavior of round
+robining interrupts (see cat /proc/interrupts while running the test)
+combined with e1000's way of exiting / rescheduling NAPI.
+
+The default round robin behavior of the interrupts on your system is the
+root cause of this issue, and here is what happens:
+
+4 interfaces start generating interrupts, if you're lucky the round
+robin balancer has them all on different cpus.
+As the e1000 driver goes into and out of polling mode, the round robin
+balancer keeps moving the interrupt to the next cpu.
+Eventually 2 or more driver instances end up on the same CPU, which
+causes both driver instances to stay in NAPI polling mode, due to the
+amount of work being done, and that there are always more than
+"netdev->weight" packets to do for each instance.  This keeps *hardware*
+interrupts for each interface *disabled*.
+Staying in NAPI polling mode causes higher cpu utilization on that one
+processor, which guarantees that when the hardware round robin balancer
+moves any other network interrupt onto that CPU, it too will join the
+NAPI polling mode chain.
+So no matter how many processors you have, with this round robin style
+of hardware interrupts, it guarantees you that if there is a lot of work
+to do (more than weight) at each softirq, then, all network interfaces
+will end up on the same cpu eventually (the busiest one)
+Your performance becomes the same as if you had booted with maxcpus=1
+
+I hope this explanation makes sense, but what it comes down to is that
+combining hardware round robin balancing with NAPI is a BAD IDEA.  In
+general the behavior of hardware round robin balancing is bad and I'm
+sure it is causing all sorts of other performance issues that you may
+not even be aware of.
+
+I'm sure your problem will go away if you run e1000 in interrupt mode.
+(use make CFLAGS_EXTRA=-DE1000_NO_NAPI)
+ 
+> If I run the same test against 2 interfaces I get a 940 * 10^6
+> bits/sec transfer rate also, and if I run it against 3 interfaces I
+> get around 850 * 10^6 bits/sec performance.
 > 
-> Exactly, I was just about to post the same.
+> I got this results using the upstream netdev-2.6 branch kernel plus
+> David Miller's 7 NAPI patches set[1]. In the kernel 2.6.23.12 the
+> result is a bit worse, and the the transfer rate was around 600 * 10^6
+> bits/sec.
 
-In other words, changing read_lock on bond->lock to read_lock_bh doesn't
-affect this one bit.
+Thank you for testing the latest kernel.org kernel.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Hope this helps.
