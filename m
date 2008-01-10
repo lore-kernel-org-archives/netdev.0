@@ -1,58 +1,57 @@
-From: Karsten Keil <kkeil@suse.de>
-Subject: Re: Linux IPv6 DAD not full conform to RFC 4862 ?
-Date: Thu, 10 Jan 2008 12:29:13 +0100
-Message-ID: <20080110112913.GB5065@pingi.kke.suse.de>
-References: <20080109153656.GA16962@pingi.kke.suse.de> <20080109.153212.144388472.davem@davemloft.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: FW: ccid2/ccid3 oopses
+Date: Thu, 10 Jan 2008 11:31:03 +0000
+Message-ID: <20080110113103.GA5606@gerrit.erg.abdn.ac.uk>
+References: <95473050@web.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: devzero@web.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:41829 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753748AbYAJL3P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2008 06:29:15 -0500
-Received: from Relay1.suse.de (relay-ext.suse.de [195.135.221.8])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mx2.suse.de (Postfix) with ESMTP id 125D72FA28
-	for <netdev@vger.kernel.org>; Thu, 10 Jan 2008 12:29:14 +0100 (CET)
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:60229 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753851AbYAJL3s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jan 2008 06:29:48 -0500
 Content-Disposition: inline
-In-Reply-To: <20080109.153212.144388472.davem@davemloft.net>
+In-Reply-To: <95473050@web.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 09, 2008 at 03:32:12PM -0800, David Miller wrote:
-> From: Karsten Keil <kkeil@suse.de>
-> Date: Wed, 9 Jan 2008 16:36:56 +0100
-> 
-> >    If the address is a link-local address formed from an interface
-> >    identifier based on the hardware address, which is supposed to be
-> >    uniquely assigned (e.g., EUI-64 for an Ethernet interface), IP
-> >    operation on the interface SHOULD be disabled.  By disabling IP
-> >    operation, the node will then:
-> > 
-> >    -  not send any IP packets from the interface,
-> > 
-> >    -  silently drop any IP packets received on the interface, and
-> > 
-> >    -  not forward any IP packets to the interface (when acting as a
-> >       router or processing a packet with a Routing header).
-> 
-> I question any RFC mandate that shuts down IP communication on a node
-> because of packets received from remote systems.
-> 
-> If the TAHI test can trigger this, so can a compromised system on your
-> network and won't that be fun? :-)
+| > So maybe the cause triggering this oops is somewhere else.
+| 
+| yes, probably.  sorry - i didn`t tell or maybe i didn`t know when writing
+| my first mail to module authors and forget to add that before forwarding here.
+| 
+| for me , the problem does not happen with suse kernel of the day
+| (2.6.24-rc6-git7-20080102160500-default, .config attached) but it happens
+| with vanilla 2.6.24-rc6 (mostly allmodconfig, also attached)
+| 
+There are 256 differences between the two .config files. I think there are other
+people on the list who will be able to give more information regarding the .config
+files. The differences that struck me in the one which doesn't work is
 
-I agree, but on the other side, a interface with a real duplicate HW address
-sending packets on the network can also cause very serious problems, and
-maybe is not so easy to detect as  a system where the interface never come
-up because of this. So maybe it makes sense to implement it as option, not
-as default.
-And the DOS scenario is already here, also without disabling IP completely,
-since you can deny any IPv6 address assignments with faked DAD pakets.
+ -- CONFIG_DEBUG_KERNEL     and
+ -- CONFIG_DEBUG_BUGVERBOSE were not set. Both are very useful for bug-hunting,
+                            the latter is much better for decoding oopses.
 
--- 
-Karsten Keil
-SuSE Labs
-SUSE LINUX Products GmbH, Maxfeldstr.5 90409 Nuernberg, GF: Markus Rex, HRB 16746 (AG Nuernberg)
+Can't say anything about the Suse kernel. We use the plain kernel from www.kernel.org, 
+specifically the netdev-tree:
+	git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6
+If you can't get further here, try with a kernel.org kernel or check Suse forums.	
+
+ 1. the tests yesterday were done on the DCCP test tree based on the above netdev-2.6
+    2.6.24-rc7 tree from git://eden-feed.erg.abdn.ac.uk/dccp_exp   (dccp subtree)
+    Tested your for-loop 60 seconds each for CCID3/4 -- no oops.
+
+ 2. also repeated the tests on an unmodified 2.6.24-rc7 tree from netdev-2.6 (today)
+    120 seconds for-loop each -- no oops.	
+
+As said, if the above does not help, try a www.kernel.org kernel (or one of the
+above trees) first.
+| 
+| >| > >> the easiest way to reproduce is:
+| > | > >> 
+| > | > >> while true;do modprobe dccp_ccid2/3;modprobe -r dccp_ccid2/3;done
+| > | > >> after short time, the kernel oopses (messages below)
+| > | > >> 
