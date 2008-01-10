@@ -1,48 +1,79 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: SMP code / network stack
-Date: Thu, 10 Jan 2008 10:31:58 -0800
-Message-ID: <4786649E.60502@intel.com>
-References: <1199973946.29856.27.camel@vglwks010.vgl2.office.vaioni.com> <20080110154548.4b78ec7c.dada1@cosmosbay.com> <1199978819.29856.43.camel@vglwks010.vgl2.office.vaioni.com> <20080110174657.GL22437@ghostprotocols.net>
+Subject: Re: e1000 performance issue in 4 simultaneous links
+Date: Thu, 10 Jan 2008 10:18:07 -0800
+Message-ID: <4786615F.9060606@intel.com>
+References: <1199981839.8931.35.camel@cafe>	 <20080110163626.GJ3544@solarflare.com> <1199986291.8931.62.camel@cafe>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: Arnaldo Carvalho de Melo <acme@redhat.com>,
-	Jeba Anandhan <jeba.anandhan@vaioni.com>,
-	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
-	matthew.hattersley@vaioni.com
+Cc: bhutchings@solarflare.com, NetDev <netdev@vger.kernel.org>
+To: Breno Leitao <leitao@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:21376 "EHLO mga11.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:64133 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753781AbYAJScq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2008 13:32:46 -0500
-In-Reply-To: <20080110174657.GL22437@ghostprotocols.net>
+	id S1753781AbYAJSef (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jan 2008 13:34:35 -0500
+In-Reply-To: <1199986291.8931.62.camel@cafe>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arnaldo Carvalho de Melo wrote:
-> Em Thu, Jan 10, 2008 at 03:26:59PM +0000, Jeba Anandhan escreveu:
->> Hi Eric,
->> Thanks for the reply. I have one more doubt. For example, if we have 2
->> processor and 4 ethernet cards. Only CPU0 does all work through 8 cards.
->> If we set the affinity to each ethernet card as CPU number, will it be
->> efficient?.
+Breno Leitao wrote:
+> On Thu, 2008-01-10 at 16:36 +0000, Ben Hutchings wrote:
+>>> When I run netperf in just one interface, I get 940.95 * 10^6 bits/sec
+>>> of transfer rate. If I run 4 netperf against 4 different interfaces, I
+>>> get around 720 * 10^6 bits/sec.
+>> <snip>
 >>
->> Will this be default behavior?
->>
->> # cat /proc/interrupts 
->>            CPU0       CPU1       
->>   0:   11472559   74291833    IO-APIC-edge  timer
->>   2:          0          0          XT-PIC  cascade
->>   8:          0          1    IO-APIC-edge  rtc
->>  81:          0          0   IO-APIC-level  ohci_hcd
->>  97: 1830022231        847   IO-APIC-level  ehci_hcd, eth0
->>  97: 3830012232        847   IO-APIC-level  ehci_hcd, eth1
->>  97: 5830052231        847   IO-APIC-level  ehci_hcd, eth2
->>  97: 6830032213        847   IO-APIC-level  ehci_hcd, eth3
+>> I take it that's the average for individual interfaces, not the
+>> aggregate?
+> Right, each of these results are for individual interfaces. Otherwise,
+> we'd have a huge problem. :-)
+> 
+>> This can be mitigated by interrupt moderation and NAPI
+>> polling, jumbo frames (MTU >1500) and/or Large Receive Offload (LRO).
+>> I don't think e1000 hardware does LRO, but the driver could presumably
+>> be changed use Linux's software LRO.
+> Without using these "features" and keeping the MTU as 1500, do you think
+> we could get a better performance than this one?
+> 
+> I also tried to increase my interface MTU to 9000, but I am afraid that
+> netperf only transmits packets with less than 1500. Still investigating.
+> 
+>> single CPU this can become a bottleneck.  Does the test system have
+>> multiple CPUs?  Are IRQs for the multiple NICs balanced across
+>> multiple CPUs?
+> Yes, this machine has 8 ppc 1.9Ghz CPUs. And the IRQs are balanced
+> across the CPUs, as I see in /proc/interrupts: 
 
-another thing to try: if you don't need usb2 support, remove the ehci_hcd module -
-this will give a slight less overhead servicing irq's in your system.
 
-I take it that you have no MSI support in these ethernet cards?
+which is wrong and hurts performance. you want your ethernet irq's to stick to a
+CPU for long times to prevent cache thrash.
+
+please disable the in-kernel irq balancing code and use the userspace `irqbalance`
+daemon.
+
+Gee I should put that in my signature, I already wrote that twice today :)
 
 Auke
+
+> 
+> # cat /proc/interrupts 
+>            CPU0       CPU1       CPU2       CPU3       CPU4       CPU5       CPU6       CPU7       
+>  16:        940        760       1047        904        993        777        975        813   XICS      Level     IPI
+>  18:          4          3          4          1          3          6          8          3   XICS      Level     hvc_console
+>  19:          0          0          0          0          0          0          0          0   XICS      Level     RAS_EPOW
+> 273:      10728      10850      10937      10833      10884      10788      10868      10776   XICS      Level     eth4
+> 275:          0          0          0          0          0          0          0          0   XICS      Level     ehci_hcd:usb1, ohci_hcd:usb2, ohci_hcd:usb3
+> 277:     234933     230275     229770     234048     235906     229858     229975     233859   XICS      Level     eth6
+> 278:     266225     267606     262844     265985     268789     266869     263110     267422   XICS      Level     eth7
+> 279:        893        919        857        909        867        917        894        881   XICS      Level     eth0
+> 305:     439246     439117     438495     436072     438053     440111     438973     438951   XICS      Level     eth0 Neterion Xframe II 10GbE network adapter
+> 321:       3268       3088       3143       3113       3305       2982       3326       3084   XICS      Level     ipr
+> 323:     268030     273207     269710     271338     270306     273258     270872     273281   XICS      Level     eth16
+> 324:     215012     221102     219494     216732     216531     220460     219718     218654   XICS      Level     eth17
+> 325:       7103       3580       7246       3475       7132       3394       7258       3435   XICS      Level     pata_pdc2027x
+> BAD:       4216
+> 
+> Thanks,
+> 
+
