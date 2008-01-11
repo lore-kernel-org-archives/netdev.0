@@ -1,41 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25 0/6][NETNS]: Make ipv6_devconf (all and
- default) live in net namespaces
-Date: Thu, 10 Jan 2008 17:54:12 -0800 (PST)
-Message-ID: <20080110.175412.104736323.davem@davemloft.net>
-References: <478623C0.7030008@openvz.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org, dlezcano@fr.ibm.com,
-	benjamin.thery@bull.net
-To: xemul@openvz.org
+From: linux@horizon.com
+Subject: Re: [PATCH 0/4] Pull request for 'ipg-fixes' branch
+Date: 10 Jan 2008 20:58:51 -0500
+Message-ID: <20080111015851.25008.qmail@science.horizon.com>
+References: <20080110233508.GA13315@electric-eye.fr.zoreil.com>
+Cc: akpm@linux-foundation.org, jeff@garzik.org, linux@horizon.com,
+	netdev@vger.kernel.org
+To: davem@davemloft.net, romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47629
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753461AbYAKByO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 20:54:14 -0500
-In-Reply-To: <478623C0.7030008@openvz.org>
+Received: from science.horizon.com ([192.35.100.1]:13394 "HELO
+	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754273AbYAKB6y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 20:58:54 -0500
+In-Reply-To: <20080110233508.GA13315@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Thu, 10 Jan 2008 16:55:12 +0300
+Thank you very much, this appears to work.
 
-> The ipv6_devconf_(all) and ipv6_devconf_dflt are currently
-> global, but should be per-namespace.
-> 
-> This set moves them on the struct net. Or, more precisely,
-> on the struct netns_ipv6, which is already added.
-> 
-> Unfortunately, many code in the ipv6 cannot yet provide a 
-> correct struct net to get the ipv6_devconf from (e.g. routing 
-> code), so this part of job is to be done after the appropriate 
-> parts are virtualized.
-> 
-> However, after this set user can play with the ipv6_devconf 
-> inside a namespace not affecting the others.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> The driver is still a POMS but it seems better now.
 
-All 6 patches applied, thanks Pavel.
+I notice that the vendor-supplied driver doesn't have these bugs.
+Now, it does have a bug in that it doesn't have an "is this
+interrupt for me?" test at all (and always returns "I handled it"),
+but the bypass and its locking screwups are a later addition.
+
+The same with the sp->rx_current bugs.  The original loop which used
+rx_current as the loop iteration variable wasn't great style, precisely
+because it hides the interaction that someone's "optimization" broke,
+but I don't want to blame the vendor for things they didn't do.
+
+Would you be interested in some cleanup patches?  In particular, I think I
+can get rid of tx->lock entirely, or at least take it off the fast path.
+All it's protecting is the write to sp->tx_current, and a few judicious
+memory barriers can deal with that.
+
+
+(Oh, another BUG: the sp->ResetCurrentTFD logic in hard_start_xmit is
+just plain broken.  It writes the new data to entry 0, then increments
+sp->tx_current just like usual.  THAT isn't in the vendor driver that
+I see, either.)
