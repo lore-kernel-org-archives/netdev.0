@@ -1,32 +1,27 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: questions on NAPI processing latency and dropped network packets
-Date: Sat, 12 Jan 2008 09:29:14 +1100
-Message-ID: <E1JDSNG-0008No-00@gondolin.me.apana.org.au>
-References: <4787844E.4020107@nortel.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: cfriesen@nortel.com (Chris Friesen)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1059 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1762905AbYAKWxL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 17:53:11 -0500
-In-Reply-To: <4787844E.4020107@nortel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: handing cloned frames to netif_rx()?
+Date: Sat, 12 Jan 2008 09:31:18 +1100
+Message-ID: <E1JDSPG-0008Of-00@gondolin.me.apana.org.au>
+References: <1200014246.3861.148.camel@johannes.berg>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org (Johannes Berg)
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1200014246.3861.148.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Chris Friesen <cfriesen@nortel.com> wrote:
+Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
 >
-> I'd love to work on newer kernels, but we have a commitment to our 
-> customers to support multiple releases for a significant amount of time.
+> Is it ok to do this? Will something freak out if we pass a cloned skb to
+> netif_rx()?
 
-Since you've made the commitment, you should stick to it and resolve
-the issues without asking us to contribute.  After all we haven't made
-that commitment to you or your customers.
+Sounds OK as long as you stick to the rules of cloned skb's, e.g., not
+writing to them unless you've copied it.
 
 Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
