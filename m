@@ -1,78 +1,98 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][ROSE][AX25] af_ax25: possible circular locking
-Date: Thu, 10 Jan 2008 21:22:42 -0800 (PST)
-Message-ID: <20080110.212242.42433023.davem@davemloft.net>
-References: <20071228214857.GA3290@ami.dom.local>
-	<20071229.191443.10947724.davem@davemloft.net>
-	<20071230141323.GA3377@ami.dom.local>
+Subject: Re: [PATCH 1/3] [UDP]: add udp_mem, udp_rmem_min and udp_wmem_min
+Date: Thu, 10 Jan 2008 22:00:15 -0800 (PST)
+Message-ID: <20080110.220015.118987509.davem@davemloft.net>
+References: <4778AE48.1040701@cosmosbay.com>
+	<20071231.041342.101160102.davem@davemloft.net>
+	<4778FFE2.9090008@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f6bvp@free.fr, ralf@linux-mips.org, adobriyan@gmail.com,
-	netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: haoki@redhat.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, tyasui@redhat.com, mhiramat@redhat.com,
+	satoshi.oshima.fk@hitachi.com, billfink@mindspring.com,
+	andi@firstfloor.org, johnpol@2ka.mipt.ru,
+	shemminger@linux-foundation.org, yoshfuji@linux-ipv6.org,
+	yumiko.sugita.yf@hitachi.com
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39211
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47620
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750809AbYAKFWm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 00:22:42 -0500
-In-Reply-To: <20071230141323.GA3377@ami.dom.local>
+	by vger.kernel.org with ESMTP id S1750760AbYAKGAQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 01:00:16 -0500
+In-Reply-To: <4778FFE2.9090008@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Sun, 30 Dec 2007 15:13:23 +0100
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Mon, 31 Dec 2007 15:42:42 +0100
 
-> On Sat, Dec 29, 2007 at 07:14:43PM -0800, David Miller wrote:
-> ...
-> > You can't just drop this linked list lock and expect it to stay
-> > consistent like that.
-> > 
-> > Once you drop it, any thread of control can get in there and delete
-> > entries from the list.
-> > 
-> > Since we know it can happen, using a WARN_ON_ONCE(1) is not
-> > appropriate.
+> Maybe we need to introduce some mechanism to let sk_forward between 0 and 
+> SK_MEM_QUANTUM (inclusive).
 > 
-> The problem is 'we' don't know if it can happen... In the first
-> message with this patch I've tried to get this information, and
-> now it seems you are the only one with this knowledge, but of
-> course this is more than enough for me to agree with your decision
-> to dump this patch.
+> static inline void sk_mem_reclaim_overpage(struct sock *sk)
+> {
+>          if (sk->sk_forward_alloc > SK_MEM_QUANTUM) {
+>                  __sk_mem_reclaim(sk);
+> 		}
+> }
+> 
+> and use sk_mem_reclaim_overpage() instead of sk_mem_reclaim() in 
+> tcp_delack_timer() ?
 
-I've removed the warning and made the branch back to 'again'
-unconditional as I think this is the safest version of the
-change.
+This makes a lot of sense to me, it is definitely doing the wrong
+thing here for the load you describe.
 
-I'll push this upstream, thanks for fixing this Jarek.
+I've applied the following to net-2.6.25 and I am definitely
+willing to put this into 2.6.24 and -stable if you think that's
+worthwhile too.
 
-diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-index ecb14ee..b4725ff 100644
---- a/net/ax25/af_ax25.c
-+++ b/net/ax25/af_ax25.c
-@@ -87,10 +87,22 @@ static void ax25_kill_by_device(struct net_device *dev)
- 		return;
+[TCP]: Do not purge sk_forward_alloc entirely in tcp_delack_timer().
+
+Otherwise we beat heavily on the global tcp_memory atomics
+when all of the sockets in the system are slowly sending
+perioding packet clumps.
+
+Noticed and suggested by Eric Dumazet.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/sock.h   |    8 ++++++++
+ net/ipv4/tcp_timer.c |    2 +-
+ 2 files changed, 9 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 89e04e4..d24b826 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -759,6 +759,14 @@ static inline void sk_mem_reclaim(struct sock *sk)
+ 		__sk_mem_reclaim(sk);
+ }
  
- 	spin_lock_bh(&ax25_list_lock);
-+again:
- 	ax25_for_each(s, node, &ax25_list) {
- 		if (s->ax25_dev == ax25_dev) {
- 			s->ax25_dev = NULL;
-+			spin_unlock_bh(&ax25_list_lock);
- 			ax25_disconnect(s, ENETUNREACH);
-+			spin_lock_bh(&ax25_list_lock);
++static inline void sk_mem_reclaim_partial(struct sock *sk)
++{
++	if (!sk_has_account(sk))
++		return;
++	if (sk->sk_forward_alloc > SK_MEM_QUANTUM)
++		__sk_mem_reclaim(sk);
++}
 +
-+			/* The entry could have been deleted from the
-+			 * list meanwhile and thus the next pointer is
-+			 * no longer valid.  Play it safe and restart
-+			 * the scan.  Forward progress is ensured
-+			 * because we set s->ax25_dev to NULL and we
-+			 * are never passed a NULL 'dev' argument.
-+			 */
-+			goto again;
- 		}
+ static inline void sk_mem_charge(struct sock *sk, int size)
+ {
+ 	if (!sk_has_account(sk))
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 17931be..803d758 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -186,7 +186,7 @@ static void tcp_delack_timer(unsigned long data)
+ 		goto out_unlock;
  	}
- 	spin_unlock_bh(&ax25_list_lock);
+ 
+-	sk_mem_reclaim(sk);
++	sk_mem_reclaim_partial(sk);
+ 
+ 	if (sk->sk_state == TCP_CLOSE || !(icsk->icsk_ack.pending & ICSK_ACK_TIMER))
+ 		goto out;
 -- 
 1.5.4.rc2.84.gf85fd
 
