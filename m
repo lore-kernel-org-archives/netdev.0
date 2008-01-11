@@ -1,108 +1,66 @@
-From: Dzianis Kahanovich <mahatma@bspu.unibel.by>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [PATCH 2.6.23+] ingress classify to [nf]mark
-Date: Fri, 11 Jan 2008 15:24:51 -0200
-Message-ID: <4787A663.4030204@bspu.unibel.by>
-References: <47866C69.3080904@bspu.unibel.by> <1200001167.4443.38.camel@localhost>
-Reply-To: mahatma@eu.by
+Date: Fri, 11 Jan 2008 09:59:01 -0500
+Message-ID: <1200063541.4483.42.camel@localhost>
+References: <47866C69.3080904@bspu.unibel.by>
+	 <1200001167.4443.38.camel@localhost>  <4787A663.4030204@bspu.unibel.by>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: mahatma@eu.by
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bspu.unibel.by ([195.50.2.21]:43349 "EHLO
-	mail.bspu.unibel.by" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760728AbYAKOVU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 09:21:20 -0500
-Received: from [10.200.200.1] ([10.200.200.1])
-	by mail.bspu.unibel.by (8.14.1/8.14.0) with ESMTP id m0BDOwlX016768
-	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 15:24:59 +0200
-In-Reply-To: <1200001167.4443.38.camel@localhost>
+Received: from py-out-1112.google.com ([64.233.166.182]:7723 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756100AbYAKO7E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 09:59:04 -0500
+Received: by py-out-1112.google.com with SMTP id u52so1668893pyb.10
+        for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 06:59:04 -0800 (PST)
+In-Reply-To: <4787A663.4030204@bspu.unibel.by>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-jamal wrote:
+On Fri, 2008-11-01 at 15:24 -0200, Dzianis Kahanovich wrote:
+> jamal wrote:
 
->> To "classid x:y" = "mark=mark&x|y" ("classid :y" = "-j MARK --set-mark y", etc).
->>
->> --- linux-2.6.23-gentoo-r2/net/sched/Kconfig
->> +++ linux-2.6.23-gentoo-r2.fixed/net/sched/Kconfig
->> @@ -222,6 +222,16 @@
-> [..]
->>   			skb->tc_index = TC_H_MIN(res.classid);
->> +#ifdef CONFIG_NET_SCH_INGRESS_TC2MARK
->> +			skb->mark = (skb->mark&(res.classid>>16))|TC_H_MIN(res.classid);
->> +#endif
->>   		default:
+
+> > tc qdisc add dev XXX ingress
+> > tc filter add dev XXX parent ffff: protocol ip prio 5 \
+> > u32 blah bleh \
+> > flowid 1:12 action ipt -j mark --set-mark 13 
 > 
-> 
-> Please either use ipt action and netfilter fwmarker for this activity or
-
-Sorry. There are only unsuccessful attempt to popularize my working solution.
-Really I just use "#define tc_index mark" (in skbuff.h or sch_ingress.c) or 
-something like this:
-
---- linux-2.6.23-gentoo-r2/net/sched/Kconfig
-+++ linux-2.6.23-gentoo-r2.fixed/net/sched/Kconfig
-@@ -222,6 +222,16 @@
-  	  To compile this code as a module, choose M here: the
-  	  module will be called sch_ingress.
-
-+config NET_SCH_INGRESS_TC2MARK
-+	bool "ingress tc_index -> mark"
-+	depends on NET_SCH_INGRESS && NET_CLS_ACT
-+	---help---
-+	  This enables access to "mark" value via "tc_index" alias
-+	  in ingress and unify this values (usage example: set "flowid :2"
-+	  in ingress and use it value as "mark" in any way - netfilter, etc).
-+	
-+	  But tc_index may be undefined - use "flowid :0".
-+
-  comment "Classification"
-
-  config NET_CLS
---- linux-2.6.23-gentoo-r2/net/sched/sch_ingress.c
-+++ linux-2.6.23-gentoo-r2.fixed/net/sched/sch_ingress.c
-@@ -18,6 +18,9 @@
-  #include <net/netlink.h>
-  #include <net/pkt_sched.h>
-
-+#ifdef CONFIG_NET_SCH_INGRESS_TC2MARK
-+#define tc_index mark
-+#endif
-
-  #undef DEBUG_INGRESS
-
-
-
-> create a new action. 
-> If you choose the later (example because you want to dynamically compute
-> the mark), look at net/sched/act_simple.c to start from and i can help
-> you if you have any questions.
->  
-> If you want to use ipt action, the syntax would be something like:
-> 
+> Yes, I do so. But there are simple:
 > ---
-> tc qdisc add dev XXX ingress
-> tc filter add dev XXX parent ffff: protocol ip prio 5 \
-> u32 blah bleh \
-> flowid 1:12 action ipt -j mark --set-mark 13 
+> if [[ $[TC_INDEX2MARK] == 0 ]] ; then
+>   c=${c//action ipt -j MARK --set-mark /flowid :}
+> fi
+> $c
+> ---
 
-Yes, I do so. But there are simple:
----
-if [[ $[TC_INDEX2MARK] == 0 ]] ; then
-  c=${c//action ipt -j MARK --set-mark /flowid :}
-fi
-$c
----
+I didnt quiet understand what you have above. Does your script above
+read the flowid and sets the MARK to some dynamic value based on flowid?
+if thats what you are doing - it sounds sensible and much more clever
+than what is posted. And it doesnt require any kernel patch.
 
-Simpliest:
---- linux-2.6.23-gentoo-r2/net/sched/sch_ingress.c
-+++ linux-2.6.23-gentoo-r2.fixed/net/sched/sch_ingress.c
-@@ -222,6 +222,16 @@
--   			skb->tc_index = TC_H_MIN(res.classid);
-+   			skb->tc_index = TC_H_MIN(mark=res.classid);
+> Simpliest:
+> --- linux-2.6.23-gentoo-r2/net/sched/sch_ingress.c
+> +++ linux-2.6.23-gentoo-r2.fixed/net/sched/sch_ingress.c
+> @@ -222,6 +222,16 @@
+> -   			skb->tc_index = TC_H_MIN(res.classid);
+> +   			skb->tc_index = TC_H_MIN(mark=res.classid);
 
+Just write a metaset action and you can have all sorts of policies on
+what tc_index, mark etc you want. It is something thats needed in any
+case.
+When we did tc_index it made sense then because it was for "tc" to use
+some default policy. Enforcing policies in the kernel is not the best
+thing to do; as an example you want to specify the polciy for mark to
+be: classid major>>16|minor. I am sure you have good reasons; however,
+for the next person who wants to set it it major>>8|minor for their own
+good reason, theres conflict.  
+My offer to help you is still open.
 
--- 
-WBR,
-Denis Kaganovich,  mahatma@eu.by  http://mahatma.bspu.unibel.by
+cheers,
+jamal
+
