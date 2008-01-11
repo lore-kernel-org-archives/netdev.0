@@ -1,7 +1,7 @@
 From: "Aggrwal Poonam" <Poonam.Aggrwal@freescale.com>
 Subject: RE:  [PATCH 0/3] UCC TDM driver for MPC83xx platforms
-Date: Fri, 11 Jan 2008 10:11:20 +0530
-Message-ID: <FBA61160C48B8D438F3323FEFB4EF2C26E7653@zin33exm24.fsl.freescale.net>
+Date: Fri, 11 Jan 2008 10:24:56 +0530
+Message-ID: <FBA61160C48B8D438F3323FEFB4EF2C26E765F@zin33exm24.fsl.freescale.net>
 References: <FBA61160C48B8D438F3323FEFB4EF2C259F2F6@zin33exm24.fsl.freescale.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -10,22 +10,21 @@ Content-Transfer-Encoding: 8BIT
 Cc: "Barkowski Michael" <Michael.Barkowski@freescale.com>,
 	"Phillips Kim" <Kim.Phillips@freescale.com>,
 	"Kalra Ashish" <ashish.kalra@freescale.com>,
-	"Cutler Richard" <Rich.Cutler@freescale.com>,
-	"Aggrwal Poonam" <Poonam.Aggrwal@freescale.com>
-To: <sfr@canb.auug.org.au>, <rubini@vision.unipv.it>,
-	<linux-ppcdev@ozlabs.kernel.org>, <netdev@vger.kernel.org>,
+	"Cutler Richard" <Rich.Cutler@freescale.com>
+To: "Aggrwal Poonam" <Poonam.Aggrwal@freescale.com>,
+	<sfr@canb.auug.org.au>, <rubini@vision.unipv.it>,
+	<linux-ppcdev@ozlabs.org>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>,
-	"Gala Kumar" <kumar.gala@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:39641 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756974AbYAKElu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 23:41:50 -0500
+Received: from de01egw01.freescale.net ([192.88.165.102]:56667 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756852AbYAKEzJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 23:55:09 -0500
 Content-class: urn:content-classes:message
-In-Reply-To: <FBA61160C48B8D438F3323FEFB4EF2C259F2F6@zin33exm24.fsl.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+ 
 Hello  All
 
 I am waiting for more feedback on the patches.
