@@ -1,46 +1,40 @@
-From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-Subject: [PATCH 3/5] spidernet: change interrupt masks
-Date: Fri, 11 Jan 2008 15:43:43 +0900 (JST)
-Message-ID: <20080111.154343.-1625861724.kouish@swc.toshiba.co.jp>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [klibc] [patch] import socket defines
+Date: Thu, 10 Jan 2008 23:42:28 -0800
+Message-ID: <47871DE4.40906@zytor.com>
+References: <477BD374.6060506@zytor.com> <200801110123.38406.vapier@gentoo.org> <20080110.224749.66236050.davem@davemloft.net> <200801110207.39736.vapier@gentoo.org> <4787164F.9030805@zytor.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
-To: linas@austin.ibm.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	klibc@zytor.com
+To: Mike Frysinger <vapier@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imx9.toshiba.co.jp ([202.33.96.51]:55503 "EHLO
-	imx9.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755133AbYAKHUj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 02:20:39 -0500
-Received: from inet-tsb5.toshiba.co.jp (inet-tsb5 [202.33.96.24])
-	by imx9.toshiba.co.jp  with ESMTP id m0B7KbV7003301
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 16:20:38 +0900 (JST)
+Received: from terminus.zytor.com ([198.137.202.10]:44544 "EHLO
+	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751345AbYAKHx3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 02:53:29 -0500
+In-Reply-To: <4787164F.9030805@zytor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes spidernet interrupt masks.
+H. Peter Anvin wrote:
+> 
+> Right now, glibc is special-cased.  glibc also tends to be very 
+> deliberate about its kernel header inclusions.  It wants a subset of the 
+> available defines, so it can include a subset header.
+> 
+> The reverse is definitely possible too -- all other users (kernel, 
+> newlib, dietlibc, uclibc, and klibc) can change and leave the current 
+> state for glibc.
+> 
+> We can special-case the kernel in the above case, but that would involve 
+> some additional ugliness.
+> 
 
- - unmask GDAINVAINT. There is an operation to do by spidernet
-   interrupt handler.
- - mask some interrupts. There are no operations in the interrupt handler.
+Just to clarify: I don't have any strong opinions for any particular 
+option -- I'm fine with either.  I'd just like to get rid of the 
+ugliness of having #defines for any particular user spaces, and I'd 
+prefer two include files over feature test macros.
 
-Signed-off-by: Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
----
-
-Index: linux-powerpc-git/drivers/net/spider_net.h
-===================================================================
---- linux-powerpc-git.orig/drivers/net/spider_net.h
-+++ linux-powerpc-git/drivers/net/spider_net.h
-@@ -159,9 +159,8 @@ extern char spider_net_driver_name[];
- 
- /** interrupt mask registers */
- #define SPIDER_NET_INT0_MASK_VALUE	0x3f7fe2c7
--#define SPIDER_NET_INT1_MASK_VALUE	0xffff7ff7
--/* no MAC aborts -> auto retransmission */
--#define SPIDER_NET_INT2_MASK_VALUE	0xffef7ff1
-+#define SPIDER_NET_INT1_MASK_VALUE	0x0000fff2
-+#define SPIDER_NET_INT2_MASK_VALUE	0x000003f1
- 
- /* we rely on flagged descriptor interrupts */
- #define SPIDER_NET_FRAMENUM_VALUE	0x00000000
+	-hpa
