@@ -1,38 +1,69 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [NET] ROUTE: fix rcu_dereference() uses in /proc/net/rt_cache
-Date: Fri, 11 Jan 2008 11:00:20 +1100
-Message-ID: <20080111000020.GB22040@gondor.apana.org.au>
-References: <20080109113727.50eae500.dada1@cosmosbay.com> <20080110231042.GA3199@ami.dom.local>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: RFC: igb: Intel 82575 gigabit ethernet driver (take #3)
+Date: Thu, 10 Jan 2008 19:01:43 -0500
+Message-ID: <4786B1E7.5030700@pobox.com>
+References: <4786AB0C.6010202@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	davem@davemloft.net, dipankar@in.ibm.com, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev@vger.kernel.org>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3608 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751622AbYAKABH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 19:01:07 -0500
-Content-Disposition: inline
-In-Reply-To: <20080110231042.GA3199@ami.dom.local>
+Received: from srv5.dvmed.net ([207.36.208.214]:33438 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754001AbYAKABt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jan 2008 19:01:49 -0500
+In-Reply-To: <4786AB0C.6010202@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 11, 2008 at 12:10:42AM +0100, Jarek Poplawski wrote:
->
-> It seems this optimization could've a side effect: if during such a
-> loop updates are done, and r is seen !NULL during while() check, but
-> NULL after rcu_dereference(), the listing/counting could stop too
-> soon. So, IMHO, probably the first version of this patch is more
-> reliable. (Or alternatively additional check is needed before return.)
+Kok, Auke wrote:
+> All,
+> 
+> here is the third version of the igb (82575) ethernet controller driver. This
+> driver was previously posted 2007-07-13 and 2007-12-11. Many comments received
+> were addressed:
+> 
+> - removed indirection wrappers in the same way as e1000e and ixgbe.
+> - cleaned up largely against sparse, checkpatch
+> - removed module parameters and moved functionality to ethtool ioctls
+> - new NAPI API rewrites
+> - by default the driver runs in multiqueue mode with 2 to 40 RX queues enabled.
+> 
+> and specifically in this version:
+> 
+> - register macro's were condensed for readability
+> - fixed namespace collisions by renaming functions to igb_*
+> 
+> Since the driver is still too large (allthough the patch shrunk from 558k to 416k
+> to 407k, almost 38% of its size) to post to this list I am attaching the bzipped
+> patch here. You can get the same driver alternatively from here:
+> 
+> http://foo-projects.org/~sofar/0001-igb-PCI-Express-82575-Gigabit-Ethernet-driver.patch
+> [407k]
+> http://foo-projects.org/~sofar/0001-igb-PCI-Express-82575-Gigabit-Ethernet-driver.patch.bz2
+> [74k]
+> 
+> or through git:
+>     git://lost.foo-projects.org/~ahkok/git/linux-2.6 #igb
+> 
+> 
+> There are several concerns still open for this driver:
+> - hardware code is still a large API. we're expecting more hardware to be
+> supported by this driver in the future. The API has already been scrubbed but we
+> anticipate that the remaining hooks will be used in the future.
+> - The register defines are still named "E1000_" as they are mostly identical to
+> the e1000 chipsets (igb register space is a superset of most recent e1000 register
+> sets).
 
-No, while the value of r->u.dst.rt_next can change between two readings,
-the value of r cannot.
+I think we can throw it into netdev#upstream if you're ready...
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	Jeff
+
+
+
+
