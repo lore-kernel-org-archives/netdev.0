@@ -1,58 +1,45 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [klibc] [patch] import socket defines
-Date: Fri, 11 Jan 2008 00:00:31 -0800
-Message-ID: <4787221F.3030201@zytor.com>
-References: <477BD374.6060506@zytor.com> <200801110207.39736.vapier@gentoo.org> <4787164F.9030805@zytor.com> <200801110257.42272.vapier@gentoo.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [NET] ROUTE: fix rcu_dereference() uses in /proc/net/rt_cache
+Date: Fri, 11 Jan 2008 09:30:10 +0100
+Message-ID: <20080111083010.GA2183@ff.dom.local>
+References: <20080109113727.50eae500.dada1@cosmosbay.com> <20080110231042.GA3199@ami.dom.local> <20080111000020.GB22040@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	klibc@zytor.com
-To: Mike Frysinger <vapier@gentoo.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	davem@davemloft.net, dipankar@in.ibm.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([198.137.202.10]:48562 "EHLO
-	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754179AbYAKIFQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 03:05:16 -0500
-In-Reply-To: <200801110257.42272.vapier@gentoo.org>
+Received: from ug-out-1314.google.com ([66.249.92.169]:42011 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753848AbYAKIX7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 03:23:59 -0500
+Received: by ug-out-1314.google.com with SMTP id z38so435307ugc.16
+        for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 00:23:58 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20080111000020.GB22040@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mike Frysinger wrote:
->> all this stuff is ABI constants, and the only reason glibc 
->> doesn't use them is that glibc prefers to use enums over #defines.
+On Fri, Jan 11, 2008 at 11:00:20AM +1100, Herbert Xu wrote:
+> On Fri, Jan 11, 2008 at 12:10:42AM +0100, Jarek Poplawski wrote:
+> >
+> > It seems this optimization could've a side effect: if during such a
+> > loop updates are done, and r is seen !NULL during while() check, but
+> > NULL after rcu_dereference(), the listing/counting could stop too
+> > soon. So, IMHO, probably the first version of this patch is more
+> > reliable. (Or alternatively additional check is needed before return.)
 > 
-> a proper libc defines things in their headers according to the POSIX specs 
-> rather than relying on others to do it for them.  if you want to argue about 
-> linux-specific ABI pieces being exported, then you probably have a valid 
-> point, but socket.h is hardly that.
+> No, while the value of r->u.dst.rt_next can change between two readings,
+> the value of r cannot.
 
-Have you looked at it?!!?  It's full of ABI constants, and that's what I 
-care about.  POSIX doesn't define, say, AF_UNIX; that's an ABI specific.
+...Then, of course, it's O.K.!
 
-> so if the only consumer is klibc and you're against adding these things to it, 
-> special case it for __KLIBC__.
+It looks like I'm really too lazy and/or these selfdocumenting features
+of RCU are a bit overrated: one can never be sure which pointer is
+really RCU protected without checking a few places?! So, after looking
+at this rt_cache_get_next() and this patch only, it's looks like the
+third candidate after seq->private and rtable...
 
-No, let's split the header so that there are *no* libc knowledge in the 
-kernel.  For the kernel to have knowledge about the specifics of any 
-particular libc (klibc, glibc, or any other) is stupid, and that's the 
-whole reason we're in this spot to begin with.
-
-Again, I don't particularly care about what they're named, but the whole 
-point is
-
-	#include <linux/foo.h>
-
-if you want the subset and
-
-	#include <linux/bar.h>
-
-if you want the whole set.
-
-No libc specifics, and no feature test macros, which I think we can both 
-agree are uglier than hell.
-
-I thought the naming worked out nicer with <linux/sockaddr.h>, but I 
-*don't really care*.
-
-	-hpa
+Thanks for explanation and sorry for disturbing!
+Jarek P.
