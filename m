@@ -1,32 +1,29 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: virtio_net and SMP guests
-Date: Fri, 11 Jan 2008 20:53:00 +1100
-Message-ID: <200801112053.01861.rusty@rustcorp.com.au>
-References: <200712141312.05562.borntraeger@de.ibm.com> <200801101639.15995.borntraeger@de.ibm.com> <200801101651.58908.borntraeger@de.ibm.com>
+From: Jeba Anandhan <jeba.anandhan@vaioni.com>
+Subject: Improving performance of bonding driver (eql) using round robin
+	alogrithm
+Date: Fri, 11 Jan 2008 10:04:58 +0000
+Message-ID: <1200045898.29856.57.camel@vglwks010.vgl2.office.vaioni.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Christian Borntraeger <borntraeger@de.ibm.com>,
-	kvm-devel <kvm-devel@lists.sourceforge.net>,
-	netdev@vger.kernel.org, Anthony Liguori <aliguori@us.ibm.com>,
-	Dor Laor <dor.laor@qumranet.com>
-To: virtualization@lists.linux-foundation.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:38483 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756551AbYAKJxm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jan 2008 04:53:42 -0500
-In-Reply-To: <200801101651.58908.borntraeger@de.ibm.com>
-Content-Disposition: inline
+Received: from vglsrv002.office.vaioni.com ([84.19.35.12]:9176 "EHLO
+	vglsrv02.vgl2.office.vaioni.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755149AbYAKKGf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 05:06:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 11 January 2008 02:51:58 Christian Borntraeger wrote:
-> What about the following patch:
+Hi All,
+The existing algorithm works in eql bonding driver works based on
+priority of each slaves. The priority has been assigned as speed of the
+particular line. The current problem is, all the slaves didn't get the
+chance as best slave for the transmission.
 
-Looks correct and in fact pretty orthodox.
 
-I've folded this in, thanks!
+Will the round robin algorithm for selecting best slave to transmit the
+data, improves the performance?.
 
-Rusty.
+Thanks
+Jeba
