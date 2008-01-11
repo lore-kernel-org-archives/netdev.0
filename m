@@ -1,64 +1,49 @@
-From: martin f krafft <madduck@madduck.net>
-Subject: Re: why does promote_secondaries default to off?
-Date: Fri, 11 Jan 2008 18:43:28 +0100
-Message-ID: <20080111174328.GA24359@piper.oerlikon.madduck.net>
-References: <20080111163155.GA17637@piper.oerlikon.madduck.net> <4787A3AB.4000205@fr.ibm.com> <20080111172641.GA22449@piper.oerlikon.madduck.net> <4787A863.3060506@fr.ibm.com>
+From: Eugene Surovegin <ebs@ebshome.net>
+Subject: Re: [PATCH] ibm_newemac: Increase number of default rx-/tx-buffers
+Date: Fri, 11 Jan 2008 09:48:22 -0800
+Message-ID: <20080111174822.GB17240@gate.ebshome.net>
+References: <1199526609-12290-1-git-send-email-sr@denx.de>
+	<1199528388.7291.55.camel@pasglop> <200801051338.17957.sr@denx.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="pWyiEgJYm5f9v55/"
-To: netdev discussion list <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from seamus.madduck.net ([213.203.238.82]:57461 "EHLO
-	seamus.madduck.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759448AbYAKRnf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 12:43:35 -0500
-Received: from wall.oerlikon.madduck.net (84-75-158-163.dclient.hispeed.ch [84.75.158.163])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(Client CN "wall.oerlikon.madduck.net", Issuer "CAcert Class 3 Root" (verified OK))
-	by seamus.madduck.net (postfix) with ESMTP id 5EE404060AA
-	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 18:43:40 +0100 (CET)
-Received: from piper.oerlikon.madduck.net (piper.oerlikon.madduck.net [192.168.14.3])
-	by wall.oerlikon.madduck.net (Postfix) with ESMTP id 54C749F13A
-	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 18:43:28 +0100 (CET)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: Stefan Roese <sr@denx.de>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
 Content-Disposition: inline
-In-Reply-To: <4787A863.3060506@fr.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <200801051338.17957.sr@denx.de>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
+On Sat, Jan 05, 2008 at 01:38:17PM +0100, Stefan Roese wrote:
+> On Saturday 05 January 2008, Benjamin Herrenschmidt wrote:
+> > On Sat, 2008-01-05 at 10:50 +0100, Stefan Roese wrote:
+> > > Performance tests done by AMCC have shown that 256 buffer increase the
+> > > performance of the Linux EMAC driver. So let's update the default
+> > > values to match this setup.
+> > >
+> > > Signed-off-by: Stefan Roese <sr@denx.de>
+> > > ---
+> >
+> > Do we have the numbers ? Did they also measure latency ?
+> 
+> I hoped this question would not come. ;) No, unfortunately I don't have any 
+> numbers. Just the recommendation from AMCC to always use 256 buffers.
 
---pWyiEgJYm5f9v55/
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This cannot be true for all chips. Default numbers I selected weren't 
+random. In particular, 256 for Tx doesn't make a lot of sense for 405. 
+You just gonna waste memory.
 
-also sprach Daniel Lezcano <dlezcano@fr.ibm.com> [2008.01.11.1833 +0100]:
-> This tweak is "recent" (2.6.16 as far as I remember), so I suppose
-> the  reason is to not puzzled people with a changed default
-> behavior.
+I'd be quite reluctant to follow such advices from AMCC without actual 
+details. 
 
-Your instant and helpful responses are most appreciated!
-
---=20
-martin | http://madduck.net/ | http://two.sentenc.es/
-=20
-a common mistake that people make
-when trying to design something completely foolproof
-was to underestimate the ingenuity of complete fools.
-                                 -- douglas adams, "mostly harmless"
-=20
-spamtraps: madduck.bogus@madduck.net
-
---pWyiEgJYm5f9v55/
-Content-Type: application/pgp-signature; name="digital_signature_gpg.asc"
-Content-Description: Digital signature (see http://martin-krafft.net/gpg/)
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQFHh6rAIgvIgzMMSnURArGBAJ9K2GMls3Ap4zp7HS9hilWyfSRZIwCfeG8W
-QlwRUOzmmnxYLVxDdq+DF48=
-=jTLf
------END PGP SIGNATURE-----
-
---pWyiEgJYm5f9v55/--
+-- 
+Eugene
