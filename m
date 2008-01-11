@@ -1,45 +1,71 @@
-From: Dzianis Kahanovich <mahatma@bspu.unibel.by>
-Subject: Re: [PATCH 2.6.23+] ingress classify to [nf]mark
-Date: Fri, 11 Jan 2008 15:37:56 -0200
-Message-ID: <4787A974.7060408@bspu.unibel.by>
-References: <47866C69.3080904@bspu.unibel.by> <47865613.1000902@trash.net>
-Reply-To: mahatma@eu.by
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [NET] ROUTE: fix rcu_dereference() uses in /proc/net/rt_cache
+Date: Fri, 11 Jan 2008 15:13:38 +0100
+Message-ID: <20080111141338.GD2708@ff.dom.local>
+References: <20080109113727.50eae500.dada1@cosmosbay.com> <20080110231042.GA3199@ami.dom.local> <20080110235111.GF9586@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	dipankar@in.ibm.com, netdev@vger.kernel.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bspu.unibel.by ([195.50.2.21]:56230 "EHLO
-	mail.bspu.unibel.by" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756284AbYAKNiF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 08:38:05 -0500
-Received: from [10.200.200.1] ([10.200.200.1])
-	by mail.bspu.unibel.by (8.14.1/8.14.0) with ESMTP id m0BDc3Z6016980
-	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 15:38:04 +0200
-In-Reply-To: <47865613.1000902@trash.net>
+Received: from fk-out-0910.google.com ([209.85.128.186]:11312 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756831AbYAKOH2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 09:07:28 -0500
+Received: by fk-out-0910.google.com with SMTP id z23so822022fkz.5
+        for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 06:07:26 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20080110235111.GF9586@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-
->> --- linux-2.6.23-gentoo-r2/net/sched/sch_ingress.c
->> +++ linux-2.6.23-gentoo-r2.fixed/net/sched/sch_ingress.c
->> @@ -161,2 +161,5 @@
->>              skb->tc_index = TC_H_MIN(res.classid);
->> +#ifdef CONFIG_NET_SCH_INGRESS_TC2MARK
->> +            skb->mark = 
->> (skb->mark&(res.classid>>16))|TC_H_MIN(res.classid);
->> +#endif
->>          default:
+On Thu, Jan 10, 2008 at 03:51:11PM -0800, Paul E. McKenney wrote:
+> On Fri, Jan 11, 2008 at 12:10:42AM +0100, Jarek Poplawski wrote:
+> > Eric Dumazet wrote, On 01/09/2008 11:37 AM:
+> > ...
+> > > [NET] ROUTE: fix rcu_dereference() uses in /proc/net/rt_cache
+> > ...
+> > > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> > > index d337706..28484f3 100644
+> > > --- a/net/ipv4/route.c
+> > > +++ b/net/ipv4/route.c
+> > > @@ -283,12 +283,12 @@ static struct rtable *rt_cache_get_first(struct seq_file *seq)
+> > >  			break;
+> > >  		rcu_read_unlock_bh();
+> > >  	}
+> > > -	return r;
+> > > +	return rcu_dereference(r);
+> > >  }
+> > >  
+> > >  static struct rtable *rt_cache_get_next(struct seq_file *seq, struct rtable *r)
+> > >  {
+> > > -	struct rt_cache_iter_state *st = rcu_dereference(seq->private);
+> > > +	struct rt_cache_iter_state *st = seq->private;
+> > >  
+> > >  	r = r->u.dst.rt_next;
+> > >  	while (!r) {
+> > > @@ -298,7 +298,7 @@ static struct rtable *rt_cache_get_next(struct seq_file *seq, struct rtable *r)
+> > >  		rcu_read_lock_bh();
+> > >  		r = rt_hash_table[st->bucket].chain;
+> > >  	}
+> > > -	return r;
+> > > +	return rcu_dereference(r);
+> > >  }
+> > 
+> > It seems this optimization could've a side effect: if during such a
+> > loop updates are done, and r is seen !NULL during while() check, but
+> > NULL after rcu_dereference(), the listing/counting could stop too
+> > soon. So, IMHO, probably the first version of this patch is more
+> > reliable. (Or alternatively additional check is needed before return.)
 > 
-> 
-> Behaviour like this shouldn't depend on compile-time options.
+> Looks to me like "r" is a local variable (argument list), so there
+> should not be any possibility of it being changed by some other
+> task, right?
 
-Also I want to move it outside of NET_CLS_ACT dependence, but unsure in 
-behaviour understanding without NET_CLS_ACT.
+It seems words could be stronger than then logic (in some cases)...
+After forgetting what's dereference usually for, it's all right!
 
-But there are reduse code.
-
--- 
-WBR,
-Denis Kaganovich,  mahatma@eu.by  http://mahatma.bspu.unibel.by
+Thanks,
+Jarek P.
