@@ -1,22 +1,29 @@
 From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-Subject: [PATCH 1/5] spidernet: add missing initialization
-Date: Fri, 11 Jan 2008 15:38:59 +0900 (JST)
-Message-ID: <20080111.153859.-1300526764.kouish@swc.toshiba.co.jp>
+Subject: [PATCH 4/5] spidernet: fix error interrupt handling
+Date: Fri, 11 Jan 2008 15:46:14 +0900 (JST)
+Message-ID: <20080111.154614.-345477188.kouish@swc.toshiba.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
 To: linas@austin.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from inet-tsb5.toshiba.co.jp ([202.33.96.24]:42689 "EHLO
-	inet-tsb5.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752446AbYAKG5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 01:57:44 -0500
+Received: from imx12.toshiba.co.jp ([61.202.160.132]:42852 "EHLO
+	imx12.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757212AbYAKHBv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 02:01:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes initialization of "aneg_count" and "medium" fields in
-spider_net_card to make spidernet driver correctly sets "link status".
+In addition to the value of GHIINT0STS, spidernet interrupt handler
+should check the values of GHIINT1STS/GHIINT2STS registers at the
+beginning of spider_net_interrupt() so as not to drop error
+interrupts.
+
+GHIINT1STS/GHIINT2STS registers indicates some of erroneous conditions
+in spidernet, and a few bits of GHIINT0STS register reflects these
+conditions. But GHIINT0MSK masks these bits, so you should check these
+conditions by reading GHIINT1STS/GHIINT2STS registers directly.
 
 Signed-off-by: Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
 ---
@@ -25,21 +32,53 @@ Index: linux-powerpc-git/drivers/net/spider_net.c
 ===================================================================
 --- linux-powerpc-git.orig/drivers/net/spider_net.c
 +++ linux-powerpc-git/drivers/net/spider_net.c
-@@ -1399,6 +1399,8 @@ spider_net_link_reset(struct net_device 
- 	spider_net_write_reg(card, SPIDER_NET_GMACINTEN, 0);
+@@ -1415,18 +1415,12 @@ spider_net_link_reset(struct net_device 
+  * found when an interrupt is presented
+  */
+ static void
+-spider_net_handle_error_irq(struct spider_net_card *card, u32 status_reg)
++spider_net_handle_error_irq(struct spider_net_card *card, u32 status_reg,
++			    u32 error_reg1, u32 error_reg2)
+ {
+-	u32 error_reg1, error_reg2;
+ 	u32 i;
+ 	int show_error = 1;
  
- 	/* reset phy and setup aneg */
-+	card->aneg_count = 0;
-+	card->medium = BCM54XX_COPPER;
- 	spider_net_setup_aneg(card);
- 	mod_timer(&card->aneg_timer, jiffies + SPIDER_NET_ANEG_TIMER);
+-	error_reg1 = spider_net_read_reg(card, SPIDER_NET_GHIINT1STS);
+-	error_reg2 = spider_net_read_reg(card, SPIDER_NET_GHIINT2STS);
+-
+-	error_reg1 &= SPIDER_NET_INT1_MASK_VALUE;
+-	error_reg2 &= SPIDER_NET_INT2_MASK_VALUE;
+-
+ 	/* check GHIINT0STS ************************************/
+ 	if (status_reg)
+ 		for (i = 0; i < 32; i++)
+@@ -1656,12 +1650,15 @@ spider_net_interrupt(int irq, void *ptr)
+ {
+ 	struct net_device *netdev = ptr;
+ 	struct spider_net_card *card = netdev_priv(netdev);
+-	u32 status_reg;
++	u32 status_reg, error_reg1, error_reg2;
  
-@@ -1982,6 +1984,8 @@ spider_net_open(struct net_device *netde
- 		goto init_firmware_failed;
+ 	status_reg = spider_net_read_reg(card, SPIDER_NET_GHIINT0STS);
+-	status_reg &= SPIDER_NET_INT0_MASK_VALUE;
++	error_reg1 = spider_net_read_reg(card, SPIDER_NET_GHIINT1STS);
++	error_reg2 = spider_net_read_reg(card, SPIDER_NET_GHIINT2STS);
  
- 	/* start probing with copper */
-+	card->aneg_count = 0;
-+	card->medium = BCM54XX_COPPER;
- 	spider_net_setup_aneg(card);
- 	if (card->phy.def->phy_id)
- 		mod_timer(&card->aneg_timer, jiffies + SPIDER_NET_ANEG_TIMER);
+-	if (!status_reg)
++	if (!(status_reg & SPIDER_NET_INT0_MASK_VALUE) &&
++	    !(error_reg1 & SPIDER_NET_INT1_MASK_VALUE) &&
++	    !(error_reg2 & SPIDER_NET_INT2_MASK_VALUE))
+ 		return IRQ_NONE;
+ 
+ 	if (status_reg & SPIDER_NET_RXINT ) {
+@@ -1676,7 +1673,8 @@ spider_net_interrupt(int irq, void *ptr)
+ 		spider_net_link_reset(netdev);
+ 
+ 	if (status_reg & SPIDER_NET_ERRINT )
+-		spider_net_handle_error_irq(card, status_reg);
++		spider_net_handle_error_irq(card, status_reg,
++					    error_reg1, error_reg2);
+ 
+ 	/* clear interrupt sources */
+ 	spider_net_write_reg(card, SPIDER_NET_GHIINT0STS, status_reg);
