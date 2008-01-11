@@ -1,97 +1,96 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: Re: [klibc] [patch] import socket defines
-Date: Fri, 11 Jan 2008 04:28:19 -0500
-Message-ID: <200801110428.20354.vapier@gentoo.org>
-References: <477BD374.6060506@zytor.com> <4787221F.3030201@zytor.com> <200801110403.00003.vapier@gentoo.org>
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Subject: Re: Netperf TCP_RR(loopback) 10% regression in 2.6.24-rc6,
+	comparing with 2.6.22
+Date: Fri, 11 Jan 2008 17:30:54 +0800
+Message-ID: <1200043854.3265.24.camel@ymzhang>
+References: <1199871330.3298.132.camel@ymzhang>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart3726465.mHVUAyYmHU";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	klibc@zytor.com
-To: "H. Peter Anvin" <hpa@zytor.com>
+Cc: netdev@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:42054 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757447AbYAKJ2W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jan 2008 04:28:22 -0500
-In-Reply-To: <200801110403.00003.vapier@gentoo.org>
+Received: from mga10.intel.com ([192.55.52.92]:54980 "EHLO
+	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759287AbYAKJda (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 04:33:30 -0500
+In-Reply-To: <1199871330.3298.132.camel@ymzhang>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart3726465.mHVUAyYmHU
-Content-Type: text/plain;
-  charset="iso-8859-6"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Wed, 2008-01-09 at 17:35 +0800, Zhang, Yanmin wrote: 
+> The regression is:
+> 1)stoakley with 2 qual-core processors: 11%;
+> 2)Tulsa with 4 dual-core(+hyperThread) processors:13%;
+I have new update on this issue and also cc to netdev maillist.
+Thank David Miller for pointing me the netdev maillist.
 
-On Friday 11 January 2008, Mike Frysinger wrote:
-> On Friday 11 January 2008, H. Peter Anvin wrote:
-> > Again, I don't particularly care about what they're named, but the whole
-> > point is
-> >
-> > 	#include <linux/foo.h>
-> >
-> > if you want the subset and
-> >
-> > 	#include <linux/bar.h>
-> >
-> > if you want the whole set.
->
-> i looked more at glibc/uClibc and my primary/original concern (and what i
-> thought what David was raising and you confirming) was that building of
-> glibc was broken and glibc headers would need updates.  that does not seem
-> to be the case.  the breakage here is for packages that include both
-> sys/socket.h (directly/indirectly) and linux/socket.h
-> (directly/indirectly).
->
-> due to the way the network headers depend on each other, this case is
-> trivial to induce.  but i dont think linux/socket.h is any more special
-> than the current retarded conflicts we have between the network headers
-> from the libc (which are required by POSIX and beyond) and the kernel
-> headers.
->
-> > No libc specifics, and no feature test macros, which I think we can both
-> > agree are uglier than hell.
->
-> i think in general, all of the network related headers under linux/ are
-> fubared for userspace.
->
-> > I thought the naming worked out nicer with <linux/sockaddr.h>
->
-> placing the sockaddr definitions into linux/sockaddr.h makes sense.
+> 
+> The test command is:
+> #sudo taskset -c 7 ./netserver
+> #sudo taskset -c 0 ./netperf -t TCP_RR -l 60 -H 127.0.0.1 -i 50,3 -I 99,5 -- -r 1,1
+> 
+> As a matter of fact, 2.6.23 has about 6% regression and 2.6.24-rc's
+> regression is between 16%~11%.
+> 
+> I tried to use bisect to locate the bad patch between 2.6.22 and 2.6.23-rc1,
+> but the bisected kernel wasn't stable and went crazy.
+> 
+> I tried both CONFIG_SLUB=y and CONFIG_SLAB=y to make sure SLUB isn't the
+> culprit.
+> 
+> The oprofile data of CONFIG_SLAB=y. Top cpu utilizations are:
+> 1) 2.6.22 
+> 2067379   9.4888  vmlinux                  schedule
+> 1873604   8.5994  vmlinux                  mwait_idle
+> 1568131   7.1974  vmlinux                  resched_task
+> 1066976   4.8972  vmlinux                  tcp_v4_rcv
+> 986641    4.5285  vmlinux                  tcp_rcv_established
+> 979518    4.4958  vmlinux                  find_busiest_group
+> 767069    3.5207  vmlinux                  sock_def_readable
+> 736808    3.3818  vmlinux                  tcp_sendmsg
+> 595889    2.7350  vmlinux                  task_rq_lock
+> 557193    2.5574  vmlinux                  tcp_ack
+> 470570    2.1598  vmlinux                  __mod_timer
+> 392220    1.8002  vmlinux                  __alloc_skb
+> 358106    1.6436  vmlinux                  skb_release_data
+> 313372    1.4383  vmlinux                  skb_clone
+> 
+> 2) 2.6.24-rc7
+> 2668426  12.4497  vmlinux                  vmlinux                  schedule
+> 955698    4.4589  vmlinux                  vmlinux                  skb_release_data
+> 836311    3.9018  vmlinux                  vmlinux                  tcp_v4_rcv
+> 762398    3.5570  vmlinux                  vmlinux                  skb_release_all
+> 728907    3.4007  vmlinux                  vmlinux                  task_rq_lock
+> 705037    3.2894  vmlinux                  vmlinux                  __wake_up
+> 694206    3.2388  vmlinux                  vmlinux                  __mod_timer
+> 617616    2.8815  vmlinux                  vmlinux                  mwait_idle
+> 
+> It looks like tcp in 2.6.22 sends more packets, but frees far less skb than 2.6.24-rc6.
+> tcp_rcv_established in 2.6.22 is highlighted on cpu utilization.
+I instrumented kernel to capure the function call numbers.
+1) 2.6.22
+skb_release_data:50148649
+tcp_ack:	 25062858	
+tcp_transmit_skb:25063150	
+tcp_v4_rcv:	 25063279	
 
-so there's no confusion, since the building of the libc itself and using pu=
-re=20
-libc headers are generally unaffected, and all of the network linux headers=
-=20
-are already screwed for userspace usage, i'm not against the proposed chang=
-e=20
-from Peter.  it doesnt really make the situation any better/worse.
-=2Dmike
+2) 2.6.24-rc6
+skb_release_data:21429692	
+tcp_ack:	 10707710	
+tcp_transmit_skb:10707866
+tcp_v4_rcv:	 10707959		
 
---nextPart3726465.mHVUAyYmHU
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+The data doesn't show that 2.6.22 sends more packets while freeing far less skb than
+2.6.24-rc6.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.8 (GNU/Linux)
+The data showed skb_release_data of kernel 2.6.22 is more than double of the one of
+2.6.24-rc6. But netperf result just showed about 10% regression.
 
-iQIcBAABAgAGBQJHhza0AAoJEEFjO5/oN/WBJE4P/Aj2k3nuGgrrjwTGTdqSMwRy
-Fzs44owEoeIMBdkecxzMqWjLqf7TM5QeWN3t4q7Wzf7JfYfXA1MjhGEZpAHhO6M9
-knRgoQCkTwuSyJMZ7g53XpbN/+noqHKHKVnwO+d6mRouTSwEkipcCJBfmfnbjKbI
-mgSnUI89JpITAQaa3KxOYGuBPaGkvAiwBpfAUNgM6FCXdH0BJS9VYzBLAFqGf39p
-DnPunMYROKAHXrzm7nSyGacc8SvIyzZ54anl7BYZyD2UfVRuxZyDH8vbWDy/SyKS
-E3aEkBB6jx+o/awMtf9AyTf8uiv46XsF/FGxfV4+n/T7LWEp5ljBTENrk+zqZtJ0
-V1HuTUD4VylGC8/KqsRbYyIW8g7JWeWtgNmqR7cwvxoRn5uarDGfV8OePqbizJXn
-NH8n/dLVX0Rh3xUzv7D11TTXM4XQ9u2mId+eJn5MIejGE9rt8fdyLRinoR/jeD2B
-UEwc7Wub1PFD/apPgXcj+6L//W4wo14E9/0mMopMaBBCk2/FdZjm00lAOfBdVXaV
-lmvFBty6L57OVDE5VoWPsuRhnQID9QF/INFspX8EcJK0M4gmDmPHTu3dhP4YNBEd
-0JC8/Z1EWBABkqHtr3UdmrWjxnW811eXW4d1UCQWlK9Bdvo35XkV1XED41xWtG1A
-NipLGVAD1xK0M83TsTFC
-=5qEr
------END PGP SIGNATURE-----
+As the packet only has 1 byte, so I suspect 2.6.24-rc6 tries to merge packets after waiting for
+a latency. 2.6.22 might haven't the wait latency or the latency is very small, so 2.6.22 almost
+sends the packets immediately. I will check the source codes later.
 
---nextPart3726465.mHVUAyYmHU--
+-yanmin
+
+
