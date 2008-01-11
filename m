@@ -1,43 +1,46 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [klibc] [patch] import socket defines
-Date: Thu, 10 Jan 2008 23:10:07 -0800
-Message-ID: <4787164F.9030805@zytor.com>
-References: <477BD374.6060506@zytor.com> <200801110123.38406.vapier@gentoo.org> <20080110.224749.66236050.davem@davemloft.net> <200801110207.39736.vapier@gentoo.org>
+From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
+Subject: [PATCH 3/5] spidernet: change interrupt masks
+Date: Fri, 11 Jan 2008 15:43:43 +0900 (JST)
+Message-ID: <20080111.154343.-1625861724.kouish@swc.toshiba.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	klibc@zytor.com
-To: Mike Frysinger <vapier@gentoo.org>
+Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
+To: linas@austin.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([198.137.202.10]:55497 "EHLO
-	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753358AbYAKHOw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 02:14:52 -0500
-In-Reply-To: <200801110207.39736.vapier@gentoo.org>
+Received: from imx9.toshiba.co.jp ([202.33.96.51]:55503 "EHLO
+	imx9.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755133AbYAKHUj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 02:20:39 -0500
+Received: from inet-tsb5.toshiba.co.jp (inet-tsb5 [202.33.96.24])
+	by imx9.toshiba.co.jp  with ESMTP id m0B7KbV7003301
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 16:20:38 +0900 (JST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mike Frysinger wrote:
-> oh, sorry, i see what you mean.  i was thinking in terms of crap removed (as 
-> that's what i'm after), not crap added (which is what Peter is after).  i 
-> hadnt noticed that.  i dont know if it'll break glibc (and really, any other 
-> sane libc).  if that is the case, then i think klibc here is the 2nd class 
-> citizen to everyone else.
+This patch changes spidernet interrupt masks.
 
-I don't really understand why you insist on using such inflammatory 
-language; all this stuff is ABI constants, and the only reason glibc 
-doesn't use them is that glibc prefers to use enums over #defines.
+ - unmask GDAINVAINT. There is an operation to do by spidernet
+   interrupt handler.
+ - mask some interrupts. There are no operations in the interrupt handler.
 
-Right now, glibc is special-cased.  glibc also tends to be very 
-deliberate about its kernel header inclusions.  It wants a subset of the 
-available defines, so it can include a subset header.
+Signed-off-by: Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
+---
 
-The reverse is definitely possible too -- all other users (kernel, 
-newlib, dietlibc, uclibc, and klibc) can change and leave the current 
-state for glibc.
-
-We can special-case the kernel in the above case, but that would involve 
-some additional ugliness.
-
-	-hpa
+Index: linux-powerpc-git/drivers/net/spider_net.h
+===================================================================
+--- linux-powerpc-git.orig/drivers/net/spider_net.h
++++ linux-powerpc-git/drivers/net/spider_net.h
+@@ -159,9 +159,8 @@ extern char spider_net_driver_name[];
+ 
+ /** interrupt mask registers */
+ #define SPIDER_NET_INT0_MASK_VALUE	0x3f7fe2c7
+-#define SPIDER_NET_INT1_MASK_VALUE	0xffff7ff7
+-/* no MAC aborts -> auto retransmission */
+-#define SPIDER_NET_INT2_MASK_VALUE	0xffef7ff1
++#define SPIDER_NET_INT1_MASK_VALUE	0x0000fff2
++#define SPIDER_NET_INT2_MASK_VALUE	0x000003f1
+ 
+ /* we rely on flagged descriptor interrupts */
+ #define SPIDER_NET_FRAMENUM_VALUE	0x00000000
