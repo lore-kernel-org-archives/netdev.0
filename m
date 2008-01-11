@@ -1,151 +1,104 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 3/4] sky2: support for Yukon Supreme
-Date: Thu, 10 Jan 2008 16:14:14 -0800
-Message-ID: <20080111001550.913815702@linux-foundation.org>
+Subject: [PATCH 2/4] sky2: remove check for PCI wakeup setting from BIOS
+Date: Thu, 10 Jan 2008 16:14:13 -0800
+Message-ID: <20080111001550.839028510@linux-foundation.org>
 References: <20080111001411.158113585@linux-foundation.org>
 Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:32882 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:52653 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754301AbYAKDP2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 22:15:28 -0500
-Content-Disposition: inline; filename=sky2-supreme.patch
+	by vger.kernel.org with ESMTP id S1756190AbYAKDPd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 22:15:33 -0500
+Content-Disposition: inline; filename=sky2-remove-pci-check.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support from sk98lin vendor driver 10.50.1.3 for 88E8055 and
-88E8075 chips.  I don't have this hardware to test, so this changes
-are untested.
+The driver checks status of PCI power management to mark 
+default setting of Wake On Lan. On some systems this works, but often
+it reports a that WOL is disabled when it isn't.
+
+This patch gets rid of that check and just reports the wake on
+lan status based on the hardware capablity.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
 ---
-Please add to staging tree for 2.6.25.
+Please apply for 2.6.24.
 
---- a/drivers/net/sky2.c	2008-01-10 15:49:20.000000000 -0800
-+++ b/drivers/net/sky2.c	2008-01-10 15:49:27.000000000 -0800
-@@ -134,6 +134,8 @@ static const struct pci_device_id sky2_i
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x436A) }, /* 88E8058 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x436B) }, /* 88E8071 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x436C) }, /* 88E8072 */
-+	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x436D) }, /* 88E8055 */
-+	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4370) }, /* 88E8075 */
- 	{ 0 }
- };
- 
-@@ -547,6 +549,7 @@ static void sky2_phy_init(struct sky2_hw
- 
- 	case CHIP_ID_YUKON_EC_U:
- 	case CHIP_ID_YUKON_EX:
-+	case CHIP_ID_YUKON_SUPR:
- 		pg = gm_phy_read(hw, port, PHY_MARV_EXT_ADR);
- 
- 		/* select page 3 to access LED control register */
-@@ -713,23 +716,33 @@ static void sky2_set_tx_stfwd(struct sky
+--- a/drivers/net/sky2.c	2008-01-10 15:49:12.000000000 -0800
++++ b/drivers/net/sky2.c	2008-01-10 15:49:20.000000000 -0800
+@@ -3946,7 +3946,7 @@ static __exit void sky2_debug_cleanup(vo
+ /* Initialize network device */
+ static __devinit struct net_device *sky2_init_netdev(struct sky2_hw *hw,
+ 						     unsigned port,
+-						     int highmem, int wol)
++						     int highmem)
  {
- 	struct net_device *dev = hw->dev[port];
+ 	struct sky2_port *sky2;
+ 	struct net_device *dev = alloc_etherdev(sizeof(*sky2));
+@@ -3986,7 +3986,7 @@ static __devinit struct net_device *sky2
+ 	sky2->speed = -1;
+ 	sky2->advertising = sky2_supported_modes(hw);
+ 	sky2->rx_csum = (hw->chip_id != CHIP_ID_YUKON_XL);
+-	sky2->wol = wol;
++	sky2->wol = sky2_wol_supported(hw) & WAKE_MAGIC;
  
--	if (dev->mtu <= ETH_DATA_LEN)
--		sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T),
--			     TX_JUMBO_DIS | TX_STFW_ENA);
-+	if ( (hw->chip_id == CHIP_ID_YUKON_EX &&
-+	      hw->chip_rev != CHIP_REV_YU_EX_A0) ||
-+	     hw->chip_id == CHIP_ID_YUKON_FE_P ||
-+	     hw->chip_id == CHIP_ID_YUKON_SUPR) {
-+		/* Yukon-Extreme B0 and further Extreme devices */
-+		/* enable Store & Forward mode for TX */
-+
-+		if (dev->mtu <= ETH_DATA_LEN)
-+			sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T),
-+				     TX_JUMBO_DIS | TX_STFW_ENA);
- 
--	else if (hw->chip_id != CHIP_ID_YUKON_EC_U)
--		sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T),
--			     TX_STFW_ENA | TX_JUMBO_ENA);
--	else {
--		/* set Tx GMAC FIFO Almost Empty Threshold */
--		sky2_write32(hw, SK_REG(port, TX_GMF_AE_THR),
--			     (ECU_JUMBO_WM << 16) | ECU_AE_THR);
-+		else
-+			sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T),
-+				     TX_JUMBO_ENA| TX_STFW_ENA);
-+	} else {
-+		if (dev->mtu <= ETH_DATA_LEN)
-+			sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T), TX_STFW_ENA);
-+		else {
-+			/* set Tx GMAC FIFO Almost Empty Threshold */
-+			sky2_write32(hw, SK_REG(port, TX_GMF_AE_THR),
-+				     (ECU_JUMBO_WM << 16) | ECU_AE_THR);
- 
--		sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T),
--			     TX_JUMBO_ENA | TX_STFW_DIS);
-+			sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T), TX_STFW_DIS);
- 
--		/* Can't do offload because of lack of store/forward */
--		dev->features &= ~(NETIF_F_TSO | NETIF_F_SG | NETIF_F_ALL_CSUM);
-+			/* Can't do offload because of lack of store/forward */
-+			dev->features &= ~(NETIF_F_TSO | NETIF_F_SG | NETIF_F_ALL_CSUM);
-+		}
- 	}
+ 	spin_lock_init(&sky2->phy_lock);
+ 	sky2->tx_pending = TX_DEF_PENDING;
+@@ -4083,24 +4083,12 @@ static int __devinit sky2_test_msi(struc
+ 	return err;
  }
  
-@@ -2660,6 +2673,7 @@ static u32 sky2_mhz(const struct sky2_hw
- 	case CHIP_ID_YUKON_EC:
- 	case CHIP_ID_YUKON_EC_U:
- 	case CHIP_ID_YUKON_EX:
-+	case CHIP_ID_YUKON_SUPR:
- 		return 125;
+-static int __devinit pci_wake_enabled(struct pci_dev *dev)
+-{
+-	int pm  = pci_find_capability(dev, PCI_CAP_ID_PM);
+-	u16 value;
+-
+-	if (!pm)
+-		return 0;
+-	if (pci_read_config_word(dev, pm + PCI_PM_CTRL, &value))
+-		return 0;
+-	return value & PCI_PM_CTRL_PME_ENABLE;
+-}
+-
+ static int __devinit sky2_probe(struct pci_dev *pdev,
+ 				const struct pci_device_id *ent)
+ {
+ 	struct net_device *dev;
+ 	struct sky2_hw *hw;
+-	int err, using_dac = 0, wol_default;
++	int err, using_dac = 0;
  
- 	case CHIP_ID_YUKON_FE:
-@@ -2743,6 +2757,15 @@ static int __devinit sky2_init(struct sk
- 			| SKY2_HW_AUTO_TX_SUM
- 			| SKY2_HW_ADV_POWER_CTL;
- 		break;
-+
-+	case CHIP_ID_YUKON_SUPR:
-+		hw->flags = SKY2_HW_GIGABIT
-+			| SKY2_HW_NEWER_PHY
-+			| SKY2_HW_NEW_LE
-+			| SKY2_HW_AUTO_TX_SUM
-+			| SKY2_HW_ADV_POWER_CTL;
-+		break;
-+
- 	default:
- 		dev_err(&hw->pdev->dev, "unsupported chip type 0x%x\n",
- 			hw->chip_id);
-@@ -2813,7 +2836,8 @@ static void sky2_reset(struct sky2_hw *h
- 		sky2_write8(hw, SK_REG(i, GMAC_LINK_CTRL), GMLC_RST_SET);
- 		sky2_write8(hw, SK_REG(i, GMAC_LINK_CTRL), GMLC_RST_CLR);
+ 	err = pci_enable_device(pdev);
+ 	if (err) {
+@@ -4133,8 +4121,6 @@ static int __devinit sky2_probe(struct p
+ 		}
+ 	}
  
--		if (hw->chip_id == CHIP_ID_YUKON_EX)
-+		if (hw->chip_id == CHIP_ID_YUKON_EX ||
-+		    hw->chip_id == CHIP_ID_YUKON_SUPR)
- 			sky2_write16(hw, SK_REG(i, GMAC_CTRL),
- 				     GMC_BYP_MACSECRX_ON | GMC_BYP_MACSECTX_ON
- 				     | GMC_BYP_RETR_ON);
---- a/drivers/net/sky2.h	2008-01-10 15:49:12.000000000 -0800
-+++ b/drivers/net/sky2.h	2008-01-10 15:49:27.000000000 -0800
-@@ -425,12 +425,13 @@ enum {
+-	wol_default = pci_wake_enabled(pdev) ? WAKE_MAGIC : 0;
+-
+ 	err = -ENOMEM;
+ 	hw = kzalloc(sizeof(*hw), GFP_KERNEL);
+ 	if (!hw) {
+@@ -4178,7 +4164,7 @@ static int __devinit sky2_probe(struct p
  
- /*	B2_CHIP_ID		 8 bit 	Chip Identification Number */
- enum {
--	CHIP_ID_YUKON_XL   = 0xb3, /* Chip ID for YUKON-2 XL */
--	CHIP_ID_YUKON_EC_U = 0xb4, /* Chip ID for YUKON-2 EC Ultra */
--	CHIP_ID_YUKON_EX   = 0xb5, /* Chip ID for YUKON-2 Extreme */
--	CHIP_ID_YUKON_EC   = 0xb6, /* Chip ID for YUKON-2 EC */
-- 	CHIP_ID_YUKON_FE   = 0xb7, /* Chip ID for YUKON-2 FE */
-- 	CHIP_ID_YUKON_FE_P = 0xb8, /* Chip ID for YUKON-2 FE+ */
-+	CHIP_ID_YUKON_XL   = 0xb3, /* YUKON-2 XL */
-+	CHIP_ID_YUKON_EC_U = 0xb4, /* YUKON-2 EC Ultra */
-+	CHIP_ID_YUKON_EX   = 0xb5, /* YUKON-2 Extreme */
-+	CHIP_ID_YUKON_EC   = 0xb6, /* YUKON-2 EC */
-+ 	CHIP_ID_YUKON_FE   = 0xb7, /* YUKON-2 FE */
-+ 	CHIP_ID_YUKON_FE_P = 0xb8, /* YUKON-2 FE+ */
-+	CHIP_ID_YUKON_SUPR = 0xb9, /* YUKON-2 Supreme */
- };
- enum yukon_ec_rev {
- 	CHIP_REV_YU_EC_A1    = 0,  /* Chip Rev. for Yukon-EC A1/A0 */
+ 	sky2_reset(hw);
+ 
+-	dev = sky2_init_netdev(hw, 0, using_dac, wol_default);
++	dev = sky2_init_netdev(hw, 0, using_dac);
+ 	if (!dev) {
+ 		err = -ENOMEM;
+ 		goto err_out_free_pci;
+@@ -4215,7 +4201,7 @@ static int __devinit sky2_probe(struct p
+ 	if (hw->ports > 1) {
+ 		struct net_device *dev1;
+ 
+-		dev1 = sky2_init_netdev(hw, 1, using_dac, wol_default);
++		dev1 = sky2_init_netdev(hw, 1, using_dac);
+ 		if (!dev1)
+ 			dev_warn(&pdev->dev, "allocation for second device failed\n");
+ 		else if ((err = register_netdev(dev1))) {
 
 -- 
 Stephen Hemminger <stephen.hemminger@vyatta.com>
