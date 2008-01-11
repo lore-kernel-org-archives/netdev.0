@@ -1,77 +1,45 @@
-From: Jens Osterkamp <jens@de.ibm.com>
-Subject: Re: [PATCH 1/5] spidernet: add missing initialization
-Date: Fri, 11 Jan 2008 13:44:35 +0100
-Message-ID: <200801111344.35652.jens@de.ibm.com>
-References: <20080111.153859.-1300526764.kouish@swc.toshiba.co.jp>
+From: Dzianis Kahanovich <mahatma@bspu.unibel.by>
+Subject: Re: [PATCH 2.6.23+] ingress classify to [nf]mark
+Date: Fri, 11 Jan 2008 15:37:56 -0200
+Message-ID: <4787A974.7060408@bspu.unibel.by>
+References: <47866C69.3080904@bspu.unibel.by> <47865613.1000902@trash.net>
+Reply-To: mahatma@eu.by
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linasvepstas@gmail.com, netdev@vger.kernel.org,
-	cbe-oss-dev@ozlabs.org, Jeff Garzik <jgarzik@pobox.com>
-To: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.29.150]:45439 "EHLO
-	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758617AbYAKMoj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 07:44:39 -0500
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate1.de.ibm.com (8.13.8/8.13.8) with ESMTP id m0BCicx3092788
-	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 12:44:38 GMT
-Received: from d12av03.megacenter.de.ibm.com (d12av03.megacenter.de.ibm.com [9.149.165.213])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0BCibLc2699508
-	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 13:44:37 +0100
-Received: from d12av03.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0BCiaQO009391
-	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 13:44:37 +0100
-In-Reply-To: <20080111.153859.-1300526764.kouish@swc.toshiba.co.jp>
-Content-Disposition: inline
+Received: from mail.bspu.unibel.by ([195.50.2.21]:56230 "EHLO
+	mail.bspu.unibel.by" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756284AbYAKNiF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 08:38:05 -0500
+Received: from [10.200.200.1] ([10.200.200.1])
+	by mail.bspu.unibel.by (8.14.1/8.14.0) with ESMTP id m0BDc3Z6016980
+	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 15:38:04 +0200
+In-Reply-To: <47865613.1000902@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 11 January 2008, Ishizaki Kou wrote:
-> This patch fixes initialization of "aneg_count" and "medium" fields i=
-n
-> spider_net_card to make spidernet driver correctly sets "link status"=
-=2E
->=20
-> Signed-off-by: Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
+Patrick McHardy wrote:
 
-Hi Ishizaki,
+>> --- linux-2.6.23-gentoo-r2/net/sched/sch_ingress.c
+>> +++ linux-2.6.23-gentoo-r2.fixed/net/sched/sch_ingress.c
+>> @@ -161,2 +161,5 @@
+>>              skb->tc_index = TC_H_MIN(res.classid);
+>> +#ifdef CONFIG_NET_SCH_INGRESS_TC2MARK
+>> +            skb->mark = 
+>> (skb->mark&(res.classid>>16))|TC_H_MIN(res.classid);
+>> +#endif
+>>          default:
+> 
+> 
+> Behaviour like this shouldn't depend on compile-time options.
 
-Linas has left the company and is no longer doing kernel related stuff,
-so I suggest, given Jeff is ok with that, that the two of us take over
-spidernet maintainership.
+Also I want to move it outside of NET_CLS_ACT dependence, but unsure in 
+behaviour understanding without NET_CLS_ACT.
 
-Jens
+But there are reduse code.
 
----
-
-Change maintainership for spidernet.
-
-Signed-off-by: Jens Osterkamp <jens@de.ibm.com>
-
-Index: linux-2.6/MAINTAINERS
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- linux-2.6.orig/MAINTAINERS	2008-01-11 13:32:04.000000000 +0100
-+++ linux-2.6/MAINTAINERS	2008-01-11 13:41:32.000000000 +0100
-@@ -3613,8 +3613,10 @@
- S:	Supported
-=20
- SPIDERNET NETWORK DRIVER for CELL
--P:	Linas Vepstas
--M:	linas@austin.ibm.com
-+P:	Ishizaki Kou
-+M:	kou.ishizaki@toshiba.co.jp
-+P:	Jens Osterkamp
-+M:	jens@de.ibm.com
- L:	netdev@vger.kernel.org
- S:	Supported
-=20
-
-IBM Deutschland Entwicklung GmbH
-Vorsitzender des Aufsichtsrats: Martin Jetter
-Gesch=E4ftsf=FChrung: Herbert Kircher=20
-Sitz der Gesellschaft: B=F6blingen
-Registergericht: Amtsgericht Stuttgart, HRB 243294
+-- 
+WBR,
+Denis Kaganovich,  mahatma@eu.by  http://mahatma.bspu.unibel.by
