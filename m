@@ -1,40 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-2.6.25 0/5][NETNS][IPV6] discriminate inet6
- addresses per namespace
-Date: Thu, 10 Jan 2008 22:45:06 -0800 (PST)
-Message-ID: <20080110.224506.10672625.davem@davemloft.net>
-References: <20080110180240.517524760@fr.ibm.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [klibc] [patch] import socket defines
+Date: Thu, 10 Jan 2008 22:41:36 -0800
+Message-ID: <47870FA0.2010509@zytor.com>
+References: <477AF86E.1080309@zytor.com> <477BD374.6060506@zytor.com> <20080110.221615.188955433.davem@davemloft.net> <200801110123.38406.vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benjamin.thery@bull.net
-To: dlezcano@fr.ibm.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	klibc@zytor.com
+To: Mike Frysinger <vapier@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41563
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751165AbYAKGpH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 01:45:07 -0500
-In-Reply-To: <20080110180240.517524760@fr.ibm.com>
+Received: from terminus.zytor.com ([198.137.202.10]:38842 "EHLO
+	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751797AbYAKGqV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 01:46:21 -0500
+In-Reply-To: <200801110123.38406.vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Date: Thu, 10 Jan 2008 19:02:40 +0100
+Mike Frysinger wrote:
+> On Friday 11 January 2008, David Miller wrote:
+>> From: "H. Peter Anvin" <hpa@zytor.com>
+>>> Seems the most logical thing to do would be to break out the small
+>>> portion that everyone wants into <linux/sockaddr.h> or somesuch, and
+>>> then remove those ifdefs entirely.
+>>>
+>>> Proposed patch (still being tested) attached...
+>> I think this would clearly break existing glibc builds.
+>>
+>> I agree with fixing the ifdef checks, but not like this.
+> 
+> how ?  the large crap in linux/socket.h never made it into glibc builds, and 
+> the few things at the top which were relocated to linux/sockaddr.h are still 
+> pulled in via linux/socket.h.  for glibc, the resulting '#include 
+> <linux/socket.h>' should be unchanged.
 
-> The inet6_addr_lst hash table contains the configured addresses 
-> for the ipv6 protocol on the system.
-> 
-> With the network namespace, we have 2 solutions:
->  * make this hash table per namespace
->  * keep a global hash table and discard addresses not belonging
->    to the network namespace
-> 
-> This patchset use the second method. It will use less memory, but
-> can be a less efficient in case of a lot of containers.
-> 
-> The code is changed to have the network namespace parameter for the
-> different functions, if we change our mind during an intense usage
-> of the network namespace, the switch to a hash table per namespace
-> is really easy to do and will not change the new api again.
+The problem is that there isn't any way to do this without breaking 
+*something*, since the fundamental problem is that userspace doesn't ask 
+for what it wants, so the kernel is expected to "figure it out."
 
-All 5 patches applied, thanks.
+We can either change the way glibc includes the kernel headers, or the 
+way everything else does.  The latter should really include the kernel, 
+although there is the hack of
+
+/* linux/socket.h */
+
+/* sockaddr stuff */
+
+#ifdef __KERNEL__
+# include <linux/socket2.h>
+#endif
+
+The reason I went the direction I did was that it looked like the end 
+result was cleaner.
+
+	-hpa
