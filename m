@@ -1,49 +1,39 @@
-From: Bernard Pidoux F6BVP <f6bvp@free.fr>
-Subject: [PATCH] [ROSE] two extra tab characters removed
-Date: Fri, 11 Jan 2008 22:40:00 +0100
-Message-ID: <4787E230.7090704@free.fr>
-References: <20071228214857.GA3290@ami.dom.local>	<20071229.191443.10947724.davem@davemloft.net>	<20071230141323.GA3377@ami.dom.local> <20080110.212242.42433023.davem@davemloft.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: TCP & hints
+Date: Fri, 11 Jan 2008 23:50:55 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0801112348290.20859@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g19.free.fr ([212.27.42.35]:47137 "EHLO smtp5-g19.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759787AbYAKVkD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jan 2008 16:40:03 -0500
-In-Reply-To: <20080110.212242.42433023.davem@davemloft.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:48029 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762824AbYAKVu4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 16:50:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Stephen,
 
-Signed-off-by: Bernard Pidoux <f6bvp@amsat.org>
----
-  include/net/rose.h |    4 ++--
-  1 files changed, 2 insertions(+), 2 deletions(-)
+Do you still remember what this is for (got added along with other TCP 
+hint stuff)? What kind of problem you saw back then (or who saw
+problems)?
 
-diff --git a/include/net/rose.h b/include/net/rose.h
-index d3ab453..0cfdc0e 100644
---- a/include/net/rose.h
-+++ b/include/net/rose.h
-@@ -86,7 +86,7 @@ struct rose_neigh {
-         ax25_address            callsign;
-         ax25_digi               *digipeat;
-         ax25_cb                 *ax25;
--       struct net_device               *dev;
-+       struct net_device       *dev;
-         unsigned short          count;
-         unsigned short          use;
-         unsigned int            number;
-@@ -124,7 +124,7 @@ struct rose_sock {
-         ax25_address            source_digis[ROSE_MAX_DIGIS];
-         ax25_address            dest_digis[ROSE_MAX_DIGIS];
-         struct rose_neigh       *neighbour;
--       struct net_device               *device;
-+       struct net_device       *device;
-         unsigned int            lci, rand;
-         unsigned char           state, condition, qbitincl, defer;
-         unsigned char           cause, diagnostic;
---
-1.5.3.7
+@@ -1605,6 +1711,10 @@ static void tcp_undo_cwr(struct sock *sk, const int 
+undo)
+        }
+        tcp_moderate_cwnd(tp);
+        tp->snd_cwnd_stamp = tcp_time_stamp;
++
++       /* There is something screwy going on with the retrans hints after
++          an undo */
++       clear_all_retrans_hints(tp);
+ }
+ 
+ static inline int tcp_may_undo(struct tcp_sock *tp)
+
+
+-- 
+ i.
