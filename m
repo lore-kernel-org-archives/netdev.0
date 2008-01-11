@@ -1,83 +1,148 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: RFC: igb: Intel 82575 gigabit ethernet driver (take #3)
-Date: Thu, 10 Jan 2008 16:22:08 -0800
-Message-ID: <4786B6B0.5050105@intel.com>
-References: <4786AB0C.6010202@intel.com> <4786B1E7.5030700@pobox.com>
+From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [ipw3945-devel] [PATCH 4/5] iwlwifi: iwl3945 eliminate
+	sleepable task queue from context
+Date: Fri, 11 Jan 2008 09:06:47 +0800
+Message-ID: <1200013607.3530.128.camel@debian.sh.intel.com>
+References: <11998765783953-git-send-email-joonwpark81@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:15196 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754703AbYAKAqg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2008 19:46:36 -0500
-In-Reply-To: <4786B1E7.5030700@pobox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: Joonwoo Park <joonwpark81-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <11998765783953-git-send-email-joonwpark81-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Kok, Auke wrote:
->> All,
->>
->> here is the third version of the igb (82575) ethernet controller
->> driver. This
->> driver was previously posted 2007-07-13 and 2007-12-11. Many comments
->> received
->> were addressed:
->>
->> - removed indirection wrappers in the same way as e1000e and ixgbe.
->> - cleaned up largely against sparse, checkpatch
->> - removed module parameters and moved functionality to ethtool ioctls
->> - new NAPI API rewrites
->> - by default the driver runs in multiqueue mode with 2 to 40 RX queues
->> enabled.
->>
->> and specifically in this version:
->>
->> - register macro's were condensed for readability
->> - fixed namespace collisions by renaming functions to igb_*
->>
->> Since the driver is still too large (allthough the patch shrunk from
->> 558k to 416k
->> to 407k, almost 38% of its size) to post to this list I am attaching
->> the bzipped
->> patch here. You can get the same driver alternatively from here:
->>
->> http://foo-projects.org/~sofar/0001-igb-PCI-Express-82575-Gigabit-Ethernet-driver.patch
->>
->> [407k]
->> http://foo-projects.org/~sofar/0001-igb-PCI-Express-82575-Gigabit-Ethernet-driver.patch.bz2
->>
->> [74k]
->>
->> or through git:
->>     git://lost.foo-projects.org/~ahkok/git/linux-2.6 #igb
->>
->>
->> There are several concerns still open for this driver:
->> - hardware code is still a large API. we're expecting more hardware to be
->> supported by this driver in the future. The API has already been
->> scrubbed but we
->> anticipate that the remaining hooks will be used in the future.
->> - The register defines are still named "E1000_" as they are mostly
->> identical to
->> the e1000 chipsets (igb register space is a superset of most recent
->> e1000 register
->> sets).
+Hi Joonwoo,
+
+We already did something similiar in our code base. Could you please
+take a look at this patch?
+
+http://intellinuxwireless.org/repos/?p=iwlwifi.git;a=commitdiff;h=57aa02255e9d7be5e2494683fc2793bd1d0707e2
+
+Thanks,
+-yi
+On Wed, 2008-01-09 at 20:02 +0900, Joonwoo Park wrote:
+> Eleminiate task queuing of iwl_pci_probe, register hw to ieee80211 immediately
 > 
-> I think we can throw it into netdev#upstream if you're ready...
-
-yes, of course :)
-
-both the patch file and the git tree should work for you.
-
-
-Cheers,
-
-Auke
+> Signed-off-by: Joonwoo Park <joonwpark81-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  drivers/net/wireless/iwlwifi/iwl3945-base.c |   66 +++++++++++++++++---------
+>  1 files changed, 43 insertions(+), 23 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+> index f95f226..7e8d8b3 100644
+> --- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
+> +++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+> @@ -6171,27 +6171,9 @@ static void iwl_alive_start(struct iwl_priv *priv)
+>  	if (iwl_is_rfkill(priv))
+>  		return;
+>  
+> -	if (!priv->mac80211_registered) {
+> -		/* Unlock so any user space entry points can call back into
+> -		 * the driver without a deadlock... */
+> -		mutex_unlock(&priv->mutex);
+> -		iwl_rate_control_register(priv->hw);
+> -		rc = ieee80211_register_hw(priv->hw);
+> -		priv->hw->conf.beacon_int = 100;
+> -		mutex_lock(&priv->mutex);
+> -
+> -		if (rc) {
+> -			iwl_rate_control_unregister(priv->hw);
+> -			IWL_ERROR("Failed to register network "
+> -				  "device (error %d)\n", rc);
+> -			return;
+> -		}
+> -
+> -		priv->mac80211_registered = 1;
+> +	iwl_reset_channel_flag(priv);
+>  
+> -		iwl_reset_channel_flag(priv);
+> -	} else
+> -		ieee80211_start_queues(priv->hw);
+> +	ieee80211_start_queues(priv->hw);
+>  
+>  	priv->active_rate = priv->rates_mask;
+>  	priv->active_rate_basic = priv->rates_mask & IWL_BASIC_RATES_MASK;
+> @@ -6369,7 +6351,8 @@ static int __iwl_up(struct iwl_priv *priv)
+>  
+>  	/* clear (again), then enable host interrupts */
+>  	iwl_write32(priv, CSR_INT, 0xFFFFFFFF);
+> -	iwl_enable_interrupts(priv);
+> +	if (priv->mac80211_registered)
+> +		iwl_enable_interrupts(priv);
+>  
+>  	/* really make sure rfkill handshake bits are cleared */
+>  	iwl_write32(priv, CSR_UCODE_DRV_GP1_CLR, CSR_UCODE_SW_BIT_RFKILL);
+> @@ -6887,10 +6870,21 @@ static void iwl_bg_scan_completed(struct work_struct *work)
+>  
+>  static int iwl_mac_start(struct ieee80211_hw *hw)
+>  {
+> +	int ret;
+>  	struct iwl_priv *priv = hw->priv;
+>  
+>  	IWL_DEBUG_MAC80211("enter\n");
+>  
+> +	ret = wait_event_interruptible_timeout(priv->wait_command_queue,
+> +			iwl_is_ready(priv), HOST_COMPLETE_TIMEOUT);
+> +
+> +	if (ret == -ERESTARTSYS)
+> +		return ret;
+> +	else if (ret == 0 && !iwl_is_ready(priv)) {
+> +		IWL_ERROR("IWL ready timeout\n");
+> +		return -ETIMEDOUT;
+> +	}
+> +
+>  	/* we should be verifying the device is ready to be opened */
+>  	mutex_lock(&priv->mutex);
+>  
+> @@ -8299,6 +8293,19 @@ static void iwl_cancel_deferred_work(struct iwl_priv *priv)
+>  	cancel_work_sync(&priv->beacon_update);
+>  }
+>  
+> +static int iwl_register_hw(struct iwl_priv *priv)
+> +{
+> +	int err;
+> +	IWL_DEBUG_INFO("register_hw\n");
+> +	iwl_rate_control_register(priv->hw);
+> +	err = ieee80211_register_hw(priv->hw);
+> +	if (!err) {
+> +		priv->hw->conf.beacon_int = 100;
+> +		priv->mac80211_registered = 1;
+> +	}
+> +	return err;
+> +}
+> +
+>  static struct attribute *iwl_sysfs_entries[] = {
+>  	&dev_attr_antenna.attr,
+>  	&dev_attr_channels.attr,
+> @@ -8546,11 +8553,24 @@ static int iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  		goto out_pci_alloc;
+>  	}
+>  
+> +	err = __iwl_up(priv);
+> +	if (err) {
+> +		IWL_ERROR("Could not make up interface : %d\n", err);
+> +		mutex_unlock(&priv->mutex);
+> +		goto out_pci_alloc;
+> +	}
+> +
+>  	mutex_unlock(&priv->mutex);
+>  
+> -	IWL_DEBUG_INFO("Queing UP work.\n");
+> +	err = iwl_register_hw(priv);
+> +	if (err) {
+> +		iwl_rate_control_unregister(priv->hw);
+> +		IWL_ERROR("Failed to register network "
+> +			  "device (error %d)\n", err);
+> +		goto out_pci_alloc;
+> +	}
+>  
+> -	queue_work(priv->workqueue, &priv->up);
+> +	iwl_enable_interrupts(priv);
+>  
+>  	return 0;
+>  
