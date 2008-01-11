@@ -1,71 +1,43 @@
-From: martin f krafft <madduck@madduck.net>
-Subject: why does promote_secondaries default to off? (was: iproute2:
-	removing primary address removes secondaries)
-Date: Fri, 11 Jan 2008 18:26:41 +0100
-Message-ID: <20080111172641.GA22449@piper.oerlikon.madduck.net>
-References: <20080111163155.GA17637@piper.oerlikon.madduck.net> <4787A3AB.4000205@fr.ibm.com>
+From: Vince Fuller <vaf@cisco.com>
+Subject: Re: [PATCH 001/001] ipv4: enable use of 240/4 address space
+Date: Fri, 11 Jan 2008 09:29:15 -0800
+Message-ID: <20080111172915.GA6199@cisco.com>
+References: <20080108011057.GA21168@cisco.com> <p73bq7smx1t.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="PNTmBPCT7hxwcZjr"
-To: netdev discussion list <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vince Fuller <vaf@cisco.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from seamus.madduck.net ([213.203.238.82]:54834 "EHLO
-	seamus.madduck.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759759AbYAKR0q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 12:26:46 -0500
-Received: from wall.oerlikon.madduck.net (84-75-158-163.dclient.hispeed.ch [84.75.158.163])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(Client CN "wall.oerlikon.madduck.net", Issuer "CAcert Class 3 Root" (verified OK))
-	by seamus.madduck.net (postfix) with ESMTP id DB5CA4060AA
-	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 18:26:51 +0100 (CET)
-Received: from piper.oerlikon.madduck.net (piper.oerlikon.madduck.net [192.168.14.3])
-	by wall.oerlikon.madduck.net (Postfix) with ESMTP id 5E8A49F13A
-	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 18:26:41 +0100 (CET)
+Received: from sj-iport-3-in.cisco.com ([171.71.176.72]:12011 "EHLO
+	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760805AbYAKRbq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 12:31:46 -0500
 Content-Disposition: inline
-In-Reply-To: <4787A3AB.4000205@fr.ibm.com>
+In-Reply-To: <p73bq7smx1t.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Jan 11, 2008 at 12:17:02PM +0100, Andi Kleen wrote:
+> Vince Fuller <vaf@cisco.com> writes:
+> 
+> > from Vince Fuller <vaf@vaf.net>
+> >
+> > This set of diffs modify the 2.6.20 kernel to enable use of the 240/4
+> > (aka "class-E") address space as consistent with the Internet Draft
+> > draft-fuller-240space-00.txt.
+> 
+> Wouldn't it be wise to at least wait for it becoming an RFC first? 
 
---PNTmBPCT7hxwcZjr
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+There is reasonable consensus on making use of 240/4; some applications,
+such as ISAKMP and automatic ipv6-to-IPv4 tunneling, still need to determine
+if they should treat the space as "public" or "private" but that shouldn't
+affect whether kernel support is added.
 
-also sprach Daniel Lezcano <dlezcano@fr.ibm.com> [2008.01.11.1813 +0100]:
-> There is a tweak in /proc/sys which activate secondaries promotion when a=
-=20
-> primary is deleted.
->
-> /proc/sys/net/ipv4/conf/all/promote_secondaries
->
-> I think it changes the behavior to the one you wish.
+Solaris recently added support for 240/4 and OSX already has it. I thought
+the Linux kernel developers might appreciate having patches to do likewise.
 
-Totally. That would have been the last place I had looked.
-Thank you!
+I leave it up to you, the developers, to decide if you want to use these
+patches.
 
-Do you have any idea why this isn't on by default?
-
---=20
-martin | http://madduck.net/ | http://two.sentenc.es/
-=20
-"i never go without my dinner. no one ever does, except vegetarians
- and people like that."
-                                                        -- oscar wilde
-=20
-spamtraps: madduck.bogus@madduck.net
-
---PNTmBPCT7hxwcZjr
-Content-Type: application/pgp-signature; name="digital_signature_gpg.asc"
-Content-Description: Digital signature (see http://martin-krafft.net/gpg/)
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQFHh6bRIgvIgzMMSnURAn7LAJ9fHlSPcFi4W0eDJke3pp2tIcNL6ACffO1I
-K3MFGkzcislVfjy8DAOD6Ys=
-=pPCA
------END PGP SIGNATURE-----
-
---PNTmBPCT7hxwcZjr--
+	--Vince
