@@ -1,81 +1,79 @@
-From: Breno Leitao <leitao@linux.vnet.ibm.com>
-Subject: Re: e1000 performance issue in 4 simultaneous links
-Date: Fri, 11 Jan 2008 16:19:41 -0200
-Message-ID: <1200075581.9349.33.camel@cafe>
-References: <1199981839.8931.35.camel@cafe>
-	 <36D9DB17C6DE9E40B059440DB8D95F5204275B04@orsmsx418.amr.corp.intel.com>
-	 <1200068444.9349.20.camel@cafe>  <47879DE4.8080603@cosmosbay.com>
+From: frederic RODO <f.rodo@til-technologies.fr>
+Subject: [PATCH] dm9161: add configuration for MII/RMII
+Date: Fri, 11 Jan 2008 19:28:43 +0100
+Message-ID: <4787B55B.6040202@til-technologies.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	rick.jones2@hp.com, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from igw2.br.ibm.com ([32.104.18.25]:57792 "EHLO igw2.br.ibm.com"
+Received: from smtp25.orange.fr ([193.252.22.23]:51419 "EHLO smtp25.orange.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754917AbYAKSTw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jan 2008 13:19:52 -0500
-Received: from mailhub1.br.ibm.com (mailhub1 [9.18.232.109])
-	by igw2.br.ibm.com (Postfix) with ESMTP id D452B17F4DE
-	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 16:14:06 -0200 (BRDT)
-Received: from d24av02.br.ibm.com (d24av02.br.ibm.com [9.18.232.47])
-	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0BIJiOv3661872
-	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 16:19:47 -0200
-Received: from d24av02.br.ibm.com (loopback [127.0.0.1])
-	by d24av02.br.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0BIJi2C016087
-	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 16:19:44 -0200
-In-Reply-To: <47879DE4.8080603@cosmosbay.com>
+	id S1759759AbYAKSaC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jan 2008 13:30:02 -0500
+Received: from smtp.til-technologies.fr (LAubervilliers-151-12-100-178.w193-252.abo.wanadoo.fr [193.252.204.178])
+	by mwinf2557.orange.fr (SMTP Server) with ESMTP id F166A1C001DE
+	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 19:30:00 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-01-11 at 17:48 +0100, Eric Dumazet wrote:
-> Breno Leitao a =C3=A9crit :
-> > Take a look at the interrupt table this time:=20
-> >
-> > io-dolphins:~/leitao # cat /proc/interrupts  | grep eth[1]*[67]
-> > 277:         15    1362450         13         14         13        =
- 14         15         18   XICS      Level     eth6
-> > 278:         12         13    1348681         19         13        =
- 15         10         11   XICS      Level     eth7
-> > 323:         11         18         17    1348426         18        =
- 11         11         13   XICS      Level     eth16
-> > 324:         12         16         11         19    1402709        =
- 13         14         11   XICS      Level     eth17
-> >
-> >
-> >  =20
-> If your machine has 8 cpus, then your vmstat output shows a bottlenec=
-k :)
->=20
-> (100/8 =3D 12.5), so I guess one of your CPU is full
+diff --git a/drivers/net/phy/davicom.c b/drivers/net/phy/davicom.c
+index 7ed632d..6bdc32f 100644
+--- a/drivers/net/phy/davicom.c
++++ b/drivers/net/phy/davicom.c
+@@ -37,6 +37,7 @@
 
-Well, if I run top while running the test, I see this load distributed
-among the CPUs, mainly those that had a NIC IRC bonded. Take a look:
+  #define MII_DM9161_SCR		0x10
+  #define MII_DM9161_SCR_INIT	0x0610
++#define MII_DM9161_SCR_RMII	0x0100
 
-Tasks: 133 total,   2 running, 130 sleeping,   0 stopped,   1 zombie
-Cpu0  :  0.3%us, 19.5%sy,  0.0%ni, 73.5%id,  0.0%wa,  0.0%hi,  0.0%si, =
- 6.6%st
-Cpu1  :  0.0%us,  0.0%sy,  0.0%ni, 75.1%id,  0.0%wa,  0.7%hi, 24.3%si, =
- 0.0%st
-Cpu2  :  0.0%us,  0.0%sy,  0.0%ni, 73.1%id,  0.0%wa,  0.7%hi, 26.2%si, =
- 0.0%st
-Cpu3  :  0.0%us,  0.0%sy,  0.0%ni, 76.1%id,  0.0%wa,  0.7%hi, 23.3%si, =
- 0.0%st
-Cpu4  :  0.0%us,  0.3%sy,  0.0%ni, 70.4%id,  0.7%wa,  0.3%hi, 28.2%si, =
- 0.0%st
-Cpu5  :  0.0%us,  0.0%sy,  0.0%ni,100.0%id,  0.0%wa,  0.0%hi,  0.0%si, =
- 0.0%st
-Cpu6  :  0.0%us,  0.0%sy,  0.0%ni, 99.7%id,  0.0%wa,  0.0%hi,  0.3%si, =
- 0.0%st
-Cpu7  :  0.0%us,  0.0%sy,  0.0%ni,100.0%id,  0.0%wa,  0.0%hi,  0.0%si, =
- 0.0%st
+  /* DM9161 Interrupt Register */
+  #define MII_DM9161_INTR	0x15
+@@ -103,7 +104,7 @@ static int dm9161_config_aneg(struct phy_device *phydev)
 
-Note that this average scenario doesn't change during the entire
-benchmarking test.
+  static int dm9161_config_init(struct phy_device *phydev)
+  {
+-	int err;
++	int err, temp;
 
-Thanks!
+  	/* Isolate the PHY */
+  	err = phy_write(phydev, MII_BMCR, BMCR_ISOLATE);
+@@ -111,8 +112,19 @@ static int dm9161_config_init(struct phy_device 
+*phydev)
+  	if (err < 0)
+  		return err;
 
---=20
-Breno Leitao <leitao@linux.vnet.ibm.com>
+-	/* Do not bypass the scrambler/descrambler */
+-	err = phy_write(phydev, MII_DM9161_SCR, MII_DM9161_SCR_INIT);
++	/* Do not bypass the scrambler/descrambler , configure MII Mode */
++	switch (phydev->interface) {
++	case PHY_INTERFACE_MODE_MII:
++		temp = MII_DM9161_SCR_INIT;
++		break;
++	case PHY_INTERFACE_MODE_RMII:
++		temp =  MII_DM9161_SCR_INIT | MII_DM9161_SCR_RMII;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	err = phy_write(phydev, MII_DM9161_SCR, temp);
+
+  	if (err < 0)
+  		return err;
+Signed-off-by: Frederic RODO <f.rodo@til-technologies.fr>
+
+-------------------------------------------------------------------------
+Les informations précédentes peuvent être confidentielles ou privilégiées.
+Si vous n'êtes pas le destinataire prévu de ce mail, veuillez en notifier 
+l'expéditeur en répondant à ce message puis supprimez-en toute trace 
+de vos systèmes.
+
+TIL Technologies
+Parc du Golf, Bat 43
+350 rue J.R Guilibert Gautier de la Lauzière 
+13856 AIX EN PROVENCE
+Tel. : +33 4 42 37 11 77
+-------------------------------------------------------------------------
+
 
