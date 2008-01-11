@@ -1,42 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 3/4] ipg: fix queue stop condition in the xmit handler
-Date: Fri, 11 Jan 2008 00:37:52 +0100
-Message-ID: <20080110233752.GD13315@electric-eye.fr.zoreil.com>
-References: <20080110233508.GA13315@electric-eye.fr.zoreil.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [NET] ROUTE: fix rcu_dereference() uses in /proc/net/rt_cache
+Date: Fri, 11 Jan 2008 11:00:20 +1100
+Message-ID: <20080111000020.GB22040@gondor.apana.org.au>
+References: <20080109113727.50eae500.dada1@cosmosbay.com> <20080110231042.GA3199@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux@horizon.com, jeff@garzik.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	davem@davemloft.net, dipankar@in.ibm.com, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:42969 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753275AbYAJX4A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 18:56:00 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:3608 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751622AbYAKABH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 19:01:07 -0500
 Content-Disposition: inline
-In-Reply-To: <20080110233508.GA13315@electric-eye.fr.zoreil.com>
+In-Reply-To: <20080110231042.GA3199@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/ipg.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+On Fri, Jan 11, 2008 at 12:10:42AM +0100, Jarek Poplawski wrote:
+>
+> It seems this optimization could've a side effect: if during such a
+> loop updates are done, and r is seen !NULL during while() check, but
+> NULL after rcu_dereference(), the listing/counting could stop too
+> soon. So, IMHO, probably the first version of this patch is more
+> reliable. (Or alternatively additional check is needed before return.)
 
-diff --git a/drivers/net/ipg.c b/drivers/net/ipg.c
-index 9752902..b234b29 100644
---- a/drivers/net/ipg.c
-+++ b/drivers/net/ipg.c
-@@ -1994,7 +1994,7 @@ static int ipg_nic_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	ipg_w32(IPG_DC_TX_DMA_POLL_NOW, DMA_CTRL);
- 
- 	if (sp->tx_current == (sp->tx_dirty + IPG_TFDLIST_LENGTH))
--		netif_wake_queue(dev);
-+		netif_stop_queue(dev);
- 
- 	spin_unlock_irqrestore(&sp->lock, flags);
- 
+No, while the value of r->u.dst.rt_next can change between two readings,
+the value of r cannot.
+
+Cheers,
 -- 
-1.5.3.3
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
