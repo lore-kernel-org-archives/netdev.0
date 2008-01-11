@@ -1,35 +1,28 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: rp_filter and ip rule break ipsec policy
-Date: Sat, 12 Jan 2008 09:34:36 +1100
-Message-ID: <E1JDSSS-0008Ph-00@gondolin.me.apana.org.au>
-References: <BAY103-DAV74C2164B1205BADF62C17B24B0@phx.gbl>
-Cc: netdev@vger.kernel.org
-To: pupilla@hotmail.com (Marco Berizzi)
+Subject: Re: questions on NAPI processing latency and dropped network packets
+Date: Sat, 12 Jan 2008 09:29:14 +1100
+Message-ID: <E1JDSNG-0008No-00@gondolin.me.apana.org.au>
+References: <4787844E.4020107@nortel.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: cfriesen@nortel.com (Chris Friesen)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1055 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:1059 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1762872AbYAKWxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 17:53:08 -0500
-In-Reply-To: <BAY103-DAV74C2164B1205BADF62C17B24B0@phx.gbl>
+	with ESMTP id S1762905AbYAKWxL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 17:53:11 -0500
+In-Reply-To: <4787844E.4020107@nortel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marco Berizzi <pupilla@hotmail.com> wrote:
+Chris Friesen <cfriesen@nortel.com> wrote:
 >
-> When I insert the rule number #601 packets to
-> x.y.z.214 aren't ate by xfrm anymore. This
-> happens when rp_filter is set to 1 on eth0.
-> Disabling rp_filter on eth0 resolve the problem:
-> xfrm eat the packets.
-> Is this the expected behaviour? Why should
+> I'd love to work on newer kernels, but we have a commitment to our 
+> customers to support multiple releases for a significant amount of time.
 
-Absolutely.  While on local output, IPsec lookup does override
-routing lookup (however there we do the route lookup first and
-use that as the key for the IPsec lookup).  On forwarding this
-is not the case.  We decapsulate and check policy first (if
-encrypted), and then do a route lookup, at which point rp_filter
-can eat your packet, and only after that do we perform the output
-IPsec lookup.
+Since you've made the commitment, you should stick to it and resolve
+the issues without asking us to contribute.  After all we haven't made
+that commitment to you or your customers.
 
 Cheers,
 -- 
