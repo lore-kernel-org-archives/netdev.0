@@ -1,35 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/3] bonding: 3 fixes for 2.6.24
-Date: Fri, 11 Jan 2008 15:55:01 +1100
-Message-ID: <E1JDBv3-0006J9-00@gondolin.me.apana.org.au>
-References: <23761.1200013613@death>
-Cc: herbert@gondor.apana.org.au, andy@greyhouse.net, olel@ans.pl,
-	netdev@vger.kernel.org, jgarzik@pobox.com, davem@davemloft.net
-To: fubar@us.ibm.com (Jay Vosburgh)
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] IPoIB: improve IPv4/IPv6 to IB mcast mapping
+ functions
+Date: Thu, 10 Jan 2008 20:56:03 -0800 (PST)
+Message-ID: <20080110.205603.78484957.davem@davemloft.net>
+References: <20071210203544.GI30090@obsidianresearch.com>
+	<20071210203841.GJ30090@obsidianresearch.com>
+	<adair29mel2.fsf_-_@cisco.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rvm@obsidianresearch.com,
+	general@lists.openfabrics.org
+To: rdreier@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2154 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757604AbYAKEzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 23:55:35 -0500
-In-Reply-To: <23761.1200013613@death>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49966
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756004AbYAKE4E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 23:56:04 -0500
+In-Reply-To: <adair29mel2.fsf_-_@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Vosburgh <fubar@us.ibm.com> wrote:
->
->        For the case of the bond_set_multicast_list function, changing
-> the existing write_lock to a read_lock_bh doesn't affect any calls to
+From: Roland Dreier <rdreier@cisco.com>
+Date: Fri, 04 Jan 2008 14:05:29 -0800
 
-Right that should also resolve the lockdep issue.  So as long as you
-guys are sure that this is safe with respect to the rest of the bonding
-driver it's fine by me.
+> Any objection to merging the following for 2.6.25?
 
-BTW you only need read_lock since set_multicast_list always gets called
-with BH off.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The ipv4/ipv6 bits look fine to me.
