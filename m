@@ -1,40 +1,43 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [NET] ROUTE: fix rcu_dereference() uses in /proc/net/rt_cache
-Date: Fri, 11 Jan 2008 13:31:32 +0100
-Message-ID: <20080111123132.GC2708@ff.dom.local>
-References: <20080109113727.50eae500.dada1@cosmosbay.com> <20080110231042.GA3199@ami.dom.local> <20080111000020.GB22040@gondor.apana.org.au> <20080111083010.GA2183@ff.dom.local> <20080111103742.GA26740@gondor.apana.org.au>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 001/001] ipv4: enable use of 240/4 address space
+Date: Fri, 11 Jan 2008 21:41:20 +0900 (JST)
+Message-ID: <20080111.214120.129309556.yoshfuji@linux-ipv6.org>
+References: <20080108011057.GA21168@cisco.com>
+	<p73bq7smx1t.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	davem@davemloft.net, dipankar@in.ibm.com, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vaf@cisco.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: andi@firstfloor.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.168]:3876 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757925AbYAKMZW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 07:25:22 -0500
-Received: by ug-out-1314.google.com with SMTP id z38so461934ugc.16
-        for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 04:25:20 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080111103742.GA26740@gondor.apana.org.au>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:34803 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757163AbYAKMlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 07:41:19 -0500
+In-Reply-To: <p73bq7smx1t.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 11, 2008 at 09:37:42PM +1100, Herbert Xu wrote:
-> On Fri, Jan 11, 2008 at 09:30:10AM +0100, Jarek Poplawski wrote:
-> > 
-> > It looks like I'm really too lazy and/or these selfdocumenting features
-> > of RCU are a bit overrated: one can never be sure which pointer is
-> > really RCU protected without checking a few places?! So, after looking
-> > at this rt_cache_get_next() and this patch only, it's looks like the
-> > third candidate after seq->private and rtable...
+In article <p73bq7smx1t.fsf@bingen.suse.de> (at Fri, 11 Jan 2008 12:17:02 +0100), Andi Kleen <andi@firstfloor.org> says:
+
+> Vince Fuller <vaf@cisco.com> writes:
 > 
-> Perhaps we could introduce a sparse attribute for it?
+> > from Vince Fuller <vaf@vaf.net>
+> >
+> > This set of diffs modify the 2.6.20 kernel to enable use of the 240/4
+> > (aka "class-E") address space as consistent with the Internet Draft
+> > draft-fuller-240space-00.txt.
+> 
+> Wouldn't it be wise to at least wait for it becoming an RFC first? 
 
-I hope I won't be cursed by all those forced to additional writing,
-so I'd only admit that after this patch there should be no problem
-with identifying RCU protected data properly (maybe only this kind
-of rcu_dereference() needs some popularization).
+I do think so, too.
 
-Jarek P.
+There is no positive consesus on this draft
+at the intarea meeting in Vancouver, right?
+
+We cannot / should not enable that space until we have reached
+a consensus on it.
+
+--yoshfuji
