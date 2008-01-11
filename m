@@ -1,33 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: questions on NAPI processing latency and dropped network
- packets
-Date: Thu, 10 Jan 2008 17:20:49 -0800 (PST)
-Message-ID: <20080110.172049.118174993.davem@davemloft.net>
-References: <478654C3.60806@nortel.com>
+From: "Joonwoo Park" <joonwpark81@gmail.com>
+Subject: Re: [PATCH 2/5] iwlwifi: iwl3945 synchronize
+	interruptand tasklet for down iwlwifi
+Date: Fri, 11 Jan 2008 10:24:54 +0900
+Message-ID: <b25c3fa70801101724he91d934y9db6636c68a32486@mail.gmail.com>
+References: <11998765481610-git-send-email-joonwpark81@gmail.com>
+	<D936D925018D154694D8A362EEB08920035CCD70@orsmsx416.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: cfriesen@nortel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45524
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755028AbYAKBUy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 20:20:54 -0500
-In-Reply-To: <478654C3.60806@nortel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, "Zhu, Yi" <yi.zhu@intel.com>,
+	linux-wireless@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>,
+	ipw3945-devel@lists.sourceforge.net
+To: "Chatre, Reinette" <reinette.chatre@intel.com>
+Return-path: <ipw3945-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <D936D925018D154694D8A362EEB08920035CCD70@orsmsx416.amr.corp.intel.com>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
+	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=ipw3945-devel>
+List-Post: <mailto:ipw3945-devel@lists.sourceforge.net>
+List-Help: <mailto:ipw3945-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
+	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: ipw3945-devel-bounces@lists.sourceforge.net
+Errors-To: ipw3945-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: "Chris Friesen" <cfriesen@nortel.com>
-Date: Thu, 10 Jan 2008 11:24:19 -0600
+Hello Reinette,
 
-> I've got an issue that's popped up with a deployed system running 
-> 2.6.10.
- ...
-> So...anyone have any ideas/suggestions?
+2008/1/11, Chatre, Reinette <reinette.chatre@intel.com>:
+>
+> Could synchronize_irq() be moved into iwl_disable_interrupts() ? I am
 
-You have to be kidding, coming here for help with a nearly
-4 year old kernel.
+At this time, iwl_disable_interrupts() can be called with irq
+disabled, so for do that I think additional modification would be
+needed.
 
-The networking stack as well as the e1000 driver has been
-practically rewritten several times over since then.
+> also wondering if we cannot call tasklet_kill() before
+> iwl_disable_interrupts() ... thus preventing it from being scheduled
+> when we are going down.
+
+Thanks for your catch, it seems tasklet can re-enable interrupts.
+I'll handle and make an another patch for them at this weekend :)
+
+Thanks,
+Joonwoo
+
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
