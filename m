@@ -1,66 +1,31 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2.6.23+] ingress classify to [nf]mark
-Date: Fri, 11 Jan 2008 09:59:01 -0500
-Message-ID: <1200063541.4483.42.camel@localhost>
-References: <47866C69.3080904@bspu.unibel.by>
-	 <1200001167.4443.38.camel@localhost>  <4787A663.4030204@bspu.unibel.by>
-Reply-To: hadi@cyberus.ca
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: questions on NAPI processing latency and dropped network packets
+Date: Fri, 11 Jan 2008 08:59:26 -0600
+Message-ID: <4787844E.4020107@nortel.com>
+References: <478654C3.60806@nortel.com> <20080110.172049.118174993.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mahatma@eu.by
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.182]:7723 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756100AbYAKO7E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 09:59:04 -0500
-Received: by py-out-1112.google.com with SMTP id u52so1668893pyb.10
-        for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 06:59:04 -0800 (PST)
-In-Reply-To: <4787A663.4030204@bspu.unibel.by>
+Received: from zcars04e.nortel.com ([47.129.242.56]:63355 "EHLO
+	zcars04e.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758447AbYAKO7o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 09:59:44 -0500
+In-Reply-To: <20080110.172049.118174993.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-11-01 at 15:24 -0200, Dzianis Kahanovich wrote:
-> jamal wrote:
+David Miller wrote:
 
+> You have to be kidding, coming here for help with a nearly
+> 4 year old kernel.
 
-> > tc qdisc add dev XXX ingress
-> > tc filter add dev XXX parent ffff: protocol ip prio 5 \
-> > u32 blah bleh \
-> > flowid 1:12 action ipt -j mark --set-mark 13 
-> 
-> Yes, I do so. But there are simple:
-> ---
-> if [[ $[TC_INDEX2MARK] == 0 ]] ; then
->   c=${c//action ipt -j MARK --set-mark /flowid :}
-> fi
-> $c
-> ---
+I figured it couldn't hurt to ask...if I can't ask the original authors, 
+who else is there?
 
-I didnt quiet understand what you have above. Does your script above
-read the flowid and sets the MARK to some dynamic value based on flowid?
-if thats what you are doing - it sounds sensible and much more clever
-than what is posted. And it doesnt require any kernel patch.
+I'd love to work on newer kernels, but we have a commitment to our 
+customers to support multiple releases for a significant amount of time.
 
-> Simpliest:
-> --- linux-2.6.23-gentoo-r2/net/sched/sch_ingress.c
-> +++ linux-2.6.23-gentoo-r2.fixed/net/sched/sch_ingress.c
-> @@ -222,6 +222,16 @@
-> -   			skb->tc_index = TC_H_MIN(res.classid);
-> +   			skb->tc_index = TC_H_MIN(mark=res.classid);
-
-Just write a metaset action and you can have all sorts of policies on
-what tc_index, mark etc you want. It is something thats needed in any
-case.
-When we did tc_index it made sense then because it was for "tc" to use
-some default policy. Enforcing policies in the kernel is not the best
-thing to do; as an example you want to specify the polciy for mark to
-be: classid major>>16|minor. I am sure you have good reasons; however,
-for the next person who wants to set it it major>>8|minor for their own
-good reason, theres conflict.  
-My offer to help you is still open.
-
-cheers,
-jamal
-
+Chris
