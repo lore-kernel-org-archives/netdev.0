@@ -1,71 +1,108 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [NET] ROUTE: fix rcu_dereference() uses in /proc/net/rt_cache
-Date: Fri, 11 Jan 2008 15:13:38 +0100
-Message-ID: <20080111141338.GD2708@ff.dom.local>
-References: <20080109113727.50eae500.dada1@cosmosbay.com> <20080110231042.GA3199@ami.dom.local> <20080110235111.GF9586@linux.vnet.ibm.com>
+From: Dzianis Kahanovich <mahatma@bspu.unibel.by>
+Subject: Re: [PATCH 2.6.23+] ingress classify to [nf]mark
+Date: Fri, 11 Jan 2008 15:24:51 -0200
+Message-ID: <4787A663.4030204@bspu.unibel.by>
+References: <47866C69.3080904@bspu.unibel.by> <1200001167.4443.38.camel@localhost>
+Reply-To: mahatma@eu.by
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
-	dipankar@in.ibm.com, netdev@vger.kernel.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.186]:11312 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756831AbYAKOH2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 09:07:28 -0500
-Received: by fk-out-0910.google.com with SMTP id z23so822022fkz.5
-        for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 06:07:26 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20080110235111.GF9586@linux.vnet.ibm.com>
+Received: from mail.bspu.unibel.by ([195.50.2.21]:43349 "EHLO
+	mail.bspu.unibel.by" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760728AbYAKOVU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 09:21:20 -0500
+Received: from [10.200.200.1] ([10.200.200.1])
+	by mail.bspu.unibel.by (8.14.1/8.14.0) with ESMTP id m0BDOwlX016768
+	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 15:24:59 +0200
+In-Reply-To: <1200001167.4443.38.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 10, 2008 at 03:51:11PM -0800, Paul E. McKenney wrote:
-> On Fri, Jan 11, 2008 at 12:10:42AM +0100, Jarek Poplawski wrote:
-> > Eric Dumazet wrote, On 01/09/2008 11:37 AM:
-> > ...
-> > > [NET] ROUTE: fix rcu_dereference() uses in /proc/net/rt_cache
-> > ...
-> > > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> > > index d337706..28484f3 100644
-> > > --- a/net/ipv4/route.c
-> > > +++ b/net/ipv4/route.c
-> > > @@ -283,12 +283,12 @@ static struct rtable *rt_cache_get_first(struct seq_file *seq)
-> > >  			break;
-> > >  		rcu_read_unlock_bh();
-> > >  	}
-> > > -	return r;
-> > > +	return rcu_dereference(r);
-> > >  }
-> > >  
-> > >  static struct rtable *rt_cache_get_next(struct seq_file *seq, struct rtable *r)
-> > >  {
-> > > -	struct rt_cache_iter_state *st = rcu_dereference(seq->private);
-> > > +	struct rt_cache_iter_state *st = seq->private;
-> > >  
-> > >  	r = r->u.dst.rt_next;
-> > >  	while (!r) {
-> > > @@ -298,7 +298,7 @@ static struct rtable *rt_cache_get_next(struct seq_file *seq, struct rtable *r)
-> > >  		rcu_read_lock_bh();
-> > >  		r = rt_hash_table[st->bucket].chain;
-> > >  	}
-> > > -	return r;
-> > > +	return rcu_dereference(r);
-> > >  }
-> > 
-> > It seems this optimization could've a side effect: if during such a
-> > loop updates are done, and r is seen !NULL during while() check, but
-> > NULL after rcu_dereference(), the listing/counting could stop too
-> > soon. So, IMHO, probably the first version of this patch is more
-> > reliable. (Or alternatively additional check is needed before return.)
+jamal wrote:
+
+>> To "classid x:y" = "mark=mark&x|y" ("classid :y" = "-j MARK --set-mark y", etc).
+>>
+>> --- linux-2.6.23-gentoo-r2/net/sched/Kconfig
+>> +++ linux-2.6.23-gentoo-r2.fixed/net/sched/Kconfig
+>> @@ -222,6 +222,16 @@
+> [..]
+>>   			skb->tc_index = TC_H_MIN(res.classid);
+>> +#ifdef CONFIG_NET_SCH_INGRESS_TC2MARK
+>> +			skb->mark = (skb->mark&(res.classid>>16))|TC_H_MIN(res.classid);
+>> +#endif
+>>   		default:
 > 
-> Looks to me like "r" is a local variable (argument list), so there
-> should not be any possibility of it being changed by some other
-> task, right?
+> 
+> Please either use ipt action and netfilter fwmarker for this activity or
 
-It seems words could be stronger than then logic (in some cases)...
-After forgetting what's dereference usually for, it's all right!
+Sorry. There are only unsuccessful attempt to popularize my working solution.
+Really I just use "#define tc_index mark" (in skbuff.h or sch_ingress.c) or 
+something like this:
 
-Thanks,
-Jarek P.
+--- linux-2.6.23-gentoo-r2/net/sched/Kconfig
++++ linux-2.6.23-gentoo-r2.fixed/net/sched/Kconfig
+@@ -222,6 +222,16 @@
+  	  To compile this code as a module, choose M here: the
+  	  module will be called sch_ingress.
+
++config NET_SCH_INGRESS_TC2MARK
++	bool "ingress tc_index -> mark"
++	depends on NET_SCH_INGRESS && NET_CLS_ACT
++	---help---
++	  This enables access to "mark" value via "tc_index" alias
++	  in ingress and unify this values (usage example: set "flowid :2"
++	  in ingress and use it value as "mark" in any way - netfilter, etc).
++	
++	  But tc_index may be undefined - use "flowid :0".
++
+  comment "Classification"
+
+  config NET_CLS
+--- linux-2.6.23-gentoo-r2/net/sched/sch_ingress.c
++++ linux-2.6.23-gentoo-r2.fixed/net/sched/sch_ingress.c
+@@ -18,6 +18,9 @@
+  #include <net/netlink.h>
+  #include <net/pkt_sched.h>
+
++#ifdef CONFIG_NET_SCH_INGRESS_TC2MARK
++#define tc_index mark
++#endif
+
+  #undef DEBUG_INGRESS
+
+
+
+> create a new action. 
+> If you choose the later (example because you want to dynamically compute
+> the mark), look at net/sched/act_simple.c to start from and i can help
+> you if you have any questions.
+>  
+> If you want to use ipt action, the syntax would be something like:
+> 
+> ---
+> tc qdisc add dev XXX ingress
+> tc filter add dev XXX parent ffff: protocol ip prio 5 \
+> u32 blah bleh \
+> flowid 1:12 action ipt -j mark --set-mark 13 
+
+Yes, I do so. But there are simple:
+---
+if [[ $[TC_INDEX2MARK] == 0 ]] ; then
+  c=${c//action ipt -j MARK --set-mark /flowid :}
+fi
+$c
+---
+
+Simpliest:
+--- linux-2.6.23-gentoo-r2/net/sched/sch_ingress.c
++++ linux-2.6.23-gentoo-r2.fixed/net/sched/sch_ingress.c
+@@ -222,6 +222,16 @@
+-   			skb->tc_index = TC_H_MIN(res.classid);
++   			skb->tc_index = TC_H_MIN(mark=res.classid);
+
+
+-- 
+WBR,
+Denis Kaganovich,  mahatma@eu.by  http://mahatma.bspu.unibel.by
