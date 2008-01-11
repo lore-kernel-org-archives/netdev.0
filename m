@@ -1,41 +1,35 @@
-From: linux@horizon.com
-Subject: Re: [PATCH 0/4] Pull request for 'ipg-fixes' branch
-Date: 10 Jan 2008 20:58:51 -0500
-Message-ID: <20080111015851.25008.qmail@science.horizon.com>
-References: <20080110233508.GA13315@electric-eye.fr.zoreil.com>
-Cc: akpm@linux-foundation.org, jeff@garzik.org, linux@horizon.com,
-	netdev@vger.kernel.org
-To: davem@davemloft.net, romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from science.horizon.com ([192.35.100.1]:13394 "HELO
-	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1754273AbYAKB6y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2008 20:58:54 -0500
-In-Reply-To: <20080110233508.GA13315@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Thank you very much, this appears to work.
-
-> The driver is still a POMS but it seems better now.
-
-I notice that the vendor-supplied driver doesn't have these bugs.
-Now, it does have a bug in that it doesn't have an "is this
-interrupt for me?" test at all (and always returns "I handled it"),
-but the bypass and its locking screwups are a later addition.
-
-The same with the sp->rx_current bugs.  The original loop which used
-rx_current as the loop iteration variable wasn't great style, precisely
-because it hides the interaction that someone's "optimization" broke,
-but I don't want to blame the vendor for things they didn't do.
-
-Would you be interested in some cleanup patches?  In particular, I think I
-can get rid of tx->lock entirely, or at least take it off the fast path.
-All it's protecting is the write to sp->tx_current, and a few judicious
-memory barriers can deal with that.
+From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [ipw3945-devel] [PATCH 4/5] iwlwifi: iwl3945 eliminate
+	sleepable task queue from context
+Date: Fri, 11 Jan 2008 10:01:54 +0800
+Message-ID: <1200016915.3530.161.camel@debian.sh.intel.com>
+References: <11998765783953-git-send-email-joonwpark81@gmail.com>
+	 <1200013607.3530.128.camel@debian.sh.intel.com>
+	 <b25c3fa70801101738j512a6189i3e4541bf0348b91f@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: Joonwoo Park <joonwpark81-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <b25c3fa70801101738j512a6189i3e4541bf0348b91f-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-(Oh, another BUG: the sp->ResetCurrentTFD logic in hard_start_xmit is
-just plain broken.  It writes the new data to entry 0, then increments
-sp->tx_current just like usual.  THAT isn't in the vendor driver that
-I see, either.)
+On Fri, 2008-01-11 at 10:38 +0900, Joonwoo Park wrote:
+> I should have checked code base, it's my fault.
+> it's seems very similar, but I could not made build unfortunately.
+> Can you introduce to me how to build it please?
+> 
+> my build error is here:
+> jason@ehus ~/SRC/DRIVERS/iwlwifi $
+> KSRC=/home/jason/SRC/LINUX/linux-2.6 make
+
+The version doesn't work on a .24-rc kernel. Can you compile it
+with .23?
+
+Thanks,
+-yi
