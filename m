@@ -1,80 +1,81 @@
-From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: Re: [PROCFS] [NETNS] issue with /proc/net entries
-Date: Fri, 11 Jan 2008 17:00:16 +0100
-Message-ID: <47879290.3040700@bull.net>
-References: <478654E1.5050501@bull.net> <m1ir21v4jv.fsf@ebiederm.dsl.xmission.com>
+From: Breno Leitao <leitao@linux.vnet.ibm.com>
+Subject: RE: e1000 performance issue in 4 simultaneous links
+Date: Fri, 11 Jan 2008 14:20:44 -0200
+Message-ID: <1200068444.9349.20.camel@cafe>
+References: <1199981839.8931.35.camel@cafe>
+	 <36D9DB17C6DE9E40B059440DB8D95F5204275B04@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: netdev@vger.kernel.org
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	rick.jones2@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:54495 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760605AbYAKQAS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 11:00:18 -0500
-In-Reply-To: <m1ir21v4jv.fsf@ebiederm.dsl.xmission.com>
+Received: from igw3.br.ibm.com ([32.104.18.26]:35500 "EHLO igw3.br.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759672AbYAKQUt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jan 2008 11:20:49 -0500
+Received: from mailhub1.br.ibm.com (unknown [9.18.232.109])
+	by igw3.br.ibm.com (Postfix) with ESMTP id 4A2BC3900BD
+	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 14:12:50 -0200 (BRDT)
+Received: from d24av02.br.ibm.com (d24av02.br.ibm.com [9.18.232.47])
+	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0BGKl3h4141146
+	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 14:20:47 -0200
+Received: from d24av02.br.ibm.com (loopback [127.0.0.1])
+	by d24av02.br.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0BGKlN5004646
+	for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 14:20:47 -0200
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5204275B04@orsmsx418.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric W. Biederman wrote:
-> Benjamin Thery <benjamin.thery@bull.net> writes:
+On Thu, 2008-01-10 at 12:52 -0800, Brandeburg, Jesse wrote:
+> Breno Leitao wrote:
+> > When I run netperf in just one interface, I get 940.95 * 10^6 bits/sec
+> > of transfer rate. If I run 4 netperf against 4 different interfaces, I
+> > get around 720 * 10^6 bits/sec.
 > 
->> Hi Eric,
->>
->> While testing the current network namespace stuff merged in net-2.6.25,
->> I bumped into the following problem with the /proc/net/ entries.
->> It doesn't always display the actual data of the current namespace,
->> but sometime displays data from other namespaces.
->>
->> I bisected the problem to the commit:
->> "proc: remove/Fix proc generic d_revalidate"
->> 3790ee4bd86396558eedd86faac1052cb782e4e1
->>
->> The problem: If a process in a particular network namespace changes
->> current directory to /proc/net, then processes in other network
->> namespaces trying to look at /proc/net entries will see data from the
->> first namespace (the one with CWD /proc/net). (See test case below).
->>
->> As you comments in the commit suggest, you seem to be aware of some
->> issues when CONFIG_NET_NS=y. Is it one of these corner cases you
->> identified? Any idea on how we can fix it?
-> 
-> Yes.  It isn't especially hard.   I have most of it in my queue
-> I just need to get the silly patches out of there.
-> 
-> Essentially we need to fix the caching of proc_generic entries,
-> So that we can have a proper d_revalidate implementation.
-> 
-> To get d_revalidate and the caching correct for /proc/net will take
-> just a bit more work.  We need to make /proc/net a symlink
-> to something like /proc/self/net so that we don't get excess
-> revalidates when switching between different processes.
-> 
-> Or else we can't properly implement the case you have described.
-> Where being in the directory causes the wrong version of /proc/net
-> to show up. Changing the contents of the dentry for /proc/net
-> should only happen during unshare.  Not when we switch between
-> processes or else we get into the d_revalidate leaks mount points
-> problem again.
-> 
-> We also need the check to see if something is mounted on top of
-> us before we call drop the dentry.  But if we don't even try until
-> we know the dentry is invalid it should not be too bad.
+> I hope this explanation makes sense, but what it comes down to is that
+> combining hardware round robin balancing with NAPI is a BAD IDEA.  In
+> general the behavior of hardware round robin balancing is bad and I'm
+> sure it is causing all sorts of other performance issues that you may
+> not even be aware of.
+I've made another test removing the ppc IRQ Round Robin scheme, bonded
+each interface (eth6, eth7, eth16 and eth17) to different CPUs (CPU1,
+CPU2, CPU3 and CPU4) and I also get around around 720 * 10^6 bits/s in
+average.
 
-Thanks for all the details.
-I'll put this issue on my "netns current limitations" list until
-it's solved.
+Take a look at the interrupt table this time: 
 
-Benjamin
+io-dolphins:~/leitao # cat /proc/interrupts  | grep eth[1]*[67]
+277:         15    1362450         13         14         13         14         15         18   XICS      Level     eth6
+278:         12         13    1348681         19         13         15         10         11   XICS      Level     eth7
+323:         11         18         17    1348426         18         11         11         13   XICS      Level     eth16
+324:         12         16         11         19    1402709         13         14         11   XICS      Level     eth17
 
 
-> 
-> Eric
-> 
+I also tried to bound all the 4 interface IRQ to a single CPU (CPU0)
+using the noirqdistrib boot paramenter, and the performance was a little
+worse.
 
+Rick, 
+  The 2 interface test that I showed in my first email, was run in two
+different NIC. Also, I am running netperf with the following command
+"netperf -H <hostname> -T 0,8" while netserver is running without any
+argument at all. Also, running vmstat in parallel shows that there is no
+bottleneck in the CPU. Take a look: 
+
+procs -----------memory---------- ---swap-- -----io---- -system-- -----cpu------
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st
+ 2  0      0 6714732  16168 227440    0    0     8     2  203   21  0  1 98  0  0
+ 0  0      0 6715120  16176 227440    0    0     0    28 16234  505  0 16 83  0  1
+ 0  0      0 6715516  16176 227440    0    0     0     0 16251  518  0 16 83  0  1
+ 1  0      0 6715252  16176 227440    0    0     0     1 16316  497  0 15 84  0  1
+ 0  0      0 6716092  16176 227440    0    0     0     0 16300  520  0 16 83  0  1
+ 0  0      0 6716320  16180 227440    0    0     0     1 16354  486  0 15 84  0  1
+ 
+
+Thanks!
 
 -- 
-B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
+Breno Leitao <leitao@linux.vnet.ibm.com>
 
-    http://www.bull.com
