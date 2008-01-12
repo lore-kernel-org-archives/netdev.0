@@ -1,45 +1,71 @@
-From: supersud501 <supersud501@yahoo.de>
-Subject: Re: [Bugme-new] [Bug 9721] New: wake on lan fails with sky2 module
-Date: Sat, 12 Jan 2008 13:24:49 +0100
-Message-ID: <4788B191.1060001@yahoo.de>
-References: <bug-9721-10286@http.bugzilla.kernel.org/> <200801112216.08992.rjw@sisk.pl> <4787EB69.9060900@yahoo.de> <200801120010.22440.rjw@sisk.pl>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [RFC PATCH 8/8] [PKTGEN]: uninline getCurUs
+Date: Sat, 12 Jan 2008 14:59:50 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0801121420220.19333@kivilampi-30.cs.helsinki.fi>
+References: <12001308173969-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <12001308171262-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <12001308173014-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1200130817664-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <12001308171814-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1200130817405-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <12001308172525-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1200130817467-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <12001308174189-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <20080112121740.GA4555@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-acpi@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <200801120010.22440.rjw@sisk.pl>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; boundary="-696243703-212337342-1200140478=:19333"
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:40098 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757591AbYALM7x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2008 07:59:53 -0500
+In-Reply-To: <20080112121740.GA4555@gondor.apana.org.au>
+Content-ID: <Pine.LNX.4.64.0801121441240.19333@kivilampi-30.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
+---696243703-212337342-1200140478=:19333
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0801121421331.19333@kivilampi-30.cs.helsinki.fi>
 
-Rafael J. Wysocki wrote:
-> On Friday, 11 of January 2008, supersud501 wrote:
->> Rafael J. Wysocki wrote:
->>>> http://bugzilla.kernel.org/show_bug.cgi?id=9721
-> 
->> allright, didn't see that before, sorry, here are the results:
->>
->> kernel 2.6.23.12 acpi=off: when shutting down the system doesn't 
->> poweroff (of course), but pressing the powerbutton does the trick. and 
->> wake on lan: WORKS
->>
->> kernel 2.6.24-rc7 acpi=off: computer doesn't power off, either (so 
->> acpi=off works), but wol still DOESN'T work :(
->>
->> so no acpi-problem?
-> 
-> No, I don't think it's an ACPI problem.
-> 
-> Since it seems to be 100% reproducible, it would be very helpful if you could
-> use git-bisect to identify the offending commit.
-> 
+On Sat, 12 Jan 2008, Herbert Xu wrote:
 
-I'll do the git-bisect (just downloading linux-2.6.git), but i forgot to 
-mention one little thing: i'm using x64 version of kernel - does this 
-play an important role?
+> On Sat, Jan 12, 2008 at 09:40:17AM +0000, Ilpo Järvinen wrote:
+> 
+> Your emails are now using UTF-8 encoding but it's still declaring
+> ISO-8859-1 as the charset. 
+
+Thanks for trying to help but my situation is such that I think it got 
+also you confused (this kind of mixed encoding is beoynd my skills 
+really)... :-) Besides, I wouldn't mind of having incorrect characters
+in my name, I'm just used to that but somebody else wasn't that happy 
+about it.
+
+Here's one example...
+
+From: "=?utf-8?q?Ilpo_J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+...
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Something still needed besides these to declare email utf-8?
+
+> So you probably want to fix that up or your name may show up as JÃ¤vinen 
+> on the reader's screen.
+
+Did you actually see this? I'd expect to see that as well but no, From is 
+correctly decoded by my ISO-8859-1'ish MUA, aha, seems that I still have 
+something to do to deal with the Signed-off line.
+
+...Maybe I just fall-back to changing my last name, it's the only 
+full-proof solution... ;-)
+
+-- 
+ i.
+---696243703-212337342-1200140478=:19333--
