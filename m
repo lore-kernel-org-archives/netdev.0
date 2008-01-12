@@ -1,46 +1,28 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 001/001] ipv4: enable use of 240/4 address space
-Date: Sat, 12 Jan 2008 14:47:29 +0900 (JST)
-Message-ID: <20080112.144729.67503025.yoshfuji@linux-ipv6.org>
-References: <20080108011057.GA21168@cisco.com>
+From: "Andy Johnson" <johnsonzjo@gmail.com>
+Subject: Netconf at conf.au 2008?
+Date: Sat, 12 Jan 2008 08:52:38 +0200
+Message-ID: <147a89290801112252gfcfaf11h1d25ee3c66e75881@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, davem@davemloft.net
-To: vaf@cisco.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761821AbYALFrf@vger.kernel.org>
-In-Reply-To: <20080108011057.GA21168@cisco.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.156]:22386 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751250AbYALGwl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2008 01:52:41 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so1416423fga.17
+        for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 22:52:38 -0800 (PST)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hello,
+I saw somewhere (maybe in this mailing list a while ago) that there
+might be a  Linux Kernel Developers' Netconf conference  at conf.au
+2008.
 
-In article <20080108011057.GA21168@cisco.com> (at Mon, 7 Jan 2008 17:10:57 -0800), Vince Fuller <vaf@cisco.com> says:
-
->  #define IN_MULTICAST_NET	0xF0000000
->  
-> +#define IN_CLASSE(a)		((((long int) (a)) & 0xf0000000) == 0xf0000000)
-> +#define	IN_CLASSE_NET		0xffffff00
-> +#define	IN_CLASSE_NSHIFT	8
-> +#define	IN_CLASSE_HOST		(0xffffffff & ~IN_CLASSE_NET)
-> +
-> +/* 
-> + * these are no longer used
->  #define	IN_EXPERIMENTAL(a)	((((long int) (a)) & 0xf0000000) == 0xf0000000)
->  #define	IN_BADCLASS(a)		IN_EXPERIMENTAL((a))
-> +*/
-
-Please do not remove this, but have these instead:
-
-#define IN_EXPERIMENTAL(a)	IN_CLASSE((a))
-#define IN_BADCASS(a)		IN_CLASSE((a))
-
-And, I think it is good to remove BADCLASS() (inside
-#ifdef __KERNEL__ .. #endif) because we do not have its users
-any longer, right?
+Does anyone here know if  such a thing is planned ?
 
 Regards,
-
---yoshfuji
+Andy
