@@ -1,42 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH 8/8] [PKTGEN]: uninline getCurUs
-Date: Sat, 12 Jan 2008 03:25:18 -0800 (PST)
-Message-ID: <20080112.032518.110245532.davem@davemloft.net>
-References: <12001304703789-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<12001304701053-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<12001304701901-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 9/9] fix sparse warnings
+Date: Sat, 12 Jan 2008 03:28:01 -0800 (PST)
+Message-ID: <20080112.032801.91587816.davem@davemloft.net>
+References: <20080112064513.803976049@linux-foundation.org>
+	<20080112064646.659443238@linux-foundation.org>
+	<4788A17D.5070903@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stephen.hemminger@vyatta.com, robert.olsson@its.uu.se,
+	netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35915
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35918
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753155AbYALLZS convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jan 2008 06:25:18 -0500
-In-Reply-To: <12001304701901-git-send-email-ilpo.jarvinen@helsinki.fi>
+	by vger.kernel.org with ESMTP id S1761467AbYALL2B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2008 06:28:01 -0500
+In-Reply-To: <4788A17D.5070903@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Sat, 12 Jan 2008 11:34:29 +0200
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Sat, 12 Jan 2008 12:16:13 +0100
 
-> net/core/pktgen.c:
->   pktgen_stop_device   |  -50
->   pktgen_run           | -105
->   pktgen_if_show       |  -37
->   pktgen_thread_worker | -702
->  4 functions changed, 894 bytes removed, diff: -894
->=20
-> net/core/pktgen.c:
->   getCurUs |  +36
->  1 function changed, 36 bytes added, diff: +36
->=20
-> net/core/pktgen.o:
->  5 functions changed, 36 bytes added, 894 bytes removed, diff: -858
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+>     We could use a better scheme with an extra indirection.
 
-I think this is the right thing to do, applied.
+Unfortunately, indirection will likely have a negative
+impact upon performance.  We go only as fast as the
+number of memory references made by this code.
+
+> 3) 'pos' and 'bits' fields of 'struct tnode' might be converted to
+>     plain uchar, instead of 5-bits fields, to reduce complexity for
+>     generated code.
+
+This seems reasonable, I'll likely apply this.
