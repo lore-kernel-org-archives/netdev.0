@@ -1,30 +1,33 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: What is XFRM_POLICY_LOCALOK for?
-Date: Sat, 12 Jan 2008 22:16:47 +1100
-Message-ID: <E1JDeM3-00016d-00@gondolin.me.apana.org.au>
-References: <d0383f90801120031r142b2be1taee5efd190768407@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/8] [TCP]: Uninline tcp_set_state
+Date: Sat, 12 Jan 2008 03:18:35 -0800 (PST)
+Message-ID: <20080112.031835.135447964.davem@davemloft.net>
+References: <12001304691600-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12001304691978-git-send-email-ilpo.jarvinen@helsinki.fi>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: ianbrn@gmail.com (Ian Brown)
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2696 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1761753AbYALLQv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2008 06:16:51 -0500
-In-Reply-To: <d0383f90801120031r142b2be1taee5efd190768407@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46650
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1759043AbYALLSf convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Jan 2008 06:18:35 -0500
+In-Reply-To: <12001304691978-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ian Brown <ianbrn@gmail.com> wrote:
-> 
-> I tried to understand what XFRM_POLICY_LOCALOK is for. (include/linux/xfrm.h)
-> It is defined thus:
-> #define XFRM_POLICY_LOCALOK    1       /* Allow user to override global policy */
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Sat, 12 Jan 2008 11:34:22 +0200
 
-It isn't used anywhere.
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Applied, thanks.
+
+> +#endif=09
+> +}
+> +EXPORT_SYMBOL_GPL(tcp_set_state);
+
+I fixed up the trailing whitespace on the "#endif" line.
