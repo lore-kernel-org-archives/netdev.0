@@ -1,142 +1,77 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 1/8] [TCP]: Uninline tcp_set_state
-Date: Sat, 12 Jan 2008 13:03:55 -0800
-Message-ID: <20080112130355.74c39ae7@deepthought>
-References: <12001308173969-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<12001308171262-git-send-email-ilpo.jarvinen@helsinki.fi>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: [PATCH 9/9] fix sparse warnings
+Date: Sat, 12 Jan 2008 13:08:24 -0800
+Message-ID: <20080112130824.54cc1fc3@deepthought>
+References: <20080112064513.803976049@linux-foundation.org>
+	<20080112064646.659443238@linux-foundation.org>
+	<4788A17D.5070903@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Robert Olsson <robert.olsson@its.uu.se>, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:59755 "EHLO ciao.gmane.org"
+Received: from mail.vyatta.com ([216.93.170.194]:48820 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756023AbYALVGp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2008 16:06:45 -0500
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1JDnYr-00084m-KC
-	for netdev@vger.kernel.org; Sat, 12 Jan 2008 21:06:37 +0000
-Received: from 069-064-229-129.pdx.net ([69.64.229.129])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 12 Jan 2008 21:06:37 +0000
-Received: from shemminger by 069-064-229-129.pdx.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 12 Jan 2008 21:06:37 +0000
-In-Reply-To: <12001308171262-git-send-email-ilpo.jarvinen@helsinki.fi>
+	id S1757630AbYALVK6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2008 16:10:58 -0500
+In-Reply-To: <4788A17D.5070903@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 12 Jan 2008 11:40:10 +0200
-"Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+On Sat, 12 Jan 2008 12:16:13 +0100
+Eric Dumazet <dada1@cosmosbay.com> wrote:
 
-> net/ipv4/tcp.c:
->   tcp_close_state | -226
->   tcp_done        | -145
->   tcp_close       | -564
->   tcp_disconnect  | -141
->  4 functions changed, 1076 bytes removed, diff: -1076
+> Stephen Hemminger a =C3=A9crit :
+> > Make FIB TRIE go through sparse checker without warnings.
+> >=20
+> > Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
 >=20
-> net/ipv4/tcp_input.c:
->   tcp_fin               |  -86
->   tcp_rcv_state_process | -164
->  2 functions changed, 250 bytes removed, diff: -250
+> Hi Stephen
 >=20
-> net/ipv4/tcp_ipv4.c:
->   tcp_v4_connect | -209
->  1 function changed, 209 bytes removed, diff: -209
+> While reviewing your patches (and fib code) I had some questions :
 >=20
-> net/ipv4/arp.c:
->   arp_ignore |   +5
->  1 function changed, 5 bytes added, diff: +5
+> 1) I was wondering isn't trie_collect_stats() a potential cpu hog
+> (big latency) ?
 >=20
-> net/ipv6/tcp_ipv6.c:
->   tcp_v6_connect | -158
->  1 function changed, 158 bytes removed, diff: -158
+> 2) struct tnode layout
+>     If tnode->bits is large enough, we allocate a big area
+>     of memory but roughly use only first half of it.
+>     We could use a better scheme with an extra indirection. For small
+>     nodes, we use space right after tnode, but for big nodes, we allo=
+cate
+>     a power of two set of pages, to exactly match the memory need.
 >=20
-> net/sunrpc/xprtsock.c:
->   xs_sendpages |   -2
->  1 function changed, 2 bytes removed, diff: -2
+> 3) 'pos' and 'bits' fields of 'struct tnode' might be converted to
+>     plain uchar, instead of 5-bits fields, to reduce complexity for
+>     generated code.
 >=20
-> net/dccp/ccids/ccid3.c:
->   ccid3_update_send_interval |   +7
->  1 function changed, 7 bytes added, diff: +7
->=20
-> net/ipv4/tcp.c:
->   tcp_set_state | +238
->  1 function changed, 238 bytes added, diff: +238
->=20
-> built-in.o:
->  12 functions changed, 250 bytes added, 1695 bytes removed, diff: -14=
-45
->=20
-> I've no explanation why some unrelated changes seem to occur
-> consistently as well (arp_ignore, ccid3_update_send_interval;
-> I checked the arp_ignore asm and it seems to be due to some
-> reordered of operation order causing some extra opcodes to be
-> generated). Still, the benefits are pretty obvious from the
-> codiff's results.
->=20
-> Signed-off-by: Ilpo J=C3=83=C2=A4rvinen <ilpo.jarvinen@helsinki.fi>
-> Cc: Andi Kleen <andi@firstfloor.org>
-> ---
->  include/net/tcp.h |   35 +----------------------------------
->  net/ipv4/tcp.c    |   35 +++++++++++++++++++++++++++++++++++
->  2 files changed, 36 insertions(+), 34 deletions(-)
->=20
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 48081ad..306580c 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -926,40 +926,7 @@ static const char *statename[]=3D{
->  	"Close Wait","Last ACK","Listen","Closing"
->  };
->  #endif
-> -
-> -static inline void tcp_set_state(struct sock *sk, int state)
-> -{
-> -	int oldstate =3D sk->sk_state;
-> -
-> -	switch (state) {
-> -	case TCP_ESTABLISHED:
-> -		if (oldstate !=3D TCP_ESTABLISHED)
-> -			TCP_INC_STATS(TCP_MIB_CURRESTAB);
-> -		break;
-> -
-> -	case TCP_CLOSE:
-> -		if (oldstate =3D=3D TCP_CLOSE_WAIT || oldstate =3D=3D TCP_ESTABLIS=
-HED)
-> -			TCP_INC_STATS(TCP_MIB_ESTABRESETS);
-> -
-> -		sk->sk_prot->unhash(sk);
-> -		if (inet_csk(sk)->icsk_bind_hash &&
-> -		    !(sk->sk_userlocks & SOCK_BINDPORT_LOCK))
-> -			inet_put_port(&tcp_hashinfo, sk);
-> -		/* fall through */
-> -	default:
-> -		if (oldstate=3D=3DTCP_ESTABLISHED)
-> -			TCP_DEC_STATS(TCP_MIB_CURRESTAB);
-> -	}
-> -
-> -	/* Change state AFTER socket is unhashed to avoid closed
-> -	 * socket sitting in hash tables.
-> -	 */
-> -	sk->sk_state =3D state;
-> -
-> -#ifdef STATE_TRACE
-> -	SOCK_DEBUG(sk, "TCP sk=3D%p, State %s -> %s\n",sk, statename[oldsta=
-te],statename[state]);
-> -#endif=09
-> -}
->
+> 4) full_children & empty_children being 'unsigned short',
+>     we probably are limited to 2^15 elements, but I could not
+>     find this limit enforced somewhere.
+
+Remember that the code should be optimized for lookup, not management
+operations. We ran into this during testing (the test suite was looking
+for number of routes), thats why I put in the size field.
+
+The existing dump code is really slow:
 
 
-Since the function is called with a constant state, I guess the assumpt=
-ion
-was that gcc would be smart enough to only include the code needed, it =
-looks like
-either code was bigger or the compiler was dumber than expected
+1) FIB_TRIE   Under KVM:
+     load 164393 routes		12.436 sec
+     ip route | wc -l		12.569 sec
+     grep /proc/net/route	25.357 sec
+
+99% of the cpu time is spent in nextleaf() during these dump operations=
+=2E
+
+
+2) FIB_HASH 	Under KVM:
+     load 164393 routes		10.833 sec
+     ip route | wc -l		1.981 sec
+     grep /proc/net/route	0.204 sec
+
 
 --=20
 Stephen Hemminger <stephen.hemminger@vyatta.com>
-
