@@ -1,22 +1,24 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/4] sky2: large memory workaround.
-Date: Sat, 12 Jan 2008 17:49:18 -0500
-Message-ID: <478943EE.7030609@pobox.com>
-References: <20080111001411.158113585@linux-foundation.org> <20080111001550.762938769@linux-foundation.org>
+Subject: Re: [PATCH 1/5] spidernet: add missing initialization
+Date: Sat, 12 Jan 2008 17:52:02 -0500
+Message-ID: <47894492.90306@pobox.com>
+References: <20080111.153859.-1300526764.kouish@swc.toshiba.co.jp> <200801111344.35652.jens@de.ibm.com> <3ae3aa420801110848teef1927kc8d33032f86417a7@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Jens Osterkamp <jens@de.ibm.com>,
+	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
+	netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
+To: linasvepstas@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40352 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:40366 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759030AbYALWtT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jan 2008 17:49:19 -0500
-In-Reply-To: <20080111001550.762938769@linux-foundation.org>
+	id S1750740AbYALWwW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Jan 2008 17:52:22 -0500
+In-Reply-To: <3ae3aa420801110848teef1927kc8d33032f86417a7@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-applied 1-2 to #upstream-fixes
+applied
 
 
