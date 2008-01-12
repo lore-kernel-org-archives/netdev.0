@@ -1,50 +1,29 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 6/8] [NETFILTER] xt_policy.c: kill some bloat
-Date: Sat, 12 Jan 2008 20:03:31 +0100
-Message-ID: <47890F03.5080503@trash.net>
-References: <12001304703362-git-send-email-ilpo.jarvinen@helsinki.fi>	<12001304703302-git-send-email-ilpo.jarvinen@helsinki.fi>	<12001304703789-git-send-email-ilpo.jarvinen@helsinki.fi> <20080112.032318.201654370.davem@davemloft.net>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [Bugme-new] [Bug 9721] New: wake on lan fails with sky2 module
+Date: Sat, 12 Jan 2008 20:13:33 +0100
+Message-ID: <200801122013.34091.rjw@sisk.pl>
+References: <bug-9721-10286@http.bugzilla.kernel.org/> <200801120010.22440.rjw@sisk.pl> <4788B191.1060001@yahoo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080112.032318.201654370.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-acpi@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: supersud501 <supersud501@yahoo.de>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <4788B191.1060001@yahoo.de>
+Content-Disposition: inline
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Sat, 12 Jan 2008 11:34:27 +0200
->=20
-> Ilpo, please post netfilter patches to netfilter-devel,
-> CC:'ing Patrick McHardy.
->=20
-> Patrick, please review, thanks.
+> http://bugzilla.kernel.org/show_bug.cgi?id=9721
 
-This looks fine to me, thanks Ilpo.
+On Saturday, 12 of January 2008, supersud501 wrote:
 
->> net/netfilter/xt_policy.c:
->>   policy_mt | -906
->>  1 function changed, 906 bytes removed, diff: -906
->>
->> net/netfilter/xt_policy.c:
->>   match_xfrm_state | +427
->>  1 function changed, 427 bytes added, diff: +427
->>
->> net/netfilter/xt_policy.o:
->>  2 functions changed, 427 bytes added, 906 bytes removed, diff: -479
->>
->> Alternatively, this could be done by combining identical
->> parts of the match_policy_in/out()
+> I'll do the git-bisect (just downloading linux-2.6.git), but i forgot to 
+> mention one little thing: i'm using x64 version of kernel - does this 
+> play an important role?
 
-That would probably end up rather ugly because they walk
-over different structures and have some minor differences.
-
--
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+No, it doesn't.
