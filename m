@@ -1,73 +1,56 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: [PATCH 9/9] fix sparse warnings
-Date: Sat, 12 Jan 2008 13:09:46 -0800
-Message-ID: <20080112130946.4d83eca7@deepthought>
-References: <20080112064513.803976049@linux-foundation.org>
-	<20080112064646.659443238@linux-foundation.org>
-	<4788A17D.5070903@cosmosbay.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH 8/8] [PKTGEN]: uninline getCurUs
+Date: Sun, 13 Jan 2008 08:19:48 +1100
+Message-ID: <20080112211947.GA7817@gondor.apana.org.au>
+References: <12001308171262-git-send-email-ilpo.jarvinen@helsinki.fi> <12001308173014-git-send-email-ilpo.jarvinen@helsinki.fi> <1200130817664-git-send-email-ilpo.jarvinen@helsinki.fi> <12001308171814-git-send-email-ilpo.jarvinen@helsinki.fi> <1200130817405-git-send-email-ilpo.jarvinen@helsinki.fi> <12001308172525-git-send-email-ilpo.jarvinen@helsinki.fi> <1200130817467-git-send-email-ilpo.jarvinen@helsinki.fi> <12001308174189-git-send-email-ilpo.jarvinen@helsinki.fi> <20080112121740.GA4555@gondor.apana.org.au> <Pine.LNX.4.64.0801121420220.19333@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Robert Olsson <robert.olsson@its.uu.se>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:48853 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758045AbYALVMV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2008 16:12:21 -0500
-In-Reply-To: <4788A17D.5070903@cosmosbay.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:1195 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753712AbYALVUE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2008 16:20:04 -0500
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0801121420220.19333@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 12 Jan 2008 12:16:13 +0100
-Eric Dumazet <dada1@cosmosbay.com> wrote:
+On Sat, Jan 12, 2008 at 02:59:50PM +0200, Ilpo J=C3=A4rvinen wrote:
+>
+> Here's one example...
+>=20
+> From: "=3D?utf-8?q?Ilpo_J=3DC3=3DA4rvinen?=3D" <ilpo.jarvinen@helsink=
+i.fi>
+> ...
+> Content-Type: text/plain; charset=3Dutf-8
+> Content-Transfer-Encoding: 8bit
+>=20
+> Something still needed besides these to declare email utf-8?
 
-> Stephen Hemminger a =C3=A9crit :
-> > Make FIB TRIE go through sparse checker without warnings.
-> >=20
-> > Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
->=20
-> Hi Stephen
->=20
-> While reviewing your patches (and fib code) I had some questions :
->=20
-> 1) I was wondering isn't trie_collect_stats() a potential cpu hog
-> (big latency) ?
->=20
-> 2) struct tnode layout
->     If tnode->bits is large enough, we allocate a big area
->     of memory but roughly use only first half of it.
->     We could use a better scheme with an extra indirection. For small
->     nodes, we use space right after tnode, but for big nodes, we allo=
-cate
->     a power of two set of pages, to exactly match the memory need.
->=20
-> 3) 'pos' and 'bits' fields of 'struct tnode' might be converted to
->     plain uchar, instead of 5-bits fields, to reduce complexity for
->     generated code.
->=20
-> 4) full_children & empty_children being 'unsigned short',
->     we probably are limited to 2^15 elements, but I could not
->     find this limit enforced somewhere.
->=20
-> [FIB]: Reduce text size of net/ipv4/fib_trie.o
->=20
-> In struct tnode, we use two fields of 5 bits for 'pos' and 'bits'.
-> Switching to plain 'unsigned char' (8 bits) take the same space
-> because of compiler alignments, and reduce text size by 435 bytes
-> on i386.
->=20
-> On i386 :
-> $ size net/ipv4/fib_trie.o.before_patch net/ipv4/fib_trie.o
->     text    data     bss     dec     hex filename
->    13714       4      64   13782    35d6 net/ipv4/fib_trie.o.before
->    13279       4      64   13347    3423 net/ipv4/fib_trie.o
->=20
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
->=20
+If that's what it said then it'd be perfect.  However, quoting from thi=
+s
+very email that I'm replying to:
 
-I agree they should not have been bitfields in the first place.
+Content-Type: text/plain; charset=3Diso-8859-1
 
+> > So you probably want to fix that up or your name may show up as J=C3=
+=83=C2=A4vinen
+> > on the reader's screen.
+>=20
+> Did you actually see this? I'd expect to see that as well but no, Fro=
+m is
+> correctly decoded by my ISO-8859-1'ish MUA, aha, seems that I still h=
+ave
+> something to do to deal with the Signed-off line.
+
+Yeah I did see that.  Otherwise I wouldn't have noticed :)
+
+Cheers,
 --=20
-Stephen Hemminger <stephen.hemminger@vyatta.com>
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
