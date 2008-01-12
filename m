@@ -1,59 +1,41 @@
-From: "Denys Fedoryshchenko" <denys@visp.net.lb>
-Subject: Re: e1000 performance issue in 4 simultaneous links
-Date: Sat, 12 Jan 2008 07:13:06 +0200
-Message-ID: <20080112050841.M73900@visp.net.lb>
-References: <36D9DB17C6DE9E40B059440DB8D95F5204275B04@orsmsx418.amr.corp.intel.com> <20080110.172830.16409182.davem@davemloft.net> <m3ir20ipoz.fsf@ursa.amorsen.dk> <20080111.174109.57502326.davem@davemloft.net>
+From: "Ray Lee" <ray-lk@madrabbit.org>
+Subject: Re: questions on NAPI processing latency and dropped network packets
+Date: Fri, 11 Jan 2008 21:37:18 -0800
+Message-ID: <2c0942db0801112137k3f3f885ek212d5cbaecb7fea0@mail.gmail.com>
+References: <478654C3.60806@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, benny+usenet@amorsen.dk
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Chris Friesen" <cfriesen@nortel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:59375 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750783AbYALFNP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2008 00:13:15 -0500
-In-Reply-To: <20080111.174109.57502326.davem@davemloft.net>
+Received: from fg-out-1718.google.com ([72.14.220.155]:20477 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751478AbYALFhU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2008 00:37:20 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so1401069fga.17
+        for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 21:37:19 -0800 (PST)
+In-Reply-To: <478654C3.60806@nortel.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry. that i interfere in this subject.
+On Jan 10, 2008 9:24 AM, Chris Friesen <cfriesen@nortel.com> wrote:
+> After a recent userspace app change, we've started seeing packets being
+> dropped by the ethernet hardware (e1000, NAPI is enabled).  The
+> error/dropped/fifo counts are going up in ethtool:
 
-Do you recommend CONFIG_IRQBALANCE to be enabled?
+(These are perhaps too obvious, but I didn't see the questions or
+answers in the thread.)
 
-If it is enabled - irq's not jumping nonstop over processors. softirqd 
-changing this behavior.
-If it is disabled, irq's distributed over each processor, and in loaded 
-systems it seems harmful. 
-I work a little yesterday with server with CONFIG_IRQBALANCE=no, 160kpps load.
-It was packetloss-ing, till i set smp_affinity.
+Can you reproduce it with a simple userspace cpu hog? (Two, really,
+one per cpu.)
 
-Maybe it is useful to put more info in Kconfig, since it is very important 
-for performance option.
+Can you reproduce it with the newer e1000?
 
-On Fri, 11 Jan 2008 17:41:09 -0800 (PST), David Miller wrote
-> From: Benny Amorsen <benny usenet@amorsen.dk>
-> Date: Fri, 11 Jan 2008 12:09:32  0100
-> 
-> > David Miller <davem@davemloft.net> writes:
-> > 
-> > > No IRQ balancing should be done at all for networking device
-> > > interrupts, with zero exceptions.  It destroys performance.
-> > 
-> > Does irqbalanced need to be taught about this?
-> 
-> The userland one already does.
-> 
-> It's only the in-kernel IRQ load balancing for these (presumably
-> powerpc) platforms that is broken.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Can you reproduce it with git head?
 
-
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
-
+If the answer to the first one is yes, the last no, then bisect until
+you get a kernel that doesn't show the problem. Backport the fix,
+unless the fix happens to be CFS. However, I suspect that your
+userpace app is just starving the system from time to time.
