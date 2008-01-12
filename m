@@ -1,59 +1,85 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 1/8] [TCP]: Uninline tcp_set_state
-Date: Sat, 12 Jan 2008 19:27:48 -0200
-Message-ID: <20080112212748.GB17675@ghostprotocols.net>
-References: <12001308173969-git-send-email-ilpo.jarvinen@helsinki.fi> <12001308171262-git-send-email-ilpo.jarvinen@helsinki.fi> <20080112130355.74c39ae7@deepthought>
+From: Bernard Pidoux <pidoux@ccr.jussieu.fr>
+Subject: Re: [PATCH 2/4] [ROSE] rose_get_route() template
+Date: Sat, 12 Jan 2008 22:29:11 +0100
+Message-ID: <47893127.2080606@ccr.jussieu.fr>
+References: <47630274.1080706@ccr.jussieu.fr> <47892051.8000404@ccr.jussieu.fr> <478923FD.9040704@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Ralf Baechle DL5RB <ralf@linux-mips.org>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:39294 "EHLO mx1.redhat.com"
+Received: from smtp5-g19.free.fr ([212.27.42.35]:54556 "EHLO smtp5-g19.free.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762860AbYALV1z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jan 2008 16:27:55 -0500
-Content-Disposition: inline
-In-Reply-To: <20080112130355.74c39ae7@deepthought>
+	id S1753550AbYALV3O convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2008 16:29:14 -0500
+In-Reply-To: <478923FD.9040704@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Sat, Jan 12, 2008 at 01:03:55PM -0800, Stephen Hemminger escreveu:
-> On Sat, 12 Jan 2008 11:40:10 +0200
-> "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
-> > -
-> > -#ifdef STATE_TRACE
-> > -	SOCK_DEBUG(sk, "TCP sk=3D%p, State %s -> %s\n",sk, statename[olds=
-tate],statename[state]);
-> > -#endif=09
-> > -}
-> >
+
+
+Eric Dumazet wrote:
+> Bernard Pidoux a =E9crit :
+>>  From 46bccce1e660a39bcc8f8cf87d4c17de33f4ba48 Mon Sep 17 00:00:00 2=
+001
+>> From: Bernard Pidoux <f6bvp@amsat.org>
+>> Date: Thu, 10 Jan 2008 23:01:46 +0100
+>> Subject: [PATCH 2/4] [ROSE] template declaration for rose_get_route(=
+)
+>>
+>> Signed-off-by: Bernard Pidoux <f6bvp@amsat.org>
+>> ---
+>>  include/net/rose.h |    1 +
+>>  1 files changed, 1 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/include/net/rose.h b/include/net/rose.h
+>> index e5bb084..d3ab453 100644
+>> --- a/include/net/rose.h
+>> +++ b/include/net/rose.h
+>> @@ -202,6 +202,7 @@ extern struct net_device *rose_dev_first(void);
+>>  extern struct net_device *rose_dev_get(rose_address *);
+>>  extern struct rose_route *rose_route_free_lci(unsigned int, struct=20
+>> rose_neigh *);
+>>  extern struct rose_neigh *rose_get_neigh(rose_address *, unsigned=20
+>> char *, unsigned char *);
+>> +extern struct rose_neigh *rose_get_route(rose_address *, unsigned=20
+>> char *, unsigned char *);
+>>  extern int  rose_rt_ioctl(unsigned int, void __user *);
+>>  extern void rose_link_failed(ax25_cb *, int);
+>>  extern int  rose_route_frame(struct sk_buff *, ax25_cb *);
+>> --=20
+>=20
+> Strange... if rose_get_route() is used only in net/rose/rose_route.c,=
+=20
+> why dont you define it static, and not extern in include/net/rose.h ?
 >=20
 >=20
-> Since the function is called with a constant state, I guess the assum=
-ption
-> was that gcc would be smart enough to only include the code needed, i=
-t looks like
-> either code was bigger or the compiler was dumber than expected
+>=20
 
-Yup, that is one more instance where having proper tools to check if ou=
-r
-assumptions are right proves fruitful. I'm very happy for Ilpo to be
-doing this work and making the case for us to work even harder on havin=
-g
-such tools to check if our assumptions are right.
+I agree. You are perfectly right.
+There is no need to declare rose_get_route() external.
+I stupidly copied rose_get_neigh()definition from which I derived=20
+rose_get_route();
 
-- Arnaldo
+Also I am not sure that setting cause and diagnostic is necessary, as=20
+they are not used by the calling function.
 
-P.S. subscribe to dwarves@vger.kernel.org and help us produce even more
-such compiler watchdogs, right now changes to the dwarves are being mad=
-e
-such that we can check if the layout we think is optimal really holds t=
-o
-that promise :-)
+By the way. I made a typo in [PATCH 4/4].
 
-Soon I'll be looking at Ulrich's promising new disasm stuff :-)
+Instead of "Initial connection to rose neighbour nodes was unusually,
+t0 timer was blocked and application program could not
+use socket."
 
-Archives: http://news.gmane.org/gmane.comp.debugging.dwarves
+One should read
+"Initial connection to rose neighbour nodes was unusually,
+long, t0 timer was blocked and application program could not
+use socket."
 
-- Arnaldo
+Bernard P.
+
+
