@@ -1,63 +1,52 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: [PATCH 0/3] bonding: 3 fixes for 2.6.24
-Date: Sat, 12 Jan 2008 11:53:02 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0801121150001.16465@bizon.gios.gov.pl>
-References: <11997574203125-git-send-email-fubar@us.ibm.com>
- <Pine.LNX.4.64.0801081949290.1135@bizon.gios.gov.pl> <29560.1199820632@death>
- <Pine.LNX.4.64.0801090732490.1135@bizon.gios.gov.pl> <17850.1199865514@death>
- <20080109152740.GE8728@gospo.usersys.redhat.com> <32361.1199901296@death>
- <20080109201709.GF8728@gospo.usersys.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.25 0/8] [NET]: More uninlining & related
+Date: Sat, 12 Jan 2008 03:16:18 -0800 (PST)
+Message-ID: <20080112.031618.151656166.davem@davemloft.net>
+References: <12001304691600-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-821302940-1200135182=:16465"
-Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>,
-	David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Andy Gospodarek <andy@greyhouse.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:41849 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755439AbYALKx7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2008 05:53:59 -0500
-In-Reply-To: <20080109201709.GF8728@gospo.usersys.redhat.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46648
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1761522AbYALLQT convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Jan 2008 06:16:19 -0500
+In-Reply-To: <12001304691600-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Sat, 12 Jan 2008 11:34:21 +0200
 
----187430788-821302940-1200135182=:16465
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+> First of all, I changed output encoding of git to utf-8, so I
+> guess the encoding should not cause the same trouble for you.
 
+I worked on a rebase of net-2.6.25 today and was able to
+use emacs to fixup the encoding for all existing net-2.6.25
+commits.
 
+I've also put some things in place to avoid this problem in
+the future.
 
-On Wed, 9 Jan 2008, Andy Gospodarek wrote:
-> On Wed, Jan 09, 2008 at 09:54:56AM -0800, Jay Vosburgh wrote:
-<CUT>
->> =09This should silence the lockdep (if I'm understanding what
->> everybody's saying), and keep the change set to a minimum.  This might
->
-> The lockdep problem is easy to trigger.  The lockdep code does a good
-> job of noticing problems quickly regardless of how easy the deadlocks
-> are to create.
+Thanks.
 
-Exactly. All I need to do is to reboot my server, I have 100% probability=
-=20
-to get the warning.
+> Here are couple of more to uninline things. Pretty
+> straightforward except the EXPORT_SYMBOLs, I've no idea which
+> is the right variant (feel free to fix them while applying :-)).
+> Also pktgen uninlining is somewhat questionable because it's
+> just a testing tool so feel free to drop it if it feels
+> unnecessary (I could have asked first but it's just as easy to
+> do it this way if not easier)...
+>=20
+> There were more dead static inlines found after inlines removed
+> (gcc didn't report them otherwise) than in pktgen now included,
+> but I'm not sure if I should send "by default" patches removing
+> or #if 0'ing them?
 
->> not even be worth pushing for 2.6.24; I'm not exactly sure how difficult
->> the lockdep problem would be to trigger.
->>
->
-> I'd like to see it go in there (for correct-ness) and to avoid hearing
-> about these lockdep issues for the next few months until it makes it
-> into 2.4.25.
+Unless there is some pressing reason to keep the code around
+it should be removed.
 
-Right. So, what is the final patch? I would like to test it if that's=20
-possible. ;)
-
-Best regards,
-
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-821302940-1200135182=:16465--
+Anyways, I'll take a look.
