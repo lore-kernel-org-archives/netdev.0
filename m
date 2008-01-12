@@ -1,54 +1,59 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 001/001] ipv4: enable use of 240/4 address space
-Date: Sat, 12 Jan 2008 14:12:24 +0900 (JST)
-Message-ID: <20080112.141224.06844600.yoshfuji@linux-ipv6.org>
-References: <p73bq7smx1t.fsf@bingen.suse.de>
-	<20080111.214120.129309556.yoshfuji@linux-ipv6.org>
-	<20080111.174857.258424243.davem@davemloft.net>
+From: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Subject: Re: e1000 performance issue in 4 simultaneous links
+Date: Sat, 12 Jan 2008 07:13:06 +0200
+Message-ID: <20080112050841.M73900@visp.net.lb>
+References: <36D9DB17C6DE9E40B059440DB8D95F5204275B04@orsmsx418.amr.corp.intel.com> <20080110.172830.16409182.davem@davemloft.net> <m3ir20ipoz.fsf@ursa.amorsen.dk> <20080111.174109.57502326.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, vaf@cisco.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758500AbYALFMf@vger.kernel.org>
-In-Reply-To: <20080111.174857.258424243.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, benny+usenet@amorsen.dk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from usermail.globalproof.net ([194.146.153.18]:59375 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750783AbYALFNP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2008 00:13:15 -0500
+In-Reply-To: <20080111.174109.57502326.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In article <20080111.174857.258424243.davem@davemloft.net> (at Fri, 11 Jan 2008 17:48:57 -0800 (PST)), David Miller <davem@davemloft.net> says:
+Sorry. that i interfere in this subject.
 
-> From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-> Date: Fri, 11 Jan 2008 21:41:20 +0900 (JST)
+Do you recommend CONFIG_IRQBALANCE to be enabled?
+
+If it is enabled - irq's not jumping nonstop over processors. softirqd 
+changing this behavior.
+If it is disabled, irq's distributed over each processor, and in loaded 
+systems it seems harmful. 
+I work a little yesterday with server with CONFIG_IRQBALANCE=no, 160kpps load.
+It was packetloss-ing, till i set smp_affinity.
+
+Maybe it is useful to put more info in Kconfig, since it is very important 
+for performance option.
+
+On Fri, 11 Jan 2008 17:41:09 -0800 (PST), David Miller wrote
+> From: Benny Amorsen <benny usenet@amorsen.dk>
+> Date: Fri, 11 Jan 2008 12:09:32  0100
 > 
-> > There is no positive consesus on this draft
-> > at the intarea meeting in Vancouver, right?
+> > David Miller <davem@davemloft.net> writes:
 > > 
-> > We cannot / should not enable that space until we have reached
-> > a consensus on it.
+> > > No IRQ balancing should be done at all for networking device
+> > > interrupts, with zero exceptions.  It destroys performance.
+> > 
+> > Does irqbalanced need to be taught about this?
 > 
-> This is so incredibly incorrect.
+> The userland one already does.
 > 
-> There is consensus on making network stacks able to use this
-> address space.  And that is all that the patch does.
+> It's only the in-kernel IRQ load balancing for these (presumably
+> powerpc) platforms that is broken.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-No, we did never make consensus on it.
 
-> The consensus is only missing on whether to make the address
-> space public or private.
-> 
-> This is also clearly spelled out in the draft.
-> 
-> It is important to get as large of a head start on this as
-> possible because of how long it takes to deploy something
-> like this.
-
-Okay, though I am afraid this space will not be used widely,
-we should be ready for it.
-
-I'll make some more comments on the patch itself from
-another point view.
-
---yoshfuji
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
 
