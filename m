@@ -1,52 +1,92 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.25 0/8] [NET]: More uninlining & related
-Date: Sat, 12 Jan 2008 03:16:18 -0800 (PST)
-Message-ID: <20080112.031618.151656166.davem@davemloft.net>
-References: <12001304691600-git-send-email-ilpo.jarvinen@helsinki.fi>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 9/9] fix sparse warnings
+Date: Sat, 12 Jan 2008 12:16:13 +0100
+Message-ID: <4788A17D.5070903@cosmosbay.com>
+References: <20080112064513.803976049@linux-foundation.org> <20080112064646.659443238@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: multipart/mixed;
+ boundary="------------030901070801080408040103"
+Cc: David Miller <davem@davemloft.net>,
+	Robert Olsson <robert.olsson@its.uu.se>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen.hemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46648
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1761522AbYALLQT convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jan 2008 06:16:19 -0500
-In-Reply-To: <12001304691600-git-send-email-ilpo.jarvinen@helsinki.fi>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:57031 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758164AbYALLQY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2008 06:16:24 -0500
+In-Reply-To: <20080112064646.659443238@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Sat, 12 Jan 2008 11:34:21 +0200
+This is a multi-part message in MIME format.
+--------------030901070801080408040103
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8bit
 
-> First of all, I changed output encoding of git to utf-8, so I
-> guess the encoding should not cause the same trouble for you.
+Stephen Hemminger a écrit :
+> Make FIB TRIE go through sparse checker without warnings.
+> 
+> Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
 
-I worked on a rebase of net-2.6.25 today and was able to
-use emacs to fixup the encoding for all existing net-2.6.25
-commits.
+Hi Stephen
 
-I've also put some things in place to avoid this problem in
-the future.
+While reviewing your patches (and fib code) I had some questions :
 
-Thanks.
+1) I was wondering isn't trie_collect_stats() a potential cpu hog
+(big latency) ?
 
-> Here are couple of more to uninline things. Pretty
-> straightforward except the EXPORT_SYMBOLs, I've no idea which
-> is the right variant (feel free to fix them while applying :-)).
-> Also pktgen uninlining is somewhat questionable because it's
-> just a testing tool so feel free to drop it if it feels
-> unnecessary (I could have asked first but it's just as easy to
-> do it this way if not easier)...
->=20
-> There were more dead static inlines found after inlines removed
-> (gcc didn't report them otherwise) than in pktgen now included,
-> but I'm not sure if I should send "by default" patches removing
-> or #if 0'ing them?
+2) struct tnode layout
+    If tnode->bits is large enough, we allocate a big area
+    of memory but roughly use only first half of it.
+    We could use a better scheme with an extra indirection. For small
+    nodes, we use space right after tnode, but for big nodes, we allocate
+    a power of two set of pages, to exactly match the memory need.
 
-Unless there is some pressing reason to keep the code around
-it should be removed.
+3) 'pos' and 'bits' fields of 'struct tnode' might be converted to
+    plain uchar, instead of 5-bits fields, to reduce complexity for
+    generated code.
 
-Anyways, I'll take a look.
+4) full_children & empty_children being 'unsigned short',
+    we probably are limited to 2^15 elements, but I could not
+    find this limit enforced somewhere.
+
+[FIB]: Reduce text size of net/ipv4/fib_trie.o
+
+In struct tnode, we use two fields of 5 bits for 'pos' and 'bits'.
+Switching to plain 'unsigned char' (8 bits) take the same space
+because of compiler alignments, and reduce text size by 435 bytes
+on i386.
+
+On i386 :
+$ size net/ipv4/fib_trie.o.before_patch net/ipv4/fib_trie.o
+    text    data     bss     dec     hex filename
+   13714       4      64   13782    35d6 net/ipv4/fib_trie.o.before
+   13279       4      64   13347    3423 net/ipv4/fib_trie.o
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+
+--------------030901070801080408040103
+Content-Type: text/plain;
+ name="fib_trie.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="fib_trie.patch"
+
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 2832610..4e91532 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -119,8 +119,8 @@ struct leaf_info {
+ struct tnode {
+ 	t_key key;
+ 	unsigned long parent;
+-	unsigned short pos:5;		/* 2log(KEYLENGTH) bits needed */
+-	unsigned short bits:5;		/* 2log(KEYLENGTH) bits needed */
++	unsigned char pos;		/* 2log(KEYLENGTH) bits needed */
++	unsigned char bits;		/* 2log(KEYLENGTH) bits needed */
+ 	unsigned short full_children;	/* KEYLENGTH bits needed */
+ 	unsigned short empty_children;	/* KEYLENGTH bits needed */
+ 	struct rcu_head rcu;
+
+--------------030901070801080408040103--
