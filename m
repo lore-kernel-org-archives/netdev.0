@@ -1,63 +1,43 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] ip1000: menu location change
-Date: Sat, 12 Jan 2008 17:41:41 -0500
-Message-ID: <47894225.6070606@pobox.com>
-References: <20080101092758.59bd5665@deepthought>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/1] r8169: fix missing loop variable increment
+Date: Sat, 12 Jan 2008 17:41:48 -0500
+Message-ID: <4789422C.20200@garzik.org>
+References: <20080103223838.GA19191@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Citizen Lee @fr.zoreil.com" <citizen_lee@thecus.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51099 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:51097 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758952AbYALWlv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jan 2008 17:41:51 -0500
-In-Reply-To: <20080101092758.59bd5665@deepthought>
+	id S1758413AbYALWlu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Jan 2008 17:41:50 -0500
+In-Reply-To: <20080103223838.GA19191@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> Move the ip1000 driver into the expected place for gigabit cards
-> in the configuration menu structure. It should be under the gigabit
-> cards, not at the top level.
+Francois Romieu wrote:
+> Spotted-by: Citizen Lee <citizen_lee@thecus.com>
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> ---
+>  drivers/net/r8169.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
-> 
-> --- a/drivers/net/Kconfig	2007-12-26 20:17:31.000000000 -0800
-> +++ b/drivers/net/Kconfig	2007-12-26 20:18:36.000000000 -0800
-> @@ -166,16 +166,6 @@ config NET_SB1000
+> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+> index 5863190..6ee9db1 100644
+> --- a/drivers/net/r8169.c
+> +++ b/drivers/net/r8169.c
+> @@ -2002,7 +2002,7 @@ static void rtl8169_set_magic_reg(void __iomem *ioaddr, unsigned mac_version)
+>  	u32 clk;
 >  
->  	  If you don't have this card, of course say N.
->  
-> -config IP1000
-> -	tristate "IP1000 Gigabit Ethernet support"
-> -	depends on PCI && EXPERIMENTAL
-> -	select MII
-> -	---help---
-> -	  This driver supports IP1000 gigabit Ethernet cards.
-> -
-> -	  To compile this driver as a module, choose M here: the module
-> -	  will be called ipg.  This is recommended.
-> -
->  source "drivers/net/arcnet/Kconfig"
->  
->  source "drivers/net/phy/Kconfig"
-> @@ -2004,6 +1994,16 @@ config E1000E
->  	  To compile this driver as a module, choose M here. The module
->  	  will be called e1000e.
->  
-> +config IP1000
-> +	tristate "IP1000 Gigabit Ethernet support"
-> +	depends on PCI && EXPERIMENTAL
-> +	select MII
-> +	---help---
-> +	  This driver supports IP1000 gigabit Ethernet cards.
-> +
-> +	  To compile this driver as a module, choose M here: the module
-> +	  will be called ipg.  This is recommended.
-> +
->  source "drivers/net/ixp2000/Kconfig"
+>  	clk = RTL_R8(Config2) & PCI_Clock_66MHz;
+> -	for (i = 0; i < ARRAY_SIZE(cfg2_info); i++) {
+> +	for (i = 0; i < ARRAY_SIZE(cfg2_info); i++, p++) {
+>  		if ((p->mac_version == mac_version) && (p->clk == clk)) {
+>  			RTL_W32(0x7c, p->val);
 
 applied
 
