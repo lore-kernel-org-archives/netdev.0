@@ -1,66 +1,50 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: [PATCH] fib_semantics: prevent long hash chains in access server config
-Date: Sat, 12 Jan 2008 13:58:19 -0500
-Message-ID: <20080112185819.GA12775@kvack.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 6/8] [NETFILTER] xt_policy.c: kill some bloat
+Date: Sat, 12 Jan 2008 20:03:31 +0100
+Message-ID: <47890F03.5080503@trash.net>
+References: <12001304703362-git-send-email-ilpo.jarvinen@helsinki.fi>	<12001304703302-git-send-email-ilpo.jarvinen@helsinki.fi>	<12001304703789-git-send-email-ilpo.jarvinen@helsinki.fi> <20080112.032318.201654370.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:44415 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756740AbYALS6n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jan 2008 13:58:43 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20080112.032318.201654370.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a patch from a while ago that I'm resending.  Basically, in access 
-server configurations, a lot of routes have the same local ip address but on 
-different devices.  This fixes the long chains that result from not including 
-the device index in the hash.
+David Miller wrote:
+> From: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Sat, 12 Jan 2008 11:34:27 +0200
+>=20
+> Ilpo, please post netfilter patches to netfilter-devel,
+> CC:'ing Patrick McHardy.
+>=20
+> Patrick, please review, thanks.
 
-		-ben
+This looks fine to me, thanks Ilpo.
 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 1351a26..5375824 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -196,11 +196,21 @@ static __inline__ int nh_comp(const struct fib_info *fi, const struct fib_info *
- 	return 0;
- }
- 
-+static inline unsigned int fib_devindex_hashfn(unsigned int val)
-+{
-+	unsigned int mask = DEVINDEX_HASHSIZE - 1;
-+
-+	return (val ^
-+		(val >> DEVINDEX_HASHBITS) ^
-+		(val >> (DEVINDEX_HASHBITS * 2))) & mask;
-+}
-+
- static inline unsigned int fib_info_hashfn(const struct fib_info *fi)
- {
- 	unsigned int mask = (fib_hash_size - 1);
- 	unsigned int val = fi->fib_nhs;
- 
-+	val ^= fib_devindex_hashfn(fi->fib_dev->ifindex);
- 	val ^= fi->fib_protocol;
- 	val ^= (__force u32)fi->fib_prefsrc;
- 	val ^= fi->fib_priority;
-@@ -234,15 +244,6 @@ static struct fib_info *fib_find_info(const struct fib_info *nfi)
- 	return NULL;
- }
- 
--static inline unsigned int fib_devindex_hashfn(unsigned int val)
--{
--	unsigned int mask = DEVINDEX_HASHSIZE - 1;
+>> net/netfilter/xt_policy.c:
+>>   policy_mt | -906
+>>  1 function changed, 906 bytes removed, diff: -906
+>>
+>> net/netfilter/xt_policy.c:
+>>   match_xfrm_state | +427
+>>  1 function changed, 427 bytes added, diff: +427
+>>
+>> net/netfilter/xt_policy.o:
+>>  2 functions changed, 427 bytes added, 906 bytes removed, diff: -479
+>>
+>> Alternatively, this could be done by combining identical
+>> parts of the match_policy_in/out()
+
+That would probably end up rather ugly because they walk
+over different structures and have some minor differences.
+
 -
--	return (val ^
--		(val >> DEVINDEX_HASHBITS) ^
--		(val >> (DEVINDEX_HASHBITS * 2))) & mask;
--}
--
- /* Check, that the gateway is already configured.
-    Used only by redirect accept routine.
-  */
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
