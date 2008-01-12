@@ -1,35 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: e1000 performance issue in 4 simultaneous links
-Date: Fri, 11 Jan 2008 17:41:09 -0800 (PST)
-Message-ID: <20080111.174109.57502326.davem@davemloft.net>
-References: <36D9DB17C6DE9E40B059440DB8D95F5204275B04@orsmsx418.amr.corp.intel.com>
-	<20080110.172830.16409182.davem@davemloft.net>
-	<m3ir20ipoz.fsf@ursa.amorsen.dk>
+Subject: Re: [PATCH 001/001] ipv4: enable use of 240/4 address space
+Date: Fri, 11 Jan 2008 17:48:57 -0800 (PST)
+Message-ID: <20080111.174857.258424243.davem@davemloft.net>
+References: <20080108011057.GA21168@cisco.com>
+	<p73bq7smx1t.fsf@bingen.suse.de>
+	<20080111.214120.129309556.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: benny+usenet@amorsen.dk
+Cc: andi@firstfloor.org, vaf@cisco.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35635
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35795
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757175AbYALBlJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 20:41:09 -0500
-In-Reply-To: <m3ir20ipoz.fsf@ursa.amorsen.dk>
+	by vger.kernel.org with ESMTP id S1751191AbYALBs6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 20:48:58 -0500
+In-Reply-To: <20080111.214120.129309556.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benny Amorsen <benny+usenet@amorsen.dk>
-Date: Fri, 11 Jan 2008 12:09:32 +0100
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Fri, 11 Jan 2008 21:41:20 +0900 (JST)
 
-> David Miller <davem@davemloft.net> writes:
+> There is no positive consesus on this draft
+> at the intarea meeting in Vancouver, right?
 > 
-> > No IRQ balancing should be done at all for networking device
-> > interrupts, with zero exceptions.  It destroys performance.
-> 
-> Does irqbalanced need to be taught about this?
+> We cannot / should not enable that space until we have reached
+> a consensus on it.
 
-The userland one already does.
+This is so incredibly incorrect.
 
-It's only the in-kernel IRQ load balancing for these (presumably
-powerpc) platforms that is broken.
+There is consensus on making network stacks able to use this
+address space.  And that is all that the patch does.
+
+The consensus is only missing on whether to make the address
+space public or private.
+
+This is also clearly spelled out in the draft.
+
+It is important to get as large of a head start on this as
+possible because of how long it takes to deploy something
+like this.
