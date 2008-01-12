@@ -1,67 +1,54 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2.6.23+] ingress classify to [nf]mark
-Date: Fri, 11 Jan 2008 22:03:47 -0500
-Message-ID: <1200107027.4477.36.camel@localhost>
-References: <47866C69.3080904@bspu.unibel.by>
-	 <1200001167.4443.38.camel@localhost>  <4787A663.4030204@bspu.unibel.by>
-	 <1200063541.4483.42.camel@localhost>  <4787D49E.6080906@bspu.unibel.by>
-Reply-To: hadi@cyberus.ca
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 001/001] ipv4: enable use of 240/4 address space
+Date: Sat, 12 Jan 2008 14:12:24 +0900 (JST)
+Message-ID: <20080112.141224.06844600.yoshfuji@linux-ipv6.org>
+References: <p73bq7smx1t.fsf@bingen.suse.de>
+	<20080111.214120.129309556.yoshfuji@linux-ipv6.org>
+	<20080111.174857.258424243.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mahatma@eu.by
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.181]:10515 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756503AbYALDDw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2008 22:03:52 -0500
-Received: by py-out-1112.google.com with SMTP id u52so1993373pyb.10
-        for <netdev@vger.kernel.org>; Fri, 11 Jan 2008 19:03:51 -0800 (PST)
-In-Reply-To: <4787D49E.6080906@bspu.unibel.by>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andi@firstfloor.org, vaf@cisco.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758500AbYALFMf@vger.kernel.org>
+In-Reply-To: <20080111.174857.258424243.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2008-11-01 at 18:42 -0200, Dzianis Kahanovich wrote:
+In article <20080111.174857.258424243.davem@davemloft.net> (at Fri, 11 Jan 2008 17:48:57 -0800 (PST)), David Miller <davem@davemloft.net> says:
 
-> About script example:
-> While I compose filter, I check flag ($TC_INDEX2MARK), tells me are patch
-> applied or no. If no - I use usual "-j MARK --set-mark", else I use classid to
-> change mark. All in ingress only. For example:
-> tc filter add dev eth0 parent ffff: protocol ip u32 ... action ipt -j MARK 0x10
-> are cname to:
-> tc filter add dev eth0 parent ffff: protocol ip u32 ... flowid :10
+> From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+> Date: Fri, 11 Jan 2008 21:41:20 +0900 (JST)
+> 
+> > There is no positive consesus on this draft
+> > at the intarea meeting in Vancouver, right?
+> > 
+> > We cannot / should not enable that space until we have reached
+> > a consensus on it.
+> 
+> This is so incredibly incorrect.
+> 
+> There is consensus on making network stacks able to use this
+> address space.  And that is all that the patch does.
 
-I thought you were doing something like this (to achieve your policy):
+No, we did never make consensus on it.
 
-----------
-major=1
-minor=12
-mark=`expr $major + $minor`
-#
-tc qdisc add dev XXX ingress
-tc filter add dev XXX parent ffff: protocol ip prio 5 \
-u32 blah bleh \
-flowid $major:$minor action \
-ipt -j mark --set-mark $mark
----------------
+> The consensus is only missing on whether to make the address
+> space public or private.
+> 
+> This is also clearly spelled out in the draft.
+> 
+> It is important to get as large of a head start on this as
+> possible because of how long it takes to deploy something
+> like this.
 
-> - it use less code/modules and, in many cases, may be single/main goal to
-> ingress usage - pre-marking packets.
+Okay, though I am afraid this space will not be used widely,
+we should be ready for it.
 
-That is true and you would also have one less line in your policy; as an
-example in above the line "ipt -j mark --set-mark $mark" would be
-unnecessary; however, all the other lines in the policy setting _will be
-necessary_. And this + the fact there are many other values/shapes the
-default policy could take is essentially whats bothering me. 
+I'll make some more comments on the patch itself from
+another point view.
 
-In any case, scanning the current code it seems mark is no longer
-considered a netfilter-only metadatum - so it may not be semantically as
-obscene as i felt earlier; Can you pick something simpler for policy?
-example set the mark to whatever tc_index gets set?
-If you still could write the metadata action, we could use it to
-override mark, tc_index etc in addition.
-
-cheers,
-jamal
+--yoshfuji
 
