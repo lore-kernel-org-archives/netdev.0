@@ -1,71 +1,98 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [RFC PATCH 8/8] [PKTGEN]: uninline getCurUs
-Date: Sat, 12 Jan 2008 14:59:50 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0801121420220.19333@kivilampi-30.cs.helsinki.fi>
-References: <12001308173969-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12001308171262-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12001308173014-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1200130817664-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12001308171814-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1200130817405-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12001308172525-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1200130817467-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12001308174189-git-send-email-ilpo.jarvinen@helsinki.fi>
- <20080112121740.GA4555@gondor.apana.org.au>
+From: Dzianis Kahanovich <mahatma@bspu.unibel.by>
+Subject: Re: [PATCH 2.6.23+] ingress classify to [nf]mark
+Date: Sat, 12 Jan 2008 15:56:21 -0200
+Message-ID: <4788FF45.702@bspu.unibel.by>
+References: <47866C69.3080904@bspu.unibel.by> <1200001167.4443.38.camel@localhost>  <4787A663.4030204@bspu.unibel.by> <1200063541.4483.42.camel@localhost>  <4787D49E.6080906@bspu.unibel.by> <1200107027.4477.36.camel@localhost>
+Reply-To: mahatma@eu.by
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243703-212337342-1200140478=:19333"
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=koi8-r; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:40098 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757591AbYALM7x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2008 07:59:53 -0500
-In-Reply-To: <20080112121740.GA4555@gondor.apana.org.au>
-Content-ID: <Pine.LNX.4.64.0801121441240.19333@kivilampi-30.cs.helsinki.fi>
+Received: from mail.bspu.unibel.by ([195.50.2.21]:49414 "EHLO
+	mail.bspu.unibel.by" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751727AbYALN4c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2008 08:56:32 -0500
+Received: from [10.200.200.1] ([10.200.200.1])
+	by mail.bspu.unibel.by (8.14.1/8.14.0) with ESMTP id m0CDuS1H024924
+	for <netdev@vger.kernel.org>; Sat, 12 Jan 2008 15:56:29 +0200
+In-Reply-To: <1200107027.4477.36.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+I in doubts only about "action continue".
+To "and/or" behaviour one of best usage are (example):
 
----696243703-212337342-1200140478=:19333
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0801121421331.19333@kivilampi-30.cs.helsinki.fi>
+# set bit 2 of mark to 0 (mark&0xfd|0) and continue
+tc filter add ... prio 1 ... flowid fd:0 action continue
+# continue
+tc filter add ... prio 2 ...
 
-On Sat, 12 Jan 2008, Herbert Xu wrote:
+- in current ingress_enqueue() code IMHO "case TC_ACT_OK:" will not reached 
+for action continue. I use old (mark=...) solution only by this.
 
-> On Sat, Jan 12, 2008 at 09:40:17AM +0000, Ilpo Järvinen wrote:
+I think, "skb->mark = (skb->mark&(res.classid>>16))|TC_H_MIN(res.classid);" 
+must be in the end of ingress_enqueue() before "return result". And not 
+depended to "NET_CLS_ACT". But while not test it.
+Or this:
+---
+#ifdef CONFIG_NET_SCH_INGRESS_TC2MARK
+#ifdef CONFIG_NET_CLS_ACT
+	skb->mark = (skb->mark&(res.classid>>16))|TC_H_MIN(res.classid);
+#else
+	skb->mark = res.classid;
+#endif
+#endif
+         return result;
+}
+
+
+jamal wrote:
+
+>> While I compose filter, I check flag ($TC_INDEX2MARK), tells me are patch
+>> applied or no. If no - I use usual "-j MARK --set-mark", else I use classid to
+>> change mark. All in ingress only. For example:
+>> tc filter add dev eth0 parent ffff: protocol ip u32 ... action ipt -j MARK 0x10
+>> are cname to:
+>> tc filter add dev eth0 parent ffff: protocol ip u32 ... flowid :10
 > 
-> Your emails are now using UTF-8 encoding but it's still declaring
-> ISO-8859-1 as the charset. 
+> I thought you were doing something like this (to achieve your policy):
+> 
+> ----------
+> major=1
+> minor=12
+> mark=`expr $major + $minor`
+> #
+> tc qdisc add dev XXX ingress
+> tc filter add dev XXX parent ffff: protocol ip prio 5 \
+> u32 blah bleh \
+> flowid $major:$minor action \
+> ipt -j mark --set-mark $mark
+> ---------------
+> 
+>> - it use less code/modules and, in many cases, may be single/main goal to
+>> ingress usage - pre-marking packets.
+> 
+> That is true and you would also have one less line in your policy; as an
+> example in above the line "ipt -j mark --set-mark $mark" would be
+> unnecessary; however, all the other lines in the policy setting _will be
+> necessary_. And this + the fact there are many other values/shapes the
+> default policy could take is essentially whats bothering me. 
+> 
+> In any case, scanning the current code it seems mark is no longer
+> considered a netfilter-only metadatum - so it may not be semantically as
+> obscene as i felt earlier; Can you pick something simpler for policy?
+> example set the mark to whatever tc_index gets set?
+> If you still could write the metadata action, we could use it to
+> override mark, tc_index etc in addition.
+> 
+> cheers,
+> jamal
+> 
+> 
+> 
 
-Thanks for trying to help but my situation is such that I think it got 
-also you confused (this kind of mixed encoding is beoynd my skills 
-really)... :-) Besides, I wouldn't mind of having incorrect characters
-in my name, I'm just used to that but somebody else wasn't that happy 
-about it.
-
-Here's one example...
-
-From: "=?utf-8?q?Ilpo_J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-...
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-
-Something still needed besides these to declare email utf-8?
-
-> So you probably want to fix that up or your name may show up as JÃ¤vinen 
-> on the reader's screen.
-
-Did you actually see this? I'd expect to see that as well but no, From is 
-correctly decoded by my ISO-8859-1'ish MUA, aha, seems that I still have 
-something to do to deal with the Signed-off line.
-
-...Maybe I just fall-back to changing my last name, it's the only 
-full-proof solution... ;-)
 
 -- 
- i.
----696243703-212337342-1200140478=:19333--
+WBR,
+Denis Kaganovich,  mahatma@eu.by  http://mahatma.bspu.unibel.by
