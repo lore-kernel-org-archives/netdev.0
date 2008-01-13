@@ -1,35 +1,33 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 0/4] Pull request for 'ipg-fixes' branch
-Date: Sun, 13 Jan 2008 16:50:28 +0100
-Message-ID: <20080113155028.GA30392@electric-eye.fr.zoreil.com>
-References: <20080110233508.GA13315@electric-eye.fr.zoreil.com> <478943C3.2010805@garzik.org>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: [PATCH] fib_semantics: prevent long hash chains in access server config
+Date: Sun, 13 Jan 2008 12:58:49 -0500
+Message-ID: <20080113175849.GC12775@kvack.org>
+References: <20080112185819.GA12775@kvack.org> <20080112.213857.68003780.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, linux@horizon.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:39043 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751373AbYAMQES (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 11:04:18 -0500
+Received: from kanga.kvack.org ([66.96.29.28]:47931 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752585AbYAMR66 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Jan 2008 12:58:58 -0500
 Content-Disposition: inline
-In-Reply-To: <478943C3.2010805@garzik.org>
+In-Reply-To: <20080112.213857.68003780.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Garzik <jeff@garzik.org> :
-> Francois Romieu wrote:
-[...]
->> Distance from 'net-2.6/master' (27d1cba21fcc50c37eef5042c6be9fa7135e88fc)
->> -------------------------------------------------------------------------
-[...]
-> hrm... tried to pull this, but received non-ipg stuff too
+On Sat, Jan 12, 2008 at 09:38:57PM -0800, David Miller wrote:
+> And guess why we don't do this?  Because it's not part of
+> the key.  Other aspects of the base fib_info and nexthops
+> provide the uniqueness, not the devindex of the first hop.
+> 
+> So you'll need to find another way to do this.
 
-It is based on one of davem's branches (see the 'distance' line above).
+Ah, you're right indeed.  It's probably easier for me to change how the 
+daemon adds the local ip address for these point to point interfaces.
 
-Do you want a branch against your upstream-fixes ?
-
+		-ben
 -- 
-Ueimor
+"Time is of no importance, Mr. President, only life is important."
+Don't Email: <zyntrop@kvack.org>.
