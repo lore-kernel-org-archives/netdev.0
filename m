@@ -1,65 +1,118 @@
-From: martin f krafft <madduck@madduck.net>
-Subject: Re: Netconf at conf.au 2008?
-Date: Sun, 13 Jan 2008 19:17:51 +0100
-Message-ID: <20080113181751.GA15063@lapse.madduck.net>
-References: <147a89290801112252gfcfaf11h1d25ee3c66e75881@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 9721] New: wake on lan fails with sky2 module
+Date: Sun, 13 Jan 2008 11:27:12 -0800
+Message-ID: <20080113112712.e93f07a4.akpm@linux-foundation.org>
+References: <bug-9721-10286@http.bugzilla.kernel.org/>
+	<200801112216.08992.rjw@sisk.pl>
+	<4787EB69.9060900@yahoo.de>
+	<200801120010.22440.rjw@sisk.pl>
+	<478A1083.5060406@yahoo.de>
+	<478A2976.9000204@yahoo.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="G4iJoqBmSsgzjUCe"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from seamus.madduck.net ([213.203.238.82]:38171 "EHLO
-	seamus.madduck.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754019AbYAMSmP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 13:42:15 -0500
-Received: from lapse.madduck.net (ppp-88-217-66-246.dynamic.mnet-online.de [88.217.66.246])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(Client CN "lapse.madduck.net", Issuer "CAcert Class 3 Root" (verified OK))
-	by seamus.madduck.net (postfix) with ESMTP id D7E98419810
-	for <netdev@vger.kernel.org>; Sun, 13 Jan 2008 19:15:44 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <147a89290801112252gfcfaf11h1d25ee3c66e75881@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-acpi@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: supersud501 <supersud501@yahoo.de>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <478A2976.9000204@yahoo.de>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Sun, 13 Jan 2008 16:08:38 +0100 supersud501 <supersud501@yahoo.de> wrote:
 
---G4iJoqBmSsgzjUCe
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> 
+> 
+> supersud501 wrote:
+> > 
+> > 
+> > Rafael J. Wysocki wrote:
+> > 
+> >>
+> >> Since it seems to be 100% reproducible, it would be very helpful if 
+> >> you could
+> >> use git-bisect to identify the offending commit.
+> >>
+> > 
+> > allright, bisect found the offending commit, here's what i've done:
+> > 
+> > first i started bisect with the following command (since i assumed it is 
+> > a net-driver problem):
+> > 
+> > git-bisect start 'v2.6.24-rc6' 'v2.6.23' '--' 'drivers/net/'
+> > 
+> > after building many kernels and saying good/bad if wol worked/didn't 
+> > work etc. it identified the following commit:
+> > 
+> > # bad: [ac93a3946b676025fa55356180e8321639744b31] sky2: enable PCI 
+> > config writes
+> > 
+> > and refs/bisect/bad gives:
+> > 
+> > 14:16:53 /usr/src/linux-2.6/.git # cat refs/bisect/bad
+> > ac93a3946b676025fa55356180e8321639744b31
+> > 
+> > 
+> > need some more info?
+> > 
+> 
+> i just checked it: commented out the passage of the commit in kernel 
+> 2.6.24-rc7-git4 and compiled it: wol WORKS. so this one line is causing 
+> my wol-disturbance...
+> 
+> 
 
-also sprach Andy Johnson <johnsonzjo@gmail.com> [2008.01.12.0752 +0100]:
-> I saw somewhere (maybe in this mailing list a while ago) that
-> there might be a  Linux Kernel Developers' Netconf conference  at
-> conf.au 2008.
+So simply reverting this:
 
-I think you may be mixing things up, and it may be my fault in ways.
-I am developing netconf: http://netconf.alioth.debian.org. I am
-aware of the NETCONF protocol and have considered renaming my
-project, but looking around, it seemed to me that NETCONF isn't
-really all that active, and so I chose to keep the name. If people
-think that wasn't wise, I'm willing to listen...
+commit ac93a3946b676025fa55356180e8321639744b31
+Author: Stephen Hemminger <shemminger@linux-foundation.org>
+Date:   Mon Nov 5 15:52:08 2007 -0800
 
---=20
-martin | http://madduck.net/ | http://two.sentenc.es/
-=20
-"the only difference between the saint and the sinner
- is that every saint has a past and every sinner has a future."
-                                                        -- oscar wilde
-=20
-spamtraps: madduck.bogus@madduck.net
+    sky2: enable PCI config writes
+    
+    On some boards, PCI configuration space access is turned off by default.
+    The 2.6.24 driver doesn't turn it on, and should have.
+    
+    Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+    Signed-off-by: Jeff Garzik <jeff@garzik.org>
 
---G4iJoqBmSsgzjUCe
-Content-Type: application/pgp-signature; name="digital_signature_gpg.asc"
-Content-Description: Digital signature (see http://martin-krafft.net/gpg/)
-Content-Disposition: inline
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index c27c7d6..4f41a94 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -2791,6 +2791,9 @@ static void sky2_reset(struct sky2_hw *hw)
+ 	sky2_write8(hw, B0_CTST, CS_RST_SET);
+ 	sky2_write8(hw, B0_CTST, CS_RST_CLR);
+ 
++	/* allow writes to PCI config */
++	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
++
+ 	/* clear PCI errors, if any */
+ 	pci_read_config_word(pdev, PCI_STATUS, &status);
+ 	status |= PCI_STATUS_ERROR_BITS;
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
+fixes this regression?
 
-iD8DBQFHilXPIgvIgzMMSnURApxFAJ9Hv/t/ZvENJlnsPECzG1Ta2UPkUACeOqIr
-SXSmPv6+m8jSE3gbk9UrCxQ=
-=ikSn
------END PGP SIGNATURE-----
+If so, we should revert that change.
 
---G4iJoqBmSsgzjUCe--
+> but i noticed another "bug" on 2.6.24-rc7-git with sky2: dmesg shows a 
+> lot of lines every 5 seconds:
+> 
+> [...]
+> [  357.400462] sky2 0000:02:00.0: error interrupt status=0xc0000000
+> [  362.442039] printk: 41 messages suppressed.
+> [  362.442043] sky2 0000:02:00.0: error interrupt status=0x80000000
+> [  367.439151] printk: 18 messages suppressed.
+> [  367.439156] sky2 0000:02:00.0: error interrupt status=0x80000000
+> [  372.436267] printk: 30 messages suppressed.
+> [  372.436271] sky2 0000:02:00.0: error interrupt status=0x80000000
+> [  377.350236] printk: 19 messages suppressed.
+> [...]
+> 
+> since i do not notice any errors (yet) i'll wait till next rc, maybe it 
+> will be gone then...
+
+That's not good.  is this new behaviour?
+
