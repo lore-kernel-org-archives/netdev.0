@@ -1,28 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [FIB]: removes a memset() call in tnode_new()
-Date: Sun, 13 Jan 2008 00:43:41 -0800 (PST)
-Message-ID: <20080113.004341.219477909.davem@davemloft.net>
-References: <4789BF2B.3040103@cosmosbay.com>
+From: "Andrew Paprocki" <andrew@ishiboo.com>
+Subject: Re: sky2 driver stopped working after upgrading from 2.6.18-4
+Date: Sun, 13 Jan 2008 05:26:16 -0500
+Message-ID: <76366b180801130226m124a0ab9o6f774a46ca4493db@mail.gmail.com>
+References: <76366b180801130024j78225c66j17974245e86a183f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: "Stephen Hemminger" <shemminger@osdl.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38245
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751173AbYAMInm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 03:43:42 -0500
-In-Reply-To: <4789BF2B.3040103@cosmosbay.com>
+Received: from rv-out-0910.google.com ([209.85.198.187]:8687 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751223AbYAMK0R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 05:26:17 -0500
+Received: by rv-out-0910.google.com with SMTP id k20so1436073rvb.1
+        for <netdev@vger.kernel.org>; Sun, 13 Jan 2008 02:26:16 -0800 (PST)
+In-Reply-To: <76366b180801130024j78225c66j17974245e86a183f@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Sun, 13 Jan 2008 08:35:07 +0100
+It appears this problem might be caused by the system HPET timer not
+functioning properly. I was noticing strange behavior in my rc0.d
+shutdown scripts where the script would freeze in a 'sleep 1'. Sure
+enough, even running a 'sleep 1' form a normal prompt just made the
+system hang indefinitely (until I hit ctrl-C). If I unload sky2 and
+then install a different clock source (jiffies, tsc, etc) and reload
+the module, it all appears to work properly. This is very, very
+strange. I'll bring this up on the kernel mailing list in a different
+post focusing on the HPET config.
 
-> tnode_alloc() already clears allocated memory, using kcalloc()
-> or alloc_pages(GFP_KERNEL|__GFP_ZERO, ...)
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+Thanks,
+-Andrew
 
-Applied, thanks Eric.
+On Jan 13, 2008 3:24 AM, Andrew Paprocki <andrew@ishiboo.com> wrote:
+> I have never been able to get my Yukon-EC Ultra (0xb4) rev 2 working
+> on anything past 2.6.18-4 that I've tried. (All ~.20+)
