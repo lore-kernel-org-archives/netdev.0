@@ -1,59 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [XFRM]: alg_key_len should be unsigned to avoid integer divides
-Date: Sat, 12 Jan 2008 21:32:23 -0800 (PST)
-Message-ID: <20080112.213223.82837118.davem@davemloft.net>
-References: <4788F8FC.3010001@cosmosbay.com>
+From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
+Subject: [PATCH v2] Documentation: add a guideline for hard_start_xmit method
+Date: Sat, 12 Jan 2008 21:33:26 -0800 (PST)
+Message-ID: <13447.65555.qm@web52011.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Content-Type: text/plain; charset=us-ascii
+To: jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56240
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751189AbYAMFcY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 00:32:24 -0500
-In-Reply-To: <4788F8FC.3010001@cosmosbay.com>
+Received: from web52011.mail.re2.yahoo.com ([206.190.48.27]:47651 "HELO
+	web52011.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751090AbYAMFdc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 00:33:32 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Sat, 12 Jan 2008 18:29:32 +0100
-
-> alg_key_len is currently defined as 'signed int'. This unfortunatly leads
-> to integer divides in several paths.
-> 
-> Converting it to unsigned is safe and saves 208 bytes of text on i386.
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
-Applied.
-
-I realigned the struct members in a follow-on changeset.
-
-commit 7305e737926be49e09718df53f4285bf69cc3755
-Author: David S. Miller <davem@davemloft.net>
-Date:   Sat Jan 12 21:31:29 2008 -0800
-
-    [XFRM]: Fix struct xfrm_algo code formatting.
-    
-    Realign struct members.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-index f8507ee..9b5b00c 100644
---- a/include/linux/xfrm.h
-+++ b/include/linux/xfrm.h
-@@ -91,9 +91,9 @@ struct xfrm_replay_state
- };
+From: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
  
- struct xfrm_algo {
--	char	alg_name[64];
-+	char		alg_name[64];
- 	unsigned int	alg_key_len;    /* in bits */
--	char	alg_key[0];
-+	char		alg_key[0];
- };
+Add a guideline for hard_start_xmit method not to
+modify SKB.
  
- struct xfrm_stats {
+Signed-off-by: Matti Linnanvuori <mattilinnanvuori@yahoo.com>
+---
+--- a/Documentation/networking/driver.txt 2008-01-13 07:14:01.608291500 +0200
++++ b/Documentation/networking/driver.txt 2008-01-13 07:13:40.535421500 +0200
+@@ -61,7 +61,9 @@
+ 2) Do not forget to update netdev->trans_start to jiffies after
+    each new tx packet is given to the hardware.
+ 
+-3) Do not forget that once you return 0 from your hard_start_xmit
++3) A hard_start_xmit method must not modify the shared parts of the SKB.
++
++4) Do not forget that once you return 0 from your hard_start_xmit
+    method, it is your driver's responsibility to free up the SKB
+    and in some finite amount of time.
+
+
+      ____________________________________________________________________________________
+Looking for last minute shopping deals?  
+Find them fast with Yahoo! Search.  http://tools.search.yahoo.com/newsearch/category.php?category=shopping
