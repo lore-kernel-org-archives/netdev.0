@@ -1,55 +1,76 @@
-From: Glen Turner <gdt@gdt.id.au>
-Subject: Re: Netconf at conf.au 2008?
-Date: Mon, 14 Jan 2008 01:23:45 +1030
-Message-ID: <1200236025.6171.79.camel@andromache>
-References: <147a89290801112252gfcfaf11h1d25ee3c66e75881@mail.gmail.com>
+From: supersud501 <supersud501@yahoo.de>
+Subject: Re: [Bugme-new] [Bug 9721] New: wake on lan fails with sky2 module
+Date: Sun, 13 Jan 2008 16:08:38 +0100
+Message-ID: <478A2976.9000204@yahoo.de>
+References: <bug-9721-10286@http.bugzilla.kernel.org/> <200801112216.08992.rjw@sisk.pl> <4787EB69.9060900@yahoo.de> <200801120010.22440.rjw@sisk.pl> <478A1083.5060406@yahoo.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andy Johnson <johnsonzjo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:40899 "EHLO
-	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751183AbYAMOzS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 09:55:18 -0500
-In-Reply-To: <147a89290801112252gfcfaf11h1d25ee3c66e75881@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-acpi@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <478A1083.5060406@yahoo.de>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-On Sat, 2008-01-12 at 08:52 +0200, Andy Johnson wrote:
-> I saw somewhere (maybe in this mailing list a while ago) that there
-> might be a  Linux Kernel Developers' Netconf conference  at conf.au
-> 2008.
+
+supersud501 wrote:
 > 
-> Does anyone here know if  such a thing is planned ?
+> 
+> Rafael J. Wysocki wrote:
+> 
+>>
+>> Since it seems to be 100% reproducible, it would be very helpful if 
+>> you could
+>> use git-bisect to identify the offending commit.
+>>
+> 
+> allright, bisect found the offending commit, here's what i've done:
+> 
+> first i started bisect with the following command (since i assumed it is 
+> a net-driver problem):
+> 
+> git-bisect start 'v2.6.24-rc6' 'v2.6.23' '--' 'drivers/net/'
+> 
+> after building many kernels and saying good/bad if wol worked/didn't 
+> work etc. it identified the following commit:
+> 
+> # bad: [ac93a3946b676025fa55356180e8321639744b31] sky2: enable PCI 
+> config writes
+> 
+> and refs/bisect/bad gives:
+> 
+> 14:16:53 /usr/src/linux-2.6/.git # cat refs/bisect/bad
+> ac93a3946b676025fa55356180e8321639744b31
+> 
+> 
+> need some more info?
+> 
 
-Hi Andy,
+i just checked it: commented out the passage of the commit in kernel 
+2.6.24-rc7-git4 and compiled it: wol WORKS. so this one line is causing 
+my wol-disturbance...
 
-I don't know.
 
-However this seems a good opportunity to remind people that
-AARNet will as usual be proving a 1Gbps link from linux.conf.au
-to universities and national labs in the USA and beyond.
-Netdev people are welcome to hammer this if they want to test
-performance on a real-life long fat pipe (minimum RTT > 200ms).
+but i noticed another "bug" on 2.6.24-rc7-git with sky2: dmesg shows a 
+lot of lines every 5 seconds:
 
-If you particularly want some feature (IPv6, multicast,
-whatever), some engineering detail, a real worst case RTT
-(Perth-Sydney-Seattle-New York-Amsterdam-Tomsk @ 1Gbps) or
-some office space before/after the conference then drop
-me a mail.
+[...]
+[  357.400462] sky2 0000:02:00.0: error interrupt status=0xc0000000
+[  362.442039] printk: 41 messages suppressed.
+[  362.442043] sky2 0000:02:00.0: error interrupt status=0x80000000
+[  367.439151] printk: 18 messages suppressed.
+[  367.439156] sky2 0000:02:00.0: error interrupt status=0x80000000
+[  372.436267] printk: 30 messages suppressed.
+[  372.436271] sky2 0000:02:00.0: error interrupt status=0x80000000
+[  377.350236] printk: 19 messages suppressed.
+[...]
 
-There are two well-educated users of fast long-distance
-networks in Melbourne doing transfers for physics and
-astronomy applications. If the application/TCP interaction
-is of interest then I can arrange an introduction.
+since i do not notice any errors (yet) i'll wait till next rc, maybe it 
+will be gone then...
 
-Best wishes,
-Glen
-
--- 
-Glen Turner, Network Engineer   (08) 8303 3936 or +61 8 8303 3936
-Australia's Academic & Research Network         www.aarnet.edu.au
-
+but i'm happy wol works again on 2.6.24 :)
