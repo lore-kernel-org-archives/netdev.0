@@ -1,118 +1,75 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9721] New: wake on lan fails with sky2 module
-Date: Sun, 13 Jan 2008 11:27:12 -0800
-Message-ID: <20080113112712.e93f07a4.akpm@linux-foundation.org>
-References: <bug-9721-10286@http.bugzilla.kernel.org/>
-	<200801112216.08992.rjw@sisk.pl>
-	<4787EB69.9060900@yahoo.de>
-	<200801120010.22440.rjw@sisk.pl>
-	<478A1083.5060406@yahoo.de>
-	<478A2976.9000204@yahoo.de>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 2.6.23+] ingress classify to [nf]mark
+Date: Sun, 13 Jan 2008 14:44:44 -0500
+Message-ID: <1200253484.4427.33.camel@localhost>
+References: <47866C69.3080904@bspu.unibel.by>
+	 <1200001167.4443.38.camel@localhost>  <4787A663.4030204@bspu.unibel.by>
+	 <1200063541.4483.42.camel@localhost>  <4787D49E.6080906@bspu.unibel.by>
+	 <1200107027.4477.36.camel@localhost>  <4788FF45.702@bspu.unibel.by>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-acpi@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: supersud501 <supersud501@yahoo.de>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <478A2976.9000204@yahoo.de>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: mahatma@eu.by
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from py-out-1112.google.com ([64.233.166.179]:8752 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752164AbYAMTos (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 14:44:48 -0500
+Received: by py-out-1112.google.com with SMTP id u52so2636233pyb.10
+        for <netdev@vger.kernel.org>; Sun, 13 Jan 2008 11:44:47 -0800 (PST)
+In-Reply-To: <4788FF45.702@bspu.unibel.by>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 13 Jan 2008 16:08:38 +0100 supersud501 <supersud501@yahoo.de> wrote:
+Hi,
 
+
+Please CC me in your responses (the way i do when i respond to you),
+that way my filters prioritize your email. 
+
+On Sat, 2008-12-01 at 15:56 -0200, Dzianis Kahanovich wrote:
+> I in doubts only about "action continue".
+> To "and/or" behaviour one of best usage are (example):
+
+I dont think you should be touching the action part at all primarily
+because actions can set the mark after classification. 
+The action code (not the default) should be the override. IOW, if i
+specify a ipt mark of some value i would expect that value to be what
+goes into the network stack and not the default value you want. Same if
+i had a series of actions which override each others settings of mark.
+
+When we have a metadata action, we can remove the setting of tcindex
+in the action OK result case (for now it doesnt harm).
+
+In other words, just set the #ifndef action to set both the tcindex and
+mark to some policy;
+
+> # set bit 2 of mark to 0 (mark&0xfd|0) and continue
+> tc filter add ... prio 1 ... flowid fd:0 action continue
+> # continue
+> tc filter add ... prio 2 ...
 > 
+> - in current ingress_enqueue() code IMHO "case TC_ACT_OK:" will not reached 
+> for action continue. I use old (mark=...) solution only by this.
 > 
-> supersud501 wrote:
-> > 
-> > 
-> > Rafael J. Wysocki wrote:
-> > 
-> >>
-> >> Since it seems to be 100% reproducible, it would be very helpful if 
-> >> you could
-> >> use git-bisect to identify the offending commit.
-> >>
-> > 
-> > allright, bisect found the offending commit, here's what i've done:
-> > 
-> > first i started bisect with the following command (since i assumed it is 
-> > a net-driver problem):
-> > 
-> > git-bisect start 'v2.6.24-rc6' 'v2.6.23' '--' 'drivers/net/'
-> > 
-> > after building many kernels and saying good/bad if wol worked/didn't 
-> > work etc. it identified the following commit:
-> > 
-> > # bad: [ac93a3946b676025fa55356180e8321639744b31] sky2: enable PCI 
-> > config writes
-> > 
-> > and refs/bisect/bad gives:
-> > 
-> > 14:16:53 /usr/src/linux-2.6/.git # cat refs/bisect/bad
-> > ac93a3946b676025fa55356180e8321639744b31
-> > 
-> > 
-> > need some more info?
-> > 
-> 
-> i just checked it: commented out the passage of the commit in kernel 
-> 2.6.24-rc7-git4 and compiled it: wol WORKS. so this one line is causing 
-> my wol-disturbance...
-> 
-> 
+> I think, "skb->mark = (skb->mark&(res.classid>>16))|TC_H_MIN(res.classid);" 
+> must be in the end of ingress_enqueue() before "return result". And not 
+> depended to "NET_CLS_ACT". But while not test it.
+> Or this:
+> ---
+> #ifdef CONFIG_NET_SCH_INGRESS_TC2MARK
+> #ifdef CONFIG_NET_CLS_ACT
+> 	skb->mark = (skb->mark&(res.classid>>16))|TC_H_MIN(res.classid);
+> #else
+> 	skb->mark = res.classid;
+> #endif
+> #endif
 
-So simply reverting this:
+Please refer to what i said above; if what i said still doesnt make
+sense i can create (the simple) patch.
 
-commit ac93a3946b676025fa55356180e8321639744b31
-Author: Stephen Hemminger <shemminger@linux-foundation.org>
-Date:   Mon Nov 5 15:52:08 2007 -0800
-
-    sky2: enable PCI config writes
-    
-    On some boards, PCI configuration space access is turned off by default.
-    The 2.6.24 driver doesn't turn it on, and should have.
-    
-    Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-    Signed-off-by: Jeff Garzik <jeff@garzik.org>
-
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index c27c7d6..4f41a94 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -2791,6 +2791,9 @@ static void sky2_reset(struct sky2_hw *hw)
- 	sky2_write8(hw, B0_CTST, CS_RST_SET);
- 	sky2_write8(hw, B0_CTST, CS_RST_CLR);
- 
-+	/* allow writes to PCI config */
-+	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
-+
- 	/* clear PCI errors, if any */
- 	pci_read_config_word(pdev, PCI_STATUS, &status);
- 	status |= PCI_STATUS_ERROR_BITS;
-
-fixes this regression?
-
-If so, we should revert that change.
-
-> but i noticed another "bug" on 2.6.24-rc7-git with sky2: dmesg shows a 
-> lot of lines every 5 seconds:
-> 
-> [...]
-> [  357.400462] sky2 0000:02:00.0: error interrupt status=0xc0000000
-> [  362.442039] printk: 41 messages suppressed.
-> [  362.442043] sky2 0000:02:00.0: error interrupt status=0x80000000
-> [  367.439151] printk: 18 messages suppressed.
-> [  367.439156] sky2 0000:02:00.0: error interrupt status=0x80000000
-> [  372.436267] printk: 30 messages suppressed.
-> [  372.436271] sky2 0000:02:00.0: error interrupt status=0x80000000
-> [  377.350236] printk: 19 messages suppressed.
-> [...]
-> 
-> since i do not notice any errors (yet) i'll wait till next rc, maybe it 
-> will be gone then...
-
-That's not good.  is this new behaviour?
+cheers,
+jamal
 
