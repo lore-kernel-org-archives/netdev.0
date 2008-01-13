@@ -1,47 +1,60 @@
-From: "=?utf-8?q?Ilpo_J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH 1/2] [NET] core/utils.c: digit2bin is dead static inline
-Date: Sat, 12 Jan 2008 13:53:35 +0200
-Message-ID: <1200138816244-git-send-email-ilpo.jarvinen@helsinki.fi>
+From: Ming-Ching Tiew <mingching.tiew@redtone.com>
+Subject: Re: [Bugme-new]  [Bug 9719] New: when a system is configured as a
+ bridge, and at the same time configured to have multipath weighted route,
+ with one leg goes thru NAT and another without NAT, the nat path will intermittently
+ get packets leaking out using internal IP without being SNAT-ted
+Date: Sun, 13 Jan 2008 09:04:04 +0800
+Message-ID: <47896384.3000402@redtone.com>
+References: <bug-9719-10286@http.bugzilla.kernel.org/> <20080109152813.83fb8168.akpm@linux-foundation.org> <47863CA8.1010301@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Julian Anastasov <ja@ssi.bg>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:53773 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759545AbYALLxi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2008 06:53:38 -0500
+Received: from ns2.cnx.com.my ([202.46.113.21]:2360 "EHLO mail.cnx.com.my"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756880AbYALL5k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Jan 2008 06:57:40 -0500
+In-Reply-To: <47863CA8.1010301@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
----
- net/core/utils.c |   11 -----------
- 1 files changed, 0 insertions(+), 11 deletions(-)
+Patrick McHardy wrote:
+> Andrew Morton wrote:
+>>> Distribution: iptables 1.4.0 was used with kernel 2.6.23 and 
+>>> iptables 1.3.8
+>>> with 2.6.22.15
+>>> Hardware Environment: 3 interfaces, 2 interfaces bridged to form 
+>>> br0, and
+>>> another connects to internet using pppoe.
+>>> Software Environment: bridge, multipath routing
+>>> Problem Description: when a system is configured as a bridge with IP 
+>>> assigned
+>>> to br0 interface, and at the same time it is configured to have 
+>>> multipath
+>>> weighted default route, and one of the default route is NAT-ed and 
+>>> another of
+>>> the default route is not NAT-ed, then it is NAT-ed interface will 
+>>> occasionally
+>>> get packets leaking out to it with packets with private IPs.
+>
+>
+> That is most likely because the route changes over time (when the cache
+> is flushed) and the NAT mappings for the connection have been set up on
+> a different interface. The way to properly do this is to add routing
+> rules based on fwmark and use CONNMARK to bind a connection to one of
+> the interfaces after the initial multipath routing decision.
+>
 
-diff --git a/net/core/utils.c b/net/core/utils.c
-index 34459c4..8031eb5 100644
---- a/net/core/utils.c
-+++ b/net/core/utils.c
-@@ -91,17 +91,6 @@ EXPORT_SYMBOL(in_aton);
- #define IN6PTON_NULL		0x20000000	/* first/tail */
- #define IN6PTON_UNKNOWN		0x40000000
-=20
--static inline int digit2bin(char c, int delim)
--{
--	if (c =3D=3D delim || c =3D=3D '\0')
--		return IN6PTON_DELIM;
--	if (c =3D=3D '.')
--		return IN6PTON_DOT;
--	if (c >=3D '0' && c <=3D '9')
--		return (IN6PTON_DIGIT | (c - '0'));
--	return IN6PTON_UNKNOWN;
--}
--
- static inline int xdigit2bin(char c, int delim)
- {
- 	if (c =3D=3D delim || c =3D=3D '\0')
---=20
-1.5.0.6
+First of all, I would like to say a big thank you to all of you takes 
+interest in replying my post/email. I have altered the distribution 
+slightly and the kernel bug list is removed.
+
+It seems from your reply, what is implied is that I cannot change route 
+within a connection, and whatever things I do, I must make sure that the 
+route remains the same for a particular netfilter connection ?
+
+Regards.
+
 
