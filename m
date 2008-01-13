@@ -1,50 +1,98 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 0/4] Pull request for 'ipg-fixes' branch
-Date: Sun, 13 Jan 2008 23:34:55 +0100
-Message-ID: <20080113223455.GA3955@electric-eye.fr.zoreil.com>
-References: <20080110233508.GA13315@electric-eye.fr.zoreil.com> <478943C3.2010805@garzik.org> <20080113155028.GA30392@electric-eye.fr.zoreil.com>
+From: supersud501 <supersud501@yahoo.de>
+Subject: Re: [Bugme-new] [Bug 9721] New: wake on lan fails with sky2 module
+Date: Sun, 13 Jan 2008 23:53:18 +0100
+Message-ID: <478A965E.8070306@yahoo.de>
+References: <bug-9721-10286@http.bugzilla.kernel.org/> <478A743C.9050405@yahoo.de> <20080113125708.070b4843.akpm@linux-foundation.org> <200801132227.59229.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, linux@horizon.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-acpi@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:56986 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754334AbYAMWsx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 17:48:53 -0500
-Content-Disposition: inline
-In-Reply-To: <20080113155028.GA30392@electric-eye.fr.zoreil.com>
+Received: from smtp002.mail.ukl.yahoo.com ([217.12.11.33]:36270 "HELO
+	smtp002.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753303AbYAMWxV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 17:53:21 -0500
+In-Reply-To: <200801132227.59229.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu <romieu@fr.zoreil.com> :
-> Jeff Garzik <jeff@garzik.org> :
-> > Francois Romieu wrote:
-> [...]
-> >> Distance from 'net-2.6/master' (27d1cba21fcc50c37eef5042c6be9fa7135e88fc)
-> >> -------------------------------------------------------------------------
-> [...]
-> > hrm... tried to pull this, but received non-ipg stuff too
+
+
+Rafael J. Wysocki wrote:
+> I wonder if commit 84cd2dfb04d23a961c5f537baa243fa54d0987ac
+> "sky2: remove check for PCI wakeup setting from BIOS" has anything to do with
+> it, btw.
 > 
-> It is based on one of davem's branches (see the 'distance' line above).
+> supersud501, can you please check if the bug is still present in the current
+> Linus' tree?
 > 
-> Do you want a branch against your upstream-fixes ?
 
-It is available at:
+I checked it (after git pulling the dir), and it still doesn't work. but 
+the dmesg-output wasn't filled with those errors i reported before anymore.
 
-git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git upstream-jeff
+after removing that one commit ("enable PCI config writes") wol works 
+again, but the dmesg output is filled too! so that seems to be the 
+source of the full dmesg-output. here a little bit more of the 
+dmesg-output (but maybe i should open a new bug report?)
 
-Distance from 'upstream-linus' (cb8da8a38015ded1df319a39b7298e69f89036ac)
--------------------------------------------------------------------------
+[...] rmmod sky2 --->
 
-f1f443e6276aae3862a970b141102c51f5e25e4b
-b76c7331afe11544063d2c3390de8c9a7ba6db83
-98ae57a0dada63ab9b811e89a4b70ca4e4da7497
-184c6cf5e4b8e659095fd9e2b54ef37f131b5810
+[ 1182.964000] sky2 eth0: disabling interface
+[ 1183.255862] ACPI: PCI interrupt for device 0000:02:00.0 disabled
 
-It is up to you and davem to decide who wants to pull it.
+	modprobe syk2 -->
 
--- 
-Ueimor
+[ 1192.951021] ACPI: PCI Interrupt 0000:02:00.0[A] -> GSI 19 (level, 
+low) -> IRQ 19
+[ 1192.951034] PCI: Setting latency timer of device 0000:02:00.0 to 64
+[ 1192.951618] sky2 0000:02:00.0: v1.20 addr 0xf89fc000 irq 19 Yukon-EC 
+(0xb6) rev 2
+[ 1192.951636] sky2 0000:02:00.0: ignoring stuck error report bit
+[ 1192.952425] sky2 eth0: addr 00:18:f3:fe:93:11
+
+	ifdown eth0 && ifup eth0 -->
+
+[ 1207.425171] sky2 eth0: enabling interface
+[ 1209.806138] printk: 97 messages suppressed.
+[ 1209.806143] sky2 0000:02:00.0: error interrupt status=0x80000010
+[ 1209.807184] sky2 eth0: Link is up at 100 Mbps, full duplex, flow 
+control rx
+[ 1209.807502] sky2 0000:02:00.0: error interrupt status=0x80000000
+[ 1210.621117] sky2 0000:02:00.0: error interrupt status=0xc0000000
+[ 1210.660325] sky2 0000:02:00.0: error interrupt status=0x80000000
+[ 1210.996873] sky2 0000:02:00.0: error interrupt status=0xc0000000
+[ 1211.645470] printk: 1 messages suppressed.
+[ 1211.645474] sky2 0000:02:00.0: error interrupt status=0xc0000000
+[ 1216.656564] printk: 328 messages suppressed.
+[ 1216.656569] sky2 0000:02:00.0: error interrupt status=0x80000000
+[ 1221.653677] printk: 17 messages suppressed.
+[ 1221.653681] sky2 0000:02:00.0: error interrupt status=0x80000000
+
+--> every 5 sec a new error
+[...]
+
+
+-------------
+
+and i noticed one more thing (i thought would just happen occasionally):
+
+everytime wol does not work (sending the magic packet does nothing), i 
+have to cut off my pc completely from power because otherwise (powering 
+it up by power button) it hangs endless on hard-disk-dedection (s-ata). 
+other users with my mobo report same issues from time to time, but mine 
+seems to be 100% reproducable.
+
+reenabling wol by removing the commit fixes this problem, too. the next 
+new bug report i think.
+
+-------------
+
+
+btw, if anyone could tell me a way to rebuild only some modules (so i 
+get the .ko file directly and can replace it by hand in 
+/lib/modules/...) i could hack around a little bit too in sky2.c (or so) 
+without the need to reinstall the whole kernel in order to test it...
