@@ -1,27 +1,28 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2] Documentation: add a guideline for hard_start_xmit method
-Date: Mon, 14 Jan 2008 08:45:13 +1100
-Message-ID: <E1JEAdl-00040W-00@gondolin.me.apana.org.au>
-References: <13447.65555.qm@web52011.mail.re2.yahoo.com>
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
-To: mattilinnanvuori@yahoo.com (Matti Linnanvuori)
+Subject: Re: 2.6.24-rc6-mm1 - oddness with IPv4/v6 mapped sockets hanging...
+Date: Mon, 14 Jan 2008 08:46:36 +1100
+Message-ID: <E1JEAf6-000414-00@gondolin.me.apana.org.au>
+References: <30887.1200209733@turing-police.cc.vt.edu>
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Valdis.Kletnieks@vt.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2824 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:2844 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754035AbYAMVpY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 16:45:24 -0500
-In-Reply-To: <13447.65555.qm@web52011.mail.re2.yahoo.com>
+	with ESMTP id S1754049AbYAMVqt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 16:46:49 -0500
+In-Reply-To: <30887.1200209733@turing-police.cc.vt.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Matti Linnanvuori <mattilinnanvuori@yahoo.com> wrote:
+Valdis.Kletnieks@vt.edu wrote:
 >
-> -3) Do not forget that once you return 0 from your hard_start_xmit
-> +3) A hard_start_xmit method must not modify the shared parts of the SKB.
+> Any ideas?
 
-Only if it's cloned.
+Please provide a packet dump on both sides (or at least the sender
+side).
 
-Cheers,
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
