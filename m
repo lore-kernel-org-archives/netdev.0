@@ -1,38 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/9] statistics improvements
-Date: Sat, 12 Jan 2008 21:44:17 -0800 (PST)
-Message-ID: <20080112.214417.154179770.davem@davemloft.net>
-References: <20080112064646.282104074@linux-foundation.org>
-	<20080112.205520.55747078.davem@davemloft.net>
-	<4789A29C.6080000@linux-foundation.org>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [FIB]: removes a memset() call in tnode_new()
+Date: Sun, 13 Jan 2008 08:35:07 +0100
+Message-ID: <4789BF2B.3040103@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: robert.olsson@its.uu.se, netdev@vger.kernel.org,
-	stephen.hemminger@vyatta.com
-To: shemminger@linux-foundation.org
+Content-Type: multipart/mixed;
+ boundary="------------070702060300080801090607"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56007
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750816AbYAMFoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 00:44:18 -0500
-In-Reply-To: <4789A29C.6080000@linux-foundation.org>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:52241 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751081AbYAMHfS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 02:35:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Sat, 12 Jan 2008 21:33:16 -0800
+This is a multi-part message in MIME format.
+--------------070702060300080801090607
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> The size field is added to /proc/net/fib_triestat that was the point.
+tnode_alloc() already clears allocated memory, using kcalloc()
+or alloc_pages(GFP_KERNEL|__GFP_ZERO, ...)
 
-Not from what I can see.
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-davem@sunset:~/src/GIT/net-2.6.25$ git grep -e "->size" net/ipv4/fib_trie.c
-net/ipv4/fib_trie.c:	t->size++;
-net/ipv4/fib_trie.c:	t->size--;
-davem@sunset:~/src/GIT/net-2.6.25$ git grep -e "\.size" net/ipv4/fib_trie.c
-davem@sunset:~/src/GIT/net-2.6.25$ 
 
-Nothing uses the field, it is merely incremented and decremented.
+--------------070702060300080801090607
+Content-Type: text/plain;
+ name="fib_trie.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="fib_trie.patch"
 
-trie_show_stats() and trie_show_usage() do not access this field.
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index a418498..f26ba31 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -391,7 +391,6 @@ static struct tnode* tnode_new(t_key key, int pos, int bits)
+ 	struct tnode *tn = tnode_alloc(sz);
+ 
+ 	if (tn) {
+-		memset(tn, 0, sz);
+ 		tn->parent = T_TNODE;
+ 		tn->pos = pos;
+ 		tn->bits = bits;
+
+--------------070702060300080801090607--
