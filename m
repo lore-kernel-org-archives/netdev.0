@@ -1,172 +1,176 @@
 From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [X25]: Avoid divides and sparse warnings
-Date: Sun, 13 Jan 2008 11:33:01 +0100
-Message-ID: <4789E8DD.2020901@cosmosbay.com>
+Subject: [AX25]: sparse cleanups
+Date: Sun, 13 Jan 2008 12:01:28 +0100
+Message-ID: <4789EF88.9090303@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------080909060501010102040304"
+ boundary="------------020005060400020606030105"
 Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:42395 "EHLO
+Received: from gw1.cosmosbay.com ([86.65.150.130]:34693 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751259AbYAMKdN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 05:33:13 -0500
+	with ESMTP id S1751200AbYAMLBj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 06:01:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------080909060501010102040304
+--------------020005060400020606030105
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-   CHECK   net/x25/af_x25.c
-net/x25/af_x25.c:117:46: warning: expensive signed divide
-   CHECK   net/x25/x25_facilities.c
-net/x25/x25_facilities.c:209:30: warning: expensive signed divide
-   CHECK   net/x25/x25_in.c
-net/x25/x25_in.c:250:26: warning: expensive signed divide
-   CHECK   net/x25/x25_proc.c
-net/x25/x25_proc.c:48:11: warning: context imbalance in 'x25_seq_route_start' 
-- wrong count at exit
-net/x25/x25_proc.c:72:13: warning: context imbalance in 'x25_seq_route_stop' - 
-unexpected unlock
-net/x25/x25_proc.c:112:11: warning: context imbalance in 
-'x25_seq_socket_start' - wrong count at exit
-net/x25/x25_proc.c:129:13: warning: context imbalance in 'x25_seq_socket_stop' 
+net/ax25/ax25_route.c:251:13: warning: context imbalance in 
+'ax25_rt_seq_start' - wrong count at exit
+net/ax25/ax25_route.c:276:13: warning: context imbalance in 'ax25_rt_seq_stop' 
 - unexpected unlock
-net/x25/x25_proc.c:190:11: warning: context imbalance in 
-'x25_seq_forward_start' - wrong count at exit
-net/x25/x25_proc.c:215:13: warning: context imbalance in 
-'x25_seq_forward_stop' - unexpected unlock
-   CHECK   net/x25/x25_subr.c
-net/x25/x25_subr.c:362:57: warning: expensive signed divide
+net/ax25/ax25_std_timer.c:65:25: warning: expensive signed divide
+net/ax25/ax25_uid.c:46:1: warning: symbol 'ax25_uid_list' was not declared. 
+Should it be static?
+net/ax25/ax25_uid.c:146:13: warning: context imbalance in 'ax25_uid_seq_start' 
+- wrong count at exit
+net/ax25/ax25_uid.c:169:13: warning: context imbalance in 'ax25_uid_seq_stop' 
+- unexpected unlock
+net/ax25/af_ax25.c:573:28: warning: expensive signed divide
+net/ax25/af_ax25.c:1865:13: warning: context imbalance in 'ax25_info_start' - 
+wrong count at exit
+net/ax25/af_ax25.c:1888:13: warning: context imbalance in 'ax25_info_stop' - 
+unexpected unlock
+net/ax25/ax25_ds_timer.c:133:25: warning: expensive signed divide
 
 Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-  net/x25/af_x25.c         |    4 ++--
-  net/x25/x25_facilities.c |    4 +---
-  net/x25/x25_in.c         |    2 +-
-  net/x25/x25_proc.c       |    6 ++++++
-  net/x25/x25_subr.c       |    2 +-
-  5 files changed, 11 insertions(+), 7 deletions(-)
+  net/ax25/af_ax25.c        |    4 +++-
+  net/ax25/ax25_ds_timer.c  |    2 +-
+  net/ax25/ax25_route.c     |    2 ++
+  net/ax25/ax25_std_timer.c |    4 ++--
+  net/ax25/ax25_uid.c       |    6 ++++--
+  5 files changed, 12 insertions(+), 6 deletions(-)
 
 
---------------080909060501010102040304
+--------------020005060400020606030105
 Content-Type: text/plain;
- name="x25.patch"
+ name="ax25.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="x25.patch"
+ filename="ax25.patch"
 
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index 92cfe8e..07fad7c 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -83,9 +83,9 @@ struct compat_x25_subscrip_struct {
- int x25_addr_ntoa(unsigned char *p, struct x25_address *called_addr,
- 		  struct x25_address *calling_addr)
+diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+index a028d37..1bc0e85 100644
+--- a/net/ax25/af_ax25.c
++++ b/net/ax25/af_ax25.c
+@@ -570,7 +570,7 @@ static int ax25_setsockopt(struct socket *sock, int level, int optname,
+ 			res = -EINVAL;
+ 			break;
+ 		}
+-		ax25->rtt = (opt * HZ) / 2;
++		ax25->rtt = (opt * HZ) >> 1;
+ 		ax25->t1  = opt * HZ;
+ 		break;
+ 
+@@ -1863,6 +1863,7 @@ static int ax25_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ #ifdef CONFIG_PROC_FS
+ 
+ static void *ax25_info_start(struct seq_file *seq, loff_t *pos)
++	__acquires(ax25_list_lock)
  {
--	int called_len, calling_len;
-+	unsigned int called_len, calling_len;
- 	char *called, *calling;
--	int i;
-+	unsigned int i;
- 
- 	called_len  = (*p >> 0) & 0x0F;
- 	calling_len = (*p >> 4) & 0x0F;
-diff --git a/net/x25/x25_facilities.c b/net/x25/x25_facilities.c
-index dec404a..a21f664 100644
---- a/net/x25/x25_facilities.c
-+++ b/net/x25/x25_facilities.c
-@@ -205,9 +205,7 @@ int x25_create_facilities(unsigned char *buffer,
- 	}
- 
- 	if (dte_facs->calling_len && (facil_mask & X25_MASK_CALLING_AE)) {
--		unsigned bytecount = (dte_facs->calling_len % 2) ?
--					dte_facs->calling_len / 2 + 1 :
--					dte_facs->calling_len / 2;
-+		unsigned bytecount = (dte_facs->calling_len + 1) >> 1;
- 		*p++ = X25_FAC_CALLING_AE;
- 		*p++ = 1 + bytecount;
- 		*p++ = dte_facs->calling_len;
-diff --git a/net/x25/x25_in.c b/net/x25/x25_in.c
-index 1c88762..7d7c3ab 100644
---- a/net/x25/x25_in.c
-+++ b/net/x25/x25_in.c
-@@ -247,7 +247,7 @@ static int x25_state3_machine(struct sock *sk, struct sk_buff *skb, int frametyp
- 					break;
- 				}
- 				if (atomic_read(&sk->sk_rmem_alloc) >
--				    (sk->sk_rcvbuf / 2))
-+				    (sk->sk_rcvbuf >> 1))
- 					x25->condition |= X25_COND_OWN_RX_BUSY;
- 			}
- 			/*
-diff --git a/net/x25/x25_proc.c b/net/x25/x25_proc.c
-index 7d55e50..78b0534 100644
---- a/net/x25/x25_proc.c
-+++ b/net/x25/x25_proc.c
-@@ -41,6 +41,7 @@ found:
+ 	struct ax25_cb *ax25;
+ 	struct hlist_node *node;
+@@ -1886,6 +1887,7 @@ static void *ax25_info_next(struct seq_file *seq, void *v, loff_t *pos)
  }
  
- static void *x25_seq_route_start(struct seq_file *seq, loff_t *pos)
-+	__acquires(x25_route_list_lock)
+ static void ax25_info_stop(struct seq_file *seq, void *v)
++	__releases(ax25_list_lock)
  {
- 	loff_t l = *pos;
- 
-@@ -70,6 +71,7 @@ out:
+ 	spin_unlock_bh(&ax25_list_lock);
  }
+diff --git a/net/ax25/ax25_ds_timer.c b/net/ax25/ax25_ds_timer.c
+index 4f44185..c4e3b02 100644
+--- a/net/ax25/ax25_ds_timer.c
++++ b/net/ax25/ax25_ds_timer.c
+@@ -130,7 +130,7 @@ void ax25_ds_heartbeat_expiry(ax25_cb *ax25)
+ 		 */
+ 		if (sk != NULL) {
+ 			if (atomic_read(&sk->sk_rmem_alloc) <
+-			    (sk->sk_rcvbuf / 2) &&
++			    (sk->sk_rcvbuf >> 1) &&
+ 			    (ax25->condition & AX25_COND_OWN_RX_BUSY)) {
+ 				ax25->condition &= ~AX25_COND_OWN_RX_BUSY;
+ 				ax25->condition &= ~AX25_COND_ACK_PENDING;
+diff --git a/net/ax25/ax25_route.c b/net/ax25/ax25_route.c
+index 9ecf6f1..38c7f30 100644
+--- a/net/ax25/ax25_route.c
++++ b/net/ax25/ax25_route.c
+@@ -249,6 +249,7 @@ int ax25_rt_ioctl(unsigned int cmd, void __user *arg)
+ #ifdef CONFIG_PROC_FS
  
- static void x25_seq_route_stop(struct seq_file *seq, void *v)
-+	__releases(x25_route_list_lock)
+ static void *ax25_rt_seq_start(struct seq_file *seq, loff_t *pos)
++	__acquires(ax25_route_lock)
  {
- 	read_unlock_bh(&x25_route_list_lock);
- }
-@@ -105,6 +107,7 @@ found:
+ 	struct ax25_route *ax25_rt;
+ 	int i = 1;
+@@ -274,6 +275,7 @@ static void *ax25_rt_seq_next(struct seq_file *seq, void *v, loff_t *pos)
  }
  
- static void *x25_seq_socket_start(struct seq_file *seq, loff_t *pos)
-+	__acquires(x25_list_lock)
+ static void ax25_rt_seq_stop(struct seq_file *seq, void *v)
++	__releases(ax25_route_lock)
  {
- 	loff_t l = *pos;
- 
-@@ -127,6 +130,7 @@ out:
+ 	read_unlock(&ax25_route_lock);
  }
+diff --git a/net/ax25/ax25_std_timer.c b/net/ax25/ax25_std_timer.c
+index f2f6918..96e4b92 100644
+--- a/net/ax25/ax25_std_timer.c
++++ b/net/ax25/ax25_std_timer.c
+@@ -32,7 +32,7 @@
  
- static void x25_seq_socket_stop(struct seq_file *seq, void *v)
-+	__releases(x25_list_lock)
+ void ax25_std_heartbeat_expiry(ax25_cb *ax25)
  {
- 	read_unlock_bh(&x25_list_lock);
- }
-@@ -183,6 +187,7 @@ found:
- }
+-	struct sock *sk=ax25->sk;
++	struct sock *sk = ax25->sk;
  
- static void *x25_seq_forward_start(struct seq_file *seq, loff_t *pos)
-+	__acquires(x25_forward_list_lock)
+ 	if (sk)
+ 		bh_lock_sock(sk);
+@@ -62,7 +62,7 @@ void ax25_std_heartbeat_expiry(ax25_cb *ax25)
+ 		 */
+ 		if (sk != NULL) {
+ 			if (atomic_read(&sk->sk_rmem_alloc) <
+-			    (sk->sk_rcvbuf / 2) &&
++			    (sk->sk_rcvbuf >> 1) &&
+ 			    (ax25->condition & AX25_COND_OWN_RX_BUSY)) {
+ 				ax25->condition &= ~AX25_COND_OWN_RX_BUSY;
+ 				ax25->condition &= ~AX25_COND_ACK_PENDING;
+diff --git a/net/ax25/ax25_uid.c b/net/ax25/ax25_uid.c
+index ce0b13d..5f4eb73 100644
+--- a/net/ax25/ax25_uid.c
++++ b/net/ax25/ax25_uid.c
+@@ -43,10 +43,10 @@
+  *	Callsign/UID mapper. This is in kernel space for security on multi-amateur machines.
+  */
+ 
+-HLIST_HEAD(ax25_uid_list);
++static HLIST_HEAD(ax25_uid_list);
+ static DEFINE_RWLOCK(ax25_uid_lock);
+ 
+-int ax25_uid_policy = 0;
++int ax25_uid_policy;
+ 
+ EXPORT_SYMBOL(ax25_uid_policy);
+ 
+@@ -144,6 +144,7 @@ int ax25_uid_ioctl(int cmd, struct sockaddr_ax25 *sax)
+ #ifdef CONFIG_PROC_FS
+ 
+ static void *ax25_uid_seq_start(struct seq_file *seq, loff_t *pos)
++	__acquires(ax25_uid_lock)
  {
- 	loff_t l = *pos;
- 
-@@ -213,6 +218,7 @@ out:
+ 	struct ax25_uid_assoc *pt;
+ 	struct hlist_node *node;
+@@ -167,6 +168,7 @@ static void *ax25_uid_seq_next(struct seq_file *seq, void *v, loff_t *pos)
  }
  
- static void x25_seq_forward_stop(struct seq_file *seq, void *v)
-+	__releases(x25_forward_list_lock)
+ static void ax25_uid_seq_stop(struct seq_file *seq, void *v)
++	__releases(ax25_uid_lock)
  {
- 	read_unlock_bh(&x25_forward_list_lock);
+ 	read_unlock(&ax25_uid_lock);
  }
-diff --git a/net/x25/x25_subr.c b/net/x25/x25_subr.c
-index 8d6220a..511a598 100644
---- a/net/x25/x25_subr.c
-+++ b/net/x25/x25_subr.c
-@@ -359,7 +359,7 @@ void x25_check_rbuf(struct sock *sk)
- {
- 	struct x25_sock *x25 = x25_sk(sk);
- 
--	if (atomic_read(&sk->sk_rmem_alloc) < (sk->sk_rcvbuf / 2) &&
-+	if (atomic_read(&sk->sk_rmem_alloc) < (sk->sk_rcvbuf >> 1) &&
- 	    (x25->condition & X25_COND_OWN_RX_BUSY)) {
- 		x25->condition &= ~X25_COND_OWN_RX_BUSY;
- 		x25->condition &= ~X25_COND_ACK_PENDING;
 
---------------080909060501010102040304--
+--------------020005060400020606030105--
