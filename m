@@ -1,62 +1,125 @@
-From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Subject: Re: Netperf TCP_RR(loopback) 10% regression in
-	2.6.24-rc6,	comparing with 2.6.22
-Date: Mon, 14 Jan 2008 17:38:36 +0800
-Message-ID: <1200303516.3151.30.camel@ymzhang>
-References: <1199871330.3298.132.camel@ymzhang>
-	 <1200043854.3265.24.camel@ymzhang>
-	 <Pine.LNX.4.64.0801141036400.31652@kivilampi-30.cs.helsinki.fi>
-	 <Pine.LNX.4.64.0801141118450.31652@kivilampi-30.cs.helsinki.fi>
+From: Joonwoo Park <joonwpark81@gmail.com>
+Subject: Re: [ipw3945-devel] [PATCH 2/5] iwlwifi: iwl3945 synchronize interruptand
+ tasklet for down iwlwifi
+Date: Mon, 14 Jan 2008 18:42:42 +0900
+Message-ID: <478B2E92.5090901@gmail.com>
+References: <11998765481610-git-send-email-joonwpark81@gmail.com>	 <D936D925018D154694D8A362EEB08920035CCD70@orsmsx416.amr.corp.intel.com>	 <b25c3fa70801101724he91d934y9db6636c68a32486@mail.gmail.com>	 <D936D925018D154694D8A362EEB0892003602E2D@orsmsx416.amr.corp.intel.com> <b25c3fa70801101838o7a71cc60h1c8b8a71624aeff9@mail.gmail.com> <478B1EBF.8030701@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Chatre, Reinette" <reinette.chatre@intel.com>,
+	linux-wireless@vger.kernel.org,
+	ipw3945-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org
+To: "Zhu, Yi" <yi.zhu@intel.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:19409 "EHLO
-	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753999AbYANJlD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 04:41:03 -0500
-In-Reply-To: <Pine.LNX.4.64.0801141118450.31652@kivilampi-30.cs.helsinki.fi>
+Received: from rv-out-0910.google.com ([209.85.198.184]:21313 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755172AbYANJmr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 04:42:47 -0500
+Received: by rv-out-0910.google.com with SMTP id k20so1716847rvb.1
+        for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 01:42:46 -0800 (PST)
+In-Reply-To: <478B1EBF.8030701@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-01-14 at 11:21 +0200, Ilpo J=E4rvinen wrote:
-> On Mon, 14 Jan 2008, Ilpo J=E4rvinen wrote:
->=20
-> > On Fri, 11 Jan 2008, Zhang, Yanmin wrote:
-> >=20
-> > > On Wed, 2008-01-09 at 17:35 +0800, Zhang, Yanmin wrote:=20
-> > > >=20
-> > > > As a matter of fact, 2.6.23 has about 6% regression and 2.6.24-=
-rc's
-> > > > regression is between 16%~11%.
-> > > >=20
-> > > > I tried to use bisect to locate the bad patch between 2.6.22 an=
-d 2.6.23-rc1,
-> > > > but the bisected kernel wasn't stable and went crazy.
-> >=20
-> > TCP work between that is very much non-existing.
->=20
-> I _really_ meant 2.6.22 - 2.6.23-rc1, not 2.6.24-rc1 in case you had =
-a=20
-> typo
-I did bisect 2.6.22 - 2.6.23-rc1. I also tested it on the latest 2.6.24=
--rc.
-
->  there which is not that uncommon while typing kernel versions... :-)
-Thanks. I will retry bisect and bind the server/client to the same logi=
-cal processor, where
-I hope the result is stable this time when bisecting.
-
-Manual testing showed there is still same or more regression if I bind =
-the
-processes on the same cpu.
+I'm so sorry for mangled patch.
+resending patch with preformat html from thunderbird.
 
 
-Thanks a lot!
+After disabling interrupts, it's possible irq & tasklet is pending or running
+This patch eleminates races for down iwlwifi.
 
--yanmin
+Since synchronize_irq can introduce iwl_irq_tasklet, tasklet_kill should be 
+called after doing synchronize_irq.
+To avoid races between iwl_synchronize_irq and iwl_irq_tasklet
+STATUS_INT_ENABLED flag is needed.
 
+Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
+---
+ drivers/net/wireless/iwlwifi/iwl3945-base.c |   33 ++++++++++++++++++++++-----
+ 1 files changed, 27 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+index 6e20725..f98cd4f 100644
+--- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
++++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+@@ -4405,6 +4405,14 @@ static void iwl_print_rx_config_cmd(struct iwl_rxon_cmd *rxon)
+ }
+ #endif
+ 
++static void iwl_synchronize_interrupts(struct iwl_priv *priv)
++{
++	synchronize_irq(priv->pci_dev->irq);
++	/* synchornize_irq introduces irq_tasklet,
++	 * tasklet_kill should be called after doing synchronize_irq */
++	tasklet_kill(&priv->irq_tasklet);
++}
++
+ static void iwl_enable_interrupts(struct iwl_priv *priv)
+ {
+ 	IWL_DEBUG_ISR("Enabling interrupts\n");
+@@ -4413,7 +4421,7 @@ static void iwl_enable_interrupts(struct iwl_priv *priv)
+ 	iwl_flush32(priv, CSR_INT_MASK);
+ }
+ 
+-static inline void iwl_disable_interrupts(struct iwl_priv *priv)
++static inline void __iwl_disable_interrupts(struct iwl_priv *priv)
+ {
+ 	clear_bit(STATUS_INT_ENABLED, &priv->status);
+ 
+@@ -4427,6 +4435,13 @@ static inline void iwl_disable_interrupts(struct iwl_priv *priv)
+ 	iwl_flush32(priv, CSR_INT);
+ 	iwl_write32(priv, CSR_FH_INT_STATUS, 0xffffffff);
+ 	iwl_flush32(priv, CSR_FH_INT_STATUS);
++}
++
++static inline void iwl_disable_interrupts(struct iwl_priv *priv)
++{
++	__iwl_disable_interrupts(priv);
++
++	iwl_synchronize_interrupts(priv);
+ 
+ 	IWL_DEBUG_ISR("Disabled interrupts\n");
+ }
+@@ -4708,7 +4723,8 @@ static void iwl_irq_tasklet(struct iwl_priv *priv)
+ 		IWL_ERROR("Microcode HW error detected.  Restarting.\n");
+ 
+ 		/* Tell the device to stop sending interrupts */
+-		iwl_disable_interrupts(priv);
++		__iwl_disable_interrupts(priv);
++		IWL_DEBUG_ISR("Disabled interrupts\n");
+ 
+ 		iwl_irq_handle_error(priv);
+ 
+@@ -4814,8 +4830,11 @@ static void iwl_irq_tasklet(struct iwl_priv *priv)
+ 		IWL_WARNING("   with FH_INT = 0x%08x\n", inta_fh);
+ 	}
+ 
+-	/* Re-enable all interrupts */
+-	iwl_enable_interrupts(priv);
++	/* To avoid race when device goes down,
++	 * it should be discarded to enable interrupts */
++	if (test_bit(STATUS_INT_ENABLED, &priv->status))
++		/* Re-enable all interrupts */
++		iwl_enable_interrupts(priv);
+ 
+ #ifdef CONFIG_IWLWIFI_DEBUG
+ 	if (iwl_debug_level & (IWL_DL_ISR)) {
+@@ -4876,8 +4895,10 @@ unplugged:
+ 	return IRQ_HANDLED;
+ 
+  none:
+-	/* re-enable interrupts here since we don't have anything to service. */
+-	iwl_enable_interrupts(priv);
++	if (test_bit(STATUS_INT_ENABLED, &priv->status))
++		/* re-enable interrupts here since we don't have anything
++		 * to service. */
++		iwl_enable_interrupts(priv);
+ 	spin_unlock(&priv->lock);
+ 	return IRQ_NONE;
+ }
+---
+
+Thanks,
+Joonwoo
 
