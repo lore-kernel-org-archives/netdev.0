@@ -1,88 +1,54 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [RFT] sky2: wake-on-lan configuration issues
-Date: Mon, 14 Jan 2008 10:14:39 -0800
-Message-ID: <20080114101439.72304b92@deepthought>
-References: <bug-9721-10286@http.bugzilla.kernel.org/>
-	<478A743C.9050405@yahoo.de>
-	<20080113125708.070b4843.akpm@linux-foundation.org>
-	<200801132227.59229.rjw@sisk.pl>
-	<478A965E.8070306@yahoo.de>
+From: Dzianis Kahanovich <mahatma@bspu.unibel.by>
+Subject: Re: [PATCH 2.6.23+] ingress classify to [nf]mark
+Date: Mon, 14 Jan 2008 20:20:17 -0200
+Message-ID: <478BE021.1070408@bspu.unibel.by>
+References: <47866C69.3080904@bspu.unibel.by>	 <1200001167.4443.38.camel@localhost>  <4787A663.4030204@bspu.unibel.by>	 <1200063541.4483.42.camel@localhost>  <4787D49E.6080906@bspu.unibel.by>	 <1200107027.4477.36.camel@localhost>  <4788FF45.702@bspu.unibel.by>	 <1200253484.4427.33.camel@localhost>  <478B8250.90602@bspu.unibel.by> <1200315372.4427.75.camel@localhost>
+Reply-To: mahatma@eu.by
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=KOI8-R; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-acpi@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: supersud501 <supersud501@yahoo.de>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <478A965E.8070306@yahoo.de>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hadi@cyberus.ca
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.bspu.unibel.by ([195.50.2.21]:53356 "EHLO
+	mail.bspu.unibel.by" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750733AbYANSU2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 13:20:28 -0500
+In-Reply-To: <1200315372.4427.75.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Please test this patch against Linus's current (approx 2.6.24-rc7-git5).
-Ignore Andrew's premature reversion attempt...
+jamal wrote:
 
-This patch disables config mode access after clearing PCI settings.
+May be I am mix in mind other code (multi-class loop/walking) and this code. I 
+am deprogramming... ;)
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+>> Sorry, I just change focus from existing "tc_index=..." to common behaviour ;)
+> 
+>> [...]
+>>> Please refer to what i said above; if what i said still doesnt make
+>>> sense i can create (the simple) patch.
+>> A bit vague... sorry...
+> 
+> I mean:
+> 
+> #ifdef CONFIG_NET_CLS_ACT
+> .... leave this part alone which already sets tc_index ...
+> #else
+> ...set tc_index and mark here ...
+> #endif
+> 
+> And when we have a metadata action - we remove setting of tc_index from
+> #ifdef CONFIG_NET_CLS_ACT
+> 
+> Did that make sense?
 
---- a/drivers/net/sky2.c	2008-01-14 09:44:22.000000000 -0800
-+++ b/drivers/net/sky2.c	2008-01-14 09:44:51.000000000 -0800
-@@ -621,6 +621,7 @@ static void sky2_phy_power(struct sky2_h
- 	static const u32 phy_power[] = { PCI_Y2_PHY1_POWD, PCI_Y2_PHY2_POWD };
- 	static const u32 coma_mode[] = { PCI_Y2_PHY1_COMA, PCI_Y2_PHY2_COMA };
- 
-+	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
- 	reg1 = sky2_pci_read32(hw, PCI_DEV_REG1);
- 	/* Turn on/off phy power saving */
- 	if (onoff)
-@@ -632,7 +633,8 @@ static void sky2_phy_power(struct sky2_h
- 		reg1 |= coma_mode[port];
- 
- 	sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
--	reg1 = sky2_pci_read32(hw, PCI_DEV_REG1);
-+	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
-+	sky2_pci_read32(hw, PCI_DEV_REG1);
- 
- 	udelay(100);
- }
-@@ -2426,6 +2428,7 @@ static void sky2_hw_intr(struct sky2_hw 
- 	if (status & (Y2_IS_MST_ERR | Y2_IS_IRQ_STAT)) {
- 		u16 pci_err;
- 
-+		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
- 		pci_err = sky2_pci_read16(hw, PCI_STATUS);
- 		if (net_ratelimit())
- 			dev_err(&pdev->dev, "PCI hardware error (0x%x)\n",
-@@ -2433,12 +2436,14 @@ static void sky2_hw_intr(struct sky2_hw 
- 
- 		sky2_pci_write16(hw, PCI_STATUS,
- 				      pci_err | PCI_STATUS_ERROR_BITS);
-+		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
- 	}
- 
- 	if (status & Y2_IS_PCI_EXP) {
- 		/* PCI-Express uncorrectable Error occurred */
- 		u32 err;
- 
-+		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
- 		err = sky2_read32(hw, Y2_CFG_AER + PCI_ERR_UNCOR_STATUS);
- 		sky2_write32(hw, Y2_CFG_AER + PCI_ERR_UNCOR_STATUS,
- 			     0xfffffffful);
-@@ -2446,6 +2451,7 @@ static void sky2_hw_intr(struct sky2_hw 
- 			dev_err(&pdev->dev, "PCI Express error (0x%x)\n", err);
- 
- 		sky2_read32(hw, Y2_CFG_AER + PCI_ERR_UNCOR_STATUS);
-+		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
- 	}
- 
- 	if (status & Y2_HWE_L1_MASK)
-@@ -2811,6 +2817,7 @@ static void sky2_reset(struct sky2_hw *h
- 	}
- 
- 	sky2_power_on(hw);
-+	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
- 
- 	for (i = 0; i < hw->ports; i++) {
- 		sky2_write8(hw, SK_REG(i, GMAC_LINK_CTRL), GMLC_RST_SET);
+After current "#endif" - may be.
+
+What "result" are with:
+1) no filters?
+2) 1 filter only, with "action continue"?
+
+-- 
+WBR,
+Denis Kaganovich,  mahatma@eu.by  http://mahatma.bspu.unibel.by
