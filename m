@@ -1,83 +1,104 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 5/5] forcedeth: multicast fix
-Date: Sun, 13 Jan 2008 16:03:04 -0500
-Message-ID: <478A7C88.6050908@nvidia.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [patch for 2.6.24? 1/1] bonding: locking fix
+Date: Mon, 14 Jan 2008 14:47:54 -0800
+Message-ID: <20080114144754.29a448ad.akpm@linux-foundation.org>
+References: <200801140904.m0E94vJd020425@imap1.linux-foundation.org>
+	<Pine.LNX.4.64.0801142313350.26034@bizon.gios.gov.pl>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020509090300000602050908"
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jeff@garzik.org,
+	shemminger@linux-foundation.org, Jay Vosburgh <fubar@us.ibm.com>,
+	netdev@vger.kernel.org
+To: Krzysztof Oledzki <olel@ans.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate02.nvidia.com ([216.228.112.143]:9365 "EHLO
-	HQEMGATE02.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753584AbYANWtD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 17:49:03 -0500
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:35157 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753645AbYANWtE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 17:49:04 -0500
+In-Reply-To: <Pine.LNX.4.64.0801142313350.26034@bizon.gios.gov.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------020509090300000602050908
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
 
-This patch fixes the case where no multicast addresses are requested to 
-be added to the multicast filter. The multicast mask must be set to all 
-1's instead of all 0's.
+(cc's added)
 
-Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+On Mon, 14 Jan 2008 23:14:25 +0100 (CET)
+Krzysztof Oledzki <olel@ans.pl> wrote:
+
+> 
+> 
+> On Mon, 14 Jan 2008, akpm@linux-foundation.org wrote:
+> 
+> > From: Andrew Morton <akpm@linux-foundation.org>
+> >
+> > Remove stray rtnl_unlock().
+> >
+> > Addresses http://bugzilla.kernel.org/show_bug.cgi?id=9542
+> >
+> > Cc: "David S. Miller" <davem@davemloft.net>
+> > Cc: Stephen Hemminger <shemminger@linux-foundation.org>
+> > Cc: Krzysztof Oledzki <olel@ans.pl>
+> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> > ---
+> >
+> > drivers/net/bonding/bond_sysfs.c |    2 --
+> > 1 file changed, 2 deletions(-)
+> >
+> > diff -puN drivers/net/bonding/bond_sysfs.c~bonding-locking-fix drivers/net/bonding/bond_sysfs.c
+> > --- a/drivers/net/bonding/bond_sysfs.c~bonding-locking-fix
+> > +++ a/drivers/net/bonding/bond_sysfs.c
+> > @@ -1111,8 +1111,6 @@ static ssize_t bonding_store_primary(str
+> > out:
+> > 	write_unlock_bh(&bond->lock);
+> >
+> > -	rtnl_unlock();
+> > -
+> > 	return count;
+> > }
+> > static DEVICE_ATTR(primary, S_IRUGO | S_IWUSR, bonding_show_primary, bonding_store_primary);
+> > _
+> >
+> 
+> http://thread.gmane.org/gmane.linux.network/82566/focus=83142
+> 
+
+That's bond_lock.
+
+This patch (below) addresses what appears to me to be an obvious
+imbalance in rtnl_lock.
+
+I don't care how it's fixed, really.  Someone please fix it?
 
 
---------------020509090300000602050908
-Content-Type: text/plain;
- name="patch-forcedeth-multicast"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-multicast"
 
---- old/drivers/net/forcedeth.c	2008-01-13 15:15:22.000000000 -0500
-+++ new/drivers/net/forcedeth.c	2008-01-13 15:24:22.000000000 -0500
-@@ -277,7 +277,9 @@
- #define NVREG_MCASTADDRA_FORCE	0x01
- 	NvRegMulticastAddrB = 0xB4,
- 	NvRegMulticastMaskA = 0xB8,
-+#define NVREG_MCASTMASKA_NONE		0xffffffff
- 	NvRegMulticastMaskB = 0xBC,
-+#define NVREG_MCASTMASKB_NONE		0xffff
+
+From: Andrew Morton <akpm@linux-foundation.org>
+
+Remove stray rtnl_unlock().
+
+Addresses http://bugzilla.kernel.org/show_bug.cgi?id=9542
+
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Krzysztof Oledzki <olel@ans.pl>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ drivers/net/bonding/bond_sysfs.c |    2 --
+ 1 file changed, 2 deletions(-)
+
+diff -puN drivers/net/bonding/bond_sysfs.c~bonding-locking-fix drivers/net/bonding/bond_sysfs.c
+--- a/drivers/net/bonding/bond_sysfs.c~bonding-locking-fix
++++ a/drivers/net/bonding/bond_sysfs.c
+@@ -1111,8 +1111,6 @@ static ssize_t bonding_store_primary(str
+ out:
+ 	write_unlock_bh(&bond->lock);
  
- 	NvRegPhyInterface = 0xC0,
- #define PHY_RGMII		0x10000000
-@@ -2693,6 +2695,9 @@
- 			addr[1] = alwaysOn[1];
- 			mask[0] = alwaysOn[0] | alwaysOff[0];
- 			mask[1] = alwaysOn[1] | alwaysOff[1];
-+		} else {
-+			mask[0] = NVREG_MCASTMASKA_NONE;
-+			mask[1] = NVREG_MCASTMASKB_NONE;
- 		}
- 	}
- 	addr[0] |= NVREG_MCASTADDRA_FORCE;
-@@ -4803,8 +4808,8 @@
- 		nv_mac_reset(dev);
- 	writel(NVREG_MCASTADDRA_FORCE, base + NvRegMulticastAddrA);
- 	writel(0, base + NvRegMulticastAddrB);
--	writel(0, base + NvRegMulticastMaskA);
--	writel(0, base + NvRegMulticastMaskB);
-+	writel(NVREG_MCASTMASKA_NONE, base + NvRegMulticastMaskA);
-+	writel(NVREG_MCASTMASKB_NONE, base + NvRegMulticastMaskB);
- 	writel(0, base + NvRegPacketFilterFlags);
- 
- 	writel(0, base + NvRegTransmitterControl);
-@@ -4898,8 +4903,8 @@
- 	spin_lock_irq(&np->lock);
- 	writel(NVREG_MCASTADDRA_FORCE, base + NvRegMulticastAddrA);
- 	writel(0, base + NvRegMulticastAddrB);
--	writel(0, base + NvRegMulticastMaskA);
--	writel(0, base + NvRegMulticastMaskB);
-+	writel(NVREG_MCASTMASKA_NONE, base + NvRegMulticastMaskA);
-+	writel(NVREG_MCASTMASKB_NONE, base + NvRegMulticastMaskB);
- 	writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
- 	/* One manual link speed update: Interrupts are enabled, future link
- 	 * speed changes cause interrupts and are handled by nv_link_irq().
+-	rtnl_unlock();
+-
+ 	return count;
+ }
+ static DEVICE_ATTR(primary, S_IRUGO | S_IWUSR, bonding_show_primary, bonding_store_primary);
+_
 
---------------020509090300000602050908--
