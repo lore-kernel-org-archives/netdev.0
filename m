@@ -1,38 +1,45 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: Why are network counters only updated once a second?
-Date: Mon, 14 Jan 2008 14:31:49 -0800
-Message-ID: <1200349909.15122.31.camel@dell>
-References: <478BC662.6030004@hp.com>
+From: "=?ISO-8859-1?Q?Oliver_Pinter_(Pint=E9r_Oliv=E9r)?="
+	<oliver.pntr@gmail.com>
+Subject: Re: [BUG] skge 0000:02:05: read data parity error
+Date: Mon, 14 Jan 2008 22:44:49 +0100
+Message-ID: <6101e8c40801141344r509bef17udf50e18e1569b4bc@mail.gmail.com>
+References: <6101e8c40801141157j1ce7d3f0if2e4eb2344b6c844@mail.gmail.com>
+	 <20080114125200.28cb4c69@deepthought>
+	 <20080114210105.GG9847@does.not.exist>
+	 <6101e8c40801141331n3cb66c04pc74ff07faf04c8fd@mail.gmail.com>
+	 <20080114213802.GA7860@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev" <netdev@vger.kernel.org>
-To: "Mark Seger" <Mark.Seger@hp.com>
+Cc: "Adrian Bunk" <bunk@kernel.org>,
+	"Stephen Hemminger" <shemminger@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Greg KH" <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4085 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755821AbYANVpG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jan 2008 16:45:06 -0500
-In-Reply-To: <478BC662.6030004@hp.com>
+Received: from fg-out-1718.google.com ([72.14.220.155]:7295 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756196AbYANVov (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 16:44:51 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so2407204fga.17
+        for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 13:44:50 -0800 (PST)
+In-Reply-To: <20080114213802.GA7860@suse.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-01-14 at 15:30 -0500, Mark Seger wrote:
+On 1/14/08, Greg KH <gregkh@suse.de> wrote:
+> On Mon, Jan 14, 2008 at 10:31:03PM +0100, Oliver Pinter (Pint?r Oliv?r)
+> wrote:
+> > I think, it is a potential security breakpoint, when applications with
+> > root permission its read, then a machine is freezed, or only i thinK
+> > it's?
+>
+> I'm sorry, I don't quite understand what you are trying to say here.
+>
 
-> Eventually the frequency became better aligned at a 1 second interval 
-> because now the number look better, but the problem I see is that when 
-> the sampling interval is very close to the monitoring interval you still 
-> get periodic incorrect data.  Furthermore, you now need to know which 
-> way the counters are updated before you pick a sampling interval!  But 
-> the real point is if anyone ever wants to do finer grained monitoring, 
-> say every 1/2 or even tenth of a second, they can't because the counters 
-> won't change between samples.  Has this ever been discussed before?
+huh, sorry, it's typo and i'm not learn english,  only myself ... and
+my spelling is very bad, sorry
 
-On most Broadcom NICs, the statistics counters are periodically DMA'ed
-from the chip and the default interval is roughly 1 second.  On most of
-these chips, you can override this interval using ethtool -C eth0.
-
-As I mentioned earlier, the 5706/5708 has a bug in the statistics DMA
-engine that can corrupt counters from time to time.  The workaround is
-effective, but you now lose the ability to control the DMA interval.
-
+-- 
+Thanks,
+Oliver
