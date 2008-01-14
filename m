@@ -1,118 +1,76 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [RFC PATCH 8/8] [PKTGEN]: uninline getCurUs
-Date: Mon, 14 Jan 2008 10:33:34 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0801140952100.31652@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0801121420220.19333@kivilampi-30.cs.helsinki.fi>
- <20080112.202414.192104180.davem@davemloft.net>
- <Pine.LNX.4.64.0801140920580.31652@kivilampi-30.cs.helsinki.fi>
- <20080113.235113.170762359.davem@davemloft.net>
+From: "Andy Johnson" <johnsonzjo@gmail.com>
+Subject: Re: Netconf at conf.au 2008?
+Date: Mon, 14 Jan 2008 10:34:44 +0200
+Message-ID: <147a89290801140034r77233dcdu4f49786286ca327d@mail.gmail.com>
+References: <147a89290801112252gfcfaf11h1d25ee3c66e75881@mail.gmail.com>
+	 <1200236025.6171.79.camel@andromache>
+	 <20080113.180802.243708508.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-921463403-1200299614=:31652"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: gdt@gdt.id.au, netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:52367 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752664AbYANIdi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 03:33:38 -0500
-In-Reply-To: <20080113.235113.170762359.davem@davemloft.net>
+Received: from fg-out-1718.google.com ([72.14.220.159]:20358 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752709AbYANIer (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 03:34:47 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so2182095fga.17
+        for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 00:34:44 -0800 (PST)
+In-Reply-To: <20080113.180802.243708508.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hello,
+Sorry to hear that; I believe many would want to attend netconf in case
+it was a part of LCA08. I must add that I followed some of the presentations
+slides of netconf from recent years and it seemed very interesting and
+very advanced.
+I also watched the "Linux IPSEC Scaling" video (available on the internet)
+from  LCA 2007 and found it really interesting . (I don't think that there is
+any video from netconf conferences from recent years).
+I wish that in LCA09 things will be different.
 
----696243703-921463403-1200299614=:31652
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
 
-On Sun, 13 Jan 2008, David Miller wrote:
+(And of course I did not mean any netconf stuff from martin krafft,
+which I already knew before)
+Regards,
+Andy
 
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Mon, 14 Jan 2008 09:43:08 +0200 (EET)
-> 
-> > I'd prefer sending them as iso-8859-1 compliant (and I guess you are able 
-> > to test your fix-to-utf-8 machinery with it as well :-)), as it would also 
-> > make my mails compatible with other people's git apply tools you're not 
-> > using (otherwise I'd probably forget to change it occassionally when 
-> > interacting with others than you).
-> 
-> For now either way is fine with me.  If the situation changes I'll
-> let you know.
 
-Ok, I'll remain in iso-8859-1, it's something that is known to work from 
-my end. Thanks anyway for fixing it, wasn't any big deal for me at any 
-point of time but people started asking me privately to correct it which 
-I of course couldn't... :-)
 
-> I'm surprised git-send-email can't get it purely utf8 correctly.
 
-The problem is that my system is ISO natively, so git-send-email might 
-encode a ISO native .patch file's content while sending, which in this 
-case was intentionally already utf-8.
-
-It might surprise you but it wasn't a long time ago when git-send-email 
-wouldn't care less e.g. about header encoding and I got rejects from 
-netdev due to my name which wasn't encoded properly, I've 1.5.0.6 
-currently and it seemed still fail to encode Cc addresses it adds from 
-signed-offs unless I explicitly ask for it to not do that (I explicitly 
-ask for especific, encoded, from header anyway because it was broken at 
-some point of time and my sending template is copy-paste originating
-from that time). There was some recent fixes in the git's logs regarding 
-that encoding, so I intend to check if a later g-s-e is more able and if 
-it isn't I'll report it to git folks.
-
-> I wonder if there is some issue with how it gets your name
-> string for the commit author etc.
-
-I've had it working well since the encoding header got relatively recently 
-added (wasn't available at early dawn of git era), before that it was just 
-a mess locally. Funny enough, you were able to magically mangle my emails 
-to utf-8'ed commits nicely back then so I got a "fixed" commit back after 
-an RTT :-).
-
-> I wonder if getting it into your global GIT config file in proper
-> UTF8 encoding would fix things.
+On Jan 14, 2008 4:08 AM, David Miller <davem@davemloft.net> wrote:
+> From: Glen Turner <gdt@gdt.id.au>
+> Date: Mon, 14 Jan 2008 01:23:45 +1030
 >
-> Put something like this into ~/.gitconfig
-> 
-> --------------------
-> [user]
-> 	name = Ilpo Järvinen
-> 	email = ilpo.jarvinen@helsinki.fi
-> --------------------
-
-I have this. In addition I have this (required to make my local system 
-consistent):
-
-[i18n]
-        commitencoding = ISO-8859-1
-
-The problem was just that the API (or better, ABI) between us 
-wasn't properly working :-)). While Herbert was working as the
-replacement-Dave in November, correct commit entries were created,
-so git has been working fine (I guess he used git applying tools
-instead of handmade scripts and they handle email correclt based
-on it's encoding).
-
-I tried logOutputEncoding = utf-8 in the last patch sets I sent (now 
-could again remove it) but git-send-email problem appeared with it
-because the system is ISO natively.
-
-> The GIT maintainer is Finnish which makes this situation even
-> more perplexing to me, you might want to discuss it with him :-)
-
-Junio? Never heard that a Finnish name... ;-) Perhaps
-git-send-email wasn't written by that Finnish guy... :-) 
-...Besides, that Finnish git aintainer doesn't have any funny
-characters in his name... ;-)
-
-Thanks anyway for the tips & all, I think we have it now working
-and I can return to inlines and rexmit_skb_hint things & other TCP
-stuff rather than this hinderance. I've some interesting results
-from net header inlines checks I ran overnight :-).
-
--- 
- i.
----696243703-921463403-1200299614=:31652--
+> >
+> > On Sat, 2008-01-12 at 08:52 +0200, Andy Johnson wrote:
+> > > I saw somewhere (maybe in this mailing list a while ago) that there
+> > > might be a  Linux Kernel Developers' Netconf conference  at conf.au
+> > > 2008.
+> > >
+> > > Does anyone here know if  such a thing is planned ?
+> >
+> > I don't know.
+>
+> We wanted to do a netconf in Sydney right before LCA08, but an unnamed
+> company with a multi billion dollar market capitalization that uses
+> Linux networking technology on thousands upon thounsands of their
+> servers didn't want to pony up for some funding to cover airfare and
+> hotel expenses for several of the attendees.  They wanted to provide
+> nothing more than a conference room and then get their names in bright
+> lights so they could say they "sponsored" netconf.
+>
+> So, no, there will be no netconf at LCA08.  But many of us will be
+> there anyways and chatting in any event :-)
+>
+> Thanks for the offer for the network pipe.  I'm not interested
+> personally as I like to relax during the conference not hack actively
+> on anything too seriously.  I'm there to present, keep up semi
+> regularly with my email, and chat with folks.
+>
+> Now, if this were available outside of the conference so that we could
+> play with it remotely from where we work, that's more interesting.
+>
