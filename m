@@ -1,145 +1,55 @@
-From: Joonwoo Park <joonwpark81-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [ipw3945-devel] [PATCH 2/5] iwlwifi: iwl3945 synchronize interruptand
- tasklet for down iwlwifi
-Date: Mon, 14 Jan 2008 17:35:11 +0900
-Message-ID: <478B1EBF.8030701@gmail.com>
-References: <11998765481610-git-send-email-joonwpark81@gmail.com>	 <D936D925018D154694D8A362EEB08920035CCD70@orsmsx416.amr.corp.intel.com>	 <b25c3fa70801101724he91d934y9db6636c68a32486@mail.gmail.com>	 <D936D925018D154694D8A362EEB0892003602E2D@orsmsx416.amr.corp.intel.com> <b25c3fa70801101838o7a71cc60h1c8b8a71624aeff9@mail.gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Netperf TCP_RR(loopback) 10% regression in 2.6.24-rc6,	comparing
+ with 2.6.22
+Date: Mon, 14 Jan 2008 10:44:40 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0801141036400.31652@kivilampi-30.cs.helsinki.fi>
+References: <1199871330.3298.132.camel@ymzhang> <1200043854.3265.24.camel@ymzhang>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Chatre, Reinette" <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Zhu, Yi" <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <b25c3fa70801101838o7a71cc60h1c8b8a71624aeff9-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:58335 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751417AbYANIom (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 03:44:42 -0500
+In-Reply-To: <1200043854.3265.24.camel@ymzhang>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joonwoo Park wrote:
-> 2008/1/11, Chatre, Reinette <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>:
->> On Thursday, January 10, 2008 5:25 PM, Joonwoo Park  wrote:
+On Fri, 11 Jan 2008, Zhang, Yanmin wrote:
+
+> On Wed, 2008-01-09 at 17:35 +0800, Zhang, Yanmin wrote: 
+> > The regression is:
+> > 1)stoakley with 2 qual-core processors: 11%;
+> > 2)Tulsa with 4 dual-core(+hyperThread) processors:13%;
+> I have new update on this issue and also cc to netdev maillist.
+> Thank David Miller for pointing me the netdev maillist.
 > 
->> What modification are you considering?
-> 
-> Roughly, I'm considering make synchronize_irq() be moved into
-> iwl_disable_interrupts() and fix iwl_irq_tasket not to call
-> iwl_disable_interrupts with irq disabled.
-> For now iwl_irq_tasklet calls iwl_disable_interrupts() with local irq disabled.
-> like this:
-> 
-> static void iwl_irq_tasklet(struct iwl_priv *priv)
-> {
->         ...
->         spin_lock_irqsave(&priv->lock, flags);
-> 
->         ...
->         /* Now service all interrupt bits discovered above. */
->         if (inta & CSR_INT_BIT_HW_ERR) {
->                 IWL_ERROR("Microcode HW error detected.  Restarting.\n");
-> 
->                 /* Tell the device to stop sending interrupts */
->                 iwl_disable_interrupts(priv);
->                 ...
->                 spin_unlock_irqrestore(&priv->lock, flags);
->                 return;
->         }
-> 
-> 
+> > 
+> > The test command is:
+> > #sudo taskset -c 7 ./netserver
+> > #sudo taskset -c 0 ./netperf -t TCP_RR -l 60 -H 127.0.0.1 -i 50,3 -I 99,5 -- -r 1,1
+> > 
+> > As a matter of fact, 2.6.23 has about 6% regression and 2.6.24-rc's
+> > regression is between 16%~11%.
+> > 
+> > I tried to use bisect to locate the bad patch between 2.6.22 and 2.6.23-rc1,
+> > but the bisected kernel wasn't stable and went crazy.
 
-After disabling interrupts, it's possible irq & tasklet is pending or running
-This patch eleminates races for down iwlwifi
+TCP work between that is very much non-existing.
 
-Since synchronize_irq can introduce iwl_irq_tasklet, tasklet_kill
-should be called after doing synchronize_irq
-To avoid races between iwl_synchronize_irq and iwl_irq_tasklet STATUS_INT_ENABLED
-flag is needed.
+Using git-reset's to select a nearby merge point instead of default 
+commit where bisection lands might be help in case the bisected kernel 
+breaks.
 
-Signed-off-by: Joonwoo Park <joonwpark81-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
-   drivers/net/wireless/iwlwifi/iwl3945-base.c |   33 ++++++++++++++++++++++-----
-   1 files changed, 27 insertions(+), 6 deletions(-)
+Also, limiting bisection under a subsystem might reduce probability of 
+brokeness (might at least be able to narrow it down quite a lot), e.g.
 
-diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-index 6e20725..f98cd4f 100644
---- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
-+++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-@@ -4405,6 +4405,14 @@ static void iwl_print_rx_config_cmd(struct iwl_rxon_cmd *rxon)
-   }
-   #endif
+git bisect start net/
 
-+static void iwl_synchronize_interrupts(struct iwl_priv *priv)
-+{
-+	synchronize_irq(priv->pci_dev->irq);
-+	/* synchornize_irq introduces irq_tasklet,
-+	 * tasklet_kill should be called after doing synchronize_irq */
-+	tasklet_kill(&priv->irq_tasklet);
-+}
-+
-   static void iwl_enable_interrupts(struct iwl_priv *priv)
-   {
-   	IWL_DEBUG_ISR("Enabling interrupts\n");
-@@ -4413,7 +4421,7 @@ static void iwl_enable_interrupts(struct iwl_priv *priv)
-   	iwl_flush32(priv, CSR_INT_MASK);
-   }
 
--static inline void iwl_disable_interrupts(struct iwl_priv *priv)
-+static inline void __iwl_disable_interrupts(struct iwl_priv *priv)
-   {
-   	clear_bit(STATUS_INT_ENABLED, &priv->status);
-
-@@ -4427,6 +4435,13 @@ static inline void iwl_disable_interrupts(struct iwl_priv *priv)
-   	iwl_flush32(priv, CSR_INT);
-   	iwl_write32(priv, CSR_FH_INT_STATUS, 0xffffffff);
-   	iwl_flush32(priv, CSR_FH_INT_STATUS);
-+}
-+
-+static inline void iwl_disable_interrupts(struct iwl_priv *priv)
-+{
-+	__iwl_disable_interrupts(priv);
-+
-+	iwl_synchronize_interrupts(priv);
-
-   	IWL_DEBUG_ISR("Disabled interrupts\n");
-   }
-@@ -4708,7 +4723,8 @@ static void iwl_irq_tasklet(struct iwl_priv *priv)
-   		IWL_ERROR("Microcode HW error detected.  Restarting.\n");
-
-   		/* Tell the device to stop sending interrupts */
--		iwl_disable_interrupts(priv);
-+		__iwl_disable_interrupts(priv);
-+		IWL_DEBUG_ISR("Disabled interrupts\n");
-
-   		iwl_irq_handle_error(priv);
-
-@@ -4814,8 +4830,11 @@ static void iwl_irq_tasklet(struct iwl_priv *priv)
-   		IWL_WARNING("   with FH_INT = 0x%08x\n", inta_fh);
-   	}
-
--	/* Re-enable all interrupts */
--	iwl_enable_interrupts(priv);
-+	/* To avoid race when device goes down,
-+	 * it should be discarded to enable interrupts */
-+	if (test_bit(STATUS_INT_ENABLED, &priv->status))
-+		/* Re-enable all interrupts */
-+		iwl_enable_interrupts(priv);
-
-   #ifdef CONFIG_IWLWIFI_DEBUG
-   	if (iwl_debug_level & (IWL_DL_ISR)) {
-@@ -4876,8 +4895,10 @@ unplugged:
-   	return IRQ_HANDLED;
-
-    none:
--	/* re-enable interrupts here since we don't have anything to service. */
--	iwl_enable_interrupts(priv);
-+	if (test_bit(STATUS_INT_ENABLED, &priv->status))
-+		/* re-enable interrupts here since we don't have anything
-+		 * to service. */
-+		iwl_enable_interrupts(priv);
-   	spin_unlock(&priv->lock);
-   	return IRQ_NONE;
-   }
----
-
-Thanks,
-Joonwoo
+-- 
+ i.
