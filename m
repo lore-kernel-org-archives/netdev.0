@@ -1,126 +1,82 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9721] New: wake on lan fails with sky2 module
-Date: Mon, 14 Jan 2008 08:39:26 -0800
-Message-ID: <20080114083926.03232343@deepthought>
-References: <bug-9721-10286@http.bugzilla.kernel.org/>
-	<200801112216.08992.rjw@sisk.pl>
-	<4787EB69.9060900@yahoo.de>
-	<200801120010.22440.rjw@sisk.pl>
-	<478A1083.5060406@yahoo.de>
-	<478A2976.9000204@yahoo.de>
-	<20080113112712.e93f07a4.akpm@linux-foundation.org>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: questions on NAPI processing latency and dropped network packets
+Date: Mon, 14 Jan 2008 17:56:28 +0100
+Message-ID: <478B943C.7080009@cosmosbay.com>
+References: <478654C3.60806@nortel.com> <2c0942db0801112137k3f3f885ek212d5cbaecb7fea0@mail.gmail.com> <478B8473.6080506@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: supersud501 <supersud501@yahoo.de>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org,
-	linux-acpi@vger.kernel.org, bugme-daemon@bugzilla.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <20080113112712.e93f07a4.akpm@linux-foundation.org>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ray Lee <ray-lk@madrabbit.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Chris Friesen <cfriesen@nortel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp19.orange.fr ([80.12.242.18]:3012 "EHLO smtp19.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751531AbYANQ4g convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 11:56:36 -0500
+Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf1927.orange.fr (SMTP Server) with ESMTP id 19CFC1C00126
+	for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 17:56:33 +0100 (CET)
+In-Reply-To: <478B8473.6080506@nortel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 13 Jan 2008 11:27:12 -0800
-Andrew Morton <akpm@linux-foundation.org> wrote:
+Chris Friesen a =C3=A9crit :
+> Ray Lee wrote:
+>> On Jan 10, 2008 9:24 AM, Chris Friesen <cfriesen@nortel.com> wrote:
+>
+>>> After a recent userspace app change, we've started seeing packets b=
+eing
+>>> dropped by the ethernet hardware (e1000, NAPI is enabled).  The
+>>> error/dropped/fifo counts are going up in ethtool:
+>
+>> Can you reproduce it with a simple userspace cpu hog? (Two, really,
+>> one per cpu.)
+>> Can you reproduce it with the newer e1000?
+>
+> Hmm...good questions and I haven't checked either.  The first one is=20
+> relatively straightforward.  The second is a bit trickier...last time=
+=20
+> I tried the latest e1000 driver the card wouldn't boot (we use netboo=
+t).
+>
+>> Can you reproduce it with git head?
+>
+> Unfortunately, I don't think I'll be able to try this.  We require=20
+> kernel mods for our userspace to run, and I doubt I'd be able to get=20
+> the time to port all the changes forward to git head.
+>
+>> If the answer to the first one is yes, the last no, then bisect unti=
+l
+>> you get a kernel that doesn't show the problem. Backport the fix,
+>> unless the fix happens to be CFS. However, I suspect that your
+>> userpace app is just starving the system from time to time.
+>
+> It's conceivable that userspace is starving the kernel, but we have d=
+o=20
+> about 45% idle on one cpu, and 7-10% idle on the other.
+>
+> We also have an odd situation where on an initial test run after=20
+> bootup we have 18-24% idle on cpu1, but resetting the test tool drops=
+=20
+> that to the 7-10% I mentioned above.
+>
+> Based on profiling and instrumentation it seems like the cost of=20
+> sctp_endpoint_lookup_assoc() more than triples, which means that the=20
+> amount of time that bottom halves are disabled in that function also=20
+> triples.
+Any idea of the size of sctp hash size you have ?
+(your dmesg probably includes a message starting with SCTP: Hash tables=
+=20
+configured...=20
 
-> On Sun, 13 Jan 2008 16:08:38 +0100 supersud501 <supersud501@yahoo.de> wrote:
-> 
-> > 
-> > 
-> > supersud501 wrote:
-> > > 
-> > > 
-> > > Rafael J. Wysocki wrote:
-> > > 
-> > >>
-> > >> Since it seems to be 100% reproducible, it would be very helpful if 
-> > >> you could
-> > >> use git-bisect to identify the offending commit.
-> > >>
-> > > 
-> > > allright, bisect found the offending commit, here's what i've done:
-> > > 
-> > > first i started bisect with the following command (since i assumed it is 
-> > > a net-driver problem):
-> > > 
-> > > git-bisect start 'v2.6.24-rc6' 'v2.6.23' '--' 'drivers/net/'
-> > > 
-> > > after building many kernels and saying good/bad if wol worked/didn't 
-> > > work etc. it identified the following commit:
-> > > 
-> > > # bad: [ac93a3946b676025fa55356180e8321639744b31] sky2: enable PCI 
-> > > config writes
-> > > 
-> > > and refs/bisect/bad gives:
-> > > 
-> > > 14:16:53 /usr/src/linux-2.6/.git # cat refs/bisect/bad
-> > > ac93a3946b676025fa55356180e8321639744b31
-> > > 
-> > > 
-> > > need some more info?
-> > > 
-> > 
-> > i just checked it: commented out the passage of the commit in kernel 
-> > 2.6.24-rc7-git4 and compiled it: wol WORKS. so this one line is causing 
-> > my wol-disturbance...
-> > 
-> > 
-> 
-> So simply reverting this:
-> 
-> commit ac93a3946b676025fa55356180e8321639744b31
-> Author: Stephen Hemminger <shemminger@linux-foundation.org>
-> Date:   Mon Nov 5 15:52:08 2007 -0800
-> 
->     sky2: enable PCI config writes
->     
->     On some boards, PCI configuration space access is turned off by default.
->     The 2.6.24 driver doesn't turn it on, and should have.
->     
->     Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
->     Signed-off-by: Jeff Garzik <jeff@garzik.org>
-> 
-> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> index c27c7d6..4f41a94 100644
-> --- a/drivers/net/sky2.c
-> +++ b/drivers/net/sky2.c
-> @@ -2791,6 +2791,9 @@ static void sky2_reset(struct sky2_hw *hw)
->  	sky2_write8(hw, B0_CTST, CS_RST_SET);
->  	sky2_write8(hw, B0_CTST, CS_RST_CLR);
->  
-> +	/* allow writes to PCI config */
-> +	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
-> +
->  	/* clear PCI errors, if any */
->  	pci_read_config_word(pdev, PCI_STATUS, &status);
->  	status |= PCI_STATUS_ERROR_BITS;
-> 
-> fixes this regression?
-> 
-> If so, we should revert that change.
-> 
-> > but i noticed another "bug" on 2.6.24-rc7-git with sky2: dmesg shows a 
-> > lot of lines every 5 seconds:
-> > 
-> > [...]
-> > [  357.400462] sky2 0000:02:00.0: error interrupt status=0xc0000000
-> > [  362.442039] printk: 41 messages suppressed.
-> > [  362.442043] sky2 0000:02:00.0: error interrupt status=0x80000000
-> > [  367.439151] printk: 18 messages suppressed.
-> > [  367.439156] sky2 0000:02:00.0: error interrupt status=0x80000000
-> > [  372.436267] printk: 30 messages suppressed.
-> > [  372.436271] sky2 0000:02:00.0: error interrupt status=0x80000000
-> > [  377.350236] printk: 19 messages suppressed.
-> > [...]
-> > 
-> > since i do not notice any errors (yet) i'll wait till next rc, maybe it 
-> > will be gone then...
-> 
-> That's not good.  is this new behaviour?
-> 
+How many concurrent sctp sockets are handled ?
 
-No, reverting that change will break other systems (including mine).
+Maybe sctp_assoc_hashfn() is too weak for your use, and some chains are=
+=20
+*really* long.
 
--- 
-Stephen Hemminger <stephen.hemminger@vyatta.com>
+
+
+
