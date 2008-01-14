@@ -1,82 +1,72 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: questions on NAPI processing latency and dropped network packets
-Date: Mon, 14 Jan 2008 17:56:28 +0100
-Message-ID: <478B943C.7080009@cosmosbay.com>
-References: <478654C3.60806@nortel.com> <2c0942db0801112137k3f3f885ek212d5cbaecb7fea0@mail.gmail.com> <478B8473.6080506@nortel.com>
+From: Mark Seger <Mark.Seger@hp.com>
+Subject: occasionally corrupted network stats in /proc/net/dev
+Date: Mon, 14 Jan 2008 12:20:38 -0500
+Message-ID: <478B99E6.2050800@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ray Lee <ray-lk@madrabbit.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chris Friesen <cfriesen@nortel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp19.orange.fr ([80.12.242.18]:3012 "EHLO smtp19.orange.fr"
+Received: from palrel12.hp.com ([156.153.255.237]:53922 "EHLO palrel12.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751531AbYANQ4g convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 11:56:36 -0500
-Received: from me-wanadoo.net (localhost [127.0.0.1])
-	by mwinf1927.orange.fr (SMTP Server) with ESMTP id 19CFC1C00126
-	for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 17:56:33 +0100 (CET)
-In-Reply-To: <478B8473.6080506@nortel.com>
+	id S1754188AbYANRVg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2008 12:21:36 -0500
+Received: from seeaxp.zko.hp.com (seeaxp.zko.hp.com [16.116.23.219])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by palrel12.hp.com (Postfix) with ESMTP id 5A34534808
+	for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 09:21:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chris Friesen a =C3=A9crit :
-> Ray Lee wrote:
->> On Jan 10, 2008 9:24 AM, Chris Friesen <cfriesen@nortel.com> wrote:
->
->>> After a recent userspace app change, we've started seeing packets b=
-eing
->>> dropped by the ethernet hardware (e1000, NAPI is enabled).  The
->>> error/dropped/fifo counts are going up in ethtool:
->
->> Can you reproduce it with a simple userspace cpu hog? (Two, really,
->> one per cpu.)
->> Can you reproduce it with the newer e1000?
->
-> Hmm...good questions and I haven't checked either.  The first one is=20
-> relatively straightforward.  The second is a bit trickier...last time=
-=20
-> I tried the latest e1000 driver the card wouldn't boot (we use netboo=
-t).
->
->> Can you reproduce it with git head?
->
-> Unfortunately, I don't think I'll be able to try this.  We require=20
-> kernel mods for our userspace to run, and I doubt I'd be able to get=20
-> the time to port all the changes forward to git head.
->
->> If the answer to the first one is yes, the last no, then bisect unti=
-l
->> you get a kernel that doesn't show the problem. Backport the fix,
->> unless the fix happens to be CFS. However, I suspect that your
->> userpace app is just starving the system from time to time.
->
-> It's conceivable that userspace is starving the kernel, but we have d=
-o=20
-> about 45% idle on one cpu, and 7-10% idle on the other.
->
-> We also have an odd situation where on an initial test run after=20
-> bootup we have 18-24% idle on cpu1, but resetting the test tool drops=
-=20
-> that to the 7-10% I mentioned above.
->
-> Based on profiling and instrumentation it seems like the cost of=20
-> sctp_endpoint_lookup_assoc() more than triples, which means that the=20
-> amount of time that bottom halves are disabled in that function also=20
-> triples.
-Any idea of the size of sctp hash size you have ?
-(your dmesg probably includes a message starting with SCTP: Hash tables=
-=20
-configured...=20
+I had posted the following on linux-net and haven't see any responses 
+possibly because nobody had any or that list is obsolete.  I have been 
+told this is the current list for everything networking on linux so I 
+thought I'd try again...
 
-How many concurrent sctp sockets are handled ?
+I suspect the answer will be that it is what it is, but here's the 
+deal.  I have a tool I use for monitoring network traffic among other 
+things - see http://collectl.sourceforge.net/ - and one of its benefits  
+is that you can run it continuously as a daemon (similar to sar) and 
+generate data in a format suitable for plotting.  This means that you 
+can automate your entire network monitoring infrastructure at fairly 
+fine granularity, down to second if you like.  Actually 1-second level 
+monitoring will provide incorrect data on earlier kernels because the 
+stats aren't updated on 1 second boundaries and you need to monitor at 
+an interval of 0.9765 seconds, but that's a different story which is 
+explained at http://collectl.sourceforge.net/NetworkStats.html
 
-Maybe sctp_assoc_hashfn() is too weak for your use, and some chains are=
-=20
-*really* long.
+But more importantly, I've found that occasionally (not that often) 
+there is bogus data reported from /proc/net/dev.  While I don't have a 
+lot of details on this it seems to only show up in 64 bit kernels.  Look 
+at the following samples taken at 1 second intervals:
 
+ eth0:135115809 1024897    0    0    0     0          0         9 
+135458926  910340    0    0    0     0       0          0
+ eth0:135118023 1024923    0    0    0     0          0         9 
+135460952  910363    0    0    0     0       0          0
+ eth0:        0  884620    0    0    0     0          0    909397   
+9687563 1049736    0    0    0     0       0          0
+ eth0:135121189 1024957    0    0    0     0          0         9 
+135464222  910400    0    0    0     0       0          0
+ eth0:135129565 1024995    0    0    0     0          0         9 
+135473687  910435    0    0    0     0       0          0
 
+see the middle sample?  When I look at the change between samples it 
+generates a really big number since the difference is assumed to be 
+caused a counter wrapping.  The problem is it's not always 
+straightforward when there is bad data.  For example if the original and 
+bogus values are close enough it's not even clear there is a problem.
 
+So the obvious question is, is there any way to prevent the bogus data 
+from getting reported?   If not, is there any way to set the values to 
+something to indicate that the correct values can't be determined?  
+Clearly this problem would be visible to any tool that looks at /proc 
+but since many tools are not automated or don't take it to the level I 
+do, nobody probably notices.  As for the counter update frequency, even 
+though they now appear to be updated closer to a 1 second boundary it 
+also means tools that can monitor at sub-second intervals will report 
+incorrect data since the counters only change once a second.
+
+-mark
 
