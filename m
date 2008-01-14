@@ -1,52 +1,47 @@
 From: "Chris Friesen" <cfriesen@nortel.com>
 Subject: Re: questions on NAPI processing latency and dropped network packets
-Date: Mon, 14 Jan 2008 09:49:07 -0600
-Message-ID: <478B8473.6080506@nortel.com>
-References: <478654C3.60806@nortel.com> <2c0942db0801112137k3f3f885ek212d5cbaecb7fea0@mail.gmail.com>
+Date: Mon, 14 Jan 2008 09:58:50 -0600
+Message-ID: <478B86BA.1050706@nortel.com>
+References: <478654C3.60806@nortel.com> <20080110.172049.118174993.davem@davemloft.net> <4787844E.4020107@nortel.com> <20080111.175310.212714342.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ray Lee <ray-lk@madrabbit.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751405AbYANPtr@vger.kernel.org>
-In-Reply-To: <2c0942db0801112137k3f3f885ek212d5cbaecb7fea0@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zrtps0kp.nortel.com ([47.140.192.56]:38197 "EHLO
+	zrtps0kp.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754012AbYANP7D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 10:59:03 -0500
+In-Reply-To: <20080111.175310.212714342.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ray Lee wrote:
-> On Jan 10, 2008 9:24 AM, Chris Friesen <cfriesen@nortel.com> wrote:
+David Miller wrote:
+> From: "Chris Friesen" <cfriesen@nortel.com>
+> Date: Fri, 11 Jan 2008 08:59:26 -0600
 
->>After a recent userspace app change, we've started seeing packets being
->>dropped by the ethernet hardware (e1000, NAPI is enabled).  The
->>error/dropped/fifo counts are going up in ethtool:
+>>I'd love to work on newer kernels, but we have a commitment to our 
+>>customers to support multiple releases for a significant amount of time.
 
-> Can you reproduce it with a simple userspace cpu hog? (Two, really,
-> one per cpu.)
-> Can you reproduce it with the newer e1000?
+> And by asking here for people to dig into it for you, you are asking
+> people for free help providing that support.
 
-Hmm...good questions and I haven't checked either.  The first one is 
-relatively straightforward.  The second is a bit trickier...last time I 
-tried the latest e1000 driver the card wouldn't boot (we use netboot).
+I'm not asking people to spend significant amounts of time...more like 
+if anyone has any ideas "off the top of their heads".
 
-> Can you reproduce it with git head?
+> That's why there is such negative backlash to asking questions about
+> such ancient kernel here, you're asking us to do your work, for free.
 
-Unfortunately, I don't think I'll be able to try this.  We require 
-kernel mods for our userspace to run, and I doubt I'd be able to get the 
-time to port all the changes forward to git head.
+I hadn't realized that you felt this strongly about asking questions 
+regarding old kernels.
 
-> If the answer to the first one is yes, the last no, then bisect until
-> you get a kernel that doesn't show the problem. Backport the fix,
-> unless the fix happens to be CFS. However, I suspect that your
-> userpace app is just starving the system from time to time.
+How close to bleeding edge do we need to be for it to be considered 
+acceptable to ask questions on netdev?
 
-It's conceivable that userspace is starving the kernel, but we have do 
-about 45% idle on one cpu, and 7-10% idle on the other.
+Given that the embedded space tends to be perpetually stuck on older 
+kernels (our "current" release is based on 2.6.14) do you have any 
+suggestion on how we can obtain information that would be available on 
+netdev if we were using newer kernels?
 
-We also have an odd situation where on an initial test run after bootup 
-we have 18-24% idle on cpu1, but resetting the test tool drops that to 
-the 7-10% I mentioned above.
-
-Based on profiling and instrumentation it seems like the cost of 
-sctp_endpoint_lookup_assoc() more than triples, which means that the 
-amount of time that bottom halves are disabled in that function also 
-triples.
+Chris
