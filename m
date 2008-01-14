@@ -1,53 +1,117 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: occasionally corrupted network stats in /proc/net/dev
-Date: Mon, 14 Jan 2008 12:41:09 -0800
-Message-ID: <1200343269.15122.23.camel@dell>
-References: <478B99E6.2050800@hp.com> <478BA53B.9060504@candelatech.com>
- <478BA8D7.8050803@hp.com> <478BAF47.10607@hp.com>
- <478BB43B.8060905@cosmosbay.com>
+From: "=?ISO-8859-1?Q?Oliver_Pinter_(Pint=E9r_Oliv=E9r)?="
+	<oliver.pntr@gmail.com>
+Subject: [BUG] skge 0000:02:05: read data parity error
+Date: Mon, 14 Jan 2008 20:57:49 +0100
+Message-ID: <6101e8c40801141157j1ce7d3f0if2e4eb2344b6c844@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Mark Seger" <Mark.Seger@hp.com>,
-	"Ben Greear" <greearb@candelatech.com>,
-	"netdev" <netdev@vger.kernel.org>
-To: "Eric Dumazet" <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	oliver.pntr@gmail.com
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2323 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755428AbYANTzY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 14:55:24 -0500
-In-Reply-To: <478BB43B.8060905@cosmosbay.com>
+Received: from fg-out-1718.google.com ([72.14.220.153]:65085 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751745AbYANT5v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 14:57:51 -0500
+Received: by fg-out-1718.google.com with SMTP id e21so2378456fga.17
+        for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 11:57:49 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-01-14 at 20:12 +0100, Eric Dumazet wrote:
-> Mark Seger a =C3=A9crit :
-> > Ignore that last one as it was pointed out to me that we have both =
-nic=20
-> > installed on many of our systems and ethtool told me the one=20
-> > associated with the nic is actually the broadcom one.
-> >
-> > version:        1.4.38 E1B1EC867DEEB8027B2DA0F
-> > license:        GPL
-> > description:    Broadcom NetXtreme II BCM5706/5708 Driver
-> >
->=20
-> I remember some tg3 chips actually have bugs when reporting stats....=
-=20
-> once in a while
->=20
-> CCed to Michael Chan to get some details.
+Hi All!
 
-Yes, that's right.  Some BNX2 chips have this problem and we have a
-workaround:
+It is fully reproductable under 2.6.22.15, 2.6.23.13 (all tainted and
+not tainted [4 different kernel] ) and 2 different PC:
 
-http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.git;a=3Dcommi=
-t;h=3D02537b0676930b1bd9aff2139e0e645c79986931
+[BUG] skge 0000:02:05: read data parity error
+[BUG] skge 0000:02:05: read data parity error
 
-The chip sometimes DMA wrong counter values if the chip is also
-internally gathering the counters at the time of the DMA.
+steps:
+1. login as root
+2. start mc
+3. cd /sys/bus/pci/drivers/skge/0000:02:05.0
+4. press F3 (mcview) on resource0
+5. the system hang up, without panic or bug ... only this message
+printed 2x: [BUG] skge 0000:02:05: read data parity error
 
-Driver 1.5.11 and later versions have this workaround.
+when I used cat for show what is in file , then bocome this message:
+ cat: resource0: Input/output error
+but the permissions is:
+ -rw------- 1 root root 16384 2008-01-14 20:36 resource0
 
+when I used mcview for show whats in file, then the system hang up,
+and not reagiert neither for SysRQ-s, only for hard reset.
 
+-----------
+
+PC1.:
+00:00.0 Host bridge [0600]: Intel Corporation 945G/GZ/P/PL Express
+Memory Controller Hub [8086:2770] (rev 02)
+00:01.0 PCI bridge [0604]: Intel Corporation 945G/GZ/P/PL Express PCI
+Express Root Port [8086:2771] (rev 02)
+00:1b.0 Audio device [0403]: Intel Corporation 82801G (ICH7 Family)
+High Definition Audio Controller [8086:27d8] (rev 01)
+00:1d.0 USB Controller [0c03]: Intel Corporation 82801G (ICH7 Family)
+USB UHCI #1 [8086:27c8] (rev 01)
+00:1d.1 USB Controller [0c03]: Intel Corporation 82801G (ICH7 Family)
+USB UHCI #2 [8086:27c9] (rev 01)
+00:1d.2 USB Controller [0c03]: Intel Corporation 82801G (ICH7 Family)
+USB UHCI #3 [8086:27ca] (rev 01)
+00:1d.3 USB Controller [0c03]: Intel Corporation 82801G (ICH7 Family)
+USB UHCI #4 [8086:27cb] (rev 01)
+00:1d.7 USB Controller [0c03]: Intel Corporation 82801G (ICH7 Family)
+USB2 EHCI Controller [8086:27cc] (rev 01)
+00:1e.0 PCI bridge [0604]: Intel Corporation 82801 PCI Bridge
+[8086:244e] (rev e1)
+00:1f.0 ISA bridge [0601]: Intel Corporation 82801GB/GR (ICH7 Family)
+LPC Interface Bridge [8086:27b8] (rev 01)
+00:1f.2 IDE interface [0101]: Intel Corporation 82801GB/GR/GH (ICH7
+Family) Serial ATA Storage Controller IDE [8086:27c0] (rev 01)
+00:1f.3 SMBus [0c05]: Intel Corporation 82801G (ICH7 Family) SMBus
+Controller [8086:27da] (rev 01)
+01:00.0 VGA compatible controller [0300]: nVidia Corporation GeForce
+7300 GS [10de:01df] (rev a1)
+02:01.0 Ethernet controller [0200]: Atheros Communications, Inc.
+AR5212 802.11abg NIC [168c:0013] (rev 01)
+02:05.0 Ethernet controller [0200]: Marvell Technology Group Ltd.
+88E8001 Gigabit Ethernet Controller [11ab:4320] (rev 13)
+
+PC2:
+00:00.0 Host bridge [0600]: Intel Corporation 82875P/E7210 Memory
+Controller Hub [8086:2578] (rev 02)
+00:01.0 PCI bridge [0604]: Intel Corporation 82875P Processor to AGP
+Controller [8086:2579] (rev 02)
+00:06.0 System peripheral [0880]: Intel Corporation 82875P/E7210
+Processor to I/O Memory Interface [8086:257e] (rev 02)
+00:1d.0 USB Controller [0c03]: Intel Corporation 82801EB/ER
+(ICH5/ICH5R) USB UHCI Controller #1 [8086:24d2] (rev 02)
+00:1d.1 USB Controller [0c03]: Intel Corporation 82801EB/ER
+(ICH5/ICH5R) USB UHCI Controller #2 [8086:24d4] (rev 02)
+00:1d.7 USB Controller [0c03]: Intel Corporation 82801EB/ER
+(ICH5/ICH5R) USB2 EHCI Controller [8086:24dd] (rev 02)
+00:1e.0 PCI bridge [0604]: Intel Corporation 82801 PCI Bridge
+[8086:244e] (rev c2)
+00:1f.0 ISA bridge [0601]: Intel Corporation 82801EB/ER (ICH5/ICH5R)
+LPC Interface Bridge [8086:24d0] (rev 02)
+00:1f.1 IDE interface [0101]: Intel Corporation 82801EB/ER
+(ICH5/ICH5R) IDE Controller [8086:24db] (rev 02)
+00:1f.2 RAID bus controller [0104]: Intel Corporation 82801ER (ICH5R)
+SATA Controller [8086:24df] (rev 02)
+00:1f.3 SMBus [0c05]: Intel Corporation 82801EB/ER (ICH5/ICH5R) SMBus
+Controller [8086:24d3] (rev 02)
+00:1f.5 Multimedia audio controller [0401]: Intel Corporation
+82801EB/ER (ICH5/ICH5R) AC'97 Audio Controller [8086:24d5] (rev 02)
+01:00.0 VGA compatible controller [0300]: ATI Technologies Inc RV350
+AP [Radeon 9600] [1002:4150]
+01:00.1 Display controller [0380]: ATI Technologies Inc RV350 AP
+[Radeon 9600] (Secondary) [1002:4170]
+02:05.0 Ethernet controller [0200]: 3Com Corporation 3c940
+10/100/1000Base-T [Marvell] [10b7:1700] (rev 12)
+02:0a.0 Ethernet controller [0200]: Atheros Communications, Inc.
+AR5212/AR5213 Multiprotocol MAC/baseband processor [168c:0013] (rev
+01)
+-- 
+Thanks,
+Oliver
