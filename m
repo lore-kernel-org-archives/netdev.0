@@ -1,38 +1,76 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Netperf TCP_RR(loopback) 10% regression in 2.6.24-rc6,	comparing with 2.6.22
-Date: Mon, 14 Jan 2008 21:53:07 +1100
-Message-ID: <20080114105307.GA22866@gondor.apana.org.au>
-References: <1199871330.3298.132.camel@ymzhang> <1200043854.3265.24.camel@ymzhang> <Pine.LNX.4.64.0801141036400.31652@kivilampi-30.cs.helsinki.fi>
+From: Glen Turner <gdt@gdt.id.au>
+Subject: Re: Netconf at conf.au 2008?
+Date: Mon, 14 Jan 2008 21:31:20 +1030
+Message-ID: <1200308480.5882.39.camel@andromache>
+References: <147a89290801112252gfcfaf11h1d25ee3c66e75881@mail.gmail.com>
+	 <1200236025.6171.79.camel@andromache>
+	 <20080113.180802.243708508.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1449 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751958AbYANKxW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 05:53:22 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0801141036400.31652@kivilampi-30.cs.helsinki.fi>
+Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:41342 "EHLO
+	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754865AbYANLEz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 06:04:55 -0500
+In-Reply-To: <20080113.180802.243708508.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 14, 2008 at 08:44:40AM +0000, Ilpo J=E4rvinen wrote:
->
-> > > I tried to use bisect to locate the bad patch between 2.6.22 and =
-2.6.23-rc1,
-> > > but the bisected kernel wasn't stable and went crazy.
->=20
-> TCP work between that is very much non-existing.
 
-Make sure you haven't switched between SLAB/SLUB while testing this.
+On Sun, 2008-01-13 at 18:08 -0800, David Miller wrote:
 
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Now, if this were available outside of the conference so that we could
+> play with it remotely from where we work, that's more interesting.
+
+Hi David,
+
+As I posted to this list last year AARNet is willing to make
+a 10GE connected server in Perth available to the netdev
+and PFLDNet communities.  There was a matching offer from the
+University of Manchester in England, which gives an impressive
+BDP (Perth-Sydney-Seattle-New York-London @ 10Gbps across
+production networks).  Since there was no reply to the offer
+it went on the back burner and we've done a smaller rollout
+(Perth-Seattle) to suit our own immediate needs.
+
+We really appreciate your work and the work of everyone else
+on the netdev list, so I'll re-contact Manchester and get this
+back on track.
+
+
+If you have trouble hosting netconf next year please get in
+touch.  Although AARNet could not sponsor the flights or
+accommodation we could provide everything else you require.
+We're not "name in bright lights" people so there would be
+plenty of room for other sponsors. [1]
+
+Alternatively, AARNet has been pretty successful in the past
+at attracting sponsorship for events which benefit our users,
+so if you and the netdev people were willing to hold a one-day
+training/workshop of interest to academic and research network
+users (say network host tuning) before/after your meeting then
+we'd have no trouble getting sponsorship via the training
+event that would be sufficient to cover the airfares and
+accommodation for the larger event.
+
+
+Anyway, to cut to the chase, the users of AARNet face large
+RTTs to get anywhere and we are very appreciative of the
+huge amount of work that you, John, Stephen and many others
+on this list have put into improving performance under the
+conditions we face.  If we can help your work then please
+ask.
+
+Best wishes, Glen
+
+[1] Witness our sponsorship of linux.conf.au, where our
+    only real request is that people don't place us in a
+    difficult position by misusing the network we provide.
+
+-- 
+Glen Turner, Network Engineer   (08) 8303 3936 or +61 8 8303 3936
+Australia's Academic & Research Network         www.aarnet.edu.au
+
