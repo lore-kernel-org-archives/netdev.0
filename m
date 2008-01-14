@@ -1,51 +1,33 @@
-From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Subject: Re: Netperf TCP_RR(loopback) 10% regression in
-	2.6.24-rc6,	comparing with 2.6.22
-Date: Mon, 14 Jan 2008 11:11:32 +0800
-Message-ID: <1200280292.3151.24.camel@ymzhang>
-References: <1199871330.3298.132.camel@ymzhang>
-	 <1200043854.3265.24.camel@ymzhang>  <4787ADDA.7090602@hp.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: sparc oops in ip_fast_csum
+Date: Mon, 14 Jan 2008 07:09:22 +0100
+Message-ID: <478AFC92.50508@trash.net>
+References: <20080105094400.GH27894@ZenIV.linux.org.uk> <E1JBJHA-0000hy-00@gondolin.me.apana.org.au> <20080106020214.GQ27894@ZenIV.linux.org.uk> <20080106041430.GA3784@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga10.intel.com ([192.55.52.92]:60495 "EHLO
-	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751360AbYANDOp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2008 22:14:45 -0500
-In-Reply-To: <4787ADDA.7090602@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Al Viro <viro@ZenIV.linux.org.uk>, m.kozlowski@tuxland.pl,
+	davem@davemloft.net, sparclinux@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753938AbYANGOu@vger.kernel.org>
+In-Reply-To: <20080106041430.GA3784@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2008-01-11 at 09:56 -0800, Rick Jones wrote:
-> >>The test command is:
-> >>#sudo taskset -c 7 ./netserver
-> >>#sudo taskset -c 0 ./netperf -t TCP_RR -l 60 -H 127.0.0.1 -i 50,3 -I 99,5 -- -r 1,1
-> 
-> A couple of comments/questions on the command lines:
-Thanks for your kind comments.
-
-> 
-> *) netperf/netserver support CPU affinity within themselves with the 
-> global -T option to netperf.  Is the result with taskset much different? 
->    The equivalent to the above would be to run netperf with:
-> 
-> ./netperf -T 0,7 ..
-I checked the source codes and didn't find this option.
-I use netperf V2.3 (I found the number in the makefile).
-
-> .
-> 
-> The one possibly salient difference between the two is that when done 
-> within netperf, the initial process creation will take place wherever 
-> the scheduler wants it.
-> 
-> *) The -i option to set the confidence iteration count will silently cap 
-> the max at 30.
-Indeed, you are right.
-
--yanmin
+Herbert Xu wrote:
+> Patrick, please have a look at the former.  In fact it's not just
+> that ihl may be bogus (which might be harmless as long as the REJECT
+> hook only gets called from within the IP stack), I think REJECT would
+> also do the wrong thing if the packet had IP options.  So perhaps we
+> should just make it create a packet from scratch rather than being
+> too clever in reusing the old one.
 
 
+We currently silently drop packets with IP options in the reject
+target. The length check should be fine since its only called
+through the IP stack or bridge netfilter, which replicates the
+IP stack checks.
+
+But I agree to your suggestion, that will allow us to properly
+handle packets with IP options. I'll take care of this.
