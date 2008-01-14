@@ -1,57 +1,76 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH 9/9] fix sparse warnings
-Date: Mon, 14 Jan 2008 18:34:03 +0100
-Message-ID: <478B9D0B.5040301@cosmosbay.com>
-References: <20080112064513.803976049@linux-foundation.org>	<20080112064646.659443238@linux-foundation.org>	<4788A17D.5070903@cosmosbay.com>	<20080112130824.54cc1fc3@deepthought> <18315.16984.456053.250600@robur.slu.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Robert Olsson <robert.olsson@its.uu.se>, netdev@vger.kernel.org
-To: Robert Olsson <Robert.Olsson@data.slu.se>
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH][v2] phylib: add module owner to the mii_bus structure
+Date: Mon, 14 Jan 2008 12:56:23 -0600
+Message-ID: <CFE6E252-4CB9-4F91-ABE6-330798408E50@freescale.com>
+References: <20071221153713.641f010e@deepthought> <78b2dab672856274c518f4c523f6f63f59f06dd1.1198861866.git.ionut.nicu@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org
+To: Ionut Nicu <ionut.nicu@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp20.orange.fr ([80.12.242.26]:16584 "EHLO smtp20.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750966AbYANS4O convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 13:56:14 -0500
-Received: from smtp20.orange.fr (mwinf2016 [172.22.130.116])
-	by mwinf2005.orange.fr (SMTP Server) with ESMTP id 4A4761C282A9
-	for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 18:34:58 +0100 (CET)
-Received: from me-wanadoo.net (localhost [127.0.0.1])
-	by mwinf2016.orange.fr (SMTP Server) with ESMTP id 5ED881C000BF
-	for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 18:34:16 +0100 (CET)
-In-Reply-To: <18315.16984.456053.250600@robur.slu.se>
+Received: from de01egw02.freescale.net ([192.88.165.103]:52561 "EHLO
+	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750990AbYANS4l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 13:56:41 -0500
+In-Reply-To: <78b2dab672856274c518f4c523f6f63f59f06dd1.1198861866.git.ionut.nicu@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Olsson a =E9crit :
-> Thanks for hacking and improving and the trie... another idea that co=
-uld
-> be also tested. If we look into routing table we see that most leafs=20
-> only has one prefix
+
+On Dec 28, 2007, at 11:31, Ionut Nicu wrote:
+
+> Prevent unloading mii bus driver module when other modules have  
+> references to some
+> phydevs on that bus. Added a new member (module owner) to struct  
+> mii_bus and added
+> code to increment the mii bus owner module usage count on  
+> phy_connect and decrement
+> it on phy_disconnect
 >
-> Main:
->         Aver depth:     2.57
->         Max depth:      7
->         Leaves:         231173
+> Set the module owner in the ucc_geth_mdio driver.
 >
-> ip route | wc -l=20
-> 241649
->
-> Thats 231173/241649 =3D 96% with the current Internet routing.
->
-> How about if would have a fastpath and store one entry direct in the=20
-> leaf struct this to avoid loading the leaf_info list in most cases?
->
-> One could believe that both lookup and dump could improve.
->
->  =20
-You mean to include one "leaf_info" inside leaf structure, so that we=20
-can access it without cache line miss ?
+> Signed-off-by: Ionut Nicu <ionut.nicu@freescale.com>
+> Tested-by: Emil Medve <Emilian.Medve@Freescale.com>
+> ---
+>  drivers/net/phy/phy_device.c |    9 ++++++++-
+>  drivers/net/ucc_geth_mii.c   |    3 +++
 
 
+> diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
+> index a3af4ea..84c7295 100644
+> --- a/drivers/net/ucc_geth_mii.c
+> +++ b/drivers/net/ucc_geth_mii.c
+> @@ -217,6 +217,9 @@ static int uec_mdio_probe(struct of_device  
+> *ofdev, const struct of_device_id *ma
+>  		}
+>  	}
+>
+> +	/* register ourselves as the owner of this bus */
+> +	new_bus->owner = THIS_MODULE;
+> +
+>  	err = mdiobus_register(new_bus);
+>  	if (0 != err) {
+>  		printk(KERN_ERR "%s: Cannot register as MDIO bus\n",
 
 
+Any reason you didn't update the other drivers?
 
+ > git grep mdiobus_register drivers/net/          // duplicates and  
+mdio_bus.c edited out
+drivers/net/au1000_eth.c:       mdiobus_register(&aup->mii_bus);
+drivers/net/bfin_mac.c: mdiobus_register(&lp->mii_bus);
+drivers/net/cpmac.c:    res = mdiobus_register(&cpmac_mii);
+drivers/net/fec_mpc52xx_phy.c:  err = mdiobus_register(bus);
+drivers/net/fs_enet/mii-bitbang.c:      ret = mdiobus_register(new_bus);
+drivers/net/fs_enet/mii-fec.c:  ret = mdiobus_register(new_bus);
+drivers/net/gianfar_mii.c:      err = mdiobus_register(new_bus);
+drivers/net/macb.c:     if (mdiobus_register(&bp->mii_bus))
+drivers/net/sb1250-mac.c:       err = mdiobus_register(&sc->mii_bus);
+drivers/net/ucc_geth_mii.c:     err = mdiobus_register(new_bus);
+
+I'm guessing this was only tested on the UEC, because unless I  
+misunderstand the code, any other driver would now crash when you try  
+to get the owner.
+
+Andy
