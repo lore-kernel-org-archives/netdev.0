@@ -1,50 +1,50 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [patch for 2.6.24? 1/1] bonding: locking fix
-Date: Mon, 14 Jan 2008 15:01:13 -0800
-Message-ID: <16796.1200351673@death>
-References: <200801140904.m0E94vJd020425@imap1.linux-foundation.org> <Pine.LNX.4.64.0801142313350.26034@bizon.gios.gov.pl> <20080114144754.29a448ad.akpm@linux-foundation.org>
-Cc: Krzysztof Oledzki <olel@ans.pl>, davem@davemloft.net,
-	jeff@garzik.org, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: 2.6.24-rc6-mm1 - oddness with IPv4/v6 mapped sockets hanging...
+Date: Mon, 14 Jan 2008 18:04:28 -0500
+Message-ID: <4382.1200351868@turing-police.cc.vt.edu>
+References: <30887.1200209733@turing-police.cc.vt.edu> <32065.1200334930@turing-police.cc.vt.edu> <1030.1200336639@turing-police.cc.vt.edu>
+            <200801141407.46345.paul.moore@hp.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; boundary="==_Exmh_1200351868_2904P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:47314 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750903AbYANXBR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jan 2008 18:01:17 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m0EN1Gl4000794
-	for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 18:01:16 -0500
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m0EN1GLi065814
-	for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 18:01:16 -0500
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m0EN1Fah012766
-	for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 18:01:16 -0500
-In-reply-to: <20080114144754.29a448ad.akpm@linux-foundation.org> 
+Received: from turing-police.cc.vt.edu ([128.173.14.107]:43954 "EHLO
+	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752160AbYANXEk (ORCPT
+	<RFC822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 18:04:40 -0500
+In-Reply-To: Your message of "Mon, 14 Jan 2008 14:07:46 EST."
+             <200801141407.46345.paul.moore@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton <akpm@linux-foundation.org> wrote:
-[...]
->That's bond_lock.
+--==_Exmh_1200351868_2904P
+Content-Type: text/plain; charset=us-ascii
+
+On Mon, 14 Jan 2008 14:07:46 EST, Paul Moore said:
 >
->This patch (below) addresses what appears to me to be an obvious
->imbalance in rtnl_lock.
->
->I don't care how it's fixed, really.  Someone please fix it?
+> http://git.infradead.org/?p=users/pcmoore/lblnet-2.6_testing;a=commitdiff;h=02f1c89d6e36507476f78108a3dcc78538be460b
 
-	I posted a correct patch for this a few days ago:
+Initial testing indicates that 2.6.24-rc6-mm1 plus this one commit is
+behaving itself correctly - my Tcl test case that reliably demonstrated wedges
+during SYN handling is definitively fixed, and the current issue with hangs with
+data pending seems to be gone as well (after admittedly light testing).
 
-http://marc.info/?l=linux-netdev&m=119975746803886&w=2
+Thanks for finding the commit that fixed it... 
 
-	The correct fix requires more than simply removing the rtnl calls.
+--==_Exmh_1200351868_2904P
+Content-Type: application/pgp-signature
 
-	I've got a few other patches in the pipeline, so I'm planning to
-repost the set the above patch was a part of plus a few others, most
-likely tomorrow.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.8 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
 
-	-J
+iD8DBQFHi+p8cC3lWbTT17ARAl9WAKC9VSshufAvQRsrvJ7U4xLeIjLaCgCePNCJ
+PKagwt2RJ0bmSySO6ok1uas=
+=fWsE
+-----END PGP SIGNATURE-----
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+--==_Exmh_1200351868_2904P--
