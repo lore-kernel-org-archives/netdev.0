@@ -1,47 +1,51 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: Re: questions on NAPI processing latency and dropped network packets
-Date: Mon, 14 Jan 2008 09:58:50 -0600
-Message-ID: <478B86BA.1050706@nortel.com>
-References: <478654C3.60806@nortel.com> <20080110.172049.118174993.davem@davemloft.net> <4787844E.4020107@nortel.com> <20080111.175310.212714342.davem@davemloft.net>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: 2.6.24-rc6-mm1 - oddness with IPv4/v6 mapped sockets hanging...
+Date: Mon, 14 Jan 2008 11:15:38 -0500
+Message-ID: <7197.1200327338@turing-police.cc.vt.edu>
+References: <30887.1200209733@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: multipart/signed; boundary="==_Exmh_1200327338_3131P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zrtps0kp.nortel.com ([47.140.192.56]:38197 "EHLO
-	zrtps0kp.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754012AbYANP7D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 10:59:03 -0500
-In-Reply-To: <20080111.175310.212714342.davem@davemloft.net>
+Received: from turing-police.cc.vt.edu ([128.173.14.107]:37607 "EHLO
+	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750759AbYANQPn (ORCPT
+	<RFC822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 11:15:43 -0500
+In-Reply-To: Your message of "Sun, 13 Jan 2008 02:35:33 EST."
+             <30887.1200209733@turing-police.cc.vt.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: "Chris Friesen" <cfriesen@nortel.com>
-> Date: Fri, 11 Jan 2008 08:59:26 -0600
+--==_Exmh_1200327338_3131P
+Content-Type: text/plain; charset=us-ascii
 
->>I'd love to work on newer kernels, but we have a commitment to our 
->>customers to support multiple releases for a significant amount of time.
+On Sun, 13 Jan 2008 02:35:33 EST, Valdis.Kletnieks@vt.edu said:
 
-> And by asking here for people to dig into it for you, you are asking
-> people for free help providing that support.
+> I'm seeing problems with Sendmail on 24-rc6-mm1, where the main Sendmail is
+> listening on ::1/25, and Fetchmail connects to 127.0.0.1:25 to inject mail it
+> has just fetched from an outside server via IMAP - it will often just hang and
+> not make any further progress. Looking at netstat shows something interesting:
+> 
+> % netstat -n -a -A inet | grep 25
+> tcp        0   5108 127.0.0.1:59355             127.0.0.1:25                ESTABLISHED 
 
-I'm not asking people to spend significant amounts of time...more like 
-if anyone has any ideas "off the top of their heads".
+The IPv6 is apparently a red herring - this morning I'm seeing the same problem
+with another totally separate pair of programs that are IPv4-only, hanging
+on loopback.
 
-> That's why there is such negative backlash to asking questions about
-> such ancient kernel here, you're asking us to do your work, for free.
+--==_Exmh_1200327338_3131P
+Content-Type: application/pgp-signature
 
-I hadn't realized that you felt this strongly about asking questions 
-regarding old kernels.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.8 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
 
-How close to bleeding edge do we need to be for it to be considered 
-acceptable to ask questions on netdev?
+iD8DBQFHi4qqcC3lWbTT17ARAuYSAKCWuGdoG2L7WQouMM8j0JydjkEJpQCg7qmT
+u0koDo54Oa1lLgWWNRCVaec=
+=F8Rx
+-----END PGP SIGNATURE-----
 
-Given that the embedded space tends to be perpetually stuck on older 
-kernels (our "current" release is based on 2.6.14) do you have any 
-suggestion on how we can obtain information that would be available on 
-netdev if we were using newer kernels?
-
-Chris
+--==_Exmh_1200327338_3131P--
