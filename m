@@ -1,63 +1,37 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH/RFC] synchronize_rcu(): high latency on idle system
-Date: Mon, 14 Jan 2008 09:19:00 -0800
-Message-ID: <20080114091900.3a857024@deepthought>
-References: <20080112012626.GI28570@kvack.org>
-	<200801121935.58286.ak@suse.de>
-	<20080112175226.7d8f9dbc@deepthought>
-	<200801131634.17677.ak@suse.de>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Netperf TCP_RR(loopback) 10% regression in	2.6.24-rc6,	comparing
+ with 2.6.22
+Date: Mon, 14 Jan 2008 09:46:08 -0800
+Message-ID: <478B9FE0.3040801@hp.com>
+References: <1199871330.3298.132.camel@ymzhang>	<1200043854.3265.24.camel@ymzhang>  <4787ADDA.7090602@hp.com> <1200280292.3151.24.camel@ymzhang>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kerne@vger.kernel.org
-To: Andi Kleen <ak@suse.de>
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:48824 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752248AbYANRVh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 12:21:37 -0500
-In-Reply-To: <200801131634.17677.ak@suse.de>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:9973 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750720AbYANRqK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 12:46:10 -0500
+In-Reply-To: <1200280292.3151.24.camel@ymzhang>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 13 Jan 2008 16:34:17 +0100
-Andi Kleen <ak@suse.de> wrote:
-
+>>*) netperf/netserver support CPU affinity within themselves with the 
+>>global -T option to netperf.  Is the result with taskset much different? 
+>>   The equivalent to the above would be to run netperf with:
+>>
+>>./netperf -T 0,7 ..
 > 
-> > I think it should be in netdev_unregister_kobject().  But that would
-> > only get rid of one of the two calls to synchronize_rcu() in the unregister_netdev.
-> 
-> Would be already an improvement.
-> 
-> > The other synchronize_rcu() is for qdisc's and not sure if that one can
-> > be removed?
-> 
-> The standard way to remove such calls is to set a "deleted" flag in the object,
-> then check and ignore such objects in the reader and finally remove the object with
-> call_rcu
-> 
-> I have not checked if that is really feasible for qdiscs.
-> 
-> -Andi
+> I checked the source codes and didn't find this option.
+> I use netperf V2.3 (I found the number in the makefile).
 
-Actually, the synchronize_rcu() is now acting a barrier between two sections
-in the current unregister process. It can't be removed.
+Indeed, that version pre-dates the -T option.  If you weren't already 
+chasing a regression I'd suggest an upgrade to 2.4.mumble.  Once you are 
+at a point where changing another variable won't muddle things you may 
+want to consider upgrading.
 
-But, an alternative unregister_and_free_netdev() could be created that uses
-call_rcu.  Basically:
+happy benchmarking,
 
-void unregistr_and_free_netdev() {
-    do stuff before barrier...
-    setup rcu callback
-    call_rcu();
-}
-
-static void netdev_after_rcu() {
-    rtnl_lock();
-    do stuff after barier
-    rtnl_unlock();
-    free_netdev
-}
-
--- 
-Stephen Hemminger <stephen.hemminger@vyatta.com>
+rick jones
