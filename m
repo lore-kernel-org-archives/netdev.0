@@ -1,50 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Netconf at conf.au 2008?
-Date: Mon, 14 Jan 2008 03:57:39 -0800 (PST)
-Message-ID: <20080114.035739.46340340.davem@davemloft.net>
-References: <1200236025.6171.79.camel@andromache>
-	<20080113.180802.243708508.davem@davemloft.net>
-	<1200308480.5882.39.camel@andromache>
+Subject: Re: [PATCH 2/9] get rid of unused revision element
+Date: Mon, 14 Jan 2008 04:06:57 -0800 (PST)
+Message-ID: <20080114.040657.117757802.davem@davemloft.net>
+References: <20080112064646.132747871@linux-foundation.org>
+	<20080112.205059.223738374.davem@davemloft.net>
+	<18315.19232.437801.553809@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: gdt@gdt.id.au
+Cc: shemminger@linux-foundation.org, robert.olsson@its.uu.se,
+	netdev@vger.kernel.org, stephen.hemminger@vyatta.com
+To: Robert.Olsson@data.slu.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42217
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45714
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754596AbYANL5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 06:57:44 -0500
-In-Reply-To: <1200308480.5882.39.camel@andromache>
+	by vger.kernel.org with ESMTP id S1754071AbYANMHF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 07:07:05 -0500
+In-Reply-To: <18315.19232.437801.553809@robur.slu.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Glen Turner <gdt@gdt.id.au>
-Date: Mon, 14 Jan 2008 21:31:20 +1030
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Date: Mon, 14 Jan 2008 12:44:32 +0100
 
-> If you have trouble hosting netconf next year please get in
-> touch.  Although AARNet could not sponsor the flights or
-> accommodation we could provide everything else you require.
+>  The idea was to have a selective flush of route cache entries when
+>  a fib insert/delete happened. From what I remember you added another/
+>  better solution. Just a list with route cache entries pointing to parent 
+>  route. So yes this was obsoleted by your/our effort to avoid total 
+>  flushing of the route cache. Unfinished work.
 
-I appreciate the offer, but the funding is the one and only issue.
+Yes, that's right.  The synchronization was very hard.
 
-I have more ways to get conference facilities and network connectivity
-for them than I need.
+But there is another issue, see below....
 
-> so if you and the netdev people were willing to hold a one-day
-> training/workshop of interest to academic and research network
-> users (say network host tuning) before/after your meeting then
-> we'd have no trouble getting sponsorship via the training
-> event that would be sufficient to cover the airfares and
-> accommodation for the larger event.
+>  According to  http://bgpupdates.potaroo.net/instability/bgpupd.html
+>  (last in page) we currently flush the route cache 2.80 times per second. 
+>  when using full Internet routing with Linux. Maybe we're forced to pick 
+>  up this thread again someday.
 
-We're really not interested in things like this, but thanks for
-mentioning.
+This proves we need to solve this problem.
 
-At best what we do is allow one or two representatives from a major
-sponsoring party to attend and give a presentation (netconf is invite
-only, so this is a big deal).  And that presentation must be on
-practical work the presenter has done or is doing with the Linux
-networking upstream (ie. it can't be a "our company needs the Linux
-networking to do X", some sales/marketing pitch, or "here's cool
-proprietary Y we're doing with Linux")
+The reason I've never gone back to that work is that I didn't
+want to do it while we still had multiple FIB data structure
+implementations.
+
+Someone needs to go over whatever deficiencies exist in fib_trie
+vs. fib_hash so that we can delete fib_hash and move over to using
+fib_trie always.  It makes no sense to implement everything
+interfacing into that code twice.
+
+There was a full consensus that this was the way to move forward,
+we just need the dirty work to be done.
+
+If someone wants to show their gratitude for my getting rid of
+the multipath cached routing code, the above work would be a
+great way to do so (hint hint) :-)
