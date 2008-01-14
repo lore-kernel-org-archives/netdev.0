@@ -1,50 +1,41 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: 2.6.24-rc6-mm1 - oddness with IPv4/v6 mapped sockets hanging...
-Date: Mon, 14 Jan 2008 13:22:10 -0500
-Message-ID: <32065.1200334930@turing-police.cc.vt.edu>
-References: <30887.1200209733@turing-police.cc.vt.edu> <7197.1200327338@turing-police.cc.vt.edu> <200801141136.41140.paul.moore@hp.com>
-            <31130.1200333948@turing-police.cc.vt.edu>
+From: Mark Seger <Mark.Seger@hp.com>
+Subject: Re: occasionally corrupted network stats in /proc/net/dev
+Date: Mon, 14 Jan 2008 13:24:23 -0500
+Message-ID: <478BA8D7.8050803@hp.com>
+References: <478B99E6.2050800@hp.com> <478BA53B.9060504@candelatech.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1200334930_3045P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Paul Moore <paul.moore@hp.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
+Cc: netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from turing-police.cc.vt.edu ([128.173.14.107]:48991 "EHLO
-	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751564AbYANSWs (ORCPT
-	<RFC822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 13:22:48 -0500
-In-Reply-To: Your message of "Mon, 14 Jan 2008 13:05:48 EST."
-             <31130.1200333948@turing-police.cc.vt.edu>
+Received: from palrel12.hp.com ([156.153.255.237]:35508 "EHLO palrel12.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751198AbYANSYj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2008 13:24:39 -0500
+In-Reply-To: <478BA53B.9060504@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1200334930_3045P
-Content-Type: text/plain; charset=us-ascii
+I'll try to get data on the other systems reporting it and as I said it 
+does not  happen all that often AND you have to be looking for it.  The 
+system I've personally seen it happen on several times is running 
+RHEL4/U4 which redhat numbers 2.6.9-42 and from modinfo I see:
+version:        7.0.33-k2-NAPI 51E97FEE51D0772AFC89130
+description:    Intel(R) PRO/1000 Network Driver
 
-On Mon, 14 Jan 2008 13:05:48 EST, Valdis.Kletnieks@vt.edu said:
+-mark
 
-> I'm pulling  git://git.infradead.org/users/pcmoore/lblnet-2.6_testing at the
-> moment, and seeing if there's already a fix in there for this.
+Ben Greear wrote:
+> Mark Seger wrote:
+>> I had posted the following on linux-net and haven't see any responses 
+>> possibly because nobody had any or that list is obsolete.  I have 
+>> been told this is the current list for everything networking on linux 
+>> so I thought I'd try again...
+> Do you see this with multiple network drivers, or just with one 
+> particular driver.  If so, which one?
+>
+> Thanks,
+> Ben
+>
 
-Apparently the only new commit in there since the tree that was in
-24-rc6-mm1 is 5d95575903fd3865b884952bd93c339d48725c33 adding some warning
-printk's.  Would it be more productive to test against the full tree, or
-leaving out the one commit I already reverted?
-
---==_Exmh_1200334930_3045P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.8 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFHi6hScC3lWbTT17ARAk+XAJ9C6qfY2fmtxxA5cBaw1tEqP4mxtwCg9ziS
-B0RA542l+7+gWHu3pXui2k0=
-=SabW
------END PGP SIGNATURE-----
-
---==_Exmh_1200334930_3045P--
