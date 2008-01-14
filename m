@@ -1,95 +1,46 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 2/5] forcedeth: checksum fix
-Date: Sun, 13 Jan 2008 16:02:55 -0500
-Message-ID: <478A7C7F.1040207@nvidia.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [BUG] skge 0000:02:05: read data parity error
+Date: Mon, 14 Jan 2008 14:37:15 -0800
+Message-ID: <20080114143715.69a5e9d1@deepthought>
+References: <6101e8c40801141157j1ce7d3f0if2e4eb2344b6c844@mail.gmail.com>
+	<20080114125200.28cb4c69@deepthought>
+	<20080114210105.GG9847@does.not.exist>
+	<6101e8c40801141331n3cb66c04pc74ff07faf04c8fd@mail.gmail.com>
+	<20080114213453.GJ9847@does.not.exist>
+	<6101e8c40801141341hcb17b08h2fd5244bccb21928@mail.gmail.com>
+	<20080114215209.GK9847@does.not.exist>
+	<6101e8c40801141358la75d1c6vb100247dbbd651a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060602050006000700070605"
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Adrian Bunk" <bunk@kernel.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, gregkh@suse.de
+To: "Oliver Pinter (=?UTF-8?B?UGludMOpciBPbGl2w6ly?=)"
+	<oliver.pntr@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate04.nvidia.com ([216.228.112.152]:6117 "EHLO
-	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750702AbYANWjC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 17:39:02 -0500
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:36818 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750898AbYANWkK convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2008 17:40:10 -0500
+In-Reply-To: <6101e8c40801141358la75d1c6vb100247dbbd651a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060602050006000700070605
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Mon, 14 Jan 2008 22:58:51 +0100
+"Oliver Pinter (Pint=C3=A9r Oliv=C3=A9r)" <oliver.pntr@gmail.com> wrote=
+:
 
-The driver should inform the stack when checksum has been performed by 
-the HW when both IP and TCP (or UDP) checksum flags are indicated by HW.
+> I "tested" other devices resources file, and only with skge freezed
+> the system. from this think, that is skge driver bug
+>=20
 
-Previously, it would also inform the stack when only IP checksum flag 
-was indicated by HW. This can cause data corruption when IP fragments 
-are used. The IP Identification field can wrap around and cause data 
-from new fragments to fill into older fragment slots with same IP Id. 
-The stack would then not perform TCP/UDP checksum (after re-assembly of 
-all fragments) since driver falsely stated it was already calculated.
-
-Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+Its a property of the hardware, and the current device model has
+no way to stop it.  Other devices are worse and can die if you access
+pci config space.
 
 
 
---------------060602050006000700070605
-Content-Type: text/plain;
- name="patch-forcedeth-checksum"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-checksum"
 
---- old/drivers/net/forcedeth.c	2008-01-13 15:01:36.000000000 -0500
-+++ new/drivers/net/forcedeth.c	2008-01-13 15:08:31.000000000 -0500
-@@ -471,9 +471,9 @@
- #define NV_RX_AVAIL		(1<<31)
- 
- #define NV_RX2_CHECKSUMMASK	(0x1C000000)
--#define NV_RX2_CHECKSUMOK1	(0x10000000)
--#define NV_RX2_CHECKSUMOK2	(0x14000000)
--#define NV_RX2_CHECKSUMOK3	(0x18000000)
-+#define NV_RX2_CHECKSUM_IP	(0x10000000)
-+#define NV_RX2_CHECKSUM_IP_TCP	(0x14000000)
-+#define NV_RX2_CHECKSUM_IP_UDP	(0x18000000)
- #define NV_RX2_DESCRIPTORVALID	(1<<29)
- #define NV_RX2_SUBSTRACT1	(1<<25)
- #define NV_RX2_ERROR1		(1<<18)
-@@ -2375,14 +2375,9 @@
- 						goto next_pkt;
- 					}
- 				}
--				if ((flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUMOK2)/*ip and tcp */ {
-+				if (((flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUM_IP_TCP) || /*ip and tcp */
-+				    ((flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUM_IP_UDP))   /*ip and udp */
- 					skb->ip_summed = CHECKSUM_UNNECESSARY;
--				} else {
--					if ((flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUMOK1 ||
--					    (flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUMOK3) {
--						skb->ip_summed = CHECKSUM_UNNECESSARY;
--					}
--				}
- 			} else {
- 				dev_kfree_skb(skb);
- 				goto next_pkt;
-@@ -2474,14 +2469,9 @@
- 				}
- 			}
- 
--			if ((flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUMOK2)/*ip and tcp */ {
-+			if (((flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUM_IP_TCP) || /*ip and tcp */
-+			    ((flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUM_IP_UDP))   /*ip and udp */
- 				skb->ip_summed = CHECKSUM_UNNECESSARY;
--			} else {
--				if ((flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUMOK1 ||
--				    (flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUMOK3) {
--					skb->ip_summed = CHECKSUM_UNNECESSARY;
--				}
--			}
- 
- 			/* got a valid packet - forward it to the network core */
- 			skb_put(skb, len);
-
---------------060602050006000700070605--
+--=20
+Stephen Hemminger <stephen.hemminger@vyatta.com>
