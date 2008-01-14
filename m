@@ -1,70 +1,53 @@
-From: Matheos Worku <Matheos.Worku@Sun.COM>
-Subject: Re: [PATCH 2/2] ixgb: enable sun hardware support for broadcom phy
-Date: Mon, 14 Jan 2008 11:43:51 -0800
-Message-ID: <478BBB77.40404@sun.com>
-References: <20071214194829.15478.2510.stgit@localhost.localdomain>
- <20071214194836.15478.85555.stgit@localhost.localdomain>
- <47671FBD.4010402@garzik.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: occasionally corrupted network stats in /proc/net/dev
+Date: Mon, 14 Jan 2008 12:41:09 -0800
+Message-ID: <1200343269.15122.23.camel@dell>
+References: <478B99E6.2050800@hp.com> <478BA53B.9060504@candelatech.com>
+ <478BA8D7.8050803@hp.com> <478BAF47.10607@hp.com>
+ <478BB43B.8060905@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=UTF-8
-Content-Transfer-Encoding: 7BIT
-Cc: Auke Kok <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Mark Seger" <Mark.Seger@hp.com>,
+	"Ben Greear" <greearb@candelatech.com>,
+	"netdev" <netdev@vger.kernel.org>
+To: "Eric Dumazet" <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sca-es-mail-2.Sun.COM ([192.18.43.133]:49796 "EHLO
-	sca-es-mail-2.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751218AbYANTxt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 14:53:49 -0500
-Received: from fe-sfbay-09.sun.com ([192.18.43.129])
-	by sca-es-mail-2.sun.com (8.13.7+Sun/8.12.9) with ESMTP id m0EJhw9A029743
-	for <netdev@vger.kernel.org>; Mon, 14 Jan 2008 11:43:59 -0800 (PST)
-Received: from conversion-daemon.fe-sfbay-09.sun.com by fe-sfbay-09.sun.com
- (Sun Java System Messaging Server 6.2-8.04 (built Feb 28 2007))
- id <0JUN00801F2FGQ00@fe-sfbay-09.sun.com>
- (original mail from Matheos.Worku@Sun.COM) for netdev@vger.kernel.org; Mon,
- 14 Jan 2008 11:43:58 -0800 (PST)
-In-reply-to: <47671FBD.4010402@garzik.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:2323 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755428AbYANTzY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 14:55:24 -0500
+In-Reply-To: <478BB43B.8060905@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Garzik wrote:
-> Auke Kok wrote:
->> From: Matheos Worku <matheos.worku@sun.com>
->>
->> Implement support for a SUN-specific PHY.
->>
->> SUN provides a modified 82597-based board with their own
->> PHY that works with very little modification to the code. This
->> patch implements this new PHY which is identified by the
->> subvendor device ID. The device ID of the adapter remains
->> the same.
->>
->> Signed-off-by: Matheos Worku <matheos.worku@sun.com>
->> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
->> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->> ---
->>
->>  drivers/net/ixgb/ixgb_hw.c   |   82 
->> +++++++++++++++++++++++++++++++++++++++++-
->>  drivers/net/ixgb/ixgb_hw.h   |    3 +-
->>  drivers/net/ixgb/ixgb_ids.h  |    4 ++
->>  drivers/net/ixgb/ixgb_main.c |   10 +++--
->>  4 files changed, 91 insertions(+), 8 deletions(-)
-> 
-> applied #upstream
-> 
-> 
+On Mon, 2008-01-14 at 20:12 +0100, Eric Dumazet wrote:
+> Mark Seger a =C3=A9crit :
+> > Ignore that last one as it was pointed out to me that we have both =
+nic=20
+> > installed on many of our systems and ethtool told me the one=20
+> > associated with the nic is actually the broadcom one.
+> >
+> > version:        1.4.38 E1B1EC867DEEB8027B2DA0F
+> > license:        GPL
+> > description:    Broadcom NetXtreme II BCM5706/5708 Driver
+> >
+>=20
+> I remember some tg3 chips actually have bugs when reporting stats....=
+=20
+> once in a while
+>=20
+> CCed to Michael Chan to get some details.
 
-Jeff,
-Bleated Happy New Year.
+Yes, that's right.  Some BNX2 chips have this problem and we have a
+workaround:
 
-I was wondering when this patch will  make  it to Linus' and other 
-trees. I just checked Linus's and other net trees, including 
-git.kernel.org/?p=linux/kernel/git/jgarzik/netdev-2.6.git and I see only 
-the other patch's commit: 3fd7131feacc01c1e23e46c416228f36ebdcc0d4, and 
-not this patch.
+http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.git;a=3Dcommi=
+t;h=3D02537b0676930b1bd9aff2139e0e645c79986931
+
+The chip sometimes DMA wrong counter values if the chip is also
+internally gathering the counters at the time of the DMA.
+
+Driver 1.5.11 and later versions have this workaround.
 
 
-Regards
-Matheos
