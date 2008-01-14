@@ -1,132 +1,67 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 7/8 net-2.6.25] [IPV4] Remove extra argument from arp_ignore.
-Date: Mon, 14 Jan 2008 18:00:00 +0300
-Message-ID: <1200322801-19054-7-git-send-email-den@openvz.org>
+Subject: [PATCH 4/8 net-2.6.25] [ARP] Remove overkill checks from neigh_param_alloc.
+Date: Mon, 14 Jan 2008 17:59:57 +0300
+Message-ID: <1200322801-19054-4-git-send-email-den@openvz.org>
 References: <478B78CB.4030404@openvz.org>
 Cc: netdev@vger.kernel.org, devel@openvz.org,
 	"Denis V. Lunev" <den@openvz.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:50149 "EHLO iris.sw.ru"
+Received: from swsoft-msk-nat.sw.ru ([195.214.232.10]:65496 "EHLO iris.sw.ru"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753297AbYANPAB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750963AbYANPAB (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 14 Jan 2008 10:00:01 -0500
 In-Reply-To: <478B78CB.4030404@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-arp_ignore has two arguments: dev & in_dev. dev is used for inet_confirm_addr
-calling only.
-
-inet_confirm_addr, in turn, either gets in_dev from the device passed or
-iterates over all network devices if the device passed is NULL. It seems
-logical to directly pass in_dev into inet_confirm_addr.
+Valid network device is always passed into neigh_param_alloc, so remove
+extra checking for dev == NULL. Additionally, cleanup bogus netns assignment.
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 ---
- include/linux/inetdevice.h |    2 +-
- net/ipv4/arp.c             |   11 +++++------
- net/ipv4/devinet.c         |   17 ++++++-----------
- 3 files changed, 12 insertions(+), 18 deletions(-)
+ net/core/neighbour.c |   18 +++++++-----------
+ 1 files changed, 7 insertions(+), 11 deletions(-)
 
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index b3c5081..45f3731 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -135,7 +135,7 @@ extern int		devinet_ioctl(unsigned int cmd, void __user *);
- extern void		devinet_init(void);
- extern struct in_device	*inetdev_by_index(int);
- extern __be32		inet_select_addr(const struct net_device *dev, __be32 dst, int scope);
--extern __be32		inet_confirm_addr(const struct net_device *dev, __be32 dst, __be32 local, int scope);
-+extern __be32		inet_confirm_addr(struct in_device *in_dev, __be32 dst, __be32 local, int scope);
- extern struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix, __be32 mask);
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index af49137..32f1a23 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1301,10 +1301,7 @@ struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
+ 	struct neigh_parms *p, *ref;
+ 	struct net *net;
  
- static __inline__ int inet_ifa_match(__be32 addr, struct in_ifaddr *ifa)
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index e944d98..f38e1a9 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -382,8 +382,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
- 		read_unlock_bh(&neigh->lock);
- }
- 
--static int arp_ignore(struct in_device *in_dev, struct net_device *dev,
--		      __be32 sip, __be32 tip)
-+static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
- {
- 	int scope;
- 
-@@ -403,7 +402,7 @@ static int arp_ignore(struct in_device *in_dev, struct net_device *dev,
- 	case 3:	/* Do not reply for scope host addresses */
- 		sip = 0;
- 		scope = RT_SCOPE_LINK;
--		dev = NULL;
-+		in_dev = NULL;
- 		break;
- 	case 4:	/* Reserved */
- 	case 5:
-@@ -415,7 +414,7 @@ static int arp_ignore(struct in_device *in_dev, struct net_device *dev,
- 	default:
- 		return 0;
- 	}
--	return !inet_confirm_addr(dev, sip, tip, scope);
-+	return !inet_confirm_addr(in_dev, sip, tip, scope);
- }
- 
- static int arp_filter(__be32 sip, __be32 tip, struct net_device *dev)
-@@ -807,7 +806,7 @@ static int arp_process(struct sk_buff *skb)
- 	if (sip == 0) {
- 		if (arp->ar_op == htons(ARPOP_REQUEST) &&
- 		    inet_addr_type(&init_net, tip) == RTN_LOCAL &&
--		    !arp_ignore(in_dev,dev,sip,tip))
-+		    !arp_ignore(in_dev, sip, tip))
- 			arp_send(ARPOP_REPLY, ETH_P_ARP, sip, dev, tip, sha,
- 				 dev->dev_addr, sha);
- 		goto out;
-@@ -825,7 +824,7 @@ static int arp_process(struct sk_buff *skb)
- 				int dont_send = 0;
- 
- 				if (!dont_send)
--					dont_send |= arp_ignore(in_dev,dev,sip,tip);
-+					dont_send |= arp_ignore(in_dev,sip,tip);
- 				if (!dont_send && IN_DEV_ARPFILTER(in_dev))
- 					dont_send |= arp_filter(sip,tip,dev);
- 				if (!dont_send)
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 03db15b..dc1665a 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -968,24 +968,19 @@ static __be32 confirm_addr_indev(struct in_device *in_dev, __be32 dst,
- 
- /*
-  * Confirm that local IP address exists using wildcards:
-- * - dev: only on this interface, 0=any interface
-+ * - in_dev: only on this interface, 0=any interface
-  * - dst: only in the same subnet as dst, 0=any dst
-  * - local: address, 0=autoselect the local address
-  * - scope: maximum allowed scope value for the local address
-  */
--__be32 inet_confirm_addr(const struct net_device *dev, __be32 dst, __be32 local, int scope)
-+__be32 inet_confirm_addr(struct in_device *in_dev,
-+			 __be32 dst, __be32 local, int scope)
- {
- 	__be32 addr = 0;
--	struct in_device *in_dev;
+-	net = &init_net;
+-	if (dev)
+-		net = dev->nd_net;
 -
--	if (dev) {
--		rcu_read_lock();
--		if ((in_dev = __in_dev_get_rcu(dev)))
--			addr = confirm_addr_indev(in_dev, dst, local, scope);
--		rcu_read_unlock();
-+	struct net_device *dev;
++	net = dev->nd_net;
+ 	ref = lookup_neigh_params(tbl, net, 0);
+ 	if (!ref)
+ 		return NULL;
+@@ -1316,15 +1313,14 @@ struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
+ 		INIT_RCU_HEAD(&p->rcu_head);
+ 		p->reachable_time =
+ 				neigh_rand_reach_time(p->base_reachable_time);
+-		if (dev) {
+-			if (dev->neigh_setup && dev->neigh_setup(dev, p)) {
+-				kfree(p);
+-				return NULL;
+-			}
  
--		return addr;
--	}
-+	if (in_dev != NULL)
-+		return confirm_addr_indev(in_dev, dst, local, scope);
- 
- 	read_lock(&dev_base_lock);
- 	rcu_read_lock();
+-			dev_hold(dev);
+-			p->dev = dev;
++		if (dev->neigh_setup && dev->neigh_setup(dev, p)) {
++			kfree(p);
++			return NULL;
+ 		}
++
++		dev_hold(dev);
++		p->dev = dev;
+ 		p->net = hold_net(net);
+ 		p->sysctl_table = NULL;
+ 		write_lock_bh(&tbl->lock);
 -- 
 1.5.3.rc5
 
