@@ -1,47 +1,62 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: Re: questions on NAPI processing latency and dropped network packets
-Date: Mon, 14 Jan 2008 14:02:43 -0600
-Message-ID: <478BBFE3.9030707@nortel.com>
-References: <478654C3.60806@nortel.com> <2c0942db0801112137k3f3f885ek212d5cbaecb7fea0@mail.gmail.com> <478B8473.6080506@nortel.com> <478B943C.7080009@cosmosbay.com> <478BB722.1020004@nortel.com> <478BB904.3060903@cosmosbay.com>
+From: Mark Seger <Mark.Seger@hp.com>
+Subject: Re: occasionally corrupted network stats in /proc/net/dev
+Date: Mon, 14 Jan 2008 15:05:21 -0500
+Message-ID: <478BC081.70101@hp.com>
+References: <478B99E6.2050800@hp.com> <478BA53B.9060504@candelatech.com> <478BA8D7.8050803@hp.com> <478BAF47.10607@hp.com> <478BB43B.8060905@cosmosbay.com> <1200343269.15122.23.camel@dell>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ray Lee <ray-lk@madrabbit.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Ben Greear <greearb@candelatech.com>,
+	netdev <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zrtps0kp.nortel.com ([47.140.192.56]:35070 "EHLO
-	zrtps0kp.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753470AbYANUDc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2008 15:03:32 -0500
-In-Reply-To: <478BB904.3060903@cosmosbay.com>
+Received: from palrel12.hp.com ([156.153.255.237]:48270 "EHLO palrel12.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751507AbYANUGA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2008 15:06:00 -0500
+In-Reply-To: <1200343269.15122.23.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Chris Friesen a =C3=A9crit :
+outstanding!  I'm just happy to hear it's not a bug in my monitoring=20
+code...  8-)
+-mark
 
->> Based on the profiling information we're spending time in=20
->> sctp_endpoint_lookup_assoc() which doesn't actually use hashes, so I=
-=20
->> can't see how the hash would be related.  I'm pretty new to SCTP=20
->> though, so I may be missing something.
->=20
-> Well, it does use hashes :)
->=20
->        hash =3D sctp_assoc_hashfn(ep->base.bind_addr.port, rport);
->        head =3D &sctp_assoc_hashtable[hash];
->        read_lock(&head->lock);
->        sctp_for_each_hentry(epb, node, &head->chain) {
->            /* maybe your machine is traversing here a *really* long=20
-> chain */
->            }
+Michael Chan wrote:
+> On Mon, 2008-01-14 at 20:12 +0100, Eric Dumazet wrote:
+>  =20
+>> Mark Seger a =C3=A9crit :
+>>    =20
+>>> Ignore that last one as it was pointed out to me that we have both =
+nic=20
+>>> installed on many of our systems and ethtool told me the one=20
+>>> associated with the nic is actually the broadcom one.
+>>>
+>>> version:        1.4.38 E1B1EC867DEEB8027B2DA0F
+>>> license:        GPL
+>>> description:    Broadcom NetXtreme II BCM5706/5708 Driver
+>>>
+>>>      =20
+>> I remember some tg3 chips actually have bugs when reporting stats...=
+=2E=20
+>> once in a while
+>>
+>> CCed to Michael Chan to get some details.
+>>    =20
+>
+> Yes, that's right.  Some BNX2 chips have this problem and we have a
+> workaround:
+>
+> http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.git;a=3Dcom=
+mit;h=3D02537b0676930b1bd9aff2139e0e645c79986931
+>
+> The chip sometimes DMA wrong counter values if the chip is also
+> internally gathering the counters at the time of the DMA.
+>
+> Driver 1.5.11 and later versions have this workaround.
+>
+>
+>  =20
 
-
-The latest released kernel doesn't have this code, it was only added in=
-=20
-November.  The SCTP maintainer just pointed me to the patch, and made=20
-some other suggestions as well.
-
-Chris
